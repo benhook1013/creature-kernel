@@ -8,6 +8,7 @@ not define product or architecture contracts.
 ## Documents
 
 - [Current status](status.md)
+- [Project kickoff decision plan](kickoff-plan.md)
 - [Outcome roadmap](roadmap.md)
 - [Repository evolution](repository-evolution.md)
 

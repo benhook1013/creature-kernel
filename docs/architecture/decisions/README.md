@@ -52,16 +52,29 @@ An ADR may become `Accepted` only when:
 A human waiver may replace a missing review or proof obligation, but the ADR must
 record the waiver, reason, and accepted risk.
 
+Record explicit acceptance as `Owner approval: Approved by <Decision owner>` in
+the ADR metadata. Until then use `Owner approval: Pending`. When `Review status`
+is `Waived`, record non-placeholder `Waiver reason` and `Accepted risk` lines in
+the adversarial-review response. A waived review is not implicit owner approval.
+
+The validator checks metadata, registry agreement, review revision and links,
+owner approval, and waiver fields. Human review remains responsible for judging
+whether objections were answered adequately and whether experiment deferrals or
+accepted risks are reasonable.
+
 ## Workflow
 
 1. Add a candidate to [the registry](registry.md).
 2. Copy [the ADR template](adr-template.md) and write a concrete proposal.
 3. Set status to `Proposed`, review status to `Pending`, and revision to `1`.
-4. Request a review using the [adversarial review template](reviews/adversarial-review-template.md).
+4. Set the ADR to `Under Review` when review begins and request a review using
+   the [adversarial review template](reviews/adversarial-review-template.md).
 5. Record the proposal response and revise when necessary.
 6. Obtain evidence through an experiment when claims remain uncertain.
-7. The human decision owner accepts, rejects, withdraws, or requests another revision.
-8. Update canonical documents and track implementation/proof obligations.
+7. The human decision owner accepts, rejects, withdraws, requests another
+   revision, or leaves the ADR proposed with a named blocker.
+8. Record explicit owner approval when accepting the ADR.
+9. Update canonical documents and track implementation/proof obligations.
 
 ## Independence
 

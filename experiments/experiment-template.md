@@ -2,7 +2,7 @@
 
 Experiment ID: EXP-NNNN
 
-Status: Planned
+Status: planned
 
 Owner: Name
 

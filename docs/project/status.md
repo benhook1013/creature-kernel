@@ -1,6 +1,6 @@
 # Project status
 
-Status date: 2026-08-05
+Status date: 2026-08-06
 
 ## Phase
 
@@ -9,14 +9,24 @@ Foundation and adversarial design.
 ## Current outcome
 
 Establish a durable authority model, decision process, research registry, and
-proof workflow before selecting foundational technologies.
+proof workflow before selecting foundational technologies. Execute the
+[kickoff decision plan](kickoff-plan.md) one bounded item at a time.
+
+## Current kickoff item
+
+- Active: CK-KICK-000, integrate the foundation baseline and establish repository
+  safeguards.
+- Next: CK-KICK-001, independently review ADR-0001 revision 1.
+- No product or architecture ADR is accepted yet.
 
 ## Active work
 
-- Populate canonical product and architecture baselines from the founding record.
-- Put four founding decisions through adversarial review.
-- Define the first proof-of-value experiment and its pass/fail criteria.
-- Narrow the first morphology and surface-generation decision.
+- Integrate the populated product, architecture, research, and governance
+  baseline without treating its proposals as accepted decisions.
+- Put four founding decisions through current-revision adversarial review.
+- Define the first proof charter, bounded morphology, fixture set, and visual
+  quality criteria.
+- Design an evidence plan for the initial surface-generation choice.
 
 ## Proposed decisions awaiting review
 

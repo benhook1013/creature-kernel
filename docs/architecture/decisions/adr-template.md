@@ -8,6 +8,8 @@ Revision: 1
 
 Decision owner: Ben
 
+Owner approval: Pending
+
 Review status: Pending
 
 Date proposed: YYYY-MM-DD
@@ -42,6 +44,12 @@ before explaining why it was not selected.
 
 Link applicable review artifacts and respond to material objections. Name any
 unresolved objection or accepted waiver.
+
+For a waived review, replace both placeholders:
+
+Waiver reason: —
+
+Accepted risk: —
 
 ## Implementation and Proof Obligations
 

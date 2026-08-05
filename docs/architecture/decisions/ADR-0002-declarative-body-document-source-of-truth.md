@@ -8,6 +8,8 @@ Revision: 1
 
 Decision owner: Ben
 
+Owner approval: Pending
+
 Review status: Pending
 
 Date proposed: 2026-08-05

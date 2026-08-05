@@ -39,6 +39,7 @@ REQUIRED_PATHS = (
     "docs/research/open-questions.md",
     "docs/research/references.md",
     "docs/project/README.md",
+    "docs/project/kickoff-plan.md",
     "docs/project/status.md",
     "docs/project/roadmap.md",
     "docs/project/repository-evolution.md",
@@ -91,6 +92,12 @@ REVIEW_HEADINGS = (
     "## Conditions for Acceptance",
     "## Review Limitations",
 )
+REGISTRY_LINK = re.compile(
+    r"^\[(?P<id>ADR-\d{4})\]\((?P<filename>[^)]+)\)$"
+)
+REGISTRY_ADR_ID = re.compile(r"\bADR-\d{4}\b")
+ADR_TITLE = re.compile(r"^# (?P<id>ADR-\d{4}): (?P<title>[^\n]+)$", re.MULTILINE)
+PLACEHOLDER_VALUES = {"", "—", "-", "Pending"}
 
 
 def relative(path: Path) -> str:
@@ -188,9 +195,75 @@ def review_files() -> list[Path]:
     )
 
 
+def registry_rows(text: str) -> list[dict[str, str | None]]:
+    rows: list[dict[str, str | None]] = []
+    for number, line in enumerate(text.splitlines(), start=1):
+        if not line.lstrip().startswith("|"):
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if len(cells) != 6:
+            continue
+        id_match = REGISTRY_ADR_ID.search(cells[0])
+        if not id_match:
+            continue
+        link_match = REGISTRY_LINK.fullmatch(cells[0])
+        rows.append(
+            {
+                "line": str(number),
+                "id": link_match.group("id") if link_match else id_match.group(0),
+                "filename": link_match.group("filename") if link_match else None,
+                "title": cells[1],
+                "status": cells[2],
+                "revision": cells[3],
+                "review": cells[4],
+                "owner": cells[5],
+            }
+        )
+    return rows
+
+
 def validate_adrs(errors: list[str]) -> None:
     registry_path = DECISIONS / "registry.md"
     registry = registry_path.read_text(encoding="utf-8") if registry_path.exists() else ""
+    rows = registry_rows(registry)
+    rows_by_id: dict[str, list[dict[str, str | None]]] = {}
+    seen_registry_ids: set[str] = set()
+    for row in rows:
+        row_id = row["id"]
+        if row_id in seen_registry_ids:
+            errors.append(f"duplicate registry ADR ID: {row_id}")
+        if row_id is not None:
+            seen_registry_ids.add(row_id)
+            rows_by_id.setdefault(row_id, []).append(row)
+        if row["filename"] is None:
+            errors.append(
+                "registry ADR row must link an ADR filename: "
+                f"{relative(registry_path)}:{row['line']}"
+            )
+
+    files_by_filename = {path.name: path for path in adr_files()}
+    files_by_id: dict[str, Path] = {}
+    for path in adr_files():
+        match = ADR_FILENAME.fullmatch(path.name)
+        if match:
+            files_by_id.setdefault(match.group(1), path)
+
+    for row in rows:
+        row_id = row["id"]
+        filename = row["filename"]
+        if row_id not in files_by_id:
+            errors.append(f"registry ADR has no corresponding file: {row_id}")
+        if filename is not None and filename not in files_by_filename:
+            errors.append(f"registry ADR file is missing: {filename}")
+        if filename is not None:
+            filename_match = ADR_FILENAME.fullmatch(Path(filename).name)
+            if filename_match and filename_match.group(1) != row_id:
+                errors.append(
+                    f"registry ADR ID does not match linked filename at "
+                    f"{relative(registry_path)}:{row['line']}: "
+                    f"{row_id} vs {filename}"
+                )
+
     seen_ids: set[str] = set()
 
     for path in adr_files():
@@ -211,8 +284,6 @@ def validate_adrs(errors: list[str]) -> None:
             errors.append(f"duplicate ADR ID: {adr_id}")
         if adr_id:
             seen_ids.add(adr_id)
-            if adr_id not in registry:
-                errors.append(f"ADR missing from registry: {adr_id}")
 
         expected_title = f"# {filename_id}:"
         if not text.startswith(expected_title):
@@ -223,6 +294,7 @@ def validate_adrs(errors: list[str]) -> None:
             "Status",
             "Revision",
             "Decision owner",
+            "Owner approval",
             "Review status",
             "Date proposed",
             "Date decided",
@@ -239,6 +311,34 @@ def validate_adrs(errors: list[str]) -> None:
         if review_status and review_status not in REVIEW_STATUSES:
             errors.append(f"invalid review status '{review_status}': {relative(path)}")
 
+        registry_matches = rows_by_id.get(filename_id, [])
+        if not registry_matches:
+            errors.append(f"ADR missing from registry: {filename_id}")
+        elif len(registry_matches) != 1:
+            errors.append(
+                f"ADR must have exactly one registry row: {filename_id} "
+                f"(found {len(registry_matches)})"
+            )
+        else:
+            row = registry_matches[0]
+            adr_title_match = ADR_TITLE.match(text)
+            adr_title = adr_title_match.group("title") if adr_title_match else None
+            comparisons = (
+                ("ID", row["id"], adr_id),
+                ("linked filename", row["filename"], path.name),
+                ("title", row["title"], adr_title),
+                ("status", row["status"], status),
+                ("revision", row["revision"], values.get("Revision")),
+                ("review status", row["review"], review_status),
+                ("decision owner", row["owner"], values.get("Decision owner")),
+            )
+            for field, registry_value, adr_value in comparisons:
+                if registry_value != adr_value:
+                    errors.append(
+                        f"ADR registry {field} mismatch for {filename_id}: "
+                        f"registry={registry_value!r}, ADR={adr_value!r}"
+                    )
+
         revision_text = values.get("Revision", "")
         try:
             revision = int(revision_text)
@@ -252,7 +352,21 @@ def validate_adrs(errors: list[str]) -> None:
             if heading not in text:
                 errors.append(f"missing ADR heading '{heading}': {relative(path)}")
 
+        if review_status == "Waived":
+            for field in ("Waiver reason", "Accepted risk"):
+                if values.get(field, "").strip() in PLACEHOLDER_VALUES:
+                    errors.append(
+                        f"waived ADR requires non-placeholder '{field}' metadata: "
+                        f"{relative(path)}"
+                    )
+
         if status == "Accepted":
+            expected_approval = f"Approved by {values.get('Decision owner')}"
+            if values.get("Owner approval") != expected_approval:
+                errors.append(
+                    "accepted ADR requires exact owner approval "
+                    f"'{expected_approval}': {relative(path)}"
+                )
             if review_status not in {"Complete", "Waived"}:
                 errors.append(
                     f"accepted ADR requires complete review or waiver: {relative(path)}"
@@ -264,9 +378,27 @@ def validate_adrs(errors: list[str]) -> None:
                 errors.append(f"accepted ADR requires canonical links: {relative(path)}")
             if review_status == "Complete" and revision:
                 prefix = f"{filename_id}-rev-{revision:02d}-review-"
-                if not any(review.name.startswith(prefix) for review in review_files()):
+                matching_reviews = [
+                    review for review in review_files() if review.name.startswith(prefix)
+                ]
+                if not matching_reviews:
                     errors.append(
                         f"accepted ADR lacks review for revision {revision}: {relative(path)}"
+                    )
+                response = section(text, "## Adversarial Review Response")
+                linked_review = False
+                for raw in MARKDOWN_LINK.findall(response):
+                    target = normalize_link(raw).split("#", 1)[0]
+                    if not target:
+                        continue
+                    resolved = (path.parent / target).resolve()
+                    if any(resolved == review.resolve() for review in matching_reviews):
+                        linked_review = True
+                        break
+                if not linked_review:
+                    errors.append(
+                        "accepted ADR review response must link a matching review "
+                        f"file for revision {revision}: {relative(path)}"
                     )
 
 

@@ -24,8 +24,8 @@ States: `active`, `planned`, `triggered`, `deferred`, `not-applicable`, `retired
 | Body-document schema | Next | planned | First body parser proposal | `spec/body-document/` | Schema fixtures |
 | Semantic body-graph spec | Next | planned | First resolver proposal | `spec/body-graph/` | Graph fixtures |
 | Implementation packages | Next | planned | Language/build ADR accepted | Toolchain-specific | Unit and integration tests |
-| Generation fixtures | Next | planned | First compiler prototype | `fixtures/body-documents/` | Deterministic output checks |
-| Geometry experiments | Next | planned | Surface ADR enters review | `experiments/` | Experiment-specific metrics |
+| Generation fixtures | Next | planned | First compiler-consumed body document | `fixtures/body-documents/` | Deterministic output checks |
+| Geometry experiments | Next | planned | First registered surface-generation experiment | `experiments/` | Experiment-specific metrics |
 | Runtime benchmarks | Next | planned | First executable runtime | `benchmarks/runtime/` | Reference hardware profiles |
 | Developer setup | Next | planned | Toolchain selected | `DEVELOPER_SETUP.md` | Fresh-environment check |
 | Contribution guide | Next | planned | External collaborator or public repo | `CONTRIBUTING.md` | Contributor dry run |
