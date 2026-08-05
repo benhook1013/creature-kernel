@@ -27,9 +27,11 @@ owner decides.
   mechanical patches, straightforward test updates, and multi-step search or
   tool-driven work. Prefer Luna when it preserves Sol context or lowers cost,
   even if the bounded task is straightforward.
-- Use Luna at `xhigh` for substantial delegated work and independent review.
-- Use Luna at `max` for known-hard cross-file correctness work, exhaustive audits,
-  or a failed `xhigh` attempt. Luna reasoning levels are not approval-gated.
+- Use Luna at `xhigh` for substantial delegated work, independent review, and
+  tightly bounded hard audits. `xhigh` is the absolute Luna ceiling.
+- Never use Luna at `max`. A failed or incomplete Luna `xhigh` task returns to the
+  main thread for decomposition or task-type rerouting. Neither the subagent nor
+  the orchestrator automatically retries it at a higher Luna effort.
 - Escalate to `gpt-5.6-sol` at `medium` when broad synthesis, ambiguous evidence,
   or general reasoning matters more than coding-agent throughput. This is a
   task-type escalation, not the automatic next tier after Luna.
@@ -83,7 +85,8 @@ The main thread runs consolidated validation after integration.
 
 A delegated task ends when its assigned work and named checks are complete. It
 must not add unrequested cleanup, wording passes, structural audits, or substitute
-validation.
+validation. It must not start its own continuation or retry loop; any follow-up is
+a new main-thread decision based on the returned evidence.
 
 ## Required safety boundary
 
