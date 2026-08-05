@@ -14,6 +14,9 @@ The main `gpt-5.6-sol` thread owns:
 - product and architecture synthesis;
 - assignment and integration of delegated work;
 - consolidated validation;
+- Git, branch, commit, and pull-request operations;
+- CI and review orchestration;
+- external side effects;
 - the final repository recommendation.
 
 A subagent may collect evidence, implement a bounded decision already supported
@@ -83,7 +86,8 @@ delegation overhead would clearly cost more than it saves.
 Every delegated task must state:
 
 - the absolute worktree path and expected branch;
-- whether the task is read-only or the exact writable file set;
+- whether the task is read-only or its exclusive writable file set;
+- the authoritative read-only context it may inspect;
 - the bounded question, deliverable, and success conditions;
 - the exact validation commands the subagent may run;
 - any canonical contract, ADR revision, or research question that constrains the
@@ -97,6 +101,9 @@ stop if either differs.
 If the assigned task conflicts with a named canonical source or exposes competing
 target states, the subagent stops and reports the contradiction. It does not
 choose a new product or architecture direction.
+
+Parallel editing tasks must have disjoint write scopes. The main thread resolves
+any cross-task interaction after the workers return.
 
 Subagent validation is a closed allowlist. A subagent may run only the validation
 commands named in its task. If none are named, it reports validation as deferred.
@@ -116,6 +123,7 @@ a subagent must not:
 - invoke hosted or CLI CodeRabbit or another external review service;
 - post review commands, resolve review threads, or trigger or rerun CI;
 - commit, stage, push, retarget branches, open, merge, or close pull requests;
+- wait for or poll CI, reviews, deployments, or other external systems;
 - revert, delete, overwrite, or clean concurrent edits outside its assigned set.
 
 The subagent preserves unrelated dirty work. It stops only when assigned-file
@@ -128,7 +136,8 @@ same repository context.
 
 ## Independent review evidence
 
-- Use a fresh-context reviewer for consequential initial review when practical.
+- Use a fresh-context reviewer that did not implement the target material for
+  consequential initial review when practical.
 - Require the reviewer to name the sources read and the exact proposal revision.
 - An exhaustive audit requires a per-item coverage ledger and an explicit
   incomplete-review gate. An unsupported `no findings` is not exhaustive proof.
@@ -172,6 +181,18 @@ platform permissions. Access removal belongs in the GitHub App installation
 settings.
 
 ## Handoff
+
+Every subagent return states:
+
+- whether it changed files or supplied evidence only;
+- every changed file, when applicable;
+- reasoning-sensitive choices or assumptions;
+- validation performed, including explicit `deferred` or `unavailable` states;
+- unresolved concerns, incomplete coverage, and relevant concurrent-work risks.
+
+The main thread reads every returned diff directly rather than treating the
+worker's summary as proof. It reconciles interactions and runs consolidated
+validation against the integrated work.
 
 Every final report states:
 

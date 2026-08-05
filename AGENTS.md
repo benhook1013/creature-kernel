@@ -83,10 +83,11 @@ When documents conflict, stop and resolve the conflict in the canonical owner.
 ## Orchestration
 
 The main `gpt-5.6-sol` thread owns planning, human design discussion, task
-decomposition, integration, consolidated validation, and final repository
-decisions. It does not delegate product or architecture decisions. Reviewers may
-challenge a proposal and recommend a disposition, but only the human decision
-owner accepts or rejects an ADR.
+decomposition, integration, consolidated validation, Git and pull-request
+operations, CI and review orchestration, external side effects, and final
+repository decisions. It does not delegate product or architecture decisions.
+Reviewers may challenge a proposal and recommend a disposition, but only the
+human decision owner accepts or rejects an ADR.
 
 - Use `gpt-5.6-luna` at `high` for routine bounded investigation, mechanical
   patches, straightforward test updates, and multi-step search or tool-driven
@@ -109,6 +110,10 @@ owner accepts or rejects an ADR.
   absolute subagent ceiling. Do not use Terra as a normal routing tier.
 - Delegate only bounded work with a disjoint scope and explicit success
   conditions. The main thread remains responsible for evaluating the evidence.
+- Parallel workers must have disjoint write scopes. The main thread inspects every
+  returned diff, reconciles interactions, and validates the integrated result.
+- Independent reviewers should normally be fresh-context agents that did not
+  implement the material under review.
 
 ## Validation
 
