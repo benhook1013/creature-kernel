@@ -27,11 +27,10 @@ owner decides.
   mechanical patches, straightforward test updates, and multi-step search or
   tool-driven work. Prefer Luna when it preserves Sol context or lowers cost,
   even if the bounded task is straightforward.
-- Use Luna at `xhigh` for substantial delegated work, independent review, and
-  tightly bounded hard audits. `xhigh` is the absolute Luna ceiling.
-- Never use Luna at `max`. A failed or incomplete Luna `xhigh` task returns to the
-  main thread for decomposition or task-type rerouting. Neither the subagent nor
-  the orchestrator automatically retries it at a higher Luna effort.
+- Use Luna at `xhigh` for substantial delegated work and independent review. This
+  is the normal Luna ceiling.
+- Luna at `max` is an exceptional tier governed by the admission gate below. It
+  is not the automatic next step after `xhigh`.
 - Escalate to `gpt-5.6-sol` at `medium` when broad synthesis, ambiguous evidence,
   or general reasoning matters more than coding-agent throughput. This is a
   task-type escalation, not the automatic next tier after Luna.
@@ -41,6 +40,26 @@ owner decides.
 These choices are intentionally explicit even though model availability changes.
 Update this document and the root summary deliberately when the project owner
 changes the preferred routing.
+
+### Luna max admission gate
+
+The main thread may select Luna at `max` without separate human approval only
+when all of these conditions hold:
+
+- The work is known-hard cross-file correctness work, an exhaustive bounded
+  audit, or a prior `xhigh` attempt whose evidence shows insufficient reasoning
+  depth or coverage.
+- The prompt pins the exact file, document, artifact, or item corpus.
+- The prompt defines a concrete deliverable, coverage ledger or equivalent
+  completion evidence, and an explicit stop condition.
+- Product and architecture decisions remain outside the delegated task.
+- The worker must return partial or incomplete evidence when it cannot finish the
+  bounded scope; it must not widen scope, retry itself, or create a continuation
+  loop.
+
+An `xhigh` attempt that failed because the task was ambiguous, incorrectly scoped,
+blocked by missing authority, or based on competing target states is not eligible
+for `max`. The main thread must clarify, decompose, or reroute it instead.
 
 ## When to delegate
 

@@ -92,11 +92,16 @@ owner accepts or rejects an ADR.
   patches, straightforward test updates, and multi-step search or tool-driven
   investigation. Prefer this route when it preserves Sol context or lowers cost,
   even when the bounded task is not difficult.
-- Use Luna at `xhigh` for substantial delegated work, independent review, and
-  tightly bounded hard audits. `xhigh` is the absolute Luna ceiling.
-- Never use Luna at `max`. A failed or incomplete Luna `xhigh` task returns to the
-  main thread for decomposition or task-type rerouting; it must not automatically
-  retry or escalate its own reasoning effort.
+- Use Luna at `xhigh` for substantial delegated work and independent review. This
+  is the normal Luna ceiling.
+- Luna at `max` is exceptional and requires a main-thread admission decision. Use
+  it only for known-hard cross-file correctness work, an exhaustive bounded audit,
+  or an `xhigh` failure that the main thread confirms was caused by insufficient
+  depth rather than ambiguity or poor decomposition. The prompt must define the
+  exact corpus, coverage requirement, deliverable, and stop condition. Luna must
+  return incomplete evidence rather than expand scope, self-retry, or start a
+  continuation loop. No separate human approval is required when these conditions
+  are met.
 - Use `gpt-5.6-sol` at `medium` when broad synthesis, ambiguous evidence, or
   general reasoning matters more than coding-agent throughput. It is a task-type
   escalation, not the automatic tier after Luna.
