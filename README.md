@@ -30,6 +30,9 @@ not intended to hard-code one species, one skeleton, or one rendering style.
 - A CLI/API is a first-class interface. Humans, scripts, and external AI agents
   should be able to use the same operations.
 - The core application does not depend on an embedded AI assistant.
+- A real-time game is the primary downstream experience. Expensive creature
+  generation may happen ahead of time or asynchronously, while compiled avatars
+  expose bounded runtime representations and fallbacks.
 - Specialized animation, contact, and deformation solvers cooperate through a
   shared representation; no single solver is expected to solve everything.
 - Capability levels and fallbacks should let characters participate even when

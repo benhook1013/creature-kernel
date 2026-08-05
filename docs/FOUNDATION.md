@@ -99,7 +99,9 @@ graph    mesh     and IK    fields     metadata
 - The project name is **Creature Kernel** and the repository slug is
   `creature-kernel`.
 - The initial domain is stylized furry creatures.
-- The project is a platform or engine component, not initially a game.
+- The project is a platform or engine component, not initially a game by itself.
+- A real-time interactive game remains the primary downstream experience and a
+  first-class architectural constraint.
 - Its core value is the shared representation and compiler that connect body
   generation, semantics, animation, collision, and deformation.
 - A conventional game engine may be used for rendering and runtime integration;
@@ -108,6 +110,13 @@ graph    mesh     and IK    fields     metadata
 - The motivating use cases include difficult adult-character interactions, but
   the core body and interaction technology is general rather than tied to adult
   content.
+- Expensive creature generation and preprocessing may occur ahead of time, on a
+  loading screen, or asynchronously. This does not make the resulting experience
+  noninteractive.
+- Every compiled avatar must expose bounded runtime representations, quality
+  levels, and fallbacks.
+- A cinematic or offline-quality path may supplement the real-time runtime, but
+  it is not currently intended to replace the game-oriented path.
 
 ### Source of truth
 
@@ -235,6 +244,164 @@ The same body definition should generate the visible character and the hidden
 representations used by animation and physics. This is expected to be the main
 architectural advantage over importing unrelated assets and attempting to infer
 their meaning afterward.
+
+## Execution model: real-time first with compilation
+
+The project should distinguish three time domains rather than requiring every
+operation to meet a per-frame deadline.
+
+```text
+Body document
+      |
+      v
+[1] Creature compilation
+      |
+      v
+Runtime avatar package
+      |
+      v
+[2] Real-time game simulation
+      |
+      v
+[3] Optional cinematic or offline enhancement
+```
+
+### Creature compilation
+
+Compilation may take seconds or, for advanced assets, longer. It can occur in an
+external creator, during character creation, on a loading screen, as a background
+job, or once when importing a character. Candidate compilation work includes:
+
+- combining body-part volumes and extracting a surface;
+- remeshing, simplifying, and generating LODs;
+- generating skin weights, collision fields, and analytic proxies;
+- constructing deformation cages and regional simulation meshes;
+- binding low-resolution simulations to the render surface;
+- generating material attributes and GPU resources;
+- running conformance, pose, collision, and deformation tests.
+
+The compiled product should be a stable runtime avatar package. The game should
+not repeat invariant geometry-processing work every frame.
+
+### Real-time game simulation
+
+The runtime package can perform bounded, stateful work such as:
+
+- animation, root motion, retargeting, motion warping, and full-body IK;
+- capsule, convex, or signed-distance contact queries;
+- contact constraints and physical reactions;
+- bone, morph, cage, and GPU surface deformation;
+- procedural material evaluation;
+- selected cloth, hair, secondary motion, and regional soft-body simulation.
+
+Runtime does not imply that all features run at maximum fidelity on every body.
+Resolution, solver iterations, active regions, and character count must remain
+budgeted.
+
+### Optional cinematic or offline path
+
+The same body definition may also drive a higher-quality path for:
+
+- high-resolution volumetric simulation;
+- dense fur, cloth, and self-collision;
+- cached geometry and record/replay;
+- offline training data for learned runtime deformers;
+- high-quality scene rendering.
+
+This is a supplementary output of the architecture. It should not become a
+requirement for basic interaction or game execution.
+
+### Baked and dynamic data
+
+"Baked" means precomputing stable structures, not predetermining interactions.
+
+| Precomputed or compiled | Dynamic at runtime |
+| --- | --- |
+| Mesh connectivity and LODs | Poses and IK targets |
+| Skinning weights | Contacts and forces |
+| Collision fields and proxies | Constraint state |
+| Deformation cages and bindings | Cage offsets and morph weights |
+| Regional tetrahedral topology | Low-resolution soft-body state |
+| Semantic surface attributes | Material and interaction parameters |
+
+Emergent interactions can therefore use prepared numerical representations
+without becoming pre-rendered scenes.
+
+### Runtime mutation boundary
+
+Character changes should be classified by whether they preserve topology:
+
+- Proportion, colour, material, and many shape changes may update through bones,
+  fields, cages, or morphs while retaining the same runtime surface.
+- Adding or removing limbs, replacing major modules, or changing body plans may
+  require recompilation.
+- A future runtime could compile topology-changing edits asynchronously while
+  keeping the previous avatar active, then swap packages at a safe boundary.
+
+The exact first-version boundary remains undecided.
+
+### Local quality activation
+
+Expensive simulation should activate where it matters rather than uniformly:
+
+```text
+Distant character
+    -> animation and basic IK
+
+Nearby character
+    -> contact collision and cage deformation
+
+Actively interacting region
+    -> higher-quality local deformation
+    -> optional regional soft-body simulation
+```
+
+Quality may vary by character, body region, interaction, camera distance, and
+hardware budget. One character can simultaneously use inexpensive skeletal
+behaviour in most regions and a high-quality solver near an active contact.
+
+### Provisional real-time classification
+
+This table is a working expectation, not a benchmark result:
+
+| Feature | Real-time expectation |
+| --- | --- |
+| Skeletal animation, IK, and motion warping | Strong |
+| Analytic collision and signed-distance queries | Strong |
+| Morph, bone, cage, and GPU surface deformation | Strong |
+| Procedural colours and markings | Strong |
+| Simplified cloth, hair, and secondary motion | Strong |
+| Local low-resolution soft-body regions | Plausible on high-end hardware |
+| Several interacting soft regions | Plausible with strict budgets |
+| Whole-character volumetric simulation | Difficult |
+| Multiple high-resolution soft characters | Generally outside normal frame budgets |
+| Dynamic surface remeshing during interaction | Background or authoring work |
+| Arbitrary topology changes every frame | Not a practical game target |
+| Dense two-way soft-body self-collision | Primarily cinematic or offline |
+
+### Boundary that would force an offline scene tool
+
+The project would cease to be a practical game runtime if it required all of the
+following at once:
+
+- render-resolution geometry participating directly in physics;
+- full volumetric simulation over every character;
+- dense two-way soft-body and self-collision;
+- arbitrary topology changes during contact;
+- dense fur and clothing colliding with every deforming surface;
+- unbounded solver iterations to guarantee exact convergence;
+- no approximation, LOD, regional activation, or artistic fallback.
+
+High-end hardware expands the available budget but does not make an unbounded
+simulation bounded. The platform must preserve quality negotiation even if its
+initial game target assumes a powerful desktop PC.
+
+### Learned and cached deformation
+
+Offline simulation can produce caches or training examples for a lighter runtime
+deformer. This may efficiently reproduce predictable pose-driven muscle, tissue,
+or cloth behaviour. It is not assumed to solve arbitrary unseen contacts, so
+procedural contact deformation and selected live simulation remain necessary.
 
 ## Procedural appearance
 
@@ -428,13 +595,36 @@ primarily be their unification under one semantic, programmable creature model.
 
 ### Generation lifecycle
 
-- Are creatures compiled once into conventional game assets?
-- Can proportions or body structure change during gameplay?
-- Does the implicit representation remain active at runtime?
+- What is the maximum acceptable compile time for a new creature?
+- Where may compilation occur: external tool, character creator, loading screen,
+  background job, or gameplay?
+- Are creatures normally compiled once into conventional game assets?
+- Which proportion and material changes remain live without recompilation?
+- Which structural changes require a new surface and runtime package?
+- Can body structure change during gameplay, and if so, how is the replacement
+  synchronized with animation, collision, clothing, and saved state?
+- Does the implicit representation remain active at runtime or become purely
+  compiled data?
 - What is baked, what remains procedural, and what can be regenerated safely?
 
-Compiling at authoring time is expected to be considerably simpler than dynamic
-runtime regeneration, but this has not been decided.
+Compilation outside the frame loop is now accepted as compatible with the game
+vision. The exact mutation and asynchronous recompilation boundaries have not
+been decided.
+
+### Runtime budget and hardware
+
+- Is the primary target 30 FPS, 60 FPS, or a selectable quality mode?
+- What display resolution and high-end hardware class define the initial target?
+- How many visible, nearby, and actively interacting characters must be supported?
+- How many regions may run the highest soft-body tier simultaneously?
+- What CPU, GPU, memory, and transfer budgets belong to each solver layer?
+- How aggressively should distance, visibility, and interaction state change
+  simulation quality?
+- Is the first target single-player, deterministic replay, or networked play?
+- Which runtime data must be deterministic, authoritative, or recordable?
+- Must the GPU path support multiple vendors, or may an initial backend require
+  a particular compute platform?
+- What minimum fallback must exist when advanced GPU deformation is unavailable?
 
 ### Body-grammar scope
 
@@ -497,6 +687,7 @@ runtime regeneration, but this has not been decided.
 - Should Blender, OpenVDB, Houdini, or a custom geometry kernel be used for the
   earliest experiments?
 - Which runtime engine receives the first adapter?
+- Which deformable-body and GPU-compute backend receives the first experiment?
 - Which asset and interchange formats are canonical?
 - Is the eventual project a library, CLI, authoring application, engine plugin,
   open standard, or some combination?
@@ -553,7 +744,7 @@ architecture records:
 2. What is the first supported morphology and its allowed parameter range?
 3. Is the first surface generated with SDFs, a skeleton-based skin algorithm,
    parametric patches, or a hybrid?
-4. Is generation strictly offline for the first version?
+4. Where and when does first-version creature compilation run?
 5. What mesh quality is sufficient for the first animation test?
 6. What minimum facial and paw features are needed for the result to read as a
    furry character rather than a generic articulated blob?
@@ -571,6 +762,21 @@ architecture records:
     artistic design?
 17. What expertise or collaborators will eventually be required?
 18. What licensing and repository strategy should be adopted?
+19. What real-time performance target, display resolution, and reference hardware
+    define success?
+20. How many characters and high-quality deformable regions must run at once?
+21. Which features are mandatory in the real-time path, optional at higher tiers,
+    or cinematic-only?
+22. What changes can occur live without recompilation?
+23. Can topology-changing edits compile asynchronously, and what state persists
+    across an avatar-package swap?
+24. Which runtime representation owns collision after visible deformation?
+25. What data must be deterministic for replay, saving, or networking?
+26. What is the relationship between the real-time avatar and cinematic output?
+27. Should learned deformation be part of the platform contract or only a backend
+    optimization?
+28. What minimum experience must remain available when advanced GPU features are
+    disabled?
 
 ## Guiding principle
 
