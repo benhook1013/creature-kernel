@@ -1,6 +1,6 @@
 # Creature Kernel foundation
 
-Status: initial conversation record
+Status: Historical founding record
 
 Captured: 2026-08-05
 
@@ -16,8 +16,9 @@ conversation. It is not a final technical specification. It distinguishes:
 - known limitations and uncertainties;
 - questions that need later design or experimentation.
 
-The structure can be replaced later as the project develops. For now, this is
-the authoritative record of the discussion that led to Creature Kernel.
+This remains the authoritative record of the discussion that led to Creature
+Kernel. It is not the canonical owner of current product, specification, or
+architecture contracts; see [documentation authority](README.md).
 
 ## Origin and evolution of the idea
 

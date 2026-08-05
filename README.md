@@ -38,10 +38,20 @@ not intended to hard-code one species, one skeleton, or one rendering style.
 - Capability levels and fallbacks should let characters participate even when
   they do not support the highest simulation quality.
 
+## Repository navigation
+
+- [Documentation authority and reading order](docs/README.md)
+- [Product vision and scope](docs/product/vision-and-scope.md)
+- [Architecture](docs/architecture/README.md)
+- [Decision registry](docs/architecture/decisions/registry.md)
+- [Open research questions](docs/research/open-questions.md)
+- [Current project status](docs/project/status.md)
+
 ## Status
 
-This repository currently records the project foundation. No implementation or
-technology stack has been selected yet.
+The project is in its foundation and adversarial design phase. No implementation
+language, geometry backend, runtime engine, or asset format has been selected.
 
-See [docs/FOUNDATION.md](docs/FOUNDATION.md) for the conversation-derived vision,
-decisions, architecture, known unknowns, and prospective next questions.
+See [docs/FOUNDATION.md](docs/FOUNDATION.md) for the historical
+conversation-derived record. Current contracts are owned by the documentation
+areas linked above.
