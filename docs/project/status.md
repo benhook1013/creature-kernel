@@ -29,7 +29,7 @@ proof workflow before selecting foundational technologies.
 
 | Capability | Implementation | Verification | Notes |
 | --- | --- | --- | --- |
-| Documentation authority | partial | unverified | Scaffold proposed on review branch |
+| Documentation authority | partial | unverified | Structure validates; human acceptance pending |
 | ADR and review workflow | partial | unverified | No completed review yet |
 | Research/experiment workflow | partial | unverified | Templates exist; no experiment registered |
 | Body specification | design-unresolved | not-applicable | Contract boundary only |
