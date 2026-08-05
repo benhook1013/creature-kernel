@@ -13,6 +13,7 @@ creature-kernel/
 │   ├── product/             # outcomes, requirements, users
 │   ├── architecture/        # target boundaries and ADRs
 │   ├── research/            # open questions and references
+│   ├── developer-workflows/ # conditional contributor procedures
 │   └── project/             # status, roadmap, repository evolution
 ├── spec/                    # normative formats and semantics
 ├── experiments/             # reproducible research evidence

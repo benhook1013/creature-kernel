@@ -13,7 +13,8 @@ rationale, evidence, and status.
 3. [Requirements](product/requirements.md)
 4. [Architecture index](architecture/README.md)
 5. [Current project status](project/status.md)
-6. Relevant specifications, ADRs, research questions, and experiments
+6. Any relevant specifications, ADRs, research questions, experiments, and
+   [developer workflows](developer-workflows/README.md)
 
 The [foundation record](FOUNDATION.md) preserves the founding conversation. It is
 historical context rather than the canonical owner of current contracts.
@@ -45,6 +46,7 @@ Code, tests, fixtures, benchmarks, and runtime proof
 | `docs/architecture/decisions/` | Consequential decision rationale | The current contract by itself |
 | `docs/research/` | Open questions, hypotheses, references | Accepted target state |
 | `experiments/` | Reproducible evidence and limitations | Product or architecture authority |
+| `docs/developer-workflows/` | Conditional contributor and review procedures | Product or technical contracts |
 | `docs/project/` | Roadmap, current status, repository evolution | Product or technical contracts |
 | Code and proof | What exists and what has been demonstrated | Intended behaviour not yet implemented |
 

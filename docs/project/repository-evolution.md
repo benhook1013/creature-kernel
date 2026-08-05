@@ -20,6 +20,7 @@ States: `active`, `planned`, `triggered`, `deferred`, `not-applicable`, `retired
 | Fixture policy | Now | active | Before first executable test | `fixtures/` | Provenance rules |
 | Benchmark policy | Now | active | Before first performance claim | `benchmarks/` | Hardware and command requirements |
 | Documentation CI | Now | active | Governance scaffold | `.github/workflows/documentation.yml` | GitHub Actions |
+| AI delegation and review | Now | active | Before first delegated design review | `docs/developer-workflows/` | Required-path and link checks |
 | Body-document schema | Next | planned | First body parser proposal | `spec/body-document/` | Schema fixtures |
 | Semantic body-graph spec | Next | planned | First resolver proposal | `spec/body-graph/` | Graph fixtures |
 | Implementation packages | Next | planned | Language/build ADR accepted | Toolchain-specific | Unit and integration tests |

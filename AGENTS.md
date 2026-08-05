@@ -31,6 +31,8 @@ project arrived here but is not the canonical owner of current contracts.
 - `docs/research/` owns open questions and research context, not target contracts.
 - `experiments/` records evidence. Results may inform decisions but do not become
   architecture automatically.
+- `docs/developer-workflows/` owns conditional contributor procedures, not product
+  or technical contracts.
 - `docs/project/` reports plans and status without redefining target behaviour.
 - Code, tests, fixtures, and benchmarks provide implementation evidence.
 
@@ -68,6 +70,38 @@ When documents conflict, stop and resolve the conflict in the canonical owner.
 - Keep the engine-independent core separate from host-engine adapters once code
   boundaries exist.
 - Preserve unrelated user changes and stage only files belonging to the task.
+
+## Conditional workflows
+
+- Subagent selection, delegation boundaries, model routing, and independent
+  review use
+  `docs/developer-workflows/ai-delegation-and-review.md`.
+- An ADR review may use
+  `docs/architecture/decisions/reviews/fresh-reread-preamble.md` to force a
+  current-disk, issue-only convergence pass.
+
+## Orchestration
+
+The main `gpt-5.6-sol` thread owns planning, human design discussion, task
+decomposition, integration, consolidated validation, and final repository
+decisions. It does not delegate product or architecture decisions. Reviewers may
+challenge a proposal and recommend a disposition, but only the human decision
+owner accepts or rejects an ADR.
+
+- Use `gpt-5.6-luna` at `high` for routine bounded investigation, mechanical
+  patches, straightforward test updates, and multi-step search or tool-driven
+  investigation. Prefer this route when it preserves Sol context or lowers cost,
+  even when the bounded task is not difficult.
+- Use Luna at `xhigh` for substantial delegated work and independent review.
+- Use Luna at `max` for known-hard cross-file correctness work, exhaustive audits,
+  or a failed `xhigh` attempt. Luna reasoning levels are not approval-gated.
+- Use `gpt-5.6-sol` at `medium` when broad synthesis, ambiguous evidence, or
+  general reasoning matters more than coding-agent throughput. It is a task-type
+  escalation, not the automatic tier after Luna.
+- Using Sol at `high` requires explicit human approval. Sol at `high` is the
+  absolute subagent ceiling. Do not use Terra as a normal routing tier.
+- Delegate only bounded work with a disjoint scope and explicit success
+  conditions. The main thread remains responsible for evaluating the evidence.
 
 ## Validation
 
