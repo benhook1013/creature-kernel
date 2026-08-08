@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-08
 
@@ -169,7 +169,13 @@ representation direction, subject to proof of which selected data is useful.
 
 ## Adversarial Review Response
 
-Pending a fresh adversarial review of Revision 2.
+[The Revision 2 adversarial review](reviews/DR-0003-rev-02-review-01.md) is
+Complete. It reviewed the exact clean commit, found no blocker, and requires no
+revision; it recommends Accept with Medium confidence. The explicitly deferred
+backend, budget, package format, collision ownership, mutation classification,
+asynchronous-swap, fallback-proof, portability, and simulation-determinism
+obligations remain deferred. Ben's owner disposition is still required; this
+review does not claim owner acceptance.
 
 ## Implementation and Proof Obligations
 

@@ -15,11 +15,12 @@ Revision 2, DR-0004 Revision 2, and DR-0006 Revision 1 are all Review Complete,
 with fresh Accept recommendations at Medium confidence and no decision
 blockers. The DR-0004 review found one mechanical system-overview diagram
 ordering defect; the diagram was corrected without changing the decision or
-architecture prose. Round 4 is integrated as Proposed: DR-0003 Revision 2
-records the settled compile/runtime boundary and is pending one fresh
-adversarial review. Owner dispositions remain pending. No DR is Accepted.
-Product and architecture prose remains proposed or provisional until the
-relevant proposal has Ben's explicit disposition.
+architecture prose. Round 4 is integrated as Proposed: DR-0003 Revision 2 has
+Review Complete with an Accept recommendation at Medium confidence and no
+blockers; Ben's owner disposition remains pending. Round 5 research is
+prepared as the next provisional work. No DR is Accepted. Product and
+architecture prose remains proposed or provisional until the relevant proposal
+has Ben's explicit disposition.
 
 ## Current round
 
@@ -51,11 +52,11 @@ relevant proposal has Ben's explicit disposition.
   compile/runtime boundary: Option 2 time domain, Option 3 hybrid runtime
   representation, compatible in-place parameters versus recompilation for
   structural changes, blocking authoring reload initially with async hot swap
-  later, bounded capability tiers/fallbacks, and scoped determinism. One fresh
-  adversarial review remains pending; no DR is Accepted.
-- Next research: Round 5 first-proof, morphology, and quality research is next
-  in parallel with the Round 4 review lane; it remains provisional. No DR is
-  Accepted.
+  later, bounded capability tiers/fallbacks, and scoped determinism. Its fresh
+  adversarial review is Complete with an Accept recommendation at Medium
+  confidence and no blockers; owner disposition remains pending.
+- Round 5: prepared/next — first-proof, morphology, and quality research is
+  prepared as the next provisional work. No DR is Accepted.
 
 ## Active work
 
@@ -63,9 +64,8 @@ relevant proposal has Ben's explicit disposition.
   disposition after their completed reviews.
 - Preserve the completed Round 3 review responses and obtain owner dispositions
   for DR-0002 Revision 2, DR-0004 Revision 2, and DR-0006 Revision 1.
-- Obtain one fresh adversarial review of the integrated DR-0003 Revision 2
-  proposal while keeping Round 5 research provisional and separate from owner
-  disposition.
+- Obtain Ben's owner disposition for the completed DR-0003 Revision 2 review
+  while keeping Round 5 research provisional and separate from acceptance.
 - Preserve historical review responses and keep later proof, morphology,
   geometry, runtime, and implementation topics in their provisional rounds.
 - Keep the neutral registry, authority indexes, workflow, and validator
@@ -114,8 +114,8 @@ relevant proposal has Ben's explicit disposition.
 
 - Record Ben's explicit disposition after the review responses; all Round 3 and
   Round 4 DRs remain Proposed until then.
-- Run one fresh adversarial review of DR-0003 Revision 2 and continue the
-  provisional Round 5 first-proof, morphology, and quality research in parallel.
+- Continue the provisional Round 5 first-proof, morphology, and quality
+  research; obtain Ben's explicit disposition for the completed DR-0003 review.
 - Prepare the evidence plan for the initial surface-generation choice.
 
 ## Explicitly not started
