@@ -42,18 +42,22 @@ Proposed compile/runtime boundary is recorded in
 and described in the execution model; exact interface schemas, compatibility,
 budgets, and runtime mutation details remain open.
 
-Round 6 records two Proposed Stage 1 experiment hypotheses: [DR-0009 Revision
-2](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
-describes a hybrid semantic skeleton/radius, implicit-blending, and reusable
-module branch with a bounded five-branch attribution matrix, while [DR-0010
-Revision 2](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md)
-describes disposable pinned uniform-grid Lewiner extraction, a common
-normalized field contract, convergence controls, and parallel semantic
-contributor lineage. The [first surface experiment design](../research/first-surface-experiment-design.md)
-organizes these proposals into a neutral evidence plan; it does not register
-EXP-0001 or create evidence. These materials guide falsifiable evidence only;
-none settles permanent surface architecture, animation-ready topology, runtime
-field representation, implementation language, or a geometry backend.
+Round 6 records two Proposed Stage 1 experiment hypotheses in
+[DR-0009 Revision 3](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
+and [DR-0010 Revision 3](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md).
+The revision resolves the approved hierarchical outcome/Pareto-baseline rule,
+branch-neutral tuning/readiness protocol, paired contrasts, and separate
+interaction reporting for DR-0009, and sub-voxel phase checks, six-face field
+clearance, prospective topology invariants, and cross-operator
+semantic-contribution distribution/top-k residual rules for DR-0010. Both
+remain Proposed with Owner approval Pending and Review Pending; Revision 2
+Double reviews are historical and stale after the material revision. The [first
+surface experiment design](../research/first-surface-experiment-design.md)
+remains a neutral Proposed, manually maintained evidence plan; it does not
+register EXP-0001 or create evidence. These materials guide falsifiable
+evidence only; none settles permanent surface architecture, animation-ready
+topology, runtime field representation, implementation language, or a geometry
+backend.
 
 ## Current maturity
 

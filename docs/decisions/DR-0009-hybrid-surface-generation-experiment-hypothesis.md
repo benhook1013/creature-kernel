@@ -6,13 +6,13 @@ Scope: Architecture
 
 Status: Proposed
 
-Revision: 2
+Revision: 3
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-09
 
@@ -22,11 +22,13 @@ Revision history: Revision 1 was reviewed in Round 6 by the [architecture and
 proof-boundary review](reviews/DR-0009-rev-01-review-01.md) and the
 [geometry, topology, and semantic-data review](reviews/DR-0009-rev-01-review-02.md).
 Both reviews remain preserved as historical evidence and are stale for this
-revision. Revision 2 applies Ben's settled resolutions: a predeclared
-comparative decision rule, a bounded nested-ablation comparison with a frozen
-fairness contract, and retained reasoning for the alternatives that were not
-selected. Two current-revision reviews are Complete with unresolved Revise
-recommendations. This proposal remains unaccepted.
+revision. Revision 2 was reviewed by the [architecture/governance
+review](reviews/DR-0009-rev-02-review-01.md) and the [geometry/semantics
+review](reviews/DR-0009-rev-02-review-02.md); both reviews are preserved as
+historical evidence and are stale for this revision. Revision 3 applies Ben's
+settled resolutions to the outcome/readiness precedence, fair tuning and
+paired contrasts, and the eligible-baseline frontier. A new current-revision
+review is pending. This proposal remains unaccepted.
 
 Supersedes: —
 
@@ -105,34 +107,59 @@ language, or library. Those remain open pending evidence and any later
 decision record. It also does not claim that implicit generation must remain
 live at runtime or that conventional derived meshes are forbidden.
 
-### Comparative decision rule
+### Evidence validity and comparative decision rule
 
-**Recommendation: Option 2 — non-inferiority on mandatory checks plus
-predeclared named improvement.** The hybrid is supported only when every
-mandatory fixture gate passes, it is no worse than the strongest passing
-baseline on the mandatory structural and semantic checks, and it improves the
-predeclared named junction or feature criteria under the declared assessment
-rule. It is rejected when it fails a mandatory gate or when a simpler credible
-baseline achieves the same claimed result without the named improvement.
-Mixed structural and subjective trade-offs, reviewer disagreement, or
-inadequate evidence are inconclusive rather than forced into support or
-rejection. Complexity, tuning burden, and implementation effort must be
-reported and qualify the interpretation. Exact aggregation rules and
-thresholds are not selected here; they must be frozen before execution and
-before EXP-0001 evidence is interpreted.
+**Recommendation: Option 2 — evidence validity/readiness first, then a
+non-inferiority comparison with a predeclared named improvement.** Evidence
+validity and branch readiness are evaluated before any technology outcome. The
+primary comparison is affected, and therefore `Inconclusive`, when the shared
+pipeline fails, mandatory evidence is unavailable, clipping or sampling does
+not meet the registered readiness rule, phase/topology stability is unavailable
+or invalid, or any required branch is unready. Such a result is not a hybrid
+rejection and cannot be repaired by dropping the affected branch. The affected
+fixture, contrast, or full comparison scope must be identified in the evidence
+record.
 
-The strongest passing baseline is selected using the same frozen fixtures,
-semantic inputs, output interface, extraction policy, and mandatory checks. A
-baseline does not become stronger by receiving a different evidence burden or
-by using a hidden fixture-specific correction. The Stage 1 all-valid-fixtures
-gate and the separate subjective visual-floor method remain owned by
+With valid evidence, mandatory checks and the named structural, semantic,
+feature, and visual criteria are reported separately; no scalar score is
+fabricated. A baseline is eligible only if it is ready and has complete valid
+evidence for the declared dimensions. The eligible passing baselines are all
+non-dominated baselines on the predeclared structural/semantic, named-feature,
+complexity, and effort dimensions (the Pareto frontier), rather than one
+"strongest" baseline. A baseline is dominated only when another eligible
+passing baseline is no worse on every declared dimension and better on at
+least one; exact dimension definitions and thresholds are frozen at
+registration.
+
+The non-overlapping outcome table is:
+
+| Validity/readiness | Hybrid and eligible-baseline result | Primary outcome |
+| --- | --- | --- |
+| Any required evidence or branch is unready, unavailable, clipped, non-convergent, phase/topology-unstable, or the common pipeline fails | Any | `Inconclusive` for the affected comparison |
+| Valid evidence | Hybrid fails a mandatory check or lacks the named improvement | `Reject` |
+| Valid evidence; no eligible passing baseline exists | Hybrid passes all mandatory checks and shows the named improvement | `Support`, with the empty baseline frontier and its limitation reported |
+| Valid evidence; one or more eligible passing baselines exist | Hybrid passes, shows the named improvement, has no mandatory regression against every frontier baseline, and no simpler eligible baseline matches the claimed result | `Support` |
+| Valid evidence; one or more eligible passing baselines exist | Hybrid passes, but a simpler eligible passing baseline matches the claimed result, or the hybrid regresses against a frontier baseline | `Reject` |
+| Valid evidence | Results have genuine structural/semantic/visual/complexity/effort trade-offs that are not resolved by the declared dimensions, or required visual reviewers disagree without protocol resolution | `Inconclusive` |
+
+Baseline-only failure excludes that baseline from the eligible frontier when
+the remaining evidence is valid; hybrid-only mandatory failure is `Reject`.
+If every baseline fails, the empty-frontier `Support` row applies only when
+the hybrid itself passes and the named improvement is evidenced; the record
+must state that no baseline passed and must not imply non-inferiority evidence.
+An effort, adjustment-count, or readiness-budget breach is an evidence
+validity failure and is `Inconclusive`, not a favourable or unfavourable
+technology result. Visual disagreement is likewise not silently converted to
+a pass or fail. The Stage 1 all-valid-fixtures gate and the separate
+subjective visual-floor method remain owned by
 [DR-0007](DR-0007-staged-first-proof-charter.md) and the
 [visual-quality protocol](../research/visual-quality-evaluation.md).
 
 ### Attribution and fairness contract
 
-**Recommendation: Option 2 — five bounded branches.** EXP-0001 uses
-bounded nested ablation, not a full factorial sweep. Every branch receives the
+**Recommendation: Option 2 — five bounded branches with a branch-neutral
+fairness and readiness contract.** EXP-0001 uses bounded nested ablation, not
+a full factorial sweep. Every branch receives the
 same frozen semantic source intent, shared semantic feature vocabulary,
 fixture identity, input mapping, bounds and sampling policy, seed/configuration
 policy, diagnostics, and common output interface. The experiment must freeze
@@ -163,13 +190,44 @@ not a hidden per-fixture mesh, topology, or rig correction. This bounded
 nested ablation supports attribution of the selected blending and specialized
 generator layers without claiming a full factorial interaction analysis.
 
+All branches start from the same initial configuration and seed, use one
+common declared objective, and receive the same fixed maximum adjustment count.
+Adjustments are global branch parameters only: no fixture-specific tuning,
+post-hoc correction, or per-fixture parameter is allowed in the primary
+comparison. Registration must freeze the deterministic initialization,
+adjustment unit, stopping rule, and maximum count without selecting their
+numeric values here. Code reuse, parameter reuse, and knowledge reuse between
+branches must be logged so shared work is not presented as independent effort.
+
+Before primary comparison, each required branch must pass branch-neutral
+analytical readiness fixtures, exercise every required operation in its
+declared matrix, and disclose unresolved implementation or fidelity defects.
+The fixtures and oracles must be independent of branch-specific visual
+success. Missing operation coverage, an unresolved defect that affects a
+required operation, or any other failed readiness condition makes that branch
+unready and makes every affected primary contrast `Inconclusive` under the
+precedence above. Readiness does not establish a technology outcome.
+
+The following paired per-fixture/site contrasts are predeclared, with each
+contrast evaluated using the same objective and global tuning rule:
+
+| Contribution | Without the other contribution | With the other contribution |
+| --- | --- | --- |
+| Blending | `S+B` versus `S` (blending without generators) | `Full` versus `S+G` (blending with generators) |
+| Generators | `S+G` versus `S` (generators without blending) | `Full` versus `S+B` (generators with blending) |
+
+Here `S` is skeleton/swept-profile, `B` is selected blending, and `G` is the
+reusable specialized-generator layer. Report the blending/generator
+interaction separately from these paired contrasts. This bounded design does
+not claim full-factorial coverage or identify every possible interaction.
+
 ## Consequences
 
 - Stage 1 can test semantic control and organic junction quality together while
   retaining baselines that can disprove the combined hypothesis.
-- The decision rule makes support, rejection, and inconclusive outcomes
-  inspectable before evidence exists; it does not turn a mixed trade-off into a
-  fabricated scalar score.
+- The evidence-first precedence makes support, rejection, and inconclusive
+  outcomes inspectable before evidence exists; it does not turn a mixed
+  trade-off into a fabricated scalar score or allow an unready branch to win.
 - The five branches expose the two selected hybrid contributions while keeping
   the comparison bounded. Complexity, tuning, and effort remain part of the
   interpretation rather than hidden costs.
@@ -297,14 +355,13 @@ Ben's settled recommendations are applied above.
 
 The current [architecture/governance review](reviews/DR-0009-rev-02-review-01.md)
 and [geometry/semantics review](reviews/DR-0009-rev-02-review-02.md) both
-recommend `Revise`, at Medium and High confidence respectively. Their
-consolidated blockers are: freeze a complete non-overlapping outcome and
-baseline-ordering table; define paired contrasts and their interaction
-interpretation; freeze a branch-neutral tuning protocol; and require branch
-readiness/fidelity gates so an incompetent baseline cannot create apparent
-support. These findings remain unresolved for human discussion. Revision 2
-therefore remains Proposed with Review status Complete and Owner approval
-Pending; no finding is auto-fixed or treated as a decision.
+recommend `Revise`, at Medium and High confidence respectively. Revision 3
+resolves their findings with an evidence-first non-overlapping outcome table,
+an eligible non-dominated baseline frontier, paired per-fixture/site
+contrasts, a global branch-neutral tuning rule, and readiness/fidelity gates.
+Those Revision 2 reviews remain historical and stale; the current-revision
+review is Pending. This proposal remains Proposed with Owner approval Pending;
+no acceptance is implied.
 
 ## Implementation and Proof Obligations
 
@@ -313,15 +370,20 @@ Pending; no finding is auto-fixed or treated as a decision.
   feature vocabulary, fixture identities, input mapping, common output
   interface, diagnostics, and capture protocol.
 - Freeze the comparative decision rule, named junction/feature criteria,
-  branch operations, parameter/tuning and implementation-effort budgets, and
-  the exact aggregation and threshold rules before execution or evidence
-  interpretation. Report complexity and effort alongside results.
+  eligible-frontier dimensions, branch operations, branch-neutral readiness
+  fixtures, required-operation coverage, unresolved-defect disclosures,
+  common objective, global initialization and tuning protocol, parameter/
+  tuning and implementation-effort budgets, and exact aggregation and
+  threshold rules before execution or evidence interpretation. Report
+  complexity, effort, and code/parameter/knowledge reuse alongside results.
 - Keep fixture-specific corrections out of every branch. Record a correction
   attempt as a failure or limitation and retain it in the evidence ledger.
 - Measure structural and semantic checks, named junction/feature outcomes,
   determinism, and extraction/topology characteristics separately from the
-  subjective visual assessment. Record mixed trade-offs, disagreement, and
-  inadequate evidence as inconclusive.
+  subjective visual assessment. Record all eligible passing baselines and
+  their non-dominated frontier, mixed trade-offs, visual disagreement,
+  common-pipeline failure, budget/readiness breaches, and inadequate evidence
+  as required by the precedence table; do not force an outcome.
 - Use the normalized sampling, convergence, clipping, semantic-lineage, and
   topology/orientation controls proposed in DR-0010; this record does not
   replace that extraction policy.

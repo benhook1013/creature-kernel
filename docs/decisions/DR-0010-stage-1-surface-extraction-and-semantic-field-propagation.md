@@ -6,13 +6,13 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 2
+Revision: 3
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-09
 
@@ -22,12 +22,13 @@ Revision history: Revision 1 was reviewed in Round 6 by the [architecture and
 proof-boundary review](reviews/DR-0010-rev-01-review-01.md) and the
 [geometry, topology, and semantic-data review](reviews/DR-0010-rev-01-review-02.md).
 Both reviews remain preserved as historical evidence and are stale for this
-revision. Revision 2 applies Ben's settled resolutions: a common normalized
-field contract and three-grid convergence controls, explicit semantic
-contributor lineage and analytical oracles, and required topology,
-orientation, volume, and determinism diagnostics. Two current-revision reviews
-are Complete with unresolved Revise recommendations. This proposal remains
-unaccepted.
+revision. Revision 2 was reviewed by the [architecture/governance
+review](reviews/DR-0010-rev-02-review-01.md) and the [geometry/semantics
+review](reviews/DR-0010-rev-02-review-02.md); both reviews are preserved as
+historical evidence and are stale for this revision. Revision 3 applies Ben's
+settled resolutions to shared evidence precedence, phase and topology
+controls, and cross-operator semantic contribution algebra. A new
+current-revision review is pending. This proposal remains unaccepted.
 
 Supersedes: —
 
@@ -76,7 +77,8 @@ library as a production dependency.
 ### Stage 1 extraction and sampling policy
 
 **Recommendation: Option 2 — deterministic, pinned, uniform-grid Lewiner
-Marching Cubes with common sampling and convergence controls.** Stage 1 uses a
+Marching Cubes with common sampling, phase, topology, and convergence
+controls.** Stage 1 uses a
 common normalized field contract for every comparison branch. Before execution
 the experiment must define, at minimum:
 
@@ -92,8 +94,24 @@ For each fixture, every branch uses the same frozen bounds and three uniform
 grids: coarse, nominal, and fine. Exact grid sizes are a later registration
 choice. The design must check clipping and feature-relative sampling, and
 measure convergence or stability for components, named junctions, gaps, and
-thin features. Any branch or fixture that deviates from the common policy is a
-separate exploratory run, not part of the primary comparison.
+thin features across resolutions and phases. At nominal resolution, add a
+small deterministic set of sub-voxel phase offsets; exact offsets are frozen
+at experiment registration. Any branch or fixture that deviates from the
+common policy is a separate exploratory run, not part of the primary
+comparison.
+
+An independent continuous-field/isovalue clearance oracle must verify clearance
+at all six domain faces. Clipping includes an isovalue intersection or a
+continuous-field clearance violation at any face; the registration freezes the
+clearance interpretation and threshold without this record selecting numeric
+values. For every valid initial closed creature exterior, the default expected
+topology invariant is one watertight connected genus-zero component. A fixture
+may declare another valid component or genus expectation only prospectively in
+its registration. Expected component and topology invariants must be recorded
+before execution. Phase or topology instability, or an unavailable/invalid
+clearance or invariant result, is unavailable/invalid evidence and therefore
+`Inconclusive` under the shared outcome precedence in DR-0009, not an implicit
+pass.
 
 The pinned Lewiner guarantee is scoped to reconstruction from the sampled
 grid. It does not guarantee topology or geometry of the underlying continuous
@@ -116,17 +134,33 @@ semantics distinct from ephemeral mesh indices:
 - missing-field masks and ambiguity diagnostics, including near-boundary and
   out-of-domain cases.
 
-Contributor semantics must be defined per construction operator before the
-experiment. The skeleton/swept-profile operator identifies its semantic
-centerline, profile, and attachment contributors; the general implicit-field
-operator identifies the source semantic contributions to its composition; the
-selected-blending operator records its operand contributors and blend
-weights; and a specialized generator identifies its semantic module, local
-chart, and any module-level contributors. These are lineage descriptions, not
-an instruction to choose a storage schema or to make incompatible charts
-blendable. Categorical IDs must not be interpolated like scalar fields, and
-incompatible local charts must not be blended; the result must instead retain
-the ambiguity or invalidity diagnostic.
+Semantic lineage uses one shared non-negative contribution distribution plus
+operator-specific transfer rules; it represents semantic lineage, not a
+physical force. Each operator exposes raw non-negative contribution mass for
+its contributors. When the complete distribution has a valid total, normalize
+the complete distribution to one. Stored top-k weights retain their
+full-distribution normalized values and are not renormalized; discarded
+residual mass is stored explicitly. A hard-selection operator uses deterministic
+tie ordering and records an ambiguity flag when the declared tie condition is
+met. A smooth blend uses its declared blend coefficients. Swept attachments
+and specialized modules must each declare their transfer or aggregation rule.
+
+The skeleton/swept-profile operator identifies its semantic centerline,
+profile, and attachment contributors; the general implicit-field operator
+identifies the source semantic contributions to its composition; the
+selected-blending operator records its operand contributors and blend weights;
+and a specialized generator identifies its semantic module, local chart, and
+any module-level contributors. These are lineage descriptions, not an
+instruction to choose a storage schema or to make incompatible charts
+blendable. Categorical ownership remains separate and must not be
+interpolated like a scalar field. At chart seams, retain multiple contributors
+or an explicit invalid/ambiguous state; incompatible local charts must not be
+silently blended.
+
+Independent analytical oracles define expected distributions, tie outcomes,
+discarded residual mass, chart-seam validity, and chart validity without
+reusing the propagation implementation. A missing or invalid total, omitted
+contributor, or unresolved chart state is a diagnostic, not a normalized pass.
 
 Independent analytical fixtures and oracles are required for coverage,
 weight normalization, missing contributors, local-chart reconstruction and
@@ -149,15 +183,17 @@ LOD, or array indices, as required by
 - A uniform grid may spend work in empty or high-detail regions and may miss
   information below its sampling resolution. Those limitations are accepted
   for the disposable proof and must be recorded.
-- Three-grid convergence and feature-relative checks expose sampling and
+- Three-grid convergence, deterministic nominal phase offsets, continuous
+  face-clearance checks, and feature-relative checks expose sampling and
   clipping limitations instead of presenting one resolution as continuous
   field truth. Deviations remain separate exploratory evidence.
-- Contributor lineage, chart validity, analytical oracles, and explicit
-  ambiguity diagnostics make semantic propagation inspectable without
-  interpolating categorical data or incompatible charts.
-- Required topology, orientation, volume, and normal-vs-gradient checks make
-  structural failures visible; they do not turn mesh output into a production
-  topology contract.
+- Contributor lineage, shared contribution algebra, chart validity,
+  independent analytical oracles, and explicit ambiguity/residual diagnostics
+  make semantic propagation inspectable without interpolating categorical data
+  or incompatible charts.
+- Required topology invariants, face-clearance, orientation, volume, and
+  normal-vs-gradient checks make structural failures visible; they do not turn
+  mesh output into a production topology contract.
 - Mesh indices remain ephemeral build outputs. Consumers must use durable
   semantic identity and separately recorded artifact/build provenance for
   cross-build references.
@@ -173,8 +209,9 @@ LOD, or array indices, as required by
 The primary evidence ledger must include boundary and non-manifold reporting,
 Euler characteristic or genus where applicable, self-intersection checks,
 winding and orientation checks, signed-volume checks, and
-normal-versus-field-gradient checks. A check that is not applicable must be marked as such with its
-reason; an unavailable or ambiguous check is not an implicit pass.
+normal-versus-field-gradient checks. A check that is not applicable must be
+marked as such with its reason; an unavailable or ambiguous check is not an
+implicit pass.
 
 Experiment registration must define process, thread, numeric, and platform
 scope; mesh canonicalization and hashes; geometric tolerances; and how
@@ -182,6 +219,17 @@ nondeterminism is isolated at each stage. A repeated deterministic run is
 required within that declared scope. The result may support scoped
 repeatability, but it must not claim bitwise cross-platform output without
 separate evidence.
+
+Evidence and readiness failures use the shared precedence in DR-0009:
+common-pipeline failure, unavailable mandatory diagnostics, clipping, sampling
+non-convergence, phase/topology instability, or an unready required branch
+make the affected primary comparison `Inconclusive` before any technology
+outcome. A branch-only evidence/readiness failure is not a reason to silently
+remove that branch from the declared comparison; the affected contrast is
+recorded as inconclusive. By contrast, when the evidence is valid and an
+extracted output fails a mandatory structural gate, that failure contributes
+to the technology outcome under DR-0009 rather than becoming unavailable
+evidence.
 
 ## Alternatives Considered
 
@@ -272,16 +320,15 @@ the material revision topics. Ben's settled recommendations are applied above.
 
 The current [architecture/governance review](reviews/DR-0010-rev-02-review-01.md)
 and [geometry/semantics review](reviews/DR-0010-rev-02-review-02.md) both
-recommend `Revise`, at Medium and High confidence respectively. Their
-consolidated findings require common extraction/evidence failures to have a
-non-overlapping outcome precedence with DR-0009 and branch-neutral readiness
-checks. They also ask for sampling-phase or continuous-clearance protection,
-explicit domain-face clipping and topology invariants, and a cross-operator
-contributor-weight algebra including residual mass, tie behaviour, chart-seam
-validity, and independent oracle inputs. These findings remain unresolved for
-human discussion. Revision 2 therefore remains Proposed with Review status
-Complete and Owner approval Pending; no finding is auto-fixed or treated as a
-decision.
+recommend `Revise`, at Medium and High confidence respectively. Revision 3
+resolves their findings with the shared DR-0009 evidence-first precedence,
+branch-neutral readiness coordination, sampling-phase and continuous-clearance
+protection, explicit domain-face clipping and topology invariants, and a
+cross-operator contributor-weight algebra including residual mass, tie
+behaviour, chart-seam validity, and independent oracle inputs. Those Revision 2
+reviews remain historical and stale; the current-revision review is Pending.
+This proposal remains Proposed with Owner approval Pending; no acceptance is
+implied.
 
 ## Implementation and Proof Obligations
 
@@ -290,17 +337,24 @@ decision.
   disposable experiment. Record the implementation version, isovalue,
   interpolation, out-of-domain behaviour, orientation/gradient convention,
   postprocessing order, tie rules, and diagnostic schema.
-- Run clipping and feature-relative sampling checks and measure convergence or
-  stability for components, junctions, gaps, and thin features. Keep any
-  deviation as a separately labelled exploratory run.
-- Define per-construction-operator contributor semantics and preserve raw and
-  top-k contributors, normalized weights, categorical ownership, contributor
-  IDs, chart identities, local coordinates, validity, missing masks, and
-  ambiguity diagnostics. Do not interpolate categorical IDs or blend
-  incompatible charts.
+- Run clipping, independent six-face continuous-field/isovalue clearance, and
+  feature-relative sampling checks; exercise the nominal phase offsets; and
+  measure convergence or stability for components, junctions, gaps, thin
+  features, and the predeclared component/topology invariants. Keep any
+  deviation as a separately labelled exploratory run. A phase/topology
+  instability or unavailable/invalid required result is `Inconclusive` under
+  DR-0009.
+- Define per-construction-operator transfer/aggregation rules over the shared
+  non-negative contribution distribution. Preserve raw mass, complete-
+  distribution normalized weights, unrenormalized top-k weights, explicit
+  discarded residual mass, deterministic ties and ambiguity flags, categorical
+  ownership, contributor IDs, chart identities, local coordinates, validity,
+  missing masks, and chart-seam ambiguity/invalidity. Do not interpolate
+  categorical IDs or blend incompatible charts.
 - Provide independent analytical fixtures and oracles for coverage,
-  normalization, missing contributors, chart reconstruction/validity,
-  landmarks, and expected boundary ambiguity.
+  distributions and normalization, missing contributors, tie results,
+  residual mass, chart reconstruction/validity, landmarks, chart seams, and
+  expected boundary ambiguity without reusing propagation implementation.
 - Record vertex/face counts, connectedness, degenerate or ambiguous cases,
   boundary/non-manifold status, Euler/genus where applicable,
   self-intersections, winding/orientation, signed volume, normals versus field

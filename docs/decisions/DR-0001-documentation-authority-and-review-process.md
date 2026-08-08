@@ -4,19 +4,19 @@ ID: DR-0001
 
 Scope: Governance
 
-Status: Proposed
+Status: Accepted
 
 Revision: 5
 
 Decision owner: Ben
 
-Owner approval: Pending
+Owner approval: Approved by Ben
 
 Review status: Complete
 
 Date proposed: 2026-08-08
 
-Date decided: —
+Date decided: 2026-08-09
 
 Supersedes: —
 
@@ -56,19 +56,16 @@ Architecture, or a cross-cutting combination. Its `Scope:` metadata and
 registry row identify the canonical authorities affected; the DR explains
 rationale and links to those authorities but does not replace them.
 
-### Provisional bootstrap trial
+### Bootstrap history and continuing effect
 
-Ben's 2026-08-08 governance-round direction authorizes this mechanism as a
-provisional operational trial until DR-0001 receives a disposition. Contributor
-instructions, workflow guidance, and repository-safety checks may operate
-provisionally during the trial to preserve authority separation, proposal
-labels, review evidence, repository safety, and explicit human ownership.
-Product, specification, and architecture proposals are not binding merely
-because working documents describe them. Trial operation is not acceptance of
-DR-0001 or DR-0002–0005 and cannot accept any DR automatically. If Ben rejects
-or materially replaces DR-0001, the main thread retires or migrates trial-only
-controls while preserving proposal and review history. Documents must
-distinguish an active or operational structure from an accepted contract.
+The provisional condition authorized during Ben's 2026-08-08 governance round
+ended when Ben accepted Revision 5 on 2026-08-09. The contributor instructions,
+workflow guidance, repository-safety checks, authority separation, proposal
+labels, review evidence, and explicit human ownership safeguards continue under
+this accepted Governance DR. Acceptance does not make product, specification,
+or architecture proposals binding merely because working documents describe
+them. Any later supersession or material replacement of DR-0001 requires a
+controlled migration that preserves proposal and review history.
 
 Require a DR only for a choice that is hard to reverse, cross-cutting,
 contractual or public, performance-defining, dependency/portability/licensing
@@ -253,8 +250,9 @@ prerequisite.
 
 The current [Revision 5 architecture/governance review](reviews/DR-0001-rev-05-review-01.md)
 recommends `Accept` with High confidence and found no actionable findings.
-Revision 5 remains Proposed with Review status Complete and owner approval
-pending; the review recommendation does not imply Ben's disposition.
+Following that clean current-revision review, Ben explicitly accepted DR-0001
+Revision 5; this disposition applies only to this Governance DR and does not
+accept any product or architecture DR.
 
 ## Implementation and Proof Obligations
 

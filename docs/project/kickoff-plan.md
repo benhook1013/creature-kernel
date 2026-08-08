@@ -388,11 +388,18 @@ preservation, animation topology, remeshing requirements, determinism,
 licensing, platform support, and runtime implications. Record references and
 tool/library constraints, then design a falsifiable first geometry experiment.
 Do not select production surface architecture from a prose survey alone. The
-integrated Proposed hypotheses are [DR-0009 Revision 2](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
-and [DR-0010 Revision 2](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md);
+integrated Proposed hypotheses are [DR-0009 Revision 3](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
+and [DR-0010 Revision 3](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md);
 they guide Stage 1 evidence and do not select a production backend. Their
-Double reviews are Complete with distinct named lenses and unresolved Revise
-findings.
+Revision 3 resolves the approved hierarchical outcome/Pareto-baseline rule,
+branch-neutral tuning/readiness protocol, paired contrasts, and separate
+interaction reporting for DR-0009, plus sub-voxel phase checks, six-face field
+clearance, prospective topology invariants, and cross-operator
+semantic-contribution distribution/top-k residual rules for DR-0010. Both
+remain Proposed with Owner approval Pending and Review Pending; Revision 2
+Double reviews are historical and stale after the material revision. The
+planned current review level is Double with distinct architecture/proof and
+geometry/semantics lenses.
 
 ### CK-KICK-009: Choose a disposable geometry experiment stack
 
@@ -415,9 +422,11 @@ Outcome:
 This avoids choosing the permanent language and engine merely to make the first
 mesh.
 
-Current handoff: the next experiment design is proposed/prepared for human
-discussion, but `EXP-0001` remains unregistered and the disposable experiment
-host remains unresolved.
+Current handoff: the neutral first experiment design remains Proposed and
+manually maintained, with no evidence; `EXP-0001` remains unregistered and the
+disposable experiment host remains unresolved. Next human discussion covers the
+disposable host stack, exact four-profile values, grid sizes and resource
+budget, and artifact retention.
 
 ### CK-KICK-010: Run and review the first surface experiment
 

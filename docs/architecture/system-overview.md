@@ -83,20 +83,27 @@ serialization, compatibility, and streaming behaviour remain undecided.
 ### Stage 1 surface experiment hypotheses
 
 The Round 6 proposals are deliberately narrower than this conceptual runtime
-architecture. [DR-0009 Revision 2](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
+architecture. [DR-0009 Revision 3](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
 proposes testing semantic skeleton/radius structures with implicit blending
 where useful and reusable specialized generators for muzzle, paws, ears, feet,
-and tail through a bounded five-branch nested ablation and a predeclared
-comparative rule. [DR-0010 Revision 2](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md)
+and tail through a bounded five-branch nested ablation. Its settled local
+experiment controls include a hierarchical outcome/Pareto-baseline rule,
+branch-neutral tuning/readiness protocol, paired contrasts, and separate
+interaction reporting. [DR-0010 Revision 3](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md)
 proposes a disposable deterministic pinned uniform-grid Lewiner Marching Cubes
 policy, a common normalized field contract with three-grid convergence, and
-parallel semantic-contributor propagation with analytical oracles. The [first
-surface experiment design](../research/first-surface-experiment-design.md)
-provides a neutral evidence design; it does not register EXP-0001, create
-fixtures, or provide evidence. These are Proposed experiment hypotheses, not
-accepted production contracts. Permanent surface and topology architecture,
-runtime field representation, animation-ready edge flow, retopology, and
-backend choice remain unresolved pending evidence.
+parallel semantic-contributor propagation with analytical oracles. Its settled
+local controls include sub-voxel phase checks, six-face field clearance,
+prospective topology invariants, and cross-operator semantic-contribution
+distribution/top-k residual rules. Both remain Proposed with Owner approval
+Pending and Review Pending; Revision 2 Double reviews are historical and stale
+after the material revision. The [first surface experiment
+design](../research/first-surface-experiment-design.md) remains a neutral
+Proposed, manually maintained evidence design; it does not register EXP-0001,
+create fixtures, or provide evidence. These are Proposed experiment
+hypotheses, not accepted production contracts. Permanent surface and topology
+architecture, runtime field representation, animation-ready edge flow,
+retopology, and backend choice remain unresolved pending evidence.
 
 ## Architectural principles
 

@@ -42,6 +42,11 @@ fixture/profile identifier, source and generator provenance,
 build/configuration identity, seed, view/capture settings, criterion, result,
 and failure notes.
 
+For the surface comparison, retain paired per-fixture/site visual contrasts for
+each predeclared added operation under the same capture settings. Report any
+interaction separately from the individual operation contrasts; do not fold it
+into a new aesthetic score or an unrecorded branch preference.
+
 For each profile, retain consistent front, side, and three-quarter views, plus
 a turntable when practical. Capture targeted closeups of shoulders, hips,
 muzzle, paws, and other branch junctions that the profile includes. A second
@@ -59,6 +64,9 @@ assessment. The checks should cover, as applicable to the claimed stage:
 - repeatability from the same source, build/configuration identity, and seed;
 - preservation and inspectability of semantic IDs and regions;
 - a connected visible surface for the supported body plan;
+- field-clearance status at all six domain faces, sub-voxel sampling-phase
+  checks, and prospective component/topology invariants where the experiment
+  has declared them;
 - watertightness and non-manifold reporting, including explicit diagnostics for
   failures rather than an assumed pass;
 - expected attachments and junctions, including required modules and enabled
@@ -67,6 +75,10 @@ assessment. The checks should cover, as applicable to the claimed stage:
 - source-linked semantic joint frames and semantic region intent/lineage. These
   checks do not establish a usable bone hierarchy, bind weights/skinning,
   analytic collision proxies, shared pose, actual contact, or deformation.
+
+For semantic comparison records, preserve cross-operator contributor
+distribution, top-k residual/discarded mass, deterministic ties, and chart
+validity as distinct diagnostics; they are not visual-quality scores.
 
 An objective check may be pass, fail, or inconclusive. The protocol does not
 invent numeric aesthetic scores or convert a visual impression into a hidden

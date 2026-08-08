@@ -130,9 +130,31 @@ own allowed construction rule.
 
 The registration must freeze the branch-operation matrix, allowed operations,
 selected blend sites, generator set, parameter/tuning budgets,
-implementation-effort budget, and common output fields. An internal scalar-field storage
-choice does not change branch identity. Exact operations and values are not
-selected by this design.
+implementation-effort budget, and common output fields. An internal
+scalar-field storage choice does not change branch identity. Exact operations
+and values are not selected by this design.
+
+All branches use the same initial configuration and seed, common declared
+objective, and fixed maximum adjustment count. Adjustments are global branch
+parameters only; no per-fixture tuning or correction is permitted in the
+primary comparison. The registration freezes the deterministic initialization,
+adjustment unit, stopping rule, and maximum count. Code, parameter, and
+knowledge reuse between branches is logged. Before primary comparison, every
+required branch must pass branch-neutral analytical readiness fixtures, cover
+every required operation in its matrix, and disclose unresolved defects. An
+unready required branch makes each affected comparison `Inconclusive`.
+
+The paired per-fixture/site contrasts are:
+
+| Contribution | Without the other contribution | With the other contribution |
+| --- | --- | --- |
+| Blending | `S+B` versus `S` | `Full` versus `S+G` |
+| Generators | `S+G` versus `S` | `Full` versus `S+B` |
+
+Here `S` is skeleton/swept-profile, `B` is selected blending, and `G` is the
+reusable specialized-generator layer. Report their blending/generator
+interaction separately; this is bounded attribution, not full-factorial
+coverage.
 
 ## Common sampling and convergence structure
 
@@ -144,12 +166,20 @@ convention, and deterministic postprocessing order. Per profile, the primary
 comparison uses the same frozen bounds and three uniform grids: coarse,
 nominal, and fine.
 
-The registration must define the exact grid sizes and numerical thresholds.
-The design requires clipping checks, feature-relative sampling checks, and
-convergence/stability measurements for components, named junctions, gaps, and
-thin features. Deviations from the common bounds, grids, or field contract are
-separate exploratory runs. Lewiner's guarantee remains scoped to reconstruction
-from the sampled grid, not the continuous field.
+At nominal resolution, use a small deterministic set of sub-voxel phase
+offsets. The exact offsets, grid sizes, and numerical thresholds are frozen at
+registration. The design requires clipping checks, independent
+continuous-field/isovalue clearance at all six domain faces, feature-relative
+sampling checks, and convergence/stability measurements for components, named
+junctions, gaps, thin features, and predeclared topology invariants. For each
+valid initial closed creature exterior, the default expected invariant is one
+watertight connected genus-zero component unless the fixture prospectively
+declares another valid expectation. Phase or topology instability, unavailable
+or invalid mandatory evidence, clipping, and sampling non-convergence are
+evidence-readiness failures and are `Inconclusive` under the shared precedence
+in DR-0009. Deviations from the common bounds, grids, phases, or field contract
+are separate exploratory runs. Lewiner's guarantee remains scoped to
+reconstruction from the sampled grid, not the continuous field.
 
 Run a repeated deterministic execution within the declared process, thread,
 numeric, and platform scope. Record canonicalization, hashes, geometric
@@ -167,19 +197,27 @@ this design only establishes how those records join the other evidence.
 Record mandatory fixture gates and machine/checklist results separately for
 connectedness, boundaries/non-manifold cases, Euler characteristic or genus
 where applicable, self-intersections, winding/orientation, signed volume,
-normals versus field gradients, component/junction/gap/thin-feature stability,
-diagnostic completeness, and expected attachments. Mark inapplicable,
-unavailable, failed, and inconclusive results explicitly.
+normals versus field gradients, six-face continuous-field/isovalue clearance,
+phase and component/junction/gap/thin-feature stability, expected topology
+invariants, diagnostic completeness, and expected attachments. Mark
+inapplicable, unavailable, failed, and inconclusive results explicitly;
+unavailable or invalid required evidence is not an implicit pass.
 
 ### Semantic ledger
 
-Record resolved-graph lineage, raw and top-k contributors with normalized
-weights, categorical ownership, each contributor's semantic ID and
-local-chart identity/local coordinate/validity, missing-field masks, and
-ambiguity diagnostics. Keep categorical IDs separate from scalar interpolation
-and do not blend incompatible charts. Run independent analytical fixtures or
-oracles for coverage, normalization, missing contributors, chart
-reconstruction/validity, landmarks, and expected boundary ambiguity.
+Record resolved-graph lineage and the shared non-negative semantic contribution
+distribution. Each operator exposes raw non-negative contribution mass and its
+declared transfer/aggregation rule. Normalize the complete distribution to one
+when valid; top-k values retain their full-distribution normalized weights and
+are not renormalized, while discarded residual mass is recorded explicitly.
+Record deterministic hard-selection ties and ambiguity flags, declared smooth
+blend coefficients, categorical ownership separately, each contributor's
+semantic ID and local-chart identity/local coordinate/validity, missing-field
+masks, and chart-seam multiple-contributor or invalid/ambiguous states. Do not
+blend incompatible charts. Independent analytical fixtures or oracles define
+expected distributions, ties, residual mass, chart validity, coverage,
+normalization, missing contributors, landmarks, and boundary ambiguity without
+reusing the propagation implementation.
 
 ### Subjective visual ledger
 
@@ -201,16 +239,20 @@ or limitation, not hidden in a branch.
 
 ## Interpretation and retained failures
 
-Apply the comparative rule in [DR-0009](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
+Apply the evidence-first comparative rule in [DR-0009](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
 only after exact aggregation and threshold rules, named junction/feature
-criteria, and the assessment rule have been frozen. The hybrid is supported
-only if every mandatory fixture gate passes, it is no worse than the strongest
-passing baseline on mandatory structural/semantic checks, and it improves the
-predeclared named junction/feature criteria. Reject it if a mandatory gate
-fails or a simpler credible baseline achieves the same claimed result without
-the named improvement. Mixed structural/subjective trade-offs, reviewer
-disagreement, or inadequate evidence are inconclusive. Complexity, tuning, and
-effort qualify the interpretation in every outcome.
+criteria, readiness fixtures, paired contrasts, and the assessment rule have
+been frozen. Shared-pipeline failure, unavailable mandatory evidence,
+clipping, sampling non-convergence, phase/topology instability, or any
+required unready branch makes the affected comparison `Inconclusive` before a
+technology outcome. With valid evidence, report all eligible passing baselines
+and their non-dominated frontier rather than a scalar or one strongest
+baseline. Hybrid mandatory failure or missing named improvement is `Reject`;
+hybrid passing with its named improvement, no mandatory regression against the
+frontier, and no simpler eligible baseline matching the claimed result is
+`Support`. If no baseline passes, the empty-frontier support case is allowed
+only with the limitation recorded. Genuine mixed trade-offs, unresolved visual
+disagreement, and budget/readiness breach remain `Inconclusive`.
 
 Retain raw failures, failed and inconclusive fixtures, invalid-fixture
 diagnostics, disagreements, missing contributors, clipping, sampling

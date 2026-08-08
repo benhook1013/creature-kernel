@@ -1,6 +1,6 @@
 # Decision record process
 
-Status: Provisional operational trial
+Status: Operational under Accepted DR-0001 Revision 5
 
 This directory records consequential decisions and their rationale. Decision
 Records (DRs) do not replace canonical product, specification, or architecture
@@ -37,9 +37,9 @@ authority to replace canonical documents.
 
 Unaccepted material remains clearly labelled `Proposed` or `provisional`. A
 plausible assistant synthesis is not an accepted product or architecture
-baseline. The registry, process, and review structure are active/operational
-under the DR-0001 Revision 5 bootstrap trial; that operational state is not an
-accepted governance contract.
+baseline. The registry, process, and review structure operate under Accepted
+DR-0001 Revision 5; that governance acceptance does not accept any linked
+product, specification, or architecture proposal.
 
 ## Revision and review rule
 

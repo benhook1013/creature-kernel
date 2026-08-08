@@ -1,12 +1,12 @@
 # Repository evolution ledger
 
-Status: Provisional operational trial
+Status: Operational under Accepted DR-0001 Revision 5
 
 This ledger records which structural capabilities exist now and which activate
 only after concrete triggers. It prevents empty scaffolding from being mistaken
 for approved design. Its active entries mean the structure exists or is used
-under the DR-0001 Revision 5 operational trial; they do not mean the governing
-design or any product/architecture proposal is accepted.
+under the accepted DR-0001 Revision 5 governance process; they do not accept
+any product, specification, or architecture proposal.
 
 States: `active`, `planned`, `triggered`, `deferred`, `not-applicable`, `retired`.
 

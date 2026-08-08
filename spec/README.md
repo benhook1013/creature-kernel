@@ -30,11 +30,13 @@ changing the meaning of persisted bodies or avatar packages.
   ownership of usable skeletons, skin weights, collision proxies, contact, and
   deformation claims.
 - A planned disposable Stage 1 sampled-field and semantic-lineage contract,
-  informed by [DR-0010 Revision 2](../docs/decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md),
-  including normalized field semantics, contributor provenance, categorical
-  ownership, chart validity, ambiguity diagnostics, and scoped determinism.
-  Exact storage layout and numeric thresholds remain future specification and
-  experiment-registration work.
+  informed by [DR-0010 Revision 3](../docs/decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md),
+  including normalized field semantics, sub-voxel sampling-phase checks,
+  six-face field clearance, prospective topology invariants, contributor
+  provenance and cross-operator contribution distribution, categorical
+  ownership, chart validity, ambiguity diagnostics, top-k residual/discarded
+  mass, and scoped determinism. Exact storage layout, grid sizes, and numeric
+  thresholds remain future specification and experiment-registration work.
 - Runtime avatar package.
 - Interaction and quality negotiation.
 - Shared domain-operation and diagnostic contracts (eventually).

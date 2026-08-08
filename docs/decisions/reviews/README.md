@@ -1,6 +1,6 @@
 # Adversarial decision reviews
 
-Status: Provisional operational trial
+Status: Operational under Accepted DR-0001 Revision 5
 
 This directory stores concise reviews of specific DR revisions. Reviews are
 evidence and recommendations, not decisions.

@@ -7,16 +7,14 @@ runtime. Treat product intent, specifications, architecture, decisions,
 experiments, implementation status, and evidence as different kinds of
 information. Do not allow one kind to silently redefine another.
 
-## Provisional bootstrap trial
+## Accepted governance and operational guidance
 
-This file is binding provisional operational trial guidance under DR-0001
-Revision 5, authorized by Ben for the 2026-08-08 governance bootstrap. It
-preserves authority separation, proposal labels, review evidence, repository
-safety, and explicit human ownership during the trial; it does not accept
-DR-0001 or any product/architecture proposal. “Active” or “operational” here
-describes structure in use, not an accepted project contract. If Ben rejects or
-materially replaces DR-0001, the main thread retires or migrates trial-only
-controls while preserving proposal and review history.
+This file is binding operational guidance under Accepted DR-0001 Revision 5.
+It preserves authority separation, proposal labels, review evidence, repository
+safety, and explicit human ownership. Acceptance applies to the governance
+process only; it accepts no product, specification, or architecture proposal.
+If Ben later supersedes or materially replaces DR-0001, the main thread retires
+or migrates these controls while preserving proposal and review history.
 
 ## Required reading order
 
