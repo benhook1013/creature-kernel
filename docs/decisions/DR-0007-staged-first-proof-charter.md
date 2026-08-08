@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-09
 
@@ -195,9 +195,11 @@ is historical and stale for Revision 2. It identified three blocking issues:
 contradictory Stage 1/Stage 2 embodiment ownership, an undefined effect of
 fixture failure or inconclusive results on the Stage 1 continuation claim, and
 qualitative fixture identities that were not fixed enough to preserve the
-evidence population. Revision 2 records Ben's settled resolutions; current
-review and Ben's owner disposition remain pending. Only Ben may accept or
-reject this proposal.
+evidence population. The [current-revision review](reviews/DR-0007-rev-02-review-01.md)
+is Complete with an Accept recommendation at High confidence and no blocker.
+It notes the nonblocking need to freeze valid/invalid classification and the
+expected diagnostic for invalid fixtures. Ben's owner disposition remains
+pending. Only Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 

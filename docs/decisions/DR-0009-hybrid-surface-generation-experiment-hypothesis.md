@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-09
 
@@ -182,10 +182,13 @@ architecture. **Recommendation: Option 4.**
 
 ## Adversarial Review Response
 
-Current-revision review: **Pending**. Ben requested two independent
-adversarial reviews for these technically complex decisions; neither review
-exists yet. No review finding is being treated as resolved, and this record
-remains Proposed with Owner approval Pending.
+The [architecture/proof-boundary review](reviews/DR-0009-rev-01-review-01.md)
+and [geometry/topology/semantic-data review](reviews/DR-0009-rev-01-review-02.md)
+are Complete. Both recommend Revise at High confidence. The reviews leave
+unresolved blockers concerning a predeclared comparative decision rule,
+component attribution and ablations, and a frozen branch-operation and common
+semantic-input/output comparison contract. No finding is treated as resolved;
+this record remains Proposed with Owner approval Pending.
 
 ## Implementation and Proof Obligations
 

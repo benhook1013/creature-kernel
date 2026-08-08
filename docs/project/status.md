@@ -21,12 +21,14 @@ blockers; Ben's owner disposition remains pending. Round 5 is integrated as
 Proposed: DR-0007 Revision 2 records the three-stage first-proof charter and
 DR-0008 Revision 2 records the bounded digitigrade family, fixed fixture
 envelope, and source-linked Stage 1 embodiment intent; both material revisions
-are integrated and Review Pending. Round 6 is integrated
-as Proposed: DR-0009 records the hybrid surface-generation experiment
+are integrated and Review Complete with owner disposition pending. Round 6 is
+integrated as Proposed: DR-0009 records the hybrid surface-generation experiment
 hypothesis and DR-0010 records disposable Stage 1 extraction and semantic-field
-propagation policies; both are Review Pending. Ben requested two independent
-adversarial reviews for these technically complex Round 6 decisions, and those
-reviews do not yet exist. No DR is Accepted. Product and architecture prose
+propagation policies; both are Review Complete with owner disposition pending.
+Two independent fresh reviews are recorded for each Round 6 decision: DR-0009
+has Revise recommendations at High confidence from both reviewers, while
+DR-0010 has Accept at Medium confidence and Revise at High confidence. The
+findings remain unresolved. No DR is Accepted. Product and architecture prose
 remains proposed or provisional until the relevant proposal has Ben's explicit
 disposition.
 
@@ -65,14 +67,17 @@ disposition.
   confidence and no blockers; owner disposition remains pending.
 - Round 5: integrated/proposed — DR-0007 Revision 2 and DR-0008 Revision 2
   retain the first-proof stages, morphology envelope, fixed fixtures, and
-  source-linked Stage 1 embodiment intent; both material revisions remain
-  Review Pending. No DR is Accepted.
+  source-linked Stage 1 embodiment intent; both material revisions are Review
+  Complete with Accept recommendations at High confidence and owner
+  dispositions pending. No DR is Accepted.
 - Round 6: integrated/proposed — DR-0009 Revision 1 and DR-0010 Revision 1
   record Stage 1 experiment hypotheses for hybrid surface generation,
-  deterministic surface extraction, and semantic-field propagation. Both are
-  Review Pending; Ben requested two independent adversarial reviews, which are
-  not yet present. They do not settle permanent production surface, topology,
-  runtime-field, or backend architecture.
+  deterministic surface extraction, and semantic-field propagation. Both have
+  Review Complete with two independent current-revision reviews; DR-0009 has
+  two unresolved Revise recommendations at High confidence, and DR-0010 has
+  differing Accept/Revise recommendations with unresolved Revise blockers.
+  They do not settle permanent production surface, topology, runtime-field, or
+  backend architecture.
 
 ## Active work
 
@@ -81,11 +86,11 @@ disposition.
 - Preserve the completed Round 3 review responses and obtain owner dispositions
   for DR-0002 Revision 2, DR-0004 Revision 2, and DR-0006 Revision 1.
 - Obtain Ben's owner disposition for the completed DR-0003 Revision 2 review
-  while keeping it provisional and separate from acceptance; review the
-  Revision 2 resolutions for DR-0007 and DR-0008 before their disposition.
-- Review the integrated Round 6 proposals against the fixed qualitative fixture
-  envelope and the separate visual-evaluation protocol; keep CK-KICK-009
-  queued until the proposals have been reviewed.
+  while keeping it provisional and separate from acceptance, and obtain owner
+  dispositions for DR-0007 and DR-0008 after their completed reviews.
+- Human resolution of the DR-0009 and DR-0010 review findings, followed by
+  discussion of the next experiment; no proposal revision or fix is underway.
+- Keep CK-KICK-009 queued until the human review discussion is complete.
 - Preserve historical review responses and keep later proof, morphology,
   geometry, runtime, and implementation topics in their provisional rounds.
 - Keep the neutral registry, authority indexes, workflow, and validator
@@ -121,27 +126,30 @@ disposition.
   Medium confidence, no decision blockers, owner disposition pending.
 - [DR-0007](../decisions/DR-0007-staged-first-proof-charter.md): staged
   first-proof charter and claim boundaries — Revision 2, Product scope;
-  Proposed and Review Pending; owner disposition pending.
+  Proposed and Review Complete, Accept recommendation at High confidence with
+  no blocker; owner disposition pending.
 - [DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md):
   first digitigrade morphology and Stage 1 embodiment envelope — Revision 2,
-  Product, Specification and architecture scope; Proposed and Review Pending;
-  owner disposition pending.
+  Product, Specification and architecture scope; Proposed and Review Complete,
+  Accept recommendation at High confidence with no blocker; owner disposition
+  pending.
 - [DR-0009](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md):
   hybrid surface-generation experiment hypothesis — Revision 1, Architecture
-  scope; Proposed and Review Pending; Ben requested two independent
-  adversarial reviews, not yet present; owner disposition pending.
+  scope; Proposed and Review Complete, two Revise recommendations at High
+  confidence with unresolved blockers; owner disposition pending.
 - [DR-0010](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md):
   Stage 1 surface extraction and semantic-field propagation — Revision 1,
-  Specification and architecture scope; Proposed and Review Pending; Ben
-  requested two independent adversarial reviews, not yet present; owner
-  disposition pending.
+  Specification and architecture scope; Proposed and Review Complete, with an
+  Accept recommendation at Medium confidence and a Revise recommendation at
+  High confidence; Revise blockers remain unresolved and owner disposition is
+  pending.
 
 ## Implementation status
 
 | Capability | Implementation | Verification | Notes |
 | --- | --- | --- | --- |
 | Documentation authority | partial | unverified | Provisional structure and validator integrated; review complete; Ben's disposition pending |
-| Decision-record and review workflow | partial | unverified | DR-0001 Revision 4, DR-0005 Revision 1, the Round 3 proposals, and DR-0003 Revision 2 have completed reviews; DR-0007/0008 Revision 2 and DR-0009/0010 Revision 1 are Review Pending; no acceptance completed |
+| Decision-record and review workflow | partial | unverified | DR-0001 Revision 4, DR-0005 Revision 1, the Round 3 proposals, DR-0003 Revision 2, DR-0007/0008 Revision 2, and DR-0009/0010 Revision 1 have completed reviews; no acceptance completed |
 | Research/experiment workflow | partial | unverified | Templates exist; no experiment registered |
 | Body specification | design-unresolved | not-applicable | Contract boundary remains proposed |
 | Creature compiler | not-implemented | not-applicable | No language or backend selected |
@@ -151,11 +159,10 @@ disposition.
 
 - Record Ben's explicit disposition after the review responses; all Round 3 and
   Round 4 DRs remain Proposed until then.
-- Review the Revision 2 resolutions for DR-0007/0008 and obtain Ben's explicit
-  dispositions for them and the completed DR-0003 review.
-- Commission the requested two independent reviews of DR-0009/0010 using the
-  fixed fixture envelope and visual-evaluation evidence plan.
-- Prepare the evidence plan for the initial surface-generation choice.
+- Obtain Ben's explicit dispositions for DR-0007/0008 and the completed
+  DR-0003 review.
+- Resolve the DR-0009/0010 review findings through human discussion, then
+  discuss the next experiment and its evidence plan.
 
 ## Explicitly not started
 
