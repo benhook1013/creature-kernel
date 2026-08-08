@@ -3,7 +3,7 @@
 Status: Provisional operational trial
 
 Use this workflow whenever the main thread considers delegating work or
-requesting model-backed independent review during the DR-0001 Revision 4
+requesting model-backed independent review during the DR-0001 Revision 5
 provisional operational trial. It preserves safety and ownership boundaries but
 does not accept DR-0001 or any product/architecture proposal.
 
@@ -31,14 +31,33 @@ owner decides.
 The main thread groups roughly two to five related decisions or talking points
 into one discussion batch and finishes the discussion with Ben. Luna applies
 non-trivial document edits, evidence gathering, and bounded mechanical work;
-the main thread inspects and integrates the batch and commits it. In the next
-round, one fresh adversarial review examines the exact edit batch while
-independent research for the next batch may proceed when dependencies permit.
-The main thread returns concise findings with that next batch. Decision-bearing
-findings are not auto-fixed and the process does not run a review-until-clean
-loop; mechanical defects faithful to settled intent may be corrected, while a
-new scope, trade-off, or authority choice returns to Ben. Unaccepted material
-remains clearly labelled Proposed or provisional.
+the main thread inspects and integrates the batch and commits it. At the end of
+every substantive design-cycle handoff, the main thread explicitly states
+`Recommended adversarial level: None|Single|Double — <one-line reason>` as
+advice to Ben and a durable planning signal, not automatic acceptance. `None`
+is for purely mechanical/reversible work or discussion with no created or
+materially revised consequential DR and no novel evidence-bearing claim; it
+cannot satisfy the review prerequisite for a created or materially revised
+consequential DR, which still needs review or Ben's explicit recorded waiver.
+`Single` is the normal default for a consequential DR or meaningful bounded
+design batch and means one fresh independent pass. `Double` is exceptional for
+direction-setting, cross-cutting, hard-to-reverse or locking, technically
+complex, strongly evidence-dependent, disputed, or difficult-to-audit work; it
+means two genuinely independent fresh passes with distinct named lenses,
+normally Sol medium for foundational work. Do not send duplicate prompts and
+call them diversity. More than Double or Sol above medium requires Ben's
+explicit approval. Ben may raise or lower the recommendation or waive as
+already governed. A material proposal revision makes older reviews stale; when
+Double remains justified by the decision's impact, the revised current version
+normally receives Double again unless Ben changes or waives it. Double is one
+pass per reviewer on the current revision, not review-until-clean. The main
+thread consolidates duplicate and contradictory findings and presents only
+actionable findings. Independent research for the next batch may proceed when
+dependencies permit. Decision-bearing findings are not auto-fixed and the
+process does not run a review-until-clean loop; mechanical defects faithful to
+settled intent may be corrected, while a new scope, trade-off, or authority
+choice returns to Ben. Unaccepted material remains clearly labelled Proposed or
+provisional.
 
 ## Model routing
 
@@ -53,9 +72,11 @@ remains clearly labelled Proposed or provisional.
 - Escalate to `gpt-5.6-sol` at `medium` when broad synthesis, ambiguous evidence,
   or general reasoning matters more than coding-agent throughput. This is a
   task-type escalation, not the automatic next tier after Luna.
-- Use a fresh `gpt-5.6-sol` reviewer at `medium` by default for foundational
-  adversarial review. Use Luna at xhigh for narrow convergence, implementation,
-  or bounded technical review when that better fits the corpus.
+- For a Single foundational adversarial review, use a fresh `gpt-5.6-sol`
+  reviewer at `medium` by default. For a Double review, use two genuinely
+  independent fresh passes with distinct named lenses, normally Sol at medium
+  for foundational work. Use Luna at xhigh for narrow convergence,
+  implementation, or bounded technical review when that better fits the corpus.
 - Sol at `high` is the absolute subagent ceiling and requires explicit human
   approval. Do not use Terra as a normal routing tier.
 
@@ -165,8 +186,10 @@ same repository context.
 - The main thread checks evidence, merges duplicates, identifies contradictions,
   and returns the findings to Ben; it does not auto-fix decision-bearing issues
   or start a review-until-clean loop.
-- Stop after one pass, with at most five high-value findings. A later review is
-  a new main-thread decision when a material revision or new batch warrants it.
+- Stop after the selected level's passes, with at most five high-value findings
+  per pass. Double is one pass per reviewer on the current revision, not
+  review-until-clean. A later review is a new main-thread decision when a
+  material revision or new batch warrants it.
 
 Use the [fresh-reread preamble](../decisions/reviews/fresh-reread-preamble.md)
 for DR and design convergence passes.
@@ -211,10 +234,12 @@ The main thread reads every returned diff directly rather than treating the
 worker's summary as proof. It reconciles interactions and runs consolidated
 validation against the integrated work.
 
-Every final report states:
-
-- how many subagents were used;
-- each subagent's bounded role and model when known;
-- whether each subagent changed files or supplied evidence only;
-- which validation was run by subagents and by the main thread;
-- any explicitly authorized model-routing deviation or incomplete review coverage.
+Every final handoff is brief and auditable. First provide one concise line per
+subagent in the form `Subagent: <bounded role>; model: <model>; reasoning
+effort: <effort>; <edited files: <paths> | evidence only>`. State the model and
+reasoning effort explicitly, using `unknown` only when the runtime did not
+expose them. Then provide one concise validation line covering both
+subagent-scoped checks and the main consolidated checks, including explicit
+`deferred` or `unavailable` states. The handoff also states the number of
+subagents used and any explicitly authorized model-routing deviation or
+incomplete review coverage; it does not require a prose summary.

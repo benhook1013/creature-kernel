@@ -38,7 +38,7 @@ authority to replace canonical documents.
 Unaccepted material remains clearly labelled `Proposed` or `provisional`. A
 plausible assistant synthesis is not an accepted product or architecture
 baseline. The registry, process, and review structure are active/operational
-under the DR-0001 Revision 4 bootstrap trial; that operational state is not an
+under the DR-0001 Revision 5 bootstrap trial; that operational state is not an
 accepted governance contract.
 
 ## Revision and review rule
@@ -48,13 +48,28 @@ constraints, alternatives, or consequences increments its revision. Reviews
 name the revision they assessed. An older review does not satisfy acceptance
 for a newer revision.
 
-The review recommends; it does not decide. Important DRs normally receive one
-current-revision adversarial review before acceptance. Ben may explicitly waive
-a review by recording `Review status: Waived` and one non-placeholder `Waiver
-reason:` line. A DR may become `Accepted` only when the current proposal has
-been reviewed or explicitly waived, required evidence and proof obligations are
-identified or deferred with a stated reason, canonical design links are
-identified, and Ben explicitly approves it. Until then use
+The review recommends; it does not decide. At the end of every substantive
+design-cycle handoff, the main thread states `Recommended adversarial level:
+None|Single|Double — <one-line reason>` as advice to Ben and a durable planning
+signal, not automatic acceptance. `None` is for purely mechanical/reversible
+work or discussion with no created or materially revised consequential DR and
+no novel evidence-bearing claim; it cannot satisfy the review prerequisite for
+a created or materially revised consequential DR. `Single` is the normal
+default and means one fresh independent pass. `Double` is exceptional for
+direction-setting, cross-cutting, hard-to-reverse or locking, technically
+complex, strongly evidence-dependent, disputed, or difficult-to-audit work;
+it means two genuinely independent fresh passes with distinct named lenses,
+normally Sol medium for foundational work. More than Double or Sol above
+medium requires Ben's explicit approval. Ben may raise, lower, or waive the
+recommendation. A material proposal revision makes older reviews stale; when
+Double remains justified by the decision's impact, the revised current version
+normally receives Double again unless Ben changes or waives it. Double is one
+pass per reviewer on the current revision, not review-until-clean; the main
+thread consolidates duplicates and contradictions and presents only actionable
+findings. A DR may become `Accepted` only when the current proposal has been
+reviewed at the selected level or explicitly waived, required evidence and
+proof obligations are identified or deferred with a stated reason, canonical
+design links are identified, and Ben explicitly approves it. Until then use
 `Owner approval: Pending`.
 
 Reviews are advisory memory, not audit records. A concise review states its
@@ -70,8 +85,9 @@ status is required.
    points into one discussion batch and finishes the discussion with Ben.
 2. Luna applies non-trivial document edits, evidence gathering, and bounded
    mechanical work supported by that settled discussion.
-3. The main thread inspects and integrates the batch, then commits it and starts
-   one fresh adversarial review of the exact edit batch in the next round.
+3. The main thread inspects and integrates the batch, then commits it and
+   recommends the risk-scaled adversarial review level for the exact edit batch
+   in the next round.
 4. Independent research for the next batch may proceed concurrently when
    dependencies permit. The main thread returns concise findings with the next
    researched batch.

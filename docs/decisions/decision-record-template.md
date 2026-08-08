@@ -45,10 +45,23 @@ before explaining why it was not selected.
 ## Adversarial Review Response
 
 Link the current-revision review when one exists and record a concise response
-to its material objections. Important DRs normally receive one current-revision
-review before acceptance. Ben may explicitly waive a review by recording
-`Review status: Waived` and one non-placeholder `Waiver reason:` line. Only Ben
-accepts or rejects the DR.
+to its material objections. At the end of every substantive design-cycle
+handoff, the main thread states `Recommended adversarial level:
+None|Single|Double — <one-line reason>` as advice to Ben and a durable planning
+signal, not automatic acceptance. `None` is for purely mechanical/reversible
+work or discussion with no created or materially revised consequential DR and
+no novel evidence-bearing claim; it cannot satisfy the review prerequisite for
+a created or materially revised consequential DR. `Single` is the normal
+default and means one fresh independent pass. `Double` is exceptional for
+direction-setting, cross-cutting, hard-to-reverse or locking, technically
+complex, strongly evidence-dependent, disputed, or difficult-to-audit work;
+it means two genuinely independent fresh passes with distinct named lenses.
+Double is one pass per reviewer on the current revision, not review-until-clean.
+More than Double or Sol above medium requires Ben's explicit approval. Ben may
+raise, lower, or waive the recommendation. A material revision makes older
+reviews stale. Ben may explicitly waive a review by recording `Review status:
+Waived` and one non-placeholder `Waiver reason:` line. Only Ben accepts or
+rejects the DR.
 
 ## Implementation and Proof Obligations
 

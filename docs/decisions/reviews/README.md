@@ -27,11 +27,24 @@ structured objection ledger.
 
 When a DR materially changes, increment its revision. Reviews of earlier
 revisions remain historically useful but no longer satisfy acceptance of a
-newer revision. Important DRs normally receive one current-revision review
-before acceptance. Ben may explicitly waive a review with `Review status:
-Waived` and one non-placeholder `Waiver reason:` line in the DR. Findings return
-to Ben and the main thread; they are not auto-fixed or re-reviewed in a
-review-until-clean loop.
+newer revision. At the end of every substantive design-cycle handoff, the main
+thread states `Recommended adversarial level: None|Single|Double — <one-line
+reason>` as advice to Ben and a durable planning signal, not automatic
+acceptance. `None` is for purely mechanical/reversible work or discussion with
+no created or materially revised consequential DR and no novel evidence-bearing
+claim; it cannot satisfy the review prerequisite for a created or materially
+revised consequential DR. `Single` is the normal default and means one fresh
+independent pass. `Double` is exceptional for direction-setting,
+cross-cutting, hard-to-reverse or locking, technically complex, strongly
+evidence-dependent, disputed, or difficult-to-audit work; it means two
+genuinely independent fresh passes with distinct named lenses. More than Double
+or Sol above medium requires Ben's explicit approval. Ben may raise, lower, or
+waive the recommendation. Double is one pass per reviewer on the current
+revision, not review-until-clean; the main thread consolidates duplicates and
+contradictions and presents only actionable findings. Ben may explicitly waive
+a review with `Review status: Waived` and one non-placeholder `Waiver reason:`
+line in the DR. Findings return to Ben and the main thread; they are not
+auto-fixed or re-reviewed in a review-until-clean loop.
 
 ## Independence
 
@@ -40,7 +53,8 @@ agent/model, external expert, project author, or another method. Lack of
 independence does not make a review worthless, but it must not be hidden.
 
 Use the [fresh-reread preamble](fresh-reread-preamble.md) for an issue-only,
-one-pass convergence review. The broader [AI delegation workflow](../../developer-workflows/ai-delegation-and-review.md)
+single-pass convergence review when the selected level is Single. The broader
+[AI delegation workflow](../../developer-workflows/ai-delegation-and-review.md)
 defines model routing and ownership boundaries.
 
 ## Naming

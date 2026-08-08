@@ -8,6 +8,11 @@ contract and not evidence that the open questions are answered. Product stage
 claims remain in [vision and scope](../product/vision-and-scope.md) and
 [requirements](../product/requirements.md).
 
+The neutral profile manifest and branch/evidence ledgers are described in the
+[first surface experiment design](first-surface-experiment-design.md). This
+protocol owns the human visual-assessment method and does not register EXP-0001
+or provide evidence.
+
 ## Questions and scope
 
 The protocol informs the following entries in the [open research question
@@ -21,9 +26,13 @@ an assessment must not transfer a later-stage claim to an earlier stage.
 ## Evaluation inputs and views
 
 Evaluate the fixed body-profile set through the same generation operations,
-configuration, and seed policy: compact/broad/short-limbed/large-head;
-tall/narrow/long-legged; slender/long-limbed; and stocky/broad-chested. At
-least one profile must contrast optional-module presence, absence, or style.
+configuration, and seed policy, using these stable proposed IDs:
+`compact_broad_short_large_head`, `tall_narrow_long_legged`,
+`slender_long_limbed`, and `stocky_broad_chested`. The tall profile tests
+stature/aspect and lower-leg emphasis with moderate thickness; the slender
+profile tests low girth/thickness and long arm/leg proportions without extreme
+stature as its main axis. At least one profile must contrast optional-module
+presence, absence, or style.
 The project may select hypotheses and intended discriminating profiles before
 exact fixtures are frozen. Before EXP-0001 execution or evidence, freeze stable
 fixture IDs, concrete source inputs, discriminating parameters,

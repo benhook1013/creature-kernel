@@ -9,8 +9,10 @@ Foundation and round-based adversarial design.
 ## Current outcome
 
 The foundation scaffold and Round 3 proposal edits are integrated. DR-0001
-Revision 4 and DR-0005 Revision 1 are Proposed with Review Complete and Ben's
-owner disposition pending. Round 3 remains integrated as Proposed: DR-0002
+Revision 5 is Proposed with Review Pending and Ben's owner approval pending;
+its Revision 4 review is historical and stale for the current revision. DR-0005
+Revision 1 remains Proposed with Review Complete and Ben's owner disposition
+pending. Round 3 remains integrated as Proposed: DR-0002
 Revision 2, DR-0004 Revision 2, and DR-0006 Revision 1 are all Review Complete,
 with fresh Accept recommendations at Medium confidence and no decision
 blockers. The DR-0004 review found one mechanical system-overview diagram
@@ -21,29 +23,30 @@ blockers; Ben's owner disposition remains pending. Round 5 is integrated as
 Proposed: DR-0007 Revision 2 records the three-stage first-proof charter and
 DR-0008 Revision 2 records the bounded digitigrade family, fixed fixture
 envelope, and source-linked Stage 1 embodiment intent; both material revisions
-are integrated and Review Complete with owner disposition pending. Round 6 is
-integrated as Proposed: DR-0009 records the hybrid surface-generation experiment
-hypothesis and DR-0010 records disposable Stage 1 extraction and semantic-field
-propagation policies; both are Review Complete with owner disposition pending.
-Two independent fresh reviews are recorded for each Round 6 decision: DR-0009
-has Revise recommendations at High confidence from both reviewers, while
-DR-0010 has Accept at Medium confidence and Revise at High confidence. The
-findings remain unresolved. No DR is Accepted. Product and architecture prose
-remains proposed or provisional until the relevant proposal has Ben's explicit
-disposition.
+are integrated and Review Complete with owner disposition pending. Round 6
+Revision 2 proposals are integrated as Proposed: DR-0009 records the
+hybrid surface-generation experiment hypothesis and DR-0010 records disposable
+Stage 1 extraction and semantic-field propagation policies; both are Review
+Pending with owner approval pending. Reviews of their prior revisions are
+historical and stale for Revision 2. The planned review level for both current
+technical revisions is Double with distinct named lenses because they are
+cross-cutting and evidence-dependent. The next experiment design is
+proposed/prepared for discussion; `EXP-0001` remains unregistered and the
+disposable experiment host remains unresolved. No DR is Accepted. Product and
+architecture prose remains proposed or provisional until the relevant proposal
+has Ben's explicit disposition.
 
 ## Current round
 
 - Round 0: completed — foundation scaffold integrated and repository safeguards
   established.
-- Round 1: active/proposed — DR-0001 Revision 4 is Proposed with Review
-  Complete. Its fresh review recommends Accept with High confidence and found
-  no blockers; lightweight Git-based batch reconstruction, duplicated
-  model-routing guidance, and the removed validator unit-test suite remain
-  visible non-blocking risks. The Revision 2 and Revision 3 reviews remain
-  historical; their findings are preserved and are not being resolved or
-  re-reviewed in this batch. Later source, runtime, and automation proposals
-  were deferred to subsequent rounds.
+- Round 1: active/proposed — DR-0001 Revision 5 is Proposed with Review Pending
+  and owner approval pending. Its Revision 4 review is historical and stale;
+  the current planned review level is Single, the normal default, because this
+  governance revision is consequential but bounded. The Revision 2 and
+  Revision 3 reviews remain historical; their findings are preserved and are
+  not being resolved or re-reviewed in this batch. Later source, runtime, and
+  automation proposals were deferred to subsequent rounds.
 - Round 2: active/proposed — DR-0005 Revision 1 records the four proposed
   product-identity choices and is Proposed with Review Complete. Its fresh
   review recommends Accept with Medium confidence and found no blockers;
@@ -70,26 +73,28 @@ disposition.
   source-linked Stage 1 embodiment intent; both material revisions are Review
   Complete with Accept recommendations at High confidence and owner
   dispositions pending. No DR is Accepted.
-- Round 6: integrated/proposed — DR-0009 Revision 1 and DR-0010 Revision 1
+- Round 6: integrated/proposed — DR-0009 Revision 2 and DR-0010 Revision 2
   record Stage 1 experiment hypotheses for hybrid surface generation,
   deterministic surface extraction, and semantic-field propagation. Both have
-  Review Complete with two independent current-revision reviews; DR-0009 has
-  two unresolved Revise recommendations at High confidence, and DR-0010 has
-  differing Accept/Revise recommendations with unresolved Revise blockers.
-  They do not settle permanent production surface, topology, runtime-field, or
-  backend architecture.
+  Review Pending; reviews of Revision 1 are historical and stale. The planned
+  level is Double with distinct named lenses because these technical revisions
+  are cross-cutting and evidence-dependent. They do not settle permanent
+  production surface, topology, runtime-field, or backend architecture.
 
 ## Active work
 
-- Keep DR-0001 Revision 4 and DR-0005 Revision 1 Proposed pending Ben's owner
-  disposition after their completed reviews.
+- Keep DR-0001 Revision 5 and DR-0005 Revision 1 Proposed pending Ben's owner
+  disposition; DR-0001's current review is Pending at the planned Single level.
 - Preserve the completed Round 3 review responses and obtain owner dispositions
   for DR-0002 Revision 2, DR-0004 Revision 2, and DR-0006 Revision 1.
 - Obtain Ben's owner disposition for the completed DR-0003 Revision 2 review
   while keeping it provisional and separate from acceptance, and obtain owner
   dispositions for DR-0007 and DR-0008 after their completed reviews.
-- Human resolution of the DR-0009 and DR-0010 review findings, followed by
-  discussion of the next experiment; no proposal revision or fix is underway.
+- Review DR-0009 Revision 2 and DR-0010 Revision 2 at the planned Double level
+  with distinct named lenses, then resolve any findings with Ben before the
+  next experiment discussion. The next experiment design is
+  proposed/prepared, but `EXP-0001` remains unregistered and the disposable
+  host remains unresolved.
 - Keep CK-KICK-009 queued until the human review discussion is complete.
 - Preserve historical review responses and keep later proof, morphology,
   geometry, runtime, and implementation topics in their provisional rounds.
@@ -99,9 +104,9 @@ disposition.
 ## Proposed decisions and review state
 
 - [DR-0001](../decisions/DR-0001-documentation-authority-and-review-process.md):
-  documentation authority and decision-record process — Revision 4, Governance
-  scope; Proposed and Review Complete, Accept recommendation with High
-  confidence, no blockers, owner disposition pending.
+  documentation authority and decision-record process — Revision 5, Governance
+  scope; Proposed and Review Pending, planned Single level, owner approval
+  pending. Revision 4 review is historical and stale.
 - [DR-0002](../decisions/DR-0002-declarative-body-document-source-of-truth.md):
   authoritative semantic source set and resolved body graph — Revision 2,
   Specification and architecture scope; Proposed and Review Complete, Accept
@@ -134,22 +139,21 @@ disposition.
   Accept recommendation at High confidence with no blocker; owner disposition
   pending.
 - [DR-0009](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md):
-  hybrid surface-generation experiment hypothesis — Revision 1, Architecture
-  scope; Proposed and Review Complete, two Revise recommendations at High
-  confidence with unresolved blockers; owner disposition pending.
+  hybrid surface-generation experiment hypothesis — Revision 2, Architecture
+  scope; Proposed and Review Pending, planned Double review with distinct named
+  lenses, owner approval pending. Revision 1 reviews are historical and stale.
 - [DR-0010](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md):
-  Stage 1 surface extraction and semantic-field propagation — Revision 1,
-  Specification and architecture scope; Proposed and Review Complete, with an
-  Accept recommendation at Medium confidence and a Revise recommendation at
-  High confidence; Revise blockers remain unresolved and owner disposition is
-  pending.
+  Stage 1 surface extraction and semantic-field propagation — Revision 2,
+  Specification and architecture scope; Proposed and Review Pending, planned
+  Double review with distinct named lenses, owner approval pending. Revision 1
+  reviews are historical and stale.
 
 ## Implementation status
 
 | Capability | Implementation | Verification | Notes |
 | --- | --- | --- | --- |
-| Documentation authority | partial | unverified | Provisional structure and validator integrated; review complete; Ben's disposition pending |
-| Decision-record and review workflow | partial | unverified | DR-0001 Revision 4, DR-0005 Revision 1, the Round 3 proposals, DR-0003 Revision 2, DR-0007/0008 Revision 2, and DR-0009/0010 Revision 1 have completed reviews; no acceptance completed |
+| Documentation authority | partial | unverified | Provisional structure and validator integrated; DR-0001 Revision 5 current review pending; Ben's disposition pending |
+| Decision-record and review workflow | partial | unverified | DR-0001 Revision 5, DR-0005 Revision 1, the Round 3 proposals, DR-0003 Revision 2, DR-0007/0008 Revision 2, and DR-0009/0010 Revision 2 remain Proposed; DR-0001/0009/0010 current reviews are Pending and no acceptance completed |
 | Research/experiment workflow | partial | unverified | Templates exist; no experiment registered |
 | Body specification | design-unresolved | not-applicable | Contract boundary remains proposed |
 | Creature compiler | not-implemented | not-applicable | No language or backend selected |
@@ -157,12 +161,14 @@ disposition.
 
 ## Immediate next actions
 
-- Record Ben's explicit disposition after the review responses; all Round 3 and
-  Round 4 DRs remain Proposed until then.
+- Review DR-0001 Revision 5 at the planned Single level, then record Ben's
+  explicit disposition; all current DRs remain Proposed until then.
 - Obtain Ben's explicit dispositions for DR-0007/0008 and the completed
   DR-0003 review.
-- Resolve the DR-0009/0010 review findings through human discussion, then
-  discuss the next experiment and its evidence plan.
+- Review DR-0009/0010 Revision 2 at the planned Double level with distinct
+  named lenses, resolve findings through human discussion, then discuss the
+  proposed/prepared next experiment and its evidence plan. `EXP-0001` remains
+  unregistered and the disposable host remains unresolved.
 
 ## Explicitly not started
 

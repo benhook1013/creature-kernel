@@ -11,6 +11,9 @@ hypotheses, references, and research context.
 - [Open questions](open-questions.md)
 - [Reference index](references.md)
 - [Visual-quality evaluation protocol](visual-quality-evaluation.md)
+- [First surface experiment design](first-surface-experiment-design.md) — a
+  Proposed, neutral evidence design; EXP-0001 is not registered and no
+  evidence exists yet.
 - [Experiment workflow](../../experiments/README.md)
 
 ## Authority rule

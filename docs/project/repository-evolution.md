@@ -5,7 +5,7 @@ Status: Provisional operational trial
 This ledger records which structural capabilities exist now and which activate
 only after concrete triggers. It prevents empty scaffolding from being mistaken
 for approved design. Its active entries mean the structure exists or is used
-under the DR-0001 Revision 4 operational trial; they do not mean the governing
+under the DR-0001 Revision 5 operational trial; they do not mean the governing
 design or any product/architecture proposal is accepted.
 
 States: `active`, `planned`, `triggered`, `deferred`, `not-applicable`, `retired`.

@@ -42,13 +42,18 @@ Proposed compile/runtime boundary is recorded in
 and described in the execution model; exact interface schemas, compatibility,
 budgets, and runtime mutation details remain open.
 
-Round 6 records two Proposed Stage 1 experiment hypotheses: [DR-0009](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
+Round 6 records two Proposed Stage 1 experiment hypotheses: [DR-0009 Revision
+2](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
 describes a hybrid semantic skeleton/radius, implicit-blending, and reusable
-module branch, while [DR-0010](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md)
-describes disposable pinned uniform-grid Lewiner extraction and parallel
-semantic-field propagation. They guide falsifiable evidence only; neither
-settles permanent surface architecture, animation-ready topology, runtime field
-representation, implementation language, or a geometry backend.
+module branch with a bounded five-branch attribution matrix, while [DR-0010
+Revision 2](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md)
+describes disposable pinned uniform-grid Lewiner extraction, a common
+normalized field contract, convergence controls, and parallel semantic
+contributor lineage. The [first surface experiment design](../research/first-surface-experiment-design.md)
+organizes these proposals into a neutral evidence plan; it does not register
+EXP-0001 or create evidence. These materials guide falsifiable evidence only;
+none settles permanent surface architecture, animation-ready topology, runtime
+field representation, implementation language, or a geometry backend.
 
 ## Current maturity
 

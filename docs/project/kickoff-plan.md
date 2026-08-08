@@ -28,9 +28,14 @@ exact decision metadata and review cells.
   decisions or talking points.
 - Finish the discussion batch before integrating its canonical document changes
   and Proposed decision-record revisions.
-- After integration and validation, start one fresh adversarial review of the
-  previous edit batch and independent next-round research concurrently when
-  dependencies permit.
+- After integration and validation, the main thread states
+  `Recommended adversarial level: None|Single|Double — <one-line reason>` at
+  the end of the substantive design-cycle handoff, then starts the selected
+  risk-scaled adversarial review of the previous edit batch and independent
+  next-round research concurrently when dependencies permit. `None` is not a
+  substitute for review of a created or materially revised consequential DR;
+  `Single` is the normal default, while `Double` uses two independent fresh
+  passes with distinct named lenses only when justified.
 - The fresh review examines the current proposal revision and affected
   canonical documents. Findings return to Ben and the main thread; decision-
   bearing findings are not auto-fixed and the process does not run a
@@ -103,7 +108,7 @@ Outcome:
 
 - Preserve the historical fresh reviews of DR-0001 Revision 2 and Revision 3
   and their findings as advisory evidence.
-- Integrate the Revision 4 governance proposal, neutral registry, templates,
+- Integrate the Revision 5 governance proposal, neutral registry, templates,
   review naming, validator, authority indexes, and workflow.
 - Keep the review evidence and later owner-disposition handoff linked from the
   canonical DR and tracked by the live [project status](status.md).
@@ -123,9 +128,10 @@ Discussion topics:
   be disputed choices. Ordinary wording, derived detail, and reversible
   implementation stay lightweight.
 - Use the batch pipeline: finish discussion, integrate canonical and Proposed
-  DR changes, run one fresh review in the next round, and return concise
-  findings with the next batch. Decision-bearing findings return to Ben rather
-  than entering an automatic fix/review loop.
+  DR changes, state the recommended risk-scaled review level at handoff, and
+  return concise findings with the next batch. Decision-bearing findings return
+  to Ben rather than entering an automatic fix/review loop. Double means one
+  pass per reviewer on the current revision, not review-until-clean.
 - Keep unaccepted assistant-synthesized product and architecture material
   Proposed or provisional.
 - Keep the main Sol thread responsible for discussion, decomposition,
@@ -136,7 +142,7 @@ Discussion topics:
 
 Outputs:
 
-- [DR-0001 Revision 4](../decisions/DR-0001-documentation-authority-and-review-process.md)
+- [DR-0001 Revision 5](../decisions/DR-0001-documentation-authority-and-review-process.md)
   governance proposal integrated, with its review evidence and
   owner-disposition handoff retained on the canonical record.
 - [DR-0002](../decisions/DR-0002-declarative-body-document-source-of-truth.md)
@@ -149,8 +155,10 @@ Outputs:
 Review and next batch:
 
 - The Revision 2 and Revision 3 reviews remain historical evidence.
-- Revision 4 is the lightweight Proposed process selected for the trial after
-  considering those historical review recommendations.
+- Revision 5 is the lightweight Proposed process selected for the trial after
+  considering those historical review recommendations and actual rounds of
+  operation; its review selection is risk-scaled, with Single as the normal
+  default and Double reserved for justified high-impact work.
 - The main thread can independently research the Round 2 product-identity
   questions when dependencies permit.
 
@@ -380,9 +388,12 @@ preservation, animation topology, remeshing requirements, determinism,
 licensing, platform support, and runtime implications. Record references and
 tool/library constraints, then design a falsifiable first geometry experiment.
 Do not select production surface architecture from a prose survey alone. The
-integrated Proposed hypotheses are [DR-0009](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
-and [DR-0010](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md);
-they guide Stage 1 evidence and do not select a production backend.
+integrated Proposed hypotheses are [DR-0009 Revision 2](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
+and [DR-0010 Revision 2](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md);
+they guide Stage 1 evidence and do not select a production backend. Their
+current reviews are Pending; the planned level is Double with distinct named
+lenses because these technical revisions are evidence-dependent and
+cross-cutting.
 
 ### CK-KICK-009: Choose a disposable geometry experiment stack
 
@@ -404,6 +415,10 @@ Outcome:
 
 This avoids choosing the permanent language and engine merely to make the first
 mesh.
+
+Current handoff: the next experiment design is proposed/prepared for human
+discussion, but `EXP-0001` remains unregistered and the disposable experiment
+host remains unresolved.
 
 ### CK-KICK-010: Run and review the first surface experiment
 

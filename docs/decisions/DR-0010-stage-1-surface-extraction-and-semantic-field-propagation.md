@@ -6,17 +6,27 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 1
+Revision: 2
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-09
 
 Date decided: —
+
+Revision history: Revision 1 was reviewed in Round 6 by the [architecture and
+proof-boundary review](reviews/DR-0010-rev-01-review-01.md) and the
+[geometry, topology, and semantic-data review](reviews/DR-0010-rev-01-review-02.md).
+Both reviews remain preserved as historical evidence and are stale for this
+revision. Revision 2 applies Ben's settled resolutions: a common normalized
+field contract and three-grid convergence controls, explicit semantic
+contributor lineage and analytical oracles, and required topology,
+orientation, volume, and determinism diagnostics. A current-revision review is
+pending. This proposal remains unaccepted.
 
 Supersedes: —
 
@@ -62,40 +72,73 @@ library as a production dependency.
 
 ## Decision
 
-### Stage 1 extraction policy
+### Stage 1 extraction and sampling policy
 
-**Recommendation: Option 2 — deterministic, pinned, uniform-grid
-Lewiner Marching Cubes.** Stage 1 should fix the sampled bounds, grid
-resolution, isovalue, spacing convention, implementation version, and
-postprocessing order for each comparison run. Inputs, configuration, compiler
-version, and seed must be recorded. Postprocessing must use deterministic
-ordering and tie handling, and diagnostics must expose invalid or ambiguous
-samples rather than silently repairing them.
+**Recommendation: Option 2 — deterministic, pinned, uniform-grid Lewiner
+Marching Cubes with common sampling and convergence controls.** Stage 1 uses a
+common normalized field contract for every comparison branch. Before execution
+the experiment must define, at minimum:
 
-This policy is an evidence-control measure. Fixed sampling and a pinned
-implementation make branch outputs comparable under the declared experiment;
-they do not guarantee the topology of the underlying continuous field, remove
-sampling artefacts, produce animation-ready edge flow, or establish a
-production-quality meshing contract. Adaptive extraction, retopology,
-deformation loops, UV topology, and topology continuity across structural
-changes remain deferred.
+- coordinate system and units;
+- scalar sign convention and the meaning of the isovalue;
+- frozen per-fixture bounds and padding policy;
+- grid interpolation model and out-of-domain behaviour;
+- orientation and gradient convention; and
+- deterministic postprocessing order, ordering, tie handling, and diagnostic
+  behaviour.
+
+For each fixture, every branch uses the same frozen bounds and three uniform
+grids: coarse, nominal, and fine. Exact grid sizes are a later registration
+choice. The design must check clipping and feature-relative sampling, and
+measure convergence or stability for components, named junctions, gaps, and
+thin features. Any branch or fixture that deviates from the common policy is a
+separate exploratory run, not part of the primary comparison.
+
+The pinned Lewiner guarantee is scoped to reconstruction from the sampled
+grid. It does not guarantee topology or geometry of the underlying continuous
+field, remove sampling artefacts, produce animation-ready edge flow, or
+establish a production-quality meshing contract. Adaptive extraction,
+retopology, deformation loops, UV topology, and topology continuity across
+structural changes remain deferred.
 
 ### Semantic-field propagation policy
 
-**Proposed policy: Option 2 — carry parallel semantic fields, part fields,
-local coordinates, ownership/blend weights, and diagnostics through field
-construction and extraction, then sample them at generated vertices with
-deterministic tie rules.** The extraction result must retain links to the
-resolved semantic graph and distinguish part ownership, blend weights, and
-local coordinates from mesh indices. Ties, near-boundary ambiguity, missing
-fields, and out-of-domain samples must be reported with stable diagnostics.
+**Recommendation: Option 2 — preserve parallel semantic contributors and
+diagnostics through field construction and extraction.** The extraction result
+must retain links to the resolved semantic graph while keeping the following
+semantics distinct from ephemeral mesh indices:
 
-This policy is compatible with the documented OpenVDB example of transferring
-particle attributes into a level-set workflow, but that example is supporting
-evidence for feasibility rather than a dependency decision. The exact field
-formats, interpolation rules, and ambiguity thresholds remain specification
-work. Durable semantic identity and build/artifact provenance stay separate
-from the generated vertex, face, triangle, LOD, or array indices, as required by
+- raw contributors and a top-k contributor view, with normalized weights;
+- categorical ownership as a separate value, never as an interpolated scalar;
+- for every contributor, semantic ID, local-chart identity, local coordinate,
+  and validity state; and
+- missing-field masks and ambiguity diagnostics, including near-boundary and
+  out-of-domain cases.
+
+Contributor semantics must be defined per construction operator before the
+experiment. The skeleton/swept-profile operator identifies its semantic
+centerline, profile, and attachment contributors; the general implicit-field
+operator identifies the source semantic contributions to its composition; the
+selected-blending operator records its operand contributors and blend
+weights; and a specialized generator identifies its semantic module, local
+chart, and any module-level contributors. These are lineage descriptions, not
+an instruction to choose a storage schema or to make incompatible charts
+blendable. Categorical IDs must not be interpolated like scalar fields, and
+incompatible local charts must not be blended; the result must instead retain
+the ambiguity or invalidity diagnostic.
+
+Independent analytical fixtures and oracles are required for coverage,
+weight normalization, missing contributors, local-chart reconstruction and
+validity, semantic landmarks, and expected boundary ambiguity. They are
+branch-neutral checks on the propagation contract, not visual judgments.
+
+The policy is compatible with documented field workflows that transfer
+attributes into a level-set process, but those sources provide feasibility
+evidence rather than a dependency decision. Exact storage layout, numeric
+thresholds, interpolation details, and registration identifiers remain later
+specification or experiment-registration work. Durable semantic identity and
+build/artifact provenance stay separate from generated vertex, face, triangle,
+LOD, or array indices, as required by
 [DR-0006](DR-0006-durable-semantic-and-artifact-identity.md).
 
 ## Consequences
@@ -105,15 +148,39 @@ from the generated vertex, face, triangle, LOD, or array indices, as required by
 - A uniform grid may spend work in empty or high-detail regions and may miss
   information below its sampling resolution. Those limitations are accepted
   for the disposable proof and must be recorded.
-- Propagated fields make semantic lineage and local-coordinate checks possible
-  at generated vertices, but deterministic sampling cannot resolve ambiguous
-  ownership without a declared rule and diagnostic.
+- Three-grid convergence and feature-relative checks expose sampling and
+  clipping limitations instead of presenting one resolution as continuous
+  field truth. Deviations remain separate exploratory evidence.
+- Contributor lineage, chart validity, analytical oracles, and explicit
+  ambiguity diagnostics make semantic propagation inspectable without
+  interpolating categorical data or incompatible charts.
+- Required topology, orientation, volume, and normal-vs-gradient checks make
+  structural failures visible; they do not turn mesh output into a production
+  topology contract.
 - Mesh indices remain ephemeral build outputs. Consumers must use durable
   semantic identity and separately recorded artifact/build provenance for
   cross-build references.
 - The policy does not promise adaptive quality, animation-ready topology,
   stable topology under structural change, UVs, deformation, or runtime
-  extraction. Those topics remain open for later evidence and decisions.
+  extraction. It also does not claim bitwise cross-platform output; process,
+  thread, numeric, platform, canonicalization, and tolerance scope must be
+  recorded for an experiment-level determinism claim. Those topics remain open
+  for later evidence and decisions.
+
+### Required diagnostics and determinism scope
+
+The primary evidence ledger must include boundary and non-manifold reporting,
+Euler characteristic or genus where applicable, self-intersection checks,
+winding and orientation checks, signed-volume checks, and
+normal-versus-field-gradient checks. A check that is not applicable must be marked as such with its
+reason; an unavailable or ambiguous check is not an implicit pass.
+
+Experiment registration must define process, thread, numeric, and platform
+scope; mesh canonicalization and hashes; geometric tolerances; and how
+nondeterminism is isolated at each stage. A repeated deterministic run is
+required within that declared scope. The result may support scoped
+repeatability, but it must not claim bitwise cross-platform output without
+separate evidence.
 
 ## Alternatives Considered
 
@@ -133,9 +200,10 @@ classic paper alone does not provide those project-specific controls.
 
 This is credible because the scikit-image documentation exposes a Lewiner
 method and controls for level, spacing, step size, degenerates, and method.
-The project inference is that pinning the implementation and fixing grid
-policy, configuration, and postprocessing provides a practical comparable
-Stage 1 baseline. It is selected only for the disposable experiment.
+The project inference is that pinning the implementation, common normalized
+field contract, three-grid policy, configuration, convergence checks, and
+postprocessing provides a practical comparable Stage 1 baseline. It is
+selected only for the disposable experiment.
 **Recommendation: Option 2.**
 
 ### Extraction Option 3: Adaptive Dual Contouring
@@ -175,9 +243,10 @@ is near multiple semantic regions.
 This is credible because field workflows can carry more than an isosurface
 scalar: the OpenVDB attribute-transfer documentation provides primary evidence
 for transferring attributes into a level-set workflow. The project adds the
-inference that parallel semantic fields with deterministic sampling and
-ambiguity diagnostics are the most direct way to test lineage in Stage 1.
-**Recommendation: Option 2.**
+inference that raw and top-k contributors, normalized weights, categorical
+ownership, local-chart identity and validity, analytical oracles, and explicit
+ambiguity diagnostics are the most direct bounded way to test lineage in Stage
+1. **Recommendation: Option 2.**
 
 ### Semantic propagation Option 3: Separate region meshes and stitch
 
@@ -195,26 +264,46 @@ is Complete with an Accept recommendation at Medium confidence and no
 blocker; its nonblocking follow-ups are a cross-branch sampling-control rule
 and branch-neutral semantic oracles. The [geometry/topology/semantic-data
 review](reviews/DR-0010-rev-01-review-02.md) is Complete with a Revise
-recommendation at High confidence. It identifies unresolved blockers around a
-common field contract and convergence controls, and around semantic lineage
-beyond vertex sampling. No finding is treated as resolved; this record
-remains Proposed with Owner approval Pending.
+recommendation at High confidence. Both are preserved as historical Revision 1
+reviews and are stale for this Revision 2. They identified the common field
+contract, convergence controls, and semantic lineage beyond vertex sampling as
+the material revision topics. Ben's settled recommendations are applied above.
+Review of this material Revision 2 is pending, and Owner approval remains
+Pending; no finding is silently treated as an acceptance of the decision.
 
 ## Implementation and Proof Obligations
 
-- Define the fixed bounds, uniform-grid resolution, isovalue, spacing,
-  implementation version, postprocessing order, tie rules, and diagnostic
-  schema before running the disposable experiment.
-- Compare extraction under the same field inputs and record vertex/face counts,
-  connectedness, degenerate or ambiguous cases, semantic ownership and local
-  coordinate preservation, and deterministic repeatability.
+- Define the normalized field contract, common frozen per-fixture bounds and
+  padding, and the coarse/nominal/fine uniform grids before running the
+  disposable experiment. Record the implementation version, isovalue,
+  interpolation, out-of-domain behaviour, orientation/gradient convention,
+  postprocessing order, tie rules, and diagnostic schema.
+- Run clipping and feature-relative sampling checks and measure convergence or
+  stability for components, junctions, gaps, and thin features. Keep any
+  deviation as a separately labelled exploratory run.
+- Define per-construction-operator contributor semantics and preserve raw and
+  top-k contributors, normalized weights, categorical ownership, contributor
+  IDs, chart identities, local coordinates, validity, missing masks, and
+  ambiguity diagnostics. Do not interpolate categorical IDs or blend
+  incompatible charts.
+- Provide independent analytical fixtures and oracles for coverage,
+  normalization, missing contributors, chart reconstruction/validity,
+  landmarks, and expected boundary ambiguity.
+- Record vertex/face counts, connectedness, degenerate or ambiguous cases,
+  boundary/non-manifold status, Euler/genus where applicable,
+  self-intersections, winding/orientation, signed volume, normals versus field
+  gradients, semantic preservation, and deterministic repeatability.
+- Define process, thread, numeric, and platform scope, canonicalization and
+  hashes, geometric tolerances, and stage-level nondeterminism isolation in the
+  experiment registration. Do not claim bitwise cross-platform output.
 - Keep structural measurements separate from subjective visual assessment and
-  from any later animation or runtime claim.
-- Preserve durable semantic identity, resolved-graph lineage, and build/artifact
-  provenance independently of ephemeral mesh indices.
+  from any later animation or runtime claim. Preserve durable semantic
+  identity, resolved-graph lineage, and build/artifact provenance independently
+  of ephemeral mesh indices.
 - Record exact library versions, licenses, hardware, commands, and retained
   artifacts when implementation begins. This DR does not select OpenVDB,
-  scikit-image, OpenSubdiv, or another production dependency.
+  scikit-image, OpenSubdiv, or another production dependency or production
+  topology.
 - Revisit adaptive extraction, direct topology, retopology, deformation loops,
   UVs, and topology continuity only after Stage 1 evidence or a later proof
   makes those obligations active.
@@ -228,6 +317,7 @@ remains Proposed with Owner approval Pending.
 - [Durable semantic and artifact/build identity](DR-0006-durable-semantic-and-artifact-identity.md)
 - [System architecture overview](../architecture/system-overview.md)
 - [Normative specification boundary](../../spec/README.md)
+- [First surface experiment design](../research/first-surface-experiment-design.md)
 - [Round 6 kickoff plan](../project/kickoff-plan.md)
 
 ## Reversibility and Revisit Triggers

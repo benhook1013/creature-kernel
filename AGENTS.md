@@ -10,7 +10,7 @@ information. Do not allow one kind to silently redefine another.
 ## Provisional bootstrap trial
 
 This file is binding provisional operational trial guidance under DR-0001
-Revision 4, authorized by Ben for the 2026-08-08 governance bootstrap. It
+Revision 5, authorized by Ben for the 2026-08-08 governance bootstrap. It
 preserves authority separation, proposal labels, review evidence, repository
 safety, and explicit human ownership during the trial; it does not accept
 DR-0001 or any product/architecture proposal. “Active” or “operational” here
@@ -60,11 +60,32 @@ When documents conflict, stop and resolve the conflict in the canonical owner.
   implementation do not require one.
 - Work in batches of roughly two to five related decisions or talking points:
   finish and resolve the discussion, have Luna apply non-trivial document
-  edits, let the main thread inspect and integrate them, then run one fresh
-  adversarial review of that edit batch. Return concise findings with the next
-  researched batch; do not auto-fix decision-bearing findings or run a
-  review-until-clean loop. A material proposal change increments its revision
-  and makes older reviews stale.
+  edits, let the main thread inspect and integrate them, then select a
+  risk-scaled adversarial review level. At the end of every substantive
+  design-cycle handoff, the main thread explicitly states
+  `Recommended adversarial level: None|Single|Double — <one-line reason>`.
+  This is advice to Ben and a durable planning signal, not automatic
+  acceptance. `None` is for purely mechanical/reversible work or discussion
+  with no created or materially revised consequential DR and no novel
+  evidence-bearing claim; it cannot satisfy the review prerequisite for a
+  created or materially revised consequential DR, which still needs review or
+  Ben's explicit recorded waiver. `Single` is the normal default for a
+  consequential DR or meaningful bounded design batch and means one fresh
+  independent pass. `Double` is exceptional for direction-setting,
+  cross-cutting, hard-to-reverse or locking, technically complex,
+  strongly evidence-dependent, disputed, or difficult-to-audit work; it means
+  two genuinely independent fresh passes with distinct named lenses, normally
+  Sol medium for foundational work, not duplicate prompts presented as
+  diversity. More than Double or Sol above medium requires Ben's explicit
+  approval. Ben may raise or lower the recommendation or waive as already
+  governed. A material proposal change increments its revision and makes
+  older reviews stale; when Double remains justified by the decision's impact,
+  the revised current version normally receives Double again unless Ben
+  changes or waives it. Double is one pass per reviewer on the current
+  revision, not review-until-clean. The main thread consolidates duplicates
+  and contradictions and presents only actionable findings. Return concise
+  findings with the next researched batch; do not auto-fix decision-bearing
+  findings or run a review-until-clean loop.
 - Do not change a DR to `Accepted` without a current-revision adversarial review
   or an explicit Ben waiver recorded as `Review status: Waived` with one
   non-placeholder `Waiver reason:` line, plus Ben's human approval.
@@ -142,6 +163,12 @@ the human decision owner, accepts or rejects a DR.
   returned diff, reconciles interactions, and validates the integrated result.
 - Independent reviewers should normally be fresh-context agents that did not
   implement the material under review.
+- Keep final subagent-use reporting brief and auditable: use one concise line per
+  subagent stating its bounded role, model, reasoning effort, and either
+  `edited files` or `evidence only`; then use one concise validation line for
+  subagent-scoped and main consolidated checks. Also disclose any explicitly
+  authorized routing deviation or incomplete review coverage. Do not require a
+  prose summary in place of these lines.
 
 ## Validation
 

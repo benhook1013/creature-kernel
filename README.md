@@ -23,7 +23,7 @@ not intended to hard-code one species, one skeleton, or one rendering style.
 ## Proposed project principles
 
 These principles are proposed, provisional, assistant-synthesized project
-direction under the DR-0001 Revision 4 operational trial. They are not accepted
+direction under the DR-0001 Revision 5 operational trial. They are not accepted
 product or architecture contracts. The source-set proposal is
 [DR-0002 Revision 2](docs/decisions/DR-0002-declarative-body-document-source-of-truth.md),
 the semantic/artifact identity proposal is

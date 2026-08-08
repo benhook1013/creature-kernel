@@ -83,15 +83,20 @@ serialization, compatibility, and streaming behaviour remain undecided.
 ### Stage 1 surface experiment hypotheses
 
 The Round 6 proposals are deliberately narrower than this conceptual runtime
-architecture. [DR-0009](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
+architecture. [DR-0009 Revision 2](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
 proposes testing semantic skeleton/radius structures with implicit blending
 where useful and reusable specialized generators for muzzle, paws, ears, feet,
-and tail. [DR-0010](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md)
+and tail through a bounded five-branch nested ablation and a predeclared
+comparative rule. [DR-0010 Revision 2](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md)
 proposes a disposable deterministic pinned uniform-grid Lewiner Marching Cubes
-policy and parallel semantic-field propagation. Both are Proposed experiment
-hypotheses, not accepted production contracts. Permanent surface and topology
-architecture, runtime field representation, animation-ready edge flow,
-retopology, and backend choice remain unresolved pending evidence.
+policy, a common normalized field contract with three-grid convergence, and
+parallel semantic-contributor propagation with analytical oracles. The [first
+surface experiment design](../research/first-surface-experiment-design.md)
+provides a neutral evidence design; it does not register EXP-0001, create
+fixtures, or provide evidence. These are Proposed experiment hypotheses, not
+accepted production contracts. Permanent surface and topology architecture,
+runtime field representation, animation-ready edge flow, retopology, and
+backend choice remain unresolved pending evidence.
 
 ## Architectural principles
 

@@ -3,7 +3,7 @@
 Status: Provisional operational trial
 
 This directory owns conditional procedures for contributing to Creature Kernel
-during the DR-0001 Revision 4 provisional operational trial. Its active
+during the DR-0001 Revision 5 provisional operational trial. Its active
 structure does not represent an accepted governance contract.
 The root [contributor instructions](../../AGENTS.md) remain the always-on safety,
 authority, and workflow-routing kernel.

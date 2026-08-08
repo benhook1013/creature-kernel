@@ -21,10 +21,20 @@ changing the meaning of persisted bodies or avatar packages.
   the distinction between fixture evidence and product claims. Exact fixture
   definitions must be frozen before EXP-0001 execution or evidence; selecting
   experiment hypotheses may precede that freeze.
+- The [Proposed first surface experiment design](../docs/research/first-surface-experiment-design.md)
+  is a neutral research/evidence design for the fixture identities, five
+  comparison branches, and common three-grid evidence structure. It is not a
+  normative schema, does not register EXP-0001, and does not provide evidence.
 - A planned staged embodiment contract describing Stage 1 source-linked
   semantic joint frames and semantic region intent/lineage, and the later
   ownership of usable skeletons, skin weights, collision proxies, contact, and
   deformation claims.
+- A planned disposable Stage 1 sampled-field and semantic-lineage contract,
+  informed by [DR-0010 Revision 2](../docs/decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md),
+  including normalized field semantics, contributor provenance, categorical
+  ownership, chart validity, ambiguity diagnostics, and scoped determinism.
+  Exact storage layout and numeric thresholds remain future specification and
+  experiment-registration work.
 - Runtime avatar package.
 - Interaction and quality negotiation.
 - Shared domain-operation and diagnostic contracts (eventually).
