@@ -24,10 +24,14 @@ Evaluate the fixed body-profile set through the same generation operations,
 configuration, and seed policy: compact/broad/short-limbed/large-head;
 tall/narrow/long-legged; slender/long-limbed; and stocky/broad-chested. At
 least one profile must contrast optional-module presence, absence, or style.
-Do not add a fixture-specific corrective, generator branch, or hand-authored
-patch to make one profile pass. Record the fixture/profile identifier, source
-and generator provenance, build/configuration identity, seed, view/capture
-settings, criterion, result, and failure notes.
+The project may select hypotheses and intended discriminating profiles before
+exact fixtures are frozen. Before EXP-0001 execution or evidence, freeze stable
+fixture IDs, concrete source inputs, discriminating parameters,
+seed/configuration, and provenance. Do not add a fixture-specific corrective,
+generator branch, or hand-authored patch to make one profile pass. Record the
+fixture/profile identifier, source and generator provenance,
+build/configuration identity, seed, view/capture settings, criterion, result,
+and failure notes.
 
 For each profile, retain consistent front, side, and three-quarter views, plus
 a turntable when practical. Capture targeted closeups of shoulders, hips,
@@ -51,14 +55,24 @@ assessment. The checks should cover, as applicable to the claimed stage:
 - expected attachments and junctions, including required modules and enabled
   named-socket features;
 - material regions and basic appearance inputs;
-- linked embodiment metadata where claimed, such as minimal semantic joint
-  frames, bind/skinning metadata where practical, analytic collision/contact
-  regions, and lineage. These checks do not establish shared pose, actual
-  contact, or deformation.
+- source-linked semantic joint frames and semantic region intent/lineage. These
+  checks do not establish a usable bone hierarchy, bind weights/skinning,
+  analytic collision proxies, shared pose, actual contact, or deformation.
 
 An objective check may be pass, fail, or inconclusive. The protocol does not
 invent numeric aesthetic scores or convert a visual impression into a hidden
 threshold.
+
+## Stage 1 gate interpretation
+
+Every declared valid fixed fixture must pass every mandatory Stage 1 structural
+check and the recorded subjective visual floor for the Stage 1 gate. A failed
+or inconclusive valid fixture means the gate has not passed, while remaining
+useful evidence that must stay visible and linked to its provenance. An invalid
+fixture must fail with its expected diagnostic and is not counted as a valid
+pass fixture. This all-valid-fixtures rule does not prevent selecting
+experiment hypotheses before exact fixtures are frozen, but exact freezing is
+required before EXP-0001 execution or evidence.
 
 ## Subjective visual floor
 

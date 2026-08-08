@@ -79,10 +79,12 @@ Creature Kernel is intended to become:
 - Programmatic body assembly without requiring a handcrafted base character mesh.
 - Continuous surface generation from semantic volumetric parts or an alternative
   method selected through evidence and review.
-- Stage 1 may carry minimal semantic joint frames, bind/skinning metadata where
-  practical, analytic collision/contact regions, and lineage metadata when
-  those representations are claimed. Shared pose and animation belong to Stage
-  2; contact and visible deformation belong to Stage 3.
+- Stage 1 must preserve source-linked semantic joint frames and semantic
+  region intent/lineage. It does not have to generate a usable bone hierarchy,
+  bind weights/skinning, analytic collision proxies, or actual contact
+  artifacts. Stage 2 generates usable skeletons, skin weights, and collision
+  proxies and proves one shared pose/control scenario; Stage 3 owns actual
+  contact, deformation, and runtime claims.
 - Generated semantic regions and basic material inputs, with bounded runtime
   representations, quality levels, and fallbacks introduced by later stages.
 - Bounded real-time representations with quality levels and fallbacks.
@@ -110,19 +112,27 @@ Creature Kernel is intended to become:
 ## Success shape
 
 Success is a staged progression, with each stage making only its own claims.
-Stage 1 is the first continuation gate: it should generate multiple
-substantially different members of the bounded family from body documents,
-without bespoke mesh or rig work, and provide reproducible geometry, semantic
-regions, basic appearance inputs, diagnostics, and the minimal embodiment
-lineage described above. Passing Stage 1 does not claim shared pose,
+Stage 1 is the first continuation gate: every declared valid fixed fixture
+must pass every mandatory structural check and the recorded subjective visual
+floor. It should generate multiple substantially different members of the
+bounded family from body documents, without bespoke mesh or rig work, and
+provide reproducible geometry, semantic regions, basic appearance inputs,
+diagnostics, and the source-linked embodiment lineage described above. A
+failed or inconclusive valid fixture means the gate has not passed, while
+remaining useful evidence; invalid fixtures must fail expected diagnostics and
+are not counted as valid pass fixtures. Before EXP-0001 execution or evidence,
+stable fixture IDs, concrete source inputs, discriminating parameters,
+seed/configuration, and provenance must be frozen; selecting hypotheses does
+not require that freeze. Passing Stage 1 does not claim shared pose,
 animation, contact, deformation, or real-time interaction.
 
-Stage 2 is a separate embodiment proof. It must demonstrate generated joint
-and skinning behaviour across the fixed body-profile set, including at least
-one shared pose or control scenario, while preserving semantic and collision
-representations. Stage 3 is a separate bounded real-time interaction proof;
-only it may claim runtime loading, semantic contact, localized deformation,
-physical response, and declared runtime-budget evidence.
+Stage 2 is a separate embodiment proof. It must demonstrate generated
+skeleton, skin-weight, and collision-proxy behaviour across the fixed
+body-profile set, including at least one shared pose or control scenario, while
+preserving semantic representations. Stage 3 is a separate bounded real-time
+interaction proof; only it may claim actual contact artifacts and behaviour,
+localized deformation, physical response, and declared runtime-budget
+evidence.
 
 All stages use fixed, substantially different body profiles and shared
 generation operations; per-fixture patches are not evidence of a general

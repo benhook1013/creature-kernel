@@ -32,12 +32,22 @@ backend, and budget decisions.
 
 The first proof is deliberately staged. Stage 1 is the first continuation gate
 and may claim only deterministic generation of the bounded morphology family,
-semantic regions and appearance inputs, structured diagnostics, and minimal
-embodiment lineage. It must not be used to claim shared pose or animation,
-contact, deformation, or real-time interaction. Stage 2 separately proves
-embodiment through shared pose/control behaviour; Stage 3 separately proves
-bounded real-time interaction, including runtime loading, semantic contact,
-localized deformation, physical response, and declared budget evidence.
+semantic regions and appearance inputs, structured diagnostics, and
+source-linked semantic joint frames and region intent/lineage. It must not be
+used to claim a usable bone hierarchy, bind weights/skinning, analytic
+collision proxies, actual contact artifacts, shared pose or animation,
+contact behaviour, deformation, or real-time interaction. Every declared valid
+fixed fixture must pass every mandatory structural check and the recorded
+subjective visual floor; a failed or inconclusive valid fixture leaves the gate
+open and remains evidence, while invalid fixtures fail expected diagnostics
+and are not counted as valid pass fixtures. Before EXP-0001 execution or
+evidence, stable fixture IDs, concrete source inputs, discriminating
+parameters, seed/configuration, and provenance must be frozen, although
+hypotheses may be selected earlier. Stage 2 separately proves embodiment by
+generating a usable skeleton, skin weights, and collision proxies and proving
+one shared pose/control scenario. Stage 3 separately proves bounded real-time
+interaction, including actual contact, localized deformation, physical
+response, and declared budget evidence.
 
 The initial family is a stylized digitigrade furry biped with required
 torso/pelvis, head/simplified muzzle, two arms/simplified hands-paws, and two
@@ -77,7 +87,9 @@ competing sources of truth. See [DR-0002 Revision 2](../decisions/DR-0002-declar
 
 Given the same source, compiler version, configuration, and seed, the system
 must produce semantically equivalent output or report why reproducibility cannot
-be guaranteed.
+be guaranteed. EXP-0001 evidence additionally requires frozen fixture IDs,
+concrete source inputs, discriminating parameters, seed/configuration, and
+provenance.
 
 Compilation reproducibility is an initial requirement. Bit-exact simulation,
 network, and replay determinism are deferred until their requirements and
@@ -114,9 +126,10 @@ packaging, and runtime representations must share the resolved semantic body
 graph as lineage or identify an explicitly linked authored input. Unified
 derivation does not require one mesh, topology, geometry field, numerical
 representation, or universal solver. In Stage 1, any claimed joint frames,
-bind/skinning metadata, analytic collision/contact regions, and related
-embodiment metadata must remain linked to the same semantic source and build
-lineage; shared pose and actual contact/deformation are later-stage claims.
+semantic region intent, and related lineage must remain linked to the same
+semantic source and build lineage. Usable bone hierarchies, bind
+weights/skinning, analytic collision proxies, actual contact artifacts, shared
+pose, and actual contact/deformation are later-stage claims.
 
 ### CK-PROD-011: Composable body grammar
 

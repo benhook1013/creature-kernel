@@ -371,7 +371,7 @@ Prerequisites: CK-KICK-006 and CK-KICK-007.
 
 ### CK-KICK-008: Research surface-generation strategies
 
-State: provisional/queued
+State: integrated/proposed
 
 Compare signed-distance fields, skeleton-radius or generalized-cylinder methods,
 patch systems, and credible hybrids against the fixed fixture set. Evaluate
@@ -379,7 +379,10 @@ smooth junctions, thin and separate features, mouths and paws, semantic-field
 preservation, animation topology, remeshing requirements, determinism,
 licensing, platform support, and runtime implications. Record references and
 tool/library constraints, then design a falsifiable first geometry experiment.
-Do not select production surface architecture from a prose survey alone.
+Do not select production surface architecture from a prose survey alone. The
+integrated Proposed hypotheses are [DR-0009](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
+and [DR-0010](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md);
+they guide Stage 1 evidence and do not select a production backend.
 
 ### CK-KICK-009: Choose a disposable geometry experiment stack
 

@@ -80,6 +80,19 @@ semantics-free conventional assets. Artifact/build identity and provenance
 distinguish generated packages from durable semantic identity. Exact
 serialization, compatibility, and streaming behaviour remain undecided.
 
+### Stage 1 surface experiment hypotheses
+
+The Round 6 proposals are deliberately narrower than this conceptual runtime
+architecture. [DR-0009](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
+proposes testing semantic skeleton/radius structures with implicit blending
+where useful and reusable specialized generators for muzzle, paws, ears, feet,
+and tail. [DR-0010](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md)
+proposes a disposable deterministic pinned uniform-grid Lewiner Marching Cubes
+policy and parallel semantic-field propagation. Both are Proposed experiment
+hypotheses, not accepted production contracts. Permanent surface and topology
+architecture, runtime field representation, animation-ready edge flow,
+retopology, and backend choice remain unresolved pending evidence.
+
 ## Architectural principles
 
 ### One source relationship
@@ -160,7 +173,8 @@ It does not initially own:
 ## Major unresolved choices
 
 - Body-document representation and schema technology.
-- Surface and topology generation strategy.
+- Permanent surface and topology generation strategy (the Stage 1 hypotheses in
+  DR-0009 and DR-0010 do not resolve it).
 - Implementation language and geometry libraries.
 - First morphology family and generator set.
 - Skinning and joint-correction approach.

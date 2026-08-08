@@ -25,20 +25,28 @@ Exit outcomes:
 - One bounded furry morphology family is defined.
 - Several substantially different bodies generate without a handcrafted base mesh.
 - Semantic part identity and local fields survive surface generation.
-- Minimal linked embodiment metadata, semantic joint frames, and semantic
-  regions are available where practical; Stage 1 does not claim animation,
-  contact, deformation, or real-time performance.
+- Every declared valid fixed fixture passes every mandatory Stage 1 structural
+  check and the recorded subjective visual floor. Failed or inconclusive valid
+  fixtures keep the gate open and remain evidence; invalid fixtures fail
+  expected diagnostics and are not counted as valid pass fixtures.
+- Source-linked semantic joint frames and semantic region intent/lineage are
+  mandatory Stage 1 embodiment outputs. A usable bone hierarchy, bind
+  weights/skinning, analytic collision proxies, and actual contact artifacts
+  are deferred; Stage 1 does not claim animation, contact, deformation, or
+  real-time performance.
+- Before EXP-0001 execution or evidence, stable fixture IDs, concrete source
+  inputs, discriminating parameters, seed/configuration, and provenance are
+  frozen. Hypothesis selection may precede this freeze.
 - Builds are reproducible through a headless command.
 
 ## Stage 2: Prove embodiment
 
 Exit outcomes:
 
-- Generated skeletons and skinning pass reference poses.
-- Collision proxies and semantic contact regions are generated.
+- A usable skeleton, skin weights, and collision proxies pass reference checks.
 - Multiple generated bodies share one animation or control scenario.
-- Stage 2 does not yet claim contact behaviour, deformation quality, or runtime
-  performance.
+- Stage 2 uses Stage 1 semantic frames and region intent; it does not yet claim
+  actual contact behaviour, deformation quality, or runtime performance.
 - Structured diagnostics identify known geometry and rigging failures.
 
 ## Stage 3: Prove bounded real-time interaction

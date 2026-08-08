@@ -6,17 +6,25 @@ Scope: Product
 
 Status: Proposed
 
-Revision: 1
+Revision: 2
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-09
 
 Date decided: —
+
+Revision history: Revision 1 was reviewed in Round 5 and remains preserved as
+historical evidence. Revision 2 applies Ben's settled resolutions to the three
+Round 5 blockers: it makes Stage 1 embodiment outputs and deferrals explicit,
+defines the all-valid-fixtures continuation gate, and requires fixture inputs
+and provenance to be frozen before EXP-0001 execution or evidence. The
+Revision 1 review is stale for this revision; a current-revision review is
+pending. This proposal remains unaccepted.
 
 Supersedes: —
 
@@ -43,28 +51,36 @@ later stage.
 
 ### Stage 1 — generation proof
 
-Stage 1 may continue when several substantially different fixed fixtures
-compile from structured source without bespoke per-character mesh or rig
-patches. The evidence should reproducibly include:
+Stage 1 may continue only when every declared valid fixed fixture passes every
+mandatory Stage 1 structural check and the recorded subjective visual floor.
+The fixtures must be substantially different and compile from structured
+source without bespoke per-character mesh or rig patches. A failed or
+inconclusive valid fixture means the Stage 1 gate has not passed, while
+remaining useful evidence that must stay visible in the record. An invalid
+fixture must fail with its expected diagnostic and is not counted as a valid
+pass fixture. The evidence should reproducibly include:
 
 - a resolved semantic graph;
 - a coherent connected surface;
 - semantic regions;
 - basic appearance;
-- minimal linked embodiment metadata;
+- source-linked semantic joint frames and semantic region intent/lineage;
 - structured diagnostics; and
 - comparable captures and documented reproduction.
 
-Stage 1 makes no animation, contact, deformation, or real-time-performance
-claim. Its minimal embodiment metadata is a path-preserving hook, not a claim
-of attractive skinning or a usable shared pose.
+The mandatory Stage 1 embodiment output is source-linked semantic joint frames
+and semantic region intent/lineage tied to the resolved semantic graph. Stage 1
+does not have to generate a usable bone hierarchy, bind weights or skinning,
+analytic collision proxies, or actual contact artifacts. Stage 1 makes no
+animation, contact, deformation, or real-time-performance claim.
 
 ### Stage 2 — embodiment proof
 
-Stage 2 should generate skeletons and skinning and demonstrate one shared
-pose/control scenario across the fixed fixtures, with semantic joint and
-contact regions. It does not yet claim contact behaviour, deformation quality,
-or runtime performance.
+Stage 2 should generate a usable skeleton, bind weights/skinning, and analytic
+collision proxies, then demonstrate one shared pose/control scenario across
+the fixed fixtures using the Stage 1 semantic frames and region intent. Stage 2
+does not yet claim actual contact behaviour, deformation quality, or runtime
+performance; actual contact artifacts and contact claims belong to Stage 3.
 
 ### Stage 3 — real-time interaction proof
 
@@ -87,6 +103,12 @@ not-tested claims. No stage implies later-stage success.
 - Stage 2 and Stage 3 require additional implementation, fixtures, and
   experiments; their claims cannot be substituted with screenshots from an
   earlier stage.
+- The Stage 1 gate is an all-valid-fixtures rule: a valid fixture that fails or
+  is inconclusive prevents continuation, while an invalid fixture is expected
+  to fail diagnostics and is excluded from the valid-fixture count.
+- Fixture hypotheses may be selected before exact fixtures are frozen, but
+  EXP-0001 execution and evidence require stable fixture IDs, concrete source
+  inputs, discriminating parameters, seed/configuration, and provenance.
 - Hardware profiles, performance targets, and exact quality thresholds remain
   deferred to evidence and later decisions.
 
@@ -113,20 +135,78 @@ surface output. It was not selected because it would leave the embodiment and
 real-time product claims without named continuation gates or disciplined
 non-claims.
 
+### Stage 1 embodiment alternatives
+
+#### Option 1: Geometry-only output
+
+Stage 1 would emit geometry, appearance, regions, and diagnostics but no
+embodiment semantics. This has the smallest generation surface, but loses
+source-linked joint-frame and region intent needed to carry semantic lineage
+into Stage 2; later embodiment would have to infer or recreate those links.
+
+#### Option 2: Intent-only, source-linked semantic intent and lineage
+
+This intent-only Stage 1 output emits semantic joint frames and semantic region
+intent/lineage linked to the resolved semantic graph. It defers a usable bone
+hierarchy, bind weights/skinning, analytic collision proxies, and actual contact artifacts to
+later stages. This preserves the path to Stage 2 while keeping generated
+embodiment and interaction artifacts out of the first generation gate.
+**Recommendation: Option 2 — source-linked semantic joint frames and semantic
+region intent/lineage.**
+
+#### Option 3: Generated embodiment artifacts in Stage 1
+
+Stage 1 would additionally generate a usable skeleton, bind weights/skinning,
+and collision proxies (and could be read as requiring contact artifacts).
+This would test more of the embodiment pipeline earlier, but would move Stage 2
+ownership into the generation gate and blur the boundary between lineage,
+embodiment, and actual contact claims. It is not selected.
+
+### Stage 1 fixture-gate alternatives
+
+#### Option 1: Partial-success continuation
+
+Stage 1 could continue after a selected subset of fixtures passed, with failed
+or inconclusive fixtures reported as limitations. This would permit progress
+despite family failures, but would make the continuation claim weaker than the
+declared fixed population and could silently reward fixture selection.
+
+#### Option 2: All declared valid fixtures must pass
+
+Every declared valid fixed fixture must meet every mandatory structural check
+and the recorded subjective visual floor. A failed or inconclusive valid
+fixture keeps the gate open and remains evidence; an invalid fixture must
+produce its expected diagnostic and is not counted as a valid pass fixture.
+This makes the claimed population and failure semantics explicit.
+**Recommendation: Option 2 — all declared valid fixtures must pass.**
+
+#### Option 3: Exclude difficult fixtures after evaluation
+
+A fixture could be removed or reclassified when it fails or is inconclusive.
+This might simplify the first claim, but would make the evidence population
+unstable and conceal exactly the variation the fixed set is intended to test.
+It is not selected.
+
 ## Adversarial Review Response
 
 [Round 5 fresh independent review](reviews/DR-0007-rev-01-review-01.md) is
-Complete with a Revise recommendation at High confidence. It identifies three
-blocking issues: contradictory Stage 1/Stage 2 embodiment ownership, an
-undefined effect of fixture failure or inconclusive results on the Stage 1
-continuation claim, and qualitative fixture identities that are not yet fixed
-enough to preserve the evidence population. Ben's owner disposition remains
-pending; only Ben may accept or reject this proposal.
+Complete with a Revise recommendation at High confidence for Revision 1. It
+is historical and stale for Revision 2. It identified three blocking issues:
+contradictory Stage 1/Stage 2 embodiment ownership, an undefined effect of
+fixture failure or inconclusive results on the Stage 1 continuation claim, and
+qualitative fixture identities that were not fixed enough to preserve the
+evidence population. Revision 2 records Ben's settled resolutions; current
+review and Ben's owner disposition remain pending. Only Ben may accept or
+reject this proposal.
 
 ## Implementation and Proof Obligations
 
+- Select experiment hypotheses without requiring exact fixture freeze, then
+  freeze stable fixture IDs, concrete source inputs, discriminating parameters,
+  seed/configuration, and provenance before EXP-0001 execution or evidence.
 - Define reproducible Stage 1 fixtures, source inputs, diagnostics, and
-  comparable captures before claiming the Stage 1 gate.
+  comparable captures before claiming the Stage 1 gate; evaluate every declared
+  valid fixture against every mandatory structural check and the visual floor.
 - Record structural checks, semantic-region checks, and reproduction commands;
   retain subjective visual judgments separately from measured evidence.
 - Define and test the shared Stage 2 pose/control scenario and its failure

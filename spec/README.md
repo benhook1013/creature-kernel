@@ -16,8 +16,15 @@ changing the meaning of persisted bodies or avatar packages.
   body family, including required modules, optional named-socket attachments,
   deferred families, and invalid/unsupported assemblies.
 - A planned fixture-profile contract describing stable profile identity,
-  provenance, shared-generation expectations, and the distinction between
-  fixture evidence and product claims.
+  concrete source inputs, discriminating parameters, seed/configuration,
+  provenance, shared-generation expectations, validity/diagnostic status, and
+  the distinction between fixture evidence and product claims. Exact fixture
+  definitions must be frozen before EXP-0001 execution or evidence; selecting
+  experiment hypotheses may precede that freeze.
+- A planned staged embodiment contract describing Stage 1 source-linked
+  semantic joint frames and semantic region intent/lineage, and the later
+  ownership of usable skeletons, skin weights, collision proxies, contact, and
+  deformation claims.
 - Runtime avatar package.
 - Interaction and quality negotiation.
 - Shared domain-operation and diagnostic contracts (eventually).
