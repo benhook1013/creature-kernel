@@ -1,6 +1,6 @@
 # Creature Kernel foundation
 
-Status: initial conversation record
+Status: Historical founding record
 
 Captured: 2026-08-05
 
@@ -16,8 +16,9 @@ conversation. It is not a final technical specification. It distinguishes:
 - known limitations and uncertainties;
 - questions that need later design or experimentation.
 
-The structure can be replaced later as the project develops. For now, this is
-the authoritative record of the discussion that led to Creature Kernel.
+This remains the authoritative record of the discussion that led to Creature
+Kernel. It is not the canonical owner of current product, specification, or
+architecture contracts; see [documentation authority](README.md).
 
 ## Origin and evolution of the idea
 
@@ -92,7 +93,11 @@ graph    mesh     and IK    fields     metadata
                Engine adapter
 ```
 
-## Decisions currently treated as established
+## Founding directions carried into the active baselines
+
+These directions summarize the founding conversation. Where a direction is
+represented by a proposed ADR, formal acceptance still requires that ADR's
+current review and an explicit decision-owner disposition.
 
 ### Product and scope
 
