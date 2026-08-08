@@ -43,5 +43,7 @@ States: `active`, `planned`, `triggered`, `deferred`, `not-applicable`, `retired
 ## Change rule
 
 Changing a state or trigger updates this ledger. Activating a consequential new
-contract area may require a DR. Removing or retiring an area must preserve any
-historical decisions or evidence it owns.
+contract area may require a DR. Existing top-level policy READMEs do not
+activate planned subdirectories or documents; planned destinations remain
+uncreated until their activation trigger and state are met. Removing or
+retiring an area must preserve any historical decisions or evidence it owns.

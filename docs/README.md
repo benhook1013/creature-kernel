@@ -53,6 +53,14 @@ Code, tests, fixtures, benchmarks, and runtime proof
 | `docs/project/` | Roadmap, current status, repository evolution | Product or technical contracts |
 | Code and proof | What exists and what has been demonstrated | Intended behaviour not yet implemented |
 
+## Navigation ownership
+
+Every durable Markdown document must be listed from exactly one owning-area
+index. Cross-links may be many; they do not transfer ownership. Numbered
+decision records are indexed by the [decision registry](decisions/registry.md),
+and review artifacts are indexed by the target DR's adversarial-review response.
+This is an ownership and indexing rule, not a ban on cross-links.
+
 ## Conflict rule
 
 If two documents appear to define the same contract differently, stop and fix

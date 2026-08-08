@@ -17,6 +17,11 @@ The project is pre-implementation. Existing product and architecture documents
 and decision records are proposed or provisional material, not inherited facts
 that implementation must preserve.
 
+This plan owns plan history, discussion scope, prerequisites, queued future work,
+outputs, and activation triggers. [Project status](status.md) owns live round,
+review, and owner state; the [decision registry](../decisions/registry.md) owns
+exact decision metadata and review cells.
+
 ## Working method
 
 - Work in rounds, with a discussion batch of roughly two to five related
@@ -84,41 +89,26 @@ Outcome:
 Human checkpoint: approve any externally consequential merge or repository-rule
 change after the main thread reports the exact proposed action.
 
-## Round 1 — governance and process (active/proposed)
+## Round 1 — governance and process (completed plan batch)
 
-This batch records the approved governance direction and prepares the neutral
-decision-record process for adversarial review. Product and architecture
-content remains provisional. DR-0001 Revision 4 is Proposed with its current
-review complete: the review recommends Accept with High confidence and found no
-blockers. Its three non-blocking risks remain visible and deferred. The
-Revision 2 and Revision 3 reviews are historical and their findings are
-preserved; this batch does not resolve or re-review them. DR-0002 through
-DR-0004 are Revision 1 proposals retained for later product and architecture
-review. Ben's disposition of DR-0001 remains pending.
+This batch established the neutral decision-record process and preserved
+product and architecture material as provisional. Historical Revision 2 and
+Revision 3 review evidence is preserved; this batch did not resolve or
+re-review it. Later source, runtime, and automation proposals were queued for
+subsequent rounds.
 
 ### CK-KICK-001: Review the decision process itself
 
-State: active/proposed
-
 Outcome:
 
-- Preserve the completed fresh Sol-medium adversarial review of DR-0001 Revision
-  2 and its affected authority, workflow, registry, and validator documents as
-  historical evidence.
-- Preserve its `Revise` recommendation and two blocking objections: the
-  provisional-status/bootstrap conflict and the acceptance-evidence gap.
-- The historical Revision 2 and Revision 3 reviews remain advisory memory with
-  their recommendations and blockers intact. Revision 4 deliberately adopts
-  the lightweight hobby-project process after considering those audit-heavy
-  recommendations. The current Revision 4 review recommends Accept with High
-  confidence and found no blockers; lightweight Git-based batch reconstruction,
-  duplicated model-routing guidance, and the removed validator unit-test suite
-  remain visible non-blocking risks. Ask Ben for a disposition without
-  implying that any risk or the DR has been accepted.
+- Preserve the historical fresh reviews of DR-0001 Revision 2 and Revision 3
+  and their findings as advisory evidence.
+- Integrate the Revision 4 governance proposal, neutral registry, templates,
+  review naming, validator, authority indexes, and workflow.
+- Keep the review evidence and later owner-disposition handoff linked from the
+  canonical DR and tracked by the live [project status](status.md).
 
 ### Governance batch: authority, trigger, review, and ownership
-
-State: active/proposed
 
 Discussion topics:
 
@@ -146,25 +136,25 @@ Discussion topics:
 
 Outputs:
 
-- DR-0001 Revision 4, Status Proposed, Scope Governance, Review Complete;
-  Accept recommendation with High confidence, no blockers, and owner
-  disposition pending.
-- DR-0002 through DR-0004 retained as Status Proposed, Revision 1, with their
-  later Product, Specification, and Architecture review dependencies visible.
+- [DR-0001 Revision 4](../decisions/DR-0001-documentation-authority-and-review-process.md)
+  governance proposal integrated, with its review evidence and
+  owner-disposition handoff retained on the canonical record.
+- [DR-0002](../decisions/DR-0002-declarative-body-document-source-of-truth.md)
+  through [DR-0004](../decisions/DR-0004-external-automation-through-cli-and-api.md)
+  retained as early proposals with later Product, Specification, and
+  Architecture review dependencies visible.
 - Neutral registry, templates, review naming, validator, authority indexes,
   workflow, and status language operational.
 
 Review and next batch:
 
-- The completed Revision 2 review and its two blockers are historical evidence.
-- Revision 4 is a lightweight Proposed process after considering the historical
-  Revision 2 and Revision 3 review recommendations; its current fresh review
-  is complete with an Accept recommendation and no blockers.
+- The Revision 2 and Revision 3 reviews remain historical evidence.
+- Revision 4 is the lightweight Proposed process selected for the trial after
+  considering those historical review recommendations.
 - The main thread can independently research the Round 2 product-identity
   questions when dependencies permit.
-- Round 1 remains Proposed until Ben's disposition; no DR is accepted.
 
-## Round 2 — product identity and initial users (provisional)
+## Round 2 — product identity and initial users (completed plan batch)
 
 Prerequisite: Round 1 governance review is complete enough to operate the
 process; no product decision is implied by this plan.
@@ -182,43 +172,40 @@ This batch remains bounded to product identity and initial users. Its discussion
 may identify canonical documents or later decision-record work, but it does not
 accept a product or architecture direction.
 
-Output: DR-0005 Revision 1, Scope Product and architecture, Status Proposed,
-Review Complete; its current review recommends Accept with Medium confidence,
-found no blockers, and leaves non-blocking abstraction, downstream usability,
-stress-case generalization, upstream-detail, and README-wording risks visible
-or deferred. Ben's owner disposition remains pending. It records only the four
-topics above and defers detailed source semantics, compile/runtime mutation,
-automation contract detail, first-proof morphology, backend, and budget
-questions.
+Output: DR-0005 Revision 1 records the four bounded product-identity topics and
+defers detailed source semantics, compile/runtime mutation, automation contract
+detail, first-proof morphology, backend, and budget questions. Its review
+evidence is linked from the canonical DR response; live review and owner state
+remain in [project status](status.md) and the [decision registry](../decisions/registry.md).
 
-## Round 3 — source, semantics, and automation (integrated/proposed)
+## Round 3 — source, semantics, and automation (completed plan batch)
 
 Prerequisite: Round 2 product-identity discussion.
 
 ### Integrated Round 3 proposal output
 
-The bounded proposal batch is integrated as Proposed, with no decision accepted:
+The bounded proposal batch was integrated as Proposed; no acceptance is implied
+by this plan:
 
-- DR-0002 Revision 2 records an authoritative semantic source set resolving to
-  a per-build semantic body-graph snapshot; derived outputs remain derived.
-- DR-0006 Revision 1 separates durable semantic identity from artifact/build
-  identity and provenance; generated topology and array indices remain
-  artifact-scoped and ephemeral.
+- [DR-0002 Revision 2](../decisions/DR-0002-declarative-body-document-source-of-truth.md)
+  records an authoritative semantic source set resolving to a per-build
+  semantic body-graph snapshot; derived outputs remain derived.
+- [DR-0006 Revision 1](../decisions/DR-0006-durable-semantic-and-artifact-identity.md)
+  separates durable semantic identity from artifact/build identity and
+  provenance; generated topology and array indices remain artifact-scoped and
+  ephemeral.
 - Specialized geometry, rig, collision, material, deformation, packaging, and
   runtime representations derive through the resolved graph's shared semantic
   lineage without requiring one mesh, topology, or universal solver.
-- DR-0004 Revision 2 records one shared deterministic domain-operation model
-  for query, semantic mutation, resolution/compilation, validation, diagnostics,
-  artifact inspection, and future transaction semantics, with user surfaces as
-  adapters.
-
-Current proposal status: DR-0002 Revision 2, DR-0004 Revision 2, and DR-0006
-Revision 1 are Proposed and Review Pending. One fresh adversarial review of
-this integrated Round 3 batch is next; Ben's owner disposition remains pending.
+- [DR-0004 Revision 2](../decisions/DR-0004-external-automation-through-cli-and-api.md)
+  records one shared deterministic domain-operation model for query, semantic
+  mutation, resolution/compilation, validation, diagnostics, artifact
+  inspection, and future transaction semantics, with user surfaces as adapters.
+- The three current-revision review artifacts are linked from their target DR
+  responses. The shared system-overview diagram was corrected mechanically
+  after review; proposal and architecture prose were unchanged.
 
 ### CK-KICK-003: Review the semantic source-of-truth proposal
-
-State: integrated/proposed
 
 Outcome:
 
@@ -230,12 +217,10 @@ Outcome:
 - DR-0002 Revision 2 records the source-set and resolved-graph boundary above;
   exact formats, overrides, runtime mutation, and external-mesh conformance
   remain deferred.
-- Review DR-0002 Revision 2 in the fresh Round 3 review and obtain Ben's
-  explicit disposition.
+- Preserve the source-set review obligations and defer exact formats, overrides,
+  runtime mutation, and external-mesh conformance to later specification work.
 
 ### CK-KICK-005: Review the external automation boundary
-
-State: integrated/proposed
 
 Prerequisite: Round 2 product-identity and user-workflow discussion.
 
@@ -249,15 +234,15 @@ Outcome:
 - DR-0004 Revision 2 records the shared deterministic operation boundary above;
   concrete interface language, syntax, transport, and transaction details
   remain deferred.
-- Review DR-0004 Revision 2 in the fresh Round 3 review and obtain Ben's
-  explicit disposition.
+- Preserve the shared-operation boundary while deferring concrete interface
+  language, syntax, transport, and transaction details.
 
 ## Round 4 — real-time product boundary (provisional)
 
 Prerequisite: Round 2 product-identity discussion.
 
-Round 4 compile/runtime boundary research is next in parallel with the pending
-Round 3 review. It remains provisional and does not accept DR-0003.
+Round 4 compile/runtime boundary discussion research is prepared and next. It
+remains provisional and does not accept DR-0003.
 
 ### CK-KICK-004: Review the real-time-first boundary
 

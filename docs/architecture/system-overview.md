@@ -17,10 +17,10 @@ downstream proof and integration target. This boundary remains Proposed under
 Human, script, test, or external AI
               |
               v
-   Shared domain operations
+   Operation adapters (CLI/API/GUI)
               |
               v
-   Operation adapters (CLI/API/GUI)
+   Shared domain operations
               |
               v
  Authoritative semantic source set
