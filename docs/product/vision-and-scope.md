@@ -5,9 +5,10 @@ Status: Proposed product baseline
 ## Vision
 
 Creature Kernel is a programmable creature-generation and embodiment platform.
-It should construct semantic bodies, surface geometry, rigging, collision,
-deformation data, appearance inputs, and runtime capabilities from one
-deterministic body definition.
+It should resolve an authoritative semantic source set into a per-build
+semantic body-graph snapshot, then derive surface geometry, rigging, collision,
+deformation data, appearance inputs, and runtime capabilities from that shared
+lineage.
 
 The initial creative focus is stylized furry characters. The larger goal is a
 body grammar capable of expressing related morphology families without making
@@ -31,8 +32,10 @@ conformance is later, and early contracts must not foreclose it.
 
 These four initial-boundary statements are proposed under
 [DR-0005](../decisions/DR-0005-initial-product-boundary-and-reference-workflow.md);
-they do not settle DR-0002's source semantics or DR-0003's detailed
-compile/runtime mutation boundary.
+they do not settle DR-0003's detailed compile/runtime mutation boundary. The
+source, identity, and operation directions are recorded as Proposed in their
+respective decision records; their exact formats, syntax, and mutation details
+remain open.
 
 ## Primary outcome
 
@@ -66,7 +69,7 @@ Creature Kernel is intended to become:
 - Generated skeleton, skinning, collision, semantic regions, and basic materials.
 - Bounded real-time representations with quality levels and fallbacks.
 - Headless generation, inspection, validation, and preview rendering.
-- Deterministic source documents and reproducible builds.
+- Authoritative semantic source inputs and reproducible builds.
 - A path for later conformance of externally supplied meshes.
 
 ## Explicit non-goals for the first proof
@@ -91,7 +94,7 @@ members of one morphology family from body documents and demonstrate that they:
 - share at least one animation or procedural control scenario;
 - expose compatible collision and contact representations;
 - render and run within an explicit reference-hardware budget;
-- can be reproduced through documented CLI commands.
+- can be reproduced through documented shared operations and CLI commands.
 
 Exact visual quality, morphology range, performance targets, and runtime engine
 remain open decisions.

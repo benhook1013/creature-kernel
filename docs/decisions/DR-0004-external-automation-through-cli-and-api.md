@@ -1,4 +1,4 @@
-# DR-0004: External automation through CLI and API
+# DR-0004: Shared deterministic domain operations for external automation
 
 ID: DR-0004
 
@@ -6,7 +6,7 @@ Scope: Product and architecture
 
 Status: Proposed
 
-Revision: 1
+Revision: 2
 
 Decision owner: Ben
 
@@ -14,7 +14,7 @@ Owner approval: Pending
 
 Review status: Pending
 
-Date proposed: 2026-08-05
+Date proposed: 2026-08-08
 
 Date decided: —
 
@@ -26,30 +26,37 @@ Superseded by: —
 
 External AI assistance is expected, but the project owner does not intend to
 make a built-in chat assistant the primary interface. Humans, scripts, automated
-tests, and outside agents all need precise access to the same operations.
+tests, future GUI clients, and outside agents all need precise access to the same
+operations. A private behaviour path in any one surface would undermine
+determinism, validation, and reproducibility.
 
-GUI computer use is fragile for deterministic creation and validation. A direct
-tool surface can expose semantics, transactions, diagnostics, and artifacts.
+Revision 1 made CLI and programmatic API first-class. Revision 2 makes the
+shared deterministic domain-operation model the decision and treats each user
+surface as an adapter over it.
 
 ## Decision
 
-Make a documented CLI and programmatic API first-class interfaces to the same
-deterministic core. The platform must remain fully usable without an embedded AI
-model. External agents may discover capabilities, edit source, compile, validate,
-render previews, inspect structured diagnostics, and present diffs for human
-acceptance.
+Define one deterministic creature domain-operation model for query, semantic
+mutation, resolution/compilation, validation, diagnostics, artifact inspection,
+and future transaction semantics. The CLI, programmatic API, future GUI, tests,
+scripts, and external AI agents are adapters over those shared operations; none
+may gain private core behaviour. The first implementation may simply be an
+in-process library plus a CLI adapter.
 
-Semantic local coordinates and stable identifiers are preferred over raw global
-coordinates and generated mesh indices, while low-level exact operations remain
-available when necessary.
+The platform must remain fully usable without an embedded AI dependency. External
+agents may use the same operation model as other clients. Concrete interface
+language, command names, wire/schema/transport, GUI interaction, undo details,
+compatibility, authentication, and remote services remain separate decisions.
 
 ## Consequences
 
-- Automation is not coupled to one AI provider or interface.
-- Headless tests and reproducible workflows become natural requirements.
-- CLI/API compatibility and error schemas become product surfaces.
-- A GUI must call shared operations rather than accumulate private behaviour.
-- Designing useful introspection and transactions adds early engineering work.
+- Automation is not coupled to one AI provider or surface.
+- Headless tests and reproducible workflows exercise the same core operations.
+- Introspection, diagnostics, and artifact inspection become shared operation
+  responsibilities.
+- A GUI, test harness, script, or external agent must call shared operations
+  rather than accumulate private behaviour.
+- Concrete interface and transaction contracts remain later engineering work.
 
 ## Alternatives Considered
 
@@ -66,25 +73,28 @@ for precise iterative generation.
 ### Library API only
 
 Supports integration but makes shell automation, external tools, and independent
-validation less accessible.
+validation less accessible. It remains a possible first in-process foundation,
+but adapters still use the shared operation model.
 
 ## Adversarial Review Response
 
-Pending review of revision 1.
+Pending one fresh adversarial review of Revision 2.
 
 ## Implementation and Proof Obligations
 
-- Define introspection, stable IDs, transactions, diagnostics, and exit behaviour.
-- Keep GUI and CLI operations on a shared core.
-- Provide machine-readable validation and artifact manifests.
-- Establish compatibility/versioning rules before third-party automation is promised.
-- Demonstrate an end-to-end headless character-edit and validation loop.
+- Define the shared operation model and its deterministic boundaries.
+- Keep CLI, API, GUI, tests, scripts, and external-agent adapters on that model.
+- Provide machine-readable diagnostics and artifact inspection.
+- Later define commands, schemas/transports, transaction and undo semantics,
+  compatibility, authentication, and remote-service behaviour.
+- Demonstrate an end-to-end headless semantic-edit and validation loop.
 
 ## Canonical Design Links
 
 - [Product requirements](../product/requirements.md)
 - [Users and workflows](../product/users-and-workflows.md)
 - [System overview](../architecture/system-overview.md)
+- [Authoritative semantic source set](DR-0002-declarative-body-document-source-of-truth.md)
 
 ## Reversibility and Revisit Triggers
 

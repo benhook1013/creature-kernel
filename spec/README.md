@@ -8,13 +8,14 @@ changing the meaning of persisted bodies or avatar packages.
 
 ## Planned specification families
 
-- Creature/body document.
-- Semantic body graph.
-- Identifiers, namespaces, coordinates, units, and measurements.
+- Authoritative semantic source set.
+- Resolved semantic graph snapshot.
+- Durable semantic identities and separate artifact/build identity and provenance.
 - Capabilities, regions, attachments, joints, and material/deformation metadata.
 - Runtime avatar package.
 - Interaction and quality negotiation.
-- Diagnostic and artifact manifests.
+- Shared domain-operation and diagnostic contracts (eventually).
+- Artifact inspection and manifests.
 
 ## Specification obligations
 

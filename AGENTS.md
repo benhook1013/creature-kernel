@@ -88,9 +88,10 @@ When documents conflict, stop and resolve the conflict in the canonical owner.
 
 - Keep future components in `docs/project/repository-evolution.md` until their
   activation trigger is met. Do not create empty implementation packages.
-- Track stable semantic identifiers and engine-independent core boundaries as
-  Proposed concerns in DR-0002 and DR-0003; they are not binding
-  implementation requirements until the relevant DR is accepted.
+- Track authoritative semantic source, durable semantic identity, and
+  artifact/build identity as Proposed concerns in DR-0002 and DR-0006. Keep
+  engine-independent core boundaries as Proposed concerns in DR-0003; none are
+  binding implementation requirements until the relevant DR is accepted.
 - Do not commit large generated meshes, caches, captures, or datasets without an
   approved artifact-storage decision.
 - Keep any implementation boundaries consistent with accepted canonical

@@ -9,8 +9,8 @@ surface geometry, skeleton, skinning, collision representation, deformation
 metadata, materials, and runtime interaction capabilities.
 
 ```text
-Body program
-    -> semantic body graph
+Authoritative semantic source set
+    -> per-build resolved semantic body graph snapshot
     -> volumes and attachment rules
     -> generated surface
     -> rig, skinning, collision, and deformers
@@ -24,23 +24,29 @@ not intended to hard-code one species, one skeleton, or one rendering style.
 
 These principles are proposed, provisional, assistant-synthesized project
 direction under the DR-0001 Revision 4 operational trial. They are not accepted
-product or architecture contracts. The body-document source proposal is
-[DR-0002](docs/decisions/DR-0002-declarative-body-document-source-of-truth.md),
+product or architecture contracts. The source-set proposal is
+[DR-0002 Revision 2](docs/decisions/DR-0002-declarative-body-document-source-of-truth.md),
+the semantic/artifact identity proposal is
+[DR-0006 Revision 1](docs/decisions/DR-0006-durable-semantic-and-artifact-identity.md),
 the real-time boundary proposal is
 [DR-0003](docs/decisions/DR-0003-real-time-first-compiled-avatar-boundary.md),
 and the CLI/API proposal is
-[DR-0004](docs/decisions/DR-0004-external-automation-through-cli-and-api.md).
+[DR-0004 Revision 2](docs/decisions/DR-0004-external-automation-through-cli-and-api.md).
 The initial product boundary and reference workflow are proposed in
 [DR-0005](docs/decisions/DR-0005-initial-product-boundary-and-reference-workflow.md).
 
-- The editable source of truth is a deterministic body document, not a mesh
+- Durable authored intent lives in an authoritative semantic source set, while
+  the resolved graph and generated outputs remain derived
   ([DR-0002](docs/decisions/DR-0002-declarative-body-document-source-of-truth.md)).
-- Geometry, semantic meaning, rigging, collision, and deformation derive from
-  the same body definition.
+- Durable semantic identity is separate from artifact/build identity and
+  provenance; generated topology indices are ephemeral
+  ([DR-0006](docs/decisions/DR-0006-durable-semantic-and-artifact-identity.md)).
+- Specialized representations and solvers share the resolved semantic graph as
+  lineage; this does not require one mesh, topology, or universal solver.
 - Body parts are composable generators with structure, capabilities, material
   regions, and physical properties.
-- A CLI/API is a first-class interface. Humans, scripts, and external AI agents
-  should be able to use the same operations
+- CLI/API, future GUI, tests, scripts, and external AI agents are adapters over
+  one deterministic domain-operation model
   ([DR-0004](docs/decisions/DR-0004-external-automation-through-cli-and-api.md)).
 - The core application does not depend on an embedded AI assistant.
 - A real-time game is the primary downstream experience. Expensive creature
@@ -78,8 +84,8 @@ The initial product boundary and reference workflow are proposed in
 
 The project is in its foundation and adversarial design phase. No implementation
 language, geometry backend, runtime engine, or asset format has been selected.
-DR-0001 and DR-0005 have current reviews recorded and remain Proposed pending
-Ben's disposition; DR-0002–0004 remain Proposed and await their later reviews.
+See [current project status](docs/project/status.md) for the live round,
+review, and owner-disposition state.
 
 See [docs/FOUNDATION.md](docs/FOUNDATION.md) for the historical
 conversation-derived record. Current contracts are owned by the documentation

@@ -7,9 +7,10 @@ to a GUI, geometry backend, language, or runtime engine.
 
 ## Initial users and reference workflow (Proposed)
 
-The earliest workflow serves the project developer or researcher. They use
-structured creature source, CLI/API operations, diagnostics, and reproducible
-evidence to create, inspect, compile, and validate a native generated creature.
+The earliest workflow serves the project developer or researcher. They use an
+authoritative semantic source set and shared domain operations, diagnostics, and
+reproducible evidence to create, inspect, compile, and validate a native
+generated creature.
 Technical artists and game developers are important downstream review and
 integration users; this ordering does not exclude them from the product.
 
@@ -25,7 +26,8 @@ early contracts must leave that path open. These statements are proposed under
 
 ## Body author using structured tools
 
-1. Create a creature document from a body-plan declaration or empty graph.
+1. Create an initial human-readable semantic source document from a body-plan
+   declaration or empty graph.
 2. Add and configure parts using semantic attachments and local coordinates.
 3. Compile a preview.
 4. Inspect geometry, skeleton, collision, regions, and diagnostics.
@@ -34,10 +36,10 @@ early contracts must leave that path open. These statements are proposed under
 
 ## External AI agent
 
-1. Query the supported schema, generators, capabilities, and command surface.
-2. Apply a bounded transaction to a creature document.
+1. Query the supported operations, capabilities, and source inputs.
+2. Apply a bounded semantic mutation through the shared operation model.
 3. Compile and validate headlessly.
-4. Read structured diagnostics and inspect requested render artifacts.
+4. Read structured diagnostics and inspect requested derived artifacts.
 5. Propose further changes without depending on GUI automation.
 6. Present diffs and evidence for human acceptance.
 
@@ -47,7 +49,8 @@ early contracts must leave that path open. These statements are proposed under
 2. Inspect silhouette, joint behaviour, semantic regions, weights, and collision.
 3. Identify whether a failure belongs to parameters, a generator, a solver, or
    an unsupported capability.
-4. Supply corrections or constraints without destroying the source relationship.
+4. Supply corrections or constraints without destroying the authored-source and
+   resolved-graph relationship.
 5. Approve, reject, or qualify the result.
 
 ## Game integrator
@@ -79,8 +82,10 @@ early contracts must leave that path open. These statements are proposed under
 
 ## External mesh contributor
 
-1. Supply a mesh and optional skeleton.
+1. Supply a mesh and optional skeleton as a later explicitly linked or mapped
+   authored input.
 2. Map or fit it to semantic landmarks, parts, and regions.
-3. Receive a conformance report and supported capability tier.
+3. Receive a conformance report and supported capability tier when that later
+   workflow is defined.
 4. Correct mappings or accept explicit fallbacks.
 5. Export the same runtime package interface as a native creature.

@@ -191,13 +191,34 @@ topics above and defers detailed source semantics, compile/runtime mutation,
 automation contract detail, first-proof morphology, backend, and budget
 questions.
 
-## Round 3 — source, semantics, and automation (provisional)
+## Round 3 — source, semantics, and automation (integrated/proposed)
 
 Prerequisite: Round 2 product-identity discussion.
 
+### Integrated Round 3 proposal output
+
+The bounded proposal batch is integrated as Proposed, with no decision accepted:
+
+- DR-0002 Revision 2 records an authoritative semantic source set resolving to
+  a per-build semantic body-graph snapshot; derived outputs remain derived.
+- DR-0006 Revision 1 separates durable semantic identity from artifact/build
+  identity and provenance; generated topology and array indices remain
+  artifact-scoped and ephemeral.
+- Specialized geometry, rig, collision, material, deformation, packaging, and
+  runtime representations derive through the resolved graph's shared semantic
+  lineage without requiring one mesh, topology, or universal solver.
+- DR-0004 Revision 2 records one shared deterministic domain-operation model
+  for query, semantic mutation, resolution/compilation, validation, diagnostics,
+  artifact inspection, and future transaction semantics, with user surfaces as
+  adapters.
+
+Current proposal status: DR-0002 Revision 2, DR-0004 Revision 2, and DR-0006
+Revision 1 are Proposed and Review Pending. One fresh adversarial review of
+this integrated Round 3 batch is next; Ben's owner disposition remains pending.
+
 ### CK-KICK-003: Review the semantic source-of-truth proposal
 
-State: provisional/queued
+State: integrated/proposed
 
 Outcome:
 
@@ -206,12 +227,15 @@ Outcome:
   eventual external meshes.
 - Keep the high-level source-of-truth decision separate from YAML, JSON, schema,
   database, or programming-language choices.
-- Review DR-0002 Revision 1 in the next applicable round and obtain Ben's
+- DR-0002 Revision 2 records the source-set and resolved-graph boundary above;
+  exact formats, overrides, runtime mutation, and external-mesh conformance
+  remain deferred.
+- Review DR-0002 Revision 2 in the fresh Round 3 review and obtain Ben's
   explicit disposition.
 
 ### CK-KICK-005: Review the external automation boundary
 
-State: provisional/queued
+State: integrated/proposed
 
 Prerequisite: Round 2 product-identity and user-workflow discussion.
 
@@ -222,11 +246,18 @@ Outcome:
   GUI-only path.
 - Keep the interface boundary separate from concrete command syntax, transport,
   or embedded-AI features.
-- Review DR-0004 Revision 1 and obtain Ben's explicit disposition.
+- DR-0004 Revision 2 records the shared deterministic operation boundary above;
+  concrete interface language, syntax, transport, and transaction details
+  remain deferred.
+- Review DR-0004 Revision 2 in the fresh Round 3 review and obtain Ben's
+  explicit disposition.
 
 ## Round 4 — real-time product boundary (provisional)
 
 Prerequisite: Round 2 product-identity discussion.
+
+Round 4 compile/runtime boundary research is next in parallel with the pending
+Round 3 review. It remains provisional and does not accept DR-0003.
 
 ### CK-KICK-004: Review the real-time-first boundary
 

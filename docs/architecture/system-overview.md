@@ -5,24 +5,31 @@ Status: Provisional conceptual baseline
 ## System purpose
 
 Creature Kernel is proposed as an engine-independent procedural creature
-compiler and embodiment runtime. It converts a semantic body definition into an
-embodied runtime avatar and provides bounded systems for animation, contact,
-deformation, and engine integration. It is not initially a game, editor, or
-general-purpose engine; a real-time game is the first downstream proof and
-integration target. This boundary remains Proposed under
+compiler and embodiment runtime. It resolves an authoritative semantic source
+set into a per-build semantic body-graph snapshot, then derives specialized
+representations for an embodied runtime avatar. It provides bounded systems for
+animation, contact, deformation, and engine integration. It is not initially a
+game, editor, or general-purpose engine; a real-time game is the first
+downstream proof and integration target. This boundary remains Proposed under
 [DR-0005](../decisions/DR-0005-initial-product-boundary-and-reference-workflow.md).
 
 ```text
-Human, script, or external AI
+Human, script, test, or external AI
               |
               v
-       CLI / programmatic API
+   Shared domain operations
               |
               v
-      Creature source document
+   Operation adapters (CLI/API/GUI)
               |
               v
-         Creature compiler
+ Authoritative semantic source set
+              |
+              v
+ Per-build resolved semantic body graph
+              |
+              v
+      Specialized compilers
    +----------+----------+-----------+
    |          |          |           |
    v          v          v           v
@@ -42,15 +49,16 @@ and fields   mesh     and skin   deformation data
 
 ## Principal representations
 
-### Creature source
+### Authoritative semantic source set
 
-The proposed editable, deterministic declaration of parts, relationships, measurements,
-capabilities, generators, materials, and compilation parameters.
+The proposed authored inputs that preserve durable semantic intent. Initially
+this may be one human-readable document; future explicit semantic override
+layers may also be authored inputs. Physical format and precedence remain open.
 
-### Resolved body graph
+### Resolved semantic body graph snapshot
 
-The validated semantic structure produced after defaults, references,
-attachments, symmetry, inheritance, and generator parameters are resolved.
+The validated per-build semantic lineage produced after the source set is
+resolved. It is derived for that build and is not a competing authored source.
 
 ### Simulation representation
 
@@ -64,25 +72,33 @@ and bindings to the simulation representation.
 
 ### Runtime avatar package
 
-A versioned, bounded package containing the data required by a runtime adapter.
-Its exact serialization, compatibility, and streaming behaviour remain undecided.
+A derived, bounded package containing the data required by a runtime adapter.
+Artifact/build identity and provenance distinguish generated packages from
+durable semantic identity. Exact serialization, compatibility, and streaming
+behaviour remain undecided.
 
 ## Architectural principles
 
 ### One source relationship
 
-Geometry, semantics, rigging, collision, and deformation data must derive from
-the same resolved body or explicitly declare another authoritative source.
+Geometry, rigging, collision, materials, deformation, packaging, and runtime
+representations must derive from the same resolved semantic graph or explicitly
+identify a linked authored input. This shared lineage does not require one mesh,
+topology, geometry field, or universal solver.
 
 ### Semantic stability
 
-Durable behaviour targets parts, regions, local frames, and capabilities rather
-than generated mesh indices.
+Durable behaviour targets parts, regions, joints, attachments, local frames, and
+capabilities through semantic identity. Artifact/build identity and provenance
+remain separate; generated topology indices are ephemeral through topology
+changes.
 
 ### Deterministic core
 
-Compilation should be reproducible from source, compiler version, configuration,
-and seed. Nondeterministic stages must be isolated and reported.
+Resolution and compilation should be reproducible from authored inputs, compiler
+version, configuration, and seed. Query, mutation, resolution/compilation,
+validation, diagnostics, and artifact inspection use one deterministic domain
+operation model. Nondeterministic stages must be isolated and reported.
 
 ### Engine-independent contracts
 
@@ -111,12 +127,12 @@ records.
 
 Creature Kernel initially owns (proposed boundary):
 
-- body-document parsing and validation;
+- authored semantic-source parsing and validation;
 - semantic body resolution;
 - native procedural creature compilation;
 - avatar packaging and diagnostics;
 - runtime semantic capabilities and interaction coordination;
-- CLI/API automation;
+- shared domain operations and CLI/API adapters;
 - host-engine adapter contracts.
 
 It does not initially own:

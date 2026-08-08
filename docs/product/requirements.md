@@ -24,17 +24,20 @@ The current Round 2 proposal defines four bounded product choices:
   reference path; external authored-mesh conformance is later and must not be
   foreclosed by early contracts.
 
-These remain Proposed pending one fresh review of the batch and Ben's
-disposition. DR-0005 records only these choices and defers source semantics,
+These choices are recorded under DR-0005, which defers source semantics,
 the detailed compile/runtime boundary, automation contract detail, morphology,
 backend, and budget decisions.
 
 ## Programmable source and determinism
 
-### CK-PROD-001: Declarative creature source
+### CK-PROD-001: Authoritative semantic source set
 
-The system must accept a structured, human-readable creature definition as the
-editable source of truth.
+The system must preserve durable authored intent in an authoritative semantic
+source set. Initially this may be one structured, human-readable document;
+future explicit semantic override layers may also be authored inputs. Compilation
+resolves the source set into a per-build semantic body-graph snapshot. The
+resolved graph and generated outputs remain derived and cannot silently become
+competing sources of truth. See [DR-0002 Revision 2](../decisions/DR-0002-declarative-body-document-source-of-truth.md).
 
 ### CK-PROD-002: Deterministic compilation
 
@@ -42,15 +45,22 @@ Given the same source, compiler version, configuration, and seed, the system
 must produce semantically equivalent output or report why reproducibility cannot
 be guaranteed.
 
-### CK-PROD-003: Stable semantic identity
+### CK-PROD-003: Durable semantic and artifact identity
 
-Durable contracts must identify body parts and regions semantically rather than
-depending on generated vertex indices or incidental mesh ordering.
+Durable semantic identity must identify parts, regions, joints, attachments,
+capabilities, and related concepts across regeneration. Artifact/build identity
+and provenance are separate. Mesh, vertex, face, triangle, LOD, and array
+indices are ephemeral and must not be promised stable through topology changes.
+See [DR-0006 Revision 1](../decisions/DR-0006-durable-semantic-and-artifact-identity.md).
 
-### CK-PROD-004: External automation
+### CK-PROD-004: Shared deterministic domain operations
 
-All core creation, inspection, compilation, validation, and export operations
-must be available through a documented CLI or programmatic API.
+One deterministic domain-operation model must cover query, semantic mutation,
+resolution/compilation, validation, diagnostics, artifact inspection, and future
+transaction semantics. CLI, programmatic API, future GUI, tests, scripts, and
+external AI agents are adapters over these operations and may not add private
+core behaviour. The first implementation may be an in-process library plus CLI
+adapter. See [DR-0004 Revision 2](../decisions/DR-0004-external-automation-through-cli-and-api.md).
 
 ### CK-PROD-005: No embedded-AI dependency
 
@@ -61,8 +71,11 @@ External AI agents may operate the same deterministic interfaces as other users.
 
 ### CK-PROD-010: Unified derivation
 
-Geometry, semantic regions, skeleton, collision, and deformation metadata must
-derive from the same resolved body definition or from explicitly linked sources.
+Geometry, semantic regions, skeleton, collision, materials, deformation,
+packaging, and runtime representations must share the resolved semantic body
+graph as lineage or identify an explicitly linked authored input. Unified
+derivation does not require one mesh, topology, geometry field, numerical
+representation, or universal solver.
 
 ### CK-PROD-011: Composable body grammar
 
@@ -141,8 +154,8 @@ engine, even if the first implementation uses a particular engine or tool.
 ### CK-PROD-041: External mesh path
 
 The architecture should leave a path for externally authored meshes to map onto
-the same semantic runtime contract, with explicit capability levels when full
-conformance is unavailable.
+the same semantic runtime contract as an explicitly linked or mapped authored
+input. External-mesh conformance and capability details remain deferred.
 
 ### CK-PROD-042: Versioned contracts
 

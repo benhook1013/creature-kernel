@@ -14,10 +14,10 @@ This direction is proposed for formal acceptance in
 ## Time domains
 
 ```text
-Body document
+Authoritative semantic source set
       |
       v
-[1] Creature compilation
+[1] Resolve source set and compile a per-build semantic graph snapshot
       |
       v
 Runtime avatar package
@@ -31,10 +31,11 @@ Runtime avatar package
 
 ## Creature compilation
 
-Compilation may run in an external tool, character creator, loading screen,
+Resolution and compilation may run in an external tool, character creator, loading screen,
 background worker, or import step. Candidate work includes:
 
-- resolving and validating the body graph;
+- resolving and validating the source set into a per-build semantic body graph
+  snapshot;
 - combining body volumes and extracting a surface;
 - remeshing, simplifying, and generating LODs;
 - generating skeletons, skinning, collision, and distance fields;
@@ -43,8 +44,9 @@ background worker, or import step. Candidate work includes:
 - generating material attributes and GPU resources;
 - running pose, geometry, collision, and capability tests.
 
-The result is a stable runtime avatar package. Invariant compilation work must
-not be repeated every frame.
+The result is a derived runtime avatar package with separate artifact/build
+identity and provenance. Invariant compilation work must not be repeated every
+frame; the runtime mutation and recompilation boundary remains unresolved.
 
 ## Real-time simulation
 
@@ -74,16 +76,12 @@ explicit budgets.
 Precomputation does not predetermine interaction. It prepares bounded numerical
 representations for live use.
 
-## Runtime mutation boundary
+## Runtime mutation boundary (unresolved)
 
-- Proportion, colour, material, and some shape changes may preserve topology and
-  update through bones, fields, cages, or morphs.
-- Adding or removing limbs, replacing major modules, or changing body plans may
-  require recompilation.
-- A future runtime may compile topology-changing edits asynchronously and swap
-  packages at a safe boundary.
-
-The first-version mutation boundary remains unresolved.
+No contract is settled for runtime semantic mutation, recompilation, or swapping
+derived packages. Future work must determine which authored changes can update
+an active build, which require a new compilation, and how runtime state is
+handled. DR-0002 does not answer those questions.
 
 ## Local quality activation
 

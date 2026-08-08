@@ -1,4 +1,4 @@
-# DR-0002: Declarative body document as source of truth
+# DR-0002: Authoritative semantic source set and resolved body graph
 
 ID: DR-0002
 
@@ -6,7 +6,7 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 1
+Revision: 2
 
 Decision owner: Ben
 
@@ -14,7 +14,7 @@ Owner approval: Pending
 
 Review status: Pending
 
-Date proposed: 2026-08-05
+Date proposed: 2026-08-08
 
 Date decided: —
 
@@ -24,42 +24,59 @@ Superseded by: —
 
 ## Context
 
-The project aims to generate geometry, rigging, collision, deformation, and
-semantic regions programmatically. Treating an incidental generated mesh as the
-primary asset would discard much of the structure needed for regeneration,
-automation, validation, and interaction across body variation.
+The project needs a durable place for authored intent while generating geometry,
+rigging, collision, deformation, materials, packaging, and runtime state. An
+incidental generated output cannot carry all of the construction intent needed
+for regeneration, automation, validation, and interaction across body
+variation. A single initial document is useful, but future explicit semantic
+override layers may also be authored inputs.
 
-The alternative source must remain editable by humans and tools and support
-stable semantic identity when generated topology changes.
+Revision 1 described a single declarative body document. Revision 2 records the
+broader source-set boundary and makes the resolved semantic graph a per-build
+derived snapshot. Revision 1 remains historical through Git; no duplicate
+revision snapshot is maintained here.
 
 ## Decision
 
-Use a declarative semantic body document as the editable source of truth.
-Compilation resolves that document into a body graph and derives visible and
-simulation representations.
+Durable authored intent lives in an authoritative semantic source set. Initially
+the source set may be one human-readable document; future explicit semantic
+override layers may also be authored inputs. Compilation resolves that source
+set into a per-build semantic body-graph snapshot.
 
-Durable contracts reference semantic parts, regions, attachments, local frames,
-and capabilities rather than generated vertex indices. Externally authored
-meshes may later attach to or conform with the same semantic model.
+The resolved graph supplies shared semantic lineage for derived mesh, rig,
+collider, material, deformation, packaging, runtime-state, and other outputs.
+Those outputs are derived and must not silently become competing sources of
+truth. External artist meshes may later enter as explicitly linked or mapped
+authored inputs.
 
-The concrete format and schema technology remain separate decisions.
+This record defers physical source formats, override representation,
+precedence/conflict rules, runtime mutation/recompilation, and external-mesh
+conformance details. Durable semantic identity and separate artifact/build
+identity are defined at the boundary in [DR-0006](DR-0006-durable-semantic-and-artifact-identity.md).
 
 ## Consequences
 
-- Generation, regeneration, diffing, CLI automation, and deterministic testing
-  receive a stable input.
-- Semantic information survives mesh replacement or remeshing.
-- The body language and migration policy become major long-lived contracts.
-- Some edits made directly to generated output may not round-trip to source.
-- Imported meshes require explicit mapping rather than becoming semantic truth
-  automatically.
+- Generation, regeneration, diffing, shared operations, and deterministic
+  testing receive authored inputs and a resolved per-build snapshot.
+- Semantic lineage remains distinct from generated outputs and can survive mesh
+  replacement or remeshing.
+- Source-set representation, override policy, and migration policy become
+  long-lived contracts, but remain deferred here.
+- Edits made directly to derived output cannot silently become authored truth.
+- Imported meshes require an explicitly linked or mapped authored-input path.
 
 ## Alternatives Considered
 
-### Generated mesh as source of truth
+### Generated output as source of truth
 
-Works with conventional tools but loses construction intent and makes semantic
-regeneration difficult.
+Works with conventional asset tools but loses authored construction intent and
+makes semantic regeneration difficult.
+
+### One fixed document forever
+
+Keeps the initial representation simple, but prevents future explicit semantic
+override layers from being authored inputs and would make later source needs an
+implicit competing path.
 
 ### Fixed template mesh with morph parameters
 
@@ -78,25 +95,30 @@ precise, editable, and compatible across model versions.
 
 ## Adversarial Review Response
 
-Pending review of revision 1.
+Pending one fresh adversarial review of Revision 2.
 
 ## Implementation and Proof Obligations
 
-- Specify semantic identity, coordinates, units, capabilities, and references.
+- Specify the source-set, resolved-graph, and derived-output relationships.
 - Define deterministic resolution and diagnostic behaviour.
-- Build fixtures proving stable semantics across substantial shape variation.
-- Define how generated output and external overrides relate to source.
-- Define versioning and migration before third-party contract stability is claimed.
+- Define semantic identity separately from artifact/build identity under DR-0006.
+- Build fixtures proving semantic lineage across shape variation and derived
+  output changes.
+- Later define source formats, overrides, runtime mutation/recompilation,
+  external-mesh mapping, versioning, and migration before promising those
+  contracts.
 
 ## Canonical Design Links
 
 - [Product requirements](../product/requirements.md)
 - [System overview](../architecture/system-overview.md)
 - [Specification boundary](../../spec/README.md)
+- [Durable semantic and artifact identity](DR-0006-durable-semantic-and-artifact-identity.md)
 
 ## Reversibility and Revisit Triggers
 
-Changing the source-of-truth model becomes expensive after documents and tools
-exist. Revisit if a declarative graph cannot express required morphology, if
-generated output cannot preserve artist intent, or if a hybrid asset model proves
-necessary through experiments.
+Changing the source-set and resolved-graph relationship becomes expensive after
+documents and tools exist. Revisit if authored inputs cannot express required
+morphology, if derived output cannot preserve artist intent, or if a hybrid
+asset model proves necessary through experiments. Exact formats, overrides,
+runtime mutation, and external-mesh conformance remain separately revisitable.

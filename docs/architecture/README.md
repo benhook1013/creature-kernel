@@ -32,8 +32,12 @@ baseline.
 The Round 2 product-boundary proposal in
 [DR-0005](../decisions/DR-0005-initial-product-boundary-and-reference-workflow.md)
 keeps Creature Kernel's initial target engine-independent and downstream of a
-real-time game integration. It does not accept DR-0002, DR-0003, or DR-0004, and
-does not settle their detailed source, compile/runtime, or automation contracts.
+real-time game integration. Related Proposed source, operation, and identity
+boundaries are recorded in [DR-0002 Revision 2](../decisions/DR-0002-declarative-body-document-source-of-truth.md),
+[DR-0004 Revision 2](../decisions/DR-0004-external-automation-through-cli-and-api.md),
+and [DR-0006 Revision 1](../decisions/DR-0006-durable-semantic-and-artifact-identity.md).
+Those records do not settle physical formats, identity syntax, interface
+schemas, or runtime mutation.
 
 ## Current maturity
 
