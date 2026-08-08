@@ -276,9 +276,14 @@ Prerequisite: Round 2 product-identity discussion and sufficient user/outcome
 context. This is a provisional planning sequence, not an accepted product
 scope.
 
+State: integrated/proposed — the settled first-proof charter and morphology
+envelope are recorded in [DR-0007](../decisions/DR-0007-staged-first-proof-charter.md)
+and [DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md).
+The visual-quality protocol remains a separate Round 5 output.
+
 ### CK-KICK-002: Define the first proof charter
 
-State: provisional/queued
+State: integrated/proposed
 
 Discussion topics:
 
@@ -291,6 +296,15 @@ Discussion topics:
 - Convert RQ-001 through RQ-003 into a bounded experiment direction without
   pretending uncertain quality thresholds are already measurements.
 
+Output: [DR-0007 Revision 1](../decisions/DR-0007-staged-first-proof-charter.md)
+records the recommended three explicit proof stages. Stage 1 is generation
+with minimal linked embodiment metadata and no animation, contact, deformation,
+or real-time-performance claim; Stage 2 is generated skeleton/skinning plus a
+shared pose/control scenario and semantic joint/contact regions without a
+contact, deformation, or runtime claim; Stage 3 is semantic two-character
+contact, selected localized response, declared hardware/performance evidence,
+and a useful fallback. Tested and not-tested claims remain explicit.
+
 Human questions, asked separately when active:
 
 1. What visible result would make the procedural-generation premise valuable?
@@ -300,7 +314,7 @@ Human questions, asked separately when active:
 
 ### CK-KICK-006: Bound the first morphology family
 
-State: provisional/queued
+State: integrated/proposed
 
 Prerequisite: CK-KICK-002.
 
@@ -318,9 +332,16 @@ The initial proposal to evaluate is a stylized digitigrade furry biped family,
 including torso, head and muzzle, ears, arms, hands or paws, legs and feet or
 paws, and tail. It is not accepted merely because it appears here.
 
+Output: [DR-0008 Revision 1](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md)
+records the bounded stylized digitigrade furry biped, required semantic
+modules, named optional ear and tail sockets, continuous variation categories,
+explicitly invalid or deferred assemblies, and the fixed qualitative fixture
+profiles. It also records minimal linked Stage 1 embodiment hooks. Exact ratios,
+technologies, budgets, and backends remain deferred.
+
 ### CK-KICK-007: Define the native visual and semantic quality bar
 
-State: provisional/queued
+State: integrated/proposed
 
 Prerequisite: CK-KICK-006.
 
@@ -334,6 +355,15 @@ Outcome:
   diagnostic requirements separately from subjective visual judgment.
 - Choose how evidence will be retained through small fixtures, captures,
   metrics, and explicit human visual assessment.
+
+Output: the proposed [visual-quality evaluation
+protocol](../research/visual-quality-evaluation.md) separates reproducible
+structural checks from a modest recorded human visual assessment over the fixed
+profiles and views. It defines conspicuous seams, detached parts, collapsed
+joints, and undifferentiated primitive blobs as failures of the subjective
+floor while keeping the judgment explicitly subjective. Detailed facial and
+digit features, dense fur/hair, clothing, adult contact/deformation, cinematic
+rendering, and arbitrary anatomy remain outside the Stage 1 quality claim.
 
 ## Round 6 — surface research and geometry decision (provisional)
 

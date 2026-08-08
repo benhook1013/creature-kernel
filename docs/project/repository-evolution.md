@@ -17,6 +17,7 @@ States: `active`, `planned`, `triggered`, `deferred`, `not-applicable`, `retired
 | Architecture proposal area | Now | active | Foundation phase | `docs/architecture/` | Required-path and link checks |
 | Decision record registry and reviews | Now | active | Before first consequential choice | `docs/decisions/` | DR metadata, Scope, and registry checks |
 | Research question registry | Now | active | Before first experiment | `docs/research/` | Stable-ID checks later |
+| Visual-quality evaluation protocol | Now | active | Round 5 visual-quality work | `docs/research/visual-quality-evaluation.md` | Protocol and evidence-link checks |
 | Experiment workflow | Now | active | Before first prototype | `experiments/` | Template and evidence checks later |
 | Specification authority | Now | active | Before first format proposal | `spec/` | Index and link checks |
 | Fixture policy | Now | active | Before first executable test | `fixtures/` | Provenance rules |

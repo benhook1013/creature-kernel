@@ -25,6 +25,9 @@ Exit outcomes:
 - One bounded furry morphology family is defined.
 - Several substantially different bodies generate without a handcrafted base mesh.
 - Semantic part identity and local fields survive surface generation.
+- Minimal linked embodiment metadata, semantic joint frames, and semantic
+  regions are available where practical; Stage 1 does not claim animation,
+  contact, deformation, or real-time performance.
 - Builds are reproducible through a headless command.
 
 ## Stage 2: Prove embodiment
@@ -34,6 +37,8 @@ Exit outcomes:
 - Generated skeletons and skinning pass reference poses.
 - Collision proxies and semantic contact regions are generated.
 - Multiple generated bodies share one animation or control scenario.
+- Stage 2 does not yet claim contact behaviour, deformation quality, or runtime
+  performance.
 - Structured diagnostics identify known geometry and rigging failures.
 
 ## Stage 3: Prove bounded real-time interaction
@@ -44,6 +49,8 @@ Exit outcomes:
 - Two generated characters establish semantic contact.
 - Local deformation and physical response run within a declared hardware budget.
 - Quality tiers and at least one fallback path are demonstrated.
+- The claim is limited to the declared scenario, hardware evidence, and
+  fallback; it does not imply an unbounded runtime budget.
 
 ## Stage 4: Prove extensibility
 

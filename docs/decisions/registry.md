@@ -10,6 +10,8 @@ Status: Provisional operational trial
 | [DR-0004](DR-0004-external-automation-through-cli-and-api.md) | Shared deterministic domain operations for external automation | Product and architecture | Proposed | 2 | Complete | Ben |
 | [DR-0005](DR-0005-initial-product-boundary-and-reference-workflow.md) | Initial product boundary and reference workflow | Product and architecture | Proposed | 1 | Complete | Ben |
 | [DR-0006](DR-0006-durable-semantic-and-artifact-identity.md) | Durable semantic and artifact/build identity | Specification and architecture | Proposed | 1 | Complete | Ben |
+| [DR-0007](DR-0007-staged-first-proof-charter.md) | Staged first-proof charter and claim boundaries | Product | Proposed | 1 | Pending | Ben |
+| [DR-0008](DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md) | First digitigrade morphology and Stage 1 embodiment envelope | Product, Specification and architecture | Proposed | 1 | Pending | Ben |
 
 ## Candidate decisions
 
@@ -17,7 +19,6 @@ Candidates do not yet have reserved DR numbers.
 
 | Candidate | Trigger for proposal |
 | --- | --- |
-| First morphology family | Before defining the first executable body fixture |
 | Initial surface representation | Before implementing a meshing proof |
 | Language and build system | Before creating implementation packages |
 | First geometry backend | Before committing backend-specific source |

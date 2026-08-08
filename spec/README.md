@@ -12,6 +12,12 @@ changing the meaning of persisted bodies or avatar packages.
 - Resolved semantic graph snapshot.
 - Durable semantic identities and separate artifact/build identity and provenance.
 - Capabilities, regions, attachments, joints, and material/deformation metadata.
+- A planned supported-morphology and validity envelope for the bounded first
+  body family, including required modules, optional named-socket attachments,
+  deferred families, and invalid/unsupported assemblies.
+- A planned fixture-profile contract describing stable profile identity,
+  provenance, shared-generation expectations, and the distinction between
+  fixture evidence and product claims.
 - Runtime avatar package.
 - Interaction and quality negotiation.
 - Shared domain-operation and diagnostic contracts (eventually).

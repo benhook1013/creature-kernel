@@ -10,6 +10,7 @@ hypotheses, references, and research context.
 
 - [Open questions](open-questions.md)
 - [Reference index](references.md)
+- [Visual-quality evaluation protocol](visual-quality-evaluation.md)
 - [Experiment workflow](../../experiments/README.md)
 
 ## Authority rule

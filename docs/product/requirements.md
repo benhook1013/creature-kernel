@@ -28,6 +28,40 @@ These choices are recorded under DR-0005, which defers source semantics,
 the detailed compile/runtime boundary, automation contract detail, morphology,
 backend, and budget decisions.
 
+## First-proof boundary (Proposed)
+
+The first proof is deliberately staged. Stage 1 is the first continuation gate
+and may claim only deterministic generation of the bounded morphology family,
+semantic regions and appearance inputs, structured diagnostics, and minimal
+embodiment lineage. It must not be used to claim shared pose or animation,
+contact, deformation, or real-time interaction. Stage 2 separately proves
+embodiment through shared pose/control behaviour; Stage 3 separately proves
+bounded real-time interaction, including runtime loading, semantic contact,
+localized deformation, physical response, and declared budget evidence.
+
+The initial family is a stylized digitigrade furry biped with required
+torso/pelvis, head/simplified muzzle, two arms/simplified hands-paws, and two
+digitigrade legs/simplified feet-paws. Predefined ears and tail are optional
+through named sockets. Qualitative variation spans stature, torso width and
+depth, head/muzzle scale, arm and leg length, foot size and angle, and optional
+ear and tail shape. It is tested with at least four fixed profiles:
+
+- compact, broad, short-limbed, large-head;
+- tall, narrow, long-legged;
+- slender, long-limbed; and
+- stocky, broad-chested.
+
+At least one profile contrasts optional-module presence, absence, or style;
+exact ratios and parameter ranges remain deferred. Extra limbs, wings,
+quadrupeds, arbitrary joints or graphs, detailed digits, arbitrary anatomy,
+and other families are deferred.
+
+The fixed profiles must be generated through the same shared operations with
+no per-fixture patches. Evidence combines objective structural checks with a
+modest recorded human visual assessment; the [visual-quality evaluation
+protocol](../research/visual-quality-evaluation.md) owns that method rather
+than this product requirement.
+
 ## Programmable source and determinism
 
 ### CK-PROD-001: Authoritative semantic source set
@@ -79,7 +113,10 @@ Geometry, semantic regions, skeleton, collision, materials, deformation,
 packaging, and runtime representations must share the resolved semantic body
 graph as lineage or identify an explicitly linked authored input. Unified
 derivation does not require one mesh, topology, geometry field, numerical
-representation, or universal solver.
+representation, or universal solver. In Stage 1, any claimed joint frames,
+bind/skinning metadata, analytic collision/contact regions, and related
+embodiment metadata must remain linked to the same semantic source and build
+lineage; shared pose and actual contact/deformation are later-stage claims.
 
 ### CK-PROD-011: Composable body grammar
 
@@ -89,7 +126,10 @@ local frames, measurements, capabilities, and material/deformation properties.
 ### CK-PROD-012: Connected visible surface
 
 The native generation path should produce a coherent renderable surface for
-supported body plans without requiring a handcrafted base character mesh.
+the bounded first body family without requiring a handcrafted base character
+mesh. Objective structural checks and recorded human visual assessment are
+separate evidence classes; the visual floor and evidence procedure are owned
+by the [visual-quality evaluation protocol](../research/visual-quality-evaluation.md).
 
 ### CK-PROD-013: Runtime avatar package
 
@@ -106,7 +146,9 @@ assets.
 
 The native path should generate semantic material inputs sufficient for basic
 stylized colours, markings, and body-region distinctions without unique painted
-textures.
+textures. Stage 1 does not require dense fur/hair, clothing/cloth, cinematic
+rendering, or detailed facial and digit features; these remain deferred or
+semantic-only until later evidence.
 
 ## Real-time experience
 

@@ -71,11 +71,20 @@ Creature Kernel is intended to become:
 
 ## Initial scope
 
-- Stylized furry morphology with an intentionally bounded first body family.
+- A bounded stylized digitigrade furry biped family for the first proof:
+  required torso/pelvis, head with a simplified muzzle, two arms with
+  simplified hands or paws, and two digitigrade legs with simplified feet or
+  paws. Predefined ears and tail may be enabled through named sockets. This
+  family is a Proposed boundary, not a claim of arbitrary-anatomy support.
 - Programmatic body assembly without requiring a handcrafted base character mesh.
 - Continuous surface generation from semantic volumetric parts or an alternative
   method selected through evidence and review.
-- Generated skeleton, skinning, collision, semantic regions, and basic materials.
+- Stage 1 may carry minimal semantic joint frames, bind/skinning metadata where
+  practical, analytic collision/contact regions, and lineage metadata when
+  those representations are claimed. Shared pose and animation belong to Stage
+  2; contact and visible deformation belong to Stage 3.
+- Generated semantic regions and basic material inputs, with bounded runtime
+  representations, quality levels, and fallbacks introduced by later stages.
 - Bounded real-time representations with quality levels and fallbacks.
 - In-session preview recompilation and replacement without closing the scene or
   session; a failed replacement retains the last validated avatar and reports
@@ -87,26 +96,39 @@ Creature Kernel is intended to become:
 ## Explicit non-goals for the first proof
 
 - A complete standalone renderer or general-purpose game engine.
-- Equal-quality support for arbitrary fictional anatomy.
+- Extra limbs, wings, quadrupeds, arbitrary joints or graphs, detailed digits,
+  arbitrary anatomy, and other morphology families.
 - Full render-resolution soft-body simulation over every character.
 - Dynamic topology changes every frame.
-- Dense strand fur, clothing, and self-collision at cinematic fidelity.
+- Dense fur or hair, clothing or cloth, and self-collision at cinematic
+  fidelity.
+- Stage 1 claims of shared pose, adult contact, or visible deformation.
 - A built-in language model or chat interface.
 - A production SaaS, multiplayer service, marketplace, or deployment platform.
 - Automatic replacement of artistic judgment in every generated detail.
 
 ## Success shape
 
-The first meaningful proof should generate multiple substantially different
-members of one morphology family from body documents and demonstrate that they:
+Success is a staged progression, with each stage making only its own claims.
+Stage 1 is the first continuation gate: it should generate multiple
+substantially different members of the bounded family from body documents,
+without bespoke mesh or rig work, and provide reproducible geometry, semantic
+regions, basic appearance inputs, diagnostics, and the minimal embodiment
+lineage described above. Passing Stage 1 does not claim shared pose,
+animation, contact, deformation, or real-time interaction.
 
-- compile without bespoke mesh or rig work;
-- preserve semantic body regions;
-- pass defined geometry and pose checks;
-- share at least one animation or procedural control scenario;
-- expose compatible collision and contact representations;
-- render and run within an explicit reference-hardware budget;
-- can be reproduced through documented shared operations and CLI commands.
+Stage 2 is a separate embodiment proof. It must demonstrate generated joint
+and skinning behaviour across the fixed body-profile set, including at least
+one shared pose or control scenario, while preserving semantic and collision
+representations. Stage 3 is a separate bounded real-time interaction proof;
+only it may claim runtime loading, semantic contact, localized deformation,
+physical response, and declared runtime-budget evidence.
+
+All stages use fixed, substantially different body profiles and shared
+generation operations; per-fixture patches are not evidence of a general
+family capability. Structural checks and recorded human visual assessment are
+separate evidence classes, as described in the [visual-quality evaluation
+protocol](../research/visual-quality-evaluation.md).
 
 Exact visual quality, morphology range, performance targets, and runtime engine
 remain open decisions. Capability classes and quality names may be useful for
