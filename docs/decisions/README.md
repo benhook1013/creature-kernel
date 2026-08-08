@@ -1,6 +1,6 @@
 # Decision record process
 
-Status: Active process proposal
+Status: Provisional operational trial
 
 This directory records consequential decisions and their rationale. Decision
 Records (DRs) do not replace canonical product, specification, or architecture
@@ -37,7 +37,9 @@ authority to replace the canonical documents.
 
 Unaccepted material remains clearly labelled `Proposed` or `provisional`. A
 plausible assistant synthesis is not an accepted product or architecture
-baseline.
+baseline. The registry, process, and review structure are active/operational
+under the DR-0001 Revision 3 bootstrap trial; that operational state is not an
+accepted governance contract.
 
 ## Revision and review rule
 
@@ -54,8 +56,9 @@ Acceptance is round-delayed:
    batch, then validate the integrated result.
 3. In the next round, request a fresh review of the exact current revision and
    its canonical review bundle: affected product, specification, architecture,
-   governance, research, and experiment documents as applicable. Start
-   independent research for the next batch concurrently when dependencies
+   governance, research, and experiment documents as applicable. The complete
+   review artifact must identify the exact bundle and the sources actually read.
+   Start independent research for the next batch concurrently when dependencies
    permit.
 4. Record responses and any revision, then ask Ben for an explicit disposition
    only after the current revision has been reviewed. Return a short synthesized
@@ -70,17 +73,51 @@ The review recommends; it does not decide. A DR may become `Accepted` only when:
 4. Canonical design links and proof obligations are identified.
 5. Ben explicitly approves it.
 
-A human waiver may replace a missing review or proof obligation, but the DR must
-record the waiver, reason, and accepted risk. A waived review is not implicit
-owner approval. Record explicit acceptance as
+A current-revision adversarial review is mandatory and cannot be replaced by a
+waived review. Explicit Ben waivers or deferrals may apply only to non-review
+proof or evidence obligations; the DR must record the waiver reason and accepted
+risk. Record explicit acceptance as
 `Owner approval: Approved by <Decision owner>` in the DR metadata. Until then
-use `Owner approval: Pending`. When `Review status` is `Waived`, record
-non-placeholder `Waiver reason` and `Accepted risk` lines in the review response.
+use `Owner approval: Pending`.
 
 The validator checks metadata, scope and registry agreement, revision and links,
-owner approval, and waiver fields. Human review remains responsible for judging
-whether objections were answered adequately and whether experiment deferrals or
-accepted risks are reasonable.
+owner approval, response status, and review bundle/source identity. Mechanical
+checks prove presence and identity only. Ben and the main thread remain
+responsible for judging whether sources were truthfully read, the reviewer is
+competent and independent enough, objections were answered adequately, and any
+non-review waiver or deferral records a sufficient reason and accepted risk.
+
+## Canonical Review Bundle
+
+Every complete review must list one local Markdown link per bundle item and must
+include the target DR at its exact revision. The bundle contains the affected
+canonical documents and any research or experiment evidence needed to assess
+the proposal. Do not use fake placeholder links.
+
+## Sources Actually Read
+
+Every complete review must list the sources actually read as one local Markdown
+link per item. The source list may overlap the canonical bundle but must not
+claim files, revisions, or evidence that the reviewer did not read.
+
+## Structured Objection Responses
+
+Each DR response uses repeatable blocks in the `## Adversarial Review Response`
+section:
+
+```text
+### Objection response 1
+
+Objection: ...
+
+Response: ...
+
+Disposition: Addressed | Accepted risk | Deferred | Rejected
+```
+
+`Objection: None identified` is permitted only when the complete review actually
+found no objections. A DR seeking acceptance must have `Response status:
+Complete` and non-placeholder responses for the current review.
 
 ## Workflow and ownership
 
@@ -93,7 +130,8 @@ accepted risks are reasonable.
 4. Before the next round, integrate the batch and identify its canonical review
    bundle. Do not treat the batch as accepted.
 5. In the next round, commission a fresh-context adversarial review using [the
-   review template](reviews/adversarial-review-template.md). Use the
+   review template](reviews/adversarial-review-template.md), including the
+   canonical bundle and sources actually read. Use the
    [fresh-reread preamble](reviews/fresh-reread-preamble.md) for convergence.
 6. Record responses, revise when necessary, and retain earlier revisions and
    reviews as history.

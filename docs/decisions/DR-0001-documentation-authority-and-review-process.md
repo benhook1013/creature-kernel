@@ -6,13 +6,15 @@ Scope: Governance
 
 Status: Proposed
 
-Revision: 2
+Revision: 3
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
+
+Response status: Pending
 
 Date proposed: 2026-08-08
 
@@ -53,6 +55,18 @@ of these scopes: Governance, Product, Specification, and Architecture. Its
 the DR explains rationale and links to those authorities but does not replace
 them.
 
+### Provisional bootstrap trial
+
+Ben's 2026-08-08 governance-round direction authorizes this mechanism as a
+provisional operational trial until DR-0001 receives a disposition. Contributor
+instructions and validators may bind work during the trial solely to preserve
+authority separation, proposal labels, review evidence, repository safety, and
+explicit human ownership. Trial operation is not acceptance of DR-0001 or
+DR-0002–0004 and cannot accept any DR automatically. If Ben rejects or
+materially replaces DR-0001, the main thread must retire or migrate trial-only
+controls while preserving the proposal and review history. Documents must
+clearly distinguish an active/operational structure from an accepted contract.
+
 Require a DR only for a choice that is hard to reverse, cross-cutting,
 contractual or public, performance-defining, dependency/portability/licensing
 locking, or likely to be disputed. Ordinary wording, derived detail, and
@@ -72,6 +86,18 @@ Use round-delayed adversarial acceptance:
 4. The main thread records responses and revisions, then obtains explicit Ben
    acceptance only after the current revision has been reviewed. It returns a
    short synthesized review status together with the next decision batch.
+
+Every `Complete` review artifact identifies the exact target revision, the exact
+canonical review bundle, and the sources actually read. Before acceptance, the
+DR links a matching current-revision review and contains a structured,
+non-placeholder objection response with `Response status: Complete`. Mechanical
+checks prove presence and identity only; Ben and the main thread judge
+completeness, truthful reading, reviewer competence, and response adequacy.
+
+A current-revision adversarial review is mandatory under this proposal and
+cannot be replaced by `Review status: Waived`. Explicit Ben waivers or
+deferrals may apply only to non-review proof or evidence obligations; they must
+record the waiver reason and accepted risk.
 
 The main `gpt-5.6-sol` thread owns human discussion, decomposition, synthesis,
 integration, validation, Git and pull-request operations, CI and review
@@ -100,6 +126,10 @@ content must not be described as an accepted active baseline.
   canonical bundle and fresh context rather than isolated review of chat turns.
 - Proposals may remain active and useful before acceptance, but their provisional
   status must be visible to contributors and tooling.
+- The bootstrap trial permits operational safety controls before acceptance while
+  preserving an explicit rollback and migration boundary.
+- Review artifacts must make their bundle, sources, current revision, and
+  objection responses inspectable before acceptance.
 - The main thread carries integration and validation responsibility, while
   bounded delegation preserves context and independent challenge.
 - Governance introduces review and registry maintenance before implementation,
@@ -137,32 +167,50 @@ clear fresh-context boundary at the cost of deliberate delay.
 ## Adversarial Review Response
 
 [Fresh adversarial review of DR-0001 Revision 2](reviews/DR-0001-rev-02-review-01.md)
-completed on 2026-08-08 recommends `Revise` with high confidence. It identifies
-two unresolved blockers:
+completed on 2026-08-08 recommended `Revise` with high confidence. Its two
+blockers map to the Revision 3 changes below. Response status remains `Pending`
+because Revision 3 has not received an independent review.
 
-- The provisional-status/bootstrap distinction is not explicit while AGENTS.md,
-  the workflow, repository-evolution ledger, validator, root principles, and
-  DR-0002–0004-related material already operate as governance or proposed
-  substance.
-- The promised exact canonical review bundle and explicit objection responses
-  are not enforceable because the review template lacks bundle/source fields and
-  the validator lacks the corresponding evidence and response-presence checks.
+### Objection response 1
 
-These findings are historical evidence against acceptance of Revision 2; they
-are not resolved by this response. Revision 3 must add the explicit bootstrap
-transition and status alignment, require the exact bundle and sources record,
-and enforce response presence. Revision 3 must then receive a fresh review of
-its exact revision and affected canonical documents before Ben gives any
-disposition. DR-0001 remains Proposed, and no text here claims an accepted
-predecessor or acceptance of this revision.
+Objection: The provisional-status/bootstrap distinction was not explicit while
+operational documents already bound unaccepted governance or DR-0002–0004
+substance.
+
+Response: Revision 3 adds the Provisional bootstrap trial rule above and aligns
+the root guidance, authority indexes, workflow, registry, ledger, status, and
+proposal labels with an operational trial that is not acceptance. The main
+thread must retire or migrate trial-only controls if Ben rejects or materially
+replaces DR-0001.
+
+Disposition: Deferred
+
+### Objection response 2
+
+Objection: The exact canonical review bundle, sources actually read, and
+structured objection responses were not required by the review template or
+mechanically checked for presence and identity.
+
+Response: Revision 3 adds required bundle and sources sections, a repeatable
+structured objection-response format, and the review-evidence rule. The
+validator changes are maintained separately; their independent verification is
+still pending and is not claimed here.
+
+Disposition: Deferred
+
+Revision 3 must receive a fresh review of its exact revision and affected
+canonical documents before Ben gives any disposition. DR-0001 remains Proposed,
+and no text here claims independent verification, an accepted predecessor, or
+acceptance of this revision.
 
 ## Implementation and Proof Obligations
 
 - Maintain the authority index, neutral DR registry, templates, review records,
   and status vocabulary.
 - Validate required documents, DR metadata and `Scope`, registry parity,
-  headings, local links, UTF-8, whitespace, owner approval, waiver details, and
-  current-revision review links.
+  headings, local links, UTF-8, whitespace, owner approval, response status,
+  review bundle/source identity, and current-revision review links. Ben and the
+  main thread judge non-review waiver reasons and accepted risk.
 - Keep DR-0001 through DR-0004 visibly Proposed until their current revisions
   receive the round-delayed review and Ben's explicit disposition.
 - Record each review's exact proposal revision and canonical review bundle.

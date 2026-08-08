@@ -85,9 +85,10 @@ change after the main thread reports the exact proposed action.
 
 This batch records the approved governance direction and prepares the neutral
 decision-record process for adversarial review. Product and architecture
-content remains provisional. The fresh review of DR-0001 Revision 2 completed
-with two blockers, so Revision 3 is being prepared; DR-0002 through DR-0004 are
-Revision 1 proposals retained for later product and architecture review.
+content remains provisional. DR-0001 Revision 3 is Proposed and Pending fresh
+review. The Revision 2 review is historical; both blockers are addressed in the
+Revision 3 proposal but are not independently verified. DR-0002 through DR-0004
+are Revision 1 proposals retained for later product and architecture review.
 
 ### CK-KICK-001: Review the decision process itself
 
@@ -95,14 +96,14 @@ State: active/proposed
 
 Outcome:
 
-- Record the completed fresh Sol-medium adversarial review of DR-0001 Revision
-  2 and the affected authority, workflow, registry, and validator documents.
+- Preserve the completed fresh Sol-medium adversarial review of DR-0001 Revision
+  2 and its affected authority, workflow, registry, and validator documents as
+  historical evidence.
 - Preserve its `Revise` recommendation and two blocking objections: the
   provisional-status/bootstrap conflict and the acceptance-evidence gap.
-- Prepare Revision 3 to address those blockers without treating the fixes as
-  complete or accepted.
-- Obtain a fresh current-revision review and then ask Ben to accept, reject,
-  request revision, or leave the proposal blocked.
+- DR-0001 Revision 3 addresses both blockers in Proposed text, but neither fix
+  is independently verified; obtain a fresh current-revision review before
+  asking Ben to accept, reject, request revision, or leave the proposal blocked.
 
 ### Governance batch: authority, trigger, review, and ownership
 
@@ -133,7 +134,7 @@ Discussion topics:
 
 Outputs:
 
-- DR-0001 Revision 2, Status Proposed, Scope Governance.
+- DR-0001 Revision 3, Status Proposed, Scope Governance, Review Pending.
 - DR-0002 through DR-0004 retained as Status Proposed, Revision 1, with their
   later Product, Specification, and Architecture review dependencies visible.
 - Neutral registry, templates, review naming, validator, authority indexes,
@@ -141,10 +142,11 @@ Outputs:
 
 Review and next batch:
 
-- The Round 1 canonical bundle has a completed Revision 2 review with two
-  blockers; its response is recorded as historical evidence.
+- The completed Revision 2 review and its two blockers are historical evidence.
+- Proposed Revision 3 addresses both blockers, but neither fix is independently
+  verified; the fresh current-revision review is pending.
 - The main thread can independently research the Round 2 product-identity
-  questions while Revision 3 is being prepared, when dependencies permit.
+  questions while that review is pending, when dependencies permit.
 - Round 1 is complete only when Revision 3 has a fresh current-revision review,
   responses are recorded, and Ben gives an explicit disposition; until then all
   four DRs remain Proposed.

@@ -16,6 +16,18 @@ Recommendation: Accept | Revise | Reject
 
 Confidence: Low | Medium | High
 
+## Canonical Review Bundle
+
+List the exact canonical review bundle. Use one local Markdown link per item and
+include the target DR at the exact revision under review. Include affected
+canonical documents and relevant research or experiment evidence. Do not use
+fake placeholder links.
+
+## Sources Actually Read
+
+List every source actually read using one local Markdown link per item. Keep this
+list truthful; it may overlap the canonical review bundle.
+
 ## Executive Assessment
 
 What is the proposal trying to achieve, and is the proposed decision justified?

@@ -14,6 +14,8 @@ Owner approval: Pending
 
 Review status: Pending
 
+Response status: Pending
+
 Date proposed: YYYY-MM-DD
 
 Date decided: —
@@ -44,14 +46,21 @@ before explaining why it was not selected.
 
 ## Adversarial Review Response
 
-Link applicable review artifacts and respond to material objections. Name any
-unresolved objection or accepted waiver.
+Link the current-revision review artifact and respond to each material
+objection. Use repeatable blocks with the exact fields below:
 
-For a waived review, replace both placeholders:
+### Objection response 1
 
-Waiver reason: —
+Objection: ...
 
-Accepted risk: —
+Response: ...
+
+Disposition: Addressed | Accepted risk | Deferred | Rejected
+
+`Objection: None identified` is permitted only when the complete review found no
+objections. A current-revision adversarial review is mandatory and cannot be
+waived. Ben may explicitly waive or defer only a non-review proof or evidence
+obligation, recording the waiver reason and accepted risk here.
 
 ## Implementation and Proof Obligations
 

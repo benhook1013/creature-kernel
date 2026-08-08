@@ -33,6 +33,7 @@ REQUIRED_PATHS = (
     "docs/decisions/reviews/README.md",
     "docs/decisions/reviews/adversarial-review-template.md",
     "docs/decisions/reviews/fresh-reread-preamble.md",
+    "dev-tools/validation/tests/test_validate_docs.py",
     "docs/developer-workflows/README.md",
     "docs/developer-workflows/ai-delegation-and-review.md",
     "docs/research/README.md",
@@ -55,7 +56,10 @@ REVIEW_FILENAME = re.compile(
     r"^(DR-(\d{4}))-rev-(\d{2})-review-(\d{2})\.md$"
 )
 MARKDOWN_LINK = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
-METADATA_LINE = re.compile(r"^([A-Za-z][A-Za-z ]+):\s*(.+?)\s*$", re.MULTILINE)
+METADATA_LINE = re.compile(r"^([A-Za-z][A-Za-z ]+):\s*(.*?)\s*$")
+FENCE_LINE = re.compile(r"^\s{0,3}(`{3,}|~{3,})(?:.*)$")
+LEVEL_TWO_HEADING = re.compile(r"^##(?!#)(?: .*)?$")
+RESPONSE_BLOCK_HEADING = re.compile(r"^### Objection response ([1-9][0-9]*)$")
 
 DR_STATUSES = {
     "Candidate",
@@ -67,7 +71,9 @@ DR_STATUSES = {
     "Withdrawn",
 }
 DR_SCOPES = {"governance", "product", "specification", "architecture"}
-REVIEW_STATUSES = {"Pending", "In Progress", "Complete", "Waived", "Stale"}
+REVIEW_STATUSES = {"Pending", "In Progress", "Complete", "Stale"}
+RESPONSE_STATUSES = {"Pending", "Complete"}
+RESPONSE_DISPOSITIONS = {"Addressed", "Accepted risk", "Deferred", "Rejected"}
 DR_HEADINGS = (
     "## Context",
     "## Decision",
@@ -77,6 +83,10 @@ DR_HEADINGS = (
     "## Implementation and Proof Obligations",
     "## Canonical Design Links",
     "## Reversibility and Revisit Triggers",
+)
+REVIEW_EVIDENCE_HEADINGS = (
+    "## Canonical Review Bundle",
+    "## Sources Actually Read",
 )
 REVIEW_HEADINGS = (
     "## Executive Assessment",
@@ -98,15 +108,90 @@ REGISTRY_LINK = re.compile(
 )
 REGISTRY_DR_ID = re.compile(r"\bDR-\d{4}\b")
 DR_TITLE = re.compile(r"^# (?P<id>DR-\d{4}): (?P<title>[^\n]+)$", re.MULTILINE)
-PLACEHOLDER_VALUES = {"", "—", "-", "Pending"}
+PLACEHOLDER_VALUES = {"", "—", "-", "pending", "todo", "tbd"}
+
+DR_METADATA_FIELDS = {
+    "ID",
+    "Scope",
+    "Status",
+    "Revision",
+    "Decision owner",
+    "Owner approval",
+    "Review status",
+    "Response status",
+    "Date proposed",
+    "Date decided",
+    "Supersedes",
+    "Superseded by",
+}
+REVIEW_METADATA_FIELDS = {
+    "Target DR",
+    "Target revision",
+    "Review status",
+    "Recommendation",
+}
 
 
 def relative(path: Path) -> str:
     return path.relative_to(ROOT).as_posix()
 
 
+def _fence_marker(line: str) -> tuple[str, int] | None:
+    match = FENCE_LINE.match(line)
+    if not match:
+        return None
+    marker = match.group(1)
+    return marker[0], len(marker)
+
+
+def _outside_fence_lines(text: str) -> list[tuple[int, str]]:
+    """Return line numbers and contents outside ordinary Markdown fences."""
+
+    lines: list[tuple[int, str]] = []
+    fence: tuple[str, int] | None = None
+    for number, line in enumerate(text.splitlines(), start=1):
+        marker = _fence_marker(line)
+        if fence is not None:
+            if marker is not None and marker[0] == fence[0] and marker[1] >= fence[1]:
+                fence = None
+            continue
+        if marker is not None:
+            fence = marker
+            continue
+        lines.append((number, line))
+    return lines
+
+
+def _top_level_preamble_lines(text: str) -> list[str]:
+    """Read only the metadata preamble, stopping at the first level-2 heading."""
+
+    preamble: list[str] = []
+    for _, line in _outside_fence_lines(text):
+        if LEVEL_TWO_HEADING.fullmatch(line):
+            break
+        preamble.append(line)
+    return preamble
+
+
+def metadata_entries(text: str) -> tuple[dict[str, str], set[str]]:
+    """Return top-level metadata and duplicate keys in that metadata only."""
+
+    values: dict[str, str] = {}
+    duplicates: set[str] = set()
+    for line in _top_level_preamble_lines(text):
+        match = METADATA_LINE.fullmatch(line)
+        if not match:
+            continue
+        key, value = match.groups()
+        value = value.strip()
+        if key in values:
+            duplicates.add(key)
+        values[key] = value
+    return values, duplicates
+
+
 def metadata(text: str) -> dict[str, str]:
-    return {key: value for key, value in METADATA_LINE.findall(text)}
+    return metadata_entries(text)[0]
 
 
 def scope_parts(value: str) -> set[str]:
@@ -117,13 +202,50 @@ def scope_parts(value: str) -> set[str]:
     }
 
 
+def sections(text: str, heading: str) -> list[str]:
+    """Return exact level-2 sections, excluding headings in fenced examples."""
+
+    lines = text.splitlines()
+    outside = {number: line for number, line in _outside_fence_lines(text)}
+    starts = [number for number, line in outside.items() if line == heading]
+    result: list[str] = []
+    for start in starts:
+        end = len(lines) + 1
+        for number in range(start + 1, len(lines) + 1):
+            line = outside.get(number)
+            if line is not None and LEVEL_TWO_HEADING.fullmatch(line):
+                end = number
+                break
+        result.append("\n".join(lines[start:end - 1]))
+    return result
+
+
 def section(text: str, heading: str) -> str:
-    start = text.find(heading)
-    if start < 0:
-        return ""
-    remainder = text[start + len(heading) :]
-    next_heading = re.search(r"^## ", remainder, re.MULTILINE)
-    return remainder[: next_heading.start()] if next_heading else remainder
+    matches = sections(text, heading)
+    return matches[0] if matches else ""
+
+
+def exact_heading_error(
+    errors: list[str], text: str, heading: str, path: Path, kind: str
+) -> bool:
+    count = len(sections(text, heading))
+    if count == 0:
+        errors.append(f"missing {kind} heading '{heading}': {relative(path)}")
+        return False
+    if count > 1:
+        errors.append(
+            f"duplicate {kind} heading '{heading}' ({count}): {relative(path)}"
+        )
+        return False
+    return True
+
+
+def markdown_links_outside_fences(text: str) -> list[str]:
+    return [
+        raw
+        for _, line in _outside_fence_lines(text)
+        for raw in MARKDOWN_LINK.findall(line)
+    ]
 
 
 def validate_required_paths(errors: list[str]) -> None:
@@ -157,11 +279,41 @@ def validate_whitespace(errors: list[str]) -> None:
 
 def normalize_link(raw: str) -> str:
     target = raw.strip()
-    if target.startswith("<") and target.endswith(">"):
-        target = target[1:-1]
     if ' "' in target:
         target = target.split(' "', 1)[0]
+    if target.startswith("<") and target.endswith(">"):
+        target = target[1:-1]
     return unquote(target)
+
+
+def is_placeholder(value: str) -> bool:
+    normalized = value.strip().casefold()
+    return normalized in PLACEHOLDER_VALUES or (
+        len(normalized) >= 2
+        and normalized.startswith("<")
+        and normalized.endswith(">")
+    )
+
+
+def local_markdown_targets(path: Path, text: str) -> list[Path]:
+    """Resolve valid local Markdown links outside code fences."""
+
+    targets: list[Path] = []
+    for raw in markdown_links_outside_fences(text):
+        target = normalize_link(raw)
+        if not target or target.startswith(("#", "http://", "https://", "mailto:")):
+            continue
+        file_target = target.split("#", 1)[0]
+        if not file_target:
+            continue
+        resolved = (path.parent / file_target).resolve()
+        try:
+            resolved.relative_to(ROOT)
+        except ValueError:
+            continue
+        if resolved.is_file() and resolved.suffix.casefold() == ".md":
+            targets.append(resolved)
+    return targets
 
 
 def validate_local_links(errors: list[str]) -> None:
@@ -232,6 +384,60 @@ def registry_rows(text: str) -> list[dict[str, str | None]]:
     return rows
 
 
+def response_blocks(text: str) -> list[dict[str, str]]:
+    """Parse exact, repeatable objection response blocks from one section."""
+
+    lines = text.splitlines()
+    outside = {number: line for number, line in _outside_fence_lines(text)}
+    starts = [
+        number
+        for number, line in outside.items()
+        if RESPONSE_BLOCK_HEADING.fullmatch(line)
+    ]
+    blocks: list[dict[str, str]] = []
+    field_patterns = {
+        "Objection": re.compile(r"^Objection:\s*(.*?)\s*$"),
+        "Response": re.compile(r"^Response:\s*(.*?)\s*$"),
+        "Disposition": re.compile(r"^Disposition:\s*(.*?)\s*$"),
+    }
+    for start in starts:
+        end = len(lines) + 1
+        for number in range(start + 1, len(lines) + 1):
+            line = outside.get(number)
+            if line is not None and (
+                LEVEL_TWO_HEADING.fullmatch(line)
+                or RESPONSE_BLOCK_HEADING.fullmatch(line)
+            ):
+                end = number
+                break
+        block_lines = [
+            outside[number]
+            for number in range(start + 1, end)
+            if number in outside
+        ]
+        fields: dict[str, str] = {}
+        for field, pattern in field_patterns.items():
+            matches = [pattern.fullmatch(line) for line in block_lines]
+            values = [match.group(1).strip() for match in matches if match]
+            if len(values) == 1:
+                fields[field] = values[0]
+            elif len(values) > 1:
+                fields[field] = "__duplicate__"
+        blocks.append(fields)
+    return blocks
+
+
+def current_revision_reviews(dr_id: str, revision: int) -> list[Path]:
+    """Find only reviews whose complete filename parses to this ID/revision."""
+
+    matches: list[Path] = []
+    for path in review_files():
+        match = REVIEW_FILENAME.fullmatch(path.name)
+        if match and match.group(1) == dr_id and int(match.group(3)) == revision:
+            matches.append(path)
+    return matches
+
+
 def validate_decision_records(errors: list[str]) -> None:
     registry_path = DECISIONS / "registry.md"
     registry = registry_path.read_text(encoding="utf-8") if registry_path.exists() else ""
@@ -284,7 +490,9 @@ def validate_decision_records(errors: list[str]) -> None:
             continue
         filename_id = match.group(1)
         text = path.read_text(encoding="utf-8")
-        values = metadata(text)
+        values, duplicate_keys = metadata_entries(text)
+        for key in sorted(duplicate_keys & DR_METADATA_FIELDS):
+            errors.append(f"duplicate top-level DR metadata '{key}': {relative(path)}")
         dr_id = values.get("ID")
 
         if dr_id != filename_id:
@@ -300,32 +508,23 @@ def validate_decision_records(errors: list[str]) -> None:
         if not text.startswith(expected_title):
             errors.append(f"DR title must start with '{expected_title}': {relative(path)}")
 
-        for field in (
-            "ID",
-            "Scope",
-            "Status",
-            "Revision",
-            "Decision owner",
-            "Owner approval",
-            "Review status",
-            "Date proposed",
-            "Date decided",
-            "Supersedes",
-            "Superseded by",
-        ):
+        for field in DR_METADATA_FIELDS:
             if field not in values:
                 errors.append(f"missing DR metadata '{field}': {relative(path)}")
 
         status = values.get("Status")
         scope = values.get("Scope", "")
         review_status = values.get("Review status")
-        if status and status not in DR_STATUSES:
+        response_status = values.get("Response status")
+        if "Status" in values and status not in DR_STATUSES:
             errors.append(f"invalid DR status '{status}': {relative(path)}")
         invalid_scopes = scope_parts(scope) - DR_SCOPES
         if not scope or invalid_scopes:
             errors.append(f"invalid DR scope '{scope}': {relative(path)}")
-        if review_status and review_status not in REVIEW_STATUSES:
+        if "Review status" in values and review_status not in REVIEW_STATUSES:
             errors.append(f"invalid review status '{review_status}': {relative(path)}")
+        if "Response status" in values and response_status not in RESPONSE_STATUSES:
+            errors.append(f"invalid response status '{response_status}': {relative(path)}")
 
         registry_matches = rows_by_id.get(filename_id, [])
         if not registry_matches:
@@ -366,16 +565,7 @@ def validate_decision_records(errors: list[str]) -> None:
             revision = 0
 
         for heading in DR_HEADINGS:
-            if heading not in text:
-                errors.append(f"missing DR heading '{heading}': {relative(path)}")
-
-        if review_status == "Waived":
-            for field in ("Waiver reason", "Accepted risk"):
-                if values.get(field, "").strip() in PLACEHOLDER_VALUES:
-                    errors.append(
-                        f"waived DR requires non-placeholder '{field}' metadata: "
-                        f"{relative(path)}"
-                    )
+            exact_heading_error(errors, text, heading, path, "DR")
 
         if status == "Accepted":
             expected_approval = f"Approved by {values.get('Decision owner')}"
@@ -384,27 +574,26 @@ def validate_decision_records(errors: list[str]) -> None:
                     "accepted DR requires exact owner approval "
                     f"'{expected_approval}': {relative(path)}"
                 )
-            if review_status not in {"Complete", "Waived"}:
+            if review_status != "Complete":
+                errors.append(f"accepted DR requires complete review: {relative(path)}")
+            if values.get("Response status") != "Complete":
                 errors.append(
-                    f"accepted DR requires complete review or waiver: {relative(path)}"
+                    f"accepted DR requires complete response status: {relative(path)}"
                 )
-            if values.get("Date decided") in {None, "—", "-"}:
+            if is_placeholder(values.get("Date decided", "")):
                 errors.append(f"accepted DR requires decision date: {relative(path)}")
             canonical = section(text, "## Canonical Design Links")
-            if not MARKDOWN_LINK.search(canonical):
+            if not markdown_links_outside_fences(canonical):
                 errors.append(f"accepted DR requires canonical links: {relative(path)}")
             if review_status == "Complete" and revision:
-                prefix = f"{filename_id}-rev-{revision:02d}-review-"
-                matching_reviews = [
-                    review for review in review_files() if review.name.startswith(prefix)
-                ]
+                matching_reviews = current_revision_reviews(filename_id, revision)
                 if not matching_reviews:
                     errors.append(
                         f"accepted DR lacks review for revision {revision}: {relative(path)}"
                     )
                 response = section(text, "## Adversarial Review Response")
                 linked_review = False
-                for raw in MARKDOWN_LINK.findall(response):
+                for raw in markdown_links_outside_fences(response):
                     target = normalize_link(raw).split("#", 1)[0]
                     if not target:
                         continue
@@ -417,11 +606,42 @@ def validate_decision_records(errors: list[str]) -> None:
                         "accepted DR review response must link a matching review "
                         f"file for revision {revision}: {relative(path)}"
                     )
+                blocks = response_blocks(response)
+                if not blocks:
+                    errors.append(
+                        "accepted DR requires at least one objection response block: "
+                        f"{relative(path)}"
+                    )
+                # Shape, fields, and identity are mechanical; response
+                # adequacy and disposition remain human review questions.
+                for number, block in enumerate(blocks, start=1):
+                    for field in ("Objection", "Response", "Disposition"):
+                        value = block.get(field)
+                        if (
+                            value is None
+                            or value == "__duplicate__"
+                            or is_placeholder(value)
+                        ):
+                            errors.append(
+                                f"accepted DR objection response {number} requires "
+                                f"non-placeholder '{field}': {relative(path)}"
+                            )
+                    disposition = block.get("Disposition")
+                    if disposition not in RESPONSE_DISPOSITIONS:
+                        errors.append(
+                            f"accepted DR objection response {number} has invalid "
+                            f"disposition {disposition!r}: {relative(path)}"
+                        )
 
 
 def validate_reviews(errors: list[str]) -> None:
     known_ids = {
         metadata(path.read_text(encoding="utf-8")).get("ID") for path in dr_files()
+    }
+    dr_paths_by_id = {
+        match.group(1): path
+        for path in dr_files()
+        if (match := DR_FILENAME.fullmatch(path.name))
     }
     for path in review_files():
         match = REVIEW_FILENAME.fullmatch(path.name)
@@ -431,7 +651,15 @@ def validate_reviews(errors: list[str]) -> None:
         filename_id = match.group(1)
         filename_revision = int(match.group(3))
         text = path.read_text(encoding="utf-8")
-        values = metadata(text)
+        values, duplicate_keys = metadata_entries(text)
+        for key in sorted(duplicate_keys & REVIEW_METADATA_FIELDS):
+            errors.append(
+                f"duplicate top-level review metadata '{key}': {relative(path)}"
+            )
+
+        for field in REVIEW_METADATA_FIELDS:
+            if field not in values:
+                errors.append(f"missing review metadata '{field}': {relative(path)}")
 
         if values.get("Target DR") != filename_id:
             errors.append(f"review DR mismatch: {relative(path)}")
@@ -448,8 +676,29 @@ def validate_reviews(errors: list[str]) -> None:
         if values.get("Recommendation") not in {"Accept", "Revise", "Reject"}:
             errors.append(f"invalid review recommendation: {relative(path)}")
         for heading in REVIEW_HEADINGS:
-            if heading not in text:
-                errors.append(f"missing review heading '{heading}': {relative(path)}")
+            exact_heading_error(errors, text, heading, path, "review")
+
+        if values.get("Review status") == "Complete":
+            target_dr = dr_paths_by_id.get(filename_id)
+            for heading in REVIEW_EVIDENCE_HEADINGS:
+                if not exact_heading_error(errors, text, heading, path, "review"):
+                    continue
+                evidence = section(text, heading)
+                targets = local_markdown_targets(path, evidence)
+                if not targets:
+                    errors.append(
+                        f"complete review requires a local Markdown link in "
+                        f"'{heading}': {relative(path)}"
+                    )
+                # This checks evidence identity and linkability only; humans
+                # judge whether the bundle was complete and actually read.
+                if target_dr is None or not any(
+                    target == target_dr.resolve() for target in targets
+                ):
+                    errors.append(
+                        f"complete review '{heading}' must link target DR "
+                        f"{filename_id}: {relative(path)}"
+                    )
 
 
 def main() -> int:

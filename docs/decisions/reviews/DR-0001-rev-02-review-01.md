@@ -16,6 +16,46 @@ Recommendation: Revise
 
 Confidence: High
 
+## Canonical Review Bundle
+
+- [DR-0001 Revision 2](../DR-0001-documentation-authority-and-review-process.md)
+- [Documentation authority and navigation](../../README.md)
+- [Decision record process](../README.md)
+- [Decision record registry](../registry.md)
+- [Decision record template](../decision-record-template.md)
+- [Decision review process](README.md)
+- [Adversarial review template](adversarial-review-template.md)
+- [Fresh-reread preamble](fresh-reread-preamble.md)
+- [Contributor instructions](../../../AGENTS.md)
+- [AI delegation and review workflow](../../developer-workflows/ai-delegation-and-review.md)
+- [Kickoff plan](../../project/kickoff-plan.md)
+- [Project status](../../project/status.md)
+- [Repository evolution](../../project/repository-evolution.md)
+- [Documentation validator](../../../dev-tools/validation/validate_docs.py)
+- [Project README](../../../README.md)
+- [Product documentation index](../../product/README.md)
+- [Architecture documentation index](../../architecture/README.md)
+
+## Sources Actually Read
+
+- [DR-0001 Revision 2](../DR-0001-documentation-authority-and-review-process.md)
+- [Documentation authority and navigation](../../README.md)
+- [Decision record process](../README.md)
+- [Decision record registry](../registry.md)
+- [Decision record template](../decision-record-template.md)
+- [Decision review process](README.md)
+- [Adversarial review template](adversarial-review-template.md)
+- [Fresh-reread preamble](fresh-reread-preamble.md)
+- [Contributor instructions](../../../AGENTS.md)
+- [AI delegation and review workflow](../../developer-workflows/ai-delegation-and-review.md)
+- [Kickoff plan](../../project/kickoff-plan.md)
+- [Project status](../../project/status.md)
+- [Repository evolution](../../project/repository-evolution.md)
+- [Documentation validator](../../../dev-tools/validation/validate_docs.py)
+- [Project README](../../../README.md)
+- [Product documentation index](../../product/README.md)
+- [Architecture documentation index](../../architecture/README.md)
+
 ## Executive Assessment
 
 DR-0001 revision 2 proposes a neutral Decision Record system, an explicit
@@ -193,23 +233,3 @@ Git history, CI, validator test execution, prior chat, or external review state.
 The review has governance and software-process competence but provides no legal
 opinion and no empirical evidence from multiple completed rounds. No validation
 command was run.
-
-## Sources Read
-
-- `docs/decisions/DR-0001-documentation-authority-and-review-process.md`
-- `docs/README.md`
-- `docs/decisions/README.md`
-- `docs/decisions/registry.md`
-- `docs/decisions/decision-record-template.md`
-- `docs/decisions/reviews/README.md`
-- `docs/decisions/reviews/adversarial-review-template.md`
-- `docs/decisions/reviews/fresh-reread-preamble.md`
-- `AGENTS.md`
-- `docs/developer-workflows/ai-delegation-and-review.md`
-- `docs/project/kickoff-plan.md`
-- `docs/project/status.md`
-- `docs/project/repository-evolution.md`
-- `dev-tools/validation/validate_docs.py`
-- `README.md`
-- `docs/product/README.md`
-- `docs/architecture/README.md`

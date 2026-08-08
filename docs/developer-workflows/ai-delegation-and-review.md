@@ -1,9 +1,11 @@
 # AI delegation and review
 
-Status: Active
+Status: Provisional operational trial
 
-Use this workflow whenever the main thread considers delegating work or requesting
-model-backed independent review.
+Use this workflow whenever the main thread considers delegating work or
+requesting model-backed independent review during the DR-0001 Revision 3
+provisional operational trial. It preserves safety and ownership boundaries but
+does not accept DR-0001 or any product/architecture proposal.
 
 ## Ownership boundary
 

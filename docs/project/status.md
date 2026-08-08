@@ -19,12 +19,14 @@ disposition.
 
 - Round 0: completed — foundation scaffold integrated and repository safeguards
   established.
-- Round 1: active/proposed — the DR-0001 Revision 2 review is complete with two
-  blockers; Revision 3 is being prepared. DR-0002 through DR-0004 remain later
-  proposals.
+- Round 1: active/proposed — DR-0001 Revision 3 is Proposed and Pending fresh
+  review. The Revision 2 review is historical; both blockers are addressed in
+  the Revision 3 proposal but are not independently verified. DR-0002 through
+  DR-0004 remain later proposals.
 - Review lane: the fresh Sol-medium review of DR-0001 Revision 2 and its
-  affected canonical documents completed with a `Revise` recommendation and two
-  blockers; no DR is accepted.
+  affected canonical documents is historical evidence with a `Revise`
+  recommendation and two blockers; Revision 3 has not been reviewed and no DR
+  is accepted.
 - Next discussion batch: Round 2 — product identity and initial users:
   platform/compiler/runtime versus game/editor/general engine; initial project
   developer/researcher versus downstream artist/game-developer users; stylized
@@ -36,10 +38,9 @@ disposition.
 
 ## Active work
 
-- Prepare DR-0001 Revision 3 to address the two recorded blockers, without
-  treating the fixes as complete or accepted.
-- Preserve the completed Revision 2 review as historical evidence, then obtain a
-  fresh current-revision review before Ben's disposition.
+- Preserve the completed Revision 2 review as historical evidence; its two
+  blockers are addressed in Proposed Revision 3 but not independently verified.
+- Obtain a fresh current-revision review of Revision 3 before Ben's disposition.
 - Keep the neutral registry, authority indexes, workflow, and validator
   operational while acceptance remains pending.
 - Prepare the Round 2 product-identity discussion batch without treating its
@@ -50,9 +51,9 @@ disposition.
 ## Proposed decisions and review state
 
 - [DR-0001](../decisions/DR-0001-documentation-authority-and-review-process.md):
-  documentation authority and adversarial review process — Revision 2,
-  Governance scope; review complete with two blockers, Revision 3 being
-  prepared.
+  documentation authority and adversarial review process — Revision 3,
+  Governance scope; Proposed and Pending fresh review. Revision 2 review is
+  historical with two blockers addressed but not independently verified.
 - [DR-0002](../decisions/DR-0002-declarative-body-document-source-of-truth.md):
   declarative body document as source of truth — Revision 1, Specification and
   architecture scope.
@@ -68,7 +69,7 @@ disposition.
 | Capability | Implementation | Verification | Notes |
 | --- | --- | --- | --- |
 | Documentation authority | partial | unverified | Provisional structure and validator integrated; Ben's acceptance pending |
-| Decision-record and review workflow | partial | unverified | DR-0001 Revision 2 reviewed with two blockers; no acceptance completed |
+| Decision-record and review workflow | partial | unverified | DR-0001 Revision 2 review historical; Proposed Revision 3 Pending fresh review; no acceptance completed |
 | Research/experiment workflow | partial | unverified | Templates exist; no experiment registered |
 | Body specification | design-unresolved | not-applicable | Contract boundary remains proposed |
 | Creature compiler | not-implemented | not-applicable | No language or backend selected |
@@ -76,9 +77,9 @@ disposition.
 
 ## Immediate blockers
 
-- Resolve the two DR-0001 Revision 2 blockers in a Revision 3 proposal.
-- Fresh review of Revision 3 and Ben's explicit disposition after its response
-  are recorded.
+- Fresh current-revision review of Proposed DR-0001 Revision 3; its two
+  addressed blockers remain independently unverified.
+- Ben's explicit disposition after the Revision 3 review response is recorded.
 - Round 2 product-identity discussion covering only the four listed topics.
 - Evidence plan for the initial surface-generation choice.
 

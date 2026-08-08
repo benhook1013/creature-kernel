@@ -1,6 +1,6 @@
 # Adversarial decision reviews
 
-Status: Active process proposal
+Status: Provisional operational trial
 
 This directory stores reviews of specific DR revisions. Reviews are evidence and
 recommendations, not decisions.
@@ -17,12 +17,31 @@ A useful review must:
   and integration risk where applicable;
 - request concrete evidence rather than vague reassurance;
 - distinguish blockers from acceptable risk;
+- identify the exact canonical review bundle and sources actually read;
+- record structured responses to material objections;
 - disclose limitations of the review.
 
 ## Staleness
 
 When a DR materially changes, increment its revision. Reviews of earlier
 revisions remain historically useful but no longer satisfy acceptance.
+
+## Canonical Review Bundle
+
+Every complete review must list one local Markdown link per bundle item and must
+include the target DR at the exact revision under review. Include all affected
+canonical documents and relevant research or experiment evidence. Do not use
+fake placeholder links.
+
+## Sources Actually Read
+
+Every complete review must list one local Markdown link per source actually read.
+The list must be truthful and may overlap the canonical review bundle.
+
+Current-revision adversarial review is mandatory for acceptance; it cannot be
+replaced by a waived review. Explicit waivers or deferrals are limited to
+non-review proof or evidence obligations and must record reason and accepted
+risk in the target DR.
 
 ## Independence record
 

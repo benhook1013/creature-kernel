@@ -1,6 +1,6 @@
 # Documentation authority and navigation
 
-Status: Provisional authority model
+Status: Provisional operational trial
 
 This index defines where Creature Kernel information belongs and which sources
 are authoritative. The repository deliberately separates intent, contracts,
@@ -18,8 +18,9 @@ rationale, evidence, and status.
 
 The [foundation record](FOUNDATION.md) preserves the founding conversation. It is
 historical context rather than the canonical owner of current contracts. This
-authority map and its process remain provisional until the governance proposal
-is reviewed and Ben accepts it.
+authority map and its process are active/operational under the DR-0001 Revision 3
+bootstrap trial. This does not mean the governance design or any linked product
+and architecture proposal is accepted; Ben's disposition remains required.
 
 ## Authority map
 
