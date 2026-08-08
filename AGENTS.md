@@ -16,7 +16,7 @@ Before consequential design or implementation work, read:
 3. `docs/product/requirements.md`
 4. `docs/architecture/README.md`
 5. `docs/project/status.md`
-6. Any relevant specification, ADR, research question, or experiment record
+6. Any relevant specification, decision record, research question, or experiment record
 
 `docs/FOUNDATION.md` is the historical founding record. It explains how the
 project arrived here but is not the canonical owner of current contracts.
@@ -26,7 +26,7 @@ project arrived here but is not the canonical owner of current contracts.
 - `docs/product/` owns desired outcomes and externally observable requirements.
 - `spec/` owns normative formats, semantics, identifiers, and compatibility.
 - `docs/architecture/` owns target technical boundaries and invariants.
-- Accepted ADRs explain decisions but do not replace canonical product,
+- Accepted decision records explain decisions but do not replace canonical product,
   specification, or architecture documents.
 - `docs/research/` owns open questions and research context, not target contracts.
 - `experiments/` records evidence. Results may inform decisions but do not become
@@ -38,17 +38,30 @@ project arrived here but is not the canonical owner of current contracts.
 
 When documents conflict, stop and resolve the conflict in the canonical owner.
 
-## Decisions and adversarial review
+## Decision records and adversarial review
 
-- Add consequential choices to the ADR registry before treating them as settled.
-- Do not change an ADR to `Accepted` without an adversarial review of its current
-  revision and explicit human approval from the decision owner.
-- A material proposal change increments its revision and makes older reviews
-  stale.
+- Use one neutral Decision Record (DR) registry in `docs/decisions/` for
+  consequential Governance, Product, Specification, Architecture, or
+  cross-cutting choices. Add a `Scope:` field to every DR and registry row.
+- Require a DR only for hard-to-reverse, cross-cutting, contractual/public,
+  performance-defining, dependency/portability/licensing-locking, or likely to
+  be disputed choices. Ordinary wording, derived detail, and reversible
+  implementation do not require one.
+- Work in batches of roughly two to five related decisions or talking points:
+  finish discussion, integrate canonical documents and Proposed DR changes,
+  then start the previous-round adversarial review and independent next-round
+  research concurrently where dependencies permit. Return a short synthesized
+  review status together with the next decision batch.
+- Do not change a DR to `Accepted` without a fresh review of its exact current
+  revision and affected canonical documents, explicit responses, and Ben's
+  human approval. A material proposal change increments its revision and makes
+  older reviews stale.
 - Preserve rejected and superseded decisions so their reasoning is not lost.
 - Record waivers explicitly; never imply missing evidence was supplied.
 - Reviews must challenge assumptions, alternatives, failure modes, performance,
   reversibility, portability, licensing, and missing expertise where relevant.
+- Unaccepted material must be labelled `Proposed` or `provisional`; assistant-
+  synthesized product and architecture prose is not an accepted contract.
 
 ## Research and proof
 
@@ -76,9 +89,9 @@ When documents conflict, stop and resolve the conflict in the canonical owner.
 - Subagent selection, delegation boundaries, model routing, and independent
   review use
   `docs/developer-workflows/ai-delegation-and-review.md`.
-- An ADR review may use
-  `docs/architecture/decisions/reviews/fresh-reread-preamble.md` to force a
-  current-disk, issue-only convergence pass.
+- A decision-record review may use
+  `docs/decisions/reviews/fresh-reread-preamble.md` to force a current-disk,
+  issue-only convergence pass.
 
 ## Orchestration
 
@@ -86,8 +99,8 @@ The main `gpt-5.6-sol` thread owns planning, human design discussion, task
 decomposition, integration, consolidated validation, Git and pull-request
 operations, CI and review orchestration, external side effects, and final
 repository decisions. It does not delegate product or architecture decisions.
-Reviewers may challenge a proposal and recommend a disposition, but only the
-human decision owner accepts or rejects an ADR.
+Reviewers may challenge a proposal and recommend a disposition, but only Ben,
+the human decision owner, accepts or rejects a DR.
 
 - Use `gpt-5.6-luna` at `high` for routine bounded investigation, mechanical
   patches, straightforward test updates, and multi-step search or tool-driven
@@ -117,7 +130,7 @@ human decision owner accepts or rejects an ADR.
 
 ## Validation
 
-Run before committing documentation or ADR changes:
+Run before committing documentation or decision-record changes:
 
 ```bash
 python3 dev-tools/validation/validate_docs.py

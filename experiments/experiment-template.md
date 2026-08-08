@@ -12,7 +12,7 @@ Date completed: —
 
 Research questions: RQ-NNN
 
-Related ADRs: —
+Related DRs: —
 
 ## Question
 

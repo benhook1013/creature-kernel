@@ -24,6 +24,19 @@ by canonical design, or challenge a proposal. It must not make product or
 architecture decisions. An independent reviewer recommends; the human decision
 owner decides.
 
+## Round and batch pipeline
+
+The main thread groups roughly two to five related decisions or talking points
+into one discussion batch. It finishes the discussion, integrates the canonical
+document changes and Proposed decision-record revisions, and then—in the next
+round—starts the previous-round adversarial review and independent next-round
+research concurrently when dependencies permit. Reviewers reread the exact
+current revision together with its affected canonical documents. The main thread
+records responses and revisions, validates the integrated result, and obtains
+Ben's explicit decision only after that current-revision review. Unaccepted
+material remains clearly labelled Proposed or provisional. Each round closes
+with a short synthesized review status and the named next discussion batch.
+
 ## Model routing
 
 - Delegate to `gpt-5.6-luna` at `high` for routine bounded investigation,
@@ -37,6 +50,9 @@ owner decides.
 - Escalate to `gpt-5.6-sol` at `medium` when broad synthesis, ambiguous evidence,
   or general reasoning matters more than coding-agent throughput. This is a
   task-type escalation, not the automatic next tier after Luna.
+- Use a fresh `gpt-5.6-sol` reviewer at `medium` by default for foundational
+  adversarial review. Use Luna at xhigh for narrow convergence, implementation,
+  or bounded technical review when that better fits the corpus.
 - Sol at `high` is the absolute subagent ceiling and requires explicit human
   approval. Do not use Terra as a normal routing tier.
 
@@ -90,7 +106,7 @@ Every delegated task must state:
 - the authoritative read-only context it may inspect;
 - the bounded question, deliverable, and success conditions;
 - the exact validation commands the subagent may run;
-- any canonical contract, ADR revision, or research question that constrains the
+- any canonical contract, DR revision, or research question that constrains the
   work;
 - the required evidence and output format.
 
@@ -151,8 +167,8 @@ same repository context.
 - Stop when blockers stabilize and remaining concerns are clearly non-blocking
   follow-ups rather than continuing an endless issue hunt.
 
-Use the [fresh-reread preamble](../architecture/decisions/reviews/fresh-reread-preamble.md)
-for ADR and design convergence passes.
+Use the [fresh-reread preamble](../decisions/reviews/fresh-reread-preamble.md)
+for DR and design convergence passes.
 
 ## Creature Kernel review lanes
 

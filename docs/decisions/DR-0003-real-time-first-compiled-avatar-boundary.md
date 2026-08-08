@@ -1,6 +1,8 @@
-# ADR-0003: Real-time-first compiled avatar boundary
+# DR-0003: Real-time-first compiled avatar boundary
 
-ID: ADR-0003
+ID: DR-0003
+
+Scope: Product and architecture
 
 Status: Proposed
 
@@ -79,9 +81,9 @@ Pending review of revision 1.
 
 ## Canonical Design Links
 
-- [Vision and scope](../../product/vision-and-scope.md)
-- [Product requirements](../../product/requirements.md)
-- [Execution model](../execution-model.md)
+- [Vision and scope](../product/vision-and-scope.md)
+- [Product requirements](../product/requirements.md)
+- [Execution model](../architecture/execution-model.md)
 
 ## Reversibility and Revisit Triggers
 

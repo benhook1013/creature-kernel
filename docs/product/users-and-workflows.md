@@ -1,6 +1,6 @@
 # Users and workflows
 
-Status: Active baseline
+Status: Proposed product baseline
 
 These workflows describe observable goals. They intentionally avoid committing
 to a GUI, geometry backend, language, or runtime engine.

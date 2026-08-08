@@ -35,5 +35,5 @@ when the first experiment is created.
 ## Artifact policy
 
 Large meshes, caches, videos, captures, and datasets must not be committed until
-an artifact-storage ADR is accepted. Store small text, scripts, fixtures, hashes,
+an artifact-storage DR is accepted. Store small text, scripts, fixtures, hashes,
 and manifests in Git so external artifacts remain attributable.

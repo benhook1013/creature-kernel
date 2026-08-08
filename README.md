@@ -43,7 +43,7 @@ not intended to hard-code one species, one skeleton, or one rendering style.
 - [Documentation authority and reading order](docs/README.md)
 - [Product vision and scope](docs/product/vision-and-scope.md)
 - [Architecture](docs/architecture/README.md)
-- [Decision registry](docs/architecture/decisions/registry.md)
+- [Decision record registry](docs/decisions/registry.md)
 - [Open research questions](docs/research/open-questions.md)
 - [Current project status](docs/project/status.md)
 

@@ -1,6 +1,8 @@
-# ADR-0002: Declarative body document as source of truth
+# DR-0002: Declarative body document as source of truth
 
-ID: ADR-0002
+ID: DR-0002
+
+Scope: Specification and architecture
 
 Status: Proposed
 
@@ -88,9 +90,9 @@ Pending review of revision 1.
 
 ## Canonical Design Links
 
-- [Product requirements](../../product/requirements.md)
-- [System overview](../system-overview.md)
-- [Specification boundary](../../../spec/README.md)
+- [Product requirements](../product/requirements.md)
+- [System overview](../architecture/system-overview.md)
+- [Specification boundary](../../spec/README.md)
 
 ## Reversibility and Revisit Triggers
 

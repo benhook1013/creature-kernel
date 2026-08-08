@@ -6,8 +6,8 @@ their current state before answering.
 Review mode only:
 
 - Do not implement changes or propose commits.
-- Do not accept, reject, or otherwise decide an ADR.
-- Do not expand beyond the assigned product, architecture, specification, or ADR
+- Do not accept, reject, or otherwise decide a DR.
+- Do not expand beyond the assigned product, architecture, specification, or DR
   boundary.
 - Follow references only when required to understand a delegated canonical
   contract or resolve a contradiction.

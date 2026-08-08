@@ -1,6 +1,6 @@
 # Execution model
 
-Status: Active conceptual baseline
+Status: Provisional conceptual baseline
 
 ## Decision direction
 
@@ -9,7 +9,7 @@ may occur outside the frame loop, while the compiled avatar exposes bounded
 runtime representations. A higher-quality cinematic path is supplementary.
 
 This direction is proposed for formal acceptance in
-[ADR-0003](decisions/ADR-0003-real-time-first-compiled-avatar-boundary.md).
+[DR-0003](../decisions/DR-0003-real-time-first-compiled-avatar-boundary.md).
 
 ## Time domains
 

@@ -1,6 +1,6 @@
 # Vision and scope
 
-Status: Active
+Status: Proposed product baseline
 
 ## Vision
 

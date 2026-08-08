@@ -1,6 +1,6 @@
-# Adversarial review: ADR-NNNN revision R
+# Adversarial review: DR-NNNN revision R
 
-Target ADR: ADR-NNNN
+Target DR: DR-NNNN
 
 Target revision: R
 

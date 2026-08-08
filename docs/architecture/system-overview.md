@@ -1,6 +1,6 @@
 # System architecture overview
 
-Status: Active conceptual baseline
+Status: Provisional conceptual baseline
 
 ## System purpose
 
@@ -99,7 +99,8 @@ hardware. Advanced systems require lower-cost fallbacks.
 ### Evidence before commitment
 
 Uncertain geometry, animation, physics, and performance choices should advance
-through research questions, experiments, adversarial review, and ADRs.
+through research questions, experiments, adversarial review, and decision
+records.
 
 ## System boundary
 

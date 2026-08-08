@@ -1,6 +1,6 @@
 # Outcome roadmap
 
-Status: Initial planning baseline
+Status: Provisional planning baseline
 
 This roadmap defines outcomes rather than dates. Movement between stages depends
 on evidence and accepted decisions.
@@ -12,7 +12,7 @@ Exit outcomes:
 - Canonical documentation authority is accepted.
 - Consequential decisions have versioned adversarial review.
 - Open research questions and experiments have stable identifiers.
-- Documentation and ADR structure validate automatically.
+- Documentation and decision-record structure validate automatically.
 
 ## Stage 1: Prove semantic body generation
 

@@ -1,6 +1,6 @@
 # Product requirements
 
-Status: Active baseline
+Status: Proposed product baseline
 
 These requirements describe intended outcomes. `Must` indicates a foundational
 constraint; `should` indicates a desired outcome that may be staged. Proof

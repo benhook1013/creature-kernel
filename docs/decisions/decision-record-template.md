@@ -1,6 +1,8 @@
-# ADR-NNNN: Title
+# DR-NNNN: Title
 
-ID: ADR-NNNN
+ID: DR-NNNN
+
+Scope: Governance | Product | Specification | Architecture | Combination
 
 Status: Proposed
 

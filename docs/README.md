@@ -1,6 +1,6 @@
 # Documentation authority and navigation
 
-Status: Active
+Status: Provisional authority model
 
 This index defines where Creature Kernel information belongs and which sources
 are authoritative. The repository deliberately separates intent, contracts,
@@ -13,11 +13,13 @@ rationale, evidence, and status.
 3. [Requirements](product/requirements.md)
 4. [Architecture index](architecture/README.md)
 5. [Current project status](project/status.md)
-6. Any relevant specifications, ADRs, research questions, experiments, and
+6. Any relevant specifications, decision records, research questions, experiments, and
    [developer workflows](developer-workflows/README.md)
 
 The [foundation record](FOUNDATION.md) preserves the founding conversation. It is
-historical context rather than the canonical owner of current contracts.
+historical context rather than the canonical owner of current contracts. This
+authority map and its process remain provisional until the governance proposal
+is reviewed and Ben accepts it.
 
 ## Authority map
 
@@ -30,7 +32,7 @@ Normative specifications and semantics
                 v
 Target architecture and invariants
           |                 |
-          | ADR rationale   | research and experiment evidence
+          | Decision rationale | research and experiment evidence
           v                 v
 Implementation and verification status
                 |
@@ -43,7 +45,7 @@ Code, tests, fixtures, benchmarks, and runtime proof
 | `docs/product/` | Outcomes, scope, users, observable requirements | Algorithms and component layout |
 | `spec/` | Formats, semantics, identifiers, versioning, compatibility | Product priority or implementation status |
 | `docs/architecture/` | Target boundaries, data flow, invariants, responsibilities | Historical rationale or proof status |
-| `docs/architecture/decisions/` | Consequential decision rationale | The current contract by itself |
+| `docs/decisions/` | Consequential decision rationale across Governance, Product, Specification, and Architecture | The current contract by itself |
 | `docs/research/` | Open questions, hypotheses, references | Accepted target state |
 | `experiments/` | Reproducible evidence and limitations | Product or architecture authority |
 | `docs/developer-workflows/` | Conditional contributor and review procedures | Product or technical contracts |
@@ -56,8 +58,9 @@ If two documents appear to define the same contract differently, stop and fix
 the canonical owner. Secondary documents should link to the owner and describe
 only their local consequence.
 
-An ADR must update or identify the canonical documents affected by an accepted
-decision. An experiment can justify an ADR but cannot silently change a contract.
+A decision record must update or identify the canonical documents affected by an
+accepted decision. An experiment can justify a decision record but cannot
+silently change a contract.
 
 ## Status language
 

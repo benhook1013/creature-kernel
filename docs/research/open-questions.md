@@ -3,7 +3,7 @@
 Status: Active registry
 
 Questions are grouped by domain. IDs are stable and should be referenced by
-experiments, ADRs, fixtures, and benchmarks.
+experiments, decision records, fixtures, and benchmarks.
 
 ## Product proof
 

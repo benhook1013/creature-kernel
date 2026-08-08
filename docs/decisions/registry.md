@@ -1,0 +1,26 @@
+# Decision record registry
+
+Status: Active
+
+| ID | Title | Scope | Status | Revision | Review | Decision owner |
+| --- | --- | --- | --- | --- | --- | --- |
+| [DR-0001](DR-0001-documentation-authority-and-review-process.md) | Documentation authority and adversarial review process | Governance | Proposed | 2 | Complete | Ben |
+| [DR-0002](DR-0002-declarative-body-document-source-of-truth.md) | Declarative body document as source of truth | Specification and architecture | Proposed | 1 | Pending | Ben |
+| [DR-0003](DR-0003-real-time-first-compiled-avatar-boundary.md) | Real-time-first compiled avatar boundary | Product and architecture | Proposed | 1 | Pending | Ben |
+| [DR-0004](DR-0004-external-automation-through-cli-and-api.md) | External automation through CLI and API | Product and architecture | Proposed | 1 | Pending | Ben |
+
+## Candidate decisions
+
+Candidates do not yet have reserved DR numbers.
+
+| Candidate | Trigger for proposal |
+| --- | --- |
+| First morphology family | Before defining the first executable body fixture |
+| Initial surface representation | Before implementing a meshing proof |
+| Language and build system | Before creating implementation packages |
+| First geometry backend | Before committing backend-specific source |
+| First runtime engine and adapter boundary | Before a runtime integration proof |
+| Avatar package serialization | Before persisting compiled avatars |
+| Determinism and replay level | Before defining runtime state contracts |
+| Artifact storage | Before committing or publishing large generated assets |
+| Project licence | Before accepting external contributions or distribution |

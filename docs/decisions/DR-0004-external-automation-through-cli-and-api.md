@@ -1,6 +1,8 @@
-# ADR-0004: External automation through CLI and API
+# DR-0004: External automation through CLI and API
 
-ID: ADR-0004
+ID: DR-0004
+
+Scope: Product and architecture
 
 Status: Proposed
 
@@ -80,9 +82,9 @@ Pending review of revision 1.
 
 ## Canonical Design Links
 
-- [Product requirements](../../product/requirements.md)
-- [Users and workflows](../../product/users-and-workflows.md)
-- [System overview](../system-overview.md)
+- [Product requirements](../product/requirements.md)
+- [Users and workflows](../product/users-and-workflows.md)
+- [System overview](../architecture/system-overview.md)
 
 ## Reversibility and Revisit Triggers
 

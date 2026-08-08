@@ -1,6 +1,6 @@
 # Repository structure
 
-Status: Active conceptual layout
+Status: Provisional conceptual layout
 
 This document describes the intended information architecture. It is not an
 exact manifest. `docs/project/repository-evolution.md` controls when planned
@@ -11,7 +11,8 @@ creature-kernel/
 ├── .github/workflows/       # repository validation when active
 ├── docs/
 │   ├── product/             # outcomes, requirements, users
-│   ├── architecture/        # target boundaries and ADRs
+│   ├── architecture/        # target boundaries and invariants
+│   ├── decisions/           # consequential rationale across authority scopes
 │   ├── research/            # open questions and references
 │   ├── developer-workflows/ # conditional contributor procedures
 │   └── project/             # status, roadmap, repository evolution
@@ -44,4 +45,5 @@ committed with documented provenance.
 
 A monorepo with an engine-independent core, compiler, runtime, CLI, validation,
 and adapters is the current expectation. The language, build system, exact
-package layout, and adapter strategy remain unresolved and require ADRs.
+package layout, and adapter strategy remain unresolved and may require decision
+records when a choice crosses the consequential threshold.

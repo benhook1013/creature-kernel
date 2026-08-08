@@ -29,4 +29,4 @@ Use:
 - `Deferred`: not currently worth investigating.
 - `Invalidated`: the question relied on a rejected assumption.
 
-Closing a question should link the evidence and any resulting ADR.
+Closing a question should link the evidence and any resulting decision record.

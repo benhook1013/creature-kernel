@@ -2,14 +2,14 @@
 
 Status: Active process proposal
 
-This directory stores reviews of specific ADR revisions. Reviews are evidence and
+This directory stores reviews of specific DR revisions. Reviews are evidence and
 recommendations, not decisions.
 
 ## Required review qualities
 
 A useful review must:
 
-- target an exact ADR ID and revision;
+- target an exact DR ID and revision;
 - state its recommendation and confidence;
 - steelman the strongest alternative;
 - identify hidden assumptions and missing expertise;
@@ -21,7 +21,7 @@ A useful review must:
 
 ## Staleness
 
-When an ADR materially changes, increment its revision. Reviews of earlier
+When a DR materially changes, increment its revision. Reviews of earlier
 revisions remain historically useful but no longer satisfy acceptance.
 
 ## Independence record
@@ -32,9 +32,9 @@ make a review worthless, but it must not be hidden.
 
 Use the [fresh-reread preamble](fresh-reread-preamble.md) for an issue-only
 convergence pass. The broader
-[AI delegation workflow](../../../developer-workflows/ai-delegation-and-review.md)
+[AI delegation workflow](../../developer-workflows/ai-delegation-and-review.md)
 defines model routing, review evidence, and main-thread synthesis.
 
 ## Naming
 
-Use `ADR-NNNN-rev-RR-review-NN.md`, with two-digit revision and review numbers.
+Use `DR-NNNN-rev-RR-review-NN.md`, with two-digit revision and review numbers.

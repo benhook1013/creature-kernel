@@ -1,55 +1,85 @@
 # Project status
 
-Status date: 2026-08-06
+Status date: 2026-08-08
 
 ## Phase
 
-Foundation and adversarial design.
+Foundation and round-based adversarial design.
 
 ## Current outcome
 
-Establish a durable authority model, decision process, research registry, and
-proof workflow before selecting foundational technologies. Execute the
-[kickoff decision plan](kickoff-plan.md) one bounded item at a time.
+The scaffold is integrated. Round 1 governance is an active proposal: the
+authority separation, neutral decision-record process, consequential trigger,
+round-delayed review cadence, delegation routing, and batch pipeline are
+recorded but not yet accepted. Product and architecture prose remains proposed
+or provisional until the relevant decisions receive review and Ben's explicit
+disposition.
 
-## Current kickoff item
+## Current round
 
-- Active: CK-KICK-000, integrate the foundation baseline and establish repository
-  safeguards.
-- Next: CK-KICK-001, independently review ADR-0001 revision 1.
-- No product or architecture ADR is accepted yet.
+- Round 0: completed — foundation scaffold integrated and repository safeguards
+  established.
+- Round 1: active/proposed — the DR-0001 Revision 2 review is complete with two
+  blockers; Revision 3 is being prepared. DR-0002 through DR-0004 remain later
+  proposals.
+- Review lane: the fresh Sol-medium review of DR-0001 Revision 2 and its
+  affected canonical documents completed with a `Revise` recommendation and two
+  blockers; no DR is accepted.
+- Next discussion batch: Round 2 — product identity and initial users:
+  platform/compiler/runtime versus game/editor/general engine; initial project
+  developer/researcher versus downstream artist/game-developer users; stylized
+  furry focus and adult-interaction stress cases versus general embodiment
+  architecture; and native generated creatures first with external mesh
+  conformance later.
+- Four DRs are proposed; DR-0001 Revision 2 has a completed review with two
+  blockers, and none has been accepted.
 
 ## Active work
 
-- Integrate the populated product, architecture, research, and governance
-  baseline without treating its proposals as accepted decisions.
-- Put four founding decisions through current-revision adversarial review.
+- Prepare DR-0001 Revision 3 to address the two recorded blockers, without
+  treating the fixes as complete or accepted.
+- Preserve the completed Revision 2 review as historical evidence, then obtain a
+  fresh current-revision review before Ben's disposition.
+- Keep the neutral registry, authority indexes, workflow, and validator
+  operational while acceptance remains pending.
+- Prepare the Round 2 product-identity discussion batch without treating its
+  recommendations as accepted contracts.
 - Define the first proof charter, bounded morphology, fixture set, and visual
-  quality criteria.
-- Design an evidence plan for the initial surface-generation choice.
+  quality criteria in later rounds as their dependencies become active.
 
-## Proposed decisions awaiting review
+## Proposed decisions and review state
 
-- ADR-0001: documentation authority and adversarial review process.
-- ADR-0002: declarative body document as source of truth.
-- ADR-0003: real-time-first compiled avatar boundary.
-- ADR-0004: external automation through CLI and API.
+- [DR-0001](../decisions/DR-0001-documentation-authority-and-review-process.md):
+  documentation authority and adversarial review process — Revision 2,
+  Governance scope; review complete with two blockers, Revision 3 being
+  prepared.
+- [DR-0002](../decisions/DR-0002-declarative-body-document-source-of-truth.md):
+  declarative body document as source of truth — Revision 1, Specification and
+  architecture scope.
+- [DR-0003](../decisions/DR-0003-real-time-first-compiled-avatar-boundary.md):
+  real-time-first compiled avatar boundary — Revision 1, Product and
+  architecture scope.
+- [DR-0004](../decisions/DR-0004-external-automation-through-cli-and-api.md):
+  external automation through CLI and API — Revision 1, Product and
+  architecture scope.
 
 ## Implementation status
 
 | Capability | Implementation | Verification | Notes |
 | --- | --- | --- | --- |
-| Documentation authority | partial | unverified | Structure validates; human acceptance pending |
-| ADR and review workflow | partial | unverified | No completed review yet |
+| Documentation authority | partial | unverified | Provisional structure and validator integrated; Ben's acceptance pending |
+| Decision-record and review workflow | partial | unverified | DR-0001 Revision 2 reviewed with two blockers; no acceptance completed |
 | Research/experiment workflow | partial | unverified | Templates exist; no experiment registered |
-| Body specification | design-unresolved | not-applicable | Contract boundary only |
+| Body specification | design-unresolved | not-applicable | Contract boundary remains proposed |
 | Creature compiler | not-implemented | not-applicable | No language or backend selected |
 | Runtime avatar | not-implemented | not-applicable | No runtime adapter selected |
 
 ## Immediate blockers
 
-- Human review of the project scaffold and founding ADR proposals.
-- Selection of the first bounded proof and morphology.
+- Resolve the two DR-0001 Revision 2 blockers in a Revision 3 proposal.
+- Fresh review of Revision 3 and Ben's explicit disposition after its response
+  are recorded.
+- Round 2 product-identity discussion covering only the four listed topics.
 - Evidence plan for the initial surface-generation choice.
 
 ## Explicitly not started
