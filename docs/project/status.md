@@ -10,14 +10,16 @@ Foundation and round-based adversarial design.
 
 The foundation scaffold and Round 3 proposal edits are integrated. DR-0001
 Revision 4 and DR-0005 Revision 1 are Proposed with Review Complete and Ben's
-owner disposition pending. Round 3 is integrated as Proposed: DR-0002 Revision
-2, DR-0004 Revision 2, and DR-0006 Revision 1 are all Review Complete, with
-fresh Accept recommendations at Medium confidence and no decision blockers.
-The DR-0004 review found one mechanical system-overview diagram ordering defect;
-the diagram was corrected without changing the decision or architecture prose.
-Owner dispositions remain pending. No DR is Accepted. Product and architecture
-prose remains proposed or provisional until the relevant proposal has Ben's
-explicit disposition.
+owner disposition pending. Round 3 remains integrated as Proposed: DR-0002
+Revision 2, DR-0004 Revision 2, and DR-0006 Revision 1 are all Review Complete,
+with fresh Accept recommendations at Medium confidence and no decision
+blockers. The DR-0004 review found one mechanical system-overview diagram
+ordering defect; the diagram was corrected without changing the decision or
+architecture prose. Round 4 is integrated as Proposed: DR-0003 Revision 2
+records the settled compile/runtime boundary and is pending one fresh
+adversarial review. Owner dispositions remain pending. No DR is Accepted.
+Product and architecture prose remains proposed or provisional until the
+relevant proposal has Ben's explicit disposition.
 
 ## Current round
 
@@ -45,9 +47,15 @@ explicit disposition.
 - Review lane: the fresh adversarial review of the integrated Round 3 batch is
   complete. The one mechanical diagram-ordering defect was corrected; no
   decision change or review-until-clean loop is implied.
-- Next research: Round 4 compile/runtime boundary discussion research is
-  prepared and next, remaining provisional; DR-0003 is still Proposed and no
-  DR is Accepted.
+- Round 4: integrated/proposed — DR-0003 Revision 2 records the settled
+  compile/runtime boundary: Option 2 time domain, Option 3 hybrid runtime
+  representation, compatible in-place parameters versus recompilation for
+  structural changes, blocking authoring reload initially with async hot swap
+  later, bounded capability tiers/fallbacks, and scoped determinism. One fresh
+  adversarial review remains pending; no DR is Accepted.
+- Next research: Round 5 first-proof, morphology, and quality research is next
+  in parallel with the Round 4 review lane; it remains provisional. No DR is
+  Accepted.
 
 ## Active work
 
@@ -55,8 +63,9 @@ explicit disposition.
   disposition after their completed reviews.
 - Preserve the completed Round 3 review responses and obtain owner dispositions
   for DR-0002 Revision 2, DR-0004 Revision 2, and DR-0006 Revision 1.
-- Continue the prepared Round 4 compile/runtime boundary discussion research,
-  keeping it provisional and separate from owner disposition.
+- Obtain one fresh adversarial review of the integrated DR-0003 Revision 2
+  proposal while keeping Round 5 research provisional and separate from owner
+  disposition.
 - Preserve historical review responses and keep later proof, morphology,
   geometry, runtime, and implementation topics in their provisional rounds.
 - Keep the neutral registry, authority indexes, workflow, and validator
@@ -74,8 +83,8 @@ explicit disposition.
   recommendation with Medium confidence, no decision blockers, owner
   disposition pending.
 - [DR-0003](../decisions/DR-0003-real-time-first-compiled-avatar-boundary.md):
-  real-time-first compiled avatar boundary — Revision 1, Product and
-  architecture scope; Proposed and Pending review.
+  compiled avatar and bounded real-time execution — Revision 2, Product and
+  architecture scope; Proposed and Pending one fresh review.
 - [DR-0004](../decisions/DR-0004-external-automation-through-cli-and-api.md):
   shared deterministic domain operations for external automation — Revision 2,
   Product and architecture scope; Proposed and Review Complete, Accept
@@ -103,10 +112,10 @@ explicit disposition.
 
 ## Immediate next actions
 
-- Record Ben's explicit disposition after the review responses; all three Round
-  3 DRs remain Proposed until then.
-- Continue the prepared, provisional Round 4 compile/runtime boundary discussion
-  research.
+- Record Ben's explicit disposition after the review responses; all Round 3 and
+  Round 4 DRs remain Proposed until then.
+- Run one fresh adversarial review of DR-0003 Revision 2 and continue the
+  provisional Round 5 first-proof, morphology, and quality research in parallel.
 - Prepare the evidence plan for the initial surface-generation choice.
 
 ## Explicitly not started

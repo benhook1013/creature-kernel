@@ -29,10 +29,20 @@ early contracts must leave that path open. These statements are proposed under
 1. Create an initial human-readable semantic source document from a body-plan
    declaration or empty graph.
 2. Add and configure parts using semantic attachments and local coordinates.
-3. Compile a preview.
+3. Compile and validate a preview in the current authoring session.
 4. Inspect geometry, skeleton, collision, regions, and diagnostics.
-5. Adjust parameters and repeat.
-6. Save a deterministic source and compiled runtime package.
+5. Adjust parameters and repeat; compatible changes may update the active
+   avatar in place.
+6. For a structural change, allow the preview session to block or freeze while
+   recompiling and validating; a valid replacement reloads without closing or
+   reopening the scene or session.
+7. Save a deterministic source and compiled runtime package.
+
+If compilation or validation fails, the previous validated avatar remains
+active and the session reports actionable diagnostics. A later asynchronous
+in-session replacement may avoid the blocking interval, but is not required by
+the initial workflow and this workflow is not a promise of arbitrary live
+gameplay structural editing.
 
 ## External AI agent
 
@@ -66,9 +76,13 @@ early contracts must leave that path open. These statements are proposed under
 
 1. Change supported proportions, parts, markings, or material parameters.
 2. Receive immediate feedback for changes that preserve the active representation.
-3. Wait for bounded background or loading-screen compilation when topology or
-   derived assets must change.
-4. Continue with a validated avatar or receive a precise incompatibility report.
+3. For topology, body-plan, or other major structural changes, wait while the
+   preview/authoring session compiles and validates without leaving the scene or
+   session.
+4. Continue with a valid replacement, or keep the old validated avatar and
+   receive a precise diagnostic on failure.
+5. Treat later asynchronous in-session swapping as a possible future workflow,
+   not an initial editor or gameplay contract.
 
 ## Runtime character interaction
 

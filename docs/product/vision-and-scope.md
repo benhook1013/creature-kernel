@@ -31,11 +31,14 @@ handcrafted base mesh is the first reference path. External authored-mesh
 conformance is later, and early contracts must not foreclose it.
 
 These four initial-boundary statements are proposed under
-[DR-0005](../decisions/DR-0005-initial-product-boundary-and-reference-workflow.md);
-they do not settle DR-0003's detailed compile/runtime mutation boundary. The
-source, identity, and operation directions are recorded as Proposed in their
-respective decision records; their exact formats, syntax, and mutation details
-remain open.
+[DR-0005](../decisions/DR-0005-initial-product-boundary-and-reference-workflow.md).
+The compile/runtime direction is Proposed under
+[DR-0003](../decisions/DR-0003-real-time-first-compiled-avatar-boundary.md):
+expensive invariant generation is outside the frame loop, while a bounded
+hybrid package supports live interaction and an initial in-session preview
+reload workflow. The source, identity, and operation directions are recorded
+as Proposed in their respective decision records; exact formats, syntax,
+budgets, and compatibility details remain open.
 
 ## Primary outcome
 
@@ -47,6 +50,12 @@ deformation systems.
 The platform should make a generated creature more than a visible mesh. It must
 retain semantic knowledge of body parts, relationships, capabilities, material
 regions, and runtime representations.
+
+The proposed runtime direction combines conventional prepared assets with
+selected semantic fields, cages, signed-distance data, and regional simulation
+data. Live work remains bounded to pose, contact, parameterized deformation,
+and activated regional solvers; it is neither a fully live implicit character
+nor a semantics-free conventional asset.
 
 ## Product character
 
@@ -68,6 +77,9 @@ Creature Kernel is intended to become:
   method selected through evidence and review.
 - Generated skeleton, skinning, collision, semantic regions, and basic materials.
 - Bounded real-time representations with quality levels and fallbacks.
+- In-session preview recompilation and replacement without closing the scene or
+  session; a failed replacement retains the last validated avatar and reports
+  diagnostics.
 - Headless generation, inspection, validation, and preview rendering.
 - Authoritative semantic source inputs and reproducible builds.
 - A path for later conformance of externally supplied meshes.
@@ -97,4 +109,7 @@ members of one morphology family from body documents and demonstrate that they:
 - can be reproduced through documented shared operations and CLI commands.
 
 Exact visual quality, morphology range, performance targets, and runtime engine
-remain open decisions.
+remain open decisions. Capability classes and quality names may be useful for
+explanation, but exact names and numerical budgets remain non-normative pending
+benchmarks; a high-end PC represents a larger finite budget, not an unbounded
+mode.

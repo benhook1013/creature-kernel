@@ -12,8 +12,8 @@ metadata, materials, and runtime interaction capabilities.
 Authoritative semantic source set
     -> per-build resolved semantic body graph snapshot
     -> volumes and attachment rules
-    -> generated surface
-    -> rig, skinning, collision, and deformers
+    -> prepared assets plus selected semantic runtime data
+    -> bounded pose, contact, deformation, and regional solvers
     -> interactive creature runtime
 ```
 
@@ -29,7 +29,7 @@ product or architecture contracts. The source-set proposal is
 the semantic/artifact identity proposal is
 [DR-0006 Revision 1](docs/decisions/DR-0006-durable-semantic-and-artifact-identity.md),
 the real-time boundary proposal is
-[DR-0003](docs/decisions/DR-0003-real-time-first-compiled-avatar-boundary.md),
+[DR-0003 Revision 2](docs/decisions/DR-0003-real-time-first-compiled-avatar-boundary.md),
 and the CLI/API proposal is
 [DR-0004 Revision 2](docs/decisions/DR-0004-external-automation-through-cli-and-api.md).
 The initial product boundary and reference workflow are proposed in
@@ -49,9 +49,9 @@ The initial product boundary and reference workflow are proposed in
   one deterministic domain-operation model
   ([DR-0004](docs/decisions/DR-0004-external-automation-through-cli-and-api.md)).
 - The core application does not depend on an embedded AI assistant.
-- A real-time game is the primary downstream experience. Expensive creature
-  generation may happen ahead of time or asynchronously, while compiled avatars
-  expose bounded runtime representations and fallbacks
+- A real-time game is the primary downstream experience. Expensive invariant
+  generation happens outside the frame loop; hybrid compiled avatars expose
+  bounded runtime representations and fallbacks
   ([DR-0003](docs/decisions/DR-0003-real-time-first-compiled-avatar-boundary.md)).
 - Specialized animation, contact, and deformation solvers cooperate through a
   shared representation; no single solver is expected to solve everything.

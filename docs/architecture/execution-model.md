@@ -4,11 +4,10 @@ Status: Provisional conceptual baseline
 
 ## Decision direction
 
-A real-time game is the primary downstream target. Expensive creature generation
-may occur outside the frame loop, while the compiled avatar exposes bounded
-runtime representations. A higher-quality cinematic path is supplementary.
-
-This direction is proposed for formal acceptance in
+A real-time game is the primary downstream target. Expensive invariant creature
+generation compiles outside the frame loop, while a hybrid compiled package
+exposes bounded runtime representations. A higher-quality cinematic path is
+supplementary. This direction is Proposed for formal acceptance under
 [DR-0003](../decisions/DR-0003-real-time-first-compiled-avatar-boundary.md).
 
 ## Time domains
@@ -17,22 +16,23 @@ This direction is proposed for formal acceptance in
 Authoritative semantic source set
       |
       v
-[1] Resolve source set and compile a per-build semantic graph snapshot
+[1] Resolve source set and compile invariant data
       |
       v
-Runtime avatar package
+[2] Hybrid runtime avatar package
       |
       v
-[2] Real-time game simulation
+[3] Bounded real-time game simulation
       |
       v
-[3] Optional cinematic or offline enhancement
+[4] Optional cinematic or offline enhancement
 ```
 
 ## Creature compilation
 
-Resolution and compilation may run in an external tool, character creator, loading screen,
-background worker, or import step. Candidate work includes:
+Resolution and compilation may run in an external tool, preview/authoring
+session, loading screen, background worker, or import step. Expensive invariant
+generation is not frame-loop work. Candidate work includes:
 
 - resolving and validating the source set into a per-build semantic body graph
   snapshot;
@@ -41,26 +41,30 @@ background worker, or import step. Candidate work includes:
 - generating skeletons, skinning, collision, and distance fields;
 - constructing deformation cages and regional simulation meshes;
 - binding simulation output to render surfaces;
-- generating material attributes and GPU resources;
+- generating material attributes, GPU resources, and other conventional prepared
+  runtime assets;
 - running pose, geometry, collision, and capability tests.
 
-The result is a derived runtime avatar package with separate artifact/build
-identity and provenance. Invariant compilation work must not be repeated every
-frame; the runtime mutation and recompilation boundary remains unresolved.
+The result is a derived hybrid runtime avatar package with separate artifact/build
+identity and provenance. It combines conventional mesh, LOD, rig, collision,
+material, and prepared deformation assets with selected semantic fields, cages,
+signed-distance data, and regional simulation data. It is neither fully live
+implicit generation by default nor semantics-free conventional assets.
 
 ## Real-time simulation
 
 The runtime may perform bounded stateful work:
 
-- animation, root motion, retargeting, motion warping, and IK;
-- analytic or signed-distance contact queries;
+- pose, animation, root motion, retargeting, motion warping, and IK;
+- analytic or signed-distance contact queries and contact response;
 - contact constraints, balance, and physical reaction;
-- bone, morph, cage, and GPU surface deformation;
+- parameterized bone, morph, cage, and GPU surface deformation;
 - procedural material evaluation;
-- selected cloth, secondary motion, and regional soft-body simulation.
+- selected activated cloth, secondary motion, and regional soft-body simulation.
 
-Resolution, solver iterations, active regions, and character count require
-explicit budgets.
+Resolution, solver iterations, active regions, character count, and available
+hardware budget require explicit bounds. A high-end PC increases the finite
+budget; it does not remove the quality ladder or fallback requirement.
 
 ## Baked and dynamic data
 
@@ -76,12 +80,21 @@ explicit budgets.
 Precomputation does not predetermine interaction. It prepares bounded numerical
 representations for live use.
 
-## Runtime mutation boundary (unresolved)
+## Mutation categories and package lifecycle (Proposed)
 
-No contract is settled for runtime semantic mutation, recompilation, or swapping
-derived packages. Future work must determine which authored changes can update
-an active build, which require a new compilation, and how runtime state is
-handled. DR-0002 does not answer those questions.
+Proven-compatible parameter changes may update the active package in place.
+Topology changes, body-plan changes, and other major structural changes require
+recompilation and validation; they are not arbitrary live gameplay edits. A
+loading screen is an allowed fallback when a structural package is needed.
+
+The initial preview/authoring workflow may block or freeze while the new
+package compiles and validates. A valid replacement reloads without closing or
+reopening the scene or session. If compilation or validation fails, the old
+validated avatar remains active and diagnostics are reported. A later
+asynchronous in-session swap may keep the old package active while compiling,
+but it is not an initial requirement. Such a future swap must not promise stable
+topology indices or preserve transient solver state that is incompatible with
+the replacement.
 
 ## Local quality activation
 
@@ -100,9 +113,17 @@ Actively interacting region
 Quality may vary by character, body region, interaction, visibility, distance,
 and hardware budget.
 
+## Bounded quality ladder (Proposed)
+
+Capability tiers and fallbacks are bounded by character, body region,
+interaction, visibility, distance, and hardware. Names such as base, enhanced,
+high-end, and cinematic may explain the ladder, but exact names, thresholds,
+and numerical budgets are non-normative until benchmarks establish them.
+
 ## Provisional feasibility classification
 
-This is an expectation to test, not benchmark evidence.
+This is an expectation to test, not benchmark evidence. The classes below are
+conceptual examples, not normative tier names or promises.
 
 | Feature | Expected path |
 | --- | --- |
@@ -127,6 +148,13 @@ topology mutation, dense fur and cloth collision, unbounded convergence, and no
 fallback or LOD. High-end hardware increases the budget but does not remove the
 need for bounds.
 
+## Determinism boundary (Proposed)
+
+Compilation must be reproducible from the authoritative source, compiler
+version, configuration, and seed, or report why it cannot be. Bit-exact
+simulation, networking, and replay determinism are deferred pending explicit
+requirements, contracts, and evidence.
+
 ## Pending decisions
 
 - Reference frame rate, resolution, and hardware.
@@ -134,7 +162,7 @@ need for bounds.
 - Visible, nearby, and actively interacting character counts.
 - Maximum high-quality deformable regions.
 - GPU-vendor and backend requirements.
-- Deterministic replay or networking requirements.
+- Simulation, network, and replay determinism requirements and proof level.
 - Collision ownership after visible deformation.
 - Minimum fallback experience.
 - Relationship between live and cinematic outputs.

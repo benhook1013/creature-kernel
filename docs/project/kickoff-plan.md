@@ -237,24 +237,38 @@ Outcome:
 - Preserve the shared-operation boundary while deferring concrete interface
   language, syntax, transport, and transaction details.
 
-## Round 4 — real-time product boundary (provisional)
+## Round 4 — real-time product boundary (completed plan batch)
 
 Prerequisite: Round 2 product-identity discussion.
 
-Round 4 compile/runtime boundary discussion research is prepared and next. It
-remains provisional and does not accept DR-0003.
+The Round 4 discussion is complete as a Proposed plan output. The round output
+does not by itself accept DR-0003.
 
 ### CK-KICK-004: Review the real-time-first boundary
 
-State: provisional/queued
+State: complete
 
 Outcome:
 
-- Challenge the compiled-avatar boundary, runtime mutation assumptions, quality
-  negotiation, and the risk that motivating interactions become offline only.
-- Decide the architectural direction without inventing numerical performance
-  claims. Hardware, frame, character, and solver budgets remain evidence-driven.
-- Review DR-0003 Revision 1 and obtain Ben's explicit disposition.
+- Record the bounded execution direction in [DR-0003 Revision
+  2](../decisions/DR-0003-real-time-first-compiled-avatar-boundary.md):
+  invariant and expensive work is initially outside the frame loop, with an
+  optional future background recompilation path; per-frame work is bounded.
+- Use a hybrid runtime representation that combines conventional bounded assets
+  with only selected semantic fields, cages, SDFs, or regional structures useful
+  for live behaviour.
+- Permit compatible parameter updates in place while requiring recompilation
+  for topology, body-plan, major attachment, collision, or capability changes;
+  preserve the old avatar on failed authoring reloads and avoid promising
+  mesh-index or incompatible solver-state continuity.
+- Start authoring with blocking in-session reload and leave asynchronous hot
+  swap as the later workflow; arbitrary fully live structural editing is not
+  required.
+- Use provisional bounded capability tiers and fallbacks, and require
+  reproducible source resolution, compilation, semantic IDs, provenance, and
+  build configuration while deferring stronger simulation determinism.
+- Keep exact budgets, backends, serialization, morphology, networking, and
+  hardware-dependent proof thresholds for later research and decisions.
 
 ## Round 5 — first proof boundaries, morphology, and quality (provisional)
 

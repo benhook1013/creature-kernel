@@ -45,6 +45,10 @@ Given the same source, compiler version, configuration, and seed, the system
 must produce semantically equivalent output or report why reproducibility cannot
 be guaranteed.
 
+Compilation reproducibility is an initial requirement. Bit-exact simulation,
+network, and replay determinism are deferred until their requirements and
+evidence are defined.
+
 ### CK-PROD-003: Durable semantic and artifact identity
 
 Durable semantic identity must identify parts, regions, joints, attachments,
@@ -92,6 +96,12 @@ supported body plans without requiring a handcrafted base character mesh.
 Compilation must produce a bounded runtime representation suitable for loading
 by a game or engine adapter.
 
+The proposed package combines conventional prepared mesh, LOD, rig, collision,
+material, and deformation assets with selected semantic fields, cages,
+signed-distance data, and regional simulation data. It must not require either
+fully live implicit generation by default or semantics-free conventional
+assets.
+
 ### CK-PROD-014: Procedural appearance inputs
 
 The native path should generate semantic material inputs sufficient for basic
@@ -126,6 +136,22 @@ than requiring animation authored for one exact pair of meshes.
 
 The platform should support localized visual deformation and physical response
 without requiring full-character high-resolution soft-body simulation.
+
+Live work is bounded to pose, contact, parameterized deformation, and activated
+regional solvers. A larger high-end-PC budget remains finite, and capability
+tiers must retain useful fallbacks when a tier cannot be activated.
+
+### CK-PROD-025: Structural mutation and preview reload
+
+Proven-compatible parameter changes should be able to update an active avatar
+in place. Topology, body-plan, and other major structural changes must trigger
+recompilation and validation rather than arbitrary live gameplay mutation. In
+the initial preview/authoring workflow, compilation may block or freeze the
+session without requiring the user to close and reopen the scene or session; a
+valid replacement reloads in place, while failure retains the previous
+validated avatar and reports diagnostics. A loading-screen fallback is allowed
+when a structural package is needed. Later asynchronous in-session swaps are a
+possible evolution, not an initial requirement.
 
 ## Validation and evidence
 
@@ -174,4 +200,7 @@ acceptance criteria:
 - active character and high-quality region counts;
 - deterministic replay or networking requirements;
 - minimum fallback hardware and capabilities;
-- external mesh conformance level for an initial release.
+- external mesh conformance level for an initial release;
+- exact capability-tier names, quality labels, and numerical budgets;
+- package-swap state, topology-index, and transient solver-state compatibility
+  rules for a future asynchronous path.

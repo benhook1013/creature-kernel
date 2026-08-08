@@ -36,8 +36,11 @@ real-time game integration. Related Proposed source, operation, and identity
 boundaries are recorded in [DR-0002 Revision 2](../decisions/DR-0002-declarative-body-document-source-of-truth.md),
 [DR-0004 Revision 2](../decisions/DR-0004-external-automation-through-cli-and-api.md),
 and [DR-0006 Revision 1](../decisions/DR-0006-durable-semantic-and-artifact-identity.md).
-Those records do not settle physical formats, identity syntax, interface
-schemas, or runtime mutation.
+Those records do not settle physical formats or identity syntax. The related
+Proposed compile/runtime boundary is recorded in
+[DR-0003 Revision 2](../decisions/DR-0003-real-time-first-compiled-avatar-boundary.md)
+and described in the execution model; exact interface schemas, compatibility,
+budgets, and runtime mutation details remain open.
 
 ## Current maturity
 

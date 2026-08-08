@@ -38,7 +38,7 @@ and fields   mesh     and skin   deformation data
    +----------+----------+-----------+
               |
               v
-       Runtime avatar package
+   Hybrid runtime avatar package
               |
               v
        Embodiment runtime
@@ -72,10 +72,13 @@ and bindings to the simulation representation.
 
 ### Runtime avatar package
 
-A derived, bounded package containing the data required by a runtime adapter.
-Artifact/build identity and provenance distinguish generated packages from
-durable semantic identity. Exact serialization, compatibility, and streaming
-behaviour remain undecided.
+A derived, bounded hybrid package containing conventional prepared mesh, LOD,
+rig, collision, material, and deformation assets plus selected semantic fields,
+cages, signed-distance data, and regional simulation data required by a runtime
+adapter. It is not a promise of fully live implicit generation or
+semantics-free conventional assets. Artifact/build identity and provenance
+distinguish generated packages from durable semantic identity. Exact
+serialization, compatibility, and streaming behaviour remain undecided.
 
 ## Architectural principles
 
@@ -104,7 +107,18 @@ operation model. Nondeterministic stages must be isolated and reported.
 
 The proposed semantic model and runtime package concepts should not depend on one
 host engine. Adapters translate those concepts into engine-specific systems;
-the detailed compile/runtime mutation boundary remains open under DR-0003.
+the detailed package and interface contracts remain open under Proposed
+[DR-0003](../decisions/DR-0003-real-time-first-compiled-avatar-boundary.md).
+
+### Compile/runtime separation
+
+Expensive invariant generation is outside the frame loop. The runtime performs
+bounded live pose, contact, parameterized deformation, and activated regional
+solver work against the hybrid package. Compatible parameter changes may update
+in place; topology, body-plan, and major structural changes require
+recompilation and validation. The initial preview workflow may block while it
+reloads a valid replacement in the same session, while a failed replacement
+retains the old validated avatar.
 
 ### Specialized solvers
 
@@ -154,4 +168,7 @@ It does not initially own:
 - Collision and deformable-body backends.
 - Avatar-package serialization and versioning.
 - Performance envelope and reference hardware.
+- Capability-tier labels, finite quality budgets, and fallback thresholds.
+- Future asynchronous package-swap state and compatibility rules.
+- Bit-exact simulation, network, and replay determinism requirements.
 - Artifact storage and reproducibility strategy.

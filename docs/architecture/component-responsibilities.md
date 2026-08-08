@@ -15,8 +15,8 @@ its activation trigger is met.
 | Rigging compiler | Generate joints, limits, skinning, correctives, and bindings | Own interaction intent |
 | Physics compiler | Generate collision, mass, cages, and regional simulation data | Run unbounded render-mesh physics |
 | Appearance compiler | Produce semantic material inputs and generated attachments | Require unique painted textures |
-| Avatar packager | Validate and serialize derived runtime data with artifact/build identity and provenance | Redefine source semantics or durable semantic identity |
-| Embodiment runtime | Coordinate animation, IK, contact, deformation, and quality tiers | Compile arbitrary topology every frame |
+| Avatar packager | Validate and serialize the derived hybrid runtime package with artifact/build identity and provenance | Redefine source semantics or durable semantic identity |
+| Embodiment runtime | Coordinate bounded pose, IK, contact, parameterized deformation, activated regional solvers, quality tiers, and fallbacks | Compile arbitrary topology every frame or require fully live implicit generation |
 | Interaction system | Resolve semantic participants, phases, constraints, and fallbacks | Depend on exact mesh identities |
 | Shared domain operations and adapters | Define deterministic query, semantic mutation, resolution/compilation, validation, diagnostics, and artifact inspection for CLI/API and future adapters | Contain AI-specific reasoning or private client behaviour |
 | Validation system | Produce structural, geometric, visual, and performance evidence | Declare product decisions automatically |
@@ -51,3 +51,9 @@ Every component that becomes real should document:
 - capability and fallback behaviour;
 - proof commands and fixtures;
 - platform or backend limitations.
+
+Package lifecycle and reload behaviour should distinguish in-place compatible
+parameter updates from structural recompilation. Initial preview reload may
+block within the same session; future asynchronous swapping must define
+replacement compatibility rather than assuming stable topology indices or
+transient solver state.
