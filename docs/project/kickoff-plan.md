@@ -88,11 +88,13 @@ change after the main thread reports the exact proposed action.
 
 This batch records the approved governance direction and prepares the neutral
 decision-record process for adversarial review. Product and architecture
-content remains provisional. DR-0001 Revision 4 is Proposed and Pending fresh
-review. The Revision 2 and Revision 3 reviews are historical and their findings
-are preserved; this batch does not resolve or re-review them. DR-0002 through
+content remains provisional. DR-0001 Revision 4 is Proposed with its current
+review complete: the review recommends Accept with High confidence and found no
+blockers. Its three non-blocking risks remain visible and deferred. The
+Revision 2 and Revision 3 reviews are historical and their findings are
+preserved; this batch does not resolve or re-review them. DR-0002 through
 DR-0004 are Revision 1 proposals retained for later product and architecture
-review.
+review. Ben's disposition of DR-0001 remains pending.
 
 ### CK-KICK-001: Review the decision process itself
 
@@ -108,8 +110,11 @@ Outcome:
 - The historical Revision 2 and Revision 3 reviews remain advisory memory with
   their recommendations and blockers intact. Revision 4 deliberately adopts
   the lightweight hobby-project process after considering those audit-heavy
-  recommendations; obtain one fresh review of the current edit batch before
-  asking Ben for a disposition.
+  recommendations. The current Revision 4 review recommends Accept with High
+  confidence and found no blockers; lightweight Git-based batch reconstruction,
+  duplicated model-routing guidance, and the removed validator unit-test suite
+  remain visible non-blocking risks. Ask Ben for a disposition without
+  implying that any risk or the DR has been accepted.
 
 ### Governance batch: authority, trigger, review, and ownership
 
@@ -141,7 +146,9 @@ Discussion topics:
 
 Outputs:
 
-- DR-0001 Revision 4, Status Proposed, Scope Governance, Review Pending.
+- DR-0001 Revision 4, Status Proposed, Scope Governance, Review Complete;
+  Accept recommendation with High confidence, no blockers, and owner
+  disposition pending.
 - DR-0002 through DR-0004 retained as Status Proposed, Revision 1, with their
   later Product, Specification, and Architecture review dependencies visible.
 - Neutral registry, templates, review naming, validator, authority indexes,
@@ -151,12 +158,11 @@ Review and next batch:
 
 - The completed Revision 2 review and its two blockers are historical evidence.
 - Revision 4 is a lightweight Proposed process after considering the historical
-  Revision 2 and Revision 3 review recommendations; one fresh review of this
-  edit batch is pending.
+  Revision 2 and Revision 3 review recommendations; its current fresh review
+  is complete with an Accept recommendation and no blockers.
 - The main thread can independently research the Round 2 product-identity
-  questions while that review is pending, when dependencies permit.
-- Round 1 remains Proposed until the fresh review and Ben's disposition; no DR
-  is accepted.
+  questions when dependencies permit.
+- Round 1 remains Proposed until Ben's disposition; no DR is accepted.
 
 ## Round 2 — product identity and initial users (provisional)
 
@@ -177,9 +183,13 @@ may identify canonical documents or later decision-record work, but it does not
 accept a product or architecture direction.
 
 Output: DR-0005 Revision 1, Scope Product and architecture, Status Proposed,
-Review Pending. It records only the four topics above and defers detailed source
-semantics, compile/runtime mutation, automation contract detail, first-proof
-morphology, backend, and budget questions.
+Review Complete; its current review recommends Accept with Medium confidence,
+found no blockers, and leaves non-blocking abstraction, downstream usability,
+stress-case generalization, upstream-detail, and README-wording risks visible
+or deferred. Ben's owner disposition remains pending. It records only the four
+topics above and defers detailed source semantics, compile/runtime mutation,
+automation contract detail, first-proof morphology, backend, and budget
+questions.
 
 ## Round 3 — source, semantics, and automation (provisional)
 

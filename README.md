@@ -77,9 +77,9 @@ The initial product boundary and reference workflow are proposed in
 ## Status
 
 The project is in its foundation and adversarial design phase. No implementation
-language, geometry backend, runtime engine, or asset format has been selected;
-the linked DR-0002–0005 proposals remain Proposed pending one fresh review and
-Ben's disposition.
+language, geometry backend, runtime engine, or asset format has been selected.
+DR-0001 and DR-0005 have current reviews recorded and remain Proposed pending
+Ben's disposition; DR-0002–0004 remain Proposed and await their later reviews.
 
 See [docs/FOUNDATION.md](docs/FOUNDATION.md) for the historical
 conversation-derived record. Current contracts are owned by the documentation

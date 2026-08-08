@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-08
 
@@ -173,9 +173,17 @@ historical `Revise` recommendations. They raised bootstrap/status and
 review-evidence concerns, followed by narrower concerns about binding
 technical guidance and mutable exact-revision evidence. Ben deliberately chose
 the lighter hobby-project process in Revision 4 after considering those
-audit-heavy recommendations. Revision 4 is Proposed and awaits one fresh
-review of this edit batch; this response does not claim that an earlier finding
-was independently re-reviewed or that any DR is accepted.
+audit-heavy recommendations.
+
+The current [Revision 4 review](reviews/DR-0001-rev-04-review-01.md)
+recommends `Accept` with high confidence and found no blockers. It leaves
+three non-blocking risks visible and deferred: lightweight Git-based
+exact-batch reconstruction, duplicated model-routing guidance that may drift,
+and the removed validator unit-test suite, which should be revisited if the
+validator grows or gives a false acceptance signal. Revision 4 remains
+Proposed with owner approval pending; this response records the review
+evidence and recommendation and does not claim that Ben accepted any risk or
+the DR.
 
 ## Implementation and Proof Obligations
 
