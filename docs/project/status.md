@@ -1,6 +1,6 @@
 # Project status
 
-Status date: 2026-08-08
+Status date: 2026-08-09
 
 ## Phase
 
@@ -20,10 +20,11 @@ Review Complete with an Accept recommendation at Medium confidence and no
 blockers; Ben's owner disposition remains pending. Round 5 is integrated as
 Proposed: DR-0007 Revision 1 records the three-stage first-proof charter and
 DR-0008 Revision 1 records the bounded digitigrade family, fixed fixture
-envelope, and minimal Stage 1 embodiment hooks; both are Review Pending. Round
-6 surface research is next in parallel. No DR is Accepted. Product and
-architecture prose remains proposed or provisional until the relevant proposal
-has Ben's explicit disposition.
+envelope, and minimal Stage 1 embodiment hooks; the Round 5 review is Complete
+with Revise recommendations at High confidence and three unresolved blocking
+issues. Round 6 surface-research evidence is prepared for human discussion. No
+DR is Accepted. Product and architecture prose remains proposed or provisional
+until the relevant proposal has Ben's explicit disposition.
 
 ## Current round
 
@@ -60,10 +61,11 @@ has Ben's explicit disposition.
   confidence and no blockers; owner disposition remains pending.
 - Round 5: integrated/proposed — DR-0007 Revision 1 and DR-0008 Revision 1
   record the settled first-proof stages, morphology envelope, fixed fixtures,
-  and minimal Stage 1 embodiment hooks; both remain Proposed and Review
-  Pending. No DR is Accepted.
-- Round 6: next in parallel/provisional — surface-generation research and the
-  geometry decision remain queued behind the bounded Round 5 targets.
+  and minimal Stage 1 embodiment hooks; both remain Proposed with Review
+  Complete, Revise recommendations at High confidence, and three unresolved
+  blocking issues. No DR is Accepted.
+- Round 6: discussion prepared/provisional — surface-generation research is
+  available for human discussion; the geometry decision remains unresolved.
 
 ## Active work
 
@@ -72,10 +74,11 @@ has Ben's explicit disposition.
 - Preserve the completed Round 3 review responses and obtain owner dispositions
   for DR-0002 Revision 2, DR-0004 Revision 2, and DR-0006 Revision 1.
 - Obtain Ben's owner disposition for the completed DR-0003 Revision 2 review
-  while keeping the integrated Round 5 proposals provisional and separate
-  from acceptance.
-- Prepare the Round 6 surface-generation research against the fixed qualitative
-  fixture envelope and the separate visual-evaluation protocol.
+  and the Round 5 proposals, while keeping all of them provisional and separate
+  from acceptance; resolve the three Round 5 blockers before accepting either
+  Round 5 DR.
+- Discuss the prepared Round 6 surface-generation research against the fixed
+  qualitative fixture envelope and the separate visual-evaluation protocol.
 - Preserve historical review responses and keep later proof, morphology,
   geometry, runtime, and implementation topics in their provisional rounds.
 - Keep the neutral registry, authority indexes, workflow, and validator
@@ -110,17 +113,20 @@ has Ben's explicit disposition.
   Medium confidence, no decision blockers, owner disposition pending.
 - [DR-0007](../decisions/DR-0007-staged-first-proof-charter.md): staged
   first-proof charter and claim boundaries — Revision 1, Product scope;
-  Proposed and Review Pending.
+  Proposed and Review Complete, Revise recommendation at High confidence, with
+  three unresolved blocking issues; owner disposition pending.
 - [DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md):
   first digitigrade morphology and Stage 1 embodiment envelope — Revision 1,
-  Product, Specification and architecture scope; Proposed and Review Pending.
+  Product, Specification and architecture scope; Proposed and Review Complete,
+  Revise recommendation at High confidence, with three unresolved blocking
+  issues; owner disposition pending.
 
 ## Implementation status
 
 | Capability | Implementation | Verification | Notes |
 | --- | --- | --- | --- |
 | Documentation authority | partial | unverified | Provisional structure and validator integrated; review complete; Ben's disposition pending |
-| Decision-record and review workflow | partial | unverified | DR-0001 Revision 4, DR-0005 Revision 1, the Round 3 proposals, and DR-0003 Revision 2 have completed reviews; DR-0007 and DR-0008 are pending review; no acceptance completed |
+| Decision-record and review workflow | partial | unverified | DR-0001 Revision 4, DR-0005 Revision 1, the Round 3 proposals, DR-0003 Revision 2, DR-0007 Revision 1, and DR-0008 Revision 1 have completed reviews; no acceptance completed |
 | Research/experiment workflow | partial | unverified | Templates exist; no experiment registered |
 | Body specification | design-unresolved | not-applicable | Contract boundary remains proposed |
 | Creature compiler | not-implemented | not-applicable | No language or backend selected |
@@ -130,10 +136,11 @@ has Ben's explicit disposition.
 
 - Record Ben's explicit disposition after the review responses; all Round 3 and
   Round 4 DRs remain Proposed until then.
-- Review the integrated Round 5 DR-0007 and DR-0008 proposals; obtain Ben's
-  explicit dispositions for them and the completed DR-0003 review.
-- Continue Round 6 surface research in parallel using the fixed fixture
-  envelope and visual-evaluation evidence plan.
+- Resolve the three blocking findings from the completed Round 5 review and
+  obtain Ben's explicit dispositions for DR-0007, DR-0008, and the completed
+  DR-0003 review.
+- Discuss Round 6 surface research using the fixed fixture envelope and
+  visual-evaluation evidence plan.
 - Prepare the evidence plan for the initial surface-generation choice.
 
 ## Explicitly not started
