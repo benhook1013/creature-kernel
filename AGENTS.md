@@ -10,7 +10,7 @@ information. Do not allow one kind to silently redefine another.
 ## Provisional bootstrap trial
 
 This file is binding provisional operational trial guidance under DR-0001
-Revision 3, authorized by Ben for the 2026-08-08 governance bootstrap. It
+Revision 4, authorized by Ben for the 2026-08-08 governance bootstrap. It
 preserves authority separation, proposal labels, review evidence, repository
 safety, and explicit human ownership during the trial; it does not accept
 DR-0001 or any product/architecture proposal. “Active” or “operational” here
@@ -59,14 +59,15 @@ When documents conflict, stop and resolve the conflict in the canonical owner.
   be disputed choices. Ordinary wording, derived detail, and reversible
   implementation do not require one.
 - Work in batches of roughly two to five related decisions or talking points:
-  finish discussion, integrate canonical documents and Proposed DR changes,
-  then start the previous-round adversarial review and independent next-round
-  research concurrently where dependencies permit. Return a short synthesized
-  review status together with the next decision batch.
-- Do not change a DR to `Accepted` without a fresh review of its exact current
-  revision and affected canonical documents, explicit responses, and Ben's
-  human approval. A material proposal change increments its revision and makes
-  older reviews stale.
+  finish and resolve the discussion, have Luna apply non-trivial document
+  edits, let the main thread inspect and integrate them, then run one fresh
+  adversarial review of that edit batch. Return concise findings with the next
+  researched batch; do not auto-fix decision-bearing findings or run a
+  review-until-clean loop. A material proposal change increments its revision
+  and makes older reviews stale.
+- Do not change a DR to `Accepted` without a current-revision adversarial review
+  or an explicit Ben waiver recorded as `Review status: Waived` with one
+  non-placeholder `Waiver reason:` line, plus Ben's human approval.
 - Preserve rejected and superseded decisions so their reasoning is not lost.
 - Record waivers explicitly; never imply missing evidence was supplied.
 - Reviews must challenge assumptions, alternatives, failure modes, performance,
@@ -87,12 +88,14 @@ When documents conflict, stop and resolve the conflict in the canonical owner.
 
 - Keep future components in `docs/project/repository-evolution.md` until their
   activation trigger is met. Do not create empty implementation packages.
-- Use stable semantic identifiers rather than generated mesh indices in durable
-  contracts.
+- Track stable semantic identifiers and engine-independent core boundaries as
+  Proposed concerns in DR-0002 and DR-0003; they are not binding
+  implementation requirements until the relevant DR is accepted.
 - Do not commit large generated meshes, caches, captures, or datasets without an
   approved artifact-storage decision.
-- Keep the engine-independent core separate from host-engine adapters once code
-  boundaries exist.
+- Keep any implementation boundaries consistent with accepted canonical
+  contracts once those contracts exist; current engine-independent separation
+  remains a Proposed architectural direction.
 - Preserve unrelated user changes and stage only files belonging to the task.
 
 ## Conditional workflows

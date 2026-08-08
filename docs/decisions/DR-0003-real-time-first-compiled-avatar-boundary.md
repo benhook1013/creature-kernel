@@ -14,8 +14,6 @@ Owner approval: Pending
 
 Review status: Pending
 
-Response status: Pending
-
 Date proposed: 2026-08-05
 
 Date decided: —

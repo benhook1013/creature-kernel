@@ -3,7 +3,7 @@
 Status: Provisional operational trial
 
 Use this workflow whenever the main thread considers delegating work or
-requesting model-backed independent review during the DR-0001 Revision 3
+requesting model-backed independent review during the DR-0001 Revision 4
 provisional operational trial. It preserves safety and ownership boundaries but
 does not accept DR-0001 or any product/architecture proposal.
 
@@ -29,15 +29,16 @@ owner decides.
 ## Round and batch pipeline
 
 The main thread groups roughly two to five related decisions or talking points
-into one discussion batch. It finishes the discussion, integrates the canonical
-document changes and Proposed decision-record revisions, and then—in the next
-round—starts the previous-round adversarial review and independent next-round
-research concurrently when dependencies permit. Reviewers reread the exact
-current revision together with its affected canonical documents. The main thread
-records responses and revisions, validates the integrated result, and obtains
-Ben's explicit decision only after that current-revision review. Unaccepted
-material remains clearly labelled Proposed or provisional. Each round closes
-with a short synthesized review status and the named next discussion batch.
+into one discussion batch and finishes the discussion with Ben. Luna applies
+non-trivial document edits, evidence gathering, and bounded mechanical work;
+the main thread inspects and integrates the batch and commits it. In the next
+round, one fresh adversarial review examines the exact edit batch while
+independent research for the next batch may proceed when dependencies permit.
+The main thread returns concise findings with that next batch. Decision-bearing
+findings are not auto-fixed and the process does not run a review-until-clean
+loop; mechanical defects faithful to settled intent may be corrected, while a
+new scope, trade-off, or authority choice returns to Ben. Unaccepted material
+remains clearly labelled Proposed or provisional.
 
 ## Model routing
 
@@ -156,18 +157,16 @@ same repository context.
 
 - Use a fresh-context reviewer that did not implement the target material for
   consequential initial review when practical.
-- Require the reviewer to name the sources read and the exact proposal revision.
-- An exhaustive audit requires a per-item coverage ledger and an explicit
-  incomplete-review gate. An unsupported `no findings` is not exhaustive proof.
+- Require the reviewer to state the exact DR revision under review and its
+  independence. Documents consulted may be listed when useful, but no exact
+  source inventory is required.
 - Reviewers report blocking issues first, avoid praise and restatement, and cap a
   normal convergence pass at five high-value findings.
 - The main thread checks evidence, merges duplicates, identifies contradictions,
-  and decides whether another pass is useful.
-- Repeated convergence may retain the same domain reviewer for working context,
-  but each pass must reread current files. A separate final verification should
-  use fresh context when independence materially matters.
-- Stop when blockers stabilize and remaining concerns are clearly non-blocking
-  follow-ups rather than continuing an endless issue hunt.
+  and returns the findings to Ben; it does not auto-fix decision-bearing issues
+  or start a review-until-clean loop.
+- Stop after one pass, with at most five high-value findings. A later review is
+  a new main-thread decision when a material revision or new batch warrants it.
 
 Use the [fresh-reread preamble](../decisions/reviews/fresh-reread-preamble.md)
 for DR and design convergence passes.

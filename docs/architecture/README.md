@@ -29,6 +29,12 @@ plausible proposal as an accepted contract. The current content is a proposed,
 assistant-synthesized target pending review; it is not an accepted architecture
 baseline.
 
+The Round 2 product-boundary proposal in
+[DR-0005](../decisions/DR-0005-initial-product-boundary-and-reference-workflow.md)
+keeps Creature Kernel's initial target engine-independent and downstream of a
+real-time game integration. It does not accept DR-0002, DR-0003, or DR-0004, and
+does not settle their detailed source, compile/runtime, or automation contracts.
+
 ## Current maturity
 
 The architecture is pre-implementation. Component names describe provisional

@@ -23,13 +23,15 @@ not intended to hard-code one species, one skeleton, or one rendering style.
 ## Proposed project principles
 
 These principles are proposed, provisional, assistant-synthesized project
-direction under the DR-0001 Revision 3 operational trial. They are not accepted
+direction under the DR-0001 Revision 4 operational trial. They are not accepted
 product or architecture contracts. The body-document source proposal is
 [DR-0002](docs/decisions/DR-0002-declarative-body-document-source-of-truth.md),
 the real-time boundary proposal is
 [DR-0003](docs/decisions/DR-0003-real-time-first-compiled-avatar-boundary.md),
 and the CLI/API proposal is
 [DR-0004](docs/decisions/DR-0004-external-automation-through-cli-and-api.md).
+The initial product boundary and reference workflow are proposed in
+[DR-0005](docs/decisions/DR-0005-initial-product-boundary-and-reference-workflow.md).
 
 - The editable source of truth is a deterministic body document, not a mesh
   ([DR-0002](docs/decisions/DR-0002-declarative-body-document-source-of-truth.md)).
@@ -49,6 +51,19 @@ and the CLI/API proposal is
   shared representation; no single solver is expected to solve everything.
 - Capability levels and fallbacks should let characters participate even when
   they do not support the highest simulation quality.
+- The initial product is an engine-independent procedural creature compiler and
+  embodiment runtime, not a game, editor, or general-purpose engine. A
+  real-time game is the first downstream proof and integration target.
+- The earliest workflow is the project developer or researcher using structured
+  source, CLI/API operations, diagnostics, and reproducible evidence. Technical
+  artists and game developers remain important downstream review and integration
+  users.
+- Stylized furry characters are the initial domain. Adult interactions are
+  motivating difficult contact and deformation stress cases, while reusable
+  body, contact, and solver mechanisms remain general.
+- Native programmatic generation without a handcrafted base mesh is the first
+  reference path. External authored-mesh conformance is a later path that early
+  contracts must not foreclose.
 
 ## Repository navigation
 
@@ -63,7 +78,8 @@ and the CLI/API proposal is
 
 The project is in its foundation and adversarial design phase. No implementation
 language, geometry backend, runtime engine, or asset format has been selected;
-the linked DR-0002–0004 proposals remain Proposed.
+the linked DR-0002–0005 proposals remain Proposed pending one fresh review and
+Ben's disposition.
 
 See [docs/FOUNDATION.md](docs/FOUNDATION.md) for the historical
 conversation-derived record. Current contracts are owned by the documentation

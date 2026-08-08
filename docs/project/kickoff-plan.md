@@ -23,11 +23,14 @@ that implementation must preserve.
   decisions or talking points.
 - Finish the discussion batch before integrating its canonical document changes
   and Proposed decision-record revisions.
-- After integration and validation, start the previous-round adversarial review
-  and independent next-round research concurrently when dependencies permit.
-- The fresh review must reread the exact current proposal revision and all
-  affected canonical documents as one review bundle. Ben accepts, rejects, or
-  requests revision only after that review response is recorded.
+- After integration and validation, start one fresh adversarial review of the
+  previous edit batch and independent next-round research concurrently when
+  dependencies permit.
+- The fresh review examines the current proposal revision and affected
+  canonical documents. Findings return to Ben and the main thread; decision-
+  bearing findings are not auto-fixed and the process does not run a
+  review-until-clean loop. Ben accepts, rejects, or requests revision only
+  after the review response is recorded.
 - The main thread prepares the evidence, alternatives, recommendation, and
   consequences before asking the decision owner for input. Ask one bounded human
   question at a time inside a batch.
@@ -38,8 +41,8 @@ that implementation must preserve.
   it to a project dependency.
 - Use experiments when geometry, visual quality, performance, or solver
   behaviour cannot be established from argument alone.
-- Do not mark a DR accepted without a current-revision adversarial review and
-  explicit Ben approval.
+- Do not mark a DR accepted without a current-revision adversarial review or an
+  explicit Ben waiver recorded in the DR, and explicit Ben approval.
 - Update canonical product, specification, architecture, research, and status
   documents when a decision changes their subject. This plan must not become a
   competing source of truth.
@@ -85,10 +88,11 @@ change after the main thread reports the exact proposed action.
 
 This batch records the approved governance direction and prepares the neutral
 decision-record process for adversarial review. Product and architecture
-content remains provisional. DR-0001 Revision 3 is Proposed and Pending fresh
-review. The Revision 2 review is historical; both blockers are addressed in the
-Revision 3 proposal but are not independently verified. DR-0002 through DR-0004
-are Revision 1 proposals retained for later product and architecture review.
+content remains provisional. DR-0001 Revision 4 is Proposed and Pending fresh
+review. The Revision 2 and Revision 3 reviews are historical and their findings
+are preserved; this batch does not resolve or re-review them. DR-0002 through
+DR-0004 are Revision 1 proposals retained for later product and architecture
+review.
 
 ### CK-KICK-001: Review the decision process itself
 
@@ -101,9 +105,11 @@ Outcome:
   historical evidence.
 - Preserve its `Revise` recommendation and two blocking objections: the
   provisional-status/bootstrap conflict and the acceptance-evidence gap.
-- DR-0001 Revision 3 addresses both blockers in Proposed text, but neither fix
-  is independently verified; obtain a fresh current-revision review before
-  asking Ben to accept, reject, request revision, or leave the proposal blocked.
+- The historical Revision 2 and Revision 3 reviews remain advisory memory with
+  their recommendations and blockers intact. Revision 4 deliberately adopts
+  the lightweight hobby-project process after considering those audit-heavy
+  recommendations; obtain one fresh review of the current edit batch before
+  asking Ben for a disposition.
 
 ### Governance batch: authority, trigger, review, and ownership
 
@@ -121,20 +127,21 @@ Discussion topics:
   performance-defining, dependency/portability/licensing-locking, or likely to
   be disputed choices. Ordinary wording, derived detail, and reversible
   implementation stay lightweight.
-- Use the round-delayed pipeline: discussion batch, canonical and Proposed DR
-  integration, next-round fresh review of the exact revision and affected
-  canonical documents, response/revision, then explicit Ben acceptance.
+- Use the batch pipeline: finish discussion, integrate canonical and Proposed
+  DR changes, run one fresh review in the next round, and return concise
+  findings with the next batch. Decision-bearing findings return to Ben rather
+  than entering an automatic fix/review loop.
 - Keep unaccepted assistant-synthesized product and architecture material
   Proposed or provisional.
 - Keep the main Sol thread responsible for discussion, decomposition,
   synthesis, integration, validation, Git/PR/CI, and decisions. Prefer Luna for
-  non-trivial edits, evidence gathering, mechanical work, and bounded audits;
-  use fresh Sol-medium reviewers for foundational adversarial review; retain the
+  non-trivial edits, evidence gathering, and mechanical work; use fresh
+  Sol-medium reviewers for foundational adversarial review; retain the
   Luna-xhigh and Luna-max gates and Sol-above-medium approval boundary.
 
 Outputs:
 
-- DR-0001 Revision 3, Status Proposed, Scope Governance, Review Pending.
+- DR-0001 Revision 4, Status Proposed, Scope Governance, Review Pending.
 - DR-0002 through DR-0004 retained as Status Proposed, Revision 1, with their
   later Product, Specification, and Architecture review dependencies visible.
 - Neutral registry, templates, review naming, validator, authority indexes,
@@ -143,13 +150,13 @@ Outputs:
 Review and next batch:
 
 - The completed Revision 2 review and its two blockers are historical evidence.
-- Proposed Revision 3 addresses both blockers, but neither fix is independently
-  verified; the fresh current-revision review is pending.
+- Revision 4 is a lightweight Proposed process after considering the historical
+  Revision 2 and Revision 3 review recommendations; one fresh review of this
+  edit batch is pending.
 - The main thread can independently research the Round 2 product-identity
   questions while that review is pending, when dependencies permit.
-- Round 1 is complete only when Revision 3 has a fresh current-revision review,
-  responses are recorded, and Ben gives an explicit disposition; until then all
-  four DRs remain Proposed.
+- Round 1 remains Proposed until the fresh review and Ben's disposition; no DR
+  is accepted.
 
 ## Round 2 — product identity and initial users (provisional)
 
@@ -168,6 +175,11 @@ Discussion batch:
 This batch remains bounded to product identity and initial users. Its discussion
 may identify canonical documents or later decision-record work, but it does not
 accept a product or architecture direction.
+
+Output: DR-0005 Revision 1, Scope Product and architecture, Status Proposed,
+Review Pending. It records only the four topics above and defers detailed source
+semantics, compile/runtime mutation, automation contract detail, first-proof
+morphology, backend, and budget questions.
 
 ## Round 3 — source, semantics, and automation (provisional)
 

@@ -4,10 +4,11 @@ Status: Provisional operational trial
 
 | ID | Title | Scope | Status | Revision | Review | Decision owner |
 | --- | --- | --- | --- | --- | --- | --- |
-| [DR-0001](DR-0001-documentation-authority-and-review-process.md) | Documentation authority and adversarial review process | Governance | Proposed | 3 | Pending | Ben |
+| [DR-0001](DR-0001-documentation-authority-and-review-process.md) | Documentation authority and decision-record process | Governance | Proposed | 4 | Pending | Ben |
 | [DR-0002](DR-0002-declarative-body-document-source-of-truth.md) | Declarative body document as source of truth | Specification and architecture | Proposed | 1 | Pending | Ben |
 | [DR-0003](DR-0003-real-time-first-compiled-avatar-boundary.md) | Real-time-first compiled avatar boundary | Product and architecture | Proposed | 1 | Pending | Ben |
 | [DR-0004](DR-0004-external-automation-through-cli-and-api.md) | External automation through CLI and API | Product and architecture | Proposed | 1 | Pending | Ben |
+| [DR-0005](DR-0005-initial-product-boundary-and-reference-workflow.md) | Initial product boundary and reference workflow | Product and architecture | Proposed | 1 | Pending | Ben |
 
 ## Candidate decisions
 

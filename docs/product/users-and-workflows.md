@@ -5,6 +5,24 @@ Status: Proposed product baseline
 These workflows describe observable goals. They intentionally avoid committing
 to a GUI, geometry backend, language, or runtime engine.
 
+## Initial users and reference workflow (Proposed)
+
+The earliest workflow serves the project developer or researcher. They use
+structured creature source, CLI/API operations, diagnostics, and reproducible
+evidence to create, inspect, compile, and validate a native generated creature.
+Technical artists and game developers are important downstream review and
+integration users; this ordering does not exclude them from the product.
+
+The initial domain is stylized furry characters. Adult interactions are explicit
+motivating use cases and difficult contact/deformation stress cases for the
+general body, contact, and solver mechanisms. Those mechanisms remain reusable
+and are not defined as adult-only product behavior.
+
+Native programmatic generation without a handcrafted base mesh is the first
+reference path. External authored-mesh conformance is a later workflow, while
+early contracts must leave that path open. These statements are proposed under
+[DR-0005](../decisions/DR-0005-initial-product-boundary-and-reference-workflow.md).
+
 ## Body author using structured tools
 
 1. Create a creature document from a body-plan declaration or empty graph.

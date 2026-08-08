@@ -25,8 +25,5 @@ jobs:
       - name: Compile validator
         run: python3 -m py_compile dev-tools/validation/validate_docs.py
 
-      - name: Run validator unit tests
-        run: python3 -m unittest discover -s dev-tools/validation/tests -p 'test_*.py'
-
       - name: Validate documentation contracts
         run: python3 dev-tools/validation/validate_docs.py

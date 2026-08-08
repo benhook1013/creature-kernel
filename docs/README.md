@@ -18,7 +18,7 @@ rationale, evidence, and status.
 
 The [foundation record](FOUNDATION.md) preserves the founding conversation. It is
 historical context rather than the canonical owner of current contracts. This
-authority map and its process are active/operational under the DR-0001 Revision 3
+authority map and its process are active/operational under the DR-0001 Revision 4
 bootstrap trial. This does not mean the governance design or any linked product
 and architecture proposal is accepted; Ben's disposition remains required.
 

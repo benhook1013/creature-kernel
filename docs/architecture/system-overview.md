@@ -4,9 +4,13 @@ Status: Provisional conceptual baseline
 
 ## System purpose
 
-Creature Kernel converts a declarative semantic body definition into an embodied
-runtime avatar and provides bounded systems for animation, contact, deformation,
-and engine integration.
+Creature Kernel is proposed as an engine-independent procedural creature
+compiler and embodiment runtime. It converts a semantic body definition into an
+embodied runtime avatar and provides bounded systems for animation, contact,
+deformation, and engine integration. It is not initially a game, editor, or
+general-purpose engine; a real-time game is the first downstream proof and
+integration target. This boundary remains Proposed under
+[DR-0005](../decisions/DR-0005-initial-product-boundary-and-reference-workflow.md).
 
 ```text
 Human, script, or external AI
@@ -40,7 +44,7 @@ and fields   mesh     and skin   deformation data
 
 ### Creature source
 
-The editable, deterministic declaration of parts, relationships, measurements,
+The proposed editable, deterministic declaration of parts, relationships, measurements,
 capabilities, generators, materials, and compilation parameters.
 
 ### Resolved body graph
@@ -82,8 +86,9 @@ and seed. Nondeterministic stages must be isolated and reported.
 
 ### Engine-independent contracts
 
-The semantic model and runtime package concepts should not depend on one host
-engine. Adapters translate those contracts into engine-specific systems.
+The proposed semantic model and runtime package concepts should not depend on one
+host engine. Adapters translate those concepts into engine-specific systems;
+the detailed compile/runtime mutation boundary remains open under DR-0003.
 
 ### Specialized solvers
 
@@ -104,7 +109,7 @@ records.
 
 ## System boundary
 
-Creature Kernel initially owns:
+Creature Kernel initially owns (proposed boundary):
 
 - body-document parsing and validation;
 - semantic body resolution;

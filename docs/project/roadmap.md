@@ -9,10 +9,13 @@ on evidence and accepted decisions.
 
 Exit outcomes:
 
-- Canonical documentation authority is accepted.
-- Consequential decisions have versioned adversarial review.
+- Canonical documentation authority has a Proposed lightweight process and
+  remains pending Ben's disposition.
+- Consequential decisions have a lightweight decision record and one-pass
+  adversarial review when the trigger applies.
 - Open research questions and experiments have stable identifiers.
-- Documentation and decision-record structure validate automatically.
+- Documentation and decision-record structure remain operational under the
+  provisional trial; consolidated validation reports their current state.
 
 ## Stage 1: Prove semantic body generation
 

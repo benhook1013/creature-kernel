@@ -13,6 +13,27 @@ The initial creative focus is stylized furry characters. The larger goal is a
 body grammar capable of expressing related morphology families without making
 every character a bespoke graphics and physics project.
 
+## Initial product boundary (Proposed)
+
+The initial product is an engine-independent procedural creature compiler and
+embodiment runtime, not a game, editor, or general-purpose engine. A real-time
+game is the first downstream proof and integration target. The earliest workflow
+is the project developer or researcher using structured source, CLI/API
+operations, diagnostics, and reproducible evidence; technical artists and game
+developers are important downstream review and integration users.
+
+Stylized furry characters are the initial domain. Adult interactions are
+explicit motivating use cases and difficult contact/deformation stress cases,
+while reusable body, contact, and solver mechanisms remain general rather than
+hard-coded to adult mechanics. Native programmatic generation without a
+handcrafted base mesh is the first reference path. External authored-mesh
+conformance is later, and early contracts must not foreclose it.
+
+These four initial-boundary statements are proposed under
+[DR-0005](../decisions/DR-0005-initial-product-boundary-and-reference-workflow.md);
+they do not settle DR-0002's source semantics or DR-0003's detailed
+compile/runtime mutation boundary.
+
 ## Primary outcome
 
 A developer should be able to define or modify a creature through structured

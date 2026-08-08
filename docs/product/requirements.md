@@ -6,6 +6,29 @@ These requirements describe intended outcomes. `Must` indicates a foundational
 constraint; `should` indicates a desired outcome that may be staged. Proof
 methods remain provisional until experiments establish useful metrics.
 
+## Initial product boundary (Proposed)
+
+The current Round 2 proposal defines four bounded product choices:
+
+- Creature Kernel is an engine-independent procedural creature compiler and
+  embodiment runtime, not initially a game, editor, or general-purpose engine;
+  a real-time game is the first downstream proof and integration target.
+- The earliest workflow serves the project developer or researcher through
+  structured source, CLI/API operations, diagnostics, and reproducible
+  evidence; technical artists and game developers are downstream review and
+  integration users.
+- Stylized furry characters are the initial domain, with adult interactions as
+  motivating contact/deformation stress cases and reusable mechanisms kept
+  general.
+- Native programmatic generation without a handcrafted base mesh is the first
+  reference path; external authored-mesh conformance is later and must not be
+  foreclosed by early contracts.
+
+These remain Proposed pending one fresh review of the batch and Ben's
+disposition. DR-0005 records only these choices and defers source semantics,
+the detailed compile/runtime boundary, automation contract detail, morphology,
+backend, and budget decisions.
+
 ## Programmable source and determinism
 
 ### CK-PROD-001: Declarative creature source
