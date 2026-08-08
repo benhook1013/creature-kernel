@@ -391,9 +391,8 @@ Do not select production surface architecture from a prose survey alone. The
 integrated Proposed hypotheses are [DR-0009 Revision 2](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
 and [DR-0010 Revision 2](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md);
 they guide Stage 1 evidence and do not select a production backend. Their
-current reviews are Pending; the planned level is Double with distinct named
-lenses because these technical revisions are evidence-dependent and
-cross-cutting.
+Double reviews are Complete with distinct named lenses and unresolved Revise
+findings.
 
 ### CK-KICK-009: Choose a disposable geometry experiment stack
 

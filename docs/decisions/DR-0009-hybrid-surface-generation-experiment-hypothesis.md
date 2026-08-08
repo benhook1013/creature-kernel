@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-09
 
@@ -25,8 +25,8 @@ Both reviews remain preserved as historical evidence and are stale for this
 revision. Revision 2 applies Ben's settled resolutions: a predeclared
 comparative decision rule, a bounded nested-ablation comparison with a frozen
 fairness contract, and retained reasoning for the alternatives that were not
-selected. A current-revision review is pending. This proposal remains
-unaccepted.
+selected. Two current-revision reviews are Complete with unresolved Revise
+recommendations. This proposal remains unaccepted.
 
 Supersedes: —
 
@@ -293,9 +293,18 @@ and [geometry/topology/semantic-data review](reviews/DR-0009-rev-01-review-02.md
 are preserved as historical Revision 1 reviews and are stale for this
 Revision 2. They recommended revision at High confidence, identifying the
 comparative rule, component attribution, and fair branch contract as blockers.
-Ben's settled recommendations are applied above. Review of this material
-Revision 2 is pending, and Owner approval remains Pending; no finding is
-silently treated as an acceptance of the decision.
+Ben's settled recommendations are applied above.
+
+The current [architecture/governance review](reviews/DR-0009-rev-02-review-01.md)
+and [geometry/semantics review](reviews/DR-0009-rev-02-review-02.md) both
+recommend `Revise`, at Medium and High confidence respectively. Their
+consolidated blockers are: freeze a complete non-overlapping outcome and
+baseline-ordering table; define paired contrasts and their interaction
+interpretation; freeze a branch-neutral tuning protocol; and require branch
+readiness/fidelity gates so an incompetent baseline cannot create apparent
+support. These findings remain unresolved for human discussion. Revision 2
+therefore remains Proposed with Review status Complete and Owner approval
+Pending; no finding is auto-fixed or treated as a decision.
 
 ## Implementation and Proof Obligations
 

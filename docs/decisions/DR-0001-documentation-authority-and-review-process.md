@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-08
 
@@ -249,9 +249,12 @@ deferred: lightweight Git-based exact-batch reconstruction, duplicated
 model-routing guidance that may drift, and the removed validator unit-test
 suite, which should be revisited if the validator grows or gives a false
 acceptance signal. Those findings do not satisfy the current Revision 5 review
-prerequisite. Revision 5 is Proposed with Review status Pending and owner
-approval pending; the current review remains pending and no Ben disposition is
-implied.
+prerequisite.
+
+The current [Revision 5 architecture/governance review](reviews/DR-0001-rev-05-review-01.md)
+recommends `Accept` with High confidence and found no actionable findings.
+Revision 5 remains Proposed with Review status Complete and owner approval
+pending; the review recommendation does not imply Ben's disposition.
 
 ## Implementation and Proof Obligations
 

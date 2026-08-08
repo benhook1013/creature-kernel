@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-09
 
@@ -25,8 +25,9 @@ Both reviews remain preserved as historical evidence and are stale for this
 revision. Revision 2 applies Ben's settled resolutions: a common normalized
 field contract and three-grid convergence controls, explicit semantic
 contributor lineage and analytical oracles, and required topology,
-orientation, volume, and determinism diagnostics. A current-revision review is
-pending. This proposal remains unaccepted.
+orientation, volume, and determinism diagnostics. Two current-revision reviews
+are Complete with unresolved Revise recommendations. This proposal remains
+unaccepted.
 
 Supersedes: —
 
@@ -268,8 +269,19 @@ recommendation at High confidence. Both are preserved as historical Revision 1
 reviews and are stale for this Revision 2. They identified the common field
 contract, convergence controls, and semantic lineage beyond vertex sampling as
 the material revision topics. Ben's settled recommendations are applied above.
-Review of this material Revision 2 is pending, and Owner approval remains
-Pending; no finding is silently treated as an acceptance of the decision.
+
+The current [architecture/governance review](reviews/DR-0010-rev-02-review-01.md)
+and [geometry/semantics review](reviews/DR-0010-rev-02-review-02.md) both
+recommend `Revise`, at Medium and High confidence respectively. Their
+consolidated findings require common extraction/evidence failures to have a
+non-overlapping outcome precedence with DR-0009 and branch-neutral readiness
+checks. They also ask for sampling-phase or continuous-clearance protection,
+explicit domain-face clipping and topology invariants, and a cross-operator
+contributor-weight algebra including residual mass, tie behaviour, chart-seam
+validity, and independent oracle inputs. These findings remain unresolved for
+human discussion. Revision 2 therefore remains Proposed with Review status
+Complete and Owner approval Pending; no finding is auto-fixed or treated as a
+decision.
 
 ## Implementation and Proof Obligations
 

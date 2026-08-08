@@ -23,8 +23,8 @@ historical evidence. Revision 2 applies Ben's settled resolutions to the three
 Round 5 blockers: it makes the Stage 1 embodiment boundary explicit, adopts
 the all-valid-fixtures rule, and requires exact fixture freezing before
 EXP-0001 execution or evidence. The Revision 1 review is stale for this
-revision; a current-revision review is pending. This proposal remains
-unaccepted.
+revision; the current-revision review is Complete with an Accept
+recommendation. This proposal remains unaccepted.
 
 Supersedes: —
 
