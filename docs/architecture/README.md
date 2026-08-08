@@ -45,14 +45,19 @@ budgets, and runtime mutation details remain open.
 Round 6 records two Proposed Stage 1 experiment hypotheses in
 [DR-0009 Revision 3](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
 and [DR-0010 Revision 3](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md).
-The revision resolves the approved hierarchical outcome/Pareto-baseline rule,
+Revision 3 records the approved hierarchical outcome/Pareto-baseline rule,
 branch-neutral tuning/readiness protocol, paired contrasts, and separate
 interaction reporting for DR-0009, and sub-voxel phase checks, six-face field
 clearance, prospective topology invariants, and cross-operator
 semantic-contribution distribution/top-k residual rules for DR-0010. Both
-remain Proposed with Owner approval Pending and Review Pending; Revision 2
-Double reviews are historical and stale after the material revision. The [first
-surface experiment design](../research/first-surface-experiment-design.md)
+remain Proposed with Owner approval Pending and Review Complete after two fresh
+independent reviews, each recommending Revise at High confidence. Unresolved
+findings concern causal failure classification, non-overlapping mixed-trade-off
+precedence, empty-frontier support, reuse/tuning-order fairness, visual
+frontier consistency, interaction attribution, and nested
+semantic-contribution composition; they are not resolved by this architecture
+index. Revision 2 Double reviews are historical and stale after the material
+revision. The [first surface experiment design](../research/first-surface-experiment-design.md)
 remains a neutral Proposed, manually maintained evidence plan; it does not
 register EXP-0001 or create evidence. These materials guide falsifiable
 evidence only; none settles permanent surface architecture, animation-ready

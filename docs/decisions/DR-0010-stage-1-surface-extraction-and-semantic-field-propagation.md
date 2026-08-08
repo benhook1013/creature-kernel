@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-09
 
@@ -27,8 +27,8 @@ review](reviews/DR-0010-rev-02-review-01.md) and the [geometry/semantics
 review](reviews/DR-0010-rev-02-review-02.md); both reviews are preserved as
 historical evidence and are stale for this revision. Revision 3 applies Ben's
 settled resolutions to shared evidence precedence, phase and topology
-controls, and cross-operator semantic contribution algebra. A new
-current-revision review is pending. This proposal remains unaccepted.
+controls, and cross-operator semantic contribution algebra. The current-revision
+reviews are complete and remain unresolved; this proposal remains unaccepted.
 
 Supersedes: —
 
@@ -318,17 +318,18 @@ reviews and are stale for this Revision 2. They identified the common field
 contract, convergence controls, and semantic lineage beyond vertex sampling as
 the material revision topics. Ben's settled recommendations are applied above.
 
-The current [architecture/governance review](reviews/DR-0010-rev-02-review-01.md)
-and [geometry/semantics review](reviews/DR-0010-rev-02-review-02.md) both
-recommend `Revise`, at Medium and High confidence respectively. Revision 3
-resolves their findings with the shared DR-0009 evidence-first precedence,
-branch-neutral readiness coordination, sampling-phase and continuous-clearance
-protection, explicit domain-face clipping and topology invariants, and a
-cross-operator contributor-weight algebra including residual mass, tie
-behaviour, chart-seam validity, and independent oracle inputs. Those Revision 2
-reviews remain historical and stale; the current-revision review is Pending.
-This proposal remains Proposed with Owner approval Pending; no acceptance is
-implied.
+The current [architecture/proof/governance review](reviews/DR-0010-rev-03-review-01.md)
+and [geometry/semantics/measurement review](reviews/DR-0010-rev-03-review-02.md)
+both recommend `Revise`, at High confidence. They find that the proposal still
+needs valid branch-specific violations of frozen clearance, convergence,
+phase/topology, or feasibility criteria to be distinguished from shared
+apparatus defects, aligned with the shared DR-0009 failure classification. The
+geometry review additionally finds that nested semantic operators need a
+representation-invariant composition rule covering operand mass scale,
+duplicate semantic-ID coalescence, coefficient order, top-k cutoff ties, and
+closed-form independent oracle cases. Revision 2 reviews remain historical
+and stale; Revision 3 is now reviewed but not accepted. This proposal remains
+Proposed with Owner approval Pending; no acceptance is implied.
 
 ## Implementation and Proof Obligations
 

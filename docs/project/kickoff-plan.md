@@ -391,15 +391,20 @@ Do not select production surface architecture from a prose survey alone. The
 integrated Proposed hypotheses are [DR-0009 Revision 3](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
 and [DR-0010 Revision 3](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md);
 they guide Stage 1 evidence and do not select a production backend. Their
-Revision 3 resolves the approved hierarchical outcome/Pareto-baseline rule,
+Revision 3 records the approved hierarchical outcome/Pareto-baseline rule,
 branch-neutral tuning/readiness protocol, paired contrasts, and separate
 interaction reporting for DR-0009, plus sub-voxel phase checks, six-face field
 clearance, prospective topology invariants, and cross-operator
 semantic-contribution distribution/top-k residual rules for DR-0010. Both
-remain Proposed with Owner approval Pending and Review Pending; Revision 2
-Double reviews are historical and stale after the material revision. The
-planned current review level is Double with distinct architecture/proof and
-geometry/semantics lenses.
+remain Proposed with Owner approval Pending and Review Complete after two fresh
+independent reviews. Both received Revise recommendations at High confidence.
+The reviews leave unresolved findings concerning causal distinction between
+apparatus/evidence failure and measured branch failure, non-overlapping
+mixed-trade-off outcome precedence, empty-frontier support, reuse/tuning-order
+fairness, visual frontier consistency, interaction attribution, and nested
+semantic-contribution composition. These findings are not resolved by this
+plan. Revision 2 Double reviews are historical and stale after the material
+revision.
 
 ### CK-KICK-009: Choose a disposable geometry experiment stack
 

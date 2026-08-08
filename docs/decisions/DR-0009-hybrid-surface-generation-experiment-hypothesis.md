@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-09
 
@@ -27,8 +27,8 @@ review](reviews/DR-0009-rev-02-review-01.md) and the [geometry/semantics
 review](reviews/DR-0009-rev-02-review-02.md); both reviews are preserved as
 historical evidence and are stale for this revision. Revision 3 applies Ben's
 settled resolutions to the outcome/readiness precedence, fair tuning and
-paired contrasts, and the eligible-baseline frontier. A new current-revision
-review is pending. This proposal remains unaccepted.
+paired contrasts, and the eligible-baseline frontier. The current-revision
+reviews are complete and remain unresolved; this proposal remains unaccepted.
 
 Supersedes: —
 
@@ -353,15 +353,19 @@ Revision 2. They recommended revision at High confidence, identifying the
 comparative rule, component attribution, and fair branch contract as blockers.
 Ben's settled recommendations are applied above.
 
-The current [architecture/governance review](reviews/DR-0009-rev-02-review-01.md)
-and [geometry/semantics review](reviews/DR-0009-rev-02-review-02.md) both
-recommend `Revise`, at Medium and High confidence respectively. Revision 3
-resolves their findings with an evidence-first non-overlapping outcome table,
-an eligible non-dominated baseline frontier, paired per-fixture/site
-contrasts, a global branch-neutral tuning rule, and readiness/fidelity gates.
-Those Revision 2 reviews remain historical and stale; the current-revision
-review is Pending. This proposal remains Proposed with Owner approval Pending;
-no acceptance is implied.
+The current [architecture/proof/governance review](reviews/DR-0009-rev-03-review-01.md)
+and [geometry/semantics/measurement review](reviews/DR-0009-rev-03-review-02.md)
+both recommend `Revise`, at High confidence. They find that the proposal still
+needs valid branch-specific violations of frozen clearance, convergence,
+phase/topology, or feasibility criteria to be distinguished from shared
+apparatus defects; the outcome table to resolve mandatory regression versus
+unresolved nonmandatory trade-offs; controls for tuning-order and
+knowledge-transfer bias; and a clear visual comparison policy. The empty-
+frontier case must not provide comparative Support, and registration must
+assess interactions and constrain component-attribution and named-improvement
+claims when interactions are ambiguous. Revision 2 reviews remain historical
+and stale; Revision 3 is now reviewed but not accepted. This proposal remains
+Proposed with Owner approval Pending; no acceptance is implied.
 
 ## Implementation and Proof Obligations
 

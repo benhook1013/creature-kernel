@@ -25,20 +25,26 @@ Proposed: DR-0007 Revision 2 records the three-stage first-proof charter and
 DR-0008 Revision 2 records the bounded digitigrade family, fixed fixture
 envelope, and source-linked Stage 1 embodiment intent; both material revisions
 are integrated and Review Complete with owner disposition pending. Round 6
-Revision 3 proposals are integrated as Proposed: DR-0009 resolves the
+Revision 3 proposals are integrated as Proposed: DR-0009 records the
 approved hierarchical outcome/Pareto-baseline rule, branch-neutral
 tuning/readiness protocol, paired contrasts, and separate interaction
-reporting; DR-0010 resolves approved sub-voxel phase checks, six-face field
+reporting; DR-0010 records approved sub-voxel phase checks, six-face field
 clearance, prospective topology invariants, and cross-operator
 semantic-contribution distribution/top-k residual rules. Both remain Proposed
-with Owner approval Pending and Review Pending; their Revision 2 Double reviews
-are historical and stale after the new revision. The neutral first surface
-experiment design remains Proposed and manually maintained; `EXP-0001` remains
-unregistered and contains no evidence. No permanent production architecture,
-implementation stack, exact fixtures, grids, thresholds, schemas, runtime
-fields, topology, or backend is selected. Product and architecture prose
-remains proposed or provisional until the relevant proposal has Ben's explicit
-disposition.
+with Owner approval Pending and Review Complete. Two fresh independent
+Revision 3 reviews recommend Revise for each at High confidence. Unresolved
+findings concern causal distinction between apparatus/evidence failure and
+measured branch failure, precedence for non-overlapping mixed trade-offs,
+empty-frontier support, reuse/tuning-order fairness, visual frontier
+consistency, interaction attribution, and nested semantic-contribution
+composition; the findings are not resolved here. Their Revision 2 Double
+reviews are historical and stale after the new revision. The neutral first
+surface experiment design remains Proposed and manually maintained; `EXP-0001`
+remains unregistered and contains no evidence. No permanent production
+architecture, implementation stack, exact fixtures, grids, thresholds,
+schemas, runtime fields, topology, or backend is selected. Product and
+architecture prose remains proposed or provisional until the relevant proposal
+has Ben's explicit disposition.
 
 ## Current round
 
@@ -76,14 +82,20 @@ disposition.
   Complete with Accept recommendations at High confidence and owner
   dispositions pending; these DRs remain Proposed.
 - Round 6: integrated/proposed — DR-0009 Revision 3 and DR-0010 Revision 3 remain
-  Proposed with Owner approval Pending and Review Pending. The settled local
-  experiment consequences cover hierarchical outcome/Pareto-baseline
+  Proposed with Owner approval Pending and Review Complete after two fresh
+  independent reviews. Both received Revise recommendations at High
+  confidence. The Revision 3 experiment controls cover hierarchical
+  outcome/Pareto-baseline
   interpretation, branch-neutral tuning/readiness, paired contrasts and
   separate interaction reporting, plus sub-voxel phase checks, six-face field
   clearance, prospective topology invariants, and cross-operator contributor
-  distribution/top-k residual rules. Revision 2 Double reviews are historical
-  and stale. These proposals do not settle permanent production surface,
-  topology, runtime-field, or backend architecture.
+  distribution/top-k residual rules. The reviews leave unresolved findings on
+  causal failure classification, mixed-trade-off precedence, empty-frontier
+  support, reuse/tuning-order fairness, visual frontier consistency,
+  interaction attribution, and nested semantic-contribution composition.
+  Revision 2 Double reviews are historical and stale. These proposals do not
+  settle permanent production surface, topology, runtime-field, or backend
+  architecture.
 
 ## Active work
 
@@ -95,10 +107,10 @@ disposition.
 - Obtain Ben's owner disposition for the completed DR-0003 Revision 2 review
   while keeping it provisional and separate from acceptance, and obtain owner
   dispositions for DR-0007 and DR-0008 after their completed reviews.
-- Review DR-0009 Revision 3 and DR-0010 Revision 3 at the planned Double level,
-  with distinct architecture/proof and geometry/semantics lenses. The neutral
-  first experiment design remains proposed/prepared, but `EXP-0001` remains
-  unregistered and the disposable host remains unresolved.
+- Resolve the recorded Revision 3 review findings for DR-0009 and DR-0010 before
+  any owner disposition. The neutral first experiment design remains
+  proposed/prepared, but `EXP-0001` remains unregistered and the disposable
+  host remains unresolved.
 - Next human discussion: the disposable host stack, exact four-profile values,
   grid sizes and resource budget, and artifact retention.
 - Keep CK-KICK-009 queued until the human review discussion is complete.
@@ -146,23 +158,26 @@ disposition.
   pending.
 - [DR-0009](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md):
   hybrid surface-generation experiment hypothesis — Revision 3, Architecture
-  scope; Proposed, Owner approval Pending, Review Pending. Revision 2 Double
-  reviews are historical and stale after the material revision; the planned
-  current review is Double with distinct architecture/proof and
-  geometry/semantics lenses.
+  scope; Proposed, Owner approval Pending, Review Complete. Two fresh
+  independent reviews recommend Revise at High confidence. Findings remain
+  unresolved on causal failure classification, mixed-trade-off precedence,
+  empty-frontier support, reuse/tuning-order fairness, visual frontier
+  consistency, and interaction attribution. Revision 2 Double reviews are
+  historical and stale after the material revision.
 - [DR-0010](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md):
   Stage 1 surface extraction and semantic-field propagation — Revision 3,
   Specification and architecture scope; Proposed, Owner approval Pending,
-  Review Pending. Revision 2 Double reviews are historical and stale after the
-  material revision; the planned current review is Double with distinct
-  architecture/proof and geometry/semantics lenses.
+  Review Complete. Two fresh independent reviews recommend Revise at High
+  confidence. Findings remain unresolved on causal failure classification and
+  nested semantic-contribution composition. Revision 2 Double reviews are
+  historical and stale after the material revision.
 
 ## Implementation status
 
 | Capability | Implementation | Verification | Notes |
 | --- | --- | --- | --- |
 | Documentation authority | partial | unverified | Operational structure and validator integrated; DR-0001 Revision 5 accepted after its Complete clean review |
-| Decision-record and review workflow | partial | unverified | DR-0001 is Accepted; product and architecture DRs remain Proposed; DR-0009/0010 Revision 3 reviews are Pending |
+| Decision-record and review workflow | partial | unverified | DR-0001 is Accepted; product and architecture DRs remain Proposed; DR-0009/0010 Revision 3 reviews are Complete with Revise recommendations pending resolution |
 | Research/experiment workflow | partial | unverified | Templates exist; no experiment registered |
 | Body specification | design-unresolved | not-applicable | Contract boundary remains proposed |
 | Creature compiler | not-implemented | not-applicable | No language or backend selected |
@@ -174,9 +189,9 @@ disposition.
   any other DR.
 - Obtain Ben's explicit dispositions for DR-0007/0008 and the completed
   DR-0003 review.
-- Complete the planned Double review of DR-0009/0010 Revision 3, then discuss
-  the proposed/prepared next experiment and its evidence plan. `EXP-0001`
-  remains unregistered and the disposable host remains unresolved.
+- Resolve the recorded Double-review findings for DR-0009/0010 Revision 3, then
+  discuss the proposed/prepared next experiment and its evidence plan.
+  `EXP-0001` remains unregistered and the disposable host remains unresolved.
 
 ## Explicitly not started
 
