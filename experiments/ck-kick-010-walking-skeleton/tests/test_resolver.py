@@ -48,8 +48,21 @@ class ResolverTests(unittest.TestCase):
         self.assertEqual(labels, sorted(labels))
         right_foot = next(node for node in first["nodes"] if node["label"] == "right_foot_paw")
         translation = [row[3] for row in right_foot["world_transform"]["matrix"][:3]]
-        for actual, expected in zip(translation, [0.35, -1.42, 0.26]):
+        for actual, expected in zip(translation, [-0.35, -1.42, 0.26]):
             self.assertAlmostEqual(actual, expected)
+
+    def test_bilateral_landmarks_follow_creature_left_and_right_axes(self):
+        graph = resolve_file(VALID_FIXTURE).require_graph().to_dict()
+        nodes = {node["label"]: node for node in graph["nodes"]}
+
+        def world_x(label):
+            return nodes[label]["world_transform"]["matrix"][0][3]
+
+        self.assertGreater(world_x("left_arm"), 0.0)
+        self.assertLess(world_x("right_arm"), 0.0)
+        self.assertGreater(world_x("left_thigh"), 0.0)
+        self.assertLess(world_x("right_thigh"), 0.0)
+        self.assertGreater(world_x("left_ear"), 0.0)
 
     def test_parent_socket_rotation_is_included_in_world_transform(self):
         document = json.loads(VALID_FIXTURE.read_text(encoding="utf-8"))
