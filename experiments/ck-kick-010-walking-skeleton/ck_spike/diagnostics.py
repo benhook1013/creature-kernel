@@ -19,6 +19,10 @@ class Severity(str, Enum):
 class Phase(str, Enum):
     VALIDATION = "validation"
     RESOLUTION = "resolution"
+    FIELD = "field"
+    MESH = "mesh"
+    ARTIFACT = "artifact"
+    PUBLICATION = "publication"
 
 
 @dataclass(frozen=True)
@@ -90,4 +94,3 @@ class ValidationError(Exception):
                 for diagnostic in diagnostics
             )
         )
-
