@@ -398,10 +398,17 @@ quantitative `B/N/H/U` and qualitative visual
 `B/H/visually-equivalent/U` rules, and separate incomplete or abandoned run
 status. DR-0010 Revision 7 carries only the derived
 outcome/budget/attribution alignment and leaves its two geometry/semantic
-findings unresolved. Both remain Proposed with Owner approval Pending and
-Review Pending; DR-0009 Revision 6 reviews and DR-0010 Revision 5 reviews are
-historical/stale, while DR-0010 Revision 6 was unreviewed and superseded. This
-plan implies no acceptance, and current-revision review is required.
+findings unresolved. DR-0009 remains Proposed with Owner approval Pending and
+Review Complete: its current Double review is Complete, both reviewers
+recommend `Revise` at High confidence, and exactly five findings remain
+unresolved (accounting taxonomy/scaffold scope; visual evidence and matrix
+schema; contradictory/non-testable `combined-hybrid-only`; run-execution
+vocabulary; and ambiguous generic `attribution`). Review Complete is evidence,
+not a clean review or acceptance. DR-0010 remains Proposed with Owner approval
+Pending and Review Pending, with its two geometry/semantic findings unresolved;
+DR-0009 Revision 6 reviews and DR-0010 Revision 5 reviews are historical/stale,
+while DR-0010 Revision 6 was unreviewed and superseded. This plan implies no
+acceptance, and no owner disposition has been made.
 
 ### CK-KICK-009: Choose a disposable geometry experiment stack
 

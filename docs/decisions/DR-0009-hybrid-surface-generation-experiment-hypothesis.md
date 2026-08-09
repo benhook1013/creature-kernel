@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-09
 
@@ -60,8 +60,8 @@ frontiers. These are the four choices applied by this revision. The
 reviewed Revision 6; both are Complete and recommend `Revise` at High
 confidence. Review Complete records evidence, not a clean review or
 acceptance. The reviewers describe the prior Revision 5 findings as partly
-resolved, but consolidate the remaining actionable issues into exactly these
-five unresolved findings:
+resolved, but record the following five Revision 6 unresolved findings as
+historical review evidence:
 
 1. Scaffold provenance and allocation are underdefined for pre-existing,
    branch-favoring, dual-use, and subset-shared operation work, allowing budget
@@ -81,11 +81,31 @@ layered provenance and effort ledgers; a descriptive conditional-effect matrix;
 the complete matrix as the sole component-attribution result; disjoint
 quantitative `B/N/H/U` and separate qualitative visual
 `B/H/visually-equivalent/U` rules; and an explicit operational run status for
-incomplete or abandoned execution. The Revision 6 reviews
-remain preserved as historical/stale evidence linked above. Revision 7 is
-unreviewed and unaccepted: it remains Proposed, has Owner approval Pending, and
-has Review status Pending. EXP-0001 remains unregistered; this revision chooses
-no registration values, thresholds, or tooling.
+incomplete or abandoned execution. The Revision 6 reviews remain preserved as
+historical/stale evidence linked above. The [architecture/proof/governance
+review](reviews/DR-0009-rev-07-review-01.md) and
+[experiment-design/measurement review](reviews/DR-0009-rev-07-review-02.md)
+reviewed Revision 7; both are Complete and recommend `Revise` at High
+confidence. Review Complete records evidence, not a clean review or
+acceptance. The current review consolidates exactly these five unresolved
+actionable findings:
+
+1. Accounting taxonomy/scaffold scope remains incomplete: the general implicit
+   baseline and post-checkpoint universal repairs lack finite ledgers, while
+   scaffold neutrality/benefit/effort and feasibility-annotation scope are
+   underdefined.
+2. Visual evidence and matrix schema are incomplete: reviewer independence,
+   presentation, and adjudication are underconstrained; visual equivalence
+   has no explicit neutral mapping; absent/inapplicable cells lack `NA`.
+3. `combined-hybrid-only` has contradictory, non-testable definitions.
+4. New run-execution terms conflict with the canonical experiment lifecycle
+   vocabulary.
+5. Generic unresolved `attribution` is ambiguous between branch/failure
+   attribution and component-matrix `U`.
+
+Revision 7 remains Proposed, has Owner approval Pending, and has Review status
+Complete. EXP-0001 remains unregistered; this revision chooses no registration
+values, thresholds, or tooling.
 
 Supersedes: —
 
@@ -831,10 +851,13 @@ recorded above. Revision 7 addresses them as follows:
 The [architecture/proof/governance review](reviews/DR-0009-rev-06-review-01.md)
 and [experiment-design/measurement review](reviews/DR-0009-rev-06-review-02.md)
 are Complete, recommend `Revise` at High confidence, and are preserved as
-historical/stale evidence for Revision 7. Revision 7 is Proposed, has Owner
-approval Pending, and has Review status Pending; it is unreviewed and
-unaccepted. Review status Pending records that no current-revision review or
-acceptance has occurred.
+historical/stale evidence for Revision 7. The [Revision 7
+architecture/proof/governance review](reviews/DR-0009-rev-07-review-01.md) and
+[experiment-design/measurement review](reviews/DR-0009-rev-07-review-02.md)
+are Complete and recommend `Revise` at High confidence. Review Complete is
+evidence, not a clean review or acceptance. Their five consolidated unresolved
+findings are recorded above. Revision 7 remains Proposed with Owner approval
+Pending and Review status Complete.
 
 ## Implementation and Proof Obligations
 

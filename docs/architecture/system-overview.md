@@ -101,10 +101,17 @@ phase subset across coarse, nominal, and fine convergence, and a raw semantic
 measure with closed-form reassociation/counterexample oracles. Exact phase
 values remain deferred. DR-0010 Revision 7 applies only the derived
 outcome/budget/attribution alignment to DR-0009 and leaves its two geometry/
-semantic findings unresolved. DR-0009 and DR-0010 remain Proposed with Owner
-approval Pending and Review status Pending; DR-0009 Revision 6 reviews and
-DR-0010 Revision 5 reviews are historical/stale, while DR-0010 Revision 6 was
-unreviewed and superseded. No acceptance is implied. The [first surface experiment
+semantic findings unresolved. DR-0009 remains Proposed with Owner approval
+Pending and Review status Complete: its current Double review is Complete,
+both reviewers recommend `Revise` at High confidence, and exactly five
+findings remain unresolved (accounting taxonomy/scaffold scope; visual
+evidence and matrix schema; contradictory/non-testable `combined-hybrid-only`;
+run-execution vocabulary; and ambiguous generic `attribution`). Review Complete
+is evidence, not a clean review or acceptance. DR-0010 remains Proposed with
+Owner approval Pending and Review status Pending, with its two geometry/
+semantic findings unresolved. DR-0009 Revision 6 reviews and DR-0010 Revision 5
+reviews are historical/stale, while DR-0010 Revision 6 was unreviewed and
+superseded. No acceptance is implied. The [first surface experiment
 design](../research/first-surface-experiment-design.md) remains a neutral
 Proposed, manually maintained evidence design; it does not register EXP-0001,
 create fixtures, or provide evidence. These are Proposed experiment

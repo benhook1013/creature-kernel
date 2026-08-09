@@ -35,7 +35,13 @@ status.
 DR-0010 Revision 7 carries only the derived outcome/budget/attribution
 alignment and retains its raw semantic and phase/convergence material without
 resolving its two geometry/semantic findings. Both DR-0009 and DR-0010 remain
-Proposed with Owner approval Pending and Review Pending; DR-0009 Revision 6
+Proposed with Owner approval Pending. DR-0009's current Double review is
+Complete, both reviewers recommend `Revise` at High confidence, and exactly
+five findings remain unresolved: accounting taxonomy/scaffold scope; visual
+evidence and matrix schema; contradictory/non-testable `combined-hybrid-only`;
+run-execution vocabulary; and ambiguous generic `attribution`. Review Complete
+is evidence, not a clean review or acceptance. DR-0010 remains Review Pending;
+its two geometry/semantic findings remain unchanged. DR-0009 Revision 6
 reviews and DR-0010 Revision 5 reviews are historical/stale, while DR-0010
 Revision 6 was unreviewed and superseded. The DR-0010 findings
 remain: transfer mappings are underconstrained
@@ -90,11 +96,16 @@ provisional until the relevant proposal has Ben's explicit disposition.
   literal conditional-effect patterns; the full per-fixture/site/criterion
   component-attribution matrix; disjoint quantitative and qualitative visual
   rules (`B/N/H/U` quantitatively and `B/H/visually-equivalent/U` visually);
-  and separate incomplete/abandoned run status. Both remain
-  Proposed with Owner approval Pending and Review Pending. DR-0009 Revision 6
-  reviews and DR-0010 Revision 5 reviews are historical/stale; DR-0010
-  Revision 6 was unreviewed and superseded. DR-0010 leaves its two
-  geometry/semantic findings unresolved. These proposals do not settle
+  and separate incomplete/abandoned run status. DR-0009 remains Proposed with
+  Owner approval Pending and Review Complete after its current Double review;
+  both reviewers recommend `Revise` at High confidence, with exactly five
+  unresolved findings (accounting taxonomy/scaffold scope; visual evidence and
+  matrix schema; contradictory/non-testable `combined-hybrid-only`; run-
+  execution vocabulary; and ambiguous generic `attribution`). DR-0010 remains
+  Proposed with Owner approval Pending and Review Pending, with its two
+  geometry/semantic findings unresolved. DR-0009 Revision 6 reviews and
+  DR-0010 Revision 5 reviews are historical/stale; DR-0010 Revision 6 was
+  unreviewed and superseded. These proposals do not settle
   permanent production surface, topology, runtime-field, or backend
   architecture.
 
@@ -108,10 +119,11 @@ provisional until the relevant proposal has Ben's explicit disposition.
 - Obtain Ben's owner disposition for the completed DR-0003 Revision 2 review
   while keeping it provisional and separate from acceptance, and obtain owner
   dispositions for DR-0007 and DR-0008 after their completed reviews.
-- Complete the current-revision review of DR-0009 Revision 7 and resolve any
-  resulting findings with Ben before owner disposition. No acceptance is
-  implied. DR-0010's two geometry/semantic findings remain for Ben's next
-  discussion and must be resolved before its next current-revision review.
+- Resolve DR-0009 Revision 7's five current-review findings with Ben before
+  owner disposition; its Review Complete state is evidence, not acceptance.
+  DR-0010's two geometry/semantic findings remain for Ben's next discussion and
+  must be resolved before its next current-revision review. No acceptance is
+  implied.
   The neutral first experiment design remains
   proposed/prepared, but `EXP-0001` remains unregistered and the disposable
   host remains unresolved.
@@ -162,9 +174,13 @@ provisional until the relevant proposal has Ben's explicit disposition.
   pending.
 - [DR-0009](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md):
   hybrid surface-generation experiment hypothesis — Revision 7, Architecture
-  scope; Proposed, Owner approval Pending, Review Pending. It applies Ben's
-  resolutions to the five Revision 6 findings; those reviews are historical/
-  stale, and current-revision review remains pending.
+  scope; Proposed, Owner approval Pending, Review Complete. Its current Double
+  review is Complete and recommends `Revise` at High confidence, with exactly
+  five unresolved findings (accounting taxonomy/scaffold scope; visual
+  evidence and matrix schema; contradictory/non-testable
+  `combined-hybrid-only`; run-execution vocabulary; and ambiguous generic
+  `attribution`). Review Complete is evidence, not a clean review or
+  acceptance.
 - [DR-0010](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md):
   Stage 1 surface extraction and semantic-field propagation — Revision 7,
   Specification and architecture scope; Proposed, Owner approval Pending,
@@ -178,7 +194,7 @@ provisional until the relevant proposal has Ben's explicit disposition.
 | Capability | Implementation | Verification | Notes |
 | --- | --- | --- | --- |
 | Documentation authority | partial | unverified | Operational structure and validator integrated; DR-0001 Revision 5 accepted after its Complete clean review |
-| Decision-record and review workflow | partial | unverified | DR-0001 is Accepted; product and architecture DRs remain Proposed; DR-0009 Revision 7 and DR-0010 Revision 7 are Review Pending with owner approval pending and the two DR-0010 geometry/semantic findings unresolved |
+| Decision-record and review workflow | partial | unverified | DR-0001 is Accepted; product and architecture DRs remain Proposed; DR-0009 Revision 7 is Review Complete with a Revise/High recommendation and five unresolved findings, while DR-0010 Revision 7 remains Review Pending with owner approval pending and its two geometry/semantic findings unresolved |
 | Research/experiment workflow | partial | unverified | Templates exist; no experiment registered |
 | Body specification | design-unresolved | not-applicable | Contract boundary remains proposed |
 | Creature compiler | not-implemented | not-applicable | No language or backend selected |
@@ -190,7 +206,7 @@ provisional until the relevant proposal has Ben's explicit disposition.
   any other DR.
 - Obtain Ben's explicit dispositions for DR-0007/0008 and the completed
   DR-0003 review.
-- Complete current-revision review of DR-0009 Revision 7 before owner
+- Resolve DR-0009 Revision 7's five current-review findings before owner
   disposition. DR-0010's two geometry/semantic findings remain unresolved and
   require the next human discussion before its next review. Then discuss the
   proposed/prepared next
