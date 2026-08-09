@@ -39,6 +39,24 @@ CLI, validation, and host-engine adapters
 Host adapters may depend on core contracts. Core contracts must not depend on a
 host adapter.
 
+## Walking-skeleton exploratory seam (provisional and disposable)
+
+The first executable slice may use the following project-owned conceptual
+boundaries inside the disposable discovery host:
+
+| Exploratory boundary | Bounded responsibility | Status and limits |
+| --- | --- | --- |
+| Body resolution | Turn temporary input into a bounded resolved semantic graph and graph snapshot | Provisional and disposable; not a body-document or body-graph contract |
+| Field evaluation | Evaluate analytic capsule/ellipsoid volumes, rigid transforms, and the deterministic union/smooth blend on a fixed dense grid | Provisional exploration only; no permanent field or topology representation |
+| Surface extraction | Convert the sampled field into one visible debug mesh with marching cubes and retain source-region attribution | Provisional exploration only; no production surface architecture or mesh contract |
+| Mesh validation | Emit structured validation and mesh diagnostics for valid and intentionally invalid fixtures | Diagnostic exploration only; does not declare product acceptance or a Stage 1 gate |
+| Artifact writing | Write the graph snapshot, provisional debug mesh, semantic-region data, diagnostics JSON, and build/provenance identity | Provisional artifact plumbing; exact CLI, file, schema, and preview formats remain reversible |
+
+NumPy, scikit-image, and trimesh types must remain internal to these disposable
+adapters rather than becoming semantic graph or public artifact contracts. No
+implementation package or directory is implied, and a later Rust, C++,
+OpenVDB, GPU, or engine implementation must remain replaceable in principle.
+
 ## Cross-cutting obligations
 
 Every component that becomes real should document:

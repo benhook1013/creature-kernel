@@ -63,10 +63,13 @@ selected.
   charter, morphology envelope, and provisional visual criteria.
 - CK-KICK-008 surface research is integrated as parked confirmatory guidance;
   it is not a blocker and does not require another review round now.
-- CK-KICK-009 is discussion-ready for a disposable exploratory geometry host.
-  It need not register `EXP-0001` or select a production language/backend.
-- CK-KICK-010 is an exploratory surface-generation spike: minimal semantic
-  input to visible mesh and diagnostics, with observations only.
+- CK-KICK-009 is complete for the disposable exploratory geometry host:
+  Python with NumPy, scikit-image marching cubes, and trimesh, all retained as
+  replaceable discovery adapters rather than production selections.
+- CK-KICK-010 is discussion-ready and next: a bounded walking skeleton from one
+  valid and one intentionally invalid fixture through a resolved graph, simple
+  analytic volumes, dense-field sampling, one visible mesh, a source-linked
+  semantic-region channel, diagnostics, and provenance artifacts.
 - CK-KICK-011 follows useful exploratory evidence. A formal comparative
   surface decision is optional and risk-driven, not automatic.
 - CK-KICK-012 may define the minimal body document/body graph in parallel with
@@ -83,6 +86,9 @@ selected.
   what must remain engine-independent and disposable.
 - Keep the minimal body document/body graph moving in parallel where it informs
   the executable spine.
+- The next semantic discussion concerns temporary input, a bounded resolved
+  graph, coordinate/units convention, and the initial source-region channel;
+  it does not reopen DR-0009/0010.
 - Preserve the accepted governance process and all historical decision/review
   evidence without reopening the parked confirmatory protocol.
 
@@ -127,8 +133,9 @@ metadata. Current non-governance proposals include:
 
 ## Immediate next actions
 
-- Discuss the first executable walking skeleton: input, resolution, visible
-  output, diagnostics, and a reproducible command.
+- Discuss the first executable walking skeleton: temporary input, bounded
+  resolution, coordinate/units convention, visible output, initial
+  source-region channel, diagnostics, and a reproducible command.
 - Discuss the disposable exploratory host boundary and what evidence would
   justify a later production-platform decision.
 - Define the smallest semantic body input and output artifacts needed to make

@@ -395,39 +395,58 @@ Exploratory prototypes before that trigger produce observations only.
 
 ### CK-KICK-009: Choose a disposable exploratory geometry host
 
-State: queued (discussion-ready)
+State: complete (selected for the exploratory slice)
 
 Prerequisite: the parked CK-KICK-008 survey is context only; it is not a
 blocker.
 
 Outcome:
 
-- Select the quickest reproducible disposable environment for an exploratory
-  geometry spike.
-- State the boundary between discovery host and any future production
-  dependency; do not select a production language or backend here.
+- Use a disposable Python discovery host with NumPy for dense fields,
+  scikit-image marching cubes for extraction, and trimesh for inspection and
+  export. Versions and the environment will be pinned when implementation
+  begins.
+- Keep project-owned conceptual seams for body resolution, field evaluation,
+  surface extraction, mesh validation, and artifact writing. The host libraries
+  remain replaceable adapters behind those seams.
+- Keep the discovery host distinct from any future production language,
+  geometry backend, schema, artifact format, or runtime dependency. Nothing in
+  this choice promotes Python or these libraries to production.
 - Keep small scripts, inputs, hashes, diagnostics, and summaries attributable;
   defer large-artifact storage until it is actually needed.
 
 This makes the first executable surface useful without registering `EXP-0001`
 or making a formal comparative claim. The parked first-surface design remains
-preserved and non-blocking.
+preserved and non-blocking. No DR or adversarial review is required for this
+reversible exploratory host choice.
 
 ### CK-KICK-010: Run the first surface exploration
 
-State: queued (exploratory spike)
+State: queued (discussion-ready; next)
 
 Prerequisite: CK-KICK-009.
 
 Outcome:
 
-- Feed minimal semantic input through the exploratory host to a visible mesh
-  and diagnostics.
+- Implement one valid creature fixture and one intentionally invalid fixture.
+- For the valid fixture, resolve a small semantic graph; create analytic
+  capsule/ellipsoid volumes with rigid transforms and one deterministic
+  union/smooth blend; sample a fixed dense grid; extract one visible mesh with
+  marching cubes; retain a simple source-linked semantic-region channel; and
+  emit structured validation/mesh diagnostics and build/provenance identity
+  through one reproducible headless command.
+- Produce a graph snapshot, a deterministically ordered debug mesh (provisionally
+  PLY with a sidecar or project-owned semantic data, with an optional GLB
+  preview), semantic-region data, diagnostics JSON, and build/provenance
+  hashes. Exact CLI spelling, temporary fixture syntax, PLY details, and
+  preview format remain reversible implementation choices.
+- Keep rigging, animation, collision, deformation, physics, engine
+  integration, performance claims, the four-profile Stage 1 gate, formal
+  comparative experiment/`EXP-0001`, and production surface selection out of
+  this slice.
 - Record commands, inputs, configuration, observations, failures, and
-  limitations using the lightweight experiment workflow.
-- Use the result to refine the executable spine or decide whether a later
-  formal comparative experiment is worth activating. Do not calculate or
-  claim DR-0009/0010 support or reject here.
+  limitations using the lightweight experiment workflow. Observations may
+  refine the executable spine but must not claim DR-0009/0010 support or reject.
 
 ### CK-KICK-011: Decide the initial surface architecture
 
