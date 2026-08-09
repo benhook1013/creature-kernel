@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-09
 
@@ -116,8 +116,15 @@ explicit `branch/failure attribution` in the outcome table, with component
 matrix `U` cells remaining visible evidence that do not by themselves block a
 bundle `Support` result. The Revision 7 reviews are linked above, remain stale,
 and their five findings plus exact resolutions are recorded in the adversarial
-review response below. Revision 8 is unreviewed and unaccepted: it remains
-Proposed with Owner approval Pending and Review status Pending. EXP-0001
+review response below. Revision 8 remains unaccepted: it remains
+Proposed with Owner approval Pending. The required Double adversarial review
+is complete: the [governance, provenance, and budget review](reviews/DR-0009-rev-08-review-01.md)
+and [measurement, visual, and protocol review](reviews/DR-0009-rev-08-review-02.md)
+both reviewed commit `6bf7f1cd58f9bb38b6b4bf738dc29c04603b6abc`, recommend
+`Revise`, and have High confidence. Review Complete records review evidence;
+it is not a clean-review claim and does not accept this proposal. The five
+consolidated unresolved discussion groups requiring Ben's discussion before a
+material Revision 9 are recorded in the adversarial response below. EXP-0001
 remains unregistered; this revision chooses no stack, numeric fixture/grid,
 artifact, registration, threshold, or tooling values.
 
@@ -1001,8 +1008,34 @@ Revision 8 resolutions are:
    cells remain visible evidence and do not by themselves block bundle
    `support`; there is no component completeness threshold.
 
-Revision 8 is unreviewed and unaccepted. It remains Proposed with Owner
-approval Pending and Review status Pending. EXP-0001 remains unregistered.
+Revision 8 is unaccepted. It remains Proposed with Owner approval Pending and
+Review status Complete. The current Double review found unresolved discussion
+groups; no resolution or acceptance is implied. EXP-0001 remains unregistered.
+
+The consolidated unresolved discussion groups are:
+
+1. **Repair epochs and adaptive admission.** Whether one common
+   outcome-bearing epoch/snapshot, prospective trigger, dependency, and
+   affectedness rules, independent decision authority, and no retroactive
+   reset of a closed comparison are required remains open.
+2. **Enforceable C accounting and workflow records.** The accounting unit,
+   atomic charge, balance, and terminal rule remain open. The relationship
+   between actual total effort (including C exactly once with a separate
+   breakout) and the canonical template's ledgers, budgets, repair/evidence
+   mappings, admission evidence, and epoch dispositions remains open.
+3. **Mandatory visual-floor adjudication.** The required independence,
+   minimum panel size, and deterministic panel rules for the mandatory visual
+   floor remain under discussion.
+4. **Outcome-changing branch/failure causal attribution.** The required
+   causal decision tree, evidence, independent adjudication, and timing
+   relative to repair and outcome inspection remain under discussion.
+5. **Evidence closure versus component U.** The relationship between
+   bundle-outcome closure and component-attribution closure, including which
+   `U` causes remain compatible with a bundle outcome, remains open.
+
+These groups are unresolved discussion items, not proposed resolutions. Ben's
+discussion is required before a material Revision 9; the two DR-0010 Revision
+8 geometry/semantic findings remain separate and unresolved.
 
 ## Implementation and Proof Obligations
 

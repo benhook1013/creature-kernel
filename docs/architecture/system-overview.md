@@ -113,8 +113,14 @@ outcome/budget, branch/failure/component-matrix attribution, visual-
 adjudication, and experiment lifecycle/closure/outcome alignment to DR-0009
 and leaves exactly its two geometry/semantic findings unresolved. DR-0009
 remains Proposed with Owner
-approval Pending and Review status Pending; its Revision 7 reviews are
-historical/stale. DR-0010 remains Proposed with Owner approval Pending and
+approval Pending and Review status Complete. Its two Revision 8 Double-review
+artifacts recommend `Revise` at High confidence; Review Complete records
+evidence, not a clean review or acceptance. Five unresolved groups remain for
+Ben's discussion before Revision 9: repair epochs/adaptive admission, C
+accounting and workflow records, independent deterministic visual-floor
+adjudication, causal branch/failure attribution, and bundle closure versus
+component `U`. Its Revision 7 reviews are historical/stale. DR-0010 remains
+Proposed with Owner approval Pending and
 Review status Pending; its Revision 5 reviews are historical/stale and
 Revision 7 was unreviewed and superseded. No acceptance is implied. The [first
 surface experiment
