@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-09
 
@@ -43,9 +43,12 @@ settled Round 10 resolutions: a finite per-branch readiness-remediation and
 implementation budget with a terminal feasibility-failure rule; branch-
 sensitive baseline disposition; exclusive outcome predicates with complete
 frontier dominance and simplicity/match rules; and an exact mutually
-exclusive four-state interaction matrix. No current-revision review has been
-performed. Revision 5 remains Proposed with Owner approval Pending and Review
-Pending; it is unreviewed and unaccepted.
+exclusive four-state interaction matrix. The current [architecture/proof/
+governance review](reviews/DR-0009-rev-05-review-01.md) and [geometry/semantics/
+measurement review](reviews/DR-0009-rev-05-review-02.md) are Complete and both
+recommend `Revise` at High confidence. Their five unresolved findings are
+recorded below. Revision 5 remains Proposed with Owner approval Pending;
+Review Complete records evidence, not a clean review or acceptance.
 
 Supersedes: —
 
@@ -555,8 +558,28 @@ mutually exclusive outcome predicates; requiring complete resolved evidence
 for conclusive match/dominance; disposing every frontier baseline's dominance
 and every simpler baseline's match; and replacing overlapping interaction
 labels with the exact B/N/H/U matrix plus a separate `combined-hybrid-only`
-bundle tag. Revision 5 has no current-revision review: it remains Proposed
-with Owner approval Pending and Review Pending, and no acceptance is implied.
+bundle tag.
+
+The current [architecture/proof/governance review](reviews/DR-0009-rev-05-review-01.md)
+and [geometry/semantics/measurement review](reviews/DR-0009-rev-05-review-02.md)
+are Complete and both recommend `Revise` at High confidence. The five
+unresolved findings are exactly:
+
+1. The finite readiness budget begins too late, permitting unbounded
+   pre-readiness branch implementation.
+2. Bundle comparative `Support` can survive missing ablation evidence while
+   affected component-attribution claims remain unresolved.
+3. Branch-specific budget-exhausted evidence failure overlaps the shared-
+   evidence `Inconclusive` predicate.
+4. `N` versus `U` interaction inputs overlap because neutral is not
+   demonstrated equivalence.
+5. Cyclic dominance can leave eligible baselines but an empty Pareto frontier
+   with no outcome.
+
+Revision 5 remains Proposed with Owner approval Pending and is unaccepted.
+Review Complete records evidence, not a clean review or acceptance; these
+findings remain unresolved pending Ben's disposition. Revision 4 reviews
+remain historical and stale.
 
 ## Implementation and Proof Obligations
 

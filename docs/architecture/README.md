@@ -50,9 +50,10 @@ branch-sensitive baseline handling, complete match/dominance and simplicity
 rules, and mutually exclusive per-component interaction matrix for DR-0009.
 It also integrates the raw semantic measure and reassociation oracles plus the
 common-domain cross-resolution phase envelope for DR-0010. Both remain
-Proposed with Owner approval Pending and Review Pending while the current
-revision is reviewed. Their Revision 4 Double reviews are historical and stale
-after this material revision. The
+Proposed with Owner approval Pending and Review Complete. The current Revision
+5 reviews record unresolved findings in both DRs; Review Complete records
+evidence, not a clean review or acceptance. Their Revision 4 Double reviews
+are historical and stale after this material revision. The
 [first surface experiment design](../research/first-surface-experiment-design.md)
 remains a neutral Proposed, manually maintained evidence plan; it does not
 register EXP-0001 or create evidence. These materials guide falsifiable

@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-09
 
@@ -40,8 +40,15 @@ both recommended `Revise` at High confidence. Revision 5 applies Ben's
 settled Round 10 resolutions to finite branch-readiness termination, the raw
 contribution measure and its representation-equivalence law, and the
 cross-resolution phase/convergence envelope. The Revision 4 reviews remain
-preserved as historical evidence and are stale for this revision. Revision 5
-is not yet reviewed and remains unaccepted, with Owner approval Pending.
+preserved as historical evidence and are stale for this revision. The current
+[architecture/proof/governance review](reviews/DR-0010-rev-05-review-01.md) is
+Complete with an Accept recommendation at High confidence and no DR-0010-
+specific actionable objection in that lens. The current
+[geometry/semantics/measurement review](reviews/DR-0010-rev-05-review-02.md)
+is Complete with a Revise recommendation at High confidence and records the
+two unresolved findings below. Revision 5 remains Proposed with Owner
+approval Pending; Review Complete records evidence, not a clean review or
+acceptance.
 
 Supersedes: —
 
@@ -417,8 +424,22 @@ reviews remain preserved as historical evidence and are stale for Revision 5.
 Ben's settled Revision 5 resolutions define the finite branch budget and
 terminal feasibility rule, the canonical raw-measure law and strict
 representation equivalence, and the shared cross-resolution phase envelope.
-Revision 5 is not yet reviewed, remains Proposed with Owner approval Pending
-and Review status Pending, and is unaccepted; no acceptance is implied.
+
+The current [architecture/proof/governance review](reviews/DR-0010-rev-05-review-01.md)
+is Complete with an Accept recommendation at High confidence and no
+DR-0010-specific actionable objection in that lens. The current
+[geometry/semantics/measurement review](reviews/DR-0010-rev-05-review-02.md)
+is Complete with a Revise recommendation at High confidence. Its two
+unresolved findings are exactly:
+
+1. Transfer mappings are underconstrained for raw-measure flattening/path-
+   weight oracles.
+2. Phase coordinates, cross-resolution pairing/metrics, envelope aggregation,
+   and nonmonotone convergence handling remain underdefined.
+
+Revision 5 remains Proposed with Owner approval Pending and Review status
+Complete; these findings remain unresolved pending Ben's disposition. Review
+Complete records evidence, not a clean review or acceptance.
 
 ## Implementation and Proof Obligations
 

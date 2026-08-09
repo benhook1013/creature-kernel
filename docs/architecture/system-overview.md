@@ -97,7 +97,8 @@ nested/aligned origins and a nonempty shared
 phase subset across coarse, nominal, and fine convergence, and a raw semantic
 measure with closed-form reassociation/counterexample oracles. Exact phase
 values remain deferred. Both remain Proposed with Owner approval Pending and
-Review Pending while the current revision is reviewed. Their Revision 4 Double
+Review Complete; current Revision 5 review findings remain unresolved pending
+Ben's disposition, and no acceptance is implied. Their Revision 4 Double
 reviews are historical and stale after this material revision. The [first surface experiment
 design](../research/first-surface-experiment-design.md) remains a neutral
 Proposed, manually maintained evidence design; it does not register EXP-0001,

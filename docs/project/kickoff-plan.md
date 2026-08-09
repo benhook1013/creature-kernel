@@ -396,9 +396,11 @@ baseline handling, complete match/dominance and simplicity rules, mutually
 exclusive interaction matrix, separate visual floor and comparative frontier,
 raw semantic measure with reassociation oracles, and common-domain
 cross-resolution phase envelope. Both remain Proposed with Owner approval
-Pending and Review Pending while the current revision is reviewed. Their
-Revision 4 Double reviews are historical and stale after this material
-revision. This plan does not imply acceptance.
+Pending and Review Complete after the current Revision 5 adversarial reviews.
+Those reviews leave unresolved findings recorded in both DRs; Review Complete
+records evidence, not a clean review or acceptance, and this plan does not
+imply acceptance. Their Revision 4 Double reviews are historical and stale
+after this material revision.
 
 ### CK-KICK-009: Choose a disposable geometry experiment stack
 
