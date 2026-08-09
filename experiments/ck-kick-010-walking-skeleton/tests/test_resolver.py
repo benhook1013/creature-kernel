@@ -130,6 +130,19 @@ class ResolverTests(unittest.TestCase):
         self.assertEqual(diagnostic.phase, Phase.VALIDATION)
         self.assertEqual(diagnostic.path, "/spike_revision")
 
+    def test_non_unit_quaternion_is_rejected(self):
+        document = json.loads(VALID_FIXTURE.read_text(encoding="utf-8"))
+        torso = next(node for node in document["nodes"] if node["label"] == "torso")
+        torso["transform"]["rotation"] = [0.0, 0.0, 0.0, 2.0]
+
+        result = resolve_document(document)
+        self.assertFalse(result.ok)
+        self.assertEqual(len(result.diagnostics), 1)
+        diagnostic = result.diagnostics[0]
+        self.assertEqual(diagnostic.code, "INVALID_ROTATION")
+        self.assertEqual(diagnostic.phase, Phase.VALIDATION)
+        self.assertEqual(diagnostic.path, "/nodes/0/transform/rotation")
+
 
 if __name__ == "__main__":
     unittest.main()

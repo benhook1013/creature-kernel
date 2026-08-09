@@ -41,6 +41,7 @@ MANDATORY_MODULES: tuple[str, ...] = (
     "right_foot_paw",
 )
 SUPPORTED_SPIKE_REVISION = 1
+ROTATION_UNIT_TOLERANCE = 1e-7
 
 
 def _diagnostic(
@@ -113,6 +114,15 @@ def _parse_transform(
                 "INVALID_ROTATION",
                 f"{path}/rotation",
                 "quaternion must have a non-zero norm",
+            )
+        )
+        return None
+    if abs(norm - 1.0) > ROTATION_UNIT_TOLERANCE:
+        diagnostics.append(
+            _diagnostic(
+                "INVALID_ROTATION",
+                f"{path}/rotation",
+                "quaternion norm must be one within the spike-local tolerance 1e-7",
             )
         )
         return None
