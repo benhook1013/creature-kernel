@@ -30,15 +30,25 @@ changing the meaning of persisted bodies or avatar packages.
   ownership of usable skeletons, skin weights, collision proxies, contact, and
   deformation claims.
 - A planned Proposed Stage 1 sampled-field and semantic-lineage direction,
-  informed by [DR-0010 Revision 7](../docs/decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md),
-  including the universal identical common scaffold, frozen provenance/assets/
-  neutrality, finite capability and branch-integration ledgers, common-domain
-  phase/convergence checks, and scoped determinism. Run execution status is
-  separate from technology outcome: only Complete runs calculate an outcome or
-  feasibility annotation; Incomplete/Abandoned runs retain partial evidence
-  without either annotation. The full per-fixture/site/criterion matrix owns
-  component attribution, while quantitative B/N/H/U and qualitative visual
-  adjudication remain disjoint.
+  informed by [DR-0010 Revision 8](../docs/decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md),
+  including the universal identical `C` scaffold/shared-repair admission test,
+  immutable base manifest plus a finite append-only repair log and immutable
+  snapshots, frozen
+  manifest/provenance/source/assets/known-effort record, finite
+  `C`/`I`/`S`/`B`/`G` capability and branch-integration ledgers, common-domain
+  phase/convergence checks, and scoped determinism. Experiment lifecycle,
+  evidence closure, and technology outcome are separate fields; only
+  `finished`/`complete` experiments calculate an outcome or feasibility
+  annotation, while unfinished or abandoned runs retain partial evidence with
+  `incomplete`/`none`. The full per-fixture/site/criterion matrix owns
+  component attribution, generic `B/N/H/U` applies across modalities, and
+  visual `N` means visual equivalence under the panel protocol. `NA` is
+  separate from `U` and excluded from applicable-cell coverage; a component
+  `U` does not by itself block bundle `Support`. Failure or exhaustion of `C`
+  is a shared comparative `Inconclusive` terminal; evidence identifies the
+  base manifest and exact repair-log snapshot, and affected evidence is rerun
+  after repairs; other capability failures
+  affect only consuming branches and integration failure affects its branch.
   Semantic lineage is directionally defined as a raw non-negative measure over
   durable `(semantic_id, chart_id)` keys: unit leaves, raw composition
   `μ = Σᵢ aᵢ Tᵢ(μᵢ)`, raw duplicate-key coalescence, finite positive total,

@@ -3,7 +3,7 @@
 Status: Proposed research/evidence design
 
 Origin: Assistant-authored from Ben's settled Recommendations 1–5, the
-approved DR-0009 Revision 7 outcome alignment, and the linked Proposed
+approved DR-0009 Revision 8 outcome alignment, and the linked Proposed
 decision records and research protocol below
 
 Maintenance: Manual; no regeneration command
@@ -22,8 +22,8 @@ This document is a neutral design for the first surface-generation evidence
 collection. It was authored from Ben's settled Recommendations 1–5 and is
 bounded by the Proposed [DR-0007 staged first-proof charter](../decisions/DR-0007-staged-first-proof-charter.md),
 [DR-0008 morphology envelope](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
-[DR-0009 Revision 7 hybrid hypothesis](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md),
-and [DR-0010 Revision 7 extraction and propagation policy](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md).
+[DR-0009 Revision 8 hybrid hypothesis](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md),
+and [DR-0010 Revision 8 extraction and propagation policy](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md).
 The [visual-quality evaluation protocol](visual-quality-evaluation.md) owns
 the human visual-assessment method. Those documents remain Proposed or
 research guidance; this design does not accept them, create a production
@@ -117,20 +117,31 @@ The comparison is bounded nested ablation, not a full factorial sweep. Every
 branch receives the same frozen semantic source intent, vocabulary, profile
 identity, input mapping, common output interface, extraction policy,
 diagnostics, capture settings, seed/configuration policy, parameter/tuning
-budget, and implementation-effort reporting. The common scaffold is universal
-identical infrastructure and branch-neutral analytical/mandatory oracles, with
-provenance, assets, and neutrality frozen before branch work. Pre-existing
-branch or subset prototypes are excluded from primary evidence. Baselines
-receive the same semantic feature vocabulary and source intent but realize
-them through their own allowed construction rule.
+budget, and implementation-effort reporting. The universal identical `C`
+scaffold/shared-repair ledger is admitted before branch work through the
+operational test that all branches have the same interface, data, and access,
+with no branch-specific construction logic or parameters. Registration freezes
+the immutable initial base manifest ID, provenance, source, assets, known
+effort, finite cap, and budget ID; the checkpoint and base manifest do not
+move or mutate. After the checkpoint, a qualifying universal repair is one
+append-only finite repair-log entry with a stable entry ID,
+provenance/source/assets, known or unavailable historical effort, cap
+consumption, and affected-evidence declaration. Each evidence item references
+the base manifest ID plus the exact repair-log snapshot ID, including an
+explicit empty snapshot before repairs; affected evidence is rerun after a
+repair. No numeric cap, ID syntax, or storage format is selected by this
+design. Unknown historic effort is unavailable, not zero. Pre-existing branch
+or subset prototypes are excluded from primary evidence. Baselines receive the
+same semantic feature vocabulary and source intent but realize them through
+their own allowed construction rule.
 
 | Branch | Construction rule for the comparison |
 | --- | --- |
-| Skeleton/swept-profile baseline | Semantic skeleton, explicit centerlines, swept profiles, and declared attachments |
-| General implicit-field baseline | One general volumetric composition rule over the shared semantic inputs |
-| Skeleton plus selected blending | Skeleton/swept-profile construction plus the selected implicit-blending operations |
-| Skeleton plus reusable specialized generators | Skeleton/swept-profile construction plus reusable generators for the declared feature vocabulary |
-| Full hybrid | Skeleton/swept-profile construction, selected implicit blending, and the same reusable specialized generators |
+| `S` skeleton/swept-profile baseline | Semantic skeleton, explicit centerlines, swept profiles, and declared attachments |
+| `I` general implicit-field baseline | One general volumetric composition rule over the shared semantic inputs |
+| `S+B` skeleton plus selected blending | Skeleton/swept-profile construction plus the selected implicit-blending operations |
+| `S+G` skeleton plus reusable specialized generators | Skeleton/swept-profile construction plus reusable generators for the declared feature vocabulary |
+| `S+B+G` full hybrid | Skeleton/swept-profile construction, selected implicit blending, and the same reusable specialized generators |
 
 The registration must freeze the branch-operation matrix, allowed operations,
 selected blend sites, generator set, parameter/tuning budgets,
@@ -139,16 +150,23 @@ scalar-field storage choice does not change branch identity. Exact operations
 and values are not selected by this design.
 
 Before branch-specific implementation or tuning, the registration freezes the
-common scaffold and marks the frozen common-scaffold checkpoint. After that
-checkpoint, every work item belongs exactly once to one finite `S`, `B`, or `G`
-capability ledger or the branch integration ledger. Capability-ledger cost
-covers all required-layer implementation, tuning, and remediation;
-branch-attributed cost includes every required capability layer plus
-integration, while actual total cost counts each work item once. Capability
-failure affects only consuming branches, not the all-branch shared-apparatus
-disposition. Also freeze branch/search contracts, deterministic initialization,
-adjustment unit, stopping rule, maximum count, and the evaluation/search
-budget. Branches use separate configurations or workspaces.
+initial `C` scaffold checkpoint. Failure or exhaustion of `C` makes the
+comparative result `Inconclusive`. After that checkpoint, a repair may still
+enter finite `C` only when the same universal identical-interface/data/access
+and no-branch-specific-construction-logic-or-parameters test passes; it is
+recorded in the append-only repair log and consumes C's finite cap. Every other
+work item belongs exactly once to finite `I`, `S`, `B`, or `G` capability
+ledgers or the branch-integration ledger. Capability-
+ledger cost covers all required-layer implementation, tuning, and remediation;
+branch-attributed cost includes every required capability ledger plus
+integration, while actual total cost counts each work item once. Full `C`
+effort is reported separately. `I`/`S`/`B`/`G` failures affect only consuming
+branches and integration failure affects its branch. Feasibility is scoped to
+the immutable base `C` manifest ID plus exact repair-log snapshot ID and the
+registered attributed branch budget ID. Also freeze branch/search
+contracts, deterministic initialization, adjustment unit, stopping rule,
+maximum count, and the evaluation/search budget. Branches use separate
+configurations or workspaces.
 The primary comparison uses identical deterministic search and evaluation
 budgets; if human adjustment is permitted, its order is preregistered and
 rotating or counterbalanced. Transfer of branch-specific parameters,
@@ -165,16 +183,17 @@ budget is remediation state. Exhaustion without readiness or comparable valid
 evidence is terminal feasibility failure: a hybrid failure is `Reject`; a
 baseline failure is retained as evidence and excludes that baseline from the
 eligible frontier. Generic evidence-unavailability wording cannot override
-that terminal attribution, no branch is silently removed, and no universal-
-impossibility claim is made. If no eligible baseline remains, the comparative
+that branch/failure attribution, no branch is silently removed, and no
+universal-impossibility claim is made. If no eligible baseline remains, the
+comparative
 result is `Inconclusive`.
 
-Run execution status is separate from technology outcome. The run is
-`Complete` only when all required comparisons close through valid or terminal
-branch evidence or a registered shared terminal failure; only `Complete`
-calculates a primary outcome or feasibility annotation. `Incomplete` and
-`Abandoned` preserve partial evidence, ledger allocations, budgets, and the
-reason for stopping, but have no primary outcome or feasibility annotation.
+Experiment lifecycle, evidence closure, and technology outcome are separate
+fields. Use the three fields and constraints in the [experiment
+workflow](../../experiments/README.md): only `finished` with `complete` closure
+calculates a primary outcome or feasibility annotation; `planned`/`running`
+remain `open`/`none`, and an experiment ending without closure is `finished` or
+`abandoned` with `incomplete`/`none`. `abandoned` is always `incomplete`/`none`.
 
 The paired per-fixture/site contrasts are:
 
@@ -183,8 +202,9 @@ The paired per-fixture/site contrasts are:
 | Blending | `S+B` versus `S` | `Full` versus `S+G` |
 | Generators | `S+G` versus `S` | `Full` versus `S+B` |
 
-Here `S` is skeleton/swept-profile, `B` is selected blending, and `G` is the
-reusable specialized-generator layer. For each criterion, preregister the
+Here `I` is the general implicit-field capability, `S` is skeleton/swept-
+profile, `B` is selected blending, and `G` is the reusable specialized-
+generator layer. For each criterion, preregister the
 direction, estimand, replication, adjudication, multiplicity treatment,
 practical margin `±delta`, valid uncertainty interval, and boundary rules.
 For quantitative criteria, effects are oriented in the registered beneficial
@@ -192,10 +212,13 @@ direction: `B` requires the interval wholly above `+delta`, `H` requires it
 wholly below `-delta`, `N` is neutral equivalence requiring the interval wholly
 inside the neutral margin, and
 `U` is every other case, including invalid or unavailable evidence. For visual
-criteria, use qualitative `B`, `H`, `visually-equivalent`, or `U` adjudication
-with rationale and uncertainty; do not invent statistical precision. The
-first column is the result without the other contribution and the second is
-with it. An unresolved quantitative result remains `U`, not equivalence.
+criteria, use modality-specific `N` for visual equivalence, with `NA` separate
+from `U` and excluded from applicable-cell coverage; use the minimum-three-
+reviewer panel and individual votes defined by the [visual-quality evaluation
+protocol](visual-quality-evaluation.md). Do not invent statistical precision.
+For each paired contrast, the first state is the result without the other
+contribution and the second state is the result with it. An unresolved
+quantitative result remains `U`, not equivalence.
 
 The `B/N/H/U` table is a literal conditional-effect pattern description only:
 
@@ -216,10 +239,9 @@ The full per-fixture/site/criterion matrix is the component-attribution result;
 there is no collapsed categorical component outcome. Optional counts of
 covered cells or states are descriptive only. Bundle-level
 `Support`/`Reject`/`Inconclusive` is a separate comparative outcome and grants
-no component credit. A bundle-level result supported only when both selected
-contributions are present receives the separate descriptive tag
-`combined-hybrid-only`; that tag is not a component result. The table makes no
-independence, synergy, antagonism, or interaction claim.
+no component credit. A component `U` cell does not by itself block bundle
+`Support`. The table makes no independence, synergy, antagonism, or interaction
+claim.
 
 ## Common sampling and convergence structure
 
@@ -247,17 +269,21 @@ apparatus, common-pipeline, or oracle failure, unavailable mandatory evidence
 that is not terminally attributable to a branch, clipping that prevents a
 valid shared measurement, and sampling non-convergence that cannot be
 attributed to a branch is `Inconclusive` under the shared precedence in
-DR-0009. Capability failures affect only consuming branches, while capability
-or branch issues within the registered ledger budgets are remediation state.
+DR-0009. Failure or exhaustion of `C` is a shared terminal and makes the
+comparative result `Inconclusive`. `I`/`S`/`B`/`G` capability failures affect
+only consuming branches, while capability or branch issues within the
+registered ledger budgets are remediation state and integration failure
+affects its branch.
 Once a consuming branch exhausts its ledger budget without readiness or
 comparable valid evidence, its terminal feasibility failure applies: a hybrid
 failure contributes to `Reject`, while a baseline failure is retained and
 excluded from the eligible frontier. Generic evidence-unavailability wording
-cannot override that terminal attribution. A valid registered branch violation
+cannot override that branch/failure attribution. A valid registered branch
+violation
 of a frozen clearance, convergence, or phase/topology criterion after apparatus
-and readiness pass is a branch technology failure. An indeterminate attribution
-remains `Inconclusive`. No declared branch is silently dropped from the
-evidence ledger. Deviations from the common bounds,
+and readiness pass is a branch technology failure. An indeterminate
+branch/failure attribution remains `Inconclusive`. No declared branch is
+silently dropped from the evidence ledger. Deviations from the common bounds,
 grids, phases, or field contract are separate exploratory runs. Lewiner's
 guarantee remains scoped to reconstruction from the sampled grid, not the
 continuous field.
@@ -309,9 +335,13 @@ incompatible charts without reusing the propagation implementation.
 
 Use the [visual-quality evaluation protocol](visual-quality-evaluation.md) for
 consistent front, side, three-quarter, turntable, and targeted close-up review
-where practical. Record reviewer, view/capture provenance, criterion,
-rationale, disagreement, and uncertainty separately from structural and
-semantic checks. The protocol's visual floor is a Stage 1 claim boundary, not a
+where practical. Use at least three independent reviewers; mask branch identity
+and randomize presentation where practical, record each individual vote, and
+keep comparative votes separate from the visual-floor rubric. Record reviewer,
+view/capture provenance, criterion, rationale, disagreement, and uncertainty
+separately from structural and semantic checks. Fewer than three reviewers is
+`U`/exploratory; `NA` is separate from `U` and excluded from applicable-cell
+coverage. The protocol's visual floor is a Stage 1 claim boundary, not a
 numeric aesthetic score.
 
 ### Provenance and effort ledger
@@ -333,10 +363,12 @@ common-pipeline, oracle, or other non-terminally attributable evidence failure
 as `Inconclusive`; classify branch-specific hybrid mandatory or terminal
 feasibility failure as `Reject`; retain a failed baseline as evidence but
 exclude it from the eligible frontier. Generic evidence-unavailability
-wording cannot override a terminal branch attribution. No universal-
+wording cannot override branch/failure attribution. No universal-
 impossibility claim is made. Match and dominance are determined only when
 every applicable registered dimension is valid and resolved; unresolved
-evidence that could affect that determination is `Inconclusive`.
+evidence that could affect that determination is `Inconclusive`. A component
+`U` cell does not by itself block bundle `Support`; `NA` is not `U` and is
+excluded from applicable-cell coverage.
 
 Registration defines each dimension's applicability, direction, aggregation,
 and threshold as a preorder. Aggregate strict dominance must be an acyclic
@@ -355,18 +387,20 @@ annotation. Unresolved nonmandatory trade-offs or comparative visual
 disagreement are `Inconclusive`. Bundle `Support`/`Reject`/`Inconclusive` is
 separate from component attribution. The full per-fixture/site/criterion matrix
 is the sole component-attribution result; missing, invalid, unavailable, or
-unresolved cells remain `U` in that matrix. Optional coverage counts are
-descriptive only, and no collapsed component outcome or independent component
-credit is inferred from bundle `Support`. The `combined-hybrid-only` tag
-remains a separate descriptive bundle annotation. Bundle `Support` requires
+unresolved applicable cells remain `U` in that matrix, while not-applicable
+cells are `NA` and excluded from applicable-cell coverage. Optional coverage
+counts are descriptive only, and no collapsed component outcome or independent
+component credit is inferred from bundle `Support`. Bundle `Support` requires
 valid evidence, an eligible frontier, all gates, a named improvement,
-non-inferiority, no simpler match or dominance, and no unresolved trade-off.
+non-inferiority, no simpler match or dominance, and no unresolved trade-off;
+a component `U` cell does not by itself block it.
 
-The execution status is recorded separately. Only a `Complete` run, with all
-comparisons closed through valid or terminal branch evidence or a registered
-shared terminal failure, receives the primary outcome or feasibility
-annotation. `Incomplete` and `Abandoned` retain partial evidence, budgets,
-ledger allocations, and stopping reasons without either annotation.
+Record experiment lifecycle, evidence closure, and technology outcome as the
+three fields defined in the [experiment workflow](../../experiments/README.md).
+Only `finished` with `complete` closure receives the primary outcome or
+feasibility annotation. An experiment ending without closure is `finished` or
+`abandoned` with `incomplete`/`none`, and `abandoned` is always
+`incomplete`/`none`.
 
 Retain raw failures, failed and inconclusive fixtures, invalid-fixture
 diagnostics, disagreements, missing contributors, clipping, sampling

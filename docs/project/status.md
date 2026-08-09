@@ -24,36 +24,36 @@ blockers; Ben's owner disposition remains pending. Round 5 is integrated as
 Proposed: DR-0007 Revision 2 records the three-stage first-proof charter and
 DR-0008 Revision 2 records the bounded digitigrade family, fixed fixture
 envelope, and source-linked Stage 1 embodiment intent; both material revisions
-are integrated and Review Complete with owner disposition pending. Round 12
-Revision 7 alignment is integrated as Proposed: DR-0009 records Ben's
-approved layered provenance and effort ledgers for a universal identical
-common scaffold, literal conditional-effect patterns, the full per-fixture/
-site/criterion component-attribution matrix, disjoint quantitative and
-qualitative rules (`B/N/H/U` quantitatively and
-`B/H/visually-equivalent/U` visually), and separate incomplete/abandoned run
-status.
-DR-0010 Revision 7 carries only the derived outcome/budget/attribution
-alignment and retains its raw semantic and phase/convergence material without
-resolving its two geometry/semantic findings. Both DR-0009 and DR-0010 remain
-Proposed with Owner approval Pending. DR-0009's current Double review is
-Complete, both reviewers recommend `Revise` at High confidence, and exactly
-five findings remain unresolved: accounting taxonomy/scaffold scope; visual
-evidence and matrix schema; contradictory/non-testable `combined-hybrid-only`;
-run-execution vocabulary; and ambiguous generic `attribution`. Review Complete
-is evidence, not a clean review or acceptance. DR-0010 remains Review Pending;
-its two geometry/semantic findings remain unchanged. DR-0009 Revision 6
-reviews and DR-0010 Revision 5 reviews are historical/stale, while DR-0010
-Revision 6 was unreviewed and superseded. The DR-0010 findings
-remain: transfer mappings are underconstrained
+are integrated and Review Complete with owner disposition pending. Round 13
+Revision 8 alignment is integrated as Proposed: DR-0009 records Ben's
+approved universal-identical `C` scaffold/shared-repair admission test, the
+immutable base `C` scaffold manifest plus a finite append-only repair log and
+immutable snapshots, closed finite `C`/`I`/`S`/`B`/`G` and per-branch
+integration ledgers, literal
+conditional-effect patterns, the full per-fixture/site/criterion component-
+attribution matrix, generic `B/N/H/U` with modality-specific visual `N`, the
+minimum-three-reviewer visual panel, separate `NA`, orthogonal lifecycle/
+closure/outcome fields, branch/failure attribution, and shared `Inconclusive`
+on `C` failure or exhaustion. Evidence identifies the immutable base manifest
+and exact repair-log snapshot, including the explicit empty snapshot before
+repairs; affected evidence is rerun after a repair. DR-0010 Revision 8 carries
+only the derived outcome/budget, branch/failure/component-matrix attribution,
+visual-adjudication, and experiment lifecycle/closure/outcome alignment and
+retains exactly two unresolved geometry/semantic findings: transfer mappings
 for raw-measure flattening/path-weight oracles; and phase coordinates,
 cross-resolution pairing/metrics, envelope aggregation, and nonmonotone
-convergence handling remain underdefined. No acceptance is implied. The
-neutral first surface experiment design remains Proposed and manually
-maintained; `EXP-0001` remains unregistered and contains no evidence. No
-permanent production architecture, implementation stack, numeric budget,
-exact fixtures, grids, thresholds, schemas, runtime fields, topology, or
-backend is selected. Product and architecture prose remains proposed or
-provisional until the relevant proposal has Ben's explicit disposition.
+convergence handling. DR-0009 Revision 8 remains Proposed with Owner approval
+Pending and Review status Pending; its Revision 7 reviews are historical/stale
+and the resolved topics remain subject to current-revision review. DR-0010
+Revision 8 remains Proposed with Owner approval Pending and Review status
+Pending; Revision 7 was unreviewed and superseded, and Revision 5 reviews are
+historical/stale. No acceptance is implied. The neutral first surface
+experiment design remains Proposed and manually maintained; `EXP-0001` remains
+unregistered and contains no evidence. No permanent production architecture,
+implementation stack, numeric budget, exact fixtures, grids, thresholds,
+schemas, runtime fields, topology, or backend is selected. Product and
+architecture prose remains proposed or provisional until the relevant proposal
+has Ben's explicit disposition.
 
 ## Current round
 
@@ -90,22 +90,23 @@ provisional until the relevant proposal has Ben's explicit disposition.
   source-linked Stage 1 embodiment intent; both material revisions are Review
   Complete with Accept recommendations at High confidence and owner
   dispositions pending; these DRs remain Proposed.
-- Round 12: integrated/proposed — DR-0009 Revision 7 and DR-0010 Revision 7
-  carry Ben's approved alignment: a universal identical common scaffold with
-  frozen provenance/assets/neutrality and finite capability/integration ledgers;
-  literal conditional-effect patterns; the full per-fixture/site/criterion
-  component-attribution matrix; disjoint quantitative and qualitative visual
-  rules (`B/N/H/U` quantitatively and `B/H/visually-equivalent/U` visually);
-  and separate incomplete/abandoned run status. DR-0009 remains Proposed with
-  Owner approval Pending and Review Complete after its current Double review;
-  both reviewers recommend `Revise` at High confidence, with exactly five
-  unresolved findings (accounting taxonomy/scaffold scope; visual evidence and
-  matrix schema; contradictory/non-testable `combined-hybrid-only`; run-
-  execution vocabulary; and ambiguous generic `attribution`). DR-0010 remains
-  Proposed with Owner approval Pending and Review Pending, with its two
-  geometry/semantic findings unresolved. DR-0009 Revision 6 reviews and
-  DR-0010 Revision 5 reviews are historical/stale; DR-0010 Revision 6 was
-  unreviewed and superseded. These proposals do not settle
+- Round 13: integrated/proposed — DR-0009 Revision 8 and DR-0010 Revision 8
+  carry Ben's approved alignment: the universal-identical `C` scaffold/shared-
+  repair admission test; immutable base manifest plus a finite append-only
+  repair log and immutable snapshots; closed finite `C`/`I`/`S`/`B`/`G` and per-branch
+  integration ledgers; literal conditional-effect patterns; the full
+  per-fixture/site/criterion component-attribution matrix; generic `B/N/H/U`
+  with modality-specific visual `N`; the minimum-three-reviewer visual panel;
+  separate `NA`; orthogonal lifecycle/closure/outcome fields; and
+  branch/failure attribution. Evidence identifies the base manifest and exact
+  repair-log snapshot, and affected evidence is rerun after repairs. DR-0009
+  Revision 8 remains Proposed with Owner
+  approval Pending and Review Pending; its Revision 7 reviews are
+  historical/stale and the resolved topics remain subject to current-revision
+  review. DR-0010 Revision 8 remains Proposed with Owner approval Pending and
+  Review Pending, with exactly two geometry/semantic findings unresolved.
+  Revision 7 was unreviewed and superseded, and Revision 5 reviews are
+  historical/stale. These proposals do not settle
   permanent production surface, topology, runtime-field, or backend
   architecture.
 
@@ -119,11 +120,11 @@ provisional until the relevant proposal has Ben's explicit disposition.
 - Obtain Ben's owner disposition for the completed DR-0003 Revision 2 review
   while keeping it provisional and separate from acceptance, and obtain owner
   dispositions for DR-0007 and DR-0008 after their completed reviews.
-- Resolve DR-0009 Revision 7's five current-review findings with Ben before
-  owner disposition; its Review Complete state is evidence, not acceptance.
-  DR-0010's two geometry/semantic findings remain for Ben's next discussion and
-  must be resolved before its next current-revision review. No acceptance is
-  implied.
+- Obtain the current-revision review and Ben's owner disposition for DR-0009
+  Revision 8; its Revision 7 reviews are historical/stale and no acceptance is
+  implied. DR-0010's two geometry/semantic findings remain for Ben's next
+  discussion and must be resolved before its next current-revision review; no
+  solutions are recorded in Revision 8.
   The neutral first experiment design remains
   proposed/prepared, but `EXP-0001` remains unregistered and the disposable
   host remains unresolved.
@@ -173,28 +174,26 @@ provisional until the relevant proposal has Ben's explicit disposition.
   Accept recommendation at High confidence with no blocker; owner disposition
   pending.
 - [DR-0009](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md):
-  hybrid surface-generation experiment hypothesis — Revision 7, Architecture
-  scope; Proposed, Owner approval Pending, Review Complete. Its current Double
-  review is Complete and recommends `Revise` at High confidence, with exactly
-  five unresolved findings (accounting taxonomy/scaffold scope; visual
-  evidence and matrix schema; contradictory/non-testable
-  `combined-hybrid-only`; run-execution vocabulary; and ambiguous generic
-  `attribution`). Review Complete is evidence, not a clean review or
-  acceptance.
+  hybrid surface-generation experiment hypothesis — Revision 8, Architecture
+  scope; Proposed, Owner approval Pending, Review Pending. Revision 7 reviews
+  are historical/stale; the resolved alignment remains subject to
+  current-revision review.
 - [DR-0010](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md):
-  Stage 1 surface extraction and semantic-field propagation — Revision 7,
+  Stage 1 surface extraction and semantic-field propagation — Revision 8,
   Specification and architecture scope; Proposed, Owner approval Pending,
-  Review Pending, for only the derived outcome/budget/attribution alignment to
-  DR-0009. The two unresolved geometry/semantic findings are carried forward
-  in the DR response. Revision 6 was unreviewed and superseded; Revision 5
-  reviews are historical/stale.
+  Review Pending, for the derived outcome/budget, branch/failure/component-matrix
+  attribution, visual-adjudication, and experiment lifecycle/closure/outcome
+  alignment to DR-0009. Exactly two
+  geometry/semantic findings are carried forward in the DR
+  response; Revision 7 was unreviewed and superseded, and Revision 5 reviews
+  are historical/stale. Revision 8 does not resolve those findings.
 
 ## Implementation status
 
 | Capability | Implementation | Verification | Notes |
 | --- | --- | --- | --- |
 | Documentation authority | partial | unverified | Operational structure and validator integrated; DR-0001 Revision 5 accepted after its Complete clean review |
-| Decision-record and review workflow | partial | unverified | DR-0001 is Accepted; product and architecture DRs remain Proposed; DR-0009 Revision 7 is Review Complete with a Revise/High recommendation and five unresolved findings, while DR-0010 Revision 7 remains Review Pending with owner approval pending and its two geometry/semantic findings unresolved |
+| Decision-record and review workflow | partial | unverified | DR-0001 is Accepted; product and architecture DRs remain Proposed; DR-0009 Revision 8 and DR-0010 Revision 8 remain Review Pending with owner approval pending; DR-0010 retains exactly two unresolved geometry/semantic findings |
 | Research/experiment workflow | partial | unverified | Templates exist; no experiment registered |
 | Body specification | design-unresolved | not-applicable | Contract boundary remains proposed |
 | Creature compiler | not-implemented | not-applicable | No language or backend selected |
@@ -206,10 +205,10 @@ provisional until the relevant proposal has Ben's explicit disposition.
   any other DR.
 - Obtain Ben's explicit dispositions for DR-0007/0008 and the completed
   DR-0003 review.
-- Resolve DR-0009 Revision 7's five current-review findings before owner
-  disposition. DR-0010's two geometry/semantic findings remain unresolved and
-  require the next human discussion before its next review. Then discuss the
-  proposed/prepared next
+- Obtain current-revision review and owner disposition for DR-0009 Revision 8.
+  DR-0010's two geometry/semantic findings remain unresolved and require the
+  next human discussion before its next review; Revision 8 records no
+  solutions. Then discuss the proposed/prepared next
   experiment and its evidence plan.
   `EXP-0001` remains unregistered and the disposable host remains unresolved.
 

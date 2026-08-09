@@ -124,16 +124,39 @@ criterion, view provenance, rationale, reviewer disagreement, and uncertainty
 without inventing a scalar or collapsing the record into an aesthetic score.
 The comparative visual result must remain distinct from the floor result.
 
-For visual criteria in the component-attribution record, use only qualitative
-adjudication: `B` for beneficial in the registered direction, `H` for harmful
-or reversed, `visually-equivalent` for a qualitative neutral equivalence, and `U` for
+## Reviewer panel and adjudication
+
+Each applicable comparative visual cell uses at least three independent
+reviewers. Independence means independence from branch implementation and
+tuning, not merely separate votes. Record each reviewer's eligibility and
+independence assessment, and mask branch identity and randomize A/B order where
+practical while keeping the capture settings and criterion fixed. Record every
+individual vote and rationale before aggregation. A panel with fewer than three
+eligible independent reviewers is `U` and exploratory, not a conclusive result.
+
+Use the same generic `B`/`N`/`H`/`U` vocabulary as other criteria, with
+modality-specific `N` meaning visual equivalence. Aggregate `B` when at least
+two of three (or at least two-thirds of a larger registered panel) vote `B` and
+no reviewer votes `H`; aggregate `H` when at least two of three (or at least
+two-thirds) vote `H` and no reviewer votes `B`. Aggregate `N` when at least
+two of three (or at least two-thirds) vote visual equivalence and no reviewer
+votes `B` or `H`. Otherwise aggregate `U`. A not-applicable cell is
+`NA`, separate from `U`, and excluded from applicable-cell coverage. The
+comparative rubric and the visual-floor rubric are separate: floor votes record
+whether each fixture clears the intentional-character gate and do not become a
+comparative component vote.
+
+For visual criteria in the component-attribution record, use the panel's
+qualitative `B`/`N`/`H`/`U` adjudication: `B` is beneficial in the registered
+direction, `H` is harmful or reversed, `N` is visual equivalence, and `U` is
 unresolved, invalid, or unavailable evidence. This adjudication has no fake
 statistical precision, practical-margin interval, or point-estimate claim.
 The full per-fixture/site/criterion matrix is the component-attribution
 result; optional coverage counts are descriptive only, with no collapsed
 component outcome. Bundle outcome remains separate and grants no component
-credit. `combined-hybrid-only` is a separate descriptive bundle tag. An
-unresolved visual result remains `U`, not neutral equivalence.
+credit. An unresolved visual result remains `U`, not visual equivalence; `NA`
+cells are excluded from applicable-cell coverage. A component `U` cell does not
+by itself block bundle `Support`.
 
 When comparative visual evidence is an applicable registered dimension for a
 match or dominance determination, unresolved or disputed visual evidence that
@@ -145,16 +168,19 @@ Under the shared outcome precedence in DR-0009, a mandatory visual-floor
 failure is a gate failure and contributes to `Reject` when the evidence is
 valid; unavailable or indeterminate visual evidence is `Inconclusive` unless a
 branch-specific terminal feasibility attribution already applies. Generic
-evidence-unavailability wording cannot override that terminal attribution. A
-valid frozen non-inferiority visual regression, or a simpler eligible baseline
+evidence-unavailability wording cannot override that branch/failure
+attribution. A valid frozen non-inferiority visual regression, or a simpler
+eligible baseline
 matching the overall claimed result under the registered multidimensional
 rule, is `Reject`. Unresolved nonmandatory comparative visual disagreement is
 `Inconclusive`, not an inferred pass or scalar compromise. Comparative bundle
 `Support`/`Reject`/`Inconclusive` remains separate from component attribution.
-The full per-fixture/site/criterion matrix is the sole attribution result;
-missing visual cells remain `U` and optional coverage counts are descriptive
-only. Bundle `Support` implies no independent component credit. The
-`combined-hybrid-only` tag remains a separate bundle annotation. Comparative
+The full per-fixture/site/criterion matrix is the sole component-attribution
+result; missing applicable visual cells remain `U`, while not-applicable cells
+are
+`NA` and excluded from applicable-cell coverage. Optional coverage counts are
+descriptive only. Bundle `Support` implies no independent component credit,
+but a component `U` cell does not by itself block it. Comparative
 `Support` requires an eligible frontier, all gates, a named improvement,
 non-inferiority, no simpler match or dominance, and no unresolved trade-off.
 If no baseline is eligible, the comparative outcome remains `Inconclusive`,
@@ -179,8 +205,9 @@ inconclusive results. A Stage 1 continuation recommendation may use the full
 record, but it cannot claim Stage 2 or Stage 3 success; any later claim requires
 its own stage-specific evidence.
 
-Record execution status separately from the visual or technology outcome. Mark
-the run `Complete` only when all required comparisons close through valid or
-terminal branch evidence or a registered shared terminal failure. `Incomplete`
-and `Abandoned` records preserve partial captures, adjudications, budgets, and
-stopping reasons but produce no primary outcome or feasibility annotation.
+Record experiment lifecycle, evidence closure, and technology outcome as the
+three fields defined in the [experiment workflow](../../experiments/README.md).
+Only `finished` with `complete` evidence closure may calculate a technology
+outcome or feasibility annotation. An experiment ending without closure is
+`finished` or `abandoned` with `incomplete`/`none`, and `abandoned` is always
+`incomplete`/`none`.

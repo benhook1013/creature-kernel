@@ -42,27 +42,31 @@ Proposed compile/runtime boundary is recorded in
 and described in the execution model; exact interface schemas, compatibility,
 budgets, and runtime mutation details remain open.
 
-Round 12 records the current Proposed Stage 1 experiment hypotheses in
-[DR-0009 Revision 7](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
-and [DR-0010 Revision 7](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md).
-DR-0009 Revision 7 applies layered provenance and effort ledgers for a
-universal identical common scaffold, a literal conditional-effect matrix, the
-full per-fixture/site/criterion matrix as the sole component attribution,
-disjoint quantitative `B/N/H/U` and qualitative visual
-`B/H/visually-equivalent/U` rules, and explicit incomplete/abandoned execution
-status. DR-0010 Revision 7 carries only this
-derived outcome/budget/attribution alignment and leaves its two geometry/
-semantic findings unresolved. DR-0009 remains Proposed with Owner approval
-Pending and Review status Complete: its current Double review is Complete,
-both reviewers recommend `Revise` at High confidence, and exactly five
-findings remain unresolved (accounting taxonomy/scaffold scope; visual
-evidence and matrix schema; contradictory/non-testable `combined-hybrid-only`;
-run-execution vocabulary; and ambiguous generic `attribution`). Review Complete
-is evidence, not a clean review or acceptance. DR-0010 remains Proposed with
-Owner approval Pending and Review status Pending, with its two geometry/
-semantic findings unresolved. DR-0009 Revision 6 reviews and DR-0010 Revision
-5 reviews are historical/stale, while DR-0010 Revision 6 was unreviewed and
-superseded. The
+Round 13 records the current Proposed Stage 1 experiment hypotheses in
+[DR-0009 Revision 8](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
+and [DR-0010 Revision 8](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md).
+DR-0009 Revision 8 applies the universal identical `C` scaffold/shared-repair
+admission test, an immutable base `C` scaffold manifest plus a finite append-
+only repair log and immutable snapshots, finite `C`/`I`/`S`/`B`/`G` and branch-
+integration ledgers,
+literal conditional-effect patterns, the full per-fixture/site/criterion
+matrix as the sole component attribution, generic quantitative `B/N/H/U` and
+modality-specific visual `N` with separate `NA`, branch/failure attribution,
+and the three-field experiment lifecycle/closure/outcome vocabulary. DR-0010
+Revision 8 carries this derived outcome/budget, branch/failure/component-matrix
+attribution, visual-adjudication, and experiment lifecycle/closure/outcome
+alignment and leaves exactly its two
+geometry/semantic findings unresolved. A component `U` cell does not by itself
+block bundle `Support`; failure or exhaustion of `C` is
+a shared comparative `Inconclusive` terminal. Evidence identifies the
+immutable base manifest and exact repair-log snapshot (including the explicit
+empty snapshot before repairs); affected evidence is rerun after a repair.
+Actual-once work, attributed branch cost, and base-plus-snapshot-scoped
+feasibility remain distinct. DR-0009 remains
+Proposed with Owner approval Pending and Review status Pending; its Revision 7
+reviews are historical/stale. DR-0010 remains Proposed with Owner approval Pending and
+Review status Pending; its Revision 5 reviews are historical/stale and
+Revision 7 was unreviewed and superseded. The
 [first surface experiment design](../research/first-surface-experiment-design.md)
 remains a neutral Proposed, manually maintained evidence plan; it does not
 register EXP-0001 or create evidence. These materials guide falsifiable

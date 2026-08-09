@@ -22,6 +22,12 @@ Research documents are intentionally non-normative. A paper, prototype, or
 experiment can support or challenge a proposal but does not change product,
 specification, or architecture contracts automatically.
 
+Research-question lifecycle is distinct from experiment lifecycle. Use the
+question labels above for questions; use the three experiment fields and
+constraints in the [experiment workflow](../../experiments/README.md) for
+registered runs. Do not use a question state such as `Answered for current
+scope` as an experiment outcome, or an experiment state as a question state.
+
 ## Question lifecycle
 
 Use:

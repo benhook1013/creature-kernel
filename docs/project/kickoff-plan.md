@@ -388,27 +388,31 @@ preservation, animation topology, remeshing requirements, determinism,
 licensing, platform support, and runtime implications. Record references and
 tool/library constraints, then design a falsifiable first geometry experiment.
 Do not select production surface architecture from a prose survey alone. The
-integrated Proposed hypotheses are [DR-0009 Revision 7](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
-and [DR-0010 Revision 7](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md);
+integrated Proposed hypotheses are [DR-0009 Revision 8](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
+and [DR-0010 Revision 8](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md);
 they guide Stage 1 evidence and do not select a production backend. DR-0009
-Revision 7 records the approved layered provenance and effort ledgers for a
-universal identical common scaffold, literal conditional-effect patterns, the
-full per-fixture/site/criterion component-attribution matrix, disjoint
-quantitative `B/N/H/U` and qualitative visual
-`B/H/visually-equivalent/U` rules, and separate incomplete or abandoned run
-status. DR-0010 Revision 7 carries only the derived
-outcome/budget/attribution alignment and leaves its two geometry/semantic
-findings unresolved. DR-0009 remains Proposed with Owner approval Pending and
-Review Complete: its current Double review is Complete, both reviewers
-recommend `Revise` at High confidence, and exactly five findings remain
-unresolved (accounting taxonomy/scaffold scope; visual evidence and matrix
-schema; contradictory/non-testable `combined-hybrid-only`; run-execution
-vocabulary; and ambiguous generic `attribution`). Review Complete is evidence,
-not a clean review or acceptance. DR-0010 remains Proposed with Owner approval
-Pending and Review Pending, with its two geometry/semantic findings unresolved;
-DR-0009 Revision 6 reviews and DR-0010 Revision 5 reviews are historical/stale,
-while DR-0010 Revision 6 was unreviewed and superseded. This plan implies no
-acceptance, and no owner disposition has been made.
+Revision 8 records the closed finite `C`/`I`/`S`/`B`/`G` and per-branch
+integration ledgers, the operational universal-identical `C` scaffold/shared-
+repair admission test, an immutable base `C` scaffold manifest with a finite
+append-only repair log and immutable snapshots, generic `B/N/H/U` with
+modality-specific visual `N`,
+the minimum-three-reviewer visual panel, separate `NA`, orthogonal lifecycle/
+closure/outcome fields, branch/failure attribution, and shared `Inconclusive`
+on `C` failure or exhaustion. Evidence identifies the immutable base manifest
+and exact repair-log snapshot, including the explicit empty snapshot before
+repairs, and affected evidence is rerun after a repair. DR-0010 Revision 8
+carries the derived outcome/budget, branch/failure/component-matrix attribution, visual-
+adjudication, and experiment lifecycle/closure/outcome alignment and leaves
+exactly two geometry/semantic findings unresolved: transfer mappings for the
+raw-measure flattening/path-weight oracles, and phase coordinates,
+cross-resolution pairing/metrics, envelope aggregation, and nonmonotone
+convergence handling. DR-0009 Revision 8 remains Proposed with Owner approval
+Pending and Review status Pending; its Revision 7 reviews are historical/stale
+and the resolved topics remain subject to current-revision review. DR-0010
+Revision 8 remains Proposed with Owner approval Pending and Review status
+Pending; Revision 7 was unreviewed and superseded, and Revision 5 reviews are
+historical/stale. This plan implies no acceptance, and no owner disposition has
+been made.
 
 ### CK-KICK-009: Choose a disposable geometry experiment stack
 

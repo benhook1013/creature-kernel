@@ -6,7 +6,7 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 7
+Revision: 8
 
 Decision owner: Ben
 
@@ -42,15 +42,18 @@ contribution measure and its representation-equivalence law, and the
 cross-resolution phase/convergence envelope. The Revision 4 reviews remain
 preserved as historical evidence and are stale for this revision. Revision 6
 applied only the derived outcome-contract alignment required by the then-
-current DR-0009 ownership rules and was unreviewed. Revision 7 supersedes that
-alignment with Ben's approved DR-0009 Revision 7 choices; it does not resolve
-either of the two geometry/semantic findings carried forward below. The
+current DR-0009 ownership rules and was unreviewed. Revision 7 superseded that
+alignment with Ben's approved DR-0009 Revision 7 choices and was itself
+unreviewed. Revision 8 materially updates the inherited ledgers, visual
+adjudication, and experiment lifecycle/closure/outcome vocabulary to align
+with Ben's approved DR-0009 Revision 8 choices; it does not resolve either of
+the two geometry/semantic findings carried forward below. The
 [architecture/proof/governance review](reviews/DR-0010-rev-05-review-01.md)
 and [geometry/semantics/measurement review](reviews/DR-0010-rev-05-review-02.md)
-remain historical and stale. Revision 7 remains Proposed with Owner approval
-Pending and Review status Pending; the two geometry/semantic findings below
-remain unresolved and require Ben's next discussion followed by current-
-revision review.
+remain historical and stale. Revision 8 remains Proposed with Owner approval
+Pending and Review status Pending; Revision 7 is superseded and unreviewed.
+The two geometry/semantic findings below remain unresolved and require Ben's
+next discussion followed by current-revision review.
 
 Supersedes: —
 
@@ -137,33 +140,49 @@ topology invariant is one watertight connected genus-zero component. A fixture
 may declare another valid component or genus expectation only prospectively in
 its registration. Expected component and topology invariants must be recorded
 before execution. The causal classification follows the shared precedence in
-DR-0009. Registration must freeze a universal common scaffold of identical
-infrastructure and branch-neutral analytical/mandatory oracles, with
-provenance, assets, and neutrality frozen before branch work. Pre-existing
-branch or subset prototypes are excluded from primary evidence. The
-common-scaffold checkpoint is the frozen point after that scaffold is
-accounted for; it cannot move after branch work begins. After the checkpoint,
-every work item belongs exactly once to one finite `S`, `B`, or `G` capability
-ledger, or to the branch integration ledger. Capability-ledger scope includes
-all required-layer implementation, tuning, and remediation; branch-attributed
-cost includes every required capability ledger plus integration, while actual
-total cost counts each work item only once. Registration freezes accounting
-units, scope, budgets, and terminal rules; this record selects none of their
-values. A capability failure affects only branches that consume that
-capability; it is not an all-branch shared-apparatus failure. An independently
-demonstrated shared apparatus, common-pipeline, or oracle failure makes the
-affected comparison `Inconclusive`. A capability or branch-specific issue
-while its registered ledger budget remains is remediation state, not an
-outcome. Exhaustion without readiness or comparable valid evidence is the
-terminal registered feasibility failure under DR-0009: a hybrid terminal
-failure is `Reject`, while a baseline terminal failure is retained and
-excluded from the eligible frontier. No branch is silently removed and no
-universal-impossibility claim is made. Generic evidence-unavailability wording
-cannot override that terminal attribution. Once apparatus and readiness are
-valid, a registered measurement that violates frozen clearance,
-convergence, phase/topology, or another mandatory criterion is a valid
-technology failure, not unavailable evidence; its outcome is governed by
-DR-0009.
+DR-0009. Registration must freeze the universal identical `C` scaffold and
+shared-repair ledger before branch work. Its finite operational admission test
+requires all branches to receive the same interface, data, and access, with no
+branch-specific construction logic or parameters. The immutable initial `C`
+record freezes its base manifest ID, provenance, source, assets, known effort,
+finite cap, and budget identity; unknown historic effort is unavailable, not
+zero. The checkpoint and base manifest cannot move or mutate. A later repair
+may enter finite `C` only when the same universal identical-interface/data/
+access and no-branch-specific-construction-logic-or-parameters test still
+passes. It becomes one append-only finite repair-log entry with a stable ID,
+provenance/source/assets, known or unavailable historical effort, cap
+consumption, and affected-evidence declaration. Every evidence item references
+the base manifest ID plus the exact repair-log snapshot ID, including an
+explicit empty snapshot before repairs; affected evidence is rerun after a
+repair. No numeric cap, ID syntax, or storage format is selected here.
+Pre-existing branch or subset prototypes are excluded from primary evidence.
+Failure or exhaustion of `C` is the shared terminal, comparative
+`Inconclusive`.
+
+After the `C` checkpoint, every work item belongs exactly once to finite `C`
+for a qualifying universal shared repair, one of the `I`, `S`, `B`, or `G`
+capability ledgers, or to the branch-integration ledger.
+`I` is the general implicit-field capability, `S` the skeleton/swept-profile
+capability, `B` selected blending, and `G` reusable specialized generators.
+Capability-ledger scope includes required-layer implementation, tuning, and
+remediation; branch-attributed cost includes every required capability ledger
+plus integration, while actual total cost counts each work item only once.
+Full `C` effort is reported separately. Failures in `I`, `S`, `B`, or `G`
+affect only consuming branches; integration failure affects its branch. A
+shared apparatus, common-pipeline, or oracle failure makes the affected
+comparison `Inconclusive`. A capability or branch issue while its registered
+ledger budget remains is remediation state, not an outcome. Feasibility is
+scoped to the immutable base `C` manifest ID plus exact repair-log snapshot ID
+and the registered attributed branch budget ID. Exhaustion
+without readiness or comparable valid evidence is the terminal registered
+feasibility failure under DR-0009: a hybrid terminal failure is `Reject`, while
+a baseline terminal failure is retained and excluded from the eligible
+frontier. No branch is silently removed and no universal-impossibility claim
+is made. Generic evidence-unavailability wording cannot override that
+branch/failure attribution. Once apparatus and readiness are valid, a registered
+measurement that violates frozen clearance, convergence, phase/topology, or
+another mandatory criterion is a valid technology failure, not unavailable
+evidence; its outcome is governed by DR-0009.
 
 The pinned Lewiner guarantee is scoped to reconstruction from the sampled
 grid. It does not guarantee topology or geometry of the underlying continuous
@@ -250,16 +269,31 @@ branch-neutral checks on the propagation contract, not visual judgments.
 
 ### Derived outcome and attribution alignment
 
-The extraction and propagation records inherit DR-0009 Revision 7's outcome
-ownership. The common scaffold is universal identical infrastructure and
-branch-neutral oracles with frozen provenance, assets, and neutrality; it is
-not a branch capability. After the frozen checkpoint, capability and effort
-work is allocated exactly once to the finite `S`, `B`, or `G` ledger or the
-branch integration ledger. Branch-attributed cost includes all required
-capability layers and integration; actual total cost counts each work item once.
+The extraction and propagation records inherit DR-0009 Revision 8's outcome
+ownership. The universal identical `C` scaffold/shared-repair ledger is
+admitted before branch work through the operational test in the experiment
+workflow: all branches have the same interface, data, and access, with no
+branch-specific construction logic or parameters. Its immutable initial
+record includes the base manifest ID, manifest/provenance, source, assets,
+known effort, and finite cap; unknown historic effort is unavailable, not
+zero. Failure or exhaustion of `C` is a shared terminal and makes the
+comparative result `Inconclusive`. After the initial checkpoint, a later repair
+may still enter finite `C` only when the same universal identical-interface/
+data/access and no-branch-specific-construction-logic-or-parameters test
+passes. The repair is one append-only finite repair-log entry with a stable ID,
+provenance/source/assets, known or unavailable historical effort, cap
+consumption, and affected-evidence declaration. Every evidence item references
+the base manifest ID and exact repair-log snapshot ID, including an explicit
+empty snapshot; affected evidence is rerun after a repair. Other capability and
+effort work is
+allocated exactly once to finite `I`, `S`, `B`, or `G` ledgers or the branch-
+integration ledger. `I`/`S`/`B`/`G` failures affect only consuming branches;
+integration affects its branch. Branch-attributed
+cost includes all required capability layers and integration; actual total
+cost counts each work item once, with full `C` effort reported separately.
+Feasibility is scoped to the immutable base `C` manifest ID plus exact repair-
+log snapshot ID and the registered attributed budget IDs.
 Pre-existing branch or subset prototypes are excluded from primary evidence.
-Failure of a capability affects only branches consuming it, not every branch's
-shared-apparatus disposition.
 
 For each quantitative paired criterion, registration must freeze the effect
 estimand, replication, adjudication, multiplicity treatment, practical margin
@@ -270,22 +304,24 @@ is neutral equivalence requiring it to be wholly inside the neutral margin, and
 `U` covers every other
 case, including invalid or unavailable evidence. These states are not inferred
 from a point estimate; an unresolved `U` result is not equivalence.
-Visual criteria use a separate qualitative adjudication of `B`, `H`,
-`visually-equivalent`, or `U`, with reviewer rationale and uncertainty rather
-than statistical precision. The full per-fixture/site/criterion matrix is the
-component-attribution result; optional coverage counts are descriptive only,
-and there is no collapsed categorical component outcome. A conditional-effect
-pattern table is descriptive only and must not assert independence, synergy,
-antagonism, or other interaction claims. `combined-hybrid-only` is a separate
-descriptive bundle tag. Bundle outcome remains separate and grants no component
-credit.
+Visual criteria use the separate panel protocol in the visual-quality
+evaluation document: a minimum of three independent reviewers, masking and
+randomized presentation where practical, and recorded individual votes. The
+comparative visual rubric uses modality-specific `N` for visual equivalence;
+`NA` is separate from `U` and excluded from applicable-cell coverage. The full
+per-fixture/site/criterion matrix is the component-attribution result; optional
+coverage counts are descriptive only, and there is no collapsed categorical
+component outcome. A conditional-effect pattern table is descriptive only and
+must not assert independence, synergy, antagonism, or other interaction
+claims. Bundle outcome remains separate and grants no component credit; a
+component `U` cell does not by itself block bundle `Support`.
 
-Execution status is separate from the technology outcome. Only a `Complete`
-run—one whose comparisons close through valid or terminal branch evidence or a
-registered shared terminal failure—may calculate an outcome or feasibility
-annotation. `Incomplete` and `Abandoned` runs preserve partial evidence,
-budgets, ledger allocations, and the reason for stopping, but produce neither
-a primary outcome nor a feasibility annotation.
+Experiment lifecycle, evidence closure, and technology outcome are recorded as
+the three fields defined in the [experiment workflow](../../experiments/README.md).
+Only `finished` with `complete` evidence closure may calculate a technology
+outcome or feasibility annotation. `planned`/`running` remain `open`/`none`,
+and an experiment ending without closure is `finished` or `abandoned` with
+`incomplete`/`none`; `abandoned` is always `incomplete`/`none`.
 
 The policy is compatible with documented field workflows that transfer
 attributes into a level-set process, but those sources provide feasibility
@@ -341,22 +377,29 @@ implicit pass.
 
 Experiment registration must define process, thread, numeric, and platform
 scope; mesh canonicalization and hashes; geometric tolerances; how
-nondeterminism is isolated at each stage; the universal common scaffold and
-its frozen provenance/assets/neutrality; and the finite `S`/`B`/`G` capability
-and branch-integration ledgers with their accounting and terminal rules. A
-repeated deterministic run is required within that declared scope. The result
-may support scoped repeatability, but it must not claim bitwise cross-platform
-output without separate evidence.
+nondeterminism is isolated at each stage; and the finite `C`/`I`/`S`/`B`/`G`
+capability and branch-integration ledgers with their accounting and terminal
+rules. The `C` admission test, manifest, provenance, source, assets, known
+effort, cap, and budget ID are frozen before branch work; unknown historic
+effort is unavailable, not zero. A repeated deterministic run is required
+within that declared scope. The result may support scoped repeatability, but
+it must not claim bitwise cross-platform output without separate evidence.
 
 Evidence and readiness failures use the shared causal precedence in DR-0009.
 An independently demonstrated shared apparatus, common-pipeline, or oracle
-failure makes the affected primary comparison `Inconclusive`. A capability
-failure affects only consuming branches, while a capability or branch issue
-within its registered ledger budget is remediation state, not generic evidence
-unavailability. Exhaustion without readiness is the consuming branch's
-terminal feasibility failure under DR-0009: a hybrid failure is `Reject`, while
-a baseline failure is retained and excluded from the eligible frontier.
-Generic evidence-unavailability wording cannot override that terminal
+failure makes the affected primary comparison `Inconclusive`. Failure or
+exhaustion of `C` is also a shared terminal with comparative `Inconclusive`.
+An `I`, `S`, `B`, or
+`G` capability failure affects only consuming branches, while a capability or
+branch issue within its registered ledger budget is remediation state, not
+generic evidence unavailability; integration failure affects its branch.
+Exhaustion without readiness is the consuming branch's terminal feasibility
+failure under DR-0009: a hybrid failure is `Reject`, while a baseline failure
+is retained and excluded from the eligible frontier. Feasibility is scoped to
+the immutable base `C` manifest ID plus exact repair-log snapshot ID and the
+registered attributed budget IDs. Full `C` effort is
+separate from actual-once and attributed branch costs.
+Generic evidence-unavailability wording cannot override that branch/failure
 attribution. The branch, capability, and affected contrast remain in the
 record and are not silently removed; no universal-impossibility claim is made.
 Once apparatus and readiness are valid, a registered measurement that violates
@@ -364,13 +407,13 @@ frozen clearance, convergence, phase/topology, or another mandatory criterion
 is a valid branch technology failure, not unavailable evidence. That failure
 contributes to the technology outcome under DR-0009.
 
-Execution status is separate from technology outcome. A run is `Complete` only
-when every required comparison closes through valid evidence, terminal branch
-evidence, or a registered shared terminal failure. Only a `Complete` run may
-calculate a primary technology outcome or feasibility annotation. An
-`Incomplete` or `Abandoned` run preserves partial evidence, ledger allocations,
-budgets, and the reason for stopping, but has no primary outcome or feasibility
-annotation.
+Experiment lifecycle, evidence closure, and technology outcome are separate
+fields. Use `planned | running | finished | abandoned`, `open | complete |
+incomplete`, and `none | support | reject | inconclusive` as defined by the
+[experiment workflow](../../experiments/README.md). Only `finished` with
+`complete` closure may calculate an outcome or feasibility annotation; an
+experiment ending without closure is `finished` or `abandoned` with
+`incomplete`/`none`, and `abandoned` is always `incomplete`/`none`.
 
 ## Alternatives Considered
 
@@ -490,17 +533,19 @@ representation equivalence, and the shared cross-resolution phase envelope.
 The [architecture/proof/governance review](reviews/DR-0010-rev-05-review-01.md)
 and [geometry/semantics/measurement review](reviews/DR-0010-rev-05-review-02.md)
 are preserved as historical Revision 5 evidence and are historical/stale for
-Revision 7. Revision 6 was unreviewed and is superseded. Revision 7 applies
-only the derived alignment to DR-0009's current outcome, budget, attribution,
-visual-adjudication, and run-status ownership; it does not resolve, narrow,
-choose options for, or conceal the two carried findings. They remain exactly:
+Revision 8. Revision 6 was unreviewed and superseded by Revision 7; Revision 7
+was itself unreviewed and is superseded by this material alignment. Revision 8
+applies only the derived alignment to DR-0009's current outcome, budget,
+attribution, visual-adjudication, and experiment lifecycle/closure/outcome
+ownership; it does not resolve, narrow, choose options for, or conceal the two
+carried findings. They remain exactly:
 
 1. Transfer mappings are underconstrained for raw-measure flattening/path-
    weight oracles.
 2. Phase coordinates, cross-resolution pairing/metrics, envelope aggregation,
    and nonmonotone convergence handling remain underdefined.
 
-Revision 7 remains Proposed with Owner approval Pending and Review status
+Revision 8 remains Proposed with Owner approval Pending and Review status
 Pending. The findings await Ben's next discussion and current-revision review
 after their resolution; no acceptance is implied.
 
@@ -521,21 +566,39 @@ after their resolution; no acceptance is implied.
   nominal extra phases; and measure convergence or stability for components,
   junctions, gaps, thin features, and the predeclared component/topology
   invariants. Keep any deviation as a separately labelled exploratory run.
-  Freeze the universal identical common scaffold and branch-neutral oracles,
-  including provenance, assets, neutrality, and the checkpoint before branch
-  work. Exclude pre-existing branch/subset prototypes from primary evidence.
-  After the checkpoint, allocate each work item exactly once to the finite
-  `S`/`B`/`G` capability ledgers or the branch integration ledger. Include all
-  required capability layers and integration in branch-attributed cost, while
-  actual total cost counts each work item once. Capability failure affects only
-  consuming branches; it is not an all-branch shared-apparatus failure. A
-  shared apparatus, common-pipeline, or oracle failure makes the affected
-  comparison `Inconclusive`; a capability or branch issue while its registered
-  ledger budget remains is remediation state. Exhaustion without readiness is
+  Admit finite `C` first through its operational test: all branches have the
+  same interface, data, and access, with no branch-specific construction logic
+  or parameters. Record its immutable base manifest ID, universal
+  scaffold/shared-repair provenance, source, assets, known effort, finite cap,
+  and budget ID; unknown historic effort is unavailable, not zero. A
+  post-checkpoint repair may be assigned to finite `C` only when that same
+  universal interface/data/access and no-branch-specific-construction-logic-
+  or-parameters test passes. Record it as one append-only finite repair-log
+  entry with a stable ID, provenance/source/assets, known or unavailable
+  historical effort, cap consumption, and affected-evidence declaration. Every
+  evidence item references the base manifest ID plus the exact repair-log
+  snapshot ID, including an explicit empty snapshot; rerun affected evidence
+  after a repair. Failure or exhaustion of `C`
+  makes the comparative result `Inconclusive`. Freeze the `C` checkpoint before
+  branch work and exclude pre-existing branch/subset prototypes from primary
+  evidence. After the checkpoint, allocate each work item exactly once to
+  finite `C` for a
+  qualifying universal shared repair, to the finite `I`/`S`/`B`/`G` capability
+  ledgers, or to the branch-integration ledger. Include all required capability
+  layers and integration in branch-attributed cost,
+  while actual total cost counts each work item once; report full `C` effort
+  separately. `I`/`S`/`B`/`G` failure affects only consuming branches,
+  integration failure affects its branch, and a shared apparatus,
+  common-pipeline, or oracle failure makes the affected comparison
+  `Inconclusive`; a capability or branch issue while its registered ledger
+  budget remains is remediation state. Feasibility is scoped to the immutable
+  base `C` manifest ID plus exact repair-log snapshot ID and the registered
+  attributed budget IDs. Exhaustion without readiness is
   the terminal feasibility failure under DR-0009: retain the branch and
   contrast, apply `Reject` to a hybrid, and retain but exclude a baseline from
   the eligible frontier. Generic evidence-unavailability wording cannot
-  override that terminal attribution; no universal-impossibility claim is made
+  override that branch/failure attribution; no universal-impossibility claim
+  is made
   and no branch is silently removed. Once apparatus and readiness are valid, a
   registered violation of a frozen mandatory criterion is a branch technology
   failure governed by DR-0009.
@@ -563,18 +626,24 @@ after their resolution; no acceptance is implied.
   binary-average counterexample, plus nesting, duplicate keys, operand scaling,
   operand order, coefficient order, hard/cutoff ties, residual mass, and
   incompatible charts.
-- Apply the DR-0009 Revision 7 attribution contract: for quantitative criteria
+- Apply the DR-0009 Revision 8 attribution contract: for quantitative criteria
   freeze estimand, replication, adjudication, multiplicity, practical margin
   `±delta`, valid uncertainty intervals, and boundaries; classify `B` only
   when the interval is wholly above `+delta`, `H` only when wholly below
   `-delta`, `N` only when wholly inside the margin, and `U` otherwise or when
-  evidence is invalid/unavailable. For visual criteria use qualitative
-  `B`/`H`/`visually-equivalent`/`U` adjudication without statistical precision.
-  The full per-fixture/site/criterion matrix is the component-attribution
-  result; optional coverage counts are descriptive only. Keep conditional
-  effect patterns literal and descriptive, with no independence, synergy,
-  antagonism, or interaction claims, and keep `combined-hybrid-only` as a
-  separate bundle tag with no component credit.
+evidence is invalid/unavailable. For visual criteria use the separate
+minimum-three-reviewer panel with individual
+  votes, masking/randomization where practical, and modality-specific `N` for
+  visual equivalence; `NA` is separate from `U` and excluded from applicable-
+  cell coverage. Aggregate `B`/`H` only at at least two of three with no
+  opposite vote, aggregate visual `N` only at at least two of three with no
+  `B`/`H`, and otherwise use `U`; fewer than three reviewers is `U` and
+  exploratory. The full per-fixture/site/criterion matrix is the component-
+  attribution result; optional coverage counts are descriptive only. Keep
+  conditional effect patterns literal and descriptive, with no independence,
+  synergy, antagonism, or interaction claims. Component `U` does not by itself
+  block bundle `Support`; bundle outcome remains separate and grants no
+  component credit.
 - Record vertex/face counts, connectedness, degenerate or ambiguous cases,
   boundary/non-manifold status, Euler/genus where applicable,
   self-intersections, winding/orientation, signed volume, normals versus field
@@ -586,12 +655,12 @@ after their resolution; no acceptance is implied.
   from any later animation or runtime claim. Preserve durable semantic
   identity, resolved-graph lineage, and build/artifact provenance independently
   of ephemeral mesh indices.
-- Keep execution status separate from technology outcome. Mark a run
-  `Complete` only when all comparisons close through valid/terminal branch
-  evidence or a registered shared terminal failure; only then calculate an
-  outcome or feasibility annotation. `Incomplete` and `Abandoned` runs retain
-  partial evidence, ledger allocations, budgets, and stopping reasons without
-  a primary outcome or feasibility annotation.
+- Keep experiment lifecycle, evidence closure, and technology outcome separate.
+  Use the three fields from the [experiment workflow](../../experiments/README.md):
+  only `finished` with `complete` closure calculates an outcome or feasibility
+  annotation; `planned`/`running` remain `open`/`none`, and an experiment
+  ending without closure is `finished` or `abandoned` with `incomplete`/`none`.
+  `abandoned` is always `incomplete`/`none`.
 - Record exact library versions, licenses, hardware, commands, and retained
   artifacts when implementation begins. This DR does not select OpenVDB,
   scikit-image, OpenSubdiv, or another production dependency or production
