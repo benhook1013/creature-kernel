@@ -53,8 +53,9 @@ The foundation scaffold and governance process are integrated. DR-0001 Revision
 only to the Governance DR. DR-0002 through DR-0008 remain Proposed with their
 review evidence and owner-disposition state preserved. No permanent production
 surface architecture, implementation stack, numeric budget, exact fixture,
-grid, threshold, schema, runtime field, topology, or geometry backend is
-selected.
+schema, runtime field, topology, or geometry backend is selected. CK-KICK-010's
+approved grid, field, bundle, determinism, and structural-gate values are
+debug-only spike inputs and do not change that boundary.
 
 ## Current round and work state
 
@@ -66,12 +67,11 @@ selected.
 - CK-KICK-009 is complete for the disposable exploratory geometry host:
   Python with NumPy, scikit-image marching cubes, and trimesh, all retained as
   replaceable discovery adapters rather than production selections.
-- CK-KICK-010 is discussion-ready and next: a bounded walking skeleton from one
-  valid and one intentionally invalid fixture through a resolved graph, simple
-  analytic volumes, dense-field sampling, one visible mesh, a source-linked
-  semantic-region channel, diagnostics, and provenance artifacts. Ben-approved
-  provisional semantic-input choices are recorded in the kickoff plan; they do
-  not create a schema, DR, or production contract.
+- CK-KICK-010 has Ben-approved bounded implementation inputs recorded in the
+  kickoff plan, including the four corrected semantic-input boundaries and the
+  `2 / 2 / 2 / 3 / 2` technical spike-planning selections. Implementation and
+  review are next; these provisional inputs do not create a schema, DR, or
+  production contract.
 - CK-KICK-011 follows useful exploratory evidence. A formal comparative
   surface decision is optional and risk-driven, not automatic.
 - CK-KICK-012 may define the minimal body document/body graph in parallel with
@@ -88,10 +88,9 @@ selected.
   what must remain engine-independent and disposable.
 - Keep the minimal body document/body graph moving in parallel where it informs
   the executable spine.
-- The next implementation-planning discussion will turn the provisional
-  CK-KICK-010 semantic-input batch into a bounded executable slice, including
-  module seams, artifact paths, command, and validation/test coverage; it does
-  not reopen DR-0009/0010.
+- Implement and review CK-KICK-010 from the approved bounded inputs, including
+  module seams, artifact paths, command, and validation/test coverage; this
+  does not reopen DR-0009/0010. CK-KICK-012 can proceed in parallel later.
 - Preserve the accepted governance process and all historical decision/review
   evidence without reopening the parked confirmatory protocol.
 

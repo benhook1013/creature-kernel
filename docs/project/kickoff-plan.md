@@ -451,37 +451,100 @@ Outcome:
 
 #### Temporary semantic-input choices (Ben-approved; provisional/disposable)
 
-The following choices are approved for this walking-skeleton exploration only.
-They are reversible implementation-planning inputs, not a permanent product or
-specification contract, production architecture, or new decision record:
+On 2026-08-09 Ben approved all four reviewed boundary corrections and the
+technical spike-planning selections below for this walking-skeleton
+exploration only. They are reversible implementation-planning inputs, not a
+permanent product or specification contract, production architecture, or new
+decision record. DR-0009 and DR-0010 remain parked and unchanged.
 
-- Use a minimal temporary JSON fixture with a small code-level validator; do
-  not introduce a formal JSON Schema. The temporary envelope includes
-  `fixture_id`, `spike_revision`, a deterministic `seed`, and typed body nodes
-  and parameters. Exact fixture syntax and file layout remain disposable.
-- Resolve the fixture into a rooted typed ownership tree with durable semantic
-  IDs, parent-local transforms, left/right metadata, and named attachment
-  sockets. This bounds the spike's representation; it must not imply that the
-  permanent graph is restricted to a tree.
-- The valid fixture contains a torso, pelvis, head, muzzle, paired arms with
-  simplified hand/paw modules, paired digitigrade thigh/shin-hock/foot-paw
-  chains, and one optional predefined ear or tail attachment exercising a
-  named socket. The invalid fixture omits `right_shin`, emits the stable
-  `MISSING_REQUIRED_MODULE` diagnostic, and stops before field evaluation or
-  meshing.
-- Use a temporary glTF-following coordinate and unit convention: right-handed,
-  `+Y` up, `+Z` creature-forward, `-X` creature-right, and metres. Keep all
-  transforms parent-local and make resolved world transforms explicit. Host
-  adapters may convert this convention; it is spike-only and is not yet a
-  normative `spec/` contract.
-- For initial surface lineage, assign one deterministic winning source-region
-  semantic ID to each generated vertex, referencing resolved semantic IDs
-  rather than stable vertex IDs. Rich weighted lineage and DR-0010 remain
-  parked; upgrade only if the spike exposes a concrete diagnostic need.
-- Preserve the structured deterministic diagnostics and provenance already
-  approved for the walking skeleton. Do not invent a production CLI or file
-  schema, and do not reopen DR-0009 or DR-0010. Semantic IDs remain distinct
-  from artifact-local vertex indices, which are ephemeral debug-mesh data.
+The temporary semantic input remains a minimal JSON fixture with a small
+code-level validator; do not introduce a formal JSON Schema. The temporary
+envelope includes `fixture_id`, `spike_revision`, a deterministic `seed`, and
+typed body nodes and parameters. Exact fixture syntax and file layout remain
+disposable.
+
+The four corrected boundaries are:
+
+1. Resolve the fixture into a rooted typed ownership tree with deterministic
+   source-node labels, parent-local transforms, left/right metadata, and named
+   attachment sockets. The labels are stable only for deterministic reruns of
+   the same input under the same `spike_revision`; they are not durable
+   semantic IDs and do not establish a cross-revision namespace. CK-KICK-012
+   owns any later durable semantic identity and namespace contract. The tree
+   bounds this spike's representation and must not imply that the permanent
+   graph is restricted to a tree.
+2. The valid fixture contains a torso, pelvis, head, muzzle, paired arms with
+   simplified hand/paw modules, paired digitigrade thigh/shin-hock/foot-paw
+   chains, and one optional predefined ear or tail attachment exercising a
+   named socket. The invalid fixture omits `right_shin`. Its primary
+   validation result is `MISSING_REQUIRED_MODULE`, with validation-phase
+   precedence and early termination before field evaluation or meshing. The
+   diagnostic code/path is stable only within the current `spike_revision`.
+3. Use a temporary glTF-following coordinate and unit convention:
+   right-handed, `+Y` up, `+Z` creature-forward, `-X` creature-right, and
+   metres. Keep all transforms parent-local and make resolved world transforms
+   explicit. Provenance must record units, coordinate basis, and the actual
+   export transform. The valid fixture must include a known asymmetric
+   left/right landmark, and export validation must verify that landmark after
+   export. If an adapter applies a negative-determinant transform, it must
+   correct and test triangle winding and normals. Host adapters may convert
+   this convention; it is spike-only and is not a normative `spec/` contract.
+4. At each generated vertex, evaluate every named primitive's raw signed
+   normalized implicit field, choose the lowest value, and break exact ties by
+   source-node label. This is winner-only debug attribution: it is not weighted
+   lineage and is not DR-0010 evidence. The winning label is distinct from the
+   artifact-local vertex index, which remains ephemeral debug-mesh data.
+
+#### Technical spike-planning selections (2 / 2 / 2 / 3 / 2)
+
+These five selections are also provisional and disposable. They constrain this
+spike's implementation and proof surface only; they do not establish Stage 1
+thresholds, production surface semantics, or a runtime/rigging/physics
+contract.
+
+1. **Selection 2 — signed normalized implicit fields.** Primitive fields are
+   not true signed-distance fields or collision-ready distances. For a
+   capsule, use `distance-to-segment / radius - 1`; for an ellipsoid, use
+   `sqrt((x/rx)^2 + (y/ry)^2 + (z/rz)^2) - 1`. Negative is inside, zero is the
+   surface, and positive is outside. Use the zero isovalue. Combine primitives
+   through one explicitly deterministic, provisionally fixed smooth-min
+   configuration and operand order. Record the exact operator and parameter
+   in the run configuration; do not claim production surface semantics.
+2. **Selection 2 — resolved-AABB grid.** Derive grid bounds from the resolved
+   primitive AABB, expand by provisional `0.10 m` padding, and use fixed
+   `128^3` samples. Record bounds, origin, spacing, axis order, padding, and
+   isovalue. Fail rather than silently expanding if any sampled domain-face
+   value is nonpositive, because that means the sampled exterior is not clear
+   of the zero surface. These are debug settings, not Stage 1 thresholds.
+3. **Selection 2 — complete staged bundle publication.** Require an explicit
+   output directory. Refuse an existing completed output unless explicit
+   overwrite is supplied. Stage to a temporary sibling and publish only a
+   complete bundle. A successful provisional bundle contains
+   `manifest.json`, `resolved_graph.json`, `mesh.ply`, `semantic_regions.json`,
+   and `diagnostics.json`. The invalid fixture publishes diagnostics-only,
+   exits nonzero, and publishes no mesh. An unexpected exception publishes no
+   partial final bundle. Deterministic files exclude timestamps, absolute
+   paths, random IDs, and temporary names; exact staging-name mechanics remain
+   implementation detail.
+4. **Selection 3 — scoped artifact determinism.** Canonicalize semantic JSON
+   deterministically and SHA-256 every final artifact. The manifest records
+   hashes for the other bundle artifacts without self-reference; its own hash
+   may be reported outside the manifest. Derive build identity from canonical
+   input/configuration, seed, compiler/source revision, and dependency
+   versions. Exact same-environment reruns must match the relevant artifact
+   hashes. Perform structural and semantic checks separately. Do not claim
+   cross-platform bit-exact determinism; mesh indices remain artifact-local.
+5. **Selection 2 — structural minimum success gate.** Check unique spike-local
+   source labels; a required and connected graph; finite transforms and
+   parameters; positive radii; a finite field with inside/outside samples, a
+   zero crossing, and only positive samples on every domain face; a nonempty
+   finite indexed triangular mesh with no zero-area faces and one connected
+   closed component for the valid fixture; and exactly one valid winner label
+   per vertex with matching cardinality. Two clean valid reruns must match
+   hashes. Two invalid reruns must produce the primary expected diagnostic and
+   no mesh. This gate
+   explicitly excludes Stage 1 visual, performance, and production claims and
+   all runtime, rigging, and physics concerns.
 
 ### CK-KICK-011: Decide the initial surface architecture
 
