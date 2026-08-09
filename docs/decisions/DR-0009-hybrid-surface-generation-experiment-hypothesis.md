@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-09
 
@@ -35,7 +35,12 @@ revision.
 Revision 4 applies Ben's settled resolutions to causal failure attribution,
 strict non-overlapping outcome precedence, comparative visual evidence,
 bounded fairness and knowledge reuse, and interaction attribution. Revision 4
-is unreviewed and unaccepted; this proposal remains Proposed with Owner
+was reviewed by the [architecture/proof/governance review](reviews/DR-0009-rev-04-review-01.md)
+and [geometry/semantics/measurement review](reviews/DR-0009-rev-04-review-02.md);
+both recommended `Revise` at High confidence. The current reviews leave
+branch-readiness terminal disposition, baseline-failure handling, outcome-row
+precedence, interaction-category exclusivity, and complete Pareto dominance
+and simplicity rules unresolved. This proposal remains Proposed with Owner
 approval Pending.
 
 Supersedes: —
@@ -424,8 +429,17 @@ budgets, and knowledge reuse; and interaction contrasts constrain independent
 component credit. The empty-frontier case is comparative `Inconclusive`, with
 only a separate non-comparative feasibility annotation available. These
 Revision 3 reviews remain preserved as historical evidence and stale for
-Revision 4. Revision 4 is unreviewed and unaccepted; this proposal remains
-Proposed with Owner approval Pending, and no acceptance is implied.
+Revision 4.
+
+The current [architecture/proof/governance review](reviews/DR-0009-rev-04-review-01.md)
+and [geometry/semantics/measurement review](reviews/DR-0009-rev-04-review-02.md)
+both reviewed Revision 4 and recommended `Revise`, at High confidence. They
+identify unresolved finite branch-readiness disposition, the contradiction
+between baseline-failure handling and the supporting research design,
+overlapping outcome rows, overlapping interaction categories, incomplete
+frontier dominance and simplicity rules, and the need to separate component
+attribution from bundle-level combined-only results. Revision 4 remains
+Proposed with Owner approval Pending; no acceptance is implied.
 
 ## Implementation and Proof Obligations
 

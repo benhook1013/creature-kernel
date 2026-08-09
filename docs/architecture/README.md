@@ -50,8 +50,18 @@ comparative precedence, fairness and interaction-registration controls, and
 the separate mandatory visual floor for DR-0009. It also incorporates the
 canonical non-negative semantic-lineage distribution and independent oracle
 coverage for DR-0010. Both remain Proposed with Owner approval Pending and
-Review Pending; their Revision 3 Double reviews are historical and stale after
-the material revision, and the approved findings await new review. The
+Review Complete. Two independent reviews — Review 01
+(architecture/proof/governance) and Review 02 (geometry/semantics/measurement)
+— both recommend Revise at High confidence. The
+unresolved shared finding is the terminal treatment of budget-exhausted
+unreadiness. DR-0009 additionally has an unresolved branch-sensitive
+baseline-failure contradiction in the research design, exclusive
+match/tradeoff predicates, mutually exclusive interaction labels, and a
+complete frontier dominance/simplicity disposition. DR-0010 additionally has
+unresolved nested contribution algebra that is not reassociation-invariant
+under per-operator normalization and a missing cross-resolution
+phase/convergence rule. Their Revision 3 Double reviews are historical and
+stale after the material revision. The
 [first surface experiment design](../research/first-surface-experiment-design.md)
 remains a neutral Proposed, manually maintained evidence plan; it does not
 register EXP-0001 or create evidence. These materials guide falsifiable

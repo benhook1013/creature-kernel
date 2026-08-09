@@ -98,9 +98,18 @@ local controls include sub-voxel phase checks, six-face field clearance,
 prospective topology invariants, and a canonical non-negative distribution over
 durable `(semantic_id, chart_id)` keys with deterministic ties, residuals,
 parallel categorical/chart validity, and independent closed-form oracles. Both
-remain Proposed with Owner approval Pending and Review Pending. Their Revision
-3 Double reviews are historical and stale after the material revision; the
-approved findings await new review. The [first surface experiment
+remain Proposed with Owner approval Pending and Review Complete. Two
+independent reviews — Review 01 (architecture/proof/governance) and Review 02
+(geometry/semantics/measurement) — both recommend Revise at High confidence.
+The unresolved shared finding is the terminal treatment of budget-exhausted
+unreadiness. DR-0009 additionally has an unresolved branch-sensitive
+baseline-failure contradiction in the research design, exclusive
+match/tradeoff predicates, mutually exclusive interaction labels, and a
+complete frontier dominance/simplicity disposition. DR-0010 additionally has
+unresolved nested contribution algebra that is not reassociation-invariant
+under per-operator normalization and a missing cross-resolution
+phase/convergence rule. Their Revision 3 Double reviews are historical and
+stale after the material revision. The [first surface experiment
 design](../research/first-surface-experiment-design.md) remains a neutral
 Proposed, manually maintained evidence design; it does not register EXP-0001,
 create fixtures, or provide evidence. These are Proposed experiment

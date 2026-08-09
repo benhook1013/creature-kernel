@@ -396,9 +396,19 @@ empty-frontier rule, fairness/search controls, separate visual floor and
 comparative frontier, and per-criterion interaction registration for DR-0009,
 plus the canonical non-negative semantic-lineage distribution and independent
 closed-form oracle coverage for DR-0010. Both remain Proposed with Owner
-approval Pending and Review Pending. Their Revision 3 Double reviews are
-historical and stale after the material revision; the approved findings await
-new current-revision review. This plan does not imply acceptance.
+approval Pending and Review Complete. Two independent reviews — Review 01
+(architecture/proof/governance) and Review 02 (geometry/semantics/measurement)
+— both recommend Revise at High confidence. The unresolved shared finding is
+the terminal treatment of budget-exhausted unreadiness. DR-0009 additionally
+has an unresolved branch-sensitive baseline-failure contradiction in the
+research design, exclusive match/tradeoff predicates, mutually exclusive
+interaction labels, and a complete frontier dominance/simplicity disposition.
+DR-0010
+additionally has unresolved nested contribution algebra that is not
+reassociation-invariant under per-operator normalization and a missing
+cross-resolution phase/convergence rule. Their Revision 3 Double reviews are
+historical and stale after the material revision. This plan does not imply
+acceptance.
 
 ### CK-KICK-009: Choose a disposable geometry experiment stack
 

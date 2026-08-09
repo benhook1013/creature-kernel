@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-09
 
@@ -33,8 +33,13 @@ review](reviews/DR-0010-rev-03-review-01.md) and [geometry/semantics/measurement
 review](reviews/DR-0010-rev-03-review-02.md); both reviews are preserved as
 historical evidence and are stale for this revision. Revision 4 applies Ben's
 settled Round 9 resolutions to causal evidence classification and the nested
-semantic contribution algebra. Revision 4 is unreviewed and unaccepted; this
-proposal remains Proposed with Owner approval Pending.
+semantic contribution algebra. Revision 4 was reviewed by the
+[architecture/proof/governance review](reviews/DR-0010-rev-04-review-01.md)
+and [geometry/semantics/measurement review](reviews/DR-0010-rev-04-review-02.md);
+both recommended `Revise` at High confidence. The current reviews leave
+finite branch-readiness disposition, nesting invariance, and
+cross-resolution phase/convergence rules unresolved. This proposal remains
+Proposed with Owner approval Pending.
 
 Supersedes: —
 
@@ -362,9 +367,15 @@ registered branch technology failures, and by defining representation-
 invariant nested composition with deterministic coalescence, coefficient,
 selection, cutoff, residual, and chart-state rules plus closed-form independent
 oracles. The Revision 3 reviews remain preserved as historical evidence and
-are stale for Revision 4. Revision 4 is unreviewed and unaccepted; this
-proposal remains Proposed with Owner approval Pending, and no acceptance is
-implied.
+are stale for Revision 4.
+
+The current [architecture/proof/governance review](reviews/DR-0010-rev-04-review-01.md)
+and [geometry/semantics/measurement review](reviews/DR-0010-rev-04-review-02.md)
+both reviewed Revision 4 and recommended `Revise`, at High confidence. They
+identify unresolved finite branch-readiness disposition, the lack of a
+nesting-invariant coefficient-composition law and reassociation oracle, and
+the lack of a cross-resolution phase/convergence rule. Revision 4 remains
+Proposed with Owner approval Pending; no acceptance is implied.
 
 ## Implementation and Proof Obligations
 

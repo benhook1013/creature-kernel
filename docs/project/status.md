@@ -33,13 +33,18 @@ treatment; DR-0010 records approved sub-voxel phase checks, six-face field
 clearance, prospective topology invariants, and a canonical non-negative
 semantic-lineage distribution with top-k residual rules and independent
 closed-form oracles. Both remain Proposed with Owner approval Pending and
-Review Pending.
-Their Revision 3 Double reviews are historical and stale after the material
-revision; the approved findings await new current-revision review. The
-approved resolutions address causal classification, strict comparative
-precedence, fairness, visual-frontier consistency, interaction attribution, and
-semantic-lineage composition; they are integrated pending current-revision
-review. The neutral first
+Review Complete. Two independent reviews — Review 01
+(architecture/proof/governance) and Review 02 (geometry/semantics/measurement)
+— both recommend Revise at High confidence. The unresolved shared finding is
+the terminal treatment of budget-exhausted
+unreadiness. DR-0009 additionally has an unresolved branch-sensitive
+baseline-failure contradiction in the research design, exclusive
+match/tradeoff predicates, mutually exclusive interaction labels, and a
+complete frontier dominance/simplicity disposition. DR-0010 additionally has
+unresolved nested contribution algebra that is not reassociation-invariant
+under per-operator normalization and a missing cross-resolution
+phase/convergence rule. Their Revision 3 Double reviews are historical and
+stale after the material revision. The neutral first
 surface experiment design remains Proposed and manually maintained; `EXP-0001`
 remains unregistered and contains no evidence. No permanent production
 architecture, implementation stack, exact fixtures, grids, thresholds,
@@ -83,14 +88,19 @@ has Ben's explicit disposition.
   Complete with Accept recommendations at High confidence and owner
   dispositions pending; these DRs remain Proposed.
 - Round 6: integrated/proposed — DR-0009 Revision 4 and DR-0010 Revision 4 remain
-  Proposed with Owner approval Pending and Review Pending. Revision 4 addresses
-  the approved evidence classification, strict comparative precedence,
-  fairness/search controls, visual-floor separation, interaction attribution,
-  and canonical semantic-lineage distribution. Their Revision 3 Double
-  reviews are historical and stale after the material revision; the approved
-  findings await new current-revision review. These proposals do not settle
-  permanent production surface, topology, runtime-field, or backend
-  architecture.
+  Proposed with Owner approval Pending and Review Complete. Two independent
+  reviews — Review 01 (architecture/proof/governance) and Review 02
+  (geometry/semantics/measurement) — both recommend Revise at High confidence.
+  The unresolved shared finding is the terminal treatment of budget-exhausted
+  unreadiness. DR-0009 additionally has an unresolved branch-sensitive
+  baseline-failure contradiction in the research design, exclusive
+  match/tradeoff predicates, mutually exclusive interaction labels, and a
+  complete frontier dominance/simplicity disposition. DR-0010 additionally
+  has unresolved nested contribution algebra that is not reassociation-invariant
+  under per-operator normalization and a missing cross-resolution
+  phase/convergence rule. Their Revision 3 Double reviews are historical and
+  stale after the material revision. These proposals do not settle permanent
+  production surface, topology, runtime-field, or backend architecture.
 
 ## Active work
 
@@ -102,10 +112,10 @@ has Ben's explicit disposition.
 - Obtain Ben's owner disposition for the completed DR-0003 Revision 2 review
   while keeping it provisional and separate from acceptance, and obtain owner
   dispositions for DR-0007 and DR-0008 after their completed reviews.
-- Obtain the new current-revision review of DR-0009 and DR-0010 before any owner
-  disposition. The neutral first experiment design remains
-  proposed/prepared, but `EXP-0001` remains unregistered and the disposable
-  host remains unresolved.
+- Resolve the current-revision Revise findings for DR-0009 and DR-0010 with Ben
+  before any owner disposition; no acceptance is implied. The neutral first
+  experiment design remains proposed/prepared, but `EXP-0001` remains
+  unregistered and the disposable host remains unresolved.
 - Next human discussion: the disposable host stack, exact four-profile values,
   grid sizes and resource budget, and artifact retention.
 - Keep CK-KICK-009 queued until the human review discussion is complete.
@@ -153,24 +163,33 @@ has Ben's explicit disposition.
   pending.
 - [DR-0009](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md):
   hybrid surface-generation experiment hypothesis — Revision 4, Architecture
-  scope; Proposed, Owner approval Pending, Review Pending. The approved
-  evidence, comparative precedence, fairness, visual-floor, and interaction
-  resolutions are integrated; the Revision 3 Double reviews are historical and
-  stale after the material revision, pending a new current-revision review.
+  scope; Proposed, Owner approval Pending, Review Complete. Two independent
+  reviews — Review 01 (architecture/proof/governance) and Review 02
+  (geometry/semantics/measurement) — recommend Revise at High confidence.
+  Unresolved findings are the shared terminal treatment of budget-exhausted
+  unreadiness, plus a branch-sensitive
+  baseline-failure contradiction in the research design, exclusive
+  match/tradeoff predicates, mutually exclusive interaction labels, and a
+  complete frontier dominance/simplicity disposition. The Revision 3 Double
+  reviews are historical and stale after the material revision.
 - [DR-0010](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md):
   Stage 1 surface extraction and semantic-field propagation — Revision 4,
   Specification and architecture scope; Proposed, Owner approval Pending,
-  Review Pending. The approved evidence classification and canonical
-  semantic-lineage resolutions are integrated; the Revision 3 Double reviews
-  are historical and stale after the material revision, pending a new
-  current-revision review.
+  Review Complete. Two independent reviews — Review 01
+  (architecture/proof/governance) and Review 02 (geometry/semantics/measurement)
+  — recommend Revise at High confidence. Unresolved findings are the shared
+  terminal treatment of budget-exhausted
+  unreadiness, plus nested contribution algebra that is not
+  reassociation-invariant under per-operator normalization and a missing
+  cross-resolution phase/convergence rule. The Revision 3 Double reviews are
+  historical and stale after the material revision.
 
 ## Implementation status
 
 | Capability | Implementation | Verification | Notes |
 | --- | --- | --- | --- |
 | Documentation authority | partial | unverified | Operational structure and validator integrated; DR-0001 Revision 5 accepted after its Complete clean review |
-| Decision-record and review workflow | partial | unverified | DR-0001 is Accepted; product and architecture DRs remain Proposed; DR-0009/0010 Revision 4 are Review Pending after their approved material revisions |
+| Decision-record and review workflow | partial | unverified | DR-0001 is Accepted; product and architecture DRs remain Proposed; DR-0009/0010 Revision 4 are Review Complete with Revise recommendations pending human resolution |
 | Research/experiment workflow | partial | unverified | Templates exist; no experiment registered |
 | Body specification | design-unresolved | not-applicable | Contract boundary remains proposed |
 | Creature compiler | not-implemented | not-applicable | No language or backend selected |
@@ -182,8 +201,9 @@ has Ben's explicit disposition.
   any other DR.
 - Obtain Ben's explicit dispositions for DR-0007/0008 and the completed
   DR-0003 review.
-- Obtain the current-revision review for DR-0009/0010 Revision 4, then discuss
-  the proposed/prepared next experiment and its evidence plan.
+- Resolve the Review Complete Revise findings for DR-0009/0010 Revision 4 with
+  Ben before owner disposition, then discuss the proposed/prepared next
+  experiment and its evidence plan.
   `EXP-0001` remains unregistered and the disposable host remains unresolved.
 
 ## Explicitly not started
