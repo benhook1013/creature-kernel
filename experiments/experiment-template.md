@@ -2,7 +2,11 @@
 
 Experiment ID: EXP-NNNN
 
-Status: planned
+Experiment lifecycle: planned
+
+Evidence closure: open
+
+Technology outcome: none
 
 Owner: Name
 
@@ -12,7 +16,13 @@ Date completed: —
 
 Research questions: RQ-NNN
 
-Related ADRs: —
+Related DRs: —
+
+## Protocol (optional)
+
+Link the specific activated protocol, if this experiment uses one. The generic
+template does not prescribe comparative branches, accounting ledgers, repair
+logs, adjudication rules, or component-attribution states.
 
 ## Question
 
@@ -64,7 +74,9 @@ What bodies, scenes, hardware, metrics, or expertise were not represented?
 
 ## Conclusion
 
-Supported | Falsified | Inconclusive | Abandoned
+Record the evidence closure and technology outcome separately using the
+[generic experiment workflow](README.md). A specific activated protocol
+may add stricter closure, attribution, or outcome requirements.
 
 ## Recommended Follow-up
 

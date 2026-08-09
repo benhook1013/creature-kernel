@@ -1,17 +1,44 @@
 # Vision and scope
 
-Status: Active
+Status: Proposed product baseline
 
 ## Vision
 
 Creature Kernel is a programmable creature-generation and embodiment platform.
-It should construct semantic bodies, surface geometry, rigging, collision,
-deformation data, appearance inputs, and runtime capabilities from one
-deterministic body definition.
+It should resolve an authoritative semantic source set into a per-build
+semantic body-graph snapshot, then derive surface geometry, rigging, collision,
+deformation data, appearance inputs, and runtime capabilities from that shared
+lineage.
 
 The initial creative focus is stylized furry characters. The larger goal is a
 body grammar capable of expressing related morphology families without making
 every character a bespoke graphics and physics project.
+
+## Initial product boundary (Proposed)
+
+The initial product is an engine-independent procedural creature compiler and
+embodiment runtime, not a game, editor, or general-purpose engine. A real-time
+game is the first downstream proof and integration target. The earliest workflow
+is the project developer or researcher using structured source, CLI/API
+operations, diagnostics, and reproducible evidence; technical artists and game
+developers are important downstream review and integration users.
+
+Stylized furry characters are the initial domain. Adult interactions are
+explicit motivating use cases and difficult contact/deformation stress cases,
+while reusable body, contact, and solver mechanisms remain general rather than
+hard-coded to adult mechanics. Native programmatic generation without a
+handcrafted base mesh is the first reference path. External authored-mesh
+conformance is later, and early contracts must not foreclose it.
+
+These four initial-boundary statements are proposed under
+[DR-0005](../decisions/DR-0005-initial-product-boundary-and-reference-workflow.md).
+The compile/runtime direction is Proposed under
+[DR-0003](../decisions/DR-0003-real-time-first-compiled-avatar-boundary.md):
+expensive invariant generation is outside the frame loop, while a bounded
+hybrid package supports live interaction and an initial in-session preview
+reload workflow. The source, identity, and operation directions are recorded
+as Proposed in their respective decision records; exact formats, syntax,
+budgets, and compatibility details remain open.
 
 ## Primary outcome
 
@@ -23,6 +50,12 @@ deformation systems.
 The platform should make a generated creature more than a visible mesh. It must
 retain semantic knowledge of body parts, relationships, capabilities, material
 regions, and runtime representations.
+
+The proposed runtime direction combines conventional prepared assets with
+selected semantic fields, cages, signed-distance data, and regional simulation
+data. Live work remains bounded to pose, contact, parameterized deformation,
+and activated regional solvers; it is neither a fully live implicit character
+nor a semantics-free conventional asset.
 
 ## Product character
 
@@ -38,39 +71,77 @@ Creature Kernel is intended to become:
 
 ## Initial scope
 
-- Stylized furry morphology with an intentionally bounded first body family.
+- A bounded stylized digitigrade furry biped family for the first proof:
+  required torso/pelvis, head with a simplified muzzle, two arms with
+  simplified hands or paws, and two digitigrade legs with simplified feet or
+  paws. Predefined ears and tail may be enabled through named sockets. This
+  family is a Proposed boundary, not a claim of arbitrary-anatomy support.
 - Programmatic body assembly without requiring a handcrafted base character mesh.
 - Continuous surface generation from semantic volumetric parts or an alternative
   method selected through evidence and review.
-- Generated skeleton, skinning, collision, semantic regions, and basic materials.
+- Stage 1 must preserve source-linked semantic joint frames and semantic
+  region intent/lineage. It does not have to generate a usable bone hierarchy,
+  bind weights/skinning, analytic collision proxies, or actual contact
+  artifacts. Stage 2 generates usable skeletons, skin weights, and collision
+  proxies and proves one shared pose/control scenario; Stage 3 owns actual
+  contact, deformation, and runtime claims.
+- Generated semantic regions and basic material inputs, with bounded runtime
+  representations, quality levels, and fallbacks introduced by later stages.
 - Bounded real-time representations with quality levels and fallbacks.
+- In-session preview recompilation and replacement without closing the scene or
+  session; a failed replacement retains the last validated avatar and reports
+  diagnostics.
 - Headless generation, inspection, validation, and preview rendering.
-- Deterministic source documents and reproducible builds.
+- Authoritative semantic source inputs and reproducible builds.
 - A path for later conformance of externally supplied meshes.
 
 ## Explicit non-goals for the first proof
 
 - A complete standalone renderer or general-purpose game engine.
-- Equal-quality support for arbitrary fictional anatomy.
+- Extra limbs, wings, quadrupeds, arbitrary joints or graphs, detailed digits,
+  arbitrary anatomy, and other morphology families.
 - Full render-resolution soft-body simulation over every character.
 - Dynamic topology changes every frame.
-- Dense strand fur, clothing, and self-collision at cinematic fidelity.
+- Dense fur or hair, clothing or cloth, and self-collision at cinematic
+  fidelity.
+- Stage 1 claims of shared pose, adult contact, or visible deformation.
 - A built-in language model or chat interface.
 - A production SaaS, multiplayer service, marketplace, or deployment platform.
 - Automatic replacement of artistic judgment in every generated detail.
 
 ## Success shape
 
-The first meaningful proof should generate multiple substantially different
-members of one morphology family from body documents and demonstrate that they:
+Success is a staged progression, with each stage making only its own claims.
+Stage 1 is the first continuation gate: every declared valid fixed fixture
+must pass every mandatory structural check and the recorded subjective visual
+floor. It should generate multiple substantially different members of the
+bounded family from body documents, without bespoke mesh or rig work, and
+provide reproducible geometry, semantic regions, basic appearance inputs,
+diagnostics, and the source-linked embodiment lineage described above. A
+failed or inconclusive valid fixture means the gate has not passed, while
+remaining useful evidence; invalid fixtures must fail expected diagnostics and
+are not counted as valid pass fixtures. Before EXP-0001 execution or evidence,
+stable fixture IDs, concrete source inputs, discriminating parameters,
+seed/configuration, and provenance must be frozen; selecting hypotheses does
+not require that freeze. Passing Stage 1 does not claim shared pose,
+animation, contact, deformation, or real-time interaction.
 
-- compile without bespoke mesh or rig work;
-- preserve semantic body regions;
-- pass defined geometry and pose checks;
-- share at least one animation or procedural control scenario;
-- expose compatible collision and contact representations;
-- render and run within an explicit reference-hardware budget;
-- can be reproduced through documented CLI commands.
+Stage 2 is a separate embodiment proof. It must demonstrate generated
+skeleton, skin-weight, and collision-proxy behaviour across the fixed
+body-profile set, including at least one shared pose or control scenario, while
+preserving semantic representations. Stage 3 is a separate bounded real-time
+interaction proof; only it may claim actual contact artifacts and behaviour,
+localized deformation, physical response, and declared runtime-budget
+evidence.
+
+All stages use fixed, substantially different body profiles and shared
+generation operations; per-fixture patches are not evidence of a general
+family capability. Structural checks and recorded human visual assessment are
+separate evidence classes, as described in the [visual-quality evaluation
+protocol](../research/visual-quality-evaluation.md).
 
 Exact visual quality, morphology range, performance targets, and runtime engine
-remain open decisions.
+remain open decisions. Capability classes and quality names may be useful for
+explanation, but exact names and numerical budgets remain non-normative pending
+benchmarks; a high-end PC represents a larger finite budget, not an unbounded
+mode.

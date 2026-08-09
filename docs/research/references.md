@@ -9,9 +9,22 @@ they rely upon.
 ## Procedural and implicit body surfaces
 
 - [B-Mesh: A Modeling System for Base Meshes of 3D Articulated Shapes](https://doi.org/10.1111/j.1467-8659.2010.01805.x)
+- [Implicit Generalized Cylinders Using Profile Curves](https://doi.org/10.1016/j.cad.2004.09.012)
+- [Implicit Surface Modeling Based on General Skeletons](https://www.jos.org.cn/josen/article/abstract/20000913)
 - [Implicit Skinning: Real-Time Skin Deformation with Contact Modeling](https://doi.org/10.1145/2461912.2461960)
+- [Subdivision Surfaces in Character Animation](https://doi.org/10.1145/280814.280826)
+- [OpenSubdiv overview](https://graphics.pixar.com/opensubdiv/overview.html)
 - [Blender Volume to Mesh documentation](https://docs.blender.org/manual/en/latest/modeling/geometry_nodes/volume/operations/volume_to_mesh.html)
 - [Houdini SDF Blend documentation](https://www.sidefx.com/docs/houdini/nodes/cop/sdfblend.html)
+- [OpenVDB Python documentation](https://www.openvdb.org/documentation/doxygen/python.html)
+- [OpenVDB ParticlesToLevelSet attribute transfer](https://www.openvdb.org/documentation/doxygen/classopenvdb_1_1v13__0_1_1tools_1_1ParticlesToLevelSet.html)
+- [OpenVDB VolumeToMesh](https://www.openvdb.org/documentation/doxygen/structopenvdb_1_1v12__1_1_1tools_1_1VolumeToMesh.html)
+
+## Surface extraction and topology
+
+- [Marching Cubes original paper](https://www.cs.toronto.edu/~jacobson/seminar/lorenson-and-cline-1987.pdf)
+- [scikit-image marching_cubes documentation](https://scikit-image.org/docs/stable/api/skimage.measure.html#skimage.measure.marching_cubes)
+- [Dual Contouring of Hermite Data](https://people.eecs.berkeley.edu/~jrs/meshpapers/JuLosassoSchaeferWarren.pdf)
 
 ## Rigging and retargeting
 

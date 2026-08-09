@@ -1,24 +1,35 @@
 # System architecture overview
 
-Status: Active conceptual baseline
+Status: Provisional conceptual baseline
 
 ## System purpose
 
-Creature Kernel converts a declarative semantic body definition into an embodied
-runtime avatar and provides bounded systems for animation, contact, deformation,
-and engine integration.
+Creature Kernel is proposed as an engine-independent procedural creature
+compiler and embodiment runtime. It resolves an authoritative semantic source
+set into a per-build semantic body-graph snapshot, then derives specialized
+representations for an embodied runtime avatar. It provides bounded systems for
+animation, contact, deformation, and engine integration. It is not initially a
+game, editor, or general-purpose engine; a real-time game is the first
+downstream proof and integration target. This boundary remains Proposed under
+[DR-0005](../decisions/DR-0005-initial-product-boundary-and-reference-workflow.md).
 
 ```text
-Human, script, or external AI
+Human, script, test, or external AI
               |
               v
-       CLI / programmatic API
+   Operation adapters (CLI/API/GUI)
               |
               v
-      Creature source document
+   Shared domain operations
               |
               v
-         Creature compiler
+ Authoritative semantic source set
+              |
+              v
+ Per-build resolved semantic body graph
+              |
+              v
+      Specialized compilers
    +----------+----------+-----------+
    |          |          |           |
    v          v          v           v
@@ -27,7 +38,7 @@ and fields   mesh     and skin   deformation data
    +----------+----------+-----------+
               |
               v
-       Runtime avatar package
+   Hybrid runtime avatar package
               |
               v
        Embodiment runtime
@@ -38,15 +49,16 @@ and fields   mesh     and skin   deformation data
 
 ## Principal representations
 
-### Creature source
+### Authoritative semantic source set
 
-The editable, deterministic declaration of parts, relationships, measurements,
-capabilities, generators, materials, and compilation parameters.
+The proposed authored inputs that preserve durable semantic intent. Initially
+this may be one human-readable document; future explicit semantic override
+layers may also be authored inputs. Physical format and precedence remain open.
 
-### Resolved body graph
+### Resolved semantic body graph snapshot
 
-The validated semantic structure produced after defaults, references,
-attachments, symmetry, inheritance, and generator parameters are resolved.
+The validated per-build semantic lineage produced after the source set is
+resolved. It is derived for that build and is not a competing authored source.
 
 ### Simulation representation
 
@@ -60,30 +72,69 @@ and bindings to the simulation representation.
 
 ### Runtime avatar package
 
-A versioned, bounded package containing the data required by a runtime adapter.
-Its exact serialization, compatibility, and streaming behaviour remain undecided.
+A derived, bounded hybrid package containing conventional prepared mesh, LOD,
+rig, collision, material, and deformation assets plus selected semantic fields,
+cages, signed-distance data, and regional simulation data required by a runtime
+adapter. It is not a promise of fully live implicit generation or
+semantics-free conventional assets. Artifact/build identity and provenance
+distinguish generated packages from durable semantic identity. Exact
+serialization, compatibility, and streaming behaviour remain undecided.
+
+### Stage 1 surface experiment hypotheses
+
+The Stage 1 surface proposals are deliberately narrower than this conceptual
+runtime architecture. The [first surface experiment design](../research/first-surface-experiment-design.md)
+and linked [DR-0009 Revision 8](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
+and [DR-0010 Revision 8](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md)
+are parked, Proposed confirmatory-research material. Their detailed records and
+reviews are preserved, but no Revision 9, owner disposition, or additional
+review is active. They become relevant only when at least two runnable candidate
+surface implementations exist and a comparative outcome is intended to justify
+production architecture, or when Ben explicitly reactivates them. Exploratory
+prototypes may proceed before then, but their observations cannot claim formal
+DR-0009/0010 support or reject. Permanent surface and topology architecture,
+runtime field representation, animation-ready edge flow, retopology, and
+backend choice remain unresolved.
 
 ## Architectural principles
 
 ### One source relationship
 
-Geometry, semantics, rigging, collision, and deformation data must derive from
-the same resolved body or explicitly declare another authoritative source.
+Geometry, rigging, collision, materials, deformation, packaging, and runtime
+representations must derive from the same resolved semantic graph or explicitly
+identify a linked authored input. This shared lineage does not require one mesh,
+topology, geometry field, or universal solver.
 
 ### Semantic stability
 
-Durable behaviour targets parts, regions, local frames, and capabilities rather
-than generated mesh indices.
+Durable behaviour targets parts, regions, joints, attachments, local frames, and
+capabilities through semantic identity. Artifact/build identity and provenance
+remain separate; generated topology indices are ephemeral through topology
+changes.
 
 ### Deterministic core
 
-Compilation should be reproducible from source, compiler version, configuration,
-and seed. Nondeterministic stages must be isolated and reported.
+Resolution and compilation should be reproducible from authored inputs, compiler
+version, configuration, and seed. Query, mutation, resolution/compilation,
+validation, diagnostics, and artifact inspection use one deterministic domain
+operation model. Nondeterministic stages must be isolated and reported.
 
 ### Engine-independent contracts
 
-The semantic model and runtime package concepts should not depend on one host
-engine. Adapters translate those contracts into engine-specific systems.
+The proposed semantic model and runtime package concepts should not depend on one
+host engine. Adapters translate those concepts into engine-specific systems;
+the detailed package and interface contracts remain open under Proposed
+[DR-0003](../decisions/DR-0003-real-time-first-compiled-avatar-boundary.md).
+
+### Compile/runtime separation
+
+Expensive invariant generation is outside the frame loop. The runtime performs
+bounded live pose, contact, parameterized deformation, and activated regional
+solver work against the hybrid package. Compatible parameter changes may update
+in place; topology, body-plan, and major structural changes require
+recompilation and validation. The initial preview workflow may block while it
+reloads a valid replacement in the same session, while a failed replacement
+retains the old validated avatar.
 
 ### Specialized solvers
 
@@ -99,18 +150,19 @@ hardware. Advanced systems require lower-cost fallbacks.
 ### Evidence before commitment
 
 Uncertain geometry, animation, physics, and performance choices should advance
-through research questions, experiments, adversarial review, and ADRs.
+through research questions, experiments, adversarial review, and decision
+records.
 
 ## System boundary
 
-Creature Kernel initially owns:
+Creature Kernel initially owns (proposed boundary):
 
-- body-document parsing and validation;
+- authored semantic-source parsing and validation;
 - semantic body resolution;
 - native procedural creature compilation;
 - avatar packaging and diagnostics;
 - runtime semantic capabilities and interaction coordination;
-- CLI/API automation;
+- shared domain operations and CLI/API adapters;
 - host-engine adapter contracts.
 
 It does not initially own:
@@ -124,7 +176,8 @@ It does not initially own:
 ## Major unresolved choices
 
 - Body-document representation and schema technology.
-- Surface and topology generation strategy.
+- Permanent surface and topology generation strategy (the Stage 1 hypotheses in
+  DR-0009 and DR-0010 do not resolve it).
 - Implementation language and geometry libraries.
 - First morphology family and generator set.
 - Skinning and joint-correction approach.
@@ -132,4 +185,7 @@ It does not initially own:
 - Collision and deformable-body backends.
 - Avatar-package serialization and versioning.
 - Performance envelope and reference hardware.
+- Capability-tier labels, finite quality budgets, and fallback thresholds.
+- Future asynchronous package-swap state and compatibility rules.
+- Bit-exact simulation, network, and replay determinism requirements.
 - Artifact storage and reproducibility strategy.

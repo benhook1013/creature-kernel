@@ -96,8 +96,8 @@ graph    mesh     and IK    fields     metadata
 ## Founding directions carried into the active baselines
 
 These directions summarize the founding conversation. Where a direction is
-represented by a proposed ADR, formal acceptance still requires that ADR's
-current review and an explicit decision-owner disposition.
+represented by a proposed decision record, formal acceptance still requires
+that DR's current review and an explicit decision-owner disposition.
 
 ### Product and scope
 
