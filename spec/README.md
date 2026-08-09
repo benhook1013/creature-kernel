@@ -19,49 +19,22 @@ changing the meaning of persisted bodies or avatar packages.
   concrete source inputs, discriminating parameters, seed/configuration,
   provenance, shared-generation expectations, validity/diagnostic status, and
   the distinction between fixture evidence and product claims. Exact fixture
-  definitions must be frozen before EXP-0001 execution or evidence; selecting
-  experiment hypotheses may precede that freeze.
-- The [Proposed first surface experiment design](../docs/research/first-surface-experiment-design.md)
-  is a neutral research/evidence design for the fixture identities, five
-  comparison branches, and common three-grid evidence structure. It is not a
-  normative schema, does not register EXP-0001, and does not provide evidence.
+  definitions must be frozen if the deferred EXP-0001 protocol is activated
+  before its execution or evidence; selecting hypotheses may precede that
+  freeze.
+- The [first surface experiment design](../docs/research/first-surface-experiment-design.md)
+  is parked, non-blocking confirmatory research. It is not a normative schema,
+  does not register EXP-0001, and does not provide evidence until its activation
+  trigger is met.
 - A planned staged embodiment contract describing Stage 1 source-linked
   semantic joint frames and semantic region intent/lineage, and the later
   ownership of usable skeletons, skin weights, collision proxies, contact, and
   deformation claims.
-- A planned Proposed Stage 1 sampled-field and semantic-lineage direction,
-  informed by [DR-0010 Revision 8](../docs/decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md),
-  including the universal identical `C` scaffold/shared-repair admission test,
-  immutable base manifest plus a finite append-only repair log and immutable
-  snapshots, frozen
-  manifest/provenance/source/assets/known-effort record, finite
-  `C`/`I`/`S`/`B`/`G` capability and branch-integration ledgers, common-domain
-  phase/convergence checks, and scoped determinism. Experiment lifecycle,
-  evidence closure, and technology outcome are separate fields; only
-  `finished`/`complete` experiments calculate an outcome or feasibility
-  annotation, while unfinished or abandoned runs retain partial evidence with
-  `incomplete`/`none`. The full per-fixture/site/criterion matrix owns
-  component attribution, generic `B/N/H/U` applies across modalities, and
-  visual `N` means visual equivalence under the panel protocol. `NA` is
-  separate from `U` and excluded from applicable-cell coverage; a component
-  `U` does not by itself block bundle `Support`. Failure or exhaustion of `C`
-  is a shared comparative `Inconclusive` terminal; evidence identifies the
-  base manifest and exact repair-log snapshot, and affected evidence is rerun
-  after repairs; other capability failures
-  affect only consuming branches and integration failure affects its branch.
-  Semantic lineage is directionally defined as a raw non-negative measure over
-  durable `(semantic_id, chart_id)` keys: unit leaves, raw composition
-  `μ = Σᵢ aᵢ Tᵢ(μᵢ)`, raw duplicate-key coalescence, finite positive total,
-  and observation-only normalization. Equivalence is by flattened masses and
-  path weights; unweighted unions sum masses and weighted paths preserve
-  coefficients. Naive local binary averages are not reassociation-equivalent.
-  Post-normalization views include top-k values, residual mass, deterministic
-  ties, ambiguity, and parallel categorical/chart-validity fields. Independent
-  closed-form oracles cover reassociation and counterexamples, duplicates,
-  scaling, order, coefficients, ties, residuals, and incompatible charts. This
-  remains a Proposed semantic direction only; the exact transfer-map
-  constraints and reproducible phase/convergence measurement remain
-  unresolved, and no storage layout or serialization format is selected.
+- A deferred sampled-field and semantic-lineage direction may later be informed
+  by [DR-0010 Revision 8](../docs/decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md).
+  Its detailed confirmatory sampling, convergence, and semantic-field rules
+  remain in that parked decision record and are not current specification
+  requirements. No storage layout or serialization format is selected.
 - Runtime avatar package.
 - Interaction and quality negotiation.
 - Shared domain-operation and diagnostic contracts (eventually).

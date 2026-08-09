@@ -18,23 +18,21 @@ Status: Operational under Accepted DR-0001 Revision 5
 DR-0001 Revision 5 is `Accepted` after Ben's approval and its Complete clean
 review; that disposition applies only to this Governance DR. DR-0002 through
 DR-0010 remain `Proposed` technical or product material unless their rows state
-otherwise. DR-0009 Revision 8 is `Proposed` with owner approval `Pending` and
-review `Complete`; both current-review artifacts recommend `Revise` at High
-confidence against reviewed commit `6bf7f1cd58f9bb38b6b4bf738dc29c04603b6abc`.
-Review `Complete` records evidence, not a clean review or acceptance. Its five
-consolidated findings remain unresolved for Ben's discussion before a material
-Revision 9; its Revision 7 reviews are historical/stale. DR-0010 Revision
-8 is `Proposed` with owner approval `Pending` and review `Pending` for only the
-derived alignment to DR-0009's current outcome, budget, branch/failure
-attribution, component-attribution matrix, visual-adjudication, and experiment
-lifecycle/closure/outcome ownership. Its
-two geometry/semantic findings remain unresolved; Revision 5 reviews are
-historical/stale, and Revision 7 was unreviewed and superseded. Current-
-revision review is required. No acceptance is implied. The supporting research and
-architecture documents remain Proposed/provisional, EXP-0001 remains
-unregistered, and no implementation stack, numeric budget, fixture, grid, or
-artifact choice is made. The Revision 4 Double reviews are preserved as
-historical evidence and are stale after this material revision.
+otherwise. DR-0009 Revision 8 remains `Proposed` with owner approval `Pending`
+and review `Complete`; both current-review artifacts recommend `Revise` at
+High confidence. DR-0010 Revision 8 remains `Proposed` with owner approval
+`Pending` and review `Pending`; exactly two geometry/semantic findings are
+preserved. Review evidence records neither acceptance nor a clean review.
+
+DR-0009 Revision 8 and DR-0010 Revision 8 are plan-state `deferred` (parked)
+and non-blocking. No Revision 9, further review, owner disposition, or finding
+discussion is active. Reactivate them only when at least two runnable candidate
+surface implementations exist and a comparative outcome is intended to justify
+or select production architecture, or when Ben explicitly reactivates them.
+Until then, exploratory prototypes may record observations but may not claim
+formal DR-0009/0010 support or reject. The detailed records, review artifacts,
+and first-surface design remain preserved. The [project status](../project/status.md)
+is the canonical owner of this current activation state.
 
 ## Candidate decisions
 

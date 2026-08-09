@@ -1,6 +1,6 @@
 # First surface experiment design
 
-Status: Proposed research/evidence design
+Status: Proposed research/evidence design; deferred and non-blocking
 
 Origin: Assistant-authored from Ben's settled Recommendations 1–5, the
 approved DR-0009 Revision 8 outcome alignment, and the linked Proposed
@@ -14,7 +14,13 @@ specification, architecture, fixture, or experiment-record contracts
 Experiment registration: Not registered; EXP-0001 is not created by this
 document
 
-Evidence status: No evidence exists yet
+Evidence status: No evidence exists yet; no active prerequisite
+
+Activation: Reactivate only when at least two runnable candidate surface
+implementations exist and the project intends to use a comparative outcome to
+justify or select production architecture, or when Ben explicitly reactivates
+the protocol. Until then, exploratory geometry work may proceed independently
+but cannot claim formal DR-0009/0010 support or reject.
 
 ## Purpose and authority
 
@@ -29,10 +35,11 @@ the human visual-assessment method. Those documents remain Proposed or
 research guidance; this design does not accept them, create a production
 contract, or silently create evidence.
 
-This is a research/evidence design, not an experiment record, registration,
-fixture package, implementation plan, or normative specification. No host
-stack, dependency, exact fixture value, grid size, or numerical threshold is
-selected here. No implementation, fixture, capture, or result exists yet.
+This is a deferred research/evidence design, not an experiment record,
+registration, fixture package, implementation plan, or normative specification.
+No host stack, dependency, exact fixture value, grid size, or numerical
+threshold is selected here. No implementation, fixture, capture, or result
+exists yet. It owns no active prerequisite for the exploratory prototype.
 
 ## Neutral dimensionless manifest
 

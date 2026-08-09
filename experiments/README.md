@@ -29,39 +29,11 @@ Use these constraints:
 - Only `complete` evidence closure permits a technology outcome or feasibility
   annotation.
 
-`none` means that no technology outcome is calculated. Outcome wording records
-branch or failure attribution; a component `U` cell does not by itself block a
-bundle `support` outcome. `NA` is a separate not-applicable cell state, not
-`U`, and is excluded from applicable-cell coverage.
-
-## Actual-work ledgers
-
-Closed actual work is recorded exactly once in finite `C`, `I`, `S`, `B`, `G`,
-or branch-integration ledgers. `C` is the universal scaffold/shared-repair
-ledger and its pre-branch operational admission test requires all branches to
-have the same interface, data, and access, with no branch-specific
-construction logic or parameters. Registration freezes an immutable base
-scaffold manifest and ID, provenance, source, assets, known effort, finite cap,
-and budget identity. The checkpoint and base manifest do not move or mutate.
-After the checkpoint, a qualifying universal repair is one append-only finite
-repair-log entry with a stable entry ID, provenance/source/assets, known effort
-or unavailable historical effort, cap consumption, and affected-evidence
-declaration. Each evidence item references the base manifest ID plus the exact
-repair-log snapshot ID, including an explicit empty snapshot before repairs;
-affected evidence is rerun after a repair. No numeric cap, ID syntax, or
-storage format is selected by this workflow. Unknown historic effort is
-unavailable, not zero. Failure or exhaustion of `C` is a shared terminal and
-makes the comparative result `inconclusive`; failures in `I`, `S`, `B`, or `G`
-affect only their consuming branches, while integration failure affects its
-branch. Record full `C` effort separately from actual-once total work and
-attributed branch cost. Feasibility annotations are scoped to the immutable
-base manifest ID, exact repair-log snapshot ID, and registered attributed
-branch budget ID.
-
-Register ledger IDs, scope, caps, and terminal rules before branch work. Keep
-branch-attributed cost as the sum of required capability ledgers plus branch
-integration, while actual total work counts each item once. Do not silently
-remove a branch or convert unavailable historic effort into zero.
+`none` means that no technology outcome is calculated. Specific activated
+protocols may define additional outcome or attribution states, but the generic
+workflow does not prescribe comparative ledgers or adjudication machinery.
+Link the activated protocol from the experiment record when those rules are
+needed.
 
 ## Registration
 
@@ -89,6 +61,10 @@ when the first experiment is created.
 - Raw result location and retention policy.
 - Limitations, failed runs, and negative evidence.
 - Decision impact stated as a recommendation, not an automatic contract change.
+
+Exploratory prototypes may use this workflow without registering a confirmatory
+experiment. They should label observations and limitations clearly and must not
+claim formal comparative support or reject under the parked surface protocol.
 
 ## Artifact policy
 

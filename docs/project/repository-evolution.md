@@ -28,7 +28,8 @@ States: `active`, `planned`, `triggered`, `deferred`, `not-applicable`, `retired
 | Semantic body-graph spec | Next | planned | First resolver proposal | `spec/body-graph/` | Graph fixtures |
 | Implementation packages | Next | planned | Language/build DR accepted | Toolchain-specific | Unit and integration tests |
 | Generation fixtures | Next | planned | First compiler-consumed body document | `fixtures/body-documents/` | Deterministic output checks |
-| Geometry experiments | Next | planned | First registered surface-generation experiment | `experiments/` | Experiment-specific metrics |
+| Geometry exploration | Next | planned | Bounded exploratory executable geometry spike | `experiments/` or disposable host area | Reproducible observations and diagnostics |
+| Confirmatory multi-branch surface comparison | Later | deferred | At least two runnable candidate surface implementations and an intended comparative outcome for production architecture, or Ben explicitly reactivates DR-0009/0010 | `experiments/` under an activated protocol | Activated-protocol evidence and review |
 | Runtime benchmarks | Next | planned | First executable runtime | `benchmarks/runtime/` | Reference hardware profiles |
 | Developer setup | Next | planned | Toolchain selected | `DEVELOPER_SETUP.md` | Fresh-environment check |
 | Contribution guide | Next | planned | External collaborator or public repo | `CONTRIBUTING.md` | Contributor dry run |

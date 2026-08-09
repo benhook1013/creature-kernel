@@ -18,18 +18,11 @@ Research questions: RQ-NNN
 
 Related DRs: —
 
-## Common scaffold identity
+## Protocol (optional)
 
-Record the immutable initial `C` scaffold base manifest ID and the exact C
-repair-log snapshot ID for this evidence, including the explicit empty
-snapshot when no repair has been admitted. Record the attributed branch budget
-ID used by any feasibility annotation. The base manifest and checkpoint do not
-move or mutate. Each qualifying universal repair is one
-finite repair-log entry with a stable entry ID, provenance/source/assets,
-known effort or unavailable historical effort, cap consumption, and affected
-evidence declaration. Rerun affected evidence after a repair. No numeric cap,
-ID syntax, or storage format is selected by this template. The repair log is
-append-only; each snapshot ID identifies an immutable log prefix.
+Link the specific activated protocol, if this experiment uses one. The generic
+template does not prescribe comparative branches, accounting ledgers, repair
+logs, adjudication rules, or component-attribution states.
 
 ## Question
 
@@ -81,15 +74,9 @@ What bodies, scenes, hardware, metrics, or expertise were not represented?
 
 ## Conclusion
 
-Record the evidence closure and technology outcome separately. A planned or
-running experiment remains `open`/`none`. A finished experiment may use
-`complete` closure with `support`, `reject`, or `inconclusive`; an experiment
-that ends without closure uses `finished` or `abandoned` with `incomplete`/
-`none`, and `abandoned` always uses `incomplete`/`none`. Only complete closure
-permits an outcome or feasibility annotation. Outcome wording attributes a
-branch or failure; a component `U` cell does not by itself block bundle
-`support`. Use `NA` for not-applicable cells, separately from `U`, and exclude
-`NA` from applicable-cell coverage.
+Record the evidence closure and technology outcome separately using the
+[generic experiment workflow](README.md). A specific activated protocol
+may add stricter closure, attribution, or outcome requirements.
 
 ## Recommended Follow-up
 

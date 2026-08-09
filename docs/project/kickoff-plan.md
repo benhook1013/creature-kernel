@@ -379,109 +379,77 @@ Prerequisites: CK-KICK-006 and CK-KICK-007.
 
 ### CK-KICK-008: Research surface-generation strategies
 
-State: integrated/proposed
+State: deferred (integrated; parked)
 
-Compare signed-distance fields, skeleton-radius or generalized-cylinder methods,
-patch systems, and credible hybrids against the fixed fixture set. Evaluate
-smooth junctions, thin and separate features, mouths and paws, semantic-field
-preservation, animation topology, remeshing requirements, determinism,
-licensing, platform support, and runtime implications. Record references and
-tool/library constraints, then design a falsifiable first geometry experiment.
-Do not select production surface architecture from a prose survey alone. The
-integrated Proposed hypotheses are [DR-0009 Revision 8](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
-and [DR-0010 Revision 8](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md);
-they guide Stage 1 evidence and do not select a production backend. DR-0009
-Revision 8 records the closed finite `C`/`I`/`S`/`B`/`G` and per-branch
-integration ledgers, the operational universal-identical `C` scaffold/shared-
-repair admission test, an immutable base `C` scaffold manifest with a finite
-append-only repair log and immutable snapshots, generic `B/N/H/U` with
-modality-specific visual `N`,
-the minimum-three-reviewer visual panel, separate `NA`, orthogonal lifecycle/
-closure/outcome fields, branch/failure attribution, and shared `Inconclusive`
-on `C` failure or exhaustion. Evidence identifies the immutable base manifest
-and exact repair-log snapshot, including the explicit empty snapshot before
-repairs, and affected evidence is rerun after a repair. DR-0010 Revision 8
-carries the derived outcome/budget, branch/failure/component-matrix attribution, visual-
-adjudication, and experiment lifecycle/closure/outcome alignment and leaves
-exactly two geometry/semantic findings unresolved: transfer mappings for the
-raw-measure flattening/path-weight oracles, and phase coordinates,
-cross-resolution pairing/metrics, envelope aggregation, and nonmonotone
-convergence handling. DR-0009 Revision 8 remains Proposed with Owner approval
-Pending and Review status Complete. Its two Revision 8 Double-review artifacts
-recommend `Revise` at High confidence; Review Complete records evidence, not a
-clean review or acceptance. Five unresolved groups remain for Ben's discussion
-before Revision 9: repair epochs/adaptive admission, C accounting and
-workflow records, independent deterministic visual-floor adjudication, causal
-branch/failure attribution, and bundle closure versus component `U`. Its
-Revision 7 reviews are historical/stale. DR-0010
-Revision 8 remains Proposed with Owner approval Pending and Review status
-Pending; Revision 7 was unreviewed and superseded, and Revision 5 reviews are
-historical/stale. This plan implies no acceptance, and no owner disposition has
-been made.
+Compare candidate surface families and record references and tool/library
+constraints, but leave production selection to later evidence. The resulting
+[DR-0009 Revision 8](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md),
+[DR-0010 Revision 8](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md),
+and [first-surface design](../research/first-surface-experiment-design.md) are
+preserved as Proposed confirmatory-research material, but are now parked and
+non-blocking. No Revision 9, further review, owner disposition, or finding
+discussion is active. Reactivation requires at least two runnable candidate
+surface implementations and an intention to use a comparative outcome to
+justify or select production architecture, or Ben's explicit reactivation.
+Exploratory prototypes before that trigger produce observations only.
 
-### CK-KICK-009: Choose a disposable geometry experiment stack
+### CK-KICK-009: Choose a disposable exploratory geometry host
 
-State: provisional/queued
+State: queued (discussion-ready)
 
-Prerequisite: CK-KICK-008.
+Prerequisite: the parked CK-KICK-008 survey is context only; it is not a
+blocker.
 
 Outcome:
 
-- Select the quickest reproducible environment capable of testing the surface
-  hypotheses.
-- State whether it is only an experiment host or a candidate production
-  dependency.
-- Register the experiment as `EXP-0001`, link its research questions, and update
-  their state before execution. This satisfies the ledger trigger for the first
-  surface-generation experiment.
-- Resolve artifact storage first only if large outputs will be created;
-  otherwise retain small scripts, inputs, hashes, and summaries in Git.
+- Select the quickest reproducible disposable environment for an exploratory
+  geometry spike.
+- State the boundary between discovery host and any future production
+  dependency; do not select a production language or backend here.
+- Keep small scripts, inputs, hashes, diagnostics, and summaries attributable;
+  defer large-artifact storage until it is actually needed.
 
-This avoids choosing the permanent language and engine merely to make the first
-mesh.
+This makes the first executable surface useful without registering `EXP-0001`
+or making a formal comparative claim. The parked first-surface design remains
+preserved and non-blocking.
 
-Current handoff: the neutral first experiment design remains Proposed and
-manually maintained, with no evidence; `EXP-0001` remains unregistered and the
-disposable experiment host remains unresolved. Next human discussion covers the
-disposable host stack, exact four-profile values, grid sizes and resource
-budget, and artifact retention.
+### CK-KICK-010: Run the first surface exploration
 
-### CK-KICK-010: Run and review the first surface experiment
-
-State: provisional/queued
+State: queued (exploratory spike)
 
 Prerequisite: CK-KICK-009.
 
 Outcome:
 
-- Generate all fixed morphology fixtures without a handcrafted base mesh.
-- Measure structural checks and retain comparable renders for subjective review.
-- Test preservation of semantic identity and normalized local fields through
-  surface extraction.
-- Record failures and inconclusive cases, including features requiring
-  specialized modules rather than a universal field operation.
-- Decide whether evidence supports a surface decision record, another bounded
-  experiment, or a narrower proof.
+- Feed minimal semantic input through the exploratory host to a visible mesh
+  and diagnostics.
+- Record commands, inputs, configuration, observations, failures, and
+  limitations using the lightweight experiment workflow.
+- Use the result to refine the executable spine or decide whether a later
+  formal comparative experiment is worth activating. Do not calculate or
+  claim DR-0009/0010 support or reject here.
 
 ### CK-KICK-011: Decide the initial surface architecture
 
-State: provisional/queued
+State: queued (optional; risk-driven)
 
-Prerequisite: decision-relevant evidence from CK-KICK-010.
+Prerequisite: useful exploratory evidence from CK-KICK-010 and a genuine need
+to justify a production surface choice.
 
-Write a revisioned surface/topology DR with explicit alternatives and proof
-limits, commission an independent adversarial review, and obtain Ben's explicit
-disposition before backend-specific compiler code becomes the architecture by
-accident.
+Use exploratory evidence to frame the alternatives and proof limits. Activate
+the parked confirmatory protocol only if at least two runnable candidates exist
+and a comparative outcome is needed; otherwise make a bounded, reversible
+surface decision when appropriate. A consequential production choice still
+gets its own DR and review before backend-specific compiler code locks it in.
 
 ## Round 7 — semantic contract (provisional)
 
 ### CK-KICK-012: Specify the minimal body document and body graph
 
-State: provisional/queued
+State: queued (discussion-ready; provisional)
 
-Prerequisites: disposition of DR-0002 and enough evidence from CK-KICK-006
-through CK-KICK-011.
+Prerequisites: the exploratory executable spine and enough semantic context to
+define a minimal useful input/output; CK-KICK-011 is not required.
 
 Outcome:
 
@@ -503,17 +471,18 @@ technology are recommended separately where they are reversible.
 
 ### CK-KICK-013: Select the first implementation platform
 
-State: provisional/queued
+State: queued
 
-Prerequisites: CK-KICK-011 and a bounded CK-KICK-012 contract.
+Prerequisites: the exploratory host boundary and a bounded CK-KICK-012
+contract. CK-KICK-011 is not an automatic prerequisite.
 
 Outcome:
 
 - Compare the core language and build system against geometry ecosystem,
   performance, memory safety, deterministic headless tooling, FFI, debugging,
   packaging, and contributor cost.
-- Select the first production geometry backend or define an adapter boundary if
-  the experiment backend should remain replaceable.
+- Distinguish the reversible discovery host from a production commitment, and
+  select a production geometry backend only when evidence and scope justify it.
 - Decide whether compiler and runtime require one language or an intentional
   cross-language boundary.
 - Write and adversarially review the required DR before creating implementation
@@ -628,14 +597,22 @@ foundation phase would create premature work:
 The project is kicked off, rather than merely scaffolded, when:
 
 - Round 0 foundation baseline is integrated;
-- the Round 1 governance proposal has a reviewed human disposition;
-- all four founding DRs have current adversarial reviews and explicit
-  dispositions;
-- the first proof, morphology family, variation fixtures, and visual criteria
-  are bounded;
-- the first surface experiment is registered with predeclared evidence; and
-- implementation begins only behind reviewed semantic, surface, and toolchain
-  decisions.
+- the governance proposal has a reviewed human disposition;
+- provisional product and architecture directions are preserved with their
+  review state and do not masquerade as accepted contracts;
+- the first proof and initial morphology family are bounded enough for an
+  exploratory implementation slice;
+- a bounded exploratory executable walking skeleton accepts minimal semantic
+  input, produces a visible or inspectable output and diagnostics, and has a
+  reproducible command; and
+- implementation boundaries remain explicit about disposable discovery host
+  versus production platform. Formal confirmatory registration and a production
+  surface decision are optional follow-on gates, not prerequisites for starting
+  prototype work.
 
-The later embodiment and runtime items remain part of the programme even though
-they are not prerequisites for starting the first geometry experiment.
+The later embodiment and runtime items remain part of the programme. Explicit
+owner dispositions remain required before a Proposed DR is treated as an
+accepted production commitment, but they are not prerequisites for disposable
+exploration. The next normal discussion is the walking-skeleton scope,
+exploratory host boundary, and minimal semantic input/output contract. The
+parked DR-0009/0010 findings are not a current discussion agenda.

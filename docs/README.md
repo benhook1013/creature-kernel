@@ -96,30 +96,13 @@ and `none` outcome. An `abandoned` experiment always has `incomplete` closure
 and `none` outcome. Only `complete` evidence closure permits a technology
 outcome or feasibility annotation.
 
-The first-surface experiment workflow also closes actual work through finite
-`C`, `I`, `S`, `B`, `G`, and branch-integration ledgers. `C` is the universal
-scaffold and shared-repair ledger: before branch work, its admission test
-requires every branch to receive the same interface, data, and access, with
-no branch-specific construction logic or parameters. Registration freezes an
-immutable base scaffold manifest and ID, provenance, source, assets, known
-effort, finite cap, and budget identity; the checkpoint and base manifest do
-not move or mutate. A qualifying post-checkpoint repair is one append-only
-finite repair-log entry with a stable ID, provenance/source/assets, known or
-unavailable historical effort, cap consumption, and affected-evidence
-declaration. Each evidence item references the base manifest ID plus the exact
-repair-log snapshot ID, including an explicit empty snapshot before repairs;
-affected evidence is rerun after a repair. No numeric cap, ID syntax, or
-storage format is selected here. Unknown historic effort is unavailable, not
-zero. Failure or exhaustion of `C` is a shared terminal and makes the
-comparative result `inconclusive`. `I`, `S`, `B`, and `G` failures affect only
-consuming branches; integration failures affect their branch. Full `C` effort
-is reported separately from actual-once work and attributed branch cost, and
-feasibility is scoped to the base manifest ID, exact repair-log snapshot ID,
-and registered attributed branch budget ID. Outcome wording uses branch/failure
-attribution; component matrix
-`U` cells remain visible and do not by themselves block bundle `Support`. See
-the [experiment workflow](../experiments/README.md) for the recording
-procedure.
+The generic experiment workflow is deliberately lightweight: record provenance,
+the question or hypothesis, inputs/configuration/seed, reproduction commands,
+results, limitations, and decision impact. A specific activated protocol may add
+its own registration, accounting, comparison, or adjudication rules; link that
+protocol from the experiment record rather than expanding this authority index.
+The multi-branch surface comparison is currently parked; see the [project
+status](project/status.md) for its activation trigger and current state.
 
 Do not use `done` where implementation and verification need separate answers.
 
