@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-09
 
@@ -55,24 +55,30 @@ readiness-remediation/implementation budget;
 separate bundle comparison and component attribution; mutually exclusive
 sufficient-precision B/N/H/U regions; and preorder/acyclic controls for Pareto
 frontiers. These are the four choices applied by this revision. The
-[architecture/proof/governance review](reviews/DR-0009-rev-05-review-01.md) and
-[geometry/semantics/measurement review](reviews/DR-0009-rev-05-review-02.md) are
-the Revision 5 reviews; both are preserved as historical/stale evidence for
-Revision 6. The five Revision 5 findings and their resolutions are: (1) the
-readiness clock could start after unbounded branch implementation, resolved by
-the frozen checkpoint and already-running cumulative budget; (2) bundle
-`Support` could survive missing component-ablation evidence, resolved by
-separate bundle and component-attribution outcomes; (3) branch-specific
-budget-exhausted evidence failure could overlap shared-evidence `Inconclusive`,
-resolved by terminal attribution before generic evidence unavailability while
-retaining independently demonstrated shared failure as affected-comparison
-`Inconclusive`; (4) `N` and `U` could overlap because neutral was not
-demonstrated equivalence, resolved by mutually exclusive sufficient-precision
-decision regions; and (5) cyclic dominance could leave an eligible-but-empty
-frontier without an outcome, resolved by preorder dimensions and an acyclic
-strict partial-order aggregate plus an `Inconclusive` disposition for cycles or
-eligible-but-empty frontiers. Revision 6 is unreviewed and unaccepted, remains
-Proposed, and has Owner approval Pending.
+[architecture/proof/governance review](reviews/DR-0009-rev-06-review-01.md) and
+[experiment-design/measurement review](reviews/DR-0009-rev-06-review-02.md)
+reviewed Revision 6; both are Complete and recommend `Revise` at High
+confidence. Review Complete records evidence, not a clean review or
+acceptance. The reviewers describe the prior Revision 5 findings as partly
+resolved, but consolidate the remaining actionable issues into exactly these
+five unresolved findings:
+
+1. Scaffold provenance and allocation are underdefined for pre-existing,
+   branch-favoring, dual-use, and subset-shared operation work, allowing budget
+   bypass and inconsistent charging.
+2. The interaction-matrix labels assert independence, synergy, and antagonism
+   without a common-scale interaction estimand.
+3. Criterion/site/fixture B/N/H/U states lack an exhaustive component-level
+   aggregation rule.
+4. B/N/H/U scientific regions still overlap (small precise directional effects
+   can also be neutral-equivalent), visual precision needs a separate rule, and
+   supporting “No effect” wording overclaims equivalence.
+5. The outcome table lacks an explicit incomplete/abandoned-run disposition
+   when not every branch has valid evidence or a terminal state.
+
+Revision 6 remains Proposed, has Owner approval Pending, and has Review status
+Complete. The Revision 5 reviews remain preserved as historical/stale evidence;
+no proposal decision is changed by this review state.
 
 Supersedes: —
 
@@ -684,7 +690,7 @@ findings were exactly:
 5. Cyclic dominance can leave eligible baselines but an empty Pareto frontier
    with no outcome.
 
-Revision 6 resolves those findings by Ben's four settled choices: findings 1
+Revision 6 applies Ben's four settled choices to those findings: findings 1
 and 3 by the common-scaffold checkpoint, one cumulative already-running
 per-branch budget, and terminal attribution before generic evidence
 unavailability while retaining independently demonstrated shared failure as
@@ -695,9 +701,16 @@ sufficient-precision equivalence within the frozen neutral margin for `N` and
 making B/N/H/U regions mutually exclusive and exhaustive; and finding 5 by
 requiring dimension preorders, an acyclic aggregate strict partial order, and
 an affected-comparison `Inconclusive` disposition for cycles or eligible-but-
-empty frontiers. Revision 6 is unreviewed and unaccepted, remains Proposed,
-has Owner approval Pending, and has Review status Pending. The Rev5 review
-completion records historical evidence, not acceptance of Rev6.
+empty frontiers. The Revision 6 reviewers assess prior findings 3, 4, and 5
+as resolved, finding 2's boundary as resolved but its aggregation gap as
+remaining, and finding 1 as incomplete because subset-shared allocation is
+still underdefined. Their remaining overlap is consolidated into the five
+actionable findings recorded above. The [architecture/proof/governance
+review](reviews/DR-0009-rev-06-review-01.md) and
+[experiment-design/measurement review](reviews/DR-0009-rev-06-review-02.md)
+are Complete and recommend `Revise` at High confidence. Revision 6 remains
+Proposed, has Owner approval Pending, and has Review status Complete. Review
+Complete records evidence, not acceptance.
 
 ## Implementation and Proof Obligations
 

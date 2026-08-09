@@ -54,9 +54,12 @@ preorders aggregate to an acyclic strict partial order with incomparability
 allowed and no scalarization. A cycle or eligible-but-empty frontier is a
 protocol/evidence failure and `Inconclusive`. DR-0010 Revision 6 carries only
 the derived outcome-ownership alignment and leaves its two geometry/semantic
-findings unresolved. Both remain Proposed with Owner approval Pending and
-Review Pending; their Revision 5 reviews are historical and stale after this
-material revision and current-revision review remains required. The
+findings unresolved. DR-0009 remains Proposed with Owner approval Pending and
+Review Complete, with both current-revision reviews recommending Revise at
+High confidence; its five consolidated findings remain actionable. DR-0010
+remains Proposed with Owner approval Pending and Review Pending; its Revision 5
+reviews are historical and stale after this material revision and
+current-revision review remains required. The
 [first surface experiment design](../research/first-surface-experiment-design.md)
 remains a neutral Proposed, manually maintained evidence plan; it does not
 register EXP-0001 or create evidence. These materials guide falsifiable

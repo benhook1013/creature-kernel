@@ -34,10 +34,13 @@ aggregating to an acyclic strict partial order without scalarization. A cycle
 or eligible-but-empty frontier is protocol/evidence failure and
 `Inconclusive`. DR-0010 Revision 6 carries only the derived outcome-ownership
 alignment and retains its raw semantic and phase/convergence material without
-resolving its two geometry/semantic findings. Both are Proposed with Owner
-approval Pending and Review Pending; their Revision 5 reviews are historical
-and stale after this material revision, and current-revision review remains
-required. The DR-0010 findings remain: transfer mappings are underconstrained
+resolving its two geometry/semantic findings. DR-0009 remains Proposed with
+Owner approval Pending and Review Complete; both current-revision reviews
+recommend Revise at High confidence, and its five consolidated findings remain
+actionable. DR-0010 remains Proposed with Owner approval Pending and Review
+Pending; its Revision 5 reviews are historical and stale after this material
+revision, and current-revision review remains required. The DR-0010 findings
+remain: transfer mappings are underconstrained
 for raw-measure flattening/path-weight oracles; and phase coordinates,
 cross-resolution pairing/metrics, envelope aggregation, and nonmonotone
 convergence handling remain underdefined. No acceptance is implied. The
@@ -84,7 +87,10 @@ provisional until the relevant proposal has Ben's explicit disposition.
   Complete with Accept recommendations at High confidence and owner
   dispositions pending; these DRs remain Proposed.
 - Round 6: integrated/proposed — DR-0009 Revision 6 and DR-0010 Revision 6 are
-  Proposed with Owner approval Pending and Review Pending. DR-0009 carries
+  Proposed with Owner approval Pending. DR-0009 is Review Complete; both
+  current-revision reviews recommend Revise at High confidence, and its five
+  consolidated findings remain actionable. DR-0010 remains Review Pending.
+  DR-0009 carries
   Ben's four approved outcome-contract resolutions: the common-scaffold
   cumulative branch budget and terminal attribution, separate bundle and
   component outcomes, demonstrated-equivalence `N` with `U` for insufficient
@@ -92,8 +98,8 @@ provisional until the relevant proposal has Ben's explicit disposition.
   aggregate dominance, allowed incomparability, and no scalarization. A cycle
   or eligible-but-empty frontier is protocol/evidence failure and
   `Inconclusive`. DR-0010 carries only the derived outcome-ownership alignment
-  and leaves its two geometry/semantic findings unresolved. The Revision 5
-  reviews are historical and stale after this material revision, and
+  and leaves its two geometry/semantic findings unresolved. DR-0010's Revision
+  5 reviews are historical and stale after this material revision, and its
   current-revision review is required. These proposals do not settle
   permanent production surface, topology, runtime-field, or backend
   architecture.
@@ -108,10 +114,11 @@ provisional until the relevant proposal has Ben's explicit disposition.
 - Obtain Ben's owner disposition for the completed DR-0003 Revision 2 review
   while keeping it provisional and separate from acceptance, and obtain owner
   dispositions for DR-0007 and DR-0008 after their completed reviews.
-- Discuss the DR-0009 and DR-0010 Revision 6 proposals with Ben, obtain the
-  required current-revision review, and then obtain owner dispositions; no
-  acceptance is implied. DR-0010's two geometry/semantic findings remain for
-  Ben's next discussion. The neutral first experiment design remains
+- Discuss and resolve DR-0009 Revision 6's five actionable findings with Ben
+  before any owner disposition; obtain the required current-revision review
+  for DR-0010 and then its owner disposition. No acceptance is implied.
+  DR-0010's two geometry/semantic findings remain for Ben's next discussion.
+  The neutral first experiment design remains
   proposed/prepared, but `EXP-0001` remains unregistered and the disposable
   host remains unresolved.
 - Next human discussion: the disposable host stack, exact four-profile values,
@@ -161,10 +168,11 @@ provisional until the relevant proposal has Ben's explicit disposition.
   pending.
 - [DR-0009](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md):
   hybrid surface-generation experiment hypothesis — Revision 6, Architecture
-  scope; Proposed, Owner approval Pending, Review Pending, after Ben's four
-  approved outcome-contract resolutions. The Revision 5 reviews are historical
-  and stale after this material revision; current-revision review and Ben's
-  owner disposition remain pending.
+  scope; Proposed, Owner approval Pending, Review Complete, with both
+  current-revision reviews recommending Revise at High confidence. Its five
+  consolidated findings remain actionable; Ben's owner disposition remains
+  pending. The Revision 5 reviews are historical and stale after this material
+  revision.
 - [DR-0010](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md):
   Stage 1 surface extraction and semantic-field propagation — Revision 6,
   Specification and architecture scope; Proposed, Owner approval Pending,
@@ -178,7 +186,7 @@ provisional until the relevant proposal has Ben's explicit disposition.
 | Capability | Implementation | Verification | Notes |
 | --- | --- | --- | --- |
 | Documentation authority | partial | unverified | Operational structure and validator integrated; DR-0001 Revision 5 accepted after its Complete clean review |
-| Decision-record and review workflow | partial | unverified | DR-0001 is Accepted; product and architecture DRs remain Proposed; DR-0009/0010 Revision 6 are Review Pending with owner approval pending, with DR-0010's two geometry/semantic findings unresolved |
+| Decision-record and review workflow | partial | unverified | DR-0001 is Accepted; product and architecture DRs remain Proposed; DR-0009 Revision 6 is Review Complete with a Revise recommendation and owner approval pending; DR-0010 Revision 6 remains Review Pending with its two geometry/semantic findings unresolved |
 | Research/experiment workflow | partial | unverified | Templates exist; no experiment registered |
 | Body specification | design-unresolved | not-applicable | Contract boundary remains proposed |
 | Creature compiler | not-implemented | not-applicable | No language or backend selected |
@@ -190,9 +198,10 @@ provisional until the relevant proposal has Ben's explicit disposition.
   any other DR.
 - Obtain Ben's explicit dispositions for DR-0007/0008 and the completed
   DR-0003 review.
-- Discuss the DR-0009/0010 Revision 6 proposals and obtain current-revision
-  review before Ben's owner disposition; DR-0010's two geometry/semantic
-  findings remain unresolved. Then discuss the proposed/prepared next
+- Resolve DR-0009 Revision 6's completed Revise-review findings before any
+  owner disposition; obtain current-revision review for DR-0010 before its
+  owner disposition. DR-0010's two geometry/semantic findings remain
+  unresolved. Then discuss the proposed/prepared next
   experiment and its evidence plan.
   `EXP-0001` remains unregistered and the disposable host remains unresolved.
 
