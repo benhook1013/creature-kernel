@@ -517,15 +517,21 @@ contract.
    value is nonpositive, because that means the sampled exterior is not clear
    of the zero surface. These are debug settings, not Stage 1 thresholds.
 3. **Selection 2 — complete staged bundle publication.** Require an explicit
-   output directory. Refuse an existing completed output unless explicit
-   overwrite is supplied. Stage to a temporary sibling and publish only a
-   complete bundle. A successful provisional bundle contains
+   output path that does not exist; refuse every existing target, including a
+   file, directory, or symlink, with no overwrite mode. Reject unsafe or broad
+   targets before staging, including at minimum the filesystem root, user
+   home, repository root, and disposable host root. Stage in a newly created
+   sibling path under the same parent, validate the complete bundle, and
+   publish only while the final target remains absent, using a same-filesystem
+   atomic rename where supported. A successful provisional bundle contains
    `manifest.json`, `resolved_graph.json`, `mesh.ply`, `semantic_regions.json`,
-   and `diagnostics.json`. The invalid fixture publishes diagnostics-only,
-   exits nonzero, and publishes no mesh. An unexpected exception publishes no
-   partial final bundle. Deterministic files exclude timestamps, absolute
-   paths, random IDs, and temporary names; exact staging-name mechanics remain
-   implementation detail.
+   and `diagnostics.json`. The invalid fixture publishes its complete
+   diagnostics-only bundle to the new target, exits nonzero, and publishes no
+   mesh. An unexpected failure or publication race leaves any pre-existing
+   target untouched and removes only this invocation's staging directory.
+   Repeatability checks use separate new output targets. Deterministic files
+   exclude timestamps, absolute paths, random IDs, and temporary names; exact
+   staging-name mechanics remain implementation detail.
 4. **Selection 3 — scoped artifact determinism.** Canonicalize semantic JSON
    deterministically and SHA-256 every final artifact. The manifest records
    hashes for the other bundle artifacts without self-reference; its own hash
