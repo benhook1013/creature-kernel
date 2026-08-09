@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-08
 
@@ -113,10 +113,16 @@ precise, editable, and compatible across model versions.
 [Round 3 Revision 2 adversarial review](reviews/DR-0002-rev-02-review-01.md)
 is preserved as stale historical evidence for Revision 2. It recommended
 Accept with Medium confidence for that earlier boundary; it does not review
-Revision 3. A current-revision Double review is required before acceptance.
-The source-format, schema, resolver, fixture, migration, runtime-mutation, and
-external-mesh obligations remain deferred pending owner disposition and later
-specification work.
+Revision 3. The current-revision Double review is complete in the [authority,
+identity, and compatibility pass](reviews/DR-0002-rev-03-review-01.md) and the
+[morphology, graph, and graphics-system pass](reviews/DR-0002-rev-03-review-02.md).
+Both recommend Revise at High confidence. Findings remain unresolved pending
+Ben's disposition: define the semantic identity collision domain and reusable
+expansion identity, classify external authored dependencies, define the graph
+relation/result envelope for framed relations and invalid or unsupported
+assemblies, and qualify the broad regeneration-survival guarantee. This review
+completion records evidence, not a clean review or acceptance. Only Ben may
+accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 

@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-08
 
@@ -98,10 +98,15 @@ provenance, and the concrete representation being inspected or loaded.
 [Round 3 Revision 1 adversarial review](reviews/DR-0006-rev-01-review-01.md)
 is preserved as stale historical evidence for Revision 1. It recommended
 Accept with Medium confidence for that earlier boundary; it does not review
-Revision 2. A current-revision Double review is required before acceptance.
-The lifecycle, alias/remap, mapping, manifest, migration, runtime-swap, and
-external-persistence obligations remain deferred pending owner disposition and
-later specification work.
+Revision 2. The current-revision Double review is complete in the [authority,
+identity, and compatibility pass](reviews/DR-0006-rev-02-review-01.md) and the
+[morphology, graph, and graphics-system pass](reviews/DR-0006-rev-02-review-02.md).
+Both recommend Revise at High confidence. Findings remain unresolved pending
+Ben's disposition: define namespace collision and reusable-module identity,
+classify external authored dependencies, define durable identity for reified
+relations, and qualify or specify structural-edit lifecycle semantics. This
+review completion records evidence, not a clean review or acceptance. Only Ben
+may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 

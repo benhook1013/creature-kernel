@@ -622,11 +622,12 @@ Outcome:
   this discussion; those planned families remain uncreated until a later
   specification or implementation trigger.
 
-The Batch 1 discussion selections are not DR acceptance. DR-0002 Revision 3,
-DR-0006 Revision 2, and DR-0008 Revision 3 remain Proposed with owner approval
-Pending and Review status Pending until their current-revision Double reviews
-and Ben's owner dispositions are recorded. CK-KICK-012 remains active; this
-batch does not complete the round.
+The Batch 1 discussion selections are not DR acceptance. The current-revision
+Double review of DR-0002 Revision 3, DR-0006 Revision 2, and DR-0008 Revision 3
+is Complete, with findings preserved; the three DRs remain Proposed with owner
+approval Pending and Ben's dispositions unresolved. Review Complete records
+evidence rather than a clean review or acceptance. CK-KICK-012 remains active;
+this batch does not complete the round.
 
 Human decisions concern semantics and compatibility. Concrete syntax and schema
 technology are recommended separately where they are reversible.

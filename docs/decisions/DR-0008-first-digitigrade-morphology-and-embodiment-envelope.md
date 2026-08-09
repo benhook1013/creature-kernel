@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-09
 
@@ -238,7 +238,15 @@ to test and make cross-stage evidence non-comparable. It is not selected.
 stale historical evidence for Revisions 1 and 2. The Revision 1 review gave a
 Revise recommendation at High confidence; the Revision 2 review gave an Accept
 recommendation at High confidence after addressing its blockers. Neither
-reviews Revision 3. A current-revision Double review is required before
+reviews Revision 3. The current-revision Double review is complete in the
+[authority, identity, and compatibility pass](reviews/DR-0008-rev-03-review-01.md)
+and the [morphology, graph, and graphics-system pass](reviews/DR-0008-rev-03-review-02.md).
+The authority pass recommends Accept at Medium confidence subject to freezing
+fixture validity and expected invalid diagnostics. The morphology/graph pass
+recommends Revise at High confidence, finding unresolved reusable-module
+identity, typed relation/frame representation, minimum articulation topology,
+and invalid/unsupported result-boundary issues. These findings remain pending
+Ben's disposition. Review completion records evidence, not a clean review or
 acceptance. Only Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
