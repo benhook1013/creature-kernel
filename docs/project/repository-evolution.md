@@ -24,11 +24,12 @@ States: `active`, `planned`, `triggered`, `deferred`, `not-applicable`, `retired
 | Benchmark policy | Now | active | Before first performance claim | `benchmarks/` | Hardware and command requirements |
 | Documentation CI | Now | active | Governance scaffold | `.github/workflows/documentation.yml` | GitHub Actions |
 | AI delegation and review | Now | active | Before first delegated design review | `docs/developer-workflows/` | Required-path and link checks |
+| Local visual-review gallery | Now | active | First need for human appraisal of generated CK-KICK-010 output | `dev-tools/visual-review/` | Focused tests + local HTTP/browser smoke |
 | Body-document schema | Next | planned | First body parser proposal | `spec/body-document/` | Schema fixtures |
 | Semantic body-graph spec | Next | planned | First resolver proposal | `spec/body-graph/` | Graph fixtures |
 | Implementation packages | Next | planned | Language/build DR accepted | Toolchain-specific | Unit and integration tests |
 | Generation fixtures | Next | planned | First compiler-consumed body document | `fixtures/body-documents/` | Deterministic output checks |
-| Geometry exploration | Next | triggered | Bounded exploratory executable walking skeleton selected; implementation may proceed in a disposable host | Disposable host area to be selected during implementation | Reproducible observations and diagnostics; no implementation directory or package is implied by this trigger |
+| Geometry exploration | Next | active | Bounded exploratory executable walking skeleton implemented and evidence recorded; continued work remains disposable and review-bounded | `experiments/ck-kick-010-walking-skeleton/` (durable implementation/evidence record) | Reproducible observations and diagnostics; generated bundles remain ephemeral/unretained, and this activation does not imply production architecture or durable artifact retention |
 | Confirmatory multi-branch surface comparison | Later | deferred | At least two runnable candidate surface implementations and an intended comparative outcome for production architecture, or Ben explicitly reactivates DR-0009/0010 | `experiments/` under an activated protocol | Activated-protocol evidence and review |
 | Runtime benchmarks | Next | planned | First executable runtime | `benchmarks/runtime/` | Reference hardware profiles |
 | Developer setup | Next | planned | Toolchain selected | `DEVELOPER_SETUP.md` | Fresh-environment check |

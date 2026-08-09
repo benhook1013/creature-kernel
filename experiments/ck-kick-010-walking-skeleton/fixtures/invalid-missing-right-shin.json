@@ -1,0 +1,121 @@
+{
+  "fixture_id": "ck-kick-010-invalid-missing-right-shin",
+  "spike_revision": 1,
+  "seed": 17,
+  "coordinate_convention": {
+    "handedness": "right-handed",
+    "up": "+Y",
+    "forward": "+Z creature-forward",
+    "creature_right": "-X",
+    "units": "metres",
+    "rotation": "quaternion_xyzw"
+  },
+  "required_modules": [
+    "torso",
+    "pelvis",
+    "head",
+    "muzzle",
+    "left_arm",
+    "left_hand_paw",
+    "right_arm",
+    "right_hand_paw",
+    "left_thigh",
+    "left_shin",
+    "left_foot_paw",
+    "right_thigh",
+    "right_shin",
+    "right_foot_paw"
+  ],
+  "nodes": [
+    {
+      "label": "torso", "side": "center", "parent": null, "socket": null,
+      "transform": {"translation": [0.0, 1.2, 0.0], "rotation": [0.0, 0.0, 0.0, 1.0]},
+      "sockets": {
+        "pelvis": {"translation": [0.0, -0.72, 0.0], "rotation": [0.0, 0.0, 0.0, 1.0]},
+        "neck": {"translation": [0.0, 0.72, 0.0], "rotation": [0.0, 0.0, 0.0, 1.0]},
+        "left_shoulder": {"translation": [0.55, 0.35, 0.0], "rotation": [0.0, 0.0, 0.0, 1.0]},
+        "right_shoulder": {"translation": [-0.55, 0.35, 0.0], "rotation": [0.0, 0.0, 0.0, 1.0]}
+      },
+      "primitive": {"kind": "capsule", "endpoints": [[0.0, -0.5, 0.0], [0.0, 0.5, 0.0]], "radius": 0.62}
+    },
+    {
+      "label": "pelvis", "side": "center", "parent": "torso", "socket": "pelvis",
+      "transform": {"translation": [0.0, 0.0, 0.0], "rotation": [0.0, 0.0, 0.0, 1.0]},
+      "sockets": {
+        "left_hip": {"translation": [0.35, -0.25, 0.0], "rotation": [0.0, 0.0, 0.0, 1.0]},
+        "right_hip": {"translation": [-0.35, -0.25, 0.0], "rotation": [0.0, 0.0, 0.0, 1.0]}
+      },
+      "primitive": {"kind": "ellipsoid", "radii": [0.58, 0.35, 0.42]}
+    },
+    {
+      "label": "head", "side": "center", "parent": "torso", "socket": "neck",
+      "transform": {"translation": [0.0, 0.25, 0.08], "rotation": [0.0, 0.0, 0.0, 1.0]},
+      "sockets": {
+        "muzzle": {"translation": [0.0, -0.04, 0.3], "rotation": [0.0, 0.0, 0.0, 1.0]},
+        "left_ear": {"translation": [0.22, 0.3, 0.0], "rotation": [0.0, 0.0, 0.0, 1.0]},
+        "right_ear": {"translation": [-0.22, 0.3, 0.0], "rotation": [0.0, 0.0, 0.0, 1.0]}
+      },
+      "primitive": {"kind": "ellipsoid", "radii": [0.4, 0.43, 0.36]}
+    },
+    {
+      "label": "muzzle", "side": "center", "parent": "head", "socket": "muzzle",
+      "transform": {"translation": [0.0, -0.02, 0.28], "rotation": [0.0, 0.0, 0.0, 1.0]},
+      "sockets": {}, "primitive": {"kind": "ellipsoid", "radii": [0.25, 0.2, 0.32]}
+    },
+    {
+      "label": "left_ear", "side": "left", "parent": "head", "socket": "left_ear", "optional": true,
+      "transform": {"translation": [0.0, 0.08, 0.04], "rotation": [0.0, 0.0, 0.0, 1.0]},
+      "sockets": {}, "primitive": {"kind": "capsule", "endpoints": [[0.0, 0.0, 0.0], [0.0, 0.34, 0.04]], "radius": 0.09}
+    },
+    {
+      "label": "left_arm", "side": "left", "parent": "torso", "socket": "left_shoulder",
+      "transform": {"translation": [0.0, -0.34, 0.0], "rotation": [0.0, 0.0, 0.0, 1.0]},
+      "sockets": {"hand": {"translation": [0.0, -0.42, 0.0], "rotation": [0.0, 0.0, 0.0, 1.0]}},
+      "primitive": {"kind": "capsule", "endpoints": [[0.0, -0.34, 0.0], [0.0, 0.34, 0.0]], "radius": 0.17}
+    },
+    {
+      "label": "left_hand_paw", "side": "left", "parent": "left_arm", "socket": "hand",
+      "transform": {"translation": [0.0, -0.1, 0.05], "rotation": [0.0, 0.0, 0.0, 1.0]},
+      "sockets": {}, "primitive": {"kind": "ellipsoid", "radii": [0.2, 0.14, 0.18]}
+    },
+    {
+      "label": "right_arm", "side": "right", "parent": "torso", "socket": "right_shoulder",
+      "transform": {"translation": [0.0, -0.34, 0.0], "rotation": [0.0, 0.0, 0.0, 1.0]},
+      "sockets": {"hand": {"translation": [0.0, -0.42, 0.0], "rotation": [0.0, 0.0, 0.0, 1.0]}},
+      "primitive": {"kind": "capsule", "endpoints": [[0.0, -0.34, 0.0], [0.0, 0.34, 0.0]], "radius": 0.17}
+    },
+    {
+      "label": "right_hand_paw", "side": "right", "parent": "right_arm", "socket": "hand",
+      "transform": {"translation": [0.0, -0.1, 0.05], "rotation": [0.0, 0.0, 0.0, 1.0]},
+      "sockets": {}, "primitive": {"kind": "ellipsoid", "radii": [0.2, 0.14, 0.18]}
+    },
+    {
+      "label": "left_thigh", "side": "left", "parent": "pelvis", "socket": "left_hip",
+      "transform": {"translation": [0.0, -0.3, 0.0], "rotation": [0.0, 0.0, 0.0, 1.0]},
+      "sockets": {"shin_hock": {"translation": [0.0, -0.46, 0.0], "rotation": [0.0, 0.0, 0.0, 1.0]}},
+      "primitive": {"kind": "capsule", "endpoints": [[0.0, -0.4, 0.0], [0.0, 0.4, 0.0]], "radius": 0.25}
+    },
+    {
+      "label": "left_shin", "side": "left", "parent": "left_thigh", "socket": "shin_hock",
+      "transform": {"translation": [0.0, -0.38, 0.02], "rotation": [0.0, 0.0, 0.0, 1.0]},
+      "sockets": {"foot_paw": {"translation": [0.0, -0.43, 0.06], "rotation": [0.0, 0.0, 0.0, 1.0]}},
+      "primitive": {"kind": "capsule", "endpoints": [[0.0, -0.42, 0.0], [0.0, 0.42, 0.0]], "radius": 0.18}
+    },
+    {
+      "label": "left_foot_paw", "side": "left", "parent": "left_shin", "socket": "foot_paw",
+      "transform": {"translation": [0.0, -0.08, 0.18], "rotation": [0.0, 0.0, 0.0, 1.0]},
+      "sockets": {}, "primitive": {"kind": "ellipsoid", "radii": [0.26, 0.14, 0.42]}
+    },
+    {
+      "label": "right_thigh", "side": "right", "parent": "pelvis", "socket": "right_hip",
+      "transform": {"translation": [0.0, -0.3, 0.0], "rotation": [0.0, 0.0, 0.0, 1.0]},
+      "sockets": {"shin_hock": {"translation": [0.0, -0.46, 0.0], "rotation": [0.0, 0.0, 0.0, 1.0]}},
+      "primitive": {"kind": "capsule", "endpoints": [[0.0, -0.4, 0.0], [0.0, 0.4, 0.0]], "radius": 0.25}
+    },
+    {
+      "label": "right_foot_paw", "side": "right", "parent": "right_shin", "socket": "foot_paw",
+      "transform": {"translation": [0.0, -0.08, 0.18], "rotation": [0.0, 0.0, 0.0, 1.0]},
+      "sockets": {}, "primitive": {"kind": "ellipsoid", "radii": [0.26, 0.14, 0.42]}
+    }
+  ]
+}

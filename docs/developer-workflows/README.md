@@ -12,6 +12,9 @@ Load a workflow only when its trigger applies:
 
 - [AI delegation and review](ai-delegation-and-review.md): subagent selection,
   model routing, delegation boundaries, and independent review.
+- [Local visual-review gallery](visual-review-gallery.md): browser-based,
+  side-by-side appraisal of generated images through the reusable loopback
+  utility.
 
 Workflow documents select process. They do not define product behaviour,
 technical architecture, or normative data contracts.

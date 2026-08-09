@@ -422,8 +422,9 @@ reversible exploratory host choice.
 
 ### CK-KICK-010: Run the first surface exploration
 
-State: queued (discussion-ready; approved semantic-input batch recorded;
-implementation planning next)
+State: implemented; evidence recorded; Single independent implementation
+review completed with findings disposition recorded in `RESULTS.md` (not
+clean)
 
 Prerequisite: CK-KICK-009.
 
@@ -448,6 +449,17 @@ Outcome:
 - Record commands, inputs, configuration, observations, failures, and
   limitations using the lightweight experiment workflow. Observations may
   refine the executable spine but must not claim DR-0009/0010 support or reject.
+
+The bounded implementation and its local observations are recorded in
+[`experiments/ck-kick-010-walking-skeleton/RESULTS.md`](../../experiments/ck-kick-010-walking-skeleton/RESULTS.md).
+The record is deliberately unregistered: it does not create `EXP-0001`, claim
+Stage 1, select a production surface, or reactivate the parked DR-0009/0010
+material. The selected Single independent implementation review is complete;
+its five substantive actionable findings, trailing-whitespace finding, and
+dispositions are recorded in `RESULTS.md`. Main consolidated validation passed
+after the corrections; no second review or review-until-clean pass was run.
+Normal human design discussion resumes at CK-KICK-012 unless the review or
+evidence exposes a specific CK-KICK-011 need.
 
 #### Temporary semantic-input choices (Ben-approved; provisional/disposable)
 
