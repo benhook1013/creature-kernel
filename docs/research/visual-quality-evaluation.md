@@ -43,9 +43,11 @@ build/configuration identity, seed, view/capture settings, criterion, result,
 and failure notes.
 
 For the surface comparison, retain paired per-fixture/site visual contrasts for
-each predeclared added operation under the same capture settings. Report any
-interaction separately from the individual operation contrasts; do not fold it
-into a new aesthetic score or an unrecorded branch preference.
+each predeclared added operation under the same capture settings. Record the
+literal conditional-effect pattern separately from the individual operation
+contrasts; it must not assert independence, synergy, antagonism, or another
+interaction claim, and it must not be folded into a new aesthetic score or an
+unrecorded branch preference.
 
 For each profile, retain consistent front, side, and three-quarter views, plus
 a turntable when practical. Capture targeted closeups of shoulders, hips,
@@ -122,6 +124,17 @@ criterion, view provenance, rationale, reviewer disagreement, and uncertainty
 without inventing a scalar or collapsing the record into an aesthetic score.
 The comparative visual result must remain distinct from the floor result.
 
+For visual criteria in the component-attribution record, use only qualitative
+adjudication: `B` for beneficial in the registered direction, `H` for harmful
+or reversed, `visually-equivalent` for a qualitative neutral equivalence, and `U` for
+unresolved, invalid, or unavailable evidence. This adjudication has no fake
+statistical precision, practical-margin interval, or point-estimate claim.
+The full per-fixture/site/criterion matrix is the component-attribution
+result; optional coverage counts are descriptive only, with no collapsed
+component outcome. Bundle outcome remains separate and grants no component
+credit. `combined-hybrid-only` is a separate descriptive bundle tag. An
+unresolved visual result remains `U`, not neutral equivalence.
+
 When comparative visual evidence is an applicable registered dimension for a
 match or dominance determination, unresolved or disputed visual evidence that
 could change that determination blocks a conclusive result and is
@@ -137,10 +150,10 @@ valid frozen non-inferiority visual regression, or a simpler eligible baseline
 matching the overall claimed result under the registered multidimensional
 rule, is `Reject`. Unresolved nonmandatory comparative visual disagreement is
 `Inconclusive`, not an inferred pass or scalar compromise. Comparative bundle
-`Support`/`Reject`/`Inconclusive` remains separate from per-component
-attribution: missing visual ablation evidence makes the affected component
-attribution `U`/`Inconclusive` but does not by itself prevent bundle `Support`,
-and bundle `Support` implies no independent component credit. The
+`Support`/`Reject`/`Inconclusive` remains separate from component attribution.
+The full per-fixture/site/criterion matrix is the sole attribution result;
+missing visual cells remain `U` and optional coverage counts are descriptive
+only. Bundle `Support` implies no independent component credit. The
 `combined-hybrid-only` tag remains a separate bundle annotation. Comparative
 `Support` requires an eligible frontier, all gates, a named improvement,
 non-inferiority, no simpler match or dominance, and no unresolved trade-off.
@@ -165,3 +178,9 @@ expectations, observed measurements/checks, human judgments, failures, and
 inconclusive results. A Stage 1 continuation recommendation may use the full
 record, but it cannot claim Stage 2 or Stage 3 success; any later claim requires
 its own stage-specific evidence.
+
+Record execution status separately from the visual or technology outcome. Mark
+the run `Complete` only when all required comparisons close through valid or
+terminal branch evidence or a registered shared terminal failure. `Incomplete`
+and `Abandoned` records preserve partial captures, adjudications, budgets, and
+stopping reasons but produce no primary outcome or feasibility annotation.

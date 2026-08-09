@@ -30,8 +30,15 @@ changing the meaning of persisted bodies or avatar packages.
   ownership of usable skeletons, skin weights, collision proxies, contact, and
   deformation claims.
 - A planned Proposed Stage 1 sampled-field and semantic-lineage direction,
-  informed by [DR-0010 Revision 6](../docs/decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md),
-  including common-domain phase/convergence checks and scoped determinism.
+  informed by [DR-0010 Revision 7](../docs/decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md),
+  including the universal identical common scaffold, frozen provenance/assets/
+  neutrality, finite capability and branch-integration ledgers, common-domain
+  phase/convergence checks, and scoped determinism. Run execution status is
+  separate from technology outcome: only Complete runs calculate an outcome or
+  feasibility annotation; Incomplete/Abandoned runs retain partial evidence
+  without either annotation. The full per-fixture/site/criterion matrix owns
+  component attribution, while quantitative B/N/H/U and qualitative visual
+  adjudication remain disjoint.
   Semantic lineage is directionally defined as a raw non-negative measure over
   durable `(semantic_id, chart_id)` keys: unit leaves, raw composition
   `μ = Σᵢ aᵢ Tᵢ(μᵢ)`, raw duplicate-key coalescence, finite positive total,

@@ -6,13 +6,13 @@ Scope: Architecture
 
 Status: Proposed
 
-Revision: 6
+Revision: 7
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-09
 
@@ -76,9 +76,16 @@ five unresolved findings:
 5. The outcome table lacks an explicit incomplete/abandoned-run disposition
    when not every branch has valid evidence or a terminal state.
 
-Revision 6 remains Proposed, has Owner approval Pending, and has Review status
-Complete. The Revision 5 reviews remain preserved as historical/stale evidence;
-no proposal decision is changed by this review state.
+Revision 7 applies Ben's settled Round 12 resolutions to all five findings:
+layered provenance and effort ledgers; a descriptive conditional-effect matrix;
+the complete matrix as the sole component-attribution result; disjoint
+quantitative `B/N/H/U` and separate qualitative visual
+`B/H/visually-equivalent/U` rules; and an explicit operational run status for
+incomplete or abandoned execution. The Revision 6 reviews
+remain preserved as historical/stale evidence linked above. Revision 7 is
+unreviewed and unaccepted: it remains Proposed, has Owner approval Pending, and
+has Review status Pending. EXP-0001 remains unregistered; this revision chooses
+no registration values, thresholds, or tooling.
 
 Supersedes: —
 
@@ -174,15 +181,38 @@ shared failure.
 
 Before execution, registration must freeze one cumulative readiness-
 remediation/implementation budget for each branch and an authoritative
-common-scaffold checkpoint. The checkpoint is the frozen point at which the
-shared scaffold and its declared common apparatus are accounted for; it may
-not be moved after branch work begins. Each branch's budget starts at that
-checkpoint, before any branch-specific implementation, tuning, or remediation
-counted by the experiment. A readiness defect therefore consumes an already-
-running budget; it does not start a new readiness clock. The registration must
-freeze the budget's amount, accounting unit and scope, permitted remediation,
-checkpoint evidence, and terminal rule. This record does not choose those
-numeric or other registration values.
+common-scaffold checkpoint. The pre-checkpoint common scaffold contains only
+infrastructure and oracles required identically by every branch. Its
+provenance, source state, admitted assets, and evidence of branch neutrality
+are frozen at the checkpoint, which may not be moved after branch work begins.
+Pre-existing branch-specific or subset-specific prototypes are excluded from
+the primary comparison. They may be retained as clearly scoped
+exploratory/reference evidence, but cannot support primary fairness, effort, or
+feasibility claims.
+
+After the checkpoint, every actual work item is assigned exactly once to one
+finite `S`, `B`, or `G` capability ledger, or to one branch-specific integration
+ledger. No work may be hidden or reclassified as scaffold. The registration
+freezes admission and allocation rules, including the treatment of a capability
+used by a subset of branches, and freezes each branch's budget, accounting unit
+and scope, permitted remediation, checkpoint evidence, and terminal rule. Each
+branch's attributed cumulative cost includes the full cost of every capability
+ledger it requires plus its own integration ledger, and is checked against its
+frozen branch budget. Project-total actual effort counts shared-layer work once;
+branch cost views may attribute the same required layer to each consuming
+branch, but do not represent that attribution as repeated project work. Actual
+and attributed effort are reported separately. This record does not choose
+numeric registration values or tooling.
+
+Each branch's budget starts at the frozen checkpoint, before any counted
+branch-specific capability, integration, tuning, or remediation work. A
+readiness defect therefore consumes an already-running budget; it does not
+start a new readiness clock. Exhaustion or failure of a capability ledger is a
+branch-specific feasibility failure for every branch that consumes it, not a
+universal shared-apparatus `Inconclusive` result. A branch-specific integration
+ledger has the same branch-specific disposition. The consuming branches retain
+their own terminal facts and attributed costs even when the capability's
+actual work was performed once.
 
 While a branch-specific defect remains within its cumulative budget, the
 branch is in a remediation/readiness state, not a terminal final outcome. When
@@ -198,7 +228,18 @@ the eligible frontier. No declared branch is silently removed, and no branch
 feasibility failure is a universal-impossibility claim. If baseline failures
 leave no eligible baseline, a passing hybrid has only a separate
 non-comparative `Feasibility demonstrated` annotation and the comparative
-outcome is `Inconclusive`.
+outcome is `Inconclusive`—but only for a `Complete` run.
+
+Run execution status is separate from technology outcome. `In progress` is an
+operational status only. A run is `Complete` only when every required
+comparison is closed by valid branch evidence, terminal branch states, or an
+independently demonstrated registered shared comparison-terminal failure.
+Only a `Complete` run calculates `Support`, `Reject`, or comparative
+`Inconclusive`, or records a feasibility annotation. An `Incomplete` or
+`Abandoned` run retains all partial evidence, provenance, consumed budgets, and
+the stopping reason, including any existing branch terminal facts, but produces
+no primary technology outcome or feasibility annotation. Existing branch
+terminal facts do not by themselves make an incomplete run complete.
 
 After shared apparatus/oracle validity and the branch terminal checks, a valid
 registered measurement that violates a frozen mandatory clearance,
@@ -271,10 +312,14 @@ unavailability, so branch-specific budget exhaustion cannot be reclassified
 as the generic `Inconclusive` row. Rows that require a conclusive match or
 dominance include the complete-resolved-evidence condition above; unresolved
 evidence affecting that relation therefore reaches the final `Inconclusive`
-row rather than both a `Reject` and an `Inconclusive` row.
+row rather than both a `Reject` and an `Inconclusive` row. These predicates are
+evaluated only for a `Complete` run. The operational disposition for an
+`Incomplete` or `Abandoned` run is included explicitly below and is not a
+technology outcome.
 
 | Predicate, in precedence order | Primary outcome |
 | --- | --- |
+| Run status is `Incomplete` or `Abandoned` because not every required comparison is closed | No primary technology outcome or feasibility annotation; retain partial evidence, provenance, consumed budgets, stopping reason, and existing branch terminal facts |
 | An independently demonstrated shared apparatus/common-pipeline/mandatory-oracle failure affects the comparison | `Inconclusive` for the affected comparison |
 | The hybrid reaches the branch terminal `Feasibility failure under the registered implementation and budget` | `Reject` |
 | The hybrid has valid evidence and passes mandatory gates, but all declared baseline validity, mandatory, technology, and feasibility checks leave no eligible passing baseline | Comparative `Inconclusive`; only a separate non-comparative `Feasibility demonstrated` annotation may be recorded for the passing hybrid |
@@ -300,17 +345,17 @@ method remain owned by
 
 The table's `Support`/`Reject`/`Inconclusive` result is the primary
 comparative outcome of the full hybrid bundle against the eligible baseline
-frontier. It is separate from component attribution. Each selected component
-(blending and reusable specialized generators) receives its own attribution
-outcome from its required paired contrasts below. Under the preregistered
-attribution aggregation, a component may be supported, not supported/harmful,
-or `Inconclusive/U`; missing, invalid, unavailable, ambiguous, or unresolved
-ablation evidence makes only the affected component attribution
-`Inconclusive/U`. That ablation gap does not by itself prevent bundle
-`Support` when every bundle predicate is satisfied. Bundle `Support` therefore
-does not imply independent credit for either component. `combined-hybrid-only`
-remains a separate bundle-level tag when the combined comparison supports the
-named improvement without independent component credit.
+frontier. It is separate from component attribution. For each selected
+component (blending and reusable specialized generators), the complete
+per-fixture/site/criterion conditional-effect matrix from the required paired
+contrasts below is the component-attribution result. There is no collapsed
+component-level `Supported`, `Not supported`, or `Harmful` category and no
+unconstrained attribution aggregation. Optional coverage counts may be
+reported only as preregistered descriptive information; they cannot become a
+decisive scalar or a selective-credit rule. Bundle outcome remains separate
+and never implies component credit. `combined-hybrid-only` remains a separate
+bundle-level tag when the combined comparison supports the named improvement
+without asserting why or assigning independent component credit.
 
 ### Attribution and fairness contract
 
@@ -323,7 +368,8 @@ policy, diagnostics, and common output interface. The experiment must freeze
 a branch-operation matrix, allowed construction operations, parameter and
 tuning budgets, one cumulative per-branch readiness-remediation/implementation
 budget, an authoritative common-scaffold checkpoint, and implementation-effort
-accounting before execution. Baselines
+accounting before execution. The accounting has separate provenance, actual-
+effort, attributed-effort, capability, and branch-integration ledgers. Baselines
 receive the same semantic feature vocabulary and source intent, while
 realizing that intent through their own allowed construction rule. Any
 remaining incompatibility or missing contributor is reported, not silently
@@ -339,6 +385,36 @@ The proposed branch matrix is:
 | Skeleton plus reusable specialized generators | Skeleton/swept-profile construction plus reusable generators for the declared feature vocabulary | Selected implicit blending |
 | Full hybrid | Skeleton/swept-profile construction, selected implicit blending, and the same reusable specialized generators | None of the selected hybrid operations |
 
+The checkpoint is a provenance boundary. Its common-scaffold ledger admits
+only infrastructure and oracles required identically by every branch. The
+registration freezes the scaffold's provenance, source state, admitted assets,
+and evidence that each admitted item is branch-neutral. Pre-existing
+branch-specific or subset-specific prototypes are excluded from the primary
+comparison. They may be retained as clearly scoped exploratory/reference
+evidence, but cannot support primary fairness, effort, or feasibility claims.
+
+After the checkpoint, every actual work item is assigned exactly once to a
+finite capability ledger or a branch-specific integration ledger. The finite
+capability ledgers are `S` for skeleton/swept-profile capability, `B` for the
+selected blending capability, and `G` for the reusable specialized-generator
+capability. A capability ledger may be consumed by a subset of branches, but
+it is not common scaffold and its consuming branch set and allocation rule are
+frozen before execution. A branch-specific integration ledger records the
+assembly, adaptation, and integration work unique to that branch. No work may
+be hidden or reclassified as scaffold, and no work item may be charged to more
+than one ledger. The registration freezes these admission and allocation rules
+and the consuming branch set for each capability ledger.
+
+Each branch's attributed cumulative cost includes the full cost of every
+capability ledger it requires plus its own integration ledger, and is checked
+against its frozen branch budget. Project-total actual effort counts work in a
+shared capability ledger once. Branch cost views may attribute that same
+required capability layer to each consuming branch for feasibility and branch
+budget checks, but do not represent the attribution as repeated project work.
+Actual and attributed effort are reported separately. Exhaustion or failure of
+a capability ledger affects every consuming branch as a branch-specific
+feasibility failure; it is not universal shared-apparatus `Inconclusive`.
+
 The matrix classifies branches by allowed construction operation, not by
 whether an implementation stores an intermediate scalar field. A branch may
 use an internal field when its construction rule permits it. Before branch
@@ -346,13 +422,14 @@ tuning, registration must freeze the shared infrastructure and oracles, the
 authoritative common-scaffold checkpoint, branch definitions and operation
 matrix, adjustable parameter domains, common objective, deterministic
 initialization, stopping rule, and parameter, evaluation, and implementation-
-effort budgets. It must also freeze the
+effort budgets and the provenance/effort ledger rules. It must also freeze the
 output fields, exact selected blend sites, and generator operation set; those
 values are deliberately not invented by this record. A reusable generator
 remains a grammar capability, not a hidden per-fixture mesh, topology, or rig
 correction. This bounded nested ablation supports attribution of the selected
-blending and specialized-generator layers without claiming a full factorial
-interaction analysis.
+blending and specialized-generator layers through the complete conditional-
+effect matrix; it does not estimate interaction magnitude or claim a full
+factorial result.
 
 Each branch has a separate configuration and workspace. Branches use the same
 deterministic search and evaluation budget; for human adjustment rounds, a
@@ -361,10 +438,12 @@ registration must state which rule applies. Adjustments are global branch
 parameters only: no fixture-specific tuning, post-hoc correction, or
 per-fixture parameter is allowed in primary comparison. Branch-specific
 parameters, corrections, and defect fixes must not be transferred between
-branches during primary evidence collection. Shared-core fixes apply to every
-affected branch and require rerunning all affected evidence. Unavoidable
-knowledge reuse is logged, and shared versus branch-specific implementation,
-tuning, and adjustment effort is reported and charged separately.
+branches during primary evidence collection. Shared-scaffold fixes apply to
+every affected branch and require rerunning all affected evidence. Capability-
+ledger fixes affect every consuming branch and are charged through each
+consumer's attributed cost. Unavoidable knowledge reuse is logged, and shared
+versus branch-specific implementation, tuning, and adjustment effort is
+reported as actual and attributed effort separately.
 
 Before primary comparison, each required branch must pass branch-neutral
 analytical readiness fixtures, exercise every required operation in its
@@ -373,15 +452,20 @@ The fixtures and oracles must be independent of branch-specific visual
 success. The common-scaffold checkpoint is frozen before any branch-specific
 implementation, tuning, or remediation counted by the experiment. A branch's
 one cumulative registered budget is already running at that checkpoint, so a
-readiness defect consumes it rather than starting it. While budget remains,
+readiness defect consumes it rather than starting it. Every capability and
+integration work item is allocated once under the ledgers above, and its full
+required capability cost is included in each consuming branch's attributed
+budget view. While budget remains,
 the defect is a remediation/readiness state, not a terminal final outcome. If
 the branch still cannot reach readiness or produce comparable valid evidence
 when that cumulative budget is exhausted, the branch terminates as
 `Feasibility failure under the registered implementation and budget`. A hybrid
 terminal failure is `Reject`; a baseline terminal failure is retained and
-excluded from the frontier. A shared apparatus, mandatory oracle, or common-
-pipeline defect remains affected-comparison `Inconclusive` and is not charged
-as a branch terminal failure. Generic evidence unavailability cannot override
+excluded from the frontier. A capability-ledger or branch-integration failure
+is branch-specific for every consuming branch. Only an independently
+demonstrated shared apparatus, mandatory oracle, or common-pipeline defect
+remains affected-comparison `Inconclusive` and is not charged as a branch
+terminal failure. Generic evidence unavailability cannot override
 branch-specific budget exhaustion.
 Missing operation coverage, an unresolved defect that affects a required
 operation, or any other failed readiness condition is recorded with its scope
@@ -399,47 +483,43 @@ contrast evaluated using the same objective and global tuning rule:
 Here `S` is skeleton/swept-profile, `B` is selected blending, and `G` is the
 reusable specialized-generator layer. Registration must define, for every
 criterion, the beneficial direction and the acceptance rule for the paired
-contrasts. For each component and criterion, classify the first state from the
-contrast **without the other contribution** and the second state from the
-contrast **with the other contribution**. Registration freezes mutually
-exclusive, collectively exhaustive B/N/H/U decision regions and their
-precedence under a preregistered sufficient-precision/evidence rule. Each
-state is exactly one of:
+contrasts. For each component, fixture, site, and criterion, classify the
+first state from the contrast **without the other contribution** and the
+second state from the contrast **with the other contribution**.
 
-- `B` — a beneficial effect demonstrated in the registered direction with
-  sufficient precision under the frozen rule;
-- `N` — equivalence demonstrated within the frozen neutral margin with
-  sufficient precision under the frozen rule;
-- `H` — a harmful or reversed effect demonstrated against the registered
-  direction with sufficient precision under the frozen rule; or
-- `U` — insufficient precision or failure to establish benefit, harm, or
-  equivalence, including evidence that is unavailable, invalid, ambiguous, or
-  otherwise unresolved.
+For each quantitative criterion, registration freezes the estimand, practical-
+equivalence margin `±delta`, uncertainty interval and method, replication,
+adjudication, multiplicity, validity requirements, and boundary handling. With
+a valid uncertainty interval, `B` applies iff the full interval lies beyond
+`+delta`; `H` applies iff the full interval lies below `-delta`; and `N`
+applies iff the full interval is contained in `[-delta,+delta]`. `U` applies
+otherwise or when evidence is invalid or unavailable. These rules are
+mutually exclusive and exhaustive under the frozen boundary convention.
 
-Thus, "no demonstrated directional effect" alone is not `N`; unless the
-neutral equivalence rule is satisfied, it is `U`. The frozen decision regions
-and precedence must make these four states mutually exclusive and exhaustive.
+Subjective visual criteria use a separately preregistered qualitative
+adjudication: resolved beneficial, resolved harmful, visually equivalent
+within the frozen rubric, or `U` for disagreement, insufficient evidence,
+invalid evidence, or unavailable evidence. This visual rule does not claim
+statistical precision. Reports use “neutral equivalence within the frozen
+margin/rubric”; they do not use “no effect” as a synonym for `N`.
 
-Any `U` state makes the interaction unresolved. The exact per-component
-interaction matrix is:
+The complete per-fixture/site/criterion conditional-effect matrix is a
+descriptive pattern ledger, not an interaction estimand. Its literal cells
+are:
 
 | First state (without other); second state (with other) | `B` | `N` | `H` | `U` |
 | --- | --- | --- | --- | --- |
-| `B` | Independent beneficial | Suppressed to neutral | Reversed/antagonized | Unresolved |
-| `N` | Synergy-dependent | Neutral equivalence in both contrasts | Harmful only with other | Unresolved |
-| `H` | Interaction-dependent reversal | Harm neutralized | Consistently harmful | Unresolved |
+| `B` | Beneficial both contexts | Beneficial without, neutral with | Beneficial without, harmful with | Unresolved |
+| `N` | Neutral without, beneficial with | Neutral both | Neutral without, harmful with | Unresolved |
+| `H` | Harmful without, beneficial with | Harmful without, neutral with | Harmful both | Unresolved |
 | `U` | Unresolved | Unresolved | Unresolved | Unresolved |
 
-Thus `B/B` is independent beneficial; `B/N` is suppressed to neutral;
-`B/H` is reversed/antagonized; `N/B` is synergy-dependent; `N/N` is neutral
-within the frozen equivalence margin in both contrasts; `N/H` is harmful only
-with the other contribution;
-`H/B` is an interaction-dependent reversal; `H/N` has harm neutralized; and
-`H/H` is consistently harmful. The matrix is mutually exclusive and is
-reported per component and criterion. `combined-hybrid-only` is a separate
-bundle-level tag when only the combined hybrid comparison supports the named
-improvement; it is not a competing component label in this matrix. The matrix
-is diagnostic, not a scalar interaction score or a full-factorial claim.
+Any `U` state is unresolved. The matrix records conditional-effect patterns
+only; its sign patterns do not establish independence, synergy, antagonism,
+suppression, reversal, or interaction magnitude. `combined-hybrid-only` is a
+separate bundle-level tag when the combined comparison supports the named
+improvement without component credit or a claim about why. It is not a
+component matrix label.
 
 ## Consequences
 
@@ -450,29 +530,33 @@ is diagnostic, not a scalar interaction score or a full-factorial claim.
   trade-off into a fabricated scalar score or allow endless unreadiness. The
   common-scaffold checkpoint and one cumulative per-branch budget make
   branch-specific implementation, tuning, and remediation finite from the
-  start of counted branch work. Shared apparatus/common-pipeline or mandatory-
-  oracle failure remains affected-comparison `Inconclusive`; branch-specific
-  budget exhaustion is terminal and cannot be overridden by generic evidence
+  start of counted branch work. Layered ledgers freeze provenance and allocate
+  every post-checkpoint work item exactly once; capability-ledger failure is
+  branch-specific for every consuming branch. Shared apparatus/common-pipeline
+  or mandatory-oracle failure remains affected-comparison `Inconclusive`, and
+  branch-specific budget exhaustion cannot be overridden by generic evidence
   unavailability. An empty eligible-baseline frontier is comparative
   `Inconclusive`, even when a passing hybrid receives a separate feasibility
-  annotation.
+  annotation in a `Complete` run. An `Incomplete` or `Abandoned` run produces
+  no technology outcome or feasibility annotation.
 - The five branches expose the two selected hybrid contributions while keeping
   the comparison bounded. The cumulative readiness-remediation/implementation,
   complexity, tuning, and effort budgets remain part of the interpretation
-  rather than hidden or unbounded costs.
+  rather than hidden or unbounded costs. Actual project effort and attributed
+  branch effort are reported separately.
 - Specialized generators add grammar vocabulary and reusable capabilities;
   they do not license bespoke fixture patches or silently expand the supported
   morphology envelope.
 - The hybrid branch has more moving parts and more diagnostic surface than a
   single representation. The experiment must therefore report the primary
-  bundle outcome separately from each component's attribution outcome and show
-  where a branch failed. Missing or unresolved ablation evidence makes only
-  the affected component attribution `Inconclusive/U`; it does not by itself
-  prevent bundle `Support`, and bundle `Support` does not imply independent
-  component credit. The exact B/N/H/U matrix makes each paired interaction
-  label mutually exclusive; `combined-hybrid-only` remains a separate
-  bundle-level diagnostic tag. The matrix is not a scalar interaction score or
-  a full-factorial claim.
+  bundle outcome separately from the complete per-fixture/site/criterion
+  conditional-effect matrix for each component and show where a branch
+  failed. There is no collapsed component outcome or unconstrained aggregation;
+  optional coverage counts are descriptive only and cannot selectively credit
+  a component. Bundle outcome never implies component credit. The literal
+  B/N/H/U cells are mutually exclusive conditional-effect patterns, and
+  `combined-hybrid-only` remains a separate bundle-level diagnostic tag. The
+  matrix is not an interaction estimand or scalar interaction score.
 - A successful surface experiment would support only the stated Stage 1 claim
   under its fixtures and protocol. It would not settle production topology,
   animation deformation, runtime representation, backend, or performance.
@@ -557,27 +641,27 @@ interpret any difference as evidence for the bundle as a whole. It would be
 cheaper to run and would avoid attributing a result to one component, but the
 hybrid would still be carrying two selected contributions at once. The Round 6
 reviews identified that confound as a blocker: without ablations, an observed
-improvement could come from blending, specialized generators, their
-interaction, or an unequal baseline budget. It is not selected as the sole
-record because the settled protocol keeps bounded component attribution
-separate from the primary bundle outcome. A bundle may still receive
-comparative `Support` when its predicates pass even if an affected component
-attribution is `Inconclusive/U`, but it must carry `combined-hybrid-only` rather
-than imply independent component credit.
+improvement could come from blending, specialized generators, their conditional
+patterns, or an unequal baseline budget. It is not selected as the sole
+record because the settled protocol keeps the complete conditional-effect
+matrix separate from the primary bundle outcome. A bundle may still receive
+comparative `Support` when its predicates pass, but it must carry
+`combined-hybrid-only` rather than imply component credit or explain why the
+bundle improved.
 
 #### Option 2: Five-branch bounded nested ablation
 
 This option adds the two one-layer branches to the two simpler baselines and
 the full hybrid. It preserves a common semantic vocabulary and operation
-budget, a frozen common-scaffold checkpoint, one cumulative per-branch
-readiness-remediation/implementation budget, and an operation matrix while
-directly testing each selected layer's incremental contribution. A branch
-that cannot reach readiness or comparable evidence within its registered
-budget terminates as a branch feasibility failure; it is not left in an
-endless `Inconclusive` state. The primary bundle outcome and each component's
-attribution outcome are reported separately. It does not test every possible
-interaction or parameter combination, but it provides the bounded attribution
-needed for this Stage 1 hypothesis.
+budget, layered provenance and effort ledgers, a frozen common-scaffold
+checkpoint, one cumulative per-branch readiness-remediation/implementation
+budget, and an operation matrix while directly testing each selected layer's
+incremental contribution. A branch that cannot reach readiness or comparable
+evidence within its registered budget terminates as a branch feasibility
+failure; it is not left in an endless `Inconclusive` state. The primary bundle
+outcome and each component's complete conditional-effect matrix are reported
+separately. It does not test every possible parameter combination, but it
+provides the bounded attribution needed for this Stage 1 hypothesis.
 **Recommendation: Option 2.**
 
 #### Option 3: Full factorial sweep
@@ -624,17 +708,17 @@ hybrid rejects regardless of simplicity, and a simpler baseline conclusively
 matching within the margins also rejects. A detected cycle or eligible-but-
 empty frontier is affected-comparison `Inconclusive`.
 
-#### Interaction alternative: scalar or full-factorial interaction score
+#### Conditional-effect alternative: scalar or full-factorial estimand
 
-A scalar interaction score or an exhaustive factorial sweep could summarize
-the bundle, but it would hide whether a component's effect is independent,
-suppressed, synergistic, reversed, or neutralized and would add an unbounded
-search. It is not selected. The paired contrasts instead use the exact,
-mutually exclusive sufficient-precision B/N/H/U matrix, where `N` requires
-demonstrated equivalence within the frozen neutral margin and insufficient
-precision is `U`. The matrix provides each component's separate attribution
-outcome; `combined-hybrid-only` is retained as a separate bundle-level tag.
-The matrix is diagnostic and does not claim a scalar or full-factorial result.
+A common-scale interaction estimand or an exhaustive factorial sweep could
+summarize more than the bounded contrasts, but it would add measurement,
+multiple-comparison, and search obligations before the first surface proof is
+understood. It is not selected. The paired contrasts instead use the exact,
+mutually exclusive quantitative `B/N/H/U` and separate qualitative visual
+`B/H/visually-equivalent/U` rules. Their complete per-fixture/site/criterion
+matrix is a descriptive conditional-effect pattern ledger, not an interaction
+estimand or scalar score. `combined-hybrid-only` is retained as a separate
+bundle-level tag without claiming why the bundle improved.
 
 ## Adversarial Review Response
 
@@ -676,8 +760,17 @@ bundle tag.
 The [architecture/proof/governance review](reviews/DR-0009-rev-05-review-01.md)
 and [geometry/semantics/measurement review](reviews/DR-0009-rev-05-review-02.md)
 reviewed Revision 5; both are Complete, recommend `Revise` at High confidence,
-and are preserved as historical/stale evidence for Revision 6. Their five
-findings were exactly:
+and are preserved as historical/stale evidence for Revision 6. Revision 6
+applied Ben's four settled choices to those earlier findings: findings 1 and 3
+by the common-scaffold checkpoint, one cumulative already-running per-branch
+budget, and terminal attribution before generic evidence unavailability while
+retaining independently demonstrated shared failure as affected-comparison
+`Inconclusive`; finding 2 by separating bundle comparison from component
+attribution; finding 4 by requiring sufficient-precision equivalence within the
+frozen neutral margin for `N`; and finding 5 by requiring dimension preorders,
+an acyclic aggregate strict partial order, and an affected-comparison
+`Inconclusive` disposition for cycles or eligible-but-empty frontiers. Their
+five findings were exactly:
 
 1. The finite readiness budget begins too late, permitting unbounded
    pre-readiness branch implementation.
@@ -690,27 +783,58 @@ findings were exactly:
 5. Cyclic dominance can leave eligible baselines but an empty Pareto frontier
    with no outcome.
 
-Revision 6 applies Ben's four settled choices to those findings: findings 1
-and 3 by the common-scaffold checkpoint, one cumulative already-running
-per-branch budget, and terminal attribution before generic evidence
-unavailability while retaining independently demonstrated shared failure as
-affected-comparison `Inconclusive`; finding 2 by separating bundle comparison
-from component attribution and limiting an ablation evidence gap to the
-affected component's `Inconclusive/U` attribution; finding 4 by requiring
-sufficient-precision equivalence within the frozen neutral margin for `N` and
-making B/N/H/U regions mutually exclusive and exhaustive; and finding 5 by
-requiring dimension preorders, an acyclic aggregate strict partial order, and
-an affected-comparison `Inconclusive` disposition for cycles or eligible-but-
-empty frontiers. The Revision 6 reviewers assess prior findings 3, 4, and 5
-as resolved, finding 2's boundary as resolved but its aggregation gap as
-remaining, and finding 1 as incomplete because subset-shared allocation is
-still underdefined. Their remaining overlap is consolidated into the five
-actionable findings recorded above. The [architecture/proof/governance
-review](reviews/DR-0009-rev-06-review-01.md) and
-[experiment-design/measurement review](reviews/DR-0009-rev-06-review-02.md)
-are Complete and recommend `Revise` at High confidence. Revision 6 remains
-Proposed, has Owner approval Pending, and has Review status Complete. Review
-Complete records evidence, not acceptance.
+The Revision 6 reviewers assess prior findings 3, 4, and 5 as resolved,
+finding 2's boundary as resolved but its aggregation gap as remaining, and
+finding 1 as incomplete because subset-shared allocation is still underdefined.
+Their remaining overlap is consolidated into the five actionable findings
+recorded above. Revision 7 addresses them as follows:
+
+1. The layered provenance/effort-ledger contract restricts the pre-checkpoint
+   scaffold to infrastructure and oracles required identically by every
+   branch, freezes provenance, source state, admitted assets, and neutrality
+   evidence, excludes branch-specific/subset-specific prototypes from primary
+   claims, and allocates every post-checkpoint work item exactly once to an
+   `S`, `B`, `G`, or branch-integration ledger. Full required capability costs
+   are included in each consuming branch's attributed budget, while project
+   actual effort counts shared work once and actual versus attributed effort
+   are reported separately. Capability-ledger exhaustion is branch-specific
+   feasibility failure for every consumer, not universal shared-apparatus
+   `Inconclusive`.
+2. The conditional-effect matrix uses literal descriptive cells (`B/B`
+   beneficial both contexts; `B/N` beneficial without, neutral with; `B/H`
+   beneficial without, harmful with; `N/B` neutral without, beneficial with;
+   `N/N` neutral both; `N/H` neutral without, harmful with; `H/B` harmful
+   without, beneficial with; `H/N` harmful without, neutral with; `H/H`
+   harmful both; any `U` unresolved). It is a conditional-effect pattern
+   ledger, not an interaction estimand, and does not assert independence,
+   synergy, antagonism, suppression, reversal, or interaction magnitude.
+3. The complete per-fixture/site/criterion matrix is the component-attribution
+   result. A collapsed component outcome and unconstrained aggregation are
+   removed. Optional coverage counts are descriptive only, preregistered, and
+   cannot become a decisive scalar or selective-credit rule. Bundle outcome
+   remains separate and never implies component credit.
+4. Quantitative criteria freeze the estimand, `±delta` practical-equivalence
+   margin, uncertainty interval/method, replication, adjudication,
+   multiplicity, validity, and boundary handling. `B`, `H`, `N`, and `U` are
+   mutually exclusive and exhaustive under the full-interval rules. Subjective
+   visual criteria use a separate qualitative adjudication for beneficial,
+   harmful, visual equivalence within the frozen rubric, or `U`; reports say
+   “neutral equivalence within the frozen margin/rubric,” not “no effect.”
+5. Operational run status is separate from technology outcome: only a
+   `Complete` run with every required comparison closed by valid evidence,
+   terminal branch states, or a registered shared comparison-terminal failure
+   calculates `Support`, `Reject`, `Inconclusive`, or a feasibility annotation.
+   `Incomplete` and `Abandoned` runs retain partial evidence, provenance,
+   consumed budgets, stopping reason, and branch terminal facts but produce no
+   primary technology outcome or feasibility annotation.
+
+The [architecture/proof/governance review](reviews/DR-0009-rev-06-review-01.md)
+and [experiment-design/measurement review](reviews/DR-0009-rev-06-review-02.md)
+are Complete, recommend `Revise` at High confidence, and are preserved as
+historical/stale evidence for Revision 7. Revision 7 is Proposed, has Owner
+approval Pending, and has Review status Pending; it is unreviewed and
+unaccepted. Review status Pending records that no current-revision review or
+acceptance has occurred.
 
 ## Implementation and Proof Obligations
 
@@ -718,29 +842,48 @@ Complete records evidence, not acceptance.
   in the frozen operation matrix, with the same semantic source intent,
   feature vocabulary, fixture identities, input mapping, common output
   interface, diagnostics, and capture protocol.
+- Track execution status separately from technology outcome. `In progress` is
+  operational only. Mark a run `Complete` only when every required comparison
+  is closed by valid branch evidence, terminal branch states, or an
+  independently demonstrated registered shared comparison-terminal failure.
+  Only a `Complete` run may calculate `Support`, `Reject`, comparative
+  `Inconclusive`, or a feasibility annotation. Preserve all partial evidence,
+  provenance, consumed budgets, stopping reason, and existing branch terminal
+  facts for `Incomplete` or `Abandoned` runs, but produce no primary technology
+  outcome or feasibility annotation.
 - Freeze the comparative decision rule, named junction/feature criteria,
   eligible-frontier dimensions, branch operations, branch-neutral readiness
   fixtures, required-operation coverage, unresolved-defect disclosures,
   common objective, global initialization and tuning protocol, parameter/
   tuning budgets, one cumulative per-branch readiness-remediation/
   implementation budget, an authoritative common-scaffold checkpoint,
-  implementation-effort accounting, exact aggregation and threshold rules,
-  and the terminal rule before execution or evidence interpretation. The
-  cumulative budget starts at the frozen checkpoint, before any counted
-  branch-specific implementation, tuning, or remediation. Report complexity,
-  effort, and code/parameter/knowledge reuse alongside results. Do not allow
-  an exhausted branch to remain indefinitely unready.
+  implementation-effort accounting, provenance and ledger allocation rules,
+  exact aggregation and threshold rules, and the terminal rule before
+  execution or evidence interpretation. Restrict the pre-checkpoint scaffold
+  to infrastructure and oracles required identically by every branch; freeze
+  its provenance, source state, admitted assets, and branch-neutrality
+  evidence. Exclude pre-existing branch-specific and subset-specific
+  prototypes from primary claims. After the checkpoint assign every actual
+  work item exactly once to an `S`, `B`, `G`, or branch-specific integration
+  ledger. Include each required capability ledger's full cost plus the branch
+  integration ledger in that branch's cumulative attributed budget; count
+  shared capability work once in project actual effort and report actual and
+  attributed effort separately. The cumulative budget starts at the frozen
+  checkpoint, before any counted branch-specific capability, integration,
+  tuning, or remediation. Do not allow an exhausted branch or capability
+  ledger to remain indefinitely unready.
 - Preserve the shared-failure distinction: an independently demonstrated
   shared apparatus/common-pipeline or mandatory-oracle failure remains
   affected-comparison `Inconclusive`; a branch-specific inability to reach
   readiness or comparable evidence within its cumulative budget is
   `Feasibility failure under the registered implementation and budget`. A
-  branch-specific defect while budget remains is a remediation/readiness state,
-  not a terminal final outcome. Attribute branch terminal failure before
-  generic evidence unavailability, so the latter cannot override exhaustion.
-  Apply `Reject` to a hybrid terminal failure; retain and exclude a baseline
-  terminal failure; never make a universal-impossibility claim or silently
-  remove a branch.
+  capability-ledger or branch-integration failure has that branch-specific
+  disposition for every consuming branch. A branch-specific defect while
+  budget remains is a remediation/readiness state, not a terminal final
+  outcome. Attribute branch terminal failure before generic evidence
+  unavailability, so the latter cannot override exhaustion. Apply `Reject` to
+  a hybrid terminal failure; retain and exclude a baseline terminal failure;
+  never make a universal-impossibility claim or silently remove a branch.
 - Freeze the applicability, direction, aggregation, and thresholds of every
   registered comparison dimension; the Pareto dominance relation; the
   simplicity partial order; and equivalence/match margins. Require valid,
@@ -758,9 +901,11 @@ Complete records evidence, not acceptance.
   branch configurations and workspaces separate; use the same budget or a
   preregistered rotating/counterbalanced human-adjustment order. Prohibit
   transfer of branch-specific parameters, corrections, or defect fixes during
-  primary evidence collection. Apply shared-core fixes to all affected
-  branches and rerun affected evidence, while logging and separately charging
-  unavoidable shared and branch-specific knowledge and effort.
+  primary evidence collection. Apply common-scaffold fixes to all affected
+  branches and rerun affected evidence. Apply capability-ledger fixes to every
+  consuming branch and charge them through each consumer's attributed cost;
+  log unavoidable shared and branch-specific knowledge and effort as actual
+  and attributed effort separately.
 - Keep fixture-specific corrections out of every branch. Record a correction
   attempt as a failure or limitation and retain it in the evidence ledger.
 - Measure structural and semantic checks, named junction/feature outcomes,
@@ -771,29 +916,36 @@ Complete records evidence, not acceptance.
   trade-offs, visual disagreement, common-pipeline failure, branch-specific
   mandatory failures, budget/readiness breaches, and inadequate evidence as
   required by the strict precedence table; do not force an outcome.
-- Report the primary bundle comparative outcome separately from each
-  component's attribution outcome. Derive each component attribution from its
-  required paired contrasts; missing, invalid, unavailable, ambiguous, or
-  unresolved ablation evidence makes only the affected component attribution
-  `Inconclusive/U` and does not by itself prevent bundle `Support` when all
-  bundle predicates pass. Do not infer independent component credit from
-  bundle `Support`; retain `combined-hybrid-only` as a separate bundle tag.
-- Register the beneficial direction and paired interaction contrast for every
-  criterion, assigning the first state to the contrast without the other
-  contribution and the second state to the contrast with it. Freeze mutually
-  exclusive, collectively exhaustive B/N/H/U decision regions and their
-  precedence under a sufficient-precision/evidence rule. `B` and `H` require
-  demonstrated direction with sufficient precision; `N` requires demonstrated
-  equivalence within the frozen neutral margin with sufficient precision; and
-  insufficient precision or failure to establish benefit, harm, or equivalence
-  is `U`. Use exactly the mutually exclusive matrix: `B/B` independent
-  beneficial, `B/N` suppressed to neutral, `B/H` reversed/antagonized, `N/B`
-  synergy-dependent, `N/N` neutral equivalence in both contrasts, `N/H`
-  harmful only with other, `H/B` interaction-dependent reversal, `H/N` harm
-  neutralized, `H/H` consistently harmful, and any `U` unresolved. Keep
-  `combined-hybrid-only` as a separate bundle-level tag, not a component label.
-  Keep interaction diagnostic rather than turning it into a scalar or a
-  full-factorial claim.
+- For every quantitative criterion, preregister the estimand, practical-
+  equivalence margin `±delta`, uncertainty interval and method, replication,
+  adjudication, multiplicity, validity, and boundary handling. Assign `B`
+  only when the full valid interval lies beyond `+delta`, `H` only when it lies
+  below `-delta`, `N` only when it is contained in `[-delta,+delta]`, and `U`
+  otherwise or when evidence is invalid or unavailable. Keep these states
+  mutually exclusive and exhaustive. For subjective visual criteria, use a
+  separate qualitative adjudication for resolved beneficial, harmful, visually
+  equivalent within the frozen rubric, or `U` for disagreement, insufficiency,
+  invalidity, or unavailability; do not claim statistical precision. Use
+  “neutral equivalence within the frozen margin/rubric,” never “no effect.”
+- Report the primary bundle comparative outcome separately from the complete
+  per-fixture/site/criterion conditional-effect matrix for each component.
+  That complete matrix is the component-attribution result; do not create a
+  collapsed component outcome or unconstrained aggregation. Optional coverage
+  counts are descriptive only, preregistered, and cannot become a decisive
+  scalar or selective-credit rule. Bundle outcome never implies component
+  credit; retain `combined-hybrid-only` as a separate bundle tag.
+- Register the beneficial direction and paired conditional-effect contrast for
+  every criterion, assigning the first state to the contrast without the other
+  contribution and the second state to the contrast with it. Use the literal
+  descriptive matrix: `B/B` beneficial both contexts; `B/N` beneficial without,
+  neutral with; `B/H` beneficial without, harmful with; `N/B` neutral without,
+  beneficial with; `N/N` neutral both; `N/H` neutral without, harmful with;
+  `H/B` harmful without, beneficial with; `H/N` harmful without, neutral with;
+  `H/H` harmful both; and any `U` unresolved. The matrix is a conditional-
+  effect pattern ledger, not an interaction estimand, and does not establish
+  independence, synergy, antagonism, suppression, reversal, or interaction
+  magnitude. Keep `combined-hybrid-only` as a separate bundle-level tag, not a
+  component label or explanation.
 - Use the normalized sampling, convergence, clipping, semantic-lineage, and
   topology/orientation controls proposed in DR-0010; this record does not
   replace that extraction policy.

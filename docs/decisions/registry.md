@@ -12,23 +12,22 @@ Status: Operational under Accepted DR-0001 Revision 5
 | [DR-0006](DR-0006-durable-semantic-and-artifact-identity.md) | Durable semantic and artifact/build identity | Specification and architecture | Proposed | 1 | Complete | Ben |
 | [DR-0007](DR-0007-staged-first-proof-charter.md) | Staged first-proof charter and claim boundaries | Product | Proposed | 2 | Complete | Ben |
 | [DR-0008](DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md) | First digitigrade morphology and Stage 1 embodiment envelope | Product, Specification and architecture | Proposed | 2 | Complete | Ben |
-| [DR-0009](DR-0009-hybrid-surface-generation-experiment-hypothesis.md) | Hybrid surface-generation experiment hypothesis | Architecture | Proposed | 6 | Complete | Ben |
-| [DR-0010](DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md) | Stage 1 surface extraction and semantic-field propagation | Specification and architecture | Proposed | 6 | Pending | Ben |
+| [DR-0009](DR-0009-hybrid-surface-generation-experiment-hypothesis.md) | Hybrid surface-generation experiment hypothesis | Architecture | Proposed | 7 | Pending | Ben |
+| [DR-0010](DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md) | Stage 1 surface extraction and semantic-field propagation | Specification and architecture | Proposed | 7 | Pending | Ben |
 
 DR-0001 Revision 5 is `Accepted` after Ben's approval and its Complete clean
 review; that disposition applies only to this Governance DR. DR-0002 through
 DR-0010 remain `Proposed` technical or product material unless their rows state
-otherwise. DR-0009 Revision 6 is `Proposed` with owner approval `Pending` and
-review `Complete`, with both current-revision reviews recommending `Revise` at
-High confidence; its Revision 5 reviews are historical and stale
-after this material revision. Review Complete records evidence, not a clean
-review or acceptance. The five consolidated Revision 6 findings remain
-actionable.
-DR-0010 Revision 6 is `Proposed` with owner approval `Pending` and review
-`Pending` for only the derived alignment to DR-0009's current outcome
-ownership. Its two Revision 5 geometry/semantic findings remain unresolved;
-the Revision 5 reviews are historical and stale, and current-revision review
-is required. No acceptance is implied. The supporting research and
+otherwise. DR-0009 Revision 7 is `Proposed` with owner approval `Pending` and
+review `Pending`; it applies Ben's resolutions to the five Revision 6 findings,
+whose reviews are now historical/stale, and requires current-revision review.
+DR-0010 Revision 7 is `Proposed` with
+owner approval `Pending` and review `Pending` for only the derived alignment
+to DR-0009's current outcome, budget, attribution, visual-adjudication, and
+run-status ownership. Its two geometry/semantic findings remain unresolved;
+DR-0010 Revision 5 reviews are historical/stale, and Revision 6 was unreviewed
+and superseded by this alignment. Current-revision review is required. No
+acceptance is implied. The supporting research and
 architecture documents remain Proposed/provisional, EXP-0001 remains
 unregistered, and no implementation stack, numeric budget, fixture, grid, or
 artifact choice is made. The Revision 4 Double reviews are preserved as

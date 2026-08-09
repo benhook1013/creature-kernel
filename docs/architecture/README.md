@@ -42,24 +42,20 @@ Proposed compile/runtime boundary is recorded in
 and described in the execution model; exact interface schemas, compatibility,
 budgets, and runtime mutation details remain open.
 
-Round 6 records two Proposed Stage 1 experiment hypotheses in
-[DR-0009 Revision 6](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
-and [DR-0010 Revision 6](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md).
-DR-0009 Revision 6 applies the approved four outcome-contract resolutions:
-one cumulative per-branch readiness-remediation/implementation budget starts
-at the frozen common-scaffold checkpoint; bundle outcomes remain separate from
-per-component attribution; `N` requires demonstrated equivalence inside a
-frozen neutral margin under sufficient precision; and registered dimension
-preorders aggregate to an acyclic strict partial order with incomparability
-allowed and no scalarization. A cycle or eligible-but-empty frontier is a
-protocol/evidence failure and `Inconclusive`. DR-0010 Revision 6 carries only
-the derived outcome-ownership alignment and leaves its two geometry/semantic
-findings unresolved. DR-0009 remains Proposed with Owner approval Pending and
-Review Complete, with both current-revision reviews recommending Revise at
-High confidence; its five consolidated findings remain actionable. DR-0010
-remains Proposed with Owner approval Pending and Review Pending; its Revision 5
-reviews are historical and stale after this material revision and
-current-revision review remains required. The
+Round 12 records the current Proposed Stage 1 experiment hypotheses in
+[DR-0009 Revision 7](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
+and [DR-0010 Revision 7](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md).
+DR-0009 Revision 7 applies layered provenance and effort ledgers for a
+universal identical common scaffold, a literal conditional-effect matrix, the
+full per-fixture/site/criterion matrix as the sole component attribution,
+disjoint quantitative `B/N/H/U` and qualitative visual
+`B/H/visually-equivalent/U` rules, and explicit incomplete/abandoned execution
+status. DR-0010 Revision 7 carries only this
+derived outcome/budget/attribution alignment and leaves its two geometry/
+semantic findings unresolved. Both records remain Proposed with Owner approval
+Pending and Review status Pending; DR-0009 Revision 6 reviews and DR-0010
+Revision 5 reviews are historical/stale, while DR-0010 Revision 6 was
+unreviewed and superseded. The
 [first surface experiment design](../research/first-surface-experiment-design.md)
 remains a neutral Proposed, manually maintained evidence plan; it does not
 register EXP-0001 or create evidence. These materials guide falsifiable
