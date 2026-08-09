@@ -422,7 +422,8 @@ reversible exploratory host choice.
 
 ### CK-KICK-010: Run the first surface exploration
 
-State: queued (discussion-ready; next)
+State: queued (discussion-ready; approved semantic-input batch recorded;
+implementation planning next)
 
 Prerequisite: CK-KICK-009.
 
@@ -447,6 +448,40 @@ Outcome:
 - Record commands, inputs, configuration, observations, failures, and
   limitations using the lightweight experiment workflow. Observations may
   refine the executable spine but must not claim DR-0009/0010 support or reject.
+
+#### Temporary semantic-input choices (Ben-approved; provisional/disposable)
+
+The following choices are approved for this walking-skeleton exploration only.
+They are reversible implementation-planning inputs, not a permanent product or
+specification contract, production architecture, or new decision record:
+
+- Use a minimal temporary JSON fixture with a small code-level validator; do
+  not introduce a formal JSON Schema. The temporary envelope includes
+  `fixture_id`, `spike_revision`, a deterministic `seed`, and typed body nodes
+  and parameters. Exact fixture syntax and file layout remain disposable.
+- Resolve the fixture into a rooted typed ownership tree with durable semantic
+  IDs, parent-local transforms, left/right metadata, and named attachment
+  sockets. This bounds the spike's representation; it must not imply that the
+  permanent graph is restricted to a tree.
+- The valid fixture contains a torso, pelvis, head, muzzle, paired arms with
+  simplified hand/paw modules, paired digitigrade thigh/shin-hock/foot-paw
+  chains, and one optional predefined ear or tail attachment exercising a
+  named socket. The invalid fixture omits `right_shin`, emits the stable
+  `MISSING_REQUIRED_MODULE` diagnostic, and stops before field evaluation or
+  meshing.
+- Use a temporary glTF-following coordinate and unit convention: right-handed,
+  `+Y` up, `+Z` creature-forward, `-X` creature-right, and metres. Keep all
+  transforms parent-local and make resolved world transforms explicit. Host
+  adapters may convert this convention; it is spike-only and is not yet a
+  normative `spec/` contract.
+- For initial surface lineage, assign one deterministic winning source-region
+  semantic ID to each generated vertex, referencing resolved semantic IDs
+  rather than stable vertex IDs. Rich weighted lineage and DR-0010 remain
+  parked; upgrade only if the spike exposes a concrete diagnostic need.
+- Preserve the structured deterministic diagnostics and provenance already
+  approved for the walking skeleton. Do not invent a production CLI or file
+  schema, and do not reopen DR-0009 or DR-0010. Semantic IDs remain distinct
+  from artifact-local vertex indices, which are ephemeral debug-mesh data.
 
 ### CK-KICK-011: Decide the initial surface architecture
 

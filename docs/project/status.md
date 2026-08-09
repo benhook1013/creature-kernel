@@ -69,7 +69,9 @@ selected.
 - CK-KICK-010 is discussion-ready and next: a bounded walking skeleton from one
   valid and one intentionally invalid fixture through a resolved graph, simple
   analytic volumes, dense-field sampling, one visible mesh, a source-linked
-  semantic-region channel, diagnostics, and provenance artifacts.
+  semantic-region channel, diagnostics, and provenance artifacts. Ben-approved
+  provisional semantic-input choices are recorded in the kickoff plan; they do
+  not create a schema, DR, or production contract.
 - CK-KICK-011 follows useful exploratory evidence. A formal comparative
   surface decision is optional and risk-driven, not automatic.
 - CK-KICK-012 may define the minimal body document/body graph in parallel with
@@ -86,9 +88,10 @@ selected.
   what must remain engine-independent and disposable.
 - Keep the minimal body document/body graph moving in parallel where it informs
   the executable spine.
-- The next semantic discussion concerns temporary input, a bounded resolved
-  graph, coordinate/units convention, and the initial source-region channel;
-  it does not reopen DR-0009/0010.
+- The next implementation-planning discussion will turn the provisional
+  CK-KICK-010 semantic-input batch into a bounded executable slice, including
+  module seams, artifact paths, command, and validation/test coverage; it does
+  not reopen DR-0009/0010.
 - Preserve the accepted governance process and all historical decision/review
   evidence without reopening the parked confirmatory protocol.
 
