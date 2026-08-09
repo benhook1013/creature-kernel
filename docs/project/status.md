@@ -67,11 +67,11 @@ debug-only spike inputs and do not change that boundary.
 - CK-KICK-009 is complete for the disposable exploratory geometry host:
   Python with NumPy, scikit-image marching cubes, and trimesh, all retained as
   replaceable discovery adapters rather than production selections.
-- CK-KICK-010 has Ben-approved bounded implementation inputs recorded in the
-  kickoff plan, including the four corrected semantic-input boundaries and the
-  `2 / 2 / 2 / 3 / 2` technical spike-planning selections. Implementation and
-  review are next; these provisional inputs do not create a schema, DR, or
-  production contract.
+- CK-KICK-010 is implemented with bounded local evidence recorded in
+  [`experiments/ck-kick-010-walking-skeleton/RESULTS.md`](../../experiments/ck-kick-010-walking-skeleton/RESULTS.md);
+  independent implementation review is pending. Its provisional inputs and
+  observations do not create a schema, DR, Stage 1 result, or production
+  contract, and the evidence record does not register `EXP-0001`.
 - CK-KICK-011 follows useful exploratory evidence. A formal comparative
   surface decision is optional and risk-driven, not automatic.
 - CK-KICK-012 may define the minimal body document/body graph in parallel with
@@ -82,15 +82,13 @@ debug-only spike inputs and do not change that boundary.
 
 ## Active work
 
-- Define the first executable walking-skeleton scope and its smallest useful
-  semantic input/output contract.
-- Discuss the exploratory host versus production-platform boundary, including
-  what must remain engine-independent and disposable.
-- Keep the minimal body document/body graph moving in parallel where it informs
-  the executable spine.
-- Implement and review CK-KICK-010 from the approved bounded inputs, including
-  module seams, artifact paths, command, and validation/test coverage; this
-  does not reopen DR-0009/0010. CK-KICK-012 can proceed in parallel later.
+- Complete the independent implementation review of CK-KICK-010 and its
+  evidence boundary; this does not reopen DR-0009/0010. After that bounded
+  review, resume normal human design discussion at CK-KICK-012 unless evidence
+  exposes a specific CK-KICK-011 need.
+- Keep any CK-KICK-012 minimal body-document/body-graph discussion bounded to
+  semantics and compatibility; it must not promote the disposable host into a
+  production platform or contract.
 - Preserve the accepted governance process and all historical decision/review
   evidence without reopening the parked confirmatory protocol.
 
@@ -130,18 +128,16 @@ metadata. Current non-governance proposals include:
 | Decision-record and review workflow | partial | unverified | Governance accepted; technical/product proposals remain provisional |
 | Research/experiment workflow | partial | unverified | Lightweight template exists; no experiment registered |
 | Body specification | design-unresolved | not-applicable | Minimal contract is next exploratory discussion |
-| Creature compiler | not-implemented | not-applicable | Walking skeleton not started |
+| Creature compiler | partial | unverified | Disposable CK-KICK-010 walking skeleton implemented; this is not a production compiler |
+| CK-KICK-010 walking skeleton | implemented | unverified | Valid/invalid local evidence recorded; independent implementation review pending |
 | Runtime avatar | not-implemented | not-applicable | No runtime adapter selected |
 
 ## Immediate next actions
 
-- Discuss the first executable walking skeleton: temporary input, bounded
-  resolution, coordinate/units convention, visible output, initial
-  source-region channel, diagnostics, and a reproducible command.
-- Discuss the disposable exploratory host boundary and what evidence would
-  justify a later production-platform decision.
-- Define the smallest semantic body input and output artifacts needed to make
-  that spine useful.
+- Complete the independent CK-KICK-010 implementation review and inspect its
+  evidence boundary.
+- After that bounded review, discuss CK-KICK-012's minimal semantic body input
+  and body-graph output unless evidence exposes a specific CK-KICK-011 need.
 - Leave DR-0009/0010 parked unless the activation trigger occurs or Ben
   explicitly reactivates them.
 
