@@ -1,0 +1,39 @@
+name: Visual review developer tool
+
+on:
+  pull_request:
+    paths:
+      - "dev-tools/visual-review/**"
+      - ".github/workflows/visual-review.yml"
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  visual-review-tests:
+    name: Visual review tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Compile visual-review tool
+        run: >-
+          python -m py_compile
+          dev-tools/visual-review/common.py
+          dev-tools/visual-review/publish.py
+          dev-tools/visual-review/serve.py
+          dev-tools/visual-review/tests/test_visual_review.py
+
+      - name: Run visual-review tests
+        run: python -m unittest discover -s dev-tools/visual-review/tests -p 'test_visual_review.py'

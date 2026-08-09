@@ -133,3 +133,25 @@ recorded same-host environment for this disposable implementation. It does
 not establish cross-platform bit identity, indefinite reproducibility from the
 direct pins alone, Stage 1 success, performance limits, runtime behavior, or
 production suitability.
+
+## Semantic diagnostic preview
+
+The disposable preview renderer reproduces the current three-view rainbow
+diagnostic from a generated mesh and its winner-only semantic-region sidecar.
+Run it from this directory with named inputs and a new output path:
+
+```bash
+python tools/render_semantic_preview.py \
+  --mesh /tmp/ck-kick-010-evidence-NEW/valid-b/mesh.ply \
+  --regions /tmp/ck-kick-010-evidence-NEW/valid-b/semantic_regions.json \
+  --output /tmp/ck-kick-010-preview.png \
+  --views-dir /tmp/ck-kick-010-preview-views
+```
+
+The output file is the combined preview. When `--views-dir` is supplied, the
+new directory also contains exact `front.png`, `side.png`, and
+`three-quarter.png` panel crops suitable for a visual-review manifest. The
+output file and views directory must not already exist; this tool never
+overwrites them, and removes its own partial outputs if rendering fails.
+The colours are debug source-region attribution only—not material, colour,
+visual-intent, product-renderer, or Stage 1 proof data.

@@ -24,6 +24,7 @@ States: `active`, `planned`, `triggered`, `deferred`, `not-applicable`, `retired
 | Benchmark policy | Now | active | Before first performance claim | `benchmarks/` | Hardware and command requirements |
 | Documentation CI | Now | active | Governance scaffold | `.github/workflows/documentation.yml` | GitHub Actions |
 | AI delegation and review | Now | active | Before first delegated design review | `docs/developer-workflows/` | Required-path and link checks |
+| Local visual-review gallery | Now | active | First need for human appraisal of generated CK-KICK-010 output | `dev-tools/visual-review/` | Focused tests + local HTTP/browser smoke |
 | Body-document schema | Next | planned | First body parser proposal | `spec/body-document/` | Schema fixtures |
 | Semantic body-graph spec | Next | planned | First resolver proposal | `spec/body-graph/` | Graph fixtures |
 | Implementation packages | Next | planned | Language/build DR accepted | Toolchain-specific | Unit and integration tests |

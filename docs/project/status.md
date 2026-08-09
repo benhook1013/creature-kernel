@@ -74,6 +74,20 @@ debug-only spike inputs and do not change that boundary.
   record, not clean. Its provisional inputs and observations do not create a
   schema, DR, Stage 1 result, or production contract, and the evidence record
   does not register `EXP-0001`.
+- The reusable local visual-review gallery is implemented at
+  [`dev-tools/visual-review/`](../../dev-tools/visual-review/); current
+  verification is complete for the implementation. `py_compile`, all 14
+  focused unit/integration tests, `git diff --check`, local HTTP smoke for the
+  session API and PNG serving, and Ben's real Chromium localhost browser smoke
+  passed. One fresh Luna xhigh independent implementation review found three
+  filesystem race defects (source replacement during publish, incomplete
+  failure cleanup, and parent-directory redirection for assets/responses); all
+  fixes are implemented and covered by focused tests. No second independent
+  adversarial pass was run. T3 product-native browser automation was
+  unavailable; Ben subsequently confirmed the revised `subject_context` panel
+  was working in his real Chromium browser.
+  This remains presentation plumbing only and does not alter the CK-KICK-010
+  conclusion or claim visual evidence or Stage 1.
 - CK-KICK-011 follows useful exploratory evidence. A formal comparative
   surface decision is optional and risk-driven, not automatic.
 - CK-KICK-012 may define the minimal body document/body graph in parallel with
@@ -134,6 +148,7 @@ metadata. Current non-governance proposals include:
 | Body specification | design-unresolved | not-applicable | Minimal contract is next exploratory discussion |
 | Creature compiler | partial | unverified | Disposable CK-KICK-010 walking skeleton implemented; this is not a production compiler |
 | CK-KICK-010 walking skeleton | implemented | audited | Valid/invalid local evidence and the selected Single independent review are complete; five substantive findings plus whitespace were dispositioned in RESULTS, not clean; this is not a production compiler |
+| Local visual-review gallery | implemented | audited | Focused tests and local HTTP/browser smoke passed; subject_context is presentation-only; no visual-evidence or Stage 1 claim |
 | Runtime avatar | not-implemented | not-applicable | No runtime adapter selected |
 
 ## Immediate next actions
