@@ -6,25 +6,25 @@ Scope: Product, Specification and architecture
 
 Status: Proposed
 
-Revision: 2
+Revision: 3
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-09
 
 Date decided: —
 
-Revision history: Revision 1 was reviewed in Round 5 and remains preserved as
-historical evidence. Revision 2 applies Ben's settled resolutions to the three
-Round 5 blockers: it makes the Stage 1 embodiment boundary explicit, adopts
-the all-valid-fixtures rule, and requires exact fixture freezing before
-EXP-0001 execution or evidence. The Revision 1 review is stale for this
-revision; the current-revision review is Complete with an Accept
-recommendation. This proposal remains unaccepted.
+Revision history: Revision 1 was reviewed in Round 5 and Revision 2 was
+reviewed in its current round; both remain preserved as historical evidence.
+Revision 3 records Ben's settled CK-KICK-012 Batch 1 morphology/grammar
+selection on 2026-08-09. The discussion selection is not DR acceptance: this
+revision remains Proposed until a current-revision Double review and Ben's
+owner disposition are recorded. Reviews of Revisions 1 and 2 are stale for
+this revision.
 
 Supersedes: —
 
@@ -41,6 +41,10 @@ described through semantic modules rather than per-fixture output patches.
 
 Stage 1 also needs enough linked embodiment information to preserve the path to
 Stage 2 without claiming animation, contact, or deformation success.
+
+The semantic grammar must be bounded enough for the first family while keeping
+ownership distinct from other typed relationships. It must also leave room for
+future graph relationships without implying support for arbitrary anatomy.
 
 ## Decision
 
@@ -88,6 +92,27 @@ its evidence is used, it must freeze stable fixture IDs, concrete source
 inputs, discriminating parameters, seed/configuration, and provenance. This
 proposal does not invent the exact values or fixture files. The freeze is a
 prerequisite to execution and evidence, not to deciding what to test.
+
+### Body grammar and relation boundary
+
+The first body grammar is a bounded typed ownership tree for the proposed
+digitigrade biped family. It covers the required modules and predefined optional
+ear/tail socket modules above. It also admits typed relation edges for joints,
+sockets/attachments, capabilities, and regions. Ownership edges and relation
+edges are distinct: a relation does not imply ownership, and ownership does
+not replace the relation's type or semantics.
+
+The graph representation must not permanently require every relationship to be
+a tree. The first grammar nevertheless supports only this bounded family and
+its declared typed edge kinds; arbitrary anatomy and arbitrary user-defined
+graph kinds are unsupported. Invalid or unsupported assemblies receive
+structured diagnostics. Units and coordinate basis must be declared, and
+local frames and resolved transforms must be explicit.
+
+This decision does not choose an exact permanent coordinate convention, numeric
+ranges, surface primitives, schema or syntax technology, or a new morphology
+family. Those choices remain deferred to their owning specification, evidence,
+and decision work.
 
 ### Stage 1 embodiment boundary
 
@@ -208,23 +233,22 @@ to test and make cross-stage evidence non-comparable. It is not selected.
 
 ## Adversarial Review Response
 
-[Round 5 fresh independent review](reviews/DR-0008-rev-01-review-01.md) is
-Complete with a Revise recommendation at High confidence for Revision 1. It
-is historical and stale for Revision 2. It identified three blocking issues:
-contradictory Stage 1/Stage 2 embodiment ownership, an undefined effect of
-fixture failure or inconclusive results on the Stage 1 continuation claim, and
-qualitative fixture identities that were not fixed enough to preserve the
-evidence population. The [current-revision review](reviews/DR-0008-rev-02-review-01.md)
-is Complete with an Accept recommendation at High confidence and no blocker.
-It notes the nonblocking need to freeze valid/invalid classification and the
-expected diagnostic for invalid fixtures. Ben's owner disposition remains
-pending. Only Ben may accept or reject this proposal.
+[Round 5 fresh independent review](reviews/DR-0008-rev-01-review-01.md) and
+[current-revision review](reviews/DR-0008-rev-02-review-01.md) are preserved as
+stale historical evidence for Revisions 1 and 2. The Revision 1 review gave a
+Revise recommendation at High confidence; the Revision 2 review gave an Accept
+recommendation at High confidence after addressing its blockers. Neither
+reviews Revision 3. A current-revision Double review is required before
+acceptance. Only Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 
 - Define the family vocabulary, named sockets, module attachment semantics,
-  invalid assemblies, and deterministic variation inputs in the later body
-  specifications.
+  ownership tree, typed relation edges, invalid/unsupported assemblies, and
+  deterministic variation inputs in the later body specifications.
+- Define declared units and coordinate basis, explicit local frames and
+  resolved transforms, and structured diagnostics without locking a permanent
+  coordinate convention or exact numeric ranges here.
 - Select hypotheses and intended discriminating profiles before exact freeze,
   then freeze stable fixture IDs, concrete source inputs, discriminating
   parameters, seed/configuration, and provenance before EXP-0001 execution or
@@ -236,8 +260,10 @@ pending. Only Ben may accept or reject this proposal.
   evidence; generate usable skeletons, skin weights, and collision proxies and
   evaluate the shared pose/control scenario in Stage 2; reserve actual contact
   and deformation/runtime claims for Stage 3.
-- Defer exact ratios, geometry method, rigging technique, runtime backend,
-  budgets, and compatibility rules to evidence and their own decisions.
+- Defer exact ratios and numeric ranges, surface primitives and geometry method,
+  schema/syntax technology, permanent coordinate convention, rigging technique,
+  runtime backend, budgets, new morphology families, and compatibility rules to
+  evidence and their own decisions.
 
 ## Canonical Design Links
 

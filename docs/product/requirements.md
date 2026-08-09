@@ -24,9 +24,10 @@ The current Round 2 proposal defines four bounded product choices:
   reference path; external authored-mesh conformance is later and must not be
   foreclosed by early contracts.
 
-These choices are recorded under DR-0005, which defers source semantics,
-the detailed compile/runtime boundary, automation contract detail, morphology,
-backend, and budget decisions.
+These choices are recorded under DR-0005, which defers source semantics, the
+detailed compile/runtime boundary, automation contract detail, detailed
+morphology ranges, backend, and budget decisions. DR-0008 now records the
+Proposed bounded first morphology family and grammar envelope.
 
 ## First-proof boundary (Proposed)
 
@@ -78,10 +79,15 @@ than this product requirement.
 
 The system must preserve durable authored intent in an authoritative semantic
 source set. Initially this may be one structured, human-readable document;
-future explicit semantic override layers may also be authored inputs. Compilation
-resolves the source set into a per-build semantic body-graph snapshot. The
-resolved graph and generated outputs remain derived and cannot silently become
-competing sources of truth. See [DR-0002 Revision 2](../decisions/DR-0002-declarative-body-document-source-of-truth.md).
+future explicit semantic override layers may also be authored inputs. The
+source set alone is authored authority. Compilation resolves it into a
+validated, inspectable, reproducible, per-build semantic body-graph snapshot
+containing source references, durable semantic nodes and relations, declared
+local frames and resolved transforms, relevant intent/lineage, and structured
+diagnostics. The snapshot and generated outputs remain derived and
+build-scoped; they cannot silently become competing sources of truth. Mesh,
+rig, runtime, and other artifacts remain further derived outputs. See
+[DR-0002 Revision 3](../decisions/DR-0002-declarative-body-document-source-of-truth.md).
 
 ### CK-PROD-002: Deterministic compilation
 
@@ -98,10 +104,15 @@ evidence are defined.
 ### CK-PROD-003: Durable semantic and artifact identity
 
 Durable semantic identity must identify parts, regions, joints, attachments,
-capabilities, and related concepts across regeneration. Artifact/build identity
-and provenance are separate. Mesh, vertex, face, triangle, LOD, and array
-indices are ephemeral and must not be promised stable through topology changes.
-See [DR-0006 Revision 1](../decisions/DR-0006-durable-semantic-and-artifact-identity.md).
+capabilities, and related concepts across regeneration through author-declared
+stable local semantic keys under an explicit source namespace. Keys are unique
+within the namespace and must not derive from path, ordering, geometry,
+artifact identity, topology, or content hash. Artifact/build identity and
+provenance are separate. Mesh, vertex, face, triangle, LOD, and array indices
+are ephemeral and must not be promised stable through topology changes. The
+namespace/local-key relationship is selected, while delimiter/serialization
+syntax and clone/rename/split/merge/replacement alias, remap, and lifecycle
+rules remain deferred. See [DR-0006 Revision 2](../decisions/DR-0006-durable-semantic-and-artifact-identity.md).
 
 ### CK-PROD-004: Shared deterministic domain operations
 
@@ -133,8 +144,18 @@ pose, and actual contact/deformation are later-stage claims.
 
 ### CK-PROD-011: Composable body grammar
 
-The body model must support composition through parts, attachments, joints,
-local frames, measurements, capabilities, and material/deformation properties.
+The first body model must support a bounded typed ownership tree for the
+proposed digitigrade biped family, plus typed relation edges for joints,
+sockets/attachments, capabilities, and regions. Ownership and relation edges
+are distinct. The graph representation must not permanently require every
+relationship to be a tree, but arbitrary anatomy and arbitrary user-defined
+graph kinds are unsupported in the first family. Units and coordinate basis
+must be declared; local frames and resolved transforms must be explicit.
+Invalid or unsupported assemblies must receive structured diagnostics. Exact
+coordinate convention, numeric ranges, surface primitives, and new morphology
+families remain deferred. The body model also supports measurements and
+material/deformation properties within this bounded grammar. See [DR-0008
+Revision 3](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md).
 
 ### CK-PROD-012: Connected visible surface
 
@@ -248,7 +269,8 @@ compatibility, migration, and unknown-field behaviour before third-party use.
 The following require decisions or experiments before they can become measurable
 acceptance criteria:
 
-- first supported morphology and parameter range;
+- exact parameter ranges and generator details for the supported first
+  morphology;
 - acceptable surface and deformation quality;
 - compile-time budget;
 - runtime frame target, resolution, and hardware profile;

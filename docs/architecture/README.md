@@ -33,10 +33,13 @@ The Round 2 product-boundary proposal in
 [DR-0005](../decisions/DR-0005-initial-product-boundary-and-reference-workflow.md)
 keeps Creature Kernel's initial target engine-independent and downstream of a
 real-time game integration. Related Proposed source, operation, and identity
-boundaries are recorded in [DR-0002 Revision 2](../decisions/DR-0002-declarative-body-document-source-of-truth.md),
+boundaries are recorded in [DR-0002 Revision 3](../decisions/DR-0002-declarative-body-document-source-of-truth.md),
 [DR-0004 Revision 2](../decisions/DR-0004-external-automation-through-cli-and-api.md),
-and [DR-0006 Revision 1](../decisions/DR-0006-durable-semantic-and-artifact-identity.md).
-Those records do not settle physical formats or identity syntax. The related
+and [DR-0006 Revision 2](../decisions/DR-0006-durable-semantic-and-artifact-identity.md).
+Those records now settle the minimum inspectable, non-authoritative graph
+boundary and the namespace/local-key identity relationship, while deferring
+physical formats, schema technology, identity serialization syntax, and
+identity lifecycle/remap rules. The related
 Proposed compile/runtime boundary is recorded in
 [DR-0003 Revision 2](../decisions/DR-0003-real-time-first-compiled-avatar-boundary.md)
 and described in the execution model; exact interface schemas, compatibility,

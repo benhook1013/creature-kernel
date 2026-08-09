@@ -53,12 +53,29 @@ and fields   mesh     and skin   deformation data
 
 The proposed authored inputs that preserve durable semantic intent. Initially
 this may be one human-readable document; future explicit semantic override
-layers may also be authored inputs. Physical format and precedence remain open.
+layers may also be authored inputs. The source set alone is authored authority;
+physical format, schema technology, and precedence remain open.
 
 ### Resolved semantic body graph snapshot
 
-The validated per-build semantic lineage produced after the source set is
-resolved. It is derived for that build and is not a competing authored source.
+The validated, inspectable per-build semantic lineage produced after the source
+set is resolved. It contains source references, durable semantic nodes and
+relations, declared local frames and resolved transforms, relevant intent and
+lineage, and structured diagnostics. It is reproducible and build-scoped,
+derived for that build, and is not a competing authored source. Mesh, rig,
+runtime, and other artifacts remain further derived outputs.
+
+### First body grammar boundary
+
+The first grammar is a bounded typed ownership tree for the proposed
+digitigrade biped family, with distinct typed relation edges for joints,
+sockets/attachments, capabilities, and regions. The graph representation must
+not permanently require every relationship to be a tree, but arbitrary anatomy
+and arbitrary user-defined graph kinds are unsupported in this first family.
+Invalid or unsupported assemblies produce structured diagnostics. Units and
+coordinate basis are declared, and local frames and resolved transforms are
+explicit. Exact coordinate convention, numeric ranges, surface primitives,
+schema technology, and additional morphology families remain deferred.
 
 ### Simulation representation
 
@@ -108,9 +125,13 @@ topology, geometry field, or universal solver.
 ### Semantic stability
 
 Durable behaviour targets parts, regions, joints, attachments, local frames, and
-capabilities through semantic identity. Artifact/build identity and provenance
-remain separate; generated topology indices are ephemeral through topology
-changes.
+capabilities through author-declared stable local semantic keys under an
+explicit source namespace. Keys are unique within that namespace and are not
+derived from path, ordering, geometry, artifact identity, topology, or content
+hash. Artifact/build identity and provenance remain separate; generated
+topology indices are ephemeral through topology changes. Exact serialized key
+syntax and clone/rename/split/merge/replacement lifecycle and remap rules
+remain deferred.
 
 ### Deterministic core
 
@@ -179,7 +200,7 @@ It does not initially own:
 - Permanent surface and topology generation strategy (the Stage 1 hypotheses in
   DR-0009 and DR-0010 do not resolve it).
 - Implementation language and geometry libraries.
-- First morphology family and generator set.
+- Exact morphology ranges and generator set for the selected first family.
 - Skinning and joint-correction approach.
 - Runtime engine and adapter interface.
 - Collision and deformable-body backends.

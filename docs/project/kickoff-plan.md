@@ -195,10 +195,10 @@ Prerequisite: Round 2 product-identity discussion.
 The bounded proposal batch was integrated as Proposed; no acceptance is implied
 by this plan:
 
-- [DR-0002 Revision 2](../decisions/DR-0002-declarative-body-document-source-of-truth.md)
+- [DR-0002 Revision 3](../decisions/DR-0002-declarative-body-document-source-of-truth.md)
   records an authoritative semantic source set resolving to a per-build
   semantic body-graph snapshot; derived outputs remain derived.
-- [DR-0006 Revision 1](../decisions/DR-0006-durable-semantic-and-artifact-identity.md)
+- [DR-0006 Revision 2](../decisions/DR-0006-durable-semantic-and-artifact-identity.md)
   separates durable semantic identity from artifact/build identity and
   provenance; generated topology and array indices remain artifact-scoped and
   ephemeral.
@@ -209,9 +209,12 @@ by this plan:
   records one shared deterministic domain-operation model for query, semantic
   mutation, resolution/compilation, validation, diagnostics, artifact
   inspection, and future transaction semantics, with user surfaces as adapters.
-- The three current-revision review artifacts are linked from their target DR
-  responses. The shared system-overview diagram was corrected mechanically
-  after review; proposal and architecture prose were unchanged.
+- The original Round 3 review artifacts remain linked from their target DR
+  responses; the DR-0002 and DR-0006 artifacts are stale for the current Batch
+  1 revisions, while DR-0004 remains at its reviewed revision. The shared
+  system-overview diagram was corrected mechanically after that review; the
+  current Batch 1 integration updates the affected canonical proposal and
+  architecture prose while preserving the earlier evidence.
 
 ### CK-KICK-003: Review the semantic source-of-truth proposal
 
@@ -222,9 +225,10 @@ Outcome:
   eventual external meshes.
 - Keep the high-level source-of-truth decision separate from YAML, JSON, schema,
   database, or programming-language choices.
-- DR-0002 Revision 2 records the source-set and resolved-graph boundary above;
-  exact formats, overrides, runtime mutation, and external-mesh conformance
-  remain deferred.
+- DR-0002 Revision 3 records the source-set and minimum inspectable,
+  non-authoritative resolved-graph boundary above; exact formats, schema
+  technology, overrides, precedence, runtime mutation, and external-mesh
+  conformance remain deferred.
 - Preserve the source-set review obligations and defer exact formats, overrides,
   runtime mutation, and external-mesh conformance to later specification work.
 
@@ -340,12 +344,14 @@ The initial proposal to evaluate is a stylized digitigrade furry biped family,
 including torso, head and muzzle, ears, arms, hands or paws, legs and feet or
 paws, and tail. It is not accepted merely because it appears here.
 
-Output: [DR-0008 Revision 1](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md)
-records the bounded stylized digitigrade furry biped, required semantic
-modules, named optional ear and tail sockets, continuous variation categories,
-explicitly invalid or deferred assemblies, and the fixed qualitative fixture
-profiles. It also records minimal linked Stage 1 embodiment hooks. Exact ratios,
-technologies, budgets, and backends remain deferred.
+Output: [DR-0008 Revision 3](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md)
+records the bounded stylized digitigrade furry biped, its typed ownership tree,
+distinct typed relation edges, required semantic modules, named optional ear
+and tail sockets, continuous variation categories, explicitly invalid or
+deferred assemblies, and the fixed qualitative fixture profiles. It also
+records minimal linked Stage 1 embodiment hooks. Exact ratios, coordinate
+convention, surface primitives, technologies, budgets, and backends remain
+deferred.
 
 ### CK-KICK-007: Define the native visual and semantic quality bar
 
@@ -481,9 +487,10 @@ The four corrected boundaries are:
    source-node labels, parent-local transforms, left/right metadata, and named
    attachment sockets. The labels are stable only for deterministic reruns of
    the same input under the same `spike_revision`; they are not durable
-   semantic IDs and do not establish a cross-revision namespace. CK-KICK-012
-   owns any later durable semantic identity and namespace contract. The tree
-   bounds this spike's representation and must not imply that the permanent
+   semantic IDs and do not establish a cross-revision namespace. The later
+   CK-KICK-012 Batch 1 contract now records durable semantic identity under an
+   explicit source namespace in DR-0006 Revision 2. The tree bounds this
+   disposable spike's representation and must not imply that the permanent
    graph is restricted to a tree.
 2. The valid fixture contains a torso, pelvis, head, muzzle, paired arms with
    simplified hand/paw modules, paired digitigrade thigh/shin-hock/foot-paw
@@ -581,23 +588,45 @@ gets its own DR and review before backend-specific compiler code locks it in.
 
 ### CK-KICK-012: Specify the minimal body document and body graph
 
-State: queued (discussion-ready; provisional)
+State: active (Batch 1 integrated/proposed; later semantic batches pending)
 
 Prerequisites: the exploratory executable spine and enough semantic context to
 define a minimal useful input/output; CK-KICK-011 is not required.
 
 Outcome:
 
-- Define stable semantic IDs, namespaces, units, coordinate frames,
-  measurements, parts, joints, attachments, sockets, capabilities, fields, and
-  diagnostics needed by the first family.
-- Define deterministic resolution, invalid input, extension, and resource-limit
-  behaviour.
-- Add representative schema-level valid and invalid fixtures alongside the
+- Batch 1 is settled and integrated as Proposed documentation on 2026-08-09:
+  the authoritative source set resolves to a validated, inspectable,
+  reproducible, per-build non-authoritative graph snapshot; durable identity
+  uses author-declared local keys under an explicit source namespace; and the
+  first grammar is a bounded typed ownership tree with distinct typed relation
+  edges for joints, sockets/attachments, capabilities, and regions.
+- The graph carries source references, durable semantic nodes/relations,
+  declared local frames, resolved transforms, relevant intent/lineage, and
+  structured diagnostics. Units and coordinate basis are declared. Invalid and
+  unsupported assemblies receive structured diagnostics.
+- The graph representation must not permanently require every relationship to
+  be a tree, while arbitrary anatomy and arbitrary user-defined graph kinds are
+  unsupported in the first family.
+- Later semantic batches still need to define deterministic resolution,
+  invalid-input and resource-limit behaviour, extension/version compatibility,
+  and representative schema-level fixtures alongside the planned
   specification. Compiler-consumed generation fixtures activate later when the
   first compiler reads a body document.
 - Keep the semantic contract independent from generated mesh indices and the
-  first host engine.
+  first host engine. Exact syntax/schema technology, coordinate convention,
+  numeric ranges, surface primitives, identity delimiter/serialization,
+  lifecycle/remap semantics, language, surface, animation, physics, and
+  runtime choices remain deferred.
+- No `spec/body-document/` or `spec/body-graph/` destination is activated by
+  this discussion; those planned families remain uncreated until a later
+  specification or implementation trigger.
+
+The Batch 1 discussion selections are not DR acceptance. DR-0002 Revision 3,
+DR-0006 Revision 2, and DR-0008 Revision 3 remain Proposed with owner approval
+Pending and Review status Pending until their current-revision Double reviews
+and Ben's owner dispositions are recorded. CK-KICK-012 remains active; this
+batch does not complete the round.
 
 Human decisions concern semantics and compatibility. Concrete syntax and schema
 technology are recommended separately where they are reversible.

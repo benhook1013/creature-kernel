@@ -8,13 +8,26 @@ changing the meaning of persisted bodies or avatar packages.
 
 ## Planned specification families
 
-- Authoritative semantic source set.
-- Resolved semantic graph snapshot.
-- Durable semantic identities and separate artifact/build identity and provenance.
+- Authoritative semantic source set (the sole authored authority; initially
+  potentially one human-readable document).
+- Resolved semantic graph snapshot: a validated, inspectable, reproducible,
+  per-build derived snapshot with source references, durable semantic
+  nodes/relations, declared local frames, resolved transforms, relevant
+  intent/lineage, and structured diagnostics. It is not authoritative.
+- Durable semantic identities through author-declared stable local semantic keys
+  under an explicit source namespace, and separate artifact/build identity and
+  provenance. Exact key serialization and lifecycle/remap rules remain open.
 - Capabilities, regions, attachments, joints, and material/deformation metadata.
 - A planned supported-morphology and validity envelope for the bounded first
-  body family, including required modules, optional named-socket attachments,
-  deferred families, and invalid/unsupported assemblies.
+  digitigrade biped family, including its typed ownership tree, distinct typed
+  relation edges for joints, sockets/attachments, capabilities, and regions,
+  required modules, optional named-socket attachments, deferred families, and
+  invalid/unsupported assemblies. The representation must not permanently
+  require every relationship to be a tree, and arbitrary anatomy/user-defined
+  graph kinds are unsupported in the first family.
+- Declared units and coordinate basis, explicit local frames and resolved
+  transforms, and structured diagnostics. Exact coordinate convention, ranges,
+  surface primitives, and schema or syntax technology remain deferred.
 - A planned fixture-profile contract describing stable profile identity,
   concrete source inputs, discriminating parameters, seed/configuration,
   provenance, shared-generation expectations, validity/diagnostic status, and

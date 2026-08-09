@@ -57,6 +57,17 @@ schema, runtime field, topology, or geometry backend is selected. CK-KICK-010's
 approved grid, field, bundle, determinism, and structural-gate values are
 debug-only spike inputs and do not change that boundary.
 
+On 2026-08-09 Ben settled CK-KICK-012 Batch 1 in discussion: the sole
+authoritative source set resolves to a validated, inspectable, reproducible,
+per-build non-authoritative graph snapshot; durable identity uses
+author-declared local keys under an explicit source namespace; and the first
+grammar is a bounded typed ownership tree with distinct typed relation edges
+for joints, sockets/attachments, capabilities, and regions. This discussion
+approval is not acceptance of the revised DRs. DR-0002 Revision 3, DR-0006
+Revision 2, and DR-0008 Revision 3 remain Proposed with Review Pending and
+Owner approval Pending until current-revision Double reviews and Ben's owner
+dispositions. Later CK-KICK-012 semantic batches remain pending.
+
 ## Current round and work state
 
 - Rounds 0–5 are integrated history: governance, product boundary, semantic
@@ -90,8 +101,8 @@ debug-only spike inputs and do not change that boundary.
   conclusion or claim visual evidence or Stage 1.
 - CK-KICK-011 follows useful exploratory evidence. A formal comparative
   surface decision is optional and risk-driven, not automatic.
-- CK-KICK-012 may define the minimal body document/body graph in parallel with
-  the executable spine; it no longer depends on CK-KICK-011.
+- CK-KICK-012 is active with Batch 1 integrated as Proposed documentation; its
+  later semantic batches remain pending and it does not depend on CK-KICK-011.
 - CK-KICK-013 may compare a production implementation platform after the
   exploratory host boundary and minimal contract are understood. A disposable
   discovery host remains distinct from a production commitment.
@@ -104,9 +115,10 @@ debug-only spike inputs and do not change that boundary.
   second review or review-until-clean pass was run. This does not reopen
   DR-0009/0010. Resume normal human design discussion at CK-KICK-012 unless
   evidence exposes a specific CK-KICK-011 need.
-- Keep any CK-KICK-012 minimal body-document/body-graph discussion bounded to
-  semantics and compatibility; it must not promote the disposable host into a
-  production platform or contract.
+- Keep CK-KICK-012's active semantic and compatibility work bounded; it must not
+  promote the disposable host into a production platform or contract. Its
+  current Batch 1 boundary leaves `spec/body-document/` and `spec/body-graph/`
+  uncreated/planned.
 - Preserve the accepted governance process and all historical decision/review
   evidence without reopening the parked confirmatory protocol.
 
@@ -116,8 +128,8 @@ The [decision registry](../decisions/registry.md) is the index for exact DR
 metadata. Current non-governance proposals include:
 
 - [DR-0002](../decisions/DR-0002-declarative-body-document-source-of-truth.md),
-  source set and resolved body graph — Revision 2, Proposed, Review Complete,
-  owner disposition pending.
+  source set and resolved body graph — Revision 3, Proposed, Review Pending,
+  owner approval pending.
 - [DR-0003](../decisions/DR-0003-real-time-first-compiled-avatar-boundary.md),
   compiled avatar and bounded real-time execution — Revision 2, Proposed,
   Review Complete, owner disposition pending.
@@ -128,12 +140,13 @@ metadata. Current non-governance proposals include:
   initial product boundary — Revision 1, Proposed, Review Complete, owner
   disposition pending.
 - [DR-0006](../decisions/DR-0006-durable-semantic-and-artifact-identity.md),
-  semantic and artifact identity — Revision 1, Proposed, Review Complete,
-  owner disposition pending.
+  semantic and artifact identity — Revision 2, Proposed, Review Pending, owner
+  approval pending.
 - [DR-0007](../decisions/DR-0007-staged-first-proof-charter.md) and
   [DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
-  first-proof and morphology boundaries — Revision 2, Proposed, Review
-  Complete, owner disposition pending.
+  first-proof and morphology boundaries — DR-0007 Revision 2 remains Proposed,
+  Review Complete; DR-0008 Revision 3 is Proposed, Review Pending, owner
+  approval pending.
 - [DR-0009](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
   and [DR-0010](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md)
   are parked as described in [Current activation state](#current-activation-state).

@@ -6,13 +6,13 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 2
+Revision: 3
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-08
 
@@ -31,17 +31,28 @@ for regeneration, automation, validation, and interaction across body
 variation. A single initial document is useful, but future explicit semantic
 override layers may also be authored inputs.
 
-Revision 1 described a single declarative body document. Revision 2 records the
-broader source-set boundary and makes the resolved semantic graph a per-build
-derived snapshot. Revision 1 remains historical through Git; no duplicate
-revision snapshot is maintained here.
+Revision 1 described a single declarative body document. Revision 2 recorded the
+broader source-set boundary and made the resolved semantic graph a per-build
+derived snapshot. Revision 3 records Ben's settled CK-KICK-012 Batch 1 source
+and graph boundary on 2026-08-09. The discussion selection is not DR acceptance:
+this revision remains Proposed until a current-revision Double review and
+Ben's owner disposition are recorded. Earlier revisions and their reviews
+remain historical evidence; the Revision 2 review is stale for this revision.
 
 ## Decision
 
 Durable authored intent lives in an authoritative semantic source set. Initially
 the source set may be one human-readable document; future explicit semantic
-override layers may also be authored inputs. Compilation resolves that source
-set into a per-build semantic body-graph snapshot.
+override layers may also be authored inputs. The source set alone is authored
+authority. A validated, inspectable, per-build semantic body-graph snapshot is
+derived from it through resolution.
+
+The snapshot contains source references, durable semantic nodes and relations,
+declared local frames and resolved transforms, relevant intent and lineage, and
+structured diagnostics. It is reproducible and build-scoped, but is not
+authoritative and must not silently become a competing source. Mesh, rig,
+collision, material, deformation, packaging, runtime, and other artifacts
+remain further derived outputs.
 
 The resolved graph supplies shared semantic lineage for derived mesh, rig,
 collider, material, deformation, packaging, runtime-state, and other outputs.
@@ -49,19 +60,23 @@ Those outputs are derived and must not silently become competing sources of
 truth. External artist meshes may later enter as explicitly linked or mapped
 authored inputs.
 
-This record defers physical source formats, override representation,
-precedence/conflict rules, runtime mutation/recompilation, and external-mesh
-conformance details. Durable semantic identity and separate artifact/build
-identity are defined at the boundary in [DR-0006](DR-0006-durable-semantic-and-artifact-identity.md).
+This record defers physical source formats, schema technology, override
+representation and precedence/conflict rules, runtime mutation/recompilation,
+and external-mesh conformance details. Durable semantic identity and separate
+artifact/build identity are defined at the boundary in
+[DR-0006](DR-0006-durable-semantic-and-artifact-identity.md).
 
 ## Consequences
 
 - Generation, regeneration, diffing, shared operations, and deterministic
-  testing receive authored inputs and a resolved per-build snapshot.
+  testing receive authored inputs and a validated, inspectable resolved
+  per-build snapshot.
 - Semantic lineage remains distinct from generated outputs and can survive mesh
   replacement or remeshing.
-- Source-set representation, override policy, and migration policy become
-  long-lived contracts, but remain deferred here.
+- The graph boundary exposes enough semantic structure for inspection and
+  diagnostics without selecting a concrete syntax or schema technology.
+- Source-set representation, override policy, precedence, and migration policy
+  become long-lived contracts, but remain deferred here.
 - Edits made directly to derived output cannot silently become authored truth.
 - Imported meshes require an explicitly linked or mapped authored-input path.
 
@@ -96,19 +111,25 @@ precise, editable, and compatible across model versions.
 ## Adversarial Review Response
 
 [Round 3 Revision 2 adversarial review](reviews/DR-0002-rev-02-review-01.md)
-recommends Accept with Medium confidence. The response is clean: no blocker and
-no revision is required. The source-format, resolver, fixture, migration,
-runtime-mutation, and external-mesh obligations remain deferred pending owner
-disposition and later specification work.
+is preserved as stale historical evidence for Revision 2. It recommended
+Accept with Medium confidence for that earlier boundary; it does not review
+Revision 3. A current-revision Double review is required before acceptance.
+The source-format, schema, resolver, fixture, migration, runtime-mutation, and
+external-mesh obligations remain deferred pending owner disposition and later
+specification work.
 
 ## Implementation and Proof Obligations
 
-- Specify the source-set, resolved-graph, and derived-output relationships.
-- Define deterministic resolution and diagnostic behaviour.
+- Specify the source-set, resolved-graph, and derived-output relationships,
+  including source references, durable semantic nodes/relations, local frames,
+  resolved transforms, intent/lineage, and structured diagnostics.
+- Define deterministic resolution and diagnostic behaviour for valid,
+  invalid, and unsupported assemblies.
 - Define semantic identity separately from artifact/build identity under DR-0006.
 - Build fixtures proving semantic lineage across shape variation and derived
   output changes.
-- Later define source formats, overrides, runtime mutation/recompilation,
+- Later define source formats, schema technology, overrides,
+  precedence/conflict rules, runtime mutation/recompilation,
   external-mesh mapping, versioning, and migration before promising those
   contracts.
 

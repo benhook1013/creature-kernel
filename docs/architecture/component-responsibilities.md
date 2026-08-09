@@ -8,8 +8,8 @@ its activation trigger is met.
 
 | Component | Responsibilities | Explicit non-responsibilities |
 | --- | --- | --- |
-| Authoritative semantic source set | Parse authored inputs, preserve user intent, report source errors | Generate meshes or run gameplay |
-| Semantic body resolver | Resolve the source set into a per-build graph snapshot | Host-engine objects or become an authored source |
+| Authoritative semantic source set | Parse authored inputs, preserve user intent, report source errors, and provide the sole authored authority | Generate meshes or run gameplay |
+| Semantic body resolver | Validate and resolve the source set into an inspectable per-build graph snapshot with source references, durable semantic nodes/relations, declared local frames, resolved transforms, intent/lineage, and structured diagnostics | Host-engine objects, become an authored source, or make derived artifacts authoritative |
 | Geometry field system | Evaluate part volumes, composition, semantic fields | Choose runtime animation |
 | Surface compiler | Extract, repair, remesh, simplify, and attribute visible surfaces | Define semantic truth |
 | Rigging compiler | Generate joints, limits, skinning, correctives, and bindings | Own interaction intent |
@@ -19,7 +19,7 @@ its activation trigger is met.
 | Embodiment runtime | Coordinate bounded pose, IK, contact, parameterized deformation, activated regional solvers, quality tiers, and fallbacks | Compile arbitrary topology every frame or require fully live implicit generation |
 | Interaction system | Resolve semantic participants, phases, constraints, and fallbacks | Depend on exact mesh identities |
 | Shared domain operations and adapters | Define deterministic query, semantic mutation, resolution/compilation, validation, diagnostics, and artifact inspection for CLI/API and future adapters | Contain AI-specific reasoning or private client behaviour |
-| Validation system | Produce structural, geometric, visual, and performance evidence | Declare product decisions automatically |
+| Validation system | Produce structural, semantic, geometric, visual, and performance evidence, including invalid/unsupported-assembly diagnostics | Declare product decisions automatically |
 | Host adapters | Translate core packages and runtime contracts into engine-specific systems | Leak engine types into core contracts |
 
 ## Dependency direction
