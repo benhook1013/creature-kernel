@@ -12,6 +12,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import stat
 import sys
 from typing import Any, Mapping, Sequence
 
@@ -184,12 +185,24 @@ def _bundle_file_names(directory: Path) -> tuple[str, ...]:
     names: list[str] = []
     for path in directory.rglob("*"):
         relative = path.relative_to(directory).as_posix()
-        if path.is_file():
+        try:
+            mode = path.lstat().st_mode
+        except OSError:
+            # Make an inventory race fail the exact-shape check without
+            # attempting to hash a path whose type could not be inspected.
+            return ("<unreadable-staged-path>",)
+        if stat.S_ISREG(mode):
             names.append(relative)
-        elif relative:
+        elif stat.S_ISDIR(mode):
             # A complete bundle has no nested directories.  Keep this marker so
             # the exact-shape validator rejects an otherwise hidden directory.
             names.append(relative + "/")
+        else:
+            # ``Path.is_file`` follows symlinks and would let a link to an
+            # external file reach the hash/publication path.  Use a marker that
+            # cannot equal an expected regular artifact name for every other
+            # inode type (symlink, device, FIFO, socket, and so on).
+            names.append(relative + "\x00")
     return tuple(sorted(names))
 
 
@@ -275,7 +288,7 @@ def _load_and_resolve(path: Path) -> tuple[Any, ValidationResult]:
         )
     try:
         document = json.loads(text)
-    except (json.JSONDecodeError, TypeError):
+    except (json.JSONDecodeError, TypeError, ValueError):
         return None, resolver.resolve_json(text)
     return document, resolver.resolve_document(document)
 
@@ -314,7 +327,7 @@ def _build(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
             padding=args.padding,
             smooth_min_k=args.smooth_min_k,
         )
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         diagnostic = _diagnostic(
             "INVALID_GEOMETRY_CONFIG",
             Phase.VALIDATION,

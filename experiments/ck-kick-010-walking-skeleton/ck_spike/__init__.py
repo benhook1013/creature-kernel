@@ -15,4 +15,3 @@ __all__ = [
     "resolve_json",
     "validate_and_resolve",
 ]
-

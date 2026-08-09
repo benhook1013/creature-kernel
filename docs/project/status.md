@@ -69,9 +69,11 @@ debug-only spike inputs and do not change that boundary.
   replaceable discovery adapters rather than production selections.
 - CK-KICK-010 is implemented with bounded local evidence recorded in
   [`experiments/ck-kick-010-walking-skeleton/RESULTS.md`](../../experiments/ck-kick-010-walking-skeleton/RESULTS.md);
-  independent implementation review is pending. Its provisional inputs and
-  observations do not create a schema, DR, Stage 1 result, or production
-  contract, and the evidence record does not register `EXP-0001`.
+  its selected Single independent implementation review is complete with five
+  substantive findings and a trailing-whitespace finding dispositioned in that
+  record, not clean. Its provisional inputs and observations do not create a
+  schema, DR, Stage 1 result, or production contract, and the evidence record
+  does not register `EXP-0001`.
 - CK-KICK-011 follows useful exploratory evidence. A formal comparative
   surface decision is optional and risk-driven, not automatic.
 - CK-KICK-012 may define the minimal body document/body graph in parallel with
@@ -82,10 +84,12 @@ debug-only spike inputs and do not change that boundary.
 
 ## Active work
 
-- Complete the independent implementation review of CK-KICK-010 and its
-  evidence boundary; this does not reopen DR-0009/0010. After that bounded
-  review, resume normal human design discussion at CK-KICK-012 unless evidence
-  exposes a specific CK-KICK-011 need.
+- The selected Single independent implementation review of CK-KICK-010 and
+  its evidence boundary is complete; findings and dispositions are recorded in
+  `RESULTS.md`. Main consolidated validation passed after the corrections; no
+  second review or review-until-clean pass was run. This does not reopen
+  DR-0009/0010. Resume normal human design discussion at CK-KICK-012 unless
+  evidence exposes a specific CK-KICK-011 need.
 - Keep any CK-KICK-012 minimal body-document/body-graph discussion bounded to
   semantics and compatibility; it must not promote the disposable host into a
   production platform or contract.
@@ -129,15 +133,13 @@ metadata. Current non-governance proposals include:
 | Research/experiment workflow | partial | unverified | Lightweight template exists; no experiment registered |
 | Body specification | design-unresolved | not-applicable | Minimal contract is next exploratory discussion |
 | Creature compiler | partial | unverified | Disposable CK-KICK-010 walking skeleton implemented; this is not a production compiler |
-| CK-KICK-010 walking skeleton | implemented | unverified | Valid/invalid local evidence recorded; independent implementation review pending |
+| CK-KICK-010 walking skeleton | implemented | audited | Valid/invalid local evidence and the selected Single independent review are complete; five substantive findings plus whitespace were dispositioned in RESULTS, not clean; this is not a production compiler |
 | Runtime avatar | not-implemented | not-applicable | No runtime adapter selected |
 
 ## Immediate next actions
 
-- Complete the independent CK-KICK-010 implementation review and inspect its
-  evidence boundary.
-- After that bounded review, discuss CK-KICK-012's minimal semantic body input
-  and body-graph output unless evidence exposes a specific CK-KICK-011 need.
+- Discuss CK-KICK-012's minimal semantic body input and body-graph output
+  unless evidence exposes a specific CK-KICK-011 need.
 - Leave DR-0009/0010 parked unless the activation trigger occurs or Ben
   explicitly reactivates them.
 

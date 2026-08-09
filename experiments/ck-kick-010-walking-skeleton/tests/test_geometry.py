@@ -6,10 +6,14 @@ import unittest
 import numpy as np
 
 from ck_spike.diagnostics import Phase, Severity
+from ck_spike.export import validate_export
 from ck_spike.geometry import (
+    FACE_ORIENTATION_ALIGNMENT_TOLERANCE,
     GeometryConfig,
     GeometryError,
     SMOOTH_MIN_FORMULA,
+    _orient_mesh,
+    _sorted_nodes,
     attribute_winners,
     build_surface,
     capsule_raw_field,
@@ -144,6 +148,35 @@ class GeometryTests(unittest.TestCase):
         self.assertGreater(first.metrics.field_maximum, 0.0)
         self.assertGreater(first.metrics.orientation_alignment, 0.0)
         json.dumps(first.to_dict(), sort_keys=True)
+
+    def test_reversed_face_fails_local_geometry_and_export_orientation_checks(self):
+        config = GeometryConfig(samples_per_axis=16)
+        surface = build_surface(self.graph, config)
+        reversed_faces = list(surface.faces)
+        first = reversed_faces[0]
+        reversed_faces[0] = (first[0], first[2], first[1])
+        reversed_array = np.asarray(reversed_faces, dtype=np.int64)
+
+        # One reversed triangle leaves the aggregate field-gradient mean
+        # positive, so this specifically exercises the per-face geometry gate.
+        with self.assertRaises(GeometryError) as raised:
+            _orient_mesh(
+                np.asarray(surface.vertices, dtype=np.float64),
+                reversed_array,
+                _sorted_nodes(self.graph),
+                config,
+            )
+        self.assertEqual(raised.exception.diagnostics[0].code, "MESH_FACE_ORIENTATION_INVALID")
+        self.assertEqual(FACE_ORIENTATION_ALIGNMENT_TOLERANCE, 0.05)
+
+        tampered = replace(surface, faces=tuple(reversed_faces))
+        export_result = validate_export(tampered, self.graph)
+        self.assertFalse(export_result.ok)
+        self.assertFalse(export_result.mesh["outward_winding"])
+        self.assertIn(
+            "EXPORT_MESH_ORIENTATION_INVALID",
+            [item.code for item in export_result.diagnostics],
+        )
 
     def test_domain_face_failure_is_typed_and_deterministic(self):
         graph = ResolvedGraph(

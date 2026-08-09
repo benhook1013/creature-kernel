@@ -66,6 +66,24 @@ def _is_number(value: Any) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
+def _finite_float(value: Any) -> float | None:
+    """Convert a JSON number without letting an oversized integer escape.
+
+    Python raises ``OverflowError`` when an integer outside the binary-float
+    range is converted with ``float``.  That is still an input-validation
+    failure, so keep it on the resolver's existing structured diagnostic
+    path rather than allowing it to become an unexpected build failure.
+    """
+
+    if not _is_number(value):
+        return None
+    try:
+        converted = float(value)
+    except (OverflowError, TypeError, ValueError):
+        return None
+    return converted if math.isfinite(converted) else None
+
+
 def _parse_vector(
     value: Any,
     length: int,
@@ -81,12 +99,16 @@ def _parse_vector(
             )
         )
         return None
-    if not all(_is_number(item) and math.isfinite(float(item)) for item in value):
-        diagnostics.append(
-            _diagnostic("NON_FINITE_VALUE", path, "vector values must be finite")
-        )
-        return None
-    return tuple(float(item) for item in value)
+    converted: list[float] = []
+    for item in value:
+        finite = _finite_float(item)
+        if finite is None:
+            diagnostics.append(
+                _diagnostic("NON_FINITE_VALUE", path, "vector values must be finite")
+            )
+            return None
+        converted.append(finite)
+    return tuple(converted)
 
 
 def _parse_transform(
@@ -170,7 +192,8 @@ def _parse_primitive(
                 return None
             endpoints.append(parsed)  # type: ignore[arg-type]
         radius = value.get("radius")
-        if not _is_number(radius) or not math.isfinite(float(radius)):
+        radius_float = _finite_float(radius)
+        if radius_float is None:
             diagnostics.append(
                 _diagnostic(
                     "NON_FINITE_VALUE",
@@ -179,7 +202,6 @@ def _parse_primitive(
                 )
             )
             return None
-        radius_float = float(radius)
         if radius_float <= 0.0:
             diagnostics.append(
                 _diagnostic(
@@ -607,6 +629,13 @@ def resolve_json(text: str) -> ValidationResult:
                     f"invalid JSON at line {error.lineno}, column {error.colno}",
                 ),
             )
+        )
+    except ValueError:
+        # Python can reject an otherwise lexically valid integer when it
+        # exceeds the interpreter's configured conversion limit.  Keep that
+        # input failure typed and deterministic instead of leaking ValueError.
+        return ValidationResult(
+            diagnostics=(_diagnostic("INVALID_JSON", "/", "invalid JSON"),)
         )
     return resolve_document(document)
 

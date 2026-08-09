@@ -27,6 +27,16 @@ SMOOTH_MIN_FORMULA = (
 )
 SMOOTH_MIN_FOLD_ORDER = "sorted_source_label"
 
+# The temporary marching-cubes mesh is oriented against the sampled field
+# gradient, but coarse grids can make that local estimate noisy.  A cosine of
+# 0.05 accepts a face whose normal is within roughly 87 degrees of its
+# area-weighted vertex-normal average, while rejecting a reversed face (cosine
+# near -1).  This is a disposable spike invariant, not a production
+# geometry-quality contract.  The check is applied to every nondegenerate
+# face; the field-gradient mean remains diagnostic/global-winding input only.
+FACE_ORIENTATION_ALIGNMENT_TOLERANCE = 0.05
+FACE_AREA_TOLERANCE = 1e-14
+
 
 class GeometryError(Exception):
     """A fail-fast field or mesh error with structured diagnostics only."""
@@ -506,6 +516,22 @@ def attribute_winners(graph: ResolvedGraph, vertices: Any) -> tuple[str, ...]:
     return _winner_labels(points, _sorted_nodes(graph))
 
 
+def _directed_edge_orientation_mismatches(faces: np.ndarray) -> int:
+    """Count undirected edges whose two incident faces do not oppose direction."""
+
+    directions: dict[tuple[int, int], list[int]] = {}
+    for face in faces:
+        for start, end in ((int(face[0]), int(face[1])), (int(face[1]), int(face[2])), (int(face[2]), int(face[0]))):
+            key = (min(start, end), max(start, end))
+            direction = 1 if (start, end) == key else -1
+            directions.setdefault(key, []).append(direction)
+    return sum(
+        1
+        for incident in directions.values()
+        if len(incident) != 2 or incident[0] == incident[1]
+    )
+
+
 def _orient_mesh(vertices: np.ndarray, faces: np.ndarray, nodes: Sequence[ResolvedNode], config: GeometryConfig) -> tuple[np.ndarray, np.ndarray, float, float]:
     edges = vertices[faces[:, 1]] - vertices[faces[:, 0]]
     edges_two = vertices[faces[:, 2]] - vertices[faces[:, 0]]
@@ -531,13 +557,56 @@ def _orient_mesh(vertices: np.ndarray, faces: np.ndarray, nodes: Sequence[Resolv
         out=np.zeros_like(normal_lengths),
         where=normal_lengths > 0.0,
     )
-    mean_alignment = float(np.mean(alignment))
-    if not np.all(np.isfinite(alignment)) or abs(mean_alignment) <= 1e-8:
+    nondegenerate = lengths > FACE_AREA_TOLERANCE
+    if not np.all(np.isfinite(alignment)) or not np.any(nondegenerate):
         raise _error("MESH_ORIENTATION_UNRESOLVED", Phase.MESH, "/faces", "field-gradient orientation is unresolved")
+    mean_alignment = float(np.mean(alignment[nondegenerate]))
     if mean_alignment < 0.0:
         faces = faces[:, [0, 2, 1]]
         area_vectors = -area_vectors
         alignment = -alignment
+    # The aggregate mean above chooses the global winding direction, but it is
+    # not a local acceptance gate: coarse-grid field gradients can be noisy.
+    # Build the same area-weighted vertex normals that are exported and require
+    # every nondegenerate face to agree with its local normal average.
+    vertex_normals = np.zeros_like(vertices)
+    for corner in range(3):
+        np.add.at(vertex_normals, faces[:, corner], area_vectors)
+    vertex_normal_lengths = np.linalg.norm(vertex_normals, axis=1)
+    if np.any(vertex_normal_lengths <= FACE_AREA_TOLERANCE):
+        raise _error("MESH_NORMALS_INVALID", Phase.MESH, "/normals", "vertex normals are undefined")
+    vertex_normals /= vertex_normal_lengths[:, None]
+    face_normals = (
+        vertex_normals[faces[:, 0]]
+        + vertex_normals[faces[:, 1]]
+        + vertex_normals[faces[:, 2]]
+    ) / 3.0
+    face_normal_lengths = np.linalg.norm(face_normals, axis=1)
+    normal_alignment = np.divide(
+        np.sum(area_vectors * face_normals, axis=1),
+        lengths * face_normal_lengths,
+        out=np.full(len(faces), np.nan, dtype=np.float64),
+        where=(lengths > FACE_AREA_TOLERANCE) & (face_normal_lengths > FACE_AREA_TOLERANCE),
+    )
+    if (
+        not np.all(np.isfinite(normal_alignment[nondegenerate]))
+        or np.any(normal_alignment[nondegenerate] < FACE_ORIENTATION_ALIGNMENT_TOLERANCE)
+    ):
+        raise _error(
+            "MESH_FACE_ORIENTATION_INVALID",
+            Phase.MESH,
+            "/faces",
+            "every nondegenerate face must align with its area-weighted vertex normals "
+            f"at cosine >= {FACE_ORIENTATION_ALIGNMENT_TOLERANCE:g}",
+        )
+    mismatches = _directed_edge_orientation_mismatches(faces)
+    if mismatches:
+        raise _error(
+            "MESH_EDGE_ORIENTATION_INVALID",
+            Phase.MESH,
+            "/faces",
+            f"directed shared-edge winding has {mismatches} mismatched edge(s)",
+        )
     signed_volume = float(np.sum(np.einsum("ij,ij->i", vertices[faces[:, 0]], area_vectors)) / 6.0)
     if not math.isfinite(signed_volume) or signed_volume <= 0.0:
         raise _error("MESH_ORIENTATION_UNRESOLVED", Phase.MESH, "/faces", "signed volume is not positive in the selected basis")
@@ -690,6 +759,8 @@ build = build_surface
 
 
 __all__ = [
+    "FACE_AREA_TOLERANCE",
+    "FACE_ORIENTATION_ALIGNMENT_TOLERANCE",
     "GeometryConfig",
     "GeometryError",
     "GridMetadata",

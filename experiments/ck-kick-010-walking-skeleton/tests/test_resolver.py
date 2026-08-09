@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 from ck_spike.diagnostics import Phase, Severity, ValidationError
-from ck_spike.resolver import resolve_document, resolve_file
+from ck_spike.resolver import resolve_document, resolve_file, resolve_json
 
 
 EXPERIMENT_ROOT = Path(__file__).resolve().parents[1]
@@ -142,6 +142,35 @@ class ResolverTests(unittest.TestCase):
         self.assertEqual(diagnostic.code, "INVALID_ROTATION")
         self.assertEqual(diagnostic.phase, Phase.VALIDATION)
         self.assertEqual(diagnostic.path, "/nodes/0/transform/rotation")
+
+    def test_oversized_numeric_values_are_structured_validation_failures(self):
+        document = json.loads(VALID_FIXTURE.read_text(encoding="utf-8"))
+        oversized = 10**400
+        cases = (
+            ("/nodes/0/transform/translation", lambda node: node["transform"]["translation"].__setitem__(0, oversized)),
+            ("/nodes/0/primitive/radius", lambda node: node["primitive"].__setitem__("radius", oversized)),
+        )
+
+        for path, mutate in cases:
+            with self.subTest(path=path):
+                candidate = copy.deepcopy(document)
+                mutate(candidate["nodes"][0])
+                result = resolve_document(candidate)
+
+                self.assertFalse(result.ok)
+                self.assertEqual(len(result.diagnostics), 1)
+                self.assertEqual(result.diagnostics[0].code, "NON_FINITE_VALUE")
+                self.assertEqual(result.diagnostics[0].phase, Phase.VALIDATION)
+                self.assertEqual(result.diagnostics[0].path, path)
+
+    def test_json_integer_conversion_limit_is_structured(self):
+        result = resolve_json('{"value": ' + "9" * 5000 + "}")
+
+        self.assertFalse(result.ok)
+        self.assertEqual(len(result.diagnostics), 1)
+        self.assertEqual(result.diagnostics[0].code, "INVALID_JSON")
+        self.assertEqual(result.diagnostics[0].phase, Phase.VALIDATION)
+        self.assertEqual(result.diagnostics[0].path, "/")
 
 
 if __name__ == "__main__":

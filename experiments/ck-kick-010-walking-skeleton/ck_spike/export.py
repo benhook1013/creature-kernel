@@ -16,7 +16,12 @@ from typing import Any, Iterable, Sequence
 import numpy as np
 
 from .diagnostics import Diagnostic, Phase, Severity
-from .geometry import SurfaceResult
+from .geometry import (
+    FACE_AREA_TOLERANCE,
+    FACE_ORIENTATION_ALIGNMENT_TOLERANCE,
+    SurfaceResult,
+    _directed_edge_orientation_mismatches,
+)
 from .model import ResolvedGraph
 
 
@@ -145,6 +150,9 @@ def _mesh_checks(surface: SurfaceResult, matrix: np.ndarray, determinant: float)
             finite_vertices = False
     signed_volume = float("nan")
     outward_winding = False
+    face_normal_alignment = np.empty(0, dtype=np.float64)
+    radial_alignment = np.empty(0, dtype=np.float64)
+    directed_edge_orientation_mismatches = -1
     if finite_vertices and valid_indices:
         area_vectors = np.cross(
             transformed_vertices[faces[:, 1]] - transformed_vertices[faces[:, 0]],
@@ -160,13 +168,53 @@ def _mesh_checks(surface: SurfaceResult, matrix: np.ndarray, determinant: float)
         ) / 3.0
         centroid = np.mean(transformed_vertices, axis=0)
         alignment = np.einsum("ij,ij->i", area_vectors, centers - centroid)
+        # Retain the centroid/radial alignment as an aggregate diagnostic only;
+        # it is intentionally not an acceptance gate because a local winding
+        # error can disappear in its mean.
+        radial_alignment = alignment
+        face_lengths = np.linalg.norm(area_vectors, axis=1)
+        try:
+            normal_transform = np.linalg.inv(matrix[:3, :3])
+        except np.linalg.LinAlgError:
+            normal_transform = np.full((3, 3), np.nan, dtype=np.float64)
+        transformed_normals = normals @ normal_transform
+        face_normals = (
+            transformed_normals[faces[:, 0]]
+            + transformed_normals[faces[:, 1]]
+            + transformed_normals[faces[:, 2]]
+        ) / 3.0
+        face_normal_lengths = np.linalg.norm(face_normals, axis=1)
+        face_normal_alignment = np.divide(
+            np.einsum("ij,ij->i", area_vectors, face_normals),
+            face_lengths * face_normal_lengths,
+            out=np.full(len(faces), np.nan, dtype=np.float64),
+            where=(face_lengths > FACE_AREA_TOLERANCE) & (face_normal_lengths > FACE_AREA_TOLERANCE),
+        )
+        nondegenerate = face_lengths > FACE_AREA_TOLERANCE
+        directed_edge_orientation_mismatches = _directed_edge_orientation_mismatches(faces)
         outward_winding = bool(
             math.isfinite(signed_volume)
             and signed_volume > 0.0
-            and np.all(np.isfinite(alignment))
-            and float(np.mean(alignment)) > 0.0
+            # Positive volume is only the global winding check.  Each
+            # nondegenerate face must also agree with the exported vertex
+            # normals at the documented cosine tolerance, so a local reversed
+            # face cannot be hidden by the aggregate mean.  Shared edges must
+            # also be oppositely directed between their two incident faces.
+            and np.all(np.isfinite(face_normal_alignment[nondegenerate]))
+            and np.all(face_normal_alignment[nondegenerate] >= FACE_ORIENTATION_ALIGNMENT_TOLERANCE)
+            and directed_edge_orientation_mismatches == 0
             and float(determinant) > 0.0
         )
+    minimum_face_normal_alignment = float("nan")
+    mean_face_normal_alignment = float("nan")
+    if face_normal_alignment.size:
+        nondegenerate = np.isfinite(face_normal_alignment)
+        if np.any(nondegenerate):
+            minimum_face_normal_alignment = float(np.min(face_normal_alignment[nondegenerate]))
+            mean_face_normal_alignment = float(np.mean(face_normal_alignment[nondegenerate]))
+    radial_alignment_mean = float("nan")
+    if radial_alignment.size and np.all(np.isfinite(radial_alignment)):
+        radial_alignment_mean = float(np.mean(radial_alignment))
     checks = {
         "vertex_count": int(len(vertices)),
         "normal_count": int(len(normals)),
@@ -178,6 +226,11 @@ def _mesh_checks(surface: SurfaceResult, matrix: np.ndarray, determinant: float)
         "valid_indices": valid_indices,
         "signed_volume": signed_volume,
         "outward_winding": outward_winding,
+        "radial_alignment_mean": radial_alignment_mean,
+        "directed_edge_orientation_mismatches": directed_edge_orientation_mismatches,
+        "face_normal_alignment_minimum": minimum_face_normal_alignment,
+        "face_normal_alignment_mean": mean_face_normal_alignment,
+        "face_normal_alignment_tolerance": FACE_ORIENTATION_ALIGNMENT_TOLERANCE,
     }
     return checks
 
@@ -246,7 +299,11 @@ def validate_export(
         ("finite_faces", "EXPORT_MESH_NON_FINITE", "exported faces must be finite"),
         ("counts_match", "EXPORT_MESH_COUNTS_INVALID", "mesh vertex and normal counts must match and faces must be non-empty"),
         ("valid_indices", "EXPORT_MESH_INDICES_INVALID", "mesh face indices must be valid"),
-        ("outward_winding", "EXPORT_MESH_ORIENTATION_INVALID", "exported mesh must have positive volume and outward winding"),
+        (
+            "outward_winding",
+            "EXPORT_MESH_ORIENTATION_INVALID",
+            "exported mesh must have positive volume, outward winding, and per-face normal alignment",
+        ),
     ):
         if not mesh[key]:
             diagnostics.append(_diagnostic(code, "/mesh", message))

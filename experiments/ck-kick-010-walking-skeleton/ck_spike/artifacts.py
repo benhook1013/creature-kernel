@@ -26,6 +26,7 @@ import math
 import os
 import platform
 import shutil
+import stat
 import sys
 import tempfile
 from collections.abc import Callable, Mapping
@@ -144,7 +145,17 @@ def sha256_bytes(data: bytes | bytearray | memoryview) -> str:
 
 
 def sha256_file(path: str | os.PathLike[str]) -> str:
-    """Return the lowercase SHA-256 hex digest of a file."""
+    """Return the lowercase SHA-256 hex digest of a regular file.
+
+    ``open`` follows symlinks, which is unsafe for staged bundle paths: a
+    symlink could otherwise hash content outside the invocation-owned staging
+    directory.  Inspect the directory entry itself before opening it and keep
+    all non-regular inode types out of the hashing boundary.
+    """
+
+    mode = os.lstat(path).st_mode
+    if not stat.S_ISREG(mode):
+        raise ValueError("cannot hash a non-regular file")
 
     digest = hashlib.sha256()
     with open(path, "rb") as stream:
@@ -534,6 +545,25 @@ def write_bundle_files(
     return tuple(sorted(written))
 
 
+def _staged_entries_are_safe(directory: Path) -> bool:
+    """Check staged directory entries without following symlinks.
+
+    Nested directories are allowed here because this mechanical artifact seam
+    does not own a bundle's shape.  Every actual artifact entry must still be
+    a regular file; shape validators (such as the CLI's exact inventory)
+    decide whether a directory is permitted for a particular bundle.
+    """
+
+    try:
+        for path in directory.rglob("*"):
+            mode = path.lstat().st_mode
+            if not stat.S_ISREG(mode) and not stat.S_ISDIR(mode):
+                return False
+    except OSError:
+        return False
+    return True
+
+
 BundleWriter: TypeAlias = Callable[[Path], Any]
 BundleValidator: TypeAlias = Callable[[Path], Any]
 
@@ -606,6 +636,17 @@ def publish_bundle(
                 )
             if isinstance(callback_result, Mapping):
                 written = write_bundle_files(staging, callback_result)
+
+        # Run the inode-type boundary before any caller validator can hash or
+        # otherwise consume a symlink, device, FIFO, socket, or other special
+        # staged entry.  The CLI validator additionally rejects directories in
+        # its exact flat-bundle shape.
+        if not _staged_entries_are_safe(staging):
+            _raise_artifact(
+                "BUNDLE_VALIDATION_FAILED",
+                Phase.ARTIFACT,
+                "staged bundle contains a non-regular artifact path",
+            )
 
         try:
             validation_result = validator(staging)

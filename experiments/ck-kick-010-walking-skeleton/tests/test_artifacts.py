@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import socket
 import tempfile
 import unittest
 from pathlib import Path
@@ -32,6 +33,38 @@ class CanonicalArtifactTests(unittest.TestCase):
             path = Path(temporary) / "data.bin"
             path.write_bytes(data)
             self.assertEqual(artifacts.sha256_file(path), hashlib.sha256(data).hexdigest())
+
+    def test_sha256_file_rejects_symlinks_and_other_non_regular_paths(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            regular = root / "regular"
+            regular.write_bytes(b"outside")
+            symlink = root / "symlink"
+            symlink.symlink_to(regular)
+            directory = root / "directory"
+            directory.mkdir()
+
+            for path in (symlink, directory):
+                with self.subTest(path=path.name), self.assertRaises(ValueError):
+                    artifacts.sha256_file(path)
+
+            fifo = root / "fifo"
+            if hasattr(os, "mkfifo"):
+                os.mkfifo(fifo)
+                with self.assertRaises(ValueError):
+                    artifacts.sha256_file(fifo)
+
+            socket_path = root / "socket"
+            socket_file = None
+            try:
+                if hasattr(socket, "AF_UNIX"):
+                    socket_file = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                    socket_file.bind(str(socket_path))
+                    with self.assertRaises(ValueError):
+                        artifacts.sha256_file(socket_path)
+            finally:
+                if socket_file is not None:
+                    socket_file.close()
 
     def test_manifest_hashes_supplied_files_without_self_reference(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -179,6 +212,29 @@ class PublicationTests(unittest.TestCase):
         with self.assertRaises(artifacts.ArtifactPublicationError):
             artifacts.publish_bundle(target, self._bundle(), lambda _staging: False)
         self.assertFalse(target.exists())
+        self.assertEqual(list(self.parent.glob(".*.staging-*")), [])
+
+    def test_non_regular_writer_entry_is_rejected_before_validator_or_publication(self):
+        target = self.parent / "non-regular"
+        external = self.parent / "external"
+        external.write_bytes(b"must remain untouched")
+        validator_called = False
+
+        def writer(staging):
+            (staging / "diagnostics.json").symlink_to(external)
+
+        def validator(_staging):
+            nonlocal validator_called
+            validator_called = True
+            return True
+
+        with self.assertRaises(artifacts.ArtifactPublicationError) as raised:
+            artifacts.publish_bundle(target, writer, validator)
+
+        self.assertEqual(raised.exception.diagnostics[0].code, "BUNDLE_VALIDATION_FAILED")
+        self.assertFalse(validator_called)
+        self.assertFalse(target.exists())
+        self.assertEqual(external.read_bytes(), b"must remain untouched")
         self.assertEqual(list(self.parent.glob(".*.staging-*")), [])
 
     def test_target_appearing_race_leaves_target_and_sibling_untouched(self):

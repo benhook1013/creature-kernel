@@ -18,6 +18,32 @@ cd experiments/ck-kick-010-walking-skeleton
 python -m pip install -r requirements.txt -r requirements-dev.txt
 ```
 
+These files pin direct runtime and test dependencies, not every installed
+transitive package or a hash-locked cross-platform environment. The evidence
+record captures the complete package map for its exact venv; installing these
+direct pins later is not claimed to reproduce that environment indefinitely.
+
+## Preferred four-run evidence reproduction
+
+From this directory with the isolated environment active, use the disposable
+helper:
+
+```bash
+python tools/reproduce_evidence.py \
+  --output-root /tmp/ck-kick-010-evidence-NEW
+```
+
+Replace `NEW` with an unused name (or choose another unused path directly
+under `/tmp`); the output root must not already exist and its parent must
+exist. The helper runs the valid fixture twice and the intentionally invalid
+fixture twice at the default `128^3` configuration, checks exact bundle
+inventories, and compares
+each pair byte-for-byte. The recorded invocation exited `0`, with child exit
+codes `0`, `0`, `2`, and `2`; both pairs were byte-identical. The output
+bundles under `/tmp` are invocation-owned ephemeral evidence and must not be
+committed. This helper is disposable experiment tooling, not a formal
+experiment runner, Stage 1 tooling, or production tooling.
+
 The host uses the existing stdlib resolver, NumPy/scikit-image field and
 marching-cubes adapters, trimesh structural checks, and project-owned artifact
 and export seams. Scientific-library objects do not enter the resolved graph
@@ -79,7 +105,7 @@ is present. Field/mesh failures exit `3` without a final target. Artifact,
 publication, and unexpected failures exit `4` without overwriting an existing
 target. The output parent is not created by the command.
 
-## Tests and exact rerun comparison
+## Tests and manual rerun comparison
 
 Run the focused end-to-end and seam tests with:
 
@@ -87,7 +113,7 @@ Run the focused end-to-end and seam tests with:
 python -m pytest -q
 ```
 
-To compare two valid runs byte-for-byte, use two new targets:
+For a focused manual two-run valid comparison, use two new targets:
 
 ```bash
 mkdir -p /tmp/ck-kick-010-outputs
@@ -102,6 +128,8 @@ sha256sum /tmp/ck-kick-010-outputs/run-a/*
 sha256sum /tmp/ck-kick-010-outputs/run-b/*
 ```
 
-The observed byte equality is same-environment evidence for this disposable
-implementation. It does not establish cross-platform bit identity, Stage 1
-success, performance limits, runtime behavior, or production suitability.
+The observed byte equality is evidence of byte repeatability in the exact
+recorded same-host environment for this disposable implementation. It does
+not establish cross-platform bit identity, indefinite reproducibility from the
+direct pins alone, Stage 1 success, performance limits, runtime behavior, or
+production suitability.
