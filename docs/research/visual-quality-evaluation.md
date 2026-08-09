@@ -122,6 +122,12 @@ criterion, view provenance, rationale, reviewer disagreement, and uncertainty
 without inventing a scalar or collapsing the record into an aesthetic score.
 The comparative visual result must remain distinct from the floor result.
 
+When comparative visual evidence is an applicable registered dimension for a
+match or dominance determination, unresolved or disputed visual evidence that
+could change that determination blocks a conclusive result and is
+`Inconclusive`. This protocol contributes no scalar visual score; it records
+views, rationale, disagreement, and uncertainty only.
+
 Under the shared outcome precedence in DR-0009, a mandatory visual-floor
 failure is a gate failure and contributes to `Reject` when the evidence is
 valid; unavailable or indeterminate visual evidence is `Inconclusive`. A

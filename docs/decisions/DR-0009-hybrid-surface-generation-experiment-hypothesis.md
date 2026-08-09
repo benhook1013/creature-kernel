@@ -6,13 +6,13 @@ Scope: Architecture
 
 Status: Proposed
 
-Revision: 4
+Revision: 5
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-09
 
@@ -37,11 +37,15 @@ strict non-overlapping outcome precedence, comparative visual evidence,
 bounded fairness and knowledge reuse, and interaction attribution. Revision 4
 was reviewed by the [architecture/proof/governance review](reviews/DR-0009-rev-04-review-01.md)
 and [geometry/semantics/measurement review](reviews/DR-0009-rev-04-review-02.md);
-both recommended `Revise` at High confidence. The current reviews leave
-branch-readiness terminal disposition, baseline-failure handling, outcome-row
-precedence, interaction-category exclusivity, and complete Pareto dominance
-and simplicity rules unresolved. This proposal remains Proposed with Owner
-approval Pending.
+both recommended `Revise` at High confidence. Those reviews are preserved as
+historical evidence and are stale for this revision. Revision 5 applies Ben's
+settled Round 10 resolutions: a finite per-branch readiness-remediation and
+implementation budget with a terminal feasibility-failure rule; branch-
+sensitive baseline disposition; exclusive outcome predicates with complete
+frontier dominance and simplicity/match rules; and an exact mutually
+exclusive four-state interaction matrix. No current-revision review has been
+performed. Revision 5 remains Proposed with Owner approval Pending and Review
+Pending; it is unreviewed and unaccepted.
 
 Supersedes: —
 
@@ -127,22 +131,35 @@ non-inferiority comparison with a predeclared named improvement.** Evidence
 validity and branch readiness are evaluated before any technology outcome. A
 comparison is affected, and therefore `Inconclusive`, when an independently
 demonstrated shared-pipeline or apparatus failure occurs; a mandatory oracle
-or evidence source is unavailable or invalid; a required branch is unready or
-cannot produce comparable valid evidence; or attribution is genuinely
-indeterminate. Clipping, sampling, phase/topology, or budget symptoms are not
-automatically apparatus failures: the evidence record must identify whether
-the common apparatus/readiness contract failed or a branch produced a valid
-registered measurement that violated its frozen criterion. The affected
-fixture, contrast, or full comparison scope must be identified, and no
-declared branch may be silently dropped.
+or evidence source is unavailable or invalid; or attribution is genuinely
+indeterminate. A shared apparatus or oracle failure remains this affected-
+comparison `Inconclusive` outcome even if attempts to repair it consume time
+or effort. It is not converted into a branch feasibility failure, and the
+affected fixture, contrast, or full comparison scope must be identified.
 
-After apparatus and branch-readiness checks pass, a valid registered
-measurement that violates a frozen mandatory clearance, convergence,
-phase/topology, feasibility, budget, or other mandatory criterion is that
-branch's mandatory technology failure. A hybrid mandatory failure, including a
-missing named improvement, is `Reject`. A baseline-only mandatory failure is
-retained in the record and excludes that baseline from the eligible frontier;
-it does not remove the declared branch from the experiment. A valid
+Before execution, registration must freeze a finite readiness-remediation and
+implementation budget for each branch, including its accounting unit and
+scope, starting point, permitted remediation, and terminal rule. This record
+does not choose the budget amount, unit, host, implementation, or other
+registration value. A branch that cannot reach readiness or produce
+comparable valid evidence within its registered finite budget terminates as
+`Feasibility failure under the registered implementation and budget`. This
+terminal rule prevents endless unreadiness in a registered run. It is a
+branch-specific outcome: a hybrid feasibility failure is `Reject`; a baseline
+feasibility failure is retained in the record and excludes that baseline from
+the eligible frontier. No declared branch is silently removed, and no branch
+feasibility failure is a universal-impossibility claim. If baseline failures
+leave no eligible baseline, a passing hybrid has only a separate
+non-comparative `Feasibility demonstrated` annotation and the comparative
+outcome is `Inconclusive`.
+
+After shared apparatus/oracle validity and the branch terminal checks, a valid
+registered measurement that violates a frozen mandatory clearance,
+convergence, phase/topology, feasibility, budget, or other mandatory
+criterion is that branch's mandatory technology failure. A hybrid mandatory
+failure, including a missing named improvement, is `Reject`. A baseline-only
+mandatory failure is retained and excludes that baseline from the eligible
+frontier; it does not remove the declared branch from the experiment. A valid
 measurement whose failure attribution remains genuinely indeterminate is
 `Inconclusive`.
 
@@ -158,7 +175,26 @@ complexity, and effort dimensions (the Pareto frontier), rather than one
 "strongest" baseline. A baseline is dominated only when another eligible
 passing baseline is no worse on every declared dimension and better on at
 least one; exact dimension definitions and thresholds are frozen at
-registration.
+registration. Registration also freezes each dimension's applicability,
+direction, aggregation and threshold rules, the Pareto dominance relation, a
+simplicity partial order, and equivalence/match margins. These choices are
+registered controls, not post-hoc judgements about which implementation looks
+simple.
+
+A conclusive match or dominance determination requires valid, resolved
+evidence for every applicable registered dimension. Missing, invalid,
+unavailable, ambiguous, or otherwise unresolved evidence that could affect
+that determination makes the affected comparison `Inconclusive`; it cannot be
+treated as a conclusive non-inferiority, match, or dominance result. A frontier
+baseline conclusively dominates the hybrid when it is no worse on every
+applicable dimension and better on at least one under the frozen relation. A
+baseline conclusively matches the hybrid when all applicable dimensions are
+resolved and every dimension is within its frozen equivalence margin. A
+baseline is conclusively simpler only when the frozen simplicity partial order
+places it strictly below the hybrid. Any frontier baseline that conclusively
+dominates the hybrid causes `Reject`, regardless of whether it is simpler. A
+conclusively simpler eligible baseline matching within the frozen equivalence
+margins also causes `Reject`.
 
 For outcome precedence, mandatory criteria are frozen pass/fail gates and
 frozen non-inferiority bounds, including the mandatory visual floor. A
@@ -169,23 +205,33 @@ violate a mandatory gate or frozen non-inferiority bound. It may be recorded
 as a resolved, predeclared trade-off; if the trade-off or its visual
 interpretation remains unresolved, the result is `Inconclusive`. Comparative
 visual disagreement is unresolved unless the registered visual protocol
-resolves it. These definitions keep mandatory failure, nonmandatory trade-off,
-and invalid evidence distinct and non-overlapping.
+resolves it. These definitions keep mandatory failure, branch feasibility
+failure, nonmandatory trade-off, and invalid evidence distinct.
 
-The non-overlapping outcome table, applied in row order, is:
+The following predicates are mutually exclusive. They are applied in row
+order, and a later row is considered only when no earlier predicate is true.
+Rows that require a conclusive match or dominance include the complete-
+resolved-evidence condition above; unresolved evidence affecting that
+relation therefore reaches the final `Inconclusive` row rather than both a
+`Reject` and an `Inconclusive` row.
 
-| Validity/readiness | Hybrid and frontier result | Primary outcome |
-| --- | --- | --- |
-| Shared apparatus/pipeline failure, unavailable or invalid mandatory oracle/evidence, an unready branch unable to produce comparable valid evidence, or genuinely indeterminate attribution | Any | `Inconclusive` for the affected comparison |
-| All required evidence is valid and apparatus/readiness passes | Hybrid violates a mandatory gate, has a mandatory regression, or lacks the named improvement | `Reject` |
-| All required evidence is valid and apparatus/readiness passes; every baseline with valid evidence has a mandatory failure, so no eligible passing baseline exists | Hybrid passes its mandatory gates | Comparative result `Inconclusive`; a separate non-comparative `Feasibility demonstrated` annotation may be recorded if the hybrid passes, but it cannot support non-inferiority or improvement |
-| All required evidence is valid and apparatus/readiness passes; one or more eligible passing baselines exist | Hybrid passes all mandatory gates, shows the named improvement, meets frozen non-inferiority conditions against every frontier baseline, is not dominated or matched by a simpler eligible baseline, and has no unresolved declared trade-off | `Support` |
-| All required evidence is valid and apparatus/readiness passes; one or more eligible passing baselines exist | A simpler eligible baseline dominates the hybrid or matches the claimed result | `Reject` |
-| All required evidence is valid and apparatus/readiness passes; one or more eligible passing baselines exist | A nonmandatory trade-off or comparative visual disagreement remains unresolved after the registered protocol | `Inconclusive` |
+| Predicate, in precedence order | Primary outcome |
+| --- | --- |
+| Shared apparatus/common-pipeline failure, unavailable or invalid mandatory oracle/evidence, or genuinely indeterminate attribution affects the comparison | `Inconclusive` for the affected comparison |
+| The hybrid reaches the branch terminal `Feasibility failure under the registered implementation and budget` | `Reject` |
+| The hybrid has valid evidence and passes mandatory gates, but all declared baseline validity, mandatory, technology, and feasibility checks leave no eligible passing baseline | Comparative `Inconclusive`; only a separate non-comparative `Feasibility demonstrated` annotation may be recorded for the passing hybrid |
+| The hybrid has valid evidence and violates a mandatory gate, has a mandatory regression, or lacks the named improvement | `Reject` |
+| At least one eligible passing frontier baseline conclusively dominates the hybrid on every applicable registered dimension and is better on at least one | `Reject`, regardless of simplicity |
+| No frontier baseline conclusively dominates the hybrid, and a conclusively simpler eligible baseline matches the hybrid within all frozen equivalence margins | `Reject` |
+| At least one eligible passing frontier baseline exists; the hybrid passes all mandatory gates, shows the named improvement, meets frozen non-inferiority conditions against every frontier baseline, has no conclusive frontier dominance or simpler match, and has no unresolved declared trade-off | `Support` |
+| At least one eligible passing baseline exists, but evidence affecting a conclusive dominance or match determination is unresolved, or a nonmandatory trade-off/comparative visual disagreement remains unresolved after the registered protocol | `Inconclusive` |
 
-The final two rows cannot be reached when the hybrid already has a mandatory
-failure or lacks the named improvement, because the earlier `Reject` row has
-precedence. Similarly, an empty frontier cannot produce comparative `Support`.
+Baseline feasibility or technology failures can therefore remove a baseline
+from eligibility without removing its record. If one or more eligible
+baselines remain, the remaining predicates decide the comparison. An empty
+frontier cannot produce comparative `Support`; a passing hybrid then receives
+only the separate feasibility annotation described above. A hybrid terminal
+failure or mandatory failure cannot be rescued by an empty frontier.
 The Stage 1 all-valid-fixtures gate and the separate subjective visual-floor
 method remain owned by
 [DR-0007](DR-0007-staged-first-proof-charter.md) and the
@@ -200,7 +246,8 @@ same frozen semantic source intent, shared semantic feature vocabulary,
 fixture identity, input mapping, bounds and sampling policy, seed/configuration
 policy, diagnostics, and common output interface. The experiment must freeze
 a branch-operation matrix, allowed construction operations, parameter and
-tuning budgets, and implementation-effort budgets before execution. Baselines
+tuning budgets, finite per-branch readiness-remediation/implementation
+budgets, and implementation-effort accounting before execution. Baselines
 receive the same semantic feature vocabulary and source intent, while
 realizing that intent through their own allowed construction rule. Any
 remaining incompatibility or missing contributor is reported, not silently
@@ -246,10 +293,18 @@ Before primary comparison, each required branch must pass branch-neutral
 analytical readiness fixtures, exercise every required operation in its
 declared matrix, and disclose unresolved implementation or fidelity defects.
 The fixtures and oracles must be independent of branch-specific visual
-success. Missing operation coverage, an unresolved defect that affects a
-required operation, or any other failed readiness condition makes that branch
-unready and makes every affected primary contrast `Inconclusive` under the
-precedence above. Readiness does not establish a technology outcome.
+success. A branch-specific readiness defect starts the branch's finite
+registered readiness-remediation/implementation budget; if the branch still
+cannot reach readiness or produce comparable valid evidence when that budget
+is exhausted, the branch terminates as `Feasibility failure under the
+registered implementation and budget`. A hybrid terminal failure is `Reject`;
+a baseline terminal failure is retained and excluded from the frontier. A
+shared apparatus, oracle, or common-pipeline defect remains affected-
+comparison `Inconclusive` and is not charged as a branch terminal failure.
+Missing operation coverage, an unresolved defect that affects a required
+operation, or any other failed readiness condition is recorded with its scope
+and budget accounting. Readiness does not establish a technology outcome, and
+no branch is silently removed.
 
 The following paired per-fixture/site contrasts are predeclared, with each
 contrast evaluated using the same objective and global tuning rule:
@@ -261,24 +316,36 @@ contrast evaluated using the same objective and global tuning rule:
 
 Here `S` is skeleton/swept-profile, `B` is selected blending, and `G` is the
 reusable specialized-generator layer. Registration must define, for every
-criterion, the beneficial direction and the criterion-specific interaction
-contrast and its acceptance rule. Blending may be credited as an independent
-contribution only when both `S+B` versus `S` and `Full` versus `S+G` support
-the beneficial direction. Generators may be credited independently only when
-both `S+G` versus `S` and `Full` versus `S+B` support it.
+criterion, the beneficial direction and the acceptance rule for the paired
+contrasts. For each component and criterion, classify the first state from the
+contrast **without the other contribution** and the second state from the
+contrast **with the other contribution**. Each state is exactly one of:
 
-If only the contrast with the other contribution present supports the
-beneficial direction, classify the effect as synergy-dependent rather than
-independent. If only the contrast without the other contribution supports it,
-classify the effect as suppressed or antagonized by the other contribution.
-If the paired contrasts support opposite directions, classify the effect as
-antagonistic or context-dependent under the registered rule. If the evidence
-or direction is disputed or cannot be resolved by the registered protocol,
-classify it as ambiguous/disputed. If only the combined hybrid comparison
-supports the named improvement without either independent-credit rule being
-met, classify it as combined-hybrid-only. Report the blending/generator
-interaction separately from the paired contrasts. It is diagnostic and must
-not become a fabricated scalar or a full-factorial claim.
+- `B` — beneficial in the registered direction;
+- `N` — neutral, with no demonstrated directional effect;
+- `H` — harmful or reversed against the registered direction; or
+- `U` — unresolved because valid evidence or the direction is unavailable,
+  invalid, ambiguous, or otherwise not resolved.
+
+Any `U` state makes the interaction unresolved. The exact per-component
+interaction matrix is:
+
+| First state (without other); second state (with other) | `B` | `N` | `H` | `U` |
+| --- | --- | --- | --- | --- |
+| `B` | Independent beneficial | Suppressed to neutral | Reversed/antagonized | Unresolved |
+| `N` | Synergy-dependent | No demonstrated effect | Harmful only with other | Unresolved |
+| `H` | Interaction-dependent reversal | Harm neutralized | Consistently harmful | Unresolved |
+| `U` | Unresolved | Unresolved | Unresolved | Unresolved |
+
+Thus `B/B` is independent beneficial; `B/N` is suppressed to neutral;
+`B/H` is reversed/antagonized; `N/B` is synergy-dependent; `N/N` has no
+demonstrated effect; `N/H` is harmful only with the other contribution;
+`H/B` is an interaction-dependent reversal; `H/N` has harm neutralized; and
+`H/H` is consistently harmful. The matrix is mutually exclusive and is
+reported per component and criterion. `combined-hybrid-only` is a separate
+bundle-level tag when only the combined hybrid comparison supports the named
+improvement; it is not a competing component label in this matrix. The matrix
+is diagnostic, not a scalar interaction score or a full-factorial claim.
 
 ## Consequences
 
@@ -286,27 +353,34 @@ not become a fabricated scalar or a full-factorial claim.
   retaining baselines that can disprove the combined hypothesis.
 - The evidence-first precedence makes support, rejection, and inconclusive
   outcomes inspectable before evidence exists; it does not turn a mixed
-  trade-off into a fabricated scalar score or allow an unready branch to win.
+  trade-off into a fabricated scalar score or allow endless unreadiness. Shared
+  apparatus/oracle failure remains affected-comparison `Inconclusive`; a
+  branch-specific budget-exhausted readiness failure is a terminal feasibility
+  failure with branch-sensitive consequences.
   An empty eligible-baseline frontier is comparative `Inconclusive`, even when
   a passing hybrid receives a separate feasibility annotation.
 - The five branches expose the two selected hybrid contributions while keeping
-  the comparison bounded. Complexity, tuning, and effort remain part of the
-  interpretation rather than hidden costs.
+  the comparison bounded. Finite readiness-remediation/implementation,
+  complexity, tuning, and effort budgets remain part of the interpretation
+  rather than hidden or unbounded costs.
 - Specialized generators add grammar vocabulary and reusable capabilities;
   they do not license bespoke fixture patches or silently expand the supported
   morphology envelope.
 - The hybrid branch has more moving parts and more diagnostic surface than a
   single representation. The experiment must therefore report which component
-  produced each result and where a branch failed. Paired interaction contrasts
-  may support independent credit only under the registered two-contrast rule;
-  otherwise the result remains diagnostic and is labelled by its attribution
-  category.
+  produced each result and where a branch failed. The exact B/N/H/U matrix
+  makes each paired interaction label mutually exclusive; `combined-hybrid-
+  only` remains a separate bundle-level diagnostic tag. The matrix is not a
+  scalar interaction score or a full-factorial claim.
 - A successful surface experiment would support only the stated Stage 1 claim
   under its fixtures and protocol. It would not settle production topology,
   animation deformation, runtime representation, backend, or performance.
 - A failed or inconclusive hybrid result must remain visible and may support a
   different hypothesis, a narrower proof, or a revised decision; it must not be
-  converted into an unrecorded implementation exception.
+  converted into an unrecorded implementation exception. A hybrid feasibility
+  failure is `Reject`; a baseline feasibility failure remains visible but
+  excludes that baseline from the frontier, without a universal-impossibility
+  claim or silent removal.
 
 ## Alternatives Considered
 
@@ -390,9 +464,13 @@ claim, but it must not present it as attribution.
 
 This option adds the two one-layer branches to the two simpler baselines and
 the full hybrid. It preserves a common semantic vocabulary and operation
-budget while directly testing each selected layer's incremental contribution.
-It does not test every possible interaction or parameter combination, but it
-provides the bounded attribution needed for this Stage 1 hypothesis.
+budget, finite per-branch readiness-remediation/implementation budgets, and
+operation matrix while directly testing each selected layer's incremental
+contribution. A branch that cannot reach readiness or comparable evidence
+within its registered budget terminates as a branch feasibility failure; it is
+not left in an endless `Inconclusive` state. It does not test every possible
+interaction or parameter combination, but it provides the bounded attribution
+needed for this Stage 1 hypothesis.
 **Recommendation: Option 2.**
 
 #### Option 3: Full factorial sweep
@@ -407,6 +485,40 @@ operation choices rather than the declared hypothesis. The reviewers' request
 was for bounded ablations and a frozen operation matrix, not an exhaustive
 factorial search. It was not selected for this experiment; a later study may
 use a factorial design if a specific interaction question justifies its cost.
+
+#### Readiness-terminal alternative: inconclusive-only unreadiness
+
+An unready branch could remain `Inconclusive` indefinitely, or be abandoned
+without a preregistered finite budget. That would preserve uncertainty but
+would permit unreadiness to evade a terminal branch-sensitive outcome and
+would make a registered run non-terminating. It is not selected. The selected
+rule freezes a finite per-branch readiness-remediation/implementation budget;
+branch exhaustion is `Feasibility failure under the registered implementation
+and budget`, while independently demonstrated shared apparatus/oracle failure
+remains affected-comparison `Inconclusive`.
+
+#### Outcome-predicate alternative: partial frontier or overlapping rows
+
+The experiment could compare one preferred baseline, treat only simpler
+baselines as relevant, or permit unresolved dimensions to coexist with a
+conclusive match/trade-off row. That would leave dominance incomplete and
+make outcome rows overlap. It is not selected. Registration instead freezes
+all applicable dimensions, their aggregation and thresholds, the Pareto
+relation, a simplicity partial order, and match margins. Conclusive match and
+dominance require resolved evidence across every applicable dimension; any
+frontier baseline conclusively dominating the hybrid rejects regardless of
+simplicity, and a simpler baseline conclusively matching within the margins
+also rejects.
+
+#### Interaction alternative: scalar or full-factorial interaction score
+
+A scalar interaction score or an exhaustive factorial sweep could summarize
+the bundle, but it would hide whether a component's effect is independent,
+suppressed, synergistic, reversed, or neutralized and would add an unbounded
+search. It is not selected. The paired contrasts instead use the exact,
+mutually exclusive B/N/H/U matrix, while `combined-hybrid-only` is retained as
+a separate bundle-level tag. The matrix is diagnostic and does not claim a
+scalar or full-factorial result.
 
 ## Adversarial Review Response
 
@@ -431,15 +543,20 @@ only a separate non-comparative feasibility annotation available. These
 Revision 3 reviews remain preserved as historical evidence and stale for
 Revision 4.
 
-The current [architecture/proof/governance review](reviews/DR-0009-rev-04-review-01.md)
+The [architecture/proof/governance review](reviews/DR-0009-rev-04-review-01.md)
 and [geometry/semantics/measurement review](reviews/DR-0009-rev-04-review-02.md)
-both reviewed Revision 4 and recommended `Revise`, at High confidence. They
-identify unresolved finite branch-readiness disposition, the contradiction
-between baseline-failure handling and the supporting research design,
-overlapping outcome rows, overlapping interaction categories, incomplete
-frontier dominance and simplicity rules, and the need to separate component
-attribution from bundle-level combined-only results. Revision 4 remains
-Proposed with Owner approval Pending; no acceptance is implied.
+reviewed Revision 4 and recommended `Revise`, at High confidence. They are
+preserved as historical evidence and are stale for Revision 5. Their findings
+are resolved in this proposal by freezing a finite per-branch
+readiness-remediation/implementation budget and terminal rule; retaining
+shared apparatus/oracle failure as affected-comparison `Inconclusive`; making
+hybrid and baseline feasibility failures branch-sensitive; requiring
+mutually exclusive outcome predicates; requiring complete resolved evidence
+for conclusive match/dominance; disposing every frontier baseline's dominance
+and every simpler baseline's match; and replacing overlapping interaction
+labels with the exact B/N/H/U matrix plus a separate `combined-hybrid-only`
+bundle tag. Revision 5 has no current-revision review: it remains Proposed
+with Owner approval Pending and Review Pending, and no acceptance is implied.
 
 ## Implementation and Proof Obligations
 
@@ -451,9 +568,27 @@ Proposed with Owner approval Pending; no acceptance is implied.
   eligible-frontier dimensions, branch operations, branch-neutral readiness
   fixtures, required-operation coverage, unresolved-defect disclosures,
   common objective, global initialization and tuning protocol, parameter/
-  tuning and implementation-effort budgets, and exact aggregation and
-  threshold rules before execution or evidence interpretation. Report
-  complexity, effort, and code/parameter/knowledge reuse alongside results.
+  tuning budgets, finite per-branch readiness-remediation/implementation
+  budgets, implementation-effort accounting, exact aggregation and threshold
+  rules, and the terminal rule before execution or evidence interpretation.
+  Report complexity, effort, and code/parameter/knowledge reuse alongside
+  results. Do not allow an exhausted branch to remain indefinitely unready.
+- Preserve the shared-failure distinction: an independently demonstrated
+  shared apparatus/common-pipeline or unavailable/invalid mandatory oracle or
+  evidence result remains affected-comparison `Inconclusive`; a
+  branch-specific inability to reach readiness or comparable evidence within
+  its finite budget is `Feasibility failure under the registered
+  implementation and budget`. Apply `Reject` to a hybrid terminal failure;
+  retain and exclude a baseline terminal failure; never make a universal-
+  impossibility claim or silently remove a branch.
+- Freeze the applicability, direction, aggregation, and thresholds of every
+  registered comparison dimension; the Pareto dominance relation; the
+  simplicity partial order; and equivalence/match margins. Require valid,
+  resolved evidence across every applicable dimension before declaring any
+  match or dominance. Treat unresolved evidence affecting that determination
+  as `Inconclusive`; check every frontier baseline for conclusive dominance,
+  regardless of simplicity, and every simpler eligible baseline for a
+  conclusive match.
 - Freeze shared infrastructure and mandatory oracles, branch definitions,
   operation matrices, adjustable parameter domains, initialization, stopping
   rule, and deterministic search/evaluation budget before branch tuning. Keep
@@ -474,11 +609,15 @@ Proposed with Owner approval Pending; no acceptance is implied.
   mandatory failures, budget/readiness breaches, and inadequate evidence as
   required by the strict precedence table; do not force an outcome.
 - Register the beneficial direction and paired interaction contrast for every
-  criterion. Credit blending or generators independently only when both
-  relevant contrasts support that direction; otherwise classify the result as
-  synergy-dependent, antagonistic, ambiguous/disputed, or
-  combined-hybrid-only as appropriate. Keep interaction diagnostic rather than
-  turning it into a scalar or a full-factorial claim.
+  criterion, assigning the first state to the contrast without the other
+  contribution and the second state to the contrast with it. Use exactly the
+  mutually exclusive B/N/H/U matrix: `B/B` independent beneficial, `B/N`
+  suppressed to neutral, `B/H` reversed/antagonized, `N/B` synergy-dependent,
+  `N/N` no demonstrated effect, `N/H` harmful only with other, `H/B`
+  interaction-dependent reversal, `H/N` harm neutralized, `H/H` consistently
+  harmful, and any `U` unresolved. Keep `combined-hybrid-only` as a separate
+  bundle-level tag, not a component label. Keep interaction diagnostic rather
+  than turning it into a scalar or a full-factorial claim.
 - Use the normalized sampling, convergence, clipping, semantic-lineage, and
   topology/orientation controls proposed in DR-0010; this record does not
   replace that extraction policy.

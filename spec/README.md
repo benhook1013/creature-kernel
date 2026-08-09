@@ -29,21 +29,21 @@ changing the meaning of persisted bodies or avatar packages.
   semantic joint frames and semantic region intent/lineage, and the later
   ownership of usable skeletons, skin weights, collision proxies, contact, and
   deformation claims.
-- A planned Proposed Stage 1 sampled-field and semantic-lineage contract,
-  informed by [DR-0010 Revision 4](../docs/decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md),
-  including normalized field semantics, sub-voxel sampling-phase checks,
-  six-face field clearance, prospective topology invariants, and scoped
-  determinism. Semantic lineage is directionally defined as a canonical
-  non-negative distribution over durable `(semantic_id, chart_id)` keys:
-  normalized child inputs, declared non-negative mappings, duplicate-key
-  coalescence before normalization, finite positive totals, deterministic
-  hard/cutoff ties with ambiguity, top-k values from the full distribution with
-  residual mass, and parallel categorical/chart-validity fields. Independent
-  closed-form oracles cover nesting, duplicates, scaling, order, coefficients,
-  ties, residuals, and incompatible charts. This is a Proposed semantic
-  direction only; no storage layout or serialization format is selected. Grid
-  sizes and numeric thresholds remain future specification and
-  experiment-registration work.
+- A planned Proposed Stage 1 sampled-field and semantic-lineage direction,
+  informed by [DR-0010 Revision 5](../docs/decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md),
+  including common-domain phase/convergence checks and scoped determinism.
+  Semantic lineage is directionally defined as a raw non-negative measure over
+  durable `(semantic_id, chart_id)` keys: unit leaves, raw composition
+  `μ = Σᵢ aᵢ Tᵢ(μᵢ)`, raw duplicate-key coalescence, finite positive total,
+  and observation-only normalization. Equivalence is by flattened masses and
+  path weights; unweighted unions sum masses and weighted paths preserve
+  coefficients. Naive local binary averages are not reassociation-equivalent.
+  Post-normalization views include top-k values, residual mass, deterministic
+  ties, ambiguity, and parallel categorical/chart-validity fields. Independent
+  closed-form oracles cover reassociation and counterexamples, duplicates,
+  scaling, order, coefficients, ties, residuals, and incompatible charts. This
+  remains a Proposed semantic direction only; no storage layout or
+  serialization format is selected.
 - Runtime avatar package.
 - Interaction and quality negotiation.
 - Shared domain-operation and diagnostic contracts (eventually).

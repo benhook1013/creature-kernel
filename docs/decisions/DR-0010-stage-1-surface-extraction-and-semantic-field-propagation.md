@@ -6,13 +6,13 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 4
+Revision: 5
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-09
 
@@ -36,10 +36,12 @@ settled Round 9 resolutions to causal evidence classification and the nested
 semantic contribution algebra. Revision 4 was reviewed by the
 [architecture/proof/governance review](reviews/DR-0010-rev-04-review-01.md)
 and [geometry/semantics/measurement review](reviews/DR-0010-rev-04-review-02.md);
-both recommended `Revise` at High confidence. The current reviews leave
-finite branch-readiness disposition, nesting invariance, and
-cross-resolution phase/convergence rules unresolved. This proposal remains
-Proposed with Owner approval Pending.
+both recommended `Revise` at High confidence. Revision 5 applies Ben's
+settled Round 10 resolutions to finite branch-readiness termination, the raw
+contribution measure and its representation-equivalence law, and the
+cross-resolution phase/convergence envelope. The Revision 4 reviews remain
+preserved as historical evidence and are stale for this revision. Revision 5
+is not yet reviewed and remains unaccepted, with Owner approval Pending.
 
 Supersedes: —
 
@@ -101,13 +103,19 @@ the experiment must define, at minimum:
 - deterministic postprocessing order, ordering, tie handling, and diagnostic
   behaviour.
 
-For each fixture, every branch uses the same frozen bounds and three uniform
-grids: coarse, nominal, and fine. Exact grid sizes are a later registration
-choice. The design must check clipping and feature-relative sampling, and
-measure convergence or stability for components, named junctions, gaps, and
-thin features across resolutions and phases. At nominal resolution, add a
-small deterministic set of sub-voxel phase offsets; exact offsets are frozen
-at experiment registration. Any branch or fixture that deviates from the
+For each fixture, every branch uses the same frozen normalized domain,
+per-fixture bounds and padding, nested or otherwise aligned grid origins, and
+three uniform grids: coarse, nominal, and fine. Exact grid sizes and origins
+are later registration choices. At every convergence resolution, phase
+evaluation must use a nonempty phase subset shared with the other convergence
+resolutions. Nominal resolution may add extra deterministic sub-voxel phases
+for diagnostic coverage, but it may not replace the shared subset. Evaluate
+convergence and stability for components, named junctions, gaps, thin
+features, and predeclared topology invariants across the shared phase
+envelope, not at zero phase alone. The exact domain, bounds, padding, origins,
+grid sizes, phase sets, shared subset, envelope aggregation, and numerical
+thresholds are frozen at experiment registration. Any branch or fixture that
+deviates from the
 common policy is a separate exploratory run, not part of the primary
 comparison.
 
@@ -120,15 +128,22 @@ topology invariant is one watertight connected genus-zero component. A fixture
 may declare another valid component or genus expectation only prospectively in
 its registration. Expected component and topology invariants must be recorded
 before execution. The causal classification follows the shared precedence in
-DR-0009. An independently demonstrated shared apparatus or common-pipeline
-failure, an unavailable or invalid mandatory oracle/evidence result, a branch's
-inability to produce comparable valid evidence, or genuinely indeterminate
-attribution makes the affected comparison `Inconclusive`; it is not an
-implicit pass. Once apparatus and readiness are valid, however, a registered
-measurement that violates frozen clearance, convergence, phase/topology,
-feasibility/budget, or another mandatory criterion is a valid branch technology
-failure, not unavailable evidence. That technology outcome is then governed by
-DR-0009, and no branch may be silently removed from the declared comparison.
+DR-0009. Before a branch-specific terminal condition, an independently
+demonstrated shared apparatus or common-pipeline failure, an unavailable or
+invalid mandatory oracle/evidence result, an unready branch that has not
+exhausted its bounded remediation/implementation budget, or genuinely
+indeterminate attribution makes the affected comparison `Inconclusive`; it is
+not an implicit pass. The registration must freeze a finite
+readiness-remediation/implementation budget and terminal rule for each branch.
+If a branch exhausts its branch-specific budget without becoming ready or
+producing comparable valid evidence, that is the branch's bounded feasibility
+failure under DR-0009. It is not endless unreadiness, a universal-impossibility
+claim, or permission to silently remove the branch; retain the branch and
+affected contrasts with the DR-0009 consequence. Once apparatus and readiness
+are valid, a registered measurement that violates frozen clearance,
+convergence, phase/topology, feasibility/budget, or another mandatory criterion
+is a valid branch technology failure, not unavailable evidence. That
+technology outcome is governed by DR-0009.
 
 The pinned Lewiner guarantee is scoped to reconstruction from the sampled
 grid. It does not guarantee topology or geometry of the underlying continuous
@@ -151,27 +166,40 @@ semantics distinct from ephemeral mesh indices:
 - missing-field masks and ambiguity diagnostics, including near-boundary and
   out-of-domain cases.
 
-Semantic lineage uses a representation-invariant nested contribution algebra;
-it represents semantic lineage, not a physical force. Lineage distribution
-keys are durable `(semantic_id, chart_id)` pairs wherever chart identity
-applies, with the declared semantic contributor key used where it does not.
-Leaves emit unit distributions over their semantic contributor key. Every
-operator consumes valid normalized child distributions and applies its
-declared non-negative coefficients and transfer mappings. It coalesces
-duplicate output keys before final normalization and requires a finite,
-positive total; otherwise the distribution is invalid. Thus equivalent nested
-representations cannot change lineage merely through raw operand scale, operand
-order, or duplicate-key structure when the declared mappings and coefficients
-are unchanged.
+Semantic lineage uses a canonical raw contribution measure; it represents
+semantic lineage, not a physical force. Lineage distribution keys are durable
+`(semantic_id, chart_id)` pairs wherever chart identity applies, with the
+declared semantic contributor key used where it does not. A leaf emits unit
+raw mass over its durable key. For an operator with child raw measures `mu_i`,
+declared non-negative coefficients `a_i`, and declared non-negative transfer
+mappings `T_i`, its raw output is `mu = sum_i a_i T_i(mu_i)`. No intermediate
+child normalization occurs. Duplicate durable keys are coalesced in this raw
+measure. Every raw value must be finite and non-negative, and the complete raw
+measure must have a finite positive total. Normalize exactly once at the
+observation/report boundary.
 
-A smooth blend applies its declared coefficients before coalescence and final
-normalization. A hard-selection operator uses a deterministic durable-key tie
-order and records an ambiguity flag whenever the declared tie condition is
-met. Top-k is derived only after the complete distribution is normalized;
-retained weights keep their full-distribution values and are not renormalized,
-discarded residual mass is explicit, and a cutoff tie follows a frozen
-deterministic rule while preserving an ambiguity flag. Swept attachments and
-specialized modules must each declare their transfer or aggregation rule.
+Representation equivalence means equality of the flattened durable-key raw
+masses and path-transfer weights after the declared mappings are applied; it
+does not mean merely having the same leaves under arbitrary binary averages.
+The default unweighted associative union sums raw measures. Weighted operators
+preserve their declared path coefficients. A local equal-weight binary average
+is not automatically reassociation-equivalent: two nestings are equivalent
+only when their flattened raw masses and path-transfer weights are equal. No
+DAG or storage schema is required by this law. For unit leaves `A`, `B`, and
+`C`, the naive normalized binary averages produce `(1/4, 1/4, 1/2)` for
+`(A+B)+C` but `(1/2, 1/4, 1/4)` for `A+(B+C)`, whereas the canonical raw
+unweighted union produces equal `(1/3, 1/3, 1/3)` after the one observation
+normalization in either reassociation.
+
+After observation normalization, derive the top-k view and residual mass,
+hard-selection and cutoff results, and their tie/ambiguity diagnostics. Top-k
+weights retain their full-distribution normalized values and are not
+renormalized; residual mass is explicit. Hard-selection and cutoff ties use a
+deterministic durable-key order and record ambiguity whenever the declared tie
+condition is met. Categorical ownership and chart fields are parallel
+post-normalization values, not interpolated scalars. Swept attachments and
+specialized modules must each declare their raw transfer or aggregation rule;
+incompatible charts must not be silently blended.
 
 The skeleton/swept-profile operator identifies its semantic centerline,
 profile, and attachment contributors; the general implicit-field operator
@@ -179,22 +207,21 @@ identifies the source semantic contributions to its composition; the
 selected-blending operator records its operand contributors and blend weights;
 and a specialized generator identifies its semantic module, local chart, and
 any module-level contributors. Coefficients and transfer mappings are declared
-against the corresponding durable operands or keys, so reordering equivalent
-operands does not change the result. These are lineage descriptions, not an
-instruction to choose a storage schema or to make incompatible charts
-blendable. Categorical ownership, local coordinates, validity, and
-incompatible-chart state remain parallel non-scalar values and are not
-silently interpolated. At chart seams, retain multiple contributors or an
-explicit invalid/ambiguous state; incompatible local charts must not be
-silently blended.
+against the corresponding durable operands or keys. These are lineage
+descriptions, not an instruction to choose a storage schema or to make
+incompatible charts blendable. Contributor local coordinates, validity,
+missing-field masks, categorical ownership, and incompatible-chart state
+remain parallel non-scalar values. At chart seams, retain multiple
+contributors or an explicit invalid/ambiguous state.
 
 Independent analytical oracles define expected distributions, tie outcomes,
 discarded residual mass, chart-seam validity, and chart validity without
-reusing the propagation implementation. They must include closed-form cases
-for nesting, duplicate IDs, operand rescaling, operand reordering, coefficient
-order, hard-selection and cutoff ties, residual mass, and incompatible charts.
-A missing or invalid total, omitted contributor, or unresolved chart state is a
-diagnostic, not a normalized pass.
+reusing the propagation implementation. Closed-form cases must include an
+equivalent reassociation and a naive binary-average counterexample, plus
+nesting, duplicate keys, operand scaling, operand order, coefficient order,
+hard-selection and cutoff ties, residual mass, and incompatible charts. A
+missing, non-finite, negative, or non-positive total, omitted contributor, or
+unresolved chart state is a diagnostic, not a normalized pass.
 
 Independent analytical fixtures and oracles are required for coverage,
 weight normalization, missing contributors, local-chart reconstruction and
@@ -217,15 +244,20 @@ LOD, or array indices, as required by
 - A uniform grid may spend work in empty or high-detail regions and may miss
   information below its sampling resolution. Those limitations are accepted
   for the disposable proof and must be recorded.
-- Three-grid convergence, deterministic nominal phase offsets, continuous
-  face-clearance checks, and feature-relative checks expose sampling and
-  clipping limitations instead of presenting one resolution as continuous
-  field truth. Deviations remain separate exploratory evidence.
+- Three-grid convergence over a common nonempty phase subset, deterministic
+  nominal extra phases, continuous face-clearance checks, and feature-relative
+  checks expose sampling and clipping limitations instead of presenting one
+  resolution or zero phase as continuous-field truth. Deviations remain
+  separate exploratory evidence.
 - Contributor lineage, shared contribution algebra, chart validity,
   independent analytical oracles, and explicit ambiguity/residual diagnostics
   make semantic propagation inspectable without interpolating categorical data
-  or incompatible charts; normalized nested composition is invariant to raw
-  operand scale, equivalent operand order, and duplicate-key representation.
+  or incompatible charts. Raw-measure flattening makes default unweighted union
+  associative and preserves weighted path coefficients; it does not make local
+  equal-weight binary averages reassociation-equivalent unless their flattened
+  raw masses agree. Normalization occurs once at observation/report time, after
+  which top-k, residual, hard-selection, cutoff ties, and parallel categorical
+  or chart fields are derived.
 - Required topology invariants, face-clearance, orientation, volume, and
   normal-vs-gradient checks make structural failures visible; they do not turn
   mesh output into a production topology contract.
@@ -249,24 +281,27 @@ marked as such with its reason; an unavailable or ambiguous check is not an
 implicit pass.
 
 Experiment registration must define process, thread, numeric, and platform
-scope; mesh canonicalization and hashes; geometric tolerances; and how
-nondeterminism is isolated at each stage. A repeated deterministic run is
-required within that declared scope. The result may support scoped
-repeatability, but it must not claim bitwise cross-platform output without
-separate evidence.
+scope; mesh canonicalization and hashes; geometric tolerances; how
+nondeterminism is isolated at each stage; and a finite readiness-remediation/
+implementation budget and terminal rule for each branch. A repeated
+deterministic run is required within that declared scope. The result may
+support scoped repeatability, but it must not claim bitwise cross-platform
+output without separate evidence.
 
 Evidence and readiness failures use the shared causal precedence in DR-0009.
 An independently demonstrated shared apparatus or common-pipeline failure,
-unavailable or invalid mandatory oracle/evidence, a branch unable to produce
-comparable valid evidence, or genuinely indeterminate attribution makes the
-affected primary comparison `Inconclusive` before any technology outcome. A
-branch-only evidence/readiness failure is not a reason to silently remove that
-branch from the declared comparison; the affected contrast is recorded as
-inconclusive. Once apparatus and readiness are valid, a registered measurement
-that violates frozen clearance, convergence, phase/topology,
-feasibility/budget, or another mandatory criterion is a valid branch
-technology failure, not unavailable evidence. That failure contributes to the
-technology outcome under DR-0009, and no branch may be silently removed.
+unavailable or invalid mandatory oracle/evidence, an unready branch that has
+not exhausted its finite branch budget, or genuinely indeterminate attribution
+makes the affected primary comparison `Inconclusive` before any technology
+outcome. Exhaustion of a branch-specific readiness-remediation/implementation
+budget without readiness is that branch's bounded feasibility failure under
+DR-0009; it is not endless unreadiness or a universal-impossibility claim. The
+branch and affected contrast remain in the record and are not silently
+removed. Once apparatus and readiness are valid, a registered measurement that
+violates frozen clearance, convergence, phase/topology, feasibility/budget, or
+another mandatory criterion is a valid branch technology failure, not
+unavailable evidence. That failure contributes to the technology outcome under
+DR-0009.
 
 ## Alternatives Considered
 
@@ -332,9 +367,12 @@ for transferring attributes into a level-set workflow. The project adds the
 inference that raw and top-k contributors, normalized weights, categorical
 ownership, local-chart identity and validity, analytical oracles, and explicit
 ambiguity diagnostics are the most direct bounded way to test lineage in Stage
-1. The selected policy also requires a representation-invariant nested
-contribution algebra and closed-form independent oracle cases so equivalent
-operand scale, order, and duplicate-key structure cannot alter lineage.
+1. The selected policy also requires a raw-measure nested contribution algebra
+with unit leaves and one observation-boundary normalization. Its closed-form
+independent oracle cases include equivalent reassociation and a naive
+binary-average counterexample, so equality means equal flattened durable-key
+masses and path-transfer weights rather than arbitrary reassociation of local
+averages.
 **Recommendation: Option 2.**
 
 ### Semantic propagation Option 3: Separate region meshes and stitch
@@ -372,45 +410,65 @@ are stale for Revision 4.
 The current [architecture/proof/governance review](reviews/DR-0010-rev-04-review-01.md)
 and [geometry/semantics/measurement review](reviews/DR-0010-rev-04-review-02.md)
 both reviewed Revision 4 and recommended `Revise`, at High confidence. They
-identify unresolved finite branch-readiness disposition, the lack of a
+identified unresolved finite branch-readiness disposition, the lack of a
 nesting-invariant coefficient-composition law and reassociation oracle, and
-the lack of a cross-resolution phase/convergence rule. Revision 4 remains
-Proposed with Owner approval Pending; no acceptance is implied.
+the lack of a cross-resolution phase/convergence rule. Those Revision 4
+reviews remain preserved as historical evidence and are stale for Revision 5.
+Ben's settled Revision 5 resolutions define the finite branch budget and
+terminal feasibility rule, the canonical raw-measure law and strict
+representation equivalence, and the shared cross-resolution phase envelope.
+Revision 5 is not yet reviewed, remains Proposed with Owner approval Pending
+and Review status Pending, and is unaccepted; no acceptance is implied.
 
 ## Implementation and Proof Obligations
 
-- Define the normalized field contract, common frozen per-fixture bounds and
-  padding, and the coarse/nominal/fine uniform grids before running the
-  disposable experiment. Record the implementation version, isovalue,
-  interpolation, out-of-domain behaviour, orientation/gradient convention,
-  postprocessing order, tie rules, and diagnostic schema.
+- Define the normalized field contract, common frozen normalized domain,
+  per-fixture bounds and padding, nested or aligned coarse/nominal/fine grid
+  origins, and the three uniform grids before running the disposable
+  experiment. Record the implementation version, isovalue, interpolation,
+  out-of-domain behaviour, orientation/gradient convention, postprocessing
+  order, tie rules, and diagnostic schema. At every convergence resolution,
+  use a nonempty phase subset shared across resolutions; nominal may add extra
+  phases. Evaluate convergence/stability across that shared phase envelope,
+  not zero-only. Exact domain, bounds, padding, origins, grid sizes, phase sets,
+  envelope aggregation, and thresholds remain registration choices.
 - Run clipping, independent six-face continuous-field/isovalue clearance, and
-  feature-relative sampling checks; exercise the nominal phase offsets; and
-  measure convergence or stability for components, junctions, gaps, thin
-  features, and the predeclared component/topology invariants. Keep any
-  deviation as a separately labelled exploratory run. Independently
-  demonstrated apparatus/common-pipeline failure, unavailable/invalid
-  mandatory evidence, branch inability to produce comparable valid evidence, or
-  indeterminate attribution is `Inconclusive` under DR-0009; once apparatus and
-  readiness are valid, a registered violation of a frozen mandatory criterion
-  is a branch technology failure governed by DR-0009.
-- Define the representation-invariant nested contribution algebra over the
-  shared non-negative distribution. Require durable `(semantic_id, chart_id)`
-  keys where chart identity applies, unit leaf distributions, valid normalized
-  child distributions, declared non-negative coefficients/transfer mappings,
-  duplicate-key coalescence before final normalization, and a finite positive
-  total. Preserve raw mass, complete-distribution normalized weights,
-  unrenormalized top-k weights, explicit discarded residual mass, deterministic
-  durable-key hard-selection and cutoff ties with ambiguity flags, categorical
-  ownership, contributor IDs, chart identities, local coordinates, validity,
-  missing masks, and chart-seam ambiguity/invalidity. Do not interpolate
-  categorical IDs or blend incompatible charts.
+  feature-relative sampling checks; exercise the shared phase subset and any
+  nominal extra phases; and measure convergence or stability for components,
+  junctions, gaps, thin features, and the predeclared component/topology
+  invariants. Keep any deviation as a separately labelled exploratory run.
+  Freeze a finite readiness-remediation/implementation budget and terminal rule
+  for each branch. Shared apparatus/oracle failure, unavailable or invalid
+  mandatory evidence, an unready branch before its budget is exhausted, or
+  indeterminate attribution is `Inconclusive` under DR-0009. Exhaustion of a
+  branch-specific budget is instead a bounded feasibility failure under
+  DR-0009; retain the branch and contrast, make no universal-impossibility
+  claim, and do not silently remove it. Once apparatus and readiness are
+  valid, a registered violation of a frozen mandatory criterion is a branch
+  technology failure governed by DR-0009.
+- Define the canonical raw contribution algebra over durable keys. Require
+  unit raw leaf measures and, for every operator, declared non-negative
+  coefficients and transfer mappings with raw output `mu = sum_i a_i
+  T_i(mu_i)`. Do not normalize intermediate children. Coalesce duplicate keys
+  in the raw measure; require every raw value to be finite and non-negative and
+  the complete raw total to be finite and positive; normalize once at the
+  observation/report boundary. Define representation equivalence as equal
+  flattened durable-key raw masses and path-transfer weights, with default
+  unweighted union summing measures and weighted operators preserving path
+  coefficients. Do not require a DAG or storage schema. Preserve complete
+  normalized weights, unrenormalized top-k weights, explicit residual mass,
+  deterministic durable-key hard-selection and cutoff ties with ambiguity
+  flags, categorical ownership and chart fields as parallel post-normalization
+  values, contributor IDs, local coordinates, validity, missing masks, and
+  chart-seam ambiguity/invalidity. Do not interpolate categorical IDs or blend
+  incompatible charts.
 - Provide independent analytical fixtures and oracles for coverage,
   distributions and normalization, missing contributors, tie results,
   residual mass, chart reconstruction/validity, landmarks, chart seams, and
-  expected boundary ambiguity without reusing propagation implementation;
-  include closed-form cases for nesting, duplicate IDs, operand rescaling,
-  operand reordering, coefficient order, hard/cutoff ties, residual mass, and
+  expected boundary ambiguity without reusing propagation implementation.
+  Include closed-form cases for an equivalent reassociation and a naive
+  binary-average counterexample, plus nesting, duplicate keys, operand scaling,
+  operand order, coefficient order, hard/cutoff ties, residual mass, and
   incompatible charts.
 - Record vertex/face counts, connectedness, degenerate or ambiguous cases,
   boundary/non-manifold status, Euler/genus where applicable,

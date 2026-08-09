@@ -43,25 +43,16 @@ and described in the execution model; exact interface schemas, compatibility,
 budgets, and runtime mutation details remain open.
 
 Round 6 records two Proposed Stage 1 experiment hypotheses in
-[DR-0009 Revision 4](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
-and [DR-0010 Revision 4](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md).
-Revision 4 incorporates the approved evidence classification, strict
-comparative precedence, fairness and interaction-registration controls, and
-the separate mandatory visual floor for DR-0009. It also incorporates the
-canonical non-negative semantic-lineage distribution and independent oracle
-coverage for DR-0010. Both remain Proposed with Owner approval Pending and
-Review Complete. Two independent reviews — Review 01
-(architecture/proof/governance) and Review 02 (geometry/semantics/measurement)
-— both recommend Revise at High confidence. The
-unresolved shared finding is the terminal treatment of budget-exhausted
-unreadiness. DR-0009 additionally has an unresolved branch-sensitive
-baseline-failure contradiction in the research design, exclusive
-match/tradeoff predicates, mutually exclusive interaction labels, and a
-complete frontier dominance/simplicity disposition. DR-0010 additionally has
-unresolved nested contribution algebra that is not reassociation-invariant
-under per-operator normalization and a missing cross-resolution
-phase/convergence rule. Their Revision 3 Double reviews are historical and
-stale after the material revision. The
+[DR-0009 Revision 5](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
+and [DR-0010 Revision 5](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md).
+Revision 5 integrates the approved finite branch-readiness disposition,
+branch-sensitive baseline handling, complete match/dominance and simplicity
+rules, and mutually exclusive per-component interaction matrix for DR-0009.
+It also integrates the raw semantic measure and reassociation oracles plus the
+common-domain cross-resolution phase envelope for DR-0010. Both remain
+Proposed with Owner approval Pending and Review Pending while the current
+revision is reviewed. Their Revision 4 Double reviews are historical and stale
+after this material revision. The
 [first surface experiment design](../research/first-surface-experiment-design.md)
 remains a neutral Proposed, manually maintained evidence plan; it does not
 register EXP-0001 or create evidence. These materials guide falsifiable

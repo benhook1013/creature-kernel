@@ -388,27 +388,17 @@ preservation, animation topology, remeshing requirements, determinism,
 licensing, platform support, and runtime implications. Record references and
 tool/library constraints, then design a falsifiable first geometry experiment.
 Do not select production surface architecture from a prose survey alone. The
-integrated Proposed hypotheses are [DR-0009 Revision 4](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
-and [DR-0010 Revision 4](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md);
-they guide Stage 1 evidence and do not select a production backend. Revision 4
-records the approved evidence classification, strict comparative precedence,
-empty-frontier rule, fairness/search controls, separate visual floor and
-comparative frontier, and per-criterion interaction registration for DR-0009,
-plus the canonical non-negative semantic-lineage distribution and independent
-closed-form oracle coverage for DR-0010. Both remain Proposed with Owner
-approval Pending and Review Complete. Two independent reviews — Review 01
-(architecture/proof/governance) and Review 02 (geometry/semantics/measurement)
-— both recommend Revise at High confidence. The unresolved shared finding is
-the terminal treatment of budget-exhausted unreadiness. DR-0009 additionally
-has an unresolved branch-sensitive baseline-failure contradiction in the
-research design, exclusive match/tradeoff predicates, mutually exclusive
-interaction labels, and a complete frontier dominance/simplicity disposition.
-DR-0010
-additionally has unresolved nested contribution algebra that is not
-reassociation-invariant under per-operator normalization and a missing
-cross-resolution phase/convergence rule. Their Revision 3 Double reviews are
-historical and stale after the material revision. This plan does not imply
-acceptance.
+integrated Proposed hypotheses are [DR-0009 Revision 5](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
+and [DR-0010 Revision 5](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md);
+they guide Stage 1 evidence and do not select a production backend. Revision 5
+records the approved finite branch-readiness disposition, branch-sensitive
+baseline handling, complete match/dominance and simplicity rules, mutually
+exclusive interaction matrix, separate visual floor and comparative frontier,
+raw semantic measure with reassociation oracles, and common-domain
+cross-resolution phase envelope. Both remain Proposed with Owner approval
+Pending and Review Pending while the current revision is reviewed. Their
+Revision 4 Double reviews are historical and stale after this material
+revision. This plan does not imply acceptance.
 
 ### CK-KICK-009: Choose a disposable geometry experiment stack
 

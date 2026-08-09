@@ -83,33 +83,22 @@ serialization, compatibility, and streaming behaviour remain undecided.
 ### Stage 1 surface experiment hypotheses
 
 The Round 6 proposals are deliberately narrower than this conceptual runtime
-architecture. [DR-0009 Revision 4](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
+architecture. [DR-0009 Revision 5](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
 proposes testing semantic skeleton/radius structures with implicit blending
 where useful and reusable specialized generators for muzzle, paws, ears, feet,
-and tail through a bounded five-branch nested ablation. Its Revision 4
-experiment controls include strict evidence/outcome precedence, frozen
-fairness and search contracts, per-criterion interaction contrasts, and a
-separate mandatory visual floor versus comparative visual frontier.
-[DR-0010 Revision 4](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md)
-proposes a disposable deterministic pinned uniform-grid Lewiner Marching Cubes
-policy, a common normalized field contract with three-grid convergence, and
-parallel semantic-contributor propagation with analytical oracles. Its settled
-local controls include sub-voxel phase checks, six-face field clearance,
-prospective topology invariants, and a canonical non-negative distribution over
-durable `(semantic_id, chart_id)` keys with deterministic ties, residuals,
-parallel categorical/chart validity, and independent closed-form oracles. Both
-remain Proposed with Owner approval Pending and Review Complete. Two
-independent reviews — Review 01 (architecture/proof/governance) and Review 02
-(geometry/semantics/measurement) — both recommend Revise at High confidence.
-The unresolved shared finding is the terminal treatment of budget-exhausted
-unreadiness. DR-0009 additionally has an unresolved branch-sensitive
-baseline-failure contradiction in the research design, exclusive
-match/tradeoff predicates, mutually exclusive interaction labels, and a
-complete frontier dominance/simplicity disposition. DR-0010 additionally has
-unresolved nested contribution algebra that is not reassociation-invariant
-under per-operator normalization and a missing cross-resolution
-phase/convergence rule. Their Revision 3 Double reviews are historical and
-stale after the material revision. The [first surface experiment
+and tail through a bounded five-branch nested ablation. Its current controls
+include a finite branch-readiness budget and terminal feasibility disposition,
+branch-sensitive baseline handling, complete match/dominance and simplicity
+rules, a mutually exclusive per-component interaction matrix, and a separate
+mandatory visual floor versus comparative visual frontier.
+[DR-0010 Revision 5](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md)
+proposes common sampling and convergence evidence over a field domain with
+nested/aligned origins and a nonempty shared
+phase subset across coarse, nominal, and fine convergence, and a raw semantic
+measure with closed-form reassociation/counterexample oracles. Exact phase
+values remain deferred. Both remain Proposed with Owner approval Pending and
+Review Pending while the current revision is reviewed. Their Revision 4 Double
+reviews are historical and stale after this material revision. The [first surface experiment
 design](../research/first-surface-experiment-design.md) remains a neutral
 Proposed, manually maintained evidence design; it does not register EXP-0001,
 create fixtures, or provide evidence. These are Proposed experiment
