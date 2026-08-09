@@ -30,7 +30,7 @@ changing the meaning of persisted bodies or avatar packages.
   ownership of usable skeletons, skin weights, collision proxies, contact, and
   deformation claims.
 - A planned Proposed Stage 1 sampled-field and semantic-lineage direction,
-  informed by [DR-0010 Revision 5](../docs/decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md),
+  informed by [DR-0010 Revision 6](../docs/decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md),
   including common-domain phase/convergence checks and scoped determinism.
   Semantic lineage is directionally defined as a raw non-negative measure over
   durable `(semantic_id, chart_id)` keys: unit leaves, raw composition
@@ -42,8 +42,9 @@ changing the meaning of persisted bodies or avatar packages.
   ties, ambiguity, and parallel categorical/chart-validity fields. Independent
   closed-form oracles cover reassociation and counterexamples, duplicates,
   scaling, order, coefficients, ties, residuals, and incompatible charts. This
-  remains a Proposed semantic direction only; no storage layout or
-  serialization format is selected.
+  remains a Proposed semantic direction only; the exact transfer-map
+  constraints and reproducible phase/convergence measurement remain
+  unresolved, and no storage layout or serialization format is selected.
 - Runtime avatar package.
 - Interaction and quality negotiation.
 - Shared domain-operation and diagnostic contracts (eventually).

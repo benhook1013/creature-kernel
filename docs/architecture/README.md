@@ -43,17 +43,20 @@ and described in the execution model; exact interface schemas, compatibility,
 budgets, and runtime mutation details remain open.
 
 Round 6 records two Proposed Stage 1 experiment hypotheses in
-[DR-0009 Revision 5](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
-and [DR-0010 Revision 5](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md).
-Revision 5 integrates the approved finite branch-readiness disposition,
-branch-sensitive baseline handling, complete match/dominance and simplicity
-rules, and mutually exclusive per-component interaction matrix for DR-0009.
-It also integrates the raw semantic measure and reassociation oracles plus the
-common-domain cross-resolution phase envelope for DR-0010. Both remain
-Proposed with Owner approval Pending and Review Complete. The current Revision
-5 reviews record unresolved findings in both DRs; Review Complete records
-evidence, not a clean review or acceptance. Their Revision 4 Double reviews
-are historical and stale after this material revision. The
+[DR-0009 Revision 6](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
+and [DR-0010 Revision 6](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md).
+DR-0009 Revision 6 applies the approved four outcome-contract resolutions:
+one cumulative per-branch readiness-remediation/implementation budget starts
+at the frozen common-scaffold checkpoint; bundle outcomes remain separate from
+per-component attribution; `N` requires demonstrated equivalence inside a
+frozen neutral margin under sufficient precision; and registered dimension
+preorders aggregate to an acyclic strict partial order with incomparability
+allowed and no scalarization. A cycle or eligible-but-empty frontier is a
+protocol/evidence failure and `Inconclusive`. DR-0010 Revision 6 carries only
+the derived outcome-ownership alignment and leaves its two geometry/semantic
+findings unresolved. Both remain Proposed with Owner approval Pending and
+Review Pending; their Revision 5 reviews are historical and stale after this
+material revision and current-revision review remains required. The
 [first surface experiment design](../research/first-surface-experiment-design.md)
 remains a neutral Proposed, manually maintained evidence plan; it does not
 register EXP-0001 or create evidence. These materials guide falsifiable

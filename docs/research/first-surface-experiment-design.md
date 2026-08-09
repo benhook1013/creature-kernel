@@ -2,8 +2,9 @@
 
 Status: Proposed research/evidence design
 
-Origin: Assistant-authored from Ben's settled Recommendations 1–5 and the
-linked Proposed decision records and research protocol below
+Origin: Assistant-authored from Ben's settled Recommendations 1–5, the
+approved DR-0009 Revision 6 outcome alignment, and the linked Proposed
+decision records and research protocol below
 
 Maintenance: Manual; no regeneration command
 
@@ -21,8 +22,8 @@ This document is a neutral design for the first surface-generation evidence
 collection. It was authored from Ben's settled Recommendations 1–5 and is
 bounded by the Proposed [DR-0007 staged first-proof charter](../decisions/DR-0007-staged-first-proof-charter.md),
 [DR-0008 morphology envelope](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
-[DR-0009 hybrid hypothesis](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md),
-and [DR-0010 extraction and propagation policy](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md).
+[DR-0009 Revision 6 hybrid hypothesis](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md),
+and [DR-0010 Revision 6 extraction and propagation policy](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md).
 The [visual-quality evaluation protocol](visual-quality-evaluation.md) owns
 the human visual-assessment method. Those documents remain Proposed or
 research guidance; this design does not accept them, create a production
@@ -130,31 +131,37 @@ own allowed construction rule.
 
 The registration must freeze the branch-operation matrix, allowed operations,
 selected blend sites, generator set, parameter/tuning budgets,
-implementation-effort budget, and common output fields. An internal
+implementation-effort accounting, and common output fields. An internal
 scalar-field storage choice does not change branch identity. Exact operations
 and values are not selected by this design.
 
-Before tuning, the registration freezes shared infrastructure and oracles,
-branch/search contracts, deterministic initialization, adjustment unit,
-stopping rule, maximum count, and the evaluation/search budget. Branches use
-separate configurations or workspaces. The primary comparison uses identical
-deterministic search and evaluation budgets; if human adjustment is permitted,
-its order is preregistered and rotating or counterbalanced. Transfer of
-branch-specific parameters, corrections, or defect fixes is prohibited during
-primary evidence collection. Adjustments are global branch parameters only;
-no per-fixture tuning or correction is permitted in the primary comparison.
-Record unavoidable knowledge reuse, shared versus branch-specific effort, and
-any shared fix that requires affected evidence to be rerun. Before primary
-comparison, every required branch must pass
-branch-neutral analytical readiness fixtures, cover every required operation
-in its matrix, and disclose unresolved defects. The registration must also
-freeze a finite branch-specific readiness-remediation and implementation
-budget. A shared apparatus failure remains `Inconclusive`; if a branch exhausts
-its own finite budget before attaining readiness, record a bounded branch
-feasibility failure rather than a universal impossibility claim. A hybrid
-feasibility failure is `Reject`. A baseline feasibility failure is retained as
-evidence and excludes that baseline from the eligible frontier. If that leaves
-no eligible baseline, the comparative result is `Inconclusive`.
+Before branch-specific implementation or tuning, the registration freezes the
+shared infrastructure and oracles as a common scaffold, then marks the frozen
+common-scaffold checkpoint at which each branch's one cumulative
+readiness-remediation/implementation budget starts. That budget covers
+branch-specific implementation, tuning, and remediation; defects consume the
+already-running budget. Also freeze branch/search contracts, deterministic
+initialization, adjustment unit, stopping rule, maximum count, and the
+evaluation/search budget. Branches use separate configurations or workspaces.
+The primary comparison uses identical deterministic search and evaluation
+budgets; if human adjustment is permitted, its order is preregistered and
+rotating or counterbalanced. Transfer of branch-specific parameters,
+corrections, or defect fixes is prohibited during primary evidence collection.
+Adjustments are global branch parameters only; no per-fixture tuning or
+correction is permitted in the primary comparison. Record unavoidable
+knowledge reuse, shared versus branch-specific effort, and any shared fix that
+requires affected evidence to be rerun. Before primary comparison, every
+required branch must pass branch-neutral analytical readiness fixtures, cover
+every required operation in its matrix, and disclose unresolved defects. A
+shared apparatus, common-pipeline, or oracle failure is affected-comparison
+`Inconclusive`. A branch-specific issue while its cumulative budget remains is
+remediation state. Exhaustion without readiness or comparable valid evidence
+is terminal feasibility failure: a hybrid failure is `Reject`; a baseline
+failure is retained as evidence and excludes that baseline from the eligible
+frontier. Generic evidence-unavailability wording cannot override that
+terminal attribution, no branch is silently removed, and no universal-
+impossibility claim is made. If no eligible baseline remains, the comparative
+result is `Inconclusive`.
 
 The paired per-fixture/site contrasts are:
 
@@ -165,10 +172,13 @@ The paired per-fixture/site contrasts are:
 
 Here `S` is skeleton/swept-profile, `B` is selected blending, and `G` is the
 reusable specialized-generator layer. For each criterion, preregister the
-direction and classify the without/with pair using this mutually exclusive
-interaction matrix. `B` means beneficial, `N` neutral/no effect, `H` harmful,
-and `U` unresolved; any pair containing `U` is unresolved. The first column is
-the result without the other contribution and the second is with it.
+direction and freeze exhaustive, mutually exclusive `B/N/H/U` regions and
+their precedence. `B` means beneficial in the registered direction. `N` means
+demonstrated equivalence inside the frozen neutral margin under sufficient
+precision. `H` means harmful or reversed against the registered direction.
+Insufficient precision, or failure to prove benefit, harm, or equivalence, is
+`U` unresolved. The first column is the result without the other contribution
+and the second is with it.
 
 | Without / with | Interpretation |
 | --- | --- |
@@ -183,11 +193,15 @@ the result without the other contribution and the second is with it.
 | `H/H` | Consistently harmful |
 | Any `U` | Unresolved |
 
-Apply the matrix per component and criterion. A bundle-level result that is
-beneficial only when both selected contributions are present is recorded
-separately as `combined-hybrid-only`; it does not replace either component's
-matrix entry. Interaction is diagnostic attribution, not a scalar score or a
-full-factorial claim.
+Apply the matrix per component and criterion. Bundle-level
+`Support`/`Reject`/`Inconclusive` is a separate comparative outcome from
+per-component attribution. Missing ablation evidence makes the affected
+component attribution `U`/`Inconclusive`, but does not by itself prevent
+bundle `Support`; bundle `Support` carries no independent component credit.
+A bundle-level result that is beneficial only when both selected contributions
+are present is recorded separately as `combined-hybrid-only`; it is a bundle
+tag and does not replace either component's matrix entry. Interaction is
+diagnostic attribution, not a scalar score or a full-factorial claim.
 
 ## Common sampling and convergence structure
 
@@ -210,17 +224,22 @@ sampling checks, and convergence/stability measurements for components, named
 junctions, gaps, thin features, and predeclared topology invariants. For each
 valid initial closed creature exterior, the default expected invariant is one
 watertight connected genus-zero component unless the fixture prospectively
-declares another valid expectation. Shared or unavailable/indeterminate
-evidence, including common-pipeline or oracle defects, unavailable mandatory
-diagnostics, clipping that prevents a valid measurement, and sampling
-non-convergence that cannot be attributed to a branch, is `Inconclusive` under
-the shared precedence in DR-0009. Once apparatus and branch readiness pass, a
-valid registered branch violation of a frozen clearance, convergence, or
-phase/topology criterion is a branch technology failure: a hybrid failure
+declares another valid expectation. Independently demonstrated shared
+apparatus, common-pipeline, or oracle failure, unavailable mandatory evidence
+that is not terminally attributable to a branch, clipping that prevents a
+valid shared measurement, and sampling non-convergence that cannot be
+attributed to a branch is `Inconclusive` under the shared precedence in
+DR-0009. Branch-specific issues while the cumulative
+readiness-remediation/implementation budget remains are remediation state.
+Once a branch exhausts that budget without readiness or comparable valid
+evidence, its terminal feasibility failure applies: a hybrid failure
 contributes to `Reject`, while a baseline failure is retained and excluded
-from the eligible frontier. An indeterminate attribution remains
-`Inconclusive`. No declared branch is silently dropped from the evidence
-ledger. Deviations from the common bounds,
+from the eligible frontier. Generic evidence-unavailability wording cannot
+override that terminal attribution. A valid registered branch violation of a
+frozen clearance, convergence, or phase/topology criterion after apparatus and
+readiness pass is a branch technology failure. An indeterminate attribution
+remains `Inconclusive`. No declared branch is silently dropped from the
+evidence ledger. Deviations from the common bounds,
 grids, phases, or field contract are separate exploratory runs. Lewiner's
 guarantee remains scoped to reconstruction from the sampled grid, not the
 continuous field.
@@ -291,24 +310,38 @@ or limitation, not hidden in a branch.
 Apply the evidence-first comparative rule in [DR-0009](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
 only after exact aggregation and threshold rules, named junction/feature
 criteria, readiness fixtures, paired contrasts, and the assessment rule have
-been frozen. Classify shared, unavailable, or indeterminate evidence as
-`Inconclusive`; classify branch-specific hybrid mandatory or bounded
+been frozen. Classify independently demonstrated shared apparatus,
+common-pipeline, oracle, or other non-terminally attributable evidence failure
+as `Inconclusive`; classify branch-specific hybrid mandatory or terminal
 feasibility failure as `Reject`; retain a failed baseline as evidence but
-exclude it from the eligible frontier. No universal-impossibility claim is
-made. Match and dominance are determined only when every applicable registered
-dimension is valid and resolved; unresolved evidence that could affect that
-determination is `Inconclusive`. Any eligible frontier baseline that
-conclusively dominates the hybrid is `Reject`, as is a conclusively simpler
-baseline matching the hybrid within frozen margins. The registration freezes
-the simplicity ordering, dominance definition, and match/non-inferiority
-margins. The mandatory visual floor is a separate gate; comparative visual
-evidence is a declared frontier dimension. Hybrid mandatory failure or missing
-named improvement is `Reject`. If no baseline is eligible, the comparative
-outcome is `Inconclusive`; if the hybrid passes, record only a separate
-non-comparative `Feasibility demonstrated` annotation. Unresolved nonmandatory
-trade-offs or comparative visual disagreement are `Inconclusive`. `Support`
-requires valid evidence, an eligible frontier, all gates, a named improvement,
-non-inferiority, no simpler match or dominance, and no unresolved trade-off.
+exclude it from the eligible frontier. Generic evidence-unavailability
+wording cannot override a terminal branch attribution. No universal-
+impossibility claim is made. Match and dominance are determined only when
+every applicable registered dimension is valid and resolved; unresolved
+evidence that could affect that determination is `Inconclusive`.
+
+Registration defines each dimension's applicability, direction, aggregation,
+and threshold as a preorder. Aggregate strict dominance must be an acyclic
+strict partial order; incomparability is allowed and no scalarization is
+introduced. A cycle, or an eligible baseline set whose computed frontier is
+empty, is protocol/evidence failure and makes the affected comparison
+`Inconclusive`. Any eligible frontier baseline that conclusively dominates the
+hybrid is `Reject`, as is a conclusively simpler baseline matching the hybrid
+within frozen margins. The registration freezes the simplicity ordering,
+dominance definition, and match/non-inferiority margins. The mandatory visual
+floor is a separate gate; comparative visual evidence is a declared frontier
+dimension. Hybrid mandatory failure or missing named improvement is `Reject`.
+If no baseline is eligible, the comparative outcome is `Inconclusive`; if the
+hybrid passes, record only a separate non-comparative `Feasibility demonstrated`
+annotation. Unresolved nonmandatory trade-offs or comparative visual
+disagreement are `Inconclusive`. Bundle `Support`/`Reject`/`Inconclusive` is
+separate from per-component attribution: missing ablation evidence makes the
+affected component attribution `U`/`Inconclusive` but does not by itself block
+bundle `Support`, and bundle `Support` implies no independent component credit.
+The `combined-hybrid-only` tag remains a separate bundle annotation. Bundle
+`Support` requires valid evidence, an eligible frontier, all gates, a named
+improvement, non-inferiority, no simpler match or dominance, and no unresolved
+trade-off.
 
 Retain raw failures, failed and inconclusive fixtures, invalid-fixture
 diagnostics, disagreements, missing contributors, clipping, sampling

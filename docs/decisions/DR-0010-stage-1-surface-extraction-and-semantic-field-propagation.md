@@ -6,13 +6,13 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 5
+Revision: 6
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-09
 
@@ -40,15 +40,16 @@ both recommended `Revise` at High confidence. Revision 5 applies Ben's
 settled Round 10 resolutions to finite branch-readiness termination, the raw
 contribution measure and its representation-equivalence law, and the
 cross-resolution phase/convergence envelope. The Revision 4 reviews remain
-preserved as historical evidence and are stale for this revision. The current
-[architecture/proof/governance review](reviews/DR-0010-rev-05-review-01.md) is
-Complete with an Accept recommendation at High confidence and no DR-0010-
-specific actionable objection in that lens. The current
-[geometry/semantics/measurement review](reviews/DR-0010-rev-05-review-02.md)
-is Complete with a Revise recommendation at High confidence and records the
-two unresolved findings below. Revision 5 remains Proposed with Owner
-approval Pending; Review Complete records evidence, not a clean review or
-acceptance.
+preserved as historical evidence and are stale for this revision. Revision 6
+applies only the derived outcome-contract alignment required by the current
+DR-0009 Revision 6 ownership rules; it does not resolve either of the two
+geometry/semantic findings carried forward below. The [architecture/proof/
+governance review](reviews/DR-0010-rev-05-review-01.md) and [geometry/
+semantics/measurement review](reviews/DR-0010-rev-05-review-02.md) are
+historical and stale after the Revision 6 alignment. Revision 6 remains
+Proposed with Owner approval Pending and Review status Pending; the two
+geometry/semantic findings below remain unresolved and require Ben's next
+discussion followed by current-revision review.
 
 Supersedes: —
 
@@ -135,22 +136,24 @@ topology invariant is one watertight connected genus-zero component. A fixture
 may declare another valid component or genus expectation only prospectively in
 its registration. Expected component and topology invariants must be recorded
 before execution. The causal classification follows the shared precedence in
-DR-0009. Before a branch-specific terminal condition, an independently
-demonstrated shared apparatus or common-pipeline failure, an unavailable or
-invalid mandatory oracle/evidence result, an unready branch that has not
-exhausted its bounded remediation/implementation budget, or genuinely
-indeterminate attribution makes the affected comparison `Inconclusive`; it is
-not an implicit pass. The registration must freeze a finite
-readiness-remediation/implementation budget and terminal rule for each branch.
-If a branch exhausts its branch-specific budget without becoming ready or
-producing comparable valid evidence, that is the branch's bounded feasibility
-failure under DR-0009. It is not endless unreadiness, a universal-impossibility
-claim, or permission to silently remove the branch; retain the branch and
-affected contrasts with the DR-0009 consequence. Once apparatus and readiness
-are valid, a registered measurement that violates frozen clearance,
-convergence, phase/topology, feasibility/budget, or another mandatory criterion
-is a valid branch technology failure, not unavailable evidence. That
-technology outcome is governed by DR-0009.
+DR-0009. Registration must freeze one cumulative per-branch
+readiness-remediation/implementation budget, including its accounting unit,
+scope, and terminal rule, starting at the frozen common-scaffold checkpoint
+before any branch-specific implementation, tuning, or remediation. A
+branch-specific defect consumes this already-running budget. While that budget
+remains, the issue is remediation state, not an outcome. An independently
+demonstrated shared apparatus, common-pipeline, or oracle failure makes the
+affected comparison `Inconclusive`; a branch-specific issue does not become
+generic evidence unavailability while its budget remains. If a branch exhausts
+its cumulative budget without readiness or comparable valid evidence, it has
+the terminal registered feasibility failure under DR-0009. A hybrid terminal
+failure is `Reject`; a baseline terminal failure is retained and excluded from
+the eligible frontier. No branch is silently removed and no universal-
+impossibility claim is made. Generic evidence-unavailability wording cannot
+override that terminal attribution. Once apparatus and readiness are valid, a
+registered measurement that violates frozen clearance, convergence,
+phase/topology, or another mandatory criterion is a valid branch technology
+failure, not unavailable evidence; its outcome is governed by DR-0009.
 
 The pinned Lewiner guarantee is scoped to reconstruction from the sampled
 grid. It does not guarantee topology or geometry of the underlying continuous
@@ -289,26 +292,28 @@ implicit pass.
 
 Experiment registration must define process, thread, numeric, and platform
 scope; mesh canonicalization and hashes; geometric tolerances; how
-nondeterminism is isolated at each stage; and a finite readiness-remediation/
-implementation budget and terminal rule for each branch. A repeated
-deterministic run is required within that declared scope. The result may
-support scoped repeatability, but it must not claim bitwise cross-platform
-output without separate evidence.
+nondeterminism is isolated at each stage; and one cumulative per-branch
+readiness-remediation/implementation budget and terminal rule. That budget
+starts at the frozen common-scaffold checkpoint before branch-specific
+implementation, tuning, or remediation, and branch defects consume it while
+it is already running. A repeated deterministic run is required within that
+declared scope. The result may support scoped repeatability, but it must not
+claim bitwise cross-platform output without separate evidence.
 
 Evidence and readiness failures use the shared causal precedence in DR-0009.
-An independently demonstrated shared apparatus or common-pipeline failure,
-unavailable or invalid mandatory oracle/evidence, an unready branch that has
-not exhausted its finite branch budget, or genuinely indeterminate attribution
-makes the affected primary comparison `Inconclusive` before any technology
-outcome. Exhaustion of a branch-specific readiness-remediation/implementation
-budget without readiness is that branch's bounded feasibility failure under
-DR-0009; it is not endless unreadiness or a universal-impossibility claim. The
-branch and affected contrast remain in the record and are not silently
-removed. Once apparatus and readiness are valid, a registered measurement that
-violates frozen clearance, convergence, phase/topology, feasibility/budget, or
-another mandatory criterion is a valid branch technology failure, not
-unavailable evidence. That failure contributes to the technology outcome under
-DR-0009.
+An independently demonstrated shared apparatus, common-pipeline, or oracle
+failure makes the affected primary comparison `Inconclusive`. A
+branch-specific issue while its cumulative budget remains is remediation
+state, not generic evidence unavailability. Exhaustion of that budget without
+readiness is the branch's terminal feasibility failure under DR-0009: a hybrid
+failure is `Reject`, while a baseline failure is retained and excluded from the
+eligible frontier. Generic evidence-unavailability wording cannot override
+that terminal attribution. The branch and affected contrast remain in the
+record and are not silently removed; no universal-impossibility claim is made.
+Once apparatus and readiness are valid, a registered measurement that violates
+frozen clearance, convergence, phase/topology, or another mandatory criterion
+is a valid branch technology failure, not unavailable evidence. That failure
+contributes to the technology outcome under DR-0009.
 
 ## Alternatives Considered
 
@@ -425,21 +430,21 @@ Ben's settled Revision 5 resolutions define the finite branch budget and
 terminal feasibility rule, the canonical raw-measure law and strict
 representation equivalence, and the shared cross-resolution phase envelope.
 
-The current [architecture/proof/governance review](reviews/DR-0010-rev-05-review-01.md)
-is Complete with an Accept recommendation at High confidence and no
-DR-0010-specific actionable objection in that lens. The current
-[geometry/semantics/measurement review](reviews/DR-0010-rev-05-review-02.md)
-is Complete with a Revise recommendation at High confidence. Its two
-unresolved findings are exactly:
+The [architecture/proof/governance review](reviews/DR-0010-rev-05-review-01.md)
+and [geometry/semantics/measurement review](reviews/DR-0010-rev-05-review-02.md)
+are preserved as historical Revision 5 evidence and are stale after the
+Revision 6 alignment. Revision 6 applies only the derived alignment to
+DR-0009's current outcome ownership; it does not resolve, narrow, choose
+options for, or conceal the two carried findings. They remain exactly:
 
 1. Transfer mappings are underconstrained for raw-measure flattening/path-
    weight oracles.
 2. Phase coordinates, cross-resolution pairing/metrics, envelope aggregation,
    and nonmonotone convergence handling remain underdefined.
 
-Revision 5 remains Proposed with Owner approval Pending and Review status
-Complete; these findings remain unresolved pending Ben's disposition. Review
-Complete records evidence, not a clean review or acceptance.
+Revision 6 remains Proposed with Owner approval Pending and Review status
+Pending. The findings await Ben's next discussion and current-revision review
+after their resolution; no acceptance is implied.
 
 ## Implementation and Proof Obligations
 
@@ -458,15 +463,19 @@ Complete records evidence, not a clean review or acceptance.
   nominal extra phases; and measure convergence or stability for components,
   junctions, gaps, thin features, and the predeclared component/topology
   invariants. Keep any deviation as a separately labelled exploratory run.
-  Freeze a finite readiness-remediation/implementation budget and terminal rule
-  for each branch. Shared apparatus/oracle failure, unavailable or invalid
-  mandatory evidence, an unready branch before its budget is exhausted, or
-  indeterminate attribution is `Inconclusive` under DR-0009. Exhaustion of a
-  branch-specific budget is instead a bounded feasibility failure under
-  DR-0009; retain the branch and contrast, make no universal-impossibility
-  claim, and do not silently remove it. Once apparatus and readiness are
-  valid, a registered violation of a frozen mandatory criterion is a branch
-  technology failure governed by DR-0009.
+  Freeze one cumulative per-branch readiness-remediation/implementation
+  budget and terminal rule, starting at the frozen common-scaffold checkpoint
+  before branch-specific implementation, tuning, or remediation. Branch
+  defects consume the already-running budget. A shared apparatus,
+  common-pipeline, or oracle failure makes the affected comparison
+  `Inconclusive`; a branch-specific issue while budget remains is remediation
+  state. Exhaustion of a branch budget is the terminal feasibility failure
+  under DR-0009: retain the branch and contrast, apply `Reject` to a hybrid,
+  and retain but exclude a baseline from the eligible frontier. Generic
+  evidence-unavailability wording cannot override that terminal attribution;
+  no universal-impossibility claim is made and no branch is silently removed.
+  Once apparatus and readiness are valid, a registered violation of a frozen
+  mandatory criterion is a branch technology failure governed by DR-0009.
 - Define the canonical raw contribution algebra over durable keys. Require
   unit raw leaf measures and, for every operator, declared non-negative
   coefficients and transfer mappings with raw output `mu = sum_i a_i

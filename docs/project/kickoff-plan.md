@@ -388,19 +388,23 @@ preservation, animation topology, remeshing requirements, determinism,
 licensing, platform support, and runtime implications. Record references and
 tool/library constraints, then design a falsifiable first geometry experiment.
 Do not select production surface architecture from a prose survey alone. The
-integrated Proposed hypotheses are [DR-0009 Revision 5](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
-and [DR-0010 Revision 5](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md);
-they guide Stage 1 evidence and do not select a production backend. Revision 5
-records the approved finite branch-readiness disposition, branch-sensitive
-baseline handling, complete match/dominance and simplicity rules, mutually
-exclusive interaction matrix, separate visual floor and comparative frontier,
-raw semantic measure with reassociation oracles, and common-domain
-cross-resolution phase envelope. Both remain Proposed with Owner approval
-Pending and Review Complete after the current Revision 5 adversarial reviews.
-Those reviews leave unresolved findings recorded in both DRs; Review Complete
-records evidence, not a clean review or acceptance, and this plan does not
-imply acceptance. Their Revision 4 Double reviews are historical and stale
-after this material revision.
+integrated Proposed hypotheses are [DR-0009 Revision 6](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
+and [DR-0010 Revision 6](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md);
+they guide Stage 1 evidence and do not select a production backend. DR-0009
+Revision 6 records the approved four outcome-contract resolutions: one
+cumulative per-branch readiness-remediation/implementation budget starts at
+the frozen common-scaffold checkpoint; bundle outcomes remain separate from
+per-component attribution; `N` requires demonstrated equivalence within a
+frozen neutral margin under sufficient precision; and registered dimension
+preorders aggregate to an acyclic strict partial order, with incomparability
+allowed and no scalarization. A cycle or eligible-but-empty frontier is a
+protocol/evidence failure and `Inconclusive`. DR-0010 Revision 6 carries only
+the derived outcome-ownership alignment and leaves its two geometry/semantic
+findings unresolved. Both remain Proposed with Owner approval Pending and
+Review Pending; their Revision 5 reviews are historical and stale after this
+material revision, current-revision review is required, and this plan implies
+no acceptance. Their Revision 4 Double reviews are historical and stale after
+this material revision.
 
 ### CK-KICK-009: Choose a disposable geometry experiment stack
 

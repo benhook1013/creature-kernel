@@ -130,11 +130,18 @@ views, rationale, disagreement, and uncertainty only.
 
 Under the shared outcome precedence in DR-0009, a mandatory visual-floor
 failure is a gate failure and contributes to `Reject` when the evidence is
-valid; unavailable or indeterminate visual evidence is `Inconclusive`. A
+valid; unavailable or indeterminate visual evidence is `Inconclusive` unless a
+branch-specific terminal feasibility attribution already applies. Generic
+evidence-unavailability wording cannot override that terminal attribution. A
 valid frozen non-inferiority visual regression, or a simpler eligible baseline
 matching the overall claimed result under the registered multidimensional
 rule, is `Reject`. Unresolved nonmandatory comparative visual disagreement is
-`Inconclusive`, not an inferred pass or scalar compromise. Comparative
+`Inconclusive`, not an inferred pass or scalar compromise. Comparative bundle
+`Support`/`Reject`/`Inconclusive` remains separate from per-component
+attribution: missing visual ablation evidence makes the affected component
+attribution `U`/`Inconclusive` but does not by itself prevent bundle `Support`,
+and bundle `Support` implies no independent component credit. The
+`combined-hybrid-only` tag remains a separate bundle annotation. Comparative
 `Support` requires an eligible frontier, all gates, a named improvement,
 non-inferiority, no simpler match or dominance, and no unresolved trade-off.
 If no baseline is eligible, the comparative outcome remains `Inconclusive`,
