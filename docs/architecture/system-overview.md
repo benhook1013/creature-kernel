@@ -83,27 +83,25 @@ serialization, compatibility, and streaming behaviour remain undecided.
 ### Stage 1 surface experiment hypotheses
 
 The Round 6 proposals are deliberately narrower than this conceptual runtime
-architecture. [DR-0009 Revision 3](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
+architecture. [DR-0009 Revision 4](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
 proposes testing semantic skeleton/radius structures with implicit blending
 where useful and reusable specialized generators for muzzle, paws, ears, feet,
-and tail through a bounded five-branch nested ablation. Its Revision 3
-experiment controls include a hierarchical outcome/Pareto-baseline rule,
-branch-neutral tuning/readiness protocol, paired contrasts, and separate
-interaction reporting. [DR-0010 Revision 3](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md)
+and tail through a bounded five-branch nested ablation. Its Revision 4
+experiment controls include strict evidence/outcome precedence, frozen
+fairness and search contracts, per-criterion interaction contrasts, and a
+separate mandatory visual floor versus comparative visual frontier.
+[DR-0010 Revision 4](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md)
 proposes a disposable deterministic pinned uniform-grid Lewiner Marching Cubes
 policy, a common normalized field contract with three-grid convergence, and
 parallel semantic-contributor propagation with analytical oracles. Its settled
 local controls include sub-voxel phase checks, six-face field clearance,
-prospective topology invariants, and cross-operator semantic-contribution
-distribution/top-k residual rules. Both remain Proposed with Owner approval
-Pending and Review Complete after two fresh independent reviews, each
-recommending Revise at High confidence. Unresolved findings concern causal
-failure classification, non-overlapping mixed-trade-off precedence,
-empty-frontier support, reuse/tuning-order fairness, visual frontier
-consistency, interaction attribution, and nested semantic-contribution
-composition; they are not resolved by this conceptual overview. Revision 2
-Double reviews are historical and stale after the material revision. The [first
-surface experiment design](../research/first-surface-experiment-design.md) remains a neutral
+prospective topology invariants, and a canonical non-negative distribution over
+durable `(semantic_id, chart_id)` keys with deterministic ties, residuals,
+parallel categorical/chart validity, and independent closed-form oracles. Both
+remain Proposed with Owner approval Pending and Review Pending. Their Revision
+3 Double reviews are historical and stale after the material revision; the
+approved findings await new review. The [first surface experiment
+design](../research/first-surface-experiment-design.md) remains a neutral
 Proposed, manually maintained evidence design; it does not register EXP-0001,
 create fixtures, or provide evidence. These are Proposed experiment
 hypotheses, not accepted production contracts. Permanent surface and topology

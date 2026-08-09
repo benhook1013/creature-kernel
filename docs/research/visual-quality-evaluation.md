@@ -113,6 +113,28 @@ views, concise rationale, and disagreements or uncertainty, without inventing
 a numeric aesthetic score or implying inter-reviewer precision that has not
 been measured.
 
+The subjective visual floor is a mandatory Stage 1 gate, not a comparative
+visual score. It answers whether each valid fixture is an intentional,
+coherent stylized character; it does not rank branches or establish a named
+improvement. Comparative visual evidence is a separately declared frontier
+dimension. For each paired fixture/site contrast, record the direction,
+criterion, view provenance, rationale, reviewer disagreement, and uncertainty
+without inventing a scalar or collapsing the record into an aesthetic score.
+The comparative visual result must remain distinct from the floor result.
+
+Under the shared outcome precedence in DR-0009, a mandatory visual-floor
+failure is a gate failure and contributes to `Reject` when the evidence is
+valid; unavailable or indeterminate visual evidence is `Inconclusive`. A
+valid frozen non-inferiority visual regression, or a simpler eligible baseline
+matching the overall claimed result under the registered multidimensional
+rule, is `Reject`. Unresolved nonmandatory comparative visual disagreement is
+`Inconclusive`, not an inferred pass or scalar compromise. Comparative
+`Support` requires an eligible frontier, all gates, a named improvement,
+non-inferiority, no simpler match or dominance, and no unresolved trade-off.
+If no baseline is eligible, the comparative outcome remains `Inconclusive`,
+with a separate non-comparative `Feasibility demonstrated` annotation allowed
+only when the hybrid otherwise passes.
+
 ## Stage 1 exclusions
 
 The following are deferred or semantic-only in Stage 1 and must not be treated

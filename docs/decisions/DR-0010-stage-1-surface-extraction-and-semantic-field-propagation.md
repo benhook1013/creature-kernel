@@ -6,13 +6,13 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 3
+Revision: 4
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-09
 
@@ -25,10 +25,16 @@ Both reviews remain preserved as historical evidence and are stale for this
 revision. Revision 2 was reviewed by the [architecture/governance
 review](reviews/DR-0010-rev-02-review-01.md) and the [geometry/semantics
 review](reviews/DR-0010-rev-02-review-02.md); both reviews are preserved as
-historical evidence and are stale for this revision. Revision 3 applies Ben's
+historical evidence and are stale for this revision. Revision 3 applied Ben's
 settled resolutions to shared evidence precedence, phase and topology
-controls, and cross-operator semantic contribution algebra. The current-revision
-reviews are complete and remain unresolved; this proposal remains unaccepted.
+controls, and cross-operator semantic contribution algebra. Revision 3 was
+reviewed in Round 9 by the [architecture/proof/governance
+review](reviews/DR-0010-rev-03-review-01.md) and [geometry/semantics/measurement
+review](reviews/DR-0010-rev-03-review-02.md); both reviews are preserved as
+historical evidence and are stale for this revision. Revision 4 applies Ben's
+settled Round 9 resolutions to causal evidence classification and the nested
+semantic contribution algebra. Revision 4 is unreviewed and unaccepted; this
+proposal remains Proposed with Owner approval Pending.
 
 Supersedes: —
 
@@ -108,10 +114,16 @@ values. For every valid initial closed creature exterior, the default expected
 topology invariant is one watertight connected genus-zero component. A fixture
 may declare another valid component or genus expectation only prospectively in
 its registration. Expected component and topology invariants must be recorded
-before execution. Phase or topology instability, or an unavailable/invalid
-clearance or invariant result, is unavailable/invalid evidence and therefore
-`Inconclusive` under the shared outcome precedence in DR-0009, not an implicit
-pass.
+before execution. The causal classification follows the shared precedence in
+DR-0009. An independently demonstrated shared apparatus or common-pipeline
+failure, an unavailable or invalid mandatory oracle/evidence result, a branch's
+inability to produce comparable valid evidence, or genuinely indeterminate
+attribution makes the affected comparison `Inconclusive`; it is not an
+implicit pass. Once apparatus and readiness are valid, however, a registered
+measurement that violates frozen clearance, convergence, phase/topology,
+feasibility/budget, or another mandatory criterion is a valid branch technology
+failure, not unavailable evidence. That technology outcome is then governed by
+DR-0009, and no branch may be silently removed from the declared comparison.
 
 The pinned Lewiner guarantee is scoped to reconstruction from the sampled
 grid. It does not guarantee topology or geometry of the underlying continuous
@@ -134,33 +146,50 @@ semantics distinct from ephemeral mesh indices:
 - missing-field masks and ambiguity diagnostics, including near-boundary and
   out-of-domain cases.
 
-Semantic lineage uses one shared non-negative contribution distribution plus
-operator-specific transfer rules; it represents semantic lineage, not a
-physical force. Each operator exposes raw non-negative contribution mass for
-its contributors. When the complete distribution has a valid total, normalize
-the complete distribution to one. Stored top-k weights retain their
-full-distribution normalized values and are not renormalized; discarded
-residual mass is stored explicitly. A hard-selection operator uses deterministic
-tie ordering and records an ambiguity flag when the declared tie condition is
-met. A smooth blend uses its declared blend coefficients. Swept attachments
-and specialized modules must each declare their transfer or aggregation rule.
+Semantic lineage uses a representation-invariant nested contribution algebra;
+it represents semantic lineage, not a physical force. Lineage distribution
+keys are durable `(semantic_id, chart_id)` pairs wherever chart identity
+applies, with the declared semantic contributor key used where it does not.
+Leaves emit unit distributions over their semantic contributor key. Every
+operator consumes valid normalized child distributions and applies its
+declared non-negative coefficients and transfer mappings. It coalesces
+duplicate output keys before final normalization and requires a finite,
+positive total; otherwise the distribution is invalid. Thus equivalent nested
+representations cannot change lineage merely through raw operand scale, operand
+order, or duplicate-key structure when the declared mappings and coefficients
+are unchanged.
+
+A smooth blend applies its declared coefficients before coalescence and final
+normalization. A hard-selection operator uses a deterministic durable-key tie
+order and records an ambiguity flag whenever the declared tie condition is
+met. Top-k is derived only after the complete distribution is normalized;
+retained weights keep their full-distribution values and are not renormalized,
+discarded residual mass is explicit, and a cutoff tie follows a frozen
+deterministic rule while preserving an ambiguity flag. Swept attachments and
+specialized modules must each declare their transfer or aggregation rule.
 
 The skeleton/swept-profile operator identifies its semantic centerline,
 profile, and attachment contributors; the general implicit-field operator
 identifies the source semantic contributions to its composition; the
 selected-blending operator records its operand contributors and blend weights;
 and a specialized generator identifies its semantic module, local chart, and
-any module-level contributors. These are lineage descriptions, not an
+any module-level contributors. Coefficients and transfer mappings are declared
+against the corresponding durable operands or keys, so reordering equivalent
+operands does not change the result. These are lineage descriptions, not an
 instruction to choose a storage schema or to make incompatible charts
-blendable. Categorical ownership remains separate and must not be
-interpolated like a scalar field. At chart seams, retain multiple contributors
-or an explicit invalid/ambiguous state; incompatible local charts must not be
+blendable. Categorical ownership, local coordinates, validity, and
+incompatible-chart state remain parallel non-scalar values and are not
+silently interpolated. At chart seams, retain multiple contributors or an
+explicit invalid/ambiguous state; incompatible local charts must not be
 silently blended.
 
 Independent analytical oracles define expected distributions, tie outcomes,
 discarded residual mass, chart-seam validity, and chart validity without
-reusing the propagation implementation. A missing or invalid total, omitted
-contributor, or unresolved chart state is a diagnostic, not a normalized pass.
+reusing the propagation implementation. They must include closed-form cases
+for nesting, duplicate IDs, operand rescaling, operand reordering, coefficient
+order, hard-selection and cutoff ties, residual mass, and incompatible charts.
+A missing or invalid total, omitted contributor, or unresolved chart state is a
+diagnostic, not a normalized pass.
 
 Independent analytical fixtures and oracles are required for coverage,
 weight normalization, missing contributors, local-chart reconstruction and
@@ -190,7 +219,8 @@ LOD, or array indices, as required by
 - Contributor lineage, shared contribution algebra, chart validity,
   independent analytical oracles, and explicit ambiguity/residual diagnostics
   make semantic propagation inspectable without interpolating categorical data
-  or incompatible charts.
+  or incompatible charts; normalized nested composition is invariant to raw
+  operand scale, equivalent operand order, and duplicate-key representation.
 - Required topology invariants, face-clearance, orientation, volume, and
   normal-vs-gradient checks make structural failures visible; they do not turn
   mesh output into a production topology contract.
@@ -220,16 +250,18 @@ required within that declared scope. The result may support scoped
 repeatability, but it must not claim bitwise cross-platform output without
 separate evidence.
 
-Evidence and readiness failures use the shared precedence in DR-0009:
-common-pipeline failure, unavailable mandatory diagnostics, clipping, sampling
-non-convergence, phase/topology instability, or an unready required branch
-make the affected primary comparison `Inconclusive` before any technology
-outcome. A branch-only evidence/readiness failure is not a reason to silently
-remove that branch from the declared comparison; the affected contrast is
-recorded as inconclusive. By contrast, when the evidence is valid and an
-extracted output fails a mandatory structural gate, that failure contributes
-to the technology outcome under DR-0009 rather than becoming unavailable
-evidence.
+Evidence and readiness failures use the shared causal precedence in DR-0009.
+An independently demonstrated shared apparatus or common-pipeline failure,
+unavailable or invalid mandatory oracle/evidence, a branch unable to produce
+comparable valid evidence, or genuinely indeterminate attribution makes the
+affected primary comparison `Inconclusive` before any technology outcome. A
+branch-only evidence/readiness failure is not a reason to silently remove that
+branch from the declared comparison; the affected contrast is recorded as
+inconclusive. Once apparatus and readiness are valid, a registered measurement
+that violates frozen clearance, convergence, phase/topology,
+feasibility/budget, or another mandatory criterion is a valid branch
+technology failure, not unavailable evidence. That failure contributes to the
+technology outcome under DR-0009, and no branch may be silently removed.
 
 ## Alternatives Considered
 
@@ -295,7 +327,10 @@ for transferring attributes into a level-set workflow. The project adds the
 inference that raw and top-k contributors, normalized weights, categorical
 ownership, local-chart identity and validity, analytical oracles, and explicit
 ambiguity diagnostics are the most direct bounded way to test lineage in Stage
-1. **Recommendation: Option 2.**
+1. The selected policy also requires a representation-invariant nested
+contribution algebra and closed-form independent oracle cases so equivalent
+operand scale, order, and duplicate-key structure cannot alter lineage.
+**Recommendation: Option 2.**
 
 ### Semantic propagation Option 3: Separate region meshes and stitch
 
@@ -318,18 +353,18 @@ reviews and are stale for this Revision 2. They identified the common field
 contract, convergence controls, and semantic lineage beyond vertex sampling as
 the material revision topics. Ben's settled recommendations are applied above.
 
-The current [architecture/proof/governance review](reviews/DR-0010-rev-03-review-01.md)
+The Revision 3 [architecture/proof/governance review](reviews/DR-0010-rev-03-review-01.md)
 and [geometry/semantics/measurement review](reviews/DR-0010-rev-03-review-02.md)
-both recommend `Revise`, at High confidence. They find that the proposal still
-needs valid branch-specific violations of frozen clearance, convergence,
-phase/topology, or feasibility criteria to be distinguished from shared
-apparatus defects, aligned with the shared DR-0009 failure classification. The
-geometry review additionally finds that nested semantic operators need a
-representation-invariant composition rule covering operand mass scale,
-duplicate semantic-ID coalescence, coefficient order, top-k cutoff ties, and
-closed-form independent oracle cases. Revision 2 reviews remain historical
-and stale; Revision 3 is now reviewed but not accepted. This proposal remains
-Proposed with Owner approval Pending; no acceptance is implied.
+both recommended `Revise`, at High confidence. Ben's Revision 4 choices
+resolve those findings by distinguishing independently demonstrated shared
+apparatus/common-pipeline or unavailable/invalid mandatory evidence from valid
+registered branch technology failures, and by defining representation-
+invariant nested composition with deterministic coalescence, coefficient,
+selection, cutoff, residual, and chart-state rules plus closed-form independent
+oracles. The Revision 3 reviews remain preserved as historical evidence and
+are stale for Revision 4. Revision 4 is unreviewed and unaccepted; this
+proposal remains Proposed with Owner approval Pending, and no acceptance is
+implied.
 
 ## Implementation and Proof Obligations
 
@@ -342,20 +377,30 @@ Proposed with Owner approval Pending; no acceptance is implied.
   feature-relative sampling checks; exercise the nominal phase offsets; and
   measure convergence or stability for components, junctions, gaps, thin
   features, and the predeclared component/topology invariants. Keep any
-  deviation as a separately labelled exploratory run. A phase/topology
-  instability or unavailable/invalid required result is `Inconclusive` under
-  DR-0009.
-- Define per-construction-operator transfer/aggregation rules over the shared
-  non-negative contribution distribution. Preserve raw mass, complete-
-  distribution normalized weights, unrenormalized top-k weights, explicit
-  discarded residual mass, deterministic ties and ambiguity flags, categorical
+  deviation as a separately labelled exploratory run. Independently
+  demonstrated apparatus/common-pipeline failure, unavailable/invalid
+  mandatory evidence, branch inability to produce comparable valid evidence, or
+  indeterminate attribution is `Inconclusive` under DR-0009; once apparatus and
+  readiness are valid, a registered violation of a frozen mandatory criterion
+  is a branch technology failure governed by DR-0009.
+- Define the representation-invariant nested contribution algebra over the
+  shared non-negative distribution. Require durable `(semantic_id, chart_id)`
+  keys where chart identity applies, unit leaf distributions, valid normalized
+  child distributions, declared non-negative coefficients/transfer mappings,
+  duplicate-key coalescence before final normalization, and a finite positive
+  total. Preserve raw mass, complete-distribution normalized weights,
+  unrenormalized top-k weights, explicit discarded residual mass, deterministic
+  durable-key hard-selection and cutoff ties with ambiguity flags, categorical
   ownership, contributor IDs, chart identities, local coordinates, validity,
   missing masks, and chart-seam ambiguity/invalidity. Do not interpolate
   categorical IDs or blend incompatible charts.
 - Provide independent analytical fixtures and oracles for coverage,
   distributions and normalization, missing contributors, tie results,
   residual mass, chart reconstruction/validity, landmarks, chart seams, and
-  expected boundary ambiguity without reusing propagation implementation.
+  expected boundary ambiguity without reusing propagation implementation;
+  include closed-form cases for nesting, duplicate IDs, operand rescaling,
+  operand reordering, coefficient order, hard/cutoff ties, residual mass, and
+  incompatible charts.
 - Record vertex/face counts, connectedness, degenerate or ambiguous cases,
   boundary/non-manifold status, Euler/genus where applicable,
   self-intersections, winding/orientation, signed volume, normals versus field

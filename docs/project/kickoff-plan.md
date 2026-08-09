@@ -388,23 +388,17 @@ preservation, animation topology, remeshing requirements, determinism,
 licensing, platform support, and runtime implications. Record references and
 tool/library constraints, then design a falsifiable first geometry experiment.
 Do not select production surface architecture from a prose survey alone. The
-integrated Proposed hypotheses are [DR-0009 Revision 3](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
-and [DR-0010 Revision 3](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md);
-they guide Stage 1 evidence and do not select a production backend. Their
-Revision 3 records the approved hierarchical outcome/Pareto-baseline rule,
-branch-neutral tuning/readiness protocol, paired contrasts, and separate
-interaction reporting for DR-0009, plus sub-voxel phase checks, six-face field
-clearance, prospective topology invariants, and cross-operator
-semantic-contribution distribution/top-k residual rules for DR-0010. Both
-remain Proposed with Owner approval Pending and Review Complete after two fresh
-independent reviews. Both received Revise recommendations at High confidence.
-The reviews leave unresolved findings concerning causal distinction between
-apparatus/evidence failure and measured branch failure, non-overlapping
-mixed-trade-off outcome precedence, empty-frontier support, reuse/tuning-order
-fairness, visual frontier consistency, interaction attribution, and nested
-semantic-contribution composition. These findings are not resolved by this
-plan. Revision 2 Double reviews are historical and stale after the material
-revision.
+integrated Proposed hypotheses are [DR-0009 Revision 4](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
+and [DR-0010 Revision 4](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md);
+they guide Stage 1 evidence and do not select a production backend. Revision 4
+records the approved evidence classification, strict comparative precedence,
+empty-frontier rule, fairness/search controls, separate visual floor and
+comparative frontier, and per-criterion interaction registration for DR-0009,
+plus the canonical non-negative semantic-lineage distribution and independent
+closed-form oracle coverage for DR-0010. Both remain Proposed with Owner
+approval Pending and Review Pending. Their Revision 3 Double reviews are
+historical and stale after the material revision; the approved findings await
+new current-revision review. This plan does not imply acceptance.
 
 ### CK-KICK-009: Choose a disposable geometry experiment stack
 

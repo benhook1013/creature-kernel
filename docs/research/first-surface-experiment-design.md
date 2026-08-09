@@ -134,15 +134,21 @@ implementation-effort budget, and common output fields. An internal
 scalar-field storage choice does not change branch identity. Exact operations
 and values are not selected by this design.
 
-All branches use the same initial configuration and seed, common declared
-objective, and fixed maximum adjustment count. Adjustments are global branch
-parameters only; no per-fixture tuning or correction is permitted in the
-primary comparison. The registration freezes the deterministic initialization,
-adjustment unit, stopping rule, and maximum count. Code, parameter, and
-knowledge reuse between branches is logged. Before primary comparison, every
-required branch must pass branch-neutral analytical readiness fixtures, cover
-every required operation in its matrix, and disclose unresolved defects. An
-unready required branch makes each affected comparison `Inconclusive`.
+Before tuning, the registration freezes shared infrastructure and oracles,
+branch/search contracts, deterministic initialization, adjustment unit,
+stopping rule, maximum count, and the evaluation/search budget. Branches use
+separate configurations or workspaces. The primary comparison uses identical
+deterministic search and evaluation budgets; if human adjustment is permitted,
+its order is preregistered and rotating or counterbalanced. Transfer of
+branch-specific parameters, corrections, or defect fixes is prohibited during
+primary evidence collection. Adjustments are global branch parameters only;
+no per-fixture tuning or correction is permitted in the primary comparison.
+Record unavoidable knowledge reuse, shared versus branch-specific effort, and
+any shared fix that requires affected evidence to be rerun. Before primary
+comparison, every required branch must pass
+branch-neutral analytical readiness fixtures, cover every required operation
+in its matrix, and disclose unresolved defects. An unready required branch
+makes each affected comparison `Inconclusive`.
 
 The paired per-fixture/site contrasts are:
 
@@ -152,9 +158,16 @@ The paired per-fixture/site contrasts are:
 | Generators | `S+G` versus `S` | `Full` versus `S+B` |
 
 Here `S` is skeleton/swept-profile, `B` is selected blending, and `G` is the
-reusable specialized-generator layer. Report their blending/generator
-interaction separately; this is bounded attribution, not full-factorial
-coverage.
+reusable specialized-generator layer. For each criterion, preregister the
+direction and per-criterion interaction contrasts. Independent credit for
+blending or generators requires both relevant paired contrasts to support the
+same direction. Support only with the other contribution present is
+synergy-dependent; support only without it means the effect is suppressed or
+antagonized by the other contribution. Opposing directions are antagonistic or
+context-dependent under the registered rule. Otherwise use
+ambiguous/disputed or combined-hybrid-only as applicable. Report interaction
+as a diagnostic for attribution; it is not a scalar interaction score or a
+full-factorial claim.
 
 ## Common sampling and convergence structure
 
@@ -174,12 +187,18 @@ sampling checks, and convergence/stability measurements for components, named
 junctions, gaps, thin features, and predeclared topology invariants. For each
 valid initial closed creature exterior, the default expected invariant is one
 watertight connected genus-zero component unless the fixture prospectively
-declares another valid expectation. Phase or topology instability, unavailable
-or invalid mandatory evidence, clipping, and sampling non-convergence are
-evidence-readiness failures and are `Inconclusive` under the shared precedence
-in DR-0009. Deviations from the common bounds, grids, phases, or field contract
-are separate exploratory runs. Lewiner's guarantee remains scoped to
-reconstruction from the sampled grid, not the continuous field.
+declares another valid expectation. Shared or unavailable/indeterminate
+evidence, including common-pipeline or oracle defects, unavailable mandatory
+diagnostics, clipping that prevents a valid measurement, and sampling
+non-convergence that cannot be attributed to a branch, is `Inconclusive` under
+the shared precedence in DR-0009. Once apparatus and branch readiness pass, a
+valid registered branch violation of a frozen clearance, convergence,
+phase/topology, or feasibility criterion is a technology failure and
+contributes to `Reject`; an indeterminate attribution remains `Inconclusive`.
+No declared branch is silently dropped. Deviations from the common bounds,
+grids, phases, or field contract are separate exploratory runs. Lewiner's
+guarantee remains scoped to reconstruction from the sampled grid, not the
+continuous field.
 
 Run a repeated deterministic execution within the declared process, thread,
 numeric, and platform scope. Record canonicalization, hashes, geometric
@@ -205,19 +224,20 @@ unavailable or invalid required evidence is not an implicit pass.
 
 ### Semantic ledger
 
-Record resolved-graph lineage and the shared non-negative semantic contribution
-distribution. Each operator exposes raw non-negative contribution mass and its
-declared transfer/aggregation rule. Normalize the complete distribution to one
-when valid; top-k values retain their full-distribution normalized weights and
-are not renormalized, while discarded residual mass is recorded explicitly.
-Record deterministic hard-selection ties and ambiguity flags, declared smooth
-blend coefficients, categorical ownership separately, each contributor's
-semantic ID and local-chart identity/local coordinate/validity, missing-field
-masks, and chart-seam multiple-contributor or invalid/ambiguous states. Do not
-blend incompatible charts. Independent analytical fixtures or oracles define
-expected distributions, ties, residual mass, chart validity, coverage,
-normalization, missing contributors, landmarks, and boundary ambiguity without
-reusing the propagation implementation.
+Record semantic lineage as a canonical non-negative distribution over durable
+`(semantic_id, chart_id)` keys. Unit leaves provide raw mass; child inputs are
+normalized before declared non-negative mappings or coefficients are applied;
+duplicate keys coalesce before normalization. Require a finite positive total
+before normalizing the complete distribution to one. Top-k values retain their
+full-distribution normalized weights and are not renormalized; record residual
+mass after selecting top-k. Hard or cutoff ties use deterministic ordering and
+record ambiguity. Keep categorical ownership and chart validity as parallel
+fields rather than interpolated scalar values; incompatible charts are not
+silently blended. Record each contributor's local coordinate and validity,
+missing-field masks, and chart-seam multiple-contributor or invalid/ambiguous
+states. Independent closed-form fixtures or oracles cover nesting, duplicate
+keys, operand scaling and order, coefficient order, ties, residual mass, and
+incompatible charts without reusing the propagation implementation.
 
 ### Subjective visual ledger
 
@@ -242,17 +262,21 @@ or limitation, not hidden in a branch.
 Apply the evidence-first comparative rule in [DR-0009](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
 only after exact aggregation and threshold rules, named junction/feature
 criteria, readiness fixtures, paired contrasts, and the assessment rule have
-been frozen. Shared-pipeline failure, unavailable mandatory evidence,
-clipping, sampling non-convergence, phase/topology instability, or any
-required unready branch makes the affected comparison `Inconclusive` before a
-technology outcome. With valid evidence, report all eligible passing baselines
-and their non-dominated frontier rather than a scalar or one strongest
-baseline. Hybrid mandatory failure or missing named improvement is `Reject`;
-hybrid passing with its named improvement, no mandatory regression against the
-frontier, and no simpler eligible baseline matching the claimed result is
-`Support`. If no baseline passes, the empty-frontier support case is allowed
-only with the limitation recorded. Genuine mixed trade-offs, unresolved visual
-disagreement, and budget/readiness breach remain `Inconclusive`.
+been frozen. Classify shared, unavailable, or indeterminate evidence as
+`Inconclusive`; classify a valid mandatory branch violation as a technology
+failure contributing to `Reject`; retain every declared branch and contrast.
+With valid evidence, report all eligible passing baselines and their
+non-dominated frontier rather than a scalar or one strongest baseline. The
+mandatory visual floor is a separate gate; comparative visual evidence is a
+declared frontier dimension. A frozen non-inferiority regression or a simpler
+baseline matching the claimed result is `Reject`. Hybrid mandatory failure or
+missing named improvement is `Reject`. If no baseline is eligible, the
+comparative outcome is `Inconclusive`; if the hybrid passes, record only a
+separate non-comparative `Feasibility demonstrated` annotation. Unresolved
+nonmandatory trade-offs or comparative visual disagreement are
+`Inconclusive`. `Support` requires valid evidence, an eligible frontier, all
+gates, a named improvement, non-inferiority, no simpler match or dominance,
+and no unresolved trade-off.
 
 Retain raw failures, failed and inconclusive fixtures, invalid-fixture
 diagnostics, disagreements, missing contributors, clipping, sampling
