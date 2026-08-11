@@ -6,13 +6,13 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 7
+Revision: 8
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-08
 
@@ -45,11 +45,15 @@ work owned by [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-co
 On 2026-08-11 Ben approved the CK-KICK-012 Batch 5 blocker-resolution
 selections recorded in Revision 7: explicit containment and transform
 inheritance, Attachment composition boundaries, canonical resolved relation
-records, and the linked operation status/bootstrap/resource rules. This
-discussion approval is not DR acceptance: this revision remains Proposed with
-Owner approval Pending. Its required current-revision Double review is now
-Complete, with findings pending Ben discussion; all earlier revisions and their
-reviews remain historical evidence.
+records, and the linked operation status/bootstrap/resource rules. The exact-
+revision CK-KICK-012 Batch 5 Double review of Revision 7 is stale historical
+evidence. Its three findings motivated the CK-KICK-012 Batch 6 resolutions in
+this proposal set: this revision resolves the authoritative status/primary
+diagnostic and descendant-owned Attachment composition/cardinality boundaries,
+with linked detail in DR-0008, DR-0011, and DR-0012. This discussion approval is
+not DR acceptance. Revision 8 remains Proposed with Owner approval Pending and
+Review status Pending; its current-revision Double review is pending. All
+earlier revisions and their reviews remain historical evidence.
 
 ## Decision
 
@@ -79,8 +83,18 @@ distinguished; a rejected partial graph may be
 exposed only as explicitly non-compilable, non-contractual debug information.
 Diagnostics from an earlier reached phase remain available when a later phase
 is blocked, but are marked incomplete; one primary diagnostic must match the
-top-level status. Exact diagnostic field spelling, human text, and diagnostic
-codes remain later specification detail under DR-0012.
+top-level status. Final status selection retains internal-failure trust-loss
+precedence, then configured resource-limit when completeness is lost, then the
+earliest fatal reached phase. Within the selected earliest fatal phase,
+invalid-source outranks unsupported when both are established; other ordinary
+status choices retain their phase-specific mapping. The primary diagnostic is
+the first diagnostic establishing the final status under the normative
+deterministic diagnostic order. Reserved primary capacity preserves the
+minimal matching candidate despite ordinary diagnostic truncation; when
+diagnostic-arena exhaustion itself establishes resource-limit, its reserved
+resource/truncation diagnostic follows the same final-status-primary rule.
+Exact diagnostic field spelling, human text, and diagnostic codes remain later
+specification detail under DR-0012.
 
 Within each resolved source set, exactly one authoritative source owns each
 source namespace. Every imported namespace must therefore be unique. A
@@ -108,9 +122,13 @@ reference-transform inheritance; containment reachability and containment
 cycles are validated separately from typed-relation cycles. For the bounded
 Stage 1 axial and limb grammar, required Joint edges connect the structural
 parent Part to its immediate child Part. A module Attachment's host Part and
-module-root child must agree with their separately declared containment, and
-initially an attached module root has at most one incoming Attachment. All
-embodied Parts must remain connected.
+module-root child must agree with their separately declared containment. A
+present attached module root has exactly one incoming active Attachment, while
+an absent optional module has none; each host Socket has an initial capacity of
+one active Attachment. Repeated endpoint pairs, host Socket reuse, zero
+incoming Attachments for a present attached module root, and multiple incoming
+Attachments are distinct rejected conditions. All embodied Parts must remain
+connected.
 
 Declarative ownership of other concepts and typed records scopes identity and
 lifecycle without adding structural body edges. Durable non-structural
@@ -124,6 +142,19 @@ The normalized graph materializes canonical Joint proximal- and distal-frame
 records and the canonical Socket interface-frame record, with source-reference
 provenance retained. These records are semantic data, not a bone hierarchy,
 solver, limits, rig, or runtime representation.
+
+An Attachment may use a mating Socket owned by any Part in the attached
+module-root containment subtree. Its placement composes the module-root-to-
+mating-Socket-owner containment transform with the mating Socket's owner-local
+frame before inversion/alignment with the host Part/frame, host Socket, and
+optional authored Attachment offset. The Attachment-derived result is the
+attached root's sole resolved child-local containment placement relative to its
+host parent. Descendants inherit placement only through containment; the
+Attachment adds no parallel transform-inheritance path. Any competing authored
+root-local placement is compared against that same canonical derived
+child-local value within the later-defined tolerance. Provenance for every
+source frame, containment transform, offset, and composition step remains in
+the result.
 
 The initial source encoding and structural validation boundary are owned by
 DR-0012. This record still defers override representation and
@@ -161,10 +192,18 @@ identity are defined at the boundary in
   one root path, containment owns reference-transform inheritance, and typed
   relations neither substitute for nor repair containment.
 - Attachment composition cannot hide a disconnected, multiply owned, or
-  multiply attached module root; its host/mating placement and independently
-  declared containment must agree before publication.
+  multiply attached module root; a present module root has exactly one incoming
+  Attachment, an absent optional module has none, and each host Socket accepts
+  one. Repeated endpoint pairs, host Socket reuse, zero incoming, and multiple
+  incoming cases are distinct rejected conditions. A mating Socket owned by a
+  descendant is composed through the module-root containment path, and the
+  result is the root's sole child-local placement; descendants inherit only
+  through containment. Competing authored root-local placement compares with
+  that same canonical value and retains provenance for all inputs.
 - The operation has one closed status vocabulary at the contract boundary,
-  while exact diagnostic code spellings and profile values remain deferred.
+  while final-status precedence and the status-establishing primary diagnostic
+  are deterministic; exact diagnostic code spellings and profile values remain
+  deferred.
 
 ## Alternatives Considered
 
@@ -236,6 +275,24 @@ ambiguous and allow a relation to repair a structurally disconnected Part.
 The explicit Part containment tree is selected; relation traversal and
 relation-cycle validation remain separate.
 
+### Resolve a descendant mating Socket without containment composition
+
+Treating a mating Socket as if it were owned by the module root would lose the
+descendant's authored local frame. Treating the Attachment as a second
+transform-inheritance path would make descendants depend on attachment order
+and could produce two placements. The selected rule composes the
+module-root-to-Socket-owner containment transform with the owner-local Socket
+frame, then resolves the root's sole child-local containment placement.
+
+### Permit optional or reusable Attachment endpoints
+
+An at-most-one rule or reusable host Socket would permit absent or multiply
+attached module roots and make endpoint identity errors depend on traversal
+order. The initial grammar instead requires exactly one incoming Attachment
+for each present attached module root, none for an absent optional module, one
+active Attachment per host Socket, and distinct rejection of repeated endpoint
+pairs, host reuse, zero incoming, and multiple incoming cases.
+
 ### Leave endpoint frames as source references or ambiguous records
 
 Allowing a resolved Joint to merely refer to either source endpoint record
@@ -250,6 +307,15 @@ An unbounded diagnostic list can exhaust memory on hostile or highly invalid
 input and produces non-reproducible truncation across implementations. A
 bounded diagnostic arena, deterministic ordering, and reserved terminal
 capacity preserve a trusted primary status and resource/truncation report.
+
+### Leave final status and primary selection to implementation order
+
+Without an explicit trust-loss/resource/phase precedence, a result could vary
+when multiple fatal diagnostics are established in one phase. Without a
+status-establishing primary rule and reserved matching capacity, ordinary
+truncation could also leave a primary diagnostic that does not explain the
+final status. The selected rules keep the envelope deterministic while
+retaining phase-specific ordinary mappings.
 
 ### Learned latent representation
 
@@ -269,7 +335,7 @@ stale historical evidence.
 
 The Revision 6 Double review is preserved as stale evidence at commit
 `7dba9346c91c59ff99f10b94630690bf732d6b28`, with both independent passes
-recommending **Revise** at **High** confidence. The current CK-KICK-012 Batch 5
+recommending **Revise** at **High** confidence. The exact-revision CK-KICK-012 Batch 5
 Double review examined Revision 7 at commit
 `a282dbabffd83afa4e62577086934d00f98e12c7`: the independent
 [contract/schema/security pass](reviews/DR-0002-rev-07-review-01.md) recommended
@@ -277,24 +343,20 @@ Double review examined Revision 7 at commit
 [semantic-graph/graphics/runtime pass](reviews/DR-0002-rev-07-review-02.md) also
 recommended **Revise** at **High** confidence.
 
-The contract pass identifies the same-phase mixed-fatal-status and primary-
-diagnostic-selection gap: after the existing internal/resource overrides, the
-remaining same-phase fatal statuses are not totally ordered, and the primary is
-not explicitly the first retained status-establishing diagnostic under the
-normative order, including after truncation. The graph/runtime pass identifies
-an Attachment composition gap:
-descendant-owned mating Socket placement is not normatively composed back
-through the module-root containment path or stated as the attached root's sole
-child-local containment placement. It further identifies an unresolved
-`at-most-one` versus `exactly-one` incoming Attachment rule, including host
-Socket capacity/reuse and repeated endpoint-pair identity. These findings remain
-pending Ben discussion and are not resolved here. DR-0012 owns the directly
-linked status/bootstrap details; DR-0008 and DR-0011 own the linked morphology
-and typed-vocabulary consequences. The exact dependency-revision meaning,
-serialized field spellings and diagnostic codes, concrete resource thresholds,
-canonical axes/units/rotation/scale/shear, canonical bytes/hashing, and fixture
-evidence remain deferred. Review status is Complete; Owner approval remains
-Pending and Status remains Proposed. Only Ben may accept or reject this proposal.
+The three Batch 5 findings in those exact-revision reviews motivated the
+current CK-KICK-012 Batch 6 proposal text and are resolved across the current
+records. This revision resolves the final-status precedence and
+status-establishing primary-diagnostic rule, and resolves the descendant-owned
+mating Socket composition, sole root placement, and Attachment cardinality
+rules; DR-0008 and DR-0011 carry the linked morphology and typed-vocabulary
+consequences, while DR-0012 owns the detailed status/bootstrap/resource
+boundary. The prior exact-revision review is stale historical evidence, not a
+clean review or acceptance. The current Revision 8 Double review is pending.
+The exact dependency-revision meaning, serialized field spellings and
+diagnostic codes, concrete resource thresholds, canonical
+axes/units/rotation/scale/shear, canonical bytes/hashing, and fixture evidence
+remain deferred. Review status is Pending; Owner approval remains Pending and
+Status remains Proposed. Only Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 
@@ -306,14 +368,25 @@ Pending and Status remains Proposed. Only Ben may accept or reject this proposal
 - Define the one operation-result envelope across loading,
   syntax/schema/contract recognition, dependency and resource checks,
   semantic resolution, and invariant checks; use DR-0012's closed status set,
-  phase precedence, primary-diagnostic rule, bounded ordering, incomplete
-  markers, valid/supported snapshot conditions, and non-contractual
-  partial-graph debug boundary.
+  internal/resource/phase precedence, invalid-source-over-unsupported tie-break,
+  first status-establishing primary-diagnostic rule, bounded ordering and
+  reserved candidate, incomplete markers, valid/supported snapshot conditions,
+  and non-contractual partial-graph debug boundary.
 - Prove separately that every embodied Part has exactly one containment path,
   that containment owns reference-transform inheritance, and that relation
   traversal cannot repair containment or change its cycle checks. For Stage 1,
   verify required Joint edges connect structural parents to immediate children
   and that attached module roots agree with separately declared containment.
+  Prove that each present attached module root has exactly one incoming active
+  Attachment, absent optional modules have none, each host Socket accepts one,
+  and repeated endpoint pairs, host reuse, zero incoming, and multiple incoming
+  are distinct rejected conditions.
+- Prove descendant-owned mating Socket composition by composing the
+  module-root-to-Socket-owner containment transform with the owner-local Socket
+  frame before inversion/alignment; verify that the derived value is the
+  root's sole child-local containment placement, that descendants inherit only
+  through containment, and that competing authored root-local placement is
+  compared with the same value while preserving all provenance.
 - Preserve canonical resolved Joint endpoint and Socket interface records with
   source-reference provenance while keeping bones, solvers, limits, rigs, and
   runtime pose outside this graph boundary.

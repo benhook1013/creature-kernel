@@ -19,6 +19,8 @@ creature-kernel/
 ├── spec/                    # normative formats and semantics (proposed body-document/body-graph contracts)
 │   ├── body-document/       # authored source encoding and admission contract
 │   └── body-graph/          # resolved semantic graph contract
+├── Cargo.toml               # planned Rust workspace; not active
+├── crates/                   # planned engine-independent core/compiler/CLI areas
 ├── experiments/             # reproducible research evidence
 ├── fixtures/                # small stable proof inputs
 ├── benchmarks/              # reproducible performance scenarios
@@ -27,8 +29,8 @@ creature-kernel/
 └── README.md                # project orientation
 ```
 
-Implementation directories are intentionally absent until language, package,
-and component decisions are accepted.
+Implementation directories and the Cargo workspace are intentionally absent
+until the language/build decision and its activation trigger are accepted.
 
 ## Activation rule
 
@@ -45,7 +47,9 @@ committed with documented provenance.
 
 ## Future implementation shape
 
-A monorepo with an engine-independent core, compiler, runtime, CLI, validation,
-and adapters is the current expectation. The language, build system, exact
-package layout, and adapter strategy remain unresolved and may require decision
-records when a choice crosses the consequential threshold.
+The CK-KICK-013 Proposed platform direction is a Cargo workspace with a stable
+Rust engine-independent semantic/compiler core, thin CLI, replaceable geometry
+boundary, and later adapters. It does not include an initial daemon/service.
+The exact crate layout, geometry backend, isolated C++ worker boundary, and
+adapter strategy remain evidence-driven and unresolved. These planned paths do
+not activate packages; the language/build acceptance trigger must be met first.

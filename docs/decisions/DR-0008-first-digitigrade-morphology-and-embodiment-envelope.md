@@ -6,13 +6,13 @@ Scope: Product, Specification and architecture
 
 Status: Proposed
 
-Revision: 7
+Revision: 8
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-09
 
@@ -20,7 +20,7 @@ Date decided: —
 
 Discussion approval date: 2026-08-11
 
-Revision history: Revisions 1–6 and their reviews remain preserved as
+Revision history: Revisions 1–7 and their reviews remain preserved as
 historical evidence. Revision 3 recorded Ben's CK-KICK-012 Batch 1
 morphology/grammar selection, Revision 4 recorded its first review-resolution
 batch, Revision 5 recorded the Batch 3 fixture-outcome resolution, and
@@ -28,11 +28,15 @@ Revision 6 recorded the Batch 4 typed articulation/composition selection. On
 2026-08-11 Ben approved the CK-KICK-012 Batch 5 blocker-resolution selections
 recorded in Revision 7: explicit containment, Attachment placement and
 validity, canonical Joint and Socket frame records, and the linked operation
-outcome/bootstrap/resource rules. This discussion approval is not DR
-acceptance: this revision remains Proposed with Owner approval Pending. The
-required current-revision Double review is now Complete, with findings
-pending Ben discussion. Reviews of Revision 6, as well as earlier reviews,
-remain stale historical evidence.
+outcome/bootstrap/resource rules. The exact-revision CK-KICK-012 Batch 5
+Double review of Revision 7 is stale historical evidence. Its three findings
+motivated the CK-KICK-012 Batch 6 resolutions in this proposal set: this
+revision resolves the descendant-owned Attachment composition and cardinality
+consequences, while DR-0002, DR-0011, and DR-0012 carry linked graph,
+vocabulary, and status details. This discussion approval is not DR acceptance:
+Revision 8 remains Proposed with Owner approval Pending and Review status
+Pending; its current-revision Double review is pending. Reviews of earlier
+revisions remain stale historical evidence.
 
 Supersedes: —
 
@@ -139,8 +143,11 @@ kinds; arbitrary anatomy and arbitrary user-defined graph kinds are
 unsupported. Invalid or unsupported assemblies receive structured
 diagnostics. Units and coordinate basis must be declared, and local frames and
 resolved transforms must be explicit. All embodied Parts must remain
-connected, and an attached module root initially has one incoming Attachment
-at most; duplicate, detached, or multiply attached roots are invalid.
+connected. A present attached module root has exactly one incoming active
+Attachment, an absent optional module has none, and each host Socket has an
+initial capacity of one active Attachment. Repeated endpoint pairs, host Socket
+reuse, zero incoming Attachments for a present attached module root, and
+multiple incoming Attachments are distinct invalid conditions.
 
 The first digitigrade family requires the following typed functional
 articulation and landmark roles for Stage 1 lineage. A root-reference frame is
@@ -166,20 +173,29 @@ its owning Part basis. Source references may supply these records, but the
 resolved graph materializes the canonical owned records.
 
 Optional ear and tail module composition uses an Attachment between a host
-Socket and a mating Socket. Its placement is derived from the host Part/frame
-and host Socket, an optional authored Attachment offset, and the inverse
-mating Socket frame. The conceptual composition is fixed, while serialized
-field spelling is deferred. If authored placement independently controls the
-same degrees of freedom, it must agree with this composition within the later
-contract tolerance or the document is semantically invalid. Initially one
-active Attachment is allowed per attached module root; duplicate Attachments,
-invalid or detached endpoints, containment disagreement, and Attachment
-cycles are invalid. The attached host Part and module-root child must also
-agree with separately declared containment. An Attachment never implies a
-Joint; a movable tail requires a separate Joint, while ears require no
-articulation in this first envelope. These arrows express required functional
-order/adjacency, not serialized syntax. Exact role spelling and serialization
-remain spec detail.
+Socket and a mating Socket. The mating Socket may be owned by any Part in the
+attached module-root containment subtree. Compose the module-root-to-mating-
+Socket-owner containment transform with the mating Socket's owner-local frame
+before inversion/alignment with the host Part/frame, host Socket, and optional
+authored Attachment offset. The Attachment-derived result is the attached
+root's sole resolved child-local containment placement relative to its host
+parent. Descendants inherit only through containment; Attachment adds no
+parallel transform-inheritance path. The conceptual composition is fixed,
+while serialized field spelling is deferred. If authored root-local placement
+independently controls the same degrees of freedom, it must agree with this
+same canonical derived child-local value within the later contract tolerance or
+the document is semantically invalid. Provenance for all source frames,
+containment transforms, offset, and composition steps remains. A present
+attached module root requires exactly one active incoming Attachment, while an
+absent optional module has none; each host Socket accepts one. Repeated
+endpoint pairs, host Socket reuse, zero incoming Attachments, multiple incoming
+Attachments, invalid or detached endpoints, containment disagreement, and
+Attachment cycles are invalid. The attached host Part and module-root child
+must also agree with separately declared containment. An Attachment never
+implies a Joint; a movable tail requires a separate Joint, while ears require
+no articulation in this first envelope. These arrows express required
+functional order/adjacency, not serialized syntax. Exact role spelling and
+serialization remain spec detail.
 
 This decision does not choose an exact permanent coordinate convention, numeric
 ranges, surface primitives, the detailed source fields/schema, or a new
@@ -232,10 +248,17 @@ evidence, not Stage 1 success population.
   optional module Parts; relations cannot repair containment, and containment
   alone owns reference-transform inheritance. Stage 1 required Joint edges
   connect structural parents to immediate children.
-- Attachment placement is derived from host Part/frame and Socket data,
-  optional authored offset, and inverse mating Socket frame. Independently
-  authored placement must agree within a later tolerance; duplicate,
-  detached, cyclic, or containment-disagreeing composition is invalid.
+- Attachment placement permits a mating Socket owned by any Part in the
+  attached module-root containment subtree. The module-root-to-Socket-owner
+  containment transform is composed with the owner-local Socket frame before
+  inversion/alignment; the result is the root's sole resolved child-local
+  containment placement. Descendants inherit only through containment, and no
+  parallel Attachment transform path exists. Competing authored root-local
+  placement compares with that same canonical value and retains provenance.
+  A present module root has exactly one incoming Attachment, an absent optional
+  module has none, and each host Socket accepts one. Repeated endpoint pairs,
+  host reuse, zero incoming, multiple incoming, detached, cyclic, or
+  containment-disagreeing composition is invalid.
 - Continuous variation can expose generator failures without turning each
   fixture into a bespoke asset.
 - Stage 1 can preserve embodiment lineage and regions without bringing Stage 2
@@ -371,6 +394,14 @@ host/frame + host Socket + optional offset + inverse mating Socket composition
 retains both forms and rejects disagreement within the later-defined
 tolerance. An Attachment is composition, never an implicit Joint.
 
+The mating Socket need not be root-owned: a descendant-owned Socket is resolved
+by composing the module-root-to-owner containment transform with the owner's
+local Socket frame before inversion/alignment. The resulting root child-local
+placement is the sole containment placement, so descendants inherit only via
+containment. Reusing a host Socket, repeating an endpoint pair, omitting the
+incoming Attachment for a present module root, or adding a second incoming
+Attachment is rejected rather than left to traversal order.
+
 #### Option 3: Remove the Stage 1-to-Stage 2 lineage promise
 
 This would make opaque modules coherent, but weakens the staged proof and
@@ -412,7 +443,7 @@ stale historical evidence.
 
 The Revision 6 Double review is preserved as stale evidence at commit
 `7dba9346c91c59ff99f10b94630690bf732d6b28`, with both independent passes
-recommending **Revise** at **High** confidence. The current CK-KICK-012 Batch 5
+recommending **Revise** at **High** confidence. The exact-revision CK-KICK-012 Batch 5
 Double review examined Revision 7 at commit
 `a282dbabffd83afa4e62577086934d00f98e12c7`: the independent
 [contract/schema/security pass](reviews/DR-0008-rev-07-review-01.md) recommended
@@ -420,25 +451,19 @@ Double review examined Revision 7 at commit
 [semantic-graph/graphics/runtime pass](reviews/DR-0008-rev-07-review-02.md) also
 recommended **Revise** at **High** confidence.
 
-The contract pass identifies the same-phase mixed-fatal-status and primary-
-diagnostic-selection gap: after the existing internal/resource overrides, the
-remaining same-phase fatal statuses are not totally ordered, and the primary is
-not explicitly the first retained status-establishing diagnostic under the
-normative order, including after truncation. The graph/runtime pass identifies
-an Attachment composition gap:
-descendant-owned mating Socket placement is not normatively composed back
-through the module-root containment path or stated as the attached root's sole
-child-local containment placement. It also identifies an unresolved
-`at-most-one` versus `exactly-one` incoming Attachment rule, including host
-Socket capacity/reuse and repeated endpoint-pair identity. These findings remain
-pending Ben discussion and are not resolved here. DR-0002 owns the source-set
-and graph boundary; DR-0011 owns the linked typed Socket/frame vocabulary; and
-DR-0012 owns the linked status/bootstrap/resource details. The three-way Stage 1
-fixture taxonomy remains limited to admitted recognized semantic fixtures; exact
-fixture files and expected codes, field spellings, tolerance, canonical
-axes/units/rotation/scale/shear, and fixture evidence remain deferred. Review
-status is Complete; Owner approval remains Pending and Status remains Proposed.
-Only Ben may accept or reject this proposal.
+The three Batch 5 findings in those exact-revision reviews motivated the
+current CK-KICK-012 Batch 6 proposal text and are resolved across the current
+records. This revision resolves descendant-owned mating Socket composition,
+the sole root placement, and exact Attachment cardinality; DR-0002 owns the
+source-set and graph boundary, DR-0011 owns the linked typed Socket/frame
+vocabulary, and DR-0012 owns the linked status/bootstrap/resource details. The
+prior exact-revision review is stale historical evidence, not a clean review or
+acceptance. The current Revision 8 Double review is pending. The three-way
+Stage 1 fixture taxonomy remains limited to admitted recognized semantic
+fixtures; exact fixture files and expected codes, field spellings, tolerance,
+canonical axes/units/rotation/scale/shear, and fixture evidence remain
+deferred. Review status is Pending; Owner approval remains Pending and Status
+remains Proposed. Only Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 
@@ -458,11 +483,18 @@ Only Ben may accept or reject this proposal.
   embodied Part has one root path, containment owns reference-transform
   inheritance, required Stage 1 Joint edges join structural parents to
   immediate children, and attached module roots agree with separately declared
-  host/child containment.
+  host/child containment. Prove exactly one incoming active Attachment for each
+  present module root, none for an absent optional module, and one active
+  Attachment per host Socket; distinguish repeated endpoint pairs, host reuse,
+  zero incoming, and multiple incoming cases.
 - Define and test Attachment placement as host Part/frame + host Socket +
-  optional authored offset + inverse mating Socket frame, including
-  agreement-within-later-tolerance, one active Attachment per module root,
-  invalid endpoints, detached/multiply attached roots, and Attachment cycles.
+  optional authored offset + inverse of the composed module-root-to-mating-
+  Socket-owner containment transform and owner-local mating Socket frame.
+  Verify that the result is the root's sole child-local containment placement,
+  descendants inherit only via containment, authored root-local placement is
+  compared to that same canonical value within tolerance, and provenance for
+  all inputs/composition remains. Include invalid endpoints, detached/multiply
+  attached roots, and Attachment cycles.
 - Define declared units and coordinate basis, explicit local frames and
   resolved transforms, and structured diagnostics without locking a permanent
   coordinate convention or exact numeric ranges here.

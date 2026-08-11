@@ -6,13 +6,13 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 2
+Revision: 3
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-11
 
@@ -39,14 +39,17 @@ compatibility recognition, extension handling, or resource admission.
 On 2026-08-11 Ben approved the CK-KICK-012 Batch 4 decisions recorded here,
 and then approved the CK-KICK-012 Batch 5 blocker-resolution selections in
 Revision 2: the closed operation status set and precedence, discriminator/schema
-bootstrap order, and hostile-input enforcement boundary. This discussion
-approval is not DR acceptance. This record remains Proposed with Owner
-approval Pending. Its required current-revision Double review is now Complete,
-with findings pending Ben discussion; the Revision 1 Double review is stale.
-Exact
-field spelling, diagnostic codes, concrete resource values, tolerances,
-canonical axes/units/rotation/scale/shear, and the canonical-byte algorithm
-remain later specification work.
+bootstrap order, and hostile-input enforcement boundary. The exact-revision
+CK-KICK-012 Batch 5 Double review of Revision 2 is stale historical evidence.
+Its three findings motivated the CK-KICK-012 Batch 6 resolutions in this
+proposal set: this revision resolves status and primary-diagnostic selection,
+while DR-0002, DR-0008, and DR-0011 resolve the linked Attachment composition
+and cardinality consequences. This discussion approval is not DR acceptance.
+Revision 3 remains Proposed with Owner approval Pending and Review status
+Pending; its current-revision Double review is pending. Exact field spelling,
+diagnostic codes, concrete resource values, tolerances, canonical
+axes/units/rotation/scale/shear, and the canonical-byte algorithm remain later
+specification work.
 
 ## Decision
 
@@ -105,16 +108,26 @@ compiler invariant/trust-loss failure or outside-guarantee environment/process
 failure is internal-failure. A valid-supported operation is success. Exact
 diagnostic code spellings remain deferred.
 
-Internal-failure applies whenever result trust is lost. Otherwise,
-resource-limit applies when a configured budget prevents completeness; for
-ordinary trusted failures, the earliest fatal phase decides the top-level
-status. Earlier diagnostics from reached phases are retained when a fatal
-phase blocks dependent work, but are marked incomplete. One primary diagnostic
-must match the top-level status. Independent diagnostics within a reached phase
-are accumulated and deterministically ordered by phase, severity/category,
-normalized source path/offset, code, and semantic address; human-readable
-messages are excluded from ordering. Diagnostic storage is bounded and
-reserves capacity for the terminal resource/truncation report.
+Final status selection is deterministic and ordered as follows: internal-failure
+has precedence whenever result trust is lost; otherwise resource-limit has
+precedence when a configured resource limit, including diagnostic-arena
+exhaustion, prevents completeness; otherwise the earliest fatal reached phase
+determines the status. Within that selected earliest fatal phase, when both
+invalid-source and unsupported have been established, invalid-source outranks
+unsupported. Other ordinary status choices remain determined by the
+phase-specific mapping above. Earlier diagnostics from reached phases are
+retained when a fatal phase blocks dependent work, but are marked incomplete.
+
+The primary diagnostic is the first diagnostic that establishes the final status
+under the normative deterministic diagnostic order. Diagnostic storage is
+bounded, but reserved primary capacity preserves the minimal matching candidate
+for that rule despite ordinary diagnostic truncation. If diagnostic-arena
+exhaustion itself makes the final status resource-limit, the reserved
+resource/truncation diagnostic is selected by the same final-status-primary
+rule. Independent diagnostics within a reached phase are accumulated and
+deterministically ordered by phase, severity/category, normalized source
+path/offset, code, and semantic address; human-readable messages are excluded
+from ordering.
 
 A fatal phase blocks dependent later phases; a required ambiguous or unresolved
 value cannot enter a successful snapshot. Publication occurs only after the
@@ -222,8 +235,21 @@ The minimum Stage 1 supported-success invariants are:
 - valid Joint and Attachment endpoints;
 - canonical Joint proximal/distal records and one Socket interface frame are
   materialized in their owning Part bases with provenance;
-- one incoming Attachment per attached module root initially, with Attachment
-  placement and separately declared containment agreeing;
+- exactly one incoming active Attachment for each present attached module root
+  initially, and no incoming Attachment for an absent optional module;
+- one active Attachment is the initial capacity of each host Socket;
+- repeated endpoint pairs, host Socket reuse, zero incoming Attachments for a
+  present attached module root, and multiple incoming Attachments are distinct
+  rejected conditions;
+- Attachment placement composes the module-root-to-mating-Socket-owner
+  containment transform with the mating Socket's owner-local frame before
+  inversion/alignment, and the derived result is the attached root's sole
+  resolved child-local containment placement relative to its host parent;
+- descendants inherit placement only through containment, with no parallel
+  Attachment transform-inheritance path;
+- any competing authored root-local placement agrees with that same canonical
+  derived child-local value within the later-defined tolerance, with
+  provenance for every input and composition step retained;
 - no dangling references;
 - finite normalized values;
 - complete provenance;
@@ -248,7 +274,10 @@ diagnostics must also be frozen before evidence claims.
   as resolved.
 - A closed operation status set and earliest-fatal-phase rule give clients one
   observable outcome; retained earlier diagnostics are explicitly incomplete,
-  and a primary diagnostic always agrees with that status.
+  and a primary diagnostic always agrees with that status. Internal trust loss,
+  configured resource-limit completeness failure, phase precedence, the
+  invalid-source-over-unsupported tie-break, and the first status-establishing
+  diagnostic are ordered explicitly.
 - Discriminator-first recognition prevents an unknown family or revision from
   being interpreted by a current schema, while malformed discriminator input
   remains invalid-source.
@@ -262,7 +291,16 @@ diagnostics must also be frozen before evidence claims.
   later reproducible evidence.
 - Incremental admission/tokenization and pre-allocation charging make
   configured resource-limit outcomes deterministic; bounded diagnostics retain
-  terminal reporting without promising recovery from true process OOM.
+  terminal reporting without promising recovery from true process OOM. Reserved
+  primary capacity preserves the minimal matching diagnostic, including when
+  arena exhaustion establishes resource-limit.
+- Attachment cardinality and placement are auditable: a present module root
+  has exactly one incoming active Attachment, an absent optional module has
+  none, each host Socket accepts one, and repeated endpoint pairs, host reuse,
+  zero incoming, and multiple incoming cases are rejected distinctly. A
+  descendant-owned mating Socket is composed through containment and yields the
+  root's sole child-local placement; descendants inherit only through
+  containment.
 - The initial format is intentionally narrow. A future restricted YAML adapter
   must normalize to the same semantic model, and future canonical-byte or
   semantic-hash rules require separate specification work.
@@ -327,6 +365,14 @@ the same memory needed to report its failure and makes truncation vary by
 implementation. A bounded diagnostic arena reserves terminal capacity for the
 primary resource/truncation report and retains deterministic earlier findings.
 
+### Leave same-phase status and primary precedence implicit
+
+Relying on implementation order would make mixed invalid-source and unsupported
+failures, as well as truncation, produce different top-level statuses or primary
+diagnostics across implementations. The selected precedence and reserved
+candidate rule make both outcomes deterministic while preserving the
+phase-specific mapping for ordinary cases.
+
 ### Publish partial success after a fatal phase
 
 Partial state can expose useful debugging information, but downstream tools
@@ -355,27 +401,28 @@ resource enforcement, and explicit graph-side minimum invariants. The
 Attachment and canonical frame details remain owned jointly with DR-0008 and
 DR-0011; this record does not make those concepts implementation-specific.
 
-Revision 2's current CK-KICK-012 Batch 5 Double review examined commit
-`a282dbabffd83afa4e62577086934d00f98e12c7`: the independent
+Revision 2's exact-revision CK-KICK-012 Batch 5 Double review examined commit
+`a282dbabffd83afa4e62577086934d00f98e12c7` and remains stale historical
+evidence: the independent
 [contract/schema/security pass](reviews/DR-0012-rev-02-review-01.md) recommended
 **Revise** at **High** confidence, while the independent
 [semantic-graph/graphics/runtime pass](reviews/DR-0012-rev-02-review-02.md)
 recommended **Accept** at **Medium** confidence with no DR-0012-specific
 blocker.
 
-The current contract finding is that same-phase mixed fatal statuses are not
-totally ordered after internal/resource overrides; the primary diagnostic is
-not explicitly the first retained status-establishing diagnostic under the
-normative order, including after truncation. This finding remains pending Ben
-discussion and is not resolved here. DR-0002 owns the authoritative result
-envelope and graph-side consumers; DR-0008 and DR-0011 own the linked
-Attachment, frame, and morphology consequences, but no additional finding is
-attributed to this record. Exact serialized field spellings, diagnostic codes,
-concrete thresholds, dependency-revision semantics, canonical
-axes/units/rotation/scale/shear, canonical bytes/hashing, and fixture/security
-evidence remain deferred. Review status is Complete; Owner approval remains
-Pending and Status remains Proposed. Only Ben may accept or reject this
-proposal.
+The three Batch 5 findings motivated the current CK-KICK-012 Batch 6 proposal
+text and are resolved here and in the linked records: this revision makes
+internal-failure trust loss, resource-limit completeness failure, earliest
+fatal phase, the invalid-source-over-unsupported tie-break, and the
+status-establishing primary diagnostic explicit; DR-0002, DR-0008, and DR-0011
+resolve descendant-owned mating Socket composition and Attachment cardinality.
+The exact-revision review is therefore stale historical evidence, not a clean
+review or acceptance. The current Revision 3 Double review is pending. Exact
+serialized field spellings, diagnostic codes, concrete thresholds,
+dependency-revision semantics, canonical axes/units/rotation/scale/shear,
+canonical bytes/hashing, and fixture/security evidence remain deferred. Review
+status is Pending; Owner approval remains Pending and Status remains Proposed.
+Only Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 
@@ -388,9 +435,12 @@ proposal.
   required-versus-optional outcomes, opaque preservation, and core semantic
   isolation.
 - Define stable diagnostic codes/categories, exact paths and affected-address
-  representation, the closed status set and phase precedence, primary
-  diagnostic, retained-but-incomplete earlier diagnostics, bounded arena and
-  terminal truncation/resource reporting, and deterministic ordering by phase,
+  representation, the closed status set and final-status precedence (internal
+  trust loss, configured resource-limit completeness failure, earliest fatal
+  phase, and the invalid-source-over-unsupported tie-break), the first
+  status-establishing primary diagnostic under deterministic ordering,
+  retained-but-incomplete earlier diagnostics, bounded arena and terminal
+  truncation/resource reporting, and deterministic ordering by phase,
   severity/category, normalized path/offset, code, and semantic address; human
   text must remain non-compatibility data.
 - Implement and test the eight ordered phases, phase-local accumulation,
@@ -402,13 +452,22 @@ proposal.
   application, then exact revision-schema and unknown-member validation.
 - Enforce streaming byte/token/nesting/member limits, pre-conversion string and
   number token limits, per-dependency and aggregate budgets, pre-allocation
-  reference/module/graph/work charging, and reserved diagnostic capacity.
+  reference/module/graph/work charging, and reserved diagnostic capacity that
+  preserves the minimal matching primary candidate even after ordinary
+  truncation; if arena exhaustion establishes resource-limit, its reserved
+  resource/truncation diagnostic must obey the same primary rule.
   Record profile values with each result; configured breaches are
   resource-limit, while true outside-guarantee process OOM is an
   environment/internal failure.
 - Freeze resource-exhaustion fixtures and the valid, semantically-invalid, and
   unsupported outcomes only after admission/recognition, keeping parser,
   dependency, resource, and internal outcomes separate.
+- Prove exact initial Attachment cardinality and host Socket capacity, with
+  distinct fixtures for repeated endpoint pairs, host Socket reuse, zero
+  incoming Attachments for a present module root, and multiple incoming
+  Attachments. Prove descendant-owned mating Socket composition through the
+  module-root containment path and that its result is the root's sole
+  child-local placement, with no parallel Attachment inheritance.
 - Prove the minimum Stage 1 invariant set and freeze the cross-DR fixture
   matrix before treating implementation output as evidence for the contract.
 - Defer canonical axes, units, rotation, scale, shear, exact tolerances,

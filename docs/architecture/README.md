@@ -49,13 +49,13 @@ and described in the execution model; exact interface schemas, compatibility,
 budgets, and runtime mutation details remain open. The typed semantic
 vocabulary, measurement ownership, and frame-conversion boundary are Proposed
 in [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
-Batch 5 blocker resolutions are discussion-approved and are reflected in the
-canonical specifications as Proposed material. The current CK-KICK-012 Batch 5
-Double review is Complete at commit `a282dbabffd83afa4e62577086934d00f98e12c7`.
-DR-0002 Revision 7, DR-0008 Revision 7, DR-0011 Revision 3, and DR-0012
-Revision 2 remain Proposed with Owner approval Pending; three consolidated
-findings are pending Ben discussion. Their prior reviews remain preserved as
-stale historical evidence.
+CK-KICK-012 Batch 6 resolutions are discussion-approved and are reflected in
+the canonical specifications as Proposed material. The current CK-KICK-012
+Batch 6 Double review is Pending. DR-0002 Revision 8, DR-0008 Revision 8,
+DR-0011 Revision 4, and DR-0012 Revision 3 remain Proposed with Owner
+approval Pending and current Double review Pending. The CK-KICK-012 Batch 5
+review at commit `a282dbabffd83afa4e62577086934d00f98e12c7` is stale historical
+evidence; no clean review or acceptance is implied.
 DR-0006 remains Proposed with its current revision's review evidence. The
 cross-cutting proposal is [DR-0012: initial body-document encoding, resolution,
 and compatibility](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
@@ -69,13 +69,35 @@ and its linked [DR-0009 Revision 8](../decisions/DR-0009-hybrid-surface-generati
 and [DR-0010 Revision 8](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md)
 are parked, Proposed confirmatory-research material. They are non-blocking and
 do not settle permanent surface architecture, animation-ready topology,
-runtime field representation, implementation language, or a geometry backend.
+runtime field representation, or a geometry backend; CK-KICK-013 separately
+tracks the Proposed implementation-platform direction.
 Their detailed records and reviews remain preserved evidence; no Revision 9,
 owner disposition, or additional review is active. They may be reactivated when
 at least two runnable candidate surface implementations exist and a comparative
 outcome is intended to justify production architecture, or when Ben explicitly
 reactivates them. Until then, exploratory prototypes may produce observations
 but may not claim formal DR-0009/0010 support or reject.
+
+The CK-KICK-013 platform proposal is also discussion-approved as Proposed
+material, not an accepted implementation decision. Proposed DR-0013 Revision 1
+has Owner approval Pending and current Double review Pending. It describes a
+stable Rust production semantic/compiler core in a Cargo workspace: an
+engine-independent Rust compiler library, a thin CLI, and a replaceable
+geometry boundary, with no initial daemon or service. Stage 1 would use an
+in-process Rust CPU dense-field evaluator/extractor. If measured required
+capability or performance is missing, an isolated C++ worker/backend is the
+first escape hatch; in-process C ABI/FFI is considered only if that worker is
+proven insufficient. This is not a Rust-only-forever promise or an advanced
+Rust-geometry maturity claim. Python remains suitable for disposable
+experiments, evidence/render tooling, and the visual workbench, but is not a
+production compiler dependency. The initial reproducible workbench target is
+Linux x86_64 under WSL or native Linux; portability is preserved while native
+Windows and host-engine targets are deferred. The compiler writes ordinary
+versioned artifacts plus a manifest, and an independent visual workbench
+consumes filesystem artifacts; this does not settle final avatar-package
+serialization or compatibility. Performance claims require a reproducible
+benchmark and hardware profile. The language/build acceptance trigger remains
+unsatisfied, so no implementation package is activated.
 
 ## Current maturity
 

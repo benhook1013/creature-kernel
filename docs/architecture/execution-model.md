@@ -10,6 +10,18 @@ exposes bounded runtime representations. A higher-quality cinematic path is
 supplementary. This direction is Proposed for formal acceptance under
 [DR-0003](../decisions/DR-0003-real-time-first-compiled-avatar-boundary.md).
 
+CK-KICK-013 is a discussion-approved but unaccepted platform proposal.
+Proposed DR-0013 Revision 1 has Owner approval Pending and current Double
+review Pending. It proposes a stable Rust production semantic/compiler core in
+a Cargo workspace, exposed as an engine-independent Rust compiler library and
+thin CLI with a replaceable geometry boundary. No initial daemon or service is
+part of this proposal. Stage 1 uses an in-process Rust CPU dense-field
+evaluator/extractor. If measured required capability or performance is missing,
+an isolated C++ worker/backend is evaluated first; in-process C ABI/FFI is only
+considered if that worker is proven insufficient. This is a bounded platform
+direction, not a Rust-only-forever promise or an advanced-Rust-geometry
+maturity claim.
+
 ## Time domains
 
 ```text
@@ -27,6 +39,22 @@ Authoritative semantic source set
       v
 [4] Optional cinematic or offline enhancement
 ```
+
+## Platform and artifact flow (Proposed)
+
+The initial reproducible execution/workbench target is Linux x86_64 under WSL
+or native Linux. Portability remains an architectural goal, while native
+Windows and host-engine targets are deferred. Python remains available for
+disposable experiments, evidence/render tooling, and the visual workbench; it
+is not a production compiler dependency.
+
+The compiler writes ordinary versioned artifacts and a manifest to the
+filesystem. An independent visual workbench consumes those artifacts rather
+than becoming part of the compiler or a daemon/service. This boundary does not
+settle final avatar-package serialization or compatibility. Performance claims
+must be backed by a reproducible benchmark and hardware profile. The
+language/build acceptance trigger remains unsatisfied, so no implementation
+package is activated.
 
 ## Creature compilation
 
@@ -76,7 +104,13 @@ envelope:
 8. success publication.
 
 Fatal failure blocks dependent phases, but independent diagnostics within one
-phase accumulate in deterministic order. Provenance distinguishes authored,
+phase accumulate in deterministic order. Trust loss takes precedence, then a
+configured resource-limit when completeness is lost, then the earliest fatal
+phase; within that phase invalid-source outranks unsupported when both are
+established. The primary is the first diagnostic establishing the final status
+under that ordering, and reserved diagnostic capacity preserves it despite
+ordinary truncation (or reserves the resource/truncation diagnostic when arena
+exhaustion changes the final status). Provenance distinguishes authored,
 defaulted, and derived values. Required unresolved or ambiguous values, and
 measurement claims that conflict after normalization by owner address,
 property role, and frame/context, cannot publish success. A conflict is a
@@ -207,7 +241,8 @@ requirements, contracts, and evidence.
 - Compile-time budget and allowed execution locations.
 - Visible, nearby, and actively interacting character counts.
 - Maximum high-quality deformable regions.
-- GPU-vendor and backend requirements.
+- Geometry libraries/backend, any isolated worker boundary, and GPU-vendor
+  requirements.
 - Simulation, network, and replay determinism requirements and proof level.
 - Collision ownership after visible deformation.
 - Minimum fallback experience.

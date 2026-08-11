@@ -1,12 +1,11 @@
 # Body-document contract
 
-Status: Proposed contract; CK-KICK-012 Batch 5 discussion-approved canonical
-update; the current Double review is Complete at commit
-`a282dbabffd83afa4e62577086934d00f98e12c7`. DR-0002 Revision 7 and DR-0012
-Revision 2 remain Proposed with Owner approval Pending. The direct pending
-finding is the same-phase fatal-status/primary-diagnostic ordering gap,
-including after diagnostic truncation; three consolidated findings remain
-pending Ben discussion and no acceptance is implied.
+Status: Proposed contract; CK-KICK-012 Batch 6 discussion-approved canonical
+update; the current CK-KICK-012 Batch 6 Double review is Pending. DR-0002
+Revision 8, DR-0008 Revision 8, DR-0011 Revision 4, and DR-0012 Revision 3
+remain Proposed with Owner approval Pending and current Double review Pending.
+The CK-KICK-012 Batch 5 review at commit `a282dbabffd83afa4e62577086934d00f98e12c7`
+is stale historical evidence. No acceptance is implied.
 
 This document is the canonical specification authority for the authored body
 document and the end-to-end source-to-graph operation. It owns source
@@ -136,11 +135,15 @@ Status selection is deterministic. If implementation trust is lost, the
 status is `internal-failure`. Otherwise, if a configured resource exhaustion
 means the result cannot be complete—including parser, expansion, work, memory,
 or diagnostic-arena exhaustion—the status is `resource-limit`. Otherwise the
-earliest fatal phase in the bootstrap/phase order determines the status using
-the table above. If no fatal phase occurs and all required work completes, the
-status is `success`. Later diagnostics cannot replace an earlier fatal status,
-except for the explicit `internal-failure` and configured `resource-limit`
-precedence just stated.
+earliest fatal phase in the bootstrap/phase order determines the status. Within
+that selected earliest fatal phase, `invalid-source` outranks `unsupported` if
+both are established; other ordinary status candidates use that phase's
+specific mapping in the table above. If no fatal phase occurs and all required
+work completes, the status is `success`. Later diagnostics cannot replace an
+earlier fatal status, except for the explicit `internal-failure` and configured
+`resource-limit` precedence just stated. The primary is the first diagnostic
+that establishes the final status under this same normative ordering, not merely
+the first diagnostic encountered or retained.
 
 The three Stage 1 semantic fixture outcomes are not this status algebra. They
 apply only after a recognized, admitted input has reached semantic evaluation:
@@ -153,19 +156,24 @@ are not relabelled as one of those three semantic outcomes.
 
 Every non-success result has a primary diagnostic whose category maps to the
 top-level status. A successful result has no failure primary. The primary is
-chosen deterministically from diagnostics that establish the selected status;
-the exact code vocabulary is deferred. Human-readable text is explanatory and
-never a compatibility or ordering key.
+the first logical diagnostic establishing the selected status under the
+normative phase/status/diagnostic ordering; the exact code vocabulary is
+deferred. Human-readable text is explanatory and never a compatibility or
+ordering key.
 
 Diagnostics are bounded by a profile-selected arena. Ordinary diagnostics are
 retained as they are reached until the ordinary capacity is exhausted; reached
-earlier diagnostics are not silently replaced by later diagnostics. The arena
-reserves capacity for the primary diagnostic and a diagnostic-truncation or
-resource report. If the ordinary capacity is exhausted, the envelope records
-the truncation, marks diagnostics incomplete, and treats the configured arena
-breach as `resource-limit` unless `internal-failure` has precedence. The
-reserved primary must still match the final status, and the reserved report
-must identify that diagnostic retention was bounded.
+earlier diagnostics are not silently replaced by later diagnostics. Primary
+selection considers the logical diagnostics in normative order, and reserved
+primary capacity preserves the minimal matching candidate even when ordinary
+truncation drops other diagnostics. The arena also reserves capacity for a
+diagnostic-truncation or resource report. If ordinary capacity is exhausted,
+the envelope records the truncation and marks diagnostics incomplete. If arena
+exhaustion changes the final status to `resource-limit`, the reserved
+resource/truncation diagnostic is the primary and therefore satisfies the
+final-status-primary rule, unless `internal-failure` has precedence; the
+reserved primary capacity still preserves the minimal matching candidate for
+the final status selected under the precedence rules.
 
 The deterministic ordering key is, in order: phase; severity/category;
 normalized source path and offset; diagnostic code; and semantic address.

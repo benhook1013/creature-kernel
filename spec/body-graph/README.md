@@ -1,14 +1,11 @@
 # Resolved body-graph contract
 
-Status: Proposed contract; CK-KICK-012 Batch 5 discussion-approved canonical
-update; the current Double review is Complete at commit
-`a282dbabffd83afa4e62577086934d00f98e12c7`. DR-0002 Revision 7, DR-0008
-Revision 7, and DR-0011 Revision 3 remain Proposed with Owner approval
-Pending. Two direct pending Attachment findings concern descendant-owned mating
-Socket composition/sole child-local placement and incoming-Attachment
-cardinality, host Socket reuse, and repeated endpoint-pair identity; three
-consolidated findings remain pending Ben discussion and no acceptance is
-implied.
+Status: Proposed contract; CK-KICK-012 Batch 6 discussion-approved canonical
+update; the current CK-KICK-012 Batch 6 Double review is Pending. DR-0002
+Revision 8, DR-0008 Revision 8, DR-0011 Revision 4, and DR-0012 Revision 3
+remain Proposed with Owner approval Pending and current Double review Pending.
+The CK-KICK-012 Batch 5 review at commit `a282dbabffd83afa4e62577086934d00f98e12c7`
+is stale historical evidence. No acceptance is implied.
 
 This document is the canonical specification authority for the resolved,
 per-build semantic body graph. It owns typed concepts, explicit Part
@@ -119,29 +116,36 @@ Attachment, not inferred from a generic relation.
 
 An Attachment connects exactly one host Socket to exactly one mating Socket.
 For the initial module composition, the host Socket is owned by the host Part,
-the mating Socket is owned within the attached module-root containment subtree,
-and that module root is the explicitly declared containment child of the host
-Part. The mating Socket's owner and frame are resolved through that subtree.
-Thus the host Part, module-root child, and Attachment must agree: an
+the mating Socket may be owned by any Part in the attached root's containment
+subtree, and that attached root is the explicitly declared containment child of
+the host Part. The mating Socket's owner and frame are resolved through that
+subtree. Thus the host Part, attached-root child, and Attachment must agree: an
 Attachment cannot silently insert a Part under a different parent or make a
-relation-only connection. A present attached module root has exactly one
-incoming active Attachment initially. Duplicate incoming Attachments, detached
-module roots, Attachment cycles, invalid or dangling endpoints, and a mismatch
-between Attachment endpoints and the declared containment parent are invalid.
-Optional modules may be absent; they do not need an Attachment until present.
+relation-only connection. Descendants inherit transforms only through
+containment; Attachment is not a parallel transform-inheritance path.
 
-Module-root placement is derived conceptually from the resolved host Part
-reference placement, the host Socket interface frame, an optional authored
-Attachment offset, and the inverse of the mating Socket interface frame. In
-other words, host placement and host interface carry the composition into the
-attachment, the optional offset is applied in its declared relation context,
-and inverse mating placement brings the attached module root into alignment.
-The exact transform serialization and multiplication convention are deferred,
-but all four semantic inputs and their provenance are required. If an
-independently authored placement controls the same degrees of freedom, it must
-agree with the derived socket placement within the later-defined contract
-tolerance; disagreement is semantically invalid rather than a hidden choice
-of precedence.
+The initial cardinality rules are explicit. A present attached root has exactly
+one incoming active Attachment, while an absent optional module has none. Each
+host Socket has capacity one active Attachment. Repeated endpoint-pair use,
+host Socket reuse, zero incoming Attachments for a present attached root, and
+multiple incoming Attachments for a present attached root are separate invalid
+conditions. Attachment cycles, invalid or dangling endpoints, and a mismatch
+between Attachment endpoints and the declared containment parent are also
+invalid.
+
+Attachment placement is the attached root's sole resolved child-local
+containment placement relative to its host Part. To compose it, first compose
+the module-root-to-mating-Socket-owner containment transform with the mating
+Socket owner's local interface frame. That composed mating frame, the host
+Socket interface frame, and any authored Attachment offset determine the
+alignment in the host Part's local/reference basis. The exact transform
+serialization and multiplication convention are deferred, but every semantic
+input and its provenance are required. Descendant placement is subsequently
+inherited only by the ordinary containment path. If an independently authored
+root-local placement controls the same degrees of freedom, it must compare
+with this same canonical resolved child-local value within the later-defined
+contract tolerance; disagreement is semantically invalid, while both authored
+and derived provenance are preserved rather than silently choosing a winner.
 
 Attachment is composition only. It never implies a Joint, articulation,
 mobility, solver constraint, or runtime pose. A movable tail therefore has a
@@ -233,12 +237,19 @@ Minimum Stage 1 graph invariants include:
 - one Part-owned interface frame per Socket;
 - exactly one host and one mating Socket per Attachment, with endpoint owners
   agreeing with host/module-root containment;
-- exactly one incoming active Attachment per present attached module root in
-  the initial contract, with no duplicate, detached, cyclic, or dangling
-  endpoint;
-- derived Attachment placement from host placement, host Socket, optional
-  offset, and inverse mating Socket, with any competing authored placement
-  agreeing within the later-defined tolerance;
+- exactly one incoming active Attachment per present attached module root and
+  no incoming Attachment for an absent optional module;
+- one active Attachment per host Socket initially; repeated endpoint pairs,
+  host Socket reuse, zero incoming for a present attached root, and multiple
+  incoming Attachments for a present attached root are separate invalid
+  conditions, as are detached, cyclic, or dangling endpoints;
+- sole resolved attached-root child-local containment placement derived in the
+  host Part's local/reference basis from the host Socket, optional offset, and
+  the inverse of the mating
+  Socket frame after composing module-root-to-Socket-owner containment with
+  that owner's local frame; any competing authored root-local placement must
+  agree with this same canonical value within the later-defined tolerance,
+  with provenance preserved;
 - no Attachment-only articulation claim;
 - finite normalized values, complete provenance, valid owner-plus-role
   addressing, declared source basis with recorded normalization provenance,
