@@ -141,11 +141,15 @@ nonblocking obligation before external authored dependencies activate.
   session API and PNG serving, and Ben's real Chromium localhost browser smoke
   passed. One fresh Luna xhigh independent implementation review found three
   filesystem race defects (source replacement during publish, incomplete
-  failure cleanup, and parent-directory redirection for assets/responses); all
-  fixes are implemented and covered by focused tests. No second independent
-  adversarial pass was run. T3 product-native browser automation was
-  unavailable; Ben subsequently confirmed the revised `subject_context` panel
-  was working in his real Chromium browser.
+  failure cleanup, and parent-directory redirection for assets/responses). A
+  follow-up hardening attempt was rejected as disproportionate after growing
+  the local utility by roughly 1,100 implementation/test lines while still not
+  closing same-user replacement races. Those races are now explicitly outside
+  the stable, private, single-user localhost threat model; the existing
+  no-follow, path, origin, token, file-type, staging, and atomic-response checks
+  remain. T3 product-native browser automation was unavailable; Ben
+  subsequently confirmed the revised `subject_context` panel was working in
+  his real Chromium browser.
   This remains presentation plumbing only and does not alter the CK-KICK-010
   conclusion or claim visual evidence or Stage 1.
 - CK-KICK-011 follows useful exploratory evidence. A formal comparative
