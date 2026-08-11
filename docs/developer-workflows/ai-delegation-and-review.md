@@ -84,6 +84,20 @@ These choices are intentionally explicit even though model availability changes.
 Update this document and the root summary deliberately when the project owner
 changes the preferred routing.
 
+### Capacity retry (provisional)
+
+When a subagent launch or turn fails specifically because the selected model is
+at capacity, the main thread waits 30–60 seconds and retries the same model at
+the same reasoning tier once. It may escalate or fall back only when that
+same-tier retry also fails, or when the task independently warrants a different
+tier. The main thread reports to Ben immediately with the failed model/tier,
+first-failure time, actual wait duration, wait/retry count, retry result, and
+fallback model/tier, if any; it repeats the routing deviation and those details
+in the end-of-round subagent status. The 30–60 second wait is provisional, and
+these outcome reports are used to tune it without adding heavyweight telemetry.
+Capacity retry does not apply to non-capacity failures and must never become an
+unbounded retry loop.
+
 ### Luna max admission gate
 
 The main thread may select Luna at `max` without separate human approval only

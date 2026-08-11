@@ -155,6 +155,15 @@ the human decision owner, accepts or rejects a DR.
   escalation, not the automatic tier after Luna.
 - Using Sol at `high` requires explicit human approval. Sol at `high` is the
   absolute subagent ceiling. Do not use Terra as a normal routing tier.
+- If a launch or turn fails because the selected model is at capacity, wait
+  30–60 seconds and retry that same model and reasoning tier once. Escalate or
+  fall back only if that same-tier retry also fails, or if the task independently
+  warrants a different tier. Report to Ben immediately: the failed model/tier,
+  first-failure time, actual wait duration, wait/retry count, retry result, and
+  any fallback model/tier. Repeat the routing deviation and those details in
+  the end-of-round subagent status. This 30–60 second wait is provisional; use
+  outcome reporting to tune it, without adding heavyweight telemetry. Do not
+  retry non-capacity failures or start an unbounded retry loop.
 - Delegate only bounded work with a disjoint scope and explicit success
   conditions. The main thread remains responsible for evaluating the evidence.
 - Parallel workers must have disjoint write scopes. The main thread inspects every
