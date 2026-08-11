@@ -9,28 +9,34 @@ changing the meaning of persisted bodies or avatar packages.
 ## Planned specification families
 
 - Authoritative semantic source set (the sole authored authority; initially
-  potentially one human-readable document).
+  potentially one human-readable document) with exactly versioned references
+  to every outcome-affecting external authored dependency.
 - Resolved semantic graph snapshot: a validated, inspectable, reproducible,
   per-build derived snapshot with source references, durable semantic
   nodes/relations, declared local frames, resolved transforms, relevant
   intent/lineage, and structured diagnostics. It is not authoritative.
-- Durable semantic identities through author-declared stable local semantic keys
-  under an explicit source namespace, and separate artifact/build identity and
-  provenance. Exact key serialization and lifecycle/remap rules remain open.
+- Durable semantic identities through structured addresses (source namespace,
+  authored module-instance anchors, concept kind, and role-local key), and
+  separate artifact/build identity and provenance. Exact address serialization
+  and lifecycle/remap rules remain open; exact collisions are invalid unless an
+  import explicitly remaps them.
 - Capabilities, regions, attachments, joints, and material/deformation metadata.
 - A planned supported-morphology and validity envelope for the bounded first
-  digitigrade biped family, including its typed ownership tree, distinct typed
-  relation edges for joints, sockets/attachments, capabilities, and regions,
+  digitigrade biped family, including its typed ownership tree, typed
+  non-ownership relations for joints, sockets/attachments, capabilities, and regions,
   required modules, optional named-socket attachments, deferred families, and
-  invalid/unsupported assemblies. The representation must not permanently
-  require every relationship to be a tree, and arbitrary anatomy/user-defined
-  graph kinds are unsupported in the first family.
+  invalid/unsupported assemblies. Ownership is the sole containment tree;
+  non-ownership concepts may be reified through role-labelled relations.
+  Arbitrary anatomy/user-defined graph kinds are unsupported in the first
+  family. The resolver returns a deterministic result envelope: only valid,
+  supported input produces a compilable validated snapshot.
 - Declared units and coordinate basis, explicit local frames and resolved
   transforms, and structured diagnostics. Exact coordinate convention, ranges,
   surface primitives, and schema or syntax technology remain deferred.
 - A planned fixture-profile contract describing stable profile identity,
   concrete source inputs, discriminating parameters, seed/configuration,
-  provenance, shared-generation expectations, validity/diagnostic status, and
+  provenance, shared-generation expectations, validity/diagnostic status, the
+  expected primary diagnostic class/code for invalid fixtures, and
   the distinction between fixture evidence and product claims. Exact fixture
   definitions must be frozen if the deferred EXP-0001 protocol is activated
   before its execution or evidence; selecting hypotheses may precede that

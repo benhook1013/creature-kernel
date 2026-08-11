@@ -43,12 +43,13 @@ subjective visual floor; a failed or inconclusive valid fixture leaves the gate
 open and remains evidence, while invalid fixtures fail expected diagnostics
 and are not counted as valid pass fixtures. Before EXP-0001 execution or
 evidence, stable fixture IDs, concrete source inputs, discriminating
-parameters, seed/configuration, and provenance must be frozen, although
-hypotheses may be selected earlier. Stage 2 separately proves embodiment by
-generating a usable skeleton, skin weights, and collision proxies and proving
-one shared pose/control scenario. Stage 3 separately proves bounded real-time
-interaction, including actual contact, localized deformation, physical
-response, and declared budget evidence.
+parameters, seed/configuration, provenance, valid/invalid classification, and
+the expected primary diagnostic class/code for every invalid fixture must be
+frozen, although hypotheses may be selected earlier. Stage 2 separately proves
+embodiment by generating a usable skeleton, skin weights, and collision proxies
+and proving one shared pose/control scenario. Stage 3 separately proves bounded
+real-time interaction, including actual contact, localized deformation,
+physical response, and declared budget evidence.
 
 The initial family is a stylized digitigrade furry biped with required
 torso/pelvis, head/simplified muzzle, two arms/simplified hands-paws, and two
@@ -80,14 +81,16 @@ than this product requirement.
 The system must preserve durable authored intent in an authoritative semantic
 source set. Initially this may be one structured, human-readable document;
 future explicit semantic override layers may also be authored inputs. The
-source set alone is authored authority. Compilation resolves it into a
-validated, inspectable, reproducible, per-build semantic body-graph snapshot
+source set alone is authored authority. Every outcome-affecting external
+authored asset is an exactly versioned source-set dependency. Compilation
+resolves it into a validated, inspectable, reproducible, per-build semantic
+body-graph snapshot
 containing source references, durable semantic nodes and relations, declared
 local frames and resolved transforms, relevant intent/lineage, and structured
 diagnostics. The snapshot and generated outputs remain derived and
 build-scoped; they cannot silently become competing sources of truth. Mesh,
 rig, runtime, and other artifacts remain further derived outputs. See
-[DR-0002 Revision 3](../decisions/DR-0002-declarative-body-document-source-of-truth.md).
+[DR-0002 Revision 4](../decisions/DR-0002-declarative-body-document-source-of-truth.md).
 
 ### CK-PROD-002: Deterministic compilation
 
@@ -104,15 +107,15 @@ evidence are defined.
 ### CK-PROD-003: Durable semantic and artifact identity
 
 Durable semantic identity must identify parts, regions, joints, attachments,
-capabilities, and related concepts across regeneration through author-declared
-stable local semantic keys under an explicit source namespace. Keys are unique
-within the namespace and must not derive from path, ordering, geometry,
-artifact identity, topology, or content hash. Artifact/build identity and
-provenance are separate. Mesh, vertex, face, triangle, LOD, and array indices
-are ephemeral and must not be promised stable through topology changes. The
-namespace/local-key relationship is selected, while delimiter/serialization
-syntax and clone/rename/split/merge/replacement alias, remap, and lifecycle
-rules remain deferred. See [DR-0006 Revision 2](../decisions/DR-0006-durable-semantic-and-artifact-identity.md).
+capabilities, and related concepts across regeneration through a structured
+semantic address: source namespace, authored stable module-instance anchors,
+semantic concept kind, and role-local key. Exact collisions within a resolved
+source set are invalid unless an import explicitly remaps them. Identity
+continuity is promised only while the authored address and concept remain
+unchanged across regeneration; structural-edit lifecycle rules remain
+deferred. Artifact/build identity and provenance are separate, and external
+authored assets retain their exact dependency revisions. See [DR-0006 Revision
+3](../decisions/DR-0006-durable-semantic-and-artifact-identity.md).
 
 ### CK-PROD-004: Shared deterministic domain operations
 
@@ -145,17 +148,19 @@ pose, and actual contact/deformation are later-stage claims.
 ### CK-PROD-011: Composable body grammar
 
 The first body model must support a bounded typed ownership tree for the
-proposed digitigrade biped family, plus typed relation edges for joints,
-sockets/attachments, capabilities, and regions. Ownership and relation edges
-are distinct. The graph representation must not permanently require every
-relationship to be a tree, but arbitrary anatomy and arbitrary user-defined
-graph kinds are unsupported in the first family. Units and coordinate basis
-must be declared; local frames and resolved transforms must be explicit.
-Invalid or unsupported assemblies must receive structured diagnostics. Exact
-coordinate convention, numeric ranges, surface primitives, and new morphology
-families remain deferred. The body model also supports measurements and
-material/deformation properties within this bounded grammar. See [DR-0008
-Revision 3](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md).
+proposed digitigrade biped family, plus typed non-ownership relations for joints,
+sockets/attachments, capabilities, and regions. Ownership is the sole
+containment tree; durable non-ownership concepts may be reified and connected
+through multiple role-labelled relations. Invalid or unsupported assemblies
+must receive a deterministic result envelope with structured diagnostics.
+Units and coordinate basis must be declared; local frames and resolved
+transforms must be explicit. The first family requires semantic articulation
+roles for pelvis/root, torso/chest, neck/head, paired upper/lower limb chains,
+and a tail base when present; these do not select a fixed rig or bone layout.
+Exact coordinate convention, numeric ranges, surface primitives, and new
+morphology families remain deferred. The body model also supports measurements
+and material/deformation properties within this bounded grammar. See [DR-0008
+Revision 4](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md).
 
 ### CK-PROD-012: Connected visible surface
 

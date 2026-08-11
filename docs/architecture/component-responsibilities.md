@@ -8,8 +8,8 @@ its activation trigger is met.
 
 | Component | Responsibilities | Explicit non-responsibilities |
 | --- | --- | --- |
-| Authoritative semantic source set | Parse authored inputs, preserve user intent, report source errors, and provide the sole authored authority | Generate meshes or run gameplay |
-| Semantic body resolver | Validate and resolve the source set into an inspectable per-build graph snapshot with source references, durable semantic nodes/relations, declared local frames, resolved transforms, intent/lineage, and structured diagnostics | Host-engine objects, become an authored source, or make derived artifacts authoritative |
+| Authoritative semantic source set | Parse authored inputs, preserve user intent, track exact revisions of outcome-affecting authored dependencies, report source errors, and provide the sole authored authority | Generate meshes or run gameplay, or treat an external mesh as semantic truth |
+| Semantic body resolver | Validate and resolve the source set into a deterministic result envelope; only valid/supported input yields a compilable inspectable per-build graph snapshot with source references, durable semantic nodes/relations, declared local frames, resolved transforms, intent/lineage, and structured diagnostics | Host-engine objects, become an authored source, or make derived artifacts authoritative; rejected partial graphs are debug-only and non-contractual |
 | Geometry field system | Evaluate part volumes, composition, semantic fields | Choose runtime animation |
 | Surface compiler | Extract, repair, remesh, simplify, and attribute visible surfaces | Define semantic truth |
 | Rigging compiler | Generate joints, limits, skinning, correctives, and bindings | Own interaction intent |

@@ -53,29 +53,37 @@ and fields   mesh     and skin   deformation data
 
 The proposed authored inputs that preserve durable semantic intent. Initially
 this may be one human-readable document; future explicit semantic override
-layers may also be authored inputs. The source set alone is authored authority;
-physical format, schema technology, and precedence remain open.
+layers may also be authored inputs. Every outcome-affecting external authored
+asset is an exactly versioned dependency of the source set; an external mesh is
+authored input but not semantic truth. The source set alone is authored
+authority; physical format, schema technology, and precedence remain open.
 
 ### Resolved semantic body graph snapshot
 
-The validated, inspectable per-build semantic lineage produced after the source
-set is resolved. It contains source references, durable semantic nodes and
-relations, declared local frames and resolved transforms, relevant intent and
-lineage, and structured diagnostics. It is reproducible and build-scoped,
-derived for that build, and is not a competing authored source. Mesh, rig,
-runtime, and other artifacts remain further derived outputs.
+The validated, inspectable per-build semantic lineage produced only when the
+source set is valid and supported. It contains source references, durable
+semantic nodes and relations, declared local frames and resolved transforms,
+relevant intent and lineage, and any success diagnostics. It is reproducible
+and build-scoped, derived for that build, and is not a competing authored
+source. The surrounding deterministic result envelope distinguishes success,
+invalid input, and well-formed-but-unsupported input; rejected partial graphs
+are non-compilable, non-contractual debug information. Mesh, rig, runtime, and
+other artifacts remain further derived outputs.
 
 ### First body grammar boundary
 
 The first grammar is a bounded typed ownership tree for the proposed
-digitigrade biped family, with distinct typed relation edges for joints,
-sockets/attachments, capabilities, and regions. The graph representation must
-not permanently require every relationship to be a tree, but arbitrary anatomy
-and arbitrary user-defined graph kinds are unsupported in this first family.
-Invalid or unsupported assemblies produce structured diagnostics. Units and
-coordinate basis are declared, and local frames and resolved transforms are
-explicit. Exact coordinate convention, numeric ranges, surface primitives,
-schema technology, and additional morphology families remain deferred.
+digitigrade biped family. Ownership is the sole containment tree; durable
+non-ownership concepts may be reified and connected through role-labelled
+relations for joints, sockets/attachments, capabilities, and regions. Minimum
+functional articulation roles preserve Stage 2 lineage without choosing a
+bone hierarchy or rig implementation. Arbitrary anatomy and arbitrary
+user-defined graph kinds are unsupported in this first family. Invalid and
+unsupported assemblies have distinct deterministic result statuses and
+structured diagnostics. Units and coordinate basis are declared, and local
+frames and resolved transforms are explicit. Exact coordinate convention,
+numeric ranges, surface primitives, schema technology, and additional
+morphology families remain deferred.
 
 ### Simulation representation
 
@@ -125,13 +133,19 @@ topology, geometry field, or universal solver.
 ### Semantic stability
 
 Durable behaviour targets parts, regions, joints, attachments, local frames, and
-capabilities through author-declared stable local semantic keys under an
-explicit source namespace. Keys are unique within that namespace and are not
-derived from path, ordering, geometry, artifact identity, topology, or content
-hash. Artifact/build identity and provenance remain separate; generated
-topology indices are ephemeral through topology changes. Exact serialized key
-syntax and clone/rename/split/merge/replacement lifecycle and remap rules
-remain deferred.
+capabilities through structured semantic addresses composed of source
+namespace, authored module-instance anchors, concept kind, and role-local key.
+Exact collisions within a resolved source set are invalid unless an import
+explicitly remaps them. Addresses are not derived from incidental path,
+ordering, geometry, artifact identity, topology, or content hash. Artifact/build
+identity and provenance remain separate; generated topology indices are
+ephemeral through topology changes. Exact serialized address syntax and
+clone/rename/split/merge/replacement lifecycle and remap rules remain deferred.
+
+The resolver returns a deterministic result envelope. Only valid, supported
+input produces a compilable validated graph snapshot; semantically invalid and
+well-formed-but-unsupported input are distinct statuses, with any rejected
+partial graph explicitly non-compilable and non-contractual debug information.
 
 ### Deterministic core
 

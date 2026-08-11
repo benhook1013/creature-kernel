@@ -6,13 +6,13 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 3
+Revision: 4
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-08
 
@@ -33,19 +33,31 @@ override layers may also be authored inputs.
 
 Revision 1 described a single declarative body document. Revision 2 recorded the
 broader source-set boundary and made the resolved semantic graph a per-build
-derived snapshot. Revision 3 records Ben's settled CK-KICK-012 Batch 1 source
-and graph boundary on 2026-08-09. The discussion selection is not DR acceptance:
-this revision remains Proposed until a current-revision Double review and
-Ben's owner disposition are recorded. Earlier revisions and their reviews
-remain historical evidence; the Revision 2 review is stale for this revision.
+derived snapshot. Revision 3 recorded the CK-KICK-012 Batch 1 source and graph
+boundary. On 2026-08-11 Ben approved the seven Batch 1 review resolutions
+recorded in Revision 4. This discussion approval is not DR acceptance: this
+revision remains Proposed until a current-revision Double review and Ben's
+owner disposition are recorded. All earlier revisions and their reviews remain
+historical evidence; the Revision 3 reviews are stale for this revision.
 
 ## Decision
 
-Durable authored intent lives in an authoritative semantic source set. Initially
-the source set may be one human-readable document; future explicit semantic
-override layers may also be authored inputs. The source set alone is authored
-authority. A validated, inspectable, per-build semantic body-graph snapshot is
-derived from it through resolution.
+Durable authored intent lives in an authoritative semantic source set. Every
+outcome-affecting external authored asset is an exactly versioned dependency
+of that source set. Initially the source set may be one
+human-readable document; future explicit semantic override layers may also be
+authored inputs. The source set alone is authored authority. An external mesh
+is authored input, not semantic truth; its semantic mapping and exact
+dependency revision are retained in source/build provenance. Conformance
+details remain deferred.
+
+A validated, inspectable, per-build semantic body-graph snapshot is derived
+from the source set through resolution. The resolver returns a result envelope
+with deterministic status and structured diagnostics. A compilable validated
+snapshot exists only for valid/supported input. Semantically invalid and
+well-formed-but-unsupported input must be distinguished; a rejected partial
+graph may be exposed only as explicitly non-compilable, non-contractual debug
+information.
 
 The snapshot contains source references, durable semantic nodes and relations,
 declared local frames and resolved transforms, relevant intent and lineage, and
@@ -57,8 +69,10 @@ remain further derived outputs.
 The resolved graph supplies shared semantic lineage for derived mesh, rig,
 collider, material, deformation, packaging, runtime-state, and other outputs.
 Those outputs are derived and must not silently become competing sources of
-truth. External artist meshes may later enter as explicitly linked or mapped
-authored inputs.
+truth. Ownership is the sole containment tree. Durable non-ownership semantic
+concepts may be reified and connected through multiple role-labelled
+relations; later specification work owns endpoint roles, cardinality,
+permissible cycles, frame placement, and multi-part region membership.
 
 This record defers physical source formats, schema technology, override
 representation and precedence/conflict rules, runtime mutation/recompilation,
@@ -78,7 +92,10 @@ artifact/build identity are defined at the boundary in
 - Source-set representation, override policy, precedence, and migration policy
   become long-lived contracts, but remain deferred here.
 - Edits made directly to derived output cannot silently become authored truth.
-- Imported meshes require an explicitly linked or mapped authored-input path.
+- Imported meshes require an explicitly linked or mapped authored-input path
+  with an exact dependency revision in provenance.
+- Invalid and unsupported inputs cannot publish an ordinary compilable graph;
+  their result envelope remains deterministic and inspectable.
 
 ## Alternatives Considered
 
@@ -103,6 +120,29 @@ of generating bodies without a handcrafted base mesh and limits topology change.
 Could generate bodies but would be difficult to diff, version, validate, and
 operate through external tools.
 
+### External authored assets outside the source set
+
+This resembles conventional tool pipelines, but permits build output to change
+through an unversioned second authored input and breaks the source set's
+reproducibility boundary.
+
+### External meshes as a peer semantic authority
+
+This could preserve artist edits directly, but creates competing semantic
+truth and requires conflict rules between a mesh and its semantic mapping.
+
+### Publish a rejected partial graph as compilable output
+
+This can expose more errors in one pass, but downstream consumers could treat
+invalid or unsupported state as usable. A partial graph is therefore allowed
+only as explicitly non-compilable, non-contractual debug information.
+
+### Fail without a structured result envelope
+
+An exception-only boundary is simpler for one implementation but weakens
+deterministic CLI/API diagnostics and makes invalid versus unsupported input
+harder for external tools to distinguish.
+
 ### Learned latent representation
 
 May generate varied shapes but is difficult to make deterministic, semantically
@@ -110,18 +150,11 @@ precise, editable, and compatible across model versions.
 
 ## Adversarial Review Response
 
-[Round 3 Revision 2 adversarial review](reviews/DR-0002-rev-02-review-01.md)
-is preserved as stale historical evidence for Revision 2. It recommended
-Accept with Medium confidence for that earlier boundary; it does not review
-Revision 3. The current-revision Double review is complete in the [authority,
-identity, and compatibility pass](reviews/DR-0002-rev-03-review-01.md) and the
-[morphology, graph, and graphics-system pass](reviews/DR-0002-rev-03-review-02.md).
-Both recommend Revise at High confidence. Findings remain unresolved pending
-Ben's disposition: define the semantic identity collision domain and reusable
-expansion identity, classify external authored dependencies, define the graph
-relation/result envelope for framed relations and invalid or unsupported
-assemblies, and qualify the broad regeneration-survival guarantee. This review
-completion records evidence, not a clean review or acceptance. Only Ben may
+[The Revision 3 authority, identity, and compatibility review](reviews/DR-0002-rev-03-review-01.md)
+and [morphology, graph, and graphics-system review](reviews/DR-0002-rev-03-review-02.md)
+are preserved as stale historical evidence. On 2026-08-11 Ben approved their
+seven resolution outcomes for this Revision 4. A new current-revision Double
+review is required; Review Pending records that requirement. Only Ben may
 accept or reject this proposal.
 
 ## Implementation and Proof Obligations
@@ -129,12 +162,13 @@ accept or reject this proposal.
 - Specify the source-set, resolved-graph, and derived-output relationships,
   including source references, durable semantic nodes/relations, local frames,
   resolved transforms, intent/lineage, and structured diagnostics.
-- Define deterministic resolution and diagnostic behaviour for valid,
-  invalid, and unsupported assemblies.
+- Define deterministic resolution phases and diagnostic behaviour for valid,
+  invalid, and unsupported assemblies, including the result-envelope boundary.
 - Define semantic identity separately from artifact/build identity under DR-0006.
 - Build fixtures proving semantic lineage across shape variation and derived
   output changes.
-- Later define source formats, schema technology, overrides,
+- Define exact source-set dependency/version recording for outcome-affecting
+  authored assets and later define source formats, schema technology, overrides,
   precedence/conflict rules, runtime mutation/recompilation,
   external-mesh mapping, versioning, and migration before promising those
   contracts.
