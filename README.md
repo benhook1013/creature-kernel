@@ -27,17 +27,24 @@ not intended to hard-code one species, one skeleton, or one rendering style.
 These principles remain proposed, provisional, assistant-synthesized project
 direction under the accepted DR-0001 Revision 5 governance process. They are
 not accepted product or architecture contracts. The source-set proposal is
-[DR-0002 Revision 5](docs/decisions/DR-0002-declarative-body-document-source-of-truth.md),
+[DR-0002](docs/decisions/DR-0002-declarative-body-document-source-of-truth.md),
 the semantic/artifact identity proposal is
-[DR-0006 Revision 4](docs/decisions/DR-0006-durable-semantic-and-artifact-identity.md),
+[DR-0006](docs/decisions/DR-0006-durable-semantic-and-artifact-identity.md),
 the semantic vocabulary, measurements, and frames proposal is
-[DR-0011 Revision 1](docs/decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md),
+[DR-0011](docs/decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md),
 the real-time boundary proposal is
 [DR-0003 Revision 2](docs/decisions/DR-0003-real-time-first-compiled-avatar-boundary.md),
 and the CLI/API proposal is
 [DR-0004 Revision 2](docs/decisions/DR-0004-external-automation-through-cli-and-api.md).
 The initial product boundary and reference workflow are proposed in
 [DR-0005](docs/decisions/DR-0005-initial-product-boundary-and-reference-workflow.md).
+The CK-KICK-012 Batch 4 encoding and resolution work is represented by the
+Proposed [body-document contract](spec/body-document/README.md) and
+[body-graph contract](spec/body-graph/README.md), with the
+[DR-0012: initial body-document encoding, resolution, and compatibility](docs/decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md)
+now recorded for the integration batch. Prior revisions have complete review
+evidence; the affected new revisions remain pending current-revision Double
+review and Ben's owner disposition.
 
 - Durable authored intent lives in an authoritative semantic source set. Every
   operation reports through one authoritative result envelope; the resolved
@@ -49,23 +56,32 @@ The initial product boundary and reference workflow are proposed in
   ([DR-0006](docs/decisions/DR-0006-durable-semantic-and-artifact-identity.md)).
 - Specialized representations and solvers share the resolved semantic graph as
   lineage; this does not require one mesh, topology, or universal solver.
-- Body parts are composable generators with typed structural ownership. Joints,
-  sockets, attachments, regions, capabilities, and fields are distinct typed
-  semantic concepts and relations, not implicit ownership or implementation
-  mechanisms.
-- The first functional articulation is root reference → pelvis → chest → neck
-  → head; arms are shoulder → elbow → wrist → terminal paw-base, and legs are
-  hip → knee → one hock/ankle articulation → terminal paw-base. A present tail
-  has a tail-base and optional later segments; ears require no articulation.
-  These are semantic roles, not a bone, solver, rig, or anatomy-fidelity claim
-  ([DR-0008 Revision 5](docs/decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md)).
+- Body parts are composable generators with typed structural ownership. Part,
+  Joint, Socket, Attachment, Region, Capability, and Field are the
+  identity-bearing embodied concepts. A Module is an authored reusable scope
+  that instantiates them, not an embodied graph concept; landmark, anchor,
+  dimension, and frame are typed owned records addressed by owner and role.
+  Joints are directed relations with one proximal and one distal Part endpoint;
+  sockets are Part-owned named interfaces; and an Attachment joins one host
+  Socket to one mating Socket without implying articulation.
+- The pelvis Part owns the root-reference frame. The first typed axial
+  articulation is pelvis → spine Joint → torso/chest Part → neck-base Joint →
+  neck Part → head-base Joint → head Part. Arm and leg chains similarly use
+  explicit Joints between Parts and end at terminal paw-base landmark/Socket
+  roles. Ear/tail modules use Attachment, while a movable tail also uses a
+  separate Joint. These are semantic roles, not a bone, solver, rig, or
+  anatomy-fidelity claim
+  ([DR-0008](docs/decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md)).
 - Measurements keep transforms as reference-frame placement, typed dimensions
   as size/extents, and anchors/landmarks as stable authored or derived values;
-  ratios are derived, and conflicting constraints produce diagnostics. Sources
-  declare units, handedness, up, and forward; conversion to a contract-revision
-  canonical basis records provenance. Exact axes, units, rotation, scale, and
-  shear remain deferred
-  ([DR-0011 Revision 1](docs/decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md)).
+  ratios are derived. Claims compare after normalization by owner address,
+  property role, and frame/context; authored claims and explicit invariants
+  must be jointly satisfiable, while derived/defaulted values never override
+  authored values. Conflicts produce a deterministic semantic-invalid
+  diagnostic and no success snapshot. Sources declare units, handedness, up,
+  and forward; conversion to a contract-revision canonical basis records
+  provenance. Exact axes, units, rotation, scale, and shear remain deferred
+  ([DR-0011](docs/decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md)).
 - CLI/API, future GUI, tests, scripts, and external AI agents are adapters over
   one deterministic domain-operation model
   ([DR-0004](docs/decisions/DR-0004-external-automation-through-cli-and-api.md)).
@@ -91,11 +107,23 @@ The initial product boundary and reference workflow are proposed in
 - Native programmatic generation without a handcrafted base mesh is the first
   reference path. External authored-mesh conformance is a later path that early
   contracts must not foreclose.
+- The initial body-document adapter is strict UTF-8 JSON: one document,
+  duplicate-key rejection, no comments/includes/evaluation, exact semantic
+  contract-family and revision recognition, and structural validation with the
+  proposed JSON Schema Draft 2020-12 vocabulary. Unknown core members fail;
+  unsupported required extensions fail as unsupported, while optional
+  extensions remain opaque and have no core semantic effect. Explicit
+  migration produces a new source, and semantic contract identity remains
+  separate from compiler/build/configuration/seed/dependency/artifact identity.
+  Exact field names, machine schema, canonical bytes, and hashing remain
+  deferred.
 
 ## Repository navigation
 
 - [Documentation authority and reading order](docs/README.md)
 - [Product vision and scope](docs/product/vision-and-scope.md)
+- [Proposed body-document contract](spec/body-document/README.md)
+- [Proposed body-graph contract](spec/body-graph/README.md)
 - [Architecture](docs/architecture/README.md)
 - [Decision record registry](docs/decisions/registry.md)
 - [Open research questions](docs/research/open-questions.md)
@@ -103,10 +131,11 @@ The initial product boundary and reference workflow are proposed in
 
 ## Status
 
-The project is in its foundation and adversarial design phase. No implementation
-language, geometry backend, runtime engine, or asset format has been selected.
-See [current project status](docs/project/status.md) for the live round,
-review, and owner-disposition state.
+The project is in an exploratory executable-prototype and semantic-contract
+integration phase. No implementation language, geometry backend, runtime
+engine, or asset format has been selected. See [current project
+status](docs/project/status.md) for the live round, review, and owner-
+disposition state.
 
 See [docs/FOUNDATION.md](docs/FOUNDATION.md) for the historical
 conversation-derived record. Current contracts are owned by the documentation

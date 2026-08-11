@@ -13,10 +13,10 @@ animation, contact, deformation, and engine integration. It is not initially a
 game, editor, or general-purpose engine; a real-time game is the first
 downstream proof and integration target. This boundary remains Proposed under
 [DR-0005](../decisions/DR-0005-initial-product-boundary-and-reference-workflow.md).
-The current semantic boundaries are Proposed under [DR-0002 Revision 5](../decisions/DR-0002-declarative-body-document-source-of-truth.md),
-[DR-0006 Revision 4](../decisions/DR-0006-durable-semantic-and-artifact-identity.md),
-[DR-0008 Revision 5](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
-and [DR-0011 Revision 1](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
+The current semantic boundaries are Proposed under [DR-0002](../decisions/DR-0002-declarative-body-document-source-of-truth.md),
+[DR-0006](../decisions/DR-0006-durable-semantic-and-artifact-identity.md),
+[DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
+and [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
 
 ```text
 Human, script, test, or external AI
@@ -79,27 +79,60 @@ well-formed-but-unsupported partial graphs are non-compilable,
 non-contractual debug information; they cannot be consumed as a body graph.
 Mesh, rig, runtime, and other artifacts remain further derived outputs.
 
+The source and graph contracts deliberately separate source text, a normalized
+admission model, and a resolved success snapshot. The initial source adapter is
+one strict UTF-8 JSON document: duplicate keys, comments, includes, and
+evaluation are rejected. Structural validation uses the proposed JSON Schema
+Draft 2020-12 vocabulary, while CK semantic resolution owns identity,
+relations, frames, provenance, and invariants. Exact semantic contract family
+and revision must be recognized; migration is explicit and produces a new
+source. Unknown core members fail, while namespaced optional extensions remain
+opaque and have no core semantic effect. See the [body-document
+contract](../../spec/body-document/README.md) and [body-graph
+contract](../../spec/body-graph/README.md). Exact field names, schema files,
+canonical bytes, and hashes remain deferred.
+
 ### First body grammar boundary
 
 The first grammar is a bounded typed ownership tree for the proposed
-digitigrade biped family. Part is structural/owned; Joint is an articulation
-semantic relation with frames, not a bone or solver; Socket is a host interface
-frame; Attachment maps a module to a socket and is not automatically a joint;
-Region is an overlapping spatial designation and never ownership; Capability
-is a queryable affordance, not an implementation; and Field is a spatial
-semantic intent/channel with lineage and representation-neutral meaning.
-Ownership is the sole containment tree; durable non-ownership concepts may be
-reified and connected through role-labelled relations. Functional articulation
-is root reference → pelvis → chest → neck → head; arms shoulder → elbow → wrist
-→ terminal paw-base; legs hip → knee → one hock/ankle articulation → terminal
-paw-base; and a present tail has a tail-base with later segments optional.
-Ears require no articulation. These roles are not a bone, solver, rig, or
-anatomy-fidelity claim. Arbitrary anatomy and arbitrary user-defined graph
-kinds are unsupported in this first family. Units, handedness, up, and forward
-are declared; normalization to a contract-revision canonical internal basis
-records conversion provenance. Exact axes, units, rotation, scale, and shear,
-as well as numeric ranges, surface primitives, and schema technology, remain
-deferred.
+digitigrade biped family. Its identity-bearing embodied concepts are exactly
+Part, Joint, Socket, Attachment, Region, Capability, and Field. Module is an
+authored reusable scope that instantiates those concepts, not an embodied
+graph concept. Landmark, anchor, dimension, and frame are typed owned records
+addressed through owner and role. Part is structural/owned; Joint is a
+directed identity-bearing articulation relation with exactly one proximal and
+one distal Part and endpoint frames relative to those Parts; Socket is a
+Part-owned named interface; Attachment connects exactly one host Socket to one
+mating Socket and does not imply articulation; Region may overlap and never
+owns; Capability is a queryable affordance; and Field is representation-neutral
+spatial intent/channel with lineage. Part-to-Part ownership is the sole
+structural body-containment tree; declarative owners of other concepts and
+typed records scope identity/lifecycle without creating structural body edges.
+Non-structural concepts are reified through typed, role-labelled relations.
+
+The pelvis Part owns the root-reference frame. The minimum Stage 1 chain is
+pelvis → spine Joint → torso/chest Part → neck-base Joint → neck Part →
+head-base Joint → head. Each arm uses shoulder, elbow, and wrist Joints connecting torso,
+upper-arm, forearm, and hand/paw Parts, then a terminal paw-base
+landmark/Socket. Each leg uses hip, knee, and hock-or-ankle Joints connecting
+pelvis, thigh, lower-leg, and foot/paw Parts, then a terminal paw-base
+landmark/Socket. Ear and tail modules use Attachment; a movable tail also has
+a separate Joint. Ears require no articulation. These are semantic roles and
+frames, not a bone hierarchy, solver, rig, joint-limit, or anatomy-fidelity
+claim. Arbitrary anatomy and user-defined graph kinds are unsupported in this
+first family.
+
+Units, handedness, up, and forward are declared; normalization to a
+contract-revision canonical internal basis records conversion provenance.
+Claims compare after normalization by owner address, property role, and
+frame/context. Authored claims and explicit invariants must be jointly
+satisfiable within contract tolerance; derived/defaulted values never
+override authored values, hidden inferred equations are not allowed, and a
+conflict is a semantic-invalid diagnostic with no success snapshot. Exact
+axes, units, rotation, scale, shear, ranges, tolerances, surface primitives,
+serialized fields, and machine-schema contents remain deferred. Strict JSON
+and JSON Schema Draft 2020-12 are the Proposed initial encoding and
+structural-validation technologies.
 
 ### Simulation representation
 
@@ -177,6 +210,28 @@ Resolution and compilation should be reproducible from authored inputs, compiler
 version, configuration, and seed. Query, mutation, resolution/compilation,
 validation, diagnostics, and artifact inspection use one deterministic domain
 operation model. Nondeterministic stages must be isolated and reported.
+
+The resolver phases are resource/input admission; syntax/schema/contract;
+dependencies; namespaces/identity/references; ownership/typed relations;
+unit/frame normalization and value derivation; semantic invariants; and
+success publication. Fatal failure blocks dependent phases, while independent
+diagnostics within a phase accumulate deterministically. Provenance records
+authored, defaulted, or derived values. Required unresolved or ambiguous
+values cannot succeed. The implementation profile uses finite resource limits
+across source and aggregate bytes; string lengths/counts; nesting depth;
+object/array members; graph entities/relations; ownership depth;
+module/reference expansion; extension count/payload; numeric admissibility;
+diagnostics; and aggregate work and memory. Exact profile values and
+accounting remain deferred. The profile is selected at admission, while its
+guards remain active through all later phases.
+
+The operation-result envelope also carries compatibility outcomes. Stable
+machine diagnostic identity and deterministic order are contract data; human
+messages are not compatibility keys. Semantic equivalence concerns durable
+IDs, relations, frames, normalized values, provenance, and outcome, not source
+ordering or incidental topology. Compiler/build/configuration/seed,
+dependency, and artifact identities remain separate from semantic contract
+identity.
 
 ### Engine-independent contracts
 

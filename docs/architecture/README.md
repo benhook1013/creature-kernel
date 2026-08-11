@@ -12,6 +12,8 @@ semantic vocabularies belong in [`spec/`](../../spec/).
 - [Execution model](execution-model.md)
 - [Component responsibilities](component-responsibilities.md)
 - [Repository structure](repository-structure.md)
+- [Proposed body-document contract](../../spec/body-document/README.md)
+- [Proposed body-graph contract](../../spec/body-graph/README.md)
 - [Decision records](../decisions/README.md)
 
 ## Architectural authority
@@ -33,9 +35,9 @@ The Round 2 product-boundary proposal in
 [DR-0005](../decisions/DR-0005-initial-product-boundary-and-reference-workflow.md)
 keeps Creature Kernel's initial target engine-independent and downstream of a
 real-time game integration. Related Proposed source, operation, and identity
-boundaries are recorded in [DR-0002 Revision 5](../decisions/DR-0002-declarative-body-document-source-of-truth.md),
+boundaries are recorded in [DR-0002](../decisions/DR-0002-declarative-body-document-source-of-truth.md),
 [DR-0004 Revision 2](../decisions/DR-0004-external-automation-through-cli-and-api.md),
-and [DR-0006 Revision 4](../decisions/DR-0006-durable-semantic-and-artifact-identity.md).
+and [DR-0006](../decisions/DR-0006-durable-semantic-and-artifact-identity.md).
 Those records now settle the minimum inspectable, non-authoritative graph
 boundary, structured semantic-address identity, ownership/relation separation,
 and result-envelope boundary, while deferring physical formats, schema
@@ -46,10 +48,17 @@ Proposed compile/runtime boundary is recorded in
 and described in the execution model; exact interface schemas, compatibility,
 budgets, and runtime mutation details remain open. The typed semantic
 vocabulary, measurement ownership, and frame-conversion boundary are Proposed
-in [DR-0011 Revision 1](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
-DR-0002, DR-0006, DR-0008, and DR-0011 remain Proposed with Owner approval
-Pending and Review Pending until their current revisions receive the required
-Double review.
+in [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
+Their prior revisions have complete review evidence. The new CK-KICK-012
+Batch 4 resolutions create new Proposed revisions for DR-0002, DR-0008, and
+DR-0011, plus the new DR-0012, pending current-revision Double review and
+Ben's owner disposition. DR-0006 remains Proposed with its current revision's
+review evidence. The cross-cutting proposal is [DR-0012: initial
+body-document encoding, resolution, and
+compatibility](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
+The body-document and body-graph proposals are the canonical specification
+owners; this architecture layer records only their target boundaries and
+consumers.
 
 The [first surface experiment design](../research/first-surface-experiment-design.md)
 and its linked [DR-0009 Revision 8](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)

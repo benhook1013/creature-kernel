@@ -8,8 +8,8 @@ its activation trigger is met.
 
 | Component | Responsibilities | Explicit non-responsibilities |
 | --- | --- | --- |
-| Authoritative semantic source set | Parse authored inputs, preserve user intent, track exact revisions of outcome-affecting authored dependencies, report source errors, and provide the sole authored authority | Generate meshes or run gameplay, or treat an external mesh as semantic truth |
-| Semantic body resolver | Validate and resolve the source set into one authoritative operation-result envelope covering loading, syntax/schema/contract, dependencies, resources, semantic resolution, and invariants; only valid-supported input yields an optional compilable inspectable per-build graph snapshot with source references, durable semantic nodes/relations, declared frames, resolved transforms, intent/lineage, and structured diagnostics | Host-engine objects, become an authored source, or make derived artifacts authoritative; rejected partial graphs are non-compilable, debug-only, and non-contractual |
+| Authoritative semantic source set | Admit one initial strict UTF-8 JSON document, preserve authored intent, track exact revisions of outcome-affecting authored dependencies, classify extensions, report source errors, and provide the sole authored authority | Generate meshes or run gameplay, or treat an external mesh as semantic truth |
+| Semantic body resolver | Run resource/input, syntax/schema/contract, dependency, namespace/identity/reference, ownership/relation, normalization/derivation, invariant, and publication phases inside one authoritative operation-result envelope; only valid-supported input yields an optional compilable inspectable per-build graph snapshot with typed concepts, directed Joint endpoints, declared frames, resolved transforms, provenance, intent/lineage, and structured diagnostics | Host-engine objects, become an authored source, or make derived artifacts authoritative; rejected partial graphs are non-compilable, debug-only, and non-contractual |
 | Geometry field system | Evaluate part volumes, composition, semantic fields | Choose runtime animation |
 | Surface compiler | Extract, repair, remesh, simplify, and attribute visible surfaces | Define semantic truth |
 | Rigging compiler | Generate joints, limits, skinning, correctives, and bindings | Own interaction intent |
@@ -50,6 +50,27 @@ conflicting constraints become diagnostics. Source-declared units,
 handedness, up, and forward are converted to a contract-revision canonical
 basis with provenance; local/reference, joint, socket/mating, derived
 world/reference, and runtime-pose frames remain distinct.
+
+The graph contract makes the typing executable at the boundary: Joint is
+directed with exactly one proximal and one distal Part and endpoint frames
+relative to each; Socket is Part-owned; Attachment has one host Socket and one
+mating Socket and does not imply articulation. Module is authored reusable
+scope, not an embodied graph concept. Landmark, anchor, dimension, and frame
+are typed owner+role records. Claims compare after normalization by owner
+address, property role, and frame/context; authored claims and explicit
+invariants must be jointly satisfiable, derived/defaulted values cannot
+override authored claims, and conflict is semantic-invalid with no success
+snapshot.
+
+Resolver implementation must stop dependent phases after a fatal failure while
+accumulating independent diagnostics within a phase. Required unresolved or
+ambiguous values cannot succeed. Machine diagnostic identity and order are
+stable contract data; human messages are not compatibility keys. Finite
+implementation-profile limits cover source and aggregate bytes, string
+lengths/counts, nesting depth, object/array members, graph entities/relations,
+ownership depth, module/reference expansion, extension count/payload, numeric
+admissibility, diagnostics, and aggregate work/memory, without selecting
+numeric limits here.
 
 ## Walking-skeleton exploratory seam (provisional and disposable)
 

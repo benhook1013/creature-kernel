@@ -1,19 +1,42 @@
 # Normative specifications
 
-Status: Active authority boundary; no formats accepted
+Status: Active authority boundary; proposed body-document and body-graph
+contracts are discussion-approved for CK-KICK-012 Batch 4, but no format is
+accepted
 
 This directory will own machine-facing semantics and serialized contracts. It is
 separate from architecture so an implementation can change without silently
 changing the meaning of persisted bodies or avatar packages.
 
-The current semantic proposal set is [DR-0002 Revision 5](../docs/decisions/DR-0002-declarative-body-document-source-of-truth.md),
-[DR-0006 Revision 4](../docs/decisions/DR-0006-durable-semantic-and-artifact-identity.md),
-[DR-0008 Revision 5](../docs/decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
-and [DR-0011 Revision 1](../docs/decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
-All remain Proposed with Owner approval Pending and Review Pending until their
-current revisions receive the required Double review.
+The current semantic proposal set is represented by [DR-0002](../docs/decisions/DR-0002-declarative-body-document-source-of-truth.md),
+[DR-0006](../docs/decisions/DR-0006-durable-semantic-and-artifact-identity.md),
+[DR-0008](../docs/decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
+and [DR-0011](../docs/decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
+Their prior revisions have complete review evidence, but the new Batch 4
+resolutions create new Proposed revisions for DR-0002, DR-0008, and DR-0011,
+plus the new DR-0012, pending current-revision Double review and Ben's owner
+disposition. DR-0006 remains Proposed with its current revision's review
+evidence. The cross-cutting proposal is [DR-0012: initial
+body-document encoding, resolution, and compatibility](../docs/decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
 
-## Planned specification families
+## Proposed specification families
+
+- [Body-document contract](body-document/README.md): the initial strict UTF-8
+  JSON source encoding, structural validation boundary, exact contract-family
+  and revision recognition, extension envelope, compatibility, diagnostics,
+  and finite resource-profile rules. It does not choose serialized field names
+  or provide a machine schema file.
+- [Resolved body-graph contract](body-graph/README.md): typed concepts,
+  durable semantic identity, directed joints, socket/attachment relations,
+  frames, provenance, minimum Stage 1 graph invariants, graph-side resolution
+  obligations, and success-publication rules.
+
+Both proposed contracts apply a finite implementation profile. Its approved
+resource-limit categories are source and aggregate bytes, string
+lengths/counts, nesting depth, object/array members, graph entities/relations,
+ownership depth, module/reference expansion, extension count/payload, numeric
+admissibility, diagnostics, and aggregate work/memory. Exact profile values and
+accounting remain unselected.
 
 - Authoritative semantic source set (the sole authored authority; initially
   potentially one human-readable document) with exactly versioned references
@@ -24,7 +47,9 @@ current revisions receive the required Double review.
   resolved semantic graph snapshot is an optional success payload only for
   valid-supported input; persisted snapshot diagnostics are a derived subset.
   Semantically invalid and well-formed-but-unsupported partial graphs are
-  non-compilable, non-contractual debug data.
+  non-compilable, non-contractual debug data. The proposed source/resolved
+  split is detailed in the [body-document](body-document/README.md) and
+  [body-graph](body-graph/README.md) contracts.
 - Durable semantic identities through structured addresses (source namespace,
   authored module-instance anchors, concept kind, and role-local key), and
   separate artifact/build identity and provenance. Each source namespace has
@@ -33,20 +58,20 @@ current revisions receive the required Double review.
   address, with no implicit shared ownership. Exact address serialization and
   lifecycle/remap rules remain open.
 - Capabilities, regions, attachments, joints, and material/deformation metadata.
-- A planned supported-morphology and validity envelope for the bounded first
-  digitigrade biped family, including its typed ownership tree and vocabulary:
-  Part (structural/owned), Joint (articulation relation/frames, not bone or
-  solver), Socket (host interface frame), Attachment (module-to-socket mapping,
-  not automatically a joint), Region (overlapping spatial designation, never
-  ownership), Capability (queryable affordance, not implementation), and Field
-  (spatial semantic intent/channel with lineage, representation-neutral). The
-  required articulation is root reference → pelvis → chest → neck → head;
-  arms shoulder → elbow → wrist → terminal paw-base; legs hip → knee → one
-  hock/ankle articulation → terminal paw-base; and a present tail has a
-  tail-base with later segments optional. Ears require none. These are not
-  bone/solver/rig/anatomy-fidelity requirements. Ownership is the sole
-  containment tree; non-ownership concepts may be reified through
-  role-labelled relations.
+- A proposed supported-morphology and validity envelope for the bounded first
+  digitigrade biped family. Its identity-bearing concepts are exactly Part,
+  Joint, Socket, Attachment, Region, Capability, and Field. Module is authored
+  reusable scope; landmark, anchor, dimension, and frame are typed owner+role
+  records. Joint has one proximal and one distal Part; Socket is Part-owned;
+  Attachment connects one host and one mating Socket without implying
+  articulation. The pelvis Part owns the root-reference frame. The axial chain
+  is pelvis → spine Joint → torso/chest Part → neck-base Joint → neck Part →
+  head-base Joint → head Part. Arm and leg chains use the required typed Joints
+  and Parts and end in terminal paw-base landmark/Socket roles. Ear/tail modules
+  use Attachment; movable tails also use a Joint. These are not
+  bone/solver/rig/anatomy-fidelity requirements. Part-to-Part ownership is the
+  sole structural body-containment tree; declarative ownership of other
+  concepts and records does not create structural body edges.
   Arbitrary anatomy/user-defined graph kinds are unsupported in the first
   family. The resolver returns a deterministic result envelope: only valid,
   supported input produces a compilable validated snapshot.
@@ -57,8 +82,10 @@ current revisions receive the required Double review.
   dimensions own size/extents, anchors/landmarks retain authored or derived
   provenance, ratios are derived only, and conflicting constraints diagnose.
   Exact canonical axes, units, rotation, scale, shear, ranges, surface
-  primitives, and schema or syntax technology remain deferred.
-- A planned fixture-profile contract describing stable profile identity,
+  primitives, serialized fields, and machine-schema contents remain deferred;
+  strict JSON and JSON Schema Draft 2020-12 are the selected Proposed initial
+  encoding and structural-validation technologies.
+- A proposed fixture-profile contract describing stable profile identity,
   concrete source inputs, discriminating parameters, seed/configuration,
   provenance, shared-generation expectations, validity/diagnostic status, the
   frozen expected outcome of valid-supported, semantically invalid, or
@@ -73,7 +100,7 @@ current revisions receive the required Double review.
   is parked, non-blocking confirmatory research. It is not a normative schema,
   does not register EXP-0001, and does not provide evidence until its activation
   trigger is met.
-- A planned staged embodiment contract describing Stage 1 source-linked
+- A proposed staged embodiment contract describing Stage 1 source-linked
   semantic joint frames and semantic region intent/lineage, and the later
   ownership of usable skeletons, skin weights, collision proxies, contact, and
   deformation claims.
@@ -102,4 +129,7 @@ Every accepted format must define:
 - representative valid and invalid fixtures;
 - a machine-readable schema when practical.
 
-No concrete schema or serialization technology is selected yet.
+Strict JSON and JSON Schema Draft 2020-12 are the Proposed initial encoding and
+structural-validation technologies. No exact serialized field vocabulary,
+machine-readable schema file, canonical byte representation, or accepted
+format exists yet.

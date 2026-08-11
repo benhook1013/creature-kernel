@@ -16,7 +16,9 @@ creature-kernel/
 │   ├── research/            # open questions and references
 │   ├── developer-workflows/ # conditional contributor procedures
 │   └── project/             # status, roadmap, repository evolution
-├── spec/                    # normative formats and semantics
+├── spec/                    # normative formats and semantics (proposed body-document/body-graph contracts)
+│   ├── body-document/       # authored source encoding and admission contract
+│   └── body-graph/          # resolved semantic graph contract
 ├── experiments/             # reproducible research evidence
 ├── fixtures/                # small stable proof inputs
 ├── benchmarks/              # reproducible performance scenarios

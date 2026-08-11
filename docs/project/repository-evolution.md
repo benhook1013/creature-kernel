@@ -25,8 +25,8 @@ States: `active`, `planned`, `triggered`, `deferred`, `not-applicable`, `retired
 | Documentation CI | Now | active | Governance scaffold | `.github/workflows/documentation.yml` | GitHub Actions |
 | AI delegation and review | Now | active | Before first delegated design review | `docs/developer-workflows/` | Required-path and link checks |
 | Local visual-review gallery | Now | active | First need for human appraisal of generated CK-KICK-010 output | `dev-tools/visual-review/` | Focused tests + local HTTP/browser smoke |
-| Body-document schema | Next | planned | First body parser proposal | `spec/body-document/` | Schema fixtures |
-| Semantic body-graph spec | Next | planned | First resolver proposal | `spec/body-graph/` | Graph fixtures |
+| Body-document specification | Next | active | First body parser proposal exists in the CK-KICK-012 Batch 4 Proposed contract | `spec/body-document/` | Schema-level contract fixtures when activated |
+| Semantic body-graph spec | Next | active | First resolver proposal exists in the CK-KICK-012 Batch 4 Proposed contract | `spec/body-graph/` | Graph and cross-DR contract fixtures when activated |
 | Implementation packages | Next | planned | Language/build DR accepted | Toolchain-specific | Unit and integration tests |
 | Generation fixtures | Next | planned | First compiler-consumed body document | `fixtures/body-documents/` | Deterministic output checks |
 | Geometry exploration | Next | active | Bounded exploratory executable walking skeleton implemented and evidence recorded; continued work remains disposable and review-bounded | `experiments/ck-kick-010-walking-skeleton/` (durable implementation/evidence record) | Reproducible observations and diagnostics; generated bundles remain ephemeral/unretained, and this activation does not imply production architecture or durable artifact retention |

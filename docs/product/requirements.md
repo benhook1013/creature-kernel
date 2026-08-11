@@ -94,7 +94,33 @@ valid-supported input; any snapshot diagnostics are a derived persisted subset
 of the envelope. Semantically invalid and well-formed-but-unsupported partial
 graphs are non-compilable, non-contractual debug data. Mesh, rig, runtime, and
 other artifacts remain further derived outputs. See
-[DR-0002 Revision 5](../decisions/DR-0002-declarative-body-document-source-of-truth.md).
+[DR-0002](../decisions/DR-0002-declarative-body-document-source-of-truth.md).
+
+The current Proposed body-document contract initially admits one strict UTF-8
+JSON document, rejects duplicate keys and comments/includes/evaluation, and
+uses JSON Schema Draft 2020-12 for structural validation before CK semantic
+resolution. Unknown core members fail. An explicit namespaced extension
+envelope distinguishes unsupported required extensions from optional opaque
+extensions, which are preserved without core semantic effect. Contract family
+and revision are recognized exactly; migration is explicit and produces a new
+source. Source text, normalized source model, and resolved snapshot remain
+distinct. Exact field names, schema files, and migration serialization remain
+deferred to the owning specifications.
+
+Resolution proceeds through resource/input admission; syntax/schema/contract;
+dependencies; namespaces/identity/references; ownership/typed relations;
+unit/frame normalization and value derivation; semantic invariants; and
+success publication. Fatal phases block dependent work while independent
+diagnostics within a phase accumulate deterministically. Machine diagnostic
+identity and order are stable compatibility data; human messages are not.
+Required unresolved or ambiguous values cannot succeed. The implementation
+profile has finite limits for source and aggregate bytes, string lengths/counts,
+nesting depth, object/array members, graph entities/relations, ownership depth,
+module/reference expansion, extension count/payload, numeric admissibility,
+diagnostics, and aggregate work/memory, with exact limits deferred. The profile
+is selected during input admission, and its guards remain active through later
+phases whose graph, expansion, work, or memory use cannot be known before
+parsing.
 
 ### CK-PROD-002: Deterministic compilation
 
@@ -110,18 +136,20 @@ evidence are defined.
 
 ### CK-PROD-003: Durable semantic and artifact identity
 
-Durable semantic identity must identify parts, regions, joints, attachments,
-capabilities, and related concepts across regeneration through a structured
-semantic address: source namespace, authored stable module-instance anchors,
-semantic concept kind, and role-local key. Each source namespace has exactly
+Durable semantic identity must identify exactly Part, Joint, Socket,
+Attachment, Region, Capability, and Field across regeneration through a
+structured semantic address: source namespace, authored stable module-instance
+anchors, semantic concept kind, and role-local key. Each source namespace has exactly
 one owner in a resolved source set. A namespace collision requires an authored,
 deterministic, collision-free remapping across every contributed semantic
 address; implicit shared namespace ownership is not allowed. Identity
 continuity is promised only while the authored address and concept remain
 unchanged across regeneration; structural-edit lifecycle rules remain
 deferred. Artifact/build identity and provenance are separate, and external
-authored assets retain their exact dependency revisions. See [DR-0006 Revision
-4](../decisions/DR-0006-durable-semantic-and-artifact-identity.md).
+authored assets retain their exact dependency revisions. Module is an authored
+reusable scope that instantiates concepts, not an embodied graph concept;
+landmark, anchor, dimension, and frame are typed owner+role records. See
+[DR-0006](../decisions/DR-0006-durable-semantic-and-artifact-identity.md).
 
 ### CK-PROD-004: Shared deterministic domain operations
 
@@ -154,32 +182,46 @@ pose, and actual contact/deformation are later-stage claims.
 ### CK-PROD-011: Composable body grammar
 
 The first body model must support a bounded typed ownership tree for the
-proposed digitigrade biped family, plus typed concepts and non-ownership
-relations: Part is structural/owned; Joint is an articulation semantic
-relation with frames, not a bone or solver; Socket is a host interface frame;
-Attachment maps a module to a socket and is not automatically a joint; Region
-is an overlapping spatial designation and never ownership; Capability is a
-queryable affordance, not an implementation; and Field carries spatial
-semantic intent/channel with lineage and representation-neutral meaning.
-Ownership is the sole containment tree; durable non-ownership concepts may be
-reified and connected through multiple role-labelled relations. Invalid or
+proposed digitigrade biped family, plus exactly these identity-bearing
+concepts: Part is structural/owned; Joint is a directed articulation relation
+with exactly one proximal and one distal Part and endpoint frames relative to
+each; Socket is a Part-owned named interface; Attachment connects one host
+Socket to one mating Socket and is not automatically a joint; Region is an
+overlapping spatial designation and never ownership; Capability is a queryable
+affordance, not an implementation; and Field carries spatial semantic
+intent/channel with lineage and representation-neutral meaning. Module is an
+authored reusable scope that instantiates these concepts, not an embodied graph
+concept. Landmark, anchor, dimension, and frame are typed owner+role records.
+Part-to-Part ownership is the sole structural body-containment tree;
+declarative ownership of other concepts and typed records scopes identity and
+lifecycle without adding a structural body edge. Durable non-structural
+concepts may be reified and connected through multiple role-labelled
+relations. Invalid or
 unsupported assemblies must receive the operation-result envelope with
-structured diagnostics. The required functional articulation is root reference
-→ pelvis → chest → neck → head; each arm is shoulder → elbow → wrist → terminal
-paw-base; each leg is hip → knee → one hock/ankle articulation → terminal
-paw-base; and a present tail has a tail-base with later segments optional.
-Ears require no articulation. These are semantic roles and frames, not a bone,
-solver, rig, or anatomy-fidelity claim. See [DR-0008 Revision 5](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md)
-and [DR-0011 Revision 1](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
+structured diagnostics. The required functional articulation is root-reference
+frame owned by pelvis → pelvis → spine Joint → torso/chest Part → neck-base
+Joint → neck Part → head-base Joint → head; arms use shoulder/elbow/wrist
+Joints connecting torso, upper-arm, forearm, and hand/paw Parts to a terminal
+paw-base landmark/Socket; and legs use hip/knee/hock-or-ankle Joints connecting
+pelvis, thigh, lower-leg, and foot/paw Parts to a terminal paw-base
+landmark/Socket. Ear/tail modules use Attachment, and a movable tail also uses
+a separate Joint. Ears require no articulation. These are semantic roles and
+frames, not a bone, solver, rig, or anatomy-fidelity claim. See [DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md)
+and [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
 
 Transforms own reference-frame placement; typed dimensions own size/extents;
-anchors and landmarks are stable with authored or derived provenance; ratios
-are derived only; and conflicting constraints produce diagnostics rather than
-silently selecting a winner. Each source declares units, handedness, up, and
-forward. Resolution converts to a contract-revision canonical internal basis
-and records conversion provenance. Distinguish local/reference, joint,
-socket/mating, derived resolved world/reference, and runtime-pose frames.
-Exact canonical axes, units, rotation, scale, and shear remain deferred.
+anchors and landmarks are stable with authored, defaulted, or derived
+provenance; ratios are derived only. Claims target owner address, property role,
+and frame/context and compare after normalization. Authored claims and explicit
+invariants must be jointly satisfiable within contract tolerance; derived or
+defaulted values never override authored claims, and hidden inferred equations
+are not allowed. A conflict is a deterministic semantic-invalid diagnostic and
+no success snapshot. Each source declares units, handedness, up, and forward.
+Resolution converts to a contract-revision canonical internal basis and records
+conversion provenance. Distinguish local/reference, joint, socket/mating,
+derived resolved world/reference, and runtime-pose frames. Exact canonical
+axes, units, rotation, scale, shear, numeric ranges, and tolerances remain
+deferred.
 
 ### CK-PROD-012: Connected visible surface
 

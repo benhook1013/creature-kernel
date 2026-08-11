@@ -6,13 +6,13 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 5
+Revision: 6
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-08
 
@@ -36,13 +36,17 @@ override layers may also be authored inputs.
 Revision 1 described a single declarative body document. Revision 2 recorded the
 broader source-set boundary and made the resolved semantic graph a per-build
 derived snapshot. Revision 3 recorded the CK-KICK-012 Batch 1 source and graph
-boundary. Revision 4 recorded its first review-resolution batch. On 2026-08-11
-Ben approved the CK-KICK-012 Batch 3 resolutions recorded in Revision 5: one
-owner per source namespace and one authoritative operation-result envelope.
+boundary. Revision 4 recorded its first review-resolution batch. Revision 5
+recorded the CK-KICK-012 Batch 3 resolutions: one owner per source namespace
+and one authoritative operation-result envelope. On 2026-08-11 Ben approved
+the CK-KICK-012 Batch 4 source/model/snapshot boundary recorded here, with the
+initial encoding, resolution phases, compatibility, extensions, diagnostics,
+and resource-profile contract owned by new [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
 This discussion approval is not DR acceptance: this revision remains Proposed
 with Owner approval Pending until a current-revision review and Ben's owner
 disposition are recorded. All earlier revisions and their reviews remain
-historical evidence; the Revision 4 reviews are stale for this revision.
+historical evidence; the Revision 5 reviews, as well as earlier reviews, are
+stale for this revision.
 
 ## Decision
 
@@ -56,18 +60,21 @@ dependency revision are retained in source/build provenance. Conformance
 details remain deferred.
 
 A validated, inspectable, per-build semantic body-graph snapshot is derived
-from the source set through resolution. One operation-result envelope is
-authoritative for every phase and diagnostic, including source loading,
-syntax/schema/contract recognition, dependency resolution, resource checks,
-semantic resolution, and invariant checks. The envelope owns the outcome
-status and deterministically ordered diagnostics; each diagnostic identifies
-its phase and category. It may contain an optional validated snapshot only for
-valid-supported success. Diagnostics persisted inside a successful snapshot
-are a derived subset or annotation, not a competing status channel.
+from the source set through resolution. Source text, the resolver's normalized
+semantic model, and the resolved snapshot are distinct stages; neither the
+normalized model nor the snapshot becomes authored authority. One
+operation-result envelope is authoritative for every phase and diagnostic.
+The phase sequence, provenance requirements, resource limits, extension
+policy, and diagnostic fields are defined by [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
+The envelope owns the outcome status and deterministically ordered diagnostics.
+It may contain an optional validated snapshot only for valid-supported success.
+Diagnostics persisted inside a successful snapshot are a derived subset or
+annotation, not a competing status channel.
 Semantically invalid and well-formed-but-unsupported input must be
 distinguished; a rejected partial graph may be
 exposed only as explicitly non-compilable, non-contractual debug information.
-Exact phase names and diagnostic codes remain later specification detail.
+Exact diagnostic field spelling, human text, and diagnostic codes remain later
+specification detail under DR-0012.
 
 Within each resolved source set, exactly one authoritative source owns each
 source namespace. Every imported namespace must therefore be unique. A
@@ -87,15 +94,21 @@ remain further derived outputs.
 The resolved graph supplies shared semantic lineage for derived mesh, rig,
 collider, material, deformation, packaging, runtime-state, and other outputs.
 Those outputs are derived and must not silently become competing sources of
-truth. Ownership is the sole containment tree. Durable non-ownership semantic
-concepts may be reified and connected through multiple role-labelled
-relations; later specification work owns endpoint roles, cardinality,
-permissible cycles, frame placement, and multi-part region membership.
+truth. Part-to-Part ownership is the sole structural body-containment tree.
+Declarative ownership of other concepts and typed records scopes identity and
+lifecycle without adding structural body edges. Durable non-structural
+semantic concepts may be reified and connected through multiple role-labelled
+relations; later specification work owns permissible cycles, additional frame
+placement, and multi-part region membership. The
+selected Joint, Socket, and Attachment endpoint roles and cardinalities are
+owned by DR-0008 and DR-0011; later specification work retains the deferred
+cycle, additional-frame, and multi-part-region rules.
 
-This record defers physical source formats, schema technology, override
-representation and precedence/conflict rules, runtime mutation/recompilation,
-and external-mesh conformance details. Durable semantic identity and separate
-artifact/build identity are defined at the boundary in
+The initial source encoding and structural validation boundary are owned by
+DR-0012. This record still defers override representation and
+precedence/conflict rules, runtime mutation/recompilation, and external-mesh
+conformance details. Durable semantic identity and separate artifact/build
+identity are defined at the boundary in
 [DR-0006](DR-0006-durable-semantic-and-artifact-identity.md).
 
 ## Consequences
@@ -106,7 +119,8 @@ artifact/build identity are defined at the boundary in
 - Semantic lineage remains distinct from generated outputs and can survive mesh
   replacement or remeshing.
 - The graph boundary exposes enough semantic structure for inspection and
-  diagnostics without selecting a concrete syntax or schema technology.
+  diagnostics without making graph meaning depend on the selected encoding or
+  structural-schema technology.
 - Source-set representation, override policy, precedence, and migration policy
   become long-lived contracts, but remain deferred here.
 - Edits made directly to derived output cannot silently become authored truth.
@@ -180,8 +194,9 @@ harder for external tools to distinguish.
 
 Separate phase-specific error channels could mirror implementation stages, but
 would make status precedence and diagnostic ordering ambiguous for clients. One
-operation-result envelope is authoritative across all phases; its exact phase
-and code vocabulary remains deferred.
+operation-result envelope is authoritative across all phases; DR-0012 fixes
+the initial phase sequence, while exact diagnostic-code vocabulary remains
+deferred.
 
 ### Learned latent representation
 
@@ -192,22 +207,23 @@ precise, editable, and compatible across model versions.
 
 [The Revision 3 authority, identity, and compatibility review](reviews/DR-0002-rev-03-review-01.md),
 [morphology, graph, and graphics-system review](reviews/DR-0002-rev-03-review-02.md),
-and the Revision 4 current-revision reviews
-([authority](reviews/DR-0002-rev-04-review-01.md),
-[morphology](reviews/DR-0002-rev-04-review-02.md)) are preserved as stale
+the Revision 4 current-revision reviews ([authority](reviews/DR-0002-rev-04-review-01.md),
+[morphology](reviews/DR-0002-rev-04-review-02.md)), and the Revision 5
+current-revision reviews ([contract](reviews/DR-0002-rev-05-review-01.md),
+[graphics-system](reviews/DR-0002-rev-05-review-02.md)) are preserved as stale
 historical evidence. On 2026-08-11 Ben approved the resulting CK-KICK-012
-resolutions for Revision 5. Its current-revision Double review is Complete in
-the [contract pass](reviews/DR-0002-rev-05-review-01.md) and [graphics-system
-pass](reviews/DR-0002-rev-05-review-02.md). Both recommend Accept at High
-confidence with no findings. The exact dependency-revision meaning remains a
-nonblocking later obligation. Review Complete records evidence, not owner
-acceptance. Only Ben may accept or reject this proposal.
+Batch 4 source/model/snapshot resolution for Revision 6. No current-revision
+review has been run; Review Pending records that required evidence is still
+outstanding. The exact dependency-revision meaning remains a nonblocking later
+obligation. Only Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 
-- Specify the source-set, resolved-graph, and derived-output relationships,
-  including source references, durable semantic nodes/relations, local frames,
-  resolved transforms, intent/lineage, and structured diagnostics.
+- Specify the source-set, source-text, normalized-model, resolved-graph, and
+  derived-output relationships, including source references, durable semantic
+  nodes/relations, local frames, resolved transforms, intent/lineage, and
+  structured diagnostics. Use DR-0012 for the initial encoding and resolution
+  boundary.
 - Define the one operation-result envelope across loading,
   syntax/schema/contract recognition, dependency and resource checks,
   semantic resolution, and invariant checks; specify status/category,
@@ -221,10 +237,10 @@ acceptance. Only Ben may accept or reject this proposal.
   output changes.
 - Define exact source-set dependency/version recording for outcome-affecting
   authored assets (the exact dependency-revision meaning remains a nonblocking
-  later obligation) and later define source formats, schema technology, overrides,
-  precedence/conflict rules, runtime mutation/recompilation,
-  external-mesh mapping, versioning, and migration before promising those
-  contracts.
+  later obligation), then define overrides, precedence/conflict rules, runtime
+  mutation/recompilation, external-mesh mapping, and future migration before
+  promising those contracts. The initial source encoding and structural
+  validation boundary are owned by DR-0012.
 
 ## Canonical Design Links
 
@@ -232,11 +248,13 @@ acceptance. Only Ben may accept or reject this proposal.
 - [System overview](../architecture/system-overview.md)
 - [Specification boundary](../../spec/README.md)
 - [Durable semantic and artifact identity](DR-0006-durable-semantic-and-artifact-identity.md)
+- [Initial body-document encoding, resolution, and compatibility](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md)
 
 ## Reversibility and Revisit Triggers
 
 Changing the source-set and resolved-graph relationship becomes expensive after
 documents and tools exist. Revisit if authored inputs cannot express required
 morphology, if derived output cannot preserve artist intent, or if a hybrid
-asset model proves necessary through experiments. Exact formats, overrides,
-runtime mutation, and external-mesh conformance remain separately revisitable.
+asset model proves necessary through experiments. The initial encoding,
+overrides, runtime mutation, and external-mesh conformance remain separately
+revisitable under their owning records.

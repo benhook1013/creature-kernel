@@ -6,13 +6,13 @@ Scope: Product, Specification and architecture
 
 Status: Proposed
 
-Revision: 5
+Revision: 6
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-09
 
@@ -20,14 +20,16 @@ Date decided: —
 
 Discussion approval date: 2026-08-11
 
-Revision history: Revisions 1–4 and their reviews remain preserved as
+Revision history: Revisions 1–5 and their reviews remain preserved as
 historical evidence. Revision 3 recorded Ben's CK-KICK-012 Batch 1
-morphology/grammar selection and Revision 4 recorded its first review-
-resolution batch. On 2026-08-11 Ben approved the CK-KICK-012 Batch 3
-articulation and fixture-outcome resolutions recorded in Revision 5. This
-discussion approval is not DR acceptance: this revision remains Proposed with
-Owner approval Pending until a current-revision review and Ben's owner
-disposition are recorded. Reviews of Revision 4 are stale for this revision.
+morphology/grammar selection, Revision 4 recorded its first review-resolution
+batch, and Revision 5 recorded the Batch 3 fixture-outcome resolution. On
+2026-08-11 Ben approved the CK-KICK-012 Batch 4 typed articulation and
+composition resolution recorded in Revision 6. This discussion approval is
+not DR acceptance: this revision remains Proposed with Owner approval Pending
+until a current-revision review and Ben's owner disposition are recorded.
+Reviews of Revision 5, as well as earlier reviews, are stale for this
+revision.
 
 Supersedes: —
 
@@ -110,33 +112,51 @@ joints, sockets/attachments, capabilities, and regions. Ownership edges and
 relations are distinct: a relation does not imply ownership, and ownership does
 not replace the relation's type or semantics.
 
-Ownership is the sole containment tree. Durable non-ownership concepts may be
-reified and connected through multiple role-labelled relations. The later body
-specification owns endpoint roles, cardinality, permissible cycles, frame
-placement, and multi-part region membership; this is not a general arbitrary
-hypergraph or solver representation. The first grammar nevertheless supports
-only this bounded family and its declared relation kinds; arbitrary anatomy
-and arbitrary user-defined graph kinds are unsupported. Invalid or unsupported
-assemblies receive structured diagnostics. Units and coordinate basis must be
-declared, and local frames and resolved transforms must be explicit.
+Part-to-Part ownership is the sole structural body-containment tree.
+Declarative ownership of other concepts and typed records scopes identity and
+lifecycle without adding structural body edges. Durable non-structural
+concepts may be reified and connected through multiple role-labelled
+relations. The selected Joint, Socket, and Attachment endpoint roles and cardinalities are defined
+below and in DR-0011; later body specification work owns permissible cycles,
+additional frame placement, and multi-part region membership. This is not a
+general arbitrary hypergraph or solver representation. The first grammar
+nevertheless supports only this bounded family and its declared relation
+kinds; arbitrary anatomy and arbitrary user-defined graph kinds are
+unsupported. Invalid or unsupported assemblies receive structured
+diagnostics. Units and coordinate basis must be declared, and local frames and
+resolved transforms must be explicit.
 
-The first digitigrade family requires minimum functional articulation/landmark
-roles sufficient for Stage 2 lineage. The required functional order and
-adjacency is: axial lineage root reference → pelvis → chest → neck → head;
-each arm shoulder → elbow → wrist → terminal paw-base; and each digitigrade
-leg hip → knee → one hock/ankle functional articulation → terminal paw-base.
-When present, a tail has a tail-base role and may have further segments. Ears
-require no articulation in this first envelope. Root is a reference role,
-torso is an owned part, and chest is the upper-torso landmark. These arrows
-express required functional order/adjacency, not serialized syntax. These are
-semantic roles and frames, not a fixed bone hierarchy or count, joint limits,
-solver, rig implementation, or anatomical-fidelity claim. Exact role
-spelling/serialization and further chains remain spec detail.
+The first digitigrade family requires the following typed functional
+articulation and landmark roles for Stage 1 lineage. A root-reference frame is
+owned by the pelvis Part. The directed axial chain is:
+
+- pelvis Part → spine Joint → torso/chest Part → neck-base Joint → neck Part →
+  head-base Joint → head Part;
+- shoulder Joint (torso Part → upper-arm Part) → elbow Joint (upper-arm Part →
+  forearm Part) → wrist Joint (forearm Part → hand/paw Part), with a terminal
+  paw-base landmark or Socket; and
+- hip Joint (pelvis Part → thigh Part) → knee Joint (thigh Part → lower-leg
+  Part) → one hock/ankle Joint (lower-leg Part → foot/paw Part), with a
+  terminal paw-base landmark or Socket.
+
+Each named articulation is a directed Joint with exactly one proximal Part and
+one distal Part. Its endpoint frames are relative to those Parts, as defined
+by DR-0011. A terminal landmark or Socket is a typed record/interface owned or
+referred to by its named Part; it is not an additional implicit Joint. Optional
+ear and tail module composition uses an Attachment between a host Socket and a
+mating Socket. If a tail is movable, its articulation is represented by a
+separate Joint; an Attachment alone never implies articulation. Ears require
+no articulation in this first envelope. These arrows express required
+functional order/adjacency, not serialized syntax. These are semantic roles
+and frames, not a fixed bone hierarchy or count, joint limits, solver, rig
+implementation, or anatomical-fidelity claim. Exact role spelling and
+serialization remain spec detail.
 
 This decision does not choose an exact permanent coordinate convention, numeric
-ranges, surface primitives, schema or syntax technology, or a new morphology
-family. Those choices remain deferred to their owning specification, evidence,
-and decision work.
+ranges, surface primitives, the detailed source fields/schema, or a new
+morphology family. The initial JSON encoding and structural-schema technology
+are selected by DR-0012; their exact source fields and schema remain deferred
+to that specification work.
 
 ### Stage 1 embodiment boundary
 
@@ -172,6 +192,12 @@ evidence, not Stage 1 success population.
   disguised single template.
 - Required modules and named optional sockets provide a stable semantic scope
   while leaving later families and detailed anatomy open.
+- Required articulation is now typed and directed: each Joint has exactly one
+  proximal and one distal Part, endpoint frames are relative to those Parts,
+  and terminal paw-base landmarks or Sockets do not create hidden joints.
+- Optional ear/tail composition uses Socket-to-Socket Attachment; a movable
+  tail requires a separate Joint, preserving the distinction between
+  composition and articulation.
 - Continuous variation can expose generator failures without turning each
   fixture into a bespoke asset.
 - Stage 1 can preserve embodiment lineage and regions without bringing Stage 2
@@ -274,6 +300,14 @@ This supplies stable Stage 2 inputs without fixing a bone hierarchy, bone
 count, limits, rigging technique, or anatomical-fidelity claim.
 **Recommendation: Option 2.**
 
+The selected roles are typed Joint and Part concepts rather than labels whose
+meaning a resolver must infer. A directed proximal-to-distal endpoint rule
+gives graphics and semantic consumers the same cardinality and frame handoff.
+Treating a Socket-to-Socket Attachment as articulation, or treating a terminal
+paw-base landmark/Socket as an implicit Joint, would reintroduce the ambiguity
+that this bounded lineage is intended to remove; those alternatives are not
+selected.
+
 #### Option 3: Remove the Stage 1-to-Stage 2 lineage promise
 
 This would make opaque modules coherent, but weakens the staged proof and
@@ -309,18 +343,14 @@ The Revision 1, Revision 2, and Revision 3 current-revision reviews
 [second review](reviews/DR-0008-rev-03-review-02.md)), together with the
 Revision 4 current-revision reviews
 ([authority](reviews/DR-0008-rev-04-review-01.md),
-[morphology](reviews/DR-0008-rev-04-review-02.md)), are preserved as stale
+[morphology](reviews/DR-0008-rev-04-review-02.md)), and the Revision 5
+current-revision reviews ([contract](reviews/DR-0008-rev-05-review-01.md),
+[graphics-system](reviews/DR-0008-rev-05-review-02.md)) are preserved as stale
 historical evidence. On 2026-08-11 Ben approved the resulting CK-KICK-012
-articulation and fixture-outcome resolutions for Revision 5. Its
-current-revision Double review is Complete in the [contract
-pass](reviews/DR-0008-rev-05-review-01.md) and [graphics-system
-pass](reviews/DR-0008-rev-05-review-02.md). The contract pass recommends Accept
-at Medium confidence with no finding. The graphics pass recommends Revise at
-High confidence because required articulation roles still lack explicit
-concept/endpoint typing; it also records a nonblocking cross-DR fixture-matrix
-obligation. The blocker awaits Ben's disposition. Review Complete records
-evidence, not a clean review or acceptance. Only Ben may accept or reject this
-proposal.
+Batch 4 typed-articulation and composition resolution for Revision 6. No
+current-revision review has been run; Review Pending records that required
+evidence is still outstanding. The cross-DR fixture-matrix obligation remains
+open. Only Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 
@@ -328,10 +358,12 @@ proposal.
   ownership tree, reified relation concepts and role-labelled relations,
   invalid/unsupported assemblies, and deterministic variation inputs in the
   later body specifications.
-- Specify the ordered axial, arm, leg, and optional-tail articulation roles,
-  including root-reference, torso ownership, chest landmark, and the single
-  hock/ankle functional articulation per digitigrade leg; preserve their
-  semantic frames through Stage 1 lineage without implying a fixed rig,
+- Specify the typed, directed axial, arm, leg, and optional-tail articulation
+  roles, including the pelvis-owned root-reference frame, Part endpoints,
+  proximal/distal cardinality, endpoint frames relative to those Parts,
+  terminal paw-base landmark/Socket roles, Socket-to-Socket Attachment
+  composition, and the single hock/ankle Joint per digitigrade leg. Preserve
+  their semantic frames through Stage 1 lineage without implying a fixed rig,
   solver, bone count, or anatomical-fidelity claim.
 - Define declared units and coordinate basis, explicit local frames and
   resolved transforms, and structured diagnostics without locking a permanent
@@ -349,10 +381,15 @@ proposal.
   evidence; generate usable skeletons, skin weights, and collision proxies and
   evaluate the shared pose/control scenario in Stage 2; reserve actual contact
   and deformation/runtime claims for Stage 3.
+- Freeze the cross-DR fixture matrix covering durable identities, typed
+  articulation endpoints, measurement/frame cases, expected outcomes, and
+  diagnostics before treating implementation evidence as proof.
 - Defer exact ratios and numeric ranges, surface primitives and geometry method,
-  schema/syntax technology, permanent coordinate convention, rigging technique,
-  runtime backend, budgets, new morphology families, and compatibility rules to
-  evidence and their own decisions.
+  detailed source fields/schema, permanent coordinate convention, rigging
+  technique, runtime backend, budgets, new morphology families, and future
+  compatibility refinements to evidence and their own decisions. The initial
+  encoding, compatibility recognition, and structural-schema technology are
+  owned by DR-0012.
 
 ## Canonical Design Links
 

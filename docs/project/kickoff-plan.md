@@ -589,7 +589,8 @@ gets its own DR and review before backend-specific compiler code locks it in.
 
 ### CK-KICK-012: Specify the minimal body document and body graph
 
-State: active (Batch 1 integrated/proposed; later semantic batches pending)
+State: active (Batches 1 and 4 integrated as Proposed documentation; new
+revisions and current-revision review pending)
 
 Prerequisites: the exploratory executable spine and enough semantic context to
 define a minimal useful input/output; CK-KICK-011 is not required.
@@ -616,10 +617,8 @@ Outcome:
   interface frame; Attachment maps a module to a socket, not automatically a
   joint; Region is overlapping and never ownership; Capability is a queryable
   affordance; and Field is representation-neutral spatial intent/channel with
-  lineage. Required articulation is root reference → pelvis → chest → neck →
-  head; arms shoulder → elbow → wrist → terminal paw-base; legs hip → knee →
-  one hock/ankle articulation → terminal paw-base; and present tails have a
-  tail-base with later segments optional. Ears require none. These roles do
+  lineage. Batch 4 refines the earlier role shorthand into the typed Part,
+  Joint, landmark, Socket, and Attachment chain recorded below. These roles do
   not claim bone, solver, rig, or anatomy fidelity.
 - Transforms own reference-frame placement; typed dimensions own size/extents;
   anchors/landmarks have authored or derived provenance; ratios are derived
@@ -640,30 +639,97 @@ Outcome:
   numeric ranges, surface primitives, identity address serialization,
   structural-edit lifecycle/remap semantics, language, surface, animation,
   physics, and runtime choices remain deferred.
-- No `spec/body-document/` or `spec/body-graph/` destination is activated by
-  this discussion; those planned families remain uncreated until a later
-  specification or implementation trigger.
+- The first parser and resolver proposals now activate the
+  [`spec/body-document/`](../../spec/body-document/README.md) and
+  [`spec/body-graph/`](../../spec/body-graph/README.md) contract families.
+  Their implementation packages and compiler-consumed fixtures remain
+  unactivated.
 
 The Batch 1 discussion selections and review resolutions are not DR acceptance.
-DR-0002 Revision 5, DR-0006 Revision 4, DR-0008 Revision 5, and DR-0011
-Revision 1 remain Proposed with Owner approval Pending and Review Complete
-after their current-revision Double reviews. DR-0002 and DR-0006 have no
-blocking finding; DR-0008 and DR-0011 retain two consolidated blockers:
-semantic classification/articulation ownership and detectable
-measurement-conflict semantics. Exact phases/codes, extension and
-compatibility details, resource limits, schema fixtures, and exact canonical
-axes/units/rotation/scale/shear remain pending. CK-KICK-012 remains active; this
-batch does not complete the round.
+The prior revisions have complete review evidence, but the Batch 4 resolutions
+create new Proposed revisions for DR-0002, DR-0008, and DR-0011, plus DR-0012,
+with Owner approval Pending and a new current-revision Double review pending.
+DR-0006 remains Proposed with its current revision's review evidence. The
+cross-cutting proposal is
+[DR-0012: initial body-document encoding, resolution, and
+compatibility](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
+CK-KICK-012 remains active; this batch does not complete the round.
 
-Human decisions concern semantics and compatibility. Concrete syntax and schema
-technology are recommended separately where they are reversible.
+### Batch 4 — encoding, resolution, and compatibility (discussion-approved)
 
-Canonical references for this batch are [DR-0002 Revision 5](../decisions/DR-0002-declarative-body-document-source-of-truth.md),
-[DR-0006 Revision 4](../decisions/DR-0006-durable-semantic-and-artifact-identity.md),
-[DR-0008 Revision 5](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
-and [DR-0011 Revision 1](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md). They
-remain Proposed pending resolution of the recorded findings and Ben's owner
-disposition.
+On 2026-08-11 Ben approved the following CK-KICK-012 Batch 4 resolutions in
+discussion. They are integrated here as Proposed contract material only; they
+do not accept or silently replace the decision records.
+
+- The identity-bearing embodied concepts are Part, Joint, Socket, Attachment,
+  Region, Capability, and Field. Module is an authored reusable scope that
+  instantiates concepts, not an embodied graph concept. Landmark, anchor,
+  dimension, and frame are typed owned records addressed through owner and
+  role.
+- Joint is a directed identity-bearing relation with exactly one proximal Part
+  and one distal Part, with endpoint frames relative to each. Socket is a
+  Part-owned named interface. Attachment connects one host Socket to one
+  mating Socket and does not imply articulation.
+- The pelvis Part owns the root-reference frame. The minimum typed Stage 1
+  chain is pelvis → spine Joint → torso/chest Part → neck-base Joint → neck Part →
+  head-base Joint → head. Arms use shoulder/elbow/wrist Joints between the
+  named torso, upper-arm, forearm, and hand/paw Parts, ending at a paw-base
+  landmark/Socket. Legs use hip/knee/hock-or-ankle Joints between pelvis,
+  thigh, lower-leg, and foot/paw Parts, ending at a paw-base landmark/Socket.
+  Ear/tail modules use Attachment; a movable tail also uses a separate Joint.
+  These are semantic roles and frames, not bone, solver, rig, or anatomy
+  fidelity commitments.
+- Conflict claims target owner address, property role, and frame/context and
+  compare after normalization. Authored claims and explicit invariants must
+  be jointly satisfiable within contract tolerance; derived/defaulted values
+  never override authored claims and no hidden inferred equations are allowed.
+  A conflict is a semantic-invalid deterministic diagnostic and publishes no
+  success snapshot.
+- Resolver phases are resource/input admission; syntax/schema/contract;
+  dependencies; namespaces/identity/references; ownership/typed relations;
+  unit/frame normalization and value derivation; semantic invariants; and
+  success publication. Fatal phases block dependent work while independent
+  diagnostics within a phase accumulate. Provenance distinguishes authored,
+  defaulted, and derived values; required unresolved or ambiguous values cannot
+  succeed.
+- Unknown core members fail. Explicit namespaced extensions carry namespace,
+  revision, required/optional indication, and opaque payload. Unsupported
+  required extensions are unsupported; unsupported optional extensions are
+  preserved opaquely and have no core semantic effect. Machine diagnostic
+  identity and order are stable contract data; human messages are not
+  compatibility keys.
+- The initial source adapter is one strict UTF-8 JSON document: duplicate keys,
+  comments, includes, and evaluation are rejected. JSON Schema Draft 2020-12
+  is the proposed structural-validation vocabulary, while CK semantic
+  resolution owns graph meaning. Exact semantic contract family and revision
+  recognition is required; no silent migration or downgrade is allowed, and
+  explicit migration emits a new source. Semantic contract identity is separate
+  from compiler/build/configuration/seed/dependency/artifact identity.
+- Finite implementation-profile resource limits use source and aggregate bytes,
+  string lengths/counts, nesting depth, object/array members, graph
+  entities/relations, ownership depth, module/reference expansion, extension
+  count/payload, numeric admissibility, diagnostics, and aggregate work/memory.
+  Exact numeric limits, tolerances, serialized field names, canonical
+  axes/units/rotation/scale/shear, source-map encoding, and canonical
+  bytes/hashing remain deferred. Semantic equivalence concerns identities,
+  relations, frames, values, provenance, and outcome, not text ordering or
+  generated topology.
+- The minimum Stage 1 graph invariants and outcome/resource fixtures are
+  planned, including the cross-DR fixture matrix. The nonblocking exact
+  dependency-revision obligation remains open before external authored
+  dependencies activate. Compiler packages and compiler-consumed fixtures are
+  not activated by this discussion batch.
+
+Further CK-KICK-012 decisions concern exact serialized fields, numeric and frame
+conventions, diagnostic codes, dependency revisions, and fixture contents; the
+initial syntax and structural-schema technology are now Proposed selections.
+
+Canonical references for the earlier batches are [DR-0002](../decisions/DR-0002-declarative-body-document-source-of-truth.md),
+[DR-0006](../decisions/DR-0006-durable-semantic-and-artifact-identity.md),
+[DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
+and [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
+Their prior revisions have review evidence; Batch 4 creates new Proposed
+revisions pending current-revision Double review and Ben's owner disposition.
 
 ## Round 8 — implementation platform (provisional)
 

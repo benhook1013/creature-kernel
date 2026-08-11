@@ -51,6 +51,52 @@ material, and prepared deformation assets with selected semantic fields, cages,
 signed-distance data, and regional simulation data. It is neither fully live
 implicit generation by default nor semantics-free conventional assets.
 
+### Source admission and semantic resolution
+
+The initial source path accepts one strict UTF-8 JSON document. Duplicate keys,
+comments, includes, and evaluation are rejected. Structural validation uses
+the proposed JSON Schema Draft 2020-12 vocabulary; CK semantic resolution then
+owns the resolved body graph. Source text, the normalized admission model, and
+the resolved success snapshot are separate representations. Exact semantic
+contract family and revision recognition is required; migration is explicit
+and creates a new source. Unknown core members fail. An unsupported required
+extension is unsupported, while an unsupported optional namespaced extension
+is preserved opaquely and has no core semantic effect.
+
+The resolver runs the following ordered phases inside one operation-result
+envelope:
+
+1. resource and input admission;
+2. syntax, structural-schema, and contract recognition;
+3. dependency admission and exact-revision checks;
+4. namespaces, identity, and references;
+5. ownership and typed relations;
+6. unit/frame normalization and value derivation;
+7. semantic invariants; and
+8. success publication.
+
+Fatal failure blocks dependent phases, but independent diagnostics within one
+phase accumulate in deterministic order. Provenance distinguishes authored,
+defaulted, and derived values. Required unresolved or ambiguous values, and
+measurement claims that conflict after normalization by owner address,
+property role, and frame/context, cannot publish success. A conflict is a
+semantic-invalid deterministic diagnostic; no valid-supported snapshot is
+published. Resource admission uses finite implementation-profile limits for
+source and aggregate bytes; string lengths/counts; nesting depth; object/array
+members; graph entities/relations; ownership depth; module/reference
+expansion; extension count/payload; numeric admissibility; diagnostics; and
+aggregate work and memory. Exact values and accounting remain deferred.
+The profile is selected during admission, and its guards remain active through
+later phases whose expansion, graph, diagnostic, work, or memory use cannot be
+known before parsing.
+
+Machine-readable diagnostic identity and order are stable contract data; human
+messages are explanatory rather than compatibility keys. Semantic equivalence
+compares durable identities, relations, frames, normalized values, provenance,
+and outcome, not source ordering or generated topology. Semantic contract
+identity remains separate from compiler/build/configuration/seed, dependency,
+and artifact identities.
+
 ## Real-time simulation
 
 The runtime may perform bounded stateful work:
