@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-09
 
@@ -311,10 +311,16 @@ Revision 4 current-revision reviews
 ([authority](reviews/DR-0008-rev-04-review-01.md),
 [morphology](reviews/DR-0008-rev-04-review-02.md)), are preserved as stale
 historical evidence. On 2026-08-11 Ben approved the resulting CK-KICK-012
-articulation and fixture-outcome resolutions for Revision 5. Review status for
-this revision is Pending; no current-revision review has yet been run. Review
-evidence records neither acceptance nor a clean review. Only Ben may accept or
-reject this proposal.
+articulation and fixture-outcome resolutions for Revision 5. Its
+current-revision Double review is Complete in the [contract
+pass](reviews/DR-0008-rev-05-review-01.md) and [graphics-system
+pass](reviews/DR-0008-rev-05-review-02.md). The contract pass recommends Accept
+at Medium confidence with no finding. The graphics pass recommends Revise at
+High confidence because required articulation roles still lack explicit
+concept/endpoint typing; it also records a nonblocking cross-DR fixture-matrix
+obligation. The blocker awaits Ben's disposition. Review Complete records
+evidence, not a clean review or acceptance. Only Ben may accept or reject this
+proposal.
 
 ## Implementation and Proof Obligations
 

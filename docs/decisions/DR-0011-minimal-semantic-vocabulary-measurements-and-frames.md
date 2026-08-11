@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-11
 
@@ -167,9 +167,18 @@ and make runtime state changes non-authoritative.
 
 ## Adversarial Review Response
 
-No current-revision adversarial review has been run. The discussion approval on
-2026-08-11 is not a review, clean-review finding, or acceptance. Review status
-is Pending, and only Ben may accept or reject this proposal.
+The current-revision Double review is Complete in the [contract
+pass](reviews/DR-0011-rev-01-review-01.md) and [graphics-system
+pass](reviews/DR-0011-rev-01-review-02.md). Both recommend Revise at High
+confidence. The contract pass finds Module, landmark/anchor, dimension, and
+frame insufficiently classified as identity-bearing concepts versus owned
+typed values. The graphics pass finds the related articulation endpoint typing
+ambiguous and the minimum measurement-conflict semantics undefined. These
+consolidate into two blockers awaiting Ben's disposition: semantic
+classification/articulation ownership, and detectable measurement conflict.
+The graphics pass also records a nonblocking cross-DR fixture-matrix
+obligation. Review Complete records evidence, not a clean review or acceptance;
+only Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 

@@ -646,8 +646,11 @@ Outcome:
 
 The Batch 1 discussion selections and review resolutions are not DR acceptance.
 DR-0002 Revision 5, DR-0006 Revision 4, DR-0008 Revision 5, and DR-0011
-Revision 1 remain Proposed with Owner approval Pending and Review Pending until
-their current-revision Double reviews. Exact phases/codes, extension and
+Revision 1 remain Proposed with Owner approval Pending and Review Complete
+after their current-revision Double reviews. DR-0002 and DR-0006 have no
+blocking finding; DR-0008 and DR-0011 retain two consolidated blockers:
+semantic classification/articulation ownership and detectable
+measurement-conflict semantics. Exact phases/codes, extension and
 compatibility details, resource limits, schema fixtures, and exact canonical
 axes/units/rotation/scale/shear remain pending. CK-KICK-012 remains active; this
 batch does not complete the round.
@@ -659,7 +662,8 @@ Canonical references for this batch are [DR-0002 Revision 5](../decisions/DR-000
 [DR-0006 Revision 4](../decisions/DR-0006-durable-semantic-and-artifact-identity.md),
 [DR-0008 Revision 5](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
 and [DR-0011 Revision 1](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md). They
-remain Proposed pending current-revision Double review and Ben's disposition.
+remain Proposed pending resolution of the recorded findings and Ben's owner
+disposition.
 
 ## Round 8 — implementation platform (provisional)
 

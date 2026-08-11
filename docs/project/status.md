@@ -67,8 +67,11 @@ vocabulary; explicit measurement ownership and conflict diagnostics; and
 declared source frames normalized to a revisioned canonical basis with
 provenance. These discussion approvals do not accept the revised DRs.
 DR-0002 Revision 5, DR-0006 Revision 4, DR-0008 Revision 5, and DR-0011
-Revision 1 are Proposed with Owner approval Pending and Review Pending until
-their current-revision Double reviews. Exact phases/codes, extension and
+Revision 1 are Proposed with Owner approval Pending and Review Complete after
+their current-revision Double reviews. DR-0002 and DR-0006 have no blocker;
+DR-0008 and DR-0011 retain two consolidated blockers: semantic
+classification/articulation ownership and detectable measurement-conflict
+semantics. Exact phases/codes, extension and
 compatibility details, resource limits, schema fixtures, and exact canonical
 axes/units/rotation/scale/shear remain pending. Later CK-KICK-012 resolution
 and extension batches remain active work.
@@ -137,7 +140,7 @@ metadata. Current non-governance proposals include:
 
 - [DR-0002](../decisions/DR-0002-declarative-body-document-source-of-truth.md),
   source set and resolved body graph — Revision 5, Proposed, Owner approval
-  Pending, Review Pending.
+  Pending, Review Complete, no blocking finding.
 - [DR-0003](../decisions/DR-0003-real-time-first-compiled-avatar-boundary.md),
   compiled avatar and bounded real-time execution — Revision 2, Proposed,
   Review Complete, owner disposition pending.
@@ -149,15 +152,16 @@ metadata. Current non-governance proposals include:
   disposition pending.
 - [DR-0006](../decisions/DR-0006-durable-semantic-and-artifact-identity.md),
   semantic and artifact identity — Revision 4, Proposed, Owner approval
-  Pending, Review Pending.
+  Pending, Review Complete, no blocking finding.
 - [DR-0007](../decisions/DR-0007-staged-first-proof-charter.md) and
   [DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
   first-proof and morphology boundaries — DR-0007 Revision 2 remains Proposed,
   Review Complete; DR-0008 Revision 5 is Proposed, Owner approval Pending,
-  Review Pending.
+  Review Complete, with articulation-typing finding pending.
 - [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md),
   semantic vocabulary, measurements, and coordinate frames — Revision 1,
-  Proposed, Owner approval Pending, Review Pending.
+  Proposed, Owner approval Pending, Review Complete, with classification and
+  measurement-conflict findings pending.
 - [DR-0009](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
   and [DR-0010](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md)
   are parked as described in [Current activation state](#current-activation-state).

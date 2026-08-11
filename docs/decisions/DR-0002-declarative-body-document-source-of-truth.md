@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-08
 
@@ -196,9 +196,12 @@ and the Revision 4 current-revision reviews
 ([authority](reviews/DR-0002-rev-04-review-01.md),
 [morphology](reviews/DR-0002-rev-04-review-02.md)) are preserved as stale
 historical evidence. On 2026-08-11 Ben approved the resulting CK-KICK-012
-resolutions for Revision 5. Review status for this revision is Pending; no
-current-revision review has yet been run. Review evidence records neither
-acceptance nor a clean review. Only Ben may accept or reject this proposal.
+resolutions for Revision 5. Its current-revision Double review is Complete in
+the [contract pass](reviews/DR-0002-rev-05-review-01.md) and [graphics-system
+pass](reviews/DR-0002-rev-05-review-02.md). Both recommend Accept at High
+confidence with no findings. The exact dependency-revision meaning remains a
+nonblocking later obligation. Review Complete records evidence, not owner
+acceptance. Only Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 
