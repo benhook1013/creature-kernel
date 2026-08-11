@@ -1,7 +1,7 @@
 # Normative specifications
 
 Status: Active authority boundary; proposed body-document and body-graph
-contracts are discussion-approved for CK-KICK-012 Batch 4, but no format is
+contracts are discussion-approved for CK-KICK-012 Batch 5, but no format is
 accepted
 
 This directory will own machine-facing semantics and serialized contracts. It is
@@ -12,25 +12,27 @@ The current semantic proposal set is represented by [DR-0002](../docs/decisions/
 [DR-0006](../docs/decisions/DR-0006-durable-semantic-and-artifact-identity.md),
 [DR-0008](../docs/decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
 and [DR-0011](../docs/decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
-Their prior revisions have complete review evidence, and the new Batch 4
-resolutions create new Proposed revisions for DR-0002, DR-0008, and DR-0011,
-plus the new DR-0012. Their current Double review is Complete, with six
-consolidated blockers pending Ben discussion and Ben's owner disposition still
-pending. DR-0006 remains Proposed with its current revision's review evidence.
-The cross-cutting proposal is [DR-0012: initial
-body-document encoding, resolution, and compatibility](../docs/decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
+Their prior revisions have complete review evidence. Batch 5 blocker
+resolutions are discussion-approved and are represented as Proposed canonical
+material here. DR-0002 Revision 7, DR-0008 Revision 7, DR-0011 Revision 3,
+and DR-0012 Revision 2 are Proposed with Owner approval Pending and Review
+Pending. Their prior Batch 4 Double review is stale, and a fresh current
+Double review is pending. DR-0006 remains Proposed with its current revision's
+review evidence. The cross-cutting proposal is [DR-0012: initial body-document
+encoding, resolution, and compatibility](../docs/decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
 
 ## Proposed specification families
 
 - [Body-document contract](body-document/README.md): the initial strict UTF-8
-  JSON source encoding, structural validation boundary, exact contract-family
-  and revision recognition, extension envelope, compatibility, diagnostics,
-  and finite resource-profile rules. It does not choose serialized field names
-  or provide a machine schema file.
+  JSON source encoding, ordered bootstrap and exact contract recognition,
+  closed operation statuses and precedence, bounded deterministic diagnostics,
+  and streaming/token-aware finite resource rules. It does not choose
+  serialized field names or provide a machine schema file.
 - [Resolved body-graph contract](body-graph/README.md): typed concepts,
-  durable semantic identity, directed joints, socket/attachment relations,
-  frames, provenance, minimum Stage 1 graph invariants, graph-side resolution
-  obligations, and success-publication rules.
+  durable semantic identity, explicit Part containment and transform
+  inheritance, directed joints with canonical local frame records,
+  host/mating Socket Attachment placement, provenance, Stage 1 invariants, and
+  success-publication rules.
 
 Both proposed contracts apply a finite implementation profile. Its approved
 resource-limit categories are source and aggregate bytes, string
@@ -65,7 +67,13 @@ accounting remain unselected.
   reusable scope; landmark, anchor, dimension, and frame are typed owner+role
   records. Joint has one proximal and one distal Part; Socket is Part-owned;
   Attachment connects one host and one mating Socket without implying
-  articulation. The pelvis Part owns the root-reference frame. The axial chain
+  articulation. Every embodied Part has exactly one explicit containment path
+  to the root, including an optional module root; containment supplies
+  transform inheritance and is checked independently from relation cycles.
+  Stage 1 required Joints connect containment parents to immediate children.
+  Attachment placement uses host/mating interface frames, optional offset, and
+  inverse mating placement; competing authored placement must agree within a
+  later-defined tolerance. The pelvis Part owns the root-reference frame. The axial chain
   is pelvis → spine Joint → torso/chest Part → neck-base Joint → neck Part →
   head-base Joint → head Part. Arm and leg chains use the required typed Joints
   and Parts and end in terminal paw-base landmark/Socket roles. Ear/tail modules

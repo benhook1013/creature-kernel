@@ -6,10 +6,16 @@ These are conceptual boundaries, not approved packages or technologies. Code
 directories should be created only after the relevant boundary is accepted and
 its activation trigger is met.
 
+The CK-KICK-012 Batch 5 resolutions are discussion-approved and represented as
+Proposed responsibility consequences. DR-0002 Revision 7, DR-0008 Revision 7,
+DR-0011 Revision 3, and DR-0012 Revision 2 are Proposed with Owner approval
+Pending and Review Pending. Prior Batch 4 review evidence is stale for these
+material changes, and a fresh current Double review is pending.
+
 | Component | Responsibilities | Explicit non-responsibilities |
 | --- | --- | --- |
-| Authoritative semantic source set | Admit one initial strict UTF-8 JSON document, preserve authored intent, track exact revisions of outcome-affecting authored dependencies, classify extensions, report source errors, and provide the sole authored authority | Generate meshes or run gameplay, or treat an external mesh as semantic truth |
-| Semantic body resolver | Run resource/input, syntax/schema/contract, dependency, namespace/identity/reference, ownership/relation, normalization/derivation, invariant, and publication phases inside one authoritative operation-result envelope; only valid-supported input yields an optional compilable inspectable per-build graph snapshot with typed concepts, directed Joint endpoints, declared frames, resolved transforms, provenance, intent/lineage, and structured diagnostics | Host-engine objects, become an authored source, or make derived artifacts authoritative; rejected partial graphs are non-compilable, debug-only, and non-contractual |
+| Authoritative semantic source set | Admit the initial strict UTF-8 JSON source through the bootstrap and resource rules in the [body-document contract](../../spec/body-document/README.md), preserve authored intent, track exact revisions of outcome-affecting authored dependencies, classify extensions, report one result envelope, and provide the sole authored authority | Generate meshes or run gameplay, or treat an external mesh as semantic truth |
+| Semantic body resolver | Execute the canonical admission, bootstrap, dependency, explicit-containment/typed-relation, normalization, invariant, and publication boundaries inside one result envelope; only complete valid-supported input yields an optional compilable inspectable graph snapshot with canonical Joint/Socket frame records and provenance | Host-engine objects, become an authored source, or make derived artifacts authoritative; rejected partial graphs are non-compilable, debug-only, and non-contractual |
 | Geometry field system | Evaluate part volumes, composition, semantic fields | Choose runtime animation |
 | Surface compiler | Extract, repair, remesh, simplify, and attribute visible surfaces | Define semantic truth |
 | Rigging compiler | Generate joints, limits, skinning, correctives, and bindings | Own interaction intent |
@@ -39,39 +45,20 @@ CLI, validation, and host-engine adapters
 Host adapters may depend on core contracts. Core contracts must not depend on a
 host adapter.
 
-The semantic resolver preserves the typed vocabulary: Part is structural and
-owned; Joint is an articulation relation with frames; Socket is a Part-owned
-named interface frame; Attachment connects exactly one host Socket to exactly
-one mating Socket and does not imply a Joint; Region is an overlapping spatial
-designation, never ownership; Capability is a queryable affordance; and Field
-carries representation-neutral spatial intent and lineage. Transforms own
-reference-frame placement, dimensions own extents,
-anchors/landmarks carry authored or derived provenance, ratios are derived, and
-conflicting constraints become diagnostics. Source-declared units,
-handedness, up, and forward are converted to a contract-revision canonical
-basis with provenance; local/reference, joint, socket/mating, derived
-world/reference, and runtime-pose frames remain distinct.
+The resolver consumes the typed vocabulary and explicit containment rules in
+the [body-graph contract](../../spec/body-graph/README.md): every Part has one
+root path, containment supplies transform inheritance, relation traversal does
+not repair containment, and containment/relation cycle checks are independent.
+The graph handoff exposes directed Joints with canonical proximal/distal frame
+records in the corresponding Part-local bases and Part-owned Sockets with
+interface-frame records. Attachment composition and optional-module
+placement remain semantic data, never an implied Joint or runtime rig.
 
-The graph contract makes the typing executable at the boundary: Joint is
-directed with exactly one proximal and one distal Part and endpoint frames
-relative to each; Socket is Part-owned; Attachment has one host Socket and one
-mating Socket and does not imply articulation. Module is authored reusable
-scope, not an embodied graph concept. Landmark, anchor, dimension, and frame
-are typed owner+role records. Claims compare after normalization by owner
-address, property role, and frame/context; authored claims and explicit
-invariants must be jointly satisfiable, derived/defaulted values cannot
-override authored claims, and conflict is semantic-invalid with no success
-snapshot.
-
-Resolver implementation must stop dependent phases after a fatal failure while
-accumulating independent diagnostics within a phase. Required unresolved or
-ambiguous values cannot succeed. Machine diagnostic identity and order are
-stable contract data; human messages are not compatibility keys. Finite
-implementation-profile limits cover source and aggregate bytes, string
-lengths/counts, nesting depth, object/array members, graph entities/relations,
-ownership depth, module/reference expansion, extension count/payload, numeric
-admissibility, diagnostics, and aggregate work/memory, without selecting
-numeric limits here.
+Resolver implementation follows the body-document contract's closed statuses,
+precedence, deterministic diagnostic key, phase blocking, and bounded
+streaming/token-aware resource guards. Required unresolved or ambiguous values
+cannot succeed; exact serialized names, profile values, and implementation
+technology remain outside this responsibility map.
 
 ## Walking-skeleton exploratory seam (provisional and disposable)
 

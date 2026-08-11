@@ -49,17 +49,19 @@ and described in the execution model; exact interface schemas, compatibility,
 budgets, and runtime mutation details remain open. The typed semantic
 vocabulary, measurement ownership, and frame-conversion boundary are Proposed
 in [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
-Their prior revisions have complete review evidence. The new CK-KICK-012
-Batch 4 resolutions create new Proposed revisions for DR-0002, DR-0008, and
-DR-0011, plus the new DR-0012. Their current Double review is Complete, with
-six consolidated blockers pending Ben discussion and owner disposition still
-pending. DR-0006 remains Proposed with its current revision's review evidence.
-The cross-cutting proposal is [DR-0012: initial
-body-document encoding, resolution, and
-compatibility](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
+Batch 5 blocker resolutions are discussion-approved and are reflected in the
+canonical specifications as Proposed material. Their material updates require
+fresh review; DR-0002 Revision 7, DR-0008 Revision 7, DR-0011 Revision 3, and
+DR-0012 Revision 2 are Proposed with Owner approval Pending and Review Pending.
+Their prior Batch 4 Double review is stale, and a fresh current Double review
+is pending.
+DR-0006 remains Proposed with its current revision's review evidence. The
+cross-cutting proposal is [DR-0012: initial body-document encoding, resolution,
+and compatibility](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
 The body-document and body-graph proposals are the canonical specification
 owners; this architecture layer records only their target boundaries and
-consumers.
+consumers, including explicit Part containment, relation-independent graph
+validation, Attachment composition, and canonical local frame handoff.
 
 The [first surface experiment design](../research/first-surface-experiment-design.md)
 and its linked [DR-0009 Revision 8](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)

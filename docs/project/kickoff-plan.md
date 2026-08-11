@@ -589,8 +589,10 @@ gets its own DR and review before backend-specific compiler code locks it in.
 
 ### CK-KICK-012: Specify the minimal body document and body graph
 
-State: active (Batches 1 and 4 integrated as Proposed documentation; current
-Double review Complete with six consolidated blockers pending Ben discussion)
+State: active (Batches 1, 4, and 5 integrated as Proposed documentation;
+DR-0002 Revision 7, DR-0008 Revision 7, DR-0011 Revision 3, and DR-0012
+Revision 2 are Proposed with Owner approval Pending and Review Pending; fresh
+current Double review pending)
 
 Prerequisites: the exploratory executable spine and enough semantic context to
 define a minimal useful input/output; CK-KICK-011 is not required.
@@ -645,11 +647,13 @@ Outcome:
   Their implementation packages and compiler-consumed fixtures remain
   unactivated.
 
-The Batch 1 discussion selections and review resolutions are not DR acceptance.
-The prior revisions have complete review evidence, and the Batch 4 resolutions
-create new Proposed revisions for DR-0002, DR-0008, and DR-0011, plus DR-0012,
-with Owner approval Pending and the current Double review Complete. Six
-consolidated blockers remain pending Ben discussion.
+The Batch 1 and Batch 4 discussion selections and review resolutions are not DR
+acceptance. The prior revisions have complete review evidence. Batch 5 is now
+discussion-approved and integrated into the canonical product, specification,
+architecture, and project documents as Proposed material. DR-0002 Revision 7,
+DR-0008 Revision 7, DR-0011 Revision 3, and DR-0012 Revision 2 are Proposed
+with Owner approval Pending and Review Pending. The prior Batch 4 Double review
+is stale for these material updates; a fresh current Double review is pending.
 DR-0006 remains Proposed with its current revision's review evidence. The
 cross-cutting proposal is
 [DR-0012: initial body-document encoding, resolution, and
@@ -729,9 +733,59 @@ Canonical references for the earlier batches are [DR-0002](../decisions/DR-0002-
 [DR-0006](../decisions/DR-0006-durable-semantic-and-artifact-identity.md),
 [DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
 and [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
-Their prior revisions have review evidence; Batch 4 creates new Proposed
-revisions whose current Double review is Complete, with six consolidated
-blockers pending Ben discussion and Ben's owner disposition.
+Their prior revisions have review evidence. DR-0002 Revision 7, DR-0008
+Revision 7, DR-0011 Revision 3, and DR-0012 Revision 2 are Proposed with Owner
+approval Pending and Review Pending; prior review is stale and a fresh current
+Double review is pending. Ben's owner disposition remains pending.
+
+### Batch 5 — blocker resolutions (discussion-approved)
+
+On 2026-08-11 Ben approved the six CK-KICK-012 blocker resolutions in
+discussion. They are integrated in the canonical documents as Proposed
+material only; they do not accept or silently replace the decision records.
+
+- Part-to-Part containment is explicit and separate from typed relations. Every
+  embodied Part, including a present optional module root, has exactly one path
+  to the embodied root; containment supplies reference-transform inheritance,
+  and containment/relation cycle checks are independent. Required Stage 1
+  axial and limb Joints connect structural parent Parts to immediate children.
+  An Attachment's host Part and module-root child must agree with declared
+  containment; initially an attached root has one incoming Attachment.
+- Attachment placement is derived conceptually from host Part/frame, host
+  Socket, optional Attachment offset, and inverse mating Socket frame. A
+  competing authored placement must agree within a later-defined tolerance or
+  is semantic-invalid. Duplicate, detached, cyclic, or invalid endpoints are
+  invalid; Attachment never implies a Joint.
+- Resolved Joints materialize canonical proximal- and distal-frame typed
+  records in the corresponding Part-local bases. Sockets materialize their
+  interface frame in the owning-Part basis. Source references feed these
+  records with provenance; no rig, bone, solver, limit, or runtime
+  representation is selected.
+- The operation status set is closed to success, input-failure,
+  invalid-source, unsupported, dependency-failure, resource-limit, and
+  internal-failure. Trust loss takes precedence, then configured resource
+  exhaustion when completeness is lost, otherwise the earliest fatal phase;
+  reached diagnostics remain, incomplete results are marked, and the primary
+  diagnostic matches the status. Stage 1's three semantic fixture outcomes are
+  separate from parser/dependency/resource/internal operation outcomes.
+- Bootstrap order is byte/UTF-8/resource admission; strict duplicate-detecting
+  JSON parse; top-level object and exactly one version-neutral family/revision
+  discriminator; unsupported family/revision rejection before current-schema
+  application; then exact revision-schema validation and unknown-field rules.
+  Exact serialized spelling remains deferred.
+- Hostile input uses streaming/token-aware limits for raw bytes, incremental
+  UTF-8/tokens, pre-conversion string/number lengths, parse nesting/members,
+  per-dependency and aggregate budgets, and pre-allocation graph/reference/
+  module/work charging. Configured breaches are resource-limit; true process
+  OOM is outside the guarantee and a surviving untrusted implementation is
+  internal-failure. Exact profile thresholds remain deferred.
+
+These resolutions leave exact serialized member and diagnostic names, numeric
+budgets and tolerances, canonical axes/units/rotation/scale/shear, dependency
+revision meaning, canonical bytes/hashing, implementation language, and
+compiler fixture contents deferred. The affected decision-record revisions and
+fresh current review must be completed before owner disposition. CK-KICK-012
+remains active; this batch does not complete the round.
 
 ## Round 8 — implementation platform (provisional)
 

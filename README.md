@@ -38,14 +38,17 @@ and the CLI/API proposal is
 [DR-0004 Revision 2](docs/decisions/DR-0004-external-automation-through-cli-and-api.md).
 The initial product boundary and reference workflow are proposed in
 [DR-0005](docs/decisions/DR-0005-initial-product-boundary-and-reference-workflow.md).
-The CK-KICK-012 Batch 4 encoding and resolution work is represented by the
+The CK-KICK-012 Batch 4 encoding/resolution and Batch 5 blocker-resolution work
+is represented by the
 Proposed [body-document contract](spec/body-document/README.md) and
 [body-graph contract](spec/body-graph/README.md), with the
 [DR-0012: initial body-document encoding, resolution, and compatibility](docs/decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md)
-now recorded for the integration batch. Prior revisions have complete review
-evidence. The current Double review is Complete; six consolidated blockers
-remain pending Ben discussion. Owner approval is still pending and these
-proposals remain unaccepted.
+now recorded for the integration batch. Batch 5 blocker resolutions are
+discussion-approved and are reflected in the canonical specifications as
+Proposed material. DR-0002 Revision 7, DR-0008 Revision 7, DR-0011 Revision 3,
+and DR-0012 Revision 2 are Proposed with Owner approval Pending and Review
+Pending; their prior Double review is stale, and a fresh current Double review
+is pending. These proposals remain unaccepted.
 
 - Durable authored intent lives in an authoritative semantic source set. Every
   operation reports through one authoritative result envelope; the resolved
@@ -62,9 +65,19 @@ proposals remain unaccepted.
   identity-bearing embodied concepts. A Module is an authored reusable scope
   that instantiates them, not an embodied graph concept; landmark, anchor,
   dimension, and frame are typed owned records addressed by owner and role.
-  Joints are directed relations with one proximal and one distal Part endpoint;
-  sockets are Part-owned named interfaces; and an Attachment joins one host
-  Socket to one mating Socket without implying articulation.
+  Every embodied Part, including an optional module root, has exactly one
+  explicit containment path to the embodied root; relations do not create or
+  repair containment, and containment supplies reference-transform inheritance.
+  Containment and relation cycles are validated independently. Required Stage 1
+  Joints connect structural parent Parts to immediate children. Joints are
+  directed relations with one proximal and one distal Part endpoint and
+  resolved canonical frame records in each Part-local basis; sockets are
+  Part-owned interfaces with owning-Part frame records. An Attachment joins
+  one host Socket to one mating Socket, derives module-root placement from the
+  host Part/frame, both Socket frames, an optional offset, and the inverse
+  mating frame, and does not imply articulation. Initially an attached root has
+  one incoming Attachment and its host/mating ownership must agree with
+  containment.
 - The pelvis Part owns the root-reference frame. The first typed axial
   articulation is pelvis → spine Joint → torso/chest Part → neck-base Joint →
   neck Part → head-base Joint → head Part. Arm and leg chains similarly use
@@ -116,8 +129,13 @@ proposals remain unaccepted.
   extensions remain opaque and have no core semantic effect. Explicit
   migration produces a new source, and semantic contract identity remains
   separate from compiler/build/configuration/seed/dependency/artifact identity.
-  Exact field names, machine schema, canonical bytes, and hashing remain
-  deferred.
+  Bootstrap requires byte/UTF-8 admission, strict duplicate-detecting parse,
+  top-level object and exactly one family/revision discriminator, recognition
+  before revision-schema selection, then revision-specific validation. Exact
+  field names, machine schema, canonical bytes, and hashing remain deferred.
+  Every operation exposes one of the closed statuses success, input-failure,
+  invalid-source, unsupported, dependency-failure, resource-limit, or
+  internal-failure with deterministic precedence and bounded diagnostics.
 
 ## Repository navigation
 

@@ -85,42 +85,31 @@ The system must preserve durable authored intent in an authoritative semantic
 source set. Initially this may be one structured, human-readable document;
 future explicit semantic override layers may also be authored inputs. The
 source set alone is authored authority. Every outcome-affecting external
-authored asset is an exactly versioned source-set dependency. Compilation
-returns one authoritative operation-result envelope covering loading,
-syntax/schema/contract, dependency, resource, semantic-resolution, and
-invariant diagnostics. A validated, inspectable, reproducible, per-build
-semantic body-graph snapshot is an optional validated success payload only for
+authored asset is an exactly versioned source-set dependency. Every operation
+must return one authoritative result envelope, including failures before
+semantic resolution. The envelope exposes exactly one of `success`,
+`input-failure`, `invalid-source`, `unsupported`, `dependency-failure`,
+`resource-limit`, or `internal-failure`; it also reports whether processing and
+diagnostic retention completed. A validated, inspectable, reproducible,
+per-build semantic body-graph snapshot is an optional success payload only for
 valid-supported input; any snapshot diagnostics are a derived persisted subset
 of the envelope. Semantically invalid and well-formed-but-unsupported partial
 graphs are non-compilable, non-contractual debug data. Mesh, rig, runtime, and
 other artifacts remain further derived outputs. See
 [DR-0002](../decisions/DR-0002-declarative-body-document-source-of-truth.md).
 
-The current Proposed body-document contract initially admits one strict UTF-8
-JSON document, rejects duplicate keys and comments/includes/evaluation, and
-uses JSON Schema Draft 2020-12 for structural validation before CK semantic
-resolution. Unknown core members fail. An explicit namespaced extension
-envelope distinguishes unsupported required extensions from optional opaque
-extensions, which are preserved without core semantic effect. Contract family
-and revision are recognized exactly; migration is explicit and produces a new
-source. Source text, normalized source model, and resolved snapshot remain
-distinct. Exact field names, schema files, and migration serialization remain
-deferred to the owning specifications.
-
-Resolution proceeds through resource/input admission; syntax/schema/contract;
-dependencies; namespaces/identity/references; ownership/typed relations;
-unit/frame normalization and value derivation; semantic invariants; and
-success publication. Fatal phases block dependent work while independent
-diagnostics within a phase accumulate deterministically. Machine diagnostic
-identity and order are stable compatibility data; human messages are not.
-Required unresolved or ambiguous values cannot succeed. The implementation
-profile has finite limits for source and aggregate bytes, string lengths/counts,
-nesting depth, object/array members, graph entities/relations, ownership depth,
-module/reference expansion, extension count/payload, numeric admissibility,
-diagnostics, and aggregate work/memory, with exact limits deferred. The profile
-is selected during input admission, and its guards remain active through later
-phases whose graph, expansion, work, or memory use cannot be known before
-parsing.
+The initial adapter admits one strict UTF-8 JSON document, rejects duplicate
+members and comments/includes/evaluation, and uses the proposed JSON Schema
+Draft 2020-12 vocabulary for structural validation before CK semantic
+resolution. It must require a top-level object and exactly one version-neutral
+family/revision discriminator; missing or malformed discriminator data is
+invalid-source, while an unknown family or unsupported revision is reported as
+unsupported before a current schema is applied. Unknown core members fail.
+Explicit migration produces a new source. Source text, normalized source model,
+and resolved snapshot remain distinct. Exact field names, schema files, and
+migration serialization remain deferred to the owning specifications. The
+canonical admission, status, diagnostic, and resource rules are in the
+[body-document contract](../../spec/body-document/README.md).
 
 ### CK-PROD-002: Deterministic compilation
 
@@ -181,33 +170,44 @@ pose, and actual contact/deformation are later-stage claims.
 
 ### CK-PROD-011: Composable body grammar
 
-The first body model must support a bounded typed ownership tree for the
-proposed digitigrade biped family, plus exactly these identity-bearing
-concepts: Part is structural/owned; Joint is a directed articulation relation
-with exactly one proximal and one distal Part and endpoint frames relative to
-each; Socket is a Part-owned named interface; Attachment connects one host
-Socket to one mating Socket and is not automatically a joint; Region is an
-overlapping spatial designation and never ownership; Capability is a queryable
-affordance, not an implementation; and Field carries spatial semantic
-intent/channel with lineage and representation-neutral meaning. Module is an
-authored reusable scope that instantiates these concepts, not an embodied graph
-concept. Landmark, anchor, dimension, and frame are typed owner+role records.
-Part-to-Part ownership is the sole structural body-containment tree;
-declarative ownership of other concepts and typed records scopes identity and
-lifecycle without adding a structural body edge. Durable non-structural
-concepts may be reified and connected through multiple role-labelled
-relations. Invalid or
-unsupported assemblies must receive the operation-result envelope with
-structured diagnostics. The required functional articulation is root-reference
-frame owned by pelvis → pelvis → spine Joint → torso/chest Part → neck-base
-Joint → neck Part → head-base Joint → head; arms use shoulder/elbow/wrist
-Joints connecting torso, upper-arm, forearm, and hand/paw Parts to a terminal
-paw-base landmark/Socket; and legs use hip/knee/hock-or-ankle Joints connecting
-pelvis, thigh, lower-leg, and foot/paw Parts to a terminal paw-base
-landmark/Socket. Ear/tail modules use Attachment, and a movable tail also uses
-a separate Joint. Ears require no articulation. These are semantic roles and
-frames, not a bone, solver, rig, or anatomy-fidelity claim. See [DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md)
-and [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
+The first body model must support the bounded typed Part-containment tree for
+the proposed digitigrade biped family. Every embodied Part, including a
+present optional module root, must have exactly one path to the embodied root;
+relations cannot create or repair containment, and containment supplies
+reference-transform inheritance. Containment cycles and typed-relation cycles
+must be validated independently. Required Stage 1 axial and limb Joints must
+connect the structural parent Part to its immediate containment child.
+
+The identity-bearing concepts are exactly Part, Joint, Socket, Attachment,
+Region, Capability, and Field. A Joint is directed, with one proximal and one
+distal Part, and the resolved graph must expose canonical proximal- and
+distal-frame records in the corresponding Part-local bases with provenance.
+Each Socket is a Part-owned interface with its interface frame in the owning
+Part basis. For a present optional module, an Attachment must connect exactly
+one host Socket to one mating Socket, agree with the host-Part/module-root
+containment declaration, and initially be the sole incoming Attachment for
+that attached root. Host/mating socket frames, an optional Attachment offset,
+and the inverse mating frame determine the module-root placement; a competing
+authored placement must agree within the later-defined tolerance or be
+semantically invalid. Duplicate, detached, cyclic, or invalid endpoint cases
+fail.
+Attachment never implies a Joint. Module is an authored reusable scope, not an
+embodied graph concept; landmark, anchor, dimension, and frame are typed
+owner+role records. Region never owns, Capability is not an implementation,
+and Field carries representation-neutral intent/lineage. These are semantic
+roles and frames, not a bone, solver, rig, limits, runtime representation, or
+anatomy-fidelity claim. See [DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
+[DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md),
+and the [body-graph contract](../../spec/body-graph/README.md).
+
+The required functional chain remains root-reference frame owned by pelvis →
+pelvis → spine Joint → torso/chest Part → neck-base Joint → neck Part →
+head-base Joint → head; arms use shoulder/elbow/wrist Joints connecting torso,
+upper-arm, forearm, and hand/paw Parts to terminal paw-base landmark/Socket
+roles; legs use hip/knee/hock-or-ankle Joints connecting pelvis, thigh,
+lower-leg, and foot/paw Parts to terminal paw-base landmark/Socket roles.
+Ear/tail modules use Attachment, and a movable tail also uses a separate Joint;
+ears require no articulation.
 
 Transforms own reference-frame placement; typed dimensions own size/extents;
 anchors and landmarks are stable with authored, defaulted, or derived
@@ -299,8 +299,18 @@ possible evolution, not an initial requirement.
 
 ### CK-PROD-030: Structured diagnostics
 
-Generation and validation must report structured, actionable diagnostics rather
-than only visual failure.
+Generation and validation must report one structured operation result rather
+than only visual failure. Its closed status set is `success`, `input-failure`,
+`invalid-source`, `unsupported`, `dependency-failure`, `resource-limit`, and
+`internal-failure`. Status mapping is deterministic: loss of trust yields
+internal-failure; configured resource exhaustion that prevents complete output
+yields resource-limit; otherwise the earliest fatal phase determines the
+status. Reached earlier diagnostics remain available when dependent phases are
+blocked, while the result marks incomplete processing or diagnostic retention.
+Every non-success result has a primary diagnostic matching its status.
+Diagnostics are bounded and sorted by phase, severity/category, normalized
+source path/offset, code, and semantic address; human text is not a key. See
+the [body-document contract](../../spec/body-document/README.md).
 
 ### CK-PROD-031: Headless proof
 
@@ -311,6 +321,19 @@ results so they can run in automation and external-agent loops.
 
 Performance claims must identify the body input, compiler/runtime version,
 quality settings, scene, reference hardware, metric, and reproduction command.
+
+### CK-PROD-033: Hostile-input resource bounds
+
+The operation must handle untrusted input with a finite implementation profile
+and streaming/token-aware guards. Raw bytes, incremental UTF-8/tokens,
+string/number token lengths before conversion, nesting and member counts,
+per-dependency and aggregate budgets, graph/reference/module expansion, work,
+memory, and diagnostics must be charged before unbounded materialization or
+allocation. A configured breach reports `resource-limit` through the same
+envelope; a true operating-system/process out-of-memory termination is outside
+the operation guarantee, while a surviving implementation that loses trust
+reports `internal-failure`. Exact thresholds and deterministic work units are
+profile-specific and deferred.
 
 ## Extensibility
 

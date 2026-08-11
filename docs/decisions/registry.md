@@ -5,17 +5,17 @@ Status: Operational under Accepted DR-0001 Revision 5
 | ID | Title | Scope | Status | Revision | Review | Decision owner |
 | --- | --- | --- | --- | --- | --- | --- |
 | [DR-0001](DR-0001-documentation-authority-and-review-process.md) | Documentation authority and decision-record process | Governance | Accepted | 5 | Complete | Ben |
-| [DR-0002](DR-0002-declarative-body-document-source-of-truth.md) | Authoritative semantic source set and resolved body graph | Specification and architecture | Proposed | 6 | Complete | Ben |
+| [DR-0002](DR-0002-declarative-body-document-source-of-truth.md) | Authoritative semantic source set and resolved body graph | Specification and architecture | Proposed | 7 | Pending | Ben |
 | [DR-0003](DR-0003-real-time-first-compiled-avatar-boundary.md) | Compiled avatar and bounded real-time execution | Product and architecture | Proposed | 2 | Complete | Ben |
 | [DR-0004](DR-0004-external-automation-through-cli-and-api.md) | Shared deterministic domain operations for external automation | Product and architecture | Proposed | 2 | Complete | Ben |
 | [DR-0005](DR-0005-initial-product-boundary-and-reference-workflow.md) | Initial product boundary and reference workflow | Product and architecture | Proposed | 1 | Complete | Ben |
 | [DR-0006](DR-0006-durable-semantic-and-artifact-identity.md) | Durable semantic and artifact/build identity | Specification and architecture | Proposed | 4 | Complete | Ben |
 | [DR-0007](DR-0007-staged-first-proof-charter.md) | Staged first-proof charter and claim boundaries | Product | Proposed | 2 | Complete | Ben |
-| [DR-0008](DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md) | First digitigrade morphology and Stage 1 embodiment envelope | Product, Specification and architecture | Proposed | 6 | Complete | Ben |
+| [DR-0008](DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md) | First digitigrade morphology and Stage 1 embodiment envelope | Product, Specification and architecture | Proposed | 7 | Pending | Ben |
 | [DR-0009](DR-0009-hybrid-surface-generation-experiment-hypothesis.md) | Hybrid surface-generation experiment hypothesis | Architecture | Proposed | 8 | Complete | Ben |
 | [DR-0010](DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md) | Stage 1 surface extraction and semantic-field propagation | Specification and architecture | Proposed | 8 | Pending | Ben |
-| [DR-0011](DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md) | Minimal semantic vocabulary, measurements, and frames | Specification and architecture | Proposed | 2 | Complete | Ben |
-| [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md) | Initial body-document encoding, resolution, and compatibility | Specification and architecture | Proposed | 1 | Complete | Ben |
+| [DR-0011](DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md) | Minimal semantic vocabulary, measurements, and frames | Specification and architecture | Proposed | 3 | Pending | Ben |
+| [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md) | Initial body-document encoding, resolution, and compatibility | Specification and architecture | Proposed | 2 | Pending | Ben |
 
 DR-0001 Revision 5 is `Accepted` after Ben's approval and its Complete clean
 review; that disposition applies only to this Governance DR. DR-0002 through
@@ -29,12 +29,19 @@ preserved. Review evidence records neither acceptance nor a clean review.
 Ben settled CK-KICK-012 Batch 1 selections on 2026-08-09 and approved the seven
 Batch 3 decisions in discussion on 2026-08-11. On 2026-08-11 he also approved
 the Batch 4 resolutions recorded in DR-0002 Revision 6, DR-0008 Revision 6,
-DR-0011 Revision 2, and new DR-0012 Revision 1. Those discussion approvals
-are distinct from later DR acceptance. DR-0002, DR-0008, DR-0011, and DR-0012
-are Proposed with owner approval Pending and Review Complete. Their current
-Double review is complete evidence, with six consolidated blockers pending Ben
-discussion; prior current-revision reviews are stale historical evidence where
-applicable.
+DR-0011 Revision 2, and new DR-0012 Revision 1. On 2026-08-11 he approved the
+Batch 5 blocker-resolution selections recorded in DR-0002 Revision 7, DR-0008
+Revision 7, DR-0011 Revision 3, and DR-0012 Revision 2. Those discussion
+approvals are distinct from later DR acceptance. The four current revisions
+are Proposed with owner approval Pending and Review Pending because the prior
+Double reviews are stale. The new current revisions await Double review; prior
+review artifacts remain preserved as stale historical evidence. Their selected
+containment, Attachment/frame, status/bootstrap, and hostile-input rules are
+split across the owning records. Exact field spellings, diagnostic codes,
+numeric thresholds/tolerances, canonical axes/units/rotation/scale/shear,
+canonical bytes/hashing, dependency-revision semantics, and fixture evidence
+remain later obligations. Review Pending records a new review requirement, not
+missing discussion approval or acceptance.
 DR-0006 Revision 4 remains unchanged, Proposed with owner approval Pending and
 Review Complete. Exact dependency-revision meaning, exact source fields,
 diagnostic codes, concrete resource values, canonical axes/units/rotation/

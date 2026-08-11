@@ -6,13 +6,13 @@ Scope: Product, Specification and architecture
 
 Status: Proposed
 
-Revision: 6
+Revision: 7
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-09
 
@@ -20,16 +20,19 @@ Date decided: —
 
 Discussion approval date: 2026-08-11
 
-Revision history: Revisions 1–5 and their reviews remain preserved as
+Revision history: Revisions 1–6 and their reviews remain preserved as
 historical evidence. Revision 3 recorded Ben's CK-KICK-012 Batch 1
 morphology/grammar selection, Revision 4 recorded its first review-resolution
-batch, and Revision 5 recorded the Batch 3 fixture-outcome resolution. On
-2026-08-11 Ben approved the CK-KICK-012 Batch 4 typed articulation and
-composition resolution recorded in Revision 6. This discussion approval is
-not DR acceptance: this revision remains Proposed with Owner approval Pending
-until a current-revision review and Ben's owner disposition are recorded.
-Reviews of Revision 5, as well as earlier reviews, are stale for this
-revision.
+batch, Revision 5 recorded the Batch 3 fixture-outcome resolution, and
+Revision 6 recorded the Batch 4 typed articulation/composition selection. On
+2026-08-11 Ben approved the CK-KICK-012 Batch 5 blocker-resolution selections
+recorded in Revision 7: explicit containment, Attachment placement and
+validity, canonical Joint and Socket frame records, and the linked operation
+outcome/bootstrap/resource rules. This discussion approval is not DR
+acceptance: this revision remains Proposed with Owner approval Pending, and
+Review status is Pending because the Revision 6 Double review is stale and a
+new current-revision Double review is required. Reviews of Revision 6, as well
+as earlier reviews, remain stale historical evidence.
 
 Supersedes: —
 
@@ -102,6 +105,12 @@ proposal does not invent the exact values or fixture files. The freeze is a
 prerequisite to execution and evidence, not to deciding what to test. Only
 valid-supported fixtures count in the Stage 1 success population; semantically
 invalid and well-formed-but-unsupported fixtures remain diagnostic evidence.
+This three-way taxonomy applies only after a fixture is admitted, recognized,
+and classified as a candidate for the Stage 1 semantic contract. Admission or
+loading failures, strict parse/schema/discriminator failures, dependency
+failures, configured resource limits, and internal/compiler-invariant failures
+are separate operation outcomes under DR-0012 and must not be relabelled as
+one of these three semantic fixture classes.
 
 ### Body grammar and relation boundary
 
@@ -112,19 +121,26 @@ joints, sockets/attachments, capabilities, and regions. Ownership edges and
 relations are distinct: a relation does not imply ownership, and ownership does
 not replace the relation's type or semantics.
 
-Part-to-Part ownership is the sole structural body-containment tree.
+Part-to-Part ownership is the sole structural body-containment tree. Every
+embodied Part, including an optional module Part, has exactly one containment
+path to the embodied root. Joint, Attachment, Region, and other relations
+cannot create or repair that path. Containment owns reference-transform
+inheritance; containment reachability and cycles are validated separately from
+typed-relation cycles. For this bounded Stage 1 axial/limb grammar, required
+Joint edges connect a structural parent Part to its immediate child Part.
 Declarative ownership of other concepts and typed records scopes identity and
 lifecycle without adding structural body edges. Durable non-structural
 concepts may be reified and connected through multiple role-labelled
-relations. The selected Joint, Socket, and Attachment endpoint roles and cardinalities are defined
-below and in DR-0011; later body specification work owns permissible cycles,
-additional frame placement, and multi-part region membership. This is not a
+relations. The selected Joint, Socket, and Attachment endpoint roles,
+placement, and cardinalities are defined below and in DR-0011. This is not a
 general arbitrary hypergraph or solver representation. The first grammar
 nevertheless supports only this bounded family and its declared relation
 kinds; arbitrary anatomy and arbitrary user-defined graph kinds are
 unsupported. Invalid or unsupported assemblies receive structured
 diagnostics. Units and coordinate basis must be declared, and local frames and
-resolved transforms must be explicit.
+resolved transforms must be explicit. All embodied Parts must remain
+connected, and an attached module root initially has one incoming Attachment
+at most; duplicate, detached, or multiply attached roots are invalid.
 
 The first digitigrade family requires the following typed functional
 articulation and landmark roles for Stage 1 lineage. A root-reference frame is
@@ -140,17 +156,30 @@ owned by the pelvis Part. The directed axial chain is:
   terminal paw-base landmark or Socket.
 
 Each named articulation is a directed Joint with exactly one proximal Part and
-one distal Part. Its endpoint frames are relative to those Parts, as defined
-by DR-0011. A terminal landmark or Socket is a typed record/interface owned or
-referred to by its named Part; it is not an additional implicit Joint. Optional
-ear and tail module composition uses an Attachment between a host Socket and a
-mating Socket. If a tail is movable, its articulation is represented by a
-separate Joint; an Attachment alone never implies articulation. Ears require
-no articulation in this first envelope. These arrows express required
-functional order/adjacency, not serialized syntax. These are semantic roles
-and frames, not a fixed bone hierarchy or count, joint limits, solver, rig
-implementation, or anatomical-fidelity claim. Exact role spelling and
-serialization remain spec detail.
+one distal Part. Its resolved representation canonically owns proximal-frame
+and distal-frame typed records, each expressed in the corresponding Part's
+local basis, with source-reference provenance retained; the record is not a
+bone, solver constraint, limit, rig, or runtime representation. A terminal
+landmark or Socket is a typed record/interface owned by its named Part; it is
+not an additional implicit Joint. A Socket owns exactly one interface frame in
+its owning Part basis. Source references may supply these records, but the
+resolved graph materializes the canonical owned records.
+
+Optional ear and tail module composition uses an Attachment between a host
+Socket and a mating Socket. Its placement is derived from the host Part/frame
+and host Socket, an optional authored Attachment offset, and the inverse
+mating Socket frame. The conceptual composition is fixed, while serialized
+field spelling is deferred. If authored placement independently controls the
+same degrees of freedom, it must agree with this composition within the later
+contract tolerance or the document is semantically invalid. Initially one
+active Attachment is allowed per attached module root; duplicate Attachments,
+invalid or detached endpoints, containment disagreement, and Attachment
+cycles are invalid. The attached host Part and module-root child must also
+agree with separately declared containment. An Attachment never implies a
+Joint; a movable tail requires a separate Joint, while ears require no
+articulation in this first envelope. These arrows express required functional
+order/adjacency, not serialized syntax. Exact role spelling and serialization
+remain spec detail.
 
 This decision does not choose an exact permanent coordinate convention, numeric
 ranges, surface primitives, the detailed source fields/schema, or a new
@@ -193,11 +222,20 @@ evidence, not Stage 1 success population.
 - Required modules and named optional sockets provide a stable semantic scope
   while leaving later families and detailed anatomy open.
 - Required articulation is now typed and directed: each Joint has exactly one
-  proximal and one distal Part, endpoint frames are relative to those Parts,
-  and terminal paw-base landmarks or Sockets do not create hidden joints.
+  proximal and one distal Part, and the resolved graph owns endpoint-frame
+  records in the corresponding Part local bases with provenance. Terminal
+  paw-base landmarks or Sockets do not create hidden joints.
 - Optional ear/tail composition uses Socket-to-Socket Attachment; a movable
   tail requires a separate Joint, preserving the distinction between
   composition and articulation.
+- Every embodied Part has one explicit root containment path, including
+  optional module Parts; relations cannot repair containment, and containment
+  alone owns reference-transform inheritance. Stage 1 required Joint edges
+  connect structural parents to immediate children.
+- Attachment placement is derived from host Part/frame and Socket data,
+  optional authored offset, and inverse mating Socket frame. Independently
+  authored placement must agree within a later tolerance; duplicate,
+  detached, cyclic, or containment-disagreeing composition is invalid.
 - Continuous variation can expose generator failures without turning each
   fixture into a bespoke asset.
 - Stage 1 can preserve embodiment lineage and regions without bringing Stage 2
@@ -216,6 +254,9 @@ evidence, not Stage 1 success population.
   inconclusive fixtures remain visible and prevent continuation. Only
   valid-supported fixtures count toward Stage 1 success; semantically invalid
   and well-formed-but-unsupported fixtures are diagnostic evidence.
+- The three-way Stage 1 taxonomy does not absorb admission, parser/schema,
+  dependency, configured resource-limit, or internal/compiler-invariant
+  operation failures; those use the closed DR-0012 status set.
 - Plantigrade, quadruped, winged, extra-limb, and arbitrary-anatomy support
   remain future decisions and must not be inferred from this family.
 
@@ -287,6 +328,14 @@ This is maximally general, but would admit structures outside the first
 morphology envelope and move validity and traversal complexity into the first
 contract without evidence.
 
+#### Option 4: Derive containment from typed relations
+
+This would let a Joint or Attachment make an otherwise disconnected Part
+reachable, but would make transform inheritance and root validity depend on
+relation traversal order and relation kind. It is rejected: Part containment is
+explicit, sole structural ownership; relation cycles and containment cycles
+are checked independently.
+
 ### Articulation-lineage alternatives
 
 #### Option 1: Opaque generator-owned articulation
@@ -307,6 +356,20 @@ Treating a Socket-to-Socket Attachment as articulation, or treating a terminal
 paw-base landmark/Socket as an implicit Joint, would reintroduce the ambiguity
 that this bounded lineage is intended to remove; those alternatives are not
 selected.
+
+The resolved Joint owns one proximal-frame and one distal-frame record in the
+corresponding Part local bases, and a Socket owns one interface frame in its
+owning Part basis. Leaving those records as ambiguous source references would
+allow graphics and runtime consumers to choose different owners or bases; that
+alternative is rejected. Source references remain provenance, not competing
+resolved records.
+
+For Attachment composition, deriving placement only from an authored module
+transform would permit it to disagree with host/mating Socket frames; deriving
+it only from sockets would discard an explicit offset. The selected
+host/frame + host Socket + optional offset + inverse mating Socket composition
+retains both forms and rejects disagreement within the later-defined
+tolerance. An Attachment is composition, never an implicit Joint.
 
 #### Option 3: Remove the Stage 1-to-Stage 2 lineage promise
 
@@ -347,30 +410,25 @@ The Revision 1, Revision 2, and Revision 3 reviews
 [graphics-system](reviews/DR-0008-rev-05-review-02.md)) remain preserved as
 stale historical evidence.
 
-The current Revision 6 Double review is Complete at commit
+The Revision 6 Double review is preserved as stale evidence at commit
 `7dba9346c91c59ff99f10b94630690bf732d6b28`: the fresh independent Sol-medium
 contract/schema/security pass ([review 01](reviews/DR-0008-rev-06-review-01.md))
-recommends **Revise** with **High** confidence, and the fresh independent
-Sol-medium semantic-graph/graphics/runtime pass
-([review 02](reviews/DR-0008-rev-06-review-02.md)) also recommends **Revise**
-with **High** confidence.
+and the fresh independent semantic-graph/graphics/runtime pass
+([review 02](reviews/DR-0008-rev-06-review-02.md)) both recommended **Revise**
+with **High** confidence. Their blockers are the reasons for this Revision 7
+discussion batch: explicit containment and transform inheritance;
+host/mating Socket placement and authored-offset agreement; duplicate,
+cycle, detached, and attached-root validity; canonical Joint/Socket frame
+records; and the linked operation outcome, recognition, and resource rules.
 
-Review 01's fixture-outcome findings depend on DR-0012's unresolved envelope
-algebra, recognition/bootstrap order, and resource enforcement; its mechanical
-secondary-architecture wording finding was aligned after review without
-changing this proposal. Review 02 finds optional-module structural containment/insertion,
-host/mating socket-frame placement and authored-placement conflict,
-duplicate/cycle/detached/attached-root validity, canonical Joint endpoint-frame
-ownership/roles/basis/provenance/equivalence, and containment reachability
-separate from relation traversal/cycles and transform inheritance. The
-phase/outcome/diagnostic precedence overlap remains a DR-0012 dependency.
-Review 01 judged prior classification, articulation, and measurement blockers
-closed; Review 02 closed classification and measurement but leaves articulation
-partially closed because frame and Attachment gaps remain. Fixture-matrix and
-specialist obligations remain nonblocking. Review Complete records evidence,
-not acceptance or a clean review; Owner approval remains Pending and Status
-remains Proposed. The cross-DR fixture-matrix obligation remains open. Only Ben
-may accept or reject this proposal.
+Revision 7 records Ben's 2026-08-11 discussion selections, not a current
+review result. No Revision 7 review artifact exists yet. Review status is
+Pending because this materially revised, cross-cutting proposal awaits the
+required Double review. Owner approval remains Pending and Status remains
+Proposed. The three-way Stage 1 fixture taxonomy remains limited to admitted
+recognized semantic fixtures; exact fixture files and expected codes, exact
+field spellings, tolerance, canonical axes/units/rotation/scale/shear, and
+fixture evidence remain deferred. Only Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 
@@ -380,11 +438,21 @@ may accept or reject this proposal.
   later body specifications.
 - Specify the typed, directed axial, arm, leg, and optional-tail articulation
   roles, including the pelvis-owned root-reference frame, Part endpoints,
-  proximal/distal cardinality, endpoint frames relative to those Parts,
-  terminal paw-base landmark/Socket roles, Socket-to-Socket Attachment
-  composition, and the single hock/ankle Joint per digitigrade leg. Preserve
-  their semantic frames through Stage 1 lineage without implying a fixed rig,
-  solver, bone count, or anatomical-fidelity claim.
+  proximal/distal cardinality, canonical owned endpoint-frame records in Part
+  local bases with provenance, terminal paw-base landmark/Socket roles,
+  Socket-to-Socket Attachment composition, and the single hock/ankle Joint per
+  digitigrade leg. Preserve their semantic frames through Stage 1 lineage
+  without implying a fixed rig, solver, bone count, limits, or
+  anatomical-fidelity claim.
+- Prove the explicit containment tree separately from typed relations: every
+  embodied Part has one root path, containment owns reference-transform
+  inheritance, required Stage 1 Joint edges join structural parents to
+  immediate children, and attached module roots agree with separately declared
+  host/child containment.
+- Define and test Attachment placement as host Part/frame + host Socket +
+  optional authored offset + inverse mating Socket frame, including
+  agreement-within-later-tolerance, one active Attachment per module root,
+  invalid endpoints, detached/multiply attached roots, and Attachment cycles.
 - Define declared units and coordinate basis, explicit local frames and
   resolved transforms, and structured diagnostics without locking a permanent
   coordinate convention or exact numeric ranges here.

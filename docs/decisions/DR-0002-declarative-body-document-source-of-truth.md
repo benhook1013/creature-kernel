@@ -6,13 +6,13 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 6
+Revision: 7
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-08
 
@@ -38,15 +38,18 @@ broader source-set boundary and made the resolved semantic graph a per-build
 derived snapshot. Revision 3 recorded the CK-KICK-012 Batch 1 source and graph
 boundary. Revision 4 recorded its first review-resolution batch. Revision 5
 recorded the CK-KICK-012 Batch 3 resolutions: one owner per source namespace
-and one authoritative operation-result envelope. On 2026-08-11 Ben approved
-the CK-KICK-012 Batch 4 source/model/snapshot boundary recorded here, with the
-initial encoding, resolution phases, compatibility, extensions, diagnostics,
-and resource-profile contract owned by new [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
-This discussion approval is not DR acceptance: this revision remains Proposed
-with Owner approval Pending until a current-revision review and Ben's owner
-disposition are recorded. All earlier revisions and their reviews remain
-historical evidence; the Revision 5 reviews, as well as earlier reviews, are
-stale for this revision.
+and one authoritative operation-result envelope. Revision 6 recorded the
+CK-KICK-012 Batch 4 source/model/snapshot boundary, with initial encoding,
+resolution phases, compatibility, extensions, diagnostics, and resource-profile
+work owned by [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
+On 2026-08-11 Ben approved the CK-KICK-012 Batch 5 blocker-resolution
+selections recorded in Revision 7: explicit containment and transform
+inheritance, Attachment composition boundaries, canonical resolved relation
+records, and the linked operation status/bootstrap/resource rules. This
+discussion approval is not DR acceptance: this revision remains Proposed with
+Owner approval Pending, and its Review status is Pending because the Revision
+6 Double review is stale and a new current-revision Double review is required.
+All earlier revisions and their reviews remain historical evidence.
 
 ## Decision
 
@@ -64,8 +67,9 @@ from the source set through resolution. Source text, the resolver's normalized
 semantic model, and the resolved snapshot are distinct stages; neither the
 normalized model nor the snapshot becomes authored authority. One
 operation-result envelope is authoritative for every phase and diagnostic.
-The phase sequence, provenance requirements, resource limits, extension
-policy, and diagnostic fields are defined by [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
+The phase sequence, closed status set, status mapping and precedence,
+provenance requirements, resource limits, extension policy, and diagnostic
+fields are defined by [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
 The envelope owns the outcome status and deterministically ordered diagnostics.
 It may contain an optional validated snapshot only for valid-supported success.
 Diagnostics persisted inside a successful snapshot are a derived subset or
@@ -73,8 +77,10 @@ annotation, not a competing status channel.
 Semantically invalid and well-formed-but-unsupported input must be
 distinguished; a rejected partial graph may be
 exposed only as explicitly non-compilable, non-contractual debug information.
-Exact diagnostic field spelling, human text, and diagnostic codes remain later
-specification detail under DR-0012.
+Diagnostics from an earlier reached phase remain available when a later phase
+is blocked, but are marked incomplete; one primary diagnostic must match the
+top-level status. Exact diagnostic field spelling, human text, and diagnostic
+codes remain later specification detail under DR-0012.
 
 Within each resolved source set, exactly one authoritative source owns each
 source namespace. Every imported namespace must therefore be unique. A
@@ -95,14 +101,29 @@ The resolved graph supplies shared semantic lineage for derived mesh, rig,
 collider, material, deformation, packaging, runtime-state, and other outputs.
 Those outputs are derived and must not silently become competing sources of
 truth. Part-to-Part ownership is the sole structural body-containment tree.
+Every embodied Part, including an optional module Part, has exactly one
+containment path to the embodied root. Joint, Attachment, Region, and every
+other typed relation cannot create or repair that path. Containment owns
+reference-transform inheritance; containment reachability and containment
+cycles are validated separately from typed-relation cycles. For the bounded
+Stage 1 axial and limb grammar, required Joint edges connect the structural
+parent Part to its immediate child Part. A module Attachment's host Part and
+module-root child must agree with their separately declared containment, and
+initially an attached module root has at most one incoming Attachment. All
+embodied Parts must remain connected.
+
 Declarative ownership of other concepts and typed records scopes identity and
 lifecycle without adding structural body edges. Durable non-structural
 semantic concepts may be reified and connected through multiple role-labelled
-relations; later specification work owns permissible cycles, additional frame
-placement, and multi-part region membership. The
-selected Joint, Socket, and Attachment endpoint roles and cardinalities are
-owned by DR-0008 and DR-0011; later specification work retains the deferred
-cycle, additional-frame, and multi-part-region rules.
+relations. The selected Joint, Socket, and Attachment endpoint roles,
+placement, cardinalities, and canonical records are owned by DR-0008 and
+DR-0011; later specification work retains only the explicitly deferred
+additional relation/frame and multi-part-region details.
+
+The normalized graph materializes canonical Joint proximal- and distal-frame
+records and the canonical Socket interface-frame record, with source-reference
+provenance retained. These records are semantic data, not a bone hierarchy,
+solver, limits, rig, or runtime representation.
 
 The initial source encoding and structural validation boundary are owned by
 DR-0012. This record still defers override representation and
@@ -136,6 +157,14 @@ identity are defined at the boundary in
 - Imported sources have an auditable namespace owner. Collisions either fail
   deterministically or use an authored remap that covers the full contribution
   of the imported namespace; no partial or implicit remap is valid.
+- Structural containment is independently auditable: every embodied Part has
+  one root path, containment owns reference-transform inheritance, and typed
+  relations neither substitute for nor repair containment.
+- Attachment composition cannot hide a disconnected, multiply owned, or
+  multiply attached module root; its host/mating placement and independently
+  declared containment must agree before publication.
+- The operation has one closed status vocabulary at the contract boundary,
+  while exact diagnostic code spellings and profile values remain deferred.
 
 ## Alternatives Considered
 
@@ -198,6 +227,30 @@ operation-result envelope is authoritative across all phases; DR-0012 fixes
 the initial phase sequence, while exact diagnostic-code vocabulary remains
 deferred.
 
+### Derive containment from relations
+
+Using Joint, Attachment, or arbitrary relation traversal to infer the body tree
+would make root reachability depend on whichever relation kinds an
+implementation happens to traverse. It would also make transform inheritance
+ambiguous and allow a relation to repair a structurally disconnected Part.
+The explicit Part containment tree is selected; relation traversal and
+relation-cycle validation remain separate.
+
+### Leave endpoint frames as source references or ambiguous records
+
+Allowing a resolved Joint to merely refer to either source endpoint record
+would permit competing owner, role, basis, and provenance interpretations in
+downstream consumers. The resolved graph therefore materializes one canonical
+proximal and distal typed record in the corresponding Part local basis; source
+references feed that record but do not replace it.
+
+### Leave diagnostics unbounded or implementation-defined
+
+An unbounded diagnostic list can exhaust memory on hostile or highly invalid
+input and produces non-reproducible truncation across implementations. A
+bounded diagnostic arena, deterministic ordering, and reserved terminal
+capacity preserve a trusted primary status and resource/truncation report.
+
 ### Learned latent representation
 
 May generate varied shapes but is difficult to make deterministic, semantically
@@ -214,32 +267,25 @@ Revision 4 reviews ([authority](reviews/DR-0002-rev-04-review-01.md),
 [graphics-system](reviews/DR-0002-rev-05-review-02.md)) remain preserved as
 stale historical evidence.
 
-The current Revision 6 Double review is Complete at commit
+The Revision 6 Double review is preserved as stale evidence at commit
 `7dba9346c91c59ff99f10b94630690bf732d6b28`: the fresh independent Sol-medium
 contract/schema/security pass ([review 01](reviews/DR-0002-rev-06-review-01.md))
-recommends **Revise** with **High** confidence, and the fresh independent
-Sol-medium semantic-graph/graphics/runtime pass
-([review 02](reviews/DR-0002-rev-06-review-02.md)) also recommends **Revise**
-with **High** confidence.
+and the fresh independent semantic-graph/graphics/runtime pass
+([review 02](reviews/DR-0002-rev-06-review-02.md)) both recommended **Revise**
+with **High** confidence. Their blockers are the reasons for this Revision 7
+discussion batch: explicit containment and transform inheritance; Attachment
+placement, containment agreement, duplicate/cycle/detached validity, and the
+no-implied-Joint boundary; canonical resolved endpoint records; and the
+cross-DR operation status, bootstrap, and hostile-input resource rules.
 
-Applicable findings are the envelope's unresolved outcome/status algebra,
-precedence, primary diagnostic, truncation, and distinction between semantic
-fixture taxonomy and parser/dependency/resource outcomes; contract-discriminator
-and schema bootstrap ordering; and minimum hostile-input resource enforcement
-(Review 01; its mechanical secondary-architecture wording finding was aligned
-after review without changing this proposal). Review 02 additionally finds
-optional-module structural insertion and socket-frame placement/conflict,
-duplicate/cycle/detached validity; canonical Joint endpoint-frame owner, role,
-basis, provenance, and equivalence; containment reachability separate from
-relation traversal/cycles and transform inheritance; and overlapping
-phase/outcome/diagnostic precedence. The latter graph rules are cross-DR
-dependencies on DR-0008, DR-0011, and DR-0012. Classification and measurement
-blockers are closed; articulation is only partially closed because frame and
-Attachment gaps remain. Fixture-matrix and specialist obligations remain
-nonblocking. Review Complete records evidence, not acceptance or a clean
-review; Owner approval remains Pending and Status remains Proposed. The exact
-dependency-revision meaning remains a nonblocking later obligation. Only Ben
-may accept or reject this proposal.
+Revision 7 records Ben's 2026-08-11 discussion selections, not a current
+review result. No Revision 7 review artifact exists yet. Review status is
+Pending because this materially revised, cross-cutting proposal awaits the
+required Double review. Owner approval remains Pending and Status remains
+Proposed. The exact dependency-revision meaning, exact serialized field
+spellings and diagnostic codes, concrete resource thresholds, canonical
+axes/units/rotation/scale/shear, canonical bytes/hashing, and fixture evidence
+remain deferred. Only Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 
@@ -250,9 +296,18 @@ may accept or reject this proposal.
   boundary.
 - Define the one operation-result envelope across loading,
   syntax/schema/contract recognition, dependency and resource checks,
-  semantic resolution, and invariant checks; specify status/category,
-  deterministic diagnostic ordering, valid/supported snapshot conditions, and
-  the non-contractual partial-graph debug boundary.
+  semantic resolution, and invariant checks; use DR-0012's closed status set,
+  phase precedence, primary-diagnostic rule, bounded ordering, incomplete
+  markers, valid/supported snapshot conditions, and non-contractual
+  partial-graph debug boundary.
+- Prove separately that every embodied Part has exactly one containment path,
+  that containment owns reference-transform inheritance, and that relation
+  traversal cannot repair containment or change its cycle checks. For Stage 1,
+  verify required Joint edges connect structural parents to immediate children
+  and that attached module roots agree with separately declared containment.
+- Preserve canonical resolved Joint endpoint and Socket interface records with
+  source-reference provenance while keeping bones, solvers, limits, rigs, and
+  runtime pose outside this graph boundary.
 - Specify namespace ownership, imported-namespace collision detection, and the
   authored deterministic remap that must cover all semantic addresses
   contributed by an imported namespace.

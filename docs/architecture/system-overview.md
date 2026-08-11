@@ -17,6 +17,12 @@ The current semantic boundaries are Proposed under [DR-0002](../decisions/DR-000
 [DR-0006](../decisions/DR-0006-durable-semantic-and-artifact-identity.md),
 [DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
 and [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
+Batch 5 blocker resolutions are discussion-approved and represented here as
+Proposed architecture consequences. The material canonical updates require
+fresh review. DR-0002 Revision 7, DR-0008 Revision 7, DR-0011 Revision 3, and
+DR-0012 Revision 2 are Proposed with Owner approval Pending and Review Pending;
+their prior Batch 4 review is stale, and a fresh current Double review is
+pending.
 
 ```text
 Human, script, test, or external AI
@@ -64,77 +70,38 @@ this may be one human-readable document; future explicit semantic override
 layers may also be authored inputs. Every outcome-affecting external authored
 asset is an exactly versioned dependency of the source set; an external mesh is
 authored input but not semantic truth. The source set alone is authored
-authority. Strict UTF-8 JSON and JSON Schema Draft 2020-12 are the Proposed
-initial encoding and structural-validation technologies; exact source-set
-layering and precedence remain open.
+authority. The initial adapter is proposed strict UTF-8 JSON with JSON Schema
+Draft 2020-12 structural validation; the complete admission and compatibility
+boundary is owned by the [body-document contract](../../spec/body-document/README.md).
 
 ### Operation result envelope and resolved semantic body graph snapshot
 
-Every phase and diagnostic—loading, syntax/schema/contract, dependencies,
-resources, semantic resolution, and invariants—belongs to one authoritative
-operation-result envelope with deterministic outcome and structured
-diagnostics. Exact phase names and diagnostic codes remain deferred. A
-validated, inspectable per-build semantic lineage snapshot is an optional
-validated success payload only for valid-supported input. Snapshot diagnostics
-are a derived persisted subset of the envelope. Semantically invalid and
-well-formed-but-unsupported partial graphs are non-compilable,
-non-contractual debug information; they cannot be consumed as a body graph.
-Mesh, rig, runtime, and other artifacts remain further derived outputs.
-
-The source and graph contracts deliberately separate source text, a normalized
-admission model, and a resolved success snapshot. The initial source adapter is
-one strict UTF-8 JSON document: duplicate keys, comments, includes, and
-evaluation are rejected. Structural validation uses the proposed JSON Schema
-Draft 2020-12 vocabulary, while CK semantic resolution owns identity,
-relations, frames, provenance, and invariants. Exact semantic contract family
-and revision must be recognized; migration is explicit and produces a new
-source. Unknown core members fail, while namespaced optional extensions remain
-opaque and have no core semantic effect. See the [body-document
-contract](../../spec/body-document/README.md) and [body-graph
-contract](../../spec/body-graph/README.md). Exact field names, schema files,
+Every phase and diagnostic belongs to one authoritative operation-result
+envelope with a closed status, completeness indication, deterministic bounded
+diagnostics, and an optional validated per-build snapshot only for complete
+valid-supported success. The body-document contract owns bootstrap order,
+status precedence, diagnostic retention/order, and hostile-input resource
+guards. The graph contract owns resolved semantic structure. Mesh, rig,
+runtime, and other artifacts remain further derived outputs. See the
+[body-document contract](../../spec/body-document/README.md) and
+[body-graph contract](../../spec/body-graph/README.md); exact fields, codes,
 canonical bytes, and hashes remain deferred.
 
 ### First body grammar boundary
 
-The first grammar is a bounded typed ownership tree for the proposed
-digitigrade biped family. Its identity-bearing embodied concepts are exactly
-Part, Joint, Socket, Attachment, Region, Capability, and Field. Module is an
-authored reusable scope that instantiates those concepts, not an embodied
-graph concept. Landmark, anchor, dimension, and frame are typed owned records
-addressed through owner and role. Part is structural/owned; Joint is a
-directed identity-bearing articulation relation with exactly one proximal and
-one distal Part and endpoint frames relative to those Parts; Socket is a
-Part-owned named interface; Attachment connects exactly one host Socket to one
-mating Socket and does not imply articulation; Region may overlap and never
-owns; Capability is a queryable affordance; and Field is representation-neutral
-spatial intent/channel with lineage. Part-to-Part ownership is the sole
-structural body-containment tree; declarative owners of other concepts and
-typed records scope identity/lifecycle without creating structural body edges.
-Non-structural concepts are reified through typed, role-labelled relations.
-
-The pelvis Part owns the root-reference frame. The minimum Stage 1 chain is
-pelvis → spine Joint → torso/chest Part → neck-base Joint → neck Part →
-head-base Joint → head. Each arm uses shoulder, elbow, and wrist Joints connecting torso,
-upper-arm, forearm, and hand/paw Parts, then a terminal paw-base
-landmark/Socket. Each leg uses hip, knee, and hock-or-ankle Joints connecting
-pelvis, thigh, lower-leg, and foot/paw Parts, then a terminal paw-base
-landmark/Socket. Ear and tail modules use Attachment; a movable tail also has
-a separate Joint. Ears require no articulation. These are semantic roles and
-frames, not a bone hierarchy, solver, rig, joint-limit, or anatomy-fidelity
-claim. Arbitrary anatomy and user-defined graph kinds are unsupported in this
-first family.
-
-Units, handedness, up, and forward are declared; normalization to a
-contract-revision canonical internal basis records conversion provenance.
-Claims compare after normalization by owner address, property role, and
-frame/context. Authored claims and explicit invariants must be jointly
-satisfiable within contract tolerance; derived/defaulted values never
-override authored values, hidden inferred equations are not allowed, and a
-conflict is a semantic-invalid diagnostic with no success snapshot. Exact
-axes, units, rotation, scale, shear, ranges, tolerances, surface primitives,
-serialized fields, and machine-schema contents remain deferred. Strict JSON
-and JSON Schema Draft 2020-12 are the Proposed initial encoding and
-structural-validation technologies.
+The first grammar is a bounded typed Part-containment tree for the proposed
+digitigrade biped family plus the seven typed concepts and relation semantics
+owned by the [body-graph contract](../../spec/body-graph/README.md). Its
+architectural boundary is explicit: every embodied Part has one containment
+path, containment supplies transform inheritance, relations cannot repair
+containment, and containment and relation cycles are checked independently.
+Required Stage 1 Joints connect structural parents to immediate children.
+Attachment composition derives optional-module placement from host/mating
+Socket frames and optional offset while preserving the no-implied-Joint rule.
+Resolved Joint and Socket frame records are canonical semantic handoff data,
+not rig or runtime data. The architecture consumes these rules and does not
+restate serialized spellings or numeric conventions; see the canonical graph
+contract for the minimum axial/limb chain, provenance, and invariants.
 
 ### Simulation representation
 
@@ -213,27 +180,17 @@ version, configuration, and seed. Query, mutation, resolution/compilation,
 validation, diagnostics, and artifact inspection use one deterministic domain
 operation model. Nondeterministic stages must be isolated and reported.
 
-The resolver phases are resource/input admission; syntax/schema/contract;
-dependencies; namespaces/identity/references; ownership/typed relations;
-unit/frame normalization and value derivation; semantic invariants; and
-success publication. Fatal failure blocks dependent phases, while independent
-diagnostics within a phase accumulate deterministically. Provenance records
-authored, defaulted, or derived values. Required unresolved or ambiguous
-values cannot succeed. The implementation profile uses finite resource limits
-across source and aggregate bytes; string lengths/counts; nesting depth;
-object/array members; graph entities/relations; ownership depth;
-module/reference expansion; extension count/payload; numeric admissibility;
-diagnostics; and aggregate work and memory. Exact profile values and
-accounting remain deferred. The profile is selected at admission, while its
-guards remain active through all later phases.
-
-The operation-result envelope also carries compatibility outcomes. Stable
-machine diagnostic identity and deterministic order are contract data; human
-messages are not compatibility keys. Semantic equivalence concerns durable
-IDs, relations, frames, normalized values, provenance, and outcome, not source
-ordering or incidental topology. Compiler/build/configuration/seed,
-dependency, and artifact identities remain separate from semantic contract
-identity.
+The resolver uses the ordered phases and closed result-status rules in the
+[body-document contract](../../spec/body-document/README.md). Fatal phases
+block dependent work while independent diagnostics in a reached phase may
+accumulate; the envelope retains reached diagnostics and marks incomplete
+processing when phases or diagnostic retention are cut short. Resource guards
+remain active through parsing, dependency/reference expansion, graph work, and
+publication. The architecture requires deterministic work and bounded
+diagnostics but leaves profile values and accounting detail to the canonical
+specification. Semantic equivalence and identity remain separate from source
+ordering, compiler/build/configuration/seed, dependency, artifact, and
+incidental topology identities.
 
 ### Engine-independent contracts
 

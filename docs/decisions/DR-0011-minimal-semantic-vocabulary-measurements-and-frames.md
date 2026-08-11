@@ -6,13 +6,13 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 2
+Revision: 3
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-11
 
@@ -45,10 +45,15 @@ of them. On 2026-08-11 Ben approved the wider seven-decision CK-KICK-012 batch
 in discussion; this record owns its three vocabulary, measurement, and frame
 decisions. On 2026-08-11 Ben approved the CK-KICK-012 Batch 4 semantic
 classification, directed articulation, and measurement-conflict resolutions
-recorded in Revision 2. Initial source encoding, phase sequencing, diagnostics,
-compatibility, and resource limits are owned by [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
+recorded in Revision 2. On 2026-08-11 Ben approved the CK-KICK-012 Batch 5
+blocker-resolution selections recorded in Revision 3: canonical resolved Joint
+and Socket frame records, explicit containment and Attachment boundaries, and
+the linked operation outcome/bootstrap/resource rules. Initial source
+encoding, phase sequencing, diagnostics, compatibility, and resource limits
+are owned by [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
 This discussion approval is not DR acceptance: this Proposed record remains
-subject to current-revision review and owner disposition.
+subject to a new current-revision Double review and owner disposition; Revision
+2 review artifacts are now stale.
 
 ## Decision
 
@@ -61,13 +66,19 @@ distinct typed concepts rather than one generic tag node:
 - **Part** is an owned structural body element. Ownership is the containment
   relationship and is not implied by any other concept.
 - **Joint** is a directed, identity-bearing articulation relation. It connects
-  exactly one proximal Part to exactly one distal Part and owns or refers to
-  proximal and distal endpoint frames expressed relative to those Parts. It is
-  not a bone, a bone hierarchy, or a solver constraint.
+  exactly one proximal Part to exactly one distal Part and canonically owns a
+  proximal-frame record and a distal-frame record. Each record is expressed in
+  its corresponding Part's local basis and retains provenance for any source
+  reference that fed it. It is not a bone, a bone hierarchy, solver
+  constraint, limit, rig, or runtime representation.
 - **Socket** is a named interface owned by a Part. It provides a host or mating
-  interface frame without implying articulation.
+  interface and owns exactly one interface frame expressed in that Part's
+  basis; it does not imply articulation.
 - **Attachment** connects exactly one host Socket to exactly one mating Socket.
   It maps or connects module composition, but does not imply articulation.
+  Initially an attached module root has at most one active incoming
+  Attachment. Invalid or detached endpoints, duplicate Attachments, and
+  Attachment cycles are semantic-invalid outcomes.
 - **Region** is a potentially overlapping spatial designation. It never owns
   the parts it designates.
 - **Capability** is a queryable affordance. It is not an implementation,
@@ -123,6 +134,24 @@ distinguishes:
 - a resolved world/reference transform, which is derived build output; and
 - runtime pose transforms, which are separate runtime state.
 
+Part-to-Part containment is the only structural body relation. Every embodied
+Part, including optional module Parts, has exactly one containment path to the
+root; Joint, Attachment, Region, and other relations cannot create or repair
+that path. Containment owns reference-transform inheritance. Validate
+containment reachability and containment cycles separately from typed-relation
+cycles. In the bounded Stage 1 axial/limb grammar, required Joint edges connect
+the structural parent Part to its immediate child Part. An Attachment's host
+Part and module-root child must agree with separately declared containment.
+
+Attachment placement is derived from the host Part/frame and host Socket, an
+optional explicit Attachment offset, and the inverse mating Socket frame. This
+conceptual composition is selected without fixing serialized field spelling.
+If separately authored placement controls the same degrees of freedom, it must
+agree with the derived composition within the later-defined tolerance or the
+document is semantic-invalid. The resolved graph materializes canonical owned
+records and preserves source-reference provenance; it does not choose a bone,
+solver, limit, rig, or runtime representation.
+
 The canonical axes and unit, rotation representation, and scale/shear policy
 are later specification and platform work. Their deferral does not defer the
 requirement that sources declare their basis or that normalization provenance
@@ -144,6 +173,10 @@ be retained.
   success snapshot is not published for an unsatisfied claim set.
 - Source basis conversion is explicit and auditable, while build-derived world
   transforms and runtime pose state cannot be mistaken for authored placement.
+- Structural containment is explicit and independently checked: relations do
+  not supply root reachability or transform inheritance. Attachment placement
+  has one conceptual composition and cannot silently override an authored
+  placement claim.
 - The vocabulary and frame boundary remain engine-independent, but exact
   syntax, canonical numeric conventions, and storage representations require
   later specification and evidence.
@@ -204,33 +237,53 @@ This is superficially simple, but conflates authored intent with derived
 resolution and mutable runtime state. Separate frame roles preserve provenance
 and make runtime state changes non-authoritative.
 
+### Derive containment from Joint or Attachment relations
+
+This would reduce one apparent edge type, but would let relation traversal
+repair disconnected Parts and would make reference-transform inheritance
+depend on relation kind or traversal order. It is rejected: Part containment is
+the sole structural body relation, and containment cycles/reachability are
+checked separately from relation cycles.
+
+### Leave Joint endpoint records as ambiguous source references
+
+Keeping only source references would preserve authoring flexibility, but allows
+different consumers to choose different endpoint owners, roles, bases, or
+provenance. The resolved graph therefore owns exactly one proximal and distal
+record in the corresponding Part bases; source references remain provenance.
+
+### Let authored Attachment placement silently win over Socket composition
+
+That would discard host/mating interface semantics; letting Socket composition
+silently win would discard an explicit authored offset. The selected
+composition combines host Part/frame, host Socket, optional offset, and inverse
+mating Socket frame, and rejects a same-degree-of-freedom disagreement within a
+later-defined tolerance.
+
 ## Adversarial Review Response
 
 The Revision 1 current-revision Double review remains preserved as stale
 historical evidence in the [contract pass](reviews/DR-0011-rev-01-review-01.md)
 and [graphics-system pass](reviews/DR-0011-rev-01-review-02.md); both recommended
-Revise at High confidence. The current Revision 2 Double review is Complete at
-commit `7dba9346c91c59ff99f10b94630690bf732d6b28`: the fresh independent
-Sol-medium contract/schema/security pass
-([review 01](reviews/DR-0011-rev-02-review-01.md)) recommends **Accept** with
+Revise at High confidence. The Revision 2 Double review is preserved as stale
+evidence at commit `7dba9346c91c59ff99f10b94630690bf732d6b28`: the fresh
+independent Sol-medium contract/schema/security pass
+([review 01](reviews/DR-0011-rev-02-review-01.md)) recommended **Accept** with
 **High** confidence and found no DR-0011-specific blocker, while the fresh
-independent Sol-medium semantic-graph/graphics/runtime pass
-([review 02](reviews/DR-0011-rev-02-review-02.md)) recommends **Revise** with
-**High** confidence.
+independent semantic-graph/graphics/runtime pass
+([review 02](reviews/DR-0011-rev-02-review-02.md)) recommended **Revise** with
+**High** confidence. The latter's blockers motivated Revision 3's explicit
+containment, Attachment composition, and canonical frame-record selections;
+the linked operation status, bootstrap, and hostile-input resource rules are
+owned by DR-0002/DR-0012.
 
-Review 01 closes classification, articulation, and measurement blockers for
-this record; its envelope, contract-bootstrap, resource-enforcement, and
-secondary-document concern was aligned after review, while its other concerns
-are linked cross-DR dependencies rather than DR-0011 findings. Review 02 closes
-classification and measurement but leaves
-articulation partial: Attachment structural insertion/socket-frame placement,
-canonical Joint endpoint-frame ownership/roles/basis/provenance/equivalence,
-and containment reachability versus relation traversal/cycles and transform
-inheritance remain unresolved. Its phase/outcome/diagnostic precedence concern
-is likewise a DR-0002/DR-0012 dependency. Fixture-matrix and specialist
-obligations remain nonblocking. Review Complete records evidence, not
-acceptance or a clean review; Owner approval remains Pending and Status remains
-Proposed. Only Ben may accept or reject this proposal.
+Revision 3 records Ben's 2026-08-11 discussion selections, not a current
+review result. No Revision 3 review artifact exists yet. Review status is
+Pending because this materially revised, cross-cutting proposal awaits the
+required Double review. Owner approval remains Pending and Status remains
+Proposed. Exact serialized field spellings, canonical axes/units/rotation/
+scale/shear, tolerances, diagnostic codes, and fixture evidence remain
+deferred. Only Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 
@@ -239,6 +292,18 @@ Proposed. Only Ben may accept or reject this proposal.
   ownership restrictions, directed Joint endpoint roles/cardinality, and valid
   relations in the body-document and body-graph specifications; ensure no
   generic tag node becomes a semantic escape hatch.
+- Materialize canonical Joint proximal/distal records and one Socket interface
+  frame in their owning Part bases, retaining source-reference provenance and
+  rejecting competing owner/role interpretations; do not introduce a bone,
+  solver, limits, rig, or runtime representation.
+- Specify explicit Part containment, one root path for every embodied Part,
+  containment-owned reference-transform inheritance, separate containment and
+  relation cycle checks, Stage 1 immediate-child Joint edges, and Attachment
+  host/child containment agreement.
+- Test Attachment placement from host Part/frame, host Socket, optional offset,
+  and inverse mating Socket frame; reject same-degree-of-freedom authored
+  disagreement within the later-defined tolerance, duplicate/detached/invalid
+  endpoints, and Attachment cycles.
 - Create fixtures that distinguish Part, Joint, Socket, Attachment, Region,
   Capability, and Field, including overlapping regions and an attachment that
   is not a joint.

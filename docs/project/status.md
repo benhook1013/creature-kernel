@@ -53,11 +53,15 @@ future activation. It is recorded here without accepting or revising either DR:
 The foundation scaffold and governance process are integrated. DR-0001 Revision
 5 is Accepted by Ben after its Complete clean review; that acceptance applies
 only to the Governance DR. DR-0002 through DR-0012 remain Proposed with their
-review evidence and owner-disposition state preserved. The current CK-KICK-012
-Double review is Complete, with six consolidated blockers pending Ben
-discussion; this does not imply acceptance or a clean review. No permanent production
-surface architecture, implementation stack, numeric budget, exact fixture,
-schema, runtime field, topology, or geometry backend is selected. CK-KICK-010's
+review and owner-disposition history preserved. Ben's CK-KICK-012 Batch 5
+blocker resolutions are discussion-approved and are integrated as Proposed
+canonical product/specification/architecture material. The prior Batch 4
+Double review is stale for these material updates. DR-0002 Revision 7,
+DR-0008 Revision 7, DR-0011 Revision 3, and DR-0012 Revision 2 are Proposed
+with Owner approval Pending and Review Pending; a fresh current Double review
+is pending. No permanent production surface architecture, implementation stack,
+numeric budget, exact fixture, schema, runtime field, topology, or geometry
+backend is selected. CK-KICK-010's
 approved grid, field, bundle, determinism, and structural-gate values are
 debug-only spike inputs and do not change that boundary.
 
@@ -70,13 +74,12 @@ articulation roles; frozen fixture outcomes and primary diagnostics; typed
 vocabulary; explicit measurement ownership and conflict diagnostics; and
 declared source frames normalized to a revisioned canonical basis with
 provenance. He also discussion-approved the Batch 4 encoding, resolution,
-compatibility, resource, and fixture resolutions below. These discussion
-approvals do not accept or silently replace the DRs.
-
-The prior CK-KICK-012 revisions have complete review evidence. Batch 4 creates
-new Proposed revisions for DR-0002, DR-0008, and DR-0011, plus the new DR-0012;
-each has Owner approval Pending and Review Complete. The current Double review
-leaves six consolidated blockers pending Ben discussion.
+compatibility, resource, and fixture resolutions, followed by the six Batch 5
+blocker resolutions. These discussion approvals do not accept or silently
+replace the DRs. The canonical documents now state explicit Part containment,
+Attachment placement, canonical resolved frame records, and the closed
+operation/bootstrap/status/resource contract. New DR revisions and current
+review are pending; the prior Double review is historical evidence only.
 DR-0006 remains Proposed with its current revision's review evidence and owner
 disposition state. The cross-cutting proposal is [DR-0012: initial
 body-document encoding, resolution, and compatibility](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
@@ -120,10 +123,12 @@ nonblocking obligation before external authored dependencies activate.
   conclusion or claim visual evidence or Stage 1.
 - CK-KICK-011 follows useful exploratory evidence. A formal comparative
   surface decision is optional and risk-driven, not automatic.
-- CK-KICK-012 is active with Batches 1 and 4 integrated as Proposed
-  documentation; its first parser and resolver proposals activate the two
+- CK-KICK-012 is active with Batches 1, 4, and 5 integrated as Proposed
+  documentation; its parser and resolver proposals activate the two
   specification families, while implementation packages and compiler-consumed
-  fixtures remain unactivated. It does not depend on CK-KICK-011.
+  fixtures remain unactivated. DR-0002/0008/0011/0012 are at their Batch 5
+  revisions with Review Pending; a fresh current Double review is pending. It
+  does not depend on CK-KICK-011.
 - CK-KICK-013 may compare a production implementation platform after the
   exploratory host boundary and minimal contract are understood. A disposable
   discovery host remains distinct from a production commitment.
@@ -139,7 +144,8 @@ nonblocking obligation before external authored dependencies activate.
 - Keep CK-KICK-012's active semantic and compatibility work bounded; it must not
   promote the disposable host into a production platform or contract. The
   active Proposed body-document/body-graph documents do not activate
-  implementation packages or compiler fixtures.
+  implementation packages or compiler fixtures. Prepare the corresponding DR
+  revisions and fresh current review before any owner-disposition claim.
 - Preserve the accepted governance process and all historical decision/review
   evidence without reopening the parked confirmatory protocol.
 
@@ -149,8 +155,9 @@ The [decision registry](../decisions/registry.md) is the index for exact DR
 metadata. Current non-governance proposals include:
 
 - [DR-0002](../decisions/DR-0002-declarative-body-document-source-of-truth.md),
-  source set and resolved body graph — Revision 6, Proposed, Owner approval
-  Pending, Review Complete.
+  source set and resolved body graph — Revision 7, Proposed, Owner approval
+  Pending, Review Pending; prior review is stale and a fresh current Double
+  review is pending.
 - [DR-0003](../decisions/DR-0003-real-time-first-compiled-avatar-boundary.md),
   compiled avatar and bounded real-time execution — Revision 2, Proposed,
   Review Complete, owner disposition pending.
@@ -165,15 +172,18 @@ metadata. Current non-governance proposals include:
   Pending, Review Complete, owner disposition pending.
 - [DR-0007](../decisions/DR-0007-staged-first-proof-charter.md) and
   [DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
-  first-proof and morphology boundaries — DR-0007 Revision 2 remains Proposed,
-  Review Complete; DR-0008 Revision 6 is Proposed, Owner approval Pending,
-  Review Complete.
+  first-proof and morphology boundaries — DR-0007 remains Proposed with its
+  current review; DR-0008 Revision 7 is Proposed, Owner approval Pending,
+  Review Pending; prior review is stale and a fresh current Double review is
+  pending.
 - [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md),
-  semantic vocabulary, measurements, and coordinate frames — Revision 2,
-  Proposed, Owner approval Pending, Review Complete.
+  semantic vocabulary, measurements, and coordinate frames — Revision 3,
+  Proposed, Owner approval Pending, Review Pending; prior review is stale and
+  a fresh current Double review is pending.
 - [DR-0012](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md),
-  initial body-document encoding, resolution, and compatibility — Revision 1,
-  Proposed, Owner approval Pending, Review Complete.
+  initial body-document encoding, resolution, and compatibility — Revision 2,
+  Proposed, Owner approval Pending, Review Pending; prior review is stale and
+  a fresh current Double review is pending.
 - [DR-0009](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
   and [DR-0010](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md)
   are parked as described in [Current activation state](#current-activation-state).
@@ -185,7 +195,7 @@ metadata. Current non-governance proposals include:
 | Documentation authority | partial | unverified | Operational structure under Accepted DR-0001 Revision 5 |
 | Decision-record and review workflow | partial | unverified | Governance accepted; technical/product proposals remain provisional |
 | Research/experiment workflow | partial | unverified | Lightweight template exists; no experiment registered |
-| Body specification | partial | unverified | Proposed body-document and body-graph contracts are active after Batch 4 discussion approval; no accepted format or implementation |
+| Body specification | partial | unverified | Proposed body-document and body-graph contracts include Batch 5 discussion-approved updates; DR-0002/0008/0011/0012 are Proposed with Review Pending and fresh current Double review pending; no accepted format or implementation |
 | Creature compiler | partial | unverified | Disposable CK-KICK-010 walking skeleton implemented; this is not a production compiler |
 | CK-KICK-010 walking skeleton | implemented | audited | Valid/invalid local evidence and the selected Single independent review are complete; five substantive findings plus whitespace were dispositioned in RESULTS, not clean; this is not a production compiler |
 | Local visual-review gallery | implemented | audited | Focused tests and local HTTP/browser smoke passed; subject_context is presentation-only; no visual-evidence or Stage 1 claim |
@@ -193,9 +203,9 @@ metadata. Current non-governance proposals include:
 
 ## Immediate next actions
 
-- Discuss the six consolidated blockers from the completed CK-KICK-012
-  current-revision Double review; retain Proposed status pending Ben's owner
-  disposition.
+- Run the fresh current Double review for DR-0002 Revision 7, DR-0008 Revision
+  7, DR-0011 Revision 3, and DR-0012 Revision 2; retain Proposed status and
+  pending owner disposition.
 - Leave DR-0009/0010 parked unless the activation trigger occurs or Ben
   explicitly reactivates them.
 
