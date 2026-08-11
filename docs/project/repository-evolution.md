@@ -10,6 +10,11 @@ any product, specification, or architecture proposal.
 
 States: `active`, `planned`, `triggered`, `deferred`, `not-applicable`, `retired`.
 
+CK-KICK-012 and CK-KICK-013 remain active Proposed work after their current
+Double reviews; seven findings are pending Ben discussion and owner
+disposition. CK-KICK-014 remains provisional/queued and does not activate
+implementation packages or compiler fixtures.
+
 | Capability | Horizon | State | Activation trigger | Destination | Validation |
 | --- | --- | --- | --- | --- | --- |
 | Documentation authority | Now | active | Foundation phase | `docs/README.md` | Required-path and link checks |

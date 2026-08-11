@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-11
 
@@ -57,9 +57,9 @@ carry linked graph, morphology, and status details. Initial source encoding,
 phase sequencing, diagnostics, compatibility, and resource limits are owned
 by [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
 This discussion approval is not DR acceptance: Revision 4 remains Proposed
-with Owner approval Pending and Review status Pending; its current-revision
-Double review is pending. Earlier review artifacts remain stale historical
-evidence.
+with Owner approval Pending and Review status Complete; its current-revision
+Double review is complete evidence with findings pending Ben discussion and
+owner disposition. Earlier review artifacts remain stale historical evidence.
 
 ## Decision
 
@@ -325,10 +325,16 @@ root placement, and exact Attachment cardinality. DR-0002 and DR-0008 own the
 linked source-set, morphology, and containment consequences; DR-0002 and
 DR-0012 own the operation status/bootstrap/resource boundary. The prior exact-
 revision review is stale historical evidence, not a clean review or acceptance.
-The current Revision 4 Double review is pending. Exact serialized field
+The current Revision 4 Double review examined commit
+`c64b1b98948304d631eecea6a354c9e42c89c510`. The independent [review 01](reviews/DR-0011-rev-04-review-01.md)
+and [review 02](reviews/DR-0011-rev-04-review-02.md) both recommend **Revise**
+at **High** confidence. Review status is Complete, recording evidence only;
+it is not acceptance or a clean review. The seven consolidated findings are
+listed in the [decision registry](registry.md); DR-0011 is affected by F2 and
+F3, pending Ben discussion and owner disposition. Exact serialized field
 spellings, canonical axes/units/rotation/scale/shear, tolerances, diagnostic
-codes, and fixture evidence remain deferred. Review status is Pending; Owner
-approval remains Pending and Status remains Proposed. Only Ben may accept or
+codes, and fixture evidence remain deferred. Owner approval remains Pending and
+Status remains Proposed. Only Ben may accept or
 reject this proposal.
 
 ## Implementation and Proof Obligations

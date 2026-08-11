@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-11
 
@@ -46,7 +46,7 @@ proposal set: this revision resolves status and primary-diagnostic selection,
 while DR-0002, DR-0008, and DR-0011 resolve the linked Attachment composition
 and cardinality consequences. This discussion approval is not DR acceptance.
 Revision 3 remains Proposed with Owner approval Pending and Review status
-Pending; its current-revision Double review is pending. Exact field spelling,
+Complete; its current-revision Double review is complete evidence. Exact field spelling,
 diagnostic codes, concrete resource values, tolerances, canonical
 axes/units/rotation/scale/shear, and the canonical-byte algorithm remain later
 specification work.
@@ -417,11 +417,18 @@ fatal phase, the invalid-source-over-unsupported tie-break, and the
 status-establishing primary diagnostic explicit; DR-0002, DR-0008, and DR-0011
 resolve descendant-owned mating Socket composition and Attachment cardinality.
 The exact-revision review is therefore stale historical evidence, not a clean
-review or acceptance. The current Revision 3 Double review is pending. Exact
+review or acceptance. The current Revision 3 Double review examined commit
+`c64b1b98948304d631eecea6a354c9e42c89c510`. The independent [review 01](reviews/DR-0012-rev-03-review-01.md)
+recommends **Revise** at **High** confidence, and the independent [review 02](reviews/DR-0012-rev-03-review-02.md)
+recommends **Revise** at **Medium** confidence. Review status is Complete,
+recording evidence only; it is not acceptance or a clean review. The seven
+consolidated findings are listed in the [decision registry](registry.md);
+DR-0012 is affected by F1, F2, and F3, pending Ben discussion and owner
+disposition. Exact
 serialized field spellings, diagnostic codes, concrete thresholds,
 dependency-revision semantics, canonical axes/units/rotation/scale/shear,
-canonical bytes/hashing, and fixture/security evidence remain deferred. Review
-status is Pending; Owner approval remains Pending and Status remains Proposed.
+canonical bytes/hashing, and fixture/security evidence remain deferred. Owner
+approval remains Pending and Status remains Proposed.
 Only Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations

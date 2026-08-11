@@ -1,9 +1,12 @@
 # Body-document contract
 
 Status: Proposed contract; CK-KICK-012 Batch 6 discussion-approved canonical
-update; the current CK-KICK-012 Batch 6 Double review is Pending. DR-0002
+update; the current CK-KICK-012 Batch 6 Double review is Complete. DR-0002
 Revision 8, DR-0008 Revision 8, DR-0011 Revision 4, and DR-0012 Revision 3
-remain Proposed with Owner approval Pending and current Double review Pending.
+remain Proposed with Owner approval Pending and Review Complete. The seven
+findings are pending Ben discussion and owner disposition; see the [decision
+registry](../../docs/decisions/registry.md). Review evidence is not acceptance
+or a clean review.
 The CK-KICK-012 Batch 5 review at commit `a282dbabffd83afa4e62577086934d00f98e12c7`
 is stale historical evidence. No acceptance is implied.
 

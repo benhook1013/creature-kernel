@@ -9,10 +9,12 @@ its activation trigger is met.
 The CK-KICK-012 Batch 6 resolutions are discussion-approved and represented as
 Proposed responsibility consequences. DR-0002 Revision 8, DR-0008 Revision 8,
 DR-0011 Revision 4, and DR-0012 Revision 3 are Proposed with Owner approval
-Pending and current Double review Pending. The CK-KICK-012 Batch 5 review is
+Pending and Review Complete; seven findings remain pending Ben discussion and
+owner disposition. The CK-KICK-012 Batch 5 review is
 stale historical evidence. Proposed DR-0013 Revision 1 likewise records the
 discussion-approved Rust-first platform direction with Owner approval Pending
-and current Double review Pending; no acceptance or implementation package is
+and Review Complete; its findings remain pending Ben discussion and owner
+disposition; no acceptance or implementation package is
 implied.
 
 | Component | Responsibilities | Explicit non-responsibilities |

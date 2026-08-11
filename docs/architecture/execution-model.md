@@ -11,8 +11,9 @@ supplementary. This direction is Proposed for formal acceptance under
 [DR-0003](../decisions/DR-0003-real-time-first-compiled-avatar-boundary.md).
 
 CK-KICK-013 is a discussion-approved but unaccepted platform proposal.
-Proposed DR-0013 Revision 1 has Owner approval Pending and current Double
-review Pending. It proposes a stable Rust production semantic/compiler core in
+Proposed DR-0013 Revision 1 has Owner approval Pending and Review Complete;
+its findings remain pending Ben discussion and owner disposition. It proposes
+a stable Rust production semantic/compiler core in
 a Cargo workspace, exposed as an engine-independent Rust compiler library and
 thin CLI with a replaceable geometry boundary. No initial daemon or service is
 part of this proposal. Stage 1 uses an in-process Rust CPU dense-field

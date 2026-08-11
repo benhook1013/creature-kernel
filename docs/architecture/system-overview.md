@@ -19,9 +19,11 @@ The current semantic boundaries are Proposed under [DR-0002](../decisions/DR-000
 and [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
 CK-KICK-012 Batch 6 blocker resolutions are discussion-approved and represented
 here as Proposed architecture consequences. The material canonical updates
-require a fresh current Double review. DR-0002 Revision 8, DR-0008 Revision 8,
+have a complete current Double review. DR-0002 Revision 8, DR-0008 Revision 8,
 DR-0011 Revision 4, and DR-0012 Revision 3 are Proposed with Owner approval
-Pending and current Double review Pending; the CK-KICK-012 Batch 5 review at
+Pending and Review Complete; seven findings are pending Ben discussion and
+owner disposition (see the [decision registry](../decisions/registry.md)). The
+CK-KICK-012 Batch 5 review at
 commit `a282dbabffd83afa4e62577086934d00f98e12c7` is stale historical evidence.
 No acceptance or clean review is implied.
 
@@ -92,7 +94,8 @@ canonical bytes, and hashes remain deferred.
 
 CK-KICK-013 is a discussion-approved platform proposal, not an accepted
 implementation decision. Proposed DR-0013 Revision 1 has Owner approval
-Pending and current Double review Pending. Its target is a stable Rust
+Pending and Review Complete; its findings are pending Ben discussion and owner
+disposition. Its target is a stable Rust
 production semantic/compiler core in a Cargo workspace: an
 engine-independent Rust compiler library, a thin CLI, and a replaceable
 geometry boundary, with no initial daemon or service. Stage 1 uses an

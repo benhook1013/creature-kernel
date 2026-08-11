@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-08
 
@@ -52,8 +52,9 @@ this proposal set: this revision resolves the authoritative status/primary
 diagnostic and descendant-owned Attachment composition/cardinality boundaries,
 with linked detail in DR-0008, DR-0011, and DR-0012. This discussion approval is
 not DR acceptance. Revision 8 remains Proposed with Owner approval Pending and
-Review status Pending; its current-revision Double review is pending. All
-earlier revisions and their reviews remain historical evidence.
+Review status Complete; its current-revision Double review is complete
+evidence. All earlier revisions and their reviews remain stale historical
+evidence.
 
 ## Decision
 
@@ -351,11 +352,17 @@ mating Socket composition, sole root placement, and Attachment cardinality
 rules; DR-0008 and DR-0011 carry the linked morphology and typed-vocabulary
 consequences, while DR-0012 owns the detailed status/bootstrap/resource
 boundary. The prior exact-revision review is stale historical evidence, not a
-clean review or acceptance. The current Revision 8 Double review is pending.
+clean review or acceptance. The current Revision 8 Double review examined
+commit `c64b1b98948304d631eecea6a354c9e42c89c510`. The independent [review 01](reviews/DR-0002-rev-08-review-01.md)
+and [review 02](reviews/DR-0002-rev-08-review-02.md) both recommend **Revise**
+at **High** confidence. Review status is Complete, recording evidence only;
+it is not acceptance or a clean review. The seven consolidated findings are
+listed in the [decision registry](registry.md); DR-0002 is affected by F1,
+F2, and F3, pending Ben discussion and owner disposition.
 The exact dependency-revision meaning, serialized field spellings and
 diagnostic codes, concrete resource thresholds, canonical
 axes/units/rotation/scale/shear, canonical bytes/hashing, and fixture evidence
-remain deferred. Review status is Pending; Owner approval remains Pending and
+remain deferred. Owner approval remains Pending and
 Status remains Proposed. Only Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations

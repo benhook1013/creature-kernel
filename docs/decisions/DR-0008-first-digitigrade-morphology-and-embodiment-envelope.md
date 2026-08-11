@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-09
 
@@ -35,8 +35,8 @@ revision resolves the descendant-owned Attachment composition and cardinality
 consequences, while DR-0002, DR-0011, and DR-0012 carry linked graph,
 vocabulary, and status details. This discussion approval is not DR acceptance:
 Revision 8 remains Proposed with Owner approval Pending and Review status
-Pending; its current-revision Double review is pending. Reviews of earlier
-revisions remain stale historical evidence.
+Complete; its current-revision Double review is complete evidence. Reviews of
+earlier revisions remain stale historical evidence.
 
 Supersedes: —
 
@@ -458,12 +458,18 @@ the sole root placement, and exact Attachment cardinality; DR-0002 owns the
 source-set and graph boundary, DR-0011 owns the linked typed Socket/frame
 vocabulary, and DR-0012 owns the linked status/bootstrap/resource details. The
 prior exact-revision review is stale historical evidence, not a clean review or
-acceptance. The current Revision 8 Double review is pending. The three-way
+acceptance. The current Revision 8 Double review examined commit
+`c64b1b98948304d631eecea6a354c9e42c89c510`. The independent [review 01](reviews/DR-0008-rev-08-review-01.md)
+and [review 02](reviews/DR-0008-rev-08-review-02.md) both recommend **Revise**
+at **High** confidence. Review status is Complete, recording evidence only;
+it is not acceptance or a clean review. The seven consolidated findings are
+listed in the [decision registry](registry.md); DR-0008 is affected by F2 and
+F3, pending Ben discussion and owner disposition. The three-way
 Stage 1 fixture taxonomy remains limited to admitted recognized semantic
 fixtures; exact fixture files and expected codes, field spellings, tolerance,
 canonical axes/units/rotation/scale/shear, and fixture evidence remain
-deferred. Review status is Pending; Owner approval remains Pending and Status
-remains Proposed. Only Ben may accept or reject this proposal.
+deferred. Owner approval remains Pending and Status remains Proposed. Only Ben
+may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 

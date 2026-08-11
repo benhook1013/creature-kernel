@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-11
 
@@ -199,11 +199,15 @@ activate when evidence and users justify them.
 ## Adversarial Review Response
 
 This is CK-KICK-013 Revision 1, proposed and discussion-approved on
-2026-08-11. No current-revision adversarial review has been performed;
-Review status is Pending. This record does not claim owner acceptance, a clean
-review, a production implementation, a permanent geometry backend, a final
-artifact/package format, or a performance result. A current-revision Double
-review is pending before any owner-acceptance consideration.
+2026-08-11. The current Revision 1 Double review examined commit
+`c64b1b98948304d631eecea6a354c9e42c89c510`. The independent [review 01](reviews/DR-0013-rev-01-review-01.md)
+and [review 02](reviews/DR-0013-rev-01-review-02.md) both recommend **Revise**
+at **High** confidence. Review status is Complete, recording evidence only;
+it is not acceptance or a clean review. This record does not claim owner
+acceptance, a production implementation, a permanent geometry backend, a
+final artifact/package format, or a performance result. The seven consolidated
+findings are listed in the [decision registry](registry.md); DR-0013 is
+affected by F4, F5, F6, and F7, pending Ben discussion and owner disposition.
 
 The principal review obligations are to challenge the Rust and Cargo choice,
 the sufficiency and portability of the Linux x86_64 first target, the

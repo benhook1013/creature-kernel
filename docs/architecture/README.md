@@ -51,9 +51,11 @@ vocabulary, measurement ownership, and frame-conversion boundary are Proposed
 in [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
 CK-KICK-012 Batch 6 resolutions are discussion-approved and are reflected in
 the canonical specifications as Proposed material. The current CK-KICK-012
-Batch 6 Double review is Pending. DR-0002 Revision 8, DR-0008 Revision 8,
+Batch 6 Double review is Complete. DR-0002 Revision 8, DR-0008 Revision 8,
 DR-0011 Revision 4, and DR-0012 Revision 3 remain Proposed with Owner
-approval Pending and current Double review Pending. The CK-KICK-012 Batch 5
+approval Pending and Review Complete. Seven findings are pending Ben
+discussion and owner disposition; see the [decision registry](../decisions/registry.md).
+The CK-KICK-012 Batch 5
 review at commit `a282dbabffd83afa4e62577086934d00f98e12c7` is stale historical
 evidence; no clean review or acceptance is implied.
 DR-0006 remains Proposed with its current revision's review evidence. The
@@ -80,7 +82,8 @@ but may not claim formal DR-0009/0010 support or reject.
 
 The CK-KICK-013 platform proposal is also discussion-approved as Proposed
 material, not an accepted implementation decision. Proposed DR-0013 Revision 1
-has Owner approval Pending and current Double review Pending. It describes a
+has Owner approval Pending and Review Complete; its findings are pending Ben
+discussion and owner disposition. It describes a
 stable Rust production semantic/compiler core in a Cargo workspace: an
 engine-independent Rust compiler library, a thin CLI, and a replaceable
 geometry boundary, with no initial daemon or service. Stage 1 would use an
