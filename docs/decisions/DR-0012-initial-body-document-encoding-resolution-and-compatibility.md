@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-11
 
@@ -38,8 +38,9 @@ compatibility recognition, extension handling, or resource admission.
 
 On 2026-08-11 Ben approved the CK-KICK-012 Batch 4 decisions recorded here.
 This discussion approval is not DR acceptance. This record remains Proposed
-with Owner approval Pending and Review Pending until current-revision review
-evidence and Ben's owner disposition are recorded. Exact field spelling,
+with Owner approval Pending and Review Complete; the completed review records
+evidence, not acceptance or a clean review, pending Ben's owner disposition.
+Exact field spelling,
 diagnostic codes, concrete resource values, canonical axes/units/rotation/
 scale/shear, and the canonical-byte algorithm remain later specification work.
 
@@ -236,10 +237,31 @@ hashing remain deferred.
 
 ## Adversarial Review Response
 
-No current-revision adversarial review has been run for this new record. Review
-Pending records that the required review evidence is outstanding; this record
-does not imply acceptance or a clean review. Only Ben may accept or reject this
-proposal.
+The current Revision 1 Double review is Complete at commit
+`7dba9346c91c59ff99f10b94630690bf732d6b28`: the fresh independent Sol-medium
+contract/schema/security pass
+([review 01](reviews/DR-0012-rev-01-review-01.md)) recommends **Revise** with
+**High** confidence, and the fresh independent Sol-medium
+semantic-graph/graphics/runtime pass
+([review 02](reviews/DR-0012-rev-01-review-02.md)) also recommends **Revise**
+with **High** confidence.
+
+Review 01 directly finds incomplete operation-envelope outcome/status algebra,
+precedence, primary diagnostic, truncation, contract-discriminator/schema
+bootstrap order, and minimum hostile-input resource enforcement; its mechanical
+secondary-architecture wording finding was aligned after review without
+changing this proposal. Review 02 finds graph containment reachability versus relation
+traversal/cycles and transform inheritance, optional-module Attachment
+structural insertion/socket-frame placement and validity, and canonical Joint
+endpoint-frame ownership/roles/basis/provenance/equivalence. These graph
+findings are cross-DR dependencies of this record's minimum invariants and
+success-snapshot promise, owned with DR-0008 and DR-0011. Classification and
+measurement blockers are closed; articulation remains partial because frame and
+Attachment gaps remain. Fixture-matrix and specialist obligations remain
+nonblocking. Review Complete records evidence, not acceptance or a clean
+review; Owner approval remains Pending and Status remains Proposed. The exact
+dependency-revision meaning remains a nonblocking later obligation. Only Ben
+may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 

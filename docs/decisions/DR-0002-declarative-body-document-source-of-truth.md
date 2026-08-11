@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-08
 
@@ -205,17 +205,41 @@ precise, editable, and compatible across model versions.
 
 ## Adversarial Review Response
 
-[The Revision 3 authority, identity, and compatibility review](reviews/DR-0002-rev-03-review-01.md),
-[morphology, graph, and graphics-system review](reviews/DR-0002-rev-03-review-02.md),
-the Revision 4 current-revision reviews ([authority](reviews/DR-0002-rev-04-review-01.md),
-[morphology](reviews/DR-0002-rev-04-review-02.md)), and the Revision 5
-current-revision reviews ([contract](reviews/DR-0002-rev-05-review-01.md),
-[graphics-system](reviews/DR-0002-rev-05-review-02.md)) are preserved as stale
-historical evidence. On 2026-08-11 Ben approved the resulting CK-KICK-012
-Batch 4 source/model/snapshot resolution for Revision 6. No current-revision
-review has been run; Review Pending records that required evidence is still
-outstanding. The exact dependency-revision meaning remains a nonblocking later
-obligation. Only Ben may accept or reject this proposal.
+The Revision 3 authority, identity, and compatibility review
+([review 01](reviews/DR-0002-rev-03-review-01.md)), morphology, graph, and
+graphics-system review ([review 02](reviews/DR-0002-rev-03-review-02.md)), the
+Revision 4 reviews ([authority](reviews/DR-0002-rev-04-review-01.md),
+[morphology](reviews/DR-0002-rev-04-review-02.md)), and the Revision 5 reviews
+([contract](reviews/DR-0002-rev-05-review-01.md),
+[graphics-system](reviews/DR-0002-rev-05-review-02.md)) remain preserved as
+stale historical evidence.
+
+The current Revision 6 Double review is Complete at commit
+`7dba9346c91c59ff99f10b94630690bf732d6b28`: the fresh independent Sol-medium
+contract/schema/security pass ([review 01](reviews/DR-0002-rev-06-review-01.md))
+recommends **Revise** with **High** confidence, and the fresh independent
+Sol-medium semantic-graph/graphics/runtime pass
+([review 02](reviews/DR-0002-rev-06-review-02.md)) also recommends **Revise**
+with **High** confidence.
+
+Applicable findings are the envelope's unresolved outcome/status algebra,
+precedence, primary diagnostic, truncation, and distinction between semantic
+fixture taxonomy and parser/dependency/resource outcomes; contract-discriminator
+and schema bootstrap ordering; and minimum hostile-input resource enforcement
+(Review 01; its mechanical secondary-architecture wording finding was aligned
+after review without changing this proposal). Review 02 additionally finds
+optional-module structural insertion and socket-frame placement/conflict,
+duplicate/cycle/detached validity; canonical Joint endpoint-frame owner, role,
+basis, provenance, and equivalence; containment reachability separate from
+relation traversal/cycles and transform inheritance; and overlapping
+phase/outcome/diagnostic precedence. The latter graph rules are cross-DR
+dependencies on DR-0008, DR-0011, and DR-0012. Classification and measurement
+blockers are closed; articulation is only partially closed because frame and
+Attachment gaps remain. Fixture-matrix and specialist obligations remain
+nonblocking. Review Complete records evidence, not acceptance or a clean
+review; Owner approval remains Pending and Status remains Proposed. The exact
+dependency-revision meaning remains a nonblocking later obligation. Only Ben
+may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 

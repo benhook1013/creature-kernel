@@ -43,8 +43,9 @@ Proposed [body-document contract](spec/body-document/README.md) and
 [body-graph contract](spec/body-graph/README.md), with the
 [DR-0012: initial body-document encoding, resolution, and compatibility](docs/decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md)
 now recorded for the integration batch. Prior revisions have complete review
-evidence; the affected new revisions remain pending current-revision Double
-review and Ben's owner disposition.
+evidence. The current Double review is Complete; six consolidated blockers
+remain pending Ben discussion. Owner approval is still pending and these
+proposals remain unaccepted.
 
 - Durable authored intent lives in an authoritative semantic source set. Every
   operation reports through one authoritative result envelope; the resolved

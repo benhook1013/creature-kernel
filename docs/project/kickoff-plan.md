@@ -589,8 +589,8 @@ gets its own DR and review before backend-specific compiler code locks it in.
 
 ### CK-KICK-012: Specify the minimal body document and body graph
 
-State: active (Batches 1 and 4 integrated as Proposed documentation; new
-revisions and current-revision review pending)
+State: active (Batches 1 and 4 integrated as Proposed documentation; current
+Double review Complete with six consolidated blockers pending Ben discussion)
 
 Prerequisites: the exploratory executable spine and enough semantic context to
 define a minimal useful input/output; CK-KICK-011 is not required.
@@ -646,9 +646,10 @@ Outcome:
   unactivated.
 
 The Batch 1 discussion selections and review resolutions are not DR acceptance.
-The prior revisions have complete review evidence, but the Batch 4 resolutions
+The prior revisions have complete review evidence, and the Batch 4 resolutions
 create new Proposed revisions for DR-0002, DR-0008, and DR-0011, plus DR-0012,
-with Owner approval Pending and a new current-revision Double review pending.
+with Owner approval Pending and the current Double review Complete. Six
+consolidated blockers remain pending Ben discussion.
 DR-0006 remains Proposed with its current revision's review evidence. The
 cross-cutting proposal is
 [DR-0012: initial body-document encoding, resolution, and
@@ -729,7 +730,8 @@ Canonical references for the earlier batches are [DR-0002](../decisions/DR-0002-
 [DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
 and [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
 Their prior revisions have review evidence; Batch 4 creates new Proposed
-revisions pending current-revision Double review and Ben's owner disposition.
+revisions whose current Double review is Complete, with six consolidated
+blockers pending Ben discussion and Ben's owner disposition.
 
 ## Round 8 — implementation platform (provisional)
 

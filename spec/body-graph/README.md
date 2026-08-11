@@ -1,8 +1,8 @@
 # Resolved body-graph contract
 
-Status: Proposed contract; CK-KICK-012 Batch 4 discussion-approved and
-pending the new current-revision Double review, DR-0012, and Ben's owner
-disposition
+Status: Proposed contract; CK-KICK-012 Batch 4 discussion-approved and the
+current Double review is Complete, with six consolidated blockers pending Ben
+discussion and Ben's owner disposition
 
 This document is the provisional specification authority for the resolved,
 per-build semantic body graph. It describes typed concepts, durable semantic
@@ -15,8 +15,8 @@ admission.
 The graph proposal is deliberately engine-independent and does not choose a
 machine schema, exact serialized names, numeric ranges, tolerances, canonical
 axes/units/rotation/scale/shear, source-map encoding, or canonical bytes and
-hashing. All technical material remains Proposed pending the current-revision
-Double review and Ben's later owner disposition.
+hashing. All technical material remains Proposed pending Ben's later owner
+disposition; six consolidated blockers remain pending Ben discussion.
 
 ## Graph authority and identity
 

@@ -12,11 +12,12 @@ The current semantic proposal set is represented by [DR-0002](../docs/decisions/
 [DR-0006](../docs/decisions/DR-0006-durable-semantic-and-artifact-identity.md),
 [DR-0008](../docs/decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
 and [DR-0011](../docs/decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
-Their prior revisions have complete review evidence, but the new Batch 4
+Their prior revisions have complete review evidence, and the new Batch 4
 resolutions create new Proposed revisions for DR-0002, DR-0008, and DR-0011,
-plus the new DR-0012, pending current-revision Double review and Ben's owner
-disposition. DR-0006 remains Proposed with its current revision's review
-evidence. The cross-cutting proposal is [DR-0012: initial
+plus the new DR-0012. Their current Double review is Complete, with six
+consolidated blockers pending Ben discussion and Ben's owner disposition still
+pending. DR-0006 remains Proposed with its current revision's review evidence.
+The cross-cutting proposal is [DR-0012: initial
 body-document encoding, resolution, and compatibility](../docs/decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
 
 ## Proposed specification families

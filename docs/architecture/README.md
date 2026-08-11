@@ -51,9 +51,10 @@ vocabulary, measurement ownership, and frame-conversion boundary are Proposed
 in [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
 Their prior revisions have complete review evidence. The new CK-KICK-012
 Batch 4 resolutions create new Proposed revisions for DR-0002, DR-0008, and
-DR-0011, plus the new DR-0012, pending current-revision Double review and
-Ben's owner disposition. DR-0006 remains Proposed with its current revision's
-review evidence. The cross-cutting proposal is [DR-0012: initial
+DR-0011, plus the new DR-0012. Their current Double review is Complete, with
+six consolidated blockers pending Ben discussion and owner disposition still
+pending. DR-0006 remains Proposed with its current revision's review evidence.
+The cross-cutting proposal is [DR-0012: initial
 body-document encoding, resolution, and
 compatibility](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
 The body-document and body-graph proposals are the canonical specification

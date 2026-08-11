@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-11
 
@@ -206,18 +206,31 @@ and make runtime state changes non-authoritative.
 
 ## Adversarial Review Response
 
-The Revision 1 current-revision Double review is preserved as stale historical
-evidence in the [contract pass](reviews/DR-0011-rev-01-review-01.md) and
-[graphics-system pass](reviews/DR-0011-rev-01-review-02.md). Both recommended
-Revise at High confidence: the contract pass found Module,
-landmark/anchor, dimension, and frame insufficiently classified, while the
-graphics pass found articulation endpoint typing ambiguous and measurement
-conflict semantics undefined. On 2026-08-11 Ben approved the resulting
-CK-KICK-012 Batch 4 semantic-classification, articulation, and measurement
-resolution for Revision 2. No current-revision review has been run; Review
-Pending records that required evidence is still outstanding. The cross-DR
-fixture-matrix obligation remains open. Only Ben may accept or reject this
-proposal.
+The Revision 1 current-revision Double review remains preserved as stale
+historical evidence in the [contract pass](reviews/DR-0011-rev-01-review-01.md)
+and [graphics-system pass](reviews/DR-0011-rev-01-review-02.md); both recommended
+Revise at High confidence. The current Revision 2 Double review is Complete at
+commit `7dba9346c91c59ff99f10b94630690bf732d6b28`: the fresh independent
+Sol-medium contract/schema/security pass
+([review 01](reviews/DR-0011-rev-02-review-01.md)) recommends **Accept** with
+**High** confidence and found no DR-0011-specific blocker, while the fresh
+independent Sol-medium semantic-graph/graphics/runtime pass
+([review 02](reviews/DR-0011-rev-02-review-02.md)) recommends **Revise** with
+**High** confidence.
+
+Review 01 closes classification, articulation, and measurement blockers for
+this record; its envelope, contract-bootstrap, resource-enforcement, and
+secondary-document concern was aligned after review, while its other concerns
+are linked cross-DR dependencies rather than DR-0011 findings. Review 02 closes
+classification and measurement but leaves
+articulation partial: Attachment structural insertion/socket-frame placement,
+canonical Joint endpoint-frame ownership/roles/basis/provenance/equivalence,
+and containment reachability versus relation traversal/cycles and transform
+inheritance remain unresolved. Its phase/outcome/diagnostic precedence concern
+is likewise a DR-0002/DR-0012 dependency. Fixture-matrix and specialist
+obligations remain nonblocking. Review Complete records evidence, not
+acceptance or a clean review; Owner approval remains Pending and Status remains
+Proposed. Only Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 

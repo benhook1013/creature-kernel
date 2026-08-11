@@ -33,10 +33,10 @@ and [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-
 
 Prior CK-KICK-012 revisions have complete review evidence. The new Batch
 4-approved resolutions create new Proposed revisions for DR-0002, DR-0008, and
-DR-0011, plus the new DR-0012, each with Owner approval Pending and a pending
-current-revision Double review. DR-0006 remains Proposed with its current
-revision's review evidence and owner disposition state. The cross-cutting
-proposal is [DR-0012: initial
+DR-0011, plus the new DR-0012, each with Owner approval Pending; their current
+Double review is Complete, with six consolidated blockers pending Ben
+discussion. DR-0006 remains Proposed with its current revision's review
+evidence and owner disposition state. The cross-cutting proposal is [DR-0012: initial
 body-document encoding, resolution, and compatibility](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
 This documentation records intended product outcomes; exact syntax details,
 machine schema, phase/code serialization, and implementation mechanisms remain

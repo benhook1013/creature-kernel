@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-09
 
@@ -338,19 +338,39 @@ to test and make cross-stage evidence non-comparable. It is not selected.
 
 ## Adversarial Review Response
 
-The Revision 1, Revision 2, and Revision 3 current-revision reviews
+The Revision 1, Revision 2, and Revision 3 reviews
 ([authority](reviews/DR-0008-rev-03-review-01.md),
-[second review](reviews/DR-0008-rev-03-review-02.md)), together with the
-Revision 4 current-revision reviews
+[second review](reviews/DR-0008-rev-03-review-02.md)), the Revision 4 reviews
 ([authority](reviews/DR-0008-rev-04-review-01.md),
-[morphology](reviews/DR-0008-rev-04-review-02.md)), and the Revision 5
-current-revision reviews ([contract](reviews/DR-0008-rev-05-review-01.md),
-[graphics-system](reviews/DR-0008-rev-05-review-02.md)) are preserved as stale
-historical evidence. On 2026-08-11 Ben approved the resulting CK-KICK-012
-Batch 4 typed-articulation and composition resolution for Revision 6. No
-current-revision review has been run; Review Pending records that required
-evidence is still outstanding. The cross-DR fixture-matrix obligation remains
-open. Only Ben may accept or reject this proposal.
+[morphology](reviews/DR-0008-rev-04-review-02.md)), and the Revision 5 reviews
+([contract](reviews/DR-0008-rev-05-review-01.md),
+[graphics-system](reviews/DR-0008-rev-05-review-02.md)) remain preserved as
+stale historical evidence.
+
+The current Revision 6 Double review is Complete at commit
+`7dba9346c91c59ff99f10b94630690bf732d6b28`: the fresh independent Sol-medium
+contract/schema/security pass ([review 01](reviews/DR-0008-rev-06-review-01.md))
+recommends **Revise** with **High** confidence, and the fresh independent
+Sol-medium semantic-graph/graphics/runtime pass
+([review 02](reviews/DR-0008-rev-06-review-02.md)) also recommends **Revise**
+with **High** confidence.
+
+Review 01's fixture-outcome findings depend on DR-0012's unresolved envelope
+algebra, recognition/bootstrap order, and resource enforcement; its mechanical
+secondary-architecture wording finding was aligned after review without
+changing this proposal. Review 02 finds optional-module structural containment/insertion,
+host/mating socket-frame placement and authored-placement conflict,
+duplicate/cycle/detached/attached-root validity, canonical Joint endpoint-frame
+ownership/roles/basis/provenance/equivalence, and containment reachability
+separate from relation traversal/cycles and transform inheritance. The
+phase/outcome/diagnostic precedence overlap remains a DR-0012 dependency.
+Review 01 judged prior classification, articulation, and measurement blockers
+closed; Review 02 closed classification and measurement but leaves articulation
+partially closed because frame and Attachment gaps remain. Fixture-matrix and
+specialist obligations remain nonblocking. Review Complete records evidence,
+not acceptance or a clean review; Owner approval remains Pending and Status
+remains Proposed. The cross-DR fixture-matrix obligation remains open. Only Ben
+may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 

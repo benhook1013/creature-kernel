@@ -64,7 +64,9 @@ this may be one human-readable document; future explicit semantic override
 layers may also be authored inputs. Every outcome-affecting external authored
 asset is an exactly versioned dependency of the source set; an external mesh is
 authored input but not semantic truth. The source set alone is authored
-authority; physical format, schema technology, and precedence remain open.
+authority. Strict UTF-8 JSON and JSON Schema Draft 2020-12 are the Proposed
+initial encoding and structural-validation technologies; exact source-set
+layering and precedence remain open.
 
 ### Operation result envelope and resolved semantic body graph snapshot
 
@@ -289,7 +291,7 @@ It does not initially own:
 
 ## Major unresolved choices
 
-- Body-document representation and schema technology.
+- Exact body-document fields, schema contents, and later source-set layering.
 - Permanent surface and topology generation strategy (the Stage 1 hypotheses in
   DR-0009 and DR-0010 do not resolve it).
 - Implementation language and geometry libraries.

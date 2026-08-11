@@ -1,7 +1,8 @@
 # Body-document contract
 
-Status: Proposed contract; CK-KICK-012 Batch 4 discussion-approved and pending
-the current-revision Double review of its owning DRs and Ben's owner disposition
+Status: Proposed contract; CK-KICK-012 Batch 4 discussion-approved and current
+Double review Complete, with six consolidated blockers pending Ben discussion
+and Ben's owner disposition
 
 This document is the provisional specification authority for the authored body
 document and the end-to-end source-to-graph operation: source encoding,
@@ -18,7 +19,8 @@ canonicalization and hashing algorithm. Those details remain subject to the
 current review and later owner disposition. The cross-cutting encoding/
 resolution proposal is [DR-0012: initial body-document encoding,
 resolution, and compatibility](../../docs/decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md),
-which remains Proposed pending review and owner disposition.
+which remains Proposed pending owner disposition; six consolidated blockers
+remain pending Ben discussion.
 
 ## Authority and source boundary
 

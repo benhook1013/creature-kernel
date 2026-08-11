@@ -40,11 +40,12 @@ Host adapters may depend on core contracts. Core contracts must not depend on a
 host adapter.
 
 The semantic resolver preserves the typed vocabulary: Part is structural and
-owned; Joint is an articulation relation with frames; Socket is a host interface
-frame; Attachment maps a module to a socket and is not automatically a joint;
-Region is an overlapping spatial designation, never ownership; Capability is a
-queryable affordance; and Field carries representation-neutral spatial intent
-and lineage. Transforms own reference-frame placement, dimensions own extents,
+owned; Joint is an articulation relation with frames; Socket is a Part-owned
+named interface frame; Attachment connects exactly one host Socket to exactly
+one mating Socket and does not imply a Joint; Region is an overlapping spatial
+designation, never ownership; Capability is a queryable affordance; and Field
+carries representation-neutral spatial intent and lineage. Transforms own
+reference-frame placement, dimensions own extents,
 anchors/landmarks carry authored or derived provenance, ratios are derived, and
 conflicting constraints become diagnostics. Source-declared units,
 handedness, up, and forward are converted to a contract-revision canonical
