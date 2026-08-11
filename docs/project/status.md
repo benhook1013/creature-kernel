@@ -66,9 +66,10 @@ capabilities, and regions. On 2026-08-11 he approved the seven review
 resolutions, refining those edges as reified concepts with role-labelled
 non-ownership relations. These discussion approvals do not accept the revised
 DRs. DR-0002 Revision 4, DR-0006 Revision 3, and DR-0008 Revision 4 are
-Proposed with Review Pending; their earlier reviews are stale and a new
-current-revision Double review is required. Later CK-KICK-012 semantic batches
-remain pending.
+Proposed with Review Complete after their current-revision Double reviews.
+Four consolidated blocking findings and one nonblocking dependency-version
+obligation await Ben's disposition. Review Complete records evidence, not a
+clean review or acceptance. Later CK-KICK-012 semantic batches remain pending.
 
 ## Current round and work state
 
@@ -130,8 +131,8 @@ The [decision registry](../decisions/registry.md) is the index for exact DR
 metadata. Current non-governance proposals include:
 
 - [DR-0002](../decisions/DR-0002-declarative-body-document-source-of-truth.md),
-  source set and resolved body graph — Revision 4, Proposed, Review Pending;
-  current-revision review and owner approval pending.
+  source set and resolved body graph — Revision 4, Proposed, Review Complete;
+  findings and owner approval pending.
 - [DR-0003](../decisions/DR-0003-real-time-first-compiled-avatar-boundary.md),
   compiled avatar and bounded real-time execution — Revision 2, Proposed,
   Review Complete, owner disposition pending.
@@ -142,13 +143,13 @@ metadata. Current non-governance proposals include:
   initial product boundary — Revision 1, Proposed, Review Complete, owner
   disposition pending.
 - [DR-0006](../decisions/DR-0006-durable-semantic-and-artifact-identity.md),
-  semantic and artifact identity — Revision 3, Proposed, Review Pending;
-  current-revision review and owner approval pending.
+  semantic and artifact identity — Revision 3, Proposed, Review Complete;
+  findings and owner approval pending.
 - [DR-0007](../decisions/DR-0007-staged-first-proof-charter.md) and
   [DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
   first-proof and morphology boundaries — DR-0007 Revision 2 remains Proposed,
-  Review Complete; DR-0008 Revision 4 is Proposed, with current-revision review
-  and owner approval pending.
+  Review Complete; DR-0008 Revision 4 is Proposed, Review Complete, with
+  findings and owner approval pending.
 - [DR-0009](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
   and [DR-0010](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md)
   are parked as described in [Current activation state](#current-activation-state).

@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-09
 
@@ -289,8 +289,15 @@ to test and make cross-stage evidence non-comparable. It is not selected.
 The Revision 1, Revision 2, and [Revision 3 current-revision reviews](reviews/DR-0008-rev-03-review-01.md)
 and [second review](reviews/DR-0008-rev-03-review-02.md) are preserved as stale
 historical evidence. On 2026-08-11 Ben approved their seven resolution outcomes
-for this Revision 4. A new current-revision Double review is required; Review
-Pending records that requirement. Only Ben may accept or reject this proposal.
+for this Revision 4. The current-revision Double review is Complete in the
+[authority, identity, and compatibility pass](reviews/DR-0008-rev-04-review-01.md)
+and [morphology, graph, and graphics-system pass](reviews/DR-0008-rev-04-review-02.md).
+The authority pass recommends Accept at High confidence with no findings. The
+morphology pass recommends Revise at High confidence, finding ambiguous
+articulation role cardinality/adjacency and a binary fixture freeze that
+conflicts with the three-way result taxonomy. These findings await Ben's
+disposition. Review Complete records evidence, not a clean review or
+acceptance. Only Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 

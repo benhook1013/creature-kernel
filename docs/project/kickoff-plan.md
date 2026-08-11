@@ -628,9 +628,11 @@ Outcome:
 
 The Batch 1 discussion selections and review resolutions are not DR acceptance.
 DR-0002 Revision 4, DR-0006 Revision 3, and DR-0008 Revision 4 remain Proposed
-with owner approval Pending and Review Pending. Their earlier reviews are stale;
-a new current-revision Double review is required. CK-KICK-012 remains active;
-this batch does not complete the round.
+with owner approval Pending and Review Complete after their current-revision
+Double reviews. Four consolidated blocking findings and one nonblocking
+dependency-version obligation await Ben's disposition. Review Complete records
+evidence, not a clean review or acceptance. CK-KICK-012 remains active; this
+batch does not complete the round.
 
 Human decisions concern semantics and compatibility. Concrete syntax and schema
 technology are recommended separately where they are reversible.
