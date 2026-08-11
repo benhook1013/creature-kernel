@@ -6,13 +6,13 @@ Scope: Architecture
 
 Status: Proposed
 
-Revision: 1
+Revision: 2
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-11
 
@@ -43,11 +43,14 @@ permanent surface, topology, or runtime architecture.
 
 ## Decision
 
-This is a proposed first-production platform boundary. It becomes an
-implementation trigger only if Ben accepts this DR and the existing
-repository-evolution trigger is satisfied. Creating this Proposed DR does not
+This is a proposed first-production platform boundary. Acceptance of DR-0013
+itself is the sole trigger to create the Cargo workspace and the empty
+compiler/library/CLI shell boundary. Creating this Proposed DR does not
 activate implementation packages, schemas, compiler fixtures, or a production
-geometry commitment.
+geometry commitment. Actual Stage 1 parser/resolver implementation remains
+gated by the exact schema and admitted fixtures/contracts owned by the
+semantic specifications; no second repository trigger or approval ceremony is
+required.
 
 ### Core language and workspace
 
@@ -65,6 +68,17 @@ serialization. No daemon or service is part of the first implementation.
 
 ### Geometry boundary and first proof
 
+The project-owned geometry seam consists of versioned `GeometryRequest` and
+`GeometryResult` concepts (names remain conceptual/provisional). The request
+and result cover resolved graph and geometry intent, configuration and
+capability metadata, semantic/artifact lineage, bounded diagnostics, and
+bounded geometry outputs/results sufficient for the caller to validate the
+operation. Backend-native or third-party library types must not leak through
+the semantic, CLI, artifact, or host-engine contracts. The seam is a
+replaceable project boundary, not a permanent surface or backend selection.
+Stage 1 seam work may support CK-KICK-014, but it does not establish a
+permanent surface choice and cannot claim DR-0009 or DR-0010 evidence.
+
 Stage 1 geometry proof uses an in-process Rust CPU dense-field evaluator and
 extractor behind the replaceable geometry boundary. This is a bounded proof
 host, not a claim that Rust geometry is universally mature or that the chosen
@@ -72,8 +86,9 @@ dense-field/extraction method is the permanent surface architecture. It must
 remain possible to compare or replace the geometry implementation without
 rewriting semantic resolution or the CLI contract.
 
-Rust-only geometry is not a permanent promise. If reproducible measurements or
-a required capability expose a credible Rust geometry gap, evaluate an
+Rust-only geometry is not a permanent promise. If reproducible measurements, a
+required capability, or a justified isolation, security, portability, or
+licensing need exposes a credible in-process Rust boundary gap, evaluate an
 isolated C++ worker/backend first. Consider in-process C ABI/FFI only if the
 worker boundary is demonstrated insufficient for the required use. Any such
 change requires evidence, a defined ownership and failure boundary, and the
@@ -87,20 +102,37 @@ dependency. An independent visual workbench consumes ordinary compiler
 artifacts and their manifest; it does not own semantic resolution or silently
 recompile the source through a second implementation.
 
-The compiler emits ordinary versioned filesystem artifacts plus a manifest.
-Those artifacts are an initial inspection and workbench interchange boundary,
-not the final avatar-package serialization or compatibility contract. Exact
-artifact names, manifest fields, package bytes, and compatibility rules remain
+The compiler publishes a complete success or failure bundle using immutable,
+build-scoped sibling staging, writes the manifest last, and atomically
+publishes it with no replacement of an existing bundle. The manifest identifies
+the build and artifact identity and records relative paths with hashes and
+sizes. Consumers reject absolute or traversal paths, symlinked or unlisted
+outputs, incomplete or mixed-build bundles, and stale bundles. These artifacts
+are an initial inspection and workbench interchange boundary, not the final
+avatar-package serialization or compatibility contract. Exact artifact names,
+manifest field spelling, package bytes, and compatibility rules remain
 deferred to later specification and decision work.
+
+Any future isolated worker must negotiate protocol/version compatibility, obey
+bounded time and resource budgets, map crash/timeout/resource outcomes, have
+its outputs validated before publication, and leave the compiler process
+surviving worker failure. Detailed worker serialization remains deferred.
 
 ### First reproducible execution target
 
-The first reproducible execution and workbench target is Linux x86_64, running
-under WSL or native Linux. The implementation should preserve portability in
-source and boundary design. Native Windows execution and host-engine
-integration are later activation targets, not first-platform requirements.
-The first target does not prohibit later support for other operating systems,
-architectures, or engines.
+Use ordinary `rust-toolchain.toml` for exact toolchain selection and commit
+`Cargo.lock`. Record the initial target triple, build profile, `rustc -Vv`, and
+reference-environment metadata with each reproducible build. The first
+reference path is WSL2 x86_64 GNU; a native-Linux
+portability smoke follows later as stated by the design. Native Windows
+execution and host-engine integration are later activation targets, not
+first-platform requirements. The target does not prohibit later support for
+other operating systems, architectures, or engines.
+
+When a dependency is added, perform a lightweight review of its license,
+unsafe or native code, and portability/security relevance. This does not
+require Git commit pinning, an enterprise audit trail, or heavyweight
+dependency bureaucracy.
 
 ### Performance and rationale
 
@@ -114,23 +146,36 @@ prejudge a later geometry worker/backend.
 ## Consequences
 
 - The first production semantic/compiler path has one reproducible stable-Rust
-  implementation and a Cargo workspace, while the semantic boundary remains
-  engine-independent.
+  implementation and a Cargo workspace once DR-0013 is accepted, while the
+  semantic boundary remains engine-independent; exact schema and admitted
+  fixtures still gate Stage 1 parser/resolver work.
 - A library plus thin CLI supports headless use and keeps visual tooling from
   becoming a compiler dependency; no daemon or service lifecycle is required
   for the first implementation.
 - Stage 1 can produce bounded CPU geometry evidence in-process, while the
-  replaceable geometry boundary preserves a measured path to an isolated C++
-  worker/backend if a credible Rust gap appears.
+  versioned project-owned GeometryRequest/GeometryResult seam preserves a
+  replaceable path to an isolated C++ worker/backend if a measured capability,
+  performance, isolation, security, portability, or licensing need appears.
+  The seam does not select a permanent surface or create DR-0009/DR-0010
+  evidence.
 - Python exploratory and visual tooling can continue without silently defining
   production semantics or compiler dependencies.
-- Filesystem artifacts and a manifest give the workbench a simple initial
-  interchange boundary, but do not establish final avatar-package
-  serialization, compatibility, or artifact identity rules.
-- Linux x86_64 under WSL or native Linux narrows the first reproducible target;
-  portability, native Windows, and engine integration remain later work.
+- Immutable build-scoped sibling staging, manifest-last atomic no-replace
+  publication, and manifest path/hash/size validation let the workbench reject
+  incomplete, mixed, stale, symlinked, or path-escaping bundles. This remains
+  an initial interchange boundary and does not establish final avatar-package
+  serialization or compatibility rules.
+- A committed Cargo.lock, exact rust-toolchain.toml selection, recorded target,
+  profile, rustc/reference metadata, and lightweight dependency review make
+  the first WSL2 x86_64 GNU path reproducible without heavyweight
+  audit policy. Portability, native Windows, and engine integration remain
+  later work.
 - Rust's safety and tooling rationale is testable, but every performance claim
   remains subject to reproducible benchmark and hardware evidence.
+- A future worker must negotiate protocol/version compatibility, obey bounded
+  time/resource limits, map crash/timeout/resource outcomes, validate outputs,
+  and preserve compiler-process survival; its detailed serialization remains
+  deferred.
 - The platform is reversible at the geometry boundary and at process/tooling
   boundaries, but a production compiler API and artifact lineage will create
   migration cost; a later change must preserve or explicitly migrate those
@@ -168,8 +213,9 @@ visual workbench.
 
 Making Rust the permanent geometry backend would simplify one-language
 ownership, but would turn the first platform choice into an unsupported
-long-term capability claim. It is explicitly not selected; reproducible gap or
-required-capability evidence can trigger an isolated C++ worker/backend.
+long-term capability claim. It is explicitly not selected; reproducible gap,
+required capability, or justified isolation, security, portability, or
+licensing need can trigger an isolated C++ worker/backend.
 
 ### Immediate in-process C++ FFI or hybrid
 
@@ -198,48 +244,68 @@ activate when evidence and users justify them.
 
 ## Adversarial Review Response
 
-This is CK-KICK-013 Revision 1, proposed and discussion-approved on
-2026-08-11. The current Revision 1 Double review examined commit
+This is CK-KICK-013 Revision 2, proposed and discussion-approved on 2026-08-11.
+The exact Revision 1 Double review examined commit
 `c64b1b98948304d631eecea6a354c9e42c89c510`. The independent [review 01](reviews/DR-0013-rev-01-review-01.md)
-and [review 02](reviews/DR-0013-rev-01-review-02.md) both recommend **Revise**
-at **High** confidence. Review status is Complete, recording evidence only;
-it is not acceptance or a clean review. This record does not claim owner
-acceptance, a production implementation, a permanent geometry backend, a
-final artifact/package format, or a performance result. The seven consolidated
-findings are listed in the [decision registry](registry.md); DR-0013 is
-affected by F4, F5, F6, and F7, pending Ben discussion and owner disposition.
-
-The principal review obligations are to challenge the Rust and Cargo choice,
-the sufficiency and portability of the Linux x86_64 first target, the
-replaceable geometry and worker/FFI boundary, the artifact/manifest handoff,
-the absence of a first daemon, and the reversibility and evidence triggers for
-each alternative. Any material proposal change makes this revision's review
-stale and requires a new revision before review.
+and [review 02](reviews/DR-0013-rev-01-review-02.md) both recommended **Revise**
+at **High** confidence. Those exact reviews are stale historical evidence, not
+a clean review or acceptance. Ben approved the F4–F7 resolutions in discussion
+on 2026-08-11: DR acceptance is the sole shell-creation trigger; the
+project-owned versioned GeometryRequest/GeometryResult seam is backend-neutral;
+artifact publication and future worker failures are bounded and validated; and
+the Rust/toolchain/dependency baseline and broadened isolation trigger are
+lightweight and reproducible. Review status is Pending and a fresh
+current-revision Double review of Revision 2 is pending. This record does not
+claim owner acceptance, a production implementation, a permanent geometry
+backend or surface architecture, a final artifact/package format, or a
+performance result. The seven consolidated findings remain evidence pending
+owner disposition; exact schema, fixture, and later evidence obligations remain
+with their owning records.
 
 ## Implementation and Proof Obligations
 
-- If this DR is accepted and repository-evolution activation is separately
-  triggered, create the Rust/Cargo implementation only through the applicable
-  repository workflow; this Proposed record itself creates no packages.
+- If this DR is accepted, create the Cargo workspace and empty
+  compiler/library/CLI shell boundary through the applicable repository
+  workflow; no second repository trigger or approval ceremony is required.
+  Actual Stage 1 parser/resolver implementation remains gated by exact schema
+  and admitted fixtures/contracts, and this Proposed record itself creates no
+  packages.
 - Keep semantic resolution, diagnostics, provenance, and the CLI independent
   of geometry implementation, visual workbench, and host engine.
-- Define the replaceable geometry boundary and implement the Stage 1 in-process
-  Rust CPU dense-field evaluator/extractor only after the relevant proof inputs
-  and fixture obligations are activated by their owning records.
+- Define the project-owned versioned conceptual `GeometryRequest` and
+  `GeometryResult` seam for resolved graph/geometry intent, configuration and
+  capability metadata, lineage, bounded diagnostics, and bounded outputs.
+  Keep backend-native types out of semantic, CLI, artifact, and host-engine
+  contracts. Implement the Stage 1 in-process Rust CPU dense-field
+  evaluator/extractor only after the relevant proof inputs and fixture
+  obligations are activated by their owning records. Seam work may support
+  CK-KICK-014 but cannot establish a permanent surface choice or claim
+  DR-0009/DR-0010 evidence.
 - Record reproducible build/toolchain, target, seed/configuration, and source
   provenance for every proof run. Do not report performance without a
   reproducible benchmark and hardware profile.
-- Emit ordinary versioned filesystem artifacts and a manifest sufficient for
-  the independent workbench, while deferring final avatar-package
-  serialization/compatibility and exact artifact identity rules.
-- Preserve portability in the Rust/library and boundary design; verify the
-  first target under WSL or native Linux x86_64 before activating native
-  Windows or engine integration.
-- If a reproducible measurement or required capability identifies a credible
-  Rust geometry gap, document the gap and evaluate an isolated C++ worker or
-  backend first. Consider in-process C ABI/FFI only after evidence shows the
-  worker boundary is insufficient; record the resulting ownership, failure,
-  portability, and licensing implications in the later decision.
+- Publish complete success or failure bundles from immutable build-scoped
+  sibling staging, write the manifest last, and atomically publish with no
+  replacement. Validate build/artifact identity, relative paths, hashes, and
+  sizes; reject absolute/traversal/symlinked/unlisted outputs and
+  incomplete/mixed/stale bundles. Defer final avatar-package
+  serialization/compatibility and exact manifest field spelling.
+- If reproducible measurements, a required capability, or a justified
+  isolation, security, portability, or licensing need identifies a credible
+  in-process Rust geometry gap, document it and evaluate an isolated C++
+  worker/backend first. Require future worker protocol/version negotiation,
+  bounded time/resources, crash/timeout/resource mapping, output validation,
+  and compiler-process survival. Consider in-process C ABI/FFI only after
+  evidence shows the worker boundary is insufficient; record resulting
+  ownership, failure, portability, and licensing implications later. Worker
+  serialization remains deferred.
+- Use ordinary rust-toolchain.toml for exact toolchain selection, commit
+  Cargo.lock, and record target triple, build profile, rustc -Vv, and
+  reference-environment metadata. Establish WSL2 x86_64 GNU
+  reference path first; perform native-Linux portability smoke later. When a
+  dependency is added, review its license, unsafe/native code, and
+  portability/security relevance without Git commit pinning, enterprise audit
+  trail, or heavyweight process.
 - Keep Python dependencies confined to disposable experiments, evidence/render
   tooling, and the visual workbench; prove that production headless compiler
   execution does not import them.
@@ -260,9 +326,10 @@ Revisit the core platform if stable-Rust toolchain constraints prevent a
 reproducible semantic/compiler workflow, if the Cargo/library boundary cannot
 serve required consumers, or if portability evidence exposes an unjustified
 target restriction. Revisit the in-process geometry boundary when reproducible
-measurements or a required capability show a credible Rust geometry gap.
-Evaluate an isolated C++ worker/backend before in-process FFI; choose FFI only
-if the worker boundary is proven insufficient. Revisit the no-daemon choice if
+measurements, a required capability, or a justified isolation, security,
+portability, or licensing need shows a credible boundary gap. Evaluate an
+isolated C++ worker/backend before in-process FFI; choose FFI only if the
+worker boundary is proven insufficient. Revisit the no-daemon choice if
 persistent or remote workflows become an activated requirement. Revisit the
 filesystem artifact/manifest handoff before final avatar-package persistence or
 compatibility is promised. Native Windows and host-engine integration activate

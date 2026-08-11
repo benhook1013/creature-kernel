@@ -1,8 +1,8 @@
 # Normative specifications
 
-Status: Active authority boundary; proposed body-document and body-graph
-contracts are discussion-approved for CK-KICK-012 Batch 5, but no format is
-accepted
+Status: Active authority boundary; the proposed body-document and body-graph
+contracts include discussion-approved CK-KICK-012 F1–F3 revisions, but no
+format is accepted
 
 This directory will own machine-facing semantics and serialized contracts. It is
 separate from architecture so an implementation can change without silently
@@ -12,15 +12,13 @@ The current semantic proposal set is represented by [DR-0002](../docs/decisions/
 [DR-0006](../docs/decisions/DR-0006-durable-semantic-and-artifact-identity.md),
 [DR-0008](../docs/decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
 and [DR-0011](../docs/decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
-Their prior revisions have complete review evidence. Batch 5 blocker
-resolutions are discussion-approved and are represented as Proposed canonical
-material here. The current CK-KICK-012 Batch 5 Double review is Complete at
-commit `a282dbabffd83afa4e62577086934d00f98e12c7`; DR-0002 Revision 7, DR-0008
-Revision 7, DR-0011 Revision 3, and DR-0012 Revision 2 remain Proposed with
-Owner approval Pending. Three consolidated findings are pending Ben discussion;
-their prior reviews remain preserved as stale historical evidence. DR-0006
-remains Proposed with its current revision's review evidence. The cross-cutting
-proposal is [DR-0012: initial body-document
+Their prior revisions and reviews remain preserved as historical evidence.
+DR-0002 Revision 9, DR-0008 Revision 9, DR-0011 Revision 5, and DR-0012
+Revision 4 contain the discussion-approved F1–F3 resolutions and remain
+Proposed with Owner approval Pending and current Review Pending. The prior
+`c64b1b...` Double review is stale historical evidence and a fresh current
+Double review is pending. DR-0006 remains Proposed with its current revision's
+review evidence. The cross-cutting proposal is [DR-0012: initial body-document
 encoding, resolution, and compatibility](../docs/decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
 
 ## Proposed specification families
@@ -73,9 +71,10 @@ accounting remain unselected.
   to the root, including an optional module root; containment supplies
   transform inheritance and is checked independently from relation cycles.
   Stage 1 required Joints connect containment parents to immediate children.
-  Attachment placement uses host/mating interface frames, optional offset, and
-  inverse mating placement; competing authored placement must agree within a
-  later-defined tolerance. The pelvis Part owns the root-reference frame. The axial chain
+  Attachment placement uses the typed host/mating transform equation in the
+  body-graph contract; each host and present mating Socket has one active-use
+  capacity, and competing authored placement must agree within a later-defined
+  tolerance. The pelvis Part owns the root-reference frame. The axial chain
   is pelvis → spine Joint → torso/chest Part → neck-base Joint → neck Part →
   head-base Joint → head Part. Arm and leg chains use the required typed Joints
   and Parts and end in terminal paw-base landmark/Socket roles. Ear/tail modules

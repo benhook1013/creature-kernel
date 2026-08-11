@@ -49,14 +49,14 @@ and described in the execution model; exact interface schemas, compatibility,
 budgets, and runtime mutation details remain open. The typed semantic
 vocabulary, measurement ownership, and frame-conversion boundary are Proposed
 in [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
-CK-KICK-012 Batch 6 resolutions are discussion-approved and are reflected in
-the canonical specifications as Proposed material. The current CK-KICK-012
-Batch 6 Double review is Complete. DR-0002 Revision 8, DR-0008 Revision 8,
-DR-0011 Revision 4, and DR-0012 Revision 3 remain Proposed with Owner
-approval Pending and Review Complete. Seven findings are pending Ben
-discussion and owner disposition; see the [decision registry](../decisions/registry.md).
-The CK-KICK-012 Batch 5
-review at commit `a282dbabffd83afa4e62577086934d00f98e12c7` is stale historical
+CK-KICK-012 Batch 6/7 resolutions are discussion-approved and are reflected in
+the canonical specifications as Proposed material. DR-0002 Revision 9,
+DR-0008 Revision 9, DR-0011 Revision 5, and DR-0012 Revision 4 remain Proposed
+with Owner approval Pending and current Review Pending. The prior
+`c64b1b...` Double review is stale historical evidence; the seven resolutions
+are discussion-approved and a fresh current Double review is pending. See the
+[decision registry](../decisions/registry.md). The CK-KICK-012 Batch 5 review
+at commit `a282dbabffd83afa4e62577086934d00f98e12c7` is stale historical
 evidence; no clean review or acceptance is implied.
 DR-0006 remains Proposed with its current revision's review evidence. The
 cross-cutting proposal is [DR-0012: initial body-document encoding, resolution,
@@ -81,26 +81,31 @@ reactivates them. Until then, exploratory prototypes may produce observations
 but may not claim formal DR-0009/0010 support or reject.
 
 The CK-KICK-013 platform proposal is also discussion-approved as Proposed
-material, not an accepted implementation decision. Proposed DR-0013 Revision 1
-has Owner approval Pending and Review Complete; its findings are pending Ben
-discussion and owner disposition. It describes a
-stable Rust production semantic/compiler core in a Cargo workspace: an
-engine-independent Rust compiler library, a thin CLI, and a replaceable
-geometry boundary, with no initial daemon or service. Stage 1 would use an
-in-process Rust CPU dense-field evaluator/extractor. If measured required
-capability or performance is missing, an isolated C++ worker/backend is the
-first escape hatch; in-process C ABI/FFI is considered only if that worker is
-proven insufficient. This is not a Rust-only-forever promise or an advanced
-Rust-geometry maturity claim. Python remains suitable for disposable
-experiments, evidence/render tooling, and the visual workbench, but is not a
-production compiler dependency. The initial reproducible workbench target is
-Linux x86_64 under WSL or native Linux; portability is preserved while native
-Windows and host-engine targets are deferred. The compiler writes ordinary
-versioned artifacts plus a manifest, and an independent visual workbench
-consumes filesystem artifacts; this does not settle final avatar-package
-serialization or compatibility. Performance claims require a reproducible
-benchmark and hardware profile. The language/build acceptance trigger remains
-unsatisfied, so no implementation package is activated.
+material, not an accepted implementation decision. Proposed DR-0013 Revision 2
+has Owner approval Pending and current Review Pending; its prior `c64b1b...`
+Double review is stale historical evidence and a fresh current Double review is
+pending. Acceptance of DR-0013 alone triggers the Cargo workspace and empty
+compiler/library/CLI shell boundary; exact schema and admitted fixtures still
+gate Stage 1 parser/resolver implementation. It describes a stable Rust
+production semantic/compiler core, a thin CLI, and a project-owned versioned,
+backend-neutral GeometryRequest/GeometryResult seam, with no initial daemon or
+service. Stage 1 would use an in-process Rust CPU dense-field evaluator/
+extractor. If measured capability/performance or a justified isolation,
+security, portability, or licensing need exposes a gap, evaluate an isolated
+C++ worker/backend first; in-process C ABI/FFI is considered only if that
+worker is proven insufficient. Python remains for disposable experiments,
+evidence/render tooling, and the visual workbench, not production compiler
+execution. Complete success/failure bundles use immutable build-scoped sibling
+staging, manifest-last atomic no-replace publication, and manifest validation
+of build/artifact identity, relative paths, hashes, and sizes; consumers reject
+symlinked, unlisted, incomplete, mixed-build, and stale bundles. Future workers
+must negotiate protocol/version, obey bounded time/resources, map crash/timeout/
+resource outcomes, validate outputs, and leave the compiler surviving failure.
+Exact serialization remains deferred. The first reproducible path is a
+WSL2 x86_64 GNU environment, with later native-Linux portability
+smoke; record rust-toolchain.toml, Cargo.lock, target/profile/rustc -Vv and
+reference metadata, and perform lightweight license/unsafe/native/portability/
+security dependency review without Git pinning or audit bureaucracy.
 
 ## Current maturity
 

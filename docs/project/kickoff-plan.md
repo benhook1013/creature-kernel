@@ -589,12 +589,12 @@ gets its own DR and review before backend-specific compiler code locks it in.
 
 ### CK-KICK-012: Specify the minimal body document and body graph
 
-State: active (Batches 1, 4, 5, and 6 integrated as Proposed documentation;
-the current CK-KICK-012 Batch 6 Double review is Complete; DR-0002 Revision 8,
-DR-0008 Revision 8, DR-0011 Revision 4, and DR-0012 Revision 3 remain Proposed
-with Owner approval Pending and Review Complete; seven findings are pending Ben
-discussion and owner disposition; the Batch 5
-review is stale historical evidence)
+State: active (Batches 1, 4, 5, 6, and F1–F3 integrated as Proposed
+documentation; DR-0002 Revision 9, DR-0008 Revision 9, DR-0011 Revision 5,
+and DR-0012 Revision 4 remain Proposed with Owner approval Pending and current
+Review Pending; the prior `c64b1b...` Double review is stale historical
+evidence and a fresh current Double review is pending; the Batch 5 review is
+also stale historical evidence)
 
 Prerequisites: the exploratory executable spine and enough semantic context to
 define a minimal useful input/output; CK-KICK-011 is not required.
@@ -650,32 +650,33 @@ Outcome:
   Their implementation packages and compiler-consumed fixtures remain
   unactivated.
 
-- Batch 6 is discussion-approved and integrated below as Proposed material. It
-  resolves status/primary ordering, descendant-owned mating Socket placement,
-  and Attachment cardinality without accepting or silently replacing the
-  decision records. The affected DR revisions remain Proposed with Owner
-  approval Pending and Review Complete; seven findings remain pending Ben
-  discussion and owner disposition.
+- Batch 6 and F1–F3 are discussion-approved and integrated below as Proposed
+  material. They resolve status/primary ordering, descendant-owned mating
+  Socket placement, typed Attachment composition, and Attachment cardinality
+  without accepting or silently replacing the decision records. The affected
+  DR revisions remain Proposed with Owner approval Pending and current Review
+  Pending; the prior Double review is stale historical evidence and a fresh
+  current Double review is pending.
 
 The Batch 1 and Batch 4 discussion selections and review resolutions are not DR
-acceptance. The prior revisions have complete review evidence. Batch 5 and
-Batch 6 are discussion-approved and integrated into the canonical product,
+acceptance. The prior revisions have complete review evidence. Batch 5, Batch
+6, and F1–F7 are discussion-approved and integrated into the canonical product,
 specification, architecture, and project documents as Proposed material. The
 CK-KICK-012 Batch 5 Double review at commit
-`a282dbabffd83afa4e62577086934d00f98e12c7` is stale historical evidence. The
-current CK-KICK-012 Batch 6 Double review is Complete. DR-0002 Revision 8,
-DR-0008 Revision 8, DR-0011 Revision 4, and DR-0012 Revision 3 remain Proposed
-with Owner approval Pending and Review Complete; seven findings are pending Ben
-discussion and owner disposition; no acceptance or clean review is implied.
+`a282dbabffd83afa4e62577086934d00f98e12c7` and Batch 6 review at `c64b1b...`
+are stale historical evidence. DR-0002 Revision 9, DR-0008 Revision 9,
+DR-0011 Revision 5, and DR-0012 Revision 4 remain Proposed with Owner approval
+Pending and current Review Pending; a fresh current Double review is pending.
+No acceptance or clean review is implied.
 The prior Batch 4 and Batch 5 reviews remain
 preserved as historical evidence.
 DR-0006 remains Proposed with its current revision's review evidence. The
 cross-cutting proposal is
 [DR-0012: initial body-document encoding, resolution, and
 compatibility](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
-CK-KICK-012 remains active; the current review findings require Ben discussion
-and owner disposition, so this proposal does not complete the round or imply
-owner acceptance.
+CK-KICK-012 remains active; the fresh current Double review and owner
+disposition remain pending, so this proposal does not complete the round or
+imply owner acceptance.
 
 ### Batch 4 — encoding, resolution, and compatibility (discussion-approved)
 
@@ -750,11 +751,12 @@ Canonical references for the earlier batches are [DR-0002](../decisions/DR-0002-
 [DR-0006](../decisions/DR-0006-durable-semantic-and-artifact-identity.md),
 [DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
 and [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
-Their prior revisions have review evidence. The current DR-0002 Revision 8,
-DR-0008 Revision 8, DR-0011 Revision 4, and DR-0012 Revision 3 are Proposed
-with Owner approval Pending and Review Complete. Seven findings are pending
-Ben discussion and owner disposition; prior reviews are preserved as stale
-historical evidence. Ben's owner disposition remains pending.
+Their prior revisions have review evidence. This earlier Batch 4 planning
+snapshot referred to DR-0002 Revision 8, DR-0008 Revision 8, DR-0011 Revision
+4, and DR-0012 Revision 3 as Proposed with Owner approval Pending and Review
+Complete; that review state is now stale historical evidence. The current
+revisions are recorded in the CK-KICK-012 state above, with a fresh current
+Double review pending. Ben's owner disposition remains pending.
 
 ### Batch 5 — blocker resolutions (discussion-approved)
 
@@ -814,16 +816,18 @@ On 2026-08-11 Ben approved the CK-KICK-012 Batch 6 review-finding resolutions
 in discussion. They are integrated in the canonical documents as Proposed
 material only; they do not accept or silently replace the decision records.
 
-- Status selection retains internal-failure trust-loss precedence, then
-  configured resource-limit when completeness is lost, then the earliest fatal
-  phase. Within the selected earliest fatal phase, invalid-source outranks
-  unsupported when both are established; other ordinary statuses use their
-  phase-specific mappings. The primary is the first diagnostic establishing
-  the final status under this normative deterministic ordering. Reserved
-  primary capacity preserves that minimal matching candidate despite ordinary
-  truncation. If arena exhaustion changes the final status to resource-limit,
-  the reserved resource/truncation diagnostic satisfies the final-status-
-  primary rule.
+- Status selection requires complete authoritative acquisition before
+  invalid-source; internal-failure trust-loss precedence, then resource-limit
+  only when a configured breach prevents required processing/trusted completion,
+  then the earliest phase unable to produce required output. In parse/semantic
+  phases invalid-source outranks unsupported; dependency acquisition/read/
+  verify/resolve failures map to dependency-failure. Processing and diagnostic
+  completeness are independent. Ordinary truncation is not resource-limit when
+  processing/trusted completion continue, and intentionally blocked later phases
+  do not make retained reached-phase diagnostics incomplete. The primary is the
+  first diagnostic establishing final status; reserved primary capacity keeps
+  that candidate, with a reserved resource/truncation diagnostic if arena
+  exhaustion itself establishes resource-limit.
 - A mating Socket may be owned by any Part in the attached root's containment
   subtree. Resolution composes the module-root-to-Socket-owner containment
   transform with the mating Socket owner's local frame before alignment and
@@ -834,58 +838,77 @@ material only; they do not accept or silently replace the decision records.
   this same canonical value within tolerance, with authored and derived
   provenance preserved.
 - A present attached root has exactly one incoming active Attachment; an absent
-  optional module has none. The initial host Socket capacity is one active
-  Attachment. Repeated endpoint pairs, host Socket reuse, zero incoming for a
-  present attached root, and multiple incoming Attachments are separately
-  invalid conditions.
+  optional module has none. Each host and present mating Socket has capacity
+  one active Attachment. Repeated endpoint pairs, host Socket reuse, mating
+  Socket reuse by distinct active Attachments (including distinct hosts or
+  nested attached roots), zero incoming for a present attached root, and
+  multiple incoming Attachments are separately invalid conditions. Mating Socket
+  reuse has a distinct deterministic diagnostic concept.
 
 These resolutions leave exact serialized fields and diagnostic codes, numeric
 budgets and tolerances, canonical axes/units/rotation/scale/shear,
 dependency-revision meaning, canonical bytes/hashing, and fixture contents
-deferred. DR-0002 Revision 8, DR-0008 Revision 8, DR-0011 Revision 4, and
-DR-0012 Revision 3 remain Proposed with Owner approval Pending and Review
-Complete. Seven findings are pending Ben discussion and owner disposition; the
-CK-KICK-012 Batch 5 review is stale historical evidence. CK-KICK-012 remains
-active pending owner disposition.
+deferred. DR-0002 Revision 9, DR-0008 Revision 9, DR-0011 Revision 5, and
+DR-0012 Revision 4 remain Proposed with Owner approval Pending and current
+Review Pending. The prior Double review is stale historical evidence; a fresh
+current Double review is pending. CK-KICK-012 remains active pending review and
+owner disposition.
 
 ## Round 8 — implementation platform (provisional)
 
 ### CK-KICK-013: Select the first implementation platform
 
 State: active (discussion-approved Proposed platform direction integrated;
-Proposed DR-0013 Revision 1 has Owner approval Pending and Review Complete;
-findings are pending Ben discussion and owner disposition; not accepted or
-implemented)
+Proposed DR-0013 Revision 2 has Owner approval Pending and current Review
+Pending; its prior `c64b1b...` Double review is stale historical evidence and a
+fresh current Double review is pending; not accepted or implemented)
 
 Prerequisites: the exploratory host boundary and a bounded CK-KICK-012
 contract. CK-KICK-011 is not an automatic prerequisite.
 
 Outcome:
 
-- Use a stable Rust production semantic/compiler core in a Cargo workspace,
-  with an engine-independent Rust compiler library, thin CLI, and replaceable
-  geometry boundary. No initial daemon or service is proposed.
+- Acceptance of DR-0013 alone triggers the Cargo workspace and empty
+  compiler/library/CLI shell boundary; exact schema and admitted fixtures/
+  contracts separately gate actual Stage 1 parser/resolver implementation. Use
+  a stable Rust production semantic/compiler core in a Cargo workspace, with
+  an engine-independent Rust compiler library, thin CLI, and versioned
+  project-owned backend-neutral GeometryRequest/GeometryResult seam. No initial
+  daemon or service is proposed.
 - Use an in-process Rust CPU dense-field evaluator/extractor for Stage 1. If
-  measured required capability or performance is missing, evaluate an isolated
+  measured required capability or performance, or a justified isolation,
+  security, portability, or licensing need, exposes a gap, evaluate an isolated
   C++ worker/backend first; use in-process C ABI/FFI only if that worker is
   proven insufficient. This is not a Rust-only-forever promise or an
-  advanced-Rust-geometry maturity claim.
+  advanced-Rust-geometry maturity claim. Backend-native types must not leak
+  through the project-owned seam, semantic, CLI, artifact, or host contracts.
 - Keep Python for disposable experiments, evidence/render tooling, and visual
-  workbench tasks, not as a production compiler dependency. Target
-  reproducible execution/workbench on Linux x86_64 under WSL or native Linux;
-  preserve portability while deferring native Windows and host-engine targets.
-- Have the compiler write ordinary versioned artifacts plus a manifest, with an
-  independent visual workbench consuming filesystem artifacts. This does not
-  settle final avatar-package serialization or compatibility.
-- Require a reproducible benchmark and hardware profile for every performance
-  claim. The language/build DR acceptance trigger remains unsatisfied; do not
-  create implementation packages or activate compiler fixtures.
+  workbench tasks, not as a production compiler dependency. Use a
+  WSL2 x86_64 GNU reference path first, then a native-Linux
+  portability smoke; defer native Windows and host-engine targets. Record exact
+  `rust-toolchain.toml`, committed `Cargo.lock`, target/profile, `rustc -Vv`,
+  and reference-environment metadata. Review dependency license, unsafe/native
+  code, and portability/security relevance without Git commit pinning or
+  heavyweight audit bureaucracy.
+- Publish complete success/failure bundles from immutable build-scoped sibling
+  staging, write the manifest last, atomically publish with no replacement, and
+  validate build/artifact identity, relative paths, hashes, and sizes. Reject
+  absolute/traversal paths, symlinked or unlisted outputs, incomplete,
+  mixed-build, and stale bundles. An independent visual workbench consumes the
+  filesystem artifacts; final avatar-package serialization/compatibility
+  remains deferred.
+- Any future worker must negotiate protocol/version compatibility, obey bounded
+  time/resources, map crash/timeout/resource outcomes, validate outputs before
+  publication, and leave the compiler surviving worker failure. Require a
+  reproducible benchmark and hardware profile for every performance claim.
+  While DR-0013 remains Proposed, do not create implementation packages or
+  activate compiler fixtures.
 
-The Rust-first direction has complete current Double-review evidence; its
-findings remain pending Ben discussion and owner disposition. Geometry
-libraries, licensing, platform support, and any C++
-worker/FFI boundary remain evidence-driven; they are not settled by this
-proposal. No implementation package or compiler fixture is activated.
+The prior exact-revision Double review is stale historical evidence after the
+F4–F7 revisions; a fresh current Double review is pending. Geometry libraries,
+licensing, platform support, and any C++ worker/FFI boundary remain
+evidence-driven; they are not settled by this proposal. No implementation
+package or compiler fixture is activated while the DR remains Proposed.
 
 ## Round 9 — Stage 1 generation proof (provisional)
 
@@ -893,8 +916,10 @@ proposal. No implementation package or compiler fixture is activated.
 
 State: provisional/queued (implementation prerequisite not yet met)
 
-Prerequisite: accepted implementation/platform and surface decisions; the
-CK-KICK-013 language/build acceptance trigger is still unsatisfied.
+Prerequisite: accepted implementation/platform and surface decisions; exact
+schema and admitted fixtures/contracts. DR-0013 acceptance alone activates the
+Cargo/compiler shell, but parser/resolver implementation remains gated by those
+exact inputs; while DR-0013 is Proposed, no package is activated.
 
 Parse and resolve the minimal body document, activate compiler-consumed fixtures
 with deterministic expected results, and generate the fixed body family,

@@ -1,12 +1,12 @@
 # Resolved body-graph contract
 
-Status: Proposed contract; CK-KICK-012 Batch 6 discussion-approved canonical
-update; the current CK-KICK-012 Batch 6 Double review is Complete. DR-0002
-Revision 8, DR-0008 Revision 8, DR-0011 Revision 4, and DR-0012 Revision 3
-remain Proposed with Owner approval Pending and Review Complete. The seven
-findings are pending Ben discussion and owner disposition; see the [decision
-registry](../../docs/decisions/registry.md). Review evidence is not acceptance
-or a clean review.
+Status: Proposed contract; CK-KICK-012 Batch 6/7 discussion-approved canonical
+update. DR-0002 Revision 9, DR-0008 Revision 9, DR-0011 Revision 5, and DR-0012
+Revision 4 remain Proposed with Owner approval Pending and current Review
+Pending. The prior `c64b1b...` Double review is stale historical evidence; the
+seven resolutions are discussion-approved and a fresh current Double review is
+pending. See the [decision registry](../../docs/decisions/registry.md). Review
+evidence is not acceptance or a clean review.
 The CK-KICK-012 Batch 5 review at commit `a282dbabffd83afa4e62577086934d00f98e12c7`
 is stale historical evidence. No acceptance is implied.
 
@@ -129,26 +129,36 @@ containment; Attachment is not a parallel transform-inheritance path.
 
 The initial cardinality rules are explicit. A present attached root has exactly
 one incoming active Attachment, while an absent optional module has none. Each
-host Socket has capacity one active Attachment. Repeated endpoint-pair use,
-host Socket reuse, zero incoming Attachments for a present attached root, and
-multiple incoming Attachments for a present attached root are separate invalid
-conditions. Attachment cycles, invalid or dangling endpoints, and a mismatch
-between Attachment endpoints and the declared containment parent are also
-invalid.
+host Socket and each present mating Socket has capacity one active Attachment.
+Repeated endpoint-pair use, host Socket reuse, mating Socket reuse by distinct
+active Attachments (including distinct hosts or nested attached roots), zero
+incoming Attachments for a present attached root, and multiple incoming
+Attachments for a present attached root are separate invalid conditions.
+Mating Socket reuse has its own deterministic diagnostic concept, distinct from
+host reuse and repeated endpoint pairs. Attachment cycles, invalid or dangling
+endpoints, and a mismatch between Attachment endpoints and the declared
+containment parent are also invalid.
 
 Attachment placement is the attached root's sole resolved child-local
-containment placement relative to its host Part. To compose it, first compose
-the module-root-to-mating-Socket-owner containment transform with the mating
-Socket owner's local interface frame. That composed mating frame, the host
-Socket interface frame, and any authored Attachment offset determine the
-alignment in the host Part's local/reference basis. The exact transform
-serialization and multiplication convention are deferred, but every semantic
-input and its provenance are required. Descendant placement is subsequently
-inherited only by the ordinary containment path. If an independently authored
-root-local placement controls the same degrees of freedom, it must compare
-with this same canonical resolved child-local value within the later-defined
-contract tolerance; disagreement is semantically invalid, while both authored
-and derived provenance are preserved rather than silently choosing a winner.
+containment placement relative to its host Part. For the typed transform
+contract, `T_A←B` maps coordinates expressed in B into A. Let H be the host
+Part, R the attached subtree root Part, M the mating Socket owner Part, and
+`S_h` and `S_m` the host and mating Socket frames. Let `O_(S_h←S_m)` map
+mating-Socket coordinates into host-Socket coordinates. The conceptual
+host-local equation is:
+
+`T_H←R = T_H←S_h · O_(S_h←S_m) · (T_R←M · T_M←S_m)^−1`
+
+Composition uses the stated coordinate bases and order, with the rightmost
+transform applied first. Matrix layout, serialization, and tolerances remain
+deferred. An optional authored Attachment offset, if admitted, is part of the
+host/mating alignment transform `O` in that typed basis. Descendant placement is
+subsequently inherited only by the ordinary containment path. If an
+independently authored root-local placement controls the same degrees of
+freedom, it must compare with this same canonical resolved child-local value
+within the later-defined tolerance; disagreement is semantically invalid,
+while authored and derived provenance are preserved rather than silently
+choosing a winner.
 
 Attachment is composition only. It never implies a Joint, articulation,
 mobility, solver constraint, or runtime pose. A movable tail therefore has a
@@ -242,10 +252,13 @@ Minimum Stage 1 graph invariants include:
   agreeing with host/module-root containment;
 - exactly one incoming active Attachment per present attached module root and
   no incoming Attachment for an absent optional module;
-- one active Attachment per host Socket initially; repeated endpoint pairs,
-  host Socket reuse, zero incoming for a present attached root, and multiple
-  incoming Attachments for a present attached root are separate invalid
-  conditions, as are detached, cyclic, or dangling endpoints;
+- one active Attachment per host and present mating Socket initially; repeated
+  endpoint pairs, host Socket reuse, mating Socket reuse by distinct active
+  Attachments (including distinct hosts or nested attached roots), zero
+  incoming for a present attached root, and multiple incoming Attachments for a
+  present attached root are separate invalid conditions, with a distinct
+  mating-reuse diagnostic concept; detached, cyclic, or dangling endpoints are
+  also invalid;
 - sole resolved attached-root child-local containment placement derived in the
   host Part's local/reference basis from the host Socket, optional offset, and
   the inverse of the mating

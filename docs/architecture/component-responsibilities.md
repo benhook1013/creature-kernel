@@ -6,23 +6,22 @@ These are conceptual boundaries, not approved packages or technologies. Code
 directories should be created only after the relevant boundary is accepted and
 its activation trigger is met.
 
-The CK-KICK-012 Batch 6 resolutions are discussion-approved and represented as
-Proposed responsibility consequences. DR-0002 Revision 8, DR-0008 Revision 8,
-DR-0011 Revision 4, and DR-0012 Revision 3 are Proposed with Owner approval
-Pending and Review Complete; seven findings remain pending Ben discussion and
-owner disposition. The CK-KICK-012 Batch 5 review is
-stale historical evidence. Proposed DR-0013 Revision 1 likewise records the
-discussion-approved Rust-first platform direction with Owner approval Pending
-and Review Complete; its findings remain pending Ben discussion and owner
-disposition; no acceptance or implementation package is
-implied.
+The CK-KICK-012 Batch 6/7 resolutions are discussion-approved and represented
+as Proposed responsibility consequences. DR-0002 Revision 9, DR-0008 Revision
+9, DR-0011 Revision 5, and DR-0012 Revision 4 are Proposed with Owner approval
+Pending and current Review Pending. The prior `c64b1b...` Double review is
+stale historical evidence; a fresh current Double review is pending. Proposed
+DR-0013 Revision 2 likewise records the discussion-approved Rust-first platform
+direction with Owner approval Pending and current Review Pending; its prior
+Double review is stale and a fresh current Double review is pending. No
+acceptance or implementation package is implied.
 
 | Component | Responsibilities | Explicit non-responsibilities |
 | --- | --- | --- |
 | Authoritative semantic source set | Admit the initial strict UTF-8 JSON source through the bootstrap and resource rules in the [body-document contract](../../spec/body-document/README.md), preserve authored intent, track exact revisions of outcome-affecting authored dependencies, classify extensions, report one result envelope, and provide the sole authored authority | Generate meshes or run gameplay, or treat an external mesh as semantic truth |
 | Semantic body resolver | Execute the canonical admission, bootstrap, dependency, explicit-containment/typed-relation, normalization, invariant, and publication boundaries inside one result envelope; only complete valid-supported input yields an optional compilable inspectable graph snapshot with canonical Joint/Socket frame records and provenance | Host-engine objects, become an authored source, or make derived artifacts authoritative; rejected partial graphs are non-compilable, debug-only, and non-contractual |
-| Proposed Rust compiler core | Own the engine-independent production semantic/compiler library boundary and coordinate replaceable geometry evaluation; Stage 1's in-process CPU dense-field evaluator/extractor is the proposed first path | Lock a permanent geometry library, require a daemon/service, or make Rust a forever-only backend promise; no package is activated before DR-0013 acceptance |
-| Proposed thin CLI and artifact boundary | Expose the compiler library through a thin headless CLI and write ordinary versioned artifacts plus a manifest for independent filesystem consumers | Become a visual workbench, settle final avatar-package serialization/compatibility, or require a service transport |
+| Proposed Rust compiler core | Own the engine-independent production semantic/compiler library boundary, versioned project-owned GeometryRequest/GeometryResult concepts, and coordinate replaceable geometry evaluation; Stage 1's in-process CPU dense-field evaluator/extractor is the proposed first path | Leak backend-native types, lock a permanent geometry library/surface, claim DR-0009/0010 evidence, require a daemon/service, or make Rust a forever-only backend promise; acceptance of DR-0013 alone activates only the empty shell, while exact schema/admitted fixtures gate parser/resolver work |
+| Proposed thin CLI and artifact boundary | Expose the compiler library through a thin headless CLI; publish complete success/failure bundles from immutable build-scoped sibling staging, manifest last, atomic no-replace, and validate build/artifact identity, relative paths, hashes, and sizes for independent filesystem consumers | Become a visual workbench, settle final avatar-package serialization/compatibility, publish symlinked/unlisted/incomplete/mixed/stale bundles, or require a service transport |
 | Independent visual workbench | Consume compiler artifacts and manifests from the filesystem for visual inspection, evidence/render tooling, and disposable workflows | Become a production compiler dependency or silently redefine semantic/artifact contracts |
 | Geometry field system | Evaluate part volumes, composition, semantic fields | Choose runtime animation |
 | Surface compiler | Extract, repair, remesh, simplify, and attribute visible surfaces | Define semantic truth |
@@ -63,17 +62,26 @@ interface-frame records. A mating Socket may be descendant-owned; its frame is
 composed through the module-root containment path before Attachment alignment,
 which yields the attached root's sole child-local containment placement.
 Descendants inherit only through containment, and repeated endpoint pairs,
-host Socket reuse, zero incoming for a present root, and multiple incoming are
-separate cardinality errors. Attachment composition remains semantic data,
-never an implied Joint or runtime rig.
+host Socket reuse, mating Socket reuse by distinct active Attachments (including
+distinct hosts or nested attached roots), zero incoming for a present root, and
+multiple incoming are separate cardinality errors. Mating Socket reuse has its
+own deterministic diagnostic concept. Attachment composition remains semantic
+data, never an implied Joint or runtime rig, and follows the typed transform
+equation in the graph contract without freezing matrix layout or serialization.
 
 Resolver implementation follows the body-document contract's closed statuses,
 precedence, deterministic diagnostic key, phase blocking, and bounded
-streaming/token-aware resource guards. Trust loss precedes configured
-resource-limit when completeness is lost, then earliest fatal phase, with
-invalid-source ahead of unsupported within that phase. Required unresolved or
-ambiguous values cannot succeed; exact serialized names, profile values, and
-implementation technology remain outside this responsibility map.
+streaming/token-aware resource guards. Complete acquisition is required before
+invalid-source; trust loss precedes resource-limit, which applies only when a
+configured breach prevents required processing or trusted completion, then the
+earliest phase unable to produce its required output. Invalid-source outranks
+unsupported in parse/semantic phases, while dependency acquisition/read/
+verify/resolve failures map to dependency-failure. Processing and diagnostic
+completeness are independent; ordinary truncation alone is not resource-limit,
+and blocked later phases do not make retained reached-phase diagnostics
+incomplete. Required unresolved or ambiguous values cannot succeed; exact
+serialized names, profile values, and implementation technology remain outside
+this responsibility map.
 
 ## Walking-skeleton exploratory seam (provisional and disposable)
 

@@ -11,17 +11,21 @@ supplementary. This direction is Proposed for formal acceptance under
 [DR-0003](../decisions/DR-0003-real-time-first-compiled-avatar-boundary.md).
 
 CK-KICK-013 is a discussion-approved but unaccepted platform proposal.
-Proposed DR-0013 Revision 1 has Owner approval Pending and Review Complete;
-its findings remain pending Ben discussion and owner disposition. It proposes
-a stable Rust production semantic/compiler core in
-a Cargo workspace, exposed as an engine-independent Rust compiler library and
-thin CLI with a replaceable geometry boundary. No initial daemon or service is
-part of this proposal. Stage 1 uses an in-process Rust CPU dense-field
-evaluator/extractor. If measured required capability or performance is missing,
-an isolated C++ worker/backend is evaluated first; in-process C ABI/FFI is only
-considered if that worker is proven insufficient. This is a bounded platform
-direction, not a Rust-only-forever promise or an advanced-Rust-geometry
-maturity claim.
+Proposed DR-0013 Revision 2 has Owner approval Pending and current Review
+Pending; the prior `c64b1b...` Double review is stale historical evidence and a
+fresh current Double review is pending. Acceptance of DR-0013 alone triggers
+the Cargo workspace and empty compiler/library/CLI shell boundary; exact schema
+and admitted fixtures/contracts still gate Stage 1 parser/resolver work. It
+proposes a stable Rust production semantic/compiler core in a Cargo workspace,
+exposed as an engine-independent Rust compiler library and thin CLI with a
+versioned project-owned backend-neutral GeometryRequest/GeometryResult seam.
+No initial daemon or service is part of this proposal. Stage 1 uses an
+in-process Rust CPU dense-field evaluator/extractor. If measured capability or
+performance, or a justified isolation/security/portability/licensing need,
+exposes a gap, an isolated C++ worker/backend is evaluated first; in-process C
+ABI/FFI is only considered if that worker is proven insufficient. This is a
+bounded platform direction, not a Rust-only-forever promise or an advanced-
+Rust-geometry maturity claim.
 
 ## Time domains
 
@@ -43,19 +47,30 @@ Authoritative semantic source set
 
 ## Platform and artifact flow (Proposed)
 
-The initial reproducible execution/workbench target is Linux x86_64 under WSL
-or native Linux. Portability remains an architectural goal, while native
-Windows and host-engine targets are deferred. Python remains available for
-disposable experiments, evidence/render tooling, and the visual workbench; it
-is not a production compiler dependency.
+The initial reproducible execution/workbench target is WSL2 x86_64 GNU. Record
+exact `rust-toolchain.toml`, committed
+`Cargo.lock`, target/profile, `rustc -Vv`, and reference-environment metadata;
+perform a later native-Linux portability smoke. Native Windows and host-engine
+targets are deferred. When dependencies are added, review license, unsafe or
+native code, and portability/security relevance without Git commit pinning or
+heavyweight audit bureaucracy. Python remains available for disposable
+experiments, evidence/render tooling, and the visual workbench; it is not a
+production compiler dependency.
 
-The compiler writes ordinary versioned artifacts and a manifest to the
-filesystem. An independent visual workbench consumes those artifacts rather
-than becoming part of the compiler or a daemon/service. This boundary does not
-settle final avatar-package serialization or compatibility. Performance claims
-must be backed by a reproducible benchmark and hardware profile. The
-language/build acceptance trigger remains unsatisfied, so no implementation
-package is activated.
+The compiler writes complete success/failure bundles through immutable,
+build-scoped sibling staging, writes the manifest last, and atomically
+publishes with no replacement of an existing bundle. The manifest records
+build/artifact identity and relative paths with hashes and sizes. Consumers
+reject absolute/traversal paths, symlinked or unlisted outputs, incomplete,
+mixed-build, and stale bundles. An independent visual workbench consumes those
+artifacts rather than becoming part of the compiler or a daemon/service. This
+boundary does not settle final avatar-package serialization or compatibility.
+Performance claims must be backed by a reproducible benchmark and hardware
+profile. The language/build acceptance trigger remains unsatisfied, so no
+implementation package is activated. Any future worker must negotiate protocol/
+version compatibility, obey bounded time/resource budgets, map crash/timeout/
+resource outcomes, validate outputs before publication, and leave the compiler
+surviving worker failure; exact worker serialization remains deferred.
 
 ## Creature compilation
 
@@ -105,13 +120,19 @@ envelope:
 8. success publication.
 
 Fatal failure blocks dependent phases, but independent diagnostics within one
-phase accumulate in deterministic order. Trust loss takes precedence, then a
-configured resource-limit when completeness is lost, then the earliest fatal
-phase; within that phase invalid-source outranks unsupported when both are
-established. The primary is the first diagnostic establishing the final status
-under that ordering, and reserved diagnostic capacity preserves it despite
-ordinary truncation (or reserves the resource/truncation diagnostic when arena
-exhaustion changes the final status). Provenance distinguishes authored,
+phase accumulate in deterministic order. Complete acquisition is required
+before invalid-source. Trust loss takes precedence, then a configured
+resource-limit only when a breach prevents required processing or trusted
+completion, then the earliest phase unable to produce its required output. In
+parse/semantic phases invalid-source outranks unsupported; dependency
+acquisition/read/verify/resolve failure maps to dependency-failure. Processing
+and diagnostic completeness are independent: ordinary truncation makes
+diagnostic completeness incomplete but is not resource-limit when processing
+and trusted completion continue, and blocked later phases do not make retained
+reached-phase diagnostics incomplete. The primary is the first diagnostic
+establishing the final status under that ordering, and reserved diagnostic
+capacity preserves it (or reserves the resource/truncation diagnostic when
+arena exhaustion changes the final status). Provenance distinguishes authored,
 defaulted, and derived values. Required unresolved or ambiguous values, and
 measurement claims that conflict after normalization by owner address,
 property role, and frame/context, cannot publish success. A conflict is a

@@ -10,10 +10,13 @@ any product, specification, or architecture proposal.
 
 States: `active`, `planned`, `triggered`, `deferred`, `not-applicable`, `retired`.
 
-CK-KICK-012 and CK-KICK-013 remain active Proposed work after their current
-Double reviews; seven findings are pending Ben discussion and owner
-disposition. CK-KICK-014 remains provisional/queued and does not activate
-implementation packages or compiler fixtures.
+CK-KICK-012 and CK-KICK-013 remain active Proposed work after discussion-
+approved F1–F7 revisions. DR-0002/0008/0011/0012 are at Revisions 9/9/5/4 and
+DR-0013 is at Revision 2; all five remain Proposed with Owner approval Pending
+and current Review Pending. The prior `c64b1b...` Double review is stale
+historical evidence; a fresh current Double review is pending. CK-KICK-014
+remains provisional/queued and does not activate implementation packages or
+compiler fixtures.
 
 | Capability | Horizon | State | Activation trigger | Destination | Validation |
 | --- | --- | --- | --- | --- | --- |
@@ -32,7 +35,7 @@ implementation packages or compiler fixtures.
 | Local visual-review gallery | Now | active | First need for human appraisal of generated CK-KICK-010 output | `dev-tools/visual-review/` | Focused tests + local HTTP/browser smoke |
 | Body-document specification | Next | active | First body parser proposal exists in the CK-KICK-012 Batch 4 Proposed contract | `spec/body-document/` | Schema-level contract fixtures when activated |
 | Semantic body-graph spec | Next | active | First resolver proposal exists in the CK-KICK-012 Batch 4 Proposed contract | `spec/body-graph/` | Graph and cross-DR contract fixtures when activated |
-| Implementation packages | Next | planned | Proposed CK-KICK-013/DR-0013 Rust-first language/build decision accepted and its activation trigger met | Planned Cargo workspace (`Cargo.toml`, `crates/`) | Cargo format/check/test/lint validation when activated |
+| Implementation packages | Next | planned | DR-0013 accepted (the sole Cargo shell activation trigger); exact schema and admitted fixtures/contracts separately gate Stage 1 parser/resolver implementation | Planned Cargo workspace (`Cargo.toml`, `crates/`) | Cargo format/check/test/lint validation when activated |
 | Generation fixtures | Next | planned | First compiler-consumed body document | `fixtures/body-documents/` | Deterministic output checks |
 | Geometry exploration | Next | active | Bounded exploratory executable walking skeleton implemented and evidence recorded; continued work remains disposable and review-bounded | `experiments/ck-kick-010-walking-skeleton/` (durable implementation/evidence record) | Reproducible observations and diagnostics; generated bundles remain ephemeral/unretained, and this activation does not imply production architecture or durable artifact retention |
 | Confirmatory multi-branch surface comparison | Later | deferred | At least two runnable candidate surface implementations and an intended comparative outcome for production architecture, or Ben explicitly reactivates DR-0009/0010 | `experiments/` under an activated protocol | Activated-protocol evidence and review |

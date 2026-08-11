@@ -30,7 +30,11 @@ creature-kernel/
 ```
 
 Implementation directories and the Cargo workspace are intentionally absent
-until the language/build decision and its activation trigger are accepted.
+until DR-0013 is accepted. Acceptance of DR-0013 alone activates the empty
+Cargo workspace and compiler/library/CLI shell boundary; exact schema and
+admitted fixtures/contracts separately gate actual Stage 1 parser/resolver
+implementation. While DR-0013 remains Proposed, no implementation packages or
+compiler-consumed fixtures are activated.
 
 ## Activation rule
 
@@ -48,8 +52,11 @@ committed with documented provenance.
 ## Future implementation shape
 
 The CK-KICK-013 Proposed platform direction is a Cargo workspace with a stable
-Rust engine-independent semantic/compiler core, thin CLI, replaceable geometry
-boundary, and later adapters. It does not include an initial daemon/service.
-The exact crate layout, geometry backend, isolated C++ worker boundary, and
-adapter strategy remain evidence-driven and unresolved. These planned paths do
-not activate packages; the language/build acceptance trigger must be met first.
+Rust engine-independent semantic/compiler core, thin CLI, project-owned
+versioned backend-neutral GeometryRequest/GeometryResult seam, and later
+adapters. It does not include an initial daemon/service. The exact crate
+layout, geometry backend, isolated C++ worker boundary, artifact serialization,
+and adapter strategy remain evidence-driven and unresolved. These planned paths
+do not activate packages; DR-0013 acceptance activates only the empty shell,
+while exact schema and admitted fixtures/contracts gate Stage 1 parser/resolver
+implementation.

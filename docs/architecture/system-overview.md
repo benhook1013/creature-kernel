@@ -17,15 +17,15 @@ The current semantic boundaries are Proposed under [DR-0002](../decisions/DR-000
 [DR-0006](../decisions/DR-0006-durable-semantic-and-artifact-identity.md),
 [DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
 and [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
-CK-KICK-012 Batch 6 blocker resolutions are discussion-approved and represented
-here as Proposed architecture consequences. The material canonical updates
-have a complete current Double review. DR-0002 Revision 8, DR-0008 Revision 8,
-DR-0011 Revision 4, and DR-0012 Revision 3 are Proposed with Owner approval
-Pending and Review Complete; seven findings are pending Ben discussion and
-owner disposition (see the [decision registry](../decisions/registry.md)). The
-CK-KICK-012 Batch 5 review at
-commit `a282dbabffd83afa4e62577086934d00f98e12c7` is stale historical evidence.
-No acceptance or clean review is implied.
+CK-KICK-012 Batch 6/7 resolutions are discussion-approved and represented here
+as Proposed architecture consequences. DR-0002 Revision 9, DR-0008 Revision 9,
+DR-0011 Revision 5, and DR-0012 Revision 4 are Proposed with Owner approval
+Pending and current Review Pending (see the [decision registry](../decisions/registry.md)).
+The prior `c64b1b...` Double review is stale historical evidence; the seven
+resolutions are discussion-approved and a fresh current Double review is
+pending. The CK-KICK-012 Batch 5 review at commit
+`a282dbabffd83afa4e62577086934d00f98e12c7` is stale historical evidence. No
+acceptance or clean review is implied.
 
 ```text
 Human, script, test, or external AI
@@ -93,28 +93,37 @@ canonical bytes, and hashes remain deferred.
 ### Proposed production platform and artifact/workbench boundary
 
 CK-KICK-013 is a discussion-approved platform proposal, not an accepted
-implementation decision. Proposed DR-0013 Revision 1 has Owner approval
-Pending and Review Complete; its findings are pending Ben discussion and owner
-disposition. Its target is a stable Rust
-production semantic/compiler core in a Cargo workspace: an
-engine-independent Rust compiler library, a thin CLI, and a replaceable
-geometry boundary, with no initial daemon or service. Stage 1 uses an
-in-process Rust CPU dense-field evaluator/extractor. If measured required
-capability or performance is missing, evaluate an isolated C++ worker/backend
-first; use in-process C ABI/FFI only if that worker is proven insufficient.
-This leaves room for a backend change and makes no advanced-Rust-geometry
-maturity claim.
+implementation decision. Proposed DR-0013 Revision 2 has Owner approval
+Pending and current Review Pending; its prior `c64b1b...` Double review is
+stale historical evidence and a fresh current Double review is pending.
+Acceptance of DR-0013 alone triggers the Cargo workspace and empty
+compiler/library/CLI shell boundary; exact schema and admitted fixtures still
+gate Stage 1 parser/resolver implementation. Its target is a stable Rust
+production semantic/compiler core in a Cargo workspace, an engine-independent
+compiler library, a thin CLI, and a versioned project-owned backend-neutral
+GeometryRequest/GeometryResult seam, with no initial daemon or service. Stage 1
+uses an in-process Rust CPU dense-field evaluator/extractor. If measured
+capability/performance or a justified isolation, security, portability, or
+licensing need exposes a gap, evaluate an isolated C++ worker/backend first;
+use in-process C ABI/FFI only if that worker is proven insufficient. This
+leaves room for a backend change and makes no advanced-Rust-geometry maturity
+claim.
 
 Python remains the disposable host for experiments, evidence/render tooling,
 and visual workbench tasks; it is not a production compiler dependency. The
-initial reproducible execution/workbench target is Linux x86_64 under WSL or
-native Linux. Portability is preserved while native Windows and host-engine
-targets are deferred. The compiler writes ordinary versioned artifacts plus a
-manifest, and an independent visual workbench consumes those filesystem
-artifacts. This boundary does not settle final avatar-package serialization or
-compatibility. Any performance claim requires a reproducible benchmark and
-hardware profile. The language/build acceptance trigger remains unsatisfied,
-so this proposal does not activate implementation packages.
+first reference path is WSL2 x86_64 GNU, with a
+later native-Linux portability smoke. Record `rust-toolchain.toml`,
+`Cargo.lock`, target/profile, `rustc -Vv`, and reference metadata; review each
+dependency's license, unsafe/native code, and portability/security relevance
+without Git pinning or heavyweight audit bureaucracy. Publish complete
+success/failure bundles from immutable build-scoped sibling staging, manifest
+last, atomic no-replace, and validate identity, relative paths, hashes, and
+sizes; reject symlinked, unlisted, incomplete, mixed-build, and stale bundles.
+The seam does not select a permanent surface/backend or create DR-0009/0010
+evidence. Future workers negotiate protocol/version, obey bounded time/resources, map
+crash/timeout/resource outcomes, validate outputs, and leave the compiler
+surviving failure. Exact serialization remains deferred; performance claims
+require a reproducible benchmark and hardware profile.
 
 ### First body grammar boundary
 
@@ -129,7 +138,9 @@ Attachment composition derives the attached root's sole child-local containment
 placement from the host Socket, optional offset, and the mating Socket frame
 after composing the attached-root-to-Socket-owner containment transform;
 descendants inherit only through containment and the no-implied-Joint rule is
-preserved.
+preserved. Each host and present mating Socket has one active-use capacity;
+mating Socket reuse by distinct active Attachments, including distinct hosts or
+nested attached roots, is a separate invalid condition and diagnostic concept.
 Resolved Joint and Socket frame records are canonical semantic handoff data,
 not rig or runtime data. The architecture consumes these rules and does not
 restate serialized spellings or numeric conventions; see the canonical graph
@@ -213,22 +224,23 @@ validation, diagnostics, and artifact inspection use one deterministic domain
 operation model. Nondeterministic stages must be isolated and reported.
 
 The resolver uses the ordered phases and closed result-status rules in the
-[body-document contract](../../spec/body-document/README.md). Fatal phases
-block dependent work while independent diagnostics in a reached phase may
-accumulate; the envelope retains reached diagnostics and marks incomplete
-processing when phases or diagnostic retention are cut short. Resource guards
-remain active through parsing, dependency/reference expansion, graph work, and
-publication. Trust loss precedes configured resource-limit when completeness is
-lost, which precedes the earliest fatal phase; within that phase,
-invalid-source outranks unsupported when both are established. The primary is
-the first diagnostic establishing the final status under that ordering, and
-reserved diagnostic capacity preserves it despite ordinary truncation (or
-reserves the resource/truncation diagnostic when arena exhaustion changes the
-final status). The architecture requires deterministic work and bounded
-diagnostics but leaves profile values and accounting detail to the canonical
-specification. Semantic equivalence and identity remain separate from source
-ordering, compiler/build/configuration/seed, dependency, artifact, and
-incidental topology identities.
+[body-document contract](../../spec/body-document/README.md). Complete
+acquisition is required before invalid-source. Fatal phases block dependent
+work while independent diagnostics in a reached phase may accumulate; the
+envelope retains reached diagnostics. Processing completeness and diagnostic
+completeness are independent: blocked later phases do not make retained
+reached-phase diagnostics incomplete, and ordinary truncation is not
+resource-limit when required processing/trusted completion continue. Trust loss
+precedes configured resource-limit only when a breach prevents required
+processing or trusted completion, which precedes the earliest phase unable to
+produce its required output; invalid-source outranks unsupported in parse and
+semantic phases, and dependency acquisition/read/verify/resolve failures map to
+dependency-failure. The primary is the first diagnostic establishing the final
+status under that ordering. The architecture requires deterministic work and
+bounded diagnostics but leaves profile values and accounting detail to the
+canonical specification. Semantic equivalence and identity remain separate
+from source ordering, compiler/build/configuration/seed, dependency, artifact,
+and incidental topology identities.
 
 ### Engine-independent contracts
 

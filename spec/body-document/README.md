@@ -1,12 +1,12 @@
 # Body-document contract
 
-Status: Proposed contract; CK-KICK-012 Batch 6 discussion-approved canonical
-update; the current CK-KICK-012 Batch 6 Double review is Complete. DR-0002
-Revision 8, DR-0008 Revision 8, DR-0011 Revision 4, and DR-0012 Revision 3
-remain Proposed with Owner approval Pending and Review Complete. The seven
-findings are pending Ben discussion and owner disposition; see the [decision
-registry](../../docs/decisions/registry.md). Review evidence is not acceptance
-or a clean review.
+Status: Proposed contract; CK-KICK-012 Batch 6/7 discussion-approved canonical
+update. DR-0002 Revision 9, DR-0008 Revision 9, DR-0011 Revision 5, and DR-0012
+Revision 4 remain Proposed with Owner approval Pending and current Review
+Pending. The prior `c64b1b...` Double review is stale historical evidence; the
+seven resolutions are discussion-approved and a fresh current Double review is
+pending. See the [decision registry](../../docs/decisions/registry.md). Review
+evidence is not acceptance or a clean review.
 The CK-KICK-012 Batch 5 review at commit `a282dbabffd83afa4e62577086934d00f98e12c7`
 is stale historical evidence. No acceptance is implied.
 
@@ -64,7 +64,7 @@ spelling for the discriminator is deferred, but its role and ordering are not:
 
 | Order | Required operation | Failure classification |
 | --- | --- | --- |
-| 1 | Acquire the authoritative source input, enforce raw-byte/profile admission, and validate UTF-8 incrementally. | An unavailable, unreadable, or unacquirable source is `input-failure`; invalid UTF-8 in supplied bytes is `invalid-source`; a configured limit breach is `resource-limit`; loss of implementation trust is `internal-failure`. |
+| 1 | Acquire the complete authoritative source input, enforce raw-byte/profile admission, and validate UTF-8 incrementally. | An unavailable, unreadable, or incomplete acquisition is `input-failure`; invalid UTF-8 in completely supplied bytes is `invalid-source`; a configured limit breach that prevents required processing or trusted completion is `resource-limit`; loss of implementation trust is `internal-failure`. |
 | 2 | Strictly parse one JSON document while detecting duplicate members and enforcing token, nesting, and member guards. | Strict JSON syntax errors and duplicate members, including a duplicate discriminator member, are `invalid-source`, unless resource or internal failure has precedence. |
 | 3 | Require a top-level object and exactly one minimal, version-neutral contract discriminator carrying a family and revision. A non-object top level or missing/malformed/duplicate discriminator data is `invalid-source`. | `invalid-source` |
 | 4 | Recognize the family and revision before applying a current revision schema. An unknown family or unsupported revision is a well-formed `unsupported` result and stops schema application. | `unsupported` |
@@ -114,11 +114,13 @@ After the bootstrap sequence, the conceptual resolution phases are:
 The bootstrap steps are the required sub-order of the first two phases. A
 fatal phase blocks dependent later phases. Independent diagnostics in a phase
 that was reached may still accumulate. Reached diagnostics are retained when
-a later phase is blocked; the envelope marks the result incomplete whenever a
-required phase was skipped or diagnostic retention was truncated. A complete
-non-success result is possible when all applicable checks ran and established
-an invalid or unsupported outcome. Publication is possible only after every
-required phase succeeds.
+a later phase is blocked. Processing completeness is incomplete when a
+required phase is skipped; diagnostic completeness is independently incomplete
+only when diagnostic retention is truncated. Intentionally blocked later phases
+do not by themselves make retained reached-phase diagnostics incomplete. A
+complete non-success result is possible when all applicable checks ran and
+established an invalid or unsupported outcome. Publication is possible only
+after every required phase succeeds.
 
 ### Closed status algebra and precedence
 
@@ -131,22 +133,32 @@ The only operation statuses are:
 | `invalid-source` | Supplied source bytes have invalid UTF-8, strict JSON syntax errors, duplicate members, a non-object top level, missing/malformed/duplicate discriminator data, recognized-revision schema failure, or source-caused semantic/invariant errors. |
 | `unsupported` | The source is sufficiently well formed to identify an unknown family, unsupported revision, unsupported required extension, or recognized-but-unsupported feature/assembly. |
 | `dependency-failure` | A required outcome-affecting dependency could not be admitted, loaded, or matched to its declared revision. |
-| `resource-limit` | A configured profile limit was breached before the operation could retain a complete trusted result. |
+| `resource-limit` | A configured profile limit prevented required processing or trusted completion; ordinary diagnostic truncation alone is not this status. |
 | `internal-failure` | The implementation lost trust in the result, such as through an unexpected invariant failure or surviving environment failure. |
 
-Status selection is deterministic. If implementation trust is lost, the
-status is `internal-failure`. Otherwise, if a configured resource exhaustion
-means the result cannot be complete—including parser, expansion, work, memory,
-or diagnostic-arena exhaustion—the status is `resource-limit`. Otherwise the
-earliest fatal phase in the bootstrap/phase order determines the status. Within
-that selected earliest fatal phase, `invalid-source` outranks `unsupported` if
-both are established; other ordinary status candidates use that phase's
-specific mapping in the table above. If no fatal phase occurs and all required
-work completes, the status is `success`. Later diagnostics cannot replace an
-earlier fatal status, except for the explicit `internal-failure` and configured
-`resource-limit` precedence just stated. The primary is the first diagnostic
-that establishes the final status under this same normative ordering, not merely
-the first diagnostic encountered or retained.
+Status selection is deterministic and total. Acquisition must obtain the
+complete authoritative byte input before a supplied source can be classified as
+`invalid-source`; an unavailable, unreadable, or incomplete acquisition is
+`input-failure`. If implementation trust is lost, the status is
+`internal-failure`. Otherwise, a configured resource breach is
+`resource-limit` only when it prevents required processing or trusted result
+completion. Ordinary diagnostic capping or truncation while required processing
+continues and produces a trusted result does not become `resource-limit`.
+Otherwise the earliest phase unable to produce its required output determines
+the status. In parse and semantic phases, `invalid-source` outranks
+`unsupported` when both are established; dependency acquisition/read/verify/
+resolve failure maps to `dependency-failure`, while complete dependency content
+uses the ordinary parse/semantic mapping. If no fatal phase occurs and all
+required work completes, the status is `success`. The primary is the first
+diagnostic establishing the final status under the same normative ordering, not
+merely the first encountered or retained.
+
+Processing completeness and diagnostic completeness are independently
+observable conceptual fields (serialized names remain deferred). Processing is
+incomplete when required processing or trusted-result production could not
+finish. Diagnostic completeness is incomplete only when bounded retention
+drops or truncates diagnostics; intentionally blocked later phases do not by
+themselves make diagnostics retained from reached phases incomplete.
 
 The three Stage 1 semantic fixture outcomes are not this status algebra. They
 apply only after a recognized, admitted input has reached semantic evaluation:
@@ -165,18 +177,15 @@ deferred. Human-readable text is explanatory and never a compatibility or
 ordering key.
 
 Diagnostics are bounded by a profile-selected arena. Ordinary diagnostics are
-retained as they are reached until the ordinary capacity is exhausted; reached
-earlier diagnostics are not silently replaced by later diagnostics. Primary
-selection considers the logical diagnostics in normative order, and reserved
-primary capacity preserves the minimal matching candidate even when ordinary
-truncation drops other diagnostics. The arena also reserves capacity for a
-diagnostic-truncation or resource report. If ordinary capacity is exhausted,
-the envelope records the truncation and marks diagnostics incomplete. If arena
-exhaustion changes the final status to `resource-limit`, the reserved
-resource/truncation diagnostic is the primary and therefore satisfies the
-final-status-primary rule, unless `internal-failure` has precedence; the
-reserved primary capacity still preserves the minimal matching candidate for
-the final status selected under the precedence rules.
+retained as reached until ordinary capacity is exhausted; earlier diagnostics
+are not silently replaced. Primary selection considers logical diagnostics in
+normative order, and reserved primary capacity preserves the minimal matching
+candidate despite ordinary truncation. If ordinary capacity is exhausted, the
+envelope records truncation and marks diagnostic completeness incomplete, but
+this is not `resource-limit` when required processing and trusted completion
+continue. If arena exhaustion itself prevents trusted completion and establishes
+`resource-limit`, the reserved resource/truncation diagnostic is the primary
+unless `internal-failure` has precedence.
 
 The deterministic ordering key is, in order: phase; severity/category;
 normalized source path and offset; diagnostic code; and semantic address.
@@ -205,8 +214,11 @@ contract:
 - diagnostic storage and aggregate memory/work remain guarded after parsing,
   because later phases can exceed what source size alone predicts.
 
-Configured breaches report `resource-limit` through the same envelope and
-block dependent work. Deterministic work units are preferred to wall-clock
+Configured breaches that prevent required processing or trusted completion
+report `resource-limit` through the same envelope and block dependent work. A
+diagnostic-cap breach that merely truncates diagnostics while required
+processing/trusted completion continue reports incomplete diagnostic
+completeness instead. Deterministic work units are preferred to wall-clock
 timeouts; a profile may define a time guard only as an explicit later profile
 choice. A true operating-system or process out-of-memory termination is
 outside this guarantee; if the process survives and can no longer trust its
