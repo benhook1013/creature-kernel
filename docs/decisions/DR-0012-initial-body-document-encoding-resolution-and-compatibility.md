@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-11
 
@@ -41,8 +41,9 @@ and then approved the CK-KICK-012 Batch 5 blocker-resolution selections in
 Revision 2: the closed operation status set and precedence, discriminator/schema
 bootstrap order, and hostile-input enforcement boundary. This discussion
 approval is not DR acceptance. This record remains Proposed with Owner
-approval Pending and Review status Pending because the Revision 1 Double
-review is stale and a new current-revision Double review is required. Exact
+approval Pending. Its required current-revision Double review is now Complete,
+with findings pending Ben discussion; the Revision 1 Double review is stale.
+Exact
 field spelling, diagnostic codes, concrete resource values, tolerances,
 canonical axes/units/rotation/scale/shear, and the canonical-byte algorithm
 remain later specification work.
@@ -354,14 +355,27 @@ resource enforcement, and explicit graph-side minimum invariants. The
 Attachment and canonical frame details remain owned jointly with DR-0008 and
 DR-0011; this record does not make those concepts implementation-specific.
 
-Revision 2 records Ben's 2026-08-11 discussion selections, not a current
-review result. No Revision 2 review artifact exists yet. Review status is
-Pending because this materially revised, cross-cutting proposal awaits the
-required Double review. Owner approval remains Pending and Status remains
-Proposed. Exact serialized field spellings, diagnostic codes, concrete
-thresholds, dependency-revision semantics, canonical axes/units/rotation/
-scale/shear, canonical bytes/hashing, and fixture/security evidence remain
-deferred. Only Ben may accept or reject this proposal.
+Revision 2's current CK-KICK-012 Batch 5 Double review examined commit
+`a282dbabffd83afa4e62577086934d00f98e12c7`: the independent
+[contract/schema/security pass](reviews/DR-0012-rev-02-review-01.md) recommended
+**Revise** at **High** confidence, while the independent
+[semantic-graph/graphics/runtime pass](reviews/DR-0012-rev-02-review-02.md)
+recommended **Accept** at **Medium** confidence with no DR-0012-specific
+blocker.
+
+The current contract finding is that same-phase mixed fatal statuses are not
+totally ordered after internal/resource overrides; the primary diagnostic is
+not explicitly the first retained status-establishing diagnostic under the
+normative order, including after truncation. This finding remains pending Ben
+discussion and is not resolved here. DR-0002 owns the authoritative result
+envelope and graph-side consumers; DR-0008 and DR-0011 own the linked
+Attachment, frame, and morphology consequences, but no additional finding is
+attributed to this record. Exact serialized field spellings, diagnostic codes,
+concrete thresholds, dependency-revision semantics, canonical
+axes/units/rotation/scale/shear, canonical bytes/hashing, and fixture/security
+evidence remain deferred. Review status is Complete; Owner approval remains
+Pending and Status remains Proposed. Only Ben may accept or reject this
+proposal.
 
 ## Implementation and Proof Obligations
 

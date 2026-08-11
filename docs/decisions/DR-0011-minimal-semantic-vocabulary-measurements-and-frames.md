@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-11
 
@@ -52,8 +52,9 @@ the linked operation outcome/bootstrap/resource rules. Initial source
 encoding, phase sequencing, diagnostics, compatibility, and resource limits
 are owned by [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
 This discussion approval is not DR acceptance: this Proposed record remains
-subject to a new current-revision Double review and owner disposition; Revision
-2 review artifacts are now stale.
+subject to owner disposition. Its required current-revision Double review is
+complete with findings pending Ben discussion; Revision 2 review artifacts are
+now stale.
 
 ## Decision
 
@@ -277,13 +278,26 @@ containment, Attachment composition, and canonical frame-record selections;
 the linked operation status, bootstrap, and hostile-input resource rules are
 owned by DR-0002/DR-0012.
 
-Revision 3 records Ben's 2026-08-11 discussion selections, not a current
-review result. No Revision 3 review artifact exists yet. Review status is
-Pending because this materially revised, cross-cutting proposal awaits the
-required Double review. Owner approval remains Pending and Status remains
-Proposed. Exact serialized field spellings, canonical axes/units/rotation/
-scale/shear, tolerances, diagnostic codes, and fixture evidence remain
-deferred. Only Ben may accept or reject this proposal.
+Revision 3's current CK-KICK-012 Batch 5 Double review examined commit
+`a282dbabffd83afa4e62577086934d00f98e12c7`: the independent
+[contract/schema/security pass](reviews/DR-0011-rev-03-review-01.md) recommended
+**Accept** at **High** confidence and identified no DR-0011-specific blocker;
+the independent [semantic-graph/graphics/runtime pass](reviews/DR-0011-rev-03-review-02.md)
+recommended **Revise** at **High** confidence.
+
+The current graph/runtime finding is that Attachment placement does not
+normatively compose a descendant-owned mating Socket back through the
+module-root containment path or state that the result is the attached root's
+sole resolved child-local containment placement. The same pass also identifies
+an unresolved `at-most-one` versus `exactly-one` incoming Attachment rule,
+including host Socket capacity/reuse and repeated endpoint-pair identity. These
+findings remain pending Ben discussion and are not resolved here. DR-0002 and
+DR-0008 own the linked source-set, morphology, and containment consequences;
+DR-0002 and DR-0012 own the operation status/bootstrap/resource boundary. Exact
+serialized field spellings, canonical axes/units/rotation/scale/shear,
+tolerances, diagnostic codes, and fixture evidence remain deferred. Review
+status is Complete; Owner approval remains Pending and Status remains Proposed.
+Only Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 

@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-09
 
@@ -29,10 +29,10 @@ Revision 6 recorded the Batch 4 typed articulation/composition selection. On
 recorded in Revision 7: explicit containment, Attachment placement and
 validity, canonical Joint and Socket frame records, and the linked operation
 outcome/bootstrap/resource rules. This discussion approval is not DR
-acceptance: this revision remains Proposed with Owner approval Pending, and
-Review status is Pending because the Revision 6 Double review is stale and a
-new current-revision Double review is required. Reviews of Revision 6, as well
-as earlier reviews, remain stale historical evidence.
+acceptance: this revision remains Proposed with Owner approval Pending. The
+required current-revision Double review is now Complete, with findings
+pending Ben discussion. Reviews of Revision 6, as well as earlier reviews,
+remain stale historical evidence.
 
 Supersedes: —
 
@@ -411,24 +411,34 @@ The Revision 1, Revision 2, and Revision 3 reviews
 stale historical evidence.
 
 The Revision 6 Double review is preserved as stale evidence at commit
-`7dba9346c91c59ff99f10b94630690bf732d6b28`: the fresh independent Sol-medium
-contract/schema/security pass ([review 01](reviews/DR-0008-rev-06-review-01.md))
-and the fresh independent semantic-graph/graphics/runtime pass
-([review 02](reviews/DR-0008-rev-06-review-02.md)) both recommended **Revise**
-with **High** confidence. Their blockers are the reasons for this Revision 7
-discussion batch: explicit containment and transform inheritance;
-host/mating Socket placement and authored-offset agreement; duplicate,
-cycle, detached, and attached-root validity; canonical Joint/Socket frame
-records; and the linked operation outcome, recognition, and resource rules.
+`7dba9346c91c59ff99f10b94630690bf732d6b28`, with both independent passes
+recommending **Revise** at **High** confidence. The current CK-KICK-012 Batch 5
+Double review examined Revision 7 at commit
+`a282dbabffd83afa4e62577086934d00f98e12c7`: the independent
+[contract/schema/security pass](reviews/DR-0008-rev-07-review-01.md) recommended
+**Revise** at **High** confidence, and the independent
+[semantic-graph/graphics/runtime pass](reviews/DR-0008-rev-07-review-02.md) also
+recommended **Revise** at **High** confidence.
 
-Revision 7 records Ben's 2026-08-11 discussion selections, not a current
-review result. No Revision 7 review artifact exists yet. Review status is
-Pending because this materially revised, cross-cutting proposal awaits the
-required Double review. Owner approval remains Pending and Status remains
-Proposed. The three-way Stage 1 fixture taxonomy remains limited to admitted
-recognized semantic fixtures; exact fixture files and expected codes, exact
-field spellings, tolerance, canonical axes/units/rotation/scale/shear, and
-fixture evidence remain deferred. Only Ben may accept or reject this proposal.
+The contract pass identifies the same-phase mixed-fatal-status and primary-
+diagnostic-selection gap: after the existing internal/resource overrides, the
+remaining same-phase fatal statuses are not totally ordered, and the primary is
+not explicitly the first retained status-establishing diagnostic under the
+normative order, including after truncation. The graph/runtime pass identifies
+an Attachment composition gap:
+descendant-owned mating Socket placement is not normatively composed back
+through the module-root containment path or stated as the attached root's sole
+child-local containment placement. It also identifies an unresolved
+`at-most-one` versus `exactly-one` incoming Attachment rule, including host
+Socket capacity/reuse and repeated endpoint-pair identity. These findings remain
+pending Ben discussion and are not resolved here. DR-0002 owns the source-set
+and graph boundary; DR-0011 owns the linked typed Socket/frame vocabulary; and
+DR-0012 owns the linked status/bootstrap/resource details. The three-way Stage 1
+fixture taxonomy remains limited to admitted recognized semantic fixtures; exact
+fixture files and expected codes, field spellings, tolerance, canonical
+axes/units/rotation/scale/shear, and fixture evidence remain deferred. Review
+status is Complete; Owner approval remains Pending and Status remains Proposed.
+Only Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 

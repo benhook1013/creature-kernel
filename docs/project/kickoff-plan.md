@@ -590,9 +590,10 @@ gets its own DR and review before backend-specific compiler code locks it in.
 ### CK-KICK-012: Specify the minimal body document and body graph
 
 State: active (Batches 1, 4, and 5 integrated as Proposed documentation;
-DR-0002 Revision 7, DR-0008 Revision 7, DR-0011 Revision 3, and DR-0012
-Revision 2 are Proposed with Owner approval Pending and Review Pending; fresh
-current Double review pending)
+current CK-KICK-012 Batch 5 Double review Complete at commit
+`a282dbabffd83afa4e62577086934d00f98e12c7`; DR-0002 Revision 7, DR-0008
+Revision 7, DR-0011 Revision 3, and DR-0012 Revision 2 remain Proposed with
+Owner approval Pending; three consolidated findings are pending Ben discussion)
 
 Prerequisites: the exploratory executable spine and enough semantic context to
 define a minimal useful input/output; CK-KICK-011 is not required.
@@ -650,15 +651,18 @@ Outcome:
 The Batch 1 and Batch 4 discussion selections and review resolutions are not DR
 acceptance. The prior revisions have complete review evidence. Batch 5 is now
 discussion-approved and integrated into the canonical product, specification,
-architecture, and project documents as Proposed material. DR-0002 Revision 7,
-DR-0008 Revision 7, DR-0011 Revision 3, and DR-0012 Revision 2 are Proposed
-with Owner approval Pending and Review Pending. The prior Batch 4 Double review
-is stale for these material updates; a fresh current Double review is pending.
+architecture, and project documents as Proposed material. The current
+CK-KICK-012 Batch 5 Double review is Complete at commit
+`a282dbabffd83afa4e62577086934d00f98e12c7`. DR-0002 Revision 7, DR-0008
+Revision 7, DR-0011 Revision 3, and DR-0012 Revision 2 remain Proposed with
+Owner approval Pending; three consolidated findings are pending Ben discussion.
+The prior Batch 4 Double review remains preserved as stale historical evidence.
 DR-0006 remains Proposed with its current revision's review evidence. The
 cross-cutting proposal is
 [DR-0012: initial body-document encoding, resolution, and
 compatibility](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
-CK-KICK-012 remains active; this batch does not complete the round.
+CK-KICK-012 remains active; this review completes the review step but does not
+complete the round or imply owner acceptance.
 
 ### Batch 4 — encoding, resolution, and compatibility (discussion-approved)
 
@@ -735,8 +739,9 @@ Canonical references for the earlier batches are [DR-0002](../decisions/DR-0002-
 and [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
 Their prior revisions have review evidence. DR-0002 Revision 7, DR-0008
 Revision 7, DR-0011 Revision 3, and DR-0012 Revision 2 are Proposed with Owner
-approval Pending and Review Pending; prior review is stale and a fresh current
-Double review is pending. Ben's owner disposition remains pending.
+approval Pending and Review Complete. Three consolidated findings are pending
+Ben discussion; prior review is preserved as stale historical evidence. Ben's
+owner disposition remains pending.
 
 ### Batch 5 — blocker resolutions (discussion-approved)
 
@@ -783,9 +788,10 @@ material only; they do not accept or silently replace the decision records.
 These resolutions leave exact serialized member and diagnostic names, numeric
 budgets and tolerances, canonical axes/units/rotation/scale/shear, dependency
 revision meaning, canonical bytes/hashing, implementation language, and
-compiler fixture contents deferred. The affected decision-record revisions and
-fresh current review must be completed before owner disposition. CK-KICK-012
-remains active; this batch does not complete the round.
+compiler fixture contents deferred. The affected decision-record revisions have
+completed their current review, but the three consolidated findings remain
+pending Ben discussion before owner disposition. CK-KICK-012 remains active;
+this batch does not complete the round.
 
 ## Round 8 — implementation platform (provisional)
 

@@ -33,11 +33,12 @@ and [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-
 
 Prior CK-KICK-012 revisions have complete review evidence. Ben's Batch 5
 blocker resolutions are discussion-approved and are incorporated here as
-Proposed product outcomes only. The material canonical updates require the
-fresh current review; DR-0002 Revision 7, DR-0008 Revision 7, DR-0011 Revision 3,
-and DR-0012 Revision 2 are Proposed with Owner approval Pending and Review
-Pending. Their prior Batch 4 Double review is stale, and a fresh current
-Double review is pending. DR-0006 remains
+Proposed product outcomes only. The current CK-KICK-012 Batch 5 Double review
+is Complete at commit `a282dbabffd83afa4e62577086934d00f98e12c7`; DR-0002
+Revision 7, DR-0008 Revision 7, DR-0011 Revision 3, and DR-0012 Revision 2
+remain Proposed with Owner approval Pending. Three consolidated findings are
+pending Ben discussion. Their prior reviews remain preserved as stale historical
+evidence. DR-0006 remains
 Proposed with its current revision's review evidence and owner disposition
 state. The cross-cutting proposal is [DR-0012: initial body-document encoding,
 resolution, and compatibility](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).

@@ -1,9 +1,12 @@
 # Body-document contract
 
 Status: Proposed contract; CK-KICK-012 Batch 5 discussion-approved canonical
-update; DR-0002 Revision 7 and DR-0012 Revision 2 are Proposed with Owner
-approval Pending and Review Pending. Their prior Batch 4 Double review is
-stale, and a fresh current Double review is pending.
+update; the current Double review is Complete at commit
+`a282dbabffd83afa4e62577086934d00f98e12c7`. DR-0002 Revision 7 and DR-0012
+Revision 2 remain Proposed with Owner approval Pending. The direct pending
+finding is the same-phase fatal-status/primary-diagnostic ordering gap,
+including after diagnostic truncation; three consolidated findings remain
+pending Ben discussion and no acceptance is implied.
 
 This document is the canonical specification authority for the authored body
 document and the end-to-end source-to-graph operation. It owns source

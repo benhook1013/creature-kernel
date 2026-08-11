@@ -50,11 +50,12 @@ budgets, and runtime mutation details remain open. The typed semantic
 vocabulary, measurement ownership, and frame-conversion boundary are Proposed
 in [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
 Batch 5 blocker resolutions are discussion-approved and are reflected in the
-canonical specifications as Proposed material. Their material updates require
-fresh review; DR-0002 Revision 7, DR-0008 Revision 7, DR-0011 Revision 3, and
-DR-0012 Revision 2 are Proposed with Owner approval Pending and Review Pending.
-Their prior Batch 4 Double review is stale, and a fresh current Double review
-is pending.
+canonical specifications as Proposed material. The current CK-KICK-012 Batch 5
+Double review is Complete at commit `a282dbabffd83afa4e62577086934d00f98e12c7`.
+DR-0002 Revision 7, DR-0008 Revision 7, DR-0011 Revision 3, and DR-0012
+Revision 2 remain Proposed with Owner approval Pending; three consolidated
+findings are pending Ben discussion. Their prior reviews remain preserved as
+stale historical evidence.
 DR-0006 remains Proposed with its current revision's review evidence. The
 cross-cutting proposal is [DR-0012: initial body-document encoding, resolution,
 and compatibility](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).

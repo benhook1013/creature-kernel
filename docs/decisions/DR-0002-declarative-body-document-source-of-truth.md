@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-08
 
@@ -47,9 +47,9 @@ selections recorded in Revision 7: explicit containment and transform
 inheritance, Attachment composition boundaries, canonical resolved relation
 records, and the linked operation status/bootstrap/resource rules. This
 discussion approval is not DR acceptance: this revision remains Proposed with
-Owner approval Pending, and its Review status is Pending because the Revision
-6 Double review is stale and a new current-revision Double review is required.
-All earlier revisions and their reviews remain historical evidence.
+Owner approval Pending. Its required current-revision Double review is now
+Complete, with findings pending Ben discussion; all earlier revisions and their
+reviews remain historical evidence.
 
 ## Decision
 
@@ -268,24 +268,33 @@ Revision 4 reviews ([authority](reviews/DR-0002-rev-04-review-01.md),
 stale historical evidence.
 
 The Revision 6 Double review is preserved as stale evidence at commit
-`7dba9346c91c59ff99f10b94630690bf732d6b28`: the fresh independent Sol-medium
-contract/schema/security pass ([review 01](reviews/DR-0002-rev-06-review-01.md))
-and the fresh independent semantic-graph/graphics/runtime pass
-([review 02](reviews/DR-0002-rev-06-review-02.md)) both recommended **Revise**
-with **High** confidence. Their blockers are the reasons for this Revision 7
-discussion batch: explicit containment and transform inheritance; Attachment
-placement, containment agreement, duplicate/cycle/detached validity, and the
-no-implied-Joint boundary; canonical resolved endpoint records; and the
-cross-DR operation status, bootstrap, and hostile-input resource rules.
+`7dba9346c91c59ff99f10b94630690bf732d6b28`, with both independent passes
+recommending **Revise** at **High** confidence. The current CK-KICK-012 Batch 5
+Double review examined Revision 7 at commit
+`a282dbabffd83afa4e62577086934d00f98e12c7`: the independent
+[contract/schema/security pass](reviews/DR-0002-rev-07-review-01.md) recommended
+**Revise** at **High** confidence, and the independent
+[semantic-graph/graphics/runtime pass](reviews/DR-0002-rev-07-review-02.md) also
+recommended **Revise** at **High** confidence.
 
-Revision 7 records Ben's 2026-08-11 discussion selections, not a current
-review result. No Revision 7 review artifact exists yet. Review status is
-Pending because this materially revised, cross-cutting proposal awaits the
-required Double review. Owner approval remains Pending and Status remains
-Proposed. The exact dependency-revision meaning, exact serialized field
-spellings and diagnostic codes, concrete resource thresholds, canonical
-axes/units/rotation/scale/shear, canonical bytes/hashing, and fixture evidence
-remain deferred. Only Ben may accept or reject this proposal.
+The contract pass identifies the same-phase mixed-fatal-status and primary-
+diagnostic-selection gap: after the existing internal/resource overrides, the
+remaining same-phase fatal statuses are not totally ordered, and the primary is
+not explicitly the first retained status-establishing diagnostic under the
+normative order, including after truncation. The graph/runtime pass identifies
+an Attachment composition gap:
+descendant-owned mating Socket placement is not normatively composed back
+through the module-root containment path or stated as the attached root's sole
+child-local containment placement. It further identifies an unresolved
+`at-most-one` versus `exactly-one` incoming Attachment rule, including host
+Socket capacity/reuse and repeated endpoint-pair identity. These findings remain
+pending Ben discussion and are not resolved here. DR-0012 owns the directly
+linked status/bootstrap details; DR-0008 and DR-0011 own the linked morphology
+and typed-vocabulary consequences. The exact dependency-revision meaning,
+serialized field spellings and diagnostic codes, concrete resource thresholds,
+canonical axes/units/rotation/scale/shear, canonical bytes/hashing, and fixture
+evidence remain deferred. Review status is Complete; Owner approval remains
+Pending and Status remains Proposed. Only Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 

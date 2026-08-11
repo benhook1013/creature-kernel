@@ -1,9 +1,14 @@
 # Resolved body-graph contract
 
 Status: Proposed contract; CK-KICK-012 Batch 5 discussion-approved canonical
-update; DR-0002 Revision 7, DR-0008 Revision 7, and DR-0011 Revision 3 are
-Proposed with Owner approval Pending and Review Pending. Their prior Batch 4
-Double review is stale, and a fresh current Double review is pending.
+update; the current Double review is Complete at commit
+`a282dbabffd83afa4e62577086934d00f98e12c7`. DR-0002 Revision 7, DR-0008
+Revision 7, and DR-0011 Revision 3 remain Proposed with Owner approval
+Pending. Two direct pending Attachment findings concern descendant-owned mating
+Socket composition/sole child-local placement and incoming-Attachment
+cardinality, host Socket reuse, and repeated endpoint-pair identity; three
+consolidated findings remain pending Ben discussion and no acceptance is
+implied.
 
 This document is the canonical specification authority for the resolved,
 per-build semantic body graph. It owns typed concepts, explicit Part
