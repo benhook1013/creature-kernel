@@ -3,10 +3,12 @@
 Status: Proposed contract; CK-KICK-012 Batch 6/7 discussion-approved canonical
 update. DR-0002 Revision 9, DR-0008 Revision 9, DR-0011 Revision 5, and DR-0012
 Revision 4 remain Proposed with Owner approval Pending and current Review
-Pending. The prior `c64b1b...` Double review is stale historical evidence; the
-seven resolutions are discussion-approved and a fresh current Double review is
-pending. See the [decision registry](../../docs/decisions/registry.md). Review
-evidence is not acceptance or a clean review.
+Complete. The current Double review examined target
+`88004388f9537a37617ae248bdaad4625e6f3f03`; both passes recommend Revise at
+High confidence. Its five findings remain pending Ben discussion and owner
+disposition. The prior `c64b1b...` Double review is stale historical evidence.
+See the [decision registry](../../docs/decisions/registry.md). Review evidence
+is not acceptance or a clean review.
 The CK-KICK-012 Batch 5 review at commit `a282dbabffd83afa4e62577086934d00f98e12c7`
 is stale historical evidence. No acceptance is implied.
 

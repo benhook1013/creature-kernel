@@ -15,9 +15,11 @@ and [DR-0011](../docs/decisions/DR-0011-minimal-semantic-vocabulary-measurements
 Their prior revisions and reviews remain preserved as historical evidence.
 DR-0002 Revision 9, DR-0008 Revision 9, DR-0011 Revision 5, and DR-0012
 Revision 4 contain the discussion-approved F1–F3 resolutions and remain
-Proposed with Owner approval Pending and current Review Pending. The prior
-`c64b1b...` Double review is stale historical evidence and a fresh current
-Double review is pending. DR-0006 remains Proposed with its current revision's
+Proposed with Owner approval Pending and current Review Complete. The current
+Double review examined target `88004388f9537a37617ae248bdaad4625e6f3f03`;
+both passes recommend Revise at High confidence. Its five findings remain
+pending Ben discussion and owner disposition. The prior `c64b1b...` Double
+review is stale historical evidence. DR-0006 remains Proposed with its current revision's
 review evidence. The cross-cutting proposal is [DR-0012: initial body-document
 encoding, resolution, and compatibility](../docs/decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
 

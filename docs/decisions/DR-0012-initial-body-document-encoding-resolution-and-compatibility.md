@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-11
 
@@ -48,9 +48,14 @@ record. Ben approved those finding resolutions in discussion on 2026-08-11;
 Revision 4 now resolves total status/completeness together with the linked
 Attachment composition and cardinality consequences owned by DR-0002,
 DR-0008, and DR-0011. This discussion approval is not DR acceptance. Revision
-4 remains Proposed with Owner approval Pending and Review status Pending; the
-Revision 3 review is stale historical evidence and a fresh current-revision
-Double review is pending. Exact field
+4 remains Proposed with Owner approval Pending and Review status Complete. The
+current-revision Double review examined target commit
+`88004388f9537a37617ae248bdaad4625e6f3f03` in [review 01](reviews/DR-0012-rev-04-review-01.md)
+and [review 02](reviews/DR-0012-rev-04-review-02.md); both independent passes
+recommend **Revise** at **High** confidence. Review Complete records evidence,
+not a clean review or acceptance. The five consolidated findings remain
+pending Ben discussion and owner disposition; the Revision 3 and earlier
+reviews remain stale historical evidence. Exact field
 spelling, diagnostic codes, concrete resource values, tolerances, canonical
 axes/units/rotation/scale/shear, and the canonical-byte algorithm remain later
 specification work.
@@ -448,13 +453,17 @@ resolutions in discussion on 2026-08-11. The exact Revision 3 Double review at
 commit `c64b1b98948304d631eecea6a354c9e42c89c510` is stale historical evidence,
 not a clean review or acceptance. Its independent [review 01](reviews/DR-0012-rev-03-review-01.md)
 recommended **Revise** at **High** confidence, and [review 02](reviews/DR-0012-rev-03-review-02.md)
-recommended **Revise** at **Medium** confidence. A fresh current-revision
-Double review of Revision 4 is pending. The seven consolidated findings remain
-evidence pending owner disposition. Exact serialized field spellings,
+recommended **Revise** at **Medium** confidence. The current Revision 4 Double
+review examined target commit `88004388f9537a37617ae248bdaad4625e6f3f03` in
+[review 01](reviews/DR-0012-rev-04-review-01.md) and [review 02](reviews/DR-0012-rev-04-review-02.md);
+both independent passes recommend **Revise** at **High** confidence. The five
+consolidated findings remain evidence pending Ben discussion and owner
+disposition, not fixes or acceptance. Exact serialized field spellings,
 diagnostic codes, concrete thresholds, dependency-revision semantics,
 canonical axes/units/rotation/scale/shear, canonical bytes/hashing, and
 fixture/security evidence remain deferred. Owner approval remains Pending and
-Status remains Proposed. Only Ben may accept or reject this proposal.
+Status remains Proposed; Review status is Complete for this current revision.
+Only Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 

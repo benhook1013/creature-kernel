@@ -52,9 +52,11 @@ in [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-f
 CK-KICK-012 Batch 6/7 resolutions are discussion-approved and are reflected in
 the canonical specifications as Proposed material. DR-0002 Revision 9,
 DR-0008 Revision 9, DR-0011 Revision 5, and DR-0012 Revision 4 remain Proposed
-with Owner approval Pending and current Review Pending. The prior
-`c64b1b...` Double review is stale historical evidence; the seven resolutions
-are discussion-approved and a fresh current Double review is pending. See the
+with Owner approval Pending and current Review Complete. The current Double
+review examined target `88004388f9537a37617ae248bdaad4625e6f3f03`; both passes
+recommend Revise at High confidence, with five findings pending Ben discussion
+and owner disposition. The prior `c64b1b...` Double review is stale historical
+evidence. See the
 [decision registry](../decisions/registry.md). The CK-KICK-012 Batch 5 review
 at commit `a282dbabffd83afa4e62577086934d00f98e12c7` is stale historical
 evidence; no clean review or acceptance is implied.
@@ -82,9 +84,11 @@ but may not claim formal DR-0009/0010 support or reject.
 
 The CK-KICK-013 platform proposal is also discussion-approved as Proposed
 material, not an accepted implementation decision. Proposed DR-0013 Revision 2
-has Owner approval Pending and current Review Pending; its prior `c64b1b...`
-Double review is stale historical evidence and a fresh current Double review is
-pending. Acceptance of DR-0013 alone triggers the Cargo workspace and empty
+has Owner approval Pending and current Review Complete. The current Double
+review examined target `88004388f9537a37617ae248bdaad4625e6f3f03`; both passes
+recommend Revise at High confidence, with findings pending Ben discussion and
+owner disposition. Its prior `c64b1b...` review is stale historical evidence.
+Acceptance of DR-0013 alone triggers the Cargo workspace and empty
 compiler/library/CLI shell boundary; exact schema and admitted fixtures still
 gate Stage 1 parser/resolver implementation. It describes a stable Rust
 production semantic/compiler core, a thin CLI, and a project-owned versioned,

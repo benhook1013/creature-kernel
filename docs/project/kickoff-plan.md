@@ -592,9 +592,11 @@ gets its own DR and review before backend-specific compiler code locks it in.
 State: active (Batches 1, 4, 5, 6, and F1–F3 integrated as Proposed
 documentation; DR-0002 Revision 9, DR-0008 Revision 9, DR-0011 Revision 5,
 and DR-0012 Revision 4 remain Proposed with Owner approval Pending and current
-Review Pending; the prior `c64b1b...` Double review is stale historical
-evidence and a fresh current Double review is pending; the Batch 5 review is
-also stale historical evidence)
+Review Complete. The current Double review examined target
+`88004388f9537a37617ae248bdaad4625e6f3f03`; both passes recommend Revise at
+High confidence, with five findings pending Ben discussion and owner
+disposition. The prior `c64b1b...` Double review is stale historical evidence;
+the Batch 5 review is also stale historical evidence)
 
 Prerequisites: the exploratory executable spine and enough semantic context to
 define a minimal useful input/output; CK-KICK-011 is not required.
@@ -655,8 +657,8 @@ Outcome:
   Socket placement, typed Attachment composition, and Attachment cardinality
   without accepting or silently replacing the decision records. The affected
   DR revisions remain Proposed with Owner approval Pending and current Review
-  Pending; the prior Double review is stale historical evidence and a fresh
-  current Double review is pending.
+  Complete; the current-review findings remain pending Ben discussion and owner
+  disposition. The prior Double review is stale historical evidence.
 
 The Batch 1 and Batch 4 discussion selections and review resolutions are not DR
 acceptance. The prior revisions have complete review evidence. Batch 5, Batch
@@ -666,17 +668,18 @@ CK-KICK-012 Batch 5 Double review at commit
 `a282dbabffd83afa4e62577086934d00f98e12c7` and Batch 6 review at `c64b1b...`
 are stale historical evidence. DR-0002 Revision 9, DR-0008 Revision 9,
 DR-0011 Revision 5, and DR-0012 Revision 4 remain Proposed with Owner approval
-Pending and current Review Pending; a fresh current Double review is pending.
-No acceptance or clean review is implied.
+Pending and current Review Complete; the five current-review findings remain
+pending Ben discussion and owner disposition. No acceptance or clean review is
+implied.
 The prior Batch 4 and Batch 5 reviews remain
 preserved as historical evidence.
 DR-0006 remains Proposed with its current revision's review evidence. The
 cross-cutting proposal is
 [DR-0012: initial body-document encoding, resolution, and
 compatibility](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
-CK-KICK-012 remains active; the fresh current Double review and owner
-disposition remain pending, so this proposal does not complete the round or
-imply owner acceptance.
+CK-KICK-012 remains active; the current Double review is Complete evidence and
+owner disposition remains pending, so this proposal does not complete the
+round or imply owner acceptance.
 
 ### Batch 4 — encoding, resolution, and compatibility (discussion-approved)
 
@@ -755,8 +758,9 @@ Their prior revisions have review evidence. This earlier Batch 4 planning
 snapshot referred to DR-0002 Revision 8, DR-0008 Revision 8, DR-0011 Revision
 4, and DR-0012 Revision 3 as Proposed with Owner approval Pending and Review
 Complete; that review state is now stale historical evidence. The current
-revisions are recorded in the CK-KICK-012 state above, with a fresh current
-Double review pending. Ben's owner disposition remains pending.
+revisions are recorded in the CK-KICK-012 state above, with current Double
+Review Complete evidence and five findings pending Ben discussion and owner
+disposition. Ben's owner disposition remains pending.
 
 ### Batch 5 — blocker resolutions (discussion-approved)
 
@@ -850,9 +854,8 @@ budgets and tolerances, canonical axes/units/rotation/scale/shear,
 dependency-revision meaning, canonical bytes/hashing, and fixture contents
 deferred. DR-0002 Revision 9, DR-0008 Revision 9, DR-0011 Revision 5, and
 DR-0012 Revision 4 remain Proposed with Owner approval Pending and current
-Review Pending. The prior Double review is stale historical evidence; a fresh
-current Double review is pending. CK-KICK-012 remains active pending review and
-owner disposition.
+Review Complete. The five current-review findings remain pending Ben discussion
+and owner disposition. CK-KICK-012 remains active pending owner disposition.
 
 ## Round 8 — implementation platform (provisional)
 
@@ -860,8 +863,9 @@ owner disposition.
 
 State: active (discussion-approved Proposed platform direction integrated;
 Proposed DR-0013 Revision 2 has Owner approval Pending and current Review
-Pending; its prior `c64b1b...` Double review is stale historical evidence and a
-fresh current Double review is pending; not accepted or implemented)
+Complete. Its current-review findings remain pending Ben discussion and owner
+disposition; the prior `c64b1b...` Double review is stale historical evidence;
+not accepted or implemented)
 
 Prerequisites: the exploratory host boundary and a bounded CK-KICK-012
 contract. CK-KICK-011 is not an automatic prerequisite.
@@ -905,7 +909,8 @@ Outcome:
   activate compiler fixtures.
 
 The prior exact-revision Double review is stale historical evidence after the
-F4–F7 revisions; a fresh current Double review is pending. Geometry libraries,
+F4–F7 revisions; the current Double review is Complete evidence and its
+findings remain pending Ben discussion and owner disposition. Geometry libraries,
 licensing, platform support, and any C++ worker/FFI boundary remain
 evidence-driven; they are not settled by this proposal. No implementation
 package or compiler fixture is activated while the DR remains Proposed.

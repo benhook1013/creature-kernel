@@ -20,10 +20,12 @@ and [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-
 CK-KICK-012 Batch 6/7 resolutions are discussion-approved and represented here
 as Proposed architecture consequences. DR-0002 Revision 9, DR-0008 Revision 9,
 DR-0011 Revision 5, and DR-0012 Revision 4 are Proposed with Owner approval
-Pending and current Review Pending (see the [decision registry](../decisions/registry.md)).
-The prior `c64b1b...` Double review is stale historical evidence; the seven
-resolutions are discussion-approved and a fresh current Double review is
-pending. The CK-KICK-012 Batch 5 review at commit
+Pending and current Review Complete (see the [decision registry](../decisions/registry.md)).
+The current Double review examined target
+`88004388f9537a37617ae248bdaad4625e6f3f03`; both passes recommend Revise at
+High confidence, with five findings pending Ben discussion and owner
+disposition. The prior `c64b1b...` Double review is stale historical evidence.
+The CK-KICK-012 Batch 5 review at commit
 `a282dbabffd83afa4e62577086934d00f98e12c7` is stale historical evidence. No
 acceptance or clean review is implied.
 
@@ -94,8 +96,9 @@ canonical bytes, and hashes remain deferred.
 
 CK-KICK-013 is a discussion-approved platform proposal, not an accepted
 implementation decision. Proposed DR-0013 Revision 2 has Owner approval
-Pending and current Review Pending; its prior `c64b1b...` Double review is
-stale historical evidence and a fresh current Double review is pending.
+Pending and current Review Complete; both passes recommend Revise at High
+confidence, with findings pending Ben discussion and owner disposition. Its
+prior `c64b1b...` Double review is stale historical evidence.
 Acceptance of DR-0013 alone triggers the Cargo workspace and empty
 compiler/library/CLI shell boundary; exact schema and admitted fixtures still
 gate Stage 1 parser/resolver implementation. Its target is a stable Rust

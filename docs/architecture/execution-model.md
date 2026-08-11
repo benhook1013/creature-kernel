@@ -12,8 +12,10 @@ supplementary. This direction is Proposed for formal acceptance under
 
 CK-KICK-013 is a discussion-approved but unaccepted platform proposal.
 Proposed DR-0013 Revision 2 has Owner approval Pending and current Review
-Pending; the prior `c64b1b...` Double review is stale historical evidence and a
-fresh current Double review is pending. Acceptance of DR-0013 alone triggers
+Complete. The current Double review examined target
+`88004388f9537a37617ae248bdaad4625e6f3f03`; both passes recommend Revise at
+High confidence, with findings pending Ben discussion and owner disposition.
+The prior `c64b1b...` Double review is stale historical evidence. Acceptance of DR-0013 alone triggers
 the Cargo workspace and empty compiler/library/CLI shell boundary; exact schema
 and admitted fixtures/contracts still gate Stage 1 parser/resolver work. It
 proposes a stable Rust production semantic/compiler core in a Cargo workspace,

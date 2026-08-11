@@ -13,8 +13,9 @@ States: `active`, `planned`, `triggered`, `deferred`, `not-applicable`, `retired
 CK-KICK-012 and CK-KICK-013 remain active Proposed work after discussion-
 approved F1–F7 revisions. DR-0002/0008/0011/0012 are at Revisions 9/9/5/4 and
 DR-0013 is at Revision 2; all five remain Proposed with Owner approval Pending
-and current Review Pending. The prior `c64b1b...` Double review is stale
-historical evidence; a fresh current Double review is pending. CK-KICK-014
+and current Review Complete. Both independent passes recommend Revise at High
+confidence; five findings remain pending Ben discussion and owner disposition.
+The prior `c64b1b...` Double review is stale historical evidence. CK-KICK-014
 remains provisional/queued and does not activate implementation packages or
 compiler fixtures.
 

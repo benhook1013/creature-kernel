@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-08
 
@@ -55,9 +55,13 @@ Revision 9 now resolves total status/completeness, the typed Attachment
 composition, and mating-Socket cardinality boundaries, with linked detail in
 DR-0008, DR-0011, and DR-0012. This discussion approval is not DR acceptance.
 Revision 9 remains Proposed with Owner approval Pending and Review status
-Pending; the Revision 8 review is stale historical evidence and a fresh
-current-revision Double review is pending. All earlier revisions and reviews
-remain stale historical evidence.
+Complete. The current-revision Double review examined target commit
+`88004388f9537a37617ae248bdaad4625e6f3f03` in [review 01](reviews/DR-0002-rev-09-review-01.md)
+and [review 02](reviews/DR-0002-rev-09-review-02.md); both independent passes
+recommend **Revise** at **High** confidence. Review Complete records evidence,
+not a clean review or acceptance. The five consolidated findings remain
+pending Ben discussion and owner disposition; all earlier revisions and
+reviews, including the `c64b1b...` review, remain stale historical evidence.
 
 ## Decision
 
@@ -392,11 +396,15 @@ resolutions in discussion on 2026-08-11. The exact Revision 8 Double review at
 commit `c64b1b98948304d631eecea6a354c9e42c89c510` is stale historical evidence,
 not a clean review or acceptance. Its independent [review 01](reviews/DR-0002-rev-08-review-01.md)
 and [review 02](reviews/DR-0002-rev-08-review-02.md) both recommended **Revise**
-at **High** confidence. A fresh current-revision Double review of Revision 9
-is pending. The exact dependency-revision meaning, serialized field spellings
+at **High** confidence. The current Revision 9 Double review examined target
+commit `88004388f9537a37617ae248bdaad4625e6f3f03`; [review 01](reviews/DR-0002-rev-09-review-01.md)
+and [review 02](reviews/DR-0002-rev-09-review-02.md) both recommend **Revise**
+at **High** confidence. Its findings are evidence pending Ben discussion and
+owner disposition, not fixes or acceptance. The exact dependency-revision meaning, serialized field spellings
 and diagnostic codes, concrete resource thresholds, canonical
 axes/units/rotation/scale/shear, canonical bytes/hashing, and fixture evidence
-remain deferred. Owner approval remains Pending and Status remains Proposed.
+remain deferred. Owner approval remains Pending and Status remains Proposed;
+Review status is Complete for this current revision.
 Only Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
