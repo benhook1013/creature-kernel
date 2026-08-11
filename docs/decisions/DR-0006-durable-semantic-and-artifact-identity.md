@@ -6,17 +6,19 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 3
+Revision: 4
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-08
 
 Date decided: —
+
+Discussion approval date: 2026-08-11
 
 Supersedes: —
 
@@ -34,12 +36,13 @@ This is an asset and semantic design boundary, not a governance audit
 provenance model. Repository history and decision-record review evidence remain
 governed by the existing process.
 
-Revision 2 recorded Ben's CK-KICK-012 Batch 1 identity selection. On
-2026-08-11 Ben approved the seven Batch 1 review resolutions recorded in
-Revision 3. This discussion approval is not DR acceptance: this revision
-remains Proposed until a current-revision Double review and Ben's owner
+Revision 2 recorded Ben's CK-KICK-012 Batch 1 identity selection, and Revision
+3 recorded its first review-resolution batch. On 2026-08-11 Ben approved the
+CK-KICK-012 Batch 3 namespace-resolution decision recorded in Revision 4. This
+discussion approval is not DR acceptance: this revision remains Proposed with
+Owner approval Pending until a current-revision review and Ben's owner
 disposition are recorded. All earlier revisions and their reviews remain
-preserved as stale historical evidence; the Revision 2 reviews are stale for
+preserved as stale historical evidence; the Revision 3 reviews are stale for
 this revision.
 
 ## Decision
@@ -52,11 +55,12 @@ Use two identity levels and an explicit semantic-address boundary:
    authored stable module-instance anchors, semantic concept kind, and a
    role-local key. Module-instance anchors are authored semantic scope, not an
    incidental ownership path or array order. The exact address must be unique
-   within a resolved source set; exact collisions are invalid unless an import
-   explicitly remaps them. An authoritative semantic source root declares and
-   owns its source namespace; imported semantic sources retain their declared
-   namespace unless explicitly remapped. Exact delimiter and serialization
-   remain deferred.
+   within a resolved source set. Exactly one authoritative source owns each
+   source namespace in that set; every imported namespace must be unique, with
+   no implicit or shared ownership. A collision is invalid unless the import
+   contains an explicit, authored, deterministic, collision-free remap covering
+   every semantic address contributed under that imported namespace. Exact
+   delimiter, import/remap syntax, and serialization remain deferred.
 2. Separate artifact/build identity and provenance distinguish generated outputs,
    including the resolved graph snapshot, mesh, rig, colliders, runtime package,
    and other build products.
@@ -92,9 +96,16 @@ defined.
   that affected a build without confusing the asset with semantic identity.
 - Topology-index references are valid only within their ephemeral artifact/build
   context.
+- Namespace ownership and collision handling are part of the semantic-address
+  boundary: load order and hidden merge rules cannot decide identity. A full
+  authored remap is required when an import intentionally enters a colliding
+  namespace.
 - Specification must define the relation between semantic concepts and derived
   artifacts, plus lifecycle/remap behaviour, before durable external contracts
   are promised.
+- The exact meaning and admissible form of an external dependency revision is
+  a nonblocking later obligation; it must be settled before external authored
+  dependencies activate.
 
 ## Alternatives Considered
 
@@ -131,34 +142,45 @@ replacement would be convenient for consumers, but continuity is ambiguous
 without explicit alias/remap lifecycle semantics. Revision 3 therefore limits
 the promise to an unchanged authored semantic address and concept.
 
+### Permit implicit namespace sharing or partial collision remaps
+
+This might make imports shorter, but it would leave ownership and the affected
+semantic addresses dependent on loader order or incomplete declarations. It is
+not selected: each namespace has one owner, and a collision requires an
+authored deterministic remap covering the imported namespace's full semantic
+contribution.
+
 ## Adversarial Review Response
 
-[The Revision 2 authority, identity, and compatibility review](reviews/DR-0006-rev-02-review-01.md)
-and [morphology, graph, and graphics-system review](reviews/DR-0006-rev-02-review-02.md)
-are preserved as stale historical evidence. On 2026-08-11 Ben approved their
-seven resolution outcomes for this Revision 3. The current-revision Double
-review is Complete in the [authority, identity, and compatibility pass](reviews/DR-0006-rev-03-review-01.md)
-and [morphology, graph, and graphics-system pass](reviews/DR-0006-rev-03-review-02.md).
-The authority pass recommends Revise at High confidence because namespace
-ownership/remapping remains ambiguous, while recording exact
-dependency-revision meaning as a nonblocking later obligation. The morphology
-pass recommends Accept at High confidence with no findings. The namespace
-finding awaits Ben's disposition. Review Complete records evidence, not a clean
-review or acceptance. Only Ben may accept or reject this proposal.
+[The Revision 2 authority, identity, and compatibility review](reviews/DR-0006-rev-02-review-01.md),
+[morphology, graph, and graphics-system review](reviews/DR-0006-rev-02-review-02.md),
+and the Revision 3 current-revision reviews
+([authority](reviews/DR-0006-rev-03-review-01.md),
+[morphology](reviews/DR-0006-rev-03-review-02.md)) are preserved as stale
+historical evidence. On 2026-08-11 Ben approved the resulting CK-KICK-012
+namespace resolution for Revision 4. Review status for this revision is
+Pending; no current-revision review has yet been run. Review evidence records
+neither acceptance nor a clean review. Only Ben may accept or reject this
+proposal.
 
 ## Implementation and Proof Obligations
 
 - Define the semantic concepts requiring durable identity in the body and
   resolved-graph specifications.
 - Define the structured semantic address, its authored module-instance anchors,
-  concept kind, role-local key, source-set collision domain, and import-remap
-  behaviour without deriving identity from incidental structure.
+  concept kind, role-local key, source-set collision domain, one-owner namespace
+  rule, and import-remap behaviour without deriving identity from incidental
+  structure. The remap must cover every semantic address contributed under the
+  imported namespace.
 - Define their relation to derived artifact/build identity before external
   persistence is promised.
 - Prove through regeneration fixtures that semantic references survive topology
   and LOD changes while ephemeral indices remain artifact/build-scoped.
 - Record exact revisions and semantic mappings for every outcome-affecting
   external authored asset in source/build provenance.
+- Define the exact dependency-revision meaning before any external authored
+  dependency is activated; this remains a nonblocking later obligation at this
+  boundary.
 - Later decide delimiter/serialized syntax, clone/rename/split/merge/
   replacement alias and remap lifecycle rules, hashes/manifests, versioning,
   migration, runtime swaps, and external mapping when their contracts are

@@ -6,12 +6,17 @@ Status: Provisional conceptual baseline
 
 Creature Kernel is proposed as an engine-independent procedural creature
 compiler and embodiment runtime. It resolves an authoritative semantic source
-set into a per-build semantic body-graph snapshot, then derives specialized
+set into one operation-result envelope and, for valid-supported success, an
+optional per-build semantic body-graph snapshot, then derives specialized
 representations for an embodied runtime avatar. It provides bounded systems for
 animation, contact, deformation, and engine integration. It is not initially a
 game, editor, or general-purpose engine; a real-time game is the first
 downstream proof and integration target. This boundary remains Proposed under
 [DR-0005](../decisions/DR-0005-initial-product-boundary-and-reference-workflow.md).
+The current semantic boundaries are Proposed under [DR-0002 Revision 5](../decisions/DR-0002-declarative-body-document-source-of-truth.md),
+[DR-0006 Revision 4](../decisions/DR-0006-durable-semantic-and-artifact-identity.md),
+[DR-0008 Revision 5](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
+and [DR-0011 Revision 1](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
 
 ```text
 Human, script, test, or external AI
@@ -26,7 +31,10 @@ Human, script, test, or external AI
  Authoritative semantic source set
               |
               v
- Per-build resolved semantic body graph
+ Operation result envelope
+              |
+              v
+ Optional valid-supported resolved semantic body graph
               |
               v
       Specialized compilers
@@ -58,32 +66,40 @@ asset is an exactly versioned dependency of the source set; an external mesh is
 authored input but not semantic truth. The source set alone is authored
 authority; physical format, schema technology, and precedence remain open.
 
-### Resolved semantic body graph snapshot
+### Operation result envelope and resolved semantic body graph snapshot
 
-The validated, inspectable per-build semantic lineage produced only when the
-source set is valid and supported. It contains source references, durable
-semantic nodes and relations, declared local frames and resolved transforms,
-relevant intent and lineage, and any success diagnostics. It is reproducible
-and build-scoped, derived for that build, and is not a competing authored
-source. The surrounding deterministic result envelope distinguishes success,
-invalid input, and well-formed-but-unsupported input; rejected partial graphs
-are non-compilable, non-contractual debug information. Mesh, rig, runtime, and
-other artifacts remain further derived outputs.
+Every phase and diagnostic—loading, syntax/schema/contract, dependencies,
+resources, semantic resolution, and invariants—belongs to one authoritative
+operation-result envelope with deterministic outcome and structured
+diagnostics. Exact phase names and diagnostic codes remain deferred. A
+validated, inspectable per-build semantic lineage snapshot is an optional
+validated success payload only for valid-supported input. Snapshot diagnostics
+are a derived persisted subset of the envelope. Semantically invalid and
+well-formed-but-unsupported partial graphs are non-compilable,
+non-contractual debug information; they cannot be consumed as a body graph.
+Mesh, rig, runtime, and other artifacts remain further derived outputs.
 
 ### First body grammar boundary
 
 The first grammar is a bounded typed ownership tree for the proposed
-digitigrade biped family. Ownership is the sole containment tree; durable
-non-ownership concepts may be reified and connected through role-labelled
-relations for joints, sockets/attachments, capabilities, and regions. Minimum
-functional articulation roles preserve Stage 2 lineage without choosing a
-bone hierarchy or rig implementation. Arbitrary anatomy and arbitrary
-user-defined graph kinds are unsupported in this first family. Invalid and
-unsupported assemblies have distinct deterministic result statuses and
-structured diagnostics. Units and coordinate basis are declared, and local
-frames and resolved transforms are explicit. Exact coordinate convention,
-numeric ranges, surface primitives, schema technology, and additional
-morphology families remain deferred.
+digitigrade biped family. Part is structural/owned; Joint is an articulation
+semantic relation with frames, not a bone or solver; Socket is a host interface
+frame; Attachment maps a module to a socket and is not automatically a joint;
+Region is an overlapping spatial designation and never ownership; Capability
+is a queryable affordance, not an implementation; and Field is a spatial
+semantic intent/channel with lineage and representation-neutral meaning.
+Ownership is the sole containment tree; durable non-ownership concepts may be
+reified and connected through role-labelled relations. Functional articulation
+is root reference → pelvis → chest → neck → head; arms shoulder → elbow → wrist
+→ terminal paw-base; legs hip → knee → one hock/ankle articulation → terminal
+paw-base; and a present tail has a tail-base with later segments optional.
+Ears require no articulation. These roles are not a bone, solver, rig, or
+anatomy-fidelity claim. Arbitrary anatomy and arbitrary user-defined graph
+kinds are unsupported in this first family. Units, handedness, up, and forward
+are declared; normalization to a contract-revision canonical internal basis
+records conversion provenance. Exact axes, units, rotation, scale, and shear,
+as well as numeric ranges, surface primitives, and schema technology, remain
+deferred.
 
 ### Simulation representation
 
@@ -135,17 +151,25 @@ topology, geometry field, or universal solver.
 Durable behaviour targets parts, regions, joints, attachments, local frames, and
 capabilities through structured semantic addresses composed of source
 namespace, authored module-instance anchors, concept kind, and role-local key.
-Exact collisions within a resolved source set are invalid unless an import
-explicitly remaps them. Addresses are not derived from incidental path,
+Each source namespace has one unique owner in a resolved source set. Namespace
+collisions require an authored, deterministic, collision-free remapping across
+every contributed semantic address; implicit shared namespace ownership is not
+allowed. Addresses are not derived from incidental path,
 ordering, geometry, artifact identity, topology, or content hash. Artifact/build
 identity and provenance remain separate; generated topology indices are
 ephemeral through topology changes. Exact serialized address syntax and
 clone/rename/split/merge/replacement lifecycle and remap rules remain deferred.
 
-The resolver returns a deterministic result envelope. Only valid, supported
-input produces a compilable validated graph snapshot; semantically invalid and
-well-formed-but-unsupported input are distinct statuses, with any rejected
-partial graph explicitly non-compilable and non-contractual debug information.
+Only valid-supported input produces an optional compilable validated graph
+snapshot; semantically invalid and well-formed-but-unsupported input are
+distinct outcomes in the result envelope, with any rejected partial graph
+explicitly non-compilable and non-contractual debug information.
+
+Transforms own reference-frame placement, typed dimensions own size/extents,
+and anchors/landmarks retain authored or derived provenance. Ratios are derived
+only; conflicting constraints diagnose rather than silently choosing a winner.
+The contract distinguishes local/reference, joint, socket/mating, derived
+resolved world/reference, and runtime-pose frames.
 
 ### Deterministic core
 

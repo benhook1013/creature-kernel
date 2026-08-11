@@ -9,7 +9,7 @@ its activation trigger is met.
 | Component | Responsibilities | Explicit non-responsibilities |
 | --- | --- | --- |
 | Authoritative semantic source set | Parse authored inputs, preserve user intent, track exact revisions of outcome-affecting authored dependencies, report source errors, and provide the sole authored authority | Generate meshes or run gameplay, or treat an external mesh as semantic truth |
-| Semantic body resolver | Validate and resolve the source set into a deterministic result envelope; only valid/supported input yields a compilable inspectable per-build graph snapshot with source references, durable semantic nodes/relations, declared local frames, resolved transforms, intent/lineage, and structured diagnostics | Host-engine objects, become an authored source, or make derived artifacts authoritative; rejected partial graphs are debug-only and non-contractual |
+| Semantic body resolver | Validate and resolve the source set into one authoritative operation-result envelope covering loading, syntax/schema/contract, dependencies, resources, semantic resolution, and invariants; only valid-supported input yields an optional compilable inspectable per-build graph snapshot with source references, durable semantic nodes/relations, declared frames, resolved transforms, intent/lineage, and structured diagnostics | Host-engine objects, become an authored source, or make derived artifacts authoritative; rejected partial graphs are non-compilable, debug-only, and non-contractual |
 | Geometry field system | Evaluate part volumes, composition, semantic fields | Choose runtime animation |
 | Surface compiler | Extract, repair, remesh, simplify, and attribute visible surfaces | Define semantic truth |
 | Rigging compiler | Generate joints, limits, skinning, correctives, and bindings | Own interaction intent |
@@ -17,9 +17,9 @@ its activation trigger is met.
 | Appearance compiler | Produce semantic material inputs and generated attachments | Require unique painted textures |
 | Avatar packager | Validate and serialize the derived hybrid runtime package with artifact/build identity and provenance | Redefine source semantics or durable semantic identity |
 | Embodiment runtime | Coordinate bounded pose, IK, contact, parameterized deformation, activated regional solvers, quality tiers, and fallbacks | Compile arbitrary topology every frame or require fully live implicit generation |
-| Interaction system | Resolve semantic participants, phases, constraints, and fallbacks | Depend on exact mesh identities |
+| Interaction system | Resolve semantic participants, phases, constraints, and fallbacks through queryable capabilities and regions | Depend on exact mesh identities or treat capability implementation as semantic contract |
 | Shared domain operations and adapters | Define deterministic query, semantic mutation, resolution/compilation, validation, diagnostics, and artifact inspection for CLI/API and future adapters | Contain AI-specific reasoning or private client behaviour |
-| Validation system | Produce structural, semantic, geometric, visual, and performance evidence, including invalid/unsupported-assembly diagnostics | Declare product decisions automatically |
+| Validation system | Produce structural, semantic, geometric, visual, and performance evidence, including invalid/unsupported-assembly diagnostics in the shared result envelope | Declare product decisions automatically or silently choose among conflicting constraints |
 | Host adapters | Translate core packages and runtime contracts into engine-specific systems | Leak engine types into core contracts |
 
 ## Dependency direction
@@ -38,6 +38,18 @@ CLI, validation, and host-engine adapters
 
 Host adapters may depend on core contracts. Core contracts must not depend on a
 host adapter.
+
+The semantic resolver preserves the typed vocabulary: Part is structural and
+owned; Joint is an articulation relation with frames; Socket is a host interface
+frame; Attachment maps a module to a socket and is not automatically a joint;
+Region is an overlapping spatial designation, never ownership; Capability is a
+queryable affordance; and Field carries representation-neutral spatial intent
+and lineage. Transforms own reference-frame placement, dimensions own extents,
+anchors/landmarks carry authored or derived provenance, ratios are derived, and
+conflicting constraints become diagnostics. Source-declared units,
+handedness, up, and forward are converted to a contract-revision canonical
+basis with provenance; local/reference, joint, socket/mating, derived
+world/reference, and runtime-pose frames remain distinct.
 
 ## Walking-skeleton exploratory seam (provisional and disposable)
 

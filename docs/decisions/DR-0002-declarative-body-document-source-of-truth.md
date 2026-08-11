@@ -6,17 +6,19 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 4
+Revision: 5
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-08
 
 Date decided: —
+
+Discussion approval date: 2026-08-11
 
 Supersedes: —
 
@@ -34,11 +36,13 @@ override layers may also be authored inputs.
 Revision 1 described a single declarative body document. Revision 2 recorded the
 broader source-set boundary and made the resolved semantic graph a per-build
 derived snapshot. Revision 3 recorded the CK-KICK-012 Batch 1 source and graph
-boundary. On 2026-08-11 Ben approved the seven Batch 1 review resolutions
-recorded in Revision 4. This discussion approval is not DR acceptance: this
-revision remains Proposed until a current-revision Double review and Ben's
-owner disposition are recorded. All earlier revisions and their reviews remain
-historical evidence; the Revision 3 reviews are stale for this revision.
+boundary. Revision 4 recorded its first review-resolution batch. On 2026-08-11
+Ben approved the CK-KICK-012 Batch 3 resolutions recorded in Revision 5: one
+owner per source namespace and one authoritative operation-result envelope.
+This discussion approval is not DR acceptance: this revision remains Proposed
+with Owner approval Pending until a current-revision review and Ben's owner
+disposition are recorded. All earlier revisions and their reviews remain
+historical evidence; the Revision 4 reviews are stale for this revision.
 
 ## Decision
 
@@ -52,12 +56,26 @@ dependency revision are retained in source/build provenance. Conformance
 details remain deferred.
 
 A validated, inspectable, per-build semantic body-graph snapshot is derived
-from the source set through resolution. The resolver returns a result envelope
-with deterministic status and structured diagnostics. A compilable validated
-snapshot exists only for valid/supported input. Semantically invalid and
-well-formed-but-unsupported input must be distinguished; a rejected partial
-graph may be exposed only as explicitly non-compilable, non-contractual debug
-information.
+from the source set through resolution. One operation-result envelope is
+authoritative for every phase and diagnostic, including source loading,
+syntax/schema/contract recognition, dependency resolution, resource checks,
+semantic resolution, and invariant checks. The envelope owns the outcome
+status and deterministically ordered diagnostics; each diagnostic identifies
+its phase and category. It may contain an optional validated snapshot only for
+valid-supported success. Diagnostics persisted inside a successful snapshot
+are a derived subset or annotation, not a competing status channel.
+Semantically invalid and well-formed-but-unsupported input must be
+distinguished; a rejected partial graph may be
+exposed only as explicitly non-compilable, non-contractual debug information.
+Exact phase names and diagnostic codes remain later specification detail.
+
+Within each resolved source set, exactly one authoritative source owns each
+source namespace. Every imported namespace must therefore be unique. A
+namespace collision is invalid unless the import contains an explicit,
+authored, deterministic, collision-free remap covering every semantic address
+contributed under that imported namespace. Namespace ownership is never
+implicit or shared. Exact import and remap syntax remains later specification
+detail.
 
 The snapshot contains source references, durable semantic nodes and relations,
 declared local frames and resolved transforms, relevant intent and lineage, and
@@ -96,6 +114,14 @@ artifact/build identity are defined at the boundary in
   with an exact dependency revision in provenance.
 - Invalid and unsupported inputs cannot publish an ordinary compilable graph;
   their result envelope remains deterministic and inspectable.
+- Failures before semantic resolution remain in the same operation-result
+  envelope rather than creating a second error/status protocol.
+- A successful snapshot may retain useful diagnostics for inspection only as a
+  derived persisted subset or annotation; consumers must use the envelope
+  status as authority.
+- Imported sources have an auditable namespace owner. Collisions either fail
+  deterministically or use an authored remap that covers the full contribution
+  of the imported namespace; no partial or implicit remap is valid.
 
 ## Alternatives Considered
 
@@ -137,11 +163,25 @@ This can expose more errors in one pass, but downstream consumers could treat
 invalid or unsupported state as usable. A partial graph is therefore allowed
 only as explicitly non-compilable, non-contractual debug information.
 
+### Allow shared or implicitly merged namespace ownership
+
+This would reduce import friction, but makes semantic-address ownership and
+collision outcomes dependent on load order or hidden conventions. It is not
+selected: one source owns each namespace, and collisions require an authored
+deterministic remap covering the imported namespace's complete contribution.
+
 ### Fail without a structured result envelope
 
 An exception-only boundary is simpler for one implementation but weakens
 deterministic CLI/API diagnostics and makes invalid versus unsupported input
 harder for external tools to distinguish.
+
+### Use separate envelopes for loading, resolution, and compilation
+
+Separate phase-specific error channels could mirror implementation stages, but
+would make status precedence and diagnostic ordering ambiguous for clients. One
+operation-result envelope is authoritative across all phases; its exact phase
+and code vocabulary remains deferred.
 
 ### Learned latent representation
 
@@ -150,32 +190,35 @@ precise, editable, and compatible across model versions.
 
 ## Adversarial Review Response
 
-[The Revision 3 authority, identity, and compatibility review](reviews/DR-0002-rev-03-review-01.md)
-and [morphology, graph, and graphics-system review](reviews/DR-0002-rev-03-review-02.md)
-are preserved as stale historical evidence. On 2026-08-11 Ben approved their
-seven resolution outcomes for this Revision 4. The current-revision Double
-review is Complete in the [authority, identity, and compatibility pass](reviews/DR-0002-rev-04-review-01.md)
-and [morphology, graph, and graphics-system pass](reviews/DR-0002-rev-04-review-02.md).
-The authority pass recommends Revise at High confidence, finding unresolved
-namespace ownership across imported roots and result-envelope ownership of
-pre-semantic failures/diagnostics; it also records exact dependency-revision
-meaning as a nonblocking later obligation. The morphology pass recommends
-Accept at High confidence with no findings. These findings await Ben's
-disposition. Review Complete records evidence, not a clean review or
-acceptance. Only Ben may accept or reject this proposal.
+[The Revision 3 authority, identity, and compatibility review](reviews/DR-0002-rev-03-review-01.md),
+[morphology, graph, and graphics-system review](reviews/DR-0002-rev-03-review-02.md),
+and the Revision 4 current-revision reviews
+([authority](reviews/DR-0002-rev-04-review-01.md),
+[morphology](reviews/DR-0002-rev-04-review-02.md)) are preserved as stale
+historical evidence. On 2026-08-11 Ben approved the resulting CK-KICK-012
+resolutions for Revision 5. Review status for this revision is Pending; no
+current-revision review has yet been run. Review evidence records neither
+acceptance nor a clean review. Only Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 
 - Specify the source-set, resolved-graph, and derived-output relationships,
   including source references, durable semantic nodes/relations, local frames,
   resolved transforms, intent/lineage, and structured diagnostics.
-- Define deterministic resolution phases and diagnostic behaviour for valid,
-  invalid, and unsupported assemblies, including the result-envelope boundary.
+- Define the one operation-result envelope across loading,
+  syntax/schema/contract recognition, dependency and resource checks,
+  semantic resolution, and invariant checks; specify status/category,
+  deterministic diagnostic ordering, valid/supported snapshot conditions, and
+  the non-contractual partial-graph debug boundary.
+- Specify namespace ownership, imported-namespace collision detection, and the
+  authored deterministic remap that must cover all semantic addresses
+  contributed by an imported namespace.
 - Define semantic identity separately from artifact/build identity under DR-0006.
 - Build fixtures proving semantic lineage across shape variation and derived
   output changes.
 - Define exact source-set dependency/version recording for outcome-affecting
-  authored assets and later define source formats, schema technology, overrides,
+  authored assets (the exact dependency-revision meaning remains a nonblocking
+  later obligation) and later define source formats, schema technology, overrides,
   precedence/conflict rules, runtime mutation/recompilation,
   external-mesh mapping, versioning, and migration before promising those
   contracts.

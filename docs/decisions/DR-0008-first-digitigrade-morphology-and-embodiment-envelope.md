@@ -6,25 +6,28 @@ Scope: Product, Specification and architecture
 
 Status: Proposed
 
-Revision: 4
+Revision: 5
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-09
 
 Date decided: —
 
-Revision history: Revisions 1–3 and their reviews remain preserved as
+Discussion approval date: 2026-08-11
+
+Revision history: Revisions 1–4 and their reviews remain preserved as
 historical evidence. Revision 3 recorded Ben's CK-KICK-012 Batch 1
-morphology/grammar selection. On 2026-08-11 Ben approved the seven Batch 1
-review resolutions recorded in Revision 4. This discussion approval is not DR
-acceptance: this revision remains Proposed until a current-revision Double
-review and Ben's owner disposition are recorded. Reviews of Revision 3 are
-stale for this revision.
+morphology/grammar selection and Revision 4 recorded its first review-
+resolution batch. On 2026-08-11 Ben approved the CK-KICK-012 Batch 3
+articulation and fixture-outcome resolutions recorded in Revision 5. This
+discussion approval is not DR acceptance: this revision remains Proposed with
+Owner approval Pending until a current-revision review and Ben's owner
+disposition are recorded. Reviews of Revision 4 are stale for this revision.
 
 Supersedes: —
 
@@ -89,11 +92,14 @@ per-fixture mesh, topology, or rig correction.
 The project may select experiment hypotheses and the profiles they are meant
 to discriminate before exact fixtures are frozen. Before EXP-0001 executes or
 its evidence is used, it must freeze stable fixture IDs, concrete source
-inputs, discriminating parameters, seed/configuration, provenance, valid or
-invalid classification, and the expected primary diagnostic class/code for
-every invalid fixture. This proposal does not invent the exact values or
-fixture files. The freeze is a prerequisite to execution and evidence, not to
-deciding what to test.
+inputs, discriminating parameters, seed/configuration, provenance, expected
+outcome classification, and the expected primary diagnostic class/code for
+every non-success fixture. Each fixture's expected outcome is exactly one of
+valid-supported, semantically invalid, or well-formed-but-unsupported. This
+proposal does not invent the exact values or fixture files. The freeze is a
+prerequisite to execution and evidence, not to deciding what to test. Only
+valid-supported fixtures count in the Stage 1 success population; semantically
+invalid and well-formed-but-unsupported fixtures remain diagnostic evidence.
 
 ### Body grammar and relation boundary
 
@@ -115,13 +121,17 @@ assemblies receive structured diagnostics. Units and coordinate basis must be
 declared, and local frames and resolved transforms must be explicit.
 
 The first digitigrade family requires minimum functional articulation/landmark
-roles sufficient for Stage 2 lineage: pelvis/root, torso/chest, neck/head;
-paired shoulder–elbow–wrist/paw-base; paired hip–knee–hock-or-ankle–paw-base;
-and a tail base when a tail is present. These are semantic roles and frames,
-not a fixed bone hierarchy, bone count, limits, rig implementation, or
-anatomical-fidelity claim. Ears do not require articulation in this first
-envelope. Exact role spelling/serialization and further chains remain spec
-detail.
+roles sufficient for Stage 2 lineage. The required functional order and
+adjacency is: axial lineage root reference → pelvis → chest → neck → head;
+each arm shoulder → elbow → wrist → terminal paw-base; and each digitigrade
+leg hip → knee → one hock/ankle functional articulation → terminal paw-base.
+When present, a tail has a tail-base role and may have further segments. Ears
+require no articulation in this first envelope. Root is a reference role,
+torso is an owned part, and chest is the upper-torso landmark. These arrows
+express required functional order/adjacency, not serialized syntax. These are
+semantic roles and frames, not a fixed bone hierarchy or count, joint limits,
+solver, rig implementation, or anatomical-fidelity claim. Exact role
+spelling/serialization and further chains remain spec detail.
 
 This decision does not choose an exact permanent coordinate convention, numeric
 ranges, surface primitives, schema or syntax technology, or a new morphology
@@ -144,12 +154,17 @@ deferred.
 
 ### Fixture success and validity rule
 
-**Recommendation: Option 2 — every declared valid fixed fixture must pass.**
-Every declared valid fixture must meet every mandatory Stage 1 structural
-check and the recorded subjective visual floor for the Stage 1 gate. A failed
-or inconclusive valid fixture means the gate has not passed, while remaining
-useful evidence that must stay visible. An invalid fixture must fail with its
-expected diagnostic and is not counted as a valid pass fixture.
+**Recommendation: Option 2 — every declared valid-supported fixture must pass.**
+Every declared valid-supported fixture must meet every mandatory Stage 1
+structural check and the recorded subjective visual floor for the Stage 1 gate.
+A failed or inconclusive valid-supported fixture means the gate has not passed,
+while remaining useful evidence that must stay visible. A non-success fixture
+must produce its expected outcome and diagnostic and is not counted as a valid
+pass fixture. The frozen fixture outcome taxonomy is valid-supported,
+semantically invalid, or
+well-formed-but-unsupported. Every semantically invalid or unsupported fixture
+freezes its expected primary diagnostic class/code; both are diagnostic
+evidence, not Stage 1 success population.
 
 ## Consequences
 
@@ -169,10 +184,12 @@ expected diagnostic and is not counted as a valid pass fixture.
 - Fixture hypotheses can be chosen before exact freezing, but EXP-0001 cannot
   execute or contribute evidence until stable IDs, concrete inputs,
   discriminating parameters, seed/configuration, provenance, validity
-  classification, and expected invalid-fixture diagnostics are frozen.
+  classification, expected outcome, and expected primary diagnostic class/code
+  for every non-success fixture are frozen.
 - Every declared valid fixture is part of the Stage 1 gate; failed and
-  inconclusive fixtures remain visible and prevent continuation, while invalid
-  fixtures are diagnostic evidence rather than valid pass fixtures.
+  inconclusive fixtures remain visible and prevent continuation. Only
+  valid-supported fixtures count toward Stage 1 success; semantically invalid
+  and well-formed-but-unsupported fixtures are diagnostic evidence.
 - Plantigrade, quadruped, winged, extra-limb, and arbitrary-anatomy support
   remain future decisions and must not be inferred from this family.
 
@@ -271,12 +288,13 @@ reporting other fixtures as limitations. This would allow early progress but
 would weaken the claim about the declared family and invite evidence-population
 drift.
 
-#### Option 2: All declared valid fixtures must pass
+#### Option 2: All declared valid-supported fixtures must pass
 
-Every declared valid fixture meets every mandatory structural check and the
-subjective visual floor; failed or inconclusive fixtures keep the gate open,
-and invalid fixtures fail expected diagnostics without counting as valid
-passes. **Recommendation: Option 2 — all declared valid fixtures must pass.**
+Every declared valid-supported fixture meets every mandatory structural check
+and the subjective visual floor; failed or inconclusive fixtures keep the gate
+open. Semantically invalid and well-formed-but-unsupported fixtures fail their
+frozen expected primary diagnostics without counting as valid passes.
+**Recommendation: Option 2 — all declared valid-supported fixtures must pass.**
 
 #### Option 3: Reclassify difficult fixtures after evaluation
 
@@ -286,18 +304,17 @@ to test and make cross-stage evidence non-comparable. It is not selected.
 
 ## Adversarial Review Response
 
-The Revision 1, Revision 2, and [Revision 3 current-revision reviews](reviews/DR-0008-rev-03-review-01.md)
-and [second review](reviews/DR-0008-rev-03-review-02.md) are preserved as stale
-historical evidence. On 2026-08-11 Ben approved their seven resolution outcomes
-for this Revision 4. The current-revision Double review is Complete in the
-[authority, identity, and compatibility pass](reviews/DR-0008-rev-04-review-01.md)
-and [morphology, graph, and graphics-system pass](reviews/DR-0008-rev-04-review-02.md).
-The authority pass recommends Accept at High confidence with no findings. The
-morphology pass recommends Revise at High confidence, finding ambiguous
-articulation role cardinality/adjacency and a binary fixture freeze that
-conflicts with the three-way result taxonomy. These findings await Ben's
-disposition. Review Complete records evidence, not a clean review or
-acceptance. Only Ben may accept or reject this proposal.
+The Revision 1, Revision 2, and Revision 3 current-revision reviews
+([authority](reviews/DR-0008-rev-03-review-01.md),
+[second review](reviews/DR-0008-rev-03-review-02.md)), together with the
+Revision 4 current-revision reviews
+([authority](reviews/DR-0008-rev-04-review-01.md),
+[morphology](reviews/DR-0008-rev-04-review-02.md)), are preserved as stale
+historical evidence. On 2026-08-11 Ben approved the resulting CK-KICK-012
+articulation and fixture-outcome resolutions for Revision 5. Review status for
+this revision is Pending; no current-revision review has yet been run. Review
+evidence records neither acceptance nor a clean review. Only Ben may accept or
+reject this proposal.
 
 ## Implementation and Proof Obligations
 
@@ -305,16 +322,20 @@ acceptance. Only Ben may accept or reject this proposal.
   ownership tree, reified relation concepts and role-labelled relations,
   invalid/unsupported assemblies, and deterministic variation inputs in the
   later body specifications.
-- Specify the minimum functional articulation/landmark roles and preserve
-  their semantic frames through Stage 1 lineage without implying a fixed rig.
+- Specify the ordered axial, arm, leg, and optional-tail articulation roles,
+  including root-reference, torso ownership, chest landmark, and the single
+  hock/ankle functional articulation per digitigrade leg; preserve their
+  semantic frames through Stage 1 lineage without implying a fixed rig,
+  solver, bone count, or anatomical-fidelity claim.
 - Define declared units and coordinate basis, explicit local frames and
   resolved transforms, and structured diagnostics without locking a permanent
   coordinate convention or exact numeric ranges here.
 - Select hypotheses and intended discriminating profiles before exact freeze,
   then freeze stable fixture IDs, concrete source inputs, discriminating
-  parameters, seed/configuration, provenance, valid/invalid classification, and
-  expected primary diagnostic class/code before EXP-0001 execution or evidence;
-  this proposal does not create fixture files.
+  parameters, seed/configuration, provenance, one of valid-supported,
+  semantically invalid, or well-formed-but-unsupported, and the expected
+  primary diagnostic class/code for every non-success fixture before EXP-0001
+  execution or evidence; this proposal does not create fixture files.
 - Evaluate all fixed qualitative profiles through the same grammar and
   generators, recording bespoke correction attempts as failures rather than
   silently adding exceptions.

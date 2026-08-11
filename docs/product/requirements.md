@@ -37,17 +37,20 @@ semantic regions and appearance inputs, structured diagnostics, and
 source-linked semantic joint frames and region intent/lineage. It must not be
 used to claim a usable bone hierarchy, bind weights/skinning, analytic
 collision proxies, actual contact artifacts, shared pose or animation,
-contact behaviour, deformation, or real-time interaction. Every declared valid
+contact behaviour, deformation, or real-time interaction. Every declared valid-supported
 fixed fixture must pass every mandatory structural check and the recorded
-subjective visual floor; a failed or inconclusive valid fixture leaves the gate
-open and remains evidence, while invalid fixtures fail expected diagnostics
-and are not counted as valid pass fixtures. Before EXP-0001 execution or
-evidence, stable fixture IDs, concrete source inputs, discriminating
-parameters, seed/configuration, provenance, valid/invalid classification, and
-the expected primary diagnostic class/code for every invalid fixture must be
-frozen, although hypotheses may be selected earlier. Stage 2 separately proves
-embodiment by generating a usable skeleton, skin weights, and collision proxies
-and proving one shared pose/control scenario. Stage 3 separately proves bounded
+subjective visual floor; a failed or inconclusive valid-supported fixture leaves
+the gate open and remains evidence, while non-success fixtures must produce
+their expected outcomes/diagnostics and are not counted as valid pass fixtures.
+Every fixture expected outcome is
+frozen as valid-supported, semantically invalid, or well-formed-but-unsupported;
+every non-success fixture also freezes its primary diagnostic class/code. Only
+valid-supported fixtures count toward the Stage 1 gate. Before EXP-0001
+execution or evidence, stable fixture IDs, concrete source inputs,
+discriminating parameters, seed/configuration, provenance, and these expected
+outcomes must be frozen, although hypotheses may be selected earlier. Stage 2
+separately proves embodiment by generating a usable skeleton, skin weights, and
+collision proxies and proving one shared pose/control scenario. Stage 3 proves bounded
 real-time interaction, including actual contact, localized deformation,
 physical response, and declared budget evidence.
 
@@ -83,14 +86,15 @@ source set. Initially this may be one structured, human-readable document;
 future explicit semantic override layers may also be authored inputs. The
 source set alone is authored authority. Every outcome-affecting external
 authored asset is an exactly versioned source-set dependency. Compilation
-resolves it into a validated, inspectable, reproducible, per-build semantic
-body-graph snapshot
-containing source references, durable semantic nodes and relations, declared
-local frames and resolved transforms, relevant intent/lineage, and structured
-diagnostics. The snapshot and generated outputs remain derived and
-build-scoped; they cannot silently become competing sources of truth. Mesh,
-rig, runtime, and other artifacts remain further derived outputs. See
-[DR-0002 Revision 4](../decisions/DR-0002-declarative-body-document-source-of-truth.md).
+returns one authoritative operation-result envelope covering loading,
+syntax/schema/contract, dependency, resource, semantic-resolution, and
+invariant diagnostics. A validated, inspectable, reproducible, per-build
+semantic body-graph snapshot is an optional validated success payload only for
+valid-supported input; any snapshot diagnostics are a derived persisted subset
+of the envelope. Semantically invalid and well-formed-but-unsupported partial
+graphs are non-compilable, non-contractual debug data. Mesh, rig, runtime, and
+other artifacts remain further derived outputs. See
+[DR-0002 Revision 5](../decisions/DR-0002-declarative-body-document-source-of-truth.md).
 
 ### CK-PROD-002: Deterministic compilation
 
@@ -109,13 +113,15 @@ evidence are defined.
 Durable semantic identity must identify parts, regions, joints, attachments,
 capabilities, and related concepts across regeneration through a structured
 semantic address: source namespace, authored stable module-instance anchors,
-semantic concept kind, and role-local key. Exact collisions within a resolved
-source set are invalid unless an import explicitly remaps them. Identity
+semantic concept kind, and role-local key. Each source namespace has exactly
+one owner in a resolved source set. A namespace collision requires an authored,
+deterministic, collision-free remapping across every contributed semantic
+address; implicit shared namespace ownership is not allowed. Identity
 continuity is promised only while the authored address and concept remain
 unchanged across regeneration; structural-edit lifecycle rules remain
 deferred. Artifact/build identity and provenance are separate, and external
 authored assets retain their exact dependency revisions. See [DR-0006 Revision
-3](../decisions/DR-0006-durable-semantic-and-artifact-identity.md).
+4](../decisions/DR-0006-durable-semantic-and-artifact-identity.md).
 
 ### CK-PROD-004: Shared deterministic domain operations
 
@@ -148,19 +154,32 @@ pose, and actual contact/deformation are later-stage claims.
 ### CK-PROD-011: Composable body grammar
 
 The first body model must support a bounded typed ownership tree for the
-proposed digitigrade biped family, plus typed non-ownership relations for joints,
-sockets/attachments, capabilities, and regions. Ownership is the sole
-containment tree; durable non-ownership concepts may be reified and connected
-through multiple role-labelled relations. Invalid or unsupported assemblies
-must receive a deterministic result envelope with structured diagnostics.
-Units and coordinate basis must be declared; local frames and resolved
-transforms must be explicit. The first family requires semantic articulation
-roles for pelvis/root, torso/chest, neck/head, paired upper/lower limb chains,
-and a tail base when present; these do not select a fixed rig or bone layout.
-Exact coordinate convention, numeric ranges, surface primitives, and new
-morphology families remain deferred. The body model also supports measurements
-and material/deformation properties within this bounded grammar. See [DR-0008
-Revision 4](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md).
+proposed digitigrade biped family, plus typed concepts and non-ownership
+relations: Part is structural/owned; Joint is an articulation semantic
+relation with frames, not a bone or solver; Socket is a host interface frame;
+Attachment maps a module to a socket and is not automatically a joint; Region
+is an overlapping spatial designation and never ownership; Capability is a
+queryable affordance, not an implementation; and Field carries spatial
+semantic intent/channel with lineage and representation-neutral meaning.
+Ownership is the sole containment tree; durable non-ownership concepts may be
+reified and connected through multiple role-labelled relations. Invalid or
+unsupported assemblies must receive the operation-result envelope with
+structured diagnostics. The required functional articulation is root reference
+→ pelvis → chest → neck → head; each arm is shoulder → elbow → wrist → terminal
+paw-base; each leg is hip → knee → one hock/ankle articulation → terminal
+paw-base; and a present tail has a tail-base with later segments optional.
+Ears require no articulation. These are semantic roles and frames, not a bone,
+solver, rig, or anatomy-fidelity claim. See [DR-0008 Revision 5](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md)
+and [DR-0011 Revision 1](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
+
+Transforms own reference-frame placement; typed dimensions own size/extents;
+anchors and landmarks are stable with authored or derived provenance; ratios
+are derived only; and conflicting constraints produce diagnostics rather than
+silently selecting a winner. Each source declares units, handedness, up, and
+forward. Resolution converts to a contract-revision canonical internal basis
+and records conversion provenance. Distinguish local/reference, joint,
+socket/mating, derived resolved world/reference, and runtime-pose frames.
+Exact canonical axes, units, rotation, scale, and shear remain deferred.
 
 ### CK-PROD-012: Connected visible surface
 

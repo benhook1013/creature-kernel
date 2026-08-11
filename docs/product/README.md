@@ -25,6 +25,14 @@ workflow, stylized furry and adult-interaction stress cases with general
 mechanisms, and native generation before external-mesh conformance. They remain
 proposals recorded under DR-0005.
 
-Related Proposed boundaries are recorded in [DR-0002 Revision 4](../decisions/DR-0002-declarative-body-document-source-of-truth.md),
+Related Proposed boundaries are recorded in [DR-0002 Revision 5](../decisions/DR-0002-declarative-body-document-source-of-truth.md),
 [DR-0004 Revision 2](../decisions/DR-0004-external-automation-through-cli-and-api.md),
-and [DR-0006 Revision 3](../decisions/DR-0006-durable-semantic-and-artifact-identity.md).
+[DR-0006 Revision 4](../decisions/DR-0006-durable-semantic-and-artifact-identity.md),
+[DR-0008 Revision 5](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
+and [DR-0011 Revision 1](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
+
+These four CK-KICK-012-related records remain Proposed with Owner approval
+Pending and Review Pending until their current revisions receive the required
+Double review. This documentation records intended product outcomes; exact
+syntax, schema, phase names/codes, and implementation mechanisms remain
+deferred to their owning specification and architecture work.

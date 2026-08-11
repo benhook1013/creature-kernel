@@ -57,19 +57,23 @@ schema, runtime field, topology, or geometry backend is selected. CK-KICK-010's
 approved grid, field, bundle, determinism, and structural-gate values are
 debug-only spike inputs and do not change that boundary.
 
-On 2026-08-09 Ben settled CK-KICK-012 Batch 1 in discussion: the sole
-authoritative source set resolves to a validated, inspectable, reproducible,
-per-build non-authoritative graph snapshot; durable identity uses structured
-semantic addresses; and the first grammar is a bounded typed ownership tree
-with distinct typed relation edges for joints, sockets/attachments,
-capabilities, and regions. On 2026-08-11 he approved the seven review
-resolutions, refining those edges as reified concepts with role-labelled
-non-ownership relations. These discussion approvals do not accept the revised
-DRs. DR-0002 Revision 4, DR-0006 Revision 3, and DR-0008 Revision 4 are
-Proposed with Review Complete after their current-revision Double reviews.
-Four consolidated blocking findings and one nonblocking dependency-version
-obligation await Ben's disposition. Review Complete records evidence, not a
-clean review or acceptance. Later CK-KICK-012 semantic batches remain pending.
+On 2026-08-09 Ben settled CK-KICK-012 Batch 1 in discussion. On 2026-08-11
+he approved seven resolutions: one unique owner per source namespace with
+authored deterministic collision-free remapping for collisions; one
+operation-result envelope for every phase and diagnostic, with an optional
+validated snapshot only for valid-supported success; required functional
+articulation roles; frozen fixture outcomes and primary diagnostics; typed
+vocabulary; explicit measurement ownership and conflict diagnostics; and
+declared source frames normalized to a revisioned canonical basis with
+provenance. These discussion approvals do not accept the revised DRs.
+DR-0002 Revision 5, DR-0006 Revision 4, DR-0008 Revision 5, and DR-0011
+Revision 1 are Proposed with Owner approval Pending and Review Pending until
+their current-revision Double reviews. Exact phases/codes, extension and
+compatibility details, resource limits, schema fixtures, and exact canonical
+axes/units/rotation/scale/shear remain pending. Later CK-KICK-012 resolution
+and extension batches remain active work.
+The meaning and enforcement details of an exact dependency revision remain a
+nonblocking obligation before external authored dependencies activate.
 
 ## Current round and work state
 
@@ -105,7 +109,8 @@ clean review or acceptance. Later CK-KICK-012 semantic batches remain pending.
 - CK-KICK-011 follows useful exploratory evidence. A formal comparative
   surface decision is optional and risk-driven, not automatic.
 - CK-KICK-012 is active with Batch 1 integrated as Proposed documentation; its
-  later semantic batches remain pending and it does not depend on CK-KICK-011.
+  later resolution-phase, extension/compatibility, resource-limit, schema, and
+  fixture batches remain pending and it does not depend on CK-KICK-011.
 - CK-KICK-013 may compare a production implementation platform after the
   exploratory host boundary and minimal contract are understood. A disposable
   discovery host remains distinct from a production commitment.
@@ -131,8 +136,8 @@ The [decision registry](../decisions/registry.md) is the index for exact DR
 metadata. Current non-governance proposals include:
 
 - [DR-0002](../decisions/DR-0002-declarative-body-document-source-of-truth.md),
-  source set and resolved body graph — Revision 4, Proposed, Review Complete;
-  findings and owner approval pending.
+  source set and resolved body graph — Revision 5, Proposed, Owner approval
+  Pending, Review Pending.
 - [DR-0003](../decisions/DR-0003-real-time-first-compiled-avatar-boundary.md),
   compiled avatar and bounded real-time execution — Revision 2, Proposed,
   Review Complete, owner disposition pending.
@@ -143,13 +148,16 @@ metadata. Current non-governance proposals include:
   initial product boundary — Revision 1, Proposed, Review Complete, owner
   disposition pending.
 - [DR-0006](../decisions/DR-0006-durable-semantic-and-artifact-identity.md),
-  semantic and artifact identity — Revision 3, Proposed, Review Complete;
-  findings and owner approval pending.
+  semantic and artifact identity — Revision 4, Proposed, Owner approval
+  Pending, Review Pending.
 - [DR-0007](../decisions/DR-0007-staged-first-proof-charter.md) and
   [DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
   first-proof and morphology boundaries — DR-0007 Revision 2 remains Proposed,
-  Review Complete; DR-0008 Revision 4 is Proposed, Review Complete, with
-  findings and owner approval pending.
+  Review Complete; DR-0008 Revision 5 is Proposed, Owner approval Pending,
+  Review Pending.
+- [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md),
+  semantic vocabulary, measurements, and coordinate frames — Revision 1,
+  Proposed, Owner approval Pending, Review Pending.
 - [DR-0009](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
   and [DR-0010](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md)
   are parked as described in [Current activation state](#current-activation-state).
