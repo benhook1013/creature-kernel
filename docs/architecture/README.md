@@ -49,14 +49,13 @@ and described in the execution model; exact interface schemas, compatibility,
 budgets, and runtime mutation details remain open. The typed semantic
 vocabulary, measurement ownership, and frame-conversion boundary are Proposed
 in [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
-CK-KICK-012 Batch 6/7 resolutions are discussion-approved and are reflected in
-the canonical specifications as Proposed material. DR-0002 Revision 9,
-DR-0008 Revision 9, DR-0011 Revision 5, and DR-0012 Revision 4 remain Proposed
-with Owner approval Pending and current Review Complete. The current Double
-review examined target `88004388f9537a37617ae248bdaad4625e6f3f03`; both passes
-recommend Revise at High confidence, with five findings pending Ben discussion
-and owner disposition. The prior `c64b1b...` Double review is stale historical
-evidence. See the
+CK-KICK-012 Batch 6/7/8 resolutions are discussion-approved and are reflected in
+the canonical specifications as Proposed material. The current proposals are
+DR-0002 Revision 10, DR-0008 Revision 10, DR-0011 Revision 6, and DR-0012
+Revision 5. All five current proposals remain Proposed with Owner approval
+Pending and Review Pending; the prior exact review at
+`88004388f9537a37617ae248bdaad4625e6f3f03` is stale historical evidence, and
+fresh Double review is pending. See the
 [decision registry](../decisions/registry.md). The CK-KICK-012 Batch 5 review
 at commit `a282dbabffd83afa4e62577086934d00f98e12c7` is stale historical
 evidence; no clean review or acceptance is implied.
@@ -83,14 +82,15 @@ reactivates them. Until then, exploratory prototypes may produce observations
 but may not claim formal DR-0009/0010 support or reject.
 
 The CK-KICK-013 platform proposal is also discussion-approved as Proposed
-material, not an accepted implementation decision. Proposed DR-0013 Revision 2
-has Owner approval Pending and current Review Complete. The current Double
-review examined target `88004388f9537a37617ae248bdaad4625e6f3f03`; both passes
-recommend Revise at High confidence, with findings pending Ben discussion and
-owner disposition. Its prior `c64b1b...` review is stale historical evidence.
-Acceptance of DR-0013 alone triggers the Cargo workspace and empty
-compiler/library/CLI shell boundary; exact schema and admitted fixtures still
-gate Stage 1 parser/resolver implementation. It describes a stable Rust
+material, not an accepted implementation decision. Proposed DR-0013 Revision 3
+has Owner approval Pending and fresh Double review pending. Earlier review
+evidence is stale after this revision. The four readiness stages are: DR-0013
+acceptance activates only the empty Cargo shell; exact JSON Schema plus a
+frozen/admitted fixture manifest jointly activate parser/bootstrap and
+manifest-listed fixtures; canonical numeric/frame rules plus frozen expected
+graph outputs activate semantic resolution and snapshot publication; and a
+working resolver plus provisional geometry profile and project-owned seam
+activates exploratory Stage 1 geometry. It describes a stable Rust
 production semantic/compiler core, a thin CLI, and a project-owned versioned,
 backend-neutral GeometryRequest/GeometryResult seam, with no initial daemon or
 service. Stage 1 would use an in-process Rust CPU dense-field evaluator/
@@ -99,9 +99,11 @@ security, portability, or licensing need exposes a gap, evaluate an isolated
 C++ worker/backend first; in-process C ABI/FFI is considered only if that
 worker is proven insufficient. Python remains for disposable experiments,
 evidence/render tooling, and the visual workbench, not production compiler
-execution. Complete success/failure bundles use immutable build-scoped sibling
+execution. Complete success/failure bundles use one authoritative build
+envelope across geometry and publication, immutable build-scoped sibling
 staging, manifest-last atomic no-replace publication, and manifest validation
-of build/artifact identity, relative paths, hashes, and sizes; consumers reject
+of build/artifact identity, relative paths, hashes, and sizes; trusted
+derived-output/publication failure is `output-failure`; consumers reject
 symlinked, unlisted, incomplete, mixed-build, and stale bundles. Future workers
 must negotiate protocol/version, obey bounded time/resources, map crash/timeout/
 resource outcomes, validate outputs, and leave the compiler surviving failure.

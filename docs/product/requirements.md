@@ -87,10 +87,12 @@ future explicit semantic override layers may also be authored inputs. The
 source set alone is authored authority. Every outcome-affecting external
 authored asset is an exactly versioned source-set dependency. Every operation
 must return one authoritative result envelope, including failures before
-semantic resolution. The envelope exposes exactly one of `success`,
-`input-failure`, `invalid-source`, `unsupported`, `dependency-failure`,
-`resource-limit`, or `internal-failure`; it also reports whether processing and
-diagnostic retention completed. A validated, inspectable, reproducible,
+semantic resolution. The semantic resolver envelope exposes exactly one of
+`success`, `input-failure`, `invalid-source`, `unsupported`,
+`dependency-failure`, `resource-limit`, or `internal-failure`; it also reports
+processing and diagnostic completeness. The authoritative public build
+operation extends this closed vocabulary with `output-failure` for trusted
+derived-output or publication failure. A validated, inspectable, reproducible,
 per-build semantic body-graph snapshot is an optional success payload only for
 valid-supported input; any snapshot diagnostics are a derived persisted subset
 of the envelope. Semantically invalid and well-formed-but-unsupported partial
@@ -183,10 +185,14 @@ Region, Capability, and Field. A Joint is directed, with one proximal and one
 distal Part, and the resolved graph must expose canonical proximal- and
 distal-frame records in the corresponding Part-local bases with provenance.
 Each Socket is a Part-owned interface with its interface frame in the owning
-Part basis. For a present optional module, an Attachment must connect exactly
-one host Socket to one mating Socket, agree with the host-Part/module-root
-containment declaration, and initially be the sole incoming Attachment for
-that attached root. Host/mating socket frames, an optional Attachment offset,
+Part basis. The normalized model separately declares each module instance with
+its module/root/anchor-provenance/presence-optionality and Attachment
+requirement; absence and present-but-unattached are distinct. For a present
+optional module, an Attachment must connect exactly one host Socket to one
+mating Socket, agree with the host-Part/module-root containment declaration,
+and initially be the sole incoming Attachment for that attached root. Each
+Socket has total active capacity one across host and mating roles; cross-role
+reuse is invalid. Host/mating socket frames, an optional Attachment offset,
 and the inverse mating frame determine the module-root placement; a competing
 authored placement must agree within the later-defined tolerance or be
 semantically invalid. Duplicate, detached, cyclic, or invalid endpoint cases
@@ -219,9 +225,12 @@ are not allowed. A conflict is a deterministic semantic-invalid diagnostic and
 no success snapshot. Each source declares units, handedness, up, and forward.
 Resolution converts to a contract-revision canonical internal basis and records
 conversion provenance. Distinguish local/reference, joint, socket/mating,
-derived resolved world/reference, and runtime-pose frames. Exact canonical
-axes, units, rotation, scale, shear, numeric ranges, and tolerances remain
-deferred.
+derived resolved world/reference, and runtime-pose frames. Every transform
+entering Attachment composition must be finite, non-degenerate, and invertible
+under the declared profile. A source violation is `invalid-source`; an
+implementation failure on an admissible transform is `internal-failure`.
+Exact canonical axes, units, rotation, scale, shear, conditioning, numeric
+ranges, and tolerances remain deferred to resolver activation.
 
 ### CK-PROD-012: Connected visible surface
 
@@ -300,16 +309,27 @@ possible evolution, not an initial requirement.
 ### CK-PROD-030: Structured diagnostics
 
 Generation and validation must report one structured operation result rather
-than only visual failure. Its closed status set is `success`, `input-failure`,
-`invalid-source`, `unsupported`, `dependency-failure`, `resource-limit`, and
-`internal-failure`. Status mapping is deterministic: loss of trust yields
-internal-failure; configured resource exhaustion that prevents complete output
-yields resource-limit; otherwise the earliest fatal phase determines the
-status. Reached earlier diagnostics remain available when dependent phases are
-blocked, while the result marks incomplete processing or diagnostic retention.
+than only visual failure. Semantic resolution has the closed status set
+`success`, `input-failure`, `invalid-source`, `unsupported`,
+`dependency-failure`, `resource-limit`, and `internal-failure`; the authoritative
+build operation additionally uses `output-failure` for trusted derived-output
+or publication failure. Status mapping is deterministic: internal trust loss
+comes first, then a qualifying resource interruption, then the earliest
+applicable phase unable to produce its required output. In dependency phases,
+`dependency-failure` outranks `invalid-source`, which outranks `unsupported`;
+parse and semantic phases use `invalid-source` before `unsupported`. All
+mandatory independent checks capable of changing status or primary run unless
+resource/trust interruption prevents them; optional checks cannot change
+status or primary. Reached earlier diagnostics remain available when
+dependent phases are blocked.
 Every non-success result has a primary diagnostic matching its status.
-Diagnostics are bounded and sorted by phase, severity/category, normalized
-source path/offset, code, and semantic address; human text is not a key. See
+Processing is complete when all work applicable to establishing and trusting the
+selected outcome ran; blocked phases are inapplicable. Diagnostic completeness
+is complete when all applicable profile-required diagnostics were retained;
+ordinary truncation makes it false but is not `resource-limit` unless it
+prevented processing or trust. Diagnostics are bounded and sorted by phase,
+severity/category, normalized source path/offset, code, and semantic address;
+human text is not a key. See
 the [body-document contract](../../spec/body-document/README.md).
 
 ### CK-PROD-031: Headless proof
@@ -330,10 +350,11 @@ string/number token lengths before conversion, nesting and member counts,
 per-dependency and aggregate budgets, graph/reference/module expansion, work,
 memory, and diagnostics must be charged before unbounded materialization or
 allocation. A configured breach reports `resource-limit` through the same
-envelope; a true operating-system/process out-of-memory termination is outside
-the operation guarantee, while a surviving implementation that loses trust
-reports `internal-failure`. Exact thresholds and deterministic work units are
-profile-specific and deferred.
+envelope only when it prevents required processing or trusted completion;
+diagnostic truncation alone does not. A true operating-system/process
+out-of-memory termination is outside the operation guarantee, while a surviving
+implementation that loses trust reports `internal-failure`. Exact thresholds
+and deterministic work units are profile-specific and deferred.
 
 ## Extensibility
 

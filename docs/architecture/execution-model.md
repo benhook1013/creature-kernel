@@ -11,13 +11,15 @@ supplementary. This direction is Proposed for formal acceptance under
 [DR-0003](../decisions/DR-0003-real-time-first-compiled-avatar-boundary.md).
 
 CK-KICK-013 is a discussion-approved but unaccepted platform proposal.
-Proposed DR-0013 Revision 2 has Owner approval Pending and current Review
-Complete. The current Double review examined target
-`88004388f9537a37617ae248bdaad4625e6f3f03`; both passes recommend Revise at
-High confidence, with findings pending Ben discussion and owner disposition.
-The prior `c64b1b...` Double review is stale historical evidence. Acceptance of DR-0013 alone triggers
-the Cargo workspace and empty compiler/library/CLI shell boundary; exact schema
-and admitted fixtures/contracts still gate Stage 1 parser/resolver work. It
+Proposed DR-0013 Revision 3 has Owner approval Pending and fresh Double review
+pending. Earlier review evidence is stale after this revision. Its four
+readiness stages are: acceptance activates only the empty Cargo shell; exact
+JSON Schema plus a frozen/admitted fixture manifest jointly activate
+parser/bootstrap and listed fixtures; canonical numeric/frame rules plus frozen
+expected graph outputs activate semantic resolution and snapshot publication;
+and a working resolver plus provisional geometry profile and project-owned seam
+activates exploratory Stage 1 geometry. Acceptance therefore does not activate
+the parser, resolver, fixtures, or geometry proof. It
 proposes a stable Rust production semantic/compiler core in a Cargo workspace,
 exposed as an engine-independent Rust compiler library and thin CLI with a
 versioned project-owned backend-neutral GeometryRequest/GeometryResult seam.
@@ -59,14 +61,22 @@ heavyweight audit bureaucracy. Python remains available for disposable
 experiments, evidence/render tooling, and the visual workbench; it is not a
 production compiler dependency.
 
-The compiler writes complete success/failure bundles through immutable,
-build-scoped sibling staging, writes the manifest last, and atomically
-publishes with no replacement of an existing bundle. The manifest records
-build/artifact identity and relative paths with hashes and sizes. Consumers
-reject absolute/traversal paths, symlinked or unlisted outputs, incomplete,
-mixed-build, and stale bundles. An independent visual workbench consumes those
-artifacts rather than becoming part of the compiler or a daemon/service. This
-boundary does not settle final avatar-package serialization or compatibility.
+The compiler writes complete success/failure bundles through one authoritative
+build envelope spanning geometry and publication, using immutable build-scoped
+sibling staging, a manifest written last, and atomic no-replace publication.
+Trusted derived-output, staging, encoding, geometry, and publication failures
+map to `output-failure` unless an earlier/higher internal or qualifying resource
+outcome applies. Build identity exists on every result; artifact identity exists
+only after successful publication. A compile/geometry failure may publish a
+diagnostics-only failure bundle if publication succeeds. If publication fails,
+the CLI/API returns the envelope and no final bundle exists. Cleanup removes
+only invocation-owned staging; unavailable atomic no-replace fails closed and
+does not adopt or replace an existing target. Artifact inspection is a separate
+read operation. Consumers reject absolute/traversal paths, symlinked or
+unlisted outputs, incomplete, mixed-build, and stale bundles. An independent
+visual workbench consumes those artifacts rather than becoming part of the
+compiler or a daemon/service. This boundary does not settle final
+avatar-package serialization or compatibility.
 Performance claims must be backed by a reproducible benchmark and hardware
 profile. The language/build acceptance trigger remains unsatisfied, so no
 implementation package is activated. Any future worker must negotiate protocol/
@@ -123,15 +133,17 @@ envelope:
 
 Fatal failure blocks dependent phases, but independent diagnostics within one
 phase accumulate in deterministic order. Complete acquisition is required
-before invalid-source. Trust loss takes precedence, then a configured
-resource-limit only when a breach prevents required processing or trusted
-completion, then the earliest phase unable to produce its required output. In
-parse/semantic phases invalid-source outranks unsupported; dependency
-acquisition/read/verify/resolve failure maps to dependency-failure. Processing
-and diagnostic completeness are independent: ordinary truncation makes
-diagnostic completeness incomplete but is not resource-limit when processing
-and trusted completion continue, and blocked later phases do not make retained
-reached-phase diagnostics incomplete. The primary is the first diagnostic
+before invalid-source. Internal trust loss takes precedence, then a qualifying
+resource-limit, then the earliest applicable phase unable to produce its
+required output. In a mixed dependency phase, dependency-failure precedes
+invalid-source and then unsupported; parse/semantic invalid-source precedes
+unsupported. All mandatory independent checks capable of changing status or
+primary run unless resource/trust interruption prevents them. Processing is
+complete when all applicable work establishing/trusting the selected outcome
+ran; blocked phases are inapplicable. Diagnostic completeness is complete when
+all applicable profile-required diagnostics were retained; ordinary truncation
+is not resource-limit when processing/trust continue, and optional checks
+cannot change status or primary. The primary is the first diagnostic
 establishing the final status under that ordering, and reserved diagnostic
 capacity preserves it (or reserves the resource/truncation diagnostic when
 arena exhaustion changes the final status). Provenance distinguishes authored,

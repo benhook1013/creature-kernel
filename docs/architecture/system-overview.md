@@ -17,14 +17,11 @@ The current semantic boundaries are Proposed under [DR-0002](../decisions/DR-000
 [DR-0006](../decisions/DR-0006-durable-semantic-and-artifact-identity.md),
 [DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
 and [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
-CK-KICK-012 Batch 6/7 resolutions are discussion-approved and represented here
-as Proposed architecture consequences. DR-0002 Revision 9, DR-0008 Revision 9,
-DR-0011 Revision 5, and DR-0012 Revision 4 are Proposed with Owner approval
-Pending and current Review Complete (see the [decision registry](../decisions/registry.md)).
-The current Double review examined target
-`88004388f9537a37617ae248bdaad4625e6f3f03`; both passes recommend Revise at
-High confidence, with five findings pending Ben discussion and owner
-disposition. The prior `c64b1b...` Double review is stale historical evidence.
+CK-KICK-012 Batch 6/7/8 resolutions are discussion-approved and represented here
+as Proposed architecture consequences. DR-0002 Revision 10, DR-0008 Revision
+10, DR-0011 Revision 6, and DR-0012 Revision 5 are Proposed with Owner approval
+Pending and fresh Double review pending (see the [decision registry](../decisions/registry.md)).
+Earlier review evidence is stale after these revisions.
 The CK-KICK-012 Batch 5 review at commit
 `a282dbabffd83afa4e62577086934d00f98e12c7` is stale historical evidence. No
 acceptance or clean review is implied.
@@ -95,13 +92,14 @@ canonical bytes, and hashes remain deferred.
 ### Proposed production platform and artifact/workbench boundary
 
 CK-KICK-013 is a discussion-approved platform proposal, not an accepted
-implementation decision. Proposed DR-0013 Revision 2 has Owner approval
-Pending and current Review Complete; both passes recommend Revise at High
-confidence, with findings pending Ben discussion and owner disposition. Its
-prior `c64b1b...` Double review is stale historical evidence.
-Acceptance of DR-0013 alone triggers the Cargo workspace and empty
-compiler/library/CLI shell boundary; exact schema and admitted fixtures still
-gate Stage 1 parser/resolver implementation. Its target is a stable Rust
+implementation decision. Proposed DR-0013 Revision 3 has Owner approval
+Pending and fresh Double review pending. Earlier review evidence is stale after
+this revision. The four readiness stages are: acceptance activates only the
+empty Cargo shell; exact JSON Schema plus a frozen/admitted fixture manifest
+jointly activate parser/bootstrap and listed fixtures; canonical numeric/frame
+rules plus frozen expected graph outputs activate semantic resolution and
+snapshot publication; and a working resolver plus provisional geometry profile
+and project-owned seam activates exploratory Stage 1 geometry. Its target is a stable Rust
 production semantic/compiler core in a Cargo workspace, an engine-independent
 compiler library, a thin CLI, and a versioned project-owned backend-neutral
 GeometryRequest/GeometryResult seam, with no initial daemon or service. Stage 1
@@ -121,7 +119,15 @@ dependency's license, unsafe/native code, and portability/security relevance
 without Git pinning or heavyweight audit bureaucracy. Publish complete
 success/failure bundles from immutable build-scoped sibling staging, manifest
 last, atomic no-replace, and validate identity, relative paths, hashes, and
-sizes; reject symlinked, unlisted, incomplete, mixed-build, and stale bundles.
+sizes. One authoritative build envelope spans geometry and publication; trusted
+derived-output/publication failure is `output-failure`, build identity always
+exists, and artifact identity exists only after successful publication. A
+compile/geometry failure may publish a diagnostics-only failure bundle if
+publication succeeds; publication failure returns the envelope with no final
+bundle. Cleanup is limited to invocation staging, and unavailable atomic
+no-replace fails closed without target adoption. Artifact inspection is a
+separate read operation. Reject symlinked, unlisted, incomplete, mixed-build,
+and stale bundles.
 The seam does not select a permanent surface/backend or create DR-0009/0010
 evidence. Future workers negotiate protocol/version, obey bounded time/resources, map
 crash/timeout/resource outcomes, validate outputs, and leave the compiler
@@ -141,9 +147,13 @@ Attachment composition derives the attached root's sole child-local containment
 placement from the host Socket, optional offset, and the mating Socket frame
 after composing the attached-root-to-Socket-owner containment transform;
 descendants inherit only through containment and the no-implied-Joint rule is
-preserved. Each host and present mating Socket has one active-use capacity;
-mating Socket reuse by distinct active Attachments, including distinct hosts or
-nested attached roots, is a separate invalid condition and diagnostic concept.
+preserved. Each Socket has total active capacity one across host and mating
+roles, so same-role and cross-role reuse are invalid conditions with
+deterministic diagnostic treatment. Every transform entering Attachment composition is finite,
+non-degenerate, and invertible under the declared profile; a source violation
+is `invalid-source`, while an implementation failure on an admissible transform
+is `internal-failure`. Exact representation, conditioning, and tolerance are
+deferred to resolver activation.
 Resolved Joint and Socket frame records are canonical semantic handoff data,
 not rig or runtime data. The architecture consumes these rules and does not
 restate serialized spellings or numeric conventions; see the canonical graph
@@ -230,16 +240,18 @@ The resolver uses the ordered phases and closed result-status rules in the
 [body-document contract](../../spec/body-document/README.md). Complete
 acquisition is required before invalid-source. Fatal phases block dependent
 work while independent diagnostics in a reached phase may accumulate; the
-envelope retains reached diagnostics. Processing completeness and diagnostic
-completeness are independent: blocked later phases do not make retained
-reached-phase diagnostics incomplete, and ordinary truncation is not
-resource-limit when required processing/trusted completion continue. Trust loss
-precedes configured resource-limit only when a breach prevents required
-processing or trusted completion, which precedes the earliest phase unable to
-produce its required output; invalid-source outranks unsupported in parse and
-semantic phases, and dependency acquisition/read/verify/resolve failures map to
-dependency-failure. The primary is the first diagnostic establishing the final
-status under that ordering. The architecture requires deterministic work and
+envelope retains reached diagnostics. Internal trust loss precedes a
+qualifying resource-limit, which precedes the earliest applicable phase unable
+to produce its required output. In a mixed dependency phase,
+dependency-failure precedes invalid-source and then unsupported; parse and
+semantic phases use invalid-source before unsupported. All mandatory independent
+checks capable of changing status or primary run unless resource/trust
+interruption prevents them. Processing is complete when all applicable work
+establishing/trusting the selected outcome ran; blocked phases are inapplicable.
+Diagnostic completeness means all applicable profile-required diagnostics were
+retained; ordinary truncation is not resource-limit when processing/trust
+continue, and optional checks cannot change status or primary. The primary is
+the first diagnostic establishing the final status under that ordering. The architecture requires deterministic work and
 bounded diagnostics but leaves profile values and accounting detail to the
 canonical specification. Semantic equivalence and identity remain separate
 from source ordering, compiler/build/configuration/seed, dependency, artifact,

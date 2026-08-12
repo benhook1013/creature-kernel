@@ -6,19 +6,19 @@ Scope: Architecture
 
 Status: Proposed
 
-Revision: 2
+Revision: 3
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-11
 
 Date decided: —
 
-Discussion approval date: 2026-08-11
+Discussion approval date: 2026-08-12
 
 Supersedes: —
 
@@ -43,14 +43,30 @@ permanent surface, topology, or runtime architecture.
 
 ## Decision
 
-This is a proposed first-production platform boundary. Acceptance of DR-0013
-itself is the sole trigger to create the Cargo workspace and the empty
-compiler/library/CLI shell boundary. Creating this Proposed DR does not
-activate implementation packages, schemas, compiler fixtures, or a production
-geometry commitment. Actual Stage 1 parser/resolver implementation remains
-gated by the exact schema and admitted fixtures/contracts owned by the
-semantic specifications; no second repository trigger or approval ceremony is
-required.
+This is a proposed first-production platform boundary. Readiness 1 through
+Readiness 4 below are technical gates, not approval ceremonies. They state the
+conceptual owner, authoritative prerequisite, and evidence; exact ledger field
+spelling may remain in project documentation. No Readiness gate is activated by this
+Proposed record.
+
+| Readiness stage | Sole trigger and technical action | Authoritative prerequisite/owner | Evidence concept |
+| --- | --- | --- | --- |
+| Readiness 1 — empty production shell | DR-0013 is Accepted; create the Cargo workspace and empty compiler/library/CLI shell | DR-0013 acceptance and this platform boundary | Workspace and empty shell exist; no parser, resolver, fixture, or geometry implementation is implied |
+| Readiness 2 — parser/bootstrap and admitted fixtures | Exact JSON Schema plus a frozen/admitted fixture manifest; create the manifest-listed fixture files and parser/bootstrap implementation together as one activation transaction | DR-0012 owns schema/bootstrap; DR-0002/DR-0008/DR-0011 own linked semantic fixture obligations | Manifest, listed fixture files, and bootstrap evidence agree; the transaction removes first-consumption circularity |
+| Readiness 3 — semantic resolver and snapshot publication | Canonical basis/units/rotation/scale-shear/numeric representation/tolerances plus frozen expected graph outputs; activate semantic resolution and successful snapshot publication | DR-0011 owns frame/numeric prerequisites; DR-0002/DR-0012 own graph and result-envelope obligations | Resolver outputs match frozen expected graph snapshots with provenance and trusted success envelope |
+| Readiness 4 — exploratory Stage 1 geometry proof | Working resolver plus a provisional geometry profile and project-owned GeometryRequest/GeometryResult seam; activate exploratory Stage 1 geometry proof | DR-0013 owns the seam/platform; DR-0008 owns Stage 1 claim boundary | Bounded proof evidence under the provisional profile; no permanent surface/backend selection |
+
+Acceptance of DR-0013 itself is the sole trigger for Readiness 1. Creating this
+Proposed DR does not activate implementation packages, schemas, compiler
+fixtures, or a production geometry commitment. Readiness 2 creates its
+manifest-listed fixture files and parser/bootstrap implementation together;
+neither first compiler consumption nor an unlisted fixture can activate it.
+Readiness 3 is separate from parser/bootstrap and requires canonical
+frame/numeric rules plus frozen expected graph outputs. Readiness 4 is
+exploratory and does not
+require acceptance or reactivation of parked DR-0009/DR-0010; those records
+remain nonblocking and are needed only if formal comparative surface evidence
+or architecture selection is reactivated.
 
 ### Core language and workspace
 
@@ -118,6 +134,49 @@ bounded time and resource budgets, map crash/timeout/resource outcomes, have
 its outputs validated before publication, and leave the compiler process
 surviving worker failure. Detailed worker serialization remains deferred.
 
+### Authoritative build operation and publication
+
+Geometry execution and artifact publication are explicit phases or suboperations
+of one authoritative public `build` operation. The operation-result envelope is
+the sole public status/diagnostic authority; backend, worker, geometry, and
+publisher diagnostics are normalized into it and never become competing status
+channels. The public status vocabulary is closed and includes `output-failure`
+for a derived-output or artifact-publication failure after accepted input and
+semantic work, when result trust is not lost and no higher-priority internal or
+resource failure applies. Precedence is global internal trust loss, then a
+qualifying resource-limit, then the earliest applicable phase unable to produce
+its required output, with same-phase rules inherited from DR-0002/DR-0012.
+This is the public build-envelope vocabulary: the initial semantic resolver
+outcomes remain owned by DR-0012, while this build boundary adds the derived-
+output `output-failure` outcome.
+Geometry, output encoding, staging, and publication failures map to
+`output-failure` unless source-caused semantic invalidity, worker resource
+failure, internal trust loss, or another higher/earlier outcome already
+determines the result.
+
+A build/operation identity always exists, including failure. Artifact
+identities exist only for successfully published artifacts or bundles. A
+compile or geometry failure may publish a diagnostics-only failure bundle when
+publication succeeds. If publication itself fails, the authoritative envelope
+is returned through the CLI/API and no final bundle exists; the operation cannot
+promise to publish its own failure bundle. Cleanup removes only invocation-owned
+staging. On the supported filesystem, publication is atomic and no-replace; if
+the required primitive is unavailable, the operation fails closed as
+`output-failure` without adopting or replacing an existing target. Exact
+primitive/platform mapping remains activation/specification detail.
+
+Domain operations remain separate in general, but the first public `build` path
+uses one envelope across semantic resolution, geometry, and publication.
+Artifact inspection remains a separate read operation and does not create a
+second build-status channel.
+
+Two future activation obligations remain nonblocking: before an isolated worker
+activates, define containment, process-tree, output/log/handle/network/protocol/
+cleanup/status bounds appropriate to its threat model; before evidence-bearing
+portability or performance claims, freeze the lightweight exact build/reference
+environment and dependency source/feature inputs, with native smoke preceding
+native portability claims.
+
 ### First reproducible execution target
 
 Use ordinary `rust-toolchain.toml` for exact toolchain selection and commit
@@ -148,7 +207,7 @@ prejudge a later geometry worker/backend.
 - The first production semantic/compiler path has one reproducible stable-Rust
   implementation and a Cargo workspace once DR-0013 is accepted, while the
   semantic boundary remains engine-independent; exact schema and admitted
-  fixtures still gate Stage 1 parser/resolver work.
+  fixtures still gate Readiness 2 parser/resolver work.
 - A library plus thin CLI supports headless use and keeps visual tooling from
   becoming a compiler dependency; no daemon or service lifecycle is required
   for the first implementation.
@@ -176,6 +235,22 @@ prejudge a later geometry worker/backend.
   time/resource limits, map crash/timeout/resource outcomes, validate outputs,
   and preserve compiler-process survival; its detailed serialization remains
   deferred.
+- Readiness 1 through Readiness 4 make activation auditable: acceptance creates
+  only the empty shell; exact schema plus an admitted fixture manifest
+  activates fixture creation and parser/bootstrap together; canonical
+  frame/numeric rules plus expected graph outputs activate resolver/snapshot
+  publication; and a working resolver plus provisional geometry profile
+  activates exploratory Stage 1 geometry. Parked DR-0009/0010 remain
+  nonblocking.
+- Geometry and publication contribute to one authoritative public build
+  envelope. `output-failure` covers trusted derived-output/publication failure
+  after accepted input/semantic work, subject to internal/resource/earlier
+  precedence. Build identity always exists; artifact identity exists only on
+  successful publication. A diagnostics-only failure bundle is optional when
+  publication succeeds, while publication failure returns the envelope with no
+  final bundle and cannot publish its own failure bundle. Invocation-owned
+  staging is the only cleanup scope, and atomic no-replace publication fails
+  closed when unsupported.
 - The platform is reversible at the geometry boundary and at process/tooling
   boundaries, but a production compiler API and artifact lineage will create
   migration cost; a later change must preserve or explicitly migrate those
@@ -244,7 +319,7 @@ activate when evidence and users justify them.
 
 ## Adversarial Review Response
 
-This is CK-KICK-013 Revision 2, proposed and discussion-approved on 2026-08-11.
+This is CK-KICK-013 Revision 3, proposed and discussion-approved on 2026-08-12.
 The exact Revision 1 Double review examined commit
 `c64b1b98948304d631eecea6a354c9e42c89c510`. The independent [review 01](reviews/DR-0013-rev-01-review-01.md)
 and [review 02](reviews/DR-0013-rev-01-review-02.md) both recommended **Revise**
@@ -254,12 +329,18 @@ on 2026-08-11: DR acceptance is the sole shell-creation trigger; the
 project-owned versioned GeometryRequest/GeometryResult seam is backend-neutral;
 artifact publication and future worker failures are bounded and validated; and
 the Rust/toolchain/dependency baseline and broadened isolation trigger are
-lightweight and reproducible. The current Revision 2 Double review examined
+lightweight and reproducible. Revision 3 records Ben's 2026-08-12 discussion
+approval of five Recommendation 1 resolutions: the four ordered technical
+readiness gates, authoritative build/publication outcome with `output-failure`,
+and the linked status, module/Socket, and transform-contract consequences.
+This discussion approval is not DR acceptance. The prior Revision 2 Double
+review examined
 target commit `88004388f9537a37617ae248bdaad4625e6f3f03` in [review 01](reviews/DR-0013-rev-02-review-01.md)
 and [review 02](reviews/DR-0013-rev-02-review-02.md); both independent passes
-recommend **Revise** at **High** confidence. Review status is Complete, which
-records evidence rather than a clean review or acceptance. The five
-consolidated findings remain pending Ben discussion and owner disposition. This record does not
+recommended **Revise** at **High** confidence. The prior Review Complete state
+records evidence rather than a clean review or acceptance. Those Revision 2
+artifacts are now stale historical evidence after this proposal change; a
+fresh current Double review is required. This record does not
 claim owner acceptance, a production implementation, a permanent geometry
 backend or surface architecture, a final artifact/package format, or a
 performance result. Exact schema, fixture, and later evidence obligations
@@ -268,12 +349,17 @@ historical evidence.
 
 ## Implementation and Proof Obligations
 
-- If this DR is accepted, create the Cargo workspace and empty
-  compiler/library/CLI shell boundary through the applicable repository
-  workflow; no second repository trigger or approval ceremony is required.
-  Actual Stage 1 parser/resolver implementation remains gated by exact schema
-  and admitted fixtures/contracts, and this Proposed record itself creates no
-  packages.
+- If this DR is accepted, create only the Cargo workspace and empty
+  compiler/library/CLI shell boundary; no second repository trigger or approval
+  ceremony is required. Then enforce the readiness gates: exact JSON Schema
+  plus a frozen/admitted fixture manifest activates creation of the
+  manifest-listed fixture files and parser/bootstrap implementation together;
+  canonical basis/units/rotation/scale-shear/numeric representation/tolerances
+  plus frozen expected graph outputs activate semantic resolver and successful
+  snapshot publication; and a working resolver plus provisional geometry
+  profile and project-owned seam activates exploratory Stage 1 geometry.
+  This Proposed record itself creates no packages, fixtures, parser, resolver,
+  or geometry implementation. DR-0009/0010 remain parked and nonblocking.
 - Keep semantic resolution, diagnostics, provenance, and the CLI independent
   of geometry implementation, visual workbench, and host engine.
 - Define the project-owned versioned conceptual `GeometryRequest` and
@@ -288,12 +374,24 @@ historical evidence.
 - Record reproducible build/toolchain, target, seed/configuration, and source
   provenance for every proof run. Do not report performance without a
   reproducible benchmark and hardware profile.
-- Publish complete success or failure bundles from immutable build-scoped
-  sibling staging, write the manifest last, and atomically publish with no
-  replacement. Validate build/artifact identity, relative paths, hashes, and
-  sizes; reject absolute/traversal/symlinked/unlisted outputs and
-  incomplete/mixed/stale bundles. Defer final avatar-package
-  serialization/compatibility and exact manifest field spelling.
+- Make geometry and artifact publication explicit phases/suboperations of one
+  authoritative public `build` operation-result envelope. Normalize backend,
+  worker, geometry, and publisher diagnostics into that envelope; add closed
+  public status `output-failure` for trusted derived-output/publication failure
+  after accepted input/semantic work, subject to internal/resource/earlier
+  precedence. Always create a build/operation identity, but create artifact
+  identities only for successfully published artifacts/bundles. Publish
+  complete success or failure bundles from immutable build-scoped sibling
+  staging, write the manifest last, and atomically publish with no replacement.
+  Validate build/artifact identity, relative paths, hashes, and sizes; reject
+  absolute/traversal/symlinked/unlisted outputs and incomplete/mixed/stale
+  bundles. A compile/geometry failure may publish a diagnostics-only failure
+  bundle if publication succeeds; publication failure returns the envelope
+  through CLI/API with no final bundle and cannot publish its own failure
+  bundle. Clean only invocation-owned staging and fail closed as
+  `output-failure` if atomic no-replace publication is unavailable. Defer final
+  avatar-package serialization/compatibility, exact primitive/platform mapping,
+  and exact manifest field spelling.
 - If reproducible measurements, a required capability, or a justified
   isolation, security, portability, or licensing need identifies a credible
   in-process Rust geometry gap, document it and evaluate an isolated C++

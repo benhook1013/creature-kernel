@@ -6,19 +6,19 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 5
+Revision: 6
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-11
 
 Date decided: —
 
-Discussion approval date: 2026-08-11
+Discussion approval date: 2026-08-12
 
 Supersedes: —
 
@@ -54,20 +54,25 @@ Its three findings motivated the CK-KICK-012 Batch 6 resolutions recorded in
 Revision 4. The exact Revision 4 Double review at commit
 `c64b1b98948304d631eecea6a354c9e42c89c510` then identified F2–F3 for this
 record. Ben approved those finding resolutions in discussion on 2026-08-11;
-Revision 5 now resolves the typed descendant-owned Attachment composition and
+Revision 5 then resolved the typed descendant-owned Attachment composition and
 mating-Socket cardinality consequences, while DR-0002, DR-0008, and DR-0012
-carry linked graph, morphology, and status details. Initial source encoding,
+carried linked graph, morphology, and status details. Revision 6 records Ben's
+2026-08-12 discussion approval of five Recommendation 1 resolutions: the
+total status/completeness rule, normalized module-instance declaration and
+global Socket capacity, Attachment transform admissibility, the four readiness
+gates, and the authoritative build/publication outcome. This discussion
+approval is not DR acceptance. Revision 6 remains Proposed with Owner approval
+Pending and Review status Pending. Initial source encoding,
 phase sequencing, diagnostics, compatibility, and resource limits are owned
 by [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
-This discussion approval is not DR acceptance. Revision 5 remains Proposed
-with Owner approval Pending and Review status Complete. The current-revision
-Double review examined target commit
+The prior Revision 5 Double review examined target commit
 `88004388f9537a37617ae248bdaad4625e6f3f03` in [review 01](reviews/DR-0011-rev-05-review-01.md)
 and [review 02](reviews/DR-0011-rev-05-review-02.md); both independent passes
-recommend **Revise** at **High** confidence. Review Complete records evidence,
-not a clean review or acceptance. The five consolidated findings remain
-pending Ben discussion and owner disposition; the Revision 4 and earlier
-reviews remain stale historical evidence.
+recommended **Revise** at **High** confidence. The prior Review Complete state
+records evidence, not a clean review or acceptance. Those Revision 5 artifacts
+are now stale historical evidence after this proposal change and a fresh
+current Double review is required. The Revision 4 and earlier reviews remain
+stale historical evidence.
 
 ## Decision
 
@@ -92,15 +97,14 @@ distinct typed concepts rather than one generic tag node:
   It maps or connects module composition, but does not imply articulation. The
   mating Socket may be owned by any Part in the attached module-root
   containment subtree. A present attached module root has exactly one active
-  incoming Attachment, an absent optional module has none, and each host Socket
-  and each present mating Socket has an initial capacity of one active
-  Attachment. Repeated endpoint pairs, host Socket reuse, mating Socket reuse
-  by distinct active Attachments (including distinct hosts or nested attached
-  roots), zero incoming Attachments for a present root, multiple incoming
-  Attachments, invalid or detached endpoints, duplicate Attachments, and
-  Attachment cycles are distinct semantic-invalid outcomes. Mating Socket
-  reuse has a distinct deterministic diagnostic concept, separate from host
-  reuse and repeated endpoint pairs.
+  incoming Attachment, an absent optional module has none, and each Socket has
+  total active capacity one across host and mating roles. A Socket used by two
+  active Attachments in any role combination, including one host use plus one
+  mating use, is invalid. Repeated endpoint pairs, host reuse, mating reuse,
+  cross-role reuse, zero incoming Attachments for a present root, multiple
+  incoming Attachments, invalid or detached endpoints, duplicate Attachments,
+  and Attachment cycles are distinct semantic-invalid outcomes or have an
+  explicit deterministic diagnostic mapping.
 - **Region** is a potentially overlapping spatial designation. It never owns
   the parts it designates.
 - **Capability** is a queryable affordance. It is not an implementation,
@@ -112,6 +116,13 @@ distinct typed concepts rather than one generic tag node:
 **Module** is not an embodied graph concept. It is an authored reusable source
 scope whose instantiation emits identity-bearing concepts. A Module therefore
 does not receive an embodied-graph identity in place of the concepts it emits.
+The normalized model separately declares each module instance (module, root
+Part, instance anchor/provenance, presence/optionality, and whether Attachment
+composition is required) without introducing an eighth identity-bearing
+concept. Optional absence is distinct from present-but-unattached state before
+Attachment cardinality checking; a present Attachment-required root with zero
+incoming active Attachments is invalid. Nested module instances require
+distinct Socket instances.
 Landmarks, anchors, dimensions, and frames are typed records or values owned by
 a named identity-bearing concept and addressed through the owner plus role.
 They do not acquire independent embodied-graph identity merely because they
@@ -188,7 +199,13 @@ later-defined tolerance or the document is semantic-invalid. The resolved
 graph materializes canonical owned records and preserves source-reference
 provenance for all frames, containment transforms, offsets, and composition
 steps; it does not choose a bone, solver, limit, rig, or runtime
-representation.
+representation. Every transform entering Attachment composition must be finite,
+non-degenerate, and invertible under the declared transform profile. A
+source-caused violation is semantic `invalid-source` with a deterministic
+diagnostic and preserved provenance; implementation failure on an admissible
+transform is `internal-failure`. Exact representation, allowed scale/shear,
+conditioning threshold, comparison tolerances, and matrix storage remain
+resolver-activation prerequisites or deferred specification details.
 
 The canonical axes and unit, rotation representation, and scale/shear policy
 are later specification and platform work. Their deferral does not defer the
@@ -215,14 +232,18 @@ be retained.
   not supply root reachability or transform inheritance. A descendant-owned
   mating Socket is composed through the module-root containment path, and the
   Attachment result is the root's sole child-local placement; descendants
-  inherit only through containment. A present module root has exactly one
-  incoming Attachment, an absent optional module has none, each host and
-  present mating Socket accepts one, and repeated endpoint pairs, host reuse,
-  mating Socket reuse by distinct active Attachments (including distinct hosts
-  or nested attached roots), zero incoming, and multiple incoming are distinct
-  rejected conditions. Mating Socket reuse has a distinct deterministic
-  diagnostic concept. Competing authored root-local placement compares to the
-  same canonical value and retains provenance.
+  inherit only through containment. The normalized module-instance declaration
+  is owned by DR-0002 and does not add an identity-bearing concept. A present
+  module root has exactly one incoming Attachment, an absent optional module
+  has none, and each Socket has total active capacity one across host and mating
+  roles. Repeated endpoint pairs, host reuse, mating reuse, cross-role reuse,
+  zero incoming, and multiple incoming are distinct rejected conditions or have
+  an explicit deterministic diagnostic mapping. Competing authored root-local
+  placement compares to the same canonical value and retains provenance.
+  Every transform entering composition is finite, non-degenerate, and
+  invertible under the declared profile; source violations are semantic
+  `invalid-source`, while implementation failure on admissible transforms is
+  `internal-failure`.
 - The vocabulary and frame boundary remain engine-independent, but exact
   syntax, canonical numeric conventions, and storage representations require
   later specification and evidence.
@@ -314,8 +335,9 @@ An at-most-one rule would permit a present module root with no incoming
 Attachment, while reusable host Sockets would make placement and endpoint
 identity depend on traversal order. The initial boundary requires exactly one
 incoming Attachment for each present module root, none for an absent optional
-module, one active Attachment per host Socket, and distinct rejection of
-repeated endpoint pairs, host reuse, zero incoming, and multiple incoming
+module, total active capacity one per Socket across host and mating roles, and
+distinct rejection or deterministic mapping of repeated endpoint pairs, host
+reuse, mating reuse, cross-role reuse, zero incoming, and multiple incoming
 cases.
 
 ## Adversarial Review Response
@@ -354,12 +376,21 @@ not a clean review or acceptance. Its independent [review 01](reviews/DR-0011-re
 and [review 02](reviews/DR-0011-rev-04-review-02.md) both recommended **Revise**
 at **High** confidence. The current Revision 5 Double review examined target
 commit `88004388f9537a37617ae248bdaad4625e6f3f03`; [review 01](reviews/DR-0011-rev-05-review-01.md)
-and [review 02](reviews/DR-0011-rev-05-review-02.md) both recommend **Revise**
-at **High** confidence. The five consolidated findings remain evidence pending
-Ben discussion and owner disposition, not fixes or acceptance. Exact serialized field spellings, canonical
-axes/units/rotation/scale/shear, tolerances, diagnostic codes, and fixture
-evidence remain deferred. Owner approval remains Pending and Status remains
-Proposed; Review status is Complete for this current revision. Only Ben may
+and [review 02](reviews/DR-0011-rev-05-review-02.md) both recommended **Revise**
+at **High** confidence. Those ten artifacts and their five findings are now
+stale historical evidence after the Revision 6 proposal change. Their findings
+are dispositioned for the next review as follows: (1) total status/completeness
+is owned by DR-0002/DR-0012 and cross-linked here; (2) module-root observability
+and global cross-role Socket capacity are revised here with graph ownership in
+DR-0002; (3) Attachment transform admissibility and source-versus-
+implementation mapping are revised here and in DR-0002/DR-0008; (4) the four
+technical readiness gates are owned by DR-0013; and (5) authoritative
+build/publication outcome and `output-failure` are owned by DR-0013. The latter
+two are cross-links, not additional DR-0011 decisions. A fresh current Double
+review is required. Exact serialized field spellings, canonical
+axes/units/rotation/scale/shear, conditioning/comparison tolerances,
+diagnostic codes, and fixture evidence remain deferred. Owner approval remains
+Pending and Status remains Proposed; Review status is Pending. Only Ben may
 accept or reject this proposal.
 
 ## Implementation and Proof Obligations
@@ -376,12 +407,15 @@ accept or reject this proposal.
 - Specify explicit Part containment, one root path for every embodied Part,
   containment-owned reference-transform inheritance, separate containment and
   relation cycle checks, Stage 1 immediate-child Joint edges, and Attachment
-  host/child containment agreement. Require exactly one incoming active
+  host/child containment agreement. Use the DR-0002 normalized module-instance
+  declaration for module, root Part, instance anchor/provenance,
+  presence/optionality, and Attachment-required state without making Module an
+  eighth identity-bearing concept. Require exactly one incoming active
   Attachment for each present module root, none for an absent optional module,
-  and one active Attachment per host and present mating Socket; distinguish
-  repeated endpoint pairs, host reuse, mating Socket reuse by distinct active
-  Attachments, zero incoming, and multiple incoming cases. Give mating Socket
-  reuse a distinct deterministic diagnostic concept.
+  and total active Socket capacity one across host and mating roles; distinguish
+  repeated endpoint pairs, host reuse, mating reuse, cross-role reuse, zero
+  incoming, and multiple incoming cases with deterministic diagnostics or
+  explicit mapping. Nested module instances require distinct Socket instances.
 - Test Attachment placement with `T_A←B` and the conceptual equation
   `T_H←R = T_H←S_h · O_(S_h←S_m) · (T_R←M · T_M←S_m)^−1`, where O maps
   mating-Socket coordinates into host-Socket coordinates. Prove that the
@@ -389,9 +423,15 @@ accept or reject this proposal.
   inherit only via containment, and competing authored root-local placement
   compares with the same canonical value. Preserve provenance for every input
   and composition; reject same-degree-of-freedom disagreement within the
-  later-defined tolerance, duplicate/detached/invalid endpoints, mating Socket
-  reuse, and Attachment cycles. Matrix layout and serialized representation
-  remain deferred.
+  later-defined tolerance, duplicate/detached/invalid endpoints, mating and
+  cross-role Socket reuse, and Attachment cycles. Every incoming transform must
+  be finite, non-degenerate, and invertible under the declared profile; source
+  violations map to semantic `invalid-source` with deterministic
+  diagnostic/provenance, while implementation failure on an admissible
+  transform maps to `internal-failure`. Exact representation, scale/shear,
+  conditioning, comparison tolerance, matrix layout, and serialized
+  representation remain resolver-activation prerequisites or deferred
+  specification details.
 - Create fixtures that distinguish Part, Joint, Socket, Attachment, Region,
   Capability, and Field, including overlapping regions and an attachment that
   is not a joint.

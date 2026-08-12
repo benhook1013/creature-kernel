@@ -11,13 +11,11 @@ any product, specification, or architecture proposal.
 States: `active`, `planned`, `triggered`, `deferred`, `not-applicable`, `retired`.
 
 CK-KICK-012 and CK-KICK-013 remain active Proposed work after discussion-
-approved F1–F7 revisions. DR-0002/0008/0011/0012 are at Revisions 9/9/5/4 and
-DR-0013 is at Revision 2; all five remain Proposed with Owner approval Pending
-and current Review Complete. Both independent passes recommend Revise at High
-confidence; five findings remain pending Ben discussion and owner disposition.
-The prior `c64b1b...` Double review is stale historical evidence. CK-KICK-014
-remains provisional/queued and does not activate implementation packages or
-compiler fixtures.
+approved F1–F7 and Batch 8 resolutions. DR-0002/0008/0011/0012 are at
+Revisions 10/10/6/5 and DR-0013 is at Revision 3; all five remain Proposed with
+Owner approval Pending and fresh Double review pending. Earlier review evidence
+is stale after these revisions. CK-KICK-014 remains provisional/queued and does
+not activate implementation packages or compiler fixtures.
 
 | Capability | Horizon | State | Activation trigger | Destination | Validation |
 | --- | --- | --- | --- | --- | --- |
@@ -36,9 +34,9 @@ compiler fixtures.
 | Local visual-review gallery | Now | active | First need for human appraisal of generated CK-KICK-010 output | `dev-tools/visual-review/` | Focused tests + local HTTP/browser smoke |
 | Body-document specification | Next | active | First body parser proposal exists in the CK-KICK-012 Batch 4 Proposed contract | `spec/body-document/` | Schema-level contract fixtures when activated |
 | Semantic body-graph spec | Next | active | First resolver proposal exists in the CK-KICK-012 Batch 4 Proposed contract | `spec/body-graph/` | Graph and cross-DR contract fixtures when activated |
-| Implementation packages | Next | planned | DR-0013 accepted (the sole Cargo shell activation trigger); exact schema and admitted fixtures/contracts separately gate Stage 1 parser/resolver implementation | Planned Cargo workspace (`Cargo.toml`, `crates/`) | Cargo format/check/test/lint validation when activated |
-| Generation fixtures | Next | planned | First compiler-consumed body document | `fixtures/body-documents/` | Deterministic output checks |
-| Geometry exploration | Next | active | Bounded exploratory executable walking skeleton implemented and evidence recorded; continued work remains disposable and review-bounded | `experiments/ck-kick-010-walking-skeleton/` (durable implementation/evidence record) | Reproducible observations and diagnostics; generated bundles remain ephemeral/unretained, and this activation does not imply production architecture or durable artifact retention |
+| Implementation packages | Next | planned | Stage 1: DR-0013 accepted, activating only the empty Cargo shell; Stage 2: exact JSON Schema plus frozen/admitted fixture manifest jointly activate parser/bootstrap and listed fixtures; Stage 3: canonical numeric/frame rules plus frozen expected graph outputs activate semantic resolver/snapshot publication; Stage 4: working resolver plus provisional geometry profile and project-owned seam activate exploratory Stage 1 geometry | Planned Cargo workspace (`Cargo.toml`, `crates/`) | Stage-specific shell, parser/bootstrap, resolver/snapshot, and exploratory-proof evidence |
+| Generation fixtures | Next | planned | Stage 2 manifest admission and parser/bootstrap activation; unlisted fixtures do not activate independently | `fixtures/body-documents/` | Manifest/listed-source agreement and deterministic output checks |
+| Geometry exploration | Next | planned | Stage 4 only: working resolver plus provisional geometry profile and project-owned GeometryRequest/GeometryResult seam; parked DR-0009/0010 remain nonblocking | `experiments/` under an activated proof | Bounded exploratory evidence; generated bundles remain ephemeral/unretained and do not select production geometry |
 | Confirmatory multi-branch surface comparison | Later | deferred | At least two runnable candidate surface implementations and an intended comparative outcome for production architecture, or Ben explicitly reactivates DR-0009/0010 | `experiments/` under an activated protocol | Activated-protocol evidence and review |
 | Runtime benchmarks | Next | planned | First executable runtime | `benchmarks/runtime/` | Reference hardware profiles |
 | Developer setup | Next | planned | Toolchain selected | `DEVELOPER_SETUP.md` | Fresh-environment check |

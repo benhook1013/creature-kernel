@@ -1,14 +1,11 @@
 # Body-document contract
 
-Status: Proposed contract; CK-KICK-012 Batch 6/7 discussion-approved canonical
-update. DR-0002 Revision 9, DR-0008 Revision 9, DR-0011 Revision 5, and DR-0012
-Revision 4 remain Proposed with Owner approval Pending and current Review
-Complete. The current Double review examined target
-`88004388f9537a37617ae248bdaad4625e6f3f03`; both passes recommend Revise at
-High confidence. Its five findings remain pending Ben discussion and owner
-disposition. The prior `c64b1b...` Double review is stale historical evidence.
-See the [decision registry](../../docs/decisions/registry.md). Review evidence
-is not acceptance or a clean review.
+Status: Proposed contract; CK-KICK-012 Batch 8 discussion-approved canonical
+update. DR-0002 Revision 10, DR-0008 Revision 10, DR-0011 Revision 6, and
+DR-0012 Revision 5 remain Proposed with Owner approval Pending and fresh Double
+review pending. Earlier review evidence is stale after these revisions. See
+the [decision registry](../../docs/decisions/registry.md). No acceptance is
+implied.
 The CK-KICK-012 Batch 5 review at commit `a282dbabffd83afa4e62577086934d00f98e12c7`
 is stale historical evidence. No acceptance is implied.
 
@@ -49,6 +46,14 @@ Normalization may make comparison and resolution deterministic, but it does
 not rewrite authored authority or publish a graph. A rejected or unsupported
 input may expose debug information only when it is explicitly marked
 non-compilable and non-contractual.
+
+The normalized semantic model also declares each module instance without
+adding an eighth identity-bearing graph concept. A declaration records the
+instantiated module, root Part, module-instance anchor/provenance, presence and
+optionality, and whether Attachment composition is required. Optional absence
+is distinct from a present-but-unattached root; a present Attachment-required
+root with no incoming active Attachment is invalid. Nested instances require
+distinct Socket instances and retain containment and source provenance.
 
 ## Initial source encoding
 
@@ -151,16 +156,24 @@ the status. In parse and semantic phases, `invalid-source` outranks
 `unsupported` when both are established; dependency acquisition/read/verify/
 resolve failure maps to `dependency-failure`, while complete dependency content
 uses the ordinary parse/semantic mapping. If no fatal phase occurs and all
-required work completes, the status is `success`. The primary is the first
+required work completes, the status is `success`. All mandatory independent
+checks capable of changing status or primary run unless resource or trust
+interruption prevents them; optional/advisory checks cannot change status or
+primary. In a mixed dependency phase, `dependency-failure` outranks
+`invalid-source`, which outranks `unsupported`. The primary is the first
 diagnostic establishing the final status under the same normative ordering, not
 merely the first encountered or retained.
 
 Processing completeness and diagnostic completeness are independently
 observable conceptual fields (serialized names remain deferred). Processing is
-incomplete when required processing or trusted-result production could not
-finish. Diagnostic completeness is incomplete only when bounded retention
-drops or truncates diagnostics; intentionally blocked later phases do not by
-themselves make diagnostics retained from reached phases incomplete.
+complete when all work applicable to establishing and trusting the selected
+outcome ran; normatively blocked later phases are inapplicable. It is
+incomplete only when acquisition, dependency, resource, environment, or
+internal interruption prevents required outcome processing. Diagnostic
+completeness is complete when all applicable profile-required diagnostics were
+retained. Truncation makes it incomplete, but is not `resource-limit` unless it
+prevented required processing or trusted completion. Optional checks cannot
+change status or primary selection.
 
 The three Stage 1 semantic fixture outcomes are not this status algebra. They
 apply only after a recognized, admitted input has reached semantic evaluation:

@@ -1,7 +1,7 @@
 # Normative specifications
 
 Status: Active authority boundary; the proposed body-document and body-graph
-contracts include discussion-approved CK-KICK-012 F1–F3 revisions, but no
+contracts include discussion-approved CK-KICK-012 Batch 8 revisions, but no
 format is accepted
 
 This directory will own machine-facing semantics and serialized contracts. It is
@@ -13,15 +13,12 @@ The current semantic proposal set is represented by [DR-0002](../docs/decisions/
 [DR-0008](../docs/decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
 and [DR-0011](../docs/decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
 Their prior revisions and reviews remain preserved as historical evidence.
-DR-0002 Revision 9, DR-0008 Revision 9, DR-0011 Revision 5, and DR-0012
-Revision 4 contain the discussion-approved F1–F3 resolutions and remain
-Proposed with Owner approval Pending and current Review Complete. The current
-Double review examined target `88004388f9537a37617ae248bdaad4625e6f3f03`;
-both passes recommend Revise at High confidence. Its five findings remain
-pending Ben discussion and owner disposition. The prior `c64b1b...` Double
-review is stale historical evidence. DR-0006 remains Proposed with its current revision's
-review evidence. The cross-cutting proposal is [DR-0012: initial body-document
-encoding, resolution, and compatibility](../docs/decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
+DR-0002 Revision 10, DR-0008 Revision 10, DR-0011 Revision 6, and DR-0012
+Revision 5 contain the discussion-approved Batch 8 resolutions and remain
+Proposed with Owner approval Pending and fresh Double review pending. Earlier
+review evidence is stale after these revisions. DR-0006 remains Proposed with
+its current revision's review evidence. The cross-cutting proposal is
+[DR-0012: initial body-document encoding, resolution, and compatibility](../docs/decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
 
 ## Proposed specification families
 
@@ -55,6 +52,9 @@ accounting remain unselected.
   non-compilable, non-contractual debug data. The proposed source/resolved
   split is detailed in the [body-document](body-document/README.md) and
   [body-graph](body-graph/README.md) contracts.
+  The first public build operation extends this envelope with the trusted
+  derived-output/publication status `output-failure`; geometry and publication
+  do not create competing status channels.
 - Durable semantic identities through structured addresses (source namespace,
   authored module-instance anchors, concept kind, and role-local key), and
   separate artifact/build identity and provenance. Each source namespace has
@@ -69,14 +69,21 @@ accounting remain unselected.
   reusable scope; landmark, anchor, dimension, and frame are typed owner+role
   records. Joint has one proximal and one distal Part; Socket is Part-owned;
   Attachment connects one host and one mating Socket without implying
-  articulation. Every embodied Part has exactly one explicit containment path
+  articulation. The normalized model declares module/root/anchor-provenance,
+  presence/optionality, and Attachment requirement without adding an eighth
+  graph concept; absent and present-but-unattached are distinct. Every Socket
+  has total active capacity one across host and mating roles, so cross-role
+  reuse is invalid. Every embodied Part has exactly one explicit containment path
   to the root, including an optional module root; containment supplies
   transform inheritance and is checked independently from relation cycles.
   Stage 1 required Joints connect containment parents to immediate children.
   Attachment placement uses the typed host/mating transform equation in the
-  body-graph contract; each host and present mating Socket has one active-use
-  capacity, and competing authored placement must agree within a later-defined
-  tolerance. The pelvis Part owns the root-reference frame. The axial chain
+  body-graph contract; every transform entering composition is finite,
+  non-degenerate, and invertible under the declared profile. A source violation
+  is invalid-source and an implementation failure on an admissible transform
+  is internal-failure; exact representation/conditioning/tolerance remain
+  deferred to resolver activation. Competing authored placement must agree
+  within a later-defined tolerance. The pelvis Part owns the root-reference frame. The axial chain
   is pelvis → spine Joint → torso/chest Part → neck-base Joint → neck Part →
   head-base Joint → head Part. Arm and leg chains use the required typed Joints
   and Parts and end in terminal paw-base landmark/Socket roles. Ear/tail modules

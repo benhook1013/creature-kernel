@@ -30,11 +30,14 @@ creature-kernel/
 ```
 
 Implementation directories and the Cargo workspace are intentionally absent
-until DR-0013 is accepted. Acceptance of DR-0013 alone activates the empty
-Cargo workspace and compiler/library/CLI shell boundary; exact schema and
-admitted fixtures/contracts separately gate actual Stage 1 parser/resolver
-implementation. While DR-0013 remains Proposed, no implementation packages or
-compiler-consumed fixtures are activated.
+until DR-0013 is accepted. The four readiness stages are: acceptance activates
+only the empty Cargo workspace/compiler/library/CLI shell; exact JSON Schema
+plus a frozen/admitted fixture manifest activate parser/bootstrap and listed
+fixtures together; canonical numeric/frame rules plus frozen expected graph
+outputs activate semantic resolver/snapshot publication; and a working
+resolver plus provisional geometry profile and project-owned seam activate
+exploratory Stage 1 geometry. While DR-0013 remains Proposed, no
+implementation packages or compiler-consumed fixtures are activated.
 
 ## Activation rule
 

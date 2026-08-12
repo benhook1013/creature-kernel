@@ -1,14 +1,11 @@
 # Resolved body-graph contract
 
-Status: Proposed contract; CK-KICK-012 Batch 6/7 discussion-approved canonical
-update. DR-0002 Revision 9, DR-0008 Revision 9, DR-0011 Revision 5, and DR-0012
-Revision 4 remain Proposed with Owner approval Pending and current Review
-Complete. The current Double review examined target
-`88004388f9537a37617ae248bdaad4625e6f3f03`; both passes recommend Revise at
-High confidence. Its five findings remain pending Ben discussion and owner
-disposition. The prior `c64b1b...` Double review is stale historical evidence.
-See the [decision registry](../../docs/decisions/registry.md). Review evidence
-is not acceptance or a clean review.
+Status: Proposed contract; CK-KICK-012 Batch 8 discussion-approved canonical
+update. DR-0002 Revision 10, DR-0008 Revision 10, DR-0011 Revision 6, and
+DR-0012 Revision 5 remain Proposed with Owner approval Pending and fresh Double
+review pending. Earlier review evidence is stale after these revisions. See
+the [decision registry](../../docs/decisions/registry.md). No acceptance is
+implied.
 The CK-KICK-012 Batch 5 review at commit `a282dbabffd83afa4e62577086934d00f98e12c7`
 is stale historical evidence. No acceptance is implied.
 
@@ -77,6 +74,14 @@ resolved reference placement is derived from its declared containment parent
 and child-local placement. Relation endpoints may refer to Parts, but relation
 reachability never substitutes for containment reachability.
 
+The normalized model declares module instances separately from this tree; it
+does not add a new identity-bearing graph concept. Each declaration records the
+module, root Part, module-instance anchor/provenance, presence and optionality,
+and whether Attachment composition is required. Optional absence and a present
+but unattached root are distinct states. A present Attachment-required root
+with zero incoming active Attachments is invalid. Nested module instances use
+distinct Socket instances and preserve their containment/source provenance.
+
 Containment cycles are checked as a structural graph and are invalid. Typed
 relation cycles are checked separately, using the rule for each relation
 family; a relation-cycle diagnostic neither repairs nor replaces a containment
@@ -131,7 +136,8 @@ containment; Attachment is not a parallel transform-inheritance path.
 
 The initial cardinality rules are explicit. A present attached root has exactly
 one incoming active Attachment, while an absent optional module has none. Each
-host Socket and each present mating Socket has capacity one active Attachment.
+Socket has total active capacity one across host and mating roles, so cross-role
+reuse is invalid as well as same-role reuse.
 Repeated endpoint-pair use, host Socket reuse, mating Socket reuse by distinct
 active Attachments (including distinct hosts or nested attached roots), zero
 incoming Attachments for a present attached root, and multiple incoming
@@ -152,8 +158,13 @@ host-local equation is:
 `T_H←R = T_H←S_h · O_(S_h←S_m) · (T_R←M · T_M←S_m)^−1`
 
 Composition uses the stated coordinate bases and order, with the rightmost
-transform applied first. Matrix layout, serialization, and tolerances remain
-deferred. An optional authored Attachment offset, if admitted, is part of the
+transform applied first. Every transform entering this composition must be
+finite, non-degenerate, and invertible under the declared transform profile.
+A source-caused violation is `invalid-source`; an implementation failure on an
+admissible transform is `internal-failure`. Matrix layout, serialization,
+conditioning threshold, exact representation, scale/shear policy, and
+tolerances remain deferred to resolver activation. An optional authored
+Attachment offset, if admitted, is part of the
 host/mating alignment transform `O` in that typed basis. Descendant placement is
 subsequently inherited only by the ordinary containment path. If an
 independently authored root-local placement controls the same degrees of

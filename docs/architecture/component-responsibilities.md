@@ -6,18 +6,12 @@ These are conceptual boundaries, not approved packages or technologies. Code
 directories should be created only after the relevant boundary is accepted and
 its activation trigger is met.
 
-The CK-KICK-012 Batch 6/7 resolutions are discussion-approved and represented
-as Proposed responsibility consequences. DR-0002 Revision 9, DR-0008 Revision
-9, DR-0011 Revision 5, and DR-0012 Revision 4 are Proposed with Owner approval
-Pending and current Review Complete. The current Double review examined target
-`88004388f9537a37617ae248bdaad4625e6f3f03`; both passes recommend Revise at
-High confidence, with five findings pending Ben discussion and owner
-disposition. The prior `c64b1b...` Double review is stale historical evidence.
-Proposed
-DR-0013 Revision 2 likewise records the discussion-approved Rust-first platform
-direction with Owner approval Pending and current Review Complete; both passes
-recommend Revise at High confidence, with findings pending Ben discussion and
-owner disposition. Its prior Double review is stale. No
+The CK-KICK-012 Batch 6/7/8 resolutions are discussion-approved and represented
+as Proposed responsibility consequences. DR-0002 Revision 10, DR-0008 Revision
+10, DR-0011 Revision 6, and DR-0012 Revision 5, together with Proposed DR-0013
+Revision 3, remain Proposed with Owner approval Pending and Review Pending. The
+prior exact review at `88004388f9537a37617ae248bdaad4625e6f3f03` is stale
+historical evidence; fresh Double review is pending. No
 acceptance or implementation package is implied.
 
 | Component | Responsibilities | Explicit non-responsibilities |
@@ -25,7 +19,7 @@ acceptance or implementation package is implied.
 | Authoritative semantic source set | Admit the initial strict UTF-8 JSON source through the bootstrap and resource rules in the [body-document contract](../../spec/body-document/README.md), preserve authored intent, track exact revisions of outcome-affecting authored dependencies, classify extensions, report one result envelope, and provide the sole authored authority | Generate meshes or run gameplay, or treat an external mesh as semantic truth |
 | Semantic body resolver | Execute the canonical admission, bootstrap, dependency, explicit-containment/typed-relation, normalization, invariant, and publication boundaries inside one result envelope; only complete valid-supported input yields an optional compilable inspectable graph snapshot with canonical Joint/Socket frame records and provenance | Host-engine objects, become an authored source, or make derived artifacts authoritative; rejected partial graphs are non-compilable, debug-only, and non-contractual |
 | Proposed Rust compiler core | Own the engine-independent production semantic/compiler library boundary, versioned project-owned GeometryRequest/GeometryResult concepts, and coordinate replaceable geometry evaluation; Stage 1's in-process CPU dense-field evaluator/extractor is the proposed first path | Leak backend-native types, lock a permanent geometry library/surface, claim DR-0009/0010 evidence, require a daemon/service, or make Rust a forever-only backend promise; acceptance of DR-0013 alone activates only the empty shell, while exact schema/admitted fixtures gate parser/resolver work |
-| Proposed thin CLI and artifact boundary | Expose the compiler library through a thin headless CLI; publish complete success/failure bundles from immutable build-scoped sibling staging, manifest last, atomic no-replace, and validate build/artifact identity, relative paths, hashes, and sizes for independent filesystem consumers | Become a visual workbench, settle final avatar-package serialization/compatibility, publish symlinked/unlisted/incomplete/mixed/stale bundles, or require a service transport |
+| Proposed thin CLI and artifact boundary | Expose the compiler library through a thin headless CLI; carry geometry and publication through one authoritative build envelope; publish complete success/failure bundles from immutable build-scoped sibling staging, manifest last, atomic no-replace, and validate build/artifact identity, relative paths, hashes, and sizes for independent filesystem consumers. Normalize trusted derived-output/publication failures as `output-failure`; retain build identity on every result and artifact identity only after successful publication. | Become a visual workbench, settle final avatar-package serialization/compatibility, publish symlinked/unlisted/incomplete/mixed/stale bundles, replace an existing target, or require a service transport |
 | Independent visual workbench | Consume compiler artifacts and manifests from the filesystem for visual inspection, evidence/render tooling, and disposable workflows | Become a production compiler dependency or silently redefine semantic/artifact contracts |
 | Geometry field system | Evaluate part volumes, composition, semantic fields | Choose runtime animation |
 | Surface compiler | Extract, repair, remesh, simplify, and attribute visible surfaces | Define semantic truth |
@@ -64,7 +58,13 @@ The graph handoff exposes directed Joints with canonical proximal/distal frame
 records in the corresponding Part-local bases and Part-owned Sockets with
 interface-frame records. A mating Socket may be descendant-owned; its frame is
 composed through the module-root containment path before Attachment alignment,
-which yields the attached root's sole child-local containment placement.
+which yields the attached root's sole child-local containment placement. Each
+Socket has total active capacity one across host and mating roles, so cross-role
+reuse is invalid. Every transform entering Attachment composition is finite,
+non-degenerate, and invertible under the declared profile; a source violation
+is `invalid-source`, while an implementation failure on an admissible transform
+is `internal-failure`. Exact conditioning and tolerance remain deferred to
+resolver activation.
 Descendants inherit only through containment, and repeated endpoint pairs,
 host Socket reuse, mating Socket reuse by distinct active Attachments (including
 distinct hosts or nested attached roots), zero incoming for a present root, and
@@ -76,14 +76,16 @@ equation in the graph contract without freezing matrix layout or serialization.
 Resolver implementation follows the body-document contract's closed statuses,
 precedence, deterministic diagnostic key, phase blocking, and bounded
 streaming/token-aware resource guards. Complete acquisition is required before
-invalid-source; trust loss precedes resource-limit, which applies only when a
-configured breach prevents required processing or trusted completion, then the
-earliest phase unable to produce its required output. Invalid-source outranks
-unsupported in parse/semantic phases, while dependency acquisition/read/
-verify/resolve failures map to dependency-failure. Processing and diagnostic
-completeness are independent; ordinary truncation alone is not resource-limit,
-and blocked later phases do not make retained reached-phase diagnostics
-incomplete. Required unresolved or ambiguous values cannot succeed; exact
+invalid-source; internal trust loss precedes a qualifying resource-limit, then
+the earliest applicable phase unable to produce its required output. In a
+mixed dependency phase, dependency-failure precedes invalid-source and then
+unsupported; parse/semantic invalid-source precedes unsupported. All mandatory
+independent checks capable of changing status or primary run unless resource
+or trust interruption prevents them. Processing is complete when all work
+applicable to establishing/trusting the selected outcome ran; blocked phases
+are inapplicable. Diagnostic completeness concerns retention of all applicable
+profile-required diagnostics; ordinary truncation alone is not resource-limit,
+and optional checks cannot change status or primary. Required unresolved or ambiguous values cannot succeed; exact
 serialized names, profile values, and implementation technology remain outside
 this responsibility map.
 
