@@ -1,14 +1,15 @@
 # Body-document contract
 
-Status: Proposed conceptual contract; CK-KICK-012 Batch 10 discussion-approved
+Status: Proposed conceptual contract; CK-KICK-012 Batch 11 discussion-approved
 canonical update. DR-0002 Revision 11 and DR-0008 Revision 11 remain Proposed
-with Owner approval Pending and Review Complete. DR-0006 Revision 7, DR-0011
-Revision 9, DR-0012 Revision 8, and DR-0013 Revision 6 remain Proposed with
-Owner approval Pending and Review Pending. The Batch 9 Double review targeted
-commit `6cf17270fda2827756c24a8d0fb301bef358f98f` and is stale for the revised
-records. Review evidence is not acceptance; no implementation or readiness gate
-activates. See the [current review state](../../docs/project/status.md#current-review-and-future-activation-obligations)
-for the mixed review state. See the [decision registry](../../docs/decisions/registry.md).
+with Owner approval Pending and Review Complete. DR-0006 Revision 8, DR-0011
+Revision 10, DR-0012 Revision 9, and DR-0013 Revision 7 remain Proposed with
+Owner approval Pending and Review Complete; unresolved findings remain. The
+Batch 11 Double review targeted
+commit `053dba58fd344ed636420e0974cf617862fe265f`; both independent passes
+recommend Revise at High confidence. It is evidence only, not acceptance; no
+implementation or readiness gate activates. See the [current review state](../../docs/project/status.md#current-review-and-future-activation-obligations)
+for the current findings. See the [decision registry](../../docs/decisions/registry.md).
 No acceptance is implied.
 The CK-KICK-012 Batch 5 review at commit `a282dbabffd83afa4e62577086934d00f98e12c7`
 is stale historical evidence. No acceptance is implied.

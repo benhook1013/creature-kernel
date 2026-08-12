@@ -44,10 +44,11 @@ discussion-approved and incorporated here as Proposed product outcomes only.
 DR-0002 Revision 11 and DR-0008 Revision 11 remain Proposed with Owner
 approval Pending and Review Complete; DR-0006 Revision 8, DR-0011 Revision 10,
 DR-0012 Revision 9, and DR-0013 Revision 7 remain Proposed with Owner approval
-Pending and Review Pending. The Batch 9 review targeted commit
-`6cf17270fda2827756c24a8d0fb301bef358f98f` and is stale for the revised
-records. Review evidence is not acceptance; no implementation or readiness
-gate activates.
+Pending and Review Complete after Batch 11; actionable findings remain
+unresolved. The Batch 11 review targeted commit
+`053dba58fd344ed636420e0974cf617862fe265f`; both independent passes recommend
+Revise at High confidence. Review evidence is not acceptance; no implementation
+or readiness gate activates.
 Recommendations and the next discussion are summarized in the [current review
 state](../project/status.md#current-review-and-future-activation-obligations).
 The cross-cutting proposal is [DR-0012:

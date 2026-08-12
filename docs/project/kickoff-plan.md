@@ -599,9 +599,11 @@ State: active (Batches 1, 4, 5, 6, F1–F3, Batch 8, Batch 9, Batch 10, and Batc
 documentation; DR-0002/0008 Revision 11 remain Proposed with Owner approval
 Pending and Review Complete, while DR-0006 Revision 8, DR-0011 Revision 10,
 DR-0012 Revision 9, and DR-0013 Revision 7 remain Proposed with Owner approval
-Pending and Review Pending after the Batch 11 resolutions. The prior Batch 10
-Double-review evidence is stale history; fresh current-revision review is
-pending. The completed Batch 9 Double
+Pending and Review Complete after the Batch 11 resolutions; actionable findings
+remain unresolved. The prior Batch 10 Double-review evidence is stale history;
+the fresh Batch 11 current-revision Double review targeted
+`053dba58fd344ed636420e0974cf617862fe265f`, and both independent passes
+recommend Revise at High confidence. The completed Batch 9 Double
 review targeted `6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is
 stale for the revised records and is not acceptance. No implementation or
 readiness gate activates. See the
@@ -686,9 +688,9 @@ are stale historical evidence. The current six-record set is DR-0002 Revision
 11, DR-0006 Revision 8, DR-0008 Revision 11, DR-0011 Revision 10, DR-0012
 Revision 9, and DR-0013 Revision 7; DR-0002/0008 retain Review Complete and
 the four revised records remain Proposed with Owner approval Pending and Review
-Pending. Ben approved the Batch 11 resolution directions; the prior Batch 10
-Double-review evidence is stale history and fresh current-revision review is
-pending. The
+Complete with unresolved findings. Ben approved the Batch 11 resolution
+directions; the prior Batch 10 Double-review evidence is stale history and the
+fresh current-revision review is complete evidence. The
 completed Batch 9 Double review targeted
 `6cf17270fda2827756c24a8d0fb301bef358f`; historical evidence is stale for the
 revised records and is not acceptance. See
@@ -703,10 +705,10 @@ The cross-cutting proposal is
 compatibility](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
 CK-KICK-012 remains active; Batch 11 is discussion-approved Proposed material.
 The completed Batch 9 Double review is evidence only; its five actionable
-findings were resolved by Batch 10 discussion. The prior Batch 10 Double
-review remains preserved as stale evidence; fresh current-revision review is
-pending for Batch 11, so this proposal does not imply acceptance or activate an
-implementation/readiness gate.
+findings were resolved by Batch 10 discussion. The prior Batch 10 Double review
+remains preserved as stale evidence. The fresh Batch 11 current-revision Double
+review is complete evidence with unresolved findings, so this proposal does not
+imply acceptance or activate an implementation/readiness gate.
 
 ### Batch 4 — encoding, resolution, and compatibility (discussion-approved)
 
@@ -1091,9 +1093,10 @@ evidence only.
 ### CK-KICK-013: Select the first implementation platform
 
 State: active (discussion-approved Proposed platform direction integrated;
-Proposed DR-0013 Revision 7 has Owner approval Pending and Review Pending after
-the Batch 11 resolution. The prior Batch 10 Double-review evidence is stale
-history; fresh current-revision review is pending. The
+Proposed DR-0013 Revision 7 has Owner approval Pending and Review Complete after
+the Batch 11 resolution, with unresolved findings. The prior Batch 10
+Double-review evidence is stale history; fresh current-revision review is
+complete evidence. The
 completed Batch 9 Double review targeted
 `6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is stale for the
 revised record and is not acceptance; not accepted or implemented)
@@ -1151,9 +1154,9 @@ The prior exact-revision Double review remains stale historical evidence after
 the Batch 9 revisions; its seven consolidated findings are preserved as
 historical evidence resolved by discussion. The completed Batch 9 Double review
 is evidence only; its five actionable findings were resolved by Batch 10
-discussion. The prior Batch 10 review remains preserved as stale evidence, and
-fresh current-revision review for Batch 11 is pending; no implementation
-activates while the DR remains Proposed.
+discussion. The prior Batch 10 review remains preserved as stale evidence. The
+fresh Batch 11 current-revision review is complete evidence with unresolved
+findings; no implementation activates while the DR remains Proposed.
 Geometry libraries, licensing, platform support, and any C++ worker/FFI boundary remain
 evidence-driven; they are not settled by this proposal. No implementation
 package or compiler fixture is activated while the DR remains Proposed.

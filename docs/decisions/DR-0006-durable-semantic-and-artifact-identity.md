@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-08
 
@@ -409,9 +409,15 @@ approval Pending and no activation follows.
 Ben approved the Batch 11 machine-contract resolutions in discussion on
 2026-08-12. This Revision 8 proposal adds the typed semantic-address profile,
 canonical JSON normalization, and domain-separated SHA-256 digest domains.
-The Revision 7 review artifacts are stale historical evidence; a fresh
-current-revision review is pending. Review status is Pending, Owner approval
-remains Pending, and no activation follows.
+The Revision 7 review artifacts are stale historical evidence. The fresh
+current-revision Double review examined exact target commit
+`053dba58fd344ed636420e0974cf617862fe265f`: [Review 01](reviews/DR-0006-rev-08-review-01.md)
+and [Review 02](reviews/DR-0006-rev-08-review-02.md) were independent fresh
+`gpt-5.6-sol` medium passes; both recommend **Revise** at **High** confidence.
+Actionable findings remain for Ben's discussion, including cross-record numeric,
+diagnostic, and Readiness 3 binding issues. Review status is Complete for
+evidence only; Owner approval remains Pending, Status remains Proposed, and no
+acceptance or activation follows.
 
 ## Implementation and Proof Obligations
 

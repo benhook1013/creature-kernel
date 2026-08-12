@@ -60,7 +60,9 @@ reflected in the canonical specifications as Proposed material. DR-0002
 Revision 11 and DR-0008 Revision 11 remain Proposed with Owner approval Pending
 and Review Complete. DR-0006 Revision 8, DR-0011 Revision 10, DR-0012 Revision 9,
 and DR-0013 Revision 7 remain Proposed with Owner approval Pending and Review
-Pending. The completed Batch 9 Double review targeted commit
+Complete; unresolved findings remain. The fresh Batch 11 Double review targeted
+commit `053dba58fd344ed636420e0974cf617862fe265f`; both independent passes
+recommend Revise at High confidence. The completed Batch 9 Double review targeted commit
 `6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is stale for the
 revised records and is not acceptance. No implementation or readiness gate
 activates. See
@@ -97,8 +99,8 @@ reactivates them. Until then, exploratory prototypes may produce observations
 but may not claim formal DR-0009/0010 support or reject.
 
 The CK-KICK-013 platform proposal is also discussion-approved as Proposed
-material, not an accepted implementation decision. Proposed DR-0013 Revision 6
-has Owner approval Pending and Review Pending after Batch 10. The completed
+material, not an accepted implementation decision. Proposed DR-0013 Revision 7
+has Owner approval Pending and Review Complete after Batch 11; unresolved findings remain. The completed
 Batch 9 Double review targeted commit `6cf17270fda2827756c24a8d0fb301bef358f98f`;
 its evidence is stale for the revised record and is not acceptance. No
 implementation or readiness gate activates.

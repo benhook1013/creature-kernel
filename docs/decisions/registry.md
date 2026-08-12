@@ -9,14 +9,14 @@ Status: Operational under Accepted DR-0001 Revision 5
 | [DR-0003](DR-0003-real-time-first-compiled-avatar-boundary.md) | Compiled avatar and bounded real-time execution | Product and architecture | Proposed | 2 | Complete | Ben |
 | [DR-0004](DR-0004-external-automation-through-cli-and-api.md) | Shared deterministic domain operations for external automation | Product and architecture | Proposed | 2 | Complete | Ben |
 | [DR-0005](DR-0005-initial-product-boundary-and-reference-workflow.md) | Initial product boundary and reference workflow | Product and architecture | Proposed | 1 | Complete | Ben |
-| [DR-0006](DR-0006-durable-semantic-and-artifact-identity.md) | Durable semantic and artifact/build identity | Specification and architecture | Proposed | 8 | Pending | Ben |
+| [DR-0006](DR-0006-durable-semantic-and-artifact-identity.md) | Durable semantic and artifact/build identity | Specification and architecture | Proposed | 8 | Complete | Ben |
 | [DR-0007](DR-0007-staged-first-proof-charter.md) | Staged first-proof charter and claim boundaries | Product | Proposed | 2 | Complete | Ben |
 | [DR-0008](DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md) | First digitigrade morphology and Stage 1 embodiment envelope | Product, Specification and architecture | Proposed | 11 | Complete | Ben |
 | [DR-0009](DR-0009-hybrid-surface-generation-experiment-hypothesis.md) | Hybrid surface-generation experiment hypothesis | Architecture | Proposed | 8 | Complete | Ben |
 | [DR-0010](DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md) | Stage 1 surface extraction and semantic-field propagation | Specification and architecture | Proposed | 8 | Pending | Ben |
-| [DR-0011](DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md) | Minimal semantic vocabulary, measurements, and frames | Specification and architecture | Proposed | 10 | Pending | Ben |
-| [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md) | Initial body-document encoding, resolution, and compatibility | Specification and architecture | Proposed | 9 | Pending | Ben |
-| [DR-0013](DR-0013-first-production-implementation-platform-and-geometry-boundary.md) | First production implementation platform and geometry boundary | Specification and architecture | Proposed | 7 | Pending | Ben |
+| [DR-0011](DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md) | Minimal semantic vocabulary, measurements, and frames | Specification and architecture | Proposed | 10 | Complete | Ben |
+| [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md) | Initial body-document encoding, resolution, and compatibility | Specification and architecture | Proposed | 9 | Complete | Ben |
+| [DR-0013](DR-0013-first-production-implementation-platform-and-geometry-boundary.md) | First production implementation platform and geometry boundary | Specification and architecture | Proposed | 7 | Complete | Ben |
 
 DR-0001 Revision 5 is `Accepted` after Ben's approval and its Complete clean
 review; that disposition applies only to this Governance DR. DR-0002 through
@@ -178,9 +178,36 @@ DR-0012 Revision 9, and DR-0013 Revision 7:
   resolver binding, and unchanged scoped-content preflight.
 
 These Batch 11 discussion approvals are not acceptance. The Batch 10 review
-artifacts are stale historical evidence for all four revised records; fresh
-current-revision Double review is required. All four remain Proposed with
-Owner approval Pending, Review Pending, and no readiness activation.
+artifacts are stale historical evidence for all four revised records. The fresh
+Batch 11 current-revision Double review is complete as evidence: all four
+remain Proposed with Owner approval Pending, Review Complete, unresolved
+findings, and no readiness activation. Both independent passes recommend
+Revise at High confidence for each record.
+
+## CK-KICK-012/013 Batch 11 Double review
+
+The fresh current-revision Double review examined exact target commit
+`053dba58fd344ed636420e0974cf617862fe265f`. Review 01 used the semantic
+identity, canonicalization/digest, schema/fixture admission, diagnostics
+compatibility, path-security, interoperability, migration, and reversibility
+lens. Review 02 used the numeric semantics, transforms, comparisons,
+experiment-sufficiency, adapter portability, determinism, performance
+feasibility, and R2/R3 reversibility lens. Both were complete-coverage,
+independent fresh `gpt-5.6-sol` medium passes, made no edits, and recommend
+Revise at High confidence for DR-0006, DR-0011, DR-0012, and DR-0013.
+Review Complete records evidence only: all four remain Proposed with Owner
+approval Pending, unresolved actionable findings, and no acceptance or
+readiness activation. The eight artifacts are linked from the four DR
+responses above.
+
+The substantive findings are preserved in those artifacts without silently
+changing ownership: C1 canonical total ordering/tie handling; C2/N1 exact
+decimal-to-binary64 admission; C3 immutable parser/resolver implementation
+binding for the R2/R3 trigger; C4 compatible diagnostic domains and bootstrap
+negotiation; N2 a non-circular numeric experiment; N3 normative typed
+comparison algorithms and fixtures; N4 adapter conformance obligations; and
+N5 mechanical synchronization of the three canonical-spec headers. These
+findings await Ben's discussion and disposition.
 
 ## CK-KICK-012/013 Batch 10 Double review
 

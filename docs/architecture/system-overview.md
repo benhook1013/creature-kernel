@@ -21,8 +21,8 @@ CK-KICK-012 Batch 6/7/8/9/10/11 resolutions are discussion-approved and represen
 here as Proposed architecture consequences. DR-0002 Revision 11 and DR-0008
 Revision 11 remain Proposed with Owner approval Pending and Review Complete.
 DR-0006 Revision 8, DR-0011 Revision 10, DR-0012 Revision 9, and DR-0013
-Revision 7 remain Proposed with Owner approval Pending and Review Pending. The
-completed Batch 9 Double review targeted commit
+Revision 7 remain Proposed with Owner approval Pending and Review Complete; unresolved findings remain. The
+fresh Batch 11 Double review targeted commit `053dba58fd344ed636420e0974cf617862fe265f`; both independent passes recommend Revise at High confidence. The completed Batch 9 Double review targeted commit
 `6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is stale for the
 revised records and is not acceptance. No implementation or readiness gate
 activates. See the
@@ -104,7 +104,8 @@ Proposed focused profiles.
 
 CK-KICK-013 is a discussion-approved platform proposal, not an accepted
 implementation decision. Proposed DR-0013 Revision 7 has Owner approval Pending
-and Review Pending after Batch 11. Batch 10 review evidence is stale; the completed Batch 9 Double review targeted
+and Review Complete after Batch 11, with unresolved findings. Batch 10 review evidence is stale; the fresh Batch 11 Double review targeted
+commit `053dba58fd344ed636420e0974cf617862fe265f`; both independent passes recommend Revise at High confidence. The completed Batch 9 Double review targeted
 commit `6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is stale for
 the revised record and is not acceptance. No implementation or readiness gate
 activates. See the [current review

@@ -20,7 +20,7 @@ Each fixture must record:
 - tests or experiments that consume it;
 - whether expected outputs are exact, semantic, metric, or visual.
 
-The CK-KICK-012 Batch 10 proposal keeps the corpus conceptual and adds no
+The CK-KICK-012 Batch 11 proposal keeps the corpus conceptual and adds no
 implementation fixtures. Schema-level body-document fixtures will
 exercise strict UTF-8 JSON admission, duplicate-key rejection, unknown core
 members, required and optional extensions, exact contract-family/revision

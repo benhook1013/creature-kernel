@@ -1,8 +1,10 @@
 # Build operation and derived-output contract
 
-Status: Proposed conceptual contract; CK-KICK-012 Batch 10 discussion-approved
-canonical owner. DR-0006 Revision 7 and DR-0013 Revision 6 remain Proposed with
-Owner approval Pending and Review Pending. This document is not an accepted
+Status: Proposed conceptual contract; CK-KICK-012 Batch 11 discussion-approved
+canonical owner. DR-0006 Revision 8 and DR-0013 Revision 7 remain Proposed with
+Owner approval Pending and Review Complete; unresolved findings remain. The
+Batch 11 Double review targeted commit `053dba58fd344ed636420e0974cf617862fe265f`.
+This document is not an accepted
 format and does not activate a build implementation, serializer, fixture
 corpus, or artifact store.
 

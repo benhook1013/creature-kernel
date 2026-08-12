@@ -11,14 +11,16 @@ represented as Proposed responsibility consequences. DR-0002 Revision 11 and
 DR-0008 Revision 11 remain Proposed with Owner approval Pending and Review
 Complete. DR-0006 Revision 8, DR-0011 Revision 10, DR-0012 Revision 9, and
 Proposed DR-0013 Revision 7 remain Proposed with Owner approval Pending and
-Review Pending. The historical Batch 9 review evidence is stale for these
+Review Complete; unresolved findings remain. The fresh Batch 11 Double review
+targeted commit `053dba58fd344ed636420e0974cf617862fe265f`; both independent
+passes recommend Revise at High confidence. The historical Batch 9 review evidence is stale for these
 revised records and is not acceptance. No implementation or readiness gate
 activates. The current six-record set is DR-0002 Revision 11, DR-0006 Revision
 8, DR-0008 Revision 11, DR-0011 Revision 10, DR-0012 Revision 9, and Proposed
 DR-0013 Revision 7. The completed Batch 9 Double review targeted commit
 `6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is stale for the four
 revised records and is not acceptance. The four revised records are Review
-Pending; no implementation or readiness gate activates. See the [current review state](../project/status.md#current-review-and-future-activation-obligations)
+Complete with unresolved findings; no implementation or readiness gate activates. See the [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for review lenses, recommendations, and findings. No package is implied.
 
 | Component | Responsibilities | Explicit non-responsibilities |

@@ -2,7 +2,7 @@
 
 Status: Active Proposed authority boundary; the body-document, body-graph,
 build-operation, and fixture-manifest contracts include discussion-approved
-CK-KICK-012 Batch 10 material, but no format is accepted
+CK-KICK-012 Batch 11 material, but no format is accepted
 
 This directory will own machine-facing semantics and serialized contracts. It is
 separate from architecture so an implementation can change without silently
@@ -14,14 +14,15 @@ The current semantic proposal set is represented by [DR-0002](../docs/decisions/
 and [DR-0011](../docs/decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
 Their prior revisions and reviews remain preserved as historical evidence.
 DR-0002 Revision 11 and DR-0008 Revision 11 remain Proposed with Owner approval
-Pending and Review Complete. DR-0006 Revision 7, DR-0011 Revision 9, DR-0012
-Revision 8, and DR-0013 Revision 6 remain Proposed with Owner approval Pending
-and Review Pending after Batch 10. The Batch 9 review evidence targeted commit
-`6cf17270fda2827756c24a8d0fb301bef358f98f` and is stale for the materially
-revised records; Review Complete is evidence, not acceptance. No
+Pending and Review Complete. DR-0006 Revision 8, DR-0011 Revision 10, DR-0012
+Revision 9, and DR-0013 Revision 7 remain Proposed with Owner approval Pending
+and Review Complete after Batch 11; actionable findings remain unresolved. The
+Batch 11 review targeted commit
+`053dba58fd344ed636420e0974cf617862fe265f`; both independent passes recommend
+Revise at High confidence. Review Complete is evidence, not acceptance. No
 implementation or readiness gate activates. See the [current review
 state](../docs/project/status.md#current-review-and-future-activation-obligations)
-for the mixed review state and findings.
+for the current findings.
 The cross-cutting proposal is
 [DR-0012: initial body-document encoding, resolution, and compatibility](../docs/decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
 
