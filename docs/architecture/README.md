@@ -54,8 +54,8 @@ in [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-f
 CK-KICK-012 Batch 6/7/8/9/10 resolutions are discussion-approved and are
 reflected in the canonical specifications as Proposed material. DR-0002
 Revision 11 and DR-0008 Revision 11 remain Proposed with Owner approval Pending
-and Review Complete. DR-0006 Revision 6, DR-0011 Revision 8, DR-0012 Revision 7,
-and DR-0013 Revision 5 remain Proposed with Owner approval Pending and Review
+and Review Complete. DR-0006 Revision 7, DR-0011 Revision 9, DR-0012 Revision 8,
+and DR-0013 Revision 6 remain Proposed with Owner approval Pending and Review
 Pending. The completed Batch 9 Double review targeted commit
 `6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is stale for the
 revised records and is not acceptance. No implementation or readiness gate
@@ -93,7 +93,7 @@ reactivates them. Until then, exploratory prototypes may produce observations
 but may not claim formal DR-0009/0010 support or reject.
 
 The CK-KICK-013 platform proposal is also discussion-approved as Proposed
-material, not an accepted implementation decision. Proposed DR-0013 Revision 5
+material, not an accepted implementation decision. Proposed DR-0013 Revision 6
 has Owner approval Pending and Review Pending after Batch 10. The completed
 Batch 9 Double review targeted commit `6cf17270fda2827756c24a8d0fb301bef358f98f`;
 its evidence is stale for the revised record and is not acceptance. No
@@ -116,11 +116,13 @@ security, portability, or licensing need exposes a gap, evaluate an isolated
 C++ worker/backend first; in-process C ABI/FFI is considered only if that
 worker is proven insufficient. Python remains for disposable experiments,
 evidence/render tooling, and the visual workbench, not production compiler
-execution. Complete success/failure bundles use one authoritative build
+execution. Complete success outputs use one authoritative build
 envelope across geometry and publication, immutable build-scoped sibling
 staging, manifest-last atomic no-replace publication, and manifest validation
 of build/artifact identity, relative paths, hashes, and sizes; trusted
-derived-output/publication failure is `output-failure`; consumers reject
+derived-output/publication failure is `output-failure`; failed operations
+initially return the authoritative envelope without a persisted failure bundle;
+consumers reject
 symlinked, unlisted, incomplete, mixed-build, and stale bundles. Future workers
 must negotiate protocol/version, obey bounded time/resources, map crash/timeout/
 resource outcomes, validate outputs, and leave the compiler surviving failure.
@@ -135,9 +137,10 @@ process-crash-safe namespace publication without a sudden-power-loss claim, a
 profile-defined unambiguous safe-ASCII candidate path mapping, and a separate
 inspection read operation with closed non-success statuses. Producer/output
 trust is separate from coordinator/reporter/publisher trust; a trusted parent
-may report only its own observed worker failure and cannot adopt output after
-worker trust loss. The [fixture-manifest contract](../../spec/fixture-manifest/README.md)
-owns immutable reviewed-tree/payload binding, append-only admissions, and
+may report only its own observed worker failure in the authoritative envelope
+and cannot adopt output after worker trust loss. The [fixture-manifest
+contract](../../spec/fixture-manifest/README.md) owns the manifest payload and
+separate readiness/decision content-identity binding, successor history, and
 Readiness 2/3 corpus admission.
 
 ## Current maturity

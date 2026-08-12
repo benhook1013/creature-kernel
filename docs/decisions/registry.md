@@ -9,14 +9,14 @@ Status: Operational under Accepted DR-0001 Revision 5
 | [DR-0003](DR-0003-real-time-first-compiled-avatar-boundary.md) | Compiled avatar and bounded real-time execution | Product and architecture | Proposed | 2 | Complete | Ben |
 | [DR-0004](DR-0004-external-automation-through-cli-and-api.md) | Shared deterministic domain operations for external automation | Product and architecture | Proposed | 2 | Complete | Ben |
 | [DR-0005](DR-0005-initial-product-boundary-and-reference-workflow.md) | Initial product boundary and reference workflow | Product and architecture | Proposed | 1 | Complete | Ben |
-| [DR-0006](DR-0006-durable-semantic-and-artifact-identity.md) | Durable semantic and artifact/build identity | Specification and architecture | Proposed | 6 | Complete | Ben |
+| [DR-0006](DR-0006-durable-semantic-and-artifact-identity.md) | Durable semantic and artifact/build identity | Specification and architecture | Proposed | 7 | Pending | Ben |
 | [DR-0007](DR-0007-staged-first-proof-charter.md) | Staged first-proof charter and claim boundaries | Product | Proposed | 2 | Complete | Ben |
 | [DR-0008](DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md) | First digitigrade morphology and Stage 1 embodiment envelope | Product, Specification and architecture | Proposed | 11 | Complete | Ben |
 | [DR-0009](DR-0009-hybrid-surface-generation-experiment-hypothesis.md) | Hybrid surface-generation experiment hypothesis | Architecture | Proposed | 8 | Complete | Ben |
 | [DR-0010](DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md) | Stage 1 surface extraction and semantic-field propagation | Specification and architecture | Proposed | 8 | Pending | Ben |
-| [DR-0011](DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md) | Minimal semantic vocabulary, measurements, and frames | Specification and architecture | Proposed | 8 | Complete | Ben |
-| [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md) | Initial body-document encoding, resolution, and compatibility | Specification and architecture | Proposed | 7 | Complete | Ben |
-| [DR-0013](DR-0013-first-production-implementation-platform-and-geometry-boundary.md) | First production implementation platform and geometry boundary | Specification and architecture | Proposed | 5 | Complete | Ben |
+| [DR-0011](DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md) | Minimal semantic vocabulary, measurements, and frames | Specification and architecture | Proposed | 9 | Pending | Ben |
+| [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md) | Initial body-document encoding, resolution, and compatibility | Specification and architecture | Proposed | 8 | Pending | Ben |
+| [DR-0013](DR-0013-first-production-implementation-platform-and-geometry-boundary.md) | First production implementation platform and geometry boundary | Specification and architecture | Proposed | 6 | Pending | Ben |
 
 DR-0001 Revision 5 is `Accepted` after Ben's approval and its Complete clean
 review; that disposition applies only to this Governance DR. DR-0002 through
@@ -117,31 +117,36 @@ dependency-revision semantics, and fixture evidence remain later obligations.
 CK-KICK-012 remains active.
 
 Ben's Batch 10 resolutions, approved in discussion on 2026-08-12, are recorded
-in DR-0006 Revision 6, DR-0011 Revision 8, DR-0012 Revision 7, and DR-0013
-Revision 5:
+in DR-0006 Revision 7, DR-0011 Revision 9, DR-0012 Revision 8, and DR-0013
+Revision 6:
 
 - DR-0006 owns stable deterministic request identity versus unique attempt
   identity, complete outcome-affecting request inputs, candidate derivation,
   unchanged promotion, post-collision inspection, nondeterministic-output
-  failure, and the required identity fixtures; exact canonical bytes/hashing
-  remain activation prerequisites.
+  failure, and the required identity fixtures. Attempt data is excluded from
+  committed/hashed bytes, and the initial failure path does not commit
+  diagnostics-only bundles; exact canonical bytes/hashing remain activation
+  prerequisites. Its build-proof fixtures use the generic fixture payload
+  manifest and separate readiness/decision admission route.
 - DR-0013 owns the tested WSL `/home` filesystem profile, process-crash-safe
   publication scope, safe-ASCII path mapping, closed artifact-inspection
-  results, worker/report trust separation, immutable Readiness 2 admission and
-  append-only lifecycle, and the lean Readiness 2/3 fixture corpus.
+  results, worker/report trust separation and status mapping, simplified
+  Readiness 2 admission, and the lean Readiness 2/3 fixture corpus. Readiness
+  2 freezes the structural rigid-transform carrier; Readiness 3 admits
+  immutable expected snapshots after numeric rules are frozen.
 - DR-0011 owns source basis/measurement/frame ownership, the closed Stage 1
-  frame roles, semantic numeric-domain profile and Readiness 2/3 split, and
-  `defaulted` provenance consequences.
+  owning-record frame roles, semantic numeric-domain profile and Readiness 2/3
+  split, and `defaulted` provenance consequences.
 - DR-0012 owns the exact conceptual Stage 1 envelope and typed body
   collections, strict/closed core-member rule, source basis/profile encoding,
-  and deterministic omission/default enforcement; exact Proposed fixture-
-  manifest semantics remain with the canonical fixture-manifest
-  specification.
+  transform carrier boundary, and deterministic omission/default enforcement;
+  exact Proposed fixture-manifest semantics remain with the canonical
+  fixture-manifest specification.
 
-These Batch 10 discussion approvals are not acceptance. The four revised
-records remain Proposed with Owner approval Pending. Their fresh current
-Batch 10 Double review is now Complete as evidence, not a clean review or
-acceptance; C1–C5 below await Ben's discussion and owner disposition.
+These Batch 10 discussion approvals are not acceptance. The prior Batch 10
+review artifacts and C1–C5 findings are preserved as stale historical
+evidence. The four current records remain Proposed with Owner approval Pending
+and Review status Pending; a fresh current-revision review is required.
 
 ## CK-KICK-012/013 Batch 10 Double review
 
@@ -194,6 +199,21 @@ One nonblocking proof follow-up is preserved rather than promoted to a sixth
 finding: before filesystem publication activates, reproduce the exact WSL
 `/home` filesystem/mount/kernel/WSL/no-replace primitive/capability probe and
 crash-injection evidence, plus safe orphaned-staging reclamation.
+
+Ben approved the five finding resolutions after this review. C1 is resolved by
+keeping attempt identity out of committed/hashed bytes and by returning the
+initial failure path through the authoritative envelope rather than committing
+diagnostics-only bundles. C2 is resolved by the generic fixture-suite payload
+manifest plus separate readiness/decision record, with post-merge comparison of
+manifest and path-scoped payload identity rather than commit identity. C3 is
+resolved by owning-record frame roles: Part local/reference, Joint
+proximal/distal, Socket intrinsic interface, and Attachment host/mating
+contexts. C4 is resolved by freezing the Readiness 2 rigid-transform carrier
+and using a Readiness 3 manifest successor for immutable expected snapshots.
+C5 is resolved by the conceptual worker status/trust table, with exact fields
+deferred until worker activation. These are Proposed revisions, not acceptance;
+the current-revision review is Pending and the filesystem proof remains a
+nonblocking pre-publication obligation.
 
 ## CK-KICK-012/013 Batch 9 Double review (stale for Batch 10 revisions)
 

@@ -20,8 +20,8 @@ and [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-
 CK-KICK-012 Batch 6/7/8/9/10 resolutions are discussion-approved and represented
 here as Proposed architecture consequences. DR-0002 Revision 11 and DR-0008
 Revision 11 remain Proposed with Owner approval Pending and Review Complete.
-DR-0006 Revision 6, DR-0011 Revision 8, DR-0012 Revision 7, and DR-0013
-Revision 5 remain Proposed with Owner approval Pending and Review Pending. The
+DR-0006 Revision 7, DR-0011 Revision 9, DR-0012 Revision 8, and DR-0013
+Revision 6 remain Proposed with Owner approval Pending and Review Pending. The
 completed Batch 9 Double review targeted commit
 `6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is stale for the
 revised records and is not acceptance. No implementation or readiness gate
@@ -102,7 +102,7 @@ codes, canonical bytes, and hashes remain deferred.
 ### Proposed production platform and artifact/workbench boundary
 
 CK-KICK-013 is a discussion-approved platform proposal, not an accepted
-implementation decision. Proposed DR-0013 Revision 5 has Owner approval Pending
+implementation decision. Proposed DR-0013 Revision 6 has Owner approval Pending
 and Review Pending after Batch 10. The completed Batch 9 Double review targeted
 commit `6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is stale for
 the revised record and is not acceptance. No implementation or readiness gate
@@ -134,10 +134,11 @@ later native-Linux portability smoke. Record `rust-toolchain.toml`,
 dependency's license, unsafe/native code, and portability/security relevance
 without Git pinning or heavyweight audit bureaucracy. The
 [build-operation contract](../../spec/build-operation/README.md) owns the
-public envelope for complete success/failure bundles, candidate-to-committed
+public envelope for complete success outputs, candidate-to-committed
 artifact identity, explicit-output-root target derivation, idempotent
 publication, target conflicts, no-replace failure, and lineage-checked
-inspection. The architecture consumes that Proposed boundary and does not
+inspection. Failed operations initially return the authoritative envelope and
+persist no diagnostics-only failure bundle. The architecture consumes that Proposed boundary and does not
 select final serialization or compatibility.
 The seam does not select a permanent surface/backend or create DR-0009/0010
 evidence. Future workers negotiate protocol/version, obey bounded time/resources, map
@@ -160,8 +161,9 @@ compiler/toolchain, contract/schema/profile, configuration/seed,
 backend-capability/protocol, and target-platform inputs. Attempt identity is
 unique for tracing only; candidate identity derives from the deterministic
 request, artifact role, and identity-rule revision. The [fixture-manifest
-contract](../../spec/fixture-manifest/README.md) owns immutable reviewed-tree /
-payload admission. Inspection is a separate read operation with closed statuses;
+contract](../../spec/fixture-manifest/README.md) owns the manifest payload and
+separate readiness/decision content-identity admission. Inspection is a separate
+read operation with closed statuses;
 producer/output trust is distinct from coordinator/reporter/publisher trust,
 and lost worker trust cannot be rehabilitated by validation.
 
@@ -180,7 +182,7 @@ Part identity from the module-instance anchor and root role. This is not an
 additional embodied graph concept.
 Required Stage 1 Joints connect structural parents to immediate children.
 Attachment composition derives the attached root's sole child-local containment
-placement from the host Socket, optional offset, and the mating Socket frame
+placement from the host Socket, optional typed offset, and the mating Socket frame
 after composing the attached-root-to-Socket-owner containment transform;
 descendants inherit only through containment and the no-implied-Joint rule is
 preserved. Each Socket has total active capacity one across host and mating
@@ -262,8 +264,12 @@ explicitly non-compilable and non-contractual debug information.
 Transforms own reference-frame placement, typed dimensions own size/extents,
 and anchors/landmarks retain authored or derived provenance. Ratios are derived
 only; conflicting constraints diagnose rather than silently choosing a winner.
-The contract distinguishes local/reference, joint, socket/mating, derived
-resolved world/reference, and runtime-pose frames.
+The contract distinguishes Part local/reference, Joint proximal/distal, Socket
+intrinsic interface, Attachment host/mating endpoint context, derived resolved
+world/reference, and runtime-pose frames. Readiness 2 uses a rigid transform
+carrier with exactly three translation components and four explicit `xyzw`
+quaternion components, with no scale/shear fields; Readiness 3 freezes the
+numeric basis, normalization, conditioning, and tolerance semantics.
 
 ### Deterministic core
 

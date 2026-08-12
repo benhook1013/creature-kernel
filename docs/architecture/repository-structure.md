@@ -32,8 +32,10 @@ creature-kernel/
 ```
 
 The fixture-manifest family is an active Proposed authority, but it remains
-conceptual: no manifest schema, admission record, parser, or fixture corpus is
-created here. Implementation directories and the Cargo workspace are intentionally absent
+conceptual: no manifest schema, parser, or fixture corpus is created here. Its
+manifest payload is admitted by a separate readiness/decision record that
+binds reviewed content identities; there is no custom active-pointer ledger.
+Implementation directories and the Cargo workspace are intentionally absent
 until DR-0013 is accepted. The four readiness stages are: acceptance activates
 only the empty Cargo workspace/compiler/library/CLI shell; a versioned,
 preflighted fixture manifest, its listed files, exact JSON Schema, and
@@ -42,7 +44,7 @@ numeric/frame rules plus frozen expected graph outputs activate semantic
 resolver/in-memory snapshot handoff; and a working resolver plus provisional
 geometry profile and project-owned seam activate exploratory Stage 1 geometry.
 While the relevant DRs remain Proposed, no implementation packages, schema,
-admission payload, or compiler-consumed fixtures are activated. Readiness 2
+manifest payload, or compiler-consumed fixtures are activated. Readiness 2
 requires one Ben-approved immutable manifest/fixture/schema/parser transaction;
 unlisted fixtures never activate independently.
 

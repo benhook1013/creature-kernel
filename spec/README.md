@@ -14,8 +14,8 @@ The current semantic proposal set is represented by [DR-0002](../docs/decisions/
 and [DR-0011](../docs/decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
 Their prior revisions and reviews remain preserved as historical evidence.
 DR-0002 Revision 11 and DR-0008 Revision 11 remain Proposed with Owner approval
-Pending and Review Complete. DR-0006 Revision 6, DR-0011 Revision 8, DR-0012
-Revision 7, and DR-0013 Revision 5 remain Proposed with Owner approval Pending
+Pending and Review Complete. DR-0006 Revision 7, DR-0011 Revision 9, DR-0012
+Revision 8, and DR-0013 Revision 6 remain Proposed with Owner approval Pending
 and Review Pending after Batch 10. The Batch 9 review evidence targeted commit
 `6cf17270fda2827756c24a8d0fb301bef358f98f` and is stale for the materially
 revised records; Review Complete is evidence, not acceptance. No
@@ -34,19 +34,19 @@ The cross-cutting proposal is
   serialized field names or provide a machine schema file.
 - [Resolved body-graph contract](body-graph/README.md): typed concepts,
   durable semantic identity, explicit Part containment and transform
-  inheritance, directed joints with canonical local frame records,
-  host/mating Socket Attachment placement, provenance, Stage 1 invariants, and
-  successful in-memory snapshot handoff conditions.
+  inheritance, directed joints with owner-specific frame records,
+  contextual host/mating Socket Attachment placement, provenance, Stage 1
+  invariants, and successful in-memory snapshot handoff conditions.
 - [Fixture-manifest and admission contract](fixture-manifest/README.md): the
-  conceptual immutable binding, preflight, successor/rollback, manifest field
-  groups, and readiness corpus admission boundary. It does not activate a
-  schema, parser, or fixture file.
+  conceptual fixture-suite payload, external readiness/decision binding,
+  preflight, successor/rollback, manifest field groups, and readiness corpus
+  admission boundary. It does not activate a schema, parser, or fixture file.
 - [Build-operation and derived-output contract](build-operation/README.md):
   the Proposed public build envelope, in-memory snapshot handoff boundary,
   candidate-to-committed artifact identity lifecycle, deterministic target and
-  collision rules, publication/inspection expectations, and failure-bundle
-  trust boundary, filesystem profile, and separate artifact inspection. It
-  does not define final serialization.
+  collision rules, publication/inspection expectations, worker trust boundary,
+  filesystem profile, and separate artifact inspection. It does not define
+  final serialization.
 
 These proposed contracts apply a finite implementation profile. Its approved
 resource-limit categories are source and aggregate bytes, string
@@ -99,8 +99,11 @@ accounting remain unselected.
   body-graph contract; every transform entering composition is finite,
   non-degenerate, and invertible under the declared profile. A source violation
   is invalid-source and an implementation failure on an admissible transform
-  is internal-failure; exact representation/conditioning/tolerance remain
-  deferred to resolver activation. Competing authored placement must agree
+  is internal-failure. Readiness 2 fixes the structural rigid-transform carrier
+  as exactly three translation components plus four explicit `xyzw` quaternion
+  components, with no scale or shear fields; exact matrix/layout serialization,
+  canonical numeric semantics, conditioning, and tolerances remain deferred to
+  resolver activation. Competing authored placement must agree
   within a later-defined tolerance. The pelvis Part owns the root-reference frame. The axial chain
   is pelvis → spine Joint → torso/chest Part → neck-base Joint → neck Part →
   head-base Joint → head Part. Arm and leg chains use the required typed Joints
@@ -114,12 +117,16 @@ accounting remain unselected.
   supported input produces a compilable validated snapshot.
 - Declared units, handedness, up, and forward; normalization to a
   contract-revision canonical internal basis with conversion provenance; and
-  distinct local/reference, joint, socket/mating, derived resolved
-  world/reference, and runtime-pose frames. Transforms own placement, typed
-  dimensions own size/extents, anchors/landmarks retain authored or derived
-  provenance, ratios are derived only, and conflicting constraints diagnose.
-  Exact canonical axes, units, rotation, scale, shear, ranges, surface
-  primitives, serialized fields, and machine-schema contents remain deferred;
+  distinct Part-local/reference, Joint proximal/distal, Socket-intrinsic,
+  derived resolved world/reference, and runtime-pose frames. Attachment
+  host/mating roles are contextual endpoints, not Socket frame roles.
+  Transforms own placement, typed dimensions own size/extents,
+  anchors/landmarks retain authored or derived provenance, ratios are derived
+  only, and conflicting constraints diagnose. Readiness 2 requires a rigid
+  carrier with three translation and four explicit `xyzw` quaternion
+  components and no scale/shear fields; canonical numeric meaning and
+  tolerances remain deferred to Readiness 3. Exact serialized fields and
+  machine-schema contents remain deferred;
   strict JSON and JSON Schema Draft 2020-12 are the selected Proposed initial
   encoding and structural-validation technologies.
 - A proposed fixture-profile contract describing stable profile identity,
@@ -128,9 +135,9 @@ accounting remain unselected.
   frozen expected outcome of valid-supported, semantically invalid, or
   well-formed-but-unsupported, plus the primary diagnostic class/code for every
   non-success fixture. Fixture-manifest admission is owned by the
-  [fixture-manifest contract](fixture-manifest/README.md), which binds an exact
-  reviewed commit/tree and payload digest, requires Ben approval, and excludes
-  unlisted fixtures. Only valid-supported fixtures count toward the Stage 1
+  [fixture-manifest contract](fixture-manifest/README.md), which binds a
+  manifest payload to separately recorded reviewed content identities and Ben
+  approval, and excludes unlisted fixtures. Only valid-supported fixtures count toward the Stage 1
   gate. Exact fixture definitions must be frozen if the deferred EXP-0001
   protocol is activated before its execution or evidence; selecting hypotheses
   may precede that freeze.

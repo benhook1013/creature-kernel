@@ -38,8 +38,8 @@ Prior CK-KICK-012 revisions and review artifacts remain preserved as historical
 evidence. Ben's Batch 5, Batch 8, Batch 9, and Batch 10 resolutions are
 discussion-approved and incorporated here as Proposed product outcomes only.
 DR-0002 Revision 11 and DR-0008 Revision 11 remain Proposed with Owner
-approval Pending and Review Complete; DR-0006 Revision 6, DR-0011 Revision 8,
-DR-0012 Revision 7, and DR-0013 Revision 5 remain Proposed with Owner approval
+approval Pending and Review Complete; DR-0006 Revision 7, DR-0011 Revision 9,
+DR-0012 Revision 8, and DR-0013 Revision 6 remain Proposed with Owner approval
 Pending and Review Pending. The Batch 9 review targeted commit
 `6cf17270fda2827756c24a8d0fb301bef358f98f` and is stale for the revised
 records. Review evidence is not acceptance; no implementation or readiness

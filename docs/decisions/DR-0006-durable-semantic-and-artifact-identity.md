@@ -6,13 +6,13 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 6
+Revision: 7
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-08
 
@@ -49,7 +49,10 @@ disposition are recorded. All earlier revisions and their reviews remain
 preserved as stale historical evidence; the Revision 4 current-review
 artifacts are stale after this material Revision 5 change, and a fresh current
 review is pending. The Revision 5 current-review artifacts are also stale
-after this material Revision 6 change.
+after this material Revision 6 change. Ben approved the Batch 10 C1 identity
+resolution and its DR-0006 consequence of a simplified, externally admitted
+fixture route on 2026-08-12. This material Revision 7 change makes the
+Revision 6 current-review artifacts stale; a fresh current review is pending.
 
 ## Decision
 
@@ -91,7 +94,9 @@ build-operation specification owns exact field spelling and format.
 ### Stable request identity and publication comparison
 
 The per-execution `attempt_id` is unique to one invocation and is never part of
-output-location derivation or idempotent lineage equality. A deterministic
+committed or hashed bytes, output-location derivation, candidate identity, or
+idempotent lineage equality. It exists only in the returned operation envelope,
+invocation-owned staging metadata, and logs. A deterministic
 `build_request_id` is stable across retries of the same outcome-affecting
 request. It includes the authoritative source or source-set identity, exact
 dependency revisions or digests, compiler/toolchain/build-implementation
@@ -107,12 +112,19 @@ mint a new identity. The exact canonical serialization and hash algorithm are
 deferred, but selecting them is an activation prerequisite for this identity
 boundary, not optional implementation freedom.
 
+Committed success artifacts and their manifests contain no attempt-local data.
+Diagnostics-only failure bundles are not persisted as committed artifacts in
+this initial boundary; failure returns the authoritative CLI/API envelope. A
+future persisted failure-evidence facility requires a separately decided
+attempt-evidence identity and lifecycle.
+
 After an atomic no-replace publication reports a concurrent collision such as
 `EEXIST`, the operation inspects the winner. A complete manifest with identical
 committed identity, stable build-request lineage, hashes, and sizes is an
 already-published success. A different lineage or identity is an
 `output-failure` target conflict. If the same deterministic request and
-candidate identity produce byte-different output, the result is
+candidate identity produce byte-different output, comparing the deterministic
+committed manifest projection plus every listed output hash and size, the result is
 `internal-failure` for nondeterministic output, not semantic equivalence.
 The required evidence fixtures cover a first build, a retry with a new attempt
 and the same request, a concurrent identical winner, a lineage change, and
@@ -175,6 +187,10 @@ defined.
   from a target conflict; same-request byte divergence is a trust failure, not
   semantic equivalence. Canonical identity bytes/hashing must be selected
   before activation.
+- Committed success bytes and manifests exclude attempt-local data. The initial
+  failure path returns the authoritative operation envelope rather than a
+  committed diagnostics-only bundle; any future persisted failure evidence
+  needs a separate attempt-evidence identity decision.
 
 ## Alternatives Considered
 
@@ -232,6 +248,22 @@ This would hide a determinism failure behind a stable semantic request. It is
 rejected: identical request and candidate identity with different bytes loses
 implementation trust and reports `internal-failure`.
 
+### Persist diagnostics-only failure bundles as ordinary artifacts
+
+This would mix invocation-local evidence with deterministic committed outputs
+and make retries difficult to compare. It is not selected initially: the
+authoritative operation envelope reports failure, and a future persisted
+failure-evidence facility must define a separate attempt-evidence identity and
+lifecycle.
+
+### Use a bespoke append-only fixture-admission ledger
+
+This would preserve a custom active-pointer protocol but introduces
+self-referential manifest/tree binding and more hobby-project machinery than is
+needed. It is not selected: a generic fixture payload manifest plus a separate
+readiness/decision record supplies the reviewed digest, scoped payload identity,
+and Ben approval while ordinary Git history preserves supersession.
+
 ## Adversarial Review Response
 
 [The Revision 2 authority, identity, and compatibility review](reviews/DR-0006-rev-02-review-01.md),
@@ -264,23 +296,24 @@ discussion and owner disposition. Review completion is evidence only; it is not
 a clean review or acceptance. Owner approval remains Pending and Status remains
 Proposed. Only Ben may accept or reject this proposal.
 
-The Batch 10 revision is discussion-approved by Ben on 2026-08-12. The
-Revision 5 review artifacts above are stale historical evidence after the
-material identity revision. The fresh current Batch 10 Double review examined
-commit `f27008f319cfc460f4a27efe31594e5607e7721e`: [review 01](reviews/DR-0006-rev-06-review-01.md)
+The Batch 10 revision was discussion-approved by Ben on 2026-08-12. The
+Revision 6 review artifacts above are stale historical evidence after the
+material identity and fixture-route resolution in Revision 7. The prior fresh
+Batch 10 Double review examined commit `f27008f319cfc460f4a27efe31594e5607e7721e`:
+[review 01](reviews/DR-0006-rev-06-review-01.md)
 recommended **Revise** at **High** confidence under the contract/schema,
 determinism, identity, security, and fixture-admission lens; [review 02](reviews/DR-0006-rev-06-review-02.md)
 recommended **Revise** at **High** confidence under the platform/filesystem,
 publication, reversibility, numeric-frame, and runtime-portability lens.
-Consolidated finding **C1 (High)** remains actionable: retry equality and
-committed-byte comparison must exclude or canonically project attempt-local
-trace data; C2 also has a DR-0006 build-proof consequence because mandatory
-build-operation identity/publication fixtures need an admitted owner and route.
-The filesystem proof follow-up is recorded as nonblocking evidence work. Review
-status is Complete as evidence, not a clean review or acceptance. C1 and its
-build-proof consequence await Ben's discussion and owner disposition. Owner
-approval remains Pending and Status remains Proposed. Only Ben may accept or
-reject this proposal.
+The prior consolidated finding **C1 (High)** and the DR-0006 build-proof
+consequence of **C2 (High)** are resolved in this Proposed revision: committed
+bytes exclude attempt-local data, diagnostics-only failure bundles are not
+committed initially, and the generic fixture-manifest payload plus separate
+readiness/decision record admits the build/publication fixtures without a
+self-referential ledger. The filesystem proof follow-up remains nonblocking
+evidence work. Ben's resolution is discussion approval, not acceptance. Review
+status is Pending for the new current revision; Owner approval remains Pending
+and Status remains Proposed. Only Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 
@@ -305,6 +338,11 @@ reject this proposal.
   revisions/digests, compiler/toolchain/build implementation, contract/schema/
   profile revisions, configuration, seed, backend/capability/protocol revision,
   and output-affecting target/platform profile in the request identity.
+- Keep `attempt_id` only in the returned operation envelope, invocation-owned
+  staging metadata, and logs. Exclude it from committed/hashed bytes, target
+  derivation, candidate identity, and idempotent comparison. Do not persist a
+  diagnostics-only failure bundle as a committed artifact initially; define a
+  separate attempt-evidence identity/lifecycle before changing that boundary.
 - Define candidate identity from build request, artifact role, and
   artifact-identity-rule revision; preserve it through successful publication.
   Select the exact canonical serialization and hash algorithm before identity
@@ -314,6 +352,10 @@ reject this proposal.
   or identity is target conflict; same request/candidate with byte-divergent
   output is internal nondeterministic-output failure. Add first-build, retry,
   concurrent-winner, lineage-change, and byte-divergence fixtures.
+- Admit those build/publication fixtures through the generic fixture-suite
+  payload manifest and a separate readiness/decision record naming its digest,
+  source commit, path-scoped payload identity, and Ben approval. Do not use a
+  self-referential manifest digest or custom active-pointer ledger.
 - Prove through regeneration fixtures that semantic references survive topology
   and LOD changes while ephemeral indices remain artifact/build-scoped.
 - Record exact revisions and semantic mappings for every outcome-affecting

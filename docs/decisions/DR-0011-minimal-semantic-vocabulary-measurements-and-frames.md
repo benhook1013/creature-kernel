@@ -6,13 +6,13 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 8
+Revision: 9
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-11
 
@@ -78,9 +78,13 @@ declaration identity rule and cross-links the resolver snapshot handoff and
 DR-0013 build/output boundary. This material Revision 7 change makes the
 Revision 6 current-review artifacts stale. Ben then approved the Batch 10
 units, frames, numeric-profile, and default-provenance resolutions recorded in
-Revision 8. Revision 8 remains Proposed with Owner approval Pending and Review
-status Pending; the Revision 7 current-review artifacts are stale after this
-material change.
+Revision 8. Ben approved the current-review C3/C4 resolutions on 2026-08-12:
+frame roles are typed by their owning record, and Readiness 2 freezes a
+structural rigid-transform carrier while Readiness 3 freezes numeric semantics
+and admits expected graph snapshots through the generic fixture route. This
+material Revision 9 change makes the Revision 8 current-review artifacts stale;
+the record remains Proposed with Owner approval Pending and a fresh current
+review pending.
 
 ## Decision
 
@@ -94,15 +98,18 @@ distinct typed concepts rather than one generic tag node:
   relationship and is not implied by any other concept.
 - **Joint** is a directed, identity-bearing articulation relation. It connects
   exactly one proximal Part to exactly one distal Part and canonically owns a
-  proximal-frame record and a distal-frame record. Each record is expressed in
-  its corresponding Part's local basis and retains provenance for any source
-  reference that fed it. It is not a bone, a bone hierarchy, solver
+  distinct proximal-frame record and distal-frame record. Each record is
+  expressed in its corresponding Part's local basis and retains provenance for
+  any source reference that fed it. It is not a bone, a bone hierarchy, solver
   constraint, limit, rig, or runtime representation.
-- **Socket** is a named interface owned by a Part. It provides a host or mating
-  interface and owns exactly one interface frame expressed in that Part's
-  basis; it does not imply articulation.
+- **Socket** is a named interface owned by a Part. It owns exactly one
+  intrinsic interface frame expressed in that Part's basis; it does not imply
+  articulation. Whether that Socket is used as a host or mating endpoint is an
+  Attachment context, not a second intrinsic Socket frame role.
 - **Attachment** connects exactly one host Socket to exactly one mating Socket.
-  It maps or connects module composition, but does not imply articulation. The
+  Its host and mating roles are contextual endpoints that reference the
+  intrinsic frames of those Sockets; an optional Attachment offset remains its
+  own typed transform. It maps or connects module composition, but does not imply articulation. The
   mating Socket may be owned by any Part in the attached module-root
   containment subtree. A present attached module root has exactly one active
   incoming Attachment, an absent optional module has none, and each Socket has
@@ -173,11 +180,14 @@ detail.
 Every source declares its length units, handedness, up axis, and forward axis.
 The resolver normalizes source values into one contract-revision canonical
 internal basis and records conversion provenance. The semantic frame boundary
-distinguishes:
+distinguishes closed roles by their owning record:
 
-- a local/reference frame, which is authored relative placement;
-- joint frames, which are semantic articulation interfaces;
-- socket and mating frames, which are attachment interfaces;
+- Part local/reference frame, which is authored relative placement;
+- Joint proximal and distal frame records, which are semantic articulation
+  interfaces;
+- Socket intrinsic interface frame, which is the authored attachment interface;
+- Attachment host and mating endpoint roles, which reference Sockets and are
+  contextual rather than intrinsic Socket frame roles;
 - a resolved world/reference transform, which is derived build output; and
 - runtime pose transforms, which are separate runtime state.
 
@@ -241,9 +251,9 @@ Stage 1 Readiness 2 checks only structural shape and reference validity for
 units, frames, profiles, and provenance. Readiness 3 is the activation point
 that freezes the canonical basis, rotation representation, scale/shear policy,
 numeric ranges, conditioning requirements, and comparison tolerances. Until
-then, the frame roles remain closed conceptually: local/reference, joint,
-host-socket, mating-socket, resolved world/reference, and runtime-pose, with
-only the roles applicable to a given record used.
+then, these owning-record frame roles remain closed conceptually, with only the
+roles applicable to a given record used. Host and mating are Attachment
+endpoint contexts, not alternative intrinsic Socket roles.
 
 Missing semantic values are legal only when the exact contract revision or a
 named profile owns one deterministic default rule. Exactly one applicable rule
@@ -371,6 +381,22 @@ different consumers to choose different endpoint owners, roles, bases, or
 provenance. The resolved graph therefore owns exactly one proximal and distal
 record in the corresponding Part bases; source references remain provenance.
 
+### Use one global Socket role enum for every frame
+
+This would make host, mating, proximal, and distal meanings depend on the
+consumer's record context and would permit incompatible intrinsic Socket
+interpretations. The selected boundary types Part, Joint, and Socket roles by
+their owning records, while Attachment host/mating roles remain contextual
+endpoint references.
+
+### Defer the transform carrier until numeric semantics are frozen
+
+That would leave the Readiness 2 schema unable to validate transform shape and
+would force a knowingly disposable structural contract. The selected boundary
+freezes translation plus `xyzw` quaternion structure at Readiness 2, then
+defers basis, normalization, ranges, conditioning, and tolerances to
+Readiness 3.
+
 ### Let authored Attachment placement silently win over Socket composition
 
 That would discard host/mating interface semantics; letting Socket composition
@@ -463,7 +489,7 @@ DR-0002/DR-0012/DR-0013. At that historical Revision 6 state, all seven
 consolidated findings awaited Ben's discussion and owner disposition; review
 completion was evidence, not a clean review or acceptance. Batch 9/10
 discussion later resolved the applicable findings, while the current Revision
-8 remains pending its fresh review. Exact serialized field spellings, canonical
+9 remains pending its fresh review. Exact serialized field spellings, canonical
 axes/units/rotation/scale/shear, conditioning/comparison tolerances,
 diagnostic codes, and fixture evidence remain deferred. Those Revision 6
 artifacts and findings are preserved as stale historical evidence after the
@@ -481,26 +507,28 @@ actionable against DR-0011 in this review. Review completion is evidence only;
 there is no clean-review or acceptance implication. At that historical Revision
 7 state, any cross-cutting findings recorded in the linked reviews awaited
 Ben's discussion and owner disposition; Batch 10 discussion later resolved the
-applicable findings. The current Revision 8 still requires fresh review and
+applicable findings. The current Revision 9 still requires fresh review and
 owner disposition. Owner approval remains Pending and Status remains Proposed.
 Only Ben may accept or reject this proposal.
 
-The Batch 10 revision is discussion-approved by Ben on 2026-08-12. The
-Revision 7 review artifacts above are stale historical evidence after this
-material revision. The fresh current Batch 10 Double review examined commit
+The Batch 10 revision was discussion-approved by Ben on 2026-08-12. The
+Revision 8 review artifacts above are stale historical evidence after this
+material Revision 9 resolution. The prior fresh Batch 10 Double review examined
+commit
 `f27008f319cfc460f4a27efe31594e5607e7721e`: [review 01](reviews/DR-0011-rev-08-review-01.md)
 recommended **Revise** at **High** confidence under the contract/schema,
 determinism, identity, security, and fixture-admission lens; [review 02](reviews/DR-0011-rev-08-review-02.md)
 recommended **Revise** at **Medium** confidence under the platform/filesystem,
 publication, reversibility, numeric-frame, and runtime-portability lens.
-Consolidated findings **C3 (High)** and **C4 (High)** remain actionable: frame
-roles must uniquely type Joint and Socket records while retaining contextual
-Attachment endpoint roles, and the Readiness 2/3 transition needs a realizable
-transform carrier plus immutable expected-snapshot comparison and successor
-admission rules. Review status is Complete as evidence, not a clean review or
-acceptance. C3 and C4 await Ben's discussion and owner disposition. Owner
-approval remains Pending and Status remains Proposed. Only Ben may accept or
-reject this proposal.
+The prior consolidated findings **C3 (High)** and **C4 (High)** are resolved in
+this Proposed revision: Part, Joint, Socket, and Attachment frame roles are
+typed by their owning record, and Readiness 2 now freezes the structural rigid
+transform carrier while Readiness 3 freezes numeric semantics and admits
+expected graph snapshots through the generic fixture route. Exact canonical
+numeric rules, bytes, and comparison profiles remain activation prerequisites.
+Ben's resolution is discussion approval, not acceptance. Review status is
+Pending for the new current revision; Owner approval remains Pending and Status
+remains Proposed. Only Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 
@@ -513,6 +541,11 @@ reject this proposal.
   frame in their owning Part bases, retaining source-reference provenance and
   rejecting competing owner/role interpretations; do not introduce a bone,
   solver, limits, rig, or runtime representation.
+- Keep Part local/reference, Joint proximal/distal, and Socket intrinsic
+  interface frames as owning-record roles. Represent Attachment host/mating as
+  contextual endpoint roles that reference Sockets; keep any Attachment offset
+  as its own typed transform. Do not model host or mating as alternative
+  intrinsic Socket frame roles.
 - Specify explicit Part containment, one root path for every embodied Part,
   containment-owned reference-transform inheritance, separate containment and
   relation cycle checks, Stage 1 immediate-child Joint edges, and Attachment
@@ -556,10 +589,14 @@ reject this proposal.
   frame/context on measurements and transforms, and no per-value unit
   overrides initially. Bind body `profiles` to the versioned semantic
   numeric-domain profile while keeping resource/diagnostic profiles operational.
-- Keep Readiness 2 structural/reference validation only; at Readiness 3 freeze
-  canonical basis, rotation, scale/shear, ranges, conditioning, and tolerances.
-  Test the closed local/reference, joint, host-socket, mating-socket,
-  resolved-world/reference, and runtime-pose role boundary.
+- Keep Readiness 2 structural/reference validation only and freeze its rigid
+  transform carrier as three-component translation plus explicit four-component
+  `xyzw` quaternion, without scale or shear fields. At Readiness 3 freeze
+  canonical basis, rotation, scale/shear, ranges, conditioning, and tolerances;
+  bind expected graph snapshots through an admitted manifest successor with
+  path, digest, comparison-profile identity, and exact/semantic comparison
+  rule. Test the closed owning-record roles and derived world/reference and
+  runtime-pose contexts.
 - Specify omission/default rules: identity, containment, module presence,
   source basis, and grammar-required values are explicit; one exact
   contract/profile rule may own a deterministic default, which records stable

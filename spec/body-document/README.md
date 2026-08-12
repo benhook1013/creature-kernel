@@ -2,8 +2,8 @@
 
 Status: Proposed conceptual contract; CK-KICK-012 Batch 10 discussion-approved
 canonical update. DR-0002 Revision 11 and DR-0008 Revision 11 remain Proposed
-with Owner approval Pending and Review Complete. DR-0006 Revision 6, DR-0011
-Revision 8, DR-0012 Revision 7, and DR-0013 Revision 5 remain Proposed with
+with Owner approval Pending and Review Complete. DR-0006 Revision 7, DR-0011
+Revision 9, DR-0012 Revision 8, and DR-0013 Revision 6 remain Proposed with
 Owner approval Pending and Review Pending. The Batch 9 Double review targeted
 commit `6cf17270fda2827756c24a8d0fb301bef358f98f` and is stale for the revised
 records. Review evidence is not acceptance; no implementation or readiness gate
@@ -94,18 +94,24 @@ collection is the only initial omission for a core collection.
 ## Basis, profiles, and frame roles
 
 Every source declares a required basis consisting of length unit, handedness,
-up, and forward. Measurements and transforms name their owner, role, and
-frame/context. Stage 1 frame roles are closed and include local/reference,
-joint, host Socket, and mating Socket where applicable; derived
-world/reference and runtime-pose frames remain distinct downstream roles. A
-source profile initially references only the semantic numeric-domain profile.
-Operational resource and diagnostic profiles are selected by the operation or
-fixture admission context. No per-value unit override is permitted initially.
+up, and forward. Measurements and transforms name their owner, semantic role,
+and frame/context. Stage 1 roles are owner-specific: a Part has a
+local/reference frame, a Joint has proximal and distal frames, and a Socket has
+one intrinsic interface frame. Host and mating are contextual endpoint roles
+on an Attachment that references Sockets; they are not intrinsic Socket frame
+roles. Resolved world/reference and runtime-pose frames remain distinct
+downstream contexts. A source profile initially references only the semantic
+numeric-domain profile. Operational resource and diagnostic profiles are
+selected by the operation or fixture admission context. No per-value unit
+override is permitted initially.
 
 Readiness 2 validates document shape, typed records, references, and owner/role
-addressing. Readiness 3 freezes the canonical basis, rotation representation,
-scale/shear policy, admissible ranges, conditioning rules, and tolerances. Until
-then, their exact encodings and values remain deferred.
+addressing, including the structural rigid-transform carrier: exactly three
+translation components and exactly four quaternion components in explicit
+`xyzw` order, with no scale or shear fields. Readiness 3 freezes the canonical
+basis, finite-number and normalization semantics, admissible ranges,
+conditioning rules, and tolerances. Until then, those exact numeric meanings
+remain deferred.
 
 ## Omission and deterministic defaults
 
@@ -327,8 +333,8 @@ unsupported family/revision, unsupported required and optional extensions,
 dependency failures, resource-limit and diagnostic truncation outcomes,
 internal-failure handling where testable, and deterministic multi-diagnostic
 ordering. The semantic Stage 1 taxonomy is exercised only by admitted,
-recognized inputs. The [fixture-manifest and admission contract](../fixture-manifest/README.md)
-owns the immutable reviewed-tree binding, preflight, expected-outcome fields,
-and Readiness 2/3 corpus admission. Exact fixture files, codes, and numeric
-profiles remain unactivated until that admission and the relevant readiness gate
-are complete.
+ recognized inputs. The [fixture-manifest and admission contract](../fixture-manifest/README.md)
+owns the manifest payload, separate content-identity readiness/decision
+binding, preflight, expected-outcome fields, and Readiness 2/3 corpus
+admission. Exact fixture files, codes, and numeric profiles remain unactivated
+until that admission and the relevant readiness gate are complete.

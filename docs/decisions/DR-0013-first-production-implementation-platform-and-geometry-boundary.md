@@ -6,13 +6,13 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 5
+Revision: 6
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-11
 
@@ -51,9 +51,14 @@ identity and lineage at the identity level. Ben's 2026-08-12 Batch 10
 discussion approval adds the initial filesystem safety profile, artifact
 inspection status algebra, worker/report trust separation, immutable fixture
 admission lifecycle, and the stable request/artifact identity consequences.
-Revision 5 remains Proposed with Owner approval Pending and Review status
-Pending; the Revision 4 current-review artifacts are stale after this
-material change.
+Ben approved the current-review C1, C2, C4, and C5 resolutions on 2026-08-12:
+deterministic committed identity excludes attempt data, fixture admission uses
+a generic payload manifest plus separate readiness/decision record, Readiness 2
+freezes a rigid-transform carrier, and worker status mapping is explicit. The
+filesystem proof remains a nonblocking pre-publication obligation. This
+material Revision 6 change makes the Revision 5 current-review artifacts stale;
+the record remains Proposed with Owner approval Pending and a fresh current
+review pending.
 
 ## Decision
 
@@ -81,19 +86,32 @@ schema revision/hash, fixture paths/hashes/provenance, expected status and
 primary diagnostic, diagnostic/resource profile IDs, and completeness. The
 production parser must not self-admit the corpus circularly.
 
-The Readiness 2 admission target is immutable: Ben's approval binds to the
-exact reviewed Git commit/tree and path, the manifest digest, and a digest of
-the activation payload with its own admission record excluded to avoid
-self-reference. Parser-independent preflight records successful identity and
-approval against that target. After merge, preflight is rerun against the
-merged target and activation occurs only if the content-tree and payload
-binding remain unchanged. Corrections create append-only successor admissions;
-explicit deactivation or rollback is another recorded Ben approval and never
-rewrites prior admission history. Preflight proves internal consistency only.
-Expected-result correctness is a reviewed contract or hypothesis and later
-executable evidence; hashes do not prove it. A canonical fixture-manifest
-specification owns the exact Proposed manifest semantics; this record owns the
-admission and activation boundary.
+The fixture-suite manifest is a payload, not an admission ledger: it contains
+suite kind, fixture paths, content hashes, profile IDs, expected results or
+diagnostics/snapshots as applicable, and provenance, but never its own digest or
+approval. A separate later readiness/decision record, outside the payload
+digest domain, names the reviewed manifest digest, source commit reference,
+path-scoped payload digest/tree identity, and Ben approval. After merge,
+parser-independent preflight is rerun; commit identity may change, but
+activation requires the manifest and path-scoped payload binding to match.
+Git history and explicit successor, deactivation, or rollback records preserve
+history; no custom append-only active-pointer ledger is required. Preflight
+proves internal consistency only. Expected-result correctness is a reviewed
+contract or hypothesis and later executable evidence; hashes do not prove it.
+A generic fixture-suite manifest/admission mechanism covers parser/body-
+document, semantic-graph, and build/publication suites. The canonical
+fixture-manifest specification owns exact Proposed manifest semantics; this
+record owns the admission and activation boundary.
+
+Readiness 2 freezes one structural rigid-transform carrier for parser/schema
+work: three-component translation plus explicit four-component `xyzw`
+quaternion, with no scale or shear fields. Readiness 2 validates carrier shape
+and references only; it does not infer canonical numeric semantics. Readiness 3
+freezes the canonical basis, finite-number and normalization rules, ranges,
+conditioning, and tolerances. Its admitted fixture-manifest successor binds an
+expected graph snapshot path, digest, comparison-profile identity, and exact
+or semantic comparison rule. This boundary selects no geometry, rig, IK,
+deformation, runtime, or host-engine representation.
 
 Acceptance of DR-0013 itself is the sole trigger for Readiness 1. Creating this
 Proposed DR does not activate implementation packages, schemas, compiler
@@ -248,7 +266,9 @@ exact spelling belongs to the canonical specification. Successful atomic
 publication promotes the same candidate identity to committed artifact
 identity, as owned at the identity level by DR-0006.
 
-The unique per-execution `attempt_id` never changes output location or
+The unique per-execution `attempt_id` exists only in the returned operation
+envelope, invocation-owned staging metadata, and logs. It is excluded from
+committed or hashed bytes, target derivation, candidate identity, and
 idempotent lineage equality. The stable deterministic `build_request_id`
 contains every outcome-affecting source/source-set, exact dependency
 revision/digest, compiler/toolchain/build implementation, contract/schema/
@@ -285,14 +305,27 @@ or protocol failure. The parent must never adopt worker output after worker
 trust loss. Validation cannot rehabilitate output produced across lost worker
 trust.
 
-A compile or geometry failure may publish a diagnostics-only failure bundle only
-when coordinator, reporter, and publisher remain trusted; the bundle may
-contain only independently trusted parent observations as authoritative
-diagnostics. Coordinator, reporter, or publisher trust loss forbids publication;
-only the surrounding CLI/launcher envelope may remain. If publication itself
-fails, the authoritative envelope is returned through the CLI/API and no final
-bundle exists; the operation cannot promise to publish its own failure bundle.
-Preserve the root diagnostic even when top-level status is normalized.
+The conceptual worker outcome mapping is closed even while exact protocol fields
+remain deferred: unsupported protocol/version negotiation is `unsupported`;
+timeout or validated worker-reported resource exhaustion is `resource-limit`;
+crash, forced termination, transport/framing loss, or truncated/corrupt
+framing is `internal-failure`; well-framed and decoded but contract-invalid
+output is `output-failure`; and a well-framed worker-declared domain failure is
+validated before mapping to its governed domain status. Coordinator, reporter,
+or publisher invariant/trust loss is `internal-failure` and forbids
+publication. No worker-produced output remains adoptable after worker or
+transport trust loss.
+
+Initially, a compile or geometry failure is reported through the authoritative
+CLI/API envelope rather than persisted as a committed diagnostics-only failure
+bundle. When coordinator, reporter, and publisher remain trusted, that
+envelope may contain independently trusted parent observations; worker output
+is never adopted after worker trust loss. Coordinator, reporter, or publisher
+trust loss forbids publication and leaves only the surrounding CLI/launcher
+envelope. A future persisted failure-evidence facility requires a separate
+attempt-evidence identity and lifecycle decision. If publication itself fails,
+the authoritative envelope is returned and no final bundle exists. Preserve
+the root diagnostic even when top-level status is normalized.
 
 The complete build outcome contract must cover source, dependency,
 capability/protocol, timeout/resource, worker crash, malformed output,
@@ -387,15 +420,20 @@ prejudge a later geometry worker/backend.
 - Geometry and publication contribute to one authoritative public build
   envelope. `output-failure` covers trusted derived-output/publication failure
   after accepted input/semantic work, subject to internal/resource/earlier
-  precedence. Build identity always exists; DR-0006 owns candidate versus
-  committed artifact identity, with the same candidate promoted on successful
-  publication. A diagnostics-only failure bundle is trusted only when its
-  publisher/reporter remains independently trusted from the failed component;
-  otherwise the reserved CLI/API envelope alone reports failure. Publication
-  failure returns the envelope with no final bundle, preserves the root
-  diagnostic, and cannot publish its own failure bundle. Invocation-owned
-  staging is the only cleanup scope, and atomic no-replace publication fails
-  closed when unsupported.
+  precedence. An attempt identity always exists; deterministic build-request
+  identity exists once the complete request is available; DR-0006 owns
+  candidate versus committed artifact identity, with committed identity only
+  after successful publication and the same candidate promoted on successful
+  publication. Initially, failure is returned through the authoritative
+  CLI/API envelope rather than a committed diagnostics-only bundle. Trusted
+  coordinator/reporter/publisher components may include independently observed
+  parent diagnostics in that envelope, but cannot adopt worker output after
+  worker trust loss. A future persisted failure-evidence facility requires a
+  separate attempt-evidence identity/lifecycle decision. Publication failure
+  returns the envelope with no final bundle, preserves the root diagnostic, and
+  cannot publish its own failure bundle. Invocation-owned staging is the only
+  cleanup scope, and atomic no-replace publication fails closed when
+  unsupported.
 - The platform is reversible at the geometry boundary and at process/tooling
   boundaries, but a production compiler API and artifact lineage will create
   migration cost; a later change must preserve or explicitly migrate those
@@ -415,15 +453,17 @@ prejudge a later geometry worker/backend.
   completeness, primary, and precedence semantics.
 - Worker producer/output trust is independent from coordinator/reporter/
   publisher trust. Worker crash or protocol corruption invalidates worker
-  output; a trusted parent may report only independent observations. A
-  diagnostics-only bundle may contain authoritative parent observations only
-  while coordinator, reporter, and publisher remain trusted. Trust loss at
-  those roles forbids publication, and validation cannot rehabilitate output
-  created across lost worker trust.
-- Readiness 2 admission is immutable and append-only: exact reviewed Git
-  commit/tree/path, manifest digest, and self-exclusion-safe activation-payload
-  digest are preflighted, rechecked on the merged target, and changed only by
-  successor admission or a new Ben-approved deactivation/rollback. Preflight
+  output; a trusted parent may report only independent observations through
+  the authoritative envelope. No diagnostics-only bundle is committed
+  initially; trust loss at coordinator, reporter, or publisher forbids
+  publication, and validation cannot rehabilitate output created across lost
+  worker trust.
+- Readiness 2 admission uses a generic fixture-suite payload manifest plus a
+  separate readiness/decision record naming its digest, reviewed source commit,
+  path-scoped payload identity, and Ben approval. Post-merge preflight allows
+  commit identity to change but requires the manifest and scoped payload
+  binding to match. Git history and explicit successor/deactivation/rollback
+  records preserve history without a custom active-pointer ledger. Preflight
   proves consistency, not expected-result correctness.
 
 ## Alternatives Considered
@@ -507,9 +547,33 @@ The parent may publish only independently trusted observations through a
 trusted coordinator/reporter/publisher path; worker-produced output is rejected
 after worker trust loss.
 
+### Persist diagnostics-only failure bundles in the initial artifact model
+
+This would mix attempt-local evidence with deterministic committed outputs and
+would require a second identity and retention lifecycle. It is not selected
+initially: the authoritative CLI/API envelope carries trusted parent
+observations, and any future persisted failure evidence requires a separate
+attempt-evidence decision.
+
+### Use a bespoke append-only fixture-admission ledger
+
+This would preserve a custom active-pointer protocol but creates unnecessary
+self-reference and merge-tree binding complexity for the hobby project. It is
+not selected: the generic fixture payload manifest is bound by a separate
+readiness/decision record naming its digest, scoped payload identity, and Ben
+approval; ordinary Git history preserves successor and rollback history.
+
+### Defer the transform carrier until Readiness 3
+
+That would leave the Readiness 2 schema unable to validate transform shape and
+would force a knowingly disposable structural contract. The selected boundary
+freezes translation plus `xyzw` quaternion structure at Readiness 2, then
+defers basis, normalization, ranges, conditioning, and tolerances to
+Readiness 3.
+
 ## Adversarial Review Response
 
-This is CK-KICK-013 Revision 5, proposed and discussion-approved on 2026-08-12.
+This is CK-KICK-013 Revision 6, proposed and discussion-approved on 2026-08-12.
 The exact Revision 1 Double review examined commit
 `c64b1b98948304d631eecea6a354c9e42c89c510`. The independent [review 01](reviews/DR-0013-rev-01-review-01.md)
 and [review 02](reviews/DR-0013-rev-01-review-02.md) both recommended **Revise**
@@ -564,30 +628,33 @@ publisher trust; immutable Readiness 2 binding and supersession/rollback; and
 closed artifact-inspection non-success status algebra. At that historical
 Revision 4 state, C1–C5 awaited Ben's discussion and owner disposition. Review
 completion was evidence only; it was not a clean review or acceptance. Batch
-10 discussion later resolved those findings, while the current Revision 5
+10 discussion later resolved those findings, while the current Revision 6
 still requires fresh review and owner disposition. Owner approval remains
 Pending and Status remains Proposed. Only Ben may accept or reject this
 proposal.
 
 Ben approved the Batch 10 resolutions in discussion on 2026-08-12. The
-Revision 4 review artifacts and C1–C5 findings above are stale historical
-evidence after this material Revision 5 change. The fresh current Batch 10
+Revision 5 review artifacts and C1–C5 findings above are stale historical
+evidence after this material Revision 6 resolution. The prior fresh Batch 10
 Double review examined commit `f27008f319cfc460f4a27efe31594e5607e7721e`:
 [review 01](reviews/DR-0013-rev-05-review-01.md) recommended **Revise** at
 **High** confidence under the contract/schema, determinism, identity,
 security, and fixture-admission lens; [review 02](reviews/DR-0013-rev-05-review-02.md)
 recommended **Revise** at **High** confidence under the platform/filesystem,
 publication, reversibility, numeric-frame, and runtime-portability lens.
-Consolidated findings **C1 (High), C2 (High), C4 (High), and C5 (Medium)**
-apply to DR-0013: retry/committed-byte comparison, executable fixture/admission
-binding, the Readiness 2/3 transition, and deterministic worker trust/status
-mapping require Ben's discussion and owner disposition. **C3 (High)** is owned
-by linked DR-0011/DR-0012 and remains cross-cutting context, not a DR-0013
-resolution. The WSL filesystem and staging proof is a nonblocking follow-up,
-not a sixth finding. Review status is Complete as evidence, not a clean review
-or acceptance. C1, C2, C4, and C5 await Ben's discussion and owner disposition.
-Owner approval remains Pending and Status remains Proposed. Only Ben may accept
-or reject this proposal.
+The prior consolidated findings **C1 (High), C2 (High), C4 (High), and C5
+(Medium)** are resolved in this Proposed revision: deterministic committed
+identity excludes attempt-local data and initially returns failure through the
+authoritative envelope; fixture admission uses a generic payload manifest plus
+separate readiness/decision record; Readiness 2 freezes a structural rigid
+transform carrier and Readiness 3 admits immutable expected snapshots; and the
+worker status/trust mapping is explicit. **C3 (High)** is resolved by linked
+DR-0011/DR-0012 and remains cross-cutting context, not an additional DR-0013
+decision. The WSL filesystem and staging proof remains a nonblocking
+pre-publication obligation. Ben's resolution is discussion approval, not
+acceptance. Review status is Pending for the new current revision; Owner
+approval remains Pending and Status remains Proposed. Only Ben may accept or
+reject this proposal.
 
 ## Implementation and Proof Obligations
 
@@ -596,6 +663,8 @@ or reject this proposal.
   ceremony is required. Then enforce the readiness gates: exact JSON Schema
   plus a frozen/admitted fixture manifest activates creation of the
   manifest-listed fixture files and parser/bootstrap implementation together;
+  Readiness 2's structural rigid-transform carrier is three-component
+  translation plus explicit `xyzw` quaternion with no scale/shear fields;
   canonical basis/units/rotation/scale-shear/numeric representation/tolerances
   plus frozen expected graph outputs activate semantic resolver and successful
   in-memory snapshot finalization/handoff; and a working resolver plus
@@ -607,15 +676,18 @@ or reject this proposal.
   completeness. Production parsing must not self-admit the corpus.
   This Proposed record itself creates no packages, fixtures, parser, resolver,
   or geometry implementation. DR-0009/0010 remain parked and nonblocking.
-- Bind Readiness 2 admission to an exact reviewed Git commit/tree and path,
-  manifest digest, and activation-payload digest excluding its own admission
-  record. Record parser-independent preflight identity and Ben approval,
-  rerun preflight on the merged target, and activate only if tree/payload
-  binding is unchanged. Corrections are append-only successor admissions;
-  deactivation/rollback is a new recorded Ben approval. Test that preflight
-  proves consistency only, while expected-result correctness remains a reviewed
-  contract/hypothesis and later executable evidence. The canonical
-  fixture-manifest specification owns exact Proposed manifest semantics.
+- Bind Readiness 2 admission to a fixture-suite payload manifest containing
+  suite kind, paths, hashes, profiles, expected results/diagnostics/snapshots,
+  and provenance, but no self-digest or approval. A separate readiness/decision
+  record names the reviewed manifest digest, source commit, path-scoped payload
+  identity, and Ben approval. Rerun parser-independent preflight on the merged
+  target; commit identity may change, but activation requires the manifest and
+  scoped payload binding to match. Corrections, deactivation, and rollback use
+  explicit successor/decision records preserved in Git history, not a custom
+  active-pointer ledger. Test that preflight proves consistency only, while
+  expected-result correctness remains a reviewed contract/hypothesis and later
+  executable evidence. The canonical fixture-manifest specification owns exact
+  Proposed manifest semantics.
 - Keep semantic resolution, diagnostics, provenance, and the CLI independent
   of geometry implementation, visual workbench, and host engine.
 - Define the project-owned versioned conceptual `GeometryRequest` and
@@ -648,21 +720,27 @@ or reject this proposal.
   `target-conflict` and is never replaced. If atomic no-replace is unavailable,
   fail closed with `output-failure` without adoption/overwrite. Artifact
   inspection receives expected build/artifact lineage and must not guess stale
-  state. A diagnostics-only failure bundle is trusted only when its
-  publisher/reporter remains independently trusted from the failed component;
-  otherwise the reserved CLI/API envelope alone reports failure. Publication
-  failure returns that envelope with no final bundle. Clean only
+  state. Initially, return trusted parent observations through the authoritative
+  CLI/API envelope and do not persist a diagnostics-only failure bundle as a
+  committed artifact. A future persisted failure-evidence facility requires a
+  separate attempt-evidence identity/lifecycle decision. Publication failure
+  returns that envelope with no final bundle. Clean only
   invocation-owned staging. Defer final avatar-package serialization,
   exact primitive/platform mapping, and exact manifest/operation field spelling
   to the canonical specification.
 - Keep worker producer/output trust separate from coordinator, reporter, and
-  publisher trust. Map worker crash/protocol corruption as governed, permit a
-  trusted parent to report only independently observed exit/timeout/protocol
-  failure, and never adopt worker output after worker trust loss. Publish a
-  diagnostics-only bundle only from trusted coordinator/reporter/publisher
-  components containing independently trusted parent observations; coordinator,
-  reporter, or publisher trust loss forbids publication. Validation must not
-  rehabilitate output across lost worker trust.
+  publisher trust. Map unsupported protocol/version negotiation to
+  `unsupported`; timeout or validated worker-reported resource exhaustion to
+  `resource-limit`; crash, forced termination, transport/framing loss, or
+  truncated/corrupt framing to `internal-failure`; well-framed and decoded but
+  contract-invalid output to `output-failure`; and validate a well-framed
+  worker-declared domain failure before mapping it to its governed status.
+  Permit a trusted parent to report only independently observed
+  exit/timeout/protocol failure, and never adopt worker output after worker
+  trust loss. Initially return those trusted parent observations in the
+  authoritative envelope rather than a committed diagnostics-only bundle;
+  coordinator, reporter, or publisher trust loss forbids publication.
+  Validation must not rehabilitate output across lost worker trust.
 - Exercise the initial filesystem profile on tested local WSL `/home` Linux,
   excluding `/mnt/c`, network/removable/unspecified filesystems. Use sibling
   same-filesystem staging, probe atomic no-replace, keep committed outputs

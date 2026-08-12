@@ -6,13 +6,13 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 7
+Revision: 8
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-11
 
@@ -71,9 +71,13 @@ identity, and the DR-0013 build/output ownership boundary. This material
 Revision 6 change makes the Revision 5 current-review artifacts stale.
 Revision 6 remains Proposed with Owner approval Pending and Review status
 Pending. Ben then approved the Batch 10 top-level envelope, numeric-profile,
-and omission/default resolutions recorded in Revision 7. Revision 7 remains
-Proposed with Owner approval Pending and Review status Pending; the Revision 6
-current-review artifacts are stale after this material change.
+and omission/default resolutions recorded in Revision 7. Ben approved the
+current-review C3/C4 resolutions on 2026-08-12: frame roles are typed by
+owning record, and Readiness 2 freezes a structural rigid-transform carrier
+while Readiness 3 freezes numeric semantics and admits expected graph snapshots
+through the generic fixture route. This material Revision 8 change makes the
+Revision 7 current-review artifacts stale; the record remains Proposed with
+Owner approval Pending and a fresh current review pending.
 
 ## Decision
 
@@ -129,9 +133,16 @@ Readiness 2 prerequisite.
 
 The source basis declares length unit, handedness, up, and forward. Measurements
 and transforms identify owner, semantic role, and frame/context. No per-value
-unit override is admitted initially. Readiness 2 checks structural shape and
-references only; Readiness 3 freezes canonical basis, rotation representation,
-scale/shear policy, numeric ranges, conditioning, and tolerances.
+unit override is admitted initially. Frame roles are typed by owning record:
+Part local/reference, Joint proximal/distal, Socket intrinsic interface, and
+Attachment host/mating endpoint context; resolved world/reference and runtime
+pose are derived contexts. Readiness 2 checks structural shape and references
+only and freezes one rigid-transform carrier: three-component translation plus
+explicit four-component `xyzw` quaternion, with no scale or shear fields.
+Readiness 3 freezes canonical basis, rotation representation, scale/shear
+policy, numeric ranges, conditioning, and tolerances, and admits expected graph
+snapshots through a manifest successor with path, digest, comparison-profile
+identity, and exact/semantic comparison rule.
 
 ### Deterministic resolution phases and provenance
 
@@ -559,6 +570,22 @@ it would lock byte-level rules before semantic and artifact identity needs are
 understood. Deterministic debug JSON is allowed; canonical bytes and semantic
 hashing remain deferred.
 
+### Defer the transform carrier until numeric semantics are frozen
+
+That would leave the Readiness 2 schema unable to validate transform shape and
+would force a knowingly disposable structural contract. The selected boundary
+freezes translation plus `xyzw` quaternion structure at Readiness 2, then
+defers basis, normalization, ranges, conditioning, and tolerances to
+Readiness 3.
+
+### Use a bespoke fixture-admission ledger
+
+This would make expected snapshots and parser fixtures depend on a custom
+active-pointer protocol and could make the manifest bind to itself. The
+selected boundary uses one generic fixture-suite payload manifest and a
+separate readiness/decision record carrying the reviewed manifest digest,
+scoped payload identity, and Ben approval; Git history preserves successors.
+
 ### Use a generic body-record union
 
 A generic union would shorten the first schema but make ownership, stable
@@ -653,25 +680,28 @@ actionable against DR-0012 in this review. Review completion is evidence only;
 there is no clean-review or acceptance implication. At that historical Revision
 6 state, any cross-cutting findings recorded in the linked reviews awaited
 Ben's discussion and owner disposition; Batch 10 discussion later resolved the
-applicable findings. The current Revision 7 still requires fresh review and
+applicable findings. The current Revision 8 still requires fresh review and
 owner disposition. Owner approval remains Pending and Status remains Proposed.
 Only Ben may accept or reject this proposal.
 
-The Batch 10 revision is discussion-approved by Ben on 2026-08-12. The
-Revision 6 review artifacts above are stale historical evidence after this
-material revision. The fresh current Batch 10 Double review examined commit
+The Batch 10 revision was discussion-approved by Ben on 2026-08-12. The
+Revision 7 review artifacts above are stale historical evidence after this
+material Revision 8 resolution. The prior fresh Batch 10 Double review examined
+commit
 `f27008f319cfc460f4a27efe31594e5607e7721e`: [review 01](reviews/DR-0012-rev-07-review-01.md)
 recommended **Revise** at **High** confidence under the contract/schema,
 determinism, identity, security, and fixture-admission lens; [review 02](reviews/DR-0012-rev-07-review-02.md)
 recommended **Revise** at **High** confidence under the platform/filesystem,
 publication, reversibility, numeric-frame, and runtime-portability lens.
-Consolidated findings **C3 (High)** and **C4 (High)** remain actionable: frame
-roles must uniquely type Joint and Socket records, and the strict Readiness 2/3
-transition needs a transform carrier or explicit successor plus immutable
-expected-snapshot comparison and append-only admission rules. Review status is
-Complete as evidence, not a clean review or acceptance. C3 and C4 await Ben's
-discussion and owner disposition. Owner approval remains Pending and Status
-remains Proposed. Only Ben may accept or reject this proposal.
+The prior consolidated findings **C3 (High)** and **C4 (High)** are resolved in
+this Proposed revision: frame roles are typed by owning record, Readiness 2
+freezes the structural rigid-transform carrier, and Readiness 3 freezes numeric
+semantics and admits expected graph snapshots through a manifest successor with
+path, digest, comparison-profile identity, and exact/semantic comparison rule.
+Exact canonical numeric rules, bytes, and comparison profiles remain activation
+prerequisites. Ben's resolution is discussion approval, not acceptance. Review
+status is Pending for the new current revision; Owner approval remains Pending
+and Status remains Proposed. Only Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 
@@ -690,9 +720,13 @@ remains Proposed. Only Ben may accept or reject this proposal.
   frame/context on measurements and transforms, and initially no per-value
   unit overrides. Bind `profiles` to the versioned semantic numeric-domain
   profile; keep operational profiles in operation/fixture context.
-- Keep Readiness 2 structural shape/reference checking only; at Readiness 3
-  freeze canonical basis, rotation, scale/shear, ranges, conditioning, and
-  tolerances.
+- Keep Readiness 2 structural shape/reference checking only and freeze its
+  rigid transform carrier as three-component translation plus explicit
+  four-component `xyzw` quaternion, without scale or shear fields. At Readiness
+  3 freeze canonical basis, rotation, scale/shear, ranges, conditioning, and
+  tolerances; admit expected graph snapshots through a manifest successor with
+  path, digest, comparison-profile identity, and exact/semantic comparison
+  rule.
 - Specify omission/default rules: identity, containment, module presence,
   source basis, and grammar-required values are explicit; exactly one
   contract/profile-owned deterministic default may resolve a missing value and

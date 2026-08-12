@@ -173,24 +173,30 @@ The public `build` operation must carry one authoritative result envelope from
 source resolution through derived output and publication. Its staged manifest
 uses a non-authoritative candidate artifact identity; successful atomic
 publication promotes that same identity to the committed artifact identity.
-The explicit output root and candidate identity determine a safe deterministic
-target, existing different or unverifiable occupants are never overwritten,
-and inspection requires expected build/artifact lineage rather than guessing
+Attempt identity is trace-only and must not enter committed success bytes or
+identity/equality. The initial contract persists no diagnostics-only failure
+bundle; failed operations return the authoritative envelope. The explicit
+output root and candidate identity determine a safe deterministic target,
+existing different or unverifiable occupants are never overwritten, and
+inspection requires expected build/artifact lineage rather than guessing
 whether stale output is current. The full collision, publication, worker,
-encoding, staging, and failure-bundle contract is owned by the [Proposed
-build-operation specification](../../spec/build-operation/README.md), including
-post-collision byte-divergence failure, the initial local-WSL filesystem
-profile, separate inspection statuses, and producer/coordinator trust
-boundaries.
+encoding, staging, and trust contract is owned by the [Proposed build-operation
+specification](../../spec/build-operation/README.md), including post-collision
+byte-divergence failure, the initial local-WSL filesystem profile, separate
+inspection statuses, and producer/coordinator trust boundaries.
 
 ### CK-PROD-007: Immutable fixture admission
 
-Readiness fixtures must be admitted against an exact reviewed Git commit/tree
-and path, manifest digest, and activation-payload digest that excludes the
-admission record itself. Preflight proves internal consistency, not expectation
-correctness; it reruns on the merged target and activation requires an unchanged
-binding plus explicit Ben approval. Successors are append-only, rollback or
-deactivation is explicitly approved, and unlisted fixtures do not activate.
+Readiness fixtures use an immutable manifest payload containing suite kind,
+fixture paths/content hashes, profiles, provenance, expected results, and
+expected snapshot references where applicable. The payload never contains its
+own digest, approval, or active pointer. A separate readiness/decision record
+names the reviewed source commit, manifest path, manifest digest, path-scoped
+payload digest/tree identity, preflight result, and Ben approval. Preflight
+proves internal consistency, not expectation correctness; it reruns on the
+merged target by comparing those content identities rather than an unchanged
+merge commit. Successors are recorded explicitly, rollback or deactivation is
+explicitly approved, and unlisted fixtures do not activate.
 Operation status remains separate from semantic fixture taxonomy, with a
 primary diagnostic required for every non-success. The canonical conceptual
 field groups and Readiness 2/3 corpus are owned by the [fixture-manifest
@@ -224,8 +230,10 @@ The identity-bearing concepts are exactly Part, Joint, Socket, Attachment,
 Region, Capability, and Field. A Joint is directed, with one proximal and one
 distal Part, and the resolved graph must expose canonical proximal- and
 distal-frame records in the corresponding Part-local bases with provenance.
-Each Socket is a Part-owned interface with its interface frame in the owning
-Part basis. The normalized model separately declares each module instance with
+Each Socket is a Part-owned interface with one intrinsic interface frame in the
+owning Part basis. Attachment host and mating roles are contextual endpoints
+that reference Sockets, not intrinsic Socket frame roles. The normalized model
+separately declares each module instance with
 a stable authored declaration address, module/root-role/template reference,
 anchor/provenance, presence/optionality, and Attachment requirement; absence
 and present-but-unattached are distinct. An absent optional declaration emits
@@ -237,16 +245,19 @@ Attachment must connect exactly one host Socket to one mating Socket, agree
 with the host-Part/module-root containment declaration, and initially be the
 sole incoming Attachment for that attached root. Each Socket has total active
 capacity one across host and mating roles; cross-role reuse is invalid.
-Host/mating socket frames, an optional Attachment offset, and the inverse
+Host/mating Socket frames, an optional typed Attachment offset, and the inverse
 mating frame determine the module-root placement; a competing authored
 placement must agree within the later-defined tolerance or be semantically
 invalid. Duplicate, detached, cyclic, or invalid endpoint cases fail.
 Attachment never implies a Joint. Module is an authored reusable scope, not an
 embodied graph concept; landmark, anchor, dimension, and frame are typed
 owner+role records. Region never owns, Capability is not an implementation,
-and Field carries representation-neutral intent/lineage. These are semantic
-roles and frames, not a bone, solver, rig, limits, runtime representation, or
-anatomy-fidelity claim. See [DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
+and Field carries representation-neutral intent/lineage. Readiness 2 uses a
+rigid transform carrier with exactly three translation components and four
+quaternion components in explicit `xyzw` order, with no scale or shear fields;
+Readiness 3 freezes numeric basis, normalization, conditioning, and tolerance
+semantics. These are semantic roles and frames, not a bone, solver, rig,
+limits, runtime representation, or anatomy-fidelity claim. See [DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
 [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md),
 and the [body-graph contract](../../spec/body-graph/README.md).
 
@@ -268,13 +279,17 @@ defaulted values never override authored claims, and hidden inferred equations
 are not allowed. A conflict is a deterministic semantic-invalid diagnostic and
 no success snapshot. Each source declares units, handedness, up, and forward.
 Resolution converts to a contract-revision canonical internal basis and records
-conversion provenance. Distinguish local/reference, joint, socket/mating,
-derived resolved world/reference, and runtime-pose frames. Every transform
+conversion provenance. Distinguish Part local/reference, Joint proximal/distal,
+Socket intrinsic interface, Attachment host/mating endpoint context, derived
+resolved world/reference, and runtime-pose frames. Every transform
 entering Attachment composition must be finite, non-degenerate, and invertible
 under the declared profile. A source violation is `invalid-source`; an
 implementation failure on an admissible transform is `internal-failure`.
-Exact canonical axes, units, rotation, scale, shear, conditioning, numeric
-ranges, and tolerances remain deferred to resolver activation.
+Readiness 2 uses a rigid transform carrier with exactly three translation
+components and four explicit `xyzw` quaternion components, with no scale or
+shear fields. Exact canonical axes, units, finite-number and normalization
+semantics, conditioning, numeric ranges, and tolerances remain deferred to
+Readiness 3.
 
 ### CK-PROD-012: Connected visible surface
 

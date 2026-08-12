@@ -35,18 +35,23 @@ the minimum Stage 1 chain, authored/defaulted/derived provenance, frame
 normalization, measurement conflicts, and invalid/unsupported outcomes.
 
 Readiness 2 admission is one review-branch activation transaction described by
-the [fixture-manifest specification](../spec/fixture-manifest/README.md). It
-binds the exact reviewed Git commit/tree and path, manifest digest, and
-activation-payload digest excluding the admission record itself. Preflight
-validates internal consistency only; it reruns on the merged immutable target,
-and activation requires unchanged binding plus explicit Ben approval. Successor
-admissions are append-only, and deactivation/rollback requires a new explicit
-Ben-approved record. An unlisted fixture never activates.
+the [fixture-manifest specification](../spec/fixture-manifest/README.md). The
+manifest payload contains suite kind, fixture paths/content hashes, profiles,
+provenance, expected results, and expected snapshot references where needed;
+it never contains its own digest, approval, or active pointer. A separate
+readiness/decision record names the reviewed source commit, manifest path,
+manifest digest, path-scoped payload digest/tree identity, preflight result,
+and Ben approval. Preflight validates internal consistency only and compares
+those content identities on the merged target; it does not require an
+unchanged merge commit. Successor admissions are recorded explicitly in Git
+history, and deactivation/rollback requires a new explicit Ben-approved
+record. An unlisted fixture never activates.
 
 The conceptual manifest fields are manifest ID/revision, schema revision/hash,
 each fixture ID/path/hash/provenance, operation status, semantic outcome where
 applicable, primary diagnostic, processing and diagnostic completeness,
-diagnostic/resource profile IDs, and the admission payload binding. Operation
+diagnostic/resource profile IDs, and expected snapshot path/digest/
+comparison-profile identity where applicable. Operation
 status remains separate from semantic taxonomy; every non-success requires a
 primary diagnostic, while success has no primary (absent/null in the future
 exact encoding). The production parser must consume an admitted record; it
@@ -57,9 +62,11 @@ module, duplicate member, invalid discriminator, unsupported revision, unknown
 core member, unsupported required extension, preserved optional extension, and
 resource-over-budget input. Readiness 3 adds a present attached module, present
 unattached invalid module, cross-role Socket reuse invalidity,
-measurement-conflict invalidity, and valid defaulted provenance. Build-operation
+measurement-conflict invalidity, valid defaulted provenance, and an expected
+graph snapshot with an explicit comparison rule. Build-operation
 identity/publication cases (first build, retry, concurrent winner, lineage
-change, and byte divergence) remain conceptual operation fixtures.
+change, and byte divergence) use the same manifest mechanism as a
+build-publication suite and remain conceptual.
 
 Before any fixture is used as proof, a cross-DR matrix must link durable
 identity cases to typed concepts, articulation endpoints, measurement/frame

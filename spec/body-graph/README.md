@@ -2,8 +2,8 @@
 
 Status: Proposed conceptual contract; CK-KICK-012 Batch 10 discussion-approved
 canonical update. DR-0002 Revision 11 and DR-0008 Revision 11 remain Proposed
-with Owner approval Pending and Review Complete. DR-0006 Revision 6, DR-0011
-Revision 8, DR-0012 Revision 7, and DR-0013 Revision 5 remain Proposed with
+with Owner approval Pending and Review Complete. DR-0006 Revision 7, DR-0011
+Revision 9, DR-0012 Revision 8, and DR-0013 Revision 6 remain Proposed with
 Owner approval Pending and Review Pending. The Batch 9 Double review targeted
 commit `6cf17270fda2827756c24a8d0fb301bef358f98f` and is stale for the revised
 records. Review evidence is not acceptance; no implementation or readiness gate
@@ -136,10 +136,10 @@ world/reference transforms, and mutable runtime-pose transforms.
 
 ### Socket and Attachment
 
-Each Socket is owned by exactly one Part and owns one interface-frame record
-expressed in that owning Part's local/reference basis. A Socket may be the host
-interface or mating interface of an Attachment; the role is supplied by the
-Attachment, not inferred from a generic relation.
+Each Socket is owned by exactly one Part and owns one intrinsic interface-frame
+record expressed in that owning Part's local/reference basis. Host and mating
+are contextual endpoint roles supplied by an Attachment that references the
+Socket; neither role changes the Socket's intrinsic frame semantics.
 
 An Attachment connects exactly one host Socket to exactly one mating Socket.
 For the initial module composition, the host Socket is owned by the host Part,
@@ -178,9 +178,11 @@ Composition uses the stated coordinate bases and order, with the rightmost
 transform applied first. Every transform entering this composition must be
 finite, non-degenerate, and invertible under the declared transform profile.
 A source-caused violation is `invalid-source`; an implementation failure on an
-admissible transform is `internal-failure`. Matrix layout, serialization,
-conditioning threshold, exact representation, scale/shear policy, and
-tolerances remain deferred to resolver activation. An optional authored
+admissible transform is `internal-failure`. Readiness 2 fixes the structural
+carrier as exactly three translation components plus four explicit `xyzw`
+quaternion components, with no scale or shear fields. Matrix layout and
+serialization, canonical numeric semantics, conditioning threshold, ranges,
+and tolerances remain deferred to resolver activation. An optional authored
 Attachment offset, if admitted, is part of the
 host/mating alignment transform `O` in that typed basis. Descendant placement is
 subsequently inherited only by the ordinary containment path. If an
@@ -235,13 +237,18 @@ structures are outside this first envelope.
 
 The resolved graph consumes the required source basis: length unit,
 handedness, up, and forward. Every measurement and transform retains its
-owner, role, and frame/context. Stage 1 uses a closed role set including
-local/reference, joint, host Socket, and mating Socket as applicable. Source
-profiles initially reference only the semantic numeric-domain profile;
-operational resource and diagnostic profiles remain operation/fixture context.
-There is no per-value unit override initially. Readiness 2 checks shape,
-references, and provenance; Readiness 3 freezes canonical basis, rotations,
-scale/shear, ranges, conditioning, and tolerances.
+owner, role, and frame/context. Stage 1 uses owner-specific roles: a Part has a
+local/reference frame, a Joint has proximal and distal frames, and a Socket has
+one intrinsic interface frame. Host and mating are contextual endpoint roles
+on an Attachment that references Sockets; they are not intrinsic Socket frame
+roles. Source profiles initially reference only the semantic numeric-domain
+profile; operational resource and diagnostic profiles remain operation/fixture
+context. There is no per-value unit override initially. Readiness 2 checks
+shape, references, provenance, and the rigid-transform carrier: exactly three
+translation components and exactly four quaternion components in explicit
+`xyzw` order, with no scale or shear fields. Readiness 3 freezes canonical
+basis, finite-number and normalization semantics, ranges, conditioning, and
+tolerances.
 
 ## Values, normalization, and provenance
 
@@ -251,8 +258,9 @@ owner, role, frame/context, and authored/defaulted/derived provenance. Ratios
 are derived and inspectable, not authored authority. Sources declare units,
 handedness, up, and forward axes; resolution normalizes values into one
 contract-revision canonical basis and records conversion provenance. The
-actual canonical basis, rotation representation, scale/shear policy, ranges,
-and tolerance remain deferred until Readiness 3. Resolved values that use a
+actual canonical basis, finite-number and normalization semantics, ranges, and
+tolerance remain deferred until Readiness 3; the initial structural carrier
+has no scale or shear fields. Resolved values that use a
 permitted exact contract/profile default retain `defaulted` provenance and the
 stable default-rule identity. Identity, containment, module presence, basis,
 and grammar-required values are explicit; no null-as-missing, implicit zero,

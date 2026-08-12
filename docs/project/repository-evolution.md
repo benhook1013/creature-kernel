@@ -13,11 +13,13 @@ States: `active`, `planned`, `triggered`, `deferred`, `not-applicable`, `retired
 CK-KICK-012 and CK-KICK-013 remain active Proposed work after discussion-
 approved F1–F7 and Batch 8/9/10 resolutions. DR-0002 Revision 11 and DR-0008
 Revision 11 remain Proposed with Owner approval Pending and Review Complete.
-DR-0006 Revision 6, DR-0011 Revision 8, DR-0012 Revision 7, and DR-0013
-Revision 5 remain Proposed with Owner approval Pending and Review Pending. The
+DR-0006 Revision 7, DR-0011 Revision 9, DR-0012 Revision 8, and DR-0013
+Revision 6 remain Proposed with Owner approval Pending and Review Pending. The
 completed Batch 9 Double review targeted commit
 `6cf17270fda2827756c24a8d0fb301bef358f`; its evidence is stale for the revised
-records and is not acceptance. No implementation or readiness gate activates.
+records; the prior Batch 10 Double-review evidence is also stale. Ben approved
+all five Batch 10 resolution directions. No implementation or readiness gate
+activates.
 See
 the [current review state](status.md#current-review-and-future-activation-obligations)
 for review lenses, recommendations, and findings. Earlier review evidence is
@@ -44,7 +46,7 @@ implementation packages or compiler fixtures.
 | Fixture-manifest specification | Next | active | Batch 10 creates the canonical Proposed fixture-manifest/admission owner; implementation remains gated by Readiness 2 | `spec/fixture-manifest/` | Immutable reviewed-tree/payload binding, preflight, append-only successor, and admission-link checks |
 | Build-operation specification | Next | active | Proposed public build/output contract exists as the canonical owner; implementation remains gated by DR-0013 readiness | `spec/build-operation/` | Contract, link, and ownership checks |
 | Implementation packages | Next | planned | Stage 1: DR-0013 accepted, activating only the empty Cargo shell; Stage 2: exact JSON Schema plus a versioned/admitted manifest, all referenced fixture files, and parser/bootstrap activate together in one review-branch transaction after Ben admission; Stage 3: canonical numeric/frame rules plus frozen expected graph outputs activate semantic resolver/in-memory snapshot handoff; Stage 4: working resolver plus provisional geometry profile and project-owned seam activate exploratory Stage 1 geometry | Planned Cargo workspace (`Cargo.toml`, `crates/`) | Stage-specific shell, parser/bootstrap, resolver/snapshot, and exploratory-proof evidence |
-| Generation fixtures | Next | planned | Stage 2 only: Ben-approved parser-independent preflight binds the exact reviewed Git commit/tree and path, manifest digest, activation-payload digest excluding the admission record, manifest revision/ID, schema revision/hash, paths/hashes/provenance, expected status/primary diagnostics, profile IDs, and completeness; rerun on merged target, append-only successors, and unlisted fixtures do not activate independently | `fixtures/body-documents/` | Immutable binding, manifest/listed-source agreement, and deterministic output checks |
+| Generation fixtures | Next | planned | Stage 2 only: a separate Ben-approved readiness/decision record names the reviewed source commit reference, manifest path/digest, path-scoped payload digest/tree identity, preflight result, manifest/schema revisions, paths/hashes/provenance, expected status/primary diagnostics, profile IDs, and completeness; rerun on the merged target compares those content identities even when the merge commit changes; append-only successors and unlisted fixtures do not activate independently | `fixtures/body-documents/` | Immutable binding, manifest/listed-source agreement, and deterministic output checks |
 | Geometry exploration | Next | planned | Stage 4 only: working resolver plus provisional geometry profile and project-owned GeometryRequest/GeometryResult seam; CK-KICK-014 is exploratory and does not require accepting/reactivating parked DR-0009/0010 | `experiments/` under an activated proof | Bounded exploratory evidence; generated bundles remain ephemeral/unretained and do not select production geometry |
 | Confirmatory multi-branch surface comparison | Later | deferred | At least two runnable candidate surface implementations and an intended comparative outcome for production architecture, or Ben explicitly reactivates DR-0009/0010 | `experiments/` under an activated protocol | Activated-protocol evidence and review |
 | Runtime benchmarks | Next | planned | First executable runtime | `benchmarks/runtime/` | Reference hardware profiles |

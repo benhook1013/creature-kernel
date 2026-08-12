@@ -11,7 +11,7 @@ supplementary. This direction is Proposed for formal acceptance under
 [DR-0003](../decisions/DR-0003-real-time-first-compiled-avatar-boundary.md).
 
 CK-KICK-013 is a discussion-approved but unaccepted platform proposal.
-Proposed DR-0013 Revision 5 has Owner approval Pending and Review Pending after
+Proposed DR-0013 Revision 6 has Owner approval Pending and Review Pending after
 Batch 10. The completed Batch 9 Double review targeted commit
 `6cf17270fda2827756c24a8d0fb301bef358f`; its evidence is stale for the revised
 record and is not acceptance. No implementation or readiness gate activates.
@@ -75,11 +75,13 @@ experiments, evidence/render tooling, and the visual workbench; it is not a
 production compiler dependency.
 
 The [build-operation contract](../../spec/build-operation/README.md) owns the
-complete success/failure bundle lifecycle through one authoritative envelope:
+complete success-output lifecycle through one authoritative envelope:
 candidate versus committed artifact identity, explicit-output-root target
 derivation, immutable sibling staging, atomic no-replace publication,
-idempotent success, target conflict, failure-bundle trust, and lineage-checked
-inspection. An independent visual workbench consumes those artifacts rather
+idempotent success, worker trust, and lineage-checked inspection. Failed
+operations initially return the authoritative envelope and do not persist a
+diagnostics-only failure bundle. An independent visual workbench consumes
+successful derived artifacts rather
 than becoming part of the compiler or a daemon/service. This boundary does not
 settle final avatar-package serialization or compatibility.
 Build requests include all outcome-affecting source/dependency,
@@ -93,13 +95,23 @@ closed statuses and shared completeness/diagnostic conventions. Producer/output
 trust is distinct from coordinator/reporter/publisher trust; worker trust loss
 invalidates worker output and validation cannot rehabilitate it. The
 [fixture-manifest specification](../../spec/fixture-manifest/README.md) owns
-immutable reviewed-tree/payload admission and append-only successors.
+the manifest payload and separate content-identity readiness/decision
+admission and successor history.
 Performance claims must be backed by a reproducible benchmark and hardware
 profile. The language/build acceptance trigger remains unsatisfied, so no
 implementation package is activated. Any future worker must negotiate protocol/
 version compatibility, obey bounded time/resource budgets, map crash/timeout/
 resource outcomes, validate outputs before publication, and leave the compiler
-surviving worker failure; exact worker serialization remains deferred.
+surviving worker failure; exact worker serialization remains deferred. The
+conceptual mapping is closed: unsupported protocol negotiation is
+`unsupported`; timeout or validated worker-reported exhaustion is
+`resource-limit`; crash, forced termination, transport loss, truncated
+framing, or corrupt framing is `internal-failure`; well-framed decoded
+contract-invalid output is `output-failure`; and a well-framed worker-declared
+domain failure is validated before mapping to its governed status. Loss of
+coordinator, reporter, or publisher trust is `internal-failure` with no
+publication. A trusted parent may report its own observation after worker trust
+loss, but cannot adopt worker output.
 
 ## Creature compilation
 
@@ -139,9 +151,13 @@ The conceptual top-level shape is `contract`, `source`, `basis`, `profiles`,
 `body`, and `extensions`; `body` uses explicit typed collections and stable
 references, with core collections present even when empty and no generic union.
 The required basis is length unit, handedness, up, and forward. Stage 1 frame
-roles are closed around local/reference, joint, host Socket, and mating Socket
-as applicable; source profiles initially name only semantic numeric-domain
-profiles. Identity, containment, module presence, basis, and grammar-required
+roles are owner-specific: Part local/reference, Joint proximal/distal, and
+Socket intrinsic interface; Attachment host/mating are contextual endpoint
+roles. Source profiles initially name only semantic numeric-domain profiles.
+Readiness 2 uses a rigid transform carrier with exactly three translation and
+four explicit `xyzw` quaternion components and no scale/shear fields; Readiness
+3 freezes numeric basis, normalization, conditioning, and tolerances. Identity,
+containment, module presence, basis, and grammar-required
 values are explicit. Omission requires one exact deterministic
 contract/profile-owned default with stable rule identity and `defaulted`
 provenance; null-as-missing, implicit zero, neighbour inference, and hidden
