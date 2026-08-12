@@ -11,8 +11,8 @@ supplementary. This direction is Proposed for formal acceptance under
 [DR-0003](../decisions/DR-0003-real-time-first-compiled-avatar-boundary.md).
 
 CK-KICK-013 is a discussion-approved but unaccepted platform proposal.
-Proposed DR-0013 Revision 6 has Owner approval Pending and Review Pending after
-Batch 10. The completed Batch 9 Double review targeted commit
+Proposed DR-0013 Revision 7 has Owner approval Pending and Review Pending after
+Batch 11. The Batch 10 review evidence is stale; the completed Batch 9 Double review targeted commit
 `6cf17270fda2827756c24a8d0fb301bef358f`; its evidence is stale for the revised
 record and is not acceptance. No implementation or readiness gate activates.
 See the [current review state](../project/status.md#current-review-and-future-activation-obligations)
@@ -89,8 +89,9 @@ compiler/toolchain, contract/schema/profile, configuration/seed,
 backend-capability/protocol, and target-platform inputs. Attempt identity is
 unique for tracing and staging only; it cannot alter target or idempotent
 equality. Candidate identity derives from deterministic request, artifact role,
-and identity-rule revision. Canonical serialization/hash remains deferred but
-is required before activation. Inspection is a separate read operation with
+and identity-rule revision. Canonical serialization/hash is proposed as
+restricted canonical JSON with domain-separated SHA-256 digests and remains
+required before activation. Inspection is a separate read operation with
 closed statuses and shared completeness/diagnostic conventions. Producer/output
 trust is distinct from coordinator/reporter/publisher trust; worker trust loss
 invalidates worker output and validation cannot rehabilitate it. The
@@ -104,9 +105,11 @@ version compatibility, obey bounded time/resource budgets, map crash/timeout/
 resource outcomes, validate outputs before publication, and leave the compiler
 surviving worker failure; exact worker serialization remains deferred. The
 conceptual mapping is closed: unsupported protocol negotiation is
-`unsupported`; timeout or validated worker-reported exhaustion is
-`resource-limit`; crash, forced termination, transport loss, truncated
-framing, or corrupt framing is `internal-failure`; well-framed decoded
+`unsupported`; trusted parent termination or transport closure after an
+established configured timeout or resource breach is `resource-limit`;
+unexpected or unqualified termination, unexplained exit, transport loss,
+failed termination invariant, truncated framing, or corrupt framing is
+`internal-failure`; well-framed decoded
 contract-invalid output is `output-failure`; and a well-framed worker-declared
 domain failure is validated before mapping to its governed status. Loss of
 coordinator, reporter, or publisher trust is `internal-failure` with no
@@ -162,6 +165,17 @@ values are explicit. Omission requires one exact deterministic
 contract/profile-owned default with stable rule identity and `defaulted`
 provenance; null-as-missing, implicit zero, neighbour inference, and hidden
 equations are not allowed.
+
+Machine addresses use the proposed typed semantic-address profile rather than
+filesystem-like strings, and display names are not identity. The semantic
+numeric basis is proposed as right-handed metres, +Y up, and +Z
+creature-forward. Values are finite binary64 and rigid transforms use the
+Readiness 2 translation/quaternion carrier; exact ranges, conditioning,
+normalization, and tolerances remain the subject of the planned
+[numeric/frame profile experiment](../research/numeric-frame-profile-experiment.md).
+Canonical comparison profiles distinguish exact discrete identity from typed
+numeric comparisons. Diagnostic codes and profiles are owned by the proposed
+[diagnostics contract](../../spec/diagnostics/README.md).
 
 The resolver runs the following ordered phases inside one operation-result
 envelope:

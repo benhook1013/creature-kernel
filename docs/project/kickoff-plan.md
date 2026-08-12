@@ -24,6 +24,12 @@ exact decision metadata and review cells.
 
 ## Working method
 
+Batch 11 adds a bounded numeric/frame evidence design before resolver
+activation. Its planned order is numeric/frame semantics, typed addresses,
+canonical data, diagnostics, exact schema/manifest, Readiness 2, and a
+separate Readiness 3 expected-snapshot transaction. These are Proposed
+planning outcomes, not implementation commitments.
+
 - Work in rounds, with a discussion batch of roughly two to five related
   decisions or talking points.
 - Finish the discussion batch before integrating its canonical document changes
@@ -589,13 +595,13 @@ gets its own DR and review before backend-specific compiler code locks it in.
 
 ### CK-KICK-012: Specify the minimal body document and body graph
 
-State: active (Batches 1, 4, 5, 6, F1–F3, Batch 8, Batch 9, and Batch 10 integrated as Proposed
+State: active (Batches 1, 4, 5, 6, F1–F3, Batch 8, Batch 9, Batch 10, and Batch 11 integrated as Proposed
 documentation; DR-0002/0008 Revision 11 remain Proposed with Owner approval
-Pending and Review Complete, while DR-0006 Revision 7, DR-0011 Revision 9,
-DR-0012 Revision 8, and DR-0013 Revision 6 remain Proposed with Owner approval
-Pending and Review Complete after Ben's approved Batch 10 resolutions. The prior
-Batch 10 Double-review evidence is stale history; the current Double review is
-complete and its findings await owner disposition. The completed Batch 9 Double
+Pending and Review Complete, while DR-0006 Revision 8, DR-0011 Revision 10,
+DR-0012 Revision 9, and DR-0013 Revision 7 remain Proposed with Owner approval
+Pending and Review Pending after the Batch 11 resolutions. The prior Batch 10
+Double-review evidence is stale history; fresh current-revision review is
+pending. The completed Batch 9 Double
 review targeted `6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is
 stale for the revised records and is not acceptance. No implementation or
 readiness gate activates. See the
@@ -640,8 +646,10 @@ Outcome:
   Sources declare units, handedness, up, and forward, then normalize to a
   contract-revision canonical internal basis with conversion provenance.
   Distinct local/reference, joint, socket/mating, derived world/reference,
-  and runtime-pose frames are required. Exact canonical axes, units, rotation,
-  scale, and shear remain deferred.
+  and runtime-pose frames are required. Batch 11 proposes the canonical
+  right-handed metre basis (+Y up, +Z creature-forward), typed semantic
+  addresses, canonical data/digests, and diagnostic profile; exact thresholds
+  and activation remain deferred.
 - Fixture expected outcomes freeze as valid-supported, semantically invalid, or
   well-formed-but-unsupported, with a primary diagnostic class/code frozen for
   every non-success fixture. Only valid-supported fixtures count toward the
@@ -649,9 +657,8 @@ Outcome:
   generation fixtures activate through the Readiness 2 admitted manifest
   transaction, not merely when the first compiler reads a body document.
 - Keep the semantic contract independent from generated mesh indices and the
-  first host engine. Exact syntax/schema technology, coordinate convention,
-  numeric ranges, surface primitives, identity address serialization,
-  structural-edit lifecycle/remap semantics, geometry backend, surface,
+  first host engine. Exact source/schema syntax, numeric thresholds, surface
+  primitives, semantic-address lifecycle/remap semantics, geometry backend, surface,
   animation, physics, and runtime choices remain deferred. The Rust/Cargo
   platform direction is tracked separately in CK-KICK-013 as Proposed.
 - The first parser and resolver proposals now activate the
@@ -662,7 +669,7 @@ Outcome:
   Their implementation packages and compiler-consumed fixtures remain
   unactivated.
 
-- Batch 6, F1–F3, Batch 8, and Batch 9 are discussion-approved and integrated below as Proposed
+- Batch 6, F1–F3, Batch 8, Batch 9, Batch 10, and Batch 11 are discussion-approved and integrated below as Proposed
   material. They resolve status/primary ordering, descendant-owned mating
   Socket placement, typed Attachment composition, and Attachment cardinality
   without accepting or silently replacing the decision records. The affected
@@ -671,17 +678,17 @@ Outcome:
 
 The Batch 1 and Batch 4 discussion selections and review resolutions are not DR
 acceptance. The prior revisions have complete review evidence. Batch 5, Batch
-6, F1–F7, Batch 8, Batch 9, and Batch 10 are discussion-approved and integrated into the canonical product,
+6, F1–F7, Batch 8, Batch 9, Batch 10, and Batch 11 are discussion-approved and integrated into the canonical product,
 specification, architecture, and project documents as Proposed material. The
 CK-KICK-012 Batch 5 Double review at commit
 `a282dbabffd83afa4e62577086934d00f98e12c7` and Batch 6 review at `c64b1b...`
 are stale historical evidence. The current six-record set is DR-0002 Revision
-11, DR-0006 Revision 7, DR-0008 Revision 11, DR-0011 Revision 9, DR-0012
-Revision 8, and DR-0013 Revision 6; DR-0002/0008 retain Review Complete and
+11, DR-0006 Revision 8, DR-0008 Revision 11, DR-0011 Revision 10, DR-0012
+Revision 9, and DR-0013 Revision 7; DR-0002/0008 retain Review Complete and
 the four revised records remain Proposed with Owner approval Pending and Review
-Complete. Ben approved all five Batch 10 resolution directions; the prior Batch
-10 Double-review evidence is stale history and the current-revision Double
-review is complete. The
+Pending. Ben approved the Batch 11 resolution directions; the prior Batch 10
+Double-review evidence is stale history and fresh current-revision review is
+pending. The
 completed Batch 9 Double review targeted
 `6cf17270fda2827756c24a8d0fb301bef358f`; historical evidence is stale for the
 revised records and is not acceptance. See
@@ -694,11 +701,11 @@ preserved as historical evidence.
 The cross-cutting proposal is
 [DR-0012: initial body-document encoding, resolution, and
 compatibility](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
-CK-KICK-012 remains active; Batch 9 is discussion-approved Proposed material.
+CK-KICK-012 remains active; Batch 11 is discussion-approved Proposed material.
 The completed Batch 9 Double review is evidence only; its five actionable
 findings were resolved by Batch 10 discussion. The prior Batch 10 Double
 review remains preserved as stale evidence; fresh current-revision review is
-pending, so this proposal does not imply acceptance or activate an
+pending for Batch 11, so this proposal does not imply acceptance or activate an
 implementation/readiness gate.
 
 ### Batch 4 — encoding, resolution, and compatibility (discussion-approved)
@@ -1084,10 +1091,9 @@ evidence only.
 ### CK-KICK-013: Select the first implementation platform
 
 State: active (discussion-approved Proposed platform direction integrated;
-Proposed DR-0013 Revision 6 has Owner approval Pending and Review Complete after
-Ben's approved Batch 10 resolution. The prior Batch 10 Double-review evidence
-is stale history; the current Double review is complete and its findings await
-owner disposition. The
+Proposed DR-0013 Revision 7 has Owner approval Pending and Review Pending after
+the Batch 11 resolution. The prior Batch 10 Double-review evidence is stale
+history; fresh current-revision review is pending. The
 completed Batch 9 Double review targeted
 `6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is stale for the
 revised record and is not acceptance; not accepted or implemented)
@@ -1098,12 +1104,14 @@ contract. CK-KICK-011 is not an automatic prerequisite.
 Outcome:
 
 - Acceptance of DR-0013 alone triggers only the Cargo workspace and empty
-  compiler/library/CLI shell boundary. Exact JSON Schema, a versioned and
-  parser-independent-preflighted fixture manifest, all referenced fixture files,
-  and parser/bootstrap jointly gate Readiness 2 in one review-branch activation
-  transaction with Ben admission; canonical numeric/frame rules plus frozen
-  expected graph outputs gate semantic resolver/in-memory snapshot handoff; a
-  working resolver plus provisional geometry profile and project-owned seam
+  compiler/library/CLI shell boundary. The proposed order is numeric/frame,
+  semantic-address, canonical-data/digests, diagnostics, exact schema/manifest,
+  Readiness 2, then a distinct Readiness 3 successor transaction. Exact JSON
+  Schema, a versioned and parser-independent-preflighted fixture manifest, all
+  referenced fixture files, and parser/bootstrap jointly gate Readiness 2 in
+  one review-branch activation transaction with Ben admission; the distinct
+  Readiness 3 transaction with frozen expected graph outputs gates semantic
+  resolver/in-memory snapshot handoff; a working resolver plus provisional geometry profile and project-owned seam
   gates exploratory Stage 1 geometry. Use
   a stable Rust production semantic/compiler core in a Cargo workspace, with
   an engine-independent Rust compiler library, thin CLI, and versioned
@@ -1144,8 +1152,8 @@ the Batch 9 revisions; its seven consolidated findings are preserved as
 historical evidence resolved by discussion. The completed Batch 9 Double review
 is evidence only; its five actionable findings were resolved by Batch 10
 discussion. The prior Batch 10 review remains preserved as stale evidence, and
-the fresh current-revision Double review is complete. Its findings await owner
-disposition; no implementation activates while the DR remains Proposed.
+fresh current-revision review for Batch 11 is pending; no implementation
+activates while the DR remains Proposed.
 Geometry libraries, licensing, platform support, and any C++ worker/FFI boundary remain
 evidence-driven; they are not settled by this proposal. No implementation
 package or compiler fixture is activated while the DR remains Proposed.

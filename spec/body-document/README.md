@@ -22,11 +22,14 @@ the resolved semantic graph after this operation has admitted and recognized
 the source.
 
 This is a conceptual contract, not a machine schema. Exact serialized member
-names, diagnostic code spellings, numeric budgets, tolerances, canonical axes
-and units, rotation/scale/shear policy, source-map encoding, canonical bytes,
-and hashing remain deferred. Canonical serialization and hashing are required
-before identity/build or fixture-manifest activation. Owner disposition remains
-pending for the materially revised decision records.
+names, diagnostic code spellings, numeric budgets, and source-map encoding
+remain deferred. The [semantic-address profile](../semantic-address/README.md),
+[numeric and frame profile](../numeric-frame-profile/README.md),
+[canonical-data profile](../canonical-data/README.md), and
+[diagnostic profile](../diagnostics/README.md) own their respective exact
+machine-facing rules. Those Proposed profiles are activation-gated and do not
+activate a parser or schema by themselves. Owner disposition remains pending
+for the materially revised decision records.
 
 ## Authority and representations
 
@@ -106,12 +109,14 @@ selected by the operation or fixture admission context. No per-value unit
 override is permitted initially.
 
 Readiness 2 validates document shape, typed records, references, and owner/role
-addressing, including the structural rigid-transform carrier: exactly three
+addressing, including the structural rigid-transform carrier defined by the
+[numeric and frame profile](../numeric-frame-profile/README.md): exactly three
 translation components and exactly four quaternion components in explicit
-`xyzw` order, with no scale or shear fields. Readiness 3 freezes the canonical
-basis, finite-number and normalization semantics, admissible ranges,
-conditioning rules, and tolerances. Until then, those exact numeric meanings
-remain deferred.
+`xyzw` order, with no scale or shear fields. Readiness 3 is a separate
+successor transaction that admits the profile's canonical basis, finite-number
+and normalization semantics, admissible ranges, conditioning rules,
+tolerances, and expected graph snapshots. It does not reselect the Readiness 2
+carrier.
 
 ## Omission and deterministic defaults
 
@@ -267,7 +272,10 @@ normative phase/status/diagnostic ordering; the exact code vocabulary is
 deferred. Human-readable text is explanatory and never a compatibility or
 ordering key.
 
-Diagnostics are bounded by a profile-selected arena. Ordinary diagnostics are
+The [diagnostic registry and profile](../diagnostics/README.md) owns the
+versioned code/occurrence/profile boundary and exact initial code set; this
+contract owns the operation status and precedence. Diagnostics are bounded by
+a profile-selected arena. Ordinary diagnostics are
 retained as reached until ordinary capacity is exhausted; earlier diagnostics
 are not silently replaced. Primary selection considers logical diagnostics in
 normative order, and reserved primary capacity preserves the minimal matching
@@ -281,7 +289,7 @@ unless `internal-failure` has precedence.
 The deterministic ordering key is, in order: phase; severity/category;
 normalized source path and offset; diagnostic code; and semantic address.
 Missing path, offset, code, or address values use stable conceptual sentinels;
-their serialized spellings remain deferred. Ties use no human text, timestamps,
+the registry/profile defines their machine treatment. Ties use no human text, timestamps,
 allocation order, or incidental object order. The implementation may retain
 additional diagnostics only when doing so respects the same bound and key.
 

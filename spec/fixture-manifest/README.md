@@ -24,14 +24,21 @@ parser/body-document, semantic-graph, and build/publication suites.
 
 A separate later readiness or decision record, outside the manifest payload
 digest, names the exact reviewed source commit reference, manifest path,
-manifest digest, path-scoped payload digest/tree identity, preflight result,
-and Ben's approval. The payload can therefore be hashed without self-reference
-and approved without changing the bytes being approved. Merged-target
-preflight compares those content identities, not an unchanged merge-commit
-identity. Git history and explicit successor records preserve supersession;
-deactivation or rollback requires a later explicit approval. No custom active
-ledger is needed, and no readiness gate activates from an unadmitted or merely
-present manifest, schema, or fixture.
+manifest digest, SHA-256 path-scoped payload digest/tree identity, the exact
+versioned external path-set framing/profile (its identifier remains
+readiness-gated), preflight result, and Ben's approval. The path-scoped payload
+digest is computed over one ordered path/mode/content set containing only the
+manifest and its declared schema, fixture files, and expected snapshots. This
+external ordered path-set binding is distinct from the `ck/v1/fixture-manifest`
+canonical-data domain and must not reuse that domain as its framing/profile. It excludes Git commit identity,
+approval/readiness records, successor/deactivation records, mutable active
+pointers, and any self-referential admission field. The payload can therefore
+be hashed without self-reference and approved without changing the bytes being
+approved. Merged-target preflight compares these content identities, not an
+unchanged merge-commit identity. Git history and explicit successor records
+preserve supersession; deactivation or rollback requires a later explicit
+approval. No custom active ledger is needed, and no readiness gate activates
+from an unadmitted or merely present manifest, schema, or fixture.
 
 Preflight proves internal consistency only. It checks the manifest structure,
 paths, hashes, provenance, profile references, expected status/diagnostic
@@ -41,8 +48,9 @@ reviewed contract or hypothesis and later executable evidence.
 
 ## Conceptual manifest contents
 
-The future exact encoding must represent these groups, while their serialized
-names, hash algorithm, canonical bytes, and schema remain deferred:
+The future exact encoding must represent these groups. The [canonical-data
+profile](../canonical-data/README.md) owns canonical bytes and digest domains;
+the exact machine schema and serialized member names remain readiness-gated:
 
 - suite kind, manifest ID, and manifest revision;
 - schema revision and schema hash;
@@ -56,10 +64,11 @@ names, hash algorithm, canonical bytes, and schema remain deferred:
   suite requires a graph snapshot.
 
 The separate readiness/decision record carries the reviewed source commit
-reference, manifest path, manifest digest, path-scoped payload digest/tree
-identity, preflight identity, predecessor/supersession reference, and Ben
-approval. None of those admission fields are part of the manifest payload
-digest.
+reference, manifest path, manifest digest, SHA-256 path-scoped payload digest/
+tree identity, exact ordered path/mode/content scope, versioned external
+path-set framing/profile (identifier readiness-gated), preflight identity,
+predecessor/supersession reference, and Ben approval. None of those admission
+fields are part of the manifest payload digest.
 
 The operation status uses the closed operation vocabulary owned by the relevant
 operation contract. Semantic fixture taxonomy is separate: after recognized,
@@ -105,7 +114,10 @@ Readiness 2 is one review-branch activation transaction containing the exact
 reviewed schema, this admitted manifest, every listed fixture, and the
 parser/bootstrap implementation. Ben owns admission and must explicitly
 approve the separate readiness/decision record before merge or activation.
-Readiness 3 remains gated on canonical basis, numeric/frame rules, canonical
-bytes/digests, and frozen expected graph outputs. Nothing in this Proposed
-conceptual document creates implementation packages or activates a readiness
-gate.
+Readiness 3 is a separate successor transaction containing the successor
+manifest/payload binding, expected graph snapshots, their comparison profile
+and exact-versus-semantic rule, and the resolver implementation or exact
+implementation binding. It uses the same content-identity preflight and the
+same generic suite mechanism; it does not reopen or replace the Readiness 2
+transform carrier. Nothing in this Proposed conceptual document creates
+implementation packages or activates a readiness gate.

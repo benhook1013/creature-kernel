@@ -16,6 +16,10 @@ semantic vocabularies belong in [`spec/`](../../spec/).
 - [Proposed body-graph contract](../../spec/body-graph/README.md)
 - [Proposed fixture-manifest and admission contract](../../spec/fixture-manifest/README.md)
 - [Proposed build-operation contract](../../spec/build-operation/README.md)
+- [Proposed semantic-address contract](../../spec/semantic-address/README.md)
+- [Proposed canonical-data contract](../../spec/canonical-data/README.md)
+- [Proposed numeric-frame-profile contract](../../spec/numeric-frame-profile/README.md)
+- [Proposed diagnostics contract](../../spec/diagnostics/README.md)
 - [Decision records](../decisions/README.md)
 
 ## Architectural authority
@@ -51,11 +55,11 @@ and described in the execution model; exact interface schemas, compatibility,
 budgets, and runtime mutation details remain open. The typed semantic
 vocabulary, measurement ownership, and frame-conversion boundary are Proposed
 in [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
-CK-KICK-012 Batch 6/7/8/9/10 resolutions are discussion-approved and are
+CK-KICK-012 Batch 6/7/8/9/10/11 resolutions are discussion-approved and are
 reflected in the canonical specifications as Proposed material. DR-0002
 Revision 11 and DR-0008 Revision 11 remain Proposed with Owner approval Pending
-and Review Complete. DR-0006 Revision 7, DR-0011 Revision 9, DR-0012 Revision 8,
-and DR-0013 Revision 6 remain Proposed with Owner approval Pending and Review
+and Review Complete. DR-0006 Revision 8, DR-0011 Revision 10, DR-0012 Revision 9,
+and DR-0013 Revision 7 remain Proposed with Owner approval Pending and Review
 Pending. The completed Batch 9 Double review targeted commit
 `6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is stale for the
 revised records and is not acceptance. No implementation or readiness gate
@@ -142,6 +146,15 @@ and cannot adopt output after worker trust loss. The [fixture-manifest
 contract](../../spec/fixture-manifest/README.md) owns the manifest payload and
 separate readiness/decision content-identity binding, successor history, and
 Readiness 2/3 corpus admission.
+
+Batch 11's derived architectural consequences are: typed restricted-ASCII
+machine addresses with separate Unicode display names; a right-handed metre
+semantic basis (+Y up, +Z creature-forward) with adapter conversion; finite
+binary64 values and canonical quaternion handling with exact bounds pending
+evidence; typed comparison profiles and a separate Readiness 3 snapshot
+transaction; restricted canonical JSON and domain-separated SHA-256 identity;
+and a small versioned diagnostic registry. These remain provisional and do not
+activate packages, schemas, fixtures, or resolver work.
 
 ## Current maturity
 

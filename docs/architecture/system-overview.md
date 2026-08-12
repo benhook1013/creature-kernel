@@ -17,11 +17,11 @@ The current semantic boundaries are Proposed under [DR-0002](../decisions/DR-000
 [DR-0006](../decisions/DR-0006-durable-semantic-and-artifact-identity.md),
 [DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
 and [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
-CK-KICK-012 Batch 6/7/8/9/10 resolutions are discussion-approved and represented
+CK-KICK-012 Batch 6/7/8/9/10/11 resolutions are discussion-approved and represented
 here as Proposed architecture consequences. DR-0002 Revision 11 and DR-0008
 Revision 11 remain Proposed with Owner approval Pending and Review Complete.
-DR-0006 Revision 7, DR-0011 Revision 9, DR-0012 Revision 8, and DR-0013
-Revision 6 remain Proposed with Owner approval Pending and Review Pending. The
+DR-0006 Revision 8, DR-0011 Revision 10, DR-0012 Revision 9, and DR-0013
+Revision 7 remain Proposed with Owner approval Pending and Review Pending. The
 completed Batch 9 Double review targeted commit
 `6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is stale for the
 revised records and is not acceptance. No implementation or readiness gate
@@ -96,25 +96,27 @@ not filesystem serialization. Mesh, rig, runtime, and other artifacts remain
 further derived outputs. See the
 [body-document contract](../../spec/body-document/README.md) and
 [body-graph contract](../../spec/body-graph/README.md), and the
-[build-operation contract](../../spec/build-operation/README.md); exact fields,
-codes, canonical bytes, and hashes remain deferred.
+[build-operation contract](../../spec/build-operation/README.md); exact field
+spellings, diagnostic codes, and activation constants remain gated by the
+Proposed focused profiles.
 
 ### Proposed production platform and artifact/workbench boundary
 
 CK-KICK-013 is a discussion-approved platform proposal, not an accepted
-implementation decision. Proposed DR-0013 Revision 6 has Owner approval Pending
-and Review Pending after Batch 10. The completed Batch 9 Double review targeted
+implementation decision. Proposed DR-0013 Revision 7 has Owner approval Pending
+and Review Pending after Batch 11. Batch 10 review evidence is stale; the completed Batch 9 Double review targeted
 commit `6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is stale for
 the revised record and is not acceptance. No implementation or readiness gate
 activates. See the [current review
 state](../project/status.md#current-review-and-future-activation-obligations)
 for recommendations and findings. The four
 readiness stages are: acceptance activates only the
-empty Cargo shell; a versioned, preflighted fixture manifest, its listed files,
-the exact schema, and parser/bootstrap must be admitted together in one
-review-branch activation transaction; canonical numeric/frame rules plus
-frozen expected graph outputs activate semantic resolution and in-memory
-snapshot handoff; and a working resolver plus provisional geometry profile and
+empty Cargo shell; numeric/frame, semantic-address, canonical-data, and
+diagnostic profiles precede exact schema/manifest admission; the exact schema,
+versioned preflighted fixture manifest, listed files, and parser/bootstrap must
+be admitted together in one Readiness 2 review-branch transaction; a distinct
+Readiness 3 successor transaction with frozen expected graph outputs activates
+semantic resolution and in-memory snapshot handoff; and a working resolver plus provisional geometry profile and
 project-owned seam activates exploratory Stage 1 geometry. Its target is a stable Rust
 production semantic/compiler core in a Cargo workspace, an engine-independent
 compiler library, a thin CLI, and a versioned project-owned backend-neutral
@@ -143,8 +145,10 @@ select final serialization or compatibility.
 The seam does not select a permanent surface/backend or create DR-0009/0010
 evidence. Future workers negotiate protocol/version, obey bounded time/resources, map
 crash/timeout/resource outcomes, validate outputs, and leave the compiler
-surviving failure. Exact serialization remains deferred; performance claims
-require a reproducible benchmark and hardware profile.
+surviving failure. Canonical bytes are proposed as restricted canonical JSON
+with domain-separated SHA-256 digests; exact numeric and address rules remain
+evidence-dependent. Performance claims require a reproducible benchmark and
+hardware profile.
 
 Batch 10's initial filesystem profile supports only tested local WSL Linux under
 `/home`; `/mnt/c`, network, removable, and unspecified filesystems remain out
@@ -166,6 +170,14 @@ separate readiness/decision content-identity admission. Inspection is a separate
 read operation with closed statuses;
 producer/output trust is distinct from coordinator/reporter/publisher trust,
 and lost worker trust cannot be rehabilitated by validation.
+
+Batch 11 proposes typed restricted-ASCII machine addresses with separate
+Unicode display names; a right-handed metre semantic basis (+Y up, +Z
+creature-forward); finite binary64 values and canonical quaternion treatment;
+typed comparison profiles; and a small versioned diagnostic registry. Readiness
+3 is a separate transaction for expected graph snapshots and comparison rules,
+after those prerequisites and the canonical-data profile are available. These
+are proposed architecture consequences, not activated implementation work.
 
 ### First body grammar boundary
 

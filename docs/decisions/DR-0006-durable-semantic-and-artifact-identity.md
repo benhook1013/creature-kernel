@@ -6,13 +6,13 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 7
+Revision: 8
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-08
 
@@ -53,6 +53,10 @@ after this material Revision 6 change. Ben approved the Batch 10 C1 identity
 resolution and its DR-0006 consequence of a simplified, externally admitted
 fixture route on 2026-08-12. This material Revision 7 change makes the
 Revision 6 current-review artifacts stale; a fresh current review is pending.
+On 2026-08-12 Ben approved the next machine-contract batch: typed semantic
+address encoding and the project-owned canonical-byte and digest profile.
+This material Revision 8 change makes the Revision 7 review evidence stale;
+a fresh current review is pending.
 
 ## Decision
 
@@ -68,11 +72,52 @@ Use two identity levels and an explicit semantic-address boundary:
    source namespace in that set; every imported namespace must be unique, with
    no implicit or shared ownership. A collision is invalid unless the import
    contains an explicit, authored, deterministic, collision-free remap covering
-   every semantic address contributed under that imported namespace. Exact
-   delimiter, import/remap syntax, and serialization remain deferred.
+   every semantic address contributed under that imported namespace. Source,
+   import, and remap syntax remain deferred; the machine identity profile is
+   proposed below.
 2. Separate artifact/build identity and provenance distinguish generated outputs,
    including the resolved graph snapshot, mesh, rig, colliders, runtime package,
    and other build products.
+
+### Structured semantic-address profile
+
+The machine form of a semantic address is a typed JSON object with exactly
+`namespace`, ordered `anchors`, `kind`, and `role` members. `namespace` and
+each anchor are authored scope identifiers; `kind` is a closed concept-kind
+identifier; and `role` is the key local to that concept kind. Machine
+identifiers use a versioned restricted lower-case ASCII profile. Anchor order
+is significant, object-member order is not, and structural equality compares
+the typed members rather than a delimited string. The profile performs no case
+folding, delimiter parsing, filesystem mapping, or implicit index insertion.
+Unicode display labels are separate non-identity data. Address profile
+revision is part of the identity-rule inputs and must be recorded with any
+identity digest.
+
+This typed object is deliberately a machine identity boundary, not a promise
+about source syntax or user-facing labels. The source representation may
+choose a later syntax only if it resolves to this profile without changing
+address equality or namespace ownership rules.
+
+### Canonical bytes and digest profile
+
+Use a project-owned canonical JSON profile after semantic normalization. It is
+strict duplicate-free UTF-8 JSON with deterministic object ordering; semantic
+unordered collections are sorted by semantic address, while all other arrays
+retain their specified order. Unicode is not normalized, machine identifiers
+remain within the restricted ASCII profile, and numeric representation follows
+the versioned semantic numeric profile owned by DR-0011. The profile uses
+unambiguous versioned framing and domain-separated SHA-256 digests, rendered
+as `sha256:` followed by lower-case hexadecimal.
+
+The initial digest domains are exact source bytes, normalized source, resolved
+graph, build request, fixture manifest, and raw published artifact. Raw-byte
+and semantic digests remain distinct. Attempt IDs, timestamps, staging and
+host paths, allocation order, logs, and human-readable diagnostic text are
+excluded unless a later domain explicitly owns them. The initial profile does
+not add CBOR, signatures, Merkle structures, or multiple digest algorithms.
+Exact framing, field spelling, and the numeric canonicalization constants are
+activation prerequisites and belong to the canonical specifications; they are
+not implementation freedom once activated.
 
 At the artifact-identity level, distinguish a staged candidate from a
 committed artifact. A staging manifest carries a non-authoritative candidate
@@ -108,9 +153,9 @@ error, not an implementation choice.
 For each artifact role, the candidate artifact identity is derived from the
 `build_request_id`, that artifact role, and an artifact-identity-rule revision.
 Successful publication promotes that same candidate identity; it does not
-mint a new identity. The exact canonical serialization and hash algorithm are
-deferred, but selecting them is an activation prerequisite for this identity
-boundary, not optional implementation freedom.
+mint a new identity. The proposed canonical-byte and digest profile below is
+an activation prerequisite for this identity boundary, not optional
+implementation freedom.
 
 Committed success artifacts and their manifests contain no attempt-local data.
 Diagnostics-only failure bundles are not persisted as committed artifacts in
@@ -140,8 +185,9 @@ be promised stable through topology changes. Semantic addresses must not be
 derived from incidental path, ordering, geometry, artifact identity, topology,
 or content hash. Clone, rename, split, merge, and replacement require explicit
 future alias, remap, and lifecycle rules; those exact rules remain deferred, as
-do hashes or manifests, versioning, migration, runtime swap behaviour, and
-external mapping rules.
+do migration, runtime swap behaviour, and external mapping rules. The
+canonical address and digest profile below is proposed, while exact source
+field spelling and later lifecycle rules remain activation obligations.
 
 Identity continuity is promised only while the authored semantic address and
 concept remain unchanged across parameter, geometry, topology, LOD, and compiler
@@ -191,6 +237,13 @@ defined.
   failure path returns the authoritative operation envelope rather than a
   committed diagnostics-only bundle; any future persisted failure evidence
   needs a separate attempt-evidence identity decision.
+- Semantic addresses can be compared without delimiter escaping, display-name
+  localization, filesystem rules, or array-order accidents. A profile revision
+  makes any future machine-address change explicit rather than silently
+  changing identity.
+- Domain-separated canonical digests make source, normalized semantic, build,
+  fixture, and raw-artifact identity distinct. Human diagnostics and execution
+  traces cannot change a deterministic committed identity.
 
 ## Alternatives Considered
 
@@ -255,6 +308,29 @@ and make retries difficult to compare. It is not selected initially: the
 authoritative operation envelope reports failure, and a future persisted
 failure-evidence facility must define a separate attempt-evidence identity and
 lifecycle.
+
+### Use escaped strings as the semantic-address machine form
+
+Delimited strings are compact and readable, but escaping and delimiter rules
+would become part of identity and are easy for independent clients to
+implement inconsistently. They are not selected: typed members make structural
+comparison and validation explicit, while display labels remain separate.
+
+### Use one generic serialization or digest for every identity domain
+
+A single byte stream would blur authored source, normalized semantics, build
+requests, fixture admission, and raw artifacts, and could accidentally include
+attempt or host-local data. The selected domain-separated profile keeps those
+meanings distinct and excludes execution-local fields from deterministic
+identity.
+
+### Use CBOR, signatures, or digest agility initially
+
+Those may be useful for a later interchange or trust boundary, but add
+canonicalization, key-management, or compatibility surface before the first
+semantic proof. The initial hobby-project boundary uses a narrow project-owned
+canonical JSON profile and SHA-256; later additions require explicit evidence
+and a new decision.
 
 ### Use a bespoke append-only fixture-admission ledger
 
@@ -330,6 +406,13 @@ the DR-0013 fixture-manifest boundary with this DR-0006 build-proof consequence.
 The current review is evidence only; the proposal remains Proposed with Owner
 approval Pending and no activation follows.
 
+Ben approved the Batch 11 machine-contract resolutions in discussion on
+2026-08-12. This Revision 8 proposal adds the typed semantic-address profile,
+canonical JSON normalization, and domain-separated SHA-256 digest domains.
+The Revision 7 review artifacts are stale historical evidence; a fresh
+current-revision review is pending. Review status is Pending, Owner approval
+remains Pending, and no activation follows.
+
 ## Implementation and Proof Obligations
 
 - Define the semantic concepts requiring durable identity in the body and
@@ -339,6 +422,10 @@ approval Pending and no activation follows.
   rule, and import-remap behaviour without deriving identity from incidental
   structure. The remap must cover every semantic address contributed under the
   imported namespace.
+- Freeze the versioned typed address profile: `namespace`, ordered `anchors`,
+  closed `kind`, and role-local `role`, using restricted lower-case ASCII
+  machine identifiers, structural equality, no case folding, delimiter or
+  filesystem semantics, and separate Unicode display labels.
 - Define their relation to derived artifact/build identity before external
   persistence is promised.
 - Define candidate artifact identity as non-authoritative staging identity and
@@ -360,8 +447,10 @@ approval Pending and no activation follows.
   separate attempt-evidence identity/lifecycle before changing that boundary.
 - Define candidate identity from build request, artifact role, and
   artifact-identity-rule revision; preserve it through successful publication.
-  Select the exact canonical serialization and hash algorithm before identity
-  activation.
+  Implement the project-owned canonical JSON profile after semantic
+  normalization, deterministic ordering and numeric/address rules, explicit
+  versioned framing, domain-separated SHA-256, and the excluded execution-local
+  fields. Keep raw-byte and semantic digest domains distinct.
 - Prove post-collision inspection: identical committed identity, lineage,
   manifest, hashes, and sizes is already-published success; different lineage
   or identity is target conflict; same request/candidate with byte-divergent
@@ -369,8 +458,11 @@ approval Pending and no activation follows.
   concurrent-winner, lineage-change, and byte-divergence fixtures.
 - Admit those build/publication fixtures through the generic fixture-suite
   payload manifest and a separate readiness/decision record naming its digest,
-  source commit, path-scoped payload identity, and Ben approval. Do not use a
-  self-referential manifest digest or custom active-pointer ledger.
+  source commit, exact ordered path/mode/content set, digest profile, and Ben
+  approval. The scope includes only the manifest and declared schema, fixtures,
+  and snapshots; it excludes readiness/approval/successor records, mutable
+  pointers, and Git commit identity. Do not use a self-referential manifest
+  digest or custom active-pointer ledger.
 - Prove through regeneration fixtures that semantic references survive topology
   and LOD changes while ephemeral indices remain artifact/build-scoped.
 - Record exact revisions and semantic mappings for every outcome-affecting

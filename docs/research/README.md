@@ -14,6 +14,8 @@ hypotheses, references, and research context.
 - [First surface experiment design](first-surface-experiment-design.md) — a
   Proposed, neutral evidence design; EXP-0001 is not registered and no
   evidence exists yet.
+- [Numeric and frame profile experiment design](numeric-frame-profile-experiment.md) —
+  planned, unregistered evidence for thresholds and tolerances.
 - [Experiment workflow](../../experiments/README.md)
 
 ## Authority rule

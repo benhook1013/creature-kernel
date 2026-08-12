@@ -136,6 +136,13 @@ Compilation reproducibility is an initial requirement. Bit-exact simulation,
 network, and replay determinism are deferred until their requirements and
 evidence are defined.
 
+The proposed canonical-data profile uses restricted canonical JSON and
+domain-separated SHA-256 digests for source, normalized graph, build request,
+fixture manifest, and published artifact domains. Attempt IDs, timestamps,
+filesystem paths, logs, allocation order, and human diagnostic text are not
+outcome identity inputs. Exact canonical numeric and address rules remain
+prerequisites to activation; see the [canonical-data specification](../../spec/canonical-data/README.md).
+
 ### CK-PROD-003: Durable semantic and artifact identity
 
 Durable semantic identity must identify exactly Part, Joint, Socket,
@@ -152,6 +159,11 @@ authored assets retain their exact dependency revisions. Module is an authored
 reusable scope that instantiates concepts, not an embodied graph concept;
 landmark, anchor, dimension, and frame are typed owner+role records. See
 [DR-0006](../decisions/DR-0006-durable-semantic-and-artifact-identity.md).
+
+Batch 11 proposes that machine semantic addresses use a typed, restricted
+ASCII representation with ordered anchor segments, concept kind, and role key;
+Unicode display names remain separate presentation data. The exact profile is
+owned by the [semantic-address specification](../../spec/semantic-address/README.md).
 
 ### CK-PROD-004: Shared deterministic domain operations
 
@@ -201,6 +213,12 @@ Operation status remains separate from semantic fixture taxonomy, with a
 primary diagnostic required for every non-success. The canonical conceptual
 field groups and Readiness 2/3 corpus are owned by the [fixture-manifest
 specification](../../spec/fixture-manifest/README.md).
+
+Readiness 3 is a distinct later activation transaction. It admits a successor
+fixture manifest, expected graph snapshots, a comparison-profile identity, and
+the resolver/implementation binding only after numeric, frame, address,
+canonical-data, and diagnostic prerequisites are available. This is a project
+ledger boundary, not a claim that those fixtures or implementations exist.
 
 ## Generated embodiment
 

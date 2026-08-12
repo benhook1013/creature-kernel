@@ -6,13 +6,13 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 9
+Revision: 10
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-11
 
@@ -84,7 +84,11 @@ structural rigid-transform carrier while Readiness 3 freezes numeric semantics
 and admits expected graph snapshots through the generic fixture route. This
 material Revision 9 change makes the Revision 8 current-review artifacts stale;
 the record remains Proposed with Owner approval Pending and a fresh current
-review pending.
+review pending. On 2026-08-12 Ben approved the next machine-contract batch:
+the canonical semantic basis, finite binary64 numeric profile, typed
+comparison profiles, and their expected-snapshot consequences. This material
+Revision 10 change makes the Revision 9 review evidence stale; a fresh current
+review is pending.
 
 ## Decision
 
@@ -227,14 +231,56 @@ representation. Every transform entering Attachment composition must be finite,
 non-degenerate, and invertible under the declared transform profile. A
 source-caused violation is semantic `invalid-source` with a deterministic
 diagnostic and preserved provenance; implementation failure on an admissible
-transform is `internal-failure`. Exact representation, allowed scale/shear,
-conditioning threshold, comparison tolerances, and matrix storage remain
-resolver-activation prerequisites or deferred specification details.
+transform is `internal-failure`. Exact threshold, conditioning, comparison
+tolerance, and matrix-storage constants remain resolver-activation
+prerequisites; scale/shear remains excluded from the initial carrier.
 
 The canonical axes and unit, rotation representation, and scale/shear policy
-are later specification and platform work. Their deferral does not defer the
-requirement that sources declare their basis or that normalization provenance
-be retained.
+are proposed in the profiles below. Their exact thresholds and conditioning
+constants remain activation prerequisites; the requirement that sources
+declare their basis and retain normalization provenance is already binding
+within this Proposed boundary.
+
+### Canonical basis and transform profile
+
+The proposed semantic basis is right-handed metres with `+Y` up and `+Z`
+creature-forward. Semantic named directions are authoritative; left/right,
+up/down, and forward/back are not inferred merely from coordinate signs.
+Source bases are converted into this basis with retained provenance. A
+transform maps local coordinates into the parent basis using
+`p_parent = rotate(q, p_local) + t`; conceptual composition uses column
+vectors and applies the rightmost transform first. Engine adapters own
+conversion to Unreal, Godot, Blender, or other conventions. This basis does
+not own mesh winding, bones, IK, deformation, physics, or runtime-pose
+representation.
+
+### Numeric-domain profile
+
+The semantic numeric profile uses finite IEEE-754 binary64 values. Source
+decimal values convert deterministically; non-finite values are invalid.
+Resolved and canonical values normalize negative zero to positive zero.
+Rotation carriers use finite, non-near-zero `xyzw` quaternions; `q` and `-q`
+denote the same rotation, and a deterministic sign rule makes the first
+non-zero component in `(w, x, y, z)` positive. Normalization is permitted
+only within a versioned bound; malformed or non-normalizable input is
+rejected. Scale and shear are excluded from the initial rigid-transform
+carrier. Exact thresholds, constants, and conditioning rules require the
+bounded numerical experiment recorded as an activation prerequisite.
+
+### Typed comparison profiles and expected snapshots
+
+Comparison is versioned and typed rather than governed by one global epsilon.
+Identity and discrete values—structure, enums, presence, provenance,
+default-rule IDs, diagnostics, and profile IDs—compare exactly. Numeric
+translation, angular rotation, quaternion equivalence, and composition
+residuals use separate absolute/relative or angular tolerances owned by a
+comparison profile. Authored-conflict, expected-snapshot, and future geometry
+or runtime comparisons are separate profiles.
+
+The Readiness 3 expected graph snapshot records its path, digest, schema
+revision, comparison-profile identity, exact-versus-semantic comparison rule,
+and provenance. A changed snapshot, comparison profile, or numeric rule is a
+successor fixture transaction, not an in-place rewrite.
 
 ### Numeric-domain and default provenance boundary
 
@@ -249,9 +295,11 @@ DR-0013.
 
 Stage 1 Readiness 2 checks only structural shape and reference validity for
 units, frames, profiles, and provenance. Readiness 3 is the activation point
-that freezes the canonical basis, rotation representation, scale/shear policy,
-numeric ranges, conditioning requirements, and comparison tolerances. Until
-then, these owning-record frame roles remain closed conceptually, with only the
+that activates this canonical basis, validity, normalization/sign, numeric
+ranges, conditioning, composition, and typed comparison semantics. It preserves
+the fixed Readiness 2 carrier; adapter storage and downstream representation
+remain free to vary. Until then, these owning-record frame roles remain
+closed conceptually, with only the
 roles applicable to a given record used. Host and mating are Attachment
 endpoint contexts, not alternative intrinsic Socket roles.
 
@@ -286,6 +334,11 @@ core typed collections.
   success snapshot is not published for an unsatisfied claim set.
 - Source basis conversion is explicit and auditable, while build-derived world
   transforms and runtime pose state cannot be mistaken for authored placement.
+- A single engine-independent semantic basis gives adapters a stable conversion
+  boundary without selecting a mesh, rig, solver, or runtime representation.
+  Finite binary64 values and deterministic quaternion canonicalization make
+  semantic comparison reproducible, while typed profiles prevent one epsilon
+  from hiding domain-specific errors.
 - Structural containment is explicit and independently checked: relations do
   not supply root reachability or transform inheritance. A descendant-owned
   mating Socket is composed through the module-root containment path, and the
@@ -302,10 +355,10 @@ core typed collections.
   invertible under the declared profile; source violations are semantic
   `invalid-source`, while implementation failure on admissible transforms is
   `internal-failure`.
-- The vocabulary and frame boundary remain engine-independent, but exact
-  syntax, canonical numeric conventions, and storage representations require
-  later specification and evidence. Readiness 2 is structural/reference
-  checking only; Readiness 3 freezes the numeric/frame contract.
+- The vocabulary and frame boundary remain engine-independent. Exact source
+  syntax, profile identifiers, thresholds, and storage representations still
+  require later specification and evidence. Readiness 2 is structural/reference
+  checking only; Readiness 3 activates the proposed numeric/frame contract.
 - Defaulted values remain distinguishable from authored and derived values by
   stable `defaulted` provenance and default-rule identity. Omission is never
   repaired by null, zero, neighbouring values, or hidden equations.
@@ -360,6 +413,27 @@ This avoids conversion work, but forces every consumer to support every source
 convention and makes cross-source composition fragile. Normalization into one
 contract-revision basis with recorded provenance is the selected boundary.
 
+### Carry arbitrary precision or engine-native binary32 values in the core
+
+Arbitrary precision would increase implementation and interchange complexity;
+binary32 would make the semantic contract depend too early on an engine's
+precision and conditioning. Finite binary64 is selected for the semantic core,
+with adapters responsible for narrower downstream representations and explicit
+loss checks.
+
+### Use one global epsilon for every comparison
+
+Translation, angular rotation, authored conflicts, and future geometry outputs
+have different scales and failure meanings. A typed versioned comparison
+profile is selected so exact discrete identity remains exact and each numeric
+domain has its own measurable tolerance.
+
+### Let sign or coordinate conventions emerge from geometry
+
+Inferring semantic directions from signs or generated geometry would make
+mirrors and adapters ambiguous. The selected canonical basis names directions
+explicitly and retains source conversion provenance.
+
 ### Use one frame for authoring, attachment, build output, and runtime pose
 
 This is superficially simple, but conflates authored intent with derived
@@ -394,8 +468,8 @@ endpoint references.
 That would leave the Readiness 2 schema unable to validate transform shape and
 would force a knowingly disposable structural contract. The selected boundary
 freezes translation plus `xyzw` quaternion structure at Readiness 2, then
-defers basis, normalization, ranges, conditioning, and tolerances to
-Readiness 3.
+activates the proposed canonical basis, normalization, ranges, conditioning,
+and typed comparison profiles at Readiness 3.
 
 ### Let authored Attachment placement silently win over Socket composition
 
@@ -489,9 +563,9 @@ DR-0002/DR-0012/DR-0013. At that historical Revision 6 state, all seven
 consolidated findings awaited Ben's discussion and owner disposition; review
 completion was evidence, not a clean review or acceptance. Batch 9/10
 discussion later resolved the applicable findings, while the current Revision
-9 remains pending its fresh review. Exact serialized field spellings, canonical
-axes/units/rotation/scale/shear, conditioning/comparison tolerances,
-diagnostic codes, and fixture evidence remain deferred. Those Revision 6
+9 remains pending its fresh review. Exact serialized field spellings, profile
+identifiers, conditioning/comparison constants, diagnostic codes, and fixture
+evidence remain deferred. Those Revision 6
 artifacts and findings are preserved as stale historical evidence after the
 material Revision 7 change and do not satisfy the pending current-revision
 review. The Batch 9 absent-module identity resolution is cross-linked to the
@@ -507,7 +581,7 @@ actionable against DR-0011 in this review. Review completion is evidence only;
 there is no clean-review or acceptance implication. At that historical Revision
 7 state, any cross-cutting findings recorded in the linked reviews awaited
 Ben's discussion and owner disposition; Batch 10 discussion later resolved the
-applicable findings. The current Revision 9 still requires fresh review and
+applicable findings. The current Revision 10 still requires fresh review and
 owner disposition. Owner approval remains Pending and Status remains Proposed.
 Only Ben may accept or reject this proposal.
 
@@ -544,6 +618,14 @@ the rotation representation. Consolidated **C1 (High)** applies to DR-0011 and
 DR-0012 with a DR-0013 readiness cross-link. Both were fresh, independent
 `gpt-5.6-sol` medium passes. The current review is evidence only; the proposal
 remains Proposed with Owner approval Pending and no activation follows.
+
+Ben approved the Batch 11 canonical basis, numeric-domain, and typed
+comparison resolutions in discussion on 2026-08-12. This Revision 10 proposal
+adds the right-handed metres/+Y-up/+Z-forward basis, finite binary64 and
+quaternion rules, and versioned comparison profiles. The Revision 9 review
+artifacts are stale historical evidence; a fresh current-revision review is
+pending. Review status is Pending, Owner approval remains Pending, and no
+activation follows.
 
 ## Implementation and Proof Obligations
 
@@ -589,10 +671,11 @@ remains Proposed with Owner approval Pending and no activation follows.
   be finite, non-degenerate, and invertible under the declared profile; source
   violations map to semantic `invalid-source` with deterministic
   diagnostic/provenance, while implementation failure on an admissible
-  transform maps to `internal-failure`. Exact representation, scale/shear,
-  conditioning, comparison tolerance, matrix layout, and serialized
-  representation remain resolver-activation prerequisites or deferred
-  specification details.
+  transform maps to `internal-failure`. The fixed Readiness 2 carrier remains
+  translation plus `xyzw` quaternion without scale/shear fields; exact numeric
+  ranges, normalization bounds, conditioning, and typed comparison tolerances
+  remain Readiness 3 activation prerequisites, while adapter matrix layout and
+  serialized storage remain downstream details.
 - Create fixtures that distinguish Part, Joint, Socket, Attachment, Region,
   Capability, and Field, including overlapping regions and an attachment that
   is not a joint.
@@ -604,10 +687,25 @@ remains Proposed with Owner approval Pending and no activation follows.
   frame/context on measurements and transforms, and no per-value unit
   overrides initially. Bind body `profiles` to the versioned semantic
   numeric-domain profile while keeping resource/diagnostic profiles operational.
+- Freeze the proposed semantic basis as right-handed metres, `+Y` up, and `+Z`
+  creature-forward; use named semantic directions rather than inferring
+  meaning from signs. Define local-to-parent transform composition and keep
+  engine conversion in adapters.
+- Implement the finite binary64 numeric profile, deterministic decimal
+  conversion, negative-zero normalization, finite/non-near-zero `xyzw`
+  quaternion validation, q/-q equivalence, deterministic sign, bounded
+  normalization, and no scale/shear. Complete the bounded numerical experiment
+  before freezing thresholds and conditioning constants.
+- Freeze typed comparison profiles: exact discrete identity/structure and
+  separate absolute/relative or angular numeric comparisons for translations,
+  rotations, quaternions, and composition residuals. Bind Readiness 3 expected
+  snapshots to path, digest, schema revision, profile ID, comparison rule, and
+  provenance; admit changes only through successor fixture transactions.
 - Keep Readiness 2 structural/reference validation only and freeze its rigid
   transform carrier as three-component translation plus explicit four-component
-  `xyzw` quaternion, without scale or shear fields. At Readiness 3 freeze
-  canonical basis, rotation, scale/shear, ranges, conditioning, and tolerances;
+  `xyzw` quaternion, without scale or shear fields. At Readiness 3 activate the
+  proposed canonical basis, numeric/sign rules, ranges, conditioning, and
+  typed comparison tolerances;
   bind expected graph snapshots through an admitted manifest successor with
   path, digest, comparison-profile identity, and exact/semantic comparison
   rule. Test the closed owning-record roles and derived world/reference and
@@ -630,8 +728,9 @@ remains Proposed with Owner approval Pending and no activation follows.
 - Freeze the cross-DR fixture matrix covering durable identities, typed
   articulation endpoints, measurement/frame cases, expected outcomes, and
   diagnostics before treating implementation evidence as proof.
-- Later settle canonical axes/unit, rotation representation, scale/shear
-  policy, exact serialized syntax, and platform-specific conversion details.
+- Complete the bounded numerical experiment and freeze exact profile IDs,
+  thresholds, conditioning, and serialized syntax. Keep platform-specific
+  conversion details in adapters and out of the semantic core.
 
 ## Canonical Design Links
 

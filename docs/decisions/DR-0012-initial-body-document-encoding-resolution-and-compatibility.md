@@ -6,13 +6,13 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 8
+Revision: 9
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-11
 
@@ -65,7 +65,9 @@ current Double review is required. The Revision 3 and earlier reviews remain
 stale historical evidence. Exact field
 spelling, diagnostic codes, concrete resource values, tolerances, canonical
 axes/units/rotation/scale/shear, and the canonical-byte algorithm remain later
-specification work. Ben's 2026-08-12 Batch 9 discussion approval adds the
+specification work. The proposed canonical-data and diagnostic profiles below
+now define the direction, while exact profile identifiers and activation
+constants remain prerequisites. Ben's 2026-08-12 Batch 9 discussion approval adds the
 in-memory snapshot finalization/handoff distinction, absent-module declaration
 identity, and the DR-0013 build/output ownership boundary. This material
 Revision 6 change makes the Revision 5 current-review artifacts stale.
@@ -77,7 +79,10 @@ owning record, and Readiness 2 freezes a structural rigid-transform carrier
 while Readiness 3 freezes numeric semantics and admits expected graph snapshots
 through the generic fixture route. This material Revision 8 change makes the
 Revision 7 current-review artifacts stale; the record remains Proposed with
-Owner approval Pending and a fresh current review pending.
+Owner approval Pending and a fresh current review pending. On 2026-08-12 Ben
+approved the project-owned canonical-data and diagnostic-registry/profile
+decisions for the machine contract. This material Revision 9 change makes the
+Revision 8 review evidence stale; a fresh current review is pending.
 
 ## Decision
 
@@ -104,7 +109,9 @@ distinct representations:
   remains a DR-0013 build/output concern.
 
 Deterministic debug JSON may be emitted for inspection. Canonical bytes and
-semantic hashing are not selected by this decision. A future restricted YAML
+semantic hashing follow DR-0006's proposed project-owned canonical-data
+profile; exact field spelling and activation constants remain an activation
+prerequisite. A future restricted YAML
 adapter may be added only if it normalizes to the same semantic model and does
 not create a competing semantic contract or authority. No multiple authoring
 syntaxes are supported initially.
@@ -139,10 +146,12 @@ Attachment host/mating endpoint context; resolved world/reference and runtime
 pose are derived contexts. Readiness 2 checks structural shape and references
 only and freezes one rigid-transform carrier: three-component translation plus
 explicit four-component `xyzw` quaternion, with no scale or shear fields.
-Readiness 3 freezes canonical basis, rotation representation, scale/shear
-policy, numeric ranges, conditioning, and tolerances, and admits expected graph
-snapshots through a manifest successor with path, digest, comparison-profile
-identity, and exact/semantic comparison rule.
+Readiness 3 activates DR-0011's canonical basis, validity, normalization/sign,
+ranges, conditioning, composition, and typed comparison semantics, while
+preserving the fixed Readiness 2 carrier; adapter storage remains downstream
+freedom. It admits expected graph
+snapshots through a distinct successor transaction with path, digest,
+comparison-profile identity, and exact/semantic comparison rule.
 
 ### Deterministic resolution phases and provenance
 
@@ -287,12 +296,19 @@ extension produces an unsupported outcome. An unsupported optional extension
 is preserved opaquely, has no core semantic effect, and is not silently
 interpreted by the resolver.
 
-Diagnostics in the authoritative operation-result envelope have stable fields
-for a code, category, phase, path, and zero or more affected semantic
-addresses, plus human-readable text for people. Diagnostic ordering is
-deterministic. Human text is not a compatibility key; consumers must use the
-stable diagnostic fields and outcome. Exact field spelling and diagnostic-code
-vocabulary remain later specification work.
+Diagnostics in the authoritative operation-result envelope use a small,
+versioned machine registry/profile separate from operation status. An
+occurrence carries a stable code, class, phase, severity, optional source
+path/offset, optional typed semantic address, and typed details, plus
+human-readable text for people. The registry owns stable code metadata; the
+profile owns registry revision, extension set, ordering, and truncation rules.
+Resource budgets/profiles remain separate operational context. Machine ordering
+is deterministic; human text is neither compatibility data nor hash input.
+Initial registry domains are input, contract/schema, dependency,
+identity/reference, graph/relations, frame/numeric, resource, internal/trust,
+worker/protocol, and output/publication/inspection. Exact codes are frozen only
+as the admitted fixtures require. An unknown required registry/profile
+revision is unsupported.
 
 ### Exact contract recognition and identity separation
 
@@ -308,7 +324,8 @@ identity, configuration identity, seed identity, dependency identity, and
 artifact identity. Semantic equivalence is concerned with resolved semantic
 identities, relations, frames, values, provenance, and outcome. It does not
 depend on source whitespace, object-key order, or generated mesh topology.
-Canonical byte and semantic-hash rules remain deferred.
+Canonical byte and semantic-hash rules follow DR-0006's versioned,
+domain-separated profile and must not include attempt-local or host-local data.
 
 ### Resource profiles and minimum Stage 1 invariants
 
@@ -480,8 +497,9 @@ exercise source encoding, omission/default provenance, and resolver outcomes.
   union or machine schema file is activated by this revision.
 - Source basis and semantic numeric-profile references are authored source
   semantics; operational resource/diagnostic profiles remain operation or
-  fixture context. Readiness 2 checks shape/references, while Readiness 3
-  freezes numeric/frame representation and tolerances.
+  fixture context. Readiness 2 checks shape/references and fixes the rigid
+  carrier, while Readiness 3 freezes validity, normalization/sign, basis,
+  ranges, conditioning, composition, and comparison semantics.
 - Explicit omission and deterministic defaults are auditable: exactly one
   contract/profile rule owns a default, and resolved values carry stable
   `defaulted` provenance. Null, zero, neighbouring inference, and hidden
@@ -565,18 +583,26 @@ External filesystem serialization remains a DR-0013 build/output operation.
 
 ### Define canonical bytes and hashes now
 
-Canonicalization could support durable caching and identity immediately, but
-it would lock byte-level rules before semantic and artifact identity needs are
-understood. Deterministic debug JSON is allowed; canonical bytes and semantic
-hashing remain deferred.
+Canonicalization could support durable caching and identity immediately, but it
+must be owned by the identity boundary rather than silently invented here. The
+selected direction follows DR-0006's versioned project-owned canonical JSON
+profile and domain-separated digest domains; exact framing and numeric rules
+remain activation prerequisites. Deterministic debug JSON is still allowed.
+
+### Use implementation-defined diagnostic codes or a universal catalogue
+
+Implementation-defined codes would make independent clients and fixture
+expectations incompatible; a large universal catalogue would freeze unused
+surface area. The selected small versioned registry freezes only codes required
+by the initial fixtures, with explicit profile extension and ordering rules.
 
 ### Defer the transform carrier until numeric semantics are frozen
 
 That would leave the Readiness 2 schema unable to validate transform shape and
 would force a knowingly disposable structural contract. The selected boundary
 freezes translation plus `xyzw` quaternion structure at Readiness 2, then
-defers basis, normalization, ranges, conditioning, and tolerances to
-Readiness 3.
+activates DR-0011's canonical basis, numeric/sign, ranges, conditioning, and
+typed comparison profiles at Readiness 3.
 
 ### Use a bespoke fixture-admission ledger
 
@@ -698,8 +724,8 @@ this Proposed revision: frame roles are typed by owning record, Readiness 2
 freezes the structural rigid-transform carrier, and Readiness 3 freezes numeric
 semantics and admits expected graph snapshots through a manifest successor with
 path, digest, comparison-profile identity, and exact/semantic comparison rule.
-Exact canonical numeric rules, bytes, and comparison profiles remain activation
-prerequisites. Ben's resolution is discussion approval, not acceptance. Review
+Exact profile identifiers, numeric constants, bytes, and comparison profiles
+remain activation prerequisites. Ben's resolution is discussion approval, not acceptance. Review
 status is Complete for the new current revision after the Double review below;
 Owner approval remains Pending and Status remains Proposed. Only Ben may accept
 or reject this proposal.
@@ -717,6 +743,14 @@ the rotation representation. Consolidated **C1 (High)** applies to DR-0011 and
 DR-0012 with a DR-0013 readiness cross-link. Both were fresh, independent
 `gpt-5.6-sol` medium passes. The current review is evidence only; the proposal
 remains Proposed with Owner approval Pending and no activation follows.
+
+Ben approved the Batch 11 canonical-data and diagnostic-registry/profile
+resolutions in discussion on 2026-08-12. This Revision 9 proposal adds the
+cross-linked canonical JSON/digest direction, the versioned diagnostic registry
+and profile boundary, and their proof obligations. The Revision 8 review
+artifacts are stale historical evidence; a fresh current-revision review is
+pending. Review status is Pending, Owner approval remains Pending, and no
+activation follows.
 
 ## Implementation and Proof Obligations
 
@@ -738,8 +772,9 @@ remains Proposed with Owner approval Pending and no activation follows.
 - Keep Readiness 2 structural shape/reference checking only and freeze its
   rigid transform carrier as three-component translation plus explicit
   four-component `xyzw` quaternion, without scale or shear fields. At Readiness
-  3 freeze canonical basis, rotation, scale/shear, ranges, conditioning, and
-  tolerances; admit expected graph snapshots through a manifest successor with
+  3 activate DR-0011's canonical basis, numeric/sign, ranges, conditioning,
+  and typed comparison profiles; admit expected graph snapshots through a
+  manifest successor with
   path, digest, comparison-profile identity, and exact/semantic comparison
   rule.
 - Specify omission/default rules: identity, containment, module presence,
@@ -753,8 +788,14 @@ remains Proposed with Owner approval Pending and no activation follows.
 - Define extension-envelope field spelling, namespace/revision handling,
   required-versus-optional outcomes, opaque preservation, and core semantic
   isolation.
-- Define stable diagnostic codes/categories, exact paths and affected-address
-  representation, the closed status set and total final-status selection
+- Define the versioned diagnostic registry/profile: stable code, class, phase,
+  severity, optional source path/offset, optional typed semantic address, and
+  typed details; registry metadata versus profile revision/extension/order/
+  truncation ownership; resource profile separation; initial domains; and
+  unsupported handling for unknown required revisions. Keep human text
+  non-compatibility and non-hash data. Define stable diagnostic codes/categories,
+  exact paths and affected-address representation, the closed status set and
+  total final-status selection
   (global internal trust loss, resource-limit only when required
   processing/trusted completion is prevented, earliest unable phase,
   complete-acquisition input-failure, parse/semantic invalid-source-over-
@@ -808,9 +849,13 @@ remains Proposed with Owner approval Pending and no activation follows.
   admissible transform is `internal-failure`.
 - Prove the minimum Stage 1 invariant set and freeze the cross-DR fixture
   matrix before treating implementation output as evidence for the contract.
-- Defer canonical axes, units, rotation, scale, shear, exact tolerances,
-  diagnostic codes, dependency-revision semantics, canonical bytes, semantic
-  hashing, and future migration/adapters to their owning specification work.
+- Defer only exact profile identifiers, numeric thresholds/conditioning,
+  diagnostic code membership, dependency-revision semantics, canonical-byte
+  framing, and future migration details to their owning specification work.
+  The canonical basis, finite binary64/quaternion direction, typed comparison
+  profiles, diagnostic registry/profile boundary, and domain-separated digest
+  direction are now proposed and must not be silently replaced by
+  implementation-defined behaviour.
 
 ## Canonical Design Links
 

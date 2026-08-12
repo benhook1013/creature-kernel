@@ -9,14 +9,14 @@ Status: Operational under Accepted DR-0001 Revision 5
 | [DR-0003](DR-0003-real-time-first-compiled-avatar-boundary.md) | Compiled avatar and bounded real-time execution | Product and architecture | Proposed | 2 | Complete | Ben |
 | [DR-0004](DR-0004-external-automation-through-cli-and-api.md) | Shared deterministic domain operations for external automation | Product and architecture | Proposed | 2 | Complete | Ben |
 | [DR-0005](DR-0005-initial-product-boundary-and-reference-workflow.md) | Initial product boundary and reference workflow | Product and architecture | Proposed | 1 | Complete | Ben |
-| [DR-0006](DR-0006-durable-semantic-and-artifact-identity.md) | Durable semantic and artifact/build identity | Specification and architecture | Proposed | 7 | Complete | Ben |
+| [DR-0006](DR-0006-durable-semantic-and-artifact-identity.md) | Durable semantic and artifact/build identity | Specification and architecture | Proposed | 8 | Pending | Ben |
 | [DR-0007](DR-0007-staged-first-proof-charter.md) | Staged first-proof charter and claim boundaries | Product | Proposed | 2 | Complete | Ben |
 | [DR-0008](DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md) | First digitigrade morphology and Stage 1 embodiment envelope | Product, Specification and architecture | Proposed | 11 | Complete | Ben |
 | [DR-0009](DR-0009-hybrid-surface-generation-experiment-hypothesis.md) | Hybrid surface-generation experiment hypothesis | Architecture | Proposed | 8 | Complete | Ben |
 | [DR-0010](DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md) | Stage 1 surface extraction and semantic-field propagation | Specification and architecture | Proposed | 8 | Pending | Ben |
-| [DR-0011](DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md) | Minimal semantic vocabulary, measurements, and frames | Specification and architecture | Proposed | 9 | Complete | Ben |
-| [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md) | Initial body-document encoding, resolution, and compatibility | Specification and architecture | Proposed | 8 | Complete | Ben |
-| [DR-0013](DR-0013-first-production-implementation-platform-and-geometry-boundary.md) | First production implementation platform and geometry boundary | Specification and architecture | Proposed | 6 | Complete | Ben |
+| [DR-0011](DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md) | Minimal semantic vocabulary, measurements, and frames | Specification and architecture | Proposed | 10 | Pending | Ben |
+| [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md) | Initial body-document encoding, resolution, and compatibility | Specification and architecture | Proposed | 9 | Pending | Ben |
+| [DR-0013](DR-0013-first-production-implementation-platform-and-geometry-boundary.md) | First production implementation platform and geometry boundary | Specification and architecture | Proposed | 7 | Pending | Ben |
 
 DR-0001 Revision 5 is `Accepted` after Ben's approval and its Complete clean
 review; that disposition applies only to this Governance DR. DR-0002 through
@@ -148,6 +148,39 @@ review artifacts and C1–C5 findings are preserved as stale historical
 evidence. The four current records remain Proposed with Owner approval Pending;
 their current-revision Double review is now complete, with the findings below
 awaiting Ben's discussion and owner disposition.
+
+Ben's Batch 11 machine-contract resolutions, approved in discussion on
+2026-08-12, are recorded in DR-0006 Revision 8, DR-0011 Revision 10,
+DR-0012 Revision 9, and DR-0013 Revision 7:
+
+- DR-0006 owns the typed semantic-address JSON profile (`namespace`, ordered
+  `anchors`, closed `kind`, and role-local `role`), restricted lower-case ASCII
+  machine identifiers, structural equality, separate display labels, and the
+  project-owned canonical JSON and domain-separated SHA-256 digest direction.
+  Initial digest domains distinguish exact source, normalized source, resolved
+  graph, build request, fixture manifest, and raw published artifact; attempt,
+  staging, host, log, and human-text fields are excluded from deterministic
+  identity.
+- DR-0011 owns the proposed right-handed metre basis with `+Y` up and `+Z`
+  creature-forward, local-to-parent transform convention, finite binary64
+  numeric domain, deterministic quaternion rules, no initial scale/shear, and
+  typed comparison profiles separating exact discrete identity from numeric
+  tolerances. Exact constants require the bounded numerical experiment.
+- DR-0012 owns the cross-linked canonical-data direction and a small versioned
+  diagnostic registry/profile: stable code/class/phase/severity, optional
+  source path/offset and typed address, typed details, profile ordering and
+  truncation, separate resource profiles, and explicit unsupported handling for
+  unknown required registry/profile revisions. Human text is not compatibility
+  or hash data.
+- DR-0013 cross-links those machine contracts, keeps Readiness 2's structural
+  rigid-transform carrier, and makes Readiness 3 a distinct Ben-approved
+  successor transaction containing expected snapshots, comparison profile/rule,
+  resolver binding, and unchanged scoped-content preflight.
+
+These Batch 11 discussion approvals are not acceptance. The Batch 10 review
+artifacts are stale historical evidence for all four revised records; fresh
+current-revision Double review is required. All four remain Proposed with
+Owner approval Pending, Review Pending, and no readiness activation.
 
 ## CK-KICK-012/013 Batch 10 Double review
 

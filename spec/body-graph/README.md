@@ -25,11 +25,13 @@ source encoding or bootstrap/status/resource admission.
 The contract is conceptual and engine-independent. The authored document shape,
 closed core vocabulary, explicit typed records, and stable references are owned
 by the [body-document contract](../body-document/README.md); this document owns
-their resolved graph meaning. Exact serialized member
-names, diagnostic codes, numeric ranges, tolerances, canonical axes/units,
-rotation/scale/shear policy, source-map encoding, canonical bytes, hashing, and
-runtime representations remain deferred. Owner disposition remains pending
-for the materially revised decision records.
+their resolved graph meaning. The [semantic-address profile](../semantic-address/README.md)
+owns exact durable address representation and equality. The [numeric and frame
+profile](../numeric-frame-profile/README.md) owns canonical axes/units, numeric
+ranges, rigid transforms, and typed tolerances. The [canonical-data profile](../canonical-data/README.md)
+owns canonical bytes and hashing. Runtime representations remain outside this
+contract. Owner disposition remains pending for the materially revised
+decision records.
 
 ## Graph authority and identity
 
@@ -57,14 +59,13 @@ articulation by itself. Landmark, anchor, dimension, and frame are typed owned
 records addressed through owner and role; they are not an untyped escape hatch
 for graph identity.
 
-Each identity-bearing concept uses a structured semantic address whose
-components include source namespace, authored stable module-instance anchors,
-concept kind, and role-local key. Exactly one source owns each namespace in a
-resolved source set. A colliding import requires an authored, deterministic,
-collision-free remap covering every contributed address from that namespace.
-Exact address serialization and structural-edit lifecycle rules remain
-deferred. Mesh, vertex, face, topology, LOD, and array positions are
-artifact-local and never durable semantic identity.
+Each identity-bearing concept uses the structured address defined by the
+[semantic-address profile](../semantic-address/README.md): `namespace`, ordered
+outer-to-inner `anchors`, closed `kind`, and lexical `role`. Exactly one source
+owns each namespace in a resolved source set. A colliding import requires an
+authored, deterministic, collision-free remap covering every contributed
+address from that namespace. Mesh, vertex, face, topology, LOD, and array
+positions are artifact-local and never durable semantic identity.
 
 ## Explicit Part containment
 
@@ -180,9 +181,11 @@ finite, non-degenerate, and invertible under the declared transform profile.
 A source-caused violation is `invalid-source`; an implementation failure on an
 admissible transform is `internal-failure`. Readiness 2 fixes the structural
 carrier as exactly three translation components plus four explicit `xyzw`
-quaternion components, with no scale or shear fields. Matrix layout and
-serialization, canonical numeric semantics, conditioning threshold, ranges,
-and tolerances remain deferred to resolver activation. An optional authored
+quaternion components, with no scale or shear fields, as defined by the
+[numeric and frame profile](../numeric-frame-profile/README.md). Readiness 3
+is a distinct successor transaction that admits canonical numeric semantics,
+conditioning thresholds, ranges, tolerances, and expected graph snapshots; it
+cannot replace the Readiness 2 carrier. An optional authored
 Attachment offset, if admitted, is part of the
 host/mating alignment transform `O` in that typed basis. Descendant placement is
 subsequently inherited only by the ordinary containment path. If an
@@ -246,9 +249,11 @@ profile; operational resource and diagnostic profiles remain operation/fixture
 context. There is no per-value unit override initially. Readiness 2 checks
 shape, references, provenance, and the rigid-transform carrier: exactly three
 translation components and exactly four quaternion components in explicit
-`xyzw` order, with no scale or shear fields. Readiness 3 freezes canonical
-basis, finite-number and normalization semantics, ranges, conditioning, and
-tolerances.
+`xyzw` order, with no scale or shear fields. The [numeric and frame
+profile](../numeric-frame-profile/README.md) owns the canonical basis, finite-
+number and normalization semantics, ranges, conditioning, and tolerances.
+Readiness 3 admits those rules in a separate successor transaction and never
+reselects the carrier.
 
 ## Values, normalization, and provenance
 
@@ -256,11 +261,11 @@ Authored local/reference transforms own reference-frame placement. Typed
 dimensions own declared size or extents. Landmark and anchor records retain
 owner, role, frame/context, and authored/defaulted/derived provenance. Ratios
 are derived and inspectable, not authored authority. Sources declare units,
-handedness, up, and forward axes; resolution normalizes values into one
-contract-revision canonical basis and records conversion provenance. The
-actual canonical basis, finite-number and normalization semantics, ranges, and
-tolerance remain deferred until Readiness 3; the initial structural carrier
-has no scale or shear fields. Resolved values that use a
+handedness, up, and forward axes; resolution normalizes values into the
+canonical basis owned by the [numeric and frame profile](../numeric-frame-profile/README.md)
+and records conversion provenance. The profile owns finite-number and
+normalization semantics, ranges, and tolerances; the initial structural
+carrier has no scale or shear fields. Resolved values that use a
 permitted exact contract/profile default retain `defaulted` provenance and the
 stable default-rule identity. Identity, containment, module presence, basis,
 and grammar-required values are explicit; no null-as-missing, implicit zero,
@@ -342,7 +347,8 @@ Semantic equivalence compares durable identities, containment and typed
 relations, canonical endpoint/interface frame records, normalized values,
 provenance, and operation outcome. It ignores source text ordering and
 incidental derived topology. A deterministic debug JSON view may assist
-comparison, but canonical byte identity and hashing remain deferred.
+comparison; canonical bytes and digest domains are governed by the
+[canonical-data profile](../canonical-data/README.md).
 
 Fixtures must cover bilateral/repeated modules; namespace ownership and full
 remapping; explicit containment versus relation-only connectivity; the typed

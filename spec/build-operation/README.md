@@ -12,15 +12,17 @@ owns source admission, resolution phases, resolver statuses, diagnostics, and
 the in-memory resolved-snapshot handoff. [DR-0006](../../docs/decisions/DR-0006-durable-semantic-and-artifact-identity.md)
 owns durable semantic identity and the separation of build and artifact
 identity. [DR-0013](../../docs/decisions/DR-0013-first-production-implementation-platform-and-geometry-boundary.md)
-owns the Proposed platform boundary and activation gates. This contract does
-not choose final avatar-package serialization, field spellings, hash
-algorithms, transport, or a permanent geometry backend.
+owns the Proposed platform boundary and activation gates. The [canonical-data
+profile](../canonical-data/README.md) owns canonical JSON and digest framing;
+this contract owns which outcome-affecting values enter the build-request
+projection. This contract does not choose final avatar-package field
+vocabulary, transport, or a permanent geometry backend.
 
 The words **must**, **must not**, and **may** state this Proposed contract. The
-exact serialized syntax, canonical serialization/hash, and concrete filesystem
-encoding remain deferred; canonical serialization/hash is required before
-activation. The conceptual target and lifecycle rules below are normative within
-the proposal.
+exact serialized syntax and concrete filesystem encoding remain deferred. The
+canonical-data, semantic-address, numeric/frame, and diagnostic profiles are
+Proposed activation prerequisites. The conceptual target and lifecycle rules
+below are normative within the proposal.
 
 ## Operation boundary
 
@@ -65,7 +67,7 @@ Build and artifact identity are distinct. Every invocation has a unique
 `attempt_id`, including an invocation that fails before it can establish a
 complete build request. The authoritative CLI/API result envelope,
 invocation-owned staging metadata, and logs may use that attempt identity for
-tracing. A deterministic `build_request_id` is established from the complete
+tracing only. A deterministic `build_request_id` is established from the complete
 outcome-affecting request when that request is available; it is stable across
 retries. Artifact identity is committed only after successful publication. The
 staged manifest carries a **candidate artifact identity**: it is a
@@ -79,9 +81,10 @@ success manifests or other committed artifact bytes, and never affects the
 target, candidate identity, deterministic equality, or idempotent equality. A
 build request includes every outcome-affecting source/dependency, compiler and
 toolchain, contract/schema/profile, configuration and seed, backend
-capability/protocol, and target-platform input. Its exact canonical
-serialization and hash remain deferred, but are required before this identity
-contract activates.
+capability/protocol, and target-platform input. Its deterministic projection
+and digest use the [canonical-data profile](../canonical-data/README.md), and
+activation is blocked until that profile and all referenced semantic profiles
+are admitted.
 
 For each artifact role, candidate artifact identity derives deterministically
 from the build-request identity, artifact role, and identity-rule revision.
@@ -100,8 +103,9 @@ sibling staging. Its conceptual fields are:
 | Integrity | manifest revision, completeness, and the data needed to verify one build lineage |
 | Diagnostics | top-level status, primary/root diagnostic reference, and completeness |
 
-Exact member names, hash algorithm, byte encoding, and manifest serialization
-are deferred. The manifest must be complete and internally consistent before
+Exact manifest member names and final artifact package fields remain deferred;
+canonical bytes and digest domains are owned by the [canonical-data profile](../canonical-data/README.md).
+The manifest must be complete and internally consistent before
 publication is attempted. Consumers must reject absolute or traversal paths,
 symlinks, unlisted outputs, incomplete manifests, mixed-build lineage, and
 stale or unverifiable identities.
@@ -191,38 +195,40 @@ coordinator, diagnostic reporter, and publisher trust. A worker crash,
 protocol loss, or malformed result invalidates that worker's output. A trusted
 isolated parent may authoritatively report only its own observation of the
 worker failure in the result envelope; it must never adopt worker output after
-trust is lost.
+trust is lost. Loss of coordinator, reporter, publisher, or invariant trust
+forbids publication and may leave only the surrounding launcher/CLI envelope.
 
-The initial contract persists no diagnostics-only failure bundle. All failed
-operations return the authoritative CLI/API envelope, and any attempt-local
-staging is cleanup-only. A later requirement to persist attempt evidence or a
-diagnostics bundle needs a separate identity and lifecycle decision. Validation
-cannot rehabilitate output whose worker trust was lost, and loss of
-coordinator, reporter, or publisher trust forbids publication.
+The initial contract persists no diagnostics-only failure bundle. Successful
+operations may publish a success bundle; failed operations return the
+authoritative CLI/API failure envelope, and any attempt-local staging is
+cleanup-only. A later requirement to persist attempt evidence or a diagnostics
+bundle needs a separate identity and lifecycle decision. Validation cannot
+rehabilitate output whose worker trust was lost.
 
 ## Operation outcome matrix
 
 The following matrix is the complete Proposed outcome boundary. “No final
-artifact” means the authoritative envelope is still returned; it does not mean
-the process may discard the root diagnostic.
+artifact” means the authoritative failure envelope is still returned; it does
+not mean the process may discard the root diagnostic. Success bundles are the
+only persisted derived-output bundles in this initial contract.
 
 | Condition | Top-level outcome | Snapshot / publication consequence |
 | --- | --- | --- |
 | Source unavailable, unreadable, or incomplete before complete acquisition | `input-failure` | No resolver snapshot; no final artifact |
-| Supplied bytes fail UTF-8, strict JSON, discriminator, schema, source semantic, or source invariant checks | `invalid-source` | No successful resolver snapshot or persisted failure bundle; return the authoritative envelope |
-| Unknown family/revision, unsupported required extension, or recognized unsupported assembly/capability | `unsupported` | No successful resolver snapshot or persisted failure bundle; return the authoritative envelope |
-| Required authored dependency cannot be acquired, verified, or matched to its declared revision | `dependency-failure` | No successful resolver snapshot or persisted failure bundle; return the authoritative envelope |
-| Configured source, dependency, graph, work, memory, or diagnostic/resource bound prevents required processing or trusted completion | `resource-limit` | No trusted successful snapshot or persisted failure bundle; return the authoritative envelope with the root/resource diagnostic |
+| Supplied bytes fail UTF-8, strict JSON, discriminator, schema, source semantic, or source invariant checks | `invalid-source` | No successful resolver snapshot or success artifact; return the authoritative failure envelope |
+| Unknown family/revision, unsupported required extension, or recognized unsupported assembly/capability | `unsupported` | No successful resolver snapshot or success artifact; return the authoritative failure envelope |
+| Required authored dependency cannot be acquired, verified, or matched to its declared revision | `dependency-failure` | No successful resolver snapshot or success artifact; return the authoritative failure envelope |
+| Configured source, dependency, graph, work, memory, or diagnostic/resource bound prevents required processing or trusted completion | `resource-limit` | No trusted successful snapshot or success artifact; return the authoritative envelope with the root/resource diagnostic |
 | Coordinator, diagnostic reporter, publisher, or invariant trust is lost | `internal-failure` | No trusted successful snapshot or publication; return the authoritative envelope if it remains trustworthy |
 | Required build capability is explicitly unsupported, or required worker protocol/version negotiation cannot be satisfied as an unsupported contract | `unsupported` | No derived artifact; retain the capability/protocol diagnostic |
-| Worker timeout or validated worker-reported resource exhaustion within the configured bound | `resource-limit` | No trusted output from that worker or persisted failure bundle; a trusted parent may report its own observation in the authoritative envelope |
-| Worker crash, forced termination, transport loss, truncated framing, or corrupt framing loses trust in worker output | `internal-failure` | No worker-produced output or persisted failure bundle; a trusted parent may report its own observation in the authoritative envelope |
-| Worker/geometry output is well-framed and decoded but malformed, incomplete, out of contract, or fails output validation while the reporter remains trusted | `output-failure` | No success artifact or persisted failure bundle; return the authoritative envelope |
-| A well-framed worker-declared domain failure is received | Governed status after validation | Validate the declaration and map it to the applicable operation/domain status; do not adopt worker output or persist a failure bundle |
+| Worker is terminated by a trusted parent after an established configured deadline or validated resource breach | `resource-limit` | No trusted output from that worker; a trusted parent may report its own observation in the authoritative envelope |
+| Unexpected worker termination, transport loss, truncated/corrupt framing, or termination without a qualifying bound loses trust in worker output | `internal-failure` | No worker-produced output; a trusted parent may report its own observation in the authoritative envelope |
+| Worker/geometry output is well-framed and decoded but malformed, incomplete, out of contract, or fails output validation while the reporter remains trusted | `output-failure` | No success artifact; return the authoritative envelope |
+| A well-framed worker-declared domain failure is received | Governed status after validation | Validate the declaration and map it to the applicable operation/domain status; do not adopt worker output |
 | A source-caused resolved-graph invariant fails | `invalid-source` | No successful in-memory snapshot or success artifact |
-| An admissible resolved value/transform violates an implementation invariant during derivation | `internal-failure` | No trusted output or persisted failure bundle; return the authoritative envelope |
-| Derived output encoding/serialization fails while result trust is retained | `output-failure` | No final artifact or persisted failure bundle; return the authoritative envelope |
-| Staging allocation, path, write, manifest, hash, or completeness validation fails while result trust is retained | `output-failure` | No final artifact or persisted failure bundle; clean only invocation-owned staging |
+| An admissible resolved value/transform violates an implementation invariant during derivation | `internal-failure` | No trusted output; return the authoritative envelope |
+| Derived output encoding/serialization fails while result trust is retained | `output-failure` | No final artifact; return the authoritative envelope |
+| Staging allocation, path, write, manifest, hash, or completeness validation fails while result trust is retained | `output-failure` | No final artifact; clean only invocation-owned staging |
 | No-replace collision has the same deterministic request/candidate but byte-divergent output | `internal-failure` (`nondeterministic-output`) | Never accept either divergent result as an alternate winner; preserve the target and report the mismatch |
 | Target occupant has different, incomplete, stale, or unverifiable identity/lineage/hashes | `output-failure` (`target-conflict`) | Never overwrite or adopt the occupant; no final artifact |
 | Atomic no-replace publication is unavailable or atomic publication fails | `output-failure` | Never fall back to overwrite/adoption; no final artifact |

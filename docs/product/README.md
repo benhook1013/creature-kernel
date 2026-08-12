@@ -11,6 +11,10 @@ unless the choice itself is a product constraint.
 - [Vision and scope](vision-and-scope.md)
 - [Requirements](requirements.md)
 - [Users and workflows](users-and-workflows.md)
+- Batch 11 focused contract owners: [semantic-address](../../spec/semantic-address/README.md),
+  [canonical-data](../../spec/canonical-data/README.md),
+  [numeric-frame-profile](../../spec/numeric-frame-profile/README.md), and
+  [diagnostics](../../spec/diagnostics/README.md).
 
 Product documents outrank architecture when defining what the project is trying
 to accomplish. Architecture determines how to satisfy those outcomes and must
@@ -35,11 +39,11 @@ The canonical specification owners are the [body-document](../../spec/body-docum
 and [fixture-manifest](../../spec/fixture-manifest/README.md) contracts.
 
 Prior CK-KICK-012 revisions and review artifacts remain preserved as historical
-evidence. Ben's Batch 5, Batch 8, Batch 9, and Batch 10 resolutions are
+evidence. Ben's Batch 5, Batch 8, Batch 9, Batch 10, and Batch 11 resolutions are
 discussion-approved and incorporated here as Proposed product outcomes only.
 DR-0002 Revision 11 and DR-0008 Revision 11 remain Proposed with Owner
-approval Pending and Review Complete; DR-0006 Revision 7, DR-0011 Revision 9,
-DR-0012 Revision 8, and DR-0013 Revision 6 remain Proposed with Owner approval
+approval Pending and Review Complete; DR-0006 Revision 8, DR-0011 Revision 10,
+DR-0012 Revision 9, and DR-0013 Revision 7 remain Proposed with Owner approval
 Pending and Review Pending. The Batch 9 review targeted commit
 `6cf17270fda2827756c24a8d0fb301bef358f98f` and is stale for the revised
 records. Review evidence is not acceptance; no implementation or readiness
@@ -49,6 +53,11 @@ state](../project/status.md#current-review-and-future-activation-obligations).
 The cross-cutting proposal is [DR-0012:
 initial body-document encoding, resolution, and compatibility](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
 This documentation records intended product outcomes; exact syntax details,
-machine schema, phase/code serialization, numeric budgets, and implementation
-mechanisms remain deferred to their owning specifications and architecture
-work.
+machine schema, exact numeric bounds, and implementation mechanisms remain
+deferred to their owning specifications and architecture work. Batch 11
+proposes typed machine addresses with separate display names, a right-handed
+metre semantic basis with +Y up and +Z creature-forward, finite binary64
+numeric semantics with canonical quaternion handling, typed comparison
+profiles, project canonical JSON with domain-separated SHA-256 digests, and a
+small versioned diagnostic registry. These remain Proposed and do not activate
+implementation or readiness gates.

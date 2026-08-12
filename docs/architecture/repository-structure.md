@@ -20,7 +20,11 @@ creature-kernel/
 │   ├── body-document/       # authored source encoding and admission contract
 │   ├── body-graph/          # resolved semantic graph contract
 │   ├── fixture-manifest/    # conceptual fixture admission authority
-│   └── build-operation/     # Proposed public build/output contract
+│   ├── build-operation/      # Proposed public build/output contract
+│   ├── semantic-address/     # proposed typed machine address profile
+│   ├── canonical-data/       # proposed canonical bytes and digest domains
+│   ├── numeric-frame-profile/# proposed numeric/frame comparison profile
+│   └── diagnostics/          # proposed diagnostic registry/profile
 ├── Cargo.toml               # planned Rust workspace; not active
 ├── crates/                   # planned engine-independent core/compiler/CLI areas
 ├── experiments/             # reproducible research evidence
@@ -47,6 +51,13 @@ While the relevant DRs remain Proposed, no implementation packages, schema,
 manifest payload, or compiler-consumed fixtures are activated. Readiness 2
 requires one Ben-approved immutable manifest/fixture/schema/parser transaction;
 unlisted fixtures never activate independently.
+
+The Batch 11 focused profiles remain Proposed specification areas. Their
+activation order is numeric/frame semantics, semantic addresses, canonical
+bytes/digests, diagnostics, exact schema/manifest, Readiness 2, then the
+separate Readiness 3 snapshot/comparison transaction. These directories may
+own current contracts, but documentation alone activates no implementation
+package or fixture corpus.
 
 ## Activation rule
 

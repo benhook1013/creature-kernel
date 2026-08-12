@@ -37,6 +37,18 @@ The cross-cutting proposal is
   inheritance, directed joints with owner-specific frame records,
   contextual host/mating Socket Attachment placement, provenance, Stage 1
   invariants, and successful in-memory snapshot handoff conditions.
+- [Semantic-address profile](semantic-address/README.md): the exact structured
+  address representation, lexical profile, closed identity kinds, structural
+  equality, and reference semantics.
+- [Numeric and frame profile](numeric-frame-profile/README.md): the canonical
+  semantic basis, Readiness 2 rigid-transform carrier, Readiness 3 numeric
+  rules, and typed comparison-profile boundary.
+- [Canonical data and digest profile](canonical-data/README.md): canonical
+  JSON normalization/serialization, SHA-256 domain framing, and deterministic
+  identity projections.
+- [Diagnostic registry and profile](diagnostics/README.md): registry,
+  occurrence, diagnostic-profile, resource-profile, ordering, and status
+  separation. Exact initial codes remain fixture-gated.
 - [Fixture-manifest and admission contract](fixture-manifest/README.md): the
   conceptual fixture-suite payload, external readiness/decision binding,
   preflight, successor/rollback, manifest field groups, and readiness corpus
@@ -77,7 +89,7 @@ accounting remain unselected.
   one unique owner in a resolved source set; collisions require an authored,
   deterministic, collision-free remapping across every contributed semantic
   address, with no implicit shared ownership. Exact address serialization and
-  lifecycle/remap rules remain open.
+  lifecycle/remap rules are owned by the [semantic-address profile](semantic-address/README.md).
 - Capabilities, regions, attachments, joints, and material/deformation metadata.
 - A proposed supported-morphology and validity envelope for the bounded first
   digitigrade biped family. Its identity-bearing concepts are exactly Part,
@@ -101,9 +113,10 @@ accounting remain unselected.
   is invalid-source and an implementation failure on an admissible transform
   is internal-failure. Readiness 2 fixes the structural rigid-transform carrier
   as exactly three translation components plus four explicit `xyzw` quaternion
-  components, with no scale or shear fields; exact matrix/layout serialization,
-  canonical numeric semantics, conditioning, and tolerances remain deferred to
-  resolver activation. Competing authored placement must agree
+  components, with no scale or shear fields; the [numeric and frame
+  profile](numeric-frame-profile/README.md) owns canonical numeric semantics,
+  conditioning, and tolerances, while storage layout remains implementation-
+  independent. Competing authored placement must agree
   within a later-defined tolerance. The pelvis Part owns the root-reference frame. The axial chain
   is pelvis → spine Joint → torso/chest Part → neck-base Joint → neck Part →
   head-base Joint → head Part. Arm and leg chains use the required typed Joints
@@ -124,9 +137,10 @@ accounting remain unselected.
   anchors/landmarks retain authored or derived provenance, ratios are derived
   only, and conflicting constraints diagnose. Readiness 2 requires a rigid
   carrier with three translation and four explicit `xyzw` quaternion
-  components and no scale/shear fields; canonical numeric meaning and
-  tolerances remain deferred to Readiness 3. Exact serialized fields and
-  machine-schema contents remain deferred;
+  components and no scale/shear fields. The [numeric and frame
+  profile](numeric-frame-profile/README.md) owns canonical numeric meaning,
+  tolerances, and comparison profiles; exact machine-schema contents remain
+  readiness-gated;
   strict JSON and JSON Schema Draft 2020-12 are the selected Proposed initial
   encoding and structural-validation technologies.
 - A proposed fixture-profile contract describing stable profile identity,
@@ -182,7 +196,6 @@ Every accepted format must define:
 - a machine-readable schema when practical.
 
 Strict JSON and JSON Schema Draft 2020-12 are the Proposed initial encoding and
-structural-validation technologies. No exact serialized field vocabulary,
-machine-readable schema file, canonical byte representation, canonical hash
-serialization, or accepted format exists yet. Canonical serialization and
-hashing remain required before identity/build or fixture-manifest activation.
+structural-validation technologies. The semantic-address, numeric/frame,
+canonical-data, and diagnostic profiles are Proposed and activation-gated; they
+do not activate a schema, parser, resolver, or fixture corpus by themselves.

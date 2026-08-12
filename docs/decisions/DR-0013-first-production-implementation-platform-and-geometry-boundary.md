@@ -6,13 +6,13 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 6
+Revision: 7
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-11
 
@@ -58,7 +58,11 @@ freezes a rigid-transform carrier, and worker status mapping is explicit. The
 filesystem proof remains a nonblocking pre-publication obligation. This
 material Revision 6 change makes the Revision 5 current-review artifacts stale;
 the record remains Proposed with Owner approval Pending and a fresh current
-review pending.
+review pending. On 2026-08-12 Ben approved the next machine-contract batch:
+semantic address encoding, canonical basis/numeric/comparison profiles,
+canonical bytes/digests, and the diagnostic registry/profile. This material
+Revision 7 change makes the Revision 6 review evidence stale; a fresh current
+review is pending.
 
 ## Decision
 
@@ -72,7 +76,7 @@ Proposed record.
 | --- | --- | --- | --- |
 | Readiness 1 — empty production shell | DR-0013 is Accepted; create the Cargo workspace and empty compiler/library/CLI shell | DR-0013 acceptance and this platform boundary | Workspace and empty shell exist; no parser, resolver, fixture, or geometry implementation is implied |
 | Readiness 2 — parser/bootstrap and admitted fixtures | One exact activation transaction on a review branch containing the exact JSON Schema, a versioned fixture manifest, all referenced fixture files, and parser/bootstrap implementation | DR-0012 owns schema/bootstrap; DR-0002/DR-0008/DR-0011 own linked semantic fixture obligations; Ben owns admission | Parser-independent preflight proves manifest, paths, hashes, profiles, expected outcomes/diagnostics, provenance, and completeness agree before explicit Ben approval and merge/activation |
-| Readiness 3 — semantic resolver and snapshot handoff | Canonical basis/units/rotation/scale-shear/numeric representation/tolerances plus frozen expected graph outputs; activate semantic resolution and successful in-memory snapshot finalization/handoff | DR-0011 owns frame/numeric prerequisites; DR-0002/DR-0012 own graph and result-envelope obligations | Resolver outputs match frozen expected graph snapshots with provenance and trusted success envelope; external serialization remains a later build/output operation |
+| Readiness 3 — semantic resolver and snapshot handoff | A distinct Ben-approved successor transaction activates DR-0011's canonical basis, validity, normalization/sign, ranges, conditioning, composition, and typed comparison semantics plus frozen expected graph outputs; it then activates semantic resolution and successful in-memory snapshot finalization/handoff without reselecting the Readiness 2 carrier | DR-0011 owns frame/numeric prerequisites; DR-0002/DR-0012 own graph and result-envelope obligations | Resolver outputs match frozen expected graph snapshots with provenance and trusted success envelope; external serialization remains a later build/output operation |
 | Readiness 4 — exploratory Stage 1 geometry proof | Working resolver plus a provisional geometry profile and project-owned GeometryRequest/GeometryResult seam; activate exploratory Stage 1 geometry proof / CK-KICK-014 | DR-0013 owns the seam/platform; DR-0008 owns Stage 1 claim boundary | Bounded exploratory proof evidence under the provisional profile; no accepted/reactivated surface decision is required |
 
 Readiness 2 admission is one exact activation transaction on a review branch:
@@ -91,7 +95,11 @@ suite kind, fixture paths, content hashes, profile IDs, expected results or
 diagnostics/snapshots as applicable, and provenance, but never its own digest or
 approval. A separate later readiness/decision record, outside the payload
 digest domain, names the reviewed manifest digest, source commit reference,
-path-scoped payload digest/tree identity, and Ben approval. After merge,
+and exact ordered path/mode/content set digest for the manifest plus its
+declared schema, fixtures, and snapshots, and Ben approval. Readiness,
+approval, successor, and mutable-pointer records, plus Git commit identity,
+are excluded from that payload scope; the digest algorithm/profile is recorded.
+After merge,
 parser-independent preflight is rerun; commit identity may change, but
 activation requires the manifest and path-scoped payload binding to match.
 Git history and explicit successor, deactivation, or rollback records preserve
@@ -107,10 +115,16 @@ Readiness 2 freezes one structural rigid-transform carrier for parser/schema
 work: three-component translation plus explicit four-component `xyzw`
 quaternion, with no scale or shear fields. Readiness 2 validates carrier shape
 and references only; it does not infer canonical numeric semantics. Readiness 3
-freezes the canonical basis, finite-number and normalization rules, ranges,
-conditioning, and tolerances. Its admitted fixture-manifest successor binds an
-expected graph snapshot path, digest, comparison-profile identity, and exact
-or semantic comparison rule. This boundary selects no geometry, rig, IK,
+activates DR-0011's canonical basis, validity, normalization/sign, ranges,
+conditioning, composition, and typed comparison semantics. Its distinct
+Ben-approved successor transaction contains the successor suite manifest,
+expected graph snapshots, comparison profile/rule, and resolver implementation
+or exact implementation binding, with the same content-identity preflight.
+The repository-evolution ledger marks this transaction activated only after
+that explicit Ben approval and unchanged content preflight; no package or
+resolver gate activates before the ledger trigger. It binds an expected graph
+snapshot path, digest, comparison-profile identity, and exact or semantic
+comparison rule. This boundary selects no geometry, rig, IK,
 deformation, runtime, or host-engine representation.
 
 Acceptance of DR-0013 itself is the sole trigger for Readiness 1. Creating this
@@ -178,7 +192,7 @@ dependency. An independent visual workbench consumes ordinary compiler
 artifacts and their manifest; it does not own semantic resolution or silently
 recompile the source through a second implementation.
 
-The compiler publishes a complete success or failure bundle using immutable,
+The compiler publishes a complete success bundle using immutable,
 build-scoped sibling staging, writes the manifest last, and atomically
 publishes it with no replacement of an existing bundle. The manifest identifies
 the build and artifact identity and records relative paths with hashes and
@@ -307,14 +321,15 @@ trust.
 
 The conceptual worker outcome mapping is closed even while exact protocol fields
 remain deferred: unsupported protocol/version negotiation is `unsupported`;
-timeout or validated worker-reported resource exhaustion is `resource-limit`;
-crash, forced termination, transport/framing loss, or truncated/corrupt
-framing is `internal-failure`; well-framed and decoded but contract-invalid
-output is `output-failure`; and a well-framed worker-declared domain failure is
-validated before mapping to its governed domain status. Coordinator, reporter,
-or publisher invariant/trust loss is `internal-failure` and forbids
-publication. No worker-produced output remains adoptable after worker or
-transport trust loss.
+trusted parent termination or transport closure after an established configured
+timeout/resource breach is `resource-limit`; unexpected termination,
+unexplained exit, transport loss, failed termination invariant, or termination
+without a qualifying bound is `internal-failure`; well-framed and decoded but
+contract-invalid output is `output-failure`; and a well-framed worker-declared
+domain failure is validated before mapping to its governed domain status.
+Coordinator, reporter, or publisher invariant/trust loss is `internal-failure`
+and forbids publication. No worker-produced output remains adoptable after
+worker trust loss.
 
 Initially, a compile or geometry failure is reported through the authoritative
 CLI/API envelope rather than persisted as a committed diagnostics-only failure
@@ -460,11 +475,14 @@ prejudge a later geometry worker/backend.
   worker trust.
 - Readiness 2 admission uses a generic fixture-suite payload manifest plus a
   separate readiness/decision record naming its digest, reviewed source commit,
-  path-scoped payload identity, and Ben approval. Post-merge preflight allows
-  commit identity to change but requires the manifest and scoped payload
-  binding to match. Git history and explicit successor/deactivation/rollback
-  records preserve history without a custom active-pointer ledger. Preflight
-  proves consistency, not expected-result correctness.
+  exact ordered path/mode/content set and scoped payload digest/profile, and
+  Ben approval. The scope contains only the manifest and declared schema,
+  fixtures, and snapshots; it excludes readiness/approval/successor records,
+  mutable pointers, and Git commit identity. Post-merge preflight allows commit
+  identity to change but requires the manifest and scoped payload binding to
+  match. Git history and explicit successor/deactivation/rollback records
+  preserve history without a custom active-pointer ledger. Preflight proves
+  consistency, not expected-result correctness.
 
 ## Alternatives Considered
 
@@ -573,7 +591,7 @@ Readiness 3.
 
 ## Adversarial Review Response
 
-This is CK-KICK-013 Revision 6, proposed and discussion-approved on 2026-08-12.
+This is CK-KICK-013 Revision 7, proposed and discussion-approved on 2026-08-12.
 The exact Revision 1 Double review examined commit
 `c64b1b98948304d631eecea6a354c9e42c89c510`. The independent [review 01](reviews/DR-0013-rev-01-review-01.md)
 and [review 02](reviews/DR-0013-rev-01-review-02.md) both recommended **Revise**
@@ -676,6 +694,14 @@ timeout/termination status distinction. They await Ben's discussion and owner
 disposition. Review completion is evidence only; Owner approval remains Pending
 and Status remains Proposed.
 
+Ben approved the Batch 11 machine-contract resolutions in discussion on
+2026-08-12. This Revision 7 proposal adds the typed address, canonical
+basis/numeric/comparison profiles, canonical bytes/digest domains, diagnostic
+registry/profile, and the distinct Readiness 3 transaction. The Revision 6
+review artifacts are stale historical evidence; a fresh current-revision
+review is pending. Review status is Pending, Owner approval remains Pending,
+and no readiness gate activates.
+
 ## Implementation and Proof Obligations
 
 - If this DR is accepted, create only the Cargo workspace and empty
@@ -685,9 +711,10 @@ and Status remains Proposed.
   manifest-listed fixture files and parser/bootstrap implementation together;
   Readiness 2's structural rigid-transform carrier is three-component
   translation plus explicit `xyzw` quaternion with no scale/shear fields;
-  canonical basis/units/rotation/scale-shear/numeric representation/tolerances
-  plus frozen expected graph outputs activate semantic resolver and successful
-  in-memory snapshot finalization/handoff; and a working resolver plus
+  the distinct Readiness 3 successor transaction activates canonical basis,
+  validity, normalization/sign, ranges, conditioning, composition, and typed
+  comparison semantics plus frozen expected graph outputs, without reselecting
+  the carrier; and a working resolver plus
   provisional geometry profile and project-owned seam activates exploratory
   Stage 1 geometry / CK-KICK-014. Readiness 2 is one Ben-approved transaction
   containing schema, versioned manifest, referenced fixtures, and
@@ -699,8 +726,12 @@ and Status remains Proposed.
 - Bind Readiness 2 admission to a fixture-suite payload manifest containing
   suite kind, paths, hashes, profiles, expected results/diagnostics/snapshots,
   and provenance, but no self-digest or approval. A separate readiness/decision
-  record names the reviewed manifest digest, source commit, path-scoped payload
-  identity, and Ben approval. Rerun parser-independent preflight on the merged
+  record names the reviewed manifest digest, source commit, SHA-256 payload
+  digest, exact ordered path/mode/content set containing only the manifest and
+  declared schema, fixtures, and snapshots, and the versioned external
+  path-set framing/profile (exact identifier remains readiness-gated). The
+  scope excludes readiness/approval/successor records, mutable pointers,
+  self-reference, and Git commit identity. Rerun parser-independent preflight on the merged
   target; commit identity may change, but activation requires the manifest and
   scoped payload binding to match. Corrections, deactivation, and rollback use
   explicit successor/decision records preserved in Git history, not a custom
@@ -750,9 +781,10 @@ and Status remains Proposed.
   to the canonical specification.
 - Keep worker producer/output trust separate from coordinator, reporter, and
   publisher trust. Map unsupported protocol/version negotiation to
-  `unsupported`; timeout or validated worker-reported resource exhaustion to
-  `resource-limit`; crash, forced termination, transport/framing loss, or
-  truncated/corrupt framing to `internal-failure`; well-framed and decoded but
+  `unsupported`; trusted parent termination/transport closure after an
+  established configured timeout/resource breach to `resource-limit`; unexpected
+  termination, unexplained exit, transport loss, failed termination invariant,
+  or no qualifying bound to `internal-failure`; well-framed and decoded but
   contract-invalid output to `output-failure`; and validate a well-framed
   worker-declared domain failure before mapping it to its governed status.
   Permit a trusted parent to report only independently observed
