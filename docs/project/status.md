@@ -1,13 +1,13 @@
 # Project status
 
-Status date: 2026-08-12
+Status date: 2026-08-13
 
 ## Phase
 
 Exploratory executable prototype and semantic-contract integration. The
 foundation governance and the product, specification, and architecture
 proposals remain provisional; current work is integrating the CK-KICK-012 Batch
-8/9/10/11/12 and CK-KICK-013 readiness/publication revisions while keeping implementation gated rather than
+8/9/10/11/12/13 and CK-KICK-013 readiness/publication revisions while keeping implementation gated rather than
 returning to confirmatory surface research.
 
 ## Current activation state
@@ -54,33 +54,23 @@ The foundation scaffold and governance process are integrated. DR-0001 Revision
 5 is Accepted by Ben after its Complete clean review; that acceptance applies
 only to the Governance DR. DR-0002 through DR-0013 remain Proposed with their
 review and owner-disposition history preserved. Ben's CK-KICK-012 Batch 5,
-Batch 6, F1–F7, Batch 8, Batch 9, Batch 10, Batch 11, and Batch 12 resolutions
+Batch 6, F1–F7, Batch 8, Batch 9, Batch 10, Batch 11, Batch 12, and Batch 13 resolutions
 are discussion-approved and integrated as Proposed canonical
 product/specification/architecture/project material. The current six-record
-set is DR-0002 Revision 11, DR-0006 Revision 8, DR-0008 Revision 11, DR-0011
-Revision 11, DR-0012 Revision 10, and DR-0013 Revision 8. DR-0002 and DR-0008
-remain Proposed with Owner approval Pending and Review Complete. DR-0006 remains
-Proposed with Owner approval Pending and Review Complete, with unresolved
-C1/C3/C4 contract findings retained for Ben's discussion. The three materially
-revised records remain Proposed with Owner approval Pending and Review Complete
-after the current Batch 12 Double review. Their Batch 11 Double-review
-artifacts are stale only for those revised records; the current target is commit
-`730a2f77840cc0caa1f838c30dac4ff20f985e69`, and both independent passes
-recommend Revise at High confidence with unresolved A1–A4 and E1–E5 findings.
-No acceptance is implied; owner disposition remains pending.
+set is DR-0002 Revision 11, DR-0006 Revision 9, DR-0008 Revision 11, DR-0011
+Revision 12, DR-0012 Revision 11, and DR-0013 Revision 9. DR-0002 and DR-0008
+remain Proposed with Owner approval Pending and Review Complete. DR-0006 and the
+three materially revised records remain Proposed with Owner approval Pending and
+Review Pending after the material Batch 13 change. Prior review artifacts are
+stale for the revised records. No acceptance is implied; owner disposition
+remains pending.
 No implementation or readiness gate activates. The current review state and
 next action are recorded below.
 
 CK-KICK-013 is active with its discussion-approved Rust-first platform
 proposal integrated as Proposed material, not accepted or implemented.
-Proposed DR-0013 Revision 8 has Owner approval Pending and Review Complete
-after the Batch 12 numeric resolution and current-revision Double review of
-commit `730a2f77840cc0caa1f838c30dac4ff20f985e69`. Both independent passes
-recommend Revise at High confidence; unresolved A1–A4 and E1–E5 findings
-remain for Ben's discussion. The Batch 11 Double-review evidence is stale
-for this materially revised record. The
-completed Batch 9 Double review targeted commit
-`6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is stale for the revised
+Proposed DR-0013 Revision 9 has Owner approval Pending and Review Pending after
+the material Batch 13 change. Prior review evidence is stale for this revised
 record and is not acceptance. No implementation or readiness gate activates.
 The proposed activation order is numeric/frame semantics, semantic addresses,
 canonical data/digests, diagnostics, exact schema/manifest, Readiness 2, and a
@@ -133,11 +123,14 @@ No accepted production surface architecture, geometry backend, numeric budget,
 exact fixture, schema, runtime field, topology, or package compatibility is
 selected. CK-KICK-010's approved grid, field, bundle, determinism, and
 structural-gate values are debug-only spike inputs and do not change that
-boundary.
+boundary. Batch 13 additionally keeps future adapters separate: signed
+permutation `C` plus finite positive scale `s`, storage/output-only default or
+optional runtime-conformance tier, explicit target precision/domain narrowing,
+and FTZ/DAZ/subnormal probes. This is Proposed planning material only.
 
 ## Current review and future activation obligations
 
-Batch 11 and Batch 12 are discussion-approved as Proposed material. Their
+Batch 11, Batch 12, and Batch 13 are discussion-approved as Proposed material. Their
 focused contract owners cover typed semantic addresses, canonical bytes/digest
 domains, numeric/frame comparison semantics, and a small diagnostic registry.
 Exact numeric bounds remain evidence-dependent; the planned
@@ -145,15 +138,28 @@ Exact numeric bounds remain evidence-dependent; the planned
 is unregistered and has no results or evidence. Its Proposed protocol now
 requires preregistered intended domains, separate semantic error budgets,
 correctly rounded decimal-admission rules, fixed operation order and compiler
-floating-point controls, exact/higher-precision independent oracles, frozen
+floating-point controls, rational/ULP boundaries, deterministic
+normalization/square-root fixtures, offline H derivation, structured claim
+identity/order fixtures, exact/higher-precision independent oracles, frozen
 development/held-out/adversarial corpora, metamorphic and all-pairs checks,
 condition estimates, and a validation margin whose formula/constant remain
-open. The normative comparator shapes/formulas and normalization/sign
-direction are fixed Proposed material; constants, ranges, margins/error
-formula, and deterministic evaluation bindings remain open. Activation order is numeric/frame,
+open. The normative common-frame comparator, exact dyadic arithmetic,
+normalization/sign direction, claim-ID, and sorted-pair direction are fixed
+Proposed material; constants, ranges, margins/error formula, and deterministic
+evaluation bindings remain open. Future adapter evidence covers signed
+permutation/scale (vector lengths `sC`, scalar lengths `s`), storage/output and runtime tiers, precision/domain
+narrowing, and FTZ/DAZ/subnormal probes. Activation order is numeric/frame,
 address, canonical data, diagnostics, exact schema/manifest, Readiness 2, then
 a distinct Readiness 3 expected-snapshot/comparison transaction. No gate or
 implementation package activates from this status entry.
+
+Diagnostic compatibility remains Proposed: nine initial domains are
+source-admission, dependency, semantic-identity, graph-structure,
+frame-numeric, resource, execution-trust, publication, and inspection, with
+one tiny mandatory bootstrap registry/profile for unknown registry/profile
+negotiation. Exact codes and serialized fields remain fixture-gated.
+Readiness implementation binding remains a separate scoped content-identity
+input from the fixture payload and expected snapshots; no binding is active.
 
 The prior Double-review findings and ten artifacts are preserved in the
 [decision registry](../decisions/registry.md) as stale historical evidence.
@@ -193,25 +199,18 @@ coordinator/reporter/publisher trust; immutable fixture-manifest reviewed-tree
 and activation-payload binding with append-only successor/deactivation rules;
 and the conceptual body-document shape, typed collections, basis/frame/profile,
 and omission/default rules. Batch 11 adds the typed semantic-address,
-numeric/frame, canonical-data, and diagnostic profiles; Batch 12 improves the
-numeric evidence protocol and makes DR-0011 Revision 11, DR-0012 Revision 10,
-and DR-0013 Revision 8 current. DR-0006 Revision 8 remains current with Review
-Complete evidence and unresolved C1/C3/C4 findings. The Batch 10 Double review
-remains stale evidence. The fresh Batch 11 current-revision Double review
-examined exact target commit `053dba58fd344ed636420e0974cf617862fe265f` in two
-complete-coverage, independent `gpt-5.6-sol` medium passes. Its artifacts are
-stale only for the three materially revised records. The new DR-0011, DR-0012,
-and DR-0013 revisions are Review Complete after the current Batch 12 Double
-review of commit `730a2f77840cc0caa1f838c30dac4ff20f985e69`; both independent
-passes recommend Revise at High confidence. A1–A4 and E1–E5 remain actionable
-for Ben's discussion, owner approval remains Pending, all six records remain
-Proposed, and no readiness gate activates.
+numeric/frame, canonical-data, and diagnostic profiles; Batch 12/13 improves
+the numeric evidence protocol and makes DR-0006 Revision 9, DR-0011 Revision
+12, DR-0012 Revision 11, and DR-0013 Revision 9 current. These records remain
+Proposed with Owner approval Pending and Review Pending after Batch 13; prior
+review evidence is stale for the revised records. All records remain Proposed,
+and no readiness gate activates.
 DR-0002 Revision 11 and DR-0008 Revision 11 are unchanged and remain Review
 Complete. Owner approval remains Pending.
 
 The immediate next action is Ben's discussion and owner disposition of the
-current Batch 12 findings; the current-revision adversarial review is complete
-evidence and no proposal is silently accepted.
+current Batch 13 material and its fresh review; no proposal is silently
+accepted.
 No implementation/readiness gate activates while the records remain Proposed.
 Earlier Batch 8/9 and other
 review artifacts remain preserved as stale historical evidence.
@@ -297,18 +296,15 @@ nonblocking obligation before external authored dependencies activate.
 - CK-KICK-011 follows useful exploratory evidence. A formal comparative
   surface decision is optional and risk-driven, not automatic.
 - CK-KICK-012 is active with Batches 1, 4, 5, 6, F1–F3, Batch 8, Batch 9, Batch
-  10, Batch 11, and Batch 12 integrated as Proposed documentation; its parser/resolver and
+  10, Batch 11, Batch 12, and Batch 13 integrated as Proposed documentation; its parser/resolver and
   fixture-admission proposals establish the four Proposed specification families, while implementation packages and compiler-
   consumed fixtures remain unactivated. The current six-record set is DR-0002
-  Revision 11, DR-0006 Revision 8, DR-0008 Revision 11, DR-0011 Revision 11,
-  DR-0012 Revision 10, and DR-0013 Revision 8. DR-0002/0008 remain Proposed
-  with Owner approval Pending and Review Complete; DR-0006 remains Review
-  Complete with unresolved C1/C3/C4 findings; the three materially revised
-  records remain Proposed with Owner approval Pending and Review Complete after
-  the Batch 12 Double review of commit
-  `730a2f77840cc0caa1f838c30dac4ff20f985e69`; Ben approved the Batch 11/12
-  resolution directions, and their Batch 11 review artifacts are stale only for
-  the three revised records.
+  Revision 11, DR-0006 Revision 9, DR-0008 Revision 11, DR-0011 Revision 12,
+  DR-0012 Revision 11, and DR-0013 Revision 9. DR-0002/0008 remain Proposed
+  with Owner approval Pending and Review Complete; DR-0006 and the three
+  materially revised records remain Proposed with Owner approval Pending and
+  Review Pending after Batch 13. Prior review artifacts are stale for the
+  revised records; Ben approved the Batch 13 resolution directions.
   The completed Batch 9 Double review targeted
   `6cf17270fda2827756c24a8d0fb301bef358f` and is stale for the revised records;
   it is evidence, not acceptance.
@@ -316,13 +312,9 @@ nonblocking obligation before external authored dependencies activate.
   It does not
   depend on CK-KICK-011.
 - CK-KICK-013 is active with its Rust-first/Cargo platform proposal integrated
-  as Proposed but not accepted or implemented. DR-0013 Revision 8 has Owner
-  approval Pending and Review Complete after the Batch 12 resolution and
-  current-revision review of `730a2f77840cc0caa1f838c30dac4ff20f985e69`. The Batch
-  11 Double-review evidence is stale for this materially revised record, and
-  the completed Batch 9 Double review
-  targeted `6cf17270fda2827756c24a8d0fb301bef358f98f` and is stale for the
-  revised record. Its four readiness stages gate
+  as Proposed but not accepted or implemented. DR-0013 Revision 9 has Owner
+  approval Pending and Review Pending after Batch 13; prior review evidence is
+  stale for this materially revised record. Its four readiness stages gate
   shell, parser/bootstrap+fixtures, semantic resolver/in-memory snapshot, and exploratory geometry respectively. The disposable Python
   discovery host remains distinct from the proposed production platform.
 
@@ -333,9 +325,9 @@ nonblocking obligation before external authored dependencies activate.
   `RESULTS.md`. Main consolidated validation passed after the corrections; no
   second review or review-until-clean pass was run. This does not reopen
   DR-0009/0010.
-- Keep CK-KICK-012's active semantic, fixture-admission, numeric, and
-  compatibility work bounded and obtain fresh current-revision adversarial
-  review for the Batch 12-revised proposals; do not activate
+- Keep CK-KICK-012's active semantic, fixture-admission, numeric, claim-identity,
+  adapter, and compatibility work bounded and obtain fresh current-revision
+  adversarial review for the Batch 13-revised proposals; do not activate
   parser/resolver packages or compiler fixtures until the four readiness stages'
   prerequisites are met. The active Proposed body-document, body-graph, and
   build-operation documents do not activate implementation packages.
@@ -365,25 +357,24 @@ metadata. Current non-governance proposals include:
   initial product boundary — Revision 1, Proposed, Review Complete, owner
   disposition pending.
 - [DR-0006](../decisions/DR-0006-durable-semantic-and-artifact-identity.md),
-  semantic and artifact identity — Revision 8, Proposed, Owner approval
-  Pending, Review Complete; unresolved C1/C3/C4 findings remain for Ben's
-  discussion. Its current-revision review evidence is not stale.
+  semantic and artifact identity — Revision 9, Proposed, Owner approval
+  Pending, Review Pending after Batch 13; prior review evidence is stale for
+  the revised record.
 - [DR-0007](../decisions/DR-0007-staged-first-proof-charter.md) and
   [DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
   first-proof and morphology boundaries — DR-0007 remains Proposed with its
   current review; DR-0008 Revision 11 is Proposed, Owner approval Pending,
   Review Complete; recommendation Accept High / Accept High.
 - [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md),
-  semantic vocabulary, measurements, and coordinate frames — Revision 11,
-  Proposed, Owner approval Pending, Review Complete after Batch 12; Revise
-  High / Revise High, with unresolved A1–A4 and E1/E3/E4 findings.
+  semantic vocabulary, measurements, and coordinate frames — Revision 12,
+  Proposed, Owner approval Pending, Review Pending after Batch 13; prior review
+  evidence is stale for the revised record.
 - [DR-0012](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md),
-  initial body-document encoding, resolution, and compatibility — Revision 10,
-  Proposed, Owner approval Pending, Review Complete after Batch 12; Revise
-  High / Revise High, with unresolved A1–A4 and E1/E3/E4 findings.
-- DR-0013, Rust-first production semantic/compiler platform — Revision 8,
-  Proposed, Owner approval Pending, Review Complete after Batch 12; Revise
-  High / Revise High, with unresolved A1–A4 and E1–E5 findings; proposal
+  initial body-document encoding, resolution, and compatibility — Revision 11,
+  Proposed, Owner approval Pending, Review Pending after Batch 13; prior review
+  evidence is stale for the revised record.
+- DR-0013, Rust-first production semantic/compiler platform — Revision 9,
+  Proposed, Owner approval Pending, Review Pending after Batch 13; proposal
   integrated but not accepted or implemented.
 - [DR-0009](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
   and [DR-0010](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md)
@@ -396,9 +387,9 @@ metadata. Current non-governance proposals include:
 | Documentation authority | partial | unverified | Operational structure under Accepted DR-0001 Revision 5 |
 | Decision-record and review workflow | partial | unverified | Governance accepted; technical/product proposals remain provisional |
 | Research/experiment workflow | partial | unverified | Lightweight template exists; no experiment registered |
-| Body specification | partial | unverified | Proposed body-document, body-graph, build-operation, fixture-manifest, and Batch 11/12 focused profiles include discussion-approved updates; DR-0002/0008 remain Revision 11 Review Complete, DR-0006 Revision 8 remains Review Complete with unresolved C1/C3/C4, and DR-0011 Revision 11, DR-0012 Revision 10, and DR-0013 Revision 8 are Proposed with Owner approval Pending and Review Complete after the current target `730a2f77840cc0caa1f838c30dac4ff20f985e69`; Revise High / Revise High findings remain and no format or implementation is accepted |
+| Body specification | partial | unverified | Proposed body-document, body-graph, build-operation, fixture-manifest, and Batch 11/12/13 focused profiles include discussion-approved updates; DR-0002/0008 remain Revision 11 Review Complete, while DR-0006 Revision 9, DR-0011 Revision 12, DR-0012 Revision 11, and DR-0013 Revision 9 are Proposed with Owner approval Pending and Review Pending after Batch 13; no format or implementation is accepted |
 | Build-operation contract | partial | unverified | Proposed canonical public build/output owner exists; serialization, implementation, and artifact store remain unactivated |
-| Production implementation platform | not-implemented | not-applicable | CK-KICK-013/DR-0013 Revision 8 is Proposed with Owner approval Pending and Review Complete after the Batch 12 review of `730a2f77840cc0caa1f838c30dac4ff20f985e69`; Revise High / Revise High findings remain unresolved, prior Batch 11 review evidence is stale for this revision, and no acceptance follows. Numeric/frame, address, canonical-data, diagnostics, schema/manifest, Readiness 2, distinct Readiness 3, and exploratory geometry remain gated; no packages activated |
+| Production implementation platform | not-implemented | not-applicable | CK-KICK-013/DR-0013 Revision 9 is Proposed with Owner approval Pending and Review Pending after Batch 13; numeric/frame, address, canonical-data, diagnostics, schema/manifest, Readiness 2, distinct Readiness 3, adapter, and exploratory geometry remain gated; no packages activated |
 | Creature compiler | partial | unverified | Disposable CK-KICK-010 walking skeleton implemented; this is not a production compiler |
 | CK-KICK-010 walking skeleton | implemented | audited | Valid/invalid local evidence and the selected Single independent review are complete; five substantive findings plus whitespace were dispositioned in RESULTS, not clean; this is not a production compiler |
 | Local visual-review gallery | implemented | audited | Focused tests and local HTTP/browser smoke passed; subject_context is presentation-only; no visual-evidence or Stage 1 claim |
@@ -406,11 +397,11 @@ metadata. Current non-governance proposals include:
 
 ## Immediate next actions
 
-- Discuss and disposition the actionable Batch 12 numeric-resolution findings
-  and the unresolved DR-0006 C1/C3/C4 contract findings while retaining
-  Proposed status. The revised records await fresh review and Ben's resolution
-  choices; do not silently accept them or activate packages, schemas, fixtures,
-  parser/resolver, or geometry work meanwhile.
+- Discuss and disposition the Batch 13 numeric, claim-identity, and future-
+  adapter material while retaining Proposed status. The revised records await
+  fresh review and Ben's resolution choices; do not silently accept them or
+  activate packages, schemas, fixtures, parser/resolver, or geometry work
+  meanwhile.
 - Keep the DR-0013 acceptance trigger unsatisfied while it remains Proposed;
   if accepted, activate only the Cargo/compiler shell. Do not activate Stage 1
   parser/resolver implementation until exact schema and admitted fixtures/

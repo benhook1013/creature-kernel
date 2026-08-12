@@ -20,7 +20,7 @@ Each fixture must record:
 - tests or experiments that consume it;
 - whether expected outputs are exact, semantic, metric, or visual.
 
-The CK-KICK-012 Batch 11/12 proposal keeps the corpus conceptual and adds no
+The CK-KICK-012 Batch 13 proposal keeps the corpus conceptual and adds no
 implementation fixtures. Schema-level body-document fixtures will
 exercise strict UTF-8 JSON admission, duplicate-key rejection, unknown core
 members, required and optional extensions, exact contract-family/revision
@@ -40,24 +40,39 @@ subnormal/underflow, overflow, cancellation, near-zero quaternion, q/-q, long
 chain, ill-conditioned, basis-conversion, and claim-order cases. Exact numeric
 values, expected outcomes, and profile IDs remain unselected.
 
-The current Batch 12 Double review is complete evidence against commit
-`730a2f77840cc0caa1f838c30dac4ff20f985e69`; both independent `gpt-5.6-sol`
-medium passes recommend Revise at High confidence. Findings A1–A4 and E1–E5
-remain unresolved, so no fixture corpus or readiness gate is activated. The
-prior Batch 11 review is stale for DR-0011 Revision 11, DR-0012 Revision 10,
-and DR-0013 Revision 8.
+Current Batch 13 material is recorded in DR-0006 Revision 9, DR-0011 Revision
+12, DR-0012 Revision 11, and DR-0013 Revision 9; each remains Proposed with
+Owner approval Pending and Review Pending. Batch 11/12 review evidence is
+stale for those revisions. Batch 13 resolves the canonical-key,
+implementation-binding, and diagnostic/bootstrap directions as Proposed
+policy only, so no fixture corpus or readiness gate is activated.
 
 Readiness 2 admission is one review-branch activation transaction described by
 the [fixture-manifest specification](../spec/fixture-manifest/README.md). The
 manifest payload contains suite kind, fixture paths/content hashes, profiles,
 provenance, expected results, and expected snapshot references where needed;
-it never contains its own digest, approval, or active pointer. A separate
+it never contains its own digest, approval, or active pointer. Unordered
+manifest entries use owner-declared keys: fixture ID is unique, and normalized
+repository paths are unique; duplicate IDs or paths fail closed. A separate
 readiness/decision record names the reviewed source commit, manifest path,
 manifest digest, path-scoped payload digest/tree identity, preflight result,
 and Ben approval. The scoped digest covers an ordered path/mode/content set of
 only the manifest and its declared schema, fixtures, and expected snapshots;
 approval/readiness, Git commit, successor/deactivation, mutable pointer, and
-self-referential admission fields are excluded. Preflight validates internal
+self-referential admission fields are excluded. Any readiness gate that
+activates code also has a separate, versioned, domain-separated aggregate
+SHA-256 binding over an explicit ordered set of normalized safe-relative path,
+mode, and raw-content entries. The binding record is outside that set and has
+no self-reference. Readiness 2 binds the parser/bootstrap closure; Readiness 3
+binds the resolver closure, including relevant source, workspace/crate
+manifests/configuration, build/codegen scripts and inputs, Cargo.lock,
+rust-toolchain, and applicable path-dependencies. Behaviour-affecting
+features/environment/configuration are fixed or request identity inputs;
+host/rustc/hardware evidence is recorded but not equality-bound unless
+claimed. There is no whole-repository binding, commit equality, signature, or
+custom ledger. Recompute both bindings after merge and immediately before the
+ledger trigger; mismatch blocks activation and requires a successor.
+Preflight validates internal
 consistency only and compares those content identities on the merged target;
 it does not require an unchanged merge commit. Successor admissions are
 recorded explicitly in Git history, and deactivation/rollback requires a new
@@ -67,7 +82,12 @@ The conceptual manifest fields are manifest ID/revision, schema revision/hash,
 each fixture ID/path/hash/provenance, operation status, semantic outcome where
 applicable, primary diagnostic, processing and diagnostic completeness,
 diagnostic/resource profile IDs, and expected snapshot path/digest/
-comparison-profile identity where applicable. Operation
+comparison-profile identity where applicable. Diagnostic occurrences preserve
+the diagnostic profile's occurrence identity and multiplicity; they are not
+silently deduplicated. Unknown required diagnostic registry/profile requests
+use bootstrap effective IDs, deterministic bootstrap primary, bounded opaque
+requested IDs, and `required=true`, without emitting under the unknown profile
+or adding a phase. Operation
 status remains separate from semantic taxonomy; every non-success requires a
 primary diagnostic, while success has no primary (absent/null in the future
 exact encoding). The production parser must consume an admitted record; it

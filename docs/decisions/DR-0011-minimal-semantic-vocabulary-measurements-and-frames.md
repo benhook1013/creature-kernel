@@ -6,19 +6,19 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 11
+Revision: 12
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-11
 
 Date decided: —
 
-Discussion approval date: 2026-08-12
+Discussion approval date: 2026-08-13
 
 Supersedes: —
 
@@ -98,6 +98,19 @@ and C3 immutable Readiness 2/3 implementation binding remain unresolved for
 the next discussion; C4 diagnostic-domain/bootstrap compatibility remains
 cross-linked to DR-0012. Owner approval remains Pending and Review status is
 Complete for the current Batch 12 evidence; the proposal remains Proposed.
+
+On 2026-08-13 Ben approved all five CK-KICK-012/013 Batch 13 resolution
+directions in discussion: symmetric canonical-frame comparison with exact
+dyadic boundary arithmetic and deterministic quaternion normalization;
+post-R3 adapter units and storage-only/runtime-conformance tiers; typed total
+keys and explicit multiplicity for unordered collections; a separate scoped
+implementation-content binding for readiness transactions; and diagnostics
+sole ownership with a mandatory bootstrap registry/profile. This material
+revision is Proposed only: it accepts no DR and activates no schema, fixture,
+parser/resolver, implementation, adapter, experiment, or package. The
+Revision 11 Batch 12 review artifacts are stale for this material change and
+remain preserved below. Owner approval remains Pending and Review status is
+Pending pending a fresh current-revision review.
 
 ## Decision
 
@@ -250,6 +263,32 @@ constants remain activation prerequisites; the requirement that sources
 declare their basis and retain normalization provenance is already binding
 within this Proposed boundary.
 
+### Unordered collection and diagnostics ownership
+
+Every semantically unordered claim or projection owned by this record declares
+a typed total key and an explicit uniqueness or multiplicity rule. Measurement
+claim sets use the structured authored claim identity above; owner-role records
+include kind, owner address, role, and any required frame/context/claim
+identity. No source order, traversal/allocation order, generated index,
+serialization, or raw bytes may become a fallback key. Duplicate keys fail
+only where uniqueness is declared; repeated claims and legitimate multisets
+retain explicit claim/occurrence identity. Canonicalization fails when the
+owner has not supplied the required key/rule.
+
+Diagnostics are not owned by this semantic vocabulary record. The diagnostics
+specification solely owns registry, domain, class, occurrence, profile,
+ordering, and compatibility meaning; this record owns only semantic outcomes
+and their comparison consequences. Its closed initial domains are
+source-admission, dependency, semantic-identity, graph-structure, frame-
+numeric, resource, execution-trust, publication, and inspection, with narrow
+resolver-invariant and worker-protocol categories as stable classes. Resource
+profiles remain operational inputs. A mandatory bootstrap registry/profile is
+always known: an unknown required registry/profile uses unsupported, an
+effective bootstrap profile, bounded requested identifiers, and a
+deterministic primary, never emission under an unknown profile or silent
+downgrade. Exact ordinary codes, field spellings, and profile IDs remain
+fixture-gated and are owned elsewhere.
+
 ### Canonical basis and transform profile
 
 The proposed semantic basis is right-handed metres with `+Y` up and `+Z`
@@ -297,31 +336,53 @@ comparison profile. Authored-conflict, expected-snapshot, and future geometry
 or runtime comparisons are separate profiles.
 
 The normative comparison rules are fixed as follows. Exact discrete comparison
-remains exact. Scalar and translation components use the inclusive bound
-`abs(a-b) <= A + R*max(abs(a), abs(b))`, evaluated with checked stable
-arithmetic; translation comparison is componentwise L-infinity (all components
-must pass). Rotations use normalized, q/-q-invariant geodesic angular
-comparison. The preferred stable half-chord evaluation is fixed as
-`h = 0.5 * ||qa - s*qb||2`, where `s` is selected from the sign of `dot(qa,qb)`
-and `s = +1` when the dot product is zero, followed by
-`theta = 4*asin(clamp(h, 0, 1))`; evaluation order is fixed. For transforms,
-the residual is `E = B * inverse(A)` in the selected local-to-parent,
-rightmost-first convention. Residual translation and residual rotation use
-separately named comparison-profile entries.
+remains exact. Same-target transform claims are first normalized into the same
+canonical local-to-parent frame. Translation is compared directly
+componentwise; rotation uses the q/-q-invariant rule below. Swapping claims
+produces exactly the same outcome. A residual transform is permitted only as a
+separately named diagnostic/composition comparison, never as authored
+same-target equality.
+
+The scalar predicate
+`abs(a-b) <= A + R*max(abs(a),abs(b))` is decided over exact dyadic values
+decoded from admitted finite binary64 values, using bounded integer/dyadic
+arithmetic. No rounded floating intermediate or undefined “equivalent
+monotonic” evaluation may decide the inclusive boundary. Translation uses this
+predicate componentwise under L-infinity semantics.
+
+Rotation comparison removes runtime transcendental evaluation. The admitted
+comparison profile stores a finite binary64 half-chord threshold `H`. Determine
+the q sign from the exact dyadic dot product, choosing `s = +1` for zero;
+compute `di = qa_i - s*qb_i`; and accept iff
+`sum(di^2) <= (2H)^2` using exact dyadic arithmetic. If an angular tolerance
+`theta` is presented, derive `H` offline with a declared higher-precision
+oracle and generator/profile revision; store exact theta/H bits and the
+derivation, selecting the greatest binary64 `H` not exceeding exact
+`sin(theta/4)`. Runtime `asin`, `sin`, and `sqrt` are not used for comparison.
+
+Source quaternion normalization is deterministic: exact max-absolute-component
+scaling; fixed `xyzw` divisions; a fixed left-to-right squared sum without
+reassociation or FMA; correctly rounded binary64 square root; fixed divisions;
+drift/near-zero validation; and canonical sign by the first nonzero `wxyz`
+component being positive. Round-to-nearest ties-to-even, no FTZ/DAZ, and no
+ambient rounding mode are assumed. A platform unable to provide the required
+square root is unsupported. Bounds remain experiment-gated.
 
 For competing authored claims targeting the same owner, property, and frame,
-every unordered pair must pass its applicable profile. No transitive clustering,
-first-winner rule, or approximate deduplication is permitted; any failing pair
-is a deterministic `invalid-source` conflict. The normalized binary64
-representative tuple is value-type-specific: scalar `(value)`;
-translation/vector `(x,y,z)` in declared semantic component order; quaternion
-`(x,y,z,w)` after normalization and q/-q/sign canonicalization; and rigid
-transform `(tx,ty,tz,qx,qy,qz,qw)`. Any later numeric type must define its tuple
-in the profile before use. When all pairs pass, choose the lexicographically
-smallest tuple under an exact total order over normalized finite binary64
-values, with `-0` already normalized; stable claim identity breaks ties only
-when tuples are identical. All claims and provenance are retained. Exact
-constants and profile IDs remain experiment-gated.
+stable claim identity is structured authored identity: canonical target, claim
+kind, source-document/namespace identity, stable authored semantic
+record/property address, and an explicit authored claim key when multiple
+intentional claims exist. It never uses array/traversal/allocation/thread/time
+or generated indexes. Same claim ID plus the same normalized value is evaluated
+once while all occurrences/provenance remain; same claim ID plus a different
+value is an invalid-source identity collision. Evaluate unordered pairs in
+sorted claim-ID order, with the first failing sorted pair supplying deterministic
+conflict detail. Every pair must pass; no transitive clustering, first-winner
+rule, residual equality, or approximate deduplication is permitted. Only after
+all pairs pass, choose the lexicographically smallest value-type tuple under an
+exact finite-binary64 total value order (`-0` already `+0`); claim ID breaks
+exact tuple ties only, and all provenance is retained. Exact bounds and profile
+identifiers remain experiment-gated.
 
 The bounded numeric experiment is part of activation evidence, not a source of
 post-hoc tolerance selection. Intended numeric domains and semantic error
@@ -346,18 +407,25 @@ and provenance. A changed snapshot, comparison profile, or numeric rule is a
 successor fixture transaction, not an in-place rewrite.
 
 Before any host adapter activates, it must declare an explicit orthogonal
-signed-permutation canonical-to-engine basis map `C` (with determinant either
-`+1` or `-1`). Vectors and translations use `v_e = C*v_c`; rotations use
-`R_e = C*R_c*C^-1`; rigid transforms use the corresponding homogeneous
-conjugation. Quaternion conversion must derive from that rotation
-transformation or a proven equivalent, never from ad hoc sign flips. Named-
-direction, handedness/reflection, composition-commutation, inverse, q/-q, and
-round-trip fixtures are required. The semantic core remains binary64. A
-separate target-precision profile defines correctly rounded narrowing,
-subnormal/underflow/overflow policy, and error bounds; it may not clamp,
-saturate, or inherit an ambient rounding mode, and it must not mutate the
-canonical snapshot. Adapter activation is separate and occurs only after
-Readiness 3; no engine is selected by this record.
+signed-permutation canonical-to-engine basis map `C`, a finite positive scale
+`s` (engine length units per canonical metre), target precision, supported
+domain, narrowing/overflow/underflow/subnormal policy, and a guarantee tier.
+Length-bearing points, positions, translations, displacements, dimensions,
+radii, and extents map with `sC/s`; directions and normalized normals map with
+`C`; rotations map with `R_e = C R_c C^-1`. With `D = diag(sC,1)`, rigid
+transforms map as `H_e = D H_c D^-1`, and the inverse map is `D^-1`.
+Quaternion conversion derives from the rotation map or a proven equivalent.
+
+The default/minimal guarantee tier promises storage/output conversion only and
+makes no runtime arithmetic claim. An optional runtime-conformance tier adds
+engine arithmetic, probes, and fixtures. Binary32 may therefore exclude
+subnormal-dependent values. A profile promising subnormal runtime preservation
+must probe FTZ/DAZ; a failed required capability is unsupported. Trusted
+in-domain overflow or disallowed underflow is output-failure. Named-direction,
+handedness/reflection, composition, inverse, q/-q, narrowing, and round-trip
+fixtures are required. The semantic core remains binary64 and unchanged;
+adapter activation is separate and occurs only after Readiness 3. No engine is
+selected by this record.
 
 ### Numeric-domain and default provenance boundary
 
@@ -803,6 +871,19 @@ approval remains Pending and Status remains Proposed. No canonical collection
 key, implementation binding, diagnostic bootstrap, readiness gate, or package
 is accepted or activated by this revision.
 
+Ben approved all five Batch 13 resolution directions in discussion on
+2026-08-13. This Revision 12 integrates the symmetric same-target frame rule,
+exact dyadic scalar and half-chord comparisons, offline conservative `H`,
+deterministic quaternion normalization, structured claim IDs and sorted pair
+evaluation; the post-R3 `C`/`s` adapter map and storage-only/runtime tiers;
+owner-defined typed keys and multiplicity for unordered claims/records; the
+separate implementation-content binding used by readiness transactions; and
+the diagnostics sole-owner/bootstrap boundary. The Revision 11 Batch 12
+artifacts are stale for this material revision; their findings and history
+remain preserved. Review status is Pending and Owner approval remains
+Pending. No DR acceptance, schema, fixture, parser/resolver, implementation,
+adapter, experiment, or package activation follows.
+
 ## Implementation and Proof Obligations
 
 - Define the seven identity-bearing concepts, Module source-scope treatment,
@@ -876,21 +957,19 @@ is accepted or activated by this revision.
   semantic/canonical models, preserve source-byte distinction, and prohibit
   FTZ/DAZ in canonical operations. Complete the bounded numerical experiment
   before freezing thresholds and conditioning constants.
-- Freeze typed comparison profiles with exact discrete comparison, inclusive
-  `abs(a-b) <= A + R*max(abs(a),abs(b))` scalar/component bounds,
-  componentwise translation L-infinity, normalized q/-q-invariant geodesic
-  rotation comparison using the fixed half-chord evaluation, and transform
-  residual `E = B * inverse(A)` in the selected convention. Keep residual
-  translation and rotation profile entries separate. Require every unordered
-  authored-claim pair to pass; reject any failing pair deterministically, and
-  choose the value-type-specific normalized tuple—scalar `(value)`,
-  translation/vector `(x,y,z)`, quaternion `(x,y,z,w)` after q/-q/sign
-  canonicalization,
-  or rigid transform `(tx,ty,tz,qx,qy,qz,qw)`—under an exact total order over
-  normalized finite binary64 values (`-0` already normalized) only after all
-  pairs pass; stable claim identity breaks ties only for identical tuples, and
-  any later numeric type must define its tuple in the profile before use. All
-  provenance is retained.
+- Freeze typed comparison profiles with exact discrete comparison and same-target
+  normalization into one canonical local-to-parent frame. Compare translations
+  directly componentwise and rotations with q/-q-invariant exact dyadic
+  half-chord threshold `H`; use the inclusive scalar predicate over bounded
+  integer/dyadic values, never rounded intermediate “equivalent monotonic”
+  evaluation. Derive and store `H` offline conservatively from exact
+  `sin(theta/4)` when theta is supplied; remove runtime `asin`, `sin`, and
+  `sqrt`. Use deterministic max-component quaternion normalization, fixed
+  operation order, canonical sign, no reassociation/FMA/FTZ/DAZ/ambient mode,
+  and unsupported when required sqrt is unavailable. Require structured
+  authored claim identity, same-ID collision rejection, sorted claim-ID pair
+  evaluation with the first failing pair as conflict detail, and exact tuple
+  ordering only after all pairs pass; retain every occurrence/provenance.
   Bind Readiness 3 expected snapshots to path, digest, schema revision, profile
   ID, comparison rule, and provenance; admit changes only through successor
   fixture transactions.
@@ -903,6 +982,19 @@ is accepted or activated by this revision.
   path, digest, comparison-profile identity, and exact/semantic comparison
   rule. Test the closed owning-record roles and derived world/reference and
   runtime-pose contexts.
+- For every semantically unordered claim or owner-role projection, declare a
+  typed total key and uniqueness or multiplicity rule before activation. Use
+  structured authored claim identity and required frame/context identity;
+  never use source/traversal/allocation/index order, serialization, or raw
+  bytes as fallback. Preserve repeated claims and diagnostics as explicit
+  occurrences rather than silently deduplicating.
+- For any readiness transaction that activates implementation, bind the
+  separate versioned ordered normalized relative path/mode/raw-content set and
+  aggregate SHA-256 covering gate-affecting source, manifests/configuration,
+  scripts/inputs, `Cargo.lock`, toolchain declaration, and applicable path
+  dependencies. Recompute both this binding and fixture payload post-merge and
+  immediately pre-trigger; mismatch blocks activation and requires a
+  successor. Reviewed commit provenance is evidence, not equality identity.
 - Specify omission/default rules: identity, containment, module presence,
   source basis, and grammar-required values are explicit; one exact
   contract/profile rule may own a deterministic default, which records stable
@@ -921,6 +1013,13 @@ is accepted or activated by this revision.
 - Freeze the cross-DR fixture matrix covering durable identities, typed
   articulation endpoints, measurement/frame cases, expected outcomes, and
   diagnostics before treating implementation evidence as proof.
+- Consume the diagnostics specification as the sole owner of registry, domain,
+  class, occurrence, profile, ordering, and compatibility. Use its closed
+  initial domains and mandatory bootstrap registry/profile; unknown required
+  profiles remain unsupported under the effective bootstrap profile with
+  bounded requested identifiers and a deterministic primary. Keep resource
+  profiles operational and leave exact ordinary codes, field spellings, and
+  profile IDs fixture-gated.
 - Pre-register numeric domains and semantic error budgets before experiment
   results; use fixed operation order and round-to-nearest/ties-to-even with no
   reassociation, implicit FMA contraction, or FTZ/DAZ. Use exact/analytic and
@@ -934,15 +1033,17 @@ is accepted or activated by this revision.
   domains, budgets, ranges, thresholds, tolerances, and profile IDs
   evidence-gated.
 - Before any host adapter activates, require an explicit orthogonal
-  signed-permutation basis map `C`, vector/translation mapping `C*v`, rotation
-  conjugation `C*R*C^-1`, homogeneous rigid-transform conjugation, and
-  quaternion conversion derived from that transformation or a proven
-  equivalent. Require named-direction, handedness/reflection,
-  composition-commutation, inverse, q/-q, and round-trip fixtures. Keep the
-  core binary64; define a separate correctly rounded target-precision profile
-  with subnormal/underflow/overflow policy and error bounds, with no
-  clamp/saturation/ambient mode and no canonical-snapshot mutation. Adapter
-  activation is separate after Readiness 3; no engine is selected now.
+  signed-permutation basis map `C`, positive scale `s`, target precision,
+  supported domain, narrowing/overflow/underflow/subnormal policy, and a
+  storage-only or runtime-conformance tier. Map length-bearing values with
+  `sC/s`, directions/normals with `C`, rotations with `C*R*C^-1`, and rigid
+  transforms with `D*H_c*D^-1`, `D=diag(sC,1)`, including inverse `D^-1` and
+  quaternion equivalence. Runtime-conformance requires engine arithmetic
+  probes/fixtures; storage-only makes no runtime claim. Probe FTZ/DAZ when
+  subnormal runtime preservation is promised; fail unsupported capability
+  closed and map trusted in-domain overflow/disallowed underflow to
+  `output-failure`. Keep the core binary64 and unchanged, with no
+  clamp/saturation/ambient mode or canonical-snapshot mutation.
 
 ## Canonical Design Links
 

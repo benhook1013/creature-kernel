@@ -1,6 +1,12 @@
 # Semantic-address profile
 
-Status: Proposed canonical specification; no resolver or schema is activated
+Status: Proposed canonical specification; CK-KICK-012 Batch 13 discussion-
+approved identity cross-link; no resolver or schema is activated
+
+Current Batch 13 material is recorded in DR-0006 Revision 9, DR-0011 Revision
+12, DR-0012 Revision 11, and DR-0013 Revision 9; each remains Proposed with
+Owner approval Pending and Review Pending. This profile remains a Proposed
+identity input and does not activate a parser, resolver, schema, or fixture.
 
 This document is the canonical owner of the machine representation and
 comparison rules for durable semantic addresses. The [body-graph contract](../body-graph/README.md)
@@ -63,6 +69,16 @@ equal after the profile's ASCII lexical validation and their `anchors` arrays
 have the same length and element-by-element order. Object-member order is
 ignored; array order is significant. No display label, source-document order,
 mesh position, or generated array index can make unequal addresses equal.
+
+When this address is used as the owner-declared canonical key for an unordered
+collection, its typed total order is the profile-defined lexicographic order of
+namespace, ordered anchors, kind, and role after normalization. A missing or
+malformed address fails closed; a collision is rejected when the owning
+collection is semantically unique. Repeated records must use the owning
+contract's explicit occurrence, claim, context, or multiset identity rather
+than source order or array index. Canonical-data owns the generic keyed-
+collection algorithm and each collection's multiplicity rule; this profile
+owns only address structure, lexical validity, equality, and address ordering.
 
 References use the same object representation and structural equality. A
 reference either resolves to one address in the admitted source set or emits a

@@ -17,17 +17,22 @@ The current semantic boundaries are Proposed under [DR-0002](../decisions/DR-000
 [DR-0006](../decisions/DR-0006-durable-semantic-and-artifact-identity.md),
 [DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
 and [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
-CK-KICK-012 Batch 6/7/8/9/10/11/12 resolutions are discussion-approved and represented
+CK-KICK-012 Batch 6/7/8/9/10/11/12/13 resolutions are discussion-approved and represented
 here as Proposed architecture consequences. DR-0002 Revision 11 and DR-0008
 Revision 11 remain Proposed with Owner approval Pending and Review Complete.
-DR-0006 Revision 8 remains Proposed with Owner approval Pending and Review
-Complete; unresolved C1/C3/C4 contract findings remain. DR-0011 Revision 11,
-DR-0012 Revision 10, and DR-0013 Revision 8 remain Proposed with Owner
-approval Pending and Review Complete after the Batch 12 Double review of
+DR-0006 Revision 9 remains Proposed with Owner approval Pending and Review
+Pending after the material Batch 13 change. DR-0011 Revision 12,
+DR-0012 Revision 11, and DR-0013 Revision 9 remain Proposed with Owner
+approval Pending and Review Pending after the material Batch 13 change. Prior
+review evidence is stale for these revised records and is not acceptance. No
+implementation or readiness gate activates. The detailed
+review state remains owned by project status. Prior Batch 5/9/11/12 reviews remain
+preserved historical evidence. The former Batch 12 Double review of
 commit `730a2f77840cc0caa1f838c30dac4ff20f985e69`; both independent passes
 recommend Revise at High confidence, with unresolved A1–A4 and E1–E5 findings.
-The Batch 11 review artifacts are stale only for those three materially revised
-records. The fresh Batch 11 Double
+The Batch 11 review artifacts, like the former Batch 12 artifacts, are stale
+for all four current Batch 13-revised records; their findings remain historical
+evidence only. The fresh Batch 11 Double
 review targeted commit `053dba58fd344ed636420e0974cf617862fe265f`; both
 independent passes recommended Revise at High confidence at that historical
 revision. The completed Batch 9 Double review targeted commit
@@ -111,15 +116,10 @@ Proposed focused profiles.
 ### Proposed production platform and artifact/workbench boundary
 
 CK-KICK-013 is a discussion-approved platform proposal, not an accepted
-implementation decision. Proposed DR-0013 Revision 8 has Owner approval Pending
-and Review Complete after the Batch 12 Double review of commit
-`730a2f77840cc0caa1f838c30dac4ff20f985e69`, with unresolved findings carried forward
-from Batch 11. The Batch 11 review evidence is stale for this materially
-revised record; the fresh Batch 11 Double review targeted
-commit `053dba58fd344ed636420e0974cf617862fe265f`; both independent passes recommend Revise at High confidence. The completed Batch 9 Double review targeted
-commit `6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is stale for
-the revised record and is not acceptance. No implementation or readiness gate
-activates. See the [current review
+implementation decision. Proposed DR-0013 Revision 9 has Owner approval Pending
+and Review Pending after the material Batch 13 change. Prior review evidence is
+stale for the revised record and is not acceptance. No implementation or
+readiness gate activates. See the [current review
 state](../project/status.md#current-review-and-future-activation-obligations)
 for recommendations and findings. The four
 readiness stages are: acceptance activates only the
@@ -183,22 +183,34 @@ read operation with closed statuses;
 producer/output trust is distinct from coordinator/reporter/publisher trust,
 and lost worker trust cannot be rehabilitated by validation.
 
-Batch 11 and Batch 12 propose typed restricted-ASCII machine addresses with
-separate Unicode display names; a right-handed metre semantic basis (+Y up,
-+Z creature-forward); finite binary64 values with correctly rounded decimal
+Batch 11/12/13 propose typed restricted-ASCII machine addresses with separate
+Unicode display names; a right-handed metre semantic basis (+Y up, +Z
+creature-forward); finite binary64 values with correctly rounded decimal
 admission and canonical quaternion treatment; fixed-order operations with no
-reassociation, implicit FMA contraction, FTZ, or DAZ; deterministic typed
-all-pairs comparison profiles; and a small versioned diagnostic registry.
+reassociation, implicit FMA contraction, FTZ, or DAZ; direct common-frame
+same-target comparisons, exact dyadic scalar predicates, offline half-chord
+rotation bounds without runtime transcendental comparison, structured claim IDs
+and sorted pair evaluation; and a small versioned diagnostic registry.
 Readiness 3 is a separate transaction for expected graph snapshots and
 comparison rules, after those prerequisites and the canonical-data profile are
 available. The planned numeric experiment preregisters intended domains,
 separate semantic error budgets, exact/higher-precision oracles, frozen
-development/held-out/adversarial corpora, condition estimates, and metamorphic
-checks. Comparator shapes/formulas and normalization/sign direction are fixed
-Proposed material; constants, ranges, validation-margin/error formula, and
-deterministic evaluation implementation/binding remain open. Adapter
-conformance remains deferred until adapter activation. These are Proposed
-architecture consequences, not activated implementation work.
+development/held-out/adversarial corpora, condition estimates, rational/ULP,
+normalization/square-root, H-derivation, and claim identity/order fixtures.
+Deterministic normalization/sign direction are fixed Proposed material;
+near-zero/drift thresholds, constants, ranges, validation-margin/error formula,
+and deterministic implementation/binding remain open. Future adapter
+conformance uses signed permutation `C` plus positive scale `s`, with
+storage/output-only default and optional runtime tiers, explicit precision and
+subnormal policy, and FTZ/DAZ probes. These are Proposed architecture
+consequences, not activated implementation work.
+
+Diagnostic compatibility remains separately Proposed: nine domains cover
+source-admission, dependency, semantic-identity, graph-structure, frame-
+numeric, resource, execution-trust, publication, and inspection, with one
+tiny mandatory bootstrap registry/profile for unknown registry/profile
+negotiation. Readiness implementation binding remains a separate scoped
+content-identity input from fixture payloads and expected snapshots.
 
 ### First body grammar boundary
 

@@ -55,21 +55,15 @@ and described in the execution model; exact interface schemas, compatibility,
 budgets, and runtime mutation details remain open. The typed semantic
 vocabulary, measurement ownership, and frame-conversion boundary are Proposed
 in [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
-CK-KICK-012 Batch 6/7/8/9/10/11/12 resolutions are discussion-approved and are
+CK-KICK-012 Batch 6/7/8/9/10/11/12/13 resolutions are discussion-approved and are
 reflected in the canonical specifications as Proposed material. DR-0002
 Revision 11 and DR-0008 Revision 11 remain Proposed with Owner approval Pending
-and Review Complete. DR-0006 Revision 8 remains Proposed with Owner approval
-Pending and Review Complete; unresolved C1/C3/C4 contract findings remain.
-DR-0011 Revision 11, DR-0012 Revision 10, and DR-0013 Revision 8 remain
-Proposed with Owner approval Pending and Review Complete after the Batch 12
-Double review of commit `730a2f77840cc0caa1f838c30dac4ff20f985e69`; both
-independent passes recommend Revise at High confidence, with unresolved A1–A4
-and E1–E5 findings. The fresh Batch 11 Double review targeted commit
-`053dba58fd344ed636420e0974cf617862fe265f`; its artifacts are stale only for
-those three materially revised records. The completed Batch 9 Double review targeted commit
-`6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is stale for the
-revised records and is not acceptance. No implementation or readiness gate
-activates. See
+and Review Complete. DR-0006 Revision 9 remains Proposed with Owner approval
+Pending and Review Pending after the material Batch 13 change.
+DR-0011 Revision 12, DR-0012 Revision 11, and DR-0013 Revision 9 remain
+Proposed with Owner approval Pending and Review Pending after the material
+Batch 13 change. Prior review evidence is stale for these revised records and
+is not acceptance. No implementation or readiness gate activates. See
 the [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for the two review lenses, recommendations, and findings. Earlier review
 evidence remains stale. See the
@@ -103,13 +97,10 @@ reactivates them. Until then, exploratory prototypes may produce observations
 but may not claim formal DR-0009/0010 support or reject.
 
 The CK-KICK-013 platform proposal is also discussion-approved as Proposed
-material, not an accepted implementation decision. Proposed DR-0013 Revision 8
-has Owner approval Pending and Review Complete after the Batch 12 Double review
-of commit `730a2f77840cc0caa1f838c30dac4ff20f985e69`; both independent passes
-recommend Revise at High confidence and leave A1–A4/E1–E5 unresolved. The completed
-Batch 9 Double review targeted commit `6cf17270fda2827756c24a8d0fb301bef358f98f`;
-its evidence is stale for the revised record and is not acceptance. No
-implementation or readiness gate activates.
+material, not an accepted implementation decision. Proposed DR-0013 Revision 9
+has Owner approval Pending and Review Pending after the material Batch 13
+change. Prior review evidence is stale for the revised record and is not
+acceptance. No implementation or readiness gate activates.
 See the [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for recommendations and findings. The
 four readiness stages are: DR-0013
@@ -155,25 +146,36 @@ contract](../../spec/fixture-manifest/README.md) owns the manifest payload and
 separate readiness/decision content-identity binding, successor history, and
 Readiness 2/3 corpus admission.
 
-Batch 11 and Batch 12's derived architectural consequences are: typed
-restricted-ASCII machine addresses with separate Unicode display names; a
-right-handed metre semantic basis (+Y up, +Z creature-forward) with adapter
-conversion; finite binary64 values with correctly rounded decimal admission
-and canonical quaternion handling with exact constants and ranges pending
-evidence;
-fixed-order operations with an initial no-reassociation/no-implicit-FMA/
-no-FTZ/no-DAZ direction; typed comparison profiles with deterministic all-pairs
-claim evaluation and a separate Readiness 3 snapshot transaction; restricted
-canonical JSON and domain-separated SHA-256 identity; and a small versioned
-diagnostic registry. The planned numeric experiment now preregisters intended
-domains, separate semantic error budgets, independent exact/higher-precision
-oracles, frozen development/held-out/adversarial corpora, condition estimates,
-metamorphic checks. Comparator shapes/formulas and normalization/sign direction
-are fixed Proposed material; constants, ranges, validation-margin/error formula,
-and deterministic evaluation implementation/binding remain open.
-Adapter conformance remains deferred until adapter activation. These remain
-Proposed consequences and do not activate packages, schemas, fixtures, or
-resolver work.
+Batch 13's derived architectural consequences preserve the typed restricted-
+ASCII machine-address, canonical-data, and diagnostic owners, and add a
+deterministic comparator boundary: same-target claims normalize into one
+canonical local-to-parent frame, translations compare directly, rotations use
+q/-q, scalar predicates use exact bounded dyadic arithmetic, and quaternion
+comparison uses an offline-derived half-chord bound with no runtime
+transcendental or norm operation. Structured source-derived claim IDs retain
+all occurrences/provenance, detect same-ID collisions, evaluate valid pairs in
+sorted-ID order, and select the smallest declared value tuple; local claim
+identity remains separate from generic graph collection keys. The proposed
+normalization path fixes max-absolute scaling, component order, left-to-right
+square accumulation, correctly rounded square root, sign canonicalization,
+and floating-point environment controls, while near-zero/drift thresholds,
+ranges, constants, validation margin/error formula, and implementation
+bindings remain evidence-gated. The unregistered experiment covers rational and
+ULP boundaries, H derivation, normalization/platform fixtures, and order/
+identity cases. A future adapter uses signed permutation `C` plus positive
+scale `s` (vector lengths use `sC`, scalar lengths use `s`), with
+storage/output-only default and optional runtime-conformance tiers, explicit
+precision/domain narrowing, and FTZ/DAZ/subnormal probes.
+The diagnostic owner proposes nine domains—source-admission, dependency,
+semantic-identity, graph-structure, frame-numeric, resource, execution-trust,
+publication, and inspection—with one tiny mandatory bootstrap registry/profile
+for unknown registry/profile negotiation; exact codes and fields remain
+fixture-gated.
+Readiness implementation binding remains a separate scoped content-identity
+transaction from fixture payloads and expected snapshots.
+
+These remain Proposed consequences and do not activate packages, schemas,
+fixtures, or resolver/adapter work.
 
 ## Current maturity
 

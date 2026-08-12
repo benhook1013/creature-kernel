@@ -6,19 +6,19 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 10
+Revision: 11
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-11
 
 Date decided: —
 
-Discussion approval date: 2026-08-12
+Discussion approval date: 2026-08-13
 
 Supersedes: —
 
@@ -94,6 +94,19 @@ discussion; C4 diagnostic-domain/bootstrap compatibility remains unresolved
 in this record. Owner approval remains Pending and Review status is Complete
 for the current Batch 12 evidence; the proposal remains Proposed.
 
+On 2026-08-13 Ben approved all five CK-KICK-012/013 Batch 13 resolution
+directions in discussion: symmetric canonical-frame comparison with exact
+dyadic boundary arithmetic and deterministic quaternion normalization;
+post-R3 adapter units and storage-only/runtime-conformance tiers; typed total
+keys and explicit multiplicity for unordered source/projection collections; a
+separate scoped implementation-content binding for readiness transactions;
+and diagnostics sole ownership with a mandatory bootstrap registry/profile.
+This material revision remains Proposed only. It accepts no DR and activates
+no schema, fixture, parser/resolver, implementation, adapter, experiment, or
+package. The Revision 10 Batch 12 review artifacts are stale for this change
+and remain preserved below; Owner approval remains Pending and Review status
+is Pending pending a fresh current-revision review.
+
 ## Decision
 
 ### Initial source encoding and representation boundary
@@ -148,6 +161,21 @@ This revision activates no machine schema file; JSON Schema Draft 2020-12
 remains the proposed structural vocabulary whose exact file and fields are a
 Readiness 2 prerequisite.
 
+Every unordered source collection or projection declares its typed total key
+and uniqueness or multiplicity rule before canonicalization. Graph concepts
+use structured semantic addresses. Module declarations use tagged declaration
+addresses. Owner-role records use tagged kind, owner address, and role, plus
+frame/context/claim identity where required. Fixture entries use fixture ID;
+duplicate IDs or paths are invalid. External path entries use normalized safe
+relative paths, with mode and content retained in their entry projection.
+Dependencies use locator and role plus a distinguishing revision identity.
+Other build arrays need an owner-defined key before activation. Diagnostics use
+profile-defined occurrence keys without silent deduplication. Duplicate keys
+fail only for declared uniqueness collections; repeated claims, multisets, and
+diagnostics declare multiplicity or occurrence/claim identity. Missing key or
+rule is a canonicalization failure; source order, traversal/allocation/index
+order, object serialization, and raw element bytes are never fallback keys.
+
 The source basis declares length unit, handedness, up, and forward. Measurements
 and transforms identify owner, semantic role, and frame/context. No per-value
 unit override is admitted initially. Frame roles are typed by owning record:
@@ -163,6 +191,20 @@ freedom. It admits expected graph
 snapshots through a distinct successor transaction with path, digest,
 comparison-profile identity, and exact/semantic comparison rule.
 
+The fixture payload scope remains the manifest plus declared schema, fixtures,
+and snapshots. Separately, each readiness transaction that activates
+implementation requires an external, domain-separated, versioned ordered
+normalized relative path/mode/raw-content set and aggregate SHA-256. It binds
+gate-affecting production source, workspace/crate manifests and configuration,
+build/code-generation scripts and inputs, `Cargo.lock`, the rust-toolchain
+declaration, and applicable path-dependency source. Reviewed commit provenance
+is not equality binding. Behaviour-affecting features/environment/configuration
+are fixed or outcome-affecting inputs; generic host/rustc/hardware metadata is
+evidence unless a platform-reproducibility claim binds it. Recompute fixture
+payload and implementation binding post-merge and immediately before the
+trigger; a mismatch blocks activation and requires an explicit successor. Do
+not bind the whole repository or create a custom ledger/signature scheme.
+
 ### Exact numeric admission and comparison handoff
 
 After strict JSON parsing and number-token resource checks, the resolver
@@ -177,26 +219,41 @@ semantic digit limit. Lexical negative zero is accepted but normalized to
 positive zero for semantic/canonical models, while exact source bytes remain
 distinct; canonical numeric operations prohibit FTZ/DAZ.
 
-The resolver uses DR-0011's normative typed comparisons: exact discrete values
-compare exactly; scalar and translation components use inclusive
-`abs(a-b) <= A + R*max(abs(a),abs(b))` with checked stable arithmetic and
-componentwise translation L-infinity; and rotations use normalized,
-q/-q-invariant geodesic comparison with fixed half-chord evaluation
-`h = 0.5*||qa-s*qb||2`, dot-sign-selected `s` (`+1` for dot zero), and
-`theta = 4*asin(clamp(h,0,1))`. Transform residuals are `E = B * inverse(A)`
-in the selected local-to-parent/rightmost-first convention, with residual
-translation and rotation as separately named profile entries. Competing
-authored claims for one owner/property/frame require every unordered pair to
-pass; a failing pair is deterministic `invalid-source`, with no transitive
-clustering, first winner, or approximate deduplication. The normalized binary64
-representative tuple is value-type-specific: scalar `(value)`;
-translation/vector `(x,y,z)` in declared semantic component order; quaternion
-`(x,y,z,w)` after normalization and q/-q/sign canonicalization; and rigid
-transform `(tx,ty,tz,qx,qy,qz,qw)`. Any later numeric type must define its tuple
-in the numeric/frame profile before use. If all pass, select the
-lexicographically smallest tuple under an exact total order over normalized
-finite binary64 values, with `-0` already normalized; stable claim identity
-breaks ties only when tuples are identical, and retain every claim/provenance.
+The resolver uses DR-0011's normative typed comparisons. Same-target transform
+claims are first normalized into the same canonical local-to-parent frame;
+translations are compared directly componentwise, so swapping claims has
+exactly the same outcome. A residual transform is only a separately named
+diagnostic/composition comparison, never authored same-target equality.
+
+The scalar predicate
+`abs(a-b) <= A + R*max(abs(a),abs(b))` is decided over exact dyadic values
+decoded from admitted finite binary64 values using bounded integer/dyadic
+arithmetic. Rounded floating intermediates and undefined “equivalent
+monotonic” evaluation cannot decide the inclusive boundary. Rotation uses the
+admitted finite-binary64 half-chord threshold `H`: choose q sign from exact
+dyadic dot (`0` chooses `+1`), compute `di=qa_i-s*qb_i`, and accept iff
+`sum(di^2) <= (2H)^2` with exact dyadic arithmetic. If theta is presented,
+derive H offline with a declared higher-precision oracle and
+generator/profile revision, store exact theta/H bits and derivation, and select
+the greatest binary64 H not exceeding exact `sin(theta/4)`. Runtime `asin`,
+`sin`, and `sqrt` are not used.
+
+Source quaternion normalization uses exact max-absolute-component scaling,
+fixed `xyzw` divisions, fixed left-to-right squared sum without
+reassociation/FMA, correctly rounded binary64 square root, fixed divisions,
+drift/near-zero validation, and canonical sign by first nonzero `wxyz`
+component positive. Round-to-nearest ties-to-even, no FTZ/DAZ, and no ambient
+mode are required; a platform without the required square root is unsupported.
+Bounds remain experiment-gated. Competing claims use structured authored claim
+identity (canonical target, claim kind, source-document/namespace identity,
+stable authored record/property address, and explicit authored claim key when
+needed), never array/traversal/allocation/thread/time/generated index. Same ID
+and same normalized value is evaluated once while all occurrences/provenance
+remain; same ID with a different value is an invalid-source identity collision.
+Evaluate unordered pairs in sorted claim-ID order and use the first failing
+sorted pair for conflict detail. Every pair must pass; only then choose the
+lexicographically smallest value-type tuple under exact finite-binary64 total
+order (`-0` is `+0`), with claim ID breaking exact tuple ties only.
 
 These rules are normative direction, while exact domains, budgets, ranges,
 thresholds, tolerances, profile IDs, and serialized spellings remain
@@ -212,6 +269,21 @@ WSL x86_64 plus native Linux is the bounded initial reference; materially
 different architecture/toolchain evidence is needed only before claiming
 broader cross-platform reproducibility. Adapter obligations and activation
 sequencing remain owned by DR-0011/DR-0013.
+
+For the future adapter boundary, consume the post-R3 profile owned by
+DR-0011/DR-0013: it declares signed-permutation `C`, positive scale `s`
+(engine length units per canonical metre), target precision, supported domain,
+narrowing/overflow/underflow/subnormal policy, and guarantee tier. Map length-
+bearing values using `sC/s`, directions and normalized normals using `C`,
+rotations using `C R C^-1`, and rigid transforms using `D H_c D^-1` with
+`D=diag(sC,1)` and inverse `D^-1`; derive quaternions from that rotation map
+or a proven equivalent. The default/minimal tier promises storage/output
+conversion only; an optional runtime-conformance tier adds engine arithmetic,
+probes, and fixtures. Binary32 may exclude subnormal-dependent values; a
+subnormal-preserving runtime promise requires FTZ/DAZ probes. A failed
+capability is unsupported, while trusted in-domain overflow/disallowed
+underflow is output-failure. The core binary64 snapshot is unchanged and no
+adapter activates from this Proposed source contract.
 
 ### Deterministic resolution phases and provenance
 
@@ -357,18 +429,27 @@ is preserved opaquely, has no core semantic effect, and is not silently
 interpreted by the resolver.
 
 Diagnostics in the authoritative operation-result envelope use a small,
-versioned machine registry/profile separate from operation status. An
-occurrence carries a stable code, class, phase, severity, optional source
-path/offset, optional typed semantic address, and typed details, plus
-human-readable text for people. The registry owns stable code metadata; the
-profile owns registry revision, extension set, ordering, and truncation rules.
-Resource budgets/profiles remain separate operational context. Machine ordering
-is deterministic; human text is neither compatibility data nor hash input.
-Initial registry domains are input, contract/schema, dependency,
-identity/reference, graph/relations, frame/numeric, resource, internal/trust,
-worker/protocol, and output/publication/inspection. Exact codes are frozen only
-as the admitted fixtures require. An unknown required registry/profile
-revision is unsupported.
+versioned machine registry/profile separate from operation status. The
+diagnostics specification is the sole owner of registry, domain, class,
+occurrence, profile, ordering, and compatibility meaning. An occurrence may
+carry stable code, class, phase, severity, optional source path/offset,
+optional typed semantic address, and typed details, plus human-readable text;
+human text is neither compatibility data nor hash input. Its closed initial
+domains are source-admission, dependency, semantic-identity, graph-structure,
+frame-numeric, resource, execution-trust, publication, and inspection; narrow
+resolver-invariant and worker-protocol categories are stable classes within
+those domains. Resource profiles remain separate operational input.
+
+Body-document and build-operation contracts own top-level status and
+precedence only; they do not define competing diagnostic registries or
+occurrence/order semantics.
+
+A tiny mandatory bootstrap registry/profile is always known. If a required
+registry/profile is unknown, the existing `unsupported` status is used with
+the effective bootstrap profile, bounded requested identifiers, and a
+deterministic primary diagnostic. The resolver never emits under an unknown
+profile and never silently downgrades. Exact ordinary code membership, field
+spellings, occurrence keys, and profile identifiers remain fixture-gated.
 
 ### Exact contract recognition and identity separation
 
@@ -893,6 +974,18 @@ C3, and C4 remain unresolved; Owner approval remains Pending and Status remains
 Proposed. No parser, resolver, readiness gate, or package is accepted or
 activated by this revision.
 
+Ben approved all five Batch 13 resolution directions in discussion on
+2026-08-13. Revision 11 integrates symmetric same-target comparison in the
+canonical local-to-parent frame, exact dyadic scalar/half-chord arithmetic and
+offline conservative `H`, deterministic quaternion normalization and authored
+claim identity, typed collection keys/multiplicity, the separate scoped
+implementation-content binding, the post-R3 adapter `C`/`s` two-tier boundary,
+and the diagnostics sole-owner/bootstrap rule. The Revision 10 Batch 12
+artifacts are stale for this material revision; their findings and history are
+preserved. Review status is Pending and Owner approval remains Pending. No DR
+acceptance, schema, fixture, parser/resolver, implementation, adapter,
+experiment, or package activation follows.
+
 ## Implementation and Proof Obligations
 
 - Define the exact source fields and paired JSON Schema Draft 2020-12 while
@@ -906,6 +999,24 @@ activated by this revision.
   fields, with stable references, non-semantic array order, and present-even-
   when-empty collections. Do not activate a machine schema file in this
   revision.
+- Before canonicalization, require each unordered collection/projection owner
+  to declare a typed total key and uniqueness or multiplicity rule: structured
+  graph address; tagged module declaration address; tagged owner kind/address/
+  role plus required frame/context/claim identity; fixture ID; normalized safe
+  relative path with mode/content in the entry projection; dependency
+  locator/role plus distinguishing revision; owner-defined build-array key;
+  and profile-defined diagnostic occurrence key. Reject absent keys/rules and
+  duplicate keys only for declared uniqueness collections. Preserve repeated
+  claims, multisets, and diagnostics explicitly; never use source/traversal/
+  allocation/index order, serialization, or raw element bytes as fallback.
+- Bind Readiness 2/3 implementation activation separately from the fixture
+  payload to a versioned ordered normalized relative path/mode/raw-content set
+  and aggregate SHA-256 covering gate-affecting source, manifests/config,
+  scripts/inputs, `Cargo.lock`, toolchain declaration, and applicable path
+  dependencies. Recompute both bindings post-merge and immediately before the
+  trigger; mismatch blocks activation and requires a successor. Commit
+  provenance is not equality binding, and whole-repository/custom-ledger
+  binding is not selected.
 - Require source basis (length unit, handedness, up, forward), owner/role and
   frame/context on measurements and transforms, and initially no per-value
   unit overrides. Bind `profiles` to the versioned semantic numeric-domain
@@ -919,20 +1030,20 @@ activated by this revision.
   resource bound. Normalize lexical negative zero only in semantic/canonical
   models, preserve source-byte distinction, and prohibit FTZ/DAZ in canonical
   operations.
-- Implement DR-0011's normative comparisons: exact discrete values; inclusive
-  absolute/relative scalar bounds with checked stable arithmetic and
-  componentwise translation L-infinity; fixed normalized q/-q-invariant
-  half-chord rotation angle; and transform residual `B * inverse(A)` in the
-  selected convention with separately named translation/rotation profile
-  entries. Require every unordered authored claim pair to pass, reject any
-  failing pair as deterministic `invalid-source`, and select the value-type-
-  specific normalized tuple—scalar `(value)`, translation/vector `(x,y,z)`,
-  quaternion `(x,y,z,w)` after q/-q/sign canonicalization, or rigid transform
-  `(tx,ty,tz,qx,qy,qz,qw)`—under an exact total order over normalized finite
-  binary64 values (`-0` already normalized) only after all pairs pass; stable
-  claim identity breaks ties only for identical tuples, any later numeric type
-  must define its tuple in the profile before use, and every claim/provenance is
-  retained.
+- Implement DR-0011's normative comparisons: normalize same-target transforms
+  to one canonical local-to-parent frame and compare translations directly;
+  keep residual transforms only as separately named diagnostic/composition
+  comparisons. Decide scalar/component bounds over exact dyadic values with
+  bounded integer arithmetic. Compare rotations by exact dyadic dot-sign and
+  half-chord threshold `H`, with no runtime `asin`, `sin`, or `sqrt`; derive H
+  offline conservatively from exact `sin(theta/4)` when theta is supplied.
+  Normalize source quaternions with fixed max-component scaling, operation
+  order, correctly rounded sqrt, drift/near-zero validation, canonical sign,
+  RN ties-even, and no FTZ/DAZ/ambient mode. Require structured authored claim
+  identity, reject same-ID/different-value collisions, evaluate pairs in sorted
+  claim-ID order with the first failing pair as detail, and select the exact
+  smallest normalized tuple only after all pairs pass while retaining all
+  occurrences/provenance.
 - Keep Readiness 2 structural shape/reference checking only and freeze its
   rigid transform carrier as three-component translation plus explicit
   four-component `xyzw` quaternion, without scale or shear fields. At Readiness
@@ -952,14 +1063,20 @@ activated by this revision.
 - Define extension-envelope field spelling, namespace/revision handling,
   required-versus-optional outcomes, opaque preservation, and core semantic
   isolation.
-- Define the versioned diagnostic registry/profile: stable code, class, phase,
-  severity, optional source path/offset, optional typed semantic address, and
-  typed details; registry metadata versus profile revision/extension/order/
-  truncation ownership; resource profile separation; initial domains; and
-  unsupported handling for unknown required revisions. Keep human text
-  non-compatibility and non-hash data. Define stable diagnostic codes/categories,
-  exact paths and affected-address representation, the closed status set and
-  total final-status selection
+- Define the diagnostics specification as sole owner of registry, domain,
+  class, occurrence, profile, ordering, and compatibility. Its versioned
+  registry/profile carries stable code, class, phase, severity, optional source
+  path/offset, optional typed semantic address, typed details, profile revision,
+  extension/order/truncation rules, and non-compatibility human text. Use the
+  closed domains source-admission, dependency, semantic-identity,
+  graph-structure, frame-numeric, resource, execution-trust, publication, and
+  inspection, with resolver-invariant and worker-protocol stable classes.
+  Keep resource profiles separate. A tiny mandatory bootstrap registry/profile
+  handles unknown required profile/revision via existing `unsupported`, an
+  effective bootstrap profile, bounded requested identifiers, and a
+  deterministic primary; never emit under an unknown profile or silently
+  downgrade. Keep exact ordinary codes, field spellings, and profile IDs
+  fixture-gated. Define the closed status set and total final-status selection
   (global internal trust loss, resource-limit only when required
   processing/trusted completion is prevented, earliest unable phase,
   complete-acquisition input-failure, parse/semantic invalid-source-over-
@@ -1023,14 +1140,17 @@ activated by this revision.
   widening budgets or selecting the smallest observed error. The bounded
   initial reference is WSL x86_64 plus native Linux; broader portability needs
   materially different architecture/toolchain evidence.
-- Before any host adapter activates, require DR-0011's explicit orthogonal
-  signed-permutation basis map, vector/translation map, rotation and
-  homogeneous-transform conjugation, quaternion equivalence proof, and
-  named-direction/handedness/reflection/composition/inverse/q/-q/round-trip
-  fixtures. Keep core binary64 and define a separate correctly rounded
-  target-precision profile with subnormal/underflow/overflow policy and error
-  bounds; do not clamp, saturate, use ambient rounding modes, or mutate the
-  canonical snapshot. Adapter activation is separate after Readiness 3 and
+- Before any host adapter activates, require the post-R3 profile's orthogonal
+  signed-permutation `C`, positive scale `s`, target precision, domain,
+  narrowing/overflow/underflow/subnormal policy, and storage-only or
+  runtime-conformance tier. Map length-bearing values with `sC/s`, directions
+  and normals with `C`, rotations with `C*R*C^-1`, and rigid transforms with
+  `D*H_c*D^-1`, `D=diag(sC,1)`, including inverse `D^-1` and quaternion
+  equivalence. Runtime-conformance adds arithmetic probes/fixtures; the
+  minimal tier makes no runtime claim. Probe FTZ/DAZ for subnormal runtime
+  preservation, fail unsupported capabilities closed, map trusted in-domain
+  overflow/disallowed underflow to `output-failure`, and keep binary64 core
+  snapshots unchanged. Adapter activation is separate after Readiness 3 and
   does not select an engine.
 - Defer only exact profile identifiers, numeric thresholds/conditioning,
   diagnostic code membership, dependency-revision semantics, canonical-byte

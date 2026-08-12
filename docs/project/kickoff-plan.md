@@ -24,19 +24,20 @@ exact decision metadata and review cells.
 
 ## Working method
 
-Batch 11 and Batch 12 add a bounded numeric/frame evidence design before
-resolver activation. Batch 12 strengthens that plan with preregistered numeric
-domains and separate semantic error budgets, exact/higher-precision oracles,
-frozen development/held-out/adversarial corpora, fixed operation and compiler
-floating-point controls, condition estimates, metamorphic/all-pairs checks,
-and a validation margin whose formula/constant remain open. Normative
-comparator shapes/formulas and normalization/sign direction are fixed Proposed
-material; constants, ranges, margins/error formula, and deterministic
-evaluation bindings remain open. The planned order
-is numeric/frame semantics, typed addresses, canonical data, diagnostics,
-exact schema/manifest, Readiness 2, and a separate Readiness 3
-expected-snapshot transaction. These are Proposed planning outcomes, not
-implementation commitments.
+Batch 11/12/13 add a bounded numeric/frame evidence design before resolver
+activation. Batch 13 strengthens that plan with direct common-frame comparison,
+exact dyadic scalar predicates, deterministic normalization and offline
+half-chord derivation without runtime transcendental comparison, structured
+claim identity/order and smallest-tuple selection, and a future adapter scale/
+tier boundary. The experiment preregisters numeric domains, rational/ULP and
+normalization/sqrt/H fixtures, separate semantic error budgets, independent
+oracles, frozen development/held-out/adversarial corpora, fixed operation and
+compiler floating-point controls, condition estimates, and metamorphic/all-
+pairs checks. Constants, ranges, margins/error formula, and deterministic
+evaluation bindings remain open. The planned order is numeric/frame semantics,
+typed addresses, canonical data, diagnostics, exact schema/manifest, Readiness
+2, and a separate Readiness 3 expected-snapshot transaction. These are Proposed
+planning outcomes, not implementation commitments.
 
 - Work in rounds, with a discussion batch of roughly two to five related
   decisions or talking points.
@@ -603,20 +604,13 @@ gets its own DR and review before backend-specific compiler code locks it in.
 
 ### CK-KICK-012: Specify the minimal body document and body graph
 
-State: active (Batches 1, 4, 5, 6, F1–F3, Batch 8, Batch 9, Batch 10, Batch 11, and Batch 12 integrated as Proposed
+State: active (Batches 1, 4, 5, 6, F1–F3, Batch 8, Batch 9, Batch 10, Batch 11, Batch 12, and Batch 13 integrated as Proposed
 documentation; DR-0002/0008 Revision 11 remain Proposed with Owner approval
-Pending and Review Complete, while DR-0006 Revision 8 remains Proposed with
-Owner approval Pending and Review Complete with unresolved C1/C3/C4 contract
-findings. DR-0011 Revision 11, DR-0012 Revision 10, and DR-0013 Revision 8
-remain Proposed with Owner approval Pending and Review Complete after Batch 12;
-the current target is `730a2f77840cc0caa1f838c30dac4ff20f985e69`, with Revise at
-High confidence and actionable findings unresolved. The prior Batch 10 Double-review
-evidence is stale history; the fresh Batch 11 current-revision Double review
-targeted `053dba58fd344ed636420e0974cf617862fe265f`, and its artifacts are stale
-only for the three materially revised records. The completed Batch 9 Double
-review targeted `6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is
-stale for the revised records and is not acceptance. No implementation or
-readiness gate activates. See the
+Pending and Review Complete, while DR-0006 Revision 9, DR-0011 Revision 12,
+DR-0012 Revision 11, and DR-0013 Revision 9 remain Proposed with Owner approval
+Pending and Review Pending after the material Batch 13 change. Prior review
+evidence is stale for the revised records and is not acceptance. No
+implementation or readiness gate activates. See the
 [current review state](status.md#current-review-and-future-activation-obligations).
 The prior exact review at
 `88004388f9537a37617ae248bdaad4625e6f3f03` and the Batch 5 review are stale
@@ -658,16 +652,21 @@ Outcome:
   Sources declare units, handedness, up, and forward, then normalize to a
   contract-revision canonical internal basis with conversion provenance.
   Distinct local/reference, joint, socket/mating, derived world/reference,
-  and runtime-pose frames are required. Batch 11/12 proposes the canonical
+  and runtime-pose frames are required. Batch 11/12/13 proposes the canonical
   right-handed metre basis (+Y up, +Z creature-forward), finite binary64
-  values, correctly rounded decimal admission, canonical quaternion handling,
-  fixed operation order without reassociation/implicit FMA/FTZ/DAZ, typed
-  all-pairs comparison profiles, canonical addresses, canonical data/digests,
-  and diagnostic profile. The numeric experiment preregisters intended
-  domains, separate semantic error budgets, exact/higher-precision oracles,
-  frozen development/held-out/adversarial corpora, condition estimates,
-  metamorphic checks, and an open validation-margin formula/constant; exact
-  thresholds and activation remain deferred.
+  values, correctly rounded decimal admission, deterministic normalization and
+  canonical quaternion handling, fixed operation order without
+  reassociation/implicit FMA/FTZ/DAZ, direct common-frame same-target
+  comparison, exact dyadic scalar predicates, offline half-chord bounds with
+  no runtime transcendental comparison, structured claim identity/order and
+  smallest-tuple selection, canonical addresses, canonical data/digests, and
+  diagnostic profile. The numeric experiment preregisters rational/ULP,
+  normalization/square-root, H-derivation, claim identity/order, adapter tier,
+  and compiler-mode fixtures, separate semantic error budgets,
+  exact/higher-precision oracles, frozen development/held-out/adversarial
+  corpora, condition estimates, metamorphic checks, and an open
+  validation-margin formula/constant; exact thresholds and activation remain
+  deferred.
 - Fixture expected outcomes freeze as valid-supported, semantically invalid, or
   well-formed-but-unsupported, with a primary diagnostic class/code frozen for
   every non-success fixture. Only valid-supported fixtures count toward the
@@ -696,20 +695,18 @@ Outcome:
 
 The Batch 1 and Batch 4 discussion selections and review resolutions are not DR
 acceptance. The prior revisions have complete review evidence. Batch 5, Batch
-6, F1–F7, Batch 8, Batch 9, Batch 10, Batch 11, and Batch 12 are discussion-approved and integrated into the canonical product,
+6, F1–F7, Batch 8, Batch 9, Batch 10, Batch 11, Batch 12, and Batch 13 are discussion-approved and integrated into the canonical product,
 specification, architecture, and project documents as Proposed material. The
 CK-KICK-012 Batch 5 Double review at commit
 `a282dbabffd83afa4e62577086934d00f98e12c7` and Batch 6 review at `c64b1b...`
 are stale historical evidence. The current six-record set is DR-0002 Revision
-11, DR-0006 Revision 8, DR-0008 Revision 11, DR-0011 Revision 11, DR-0012
-Revision 10, and DR-0013 Revision 8; DR-0002/0008 retain Review Complete,
-DR-0006 remains Review Complete with unresolved C1/C3/C4 findings, and the
-three materially revised records remain Proposed with Owner approval Pending
-and Review Complete after the Batch 12 Double review of
-`730a2f77840cc0caa1f838c30dac4ff20f985e69`; both passes recommend Revise at
-High confidence. Ben approved the Batch 11/12 resolution directions; the
-prior Batch 10 Double-review evidence is stale history and the Batch 11
-artifacts are stale only for the three revised records. The
+11, DR-0006 Revision 9, DR-0008 Revision 11, DR-0011 Revision 12, DR-0012
+Revision 11, and DR-0013 Revision 9; DR-0002/0008 retain Review Complete,
+DR-0006 and the three materially revised records remain Proposed with Owner
+approval Pending and Review Pending after the material Batch 13 change. Prior
+review artifacts are stale for the revised records. Ben approved the Batch
+11/12/13 resolution directions; the
+prior Batch 10 Double-review evidence is stale history. The
 completed Batch 9 Double review targeted
 `6cf17270fda2827756c24a8d0fb301bef358f`; historical evidence is stale for the
 revised records and is not acceptance. See
@@ -722,15 +719,14 @@ preserved as historical evidence.
 The cross-cutting proposal is
 [DR-0012: initial body-document encoding, resolution, and
 compatibility](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
-CK-KICK-012 remains active; Batch 11 and Batch 12 are discussion-approved
-Proposed material. The completed Batch 9 Double review is evidence only; its
+CK-KICK-012 remains active; Batch 11, Batch 12, and Batch 13 are discussion-
+approved Proposed material. The completed Batch 9 Double review is evidence only; its
 five actionable findings were resolved by Batch 10 discussion. The prior Batch
 10 Double review remains preserved as stale evidence. The Batch 11 current-
-revision Double-review artifacts are stale for the three materially revised
-records. DR-0011 Revision 11, DR-0012 Revision 10, and DR-0013 Revision 8 are
-currently Review Complete with unresolved A1–A4 and E1–E5 findings; DR-0006 Revision 8 remains Review Complete with
-unresolved C1/C3/C4 findings. No acceptance or implementation/readiness gate is
-implied.
+revision Double-review artifacts are stale for the revised records. DR-0006
+Revision 9, DR-0011 Revision 12, DR-0012 Revision 11, and DR-0013 Revision 9
+remain Proposed with Owner approval Pending and Review Pending after Batch 13.
+No acceptance or implementation/readiness gate is implied.
 
 ### Batch 4 — encoding, resolution, and compatibility (discussion-approved)
 
@@ -1143,21 +1139,78 @@ adapter, or readiness gate.
   classifications are retained. Host-adapter conformance remains deferred
   until adapter activation.
 
-The current affected records are DR-0011 Revision 11, DR-0012 Revision 10,
-and DR-0013 Revision 8, each Proposed with Owner approval Pending and Review
-Complete after the current Batch 12 Double review. DR-0006 Revision 8 remains Review Complete with unresolved C1/C3/C4
-contract findings; Batch 11 review evidence is stale only for the three
-materially revised records.
+At the end of this historical Batch 12 state, the affected records were
+DR-0011 Revision 11, DR-0012 Revision 10, and DR-0013 Revision 8, each
+Proposed with Owner approval Pending and Review Complete after the Batch 12
+Double review. DR-0006 Revision 8 remained Review Complete with unresolved
+C1/C3/C4 contract findings; Batch 11 review evidence was stale only for the
+three records materially revised at that point. Batch 13 below supersedes this
+state summary.
+
+### Batch 13 — comparator, claim identity, and future adapter resolutions (discussion-approved)
+
+On 2026-08-13 Ben approved the Batch 13 resolution directions in discussion.
+They are integrated as Proposed planning, product, architecture, research,
+and status consequences only; they do not accept or silently replace the
+decision records and do not activate a package, schema, fixture, resolver,
+adapter, or readiness gate.
+
+- Same-target claims normalize into one identical canonical local-to-parent
+  frame. Translations compare directly componentwise and rotations by the
+  q/-q predicate; the composition residual is retained only as a separately
+  named diagnostic or snapshot check.
+- Scalar and translation predicates decode finite binary64 values as signed
+  integer significand times a power of two and use exact bounded dyadic/
+  integer subtraction, multiplication, addition, and inclusive comparison.
+  Quaternion normalization uses deterministic max-absolute scaling, fixed
+  component order, left-to-right square accumulation, correctly rounded
+  binary64 square root, fixed division, and canonical sign; comparison uses
+  an offline-derived binary64 half-chord bound with no runtime transcendental,
+  norm, or square-root operation.
+- Stable claim IDs derive from canonical target/kind, source document/namespace,
+  stable authored semantic record/property address, and explicit authored key
+  for intentional multiplicity. Same-ID/same-value occurrences evaluate once
+  while retaining provenance; same-ID/different-value is an invalid-source
+  collision. Pair validity is unordered, but valid pairs are sorted by claim
+  ID and the first failing pair is deterministic. The lexicographically
+  smallest value tuple wins, with claim ID only for exact tuple ties. Graph
+  collection keys remain separate from local claim multiplicity.
+- The unregistered experiment adds rational/ULP boundaries, offline H
+  derivation and downward proof, normalization/sqrt fixtures across bounded
+  platforms, order reversal/common-frame, duplicate/collision, sorted-pair,
+  and smallest-tuple fixtures. No results, thresholds, constants, or profile
+  IDs are selected.
+- Future adapters declare signed permutation `C` and finite positive scale `s`:
+  vector lengths use `sC`, scalar lengths use `s`, directions and normalized normals use `C`, and rigid
+  transforms use `D H D^-1` for `D = diag(sC, 1)`. Storage/output-only is the
+  default tier; optional runtime conformance adds probes and fixtures. Target
+  precision/domain/narrowing and overflow/underflow/subnormal policy are
+  explicit; binary32 subnormal claims require FTZ/DAZ probing. This is a
+  separate post-Readiness-3 transaction.
+- Diagnostic compatibility remains separately owned as nine Proposed domains:
+  source-admission, dependency, semantic-identity, graph-structure,
+  frame-numeric, resource, execution-trust, publication, and inspection. One
+  tiny mandatory bootstrap registry/profile handles unknown registry/profile
+negotiation; exact codes and fields remain fixture-gated.
+Readiness implementation binding remains a separate scoped content-identity
+transaction from fixture payload and expected snapshots; no binding activates
+from this planning record.
+
+The current affected records are DR-0006 Revision 9, DR-0011 Revision 12,
+DR-0012 Revision 11, and DR-0013 Revision 9, each Proposed with Owner approval
+Pending and Review Pending after Batch 13. Prior review evidence is stale for
+these revised records; no acceptance or activation is implied.
 
 ## Round 8 — implementation platform (provisional)
 
 ### CK-KICK-013: Select the first implementation platform
 
 State: active (discussion-approved Proposed platform direction integrated;
-Proposed DR-0013 Revision 8 has Owner approval Pending and Review Complete after
-the Batch 12 resolution and current review of
-`730a2f77840cc0caa1f838c30dac4ff20f985e69`, with unresolved findings. The Batch 11 Double-review
-evidence is stale for this materially revised record. The
+Proposed DR-0013 Revision 9 has Owner approval Pending and Review Pending after
+the material Batch 13 change; prior Batch 11/12 review evidence is stale
+historical evidence for this revised record. The former Batch 12 resolution
+and review of `730a2f77840cc0caa1f838c30dac4ff20f985e69` remain preserved as
+historical findings. The
 completed Batch 9 Double review targeted
 `6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is stale for the
 revised record and is not acceptance; not accepted or implemented)
@@ -1216,9 +1269,10 @@ the Batch 9 revisions; its seven consolidated findings are preserved as
 historical evidence resolved by discussion. The completed Batch 9 Double review
 is evidence only; its five actionable findings were resolved by Batch 10
 discussion. The prior Batch 10 review remains preserved as stale evidence. The
-fresh Batch 11 review is stale for this materially revised record; the current
-Batch 12 review is complete evidence and no implementation activates while the DR remains
-Proposed.
+fresh Batch 11 and Batch 12 reviews are stale historical evidence for the
+current Batch 13 revisions. DR-0006 Revision 9, DR-0011 Revision 12, DR-0012
+Revision 11, and DR-0013 Revision 9 remain Proposed with Owner approval Pending
+and Review Pending; no implementation activates while the DRs remain Proposed.
 Geometry libraries, licensing, platform support, and any C++ worker/FFI boundary remain
 evidence-driven; they are not settled by this proposal. No implementation
 package or compiler fixture is activated while the DR remains Proposed.

@@ -1,11 +1,16 @@
 # Canonical data and digest profile
 
-Status: Proposed canonical specification; no identity/build activation
+Status: Proposed canonical specification; CK-KICK-012 Batch 13 discussion-approved
+C1 resolution; no identity/build activation
 
-The Batch 12 numeric update does not resolve Batch 11 C1 (total canonical
-collection ordering), C3 (immutable Readiness 2/3 implementation binding), or
-C4 (diagnostic-domain/bootstrap compatibility). Those findings remain open in
-the current Proposed decision records; this document resolves none of them.
+Batch 13 discussion-approved resolutions add the generic keyed-collection rule
+for C1, cross-link the separate Readiness 2/3 implementation binding for C3,
+and align diagnostic ordering/identity with the C4 diagnostic profile. These
+are Proposed contract updates only. Current Batch 13 material is recorded in
+DR-0006 Revision 9, DR-0011 Revision 12, DR-0012 Revision 11, and DR-0013
+Revision 9; each remains Proposed with Owner approval Pending and Review
+Pending. No decision record, schema, serializer, fixture, or readiness gate is
+accepted or activated by this document.
 
 This document owns Creature Kernel's canonical JSON normalization,
 serialization, digest framing, and digest domains. The [semantic-address
@@ -27,12 +32,43 @@ Semantic normalization occurs before serialization and consumes the active
 numeric and address profiles. Thus negative-zero and quaternion-sign handling
 are applied as already-defined semantic values, not reinterpreted here.
 Arrays that are semantically ordered retain their order. A collection must not
-be sorted merely because it happens to be represented as an array. Where a
-contract supplies a semantic ordering for an unordered collection, that
-ordering is consumed; a total key and duplicate/tie rule for every unordered
-collection or projection has not yet been selected. The Batch 11 C1 finding
-on canonical collection ordering remains unresolved and blocks claiming that
-`ck-json-1` is fully activatable; this profile does not invent such a key.
+be sorted merely because it happens to be represented as an array. Every
+semantically unordered collection or projection must instead declare, in its
+own canonical owner, a typed total canonical key and an explicit uniqueness or
+multiplicity rule before it can enter a canonical projection. The key is
+derived from the normalized semantic record; it is not serialized solely to
+make sorting possible. A key collision fails closed when uniqueness is
+semantic. Legitimate repetitions must declare a multiset/count, occurrence,
+claim identity, or other owner-defined multiplicity semantics; canonicalization
+must not silently deduplicate them.
+
+The generic keyed-collection algorithm is: (1) normalize every member under
+its owning contract; (2) derive its owner-declared typed key; (3) reject a
+missing key or malformed key; (4) reject a collision when the owner declares a
+unique collection; (5) sort by the key's exact total order; and (6) retain all
+members under the declared multiplicity rule. There is no fallback to source
+array order, array index, traversal or allocation order, object serialization,
+canonical bytes, raw bytes, or any other incidental representation. A change
+to a key's type, components, normalization, comparison, or multiplicity rule
+changes the canonical profile identity and any affected digest identity.
+
+The initial owner-declared key inventory is:
+
+| Projection owner | Derived typed key and rule |
+| --- | --- |
+| Resolved body graph | The seven identity-bearing concepts use their structured semantic address; body-graph owns the address cross-link and uniqueness semantics. |
+| Module declarations | A declaration address, not an eighth graph kind; declaration uniqueness is checked in its declaration namespace. |
+| Landmark, anchor, dimension, and frame records | Record kind + owner semantic address + role, with context and/or claim identity when the owner permits repetitions. |
+| Fixture entries | Fixture ID; duplicate IDs and duplicate normalized repository paths are invalid. |
+| External implementation-binding path entries | Normalized safe relative path, with mode and raw content as bound entry values; paths are unique. The binding profile is separate from the fixture-manifest canonical domain. |
+| Dependency entries | Locator + role + a distinguishing revision identity; the owner must define uniqueness for repeated dependencies. |
+| Diagnostic occurrences | The diagnostic profile supplies ordering and occurrence identity/multiplicity; occurrences are not silently deduplicated. |
+| Other build arrays | The build-operation owner must declare a typed key and uniqueness/multiplicity rule before activation. |
+
+These examples establish key ownership and failure behaviour without selecting
+serialized field names, concrete diagnostic codes, profile IDs, or numeric
+constants. A key is not an additional authored field unless its owner
+independently requires that field in the source or output contract.
 
 After semantic normalization, serialization follows the rules of
 [RFC 8785 JSON Canonicalization Scheme](https://www.rfc-editor.org/rfc/rfc8785):
@@ -97,7 +133,9 @@ record, reviewed Git commit, successor/deactivation record, and mutable active
 pointer are excluded, as are any fields that would make the manifest contain
 its own digest. The [fixture-manifest contract](../fixture-manifest/README.md)
 owns the exact declared path/mode/content set used for its external payload
-binding.
+binding. That contract also owns the separate implementation-binding
+aggregate for code-activating readiness gates; it is not a reuse of the
+`ck/v1/fixture-manifest` canonical domain.
 
 Canonical data does not provide signatures, encryption, authenticity, or
 content-addressed storage policy. Those are separate decisions if required.
@@ -107,6 +145,9 @@ content-addressed storage policy. Those are separate decisions if required.
 Canonicalization and digest profiles are required before durable build,
 artifact, or fixture identity activates. Activation must admit the exact
 semantic-address and numeric/frame profile revisions they consume, the
-canonical profile, domain tags, and representative byte/digest fixtures in one
-reviewed contract path. No implementation package, schema, or generated
-artifact is activated by this Proposed document.
+canonical profile, domain tags, keyed-collection rules, and representative
+byte/digest fixtures in one reviewed contract path. The external
+implementation-binding profile is admitted with the relevant readiness
+transaction, not folded into the fixture-manifest canonical domain. No
+implementation package, schema, or generated artifact is activated by this
+Proposed document.

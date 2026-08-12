@@ -9,14 +9,14 @@ Status: Operational under Accepted DR-0001 Revision 5
 | [DR-0003](DR-0003-real-time-first-compiled-avatar-boundary.md) | Compiled avatar and bounded real-time execution | Product and architecture | Proposed | 2 | Complete | Ben |
 | [DR-0004](DR-0004-external-automation-through-cli-and-api.md) | Shared deterministic domain operations for external automation | Product and architecture | Proposed | 2 | Complete | Ben |
 | [DR-0005](DR-0005-initial-product-boundary-and-reference-workflow.md) | Initial product boundary and reference workflow | Product and architecture | Proposed | 1 | Complete | Ben |
-| [DR-0006](DR-0006-durable-semantic-and-artifact-identity.md) | Durable semantic and artifact/build identity | Specification and architecture | Proposed | 8 | Complete | Ben |
+| [DR-0006](DR-0006-durable-semantic-and-artifact-identity.md) | Durable semantic and artifact/build identity | Specification and architecture | Proposed | 9 | Pending | Ben |
 | [DR-0007](DR-0007-staged-first-proof-charter.md) | Staged first-proof charter and claim boundaries | Product | Proposed | 2 | Complete | Ben |
 | [DR-0008](DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md) | First digitigrade morphology and Stage 1 embodiment envelope | Product, Specification and architecture | Proposed | 11 | Complete | Ben |
 | [DR-0009](DR-0009-hybrid-surface-generation-experiment-hypothesis.md) | Hybrid surface-generation experiment hypothesis | Architecture | Proposed | 8 | Complete | Ben |
 | [DR-0010](DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md) | Stage 1 surface extraction and semantic-field propagation | Specification and architecture | Proposed | 8 | Pending | Ben |
-| [DR-0011](DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md) | Minimal semantic vocabulary, measurements, and frames | Specification and architecture | Proposed | 11 | Complete | Ben |
-| [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md) | Initial body-document encoding, resolution, and compatibility | Specification and architecture | Proposed | 10 | Complete | Ben |
-| [DR-0013](DR-0013-first-production-implementation-platform-and-geometry-boundary.md) | First production implementation platform and geometry boundary | Specification and architecture | Proposed | 8 | Complete | Ben |
+| [DR-0011](DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md) | Minimal semantic vocabulary, measurements, and frames | Specification and architecture | Proposed | 12 | Pending | Ben |
+| [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md) | Initial body-document encoding, resolution, and compatibility | Specification and architecture | Proposed | 11 | Pending | Ben |
+| [DR-0013](DR-0013-first-production-implementation-platform-and-geometry-boundary.md) | First production implementation platform and geometry boundary | Specification and architecture | Proposed | 9 | Pending | Ben |
 
 DR-0001 Revision 5 is `Accepted` after Ben's approval and its Complete clean
 review; that disposition applies only to this Governance DR. DR-0002 through
@@ -224,18 +224,70 @@ They are discussion-approved Proposed material, not acceptance or activation:
   no clamp, saturation, ambient mode, or canonical-snapshot mutation is
   allowed. Activation is separate after Readiness 3 and selects no engine.
 
-The Batch 11 C2/N1–N4 numeric findings are resolved in these three revised
-records. C1 canonical collection ordering/tie handling, C3 immutable
+The Batch 11 C2/N1–N4 numeric findings were resolved in the three Batch 12
+revised records. C1 canonical collection ordering/tie handling, C3 immutable
 Readiness 2/3 parser/resolver implementation binding, and C4 compatible
-diagnostic domains/bootstrap negotiation remain unresolved and are preserved
-for the next discussion. The mechanical N5 canonical-spec header
-synchronization was outside this scoped resolution. DR-0006 Revision 8 is
-untouched: it remains Proposed with Owner approval Pending and Review Complete,
-with its unresolved cross-record findings preserved; no DR-0006 review artifact
-is marked stale by this change. The prior current-revision artifacts for
-DR-0011/DR-0012/DR-0013 are stale, and their exact findings remain in each DR's
+diagnostic domains/bootstrap negotiation then remained preserved for the next
+discussion. The mechanical N5 canonical-spec header synchronization was
+outside that scoped resolution. The Batch 12 artifacts are stale for the
+Batch 13 revisions below; their exact findings remain in each DR's
 adversarial-review response. No package, schema, fixture, resolver, readiness
-gate, or engine activates.
+gate, adapter, engine, or experiment activates.
+
+Ben's CK-KICK-012/013 Batch 13 resolutions, approved in discussion on
+2026-08-13, are recorded in DR-0006 Revision 9, DR-0011 Revision 12, DR-0012
+Revision 11, and DR-0013 Revision 9. They are material Proposed revisions,
+not acceptance or activation:
+
+- Same-target transform claims are normalized into one canonical local-to-
+  parent frame and translations compare directly componentwise, making claim
+  order exactly symmetric. Residual transforms remain only separately named
+  diagnostic/composition comparisons. Inclusive scalar predicates use exact
+  dyadic arithmetic over admitted binary64 values. Rotation comparison stores
+  an offline-admitted finite-binary64 half-chord threshold `H`, chooses q sign
+  by exact dyadic dot (`0` -> `+1`), and compares squared differences exactly;
+  runtime `asin`/`sin`/`sqrt` are removed. Quaternion normalization has fixed
+  scaling/order/sqrt/sign and floating-point controls, with bounds still
+  experiment-gated. Structured authored claim identity, same-ID collision
+  handling, sorted pair evaluation, deterministic first-failure detail, and
+  smallest-exact-tuple selection retain every occurrence/provenance.
+- Future post-R3 adapters declare signed-permutation `C`, positive scale `s`,
+  target precision/domain and narrowing policy, and a storage-only or
+  runtime-conformance tier. Length values map by `sC/s`, directions/normals by
+  `C`, rotations by `C R C^-1`, and rigid transforms by
+  `D H_c D^-1`, `D=diag(sC,1)`. Runtime subnormal preservation probes FTZ/DAZ;
+  unsupported capability is fail-closed, trusted in-domain conversion
+  overflow/disallowed underflow is `output-failure`, and the core binary64
+  snapshot is unchanged.
+- Every unordered collection/projection has an owner-defined typed total key
+  and explicit uniqueness/multiplicity rule. Graph, declaration, owner-role,
+  fixture, normalized path, dependency, build-array, and diagnostic occurrence
+  keys are defined without source/traversal/allocation/index order,
+  serialization, or raw-byte fallback. Duplicate keys fail only for declared
+  uniqueness collections; legitimate repeated claims/multisets/diagnostics
+  retain explicit occurrence identity.
+- Fixture payload scope remains manifest plus declared schema, fixtures, and
+  snapshots. Each readiness implementation activation separately binds a
+  versioned ordered normalized relative path/mode/raw-content set and
+  aggregate SHA-256 covering gate-affecting source/configuration, manifests,
+  scripts/inputs, `Cargo.lock`, toolchain declaration, and applicable path
+  dependencies. Post-merge and pre-trigger recomputation blocks mismatch and
+  requires a successor; commit provenance is not equality binding and whole-
+  repository/custom-ledger binding is not selected.
+- The diagnostics specification is the sole owner of registry/domain/class/
+  occurrence/profile/order/compatibility meaning. Initial domains are
+  source-admission, dependency, semantic-identity, graph-structure,
+  frame-numeric, resource, execution-trust, publication, and inspection;
+  resource profiles remain operational. A mandatory bootstrap registry/profile
+  handles unknown required profiles as `unsupported` under an effective
+  bootstrap profile with bounded requested identifiers and deterministic
+  primary; no emission under unknown profile or silent downgrade is allowed.
+
+All four records remain Proposed with Owner approval Pending and Review status
+Pending. The Batch 12 review artifacts are stale historical evidence after
+these material revisions and remain preserved. Ben's discussion approval does
+not accept a DR and does not activate a schema, fixture, parser/resolver,
+implementation, adapter, experiment, or package.
 
 ## CK-KICK-012/013 Batch 11 Double review (stale for Batch 12 revisions)
 

@@ -1,18 +1,15 @@
 # Build operation and derived-output contract
 
-Status: Proposed conceptual contract; CK-KICK-012 Batch 12 discussion-approved
-canonical owner. DR-0006 Revision 8 remains Proposed with Owner approval
-Pending and Review Complete; unresolved findings remain. DR-0011 Revision 11,
-DR-0012 Revision 10, and DR-0013 Revision 8 remain Proposed with Owner approval
-Pending and Review Complete after the Batch 12 Double review of commit
-`730a2f77840cc0caa1f838c30dac4ff20f985e69`; both independent passes recommend
-Revise at High confidence. The current A1–A4/E1–E5 findings, C1 canonical collection-ordering, C3
-immutable Readiness 2/3 implementation-binding, and C4 diagnostic-domain/
-bootstrap findings remain unresolved; this contract resolves none of them.
-The Batch 11 Double review targeted commit `053dba58fd344ed636420e0974cf617862fe265f` and is stale for the three revised records.
-This document is not an accepted
-format and does not activate a build implementation, serializer, fixture
-corpus, or artifact store.
+Status: Proposed conceptual contract; CK-KICK-012 Batch 13 discussion-approved
+canonical owner. Current Batch 13 material is recorded in DR-0006 Revision 9,
+DR-0011 Revision 12, DR-0012 Revision 11, and DR-0013 Revision 9; each remains
+Proposed with Owner approval Pending and Review Pending. Batch 13 cross-links
+the C1 keyed-collection, C3 separate implementation-binding, and C4
+diagnostic/bootstrap resolutions. This document owns build/output status and
+adapter output context only; it does not own comparator arithmetic, diagnostic
+registry definitions, or fixture implementation-binding framing. It is not an
+accepted format and does not activate a build implementation, serializer,
+fixture corpus, or artifact store.
 
 This document is the canonical Proposed owner of the public `build` operation
 and its derived-output/publication contract. The [body-document contract](../body-document/README.md)
@@ -72,25 +69,32 @@ when a later build/publication failure normalizes the top-level status.
 ## Future adapter and output context
 
 The core resolved snapshot and all semantic graph comparisons remain binary64.
-A future adapter may add a target-precision profile to the build request and
-derived-output manifest, but this operation does not select an engine or
-redefine the numeric/frame profile's conversion rules. The numeric/frame
-profile owns the adapter's signed-permutation basis map, correctly rounded
-narrowing, subnormal and underflow/overflow policy, q/rotation conversion,
-and angular/translation budgets; this build contract owns only the output
-boundary and failure context.
+A future adapter has two distinct guarantees: (1) a conversion/output
+guarantee that a requested target profile is applied and validated before
+publication, and (2) a runtime guarantee that the published output advertises
+only the capabilities and quality/runtime tier it can actually support, with a
+strictly positive target unit scale where the target uses a different length
+unit. A non-positive or otherwise invalid requested scale cannot produce a
+trusted adapter output. The exact scale representation and numeric validation
+remain owned by the numeric/frame profile.
+These are separate output and runtime metadata concerns; this operation does
+not select an engine or redefine numeric/frame conversion rules. The
+numeric/frame profile owns basis maps, narrowing, subnormal/underflow/overflow,
+rotation conversion, and angular/translation formulas and budgets. This build
+contract owns only the output boundary, capability/guarantee metadata, and
+failure context.
 
-Adapter output must fail closed for overflow, disallowed nonzero-to-zero
-underflow, or any other target-profile violation. It must not saturate, clamp,
-or depend on an ambient numeric mode. A requested but unsupported target
-profile maps to `unsupported`; a trusted conversion, encoding, or output
-validation failure maps to `output-failure`; a qualifying resource breach maps
-to `resource-limit`; and loss of worker/coordinator/publisher trust maps to
-`internal-failure`, under the global precedence above. The root semantic
-diagnostic remains in the authoritative envelope when output status is
-normalized. Adapter activation is a separate post-Readiness-3 transaction with
-its own conformance fixtures and profile binding; no adapter is active from
-this Proposed contract.
+Adapter output must fail closed for any target-profile violation. It must not
+saturate, clamp, or depend on an ambient numeric mode. A requested but
+unsupported target profile maps to `unsupported`; a trusted conversion,
+encoding, or output validation failure maps to `output-failure`; a qualifying
+resource breach maps to `resource-limit`; and loss of worker/coordinator/
+publisher trust maps to `internal-failure`, under the global precedence above.
+The root semantic diagnostic remains in the authoritative envelope when output
+status is normalized. Adapter activation is a separate post-Readiness-3
+transaction with its own conformance fixtures and profile binding; no adapter
+is active from this Proposed contract. The exact runtime capability labels,
+profile IDs, and status code strings remain fixture-gated.
 
 ## Identity and manifest lifecycle
 
@@ -115,7 +119,10 @@ toolchain, contract/schema/profile, configuration and seed, backend
 capability/protocol, and target-platform input. Its deterministic projection
 and digest use the [canonical-data profile](../canonical-data/README.md), and
 activation is blocked until that profile and all referenced semantic profiles
-are admitted.
+are admitted. If a readiness gate activates code, the separate implementation
+binding owned by the [fixture-manifest contract](../fixture-manifest/README.md)
+is checked as part of that gate; the binding record is outside the fixture
+payload and is not a whole-repository or commit-equality identity.
 
 For each artifact role, candidate artifact identity derives deterministically
 from the build-request identity, artifact role, and identity-rule revision.
@@ -137,7 +144,11 @@ sibling staging. Its conceptual fields are:
 Exact manifest member names and final artifact package fields remain deferred;
 canonical bytes and digest domains are owned by the [canonical-data profile](../canonical-data/README.md).
 The manifest must be complete and internally consistent before
-publication is attempted. Consumers must reject absolute or traversal paths,
+publication is attempted. Any semantically unordered output or metadata
+collection must declare its typed total canonical key and uniqueness or
+multiplicity rule under the canonical-data profile before activation;
+consumers must reject missing or colliding keys rather than falling back to
+array index or source order. Consumers must reject absolute or traversal paths,
 symlinks, unlisted outputs, incomplete manifests, mixed-build lineage, and
 stale or unverifiable identities.
 

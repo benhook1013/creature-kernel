@@ -6,26 +6,18 @@ These are conceptual boundaries, not approved packages or technologies. Code
 directories should be created only after the relevant boundary is accepted and
 its activation trigger is met.
 
-The CK-KICK-012 Batch 6/7/8/9/10/11/12 resolutions are discussion-approved and
+The CK-KICK-012 Batch 6/7/8/9/10/11/12/13 resolutions are discussion-approved and
 represented as Proposed responsibility consequences. DR-0002 Revision 11 and
 DR-0008 Revision 11 remain Proposed with Owner approval Pending and Review
-Complete. DR-0006 Revision 8 remains Proposed with Owner approval Pending and
-Review Complete; unresolved C1/C3/C4 contract findings remain. DR-0011
-Revision 11, DR-0012 Revision 10, and Proposed DR-0013 Revision 8 remain
-Proposed with Owner approval Pending and Review Complete after the Batch 12
-Double review of commit `730a2f77840cc0caa1f838c30dac4ff20f985e69`; both
-independent passes recommend Revise at High confidence with unresolved A1–A4
-and E1–E5 findings. The fresh Batch 11 Double review targeted commit
-`053dba58fd344ed636420e0974cf617862fe265f`; its artifacts are stale only for
-those three materially revised records and are not acceptance. No implementation or readiness gate
-activates. The current six-record set is DR-0002 Revision 11, DR-0006 Revision
-8, DR-0008 Revision 11, DR-0011 Revision 11, DR-0012 Revision 10, and Proposed
-DR-0013 Revision 8. The completed Batch 9 Double review targeted commit
-`6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is stale historical
-evidence and is not acceptance. DR-0006 remains Review Complete with unresolved
-C1/C3/C4 findings; the three materially revised records are Review Complete and
-no implementation or readiness gate activates. See the [current review state](../project/status.md#current-review-and-future-activation-obligations)
-for review lenses, recommendations, and findings. No package is implied.
+Complete. DR-0006 Revision 9 remains Proposed with Owner approval Pending and
+Review Pending after the material Batch 13 change. DR-0011
+Revision 12, DR-0012 Revision 11, and Proposed DR-0013 Revision 9 remain
+Proposed with Owner approval Pending and Review Pending after the Batch 13
+material change. Prior review evidence is stale for the revised records and is
+not acceptance. No implementation or readiness gate activates. DR-0006 remains
+Proposed with its owner and review state governed by its canonical record. See
+the [current review state](../project/status.md#current-review-and-future-activation-obligations)
+for review ownership and findings. No package is implied.
 
 | Component | Responsibilities | Explicit non-responsibilities |
 | --- | --- | --- |
@@ -46,7 +38,7 @@ for review lenses, recommendations, and findings. No package is implied.
 | Interaction system | Resolve semantic participants, phases, constraints, and fallbacks through queryable capabilities and regions | Depend on exact mesh identities or treat capability implementation as semantic contract |
 | Shared domain operations and adapters | Define deterministic query, semantic mutation, resolution/compilation, validation, diagnostics, and artifact inspection for CLI/API and future adapters | Contain AI-specific reasoning or private client behaviour |
 | Validation system | Produce structural, semantic, geometric, visual, and performance evidence, including invalid/unsupported-assembly diagnostics in the shared result envelope | Declare product decisions automatically or silently choose among conflicting constraints |
-| Host adapters | Translate core packages and runtime contracts into engine-specific systems | Leak engine types into core contracts |
+| Host adapters | Translate core packages and runtime contracts into engine-specific systems through a declared signed permutation `C` and positive engine-units/metre scale `s`; use `sC` for vector lengths, `s` for scalar lengths, `C` for directions/normals, and `D H D^-1` for rigid transforms; default storage/output conformance makes no runtime arithmetic claim, while an optional runtime tier adds probes and fixtures | Leak engine types into core contracts, silently scale directions/normals, or claim target precision/subnormal behaviour without declared policy and FTZ/DAZ evidence |
 
 ## Dependency direction
 
@@ -121,18 +113,28 @@ carrier has exactly three translation and four `xyzw` quaternion components and
 no scale/shear fields; Readiness 3 owns numeric meaning and tolerances. Typed
 machine addresses, canonical bytes/digest domains, numeric/frame profiles, and
 diagnostic codes are owned by the focused specifications linked from the
-architecture index. Batch 12's Proposed numeric consequence is a fixed-order,
+architecture index. Batch 13's Proposed numeric consequence is a fixed-order,
 round-to-nearest-ties-to-even evaluation with correctly rounded decimal
-admission, no reassociation/implicit FMA/FTZ/DAZ, typed all-pairs comparison
-semantics, and evidence from preregistered domains, separate semantic budgets,
+admission, no reassociation/implicit FMA/FTZ/DAZ, direct common-frame
+same-target comparison, exact bounded dyadic scalar arithmetic, deterministic
+normalization and offline half-chord bounds with no runtime transcendental
+comparison, and structured source-derived claim IDs with sorted pair reporting
+and smallest tuple selection. Local claim identity is separate from generic
+graph collection keys. Evidence uses rational/ULP boundaries,
+normalization/square-root and H-derivation fixtures, separate semantic budgets,
 independent exact/higher-precision oracles, frozen corpora, condition estimates,
-and metamorphic checks. Comparator shapes/formulas and normalization/sign
-direction are fixed Proposed material; constants, ranges, validation-margin/
-error formula, and deterministic evaluation implementation/binding remain
-open. The
+and metamorphic checks. Constants, ranges, validation-margin/error formula,
+and deterministic implementation/binding remain open. The
 fixture-manifest specification owns the payload and separate content-identity
 readiness/decision binding; this responsibility map does not duplicate its
 field encoding.
+
+Diagnostic compatibility remains a separate Proposed owner with nine initial
+domains—source-admission, dependency, semantic-identity, graph-structure,
+frame-numeric, resource, execution-trust, publication, and inspection—and a
+tiny mandatory bootstrap registry/profile for unknown-registry negotiation.
+Readiness implementation binding is a separate scoped content-identity input,
+not part of the fixture payload or expected snapshot.
 
 ## Walking-skeleton exploratory seam (provisional and disposable)
 

@@ -1,8 +1,8 @@
 # Normative specifications
 
 Status: Active Proposed authority boundary; the body-document, body-graph,
-build-operation, and fixture-manifest contracts include discussion-approved
-CK-KICK-012 Batch 12 material, but no format is accepted
+build-operation, and fixture-manifest contracts include CK-KICK-012 Batch 13
+discussion-approved material, but no format is accepted
 
 This directory will own machine-facing semantics and serialized contracts. It is
 separate from architecture so an implementation can change without silently
@@ -14,19 +14,14 @@ The current semantic proposal set is represented by [DR-0002](../docs/decisions/
 and [DR-0011](../docs/decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
 Their prior revisions and reviews remain preserved as historical evidence.
 DR-0002 Revision 11 and DR-0008 Revision 11 remain Proposed with Owner approval
-Pending and Review Complete. DR-0006 Revision 8 remains Proposed with Owner
-approval Pending and Review Complete; unresolved findings remain. DR-0011
-Revision 11, DR-0012 Revision 10, and DR-0013 Revision 8 remain Proposed with
-Owner approval Pending and Review Complete after the Batch 12 Double review of
-commit `730a2f77840cc0caa1f838c30dac4ff20f985e69`; both independent passes
-recommend Revise at High confidence and leave A1–A4/E1–E5 unresolved. The
-Batch 11 review targeted commit `053dba58fd344ed636420e0974cf617862fe265f`;
-its two independent passes are stale evidence for the revised records. Review
-Complete is not acceptance. No implementation or
-readiness gate activates. The current unresolved findings include C1 total
-canonical collection ordering/tie handling, C3 immutable Readiness 2/3
-implementation binding, and C4 diagnostic-domain/bootstrap compatibility;
-Batch 12 resolves none of them. See the [current review
+Pending and Review Complete. Current Batch 13 material is recorded in DR-0006
+Revision 9, DR-0011 Revision 12, DR-0012 Revision 11, and DR-0013 Revision 9;
+each remains Proposed with Owner approval Pending and Review Pending. Batch
+11/12 review artifacts are stale for those revised records and remain evidence
+only. Batch 13 resolves the C1 keyed-collection, C3 separate
+implementation-binding, and C4 diagnostic/bootstrap directions as Proposed
+cross-spec material. No implementation, schema, parser, resolver, binding, or
+readiness gate activates. See the [current review
 state](../docs/project/status.md#current-review-and-future-activation-obligations)
 for the current findings.
 The cross-cutting proposal is
@@ -52,17 +47,21 @@ The cross-cutting proposal is
   binary64 admission, quaternion and transform comparison algorithms, typed
   comparison-profile boundary, and the future adapter conformance obligation.
 - [Canonical data and digest profile](canonical-data/README.md): canonical
-  JSON normalization/serialization, SHA-256 domain framing, and deterministic
-  identity projections that consume normalized binary64 values. It does not
-  select a total key for unordered collections; C1 remains unresolved.
-- [Diagnostic registry and profile](diagnostics/README.md): registry,
-  occurrence, diagnostic-profile, resource-profile, ordering, and status
-  separation. Exact initial codes remain fixture-gated.
+  JSON normalization/serialization, owner-declared typed total keys and
+  uniqueness/multiplicity rules for unordered collections, SHA-256 domain
+  framing, and deterministic identity projections that consume normalized
+  binary64 values.
+- [Diagnostic registry and profile](diagnostics/README.md): sole owner of
+  registry definitions, nine diagnostic domains, stable classes, occurrences,
+  bootstrap compatibility, selection profiles, ordering, and compatibility;
+  resource profiles remain separate operational inputs. Exact initial codes
+  remain fixture-gated.
 - [Fixture-manifest and admission contract](fixture-manifest/README.md): the
-  conceptual fixture-suite payload, external readiness/decision binding,
-  preflight, successor/rollback, manifest field groups, numeric boundary and
-  comparison fixture profile bindings, and readiness corpus admission
-  boundary. It does not activate a schema, parser, or fixture file.
+  conceptual fixture-suite payload, separate external fixture and
+  implementation bindings, preflight, successor/rollback, manifest field
+  groups, numeric boundary and comparison fixture profile bindings, and
+  readiness corpus admission boundary. It does not activate a schema, parser,
+  binding, or fixture file.
 - [Build-operation and derived-output contract](build-operation/README.md):
   the Proposed public build envelope, in-memory snapshot handoff boundary,
   candidate-to-committed artifact identity lifecycle, deterministic target and
@@ -162,17 +161,29 @@ accounting remain unselected.
   and infinity overflow are rejected, lexical negative zero normalizes to
   `+0`, and raw source bytes remain unchanged. The numeric/frame profile owns
   these rules; body-document owns their source admission/status consequences.
-- Exact discrete comparison remains exact. Scalar and translation components
-  use the inclusive `|a-b| <= A + R*max(|a|,|b|)` predicate with stable checked
-  arithmetic and componentwise L-infinity translation semantics. Quaternion
-  comparison uses normalized q/-q-invariant half-chord angular distance with
-  the dot-zero `+1` tie and fixed evaluation order. Transform comparison uses
-  `B * inverse(A)` and named residual entries. Same-target claims require all
-  unordered pairs to pass; failures are deterministic invalid-source conflicts,
-  while passing claims select the lexicographically smallest normalized
-  binary64 tuple with a stable claim-ID tie break and retain all provenance.
-  Authored-conflict and expected-snapshot profiles remain separate and their
-  constants are experiment-gated.
+- Exact discrete comparison remains exact. Same-target claims first normalize
+  into one shared canonical local-to-parent frame; translations compare
+  directly componentwise, and rotations use normalized q/-q equivalence with
+  exact dyadic `sum((qa_i-s*qb_i)^2) <= (2H)^2` against an offline-admitted
+  finite-binary64 `H`, with no runtime transcendental, norm, or square-root
+  operation in comparison. Scalar and translation bounds use exact dyadic
+  arithmetic at inclusive boundaries. `B * inverse(A)` is only a separately
+  named composition/diagnostic profile, never same-target equality. Structured
+  claim IDs retain occurrences/provenance, reject same-ID value collisions,
+  evaluate all unordered pairs in sorted-ID order, and select the
+  lexicographically smallest normalized tuple, with claim ID only for exact
+  tuple ties. Authored-conflict and expected-snapshot profiles remain separate
+  and their constants are experiment-gated.
+- Every semantically unordered collection/projection must declare an
+  owner-typed total canonical key and explicit uniqueness or multiplicity rule.
+  The key is derived, not serialized solely for sorting; missing keys and
+  uniqueness collisions fail closed, while legitimate repetitions retain
+  explicit multiset/count/occurrence/claim identity. No source order, array
+  index, traversal/allocation order, object serialization, canonical bytes, or
+  raw bytes may be used as fallback. The canonical-data profile owns the
+  generic algorithm and key inventory, including semantic addresses, module
+  declarations, owner-role records, fixture IDs/paths, implementation-binding
+  paths, dependencies, diagnostics, and future build arrays.
 - Future adapters must declare an explicit signed-permutation orthogonal basis
   map and prove named directions, reflections/handedness, vector/translation
   mapping, rotation and homogeneous-transform conjugation, q conversion,
@@ -188,8 +199,16 @@ accounting remain unselected.
   well-formed-but-unsupported, plus the primary diagnostic class/code for every
   non-success fixture. Fixture-manifest admission is owned by the
   [fixture-manifest contract](fixture-manifest/README.md), which binds a
-  manifest payload to separately recorded reviewed content identities and Ben
-  approval, and excludes unlisted fixtures. Only valid-supported fixtures count toward the Stage 1
+  manifest payload to separately recorded reviewed content identities and a
+  separate implementation binding for any code-activating readiness gate.
+  The implementation binding is a versioned domain-separated SHA-256 over an
+  explicit ordered normalized safe-relative-path/mode/raw-content set; its
+  binding record is outside the set, with no whole-repository or commit-
+  equality identity. Post-merge and pre-ledger recomputation mismatch blocks
+  activation and requires a successor. It includes relevant source, manifests,
+  scripts/inputs, Cargo.lock, rust-toolchain, and applicable path dependencies;
+  host/rustc/hardware evidence is recorded but not equality-bound unless a
+  claim says so. Only valid-supported fixtures count toward the Stage 1
   gate. Exact fixture definitions must be frozen if the deferred EXP-0001
   protocol is activated before its execution or evidence; selecting hypotheses
   may precede that freeze.
@@ -211,6 +230,16 @@ accounting remain unselected.
 - Shared domain-operation and diagnostic contracts (eventually).
 - Final artifact serialization and artifact inspection details not otherwise
   owned by the [build-operation contract](build-operation/README.md).
+
+Diagnostic registry definitions, exactly nine domains, stable classes,
+occurrence identity/multiplicity, selection profiles, ordering, and
+compatibility belong solely to the diagnostic profile. Its tiny unnegotiated
+bootstrap registry/profile always supports unknown required registry/profile
+negotiation: top-level `unsupported`, deterministic bootstrap primary,
+bootstrap effective IDs, bounded opaque requested IDs with `required=true`,
+never unknown-profile emission or silent downgrade, and no extra phase. The
+body-document contract owns status/precedence; build-operation owns output/status
+mapping. Resource profiles are separate operational inputs.
 
 The body-document and body-graph contracts own semantic source admission and
 resolved graph meaning. The build-operation contract owns the public derived

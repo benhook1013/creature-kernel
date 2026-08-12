@@ -11,15 +11,8 @@ supplementary. This direction is Proposed for formal acceptance under
 [DR-0003](../decisions/DR-0003-real-time-first-compiled-avatar-boundary.md).
 
 CK-KICK-013 is a discussion-approved but unaccepted platform proposal.
-Proposed DR-0013 Revision 8 has Owner approval Pending and Review Complete after
-the Batch 12 Double review of commit
-`730a2f77840cc0caa1f838c30dac4ff20f985e69`, with unresolved findings carried
-from Batch 11. Both independent passes recommend Revise at High confidence.
-The Batch 11 review
-evidence is stale for this materially revised record; the fresh Batch 11 Double
-review targeted commit
-`053dba58fd344ed636420e0974cf617862fe265f`; both independent passes recommend Revise at High confidence. The completed Batch 9 Double review targeted commit
-`6cf17270fda2827756c24a8d0fb301bef358f`; its evidence is stale for the revised
+Proposed DR-0013 Revision 9 has Owner approval Pending and Review Pending after
+the material Batch 13 change. Prior review evidence is stale for the revised
 record and is not acceptance. No implementation or readiness gate activates.
 See the [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for recommendations and findings. Its four
@@ -176,20 +169,42 @@ Machine addresses use the proposed typed semantic-address profile rather than
 filesystem-like strings, and display names are not identity. The semantic
 numeric basis is proposed as right-handed metres, +Y up, and +Z
 creature-forward. Values are finite binary64 and rigid transforms use the
-Readiness 2 translation/quaternion carrier. Batch 12's Proposed direction adds
+Readiness 2 translation/quaternion carrier. Batch 13's Proposed direction adds
 correctly rounded decimal admission, round-to-nearest ties-to-even, fixed
 operation order, and no reassociation, implicit FMA contraction, FTZ, or DAZ.
-Canonical comparison profiles distinguish exact discrete identity from typed
-numeric comparisons and use deterministic all-pairs claim evaluation rather
-than order-dependent folding. Comparator shapes/formulas and normalization/sign
-direction are fixed Proposed material. Exact ranges, conditioning, constants,
-margins/error formula, deterministic evaluation implementation/binding, and
-tolerances remain the subject of the planned
-[numeric/frame profile experiment](../research/numeric-frame-profile-experiment.md),
-which preregisters domains, separate semantic budgets, exact/higher-precision
-oracles, frozen corpora, condition estimates, and metamorphic checks. Diagnostic
+Same-target claims normalize into one canonical local-to-parent frame and use
+direct componentwise translation and q/-q rotation comparison. Scalar
+predicates are exact bounded dyadic/integer comparisons; quaternion comparison
+uses an offline-derived half-chord bound with no runtime transcendental or norm
+operation. Structured claim IDs retain occurrences/provenance, reject same-ID
+collisions, sort pair evaluation, and select the smallest tuple; generic graph
+collection keys remain separate. The deterministic normalization path and
+floating-point controls are fixed directions, while ranges, near-zero/drift
+thresholds, constants, margins/error formula, and implementation bindings
+remain evidence-gated. The planned
+[numeric/frame profile experiment](../research/numeric-frame-profile-experiment.md)
+preregisters rational/ULP, H-derivation, normalization/sqrt, identity/order,
+and compiler-mode fixtures, separate semantic budgets, independent oracles,
+frozen corpora, condition estimates, and metamorphic checks. Diagnostic
 codes and profiles are owned by the proposed
 [diagnostics contract](../../spec/diagnostics/README.md).
+
+Future host adapters remain a separate post-Readiness-3 transaction. Their
+proposed boundary declares signed permutation `C` and finite positive scale `s`
+in engine-units/metre: vector lengths use `sC`, scalar lengths use `s`,
+directions and normalized normals use `C`, and rigid transforms use `D H D^-1`
+for `D = diag(sC, 1)`. Storage/output
+conformance is the default tier and makes no runtime arithmetic claim; an
+optional runtime tier adds probes and fixtures. Target precision, domain,
+narrowing, overflow/underflow/subnormal policy, and angular/translation budgets
+are explicit. Binary32 subnormal claims require FTZ/DAZ probing; missing
+capability is unsupported. Core snapshots remain binary64.
+
+Diagnostic compatibility remains separately owned and Proposed: nine initial
+domains cover source admission, dependencies, semantic identity, graph
+structure, frame/numeric rules, resources, execution trust, publication, and
+inspection. A tiny mandatory bootstrap registry/profile handles unknown
+registry/profile negotiation without adding an operation phase.
 
 The resolver runs the following ordered phases inside one operation-result
 envelope:

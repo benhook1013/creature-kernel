@@ -102,6 +102,13 @@ non-compilable, non-contractual debug data. Mesh, rig, runtime, and other
 artifacts remain further derived outputs. See
 [DR-0002](../decisions/DR-0002-declarative-body-document-source-of-truth.md).
 
+Diagnostic compatibility is Proposed and separately owned: the initial
+registry has nine domains—source-admission, dependency, semantic-identity,
+graph-structure, frame-numeric, resource, execution-trust, publication, and
+inspection—and one tiny mandatory bootstrap registry/profile for unknown
+registry/profile negotiation. Exact code membership and serialized fields
+remain fixture-gated.
+
 The initial adapter admits one strict UTF-8 JSON document, rejects duplicate
 members and comments/includes/evaluation, and uses the proposed JSON Schema
 Draft 2020-12 vocabulary for structural validation before CK semantic
@@ -136,23 +143,23 @@ Compilation reproducibility is an initial requirement. Bit-exact simulation,
 network, and replay determinism are deferred until their requirements and
 evidence are defined.
 
-Batch 12 adds a Proposed consequence for this requirement only: semantic
-decimal admission is intended to use correctly rounded binary64 conversion
-with round-to-nearest, ties-to-even and explicit overflow, underflow,
-subnormal, and non-finite handling. The initial canonical numeric direction
-uses a fixed operation order and prohibits reassociation, implicit FMA
-contraction, FTZ, and DAZ. The proposed normative comparator direction is for
-typed profiles to define category-specific formulas and boundary/tie behaviour,
-with deterministic all-pairs claim satisfiability rather than order-dependent
-folding. Comparator shapes/formulas and normalization/sign direction are fixed
-Proposed material; constants, ranges, validation-margin/error formula, and
-deterministic evaluation implementation/binding remain open. The
-numeric experiment design preregisters domains, separate semantic error
-budgets, an independent oracle, held-out/adversarial corpora, conditioning,
-and metamorphic checks before any evaluated run. Exact constants, ranges,
-validation-margin/error formula, profile IDs, and deterministic evaluation
-implementation/bindings remain open; this paragraph is not an activation or
-acceptance decision.
+Batch 13 adds a Proposed consequence for this requirement only: semantic
+decimal admission uses correctly rounded binary64 conversion with
+round-to-nearest, ties-to-even and explicit overflow, underflow, subnormal,
+and non-finite handling. The initial canonical numeric direction uses a fixed
+operation order and prohibits reassociation, implicit FMA contraction, FTZ, and
+DAZ. Same-target claims normalize into one canonical local-to-parent frame;
+translations compare directly and rotations use q/-q equivalence. Scalar and
+translation predicates use exact bounded dyadic/integer arithmetic, and
+quaternion comparison uses an offline-derived binary64 half-chord bound with
+no runtime transcendental or norm operation. Structured source-derived claim
+IDs retain multiplicity/provenance, detect same-ID collisions, evaluate pairs
+in sorted-ID order, and select the smallest declared value tuple. These local
+claim rules remain distinct from generic graph collection keys. The numeric
+experiment preregisters rational/ULP, normalization/sqrt, H-derivation,
+order/identity, and compiler-mode evidence before any evaluated run. Exact
+constants, ranges, profile IDs, and validation-margin/error formula remain
+open; this paragraph is not an activation or acceptance decision.
 
 The proposed canonical-data profile uses restricted canonical JSON and
 domain-separated SHA-256 digests for source, normalized graph, build request,
@@ -182,6 +189,13 @@ Batch 11 proposes that machine semantic addresses use a typed, restricted
 ASCII representation with ordered anchor segments, concept kind, and role key;
 Unicode display names remain separate presentation data. The exact profile is
 owned by the [semantic-address specification](../../spec/semantic-address/README.md).
+
+Claim identity for repeated authoritative properties is a separate local
+contract: it includes the canonical target, claim kind, source/namespace,
+stable authored semantic record/property address, and an explicit authored key
+for intentional multiplicity. It is not derived from a JSON pointer, array or
+traversal order, allocation, thread, time, or generated ID. Graph concept
+collections retain their own structured owner-role/claim collection keys.
 
 ### CK-PROD-004: Shared deterministic domain operations
 
@@ -309,11 +323,14 @@ ears require no articulation.
 Transforms own reference-frame placement; typed dimensions own size/extents;
 anchors and landmarks are stable with authored, defaulted, or derived
 provenance; ratios are derived only. Claims target owner address, property role,
-and frame/context and compare after normalization. Authored claims and explicit
-invariants must be jointly satisfiable within contract tolerance; derived or
-defaulted values never override authored claims, and hidden inferred equations
-are not allowed. A conflict is a deterministic semantic-invalid diagnostic and
-no success snapshot. Each source declares units, handedness, up, and forward.
+and frame/context and normalize into one canonical local-to-parent frame before
+direct componentwise translation and q/-q rotation comparison. Authored claims
+and explicit invariants must be jointly satisfiable within contract tolerance;
+derived or defaulted values never override authored claims, and hidden inferred
+equations are not allowed. A composition residual may be retained as a
+separately named diagnostic/snapshot check, not as the same-target validity
+predicate. A conflict is a deterministic semantic-invalid diagnostic and no
+success snapshot. Each source declares units, handedness, up, and forward.
 Resolution converts to a contract-revision canonical internal basis and records
 conversion provenance. Distinguish Part local/reference, Joint proximal/distal,
 Socket intrinsic interface, Attachment host/mating endpoint context, derived
@@ -324,9 +341,13 @@ implementation failure on an admissible transform is `internal-failure`.
 Readiness 2 uses a rigid transform carrier with exactly three translation
 components and four explicit `xyzw` quaternion components, with no scale or
 shear fields. Canonical axes, unit, finite-number and normalization semantics,
-and comparison shapes are fixed Proposed material; exact conditioning,
-numeric ranges, constants, validation-margin/error formula, deterministic
-evaluation bindings, and tolerances remain deferred to Readiness 3.
+and comparison shapes are fixed Proposed material. Exact bounded dyadic scalar
+arithmetic, deterministic quaternion normalization, offline half-chord bounds,
+structured claim IDs, sorted pair reporting, and smallest-tuple selection are
+fixed directions; exact conditioning, numeric ranges, constants,
+validation-margin/error formula, deterministic evaluation bindings, and
+tolerances remain deferred to Readiness 3. Claim identity remains separate
+from generic graph collection keys.
 
 ### CK-PROD-012: Connected visible surface
 
@@ -464,13 +485,16 @@ and deterministic work units are profile-specific and deferred.
 Core semantic formats and compilation concepts should not require one host game
 engine, even if the first implementation uses a particular engine or tool.
 
-The Batch 12 planning consequence is that host-adapter numeric/frame
-conformance remains deferred until an adapter is activated. Before that point,
-the eventual conformance evidence is expected to cover handedness reflection,
-vector/rotation/rigid-transform basis changes, named-direction preservation,
-composition behaviour, round trips, and any binary64 narrowing policy. This is
-Proposed follow-up evidence, not a current adapter requirement or support
-claim.
+The Batch 13 planning consequence is that host-adapter numeric/frame
+conformance remains deferred until an adapter is activated. The future boundary
+uses signed permutation `C` plus finite positive engine-units/metre scale `s`:
+vector lengths use `sC`, scalar lengths use `s`, directions and normalized normals use `C`, and
+rigid transforms use `D H D^-1` for `D = diag(sC, 1)`. Storage/output-only is
+the default tier with no runtime arithmetic claim; an optional runtime tier
+adds probes and fixtures. Both tiers declare precision/domain/narrowing and
+overflow/underflow/subnormal policy; binary32 subnormal claims require an
+FTZ/DAZ probe. This is Proposed follow-up evidence, not a current adapter
+requirement or support claim.
 
 ### CK-PROD-041: External mesh path
 

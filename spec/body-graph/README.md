@@ -1,22 +1,12 @@
 # Resolved body-graph contract
 
-Status: Proposed conceptual contract; CK-KICK-012 Batch 12 discussion-approved
-canonical update. DR-0002 Revision 11 and DR-0008 Revision 11 remain Proposed
-with Owner approval Pending and Review Complete. DR-0006 Revision 8 remains
-Proposed with Owner approval Pending and Review Complete; unresolved findings
-remain. DR-0011 Revision 11, DR-0012 Revision 10, and DR-0013 Revision 8 remain
-Proposed with Owner approval Pending and Review Complete after the Batch 12
-Double review of commit `730a2f77840cc0caa1f838c30dac4ff20f985e69`; both
-independent passes recommend Revise at High confidence. Their current numeric
-review findings remain open: A1–A4 and E1–E4, alongside C1 canonical collection ordering/tie handling, C3
-immutable Readiness 2/3 implementation binding, and C4 diagnostic-domain/
-bootstrap compatibility. This document resolves none of those findings. The
-Batch 11 Double review targeted
-commit `053dba58fd344ed636420e0974cf617862fe265f`; both independent passes
-recommend Revise at High confidence. It is stale evidence for the revised
-records, not acceptance; no implementation or readiness gate activates. See the [current review state](../../docs/project/status.md#current-review-and-future-activation-obligations)
-for the current findings. See the [decision registry](../../docs/decisions/registry.md).
-No acceptance is implied.
+Status: Proposed conceptual contract; CK-KICK-012 Batch 13 discussion-approved
+canonical update. The current decision records remain Proposed with Owner
+approval Pending and Review Pending after the material Batch 13 change. This
+document records the approved comparator, claim identity, and graph collection
+key consequences only; no acceptance, implementation, or readiness gate is
+implied. See the [current review state](../../docs/project/status.md#current-review-and-future-activation-obligations)
+and [decision registry](../../docs/decisions/registry.md) for DR ownership.
 The CK-KICK-012 Batch 5 review at commit `a282dbabffd83afa4e62577086934d00f98e12c7`
 is stale historical evidence. No acceptance is implied.
 
@@ -280,11 +270,14 @@ neighbour inference, or hidden equation is admitted. Core typed collections
 remain present even when empty under the source contract.
 
 When a claim targets the same owner address, property role, and frame/context,
-the resolver compares values after normalization. Authored claims and explicit
-invariants must be jointly satisfiable within the later-defined contract
-tolerance. Derived or defaulted values never override authored claims, and no
-hidden inferred equation may manufacture a winner. A conflict is a
-semantic-invalid outcome with a deterministic diagnostic in the single
+the resolver first normalizes every value into the identical canonical
+local-to-parent frame. Authored claims and explicit invariants must be jointly
+satisfiable by direct componentwise translation comparison and the q/-q
+rotation predicate in the numeric/frame profile. Derived or defaulted values
+never override authored claims, and no hidden inferred equation may manufacture
+a winner. A composition residual may be retained separately for diagnostics or
+snapshot checks, but it is not the same-target validity predicate. A conflict
+is a semantic-invalid outcome with a deterministic diagnostic in the single
 operation-result envelope and no success snapshot. Required unresolved or
 ambiguous values likewise cannot succeed.
 
@@ -293,37 +286,52 @@ ambiguous values likewise cannot succeed.
 The [numeric and frame profile](../numeric-frame-profile/README.md) owns the
 comparison arithmetic; this graph contract owns grouping claims by the
 normalized target and the resulting graph/provenance outcome. Exact discrete
-claims remain exact. Scalar and translation components use the profile's
+claims remain exact. Scalar and translation components use the profile's exact
 inclusive absolute-plus-relative predicate with componentwise L-infinity
 translation semantics. Quaternion claims are normalized and compared with the
-profile's q/-q-invariant half-chord angular algorithm, including its dot-zero
-`+1` sign tie and fixed evaluation order. Transform claims form
-`E = B * inverse(A)` under the selected composition convention and compare its
-named translation and rotation entries through the corresponding profile
-entries; no approximate-identity shortcut is allowed.
+profile's q/-q predicate and dot-zero `+1` sign tie; runtime comparison uses no
+transcendental or norm operation. Transform claims are normalized into the
+same canonical local-to-parent frame for direct comparison. A residual
+`B * inverse(A)` may remain a separately named composition diagnostic or
+snapshot check with its own profile semantics; no approximate-identity shortcut
+is allowed for claim validity.
 
 For competing authoritative claims with the same target, every unordered pair
-must pass. The resolver must not use transitive clustering, a first winner,
-approximate identity, or deduplication. One failing pair makes the source
-deterministically `invalid-source` with a conflict diagnostic; no passing pair
-can rescue it. The normalized binary64 representative tuple is value-type-
-specific: scalar `(value)`; translation/vector `(x,y,z)` in declared semantic
-component order; quaternion `(x,y,z,w)` after normalization and q/-q/sign
-canonicalization; and rigid transform `(tx,ty,tz,qx,qy,qz,qw)`. Any later
-numeric type must define its tuple in the numeric/frame profile before use.
-Lexicographic comparison uses an exact total order over normalized finite
-binary64 values, with `-0` already normalized; stable claim ID breaks ties only
-when tuples are identical. Preserve provenance for every claim, including
-claims not selected as the representative. Adding a passing claim can change
-the representative and therefore a snapshot; a changed comparison profile or
-expected fixture requires its profile/fixture successor process.
+must pass. Group by structured claim ID first: same ID with the same normalized
+value is evaluated once while retaining all occurrences and provenance; same ID
+with a different normalized value is an invalid-source collision. Valid pairs
+are sorted by claim ID and the first failing sorted pair is reported
+deterministically, while pair validity remains unordered. The resolver must not
+use transitive clustering, a first winner, approximate identity, or
+deduplication. One failing pair makes the source deterministically
+`invalid-source` with a conflict diagnostic; no passing pair can rescue it.
+The normalized binary64 representative tuple is value-type-specific: scalar
+`(value)`; translation/vector `(x,y,z)` in declared semantic component order;
+quaternion `(x,y,z,w)` after normalization and q/-q/sign canonicalization; and
+rigid transform `(tx,ty,tz,qx,qy,qz,qw)`. Any later numeric type must define its
+tuple in the numeric/frame profile before use. Lexicographic comparison uses an
+exact mathematical total order (or equivalent sign-aware bit key) over
+normalized finite binary64 values, with `-0` already `+0`; claim ID breaks ties
+only when the entire value tuple is exactly equal. Preserve provenance for
+every claim, including claims not selected as the representative.
+
+Stable claim identity is structured from canonical target, claim kind, source
+document/namespace identity, stable authored semantic record/property address,
+and an explicit authored claim key for intentional multiplicity. It never uses
+a raw JSON pointer, array/traversal/allocation order, thread, time, or generated
+identifier; a raw pointer is diagnostic provenance only. Local claim-ID and
+multiplicity semantics are separate from the generic canonical collection key.
+Adding a passing claim can change the representative and therefore a snapshot;
+a changed comparison profile or expected fixture requires its profile/fixture
+successor process.
 Authored-conflict and expected-snapshot comparisons remain separate profiles,
 and their constants remain experiment-gated.
 
 This local claim representative rule is not a canonical key for unrelated
-unordered collections. The Batch 11 C1 total canonical collection-ordering and
-tie-handling finding remains unresolved in the canonical-data profile; this
-contract does not invent that key.
+unordered collections. Every graph concept collection still uses the generic
+structured collection address plus its declared owner-role/claim collection
+key, with that owner retained by the canonical-data profile. Claim identity
+and claim multiplicity must not be substituted for collection identity.
 
 ## Resolver and publication relationship
 
@@ -398,10 +406,13 @@ Fixtures must cover bilateral/repeated modules; namespace ownership and full
 remapping; explicit containment versus relation-only connectivity; the typed
 articulation chain and immediate-child rule; optional-module placement,
 offset, duplicate, and detached cases; overlapping regions; canonical frame
-records and provenance; authored/defaulted/derived values; frame
-normalization; measurement conflicts; pairwise claim permutations and
-non-transitive triples; q/-q and dot-zero sign ties; transform residuals;
-representative-selection and provenance-retention consequences; invalid/
+records and provenance; authored/defaulted/derived values; deterministic
+normalization and correctly rounded square-root fixtures; direct common-frame
+comparison and order reversal; measurement conflicts; duplicate/collision
+claim IDs, pair ordering, and smallest representative tuples; pairwise claim
+permutations and non-transitive triples; q/-q and dot-zero sign ties; transform
+residual diagnostics; representative-selection and provenance-retention
+consequences; invalid/
 unsupported outcomes; resource limits and diagnostic truncation; and the
 cross-DR fixture matrix. The fixture set is evidence planning, not proof yet.
 The [fixture-manifest and admission contract](../fixture-manifest/README.md)

@@ -39,38 +39,36 @@ The canonical specification owners are the [body-document](../../spec/body-docum
 and [fixture-manifest](../../spec/fixture-manifest/README.md) contracts.
 
 Prior CK-KICK-012 revisions and review artifacts remain preserved as historical
-evidence. Ben's Batch 5, Batch 8, Batch 9, Batch 10, Batch 11, and Batch 12
-resolutions are discussion-approved and incorporated here as Proposed product
-outcomes only. DR-0002 Revision 11 and DR-0008 Revision 11 remain Proposed
-with Owner approval Pending and Review Complete. DR-0006 Revision 8 remains
-Proposed with Owner approval Pending and Review Complete, with unresolved C1,
-C3, and C4 contract findings retained for the next Ben discussion. The three
-materially revised records are now DR-0011 Revision 11, DR-0012 Revision 10,
-and DR-0013 Revision 8; each remains Proposed with Owner approval Pending and
-Review Complete after the Batch 12 Double review of commit
-`730a2f77840cc0caa1f838c30dac4ff20f985e69`. Both independent passes recommend
-Revise at High confidence; A1–A4 and E1–E5 remain unresolved. The Batch 11
-review artifacts targeted commit `053dba58fd344ed636420e0974cf617862fe265f`
-and are stale only for those three revised records. Review evidence is not
-acceptance; no implementation or readiness gate activates.
+evidence. Ben's Batch 5, Batch 8, Batch 9, Batch 10, Batch 11, Batch 12, and
+Batch 13 resolutions are discussion-approved and incorporated here as Proposed
+product outcomes only. The current materially revised decision records remain
+Proposed with Owner approval Pending and Review Pending after Batch 13; the
+canonical owners retain exact revision and review metadata. Review evidence is
+not acceptance; no implementation or readiness gate activates.
 Recommendations and the next discussion are summarized in the [current review
 state](../project/status.md#current-review-and-future-activation-obligations).
 The cross-cutting proposal is [DR-0012:
 initial body-document encoding, resolution, and compatibility](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
 This documentation records intended product outcomes; exact syntax details,
 machine schema, exact numeric bounds, and implementation mechanisms remain
-deferred to their owning specifications and architecture work. Batch 11 and
-Batch 12 propose typed machine addresses with separate display names, a
-right-handed metre semantic basis with +Y up and +Z creature-forward, finite
-binary64 numeric semantics with correctly rounded decimal admission,
-canonical quaternion handling, typed comparison profiles with deterministic
-all-pairs claim evaluation, project canonical JSON with domain-separated
-SHA-256 digests, and a small versioned diagnostic registry. Batch 12 also
-proposes the preregistered independent-oracle, held-out/adversarial corpus,
-conditioning, metamorphic, and compiler-mode evidence needed before numeric
-activation. Host-adapter conformance remains deferred until adapter activation.
-Comparator shapes/formulas and normalization/sign direction are fixed Proposed
-material; constants, ranges, validation-margin/error formula, and deterministic
-evaluation implementation/binding remain open. These are Proposed consequences
-only and do not activate implementation or
-readiness gates.
+deferred to their owning specifications and architecture work. Batch 13 keeps
+the typed machine-address, canonical-data, and diagnostic owners separate and
+proposes: direct same-target comparison in one canonical local-to-parent frame;
+exact dyadic scalar predicates; deterministic normalization and precomputed
+half-chord bounds with no runtime transcendental comparison; structured stable
+claim IDs, sorted pair evaluation, and smallest-tuple selection; and a graph
+collection key distinct from local claim multiplicity. The unregistered
+experiment must verify rational/ULP boundaries, offline H derivation, bounded
+platform normalization fixtures, and order/identity fixtures. Future adapters
+use signed permutation `C` plus positive scale `s` (vector lengths use `sC`,
+scalar lengths use `s`), with storage/output-only
+and optional runtime-conformance tiers, explicit precision/domain narrowing,
+and FTZ/DAZ/subnormal probes. Diagnostic compatibility remains a separate
+Proposed owner with nine domains—source-admission, dependency, semantic-
+identity, graph-structure, frame-numeric, resource, execution-trust,
+publication, and inspection—and one mandatory tiny bootstrap registry/profile;
+exact codes/fields remain fixture-gated. All remain Proposed consequences only: no
+constants, profile IDs, schema, resolver, fixture, or adapter activates.
+Readiness implementation binding remains a separate scoped content-identity
+transaction from the fixture payload and expected snapshots; no implementation
+binding is implied here.

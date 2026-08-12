@@ -1,24 +1,19 @@
 # Body-document contract
 
-Status: Proposed conceptual contract; CK-KICK-012 Batch 12 discussion-approved
+Status: Proposed conceptual contract; CK-KICK-012 Batch 13 discussion-approved
 canonical update. DR-0002 Revision 11 and DR-0008 Revision 11 remain Proposed
-with Owner approval Pending and Review Complete. DR-0006 Revision 8 remains
-Proposed with Owner approval Pending and Review Complete; unresolved findings
-remain. DR-0011 Revision 11, DR-0012 Revision 10, and DR-0013 Revision 8 remain
-Proposed with Owner approval Pending and Review Complete after the Batch 12
-Double review of commit `730a2f77840cc0caa1f838c30dac4ff20f985e69`; both
-independent passes recommend Revise at High confidence. Their current numeric
-review findings remain open: A1–A4 and E1–E4, alongside C1 canonical collection ordering/tie handling, C3
-immutable Readiness 2/3 implementation binding, and C4 diagnostic-domain/
-bootstrap compatibility. This document resolves none of those findings. The
-Batch 11 Double review targeted
-commit `053dba58fd344ed636420e0974cf617862fe265f`; both independent passes
-recommend Revise at High confidence. It is stale evidence for the revised
-records, not acceptance; no implementation or readiness gate activates. See the [current review state](../../docs/project/status.md#current-review-and-future-activation-obligations)
-for the current findings. See the [decision registry](../../docs/decisions/registry.md).
-No acceptance is implied.
-The CK-KICK-012 Batch 5 review at commit `a282dbabffd83afa4e62577086934d00f98e12c7`
-is stale historical evidence. No acceptance is implied.
+with Owner approval Pending and Review Complete. Current Batch 13 material is
+recorded in DR-0006 Revision 9, DR-0011 Revision 12, DR-0012 Revision 11, and
+DR-0013 Revision 9; each remains Proposed with Owner approval Pending and
+Review Pending. Batch 11/12 review artifacts are stale for those materially
+revised records and remain evidence only. This Batch 13 update resolves the
+C1 keyed-collection, C3 implementation-binding, and C4 diagnostic/bootstrap
+directions as Proposed cross-spec contracts; no acceptance, schema, parser,
+resolver, implementation binding, or readiness gate activates. See the
+[decision registry](../../docs/decisions/registry.md) and [project review
+state](../../docs/project/status.md#current-review-and-future-activation-obligations).
+Exact comparator arithmetic and adapter algorithms remain owned by the numeric
+and frame profile; this document only cross-links their use.
 
 This document is the canonical specification authority for the authored body
 document and the end-to-end source-to-graph operation. It owns source
@@ -96,13 +91,20 @@ extension envelope described below.
 
 Each collection contains explicit typed records and stable references. There is
 no generic union or untyped graph escape hatch. Array order is non-semantic;
-semantic ordering and equivalence use stable identities and any contract-owned
-ordering rule. Core collections are present even when empty, and the recognized
-core vocabulary is closed. An explicitly permitted empty collection is the
-only initial omission for a core collection. This source contract does not
-invent a total canonical key for unordered collections; the Batch 11 C1
-canonical-ordering/tie-handling finding remains unresolved in the
-[canonical-data profile](../canonical-data/README.md).
+canonical ordering of an unordered collection is owned by the
+[canonical-data profile](../canonical-data/README.md), which requires the
+owner-declared typed total key and uniqueness/multiplicity rule. Core
+collections are present even when empty, and the recognized core vocabulary is
+closed. An explicitly permitted empty collection is the only initial omission
+for a core collection. This source contract does not redefine canonical key
+arithmetic or serialized field spelling.
+
+Authored claims retain a stable source identity, normalized source path or
+address, and owner/role/frame context sufficient for claim identity and
+provenance. Claim identity never comes from array index, source traversal,
+allocation order, or object serialization. Body-graph owns claim grouping,
+pairwise satisfiability, representative selection, and provenance retention;
+the numeric/frame profile owns comparison formulas and evaluation semantics.
 
 ## Basis, profiles, and frame roles
 
@@ -196,6 +198,16 @@ is permitted. Explicit migration is a separate operation that emits a new
 authored source; it does not mutate the input in place. Semantic contract
 family and revision are separate from compiler/build identity, configuration,
 seed, dependency identity, and artifact identity.
+
+Diagnostic registry/profile negotiation is not a new bootstrap phase. The
+[diagnostic profile](../diagnostics/README.md) always supplies a tiny
+unnegotiated bootstrap registry/profile. If a required registry or profile is
+unknown, this existing admission/contract-recognition phase returns top-level
+`unsupported` with the deterministic bootstrap primary, bootstrap effective
+IDs, and bounded opaque requested IDs marked `required=true`; it never emits
+under the unknown profile or silently downgrades. The exact bootstrap code
+spelling remains fixture-gated only while its conceptual identity stays
+unambiguous and non-recursive.
 
 ## Core members and extensions
 
@@ -311,9 +323,10 @@ normative phase/status/diagnostic ordering; the exact code vocabulary is
 deferred. Human-readable text is explanatory and never a compatibility or
 ordering key.
 
-The [diagnostic registry and profile](../diagnostics/README.md) owns the
-versioned code/occurrence/profile boundary and exact initial code set; this
-contract owns the operation status and precedence. Diagnostics are bounded by
+The [diagnostic registry and profile](../diagnostics/README.md) is the sole
+owner of registry definitions, the nine domains, stable classes, occurrence
+identity/multiplicity, selection profiles, ordering, and compatibility; this
+contract owns only operation status and precedence. Diagnostics are bounded by
 a profile-selected arena. Ordinary diagnostics are
 retained as reached until ordinary capacity is exhausted; earlier diagnostics
 are not silently replaced. Primary selection considers logical diagnostics in
@@ -325,12 +338,14 @@ continue. If arena exhaustion itself prevents trusted completion and establishes
 `resource-limit`, the reserved resource/truncation diagnostic is the primary
 unless `internal-failure` has precedence.
 
-The deterministic ordering key is, in order: phase; severity/category;
-normalized source path and offset; diagnostic code; and semantic address.
-Missing path, offset, code, or address values use stable conceptual sentinels;
-the registry/profile defines their machine treatment. Ties use no human text, timestamps,
-allocation order, or incidental object order. The implementation may retain
-additional diagnostics only when doing so respects the same bound and key.
+The diagnostic profile's deterministic ordering key is, in order: phase;
+severity/category; normalized source path and offset; diagnostic code; semantic
+address; and the profile-defined occurrence identity/multiplicity key. Missing
+path, offset, code, or address values use stable conceptual sentinels; the
+registry/profile defines their machine treatment. Ties use no human text,
+timestamps, source array index, allocation order, or incidental object order.
+The implementation may retain additional diagnostics only when doing so
+respects the same bound, occurrence semantics, and key.
 
 ## Resource and hostile-input contract
 
@@ -381,7 +396,12 @@ dependency failures, resource-limit and diagnostic truncation outcomes,
 internal-failure handling where testable, and deterministic multi-diagnostic
 ordering. The semantic Stage 1 taxonomy is exercised only by admitted,
  recognized inputs. The [fixture-manifest and admission contract](../fixture-manifest/README.md)
-owns the manifest payload, separate content-identity readiness/decision
-binding, preflight, expected-outcome fields, and Readiness 2/3 corpus
-admission. Exact fixture files, codes, and numeric profiles remain unactivated
-until that admission and the relevant readiness gate are complete.
+owns the manifest payload, separate fixture-payload content binding, external
+implementation binding for code-activating readiness gates, preflight,
+expected-outcome fields, and Readiness 2/3 corpus admission. Its implementation
+binding covers only the relevant parser/bootstrap or resolver closure and is
+distinct from the fixture-manifest canonical digest domain. Post-merge and
+immediately pre-ledger recomputation must match both bindings or activation is
+blocked and a successor is required. Exact fixture files, codes, and numeric
+profiles remain unactivated until that admission and the relevant readiness
+gate are complete.

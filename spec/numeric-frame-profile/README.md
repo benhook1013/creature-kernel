@@ -3,11 +3,10 @@
 Status: Proposed canonical specification; exact activation constants remain
 experiment-gated
 
-This Batch 12 update is Proposed and does not resolve C1 canonical collection
-ordering/tie handling, C3 immutable Readiness 2/3 implementation binding, or
-C4 diagnostic-domain/bootstrap compatibility. Those findings remain open in
-the current decision records; no numeric, resolver, fixture, or adapter gate
-activates from this document.
+This Batch 13 update is Proposed. It records the approved comparator, claim
+identity, and future-adapter directions while preserving the separate
+canonical-collection, Readiness 2/3 binding, and diagnostic/bootstrap owners.
+No numeric, resolver, fixture, or adapter gate activates from this document.
 
 This document owns the semantic coordinate basis, Readiness 2 rigid-transform
 carrier, Readiness 3 numeric validity/canonicalization boundary, and typed
@@ -90,12 +89,18 @@ same binary64 value while remaining distinct raw source bytes.
 
 Quaternion components are finite binary64 values and the quaternion is not zero
 or otherwise within the profile's forbidden near-zero region. `q` and `-q`
-represent the same rotation. Normalization is permitted only within the
-versioned experiment-set drift bound. Canonical quaternion sign is chosen by
-the first nonzero component in the order `w`, `x`, `y`, `z` being positive; if
-all components are zero or within the forbidden region, the transform is
-malformed. Malformed, non-finite, non-normalizable, or out-of-range values are
-rejected.
+represent the same rotation. The deterministic normalization path scales by
+the exact maximum absolute component, divides the fixed `x,y,z,w` components
+by that scale, accumulates squares strictly left-to-right without
+reassociation or FMA contraction, uses correctly rounded binary64 square root,
+then performs fixed division. It validates finite, nonzero, and profile bounds
+at each required boundary. The canonical sign is chosen by the first nonzero
+component in the order `w`, `x`, `y`, `z` being positive. If all components are
+zero or within the forbidden region, the transform is malformed. Malformed,
+non-finite, non-normalizable, or out-of-range values are rejected. The profile
+requires round-to-nearest, ties-to-even, with FTZ/DAZ and ambient rounding
+controls disabled; a required correctly rounded square root that is unavailable
+is unsupported. Near-zero and drift thresholds remain evidence-gated.
 
 ## Typed comparison profiles
 
@@ -109,55 +114,68 @@ For a scalar and for each translation component, a pair `a`, `b` passes when
 `|a - b| <= A + R * max(|a|, |b|)`
 
 where `A` and `R` are finite, nonnegative entries selected by the comparison
-profile. The comparison is inclusive.
-The implementation must evaluate this predicate with stable checked
-arithmetic, avoiding overflow, underflow, cancellation, and ambient floating-
-point modes; a finite binary64 result cannot be accepted or rejected merely
-because an unchecked intermediate overflowed. Translation vectors use the
-componentwise L-infinity rule: every component must pass its named translation
-entry. Stable evaluation obtains a same-sign difference by ordered magnitudes,
-an opposite-sign difference by a checked magnitude sum, and evaluates the
-right-hand bound in a checked scaled representation (or an equivalent
-monotonic comparison). Mathematical overflow of an intermediate therefore
-cannot silently turn the predicate into a pass or fail.
+profile. The comparison is inclusive. Mathematically, each finite binary64 is
+decoded as a signed integer significand times a power of two. The implementation
+must perform the subtraction, multiplication, addition, and comparison as
+exact bounded dyadic/integer operations (with explicit bounds for any required
+temporary), with no rounded intermediate and no equivalent-monotonic freedom.
+An input or intermediate outside the declared finite domain is rejected or
+unsupported according to the profile; it cannot silently become a pass or
+fail through overflow, underflow, cancellation, or an ambient floating-point
+mode. Translation vectors use the componentwise L-infinity rule: every
+component must pass its named translation entry.
 
-Quaternion comparison first normalizes both quaternions under the selected
-normalization rule. Let `d = dot(qa, qb)`, choose `s = +1` when `d >= 0` and
-`s = -1` otherwise (the `d == 0` tie therefore chooses `+1`), and compute the
-stable half-chord in the fixed order
+Quaternion comparison first normalizes both quaternions under the deterministic
+path above. Let `d = dot(qa, qb)`, choose `s = +1` when `d >= 0` and
+`s = -1` otherwise (the `d == 0` tie therefore chooses `+1`). Set
+`di = qa_i - s qb_i` in fixed `x,y,z,w` order and accept exactly when the
+dyadic sum `sum(di^2) <= (2H)^2`, where `H` is the profile's finite binary64
+angular half-chord bound. The dot, subtraction, square, sum, and comparison
+are exact dyadic/integer operations; no runtime `asin`, `sin`, norm, or square
+root is used by comparison. `H` is derived offline from an independent
+high-precision oracle/generator revision and is the greatest binary64 value
+no greater than the exact `sin(theta/4)` for the declared angular threshold.
+The profile stores the exact theta/H bits and derivation metadata. No
+alternative q-sign tie or approximate-identity test is permitted.
 
-`h = 0.5 * ||qa - s qb||2`.
-
-Then compute `theta = 4 * asin(clamp(h, 0, 1))` and accept exactly when
-`theta <=` the named angular tolerance. Dot, subtraction, and norm components
-use the carrier order `x,y,z,w` with left-to-right checked accumulation;
-normalization uses the same order. The principal mathematical `asin` is
-evaluated under the profile's deterministic binary64 elementary-function rule.
-The dot product, signed subtraction, norm, clamp, and `asin` evaluation order
-is fixed by this sequence; no alternative q-sign tie or approximate identity
-test is permitted.
-
-For transforms, form the residual `E = B * inverse(A)` using the selected
-semantic composition convention. Compare the residual translation and rotation
-through their named scalar/component and quaternion/angular comparison entries;
-the residual is not compared by an unnamed approximate-identity shortcut.
+For same-target claims, normalize every value into the identical canonical
+local-to-parent frame and compare translations directly componentwise and
+rotations by the q/-q predicate above. The comparison is invariant under
+claim order and does not form a residual. A residual may be retained as a
+separately named composition diagnostic or snapshot check with its own profile
+semantics; it is not the same-target validity predicate.
 
 For competing authoritative claims with the same normalized target (owner
 address, property role, and frame/context), compare every unordered pair. All
 pairs must pass; there is no transitive clustering, first-winner rule,
 approximate identity, or deduplication rule. Any failing pair produces a
-deterministic `invalid-source` conflict, with no successful snapshot. The
-normalized binary64 representative tuple is value-type-specific: scalar
+deterministic `invalid-source` conflict, with no successful snapshot. Group
+claims by their stable structured claim ID first: same ID with the same
+normalized value is evaluated once while retaining every occurrence and its
+provenance; same ID with a different normalized value is an invalid-source
+collision. Evaluate valid pairs in lexicographic claim-ID order and report the
+first failing sorted pair; pair validity itself is unordered.
+
+The normalized binary64 representative tuple is value-type-specific: scalar
 `(value)`; translation/vector `(x,y,z)` in declared semantic component order;
 quaternion `(x,y,z,w)` after normalization and q/-q/sign canonicalization; and
 rigid transform `(tx,ty,tz,qx,qy,qz,qw)`. Any later numeric type must define its
-tuple in this profile before use. Lexicographic comparison uses an exact total
-order over normalized finite binary64 values, with `-0` already normalized;
-stable claim identity breaks ties only when tuples are identical. Retain
-provenance for every claim. This representative selection is local to a claim
+tuple in this profile before use. Lexicographic comparison uses exact total
+order over normalized finite binary64 values (`-0` is already `+0`), defined by
+the mathematical value or an equivalent sign-aware bit key; claim ID breaks a
+tie only when the entire value tuple is exactly equal. Preserve all provenance,
+including unselected claims. The representative rule is local to a claim
 target and does not define canonical ordering for unrelated unordered
-collections. Adding a passing claim can change the representative and hence a
-snapshot; the comparison profile or fixture successor governs that change.
+collections.
+
+Stable claim identity is structured from the canonical target, claim kind,
+source document/namespace identity, stable authored semantic record/property
+address, and an explicit authored claim key when multiple intentional claims
+are allowed. It never uses a raw JSON pointer, array/traversal/allocation
+order, thread, time, or generated identifier. A raw pointer may remain
+diagnostic provenance only. Local claim-ID/multiplicity is separate from the
+generic canonical collection key; graph concept collections use their own
+structured address and owner-role/claim collection key.
 
 The authored-conflict and expected-snapshot profiles remain distinct, and
 their constants are experiment-gated. Comparison profiles identify the
@@ -176,33 +194,43 @@ excessive precision at the lexical/resource bound, lexical signed zero, and
 alternate decimal spellings. In-bound precision must be admitted; a token
 exceeding the declared lexical/resource bound exercises `resource-limit`, not
 an arbitrary semantic digit cutoff. Fixtures must distinguish raw source bytes
-from normalized `+0` and normalized binary64 values and must bind the separate
-authored-conflict and expected-snapshot comparison profiles. Exact profile
-identifiers, constants, expected bytes, and expected digests remain
-activation-gated and are owned by the fixture-manifest admission transaction.
+from normalized `+0` and normalized binary64 values; verify exact dyadic scalar
+predicates against a rational oracle and inclusive ULP boundaries; bind the
+same-target common-frame/order-reversal, duplicate/collision, sorted-pair,
+and smallest-tuple claim-ID fixtures; and bind the separate authored-conflict
+and expected-snapshot comparison profiles. Exact profile identifiers,
+constants, expected bytes, and expected digests remain activation-gated and
+are owned by the fixture-manifest admission transaction.
 
 ## Future adapter conformance
 
 An adapter is a separate boundary after Readiness 3; this profile selects no
 engine. It must declare an explicit signed-permutation orthogonal map `C` for
-the three semantic axes (`C` has entries in `{-1, 0, +1}` and
-`C^T C = I`). The adapter must document named-direction mapping, handedness
-and any reflection, and map vectors and translations as `v' = C v` in the
-declared unit basis. For a core rotation matrix `R`, it must map
-`R' = C R C^-1`; for a homogeneous rigid transform `H`, it must map
-`H' = diag(C, 1) H diag(C^-1, 1)`. Quaternion conversion must be performed
-through that matrix mapping or a proven equivalent, preserving q/-q
-equivalence and the declared quaternion convention.
+the three semantic axes (`C` has entries in `{-1, 0, +1}` and `C^T C = I`) and a
+finite positive scale `s` in engine-units per metre. Vector length quantities
+(points, translations, and displacements) map as `s C v`; scalar length
+quantities (dimensions, radii, and extents) map as `s v`. Directions and
+normalized normals map as `C v` with no scale. For a core
+rotation matrix `R`, it maps `R' = C R C^-1`; for a homogeneous rigid transform
+`H`, with `D = diag(sC, 1)`, it maps `H' = D H D^-1` and uses `D^-1` for the
+reverse direction. Quaternion conversion must use that matrix conjugation or a
+proven equivalent, preserving q/-q equivalence and the declared quaternion
+convention. Raw covector semantics may be deferred until a contract needs
+them; normalized normals are not covectors and receive no scale.
 
-Conformance must exercise named directions, reflections/handedness,
-composition, inverse, quaternion sign equivalence, and core-to-adapter-to-core
-round trips. A separate target-precision profile governs correctly rounded
-narrowing, finite overflow, subnormal preservation, nonzero-to-zero underflow,
-angular and translation budgets, and any target numeric limits. It must fail
-closed for overflow or disallowed underflow and must not saturate, clamp, or
-depend on an ambient numeric mode. The core snapshot remains binary64; target
-precision is an adapter/output concern. Adapter activation is a separate
-post-Readiness-3 transaction with its own fixtures and profile binding.
+There are two proposed conformance tiers. The default tier covers storage and
+output conversion only and makes no runtime arithmetic claim. An optional
+runtime-conformance tier adds runtime probes and fixtures. Both tiers declare
+target precision, domain and narrowing rules, finite overflow/underflow and
+subnormal policy, and translation/angular budgets. Binary32 may exclude values
+whose correctness depends on subnormals; a subnormal runtime claim requires an
+FTZ/DAZ probe, otherwise the required capability is unsupported. Overflow or
+disallowed underflow fails closed; conversion never saturates, clamps, or uses
+an ambient numeric mode. Fixtures cover known magnitude (`s=1` and nonunit),
+directions/no-scale, transform conjugation, composition/inverse/reflection/q,
+round trips, and overflow/underflow/subnormal cases. The core snapshot remains
+binary64. Adapter activation is a separate post-Readiness-3 transaction with
+its own fixtures and profile binding.
 
 ## Activation boundary
 
