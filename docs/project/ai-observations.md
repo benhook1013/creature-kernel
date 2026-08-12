@@ -36,3 +36,8 @@ Entry format:
   - Context: delegated work where GUI duration or token counters appear stale or implausible.
   - Observation: display counters do not prove that an agent is still working and can prompt an unnecessary interruption, duplicate launch, or kill.
   - Expected pattern: query authoritative live agent status first; if concern remains, message the existing worker for a bounded status explanation before interrupting, killing, or spawning a duplicate. Record enough context to distinguish live status from display state.
+
+- `2026-08-12`: Untracked files bypass ordinary diff whitespace checks
+  - Context: a delegated review recorder created new Markdown files and reported a focused `git diff --check` pass; the staged commit gate later found extra blank lines at EOF in every new file.
+  - Observation: ordinary `git diff --check` does not inspect untracked files, so a clean result can be misleading when a task creates files.
+  - Expected pattern: before reporting a focused whitespace pass, stage intended new files for `git diff --cached --check` or run an explicit equivalent check over every new file; the orchestrator still repeats the staged check before commit.
