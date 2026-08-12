@@ -23,8 +23,11 @@ Revision 11 remain Proposed with Owner approval Pending and Review Complete.
 DR-0006 Revision 8 remains Proposed with Owner approval Pending and Review
 Complete; unresolved C1/C3/C4 contract findings remain. DR-0011 Revision 11,
 DR-0012 Revision 10, and DR-0013 Revision 8 remain Proposed with Owner
-approval Pending and Review Pending; the Batch 11 review artifacts are stale
-only for those three materially revised records. The fresh Batch 11 Double
+approval Pending and Review Complete after the Batch 12 Double review of
+commit `730a2f77840cc0caa1f838c30dac4ff20f985e69`; both independent passes
+recommend Revise at High confidence, with unresolved A1–A4 and E1–E5 findings.
+The Batch 11 review artifacts are stale only for those three materially revised
+records. The fresh Batch 11 Double
 review targeted commit `053dba58fd344ed636420e0974cf617862fe265f`; both
 independent passes recommended Revise at High confidence at that historical
 revision. The completed Batch 9 Double review targeted commit
@@ -109,7 +112,8 @@ Proposed focused profiles.
 
 CK-KICK-013 is a discussion-approved platform proposal, not an accepted
 implementation decision. Proposed DR-0013 Revision 8 has Owner approval Pending
-and Review Pending after Batch 12, with unresolved findings carried forward
+and Review Complete after the Batch 12 Double review of commit
+`730a2f77840cc0caa1f838c30dac4ff20f985e69`, with unresolved findings carried forward
 from Batch 11. The Batch 11 review evidence is stale for this materially
 revised record; the fresh Batch 11 Double review targeted
 commit `053dba58fd344ed636420e0974cf617862fe265f`; both independent passes recommend Revise at High confidence. The completed Batch 9 Double review targeted
@@ -189,8 +193,10 @@ Readiness 3 is a separate transaction for expected graph snapshots and
 comparison rules, after those prerequisites and the canonical-data profile are
 available. The planned numeric experiment preregisters intended domains,
 separate semantic error budgets, exact/higher-precision oracles, frozen
-development/held-out/adversarial corpora, condition estimates, metamorphic
-checks, and a validation margin whose formula/constant remain open. Adapter
+development/held-out/adversarial corpora, condition estimates, and metamorphic
+checks. Comparator shapes/formulas and normalization/sign direction are fixed
+Proposed material; constants, ranges, validation-margin/error formula, and
+deterministic evaluation implementation/binding remain open. Adapter
 conformance remains deferred until adapter activation. These are Proposed
 architecture consequences, not activated implementation work.
 

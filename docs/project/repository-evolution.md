@@ -16,14 +16,16 @@ DR-0008 Revision 11 remain Proposed with Owner approval Pending and Review
 Complete. DR-0006 Revision 8 remains Proposed with Owner approval Pending and
 Review Complete; unresolved C1/C3/C4 contract findings remain. DR-0011
 Revision 11, DR-0012 Revision 10, and DR-0013 Revision 8 remain Proposed with
-Owner approval Pending and Review Pending after the Batch 12 numeric update.
+Owner approval Pending and Review Complete after the Batch 12 Double review of
+commit `730a2f77840cc0caa1f838c30dac4ff20f985e69`; both independent passes
+recommend Revise at High confidence and leave A1–A4/E1–E5 unresolved.
 The fresh Batch 11 Double review targeted commit
 `053dba58fd344ed636420e0974cf617862fe265f`; its artifacts are stale only for
 those three materially revised records. The completed Batch 9 Double review
 targeted commit `6cf17270fda2827756c24a8d0fb301bef358f`; its evidence is stale
 for the revised records; the prior Batch 10 Double-review evidence is also
 stale. Ben approved the Batch 11/12 resolution directions; current-revision
-review for the three changed records is pending. No implementation or
+review for the three changed records is complete evidence. No implementation or
 readiness gate activates.
 No implementation or readiness gate
 activates.

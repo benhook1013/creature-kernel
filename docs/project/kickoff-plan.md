@@ -29,7 +29,10 @@ resolver activation. Batch 12 strengthens that plan with preregistered numeric
 domains and separate semantic error budgets, exact/higher-precision oracles,
 frozen development/held-out/adversarial corpora, fixed operation and compiler
 floating-point controls, condition estimates, metamorphic/all-pairs checks,
-and a validation margin whose formula/constant remain open. The planned order
+and a validation margin whose formula/constant remain open. Normative
+comparator shapes/formulas and normalization/sign direction are fixed Proposed
+material; constants, ranges, margins/error formula, and deterministic
+evaluation bindings remain open. The planned order
 is numeric/frame semantics, typed addresses, canonical data, diagnostics,
 exact schema/manifest, Readiness 2, and a separate Readiness 3
 expected-snapshot transaction. These are Proposed planning outcomes, not
@@ -605,8 +608,9 @@ documentation; DR-0002/0008 Revision 11 remain Proposed with Owner approval
 Pending and Review Complete, while DR-0006 Revision 8 remains Proposed with
 Owner approval Pending and Review Complete with unresolved C1/C3/C4 contract
 findings. DR-0011 Revision 11, DR-0012 Revision 10, and DR-0013 Revision 8
-remain Proposed with Owner approval Pending and Review Pending after Batch 12;
-actionable findings remain unresolved. The prior Batch 10 Double-review
+remain Proposed with Owner approval Pending and Review Complete after Batch 12;
+the current target is `730a2f77840cc0caa1f838c30dac4ff20f985e69`, with Revise at
+High confidence and actionable findings unresolved. The prior Batch 10 Double-review
 evidence is stale history; the fresh Batch 11 current-revision Double review
 targeted `053dba58fd344ed636420e0974cf617862fe265f`, and its artifacts are stale
 only for the three materially revised records. The completed Batch 9 Double
@@ -701,7 +705,9 @@ are stale historical evidence. The current six-record set is DR-0002 Revision
 Revision 10, and DR-0013 Revision 8; DR-0002/0008 retain Review Complete,
 DR-0006 remains Review Complete with unresolved C1/C3/C4 findings, and the
 three materially revised records remain Proposed with Owner approval Pending
-and Review Pending. Ben approved the Batch 11/12 resolution directions; the
+and Review Complete after the Batch 12 Double review of
+`730a2f77840cc0caa1f838c30dac4ff20f985e69`; both passes recommend Revise at
+High confidence. Ben approved the Batch 11/12 resolution directions; the
 prior Batch 10 Double-review evidence is stale history and the Batch 11
 artifacts are stale only for the three revised records. The
 completed Batch 9 Double review targeted
@@ -722,7 +728,7 @@ five actionable findings were resolved by Batch 10 discussion. The prior Batch
 10 Double review remains preserved as stale evidence. The Batch 11 current-
 revision Double-review artifacts are stale for the three materially revised
 records. DR-0011 Revision 11, DR-0012 Revision 10, and DR-0013 Revision 8 are
-currently Review Pending; DR-0006 Revision 8 remains Review Complete with
+currently Review Complete with unresolved A1–A4 and E1–E5 findings; DR-0006 Revision 8 remains Review Complete with
 unresolved C1/C3/C4 findings. No acceptance or implementation/readiness gate is
 implied.
 
@@ -1139,7 +1145,7 @@ adapter, or readiness gate.
 
 The current affected records are DR-0011 Revision 11, DR-0012 Revision 10,
 and DR-0013 Revision 8, each Proposed with Owner approval Pending and Review
-Pending. DR-0006 Revision 8 remains Review Complete with unresolved C1/C3/C4
+Complete after the current Batch 12 Double review. DR-0006 Revision 8 remains Review Complete with unresolved C1/C3/C4
 contract findings; Batch 11 review evidence is stale only for the three
 materially revised records.
 
@@ -1148,8 +1154,9 @@ materially revised records.
 ### CK-KICK-013: Select the first implementation platform
 
 State: active (discussion-approved Proposed platform direction integrated;
-Proposed DR-0013 Revision 8 has Owner approval Pending and Review Pending after
-the Batch 12 resolution, with unresolved findings. The Batch 11 Double-review
+Proposed DR-0013 Revision 8 has Owner approval Pending and Review Complete after
+the Batch 12 resolution and current review of
+`730a2f77840cc0caa1f838c30dac4ff20f985e69`, with unresolved findings. The Batch 11 Double-review
 evidence is stale for this materially revised record. The
 completed Batch 9 Double review targeted
 `6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is stale for the
@@ -1209,8 +1216,8 @@ the Batch 9 revisions; its seven consolidated findings are preserved as
 historical evidence resolved by discussion. The completed Batch 9 Double review
 is evidence only; its five actionable findings were resolved by Batch 10
 discussion. The prior Batch 10 review remains preserved as stale evidence. The
-fresh Batch 11 review is stale for this materially revised record; current
-review is pending and no implementation activates while the DR remains
+fresh Batch 11 review is stale for this materially revised record; the current
+Batch 12 review is complete evidence and no implementation activates while the DR remains
 Proposed.
 Geometry libraries, licensing, platform support, and any C++ worker/FFI boundary remain
 evidence-driven; they are not settled by this proposal. No implementation

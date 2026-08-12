@@ -40,6 +40,13 @@ subnormal/underflow, overflow, cancellation, near-zero quaternion, q/-q, long
 chain, ill-conditioned, basis-conversion, and claim-order cases. Exact numeric
 values, expected outcomes, and profile IDs remain unselected.
 
+The current Batch 12 Double review is complete evidence against commit
+`730a2f77840cc0caa1f838c30dac4ff20f985e69`; both independent `gpt-5.6-sol`
+medium passes recommend Revise at High confidence. Findings A1–A4 and E1–E5
+remain unresolved, so no fixture corpus or readiness gate is activated. The
+prior Batch 11 review is stale for DR-0011 Revision 11, DR-0012 Revision 10,
+and DR-0013 Revision 8.
+
 Readiness 2 admission is one review-branch activation transaction described by
 the [fixture-manifest specification](../spec/fixture-manifest/README.md). The
 manifest payload contains suite kind, fixture paths/content hashes, profiles,

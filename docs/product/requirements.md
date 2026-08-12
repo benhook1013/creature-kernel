@@ -144,12 +144,15 @@ uses a fixed operation order and prohibits reassociation, implicit FMA
 contraction, FTZ, and DAZ. The proposed normative comparator direction is for
 typed profiles to define category-specific formulas and boundary/tie behaviour,
 with deterministic all-pairs claim satisfiability rather than order-dependent
-folding. The
+folding. Comparator shapes/formulas and normalization/sign direction are fixed
+Proposed material; constants, ranges, validation-margin/error formula, and
+deterministic evaluation implementation/binding remain open. The
 numeric experiment design preregisters domains, separate semantic error
 budgets, an independent oracle, held-out/adversarial corpora, conditioning,
-and metamorphic checks before any evaluated run. Exact formulas, margins,
-constants, profile IDs, and implementation bindings remain open; this
-paragraph is not an activation or acceptance decision.
+and metamorphic checks before any evaluated run. Exact constants, ranges,
+validation-margin/error formula, profile IDs, and deterministic evaluation
+implementation/bindings remain open; this paragraph is not an activation or
+acceptance decision.
 
 The proposed canonical-data profile uses restricted canonical JSON and
 domain-separated SHA-256 digests for source, normalized graph, build request,
@@ -320,9 +323,10 @@ under the declared profile. A source violation is `invalid-source`; an
 implementation failure on an admissible transform is `internal-failure`.
 Readiness 2 uses a rigid transform carrier with exactly three translation
 components and four explicit `xyzw` quaternion components, with no scale or
-shear fields. Exact canonical axes, units, finite-number and normalization
-semantics, conditioning, numeric ranges, and tolerances remain deferred to
-Readiness 3.
+shear fields. Canonical axes, unit, finite-number and normalization semantics,
+and comparison shapes are fixed Proposed material; exact conditioning,
+numeric ranges, constants, validation-margin/error formula, deterministic
+evaluation bindings, and tolerances remain deferred to Readiness 3.
 
 ### CK-PROD-012: Connected visible surface
 

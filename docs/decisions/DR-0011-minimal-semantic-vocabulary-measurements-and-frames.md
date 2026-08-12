@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-11
 
@@ -97,7 +97,7 @@ findings are preserved below. C1 canonical collection ordering/tie handling
 and C3 immutable Readiness 2/3 implementation binding remain unresolved for
 the next discussion; C4 diagnostic-domain/bootstrap compatibility remains
 cross-linked to DR-0012. Owner approval remains Pending and Review status is
-Pending for this revised proposal.
+Complete for the current Batch 12 evidence; the proposal remains Proposed.
 
 ## Decision
 
@@ -788,10 +788,20 @@ admission, fixed typed comparison algorithms and pairwise conflict semantics,
 the pre-registered experiment/oracle/corpus method, and the future adapter
 conformance/narrowing obligation are now stated above. C1 and C3 remain
 unresolved in this record; C4 remains unresolved in DR-0012 and is only
-cross-linked here. Review status is Pending for Revision 11; Owner approval
-remains Pending and Status remains Proposed. No canonical collection key,
-implementation binding, diagnostic bootstrap, readiness gate, or package is
-accepted or activated by this revision.
+cross-linked here.
+
+The fresh current-revision Batch 12 Double review examined exact target commit
+`730a2f77840cc0caa1f838c30dac4ff20f985e69`: [Review 01](reviews/DR-0011-rev-11-review-01.md)
+and [Review 02](reviews/DR-0011-rev-11-review-02.md) were complete-coverage,
+independent fresh `gpt-5.6-sol` medium passes. Both recommend **Revise** at
+**High** confidence. Review 01 records unresolved A1–A3 comparator/identity
+findings and the mechanical A4 summary correction; Review 02 records unresolved
+E1 runtime-`asin` and E3 floating-point-scope findings plus the mechanical E4
+summary correction. The positive unit-scale adapter finding E2 is recorded in
+the DR-0013 platform review. Review status is Complete for evidence only; Owner
+approval remains Pending and Status remains Proposed. No canonical collection
+key, implementation binding, diagnostic bootstrap, readiness gate, or package
+is accepted or activated by this revision.
 
 ## Implementation and Proof Obligations
 

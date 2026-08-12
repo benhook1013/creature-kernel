@@ -17,10 +17,12 @@ DR-0002 Revision 11 and DR-0008 Revision 11 remain Proposed with Owner approval
 Pending and Review Complete. DR-0006 Revision 8 remains Proposed with Owner
 approval Pending and Review Complete; unresolved findings remain. DR-0011
 Revision 11, DR-0012 Revision 10, and DR-0013 Revision 8 remain Proposed with
-Owner approval Pending and Review Pending after Batch 12. The Batch 11 review
-targeted commit `053dba58fd344ed636420e0974cf617862fe265f`; its two independent
-passes recommend Revise at High confidence and are stale evidence for the
-revised records. Review Pending is not acceptance. No implementation or
+Owner approval Pending and Review Complete after the Batch 12 Double review of
+commit `730a2f77840cc0caa1f838c30dac4ff20f985e69`; both independent passes
+recommend Revise at High confidence and leave A1–A4/E1–E5 unresolved. The
+Batch 11 review targeted commit `053dba58fd344ed636420e0974cf617862fe265f`;
+its two independent passes are stale evidence for the revised records. Review
+Complete is not acceptance. No implementation or
 readiness gate activates. The current unresolved findings include C1 total
 canonical collection ordering/tie handling, C3 immutable Readiness 2/3
 implementation binding, and C4 diagnostic-domain/bootstrap compatibility;

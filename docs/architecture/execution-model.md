@@ -11,8 +11,11 @@ supplementary. This direction is Proposed for formal acceptance under
 [DR-0003](../decisions/DR-0003-real-time-first-compiled-avatar-boundary.md).
 
 CK-KICK-013 is a discussion-approved but unaccepted platform proposal.
-Proposed DR-0013 Revision 8 has Owner approval Pending and Review Pending after
-Batch 12, with unresolved findings carried from Batch 11. The Batch 11 review
+Proposed DR-0013 Revision 8 has Owner approval Pending and Review Complete after
+the Batch 12 Double review of commit
+`730a2f77840cc0caa1f838c30dac4ff20f985e69`, with unresolved findings carried
+from Batch 11. Both independent passes recommend Revise at High confidence.
+The Batch 11 review
 evidence is stale for this materially revised record; the fresh Batch 11 Double
 review targeted commit
 `053dba58fd344ed636420e0974cf617862fe265f`; both independent passes recommend Revise at High confidence. The completed Batch 9 Double review targeted commit
@@ -178,8 +181,10 @@ correctly rounded decimal admission, round-to-nearest ties-to-even, fixed
 operation order, and no reassociation, implicit FMA contraction, FTZ, or DAZ.
 Canonical comparison profiles distinguish exact discrete identity from typed
 numeric comparisons and use deterministic all-pairs claim evaluation rather
-than order-dependent folding. Exact ranges, conditioning, formulas, margins,
-normalization, and tolerances remain the subject of the planned
+than order-dependent folding. Comparator shapes/formulas and normalization/sign
+direction are fixed Proposed material. Exact ranges, conditioning, constants,
+margins/error formula, deterministic evaluation implementation/binding, and
+tolerances remain the subject of the planned
 [numeric/frame profile experiment](../research/numeric-frame-profile-experiment.md),
 which preregisters domains, separate semantic budgets, exact/higher-precision
 oracles, frozen corpora, condition estimates, and metamorphic checks. Diagnostic

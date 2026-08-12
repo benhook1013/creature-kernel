@@ -12,8 +12,10 @@ DR-0008 Revision 11 remain Proposed with Owner approval Pending and Review
 Complete. DR-0006 Revision 8 remains Proposed with Owner approval Pending and
 Review Complete; unresolved C1/C3/C4 contract findings remain. DR-0011
 Revision 11, DR-0012 Revision 10, and Proposed DR-0013 Revision 8 remain
-Proposed with Owner approval Pending and Review Pending after Batch 12. The
-fresh Batch 11 Double review targeted commit
+Proposed with Owner approval Pending and Review Complete after the Batch 12
+Double review of commit `730a2f77840cc0caa1f838c30dac4ff20f985e69`; both
+independent passes recommend Revise at High confidence with unresolved A1–A4
+and E1–E5 findings. The fresh Batch 11 Double review targeted commit
 `053dba58fd344ed636420e0974cf617862fe265f`; its artifacts are stale only for
 those three materially revised records and are not acceptance. No implementation or readiness gate
 activates. The current six-record set is DR-0002 Revision 11, DR-0006 Revision
@@ -21,7 +23,7 @@ activates. The current six-record set is DR-0002 Revision 11, DR-0006 Revision
 DR-0013 Revision 8. The completed Batch 9 Double review targeted commit
 `6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is stale historical
 evidence and is not acceptance. DR-0006 remains Review Complete with unresolved
-C1/C3/C4 findings; the three materially revised records are Review Pending and
+C1/C3/C4 findings; the three materially revised records are Review Complete and
 no implementation or readiness gate activates. See the [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for review lenses, recommendations, and findings. No package is implied.
 
@@ -124,8 +126,10 @@ round-to-nearest-ties-to-even evaluation with correctly rounded decimal
 admission, no reassociation/implicit FMA/FTZ/DAZ, typed all-pairs comparison
 semantics, and evidence from preregistered domains, separate semantic budgets,
 independent exact/higher-precision oracles, frozen corpora, condition estimates,
-and metamorphic checks. Exact formulas, margins, constants, and adapter
-conformance remain deferred to activation work. The
+and metamorphic checks. Comparator shapes/formulas and normalization/sign
+direction are fixed Proposed material; constants, ranges, validation-margin/
+error formula, and deterministic evaluation implementation/binding remain
+open. The
 fixture-manifest specification owns the payload and separate content-identity
 readiness/decision binding; this responsibility map does not duplicate its
 field encoding.

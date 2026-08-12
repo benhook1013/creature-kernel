@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-11
 
@@ -71,7 +71,8 @@ exact findings are preserved below. C1 canonical collection ordering/tie
 handling, C3 immutable Readiness 2/3 implementation binding, and C4
 diagnostic-domain/bootstrap compatibility remain unresolved for the next
 discussion in their owning records. Owner approval remains Pending and Review
-status is Pending for this revised proposal.
+status is Complete for the current Batch 12 evidence; the proposal remains
+Proposed.
 
 ## Decision
 
@@ -665,7 +666,7 @@ quaternion sign change.
 
 ## Adversarial Review Response
 
-This is CK-KICK-013 Revision 7, proposed and discussion-approved on 2026-08-12.
+This is CK-KICK-013 Revision 8, proposed and discussion-approved on 2026-08-12.
 The exact Revision 1 Double review examined commit
 `c64b1b98948304d631eecea6a354c9e42c89c510`. The independent [review 01](reviews/DR-0013-rev-01-review-01.md)
 and [review 02](reviews/DR-0013-rev-01-review-02.md) both recommended **Revise**
@@ -824,10 +825,19 @@ algorithms and pairwise conflict semantics, the pre-registered experiment/
 oracle/corpus method, and the future adapter conformance/narrowing obligation
 are now stated above. C1, C3, and C4 remain unresolved in their owning
 records; this platform revision does not add canonical collection keys,
-implementation binding, or diagnostic bootstrap behavior. Review status is
-Pending for Revision 8; Owner approval remains Pending and Status remains
-Proposed. No readiness gate, package, schema, fixture, resolver, or engine is
-accepted or activated.
+implementation binding, or diagnostic bootstrap behavior.
+
+The fresh current-revision Batch 12 Double review examined exact target commit
+`730a2f77840cc0caa1f838c30dac4ff20f985e69`: [Review 01](reviews/DR-0013-rev-08-review-01.md)
+and [Review 02](reviews/DR-0013-rev-08-review-02.md) were complete-coverage,
+independent fresh `gpt-5.6-sol` medium passes. Both recommend **Revise** at
+**High** confidence. Review 01 records unresolved A1–A3 comparator/identity
+cross-links and the mechanical A4 summary correction. Review 02 records
+unresolved E1 runtime-`asin`, E2 adapter unit-scale, and E3 floating-point
+scope findings, plus mechanical E4 and E5 corrections. Review status is
+Complete for evidence only; C1, C3, and C4 remain unresolved; Owner approval
+remains Pending and Status remains Proposed. No readiness gate, package,
+schema, fixture, resolver, adapter, or engine is accepted or activated.
 
 ## Implementation and Proof Obligations
 

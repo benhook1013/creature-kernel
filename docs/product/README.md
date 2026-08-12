@@ -11,7 +11,7 @@ unless the choice itself is a product constraint.
 - [Vision and scope](vision-and-scope.md)
 - [Requirements](requirements.md)
 - [Users and workflows](users-and-workflows.md)
-- Batch 11 focused contract owners: [semantic-address](../../spec/semantic-address/README.md),
+- Batch 11/12 focused contract owners: [semantic-address](../../spec/semantic-address/README.md),
   [canonical-data](../../spec/canonical-data/README.md),
   [numeric-frame-profile](../../spec/numeric-frame-profile/README.md), and
   [diagnostics](../../spec/diagnostics/README.md).
@@ -47,10 +47,12 @@ Proposed with Owner approval Pending and Review Complete, with unresolved C1,
 C3, and C4 contract findings retained for the next Ben discussion. The three
 materially revised records are now DR-0011 Revision 11, DR-0012 Revision 10,
 and DR-0013 Revision 8; each remains Proposed with Owner approval Pending and
-Review Pending. The Batch 11 review artifacts targeted commit
-`053dba58fd344ed636420e0974cf617862fe265f` and are stale only for those three
-revised records. Review evidence is not acceptance; no implementation or
-readiness gate activates.
+Review Complete after the Batch 12 Double review of commit
+`730a2f77840cc0caa1f838c30dac4ff20f985e69`. Both independent passes recommend
+Revise at High confidence; A1–A4 and E1–E5 remain unresolved. The Batch 11
+review artifacts targeted commit `053dba58fd344ed636420e0974cf617862fe265f`
+and are stale only for those three revised records. Review evidence is not
+acceptance; no implementation or readiness gate activates.
 Recommendations and the next discussion are summarized in the [current review
 state](../project/status.md#current-review-and-future-activation-obligations).
 The cross-cutting proposal is [DR-0012:
@@ -67,5 +69,8 @@ SHA-256 digests, and a small versioned diagnostic registry. Batch 12 also
 proposes the preregistered independent-oracle, held-out/adversarial corpus,
 conditioning, metamorphic, and compiler-mode evidence needed before numeric
 activation. Host-adapter conformance remains deferred until adapter activation.
-These are Proposed consequences only and do not activate implementation or
+Comparator shapes/formulas and normalization/sign direction are fixed Proposed
+material; constants, ranges, validation-margin/error formula, and deterministic
+evaluation implementation/binding remain open. These are Proposed consequences
+only and do not activate implementation or
 readiness gates.

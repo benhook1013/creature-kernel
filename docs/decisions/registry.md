@@ -14,9 +14,9 @@ Status: Operational under Accepted DR-0001 Revision 5
 | [DR-0008](DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md) | First digitigrade morphology and Stage 1 embodiment envelope | Product, Specification and architecture | Proposed | 11 | Complete | Ben |
 | [DR-0009](DR-0009-hybrid-surface-generation-experiment-hypothesis.md) | Hybrid surface-generation experiment hypothesis | Architecture | Proposed | 8 | Complete | Ben |
 | [DR-0010](DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md) | Stage 1 surface extraction and semantic-field propagation | Specification and architecture | Proposed | 8 | Pending | Ben |
-| [DR-0011](DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md) | Minimal semantic vocabulary, measurements, and frames | Specification and architecture | Proposed | 11 | Pending | Ben |
-| [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md) | Initial body-document encoding, resolution, and compatibility | Specification and architecture | Proposed | 10 | Pending | Ben |
-| [DR-0013](DR-0013-first-production-implementation-platform-and-geometry-boundary.md) | First production implementation platform and geometry boundary | Specification and architecture | Proposed | 8 | Pending | Ben |
+| [DR-0011](DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md) | Minimal semantic vocabulary, measurements, and frames | Specification and architecture | Proposed | 11 | Complete | Ben |
+| [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md) | Initial body-document encoding, resolution, and compatibility | Specification and architecture | Proposed | 10 | Complete | Ben |
+| [DR-0013](DR-0013-first-production-implementation-platform-and-geometry-boundary.md) | First production implementation platform and geometry boundary | Specification and architecture | Proposed | 8 | Complete | Ben |
 
 DR-0001 Revision 5 is `Accepted` after Ben's approval and its Complete clean
 review; that disposition applies only to this Governance DR. DR-0002 through
@@ -261,6 +261,58 @@ negotiation; N2 a non-circular numeric experiment; N3 normative typed
 comparison algorithms and fixtures; N4 adapter conformance obligations; and
 N5 mechanical synchronization of the three canonical-spec headers. These
 findings await Ben's discussion and disposition.
+
+## CK-KICK-012/013 Batch 12 Double review (current)
+
+The fresh current-revision Double review examined exact target commit
+`730a2f77840cc0caa1f838c30dac4ff20f985e69` in two complete-coverage,
+independent `gpt-5.6-sol` medium passes with no edits. Review 01 used the
+exact-decimal/binary64, canonical numeric identity, comparator mathematics,
+multi-claim determinism, edge-case, and cross-spec consistency lens. Review 02
+used the experiment-validity, floating-point build-control,
+adapter-mathematics/portability, activation/reversibility, performance, and
+project-state lens. Both passes recommend **Revise** at **High** confidence for
+DR-0011, DR-0012, and DR-0013. Review Complete records evidence only: all three
+remain Proposed with Owner approval Pending, unresolved findings, and no
+acceptance or readiness activation. The six artifacts are linked from the
+three DR responses above.
+
+The current findings are preserved without silently changing ownership:
+
+- **A1 — High:** `E = B * inverse(A)` is asymmetric despite unordered-pair
+  semantics; require a symmetric predicate and an order-reversal fixture.
+- **A2 — High:** comparator boundary arithmetic, norm/normalization scaling,
+  and binary64 `asin` evaluation are not fully deterministic; define exact-vs-
+  rounded/stable semantics, deterministic elementary-function binding, and ULP
+  fixtures.
+- **A3 — High:** owning specifications do not explicitly select the
+  lexicographically smallest representative and stable claim identity is
+  undefined; require an explicit smallest rule and source-derived,
+  permutation-independent claim ID.
+- **A4 — Medium (mechanical):** summaries should say fixed comparator
+  shapes/formulas and normalization/sign direction are Proposed; constants,
+  ranges, validation-margin/error formula, and deterministic evaluation
+  bindings remain open.
+- **E1 — High:** runtime `asin` lacks a deterministic algorithm/version/output
+  binding; bind one or compare half-chord to an admitted precomputed threshold.
+- **E2 — Medium:** adapters lack a positive metre-to-cm/mm scale and typed
+  dimensional mapping; define `s`, `t' = s C t`, `D = diag(s C,1)`, and
+  known-magnitude fixtures before activation.
+- **E3 — Medium:** FTZ/DAZ guarantees do not distinguish serialized subnormal
+  bits from target/runtime arithmetic; declare scope, probe arithmetic, and
+  preserve or exclude/fail affected values with fixtures.
+- **E4 — Medium (mechanical):** narrow execution/component summary open lists
+  to constants, ranges, margins/error formula, and deterministic evaluation
+  bindings; fixed formulas/normalization remain Proposed.
+- **E5 — Low (mechanical, DR-0013):** correct the stale self-label Revision 7
+  to Revision 8 and current phase Batch 11 to Batch 12.
+
+No A1–A3 or E1–E3 finding is resolved by this review. The prior Batch 11
+artifacts are stale for these three revised records and remain preserved as
+historical evidence. Existing DR-0006 C1/C3/C4 findings remain open. Only the
+specified mechanical summary corrections are applied; no claim-ID, symmetric
+comparator, deterministic arithmetic, adapter scale, or threshold choice is
+selected here.
 
 ## CK-KICK-012/013 Batch 10 Double review
 

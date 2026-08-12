@@ -4,10 +4,12 @@ Status: Proposed conceptual contract; CK-KICK-012 Batch 12 discussion-approved
 canonical owner. DR-0006 Revision 8 remains Proposed with Owner approval
 Pending and Review Complete; unresolved findings remain. DR-0011 Revision 11,
 DR-0012 Revision 10, and DR-0013 Revision 8 remain Proposed with Owner approval
-Pending and Review Pending. The current C1 canonical collection-ordering, C3
+Pending and Review Complete after the Batch 12 Double review of commit
+`730a2f77840cc0caa1f838c30dac4ff20f985e69`; both independent passes recommend
+Revise at High confidence. The current A1–A4/E1–E5 findings, C1 canonical collection-ordering, C3
 immutable Readiness 2/3 implementation-binding, and C4 diagnostic-domain/
 bootstrap findings remain unresolved; this contract resolves none of them.
-The Batch 11 Double review targeted commit `053dba58fd344ed636420e0974cf617862fe265f`.
+The Batch 11 Double review targeted commit `053dba58fd344ed636420e0974cf617862fe265f` and is stale for the three revised records.
 This document is not an accepted
 format and does not activate a build implementation, serializer, fixture
 corpus, or artifact store.
