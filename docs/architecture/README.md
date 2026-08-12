@@ -51,11 +51,15 @@ vocabulary, measurement ownership, and frame-conversion boundary are Proposed
 in [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
 CK-KICK-012 Batch 6/7/8 resolutions are discussion-approved and are reflected in
 the canonical specifications as Proposed material. The current proposals are
-DR-0002 Revision 10, DR-0008 Revision 10, DR-0011 Revision 6, and DR-0012
-Revision 5. All five current proposals remain Proposed with Owner approval
-Pending and Review Pending; the prior exact review at
-`88004388f9537a37617ae248bdaad4625e6f3f03` is stale historical evidence, and
-fresh Double review is pending. See the
+DR-0002 Revision 10, DR-0008 Revision 10, DR-0011 Revision 6, DR-0012
+Revision 5, and DR-0013 Revision 3. All five remain Proposed with Owner
+approval Pending. The fresh current Double review is Complete evidence against
+commit `b19adf76aad7d672c0871bd38fc34739f3f4ac39`: Review 01 recommends Revise
+for all five, while Review 02 is ready for owner disposition for DR-0002/0008/
+0011 (High) and DR-0012 (Medium), and recommends Revise for DR-0013 (High).
+Seven consolidated findings await Ben discussion and owner disposition; see
+the [project status](../project/status.md). Complete is evidence only, not a
+clean review or acceptance. Earlier review evidence remains stale. See the
 [decision registry](../decisions/registry.md). The CK-KICK-012 Batch 5 review
 at commit `a282dbabffd83afa4e62577086934d00f98e12c7` is stale historical
 evidence; no clean review or acceptance is implied.
@@ -83,8 +87,11 @@ but may not claim formal DR-0009/0010 support or reject.
 
 The CK-KICK-013 platform proposal is also discussion-approved as Proposed
 material, not an accepted implementation decision. Proposed DR-0013 Revision 3
-has Owner approval Pending and fresh Double review pending. Earlier review
-evidence is stale after this revision. The four readiness stages are: DR-0013
+has Owner approval Pending and the fresh current Double review is Complete
+evidence against commit `b19adf76aad7d672c0871bd38fc34739f3f4ac39`; Review 02
+recommends Revise at High confidence. Seven consolidated findings await Ben
+discussion and owner disposition. Earlier review evidence is stale after this
+revision. The four readiness stages are: DR-0013
 acceptance activates only the empty Cargo shell; exact JSON Schema plus a
 frozen/admitted fixture manifest jointly activate parser/bootstrap and
 manifest-listed fixtures; canonical numeric/frame rules plus frozen expected

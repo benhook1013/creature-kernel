@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-11
 
@@ -53,7 +53,7 @@ rule, normalized module-instance declaration and global Socket capacity,
 Attachment transform admissibility, the four readiness gates, and the
 authoritative build/publication outcome. This discussion approval is not DR
 acceptance. Revision 5 remains Proposed with Owner approval Pending and Review
-status Pending. The prior Revision 4 Double review examined target commit
+status Complete. The prior Revision 4 Double review examined target commit
 `88004388f9537a37617ae248bdaad4625e6f3f03` in [review 01](reviews/DR-0012-rev-04-review-01.md)
 and [review 02](reviews/DR-0012-rev-04-review-02.md); both independent passes
 recommended **Revise** at **High** confidence. The prior Review Complete state
@@ -513,13 +513,21 @@ ownership in DR-0002/DR-0008/DR-0011; (3) Attachment transform admissibility
 and source-versus-implementation mapping are revised here and linked records;
 (4) the four technical readiness gates are owned by DR-0013; and (5)
 authoritative build/publication outcome and `output-failure` are owned by
-DR-0013. The latter two are cross-links, not additional DR-0012 decisions. A
-fresh current Double review is required. Exact serialized field spellings,
+DR-0013. The latter two are cross-links, not additional DR-0012 decisions. The
+fresh current Double review is complete at target commit
+`b19adf76aad7d672c0871bd38fc34739f3f4ac39`: [review 01](reviews/DR-0012-rev-05-review-01.md)
+recommended **Revise** at **High** confidence and [review 02](reviews/DR-0012-rev-05-review-02.md)
+records **Ready for owner disposition** at **Medium** confidence with no
+DR-0012-specific blocker. Applicable consolidated findings are C1 and C4; C2,
+C3, and C5–C7 remain cross-cutting evidence owned by the linked records,
+chiefly DR-0002/DR-0013. All seven consolidated current findings await Ben's
+discussion and owner disposition; review completion is evidence, not a
+clean review or acceptance. Exact serialized field spellings,
 diagnostic codes, concrete thresholds, dependency-revision semantics,
 canonical axes/units/rotation/scale/shear, conditioning/comparison
 tolerances, canonical bytes/hashing, and fixture/security evidence remain
 deferred. Owner approval remains Pending and Status remains Proposed; Review
-status is Pending. Only Ben may accept or reject this proposal.
+status is Complete. Only Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 

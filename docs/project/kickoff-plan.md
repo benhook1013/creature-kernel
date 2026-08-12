@@ -592,9 +592,11 @@ gets its own DR and review before backend-specific compiler code locks it in.
 State: active (Batches 1, 4, 5, 6, F1–F3, and Batch 8 integrated as Proposed
 documentation; DR-0002 Revision 10, DR-0008 Revision 10, DR-0011 Revision 6,
 DR-0012 Revision 5, and DR-0013 Revision 3 remain Proposed with Owner approval
-Pending and Review Pending. The prior exact review at
-`88004388f9537a37617ae248bdaad4625e6f3f03` is stale historical evidence; fresh
-Double review is pending; the Batch 5 review is also stale historical evidence)
+Pending. The fresh current Double review is Complete evidence against commit
+`b19adf76aad7d672c0871bd38fc34739f3f4ac39`; seven consolidated findings await
+Ben discussion and owner disposition. The prior exact review at
+`88004388f9537a37617ae248bdaad4625e6f3f03` and the Batch 5 review are stale
+historical evidence)
 
 Prerequisites: the exploratory executable spine and enough semantic context to
 define a minimal useful input/output; CK-KICK-011 is not required.
@@ -665,18 +667,24 @@ CK-KICK-012 Batch 5 Double review at commit
 `a282dbabffd83afa4e62577086934d00f98e12c7` and Batch 6 review at `c64b1b...`
 are stale historical evidence. The current proposals are DR-0002 Revision 10,
 DR-0008 Revision 10, DR-0011 Revision 6, DR-0012 Revision 5, and DR-0013
-Revision 3; all remain Proposed with Owner approval Pending and Review Pending.
-The prior exact review at `88004388f9537a37617ae248bdaad4625e6f3f03` is stale;
-fresh Double review is pending. No acceptance or clean review is implied.
+Revision 3; all remain Proposed with Owner approval Pending. The fresh current
+Double review is Complete evidence against commit
+`b19adf76aad7d672c0871bd38fc34739f3f4ac39`; Review 01 recommends Revise for
+all five, while Review 02 is ready for owner disposition for DR-0002/0008/0011
+(High) and DR-0012 (Medium; the manifest contract is a later activation
+obligation), and recommends Revise for DR-0013 (High). Seven
+consolidated findings await Ben discussion and owner disposition. The prior
+exact review at `88004388f9537a37617ae248bdaad4625e6f3f03` is stale. No
+acceptance or clean review is implied.
 The prior Batch 4 and Batch 5 reviews remain
 preserved as historical evidence.
 DR-0006 remains Proposed with its current revision's review evidence. The
 cross-cutting proposal is
 [DR-0012: initial body-document encoding, resolution, and
 compatibility](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
-CK-KICK-012 remains active; fresh Double review and owner disposition are
-pending, so this proposal does not complete the round or imply owner
-acceptance.
+CK-KICK-012 remains active; the current Double review is Complete evidence only
+and the seven consolidated findings await Ben discussion and owner disposition,
+so this proposal does not complete the round or imply owner acceptance.
 
 ### Batch 4 — encoding, resolution, and compatibility (discussion-approved)
 
@@ -897,17 +905,21 @@ They are integrated as Proposed material only; no decision record is accepted.
   separate read operation.
 
 DR-0002 Revision 10, DR-0008 Revision 10, DR-0011 Revision 6, DR-0012 Revision
-5, and DR-0013 Revision 3 remain Proposed with Owner approval Pending and fresh
-Double review pending; earlier reviews are stale after these revisions.
+5, and DR-0013 Revision 3 remain Proposed with Owner approval Pending and
+Review Complete evidence against commit
+`b19adf76aad7d672c0871bd38fc34739f3f4ac39`; seven consolidated findings await
+Ben discussion and owner disposition. Earlier reviews are stale after these
+revisions.
 
 ## Round 8 — implementation platform (provisional)
 
 ### CK-KICK-013: Select the first implementation platform
 
 State: active (discussion-approved Proposed platform direction integrated;
-Proposed DR-0013 Revision 3 has Owner approval Pending and fresh Double review
-pending; earlier review evidence is stale after this revision; not accepted or
-implemented)
+Proposed DR-0013 Revision 3 has Owner approval Pending and Review Complete
+evidence against commit `b19adf76aad7d672c0871bd38fc34739f3f4ac39`; seven
+consolidated findings await Ben discussion and owner disposition; earlier review
+evidence is stale after this revision; not accepted or implemented)
 
 Prerequisites: the exploratory host boundary and a bounded CK-KICK-012
 contract. CK-KICK-011 is not an automatic prerequisite.
@@ -957,7 +969,8 @@ Outcome:
   activate compiler fixtures.
 
 The prior exact-revision Double review is stale historical evidence after the
-Batch 8 revisions; fresh Double review and owner disposition are pending.
+Batch 8 revisions. The current Double review is Complete evidence only; seven
+consolidated findings await Ben discussion and owner disposition.
 Geometry libraries, licensing, platform support, and any C++ worker/FFI boundary remain
 evidence-driven; they are not settled by this proposal. No implementation
 package or compiler fixture is activated while the DR remains Proposed.

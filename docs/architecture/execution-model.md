@@ -11,8 +11,11 @@ supplementary. This direction is Proposed for formal acceptance under
 [DR-0003](../decisions/DR-0003-real-time-first-compiled-avatar-boundary.md).
 
 CK-KICK-013 is a discussion-approved but unaccepted platform proposal.
-Proposed DR-0013 Revision 3 has Owner approval Pending and fresh Double review
-pending. Earlier review evidence is stale after this revision. Its four
+Proposed DR-0013 Revision 3 has Owner approval Pending and the fresh current
+Double review is Complete evidence against commit
+`b19adf76aad7d672c0871bd38fc34739f3f4ac39`; Review 02 recommends Revise at
+High confidence. Seven consolidated findings await Ben discussion and owner
+disposition. Earlier review evidence is stale after this revision. Its four
 readiness stages are: acceptance activates only the empty Cargo shell; exact
 JSON Schema plus a frozen/admitted fixture manifest jointly activate
 parser/bootstrap and listed fixtures; canonical numeric/frame rules plus frozen

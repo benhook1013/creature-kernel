@@ -9,10 +9,14 @@ its activation trigger is met.
 The CK-KICK-012 Batch 6/7/8 resolutions are discussion-approved and represented
 as Proposed responsibility consequences. DR-0002 Revision 10, DR-0008 Revision
 10, DR-0011 Revision 6, and DR-0012 Revision 5, together with Proposed DR-0013
-Revision 3, remain Proposed with Owner approval Pending and Review Pending. The
-prior exact review at `88004388f9537a37617ae248bdaad4625e6f3f03` is stale
-historical evidence; fresh Double review is pending. No
-acceptance or implementation package is implied.
+Revision 3, remain Proposed with Owner approval Pending. The fresh current
+Double review is Complete evidence against commit
+`b19adf76aad7d672c0871bd38fc34739f3f4ac39`; Review 01 recommends Revise for
+all five, while Review 02 is ready for owner disposition for DR-0002/0008/0011
+(High) and DR-0012 (Medium), and recommends Revise for DR-0013 (High). Seven
+consolidated findings await Ben discussion and owner disposition. Earlier
+review evidence is stale historical evidence; no acceptance or implementation
+package is implied.
 
 | Component | Responsibilities | Explicit non-responsibilities |
 | --- | --- | --- |

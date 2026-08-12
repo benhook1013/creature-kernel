@@ -5,18 +5,18 @@ Status: Operational under Accepted DR-0001 Revision 5
 | ID | Title | Scope | Status | Revision | Review | Decision owner |
 | --- | --- | --- | --- | --- | --- | --- |
 | [DR-0001](DR-0001-documentation-authority-and-review-process.md) | Documentation authority and decision-record process | Governance | Accepted | 5 | Complete | Ben |
-| [DR-0002](DR-0002-declarative-body-document-source-of-truth.md) | Authoritative semantic source set and resolved body graph | Specification and architecture | Proposed | 10 | Pending | Ben |
+| [DR-0002](DR-0002-declarative-body-document-source-of-truth.md) | Authoritative semantic source set and resolved body graph | Specification and architecture | Proposed | 10 | Complete | Ben |
 | [DR-0003](DR-0003-real-time-first-compiled-avatar-boundary.md) | Compiled avatar and bounded real-time execution | Product and architecture | Proposed | 2 | Complete | Ben |
 | [DR-0004](DR-0004-external-automation-through-cli-and-api.md) | Shared deterministic domain operations for external automation | Product and architecture | Proposed | 2 | Complete | Ben |
 | [DR-0005](DR-0005-initial-product-boundary-and-reference-workflow.md) | Initial product boundary and reference workflow | Product and architecture | Proposed | 1 | Complete | Ben |
 | [DR-0006](DR-0006-durable-semantic-and-artifact-identity.md) | Durable semantic and artifact/build identity | Specification and architecture | Proposed | 4 | Complete | Ben |
 | [DR-0007](DR-0007-staged-first-proof-charter.md) | Staged first-proof charter and claim boundaries | Product | Proposed | 2 | Complete | Ben |
-| [DR-0008](DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md) | First digitigrade morphology and Stage 1 embodiment envelope | Product, Specification and architecture | Proposed | 10 | Pending | Ben |
+| [DR-0008](DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md) | First digitigrade morphology and Stage 1 embodiment envelope | Product, Specification and architecture | Proposed | 10 | Complete | Ben |
 | [DR-0009](DR-0009-hybrid-surface-generation-experiment-hypothesis.md) | Hybrid surface-generation experiment hypothesis | Architecture | Proposed | 8 | Complete | Ben |
 | [DR-0010](DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md) | Stage 1 surface extraction and semantic-field propagation | Specification and architecture | Proposed | 8 | Pending | Ben |
-| [DR-0011](DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md) | Minimal semantic vocabulary, measurements, and frames | Specification and architecture | Proposed | 6 | Pending | Ben |
-| [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md) | Initial body-document encoding, resolution, and compatibility | Specification and architecture | Proposed | 5 | Pending | Ben |
-| [DR-0013](DR-0013-first-production-implementation-platform-and-geometry-boundary.md) | First production implementation platform and geometry boundary | Architecture | Proposed | 3 | Pending | Ben |
+| [DR-0011](DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md) | Minimal semantic vocabulary, measurements, and frames | Specification and architecture | Proposed | 6 | Complete | Ben |
+| [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md) | Initial body-document encoding, resolution, and compatibility | Specification and architecture | Proposed | 5 | Complete | Ben |
+| [DR-0013](DR-0013-first-production-implementation-platform-and-geometry-boundary.md) | First production implementation platform and geometry boundary | Architecture | Proposed | 3 | Complete | Ben |
 
 DR-0001 Revision 5 is `Accepted` after Ben's approval and its Complete clean
 review; that disposition applies only to this Governance DR. DR-0002 through
@@ -42,12 +42,20 @@ semantics; normalized module-instance declarations and global Socket capacity;
 Attachment transform admissibility; four technical readiness gates; and one
 authoritative build/publication envelope with `output-failure`. These
 discussion approvals are distinct from later DR acceptance. All five current
-revisions remain Proposed with owner approval Pending and Review Pending. The
-prior Double review examined target commit
+revisions remain Proposed with owner approval Pending and Review Complete. The
+fresh current Double review examined target commit
+`b19adf76aad7d672c0871bd38fc34739f3f4ac39`; Review 01 and Review 02 for each
+record are linked from the five DR responses below. Review 01 recommends
+DR-0002/DR-0012/DR-0013 Revise at High, DR-0008/DR-0011 Revise at Medium, and
+Review 02 records Ready for owner disposition for DR-0002/DR-0008/DR-0011 at
+High and DR-0012 at Medium; DR-0013 Review 02 recommends Revise at High. The
+seven consolidated current findings C1–C7 await Ben's discussion and owner
+disposition. Review evidence records neither acceptance nor a clean review.
+The prior Double review examined target commit
 `88004388f9537a37617ae248bdaad4625e6f3f03`; both independent passes
 recommended Revise at High confidence, and its ten artifacts are now stale
-historical evidence after the approved proposal revisions. A fresh current
-Double review is required. Review evidence records neither acceptance nor a
+historical evidence after the approved proposal revisions. The prior review is
+stale historical evidence. Review evidence records neither acceptance nor a
 clean review. The exact-revision Batch 5 Double review at commit
 `a282dbabffd83afa4e62577086934d00f98e12c7` is stale historical evidence; its
 three findings motivated and are resolved in the Batch 6 proposal text. The
@@ -64,13 +72,63 @@ bytes/hashing, dependency-revision semantics, and fixture evidence remain
 later obligations. DR-0013's platform and geometry choices do not activate
 implementation packages or a permanent later backend while it remains
 Proposed. The five new revisions require fresh current Double review before
-any owner acceptance.
+any owner acceptance. That review prerequisite is now satisfied as evidence;
+the seven current findings still require Ben's discussion and owner
+disposition before acceptance.
 DR-0006 Revision 4 remains unchanged, Proposed with owner approval Pending and
 Review Complete. Exact dependency-revision meaning, exact source fields,
 diagnostic codes, concrete resource values, canonical axes/units/rotation/
 scale/shear, canonical bytes, and the cross-DR fixture matrix remain later
 obligations. Review Complete records evidence, not acceptance or a clean review;
 CK-KICK-012 remains active.
+
+## CK-KICK-012/013 Batch 8 current Double review
+
+The fresh current Double review examined target commit
+`b19adf76aad7d672c0871bd38fc34739f3f4ac39`. Review 01 used a contract,
+authority, schema, and determinism lens; Review 02 used a platform, failure,
+reversibility, and publication lens. Both were independent fresh Sol-medium
+passes. The ten artifacts are linked from the five current DR responses.
+Review Complete records evidence only: no finding is auto-fixed, no DR is
+accepted, and no implementation activates.
+
+The seven consolidated current findings awaiting Ben discussion and owner
+disposition are:
+
+1. **C1 — High — resolver snapshot finalization/status mapping.** Define
+   phase 8 as an in-memory finalization/handoff with exact success-payload,
+   intentional-omission, and failure mapping, or place it under the trusted
+   derived-output `output-failure` contract. Applies to DR-0002, DR-0012, and
+   DR-0013.
+2. **C2 — High — canonical build/artifact specification owner.** Assign the
+   public build status, bundle/manifest validity, identity lifecycle, cleanup,
+   and atomic-publication semantics to a canonical specification owner, or
+   narrow DR-0013 and make that specification an activation prerequisite.
+   Applies to DR-0013.
+3. **C3 — High — candidate and committed artifact identity lifecycle.** Define
+   staged candidate identity, committed identity, target derivation, promotion,
+   identical retry, conflicting collision, stale inspection, and interrupted
+   staging behavior. Applies to DR-0013.
+4. **C4 — Medium — absent-module root identity and referenceability.** Define
+   whether an absent root is a non-embodied template/role reference or a
+   reserved semantic Part address, including referenceability, namespace
+   uniqueness, graph emission, and identity continuity. Applies to DR-0002,
+   DR-0008, DR-0011, and DR-0012.
+5. **C5 — High — Readiness 2 manifest admission and contract.** Define the
+   admission owner/procedure, immutable manifest identity and contents, schema
+   and diagnostic/resource-profile binding, expected outcomes, completeness,
+   and parser-independent pre-activation consistency evidence. Applies to
+   DR-0013; DR-0012 retains the later exact bootstrap/profile obligation.
+6. **C6 — High — CK-KICK-014 exploratory-surface prerequisite conflict.** Make
+   Readiness 4 the trigger for exploratory Stage 1 geometry and reserve an
+   accepted/reactivated surface decision for later comparative or production
+   architecture claims. Applies to DR-0013 and project planning.
+7. **C7 — High — build/worker/publication outcome and trusted failure-bundle
+   boundary.** Define deterministic mappings for capability, protocol,
+   dependency, timeout, resource, crash, malformed output, invariant loss,
+   encoding, staging, collision, and publication failures; preserve root
+   diagnostics and publish diagnostics-only bundles only from explicitly
+   trusted failure states or an isolated trusted reporter. Applies to DR-0013.
 
 DR-0009 Revision 8 and DR-0010 Revision 8 are plan-state `deferred` (parked)
 and non-blocking. No Revision 9, further review, owner disposition, or finding

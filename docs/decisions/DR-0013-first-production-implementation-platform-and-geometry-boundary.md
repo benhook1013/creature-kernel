@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-11
 
@@ -339,13 +339,22 @@ target commit `88004388f9537a37617ae248bdaad4625e6f3f03` in [review 01](reviews/
 and [review 02](reviews/DR-0013-rev-02-review-02.md); both independent passes
 recommended **Revise** at **High** confidence. The prior Review Complete state
 records evidence rather than a clean review or acceptance. Those Revision 2
-artifacts are now stale historical evidence after this proposal change; a
-fresh current Double review is required. This record does not
+artifacts are now stale historical evidence after this proposal change. The
+fresh current Double review is complete at target commit
+`b19adf76aad7d672c0871bd38fc34739f3f4ac39`: [review 01](reviews/DR-0013-rev-03-review-01.md)
+and [review 02](reviews/DR-0013-rev-03-review-02.md) both recommend **Revise**
+at **High** confidence. The seven consolidated current findings C1–C7 await
+Ben's discussion and owner disposition. Applicable consolidated findings are
+C1–C3 and C5–C7; C4 is owned by the linked semantic records. Review completion
+is evidence, not a clean review or acceptance. This record does not
 claim owner acceptance, a production implementation, a permanent geometry
 backend or surface architecture, a final artifact/package format, or a
 performance result. Exact schema, fixture, and later evidence obligations
 remain with their owning records. The prior `c64b1b...` review remains stale
 historical evidence.
+
+Review status is Complete. Owner approval remains Pending and Status remains
+Proposed. Only Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 

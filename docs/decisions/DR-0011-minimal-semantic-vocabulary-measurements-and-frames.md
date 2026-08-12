@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-11
 
@@ -62,7 +62,7 @@ total status/completeness rule, normalized module-instance declaration and
 global Socket capacity, Attachment transform admissibility, the four readiness
 gates, and the authoritative build/publication outcome. This discussion
 approval is not DR acceptance. Revision 6 remains Proposed with Owner approval
-Pending and Review status Pending. Initial source encoding,
+Pending and Review status Complete. Initial source encoding,
 phase sequencing, diagnostics, compatibility, and resource limits are owned
 by [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
 The prior Revision 5 Double review examined target commit
@@ -386,11 +386,19 @@ DR-0002; (3) Attachment transform admissibility and source-versus-
 implementation mapping are revised here and in DR-0002/DR-0008; (4) the four
 technical readiness gates are owned by DR-0013; and (5) authoritative
 build/publication outcome and `output-failure` are owned by DR-0013. The latter
-two are cross-links, not additional DR-0011 decisions. A fresh current Double
-review is required. Exact serialized field spellings, canonical
+two are cross-links, not additional DR-0011 decisions. The fresh current Double
+review is complete at target commit
+`b19adf76aad7d672c0871bd38fc34739f3f4ac39`: [review 01](reviews/DR-0011-rev-06-review-01.md)
+recommended **Revise** at **Medium** confidence and [review 02](reviews/DR-0011-rev-06-review-02.md)
+records **Ready for owner disposition** at **High** confidence with no
+DR-0011-specific blocker. Applicable consolidated finding is C4; C1–C3 and
+C5–C7 remain cross-cutting evidence owned by the linked records, chiefly
+DR-0002/DR-0012/DR-0013. All seven consolidated current findings await Ben's
+discussion and owner disposition; review completion is evidence, not a
+clean review or acceptance. Exact serialized field spellings, canonical
 axes/units/rotation/scale/shear, conditioning/comparison tolerances,
 diagnostic codes, and fixture evidence remain deferred. Owner approval remains
-Pending and Status remains Proposed; Review status is Pending. Only Ben may
+Pending and Status remains Proposed; Review status is Complete. Only Ben may
 accept or reject this proposal.
 
 ## Implementation and Proof Obligations

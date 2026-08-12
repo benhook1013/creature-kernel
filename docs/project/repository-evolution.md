@@ -13,9 +13,12 @@ States: `active`, `planned`, `triggered`, `deferred`, `not-applicable`, `retired
 CK-KICK-012 and CK-KICK-013 remain active Proposed work after discussion-
 approved F1–F7 and Batch 8 resolutions. DR-0002/0008/0011/0012 are at
 Revisions 10/10/6/5 and DR-0013 is at Revision 3; all five remain Proposed with
-Owner approval Pending and fresh Double review pending. Earlier review evidence
-is stale after these revisions. CK-KICK-014 remains provisional/queued and does
-not activate implementation packages or compiler fixtures.
+Owner approval Pending. The fresh current Double review is Complete evidence
+against commit `b19adf76aad7d672c0871bd38fc34739f3f4ac39`; seven consolidated
+findings await Ben discussion and owner disposition. Complete is evidence only,
+not a clean review or acceptance. Earlier review evidence is stale after these
+revisions. CK-KICK-014 remains provisional/queued and does not activate
+implementation packages or compiler fixtures.
 
 | Capability | Horizon | State | Activation trigger | Destination | Validation |
 | --- | --- | --- | --- | --- | --- |

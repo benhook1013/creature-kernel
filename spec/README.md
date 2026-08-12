@@ -15,9 +15,15 @@ and [DR-0011](../docs/decisions/DR-0011-minimal-semantic-vocabulary-measurements
 Their prior revisions and reviews remain preserved as historical evidence.
 DR-0002 Revision 10, DR-0008 Revision 10, DR-0011 Revision 6, and DR-0012
 Revision 5 contain the discussion-approved Batch 8 resolutions and remain
-Proposed with Owner approval Pending and fresh Double review pending. Earlier
-review evidence is stale after these revisions. DR-0006 remains Proposed with
-its current revision's review evidence. The cross-cutting proposal is
+Proposed with Owner approval Pending. The fresh current Double review is
+Complete evidence against commit `b19adf76aad7d672c0871bd38fc34739f3f4ac39`:
+Review 01 recommends Revise for all five affected proposals, while Review 02
+is ready for owner disposition for DR-0002/0008/0011 (High) and DR-0012
+(Medium), and recommends Revise for DR-0013 (High). Seven consolidated findings
+await Ben discussion and owner disposition; Complete is evidence only, not a
+clean review or acceptance. Earlier review evidence is stale after these
+revisions. DR-0006 remains Proposed with its current revision's review evidence.
+The cross-cutting proposal is
 [DR-0012: initial body-document encoding, resolution, and compatibility](../docs/decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
 
 ## Proposed specification families
