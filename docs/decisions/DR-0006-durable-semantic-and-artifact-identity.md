@@ -6,19 +6,19 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 4
+Revision: 5
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-08
 
 Date decided: —
 
-Discussion approval date: 2026-08-11
+Discussion approval date: 2026-08-12
 
 Supersedes: —
 
@@ -38,12 +38,15 @@ governed by the existing process.
 
 Revision 2 recorded Ben's CK-KICK-012 Batch 1 identity selection, and Revision
 3 recorded its first review-resolution batch. On 2026-08-11 Ben approved the
-CK-KICK-012 Batch 3 namespace-resolution decision recorded in Revision 4. This
-discussion approval is not DR acceptance: this revision remains Proposed with
+CK-KICK-012 Batch 3 namespace-resolution decision recorded in Revision 4. On
+2026-08-12 Ben approved the Batch 9 candidate-versus-committed artifact
+identity lifecycle at the identity boundary. This discussion approval is not
+DR acceptance: this revision remains Proposed with
 Owner approval Pending until a current-revision review and Ben's owner
 disposition are recorded. All earlier revisions and their reviews remain
-preserved as stale historical evidence; the Revision 3 reviews are stale for
-this revision.
+preserved as stale historical evidence; the Revision 4 current-review
+artifacts are stale after this material Revision 5 change, and a fresh current
+review is pending.
 
 ## Decision
 
@@ -64,6 +67,20 @@ Use two identity levels and an explicit semantic-address boundary:
 2. Separate artifact/build identity and provenance distinguish generated outputs,
    including the resolved graph snapshot, mesh, rig, colliders, runtime package,
    and other build products.
+
+At the artifact-identity level, distinguish a staged candidate from a
+committed artifact. A staging manifest carries a non-authoritative candidate
+artifact identity; it is not a committed artifact and must not be adopted by
+inspection as one. Successful atomic publication promotes that same candidate
+identity to committed artifact identity; publication does not mint a second
+artifact identity. A build/operation identity exists independently, including
+for failure, while a committed artifact identity exists only for a successfully
+published artifact or bundle. An identical already-published target may be
+recognized as the same committed identity by the build operation; a different
+or unverifiable target is not adopted. DR-0006 owns this candidate-versus-
+committed identity lifecycle and lineage relationship; DR-0013 owns the
+operation, staging, collision, and publication boundaries, and a canonical
+build-operation specification owns exact field spelling and format.
 
 Every outcome-affecting external authored asset, including an artist mesh, is
 an exactly versioned dependency of the authoritative source set. Its
@@ -103,6 +120,13 @@ defined.
 - Specification must define the relation between semantic concepts and derived
   artifacts, plus lifecycle/remap behaviour, before durable external contracts
   are promised.
+- Candidate artifact identity is non-authoritative while staged and is promoted
+  unchanged to committed identity only by successful atomic publication. Build
+  identity remains independent and exists for failures; an already-published
+  identical target can be recognized as the same committed identity, while an
+  inconsistent or unverifiable target cannot be adopted. DR-0013 owns the
+  operation/publication mechanics and the canonical build-operation
+  specification owns exact format.
 - The exact meaning and admissible form of an external dependency revision is
   a nonblocking later obligation; it must be settled before external authored
   dependencies activate.
@@ -158,13 +182,18 @@ and the Revision 3 current-revision reviews
 ([authority](reviews/DR-0006-rev-03-review-01.md),
 [morphology](reviews/DR-0006-rev-03-review-02.md)) are preserved as stale
 historical evidence. On 2026-08-11 Ben approved the resulting CK-KICK-012
-namespace resolution for Revision 4. Its current-revision Double review is
-Complete in the [contract pass](reviews/DR-0006-rev-04-review-01.md) and
+namespace resolution for Revision 4. Its Revision 4 current-revision Double
+review is preserved as stale evidence in the [contract pass](reviews/DR-0006-rev-04-review-01.md) and
 [graphics-system pass](reviews/DR-0006-rev-04-review-02.md). Both recommend
 Accept at High confidence with no blocking finding. The graphics pass records a
 nonblocking cross-DR fixture-matrix obligation; exact dependency-revision
 meaning remains a nonblocking later obligation. Review Complete records
-evidence, not owner acceptance. Only Ben may accept or reject this proposal.
+evidence, not owner acceptance. Those artifacts are stale after the material
+Revision 5 change and do not satisfy the pending current-revision review. The
+Batch 9 candidate-versus-committed identity lifecycle is now recorded at this
+identity boundary, with operation/publication mechanics cross-linked to
+DR-0013. Owner approval remains Pending, Status remains Proposed, and Review
+status is Pending. Only Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 
@@ -177,6 +206,12 @@ evidence, not owner acceptance. Only Ben may accept or reject this proposal.
   imported namespace.
 - Define their relation to derived artifact/build identity before external
   persistence is promised.
+- Define candidate artifact identity as non-authoritative staging identity and
+  committed artifact identity as the same identity after successful atomic
+  publication; keep build/operation identity independent and available for
+  failures. Define identical-target recognition without adopting different or
+  unverifiable occupants. Leave operation/publication mechanics to DR-0013
+  and exact fields to the canonical build-operation specification.
 - Prove through regeneration fixtures that semantic references survive topology
   and LOD changes while ephemeral indices remain artifact/build-scoped.
 - Record exact revisions and semantic mappings for every outcome-affecting

@@ -1,7 +1,7 @@
 # Normative specifications
 
 Status: Active authority boundary; the proposed body-document and body-graph
-contracts include discussion-approved CK-KICK-012 Batch 8 revisions, but no
+contracts include discussion-approved CK-KICK-012 Batch 8/9 revisions, but no
 format is accepted
 
 This directory will own machine-facing semantics and serialized contracts. It is
@@ -13,16 +13,16 @@ The current semantic proposal set is represented by [DR-0002](../docs/decisions/
 [DR-0008](../docs/decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
 and [DR-0011](../docs/decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
 Their prior revisions and reviews remain preserved as historical evidence.
-DR-0002 Revision 10, DR-0008 Revision 10, DR-0011 Revision 6, and DR-0012
-Revision 5 contain the discussion-approved Batch 8 resolutions and remain
-Proposed with Owner approval Pending. The fresh current Double review is
-Complete evidence against commit `b19adf76aad7d672c0871bd38fc34739f3f4ac39`:
-Review 01 recommends Revise for all five affected proposals, while Review 02
-is ready for owner disposition for DR-0002/0008/0011 (High) and DR-0012
-(Medium), and recommends Revise for DR-0013 (High). Seven consolidated findings
-await Ben discussion and owner disposition; Complete is evidence only, not a
-clean review or acceptance. Earlier review evidence is stale after these
-revisions. DR-0006 remains Proposed with its current revision's review evidence.
+DR-0002 Revision 11, DR-0006 Revision 5, DR-0008 Revision 11, DR-0011
+Revision 7, DR-0012 Revision 6, and DR-0013 Revision 4 contain the
+discussion-approved Batch 9 resolutions and remain Proposed with Owner approval
+Pending and Review Pending. The prior current Double review is stale after
+Batch 9, with evidence against commit
+`b19adf76aad7d672c0871bd38fc34739f3f4ac39`. Its seven consolidated findings
+are preserved as historical evidence and were resolved by Batch 9 discussion;
+they are not awaiting discussion. A fresh current-revision Double review of all
+six records is required before owner disposition. Earlier review evidence is
+stale after these revisions.
 The cross-cutting proposal is
 [DR-0012: initial body-document encoding, resolution, and compatibility](../docs/decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
 
@@ -37,9 +37,14 @@ The cross-cutting proposal is
   durable semantic identity, explicit Part containment and transform
   inheritance, directed joints with canonical local frame records,
   host/mating Socket Attachment placement, provenance, Stage 1 invariants, and
-  success-publication rules.
+  successful in-memory snapshot handoff conditions.
+- [Build-operation and derived-output contract](build-operation/README.md):
+  the Proposed public build envelope, in-memory snapshot handoff boundary,
+  candidate-to-committed artifact identity lifecycle, deterministic target and
+  collision rules, publication/inspection expectations, and failure-bundle
+  trust boundary. It does not define final serialization.
 
-Both proposed contracts apply a finite implementation profile. Its approved
+These proposed contracts apply a finite implementation profile. Its approved
 resource-limit categories are source and aggregate bytes, string
 lengths/counts, nesting depth, object/array members, graph entities/relations,
 ownership depth, module/reference expansion, extension count/payload, numeric
@@ -52,8 +57,9 @@ accounting remain unselected.
 - One authoritative operation-result envelope for all phases and diagnostics:
   loading, syntax/schema/contract, dependencies, resources, semantic
   resolution, and invariants. A validated, inspectable, reproducible, per-build
-  resolved semantic graph snapshot is an optional success payload only for
-  valid-supported input; persisted snapshot diagnostics are a derived subset.
+  resolved semantic graph snapshot is required for successful `resolve` and may
+  be omitted only when an operation contract such as `validate` permits it;
+  persisted snapshot diagnostics are a derived subset.
   Semantically invalid and well-formed-but-unsupported partial graphs are
   non-compilable, non-contractual debug data. The proposed source/resolved
   split is detailed in the [body-document](body-document/README.md) and
@@ -75,9 +81,11 @@ accounting remain unselected.
   reusable scope; landmark, anchor, dimension, and frame are typed owner+role
   records. Joint has one proximal and one distal Part; Socket is Part-owned;
   Attachment connects one host and one mating Socket without implying
-  articulation. The normalized model declares module/root/anchor-provenance,
+  articulation. The normalized model declares a stable module-instance
+  declaration address plus module/root-role/anchor-provenance,
   presence/optionality, and Attachment requirement without adding an eighth
-  graph concept; absent and present-but-unattached are distinct. Every Socket
+  graph concept; an absent declaration emits no Part or relation target and is
+  distinct from a present-but-unattached root. Every Socket
   has total active capacity one across host and mating roles, so cross-role
   reuse is invalid. Every embodied Part has exactly one explicit containment path
   to the root, including an optional module root; containment supplies
@@ -138,6 +146,12 @@ accounting remain unselected.
 - Interaction and quality negotiation.
 - Shared domain-operation and diagnostic contracts (eventually).
 - Artifact inspection and manifests.
+
+The body-document and body-graph contracts own semantic source admission and
+resolved graph meaning. The build-operation contract owns the public derived
+output and publication boundary; it does not move semantic identity out of
+[DR-0006](../docs/decisions/DR-0006-durable-semantic-and-artifact-identity.md)
+or make filesystem artifacts authored authority.
 
 ## Specification obligations
 

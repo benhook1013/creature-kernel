@@ -16,9 +16,10 @@ creature-kernel/
 │   ├── research/            # open questions and references
 │   ├── developer-workflows/ # conditional contributor procedures
 │   └── project/             # status, roadmap, repository evolution
-├── spec/                    # normative formats and semantics (proposed body-document/body-graph contracts)
+├── spec/                    # normative formats and semantics (proposed body-document/body-graph/build-operation contracts)
 │   ├── body-document/       # authored source encoding and admission contract
-│   └── body-graph/          # resolved semantic graph contract
+│   ├── body-graph/          # resolved semantic graph contract
+│   └── build-operation/     # Proposed public build/output contract
 ├── Cargo.toml               # planned Rust workspace; not active
 ├── crates/                   # planned engine-independent core/compiler/CLI areas
 ├── experiments/             # reproducible research evidence
@@ -31,12 +32,13 @@ creature-kernel/
 
 Implementation directories and the Cargo workspace are intentionally absent
 until DR-0013 is accepted. The four readiness stages are: acceptance activates
-only the empty Cargo workspace/compiler/library/CLI shell; exact JSON Schema
-plus a frozen/admitted fixture manifest activate parser/bootstrap and listed
-fixtures together; canonical numeric/frame rules plus frozen expected graph
-outputs activate semantic resolver/snapshot publication; and a working
-resolver plus provisional geometry profile and project-owned seam activate
-exploratory Stage 1 geometry. While DR-0013 remains Proposed, no
+only the empty Cargo workspace/compiler/library/CLI shell; a versioned,
+preflighted fixture manifest, its listed files, exact JSON Schema, and
+parser/bootstrap activate together in one review-branch transaction; canonical
+numeric/frame rules plus frozen expected graph outputs activate semantic
+resolver/in-memory snapshot handoff; and a working resolver plus provisional
+geometry profile and project-owned seam activate exploratory Stage 1 geometry.
+While DR-0013 remains Proposed, no
 implementation packages or compiler-consumed fixtures are activated.
 
 ## Activation rule

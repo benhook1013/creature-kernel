@@ -589,12 +589,13 @@ gets its own DR and review before backend-specific compiler code locks it in.
 
 ### CK-KICK-012: Specify the minimal body document and body graph
 
-State: active (Batches 1, 4, 5, 6, F1–F3, and Batch 8 integrated as Proposed
-documentation; DR-0002 Revision 10, DR-0008 Revision 10, DR-0011 Revision 6,
-DR-0012 Revision 5, and DR-0013 Revision 3 remain Proposed with Owner approval
-Pending. The fresh current Double review is Complete evidence against commit
-`b19adf76aad7d672c0871bd38fc34739f3f4ac39`; seven consolidated findings await
-Ben discussion and owner disposition. The prior exact review at
+State: active (Batches 1, 4, 5, 6, F1–F3, Batch 8, and Batch 9 integrated as Proposed
+documentation; DR-0002 Revision 11, DR-0006 Revision 5, DR-0008 Revision 11,
+DR-0011 Revision 7, DR-0012 Revision 6, and DR-0013 Revision 4 remain Proposed
+with Owner approval Pending and Review Pending. The prior current Double review
+is stale after Batch 9; its seven consolidated findings are historical evidence
+resolved by discussion, and a fresh current-revision Double review is required
+before owner disposition. The prior exact review at
 `88004388f9537a37617ae248bdaad4625e6f3f03` and the Batch 5 review are stale
 historical evidence)
 
@@ -612,9 +613,11 @@ Outcome:
   versioned source-set dependency.
 - Every phase and diagnostic belongs to one authoritative operation-result
   envelope: loading, syntax/schema/contract, dependencies, resources,
-  semantic resolution, and invariants. A validated snapshot is optional and
-  exists only for valid-supported success; snapshot diagnostics are a derived
-  persisted subset. Semantically invalid and well-formed-but-unsupported
+  semantic resolution, and invariants. Successful `resolve` requires a
+  validated in-memory snapshot; an operation such as `validate` may omit it
+  only when its contract permits. Snapshot finalization is not filesystem
+  serialization; snapshot diagnostics in any derived output are a persisted
+  subset. Semantically invalid and well-formed-but-unsupported
   partial graphs are non-compilable, non-contractual debug data. Exact phase
   names and diagnostic codes remain deferred.
 - The first grammar is a bounded typed ownership tree with reified,
@@ -638,8 +641,8 @@ Outcome:
   well-formed-but-unsupported, with a primary diagnostic class/code frozen for
   every non-success fixture. Only valid-supported fixtures count toward the
   Stage 1 gate. Representative schema-level fixtures and compiler-consumed
-  generation fixtures activate later when the first compiler reads a body
-  document.
+  generation fixtures activate through the Readiness 2 admitted manifest
+  transaction, not merely when the first compiler reads a body document.
 - Keep the semantic contract independent from generated mesh indices and the
   first host engine. Exact syntax/schema technology, coordinate convention,
   numeric ranges, surface primitives, identity address serialization,
@@ -649,42 +652,43 @@ Outcome:
 - The first parser and resolver proposals now activate the
   [`spec/body-document/`](../../spec/body-document/README.md) and
   [`spec/body-graph/`](../../spec/body-graph/README.md) contract families.
+  The public derived-output and publication boundary is owned by the
+  [`spec/build-operation/`](../../spec/build-operation/README.md) contract.
   Their implementation packages and compiler-consumed fixtures remain
   unactivated.
 
-- Batch 6, F1–F3, and Batch 8 are discussion-approved and integrated below as Proposed
+- Batch 6, F1–F3, Batch 8, and Batch 9 are discussion-approved and integrated below as Proposed
   material. They resolve status/primary ordering, descendant-owned mating
   Socket placement, typed Attachment composition, and Attachment cardinality
   without accepting or silently replacing the decision records. The affected
   DR revisions were Proposed with Owner approval Pending and Review Complete at
-  that historical revision; that review is stale after Batch 8.
+  that historical revision; that review is stale after Batch 9.
 
 The Batch 1 and Batch 4 discussion selections and review resolutions are not DR
 acceptance. The prior revisions have complete review evidence. Batch 5, Batch
-6, F1–F7, and Batch 8 are discussion-approved and integrated into the canonical product,
+6, F1–F7, Batch 8, and Batch 9 are discussion-approved and integrated into the canonical product,
 specification, architecture, and project documents as Proposed material. The
 CK-KICK-012 Batch 5 Double review at commit
 `a282dbabffd83afa4e62577086934d00f98e12c7` and Batch 6 review at `c64b1b...`
-are stale historical evidence. The current proposals are DR-0002 Revision 10,
-DR-0008 Revision 10, DR-0011 Revision 6, DR-0012 Revision 5, and DR-0013
-Revision 3; all remain Proposed with Owner approval Pending. The fresh current
-Double review is Complete evidence against commit
-`b19adf76aad7d672c0871bd38fc34739f3f4ac39`; Review 01 recommends Revise for
-all five, while Review 02 is ready for owner disposition for DR-0002/0008/0011
-(High) and DR-0012 (Medium; the manifest contract is a later activation
-obligation), and recommends Revise for DR-0013 (High). Seven
-consolidated findings await Ben discussion and owner disposition. The prior
+are stale historical evidence. The current six-record set is DR-0002 Revision
+11, DR-0006 Revision 5, DR-0008 Revision 11, DR-0011 Revision 7, DR-0012
+Revision 6, and DR-0013 Revision 4; all remain Proposed with Owner approval
+Pending and Review Pending. The prior current Double review is stale historical
+evidence after Batch 9; its seven findings are resolved by Batch 9 discussion
+and are not awaiting discussion. A fresh exact-target Double review of all six
+is required before owner disposition. The prior
 exact review at `88004388f9537a37617ae248bdaad4625e6f3f03` is stale. No
 acceptance or clean review is implied.
 The prior Batch 4 and Batch 5 reviews remain
 preserved as historical evidence.
-DR-0006 remains Proposed with its current revision's review evidence. The
-cross-cutting proposal is
+The cross-cutting proposal is
 [DR-0012: initial body-document encoding, resolution, and
 compatibility](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
-CK-KICK-012 remains active; the current Double review is Complete evidence only
-and the seven consolidated findings await Ben discussion and owner disposition,
-so this proposal does not complete the round or imply owner acceptance.
+CK-KICK-012 remains active; the prior current Double review is stale and Batch
+9 is discussion-approved Proposed material. Its seven findings are historical
+evidence resolved by discussion, and a fresh exact-target Double review of all
+six records is required before owner disposition; this proposal does not
+complete the round or imply owner acceptance.
 
 ### Batch 4 — encoding, resolution, and compatibility (discussion-approved)
 
@@ -859,7 +863,7 @@ dependency-revision meaning, canonical bytes/hashing, and fixture contents
 deferred. At the end of this historical Batch 6 snapshot, DR-0002 Revision 9,
 DR-0008 Revision 9, DR-0011 Revision 5, and DR-0012 Revision 4 were Proposed
 with Owner approval Pending and Review Complete, with five findings still
-awaiting discussion. Batch 8 below supersedes that review state; CK-KICK-012
+awaiting discussion. Batch 9 below supersedes that review state; CK-KICK-012
 remains active pending current review and owner disposition.
 
 ### Batch 8 — semantic completeness, module instances, and build boundary (discussion-approved)
@@ -892,7 +896,7 @@ They are integrated as Proposed material only; no decision record is accepted.
   Cargo shell; (2) exact JSON Schema plus frozen/admitted fixture manifest
   activates parser/bootstrap and listed fixtures together; (3) canonical
   numeric/frame rules plus frozen expected graph outputs activate semantic
-  resolver/snapshot publication; and (4) a working resolver plus provisional
+  resolver/in-memory snapshot handoff; and (4) a working resolver plus provisional
   geometry profile and project-owned seam activates exploratory Stage 1
   geometry. Parked DR-0009/0010 do not gate Readiness 4.
 - Geometry and publication share one authoritative build envelope. Add
@@ -904,22 +908,72 @@ They are integrated as Proposed material only; no decision record is accepted.
   no-replace fails closed without target adoption. Artifact inspection is a
   separate read operation.
 
-DR-0002 Revision 10, DR-0008 Revision 10, DR-0011 Revision 6, DR-0012 Revision
-5, and DR-0013 Revision 3 remain Proposed with Owner approval Pending and
-Review Complete evidence against commit
-`b19adf76aad7d672c0871bd38fc34739f3f4ac39`; seven consolidated findings await
-Ben discussion and owner disposition. Earlier reviews are stale after these
-revisions.
+At that historical Batch 8 snapshot, DR-0002 Revision 10, DR-0008 Revision 10,
+DR-0011 Revision 6, DR-0012 Revision 5, and DR-0013 Revision 3 were Proposed
+with Owner approval Pending and Review Complete evidence against commit
+`b19adf76aad7d672c0871bd38fc34739f3f4ac39`; the prior seven findings are
+addressed by Batch 9 discussion resolutions and owner disposition remains
+pending. Earlier reviews are stale after these revisions.
+
+### Batch 9 — resolver/build publication and admission resolutions (discussion-approved)
+
+On 2026-08-12 Ben approved the CK-KICK-012/013 Batch 9 resolutions in
+discussion. They are integrated in the canonical documents as Proposed
+material only; they do not accept or silently replace the decision records.
+
+- Resolver phase 8 is in-memory resolved-snapshot finalization and handoff, not
+  filesystem serialization. Successful `resolve` requires that snapshot;
+  operations such as `validate` may omit it only when their own contract
+  permits. Qualifying resource interruption is `resource-limit`, loss of trust
+  is `internal-failure`, and external serialization/publication belongs to the
+  build/output boundary with trusted failures reported as `output-failure`.
+- An absent optional module retains a stable authored module-instance
+  declaration address and a non-embodied root-role/template reference. It emits
+  or reserves no Part, cannot be a graph-relation target, and participates in
+  declaration uniqueness rather than the Part namespace. If later present, its
+  Part identity derives deterministically from the module-instance anchor and
+  root role; this is not an eighth embodied graph concept.
+- The new [Proposed build-operation contract](../../spec/build-operation/README.md)
+  owns the public derived-output/publication semantics. A staged manifest's
+  candidate artifact identity is non-authoritative; successful atomic
+  publication promotes the same identity to committed artifact identity. The
+  explicit output root plus candidate identity determine one safe target rule;
+  verified identical occupants are idempotent success, different or
+  unverifiable occupants are output-failure/target-conflict with no overwrite,
+  and unavailable atomic no-replace fails closed. Inspection receives expected
+  lineage and never guesses stale. The contract also owns the complete
+  source/dependency/capability/timeout/resource/worker/output/invariant/
+  encoding/staging/collision/publication outcome matrix and the trusted
+  diagnostics-only bundle boundary.
+- Readiness 2 is one review-branch activation transaction containing the exact
+  schema, versioned manifest, all referenced fixture files, and parser/bootstrap.
+  Ben owns admission and must explicitly approve before merge/activation. A
+  generic parser-independent preflight validates immutable revision/ID, schema
+  revision/hash, fixture paths/hashes/provenance, expected status and primary
+  diagnostic, diagnostic/resource profiles, and completeness. Review-branch
+  coexistence does not activate files, and production parsing must not
+  self-admit the corpus circularly.
+- Readiness 4 triggers exploratory Stage 1 geometry and CK-KICK-014. Accepted
+  or reactivated DR-0009/0010 surface decisions are needed only for later
+  formal comparison or production architecture selection; exploratory proof has
+  no surface-decision prerequisite.
+
+The prior current Double review is stale after this Batch 9 proposal change;
+all six decision records remain Proposed with Owner approval Pending and Review
+Pending. A fresh exact-target Double review of all six is required before owner
+disposition. No package, schema, fixture corpus, parser, resolver, or geometry
+implementation is activated by this discussion approval.
 
 ## Round 8 — implementation platform (provisional)
 
 ### CK-KICK-013: Select the first implementation platform
 
 State: active (discussion-approved Proposed platform direction integrated;
-Proposed DR-0013 Revision 3 has Owner approval Pending and Review Complete
-evidence against commit `b19adf76aad7d672c0871bd38fc34739f3f4ac39`; seven
-consolidated findings await Ben discussion and owner disposition; earlier review
-evidence is stale after this revision; not accepted or implemented)
+Proposed DR-0013 Revision 4 has Owner approval Pending and Review Pending; the
+prior current Double review is stale after Batch 9 and its seven consolidated
+findings are historical evidence resolved by discussion; a fresh current-
+revision Double review is required before owner disposition; not accepted or
+implemented)
 
 Prerequisites: the exploratory host boundary and a bounded CK-KICK-012
 contract. CK-KICK-011 is not an automatic prerequisite.
@@ -927,11 +981,13 @@ contract. CK-KICK-011 is not an automatic prerequisite.
 Outcome:
 
 - Acceptance of DR-0013 alone triggers only the Cargo workspace and empty
-  compiler/library/CLI shell boundary. Exact JSON Schema plus a frozen/admitted
-  fixture manifest jointly gate parser/bootstrap and listed fixtures; canonical
-  numeric/frame rules plus frozen expected graph outputs gate semantic resolver/
-  snapshot publication; a working resolver plus provisional geometry profile and
-  project-owned seam gates exploratory Stage 1 geometry. Use
+  compiler/library/CLI shell boundary. Exact JSON Schema, a versioned and
+  parser-independent-preflighted fixture manifest, all referenced fixture files,
+  and parser/bootstrap jointly gate Readiness 2 in one review-branch activation
+  transaction with Ben admission; canonical numeric/frame rules plus frozen
+  expected graph outputs gate semantic resolver/in-memory snapshot handoff; a
+  working resolver plus provisional geometry profile and project-owned seam
+  gates exploratory Stage 1 geometry. Use
   a stable Rust production semantic/compiler core in a Cargo workspace, with
   an engine-independent Rust compiler library, thin CLI, and versioned
   project-owned backend-neutral GeometryRequest/GeometryResult seam. No initial
@@ -951,14 +1007,12 @@ Outcome:
   and reference-environment metadata. Review dependency license, unsafe/native
   code, and portability/security relevance without Git commit pinning or
   heavyweight audit bureaucracy.
-- Publish through one authoritative geometry/publication build envelope from
-  immutable build-scoped sibling staging, write the manifest last, atomically
-  publish with no replacement, and validate build/artifact identity, relative
-  paths, hashes, and sizes. Normalize trusted derived-output/publication failure
-  as `output-failure`; keep build identity on every result and artifact identity
-  only after successful publication. Reject
-  absolute/traversal paths, symlinked or unlisted outputs, incomplete,
-  mixed-build, and stale bundles. An independent visual workbench consumes the
+- Publish through the [Proposed build-operation contract](../../spec/build-operation/README.md)
+  and its one authoritative geometry/publication envelope. It owns immutable
+  build-scoped sibling staging, candidate-to-committed artifact identity,
+  deterministic output-root targeting, manifest-last atomic no-replace,
+  idempotent publication, target conflicts, lineage-checked inspection, and
+  trusted failure-bundle rules. An independent visual workbench consumes the
   filesystem artifacts; final avatar-package serialization/compatibility
   remains deferred.
 - Any future worker must negotiate protocol/version compatibility, obey bounded
@@ -969,8 +1023,9 @@ Outcome:
   activate compiler fixtures.
 
 The prior exact-revision Double review is stale historical evidence after the
-Batch 8 revisions. The current Double review is Complete evidence only; seven
-consolidated findings await Ben discussion and owner disposition.
+Batch 9 revisions; its seven consolidated findings are preserved as historical
+evidence resolved by discussion. A fresh exact-target Double review is required
+before owner disposition.
 Geometry libraries, licensing, platform support, and any C++ worker/FFI boundary remain
 evidence-driven; they are not settled by this proposal. No implementation
 package or compiler fixture is activated while the DR remains Proposed.
@@ -979,12 +1034,17 @@ package or compiler fixture is activated while the DR remains Proposed.
 
 ### CK-KICK-014: Implement and audit the Stage 1 generation proof
 
-State: provisional/queued (implementation prerequisite not yet met)
+State: provisional/queued (Readiness 4 implementation prerequisite not yet met)
 
-Prerequisite: accepted implementation/platform and surface decisions; exact
-schema and admitted fixtures/contracts. DR-0013 acceptance alone activates the
-Cargo/compiler shell, but parser/resolver implementation remains gated by those
-exact inputs; while DR-0013 is Proposed, no package is activated.
+Prerequisite: Readiness 4 — a working resolver, provisional geometry profile,
+and project-owned GeometryRequest/GeometryResult seam, with the exact schema
+and admitted fixtures/contracts already activated by Readiness 2/3. DR-0013
+acceptance alone activates the Cargo/compiler shell, while parser/resolver and
+geometry implementation remain gated by their exact inputs and transactions;
+while DR-0013 is Proposed, no package is activated. CK-KICK-014 exploratory
+proof does not require an accepted or reactivated DR-0009/0010 surface
+decision; those decisions are needed only for later formal comparison or
+production architecture selection.
 
 Parse and resolve the minimal body document, activate compiler-consumed fixtures
 with deterministic expected results, and generate the fixed body family,

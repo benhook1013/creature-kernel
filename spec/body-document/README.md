@@ -1,15 +1,16 @@
 # Body-document contract
 
-Status: Proposed contract; CK-KICK-012 Batch 8 discussion-approved canonical
-update. DR-0002 Revision 10, DR-0008 Revision 10, DR-0011 Revision 6, and
-DR-0012 Revision 5 remain Proposed with Owner approval Pending. The fresh
-current Double review is Complete evidence against commit
-`b19adf76aad7d672c0871bd38fc34739f3f4ac39`: Review 01 recommends Revise for
-all five affected proposals, while Review 02 is ready for owner disposition for
-DR-0002/0008/0011 (High) and DR-0012 (Medium), and recommends Revise for
-DR-0013 (High). Seven consolidated findings await Ben discussion and owner
-disposition; Complete is evidence only, not a clean review or acceptance.
-Earlier review evidence is stale after these revisions. See
+Status: Proposed contract; CK-KICK-012 Batch 8/9 discussion-approved canonical
+update. DR-0002 Revision 11, DR-0006 Revision 5, DR-0008 Revision 11, DR-0011
+Revision 7, DR-0012 Revision 6, and DR-0013 Revision 4 remain Proposed with
+Owner approval Pending and Review Pending. The prior current Double review is
+stale after Batch 9; its evidence is preserved from
+commit
+`b19adf76aad7d672c0871bd38fc34739f3f4ac39`. Its seven consolidated findings
+are preserved as stale historical evidence and were resolved by Batch 9
+discussion; they are not awaiting discussion. A fresh current-revision Double
+review of all six records is required before owner disposition. Earlier review
+evidence is stale after these revisions. See
 the [decision registry](../../docs/decisions/registry.md). No acceptance is
 implied.
 The CK-KICK-012 Batch 5 review at commit `a282dbabffd83afa4e62577086934d00f98e12c7`
@@ -54,12 +55,18 @@ input may expose debug information only when it is explicitly marked
 non-compilable and non-contractual.
 
 The normalized semantic model also declares each module instance without
-adding an eighth identity-bearing graph concept. A declaration records the
-instantiated module, root Part, module-instance anchor/provenance, presence and
-optionality, and whether Attachment composition is required. Optional absence
-is distinct from a present-but-unattached root; a present Attachment-required
-root with no incoming active Attachment is invalid. Nested instances require
-distinct Socket instances and retain containment and source provenance.
+adding an eighth identity-bearing graph concept. A declaration has a stable
+authored module-instance declaration address and records the instantiated
+module, non-embodied root-role/template reference, root Part when present,
+module-instance anchor/provenance, presence and optionality, and whether
+Attachment composition is required. An absent optional declaration emits or
+reserves no Part, no graph relation may target its non-embodied root role, and
+it participates in declaration uniqueness rather than the Part namespace. If
+later present, its Part identity derives deterministically from the
+module-instance anchor and root role. Optional absence is distinct from a
+present-but-unattached root; a present Attachment-required root with no
+incoming active Attachment is invalid. Nested instances require distinct
+Socket instances and retain containment and source provenance.
 
 ## Initial source encoding
 
@@ -108,10 +115,12 @@ remapping rules.
 
 Every operation produces one authoritative result envelope, including failures
 before semantic resolution. The envelope has one top-level status, a
-completeness indication, deterministic structured diagnostics, and an optional
-resolved snapshot only for complete valid-supported success. A rejected or
-unsupported partial graph is explicitly non-compilable and non-contractual
-debug data.
+completeness indication, deterministic structured diagnostics, and a resolved
+snapshot when the operation contract requires one. A successful `resolve`
+operation requires a complete validated in-memory snapshot; an operation such
+as `validate` may intentionally omit the snapshot only when its own contract
+permits that result. A rejected or unsupported partial graph is explicitly
+non-compilable and non-contractual debug data.
 
 After the bootstrap sequence, the conceptual resolution phases are:
 
@@ -122,7 +131,7 @@ After the bootstrap sequence, the conceptual resolution phases are:
 5. Part containment and typed-relation checks;
 6. unit/frame normalization and value derivation;
 7. semantic invariant checks; and
-8. successful snapshot publication.
+8. in-memory resolved-snapshot finalization and handoff.
 
 The bootstrap steps are the required sub-order of the first two phases. A
 fatal phase blocks dependent later phases. Independent diagnostics in a phase
@@ -132,8 +141,11 @@ required phase is skipped; diagnostic completeness is independently incomplete
 only when diagnostic retention is truncated. Intentionally blocked later phases
 do not by themselves make retained reached-phase diagnostics incomplete. A
 complete non-success result is possible when all applicable checks ran and
-established an invalid or unsupported outcome. Publication is possible only
-after every required phase succeeds.
+established an invalid or unsupported outcome. Resolved-snapshot finalization
+is possible only after every required resolver phase succeeds. This phase is
+an in-memory handoff, not filesystem serialization or artifact publication;
+the [build-operation contract](../build-operation/README.md) owns those later
+derived-output steps.
 
 ### Closed status algebra and precedence
 
@@ -141,7 +153,7 @@ The only operation statuses are:
 
 | Status | Observable meaning |
 | --- | --- |
-| `success` | The recognized supported source completed all required checks and a validated snapshot may be present. |
+| `success` | The recognized supported source completed all required checks; a validated snapshot is present when required by the operation contract, and `resolve` success always includes it. |
 | `input-failure` | The authoritative top-level source was unavailable, unreadable, or could not be acquired as input; this is distinct from errors in supplied source bytes. |
 | `invalid-source` | Supplied source bytes have invalid UTF-8, strict JSON syntax errors, duplicate members, a non-object top level, missing/malformed/duplicate discriminator data, recognized-revision schema failure, or source-caused semantic/invariant errors. |
 | `unsupported` | The source is sufficiently well formed to identify an unknown family, unsupported revision, unsupported required extension, or recognized-but-unsupported feature/assembly. |
@@ -162,7 +174,9 @@ the status. In parse and semantic phases, `invalid-source` outranks
 `unsupported` when both are established; dependency acquisition/read/verify/
 resolve failure maps to `dependency-failure`, while complete dependency content
 uses the ordinary parse/semantic mapping. If no fatal phase occurs and all
-required work completes, the status is `success`. All mandatory independent
+required work completes, the status is `success`. A successful `resolve`
+operation must include the finalized in-memory snapshot; an operation whose
+contract permits validation-only success may omit it. All mandatory independent
 checks capable of changing status or primary run unless resource or trust
 interruption prevents them; optional/advisory checks cannot change status or
 primary. In a mixed dependency phase, `dependency-failure` outranks
@@ -251,6 +265,10 @@ After successful admission, the [body-graph contract](../body-graph/README.md)
 owns Part containment, typed relations, Attachment placement, canonical frame
 records, provenance, and semantic invariants. This document does not choose a
 bone hierarchy, solver, limits, runtime pose, mesh, or surface representation.
+The resolver's successful snapshot is finalized and handed off in memory; the
+[build-operation contract](../build-operation/README.md) owns any later
+serialization, staging, and publication of that snapshot or other derived
+outputs.
 
 Representative fixtures should cover valid documents, invalid UTF-8/JSON,
 duplicate members, non-object top levels, discriminator recognition failures,

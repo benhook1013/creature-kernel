@@ -17,15 +17,16 @@ The current semantic boundaries are Proposed under [DR-0002](../decisions/DR-000
 [DR-0006](../decisions/DR-0006-durable-semantic-and-artifact-identity.md),
 [DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
 and [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
-CK-KICK-012 Batch 6/7/8 resolutions are discussion-approved and represented here
-as Proposed architecture consequences. DR-0002 Revision 10, DR-0008 Revision
-10, DR-0011 Revision 6, and DR-0012 Revision 5 are Proposed with Owner approval
-Pending. The fresh current Double review is Complete evidence against commit
-`b19adf76aad7d672c0871bd38fc34739f3f4ac39`: Review 01 recommends Revise for
-all five affected proposals, while Review 02 is ready for owner disposition for
-DR-0002/0008/0011 (High) and DR-0012 (Medium), and recommends Revise for
-DR-0013 (High). Seven consolidated findings await Ben discussion and owner
-disposition. Complete is evidence only, not a clean review or acceptance; see
+CK-KICK-012 Batch 6/7/8/9 resolutions are discussion-approved and represented here
+as Proposed architecture consequences. The current six-record set is DR-0002
+Revision 11, DR-0006 Revision 5, DR-0008 Revision 11, DR-0011 Revision 7,
+DR-0012 Revision 6, and DR-0013 Revision 4. All six are Proposed with Owner
+approval Pending and Review Pending. The prior current Double review is stale
+after Batch 9, with evidence against commit
+`b19adf76aad7d672c0871bd38fc34739f3f4ac39`. Its seven consolidated findings
+are preserved as stale historical evidence and were resolved by Ben's Batch 9
+discussion; they are not awaiting discussion. A fresh current-revision Double
+review of all six records is required before owner disposition; see
 the [decision registry](../decisions/registry.md). Earlier review evidence is
 stale after these revisions.
 The CK-KICK-012 Batch 5 review at commit
@@ -86,29 +87,33 @@ boundary is owned by the [body-document contract](../../spec/body-document/READM
 
 Every phase and diagnostic belongs to one authoritative operation-result
 envelope with a closed status, completeness indication, deterministic bounded
-diagnostics, and an optional validated per-build snapshot only for complete
-valid-supported success. The body-document contract owns bootstrap order,
-status precedence, diagnostic retention/order, and hostile-input resource
-guards. The graph contract owns resolved semantic structure. Mesh, rig,
-runtime, and other artifacts remain further derived outputs. See the
+diagnostics, and a validated per-build snapshot whenever the operation contract
+requires one; successful `resolve` requires the in-memory snapshot. The
+body-document contract owns bootstrap order, status precedence, diagnostic
+retention/order, and hostile-input resource guards. The graph contract owns
+resolved semantic structure. Resolver phase 8 is snapshot finalization/handoff,
+not filesystem serialization. Mesh, rig, runtime, and other artifacts remain
+further derived outputs. See the
 [body-document contract](../../spec/body-document/README.md) and
-[body-graph contract](../../spec/body-graph/README.md); exact fields, codes,
-canonical bytes, and hashes remain deferred.
+[body-graph contract](../../spec/body-graph/README.md), and the
+[build-operation contract](../../spec/build-operation/README.md); exact fields,
+codes, canonical bytes, and hashes remain deferred.
 
 ### Proposed production platform and artifact/workbench boundary
 
 CK-KICK-013 is a discussion-approved platform proposal, not an accepted
-implementation decision. Proposed DR-0013 Revision 3 has Owner approval
-Pending and the fresh current Double review is Complete evidence against commit
-`b19adf76aad7d672c0871bd38fc34739f3f4ac39`; Review 02 recommends Revise at High
-confidence. Seven consolidated findings await Ben discussion and owner
-disposition. Earlier review evidence is stale after this revision. The four
+implementation decision. Proposed DR-0013 Revision 4 has Owner approval Pending
+and Review Pending. The prior current Double review is stale after the Batch 9
+proposal change; its seven consolidated findings are preserved as historical
+evidence and were resolved by discussion. A fresh current-revision Double
+review is required before owner disposition. The four
 readiness stages are: acceptance activates only the
-empty Cargo shell; exact JSON Schema plus a frozen/admitted fixture manifest
-jointly activate parser/bootstrap and listed fixtures; canonical numeric/frame
-rules plus frozen expected graph outputs activate semantic resolution and
-snapshot publication; and a working resolver plus provisional geometry profile
-and project-owned seam activates exploratory Stage 1 geometry. Its target is a stable Rust
+empty Cargo shell; a versioned, preflighted fixture manifest, its listed files,
+the exact schema, and parser/bootstrap must be admitted together in one
+review-branch activation transaction; canonical numeric/frame rules plus
+frozen expected graph outputs activate semantic resolution and in-memory
+snapshot handoff; and a working resolver plus provisional geometry profile and
+project-owned seam activates exploratory Stage 1 geometry. Its target is a stable Rust
 production semantic/compiler core in a Cargo workspace, an engine-independent
 compiler library, a thin CLI, and a versioned project-owned backend-neutral
 GeometryRequest/GeometryResult seam, with no initial daemon or service. Stage 1
@@ -125,18 +130,13 @@ first reference path is WSL2 x86_64 GNU, with a
 later native-Linux portability smoke. Record `rust-toolchain.toml`,
 `Cargo.lock`, target/profile, `rustc -Vv`, and reference metadata; review each
 dependency's license, unsafe/native code, and portability/security relevance
-without Git pinning or heavyweight audit bureaucracy. Publish complete
-success/failure bundles from immutable build-scoped sibling staging, manifest
-last, atomic no-replace, and validate identity, relative paths, hashes, and
-sizes. One authoritative build envelope spans geometry and publication; trusted
-derived-output/publication failure is `output-failure`, build identity always
-exists, and artifact identity exists only after successful publication. A
-compile/geometry failure may publish a diagnostics-only failure bundle if
-publication succeeds; publication failure returns the envelope with no final
-bundle. Cleanup is limited to invocation staging, and unavailable atomic
-no-replace fails closed without target adoption. Artifact inspection is a
-separate read operation. Reject symlinked, unlisted, incomplete, mixed-build,
-and stale bundles.
+without Git pinning or heavyweight audit bureaucracy. The
+[build-operation contract](../../spec/build-operation/README.md) owns the
+public envelope for complete success/failure bundles, candidate-to-committed
+artifact identity, explicit-output-root target derivation, idempotent
+publication, target conflicts, no-replace failure, and lineage-checked
+inspection. The architecture consumes that Proposed boundary and does not
+select final serialization or compatibility.
 The seam does not select a permanent surface/backend or create DR-0009/0010
 evidence. Future workers negotiate protocol/version, obey bounded time/resources, map
 crash/timeout/resource outcomes, validate outputs, and leave the compiler
@@ -151,6 +151,11 @@ owned by the [body-graph contract](../../spec/body-graph/README.md). Its
 architectural boundary is explicit: every embodied Part has one containment
 path, containment supplies transform inheritance, relations cannot repair
 containment, and containment and relation cycles are checked independently.
+Absent optional module declarations retain a stable authored declaration
+address and non-embodied root-role/template reference, emit no Part, reserve no
+Part identity, and cannot be relation targets; a later present root derives its
+Part identity from the module-instance anchor and root role. This is not an
+additional embodied graph concept.
 Required Stage 1 Joints connect structural parents to immediate children.
 Attachment composition derives the attached root's sole child-local containment
 placement from the host Socket, optional offset, and the mating Socket frame

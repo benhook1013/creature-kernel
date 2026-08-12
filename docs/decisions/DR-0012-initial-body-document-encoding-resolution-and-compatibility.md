@@ -6,13 +6,13 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 5
+Revision: 6
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-11
 
@@ -28,7 +28,9 @@ Superseded by: —
 
 The CK-KICK-012 Batch 4 discussion needs an initial source representation and
 an executable boundary between admission, structural recognition, semantic
-resolution, diagnostics, and successful snapshot publication. The existing
+resolution, diagnostics, and in-memory snapshot finalization/handoff. External
+filesystem serialization is a later build/output concern owned by DR-0013, not
+part of resolver snapshot completion. The existing
 source-set and resolved-graph boundary in [DR-0002](DR-0002-declarative-body-document-source-of-truth.md)
 establishes authority but deliberately leaves encoding and phase mechanics
 open. [DR-0008](DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md)
@@ -63,7 +65,12 @@ current Double review is required. The Revision 3 and earlier reviews remain
 stale historical evidence. Exact field
 spelling, diagnostic codes, concrete resource values, tolerances, canonical
 axes/units/rotation/scale/shear, and the canonical-byte algorithm remain later
-specification work.
+specification work. Ben's 2026-08-12 Batch 9 discussion approval adds the
+in-memory snapshot finalization/handoff distinction, absent-module declaration
+identity, and the DR-0013 build/output ownership boundary. This material
+Revision 6 change makes the Revision 5 current-review artifacts stale.
+Revision 6 remains Proposed with Owner approval Pending and Review status
+Pending.
 
 ## Decision
 
@@ -83,8 +90,11 @@ distinct representations:
 - **Normalized semantic model** is resolver-owned derived data after structural
   recognition and normalization; it is not a second authored source.
 - **Resolved snapshot** is a build-scoped, derived, inspectable success payload
-  published only when the operation is valid-supported and all required
-  values and invariants resolve.
+  finalized and handed off in memory only when the operation is
+  valid-supported and all required values and invariants resolve. A successful
+  `resolve` requires this snapshot; an operation such as `validate` may omit it
+  when its operation contract intentionally says so. External serialization
+  remains a DR-0013 build/output concern.
 
 Deterministic debug JSON may be emitted for inspection. Canonical bytes and
 semantic hashing are not selected by this decision. A future restricted YAML
@@ -103,7 +113,7 @@ Resolution proceeds through these ordered phases:
 5. ownership/typed relations;
 6. unit/frame normalization and value derivation;
 7. semantic invariants; and
-8. successful snapshot publication.
+8. in-memory snapshot finalization/handoff.
 
 The operation-result envelope owned by DR-0002 contains diagnostics from all
 reached phases. Its closed status set is **success**, **input-failure**,
@@ -138,6 +148,13 @@ deferred. Its status and continuation rules are:
 | Internal or environment interruption loses trust | `internal-failure` | Incomplete when required processing/trusted completion is interrupted | True only for diagnostics retained as trusted under the profile |
 | No earlier failure and all applicable work succeeds | `success` | Complete | True when all applicable profile-required diagnostics were retained |
 
+For `resolve`, the successful row includes in-memory snapshot finalization and
+handoff; a success without that snapshot is not a successful resolve. An
+operation such as `validate` may intentionally use the same successful row
+without a snapshot when its operation contract says so. External filesystem
+serialization is not this phase: it is owned by the DR-0013 build/output
+boundary and maps serialization or publication failure to `output-failure`.
+
 Global internal-failure trust loss has precedence. Otherwise, a configured
 resource breach has `resource-limit` precedence only when it prevents required
 processing or a trusted result. Otherwise, the earliest applicable phase unable
@@ -170,8 +187,10 @@ canonical product-document editor to mirror this conceptual matrix; this DR
 cross-links that correction and does not silently override product authority.
 
 A fatal phase blocks dependent later phases; a required ambiguous or unresolved
-value cannot enter a successful snapshot. Publication occurs only after the
-preceding phases complete successfully. The Stage 1 fixture taxonomy of
+value cannot enter a successful snapshot. In-memory snapshot finalization and
+handoff occur only after the preceding phases complete successfully; external
+serialization is outside the resolver and belongs to the DR-0013 build/output
+boundary. The Stage 1 fixture taxonomy of
 valid-supported, semantically invalid, and well-formed-but-unsupported applies
 only to admitted, recognized semantic fixtures; parser, dependency, resource,
 and internal outcomes are operation outcomes outside that taxonomy.
@@ -276,9 +295,14 @@ The minimum Stage 1 supported-success invariants are:
 - normalized module-instance declarations identify the instantiated module,
   root Part, instance anchor/provenance, presence/optionality, and whether
   Attachment composition is required, without adding an eighth identity-
-  bearing graph concept; optional absence differs from present-but-unattached
-  state before cardinality checking, and a present Attachment-required root
-  with zero incoming active Attachments is invalid;
+  bearing graph concept; an absent declaration has a stable authored
+  declaration address and non-embodied module root-role/template reference,
+  emits or reserves no Part, cannot be a graph-relation target, and participates
+  in declaration uniqueness rather than the Part namespace; if later present,
+  its Part identity derives deterministically from the module-instance anchor
+  plus root role; optional absence differs from present-but-unattached state
+  before cardinality checking, and a present Attachment-required root with
+  zero incoming active Attachments is invalid;
 - required Stage 1 Joint edges connect structural parents to immediate child
   Parts;
 - valid Joint and Attachment endpoints;
@@ -325,6 +349,10 @@ diagnostics must also be frozen before evidence claims.
 - Source text, normalized model, and resolved snapshot cannot be confused as
   competing authorities, and debug output cannot become a success artifact by
   implication.
+- A successful `resolve` has an in-memory snapshot handoff, while
+  operation-contract-specific validation may intentionally omit one. External
+  serialization is not resolver completion and maps its own failures to
+  `output-failure` at the build/output boundary.
 - Phase-local diagnostic accumulation is useful for independent errors while
   fatal phase blocking prevents later consumers from treating incomplete state
   as resolved.
@@ -377,6 +405,11 @@ diagnostics must also be frozen before evidence claims.
   finite, non-degenerate, and invertible under its declared profile; source
   violations are semantic `invalid-source`, while implementation failure on
   admissible transforms is `internal-failure`.
+- An absent optional module is represented by a unique authored declaration
+  address and non-embodied root-role/template reference only: it emits or
+  reserves no Part, cannot be a relation target, and is outside the Part
+  namespace. If later present, its Part identity derives from the instance
+  anchor plus root role without creating another graph concept.
 - The initial format is intentionally narrow. A future restricted YAML adapter
   must normalize to the same semantic model, and future canonical-byte or
   semantic-hash rules require separate specification work.
@@ -453,8 +486,9 @@ phase-specific mapping for ordinary cases.
 
 Partial state can expose useful debugging information, but downstream tools
 could mistake it for a valid snapshot. The envelope may carry explicitly
-non-contractual debug information, while successful snapshot publication is
-reserved for complete valid-supported resolution.
+non-contractual debug information, while successful in-memory snapshot
+finalization/handoff is reserved for complete valid-supported resolution.
+External filesystem serialization remains a DR-0013 build/output operation.
 
 ### Define canonical bytes and hashes now
 
@@ -514,7 +548,7 @@ and source-versus-implementation mapping are revised here and linked records;
 (4) the four technical readiness gates are owned by DR-0013; and (5)
 authoritative build/publication outcome and `output-failure` are owned by
 DR-0013. The latter two are cross-links, not additional DR-0012 decisions. The
-fresh current Double review is complete at target commit
+fresh current Double review of Revision 5 was complete at target commit
 `b19adf76aad7d672c0871bd38fc34739f3f4ac39`: [review 01](reviews/DR-0012-rev-05-review-01.md)
 recommended **Revise** at **High** confidence and [review 02](reviews/DR-0012-rev-05-review-02.md)
 records **Ready for owner disposition** at **Medium** confidence with no
@@ -526,8 +560,13 @@ clean review or acceptance. Exact serialized field spellings,
 diagnostic codes, concrete thresholds, dependency-revision semantics,
 canonical axes/units/rotation/scale/shear, conditioning/comparison
 tolerances, canonical bytes/hashing, and fixture/security evidence remain
-deferred. Owner approval remains Pending and Status remains Proposed; Review
-status is Complete. Only Ben may accept or reject this proposal.
+deferred. Those Revision 5 artifacts and findings are preserved as stale
+historical evidence after the material Revision 6 change and do not satisfy
+the pending current-revision review. The Batch 9 resolutions add the
+in-memory snapshot finalization/handoff and operation-contract distinction,
+absent-module declaration identity, and the DR-0013 build/output boundary.
+Owner approval remains Pending and Status remains Proposed; Review status is
+Pending. Only Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 
@@ -551,8 +590,11 @@ status is Complete. Only Ben may accept or reject this proposal.
   deterministic ordering by phase, severity/category, normalized path/offset,
   code, and semantic address; human text must remain non-compatibility data.
 - Implement and test the eight ordered phases, phase-local accumulation,
-  fatal dependency blocking, successful publication conditions, and provenance
-  for authored/defaulted/derived values and derivation source addresses.
+  fatal dependency blocking, in-memory snapshot finalization/handoff required
+  by successful `resolve`, operation-specific snapshot omission such as
+  `validate`, and provenance for authored/defaulted/derived values and
+  derivation source addresses. External filesystem serialization belongs to
+  DR-0013 and maps its failures to `output-failure`.
 - Implement discriminator-first bootstrap: raw-byte/UTF-8/resource admission,
   strict JSON with duplicate detection, one top-level object and one minimal
   family/revision discriminator, unsupported recognition before current-schema
@@ -572,6 +614,11 @@ status is Complete. Only Ben may accept or reject this proposal.
 - Freeze resource-exhaustion fixtures and the valid, semantically-invalid, and
   unsupported outcomes only after admission/recognition, keeping parser,
   dependency, resource, and internal outcomes separate.
+- Prove that an absent optional module has a stable authored declaration
+  address and non-embodied root-role/template reference, emits or reserves no
+  Part, cannot be targeted by a graph relation, participates in declaration
+  uniqueness rather than the Part namespace, and derives a present Part's
+  identity from the instance anchor plus root role.
 - Prove exact initial Attachment cardinality and host/mating Socket capacity,
   with distinct fixtures for normalized module-instance presence/optionality,
   repeated endpoint pairs, host reuse, mating reuse, cross-role reuse, zero

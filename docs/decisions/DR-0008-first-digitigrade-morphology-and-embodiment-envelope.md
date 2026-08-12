@@ -6,13 +6,13 @@ Scope: Product, Specification and architecture
 
 Status: Proposed
 
-Revision: 10
+Revision: 11
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-09
 
@@ -50,6 +50,12 @@ records evidence, not a clean review or acceptance. Those Revision 9 artifacts
 are now stale historical evidence after this proposal change and a fresh current
 Double review is required. The Revision 8 and earlier reviews remain stale
 historical evidence.
+Ben's 2026-08-12 Batch 9 discussion approval adds the absent-module
+declaration identity rule and cross-links the resolver snapshot handoff,
+build/output ownership, Readiness 4, and CK-KICK-014 exploratory prerequisite.
+This material Revision 11 change makes the Revision 10 current-review
+artifacts stale; Revision 11 remains Proposed with Owner approval Pending and
+Review status Pending.
 
 Supersedes: —
 
@@ -143,7 +149,13 @@ backend-neutral module-instance declaration owned by the graph boundary in
 DR-0002. The declaration identifies the module, its root Part, an
 instance-anchor/provenance, presence and optionality, and whether Attachment
 composition is required; it is not an eighth identity-bearing graph concept.
-Optional absence is distinct from a present-but-unattached module before
+An absent optional module has a stable authored module-instance declaration
+address plus a non-embodied module root-role/template reference. It emits or
+reserves no Part, and no graph relation may target it. It participates in
+declaration uniqueness, not the Part namespace. If later present, its Part
+identity derives deterministically from the module-instance anchor plus root
+role. This declaration is not an eighth identity-bearing embodied graph
+concept. Optional absence is distinct from a present-but-unattached module before
 Attachment cardinality checking. A present Attachment-required root with zero
 incoming active Attachments is deterministically invalid. Nested module
 instances use distinct Socket instances and preserve containment/provenance.
@@ -261,7 +273,10 @@ owns actual contact, deformation, and runtime claims.
 
 Stage 1 makes no animation, contact, deformation, or real-time-performance
 claim. Exact representations, technologies, budgets, and backends remain
-deferred.
+deferred. Under the Batch 9 activation boundary, Readiness 4 in DR-0013
+triggers exploratory Stage 1 geometry / CK-KICK-014; this exploratory proof
+requires no accepted or reactivated surface decision. DR-0009/DR-0010 are
+needed only for later formal comparison or production architecture selection.
 
 ### Fixture success and validity rule
 
@@ -528,7 +543,7 @@ admissibility and source-versus-implementation mapping are revised here and
 in DR-0002/DR-0011; (4) the four technical readiness gates are owned by
 DR-0013; and (5) authoritative build/publication outcome and `output-failure`
 are owned by DR-0013. The latter two are cross-links, not additional DR-0008
-decisions. The fresh current Double review is complete at target commit
+decisions. The fresh current Double review of Revision 10 was complete at target commit
 `b19adf76aad7d672c0871bd38fc34739f3f4ac39`: [review 01](reviews/DR-0008-rev-10-review-01.md)
 recommended **Revise** at **Medium** confidence and [review 02](reviews/DR-0008-rev-10-review-02.md)
 records **Ready for owner disposition** at **High** confidence with no
@@ -540,8 +555,13 @@ clean review or acceptance. The three-way Stage 1
 fixture taxonomy remains limited to admitted recognized semantic fixtures;
 exact fixture files and expected codes, field spellings, tolerance,
 canonical axes/units/rotation/scale/shear, conditioning, and fixture evidence
-remain deferred. Owner approval remains Pending and Status remains Proposed;
-Review status is Complete.
+remain deferred. Those Revision 10 artifacts and findings are preserved as
+stale historical evidence after the material Revision 11 change and do not
+satisfy the pending current-revision review. The Batch 9 absent-module
+identity resolution is cross-linked to the resolver handoff and DR-0013
+build/output boundary; Readiness 4 triggers exploratory CK-KICK-014 without
+requiring a surface decision. Owner approval remains Pending and Status
+remains Proposed; Review status is Pending.
 Only Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
@@ -565,6 +585,11 @@ Only Ben may accept or reject this proposal.
   host/child containment. Validate the normalized module-instance declaration
   (module, root Part, instance anchor/provenance, presence/optionality, and
   Attachment-required state) without adding an identity-bearing graph concept.
+  For an absent optional module, preserve the stable authored declaration
+  address and non-embodied root-role/template reference, emit or reserve no
+  Part, reject graph-relation targets, and enforce uniqueness only in the
+  declaration namespace; if present, derive Part identity from the instance
+  anchor plus root role.
   Prove exactly one incoming active Attachment for each present module root,
   none for an absent optional module, and total active Socket capacity one
   across host and mating roles; distinguish repeated endpoint pairs, host

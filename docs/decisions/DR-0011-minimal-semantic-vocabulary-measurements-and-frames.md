@@ -6,13 +6,13 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 6
+Revision: 7
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-11
 
@@ -73,6 +73,11 @@ records evidence, not a clean review or acceptance. Those Revision 5 artifacts
 are now stale historical evidence after this proposal change and a fresh
 current Double review is required. The Revision 4 and earlier reviews remain
 stale historical evidence.
+Ben's 2026-08-12 Batch 9 discussion approval adds the absent-module
+declaration identity rule and cross-links the resolver snapshot handoff and
+DR-0013 build/output boundary. This material Revision 7 change makes the
+Revision 6 current-review artifacts stale; Revision 7 remains Proposed with
+Owner approval Pending and Review status Pending.
 
 ## Decision
 
@@ -119,10 +124,16 @@ does not receive an embodied-graph identity in place of the concepts it emits.
 The normalized model separately declares each module instance (module, root
 Part, instance anchor/provenance, presence/optionality, and whether Attachment
 composition is required) without introducing an eighth identity-bearing
-concept. Optional absence is distinct from present-but-unattached state before
-Attachment cardinality checking; a present Attachment-required root with zero
-incoming active Attachments is invalid. Nested module instances require
-distinct Socket instances.
+concept. An absent optional module has a stable authored module-instance
+declaration address plus a non-embodied module root-role/template reference.
+It emits or reserves no Part, and no graph relation may target it. It
+participates in declaration uniqueness, not the Part namespace. If later
+present, its Part identity derives deterministically from the module-instance
+anchor plus root role. This declaration is not an eighth identity-bearing
+embodied graph concept. Optional absence is distinct from present-but-unattached
+state before Attachment cardinality checking; a present Attachment-required
+root with zero incoming active Attachments is invalid. Nested module instances
+require distinct Socket instances.
 Landmarks, anchors, dimensions, and frames are typed records or values owned by
 a named identity-bearing concept and addressed through the owner plus role.
 They do not acquire independent embodied-graph identity merely because they
@@ -218,6 +229,11 @@ be retained.
   articulation, attachment, spatial intent, affordance, and varying semantic
   channels without inferring meaning from a generic tag. Module scopes and
   owner-plus-role records cannot silently become additional graph concepts.
+- An absent optional module has a unique authored declaration address and
+  non-embodied root-role/template reference only. It emits or reserves no Part,
+  cannot be a relation target, and is unique among declarations rather than
+  Parts; when present, its Part identity derives from the instance anchor plus
+  root role without creating an eighth graph concept.
 - Regions may overlap without corrupting the ownership tree, and attachments
   do not accidentally promise articulation or a solver representation. Joint
   direction, endpoint cardinality, and endpoint-frame ownership are explicit.
@@ -386,8 +402,8 @@ DR-0002; (3) Attachment transform admissibility and source-versus-
 implementation mapping are revised here and in DR-0002/DR-0008; (4) the four
 technical readiness gates are owned by DR-0013; and (5) authoritative
 build/publication outcome and `output-failure` are owned by DR-0013. The latter
-two are cross-links, not additional DR-0011 decisions. The fresh current Double
-review is complete at target commit
+two are cross-links, not additional DR-0011 decisions. The fresh current
+Double review of Revision 6 was complete at target commit
 `b19adf76aad7d672c0871bd38fc34739f3f4ac39`: [review 01](reviews/DR-0011-rev-06-review-01.md)
 recommended **Revise** at **Medium** confidence and [review 02](reviews/DR-0011-rev-06-review-02.md)
 records **Ready for owner disposition** at **High** confidence with no
@@ -397,9 +413,13 @@ DR-0002/DR-0012/DR-0013. All seven consolidated current findings await Ben's
 discussion and owner disposition; review completion is evidence, not a
 clean review or acceptance. Exact serialized field spellings, canonical
 axes/units/rotation/scale/shear, conditioning/comparison tolerances,
-diagnostic codes, and fixture evidence remain deferred. Owner approval remains
-Pending and Status remains Proposed; Review status is Complete. Only Ben may
-accept or reject this proposal.
+diagnostic codes, and fixture evidence remain deferred. Those Revision 6
+artifacts and findings are preserved as stale historical evidence after the
+material Revision 7 change and do not satisfy the pending current-revision
+review. The Batch 9 absent-module identity resolution is cross-linked to the
+resolver snapshot handoff and DR-0013 build/output boundary. Owner approval
+remains Pending and Status remains Proposed; Review status is Pending. Only
+Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 
@@ -418,7 +438,11 @@ accept or reject this proposal.
   host/child containment agreement. Use the DR-0002 normalized module-instance
   declaration for module, root Part, instance anchor/provenance,
   presence/optionality, and Attachment-required state without making Module an
-  eighth identity-bearing concept. Require exactly one incoming active
+  eighth identity-bearing concept. For an absent declaration, preserve the
+  stable authored declaration address and non-embodied root-role/template
+  reference, emit or reserve no Part, reject graph-relation targets, and keep
+  uniqueness in the declaration namespace; if present, derive Part identity
+  from the instance anchor plus root role. Require exactly one incoming active
   Attachment for each present module root, none for an absent optional module,
   and total active Socket capacity one across host and mating roles; distinguish
   repeated endpoint pairs, host reuse, mating reuse, cross-role reuse, zero

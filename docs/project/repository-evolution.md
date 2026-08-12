@@ -11,13 +11,15 @@ any product, specification, or architecture proposal.
 States: `active`, `planned`, `triggered`, `deferred`, `not-applicable`, `retired`.
 
 CK-KICK-012 and CK-KICK-013 remain active Proposed work after discussion-
-approved F1–F7 and Batch 8 resolutions. DR-0002/0008/0011/0012 are at
-Revisions 10/10/6/5 and DR-0013 is at Revision 3; all five remain Proposed with
-Owner approval Pending. The fresh current Double review is Complete evidence
-against commit `b19adf76aad7d672c0871bd38fc34739f3f4ac39`; seven consolidated
-findings await Ben discussion and owner disposition. Complete is evidence only,
-not a clean review or acceptance. Earlier review evidence is stale after these
-revisions. CK-KICK-014 remains provisional/queued and does not activate
+approved F1–F7 and Batch 8/9 resolutions. The current six-record set is
+DR-0002 Revision 11, DR-0006 Revision 5, DR-0008 Revision 11, DR-0011
+Revision 7, DR-0012 Revision 6, and DR-0013 Revision 4; all six remain Proposed
+with Owner approval Pending and Review Pending. The prior current Double review
+is stale historical evidence against commit
+`b19adf76aad7d672c0871bd38fc34739f3f4ac39`; its seven consolidated findings
+were resolved by Batch 9 discussion and are not awaiting discussion. A fresh
+current-revision Double review of all six records is required before owner
+disposition. Earlier review evidence is stale after these revisions. CK-KICK-014 remains provisional/queued and does not activate
 implementation packages or compiler fixtures.
 
 | Capability | Horizon | State | Activation trigger | Destination | Validation |
@@ -37,9 +39,10 @@ implementation packages or compiler fixtures.
 | Local visual-review gallery | Now | active | First need for human appraisal of generated CK-KICK-010 output | `dev-tools/visual-review/` | Focused tests + local HTTP/browser smoke |
 | Body-document specification | Next | active | First body parser proposal exists in the CK-KICK-012 Batch 4 Proposed contract | `spec/body-document/` | Schema-level contract fixtures when activated |
 | Semantic body-graph spec | Next | active | First resolver proposal exists in the CK-KICK-012 Batch 4 Proposed contract | `spec/body-graph/` | Graph and cross-DR contract fixtures when activated |
-| Implementation packages | Next | planned | Stage 1: DR-0013 accepted, activating only the empty Cargo shell; Stage 2: exact JSON Schema plus frozen/admitted fixture manifest jointly activate parser/bootstrap and listed fixtures; Stage 3: canonical numeric/frame rules plus frozen expected graph outputs activate semantic resolver/snapshot publication; Stage 4: working resolver plus provisional geometry profile and project-owned seam activate exploratory Stage 1 geometry | Planned Cargo workspace (`Cargo.toml`, `crates/`) | Stage-specific shell, parser/bootstrap, resolver/snapshot, and exploratory-proof evidence |
-| Generation fixtures | Next | planned | Stage 2 manifest admission and parser/bootstrap activation; unlisted fixtures do not activate independently | `fixtures/body-documents/` | Manifest/listed-source agreement and deterministic output checks |
-| Geometry exploration | Next | planned | Stage 4 only: working resolver plus provisional geometry profile and project-owned GeometryRequest/GeometryResult seam; parked DR-0009/0010 remain nonblocking | `experiments/` under an activated proof | Bounded exploratory evidence; generated bundles remain ephemeral/unretained and do not select production geometry |
+| Build-operation specification | Next | active | Proposed public build/output contract exists as the canonical owner; implementation remains gated by DR-0013 readiness | `spec/build-operation/` | Contract, link, and ownership checks |
+| Implementation packages | Next | planned | Stage 1: DR-0013 accepted, activating only the empty Cargo shell; Stage 2: exact JSON Schema plus a versioned/admitted manifest, all referenced fixture files, and parser/bootstrap activate together in one review-branch transaction after Ben admission; Stage 3: canonical numeric/frame rules plus frozen expected graph outputs activate semantic resolver/in-memory snapshot handoff; Stage 4: working resolver plus provisional geometry profile and project-owned seam activate exploratory Stage 1 geometry | Planned Cargo workspace (`Cargo.toml`, `crates/`) | Stage-specific shell, parser/bootstrap, resolver/snapshot, and exploratory-proof evidence |
+| Generation fixtures | Next | planned | Stage 2 only: Ben-approved parser-independent preflight admits manifest revision/ID, schema revision/hash, paths/hashes/provenance, expected status/primary diagnostics, profile IDs, and completeness together with all listed files; unlisted fixtures do not activate independently | `fixtures/body-documents/` | Manifest/listed-source agreement and deterministic output checks |
+| Geometry exploration | Next | planned | Stage 4 only: working resolver plus provisional geometry profile and project-owned GeometryRequest/GeometryResult seam; CK-KICK-014 is exploratory and does not require accepting/reactivating parked DR-0009/0010 | `experiments/` under an activated proof | Bounded exploratory evidence; generated bundles remain ephemeral/unretained and do not select production geometry |
 | Confirmatory multi-branch surface comparison | Later | deferred | At least two runnable candidate surface implementations and an intended comparative outcome for production architecture, or Ben explicitly reactivates DR-0009/0010 | `experiments/` under an activated protocol | Activated-protocol evidence and review |
 | Runtime benchmarks | Next | planned | First executable runtime | `benchmarks/runtime/` | Reference hardware profiles |
 | Developer setup | Next | planned | Toolchain selected | `DEVELOPER_SETUP.md` | Fresh-environment check |

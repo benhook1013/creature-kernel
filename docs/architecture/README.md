@@ -14,6 +14,7 @@ semantic vocabularies belong in [`spec/`](../../spec/).
 - [Repository structure](repository-structure.md)
 - [Proposed body-document contract](../../spec/body-document/README.md)
 - [Proposed body-graph contract](../../spec/body-graph/README.md)
+- [Proposed build-operation contract](../../spec/build-operation/README.md)
 - [Decision records](../decisions/README.md)
 
 ## Architectural authority
@@ -49,27 +50,30 @@ and described in the execution model; exact interface schemas, compatibility,
 budgets, and runtime mutation details remain open. The typed semantic
 vocabulary, measurement ownership, and frame-conversion boundary are Proposed
 in [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
-CK-KICK-012 Batch 6/7/8 resolutions are discussion-approved and are reflected in
-the canonical specifications as Proposed material. The current proposals are
-DR-0002 Revision 10, DR-0008 Revision 10, DR-0011 Revision 6, DR-0012
-Revision 5, and DR-0013 Revision 3. All five remain Proposed with Owner
-approval Pending. The fresh current Double review is Complete evidence against
-commit `b19adf76aad7d672c0871bd38fc34739f3f4ac39`: Review 01 recommends Revise
-for all five, while Review 02 is ready for owner disposition for DR-0002/0008/
-0011 (High) and DR-0012 (Medium), and recommends Revise for DR-0013 (High).
-Seven consolidated findings await Ben discussion and owner disposition; see
-the [project status](../project/status.md). Complete is evidence only, not a
-clean review or acceptance. Earlier review evidence remains stale. See the
+CK-KICK-012 Batch 6/7/8/9 resolutions are discussion-approved and are reflected in
+the canonical specifications as Proposed material. The current six-record set is
+DR-0002 Revision 11, DR-0006 Revision 5, DR-0008 Revision 11, DR-0011
+Revision 7, DR-0012 Revision 6, and DR-0013 Revision 4. All six remain Proposed
+with Owner approval Pending and Review Pending. The prior current Double review
+is stale after Batch 9, with evidence against commit
+`b19adf76aad7d672c0871bd38fc34739f3f4ac39`. Its seven consolidated findings
+are preserved as stale historical evidence and were resolved by Ben's Batch 9
+discussion; they are not awaiting discussion. A fresh current-revision Double
+review of all six records is required before owner disposition. Earlier review
+evidence is stale. See the
 [decision registry](../decisions/registry.md). The CK-KICK-012 Batch 5 review
 at commit `a282dbabffd83afa4e62577086934d00f98e12c7` is stale historical
 evidence; no clean review or acceptance is implied.
-DR-0006 remains Proposed with its current revision's review evidence. The
 cross-cutting proposal is [DR-0012: initial body-document encoding, resolution,
 and compatibility](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
 The body-document and body-graph proposals are the canonical specification
 owners; this architecture layer records only their target boundaries and
 consumers, including explicit Part containment, relation-independent graph
-validation, Attachment composition, and canonical local frame handoff.
+validation, Attachment composition, and canonical local frame handoff. The
+[build-operation contract](../../spec/build-operation/README.md) is the
+canonical Proposed owner for the public derived-output, artifact lifecycle,
+publication, collision, and inspection boundary; this layer records only its
+component responsibilities and data-flow consequences.
 
 The [first surface experiment design](../research/first-surface-experiment-design.md)
 and its linked [DR-0009 Revision 8](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
@@ -86,18 +90,19 @@ reactivates them. Until then, exploratory prototypes may produce observations
 but may not claim formal DR-0009/0010 support or reject.
 
 The CK-KICK-013 platform proposal is also discussion-approved as Proposed
-material, not an accepted implementation decision. Proposed DR-0013 Revision 3
-has Owner approval Pending and the fresh current Double review is Complete
-evidence against commit `b19adf76aad7d672c0871bd38fc34739f3f4ac39`; Review 02
-recommends Revise at High confidence. Seven consolidated findings await Ben
-discussion and owner disposition. Earlier review evidence is stale after this
-revision. The four readiness stages are: DR-0013
-acceptance activates only the empty Cargo shell; exact JSON Schema plus a
-frozen/admitted fixture manifest jointly activate parser/bootstrap and
-manifest-listed fixtures; canonical numeric/frame rules plus frozen expected
-graph outputs activate semantic resolution and snapshot publication; and a
-working resolver plus provisional geometry profile and project-owned seam
-activates exploratory Stage 1 geometry. It describes a stable Rust
+material, not an accepted implementation decision. Proposed DR-0013 Revision 4
+has Owner approval Pending and Review Pending. The prior current Double review
+is stale after the Batch 9 proposal change; its seven consolidated findings are
+preserved as historical evidence and were resolved by discussion. A fresh
+current-revision Double review is required before owner disposition. The
+four readiness stages are: DR-0013
+acceptance activates only the empty Cargo shell; a versioned, preflighted
+fixture manifest, its listed fixture files, the exact schema, and
+parser/bootstrap must be admitted together in one review-branch activation
+transaction; canonical numeric/frame rules plus frozen expected graph outputs
+activate semantic resolution and in-memory snapshot handoff; and a working
+resolver plus provisional geometry profile and project-owned seam activates
+exploratory Stage 1 geometry. It describes a stable Rust
 production semantic/compiler core, a thin CLI, and a project-owned versioned,
 backend-neutral GeometryRequest/GeometryResult seam, with no initial daemon or
 service. Stage 1 would use an in-process Rust CPU dense-field evaluator/

@@ -31,17 +31,17 @@ Related Proposed boundaries are recorded in [DR-0002](../decisions/DR-0002-decla
 [DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
 and [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
 
-Prior CK-KICK-012 revisions have complete review evidence. Ben's Batch 5
-blocker resolutions are discussion-approved and are incorporated here as
-Proposed product outcomes only. The current CK-KICK-012 Batch 5 Double review
-is Complete at commit `a282dbabffd83afa4e62577086934d00f98e12c7`; DR-0002
-Revision 7, DR-0008 Revision 7, DR-0011 Revision 3, and DR-0012 Revision 2
-remain Proposed with Owner approval Pending. Three consolidated findings are
-pending Ben discussion. Their prior reviews remain preserved as stale historical
-evidence. DR-0006 remains
-Proposed with its current revision's review evidence and owner disposition
-state. The cross-cutting proposal is [DR-0012: initial body-document encoding,
-resolution, and compatibility](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
+Prior CK-KICK-012 revisions and review artifacts remain preserved as historical
+evidence. Ben's Batch 5, Batch 8, and Batch 9 resolutions are discussion-
+approved and incorporated here as Proposed product outcomes only. The current
+six-record set is DR-0002 Revision 11, DR-0006 Revision 5, DR-0008 Revision 11,
+DR-0011 Revision 7, DR-0012 Revision 6, and DR-0013 Revision 4. All six remain
+Proposed with Owner approval Pending and Review Pending. The prior Double review
+at commit `b19adf76aad7d672c0871bd38fc34739f3f4ac39` is stale; its seven
+consolidated findings were resolved in Batch 9 discussion and are preserved as
+historical evidence. A fresh exact-target Double review of all six records is
+required before owner disposition. The cross-cutting proposal is [DR-0012:
+initial body-document encoding, resolution, and compatibility](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
 This documentation records intended product outcomes; exact syntax details,
 machine schema, phase/code serialization, numeric budgets, and implementation
 mechanisms remain deferred to their owning specifications and architecture

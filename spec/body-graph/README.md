@@ -1,15 +1,16 @@
 # Resolved body-graph contract
 
-Status: Proposed contract; CK-KICK-012 Batch 8 discussion-approved canonical
-update. DR-0002 Revision 10, DR-0008 Revision 10, DR-0011 Revision 6, and
-DR-0012 Revision 5 remain Proposed with Owner approval Pending. The fresh
-current Double review is Complete evidence against commit
-`b19adf76aad7d672c0871bd38fc34739f3f4ac39`: Review 01 recommends Revise for
-all five affected proposals, while Review 02 is ready for owner disposition for
-DR-0002/0008/0011 (High) and DR-0012 (Medium), and recommends Revise for
-DR-0013 (High). Seven consolidated findings await Ben discussion and owner
-disposition; Complete is evidence only, not a clean review or acceptance.
-Earlier review evidence is stale after these revisions. See
+Status: Proposed contract; CK-KICK-012 Batch 8/9 discussion-approved canonical
+update. DR-0002 Revision 11, DR-0006 Revision 5, DR-0008 Revision 11, DR-0011
+Revision 7, DR-0012 Revision 6, and DR-0013 Revision 4 remain Proposed with
+Owner approval Pending and Review Pending. The prior current Double review is
+stale after Batch 9; its evidence is preserved from
+commit
+`b19adf76aad7d672c0871bd38fc34739f3f4ac39`. Its seven consolidated findings
+are preserved as stale historical evidence and were resolved by Batch 9
+discussion; they are not awaiting discussion. A fresh current-revision Double
+review of all six records is required before owner disposition. Earlier review
+evidence is stale after these revisions. See
 the [decision registry](../../docs/decisions/registry.md). No acceptance is
 implied.
 The CK-KICK-012 Batch 5 review at commit `a282dbabffd83afa4e62577086934d00f98e12c7`
@@ -19,7 +20,7 @@ This document is the canonical specification authority for the resolved,
 per-build semantic body graph. It owns typed concepts, explicit Part
 containment, durable semantic identity, typed relations, Attachment
 composition and placement, canonical frame records, provenance, graph-side
-invariants, and success-publication conditions. It consumes the admitted source
+invariants, and successful in-memory snapshot-handoff conditions. It consumes the admitted source
 model and operation envelope owned by the
 [body-document contract](../body-document/README.md); it does not redefine
 source encoding or bootstrap/status/resource admission.
@@ -35,8 +36,10 @@ for the materially revised decision records.
 The graph is derived, build-scoped, inspectable, and reproducible when the
 source, compiler/build identity, configuration, seed, and dependencies permit
 reproduction. It is never a competing authored source. A validated snapshot
-may be published only for complete valid-supported success. Invalid and
-unsupported partial graphs are non-compilable, non-contractual debug data.
+may be finalized and handed off in memory only for complete valid-supported
+success. Invalid and unsupported partial graphs are non-compilable,
+non-contractual debug data. Filesystem serialization and publication are
+derived-output responsibilities of the [build-operation contract](../build-operation/README.md).
 
 The identity-bearing embodied concepts are exactly:
 
@@ -81,12 +84,20 @@ and child-local placement. Relation endpoints may refer to Parts, but relation
 reachability never substitutes for containment reachability.
 
 The normalized model declares module instances separately from this tree; it
-does not add a new identity-bearing graph concept. Each declaration records the
-module, root Part, module-instance anchor/provenance, presence and optionality,
-and whether Attachment composition is required. Optional absence and a present
-but unattached root are distinct states. A present Attachment-required root
-with zero incoming active Attachments is invalid. Nested module instances use
-distinct Socket instances and preserve their containment/source provenance.
+does not add a new identity-bearing graph concept. Each declaration has a
+stable authored module-instance declaration address and records the module,
+root-role/template reference, root Part when present,
+module-instance anchor/provenance, presence and optionality, and whether
+Attachment composition is required. An absent optional declaration retains its
+declaration address and non-embodied root-role/template reference, but emits or
+reserves no Part and no graph relation may target it. It participates in
+declaration uniqueness, not the Part namespace. If the declaration later
+becomes present, its Part identity is derived deterministically from the
+module-instance anchor and root role. This does not add an eighth
+identity-bearing graph concept. Optional absence and a present-but-unattached
+root are distinct states. A present Attachment-required root with zero incoming
+active Attachments is invalid. Nested module instances use distinct Socket
+instances and preserve their containment/source provenance.
 
 Containment cycles are checked as a structural graph and are invalid. Typed
 relation cycles are checked separately, using the rule for each relation
@@ -246,17 +257,21 @@ The [body-document contract](../body-document/README.md) owns the single
 ordered source-to-graph operation, closed status algebra, precedence, and
 diagnostic/resource rules. This graph contract defines graph-side work for
 namespace/identity/reference, containment/typed-relation, normalization/
-derivation, invariant, and publication phases. It does not create a second
-pipeline or result envelope. Fatal failure blocks dependent work, independent
-failures within a reached phase may accumulate deterministically, and only
-complete valid-supported resolution may publish this graph as a successful
-snapshot.
+derivation, and invariant phases. It does not create a second pipeline or
+result envelope. Fatal failure blocks dependent work, independent failures
+within a reached phase may accumulate deterministically, and only complete
+valid-supported resolution may finalize and hand off this graph as a successful
+in-memory snapshot. The [build-operation contract](../build-operation/README.md)
+separately owns serialization, staging, publication, and artifact identity.
 
 ## Invariants and equivalence
 
 Minimum Stage 1 graph invariants include:
 
 - unique semantic addresses and one owner for each source namespace;
+- unique authored module-instance declaration addresses, including absent
+  optional declarations; absent declarations reserve no Part identity and no
+  relation endpoint may target their non-embodied root role;
 - one embodied root Part and exactly one containment path for every embodied
   Part, including every present optional module root;
 - acyclic containment, with containment-cycle checks independent from typed

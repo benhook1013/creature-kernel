@@ -6,24 +6,24 @@ These are conceptual boundaries, not approved packages or technologies. Code
 directories should be created only after the relevant boundary is accepted and
 its activation trigger is met.
 
-The CK-KICK-012 Batch 6/7/8 resolutions are discussion-approved and represented
-as Proposed responsibility consequences. DR-0002 Revision 10, DR-0008 Revision
-10, DR-0011 Revision 6, and DR-0012 Revision 5, together with Proposed DR-0013
-Revision 3, remain Proposed with Owner approval Pending. The fresh current
-Double review is Complete evidence against commit
-`b19adf76aad7d672c0871bd38fc34739f3f4ac39`; Review 01 recommends Revise for
-all five, while Review 02 is ready for owner disposition for DR-0002/0008/0011
-(High) and DR-0012 (Medium), and recommends Revise for DR-0013 (High). Seven
-consolidated findings await Ben discussion and owner disposition. Earlier
-review evidence is stale historical evidence; no acceptance or implementation
-package is implied.
+The CK-KICK-012 Batch 6/7/8/9 resolutions are discussion-approved and represented
+as Proposed responsibility consequences. The current six-record set is
+DR-0002 Revision 11, DR-0006 Revision 5, DR-0008 Revision 11, DR-0011
+Revision 7, DR-0012 Revision 6, and Proposed DR-0013 Revision 4. All six remain
+Proposed with Owner approval Pending and Review Pending. The prior current
+Double review is stale after Batch 9; its evidence is preserved from commit
+`b19adf76aad7d672c0871bd38fc34739f3f4ac39`. Its seven consolidated findings
+are historical evidence and were resolved by Batch 9 discussion; they are not
+awaiting discussion. A fresh current-revision Double review of all six records
+is required before owner disposition. No acceptance or implementation package
+is implied.
 
 | Component | Responsibilities | Explicit non-responsibilities |
 | --- | --- | --- |
 | Authoritative semantic source set | Admit the initial strict UTF-8 JSON source through the bootstrap and resource rules in the [body-document contract](../../spec/body-document/README.md), preserve authored intent, track exact revisions of outcome-affecting authored dependencies, classify extensions, report one result envelope, and provide the sole authored authority | Generate meshes or run gameplay, or treat an external mesh as semantic truth |
-| Semantic body resolver | Execute the canonical admission, bootstrap, dependency, explicit-containment/typed-relation, normalization, invariant, and publication boundaries inside one result envelope; only complete valid-supported input yields an optional compilable inspectable graph snapshot with canonical Joint/Socket frame records and provenance | Host-engine objects, become an authored source, or make derived artifacts authoritative; rejected partial graphs are non-compilable, debug-only, and non-contractual |
+| Semantic body resolver | Execute the canonical admission, bootstrap, dependency, explicit-containment/typed-relation, normalization, invariant, and in-memory snapshot-finalization boundaries inside one result envelope; successful `resolve` yields the required compilable inspectable graph snapshot with canonical Joint/Socket frame records and provenance | Host-engine objects, become an authored source, serialize or publish filesystem artifacts, or make derived artifacts authoritative; rejected partial graphs are non-compilable, debug-only, and non-contractual |
 | Proposed Rust compiler core | Own the engine-independent production semantic/compiler library boundary, versioned project-owned GeometryRequest/GeometryResult concepts, and coordinate replaceable geometry evaluation; Stage 1's in-process CPU dense-field evaluator/extractor is the proposed first path | Leak backend-native types, lock a permanent geometry library/surface, claim DR-0009/0010 evidence, require a daemon/service, or make Rust a forever-only backend promise; acceptance of DR-0013 alone activates only the empty shell, while exact schema/admitted fixtures gate parser/resolver work |
-| Proposed thin CLI and artifact boundary | Expose the compiler library through a thin headless CLI; carry geometry and publication through one authoritative build envelope; publish complete success/failure bundles from immutable build-scoped sibling staging, manifest last, atomic no-replace, and validate build/artifact identity, relative paths, hashes, and sizes for independent filesystem consumers. Normalize trusted derived-output/publication failures as `output-failure`; retain build identity on every result and artifact identity only after successful publication. | Become a visual workbench, settle final avatar-package serialization/compatibility, publish symlinked/unlisted/incomplete/mixed/stale bundles, replace an existing target, or require a service transport |
+| Proposed thin CLI and artifact boundary | Expose the compiler library through a thin headless CLI; delegate the public derived-output and publication contract to the [build-operation specification](../../spec/build-operation/README.md), carrying geometry and publication through one authoritative build envelope. The proposed boundary uses immutable build-scoped sibling staging, manifest-last atomic no-replace, and independent validation of build/artifact identity, paths, hashes, and sizes; trusted derived-output/publication failures normalize as `output-failure`. | Become a visual workbench, settle final avatar-package serialization/compatibility, publish symlinked/unlisted/incomplete/mixed/stale bundles, replace an existing target, or require a service transport |
 | Independent visual workbench | Consume compiler artifacts and manifests from the filesystem for visual inspection, evidence/render tooling, and disposable workflows | Become a production compiler dependency or silently redefine semantic/artifact contracts |
 | Geometry field system | Evaluate part volumes, composition, semantic fields | Choose runtime animation |
 | Surface compiler | Extract, repair, remesh, simplify, and attribute visible surfaces | Define semantic truth |
@@ -58,6 +58,11 @@ The resolver consumes the typed vocabulary and explicit containment rules in
 the [body-graph contract](../../spec/body-graph/README.md): every Part has one
 root path, containment supplies transform inheritance, relation traversal does
 not repair containment, and containment/relation cycle checks are independent.
+Absent optional module declarations retain a stable authored declaration address
+and non-embodied root-role/template reference, emit no Part, reserve no Part
+identity, and cannot be relation targets; a later present root derives its Part
+identity from the module-instance anchor and root role. This is declaration
+identity, not an eighth embodied graph concept.
 The graph handoff exposes directed Joints with canonical proximal/distal frame
 records in the corresponding Part-local bases and Part-owned Sockets with
 interface-frame records. A mating Socket may be descendant-owned; its frame is
@@ -91,7 +96,9 @@ are inapplicable. Diagnostic completeness concerns retention of all applicable
 profile-required diagnostics; ordinary truncation alone is not resource-limit,
 and optional checks cannot change status or primary. Required unresolved or ambiguous values cannot succeed; exact
 serialized names, profile values, and implementation technology remain outside
-this responsibility map.
+this responsibility map. Resolver phase 8 is an in-memory snapshot handoff;
+filesystem serialization and publication are owned by the linked
+build-operation specification.
 
 ## Walking-skeleton exploratory seam (provisional and disposable)
 

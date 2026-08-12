@@ -11,17 +11,20 @@ supplementary. This direction is Proposed for formal acceptance under
 [DR-0003](../decisions/DR-0003-real-time-first-compiled-avatar-boundary.md).
 
 CK-KICK-013 is a discussion-approved but unaccepted platform proposal.
-Proposed DR-0013 Revision 3 has Owner approval Pending and the fresh current
-Double review is Complete evidence against commit
-`b19adf76aad7d672c0871bd38fc34739f3f4ac39`; Review 02 recommends Revise at
-High confidence. Seven consolidated findings await Ben discussion and owner
-disposition. Earlier review evidence is stale after this revision. Its four
-readiness stages are: acceptance activates only the empty Cargo shell; exact
-JSON Schema plus a frozen/admitted fixture manifest jointly activate
-parser/bootstrap and listed fixtures; canonical numeric/frame rules plus frozen
-expected graph outputs activate semantic resolution and snapshot publication;
-and a working resolver plus provisional geometry profile and project-owned seam
-activates exploratory Stage 1 geometry. Acceptance therefore does not activate
+Proposed DR-0013 Revision 4 has Owner approval Pending and Review Pending. The
+prior current Double review is stale after Batch 9, with evidence against
+commit `b19adf76aad7d672c0871bd38fc34739f3f4ac39`. Its seven consolidated
+findings are historical evidence and were resolved by Ben's Batch 9 discussion;
+they are not awaiting discussion. A fresh current-revision Double review is
+required before owner disposition. Earlier review evidence is stale after this
+revision. Its four
+readiness stages are: acceptance activates only the empty Cargo shell; a
+versioned, preflighted fixture manifest, its listed files, the exact schema, and
+parser/bootstrap must be admitted together in one review-branch activation
+transaction; canonical numeric/frame rules plus frozen expected graph outputs
+activate semantic resolution and in-memory snapshot handoff; and a working
+resolver plus provisional geometry profile and project-owned seam activates
+exploratory Stage 1 geometry. Acceptance therefore does not activate
 the parser, resolver, fixtures, or geometry proof. It
 proposes a stable Rust production semantic/compiler core in a Cargo workspace,
 exposed as an engine-independent Rust compiler library and thin CLI with a
@@ -64,22 +67,14 @@ heavyweight audit bureaucracy. Python remains available for disposable
 experiments, evidence/render tooling, and the visual workbench; it is not a
 production compiler dependency.
 
-The compiler writes complete success/failure bundles through one authoritative
-build envelope spanning geometry and publication, using immutable build-scoped
-sibling staging, a manifest written last, and atomic no-replace publication.
-Trusted derived-output, staging, encoding, geometry, and publication failures
-map to `output-failure` unless an earlier/higher internal or qualifying resource
-outcome applies. Build identity exists on every result; artifact identity exists
-only after successful publication. A compile/geometry failure may publish a
-diagnostics-only failure bundle if publication succeeds. If publication fails,
-the CLI/API returns the envelope and no final bundle exists. Cleanup removes
-only invocation-owned staging; unavailable atomic no-replace fails closed and
-does not adopt or replace an existing target. Artifact inspection is a separate
-read operation. Consumers reject absolute/traversal paths, symlinked or
-unlisted outputs, incomplete, mixed-build, and stale bundles. An independent
-visual workbench consumes those artifacts rather than becoming part of the
-compiler or a daemon/service. This boundary does not settle final
-avatar-package serialization or compatibility.
+The [build-operation contract](../../spec/build-operation/README.md) owns the
+complete success/failure bundle lifecycle through one authoritative envelope:
+candidate versus committed artifact identity, explicit-output-root target
+derivation, immutable sibling staging, atomic no-replace publication,
+idempotent success, target conflict, failure-bundle trust, and lineage-checked
+inspection. An independent visual workbench consumes those artifacts rather
+than becoming part of the compiler or a daemon/service. This boundary does not
+settle final avatar-package serialization or compatibility.
 Performance claims must be backed by a reproducible benchmark and hardware
 profile. The language/build acceptance trigger remains unsatisfied, so no
 implementation package is activated. Any future worker must negotiate protocol/
@@ -132,7 +127,7 @@ envelope:
 5. ownership and typed relations;
 6. unit/frame normalization and value derivation;
 7. semantic invariants; and
-8. success publication.
+8. in-memory resolved-snapshot finalization and handoff.
 
 Fatal failure blocks dependent phases, but independent diagnostics within one
 phase accumulate in deterministic order. Complete acquisition is required
@@ -154,7 +149,10 @@ defaulted, and derived values. Required unresolved or ambiguous values, and
 measurement claims that conflict after normalization by owner address,
 property role, and frame/context, cannot publish success. A conflict is a
 semantic-invalid deterministic diagnostic; no valid-supported snapshot is
-published. Resource admission uses finite implementation-profile limits for
+finalized. Successful `resolve` requires the in-memory snapshot; external
+serialization, staging, and publication are `build` responsibilities under
+the [build-operation contract](../../spec/build-operation/README.md). Resource
+admission uses finite implementation-profile limits for
 source and aggregate bytes; string lengths/counts; nesting depth; object/array
 members; graph entities/relations; ownership depth; module/reference
 expansion; extension count/payload; numeric admissibility; diagnostics; and

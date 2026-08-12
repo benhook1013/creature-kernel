@@ -6,13 +6,13 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 10
+Revision: 11
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-08
 
@@ -67,7 +67,11 @@ recommended **Revise** at **High** confidence. Their prior Review Complete state
 records evidence, not a clean review or acceptance. Those Revision 9 artifacts are now stale
 historical evidence after this Revision 10 proposal change and a fresh current
 Double review is required. All earlier revisions and reviews, including the
-`c64b1b...` review, remain stale historical evidence.
+`c64b1b...` review, remain stale historical evidence. Ben's 2026-08-12 Batch 9
+discussion approval records the resolver snapshot handoff, absent-module
+identity, and build/publication ownership resolutions below. This material
+revision makes the Revision 10 current-review artifacts stale; Revision 11
+remains Proposed with Owner approval Pending and Review status Pending.
 
 ## Decision
 
@@ -89,9 +93,14 @@ The phase sequence, closed status set, status mapping and precedence,
 provenance requirements, resource limits, extension policy, and diagnostic
 fields are defined by [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
 The envelope owns the outcome status and deterministically ordered diagnostics.
-It may contain an optional validated snapshot only for valid-supported success.
-Diagnostics persisted inside a successful snapshot are a derived subset or
-annotation, not a competing status channel.
+A successful `resolve` operation requires an in-memory validated snapshot in
+its success payload. Other operations, such as `validate`, may intentionally
+omit that snapshot when their operation contract says so. Diagnostics
+persisted inside a successful snapshot are a derived subset or annotation,
+not a competing status channel. In-memory snapshot finalization/handoff is
+distinct from external filesystem serialization: serialization belongs to the
+build/output boundary owned by DR-0013, and a failure there is
+`output-failure`, not a resolver failure.
 Semantically invalid and well-formed-but-unsupported input must be
 distinguished; a rejected partial graph may be
 exposed only as explicitly non-compilable, non-contractual debug information.
@@ -164,7 +173,14 @@ truth. The backend-neutral normalized model also declares each module instance
 without adding an eighth identity-bearing graph concept. Each declaration
 identifies the instantiated module, its root Part, a module-instance
 anchor/provenance, presence and optionality, and whether Attachment composition
-is required. Optional absence is distinct from a present-but-unattached root
+is required. An absent optional module still has a stable authored
+module-instance declaration address and a non-embodied module root-role/
+template reference. It emits or reserves no Part, and no graph relation may
+target it. It participates in declaration uniqueness, not the Part namespace.
+If later present, its Part identity is derived deterministically from the
+module-instance anchor plus root role. This declaration is not an eighth
+identity-bearing embodied graph concept. Optional absence is distinct from a
+present-but-unattached root
 before Attachment cardinality checking; a present Attachment-required root with
 zero incoming active Attachments is deterministically invalid. Nested module
 instances require distinct Socket instances and retain their containment and
@@ -259,12 +275,21 @@ identity are defined at the boundary in
 - A successful snapshot may retain useful diagnostics for inspection only as a
   derived persisted subset or annotation; consumers must use the envelope
   status as authority.
+- A successful `resolve` requires an in-memory snapshot, while an operation
+  such as `validate` may omit it when its operation contract permits. External
+  filesystem serialization is outside resolver snapshot finalization and is
+  an `output-failure` concern at the DR-0013 build/output boundary.
 - Imported sources have an auditable namespace owner. Collisions either fail
   deterministically or use an authored remap that covers the full contribution
   of the imported namespace; no partial or implicit remap is valid.
 - Structural containment is independently auditable: every embodied Part has
   one root path, containment owns reference-transform inheritance, and typed
   relations neither substitute for nor repair containment.
+- An absent optional module remains addressable as a unique authored
+  declaration plus non-embodied root-role/template reference, but emits or
+  reserves no Part and cannot be a relation target. If made present, its Part
+  identity is derived from the module-instance anchor and root role; this does
+  not add an eighth embodied graph concept.
 - Attachment composition cannot hide a disconnected, multiply owned, or
   multiply attached module root; the normalized module-instance declaration
   makes present, optional, and Attachment-required states observable before
@@ -452,7 +477,8 @@ Attachment transform admissibility and source-versus-implementation mapping
 are revised here and linked records; (4) the four technical readiness gates
 are owned by DR-0013; and (5) authoritative build/publication outcome and
 `output-failure` are owned by DR-0013. The latter two are cross-links, not
-additional DR-0002 decisions. The fresh current Double review is complete at
+additional DR-0002 decisions. The fresh current Double review of Revision 10
+was complete at
 target commit `b19adf76aad7d672c0871bd38fc34739f3f4ac39`: [review 01](reviews/DR-0002-rev-10-review-01.md)
 recommended **Revise** at **High** confidence and [review 02](reviews/DR-0002-rev-10-review-02.md)
 records **Ready for owner disposition** at **High** confidence with no
@@ -460,11 +486,16 @@ DR-0002-specific blocker. Applicable consolidated findings are C1 and C4;
 C2, C3, and C5–C7 remain cross-cutting evidence owned by DR-0013. All
 seven consolidated current findings await Ben's discussion and owner
 disposition; review completion is evidence, not a
-clean review or acceptance. The exact dependency-revision meaning, serialized
+clean review or acceptance. Those artifacts and findings are preserved as
+stale historical evidence after the material Revision 11 change and do not
+satisfy the pending current-revision review. The exact dependency-revision meaning, serialized
 field spellings and diagnostic codes, concrete resource thresholds, canonical
 axes/units/rotation/scale/shear, conditioning/comparison tolerances, canonical
-bytes/hashing, and fixture evidence remain deferred. Owner approval remains
-Pending and Status remains Proposed.
+bytes/hashing, and fixture evidence remain deferred. The Batch 9 resolutions
+add the in-memory snapshot finalization/handoff and operation-contract
+distinction, the absent-module declaration identity rule, and the DR-0013
+build/output serialization boundary. Owner approval remains Pending, Status
+remains Proposed, and Review status is Pending.
 Only Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
@@ -485,6 +516,11 @@ Only Ben may accept or reject this proposal.
   status-establishing primary-diagnostic rule, bounded ordering and reserved
   candidate, valid/supported snapshot conditions, and non-contractual
   partial-graph debug boundary.
+- Define successful `resolve` as requiring in-memory snapshot finalization and
+  handoff, while allowing an operation such as `validate` to omit a snapshot
+  only when its operation contract says so. Keep external filesystem
+  serialization at the DR-0013 build/output boundary, where failures are
+  `output-failure` rather than resolver failures.
 - Prove separately that every embodied Part has exactly one containment path,
   that containment owns reference-transform inheritance, and that relation
   traversal cannot repair containment or change its cycle checks. For Stage 1,
@@ -492,8 +528,12 @@ Only Ben may accept or reject this proposal.
   and that attached module roots agree with separately declared containment.
   Define and validate the normalized module-instance declaration (module,
   root-Part, anchor/provenance, presence/optionality, and Attachment-required
-  state) without introducing an eighth identity-bearing graph concept. Prove
-  that each present attached module root has exactly one incoming active
+  state) without introducing an eighth identity-bearing graph concept. An
+  absent declaration must retain its stable authored declaration address and
+  non-embodied root-role/template reference, emit or reserve no Part, permit
+  no relation target, and participate only in declaration uniqueness; if made
+  present, derive Part identity from the module-instance anchor plus root role.
+  Prove that each present attached module root has exactly one incoming active
   Attachment, absent optional modules have none, every Socket has total active
   capacity one across host and mating roles, and repeated endpoint pairs, host
   reuse, mating reuse, cross-role reuse, zero incoming, and multiple incoming

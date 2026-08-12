@@ -93,11 +93,13 @@ semantic resolution. The semantic resolver envelope exposes exactly one of
 processing and diagnostic completeness. The authoritative public build
 operation extends this closed vocabulary with `output-failure` for trusted
 derived-output or publication failure. A validated, inspectable, reproducible,
-per-build semantic body-graph snapshot is an optional success payload only for
-valid-supported input; any snapshot diagnostics are a derived persisted subset
-of the envelope. Semantically invalid and well-formed-but-unsupported partial
-graphs are non-compilable, non-contractual debug data. Mesh, rig, runtime, and
-other artifacts remain further derived outputs. See
+per-build semantic body-graph snapshot is required for successful semantic
+`resolve` and may be omitted by operations such as `validate` only when their
+own contract permits it. Snapshot finalization is an in-memory resolver
+handoff; serialization and publication are build/output responsibilities.
+Semantically invalid and well-formed-but-unsupported partial graphs are
+non-compilable, non-contractual debug data. Mesh, rig, runtime, and other
+artifacts remain further derived outputs. See
 [DR-0002](../decisions/DR-0002-declarative-body-document-source-of-truth.md).
 
 The initial adapter admits one strict UTF-8 JSON document, rejects duplicate
@@ -156,6 +158,19 @@ adapter. See [DR-0004 Revision 2](../decisions/DR-0004-external-automation-throu
 The platform must remain fully usable without an embedded language model.
 External AI agents may operate the same deterministic interfaces as other users.
 
+### CK-PROD-006: Public build output lineage
+
+The public `build` operation must carry one authoritative result envelope from
+source resolution through derived output and publication. Its staged manifest
+uses a non-authoritative candidate artifact identity; successful atomic
+publication promotes that same identity to the committed artifact identity.
+The explicit output root and candidate identity determine a safe deterministic
+target, existing different or unverifiable occupants are never overwritten,
+and inspection requires expected build/artifact lineage rather than guessing
+whether stale output is current. The full collision, publication, worker,
+encoding, staging, and failure-bundle contract is owned by the [Proposed
+build-operation specification](../../spec/build-operation/README.md).
+
 ## Generated embodiment
 
 ### CK-PROD-010: Unified derivation
@@ -186,17 +201,21 @@ distal Part, and the resolved graph must expose canonical proximal- and
 distal-frame records in the corresponding Part-local bases with provenance.
 Each Socket is a Part-owned interface with its interface frame in the owning
 Part basis. The normalized model separately declares each module instance with
-its module/root/anchor-provenance/presence-optionality and Attachment
-requirement; absence and present-but-unattached are distinct. For a present
-optional module, an Attachment must connect exactly one host Socket to one
-mating Socket, agree with the host-Part/module-root containment declaration,
-and initially be the sole incoming Attachment for that attached root. Each
-Socket has total active capacity one across host and mating roles; cross-role
-reuse is invalid. Host/mating socket frames, an optional Attachment offset,
-and the inverse mating frame determine the module-root placement; a competing
-authored placement must agree within the later-defined tolerance or be
-semantically invalid. Duplicate, detached, cyclic, or invalid endpoint cases
-fail.
+a stable authored declaration address, module/root-role/template reference,
+anchor/provenance, presence/optionality, and Attachment requirement; absence
+and present-but-unattached are distinct. An absent optional declaration emits
+or reserves no Part, no graph relation may target its non-embodied root role,
+and it participates in declaration uniqueness rather than the Part namespace.
+If later present, its Part identity derives deterministically from the
+module-instance anchor and root role. For a present optional module, an
+Attachment must connect exactly one host Socket to one mating Socket, agree
+with the host-Part/module-root containment declaration, and initially be the
+sole incoming Attachment for that attached root. Each Socket has total active
+capacity one across host and mating roles; cross-role reuse is invalid.
+Host/mating socket frames, an optional Attachment offset, and the inverse
+mating frame determine the module-root placement; a competing authored
+placement must agree within the later-defined tolerance or be semantically
+invalid. Duplicate, detached, cyclic, or invalid endpoint cases fail.
 Attachment never implies a Joint. Module is an authored reusable scope, not an
 embodied graph concept; landmark, anchor, dimension, and frame are typed
 owner+role records. Region never owns, Capability is not an implementation,
@@ -331,6 +350,11 @@ prevented processing or trust. Diagnostics are bounded and sorted by phase,
 severity/category, normalized source path/offset, code, and semantic address;
 human text is not a key. See
 the [body-document contract](../../spec/body-document/README.md).
+Resolver phase 8 is in-memory snapshot finalization/handoff, not filesystem
+serialization. External serialization, staging, and publication failures are
+owned by the [build-operation specification](../../spec/build-operation/README.md)
+and report `output-failure` when trusted derived-output handling remains
+possible.
 
 ### CK-PROD-031: Headless proof
 
