@@ -42,9 +42,12 @@ Prior CK-KICK-012 revisions and review artifacts remain preserved as historical
 evidence. Ben's Batch 5, Batch 8, Batch 9, Batch 10, Batch 11, Batch 12, and
 Batch 13 resolutions are discussion-approved and incorporated here as Proposed
 product outcomes only. The current materially revised decision records remain
-Proposed with Owner approval Pending and Review Pending after Batch 13; the
-canonical owners retain exact revision and review metadata. Review evidence is
-not acceptance; no implementation or readiness gate activates.
+Proposed with Owner approval Pending and Review Complete after the Batch 13
+current-revision Double review. Both independent passes examined exact target
+`8c38c501eb1262a1b85af0b8605220625601772f`, made no edits, and recommend Revise
+at High confidence; the canonical owners retain exact revision and review
+metadata. Review evidence is not acceptance; no implementation or readiness
+gate activates.
 Recommendations and the next discussion are summarized in the [current review
 state](../project/status.md#current-review-and-future-activation-obligations).
 The cross-cutting proposal is [DR-0012:

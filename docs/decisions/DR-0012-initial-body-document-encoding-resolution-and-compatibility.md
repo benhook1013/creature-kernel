@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-11
 
@@ -982,9 +982,26 @@ claim identity, typed collection keys/multiplicity, the separate scoped
 implementation-content binding, the post-R3 adapter `C`/`s` two-tier boundary,
 and the diagnostics sole-owner/bootstrap rule. The Revision 10 Batch 12
 artifacts are stale for this material revision; their findings and history are
-preserved. Review status is Pending and Owner approval remains Pending. No DR
-acceptance, schema, fixture, parser/resolver, implementation, adapter,
-experiment, or package activation follows.
+preserved. Review status is Complete for the current evidence and Owner
+approval remains Pending. No DR acceptance, schema, fixture, parser/resolver,
+implementation, adapter, experiment, or package activation follows.
+
+The fresh current-revision Batch 13 Double review examined exact target commit
+`8c38c501eb1262a1b85af0b8605220625601772f`. [Review 01](reviews/DR-0012-rev-11-review-01.md)
+and [Review 02](reviews/DR-0012-rev-11-review-02.md) were complete-coverage,
+independent fresh `gpt-5.6-sol` medium passes with no edits; both recommend
+**Revise** at **High** confidence. Review 01 records unresolved **D1–D3**:
+the half-chord bound's normalization proof gap, incomplete mechanically
+checkable implementation-binding closure, and underspecified versioned
+claim-ID components/order/stable authored property address. Review 02 records
+unresolved **P1–P3**: symlink/special-file/ancestor no-follow rules, possible
+post-normalization `-0` changes to canonical bytes, and missing malformed /
+unsupported / conversion-failure adapter status distinctions. Findings remain
+cross-linked to the DR-0006, DR-0011, DR-0013, diagnostics, and
+fixture-manifest owners. Review status is Complete for evidence only; Owner
+approval remains Pending and Status remains Proposed. No parser, resolver,
+diagnostic profile, readiness gate, adapter, fixture, implementation, or
+package is accepted or activated by this review.
 
 ## Implementation and Proof Obligations
 

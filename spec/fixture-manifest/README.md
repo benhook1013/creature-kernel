@@ -6,7 +6,8 @@ activated
 
 Current Batch 13 material is recorded in DR-0006 Revision 9, DR-0011 Revision
 12, DR-0012 Revision 11, and DR-0013 Revision 9; each remains Proposed with
-Owner approval Pending and Review Pending. Batch 13 fixes the generic
+Owner approval Pending and Review Complete after the Batch 13 current-revision
+Double review. Batch 13 fixes the generic
 canonical-key, separate implementation-binding, and diagnostic/bootstrap
 directions as Proposed material. Exact identifiers, schema fields, code
 membership, and fixture content remain readiness-gated.

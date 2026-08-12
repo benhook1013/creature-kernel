@@ -608,8 +608,11 @@ State: active (Batches 1, 4, 5, 6, F1–F3, Batch 8, Batch 9, Batch 10, Batch 11
 documentation; DR-0002/0008 Revision 11 remain Proposed with Owner approval
 Pending and Review Complete, while DR-0006 Revision 9, DR-0011 Revision 12,
 DR-0012 Revision 11, and DR-0013 Revision 9 remain Proposed with Owner approval
-Pending and Review Pending after the material Batch 13 change. Prior review
-evidence is stale for the revised records and is not acceptance. No
+Pending and Review Complete after the Batch 13 current-revision Double review.
+The exact target was `8c38c501eb1262a1b85af0b8605220625601772f`; both fresh
+independent Sol-medium passes made no edits and recommend Revise at High
+confidence. Prior review evidence is stale for the revised records and is not
+acceptance. No
 implementation or readiness gate activates. See the
 [current review state](status.md#current-review-and-future-activation-obligations).
 The prior exact review at
@@ -703,8 +706,8 @@ are stale historical evidence. The current six-record set is DR-0002 Revision
 11, DR-0006 Revision 9, DR-0008 Revision 11, DR-0011 Revision 12, DR-0012
 Revision 11, and DR-0013 Revision 9; DR-0002/0008 retain Review Complete,
 DR-0006 and the three materially revised records remain Proposed with Owner
-approval Pending and Review Pending after the material Batch 13 change. Prior
-review artifacts are stale for the revised records. Ben approved the Batch
+approval Pending and Review Complete after the Batch 13 current-revision Double
+review. Prior review artifacts are stale for the revised records. Ben approved the Batch
 11/12/13 resolution directions; the
 prior Batch 10 Double-review evidence is stale history. The
 completed Batch 9 Double review targeted
@@ -725,7 +728,8 @@ five actionable findings were resolved by Batch 10 discussion. The prior Batch
 10 Double review remains preserved as stale evidence. The Batch 11 current-
 revision Double-review artifacts are stale for the revised records. DR-0006
 Revision 9, DR-0011 Revision 12, DR-0012 Revision 11, and DR-0013 Revision 9
-remain Proposed with Owner approval Pending and Review Pending after Batch 13.
+remain Proposed with Owner approval Pending and Review Complete after the Batch 13
+Double review.
 No acceptance or implementation/readiness gate is implied.
 
 ### Batch 4 — encoding, resolution, and compatibility (discussion-approved)
@@ -1198,16 +1202,18 @@ from this planning record.
 
 The current affected records are DR-0006 Revision 9, DR-0011 Revision 12,
 DR-0012 Revision 11, and DR-0013 Revision 9, each Proposed with Owner approval
-Pending and Review Pending after Batch 13. Prior review evidence is stale for
-these revised records; no acceptance or activation is implied.
+Pending and Review Complete after the Batch 13 Double review. The review
+examined exact target `8c38c501eb1262a1b85af0b8605220625601772f`; both passes
+recommend Revise at High confidence. Prior review evidence is stale for these
+revised records; no acceptance or activation is implied.
 
 ## Round 8 — implementation platform (provisional)
 
 ### CK-KICK-013: Select the first implementation platform
 
 State: active (discussion-approved Proposed platform direction integrated;
-Proposed DR-0013 Revision 9 has Owner approval Pending and Review Pending after
-the material Batch 13 change; prior Batch 11/12 review evidence is stale
+Proposed DR-0013 Revision 9 has Owner approval Pending and Review Complete after
+the Batch 13 current-revision Double review; prior Batch 11/12 review evidence is stale
 historical evidence for this revised record. The former Batch 12 resolution
 and review of `730a2f77840cc0caa1f838c30dac4ff20f985e69` remain preserved as
 historical findings. The
@@ -1272,7 +1278,7 @@ discussion. The prior Batch 10 review remains preserved as stale evidence. The
 fresh Batch 11 and Batch 12 reviews are stale historical evidence for the
 current Batch 13 revisions. DR-0006 Revision 9, DR-0011 Revision 12, DR-0012
 Revision 11, and DR-0013 Revision 9 remain Proposed with Owner approval Pending
-and Review Pending; no implementation activates while the DRs remain Proposed.
+and Review Complete; no implementation activates while the DRs remain Proposed.
 Geometry libraries, licensing, platform support, and any C++ worker/FFI boundary remain
 evidence-driven; they are not settled by this proposal. No implementation
 package or compiler fixture is activated while the DR remains Proposed.

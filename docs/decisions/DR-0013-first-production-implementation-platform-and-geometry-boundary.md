@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-11
 
@@ -914,9 +914,26 @@ typed unordered collection keys and multiplicity; separate scoped
 implementation-content binding recomputed around readiness triggers; and the
 diagnostics sole-owner/bootstrap rule. The Revision 8 Batch 12 artifacts are
 stale for this material revision; their findings and history remain preserved.
-Review status is Pending and Owner approval remains Pending. No DR acceptance,
-readiness gate, schema, fixture, resolver, adapter, engine, experiment, or
-package activation follows.
+Review status is Complete for the current evidence and Owner approval remains
+Pending. No DR acceptance, readiness gate, schema, fixture, resolver, adapter,
+engine, experiment, or package activation follows.
+
+The fresh current-revision Batch 13 Double review examined exact target commit
+`8c38c501eb1262a1b85af0b8605220625601772f`. [Review 01](reviews/DR-0013-rev-09-review-01.md)
+and [Review 02](reviews/DR-0013-rev-09-review-02.md) were complete-coverage,
+independent fresh `gpt-5.6-sol` medium passes with no edits; both recommend
+**Revise** at **High** confidence. Review 01 records unresolved **D1–D3**:
+the unproven conservative `H` angular bound, incomplete mechanically
+checkable implementation-binding closure, and underspecified versioned
+claim-ID components/order/stable authored property address. Review 02 records
+unresolved **P1–P3**: symlink/special-file/ancestor no-follow binding rules,
+post-operation `-0` canonicalization, and malformed-versus-unsupported-versus
+conversion-failure adapter status mapping. Findings remain cross-linked to the
+semantic, identity, source, diagnostics, and fixture-manifest owners. Review
+status is Complete for evidence only; Owner approval remains Pending and
+Status remains Proposed. No Cargo shell, readiness gate, parser, resolver,
+adapter, engine, fixture, implementation, or package is accepted or activated
+by this review.
 
 ## Implementation and Proof Obligations
 

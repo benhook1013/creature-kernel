@@ -16,7 +16,10 @@ Their prior revisions and reviews remain preserved as historical evidence.
 DR-0002 Revision 11 and DR-0008 Revision 11 remain Proposed with Owner approval
 Pending and Review Complete. Current Batch 13 material is recorded in DR-0006
 Revision 9, DR-0011 Revision 12, DR-0012 Revision 11, and DR-0013 Revision 9;
-each remains Proposed with Owner approval Pending and Review Pending. Batch
+each remains Proposed with Owner approval Pending and Review Complete after the
+Batch 13 current-revision Double review. Both independent passes examined exact
+target `8c38c501eb1262a1b85af0b8605220625601772f`, made no edits, and recommend
+Revise at High confidence. Batch
 11/12 review artifacts are stale for those revised records and remain evidence
 only. Batch 13 resolves the C1 keyed-collection, C3 separate
 implementation-binding, and C4 diagnostic/bootstrap directions as Proposed

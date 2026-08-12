@@ -3,7 +3,8 @@
 Status: Proposed conceptual contract; CK-KICK-012 Batch 13 discussion-approved
 canonical owner. Current Batch 13 material is recorded in DR-0006 Revision 9,
 DR-0011 Revision 12, DR-0012 Revision 11, and DR-0013 Revision 9; each remains
-Proposed with Owner approval Pending and Review Pending. Batch 13 cross-links
+Proposed with Owner approval Pending and Review Complete after the Batch 13
+current-revision Double review. Batch 13 cross-links
 the C1 keyed-collection, C3 separate implementation-binding, and C4
 diagnostic/bootstrap resolutions. This document owns build/output status and
 adapter output context only; it does not own comparator arithmetic, diagnostic

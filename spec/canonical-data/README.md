@@ -9,7 +9,7 @@ and align diagnostic ordering/identity with the C4 diagnostic profile. These
 are Proposed contract updates only. Current Batch 13 material is recorded in
 DR-0006 Revision 9, DR-0011 Revision 12, DR-0012 Revision 11, and DR-0013
 Revision 9; each remains Proposed with Owner approval Pending and Review
-Pending. No decision record, schema, serializer, fixture, or readiness gate is
+Complete after the Batch 13 current-revision Double review. No decision record, schema, serializer, fixture, or readiness gate is
 accepted or activated by this document.
 
 This document owns Creature Kernel's canonical JSON normalization,

@@ -9,14 +9,14 @@ Status: Operational under Accepted DR-0001 Revision 5
 | [DR-0003](DR-0003-real-time-first-compiled-avatar-boundary.md) | Compiled avatar and bounded real-time execution | Product and architecture | Proposed | 2 | Complete | Ben |
 | [DR-0004](DR-0004-external-automation-through-cli-and-api.md) | Shared deterministic domain operations for external automation | Product and architecture | Proposed | 2 | Complete | Ben |
 | [DR-0005](DR-0005-initial-product-boundary-and-reference-workflow.md) | Initial product boundary and reference workflow | Product and architecture | Proposed | 1 | Complete | Ben |
-| [DR-0006](DR-0006-durable-semantic-and-artifact-identity.md) | Durable semantic and artifact/build identity | Specification and architecture | Proposed | 9 | Pending | Ben |
+| [DR-0006](DR-0006-durable-semantic-and-artifact-identity.md) | Durable semantic and artifact/build identity | Specification and architecture | Proposed | 9 | Complete | Ben |
 | [DR-0007](DR-0007-staged-first-proof-charter.md) | Staged first-proof charter and claim boundaries | Product | Proposed | 2 | Complete | Ben |
 | [DR-0008](DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md) | First digitigrade morphology and Stage 1 embodiment envelope | Product, Specification and architecture | Proposed | 11 | Complete | Ben |
 | [DR-0009](DR-0009-hybrid-surface-generation-experiment-hypothesis.md) | Hybrid surface-generation experiment hypothesis | Architecture | Proposed | 8 | Complete | Ben |
 | [DR-0010](DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md) | Stage 1 surface extraction and semantic-field propagation | Specification and architecture | Proposed | 8 | Pending | Ben |
-| [DR-0011](DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md) | Minimal semantic vocabulary, measurements, and frames | Specification and architecture | Proposed | 12 | Pending | Ben |
-| [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md) | Initial body-document encoding, resolution, and compatibility | Specification and architecture | Proposed | 11 | Pending | Ben |
-| [DR-0013](DR-0013-first-production-implementation-platform-and-geometry-boundary.md) | First production implementation platform and geometry boundary | Specification and architecture | Proposed | 9 | Pending | Ben |
+| [DR-0011](DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md) | Minimal semantic vocabulary, measurements, and frames | Specification and architecture | Proposed | 12 | Complete | Ben |
+| [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md) | Initial body-document encoding, resolution, and compatibility | Specification and architecture | Proposed | 11 | Complete | Ben |
+| [DR-0013](DR-0013-first-production-implementation-platform-and-geometry-boundary.md) | First production implementation platform and geometry boundary | Specification and architecture | Proposed | 9 | Complete | Ben |
 
 DR-0001 Revision 5 is `Accepted` after Ben's approval and its Complete clean
 review; that disposition applies only to this Governance DR. DR-0002 through
@@ -284,10 +284,62 @@ not acceptance or activation:
   primary; no emission under unknown profile or silent downgrade is allowed.
 
 All four records remain Proposed with Owner approval Pending and Review status
-Pending. The Batch 12 review artifacts are stale historical evidence after
-these material revisions and remain preserved. Ben's discussion approval does
-not accept a DR and does not activate a schema, fixture, parser/resolver,
+Complete for the current Batch 13 evidence. The fresh current-revision Double
+review examined exact target commit
+`8c38c501eb1262a1b85af0b8605220625601772f` in two complete-coverage,
+independent fresh `gpt-5.6-sol` medium passes with no edits. Review 01 and
+Review 02 both recommend **Revise** at **High** confidence for DR-0006,
+DR-0011, DR-0012, and DR-0013. The eight artifacts are linked from the four DR
+responses above. Their unresolved findings are **D1–D3** (half-chord bound,
+implementation-binding closure, and versioned claim-ID/address inputs) and
+**P1–P3** (no-follow filesystem closure, post-operation `+0`, and explicit
+malformed/unsupported/conversion-failure adapter statuses), with ownership
+cross-links preserved in each artifact. Ben's discussion approval does not
+accept a DR and does not activate a schema, fixture, parser/resolver,
 implementation, adapter, experiment, or package.
+
+## CK-KICK-012/013 Batch 13 Double review (current)
+
+The fresh current-revision Double review examined exact target commit
+`8c38c501eb1262a1b85af0b8605220625601772f` in two complete-coverage,
+independent fresh `gpt-5.6-sol` medium passes with no edits. Both passes
+recommend **Revise** at **High** confidence for DR-0006, DR-0011, DR-0012,
+and DR-0013. Review 01 used the canonical identity/determinism, numeric
+comparator, claim identity/multiplicity, collection-key, digest/path-binding,
+and cross-spec lens. Review 02 used the diagnostics/bootstrap, readiness
+security, build reproducibility, adapter algebra/tier,
+status/reversibility/proportionality lens. Review Complete records evidence
+only: all four remain Proposed with Owner approval Pending, unresolved
+findings, and no acceptance or readiness activation. The eight artifacts are
+linked from the four DR responses above. No finding was auto-fixed and no
+revision, acceptance, or activation follows this evidence.
+
+The consolidated findings remain unresolved and retain their cross-record
+ownership:
+
+- **D1 — High:** `H <= sin(theta/4)` is not proven conservative for canonical
+  binary64 quaternions whose normalization norm is not exactly one; define H
+  only as a tuple-chord threshold or add a proven correction/margin and
+  norm/sign/near-pi/ULP fixtures.
+- **D2 — High:** implementation-binding local-input closure is not mechanically
+  defined or enforced; unbound Cargo/configuration/codegen/include/
+  feature/environment/path inputs could change code while the digest matches.
+- **D3 — High:** claim-ID component types, total order, unordered pair encoding,
+  and stable authored record/property/multiplicity address are not fully
+  specified.
+- **P1 — High:** implementation binding lacks symlink/special-file/ancestor
+  no-follow and stat/open consistency rules; add a root-anchored regular-file
+  closure and symlink-escape fixture.
+- **P2 — Medium:** normalization/sign/adapter/narrowing can recreate `-0`; make
+  every produced zero `+0` before tuple construction and serialization, with
+  bit-level fixtures.
+- **P3 — Medium:** malformed adapter profile/request, unknown unsupported
+  profile, and trusted conversion failure lack an explicit status distinction;
+  add zero/negative/nonfinite/unknown-revision/conversion fixtures.
+
+These findings await Ben's discussion and owner disposition. They do not alter
+the unchanged Proposed revisions or activate any implementation, schema,
+fixture, resolver, readiness gate, adapter, or package.
 
 ## CK-KICK-012/013 Batch 11 Double review (stale for Batch 12 revisions)
 

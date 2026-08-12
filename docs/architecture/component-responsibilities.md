@@ -10,11 +10,13 @@ The CK-KICK-012 Batch 6/7/8/9/10/11/12/13 resolutions are discussion-approved an
 represented as Proposed responsibility consequences. DR-0002 Revision 11 and
 DR-0008 Revision 11 remain Proposed with Owner approval Pending and Review
 Complete. DR-0006 Revision 9 remains Proposed with Owner approval Pending and
-Review Pending after the material Batch 13 change. DR-0011
+Review Complete after the Batch 13 current-revision Double review. DR-0011
 Revision 12, DR-0012 Revision 11, and Proposed DR-0013 Revision 9 remain
-Proposed with Owner approval Pending and Review Pending after the Batch 13
-material change. Prior review evidence is stale for the revised records and is
-not acceptance. No implementation or readiness gate activates. DR-0006 remains
+Proposed with Owner approval Pending and Review Complete after the Batch 13
+Double review. Both independent passes examined exact target
+`8c38c501eb1262a1b85af0b8605220625601772f`, made no edits, and recommend Revise
+at High confidence. Prior review evidence is stale for the revised records and
+is not acceptance. No implementation or readiness gate activates. DR-0006 remains
 Proposed with its owner and review state governed by its canonical record. See
 the [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for review ownership and findings. No package is implied.

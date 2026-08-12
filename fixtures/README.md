@@ -42,7 +42,8 @@ values, expected outcomes, and profile IDs remain unselected.
 
 Current Batch 13 material is recorded in DR-0006 Revision 9, DR-0011 Revision
 12, DR-0012 Revision 11, and DR-0013 Revision 9; each remains Proposed with
-Owner approval Pending and Review Pending. Batch 11/12 review evidence is
+Owner approval Pending and Review Complete after the Batch 13 current-revision
+Double review. Batch 11/12 review evidence is
 stale for those revisions. Batch 13 resolves the canonical-key,
 implementation-binding, and diagnostic/bootstrap directions as Proposed
 policy only, so no fixture corpus or readiness gate is activated.

@@ -6,7 +6,8 @@ approved C4 resolution; exact codes and serialized fields are fixture-gated
 Batch 13 resolves the diagnostic-domain and bootstrap-compatibility direction
 as Proposed material. Current Batch 13 material is recorded in DR-0006 Revision
 9, DR-0011 Revision 12, DR-0012 Revision 11, and DR-0013 Revision 9; each
-remains Proposed with Owner approval Pending and Review Pending. No registry,
+remains Proposed with Owner approval Pending and Review Complete after the
+Batch 13 current-revision Double review. No registry,
 profile, code, schema, parser, or readiness gate is accepted or activated.
 
 This document is the sole canonical owner of diagnostic registry definitions,

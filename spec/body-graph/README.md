@@ -2,7 +2,8 @@
 
 Status: Proposed conceptual contract; CK-KICK-012 Batch 13 discussion-approved
 canonical update. The current decision records remain Proposed with Owner
-approval Pending and Review Pending after the material Batch 13 change. This
+approval Pending and Review Complete after the Batch 13 current-revision
+Double review. This
 document records the approved comparator, claim identity, and graph collection
 key consequences only; no acceptance, implementation, or readiness gate is
 implied. See the [current review state](../../docs/project/status.md#current-review-and-future-activation-obligations)
