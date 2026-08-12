@@ -11,17 +11,20 @@ any product, specification, or architecture proposal.
 States: `active`, `planned`, `triggered`, `deferred`, `not-applicable`, `retired`.
 
 CK-KICK-012 and CK-KICK-013 remain active Proposed work after discussion-
-approved F1–F7 and Batch 8/9/10/11 resolutions. DR-0002 Revision 11 and DR-0008
-Revision 11 remain Proposed with Owner approval Pending and Review Complete.
-DR-0006 Revision 8, DR-0011 Revision 10, DR-0012 Revision 9, and DR-0013
-Revision 7 remain Proposed with Owner approval Pending and Review Complete;
-unresolved findings remain. The fresh Batch 11 Double review targeted commit
-`053dba58fd344ed636420e0974cf617862fe265f`; both independent passes recommend
-Revise at High confidence. The completed Batch 9 Double review targeted commit
-`6cf17270fda2827756c24a8d0fb301bef358f`; its evidence is stale for the revised
-records; the prior Batch 10 Double-review evidence is also stale. Ben approved
-the Batch 11 resolution directions; fresh current-revision review is complete
-evidence with unresolved findings.
+approved F1–F7 and Batch 8/9/10/11/12 resolutions. DR-0002 Revision 11 and
+DR-0008 Revision 11 remain Proposed with Owner approval Pending and Review
+Complete. DR-0006 Revision 8 remains Proposed with Owner approval Pending and
+Review Complete; unresolved C1/C3/C4 contract findings remain. DR-0011
+Revision 11, DR-0012 Revision 10, and DR-0013 Revision 8 remain Proposed with
+Owner approval Pending and Review Pending after the Batch 12 numeric update.
+The fresh Batch 11 Double review targeted commit
+`053dba58fd344ed636420e0974cf617862fe265f`; its artifacts are stale only for
+those three materially revised records. The completed Batch 9 Double review
+targeted commit `6cf17270fda2827756c24a8d0fb301bef358f`; its evidence is stale
+for the revised records; the prior Batch 10 Double-review evidence is also
+stale. Ben approved the Batch 11/12 resolution directions; current-revision
+review for the three changed records is pending. No implementation or
+readiness gate activates.
 No implementation or readiness gate
 activates.
 See
@@ -49,7 +52,7 @@ implementation packages or compiler fixtures.
 | Semantic body-graph spec | Next | active | First resolver proposal exists in the CK-KICK-012 Batch 4 Proposed contract | `spec/body-graph/` | Graph and cross-DR contract fixtures when activated |
 | Fixture-manifest specification | Next | active | Batch 10 creates the canonical Proposed fixture-manifest/admission owner; implementation remains gated by Readiness 2 | `spec/fixture-manifest/` | Immutable reviewed-tree/payload binding, preflight, append-only successor, and admission-link checks |
 | Build-operation specification | Next | active | Proposed public build/output contract exists as the canonical owner; implementation remains gated by DR-0013 readiness | `spec/build-operation/` | Contract, link, and ownership checks |
-| Implementation packages | Next | planned | Stage 1: DR-0013 accepted, activating only the empty Cargo shell; Stage 2: exact JSON Schema plus a versioned/admitted manifest, all referenced fixture files, and parser/bootstrap activate together in one review-branch transaction after Ben admission; numeric/frame, semantic-address, canonical-data, and diagnostic profiles precede exact schema/manifest admission; Readiness 2 admits parser/bootstrap and its corpus; the distinct Readiness 3 transaction then activates the resolver/snapshot boundary; Stage 4: working resolver plus provisional geometry profile and project-owned seam activate exploratory Stage 1 geometry | Planned Cargo workspace (`Cargo.toml`, `crates/`) | Stage-specific shell, parser/bootstrap, resolver/snapshot, and exploratory-proof evidence |
+| Implementation packages | Next | planned | Stage 1: DR-0013 accepted, activating only the empty Cargo shell; Stage 2: exact JSON Schema plus a versioned/admitted manifest, all referenced fixture files, and parser/bootstrap activate together in one review-branch transaction after Ben admission; Batch 12's numeric/frame evidence and the semantic-address, canonical-data, and diagnostic profiles precede exact schema/manifest admission; Readiness 2 admits parser/bootstrap and its corpus; the distinct Readiness 3 transaction then activates the resolver/snapshot boundary; Stage 4: working resolver plus provisional geometry profile and project-owned seam activate exploratory Stage 1 geometry | Planned Cargo workspace (`Cargo.toml`, `crates/`) | Stage-specific shell, parser/bootstrap, resolver/snapshot, and exploratory-proof evidence |
 | Readiness 3 resolver/snapshot transaction | Next | planned | A distinct Ben-approved successor transaction contains the successor manifest, expected snapshots, comparison profile/rule, resolver implementation or exact implementation binding, and unchanged content-identity preflight; only that explicit ledger activation triggers the Readiness 3 resolver/snapshot boundary; no gate activates while the records remain Proposed | `docs/decisions/DR-0013-first-production-implementation-platform-and-geometry-boundary.md` and admitted fixture manifest | Successor content binding, approval, comparison metadata, resolver binding, and in-memory snapshot handoff |
 | Generation fixtures | Next | planned | Stage 2 only: a separate Ben-approved readiness/decision record names the reviewed source commit reference, manifest path/digest, SHA-256 payload digest, exact ordered path/mode/content set containing only the manifest and declared schema, fixtures, and snapshots, and the versioned external path-set framing/profile (exact identifier remains readiness-gated); readiness/approval/successor records, mutable pointers, self-reference, and Git commit identity are excluded; rerun on the merged target compares those content identities even when the merge commit changes; append-only successors and unlisted fixtures do not activate independently | `fixtures/body-documents/` | Immutable binding, manifest/listed-source agreement, and deterministic output checks |
 | Geometry exploration | Next | planned | Stage 4 only: working resolver plus provisional geometry profile and project-owned GeometryRequest/GeometryResult seam; CK-KICK-014 is exploratory and does not require accepting/reactivating parked DR-0009/0010 | `experiments/` under an activated proof | Bounded exploratory evidence; generated bundles remain ephemeral/unretained and do not select production geometry |

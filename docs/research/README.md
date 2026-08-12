@@ -15,7 +15,8 @@ hypotheses, references, and research context.
   Proposed, neutral evidence design; EXP-0001 is not registered and no
   evidence exists yet.
 - [Numeric and frame profile experiment design](numeric-frame-profile-experiment.md) —
-  planned, unregistered evidence for thresholds and tolerances.
+  planned and unregistered evidence for numeric admission, conditioning, typed
+  comparisons, and error budgets; no results or evidence exist.
 - [Experiment workflow](../../experiments/README.md)
 
 ## Authority rule

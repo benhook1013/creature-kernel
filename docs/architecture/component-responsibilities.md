@@ -6,21 +6,23 @@ These are conceptual boundaries, not approved packages or technologies. Code
 directories should be created only after the relevant boundary is accepted and
 its activation trigger is met.
 
-The CK-KICK-012 Batch 6/7/8/9/10/11 resolutions are discussion-approved and
+The CK-KICK-012 Batch 6/7/8/9/10/11/12 resolutions are discussion-approved and
 represented as Proposed responsibility consequences. DR-0002 Revision 11 and
 DR-0008 Revision 11 remain Proposed with Owner approval Pending and Review
-Complete. DR-0006 Revision 8, DR-0011 Revision 10, DR-0012 Revision 9, and
-Proposed DR-0013 Revision 7 remain Proposed with Owner approval Pending and
-Review Complete; unresolved findings remain. The fresh Batch 11 Double review
-targeted commit `053dba58fd344ed636420e0974cf617862fe265f`; both independent
-passes recommend Revise at High confidence. The historical Batch 9 review evidence is stale for these
-revised records and is not acceptance. No implementation or readiness gate
+Complete. DR-0006 Revision 8 remains Proposed with Owner approval Pending and
+Review Complete; unresolved C1/C3/C4 contract findings remain. DR-0011
+Revision 11, DR-0012 Revision 10, and Proposed DR-0013 Revision 8 remain
+Proposed with Owner approval Pending and Review Pending after Batch 12. The
+fresh Batch 11 Double review targeted commit
+`053dba58fd344ed636420e0974cf617862fe265f`; its artifacts are stale only for
+those three materially revised records and are not acceptance. No implementation or readiness gate
 activates. The current six-record set is DR-0002 Revision 11, DR-0006 Revision
-8, DR-0008 Revision 11, DR-0011 Revision 10, DR-0012 Revision 9, and Proposed
-DR-0013 Revision 7. The completed Batch 9 Double review targeted commit
-`6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is stale for the four
-revised records and is not acceptance. The four revised records are Review
-Complete with unresolved findings; no implementation or readiness gate activates. See the [current review state](../project/status.md#current-review-and-future-activation-obligations)
+8, DR-0008 Revision 11, DR-0011 Revision 11, DR-0012 Revision 10, and Proposed
+DR-0013 Revision 8. The completed Batch 9 Double review targeted commit
+`6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is stale historical
+evidence and is not acceptance. DR-0006 remains Review Complete with unresolved
+C1/C3/C4 findings; the three materially revised records are Review Pending and
+no implementation or readiness gate activates. See the [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for review lenses, recommendations, and findings. No package is implied.
 
 | Component | Responsibilities | Explicit non-responsibilities |
@@ -117,7 +119,13 @@ carrier has exactly three translation and four `xyzw` quaternion components and
 no scale/shear fields; Readiness 3 owns numeric meaning and tolerances. Typed
 machine addresses, canonical bytes/digest domains, numeric/frame profiles, and
 diagnostic codes are owned by the focused specifications linked from the
-architecture index. The
+architecture index. Batch 12's Proposed numeric consequence is a fixed-order,
+round-to-nearest-ties-to-even evaluation with correctly rounded decimal
+admission, no reassociation/implicit FMA/FTZ/DAZ, typed all-pairs comparison
+semantics, and evidence from preregistered domains, separate semantic budgets,
+independent exact/higher-precision oracles, frozen corpora, condition estimates,
+and metamorphic checks. Exact formulas, margins, constants, and adapter
+conformance remain deferred to activation work. The
 fixture-manifest specification owns the payload and separate content-identity
 readiness/decision binding; this responsibility map does not duplicate its
 field encoding.

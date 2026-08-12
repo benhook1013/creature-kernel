@@ -1,14 +1,18 @@
 # Body-document contract
 
-Status: Proposed conceptual contract; CK-KICK-012 Batch 11 discussion-approved
+Status: Proposed conceptual contract; CK-KICK-012 Batch 12 discussion-approved
 canonical update. DR-0002 Revision 11 and DR-0008 Revision 11 remain Proposed
-with Owner approval Pending and Review Complete. DR-0006 Revision 8, DR-0011
-Revision 10, DR-0012 Revision 9, and DR-0013 Revision 7 remain Proposed with
-Owner approval Pending and Review Complete; unresolved findings remain. The
+with Owner approval Pending and Review Complete. DR-0006 Revision 8 remains
+Proposed with Owner approval Pending and Review Complete; unresolved findings
+remain. DR-0011 Revision 11, DR-0012 Revision 10, and DR-0013 Revision 8 remain
+Proposed with Owner approval Pending and Review Pending. Their current numeric
+review findings remain open: C1 canonical collection ordering/tie handling, C3
+immutable Readiness 2/3 implementation binding, and C4 diagnostic-domain/
+bootstrap compatibility. This document resolves none of those findings. The
 Batch 11 Double review targeted
 commit `053dba58fd344ed636420e0974cf617862fe265f`; both independent passes
-recommend Revise at High confidence. It is evidence only, not acceptance; no
-implementation or readiness gate activates. See the [current review state](../../docs/project/status.md#current-review-and-future-activation-obligations)
+recommend Revise at High confidence. It is stale evidence for the revised
+records, not acceptance; no implementation or readiness gate activates. See the [current review state](../../docs/project/status.md#current-review-and-future-activation-obligations)
 for the current findings. See the [decision registry](../../docs/decisions/registry.md).
 No acceptance is implied.
 The CK-KICK-012 Batch 5 review at commit `a282dbabffd83afa4e62577086934d00f98e12c7`
@@ -90,10 +94,13 @@ extension envelope described below.
 
 Each collection contains explicit typed records and stable references. There is
 no generic union or untyped graph escape hatch. Array order is non-semantic;
-semantic ordering and equivalence use stable identities and the contract's
-deterministic ordering rules. Core collections are present even when empty,
-and the recognized core vocabulary is closed. An explicitly permitted empty
-collection is the only initial omission for a core collection.
+semantic ordering and equivalence use stable identities and any contract-owned
+ordering rule. Core collections are present even when empty, and the recognized
+core vocabulary is closed. An explicitly permitted empty collection is the
+only initial omission for a core collection. This source contract does not
+invent a total canonical key for unordered collections; the Batch 11 C1
+canonical-ordering/tie-handling finding remains unresolved in the
+[canonical-data profile](../canonical-data/README.md).
 
 ## Basis, profiles, and frame roles
 
@@ -138,6 +145,35 @@ and evaluation. JSON Schema Draft 2020-12 is the proposed structural
 validation vocabulary; CK semantic resolution remains authoritative for graph
 meaning, provenance, and invariants. No schema file or implementation package
 is activated by this proposal.
+
+### Numeric admission and source consequences
+
+After strict JSON syntax, number-token, and resource checks, each JSON number
+is interpreted as an exact signed decimal rational and converted directly to
+binary64 with correctly rounded round-to-nearest, ties-to-even. The conversion
+is owned by the [numeric and frame profile](../numeric-frame-profile/README.md):
+source admission must not use a host float intermediate, locale, ambient
+rounding mode, or implementation-dependent precision. Lexical and exact-rational
+work is charged before unbounded materialization.
+
+A finite conversion is admitted, including a finite nonzero subnormal. An
+overflow to infinity is `invalid-source`, as is a nonzero exact rational that
+rounds to signed zero. Canonical operations must forbid FTZ/DAZ. A lexical
+negative zero is valid when its exact rational is zero, then normalizes to
+`+0` in the normalized source model and resolved graph; the raw source bytes
+remain unchanged. Precision is not rejected by an arbitrary semantic digit
+cutoff: values within the declared lexical/resource bound are converted, and
+a bound breach is `resource-limit` when it prevents trusted processing.
+Alternate decimal spellings can therefore share one normalized binary64 value
+while retaining distinct source bytes. Conversion/rounding failures or
+non-finite results are source admission failures, not silently repaired values.
+
+Required boundary fixtures cover ordinary inexact decimal `0.1`, exact values,
+halfway/tie cases, the maximum-finite boundary and overflow, the smallest
+subnormal and underflow-to-zero, excessive precision at the lexical/resource
+boundary, lexical signed zero, and alternate decimal spellings. The fixture
+manifest owns their expected outcomes and profile bindings; exact profile IDs
+and resource constants remain activation-gated.
 
 ## Bootstrap and contract recognition
 

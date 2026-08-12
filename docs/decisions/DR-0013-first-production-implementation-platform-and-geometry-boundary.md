@@ -6,13 +6,13 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 7
+Revision: 8
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-11
 
@@ -62,7 +62,16 @@ review pending. On 2026-08-12 Ben approved the next machine-contract batch:
 semantic address encoding, canonical basis/numeric/comparison profiles,
 canonical bytes/digests, and the diagnostic registry/profile. This material
 Revision 7 change makes the Revision 6 review evidence stale; a fresh current
-review is pending.
+review is pending. On 2026-08-12 Ben discussion-approved the four numeric
+resolution directions from the Batch 11 review: exact decimal admission,
+normative comparisons, a non-circular numeric experiment method, and future
+adapter conformance. This is not DR acceptance or readiness activation.
+Revision 8 makes the Revision 7 current-revision review artifacts stale; their
+exact findings are preserved below. C1 canonical collection ordering/tie
+handling, C3 immutable Readiness 2/3 implementation binding, and C4
+diagnostic-domain/bootstrap compatibility remain unresolved for the next
+discussion in their owning records. Owner approval remains Pending and Review
+status is Pending for this revised proposal.
 
 ## Decision
 
@@ -126,6 +135,61 @@ resolver gate activates before the ledger trigger. It binds an expected graph
 snapshot path, digest, comparison-profile identity, and exact or semantic
 comparison rule. This boundary selects no geometry, rig, IK,
 deformation, runtime, or host-engine representation.
+
+### Numeric readiness and future adapter boundary
+
+Readiness 3 consumes DR-0011's numeric contract; it does not select an engine
+or permit an adapter to redefine canonical semantics. After strict JSON and
+number-token resource checks, source number tokens are exact signed decimal
+rationals converted directly to binary64 with round-to-nearest, ties-to-even.
+Host-parser intermediates, locale, ambient rounding modes, and
+implementation-defined precision are not permitted. Finite nonzero subnormals
+are accepted, overflow to infinity and nonzero rationals that round to signed
+zero are rejected, and excessive precision within the lexical/resource bound
+has no arbitrary semantic digit limit. Lexical negative zero is accepted but
+normalized to positive zero for semantic/canonical models; exact source bytes
+remain distinct, and canonical operations prohibit FTZ/DAZ.
+
+Readiness 3 comparison uses exact discrete identity; inclusive checked-stable
+absolute/relative scalar bounds and componentwise translation L-infinity;
+normalized q/-q-invariant geodesic rotation comparison with fixed half-chord
+evaluation; and residual `E = B * inverse(A)` in the selected
+local-to-parent/rightmost-first convention. Residual translation and rotation
+are separately named profile entries. Every unordered pair of competing
+authored claims for one owner/property/frame must pass; any failing pair is a
+deterministic `invalid-source` conflict. There is no transitive clustering,
+first winner, or approximate deduplication. If all pairs pass, the normalized
+binary64 representative tuple is value-type-specific: scalar
+`(value)`; translation/vector `(x,y,z)` in declared semantic component order;
+quaternion `(x,y,z,w)` after normalization and q/-q/sign canonicalization; and
+rigid transform `(tx,ty,tz,qx,qy,qz,qw)`. Any later numeric type must define its
+tuple in the numeric/frame profile before use. The lexicographically smallest
+tuple under an exact total order over normalized finite binary64 values is
+canonical, with `-0` already normalized; stable claim identity breaks ties only
+when tuples are identical, while all claims/provenance remain retained.
+
+The numeric evidence gate pre-registers domains and semantic error budgets,
+uses fixed operation order and round-to-nearest/ties-to-even without
+reassociation, implicit FMA contraction, or FTZ/DAZ, and compares exact/
+analytic and independent materially higher-precision oracles over separate
+frozen development, held-out, and adversarial corpora. It covers metamorphic,
+permutation, conditioning, and sensitivity cases, uses a predeclared
+validation margin, and rejects out-of-domain cases rather than widening a
+budget or selecting the smallest observed error. WSL x86_64 plus native Linux
+is the bounded initial reference; materially different architecture/toolchain
+evidence is required only before claiming broader cross-platform
+reproducibility.
+
+Before any host adapter activates, it declares an orthogonal signed-permutation
+canonical-to-engine basis map `C`, including determinant `+1` or `-1`, and
+implements `v_e=C*v_c`, `R_e=C*R_c*C^-1`, and homogeneous rigid-transform
+conjugation. Quaternion conversion must derive from that rotation
+transformation or a proven equivalent, not ad hoc sign flips. Named-direction,
+handedness/reflection, composition-commutation, inverse, q/-q, and round-trip
+fixtures are required. The core remains binary64; a separate target-precision
+profile defines correct narrowing, subnormal/underflow/overflow policy, and
+error bounds without clamp, saturation, ambient-mode behavior, or canonical
+snapshot mutation. Adapter activation is separate and after Readiness 3.
 
 Acceptance of DR-0013 itself is the sole trigger for Readiness 1. Creating this
 Proposed DR does not activate implementation packages, schemas, compiler
@@ -589,6 +653,16 @@ freezes translation plus `xyzw` quaternion structure at Readiness 2, then
 defers basis, normalization, ranges, conditioning, and tolerances to
 Readiness 3.
 
+### Claim broad portability from one host or require a full matrix immediately
+
+One host result cannot support a broad cross-platform reproducibility claim,
+but a formal verification effort and exhaustive architecture/toolchain matrix
+would be disproportionate before the bounded profile exists. The selected
+initial evidence uses WSL x86_64 and native Linux; materially different
+evidence is required only when the claim expands. A future adapter uses basis
+conjugation and fixtures because handedness reflection is not an ad hoc
+quaternion sign change.
+
 ## Adversarial Review Response
 
 This is CK-KICK-013 Revision 7, proposed and discussion-approved on 2026-08-12.
@@ -709,6 +783,52 @@ portability, and diagnostics/canonicalization cross-links. Review status is
 Complete for evidence only; Owner approval remains Pending, Status remains
 Proposed, and no acceptance or readiness gate activates.
 
+The Batch 11 current-revision review artifacts for Revision 7 are now stale
+after this Revision 8 proposal change. Their exact findings are preserved here
+for the next review. Review 01 recorded: **C1 — High:** “Canonical JSON
+sorting by semantic address is incomplete for module declarations, owner-role
+records, and manifest/build collections that may lack one of the seven address
+kinds. Define a total canonical key and duplicate/tie handling for every
+unordered collection/projection before `ck-json-1` activation.” **C2 — High:**
+“Decimal-to-binary64 admission is ambiguous (`0.1`, midpoint, excessive
+precision, subnormal/underflow, and overflow). Select exact conversion/rounding
+and rejection behaviour with boundary fixtures.” **C3 — High:** “R2/R3
+payload binding excludes implementation bytes and mutable commit provenance
+cannot prevent a merge/rebase activation of unreviewed parser/resolver code.
+Add separately verified immutable implementation path/mode/content binding or
+exact tree identity, checked after merge before the ledger trigger.” **C4 —
+High:** “Canonical and DR-0012 diagnostic vocabularies conflict, and unknown
+required registry/profile revisions need a bootstrap profile or reserved-
+envelope diagnostic. Reconcile one domain mapping and bootstrap negotiation
+diagnostics.” Review 02 recorded: **N1 — High:** “Define exact decimal-to-
+binary64 conversion/rounding, overflow/underflow/subnormal behaviour, and
+boundary fixtures.” **N2 — High:** “The numeric-threshold experiment is
+circular without semantic error budgets, an independent oracle,
+held-out/adversarial data, sensitivity analysis, and platform/toolchain
+diversity. Preregister domains/error budgets; use higher-precision or analytic
+oracle, development and held-out corpora, metamorphic/conditioning/FMA/
+optimization coverage, a materially different architecture/toolchain, and
+validation margins.” **N3 — High:** “Typed comparisons need normative
+formulas, norms, quaternion/transform metrics, inclusive boundary/tie rules,
+deterministic order-independent multi-claim satisfiability, and safeguards
+against non-transitivity, with permutation/non-transitivity fixtures.” **N4 —
+Medium:** “Add a future host-adapter conformance obligation for handedness
+reflection, vector/rotation/rigid-transform basis change, named-direction
+preservation, composition commutation, round trip, and binary64 narrowing
+policy before adapter activation.” The mechanical N5 header synchronization
+remains outside this scoped resolution.
+
+The discussion-approved directions resolve C2 and N1–N4 as cross-record
+numeric/frame prerequisites: exact rational admission, fixed typed comparison
+algorithms and pairwise conflict semantics, the pre-registered experiment/
+oracle/corpus method, and the future adapter conformance/narrowing obligation
+are now stated above. C1, C3, and C4 remain unresolved in their owning
+records; this platform revision does not add canonical collection keys,
+implementation binding, or diagnostic bootstrap behavior. Review status is
+Pending for Revision 8; Owner approval remains Pending and Status remains
+Proposed. No readiness gate, package, schema, fixture, resolver, or engine is
+accepted or activated.
+
 ## Implementation and Proof Obligations
 
 - If this DR is accepted, create only the Cargo workspace and empty
@@ -748,6 +868,45 @@ Proposed, and no acceptance or readiness gate activates.
   Proposed manifest semantics.
 - Keep semantic resolution, diagnostics, provenance, and the CLI independent
   of geometry implementation, visual workbench, and host engine.
+- Consume DR-0011's exact numeric admission after strict JSON/token-resource
+  checks: exact signed decimal rational to direct binary64 round-to-nearest,
+  ties-to-even; reject non-finite/overflow and nonzero rationals rounding to
+  signed zero; accept finite nonzero subnormals and excessive precision within
+  the lexical/resource bound; normalize lexical negative zero only in
+  semantic/canonical models; preserve source-byte distinction; and prohibit
+  FTZ/DAZ in canonical operations.
+- Make Readiness 3 comparisons normative and typed: exact discrete identity,
+  inclusive checked-stable absolute/relative scalar bounds, componentwise
+  translation L-infinity, fixed normalized q/-q-invariant half-chord rotation
+  angle, and residual `B * inverse(A)` in the selected convention with
+  separately named translation/rotation entries. Require all unordered pairs
+  of competing authored claims for the same owner/property/frame to pass;
+  reject any failure deterministically, and only then choose the value-type-
+  specific normalized tuple—scalar `(value)`, translation/vector `(x,y,z)`,
+  quaternion `(x,y,z,w)` after q/-q/sign canonicalization, or rigid transform
+  `(tx,ty,tz,qx,qy,qz,qw)`—under an exact total order over normalized finite
+  binary64 values (`-0` already normalized); stable claim identity breaks ties
+  only for identical tuples, any later numeric type must define its tuple in
+  the profile before use, while retaining all provenance.
+- Before numeric activation, pre-register domains and semantic error budgets;
+  fix operation order and round-to-nearest/ties-to-even without reassociation,
+  implicit FMA contraction, or FTZ/DAZ; use exact/analytic and independent
+  materially higher-precision oracles across frozen development, held-out,
+  and adversarial corpora; cover metamorphic/permutation/conditioning and
+  sensitivity; use a predeclared validation margin; reject out-of-domain
+  cases rather than widening budgets or selecting smallest observations. The
+  bounded initial reference is WSL x86_64 plus native Linux; broader claims
+  require materially different architecture/toolchain evidence.
+- Before any host adapter activates, require an explicit orthogonal
+  signed-permutation canonical-to-engine basis map (determinant `+1` or `-1`),
+  vector/translation mapping, rotation and homogeneous-transform conjugation,
+  quaternion conversion via that transformation or a proven equivalent, and
+  named-direction/handedness/reflection/composition/inverse/q/-q/round-trip
+  fixtures. Keep the core binary64; define a separate correctly rounded
+  target-precision profile with subnormal/underflow/overflow policy and error
+  bounds, with no clamp/saturation/ambient mode and no canonical-snapshot
+  mutation. Adapter activation is separate after Readiness 3 and does not
+  select an engine.
 - Define the project-owned versioned conceptual `GeometryRequest` and
   `GeometryResult` seam for resolved graph/geometry intent, configuration and
   capability metadata, lineage, bounded diagnostics, and bounded outputs.

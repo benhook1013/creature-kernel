@@ -24,11 +24,16 @@ exact decision metadata and review cells.
 
 ## Working method
 
-Batch 11 adds a bounded numeric/frame evidence design before resolver
-activation. Its planned order is numeric/frame semantics, typed addresses,
-canonical data, diagnostics, exact schema/manifest, Readiness 2, and a
-separate Readiness 3 expected-snapshot transaction. These are Proposed
-planning outcomes, not implementation commitments.
+Batch 11 and Batch 12 add a bounded numeric/frame evidence design before
+resolver activation. Batch 12 strengthens that plan with preregistered numeric
+domains and separate semantic error budgets, exact/higher-precision oracles,
+frozen development/held-out/adversarial corpora, fixed operation and compiler
+floating-point controls, condition estimates, metamorphic/all-pairs checks,
+and a validation margin whose formula/constant remain open. The planned order
+is numeric/frame semantics, typed addresses, canonical data, diagnostics,
+exact schema/manifest, Readiness 2, and a separate Readiness 3
+expected-snapshot transaction. These are Proposed planning outcomes, not
+implementation commitments.
 
 - Work in rounds, with a discussion batch of roughly two to five related
   decisions or talking points.
@@ -595,15 +600,16 @@ gets its own DR and review before backend-specific compiler code locks it in.
 
 ### CK-KICK-012: Specify the minimal body document and body graph
 
-State: active (Batches 1, 4, 5, 6, F1–F3, Batch 8, Batch 9, Batch 10, and Batch 11 integrated as Proposed
+State: active (Batches 1, 4, 5, 6, F1–F3, Batch 8, Batch 9, Batch 10, Batch 11, and Batch 12 integrated as Proposed
 documentation; DR-0002/0008 Revision 11 remain Proposed with Owner approval
-Pending and Review Complete, while DR-0006 Revision 8, DR-0011 Revision 10,
-DR-0012 Revision 9, and DR-0013 Revision 7 remain Proposed with Owner approval
-Pending and Review Complete after the Batch 11 resolutions; actionable findings
-remain unresolved. The prior Batch 10 Double-review evidence is stale history;
-the fresh Batch 11 current-revision Double review targeted
-`053dba58fd344ed636420e0974cf617862fe265f`, and both independent passes
-recommend Revise at High confidence. The completed Batch 9 Double
+Pending and Review Complete, while DR-0006 Revision 8 remains Proposed with
+Owner approval Pending and Review Complete with unresolved C1/C3/C4 contract
+findings. DR-0011 Revision 11, DR-0012 Revision 10, and DR-0013 Revision 8
+remain Proposed with Owner approval Pending and Review Pending after Batch 12;
+actionable findings remain unresolved. The prior Batch 10 Double-review
+evidence is stale history; the fresh Batch 11 current-revision Double review
+targeted `053dba58fd344ed636420e0974cf617862fe265f`, and its artifacts are stale
+only for the three materially revised records. The completed Batch 9 Double
 review targeted `6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is
 stale for the revised records and is not acceptance. No implementation or
 readiness gate activates. See the
@@ -648,10 +654,16 @@ Outcome:
   Sources declare units, handedness, up, and forward, then normalize to a
   contract-revision canonical internal basis with conversion provenance.
   Distinct local/reference, joint, socket/mating, derived world/reference,
-  and runtime-pose frames are required. Batch 11 proposes the canonical
-  right-handed metre basis (+Y up, +Z creature-forward), typed semantic
-  addresses, canonical data/digests, and diagnostic profile; exact thresholds
-  and activation remain deferred.
+  and runtime-pose frames are required. Batch 11/12 proposes the canonical
+  right-handed metre basis (+Y up, +Z creature-forward), finite binary64
+  values, correctly rounded decimal admission, canonical quaternion handling,
+  fixed operation order without reassociation/implicit FMA/FTZ/DAZ, typed
+  all-pairs comparison profiles, canonical addresses, canonical data/digests,
+  and diagnostic profile. The numeric experiment preregisters intended
+  domains, separate semantic error budgets, exact/higher-precision oracles,
+  frozen development/held-out/adversarial corpora, condition estimates,
+  metamorphic checks, and an open validation-margin formula/constant; exact
+  thresholds and activation remain deferred.
 - Fixture expected outcomes freeze as valid-supported, semantically invalid, or
   well-formed-but-unsupported, with a primary diagnostic class/code frozen for
   every non-success fixture. Only valid-supported fixtures count toward the
@@ -663,7 +675,7 @@ Outcome:
   primitives, semantic-address lifecycle/remap semantics, geometry backend, surface,
   animation, physics, and runtime choices remain deferred. The Rust/Cargo
   platform direction is tracked separately in CK-KICK-013 as Proposed.
-- The first parser and resolver proposals now activate the
+- The first parser and resolver proposals now establish the Proposed
   [`spec/body-document/`](../../spec/body-document/README.md) and
   [`spec/body-graph/`](../../spec/body-graph/README.md) contract families.
   The public derived-output and publication boundary is owned by the
@@ -680,17 +692,18 @@ Outcome:
 
 The Batch 1 and Batch 4 discussion selections and review resolutions are not DR
 acceptance. The prior revisions have complete review evidence. Batch 5, Batch
-6, F1–F7, Batch 8, Batch 9, Batch 10, and Batch 11 are discussion-approved and integrated into the canonical product,
+6, F1–F7, Batch 8, Batch 9, Batch 10, Batch 11, and Batch 12 are discussion-approved and integrated into the canonical product,
 specification, architecture, and project documents as Proposed material. The
 CK-KICK-012 Batch 5 Double review at commit
 `a282dbabffd83afa4e62577086934d00f98e12c7` and Batch 6 review at `c64b1b...`
 are stale historical evidence. The current six-record set is DR-0002 Revision
-11, DR-0006 Revision 8, DR-0008 Revision 11, DR-0011 Revision 10, DR-0012
-Revision 9, and DR-0013 Revision 7; DR-0002/0008 retain Review Complete and
-the four revised records remain Proposed with Owner approval Pending and Review
-Complete with unresolved findings. Ben approved the Batch 11 resolution
-directions; the prior Batch 10 Double-review evidence is stale history and the
-fresh current-revision review is complete evidence. The
+11, DR-0006 Revision 8, DR-0008 Revision 11, DR-0011 Revision 11, DR-0012
+Revision 10, and DR-0013 Revision 8; DR-0002/0008 retain Review Complete,
+DR-0006 remains Review Complete with unresolved C1/C3/C4 findings, and the
+three materially revised records remain Proposed with Owner approval Pending
+and Review Pending. Ben approved the Batch 11/12 resolution directions; the
+prior Batch 10 Double-review evidence is stale history and the Batch 11
+artifacts are stale only for the three revised records. The
 completed Batch 9 Double review targeted
 `6cf17270fda2827756c24a8d0fb301bef358f`; historical evidence is stale for the
 revised records and is not acceptance. See
@@ -703,12 +716,15 @@ preserved as historical evidence.
 The cross-cutting proposal is
 [DR-0012: initial body-document encoding, resolution, and
 compatibility](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
-CK-KICK-012 remains active; Batch 11 is discussion-approved Proposed material.
-The completed Batch 9 Double review is evidence only; its five actionable
-findings were resolved by Batch 10 discussion. The prior Batch 10 Double review
-remains preserved as stale evidence. The fresh Batch 11 current-revision Double
-review is complete evidence with unresolved findings, so this proposal does not
-imply acceptance or activate an implementation/readiness gate.
+CK-KICK-012 remains active; Batch 11 and Batch 12 are discussion-approved
+Proposed material. The completed Batch 9 Double review is evidence only; its
+five actionable findings were resolved by Batch 10 discussion. The prior Batch
+10 Double review remains preserved as stale evidence. The Batch 11 current-
+revision Double-review artifacts are stale for the three materially revised
+records. DR-0011 Revision 11, DR-0012 Revision 10, and DR-0013 Revision 8 are
+currently Review Pending; DR-0006 Revision 8 remains Review Complete with
+unresolved C1/C3/C4 findings. No acceptance or implementation/readiness gate is
+implied.
 
 ### Batch 4 — encoding, resolution, and compatibility (discussion-approved)
 
@@ -1088,15 +1104,53 @@ success-bundle contradiction, and C5 (Medium) timeout versus termination
 status. They await Ben's discussion and owner disposition; review completion is
 evidence only.
 
+### Batch 12 — numeric/frame evidence and summary alignment (discussion-approved)
+
+On 2026-08-12 Ben approved the Batch 12 numeric-resolution directions in
+discussion. They are integrated as Proposed planning, product, architecture,
+research, and status consequences only; they do not accept or silently replace
+the decision records and do not activate a package, schema, fixture, resolver,
+adapter, or readiness gate.
+
+- The numeric experiment replaces the circular “smallest stable values
+  observed” method with preregistered intended translation, quaternion/norm and
+  near-zero domains, maximum composition/inversion chain, conditioning bound,
+  and separate semantic error budgets. Its exact formulas and validation-margin
+  constant remain open protocol decisions; a failure is reject or inconclusive,
+  never post-hoc budget widening.
+- The initial canonical direction fixes operation order and round-to-nearest,
+  ties-to-even, and prohibits reassociation, implicit FMA contraction, FTZ, and
+  DAZ. Decimal admission is intended to be correctly rounded, with exact
+  rational/analytic oracle coverage and an independent materially higher-
+  precision disposable oracle for generic normalization/transform chains.
+- Development, held-out, and adversarial corpora are frozen before evaluation,
+  including midpoint/tie, signed-zero, subnormal/underflow, overflow,
+  cancellation, near-zero q, q/-q, long-chain, ill-conditioned, basis-
+  conversion, and claim-order cases. Metamorphic checks cover canonicalization
+  idempotence, q/-q, equivalent decimal lexical forms, identity/inverse,
+  selected composition order, claim permutation, and basis roundtrip. Condition
+  estimates classify out-of-domain cases without widening budgets.
+- The bounded evidence target is WSL x86_64 plus native Linux smoke. A
+  materially different architecture/toolchain is required before any broader
+  cross-platform reproducibility claim. Raw bits, oracle uncertainty, compiler
+  and mode settings, condition estimates, seeds, profiles, hardware, and
+  classifications are retained. Host-adapter conformance remains deferred
+  until adapter activation.
+
+The current affected records are DR-0011 Revision 11, DR-0012 Revision 10,
+and DR-0013 Revision 8, each Proposed with Owner approval Pending and Review
+Pending. DR-0006 Revision 8 remains Review Complete with unresolved C1/C3/C4
+contract findings; Batch 11 review evidence is stale only for the three
+materially revised records.
+
 ## Round 8 — implementation platform (provisional)
 
 ### CK-KICK-013: Select the first implementation platform
 
 State: active (discussion-approved Proposed platform direction integrated;
-Proposed DR-0013 Revision 7 has Owner approval Pending and Review Complete after
-the Batch 11 resolution, with unresolved findings. The prior Batch 10
-Double-review evidence is stale history; fresh current-revision review is
-complete evidence. The
+Proposed DR-0013 Revision 8 has Owner approval Pending and Review Pending after
+the Batch 12 resolution, with unresolved findings. The Batch 11 Double-review
+evidence is stale for this materially revised record. The
 completed Batch 9 Double review targeted
 `6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is stale for the
 revised record and is not acceptance; not accepted or implemented)
@@ -1155,8 +1209,9 @@ the Batch 9 revisions; its seven consolidated findings are preserved as
 historical evidence resolved by discussion. The completed Batch 9 Double review
 is evidence only; its five actionable findings were resolved by Batch 10
 discussion. The prior Batch 10 review remains preserved as stale evidence. The
-fresh Batch 11 current-revision review is complete evidence with unresolved
-findings; no implementation activates while the DR remains Proposed.
+fresh Batch 11 review is stale for this materially revised record; current
+review is pending and no implementation activates while the DR remains
+Proposed.
 Geometry libraries, licensing, platform support, and any C++ worker/FFI boundary remain
 evidence-driven; they are not settled by this proposal. No implementation
 package or compiler fixture is activated while the DR remains Proposed.

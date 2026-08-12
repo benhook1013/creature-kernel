@@ -1,14 +1,18 @@
 # Resolved body-graph contract
 
-Status: Proposed conceptual contract; CK-KICK-012 Batch 11 discussion-approved
+Status: Proposed conceptual contract; CK-KICK-012 Batch 12 discussion-approved
 canonical update. DR-0002 Revision 11 and DR-0008 Revision 11 remain Proposed
-with Owner approval Pending and Review Complete. DR-0006 Revision 8, DR-0011
-Revision 10, DR-0012 Revision 9, and DR-0013 Revision 7 remain Proposed with
-Owner approval Pending and Review Complete; unresolved findings remain. The
+with Owner approval Pending and Review Complete. DR-0006 Revision 8 remains
+Proposed with Owner approval Pending and Review Complete; unresolved findings
+remain. DR-0011 Revision 11, DR-0012 Revision 10, and DR-0013 Revision 8 remain
+Proposed with Owner approval Pending and Review Pending. Their current numeric
+review findings remain open: C1 canonical collection ordering/tie handling, C3
+immutable Readiness 2/3 implementation binding, and C4 diagnostic-domain/
+bootstrap compatibility. This document resolves none of those findings. The
 Batch 11 Double review targeted
 commit `053dba58fd344ed636420e0974cf617862fe265f`; both independent passes
-recommend Revise at High confidence. It is evidence only, not acceptance; no
-implementation or readiness gate activates. See the [current review state](../../docs/project/status.md#current-review-and-future-activation-obligations)
+recommend Revise at High confidence. It is stale evidence for the revised
+records, not acceptance; no implementation or readiness gate activates. See the [current review state](../../docs/project/status.md#current-review-and-future-activation-obligations)
 for the current findings. See the [decision registry](../../docs/decisions/registry.md).
 No acceptance is implied.
 The CK-KICK-012 Batch 5 review at commit `a282dbabffd83afa4e62577086934d00f98e12c7`
@@ -282,6 +286,43 @@ semantic-invalid outcome with a deterministic diagnostic in the single
 operation-result envelope and no success snapshot. Required unresolved or
 ambiguous values likewise cannot succeed.
 
+### Normative claim comparison and representative outcome
+
+The [numeric and frame profile](../numeric-frame-profile/README.md) owns the
+comparison arithmetic; this graph contract owns grouping claims by the
+normalized target and the resulting graph/provenance outcome. Exact discrete
+claims remain exact. Scalar and translation components use the profile's
+inclusive absolute-plus-relative predicate with componentwise L-infinity
+translation semantics. Quaternion claims are normalized and compared with the
+profile's q/-q-invariant half-chord angular algorithm, including its dot-zero
+`+1` sign tie and fixed evaluation order. Transform claims form
+`E = B * inverse(A)` under the selected composition convention and compare its
+named translation and rotation entries through the corresponding profile
+entries; no approximate-identity shortcut is allowed.
+
+For competing authoritative claims with the same target, every unordered pair
+must pass. The resolver must not use transitive clustering, a first winner,
+approximate identity, or deduplication. One failing pair makes the source
+deterministically `invalid-source` with a conflict diagnostic; no passing pair
+can rescue it. The normalized binary64 representative tuple is value-type-
+specific: scalar `(value)`; translation/vector `(x,y,z)` in declared semantic
+component order; quaternion `(x,y,z,w)` after normalization and q/-q/sign
+canonicalization; and rigid transform `(tx,ty,tz,qx,qy,qz,qw)`. Any later
+numeric type must define its tuple in the numeric/frame profile before use.
+Lexicographic comparison uses an exact total order over normalized finite
+binary64 values, with `-0` already normalized; stable claim ID breaks ties only
+when tuples are identical. Preserve provenance for every claim, including
+claims not selected as the representative. Adding a passing claim can change
+the representative and therefore a snapshot; a changed comparison profile or
+expected fixture requires its profile/fixture successor process.
+Authored-conflict and expected-snapshot comparisons remain separate profiles,
+and their constants remain experiment-gated.
+
+This local claim representative rule is not a canonical key for unrelated
+unordered collections. The Batch 11 C1 total canonical collection-ordering and
+tie-handling finding remains unresolved in the canonical-data profile; this
+contract does not invent that key.
+
 ## Resolver and publication relationship
 
 The [body-document contract](../body-document/README.md) owns the single
@@ -356,9 +397,12 @@ remapping; explicit containment versus relation-only connectivity; the typed
 articulation chain and immediate-child rule; optional-module placement,
 offset, duplicate, and detached cases; overlapping regions; canonical frame
 records and provenance; authored/defaulted/derived values; frame
-normalization; measurement conflicts; invalid/unsupported outcomes; resource
-limits and diagnostic truncation; and the cross-DR fixture matrix. The fixture
-set is evidence planning, not proof yet. The [fixture-manifest and admission
-contract](../fixture-manifest/README.md) owns the immutable reviewed tree and
-payload binding, preflight, and staged Readiness 2/3 corpus; it does not change
-graph semantics or activate these fixtures.
+normalization; measurement conflicts; pairwise claim permutations and
+non-transitive triples; q/-q and dot-zero sign ties; transform residuals;
+representative-selection and provenance-retention consequences; invalid/
+unsupported outcomes; resource limits and diagnostic truncation; and the
+cross-DR fixture matrix. The fixture set is evidence planning, not proof yet.
+The [fixture-manifest and admission contract](../fixture-manifest/README.md)
+owns the immutable reviewed tree and payload binding, preflight, and staged
+Readiness 2/3 corpus; it does not change graph semantics or activate these
+fixtures.

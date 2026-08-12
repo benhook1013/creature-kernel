@@ -14,9 +14,9 @@ Status: Operational under Accepted DR-0001 Revision 5
 | [DR-0008](DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md) | First digitigrade morphology and Stage 1 embodiment envelope | Product, Specification and architecture | Proposed | 11 | Complete | Ben |
 | [DR-0009](DR-0009-hybrid-surface-generation-experiment-hypothesis.md) | Hybrid surface-generation experiment hypothesis | Architecture | Proposed | 8 | Complete | Ben |
 | [DR-0010](DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md) | Stage 1 surface extraction and semantic-field propagation | Specification and architecture | Proposed | 8 | Pending | Ben |
-| [DR-0011](DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md) | Minimal semantic vocabulary, measurements, and frames | Specification and architecture | Proposed | 10 | Complete | Ben |
-| [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md) | Initial body-document encoding, resolution, and compatibility | Specification and architecture | Proposed | 9 | Complete | Ben |
-| [DR-0013](DR-0013-first-production-implementation-platform-and-geometry-boundary.md) | First production implementation platform and geometry boundary | Specification and architecture | Proposed | 7 | Complete | Ben |
+| [DR-0011](DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md) | Minimal semantic vocabulary, measurements, and frames | Specification and architecture | Proposed | 11 | Pending | Ben |
+| [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md) | Initial body-document encoding, resolution, and compatibility | Specification and architecture | Proposed | 10 | Pending | Ben |
+| [DR-0013](DR-0013-first-production-implementation-platform-and-geometry-boundary.md) | First production implementation platform and geometry boundary | Specification and architecture | Proposed | 8 | Pending | Ben |
 
 DR-0001 Revision 5 is `Accepted` after Ben's approval and its Complete clean
 review; that disposition applies only to this Governance DR. DR-0002 through
@@ -178,13 +178,66 @@ DR-0012 Revision 9, and DR-0013 Revision 7:
   resolver binding, and unchanged scoped-content preflight.
 
 These Batch 11 discussion approvals are not acceptance. The Batch 10 review
-artifacts are stale historical evidence for all four revised records. The fresh
-Batch 11 current-revision Double review is complete as evidence: all four
-remain Proposed with Owner approval Pending, Review Complete, unresolved
-findings, and no readiness activation. Both independent passes recommend
-Revise at High confidence for each record.
+artifacts are stale historical evidence for all four revised records. At that
+historical Revision 10/9/7 state, the fresh Batch 11 current-revision Double
+review was complete as evidence: all four remained Proposed with Owner
+approval Pending, Review Complete, unresolved findings, and no readiness
+activation. Both independent passes recommended Revise at High confidence for
+each record. Those Batch 11 artifacts are now stale after the numeric
+resolution revisions below.
 
-## CK-KICK-012/013 Batch 11 Double review
+Ben's Batch 12 numeric resolutions, approved in discussion on 2026-08-12, are
+recorded in DR-0011 Revision 11, DR-0012 Revision 10, and DR-0013 Revision 8.
+They are discussion-approved Proposed material, not acceptance or activation:
+
+- Exact decimal admission interprets each number token as an exact signed
+  decimal rational after strict JSON/token-resource checks, converts directly
+  to binary64 round-to-nearest/ties-to-even without host-parser, locale,
+  ambient-mode, or implementation-defined precision, rejects overflow and
+  nonzero rationals rounding to signed zero, accepts finite nonzero subnormals
+  and excessive precision within lexical/resource bounds, normalizes lexical
+  negative zero only in semantic/canonical models, and prohibits FTZ/DAZ in
+  canonical operations.
+- Normative typed comparisons use exact discrete identity, inclusive checked
+  absolute/relative scalar bounds and componentwise translation L-infinity,
+  normalized q/-q-invariant half-chord rotation angle, and residual
+  `B * inverse(A)` in the selected convention with separately named residual
+  profiles. Every unordered authored-claim pair must pass; no transitive
+  clustering, first winner, or approximate deduplication is allowed. The
+  lexicographically smallest normalized binary64 tuple plus stable claim
+  identity is selected only after all pairs pass, retaining all provenance.
+- Numeric evidence pre-registers domains and semantic error budgets, fixes
+  operation order and round-to-nearest/ties-to-even without reassociation,
+  implicit FMA contraction, or FTZ/DAZ, uses exact/analytic and independent
+  materially higher-precision oracles over frozen development, held-out, and
+  adversarial corpora, records sensitivity/conditioning and metamorphic/
+  permutation coverage, applies a validation margin, and rejects out-of-domain
+  cases rather than widening budgets. WSL x86_64 plus native Linux bound the
+  initial profile; broader portability claims require materially different
+  architecture/toolchain evidence.
+- Future adapters must declare an orthogonal signed-permutation basis map
+  (determinant `+1` or `-1`), use vector/rotation/homogeneous-transform
+  conjugation and proven quaternion conversion, and pass named-direction,
+  handedness/reflection, composition, inverse, q/-q, and round-trip fixtures.
+  Core binary64 narrowing is a separate correctly rounded target-precision
+  profile with explicit subnormal/underflow/overflow policy and error bounds;
+  no clamp, saturation, ambient mode, or canonical-snapshot mutation is
+  allowed. Activation is separate after Readiness 3 and selects no engine.
+
+The Batch 11 C2/N1–N4 numeric findings are resolved in these three revised
+records. C1 canonical collection ordering/tie handling, C3 immutable
+Readiness 2/3 parser/resolver implementation binding, and C4 compatible
+diagnostic domains/bootstrap negotiation remain unresolved and are preserved
+for the next discussion. The mechanical N5 canonical-spec header
+synchronization was outside this scoped resolution. DR-0006 Revision 8 is
+untouched: it remains Proposed with Owner approval Pending and Review Complete,
+with its unresolved cross-record findings preserved; no DR-0006 review artifact
+is marked stale by this change. The prior current-revision artifacts for
+DR-0011/DR-0012/DR-0013 are stale, and their exact findings remain in each DR's
+adversarial-review response. No package, schema, fixture, resolver, readiness
+gate, or engine activates.
+
+## CK-KICK-012/013 Batch 11 Double review (stale for Batch 12 revisions)
 
 The fresh current-revision Double review examined exact target commit
 `053dba58fd344ed636420e0974cf617862fe265f`. Review 01 used the semantic

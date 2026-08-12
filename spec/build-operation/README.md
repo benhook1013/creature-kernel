@@ -1,9 +1,13 @@
 # Build operation and derived-output contract
 
-Status: Proposed conceptual contract; CK-KICK-012 Batch 11 discussion-approved
-canonical owner. DR-0006 Revision 8 and DR-0013 Revision 7 remain Proposed with
-Owner approval Pending and Review Complete; unresolved findings remain. The
-Batch 11 Double review targeted commit `053dba58fd344ed636420e0974cf617862fe265f`.
+Status: Proposed conceptual contract; CK-KICK-012 Batch 12 discussion-approved
+canonical owner. DR-0006 Revision 8 remains Proposed with Owner approval
+Pending and Review Complete; unresolved findings remain. DR-0011 Revision 11,
+DR-0012 Revision 10, and DR-0013 Revision 8 remain Proposed with Owner approval
+Pending and Review Pending. The current C1 canonical collection-ordering, C3
+immutable Readiness 2/3 implementation-binding, and C4 diagnostic-domain/
+bootstrap findings remain unresolved; this contract resolves none of them.
+The Batch 11 Double review targeted commit `053dba58fd344ed636420e0974cf617862fe265f`.
 This document is not an accepted
 format and does not activate a build implementation, serializer, fixture
 corpus, or artifact store.
@@ -62,6 +66,29 @@ applicable phase that cannot produce its required output determines the status.
 The body-document same-phase and dependency precedence rules continue to
 apply. A root diagnostic and its causal identity must remain available even
 when a later build/publication failure normalizes the top-level status.
+
+## Future adapter and output context
+
+The core resolved snapshot and all semantic graph comparisons remain binary64.
+A future adapter may add a target-precision profile to the build request and
+derived-output manifest, but this operation does not select an engine or
+redefine the numeric/frame profile's conversion rules. The numeric/frame
+profile owns the adapter's signed-permutation basis map, correctly rounded
+narrowing, subnormal and underflow/overflow policy, q/rotation conversion,
+and angular/translation budgets; this build contract owns only the output
+boundary and failure context.
+
+Adapter output must fail closed for overflow, disallowed nonzero-to-zero
+underflow, or any other target-profile violation. It must not saturate, clamp,
+or depend on an ambient numeric mode. A requested but unsupported target
+profile maps to `unsupported`; a trusted conversion, encoding, or output
+validation failure maps to `output-failure`; a qualifying resource breach maps
+to `resource-limit`; and loss of worker/coordinator/publisher trust maps to
+`internal-failure`, under the global precedence above. The root semantic
+diagnostic remains in the authoritative envelope when output status is
+normalized. Adapter activation is a separate post-Readiness-3 transaction with
+its own conformance fixtures and profile binding; no adapter is active from
+this Proposed contract.
 
 ## Identity and manifest lifecycle
 

@@ -20,7 +20,7 @@ Each fixture must record:
 - tests or experiments that consume it;
 - whether expected outputs are exact, semantic, metric, or visual.
 
-The CK-KICK-012 Batch 11 proposal keeps the corpus conceptual and adds no
+The CK-KICK-012 Batch 11/12 proposal keeps the corpus conceptual and adds no
 implementation fixtures. Schema-level body-document fixtures will
 exercise strict UTF-8 JSON admission, duplicate-key rejection, unknown core
 members, required and optional extensions, exact contract-family/revision
@@ -32,7 +32,13 @@ diagnostics, and aggregate work/memory.
 Resolved body-graph fixtures will exercise namespace ownership/remapping,
 typed concepts and directed Joint endpoints, socket/Attachment non-articulation,
 the minimum Stage 1 chain, authored/defaulted/derived provenance, frame
-normalization, measurement conflicts, and invalid/unsupported outcomes.
+normalization, measurement conflicts, and invalid/unsupported outcomes. The
+planned numeric evidence corpus is separate from this admission corpus until
+its experiment is registered: it must freeze development, held-out, and
+adversarial sets covering decimal midpoint/tie, signed-zero,
+subnormal/underflow, overflow, cancellation, near-zero quaternion, q/-q, long
+chain, ill-conditioned, basis-conversion, and claim-order cases. Exact numeric
+values, expected outcomes, and profile IDs remain unselected.
 
 Readiness 2 admission is one review-branch activation transaction described by
 the [fixture-manifest specification](../spec/fixture-manifest/README.md). The

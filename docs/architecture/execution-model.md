@@ -11,8 +11,10 @@ supplementary. This direction is Proposed for formal acceptance under
 [DR-0003](../decisions/DR-0003-real-time-first-compiled-avatar-boundary.md).
 
 CK-KICK-013 is a discussion-approved but unaccepted platform proposal.
-Proposed DR-0013 Revision 7 has Owner approval Pending and Review Complete after
-Batch 11, with unresolved findings. The Batch 10 review evidence is stale; the fresh Batch 11 Double review targeted commit
+Proposed DR-0013 Revision 8 has Owner approval Pending and Review Pending after
+Batch 12, with unresolved findings carried from Batch 11. The Batch 11 review
+evidence is stale for this materially revised record; the fresh Batch 11 Double
+review targeted commit
 `053dba58fd344ed636420e0974cf617862fe265f`; both independent passes recommend Revise at High confidence. The completed Batch 9 Double review targeted commit
 `6cf17270fda2827756c24a8d0fb301bef358f`; its evidence is stale for the revised
 record and is not acceptance. No implementation or readiness gate activates.
@@ -171,11 +173,17 @@ Machine addresses use the proposed typed semantic-address profile rather than
 filesystem-like strings, and display names are not identity. The semantic
 numeric basis is proposed as right-handed metres, +Y up, and +Z
 creature-forward. Values are finite binary64 and rigid transforms use the
-Readiness 2 translation/quaternion carrier; exact ranges, conditioning,
-normalization, and tolerances remain the subject of the planned
-[numeric/frame profile experiment](../research/numeric-frame-profile-experiment.md).
+Readiness 2 translation/quaternion carrier. Batch 12's Proposed direction adds
+correctly rounded decimal admission, round-to-nearest ties-to-even, fixed
+operation order, and no reassociation, implicit FMA contraction, FTZ, or DAZ.
 Canonical comparison profiles distinguish exact discrete identity from typed
-numeric comparisons. Diagnostic codes and profiles are owned by the proposed
+numeric comparisons and use deterministic all-pairs claim evaluation rather
+than order-dependent folding. Exact ranges, conditioning, formulas, margins,
+normalization, and tolerances remain the subject of the planned
+[numeric/frame profile experiment](../research/numeric-frame-profile-experiment.md),
+which preregisters domains, separate semantic budgets, exact/higher-precision
+oracles, frozen corpora, condition estimates, and metamorphic checks. Diagnostic
+codes and profiles are owned by the proposed
 [diagnostics contract](../../spec/diagnostics/README.md).
 
 The resolver runs the following ordered phases inside one operation-result
@@ -329,7 +337,10 @@ need for bounds.
 ## Determinism boundary (Proposed)
 
 Compilation must be reproducible from the authoritative source, compiler
-version, configuration, and seed, or report why it cannot be. Bit-exact
+version, configuration, and seed, or report why it cannot. The initial numeric
+evidence target is WSL x86_64 plus native-Linux smoke; a materially different
+architecture/toolchain is required before any broader cross-platform
+reproducibility claim. Bit-exact
 simulation, networking, and replay determinism are deferred pending explicit
 requirements, contracts, and evidence.
 

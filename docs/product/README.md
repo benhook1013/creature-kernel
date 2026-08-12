@@ -39,26 +39,33 @@ The canonical specification owners are the [body-document](../../spec/body-docum
 and [fixture-manifest](../../spec/fixture-manifest/README.md) contracts.
 
 Prior CK-KICK-012 revisions and review artifacts remain preserved as historical
-evidence. Ben's Batch 5, Batch 8, Batch 9, Batch 10, and Batch 11 resolutions are
-discussion-approved and incorporated here as Proposed product outcomes only.
-DR-0002 Revision 11 and DR-0008 Revision 11 remain Proposed with Owner
-approval Pending and Review Complete; DR-0006 Revision 8, DR-0011 Revision 10,
-DR-0012 Revision 9, and DR-0013 Revision 7 remain Proposed with Owner approval
-Pending and Review Complete after Batch 11; actionable findings remain
-unresolved. The Batch 11 review targeted commit
-`053dba58fd344ed636420e0974cf617862fe265f`; both independent passes recommend
-Revise at High confidence. Review evidence is not acceptance; no implementation
-or readiness gate activates.
+evidence. Ben's Batch 5, Batch 8, Batch 9, Batch 10, Batch 11, and Batch 12
+resolutions are discussion-approved and incorporated here as Proposed product
+outcomes only. DR-0002 Revision 11 and DR-0008 Revision 11 remain Proposed
+with Owner approval Pending and Review Complete. DR-0006 Revision 8 remains
+Proposed with Owner approval Pending and Review Complete, with unresolved C1,
+C3, and C4 contract findings retained for the next Ben discussion. The three
+materially revised records are now DR-0011 Revision 11, DR-0012 Revision 10,
+and DR-0013 Revision 8; each remains Proposed with Owner approval Pending and
+Review Pending. The Batch 11 review artifacts targeted commit
+`053dba58fd344ed636420e0974cf617862fe265f` and are stale only for those three
+revised records. Review evidence is not acceptance; no implementation or
+readiness gate activates.
 Recommendations and the next discussion are summarized in the [current review
 state](../project/status.md#current-review-and-future-activation-obligations).
 The cross-cutting proposal is [DR-0012:
 initial body-document encoding, resolution, and compatibility](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
 This documentation records intended product outcomes; exact syntax details,
 machine schema, exact numeric bounds, and implementation mechanisms remain
-deferred to their owning specifications and architecture work. Batch 11
-proposes typed machine addresses with separate display names, a right-handed
-metre semantic basis with +Y up and +Z creature-forward, finite binary64
-numeric semantics with canonical quaternion handling, typed comparison
-profiles, project canonical JSON with domain-separated SHA-256 digests, and a
-small versioned diagnostic registry. These remain Proposed and do not activate
-implementation or readiness gates.
+deferred to their owning specifications and architecture work. Batch 11 and
+Batch 12 propose typed machine addresses with separate display names, a
+right-handed metre semantic basis with +Y up and +Z creature-forward, finite
+binary64 numeric semantics with correctly rounded decimal admission,
+canonical quaternion handling, typed comparison profiles with deterministic
+all-pairs claim evaluation, project canonical JSON with domain-separated
+SHA-256 digests, and a small versioned diagnostic registry. Batch 12 also
+proposes the preregistered independent-oracle, held-out/adversarial corpus,
+conditioning, metamorphic, and compiler-mode evidence needed before numeric
+activation. Host-adapter conformance remains deferred until adapter activation.
+These are Proposed consequences only and do not activate implementation or
+readiness gates.

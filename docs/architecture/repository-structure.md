@@ -52,12 +52,16 @@ manifest payload, or compiler-consumed fixtures are activated. Readiness 2
 requires one Ben-approved immutable manifest/fixture/schema/parser transaction;
 unlisted fixtures never activate independently.
 
-The Batch 11 focused profiles remain Proposed specification areas. Their
-activation order is numeric/frame semantics, semantic addresses, canonical
-bytes/digests, diagnostics, exact schema/manifest, Readiness 2, then the
-separate Readiness 3 snapshot/comparison transaction. These directories may
-own current contracts, but documentation alone activates no implementation
-package or fixture corpus.
+The Batch 11 focused profiles and Batch 12 numeric evidence direction remain
+Proposed specification areas. Their activation order is numeric/frame
+semantics, semantic addresses, canonical bytes/digests, diagnostics, exact
+schema/manifest, Readiness 2, then the separate Readiness 3
+snapshot/comparison transaction. The planned numeric experiment is
+unregistered and has no results or evidence; it must preregister domains,
+semantic budgets, independent oracles, frozen corpora, conditioning, and
+compiler-mode controls before execution. These directories may own current
+contracts, but documentation alone activates no implementation package or
+fixture corpus.
 
 ## Activation rule
 

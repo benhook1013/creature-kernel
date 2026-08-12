@@ -2,7 +2,7 @@
 
 Status: Active Proposed authority boundary; the body-document, body-graph,
 build-operation, and fixture-manifest contracts include discussion-approved
-CK-KICK-012 Batch 11 material, but no format is accepted
+CK-KICK-012 Batch 12 material, but no format is accepted
 
 This directory will own machine-facing semantics and serialized contracts. It is
 separate from architecture so an implementation can change without silently
@@ -14,13 +14,17 @@ The current semantic proposal set is represented by [DR-0002](../docs/decisions/
 and [DR-0011](../docs/decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
 Their prior revisions and reviews remain preserved as historical evidence.
 DR-0002 Revision 11 and DR-0008 Revision 11 remain Proposed with Owner approval
-Pending and Review Complete. DR-0006 Revision 8, DR-0011 Revision 10, DR-0012
-Revision 9, and DR-0013 Revision 7 remain Proposed with Owner approval Pending
-and Review Complete after Batch 11; actionable findings remain unresolved. The
-Batch 11 review targeted commit
-`053dba58fd344ed636420e0974cf617862fe265f`; both independent passes recommend
-Revise at High confidence. Review Complete is evidence, not acceptance. No
-implementation or readiness gate activates. See the [current review
+Pending and Review Complete. DR-0006 Revision 8 remains Proposed with Owner
+approval Pending and Review Complete; unresolved findings remain. DR-0011
+Revision 11, DR-0012 Revision 10, and DR-0013 Revision 8 remain Proposed with
+Owner approval Pending and Review Pending after Batch 12. The Batch 11 review
+targeted commit `053dba58fd344ed636420e0974cf617862fe265f`; its two independent
+passes recommend Revise at High confidence and are stale evidence for the
+revised records. Review Pending is not acceptance. No implementation or
+readiness gate activates. The current unresolved findings include C1 total
+canonical collection ordering/tie handling, C3 immutable Readiness 2/3
+implementation binding, and C4 diagnostic-domain/bootstrap compatibility;
+Batch 12 resolves none of them. See the [current review
 state](../docs/project/status.md#current-review-and-future-activation-obligations)
 for the current findings.
 The cross-cutting proposal is
@@ -42,22 +46,26 @@ The cross-cutting proposal is
   address representation, lexical profile, closed identity kinds, structural
   equality, and reference semantics.
 - [Numeric and frame profile](numeric-frame-profile/README.md): the canonical
-  semantic basis, Readiness 2 rigid-transform carrier, Readiness 3 numeric
-  rules, and typed comparison-profile boundary.
+  semantic basis, Readiness 2 rigid-transform carrier, exact JSON decimal to
+  binary64 admission, quaternion and transform comparison algorithms, typed
+  comparison-profile boundary, and the future adapter conformance obligation.
 - [Canonical data and digest profile](canonical-data/README.md): canonical
   JSON normalization/serialization, SHA-256 domain framing, and deterministic
-  identity projections.
+  identity projections that consume normalized binary64 values. It does not
+  select a total key for unordered collections; C1 remains unresolved.
 - [Diagnostic registry and profile](diagnostics/README.md): registry,
   occurrence, diagnostic-profile, resource-profile, ordering, and status
   separation. Exact initial codes remain fixture-gated.
 - [Fixture-manifest and admission contract](fixture-manifest/README.md): the
   conceptual fixture-suite payload, external readiness/decision binding,
-  preflight, successor/rollback, manifest field groups, and readiness corpus
-  admission boundary. It does not activate a schema, parser, or fixture file.
+  preflight, successor/rollback, manifest field groups, numeric boundary and
+  comparison fixture profile bindings, and readiness corpus admission
+  boundary. It does not activate a schema, parser, or fixture file.
 - [Build-operation and derived-output contract](build-operation/README.md):
   the Proposed public build envelope, in-memory snapshot handoff boundary,
   candidate-to-committed artifact identity lifecycle, deterministic target and
   collision rules, publication/inspection expectations, worker trust boundary,
+  future adapter/output failure context without selecting an engine,
   filesystem profile, and separate artifact inspection. It does not define
   final serialization.
 
@@ -144,6 +152,33 @@ accounting remain unselected.
   readiness-gated;
   strict JSON and JSON Schema Draft 2020-12 are the selected Proposed initial
   encoding and structural-validation technologies.
+- JSON decimal admission is exact-rational after strict syntax/token resource
+  checks, then direct correctly rounded binary64 round-to-nearest,
+  ties-to-even. Host float intermediates, locale, ambient rounding/precision,
+  FTZ/DAZ, silent overflow, and arbitrary semantic digit cutoffs are not
+  permitted; finite nonzero subnormals are admitted, nonzero-to-zero underflow
+  and infinity overflow are rejected, lexical negative zero normalizes to
+  `+0`, and raw source bytes remain unchanged. The numeric/frame profile owns
+  these rules; body-document owns their source admission/status consequences.
+- Exact discrete comparison remains exact. Scalar and translation components
+  use the inclusive `|a-b| <= A + R*max(|a|,|b|)` predicate with stable checked
+  arithmetic and componentwise L-infinity translation semantics. Quaternion
+  comparison uses normalized q/-q-invariant half-chord angular distance with
+  the dot-zero `+1` tie and fixed evaluation order. Transform comparison uses
+  `B * inverse(A)` and named residual entries. Same-target claims require all
+  unordered pairs to pass; failures are deterministic invalid-source conflicts,
+  while passing claims select the lexicographically smallest normalized
+  binary64 tuple with a stable claim-ID tie break and retain all provenance.
+  Authored-conflict and expected-snapshot profiles remain separate and their
+  constants are experiment-gated.
+- Future adapters must declare an explicit signed-permutation orthogonal basis
+  map and prove named directions, reflections/handedness, vector/translation
+  mapping, rotation and homogeneous-transform conjugation, q conversion,
+  composition, inverse, q/-q, and round trips. A separate target-precision
+  profile governs correctly rounded narrowing, subnormals, nonzero-to-zero
+  underflow, overflow, and angular/translation budgets without saturation,
+  clamping, or ambient mode; core snapshots remain binary64 and no engine is
+  selected.
 - A proposed fixture-profile contract describing stable profile identity,
   concrete source inputs, discriminating parameters, seed/configuration,
   provenance, shared-generation expectations, validity/diagnostic status, the

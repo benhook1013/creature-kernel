@@ -55,14 +55,16 @@ and described in the execution model; exact interface schemas, compatibility,
 budgets, and runtime mutation details remain open. The typed semantic
 vocabulary, measurement ownership, and frame-conversion boundary are Proposed
 in [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
-CK-KICK-012 Batch 6/7/8/9/10/11 resolutions are discussion-approved and are
+CK-KICK-012 Batch 6/7/8/9/10/11/12 resolutions are discussion-approved and are
 reflected in the canonical specifications as Proposed material. DR-0002
 Revision 11 and DR-0008 Revision 11 remain Proposed with Owner approval Pending
-and Review Complete. DR-0006 Revision 8, DR-0011 Revision 10, DR-0012 Revision 9,
-and DR-0013 Revision 7 remain Proposed with Owner approval Pending and Review
-Complete; unresolved findings remain. The fresh Batch 11 Double review targeted
-commit `053dba58fd344ed636420e0974cf617862fe265f`; both independent passes
-recommend Revise at High confidence. The completed Batch 9 Double review targeted commit
+and Review Complete. DR-0006 Revision 8 remains Proposed with Owner approval
+Pending and Review Complete; unresolved C1/C3/C4 contract findings remain.
+DR-0011 Revision 11, DR-0012 Revision 10, and DR-0013 Revision 8 remain
+Proposed with Owner approval Pending and Review Pending after the Batch 12
+numeric-resolution update. The fresh Batch 11 Double review targeted commit
+`053dba58fd344ed636420e0974cf617862fe265f`; its artifacts are stale only for
+those three materially revised records. The completed Batch 9 Double review targeted commit
 `6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is stale for the
 revised records and is not acceptance. No implementation or readiness gate
 activates. See
@@ -99,8 +101,9 @@ reactivates them. Until then, exploratory prototypes may produce observations
 but may not claim formal DR-0009/0010 support or reject.
 
 The CK-KICK-013 platform proposal is also discussion-approved as Proposed
-material, not an accepted implementation decision. Proposed DR-0013 Revision 7
-has Owner approval Pending and Review Complete after Batch 11; unresolved findings remain. The completed
+material, not an accepted implementation decision. Proposed DR-0013 Revision 8
+has Owner approval Pending and Review Pending after the Batch 12 numeric
+resolution. The completed
 Batch 9 Double review targeted commit `6cf17270fda2827756c24a8d0fb301bef358f98f`;
 its evidence is stale for the revised record and is not acceptance. No
 implementation or readiness gate activates.
@@ -149,14 +152,22 @@ contract](../../spec/fixture-manifest/README.md) owns the manifest payload and
 separate readiness/decision content-identity binding, successor history, and
 Readiness 2/3 corpus admission.
 
-Batch 11's derived architectural consequences are: typed restricted-ASCII
-machine addresses with separate Unicode display names; a right-handed metre
-semantic basis (+Y up, +Z creature-forward) with adapter conversion; finite
-binary64 values and canonical quaternion handling with exact bounds pending
-evidence; typed comparison profiles and a separate Readiness 3 snapshot
-transaction; restricted canonical JSON and domain-separated SHA-256 identity;
-and a small versioned diagnostic registry. These remain provisional and do not
-activate packages, schemas, fixtures, or resolver work.
+Batch 11 and Batch 12's derived architectural consequences are: typed
+restricted-ASCII machine addresses with separate Unicode display names; a
+right-handed metre semantic basis (+Y up, +Z creature-forward) with adapter
+conversion; finite binary64 values with correctly rounded decimal admission
+and canonical quaternion handling with exact bounds pending evidence;
+fixed-order operations with an initial no-reassociation/no-implicit-FMA/
+no-FTZ/no-DAZ direction; typed comparison profiles with deterministic all-pairs
+claim evaluation and a separate Readiness 3 snapshot transaction; restricted
+canonical JSON and domain-separated SHA-256 identity; and a small versioned
+diagnostic registry. The planned numeric experiment now preregisters intended
+domains, separate semantic error budgets, independent exact/higher-precision
+oracles, frozen development/held-out/adversarial corpora, condition estimates,
+metamorphic checks, and a validation margin whose formula/constant remain open.
+Adapter conformance remains deferred until adapter activation. These remain
+Proposed consequences and do not activate packages, schemas, fixtures, or
+resolver work.
 
 ## Current maturity
 

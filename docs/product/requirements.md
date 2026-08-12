@@ -136,6 +136,21 @@ Compilation reproducibility is an initial requirement. Bit-exact simulation,
 network, and replay determinism are deferred until their requirements and
 evidence are defined.
 
+Batch 12 adds a Proposed consequence for this requirement only: semantic
+decimal admission is intended to use correctly rounded binary64 conversion
+with round-to-nearest, ties-to-even and explicit overflow, underflow,
+subnormal, and non-finite handling. The initial canonical numeric direction
+uses a fixed operation order and prohibits reassociation, implicit FMA
+contraction, FTZ, and DAZ. The proposed normative comparator direction is for
+typed profiles to define category-specific formulas and boundary/tie behaviour,
+with deterministic all-pairs claim satisfiability rather than order-dependent
+folding. The
+numeric experiment design preregisters domains, separate semantic error
+budgets, an independent oracle, held-out/adversarial corpora, conditioning,
+and metamorphic checks before any evaluated run. Exact formulas, margins,
+constants, profile IDs, and implementation bindings remain open; this
+paragraph is not an activation or acceptance decision.
+
 The proposed canonical-data profile uses restricted canonical JSON and
 domain-separated SHA-256 digests for source, normalized graph, build request,
 fixture manifest, and published artifact domains. Attempt IDs, timestamps,
@@ -444,6 +459,14 @@ and deterministic work units are profile-specific and deferred.
 
 Core semantic formats and compilation concepts should not require one host game
 engine, even if the first implementation uses a particular engine or tool.
+
+The Batch 12 planning consequence is that host-adapter numeric/frame
+conformance remains deferred until an adapter is activated. Before that point,
+the eventual conformance evidence is expected to cover handedness reflection,
+vector/rotation/rigid-transform basis changes, named-direction preservation,
+composition behaviour, round trips, and any binary64 narrowing policy. This is
+Proposed follow-up evidence, not a current adapter requirement or support
+claim.
 
 ### CK-PROD-041: External mesh path
 

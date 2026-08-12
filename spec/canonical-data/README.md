@@ -2,24 +2,37 @@
 
 Status: Proposed canonical specification; no identity/build activation
 
+The Batch 12 numeric update does not resolve Batch 11 C1 (total canonical
+collection ordering), C3 (immutable Readiness 2/3 implementation binding), or
+C4 (diagnostic-domain/bootstrap compatibility). Those findings remain open in
+the current Proposed decision records; this document resolves none of them.
+
 This document owns Creature Kernel's canonical JSON normalization,
 serialization, digest framing, and digest domains. The [semantic-address
 profile](../semantic-address/README.md) and [numeric and frame profile](../numeric-frame-profile/README.md)
-own the semantic normalization rules that this profile consumes. The
-[build-operation contract](../build-operation/README.md) owns which inputs
-belong in a build request; this document defines how an already selected
-projection is represented and hashed.
+own the semantic normalization rules that this profile consumes. In particular,
+the numeric/frame profile owns JSON decimal admission, binary64 conversion,
+negative-zero normalization, and quaternion normalization; canonical data only
+consumes the resulting normalized binary64 values and does not redefine their
+conversion. The [build-operation contract](../build-operation/README.md) owns
+which inputs belong in a build request; this document defines how an already
+selected projection is represented and hashed.
 
 ## CK canonical JSON
 
 The project profile is `ck-json-1`. It starts from a strict duplicate-free
 UTF-8 JSON data model and preserves Unicode scalar content exactly: no Unicode
 normalization, locale conversion, or display-label rewriting is performed.
-Semantic normalization occurs before serialization. It applies the active
-numeric and address profiles, canonicalizes negative zero and quaternion sign,
-and sorts collections whose semantics are unordered by their semantic address.
+Semantic normalization occurs before serialization and consumes the active
+numeric and address profiles. Thus negative-zero and quaternion-sign handling
+are applied as already-defined semantic values, not reinterpreted here.
 Arrays that are semantically ordered retain their order. A collection must not
-be sorted merely because it happens to be represented as an array.
+be sorted merely because it happens to be represented as an array. Where a
+contract supplies a semantic ordering for an unordered collection, that
+ordering is consumed; a total key and duplicate/tie rule for every unordered
+collection or projection has not yet been selected. The Batch 11 C1 finding
+on canonical collection ordering remains unresolved and blocks claiming that
+`ck-json-1` is fully activatable; this profile does not invent such a key.
 
 After semantic normalization, serialization follows the rules of
 [RFC 8785 JSON Canonicalization Scheme](https://www.rfc-editor.org/rfc/rfc8785):
@@ -33,7 +46,8 @@ not identity-bearing; semantic array order is.
 The canonical profile applies to normalized source, resolved graphs, build
 requests, and fixture-manifest payloads. A raw-source digest is different: it
 hashes the exact supplied source bytes and does not canonicalize, parse, or
-repair them first. A raw-artifact digest likewise hashes the exact published
+repair them first, including preserving lexical negative zero and alternate
+decimal spellings. A raw-artifact digest likewise hashes the exact published
 artifact bytes.
 
 ## Digest domains and framing

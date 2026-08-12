@@ -3,6 +3,12 @@
 Status: Proposed conceptual specification; no schema, parser, or fixture corpus
 is activated
 
+Batch 12 discussion-approved numeric/frame obligations are recorded here as
+expected-fixture categories only. They do not resolve Batch 11 C1 (total
+canonical collection ordering), C3 (immutable Readiness 2/3 implementation
+binding), or C4 (diagnostic-domain/bootstrap compatibility), which remain open
+in the current Proposed decision records.
+
 This document is the canonical Proposed owner of fixture-manifest and fixture-
 admission semantics. It defines the immutable review/admission boundary for a
 future readiness corpus; it does not create a machine-readable manifest schema,
@@ -103,6 +109,28 @@ and provenance rules. Build-operation publication cases such as first build,
 retry, concurrent winner, lineage change, and byte divergence use this same
 manifest family with `suite_kind: build-publication`; they remain conceptual
 until admission.
+
+The numeric/frame successor corpus must also bind every case to the admitted
+numeric and comparison profiles. Numeric admission boundaries include an
+ordinary inexact decimal `0.1`, exact values, halfway/ties-to-even values,
+maximum-finite and overflow values, the smallest subnormal, nonzero
+underflow-to-zero rejection, lexical signed zero, excessive precision at the
+declared lexical/resource boundary, and alternate decimal spellings that
+denote the same rational. In-bound precision must be accepted; excessive
+precision is a resource-bound case, not an arbitrary semantic digit cutoff.
+Expected results distinguish raw-byte preservation from normalized `+0` and
+normalized binary64 values.
+
+Comparison fixtures include inclusive scalar/translation boundaries,
+componentwise L-infinity checks, q/-q equivalence and the dot-zero `+1` tie,
+transform residual comparison, pairwise claim permutations, non-transitive
+triples, and representative/provenance changes when an additional passing
+claim is added. Authored-conflict and expected-snapshot comparison profiles
+are distinct bindings. Future adapter fixtures separately cover named
+directions, reflections/handedness, composition, inverse, quaternion
+round-trips, correctly rounded narrowing, subnormals, nonzero-to-zero
+underflow, overflow, and angular/translation budgets; they are activated only
+after Readiness 3 and do not select an engine.
 
 Only listed fixtures participate in an admission. An unlisted fixture, even if
 it exists on the review branch or is readable by an implementation, does not
