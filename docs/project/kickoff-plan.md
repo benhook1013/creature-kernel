@@ -593,8 +593,9 @@ State: active (Batches 1, 4, 5, 6, F1–F3, Batch 8, Batch 9, and Batch 10 integ
 documentation; DR-0002/0008 Revision 11 remain Proposed with Owner approval
 Pending and Review Complete, while DR-0006 Revision 7, DR-0011 Revision 9,
 DR-0012 Revision 8, and DR-0013 Revision 6 remain Proposed with Owner approval
-Pending and Review Pending after Ben's approved Batch 10 resolutions. The prior
-Batch 10 Double-review evidence is stale history. The completed Batch 9 Double
+Pending and Review Complete after Ben's approved Batch 10 resolutions. The prior
+Batch 10 Double-review evidence is stale history; the current Double review is
+complete and its findings await owner disposition. The completed Batch 9 Double
 review targeted `6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is
 stale for the revised records and is not acceptance. No implementation or
 readiness gate activates. See the
@@ -678,9 +679,9 @@ are stale historical evidence. The current six-record set is DR-0002 Revision
 11, DR-0006 Revision 7, DR-0008 Revision 11, DR-0011 Revision 9, DR-0012
 Revision 8, and DR-0013 Revision 6; DR-0002/0008 retain Review Complete and
 the four revised records remain Proposed with Owner approval Pending and Review
-Pending. Ben approved all five Batch 10 resolution directions; the prior Batch
-10 Double-review evidence is stale history and fresh current-revision review is
-pending. The
+Complete. Ben approved all five Batch 10 resolution directions; the prior Batch
+10 Double-review evidence is stale history and the current-revision Double
+review is complete. The
 completed Batch 9 Double review targeted
 `6cf17270fda2827756c24a8d0fb301bef358f`; historical evidence is stale for the
 revised records and is not acceptance. See
@@ -985,7 +986,7 @@ discussion. They are integrated as Proposed canonical product, specification,
 architecture, and project material only; they do not accept or silently replace
 the decision records. The affected records are now DR-0006 Revision 7,
 DR-0011 Revision 9, DR-0012 Revision 8, and DR-0013 Revision 6, all Proposed
-with Owner approval Pending and Review Pending after Ben approved all five
+with Owner approval Pending and Review Complete after Ben approved all five
 resolution directions. DR-0002 Revision 11 and
 DR-0008 Revision 11 are unchanged and remain Proposed with Owner approval
 Pending and Review Complete. Prior Batch 9 review artifacts remain stale
@@ -1067,14 +1068,26 @@ from this discussion batch. Recommended adversarial level: Double — the batch
 revises cross-cutting identity, publication, trust, admission, and source-shape
 contracts and is difficult to audit as one surface.
 
+The current-revision Double review examined commit
+`28c83c7a21cf55f23274aeaf5d2ccc0a3e9e3b53`. Review 01 / Review 02
+recommendations were DR-0006 **Revise High / Accept High**, DR-0011
+**Accept High / Revise High**, DR-0012 **Accept High / Revise High**, and
+DR-0013 **Revise High / Revise High**. The five consolidated findings are C1
+(High) R2/R3 carrier wording, C2 (High) the distinct R3 successor transaction,
+C3 (High) exact scoped fixture payload identity, C4 (Medium) the
+success-bundle contradiction, and C5 (Medium) timeout versus termination
+status. They await Ben's discussion and owner disposition; review completion is
+evidence only.
+
 ## Round 8 — implementation platform (provisional)
 
 ### CK-KICK-013: Select the first implementation platform
 
 State: active (discussion-approved Proposed platform direction integrated;
-Proposed DR-0013 Revision 6 has Owner approval Pending and Review Pending after
+Proposed DR-0013 Revision 6 has Owner approval Pending and Review Complete after
 Ben's approved Batch 10 resolution. The prior Batch 10 Double-review evidence
-is stale history. The
+is stale history; the current Double review is complete and its findings await
+owner disposition. The
 completed Batch 9 Double review targeted
 `6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is stale for the
 revised record and is not acceptance; not accepted or implemented)
@@ -1131,8 +1144,8 @@ the Batch 9 revisions; its seven consolidated findings are preserved as
 historical evidence resolved by discussion. The completed Batch 9 Double review
 is evidence only; its five actionable findings were resolved by Batch 10
 discussion. The prior Batch 10 review remains preserved as stale evidence, and
-fresh current-revision review is pending. No implementation activates while
-the DR remains Proposed.
+the fresh current-revision Double review is complete. Its findings await owner
+disposition; no implementation activates while the DR remains Proposed.
 Geometry libraries, licensing, platform support, and any C++ worker/FFI boundary remain
 evidence-driven; they are not settled by this proposal. No implementation
 package or compiler fixture is activated while the DR remains Proposed.

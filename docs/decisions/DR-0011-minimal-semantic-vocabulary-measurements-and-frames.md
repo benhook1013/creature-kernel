@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-11
 
@@ -527,8 +527,23 @@ transform carrier while Readiness 3 freezes numeric semantics and admits
 expected graph snapshots through the generic fixture route. Exact canonical
 numeric rules, bytes, and comparison profiles remain activation prerequisites.
 Ben's resolution is discussion approval, not acceptance. Review status is
-Pending for the new current revision; Owner approval remains Pending and Status
-remains Proposed. Only Ben may accept or reject this proposal.
+Complete for the new current revision after the Double review below; Owner
+approval remains Pending and Status remains Proposed. Only Ben may accept or
+reject this proposal.
+
+The fresh current-revision Double review examined exact target commit
+`28c83c7a21cf55f23274aeaf5d2ccc0a3e9e3b53`. [Review 01](reviews/DR-0011-rev-09-review-01.md)
+used the contract/schema, identity, determinism, security, and fixture-admission
+lens and recommended **Accept** at **High** confidence with no DR-0011-specific
+finding. [Review 02](reviews/DR-0011-rev-09-review-02.md) used the platform,
+failure, reversibility, numeric-frame, adapter-portability, and future-runtime
+lens and recommended **Revise** at **High** confidence. It identifies a
+High R2/R3 wording conflict: Readiness 2 already freezes the rigid transform
+carrier, while Readiness 3 must own numeric/frame semantics rather than reopen
+the rotation representation. Consolidated **C1 (High)** applies to DR-0011 and
+DR-0012 with a DR-0013 readiness cross-link. Both were fresh, independent
+`gpt-5.6-sol` medium passes. The current review is evidence only; the proposal
+remains Proposed with Owner approval Pending and no activation follows.
 
 ## Implementation and Proof Obligations
 

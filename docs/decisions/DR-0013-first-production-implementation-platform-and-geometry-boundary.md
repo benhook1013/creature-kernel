@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-11
 
@@ -652,9 +652,29 @@ worker status/trust mapping is explicit. **C3 (High)** is resolved by linked
 DR-0011/DR-0012 and remains cross-cutting context, not an additional DR-0013
 decision. The WSL filesystem and staging proof remains a nonblocking
 pre-publication obligation. Ben's resolution is discussion approval, not
-acceptance. Review status is Pending for the new current revision; Owner
-approval remains Pending and Status remains Proposed. Only Ben may accept or
-reject this proposal.
+acceptance. Review status is Complete for the new current revision after the
+Double review below; Owner approval remains Pending and Status remains Proposed.
+Only Ben may accept or reject this proposal.
+
+The fresh current-revision Double review examined exact target commit
+`28c83c7a21cf55f23274aeaf5d2ccc0a3e9e3b53`. [Review 01](reviews/DR-0013-rev-06-review-01.md)
+used the contract/schema, identity, determinism, security, and fixture-admission
+lens and recommended **Revise** at **High** confidence. It identified a High
+success-or-failure-bundle contradiction, a High readiness scoped-hash-membership
+gap, and a Medium timeout-versus-forced-termination overlap. [Review 02](reviews/DR-0013-rev-06-review-02.md)
+used the platform, failure, reversibility, numeric-frame, adapter-portability,
+and future-runtime lens and recommended **Revise** at **High** confidence. It
+identified a High R2/R3 wording/link consequence, a High distinct R3 successor
+transaction/activation gap, and Medium versions of the failure-bundle and
+timeout/termination concerns. Both were fresh, independent `gpt-5.6-sol`
+medium passes. The consolidated current findings are **C1 (High)** R2/R3
+carrier wording across DR-0011/DR-0012 with this cross-link; **C2 (High)** the
+distinct R3 successor transaction and project-ledger trigger; **C3 (High)**
+exact scoped fixture payload identity with the DR-0006 build-proof consequence;
+**C4 (Medium)** the success-bundle contradiction; and **C5 (Medium)** the
+timeout/termination status distinction. They await Ben's discussion and owner
+disposition. Review completion is evidence only; Owner approval remains Pending
+and Status remains Proposed.
 
 ## Implementation and Proof Obligations
 
