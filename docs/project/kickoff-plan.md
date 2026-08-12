@@ -592,10 +592,12 @@ gets its own DR and review before backend-specific compiler code locks it in.
 State: active (Batches 1, 4, 5, 6, F1–F3, Batch 8, and Batch 9 integrated as Proposed
 documentation; DR-0002 Revision 11, DR-0006 Revision 5, DR-0008 Revision 11,
 DR-0011 Revision 7, DR-0012 Revision 6, and DR-0013 Revision 4 remain Proposed
-with Owner approval Pending and Review Pending. The prior current Double review
-is stale after Batch 9; its seven consolidated findings are historical evidence
-resolved by discussion, and a fresh current-revision Double review is required
-before owner disposition. The prior exact review at
+with Owner approval Pending and Review Complete. The completed Batch 9 Double
+review targeted `6cf17270fda2827756c24a8d0fb301bef358f98f`; actionable findings
+await Ben discussion. Review Complete is evidence, not a clean review or
+acceptance, and no implementation or readiness gate activates. See the
+[current review state](status.md#current-review-and-future-activation-obligations).
+The prior exact review at
 `88004388f9537a37617ae248bdaad4625e6f3f03` and the Batch 5 review are stale
 historical evidence)
 
@@ -673,10 +675,11 @@ CK-KICK-012 Batch 5 Double review at commit
 are stale historical evidence. The current six-record set is DR-0002 Revision
 11, DR-0006 Revision 5, DR-0008 Revision 11, DR-0011 Revision 7, DR-0012
 Revision 6, and DR-0013 Revision 4; all remain Proposed with Owner approval
-Pending and Review Pending. The prior current Double review is stale historical
-evidence after Batch 9; its seven findings are resolved by Batch 9 discussion
-and are not awaiting discussion. A fresh exact-target Double review of all six
-is required before owner disposition. The prior
+Pending and Review Complete. The completed Batch 9 Double review targeted
+`6cf17270fda2827756c24a8d0fb301bef358f`; actionable findings await Ben
+discussion. Review Complete is evidence, not a clean review or acceptance. See
+the [current review state](status.md#current-review-and-future-activation-obligations).
+The prior
 exact review at `88004388f9537a37617ae248bdaad4625e6f3f03` is stale. No
 acceptance or clean review is implied.
 The prior Batch 4 and Batch 5 reviews remain
@@ -684,11 +687,10 @@ preserved as historical evidence.
 The cross-cutting proposal is
 [DR-0012: initial body-document encoding, resolution, and
 compatibility](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
-CK-KICK-012 remains active; the prior current Double review is stale and Batch
-9 is discussion-approved Proposed material. Its seven findings are historical
-evidence resolved by discussion, and a fresh exact-target Double review of all
-six records is required before owner disposition; this proposal does not
-complete the round or imply owner acceptance.
+CK-KICK-012 remains active; Batch 9 is discussion-approved Proposed material.
+The completed Double review is evidence only; its five actionable findings
+await Ben discussion, and this proposal does not complete the round or imply
+owner acceptance. No implementation/readiness gate activates.
 
 ### Batch 4 — encoding, resolution, and compatibility (discussion-approved)
 
@@ -767,7 +769,7 @@ Their prior revisions have review evidence. This earlier Batch 4 planning
 snapshot referred to DR-0002 Revision 8, DR-0008 Revision 8, DR-0011 Revision
 4, and DR-0012 Revision 3 as Proposed with Owner approval Pending and Review
 Complete; that review state is now stale historical evidence. The current
-revisions and their pending fresh Double review are recorded in the
+revisions and their completed Batch 9 Double review are recorded in the
 CK-KICK-012 state above. Ben's owner disposition remains pending.
 
 ### Batch 5 — blocker resolutions (discussion-approved)
@@ -864,7 +866,7 @@ deferred. At the end of this historical Batch 6 snapshot, DR-0002 Revision 9,
 DR-0008 Revision 9, DR-0011 Revision 5, and DR-0012 Revision 4 were Proposed
 with Owner approval Pending and Review Complete, with five findings still
 awaiting discussion. Batch 9 below supersedes that review state; CK-KICK-012
-remains active pending current review and owner disposition.
+remains active with the completed current review and pending owner disposition.
 
 ### Batch 8 — semantic completeness, module instances, and build boundary (discussion-approved)
 
@@ -958,22 +960,25 @@ material only; they do not accept or silently replace the decision records.
   formal comparison or production architecture selection; exploratory proof has
   no surface-decision prerequisite.
 
-The prior current Double review is stale after this Batch 9 proposal change;
-all six decision records remain Proposed with Owner approval Pending and Review
-Pending. A fresh exact-target Double review of all six is required before owner
-disposition. No package, schema, fixture corpus, parser, resolver, or geometry
-implementation is activated by this discussion approval.
+The completed Batch 9 Double review targeted commit
+`6cf17270fda2827756c24a8d0fb301bef358f98f`; all six decision records remain
+Proposed with Owner approval Pending and Review Complete. Review Complete is
+evidence, not a clean review or acceptance. Its five actionable findings await
+Ben discussion; no package, schema, fixture corpus, parser, resolver, or
+geometry implementation is activated by this discussion approval. See the
+[current review state](status.md#current-review-and-future-activation-obligations)
+for lenses and recommendations.
 
 ## Round 8 — implementation platform (provisional)
 
 ### CK-KICK-013: Select the first implementation platform
 
 State: active (discussion-approved Proposed platform direction integrated;
-Proposed DR-0013 Revision 4 has Owner approval Pending and Review Pending; the
-prior current Double review is stale after Batch 9 and its seven consolidated
-findings are historical evidence resolved by discussion; a fresh current-
-revision Double review is required before owner disposition; not accepted or
-implemented)
+Proposed DR-0013 Revision 4 has Owner approval Pending and Review Complete; the
+completed Batch 9 Double review targeted
+`6cf17270fda2827756c24a8d0fb301bef358f98f`; its actionable findings await Ben
+discussion; Review Complete is evidence, not a clean review or acceptance; not
+accepted or implemented)
 
 Prerequisites: the exploratory host boundary and a bounded CK-KICK-012
 contract. CK-KICK-011 is not an automatic prerequisite.
@@ -1022,10 +1027,11 @@ Outcome:
   While DR-0013 remains Proposed, do not create implementation packages or
   activate compiler fixtures.
 
-The prior exact-revision Double review is stale historical evidence after the
-Batch 9 revisions; its seven consolidated findings are preserved as historical
-evidence resolved by discussion. A fresh exact-target Double review is required
-before owner disposition.
+The prior exact-revision Double review remains stale historical evidence after
+the Batch 9 revisions; its seven consolidated findings are preserved as
+historical evidence resolved by discussion. The completed current Double review
+is evidence only; discuss its five actionable findings with Ben before owner
+disposition. No implementation activates while the DR remains Proposed.
 Geometry libraries, licensing, platform support, and any C++ worker/FFI boundary remain
 evidence-driven; they are not settled by this proposal. No implementation
 package or compiler fixture is activated while the DR remains Proposed.

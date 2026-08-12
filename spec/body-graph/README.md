@@ -3,14 +3,13 @@
 Status: Proposed contract; CK-KICK-012 Batch 8/9 discussion-approved canonical
 update. DR-0002 Revision 11, DR-0006 Revision 5, DR-0008 Revision 11, DR-0011
 Revision 7, DR-0012 Revision 6, and DR-0013 Revision 4 remain Proposed with
-Owner approval Pending and Review Pending. The prior current Double review is
-stale after Batch 9; its evidence is preserved from
-commit
-`b19adf76aad7d672c0871bd38fc34739f3f4ac39`. Its seven consolidated findings
-are preserved as stale historical evidence and were resolved by Batch 9
-discussion; they are not awaiting discussion. A fresh current-revision Double
-review of all six records is required before owner disposition. Earlier review
-evidence is stale after these revisions. See
+Owner approval Pending and Review Complete. The completed Batch 9 Double review
+targeted commit `6cf17270fda2827756c24a8d0fb301bef358f98f`. Review Complete is
+evidence, not a clean review or acceptance; actionable findings await Ben
+discussion, and no implementation or readiness gate activates. See the
+[current review state](../../docs/project/status.md#current-review-and-future-activation-obligations)
+for review lenses, recommendations, and findings. Earlier review evidence is
+stale after these revisions. See
 the [decision registry](../../docs/decisions/registry.md). No acceptance is
 implied.
 The CK-KICK-012 Batch 5 review at commit `a282dbabffd83afa4e62577086934d00f98e12c7`

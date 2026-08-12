@@ -54,13 +54,13 @@ CK-KICK-012 Batch 6/7/8/9 resolutions are discussion-approved and are reflected 
 the canonical specifications as Proposed material. The current six-record set is
 DR-0002 Revision 11, DR-0006 Revision 5, DR-0008 Revision 11, DR-0011
 Revision 7, DR-0012 Revision 6, and DR-0013 Revision 4. All six remain Proposed
-with Owner approval Pending and Review Pending. The prior current Double review
-is stale after Batch 9, with evidence against commit
-`b19adf76aad7d672c0871bd38fc34739f3f4ac39`. Its seven consolidated findings
-are preserved as stale historical evidence and were resolved by Ben's Batch 9
-discussion; they are not awaiting discussion. A fresh current-revision Double
-review of all six records is required before owner disposition. Earlier review
-evidence is stale. See the
+with Owner approval Pending and Review Complete. The completed Batch 9 Double
+review targeted commit `6cf17270fda2827756c24a8d0fb301bef358f98f`; Review
+Complete is evidence, not a clean review or acceptance. Actionable findings
+await Ben discussion, and no implementation or readiness gate activates. See
+the [current review state](../project/status.md#current-review-and-future-activation-obligations)
+for the two review lenses, recommendations, and findings. Earlier review
+evidence remains stale. See the
 [decision registry](../decisions/registry.md). The CK-KICK-012 Batch 5 review
 at commit `a282dbabffd83afa4e62577086934d00f98e12c7` is stale historical
 evidence; no clean review or acceptance is implied.
@@ -91,10 +91,12 @@ but may not claim formal DR-0009/0010 support or reject.
 
 The CK-KICK-013 platform proposal is also discussion-approved as Proposed
 material, not an accepted implementation decision. Proposed DR-0013 Revision 4
-has Owner approval Pending and Review Pending. The prior current Double review
-is stale after the Batch 9 proposal change; its seven consolidated findings are
-preserved as historical evidence and were resolved by discussion. A fresh
-current-revision Double review is required before owner disposition. The
+has Owner approval Pending and Review Complete. The completed Batch 9 Double
+review targeted commit `6cf17270fda2827756c24a8d0fb301bef358f98f`; its
+actionable findings await Ben discussion. Review Complete is evidence, not a
+clean review or acceptance, and no implementation or readiness gate activates.
+See the [current review state](../project/status.md#current-review-and-future-activation-obligations)
+for recommendations and findings. The
 four readiness stages are: DR-0013
 acceptance activates only the empty Cargo shell; a versioned, preflighted
 fixture manifest, its listed fixture files, the exact schema, and

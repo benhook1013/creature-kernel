@@ -36,11 +36,13 @@ evidence. Ben's Batch 5, Batch 8, and Batch 9 resolutions are discussion-
 approved and incorporated here as Proposed product outcomes only. The current
 six-record set is DR-0002 Revision 11, DR-0006 Revision 5, DR-0008 Revision 11,
 DR-0011 Revision 7, DR-0012 Revision 6, and DR-0013 Revision 4. All six remain
-Proposed with Owner approval Pending and Review Pending. The prior Double review
-at commit `b19adf76aad7d672c0871bd38fc34739f3f4ac39` is stale; its seven
-consolidated findings were resolved in Batch 9 discussion and are preserved as
-historical evidence. A fresh exact-target Double review of all six records is
-required before owner disposition. The cross-cutting proposal is [DR-0012:
+Proposed with Owner approval Pending and Review Complete. The completed Batch 9
+Double review targeted commit `6cf17270fda2827756c24a8d0fb301bef358f98f`;
+Review Complete is evidence, not a clean review or acceptance. Its actionable
+findings await Ben discussion; no implementation or readiness gate activates.
+Recommendations and the next discussion are summarized in the [current review
+state](../project/status.md#current-review-and-future-activation-obligations).
+The cross-cutting proposal is [DR-0012:
 initial body-document encoding, resolution, and compatibility](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
 This documentation records intended product outcomes; exact syntax details,
 machine schema, phase/code serialization, numeric budgets, and implementation

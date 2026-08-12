@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-08
 
@@ -189,11 +189,22 @@ Accept at High confidence with no blocking finding. The graphics pass records a
 nonblocking cross-DR fixture-matrix obligation; exact dependency-revision
 meaning remains a nonblocking later obligation. Review Complete records
 evidence, not owner acceptance. Those artifacts are stale after the material
-Revision 5 change and do not satisfy the pending current-revision review. The
+Revision 5 change and did not satisfy the then-pending current-revision review. The
 Batch 9 candidate-versus-committed identity lifecycle is now recorded at this
 identity boundary, with operation/publication mechanics cross-linked to
-DR-0013. Owner approval remains Pending, Status remains Proposed, and Review
-status is Pending. Only Ben may accept or reject this proposal.
+DR-0013.
+
+The fresh current Batch 9 Double review examined exact target commit
+`6cf17270fda2827756c24a8d0fb301bef358f98f`: [review 01](reviews/DR-0006-rev-05-review-01.md)
+recommended **Revise** at **High** confidence under the contract/schema,
+determinism, and security lens, and [review 02](reviews/DR-0006-rev-05-review-02.md)
+recommended **Revise** at **High** confidence under the platform/failure,
+reversibility, and publication lens. Consolidated finding **C1 (High)** applies:
+stable request, attempt, candidate, and committed identity, retry, and
+concurrent publication semantics remain to be discussed. C1 awaits Ben's
+discussion and owner disposition. Review completion is evidence only; it is not
+a clean review or acceptance. Owner approval remains Pending and Status remains
+Proposed. Only Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 

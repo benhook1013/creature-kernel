@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-11
 
@@ -416,9 +416,22 @@ evidence after the material Revision 4 change and do not satisfy the pending
 current-revision review. Ben's Batch 9 resolutions assign DR-0013 the
 canonical build-operation/publication boundary, Readiness 2 manifest admission,
 candidate-target collision rules, trusted diagnostics-only reporting, and
-Readiness 4's exploratory CK-KICK-014 trigger. Review status is Pending. Owner
-approval remains Pending and Status remains Proposed. Only Ben may accept or
-reject this proposal.
+Readiness 4's exploratory CK-KICK-014 trigger.
+
+The fresh current Batch 9 Double review examined exact target commit
+`6cf17270fda2827756c24a8d0fb301bef358f98f`: [review 01](reviews/DR-0013-rev-04-review-01.md)
+recommended **Revise** at **High** confidence under the contract/schema,
+determinism, and security lens, and [review 02](reviews/DR-0013-rev-04-review-02.md)
+recommended **Revise** at **High** confidence under the platform/failure,
+reversibility, and publication lens. Consolidated findings **C1 (High)**,
+**C2 (High)**, **C3 (High)**, **C4 (High)**, and **C5 (Medium)** apply:
+identity/retry/concurrent publication; filesystem profile, crash durability,
+and TOCTOU/tamper-safe inspection; worker-output versus coordinator/reporter/
+publisher trust; immutable Readiness 2 binding and supersession/rollback; and
+closed artifact-inspection non-success status algebra. C1–C5 await Ben's
+discussion and owner disposition. Review completion is evidence only; it is not
+a clean review or acceptance. Owner approval remains Pending and Status remains
+Proposed. Only Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 
