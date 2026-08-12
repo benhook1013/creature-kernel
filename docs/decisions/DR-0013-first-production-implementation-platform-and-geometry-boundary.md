@@ -6,13 +6,13 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 4
+Revision: 5
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-11
 
@@ -47,7 +47,13 @@ requires a canonical build-operation specification. The canonical
 contract, including field spelling and format. This record assigns the
 operation and publication responsibilities without inventing that canonical
 serialized contract. DR-0006 owns candidate versus committed artifact
-identity and lineage at the identity level.
+identity and lineage at the identity level. Ben's 2026-08-12 Batch 10
+discussion approval adds the initial filesystem safety profile, artifact
+inspection status algebra, worker/report trust separation, immutable fixture
+admission lifecycle, and the stable request/artifact identity consequences.
+Revision 5 remains Proposed with Owner approval Pending and Review status
+Pending; the Revision 4 current-review artifacts are stale after this
+material change.
 
 ## Decision
 
@@ -74,6 +80,20 @@ provenance, and completeness. The manifest requires an immutable revision/ID,
 schema revision/hash, fixture paths/hashes/provenance, expected status and
 primary diagnostic, diagnostic/resource profile IDs, and completeness. The
 production parser must not self-admit the corpus circularly.
+
+The Readiness 2 admission target is immutable: Ben's approval binds to the
+exact reviewed Git commit/tree and path, the manifest digest, and a digest of
+the activation payload with its own admission record excluded to avoid
+self-reference. Parser-independent preflight records successful identity and
+approval against that target. After merge, preflight is rerun against the
+merged target and activation occurs only if the content-tree and payload
+binding remain unchanged. Corrections create append-only successor admissions;
+explicit deactivation or rollback is another recorded Ben approval and never
+rewrites prior admission history. Preflight proves internal consistency only.
+Expected-result correctness is a reviewed contract or hypothesis and later
+executable evidence; hashes do not prove it. A canonical fixture-manifest
+specification owns the exact Proposed manifest semantics; this record owns the
+admission and activation boundary.
 
 Acceptance of DR-0013 itself is the sole trigger for Readiness 1. Creating this
 Proposed DR does not activate implementation packages, schemas, compiler
@@ -151,6 +171,48 @@ avatar-package serialization or compatibility contract. Exact artifact names,
 manifest field spelling, package bytes, and compatibility rules remain
 deferred to later specification and decision work.
 
+### Initial filesystem safety profile
+
+The initial publication reference is a tested local Linux filesystem under
+WSL `/home`. `/mnt/c`, network shares, removable filesystems, and unspecified
+filesystem profiles are outside this initial reference. Staging is a sibling
+on the same filesystem as the target. Publication probes that the required
+atomic no-replace primitive is available, uses immutable committed outputs,
+assumes cooperating concurrent builders, and inspects a collision winner
+before deciding success or conflict.
+
+The profile promises process-crash-safe namespace publication only. It does
+not claim survival of sudden power loss; stronger synchronization and
+durability belong to a later profile. Malicious or privileged concurrent
+filesystem mutation is outside the initial threat model, although inspection
+must still verify a complete artifact or reject it. The filesystem component
+of candidate identity uses a profile-defined unambiguous safe-ASCII mapping;
+the exact spelling and algorithm are activation prerequisites.
+
+Artifact inspection is a separate read operation. It uses the shared envelope
+conventions but never overwrites historical build status. Its closed results
+are `success`, `absent`, `unavailable`, `mismatch`, `invalid-artifact`,
+`unsupported`, `resource-limit`, and `internal-failure`: absent means no target;
+unavailable means I/O or access could not establish a trustworthy read;
+mismatch means expected lineage differs; invalid-artifact means malformed,
+incomplete, tampered, or hash/size-inconsistent content; unsupported means an
+unsupported manifest or profile revision; resource-limit means a configured
+inspection resource interruption; and internal-failure means implementation or
+trust loss. Inspection preserves processing and diagnostic completeness, uses
+deterministic primary diagnostics and precedence, and selects the global
+internal-trust result first, then a qualifying resource limit, otherwise the
+earliest applicable inspection phase/status.
+
+The initial Readiness 2 corpus is intentionally lean: a minimal valid
+envelope; an optional absent module; a duplicate member; an invalid
+discriminator; an unsupported revision; an unknown core member; an unsupported
+required extension; a valid optional extension; and a resource-over-budget
+case. Readiness 3 adds a present attached module, a present unattached invalid
+module, cross-role Socket reuse invalidity, measurement-conflict invalidity,
+and valid defaulted provenance. These fixtures are admitted through the
+immutable transaction above and cross-linked to DR-0012's source/default
+semantics and DR-0011's measurement/frame semantics.
+
 Any future isolated worker must negotiate protocol/version compatibility, obey
 bounded time and resource budgets, map crash/timeout/resource outcomes, have
 its outputs validated before publication, and leave the compiler process
@@ -186,6 +248,20 @@ exact spelling belongs to the canonical specification. Successful atomic
 publication promotes the same candidate identity to committed artifact
 identity, as owned at the identity level by DR-0006.
 
+The unique per-execution `attempt_id` never changes output location or
+idempotent lineage equality. The stable deterministic `build_request_id`
+contains every outcome-affecting source/source-set, exact dependency
+revision/digest, compiler/toolchain/build implementation, contract/schema/
+profile, configuration, seed, backend/capability/protocol, and target/platform
+profile input. Candidate identity derives from that request identity, artifact
+role, and identity-rule revision; successful publication promotes the same
+candidate. After atomic no-replace collision/EEXIST, inspect the winner: an
+identical committed identity, lineage, complete manifest, hashes, and sizes is
+already-published success; a different lineage/identity is target conflict; a
+same-request byte difference is `internal-failure` nondeterministic output.
+Exact canonical serialization/hash and safe-ASCII path mapping remain
+activation prerequisites.
+
 A verified identical existing target—matching identity, lineage, manifest, and
 hashes—is idempotent already-published success. A different or unverifiable
 occupant is an `output-failure` target-conflict and is never replaced. If the
@@ -195,16 +271,28 @@ target. Cleanup removes only invocation-owned staging. Artifact inspection is
 given expected build/artifact lineage and validates against it; it does not
 guess or silently accept stale state.
 
-A build/operation identity always exists, including failure. A committed
-artifact identity exists only for a successfully published artifact or bundle.
-A compile or geometry failure may publish a diagnostics-only failure bundle when
-publication succeeds, but that bundle is trusted only when its
-publisher/reporter remains independently trusted from the failed component.
-Otherwise only the reserved CLI/API envelope may report the failure. If
-publication itself fails, the authoritative envelope is returned through the
-CLI/API and no final bundle exists; the operation cannot promise to publish its
-own failure bundle. Preserve the root diagnostic even when top-level status is
-normalized.
+Every invocation has a unique `attempt_id`, including when failure prevents a
+complete build request from being established. A deterministic
+`build_request_id` is stable across retries when the complete outcome-affecting
+request is available; `attempt_id` never changes target or idempotent equality.
+A committed artifact identity exists only for a successfully published
+artifact or bundle.
+Worker producer/output trust is tracked separately from coordinator, reporter,
+and publisher trust. A worker crash or protocol corruption invalidates every
+worker-produced output and maps through the governed outcome rules, but a
+trusted isolated parent may report its independently observed exit, timeout,
+or protocol failure. The parent must never adopt worker output after worker
+trust loss. Validation cannot rehabilitate output produced across lost worker
+trust.
+
+A compile or geometry failure may publish a diagnostics-only failure bundle only
+when coordinator, reporter, and publisher remain trusted; the bundle may
+contain only independently trusted parent observations as authoritative
+diagnostics. Coordinator, reporter, or publisher trust loss forbids publication;
+only the surrounding CLI/launcher envelope may remain. If publication itself
+fails, the authoritative envelope is returned through the CLI/API and no final
+bundle exists; the operation cannot promise to publish its own failure bundle.
+Preserve the root diagnostic even when top-level status is normalized.
 
 The complete build outcome contract must cover source, dependency,
 capability/protocol, timeout/resource, worker crash, malformed output,
@@ -312,6 +400,31 @@ prejudge a later geometry worker/backend.
   boundaries, but a production compiler API and artifact lineage will create
   migration cost; a later change must preserve or explicitly migrate those
   contracts.
+- The first filesystem promise is deliberately bounded to tested WSL `/home`
+  local Linux publication: same-filesystem sibling staging, a capability probe
+  for atomic no-replace, immutable committed outputs, cooperating builders,
+  and post-collision inspection. It promises process-crash-safe namespace
+  publication, not sudden-power-loss survival, and excludes malicious or
+  privileged mutation from the initial threat model while still requiring
+  complete-artifact verification or rejection.
+- Candidate identity's filesystem component requires an unambiguous safe-ASCII
+  profile mapping. Artifact inspection is a separate read operation with the
+  closed results `success`, `absent`, `unavailable`, `mismatch`,
+  `invalid-artifact`, `unsupported`, `resource-limit`, and `internal-failure`;
+  it does not rewrite historical build status and retains deterministic
+  completeness, primary, and precedence semantics.
+- Worker producer/output trust is independent from coordinator/reporter/
+  publisher trust. Worker crash or protocol corruption invalidates worker
+  output; a trusted parent may report only independent observations. A
+  diagnostics-only bundle may contain authoritative parent observations only
+  while coordinator, reporter, and publisher remain trusted. Trust loss at
+  those roles forbids publication, and validation cannot rehabilitate output
+  created across lost worker trust.
+- Readiness 2 admission is immutable and append-only: exact reviewed Git
+  commit/tree/path, manifest digest, and self-exclusion-safe activation-payload
+  digest are preflighted, rechecked on the merged target, and changed only by
+  successor admission or a new Ben-approved deactivation/rollback. Preflight
+  proves consistency, not expected-result correctness.
 
 ## Alternatives Considered
 
@@ -374,9 +487,29 @@ integration cost before one reproducible proof exists. The Linux x86_64 target
 is a first execution target, not a portability rejection; additional targets
 activate when evidence and users justify them.
 
+### Promise power-loss durability in the initial profile
+
+Claiming sudden-power-loss survival would require stronger synchronization and
+storage-specific evidence than the first local WSL profile provides. The
+initial contract promises process-crash-safe namespace publication only;
+durability beyond that is a later profile.
+
+### Use attempt identity as the output target
+
+Per-invocation targeting would make retries non-idempotent and would prevent a
+concurrent identical winner from being recognized. Stable request lineage and
+candidate identity remain separate from attempt provenance under DR-0006.
+
+### Trust worker output after parent-side validation
+
+Validation cannot restore trust lost when the producer or protocol is corrupt.
+The parent may publish only independently trusted observations through a
+trusted coordinator/reporter/publisher path; worker-produced output is rejected
+after worker trust loss.
+
 ## Adversarial Review Response
 
-This is CK-KICK-013 Revision 4, proposed and discussion-approved on 2026-08-12.
+This is CK-KICK-013 Revision 5, proposed and discussion-approved on 2026-08-12.
 The exact Revision 1 Double review examined commit
 `c64b1b98948304d631eecea6a354c9e42c89c510`. The independent [review 01](reviews/DR-0013-rev-01-review-01.md)
 and [review 02](reviews/DR-0013-rev-01-review-02.md) both recommended **Revise**
@@ -428,10 +561,20 @@ reversibility, and publication lens. Consolidated findings **C1 (High)**,
 identity/retry/concurrent publication; filesystem profile, crash durability,
 and TOCTOU/tamper-safe inspection; worker-output versus coordinator/reporter/
 publisher trust; immutable Readiness 2 binding and supersession/rollback; and
-closed artifact-inspection non-success status algebra. C1–C5 await Ben's
-discussion and owner disposition. Review completion is evidence only; it is not
-a clean review or acceptance. Owner approval remains Pending and Status remains
-Proposed. Only Ben may accept or reject this proposal.
+closed artifact-inspection non-success status algebra. At that historical
+Revision 4 state, C1–C5 awaited Ben's discussion and owner disposition. Review
+completion was evidence only; it was not a clean review or acceptance. Batch
+10 discussion later resolved those findings, while the current Revision 5
+still requires fresh review and owner disposition. Owner approval remains
+Pending and Status remains Proposed. Only Ben may accept or reject this
+proposal.
+
+Ben approved the Batch 10 resolutions in discussion on 2026-08-12. The
+Revision 4 review artifacts and C1–C5 findings above are stale historical
+evidence after this material Revision 5 change and do not satisfy the current-
+revision review. The new review remains Pending and must examine identity and
+collision comparison, filesystem and inspection boundaries, worker/report
+trust, immutable fixture admission, and the closed inspection statuses.
 
 ## Implementation and Proof Obligations
 
@@ -451,6 +594,15 @@ Proposed. Only Ben may accept or reject this proposal.
   completeness. Production parsing must not self-admit the corpus.
   This Proposed record itself creates no packages, fixtures, parser, resolver,
   or geometry implementation. DR-0009/0010 remain parked and nonblocking.
+- Bind Readiness 2 admission to an exact reviewed Git commit/tree and path,
+  manifest digest, and activation-payload digest excluding its own admission
+  record. Record parser-independent preflight identity and Ben approval,
+  rerun preflight on the merged target, and activate only if tree/payload
+  binding is unchanged. Corrections are append-only successor admissions;
+  deactivation/rollback is a new recorded Ben approval. Test that preflight
+  proves consistency only, while expected-result correctness remains a reviewed
+  contract/hypothesis and later executable evidence. The canonical
+  fixture-manifest specification owns exact Proposed manifest semantics.
 - Keep semantic resolution, diagnostics, provenance, and the CLI independent
   of geometry implementation, visual workbench, and host engine.
 - Define the project-owned versioned conceptual `GeometryRequest` and
@@ -490,6 +642,34 @@ Proposed. Only Ben may accept or reject this proposal.
   invocation-owned staging. Defer final avatar-package serialization,
   exact primitive/platform mapping, and exact manifest/operation field spelling
   to the canonical specification.
+- Keep worker producer/output trust separate from coordinator, reporter, and
+  publisher trust. Map worker crash/protocol corruption as governed, permit a
+  trusted parent to report only independently observed exit/timeout/protocol
+  failure, and never adopt worker output after worker trust loss. Publish a
+  diagnostics-only bundle only from trusted coordinator/reporter/publisher
+  components containing independently trusted parent observations; coordinator,
+  reporter, or publisher trust loss forbids publication. Validation must not
+  rehabilitate output across lost worker trust.
+- Exercise the initial filesystem profile on tested local WSL `/home` Linux,
+  excluding `/mnt/c`, network/removable/unspecified filesystems. Use sibling
+  same-filesystem staging, probe atomic no-replace, keep committed outputs
+  immutable, assume cooperating builders, and inspect winners after collisions.
+  Promise process-crash-safe namespace publication only, not power-loss
+  durability; use unambiguous safe-ASCII candidate path mapping and fail closed
+  for unsupported primitives.
+- Implement separate artifact inspection with closed results `success`,
+  `absent`, `unavailable`, `mismatch`, `invalid-artifact`, `unsupported`,
+  `resource-limit`, and `internal-failure`. Define absent, I/O unavailable,
+  lineage mismatch, malformed/incomplete/tampered/hash mismatch,
+  unsupported manifest/profile, resource interruption, and trust-loss meanings;
+  preserve processing/diagnostic completeness and deterministic primary/
+  precedence, without overwriting historical build status.
+- Admit and exercise the lean Readiness 2 fixture corpus: minimal valid
+  envelope, optional absent module, duplicate member, invalid discriminator,
+  unsupported revision, unknown core member, unsupported required extension,
+  valid optional extension, and resource-over-budget. Add Readiness 3 fixtures
+  for present attached, present unattached invalid, cross-role Socket reuse
+  invalid, measurement conflict invalid, and valid defaulted provenance.
 - If reproducible measurements, a required capability, or a justified
   isolation, security, portability, or licensing need identifies a credible
   in-process Rust geometry gap, document it and evaluate an isolated C++

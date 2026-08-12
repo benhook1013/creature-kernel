@@ -114,12 +114,21 @@ and resolved snapshot remain distinct. Exact field names, schema files, and
 migration serialization remain deferred to the owning specifications. The
 canonical admission, status, diagnostic, and resource rules are in the
 [body-document contract](../../spec/body-document/README.md).
+The conceptual document shape is `contract`, `source`, `basis`, `profiles`,
+`body`, and `extensions`, with explicit typed body collections and stable
+references; exact shape and omission/default rules remain owned by that
+contract. Required basis is length unit, handedness, up, and forward, with no
+initial per-value unit override.
 
 ### CK-PROD-002: Deterministic compilation
 
-Given the same source, compiler version, configuration, and seed, the system
-must produce semantically equivalent output or report why reproducibility cannot
-be guaranteed. EXP-0001 evidence additionally requires frozen fixture IDs,
+Given the same complete build request, the system must produce semantically
+equivalent output or report why reproducibility cannot be guaranteed. A build
+request includes all outcome-affecting source/dependency, compiler/toolchain,
+contract/schema/profile, configuration/seed, backend-capability/protocol, and
+target-platform inputs. A unique per-attempt identity is for tracing only and
+must not change target selection or idempotent equality. EXP-0001 evidence
+additionally requires frozen fixture IDs,
 concrete source inputs, discriminating parameters, seed/configuration, and
 provenance.
 
@@ -169,7 +178,23 @@ target, existing different or unverifiable occupants are never overwritten,
 and inspection requires expected build/artifact lineage rather than guessing
 whether stale output is current. The full collision, publication, worker,
 encoding, staging, and failure-bundle contract is owned by the [Proposed
-build-operation specification](../../spec/build-operation/README.md).
+build-operation specification](../../spec/build-operation/README.md), including
+post-collision byte-divergence failure, the initial local-WSL filesystem
+profile, separate inspection statuses, and producer/coordinator trust
+boundaries.
+
+### CK-PROD-007: Immutable fixture admission
+
+Readiness fixtures must be admitted against an exact reviewed Git commit/tree
+and path, manifest digest, and activation-payload digest that excludes the
+admission record itself. Preflight proves internal consistency, not expectation
+correctness; it reruns on the merged target and activation requires an unchanged
+binding plus explicit Ben approval. Successors are append-only, rollback or
+deactivation is explicitly approved, and unlisted fixtures do not activate.
+Operation status remains separate from semantic fixture taxonomy, with a
+primary diagnostic required for every non-success. The canonical conceptual
+field groups and Readiness 2/3 corpus are owned by the [fixture-manifest
+specification](../../spec/fixture-manifest/README.md).
 
 ## Generated embodiment
 

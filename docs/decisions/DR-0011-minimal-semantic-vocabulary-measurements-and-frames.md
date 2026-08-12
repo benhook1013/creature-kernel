@@ -6,13 +6,13 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 7
+Revision: 8
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-11
 
@@ -76,8 +76,11 @@ stale historical evidence.
 Ben's 2026-08-12 Batch 9 discussion approval adds the absent-module
 declaration identity rule and cross-links the resolver snapshot handoff and
 DR-0013 build/output boundary. This material Revision 7 change makes the
-Revision 6 current-review artifacts stale; Revision 7 remains Proposed with
-Owner approval Pending and Review status Pending.
+Revision 6 current-review artifacts stale. Ben then approved the Batch 10
+units, frames, numeric-profile, and default-provenance resolutions recorded in
+Revision 8. Revision 8 remains Proposed with Owner approval Pending and Review
+status Pending; the Revision 7 current-review artifacts are stale after this
+material change.
 
 ## Decision
 
@@ -223,6 +226,35 @@ are later specification and platform work. Their deferral does not defer the
 requirement that sources declare their basis or that normalization provenance
 be retained.
 
+### Numeric-domain and default provenance boundary
+
+The required source basis is the declared length unit, handedness, up axis, and
+forward axis. Measurements and transforms identify their owner semantic
+address, semantic property or role, and frame/context; a value does not carry
+an independent unit override in the initial contract. Body source
+`profiles` initially names the versioned semantic numeric-domain profile. It
+does not turn operational resource or diagnostic profiles into authored source
+semantics; those remain operation or fixture context owned by DR-0012 and
+DR-0013.
+
+Stage 1 Readiness 2 checks only structural shape and reference validity for
+units, frames, profiles, and provenance. Readiness 3 is the activation point
+that freezes the canonical basis, rotation representation, scale/shear policy,
+numeric ranges, conditioning requirements, and comparison tolerances. Until
+then, the frame roles remain closed conceptually: local/reference, joint,
+host-socket, mating-socket, resolved world/reference, and runtime-pose, with
+only the roles applicable to a given record used.
+
+Missing semantic values are legal only when the exact contract revision or a
+named profile owns one deterministic default rule. Exactly one applicable rule
+must own each default. Resolution records `defaulted` provenance and the
+stable default-rule identity; defaults never override authored claims. Null as
+missing, implicit zero, neighbouring-value inference, and hidden equations are
+not permitted. Required identity, containment, module presence, source basis,
+and all values required by the selected grammar remain explicit. A permitted
+omission means empty only where the contract explicitly says so, including
+core typed collections.
+
 ## Consequences
 
 - Consumers can distinguish the seven identity-bearing concepts, ownership,
@@ -262,7 +294,11 @@ be retained.
   `internal-failure`.
 - The vocabulary and frame boundary remain engine-independent, but exact
   syntax, canonical numeric conventions, and storage representations require
-  later specification and evidence.
+  later specification and evidence. Readiness 2 is structural/reference
+  checking only; Readiness 3 freezes the numeric/frame contract.
+- Defaulted values remain distinguishable from authored and derived values by
+  stable `defaulted` provenance and default-rule identity. Omission is never
+  repaired by null, zero, neighbouring values, or hidden equations.
 
 ## Alternatives Considered
 
@@ -356,6 +392,20 @@ distinct rejection or deterministic mapping of repeated endpoint pairs, host
 reuse, mating reuse, cross-role reuse, zero incoming, and multiple incoming
 cases.
 
+### Put operational profiles into authored source semantics
+
+Using resource or diagnostic budgets as body-document meaning would make an
+operation environment change the semantic source. The source initially names
+only the versioned semantic numeric-domain profile; operational profiles stay
+with operation and fixture contexts.
+
+### Permit implicit numeric or default inference
+
+Implicit units, zero values, neighbouring-value inference, or hidden equations
+would make omission and provenance non-deterministic. The selected boundary
+requires explicit values unless exactly one contract/profile default rule owns
+the omission and records `defaulted` provenance.
+
 ## Adversarial Review Response
 
 The Revision 1 current-revision Double review remains preserved as stale
@@ -409,9 +459,11 @@ recommended **Revise** at **Medium** confidence and [review 02](reviews/DR-0011-
 records **Ready for owner disposition** at **High** confidence with no
 DR-0011-specific blocker. Applicable consolidated finding is C4; C1–C3 and
 C5–C7 remain cross-cutting evidence owned by the linked records, chiefly
-DR-0002/DR-0012/DR-0013. All seven consolidated current findings await Ben's
-discussion and owner disposition; review completion is evidence, not a
-clean review or acceptance. Exact serialized field spellings, canonical
+DR-0002/DR-0012/DR-0013. At that historical Revision 6 state, all seven
+consolidated findings awaited Ben's discussion and owner disposition; review
+completion was evidence, not a clean review or acceptance. Batch 9/10
+discussion later resolved the applicable findings, while the current Revision
+8 remains pending its fresh review. Exact serialized field spellings, canonical
 axes/units/rotation/scale/shear, conditioning/comparison tolerances,
 diagnostic codes, and fixture evidence remain deferred. Those Revision 6
 artifacts and findings are preserved as stale historical evidence after the
@@ -426,10 +478,19 @@ determinism, and security lens, and [review 02](reviews/DR-0011-rev-07-review-02
 recommended **Accept** at **High** confidence under the platform/failure,
 reversibility, and publication lens. No consolidated finding C1–C5 is
 actionable against DR-0011 in this review. Review completion is evidence only;
-there is no clean-review or acceptance implication. Any cross-cutting findings
-recorded in the linked reviews await Ben's discussion and owner disposition.
-Owner approval remains Pending and Status remains Proposed. Only Ben may accept
-or reject this proposal.
+there is no clean-review or acceptance implication. At that historical Revision
+7 state, any cross-cutting findings recorded in the linked reviews awaited
+Ben's discussion and owner disposition; Batch 10 discussion later resolved the
+applicable findings. The current Revision 8 still requires fresh review and
+owner disposition. Owner approval remains Pending and Status remains Proposed.
+Only Ben may accept or reject this proposal.
+
+The Batch 10 revision is discussion-approved by Ben on 2026-08-12. The
+Revision 7 review artifacts above are stale historical evidence after this
+material revision and do not satisfy the current-revision review. The new
+review remains Pending and must examine the closed frame-role set, semantic
+numeric-profile boundary, readiness split, and deterministic default
+provenance.
 
 ## Implementation and Proof Obligations
 
@@ -481,6 +542,20 @@ or reject this proposal.
   owner-plus-role addressing, authored-versus-derived provenance, ratio
   derivation, claim targets, normalization context, conflict diagnostics,
   tolerances, and exact measurement vocabulary before promising those details.
+- Require source basis (length unit, handedness, up, forward), owner/role and
+  frame/context on measurements and transforms, and no per-value unit
+  overrides initially. Bind body `profiles` to the versioned semantic
+  numeric-domain profile while keeping resource/diagnostic profiles operational.
+- Keep Readiness 2 structural/reference validation only; at Readiness 3 freeze
+  canonical basis, rotation, scale/shear, ranges, conditioning, and tolerances.
+  Test the closed local/reference, joint, host-socket, mating-socket,
+  resolved-world/reference, and runtime-pose role boundary.
+- Specify omission/default rules: identity, containment, module presence,
+  source basis, and grammar-required values are explicit; one exact
+  contract/profile rule may own a deterministic default, which records stable
+  `defaulted` provenance and rule identity. Reject null-as-missing, implicit
+  zero, neighbouring inference, and hidden equations; explicit empty
+  collections follow only from contract-owned omission.
 - Prove that conflicting authoritative claims or explicit invariants fail
   deterministically, within the declared tolerance rule, rather than silently
   applying precedence, and that no success snapshot is published.

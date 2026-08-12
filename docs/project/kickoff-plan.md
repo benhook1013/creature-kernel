@@ -589,13 +589,14 @@ gets its own DR and review before backend-specific compiler code locks it in.
 
 ### CK-KICK-012: Specify the minimal body document and body graph
 
-State: active (Batches 1, 4, 5, 6, F1–F3, Batch 8, and Batch 9 integrated as Proposed
-documentation; DR-0002 Revision 11, DR-0006 Revision 5, DR-0008 Revision 11,
-DR-0011 Revision 7, DR-0012 Revision 6, and DR-0013 Revision 4 remain Proposed
-with Owner approval Pending and Review Complete. The completed Batch 9 Double
-review targeted `6cf17270fda2827756c24a8d0fb301bef358f98f`; actionable findings
-await Ben discussion. Review Complete is evidence, not a clean review or
-acceptance, and no implementation or readiness gate activates. See the
+State: active (Batches 1, 4, 5, 6, F1–F3, Batch 8, Batch 9, and Batch 10 integrated as Proposed
+documentation; DR-0002/0008 Revision 11 remain Proposed with Owner approval
+Pending and Review Complete, while DR-0006 Revision 6, DR-0011 Revision 8,
+DR-0012 Revision 7, and DR-0013 Revision 5 remain Proposed with Owner approval
+Pending and Review Pending. The completed Batch 9 Double
+review targeted `6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is
+stale for the revised records and is not acceptance. No implementation or
+readiness gate activates. See the
 [current review state](status.md#current-review-and-future-activation-obligations).
 The prior exact review at
 `88004388f9537a37617ae248bdaad4625e6f3f03` and the Batch 5 review are stale
@@ -668,16 +669,17 @@ Outcome:
 
 The Batch 1 and Batch 4 discussion selections and review resolutions are not DR
 acceptance. The prior revisions have complete review evidence. Batch 5, Batch
-6, F1–F7, Batch 8, and Batch 9 are discussion-approved and integrated into the canonical product,
+6, F1–F7, Batch 8, Batch 9, and Batch 10 are discussion-approved and integrated into the canonical product,
 specification, architecture, and project documents as Proposed material. The
 CK-KICK-012 Batch 5 Double review at commit
 `a282dbabffd83afa4e62577086934d00f98e12c7` and Batch 6 review at `c64b1b...`
 are stale historical evidence. The current six-record set is DR-0002 Revision
-11, DR-0006 Revision 5, DR-0008 Revision 11, DR-0011 Revision 7, DR-0012
-Revision 6, and DR-0013 Revision 4; all remain Proposed with Owner approval
-Pending and Review Complete. The completed Batch 9 Double review targeted
-`6cf17270fda2827756c24a8d0fb301bef358f`; actionable findings await Ben
-discussion. Review Complete is evidence, not a clean review or acceptance. See
+11, DR-0006 Revision 6, DR-0008 Revision 11, DR-0011 Revision 8, DR-0012
+Revision 7, and DR-0013 Revision 5; DR-0002/0008 retain Review Complete and
+the four revised records are Review Pending, all remain Proposed with Owner approval
+Pending. The completed Batch 9 Double review targeted
+`6cf17270fda2827756c24a8d0fb301bef358f`; historical evidence is stale for the
+revised records and is not acceptance. See
 the [current review state](status.md#current-review-and-future-activation-obligations).
 The prior
 exact review at `88004388f9537a37617ae248bdaad4625e6f3f03` is stale. No
@@ -688,9 +690,11 @@ The cross-cutting proposal is
 [DR-0012: initial body-document encoding, resolution, and
 compatibility](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
 CK-KICK-012 remains active; Batch 9 is discussion-approved Proposed material.
-The completed Double review is evidence only; its five actionable findings
-await Ben discussion, and this proposal does not complete the round or imply
-owner acceptance. No implementation/readiness gate activates.
+The completed Batch 9 Double review is evidence only; its five actionable
+findings were resolved by Batch 10 discussion. The current Batch 10 revisions
+still require fresh current-revision review and owner disposition, so this
+proposal does not imply acceptance or activate an implementation/readiness
+gate.
 
 ### Batch 4 — encoding, resolution, and compatibility (discussion-approved)
 
@@ -961,24 +965,102 @@ material only; they do not accept or silently replace the decision records.
   no surface-decision prerequisite.
 
 The completed Batch 9 Double review targeted commit
-`6cf17270fda2827756c24a8d0fb301bef358f98f`; all six decision records remain
-Proposed with Owner approval Pending and Review Complete. Review Complete is
-evidence, not a clean review or acceptance. Its five actionable findings await
-Ben discussion; no package, schema, fixture corpus, parser, resolver, or
-geometry implementation is activated by this discussion approval. See the
+`6cf17270fda2827756c24a8d0fb301bef358f98f`; this paragraph records its
+historical state. Its evidence is stale for the four Batch 10-revised records,
+and is not a clean review or acceptance. No package, schema, fixture corpus,
+parser, resolver, or geometry implementation is activated by this discussion
+approval. See the
 [current review state](status.md#current-review-and-future-activation-obligations)
 for lenses and recommendations.
+
+### Batch 10 — identity, filesystem, inspection, trust, admission, and shape
+  (discussion-approved)
+
+On 2026-08-12 Ben approved the CK-KICK-012/013 Batch 10 resolutions in
+discussion. They are integrated as Proposed canonical product, specification,
+architecture, and project material only; they do not accept or silently replace
+the decision records. The affected records are now DR-0006 Revision 6,
+DR-0011 Revision 8, DR-0012 Revision 7, and DR-0013 Revision 5, all Proposed
+with Owner approval Pending and Review Pending. DR-0002 Revision 11 and
+DR-0008 Revision 11 are unchanged and remain Proposed with Owner approval
+Pending and Review Complete. Prior Batch 9 review artifacts remain stale
+history.
+
+- Build identity separates a unique per-attempt identity from deterministic
+  build-request identity. Attempt identity never affects target or idempotent
+  equality. The request includes all outcome-affecting source/dependency,
+  compiler/toolchain, contract/schema/profile, configuration/seed,
+  backend-capability/protocol, and target-platform inputs. Candidate artifact
+  identity derives from request, artifact role, and identity-rule revision and
+  promotes unchanged on publication. Canonical serialization/hash remains
+  deferred but is required before activation. No-replace collisions perform
+  post-collision inspection: exact identity/lineage/manifest/hashes are
+  already-published; different lineage is target-conflict; byte divergence for
+  the same deterministic request/candidate is internal-failure for
+  nondeterministic output. Conceptual cases cover first build, retry,
+  concurrent winner, lineage change, and byte divergence.
+- The initial filesystem profile is tested local Linux under WSL `/home` only;
+  `/mnt/c`, network, removable, and unspecified filesystems are excluded.
+  Same-filesystem sibling staging, capability probe, atomic no-replace,
+  immutable committed outputs, cooperating builders, and post-collision
+  inspection provide process-crash-safe namespace publication only, with no
+  sudden-power-loss claim. Malicious/privileged concurrent mutation is out of
+  scope; inspection still verifies a complete artifact or rejects it. The
+  profile-defined unambiguous safe-ASCII candidate path mapping is an activation
+  prerequisite.
+- Inspection is a separate read operation with shared envelope conventions and
+  closed statuses: success, absent, unavailable, mismatch, invalid-artifact,
+  unsupported, resource-limit, and internal-failure. It retains processing and
+  diagnostic completeness, deterministic precedence, and a primary diagnostic
+  for each non-success. Original build status remains history.
+- Producer/output trust is separate from coordinator/reporter/publisher trust.
+  Worker crash or protocol loss invalidates worker output; a trusted isolated
+  parent may report only its own observed worker failure and never adopts output
+  after trust loss. A trusted diagnostics-only bundle requires the surrounding
+  coordinator/reporter/publisher to remain trusted; their trust loss allows only
+  the launcher/CLI envelope, and validation cannot rehabilitate lost-trust
+  output.
+- The new canonical [fixture-manifest and admission specification](../../spec/fixture-manifest/README.md)
+  binds admission to exact reviewed Git commit/tree and path, manifest digest,
+  and activation-payload digest excluding the admission record. Preflight proves
+  internal consistency only; it reruns on the merged target and activation
+  requires unchanged binding plus Ben approval. Successors are append-only;
+  deactivation/rollback is explicitly approved; unlisted fixtures never
+  activate. Its conceptual groups are manifest ID/revision, schema revision/
+  hash, fixture ID/path/hash/provenance, operation status, semantic outcome
+  where applicable, primary diagnostic, processing/diagnostic completeness,
+  diagnostic/resource profile IDs, and admission binding. Readiness 2 is the
+  lean corpus; Readiness 3 adds attached/unattached, cross-role Socket reuse,
+  measurement conflict, and defaulted provenance cases.
+- The conceptual body-document top-level shape is `contract`, `source`,
+  `basis`, `profiles`, `body`, and `extensions`; `contract` owns
+  version-neutral family/revision. `body` uses explicit typed collections
+  (modules, parts, joints, sockets, attachments, landmarks, dimensions,
+  frames, regions, capabilities, fields), stable references, no generic union,
+  non-semantic array order, present-even-empty core collections, and a closed
+  core vocabulary. Basis requires length unit, handedness, up, and forward;
+  source profiles initially reference only semantic numeric-domain profiles;
+  no per-value unit override is selected. Omission requires one exact
+  contract/profile-owned deterministic default with stable rule identity and
+  defaulted provenance; identity, containment, module presence, basis, and
+  grammar-required values remain explicit, with no null-as-missing, implicit
+  zero, neighbour inference, or hidden equations.
+
+No schema, fixture file, parser, resolver, package, or readiness gate activates
+from this discussion batch. Recommended adversarial level: Double — the batch
+revises cross-cutting identity, publication, trust, admission, and source-shape
+contracts and is difficult to audit as one surface.
 
 ## Round 8 — implementation platform (provisional)
 
 ### CK-KICK-013: Select the first implementation platform
 
 State: active (discussion-approved Proposed platform direction integrated;
-Proposed DR-0013 Revision 4 has Owner approval Pending and Review Complete; the
+Proposed DR-0013 Revision 5 has Owner approval Pending and Review Pending after
+Batch 10; the
 completed Batch 9 Double review targeted
-`6cf17270fda2827756c24a8d0fb301bef358f98f`; its actionable findings await Ben
-discussion; Review Complete is evidence, not a clean review or acceptance; not
-accepted or implemented)
+`6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is stale for the
+revised record and is not acceptance; not accepted or implemented)
 
 Prerequisites: the exploratory host boundary and a bounded CK-KICK-012
 contract. CK-KICK-011 is not an automatic prerequisite.
@@ -1029,9 +1111,11 @@ Outcome:
 
 The prior exact-revision Double review remains stale historical evidence after
 the Batch 9 revisions; its seven consolidated findings are preserved as
-historical evidence resolved by discussion. The completed current Double review
-is evidence only; discuss its five actionable findings with Ben before owner
-disposition. No implementation activates while the DR remains Proposed.
+historical evidence resolved by discussion. The completed Batch 9 Double review
+is evidence only; its five actionable findings were resolved by Batch 10
+discussion. The current Batch 10 revision still requires fresh current-revision
+review and owner disposition. No implementation activates while the DR remains
+Proposed.
 Geometry libraries, licensing, platform support, and any C++ worker/FFI boundary remain
 evidence-driven; they are not settled by this proposal. No implementation
 package or compiler fixture is activated while the DR remains Proposed.

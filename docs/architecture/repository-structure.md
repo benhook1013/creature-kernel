@@ -16,21 +16,24 @@ creature-kernel/
 │   ├── research/            # open questions and references
 │   ├── developer-workflows/ # conditional contributor procedures
 │   └── project/             # status, roadmap, repository evolution
-├── spec/                    # normative formats and semantics (proposed body-document/body-graph/build-operation contracts)
+├── spec/                    # normative formats and semantics (Proposed contracts)
 │   ├── body-document/       # authored source encoding and admission contract
 │   ├── body-graph/          # resolved semantic graph contract
+│   ├── fixture-manifest/    # conceptual fixture admission authority
 │   └── build-operation/     # Proposed public build/output contract
 ├── Cargo.toml               # planned Rust workspace; not active
 ├── crates/                   # planned engine-independent core/compiler/CLI areas
 ├── experiments/             # reproducible research evidence
-├── fixtures/                # small stable proof inputs
+├── fixtures/                # small stable proof inputs (admitted later)
 ├── benchmarks/              # reproducible performance scenarios
 ├── dev-tools/validation/    # repository and contract validation
 ├── AGENTS.md                # always-on contributor authority
 └── README.md                # project orientation
 ```
 
-Implementation directories and the Cargo workspace are intentionally absent
+The fixture-manifest family is an active Proposed authority, but it remains
+conceptual: no manifest schema, admission record, parser, or fixture corpus is
+created here. Implementation directories and the Cargo workspace are intentionally absent
 until DR-0013 is accepted. The four readiness stages are: acceptance activates
 only the empty Cargo workspace/compiler/library/CLI shell; a versioned,
 preflighted fixture manifest, its listed files, exact JSON Schema, and
@@ -38,8 +41,10 @@ parser/bootstrap activate together in one review-branch transaction; canonical
 numeric/frame rules plus frozen expected graph outputs activate semantic
 resolver/in-memory snapshot handoff; and a working resolver plus provisional
 geometry profile and project-owned seam activate exploratory Stage 1 geometry.
-While DR-0013 remains Proposed, no
-implementation packages or compiler-consumed fixtures are activated.
+While the relevant DRs remain Proposed, no implementation packages, schema,
+admission payload, or compiler-consumed fixtures are activated. Readiness 2
+requires one Ben-approved immutable manifest/fixture/schema/parser transaction;
+unlisted fixtures never activate independently.
 
 ## Activation rule
 

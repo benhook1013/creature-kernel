@@ -6,13 +6,13 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 6
+Revision: 7
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-11
 
@@ -70,7 +70,10 @@ in-memory snapshot finalization/handoff distinction, absent-module declaration
 identity, and the DR-0013 build/output ownership boundary. This material
 Revision 6 change makes the Revision 5 current-review artifacts stale.
 Revision 6 remains Proposed with Owner approval Pending and Review status
-Pending.
+Pending. Ben then approved the Batch 10 top-level envelope, numeric-profile,
+and omission/default resolutions recorded in Revision 7. Revision 7 remains
+Proposed with Owner approval Pending and Review status Pending; the Revision 6
+current-review artifacts are stale after this material change.
 
 ## Decision
 
@@ -101,6 +104,34 @@ semantic hashing are not selected by this decision. A future restricted YAML
 adapter may be added only if it normalizes to the same semantic model and does
 not create a competing semantic contract or authority. No multiple authoring
 syntaxes are supported initially.
+
+### Stage 1 document envelope and typed body collections
+
+The exact conceptual top-level members of the recognized Stage 1 document are
+`contract`, `source`, `basis`, `profiles`, `body`, and `extensions`. The
+`contract` member owns the version-neutral family/revision discriminator and
+is recognized before any revision-specific schema is applied. `basis` is
+required source basis data, while `source` carries the authoritative authored
+source/source-set identity and claims; `profiles` initially references the
+versioned semantic numeric-domain profile. Operational resource and diagnostic
+profiles remain operation or fixture context, not authored source semantics.
+
+`body` contains explicit typed collections for `modules`, `parts`, `joints`,
+`sockets`, `attachments`, `landmarks`, `dimensions`, `frames`, `regions`,
+`capabilities`, and `fields`. Records have explicit types and stable semantic
+references; there is no generic record union. Array order is non-semantic, and
+every core collection is present even when empty. Core members are strict and
+closed under the recognized revision; unknown core members fail, while
+extensions use the already-governed namespaced required/optional envelope.
+This revision activates no machine schema file; JSON Schema Draft 2020-12
+remains the proposed structural vocabulary whose exact file and fields are a
+Readiness 2 prerequisite.
+
+The source basis declares length unit, handedness, up, and forward. Measurements
+and transforms identify owner, semantic role, and frame/context. No per-value
+unit override is admitted initially. Readiness 2 checks structural shape and
+references only; Readiness 3 freezes canonical basis, rotation representation,
+scale/shear policy, numeric ranges, conditioning, and tolerances.
 
 ### Deterministic resolution phases and provenance
 
@@ -201,6 +232,22 @@ are distinguishable from authored values and cannot silently override an
 authored claim. The normalized model and snapshot retain enough provenance to
 explain value derivation and the outcome without making either representation
 authored authority.
+
+### Explicit omission and deterministic defaults
+
+Identity, containment, module presence, source basis, and every value required
+by the selected grammar are explicit. A missing value is legal only when the
+exact contract revision or a named semantic profile owns a deterministic
+default rule; exactly one applicable rule owns each default. The resolved model
+records `defaulted` provenance and the stable default-rule identity. Defaults
+cannot override an authored value or resolve an authored conflict.
+
+Null is not a missing-value marker. Implicit zero, neighbouring-value
+inference, and hidden equations are not defaults and are rejected. A permitted
+omission means empty only when the contract explicitly assigns that meaning;
+core typed collections therefore remain present even when empty. DR-0011 owns
+the semantic provenance consequence, while this record owns source encoding,
+resolution, and compatibility enforcement.
 
 ### Contract bootstrap and recognition
 
@@ -340,7 +387,10 @@ Valid, semantically invalid, and well-formed-but-unsupported fixtures, along
 with their expected primary diagnostic classes/codes, must be frozen before
 implementation evidence is treated as a claim. The cross-DR fixture matrix
 linking identity, typed articulation, measurements/frames, outcomes, and
-diagnostics must also be frozen before evidence claims.
+diagnostics must also be frozen before evidence claims. The exact Proposed
+fixture-manifest semantics are owned by the canonical fixture-manifest
+specification/cross-contract, while this record owns how admitted fixtures
+exercise source encoding, omission/default provenance, and resolver outcomes.
 
 ## Consequences
 
@@ -413,6 +463,18 @@ diagnostics must also be frozen before evidence claims.
 - The initial format is intentionally narrow. A future restricted YAML adapter
   must normalize to the same semantic model, and future canonical-byte or
   semantic-hash rules require separate specification work.
+- The recognized Stage 1 envelope has six conceptual top-level members and a
+  typed `body` with explicit collections, stable references, non-semantic
+  array order, and present-even-when-empty core collections. No generic record
+  union or machine schema file is activated by this revision.
+- Source basis and semantic numeric-profile references are authored source
+  semantics; operational resource/diagnostic profiles remain operation or
+  fixture context. Readiness 2 checks shape/references, while Readiness 3
+  freezes numeric/frame representation and tolerances.
+- Explicit omission and deterministic defaults are auditable: exactly one
+  contract/profile rule owns a default, and resolved values carry stable
+  `defaulted` provenance. Null, zero, neighbouring inference, and hidden
+  equations cannot silently supply required values.
 
 ## Alternatives Considered
 
@@ -497,6 +559,19 @@ it would lock byte-level rules before semantic and artifact identity needs are
 understood. Deterministic debug JSON is allowed; canonical bytes and semantic
 hashing remain deferred.
 
+### Use a generic body-record union
+
+A generic union would shorten the first schema but make ownership, stable
+references, and collection-specific validation ambiguous. Explicit typed
+collections keep the Stage 1 grammar closed and make array order irrelevant.
+
+### Treat omission as an implicit value
+
+Implicit zero, null-as-missing, or inferred neighbouring values would erase
+authored intent and make defaults dependent on parser or traversal behaviour.
+Only one contract/profile-owned default rule may resolve a missing value, with
+stable `defaulted` provenance; otherwise the value is required explicitly.
+
 ## Adversarial Review Response
 
 The Revision 1 Double review is preserved as stale evidence at commit
@@ -554,9 +629,11 @@ recommended **Revise** at **High** confidence and [review 02](reviews/DR-0012-re
 records **Ready for owner disposition** at **Medium** confidence with no
 DR-0012-specific blocker. Applicable consolidated findings are C1 and C4; C2,
 C3, and C5–C7 remain cross-cutting evidence owned by the linked records,
-chiefly DR-0002/DR-0013. All seven consolidated current findings await Ben's
-discussion and owner disposition; review completion is evidence, not a
-clean review or acceptance. Exact serialized field spellings,
+chiefly DR-0002/DR-0013. At that historical Revision 5 state, all seven
+consolidated findings awaited Ben's discussion and owner disposition; review
+completion was evidence, not a clean review or acceptance. Batch 9/10
+discussion later resolved the applicable findings, while the current Revision
+7 remains pending its fresh review. Exact serialized field spellings,
 diagnostic codes, concrete thresholds, dependency-revision semantics,
 canonical axes/units/rotation/scale/shear, conditioning/comparison
 tolerances, canonical bytes/hashing, and fixture/security evidence remain
@@ -573,16 +650,45 @@ determinism, and security lens, and [review 02](reviews/DR-0012-rev-06-review-02
 recommended **Accept** at **Medium** confidence under the platform/failure,
 reversibility, and publication lens. No consolidated finding C1–C5 is
 actionable against DR-0012 in this review. Review completion is evidence only;
-there is no clean-review or acceptance implication. Any cross-cutting findings
-recorded in the linked reviews await Ben's discussion and owner disposition.
-Owner approval remains Pending and Status remains Proposed. Only Ben may accept
-or reject this proposal.
+there is no clean-review or acceptance implication. At that historical Revision
+6 state, any cross-cutting findings recorded in the linked reviews awaited
+Ben's discussion and owner disposition; Batch 10 discussion later resolved the
+applicable findings. The current Revision 7 still requires fresh review and
+owner disposition. Owner approval remains Pending and Status remains Proposed.
+Only Ben may accept or reject this proposal.
+
+The Batch 10 revision is discussion-approved by Ben on 2026-08-12. The
+Revision 6 review artifacts above are stale historical evidence after this
+material revision and do not satisfy the current-revision review. The new
+review remains Pending and must examine the exact conceptual envelope,
+typed-collection closure, basis/profile boundary, and omission/default rules.
 
 ## Implementation and Proof Obligations
 
 - Define the exact source fields and paired JSON Schema Draft 2020-12 while
   preserving the source/model/snapshot boundary and resolver ownership of
   semantics.
+- Encode the exact conceptual Stage 1 top-level members `contract`, `source`,
+  `basis`, `profiles`, `body`, and `extensions`; make `contract` the
+  version-neutral family/revision owner and keep core members strict/closed.
+  Define typed body collections for modules, parts, joints, sockets,
+  attachments, landmarks, dimensions, frames, regions, capabilities, and
+  fields, with stable references, non-semantic array order, and present-even-
+  when-empty collections. Do not activate a machine schema file in this
+  revision.
+- Require source basis (length unit, handedness, up, forward), owner/role and
+  frame/context on measurements and transforms, and initially no per-value
+  unit overrides. Bind `profiles` to the versioned semantic numeric-domain
+  profile; keep operational profiles in operation/fixture context.
+- Keep Readiness 2 structural shape/reference checking only; at Readiness 3
+  freeze canonical basis, rotation, scale/shear, ranges, conditioning, and
+  tolerances.
+- Specify omission/default rules: identity, containment, module presence,
+  source basis, and grammar-required values are explicit; exactly one
+  contract/profile-owned deterministic default may resolve a missing value and
+  must record stable `defaulted` provenance and rule identity. Reject
+  null-as-missing, implicit zero, neighbouring inference, and hidden
+  equations; permitted omission means empty only where the contract says so.
 - Implement duplicate-key rejection, strict UTF-8 and one-document admission,
   and rejection of comments, includes, evaluation, and unknown core fields.
 - Define extension-envelope field spelling, namespace/revision handling,

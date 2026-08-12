@@ -17,14 +17,15 @@ The current semantic boundaries are Proposed under [DR-0002](../decisions/DR-000
 [DR-0006](../decisions/DR-0006-durable-semantic-and-artifact-identity.md),
 [DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
 and [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
-CK-KICK-012 Batch 6/7/8/9 resolutions are discussion-approved and represented here
-as Proposed architecture consequences. The current six-record set is DR-0002
-Revision 11, DR-0006 Revision 5, DR-0008 Revision 11, DR-0011 Revision 7,
-DR-0012 Revision 6, and DR-0013 Revision 4. All six are Proposed with Owner
-approval Pending and Review Complete. The completed Batch 9 Double review
-targeted commit `6cf17270fda2827756c24a8d0fb301bef358f98f`. Review Complete is
-evidence, not a clean review or acceptance; actionable findings await Ben
-discussion, and no implementation or readiness gate activates. See the
+CK-KICK-012 Batch 6/7/8/9/10 resolutions are discussion-approved and represented
+here as Proposed architecture consequences. DR-0002 Revision 11 and DR-0008
+Revision 11 remain Proposed with Owner approval Pending and Review Complete.
+DR-0006 Revision 6, DR-0011 Revision 8, DR-0012 Revision 7, and DR-0013
+Revision 5 remain Proposed with Owner approval Pending and Review Pending. The
+completed Batch 9 Double review targeted commit
+`6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is stale for the
+revised records and is not acceptance. No implementation or readiness gate
+activates. See the
 [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for review lenses, recommendations, and findings. Earlier review evidence is
 stale after these revisions; see the [decision registry](../decisions/registry.md).
@@ -101,11 +102,11 @@ codes, canonical bytes, and hashes remain deferred.
 ### Proposed production platform and artifact/workbench boundary
 
 CK-KICK-013 is a discussion-approved platform proposal, not an accepted
-implementation decision. Proposed DR-0013 Revision 4 has Owner approval Pending
-and Review Complete. The completed Batch 9 Double review targeted commit
-`6cf17270fda2827756c24a8d0fb301bef358f98f`; its actionable findings await Ben
-discussion. Review Complete is evidence, not a clean review or acceptance, and
-no implementation or readiness gate activates. See the [current review
+implementation decision. Proposed DR-0013 Revision 5 has Owner approval Pending
+and Review Pending after Batch 10. The completed Batch 9 Double review targeted
+commit `6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is stale for
+the revised record and is not acceptance. No implementation or readiness gate
+activates. See the [current review
 state](../project/status.md#current-review-and-future-activation-obligations)
 for recommendations and findings. The four
 readiness stages are: acceptance activates only the
@@ -143,6 +144,26 @@ evidence. Future workers negotiate protocol/version, obey bounded time/resources
 crash/timeout/resource outcomes, validate outputs, and leave the compiler
 surviving failure. Exact serialization remains deferred; performance claims
 require a reproducible benchmark and hardware profile.
+
+Batch 10's initial filesystem profile supports only tested local WSL Linux under
+`/home`; `/mnt/c`, network, removable, and unspecified filesystems remain out
+of profile. Same-filesystem sibling staging, capability probing, atomic
+no-replace, immutable committed outputs, cooperating builders, and
+post-collision inspection provide process-crash-safe namespace publication,
+without a sudden-power-loss durability claim. A profile-defined unambiguous
+safe-ASCII candidate path mapping is an activation prerequisite. Malicious or
+privileged concurrent mutation is outside scope, but inspection must verify a
+complete artifact or reject it.
+
+Build requests contain all outcome-affecting source/dependency,
+compiler/toolchain, contract/schema/profile, configuration/seed,
+backend-capability/protocol, and target-platform inputs. Attempt identity is
+unique for tracing only; candidate identity derives from the deterministic
+request, artifact role, and identity-rule revision. The [fixture-manifest
+contract](../../spec/fixture-manifest/README.md) owns immutable reviewed-tree /
+payload admission. Inspection is a separate read operation with closed statuses;
+producer/output trust is distinct from coordinator/reporter/publisher trust,
+and lost worker trust cannot be rehabilitated by validation.
 
 ### First body grammar boundary
 

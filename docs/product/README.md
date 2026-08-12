@@ -30,16 +30,20 @@ Related Proposed boundaries are recorded in [DR-0002](../decisions/DR-0002-decla
 [DR-0006](../decisions/DR-0006-durable-semantic-and-artifact-identity.md),
 [DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
 and [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
+The canonical specification owners are the [body-document](../../spec/body-document/README.md),
+[body-graph](../../spec/body-graph/README.md), [build-operation](../../spec/build-operation/README.md),
+and [fixture-manifest](../../spec/fixture-manifest/README.md) contracts.
 
 Prior CK-KICK-012 revisions and review artifacts remain preserved as historical
-evidence. Ben's Batch 5, Batch 8, and Batch 9 resolutions are discussion-
-approved and incorporated here as Proposed product outcomes only. The current
-six-record set is DR-0002 Revision 11, DR-0006 Revision 5, DR-0008 Revision 11,
-DR-0011 Revision 7, DR-0012 Revision 6, and DR-0013 Revision 4. All six remain
-Proposed with Owner approval Pending and Review Complete. The completed Batch 9
-Double review targeted commit `6cf17270fda2827756c24a8d0fb301bef358f98f`;
-Review Complete is evidence, not a clean review or acceptance. Its actionable
-findings await Ben discussion; no implementation or readiness gate activates.
+evidence. Ben's Batch 5, Batch 8, Batch 9, and Batch 10 resolutions are
+discussion-approved and incorporated here as Proposed product outcomes only.
+DR-0002 Revision 11 and DR-0008 Revision 11 remain Proposed with Owner
+approval Pending and Review Complete; DR-0006 Revision 6, DR-0011 Revision 8,
+DR-0012 Revision 7, and DR-0013 Revision 5 remain Proposed with Owner approval
+Pending and Review Pending. The Batch 9 review targeted commit
+`6cf17270fda2827756c24a8d0fb301bef358f98f` and is stale for the revised
+records. Review evidence is not acceptance; no implementation or readiness
+gate activates.
 Recommendations and the next discussion are summarized in the [current review
 state](../project/status.md#current-review-and-future-activation-obligations).
 The cross-cutting proposal is [DR-0012:

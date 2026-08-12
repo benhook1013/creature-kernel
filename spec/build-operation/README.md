@@ -1,8 +1,10 @@
 # Build operation and derived-output contract
 
-Status: Proposed contract; CK-KICK-012 Batch 9 discussion-approved canonical
-owner. This document is not an accepted format and does not activate a build
-implementation, serializer, fixture corpus, or artifact store.
+Status: Proposed conceptual contract; CK-KICK-012 Batch 10 discussion-approved
+canonical owner. DR-0006 Revision 6 and DR-0013 Revision 5 remain Proposed with
+Owner approval Pending and Review Pending. This document is not an accepted
+format and does not activate a build implementation, serializer, fixture
+corpus, or artifact store.
 
 This document is the canonical Proposed owner of the public `build` operation
 and its derived-output/publication contract. The [body-document contract](../body-document/README.md)
@@ -15,8 +17,10 @@ not choose final avatar-package serialization, field spellings, hash
 algorithms, transport, or a permanent geometry backend.
 
 The words **must**, **must not**, and **may** state this Proposed contract. The
-exact serialized syntax and concrete filesystem encoding remain deferred; the
-conceptual target and lifecycle rules below are normative within the proposal.
+exact serialized syntax, canonical serialization/hash, and concrete filesystem
+encoding remain deferred; canonical serialization/hash is required before
+activation. The conceptual target and lifecycle rules below are normative within
+the proposal.
 
 ## Operation boundary
 
@@ -57,20 +61,37 @@ when a later build/publication failure normalizes the top-level status.
 
 ## Identity and manifest lifecycle
 
-Build and artifact identity are distinct. A build/operation identity exists for
-every invocation, including failure. Artifact identity is committed only after
-successful publication. The staged manifest carries a **candidate artifact
+Build and artifact identity are distinct. Every invocation has a unique
+`attempt_id`, including an invocation that fails before it can establish a
+complete build request. A deterministic `build_request_id` is established from
+the complete outcome-affecting request when that request is available; it is
+stable across retries. Artifact identity is committed only after successful
+publication. The staged manifest carries a **candidate artifact
 identity**: it is a non-authoritative proposal used to name and validate the
 staged result, not proof that an artifact has been published. Successful atomic
 publication promotes that same candidate identity to the committed artifact
 identity; publication does not mint a replacement identity.
+
+Attempt identity is useful for tracing and invocation-owned staging, but it
+never affects the target, candidate identity, or idempotent equality. A build
+request includes every outcome-affecting
+source/dependency, compiler and toolchain, contract/schema/profile,
+configuration and seed, backend capability/protocol, and target-platform
+input. Its exact canonical serialization and hash remain deferred, but are
+required before this identity contract activates.
+
+For each artifact role, candidate artifact identity derives deterministically
+from the build-request identity, artifact role, and identity-rule revision.
+When publication succeeds, that candidate is promoted unchanged to the
+committed artifact identity. The identity rule must not incorporate attempt
+identity, timestamps, staging paths, or incidental ordering.
 
 The manifest is written last within immutable, invocation-owned, build-scoped
 sibling staging. Its conceptual fields are:
 
 | Field group | Proposed contents |
 | --- | --- |
-| Build lineage | build/operation identity, source/dependency/configuration/seed lineage, and contract/profile revisions |
+| Build lineage | deterministic `build_request_id` when established, source/dependency/configuration/seed lineage, and contract/profile revisions; the separate `attempt_id` is invocation trace data |
 | Candidate identity | non-authoritative candidate artifact identity and its identity revision |
 | Outputs | relative output paths, expected sizes, hashes, and output roles |
 | Integrity | manifest revision, completeness, and the data needed to verify one build lineage |
@@ -106,12 +127,34 @@ complete manifest, and all listed output hashes and sizes. Such a verified
 match returns `success` with an `already-published` outcome and commits no
 replacement. A different, incomplete, stale, or unverifiable occupant is an
 `output-failure` with a target-conflict diagnostic; it must never be overwritten,
-adopted, or repaired in place. If the required atomic no-replace primitive is
-unavailable, the operation fails closed as `output-failure`; it must not use an
-adoption, delete-then-rename, or overwrite workaround.
+adopted, or repaired in place. A no-replace collision always performs
+post-collision inspection. Exact identity, lineage, complete manifest, and all
+listed output hashes/sizes mean `already-published`; a different lineage is
+`target-conflict`; and a target with the same deterministic request/candidate
+but byte-divergent output is `internal-failure` with a
+`nondeterministic-output` diagnostic. The latter is not repaired or accepted as
+an alternate winner. If the required atomic no-replace primitive is unavailable,
+the operation fails closed as `output-failure`; it must not use an adoption,
+delete-then-rename, or overwrite workaround.
 
 Cleanup is limited to invocation-owned staging. An existing target and an
 unrelated directory are never cleanup targets.
+
+## Initial filesystem profile
+
+The initial supported profile is a tested local Linux filesystem under WSL in
+`/home`. `/mnt/c`, network filesystems, removable media, and unspecified
+filesystems are outside this profile. Publication uses same-filesystem sibling
+staging, a capability probe, an atomic no-replace primitive, immutable
+committed outputs, cooperating builders, and post-collision inspection.
+
+This profile claims process-crash-safe namespace publication only. It makes no
+sudden-power-loss durability claim. Malicious or privileged concurrent
+filesystem mutation is outside the initial threat model; inspection still
+verifies a complete artifact or rejects it. The candidate filesystem component
+uses a profile-defined unambiguous safe ASCII mapping. The exact mapping is an
+activation prerequisite, not an implementation detail that may vary between
+builders.
 
 ## Inspection and lineage
 
@@ -119,22 +162,41 @@ Artifact inspection is a separate read operation, not a second build-status
 channel. Callers must provide the expected build and artifact lineage (and any
 required contract/profile identity). Inspection verifies that expectation
 against the target's committed manifest, identity, paths, hashes, sizes, and
-completeness. It must report an explicit mismatch, stale, absent, or
-unverifiable result; it must never guess that an occupant belongs to the
-requested build or silently treat stale output as current. Exact read-operation
-syntax remains deferred.
+completeness. Its closed result statuses are `success`, `absent`, `unavailable`,
+`mismatch`, `invalid-artifact`, `unsupported`, `resource-limit`, and
+`internal-failure`. Their meanings are respectively: the expected committed
+artifact is verified; no target exists; the target cannot be read; the target is
+readable but does not match the expected lineage; the target is malformed,
+incomplete, or unverifiable; the requested inspection contract/profile is not
+supported; configured inspection work/resources prevent trusted completion; or
+implementation/environment trust is lost. Inspection precedence is
+`internal-failure`, then qualifying `resource-limit`, then the earliest
+applicable read/validation failure; a complete readable artifact with wrong
+expectations is `mismatch`, not `invalid-artifact`.
+
+Inspection reports processing completeness and diagnostic completeness under the
+same shared envelope conventions as other operations. Every non-success
+inspection result has a primary diagnostic; successful inspection has no
+failure primary. It must never guess that an occupant belongs to the requested
+build or silently treat stale output as current. Exact read-operation syntax
+remains deferred.
 
 ## Failure-bundle trust boundary
 
-A compile or geometry failure may produce a diagnostics-only failure bundle
-when publication succeeds. That bundle is trusted only when the publisher and
-diagnostic reporter remain independently trusted from the failed component and
-the manifest identifies the failed operation, root diagnostic, lineage, and
-completeness. If the publisher/reporter is the failed component, shares its
-lost trust, or cannot establish that separation, no diagnostics-only artifact
-may be treated as trusted; the caller receives only the reserved CLI/API
-failure envelope. Publication failure likewise returns the authoritative
-envelope and cannot promise to publish its own failure bundle.
+A compile or geometry worker's producer/output trust is separate from the
+coordinator, diagnostic reporter, and publisher trust. A worker crash,
+protocol loss, or malformed result invalidates that worker's output. A trusted
+isolated parent may authoritatively report only its own observation of the
+worker failure; it must never adopt worker output after trust is lost.
+
+A trusted diagnostics-only bundle may be published only when coordinator,
+reporter, and publisher trust remains intact. Their trust loss forbids
+publication of a failure artifact; the surrounding launcher/CLI/API envelope
+alone reports the failure. Validation cannot rehabilitate output whose worker
+trust was lost. When publication is trusted, the manifest identifies the failed
+operation, root diagnostic, lineage, and completeness. Publication failure
+likewise returns the authoritative envelope and cannot promise to publish its
+own failure bundle.
 
 Failure-bundle publication does not turn a failed semantic resolution into a
 successful snapshot. It is a derived diagnostic output with its own candidate
@@ -153,21 +215,28 @@ the process may discard the root diagnostic.
 | Unknown family/revision, unsupported required extension, or recognized unsupported assembly/capability | `unsupported` | No successful resolver snapshot; a trusted diagnostics-only bundle is optional |
 | Required authored dependency cannot be acquired, verified, or matched to its declared revision | `dependency-failure` | No successful resolver snapshot; a trusted diagnostics-only bundle is optional |
 | Configured source, dependency, graph, work, memory, or diagnostic/resource bound prevents required processing or trusted completion | `resource-limit` | No trusted successful snapshot; a diagnostics-only failure bundle is permitted only across an independent trusted reporter/publisher boundary, otherwise no final artifact; retain the root/resource diagnostic |
-| Implementation, environment, worker, publisher, or invariant trust is lost | `internal-failure` | No trusted successful snapshot or final artifact; do not manufacture a failure bundle |
+| Coordinator, diagnostic reporter, publisher, or invariant trust is lost | `internal-failure` | No trusted successful snapshot or final artifact; do not manufacture a failure bundle |
 | Required build capability is explicitly unsupported, or required worker protocol/version negotiation cannot be satisfied as an unsupported contract | `unsupported` | No derived artifact; retain the capability/protocol diagnostic |
 | Worker timeout or worker-reported resource exhaustion within the configured bound | `resource-limit` | No trusted output from that worker; a failure bundle is allowed only across an independent trust boundary |
-| Worker crash or protocol corruption that loses trust in the operation | `internal-failure` | No trusted failure artifact; return the reserved envelope |
+| Worker crash or protocol corruption loses trust in worker output | `internal-failure` | No worker-produced output; a trusted parent may publish only independently trusted diagnostics if coordinator/reporter/publisher trust remains; otherwise return the reserved envelope |
 | Worker/geometry output is malformed, incomplete, out of contract, or fails output validation while the reporter remains trusted | `output-failure` | No success artifact; a trusted diagnostics-only bundle may be staged |
 | A source-caused resolved-graph invariant fails | `invalid-source` | No successful in-memory snapshot or success artifact |
 | An admissible resolved value/transform violates an implementation invariant during derivation | `internal-failure` | No trusted output; no failure bundle unless an independent reporter remains trusted |
 | Derived output encoding/serialization fails while result trust is retained | `output-failure` | No final artifact; a trusted failure bundle may be attempted |
 | Staging allocation, path, write, manifest, hash, or completeness validation fails while result trust is retained | `output-failure` | No final artifact; clean only invocation-owned staging |
+| No-replace collision has the same deterministic request/candidate but byte-divergent output | `internal-failure` (`nondeterministic-output`) | Never accept either divergent result as an alternate winner; preserve the target and report the mismatch |
 | Target occupant has different, incomplete, stale, or unverifiable identity/lineage/hashes | `output-failure` (`target-conflict`) | Never overwrite or adopt the occupant; no final artifact |
 | Atomic no-replace publication is unavailable or atomic publication fails | `output-failure` | Never fall back to overwrite/adoption; no final artifact |
 | Atomic publication succeeds for a new target | `success` | The candidate identity is promoted to the committed artifact identity |
 | Existing target verifies identical identity, lineage, complete manifest, and hashes | `success` (`already-published`) | Idempotent success; no replacement and the same identity is committed |
 | Inspection receives an expected lineage and verifies a matching committed target | `success` | Inspection returns the verified artifact; it does not rebuild or guess |
-| Inspection finds absent, stale, mismatched, incomplete, or unverifiable output | Explicit non-success inspection result, with mismatch/stale diagnostic | Never report the output as current; exact read-operation spelling remains deferred |
+| Inspection finds no target | `absent` | Never report an output as current; return the closed inspection status and its primary diagnostic |
+| Inspection cannot read the target | `unavailable` | Never report an output as current; return the closed inspection status and its primary diagnostic |
+| Inspection reads a target that does not match the expected lineage | `mismatch` | Never report the output as current; return the closed inspection status and its primary diagnostic |
+| Inspection reads a malformed, incomplete, or unverifiable target | `invalid-artifact` | Never report the output as current; return the closed inspection status and its primary diagnostic |
+| Inspection requests an unsupported manifest or profile revision | `unsupported` | Fail closed; return the closed inspection status and its primary diagnostic |
+| Configured inspection work or resources are exhausted before trusted completion | `resource-limit` | Fail closed; return the closed inspection status and its primary diagnostic |
+| Inspection implementation, environment, or trust fails | `internal-failure` | Fail closed; return the closed inspection status and its primary diagnostic |
 
 The matrix does not authorize converting a lower-level failure into success by
 publishing a partial graph or stale target. When a top-level build status is
@@ -186,4 +255,8 @@ selects final artifact serialization. Representative fixtures must exercise
 new-target publication, idempotent re-publication, target conflict, unavailable
 no-replace, malformed output, worker/resource outcomes, root-diagnostic
 preservation, and trusted versus untrusted diagnostics-only bundles before a
-public implementation claim is made.
+public implementation claim is made. The identity/publication matrix also
+includes first build, retry with a new attempt identity, concurrent winner,
+lineage change, and same-candidate byte divergence. These remain conceptual
+fixture cases until an immutable admission under the [fixture-manifest and
+admission contract](../fixture-manifest/README.md) activates them.

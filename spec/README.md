@@ -1,8 +1,8 @@
 # Normative specifications
 
-Status: Active authority boundary; the proposed body-document and body-graph
-contracts include discussion-approved CK-KICK-012 Batch 8/9 revisions, but no
-format is accepted
+Status: Active Proposed authority boundary; the body-document, body-graph,
+build-operation, and fixture-manifest contracts include discussion-approved
+CK-KICK-012 Batch 10 material, but no format is accepted
 
 This directory will own machine-facing semantics and serialized contracts. It is
 separate from architecture so an implementation can change without silently
@@ -13,16 +13,15 @@ The current semantic proposal set is represented by [DR-0002](../docs/decisions/
 [DR-0008](../docs/decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
 and [DR-0011](../docs/decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
 Their prior revisions and reviews remain preserved as historical evidence.
-DR-0002 Revision 11, DR-0006 Revision 5, DR-0008 Revision 11, DR-0011
-Revision 7, DR-0012 Revision 6, and DR-0013 Revision 4 contain the
-discussion-approved Batch 9 resolutions and remain Proposed with Owner approval
-Pending and Review Complete. The completed Batch 9 Double review targeted
-commit `6cf17270fda2827756c24a8d0fb301bef358f98f`. Review Complete is evidence,
-not a clean review or acceptance; actionable findings await Ben discussion, and
-no implementation or readiness gate activates. See the [current review
+DR-0002 Revision 11 and DR-0008 Revision 11 remain Proposed with Owner approval
+Pending and Review Complete. DR-0006 Revision 6, DR-0011 Revision 8, DR-0012
+Revision 7, and DR-0013 Revision 5 remain Proposed with Owner approval Pending
+and Review Pending after Batch 10. The Batch 9 review evidence targeted commit
+`6cf17270fda2827756c24a8d0fb301bef358f98f` and is stale for the materially
+revised records; Review Complete is evidence, not acceptance. No
+implementation or readiness gate activates. See the [current review
 state](../docs/project/status.md#current-review-and-future-activation-obligations)
-for review lenses, recommendations, and findings. Earlier review evidence is
-stale after these revisions.
+for the mixed review state and findings.
 The cross-cutting proposal is
 [DR-0012: initial body-document encoding, resolution, and compatibility](../docs/decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
 
@@ -38,11 +37,16 @@ The cross-cutting proposal is
   inheritance, directed joints with canonical local frame records,
   host/mating Socket Attachment placement, provenance, Stage 1 invariants, and
   successful in-memory snapshot handoff conditions.
+- [Fixture-manifest and admission contract](fixture-manifest/README.md): the
+  conceptual immutable binding, preflight, successor/rollback, manifest field
+  groups, and readiness corpus admission boundary. It does not activate a
+  schema, parser, or fixture file.
 - [Build-operation and derived-output contract](build-operation/README.md):
   the Proposed public build envelope, in-memory snapshot handoff boundary,
   candidate-to-committed artifact identity lifecycle, deterministic target and
   collision rules, publication/inspection expectations, and failure-bundle
-  trust boundary. It does not define final serialization.
+  trust boundary, filesystem profile, and separate artifact inspection. It
+  does not define final serialization.
 
 These proposed contracts apply a finite implementation profile. Its approved
 resource-limit categories are source and aggregate bytes, string
@@ -123,12 +127,13 @@ accounting remain unselected.
   provenance, shared-generation expectations, validity/diagnostic status, the
   frozen expected outcome of valid-supported, semantically invalid, or
   well-formed-but-unsupported, plus the primary diagnostic class/code for every
-  non-success fixture, and
-  the distinction between fixture evidence and product claims. Only
-  valid-supported fixtures count toward the Stage 1 gate. Exact fixture
-  definitions must be frozen if the deferred EXP-0001 protocol is activated
-  before its execution or evidence; selecting hypotheses may precede that
-  freeze.
+  non-success fixture. Fixture-manifest admission is owned by the
+  [fixture-manifest contract](fixture-manifest/README.md), which binds an exact
+  reviewed commit/tree and payload digest, requires Ben approval, and excludes
+  unlisted fixtures. Only valid-supported fixtures count toward the Stage 1
+  gate. Exact fixture definitions must be frozen if the deferred EXP-0001
+  protocol is activated before its execution or evidence; selecting hypotheses
+  may precede that freeze.
 - The [first surface experiment design](../docs/research/first-surface-experiment-design.md)
   is parked, non-blocking confirmatory research. It is not a normative schema,
   does not register EXP-0001, and does not provide evidence until its activation
@@ -145,7 +150,8 @@ accounting remain unselected.
 - Runtime avatar package.
 - Interaction and quality negotiation.
 - Shared domain-operation and diagnostic contracts (eventually).
-- Artifact inspection and manifests.
+- Final artifact serialization and artifact inspection details not otherwise
+  owned by the [build-operation contract](build-operation/README.md).
 
 The body-document and body-graph contracts own semantic source admission and
 resolved graph meaning. The build-operation contract owns the public derived
@@ -170,5 +176,6 @@ Every accepted format must define:
 
 Strict JSON and JSON Schema Draft 2020-12 are the Proposed initial encoding and
 structural-validation technologies. No exact serialized field vocabulary,
-machine-readable schema file, canonical byte representation, or accepted
-format exists yet.
+machine-readable schema file, canonical byte representation, canonical hash
+serialization, or accepted format exists yet. Canonical serialization and
+hashing remain required before identity/build or fixture-manifest activation.

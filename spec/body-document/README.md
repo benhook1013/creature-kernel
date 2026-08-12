@@ -1,17 +1,15 @@
 # Body-document contract
 
-Status: Proposed contract; CK-KICK-012 Batch 8/9 discussion-approved canonical
-update. DR-0002 Revision 11, DR-0006 Revision 5, DR-0008 Revision 11, DR-0011
-Revision 7, DR-0012 Revision 6, and DR-0013 Revision 4 remain Proposed with
-Owner approval Pending and Review Complete. The completed Batch 9 Double review
-targeted commit `6cf17270fda2827756c24a8d0fb301bef358f98f`. Review Complete is
-evidence, not a clean review or acceptance; actionable findings await Ben
-discussion, and no implementation or readiness gate activates. See the
-[current review state](../../docs/project/status.md#current-review-and-future-activation-obligations)
-for review lenses, recommendations, and findings. Earlier review evidence is
-stale after these revisions. See
-the [decision registry](../../docs/decisions/registry.md). No acceptance is
-implied.
+Status: Proposed conceptual contract; CK-KICK-012 Batch 10 discussion-approved
+canonical update. DR-0002 Revision 11 and DR-0008 Revision 11 remain Proposed
+with Owner approval Pending and Review Complete. DR-0006 Revision 6, DR-0011
+Revision 8, DR-0012 Revision 7, and DR-0013 Revision 5 remain Proposed with
+Owner approval Pending and Review Pending. The Batch 9 Double review targeted
+commit `6cf17270fda2827756c24a8d0fb301bef358f98f` and is stale for the revised
+records. Review evidence is not acceptance; no implementation or readiness gate
+activates. See the [current review state](../../docs/project/status.md#current-review-and-future-activation-obligations)
+for the mixed review state. See the [decision registry](../../docs/decisions/registry.md).
+No acceptance is implied.
 The CK-KICK-012 Batch 5 review at commit `a282dbabffd83afa4e62577086934d00f98e12c7`
 is stale historical evidence. No acceptance is implied.
 
@@ -26,8 +24,9 @@ the source.
 This is a conceptual contract, not a machine schema. Exact serialized member
 names, diagnostic code spellings, numeric budgets, tolerances, canonical axes
 and units, rotation/scale/shear policy, source-map encoding, canonical bytes,
-and hashing remain deferred. Owner disposition remains pending for the
-materially revised decision records.
+and hashing remain deferred. Canonical serialization and hashing are required
+before identity/build or fixture-manifest activation. Owner disposition remains
+pending for the materially revised decision records.
 
 ## Authority and representations
 
@@ -66,6 +65,58 @@ module-instance anchor and root role. Optional absence is distinct from a
 present-but-unattached root; a present Attachment-required root with no
 incoming active Attachment is invalid. Nested instances require distinct
 Socket instances and retain containment and source provenance.
+
+## Conceptual document shape
+
+The proposed top-level shape is conceptual and has no machine schema yet:
+
+```text
+document = contract, source, basis, profiles, body, extensions
+```
+
+`contract` owns the version-neutral contract family and revision used for
+recognition. `source` identifies authored source/provenance and outcome-
+affecting dependencies. `basis` declares the source coordinate basis.
+`profiles` references semantic numeric-domain profiles; operational resource and
+diagnostic profiles belong to the operation or fixture context, not to source
+semantics. `body` contains typed collections for `modules`, `parts`, `joints`,
+`sockets`, `attachments`, `landmarks`, `dimensions`, `frames`, `regions`,
+`capabilities`, and `fields`. `extensions` is the explicit namespaced
+extension envelope described below.
+
+Each collection contains explicit typed records and stable references. There is
+no generic union or untyped graph escape hatch. Array order is non-semantic;
+semantic ordering and equivalence use stable identities and the contract's
+deterministic ordering rules. Core collections are present even when empty,
+and the recognized core vocabulary is closed. An explicitly permitted empty
+collection is the only initial omission for a core collection.
+
+## Basis, profiles, and frame roles
+
+Every source declares a required basis consisting of length unit, handedness,
+up, and forward. Measurements and transforms name their owner, role, and
+frame/context. Stage 1 frame roles are closed and include local/reference,
+joint, host Socket, and mating Socket where applicable; derived
+world/reference and runtime-pose frames remain distinct downstream roles. A
+source profile initially references only the semantic numeric-domain profile.
+Operational resource and diagnostic profiles are selected by the operation or
+fixture admission context. No per-value unit override is permitted initially.
+
+Readiness 2 validates document shape, typed records, references, and owner/role
+addressing. Readiness 3 freezes the canonical basis, rotation representation,
+scale/shear policy, admissible ranges, conditioning rules, and tolerances. Until
+then, their exact encodings and values remain deferred.
+
+## Omission and deterministic defaults
+
+Identity, containment, module presence, basis, and grammar-required values are
+explicit. Omission is legal only when an exact contract- or profile-owned
+deterministic default applies, that rule has a stable rule identity, and exactly
+one applicable owner exists. A resolved value records `defaulted` provenance and
+the default-rule identity. There is no null-as-missing convention, implicit
+zero, neighbour inference, or hidden equation. Core typed collections are
+always present; any permitted omission is explicitly an empty collection under
+the contract.
 
 ## Initial source encoding
 
@@ -276,5 +327,8 @@ unsupported family/revision, unsupported required and optional extensions,
 dependency failures, resource-limit and diagnostic truncation outcomes,
 internal-failure handling where testable, and deterministic multi-diagnostic
 ordering. The semantic Stage 1 taxonomy is exercised only by admitted,
-recognized inputs. Exact fixture files, codes, and numeric profiles remain
-unactivated until an implementation consumes this contract.
+recognized inputs. The [fixture-manifest and admission contract](../fixture-manifest/README.md)
+owns the immutable reviewed-tree binding, preflight, expected-outcome fields,
+and Readiness 2/3 corpus admission. Exact fixture files, codes, and numeric
+profiles remain unactivated until that admission and the relevant readiness gate
+are complete.

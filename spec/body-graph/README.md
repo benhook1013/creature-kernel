@@ -1,17 +1,15 @@
 # Resolved body-graph contract
 
-Status: Proposed contract; CK-KICK-012 Batch 8/9 discussion-approved canonical
-update. DR-0002 Revision 11, DR-0006 Revision 5, DR-0008 Revision 11, DR-0011
-Revision 7, DR-0012 Revision 6, and DR-0013 Revision 4 remain Proposed with
-Owner approval Pending and Review Complete. The completed Batch 9 Double review
-targeted commit `6cf17270fda2827756c24a8d0fb301bef358f98f`. Review Complete is
-evidence, not a clean review or acceptance; actionable findings await Ben
-discussion, and no implementation or readiness gate activates. See the
-[current review state](../../docs/project/status.md#current-review-and-future-activation-obligations)
-for review lenses, recommendations, and findings. Earlier review evidence is
-stale after these revisions. See
-the [decision registry](../../docs/decisions/registry.md). No acceptance is
-implied.
+Status: Proposed conceptual contract; CK-KICK-012 Batch 10 discussion-approved
+canonical update. DR-0002 Revision 11 and DR-0008 Revision 11 remain Proposed
+with Owner approval Pending and Review Complete. DR-0006 Revision 6, DR-0011
+Revision 8, DR-0012 Revision 7, and DR-0013 Revision 5 remain Proposed with
+Owner approval Pending and Review Pending. The Batch 9 Double review targeted
+commit `6cf17270fda2827756c24a8d0fb301bef358f98f` and is stale for the revised
+records. Review evidence is not acceptance; no implementation or readiness gate
+activates. See the [current review state](../../docs/project/status.md#current-review-and-future-activation-obligations)
+for the mixed review state. See the [decision registry](../../docs/decisions/registry.md).
+No acceptance is implied.
 The CK-KICK-012 Batch 5 review at commit `a282dbabffd83afa4e62577086934d00f98e12c7`
 is stale historical evidence. No acceptance is implied.
 
@@ -24,7 +22,10 @@ model and operation envelope owned by the
 [body-document contract](../body-document/README.md); it does not redefine
 source encoding or bootstrap/status/resource admission.
 
-The contract is conceptual and engine-independent. Exact serialized member
+The contract is conceptual and engine-independent. The authored document shape,
+closed core vocabulary, explicit typed records, and stable references are owned
+by the [body-document contract](../body-document/README.md); this document owns
+their resolved graph meaning. Exact serialized member
 names, diagnostic codes, numeric ranges, tolerances, canonical axes/units,
 rotation/scale/shear policy, source-map encoding, canonical bytes, hashing, and
 runtime representations remain deferred. Owner disposition remains pending
@@ -230,6 +231,18 @@ modules use Attachment; a movable tail also uses a separate Joint. Additional
 anatomy, arbitrary limbs, arbitrary relation kinds, and solver-specific
 structures are outside this first envelope.
 
+## Frames, profiles, and values
+
+The resolved graph consumes the required source basis: length unit,
+handedness, up, and forward. Every measurement and transform retains its
+owner, role, and frame/context. Stage 1 uses a closed role set including
+local/reference, joint, host Socket, and mating Socket as applicable. Source
+profiles initially reference only the semantic numeric-domain profile;
+operational resource and diagnostic profiles remain operation/fixture context.
+There is no per-value unit override initially. Readiness 2 checks shape,
+references, and provenance; Readiness 3 freezes canonical basis, rotations,
+scale/shear, ranges, conditioning, and tolerances.
+
 ## Values, normalization, and provenance
 
 Authored local/reference transforms own reference-frame placement. Typed
@@ -239,7 +252,12 @@ are derived and inspectable, not authored authority. Sources declare units,
 handedness, up, and forward axes; resolution normalizes values into one
 contract-revision canonical basis and records conversion provenance. The
 actual canonical basis, rotation representation, scale/shear policy, ranges,
-and tolerance remain deferred.
+and tolerance remain deferred until Readiness 3. Resolved values that use a
+permitted exact contract/profile default retain `defaulted` provenance and the
+stable default-rule identity. Identity, containment, module presence, basis,
+and grammar-required values are explicit; no null-as-missing, implicit zero,
+neighbour inference, or hidden equation is admitted. Core typed collections
+remain present even when empty under the source contract.
 
 When a claim targets the same owner address, property role, and frame/context,
 the resolver compares values after normalization. Authored claims and explicit
@@ -325,4 +343,7 @@ offset, duplicate, and detached cases; overlapping regions; canonical frame
 records and provenance; authored/defaulted/derived values; frame
 normalization; measurement conflicts; invalid/unsupported outcomes; resource
 limits and diagnostic truncation; and the cross-DR fixture matrix. The fixture
-set is evidence planning, not proof yet.
+set is evidence planning, not proof yet. The [fixture-manifest and admission
+contract](../fixture-manifest/README.md) owns the immutable reviewed tree and
+payload binding, preflight, and staged Readiness 2/3 corpus; it does not change
+graph semantics or activate these fixtures.

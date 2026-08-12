@@ -9,14 +9,14 @@ Status: Operational under Accepted DR-0001 Revision 5
 | [DR-0003](DR-0003-real-time-first-compiled-avatar-boundary.md) | Compiled avatar and bounded real-time execution | Product and architecture | Proposed | 2 | Complete | Ben |
 | [DR-0004](DR-0004-external-automation-through-cli-and-api.md) | Shared deterministic domain operations for external automation | Product and architecture | Proposed | 2 | Complete | Ben |
 | [DR-0005](DR-0005-initial-product-boundary-and-reference-workflow.md) | Initial product boundary and reference workflow | Product and architecture | Proposed | 1 | Complete | Ben |
-| [DR-0006](DR-0006-durable-semantic-and-artifact-identity.md) | Durable semantic and artifact/build identity | Specification and architecture | Proposed | 5 | Complete | Ben |
+| [DR-0006](DR-0006-durable-semantic-and-artifact-identity.md) | Durable semantic and artifact/build identity | Specification and architecture | Proposed | 6 | Pending | Ben |
 | [DR-0007](DR-0007-staged-first-proof-charter.md) | Staged first-proof charter and claim boundaries | Product | Proposed | 2 | Complete | Ben |
 | [DR-0008](DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md) | First digitigrade morphology and Stage 1 embodiment envelope | Product, Specification and architecture | Proposed | 11 | Complete | Ben |
 | [DR-0009](DR-0009-hybrid-surface-generation-experiment-hypothesis.md) | Hybrid surface-generation experiment hypothesis | Architecture | Proposed | 8 | Complete | Ben |
 | [DR-0010](DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md) | Stage 1 surface extraction and semantic-field propagation | Specification and architecture | Proposed | 8 | Pending | Ben |
-| [DR-0011](DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md) | Minimal semantic vocabulary, measurements, and frames | Specification and architecture | Proposed | 7 | Complete | Ben |
-| [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md) | Initial body-document encoding, resolution, and compatibility | Specification and architecture | Proposed | 6 | Complete | Ben |
-| [DR-0013](DR-0013-first-production-implementation-platform-and-geometry-boundary.md) | First production implementation platform and geometry boundary | Specification and architecture | Proposed | 4 | Complete | Ben |
+| [DR-0011](DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md) | Minimal semantic vocabulary, measurements, and frames | Specification and architecture | Proposed | 8 | Pending | Ben |
+| [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md) | Initial body-document encoding, resolution, and compatibility | Specification and architecture | Proposed | 7 | Pending | Ben |
+| [DR-0013](DR-0013-first-production-implementation-platform-and-geometry-boundary.md) | First production implementation platform and geometry boundary | Specification and architecture | Proposed | 5 | Pending | Ben |
 
 DR-0001 Revision 5 is `Accepted` after Ben's approval and its Complete clean
 review; that disposition applies only to this Governance DR. DR-0002 through
@@ -103,22 +103,55 @@ Revision 7, DR-0012 Revision 6, and DR-0013 Revision 4:
 - previous current-revision review artifacts are preserved but stale after
   these material revisions.
 
-These discussion approvals are distinct from later DR acceptance. All six
-revised records remain Proposed with Owner approval Pending and Review status
-Complete; the registry rows above match. The fresh current Double review is
-recorded below as evidence before any owner acceptance. Exact field spellings,
-diagnostic codes, resource values, canonical axes/units/rotation/scale/shear,
-canonical bytes/hashing, dependency-revision semantics, and fixture evidence
-remain later obligations. CK-KICK-012 remains active.
+These discussion approvals are distinct from later DR acceptance. Before Batch
+10, all six revised records were Proposed with Owner approval Pending and
+Review status Complete; the Batch 9 review was evidence only. Batch 10 then
+revised DR-0006 to Revision 6, DR-0011 to Revision 8, DR-0012 to Revision 7,
+and DR-0013 to Revision 5. Those four remain Proposed with Owner approval
+Pending and Review status Pending, and their Batch 9 current-review artifacts
+are stale. DR-0002 Revision 11 and DR-0008 Revision 11 were not revised and
+retain their current Review Complete evidence. The registry rows above match
+this mixed state. Exact field spellings, diagnostic codes, resource values,
+canonical axes/units/rotation/scale/shear, canonical bytes/hashing,
+dependency-revision semantics, and fixture evidence remain later obligations.
+CK-KICK-012 remains active.
 
-## CK-KICK-012/013 Batch 9 current Double review
+Ben's Batch 10 resolutions, approved in discussion on 2026-08-12, are recorded
+in DR-0006 Revision 6, DR-0011 Revision 8, DR-0012 Revision 7, and DR-0013
+Revision 5:
+
+- DR-0006 owns stable deterministic request identity versus unique attempt
+  identity, complete outcome-affecting request inputs, candidate derivation,
+  unchanged promotion, post-collision inspection, nondeterministic-output
+  failure, and the required identity fixtures; exact canonical bytes/hashing
+  remain activation prerequisites.
+- DR-0013 owns the tested WSL `/home` filesystem profile, process-crash-safe
+  publication scope, safe-ASCII path mapping, closed artifact-inspection
+  results, worker/report trust separation, immutable Readiness 2 admission and
+  append-only lifecycle, and the lean Readiness 2/3 fixture corpus.
+- DR-0011 owns source basis/measurement/frame ownership, the closed Stage 1
+  frame roles, semantic numeric-domain profile and Readiness 2/3 split, and
+  `defaulted` provenance consequences.
+- DR-0012 owns the exact conceptual Stage 1 envelope and typed body
+  collections, strict/closed core-member rule, source basis/profile encoding,
+  and deterministic omission/default enforcement; exact Proposed fixture-
+  manifest semantics remain with the canonical fixture-manifest
+  specification.
+
+These Batch 10 discussion approvals are not acceptance. The four revised
+records remain Proposed with Owner approval Pending and Review status Pending;
+fresh current-revision adversarial review is required before owner disposition.
+
+## CK-KICK-012/013 Batch 9 Double review (stale for Batch 10 revisions)
 
 The fresh current Double review examined exact target commit
 `6cf17270fda2827756c24a8d0fb301bef358f98f`. Review 01 used a contract/schema,
 determinism, and security lens; Review 02 used a platform, failure,
 reversibility, and publication lens. Both were independent fresh
-`gpt-5.6-sol` medium passes. The twelve current artifacts are linked from the
-six DR responses and record evidence only. Review 01 recommends DR-0002,
+`gpt-5.6-sol` medium passes. At the time, the twelve artifacts were current
+and are linked from the six DR responses. They remain current Review Complete
+evidence for unchanged DR-0002 and DR-0008, but are stale for the four Batch
+10-revised records. Review 01 recommends DR-0002,
 DR-0008, DR-0011, and DR-0012 **Accept** at High confidence; DR-0006 and
 DR-0013 **Revise** at High confidence. Review 02 recommends DR-0002
 **Accept** at Medium confidence, DR-0008 and DR-0011 **Accept** at High
@@ -134,8 +167,10 @@ applies to DR-0013: worker-output versus coordinator/reporter/publisher trust.
 **C4 — High** applies to DR-0013: immutable external binding and
 supersession/rollback for Readiness 2 admission. **C5 — Medium** applies to
 DR-0013: closed artifact-inspection non-success status algebra. C1–C5 await
-Ben's discussion and owner disposition. Review Complete is evidence, not a
-clean review or acceptance.
+Ben's discussion and owner disposition in the historical Batch 9 state; Batch
+10 records their discussion-approved resolutions. Review Complete is evidence,
+not a clean review or acceptance, and the four revised records require fresh
+current-revision review.
 
 ## CK-KICK-012/013 Batch 8 former Double review (stale after Batch 9)
 

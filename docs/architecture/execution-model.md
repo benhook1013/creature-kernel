@@ -11,14 +11,12 @@ supplementary. This direction is Proposed for formal acceptance under
 [DR-0003](../decisions/DR-0003-real-time-first-compiled-avatar-boundary.md).
 
 CK-KICK-013 is a discussion-approved but unaccepted platform proposal.
-Proposed DR-0013 Revision 4 has Owner approval Pending and Review Complete. The
-completed Batch 9 Double review targeted commit
-`6cf17270fda2827756c24a8d0fb301bef358f`;
-Review Complete is evidence, not a clean review or acceptance; actionable
-findings await Ben discussion, and no implementation or readiness gate
-activates. See the [current review state](../project/status.md#current-review-and-future-activation-obligations)
-for recommendations and findings. Earlier review evidence is stale after this
-revision. Its four
+Proposed DR-0013 Revision 5 has Owner approval Pending and Review Pending after
+Batch 10. The completed Batch 9 Double review targeted commit
+`6cf17270fda2827756c24a8d0fb301bef358f`; its evidence is stale for the revised
+record and is not acceptance. No implementation or readiness gate activates.
+See the [current review state](../project/status.md#current-review-and-future-activation-obligations)
+for recommendations and findings. Its four
 readiness stages are: acceptance activates only the empty Cargo shell; a
 versioned, preflighted fixture manifest, its listed files, the exact schema, and
 parser/bootstrap must be admitted together in one review-branch activation
@@ -58,7 +56,15 @@ Authoritative semantic source set
 
 ## Platform and artifact flow (Proposed)
 
-The initial reproducible execution/workbench target is WSL2 x86_64 GNU. Record
+The initial reproducible execution/workbench target is WSL2 x86_64 GNU. The
+filesystem publication profile is narrower: only tested local Linux under
+`/home` is supported initially; `/mnt/c`, network, removable, and unspecified
+filesystems are excluded. Same-filesystem sibling staging, capability probe,
+atomic no-replace, immutable committed outputs, cooperating builders, and
+post-collision inspection provide process-crash-safe namespace publication, not
+sudden-power-loss durability. The exact safe-ASCII candidate path mapping is an
+activation prerequisite. Malicious or privileged concurrent mutation is outside
+scope, but inspection verifies complete output or rejects it. Record
 exact `rust-toolchain.toml`, committed
 `Cargo.lock`, target/profile, `rustc -Vv`, and reference-environment metadata;
 perform a later native-Linux portability smoke. Native Windows and host-engine
@@ -76,6 +82,18 @@ idempotent success, target conflict, failure-bundle trust, and lineage-checked
 inspection. An independent visual workbench consumes those artifacts rather
 than becoming part of the compiler or a daemon/service. This boundary does not
 settle final avatar-package serialization or compatibility.
+Build requests include all outcome-affecting source/dependency,
+compiler/toolchain, contract/schema/profile, configuration/seed,
+backend-capability/protocol, and target-platform inputs. Attempt identity is
+unique for tracing and staging only; it cannot alter target or idempotent
+equality. Candidate identity derives from deterministic request, artifact role,
+and identity-rule revision. Canonical serialization/hash remains deferred but
+is required before activation. Inspection is a separate read operation with
+closed statuses and shared completeness/diagnostic conventions. Producer/output
+trust is distinct from coordinator/reporter/publisher trust; worker trust loss
+invalidates worker output and validation cannot rehabilitate it. The
+[fixture-manifest specification](../../spec/fixture-manifest/README.md) owns
+immutable reviewed-tree/payload admission and append-only successors.
 Performance claims must be backed by a reproducible benchmark and hardware
 profile. The language/build acceptance trigger remains unsatisfied, so no
 implementation package is activated. Any future worker must negotiate protocol/
@@ -117,6 +135,17 @@ contract family and revision recognition is required; migration is explicit
 and creates a new source. Unknown core members fail. An unsupported required
 extension is unsupported, while an unsupported optional namespaced extension
 is preserved opaquely and has no core semantic effect.
+The conceptual top-level shape is `contract`, `source`, `basis`, `profiles`,
+`body`, and `extensions`; `body` uses explicit typed collections and stable
+references, with core collections present even when empty and no generic union.
+The required basis is length unit, handedness, up, and forward. Stage 1 frame
+roles are closed around local/reference, joint, host Socket, and mating Socket
+as applicable; source profiles initially name only semantic numeric-domain
+profiles. Identity, containment, module presence, basis, and grammar-required
+values are explicit. Omission requires one exact deterministic
+contract/profile-owned default with stable rule identity and `defaulted`
+provenance; null-as-missing, implicit zero, neighbour inference, and hidden
+equations are not allowed.
 
 The resolver runs the following ordered phases inside one operation-result
 envelope:

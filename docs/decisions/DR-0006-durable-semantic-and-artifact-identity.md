@@ -6,13 +6,13 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 5
+Revision: 6
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-08
 
@@ -40,13 +40,16 @@ Revision 2 recorded Ben's CK-KICK-012 Batch 1 identity selection, and Revision
 3 recorded its first review-resolution batch. On 2026-08-11 Ben approved the
 CK-KICK-012 Batch 3 namespace-resolution decision recorded in Revision 4. On
 2026-08-12 Ben approved the Batch 9 candidate-versus-committed artifact
-identity lifecycle at the identity boundary. This discussion approval is not
-DR acceptance: this revision remains Proposed with
+identity lifecycle at the identity boundary, and then approved the Batch 10
+stable request/artifact identity and collision-resolution rules recorded in
+Revision 6. These discussion approvals are not DR acceptance: this revision
+remains Proposed with
 Owner approval Pending until a current-revision review and Ben's owner
 disposition are recorded. All earlier revisions and their reviews remain
 preserved as stale historical evidence; the Revision 4 current-review
 artifacts are stale after this material Revision 5 change, and a fresh current
-review is pending.
+review is pending. The Revision 5 current-review artifacts are also stale
+after this material Revision 6 change.
 
 ## Decision
 
@@ -73,14 +76,47 @@ committed artifact. A staging manifest carries a non-authoritative candidate
 artifact identity; it is not a committed artifact and must not be adopted by
 inspection as one. Successful atomic publication promotes that same candidate
 identity to committed artifact identity; publication does not mint a second
-artifact identity. A build/operation identity exists independently, including
-for failure, while a committed artifact identity exists only for a successfully
-published artifact or bundle. An identical already-published target may be
+artifact identity. Every invocation has a unique `attempt_id`, including when
+failure prevents a complete request from being established. A deterministic
+`build_request_id` exists when the complete outcome-affecting request is
+available and is stable across retries; neither it nor `attempt_id` is a
+committed artifact identity. A committed artifact identity exists only for a
+successfully published artifact or bundle. An identical already-published target may be
 recognized as the same committed identity by the build operation; a different
 or unverifiable target is not adopted. DR-0006 owns this candidate-versus-
 committed identity lifecycle and lineage relationship; DR-0013 owns the
 operation, staging, collision, and publication boundaries, and a canonical
 build-operation specification owns exact field spelling and format.
+
+### Stable request identity and publication comparison
+
+The per-execution `attempt_id` is unique to one invocation and is never part of
+output-location derivation or idempotent lineage equality. A deterministic
+`build_request_id` is stable across retries of the same outcome-affecting
+request. It includes the authoritative source or source-set identity, exact
+dependency revisions or digests, compiler/toolchain/build-implementation
+identity, contract/schema/profile revisions, configuration, seed,
+backend/capability/protocol revision, and every output-affecting target or
+platform-profile input. Omitting an outcome-affecting input is an identity
+error, not an implementation choice.
+
+For each artifact role, the candidate artifact identity is derived from the
+`build_request_id`, that artifact role, and an artifact-identity-rule revision.
+Successful publication promotes that same candidate identity; it does not
+mint a new identity. The exact canonical serialization and hash algorithm are
+deferred, but selecting them is an activation prerequisite for this identity
+boundary, not optional implementation freedom.
+
+After an atomic no-replace publication reports a concurrent collision such as
+`EEXIST`, the operation inspects the winner. A complete manifest with identical
+committed identity, stable build-request lineage, hashes, and sizes is an
+already-published success. A different lineage or identity is an
+`output-failure` target conflict. If the same deterministic request and
+candidate identity produce byte-different output, the result is
+`internal-failure` for nondeterministic output, not semantic equivalence.
+The required evidence fixtures cover a first build, a retry with a new attempt
+and the same request, a concurrent identical winner, a lineage change, and
+same-request byte divergence.
 
 Every outcome-affecting external authored asset, including an artist mesh, is
 an exactly versioned dependency of the authoritative source set. Its
@@ -130,6 +166,15 @@ defined.
 - The exact meaning and admissible form of an external dependency revision is
   a nonblocking later obligation; it must be settled before external authored
   dependencies activate.
+- A retry can use a new `attempt_id` without changing target location or
+  idempotent lineage equality, while every outcome-affecting request input is
+  included in deterministic `build_request_id` construction. Candidate
+  identity is role- and identity-rule-revision-derived, and a successful
+  publication preserves it unchanged.
+- Concurrent collision inspection distinguishes an identical committed winner
+  from a target conflict; same-request byte divergence is a trust failure, not
+  semantic equivalence. Canonical identity bytes/hashing must be selected
+  before activation.
 
 ## Alternatives Considered
 
@@ -174,6 +219,19 @@ not selected: each namespace has one owner, and a collision requires an
 authored deterministic remap covering the imported namespace's full semantic
 contribution.
 
+### Use per-invocation attempt identity for output targeting
+
+This would make retries and concurrent builders appear distinct, but would
+break deterministic target derivation and idempotent publication. A unique
+attempt identifier is retained for execution provenance only; stable request
+lineage owns retry equality and candidate derivation.
+
+### Treat same-request byte divergence as semantic equivalence
+
+This would hide a determinism failure behind a stable semantic request. It is
+rejected: identical request and candidate identity with different bytes loses
+implementation trust and reports `internal-failure`.
+
 ## Adversarial Review Response
 
 [The Revision 2 authority, identity, and compatibility review](reviews/DR-0006-rev-02-review-01.md),
@@ -206,6 +264,13 @@ discussion and owner disposition. Review completion is evidence only; it is not
 a clean review or acceptance. Owner approval remains Pending and Status remains
 Proposed. Only Ben may accept or reject this proposal.
 
+The Batch 10 revision is discussion-approved by Ben on 2026-08-12. The
+Revision 5 review artifacts above are stale historical evidence after the
+material identity revision; they do not satisfy the current-revision review.
+The new current review remains Pending and must examine request/attempt
+separation, complete request-input coverage, candidate derivation, collision
+inspection, and nondeterministic-output handling.
+
 ## Implementation and Proof Obligations
 
 - Define the semantic concepts requiring durable identity in the body and
@@ -219,10 +284,25 @@ Proposed. Only Ben may accept or reject this proposal.
   persistence is promised.
 - Define candidate artifact identity as non-authoritative staging identity and
   committed artifact identity as the same identity after successful atomic
-  publication; keep build/operation identity independent and available for
-  failures. Define identical-target recognition without adopting different or
-  unverifiable occupants. Leave operation/publication mechanics to DR-0013
+  publication; keep per-invocation attempt identity available even when a
+  complete build request cannot be established. Define identical-target
+  recognition without adopting different or unverifiable occupants. Leave
+  operation/publication mechanics to DR-0013
   and exact fields to the canonical build-operation specification.
+- Define unique per-execution `attempt_id` separately from deterministic stable
+  `build_request_id`; include source/source-set identity, exact dependency
+  revisions/digests, compiler/toolchain/build implementation, contract/schema/
+  profile revisions, configuration, seed, backend/capability/protocol revision,
+  and output-affecting target/platform profile in the request identity.
+- Define candidate identity from build request, artifact role, and
+  artifact-identity-rule revision; preserve it through successful publication.
+  Select the exact canonical serialization and hash algorithm before identity
+  activation.
+- Prove post-collision inspection: identical committed identity, lineage,
+  manifest, hashes, and sizes is already-published success; different lineage
+  or identity is target conflict; same request/candidate with byte-divergent
+  output is internal nondeterministic-output failure. Add first-build, retry,
+  concurrent-winner, lineage-change, and byte-divergence fixtures.
 - Prove through regeneration fixtures that semantic references survive topology
   and LOD changes while ephemeral indices remain artifact/build-scoped.
 - Record exact revisions and semantic mappings for every outcome-affecting

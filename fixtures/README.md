@@ -1,9 +1,14 @@
 # Fixtures
 
-Status: Active policy; no body-contract fixtures committed
+Status: Active policy; no body-contract fixtures committed or activated
 
 Fixtures are small, stable inputs used to prove specifications, compiler
 behaviour, geometry invariants, interactions, and regressions.
+
+The canonical Proposed owner of fixture-manifest and admission semantics is the
+[fixture-manifest specification](../spec/fixture-manifest/README.md). This
+policy records repository practice; it does not define a competing manifest or
+activate files.
 
 Each fixture must record:
 
@@ -15,8 +20,8 @@ Each fixture must record:
 - tests or experiments that consume it;
 - whether expected outputs are exact, semantic, metric, or visual.
 
-The CK-KICK-012 Batch 4 proposal adds two planned fixture families without
-activating implementation fixtures. Schema-level body-document fixtures will
+The CK-KICK-012 Batch 10 proposal keeps the corpus conceptual and adds no
+implementation fixtures. Schema-level body-document fixtures will
 exercise strict UTF-8 JSON admission, duplicate-key rejection, unknown core
 members, required and optional extensions, exact contract-family/revision
 recognition, deterministic diagnostics, and finite resource-limit outcomes.
@@ -29,21 +34,32 @@ typed concepts and directed Joint endpoints, socket/Attachment non-articulation,
 the minimum Stage 1 chain, authored/defaulted/derived provenance, frame
 normalization, measurement conflicts, and invalid/unsupported outcomes.
 
-Readiness 2 admission is one review-branch activation transaction. It must
-contain the exact schema, a versioned fixture manifest, every file referenced by
-that manifest, and the parser/bootstrap evidence that will consume them.
-Ben is the admission owner and must explicitly approve the transaction before
-merge or activation. Files may coexist on the review branch while the
-transaction is under review; none is active merely because it exists there.
+Readiness 2 admission is one review-branch activation transaction described by
+the [fixture-manifest specification](../spec/fixture-manifest/README.md). It
+binds the exact reviewed Git commit/tree and path, manifest digest, and
+activation-payload digest excluding the admission record itself. Preflight
+validates internal consistency only; it reruns on the merged immutable target,
+and activation requires unchanged binding plus explicit Ben approval. Successor
+admissions are append-only, and deactivation/rollback requires a new explicit
+Ben-approved record. An unlisted fixture never activates.
 
-The manifest's proposed fields are an immutable revision/manifest ID, schema
-revision and schema hash, each fixture's path, hash, and provenance, expected
-status and primary diagnostic, diagnostic and resource profile IDs, and a
-completeness declaration. A generic parser-independent preflight must validate
-paths, hashes, profile references, expected status/primary diagnostics,
-provenance, and completeness before merge. The production parser must consume
-this admitted record; it must not self-admit the corpus or create a circular
-"first fixture" authority.
+The conceptual manifest fields are manifest ID/revision, schema revision/hash,
+each fixture ID/path/hash/provenance, operation status, semantic outcome where
+applicable, primary diagnostic, processing and diagnostic completeness,
+diagnostic/resource profile IDs, and the admission payload binding. Operation
+status remains separate from semantic taxonomy; every non-success requires a
+primary diagnostic, while success has no primary (absent/null in the future
+exact encoding). The production parser must consume an admitted record; it
+must not self-admit the corpus or create a circular "first fixture" authority.
+
+The lean Readiness 2 corpus is a minimal valid envelope, absent optional
+module, duplicate member, invalid discriminator, unsupported revision, unknown
+core member, unsupported required extension, preserved optional extension, and
+resource-over-budget input. Readiness 3 adds a present attached module, present
+unattached invalid module, cross-role Socket reuse invalidity,
+measurement-conflict invalidity, and valid defaulted provenance. Build-operation
+identity/publication cases (first build, retry, concurrent winner, lineage
+change, and byte divergence) remain conceptual operation fixtures.
 
 Before any fixture is used as proof, a cross-DR matrix must link durable
 identity cases to typed concepts, articulation endpoints, measurement/frame

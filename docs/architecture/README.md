@@ -14,6 +14,7 @@ semantic vocabularies belong in [`spec/`](../../spec/).
 - [Repository structure](repository-structure.md)
 - [Proposed body-document contract](../../spec/body-document/README.md)
 - [Proposed body-graph contract](../../spec/body-graph/README.md)
+- [Proposed fixture-manifest and admission contract](../../spec/fixture-manifest/README.md)
 - [Proposed build-operation contract](../../spec/build-operation/README.md)
 - [Decision records](../decisions/README.md)
 
@@ -50,26 +51,28 @@ and described in the execution model; exact interface schemas, compatibility,
 budgets, and runtime mutation details remain open. The typed semantic
 vocabulary, measurement ownership, and frame-conversion boundary are Proposed
 in [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
-CK-KICK-012 Batch 6/7/8/9 resolutions are discussion-approved and are reflected in
-the canonical specifications as Proposed material. The current six-record set is
-DR-0002 Revision 11, DR-0006 Revision 5, DR-0008 Revision 11, DR-0011
-Revision 7, DR-0012 Revision 6, and DR-0013 Revision 4. All six remain Proposed
-with Owner approval Pending and Review Complete. The completed Batch 9 Double
-review targeted commit `6cf17270fda2827756c24a8d0fb301bef358f98f`; Review
-Complete is evidence, not a clean review or acceptance. Actionable findings
-await Ben discussion, and no implementation or readiness gate activates. See
+CK-KICK-012 Batch 6/7/8/9/10 resolutions are discussion-approved and are
+reflected in the canonical specifications as Proposed material. DR-0002
+Revision 11 and DR-0008 Revision 11 remain Proposed with Owner approval Pending
+and Review Complete. DR-0006 Revision 6, DR-0011 Revision 8, DR-0012 Revision 7,
+and DR-0013 Revision 5 remain Proposed with Owner approval Pending and Review
+Pending. The completed Batch 9 Double review targeted commit
+`6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is stale for the
+revised records and is not acceptance. No implementation or readiness gate
+activates. See
 the [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for the two review lenses, recommendations, and findings. Earlier review
 evidence remains stale. See the
 [decision registry](../decisions/registry.md). The CK-KICK-012 Batch 5 review
 at commit `a282dbabffd83afa4e62577086934d00f98e12c7` is stale historical
 evidence; no clean review or acceptance is implied.
-cross-cutting proposal is [DR-0012: initial body-document encoding, resolution,
+The cross-cutting proposal is [DR-0012: initial body-document encoding, resolution,
 and compatibility](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
-The body-document and body-graph proposals are the canonical specification
-owners; this architecture layer records only their target boundaries and
-consumers, including explicit Part containment, relation-independent graph
-validation, Attachment composition, and canonical local frame handoff. The
+The body-document, body-graph, and fixture-manifest proposals are the canonical
+specification owners; this architecture layer records only their target
+boundaries and consumers, including explicit Part containment,
+relation-independent graph validation, Attachment composition, canonical local
+frame handoff, and immutable fixture admission. The
 [build-operation contract](../../spec/build-operation/README.md) is the
 canonical Proposed owner for the public derived-output, artifact lifecycle,
 publication, collision, and inspection boundary; this layer records only its
@@ -90,11 +93,11 @@ reactivates them. Until then, exploratory prototypes may produce observations
 but may not claim formal DR-0009/0010 support or reject.
 
 The CK-KICK-013 platform proposal is also discussion-approved as Proposed
-material, not an accepted implementation decision. Proposed DR-0013 Revision 4
-has Owner approval Pending and Review Complete. The completed Batch 9 Double
-review targeted commit `6cf17270fda2827756c24a8d0fb301bef358f98f`; its
-actionable findings await Ben discussion. Review Complete is evidence, not a
-clean review or acceptance, and no implementation or readiness gate activates.
+material, not an accepted implementation decision. Proposed DR-0013 Revision 5
+has Owner approval Pending and Review Pending after Batch 10. The completed
+Batch 9 Double review targeted commit `6cf17270fda2827756c24a8d0fb301bef358f98f`;
+its evidence is stale for the revised record and is not acceptance. No
+implementation or readiness gate activates.
 See the [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for recommendations and findings. The
 four readiness stages are: DR-0013
@@ -126,6 +129,16 @@ WSL2 x86_64 GNU environment, with later native-Linux portability
 smoke; record rust-toolchain.toml, Cargo.lock, target/profile/rustc -Vv and
 reference metadata, and perform lightweight license/unsafe/native/portability/
 security dependency review without Git pinning or audit bureaucracy.
+
+Batch 10 adds the initial filesystem profile (tested WSL `/home` only),
+process-crash-safe namespace publication without a sudden-power-loss claim, a
+profile-defined unambiguous safe-ASCII candidate path mapping, and a separate
+inspection read operation with closed non-success statuses. Producer/output
+trust is separate from coordinator/reporter/publisher trust; a trusted parent
+may report only its own observed worker failure and cannot adopt output after
+worker trust loss. The [fixture-manifest contract](../../spec/fixture-manifest/README.md)
+owns immutable reviewed-tree/payload binding, append-only admissions, and
+Readiness 2/3 corpus admission.
 
 ## Current maturity
 
