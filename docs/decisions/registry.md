@@ -9,14 +9,14 @@ Status: Operational under Accepted DR-0001 Revision 5
 | [DR-0003](DR-0003-real-time-first-compiled-avatar-boundary.md) | Compiled avatar and bounded real-time execution | Product and architecture | Proposed | 2 | Complete | Ben |
 | [DR-0004](DR-0004-external-automation-through-cli-and-api.md) | Shared deterministic domain operations for external automation | Product and architecture | Proposed | 2 | Complete | Ben |
 | [DR-0005](DR-0005-initial-product-boundary-and-reference-workflow.md) | Initial product boundary and reference workflow | Product and architecture | Proposed | 1 | Complete | Ben |
-| [DR-0006](DR-0006-durable-semantic-and-artifact-identity.md) | Durable semantic and artifact/build identity | Specification and architecture | Proposed | 6 | Pending | Ben |
+| [DR-0006](DR-0006-durable-semantic-and-artifact-identity.md) | Durable semantic and artifact/build identity | Specification and architecture | Proposed | 6 | Complete | Ben |
 | [DR-0007](DR-0007-staged-first-proof-charter.md) | Staged first-proof charter and claim boundaries | Product | Proposed | 2 | Complete | Ben |
 | [DR-0008](DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md) | First digitigrade morphology and Stage 1 embodiment envelope | Product, Specification and architecture | Proposed | 11 | Complete | Ben |
 | [DR-0009](DR-0009-hybrid-surface-generation-experiment-hypothesis.md) | Hybrid surface-generation experiment hypothesis | Architecture | Proposed | 8 | Complete | Ben |
 | [DR-0010](DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md) | Stage 1 surface extraction and semantic-field propagation | Specification and architecture | Proposed | 8 | Pending | Ben |
-| [DR-0011](DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md) | Minimal semantic vocabulary, measurements, and frames | Specification and architecture | Proposed | 8 | Pending | Ben |
-| [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md) | Initial body-document encoding, resolution, and compatibility | Specification and architecture | Proposed | 7 | Pending | Ben |
-| [DR-0013](DR-0013-first-production-implementation-platform-and-geometry-boundary.md) | First production implementation platform and geometry boundary | Specification and architecture | Proposed | 5 | Pending | Ben |
+| [DR-0011](DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md) | Minimal semantic vocabulary, measurements, and frames | Specification and architecture | Proposed | 8 | Complete | Ben |
+| [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md) | Initial body-document encoding, resolution, and compatibility | Specification and architecture | Proposed | 7 | Complete | Ben |
+| [DR-0013](DR-0013-first-production-implementation-platform-and-geometry-boundary.md) | First production implementation platform and geometry boundary | Specification and architecture | Proposed | 5 | Complete | Ben |
 
 DR-0001 Revision 5 is `Accepted` after Ben's approval and its Complete clean
 review; that disposition applies only to this Governance DR. DR-0002 through
@@ -139,8 +139,61 @@ Revision 5:
   specification.
 
 These Batch 10 discussion approvals are not acceptance. The four revised
-records remain Proposed with Owner approval Pending and Review status Pending;
-fresh current-revision adversarial review is required before owner disposition.
+records remain Proposed with Owner approval Pending. Their fresh current
+Batch 10 Double review is now Complete as evidence, not a clean review or
+acceptance; C1–C5 below await Ben's discussion and owner disposition.
+
+## CK-KICK-012/013 Batch 10 Double review
+
+The fresh current Double review examined exact target commit
+`f27008f319cfc460f4a27efe31594e5607e7721e`. Review 01 used the
+contract/schema, determinism, identity, security, and fixture-admission lens;
+Review 02 used the platform/filesystem, publication, reversibility,
+numeric-frame, and runtime-portability lens. Both were independent fresh
+`gpt-5.6-sol` medium passes. The eight artifacts are linked from the four DR
+responses above. Review Complete records evidence only: all four DRs remain
+Proposed with Owner approval Pending, and the findings below are not auto-fixed
+or acceptance.
+
+Recommendations (Review 01 / Review 02) are: DR-0006 — Revise High / Revise
+High; DR-0011 — Revise High / Revise Medium; DR-0012 — Revise High / Revise
+High; and DR-0013 — Revise High / Revise High.
+
+The consolidated actionable findings are:
+
+1. **C1 — High — DR-0006/DR-0013:** retry equality and committed-byte
+   comparison are incoherent because attempt-local trace data can enter the
+   committed manifest while same-request/candidate byte divergence is
+   `internal-failure`. Decide a canonical committed comparison projection or
+   keep attempt data outside committed/hashed bytes; cover success and
+   diagnostics-only bundles with retry/divergence fixtures.
+2. **C2 — High — DR-0013, with DR-0006 build-proof consequence:** fixture/
+   admission binding and coverage are not executable. Separate the payload
+   manifest from the external append-only admission record; remove
+   manifest/self and Git-tree cycles; define reviewed-commit versus merged
+   scoped-tree equality and active/superseded/deactivated selection. Provide
+   an admitted owner/route for mandatory build-operation identity/publication
+   fixtures, which the current fixture-manifest family excludes.
+3. **C3 — High — DR-0011/DR-0012:** the closed frame-role vocabulary cannot
+   uniquely type required canonical records. Distinguish Joint proximal/
+   distal and intrinsic Socket interface record roles; keep Attachment host/
+   mating as contextual endpoint roles; align source/graph/fixtures.
+4. **C4 — High — DR-0011/DR-0012/DR-0013:** the Readiness 2/3 transition is
+   not realizable. Strict R2 schema needs a transform carrier before R3
+   numeric semantics, while R3 expected graph outputs lack immutable snapshot
+   path/hash/comparison and successor-admission rules. Decide the R2 carrier
+   versus an R3 schema/manifest successor and bind expected snapshots without
+   selecting geometry/IK/runtime.
+5. **C5 — Medium — DR-0013:** worker trust transitions do not deterministically
+   select status for protocol corruption versus well-framed but contract-
+   invalid/malformed output. Define a pre-worker-activation observable
+   trust/status table. This may be deferred as an explicit activation
+   prerequisite, but remains actionable.
+
+One nonblocking proof follow-up is preserved rather than promoted to a sixth
+finding: before filesystem publication activates, reproduce the exact WSL
+`/home` filesystem/mount/kernel/WSL/no-replace primitive/capability probe and
+crash-injection evidence, plus safe orphaned-staging reclamation.
 
 ## CK-KICK-012/013 Batch 9 Double review (stale for Batch 10 revisions)
 

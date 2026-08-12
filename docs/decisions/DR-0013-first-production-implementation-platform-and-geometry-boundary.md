@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-11
 
@@ -571,10 +571,23 @@ proposal.
 
 Ben approved the Batch 10 resolutions in discussion on 2026-08-12. The
 Revision 4 review artifacts and C1–C5 findings above are stale historical
-evidence after this material Revision 5 change and do not satisfy the current-
-revision review. The new review remains Pending and must examine identity and
-collision comparison, filesystem and inspection boundaries, worker/report
-trust, immutable fixture admission, and the closed inspection statuses.
+evidence after this material Revision 5 change. The fresh current Batch 10
+Double review examined commit `f27008f319cfc460f4a27efe31594e5607e7721e`:
+[review 01](reviews/DR-0013-rev-05-review-01.md) recommended **Revise** at
+**High** confidence under the contract/schema, determinism, identity,
+security, and fixture-admission lens; [review 02](reviews/DR-0013-rev-05-review-02.md)
+recommended **Revise** at **High** confidence under the platform/filesystem,
+publication, reversibility, numeric-frame, and runtime-portability lens.
+Consolidated findings **C1 (High), C2 (High), C4 (High), and C5 (Medium)**
+apply to DR-0013: retry/committed-byte comparison, executable fixture/admission
+binding, the Readiness 2/3 transition, and deterministic worker trust/status
+mapping require Ben's discussion and owner disposition. **C3 (High)** is owned
+by linked DR-0011/DR-0012 and remains cross-cutting context, not a DR-0013
+resolution. The WSL filesystem and staging proof is a nonblocking follow-up,
+not a sixth finding. Review status is Complete as evidence, not a clean review
+or acceptance. C1, C2, C4, and C5 await Ben's discussion and owner disposition.
+Owner approval remains Pending and Status remains Proposed. Only Ben may accept
+or reject this proposal.
 
 ## Implementation and Proof Obligations
 

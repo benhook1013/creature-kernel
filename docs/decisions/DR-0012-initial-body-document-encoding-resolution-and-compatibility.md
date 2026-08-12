@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-11
 
@@ -659,9 +659,19 @@ Only Ben may accept or reject this proposal.
 
 The Batch 10 revision is discussion-approved by Ben on 2026-08-12. The
 Revision 6 review artifacts above are stale historical evidence after this
-material revision and do not satisfy the current-revision review. The new
-review remains Pending and must examine the exact conceptual envelope,
-typed-collection closure, basis/profile boundary, and omission/default rules.
+material revision. The fresh current Batch 10 Double review examined commit
+`f27008f319cfc460f4a27efe31594e5607e7721e`: [review 01](reviews/DR-0012-rev-07-review-01.md)
+recommended **Revise** at **High** confidence under the contract/schema,
+determinism, identity, security, and fixture-admission lens; [review 02](reviews/DR-0012-rev-07-review-02.md)
+recommended **Revise** at **High** confidence under the platform/filesystem,
+publication, reversibility, numeric-frame, and runtime-portability lens.
+Consolidated findings **C3 (High)** and **C4 (High)** remain actionable: frame
+roles must uniquely type Joint and Socket records, and the strict Readiness 2/3
+transition needs a transform carrier or explicit successor plus immutable
+expected-snapshot comparison and append-only admission rules. Review status is
+Complete as evidence, not a clean review or acceptance. C3 and C4 await Ben's
+discussion and owner disposition. Owner approval remains Pending and Status
+remains Proposed. Only Ben may accept or reject this proposal.
 
 ## Implementation and Proof Obligations
 

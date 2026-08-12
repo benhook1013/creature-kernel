@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-08
 
@@ -266,10 +266,21 @@ Proposed. Only Ben may accept or reject this proposal.
 
 The Batch 10 revision is discussion-approved by Ben on 2026-08-12. The
 Revision 5 review artifacts above are stale historical evidence after the
-material identity revision; they do not satisfy the current-revision review.
-The new current review remains Pending and must examine request/attempt
-separation, complete request-input coverage, candidate derivation, collision
-inspection, and nondeterministic-output handling.
+material identity revision. The fresh current Batch 10 Double review examined
+commit `f27008f319cfc460f4a27efe31594e5607e7721e`: [review 01](reviews/DR-0006-rev-06-review-01.md)
+recommended **Revise** at **High** confidence under the contract/schema,
+determinism, identity, security, and fixture-admission lens; [review 02](reviews/DR-0006-rev-06-review-02.md)
+recommended **Revise** at **High** confidence under the platform/filesystem,
+publication, reversibility, numeric-frame, and runtime-portability lens.
+Consolidated finding **C1 (High)** remains actionable: retry equality and
+committed-byte comparison must exclude or canonically project attempt-local
+trace data; C2 also has a DR-0006 build-proof consequence because mandatory
+build-operation identity/publication fixtures need an admitted owner and route.
+The filesystem proof follow-up is recorded as nonblocking evidence work. Review
+status is Complete as evidence, not a clean review or acceptance. C1 and its
+build-proof consequence await Ben's discussion and owner disposition. Owner
+approval remains Pending and Status remains Proposed. Only Ben may accept or
+reject this proposal.
 
 ## Implementation and Proof Obligations
 
