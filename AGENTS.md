@@ -123,6 +123,15 @@ When documents conflict, stop and resolve the conflict in the canonical owner.
 - Subagent selection, delegation boundaries, model routing, and independent
   review use
   `docs/developer-workflows/ai-delegation-and-review.md`.
+- Any AI thread may append a genuinely reusable operational observation to
+  `docs/project/ai-observations.md` after recurring tool misuse, unavailable or
+  broken routes, misleading harness or environment behavior, or other token- or
+  round-saving friction is evidenced, subject to normal write-scope rules. Do
+  not read it as guidance for ordinary work; nobody rewrites or deletes
+  existing entries during ordinary work. Consume or act on the inbox only in a
+  purposeful human-requested AI tooling or instruction improvement round with
+  Ben, using it as feedstock to improve tools or instructions and then
+  deliberately removing or retaining entries.
 - A decision-record review may use
   `docs/decisions/reviews/fresh-reread-preamble.md` to force a current-disk,
   issue-only convergence pass.
