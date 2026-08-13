@@ -15,10 +15,11 @@ and [DR-0011](../docs/decisions/DR-0011-minimal-semantic-vocabulary-measurements
 Their prior revisions and reviews remain preserved as historical evidence.
 DR-0002 Revision 11 and DR-0008 Revision 11 remain Proposed with Owner approval
 Pending and Review Complete. Current material is recorded in DR-0006 Revision
-12, DR-0011 Revision 15, DR-0012 Revision 14, and DR-0013 Revision 12; each
-remains Proposed with Owner approval Pending and Review Complete after the
-current Double review at exact target
-`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. Accepted DR-0001 Revision 5 remains the operative governance
+12, DR-0011 Revision 15, and DR-0012 Revision 14; these remain Proposed with
+Owner approval Pending and Review Complete after the current Double review at
+exact target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. DR-0013 Revision 12 is
+Accepted, with Owner approval Approved by Ben and Review Complete at that exact target,
+decided 2026-08-13. Accepted DR-0001 Revision 5 remains the operative governance
 baseline while DR-0001 Revision 6 is Proposed transition guidance with Ben's
 workflow direction approved and current review complete; formal acceptance
 remains pending Ben's disposition. The reviews of the earlier predecessor
@@ -30,9 +31,11 @@ block the empty first Rust slice. The immediate-predecessor review at exact
 commit `9b96d18b115126ef09e54ad8c6f21749d5559ff6` is stale; its findings were
 corrected in the current revisions. The 9c governance pass corrected two
 mechanical history-label issues and its technical pass found no findings /
-Ready for PR at High confidence. Review Complete is evidence only. No acceptance,
-schema, fixture, parser, resolver, binding, adapter, Cargo package, readiness
-gate, experiment, or implementation activates. See the [current review
+Ready for PR at High confidence. Review Complete is evidence only. Readiness 1
+is active in the repository and contains only the Cargo workspace, empty
+`creature-kernel-core` library shell, and thin `creature-kernel` CLI shell. No
+schema, fixture, parser/bootstrap, resolver, binding, adapter, experiment, or
+later readiness stage is activated. See the [current review
 state](../docs/project/status.md#current-review-and-future-activation-obligations)
 for the current findings.
 The cross-cutting proposal is

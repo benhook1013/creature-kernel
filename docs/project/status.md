@@ -54,16 +54,16 @@ The foundation scaffold and governance process are integrated. Accepted DR-0001
 Revision 5 remains the operative governance baseline while DR-0001 Revision 6
 is Proposed transition guidance: Ben approved its workflow direction, but
 its current review is Complete and formal acceptance remains pending Ben's
-disposition. DR-0002 through
-DR-0013 remain Proposed with their review and owner-disposition history
-preserved. Ben's CK-KICK-012 Batch 5, Batch 6, F1–F7, Batch 8, Batch 9, Batch
-10, Batch 11, Batch 12, and Batch 13 resolutions are discussion-approved and
-integrated as Proposed canonical product/specification/architecture/project
-material. The current six-record set is DR-0002 Revision 11, DR-0006 Revision
-12, DR-0008 Revision 11, DR-0011 Revision 15, DR-0012 Revision 14, and DR-0013
-Revision 12. DR-0002 and DR-0008 remain Proposed with Owner approval Pending
-and Review Complete. DR-0006, DR-0011, DR-0012, and DR-0013 remain Proposed
-with Owner approval Pending and Review Complete after the current Double review
+disposition. DR-0002 through DR-0012 remain Proposed with their review and
+owner-disposition history preserved; DR-0013 Revision 12 is Accepted with
+Owner approval Approved by Ben and Date decided 2026-08-13. Ben's CK-KICK-012 Batch 5, Batch 6, F1–F7, Batch 8, Batch 9, Batch
+10, Batch 11, Batch 12, and Batch 13 product/specification/architecture/project
+material remains Proposed where owned by the other records; DR-0013's accepted
+platform boundary is recorded below. The current six-record set is DR-0002
+Revision 11, DR-0006 Revision 12, DR-0008 Revision 11, DR-0011 Revision 15,
+DR-0012 Revision 14, and DR-0013 Revision 12. DR-0002 and DR-0008 remain Proposed with Owner approval Pending
+and Review Complete. DR-0006, DR-0011, and DR-0012 remain Proposed with Owner
+approval Pending and Review Complete after the current Double review
 at exact target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. The original Batch 13 review at exact commit
 `8c38c501eb1262a1b85af0b8605220625601772f` produced D1–D3/P1–P3, which were
 dispositioned in DR-0006/0011/0012/0013 Revisions 10/13/12/10. The earlier-
@@ -76,14 +76,16 @@ immediate-predecessor review at exact commit
 `9b96d18b115126ef09e54ad8c6f21749d5559ff6` is stale; its findings were
 corrected in these revisions. The 9c governance pass corrected two mechanical
 history-label issues and its technical pass found no findings / Ready for PR at
-High confidence. Review Complete is evidence only. No acceptance, schema,
-fixture, parser/resolver, adapter, Cargo package, readiness, experiment, or
-implementation activates. The current review state and next action are
-recorded below.
+High confidence. The review artifacts remain preserved evidence. DR-0013 is
+accepted and Readiness 1 is triggered/active for only the empty Cargo workspace,
+compiler/core library shell, and thin CLI shell. No schema, fixture,
+parser/resolver, adapter, later readiness gate, experiment, or geometry
+implementation activates. The current review state and activation obligations
+are recorded below.
 
-CK-KICK-013 is active with its discussion-approved Rust-first platform
-proposal integrated as Proposed material, not accepted or implemented.
-Proposed DR-0013 Revision 12 has Owner approval Pending and Review Complete after
+CK-KICK-013 is active with its accepted Rust-first platform boundary and
+Readiness 1 shell trigger. DR-0013 Revision 12 has Owner approval Approved by Ben,
+Date decided 2026-08-13, and Review Complete after
 the current Double review at exact target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. The original 8c38c501 Batch 13
 review produced D/P findings later dispositioned in Revision 10. The earlier
 predecessor 763cff22 review produced G1/G2 and T1–T4; G1/G2 were fixed
@@ -92,9 +94,11 @@ requiring Ben's retained-human disposition before adapter profile/schema
 activation; it does not block the empty first Rust slice.
 The immediate-predecessor 9b96d18 review is stale; its findings were corrected
 in the current revisions. The 9c technical pass found no findings / Ready for
-PR at High confidence. Review Complete is evidence only. This
-is not acceptance, and no schema, fixture, parser/resolver,
-adapter, Cargo package, readiness, experiment, or implementation activates.
+PR at High confidence. Review Complete remains preserved evidence; it does not
+replace Ben's acceptance. Readiness 1 is triggered/active for only the empty
+Cargo workspace, compiler/core library shell, and thin CLI shell. No schema,
+fixture, parser/resolver, adapter, later readiness gate, experiment, or
+geometry implementation activates.
 The review at exact target commit
 `9b96d18b115126ef09e54ad8c6f21749d5559ff6` found stale historical/current
 labels, an omitted retained-human checkpoint for T4, an incomplete comparator
@@ -103,11 +107,13 @@ word. These findings were corrected in current successor revisions
 12/15/14/12; that review is stale for the successors. T4 remains
 unselected and requires Ben's retained-human disposition before adapter
 profile/schema activation; it does not block the empty first Rust slice.
-The proposed activation order is numeric/frame semantics, semantic addresses,
+The later activation order is numeric/frame semantics, semantic addresses,
 canonical data/digests, diagnostics, exact schema/manifest, Readiness 2, and a
-distinct Readiness 3 successor transaction. No gate activates while the DRs
-remain Proposed. Readiness 1 would be acceptance-only: accepted DR-0013 activates
-only the empty Cargo shell; a versioned, preflighted fixture manifest, its listed
+distinct Readiness 3 successor transaction. Those later gates remain inactive
+until their Proposed contracts and explicit prerequisites are admitted.
+Readiness 1 is now active: accepted DR-0013 activates only the
+empty Cargo workspace, compiler/core library shell, and thin CLI shell; a
+versioned, preflighted fixture manifest, its listed
 files, exact JSON Schema, and parser/bootstrap activate together in one
 review-branch transaction; the distinct Readiness 3 transaction then activates
 canonical numeric/frame rules plus frozen expected graph outputs and semantic
@@ -205,10 +211,13 @@ exact target `9b96d18b115126ef09e54ad8c6f21749d5559ff6`; its findings were
 corrected in the current revisions. The current review examined exact target
 `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`: its governance pass corrected two
 mechanical history-label issues and its technical pass found no findings /
-Ready for PR at High confidence. Review Complete is evidence only; all four
-records remain Proposed with Owner approval Pending. No acceptance, schema,
-fixture, parser/resolver, adapter,
-Cargo package, readiness, experiment, or implementation activates.
+Ready for PR at High confidence. The review artifacts remain preserved evidence;
+DR-0002, DR-0006, DR-0008, DR-0011, and DR-0012 remain Proposed with Owner
+approval Pending. DR-0013 Revision 12 is Accepted with Owner approval Approved by Ben.
+Readiness 1 is triggered/active for only the empty Cargo workspace,
+compiler/core library shell, and thin CLI shell. No schema, fixture,
+parser/resolver, adapter, later readiness gate, experiment, or geometry
+implementation activates.
 
 The prior Double-review findings and ten artifacts are preserved in the
 [decision registry](../decisions/registry.md) as stale historical evidence.
@@ -250,29 +259,31 @@ and the conceptual body-document shape, typed collections, basis/frame/profile,
 and omission/default rules. Batch 11 adds the typed semantic-address,
 numeric/frame, canonical-data, and diagnostic profiles; Batch 12/13 improves
 the numeric evidence protocol and makes DR-0006 Revision 12, DR-0011 Revision
-15, DR-0012 Revision 14, and DR-0013 Revision 12 current. These records remain
-Proposed with Owner approval Pending and Review Complete after the current
+15, DR-0012 Revision 14, and DR-0013 Revision 12 current. DR-0006, DR-0011,
+and DR-0012 remain Proposed with Owner approval Pending and Review Complete after the current
 Double review at exact target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. Prior Batch 13 review evidence is stale for
 these revisions; G1/G2 were fixed mechanically, T1–T3 were resolved, and T4
 remains unselected and deferred, requiring Ben's retained-human disposition
 before adapter profile/schema activation; it does not block the empty first Rust
-slice. All records remain Proposed, and no
-schema, fixture, parser/resolver, adapter, Cargo package, readiness,
-experiment, or implementation activates.
+slice. DR-0013 Readiness 1 is triggered/active for only the empty Cargo
+workspace, compiler/core library shell, and thin CLI shell. No schema, fixture,
+parser/resolver, adapter, later readiness gate, experiment, or geometry
+implementation activates.
 DR-0002 Revision 11 and DR-0008 Revision 11 are unchanged and remain Review
 Complete. Owner approval remains Pending.
 
-The immediate next action is fresh review of the current resolution revisions.
+The immediate next action is the Readiness 1 shell implementation and its
+toolchain/setup bookkeeping; later readiness transactions remain gated.
 The main thread will autonomously resolve technical correctness findings or
 record evidence-dependent triggers under the DR-0001 Revision 6 transition
 direction; only a retained-human product, architecture-boundary, material
 trade-off, or external-impact finding returns to Ben. No proposal is silently
-accepted.
-No implementation/readiness gate activates while the records remain Proposed.
+accepted. No later implementation/readiness gate activates while its owning
+records remain Proposed.
 Earlier Batch 8/9 and other
 review artifacts remain preserved as stale historical evidence.
-Do not activate packages, schemas, fixtures, parser/resolver, or geometry work
-while disposition remains pending.
+Do not activate schemas, fixtures, parser/resolver, adapters, or geometry work
+while their separate disposition and readiness prerequisites remain pending.
 
 Two nonblocking obligations apply to later activation: before an isolated
 worker activates, define containment, process-tree, output/log/handle/network/
@@ -311,7 +322,8 @@ and [Proposed build-operation contract](../../spec/build-operation/README.md)
 are now active canonical specification areas. No implementation package, machine schema,
 numeric limit, exact fixture, or geometry backend is selected; the Batch 11
 canonical basis and machine profiles remain Proposed and activation-gated;
-the Rust/Cargo platform remains a Proposed CK-KICK-013 direction only.
+the accepted Rust/Cargo platform remains limited to the active Readiness 1
+empty workspace/compiler/core-library/thin-CLI shell boundary.
 The meaning and enforcement details of an exact dependency revision remain a
 nonblocking obligation before external authored dependencies activate.
 
@@ -354,13 +366,14 @@ nonblocking obligation before external authored dependencies activate.
   surface decision is optional and risk-driven, not automatic.
 - CK-KICK-012 is active with Batches 1, 4, 5, 6, F1–F3, Batch 8, Batch 9, Batch
   10, Batch 11, Batch 12, and Batch 13 integrated as Proposed documentation; its parser/resolver and
-  fixture-admission proposals establish the four Proposed specification families, while implementation packages and compiler-
-  consumed fixtures remain unactivated. The current six-record set is DR-0002
+  fixture-admission proposals establish the four Proposed specification families, while production parser/resolver behavior and compiler-
+  consumed fixtures remain unactivated. The separate Readiness 1 Cargo shell is
+  active. The current six-record set is DR-0002
   Revision 11, DR-0006 Revision 12, DR-0008 Revision 11, DR-0011 Revision 15,
   DR-0012 Revision 14, and DR-0013 Revision 12. DR-0002/0008 remain Proposed
-  with Owner approval Pending and Review Complete; DR-0006 and the three
-  materially revised records remain Proposed with Owner approval Pending and
-  Review Complete after the current Double review at exact target
+  with Owner approval Pending and Review Complete; DR-0006, DR-0011, and
+  DR-0012 remain Proposed with Owner approval Pending and Review Complete after
+  the current Double review at exact target
   `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. Prior Batch
   13 review evidence is stale historical evidence; G1/G2 were fixed
   mechanically, T1–T3 were resolved, and T4 remains unselected and deferred,
@@ -372,15 +385,15 @@ nonblocking obligation before external authored dependencies activate.
   See [Current review and future activation obligations](#current-review-and-future-activation-obligations).
   It does not
   depend on CK-KICK-011.
-- CK-KICK-013 is active with its Rust-first/Cargo platform proposal integrated
-  as Proposed but not accepted or implemented. DR-0013 Revision 12 has Owner
-  approval Pending and Review Complete after the current Double review at exact
+- CK-KICK-013 is active with its accepted Rust-first/Cargo platform boundary
+  and Readiness 1 shell trigger. DR-0013 Revision 12 has Owner approval
+  Approved by Ben and Review Complete after the current Double review at exact
   target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`; prior Batch 13 review evidence is stale historical evidence, G1/G2 were
   fixed mechanically, T1–T3 were resolved, and T4 remains unselected and
   deferred, requiring Ben's retained-human disposition before adapter
-  profile/schema activation; it does not block the empty first Rust slice. The immediate-predecessor 9b96d18 review is stale; its findings were corrected. Its four readiness stages gate
+  profile/schema activation; it does not block the empty first Rust slice. Readiness 1 is triggered/active for only the empty Cargo workspace, compiler/core library shell, and thin CLI shell; the immediate-predecessor 9b96d18 review is stale; its findings were corrected. Its later readiness stages gate
   shell, parser/bootstrap+fixtures, semantic resolver/in-memory snapshot, and exploratory geometry respectively. The disposable Python
-  discovery host remains distinct from the proposed production platform.
+  discovery host remains distinct from the accepted production platform.
 
 ## Active work
 
@@ -396,10 +409,11 @@ nonblocking obligation before external authored dependencies activate.
   readiness stages' prerequisites are met. The active Proposed body-document,
   body-graph, and build-operation documents do not activate implementation
   packages.
-- Keep CK-KICK-013's Rust-first platform direction Proposed and unimplemented;
-  obtain owner disposition before DR-0013 acceptance. Acceptance alone would
-  activate only the empty Cargo shell; schema/manifest, numeric/frame/output,
-  and resolver/seam prerequisites gate later stages. Any performance claim must
+- Keep CK-KICK-013's implemented Readiness 1 boundary limited to the empty
+  Cargo workspace, compiler/core library shell, and thin CLI shell. Prepare the
+  exact schema/manifest/fixture/parser Readiness 2 transaction, but do not
+  activate or merge it without its explicit admission. Numeric/frame/output,
+  resolver, adapter, and geometry prerequisites gate later stages. Any performance claim must
   have reproducible benchmark and hardware-profile evidence.
 - Preserve the accepted governance process and all historical decision/review
   evidence without reopening the parked confirmatory protocol.
@@ -442,9 +456,9 @@ metadata. Current non-governance proposals include:
   review at exact target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`; prior
   Batch 13 review evidence is stale historical evidence.
 - DR-0013, Rust-first production semantic/compiler platform — Revision 12,
-  Proposed, Owner approval Pending, Review Complete after the current Double
-  review at exact target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`; proposal
-  integrated but not accepted or implemented.
+  Accepted, Owner approval Approved by Ben, Date decided 2026-08-13, Review Complete
+  after the current Double review at exact target
+  `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`; Readiness 1 is triggered/active.
 - [DR-0009](../decisions/DR-0009-hybrid-surface-generation-experiment-hypothesis.md)
   and [DR-0010](../decisions/DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md)
   are parked as described in [Current activation state](#current-activation-state).
@@ -456,9 +470,9 @@ metadata. Current non-governance proposals include:
 | Documentation authority | partial | unverified | Operational structure under Accepted DR-0001 Revision 5 |
 | Decision-record and review workflow | partial | unverified | Governance accepted; technical/product proposals remain provisional |
 | Research/experiment workflow | partial | unverified | Lightweight template exists; no experiment registered |
-| Body specification | partial | unverified | Proposed body-document, body-graph, build-operation, fixture-manifest, and Batch 11/12/13 focused profiles include discussion-approved updates; DR-0002/0008 remain Revision 11 Review Complete, while DR-0006 Revision 12, DR-0011 Revision 15, DR-0012 Revision 14, and DR-0013 Revision 12 are Proposed with Owner approval Pending and Review Complete at 9c evidence; no format or implementation is accepted |
+| Body specification | partial | unverified | Proposed body-document, body-graph, build-operation, fixture-manifest, and Batch 11/12/13 focused profiles include discussion-approved updates; DR-0002/0008 remain Revision 11 Review Complete, DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14 remain Proposed with Owner approval Pending, while DR-0013 Revision 12 is Accepted; no body format or later implementation is activated |
 | Build-operation contract | partial | unverified | Proposed canonical public build/output owner exists; serialization, implementation, and artifact store remain unactivated |
-| Production implementation platform | not-implemented | not-applicable | CK-KICK-013/DR-0013 Revision 12 is Proposed with Owner approval Pending and Review Complete at 9c evidence; numeric/frame, address, canonical-data, diagnostics, schema/manifest, Readiness 2, distinct Readiness 3, adapter, and exploratory geometry remain gated; no packages activated |
+| Production implementation platform | partial | proven | CK-KICK-013/DR-0013 Revision 12 is Accepted with Owner approval Approved by Ben; the Readiness 1 Cargo workspace, compiler/core library shell, and thin CLI shell pass pinned-toolchain format, build/test, and lint checks; numeric/frame, address, canonical-data, diagnostics, schema/manifest, Readiness 2, distinct Readiness 3, adapter, and exploratory geometry remain gated |
 | Creature compiler | partial | unverified | Disposable CK-KICK-010 walking skeleton implemented; this is not a production compiler |
 | CK-KICK-010 walking skeleton | implemented | audited | Valid/invalid local evidence and the selected Single independent review are complete; five substantive findings plus whitespace were dispositioned in RESULTS, not clean; this is not a production compiler |
 | Local visual-review gallery | implemented | audited | Focused tests and local HTTP/browser smoke passed; subject_context is presentation-only; no visual-evidence or Stage 1 claim |
@@ -466,23 +480,22 @@ metadata. Current non-governance proposals include:
 
 ## Immediate next actions
 
-- Record the completed 9c current review and its mechanical history-label
-  dispositions. The main thread may autonomously disposition technical findings;
+- Implement the active Readiness 1 shell and record its toolchain/setup
+  bookkeeping. The completed 9c current review and its mechanical history-label
+  dispositions remain preserved. The main thread may autonomously disposition technical findings;
   only
   retained-human product, architecture-boundary, material-trade-off, or
-  external-impact findings return to Ben. Retain Proposed status and do not
-  activate packages, schemas, fixtures, parser/resolver, or geometry work
-  meanwhile.
-- Keep the DR-0013 acceptance trigger unsatisfied while it remains Proposed;
-  if accepted, activate only the Cargo/compiler shell. Do not activate Stage 1
-  parser/resolver implementation until exact schema and admitted fixtures/
-  contracts are available, and do not create packages while it is Proposed.
+  external-impact findings return to Ben. Keep later packages, schemas,
+  fixtures, parser/resolver, adapters, and geometry work gated meanwhile.
+- Keep Readiness 1 limited to the empty Cargo workspace, compiler/core library
+  shell, and thin CLI shell. Do not activate parser/resolver implementation
+  until exact schema and admitted fixtures/contracts are available.
 - Leave DR-0009/0010 parked unless the activation trigger occurs or Ben
   explicitly reactivates them.
 
 ## Explicitly not started
 
-- Implementation packages.
+- Later implementation packages beyond the active Readiness 1 shell.
 - Large asset or dataset storage.
 - External mesh conformance.
 - Production distribution, operations, or release automation.

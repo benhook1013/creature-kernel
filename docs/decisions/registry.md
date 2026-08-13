@@ -16,14 +16,16 @@ Status: Operational under Accepted DR-0001 Revision 5
 | [DR-0010](DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md) | Stage 1 surface extraction and semantic-field propagation | Specification and architecture | Proposed | 8 | Pending | Ben |
 | [DR-0011](DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md) | Minimal semantic vocabulary, measurements, and frames | Specification and architecture | Proposed | 15 | Complete | Ben |
 | [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md) | Initial body-document encoding, resolution, and compatibility | Specification and architecture | Proposed | 14 | Complete | Ben |
-| [DR-0013](DR-0013-first-production-implementation-platform-and-geometry-boundary.md) | First production implementation platform and geometry boundary | Specification and architecture | Proposed | 12 | Complete | Ben |
+| [DR-0013](DR-0013-first-production-implementation-platform-and-geometry-boundary.md) | First production implementation platform and geometry boundary | Specification and architecture | Accepted | 12 | Complete | Ben |
 
 Accepted DR-0001 Revision 5 remains the operative governance baseline. DR-0001
 Revision 6 is `Proposed`; Ben approved its workflow direction on 2026-08-13,
 and its current review is Complete, but formal acceptance is pending Ben's
-disposition. DR-0002 through
-DR-0013 remain `Proposed` technical or product material unless their rows state
-otherwise. DR-0009 Revision 8 remains `Proposed` with owner approval `Pending`
+disposition. DR-0002 through DR-0012 remain `Proposed` technical or product
+material unless their rows state otherwise. DR-0013 Revision 12 is `Accepted`
+with owner approval `Approved by Ben`; its Readiness 1 trigger activates only
+the empty Cargo workspace, core-library shell, and thin CLI shell. DR-0009
+Revision 8 remains `Proposed` with owner approval `Pending`
 and review `Complete`; both current-review artifacts recommend `Revise` at
 High confidence. DR-0010 Revision 8 remains `Proposed` with owner approval
 `Pending` and review `Pending`; exactly two geometry/semantic findings are
@@ -287,9 +289,10 @@ pending:
   bootstrap profile with bounded requested identifiers and deterministic
   primary; no emission under unknown profile or silent downgrade is allowed.
 
-All four technical successor records remain Proposed with Owner approval
-Pending and Review status Complete after the current Double review. The
-original Batch 13 review at exact commit
+DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14 remain
+Proposed with Owner approval Pending and Review status Complete after the
+current Double review. DR-0013 Revision 12 is Accepted with Owner approval
+Approved by Ben and Review status Complete. The original Batch 13 review at exact commit
 `8c38c501eb1262a1b85af0b8605220625601772f` produced D1–D3/P1–P3, later
 dispositioned in Revisions 10/13/12/10. The earlier-predecessor review at
 exact commit `763cff22d10f6491a05a28312a25250704543dcf` produced G1/G2 and
@@ -309,10 +312,11 @@ The current Double review examined exact target commit
 Revise at High confidence for two mechanical history-label issues (the 763/9b
 chronology and stale Batch 10 registry wording); those issues are corrected in
 this alignment. Its technical pass reports No findings / Ready for PR at High
-confidence. Review Complete is evidence only: Ben's discussion/owner
-disposition remains required, and no DR acceptance or schema, fixture,
-parser/resolver, implementation, adapter, Cargo package, readiness gate,
-experiment, or package activates.
+confidence. Review Complete is evidence only and did not itself accept any DR.
+Ben subsequently accepted DR-0013 Revision 12, activating only its Readiness 1
+empty Cargo workspace, core-library shell, and thin CLI shell. No schema,
+fixture, parser/resolver, adapter, geometry implementation, or later readiness
+gate activates.
 
 The review at exact target commit
 `9b96d18b115126ef09e54ad8c6f21749d5559ff6` is historical evidence for the
@@ -320,9 +324,10 @@ predecessor summaries. It found stale historical/current labels, an omitted
 retained-human checkpoint for T4, an incomplete comparator precedence/rank gate,
 product-level sqrt/norm ambiguity, and a stray DR-0006 word. These findings
 were corrected in the current successor revisions 12/15/14/12;
-the 9b96d18 review is stale for those successors. The successors remain
-Proposed with Owner approval Pending and Review Complete on the current review
-evidence.
+the 9b96d18 review is stale for those successors. DR-0006 Revision 12, DR-0011
+Revision 15, and DR-0012 Revision 14 remain Proposed with Owner approval
+Pending and Review Complete on the current review evidence; DR-0013 Revision 12
+is Accepted with Owner approval Approved by Ben and Review Complete.
 
 ## CK-KICK-012/013 Batch 13 Double review (stale historical evidence)
 

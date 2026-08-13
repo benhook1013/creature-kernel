@@ -10,9 +10,9 @@ exposes bounded runtime representations. A higher-quality cinematic path is
 supplementary. This direction is Proposed for formal acceptance under
 [DR-0003](../decisions/DR-0003-real-time-first-compiled-avatar-boundary.md).
 
-CK-KICK-013 is a discussion-approved but unaccepted platform proposal.
-Proposed DR-0013 Revision 12 has Owner approval Pending and Review Complete after
-the current Double review at exact target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`.
+CK-KICK-013 is accepted through DR-0013 Revision 12, with Owner approval
+Approved and Review Complete at exact target
+`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`, decided 2026-08-13.
 Accepted DR-0001 Revision 5 remains the operative
 governance baseline while DR-0001 Revision 6 is Proposed transition guidance
 with Ben's workflow direction approved and current review complete; formal
@@ -25,23 +25,26 @@ before adapter profile/schema activation; it does not block the empty first Rust
 slice. The immediate-predecessor review at exact commit
 `9b96d18b115126ef09e54ad8c6f21749d5559ff6` is stale; its findings were
 corrected in the current revision. The 9c technical pass found no findings /
-Ready for PR at High confidence; Review Complete is evidence only. No acceptance, schema,
-fixture, parser/resolver, adapter, Cargo
-package, readiness, experiment, or implementation activates.
+Ready for PR at High confidence; Review Complete is evidence only. Readiness 1
+is active in the repository and contains only the Cargo workspace, empty
+`creature-kernel-core` library shell, and thin `creature-kernel` CLI shell. No
+schema, fixture, parser/bootstrap, resolver, adapter, experiment, or later
+readiness stage is activated.
 See the [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for recommendations and findings. Its four
-readiness stages are: acceptance activates only the empty Cargo shell; a
+readiness stages are: acceptance has activated Readiness 1, which is only the
+empty Cargo shell; a
 versioned, preflighted fixture manifest, its listed files, the exact schema, and
 parser/bootstrap must be admitted together in one review-branch activation
 transaction; canonical numeric/frame rules plus frozen expected graph outputs
 activate semantic resolution and in-memory snapshot handoff; and a working
 resolver plus provisional geometry profile and project-owned seam activates
 exploratory Stage 1 geometry. Acceptance therefore does not activate
-the parser, resolver, fixtures, or geometry proof. It
-proposes a stable Rust production semantic/compiler core in a Cargo workspace,
+the parser, resolver, fixtures, or geometry proof. The accepted direction uses
+ a stable Rust production semantic/compiler core in a Cargo workspace,
 exposed as an engine-independent Rust compiler library and thin CLI with a
 versioned project-owned backend-neutral GeometryRequest/GeometryResult seam.
-No initial daemon or service is part of this proposal. Stage 1 uses an
+No initial daemon or service is part of this boundary. Stage 1 uses an
 in-process Rust CPU dense-field evaluator/extractor. If measured capability or
 performance, or a justified isolation/security/portability/licensing need,
 exposes a gap, an isolated C++ worker/backend is evaluated first; in-process C
@@ -112,8 +115,8 @@ invalidates worker output and validation cannot rehabilitate it. The
 the manifest payload and separate content-identity readiness/decision
 admission and successor history.
 Performance claims must be backed by a reproducible benchmark and hardware
-profile. The language/build acceptance trigger remains unsatisfied, so no
-implementation package is activated. Any future worker must negotiate protocol/
+profile. Beyond the active Readiness 1 shell, no implementation package is
+activated. Any future worker must negotiate protocol/
 version compatibility, obey bounded time/resource budgets, map crash/timeout/
 resource outcomes, validate outputs before publication, and leave the compiler
 surviving worker failure; exact worker serialization remains deferred. The

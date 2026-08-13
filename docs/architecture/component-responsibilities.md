@@ -9,10 +9,11 @@ its activation trigger is met.
 The CK-KICK-012 Batch 6/7/8/9/10/11/12/13 resolutions are discussion-approved and
 represented as Proposed responsibility consequences. DR-0002 Revision 11 and
 DR-0008 Revision 11 remain Proposed with Owner approval Pending and Review
-Complete. DR-0006 Revision 12, DR-0011 Revision 15, DR-0012 Revision 14, and
-Proposed DR-0013 Revision 12 remain Proposed with Owner approval Pending and
-Review Complete after the current Double review at exact target
-`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. Accepted DR-0001 Revision 5
+Complete. DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14
+remain Proposed with Owner approval Pending and Review Complete.
+DR-0013 Revision 12 is Accepted with Owner approval Approved by Ben and
+Review Complete at exact target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`,
+decided 2026-08-13. Accepted DR-0001 Revision 5
 remains the operative governance baseline while DR-0001 Revision 6 is Proposed
 transition guidance with Ben's workflow direction approved and current review
 complete; formal acceptance remains pending Ben's disposition. The reviews of
@@ -25,9 +26,11 @@ slice. The immediate-predecessor review at exact commit
 `9b96d18b115126ef09e54ad8c6f21749d5559ff6` is stale; its findings were
 corrected in the current revisions. The 9c governance pass corrected two
 mechanical history-label issues and its technical pass found no findings /
-Ready for PR at High confidence. Review Complete is evidence only. No acceptance, schema,
-fixture, parser/resolver, adapter, Cargo
-package, readiness, experiment, or implementation activates. DR-0006 remains
+Ready for PR at High confidence. Review Complete is evidence only. Readiness 1
+is active in the repository and contains only the Cargo workspace, empty
+`creature-kernel-core` library shell, and thin `creature-kernel` CLI shell. No
+schema, fixture, parser/bootstrap, resolver, adapter, experiment, or later
+readiness stage is activated. DR-0006 remains
 Proposed with its owner and review state governed by its canonical record. See
 the [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for review ownership and findings. No package is implied.
@@ -37,8 +40,8 @@ for review ownership and findings. No package is implied.
 | Authoritative semantic source set | Admit the initial strict UTF-8 JSON source through the bootstrap and resource rules in the [body-document contract](../../spec/body-document/README.md), preserve authored intent, track exact revisions of outcome-affecting authored dependencies, classify extensions, report one result envelope, and provide the sole authored authority | Generate meshes or run gameplay, or treat an external mesh as semantic truth |
 | Build-request and identity boundary | Assemble every outcome-affecting source/dependency, compiler/toolchain, contract/schema/profile, configuration/seed, backend-capability/protocol, and target-platform input; keep attempt identity unique for envelope/staging/log tracing only and derive candidate identity from deterministic request, role, and identity-rule revision; use the proposed canonical-data profile for domain-separated identity digests | Let attempt identity alter target/equality, use timestamps or staging paths as identity, or activate canonical hashing before its prerequisite is defined |
 | Semantic body resolver | Execute the canonical admission, bootstrap, dependency, explicit-containment/typed-relation, normalization, invariant, and in-memory snapshot-finalization boundaries inside one result envelope; successful `resolve` yields the required compilable inspectable graph snapshot with canonical Joint/Socket frame records and provenance | Host-engine objects, become an authored source, serialize or publish filesystem artifacts, or make derived artifacts authoritative; rejected partial graphs are non-compilable, debug-only, and non-contractual |
-| Proposed Rust compiler core | Own the engine-independent production semantic/compiler library boundary, versioned project-owned GeometryRequest/GeometryResult concepts, and coordinate replaceable geometry evaluation; Stage 1's in-process CPU dense-field evaluator/extractor is the proposed first path | Leak backend-native types, lock a permanent geometry library/surface, claim DR-0009/0010 evidence, require a daemon/service, or make Rust a forever-only backend promise; acceptance of DR-0013 alone activates only the empty shell, while exact schema/admitted fixtures gate parser/resolver work |
-| Proposed thin CLI and artifact boundary | Expose the compiler library through a thin headless CLI; delegate the public derived-output and publication contract to the [build-operation specification](../../spec/build-operation/README.md), carrying geometry and publication through one authoritative build envelope. The proposed boundary uses immutable build-scoped sibling staging, manifest-last atomic no-replace, and independent validation of build/artifact identity, paths, hashes, and sizes; trusted derived-output/publication failures normalize as `output-failure`, while failed operations initially return the authoritative envelope without a persisted failure bundle. | Become a visual workbench, settle final avatar-package serialization/compatibility, publish symlinked/unlisted/incomplete/mixed/stale bundles, replace an existing target, or require a service transport |
+| Rust compiler core (Readiness 1 shell active; later capabilities gated) | Own the engine-independent production semantic/compiler library boundary, versioned project-owned GeometryRequest/GeometryResult concepts, and coordinate replaceable geometry evaluation; Stage 1's in-process CPU dense-field evaluator/extractor is the proposed first path | Leak backend-native types, lock a permanent geometry library/surface, claim DR-0009/0010 evidence, require a daemon/service, or make Rust a forever-only backend promise; the active Readiness 1 shell is empty, while exact schema/admitted fixtures gate parser/resolver work |
+| Thin CLI shell and proposed artifact boundary | Expose the compiler library through a thin headless CLI; delegate the public derived-output and publication contract to the [build-operation specification](../../spec/build-operation/README.md), carrying geometry and publication through one authoritative build envelope. The proposed artifact boundary uses immutable build-scoped sibling staging, manifest-last atomic no-replace, and independent validation of build/artifact identity, paths, hashes, and sizes; trusted derived-output/publication failures normalize as `output-failure`, while failed operations initially return the authoritative envelope without a persisted failure bundle. | Become a visual workbench, settle final avatar-package serialization/compatibility, publish symlinked/unlisted/incomplete/mixed/stale bundles, replace an existing target, or require a service transport |
 | Artifact inspector and admission boundary | Keep inspection as a separate read operation with closed statuses and shared completeness/diagnostic conventions; consume only a manifest payload with a separate readiness/decision content-identity admission and listed files; distinguish producer/output trust from coordinator/reporter/publisher trust | Create a second build-status channel, guess stale output, adopt unverified artifacts, rehabilitate worker output after trust loss, or self-admit fixtures |
 | Independent visual workbench | Consume compiler artifacts and manifests from the filesystem for visual inspection, evidence/render tooling, and disposable workflows | Become a production compiler dependency or silently redefine semantic/artifact contracts |
 | Geometry field system | Evaluate part volumes, composition, semantic fields | Choose runtime animation |

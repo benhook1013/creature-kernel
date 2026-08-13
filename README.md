@@ -48,9 +48,11 @@ discussion-approved and are reflected in the canonical specifications as
 Proposed material. Accepted DR-0001 Revision 5 remains the operative governance
 baseline while DR-0001 Revision 6 is Proposed transition guidance: Ben approved
 its workflow direction and the current review is complete; formal acceptance
-remains pending Ben's disposition. The current DR-0006/0011/0012/0013 material is Proposed at Revisions
-12/15/14/12 with Owner approval Pending and Review Complete after the current
-Double review at exact target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`.
+remains pending Ben's disposition. DR-0006/0011/0012 remain Proposed at Revisions
+12/15/14 with Owner approval Pending and Review Complete after the current
+Double review at exact target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. DR-0013 Revision 12 is Accepted,
+with Owner approval Approved by Ben and Review Complete at that exact target, decided
+2026-08-13.
 The earlier-predecessor review at commit `763cff22d10f6491a05a28312a25250704543dcf`
 is stale exact-target evidence. The immediate-predecessor review at commit
 `9b96d18b115126ef09e54ad8c6f21749d5559ff6` is also stale; its findings were
@@ -60,10 +62,11 @@ for PR at High confidence. Review Complete is evidence only. In the earlier
 predecessor review, G1/G2 were fixed mechanically and T1–T3 were resolved in
 the successors. T4 remains unselected and deferred pending Ben's retained-
 human disposition before adapter profile/schema activation; it does not block
-the empty first Rust slice. No
-acceptance,
-schema, fixture, parser/resolver, adapter, Cargo package, readiness,
-experiment, or implementation activates.
+the empty first Rust slice. Readiness 1 is active in the repository: the
+repository contains only the Cargo workspace, empty `creature-kernel-core`
+library shell, and thin `creature-kernel` CLI shell. No schema, fixture,
+parser/bootstrap, resolver, geometry implementation, adapter, or later
+readiness stage is activated.
 
 - Durable authored intent lives in an authoritative semantic source set. Every
   operation reports through one authoritative result envelope; the resolved
@@ -155,6 +158,7 @@ experiment, or implementation activates.
 ## Repository navigation
 
 - [Documentation authority and reading order](docs/README.md)
+- [Developer setup](DEVELOPER_SETUP.md)
 - [Product vision and scope](docs/product/vision-and-scope.md)
 - [Proposed body-document contract](spec/body-document/README.md)
 - [Proposed body-graph contract](spec/body-graph/README.md)
@@ -166,8 +170,13 @@ experiment, or implementation activates.
 ## Status
 
 The project is in an exploratory executable-prototype and semantic-contract
-integration phase. No implementation language, geometry backend, runtime
-engine, or asset format has been selected. See [current project
+integration phase. The accepted first production platform is Rust-first and
+engine-independent; Readiness 1 currently contains only the Cargo workspace,
+empty `creature-kernel-core` library shell, and thin `creature-kernel` CLI
+shell. Rust `1.97.1` is the pinned first production toolchain. No geometry
+backend, runtime engine, asset format, schema, parser/bootstrap, resolver,
+geometry implementation, adapter, or later readiness stage is activated. See
+[developer setup](DEVELOPER_SETUP.md) and [current project
 status](docs/project/status.md) for the live round, review, and owner-
 disposition state.
 

@@ -1,0 +1,16 @@
+[package]
+name = "creature-kernel-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[[bin]]
+name = "creature-kernel"
+path = "src/main.rs"
+
+[dependencies]
+creature-kernel-core = { path = "../creature-kernel-core" }
+
+[lints]
+workspace = true

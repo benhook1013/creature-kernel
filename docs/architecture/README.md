@@ -58,10 +58,12 @@ in [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-f
 CK-KICK-012 Batch 6/7/8/9/10/11/12/13 resolutions are discussion-approved and are
 reflected in the canonical specifications as Proposed material. DR-0002
 Revision 11 and DR-0008 Revision 11 remain Proposed with Owner approval Pending
-and Review Complete. DR-0006 Revision 12, DR-0011 Revision 15, DR-0012 Revision
-14, and DR-0013 Revision 12 remain Proposed with Owner approval Pending and
-Review Complete after the current Double review at exact target
-`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. Accepted DR-0001 Revision 5
+and Review Complete. DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012
+Revision 14 remain Proposed with Owner approval Pending and Review Complete
+after the current Double review at exact target
+`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. DR-0013 Revision 12 is Accepted,
+with Owner approval Approved by Ben and Review Complete at that exact target, decided
+2026-08-13. Accepted DR-0001 Revision 5
 remains the operative governance baseline while DR-0001 Revision 6 is Proposed
 transition guidance with Ben's workflow direction approved and current review
 complete; formal acceptance remains pending Ben's disposition. The reviews of
@@ -74,9 +76,11 @@ slice. The immediate-predecessor review at exact commit
 `9b96d18b115126ef09e54ad8c6f21749d5559ff6` is also stale; its findings were
 corrected in the current revisions. The 9c governance pass corrected two
 mechanical history-label issues and its technical pass found no findings /
-Ready for PR at High confidence. Review Complete is evidence only. No acceptance, schema,
-fixture, parser/resolver, adapter, Cargo
-package, readiness, experiment, or implementation activates. See
+Ready for PR at High confidence. Review Complete is evidence only. Readiness 1
+is active in the repository and contains only the Cargo workspace, empty
+`creature-kernel-core` library shell, and thin `creature-kernel` CLI shell. No
+schema, fixture, parser/bootstrap, resolver, adapter, experiment, or later
+readiness stage is activated. See
 the [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for the two review lenses, recommendations, and findings. Earlier review
 evidence remains stale. See the
@@ -109,10 +113,9 @@ outcome is intended to justify production architecture, or when Ben explicitly
 reactivates them. Until then, exploratory prototypes may produce observations
 but may not claim formal DR-0009/0010 support or reject.
 
-The CK-KICK-013 platform proposal is also discussion-approved as Proposed
-material, not an accepted implementation decision. Proposed DR-0013 Revision 12
-has Owner approval Pending and Review Complete after the current Double review
-at exact target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. The earlier-
+The CK-KICK-013 platform direction is accepted in DR-0013 Revision 12, with
+Owner approval Approved by Ben and Review Complete at exact target
+`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`, decided 2026-08-13. The earlier-
 predecessor review at exact commit `763cff22d10f6491a05a28312a25250704543dcf`
 is stale exact-target evidence; T1–T3 were resolved and T4 remains unselected and deferred, requiring
 Ben's retained-human disposition before adapter profile/schema activation; it does
@@ -120,13 +123,14 @@ not block the empty first Rust slice. The immediate-predecessor review at exact
 commit `9b96d18b115126ef09e54ad8c6f21749d5559ff6` is stale; its findings were
 corrected in the current revisions. The 9c technical pass found no findings /
 Ready for PR at High confidence; Review Complete is evidence only.
-No acceptance,
-schema, fixture, parser/resolver, adapter, Cargo package, readiness,
-experiment, or implementation activates.
+Readiness 1 is active in the repository: only the Cargo workspace, empty
+`creature-kernel-core` library shell, and thin `creature-kernel` CLI shell are
+present. No schema, fixture, parser/bootstrap, resolver, adapter, experiment,
+or later readiness stage is activated.
 See the [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for recommendations and findings. The
-four readiness stages are: DR-0013
-acceptance activates only the empty Cargo shell; a versioned, preflighted
+four readiness stages are: DR-0013 acceptance has activated Readiness 1,
+which is only the empty Cargo shell; a versioned, preflighted
 fixture manifest, its listed fixture files, the exact schema, and
 parser/bootstrap must be admitted together in one review-branch activation
 transaction; canonical numeric/frame rules plus frozen expected graph outputs
@@ -196,11 +200,13 @@ fixture-gated.
 Readiness implementation binding remains a separate scoped content-identity
 transaction from fixture payloads and expected snapshots.
 
-These remain Proposed consequences and do not activate packages, schemas,
-fixtures, or resolver/adapter work.
+These remain Proposed consequences and do not activate schemas, fixtures, or
+resolver/adapter work beyond the active Readiness 1 shell.
 
 ## Current maturity
 
-The architecture is pre-implementation. Component names describe provisional
-responsibility boundaries, not approved packages, processes, repositories, or
-technologies.
+The target architecture remains pre-implementation. Readiness 1 is the active
+implementation slice: a Cargo workspace with an empty `creature-kernel-core`
+library shell and thin `creature-kernel` CLI shell. The remaining component
+names describe provisional responsibility boundaries, not activated packages,
+processes, repositories, or technologies.
