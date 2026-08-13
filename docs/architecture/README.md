@@ -77,10 +77,13 @@ slice. The immediate-predecessor review at exact commit
 corrected in the current revisions. The 9c governance pass corrected two
 mechanical history-label issues and its technical pass found no findings /
 Ready for PR at High confidence. Review Complete is evidence only. Readiness 1
-is active in the repository and contains only the Cargo workspace, empty
-`creature-kernel-core` library shell, and thin `creature-kernel` CLI shell. No
-schema, fixture, parser/bootstrap, resolver, adapter, experiment, or later
-readiness stage is activated. See
+remains the only active gate and its accepted scope is only the Cargo
+workspace, empty `creature-kernel-core` library shell, and thin
+`creature-kernel` CLI shell. The exact body and manifest schemas, manifest,
+nine fixtures, Rust parser/bootstrap, and Python preflight/evidence are present
+as a Proposed Readiness 2 candidate, not an admitted or active gate. No
+Readiness 3 resolver, numeric semantic activation, adapter, experiment, or
+Readiness 3 geometry implementation exists. See
 the [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for the two review lenses, recommendations, and findings. Earlier review
 evidence remains stale. See the
@@ -123,10 +126,13 @@ not block the empty first Rust slice. The immediate-predecessor review at exact
 commit `9b96d18b115126ef09e54ad8c6f21749d5559ff6` is stale; its findings were
 corrected in the current revisions. The 9c technical pass found no findings /
 Ready for PR at High confidence; Review Complete is evidence only.
-Readiness 1 is active in the repository: only the Cargo workspace, empty
-`creature-kernel-core` library shell, and thin `creature-kernel` CLI shell are
-present. No schema, fixture, parser/bootstrap, resolver, adapter, experiment,
-or later readiness stage is activated.
+Readiness 1 remains the only active gate: its accepted scope is only the Cargo
+workspace, empty `creature-kernel-core` library shell, and thin
+`creature-kernel` CLI shell. The exact body and manifest schemas, manifest,
+nine fixtures, Rust parser/bootstrap, and Python preflight/evidence are present
+as a Proposed Readiness 2 candidate, not an admitted or active gate. No
+Readiness 3 resolver, numeric semantic activation, adapter, experiment, or
+Readiness 3 geometry implementation exists.
 See the [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for recommendations and findings. The
 four readiness stages are: DR-0013 acceptance has activated Readiness 1,
@@ -200,13 +206,16 @@ fixture-gated.
 Readiness implementation binding remains a separate scoped content-identity
 transaction from fixture payloads and expected snapshots.
 
-These remain Proposed consequences and do not activate schemas, fixtures, or
-resolver/adapter work beyond the active Readiness 1 shell.
+These remain Proposed consequences and do not admit or activate the Readiness 2
+candidate, or any resolver/adapter work beyond the active Readiness 1 shell.
 
 ## Current maturity
 
-The target architecture remains pre-implementation. Readiness 1 is the active
-implementation slice: a Cargo workspace with an empty `creature-kernel-core`
-library shell and thin `creature-kernel` CLI shell. The remaining component
-names describe provisional responsibility boundaries, not activated packages,
-processes, repositories, or technologies.
+The target architecture remains pre-implementation beyond the active
+Readiness 1 shell and the unadmitted Readiness 2 candidate artifacts.
+Readiness 1 is the only active implementation slice: a Cargo workspace with an
+empty `creature-kernel-core` library shell and thin `creature-kernel` CLI shell.
+The candidate schemas, manifest, fixtures, parser/bootstrap, and Python tools
+are evidence only; the remaining component names describe provisional
+responsibility boundaries, not activated packages, processes, repositories, or
+technologies.

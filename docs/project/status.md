@@ -34,6 +34,29 @@ cannot claim formal DR-0009/0010 support or reject. This section is the
 canonical owner of the current activation state; the detailed DRs and reviews
 remain unchanged.
 
+## Current Readiness 2 candidate
+
+DR-0013 Readiness 1 remains active. The exact `creature-kernel.body` r1 schema,
+`creature-kernel.fixture-manifest` r1 manifest, nine listed fixtures, Rust
+parser/bootstrap, and Python preflight now exist on this branch as a Proposed
+Readiness 2 candidate. The candidate is evidence only: the preflight checks
+internal consistency and emits `ck.path-set.raw.v1`, while the evidence
+generator separately binds implementation, admission support, resolved Cargo
+dependencies/features, and the build request. Neither tool can admit the
+corpus or implementation. Readiness 2 remains inactive until one complete
+transaction contains the exact schema, manifest, files, parser/bootstrap
+closure and the required post-merge identity recomputation. No Proposed owning
+DR is accepted by these artifacts.
+The separate [Readiness 2 admission record](readiness-2-admission.md) now pins
+the revised candidate commit `691ee2ee0946ee2625fc3db8cd1c8a11826be024` and
+evidence identities. Prior Double-review blockers are corrected in this
+candidate. Its owner approval is Approved by Ben on 2026-08-13, and its review
+status is Waived: the agreed Double adversarial review completed, consolidated
+validation passes, and Ben instructed “do it” in response to “approve and
+waive,” with no repeat current-candidate review loop. This is pre-merge
+approval only; Readiness 2 remains Inactive pending merge and post-merge
+identity recomputation.
+
 Ben approved the following deferred planning direction on 2026-08-09 for any
 future activation. It is recorded here without accepting or revising either DR:
 
@@ -78,9 +101,11 @@ corrected in these revisions. The 9c governance pass corrected two mechanical
 history-label issues and its technical pass found no findings / Ready for PR at
 High confidence. The review artifacts remain preserved evidence. DR-0013 is
 accepted and Readiness 1 is triggered/active for only the empty Cargo workspace,
-compiler/core library shell, and thin CLI shell. No schema, fixture,
-parser/resolver, adapter, later readiness gate, experiment, or geometry
-implementation activates. The current review state and activation obligations
+compiler/core library shell, and thin CLI shell. The exact schema, manifest,
+nine fixtures, parser/bootstrap, and preflight are a Proposed Readiness 2
+candidate with approved pre-merge admission; no Readiness 2 transaction or
+later resolver, adapter, experiment, or geometry gate is active. The current
+review state and activation obligations
 are recorded below.
 
 CK-KICK-013 is active with its accepted Rust-first platform boundary and
@@ -96,9 +121,9 @@ The immediate-predecessor 9b96d18 review is stale; its findings were corrected
 in the current revisions. The 9c technical pass found no findings / Ready for
 PR at High confidence. Review Complete remains preserved evidence; it does not
 replace Ben's acceptance. Readiness 1 is triggered/active for only the empty
-Cargo workspace, compiler/core library shell, and thin CLI shell. No schema,
-fixture, parser/resolver, adapter, later readiness gate, experiment, or
-geometry implementation activates.
+Cargo workspace, compiler/core library shell, and thin CLI shell. The exact
+schema, manifest, nine fixtures, parser/bootstrap, and preflight are a Proposed
+Readiness 2 candidate with approved pre-merge admission, not an active gate.
 The review at exact target commit
 `9b96d18b115126ef09e54ad8c6f21749d5559ff6` found stale historical/current
 labels, an omitted retained-human checkpoint for T4, an incomplete comparator
@@ -194,7 +219,9 @@ Diagnostic compatibility remains Proposed: nine initial domains are
 source-admission, dependency, semantic-identity, graph-structure,
 frame-numeric, resource, execution-trust, publication, and inspection, with
 one tiny mandatory bootstrap registry/profile for unknown registry/profile
-negotiation. Exact codes and serialized fields remain fixture-gated.
+negotiation. The exact `ck.diagnostic.r2` candidate codes are documented and
+used by the candidate parser/preflight, but become frozen only with Ben's
+admission of the complete Readiness 2 transaction.
 Readiness implementation binding remains a separate scoped content-identity
 input from the fixture payload and expected snapshots; no binding is active.
 
@@ -214,10 +241,11 @@ mechanical history-label issues and its technical pass found no findings /
 Ready for PR at High confidence. The review artifacts remain preserved evidence;
 DR-0002, DR-0006, DR-0008, DR-0011, and DR-0012 remain Proposed with Owner
 approval Pending. DR-0013 Revision 12 is Accepted with Owner approval Approved by Ben.
-Readiness 1 is triggered/active for only the empty Cargo workspace,
-compiler/core library shell, and thin CLI shell. No schema, fixture,
-parser/resolver, adapter, later readiness gate, experiment, or geometry
-implementation activates.
+Readiness 1 is triggered/active for the Cargo workspace, compiler/core library
+shell, and thin CLI shell. The exact schema, manifest, nine fixtures,
+parser/bootstrap, and preflight are a Proposed Readiness 2 candidate with
+approved pre-merge admission; no Readiness 2 transaction or later resolver,
+adapter, experiment, or geometry gate is active.
 
 The prior Double-review findings and ten artifacts are preserved in the
 [decision registry](../decisions/registry.md) as stale historical evidence.
@@ -265,15 +293,17 @@ Double review at exact target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. Prior 
 these revisions; G1/G2 were fixed mechanically, T1–T3 were resolved, and T4
 remains unselected and deferred, requiring Ben's retained-human disposition
 before adapter profile/schema activation; it does not block the empty first Rust
-slice. DR-0013 Readiness 1 is triggered/active for only the empty Cargo
-workspace, compiler/core library shell, and thin CLI shell. No schema, fixture,
-parser/resolver, adapter, later readiness gate, experiment, or geometry
-implementation activates.
+slice. DR-0013 Readiness 1 is triggered/active for the Cargo workspace,
+compiler/core library shell, and thin CLI shell. The exact schema, manifest,
+nine fixtures, parser/bootstrap, and preflight are a Proposed Readiness 2
+candidate with approved pre-merge admission, not an active gate.
 DR-0002 Revision 11 and DR-0008 Revision 11 are unchanged and remain Review
 Complete. Owner approval remains Pending.
 
-The immediate next action is the Readiness 1 shell implementation and its
-toolchain/setup bookkeeping; later readiness transactions remain gated.
+The immediate next action is to merge the approved Readiness 2 admission
+transaction and perform the required post-merge identity recomputation.
+Readiness 1 remains active while Readiness 2 and later readiness transactions
+remain gated.
 The main thread will autonomously resolve technical correctness findings or
 record evidence-dependent triggers under the DR-0001 Revision 6 transition
 direction; only a retained-human product, architecture-boundary, material
@@ -282,8 +312,9 @@ accepted. No later implementation/readiness gate activates while its owning
 records remain Proposed.
 Earlier Batch 8/9 and other
 review artifacts remain preserved as stale historical evidence.
-Do not activate schemas, fixtures, parser/resolver, adapters, or geometry work
-while their separate disposition and readiness prerequisites remain pending.
+Do not activate the Proposed Readiness 2 candidate, resolver, adapters, or
+geometry work while their merge, post-merge identity, and other content-
+identity prerequisites remain pending.
 
 Two nonblocking obligations apply to later activation: before an isolated
 worker activates, define containment, process-tree, output/log/handle/network/
@@ -366,7 +397,9 @@ nonblocking obligation before external authored dependencies activate.
   surface decision is optional and risk-driven, not automatic.
 - CK-KICK-012 is active with Batches 1, 4, 5, 6, F1–F3, Batch 8, Batch 9, Batch
   10, Batch 11, Batch 12, and Batch 13 integrated as Proposed documentation; its parser/resolver and
-  fixture-admission proposals establish the four Proposed specification families, while production parser/resolver behavior and compiler-
+  fixture-admission proposals establish the four Proposed specification families. The exact Readiness 2
+  schema, manifest, nine fixtures, Rust parser/bootstrap, and Python preflight
+  are now a branch candidate; production parser/resolver behavior and compiler-
   consumed fixtures remain unactivated. The separate Readiness 1 Cargo shell is
   active. The current six-record set is DR-0002
   Revision 11, DR-0006 Revision 12, DR-0008 Revision 11, DR-0011 Revision 15,
@@ -472,7 +505,7 @@ metadata. Current non-governance proposals include:
 | Research/experiment workflow | partial | unverified | Lightweight template exists; no experiment registered |
 | Body specification | partial | unverified | Proposed body-document, body-graph, build-operation, fixture-manifest, and Batch 11/12/13 focused profiles include discussion-approved updates; DR-0002/0008 remain Revision 11 Review Complete, DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14 remain Proposed with Owner approval Pending, while DR-0013 Revision 12 is Accepted; no body format or later implementation is activated |
 | Build-operation contract | partial | unverified | Proposed canonical public build/output owner exists; serialization, implementation, and artifact store remain unactivated |
-| Production implementation platform | partial | proven | CK-KICK-013/DR-0013 Revision 12 is Accepted with Owner approval Approved by Ben; the Readiness 1 Cargo workspace, compiler/core library shell, and thin CLI shell pass pinned-toolchain format, build/test, and lint checks; numeric/frame, address, canonical-data, diagnostics, schema/manifest, Readiness 2, distinct Readiness 3, adapter, and exploratory geometry remain gated |
+| Production implementation platform | partial | proven | CK-KICK-013/DR-0013 Revision 12 is Accepted with Owner approval Approved by Ben; the Readiness 1 Cargo workspace, compiler/core library shell, and thin CLI shell pass pinned-toolchain checks. The exact schema, manifest, nine fixtures, parser/bootstrap, and preflight have approved pre-merge Readiness 2 admission; merge and post-merge identity recomputation, distinct Readiness 3, adapter, and exploratory geometry remain gated |
 | Creature compiler | partial | unverified | Disposable CK-KICK-010 walking skeleton implemented; this is not a production compiler |
 | CK-KICK-010 walking skeleton | implemented | audited | Valid/invalid local evidence and the selected Single independent review are complete; five substantive findings plus whitespace were dispositioned in RESULTS, not clean; this is not a production compiler |
 | Local visual-review gallery | implemented | audited | Focused tests and local HTTP/browser smoke passed; subject_context is presentation-only; no visual-evidence or Stage 1 claim |
@@ -480,16 +513,13 @@ metadata. Current non-governance proposals include:
 
 ## Immediate next actions
 
-- Implement the active Readiness 1 shell and record its toolchain/setup
-  bookkeeping. The completed 9c current review and its mechanical history-label
-  dispositions remain preserved. The main thread may autonomously disposition technical findings;
-  only
-  retained-human product, architecture-boundary, material-trade-off, or
-  external-impact findings return to Ben. Keep later packages, schemas,
-  fixtures, parser/resolver, adapters, and geometry work gated meanwhile.
-- Keep Readiness 1 limited to the empty Cargo workspace, compiler/core library
-  shell, and thin CLI shell. Do not activate parser/resolver implementation
-  until exact schema and admitted fixtures/contracts are available.
+- Merge the approved Proposed Readiness 2 schema, manifest, nine fixtures,
+  parser/bootstrap, and preflight transaction, then perform the required
+  post-merge identity recomputation. Keep later packages, schemas, fixtures,
+  parser/resolver, adapters, and geometry work gated meanwhile.
+- Keep Readiness 1 limited to the Cargo workspace, compiler/core library shell,
+  and thin CLI shell. Do not activate Readiness 2 until merge and successful
+  post-merge identity recomputation.
 - Leave DR-0009/0010 parked unless the activation trigger occurs or Ben
   explicitly reactivates them.
 

@@ -18,27 +18,34 @@ creature-kernel/
 │   └── project/             # status, roadmap, repository evolution
 ├── spec/                    # normative formats and semantics (Proposed contracts)
 │   ├── body-document/       # authored source encoding and admission contract
+│   │   └── schema/          # exact Proposed Readiness 2 body schema candidate
 │   ├── body-graph/          # resolved semantic graph contract
-│   ├── fixture-manifest/    # conceptual fixture admission authority
+│   ├── fixture-manifest/    # Proposed fixture admission authority
+│   │   └── schema/          # exact Proposed Readiness 2 manifest schema candidate
 │   ├── build-operation/      # Proposed public build/output contract
 │   ├── semantic-address/     # proposed typed machine address profile
 │   ├── canonical-data/       # proposed canonical bytes and digest domains
 │   ├── numeric-frame-profile/# proposed numeric/frame comparison profile
 │   └── diagnostics/          # proposed diagnostic registry/profile
 ├── Cargo.toml               # Readiness 1 empty Rust workspace
-├── crates/                   # Readiness 1 empty compiler/core-library/CLI shell
+├── crates/                   # R1 shell plus unadmitted R2 parser/bootstrap candidate
+│   └── creature-kernel-core/src/body_document.rs
 ├── experiments/             # reproducible research evidence
-├── fixtures/                # small stable proof inputs (admitted later)
+├── fixtures/                # small proof inputs; R2 candidate under readiness-2/
+│   └── body-documents/readiness-2/  # manifest plus nine Proposed candidate fixtures
 ├── benchmarks/              # reproducible performance scenarios
+├── dev-tools/fixture-preflight/ # Proposed R2 manifest/fixture preflight
+├── dev-tools/readiness-evidence/ # Proposed R2 evidence generator
 ├── dev-tools/validation/    # repository and contract validation
 ├── AGENTS.md                # always-on contributor authority
 └── README.md                # project orientation
 ```
 
-The fixture-manifest family is an active Proposed authority, but it remains
-conceptual: no manifest schema, parser, or fixture corpus is created here. Its
-manifest payload is admitted by a separate readiness/decision record that
-binds reviewed content identities; there is no custom active-pointer ledger.
+The fixture-manifest family is an active Proposed authority. Its exact manifest
+schema, manifest, nine-fixture candidate corpus, parser/bootstrap, and Python
+preflight/evidence now exist at the candidate paths shown above. The manifest
+payload is admitted by a separate readiness/decision record that binds reviewed
+content identities; there is no custom active-pointer ledger.
 Readiness 1 is triggered and active after DR-0013 Revision 12 acceptance. It
 activates only the empty Cargo workspace, compiler/core library shell, and thin
 CLI shell. The four readiness stages are: Readiness 1's empty shell above; a
@@ -48,10 +55,12 @@ parser/bootstrap activate together in one review-branch transaction; canonical
 numeric/frame rules plus frozen expected graph outputs activate semantic
 resolver/in-memory snapshot handoff; and a working resolver plus provisional
 geometry profile and project-owned seam activate exploratory Stage 1 geometry.
-No schema, manifest payload, compiler-consumed fixtures, parser/resolver,
-adapter, or geometry implementation is activated by Readiness 1. Readiness 2
-requires one Ben-approved immutable manifest/fixture/schema/parser transaction;
-unlisted fixtures never activate independently.
+The candidate schema, manifest payload, nine fixtures, and parser/bootstrap are
+not admitted or activated by Readiness 1. Readiness 2 requires one complete
+transaction containing them, current review evidence, and explicit Ben
+approval; unlisted fixtures never activate independently. No Readiness 3
+resolver, numeric semantic activation, adapter, or Readiness 3 geometry
+implementation exists.
 
 The Batch 11 focused profiles and Batch 12/13 numeric evidence direction remain
 Proposed specification areas. Their activation order is numeric/frame
@@ -89,5 +98,6 @@ versioned backend-neutral GeometryRequest/GeometryResult seam, and later
 adapters. It does not include an initial daemon/service. The exact crate
 layout, geometry backend, isolated C++ worker boundary, artifact serialization,
 and adapter strategy remain evidence-driven and unresolved. Readiness 1 activates
-only the empty shell; exact schema and admitted fixtures/contracts gate later
-parser/resolver implementation.
+only the empty shell; the present exact schemas, manifest, nine fixtures, and
+parser/bootstrap are Proposed evidence, while admitted contracts gate later
+resolver implementation.

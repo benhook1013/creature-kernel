@@ -1,0 +1,390 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Creature Kernel body document revision 1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract", "source", "basis", "profiles", "body", "extensions"],
+  "properties": {
+    "contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["family", "revision"],
+      "properties": {
+        "family": {"const": "creature-kernel.body"},
+        "revision": {"type": "number", "const": 1}
+      }
+    },
+    "source": {"$ref": "#/$defs/source"},
+    "basis": {"$ref": "#/$defs/basis"},
+    "profiles": {"$ref": "#/$defs/profiles"},
+    "body": {"$ref": "#/$defs/body"},
+    "extensions": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/extension"}
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "axis": {
+      "enum": ["+x", "-x", "+y", "-y", "+z", "-z"]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["document", "namespace", "dependencies"],
+      "properties": {
+        "document": {"$ref": "#/$defs/identifier"},
+        "namespace": {"$ref": "#/$defs/identifier"},
+        "dependencies": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/dependency"}
+        }
+      }
+    },
+    "dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["document", "namespace", "content_sha256"],
+      "properties": {
+        "document": {"$ref": "#/$defs/identifier"},
+        "namespace": {"$ref": "#/$defs/identifier"},
+        "content_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "basis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["length_unit", "handedness", "up", "forward"],
+      "properties": {
+        "length_unit": {"enum": ["millimetre", "centimetre", "metre"]},
+        "handedness": {"enum": ["left", "right"]},
+        "up": {"$ref": "#/$defs/axis"},
+        "forward": {"$ref": "#/$defs/axis"}
+      }
+    },
+    "profiles": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["semantic_numeric"],
+      "properties": {
+        "semantic_numeric": {"const": "ck.numeric-frame.r1"}
+      }
+    },
+    "extension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespace", "revision", "required", "payload"],
+      "properties": {
+        "namespace": {"$ref": "#/$defs/identifier"},
+        "revision": {"type": "integer", "minimum": 1},
+        "required": {"type": "boolean"},
+        "payload": {}
+      }
+    },
+    "address": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespace", "anchors", "kind", "role"],
+      "properties": {
+        "namespace": {"$ref": "#/$defs/identifier"},
+        "anchors": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "kind": {
+          "enum": ["part", "joint", "socket", "attachment", "region", "capability", "field"]
+        },
+        "role": {"$ref": "#/$defs/identifier"}
+      }
+    },
+    "part_address": {
+      "allOf": [
+        {"$ref": "#/$defs/address"},
+        {"properties": {"kind": {"const": "part"}}}
+      ]
+    },
+    "joint_address": {
+      "allOf": [
+        {"$ref": "#/$defs/address"},
+        {"properties": {"kind": {"const": "joint"}}}
+      ]
+    },
+    "socket_address": {
+      "allOf": [
+        {"$ref": "#/$defs/address"},
+        {"properties": {"kind": {"const": "socket"}}}
+      ]
+    },
+    "attachment_address": {
+      "allOf": [
+        {"$ref": "#/$defs/address"},
+        {"properties": {"kind": {"const": "attachment"}}}
+      ]
+    },
+    "region_address": {
+      "allOf": [
+        {"$ref": "#/$defs/address"},
+        {"properties": {"kind": {"const": "region"}}}
+      ]
+    },
+    "capability_address": {
+      "allOf": [
+        {"$ref": "#/$defs/address"},
+        {"properties": {"kind": {"const": "capability"}}}
+      ]
+    },
+    "field_address": {
+      "allOf": [
+        {"$ref": "#/$defs/address"},
+        {"properties": {"kind": {"const": "field"}}}
+      ]
+    },
+    "rigid_transform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["translation", "rotation_xyzw"],
+      "properties": {
+        "translation": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "prefixItems": [
+            {"type": "number"},
+            {"type": "number"},
+            {"type": "number"}
+          ],
+          "items": false
+        },
+        "rotation_xyzw": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "prefixItems": [
+            {"type": "number"},
+            {"type": "number"},
+            {"type": "number"},
+            {"type": "number"}
+          ],
+          "items": false
+        }
+      }
+    },
+    "declaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["document", "namespace", "anchors", "role"],
+      "properties": {
+        "document": {"$ref": "#/$defs/identifier"},
+        "namespace": {"$ref": "#/$defs/identifier"},
+        "anchors": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "role": {"$ref": "#/$defs/identifier"}
+      }
+    },
+    "module": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["declaration", "module", "root_role", "instance_anchor", "presence", "optional", "attachment_required"],
+      "properties": {
+        "declaration": {"$ref": "#/$defs/declaration"},
+        "module": {"$ref": "#/$defs/identifier"},
+        "root_role": {"$ref": "#/$defs/identifier"},
+        "instance_anchor": {"$ref": "#/$defs/identifier"},
+        "presence": {"enum": ["absent", "present"]},
+        "optional": {"type": "boolean"},
+        "attachment_required": {"type": "boolean"},
+        "root": {"$ref": "#/$defs/part_address"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"presence": {"const": "present"}}},
+          "then": {"required": ["root"]}
+        },
+        {
+          "if": {"properties": {"presence": {"const": "absent"}}},
+          "then": {
+            "required": ["optional", "attachment_required"],
+            "properties": {
+              "optional": {"const": true},
+              "attachment_required": {"const": false}
+            },
+            "not": {"required": ["root"]}
+          }
+        }
+      ]
+    },
+    "containment": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["root"],
+          "properties": {"root": {"const": true}}
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["parent"],
+          "properties": {"parent": {"$ref": "#/$defs/part_address"}}
+        }
+      ]
+    },
+    "part": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["address", "containment", "placement"],
+      "properties": {
+        "address": {"$ref": "#/$defs/part_address"},
+        "containment": {"$ref": "#/$defs/containment"},
+        "placement": {"$ref": "#/$defs/rigid_transform"}
+      }
+    },
+    "joint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["address", "proximal", "distal", "proximal_frame", "distal_frame"],
+      "properties": {
+        "address": {"$ref": "#/$defs/joint_address"},
+        "proximal": {"$ref": "#/$defs/part_address"},
+        "distal": {"$ref": "#/$defs/part_address"},
+        "proximal_frame": {"$ref": "#/$defs/rigid_transform"},
+        "distal_frame": {"$ref": "#/$defs/rigid_transform"}
+      }
+    },
+    "socket": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["address", "owner", "interface_frame"],
+      "properties": {
+        "address": {"$ref": "#/$defs/socket_address"},
+        "owner": {"$ref": "#/$defs/part_address"},
+        "interface_frame": {"$ref": "#/$defs/rigid_transform"}
+      }
+    },
+    "attachment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["address", "host", "mating", "offset"],
+      "properties": {
+        "address": {"$ref": "#/$defs/attachment_address"},
+        "host": {"$ref": "#/$defs/socket_address"},
+        "mating": {"$ref": "#/$defs/socket_address"},
+        "offset": {"$ref": "#/$defs/rigid_transform"}
+      }
+    },
+    "landmark": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner", "role", "frame", "position"],
+      "properties": {
+        "owner": {"$ref": "#/$defs/address"},
+        "role": {"$ref": "#/$defs/identifier"},
+        "frame": {"$ref": "#/$defs/frame_ref"},
+        "position": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "prefixItems": [
+            {"type": "number"},
+            {"type": "number"},
+            {"type": "number"}
+          ],
+          "items": false
+        }
+      }
+    },
+    "dimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner", "role", "value"],
+      "properties": {
+        "owner": {"$ref": "#/$defs/address"},
+        "role": {"$ref": "#/$defs/identifier"},
+        "value": {"type": "number"}
+      }
+    },
+    "frame_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner", "role"],
+      "properties": {
+        "owner": {"$ref": "#/$defs/address"},
+        "role": {"$ref": "#/$defs/identifier"}
+      }
+    },
+    "frame": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner", "role", "transform"],
+      "properties": {
+        "owner": {"$ref": "#/$defs/address"},
+        "role": {"$ref": "#/$defs/identifier"},
+        "transform": {"$ref": "#/$defs/rigid_transform"}
+      }
+    },
+    "region": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["address", "parts"],
+      "properties": {
+        "address": {"$ref": "#/$defs/region_address"},
+        "parts": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/part_address"}
+        }
+      }
+    },
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["address", "subjects"],
+      "properties": {
+        "address": {"$ref": "#/$defs/capability_address"},
+        "subjects": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/address"}
+        }
+      }
+    },
+    "field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["address", "owner", "frame", "channel"],
+      "properties": {
+        "address": {"$ref": "#/$defs/field_address"},
+        "owner": {"$ref": "#/$defs/address"},
+        "frame": {"$ref": "#/$defs/frame_ref"},
+        "channel": {"$ref": "#/$defs/identifier"}
+      }
+    },
+    "body": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["modules", "parts", "joints", "sockets", "attachments", "landmarks", "dimensions", "frames", "regions", "capabilities", "fields"],
+      "properties": {
+        "modules": {"type": "array", "items": {"$ref": "#/$defs/module"}},
+        "parts": {"type": "array", "items": {"$ref": "#/$defs/part"}},
+        "joints": {"type": "array", "items": {"$ref": "#/$defs/joint"}},
+        "sockets": {"type": "array", "items": {"$ref": "#/$defs/socket"}},
+        "attachments": {"type": "array", "items": {"$ref": "#/$defs/attachment"}},
+        "landmarks": {"type": "array", "items": {"$ref": "#/$defs/landmark"}},
+        "dimensions": {"type": "array", "items": {"$ref": "#/$defs/dimension"}},
+        "frames": {"type": "array", "items": {"$ref": "#/$defs/frame"}},
+        "regions": {"type": "array", "items": {"$ref": "#/$defs/region"}},
+        "capabilities": {"type": "array", "items": {"$ref": "#/$defs/capability"}},
+        "fields": {"type": "array", "items": {"$ref": "#/$defs/field"}}
+      }
+    }
+  }
+}

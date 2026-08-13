@@ -1,0 +1,218 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Creature Kernel fixture manifest revision 1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract", "suite", "schema", "profiles", "fixtures"],
+  "properties": {
+    "contract": {"$ref": "#/$defs/contract"},
+    "suite": {"$ref": "#/$defs/suite"},
+    "schema": {"$ref": "#/$defs/schema_ref"},
+    "profiles": {"$ref": "#/$defs/profiles"},
+    "fixtures": {
+      "type": "array",
+      "minItems": 9,
+      "maxItems": 9,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/fixture"},
+      "allOf": [
+        {"contains": {"properties": {"id": {"const": "minimal-valid-envelope"}}, "required": ["id"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"properties": {"id": {"const": "optional-module-absent"}}, "required": ["id"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"properties": {"id": {"const": "duplicate-member"}}, "required": ["id"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"properties": {"id": {"const": "invalid-discriminator"}}, "required": ["id"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"properties": {"id": {"const": "unsupported-revision"}}, "required": ["id"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"properties": {"id": {"const": "unknown-core-member"}}, "required": ["id"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"properties": {"id": {"const": "unsupported-required-extension"}}, "required": ["id"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"properties": {"id": {"const": "optional-extension-opaque"}}, "required": ["id"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"properties": {"id": {"const": "resource-over-budget"}}, "required": ["id"]}, "minContains": 1, "maxContains": 1}
+      ]
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.-]*$"
+    },
+    "safe_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]*$"
+    },
+    "safe_path": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["family", "revision"],
+      "properties": {
+        "family": {"const": "creature-kernel.fixture-manifest"},
+        "revision": {"const": 1}
+      }
+    },
+    "suite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind"],
+      "properties": {
+        "id": {"const": "body-document-readiness-2"},
+        "kind": {"const": "body-document-admission"}
+      }
+    },
+    "schema_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "draft", "contract_family", "revision"],
+      "properties": {
+        "path": {"const": "spec/body-document/schema/ck-body-document-v1.schema.json"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "draft": {"const": "2020-12"},
+        "contract_family": {"const": "creature-kernel.body"},
+        "revision": {"const": 1}
+      }
+    },
+    "diagnostic_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id": {"const": "ck.diagnostic.r2"}
+      }
+    },
+    "resource_profile": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "max_source_bytes", "max_nesting_depth", "max_json_values", "max_object_members", "max_array_items", "max_string_bytes", "max_number_token_bytes", "max_diagnostics"],
+          "properties": {
+            "id": {"const": "ck.resource.body.r2"},
+            "max_source_bytes": {"const": 65536},
+            "max_nesting_depth": {"const": 64},
+            "max_json_values": {"const": 8192},
+            "max_object_members": {"const": 4096},
+            "max_array_items": {"const": 4096},
+            "max_string_bytes": {"const": 16384},
+            "max_number_token_bytes": {"const": 256},
+            "max_diagnostics": {"const": 64}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "max_source_bytes", "max_nesting_depth", "max_json_values", "max_object_members", "max_array_items", "max_string_bytes", "max_number_token_bytes", "max_diagnostics"],
+          "properties": {
+            "id": {"const": "ck.resource.body.r2-tight"},
+            "max_source_bytes": {"const": 128},
+            "max_nesting_depth": {"const": 64},
+            "max_json_values": {"const": 8192},
+            "max_object_members": {"const": 4096},
+            "max_array_items": {"const": 4096},
+            "max_string_bytes": {"const": 16384},
+            "max_number_token_bytes": {"const": 256},
+            "max_diagnostics": {"const": 64}
+          }
+        }
+      ]
+    },
+    "profiles": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["diagnostic", "resources"],
+      "properties": {
+        "diagnostic": {"$ref": "#/$defs/diagnostic_profile"},
+        "resources": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/resource_profile"}
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "source", "license"],
+      "properties": {
+        "kind": {"const": "authored"},
+        "source": {"type": "string", "minLength": 1},
+        "license": {"const": "project"}
+      }
+    },
+    "fixture_profiles": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["diagnostic", "resource"],
+      "properties": {
+        "diagnostic": {"const": "ck.diagnostic.r2"},
+        "resource": {"enum": ["ck.resource.body.r2", "ck.resource.body.r2-tight"]}
+      }
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "processing_complete", "diagnostics_complete"],
+      "properties": {
+        "status": {"enum": ["success", "invalid-source", "unsupported", "resource-limit"]},
+        "processing_complete": {"type": "boolean"},
+        "diagnostics_complete": {"type": "boolean"},
+        "primary_diagnostic": {
+          "enum": [
+          "ck.resource.source-bytes",
+          "ck.resource.json-work",
+            "ck.source.invalid-json",
+            "ck.source.duplicate-member",
+            "ck.contract.invalid-discriminator",
+            "ck.contract.unsupported-family",
+            "ck.contract.unsupported-revision",
+            "ck.source.schema",
+            "ck.extension.unsupported-required",
+            "ck.internal.schema"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"status": {"const": "success"}}},
+          "then": {"not": {"required": ["primary_diagnostic"]}}
+        },
+        {
+          "if": {"properties": {"status": {"enum": ["invalid-source", "unsupported", "resource-limit"]}}},
+          "then": {"required": ["primary_diagnostic"]}
+        }
+      ]
+    },
+    "fixture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path", "sha256", "purpose", "provenance", "operation", "profiles", "expected"],
+      "properties": {
+        "id": {
+          "enum": [
+            "minimal-valid-envelope",
+            "optional-module-absent",
+            "duplicate-member",
+            "invalid-discriminator",
+            "unsupported-revision",
+            "unknown-core-member",
+            "unsupported-required-extension",
+            "optional-extension-opaque",
+            "resource-over-budget"
+          ]
+        },
+        "path": {"$ref": "#/$defs/safe_path"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "purpose": {"type": "string", "minLength": 1},
+        "provenance": {"$ref": "#/$defs/provenance"},
+        "operation": {"const": "validate"},
+        "profiles": {"$ref": "#/$defs/fixture_profiles"},
+        "expected": {"$ref": "#/$defs/expected"}
+      }
+    }
+  }
+}

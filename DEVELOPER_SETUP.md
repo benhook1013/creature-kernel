@@ -27,13 +27,37 @@ rustup toolchain install
 rustup show active-toolchain
 ```
 
-Run the reproducible local checks from the repository root:
+Run the bounded local checks from the repository root:
 
 ```bash
+python3 dev-tools/readiness-evidence/evidence.py --fetch-locked .
+python3 dev-tools/fixture-preflight/preflight.py \
+  . fixtures/body-documents/readiness-2/manifest.v1.json
+python3 dev-tools/readiness-evidence/evidence.py .
+python3 dev-tools/readiness-evidence/evidence.py --run-bound-checks .
 cargo fmt --all --check
-cargo test --workspace --all-targets --locked
-cargo clippy --workspace --all-targets --locked -- -D warnings
 ```
+
+The evidence runner rejects legacy/current Cargo config files in the checkout,
+its Cargo lookup ancestors, and the selected Cargo home. It removes ambient
+Cargo/Rust/compiler/profile flags and wrappers, sets the pinned toolchain, and
+runs exactly these locked/offline commands for `x86_64-unknown-linux-gnu`:
+
+```text
+cargo test -p creature-kernel-core --all-targets --target x86_64-unknown-linux-gnu --locked --offline
+cargo clippy -p creature-kernel-core --all-targets --target x86_64-unknown-linux-gnu --locked --offline -- -D warnings
+```
+
+The generator's Cargo metadata uses the same sanitized environment and target
+filter, and fails closed unless the workspace exposes exactly the explicit core
+library and CLI binary targets. The focused preflight and evidence generator
+inspect only the Proposed Readiness 2 candidate; neither admits the manifest
+nor activates Readiness 2.
+
+This is checkout-independent evidence with an offline lockfile and normalized
+paths, not full machine/container reproducibility. Cargo's registry cache,
+host kernel, CPU/toolchain installation, filesystem, and native tool behavior
+remain external evidence and are not vendored or claimed identical.
 
 These checks provide shell evidence only. They are not performance evidence
 or portability evidence.

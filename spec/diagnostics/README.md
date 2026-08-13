@@ -1,7 +1,7 @@
 # Diagnostic registry and profile
 
-Status: Proposed canonical specification; CK-KICK-012 Batch 13/14 discussion-
-approved C4 resolution; exact codes and serialized fields are fixture-gated
+Status: Proposed canonical specification; exact Readiness 2 candidate codes
+exist on this branch but are not admitted or activated
 
 Batch 13/14 resolves the diagnostic-domain and bootstrap-compatibility direction
 as Proposed material. Current successor material is recorded in DR-0006 Revision
@@ -14,8 +14,9 @@ target, decided 2026-08-13. The earlier-predecessor review at
 `9b96d18b115126ef09e54ad8c6f21749d5559ff6` are stale, with their findings
 corrected in these revisions. The 9c governance pass corrected two mechanical
 history-label issues and its technical pass found no findings / Ready for PR at
-High confidence. Review Complete is evidence only. No registry,
-profile, code, schema, parser, or readiness gate is accepted or activated.
+High confidence. Review Complete is evidence only. The Proposed Readiness 2
+candidate registry/profile, exact codes, schema, parser, and preflight exist on
+this branch but are not admitted or activated.
 
 This document is the sole canonical owner of diagnostic registry definitions,
 the initial diagnostic domains and stable classes, diagnostic occurrences,
@@ -32,8 +33,23 @@ every future error.
 
 The registry is a versioned machine-readable definition set. Each registered
 diagnostic code has a stable conceptual code identity, domain/class, applicable
-phase, default severity, and compatibility/revision identity. The exact code
-membership and field spelling remain fixture-gated. The initial registry has
+phase, default severity, and compatibility/revision identity. The Readiness 2
+candidate profile is `ck.diagnostic.r2` and its exact ten-code vocabulary is:
+
+- `ck.resource.source-bytes`
+- `ck.resource.json-work`
+- `ck.source.invalid-json`
+- `ck.source.duplicate-member`
+- `ck.contract.invalid-discriminator`
+- `ck.contract.unsupported-family`
+- `ck.contract.unsupported-revision`
+- `ck.source.schema`
+- `ck.extension.unsupported-required`
+- `ck.internal.schema`
+
+These spellings are frozen only if Ben admits the complete Readiness 2
+transaction. Future diagnostic domains and codes are not implied to be
+implemented. The initial registry has
 exactly these nine domains:
 
 - `source-admission` — acquisition, UTF-8, strict JSON, bootstrap, and schema;
@@ -53,8 +69,8 @@ reporter/publisher causes are classes or causal details under
 `execution-trust`, not additional domains. Resource profiles remain separate
 operational inputs even when a diagnostic occurrence records a resource-profile
 reference. These domains are intentionally a small initial boundary, not a
-large frozen code table. Exact code strings become frozen only in the admitted
-fixture transaction that first consumes them.
+large frozen code table beyond this candidate. The ten candidate codes are
+implemented only in the candidate parser/preflight path.
 
 A diagnostic occurrence is data separate from its registry definition. It
 contains the code and registry revision, phase, severity, optional normalized
@@ -69,6 +85,17 @@ or another typed identity) and when repetition is a legitimate multiset/count.
 It must never silently deduplicate merely because two occurrences have equal
 messages or equal serialized details.
 
+For the Readiness 2 `ck.diagnostic.r2` candidate, a structural-schema
+occurrence (`ck.source.schema`) has the exact identity tuple
+`(instance_path, schema_path, error_kind)`. `instance_path` and `schema_path`
+are normalized JSON Pointer strings (the empty string denotes the document
+root), and `error_kind` is the validator's registered keyword/class spelling.
+The tuple is compared as machine strings in that order; the human-readable
+message is not part of identity. Equal tuples are one logical occurrence and
+may be ignored as duplicate reports, while different tuples remain distinct
+even when their messages or serialized details match. No source array index,
+allocation order, or validator emission order is an identity component.
+
 A diagnostic profile is a versioned selection of registry revision, enabled
 domains/codes, severity and ordering rules, retention policy, and primary-
 diagnostic policy. A resource profile is separate: it owns limits and
@@ -82,8 +109,8 @@ not silently downgrade to a different registry or profile.
 One tiny, unnegotiated bootstrap registry/profile is always supported. It is
 used only to report inability to negotiate the requested diagnostic registry
 or selection profile; it is not an additional operation phase. Bootstrap
-compatibility is conceptual and stable even while the exact serialized code
-string and field spelling remain fixture-gated, provided its identity is
+compatibility is conceptual and stable even while future registry codes and
+field spellings remain Proposed, provided its identity is
 unambiguous and non-recursive.
 
 When a required diagnostic registry or profile is unknown, the top-level
@@ -98,6 +125,20 @@ The bootstrap occurrence itself must not require the unknown profile or
 registry to interpret its identity.
 
 ## Determinism and selection
+
+The candidate retention algorithm has two bounded areas: ordinary diagnostic
+retention and one reserved primary slot. Each new logical occurrence is first
+eligible for the reserved primary, which independently keeps the minimum
+occurrence under the profile's normative ordering key. Ordinary diagnostics
+are then retained in reached order until their configured capacity is full;
+later occurrences do not evict or replace already retained ordinary entries.
+Consequently, the reserved primary may be absent from the ordinary retained
+list when a later occurrence is normatively smaller. A zero ordinary capacity
+still records that a diagnostic occurred, retains the reserved primary, marks
+diagnostic completeness incomplete, and cannot convert an invalid source into
+success. Truncation is reported only through diagnostic completeness unless
+the separate operation contract determines that required trusted processing
+could not continue.
 
 The active diagnostic profile defines a total deterministic order over retained
 occurrences. The conceptual order is reached phase, severity/category,
@@ -125,12 +166,11 @@ registry domains or compatibility rules here.
 
 ## Activation and fixtures
 
-The exact initial code set, registry revision, diagnostic-profile fields,
-resource-profile references, bootstrap spelling, and primary-code expectations
-are admitted together with the first parser/graph/publication fixture
-transaction. Until then, documents may name the domains, conceptual bootstrap
-identity, and profile boundary but must not claim an exact code vocabulary or
-serialized compatibility promise.
+The exact candidate code set and `ck.diagnostic.r2` profile are documented and
+used by the Proposed parser/preflight evidence. They become a frozen serialized
+compatibility promise only if Ben admits the complete Readiness 2 transaction.
+Future registry revisions, domains, and publication/inspection codes remain
+separate and are not claimed implemented by this candidate.
 
 The fixture suite must cover deterministic multi-diagnostic ordering, primary
 selection, ordinary retention truncation, resource-limit retention failure,

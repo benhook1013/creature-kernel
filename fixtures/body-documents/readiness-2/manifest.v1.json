@@ -1,0 +1,136 @@
+{
+  "contract": {
+    "family": "creature-kernel.fixture-manifest",
+    "revision": 1
+  },
+  "suite": {
+    "id": "body-document-readiness-2",
+    "kind": "body-document-admission"
+  },
+  "schema": {
+    "path": "spec/body-document/schema/ck-body-document-v1.schema.json",
+    "sha256": "e2a866a911664440928d0343f7bdf9bb954c9ef0e165d3b9d3a0df2a594d1bf9",
+    "draft": "2020-12",
+    "contract_family": "creature-kernel.body",
+    "revision": 1
+  },
+  "profiles": {
+    "diagnostic": {"id": "ck.diagnostic.r2"},
+    "resources": [
+      {
+        "id": "ck.resource.body.r2",
+        "max_source_bytes": 65536,
+        "max_nesting_depth": 64,
+        "max_json_values": 8192,
+        "max_object_members": 4096,
+        "max_array_items": 4096,
+        "max_string_bytes": 16384,
+        "max_number_token_bytes": 256,
+        "max_diagnostics": 64
+      },
+      {
+        "id": "ck.resource.body.r2-tight",
+        "max_source_bytes": 128,
+        "max_nesting_depth": 64,
+        "max_json_values": 8192,
+        "max_object_members": 4096,
+        "max_array_items": 4096,
+        "max_string_bytes": 16384,
+        "max_number_token_bytes": 256,
+        "max_diagnostics": 64
+      }
+    ]
+  },
+  "fixtures": [
+    {
+      "id": "minimal-valid-envelope",
+      "path": "fixtures/body-documents/readiness-2/minimal-valid-envelope.json",
+      "sha256": "2001bb05be5c3e77c880f64a93498fa1b98c78c03698428eb9cef9fbd1ca27ee",
+      "purpose": "Minimal structurally valid Readiness 2 envelope.",
+      "provenance": {"kind": "authored", "source": "CK-KICK-013 Readiness 2 authored corpus", "license": "project"},
+      "operation": "validate",
+      "profiles": {"diagnostic": "ck.diagnostic.r2", "resource": "ck.resource.body.r2"},
+      "expected": {"status": "success", "processing_complete": true, "diagnostics_complete": true}
+    },
+    {
+      "id": "optional-module-absent",
+      "path": "fixtures/body-documents/readiness-2/optional-module-absent.json",
+      "sha256": "ac4d7efa71979880a99b5c78dc85a52775b4500d07aa47935ab285ebfb638525",
+      "purpose": "Structurally valid absent optional module declaration.",
+      "provenance": {"kind": "authored", "source": "CK-KICK-013 Readiness 2 authored corpus", "license": "project"},
+      "operation": "validate",
+      "profiles": {"diagnostic": "ck.diagnostic.r2", "resource": "ck.resource.body.r2"},
+      "expected": {"status": "success", "processing_complete": true, "diagnostics_complete": true}
+    },
+    {
+      "id": "duplicate-member",
+      "path": "fixtures/body-documents/readiness-2/duplicate-member.json",
+      "sha256": "b165639c93d5b09aa37a20c10cc51974d1f035cee12f84b6a4ab9d2de03be563",
+      "purpose": "Strict JSON duplicate top-level contract member.",
+      "provenance": {"kind": "authored", "source": "CK-KICK-013 Readiness 2 authored corpus", "license": "project"},
+      "operation": "validate",
+      "profiles": {"diagnostic": "ck.diagnostic.r2", "resource": "ck.resource.body.r2"},
+      "expected": {"status": "invalid-source", "processing_complete": true, "diagnostics_complete": true, "primary_diagnostic": "ck.source.duplicate-member"}
+    },
+    {
+      "id": "invalid-discriminator",
+      "path": "fixtures/body-documents/readiness-2/invalid-discriminator.json",
+      "sha256": "2e0cbdb97657f46d14281e632f7826a95e2a695c5934410f04107bf57f44b78c",
+      "purpose": "Malformed contract discriminator missing its revision.",
+      "provenance": {"kind": "authored", "source": "CK-KICK-013 Readiness 2 authored corpus", "license": "project"},
+      "operation": "validate",
+      "profiles": {"diagnostic": "ck.diagnostic.r2", "resource": "ck.resource.body.r2"},
+      "expected": {"status": "invalid-source", "processing_complete": true, "diagnostics_complete": true, "primary_diagnostic": "ck.contract.invalid-discriminator"}
+    },
+    {
+      "id": "unsupported-revision",
+      "path": "fixtures/body-documents/readiness-2/unsupported-revision.json",
+      "sha256": "fd5d51c3c4692f82dbd0528ac3df5221f815c6c6140ddee1577d1f861fdc620f",
+      "purpose": "Recognized family with an unsupported contract revision.",
+      "provenance": {"kind": "authored", "source": "CK-KICK-013 Readiness 2 authored corpus", "license": "project"},
+      "operation": "validate",
+      "profiles": {"diagnostic": "ck.diagnostic.r2", "resource": "ck.resource.body.r2"},
+      "expected": {"status": "unsupported", "processing_complete": true, "diagnostics_complete": true, "primary_diagnostic": "ck.contract.unsupported-revision"}
+    },
+    {
+      "id": "unknown-core-member",
+      "path": "fixtures/body-documents/readiness-2/unknown-core-member.json",
+      "sha256": "06e907672907aabb37a9e92e00d2829e1e7ede4e8d32c6edfcf3e3d67f48c5da",
+      "purpose": "Recognized revision with an unknown top-level core member.",
+      "provenance": {"kind": "authored", "source": "CK-KICK-013 Readiness 2 authored corpus", "license": "project"},
+      "operation": "validate",
+      "profiles": {"diagnostic": "ck.diagnostic.r2", "resource": "ck.resource.body.r2"},
+      "expected": {"status": "invalid-source", "processing_complete": true, "diagnostics_complete": true, "primary_diagnostic": "ck.source.schema"}
+    },
+    {
+      "id": "unsupported-required-extension",
+      "path": "fixtures/body-documents/readiness-2/unsupported-required-extension.json",
+      "sha256": "6f1a3953427e5ad548fc05614bd13bc78226800ffdd53df7d4afdd5d962b3495",
+      "purpose": "Structurally valid extension requiring an unsupported namespace.",
+      "provenance": {"kind": "authored", "source": "CK-KICK-013 Readiness 2 authored corpus", "license": "project"},
+      "operation": "validate",
+      "profiles": {"diagnostic": "ck.diagnostic.r2", "resource": "ck.resource.body.r2"},
+      "expected": {"status": "unsupported", "processing_complete": true, "diagnostics_complete": true, "primary_diagnostic": "ck.extension.unsupported-required"}
+    },
+    {
+      "id": "optional-extension-opaque",
+      "path": "fixtures/body-documents/readiness-2/optional-extension-opaque.json",
+      "sha256": "e0cc4a3055066089f4e7222f68e97f75f4f16d38dee40bd4ca70cc0fbb680880",
+      "purpose": "Unsupported optional extension preserved as opaque payload.",
+      "provenance": {"kind": "authored", "source": "CK-KICK-013 Readiness 2 authored corpus", "license": "project"},
+      "operation": "validate",
+      "profiles": {"diagnostic": "ck.diagnostic.r2", "resource": "ck.resource.body.r2"},
+      "expected": {"status": "success", "processing_complete": true, "diagnostics_complete": true}
+    },
+    {
+      "id": "resource-over-budget",
+      "path": "fixtures/body-documents/readiness-2/resource-over-budget.json",
+      "sha256": "4b10d2b0428c07c061ad9bb7721edacb9828a099fefe117d6d6a653fc6a8d1f7",
+      "purpose": "Valid source evaluated under the deliberately tight source-byte profile.",
+      "provenance": {"kind": "authored", "source": "CK-KICK-013 Readiness 2 authored corpus", "license": "project"},
+      "operation": "validate",
+      "profiles": {"diagnostic": "ck.diagnostic.r2", "resource": "ck.resource.body.r2-tight"},
+      "expected": {"status": "resource-limit", "processing_complete": false, "diagnostics_complete": true, "primary_diagnostic": "ck.resource.source-bytes"}
+    }
+  ]
+}

@@ -80,6 +80,14 @@ bounded executors or reviewers and cannot make product or architecture
 decisions independently. Until Revision 6 is accepted, the current accepted
 DR-0001 safety and human-ownership controls remain in force.
 
+Prioritize concrete product and implementation progress. Use the least
+governance, evidence, and tooling machinery sufficient for an existing
+accepted contract or observed risk; do not invent process for theoretical
+completeness. Once a gate's stated requirements pass, close it and proceed. If
+Ben directs the project to finish machinery and return to implementation, that
+is a binding prioritization constraint; do not continue discretionary process
+refinement.
+
 ## Decision records and adversarial review
 
 - Use one neutral Decision Record (DR) registry in `docs/decisions/` for
@@ -213,7 +221,14 @@ the human decision owner, accepts or rejects a DR.
   outcome reporting to tune it, without adding heavyweight telemetry. Do not
   retry non-capacity failures or start an unbounded retry loop.
 - Delegate only bounded work with a disjoint scope and explicit success
-  conditions. The main thread remains responsible for evaluating the evidence.
+  conditions. Proactively use Luna for substantial repository search,
+  diagnosis, nontrivial code or documentation edits, evidence preparation, and
+  focused checks when bounded. Sol normally retains planning, user decisions,
+  returned-diff inspection and integration, one consolidated validation pass,
+  Git/PR/CI/external operations, and final judgment; trivial edits and checks
+  may remain local. Avoid repeated main-thread command/edit loops when one
+  bounded worker plus consolidated final validation suffices, and do not
+  delegate ceremonially.
 - Parallel workers must have disjoint write scopes. The main thread inspects every
   returned diff, reconciles interactions, and validates the integrated result.
 - Independent reviewers should normally be fresh-context agents that did not

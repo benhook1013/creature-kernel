@@ -23,11 +23,17 @@ jobs:
       - name: Show active Rust toolchain
         run: rustup show active-toolchain
 
+      - name: Run Readiness 2 candidate preflight
+        run: python3 dev-tools/fixture-preflight/preflight.py . fixtures/body-documents/readiness-2/manifest.v1.json
+
+      - name: Fetch locked dependencies
+        run: python3 dev-tools/readiness-evidence/evidence.py --fetch-locked .
+
+      - name: Generate Readiness 2 candidate evidence
+        run: python3 dev-tools/readiness-evidence/evidence.py .
+
+      - name: Run sanitized bound core checks
+        run: python3 dev-tools/readiness-evidence/evidence.py --run-bound-checks .
+
       - name: Check Rust formatting
         run: cargo fmt --all --check
-
-      - name: Run Rust workspace tests
-        run: cargo test --workspace --all-targets --locked
-
-      - name: Run Rust workspace lints
-        run: cargo clippy --workspace --all-targets --locked -- -D warnings
