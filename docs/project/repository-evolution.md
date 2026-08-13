@@ -10,6 +10,37 @@ any product, specification, or architecture proposal.
 
 States: `active`, `planned`, `triggered`, `deferred`, `not-applicable`, `retired`.
 
+CK-KICK-012 and CK-KICK-013 remain active Proposed work after discussion-
+approved F1–F7 and Batch 8/9/10/11/12/13 resolutions. Accepted DR-0001
+Revision 5 remains the operative governance baseline while DR-0001 Revision 6
+is Proposed transition guidance with Ben's workflow direction approved and
+current review complete; formal acceptance remains pending Ben's disposition. DR-0002 Revision 11 and
+DR-0008 Revision 11 remain Proposed with Owner approval Pending and Review
+Complete. DR-0006 Revision 12, DR-0011 Revision 15, DR-0012 Revision 14, and
+DR-0013 Revision 12 remain Proposed with Owner approval Pending and Review
+Complete after the current Double review at exact target
+`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. The reviews of the earlier
+predecessor revisions at commit
+`763cff22d10f6491a05a28312a25250704543dcf` are stale exact-target evidence;
+G1/G2 were fixed mechanically, T1–T3 were resolved
+in the successors, and T4 remains unselected and deferred, requiring Ben's
+retained-human disposition before adapter profile/schema activation; it does not
+block the empty first Rust slice. The immediate-predecessor review at exact
+commit `9b96d18b115126ef09e54ad8c6f21749d5559ff6` is stale; its findings were
+corrected in the current revisions. The 9c governance pass corrected two
+mechanical history-label issues and its technical pass found no findings /
+Ready for PR at High confidence. Review Complete is evidence only. No acceptance, schema, fixture, parser/resolver,
+adapter, Cargo package, readiness, experiment, or implementation activates.
+See
+the [current review state](status.md#current-review-and-future-activation-obligations)
+for review lenses, recommendations, and findings. Earlier review evidence is
+stale after these revisions. CK-KICK-014 remains provisional/queued and does not activate
+implementation packages or compiler fixtures.
+
+The focused diagnostic owner remains Proposed with nine initial domains and a
+tiny mandatory bootstrap registry/profile; exact codes and fields are fixture-
+gated. This ledger records no activation from that direction.
+
 | Capability | Horizon | State | Activation trigger | Destination | Validation |
 | --- | --- | --- | --- | --- | --- |
 | Documentation authority | Now | active | Foundation phase | `docs/README.md` | Required-path and link checks |
@@ -25,17 +56,20 @@ States: `active`, `planned`, `triggered`, `deferred`, `not-applicable`, `retired
 | Documentation CI | Now | active | Governance scaffold | `.github/workflows/documentation.yml` | GitHub Actions |
 | AI delegation and review | Now | active | Before first delegated design review | `docs/developer-workflows/` | Required-path and link checks |
 | Local visual-review gallery | Now | active | First need for human appraisal of generated CK-KICK-010 output | `dev-tools/visual-review/` | Focused tests + local HTTP/browser smoke |
-| Body-document schema | Next | planned | First body parser proposal | `spec/body-document/` | Schema fixtures |
-| Semantic body-graph spec | Next | planned | First resolver proposal | `spec/body-graph/` | Graph fixtures |
-| Implementation packages | Next | planned | Language/build DR accepted | Toolchain-specific | Unit and integration tests |
-| Generation fixtures | Next | planned | First compiler-consumed body document | `fixtures/body-documents/` | Deterministic output checks |
-| Geometry exploration | Next | active | Bounded exploratory executable walking skeleton implemented and evidence recorded; continued work remains disposable and review-bounded | `experiments/ck-kick-010-walking-skeleton/` (durable implementation/evidence record) | Reproducible observations and diagnostics; generated bundles remain ephemeral/unretained, and this activation does not imply production architecture or durable artifact retention |
+| Body-document specification | Next | active | First body parser proposal exists in the CK-KICK-012 Batch 4 Proposed contract | `spec/body-document/` | Schema-level contract fixtures when activated |
+| Semantic body-graph spec | Next | active | First resolver proposal exists in the CK-KICK-012 Batch 4 Proposed contract | `spec/body-graph/` | Graph and cross-DR contract fixtures when activated |
+| Fixture-manifest specification | Next | active | Batch 10 creates the canonical Proposed fixture-manifest/admission owner; implementation remains gated by Readiness 2 | `spec/fixture-manifest/` | Immutable reviewed-tree/payload binding, preflight, append-only successor, and admission-link checks |
+| Build-operation specification | Next | active | Proposed public build/output contract exists as the canonical owner; implementation remains gated by DR-0013 readiness | `spec/build-operation/` | Contract, link, and ownership checks |
+| Implementation packages | Next | planned | Stage 1: DR-0013 accepted, activating only the empty Cargo shell; Stage 2: exact JSON Schema plus a versioned/admitted manifest, all referenced fixture files, and parser/bootstrap activate together in one review-branch transaction after Ben admission; Batch 12/13's numeric/frame evidence, claim identity, and the semantic-address, canonical-data, and diagnostic profiles precede exact schema/manifest admission; Readiness 2 admits parser/bootstrap and its corpus; the distinct Readiness 3 transaction then activates the resolver/snapshot boundary; Stage 4: working resolver plus provisional geometry profile and project-owned seam activate exploratory Stage 1 geometry | Planned Cargo workspace (`Cargo.toml`, `crates/`) | Stage-specific shell, parser/bootstrap, resolver/snapshot, and exploratory-proof evidence |
+| Readiness 3 resolver/snapshot transaction | Next | planned | A distinct Ben-approved successor transaction contains the successor manifest, expected snapshots, comparison profile/rule, resolver implementation or exact implementation binding, and unchanged content-identity preflight; only that explicit ledger activation triggers the Readiness 3 resolver/snapshot boundary; no gate activates while the records remain Proposed | `docs/decisions/DR-0013-first-production-implementation-platform-and-geometry-boundary.md` and admitted fixture manifest | Successor content binding, approval, comparison metadata, resolver binding, and in-memory snapshot handoff |
+| Generation fixtures | Next | planned | Stage 2 only: a separate Ben-approved readiness/decision record names the reviewed source commit reference, manifest path/digest, SHA-256 payload digest, exact ordered path/mode/content set containing only the manifest and declared schema, fixtures, and snapshots, and the versioned external path-set framing/profile (exact identifier remains readiness-gated); readiness/approval/successor records, mutable pointers, self-reference, and Git commit identity are excluded; rerun on the merged target compares those content identities even when the merge commit changes; append-only successors and unlisted fixtures do not activate independently | `fixtures/body-documents/` | Immutable binding, manifest/listed-source agreement, and deterministic output checks |
+| Geometry exploration | Next | planned | Stage 4 only: working resolver plus provisional geometry profile and project-owned GeometryRequest/GeometryResult seam; CK-KICK-014 is exploratory and does not require accepting/reactivating parked DR-0009/0010 | `experiments/` under an activated proof | Bounded exploratory evidence; generated bundles remain ephemeral/unretained and do not select production geometry |
 | Confirmatory multi-branch surface comparison | Later | deferred | At least two runnable candidate surface implementations and an intended comparative outcome for production architecture, or Ben explicitly reactivates DR-0009/0010 | `experiments/` under an activated protocol | Activated-protocol evidence and review |
 | Runtime benchmarks | Next | planned | First executable runtime | `benchmarks/runtime/` | Reference hardware profiles |
 | Developer setup | Next | planned | Toolchain selected | `DEVELOPER_SETUP.md` | Fresh-environment check |
 | Contribution guide | Next | planned | External collaborator or public repo | `CONTRIBUTING.md` | Contributor dry run |
 | License | Next | planned | Before external contribution/distribution | Root license file | Legal review as appropriate |
-| Host-engine adapter docs | Next | planned | First adapter DR accepted | Architecture and implementation area | Adapter smoke tests |
+| Host-engine adapter docs | Next | planned | First adapter DR accepted; post-Readiness-3 transaction defines signed permutation/positive scale, storage/output-only or runtime-conformance tier, and precision/subnormal probes | Architecture and implementation area | Adapter smoke tests and FTZ/DAZ capability evidence |
 | Implementation/proof tracker | Next | planned | First meaningful code/design gap | `docs/project/implementation-tracking/` | Anchor checks |
 | External mesh conformance | Later | deferred | Native generation and semantics proved | Future component | Import fixtures |
 | Operations and recovery | Later | deferred | Persistent service or distributed build exists | `docs/operations/` | Runbook exercises |

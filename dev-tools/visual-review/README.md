@@ -92,8 +92,15 @@ JSON. Context strings and manifest material are treated as text, never HTML.
 The server and publisher require POSIX descriptor-relative filesystem
 primitives (`O_NOFOLLOW`, directory descriptors, and directory-relative
 atomic rename). They fail closed with a startup/operation error on platforms
-without those primitives; this gallery does not claim equivalent race
-hardening on unsupported platforms.
+without those primitives.
+
+This is single-user localhost tooling, not a security boundary between local
+processes running as the same operating-system user. Treat the reviews root,
+manifest, and source images as private and stable while publishing or serving;
+concurrent same-user replacement or mutation is outside the supported threat
+model. The no-follow, path, origin, token, and file-type checks protect the
+ordinary local workflow and accidental misuse. They do not make the gallery a
+multi-user or adversary-resistant file service.
 
 The publisher validates the full manifest before creating the session. It
 copies each image to `SESSION/assets/<item-id>.<source-extension>` and writes

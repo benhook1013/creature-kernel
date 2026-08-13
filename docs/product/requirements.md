@@ -24,9 +24,10 @@ The current Round 2 proposal defines four bounded product choices:
   reference path; external authored-mesh conformance is later and must not be
   foreclosed by early contracts.
 
-These choices are recorded under DR-0005, which defers source semantics,
-the detailed compile/runtime boundary, automation contract detail, morphology,
-backend, and budget decisions.
+These choices are recorded under DR-0005, which defers source semantics, the
+detailed compile/runtime boundary, automation contract detail, detailed
+morphology ranges, backend, and budget decisions. DR-0008 now records the
+Proposed bounded first morphology family and grammar envelope.
 
 ## First-proof boundary (Proposed)
 
@@ -36,18 +37,22 @@ semantic regions and appearance inputs, structured diagnostics, and
 source-linked semantic joint frames and region intent/lineage. It must not be
 used to claim a usable bone hierarchy, bind weights/skinning, analytic
 collision proxies, actual contact artifacts, shared pose or animation,
-contact behaviour, deformation, or real-time interaction. Every declared valid
+contact behaviour, deformation, or real-time interaction. Every declared valid-supported
 fixed fixture must pass every mandatory structural check and the recorded
-subjective visual floor; a failed or inconclusive valid fixture leaves the gate
-open and remains evidence, while invalid fixtures fail expected diagnostics
-and are not counted as valid pass fixtures. Before EXP-0001 execution or
-evidence, stable fixture IDs, concrete source inputs, discriminating
-parameters, seed/configuration, and provenance must be frozen, although
-hypotheses may be selected earlier. Stage 2 separately proves embodiment by
-generating a usable skeleton, skin weights, and collision proxies and proving
-one shared pose/control scenario. Stage 3 separately proves bounded real-time
-interaction, including actual contact, localized deformation, physical
-response, and declared budget evidence.
+subjective visual floor; a failed or inconclusive valid-supported fixture leaves
+the gate open and remains evidence, while non-success fixtures must produce
+their expected outcomes/diagnostics and are not counted as valid pass fixtures.
+Every fixture expected outcome is
+frozen as valid-supported, semantically invalid, or well-formed-but-unsupported;
+every non-success fixture also freezes its primary diagnostic class/code. Only
+valid-supported fixtures count toward the Stage 1 gate. Before EXP-0001
+execution or evidence, stable fixture IDs, concrete source inputs,
+discriminating parameters, seed/configuration, provenance, and these expected
+outcomes must be frozen, although hypotheses may be selected earlier. Stage 2
+separately proves embodiment by generating a usable skeleton, skin weights, and
+collision proxies and proving one shared pose/control scenario. Stage 3 proves bounded
+real-time interaction, including actual contact, localized deformation,
+physical response, and declared budget evidence.
 
 The initial family is a stylized digitigrade furry biped with required
 torso/pelvis, head/simplified muzzle, two arms/simplified hands-paws, and two
@@ -78,16 +83,59 @@ than this product requirement.
 
 The system must preserve durable authored intent in an authoritative semantic
 source set. Initially this may be one structured, human-readable document;
-future explicit semantic override layers may also be authored inputs. Compilation
-resolves the source set into a per-build semantic body-graph snapshot. The
-resolved graph and generated outputs remain derived and cannot silently become
-competing sources of truth. See [DR-0002 Revision 2](../decisions/DR-0002-declarative-body-document-source-of-truth.md).
+future explicit semantic override layers may also be authored inputs. The
+source set alone is authored authority. Every outcome-affecting external
+authored asset is an exactly versioned source-set dependency. Every operation
+must return one authoritative result envelope, including failures before
+semantic resolution. The semantic resolver envelope exposes exactly one of
+`success`, `input-failure`, `invalid-source`, `unsupported`,
+`dependency-failure`, `resource-limit`, or `internal-failure`; it also reports
+processing and diagnostic completeness. The authoritative public build
+operation extends this closed vocabulary with `output-failure` for trusted
+derived-output or publication failure. A validated, inspectable, reproducible,
+per-build semantic body-graph snapshot is required for successful semantic
+`resolve` and may be omitted by operations such as `validate` only when their
+own contract permits it. Snapshot finalization is an in-memory resolver
+handoff; serialization and publication are build/output responsibilities.
+Semantically invalid and well-formed-but-unsupported partial graphs are
+non-compilable, non-contractual debug data. Mesh, rig, runtime, and other
+artifacts remain further derived outputs. See
+[DR-0002](../decisions/DR-0002-declarative-body-document-source-of-truth.md).
+
+Diagnostic compatibility is Proposed and separately owned: the initial
+registry has nine domains—source-admission, dependency, semantic-identity,
+graph-structure, frame-numeric, resource, execution-trust, publication, and
+inspection—and one tiny mandatory bootstrap registry/profile for unknown
+registry/profile negotiation. Exact code membership and serialized fields
+remain fixture-gated.
+
+The initial adapter admits one strict UTF-8 JSON document, rejects duplicate
+members and comments/includes/evaluation, and uses the proposed JSON Schema
+Draft 2020-12 vocabulary for structural validation before CK semantic
+resolution. It must require a top-level object and exactly one version-neutral
+family/revision discriminator; missing or malformed discriminator data is
+invalid-source, while an unknown family or unsupported revision is reported as
+unsupported before a current schema is applied. Unknown core members fail.
+Explicit migration produces a new source. Source text, normalized source model,
+and resolved snapshot remain distinct. Exact field names, schema files, and
+migration serialization remain deferred to the owning specifications. The
+canonical admission, status, diagnostic, and resource rules are in the
+[body-document contract](../../spec/body-document/README.md).
+The conceptual document shape is `contract`, `source`, `basis`, `profiles`,
+`body`, and `extensions`, with explicit typed body collections and stable
+references; exact shape and omission/default rules remain owned by that
+contract. Required basis is length unit, handedness, up, and forward, with no
+initial per-value unit override.
 
 ### CK-PROD-002: Deterministic compilation
 
-Given the same source, compiler version, configuration, and seed, the system
-must produce semantically equivalent output or report why reproducibility cannot
-be guaranteed. EXP-0001 evidence additionally requires frozen fixture IDs,
+Given the same complete build request, the system must produce semantically
+equivalent output or report why reproducibility cannot be guaranteed. A build
+request includes all outcome-affecting source/dependency, compiler/toolchain,
+contract/schema/profile, configuration/seed, backend-capability/protocol, and
+target-platform inputs. A unique per-attempt identity is for tracing only and
+must not change target selection or idempotent equality. EXP-0001 evidence
+additionally requires frozen fixture IDs,
 concrete source inputs, discriminating parameters, seed/configuration, and
 provenance.
 
@@ -95,13 +143,61 @@ Compilation reproducibility is an initial requirement. Bit-exact simulation,
 network, and replay determinism are deferred until their requirements and
 evidence are defined.
 
+Batch 13 adds a Proposed consequence for this requirement only: semantic
+decimal admission uses correctly rounded binary64 conversion with
+round-to-nearest, ties-to-even and explicit overflow, underflow, subnormal,
+and non-finite handling. The initial canonical numeric direction uses a fixed
+operation order and prohibits reassociation, implicit FMA contraction, FTZ, and
+DAZ. Same-target claims normalize into one canonical local-to-parent frame;
+translations compare directly and rotations use q/-q equivalence. Scalar and
+translation predicates use exact bounded dyadic/integer arithmetic, and
+quaternion comparison uses an offline-derived binary64 half-chord bound. The
+deterministic quaternion normalization requires the specified correctly rounded
+binary64 square root; only the already-normalized tuple-distance predicate uses
+no square root, norm, `asin`, or `sin`. Structured source-derived claim
+IDs retain multiplicity/provenance, detect same-ID collisions, evaluate pairs
+in sorted-ID order, and select the smallest declared value tuple. These local
+claim rules remain distinct from generic graph collection keys. The numeric
+experiment preregisters rational/ULP, normalization/sqrt, H-derivation,
+order/identity, and compiler-mode evidence before any evaluated run. Exact
+constants, ranges, profile IDs, and validation-margin/error formula remain
+open; this paragraph is not an activation or acceptance decision.
+
+The proposed canonical-data profile uses restricted canonical JSON and
+domain-separated SHA-256 digests for source, normalized graph, build request,
+fixture manifest, and published artifact domains. Attempt IDs, timestamps,
+filesystem paths, logs, allocation order, and human diagnostic text are not
+outcome identity inputs. Exact canonical numeric and address rules remain
+prerequisites to activation; see the [canonical-data specification](../../spec/canonical-data/README.md).
+
 ### CK-PROD-003: Durable semantic and artifact identity
 
-Durable semantic identity must identify parts, regions, joints, attachments,
-capabilities, and related concepts across regeneration. Artifact/build identity
-and provenance are separate. Mesh, vertex, face, triangle, LOD, and array
-indices are ephemeral and must not be promised stable through topology changes.
-See [DR-0006 Revision 1](../decisions/DR-0006-durable-semantic-and-artifact-identity.md).
+Durable semantic identity must identify exactly Part, Joint, Socket,
+Attachment, Region, Capability, and Field across regeneration through a
+structured semantic address: source namespace, authored stable module-instance
+anchors, semantic concept kind, and role-local key. Each source namespace has exactly
+one owner in a resolved source set. A namespace collision requires an authored,
+deterministic, collision-free remapping across every contributed semantic
+address; implicit shared namespace ownership is not allowed. Identity
+continuity is promised only while the authored address and concept remain
+unchanged across regeneration; structural-edit lifecycle rules remain
+deferred. Artifact/build identity and provenance are separate, and external
+authored assets retain their exact dependency revisions. Module is an authored
+reusable scope that instantiates concepts, not an embodied graph concept;
+landmark, anchor, dimension, and frame are typed owner+role records. See
+[DR-0006](../decisions/DR-0006-durable-semantic-and-artifact-identity.md).
+
+Batch 11 proposes that machine semantic addresses use a typed, restricted
+ASCII representation with ordered anchor segments, concept kind, and role key;
+Unicode display names remain separate presentation data. The exact profile is
+owned by the [semantic-address specification](../../spec/semantic-address/README.md).
+
+Claim identity for repeated authoritative properties is a separate local
+contract: it includes the canonical target, claim kind, source/namespace,
+stable authored semantic record/property address, and an explicit authored key
+for intentional multiplicity. It is not derived from a JSON pointer, array or
+traversal order, allocation, thread, time, or generated ID. Graph concept
+collections retain their own structured owner-role/claim collection keys.
 
 ### CK-PROD-004: Shared deterministic domain operations
 
@@ -116,6 +212,47 @@ adapter. See [DR-0004 Revision 2](../decisions/DR-0004-external-automation-throu
 
 The platform must remain fully usable without an embedded language model.
 External AI agents may operate the same deterministic interfaces as other users.
+
+### CK-PROD-006: Public build output lineage
+
+The public `build` operation must carry one authoritative result envelope from
+source resolution through derived output and publication. Its staged manifest
+uses a non-authoritative candidate artifact identity; successful atomic
+publication promotes that same identity to the committed artifact identity.
+Attempt identity is trace-only and must not enter committed success bytes or
+identity/equality. The initial contract persists no diagnostics-only failure
+bundle; failed operations return the authoritative envelope. The explicit
+output root and candidate identity determine a safe deterministic target,
+existing different or unverifiable occupants are never overwritten, and
+inspection requires expected build/artifact lineage rather than guessing
+whether stale output is current. The full collision, publication, worker,
+encoding, staging, and trust contract is owned by the [Proposed build-operation
+specification](../../spec/build-operation/README.md), including post-collision
+byte-divergence failure, the initial local-WSL filesystem profile, separate
+inspection statuses, and producer/coordinator trust boundaries.
+
+### CK-PROD-007: Immutable fixture admission
+
+Readiness fixtures use an immutable manifest payload containing suite kind,
+fixture paths/content hashes, profiles, provenance, expected results, and
+expected snapshot references where applicable. The payload never contains its
+own digest, approval, or active pointer. A separate readiness/decision record
+names the reviewed source commit, manifest path, manifest digest, path-scoped
+payload digest/tree identity, preflight result, and Ben approval. Preflight
+proves internal consistency, not expectation correctness; it reruns on the
+merged target by comparing those content identities rather than an unchanged
+merge commit. Successors are recorded explicitly, rollback or deactivation is
+explicitly approved, and unlisted fixtures do not activate.
+Operation status remains separate from semantic fixture taxonomy, with a
+primary diagnostic required for every non-success. The canonical conceptual
+field groups and Readiness 2/3 corpus are owned by the [fixture-manifest
+specification](../../spec/fixture-manifest/README.md).
+
+Readiness 3 is a distinct later activation transaction. It admits a successor
+fixture manifest, expected graph snapshots, a comparison-profile identity, and
+the resolver/implementation binding only after numeric, frame, address,
+canonical-data, and diagnostic prerequisites are available. This is a project
+ledger boundary, not a claim that those fixtures or implementations exist.
 
 ## Generated embodiment
 
@@ -133,8 +270,86 @@ pose, and actual contact/deformation are later-stage claims.
 
 ### CK-PROD-011: Composable body grammar
 
-The body model must support composition through parts, attachments, joints,
-local frames, measurements, capabilities, and material/deformation properties.
+The first body model must support the bounded typed Part-containment tree for
+the proposed digitigrade biped family. Every embodied Part, including a
+present optional module root, must have exactly one path to the embodied root;
+relations cannot create or repair containment, and containment supplies
+reference-transform inheritance. Containment cycles and typed-relation cycles
+must be validated independently. Required Stage 1 axial and limb Joints must
+connect the structural parent Part to its immediate containment child.
+
+The identity-bearing concepts are exactly Part, Joint, Socket, Attachment,
+Region, Capability, and Field. A Joint is directed, with one proximal and one
+distal Part, and the resolved graph must expose canonical proximal- and
+distal-frame records in the corresponding Part-local bases with provenance.
+Each Socket is a Part-owned interface with one intrinsic interface frame in the
+owning Part basis. Attachment host and mating roles are contextual endpoints
+that reference Sockets, not intrinsic Socket frame roles. The normalized model
+separately declares each module instance with
+a stable authored declaration address, module/root-role/template reference,
+anchor/provenance, presence/optionality, and Attachment requirement; absence
+and present-but-unattached are distinct. An absent optional declaration emits
+or reserves no Part, no graph relation may target its non-embodied root role,
+and it participates in declaration uniqueness rather than the Part namespace.
+If later present, its Part identity derives deterministically from the
+module-instance anchor and root role. For a present optional module, an
+Attachment must connect exactly one host Socket to one mating Socket, agree
+with the host-Part/module-root containment declaration, and initially be the
+sole incoming Attachment for that attached root. Each Socket has total active
+capacity one across host and mating roles; cross-role reuse is invalid.
+Host/mating Socket frames, an optional typed Attachment offset, and the inverse
+mating frame determine the module-root placement; a competing authored
+placement must agree within the later-defined tolerance or be semantically
+invalid. Duplicate, detached, cyclic, or invalid endpoint cases fail.
+Attachment never implies a Joint. Module is an authored reusable scope, not an
+embodied graph concept; landmark, anchor, dimension, and frame are typed
+owner+role records. Region never owns, Capability is not an implementation,
+and Field carries representation-neutral intent/lineage. Readiness 2 uses a
+rigid transform carrier with exactly three translation components and four
+quaternion components in explicit `xyzw` order, with no scale or shear fields;
+Readiness 3 freezes numeric basis, normalization, conditioning, and tolerance
+semantics. These are semantic roles and frames, not a bone, solver, rig,
+limits, runtime representation, or anatomy-fidelity claim. See [DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
+[DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md),
+and the [body-graph contract](../../spec/body-graph/README.md).
+
+The required functional chain remains root-reference frame owned by pelvis →
+pelvis → spine Joint → torso/chest Part → neck-base Joint → neck Part →
+head-base Joint → head; arms use shoulder/elbow/wrist Joints connecting torso,
+upper-arm, forearm, and hand/paw Parts to terminal paw-base landmark/Socket
+roles; legs use hip/knee/hock-or-ankle Joints connecting pelvis, thigh,
+lower-leg, and foot/paw Parts to terminal paw-base landmark/Socket roles.
+Ear/tail modules use Attachment, and a movable tail also uses a separate Joint;
+ears require no articulation.
+
+Transforms own reference-frame placement; typed dimensions own size/extents;
+anchors and landmarks are stable with authored, defaulted, or derived
+provenance; ratios are derived only. Claims target owner address, property role,
+and frame/context and normalize into one canonical local-to-parent frame before
+direct componentwise translation and q/-q rotation comparison. Authored claims
+and explicit invariants must be jointly satisfiable within contract tolerance;
+derived or defaulted values never override authored claims, and hidden inferred
+equations are not allowed. A composition residual may be retained as a
+separately named diagnostic/snapshot check, not as the same-target validity
+predicate. A conflict is a deterministic semantic-invalid diagnostic and no
+success snapshot. Each source declares units, handedness, up, and forward.
+Resolution converts to a contract-revision canonical internal basis and records
+conversion provenance. Distinguish Part local/reference, Joint proximal/distal,
+Socket intrinsic interface, Attachment host/mating endpoint context, derived
+resolved world/reference, and runtime-pose frames. Every transform
+entering Attachment composition must be finite, non-degenerate, and invertible
+under the declared profile. A source violation is `invalid-source`; an
+implementation failure on an admissible transform is `internal-failure`.
+Readiness 2 uses a rigid transform carrier with exactly three translation
+components and four explicit `xyzw` quaternion components, with no scale or
+shear fields. Canonical axes, unit, finite-number and normalization semantics,
+and comparison shapes are fixed Proposed material. Exact bounded dyadic scalar
+arithmetic, deterministic quaternion normalization, offline half-chord bounds,
+structured claim IDs, sorted pair reporting, and smallest-tuple selection are
+fixed directions; exact conditioning, numeric ranges, constants,
+validation-margin/error formula, deterministic evaluation bindings, and
+tolerances remain deferred to Readiness 3. Claim identity remains separate
+from generic graph collection keys.
 
 ### CK-PROD-012: Connected visible surface
 
@@ -212,8 +427,34 @@ possible evolution, not an initial requirement.
 
 ### CK-PROD-030: Structured diagnostics
 
-Generation and validation must report structured, actionable diagnostics rather
-than only visual failure.
+Generation and validation must report one structured operation result rather
+than only visual failure. Semantic resolution has the closed status set
+`success`, `input-failure`, `invalid-source`, `unsupported`,
+`dependency-failure`, `resource-limit`, and `internal-failure`; the authoritative
+build operation additionally uses `output-failure` for trusted derived-output
+or publication failure. Status mapping is deterministic: internal trust loss
+comes first, then a qualifying resource interruption, then the earliest
+applicable phase unable to produce its required output. In dependency phases,
+`dependency-failure` outranks `invalid-source`, which outranks `unsupported`;
+parse and semantic phases use `invalid-source` before `unsupported`. All
+mandatory independent checks capable of changing status or primary run unless
+resource/trust interruption prevents them; optional checks cannot change
+status or primary. Reached earlier diagnostics remain available when
+dependent phases are blocked.
+Every non-success result has a primary diagnostic matching its status.
+Processing is complete when all work applicable to establishing and trusting the
+selected outcome ran; blocked phases are inapplicable. Diagnostic completeness
+is complete when all applicable profile-required diagnostics were retained;
+ordinary truncation makes it false but is not `resource-limit` unless it
+prevented processing or trust. Diagnostics are bounded and sorted by phase,
+severity/category, normalized source path/offset, code, and semantic address;
+human text is not a key. See
+the [body-document contract](../../spec/body-document/README.md).
+Resolver phase 8 is in-memory snapshot finalization/handoff, not filesystem
+serialization. External serialization, staging, and publication failures are
+owned by the [build-operation specification](../../spec/build-operation/README.md)
+and report `output-failure` when trusted derived-output handling remains
+possible.
 
 ### CK-PROD-031: Headless proof
 
@@ -225,12 +466,39 @@ results so they can run in automation and external-agent loops.
 Performance claims must identify the body input, compiler/runtime version,
 quality settings, scene, reference hardware, metric, and reproduction command.
 
+### CK-PROD-033: Hostile-input resource bounds
+
+The operation must handle untrusted input with a finite implementation profile
+and streaming/token-aware guards. Raw bytes, incremental UTF-8/tokens,
+string/number token lengths before conversion, nesting and member counts,
+per-dependency and aggregate budgets, graph/reference/module expansion, work,
+memory, and diagnostics must be charged before unbounded materialization or
+allocation. A configured breach reports `resource-limit` through the same
+envelope only when it prevents required processing or trusted completion;
+diagnostic truncation alone does not. A true operating-system/process
+out-of-memory termination is outside the operation guarantee, while a surviving
+implementation that loses trust reports `internal-failure`. Exact thresholds
+and deterministic work units are profile-specific and deferred.
+
 ## Extensibility
 
 ### CK-PROD-040: Engine-independent core boundary
 
 Core semantic formats and compilation concepts should not require one host game
 engine, even if the first implementation uses a particular engine or tool.
+
+The Batch 13 planning consequence is that host-adapter numeric/frame
+conformance remains deferred until an adapter is activated. The future boundary
+uses signed permutation `C` plus finite positive engine-units/metre scale `s`:
+vector lengths use `sC`, scalar lengths use `s`, directions and normalized normals use `C`, and
+rigid transforms use `D H D^-1` for `D = diag(sC, 1)`. Storage/output-only is
+the default tier with no runtime arithmetic claim; an optional runtime tier
+adds probes and fixtures. Both tiers declare precision/domain/narrowing and
+overflow/underflow/subnormal policy; binary32 subnormal claims require an
+FTZ/DAZ probe. This is Proposed follow-up evidence, not a current adapter
+requirement or support claim. Before any adapter profile/schema activation,
+Ben must explicitly dispose of the retained-human request-validation/status
+mapping choice.
 
 ### CK-PROD-041: External mesh path
 
@@ -248,7 +516,8 @@ compatibility, migration, and unknown-field behaviour before third-party use.
 The following require decisions or experiments before they can become measurable
 acceptance criteria:
 
-- first supported morphology and parameter range;
+- exact parameter ranges and generator details for the supported first
+  morphology;
 - acceptable surface and deformation quality;
 - compile-time budget;
 - runtime frame target, resolution, and hardware profile;

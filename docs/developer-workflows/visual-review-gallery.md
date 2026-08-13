@@ -86,5 +86,7 @@ per-process server token needed for response writes, and the server validates
 the response path and request origin. These controls support local appraisal;
 they do not turn the utility into an authenticated or remotely deployable
 service. Secure filesystem operations require POSIX/openat/no-follow support;
-unsupported platforms fail closed rather than claiming equivalent race
-hardening.
+unsupported platforms fail closed. Treat the review root, manifest, and source
+images as private and stable for the invocation. Correctness under concurrent
+replacement by another process running as the same operating-system user is
+outside this local tool's threat model.

@@ -16,17 +16,56 @@ creature-kernel/
 │   ├── research/            # open questions and references
 │   ├── developer-workflows/ # conditional contributor procedures
 │   └── project/             # status, roadmap, repository evolution
-├── spec/                    # normative formats and semantics
+├── spec/                    # normative formats and semantics (Proposed contracts)
+│   ├── body-document/       # authored source encoding and admission contract
+│   ├── body-graph/          # resolved semantic graph contract
+│   ├── fixture-manifest/    # conceptual fixture admission authority
+│   ├── build-operation/      # Proposed public build/output contract
+│   ├── semantic-address/     # proposed typed machine address profile
+│   ├── canonical-data/       # proposed canonical bytes and digest domains
+│   ├── numeric-frame-profile/# proposed numeric/frame comparison profile
+│   └── diagnostics/          # proposed diagnostic registry/profile
+├── Cargo.toml               # planned Rust workspace; not active
+├── crates/                   # planned engine-independent core/compiler/CLI areas
 ├── experiments/             # reproducible research evidence
-├── fixtures/                # small stable proof inputs
+├── fixtures/                # small stable proof inputs (admitted later)
 ├── benchmarks/              # reproducible performance scenarios
 ├── dev-tools/validation/    # repository and contract validation
 ├── AGENTS.md                # always-on contributor authority
 └── README.md                # project orientation
 ```
 
-Implementation directories are intentionally absent until language, package,
-and component decisions are accepted.
+The fixture-manifest family is an active Proposed authority, but it remains
+conceptual: no manifest schema, parser, or fixture corpus is created here. Its
+manifest payload is admitted by a separate readiness/decision record that
+binds reviewed content identities; there is no custom active-pointer ledger.
+Implementation directories and the Cargo workspace are intentionally absent
+until DR-0013 is accepted. The four readiness stages are: acceptance activates
+only the empty Cargo workspace/compiler/library/CLI shell; a versioned,
+preflighted fixture manifest, its listed files, exact JSON Schema, and
+parser/bootstrap activate together in one review-branch transaction; canonical
+numeric/frame rules plus frozen expected graph outputs activate semantic
+resolver/in-memory snapshot handoff; and a working resolver plus provisional
+geometry profile and project-owned seam activate exploratory Stage 1 geometry.
+While the relevant DRs remain Proposed, no implementation packages, schema,
+manifest payload, or compiler-consumed fixtures are activated. Readiness 2
+requires one Ben-approved immutable manifest/fixture/schema/parser transaction;
+unlisted fixtures never activate independently.
+
+The Batch 11 focused profiles and Batch 12/13 numeric evidence direction remain
+Proposed specification areas. Their activation order is numeric/frame
+semantics, semantic addresses, canonical bytes/digests, diagnostics, exact
+schema/manifest, Readiness 2, then the separate Readiness 3
+snapshot/comparison transaction. The planned numeric experiment is
+unregistered and has no results or evidence; it must preregister domains,
+semantic budgets, rational/ULP boundaries, independent oracles, offline
+half-chord derivation, normalization/square-root and claim identity/order
+fixtures, frozen corpora, conditioning, and compiler-mode controls before
+execution. Future adapter evidence is a separate post-Readiness-3 transaction
+with signed permutation/scale, storage/output-only and optional runtime tiers,
+and explicit precision/subnormal probes. These directories may own current
+contracts, but documentation alone activates no implementation package,
+fixture corpus, or adapter.
 
 ## Activation rule
 
@@ -43,7 +82,12 @@ committed with documented provenance.
 
 ## Future implementation shape
 
-A monorepo with an engine-independent core, compiler, runtime, CLI, validation,
-and adapters is the current expectation. The language, build system, exact
-package layout, and adapter strategy remain unresolved and may require decision
-records when a choice crosses the consequential threshold.
+The CK-KICK-013 Proposed platform direction is a Cargo workspace with a stable
+Rust engine-independent semantic/compiler core, thin CLI, project-owned
+versioned backend-neutral GeometryRequest/GeometryResult seam, and later
+adapters. It does not include an initial daemon/service. The exact crate
+layout, geometry backend, isolated C++ worker boundary, artifact serialization,
+and adapter strategy remain evidence-driven and unresolved. These planned paths
+do not activate packages; DR-0013 acceptance activates only the empty shell,
+while exact schema and admitted fixtures/contracts gate Stage 1 parser/resolver
+implementation.

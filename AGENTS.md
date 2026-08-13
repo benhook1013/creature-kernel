@@ -7,14 +7,18 @@ runtime. Treat product intent, specifications, architecture, decisions,
 experiments, implementation status, and evidence as different kinds of
 information. Do not allow one kind to silently redefine another.
 
-## Accepted governance and operational guidance
+## Accepted governance and proposed transition guidance
 
-This file is binding operational guidance under Accepted DR-0001 Revision 5.
-It preserves authority separation, proposal labels, review evidence, repository
-safety, and explicit human ownership. Acceptance applies to the governance
-process only; it accepts no product, specification, or architecture proposal.
-If Ben later supersedes or materially replaces DR-0001, the main thread retires
-or migrates these controls while preserving proposal and review history.
+This file remains binding operational guidance under Accepted DR-0001 Revision
+5 while DR-0001 Revision 6 is Proposed. It preserves authority separation,
+proposal labels, review evidence, repository safety, and explicit human
+ownership. Acceptance applies to the governance process only; it accepts no
+product, specification, or architecture proposal. Ben approved the Revision 6
+workflow direction on 2026-08-13, so the proposed autonomous engineering lane
+below may guide routine implementation during the controlled transition, but
+that direction is not formal Revision 6 acceptance. If Ben later accepts,
+rejects, or materially replaces DR-0001, the main thread updates or retires
+this transition guidance while preserving proposal and review history.
 
 ## Required reading order
 
@@ -47,6 +51,35 @@ project arrived here but is not the canonical owner of current contracts.
 
 When documents conflict, stop and resolve the conflict in the canonical owner.
 
+## Proposed autonomous engineering lane (DR-0001 Revision 6)
+
+Ben retains decisions about product purpose and scope, user-visible experience
+and quality targets, supported morphology or runtime promises, material
+platform or engine lock-in, licensing, cost, privacy, external side effects,
+large irreversible trade-offs, and acceptance or rejection of product or
+direction-setting DRs. The main thread escalates when implementation would
+change one of those boundaries.
+
+Within those boundaries, the main thread may settle routine technical
+engineering choices without a separate user decision round, including exact
+schemas and field names, deterministic or numeric algorithms, diagnostics and
+status implementation, build integrity, code and test organization,
+reversible dependencies and tools, implementation details, and defect
+resolution. Consequential technical reasoning remains durable in the relevant
+DR, design note, issue, or implementation evidence; it is not silently
+dropped, but it is not a routine approval queue.
+
+The main thread classifies findings as: correctness needed now (fix it); a
+retained-human direction or material trade-off (ask Ben); implementation- or
+evidence-dependent (record the trigger and defer); or speculative hardening
+without a present need (do not build now). Risk-scaled adversarial review,
+tests, experiments, and implementation checkpoints remain required where
+useful. This lane does not authorize product or architecture drift, external
+side effects, DR acceptance, or review-until-clean loops. Subagents remain
+bounded executors or reviewers and cannot make product or architecture
+decisions independently. Until Revision 6 is accepted, the current accepted
+DR-0001 safety and human-ownership controls remain in force.
+
 ## Decision records and adversarial review
 
 - Use one neutral Decision Record (DR) registry in `docs/decisions/` for
@@ -56,10 +89,13 @@ When documents conflict, stop and resolve the conflict in the canonical owner.
   performance-defining, dependency/portability/licensing-locking, or likely to
   be disputed choices. Ordinary wording, derived detail, and reversible
   implementation do not require one.
-- Work in batches of roughly two to five related decisions or talking points:
+- Work in batches of roughly two to five related product, direction-setting,
+  architecture-boundary, or external-impact decisions or talking points:
   finish and resolve the discussion, have Luna apply non-trivial document
   edits, let the main thread inspect and integrate them, then select a
-  risk-scaled adversarial review level. At the end of every substantive
+  risk-scaled adversarial review level. Routine technical implementation may
+  proceed in the proposed autonomous lane without a separate decision round.
+  At the end of every substantive
   design-cycle handoff, the main thread explicitly states
   `Recommended adversarial level: None|Single|Double — <one-line reason>`.
   This is advice to Ben and a durable planning signal, not automatic
@@ -81,9 +117,12 @@ When documents conflict, stop and resolve the conflict in the canonical owner.
   the revised current version normally receives Double again unless Ben
   changes or waives it. Double is one pass per reviewer on the current
   revision, not review-until-clean. The main thread consolidates duplicates
-  and contradictions and presents only actionable findings. Return concise
-  findings with the next researched batch; do not auto-fix decision-bearing
-  findings or run a review-until-clean loop.
+  and contradictions and presents only actionable findings. For product,
+  direction-setting, architecture-boundary, and external-impact findings, do
+  not auto-fix decision-bearing issues or run a review-until-clean loop; return
+  concise findings for Ben. The main thread may autonomously fix technical
+  correctness findings within the proposed delegated boundary and records
+  implementation-dependent deferrals.
 - Do not change a DR to `Accepted` without a current-revision adversarial review
   or an explicit Ben waiver recorded as `Review status: Waived` with one
   non-placeholder `Waiver reason:` line, plus Ben's human approval.
@@ -123,6 +162,15 @@ When documents conflict, stop and resolve the conflict in the canonical owner.
 - Subagent selection, delegation boundaries, model routing, and independent
   review use
   `docs/developer-workflows/ai-delegation-and-review.md`.
+- Any AI thread may append a genuinely reusable operational observation to
+  `docs/project/ai-observations.md` after recurring tool misuse, unavailable or
+  broken routes, misleading harness or environment behavior, or other token- or
+  round-saving friction is evidenced, subject to normal write-scope rules. Do
+  not read it as guidance for ordinary work; nobody rewrites or deletes
+  existing entries during ordinary work. Consume or act on the inbox only in a
+  purposeful human-requested AI tooling or instruction improvement round with
+  Ben, using it as feedstock to improve tools or instructions and then
+  deliberately removing or retaining entries.
 - A decision-record review may use
   `docs/decisions/reviews/fresh-reread-preamble.md` to force a current-disk,
   issue-only convergence pass.
@@ -155,6 +203,15 @@ the human decision owner, accepts or rejects a DR.
   escalation, not the automatic tier after Luna.
 - Using Sol at `high` requires explicit human approval. Sol at `high` is the
   absolute subagent ceiling. Do not use Terra as a normal routing tier.
+- If a launch or turn fails because the selected model is at capacity, wait
+  30–60 seconds and retry that same model and reasoning tier once. Escalate or
+  fall back only if that same-tier retry also fails, or if the task independently
+  warrants a different tier. Report to Ben immediately: the failed model/tier,
+  first-failure time, actual wait duration, wait/retry count, retry result, and
+  any fallback model/tier. Repeat the routing deviation and those details in
+  the end-of-round subagent status. This 30–60 second wait is provisional; use
+  outcome reporting to tune it, without adding heavyweight telemetry. Do not
+  retry non-capacity failures or start an unbounded retry loop.
 - Delegate only bounded work with a disjoint scope and explicit success
   conditions. The main thread remains responsible for evaluating the evidence.
 - Parallel workers must have disjoint write scopes. The main thread inspects every

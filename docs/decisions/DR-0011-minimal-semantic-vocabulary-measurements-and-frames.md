@@ -1,0 +1,1199 @@
+# DR-0011: Minimal semantic vocabulary, measurements, and frames
+
+ID: DR-0011
+
+Scope: Specification and architecture
+
+Status: Proposed
+
+Revision: 15
+
+Decision owner: Ben
+
+Owner approval: Pending
+
+Review status: Complete
+
+Date proposed: 2026-08-11
+
+Date decided: —
+
+Discussion approval date: 2026-08-13
+
+Supersedes: —
+
+Superseded by: —
+
+## Context
+
+Creature Kernel needs a small semantic vocabulary that can survive geometry,
+rig, and runtime implementation changes. A single generic tag node would make
+ownership, articulation, attachment, spatial designation, affordance, and
+procedural intent indistinguishable. It would also make measurements and frame
+conversions implicit, which would undermine deterministic diagnostics and
+source-linked lineage.
+
+This record owns the CK-KICK-012 Batch 3 decisions for distinct semantic
+concepts, measurements, and frames/conversions. It complements the authoritative
+source and resolved-graph boundary in [DR-0002](DR-0002-declarative-body-document-source-of-truth.md),
+the durable identity boundary in
+[DR-0006](DR-0006-durable-semantic-and-artifact-identity.md), and the first
+morphology envelope in
+[DR-0008](DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md).
+It does not replace those records, select a serialized syntax, or accept any
+of them. On 2026-08-11 Ben approved the wider seven-decision CK-KICK-012 batch
+in discussion; this record owns its three vocabulary, measurement, and frame
+decisions. On 2026-08-11 Ben approved the CK-KICK-012 Batch 4 semantic
+classification, directed articulation, and measurement-conflict resolutions
+recorded in Revision 2. On 2026-08-11 Ben approved the CK-KICK-012 Batch 5
+blocker-resolution selections recorded in Revision 3: canonical resolved Joint
+and Socket frame records, explicit containment and Attachment boundaries, and
+the linked operation outcome/bootstrap/resource rules. The exact-revision
+CK-KICK-012 Batch 5 Double review of Revision 3 is stale historical evidence.
+Its three findings motivated the CK-KICK-012 Batch 6 resolutions recorded in
+Revision 4. The exact Revision 4 Double review at commit
+`c64b1b98948304d631eecea6a354c9e42c89c510` then identified F2–F3 for this
+record. Ben approved those finding resolutions in discussion on 2026-08-11;
+Revision 5 then resolved the typed descendant-owned Attachment composition and
+mating-Socket cardinality consequences, while DR-0002, DR-0008, and DR-0012
+carried linked graph, morphology, and status details. Revision 6 records Ben's
+2026-08-12 discussion approval of five Recommendation 1 resolutions: the
+total status/completeness rule, normalized module-instance declaration and
+global Socket capacity, Attachment transform admissibility, the four readiness
+gates, and the authoritative build/publication outcome. This discussion
+approval is not DR acceptance. Revision 6 remains Proposed with Owner approval
+Pending and Review status Complete. Initial source encoding,
+phase sequencing, diagnostics, compatibility, and resource limits are owned
+by [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
+The prior Revision 5 Double review examined target commit
+`88004388f9537a37617ae248bdaad4625e6f3f03` in [review 01](reviews/DR-0011-rev-05-review-01.md)
+and [review 02](reviews/DR-0011-rev-05-review-02.md); both independent passes
+recommended **Revise** at **High** confidence. The prior Review Complete state
+records evidence, not a clean review or acceptance. Those Revision 5 artifacts
+are now stale historical evidence after this proposal change and a fresh
+current Double review is required. The Revision 4 and earlier reviews remain
+stale historical evidence.
+Ben's 2026-08-12 Batch 9 discussion approval adds the absent-module
+declaration identity rule and cross-links the resolver snapshot handoff and
+DR-0013 build/output boundary. This material Revision 7 change makes the
+Revision 6 current-review artifacts stale. Ben then approved the Batch 10
+units, frames, numeric-profile, and default-provenance resolutions recorded in
+Revision 8. Ben approved the current-review C3/C4 resolutions on 2026-08-12:
+frame roles are typed by their owning record, and Readiness 2 freezes a
+structural rigid-transform carrier while Readiness 3 freezes numeric semantics
+and admits expected graph snapshots through the generic fixture route. This
+material Revision 9 change makes the Revision 8 current-review artifacts stale;
+the record remains Proposed with Owner approval Pending and a fresh current
+review pending. On 2026-08-12 Ben approved the next machine-contract batch:
+the canonical semantic basis, finite binary64 numeric profile, typed
+comparison profiles, and their expected-snapshot consequences. This material
+Revision 10 change makes the Revision 9 review evidence stale; a fresh current
+review is pending. On 2026-08-12 Ben discussion-approved the four numeric
+resolution directions from the Batch 11 review: exact decimal admission,
+normative comparisons, a non-circular numeric experiment method, and future
+adapter conformance. This is not DR acceptance or activation. Revision 11
+makes the Revision 10 current-revision review artifacts stale; their exact
+findings are preserved below. C1 canonical collection ordering/tie handling
+and C3 immutable Readiness 2/3 implementation binding remain unresolved for
+the next discussion; C4 diagnostic-domain/bootstrap compatibility remains
+cross-linked to DR-0012. Owner approval remains Pending and Review status is
+Complete for the current Batch 12 evidence; the proposal remains Proposed.
+
+On 2026-08-13 Ben approved all five CK-KICK-012/013 Batch 13 resolution
+directions in discussion: symmetric canonical-frame comparison with exact
+dyadic boundary arithmetic and deterministic quaternion normalization;
+post-R3 adapter units and storage-only/runtime-conformance tiers; typed total
+keys and explicit multiplicity for unordered collections; a separate scoped
+implementation-content binding for readiness transactions; and diagnostics
+sole ownership with a mandatory bootstrap registry/profile. This material
+revision is Proposed only: it accepts no DR and activates no schema, fixture,
+parser/resolver, implementation, adapter, experiment, or package. The
+Revision 11 Batch 12 review artifacts are stale for this material change and
+remain preserved below. Owner approval remains Pending and Review status is
+Pending pending a fresh current-revision review.
+
+On 2026-08-13 Ben approved the four Batch 13 numeric/source-resolution
+directions for this record in discussion: canonical-tuple chord semantics with
+no claimed angular bound; normalization of every produced semantic zero to
+`+0`; conceptual versioned authored claim identity and deterministic pair
+ordering; and explicit adapter status/proof obligations. This Revision 13
+records those settled directions as Proposed only. It creates no schema,
+fixture, parser/resolver, readiness gate, implementation, adapter, experiment,
+or package. The Batch 13 Revision 12 review is stale evidence after this
+material revision and remains preserved below; Owner approval remains Pending
+and a fresh current-revision review is required.
+
+On 2026-08-13 the fresh technical-review dispositions were applied in the
+Revision 14 proposal: the `claim-id-1` order is now wire-independent with
+profile-defined semantic ranks and normalized identifier ordering; numeric
+wording distinguishes required-sqrt quaternion normalization from the
+already-normalized tuple-distance predicate; and malformed adapter-profile
+status mapping is deferred to the adapter-activation prerequisite rather than
+treated as source admission. The exact-target Double review at commit
+`9b96d18b115126ef09e54ad8c6f21749d5559ff6` is stale for this Revision 15
+successor. Revision 15 applies the mandatory rank-table activation gate and
+preserves the retained-human T4 gate. The current Double review at
+`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a` is Complete: its governance
+findings were corrected mechanically and its technical pass found no findings /
+Ready for PR at High confidence. Status remains Proposed and Owner approval
+remains Pending; review evidence is not acceptance.
+
+## Decision
+
+### Typed semantic concepts and ownership
+
+The identity-bearing semantic concepts are exactly **Part**, **Joint**,
+**Socket**, **Attachment**, **Region**, **Capability**, and **Field**. They are
+distinct typed concepts rather than one generic tag node:
+
+- **Part** is an owned structural body element. Ownership is the containment
+  relationship and is not implied by any other concept.
+- **Joint** is a directed, identity-bearing articulation relation. It connects
+  exactly one proximal Part to exactly one distal Part and canonically owns a
+  distinct proximal-frame record and distal-frame record. Each record is
+  expressed in its corresponding Part's local basis and retains provenance for
+  any source reference that fed it. It is not a bone, a bone hierarchy, solver
+  constraint, limit, rig, or runtime representation.
+- **Socket** is a named interface owned by a Part. It owns exactly one
+  intrinsic interface frame expressed in that Part's basis; it does not imply
+  articulation. Whether that Socket is used as a host or mating endpoint is an
+  Attachment context, not a second intrinsic Socket frame role.
+- **Attachment** connects exactly one host Socket to exactly one mating Socket.
+  Its host and mating roles are contextual endpoints that reference the
+  intrinsic frames of those Sockets; an optional Attachment offset remains its
+  own typed transform. It maps or connects module composition, but does not imply articulation. The
+  mating Socket may be owned by any Part in the attached module-root
+  containment subtree. A present attached module root has exactly one active
+  incoming Attachment, an absent optional module has none, and each Socket has
+  total active capacity one across host and mating roles. A Socket used by two
+  active Attachments in any role combination, including one host use plus one
+  mating use, is invalid. Repeated endpoint pairs, host reuse, mating reuse,
+  cross-role reuse, zero incoming Attachments for a present root, multiple
+  incoming Attachments, invalid or detached endpoints, duplicate Attachments,
+  and Attachment cycles are distinct semantic-invalid outcomes or have an
+  explicit deterministic diagnostic mapping.
+- **Region** is a potentially overlapping spatial designation. It never owns
+  the parts it designates.
+- **Capability** is a queryable affordance. It is not an implementation,
+  backend, or proof that a runtime system can execute it.
+- **Field** is a spatially varying semantic intent or channel with lineage. It
+  is not necessarily a signed-distance field, storage format, mesh attribute,
+  or physics field.
+
+**Module** is not an embodied graph concept. It is an authored reusable source
+scope whose instantiation emits identity-bearing concepts. A Module therefore
+does not receive an embodied-graph identity in place of the concepts it emits.
+The normalized model separately declares each module instance (module, root
+Part, instance anchor/provenance, presence/optionality, and whether Attachment
+composition is required) without introducing an eighth identity-bearing
+concept. An absent optional module has a stable authored module-instance
+declaration address plus a non-embodied module root-role/template reference.
+It emits or reserves no Part, and no graph relation may target it. It
+participates in declaration uniqueness, not the Part namespace. If later
+present, its Part identity derives deterministically from the module-instance
+anchor plus root role. This declaration is not an eighth identity-bearing
+embodied graph concept. Optional absence is distinct from present-but-unattached
+state before Attachment cardinality checking; a present Attachment-required
+root with zero incoming active Attachments is invalid. Nested module instances
+require distinct Socket instances.
+Landmarks, anchors, dimensions, and frames are typed records or values owned by
+a named identity-bearing concept and addressed through the owner plus role.
+They do not acquire independent embodied-graph identity merely because they
+have a name. These concepts and records participate in the role-labelled,
+non-structural relations described by DR-0002 and DR-0008. Part-to-Part
+ownership is the only structural body-containment relation in the first
+grammar. A concept or typed record may still have one declarative owner for
+identity, lifecycle, and owner-plus-role addressing; that ownership does not
+make it a structural Part or create another body-containment edge. Exact
+identity serialization and syntax remain later specification work.
+
+### Measurements and provenance
+
+Authored local transforms own reference-frame placement. Typed dimensions own
+declared size and extents. Named landmarks and anchors provide stable semantic
+locations and record whether each value is authored or derived. Ratios are
+derived and inspectable; they are not authored authority.
+
+A measurement claim targets an owner semantic address, a property role, and a
+reference frame or context. Claims are compared only after unit and frame
+normalization. Multiple authoritative authored claims for the same target must
+agree within a contract-defined tolerance; derived or defaulted values never
+override authored values. Cross-property constraints exist only when an
+invariant is explicitly declared. If authoritative claims or explicit
+invariants cannot be jointly satisfied within tolerance, resolution returns a
+semantically invalid result with a deterministic diagnostic in the
+authoritative operation-result envelope and publishes no success snapshot.
+Exact measurement vocabulary, units beyond source declarations, numeric
+ranges, tolerance values, and diagnostic codes remain later specification
+detail.
+
+### Frames and conversion
+
+Every source declares its length units, handedness, up axis, and forward axis.
+The resolver normalizes source values into one contract-revision canonical
+internal basis and records conversion provenance. The semantic frame boundary
+distinguishes closed roles by their owning record:
+
+- Part local/reference frame, which is authored relative placement;
+- Joint proximal and distal frame records, which are semantic articulation
+  interfaces;
+- Socket intrinsic interface frame, which is the authored attachment interface;
+- Attachment host and mating endpoint roles, which reference Sockets and are
+  contextual rather than intrinsic Socket frame roles;
+- a resolved world/reference transform, which is derived build output; and
+- runtime pose transforms, which are separate runtime state.
+
+Part-to-Part containment is the only structural body relation. Every embodied
+Part, including optional module Parts, has exactly one containment path to the
+root; Joint, Attachment, Region, and other relations cannot create or repair
+that path. Containment owns reference-transform inheritance. Validate
+containment reachability and containment cycles separately from typed-relation
+cycles. In the bounded Stage 1 axial/limb grammar, required Joint edges connect
+the structural parent Part to its immediate child Part. An Attachment's host
+Part and module-root child must agree with separately declared containment.
+
+Attachment placement uses a typed transform contract. `T_A←B` maps coordinates
+expressed in B into A. Let H be the host Part, R the attached subtree root Part,
+M the mating Socket owner Part, and `S_h` and `S_m` the host and mating Socket
+frames. Let `O_(S_h←S_m)` map mating-Socket coordinates into host-Socket
+coordinates; identity makes the frames coincident. The conceptual host-local
+equation is:
+
+`T_H←R = T_H←S_h · O_(S_h←S_m) · (T_R←M · T_M←S_m)^−1`
+
+Composition is understood in the stated coordinate bases and order, with the
+rightmost transform applied first. Matrix layout and serialized
+representation remain deferred. An optional explicit authored Attachment
+offset, if admitted, is part of the host/mating alignment transform `O` in
+that typed basis; exact field spelling and tolerance remain deferred. The
+resulting value is the attached root's sole resolved child-local containment
+placement relative to its host parent. Descendants inherit only through
+containment; Attachment adds no parallel transform-inheritance path. If
+separately authored root-local placement controls the same degrees of freedom,
+it must agree with that same canonical derived child-local value within the
+later-defined tolerance or the document is semantic-invalid. The resolved
+graph materializes canonical owned records and preserves source-reference
+provenance for all frames, containment transforms, offsets, and composition
+steps; it does not choose a bone, solver, limit, rig, or runtime
+representation. Every transform entering Attachment composition must be finite,
+non-degenerate, and invertible under the declared transform profile. A
+source-caused violation is semantic `invalid-source` with a deterministic
+diagnostic and preserved provenance; implementation failure on an admissible
+transform is `internal-failure`. Exact threshold, conditioning, comparison
+tolerance, and matrix-storage constants remain resolver-activation
+prerequisites; scale/shear remains excluded from the initial carrier.
+
+The canonical axes and unit, rotation representation, and scale/shear policy
+are proposed in the profiles below. Their exact thresholds and conditioning
+constants remain activation prerequisites; the requirement that sources
+declare their basis and retain normalization provenance is already binding
+within this Proposed boundary.
+
+### Unordered collection and diagnostics ownership
+
+Every semantically unordered claim or projection owned by this record declares
+a typed total key and an explicit uniqueness or multiplicity rule. Measurement
+claim sets use the structured authored claim identity above; owner-role records
+include kind, owner address, role, and any required frame/context/claim
+identity. No source order, traversal/allocation order, generated index,
+serialization, or raw bytes may become a fallback key. Duplicate keys fail
+only where uniqueness is declared; repeated claims and legitimate multisets
+retain explicit claim/occurrence identity. Canonicalization fails when the
+owner has not supplied the required key/rule.
+
+Diagnostics are not owned by this semantic vocabulary record. The diagnostics
+specification solely owns registry, domain, class, occurrence, profile,
+ordering, and compatibility meaning; this record owns only semantic outcomes
+and their comparison consequences. Its closed initial domains are
+source-admission, dependency, semantic-identity, graph-structure, frame-
+numeric, resource, execution-trust, publication, and inspection, with narrow
+resolver-invariant and worker-protocol categories as stable classes. Resource
+profiles remain operational inputs. A mandatory bootstrap registry/profile is
+always known: an unknown required registry/profile uses unsupported, an
+effective bootstrap profile, bounded requested identifiers, and a
+deterministic primary, never emission under an unknown profile or silent
+downgrade. Exact ordinary codes, field spellings, and profile IDs remain
+fixture-gated and are owned elsewhere.
+
+### Canonical basis and transform profile
+
+The proposed semantic basis is right-handed metres with `+Y` up and `+Z`
+creature-forward. Semantic named directions are authoritative; left/right,
+up/down, and forward/back are not inferred merely from coordinate signs.
+Source bases are converted into this basis with retained provenance. A
+transform maps local coordinates into the parent basis using
+`p_parent = rotate(q, p_local) + t`; conceptual composition uses column
+vectors and applies the rightmost transform first. Engine adapters own
+conversion to Unreal, Godot, Blender, or other conventions. This basis does
+not own mesh winding, bones, IK, deformation, physics, or runtime-pose
+representation.
+
+### Numeric-domain profile
+
+The semantic numeric profile uses finite IEEE-754 binary64 values. After strict
+JSON and number-token resource checks, each number token is interpreted as an
+exact signed decimal rational and converted directly to IEEE-754 binary64 with
+round-to-nearest, ties-to-even. The conversion has no host-parser
+intermediate, locale dependence, ambient rounding-mode dependence, or
+implementation-defined precision. A token is admitted iff its correctly
+rounded result is finite, except that a nonzero exact rational which rounds to
+signed zero is rejected. Finite nonzero subnormals are admitted, and canonical
+operations may not use FTZ or DAZ. Overflow to infinity is rejected.
+Excessive decimal precision is accepted within the lexical/resource bound;
+there is no additional semantic digit limit. Lexical negative zero is accepted
+but normalized to positive zero for semantic and canonical models; exact source
+bytes remain distinct. Every semantic numeric-producing stage canonicalizes
+produced zero to `+0` after admission/conversion, composition, inversion,
+quaternion normalization and sign selection, tuple formation, adapter
+conversion, and target-precision narrowing, and before comparison or
+serialization. A permitted nonzero-to-zero narrowing follows the active
+underflow policy but emits `+0`. Raw lexical `-0` remains distinct only in
+raw-source identity and is never retained in semantic, canonical, comparison,
+adapter, or serialized values.
+Rotation carriers use finite, non-near-zero `xyzw` quaternions; `q` and `-q`
+denote the same rotation, and a deterministic sign rule makes the first
+non-zero component in `(w, x, y, z)` positive. Normalization is permitted
+only within a versioned bound; malformed or non-normalizable input is
+rejected. Scale and shear are excluded from the initial rigid-transform
+carrier. Exact thresholds, constants, and conditioning rules require the
+bounded numerical experiment recorded as an activation prerequisite.
+
+### Typed comparison profiles and expected snapshots
+
+Comparison is versioned and typed rather than governed by one global epsilon.
+Identity and discrete values—structure, enums, presence, provenance,
+default-rule IDs, diagnostics, and profile IDs—compare exactly. Numeric
+translation, angular rotation, quaternion equivalence, and composition
+residuals use separate absolute/relative or angular tolerances owned by a
+comparison profile. Authored-conflict, expected-snapshot, and future geometry
+or runtime comparisons are separate profiles.
+
+The normative comparison rules are fixed as follows. Exact discrete comparison
+remains exact. Same-target transform claims are first normalized into the same
+canonical local-to-parent frame. Translation is compared directly
+componentwise; rotation uses the q/-q-invariant rule below. Swapping claims
+produces exactly the same outcome. A residual transform is permitted only as a
+separately named diagnostic/composition comparison, never as authored
+same-target equality.
+
+The scalar predicate
+`abs(a-b) <= A + R*max(abs(a),abs(b))` is decided over exact dyadic values
+decoded from admitted finite binary64 values, using bounded integer/dyadic
+arithmetic. No rounded floating intermediate or undefined “equivalent
+monotonic” evaluation may decide the inclusive boundary. Translation uses this
+predicate componentwise under L-infinity semantics.
+
+Rotation comparison removes runtime transcendental evaluation after inputs have
+been deterministically normalized. The already-normalized tuple-distance
+predicate uses no square root, norm, `asin`, or `sin`; deterministic quaternion
+normalization itself uses the required correctly rounded binary64 square root
+specified below. The admitted comparison profile stores a finite binary64
+half-threshold `H` for canonical-
+tuple chord semantics: after deterministic normalization and sign selection,
+`H` is the half-threshold in the Euclidean space of the canonical quaternion
+tuples.
+Determine the q sign from the exact dyadic dot product, choosing `s = +1` for
+zero; compute `di = qa_i - s*qb_i`; and accept iff
+`sum(di^2) <= (2H)^2` using exact dyadic arithmetic, inclusively. A nominal
+angular `theta`, if retained, is informational/calibration metadata only; this
+record does not claim that `H` or `theta` bounds represented angular error. A
+future represented-direction or angular guarantee requires a new
+comparison-profile revision and successor evidence.
+
+Source quaternion normalization is deterministic: exact max-absolute-component
+scaling; fixed `xyzw` divisions; a fixed left-to-right squared sum without
+reassociation or FMA; correctly rounded binary64 square root; fixed divisions;
+drift/near-zero validation; and canonical sign by the first nonzero `wxyz`
+component being positive. Round-to-nearest ties-to-even, no FTZ/DAZ, and no
+ambient rounding mode are assumed. A platform unable to provide the required
+square root is unsupported. Bounds remain experiment-gated.
+
+For competing authored claims targeting the same owner, property, and frame,
+use conceptual versioned `claim-id-1`: canonical target, closed claim kind,
+typed source-document/namespace identity, stable authored record address,
+typed property role, and an explicit authored claim key or absence. Its
+wire-independent total order is owned by the
+[semantic-address profile](../../spec/semantic-address/README.md): the target
+uses its owning structured semantic-address order; closed claim kind and typed
+property role use profile-defined semantic tag ranks rather than wire spelling;
+typed source-document/namespace identity and each address segment use the
+restricted normalized identifier Unicode-scalar lexical order, with structured
+address/anchor sequences using prefix-before-extension; and the claim-key sum
+type orders absent before present, with present keys using that same identifier
+order. An activated schema must bijectively map wire values to these conceptual
+types/ranks and may not infer order from serialized spelling. Unordered pairs
+are `(min_id, max_id)`. Same claim ID plus the same normalized value is
+evaluated once while all occurrences/provenance remain; same claim ID plus a
+different value is an invalid-source identity collision. Evaluate unordered
+pairs in this total order, with the first failing sorted pair supplying
+deterministic conflict detail. Every pair must pass; no transitive clustering,
+first-winner rule, residual equality, or approximate deduplication is
+permitted. Only after all pairs pass, choose the lexicographically smallest
+value-type tuple under an exact finite-binary64 total value order (`-0` already
+`+0`); claim ID breaks exact tuple ties only, and all provenance is retained.
+The claim-kind and typed-property-role rank tables are mandatory, versioned
+activation inputs. Each table must be complete and injective over its admitted
+closed set; a missing, duplicate, or unknown kind, role, or rank entry fails
+activation. No canonical claim ordering, digest, or resolver activation may
+occur before both tables exist, and wire spelling is never an ordering
+fallback.
+Exact bounds and profile identifiers remain experiment-gated.
+
+The bounded numeric experiment is part of activation evidence, not a source of
+post-hoc tolerance selection. Intended numeric domains and semantic error
+budgets are pre-registered before results. Canonical operations use a fixed
+order and round-to-nearest, ties-to-even; the initial direction prohibits
+reassociation, implicit FMA contraction, and FTZ/DAZ. Exact/analytic and an
+independent materially higher-precision oracle are used over separate frozen
+development, held-out, and adversarial corpora, with metamorphic, permutation,
+and conditioning coverage. Sensitivity and conditioning are recorded, and
+out-of-domain cases are rejected rather than used to widen tolerances. A
+predeclared validation margin is applied; neither the smallest observed error
+nor a budget widened after failures may set a threshold. The initial reference
+environment is WSL x86_64 plus native Linux. Materially different
+architecture/toolchain evidence is required before claiming broader
+cross-platform reproducibility, but does not block this explicitly bounded
+initial profile. Exact domains, budgets, ranges, thresholds, tolerances, and
+profile IDs remain evidence-gated.
+
+The Readiness 3 expected graph snapshot records its path, digest, schema
+revision, comparison-profile identity, exact-versus-semantic comparison rule,
+and provenance. A changed snapshot, comparison profile, or numeric rule is a
+successor fixture transaction, not an in-place rewrite.
+
+Before any host adapter activates, it must declare an explicit orthogonal
+signed-permutation canonical-to-engine basis map `C`, a finite positive scale
+`s` (engine length units per canonical metre), target precision, supported
+domain, narrowing/overflow/underflow/subnormal policy, and a guarantee tier.
+Length-bearing points, positions, translations, displacements, dimensions,
+radii, and extents map with `sC/s`; directions and normalized normals map with
+`C`; rotations map with `R_e = C R_c C^-1`. With `D = diag(sC,1)`, rigid
+transforms map as `H_e = D H_c D^-1`, and the inverse map is `D^-1`.
+Quaternion conversion derives from the rotation map or a proven equivalent.
+
+The default/minimal guarantee tier promises storage/output conversion only and
+makes no runtime arithmetic claim. An optional runtime-conformance tier adds
+engine arithmetic, probes, and fixtures. Binary32 may therefore exclude
+subnormal-dependent values. A profile promising subnormal runtime preservation
+must probe FTZ/DAZ; a failed required capability is unsupported. Trusted
+in-domain overflow or disallowed underflow is output-failure. Named-direction,
+handedness/reflection, composition, inverse, q/-q, narrowing, and round-trip
+fixtures are required. The semantic core remains binary64 and unchanged;
+adapter activation is separate and occurs only after Readiness 3. No engine is
+selected by this record.
+
+The public adapter status mapping is owned by the build-operation and platform
+contracts and reuses existing statuses, but its malformed-request/profile
+classification is deliberately unselected until adapter activation. An adapter
+profile is a build-request/target-platform input, not authoritative body-source
+content. Before an adapter profile/schema activates, Ben must explicitly
+dispose of the retained-human request-validation mapping, which must be chosen
+and reviewed while preserving the closed operation status set (or explicitly
+revising it). A well-formed unknown
+revision or unavailable capability remains `unsupported`; a violated admitted
+profile invariant remains `internal-failure`; and valid supported conversion
+overflow, disallowed underflow, or malformed output remains `output-failure`.
+Until then no adapter activates, and malformed adapter-profile input is not
+classified here as `invalid-source`/source-admission. Adapter proof obligations
+cover malformed scale/profile, unknown revision, capability absence, invariant
+violation, overflow, underflow, malformed output, and precedence, but this
+record creates no fixtures or adapter. The request-validation choice is
+implementation/evidence-dependent and is not a blocker for the first Rust
+slice.
+
+### Numeric-domain and default provenance boundary
+
+The required source basis is the declared length unit, handedness, up axis, and
+forward axis. Measurements and transforms identify their owner semantic
+address, semantic property or role, and frame/context; a value does not carry
+an independent unit override in the initial contract. Body source
+`profiles` initially names the versioned semantic numeric-domain profile. It
+does not turn operational resource or diagnostic profiles into authored source
+semantics; those remain operation or fixture context owned by DR-0012 and
+DR-0013.
+
+Stage 1 Readiness 2 checks only structural shape and reference validity for
+units, frames, profiles, and provenance. Readiness 3 is the activation point
+that activates this canonical basis, validity, normalization/sign, numeric
+ranges, conditioning, composition, and typed comparison semantics. It preserves
+the fixed Readiness 2 carrier; adapter storage and downstream representation
+remain free to vary. Until then, these owning-record frame roles remain
+closed conceptually, with only the
+roles applicable to a given record used. Host and mating are Attachment
+endpoint contexts, not alternative intrinsic Socket roles.
+
+Missing semantic values are legal only when the exact contract revision or a
+named profile owns one deterministic default rule. Exactly one applicable rule
+must own each default. Resolution records `defaulted` provenance and the
+stable default-rule identity; defaults never override authored claims. Null as
+missing, implicit zero, neighbouring-value inference, and hidden equations are
+not permitted. Required identity, containment, module presence, source basis,
+and all values required by the selected grammar remain explicit. A permitted
+omission means empty only where the contract explicitly says so, including
+core typed collections.
+
+## Consequences
+
+- Consumers can distinguish the seven identity-bearing concepts, ownership,
+  articulation, attachment, spatial intent, affordance, and varying semantic
+  channels without inferring meaning from a generic tag. Module scopes and
+  owner-plus-role records cannot silently become additional graph concepts.
+- An absent optional module has a unique authored declaration address and
+  non-embodied root-role/template reference only. It emits or reserves no Part,
+  cannot be a relation target, and is unique among declarations rather than
+  Parts; when present, its Part identity derives from the instance anchor plus
+  root role without creating an eighth graph concept.
+- Regions may overlap without corrupting the ownership tree, and attachments
+  do not accidentally promise articulation or a solver representation. Joint
+  direction, endpoint cardinality, and endpoint-frame ownership are explicit.
+- Measurements retain authored authority and provenance while exposing ratios
+  and derived landmarks for inspection.
+- Conflicting authored claims become deterministic semantic-invalid diagnostics
+  in the authoritative envelope instead of hidden precedence behaviour, and a
+  success snapshot is not published for an unsatisfied claim set.
+- Source basis conversion is explicit and auditable, while build-derived world
+  transforms and runtime pose state cannot be mistaken for authored placement.
+- A single engine-independent semantic basis gives adapters a stable conversion
+  boundary without selecting a mesh, rig, solver, or runtime representation.
+  Finite binary64 values and deterministic quaternion canonicalization make
+  semantic comparison reproducible, while typed profiles prevent one epsilon
+  from hiding domain-specific errors.
+- Structural containment is explicit and independently checked: relations do
+  not supply root reachability or transform inheritance. A descendant-owned
+  mating Socket is composed through the module-root containment path, and the
+  Attachment result is the root's sole child-local placement; descendants
+  inherit only through containment. The normalized module-instance declaration
+  is owned by DR-0002 and does not add an identity-bearing concept. A present
+  module root has exactly one incoming Attachment, an absent optional module
+  has none, and each Socket has total active capacity one across host and mating
+  roles. Repeated endpoint pairs, host reuse, mating reuse, cross-role reuse,
+  zero incoming, and multiple incoming are distinct rejected conditions or have
+  an explicit deterministic diagnostic mapping. Competing authored root-local
+  placement compares to the same canonical value and retains provenance.
+  Every transform entering composition is finite, non-degenerate, and
+  invertible under the declared profile; source violations are semantic
+  `invalid-source`, while implementation failure on admissible transforms is
+  `internal-failure`.
+- The vocabulary and frame boundary remain engine-independent. Exact source
+  syntax, profile identifiers, thresholds, and storage representations still
+  require later specification and evidence. Readiness 2 is structural/reference
+  checking only; Readiness 3 activates the proposed numeric/frame contract.
+- Defaulted values remain distinguishable from authored and derived values by
+  stable `defaulted` provenance and default-rule identity. Omission is never
+  repaired by null, zero, neighbouring values, or hidden equations.
+
+## Alternatives Considered
+
+### One generic tag or node type
+
+This is compact and easy to extend, but it hides ownership and makes clients
+reconstruct whether a tag is an articulation, attachment, region, capability,
+or field. It also invites implementation-specific meaning. It is not selected.
+
+### Treat every relation as a joint or bone-like edge
+
+This could simplify an embodiment implementation, but sockets, attachments,
+regions, and capabilities have different semantics and lifecycles. It would
+also prematurely select a rig or solver model. The typed concepts keep those
+boundaries explicit.
+
+### Treat Module and helper records as embodied graph concepts
+
+Giving an authored Module, landmark, anchor, dimension, or frame an independent
+graph identity would make reusable source scope, owned values, and semantic
+concepts compete in the same identity space. It would also make owner and
+role-based references ambiguous across instantiation. Module remains authored
+source scope, while the helper records remain owned typed values addressed by
+owner and role; only the seven listed concepts are identity-bearing.
+
+### Make regions owned parts
+
+This would simplify traversal for non-overlapping examples, but overlapping
+spatial designations are required and a region is not a structural element.
+Regions therefore never own parts.
+
+### Author ratios and infer dimensions
+
+Ratios are convenient for procedural variation, but making them authoritative
+would make physical size and extents ambiguous and hide conflicting constraints.
+Dimensions and authored placement remain authoritative; ratios are derived and
+inspectable.
+
+### Silently choose a winning measurement constraint
+
+Precedence could make some inputs compile, but it would discard authored intent
+without an explicit diagnostic and make results depend on hidden ordering.
+Conflicts diagnose failure until a later specification defines any deliberate
+constraint mechanism.
+
+### Preserve source coordinate bases into every downstream consumer
+
+This avoids conversion work, but forces every consumer to support every source
+convention and makes cross-source composition fragile. Normalization into one
+contract-revision basis with recorded provenance is the selected boundary.
+
+### Carry arbitrary precision or engine-native binary32 values in the core
+
+Arbitrary precision would increase implementation and interchange complexity;
+binary32 would make the semantic contract depend too early on an engine's
+precision and conditioning. Finite binary64 is selected for the semantic core,
+with adapters responsible for narrower downstream representations and explicit
+loss checks.
+
+### Use one global epsilon for every comparison
+
+Translation, angular rotation, authored conflicts, and future geometry outputs
+have different scales and failure meanings. A typed versioned comparison
+profile is selected so exact discrete identity remains exact and each numeric
+domain has its own measurable tolerance.
+
+### Require exact representability of authored decimals
+
+Requiring every decimal to be exactly representable in binary64 would reject
+ordinary authored values such as `0.1` and would confuse source exactness with
+the selected semantic representation. Exact decimal-rational interpretation
+followed by direct correctly rounded conversion preserves deterministic meaning
+without imposing an impractical representability requirement.
+
+### Delegate number conversion to a host parser
+
+Host parsers may differ in intermediate precision, locale handling, rounding
+mode, overflow/underflow treatment, and subnormal behavior. Direct rational to
+binary64 conversion makes those choices part of the contract instead of an
+ambient implementation detail.
+
+### Specify only comparison shape and tune thresholds from one corpus
+
+Writing an absolute/relative shape without formulas, evaluation order, or
+multi-claim rules leaves outcomes implementation-defined. Choosing the
+smallest observed error, or widening a budget after failures, is circular; the
+selected method pre-registers domains and budgets, uses independent oracles,
+held-out/adversarial data, and a validation margin.
+
+### Cluster approximately equal authored claims
+
+Approximate equality is non-transitive, so clustering or a first winner can
+make results depend on insertion or traversal order. Pairwise all-pass
+satisfiability is deterministic; only after it succeeds is a canonical
+representative chosen, while every claim and its provenance remain available.
+
+### Verify every architecture and use arbitrary adapter quaternion signs
+
+A broad architecture/toolchain matrix and formal verification would be
+disproportionate before an explicitly bounded initial profile. The initial
+WSL x86_64 and native-Linux reference is sufficient for that bounded claim;
+broader portability needs materially different evidence. Handedness reflection
+is a basis transformation, not a quaternion rotation, so ad hoc sign flips
+are rejected in favor of matrix conjugation and conformance fixtures.
+
+### Let sign or coordinate conventions emerge from geometry
+
+Inferring semantic directions from signs or generated geometry would make
+mirrors and adapters ambiguous. The selected canonical basis names directions
+explicitly and retains source conversion provenance.
+
+### Use one frame for authoring, attachment, build output, and runtime pose
+
+This is superficially simple, but conflates authored intent with derived
+resolution and mutable runtime state. Separate frame roles preserve provenance
+and make runtime state changes non-authoritative.
+
+### Derive containment from Joint or Attachment relations
+
+This would reduce one apparent edge type, but would let relation traversal
+repair disconnected Parts and would make reference-transform inheritance
+depend on relation kind or traversal order. It is rejected: Part containment is
+the sole structural body relation, and containment cycles/reachability are
+checked separately from relation cycles.
+
+### Leave Joint endpoint records as ambiguous source references
+
+Keeping only source references would preserve authoring flexibility, but allows
+different consumers to choose different endpoint owners, roles, bases, or
+provenance. The resolved graph therefore owns exactly one proximal and distal
+record in the corresponding Part bases; source references remain provenance.
+
+### Use one global Socket role enum for every frame
+
+This would make host, mating, proximal, and distal meanings depend on the
+consumer's record context and would permit incompatible intrinsic Socket
+interpretations. The selected boundary types Part, Joint, and Socket roles by
+their owning records, while Attachment host/mating roles remain contextual
+endpoint references.
+
+### Defer the transform carrier until numeric semantics are frozen
+
+That would leave the Readiness 2 schema unable to validate transform shape and
+would force a knowingly disposable structural contract. The selected boundary
+freezes translation plus `xyzw` quaternion structure at Readiness 2, then
+activates the proposed canonical basis, normalization, ranges, conditioning,
+and typed comparison profiles at Readiness 3.
+
+### Let authored Attachment placement silently win over Socket composition
+
+That would discard host/mating interface semantics; letting Socket composition
+silently win would discard an explicit authored offset. The selected
+composition combines host Part/frame, host Socket, optional offset, and the
+inverse of the mating Socket's owner-local frame after module-root containment
+composition. It resolves the root's sole child-local placement, rejects a
+same-degree-of-freedom disagreement within a later-defined tolerance, and keeps
+provenance for every composition input.
+
+### Treat Attachment cardinality as optional or reuse host Sockets
+
+An at-most-one rule would permit a present module root with no incoming
+Attachment, while reusable host Sockets would make placement and endpoint
+identity depend on traversal order. The initial boundary requires exactly one
+incoming Attachment for each present module root, none for an absent optional
+module, total active capacity one per Socket across host and mating roles, and
+distinct rejection or deterministic mapping of repeated endpoint pairs, host
+reuse, mating reuse, cross-role reuse, zero incoming, and multiple incoming
+cases.
+
+### Put operational profiles into authored source semantics
+
+Using resource or diagnostic budgets as body-document meaning would make an
+operation environment change the semantic source. The source initially names
+only the versioned semantic numeric-domain profile; operational profiles stay
+with operation and fixture contexts.
+
+### Permit implicit numeric or default inference
+
+Implicit units, zero values, neighbouring-value inference, or hidden equations
+would make omission and provenance non-deterministic. The selected boundary
+requires explicit values unless exactly one contract/profile default rule owns
+the omission and records `defaulted` provenance.
+
+## Adversarial Review Response
+
+The Revision 1 current-revision Double review remains preserved as stale
+historical evidence in the [contract pass](reviews/DR-0011-rev-01-review-01.md)
+and [graphics-system pass](reviews/DR-0011-rev-01-review-02.md); both recommended
+Revise at High confidence. The Revision 2 Double review is preserved as stale
+evidence at commit `7dba9346c91c59ff99f10b94630690bf732d6b28`: the fresh
+independent Sol-medium contract/schema/security pass
+([review 01](reviews/DR-0011-rev-02-review-01.md)) recommended **Accept** with
+**High** confidence and found no DR-0011-specific blocker, while the fresh
+independent semantic-graph/graphics/runtime pass
+([review 02](reviews/DR-0011-rev-02-review-02.md)) recommended **Revise** with
+**High** confidence. The latter's blockers motivated Revision 3's explicit
+containment, Attachment composition, and canonical frame-record selections;
+the linked operation status, bootstrap, and hostile-input resource rules are
+owned by DR-0002/DR-0012.
+
+Revision 3's exact-revision CK-KICK-012 Batch 5 Double review examined commit
+`a282dbabffd83afa4e62577086934d00f98e12c7`: the independent
+[contract/schema/security pass](reviews/DR-0011-rev-03-review-01.md) recommended
+**Accept** at **High** confidence and identified no DR-0011-specific blocker;
+the independent [semantic-graph/graphics/runtime pass](reviews/DR-0011-rev-03-review-02.md)
+recommended **Revise** at **High** confidence.
+
+The three Batch 5 findings in that exact-revision review motivated the current
+CK-KICK-012 Batch 6 proposal text and are resolved across the current records.
+This revision resolves the typed descendant-owned mating Socket composition
+and exact Attachment cardinality. DR-0002 and DR-0008 own the linked source-
+set, morphology, and containment consequences; DR-0002 and DR-0012 own the
+operation status/bootstrap/resource boundary. Ben approved these F2–F3
+resolutions in discussion on 2026-08-11. The exact Revision 4 Double review at
+commit `c64b1b98948304d631eecea6a354c9e42c89c510` is stale historical evidence,
+not a clean review or acceptance. Its independent [review 01](reviews/DR-0011-rev-04-review-01.md)
+and [review 02](reviews/DR-0011-rev-04-review-02.md) both recommended **Revise**
+at **High** confidence. The current Revision 5 Double review examined target
+commit `88004388f9537a37617ae248bdaad4625e6f3f03`; [review 01](reviews/DR-0011-rev-05-review-01.md)
+and [review 02](reviews/DR-0011-rev-05-review-02.md) both recommended **Revise**
+at **High** confidence. Those ten artifacts and their five findings are now
+stale historical evidence after the Revision 6 proposal change. Their findings
+are dispositioned for the next review as follows: (1) total status/completeness
+is owned by DR-0002/DR-0012 and cross-linked here; (2) module-root observability
+and global cross-role Socket capacity are revised here with graph ownership in
+DR-0002; (3) Attachment transform admissibility and source-versus-
+implementation mapping are revised here and in DR-0002/DR-0008; (4) the four
+technical readiness gates are owned by DR-0013; and (5) authoritative
+build/publication outcome and `output-failure` are owned by DR-0013. The latter
+two are cross-links, not additional DR-0011 decisions. The fresh current
+Double review of Revision 6 was complete at target commit
+`b19adf76aad7d672c0871bd38fc34739f3f4ac39`: [review 01](reviews/DR-0011-rev-06-review-01.md)
+recommended **Revise** at **Medium** confidence and [review 02](reviews/DR-0011-rev-06-review-02.md)
+records **Ready for owner disposition** at **High** confidence with no
+DR-0011-specific blocker. Applicable consolidated finding is C4; C1–C3 and
+C5–C7 remain cross-cutting evidence owned by the linked records, chiefly
+DR-0002/DR-0012/DR-0013. At that historical Revision 6 state, all seven
+consolidated findings awaited Ben's discussion and owner disposition; review
+completion was evidence, not a clean review or acceptance. Batch 9/10
+discussion later resolved the applicable findings, while the current Revision
+9 remains pending its fresh review. Exact serialized field spellings, profile
+identifiers, conditioning/comparison constants, diagnostic codes, and fixture
+evidence remain deferred. Those Revision 6
+artifacts and findings are preserved as stale historical evidence after the
+material Revision 7 change and do not satisfy the pending current-revision
+review. The Batch 9 absent-module identity resolution is cross-linked to the
+resolver snapshot handoff and DR-0013 build/output boundary.
+
+The fresh current Batch 9 Double review examined exact target commit
+`6cf17270fda2827756c24a8d0fb301bef358f98f`: [review 01](reviews/DR-0011-rev-07-review-01.md)
+recommended **Accept** at **High** confidence under the contract/schema,
+determinism, and security lens, and [review 02](reviews/DR-0011-rev-07-review-02.md)
+recommended **Accept** at **High** confidence under the platform/failure,
+reversibility, and publication lens. No consolidated finding C1–C5 is
+actionable against DR-0011 in this review. Review completion is evidence only;
+there is no clean-review or acceptance implication. At that historical Revision
+7 state, any cross-cutting findings recorded in the linked reviews awaited
+Ben's discussion and owner disposition; Batch 10 discussion later resolved the
+applicable findings. The current Revision 10 still requires fresh review and
+owner disposition. Owner approval remains Pending and Status remains Proposed.
+Only Ben may accept or reject this proposal.
+
+The Batch 10 revision was discussion-approved by Ben on 2026-08-12. The
+Revision 8 review artifacts above are stale historical evidence after this
+material Revision 9 resolution. The prior fresh Batch 10 Double review examined
+commit
+`f27008f319cfc460f4a27efe31594e5607e7721e`: [review 01](reviews/DR-0011-rev-08-review-01.md)
+recommended **Revise** at **High** confidence under the contract/schema,
+determinism, identity, security, and fixture-admission lens; [review 02](reviews/DR-0011-rev-08-review-02.md)
+recommended **Revise** at **Medium** confidence under the platform/filesystem,
+publication, reversibility, numeric-frame, and runtime-portability lens.
+The prior consolidated findings **C3 (High)** and **C4 (High)** are resolved in
+this Proposed revision: Part, Joint, Socket, and Attachment frame roles are
+typed by their owning record, and Readiness 2 now freezes the structural rigid
+transform carrier while Readiness 3 freezes numeric semantics and admits
+expected graph snapshots through the generic fixture route. Exact canonical
+numeric rules, bytes, and comparison profiles remain activation prerequisites.
+Ben's resolution is discussion approval, not acceptance. Review status is
+Complete for the new current revision after the Double review below; Owner
+approval remains Pending and Status remains Proposed. Only Ben may accept or
+reject this proposal.
+
+The fresh current-revision Double review examined exact target commit
+`28c83c7a21cf55f23274aeaf5d2ccc0a3e9e3b53`. [Review 01](reviews/DR-0011-rev-09-review-01.md)
+used the contract/schema, identity, determinism, security, and fixture-admission
+lens and recommended **Accept** at **High** confidence with no DR-0011-specific
+finding. [Review 02](reviews/DR-0011-rev-09-review-02.md) used the platform,
+failure, reversibility, numeric-frame, adapter-portability, and future-runtime
+lens and recommended **Revise** at **High** confidence. It identifies a
+High R2/R3 wording conflict: Readiness 2 already freezes the rigid transform
+carrier, while Readiness 3 must own numeric/frame semantics rather than reopen
+the rotation representation. Consolidated **C1 (High)** applies to DR-0011 and
+DR-0012 with a DR-0013 readiness cross-link. Both were fresh, independent
+`gpt-5.6-sol` medium passes. The current review is evidence only; the proposal
+remains Proposed with Owner approval Pending and no activation follows.
+
+Ben approved the Batch 11 canonical basis, numeric-domain, and typed
+comparison resolutions in discussion on 2026-08-12. This Revision 10 proposal
+adds the right-handed metres/+Y-up/+Z-forward basis, finite binary64 and
+quaternion rules, and versioned comparison profiles. The Revision 9 review
+artifacts are stale historical evidence. The fresh current-revision Double
+review examined exact target commit
+`053dba58fd344ed636420e0974cf617862fe265f`: [Review 01](reviews/DR-0011-rev-10-review-01.md)
+and [Review 02](reviews/DR-0011-rev-10-review-02.md) were independent fresh
+`gpt-5.6-sol` medium passes; both recommend **Revise** at **High** confidence.
+Actionable findings remain for Ben's discussion, including numeric admission,
+experiment sufficiency, comparison algorithms, adapter portability, and
+cross-record canonical/diagnostic constraints. Review status is Complete for
+evidence only; Owner approval remains Pending, Status remains Proposed, and no
+acceptance or activation follows.
+
+The Batch 11 current-revision review artifacts for Revision 10 are now stale
+after this Revision 11 proposal change. Their exact findings are preserved
+here for the next review. Review 01 recorded: **C1 — High:** “Canonical JSON
+sorts unordered collections only by semantic address, but module declarations
+and owner-role records may lack one of the seven address kinds. Define a total
+canonical key and duplicate/tie handling for every unordered semantic
+collection or projection before `ck-json-1`.” **C2 — High:** “Decimal-to-
+binary64 admission is ambiguous (`0.1`, midpoint, excessive precision,
+subnormal/underflow, and overflow). Define exact conversion/rounding and
+rejection behaviour with boundary fixtures.” **C3 — High:** “R2/R3 payload
+binding excludes implementation bytes and mutable commit provenance cannot
+prevent a merge or rebase from activating unreviewed parser/resolver code. Add
+separately verified immutable implementation path/mode/content binding or
+exact tree identity, checked after merge before the ledger trigger.” **C4 —
+High:** “Canonical and DR-0012 diagnostic domains conflict, while unknown
+required registry/profile revisions need a bootstrap profile or reserved-
+envelope diagnostic to preserve a valid primary. Reconcile the domain mapping
+and bootstrap negotiation behaviour.” Review 02 recorded: **N1 — High:**
+“Define exact decimal-to-binary64 conversion/rounding, overflow/underflow/
+subnormal behaviour, and boundary fixtures.” **N2 — High:** “The numeric-
+threshold experiment is circular: same-corpus smallest observations lack
+semantic error budgets, an independent oracle, held-out/adversarial data,
+sensitivity and platform/toolchain diversity.” **N3 — High:** “Typed
+comparisons need normative formulas, norms, quaternion/transform metrics,
+inclusive boundary/tie behaviour, deterministic order-independent multi-claim
+satisfiability, and non-transitivity safeguards; add permutation and
+non-transitivity fixtures.” **N4 — Medium:** “Before adapter activation, add a
+conformance obligation for handedness reflection, vector/rotation/rigid-
+transform basis change, named-direction preservation, composition commutation,
+round trip, and binary64 narrowing policy before adapter activation.” The
+mechanical N5 canonical-spec header synchronization remains outside this
+scoped resolution.
+
+The discussion-approved directions resolve C2 and N1–N4: exact rational
+admission, fixed typed comparison algorithms and pairwise conflict semantics,
+the pre-registered experiment/oracle/corpus method, and the future adapter
+conformance/narrowing obligation are now stated above. C1 and C3 remain
+unresolved in this record; C4 remains unresolved in DR-0012 and is only
+cross-linked here.
+
+The fresh current-revision Batch 12 Double review examined exact target commit
+`730a2f77840cc0caa1f838c30dac4ff20f985e69`: [Review 01](reviews/DR-0011-rev-11-review-01.md)
+and [Review 02](reviews/DR-0011-rev-11-review-02.md) were complete-coverage,
+independent fresh `gpt-5.6-sol` medium passes. Both recommend **Revise** at
+**High** confidence. Review 01 records unresolved A1–A3 comparator/identity
+findings and the mechanical A4 summary correction; Review 02 records unresolved
+E1 runtime-`asin` and E3 floating-point-scope findings plus the mechanical E4
+summary correction. The positive unit-scale adapter finding E2 is recorded in
+the DR-0013 platform review. Review status is Complete for evidence only; Owner
+approval remains Pending and Status remains Proposed. No canonical collection
+key, implementation binding, diagnostic bootstrap, readiness gate, or package
+is accepted or activated by this revision.
+
+Ben approved all five Batch 13 resolution directions in discussion on
+2026-08-13. This Revision 12 integrates the symmetric same-target frame rule,
+exact dyadic scalar and half-chord comparisons, offline conservative `H`,
+deterministic quaternion normalization, structured claim IDs and sorted pair
+evaluation; the post-R3 `C`/`s` adapter map and storage-only/runtime tiers;
+owner-defined typed keys and multiplicity for unordered claims/records; the
+separate implementation-content binding used by readiness transactions; and
+the diagnostics sole-owner/bootstrap boundary. The Revision 11 Batch 12
+artifacts are stale for this material revision; their findings and history
+remain preserved. Review status is Complete for the current evidence and Owner
+approval remains Pending. No DR acceptance, schema, fixture, parser/resolver,
+implementation, adapter, experiment, or package activation follows.
+
+The fresh current-revision Batch 13 Double review examined exact target commit
+`8c38c501eb1262a1b85af0b8605220625601772f`. [Review 01](reviews/DR-0011-rev-12-review-01.md)
+and [Review 02](reviews/DR-0011-rev-12-review-02.md) were complete-coverage,
+independent fresh `gpt-5.6-sol` medium passes with no edits; both recommend
+**Revise** at **High** confidence. Review 01 records unresolved **D1–D3**:
+the unproven conservative interpretation of `H`, incomplete implementation-
+binding closure for Readiness 3, and underspecified versioned claim-ID
+components/order/stable authored property address. Review 02 records
+unresolved **P1–P3**: no-follow filesystem binding rules, possible re-creation
+of `-0` after normalization/sign/adapter operations, and missing malformed /
+unsupported / conversion-failure adapter status distinctions. Findings remain
+cross-linked to the owning DR-0006, DR-0012, and DR-0013 contracts. Review
+status is Complete for evidence only; Owner approval remains Pending and
+Status remains Proposed. No numeric profile, resolver, adapter, fixture,
+implementation, or package is accepted or activated by this review.
+
+The Batch 13 findings were dispositioned in the prior Revision 13 as follows.
+D1 was resolved by defining `H` as an inclusive post-normalization
+canonical-tuple Euclidean threshold and withdrawing any represented-angular
+guarantee. D2 and P1 were cross-record obligations resolved by the explicit
+implementation closure and root-descriptor no-follow profile in DR-0006,
+DR-0013, and the fixture-manifest specification. D3 was resolved by the
+conceptual typed `claim-id-1` tuple, total order, pair encoding, stable
+property address, and multiplicity rule. P2 was resolved by the post-stage
+produced-zero `+0` rule. P3 was previously described as resolved by the
+build-operation/platform mapping; Revision 14 corrects that disposition and
+records malformed adapter-profile validation as a deferred adapter-activation
+prerequisite. The prior reviews remain stale evidence; Review status is
+Pending and this Proposed revision activates no numeric, resolver, adapter, or
+fixture machinery.
+
+The fresh successor-target reviews are [Review 01](reviews/DR-0011-rev-13-review-01.md)
+and [Review 02](reviews/DR-0011-rev-13-review-02.md). They are exact-target
+evidence for Revision 13 only and are stale for this Revision 15 successor.
+Their G1/G2 mechanical findings were fixed in the successor; T1–T3 were
+resolved here, while T4/P3 is explicitly deferred until adapter activation and
+is not a first Rust slice blocker. At that stage, the Revision 15 current
+review was still pending; no acceptance or activation followed.
+
+The final Double-review [Review 01](reviews/DR-0011-rev-14-review-01.md) and
+[Review 02](reviews/DR-0011-rev-14-review-02.md) examined exact target commit
+`9b96d18b115126ef09e54ad8c6f21749d5559ff6` and are stale for this successor.
+Revision 15 corrects the comparator/rank-table and sqrt wording and preserves
+T4 as a deferred retained-human gate; the then-pending successor review is
+recorded below.
+
+The current-revision Double review examined exact target commit
+`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`: [Review 01](reviews/DR-0011-rev-15-review-01.md)
+records governance findings G3/G4 as mechanical cross-summary corrections
+handled without material DR revision, and [Review 02](reviews/DR-0011-rev-15-review-02.md)
+records no technical findings and recommends **Ready for PR**. These artifacts
+are exact-target current evidence until a successor revision. Review status is
+Complete for evidence only; Owner approval remains Pending, Status remains
+Proposed, and no numeric/frame profile, fixture, parser, resolver, adapter,
+implementation, or package is accepted or activated.
+
+## Implementation and Proof Obligations
+
+- Define the seven identity-bearing concepts, Module source-scope treatment,
+  owner-plus-role records for landmarks/anchors, dimensions, and frames,
+  ownership restrictions, directed Joint endpoint roles/cardinality, and valid
+  relations in the body-document and body-graph specifications; ensure no
+  generic tag node becomes a semantic escape hatch.
+- Materialize canonical Joint proximal/distal records and one Socket interface
+  frame in their owning Part bases, retaining source-reference provenance and
+  rejecting competing owner/role interpretations; do not introduce a bone,
+  solver, limits, rig, or runtime representation.
+- Keep Part local/reference, Joint proximal/distal, and Socket intrinsic
+  interface frames as owning-record roles. Represent Attachment host/mating as
+  contextual endpoint roles that reference Sockets; keep any Attachment offset
+  as its own typed transform. Do not model host or mating as alternative
+  intrinsic Socket frame roles.
+- Specify explicit Part containment, one root path for every embodied Part,
+  containment-owned reference-transform inheritance, separate containment and
+  relation cycle checks, Stage 1 immediate-child Joint edges, and Attachment
+  host/child containment agreement. Use the DR-0002 normalized module-instance
+  declaration for module, root Part, instance anchor/provenance,
+  presence/optionality, and Attachment-required state without making Module an
+  eighth identity-bearing concept. For an absent declaration, preserve the
+  stable authored declaration address and non-embodied root-role/template
+  reference, emit or reserve no Part, reject graph-relation targets, and keep
+  uniqueness in the declaration namespace; if present, derive Part identity
+  from the instance anchor plus root role. Require exactly one incoming active
+  Attachment for each present module root, none for an absent optional module,
+  and total active Socket capacity one across host and mating roles; distinguish
+  repeated endpoint pairs, host reuse, mating reuse, cross-role reuse, zero
+  incoming, and multiple incoming cases with deterministic diagnostics or
+  explicit mapping. Nested module instances require distinct Socket instances.
+- Test Attachment placement with `T_A←B` and the conceptual equation
+  `T_H←R = T_H←S_h · O_(S_h←S_m) · (T_R←M · T_M←S_m)^−1`, where O maps
+  mating-Socket coordinates into host-Socket coordinates. Prove that the
+  result is the root's sole child-local containment placement, descendants
+  inherit only via containment, and competing authored root-local placement
+  compares with the same canonical value. Preserve provenance for every input
+  and composition; reject same-degree-of-freedom disagreement within the
+  later-defined tolerance, duplicate/detached/invalid endpoints, mating and
+  cross-role Socket reuse, and Attachment cycles. Every incoming transform must
+  be finite, non-degenerate, and invertible under the declared profile; source
+  violations map to semantic `invalid-source` with deterministic
+  diagnostic/provenance, while implementation failure on an admissible
+  transform maps to `internal-failure`. The fixed Readiness 2 carrier remains
+  translation plus `xyzw` quaternion without scale/shear fields; exact numeric
+  ranges, normalization bounds, conditioning, and typed comparison tolerances
+  remain Readiness 3 activation prerequisites, while adapter matrix layout and
+  serialized storage remain downstream details.
+- Create fixtures that distinguish Part, Joint, Socket, Attachment, Region,
+  Capability, and Field, including overlapping regions and an attachment that
+  is not a joint.
+- Define typed dimensions, authored local transforms, named landmarks/anchors,
+  owner-plus-role addressing, authored-versus-derived provenance, ratio
+  derivation, claim targets, normalization context, conflict diagnostics,
+  tolerances, and exact measurement vocabulary before promising those details.
+- Require source basis (length unit, handedness, up, forward), owner/role and
+  frame/context on measurements and transforms, and no per-value unit
+  overrides initially. Bind body `profiles` to the versioned semantic
+  numeric-domain profile while keeping resource/diagnostic profiles operational.
+- Freeze the proposed semantic basis as right-handed metres, `+Y` up, and `+Z`
+  creature-forward; use named semantic directions rather than inferring
+  meaning from signs. Define local-to-parent transform composition and keep
+  engine conversion in adapters.
+- Implement exact signed-decimal-rational admission after strict JSON/token
+  resource checks, with direct binary64 round-to-nearest/ties-to-even and no
+  host-parser, locale, ambient-rounding, or implementation-defined precision.
+  Reject non-finite results, overflow to infinity, and nonzero rationals that
+  round to signed zero; accept finite nonzero subnormals and excessive lexical
+  precision within the resource bound. Normalize lexical negative zero only in
+  semantic/canonical models, preserve source-byte distinction, and prohibit
+  FTZ/DAZ in canonical operations. Complete the bounded numerical experiment
+  before freezing thresholds and conditioning constants.
+- Freeze typed comparison profiles with exact discrete comparison and same-target
+  normalization into one canonical local-to-parent frame. Compare translations
+  directly componentwise and rotations with q/-q-invariant canonical-tuple chord
+  semantics using the inclusive exact dyadic half-threshold `H` predicate over
+  post-normalization canonical tuples; never use rounded intermediate
+  “equivalent monotonic” evaluation. A nominal theta is informational or
+  calibration metadata only, not an angular guarantee. A future angular claim
+  requires a new comparison-profile revision and successor evidence. After
+  deterministic normalization, the tuple-distance predicate uses no square
+  root, norm, `asin`, or `sin`; normalization itself uses the required
+  correctly rounded binary64 square root. Use deterministic max-component
+  quaternion normalization, fixed
+  operation order, canonical sign, no reassociation/FMA/FTZ/DAZ/ambient mode,
+  and unsupported when required sqrt is unavailable. Require structured
+  authored claim identity, same-ID collision rejection, sorted claim-ID pair
+  evaluation with the first failing pair as conflict detail, and exact tuple
+  ordering only after all pairs pass; retain every occurrence/provenance.
+  Bind Readiness 3 expected snapshots to path, digest, schema revision, profile
+  ID, comparison rule, and provenance; admit changes only through successor
+  fixture transactions.
+- Keep Readiness 2 structural/reference validation only and freeze its rigid
+  transform carrier as three-component translation plus explicit four-component
+  `xyzw` quaternion, without scale or shear fields. At Readiness 3 activate the
+  proposed canonical basis, numeric/sign rules, ranges, conditioning, and
+  typed comparison tolerances;
+  bind expected graph snapshots through an admitted manifest successor with
+  path, digest, comparison-profile identity, and exact/semantic comparison
+  rule. Test the closed owning-record roles and derived world/reference and
+  runtime-pose contexts.
+- For every semantically unordered claim or owner-role projection, declare a
+  typed total key and uniqueness or multiplicity rule before activation. Use
+  structured authored claim identity and required frame/context identity;
+  never use source/traversal/allocation/index order, serialization, or raw
+  bytes as fallback. Preserve repeated claims and diagnostics as explicit
+  occurrences rather than silently deduplicating.
+- For any readiness transaction that activates implementation, bind the
+  separate versioned ordered normalized relative path/mode/raw-content set and
+  aggregate SHA-256 covering gate-affecting source, manifests/configuration,
+  scripts/inputs, `Cargo.lock`, toolchain declaration, and applicable path
+  dependencies. Recompute both this binding and fixture payload post-merge and
+  immediately pre-trigger; mismatch blocks activation and requires a
+  successor. Reviewed commit provenance is evidence, not equality identity.
+- Specify omission/default rules: identity, containment, module presence,
+  source basis, and grammar-required values are explicit; one exact
+  contract/profile rule may own a deterministic default, which records stable
+  `defaulted` provenance and rule identity. Reject null-as-missing, implicit
+  zero, neighbouring inference, and hidden equations; explicit empty
+  collections follow only from contract-owned omission.
+- Prove that conflicting authoritative claims or explicit invariants fail
+  deterministically, within the declared tolerance rule, rather than silently
+  applying precedence, and that no success snapshot is published.
+- Require every source fixture to declare units, handedness, up, and forward
+  axes; prove normalization into one contract-revision canonical basis and
+  inspectable conversion provenance.
+- Test that local/reference, joint, socket/mating, resolved world/reference,
+  and runtime pose frames remain distinct across source resolution and runtime
+  updates.
+- Freeze the cross-DR fixture matrix covering durable identities, typed
+  articulation endpoints, measurement/frame cases, expected outcomes, and
+  diagnostics before treating implementation evidence as proof.
+- Consume the diagnostics specification as the sole owner of registry, domain,
+  class, occurrence, profile, ordering, and compatibility. Use its closed
+  initial domains and mandatory bootstrap registry/profile; unknown required
+  profiles remain unsupported under the effective bootstrap profile with
+  bounded requested identifiers and a deterministic primary. Keep resource
+  profiles operational and leave exact ordinary codes, field spellings, and
+  profile IDs fixture-gated.
+- Pre-register numeric domains and semantic error budgets before experiment
+  results; use fixed operation order and round-to-nearest/ties-to-even with no
+  reassociation, implicit FMA contraction, or FTZ/DAZ. Use exact/analytic and
+  independent materially higher-precision oracles over separate frozen
+  development, held-out, and adversarial corpora, with metamorphic,
+  permutation, conditioning, and sensitivity coverage. Record a predeclared
+  validation margin; reject out-of-domain cases rather than widening budgets or
+  selecting the smallest observed error. Use WSL x86_64 plus native Linux for
+  the bounded initial profile; require materially different architecture/
+  toolchain evidence only before a broader portability claim. Keep exact
+  domains, budgets, ranges, thresholds, tolerances, and profile IDs
+  evidence-gated.
+- Before any host adapter activates, require an explicit orthogonal
+  signed-permutation basis map `C`, positive scale `s`, target precision,
+  supported domain, narrowing/overflow/underflow/subnormal policy, and a
+  storage-only or runtime-conformance tier. Map length-bearing values with
+  `sC/s`, directions/normals with `C`, rotations with `C*R*C^-1`, and rigid
+  transforms with `D*H_c*D^-1`, `D=diag(sC,1)`, including inverse `D^-1` and
+  quaternion equivalence. Runtime-conformance requires engine arithmetic
+  probes/fixtures; storage-only makes no runtime claim. Probe FTZ/DAZ when
+  subnormal runtime preservation is promised; fail unsupported capability
+  closed and map trusted in-domain overflow/disallowed underflow to
+  `output-failure`. Keep the core binary64 and unchanged, with no
+  clamp/saturation/ambient mode or canonical-snapshot mutation.
+
+## Canonical Design Links
+
+- [Product requirements](../product/requirements.md)
+- [Specification boundary](../../spec/README.md)
+- [Authoritative semantic source set](DR-0002-declarative-body-document-source-of-truth.md)
+- [Durable semantic and artifact/build identity](DR-0006-durable-semantic-and-artifact-identity.md)
+- [First digitigrade morphology and Stage 1 embodiment envelope](DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md)
+- [Architecture index](../architecture/README.md)
+
+## Reversibility and Revisit Triggers
+
+Revisit the vocabulary if a required semantic distinction cannot be expressed
+without implementation leakage or if evidence shows a concept needs a new
+cross-cutting contract. Revisit measurements if authored intent, derived values,
+or conflict diagnostics cannot remain distinguishable. Revisit frame conversion
+if cross-source composition or downstream consumers require a different
+canonical basis, while preserving the separation between authored, derived,
+and runtime state.

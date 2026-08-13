@@ -11,6 +11,7 @@ not define product or architecture contracts.
 - [Project kickoff decision plan](kickoff-plan.md)
 - [Outcome roadmap](roadmap.md)
 - [Repository evolution](repository-evolution.md)
+- [AI observations](ai-observations.md) – Short-lived inbox for reusable AI tooling, harness, and operational-friction lessons.
 
 Roadmap horizons are planning tools, not promises. Concrete activation triggers
 are preferred over dates while research uncertainty is high.

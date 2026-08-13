@@ -24,6 +24,21 @@ exact decision metadata and review cells.
 
 ## Working method
 
+Batch 11/12/13 add a bounded numeric/frame evidence design before resolver
+activation. Batch 13 strengthens that plan with direct common-frame comparison,
+exact dyadic scalar predicates, deterministic normalization and offline
+half-chord derivation without runtime transcendental comparison, structured
+claim identity/order and smallest-tuple selection, and a future adapter scale/
+tier boundary. The experiment preregisters numeric domains, rational/ULP and
+normalization/sqrt/H fixtures, separate semantic error budgets, independent
+oracles, frozen development/held-out/adversarial corpora, fixed operation and
+compiler floating-point controls, condition estimates, and metamorphic/all-
+pairs checks. Constants, ranges, margins/error formula, and deterministic
+evaluation bindings remain open. The planned order is numeric/frame semantics,
+typed addresses, canonical data, diagnostics, exact schema/manifest, Readiness
+2, and a separate Readiness 3 expected-snapshot transaction. These are Proposed
+planning outcomes, not implementation commitments.
+
 - Work in rounds, with a discussion batch of roughly two to five related
   decisions or talking points.
 - Finish the discussion batch before integrating its canonical document changes
@@ -195,11 +210,12 @@ Prerequisite: Round 2 product-identity discussion.
 The bounded proposal batch was integrated as Proposed; no acceptance is implied
 by this plan:
 
-- [DR-0002 Revision 2](../decisions/DR-0002-declarative-body-document-source-of-truth.md)
-  records an authoritative semantic source set resolving to a per-build
-  semantic body-graph snapshot; derived outputs remain derived.
-- [DR-0006 Revision 1](../decisions/DR-0006-durable-semantic-and-artifact-identity.md)
-  separates durable semantic identity from artifact/build identity and
+- [DR-0002 Revision 5](../decisions/DR-0002-declarative-body-document-source-of-truth.md)
+  records an authoritative semantic source set and exactly versioned authored
+  dependencies resolving through a deterministic result envelope; only valid,
+  supported input yields a compilable per-build semantic graph snapshot.
+- [DR-0006 Revision 4](../decisions/DR-0006-durable-semantic-and-artifact-identity.md)
+  separates structured semantic addresses from artifact/build identity and
   provenance; generated topology and array indices remain artifact-scoped and
   ephemeral.
 - Specialized geometry, rig, collision, material, deformation, packaging, and
@@ -209,9 +225,12 @@ by this plan:
   records one shared deterministic domain-operation model for query, semantic
   mutation, resolution/compilation, validation, diagnostics, artifact
   inspection, and future transaction semantics, with user surfaces as adapters.
-- The three current-revision review artifacts are linked from their target DR
-  responses. The shared system-overview diagram was corrected mechanically
-  after review; proposal and architecture prose were unchanged.
+- The historical review artifacts remain linked from their target DR responses;
+  the DR-0002 and DR-0006 artifacts are stale for the current Batch 1
+  revisions, while DR-0004 remains at its reviewed revision. The shared
+  system-overview diagram was corrected mechanically after that review; the
+  current Batch 1 integration updates the affected canonical proposal and
+  architecture prose while preserving the earlier evidence.
 
 ### CK-KICK-003: Review the semantic source-of-truth proposal
 
@@ -222,9 +241,10 @@ Outcome:
   eventual external meshes.
 - Keep the high-level source-of-truth decision separate from YAML, JSON, schema,
   database, or programming-language choices.
-- DR-0002 Revision 2 records the source-set and resolved-graph boundary above;
-  exact formats, overrides, runtime mutation, and external-mesh conformance
-  remain deferred.
+- DR-0002 Revision 5 records the source-set, authored-dependency,
+  result-envelope, and minimum inspectable non-authoritative resolved-graph
+  boundary above; exact formats, schema technology, overrides, precedence,
+  runtime mutation, and external-mesh conformance remain deferred.
 - Preserve the source-set review obligations and defer exact formats, overrides,
   runtime mutation, and external-mesh conformance to later specification work.
 
@@ -340,12 +360,14 @@ The initial proposal to evaluate is a stylized digitigrade furry biped family,
 including torso, head and muzzle, ears, arms, hands or paws, legs and feet or
 paws, and tail. It is not accepted merely because it appears here.
 
-Output: [DR-0008 Revision 1](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md)
-records the bounded stylized digitigrade furry biped, required semantic
-modules, named optional ear and tail sockets, continuous variation categories,
-explicitly invalid or deferred assemblies, and the fixed qualitative fixture
-profiles. It also records minimal linked Stage 1 embodiment hooks. Exact ratios,
-technologies, budgets, and backends remain deferred.
+Output: [DR-0008 Revision 5](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md)
+records the bounded stylized digitigrade furry biped, its typed ownership tree,
+reified non-ownership concepts with role-labelled relations, minimum functional
+articulation roles, required semantic modules, named optional ear and tail
+sockets, continuous variation categories, explicitly invalid or deferred
+assemblies, and the frozen-fixture obligations. Exact ratios, coordinate
+convention, surface primitives, technologies, budgets, and backends remain
+deferred.
 
 ### CK-KICK-007: Define the native visual and semantic quality bar
 
@@ -481,9 +503,10 @@ The four corrected boundaries are:
    source-node labels, parent-local transforms, left/right metadata, and named
    attachment sockets. The labels are stable only for deterministic reruns of
    the same input under the same `spike_revision`; they are not durable
-   semantic IDs and do not establish a cross-revision namespace. CK-KICK-012
-   owns any later durable semantic identity and namespace contract. The tree
-   bounds this spike's representation and must not imply that the permanent
+   semantic IDs and do not establish a cross-revision namespace. The later
+   CK-KICK-012 Batch 1 contract now records durable structured semantic
+   addresses in DR-0006 Revision 4. The tree bounds this
+   disposable spike's representation and must not imply that the permanent
    graph is restricted to a tree.
 2. The valid fixture contains a torso, pelvis, head, muzzle, paired arms with
    simplified hand/paw modules, paired digitigrade thigh/shin-hock/foot-paw
@@ -581,59 +604,736 @@ gets its own DR and review before backend-specific compiler code locks it in.
 
 ### CK-KICK-012: Specify the minimal body document and body graph
 
-State: queued (discussion-ready; provisional)
+State: active (Batches 1, 4, 5, 6, F1–F3, Batch 8, Batch 9, Batch 10, Batch 11, Batch 12, and Batch 13 integrated as Proposed
+documentation; DR-0002/0008 Revision 11 remain Proposed with Owner approval
+Pending and Review Complete, while DR-0006 Revision 12, DR-0011 Revision 15,
+DR-0012 Revision 14, and DR-0013 Revision 12 remain Proposed with Owner approval
+Pending and Review Complete after the current Double review at exact target
+`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. The
+original Batch 13 review at exact commit `8c38c501eb1262a1b85af0b8605220625601772f`
+produced D1–D3/P1–P3, dispositioned in Revisions 10/13/12/10. The earlier-
+predecessor review at exact commit `763cff22d10f6491a05a28312a25250704543dcf`
+produced G1/G2 and T1–T4; G1/G2 were fixed mechanically, T1–T3 were resolved,
+and T4 remains unselected and deferred, requiring Ben's retained-human
+disposition before adapter profile/schema activation; it does not block the empty
+first Rust slice. The earlier-predecessor 763cff22 review is stale; the
+immediate-predecessor 9b96d18 review is also stale and its findings were
+corrected in the current revisions. The 9c governance pass corrected two
+mechanical history-label issues and its technical pass found no findings /
+Ready for PR at High confidence. Review Complete is evidence only. No acceptance, schema, fixture, parser/resolver, adapter, Cargo
+package, readiness, experiment, or implementation activates. See the
+[current review state](status.md#current-review-and-future-activation-obligations).
+The prior exact review at
+`88004388f9537a37617ae248bdaad4625e6f3f03` and the Batch 5 review are stale
+historical evidence)
 
 Prerequisites: the exploratory executable spine and enough semantic context to
 define a minimal useful input/output; CK-KICK-011 is not required.
 
 Outcome:
 
-- Define stable semantic IDs, namespaces, units, coordinate frames,
-  measurements, parts, joints, attachments, sockets, capabilities, fields, and
-  diagnostics needed by the first family.
-- Define deterministic resolution, invalid input, extension, and resource-limit
-  behaviour.
-- Add representative schema-level valid and invalid fixtures alongside the
-  specification. Compiler-consumed generation fixtures activate later when the
-  first compiler reads a body document.
+- Batch 1 was settled on 2026-08-09 and its seven review resolutions were
+  approved on 2026-08-11; all are integrated as Proposed documentation. A
+  resolved source set has one unique owner per source namespace. Namespace
+  collisions require an authored, deterministic, collision-free remapping
+  across every contributed semantic address; implicit shared ownership is not
+  allowed. Every outcome-affecting external authored asset remains an exactly
+  versioned source-set dependency.
+- Every phase and diagnostic belongs to one authoritative operation-result
+  envelope: loading, syntax/schema/contract, dependencies, resources,
+  semantic resolution, and invariants. Successful `resolve` requires a
+  validated in-memory snapshot; an operation such as `validate` may omit it
+  only when its contract permits. Snapshot finalization is not filesystem
+  serialization; snapshot diagnostics in any derived output are a persisted
+  subset. Semantically invalid and well-formed-but-unsupported
+  partial graphs are non-compilable, non-contractual debug data. Exact phase
+  names and diagnostic codes remain deferred.
+- The first grammar is a bounded typed ownership tree with reified,
+  role-labelled non-ownership concepts. Part is structural/owned; Joint is an
+  articulation relation with frames, not a bone/solver; Socket is a host
+  interface frame; Attachment maps a module to a socket, not automatically a
+  joint; Region is overlapping and never ownership; Capability is a queryable
+  affordance; and Field is representation-neutral spatial intent/channel with
+  lineage. Batch 4 refines the earlier role shorthand into the typed Part,
+  Joint, landmark, Socket, and Attachment chain recorded below. These roles do
+  not claim bone, solver, rig, or anatomy fidelity.
+- Transforms own reference-frame placement; typed dimensions own size/extents;
+  anchors/landmarks have authored or derived provenance; ratios are derived
+  only; and conflicting constraints diagnose rather than silently choosing.
+  Sources declare units, handedness, up, and forward, then normalize to a
+  contract-revision canonical internal basis with conversion provenance.
+  Distinct local/reference, joint, socket/mating, derived world/reference,
+  and runtime-pose frames are required. Batch 11/12/13 proposes the canonical
+  right-handed metre basis (+Y up, +Z creature-forward), finite binary64
+  values, correctly rounded decimal admission, deterministic normalization and
+  canonical quaternion handling, fixed operation order without
+  reassociation/implicit FMA/FTZ/DAZ, direct common-frame same-target
+  comparison, exact dyadic scalar predicates, offline half-chord bounds with
+  no runtime transcendental comparison, structured claim identity/order and
+  smallest-tuple selection, canonical addresses, canonical data/digests, and
+  diagnostic profile. The numeric experiment preregisters rational/ULP,
+  normalization/square-root, H-derivation, claim identity/order, adapter tier,
+  and compiler-mode fixtures, separate semantic error budgets,
+  exact/higher-precision oracles, frozen development/held-out/adversarial
+  corpora, condition estimates, metamorphic checks, and an open
+  validation-margin formula/constant; exact thresholds and activation remain
+  deferred.
+- Fixture expected outcomes freeze as valid-supported, semantically invalid, or
+  well-formed-but-unsupported, with a primary diagnostic class/code frozen for
+  every non-success fixture. Only valid-supported fixtures count toward the
+  Stage 1 gate. Representative schema-level fixtures and compiler-consumed
+  generation fixtures activate through the Readiness 2 admitted manifest
+  transaction, not merely when the first compiler reads a body document.
 - Keep the semantic contract independent from generated mesh indices and the
-  first host engine.
+  first host engine. Exact source/schema syntax, numeric thresholds, surface
+  primitives, semantic-address lifecycle/remap semantics, geometry backend, surface,
+  animation, physics, and runtime choices remain deferred. The Rust/Cargo
+  platform direction is tracked separately in CK-KICK-013 as Proposed.
+- The first parser and resolver proposals now establish the Proposed
+  [`spec/body-document/`](../../spec/body-document/README.md) and
+  [`spec/body-graph/`](../../spec/body-graph/README.md) contract families.
+  The public derived-output and publication boundary is owned by the
+  [`spec/build-operation/`](../../spec/build-operation/README.md) contract.
+  Their implementation packages and compiler-consumed fixtures remain
+  unactivated.
 
-Human decisions concern semantics and compatibility. Concrete syntax and schema
-technology are recommended separately where they are reversible.
+- Batch 6, F1–F3, Batch 8, Batch 9, Batch 10, and Batch 11 are discussion-approved and integrated below as Proposed
+  material. They resolve status/primary ordering, descendant-owned mating
+  Socket placement, typed Attachment composition, and Attachment cardinality
+  without accepting or silently replacing the decision records. The affected
+  DR revisions were Proposed with Owner approval Pending and Review Complete at
+  that historical revision; that review is stale after Batch 9.
+
+The Batch 1 and Batch 4 discussion selections and review resolutions are not DR
+acceptance. The prior revisions have complete review evidence. Batch 5, Batch
+6, F1–F7, Batch 8, Batch 9, Batch 10, Batch 11, Batch 12, and Batch 13 are discussion-approved and integrated into the canonical product,
+specification, architecture, and project documents as Proposed material. The
+CK-KICK-012 Batch 5 Double review at commit
+`a282dbabffd83afa4e62577086934d00f98e12c7` and Batch 6 review at `c64b1b...`
+are stale historical evidence. The current six-record set is DR-0002 Revision
+11, DR-0006 Revision 12, DR-0008 Revision 11, DR-0011 Revision 15, DR-0012
+Revision 14, and DR-0013 Revision 12; DR-0002/0008 retain Review Complete,
+DR-0006 and the three materially revised records remain Proposed with Owner
+approval Pending and Review Complete after the current Double review at exact
+target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. The original 8c38c501 Batch 13 review produced D/P findings later
+dispositioned in Revisions 10/13/12/10. The earlier-predecessor 763cff22
+review produced G1/G2 and T1–T4; G1/G2 were fixed mechanically, T1–T3 were
+resolved, and T4 remains unselected and deferred, requiring Ben's retained-human
+disposition before adapter profile/schema activation; it does not block the empty
+first Rust slice. The immediate-predecessor 9b96d18 review is stale; its
+findings were corrected in the current revisions. The 9c governance pass
+corrected two mechanical history-label issues and its technical pass found no
+findings / Ready for PR at High confidence. Review Complete is evidence only.
+Ben approved the Batch
+11/12/13 resolution directions; the
+prior Batch 10 Double-review evidence is stale history. The
+completed Batch 9 Double review targeted
+`6cf17270fda2827756c24a8d0fb301bef358f`; historical evidence is stale for the
+revised records and is not acceptance. See
+the [current review state](status.md#current-review-and-future-activation-obligations).
+The prior
+exact review at `88004388f9537a37617ae248bdaad4625e6f3f03` is stale. No
+acceptance or clean review is implied.
+The prior Batch 4 and Batch 5 reviews remain
+preserved as historical evidence.
+The cross-cutting proposal is
+[DR-0012: initial body-document encoding, resolution, and
+compatibility](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
+CK-KICK-012 remains active; Batch 11, Batch 12, and Batch 13 are discussion-
+approved Proposed material. The completed Batch 9 Double review is evidence only; its
+five actionable findings were resolved by Batch 10 discussion. The prior Batch
+10 Double review remains preserved as stale evidence. The Batch 11 current-
+revision Double-review artifacts are stale for the revised records. DR-0006
+Revision 12, DR-0011 Revision 15, DR-0012 Revision 14, and DR-0013 Revision 12
+remain Proposed with Owner approval Pending and Review Complete after the
+current Double review at exact target
+`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`.
+No acceptance or implementation/readiness gate is implied.
+
+### Batch 4 — encoding, resolution, and compatibility (discussion-approved)
+
+On 2026-08-11 Ben approved the following CK-KICK-012 Batch 4 resolutions in
+discussion. They are integrated here as Proposed contract material only; they
+do not accept or silently replace the decision records.
+
+- The identity-bearing embodied concepts are Part, Joint, Socket, Attachment,
+  Region, Capability, and Field. Module is an authored reusable scope that
+  instantiates concepts, not an embodied graph concept. Landmark, anchor,
+  dimension, and frame are typed owned records addressed through owner and
+  role.
+- Joint is a directed identity-bearing relation with exactly one proximal Part
+  and one distal Part, with endpoint frames relative to each. Socket is a
+  Part-owned named interface. Attachment connects one host Socket to one
+  mating Socket and does not imply articulation.
+- The pelvis Part owns the root-reference frame. The minimum typed Stage 1
+  chain is pelvis → spine Joint → torso/chest Part → neck-base Joint → neck Part →
+  head-base Joint → head. Arms use shoulder/elbow/wrist Joints between the
+  named torso, upper-arm, forearm, and hand/paw Parts, ending at a paw-base
+  landmark/Socket. Legs use hip/knee/hock-or-ankle Joints between pelvis,
+  thigh, lower-leg, and foot/paw Parts, ending at a paw-base landmark/Socket.
+  Ear/tail modules use Attachment; a movable tail also uses a separate Joint.
+  These are semantic roles and frames, not bone, solver, rig, or anatomy
+  fidelity commitments.
+- Conflict claims target owner address, property role, and frame/context and
+  compare after normalization. Authored claims and explicit invariants must
+  be jointly satisfiable within contract tolerance; derived/defaulted values
+  never override authored claims and no hidden inferred equations are allowed.
+  A conflict is a semantic-invalid deterministic diagnostic and publishes no
+  success snapshot.
+- Resolver phases are resource/input admission; syntax/schema/contract;
+  dependencies; namespaces/identity/references; ownership/typed relations;
+  unit/frame normalization and value derivation; semantic invariants; and
+  success publication. Fatal phases block dependent work while independent
+  diagnostics within a phase accumulate. Provenance distinguishes authored,
+  defaulted, and derived values; required unresolved or ambiguous values cannot
+  succeed.
+- Unknown core members fail. Explicit namespaced extensions carry namespace,
+  revision, required/optional indication, and opaque payload. Unsupported
+  required extensions are unsupported; unsupported optional extensions are
+  preserved opaquely and have no core semantic effect. Machine diagnostic
+  identity and order are stable contract data; human messages are not
+  compatibility keys.
+- The initial source adapter is one strict UTF-8 JSON document: duplicate keys,
+  comments, includes, and evaluation are rejected. JSON Schema Draft 2020-12
+  is the proposed structural-validation vocabulary, while CK semantic
+  resolution owns graph meaning. Exact semantic contract family and revision
+  recognition is required; no silent migration or downgrade is allowed, and
+  explicit migration emits a new source. Semantic contract identity is separate
+  from compiler/build/configuration/seed/dependency/artifact identity.
+- Finite implementation-profile resource limits use source and aggregate bytes,
+  string lengths/counts, nesting depth, object/array members, graph
+  entities/relations, ownership depth, module/reference expansion, extension
+  count/payload, numeric admissibility, diagnostics, and aggregate work/memory.
+  Exact numeric limits, tolerances, serialized field names, canonical
+  axes/units/rotation/scale/shear, source-map encoding, and canonical
+  bytes/hashing remain deferred. Semantic equivalence concerns identities,
+  relations, frames, values, provenance, and outcome, not text ordering or
+  generated topology.
+- The minimum Stage 1 graph invariants and outcome/resource fixtures are
+  planned, including the cross-DR fixture matrix. The nonblocking exact
+  dependency-revision obligation remains open before external authored
+  dependencies activate. Compiler packages and compiler-consumed fixtures are
+  not activated by this discussion batch.
+
+Further CK-KICK-012 decisions concern exact serialized fields, numeric and frame
+conventions, diagnostic codes, dependency revisions, and fixture contents; the
+initial syntax and structural-schema technology are now Proposed selections.
+
+Canonical references for the earlier batches are [DR-0002](../decisions/DR-0002-declarative-body-document-source-of-truth.md),
+[DR-0006](../decisions/DR-0006-durable-semantic-and-artifact-identity.md),
+[DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
+and [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
+Their prior revisions have review evidence. This earlier Batch 4 planning
+snapshot referred to DR-0002 Revision 8, DR-0008 Revision 8, DR-0011 Revision
+4, and DR-0012 Revision 3 as Proposed with Owner approval Pending and Review
+Complete; that review state is now stale historical evidence. The current
+revisions and their completed Batch 9 Double review are recorded in the
+CK-KICK-012 state above. Ben's owner disposition remains pending.
+
+### Batch 5 — blocker resolutions (discussion-approved)
+
+On 2026-08-11 Ben approved the six CK-KICK-012 blocker resolutions in
+discussion. They are integrated in the canonical documents as Proposed
+material only; they do not accept or silently replace the decision records.
+
+- Part-to-Part containment is explicit and separate from typed relations. Every
+  embodied Part, including a present optional module root, has exactly one path
+  to the embodied root; containment supplies reference-transform inheritance,
+  and containment/relation cycle checks are independent. Required Stage 1
+  axial and limb Joints connect structural parent Parts to immediate children.
+  An Attachment's host Part and module-root child must agree with declared
+  containment; initially an attached root has one incoming Attachment.
+- Attachment placement is derived conceptually from host Part/frame, host
+  Socket, optional Attachment offset, and inverse mating Socket frame. A
+  competing authored placement must agree within a later-defined tolerance or
+  is semantic-invalid. Duplicate, detached, cyclic, or invalid endpoints are
+  invalid; Attachment never implies a Joint.
+- Resolved Joints materialize canonical proximal- and distal-frame typed
+  records in the corresponding Part-local bases. Sockets materialize their
+  interface frame in the owning-Part basis. Source references feed these
+  records with provenance; no rig, bone, solver, limit, or runtime
+  representation is selected.
+- The operation status set is closed to success, input-failure,
+  invalid-source, unsupported, dependency-failure, resource-limit, and
+  internal-failure. Trust loss takes precedence, then configured resource
+  exhaustion when completeness is lost, otherwise the earliest fatal phase;
+  reached diagnostics remain, incomplete results are marked, and the primary
+  diagnostic matches the status. Stage 1's three semantic fixture outcomes are
+  separate from parser/dependency/resource/internal operation outcomes.
+- Bootstrap order is byte/UTF-8/resource admission; strict duplicate-detecting
+  JSON parse; top-level object and exactly one version-neutral family/revision
+  discriminator; unsupported family/revision rejection before current-schema
+  application; then exact revision-schema validation and unknown-field rules.
+  Exact serialized spelling remains deferred.
+- Hostile input uses streaming/token-aware limits for raw bytes, incremental
+  UTF-8/tokens, pre-conversion string/number lengths, parse nesting/members,
+  per-dependency and aggregate budgets, and pre-allocation graph/reference/
+  module/work charging. Configured breaches are resource-limit; true process
+  OOM is outside the guarantee and a surviving untrusted implementation is
+  internal-failure. Exact profile thresholds remain deferred.
+
+At the Batch 5 revision, these resolutions left exact serialized member and
+diagnostic names, numeric budgets and tolerances, canonical
+axes/units/rotation/scale/shear, dependency revision meaning, canonical
+bytes/hashing, implementation language, and compiler fixture contents deferred.
+CK-KICK-013 now tracks the separate Proposed Rust/Cargo platform direction.
+At that historical revision, the affected decision records had completed their
+review and three consolidated findings remained pending Ben discussion; that
+review state is stale after Batch 6. CK-KICK-012 remains active and this batch
+did not complete the round.
+
+### Batch 6 — review-finding resolutions (discussion-approved)
+
+On 2026-08-11 Ben approved the CK-KICK-012 Batch 6 review-finding resolutions
+in discussion. They are integrated in the canonical documents as Proposed
+material only; they do not accept or silently replace the decision records.
+
+- Status selection requires complete authoritative acquisition before
+  invalid-source; internal-failure trust-loss precedence, then resource-limit
+  only when a configured breach prevents required processing/trusted completion,
+  then the earliest phase unable to produce required output. In parse/semantic
+  phases invalid-source outranks unsupported; dependency acquisition/read/
+  verify/resolve failures map to dependency-failure. Processing and diagnostic
+  completeness are independent. Ordinary truncation is not resource-limit when
+  processing/trusted completion continue, and intentionally blocked later phases
+  do not make retained reached-phase diagnostics incomplete. The primary is the
+  first diagnostic establishing final status; reserved primary capacity keeps
+  that candidate, with a reserved resource/truncation diagnostic if arena
+  exhaustion itself establishes resource-limit.
+- A mating Socket may be owned by any Part in the attached root's containment
+  subtree. Resolution composes the module-root-to-Socket-owner containment
+  transform with the mating Socket owner's local frame before alignment and
+  inversion. The Attachment result is the attached root's sole resolved
+  child-local containment placement relative to its host parent. Descendants
+  inherit only through containment; Attachment is not a parallel transform
+  inheritance path. A competing authored root-local placement compares with
+  this same canonical value within tolerance, with authored and derived
+  provenance preserved.
+- A present attached root has exactly one incoming active Attachment; an absent
+  optional module has none. Each host and present mating Socket has capacity
+  one active Attachment. Repeated endpoint pairs, host Socket reuse, mating
+  Socket reuse by distinct active Attachments (including distinct hosts or
+  nested attached roots), zero incoming for a present attached root, and
+  multiple incoming Attachments are separately invalid conditions. Mating Socket
+  reuse has a distinct deterministic diagnostic concept.
+
+These resolutions leave exact serialized fields and diagnostic codes, numeric
+budgets and tolerances, canonical axes/units/rotation/scale/shear,
+dependency-revision meaning, canonical bytes/hashing, and fixture contents
+deferred. At the end of this historical Batch 6 snapshot, DR-0002 Revision 9,
+DR-0008 Revision 9, DR-0011 Revision 5, and DR-0012 Revision 4 were Proposed
+with Owner approval Pending and Review Complete, with five findings still
+awaiting discussion. Batch 9 below supersedes that review state; CK-KICK-012
+remains active with the completed current review and pending owner disposition.
+
+### Batch 8 — semantic completeness, module instances, and build boundary (discussion-approved)
+
+On 2026-08-12 Ben approved the following Batch 8 resolutions in discussion.
+They are integrated as Proposed material only; no decision record is accepted.
+
+- Status completeness is total: internal trust loss precedes a qualifying
+  resource interruption, then the earliest applicable phase unable to produce
+  its required output. In a mixed dependency phase,
+  `dependency-failure` precedes `invalid-source` and then `unsupported`.
+  Mandatory independent checks run unless resource/trust interruption prevents
+  them; optional checks cannot change status or primary. Processing is complete
+  when all applicable work establishing/trusting the selected outcome ran;
+  blocked phases are inapplicable. Diagnostic completeness means all applicable
+  profile-required diagnostics were retained; truncation alone is not a
+  resource-limit outcome.
+- The normalized model declares module instances without adding an eighth graph
+  concept, recording module/root/anchor-provenance/presence-optionality and
+  Attachment requirement. Absence and present-but-unattached are distinct;
+  present Attachment-required roots need one incoming Attachment. Socket
+  capacity is one total across host and mating roles, so cross-role reuse is
+  invalid and nested instances require distinct Sockets.
+- Every transform entering Attachment composition must be finite,
+  non-degenerate, and invertible under the declared profile. A source violation
+  is `invalid-source`; implementation failure on an admissible transform is
+  `internal-failure`. Exact representation, scale/shear, conditioning, and
+  tolerances remain resolver-activation details.
+- Readiness is four staged gates: (1) accepted DR-0013 activates only the empty
+  Cargo shell; (2) exact JSON Schema plus frozen/admitted fixture manifest
+  activates parser/bootstrap and listed fixtures together; (3) canonical
+  numeric/frame rules plus frozen expected graph outputs activate semantic
+  resolver/in-memory snapshot handoff; and (4) a working resolver plus provisional
+  geometry profile and project-owned seam activates exploratory Stage 1
+  geometry. Parked DR-0009/0010 do not gate Readiness 4.
+- Geometry and publication share one authoritative build envelope. Add
+  `output-failure` for trusted derived-output/publication failure; build
+  identity always exists, artifact identity only after successful publication.
+  A compile/geometry failure may publish a diagnostics-only failure bundle when
+  publication succeeds; publication failure returns the envelope with no final
+  bundle. Cleanup is invocation-staging-only, and unavailable atomic
+  no-replace fails closed without target adoption. Artifact inspection is a
+  separate read operation.
+
+At that historical Batch 8 snapshot, DR-0002 Revision 10, DR-0008 Revision 10,
+DR-0011 Revision 6, DR-0012 Revision 5, and DR-0013 Revision 3 were Proposed
+with Owner approval Pending and Review Complete evidence against commit
+`b19adf76aad7d672c0871bd38fc34739f3f4ac39`; the prior seven findings are
+addressed by Batch 9 discussion resolutions and owner disposition remains
+pending. Earlier reviews are stale after these revisions.
+
+### Batch 9 — resolver/build publication and admission resolutions (discussion-approved)
+
+On 2026-08-12 Ben approved the CK-KICK-012/013 Batch 9 resolutions in
+discussion. They are integrated in the canonical documents as Proposed
+material only; they do not accept or silently replace the decision records.
+
+- Resolver phase 8 is in-memory resolved-snapshot finalization and handoff, not
+  filesystem serialization. Successful `resolve` requires that snapshot;
+  operations such as `validate` may omit it only when their own contract
+  permits. Qualifying resource interruption is `resource-limit`, loss of trust
+  is `internal-failure`, and external serialization/publication belongs to the
+  build/output boundary with trusted failures reported as `output-failure`.
+- An absent optional module retains a stable authored module-instance
+  declaration address and a non-embodied root-role/template reference. It emits
+  or reserves no Part, cannot be a graph-relation target, and participates in
+  declaration uniqueness rather than the Part namespace. If later present, its
+  Part identity derives deterministically from the module-instance anchor and
+  root role; this is not an eighth embodied graph concept.
+- The new [Proposed build-operation contract](../../spec/build-operation/README.md)
+  owns the public derived-output/publication semantics. A staged manifest's
+  candidate artifact identity is non-authoritative; successful atomic
+  publication promotes the same identity to committed artifact identity. The
+  explicit output root plus candidate identity determine one safe target rule;
+  verified identical occupants are idempotent success, different or
+  unverifiable occupants are output-failure/target-conflict with no overwrite,
+  and unavailable atomic no-replace fails closed. Inspection receives expected
+  lineage and never guesses stale. The contract also owns the complete
+  source/dependency/capability/timeout/resource/worker/output/invariant/
+  encoding/staging/collision/publication outcome matrix and the trusted
+  diagnostics-only bundle boundary.
+- Readiness 2 is one review-branch activation transaction containing the exact
+  schema, versioned manifest, all referenced fixture files, and parser/bootstrap.
+  Ben owns admission and must explicitly approve before merge/activation. A
+  generic parser-independent preflight validates immutable revision/ID, schema
+  revision/hash, fixture paths/hashes/provenance, expected status and primary
+  diagnostic, diagnostic/resource profiles, and completeness. Review-branch
+  coexistence does not activate files, and production parsing must not
+  self-admit the corpus circularly.
+- Readiness 4 triggers exploratory Stage 1 geometry and CK-KICK-014. Accepted
+  or reactivated DR-0009/0010 surface decisions are needed only for later
+  formal comparison or production architecture selection; exploratory proof has
+  no surface-decision prerequisite.
+
+The completed Batch 9 Double review targeted commit
+`6cf17270fda2827756c24a8d0fb301bef358f98f`; this paragraph records its
+historical state. Its evidence is stale for the four Batch 10-revised records,
+and is not a clean review or acceptance. No package, schema, fixture corpus,
+parser, resolver, or geometry implementation is activated by this discussion
+approval. See the
+[current review state](status.md#current-review-and-future-activation-obligations)
+for lenses and recommendations.
+
+### Batch 10 — identity, filesystem, inspection, trust, admission, and shape
+  (discussion-approved)
+
+On 2026-08-12 Ben approved the CK-KICK-012/013 Batch 10 resolutions in
+discussion. They are integrated as Proposed canonical product, specification,
+architecture, and project material only; they do not accept or silently replace
+the decision records. The affected records are now DR-0006 Revision 7,
+DR-0011 Revision 9, DR-0012 Revision 8, and DR-0013 Revision 6, all Proposed
+with Owner approval Pending and Review Complete after Ben approved all five
+resolution directions. DR-0002 Revision 11 and
+DR-0008 Revision 11 are unchanged and remain Proposed with Owner approval
+Pending and Review Complete. Prior Batch 9 review artifacts remain stale
+history.
+
+- Build identity separates a unique per-attempt identity from deterministic
+  build-request identity. Attempt identity never affects target or idempotent
+  equality. The request includes all outcome-affecting source/dependency,
+  compiler/toolchain, contract/schema/profile, configuration/seed,
+  backend-capability/protocol, and target-platform inputs. Candidate artifact
+  identity derives from request, artifact role, and identity-rule revision and
+  promotes unchanged on publication. Canonical serialization/hash remains
+  deferred but is required before activation. No-replace collisions perform
+  post-collision inspection: exact identity/lineage/manifest/hashes are
+  already-published; different lineage is target-conflict; byte divergence for
+  the same deterministic request/candidate is internal-failure for
+  nondeterministic output. Conceptual cases cover first build, retry,
+  concurrent winner, lineage change, and byte divergence. Successful committed
+  artifacts exclude attempt-local data; attempt tracing remains in the
+  operation envelope, staging metadata, and logs, and no diagnostics-only
+  failure bundle is initially persisted as a committed artifact.
+- The initial filesystem profile is tested local Linux under WSL `/home` only;
+  `/mnt/c`, network, removable, and unspecified filesystems are excluded.
+  Same-filesystem sibling staging, capability probe, atomic no-replace,
+  immutable committed outputs, cooperating builders, and post-collision
+  inspection provide process-crash-safe namespace publication only, with no
+  sudden-power-loss claim. Malicious/privileged concurrent mutation is out of
+  scope; inspection still verifies a complete artifact or rejects it. The
+  profile-defined unambiguous safe-ASCII candidate path mapping is an activation
+  prerequisite. Filesystem proof remains a nonblocking obligation until
+  publication is activated.
+- Inspection is a separate read operation with shared envelope conventions and
+  closed statuses: success, absent, unavailable, mismatch, invalid-artifact,
+  unsupported, resource-limit, and internal-failure. It retains processing and
+  diagnostic completeness, deterministic precedence, and a primary diagnostic
+  for each non-success. Original build status remains history.
+- Producer/output trust is separate from coordinator/reporter/publisher trust.
+  Worker crash or protocol loss invalidates worker output; a trusted isolated
+  parent may report only its own observed worker failure in the authoritative
+  envelope and never adopts output after trust loss. No diagnostics-only failure
+  bundle is persisted initially; a future persisted evidence facility requires
+  a separate identity/lifecycle decision. Coordinator/reporter/publisher trust
+  loss allows only the launcher/CLI envelope, and validation cannot rehabilitate
+  lost-trust output. The conceptual trust/status mapping is selected; exact
+  worker protocol details remain a prerequisite before any worker activates.
+- The new canonical [fixture-manifest and admission specification](../../spec/fixture-manifest/README.md)
+  uses a fixture-suite payload manifest plus a separate readiness/decision
+  approval record. The record names the reviewed source commit reference,
+  manifest path/digest, path-scoped payload digest/tree identity, preflight
+  result, and Ben approval; preflight proves internal consistency and reruns on
+  the merged target, requiring the content binding to remain unchanged even if
+  the merge commit changes. Successors are append-only;
+  deactivation/rollback is explicitly approved, and Git/decision history
+  preserves supersession. The same suite mechanism covers parser, semantic
+  graph, and build/publication fixtures. Readiness 2 is the lean corpus;
+  Readiness 3 adds attached/unattached, cross-role Socket reuse, measurement
+  conflict, and defaulted provenance cases.
+- The conceptual body-document top-level shape is `contract`, `source`,
+  `basis`, `profiles`, `body`, and `extensions`; `contract` owns
+  version-neutral family/revision. `body` uses explicit typed collections
+  (modules, parts, joints, sockets, attachments, landmarks, dimensions,
+  frames, regions, capabilities, fields), stable references, no generic union,
+  non-semantic array order, present-even-empty core collections, and a closed
+  core vocabulary. Basis requires length unit, handedness, up, and forward;
+  source profiles initially reference only semantic numeric-domain profiles;
+  no per-value unit override is selected. Omission requires one exact
+  contract/profile-owned deterministic default with stable rule identity and
+  defaulted provenance; identity, containment, module presence, basis, and
+  grammar-required values remain explicit, with no null-as-missing, implicit
+  zero, neighbour inference, or hidden equations. Frame roles are
+  owner-kind-specific: Part reference/local, Joint proximal and distal, Socket
+  intrinsic interface, and Attachment host/mating contextual. Readiness 2
+  freezes a rigid transform carrier (translation plus `xyzw` quaternion, with
+  no scale/shear fields); Readiness 3 freezes numeric/frame semantics and
+  admitted expected-snapshot comparison metadata.
+
+No schema, fixture file, parser, resolver, package, or readiness gate activates
+from this discussion batch. Recommended adversarial level: Double — the batch
+revises cross-cutting identity, publication, trust, admission, and source-shape
+contracts and is difficult to audit as one surface.
+
+The current-revision Double review examined commit
+`28c83c7a21cf55f23274aeaf5d2ccc0a3e9e3b53`. Review 01 / Review 02
+recommendations were DR-0006 **Revise High / Accept High**, DR-0011
+**Accept High / Revise High**, DR-0012 **Accept High / Revise High**, and
+DR-0013 **Revise High / Revise High**. The five consolidated findings are C1
+(High) R2/R3 carrier wording, C2 (High) the distinct R3 successor transaction,
+C3 (High) exact scoped fixture payload identity, C4 (Medium) the
+success-bundle contradiction, and C5 (Medium) timeout versus termination
+status. They await Ben's discussion and owner disposition; review completion is
+evidence only.
+
+### Batch 12 — numeric/frame evidence and summary alignment (discussion-approved)
+
+On 2026-08-12 Ben approved the Batch 12 numeric-resolution directions in
+discussion. They are integrated as Proposed planning, product, architecture,
+research, and status consequences only; they do not accept or silently replace
+the decision records and do not activate a package, schema, fixture, resolver,
+adapter, or readiness gate.
+
+- The numeric experiment replaces the circular “smallest stable values
+  observed” method with preregistered intended translation, quaternion/norm and
+  near-zero domains, maximum composition/inversion chain, conditioning bound,
+  and separate semantic error budgets. Its exact formulas and validation-margin
+  constant remain open protocol decisions; a failure is reject or inconclusive,
+  never post-hoc budget widening.
+- The initial canonical direction fixes operation order and round-to-nearest,
+  ties-to-even, and prohibits reassociation, implicit FMA contraction, FTZ, and
+  DAZ. Decimal admission is intended to be correctly rounded, with exact
+  rational/analytic oracle coverage and an independent materially higher-
+  precision disposable oracle for generic normalization/transform chains.
+- Development, held-out, and adversarial corpora are frozen before evaluation,
+  including midpoint/tie, signed-zero, subnormal/underflow, overflow,
+  cancellation, near-zero q, q/-q, long-chain, ill-conditioned, basis-
+  conversion, and claim-order cases. Metamorphic checks cover canonicalization
+  idempotence, q/-q, equivalent decimal lexical forms, identity/inverse,
+  selected composition order, claim permutation, and basis roundtrip. Condition
+  estimates classify out-of-domain cases without widening budgets.
+- The bounded evidence target is WSL x86_64 plus native Linux smoke. A
+  materially different architecture/toolchain is required before any broader
+  cross-platform reproducibility claim. Raw bits, oracle uncertainty, compiler
+  and mode settings, condition estimates, seeds, profiles, hardware, and
+  classifications are retained. Host-adapter conformance remains deferred
+  until adapter activation.
+
+At the end of this historical Batch 12 state, the affected records were
+DR-0011 Revision 11, DR-0012 Revision 10, and DR-0013 Revision 8, each
+Proposed with Owner approval Pending and Review Complete after the Batch 12
+Double review. DR-0006 Revision 8 remained Review Complete with unresolved
+C1/C3/C4 contract findings; Batch 11 review evidence was stale only for the
+three records materially revised at that point. Batch 13 below supersedes this
+state summary.
+
+### Batch 13 — comparator, claim identity, and future adapter resolutions (discussion-approved)
+
+On 2026-08-13 Ben approved the Batch 13 resolution directions in discussion.
+They are integrated as Proposed planning, product, architecture, research,
+and status consequences only; they do not accept or silently replace the
+decision records and do not activate a package, schema, fixture, resolver,
+adapter, or readiness gate.
+
+- Same-target claims normalize into one identical canonical local-to-parent
+  frame. Translations compare directly componentwise and rotations by the
+  q/-q predicate; the composition residual is retained only as a separately
+  named diagnostic or snapshot check.
+- Scalar and translation predicates decode finite binary64 values as signed
+  integer significand times a power of two and use exact bounded dyadic/
+  integer subtraction, multiplication, addition, and inclusive comparison.
+  Quaternion normalization uses deterministic max-absolute scaling, fixed
+  component order, left-to-right square accumulation, correctly rounded
+  binary64 square root, fixed division, and canonical sign; comparison uses
+  an offline-derived binary64 half-chord bound with no runtime transcendental,
+  norm, or square-root operation.
+- Stable claim IDs derive from canonical target/kind, source document/namespace,
+  stable authored semantic record/property address, and explicit authored key
+  for intentional multiplicity. Same-ID/same-value occurrences evaluate once
+  while retaining provenance; same-ID/different-value is an invalid-source
+  collision. Pair validity is unordered, but valid pairs are sorted by claim
+  ID and the first failing pair is deterministic. The lexicographically
+  smallest value tuple wins, with claim ID only for exact tuple ties. Graph
+  collection keys remain separate from local claim multiplicity.
+- The unregistered experiment adds rational/ULP boundaries, offline H
+  derivation and downward proof, normalization/sqrt fixtures across bounded
+  platforms, order reversal/common-frame, duplicate/collision, sorted-pair,
+  and smallest-tuple fixtures. No results, thresholds, constants, or profile
+  IDs are selected.
+- Future adapters declare signed permutation `C` and finite positive scale `s`:
+  vector lengths use `sC`, scalar lengths use `s`, directions and normalized normals use `C`, and rigid
+  transforms use `D H D^-1` for `D = diag(sC, 1)`. Storage/output-only is the
+  default tier; optional runtime conformance adds probes and fixtures. Target
+  precision/domain/narrowing and overflow/underflow/subnormal policy are
+  explicit; binary32 subnormal claims require FTZ/DAZ probing. This is a
+  separate post-Readiness-3 transaction.
+- Diagnostic compatibility remains separately owned as nine Proposed domains:
+  source-admission, dependency, semantic-identity, graph-structure,
+  frame-numeric, resource, execution-trust, publication, and inspection. One
+  tiny mandatory bootstrap registry/profile handles unknown registry/profile
+negotiation; exact codes and fields remain fixture-gated.
+Readiness implementation binding remains a separate scoped content-identity
+transaction from fixture payload and expected snapshots; no binding activates
+from this planning record.
+
+The current affected records are DR-0006 Revision 12, DR-0011 Revision 15,
+DR-0012 Revision 14, and DR-0013 Revision 12, each Proposed with Owner approval
+Pending and Review Complete after the current Double review at exact target
+`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. The
+original 8c38c501 Batch 13 review produced D/P findings later dispositioned in
+Revisions 10/13/12/10. The earlier-predecessor 763cff22 review produced
+G1/G2 and T1–T4; G1/G2 were fixed mechanically, T1–T3 were resolved, and T4
+remains unselected and deferred, requiring Ben's retained-human disposition
+before adapter profile/schema activation; it does not block the empty first Rust
+slice. The immediate-predecessor 9b96d18 review is stale; its findings were
+corrected in the current revisions. The 9c governance pass corrected two
+mechanical history-label issues and its technical pass found no findings /
+Ready for PR at High confidence. Review Complete is evidence only. No
+acceptance or activation is implied.
 
 ## Round 8 — implementation platform (provisional)
 
 ### CK-KICK-013: Select the first implementation platform
 
-State: queued
+State: active (discussion-approved Proposed platform direction integrated;
+Proposed DR-0013 Revision 12 has Owner approval Pending and Review Complete after
+the current Double review at exact target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`; the original 8c38c501 Batch 13
+review produced D/P findings later dispositioned in Revision 10. The earlier
+predecessor 763cff22 review produced G1/G2 and T1–T4; G1/G2 were fixed
+mechanically, T1–T3 were resolved, and T4 remains unselected and deferred,
+requiring Ben's retained-human disposition before adapter profile/schema
+activation; it does not block the empty first Rust slice;
+the immediate-predecessor 9b96d18 review is stale; its findings were corrected in
+the current revision. The 9c technical pass found no findings / Ready for PR at
+High confidence; Review Complete is evidence only. Prior Batch 11/12 review evidence is stale
+historical evidence for this revised record. The former Batch 12 resolution
+and review of `730a2f77840cc0caa1f838c30dac4ff20f985e69` remain preserved as
+historical findings. The
+completed Batch 9 Double review targeted
+`6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is stale for the
+revised record and is not acceptance; not accepted or implemented)
 
 Prerequisites: the exploratory host boundary and a bounded CK-KICK-012
 contract. CK-KICK-011 is not an automatic prerequisite.
 
 Outcome:
 
-- Compare the core language and build system against geometry ecosystem,
-  performance, memory safety, deterministic headless tooling, FFI, debugging,
-  packaging, and contributor cost.
-- Distinguish the reversible discovery host from a production commitment, and
-  select a production geometry backend only when evidence and scope justify it.
-- Decide whether compiler and runtime require one language or an intentional
-  cross-language boundary.
-- Write and adversarially review the required DR before creating implementation
-  packages.
+- Acceptance of DR-0013 alone triggers only the Cargo workspace and empty
+  compiler/library/CLI shell boundary. The proposed order is numeric/frame,
+  semantic-address, canonical-data/digests, diagnostics, exact schema/manifest,
+  Readiness 2, then a distinct Readiness 3 successor transaction. Exact JSON
+  Schema, a versioned and parser-independent-preflighted fixture manifest, all
+  referenced fixture files, and parser/bootstrap jointly gate Readiness 2 in
+  one review-branch activation transaction with Ben admission; the distinct
+  Readiness 3 transaction with frozen expected graph outputs gates semantic
+  resolver/in-memory snapshot handoff; a working resolver plus provisional geometry profile and project-owned seam
+  gates exploratory Stage 1 geometry. Use
+  a stable Rust production semantic/compiler core in a Cargo workspace, with
+  an engine-independent Rust compiler library, thin CLI, and versioned
+  project-owned backend-neutral GeometryRequest/GeometryResult seam. No initial
+  daemon or service is proposed.
+- Use an in-process Rust CPU dense-field evaluator/extractor for Stage 1. If
+  measured required capability or performance, or a justified isolation,
+  security, portability, or licensing need, exposes a gap, evaluate an isolated
+  C++ worker/backend first; use in-process C ABI/FFI only if that worker is
+  proven insufficient. This is not a Rust-only-forever promise or an
+  advanced-Rust-geometry maturity claim. Backend-native types must not leak
+  through the project-owned seam, semantic, CLI, artifact, or host contracts.
+- Keep Python for disposable experiments, evidence/render tooling, and visual
+  workbench tasks, not as a production compiler dependency. Use a
+  WSL2 x86_64 GNU reference path first, then a native-Linux
+  portability smoke; defer native Windows and host-engine targets. Record exact
+  `rust-toolchain.toml`, committed `Cargo.lock`, target/profile, `rustc -Vv`,
+  and reference-environment metadata. Review dependency license, unsafe/native
+  code, and portability/security relevance without Git commit pinning or
+  heavyweight audit bureaucracy.
+- Publish through the [Proposed build-operation contract](../../spec/build-operation/README.md)
+  and its one authoritative geometry/publication envelope. It owns immutable
+  build-scoped sibling staging, candidate-to-committed artifact identity,
+  deterministic output-root targeting, manifest-last atomic no-replace,
+  idempotent publication, target conflicts, lineage-checked inspection, and
+  trusted failure-bundle rules. An independent visual workbench consumes the
+  filesystem artifacts; final avatar-package serialization/compatibility
+  remains deferred.
+- Any future worker must negotiate protocol/version compatibility, obey bounded
+  time/resources, map crash/timeout/resource outcomes, validate outputs before
+  publication, and leave the compiler surviving worker failure. Require a
+  reproducible benchmark and hardware profile for every performance claim.
+  While DR-0013 remains Proposed, do not create implementation packages or
+  activate compiler fixtures.
 
-Candidate comparisons are researched when active because library versions,
-licensing, and platform support change. Rust, C++, C#, and deliberate hybrids
-are comparison families, not an implied shortlist or decision.
+The prior exact-revision Double review remains stale historical evidence after
+the Batch 9 revisions; its seven consolidated findings are preserved as
+historical evidence resolved by discussion. The completed Batch 9 Double review
+is evidence only; its five actionable findings were resolved by Batch 10
+discussion. The prior Batch 10 review remains preserved as stale evidence. The
+fresh Batch 11 and Batch 12 reviews are stale historical evidence for the
+current successor revisions. DR-0006 Revision 12, DR-0011 Revision 15, DR-0012
+Revision 14, and DR-0013 Revision 12 remain Proposed with Owner approval Pending
+and Review Complete after the current Double review at exact target
+`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`; no
+implementation activates while the DRs remain Proposed.
+Geometry libraries, licensing, platform support, and any C++ worker/FFI boundary remain
+evidence-driven; they are not settled by this proposal. No implementation
+package or compiler fixture is activated while the DR remains Proposed.
 
 ## Round 9 — Stage 1 generation proof (provisional)
 
 ### CK-KICK-014: Implement and audit the Stage 1 generation proof
 
-State: provisional/queued
+State: provisional/queued (Readiness 4 implementation prerequisite not yet met)
 
-Prerequisite: accepted implementation and surface decisions.
+Prerequisite: Readiness 4 — a working resolver, provisional geometry profile,
+and project-owned GeometryRequest/GeometryResult seam, with the exact schema
+and admitted fixtures/contracts already activated by Readiness 2/3. DR-0013
+acceptance alone activates the Cargo/compiler shell, while parser/resolver and
+geometry implementation remain gated by their exact inputs and transactions;
+while DR-0013 is Proposed, no package is activated. CK-KICK-014 exploratory
+proof does not require an accepted or reactivated DR-0009/0010 surface
+decision; those decisions are needed only for later formal comparison or
+production architecture selection.
 
 Parse and resolve the minimal body document, activate compiler-consumed fixtures
 with deterministic expected results, and generate the fixed body family,

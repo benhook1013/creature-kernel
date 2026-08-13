@@ -18,9 +18,12 @@ rationale, evidence, and status.
 
 The [foundation record](FOUNDATION.md) preserves the founding conversation. It is
 historical context rather than the canonical owner of current contracts. This
-authority map and its process operate under Accepted DR-0001 Revision 5. That
-acceptance applies to governance only; linked product, specification, and
-architecture proposals remain provisional and require Ben's disposition.
+authority map and its process operate under Accepted DR-0001 Revision 5.
+DR-0001 Revision 6 is Proposed transition guidance with Ben's workflow
+direction approved and current review complete; formal acceptance remains
+pending Ben's disposition. The
+accepted baseline applies to governance only; linked product, specification,
+and architecture proposals remain provisional and require Ben's disposition.
 
 ## Authority map
 

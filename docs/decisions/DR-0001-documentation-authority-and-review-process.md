@@ -4,21 +4,22 @@ ID: DR-0001
 
 Scope: Governance
 
-Status: Accepted
+Status: Proposed
 
-Revision: 5
+Revision: 6
 
 Decision owner: Ben
 
-Owner approval: Approved by Ben
+Owner approval: Workflow direction approved by Ben on 2026-08-13; formal
+acceptance pending
 
 Review status: Complete
 
-Date proposed: 2026-08-08
+Date proposed: 2026-08-13
 
-Date decided: 2026-08-09
+Date decided: —
 
-Supersedes: —
+Supersedes: Revision 5 of this DR
 
 Superseded by: —
 
@@ -48,6 +49,17 @@ exercised through several actual rounds. Ben requested proportional review
 recommendations so review quality is retained without spending the default
 token budget on unnecessary duplicate passes.
 
+Revision 5's discussion-first workflow has now become a bottleneck for routine
+engineering work. Ben's explicit direction on 2026-08-13 is to retain human
+ownership of product direction and material external-impact choices while
+delegating ordinary technical engineering decisions to the main thread. The
+project still needs durable reasoning, adversarial challenge, evidence, and
+clear escalation; it does not need a user-facing queue for every exact field
+name, algorithm, diagnostic detail, build choice, or reversible implementation
+decision. This revision proposes that bounded autonomous lane and keeps the
+existing accepted safeguards in force until the revision is reviewed and
+accepted.
+
 ## Decision
 
 Adopt one neutral Decision Record (DR) system in `docs/decisions/` for
@@ -67,19 +79,63 @@ or architecture proposals binding merely because working documents describe
 them. Any later supersession or material replacement of DR-0001 requires a
 controlled migration that preserves proposal and review history.
 
+Revision 6 is Proposed and materially supersedes Revision 5's workflow, but
+does not silently change its status. Until Ben accepts the current revision,
+Revision 5 remains the accepted governance baseline: authority separation,
+proposal labels, review prerequisites, repository safety, explicit human
+ownership, and restrictions on external side effects continue to apply. Ben's
+explicit 2026-08-13 workflow direction is recorded here as a controlled
+transition instruction for the autonomous engineering lane below; it is not
+formal acceptance of this DR.
+
 Require a DR only for a choice that is hard to reverse, cross-cutting,
 contractual or public, performance-defining, dependency/portability/licensing
 locking, or likely to be disputed. Ordinary wording, derived detail, and
 reversible implementation stay lightweight unless they later cross one of
 those thresholds.
 
+### Retained human authority and delegated engineering lane
+
+Ben retains decisions about product purpose and scope, user-visible
+experience and quality targets, supported morphology or runtime promises,
+material platform or engine lock-in, licensing, cost, privacy, external side
+effects, large irreversible trade-offs, and acceptance or rejection of
+Product, Architecture, or other direction-setting DRs. The main thread must
+escalate when a technical proposal would change one of those boundaries.
+
+Within those boundaries, the main thread has delegated authority to settle
+technical engineering choices: exact schemas and field names; deterministic
+and numeric algorithms; diagnostics and status implementation; build
+integrity; code and test organization; reversible dependencies and tools;
+implementation details; and defect resolution. Consequential technical
+reasoning remains durable in a DR, issue, design note, or implementation
+evidence, but it is not a queue of routine user decisions. A technical DR
+remains Proposed until its review and human disposition requirements are met;
+delegated implementation authority does not accept a DR or alter canonical
+product or architecture direction.
+
+Review findings use four dispositions. The main thread fixes correctness that
+is needed now; asks Ben when a finding reaches a retained-human boundary or
+material trade-off; records a trigger and defers questions that require
+implementation or evidence; and does not build speculative hardening without
+a present need. Risk-scaled adversarial review, tests, experiments, and
+implementation checkpoints remain required where useful. The process does
+not skip substantive review, run endless theoretical rounds, or run
+review-until-clean loops. The main thread may continue research,
+implementation, testing, and bounded review until a tangible milestone or a
+retained-human choice requires a handoff.
+
 Use the following round-based working pipeline:
 
-1. The main thread discusses and resolves a batch of roughly two to five
-   related decisions or talking points with Ben.
-2. Luna applies non-trivial documentation, evidence, or mechanical changes
-   supported by that settled discussion. The main thread inspects and
-   integrates the changes and commits them.
+1. For product, direction-setting, architecture-boundary, or external-impact
+   choices, the main thread discusses and resolves a batch of roughly two to
+   five related decisions or talking points with Ben. Routine technical
+   implementation work proceeds in the autonomous engineering lane without a
+   separate decision round.
+2. Luna applies bounded documentation, evidence, mechanical, or implementation
+   work supported by settled direction. The main thread inspects and
+   integrates every change, resolves delegated technical findings, and
+   controls commits and other external side effects.
 3. At the end of every substantive design-cycle handoff, the main thread
    explicitly states `Recommended adversarial level: None|Single|Double —
    <one-line reason>`. This is advice to Ben and a durable planning signal,
@@ -101,11 +157,12 @@ Use the following round-based working pipeline:
    governed. When Double remains justified by the decision's technical or
    directional impact, a material revision normally receives Double again
    unless Ben changes or waives it.
-4. The main thread returns a concise synthesized review status with the next
-   decision batch. Decision-bearing findings are not auto-fixed and the process
-   does not run a review-until-clean loop. Mechanical defects faithful to
-   settled intent may be corrected; a new scope, trade-off, or authority choice
-   returns to Ben.
+4. At a design handoff, the main thread returns a concise synthesized review
+   status with the next decision batch. For autonomous engineering work, it
+   may disposition technical findings and correct defects within the delegated
+   boundary. A finding that changes scope, a product or architecture
+   boundary, a material trade-off, or an external side effect returns to Ben.
+   Neither lane runs a review-until-clean loop.
 
 Important DRs normally receive a current-revision adversarial review at the
 recommended level before acceptance. Double means one pass per reviewer on the
@@ -150,6 +207,14 @@ not be described as an accepted active baseline.
   provenance system is required by the process.
 - The main thread carries integration and validation responsibility while
   bounded delegation preserves context and independent challenge.
+- Routine technical decisions no longer block on a user-facing discussion
+  round, while consequential reasoning remains durable and inspectable.
+- The main thread must recognize when implementation evidence crosses into a
+  retained product, architecture, or external-impact boundary; escalation is
+  the safety valve for that failure mode.
+- Longer autonomous engineering cycles increase throughput but make checkpoint
+  summaries, tests, review evidence, and explicit escalation triggers more
+  important.
 - The process should be revisited if its review and registry cost outweighs the
   reasoning it preserves.
 
@@ -190,7 +255,34 @@ complex, strongly evidence-dependent, disputed, or difficult-to-audit work.
 `Double` means one current-revision pass per genuinely independent reviewer,
 not review-until-clean. This retains review quality while scaling effort to
 risk and preserving Ben's ability to raise, lower, or waive the recommendation.
-Recommendation: Option 4
+Recommendation for review selection: Option 4. Revision 6 additionally
+selects Option 5 for the workflow authority boundary below.
+
+### Option 5: Autonomous engineering lane inside retained human boundaries
+
+This keeps Ben in control of product direction, architecture boundaries,
+material external effects, and acceptance of direction-setting DRs while the
+main thread resolves routine technical engineering choices. It is selected
+for Revision 6 because it removes ceremonial implementation rounds without
+removing review, evidence, durable reasoning, or escalation. It does not
+authorize the main thread or a subagent to silently change the product,
+architecture target, public promises, licensing, cost, privacy posture, or
+external systems.
+
+### Option 6: Continue requiring Ben's review of every technical choice
+
+This would preserve the existing discussion-first workflow, but it is not
+selected because it spends the owner's attention on decisions he explicitly
+delegated and delays implementation evidence that would answer many questions
+more reliably. The retained-human boundary and risk-scaled review provide a
+more useful control point.
+
+### Option 7: Delegate all technical and direction decisions
+
+This would maximize throughput, but it is rejected because it would blur
+product intent, architecture ownership, external-impact authority, and DR
+acceptance. Subagents remain bounded executors or reviewers, and the main
+thread must escalate retained-human choices.
 
 ### Historical structural alternatives
 
@@ -248,11 +340,24 @@ suite, which should be revisited if the validator grows or gives a false
 acceptance signal. Those findings do not satisfy the current Revision 5 review
 prerequisite.
 
-The current [Revision 5 architecture/governance review](reviews/DR-0001-rev-05-review-01.md)
-recommends `Accept` with High confidence and found no actionable findings.
-Following that clean current-revision review, Ben explicitly accepted DR-0001
-Revision 5; this disposition applies only to this Governance DR and does not
-accept any product or architecture DR.
+The [Revision 5 architecture/governance review](reviews/DR-0001-rev-05-review-01.md)
+and Ben's acceptance of Revision 5 remain valid historical evidence for that
+revision only. They are stale for Revision 6. Ben explicitly approved the
+workflow direction on 2026-08-13; that approval is recorded in the metadata as
+owner input, not as formal acceptance of this proposed revision.
+
+The current [Revision 6 review](reviews/DR-0001-rev-06-review-01.md) and
+[Double-review Review 02](reviews/DR-0001-rev-06-review-02.md) are fresh
+governance passes and recommend **Revise** at **High** confidence. They
+found no substantive blocker within the authority boundary. Review 01's G1/G2
+findings were mechanical summary/reference issues outside that boundary and
+are fixed. Review 02's historical-label and retained-human T4-checkpoint
+findings were dispositioned in the current technical successors; DR-0001 was
+not materially revised by those cross-record corrections. Review status is
+Complete for evidence only; Status
+remains Proposed and formal Owner acceptance remains pending. Recommended
+adversarial level: Single — the current governance review is complete and the
+remaining work is mechanical alignment, not a new direction-setting batch.
 
 ## Implementation and Proof Obligations
 
@@ -264,6 +369,13 @@ accept any product or architecture DR.
   and material findings in each adversarial review; Ben may waive the review as
   described above. A `None` recommendation cannot substitute for review of a
   created or materially revised consequential DR.
+- Keep the proposed autonomous lane visibly distinct from the currently
+  accepted Revision 5 baseline until this revision is reviewed and accepted;
+  after acceptance, update the navigation and operational summaries that
+  still identify Revision 5 as current.
+- At implementation checkpoints, retain concise evidence of technical choices,
+  tests, review findings, deferred triggers, and any escalations. Do not turn
+  those records into a routine approval queue.
 - Preserve rejected, superseded, and stale reviews as historical reasoning.
 - Revisit batch size, model routing, trigger threshold, and review overhead
   after enough rounds provide evidence that the lightweight process is or is not
@@ -284,4 +396,7 @@ if DR overhead delays ordinary work, reviewers cannot distinguish canonical
 owners, review quality is poor, model routing no longer fits available
 expertise, validation becomes costly, or important choices bypass review. Any
 material governance change receives a new DR revision and the next-round review
-rule applies again.
+rule applies again. Escalate or revisit this lane if the main thread repeatedly
+crosses retained-human boundaries, technical records become too thin to audit,
+implementation evidence is routinely ignored, or autonomous work causes an
+external-impact or product-direction surprise.

@@ -3,8 +3,11 @@
 Status: Operational under Accepted DR-0001 Revision 5
 
 This directory owns conditional procedures for contributing to Creature Kernel
-under the accepted DR-0001 Revision 5 governance process. Its procedures do
-not accept or define product, specification, or architecture contracts.
+under the accepted DR-0001 Revision 5 governance process, with Proposed
+DR-0001 Revision 6 transition guidance reviewed and pending Ben's formal
+disposition. Its
+procedures do not accept or define product, specification, or architecture
+contracts.
 The root [contributor instructions](../../AGENTS.md) remain the always-on safety,
 authority, and workflow-routing kernel.
 
