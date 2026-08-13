@@ -26,10 +26,13 @@ slice. The immediate-predecessor review at exact commit
 `9b96d18b115126ef09e54ad8c6f21749d5559ff6` is stale; its findings were
 corrected in the current revision. The 9c technical pass found no findings /
 Ready for PR at High confidence; Review Complete is evidence only. Readiness 1
-is active in the repository and contains only the Cargo workspace, empty
-`creature-kernel-core` library shell, and thin `creature-kernel` CLI shell. No
-schema, fixture, parser/bootstrap, resolver, adapter, experiment, or later
-readiness stage is activated.
+remains the only active gate and its accepted scope is only the Cargo
+workspace, empty `creature-kernel-core` library shell, and thin
+`creature-kernel` CLI shell. The exact body and manifest schemas, manifest,
+nine fixtures, Rust parser/bootstrap, and Python preflight/evidence are present
+as a Proposed Readiness 2 candidate, not an admitted or active gate. No
+Readiness 3 resolver, numeric semantic activation, adapter, experiment, or
+Readiness 3 geometry implementation exists.
 See the [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for recommendations and findings. Its four
 readiness stages are: acceptance has activated Readiness 1, which is only the
@@ -39,9 +42,10 @@ parser/bootstrap must be admitted together in one review-branch activation
 transaction; canonical numeric/frame rules plus frozen expected graph outputs
 activate semantic resolution and in-memory snapshot handoff; and a working
 resolver plus provisional geometry profile and project-owned seam activates
-exploratory Stage 1 geometry. Acceptance therefore does not activate
-the parser, resolver, fixtures, or geometry proof. The accepted direction uses
- a stable Rust production semantic/compiler core in a Cargo workspace,
+exploratory Stage 1 geometry. Acceptance therefore does not admit or activate
+the Readiness 2 candidate or any resolver/geometry proof. The accepted
+direction uses a stable Rust production semantic/compiler core in a Cargo
+workspace,
 exposed as an engine-independent Rust compiler library and thin CLI with a
 versioned project-owned backend-neutral GeometryRequest/GeometryResult seam.
 No initial daemon or service is part of this boundary. Stage 1 uses an
@@ -115,8 +119,9 @@ invalidates worker output and validation cannot rehabilitate it. The
 the manifest payload and separate content-identity readiness/decision
 admission and successor history.
 Performance claims must be backed by a reproducible benchmark and hardware
-profile. Beyond the active Readiness 1 shell, no implementation package is
-activated. Any future worker must negotiate protocol/
+profile. Beyond the active Readiness 1 shell, the Readiness 2 candidate remains
+unadmitted and no Readiness 3 implementation package is activated. Any future
+worker must negotiate protocol/
 version compatibility, obey bounded time/resource budgets, map crash/timeout/
 resource outcomes, validate outputs before publication, and leave the compiler
 surviving worker failure; exact worker serialization remains deferred. The

@@ -32,10 +32,9 @@ commit `9b96d18b115126ef09e54ad8c6f21749d5559ff6` is stale; its findings were
 corrected in the current revisions. The 9c governance pass corrected two
 mechanical history-label issues and its technical pass found no findings /
 Ready for PR at High confidence. Review Complete is evidence only. Readiness 1
-is active in the repository and contains only the Cargo workspace, empty
-`creature-kernel-core` library shell, and thin `creature-kernel` CLI shell. No
-schema, fixture, parser/bootstrap, resolver, binding, adapter, experiment, or
-later readiness stage is activated. See the [current review
+remains active in the repository. The exact schema, manifest, nine fixtures,
+Rust parser/bootstrap, and Python preflight now exist as a Proposed Readiness 2
+branch candidate, but are not admitted or active. See the [current review
 state](../docs/project/status.md#current-review-and-future-activation-obligations)
 for the current findings.
 The cross-cutting proposal is
@@ -46,8 +45,9 @@ The cross-cutting proposal is
 - [Body-document contract](body-document/README.md): the initial strict UTF-8
   JSON source encoding, ordered bootstrap and exact contract recognition,
   closed operation statuses and precedence, bounded deterministic diagnostics,
-  and streaming/token-aware finite resource rules. It does not choose
-  serialized field names or provide a machine schema file.
+  and streaming/token-aware finite resource rules. Its Proposed Readiness 2
+  candidate is the exact [Draft 2020-12 schema](body-document/schema/ck-body-document-v1.schema.json)
+  for `creature-kernel.body` revision 1; it is not admitted or active.
 - [Resolved body-graph contract](body-graph/README.md): typed concepts,
   durable semantic identity, explicit Part containment and transform
   inheritance, directed joints with owner-specific frame records,
@@ -68,14 +68,15 @@ The cross-cutting proposal is
 - [Diagnostic registry and profile](diagnostics/README.md): sole owner of
   registry definitions, nine diagnostic domains, stable classes, occurrences,
   bootstrap compatibility, selection profiles, ordering, and compatibility;
-  resource profiles remain separate operational inputs. Exact initial codes
-  remain fixture-gated.
+  resource profiles remain separate operational inputs. The exact ten-code
+  `ck.diagnostic.r2` candidate is documented there and remains Proposed until
+  the whole Readiness 2 transaction is admitted.
 - [Fixture-manifest and admission contract](fixture-manifest/README.md): the
-  conceptual fixture-suite payload, separate external fixture and
-  implementation bindings, preflight, successor/rollback, manifest field
-  groups, numeric boundary and comparison fixture profile bindings, and
-  readiness corpus admission boundary. It does not activate a schema, parser,
-  binding, or fixture file.
+  fixture-suite payload, separate external fixture and implementation
+  bindings, preflight, successor/rollback, manifest field groups, numeric
+  boundary and comparison fixture profile bindings, and readiness corpus
+  admission boundary. Its Proposed Readiness 2 candidate is the exact
+  manifest/schema/preflight plus nine files linked there; it is not admitted.
 - [Build-operation and derived-output contract](build-operation/README.md):
   the Proposed public build envelope, in-memory snapshot handoff boundary,
   candidate-to-committed artifact identity lifecycle, deterministic target and

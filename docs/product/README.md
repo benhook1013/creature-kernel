@@ -61,10 +61,13 @@ G1/G2 were fixed mechanically, T1–T3 were resolved in the successors, and
 T4 remains unselected and deferred, requiring Ben's retained-human disposition
 before adapter profile/schema activation; it does not block the empty first Rust
 slice. Review evidence is not acceptance. DR-0013's accepted platform boundary
-does not accept these Proposed product contracts. Readiness 1 is active in the
-repository and contains only the Cargo workspace, empty `creature-kernel-core`
-library shell, and thin `creature-kernel` CLI shell. No schema, fixture,
-parser/resolver, adapter, experiment, or later readiness stage activates.
+does not accept these Proposed product contracts. Readiness 1 remains the only
+active gate and its accepted scope is only the Cargo workspace, empty
+`creature-kernel-core` library shell, and thin `creature-kernel` CLI shell. The
+exact body and manifest schemas, manifest, nine fixtures, Rust parser/bootstrap,
+and Python preflight/evidence are present as a Proposed Readiness 2 candidate,
+not an admitted or active gate. No Readiness 3 resolver, numeric semantic
+activation, adapter, experiment, or Readiness 3 geometry implementation exists.
 Recommendations and the next discussion are summarized in the [current review
 state](../project/status.md#current-review-and-future-activation-obligations).
 The cross-cutting proposal is [DR-0012:
@@ -87,8 +90,9 @@ and FTZ/DAZ/subnormal probes. Diagnostic compatibility remains a separate
 Proposed owner with nine domains—source-admission, dependency, semantic-
 identity, graph-structure, frame-numeric, resource, execution-trust,
 publication, and inspection—and one mandatory tiny bootstrap registry/profile;
-exact codes/fields remain fixture-gated. All remain Proposed consequences only: no
-constants, profile IDs, schema, resolver, fixture, or adapter activates.
+exact codes/fields remain fixture-gated. All remain Proposed consequences only:
+no constants, profile IDs, resolver, or adapter activates, and the present
+Readiness 2 candidate remains unadmitted.
 Readiness implementation binding remains a separate scoped content-identity
 transaction from the fixture payload and expected snapshots; no implementation
 binding is implied here.

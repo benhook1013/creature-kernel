@@ -31,9 +31,11 @@ resource behaviour. The [body-graph contract](../body-graph/README.md) owns
 the resolved semantic graph after this operation has admitted and recognized
 the source.
 
-This is a conceptual contract, not a machine schema. Exact serialized member
-names, diagnostic code spellings, numeric budgets, and source-map encoding
-remain deferred. The [semantic-address profile](../semantic-address/README.md),
+The contract remains Proposed and non-active, but a concrete Readiness 2
+candidate now supplies exact machine artifacts: the [r1 body schema](schema/ck-body-document-v1.schema.json),
+the [nine-fixture manifest](../../fixtures/body-documents/readiness-2/manifest.v1.json),
+and the [Rust parser/bootstrap](../../crates/creature-kernel-core/src/body_document.rs).
+The [semantic-address profile](../semantic-address/README.md),
 [numeric and frame profile](../numeric-frame-profile/README.md),
 [canonical-data profile](../canonical-data/README.md), and
 [diagnostic profile](../diagnostics/README.md) own their respective exact
@@ -79,23 +81,38 @@ present-but-unattached root; a present Attachment-required root with no
 incoming active Attachment is invalid. Nested instances require distinct
 Socket instances and retain containment and source provenance.
 
-## Conceptual document shape
+## Readiness 2 candidate encoding
 
-The proposed top-level shape is conceptual and has no machine schema yet:
+The exact r1 family/revision is `creature-kernel.body`, revision `1`. The
+serialized document has exactly six required top-level members:
+`contract`, `source`, `basis`, `profiles`, `body`, and `extensions`; the
+[candidate schema](schema/ck-body-document-v1.schema.json) closes unknown core
+members. This section records the cross-document boundary without duplicating
+the schema:
 
 ```text
 document = contract, source, basis, profiles, body, extensions
 ```
 
-`contract` owns the version-neutral contract family and revision used for
-recognition. `source` identifies authored source/provenance and outcome-
-affecting dependencies. `basis` declares the source coordinate basis.
-`profiles` references semantic numeric-domain profiles; operational resource and
-diagnostic profiles belong to the operation or fixture context, not to source
-semantics. `body` contains typed collections for `modules`, `parts`, `joints`,
-`sockets`, `attachments`, `landmarks`, `dimensions`, `frames`, `regions`,
-`capabilities`, and `fields`. `extensions` is the explicit namespaced
-extension envelope described below.
+`contract` carries family/revision recognition. `source` carries identifier-
+shaped document/namespace values, dependency identifiers, and `sha256:` content
+references. `basis` carries one of the exact length units, handedness, and
+signed axis values. `profiles` carries the candidate semantic numeric profile
+`ck.numeric-frame.r1`; raw-byte resource profiles and diagnostic profile IDs
+are selected by the [manifest](../../fixtures/body-documents/readiness-2/manifest.v1.json),
+not by source semantics. `extensions` carries namespaced revisioned required/
+optional payloads. `body` carries the typed records shown by the
+[schema body definitions](schema/ck-body-document-v1.schema.json): modules,
+parts, joints, sockets, attachments, landmarks, dimensions, frames, regions,
+capabilities, and fields. Addresses use namespace, ordered anchors, one of the
+seven identity kinds, and a role; body records use typed address/reference
+members rather than a generic graph union.
+
+The structural transform carrier is `translation` with exactly three numeric
+components and `rotation_xyzw` with exactly four numeric components. It has no
+scale or shear members. This is the Readiness 2 structural carrier only; R2
+structural validation is not Readiness 3 semantic resolution, which separately
+admits canonical numeric/frame semantics, tolerances, and expected snapshots.
 
 Each collection contains explicit typed records and stable references. There is
 no generic union or untyped graph escape hatch. Array order is non-semantic;
@@ -173,8 +190,9 @@ The initial source adapter accepts one strict UTF-8 JSON document. Duplicate
 object members are rejected, as are comments, includes, expressions, templates,
 and evaluation. JSON Schema Draft 2020-12 is the proposed structural
 validation vocabulary; CK semantic resolution remains authoritative for graph
-meaning, provenance, and invariants. No schema file or implementation package
-is activated by this proposal.
+meaning, provenance, and invariants. The candidate schema and parser exist on
+this branch, but neither is admitted or activated until the complete Readiness
+2 transaction is approved.
 
 ### Numeric admission and source consequences
 
@@ -203,6 +221,14 @@ Alternate decimal spellings can therefore share one normalized binary64 value
 while retaining distinct source bytes. Conversion/rounding failures or
 non-finite results are source admission failures, not silently repaired values.
 
+The Readiness 2 resource profiles are `ck.resource.body.r2` (65,536 source
+bytes) and `ck.resource.body.r2-tight` (128 source bytes). Both additionally
+limit nesting depth to 64, JSON values to 8,192, aggregate object members and
+array items to 4,096 each, each decoded string/key to 16,384 bytes, each raw
+number token to 256 bytes, and retained diagnostics to 64. They use diagnostic
+profile `ck.diagnostic.r2`, as recorded in the
+[manifest](../../fixtures/body-documents/readiness-2/manifest.v1.json) and
+[parser constants](../../crates/creature-kernel-core/src/body_document.rs).
 Required boundary fixtures cover ordinary inexact decimal `0.1`, exact values,
 halfway/tie cases, the maximum-finite boundary and overflow, the smallest
 subnormal and underflow-to-zero, excessive precision at the lexical/resource
@@ -212,8 +238,13 @@ and resource constants remain activation-gated.
 
 ## Bootstrap and contract recognition
 
-Admission and recognition have one required conceptual order. Exact member
-spelling for the discriminator is deferred, but its role and ordering are not:
+Admission and recognition have one required order. The candidate's
+[Rust implementation](../../crates/creature-kernel-core/src/body_document.rs)
+performs this sequence: raw-byte limit, duplicate/strict JSON scan, JSON parse,
+top-level/discriminator checks, family/revision recognition, embedded-schema
+validation, typed deserialization, then required-extension handling. Exact
+member spelling for the discriminator is defined by the candidate schema, and
+the normative ordering is:
 
 | Order | Required operation | Failure classification |
 | --- | --- | --- |
@@ -348,10 +379,16 @@ are not relabelled as one of those three semantic outcomes.
 ## Diagnostics
 
 Every non-success result has a primary diagnostic whose category maps to the
-top-level status. A successful result has no failure primary. The primary is
-the first logical diagnostic establishing the selected status under the
-normative phase/status/diagnostic ordering; the exact code vocabulary is
-deferred. Human-readable text is explanatory and never a compatibility or
+top-level status. A successful result has no failure primary. The candidate
+`ck.diagnostic.r2` vocabulary is exactly: `ck.resource.source-bytes`,
+`ck.resource.json-work`,
+`ck.source.invalid-json`, `ck.source.duplicate-member`,
+`ck.contract.invalid-discriminator`, `ck.contract.unsupported-family`,
+`ck.contract.unsupported-revision`, `ck.source.schema`,
+`ck.extension.unsupported-required`, and `ck.internal.schema`. These spellings
+are Proposed and become frozen only if Ben admits the complete Readiness 2
+transaction; future diagnostic domains and codes are not implied to be
+implemented. Human-readable text is explanatory and never a compatibility or
 ordering key.
 
 The [diagnostic registry and profile](../diagnostics/README.md) is the sole

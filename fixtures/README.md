@@ -1,6 +1,7 @@
 # Fixtures
 
-Status: Active policy; no body-contract fixtures committed or activated
+Status: Active policy; Proposed Readiness 2 candidate present, not admitted or
+activated
 
 Fixtures are small, stable inputs used to prove specifications, compiler
 behaviour, geometry invariants, interactions, and regressions.
@@ -20,15 +21,20 @@ Each fixture must record:
 - tests or experiments that consume it;
 - whether expected outputs are exact, semantic, metric, or visual.
 
-The CK-KICK-012 Batch 13 proposal keeps the corpus conceptual and adds no
-implementation fixtures. Schema-level body-document fixtures will
-exercise strict UTF-8 JSON admission, duplicate-key rejection, unknown core
-members, required and optional extensions, exact contract-family/revision
+The Proposed Readiness 2 candidate now contains the exact
+[manifest](body-documents/readiness-2/manifest.v1.json), its
+[nine listed source files](body-documents/readiness-2/), and the exact
+[body-document schema](../spec/body-document/schema/ck-body-document-v1.schema.json).
+They exercise strict UTF-8 JSON admission, duplicate-key rejection, unknown
+core members, required and optional extensions, exact contract-family/revision
 recognition, deterministic diagnostics, and finite resource-limit outcomes.
-Resource fixtures cover source/aggregate bytes, string lengths/counts, nesting
-depth, object/array members, graph entities/relations, ownership depth,
-module/reference expansion, extension count/payload, numeric admissibility,
-diagnostics, and aggregate work/memory.
+The current candidate includes one resource-limit fixture for the tight raw
+source-byte profile. Generated Rust unit tests additionally exercise nesting,
+aggregate JSON values, object/array members, decoded string/key and raw number-
+token limits, and diagnostic retention/truncation;
+graph entities/relations, ownership depth, module/reference expansion,
+extension count/payload, semantic numeric admissibility, and aggregate resolver
+work/memory remain later fixture or evidence areas.
 Resolved body-graph fixtures will exercise namespace ownership/remapping,
 typed concepts and directed Joint endpoints, socket/Attachment non-articulation,
 the minimum Stage 1 chain, authored/defaulted/derived provenance, frame
@@ -40,9 +46,10 @@ subnormal/underflow, overflow, cancellation, near-zero quaternion, q/-q, long
 chain, ill-conditioned, basis-conversion, and claim-order cases. Exact numeric
 values, expected outcomes, and profile IDs remain unselected.
 
-Current material is recorded in DR-0006 Revision 12, DR-0011 Revision 15,
-DR-0012 Revision 14, and DR-0013 Revision 12; each remains Proposed with Owner
-approval Pending and Review Complete after the current Double review. The
+Current material is recorded in DR-0006 Revision 12, DR-0011 Revision 15, and
+DR-0012 Revision 14; these remain Proposed with Owner approval Pending and
+Review Complete after the current Double review. DR-0013 Revision 12 is
+Accepted with Owner approval Approved by Ben and Review Complete. The
 current revisions have Review Complete evidence from the Double
 review at exact target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. The reviews
 of the earlier predecessor revisions at commit
@@ -54,12 +61,16 @@ block the empty first Rust slice. The immediate-predecessor review at exact
 commit `9b96d18b115126ef09e54ad8c6f21749d5559ff6` is stale; its findings were
 corrected in the current revisions. The 9c governance pass corrected two
 mechanical history-label issues and its technical pass found no findings /
-Ready for PR at High confidence. Review Complete is evidence only. The directions remain Proposed
-policy only, so no fixture corpus, schema, parser/resolver, adapter, Cargo
-package, readiness gate, experiment, or implementation is activated.
+Ready for PR at High confidence. Review Complete is evidence only. The
+directions remain Proposed policy only. The candidate files and parser/
+bootstrap implementation are evidence on this branch; no fixture corpus,
+schema, parser, adapter, or Readiness 2 gate is admitted or activated.
 
 Readiness 2 admission is one review-branch activation transaction described by
 the [fixture-manifest specification](../spec/fixture-manifest/README.md). The
+independent [preflight](../dev-tools/fixture-preflight/preflight.py) checks
+internal consistency and emits the external `ck.path-set.raw.v1` binding, but
+it does not admit the transaction. The
 manifest payload contains suite kind, fixture paths/content hashes, profiles,
 provenance, expected results, and expected snapshot references where needed;
 it never contains its own digest, approval, or active pointer. Unordered

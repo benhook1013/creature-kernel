@@ -1,0 +1,16 @@
+{
+  "contract": {"family": "creature-kernel.body", "revision": 1},
+  "source": {"document": "main", "namespace": "main", "dependencies": []},
+  "basis": {"length_unit": "metre", "handedness": "right", "up": "+y", "forward": "+z"},
+  "profiles": {"semantic_numeric": "ck.numeric-frame.r1"},
+  "body": {
+    "modules": [{
+      "declaration": {"document": "optional", "namespace": "optional", "anchors": [], "role": "root"},
+      "module": "optional", "root_role": "root", "instance_anchor": "optional",
+      "presence": "absent", "optional": true, "attachment_required": false
+    }],
+    "parts": [], "joints": [], "sockets": [], "attachments": [], "landmarks": [],
+    "dimensions": [], "frames": [], "regions": [], "capabilities": [], "fields": []
+  },
+  "extensions": []
+}

@@ -39,10 +39,13 @@ slice. The immediate-predecessor review at exact commit
 corrected in the current revisions. The 9c governance pass corrected two
 mechanical history-label issues and its technical pass found no findings /
 Ready for PR at High confidence. Review Complete is evidence only. Readiness 1
-is active in the repository and contains only the Cargo workspace, empty
-`creature-kernel-core` library shell, and thin `creature-kernel` CLI shell. No
-schema, fixture, parser/bootstrap, resolver, adapter, experiment, or later
-readiness stage is activated. The detailed
+remains the only active gate and its accepted scope is only the Cargo
+workspace, empty `creature-kernel-core` library shell, and thin
+`creature-kernel` CLI shell. The exact body and manifest schemas, manifest,
+nine fixtures, Rust parser/bootstrap, and Python preflight/evidence are present
+as a Proposed Readiness 2 candidate, not an admitted or active gate. No
+Readiness 3 resolver, numeric semantic activation, adapter, experiment, or
+Readiness 3 geometry implementation exists. The detailed
 review state remains owned by project status. Prior Batch 5/9/11/12 reviews remain
 preserved historical evidence. The former Batch 12 Double review of
 commit `730a2f77840cc0caa1f838c30dac4ff20f985e69`; both independent passes
@@ -55,7 +58,7 @@ independent passes recommended Revise at High confidence at that historical
 revision. The completed Batch 9 Double review targeted commit
 `6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is stale for the
 revised records and is not acceptance. No implementation or readiness gate
-activates. See the
+beyond the active Readiness 1 shell is admitted or active. See the
 [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for review lenses, recommendations, and findings. Earlier review evidence is
 stale after these revisions; see the [decision registry](../decisions/registry.md).
@@ -142,10 +145,13 @@ profile/schema activation; it does not block the empty first Rust slice. The
 immediate-predecessor review at `9b96d18b115126ef09e54ad8c6f21749d5559ff6` is
 stale; its findings were corrected in the current revision. The 9c technical
 pass found no findings / Ready for PR at High confidence; Review Complete is
-evidence only. Readiness 1 is active in the repository: only the Cargo workspace,
-empty `creature-kernel-core` library shell, and thin `creature-kernel` CLI shell
-are present. No schema, fixture, parser/bootstrap, resolver, adapter,
-experiment, or later readiness stage is activated. See the [current review
+evidence only. Readiness 1 remains the only active gate: its accepted scope is
+only the Cargo workspace, empty `creature-kernel-core` library shell, and thin
+`creature-kernel` CLI shell. The exact body and manifest schemas, manifest,
+nine fixtures, Rust parser/bootstrap, and Python preflight/evidence are present
+as a Proposed Readiness 2 candidate, not an admitted or active gate. No
+Readiness 3 resolver, numeric semantic activation, adapter, experiment, or
+Readiness 3 geometry implementation exists. See the [current review
 state](../project/status.md#current-review-and-future-activation-obligations)
 for recommendations and findings. The four
 readiness stages are: acceptance has activated Readiness 1, which is only the

@@ -1,8 +1,7 @@
 # Fixture manifest and admission contract
 
-Status: Proposed conceptual specification; CK-KICK-012 Batch 13/14 discussion-
-approved C1/C3/C4 resolutions; no schema, parser, or fixture corpus is
-activated
+Status: Proposed specification; exact Readiness 2 candidate present on this
+branch, not admitted or activated
 
 Current Batch 13/14 material is recorded in DR-0006 Revision 12, DR-0011 Revision
 15, and DR-0012 Revision 14; these remain Proposed with Owner approval Pending
@@ -20,9 +19,13 @@ directions as Proposed material. Exact identifiers, schema fields, code
 membership, and fixture content remain readiness-gated.
 
 This document is the canonical Proposed owner of fixture-manifest and fixture-
-admission semantics. It defines the immutable review/admission boundary for a
-future readiness corpus; it does not create a machine-readable manifest schema,
-fixture files, a parser, or executable preflight. The [fixture policy](../../fixtures/README.md)
+admission semantics. It defines the immutable review/admission boundary. The
+concrete candidate is the [r1 manifest schema](schema/ck-fixture-manifest-v1.schema.json),
+[r1 manifest](../../fixtures/body-documents/readiness-2/manifest.v1.json),
+nine listed [fixtures](../../fixtures/body-documents/readiness-2/), and
+independent [preflight](../../dev-tools/fixture-preflight/preflight.py). These
+artifacts exist for review evidence; they do not admit or activate Readiness 2.
+The [fixture policy](../../fixtures/README.md)
 describes repository practice, while the [body-document contract](../body-document/README.md)
 and [body-graph contract](../body-graph/README.md) own the meanings being tested.
 The [build-operation contract](../build-operation/README.md) owns the meaning
@@ -41,8 +44,8 @@ parser/body-document, semantic-graph, and build/publication suites.
 A separate later readiness or decision record, outside the manifest payload
 digest, names the exact reviewed source commit reference, manifest path,
 manifest digest, SHA-256 path-scoped payload digest/tree identity, the exact
-versioned external path-set framing/profile (its identifier remains
-readiness-gated), preflight result, and Ben's approval. The path-scoped payload
+external path-set framing `ck.path-set.raw.v1`, preflight result, and Ben's
+approval. The path-scoped payload
 digest is computed over one ordered path/mode/content set containing only the
 manifest and its declared schema, fixture files, and expected snapshots. This
 external ordered path-set binding is distinct from the `ck/v1/fixture-manifest`
@@ -94,8 +97,17 @@ equality-bound unless the claim explicitly says so. Implementation binding,
 dependency closure, build-request identity, attempt identity, and
 fixture-payload binding are distinct inputs and identities.
 
-The future preflight is locked/offline and reads from a private read-only
-activation snapshot. It is rooted at an opened repository directory descriptor
+The candidate [preflight](../../dev-tools/fixture-preflight/preflight.py) now
+implements the internal manifest/schema/fixture consistency checks and emits
+the `ck.path-set.raw.v1` binding. It does not validate body semantics, prove
+expectation correctness, bind the parser closure by itself, or admit Readiness
+2. The separate [evidence generator](../../dev-tools/readiness-evidence/README.md)
+binds the parser implementation, admission-support files, resolved Cargo
+dependency/features projection, and locked/offline build request without
+granting approval. The
+future activation-snapshot preflight is distinct from the current candidate
+tool: it is locked/offline and reads from a private read-only activation
+snapshot. It is rooted at an opened repository directory descriptor
 and uses descriptor-relative, no-follow reads. Traversal, absolute paths,
 symlinks, special files, and submodules in entries or ancestor components are
 rejected. Ancestors must be descriptor-opened no-follow directories; a final
@@ -117,7 +129,9 @@ transaction; commit provenance alone can never authorize changed bytes. The
 activation closure manifest binds or references all three closure inputs and
 their distinct identities. Readiness 2 binds parser/bootstrap and Readiness 3
 binds the resolver. This is a contract direction only and does not claim that
-the preflight or snapshot machinery is implemented now.
+the future immutable activation-snapshot machinery is implemented now; the
+candidate preflight and evidence generator above are implemented consistency
+and evidence tools rather than activation machinery.
 
 Preflight proves internal consistency only. It checks the manifest structure,
 paths, hashes, provenance, profile references, expected status/diagnostic
@@ -159,7 +173,7 @@ unambiguous.
 The separate readiness/decision record carries the reviewed source commit
 reference, manifest path, manifest digest, SHA-256 path-scoped payload digest/
 tree identity, exact ordered path/mode/content scope, versioned external
-path-set framing/profile (identifier readiness-gated), preflight identity,
+path-set framing/profile `ck.path-set.raw.v1`, preflight identity,
 predecessor/supersession reference, and Ben approval. None of those admission
 fields are part of the manifest payload digest.
 
@@ -174,7 +188,24 @@ encoding.
 
 ## Readiness corpus
 
-The lean Readiness 2 corpus is conceptual and contains at least:
+The exact Proposed Readiness 2 manifest family is
+`creature-kernel.fixture-manifest`, revision `1`, with the candidate schema at
+[`ck-fixture-manifest-v1.schema.json`](schema/ck-fixture-manifest-v1.schema.json).
+Its [manifest](../../fixtures/body-documents/readiness-2/manifest.v1.json)
+lists exactly nine files and the IDs `minimal-valid-envelope`,
+`optional-module-absent`, `duplicate-member`, `invalid-discriminator`,
+`unsupported-revision`, `unknown-core-member`,
+`unsupported-required-extension`, `optional-extension-opaque`, and
+`resource-over-budget`. It selects raw-byte profiles
+`ck.resource.body.r2`/`ck.resource.body.r2-tight`, diagnostic profile
+`ck.diagnostic.r2`, and the external framing `ck.path-set.raw.v1`. The two
+resource profiles differ only in their 65,536/128 raw-source-byte limit and
+share exact guards for depth (64), values (8,192), aggregate object members and
+array items (4,096 each), decoded string/key bytes (16,384 each), raw number-
+token bytes (256), and retained diagnostics (64).
+The candidate is not admitted or active.
+
+The lean Readiness 2 corpus contains:
 
 - a minimal valid envelope;
 - an absent optional module;
@@ -236,9 +267,9 @@ activate and cannot silently expand the corpus.
 ## Activation boundary
 
 Readiness 2 is one review-branch activation transaction containing the exact
-reviewed schema, this admitted manifest, every listed fixture, and the
-parser/bootstrap implementation plus its separately bound implementation
-closure. Ben owns admission and must explicitly approve the separate
+reviewed schema, the manifest, every listed fixture, and the parser/bootstrap
+implementation plus its separately bound implementation closure. Ben owns
+admission and must explicitly approve the separate
 readiness/decision record before merge or activation. Post-merge and
 immediately pre-ledger recomputation must match both the fixture payload
 binding and implementation binding.

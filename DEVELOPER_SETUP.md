@@ -30,10 +30,21 @@ rustup show active-toolchain
 Run the reproducible local checks from the repository root:
 
 ```bash
+cargo fetch --locked
+python3 dev-tools/fixture-preflight/preflight.py \
+  . fixtures/body-documents/readiness-2/manifest.v1.json
+python3 dev-tools/readiness-evidence/evidence.py .
 cargo fmt --all --check
-cargo test --workspace --all-targets --locked
-cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo test --workspace --all-targets --locked --offline
+cargo clippy --workspace --all-targets --locked --offline -- -D warnings
 ```
+
+Fetch dependencies before using the local `--offline` reference checks; those
+checks intentionally fail rather than consulting the network. The focused
+preflight and evidence generator inspect only the Proposed Readiness 2
+candidate; neither admits the manifest nor activates Readiness 2. CI fetches
+dependencies with `--locked` before generating evidence and running Rust
+checks.
 
 These checks provide shell evidence only. They are not performance evidence
 or portability evidence.
