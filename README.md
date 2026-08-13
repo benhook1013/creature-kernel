@@ -62,11 +62,12 @@ for PR at High confidence. Review Complete is evidence only. In the earlier
 predecessor review, G1/G2 were fixed mechanically and T1–T3 were resolved in
 the successors. T4 remains unselected and deferred pending Ben's retained-
 human disposition before adapter profile/schema activation; it does not block
-the empty first Rust slice. Readiness 1 is active in the repository: the
-repository contains only the Cargo workspace, empty `creature-kernel-core`
-library shell, and thin `creature-kernel` CLI shell. No schema, fixture,
-parser/bootstrap, resolver, geometry implementation, adapter, or later
-readiness stage is activated.
+the current Rust implementation slice. Readiness 2 remains active for the
+admitted schema, manifest, fixtures, parser/bootstrap, and preflight. The
+workspace now also contains a provisional structural address/index and
+validator plus the `inspect-structure` CLI command as preparation over those
+admitted documents. This is not a finalized resolved snapshot or Readiness 3
+activation; geometry and runtime implementation remain absent.
 
 - Durable authored intent lives in an authoritative semantic source set. Every
   operation reports through one authoritative result envelope; the resolved
@@ -171,11 +172,12 @@ readiness stage is activated.
 
 The project is in an exploratory executable-prototype and semantic-contract
 integration phase. The accepted first production platform is Rust-first and
-engine-independent; Readiness 1 currently contains only the Cargo workspace,
-empty `creature-kernel-core` library shell, and thin `creature-kernel` CLI
-shell. Rust `1.97.1` is the pinned first production toolchain. No geometry
-backend, runtime engine, asset format, schema, parser/bootstrap, resolver,
-geometry implementation, adapter, or later readiness stage is activated. See
+engine-independent; Readiness 2 remains active for the admitted schema,
+manifest, fixtures, parser/bootstrap, and preflight. A provisional structural
+address/index and validator plus the `inspect-structure` CLI command now exist
+as preparatory implementation. They do not constitute a finalized resolved
+snapshot or Readiness 3 activation. Rust `1.97.1` is the pinned first
+production toolchain; geometry and runtime implementation remain absent. See
 [developer setup](DEVELOPER_SETUP.md) and [current project
 status](docs/project/status.md) for the live round, review, and owner-
 disposition state.

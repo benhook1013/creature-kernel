@@ -36,6 +36,15 @@ python3 dev-tools/fixture-preflight/preflight.py \
 python3 dev-tools/readiness-evidence/evidence.py .
 python3 dev-tools/readiness-evidence/evidence.py --run-bound-checks .
 cargo fmt --all --check
+cargo test --workspace --all-targets
+cargo clippy --workspace --all-targets -- -D warnings
+```
+
+The provisional structural inspection command accepts one admitted body
+document and emits a source-preserving structural projection:
+
+```bash
+cargo run -p creature-kernel-cli -- inspect-structure --input <path>
 ```
 
 The evidence runner rejects legacy/current Cargo config files in the checkout,
@@ -50,9 +59,14 @@ cargo clippy -p creature-kernel-core --all-targets --target x86_64-unknown-linux
 
 The generator's Cargo metadata uses the same sanitized environment and target
 filter, and fails closed unless the workspace exposes exactly the explicit core
-library and CLI binary targets. The focused preflight and evidence generator
-inspect only the Proposed Readiness 2 candidate; neither admits the manifest
-nor activates Readiness 2.
+library and CLI binary targets. The active Readiness 2 record remains the
+immutable exact identity at its recorded merge commit. Running the evidence
+generator on a later evolving worktree recomputes a new implementation hash
+when a bound entrypoint such as `lib.rs` changes; a mismatch does not rewrite
+the historical admission and cannot serve as Readiness 2 or Readiness 3
+activation evidence. The current structural preparation is outside the
+admitted Readiness 2 implementation identity and requires a future successor
+transaction before any Readiness 3 activation claim.
 
 This is checkout-independent evidence with an offline lockfile and normalized
 paths, not full machine/container reproducibility. Cargo's registry cache,

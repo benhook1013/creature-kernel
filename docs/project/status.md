@@ -57,6 +57,24 @@ passes, and Ben instructed “do it” in response to “approve and waive,” w
 repeat current-candidate review loop. Readiness 2 is current and active; this
 does not activate the distinct Readiness 3 resolver/snapshot transaction.
 
+## Current implementation status
+
+Readiness 2 remains active for the admitted schema, manifest, fixtures,
+parser/bootstrap, and preflight. The workspace now also contains a provisional
+structural address/index and validator plus the `inspect-structure` CLI command
+as preparatory implementation over admitted documents. This source-preserving
+inspection projection is not a finalized resolved snapshot and does not activate
+Readiness 3; resolver, canonical/numeric/frame, geometry, and runtime work remain
+gated or absent. The active Readiness 2 admission remains the immutable exact
+identity at its recorded merge commit; current structural preparation is outside
+that admitted implementation identity and requires a future successor
+transaction before any Readiness 3 activation claim.
+
+Immediate next action: prepare the distinct Readiness 3 resolver/snapshot
+transaction, including its expected snapshots and comparison binding, for
+explicit admission. Keep the provisional structural implementation clearly
+outside that activation boundary until then.
+
 Ben approved the following deferred planning direction on 2026-08-09 for any
 future activation. It is recorded here without accepting or revising either DR:
 
@@ -94,14 +112,16 @@ predecessor review at exact commit `763cff22d10f6491a05a28312a25250704543dcf`
 produced G1/G2 and T1–T4; its artifacts are stale for these successors. G1/G2
 were fixed mechanically, T1–T3 were resolved, and T4 remains unselected and
 deferred, requiring Ben's retained-human disposition before adapter profile/
-schema activation; it does not block the empty first Rust slice. The
+schema activation; it does not block the current Rust implementation slice. The
 immediate-predecessor review at exact commit
 `9b96d18b115126ef09e54ad8c6f21749d5559ff6` is stale; its findings were
 corrected in these revisions. The 9c governance pass corrected two mechanical
 history-label issues and its technical pass found no findings / Ready for PR at
 High confidence. The review artifacts remain preserved evidence. DR-0013 is
-accepted and Readiness 1 is triggered/active for only the empty Cargo workspace,
-compiler/core library shell, and thin CLI shell. The exact schema, manifest,
+accepted and Readiness 1 is triggered/active for the Cargo workspace, compiler/
+core library shell, and thin CLI shell. The provisional structural address/
+index, validator, and inspection command are preparatory implementation. The
+exact schema, manifest,
 nine fixtures, parser/bootstrap, and preflight are the active Readiness 2
 transaction after the recorded merge and post-merge identity recomputation;
 the later resolver, adapter, experiment, and geometry gates remain inactive.
@@ -116,12 +136,14 @@ review produced D/P findings later dispositioned in Revision 10. The earlier
 predecessor 763cff22 review produced G1/G2 and T1–T4; G1/G2 were fixed
 mechanically, T1–T3 were resolved, and T4 remains unselected and deferred,
 requiring Ben's retained-human disposition before adapter profile/schema
-activation; it does not block the empty first Rust slice.
+activation; it does not block the current Rust implementation slice.
 The immediate-predecessor 9b96d18 review is stale; its findings were corrected
 in the current revisions. The 9c technical pass found no findings / Ready for
 PR at High confidence. Review Complete remains preserved evidence; it does not
-replace Ben's acceptance. Readiness 1 is triggered/active for only the empty
-Cargo workspace, compiler/core library shell, and thin CLI shell. The exact
+replace Ben's acceptance. Readiness 1 is triggered/active for the Cargo
+workspace, compiler/core library shell, and thin CLI shell. The provisional
+structural address/index, validator, and inspection command remain preparatory.
+The exact
 schema, manifest, nine fixtures, parser/bootstrap, and preflight are the active
 Readiness 2 transaction under the admission record; the distinct Readiness 3
 resolver/snapshot transaction is not active.
@@ -132,13 +154,15 @@ precedence/rank gate, product-level sqrt/norm ambiguity, and a stray DR-0006
 word. These findings were corrected in current successor revisions
 12/15/14/12; that review is stale for the successors. T4 remains
 unselected and requires Ben's retained-human disposition before adapter
-profile/schema activation; it does not block the empty first Rust slice.
+profile/schema activation; it does not block the current Rust implementation
+slice.
 The later activation order remains numeric/frame semantics, semantic addresses,
 canonical data/digests, diagnostics, and then a distinct Readiness 3 successor
 transaction. Those later gates remain inactive until their Proposed contracts
 and explicit prerequisites are admitted.
-Readiness 1 is now active: accepted DR-0013 activates only the
-empty Cargo workspace, compiler/core library shell, and thin CLI shell; a
+Readiness 1 is now active: accepted DR-0013 activates the Cargo workspace,
+compiler/core library shell, and thin CLI shell; the provisional structural
+address/index, validator, and inspection command are preparatory only; a
 versioned, preflighted fixture manifest, its listed
 files, exact JSON Schema, and parser/bootstrap are now active together under
 the Readiness 2 admission; the distinct Readiness 3 transaction then activates
@@ -295,8 +319,8 @@ and DR-0012 remain Proposed with Owner approval Pending and Review Complete afte
 Double review at exact target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. Prior Batch 13 review evidence is stale for
 these revisions; G1/G2 were fixed mechanically, T1–T3 were resolved, and T4
 remains unselected and deferred, requiring Ben's retained-human disposition
-before adapter profile/schema activation; it does not block the empty first Rust
-slice. DR-0013 Readiness 1 is triggered/active for the Cargo workspace,
+before adapter profile/schema activation; it does not block the current Rust
+implementation slice. DR-0013 Readiness 1 is triggered/active for the Cargo workspace,
 compiler/core library shell, and thin CLI shell. The exact schema, manifest,
 nine fixtures, parser/bootstrap, and preflight are the active Readiness 2
 transaction under the admission record; the distinct Readiness 3
@@ -358,8 +382,9 @@ and [Proposed build-operation contract](../../spec/build-operation/README.md)
 are now active canonical specification areas. No implementation package, machine schema,
 numeric limit, exact fixture, or geometry backend is selected; the Batch 11
 canonical basis and machine profiles remain Proposed and activation-gated;
-the accepted Rust/Cargo platform remains limited to the active Readiness 1
-empty workspace/compiler/core-library/thin-CLI shell boundary.
+the accepted Rust/Cargo platform remains bounded to the active Readiness 1
+workspace/compiler-core/thin-CLI shell boundary; the provisional structural
+slice does not activate Readiness 3.
 The meaning and enforcement details of an exact dependency revision remain a
 nonblocking obligation before external authored dependencies activate.
 
@@ -428,8 +453,12 @@ nonblocking obligation before external authored dependencies activate.
   Approved by Ben and Review Complete after the current Double review at exact
   target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`; prior Batch 13 review evidence is stale historical evidence, G1/G2 were
   fixed mechanically, T1–T3 were resolved, and T4 remains unselected and
-  deferred, requiring Ben's retained-human disposition before adapter
-  profile/schema activation; it does not block the empty first Rust slice. Readiness 1 is triggered/active for only the empty Cargo workspace, compiler/core library shell, and thin CLI shell; the immediate-predecessor 9b96d18 review is stale; its findings were corrected. Its later readiness stages gate
+deferred, requiring Ben's retained-human disposition before adapter
+profile/schema activation; it does not block the current Rust implementation
+slice. Readiness 1 is triggered/active for the Cargo workspace, compiler/core
+library shell, and thin CLI shell; the provisional structural address/index,
+validator, and inspection command remain preparatory. The immediate-predecessor
+9b96d18 review is stale; its findings were corrected. Its later readiness stages gate
   shell, parser/bootstrap+fixtures, semantic resolver/in-memory snapshot, and exploratory geometry respectively. The disposable Python
   discovery host remains distinct from the accepted production platform.
 
@@ -446,13 +475,14 @@ nonblocking obligation before external authored dependencies activate.
   Readiness 2 parser/bootstrap and admitted schema/manifest/fixture transaction
   are active; the Proposed body-graph, build-operation, numeric/frame, and
   compatibility documents do not activate Readiness 3 or later packages.
-- Keep CK-KICK-013's implemented Readiness 1 boundary limited to the empty
-  Cargo workspace, compiler/core library shell, and thin CLI shell, with the
-  admitted Readiness 2 parser/bootstrap transaction active alongside it.
-  Prepare the distinct Readiness 3 semantic resolver/in-memory snapshot
-  transaction. Numeric/frame/output, adapter, and geometry prerequisites gate
-  later stages. Any performance claim must have reproducible benchmark and
-  hardware-profile evidence.
+- Keep CK-KICK-013's implemented Readiness 1 boundary at the Cargo workspace,
+  compiler/core library shell, and thin CLI shell, with the admitted Readiness 2
+  parser/bootstrap transaction active alongside it. The provisional structural
+  address/index, validator, and `inspect-structure` command are preparatory and
+  do not activate Readiness 3. Prepare the distinct Readiness 3 semantic
+  resolver/in-memory snapshot transaction. Numeric/frame/output, adapter, and
+  geometry prerequisites gate later stages. Any performance claim must have
+  reproducible benchmark and hardware-profile evidence.
 - Preserve the accepted governance process and all historical decision/review
   evidence without reopening the parked confirmatory protocol.
 
@@ -510,7 +540,7 @@ metadata. Current non-governance proposals include:
 | Research/experiment workflow | partial | unverified | Lightweight template exists; no experiment registered |
 | Body specification | partial | unverified | Proposed body-document, body-graph, build-operation, fixture-manifest, and Batch 11/12/13 focused profiles include discussion-approved updates; the Readiness 2 schema, manifest, nine fixtures, parser/bootstrap, and preflight are active under the admission record, while DR-0002/0008 remain Revision 11 Review Complete, DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14 remain Proposed with Owner approval Pending |
 | Build-operation contract | partial | unverified | Proposed canonical public build/output owner exists; serialization, implementation, and artifact store remain unactivated |
-| Production implementation platform | partial | proven | CK-KICK-013/DR-0013 Revision 12 is Accepted with Owner approval Approved by Ben; the Readiness 1 Cargo workspace, compiler/core library shell, and thin CLI shell pass pinned-toolchain checks. The exact schema, manifest, nine fixtures, parser/bootstrap, and preflight are active after merged commit `766992ab089687e9b1496574e8ffa721388d96f3` / PR #6 and successful post-merge identity recomputation; distinct Readiness 3, adapter, and exploratory geometry remain gated |
+| Production implementation platform | partial | proven | CK-KICK-013/DR-0013 Revision 12 is Accepted with Owner approval Approved by Ben; the Readiness 1 Cargo workspace, compiler/core library shell, and thin CLI shell pass pinned-toolchain checks. Readiness 2's exact schema, manifest, nine fixtures, parser/bootstrap, and preflight are active after merged commit `766992ab089687e9b1496574e8ffa721388d96f3` / PR #6 and successful post-merge identity recomputation. The provisional structural address/index, validator, and `inspect-structure` command are preparatory; distinct Readiness 3, adapter, and exploratory geometry remain gated |
 | Creature compiler | partial | unverified | Disposable CK-KICK-010 walking skeleton implemented; this is not a production compiler |
 | CK-KICK-010 walking skeleton | implemented | audited | Valid/invalid local evidence and the selected Single independent review are complete; five substantive findings plus whitespace were dispositioned in RESULTS, not clean; this is not a production compiler |
 | Local visual-review gallery | implemented | audited | Focused tests and local HTTP/browser smoke passed; subject_context is presentation-only; no visual-evidence or Stage 1 claim |
@@ -523,7 +553,9 @@ metadata. Current non-governance proposals include:
   Readiness 3 semantic resolver/in-memory snapshot transaction and its
   successor evidence. Keep adapters, geometry, and later packages gated.
 - Keep Readiness 1 limited to the Cargo workspace, compiler/core library shell,
-  and thin CLI shell, with Readiness 2 active only within its recorded
+  and thin CLI shell. Keep the provisional structural address/index, validator,
+  and `inspect-structure` command outside the formal Readiness 3 activation
+  boundary; Readiness 2 remains active within its recorded
   parser/bootstrap/schema/manifest/fixture boundary.
 - Leave DR-0009/0010 parked unless the activation trigger occurs or Ben
   explicitly reactivates them.
