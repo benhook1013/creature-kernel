@@ -6,7 +6,7 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 11
+Revision: 12
 
 Decision owner: Ben
 
@@ -82,15 +82,20 @@ experiment, or package. The Batch 13 Revision 9 review is stale evidence after
 this material revision and remains preserved below; Owner approval remains
 Pending and a fresh current-revision review is required.
 
-On 2026-08-13 the fresh technical-review dispositions were applied in this
+On 2026-08-13 the fresh technical-review dispositions were applied in the
 Revision 11 proposal: build requests now reference the exact implementation-
 content-binding and dependency-closure identities used for execution; the
 wire-independent `claim-id-1` comparator is defined by conceptual type/rank
 and normalized identifier order; the quaternion normalization versus
 already-normalized tuple-distance wording is corrected; and adapter profile
 validation status remains an explicit pre-activation choice rather than a
-source-admission mapping. This is a technical correction only: the record
-remains Proposed with Owner approval Pending and Review status Pending.
+source-admission mapping. The exact-target Double review at commit
+`9b96d18b115126ef09e54ad8c6f21749d5559ff6` is stale for this Revision 12
+successor. Revision 12 applies the final comparator/rank-table gate, removes
+the stray numeric `Runtime` wording, and preserves the retained-human T4 gate;
+fresh successor-target review is pending. This is a technical correction only:
+the record remains Proposed with Owner approval Pending and Review status
+Pending.
 
 ## Decision
 
@@ -132,6 +137,13 @@ about source syntax or user-facing labels. The source representation may
 choose a later syntax only if it resolves to this profile without changing
 address equality or namespace ownership rules.
 
+When an address is used as an ordering key, compare components in exactly this
+precedence: `namespace`, ordered `anchors`, `kind` by rank, then `role`. The
+current address-kind rank table is frozen in vocabulary order: `part` 0,
+`joint` 1, `socket` 2, `attachment` 3, `region` 4, `capability` 5, and
+`field` 6. The table is part of the versioned address profile; changing it or
+the closed vocabulary requires a profile successor.
+
 ### Conceptual authored claim identity
 
 Versioned conceptual `claim-id-1` is a structured tuple, not a serialized
@@ -160,9 +172,14 @@ and provenance is retained, and the same ID with a different value is an
 identity collision. Different IDs are evaluated as all unordered pairs in
 this order, with the first failing pair the deterministic conflict
 representative and the lexicographically smallest value tuple selected only
-after all pairs pass. A raw JSON pointer is diagnostic provenance only; an
-activated schema must supply the stable record address, typed property role,
-and any multiplicity key.
+after all pairs pass. The claim-kind and typed-property-role rank tables are
+mandatory, versioned activation inputs. Each table must be complete and
+injective over its admitted closed set; a missing, duplicate, or unknown kind,
+role, or rank entry fails activation. No canonical claim ordering, digest, or
+resolver activation may occur before both tables exist, and serialized wire
+spelling is never an ordering fallback. A raw JSON pointer is diagnostic
+provenance only; an activated schema must supply the stable record address,
+typed property role, and any multiplicity key.
 
 ### Canonical bytes and digest profile
 
@@ -240,8 +257,8 @@ The scalar predicate
 `abs(a-b) <= A + R*max(abs(a),abs(b))` is decided over exact dyadic values
 decoded from admitted finite binary64 values, using bounded integer/dyadic
 arithmetic. Rounded floating intermediates and an undefined “equivalent
-monotonic” evaluation are not permitted at the inclusive boundary. Runtime
-After deterministic quaternion normalization, the already-normalized
+monotonic” evaluation are not permitted at the inclusive boundary. After
+deterministic quaternion normalization, the already-normalized
 tuple-distance predicate uses no square root, norm, `asin`, or `sin`. The
 normalization itself uses the required correctly rounded binary64 square root
 specified below. The admitted
@@ -387,7 +404,9 @@ probes, and fixtures. Binary32 may exclude subnormal-dependent values, and a
 profile promising subnormal runtime preservation must probe FTZ/DAZ. A failed
 required capability is unsupported; an in-domain overflow or disallowed
 underflow during trusted conversion is output-failure. The core binary64
-snapshot is unchanged.
+snapshot is unchanged. Malformed adapter profile/request status ownership
+remains a retained-human choice: Ben must explicitly dispose of the
+request-validation mapping before any adapter profile or schema activates.
 
 Mesh, vertex, face, triangle, LOD, and array indices are ephemeral and must not
 be promised stable through topology changes. Semantic addresses must not be
@@ -678,11 +697,18 @@ machinery.
 
 The fresh successor-target reviews are [Review 01](reviews/DR-0006-rev-10-review-01.md)
 and [Review 02](reviews/DR-0006-rev-10-review-02.md). They are exact-target
-evidence for Revision 10 only and are stale for this Revision 11 successor.
+evidence for Revision 10 only and are stale for this Revision 12 successor.
 Their G1/G2 mechanical findings were fixed in the successor; T1–T3 were
 resolved here, while T4/P3 is explicitly deferred until adapter activation and
-is not a first Rust slice blocker. Review status for Revision 11 remains
+is not a first Rust slice blocker. Review status for Revision 12 remains
 Pending, and no acceptance or activation follows.
+
+The final Double-review [Review 01](reviews/DR-0006-rev-11-review-01.md) and
+[Review 02](reviews/DR-0006-rev-11-review-02.md) examined exact target commit
+`9b96d18b115126ef09e54ad8c6f21749d5559ff6` and are stale for this successor.
+Revision 12 corrects the comparator/rank-table and sqrt wording, removes the
+stray numeric `Runtime`, and preserves T4 as a deferred retained-human gate;
+fresh successor-target review remains pending.
 
 ## Implementation and Proof Obligations
 
@@ -744,7 +770,11 @@ Pending, and no acceptance or activation follows.
   for closed claim kind and typed property role; normalized identifier
   Unicode-scalar lexical order with structured prefix-before-extension; and
   absent-before-present claim keys. The activated schema must bijectively map
-  wire values to those conceptual types/ranks. Use conceptual unordered pair
+  wire values to those conceptual types/ranks. Require complete, injective,
+  versioned rank tables for the admitted claim-kind and typed-property-role
+  closed sets; missing, duplicate, or unknown entries fail activation, and do
+  not activate canonical claim ordering, digest, or resolution before the
+  tables exist. Use conceptual unordered pair
   `(min_id, max_id)`. Evaluate same-ID/same-value
   occurrences once while retaining all provenance; reject same-ID/different-
   value identity collisions. Evaluate different-ID all-pairs in sorted claim-ID
@@ -775,8 +805,10 @@ Pending, and no acceptance or activation follows.
   theta, if retained, is informational/calibration metadata only and supplies
   no represented-angular guarantee. Any future angular guarantee requires a
   new comparison-profile revision and successor evidence. Use fixed
-  max-component quaternion normalization, checked drift/near-zero bounds,
-  canonical sign, and no runtime transcendental or ambient-mode dependence.
+  max-component quaternion normalization with the specified correctly rounded
+  binary64 square root, checked drift/near-zero bounds, canonical sign, and no
+  runtime transcendental or ambient-mode dependence in the already-normalized
+  tuple-distance predicate.
 - Admit those build/publication fixtures through the generic fixture-suite
   payload manifest and a separate readiness/decision record naming its digest,
   source commit, exact ordered path/mode/content set, digest profile, and Ben

@@ -3,8 +3,8 @@
 Status: Proposed conceptual contract; CK-KICK-012 Batch 13/14 discussion-approved
 canonical update. DR-0002 Revision 11 and DR-0008 Revision 11 remain Proposed
 with Owner approval Pending and Review Complete. Current Batch 13/14 material is
-recorded in DR-0006 Revision 11, DR-0011 Revision 14, DR-0012 Revision 13, and
-DR-0013 Revision 11; each remains Proposed with Owner approval Pending and
+recorded in DR-0006 Revision 12, DR-0011 Revision 15, DR-0012 Revision 14, and
+DR-0013 Revision 12; each remains Proposed with Owner approval Pending and
 Review Pending after material technical-review resolution edits. Batch 11/12/13 review artifacts are stale for those materially
 revised records and remain evidence only; fresh successor-target review is
 pending. This Batch 13/14 update carries the
@@ -112,12 +112,18 @@ stable record address, typed property role, and multiplicity keys. Body-graph
 owns claim grouping, all-pairs satisfiability, representative selection, and
 provenance retention; the numeric/frame profile owns comparison formulas and
 evaluation semantics. The wire-independent claim-ID comparator is defined by
-the [semantic-address profile](../semantic-address/README.md): canonical-target
-address order, profile-defined semantic ranks for closed claim kind and typed
-property role, normalized identifier Unicode-scalar lexical order for typed
-namespace/address segments, structured prefix-before-extension ordering, and
-absent-before-present claim-key ordering. Wire enum spelling may not supply
-the order.
+the [semantic-address profile](../semantic-address/README.md): its exact
+six-field component precedence is canonical target, claim kind, source-document
+namespace, authored record address, typed property role, and explicit claim key
+or absent; canonical-target address order, profile-defined semantic ranks for
+closed claim kind and typed property role, normalized identifier Unicode-scalar
+lexical order for typed namespace/address segments, structured
+prefix-before-extension ordering, and absent-before-present claim-key ordering.
+The claim-kind and typed-property-role rank tables are mandatory, versioned
+activation inputs, complete and injective over each admitted closed set;
+missing, duplicate, or unknown kind, role, or rank entries fail activation. No
+canonical claim ordering, digest, or resolver activation occurs before both
+tables exist, and wire enum spelling may not supply the order.
 
 ## Basis, profiles, and frame roles
 

@@ -4,8 +4,8 @@ Status: Proposed conceptual specification; CK-KICK-012 Batch 13/14 discussion-
 approved C1/C3/C4 resolutions; no schema, parser, or fixture corpus is
 activated
 
-Current Batch 13/14 material is recorded in DR-0006 Revision 11, DR-0011 Revision
-14, DR-0012 Revision 13, and DR-0013 Revision 11; each remains Proposed with
+Current Batch 13/14 material is recorded in DR-0006 Revision 12, DR-0011 Revision
+15, DR-0012 Revision 14, and DR-0013 Revision 12; each remains Proposed with
 Owner approval Pending and Review Pending after material technical-review
 resolution edits; prior Batch 13 review evidence is stale and fresh
 successor-target review is pending. Batch 13/14 carries the generic
@@ -216,9 +216,11 @@ underflow, overflow, malformed zero/negative/nonfinite scale, unknown revision,
 unavailable capability, admitted-invariant violation, malformed output, and
 status precedence. Exact malformed-adapter-profile status mapping is
 deliberately unselected until the adapter request-validation prerequisite is
-chosen and reviewed; malformed profile data is not classified here as
-source-admission. This request-validation choice is implementation/evidence-
-dependent and is not a blocker for the first Rust slice. These fixtures are
+chosen and reviewed; Ben must explicitly dispose of that retained-human choice
+before any adapter profile/schema activation. Malformed profile data is not
+classified here as source-admission. This request-validation choice is
+implementation/evidence-dependent and is not a blocker for the first Rust
+slice. These fixtures are
 activated only after Readiness 3 and do not select an engine.
 
 Only listed fixtures participate in an admission. An unlisted fixture, even if

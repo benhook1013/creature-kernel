@@ -5,7 +5,7 @@ approved C4 resolution; exact codes and serialized fields are fixture-gated
 
 Batch 13/14 resolves the diagnostic-domain and bootstrap-compatibility direction
 as Proposed material. Current successor material is recorded in DR-0006 Revision
-11, DR-0011 Revision 14, DR-0012 Revision 13, and DR-0013 Revision 11; each
+12, DR-0011 Revision 15, DR-0012 Revision 14, and DR-0013 Revision 12; each
 remains Proposed with Owner approval Pending and Review Pending after material
 technical-review resolution edits. Prior Batch 13 review evidence is stale;
 fresh successor-target review is pending. No registry,

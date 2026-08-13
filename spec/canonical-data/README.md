@@ -7,8 +7,8 @@ Batch 13/14 discussion-approved resolutions add the generic keyed-collection rul
 for C1, cross-link the separate Readiness 2/3 implementation binding for C3,
 and align diagnostic ordering/identity with the C4 diagnostic profile. These
 are Proposed contract updates only. Current successor material is recorded in
-DR-0006 Revision 11, DR-0011 Revision 14, DR-0012 Revision 13, and DR-0013
-Revision 11; each remains Proposed with Owner approval Pending and Review
+DR-0006 Revision 12, DR-0011 Revision 15, DR-0012 Revision 14, and DR-0013
+Revision 12; each remains Proposed with Owner approval Pending and Review
 Pending after material technical-review resolution edits. Prior Batch 13
 review evidence is stale; fresh successor-target review is pending. No decision record, schema, serializer, fixture, or readiness gate is
 accepted or activated by this document.

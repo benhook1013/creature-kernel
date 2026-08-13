@@ -6,7 +6,7 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 11
+Revision: 12
 
 Decision owner: Ben
 
@@ -98,16 +98,19 @@ or package. The Batch 13 Revision 9 review is stale evidence after this
 material revision and remains preserved below; Owner approval remains Pending
 and a fresh current-revision review is required.
 
-On 2026-08-13 the fresh technical-review dispositions were applied in this
+On 2026-08-13 the fresh technical-review dispositions were applied in the
 Revision 11 proposal: build requests now reference the exact implementation-
 content-binding and dependency-closure identities used for execution; the
 wire-independent `claim-id-1` comparator and normalized identifier ordering
 are explicit; numeric wording distinguishes required-sqrt quaternion
 normalization from the already-normalized tuple-distance predicate; and
 malformed adapter-profile status mapping is deferred to the adapter-activation
-prerequisite rather than treated as source admission. This technical correction
-preserves the Proposed status, Owner approval Pending, and Review status
-Pending.
+prerequisite rather than treated as source admission. The exact-target Double
+review at commit `9b96d18b115126ef09e54ad8c6f21749d5559ff6` is stale for this
+Revision 12 successor. Revision 12 applies the mandatory rank-table activation
+gate and preserves the retained-human T4 gate; fresh successor-target review
+is pending. This technical correction preserves the Proposed status, Owner
+approval Pending, and Review status Pending.
 
 ## Decision
 
@@ -277,6 +280,12 @@ ID/different value is invalid-source identity collision. Different IDs use
 all-pairs evaluation in this order, report the first failing pair, and only
 then choose the lexicographically smallest exact finite-binary64 value tuple
 (`-0` already `+0`), with claim ID breaking exact tuple ties only.
+The claim-kind and typed-property-role rank tables are mandatory, versioned
+activation inputs. Each table must be complete and injective over its admitted
+closed set; a missing, duplicate, or unknown kind, role, or rank entry fails
+activation. No canonical claim ordering, digest, or resolver activation may
+occur before both tables exist, and wire spelling is never an ordering
+fallback.
 
 The numeric evidence gate pre-registers domains and semantic error budgets,
 uses fixed operation order and round-to-nearest/ties-to-even without
@@ -309,9 +318,10 @@ Adapter status mapping reuses the existing statuses, but malformed adapter
 request/profile mapping is deliberately unselected until adapter activation.
 Adapter profile data is a build-request/target-platform input, not
 authoritative body-source content. Before an adapter profile/schema activates,
-the owning build-operation/platform contracts must choose and review the
-request-validation result mapping while preserving the closed operation status
-set (or explicitly revising it). A well-formed unknown revision or unavailable
+Ben must explicitly dispose of the retained-human request-validation mapping,
+and the owning build-operation/platform contracts must choose and review that
+result mapping while preserving the closed operation status set (or explicitly
+revising it). A well-formed unknown revision or unavailable
 claimed capability remains `unsupported`; a violated already-admitted
 project-profile invariant remains `internal-failure`; and valid supported
 conversion overflow, disallowed underflow, or malformed output remains
@@ -1040,11 +1050,18 @@ readiness gate, resolver, adapter, or geometry implementation.
 
 The fresh successor-target reviews are [Review 01](reviews/DR-0013-rev-10-review-01.md)
 and [Review 02](reviews/DR-0013-rev-10-review-02.md). They are exact-target
-evidence for Revision 10 only and are stale for this Revision 11 successor.
+evidence for Revision 10 only and are stale for this Revision 12 successor.
 Their G1/G2 mechanical findings were fixed in the successor; T1–T3 were
 resolved here, while T4/P3 is explicitly deferred until adapter activation and
-is not a first Rust slice blocker. Review status for Revision 11 remains
+is not a first Rust slice blocker. Review status for Revision 12 remains
 Pending, and no acceptance or activation follows.
+
+The final Double-review [Review 01](reviews/DR-0013-rev-11-review-01.md) and
+[Review 02](reviews/DR-0013-rev-11-review-02.md) examined exact target commit
+`9b96d18b115126ef09e54ad8c6f21749d5559ff6` and are stale for this successor.
+Revision 12 corrects the comparator/rank-table and sqrt wording and preserves
+T4 as a deferred retained-human gate; fresh successor-target review remains
+pending.
 
 ## Implementation and Proof Obligations
 

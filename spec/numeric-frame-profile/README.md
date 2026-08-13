@@ -181,14 +181,26 @@ including unselected claims. The representative rule is local to a claim
 target and does not define canonical ordering for unrelated unordered
 collections.
 
-Stable claim identity is structured from the canonical target, claim kind,
-source document/namespace identity, stable authored semantic record/property
-address, and an explicit authored claim key when multiple intentional claims
-are allowed. It never uses a raw JSON pointer, array/traversal/allocation
-order, thread, time, or generated identifier. A raw pointer may remain
-diagnostic provenance only. Local claim-ID/multiplicity is separate from the
-generic canonical collection key; graph concept collections use their own
-structured address and owner-role/claim collection key.
+Stable claim identity is the versioned conceptual six-field tuple
+`(canonical_target, claim_kind, source_document_namespace,
+authored_record_address, typed_property_role, explicit_claim_key_or_absent)`.
+Its component precedence is exactly that order. The canonical target uses the
+owning structured semantic-address order; claim kind and typed property role
+use profile-defined semantic tag ranks rather than wire spelling; namespace,
+record-address segments, and present claim keys use normalized identifier
+Unicode-scalar lexical order with structured prefix-before-extension; and
+absent claim keys sort before present keys. The claim-kind and
+typed-property-role rank tables are mandatory, versioned activation inputs,
+complete and injective over each admitted closed set; missing, duplicate, or
+unknown kind, role, or rank entries fail activation. The comparator is fully
+total only for an activated profile containing both tables: this proposal
+freezes its shape and gate, not later rank values. No canonical claim ordering,
+digest, or resolver activation may occur before both tables exist, and wire
+spelling is never an ordering fallback. It never uses a raw JSON pointer,
+array/traversal/allocation order, thread, time, or generated identifier. A raw
+pointer may remain diagnostic provenance only. Local claim-ID/multiplicity is
+separate from the generic canonical collection key; graph concept collections
+use their own structured address and owner-role/claim collection key.
 
 The authored-conflict and expected-snapshot profiles remain distinct, and
 their constants are experiment-gated. Comparison profiles identify the
@@ -243,7 +255,11 @@ an ambient numeric mode. Fixtures cover known magnitude (`s=1` and nonunit),
 directions/no-scale, transform conjugation, composition/inverse/reflection/q,
 round trips, and overflow/underflow/subnormal cases. The core snapshot remains
 binary64. Adapter activation is a separate post-Readiness-3 transaction with
-its own fixtures and profile binding.
+its own fixtures and profile binding. Malformed adapter-profile status mapping
+remains a retained-human choice owned by the build-operation/platform
+contracts; Ben must explicitly dispose of that request-validation mapping
+before any adapter profile/schema activates. This profile does not classify
+malformed adapter input as source admission.
 
 ## Activation boundary
 

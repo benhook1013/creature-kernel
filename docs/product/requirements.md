@@ -151,8 +151,10 @@ operation order and prohibits reassociation, implicit FMA contraction, FTZ, and
 DAZ. Same-target claims normalize into one canonical local-to-parent frame;
 translations compare directly and rotations use q/-q equivalence. Scalar and
 translation predicates use exact bounded dyadic/integer arithmetic, and
-quaternion comparison uses an offline-derived binary64 half-chord bound with
-no runtime transcendental or norm operation. Structured source-derived claim
+quaternion comparison uses an offline-derived binary64 half-chord bound. The
+deterministic quaternion normalization requires the specified correctly rounded
+binary64 square root; only the already-normalized tuple-distance predicate uses
+no square root, norm, `asin`, or `sin`. Structured source-derived claim
 IDs retain multiplicity/provenance, detect same-ID collisions, evaluate pairs
 in sorted-ID order, and select the smallest declared value tuple. These local
 claim rules remain distinct from generic graph collection keys. The numeric
@@ -494,7 +496,9 @@ the default tier with no runtime arithmetic claim; an optional runtime tier
 adds probes and fixtures. Both tiers declare precision/domain/narrowing and
 overflow/underflow/subnormal policy; binary32 subnormal claims require an
 FTZ/DAZ probe. This is Proposed follow-up evidence, not a current adapter
-requirement or support claim.
+requirement or support claim. Before any adapter profile/schema activation,
+Ben must explicitly dispose of the retained-human request-validation/status
+mapping choice.
 
 ### CK-PROD-041: External mesh path
 

@@ -326,14 +326,21 @@ Stable claim identity is conceptual versioned `claim-id-1`, structured from
 canonical target, closed claim kind, typed source-document/namespace identity,
 stable authored record address, typed property role, and explicit authored claim
 key or absence for intentional multiplicity. Its wire-independent total order
-is owned by the [semantic-address profile](../semantic-address/README.md): the
-canonical target uses its structured address order; closed claim kind and
-typed property role use profile-defined semantic tag ranks; typed namespace
-and address segments use normalized identifier Unicode-scalar lexical order
-with structured prefix-before-extension ordering; and absent claim keys sort
-before present keys, whose values use that same identifier order. An activated
-schema must bijectively map wire values to those conceptual types/ranks and
-must not infer order from wire spelling. It never uses a raw
+is owned by the [semantic-address profile](../semantic-address/README.md). Its
+exact six-field component precedence is canonical target, claim kind, source-
+document namespace, authored record address, typed property role, and explicit
+claim key or absent. The canonical target uses its owning
+structured address order; closed claim kind and typed property role use
+profile-defined semantic tag ranks; typed namespace and address segments use
+normalized identifier Unicode-scalar lexical order with structured
+prefix-before-extension ordering; and absent claim keys sort before present
+keys, whose values use that same identifier order. The claim-kind and
+typed-property-role rank tables are mandatory, versioned activation inputs,
+complete and injective over each admitted closed set; missing, duplicate, or
+unknown kind, role, or rank entries fail activation. An activated schema must
+bijectively map wire values to those conceptual types/ranks and must not infer
+order from wire spelling. No canonical claim ordering, digest, or resolver
+activation occurs before both tables exist. It never uses a raw
 JSON pointer, array/traversal/allocation order, thread, time, or generated
 identifier; a raw pointer is diagnostic provenance only. Same-ID/same-value
 occurrences are evaluated once while provenance remains, same-ID/different-

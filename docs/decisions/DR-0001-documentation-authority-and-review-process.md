@@ -346,11 +346,15 @@ revision only. They are stale for Revision 6. Ben explicitly approved the
 workflow direction on 2026-08-13; that approval is recorded in the metadata as
 owner input, not as formal acceptance of this proposed revision.
 
-The current [Revision 6 review](reviews/DR-0001-rev-06-review-01.md) is a fresh
-Single governance pass and recommends **Revise** at **High** confidence. It
-found no substantive blocker within the authority boundary. Its G1/G2 findings
-were mechanical summary/reference issues outside that boundary and are fixed
-in the current proposal. Review status is Complete for evidence only; Status
+The current [Revision 6 review](reviews/DR-0001-rev-06-review-01.md) and
+[Double-review Review 02](reviews/DR-0001-rev-06-review-02.md) are fresh
+governance passes and recommend **Revise** at **High** confidence. They
+found no substantive blocker within the authority boundary. Review 01's G1/G2
+findings were mechanical summary/reference issues outside that boundary and
+are fixed. Review 02's historical-label and retained-human T4-checkpoint
+findings were dispositioned in the current technical successors; DR-0001 was
+not materially revised by those cross-record corrections. Review status is
+Complete for evidence only; Status
 remains Proposed and formal Owner acceptance remains pending. Recommended
 adversarial level: Single — the current governance review is complete and the
 remaining work is mechanical alignment, not a new direction-setting batch.

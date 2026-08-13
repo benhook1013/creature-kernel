@@ -1,8 +1,8 @@
 # Build operation and derived-output contract
 
 Status: Proposed conceptual contract; CK-KICK-012 Batch 13/14 discussion-approved
-canonical owner. Current Batch 13/14 material is recorded in DR-0006 Revision 11,
-DR-0011 Revision 14, DR-0012 Revision 13, and DR-0013 Revision 11; each remains
+canonical owner. Current Batch 13/14 material is recorded in DR-0006 Revision 12,
+DR-0011 Revision 15, DR-0012 Revision 14, and DR-0013 Revision 12; each remains
 Proposed with Owner approval Pending and Review Pending after material
 technical-review resolution edits; prior Batch 13 review evidence is stale and
 fresh successor-target review is pending. Batch 13/14 cross-links
@@ -102,8 +102,9 @@ The adapter status mapping reuses the existing operation statuses, but
 malformed adapter request/profile mapping is deliberately unselected until
 adapter activation. Adapter profile data is a build-request/target-platform
 input, not authoritative body-source content. Before an adapter profile/schema
-activates, the owning request-validation mapping must be chosen and reviewed
-while preserving the closed operation status set (or explicitly revising it).
+activates, Ben must explicitly dispose of the retained-human request-validation
+mapping, which must be chosen and reviewed while preserving the closed operation
+status set (or explicitly revising it).
 A well-formed unknown profile revision or unavailable claimed capability remains
 `unsupported`; a violated already-admitted project-profile invariant remains
 `internal-failure`; and a valid supported profile whose conversion overflows,

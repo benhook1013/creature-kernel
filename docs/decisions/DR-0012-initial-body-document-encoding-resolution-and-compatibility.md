@@ -6,7 +6,7 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 13
+Revision: 14
 
 Decision owner: Ben
 
@@ -118,14 +118,18 @@ package. The Batch 13 Revision 11 review is stale evidence after this material
 revision and remains preserved below; Owner approval remains Pending and a
 fresh current-revision review is required.
 
-On 2026-08-13 the fresh technical-review dispositions were applied in this
+On 2026-08-13 the fresh technical-review dispositions were applied in the
 Revision 13 proposal: the wire-independent `claim-id-1` ordering now uses
 profile-defined semantic ranks and normalized identifier order; numeric wording
 distinguishes required-sqrt quaternion normalization from the already-normalized
 tuple-distance predicate; and malformed adapter-profile status mapping is
 deferred to the adapter-activation prerequisite rather than classified as
-source admission. This technical correction preserves the Proposed status,
-Owner approval Pending, and Review status Pending.
+source admission. The exact-target Double review at commit
+`9b96d18b115126ef09e54ad8c6f21749d5559ff6` is stale for this Revision 14
+successor. Revision 14 applies the mandatory rank-table activation gate and
+preserves the retained-human T4 gate; fresh successor-target review is
+pending. This technical correction preserves the Proposed status, Owner
+approval Pending, and Review status Pending.
 
 ## Decision
 
@@ -306,6 +310,12 @@ Evaluate unordered pairs in sorted claim-ID order and use the first failing
 sorted pair for conflict detail. Every pair must pass; only then choose the
 lexicographically smallest value-type tuple under exact finite-binary64 total
 order (`-0` is `+0`), with claim ID breaking exact tuple ties only.
+The claim-kind and typed-property-role rank tables are mandatory, versioned
+activation inputs. Each table must be complete and injective over its admitted
+closed set; a missing, duplicate, or unknown kind, role, or rank entry fails
+activation. No canonical claim ordering, digest, or resolver activation may
+occur before both tables exist, and wire spelling is never an ordering
+fallback.
 
 These rules are normative direction, while exact domains, budgets, ranges,
 thresholds, tolerances, profile IDs, and serialized spellings remain
@@ -340,9 +350,10 @@ adapter activates from this Proposed source contract.
 Adapter profile data is a build-request/target-platform input, not
 authoritative body-source content. Therefore malformed adapter request/profile
 mapping is deliberately unselected here. Before an adapter profile/schema
-activates, the owning build-operation/platform contracts must choose and review
-the request-validation result mapping while preserving the closed operation
-status set (or explicitly revising it). A well-formed unknown revision or
+activates, Ben must explicitly dispose of the retained-human request-validation
+mapping, and the owning build-operation/platform contracts must choose and
+review that result mapping while preserving the closed operation status set (or
+explicitly revising it). A well-formed unknown revision or
 unavailable capability remains `unsupported`; a violated admitted-profile
 invariant remains `internal-failure`; and valid supported conversion overflow,
 disallowed underflow, or malformed output remains `output-failure`. Until then
@@ -1085,11 +1096,18 @@ resolver, schema, adapter, or fixture machinery.
 
 The fresh successor-target reviews are [Review 01](reviews/DR-0012-rev-12-review-01.md)
 and [Review 02](reviews/DR-0012-rev-12-review-02.md). They are exact-target
-evidence for Revision 12 only and are stale for this Revision 13 successor.
+evidence for Revision 12 only and are stale for this Revision 14 successor.
 Their G1/G2 mechanical findings were fixed in the successor; T1–T3 were
 resolved here, while T4/P3 is explicitly deferred until adapter activation and
-is not a first Rust slice blocker. Review status for Revision 13 remains
+is not a first Rust slice blocker. Review status for Revision 14 remains
 Pending, and no acceptance or activation follows.
+
+The final Double-review [Review 01](reviews/DR-0012-rev-13-review-01.md) and
+[Review 02](reviews/DR-0012-rev-13-review-02.md) examined exact target commit
+`9b96d18b115126ef09e54ad8c6f21749d5559ff6` and are stale for this successor.
+Revision 14 corrects the comparator/rank-table and sqrt wording and preserves
+T4 as a deferred retained-human gate; fresh successor-target review remains
+pending.
 
 ## Implementation and Proof Obligations
 

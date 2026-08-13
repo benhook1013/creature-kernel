@@ -9,14 +9,14 @@ Status: Operational under Accepted DR-0001 Revision 5
 | [DR-0003](DR-0003-real-time-first-compiled-avatar-boundary.md) | Compiled avatar and bounded real-time execution | Product and architecture | Proposed | 2 | Complete | Ben |
 | [DR-0004](DR-0004-external-automation-through-cli-and-api.md) | Shared deterministic domain operations for external automation | Product and architecture | Proposed | 2 | Complete | Ben |
 | [DR-0005](DR-0005-initial-product-boundary-and-reference-workflow.md) | Initial product boundary and reference workflow | Product and architecture | Proposed | 1 | Complete | Ben |
-| [DR-0006](DR-0006-durable-semantic-and-artifact-identity.md) | Durable semantic and artifact/build identity | Specification and architecture | Proposed | 11 | Pending | Ben |
+| [DR-0006](DR-0006-durable-semantic-and-artifact-identity.md) | Durable semantic and artifact/build identity | Specification and architecture | Proposed | 12 | Pending | Ben |
 | [DR-0007](DR-0007-staged-first-proof-charter.md) | Staged first-proof charter and claim boundaries | Product | Proposed | 2 | Complete | Ben |
 | [DR-0008](DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md) | First digitigrade morphology and Stage 1 embodiment envelope | Product, Specification and architecture | Proposed | 11 | Complete | Ben |
 | [DR-0009](DR-0009-hybrid-surface-generation-experiment-hypothesis.md) | Hybrid surface-generation experiment hypothesis | Architecture | Proposed | 8 | Complete | Ben |
 | [DR-0010](DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md) | Stage 1 surface extraction and semantic-field propagation | Specification and architecture | Proposed | 8 | Pending | Ben |
-| [DR-0011](DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md) | Minimal semantic vocabulary, measurements, and frames | Specification and architecture | Proposed | 14 | Pending | Ben |
-| [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md) | Initial body-document encoding, resolution, and compatibility | Specification and architecture | Proposed | 13 | Pending | Ben |
-| [DR-0013](DR-0013-first-production-implementation-platform-and-geometry-boundary.md) | First production implementation platform and geometry boundary | Specification and architecture | Proposed | 11 | Pending | Ben |
+| [DR-0011](DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md) | Minimal semantic vocabulary, measurements, and frames | Specification and architecture | Proposed | 15 | Pending | Ben |
+| [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md) | Initial body-document encoding, resolution, and compatibility | Specification and architecture | Proposed | 14 | Pending | Ben |
+| [DR-0013](DR-0013-first-production-implementation-platform-and-geometry-boundary.md) | First production implementation platform and geometry boundary | Specification and architecture | Proposed | 12 | Pending | Ben |
 
 Accepted DR-0001 Revision 5 remains the operative governance baseline. DR-0001
 Revision 6 is `Proposed`; Ben approved its workflow direction on 2026-08-13,
@@ -237,8 +237,8 @@ adversarial-review response. No package, schema, fixture, resolver, readiness
 gate, adapter, engine, or experiment activates.
 
 Ben's CK-KICK-012/013 Batch 13 successor resolutions, approved in discussion on
-2026-08-13, are recorded in DR-0006 Revision 11, DR-0011 Revision 14, DR-0012
-Revision 13, and DR-0013 Revision 11. They are material Proposed revisions,
+2026-08-13, are recorded in DR-0006 Revision 12, DR-0011 Revision 15, DR-0012
+Revision 14, and DR-0013 Revision 12. They are material Proposed revisions,
 not acceptance or activation. The Batch 13 review is stale historical evidence;
 its D1–D3/P1–P3 findings are resolved in these revisions and fresh review is
 pending:
@@ -294,10 +294,22 @@ edits. The original Batch 13 review at exact commit
 dispositioned in Revisions 10/13/12/10. The immediate-predecessor review at
 exact commit `763cff22d10f6491a05a28312a25250704543dcf` produced G1/G2 and
 T1–T4; its artifacts are stale for the successors. G1/G2 were fixed
-mechanically, T1–T3 were resolved, and T4 is deferred until adapter activation.
-Fresh successor-target review is pending. Ben's discussion approval does not accept a DR and does not activate a schema,
+mechanically, T1–T3 were resolved, and T4 remains unselected and deferred,
+requiring Ben's retained-human disposition before adapter profile/schema
+activation; it does not block the empty first Rust slice. Fresh successor-target
+review is pending. Ben's discussion approval does not accept a DR and does not activate a schema,
 fixture, parser/resolver, implementation, adapter, Cargo package, readiness
 gate, experiment, or package.
+
+The review at exact target commit
+`9b96d18b115126ef09e54ad8c6f21749d5559ff6` is historical evidence for the
+predecessor summaries. It found stale historical/current labels, an omitted
+retained-human checkpoint for T4, an incomplete comparator precedence/rank gate,
+product-level sqrt/norm ambiguity, and a stray DR-0006 word. These findings
+were corrected in the current successor revisions 12/15/14/12;
+the 9b96d18 review is stale for those successors. The successors remain
+Proposed with Owner approval Pending and Review Pending until fresh
+successor-target review.
 
 ## CK-KICK-012/013 Batch 13 Double review (stale historical evidence)
 
@@ -342,9 +354,10 @@ retained their cross-record ownership:
 At that historical target, these findings awaited Ben's discussion and owner
 disposition. They did not alter the then-current Proposed revisions or activate
 any implementation, schema, fixture, resolver, readiness gate, adapter, or
-package. D1–D3/P1–P3 were later resolved by the current DR-0006 Revision 10,
-DR-0011 Revision 13, DR-0012 Revision 12, and DR-0013 Revision 10 proposals;
-fresh current-revision review is pending.
+package. D1–D3/P1–P3 were later resolved by the then-current DR-0006 Revision
+10, DR-0011 Revision 13, DR-0012 Revision 12, and DR-0013 Revision 10
+proposals; those revisions are historical, and fresh successor-target review
+is pending.
 
 ## CK-KICK-012/013 Batch 11 Double review (stale for Batch 12 revisions)
 
@@ -423,8 +436,9 @@ historical evidence. At that target, existing DR-0006 C1/C3/C4 findings
 remained open. Only the specified mechanical summary corrections were applied;
 no claim-ID, symmetric comparator, deterministic arithmetic, adapter scale, or
 threshold choice was selected there. Those findings were later resolved by the
-current DR-0006 Revision 10, DR-0011 Revision 13, DR-0012 Revision 12, and
-DR-0013 Revision 10 proposals; fresh current-revision review is pending.
+then-current DR-0006 Revision 10, DR-0011 Revision 13, DR-0012 Revision 12,
+and DR-0013 Revision 10 proposals; those revisions are historical, and fresh
+successor-target review is pending.
 
 ## CK-KICK-012/013 Batch 10 Double review
 

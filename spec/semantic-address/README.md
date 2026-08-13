@@ -3,8 +3,8 @@
 Status: Proposed canonical specification; CK-KICK-012 Batch 13/14 discussion-
 approved identity cross-link; no resolver or schema is activated
 
-Current Batch 13/14 material is recorded in DR-0006 Revision 11, DR-0011 Revision
-14, DR-0012 Revision 13, and DR-0013 Revision 11; each remains Proposed with
+Current Batch 13/14 material is recorded in DR-0006 Revision 12, DR-0011 Revision
+15, DR-0012 Revision 14, and DR-0013 Revision 12; each remains Proposed with
 Owner approval Pending and Review Pending. This profile remains a Proposed
 identity input and does not activate a parser, resolver, schema, or fixture.
 
@@ -71,17 +71,21 @@ ignored; array order is significant. No display label, source-document order,
 mesh position, or generated array index can make unequal addresses equal.
 
 When this address is used as the owner-declared canonical key for an unordered
-collection, its typed total order compares namespace and role identifiers by
-the restricted profile's normalized Unicode-scalar lexical order (the current
-machine profile is an ASCII subset), compares ordered anchor sequences
-lexicographically with prefix before extension, and compares the closed kind
-through its profile-defined semantic tag rank. A missing or malformed address
-fails closed; a collision is rejected when the owning collection is
-semantically unique. Repeated records must use the owning contract's explicit
-occurrence, claim, context, or multiset identity rather than source order or
-array index. Canonical-data owns the generic keyed-collection algorithm and
-each collection's multiplicity rule; this profile owns address structure,
-lexical validity, equality, and this address ordering.
+collection, its typed total order compares components in exactly this
+precedence: `namespace` by the restricted profile's normalized
+Unicode-scalar lexical order (the current machine profile is an ASCII subset),
+ordered `anchors` lexicographically with prefix before extension, `kind` by
+its frozen rank table, then `role` by that same identifier order. The current
+address-kind rank table is frozen in the existing vocabulary order: `part` 0,
+`joint` 1, `socket` 2, `attachment` 3, `region` 4, `capability` 5, and
+`field` 6. A missing or malformed address fails closed; a collision is
+rejected when the owning collection is semantically unique. Repeated records
+must use the owning contract's explicit occurrence, claim, context, or
+multiset identity rather than source order or array index. Canonical-data owns
+the generic keyed-collection algorithm and each collection's multiplicity rule;
+this profile owns address structure, lexical validity, equality, and this
+address ordering. The comparator shape and activation gate are frozen here;
+changing the address-kind vocabulary or rank table requires a profile successor.
 
 References use the same object representation and structural equality. A
 reference either resolves to one address in the admitted source set or emits a
@@ -110,7 +114,8 @@ repeated claims. The tuple has the wire-independent component order and
 conceptual comparator defined below. An unordered pair is
 canonically `(min_id, max_id)`.
 
-The selected claim-ID comparator is wire-independent. Its component order is
+The selected claim-ID comparator is wire-independent. Its component precedence
+is exactly the existing six-field order:
 `canonical_target`, `claim_kind`, `source_document_namespace`,
 `authored_record_address`, `typed_property_role`, and
 `explicit_claim_key_or_absent`. The target uses the owning structured
@@ -120,8 +125,15 @@ document/namespace identities and each semantic-address segment use the same
 restricted normalized identifier Unicode-scalar lexical order; structured
 address tuples and anchor sequences use prefix-before-extension. The claim-key
 sum type orders absent before present, and present keys use that identifier
-order. An activated schema must bijectively map wire values to these
-conceptual types/ranks and may not infer order from wire spelling.
+order. The claim-kind and typed-property-role rank tables are mandatory,
+versioned activation inputs. Each table must be complete and injective over its
+admitted closed set; missing, duplicate, or unknown kind, role, or rank entries
+fail activation. An activated schema must bijectively map wire values to these
+conceptual types/ranks and may not infer order from wire spelling. The
+claim-ID comparator is fully total only for an activated profile containing
+both tables; this proposal freezes its shape and gate, not later rank values.
+No canonical claim ordering, digest, or resolver activation may occur before
+both tables exist.
 
 Same-ID occurrences with the same normalized value are evaluated once while
 all occurrence/provenance records remain. Same-ID occurrences with different

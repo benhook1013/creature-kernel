@@ -15,7 +15,7 @@ and [DR-0011](../docs/decisions/DR-0011-minimal-semantic-vocabulary-measurements
 Their prior revisions and reviews remain preserved as historical evidence.
 DR-0002 Revision 11 and DR-0008 Revision 11 remain Proposed with Owner approval
 Pending and Review Complete. Current material is recorded in DR-0006 Revision
-11, DR-0011 Revision 14, DR-0012 Revision 13, and DR-0013 Revision 11; each
+12, DR-0011 Revision 15, DR-0012 Revision 14, and DR-0013 Revision 12; each
 remains Proposed with Owner approval Pending and Review Pending after material
 technical-review resolution edits. Accepted DR-0001 Revision 5 remains the operative governance
 baseline while DR-0001 Revision 6 is Proposed transition guidance with Ben's
@@ -23,8 +23,9 @@ workflow direction approved and current review complete; formal acceptance
 remains pending Ben's disposition. The reviews of the immediate predecessor
 revisions at commit `763cff22d10f6491a05a28312a25250704543dcf` are stale
 exact-target evidence; G1/G2 were fixed mechanically, T1–T3 were resolved in
-the successors, and T4/P3 is deferred until adapter activation rather than
-treated as a first Rust slice blocker. Fresh successor-target review is
+the successors, and T4 remains unselected and deferred, requiring Ben's
+retained-human disposition before adapter profile/schema activation; it does not
+block the empty first Rust slice. Fresh successor-target review is
 pending. No acceptance,
 schema, fixture, parser, resolver, binding, adapter, Cargo package, readiness
 gate, experiment, or implementation activates. See the [current review
