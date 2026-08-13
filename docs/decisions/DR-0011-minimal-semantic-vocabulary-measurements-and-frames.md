@@ -6,13 +6,13 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 12
+Revision: 13
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-11
 
@@ -111,6 +111,17 @@ parser/resolver, implementation, adapter, experiment, or package. The
 Revision 11 Batch 12 review artifacts are stale for this material change and
 remain preserved below. Owner approval remains Pending and Review status is
 Pending pending a fresh current-revision review.
+
+On 2026-08-13 Ben approved the four Batch 13 numeric/source-resolution
+directions for this record in discussion: canonical-tuple chord semantics with
+no claimed angular bound; normalization of every produced semantic zero to
+`+0`; conceptual versioned authored claim identity and deterministic pair
+ordering; and explicit adapter status/proof obligations. This Revision 13
+records those settled directions as Proposed only. It creates no schema,
+fixture, parser/resolver, readiness gate, implementation, adapter, experiment,
+or package. The Batch 13 Revision 12 review is stale evidence after this
+material revision and remains preserved below; Owner approval remains Pending
+and a fresh current-revision review is required.
 
 ## Decision
 
@@ -316,7 +327,14 @@ operations may not use FTZ or DAZ. Overflow to infinity is rejected.
 Excessive decimal precision is accepted within the lexical/resource bound;
 there is no additional semantic digit limit. Lexical negative zero is accepted
 but normalized to positive zero for semantic and canonical models; exact source
-bytes remain distinct.
+bytes remain distinct. Every semantic numeric-producing stage canonicalizes
+produced zero to `+0` after admission/conversion, composition, inversion,
+quaternion normalization and sign selection, tuple formation, adapter
+conversion, and target-precision narrowing, and before comparison or
+serialization. A permitted nonzero-to-zero narrowing follows the active
+underflow policy but emits `+0`. Raw lexical `-0` remains distinct only in
+raw-source identity and is never retained in semantic, canonical, comparison,
+adapter, or serialized values.
 Rotation carriers use finite, non-near-zero `xyzw` quaternions; `q` and `-q`
 denote the same rotation, and a deterministic sign rule makes the first
 non-zero component in `(w, x, y, z)` positive. Normalization is permitted
@@ -351,14 +369,18 @@ monotonic” evaluation may decide the inclusive boundary. Translation uses this
 predicate componentwise under L-infinity semantics.
 
 Rotation comparison removes runtime transcendental evaluation. The admitted
-comparison profile stores a finite binary64 half-chord threshold `H`. Determine
-the q sign from the exact dyadic dot product, choosing `s = +1` for zero;
-compute `di = qa_i - s*qb_i`; and accept iff
-`sum(di^2) <= (2H)^2` using exact dyadic arithmetic. If an angular tolerance
-`theta` is presented, derive `H` offline with a declared higher-precision
-oracle and generator/profile revision; store exact theta/H bits and the
-derivation, selecting the greatest binary64 `H` not exceeding exact
-`sin(theta/4)`. Runtime `asin`, `sin`, and `sqrt` are not used for comparison.
+comparison profile stores a finite binary64 half-threshold `H` for canonical-
+tuple chord semantics: after deterministic normalization and sign selection,
+`H` is the half-threshold in the Euclidean space of the canonical quaternion
+tuples.
+Determine the q sign from the exact dyadic dot product, choosing `s = +1` for
+zero; compute `di = qa_i - s*qb_i`; and accept iff
+`sum(di^2) <= (2H)^2` using exact dyadic arithmetic, inclusively. A nominal
+angular `theta`, if retained, is informational/calibration metadata only; this
+record does not claim that `H` or `theta` bounds represented angular error. A
+future represented-direction or angular guarantee requires a new
+comparison-profile revision and successor evidence. Runtime `asin`, `sin`,
+and `sqrt` are not used for comparison.
 
 Source quaternion normalization is deterministic: exact max-absolute-component
 scaling; fixed `xyzw` divisions; a fixed left-to-right squared sum without
@@ -369,10 +391,11 @@ ambient rounding mode are assumed. A platform unable to provide the required
 square root is unsupported. Bounds remain experiment-gated.
 
 For competing authored claims targeting the same owner, property, and frame,
-stable claim identity is structured authored identity: canonical target, claim
-kind, source-document/namespace identity, stable authored semantic
-record/property address, and an explicit authored claim key when multiple
-intentional claims exist. It never uses array/traversal/allocation/thread/time
+use conceptual versioned `claim-id-1`: canonical target, closed claim kind,
+typed source-document/namespace identity, stable authored record address,
+typed property role, and an explicit authored claim key or absence. Its
+components have a componentwise lexicographic total order and unordered pairs
+are `(min_id, max_id)`. It never uses array/traversal/allocation/thread/time
 or generated indexes. Same claim ID plus the same normalized value is evaluated
 once while all occurrences/provenance remain; same claim ID plus a different
 value is an invalid-source identity collision. Evaluate unordered pairs in
@@ -426,6 +449,17 @@ handedness/reflection, composition, inverse, q/-q, narrowing, and round-trip
 fixtures are required. The semantic core remains binary64 and unchanged;
 adapter activation is separate and occurs only after Readiness 3. No engine is
 selected by this record.
+
+The public adapter status mapping is owned by the build-operation and platform
+contracts and reuses existing statuses: malformed authored request/profile is
+`invalid-source`/source-admission; unknown revision or unavailable capability
+is `unsupported`/source-admission; a violated admitted profile invariant is
+`internal-failure`/execution-trust; and valid supported conversion overflow,
+disallowed underflow, or malformed output is `output-failure`/publication.
+Resource and trust precedence remains unchanged. Adapter proof obligations
+cover malformed scale/profile, unknown revision, capability absence, invariant
+violation, overflow, underflow, malformed output, and precedence, but this
+record creates no fixtures or adapter.
 
 ### Numeric-domain and default provenance boundary
 
@@ -900,6 +934,19 @@ status is Complete for evidence only; Owner approval remains Pending and
 Status remains Proposed. No numeric profile, resolver, adapter, fixture,
 implementation, or package is accepted or activated by this review.
 
+The Batch 13 findings are dispositioned in this Revision 13 as follows. D1 is
+resolved by defining `H` as an inclusive post-normalization canonical-tuple
+Euclidean threshold and withdrawing any represented-angular guarantee. D2 and
+P1 are cross-record obligations resolved by the explicit implementation
+closure and root-descriptor no-follow profile in DR-0006, DR-0013, and the
+fixture-manifest specification. D3 is resolved by the conceptual typed
+`claim-id-1` tuple, total order, pair encoding, stable property address, and
+multiplicity rule. P2 is resolved by the post-stage produced-zero `+0` rule;
+P3 is resolved by the build-operation/platform status mapping and proof
+obligations. The prior reviews remain stale evidence; Review status is Pending
+and this Proposed revision activates no numeric, resolver, adapter, or fixture
+machinery.
+
 ## Implementation and Proof Obligations
 
 - Define the seven identity-bearing concepts, Module source-scope treatment,
@@ -975,12 +1022,14 @@ implementation, or package is accepted or activated by this review.
   before freezing thresholds and conditioning constants.
 - Freeze typed comparison profiles with exact discrete comparison and same-target
   normalization into one canonical local-to-parent frame. Compare translations
-  directly componentwise and rotations with q/-q-invariant exact dyadic
-  half-chord threshold `H`; use the inclusive scalar predicate over bounded
-  integer/dyadic values, never rounded intermediate “equivalent monotonic”
-  evaluation. Derive and store `H` offline conservatively from exact
-  `sin(theta/4)` when theta is supplied; remove runtime `asin`, `sin`, and
-  `sqrt`. Use deterministic max-component quaternion normalization, fixed
+  directly componentwise and rotations with q/-q-invariant canonical-tuple chord
+  semantics using the inclusive exact dyadic half-threshold `H` predicate over
+  post-normalization canonical tuples; never use rounded intermediate
+  “equivalent monotonic” evaluation. A nominal theta is informational or
+  calibration metadata only, not an angular guarantee. A future angular claim
+  requires a new comparison-profile revision and successor evidence; remove
+  runtime `asin`, `sin`, and `sqrt`. Use deterministic max-component quaternion
+  normalization, fixed
   operation order, canonical sign, no reassociation/FMA/FTZ/DAZ/ambient mode,
   and unsupported when required sqrt is unavailable. Require structured
   authored claim identity, same-ID collision rejection, sorted claim-ID pair

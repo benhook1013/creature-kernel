@@ -1,10 +1,10 @@
 # Build operation and derived-output contract
 
-Status: Proposed conceptual contract; CK-KICK-012 Batch 13 discussion-approved
-canonical owner. Current Batch 13 material is recorded in DR-0006 Revision 9,
-DR-0011 Revision 12, DR-0012 Revision 11, and DR-0013 Revision 9; each remains
-Proposed with Owner approval Pending and Review Complete after the Batch 13
-current-revision Double review. Batch 13 cross-links
+Status: Proposed conceptual contract; CK-KICK-012 Batch 13/14 discussion-approved
+canonical owner. Current Batch 13/14 material is recorded in DR-0006 Revision 10,
+DR-0011 Revision 13, DR-0012 Revision 12, and DR-0013 Revision 10; each remains
+Proposed with Owner approval Pending and Review Pending after the Batch 13
+current-revision Double review. Batch 13/14 cross-links
 the C1 keyed-collection, C3 separate implementation-binding, and C4
 diagnostic/bootstrap resolutions. This document owns build/output status and
 adapter output context only; it does not own comparator arithmetic, diagnostic
@@ -96,6 +96,21 @@ status is normalized. Adapter activation is a separate post-Readiness-3
 transaction with its own conformance fixtures and profile binding; no adapter
 is active from this Proposed contract. The exact runtime capability labels,
 profile IDs, and status code strings remain fixture-gated.
+
+The adapter status mapping reuses the existing operation statuses. A malformed
+authored adapter request or profile, including invalid `C`, zero/negative or
+nonfinite `s`, or other nonfinite profile values, is `invalid-source` during
+source admission. A well-formed unknown profile revision or unavailable
+claimed capability is `unsupported` during source admission. A violated
+already-admitted project-profile invariant is `internal-failure` under
+execution trust. A valid supported profile whose conversion overflows, whose
+underflow is disallowed, or whose output is malformed/invalid is
+`output-failure` at publication. Resource and trust outcomes retain their
+existing precedence over these mappings. Exact diagnostic codes and field
+names remain fixture-gated. Proof obligations include zero/negative/nonfinite
+scale, unknown revision, unavailable capability, invariant violation,
+overflow, disallowed underflow, malformed output, and precedence fixtures;
+this contract does not create those fixtures or activate an adapter.
 
 ## Identity and manifest lifecycle
 

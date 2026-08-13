@@ -40,13 +40,14 @@ subnormal/underflow, overflow, cancellation, near-zero quaternion, q/-q, long
 chain, ill-conditioned, basis-conversion, and claim-order cases. Exact numeric
 values, expected outcomes, and profile IDs remain unselected.
 
-Current Batch 13 material is recorded in DR-0006 Revision 9, DR-0011 Revision
-12, DR-0012 Revision 11, and DR-0013 Revision 9; each remains Proposed with
-Owner approval Pending and Review Complete after the Batch 13 current-revision
-Double review. Batch 11/12 review evidence is
-stale for those revisions. Batch 13 resolves the canonical-key,
-implementation-binding, and diagnostic/bootstrap directions as Proposed
-policy only, so no fixture corpus or readiness gate is activated.
+Current material is recorded in DR-0006 Revision 10, DR-0011 Revision 13,
+DR-0012 Revision 12, and DR-0013 Revision 10; each remains Proposed with Owner
+approval Pending and Review Pending after material resolution edits. The Batch
+13 review commit `8c38c501eb1262a1b85af0b8605220625601772f` and findings
+D1–D3/P1–P3 are stale historical evidence; those findings are resolved in the
+current proposals and fresh review is pending. The directions remain Proposed
+policy only, so no fixture corpus, schema, parser/resolver, adapter, Cargo
+package, readiness gate, experiment, or implementation is activated.
 
 Readiness 2 admission is one review-branch activation transaction described by
 the [fixture-manifest specification](../spec/fixture-manifest/README.md). The

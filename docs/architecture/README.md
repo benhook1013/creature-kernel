@@ -58,14 +58,16 @@ in [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-f
 CK-KICK-012 Batch 6/7/8/9/10/11/12/13 resolutions are discussion-approved and are
 reflected in the canonical specifications as Proposed material. DR-0002
 Revision 11 and DR-0008 Revision 11 remain Proposed with Owner approval Pending
-and Review Complete. DR-0006 Revision 9 remains Proposed with Owner approval
-Pending and Review Complete after the Batch 13 current-revision Double review.
-DR-0011 Revision 12, DR-0012 Revision 11, and DR-0013 Revision 9 remain
-Proposed with Owner approval Pending and Review Complete after the Batch 13
-Double review. Both independent passes examined exact target
-`8c38c501eb1262a1b85af0b8605220625601772f`, made no edits, and recommend Revise
-at High confidence. Prior review evidence is stale for these revised records and
-is not acceptance. No implementation or readiness gate activates. See
+and Review Complete. DR-0006 Revision 10, DR-0011 Revision 13, DR-0012 Revision
+12, and DR-0013 Revision 10 remain Proposed with Owner approval Pending and
+Review Pending after material resolution edits. Accepted DR-0001 Revision 5
+remains the operative governance baseline while DR-0001 Revision 6 is Proposed
+transition guidance with Ben's workflow direction approved but formal acceptance
+pending current-revision review. The Batch 13 review commit
+`8c38c501eb1262a1b85af0b8605220625601772f` is stale historical evidence;
+findings D1–D3/P1–P3 are resolved in the current proposals and fresh review is
+pending. No acceptance, schema, fixture, parser/resolver, adapter, Cargo
+package, readiness, experiment, or implementation activates. See
 the [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for the two review lenses, recommendations, and findings. Earlier review
 evidence remains stale. See the
@@ -99,10 +101,12 @@ reactivates them. Until then, exploratory prototypes may produce observations
 but may not claim formal DR-0009/0010 support or reject.
 
 The CK-KICK-013 platform proposal is also discussion-approved as Proposed
-material, not an accepted implementation decision. Proposed DR-0013 Revision 9
-has Owner approval Pending and Review Complete after the Batch 13 current-
-revision Double review. Prior review evidence is stale for the revised record
-and is not acceptance. No implementation or readiness gate activates.
+material, not an accepted implementation decision. Proposed DR-0013 Revision 10
+has Owner approval Pending and Review Pending after material resolution edits.
+The Batch 13 review is stale historical evidence; its D1–D3/P1–P3 findings are
+resolved in the current proposal and fresh review is pending. No acceptance,
+schema, fixture, parser/resolver, adapter, Cargo package, readiness,
+experiment, or implementation activates.
 See the [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for recommendations and findings. The
 four readiness stages are: DR-0013

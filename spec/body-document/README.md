@@ -1,14 +1,14 @@
 # Body-document contract
 
-Status: Proposed conceptual contract; CK-KICK-012 Batch 13 discussion-approved
+Status: Proposed conceptual contract; CK-KICK-012 Batch 13/14 discussion-approved
 canonical update. DR-0002 Revision 11 and DR-0008 Revision 11 remain Proposed
-with Owner approval Pending and Review Complete. Current Batch 13 material is
-recorded in DR-0006 Revision 9, DR-0011 Revision 12, DR-0012 Revision 11, and
-DR-0013 Revision 9; each remains Proposed with Owner approval Pending and
-Review Complete after the Batch 13 current-revision Double review. Batch 11/12 review artifacts are stale for those materially
-revised records and remain evidence only. This Batch 13 update resolves the
-C1 keyed-collection, C3 implementation-binding, and C4 diagnostic/bootstrap
-directions as Proposed cross-spec contracts; no acceptance, schema, parser,
+with Owner approval Pending and Review Complete. Current Batch 13/14 material is
+recorded in DR-0006 Revision 10, DR-0011 Revision 13, DR-0012 Revision 12, and
+DR-0013 Revision 10; each remains Proposed with Owner approval Pending and
+Review Pending after the Batch 13 current-revision Double review. Batch 11/12/13 review artifacts are stale for those materially
+revised records and remain evidence only. This Batch 13/14 update carries the
+C1 keyed-collection, C3 implementation-binding, C4 diagnostic/bootstrap, and
+Batch 13 resolution directions as Proposed cross-spec contracts; no acceptance, schema, parser,
 resolver, implementation binding, or readiness gate activates. See the
 [decision registry](../../docs/decisions/registry.md) and [project review
 state](../../docs/project/status.md#current-review-and-future-activation-obligations).
@@ -99,11 +99,15 @@ closed. An explicitly permitted empty collection is the only initial omission
 for a core collection. This source contract does not redefine canonical key
 arithmetic or serialized field spelling.
 
-Authored claims retain a stable source identity, normalized source path or
-address, and owner/role/frame context sufficient for claim identity and
-provenance. Claim identity never comes from array index, source traversal,
-allocation order, or object serialization. Body-graph owns claim grouping,
-pairwise satisfiability, representative selection, and provenance retention;
+Authored claims use conceptual versioned `claim-id-1`: canonical target, closed
+claim kind, typed source-document/namespace identity, stable authored record
+address, typed property role, and explicit authored claim key or absence. It has a
+componentwise lexicographic order and canonical unordered pairs are
+`(min_id, max_id)`. Claim identity never comes from a raw JSON pointer, array
+index, source traversal, allocation order, or object serialization. A raw
+pointer remains diagnostic provenance only; the activated schema must supply
+stable record address, typed property role, and multiplicity keys. Body-graph owns claim grouping,
+all-pairs satisfiability, representative selection, and provenance retention;
 the numeric/frame profile owns comparison formulas and evaluation semantics.
 
 ## Basis, profiles, and frame roles
@@ -165,7 +169,12 @@ overflow to infinity is `invalid-source`, as is a nonzero exact rational that
 rounds to signed zero. Canonical operations must forbid FTZ/DAZ. A lexical
 negative zero is valid when its exact rational is zero, then normalizes to
 `+0` in the normalized source model and resolved graph; the raw source bytes
-remain unchanged. Precision is not rejected by an arbitrary semantic digit
+remain unchanged. Every semantic numeric-producing stage additionally
+normalizes produced zero to `+0` after admission/conversion, composition,
+inversion, quaternion normalization/sign, tuple formation, adapter conversion,
+and narrowing, before comparison or serialization. A permitted nonzero-to-zero
+narrowing emits `+0`; raw lexical `-0` remains distinct only in raw-source
+identity. Precision is not rejected by an arbitrary semantic digit
 cutoff: values within the declared lexical/resource bound are converted, and
 a bound breach is `resource-limit` when it prevents trusted processing.
 Alternate decimal spellings can therefore share one normalized binary64 value

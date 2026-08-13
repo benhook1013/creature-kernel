@@ -1,15 +1,15 @@
 # Canonical data and digest profile
 
-Status: Proposed canonical specification; CK-KICK-012 Batch 13 discussion-approved
+Status: Proposed canonical specification; CK-KICK-012 Batch 13/14 discussion-approved
 C1 resolution; no identity/build activation
 
-Batch 13 discussion-approved resolutions add the generic keyed-collection rule
+Batch 13/14 discussion-approved resolutions add the generic keyed-collection rule
 for C1, cross-link the separate Readiness 2/3 implementation binding for C3,
 and align diagnostic ordering/identity with the C4 diagnostic profile. These
-are Proposed contract updates only. Current Batch 13 material is recorded in
-DR-0006 Revision 9, DR-0011 Revision 12, DR-0012 Revision 11, and DR-0013
-Revision 9; each remains Proposed with Owner approval Pending and Review
-Complete after the Batch 13 current-revision Double review. No decision record, schema, serializer, fixture, or readiness gate is
+are Proposed contract updates only. Current Batch 13/14 material is recorded in
+DR-0006 Revision 10, DR-0011 Revision 13, DR-0012 Revision 12, and DR-0013
+Revision 10; each remains Proposed with Owner approval Pending and Review
+Pending after the Batch 13 current-revision Double review. No decision record, schema, serializer, fixture, or readiness gate is
 accepted or activated by this document.
 
 This document owns Creature Kernel's canonical JSON normalization,
@@ -17,7 +17,8 @@ serialization, digest framing, and digest domains. The [semantic-address
 profile](../semantic-address/README.md) and [numeric and frame profile](../numeric-frame-profile/README.md)
 own the semantic normalization rules that this profile consumes. In particular,
 the numeric/frame profile owns JSON decimal admission, binary64 conversion,
-negative-zero normalization, and quaternion normalization; canonical data only
+produced-zero-to-`+0` normalization, negative-zero normalization, and quaternion
+normalization; canonical data only
 consumes the resulting normalized binary64 values and does not redefine their
 conversion. The [build-operation contract](../build-operation/README.md) owns
 which inputs belong in a build request; this document defines how an already
@@ -29,8 +30,10 @@ The project profile is `ck-json-1`. It starts from a strict duplicate-free
 UTF-8 JSON data model and preserves Unicode scalar content exactly: no Unicode
 normalization, locale conversion, or display-label rewriting is performed.
 Semantic normalization occurs before serialization and consumes the active
-numeric and address profiles. Thus negative-zero and quaternion-sign handling
-are applied as already-defined semantic values, not reinterpreted here.
+numeric and address profiles. Thus every produced zero is already `+0`, while
+raw lexical `-0` is retained only by raw-source identity; negative-zero and
+quaternion-sign handling are applied as already-defined semantic values, not
+reinterpreted here.
 Arrays that are semantically ordered retain their order. A collection must not
 be sorted merely because it happens to be represented as an array. Every
 semantically unordered collection or projection must instead declare, in its
@@ -58,7 +61,7 @@ The initial owner-declared key inventory is:
 | --- | --- |
 | Resolved body graph | The seven identity-bearing concepts use their structured semantic address; body-graph owns the address cross-link and uniqueness semantics. |
 | Module declarations | A declaration address, not an eighth graph kind; declaration uniqueness is checked in its declaration namespace. |
-| Landmark, anchor, dimension, and frame records | Record kind + owner semantic address + role, with context and/or claim identity when the owner permits repetitions. |
+| Landmark, anchor, dimension, and frame records | Record kind + owner semantic address + role, with context and/or conceptual `claim-id-1` when the owner permits repetitions. |
 | Fixture entries | Fixture ID; duplicate IDs and duplicate normalized repository paths are invalid. |
 | External implementation-binding path entries | Normalized safe relative path, with mode and raw content as bound entry values; paths are unique. The binding profile is separate from the fixture-manifest canonical domain. |
 | Dependency entries | Locator + role + a distinguishing revision identity; the owner must define uniqueness for repeated dependencies. |

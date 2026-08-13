@@ -45,11 +45,16 @@ Proposed [body-document contract](spec/body-document/README.md) and
 [DR-0012: initial body-document encoding, resolution, and compatibility](docs/decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md)
 now recorded for the integration batch. Batch 5 blocker resolutions are
 discussion-approved and are reflected in the canonical specifications as
-Proposed material. The current CK-KICK-012 Batch 5 Double review is Complete at
-commit `a282dbabffd83afa4e62577086934d00f98e12c7`. DR-0002 Revision 7, DR-0008
-Revision 7, DR-0011 Revision 3, and DR-0012 Revision 2 remain Proposed with
-Owner approval Pending. Three consolidated findings are pending Ben discussion;
-these proposals remain unaccepted.
+Proposed material. Accepted DR-0001 Revision 5 remains the operative governance
+baseline while DR-0001 Revision 6 is Proposed transition guidance: Ben approved
+its workflow direction, but formal acceptance remains pending current-revision
+review. The current DR-0006/0011/0012/0013 material is Proposed at Revisions
+10/13/12/10 with Owner approval Pending and Review Pending after material
+resolution edits. Batch 13 review commit `8c38c501eb1262a1b85af0b8605220625601772f`
+and findings D1–D3/P1–P3 are stale historical evidence; those findings are
+resolved in the current proposals and fresh review is pending. No acceptance,
+schema, fixture, parser/resolver, adapter, Cargo package, readiness,
+experiment, or implementation activates.
 
 - Durable authored intent lives in an authoritative semantic source set. Every
   operation reports through one authoritative result envelope; the resolved

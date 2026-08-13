@@ -1,12 +1,12 @@
 # Diagnostic registry and profile
 
-Status: Proposed canonical specification; CK-KICK-012 Batch 13 discussion-
+Status: Proposed canonical specification; CK-KICK-012 Batch 13/14 discussion-
 approved C4 resolution; exact codes and serialized fields are fixture-gated
 
-Batch 13 resolves the diagnostic-domain and bootstrap-compatibility direction
+Batch 13/14 resolves the diagnostic-domain and bootstrap-compatibility direction
 as Proposed material. Current Batch 13 material is recorded in DR-0006 Revision
-9, DR-0011 Revision 12, DR-0012 Revision 11, and DR-0013 Revision 9; each
-remains Proposed with Owner approval Pending and Review Complete after the
+10, DR-0011 Revision 13, DR-0012 Revision 12, and DR-0013 Revision 10; each
+remains Proposed with Owner approval Pending and Review Pending after the
 Batch 13 current-revision Double review. No registry,
 profile, code, schema, parser, or readiness gate is accepted or activated.
 

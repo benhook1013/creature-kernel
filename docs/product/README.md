@@ -41,13 +41,18 @@ and [fixture-manifest](../../spec/fixture-manifest/README.md) contracts.
 Prior CK-KICK-012 revisions and review artifacts remain preserved as historical
 evidence. Ben's Batch 5, Batch 8, Batch 9, Batch 10, Batch 11, Batch 12, and
 Batch 13 resolutions are discussion-approved and incorporated here as Proposed
-product outcomes only. The current materially revised decision records remain
-Proposed with Owner approval Pending and Review Complete after the Batch 13
-current-revision Double review. Both independent passes examined exact target
-`8c38c501eb1262a1b85af0b8605220625601772f`, made no edits, and recommend Revise
-at High confidence; the canonical owners retain exact revision and review
-metadata. Review evidence is not acceptance; no implementation or readiness
-gate activates.
+product outcomes only. Accepted DR-0001 Revision 5 remains the operative
+governance baseline while DR-0001 Revision 6 is Proposed transition guidance
+with Ben's workflow direction approved but formal acceptance pending
+current-revision review. The current materially revised decision records are
+Proposed at DR-0006 Revision 10, DR-0011 Revision 13, DR-0012 Revision 12, and
+DR-0013 Revision 10, each with Owner approval Pending and Review Pending after
+material resolution edits. The Batch 13 review commit
+`8c38c501eb1262a1b85af0b8605220625601772f` is stale historical evidence;
+findings D1–D3/P1–P3 are resolved in the current proposals and fresh review is
+pending. Review evidence is not acceptance; no acceptance, schema, fixture,
+parser/resolver, adapter, Cargo package, readiness, experiment, or
+implementation activates.
 Recommendations and the next discussion are summarized in the [current review
 state](../project/status.md#current-review-and-future-activation-obligations).
 The cross-cutting proposal is [DR-0012:

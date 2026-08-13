@@ -38,8 +38,10 @@ authority to replace canonical documents.
 Unaccepted material remains clearly labelled `Proposed` or `provisional`. A
 plausible assistant synthesis is not an accepted product or architecture
 baseline. The registry, process, and review structure operate under Accepted
-DR-0001 Revision 5; that governance acceptance does not accept any linked
-product, specification, or architecture proposal.
+DR-0001 Revision 5. DR-0001 Revision 6 is Proposed transition guidance with
+Ben's workflow direction approved but formal acceptance pending current-
+revision review; neither governance status accepts any linked product,
+specification, or architecture proposal.
 
 ## Revision and review rule
 

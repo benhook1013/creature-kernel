@@ -1,10 +1,10 @@
 # Semantic-address profile
 
-Status: Proposed canonical specification; CK-KICK-012 Batch 13 discussion-
+Status: Proposed canonical specification; CK-KICK-012 Batch 13/14 discussion-
 approved identity cross-link; no resolver or schema is activated
 
-Current Batch 13 material is recorded in DR-0006 Revision 9, DR-0011 Revision
-12, DR-0012 Revision 11, and DR-0013 Revision 9; each remains Proposed with
+Current Batch 13/14 material is recorded in DR-0006 Revision 10, DR-0011 Revision
+13, DR-0012 Revision 12, and DR-0013 Revision 10; each remains Proposed with
 Owner approval Pending and Review Pending. This profile remains a Proposed
 identity input and does not activate a parser, resolver, schema, or fixture.
 
@@ -92,6 +92,31 @@ The address profile is revisioned. A change to member meaning, lexical rules,
 closed kinds, anchor ordering, or equality changes the profile identity and
 invalidates the affected compatibility claims. Structural editing may create
 new addresses, but it never changes an existing address's meaning in place.
+
+## Conceptual claim-id-1
+
+Authored measurement and transform claims use versioned conceptual
+`claim-id-1`, a structured tuple of `(canonical_target, claim_kind,
+source_document_namespace, authored_record_address, typed_property_role,
+explicit_claim_key_or_absent)`. `canonical_target` is the normalized semantic
+target; `claim_kind` is a closed, typed kind; source-document/namespace
+identity is typed and normalized. The authored record address and typed
+property role are durable and stable across parser traversal and object-member
+order; the explicit claim key is present only for schema-permitted intentional
+repeated claims. The tuple has a componentwise lexicographic total order. An
+unordered pair is
+canonically `(min_id, max_id)`.
+
+Same-ID occurrences with the same normalized value are evaluated once while
+all occurrence/provenance records remain. Same-ID occurrences with different
+normalized values are an invalid-source identity collision. Different IDs are
+evaluated as all unordered pairs in lexicographic order; the first failing pair
+is the deterministic conflict representative, and the lexicographically
+smallest value tuple is selected only after every pair passes. Exact wire field
+spellings and enum values are deferred to schema activation. A raw JSON pointer
+is diagnostic provenance only: an activated source schema must provide the
+stable record address, typed property role, and multiplicity key required by
+this profile.
 
 ## Resource and activation boundary
 

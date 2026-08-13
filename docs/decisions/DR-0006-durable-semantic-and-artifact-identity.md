@@ -6,13 +6,13 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 9
+Revision: 10
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-08
 
@@ -71,6 +71,17 @@ this material Revision 9 change; their findings and history remain preserved
 below. Owner approval remains Pending and a fresh current-revision review is
 required.
 
+On 2026-08-13 Ben approved the four Batch 13 review-resolution directions
+for this record in discussion: canonical-tuple chord comparison without an
+angular guarantee; versioned structured claim identity; a mechanically closed
+and filesystem-safe readiness implementation binding; and explicit separation
+of implementation, fixture, request, attempt, and artifact identities. This
+Revision 10 records those settled directions as Proposed only. It creates no
+schema, fixture, parser/resolver, readiness gate, implementation, adapter,
+experiment, or package. The Batch 13 Revision 9 review is stale evidence after
+this material revision and remains preserved below; Owner approval remains
+Pending and a fresh current-revision review is required.
+
 ## Decision
 
 Use two identity levels and an explicit semantic-address boundary:
@@ -111,6 +122,29 @@ about source syntax or user-facing labels. The source representation may
 choose a later syntax only if it resolves to this profile without changing
 address equality or namespace ownership rules.
 
+### Conceptual authored claim identity
+
+Versioned conceptual `claim-id-1` is a structured tuple, not a serialized
+string: `(canonical_target, claim_kind, source_document_namespace,
+authored_record_address, typed_property_role, explicit_claim_key_or_absent)`.
+The target is
+the canonical semantic target; the claim kind is a closed kind owned by the
+active contract; source-document/namespace identity is typed and normalized;
+the authored record address and typed property role are durable and stable; and
+the explicit claim key is present only when the schema permits intentional
+repeated claims.
+The components have a componentwise lexicographic total order. Unordered pairs
+are represented conceptually as `(min_id, max_id)`; the same ID with the same
+normalized value is one semantic claim for evaluation while every occurrence
+and provenance is retained, and the same ID with a different value is an
+identity collision. Different IDs are evaluated as all unordered pairs in
+lexicographic order, with the first failing pair the deterministic conflict
+representative and the lexicographically smallest value tuple selected only
+after all pairs pass. Exact wire field spellings and enum values are deferred
+to schema activation. A raw JSON pointer is diagnostic provenance only; an
+activated schema must supply the stable record address, typed property role,
+and any multiplicity key.
+
 ### Canonical bytes and digest profile
 
 Use a project-owned canonical JSON profile after semantic normalization. It is
@@ -148,16 +182,17 @@ Exact framing, field spelling, and the numeric canonicalization constants are
 activation prerequisites and belong to the canonical specifications; they are
 not implementation freedom once activated.
 
-For same-target authored claims, identity is structured authored identity: the
-canonical target, claim kind, source-document/namespace identity, stable
-authored semantic record/property address, and an explicit authored claim key
-when multiple intentional claims exist. It is never an array, traversal,
-allocation, thread, time, or generated index. Claims with the same identity
-and the same normalized value are evaluated once while every occurrence and
-provenance is retained; the same identity with a different value is an
-invalid-source identity collision. DR-0011 owns the comparison mathematics;
-this identity boundary owns the durable identity inputs and their exclusion
-of incidental ordering.
+For same-target authored claims, use conceptual `claim-id-1` as defined above:
+typed canonical target, closed claim kind, typed source-document/namespace
+identity, stable authored record address, typed property role, and explicit
+claim key or absence. It is never an array, traversal, allocation, thread, time, or
+generated index. Claim IDs have a componentwise lexicographic total order and
+canonical unordered pairs are `(min_id,max_id)`. Same-ID/same-value
+occurrences are evaluated once while every occurrence and provenance is
+retained; same-ID/different-value is an invalid-source identity collision;
+different IDs use all-pairs evaluation in sorted order. DR-0011 owns the
+comparison mathematics; this identity boundary owns the durable identity
+inputs, order, multiplicity, and their exclusion of incidental ordering.
 
 Diagnostics have one owner: the diagnostics specification owns registry,
 domain, class, occurrence, profile, ordering, and compatibility meaning.
@@ -187,14 +222,16 @@ decoded from admitted finite binary64 values, using bounded integer/dyadic
 arithmetic. Rounded floating intermediates and an undefined “equivalent
 monotonic” evaluation are not permitted at the inclusive boundary. Runtime
 `asin`, `sin`, and `sqrt` are not used for rotation comparison. The admitted
-profile stores finite binary64 half-chord threshold `H`; choose the quaternion
-sign from the exact dyadic dot product (zero chooses `+1`), compute
-`di = qa_i - s*qb_i`, and accept iff `sum(di^2) <= (2H)^2` with exact dyadic
-arithmetic. If an angular tolerance `theta` is presented, `H` is derived
-offline with a declared higher-precision oracle and generator/profile revision;
-the stored exact theta/H bits include that derivation, and `H` is the greatest
-binary64 value not exceeding exact `sin(theta/4)`. Runtime transcendental
-recomputation is forbidden.
+profile stores finite binary64 half-threshold `H` for canonical-tuple chord
+semantics: after deterministic normalization and sign selection, `H` is the
+half-threshold in the Euclidean space of the canonical quaternion tuples. Choose
+the quaternion sign from the exact dyadic dot product (zero chooses `+1`),
+compute `di = qa_i - s*qb_i`, and accept iff `sum(di^2) <= (2H)^2` with exact
+dyadic arithmetic, inclusively. `H` and any nominal angular `theta` are
+profile/calibration metadata only; this contract does not claim that `H` or
+`theta` bounds represented angular error. A future represented-direction or
+angular guarantee requires a new comparison-profile revision and successor
+evidence. Runtime transcendental recomputation is forbidden.
 
 Source quaternion normalization is deterministic: exact max-absolute-component
 scaling, fixed `xyzw` divisions, fixed left-to-right squared-sum without
@@ -276,17 +313,36 @@ declared schema, fixtures, and snapshots. Separately, each transaction that
 activates implementation includes an external, domain-separated,
 versioned implementation-content binding. The binding is an ordered set of
 normalized relative paths, modes, and raw contents plus an aggregate SHA-256.
-It covers gate-affecting production source, relevant workspace/crate
-manifests/configuration, build/code-generation scripts and inputs,
-`Cargo.lock`, the rust-toolchain declaration, and applicable path-dependency
-source. Reviewed commit provenance is recorded but is not the equality
-binding. Behaviour-affecting features, environment, and configuration are
-fixed or supplied as outcome-affecting request inputs; generic host, rustc,
-and hardware metadata is evidence unless a platform-reproducibility claim
-explicitly binds it. Post-merge and immediately pre-trigger, both the fixture
-payload and implementation binding are recomputed. A mismatch blocks
-activation and requires an explicit successor. The binding does not cover the
-whole repository and does not introduce custom ledgers or signatures.
+The closure is explicit and mechanically checkable. The implementation-content
+binding owns selected repository paths, modes, and raw contents: Rust/Cargo
+production sources and workspace/crate manifests, repository Cargo
+configuration or a recorded absence, `Cargo.lock`, the rust-toolchain
+declaration, build scripts, and declared compile/code-generation inputs.
+Dependency closure separately owns registry, vendored, path-dependency, and
+proc-macro provenance/content. Build-request identity separately owns the
+selected packages, targets, target triple, features, profile, approved
+environment/tool/configuration inputs, and exact locked/offline command. The
+activation closure manifest binds or references all three, while keeping
+implementation binding, dependency closure, build-request identity, attempt
+identity, and fixture-payload binding distinct. Opaque Git/native/codegen
+inputs require an explicitly reviewed vendored snapshot escalation. Reviewed
+commit provenance is evidence, not equality binding; generic host, rustc, and
+hardware metadata is evidence unless a platform-reproducibility claim binds it.
+A locked/offline, private read-only activation snapshot is rooted at an opened
+repository descriptor and uses descriptor-relative no-follow reads. Traversal,
+absolute paths, symlinks, special files, and submodules are rejected in entries
+or ancestor components. Ancestors must be descriptor-opened no-follow
+directories; a final regular-file entry is rejected when `st_nlink != 1` and is
+eligible only with mode `100644` or `100755`. Descriptor identity, type, and size are checked
+consistently. Normal directory hardlink counts are not rejected. The profile
+excludes the whole repository, mutable caches, unlisted inputs,
+approval/successor records, Git commit identity, and unspecified host state. It
+is proportional to the current hobby threat model, not a general sandbox.
+Post-merge and immediately pre-trigger, implementation content and dependency
+content are recomputed from a fresh immutable snapshot, while build-request
+identity is revalidated against the exact bound request. A mismatch blocks
+activation and requires an explicit successor. This remains a Proposed contract
+and does not claim that the preflight or snapshot machinery is implemented.
 
 Future adapter profiles are orthogonal identity inputs, not alternate semantic
 identity. A post-R3 profile declares a signed-permutation `C`, finite positive
@@ -574,6 +630,19 @@ Complete for evidence only; Owner approval remains Pending and Status remains
 Proposed. No identity profile, readiness binding, adapter, schema, fixture,
 implementation, or package is accepted or activated by this review.
 
+The Batch 13 findings are dispositioned in this Revision 10 as follows. D1 is
+resolved at this identity boundary by removing the unproven angular
+interpretation: `H` is an inclusive canonical-tuple Euclidean threshold, while
+any represented-angular guarantee requires successor evidence. D2 and P1 are
+resolved by the explicit implementation-closure and root-descriptor,
+no-follow, regular-file-only binding profile cross-linked to the fixture
+manifest and platform records. D3 is resolved by conceptual `claim-id-1`, its
+typed component order, canonical unordered-pair form, stable property address,
+and multiplicity rule. P2 is owned by DR-0011's produced-zero `+0` rule and P3
+by the build-operation/platform status mapping. The prior reviews remain stale
+evidence; Review status is Pending and this Proposed revision activates none of
+the described machinery.
+
 ## Implementation and Proof Obligations
 
 - Define the semantic concepts requiring durable identity in the body and
@@ -623,30 +692,40 @@ implementation, or package is accepted or activated by this review.
   claims, multisets, and diagnostics by explicit multiplicity/occurrence
   identity. Never use source/traversal/allocation/index order, serialization,
   or raw bytes as fallback keys.
-- Define authored stable claim identity from canonical target, claim kind,
-  source-document/namespace identity, stable semantic record/property address,
-  and an explicit authored claim key when needed. Evaluate same-ID/same-value
+- Define conceptual versioned `claim-id-1` as the structured tuple of
+  canonical target, closed claim kind, typed source-document/namespace
+  identity, stable authored record address, typed property role, and explicit
+  authored claim key or absence. Freeze its componentwise lexicographic total order and
+  conceptual unordered pair `(min_id, max_id)`. Evaluate same-ID/same-value
   occurrences once while retaining all provenance; reject same-ID/different-
-  value identity collisions. Evaluate unordered pairs in sorted claim-ID order,
-  report the first failing sorted pair, and choose the smallest exact tuple only
-  after all pairs pass.
+  value identity collisions. Evaluate different-ID all-pairs in sorted claim-ID
+  order, report the first failing sorted pair, and choose the smallest exact
+  tuple only after all pairs pass. Exact wire fields/enums remain schema-gated;
+  raw JSON pointers are diagnostic provenance only.
 - Bind every Readiness 2/3 implementation activation to the separate,
-  domain-separated ordered normalized relative path/mode/raw-content set and
-  aggregate SHA-256 described above. Recompute fixture payload and
-  implementation binding post-merge and immediately before the trigger; block
-  mismatch and require a successor. Include gate-affecting source, manifests,
-  configuration, scripts/inputs, lockfile, toolchain declaration, and
-  applicable path dependencies, while treating reviewed commit provenance as
-  non-equality evidence.
+  domain-separated ordered normalized repository path/mode/raw-content set and
+  aggregate SHA-256 described above. Recompute fixture payload, implementation
+  binding, dependency closure, and build-request identity post-merge and
+  immediately before the trigger; block mismatch and require a successor. The
+  implementation binding covers selected gate-affecting source, manifests,
+  configuration, scripts/inputs, lockfile, and toolchain declaration.
+  Dependency closure covers registry/vendored/path-dependency/proc-macro
+  provenance/content. Build-request identity covers selected packages,
+  targets, target triple, features, profile, approved environment/tool/config,
+  and the exact locked/offline command. Treat reviewed commit provenance as
+  non-equality evidence and keep all identities distinct.
 - Prove post-collision inspection: identical committed identity, lineage,
   manifest, hashes, and sizes is already-published success; different lineage
   or identity is target conflict; same request/candidate with byte-divergent
   output is internal nondeterministic-output failure. Add first-build, retry,
   concurrent-winner, lineage-change, and byte-divergence fixtures.
 - Prove same-target normalization into one canonical local-to-parent frame,
-  direct componentwise translation, q/-q-invariant rotation comparison, and
-  exact dyadic scalar/half-chord predicates. Admit finite binary64 `H` offline
-  conservatively from exact `sin(theta/4)` when theta is supplied; use fixed
+  direct componentwise translation, q/-q-invariant canonical-tuple chord
+  comparison, and exact dyadic scalar/half-chord predicates. Admit finite
+  binary64 `H` as a post-normalization canonical-tuple Euclidean threshold;
+  theta, if retained, is informational/calibration metadata only and supplies
+  no represented-angular guarantee. Any future angular guarantee requires a
+  new comparison-profile revision and successor evidence. Use fixed
   max-component quaternion normalization, checked drift/near-zero bounds,
   canonical sign, and no runtime transcendental or ambient-mode dependence.
 - Admit those build/publication fixtures through the generic fixture-suite

@@ -1,8 +1,8 @@
 # Resolved body-graph contract
 
-Status: Proposed conceptual contract; CK-KICK-012 Batch 13 discussion-approved
+Status: Proposed conceptual contract; CK-KICK-012 Batch 13/14 discussion-approved
 canonical update. The current decision records remain Proposed with Owner
-approval Pending and Review Complete after the Batch 13 current-revision
+approval Pending and Review Pending after the Batch 13 current-revision
 Double review. This
 document records the approved comparator, claim identity, and graph collection
 key consequences only; no acceptance, implementation, or readiness gate is
@@ -290,8 +290,10 @@ normalized target and the resulting graph/provenance outcome. Exact discrete
 claims remain exact. Scalar and translation components use the profile's exact
 inclusive absolute-plus-relative predicate with componentwise L-infinity
 translation semantics. Quaternion claims are normalized and compared with the
-profile's q/-q predicate and dot-zero `+1` sign tie; runtime comparison uses no
-transcendental or norm operation. Transform claims are normalized into the
+profile's q/-q canonical-tuple chord predicate and dot-zero `+1` sign tie;
+runtime comparison uses no transcendental or norm operation. The profile's
+finite `H` is an inclusive Euclidean half-threshold over post-normalization
+canonical tuples, not an angular guarantee. Transform claims are normalized into the
 same canonical local-to-parent frame for direct comparison. A residual
 `B * inverse(A)` may remain a separately named composition diagnostic or
 snapshot check with its own profile semantics; no approximate-identity shortcut
@@ -316,12 +318,20 @@ normalized finite binary64 values, with `-0` already `+0`; claim ID breaks ties
 only when the entire value tuple is exactly equal. Preserve provenance for
 every claim, including claims not selected as the representative.
 
-Stable claim identity is structured from canonical target, claim kind, source
-document/namespace identity, stable authored semantic record/property address,
-and an explicit authored claim key for intentional multiplicity. It never uses
-a raw JSON pointer, array/traversal/allocation order, thread, time, or generated
-identifier; a raw pointer is diagnostic provenance only. Local claim-ID and
-multiplicity semantics are separate from the generic canonical collection key.
+Stable claim identity is conceptual versioned `claim-id-1`, structured from
+canonical target, closed claim kind, typed source-document/namespace identity,
+stable authored record address, typed property role, and explicit authored claim
+key or absence for intentional multiplicity. It has a componentwise lexicographic
+total order and unordered pairs are `(min_id, max_id)`. It never uses a raw
+JSON pointer, array/traversal/allocation order, thread, time, or generated
+identifier; a raw pointer is diagnostic provenance only. Same-ID/same-value
+occurrences are evaluated once while provenance remains, same-ID/different-
+value is an invalid-source identity collision, and different IDs use all-pairs
+evaluation in sorted order. Exact wire fields/enums are schema-gated; an
+activated schema must provide stable record address, typed property role, and
+multiplicity keys.
+Local claim-ID and multiplicity semantics are separate from the generic
+canonical collection key.
 Adding a passing claim can change the representative and therefore a snapshot;
 a changed comparison profile or expected fixture requires its profile/fixture
 successor process.

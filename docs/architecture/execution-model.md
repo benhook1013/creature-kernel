@@ -11,12 +11,15 @@ supplementary. This direction is Proposed for formal acceptance under
 [DR-0003](../decisions/DR-0003-real-time-first-compiled-avatar-boundary.md).
 
 CK-KICK-013 is a discussion-approved but unaccepted platform proposal.
-Proposed DR-0013 Revision 9 has Owner approval Pending and Review Complete after
-the Batch 13 current-revision Double review; both independent passes examined
-exact target `8c38c501eb1262a1b85af0b8605220625601772f`, made no edits, and
-recommend Revise at High confidence. Prior review evidence is stale for the
-revised record and is not acceptance. No implementation or readiness gate
-activates.
+Proposed DR-0013 Revision 10 has Owner approval Pending and Review Pending after
+material resolution edits. Accepted DR-0001 Revision 5 remains the operative
+governance baseline while DR-0001 Revision 6 is Proposed transition guidance
+with Ben's workflow direction approved but formal acceptance pending
+current-revision review. The Batch 13 review commit
+`8c38c501eb1262a1b85af0b8605220625601772f` is stale historical evidence;
+findings D1–D3/P1–P3 are resolved in the current proposal and fresh review is
+pending. No acceptance, schema, fixture, parser/resolver, adapter, Cargo
+package, readiness, experiment, or implementation activates.
 See the [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for recommendations and findings. Its four
 readiness stages are: acceptance activates only the empty Cargo shell; a

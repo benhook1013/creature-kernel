@@ -6,13 +6,13 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 11
+Revision: 12
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-11
 
@@ -107,6 +107,17 @@ package. The Revision 10 Batch 12 review artifacts are stale for this change
 and remain preserved below; Owner approval remains Pending and Review status
 is Pending pending a fresh current-revision review.
 
+On 2026-08-13 Ben approved the four Batch 13 source-resolution directions for
+this record in discussion: semantic zero normalization after every producing
+stage; conceptual versioned authored claim identity with stable record addresses
+and typed property roles; the mechanically closed, filesystem-safe implementation binding;
+and explicit adapter-profile status mapping. This Revision 12 records those
+settled directions as Proposed only. It creates no schema, fixture,
+parser/resolver, readiness gate, implementation, adapter, experiment, or
+package. The Batch 13 Revision 11 review is stale evidence after this material
+revision and remains preserved below; Owner approval remains Pending and a
+fresh current-revision review is required.
+
 ## Decision
 
 ### Initial source encoding and representation boundary
@@ -193,17 +204,29 @@ comparison-profile identity, and exact/semantic comparison rule.
 
 The fixture payload scope remains the manifest plus declared schema, fixtures,
 and snapshots. Separately, each readiness transaction that activates
-implementation requires an external, domain-separated, versioned ordered
-normalized relative path/mode/raw-content set and aggregate SHA-256. It binds
-gate-affecting production source, workspace/crate manifests and configuration,
-build/code-generation scripts and inputs, `Cargo.lock`, the rust-toolchain
-declaration, and applicable path-dependency source. Reviewed commit provenance
-is not equality binding. Behaviour-affecting features/environment/configuration
-are fixed or outcome-affecting inputs; generic host/rustc/hardware metadata is
-evidence unless a platform-reproducibility claim binds it. Recompute fixture
-payload and implementation binding post-merge and immediately before the
-trigger; a mismatch blocks activation and requires an explicit successor. Do
-not bind the whole repository or create a custom ledger/signature scheme.
+implementation requires the explicit external implementation binding defined by
+the [fixture-manifest contract](../../spec/fixture-manifest/README.md), separate
+from its fixture payload binding. That owner freezes selected Rust/Cargo
+repository paths, modes, and raw contents: sources/manifests, Cargo
+configuration or recorded absence, lockfile, toolchain, build scripts, and
+declared compile/codegen inputs. Dependency closure separately owns registry,
+vendored, path-dependency, and proc-macro provenance/content. Build-request
+identity separately owns selected packages/targets, target triple, features,
+profile, approved environment/tool/configuration inputs, and the exact
+locked/offline command. The activation closure manifest binds or references all
+three. It also owns locked/offline root-descriptor no-follow reads and
+regular-file-only mode/type/size checks: traversal, symlink, special-file, and
+submodule rejection applies to entries or ancestor components; ancestors are
+descriptor-opened no-follow directories; final regular-file entries are
+rejected when `st_nlink != 1`; normal directory hardlink counts are not rejected.
+Vendored-snapshot escalation applies to opaque inputs. Implementation binding,
+dependency closure, build-request identity, attempt identity, and fixture
+payload binding remain distinct. Post-merge and before the trigger, recompute
+implementation and dependency content from an immutable snapshot and
+revalidate the exact bound build request; mismatch blocks activation
+and requires an explicit successor. This Proposed cross-link does not claim the
+machinery is implemented and does not bind the whole repository or create a
+custom ledger.
 
 ### Exact numeric admission and comparison handoff
 
@@ -217,7 +240,12 @@ that rounds to signed zero, and accepts finite nonzero subnormals. Excessive
 precision is accepted within the lexical/resource bound without an arbitrary
 semantic digit limit. Lexical negative zero is accepted but normalized to
 positive zero for semantic/canonical models, while exact source bytes remain
-distinct; canonical numeric operations prohibit FTZ/DAZ.
+distinct; canonical numeric operations prohibit FTZ/DAZ. Every semantic
+numeric-producing stage normalizes produced zero to `+0` after
+admission/conversion, composition, inversion, quaternion normalization/sign,
+tuple formation, adapter conversion, and narrowing, before comparison or
+serialization. A permitted nonzero-to-zero narrowing emits `+0`; raw lexical
+`-0` remains distinct only in raw-source identity.
 
 The resolver uses DR-0011's normative typed comparisons. Same-target transform
 claims are first normalized into the same canonical local-to-parent frame;
@@ -232,11 +260,13 @@ arithmetic. Rounded floating intermediates and undefined “equivalent
 monotonic” evaluation cannot decide the inclusive boundary. Rotation uses the
 admitted finite-binary64 half-chord threshold `H`: choose q sign from exact
 dyadic dot (`0` chooses `+1`), compute `di=qa_i-s*qb_i`, and accept iff
-`sum(di^2) <= (2H)^2` with exact dyadic arithmetic. If theta is presented,
-derive H offline with a declared higher-precision oracle and
-generator/profile revision, store exact theta/H bits and derivation, and select
-the greatest binary64 H not exceeding exact `sin(theta/4)`. Runtime `asin`,
-`sin`, and `sqrt` are not used.
+`sum(di^2) <= (2H)^2` with exact dyadic arithmetic, inclusively. `H` is the
+finite binary64 post-normalization Euclidean half-threshold in canonical
+quaternion tuple space. A nominal `theta`, if presented, is informational/calibration
+metadata only; this source contract does not claim that `H` or `theta` bounds
+represented angular error. A future represented-direction or angular
+guarantee requires a new comparison-profile revision and successor evidence.
+Runtime `asin`, `sin`, and `sqrt` are not used.
 
 Source quaternion normalization uses exact max-absolute-component scaling,
 fixed `xyzw` divisions, fixed left-to-right squared sum without
@@ -244,10 +274,12 @@ reassociation/FMA, correctly rounded binary64 square root, fixed divisions,
 drift/near-zero validation, and canonical sign by first nonzero `wxyz`
 component positive. Round-to-nearest ties-to-even, no FTZ/DAZ, and no ambient
 mode are required; a platform without the required square root is unsupported.
-Bounds remain experiment-gated. Competing claims use structured authored claim
-identity (canonical target, claim kind, source-document/namespace identity,
-stable authored record/property address, and explicit authored claim key when
-needed), never array/traversal/allocation/thread/time/generated index. Same ID
+Bounds remain experiment-gated. Competing claims use conceptual versioned
+`claim-id-1` (canonical target, closed claim kind, typed source-document/
+namespace identity, stable authored record address, typed property role, and
+explicit authored claim key or absence), with componentwise lexicographic total order
+and unordered pair `(min_id, max_id)`. It never uses array/traversal/
+allocation/thread/time/generated index. Same ID
 and same normalized value is evaluated once while all occurrences/provenance
 remain; same ID with a different value is an invalid-source identity collision.
 Evaluate unordered pairs in sorted claim-ID order and use the first failing
@@ -1003,6 +1035,17 @@ approval remains Pending and Status remains Proposed. No parser, resolver,
 diagnostic profile, readiness gate, adapter, fixture, implementation, or
 package is accepted or activated by this review.
 
+The Batch 13 findings are dispositioned in this Revision 12 as follows. D1 is
+resolved by the canonical-tuple Euclidean `H` contract with no represented-
+angular guarantee. D2 and P1 are resolved by the explicit implementation
+closure and filesystem-safe root-descriptor/no-follow profile owned by
+DR-0006, DR-0013, and the fixture-manifest specification. D3 is resolved by
+conceptual typed `claim-id-1` with stable record address, typed property role,
+and explicit multiplicity. P2 is resolved by the produced-zero `+0` rule owned by DR-0011;
+P3 is resolved by the build-operation/platform adapter status mapping. The
+prior reviews remain stale evidence; Review status is Pending and this Proposed
+revision activates no parser, resolver, schema, adapter, or fixture machinery.
+
 ## Implementation and Proof Obligations
 
 - Define the exact source fields and paired JSON Schema Draft 2020-12 while
@@ -1046,14 +1089,20 @@ package is accepted or activated by this review.
   accept finite nonzero subnormals and excessive lexical precision within the
   resource bound. Normalize lexical negative zero only in semantic/canonical
   models, preserve source-byte distinction, and prohibit FTZ/DAZ in canonical
-  operations.
+  operations. Normalize every produced zero to `+0` after
+  admission/conversion, composition, inversion, quaternion normalization/sign,
+  tuple formation, adapter conversion, and narrowing, before comparison or
+  serialization; permitted nonzero-to-zero narrowing emits `+0`, and raw
+  lexical `-0` remains distinct only in raw-source identity.
 - Implement DR-0011's normative comparisons: normalize same-target transforms
   to one canonical local-to-parent frame and compare translations directly;
   keep residual transforms only as separately named diagnostic/composition
   comparisons. Decide scalar/component bounds over exact dyadic values with
   bounded integer arithmetic. Compare rotations by exact dyadic dot-sign and
-  half-chord threshold `H`, with no runtime `asin`, `sin`, or `sqrt`; derive H
-  offline conservatively from exact `sin(theta/4)` when theta is supplied.
+  the inclusive canonical-tuple Euclidean half-threshold `H`, with no runtime
+  `asin`, `sin`, or `sqrt`; a nominal theta is informational/calibration
+  metadata only, not an angular guarantee. Any future angular guarantee
+  requires a new comparison-profile revision and successor evidence.
   Normalize source quaternions with fixed max-component scaling, operation
   order, correctly rounded sqrt, drift/near-zero validation, canonical sign,
   RN ties-even, and no FTZ/DAZ/ambient mode. Require structured authored claim

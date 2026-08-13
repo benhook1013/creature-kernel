@@ -6,13 +6,13 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 9
+Revision: 10
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-11
 
@@ -87,6 +87,17 @@ experiment, or package. The Revision 8 Batch 12 review artifacts are stale for
 this change and remain preserved below. Owner approval remains Pending and
 Review status is Pending pending a fresh current-revision review.
 
+On 2026-08-13 Ben approved the four Batch 13 platform-resolution directions
+for this record in discussion: canonical-tuple comparison without an angular
+guarantee; explicit `+0` production-stage normalization; mechanically closed
+and filesystem-safe readiness implementation binding; and adapter status
+mapping with proof/fixture obligations. This Revision 10 records those
+settled directions as Proposed only. It creates no Cargo shell, schema,
+fixture, parser/resolver, readiness gate, implementation, adapter, experiment,
+or package. The Batch 13 Revision 9 review is stale evidence after this
+material revision and remains preserved below; Owner approval remains Pending
+and a fresh current-revision review is required.
+
 ## Decision
 
 This is a proposed first-production platform boundary. Readiness 1 through
@@ -133,17 +144,35 @@ contract or hypothesis and later executable evidence; hashes do not prove it.
 Fixture payload binding is deliberately separate from implementation binding.
 Each readiness transaction that activates implementation also carries an
 external, domain-separated, versioned ordered normalized relative path/mode/
-raw-content set and aggregate SHA-256. It covers gate-affecting production
-source, relevant workspace/crate manifests/configuration, build/codegen scripts
-and inputs, `Cargo.lock`, the rust-toolchain declaration, and applicable path
-dependency source. Reviewed commit provenance is recorded but is not equality
-binding. Behaviour-affecting features/environment/configuration are fixed or
-outcome-affecting inputs; generic host/rustc/hardware metadata is evidence
-unless a platform-reproducibility claim binds it. Recompute both fixture
-payload and implementation binding post-merge and immediately before the
-trigger; mismatch blocks activation and requires an explicit successor. The
-binding does not cover the whole repository and does not create custom
-ledgers/signatures.
+raw-content set and aggregate SHA-256. The closure is explicit and
+mechanically checkable. The implementation-content binding owns selected
+repository paths, modes, and raw contents: selected Rust/Cargo production
+sources and workspace/crate manifests, repository Cargo configuration or
+recorded absence, `Cargo.lock`, rust-toolchain declaration, build scripts, and
+declared compile/code-generation inputs. Dependency closure separately owns
+registry, vendored, path-dependency, and proc-macro provenance/content.
+Build-request identity separately owns selected packages, targets, target
+triple, features, profile, approved environment/tool/configuration inputs, and
+the exact locked/offline command. The activation closure manifest binds or
+references all three. Reviewed commit provenance is evidence, not equality
+binding; generic host/rustc/hardware metadata is evidence unless a
+platform-reproducibility claim binds it. Opaque Git/native/codegen inputs
+require a reviewed vendored snapshot escalation. Binding, dependency closure,
+build-request identity, attempt identity, and fixture payload binding remain
+distinct. Locked/offline preflight reads a private read-only activation
+snapshot rooted at an opened repository descriptor and uses descriptor-
+relative no-follow reads. It rejects traversal, absolute paths, symlinks,
+special files, and submodules in entries or ancestor components. Ancestors are
+descriptor-opened no-follow directories; a final regular-file entry is
+rejected when `st_nlink != 1` and is eligible only with mode `100644` or
+`100755`. Descriptor
+identity, type, and size are checked consistently; normal directory hardlink
+counts are not rejected. This is proportional to the current hobby threat
+model, not a general sandbox. Post-merge and immediately before the trigger,
+recompute implementation and dependency content from a fresh immutable snapshot
+and revalidate the exact bound build request; mismatch blocks activation and
+requires an explicit successor. This Proposed direction does not claim the
+preflight or snapshot machinery is implemented.
 
 All unordered manifest, fixture, dependency, and build projections declare an
 owner-defined typed total key and uniqueness or multiplicity rule before
@@ -186,7 +215,12 @@ are accepted, overflow to infinity and nonzero rationals that round to signed
 zero are rejected, and excessive precision within the lexical/resource bound
 has no arbitrary semantic digit limit. Lexical negative zero is accepted but
 normalized to positive zero for semantic/canonical models; exact source bytes
-remain distinct, and canonical operations prohibit FTZ/DAZ.
+remain distinct, and canonical operations prohibit FTZ/DAZ. Every semantic
+numeric-producing stage normalizes produced zero to `+0` after
+admission/conversion, composition, inversion, quaternion normalization/sign,
+tuple formation, adapter conversion, and narrowing, before comparison or
+serialization. A permitted nonzero-to-zero narrowing emits `+0`; raw lexical
+`-0` remains distinct only in raw-source identity.
 
 Readiness 3 comparison uses exact discrete identity. Same-target transforms are
 first normalized into one canonical local-to-parent frame and translations are
@@ -198,24 +232,30 @@ The inclusive scalar predicate is decided over exact dyadic values decoded
 from admitted finite binary64 values with bounded integer/dyadic arithmetic.
 The rotation profile stores finite binary64 half-chord threshold `H`: choose q
 sign by exact dyadic dot (`0` -> `+1`), compute `di=qa_i-s*qb_i`, and accept iff
-`sum(di^2) <= (2H)^2` exactly. If theta is presented, derive H offline with a
-declared higher-precision oracle and generator/profile revision, storing exact
-theta/H bits and derivation and choosing the greatest binary64 H not exceeding
-exact `sin(theta/4)`. Runtime `asin`, `sin`, and `sqrt` are not used.
+`sum(di^2) <= (2H)^2` exactly and inclusively. `H` is the finite binary64
+post-normalization Euclidean half-threshold in canonical quaternion tuple space. A
+nominal `theta`, if retained, is informational/calibration metadata only; this
+platform boundary does not claim that `H` or `theta` bounds represented angular
+error. A future represented-direction or angular guarantee requires a new
+comparison-profile revision and successor evidence. Runtime `asin`, `sin`, and
+`sqrt` are not used.
 
 Normalize source quaternions with exact max-absolute-component scaling, fixed
 `xyzw` divisions, fixed left-to-right squared sum without reassociation/FMA,
 correctly rounded binary64 square root, fixed divisions, drift/near-zero
 validation, and first-nonzero `wxyz` positive sign. Require RN ties-even, no
 FTZ/DAZ, and no ambient mode; unsupported platforms cannot provide this sqrt.
-Every unordered claim pair must pass. Structured authored claim identity uses
-canonical target, claim kind, source-document/namespace identity, stable
-authored record/property address, and explicit authored claim key when needed;
-it never uses array/traversal/allocation/thread/time/generated index. Same ID
-and same normalized value evaluates once while all occurrences/provenance
-remain; same ID/different value is invalid-source identity collision. Evaluate
-pairs in sorted claim-ID order, report the first failing sorted pair, and only
-then choose the lexicographically smallest exact finite-binary64 value tuple
+Every unordered claim pair must pass. Conceptual versioned `claim-id-1` is the
+structured tuple of canonical target, closed claim kind, typed
+source-document/namespace identity, stable authored record address, typed
+property role, and explicit authored claim key or absence; its components have a
+componentwise lexicographic total order and unordered pairs are
+`(min_id, max_id)`. It never uses array/traversal/allocation/thread/time/
+generated index. Same ID and same normalized value evaluates once while all
+occurrences/provenance remain; same ID/different value is invalid-source
+identity collision. Different IDs use all-pairs evaluation in sorted claim-ID
+order, report the first failing pair, and only then choose the lexicographically
+smallest exact finite-binary64 value tuple
 (`-0` already `+0`), with claim ID breaking exact tuple ties only.
 
 The numeric evidence gate pre-registers domains and semantic error budgets,
@@ -244,6 +284,18 @@ values; subnormal runtime preservation requires FTZ/DAZ probes. Failed required
 capability is unsupported; trusted in-domain overflow/disallowed underflow is
 output-failure. Core snapshots remain binary64 and unchanged; adapter
 activation is separate and after Readiness 3.
+
+Adapter status mapping reuses the existing statuses: malformed authored
+adapter request/profile, including bad `C`, `s <= 0`, or nonfinite values, is
+`invalid-source`/source-admission; a well-formed unknown revision or unavailable
+claimed capability is `unsupported`/source-admission; a violated already-
+admitted project-profile invariant is `internal-failure`/execution-trust; and
+a valid supported conversion overflow, disallowed underflow, or malformed
+output is `output-failure`/publication. Resource and trust outcomes retain
+their existing precedence. Exact codes/field names remain fixture-gated.
+Proof obligations include malformed scale/profile, unknown revision,
+unavailable capability, invariant violation, overflow, disallowed underflow,
+malformed output, and precedence cases; no fixtures or adapter activate here.
 
 Acceptance of DR-0013 itself is the sole trigger for Readiness 1. Creating this
 Proposed DR does not activate implementation packages, schemas, compiler
@@ -935,6 +987,18 @@ Status remains Proposed. No Cargo shell, readiness gate, parser, resolver,
 adapter, engine, fixture, implementation, or package is accepted or activated
 by this review.
 
+The Batch 13 findings are dispositioned in this Revision 10 as follows. D1 is
+resolved by the canonical-tuple Euclidean `H` threshold and removal of any
+represented-angular guarantee. D2 and P1 are resolved by the explicit locked/
+offline implementation closure, immutable activation snapshot, and
+root-descriptor no-follow regular-file profile cross-linked to DR-0006 and the
+fixture manifest. D3 is resolved by conceptual typed `claim-id-1` and its
+stable-address/order/multiplicity rules. P2 is resolved by the produced-zero
+`+0` rule in DR-0011; P3 is resolved by the explicit adapter status algebra and
+fixture obligations above. The prior reviews remain stale evidence; Review
+status is Pending and this Proposed revision activates no Cargo shell,
+readiness gate, resolver, adapter, or geometry implementation.
+
 ## Implementation and Proof Obligations
 
 - If this DR is accepted, create only the Cargo workspace and empty
@@ -975,12 +1039,26 @@ by this review.
 - Keep fixture payload and implementation binding separate. For every Readiness
   2/3 implementation activation, recompute the external versioned ordered
   normalized relative path/mode/raw-content set and aggregate SHA-256 after
-  merge and immediately before the trigger. Include gate-affecting source,
-  manifests/config, build/codegen scripts and inputs, `Cargo.lock`,
-  rust-toolchain declaration, and applicable path dependencies; commit
-  provenance remains evidence, not equality. Block mismatches and require an
+  merge and immediately before the trigger from a private immutable snapshot.
+  The implementation-content binding covers selected Rust/Cargo repository
+  paths, modes, and raw contents: sources/manifests, Cargo configuration or
+  recorded absence, lockfile, toolchain, build scripts, and declared
+  compile/codegen inputs. Dependency closure separately covers registry,
+  vendored, path-dependency, and proc-macro provenance/content. Build-request
+  identity separately covers selected packages/targets, target triple,
+  features, profile, approved environment/tool/configuration inputs, and the
+  exact locked/offline command. The activation closure manifest binds or
+  references all three. Use locked/offline resolution; reject traversal,
+  absolute paths, symlinks, special files, and submodules in entries/ancestors;
+  ancestors are root-FD-anchored no-follow directories, while final regular
+  files reject `st_nlink != 1` and require mode 100644/100755, with descriptor
+  identity/type/size checks. Normal directory hardlink counts are not rejected.
+  Opaque Git/native/codegen inputs need a reviewed vendored snapshot escalation.
+  Keep binding, dependency closure, build-request identity, attempt identity,
+  and fixture payload binding distinct. Block mismatches and require an
   explicit successor; do not bind the whole repository or create a custom
-  ledger/signature.
+  ledger/signature. This remains a proportional Proposed hobby-project closure,
+  not a general sandbox, and is not claimed implemented here.
 - Keep semantic resolution, diagnostics, provenance, and the CLI independent
   of geometry implementation, visual workbench, and host engine.
 - Use the diagnostics specification as sole owner of registry, domain, class,
@@ -998,16 +1076,19 @@ by this review.
   ties-to-even; reject non-finite/overflow and nonzero rationals rounding to
   signed zero; accept finite nonzero subnormals and excessive precision within
   the lexical/resource bound; normalize lexical negative zero only in
-  semantic/canonical models; preserve source-byte distinction; and prohibit
-  FTZ/DAZ in canonical operations.
+  semantic/canonical models; preserve source-byte distinction; normalize every
+  produced zero to `+0` after each semantic numeric-producing stage and before
+  comparison/serialization; and prohibit FTZ/DAZ in canonical operations.
 - Make Readiness 3 comparisons normative and typed: normalize same-target
   transforms into one canonical local-to-parent frame and compare translations
   directly, while residual `B * inverse(A)` is only a separately named
   diagnostic/composition comparison. Decide inclusive scalar bounds over exact
   dyadic values with bounded integer arithmetic. Use exact dyadic dot-sign and
-  finite binary64 half-chord threshold `H`, offline conservatively derived from
-  exact `sin(theta/4)` when theta is supplied; runtime `asin`, `sin`, and `sqrt`
-  are forbidden. Normalize quaternions with fixed max-component scaling,
+  finite binary64 canonical-tuple Euclidean half-threshold `H`; a nominal theta
+  is informational/calibration metadata only, not an angular guarantee. Any
+  future angular guarantee requires a new comparison-profile revision and
+  successor evidence. Runtime `asin`, `sin`, and `sqrt` are forbidden. Normalize
+  quaternions with fixed max-component scaling,
   operation order, correctly rounded sqrt, drift/near-zero validation, canonical
   sign, RN ties-even, and no FTZ/DAZ/ambient mode. Require structured authored
   claim identity, reject same-ID/different-value collisions, evaluate pairs in

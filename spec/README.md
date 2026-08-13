@@ -14,17 +14,17 @@ The current semantic proposal set is represented by [DR-0002](../docs/decisions/
 and [DR-0011](../docs/decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
 Their prior revisions and reviews remain preserved as historical evidence.
 DR-0002 Revision 11 and DR-0008 Revision 11 remain Proposed with Owner approval
-Pending and Review Complete. Current Batch 13 material is recorded in DR-0006
-Revision 9, DR-0011 Revision 12, DR-0012 Revision 11, and DR-0013 Revision 9;
-each remains Proposed with Owner approval Pending and Review Complete after the
-Batch 13 current-revision Double review. Both independent passes examined exact
-target `8c38c501eb1262a1b85af0b8605220625601772f`, made no edits, and recommend
-Revise at High confidence. Batch
-11/12 review artifacts are stale for those revised records and remain evidence
-only. Batch 13 resolves the C1 keyed-collection, C3 separate
-implementation-binding, and C4 diagnostic/bootstrap directions as Proposed
-cross-spec material. No implementation, schema, parser, resolver, binding, or
-readiness gate activates. See the [current review
+Pending and Review Complete. Current material is recorded in DR-0006 Revision
+10, DR-0011 Revision 13, DR-0012 Revision 12, and DR-0013 Revision 10; each
+remains Proposed with Owner approval Pending and Review Pending after material
+resolution edits. Accepted DR-0001 Revision 5 remains the operative governance
+baseline while DR-0001 Revision 6 is Proposed transition guidance with Ben's
+workflow direction approved but formal acceptance pending current-revision
+review. The Batch 13 review commit `8c38c501eb1262a1b85af0b8605220625601772f`
+and findings D1–D3/P1–P3 are stale historical evidence; those findings are
+resolved in the current proposals and fresh review is pending. No acceptance,
+schema, fixture, parser, resolver, binding, adapter, Cargo package, readiness
+gate, experiment, or implementation activates. See the [current review
 state](../docs/project/status.md#current-review-and-future-activation-obligations)
 for the current findings.
 The cross-cutting proposal is

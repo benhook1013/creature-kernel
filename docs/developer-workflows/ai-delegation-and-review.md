@@ -1,11 +1,15 @@
 # AI delegation and review
 
-Status: Operational under Accepted DR-0001 Revision 5
+Status: Proposed transition guidance; current safety and authority controls
+remain operational under Accepted DR-0001 Revision 5
 
 Use this workflow whenever the main thread considers delegating work or
-requesting model-backed independent review under the accepted DR-0001 Revision 5
-governance process. It preserves safety and ownership boundaries, while product,
-specification, and architecture proposals remain provisional.
+requesting model-backed independent review. It preserves safety and ownership
+boundaries while DR-0001 Revision 6 is Proposed. Ben approved the autonomous
+engineering workflow direction on 2026-08-13, but formal current-revision
+acceptance remains pending review. Product, specification, and architecture
+proposals remain provisional unless their canonical decision status says
+otherwise.
 
 ## Ownership boundary
 
@@ -13,7 +17,8 @@ The main `gpt-5.6-sol` thread owns:
 
 - discussion with the human project owner;
 - planning and task decomposition;
-- product and architecture synthesis;
+- product and architecture synthesis, without silently changing retained
+  human direction;
 - assignment and integration of delegated work;
 - consolidated validation;
 - Git, branch, commit, and pull-request operations;
@@ -21,18 +26,54 @@ The main `gpt-5.6-sol` thread owns:
 - external side effects;
 - the final repository recommendation.
 
+### Retained human authority
+
+Ben retains decisions about product purpose and scope, user-visible experience
+and quality targets, supported morphology or runtime promises, material
+platform or engine lock-in, licensing, cost, privacy, external side effects,
+large irreversible trade-offs, and acceptance or rejection of product or
+direction-setting DRs. If a technical finding would change one of those
+boundaries, the main thread asks Ben rather than resolving it autonomously.
+
+### Proposed autonomous engineering lane
+
+Within the retained boundaries, the main thread may settle exact schemas and
+field names, deterministic and numeric algorithms, diagnostics and status
+implementation, build integrity, code and test organization, reversible
+dependencies and tools, implementation details, and defect resolution. A
+technical choice can still require durable reasoning in a DR, design note,
+issue, or implementation evidence, but it is not a routine user discussion
+queue. This lane does not accept a DR, alter canonical product or architecture
+direction, authorize external side effects, or grant subagents independent
+product or architecture authority.
+
+The main thread classifies findings as follows: correctness needed now is
+fixed; a retained-human direction or material trade-off is escalated to Ben;
+an implementation- or evidence-dependent question is recorded with its
+trigger and deferred; speculative hardening without a present need is not
+built. Review, tests, experiments, and evidence remain active and risk-scaled.
+The lane supports extended research/implementation/test/review cycles until a
+tangible milestone or a retained-human choice requires a handoff; it does not
+run endless theoretical or review-until-clean loops.
+
 A subagent may collect evidence, implement a bounded decision already supported
 by canonical design, or challenge a proposal. It must not make product or
-architecture decisions. An independent reviewer recommends; the human decision
-owner decides.
+architecture decisions independently. An independent reviewer recommends; the
+human decision owner decides. A subagent may implement a technical choice
+already settled by the main thread, but the main thread owns integration and
+the delegated technical disposition.
 
 ## Round and batch pipeline
 
-The main thread groups roughly two to five related decisions or talking points
-into one discussion batch and finishes the discussion with Ben. Luna applies
-non-trivial document edits, evidence gathering, and bounded mechanical work;
-the main thread inspects and integrates the batch and commits it. At the end of
-every substantive design-cycle handoff, the main thread explicitly states
+For product, direction-setting, architecture-boundary, or external-impact
+choices, the main thread groups roughly two to five related decisions or
+talking points into one discussion batch and finishes the discussion with Ben.
+Routine technical implementation proceeds in the proposed autonomous lane
+without a separate decision round. Luna applies non-trivial document edits,
+evidence gathering, and bounded mechanical or implementation work; the main
+thread inspects and integrates the batch and controls commits and other
+external side effects. At the end of every substantive design-cycle handoff,
+the main thread explicitly states
 `Recommended adversarial level: None|Single|Double — <one-line reason>` as
 advice to Ben and a durable planning signal, not automatic acceptance. `None`
 is for purely mechanical/reversible work or discussion with no created or
@@ -53,11 +94,13 @@ normally receives Double again unless Ben changes or waives it. Double is one
 pass per reviewer on the current revision, not review-until-clean. The main
 thread consolidates duplicate and contradictory findings and presents only
 actionable findings. Independent research for the next batch may proceed when
-dependencies permit. Decision-bearing findings are not auto-fixed and the
-process does not run a review-until-clean loop; mechanical defects faithful to
-settled intent may be corrected, while a new scope, trade-off, or authority
-choice returns to Ben. Unaccepted material remains clearly labelled Proposed or
-provisional.
+dependencies permit. Product, direction-setting, architecture-boundary, and
+external-impact findings are not auto-fixed and the process does not run a
+review-until-clean loop; mechanical defects faithful to settled intent may be
+corrected. For technical findings inside the delegated boundary, the main
+thread may fix correctness now or record an implementation/evidence trigger
+for later. A new scope, trade-off, or authority choice returns to Ben.
+Unaccepted material remains clearly labelled Proposed or provisional.
 
 ## Model routing
 

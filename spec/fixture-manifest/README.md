@@ -1,13 +1,13 @@
 # Fixture manifest and admission contract
 
-Status: Proposed conceptual specification; CK-KICK-012 Batch 13 discussion-
+Status: Proposed conceptual specification; CK-KICK-012 Batch 13/14 discussion-
 approved C1/C3/C4 resolutions; no schema, parser, or fixture corpus is
 activated
 
-Current Batch 13 material is recorded in DR-0006 Revision 9, DR-0011 Revision
-12, DR-0012 Revision 11, and DR-0013 Revision 9; each remains Proposed with
-Owner approval Pending and Review Complete after the Batch 13 current-revision
-Double review. Batch 13 fixes the generic
+Current Batch 13/14 material is recorded in DR-0006 Revision 10, DR-0011 Revision
+13, DR-0012 Revision 12, and DR-0013 Revision 10; each remains Proposed with
+Owner approval Pending and Review Pending after the Batch 13 current-revision
+Double review. Batch 13/14 carries the generic
 canonical-key, separate implementation-binding, and diagnostic/bootstrap
 directions as Proposed material. Exact identifiers, schema fields, code
 membership, and fixture content remain readiness-gated.
@@ -65,23 +65,49 @@ algorithm, ordered path/mode/raw-content semantics, and domain separation are
 fixed Proposed direction. The binding record is outside the bound set and
 contains no self-reference; it is not the `ck/v1/fixture-manifest` digest.
 
-For Readiness 2 the closure includes the relevant production parser/bootstrap
-source, workspace/crate manifests and configuration, build/code-generation
-scripts and their inputs, `Cargo.lock`, the `rust-toolchain` declaration, and
-applicable path-dependency source. For Readiness 3 it includes the relevant
-resolver/source closure and the same build/toolchain inputs. Behaviour-affecting
-features, environment, and configuration are fixed or included as request
-identity inputs. Generic host, rustc, and hardware evidence is recorded for
-reproducibility but is not equality-bound unless the claim explicitly says so.
-There is no whole-repository binding, commit-equality requirement, signature,
-or custom ledger.
+The closure is explicit and mechanically checkable, not an implementation
+convention. The implementation-content binding owns selected repository paths,
+modes, and raw contents: selected Rust/Cargo production sources and
+workspace/crate manifests, repository Cargo configuration or a recorded
+absence, `Cargo.lock`, the rust-toolchain declaration, build scripts, and
+declared compile/code-generation inputs. Dependency closure separately owns
+registry, vendored, path-dependency, and proc-macro provenance/content.
+Build-request identity separately owns selected packages, targets, target
+triple, features, profile, approved environment/tool/configuration inputs, and
+the exact locked/offline command. Readiness 2 binds the parser/bootstrap
+closure; Readiness 3 binds the resolver/source closure. The activation closure
+manifest binds or references all three. Opaque Git, native, vendored, or
+generated inputs that cannot be represented by this closure require an
+explicitly reviewed vendored snapshot escalation before activation. Generic
+host, rustc, and hardware evidence is recorded for reproducibility but is not
+equality-bound unless the claim explicitly says so. Implementation binding,
+dependency closure, build-request identity, attempt identity, and
+fixture-payload binding are distinct inputs and identities.
+
+The future preflight is locked/offline and reads from a private read-only
+activation snapshot. It is rooted at an opened repository directory descriptor
+and uses descriptor-relative, no-follow reads. Traversal, absolute paths,
+symlinks, special files, and submodules in entries or ancestor components are
+rejected. Ancestors must be descriptor-opened no-follow directories; a final
+regular-file entry is rejected when `st_nlink != 1` and is eligible only with
+mode `100644` or `100755`. Each read verifies descriptor identity, file type, and size
+consistently between admission and hashing. Normal directory hardlink counts
+are not rejected. The snapshot is immutable for the transaction. The profile excludes
+the whole repository, mutable generated caches, unlisted inputs, approvals,
+successor records, Git commit identity, and unspecified host state. This is a
+proportional closure and tamper/escape check for the current hobby-project
+threat model, not a general sandbox or hostile-privilege boundary.
 
 After merge and immediately before the readiness ledger trigger, recompute the
-fixture payload binding and the implementation binding. Any mismatch blocks
-activation and requires a successor transaction; commit provenance alone can
-never authorize changed bytes. Readiness 2 binds parser/bootstrap and
-Readiness 3 binds the resolver. This is a contract direction only and does not
-activate implementation.
+fixture payload, implementation content, and dependency content from a fresh
+immutable snapshot, and revalidate build-request identity against the exact
+locked/offline command and other bound request inputs. Any mismatch blocks
+activation and requires a successor
+transaction; commit provenance alone can never authorize changed bytes. The
+activation closure manifest binds or references all three closure inputs and
+their distinct identities. Readiness 2 binds parser/bootstrap and Readiness 3
+binds the resolver. This is a contract direction only and does not claim that
+the preflight or snapshot machinery is implemented now.
 
 Preflight proves internal consistency only. It checks the manifest structure,
 paths, hashes, provenance, profile references, expected status/diagnostic
@@ -174,14 +200,18 @@ normalized binary64 values.
 
 Comparison fixtures include inclusive scalar/translation boundaries,
 componentwise L-infinity checks, q/-q equivalence and the dot-zero `+1` tie,
-transform residual comparison, pairwise claim permutations, non-transitive
+the inclusive canonical-tuple Euclidean `H` boundary (without an angular
+guarantee), post-operation `+0` bit patterns, transform residual comparison,
+pairwise claim permutations, non-transitive
 triples, and representative/provenance changes when an additional passing
 claim is added. Authored-conflict and expected-snapshot comparison profiles
 are distinct bindings. Future adapter fixtures separately cover named
 directions, reflections/handedness, composition, inverse, quaternion
 round-trips, correctly rounded narrowing, subnormals, nonzero-to-zero
-underflow, overflow, and angular/translation budgets; they are activated only
-after Readiness 3 and do not select an engine.
+underflow, overflow, malformed zero/negative/nonfinite scale, unknown revision,
+unavailable capability, admitted-invariant violation, malformed output, and
+status precedence; they are activated only after Readiness 3 and do not select
+an engine.
 
 Only listed fixtures participate in an admission. An unlisted fixture, even if
 it exists on the review branch or is readable by an implementation, does not

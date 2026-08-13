@@ -3,7 +3,7 @@
 Status: Proposed canonical specification; exact activation constants remain
 experiment-gated
 
-This Batch 13 update is Proposed. It records the approved comparator, claim
+This Batch 13/14 update is Proposed. It records the approved comparator, claim
 identity, and future-adapter directions while preserving the separate
 canonical-collection, Readiness 2/3 binding, and diagnostic/bootstrap owners.
 No numeric, resolver, fixture, or adapter gate activates from this document.
@@ -130,13 +130,23 @@ path above. Let `d = dot(qa, qb)`, choose `s = +1` when `d >= 0` and
 `s = -1` otherwise (the `d == 0` tie therefore chooses `+1`). Set
 `di = qa_i - s qb_i` in fixed `x,y,z,w` order and accept exactly when the
 dyadic sum `sum(di^2) <= (2H)^2`, where `H` is the profile's finite binary64
-angular half-chord bound. The dot, subtraction, square, sum, and comparison
+post-normalization canonical-tuple Euclidean half-threshold. The dot, subtraction,
+square, sum, and comparison
 are exact dyadic/integer operations; no runtime `asin`, `sin`, norm, or square
-root is used by comparison. `H` is derived offline from an independent
-high-precision oracle/generator revision and is the greatest binary64 value
-no greater than the exact `sin(theta/4)` for the declared angular threshold.
-The profile stores the exact theta/H bits and derivation metadata. No
-alternative q-sign tie or approximate-identity test is permitted.
+`H` is the finite binary64 half-threshold in the Euclidean space of the
+post-normalization canonical quaternion tuples. It is a canonical-tuple chord
+threshold, not a proven angular bound. A nominal `theta`, if retained, is
+informational/calibration metadata only; any future represented-direction or
+angular guarantee requires a new comparison-profile revision and successor
+evidence. No alternative q-sign tie or approximate-identity test is permitted.
+
+Every semantic numeric-producing stage canonicalizes produced zero to `+0`
+after admission/conversion, composition, inversion, quaternion normalization
+and sign selection, tuple formation, adapter conversion, and target-precision
+narrowing, and before comparison or serialization. A permitted nonzero-to-zero
+narrowing follows the active underflow policy but emits `+0`. Raw lexical `-0`
+remains distinct only in raw-source identity; it is never retained in semantic,
+canonical, comparison, adapter, or serialized values.
 
 For same-target claims, normalize every value into the identical canonical
 local-to-parent frame and compare translations directly componentwise and
