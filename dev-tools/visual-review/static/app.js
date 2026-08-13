@@ -36,6 +36,7 @@
   }
 
   function renderIndex(data) {
+    document.title = "Creature Kernel visual reviews";
     clear(app);
     var heading = node("h1", "Visual review gallery");
     app.appendChild(heading);
@@ -53,6 +54,9 @@
       title.appendChild(link);
       card.appendChild(title);
       card.appendChild(node("code", session.id, "stable-id"));
+      if (session.kind === "structure") {
+        card.appendChild(node("span", "Structural inspection", "session-kind"));
+      }
       if (session.description) {
         card.appendChild(node("p", session.description));
       }
@@ -107,6 +111,396 @@
     return panel;
   }
 
+  function jsonText(value) {
+    try {
+      var text = JSON.stringify(value, null, 2);
+      return text === undefined ? "Unavailable" : text;
+    } catch (error) {
+      return "Unavailable (could not serialize this value)";
+    }
+  }
+
+  function isObject(value) {
+    return value !== null && typeof value === "object" && !Array.isArray(value);
+  }
+
+  function addressText(address) {
+    if (!isObject(address)) {
+      return "Unavailable address";
+    }
+    var namespace = address.namespace === undefined ? "?" : String(address.namespace);
+    var kind = address.kind === undefined ? "?" : String(address.kind);
+    var role = address.role === undefined ? "?" : String(address.role);
+    var anchors = Array.isArray(address.anchors) ? address.anchors.map(String) : [];
+    return namespace + " / " + kind + ":" + role + " [anchors: " + (anchors.length ? anchors.join(", ") : "none") + "]";
+  }
+
+  function declarationText(declaration) {
+    if (!isObject(declaration)) {
+      return "Unavailable module declaration";
+    }
+    var namespace = declaration.namespace === undefined ? "?" : String(declaration.namespace);
+    var documentName = declaration.document === undefined ? "?" : String(declaration.document);
+    var role = declaration.role === undefined ? "?" : String(declaration.role);
+    var anchors = Array.isArray(declaration.anchors) ? declaration.anchors.map(String) : [];
+    return namespace + " / module declaration:" + role + " [anchors: " + (anchors.length ? anchors.join(", ") : "none") + "] (document: " + documentName + ")";
+  }
+
+  function addressDetails(address, label) {
+    var details = node("details", null, "structure-details");
+    details.appendChild(node("summary", (label || "Address") + ": " + addressText(address)));
+    details.appendChild(node("pre", jsonText(address), "context-json"));
+    return details;
+  }
+
+  function valueDetails(label, value) {
+    var details = node("details", null, "structure-details");
+    details.appendChild(node("summary", label));
+    details.appendChild(node("pre", jsonText(value), "context-json"));
+    return details;
+  }
+
+  function collectionCount(value) {
+    return Array.isArray(value) ? String(value.length) : "Unavailable";
+  }
+
+  function metadataGrid(entries) {
+    var grid = node("dl", null, "structure-metadata");
+    entries.forEach(function (entry) {
+      grid.appendChild(node("dt", entry[0]));
+      grid.appendChild(node("dd", entry[1]));
+    });
+    return grid;
+  }
+
+  function structureDiagnostics(structure, extra) {
+    var diagnostics = Array.isArray(structure && structure.diagnostics) ? structure.diagnostics.slice() : [];
+    (extra || []).forEach(function (message) {
+      diagnostics.push({ code: "ck.visual-review.invalid-structure", message: message });
+    });
+    return diagnostics;
+  }
+
+  function diagnosticsBlock(structure, extra) {
+    var diagnostics = structureDiagnostics(structure, extra);
+    var section = node("section", null, "structure-diagnostics");
+    section.appendChild(node("h2", "Status and diagnostics"));
+    if (!diagnostics.length) {
+      section.appendChild(node("p", "No diagnostics were supplied by the inspection result."));
+      return section;
+    }
+    var list = node("ul");
+    diagnostics.forEach(function (diagnostic) {
+      var message;
+      if (isObject(diagnostic)) {
+        if (diagnostic.detail !== undefined && diagnostic.detail !== null && String(diagnostic.detail)) {
+          message = String(diagnostic.detail);
+        } else if (diagnostic.message !== undefined && diagnostic.message !== null && String(diagnostic.message)) {
+          message = String(diagnostic.message);
+        } else {
+          message = jsonText(diagnostic);
+        }
+      } else {
+        message = diagnostic === undefined || diagnostic === null ? jsonText(diagnostic) : String(diagnostic);
+      }
+      var code = isObject(diagnostic) && diagnostic.code ? String(diagnostic.code) + ": " : "";
+      list.appendChild(node("li", code + message));
+    });
+    section.appendChild(list);
+    return section;
+  }
+
+  function validateStructure(structure) {
+    var errors = [];
+    if (!isObject(structure)) {
+      return ["The structure payload is not an object."];
+    }
+    if (structure.status !== "success") {
+      return errors;
+    }
+    if (!isObject(structure.graph)) {
+      errors.push("A successful structural result must contain a graph object.");
+      return errors;
+    }
+    var graph = structure.graph;
+    ["modules", "parts", "joints", "sockets", "attachments", "landmarks", "dimensions", "frames", "regions", "capabilities", "fields"].forEach(function (name) {
+      if (!Array.isArray(graph[name])) {
+        errors.push("graph." + name + " is missing or is not a collection.");
+      }
+    });
+    if (errors.length || !Array.isArray(graph.parts)) {
+      return errors;
+    }
+    var partKeys = Object.create(null);
+    graph.parts.forEach(function (part, index) {
+      if (!isObject(part) || !isObject(part.address) || part.address.kind !== "part") {
+        errors.push("graph.parts[" + index + "] has no valid Part address.");
+        return;
+      }
+      var key = addressKey(part.address);
+      if (partKeys[key]) {
+        errors.push("graph.parts contains a duplicate Part address: " + addressText(part.address));
+      }
+      partKeys[key] = true;
+      if (!isObject(part.containment)) {
+        errors.push("Part " + addressText(part.address) + " has no explicit containment record.");
+      } else if (part.containment.root === true && part.containment.parent !== undefined) {
+        errors.push("Part " + addressText(part.address) + " cannot be both an explicit root and an explicit child.");
+      } else if (part.containment.root !== true && (!isObject(part.containment.parent) || part.containment.parent.kind !== "part")) {
+        errors.push("Part " + addressText(part.address) + " is neither an explicit root nor an explicit Part child.");
+      }
+    });
+    graph.parts.forEach(function (part) {
+      if (!isObject(part) || !isObject(part.containment) || !part.containment.parent) {
+        return;
+      }
+      if (!partKeys[addressKey(part.containment.parent)]) {
+        errors.push("Part " + addressText(part.address) + " names a missing containment parent.");
+      }
+    });
+    if (!errors.length) {
+      var visiting = Object.create(null);
+      var visited = Object.create(null);
+      function visit(key) {
+        if (visiting[key]) {
+          errors.push("Part containment contains a cycle.");
+          return;
+        }
+        if (visited[key]) {
+          return;
+        }
+        visiting[key] = true;
+        var part = graph.parts.filter(function (candidate) { return addressKey(candidate.address) === key; })[0];
+        if (part && part.containment.parent) {
+          visit(addressKey(part.containment.parent));
+        }
+        delete visiting[key];
+        visited[key] = true;
+      }
+      graph.parts.forEach(function (part) { visit(addressKey(part.address)); });
+    }
+    return errors;
+  }
+
+  function addressKey(address) {
+    if (!isObject(address)) {
+      return "<invalid>";
+    }
+    return [address.namespace, address.kind, address.role, Array.isArray(address.anchors) ? address.anchors.join("\u0001") : ""].map(function (value) {
+      return String(value);
+    }).join("\u0002");
+  }
+
+  function renderPart(part, childrenByParent) {
+    var details = node("details", null, "containment-node");
+    details.open = true;
+    var summary = node("summary", String(part.address.role || "Part") + " — " + addressText(part.address));
+    details.appendChild(summary);
+    details.appendChild(addressDetails(part.address));
+    if (part.placement !== undefined) {
+      details.appendChild(valueDetails("Placement", part.placement));
+    } else {
+      details.appendChild(node("p", "Placement not supplied by this projection.", "muted"));
+    }
+    var children = childrenByParent[addressKey(part.address)] || [];
+    if (children.length) {
+      var childList = node("div", null, "containment-children");
+      children.forEach(function (child) { childList.appendChild(renderPart(child, childrenByParent)); });
+      details.appendChild(childList);
+    }
+    return details;
+  }
+
+  function containmentSection(graph) {
+    var section = node("section", null, "structure-section");
+    section.appendChild(node("h2", "Part containment"));
+    section.appendChild(node("p", "Tree edges are drawn only from explicit Part containment records; joints and attachments are shown separately."));
+    if (!graph.parts.length) {
+      section.appendChild(node("p", "No Parts are present (0).", "empty"));
+      return section;
+    }
+    var childrenByParent = Object.create(null);
+    var roots = [];
+    graph.parts.forEach(function (part) {
+      if (part.containment.root === true) {
+        roots.push(part);
+      } else {
+        var key = addressKey(part.containment.parent);
+        if (!childrenByParent[key]) { childrenByParent[key] = []; }
+        childrenByParent[key].push(part);
+      }
+    });
+    var tree = node("div", null, "containment-tree");
+    roots.forEach(function (root) { tree.appendChild(renderPart(root, childrenByParent)); });
+    section.appendChild(tree);
+    return section;
+  }
+
+  function addressList(parent, values, label) {
+    if (!Array.isArray(values) || !values.length) {
+      parent.appendChild(node("p", "No " + label + " (0).", "muted"));
+      return;
+    }
+    var list = node("ul", null, "address-list");
+    values.forEach(function (value) {
+      var item = node("li");
+      item.appendChild(node("span", addressText(value)));
+      item.appendChild(addressDetails(value, "Details"));
+      list.appendChild(item);
+    });
+    parent.appendChild(list);
+  }
+
+  function simpleCollectionSection(title, collections, description) {
+    var section = node("section", null, "structure-section");
+    section.appendChild(node("h2", title));
+    if (description) {
+      section.appendChild(node("p", description));
+    }
+    var grid = node("div", null, "structure-card-grid");
+    collections.forEach(function (collection) {
+      var card = node("article", null, "structure-card");
+      card.appendChild(node("h3", collection.label + " (" + collection.items.length + ")"));
+      if (!collection.items.length) {
+        card.appendChild(node("p", "None present (0).", "muted"));
+      } else {
+        var list = node("ul", null, "address-list");
+        collection.items.forEach(function (item) {
+          var address = item && item.address;
+          var row = node("li");
+          var label = address ? addressText(address) : (item && item.declaration ? declarationText(item.declaration) : "Entry without an address");
+          row.appendChild(node("span", label));
+          row.appendChild(valueDetails("Record", item));
+          list.appendChild(row);
+        });
+        card.appendChild(list);
+      }
+      grid.appendChild(card);
+    });
+    section.appendChild(grid);
+    return section;
+  }
+
+  function jointSection(graph) {
+    var section = node("section", null, "structure-section");
+    section.appendChild(node("h2", "Articulation — joints (" + graph.joints.length + ")"));
+    section.appendChild(node("p", "Each row preserves the directed proximal → distal endpoints from the source projection."));
+    if (!graph.joints.length) {
+      section.appendChild(node("p", "No joints are present (0).", "empty"));
+      return section;
+    }
+    var table = node("table", null, "joint-table");
+    var head = node("thead");
+    var headingRow = node("tr");
+    ["Joint", "Proximal → distal", "Frame details"].forEach(function (label) { headingRow.appendChild(node("th", label)); });
+    head.appendChild(headingRow);
+    table.appendChild(head);
+    var body = node("tbody");
+    graph.joints.forEach(function (joint) {
+      var row = node("tr");
+      row.appendChild(node("th", addressText(joint.address)));
+      row.appendChild(node("td", addressText(joint.proximal) + " → " + addressText(joint.distal)));
+      var frameCell = node("td");
+      frameCell.appendChild(valueDetails("Proximal frame", joint.proximal_frame));
+      frameCell.appendChild(valueDetails("Distal frame", joint.distal_frame));
+      row.appendChild(frameCell);
+      body.appendChild(row);
+    });
+    table.appendChild(body);
+    section.appendChild(table);
+    return section;
+  }
+
+  function regionsCapabilitiesSection(graph) {
+    var section = node("section", null, "structure-section");
+    section.appendChild(node("h2", "Regions and capabilities"));
+    var grid = node("div", null, "structure-card-grid");
+    [["Regions", graph.regions, "parts", "member Parts"], ["Capabilities", graph.capabilities, "subjects", "member subjects"]].forEach(function (entry) {
+      var card = node("article", null, "structure-card");
+      card.appendChild(node("h3", entry[0] + " (" + entry[1].length + ")"));
+      if (!entry[1].length) {
+        card.appendChild(node("p", "None present (0).", "muted"));
+      }
+      entry[1].forEach(function (item) {
+        var block = node("div", null, "member-block");
+        block.appendChild(node("h4", addressText(item.address) + " — " + (Array.isArray(item[entry[2]]) ? item[entry[2]].length : 0) + " " + entry[3]));
+        addressList(block, item[entry[2]], entry[3]);
+        card.appendChild(block);
+      });
+      grid.appendChild(card);
+    });
+    section.appendChild(grid);
+    return section;
+  }
+
+  function renderStructure(rawStructure, review) {
+    clear(app);
+    var structure = rawStructure;
+    var title = review && review.title ? String(review.title) : "Structural inspection";
+    document.title = title;
+    var back = node("a", "← All reviews", "back-link");
+    back.href = "/";
+    app.appendChild(back);
+    app.appendChild(node("h1", title));
+    app.appendChild(node("code", "read-only", "stable-id"));
+    if (review && review.description) {
+      app.appendChild(node("p", review.description, "lede"));
+    }
+    if (review && review.instructions) {
+      var instructions = node("aside", null, "instructions");
+      instructions.appendChild(node("h2", "Instructions"));
+      instructions.appendChild(node("p", review.instructions));
+      app.appendChild(instructions);
+    }
+    var graph = isObject(structure) && isObject(structure.graph) ? structure.graph : {};
+    var source = isObject(graph.source) ? graph.source : {};
+    var contract = isObject(graph.contract) ? graph.contract : {};
+    var basis = isObject(graph.basis) ? graph.basis : {};
+    var header = node("section", null, "structure-header");
+    header.appendChild(node("p", "Provisional structural inspection", "structure-kicker"));
+    header.appendChild(metadataGrid([
+      ["Status", isObject(structure) && structure.status !== undefined ? structure.status : "Invalid payload"],
+      ["Stage", isObject(structure) && structure.stage !== undefined ? structure.stage : "Unavailable"],
+      ["Source identity", source.namespace !== undefined || source.document !== undefined ? String(source.namespace || "?") + " / " + String(source.document || "?") : "Unavailable"],
+      ["Contract", contract.family !== undefined ? String(contract.family) + " r" + String(contract.revision === undefined ? "?" : contract.revision) : "Unavailable"],
+      ["Basis", Object.keys(basis).length ? jsonText(basis) : "Unavailable"],
+      ["Projection format", (isObject(structure) && structure.format) || "Unavailable"],
+      ["Projection", graph.projection || "Unavailable"]
+    ]));
+    header.appendChild(node("p", "Provisional, source-preserving debug projection. No geometry is rendered or implied, and this view does not represent runtime state.", "disclaimer"));
+    app.appendChild(header);
+
+    var validationErrors = validateStructure(structure);
+    if (!isObject(structure) || structure.status !== "success" || validationErrors.length) {
+      app.appendChild(diagnosticsBlock(structure, validationErrors));
+      if (isObject(structure)) {
+        app.appendChild(valueDetails("Raw structural JSON", structure));
+      }
+      return;
+    }
+
+    var counts = node("section", null, "structure-section count-section");
+    counts.appendChild(node("h2", "Collections"));
+    counts.appendChild(node("p", "Counts are direct collection cardinalities in this projection; zero is a valid result."));
+    counts.appendChild(metadataGrid([
+      ["Modules", collectionCount(graph.modules)], ["Parts", collectionCount(graph.parts)], ["Joints", collectionCount(graph.joints)],
+      ["Sockets", collectionCount(graph.sockets)], ["Attachments", collectionCount(graph.attachments)], ["Landmarks", collectionCount(graph.landmarks)],
+      ["Dimensions", collectionCount(graph.dimensions)], ["Frames", collectionCount(graph.frames)], ["Regions", collectionCount(graph.regions)],
+      ["Capabilities", collectionCount(graph.capabilities)], ["Fields", collectionCount(graph.fields)]
+    ]));
+    app.appendChild(counts);
+    app.appendChild(containmentSection(graph));
+    app.appendChild(jointSection(graph));
+    app.appendChild(simpleCollectionSection("Composition — modules, sockets, and attachments", [
+      { label: "Modules", items: graph.modules }, { label: "Sockets", items: graph.sockets }, { label: "Attachments", items: graph.attachments }
+    ], "Attachments compose module placement; they do not themselves imply articulation. Joints are shown separately above."));
+    app.appendChild(regionsCapabilitiesSection(graph));
+    app.appendChild(simpleCollectionSection("Other structural collections", [
+      { label: "Landmarks", items: graph.landmarks }, { label: "Dimensions", items: graph.dimensions }, { label: "Frames", items: graph.frames }, { label: "Fields", items: graph.fields }
+    ]));
+    app.appendChild(valueDetails("Raw structural JSON", structure));
+  }
+
   function openImage(item, source) {
     var dialog = node("dialog", null, "image-dialog");
     var close = node("button", "Close", "close-dialog");
@@ -123,7 +517,16 @@
   }
 
   function renderReview(data) {
-    var review = data.review;
+    document.title = "Creature Kernel visual review";
+    if (data && data.kind === "structure") {
+      renderStructure(data.structure, data);
+      return;
+    }
+    var review = data && data.review ? data.review : data;
+    if (review && review.kind === "structure") {
+      renderStructure(review.structure, review);
+      return;
+    }
     var oldResponse = data.response || null;
     clear(app);
     var back = node("a", "← All reviews", "back-link");

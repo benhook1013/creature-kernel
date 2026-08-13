@@ -229,6 +229,30 @@ the human decision owner, accepts or rejects a DR.
   may remain local. Avoid repeated main-thread command/edit loops when one
   bounded worker plus consolidated final validation suffices, and do not
   delegate ceremonially.
+- Before merging a PR that adds or materially changes an operable CLI, API,
+  viewer, tool, or similar user/integrator-facing feature, normally use two
+  fresh independent `gpt-5.6-luna`/`high` hands-on trial agents on the completed
+  local candidate, after implementation and focused checks and before the
+  first push or PR presentation. They execute the feature with distinct
+  first-use/operator-usability and
+  realistic/adversarial-scenario lenses; prompts bound the entrypoint,
+  claims/scenarios, temporary data, stop condition, and prohibited side
+  effects. Keep cost bounded to the PR's new or materially affected entrypoint
+  and directly connected claims/flows, never the whole application by default.
+  Prefer headless CLI/API execution and reusable smoke harnesses; use
+  computer-use or screenshots only for changed visual/interactive claims.
+  Sample representative success and failure paths rather than the full matrix;
+  a broad release-level whole-application trial requires an explicit scoped
+  decision. Their reports include commands/scenarios, observed outputs,
+  correctness defects, usability concerns or suggestions, and untested gaps.
+  The main thread reproduces correctness findings, fixes merge blockers, and
+  reports remaining usability findings before merge. Material fixes rerun the
+  affected hands-on scenario before push; tiny/local fixes need only focused
+  regression where appropriate. Later changes retain the before-merge trial
+  safeguard. This complements tests and adversarial design/code review and is
+  not a review-until-clean loop. A purely internal change without an operable
+  entrypoint may use one focused integration-consumer exercise when two user
+  trials add no value.
 - Parallel workers must have disjoint write scopes. The main thread inspects every
   returned diff, reconciles interactions, and validates the integrated result.
 - Independent reviewers should normally be fresh-context agents that did not

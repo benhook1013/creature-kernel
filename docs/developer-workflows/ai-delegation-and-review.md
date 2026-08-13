@@ -178,6 +178,40 @@ perform economically. Appropriate work includes:
 Keep a trivial single-read or single-command task in the main thread when
 delegation overhead would clearly cost more than it saves.
 
+## Hands-on feature trials
+
+Before merging a PR that adds or materially changes an operable CLI, API,
+viewer, tool, or similar user/integrator-facing feature, normally use two fresh
+independent `gpt-5.6-luna` agents at `high` reasoning effort on the completed
+local candidate, after implementation and focused checks and before the first
+push or PR presentation. These are execution trials, not code reviews or
+reruns of existing unit tests. Give the agents distinct lenses:
+
+- first-use and operator usability;
+- realistic and adversarial scenario behaviour.
+
+Each prompt bounds the feature entrypoint, the claims or scenarios to exercise,
+allowed temporary data, a stop condition, and prohibited side effects. For a
+cost-bounded trial, exercise only the PR's new or materially affected
+entrypoint and directly connected claims or flows, never the whole application
+by default. Prefer headless CLI/API execution and reusable smoke harnesses; use
+computer-use or screenshots only when the changed claim is visual or
+interactive. Sample representative success and failure paths rather than the
+full matrix. A broad release-level whole-application trial requires an
+explicit scoped decision. Each report records the commands or scenarios run,
+observed outputs, correctness defects, usability concerns or suggestions, and
+untested gaps.
+
+The main thread reproduces correctness findings, fixes merge blockers, and
+reports remaining usability findings before merge. If findings cause material
+fixes, rerun the affected hands-on scenario before push; tiny/local fixes need
+only focused regression where appropriate. Later changes retain the
+before-merge trial safeguard. Hands-on trials complement automated tests and
+adversarial design/code review; they do not replace either or create a
+review-until-clean loop. A purely internal change without an operable
+entrypoint may use one focused integration-consumer exercise when two user
+trials add no value.
+
 ## Delegation prompt contract
 
 Every delegated task must state:

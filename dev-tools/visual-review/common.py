@@ -28,8 +28,23 @@ CONTENT_TYPES = {
 }
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 MAX_JSON_BYTES = 4 * 1024 * 1024
+# Structural inspection output is intentionally bounded independently of the
+# session JSON limit.  This is large enough for the current source-preserving
+# graph projection while preventing a manifest from turning the gallery into
+# an unbounded JSON transport.
+MAX_STRUCTURE_JSON_BYTES = 256 * 1024
 MAX_STRING = 8192
 MAX_CONTEXT_JSON = MAX_STRING
+STRUCTURE_FORMAT = "creature-kernel.provisional-structural-inspection.v1"
+STRUCTURE_STATUSES = {
+    "success",
+    "invalid-source",
+    "unsupported",
+    "resource-limit",
+    "internal-failure",
+    "input-failure",
+    "usage-error",
+}
 _HAS_DIR_FD_OPEN = os.open in getattr(os, "supports_dir_fd", set())
 _HAS_DIR_FD_RENAME = os.rename in getattr(os, "supports_dir_fd", set())
 _HAS_DIR_FD_UNLINK = os.unlink in getattr(os, "supports_dir_fd", set())
@@ -89,7 +104,7 @@ def read_json(path: Path, *, max_bytes: int = MAX_JSON_BYTES) -> Any:
             raw.decode("utf-8"),
             parse_constant=_reject_constant,
         )
-    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+    except (UnicodeDecodeError, json.JSONDecodeError, RecursionError, ValueError) as exc:
         raise ValidationError(f"invalid JSON in {path.name}: {exc}") from exc
 
 
@@ -260,37 +275,106 @@ def open_source_reference(source: SourceReference, where: str) -> Any:
         raise ValidationError(f"{where} is unavailable or changed while publishing") from exc
 
 
-def _base_manifest(data: Any, manifest_path: Path) -> tuple[dict[str, Any], dict[str, SourceReference]]:
-    obj = _object(data, "manifest")
-    _check_fields(
-        obj,
-        {"schema_version", "id", "title", "description", "instructions", "subject_context", "groups"},
-        "manifest",
-    )
-    if obj.get("schema_version") != SCHEMA_VERSION or isinstance(
-        obj.get("schema_version"), bool
-    ):
-        raise ValidationError("manifest.schema_version must be 1")
-    review_id = validate_id(obj.get("id"), "manifest.id")
-    title = _string(obj.get("title"), "manifest.title", max_len=512)
-    groups = _array(obj.get("groups"), "manifest.groups")
+def read_source_json(source: SourceReference, where: str, *, max_bytes: int) -> Any:
+    """Read bounded JSON through the already-validated source descriptor."""
+
+    with open_source_reference(source, where) as stream:
+        try:
+            size = os.fstat(stream.fileno()).st_size
+            if size > max_bytes:
+                raise ValidationError(f"{where} is larger than {max_bytes} bytes")
+            raw = stream.read(max_bytes + 1)
+        except ValidationError:
+            raise
+        except OSError as exc:
+            raise ValidationError(f"cannot read {where}: {exc}") from exc
+    if len(raw) > max_bytes:
+        raise ValidationError(f"{where} is larger than {max_bytes} bytes")
+    try:
+        return json.loads(raw.decode("utf-8"), parse_constant=_reject_constant)
+    except (UnicodeDecodeError, json.JSONDecodeError, RecursionError, ValueError) as exc:
+        raise ValidationError(f"invalid JSON in {where}: {exc}") from exc
+
+
+def _resolve_file_reference(source: str, manifest_path: Path, where: str) -> SourceReference:
+    """Resolve a bounded local JSON source using image-source safety checks."""
+
+    _check_no_traversal(source, where)
+    raw = Path(source)
+    candidate = raw if raw.is_absolute() else manifest_path.parent / raw
+    _reject_symlink_components(candidate, where)
+    try:
+        info = candidate.stat()
+    except OSError as exc:
+        raise ValidationError(f"{where} does not exist or cannot be read") from exc
+    if not stat.S_ISREG(info.st_mode):
+        raise ValidationError(f"{where} must refer to a regular file")
+    return SourceReference(candidate, info.st_dev, info.st_ino)
+
+
+def _validate_structure_envelope(value: Any, where: str) -> dict[str, Any]:
+    """Check the provisional inspection envelope without validating its graph."""
+
+    obj = _object(value, where)
+    required = {
+        "format",
+        "operation",
+        "stage",
+        "status",
+        "processing_complete",
+        "diagnostics_complete",
+        "diagnostics",
+    }
+    missing = sorted(required - set(obj))
+    if missing:
+        raise ValidationError(f"{where} is missing required field(s): {', '.join(missing)}")
+    format_name = _string(obj["format"], f"{where}.format", max_len=256)
+    if format_name != STRUCTURE_FORMAT:
+        raise ValidationError(f"{where}.format must be {STRUCTURE_FORMAT}")
+    if obj["operation"] != "inspect-structure":
+        raise ValidationError(f"{where}.operation must be inspect-structure")
+    _string(obj["stage"], f"{where}.stage", max_len=128)
+    status = _string(obj["status"], f"{where}.status", max_len=128)
+    if status not in STRUCTURE_STATUSES:
+        raise ValidationError(f"{where}.status is not a supported inspection status")
+    for key in ("processing_complete", "diagnostics_complete"):
+        if not isinstance(obj[key], bool):
+            raise ValidationError(f"{where}.{key} must be a boolean")
+    diagnostics = _array(obj["diagnostics"], f"{where}.diagnostics")
+    if status == "success":
+        if not obj["processing_complete"] or not obj["diagnostics_complete"]:
+            raise ValidationError(f"{where}.success must be complete")
+        if not isinstance(obj.get("graph"), dict):
+            raise ValidationError(f"{where}.graph must be an object for success")
+        if diagnostics:
+            raise ValidationError(f"{where}.diagnostics must be empty for success")
+    else:
+        if not obj["processing_complete"] and not obj["diagnostics_complete"]:
+            raise ValidationError(
+                f"{where} cannot report incomplete processing and incomplete diagnostics together"
+            )
+        if "graph" in obj:
+            raise ValidationError(f"{where}.graph is only valid for success")
+        if not diagnostics:
+            raise ValidationError(f"{where}.diagnostics must not be empty for a non-success status")
+    for index, diagnostic in enumerate(diagnostics):
+        diagnostic_obj = _object(diagnostic, f"{where}.diagnostics[{index}]")
+        if not diagnostic_obj:
+            raise ValidationError(f"{where}.diagnostics[{index}] must not be empty")
+    return obj
+
+
+def _normalize_image_groups(
+    groups: Any,
+    manifest_path: Path,
+    *,
+    reserved_ids: set[str] | None = None,
+) -> tuple[list[dict[str, Any]], dict[str, SourceReference]]:
+    groups = _array(groups, "manifest.groups")
     if not groups:
         raise ValidationError("manifest.groups must not be empty")
-
-    result: dict[str, Any] = {
-        "schema_version": SCHEMA_VERSION,
-        "id": review_id,
-        "title": title,
-        "groups": [],
-    }
-    for key in ("description", "instructions"):
-        value = _optional_string(obj, key, "manifest")
-        if value is not None:
-            result[key] = value
-    if "subject_context" in obj:
-        result["subject_context"] = _subject_context(obj["subject_context"], "manifest.subject_context")
-
-    seen_ids: set[str] = {review_id}
+    normalized: list[dict[str, Any]] = []
+    seen_ids: set[str] = set(reserved_ids or ())
     sources: dict[str, SourceReference] = {}
     for group_number, raw_group in enumerate(groups):
         where = f"manifest.groups[{group_number}]"
@@ -336,7 +420,81 @@ def _base_manifest(data: Any, manifest_path: Path) -> tuple[dict[str, Any], dict
                 out_item["metadata"] = _metadata(item["metadata"], f"{item_where}.metadata")
             out_group["items"].append(out_item)
             sources[item_id] = source_ref
-        result["groups"].append(out_group)
+        normalized.append(out_group)
+    return normalized, sources
+
+
+def _base_manifest(data: Any, manifest_path: Path) -> tuple[dict[str, Any], dict[str, SourceReference]]:
+    obj = _object(data, "manifest")
+    _check_fields(
+        obj,
+        {
+            "schema_version",
+            "id",
+            "title",
+            "description",
+            "instructions",
+            "subject_context",
+            "kind",
+            "groups",
+            "structure_source",
+        },
+        "manifest",
+    )
+    if obj.get("schema_version") != SCHEMA_VERSION or isinstance(
+        obj.get("schema_version"), bool
+    ):
+        raise ValidationError("manifest.schema_version must be 1")
+    review_id = validate_id(obj.get("id"), "manifest.id")
+    title = _string(obj.get("title"), "manifest.title", max_len=512)
+    kind = obj.get("kind", "image")
+    if kind not in {"image", "structure"}:
+        raise ValidationError("manifest.kind must be image or structure")
+
+    result: dict[str, Any] = {
+        "schema_version": SCHEMA_VERSION,
+        "id": review_id,
+        "title": title,
+        "kind": kind,
+        "groups": [],
+    }
+    for key in ("description", "instructions"):
+        value = _optional_string(obj, key, "manifest")
+        if value is not None:
+            result[key] = value
+    if "subject_context" in obj:
+        result["subject_context"] = _subject_context(obj["subject_context"], "manifest.subject_context")
+
+    if kind == "structure":
+        if "structure_source" not in obj:
+            raise ValidationError("manifest.structure_source is required for structure reviews")
+        structure_source = _string(obj["structure_source"], "manifest.structure_source", max_len=4096)
+        structure_ref = _resolve_file_reference(structure_source, manifest_path, "manifest.structure_source")
+        structure = read_source_json(
+            structure_ref,
+            "manifest.structure_source",
+            max_bytes=MAX_STRUCTURE_JSON_BYTES,
+        )
+        result["structure"] = _validate_structure_envelope(structure, "structure_source")
+        # A structure review may carry optional image groups, but unlike an
+        # image review it does not need any.
+        if "groups" in obj:
+            if not isinstance(obj["groups"], list):
+                raise ValidationError("manifest.groups must be an array")
+            if obj["groups"]:
+                result["groups"], sources = _normalize_image_groups(
+                    obj["groups"], manifest_path, reserved_ids={review_id}
+                )
+            else:
+                sources = {}
+        else:
+            sources = {}
+    else:
+        if "structure_source" in obj:
+            raise ValidationError("manifest.structure_source is only valid for structure reviews")
+        result["groups"], sources = _normalize_image_groups(
+            obj.get("groups"), manifest_path, reserved_ids={review_id}
+        )
     return result, sources
 
 
@@ -376,17 +534,47 @@ def validate_normalized_review(
     obj = _object(data, "review")
     _check_fields(
         obj,
-        {"schema_version", "id", "title", "description", "instructions", "subject_context", "groups"},
+        {
+            "schema_version",
+            "id",
+            "title",
+            "description",
+            "instructions",
+            "subject_context",
+            "kind",
+            "groups",
+            "structure",
+        },
         "review",
     )
     if obj.get("schema_version") != SCHEMA_VERSION or isinstance(obj.get("schema_version"), bool):
         raise ValidationError("review.schema_version must be 1")
     review_id = validate_id(obj.get("id"), "review.id")
     title = _string(obj.get("title"), "review.title", max_len=512)
-    groups = _array(obj.get("groups"), "review.groups")
-    if not groups:
+    kind = obj.get("kind", "image")
+    if kind not in {"image", "structure"}:
+        raise ValidationError("review.kind must be image or structure")
+    if "structure" in obj:
+        if kind != "structure":
+            raise ValidationError("review.structure is only valid for structure reviews")
+        structure = _validate_structure_envelope(obj["structure"], "review.structure")
+    elif kind == "structure":
+        raise ValidationError("review.structure is required for structure reviews")
+    else:
+        structure = None
+    groups_value = obj.get("groups")
+    groups = _array(groups_value, "review.groups")
+    if kind == "image" and not groups:
         raise ValidationError("review.groups must not be empty")
-    result: dict[str, Any] = {"schema_version": 1, "id": review_id, "title": title, "groups": []}
+    result: dict[str, Any] = {
+        "schema_version": 1,
+        "id": review_id,
+        "title": title,
+        "kind": kind,
+        "groups": [],
+    }
+    if structure is not None:
+        result["structure"] = structure
     for key in ("description", "instructions"):
         value = _optional_string(obj, key, "review")
         if value is not None:
@@ -487,6 +675,7 @@ def iter_sessions(root: Path) -> tuple[list[dict[str, Any]], list[dict[str, str]
             valid.append({
                 "id": review["id"],
                 "title": review["title"],
+                "kind": review.get("kind", "image"),
                 **({"description": review["description"]} if "description" in review else {}),
             })
     return valid, errors

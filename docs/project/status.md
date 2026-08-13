@@ -70,10 +70,22 @@ identity at its recorded merge commit; current structural preparation is outside
 that admitted implementation identity and requires a future successor
 transaction before any Readiness 3 activation claim.
 
-Immediate next action: prepare the distinct Readiness 3 resolver/snapshot
-transaction, including its expected snapshots and comparison binding, for
-explicit admission. Keep the provisional structural implementation clearly
-outside that activation boundary until then.
+This implementation batch adds a meaningful authored stylized digitigrade-biped
+example that passes provisional structural inspection
+(1 module, 18 Parts, 17 Joints, 2 Sockets, 1 Attachment, 4 Regions, 3
+Capabilities). The CLI now provides structured help and deterministic success
+summary counts. Local visual-review tooling now supports immutable read-only
+structure sessions alongside legacy image reviews, exposing containment, joints,
+composition, regions, capabilities, diagnostics, raw JSON, and an explicit
+no-geometry/no-runtime boundary. Hands-on trials found no blockers; native T3
+preview was unavailable, while bounded headless Chromium succeeded. These
+preparatory results do not constitute Readiness 3 admission or activation:
+they do not activate resolver/numeric semantics, geometry, rigging, animation,
+physics, or runtime.
+
+Immediate next action: begin exact decimal/binary64 preparatory numeric work,
+then subsequent frame/resolver slices, while keeping the provisional structural
+implementation outside the Readiness 3 activation boundary.
 
 Ben approved the following deferred planning direction on 2026-08-09 for any
 future activation. It is recorded here without accepting or revising either DR:
@@ -328,11 +340,10 @@ resolver/snapshot transaction is not active.
 DR-0002 Revision 11 and DR-0008 Revision 11 are unchanged and remain Review
 Complete. Owner approval remains Pending.
 
-The immediate next action is to use the active parser/bootstrap and admitted
-schema/manifest/fixture transaction as the implementation foundation, then
-prepare the distinct Readiness 3 semantic resolver/in-memory snapshot
-transaction. Readiness 1 and Readiness 2 remain active while Readiness 3 and
-later transactions remain gated.
+The immediate next action is exact decimal/binary64 preparatory numeric work
+grounded in the active parser/bootstrap and admitted schema/manifest/fixture
+transaction, followed by frame/resolver slices. Readiness 1 and Readiness 2
+remain active while Readiness 3 and later transactions remain gated.
 The main thread will autonomously resolve technical correctness findings or
 record evidence-dependent triggers under the DR-0001 Revision 6 transition
 direction; only a retained-human product, architecture-boundary, material
@@ -479,8 +490,8 @@ validator, and inspection command remain preparatory. The immediate-predecessor
   compiler/core library shell, and thin CLI shell, with the admitted Readiness 2
   parser/bootstrap transaction active alongside it. The provisional structural
   address/index, validator, and `inspect-structure` command are preparatory and
-  do not activate Readiness 3. Prepare the distinct Readiness 3 semantic
-  resolver/in-memory snapshot transaction. Numeric/frame/output, adapter, and
+  do not activate Readiness 3. Advance exact decimal/binary64 preparatory
+  numeric work, then frame/resolver slices. Numeric/frame/output, adapter, and
   geometry prerequisites gate later stages. Any performance claim must have
   reproducible benchmark and hardware-profile evidence.
 - Preserve the accepted governance process and all historical decision/review
@@ -549,8 +560,8 @@ metadata. Current non-governance proposals include:
 ## Immediate next actions
 
 - Use the active Readiness 2 parser/bootstrap and admitted schema, manifest, and
-  fixture transaction as the implementation foundation; prepare the distinct
-  Readiness 3 semantic resolver/in-memory snapshot transaction and its
+  fixture transaction as the implementation foundation; begin exact
+  decimal/binary64 preparatory numeric work, then frame/resolver slices and
   successor evidence. Keep adapters, geometry, and later packages gated.
 - Keep Readiness 1 limited to the Cargo workspace, compiler/core library shell,
   and thin CLI shell. Keep the provisional structural address/index, validator,

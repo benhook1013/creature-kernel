@@ -47,6 +47,43 @@ document and emits a source-preserving structural projection:
 cargo run -p creature-kernel-cli -- inspect-structure --input <path>
 ```
 
+For the checked-in authored example, run:
+
+```bash
+cargo run -p creature-kernel-cli -- inspect-structure \
+  --input examples/body-documents/stylized-digitigrade-biped.json
+```
+
+The current example is expected to return `status: success` at the
+`structural-validation` stage. It reports 1 module, 18 Parts, 17 Joints, 2
+Sockets, 1 Attachment, 4 Regions, and 3 Capabilities. Parser/schema admission
+is only the first gate: an admitted fixture can still fail stronger structural
+inspection with `invalid-source` diagnostics.
+
+To publish that inspection as a local structural-review session, build the CLI,
+create a disposable `/tmp` review root, then publish and serve it:
+
+```bash
+cargo build -p creature-kernel-cli
+mkdir -p /tmp/creature-reviews
+python3 dev-tools/visual-review/publish_structure.py \
+  --root /tmp/creature-reviews \
+  --input examples/body-documents/stylized-digitigrade-biped.json \
+  --creature-kernel target/debug/creature-kernel
+python3 dev-tools/visual-review/serve.py \
+  --root /tmp/creature-reviews --port 0
+```
+
+Open the printed localhost URL. The browser view exposes collection counts,
+explicit Part containment, directed Joints, module/Socket/Attachment
+composition, Regions and Capabilities, diagnostics, and the raw JSON. This is
+provisional source-preserving structural inspection only: it proves none of
+geometry, a resolved snapshot, rigging, animation, physics, or runtime
+behaviour. Generated sessions are local and immutable; do not commit them.
+The existing image-review workflow remains supported. Detailed workflow and
+tool behaviour live in the [visual-review workflow](docs/developer-workflows/visual-review-gallery.md)
+and [tool README](dev-tools/visual-review/README.md).
+
 The evidence runner rejects legacy/current Cargo config files in the checkout,
 its Cargo lookup ancestors, and the selected Cargo home. It removes ambient
 Cargo/Rust/compiler/profile flags and wrappers, sets the pinned toolchain, and

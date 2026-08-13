@@ -167,6 +167,7 @@ activation; geometry and runtime implementation remain absent.
 - [Decision record registry](docs/decisions/registry.md)
 - [Open research questions](docs/research/open-questions.md)
 - [Current project status](docs/project/status.md)
+- [Authored examples](examples/README.md)
 
 ## Status
 
@@ -181,6 +182,21 @@ production toolchain; geometry and runtime implementation remain absent. See
 [developer setup](DEVELOPER_SETUP.md) and [current project
 status](docs/project/status.md) for the live round, review, and owner-
 disposition state.
+
+To inspect the authored structural example:
+
+```bash
+cargo run -p creature-kernel-cli -- inspect-structure \
+  --input examples/body-documents/stylized-digitigrade-biped.json
+```
+
+The command is a provisional source-preserving inspection, not a resolver or
+geometry build. Parser/schema admission can succeed while stronger structural
+inspection still reports `invalid-source`; see [authored examples](examples/README.md).
+
+For a local browser view of that projection, see the concise
+[structural-review workflow](docs/developer-workflows/visual-review-gallery.md).
+The existing image-review gallery remains supported.
 
 See [docs/FOUNDATION.md](docs/FOUNDATION.md) for the historical
 conversation-derived record. Current contracts are owned by the documentation

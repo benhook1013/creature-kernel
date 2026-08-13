@@ -33,6 +33,9 @@ where
     S: Into<String>,
 {
     let arguments: Vec<String> = arguments.into_iter().map(Into::into).collect();
+    if let Some(help) = help_response(&arguments) {
+        return result(help);
+    }
     let Some(input) = parse_input_path(&arguments) else {
         return result(usage_error(
             "usage: creature-kernel inspect-structure --input <path> (use '-' for stdin)",
@@ -45,6 +48,43 @@ where
     };
 
     inspect_source(&source)
+}
+
+fn help_response(arguments: &[String]) -> Option<Value> {
+    let (operation, usage, description) = match arguments {
+        [flag] if flag == "--help" || flag == "-h" => (
+            "help",
+            "creature-kernel inspect-structure --input <path>",
+            "Inspect an admitted body document and emit its structural projection.",
+        ),
+        [command, flag] if command == "inspect-structure" && (flag == "--help" || flag == "-h") => {
+            (
+                "inspect-structure",
+                "creature-kernel inspect-structure --input <path>",
+                "Inspect an admitted body document and emit its structural projection.",
+            )
+        }
+        _ => return None,
+    };
+
+    let mut output = base_output("help");
+    output.insert("operation".to_owned(), Value::String(operation.to_owned()));
+    output.insert("status".to_owned(), Value::String("success".to_owned()));
+    output.insert("processing_complete".to_owned(), Value::Bool(true));
+    output.insert("diagnostics_complete".to_owned(), Value::Bool(true));
+    output.insert("diagnostics".to_owned(), Value::Array(Vec::new()));
+    output.insert(
+        "help".to_owned(),
+        json!({
+            "usage": usage,
+            "description": description,
+            "options": [
+                {"flag": "--input <path>", "description": "Read a body document from a file (use '-' for stdin)."},
+                {"flag": "--help", "description": "Show this structured help response."}
+            ]
+        }),
+    );
+    Some(Value::Object(output))
 }
 
 fn read_input(input: &Path) -> io::Result<Vec<u8>> {
@@ -169,6 +209,7 @@ pub(crate) fn inspect_source(source: &[u8]) -> CliResult {
     match structural.graph {
         Some(graph) if structural.diagnostics.is_empty() => {
             output.insert("status".to_owned(), Value::String("success".to_owned()));
+            output.insert("summary".to_owned(), graph_summary(&graph));
             output.insert("graph".to_owned(), graph_projection(&graph));
             result(Value::Object(output))
         }
@@ -183,6 +224,25 @@ pub(crate) fn inspect_source(source: &[u8]) -> CliResult {
             result(Value::Object(output))
         }
     }
+}
+
+fn graph_summary(graph: &StructuralBodyGraph) -> Value {
+    // Keep this summary flat and compact so callers can inspect cardinality
+    // without traversing the full source-preserving projection. The graph's
+    // BTreeMap-backed collections make these counts deterministic.
+    json!({
+        "modules": graph.modules().len(),
+        "parts": graph.parts().len(),
+        "joints": graph.joints().len(),
+        "sockets": graph.sockets().len(),
+        "attachments": graph.attachments().len(),
+        "landmarks": graph.landmarks().len(),
+        "dimensions": graph.dimensions().len(),
+        "frames": graph.frames().len(),
+        "regions": graph.regions().len(),
+        "capabilities": graph.capabilities().len(),
+        "fields": graph.fields().len()
+    })
 }
 
 fn result(value: Value) -> CliResult {
@@ -533,6 +593,32 @@ mod tests {
     }
 
     #[test]
+    fn successful_output_includes_deterministic_collection_counts() {
+        let output = inspect(&format!("[{}]", root("root"))).0;
+        let summary = output["summary"].as_object().unwrap();
+        let expected = [
+            ("modules", 0),
+            ("parts", 1),
+            ("joints", 0),
+            ("sockets", 0),
+            ("attachments", 0),
+            ("landmarks", 0),
+            ("dimensions", 0),
+            ("frames", 0),
+            ("regions", 0),
+            ("capabilities", 0),
+            ("fields", 0),
+        ];
+        for (collection, count) in expected {
+            assert_eq!(summary[collection], count, "missing or wrong {collection}");
+        }
+        assert!(
+            output["graph"].is_object(),
+            "summary must not replace graph"
+        );
+    }
+
+    #[test]
     fn admitted_but_structurally_invalid_input_is_nonzero() {
         let (output, exit_code) = inspect(&format!("[{},{}]", root("a"), root("b")));
         assert_eq!(exit_code, 1);
@@ -610,6 +696,29 @@ mod tests {
         assert_eq!(value["operation"], "inspect-structure");
         for field in ["status", "stage", "diagnostics"] {
             assert!(value.get(field).is_some(), "missing {field}");
+        }
+    }
+
+    #[test]
+    fn help_forms_are_structured_success_responses() {
+        for (arguments, operation) in [
+            (vec!["--help"], "help"),
+            (vec!["inspect-structure", "--help"], "inspect-structure"),
+        ] {
+            let output = run_cli(arguments);
+            assert_eq!(output.exit_code, 0);
+            assert!(!output.json.ends_with('\n'));
+            let value: Value = provisional_json::from_str(&output.json).unwrap();
+            assert!(value.is_object());
+            assert_eq!(value["operation"], operation);
+            assert_eq!(value["status"], "success");
+            assert_eq!(value["processing_complete"], true);
+            assert_eq!(value["diagnostics_complete"], true);
+            assert!(value["help"].is_object());
+            assert!(value["diagnostics"].as_array().unwrap().is_empty());
+            let stdout = format!("{}\n", output.json);
+            assert_eq!(stdout.matches('\n').count(), 1);
+            assert!(provisional_json::from_str::<Value>(&stdout).is_ok());
         }
     }
 
