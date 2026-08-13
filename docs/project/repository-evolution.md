@@ -34,9 +34,12 @@ corrected in the current revisions. The 9c governance pass corrected two
 mechanical history-label issues and its technical pass found no findings /
 Ready for PR at High confidence. The review artifacts remain preserved evidence.
 Readiness 1 is triggered/active for the empty Cargo workspace, compiler/core-
-library shell, and thin CLI shell. The exact r1 schema, manifest, nine fixtures,
-Rust parser/bootstrap, and Python preflight now exist as a Proposed Readiness 2
-candidate, but no Readiness 2 transaction is admitted or active.
+library shell, and thin CLI shell. The exact schema, manifest, nine fixtures,
+Rust parser/bootstrap, and Python preflight are active as the Readiness 2
+transaction after merged commit `766992ab089687e9b1496574e8ffa721388d96f3`
+(PR #6) and the successful post-merge identity recomputation recorded in the
+[admission record](readiness-2-admission.md). This is a bounded activation and
+does not activate Readiness 3 or any still-Proposed DR.
 See
 the [current review state](status.md#current-review-and-future-activation-obligations)
 for review lenses, recommendations, and findings. Earlier review evidence is
@@ -45,8 +48,8 @@ implementation packages or compiler fixtures.
 
 The focused diagnostic owner remains Proposed with nine initial domains and a
 tiny mandatory bootstrap registry/profile. The candidate `ck.diagnostic.r2`
-codes are documented and used by the candidate parser/preflight, but this
-ledger records no diagnostic or Readiness 2 activation.
+codes are documented and used by the admitted parser/preflight transaction;
+this ledger does not accept the diagnostic owner or activate Readiness 3.
 
 | Capability | Horizon | State | Activation trigger | Destination | Validation |
 | --- | --- | --- | --- | --- | --- |
@@ -65,9 +68,9 @@ ledger records no diagnostic or Readiness 2 activation.
 | Local visual-review gallery | Now | active | First need for human appraisal of generated CK-KICK-010 output | `dev-tools/visual-review/` | Focused tests + local HTTP/browser smoke |
 | Body-document specification | Next | active | First body parser proposal exists in the CK-KICK-012 Batch 4 Proposed contract | `spec/body-document/` | Schema-level contract fixtures when activated |
 | Semantic body-graph spec | Next | active | First resolver proposal exists in the CK-KICK-012 Batch 4 Proposed contract | `spec/body-graph/` | Graph and cross-DR contract fixtures when activated |
-| Fixture-manifest specification | Next | active | Batch 10 creates the canonical Proposed fixture-manifest/admission owner; implementation remains gated by Readiness 2 | `spec/fixture-manifest/` | Immutable reviewed-tree/payload binding, preflight, append-only successor, and admission-link checks |
+| Fixture-manifest specification | Next | active | Batch 10 creates the canonical Proposed fixture-manifest/admission owner; the exact Readiness 2 manifest and listed corpus are admitted by the recorded post-merge recomputation | `spec/fixture-manifest/` | Immutable reviewed-tree/payload binding, preflight, append-only successor, and admission-link checks |
 | Build-operation specification | Next | active | Proposed public build/output contract exists as the canonical owner; implementation remains gated by DR-0013 readiness | `spec/build-operation/` | Contract, link, and ownership checks |
-| Implementation packages | Now | active | Readiness 1 is active after DR-0013 Revision 12 acceptance: only the Cargo workspace, compiler/core library shell, and thin CLI shell are active. The exact schema, versioned manifest, nine fixtures, parser/bootstrap, and preflight now form a Proposed Readiness 2 branch candidate; one complete review-branch transaction, current review, and Ben approval are still required before admission. The distinct Readiness 3 transaction then activates the resolver/snapshot boundary; geometry remains gated by a working resolver plus provisional profile and seam | Cargo workspace (`Cargo.toml`, `crates/`) plus [`schema`](../../spec/body-document/schema/ck-body-document-v1.schema.json), [`manifest`](../../fixtures/body-documents/readiness-2/manifest.v1.json), [`preflight`](../../dev-tools/fixture-preflight/preflight.py), and candidate parser | Readiness 1 shell evidence; candidate preflight; later admitted parser/bootstrap, resolver/snapshot, and exploratory-proof evidence |
+| Implementation packages | Now | active | Readiness 1 is active after DR-0013 Revision 12 acceptance for the Cargo workspace, compiler/core library shell, and thin CLI shell. Readiness 2 is active after PR #6 merge commit `766992ab089687e9b1496574e8ffa721388d96f3` and successful fresh-archive identity recomputation for the exact schema, versioned manifest, nine fixtures, parser/bootstrap, and preflight. The distinct Readiness 3 transaction then activates the resolver/snapshot boundary; geometry remains gated by a working resolver plus provisional profile and seam | Cargo workspace (`Cargo.toml`, `crates/`) plus [`schema`](../../spec/body-document/schema/ck-body-document-v1.schema.json), [`manifest`](../../fixtures/body-documents/readiness-2/manifest.v1.json), [`preflight`](../../dev-tools/fixture-preflight/preflight.py), and admitted parser/bootstrap | Readiness 1 shell evidence; Readiness 2 preflight, content identities, and sanitized bound checks; later resolver/snapshot and exploratory-proof evidence |
 | Readiness 3 resolver/snapshot transaction | Next | planned | A distinct Ben-approved successor transaction contains the successor manifest, expected snapshots, comparison profile/rule, resolver implementation or exact implementation binding, and unchanged content-identity preflight; only that explicit ledger activation triggers the Readiness 3 resolver/snapshot boundary; no gate activates while the records remain Proposed | `docs/decisions/DR-0013-first-production-implementation-platform-and-geometry-boundary.md` and admitted fixture manifest | Successor content binding, approval, comparison metadata, resolver binding, and in-memory snapshot handoff |
 | Generation fixtures | Next | planned | Stage 2 only: a separate Ben-approved readiness/decision record names the reviewed source commit reference, manifest path/digest, SHA-256 payload digest, exact ordered path/mode/content set containing only the manifest and declared schema, fixtures, and snapshots, and the versioned external path-set framing/profile (exact identifier remains readiness-gated); readiness/approval/successor records, mutable pointers, self-reference, and Git commit identity are excluded; rerun on the merged target compares those content identities even when the merge commit changes; append-only successors and unlisted fixtures do not activate independently | `fixtures/body-documents/` | Immutable binding, manifest/listed-source agreement, and deterministic output checks |
 | Geometry exploration | Next | planned | Stage 4 only: working resolver plus provisional geometry profile and project-owned GeometryRequest/GeometryResult seam; CK-KICK-014 is exploratory and does not require accepting/reactivating parked DR-0009/0010 | `experiments/` under an activated proof | Bounded exploratory evidence; generated bundles remain ephemeral/unretained and do not select production geometry |
