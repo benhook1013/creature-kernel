@@ -43,6 +43,12 @@ Ben's workflow direction approved and current review complete; formal
 acceptance remains pending Ben's disposition. Neither governance status accepts any linked product,
 specification, or architecture proposal.
 
+DR-0013 Revision 12 is accepted by Ben as of 2026-08-13, with Owner approval
+`Approved by Ben` and Review status `Complete`. Its Readiness 1 trigger is active for
+only the empty Cargo workspace, compiler/core library shell, and thin CLI shell;
+later schema, fixture, parser/resolver, adapter, and geometry activation remains
+gated by the record's separate readiness transactions.
+
 ## Revision and review rule
 
 Every proposal has an integer revision. A material change to the decision,

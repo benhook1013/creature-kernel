@@ -5,9 +5,11 @@ approved C1/C3/C4 resolutions; no schema, parser, or fixture corpus is
 activated
 
 Current Batch 13/14 material is recorded in DR-0006 Revision 12, DR-0011 Revision
-15, DR-0012 Revision 14, and DR-0013 Revision 12; each remains Proposed with
-Owner approval Pending and Review Complete after the current Double review at
-exact target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`; the earlier-predecessor
+15, and DR-0012 Revision 14; these remain Proposed with Owner approval Pending
+and Review Complete after the current Double review at exact target
+`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. DR-0013 Revision 12 is Accepted,
+with Owner approval Approved by Ben and Review Complete at that exact target,
+decided 2026-08-13. The earlier-predecessor
 review at `763cff22d10f6491a05a28312a25250704543dcf` and immediate-predecessor
 review at `9b96d18b115126ef09e54ad8c6f21749d5559ff6` are stale, with their
 findings corrected in these revisions. The 9c governance pass corrected two

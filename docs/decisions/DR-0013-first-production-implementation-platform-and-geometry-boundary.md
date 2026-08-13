@@ -4,19 +4,19 @@ ID: DR-0013
 
 Scope: Specification and architecture
 
-Status: Proposed
+Status: Accepted
 
 Revision: 12
 
 Decision owner: Ben
 
-Owner approval: Pending
+Owner approval: Approved by Ben
 
 Review status: Complete
 
 Date proposed: 2026-08-11
 
-Date decided: —
+Date decided: 2026-08-13
 
 Discussion approval date: 2026-08-13
 
@@ -111,20 +111,22 @@ Revision 12 successor. Revision 12 applies the mandatory rank-table activation
 gate and preserves the retained-human T4 gate. The current Double review at
 `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a` is Complete: its governance
 findings were corrected mechanically and its technical pass found no findings /
-Ready for PR at High confidence. Status remains Proposed and Owner approval
-remains Pending; review evidence is not acceptance.
+Ready for PR at High confidence. The review evidence is preserved below. Ben
+accepted Revision 12 on 2026-08-13; Owner approval is Approved by Ben and Date
+decided is 2026-08-13.
 
 ## Decision
 
-This is a proposed first-production platform boundary. Readiness 1 through
+This is the accepted first-production platform boundary. Readiness 1 through
 Readiness 4 below are technical gates, not approval ceremonies. They state the
 conceptual owner, authoritative prerequisite, and evidence; exact ledger field
-spelling may remain in project documentation. No Readiness gate is activated by this
-Proposed record.
+spelling may remain in project documentation. Readiness 1 is now triggered and
+active: it authorizes only the empty Cargo workspace, compiler/core library
+shell, and thin CLI shell. No later Readiness gate is activated by this record.
 
 | Readiness stage | Sole trigger and technical action | Authoritative prerequisite/owner | Evidence concept |
 | --- | --- | --- | --- |
-| Readiness 1 — empty production shell | DR-0013 is Accepted; create the Cargo workspace and empty compiler/library/CLI shell | DR-0013 acceptance and this platform boundary | Workspace and empty shell exist; no parser, resolver, fixture, or geometry implementation is implied |
+| Readiness 1 — empty production shell | DR-0013 is Accepted; create the Cargo workspace and empty compiler/core library/thin CLI shell | DR-0013 acceptance and this platform boundary | Readiness 1 is triggered/active; only the empty shell is in scope, with no parser, resolver, fixture, schema, adapter, or geometry implementation implied |
 | Readiness 2 — parser/bootstrap and admitted fixtures | One exact activation transaction on a review branch containing the exact JSON Schema, a versioned fixture manifest, all referenced fixture files, and parser/bootstrap implementation | DR-0012 owns schema/bootstrap; DR-0002/DR-0008/DR-0011 own linked semantic fixture obligations; Ben owns admission | Parser-independent preflight proves manifest, paths, hashes, profiles, expected outcomes/diagnostics, provenance, and completeness agree before explicit Ben approval and merge/activation |
 | Readiness 3 — semantic resolver and snapshot handoff | A distinct Ben-approved successor transaction activates DR-0011's canonical basis, validity, normalization/sign, ranges, conditioning, composition, and typed comparison semantics plus frozen expected graph outputs; it then activates semantic resolution and successful in-memory snapshot finalization/handoff without reselecting the Readiness 2 carrier | DR-0011 owns frame/numeric prerequisites; DR-0002/DR-0012 own graph and result-envelope obligations | Resolver outputs match frozen expected graph snapshots with provenance and trusted success envelope; external serialization remains a later build/output operation |
 | Readiness 4 — exploratory Stage 1 geometry proof | Working resolver plus a provisional geometry profile and project-owned GeometryRequest/GeometryResult seam; activate exploratory Stage 1 geometry proof / CK-KICK-014 | DR-0013 owns the seam/platform; DR-0008 owns Stage 1 claim boundary | Bounded exploratory proof evidence under the provisional profile; no accepted/reactivated surface decision is required |
@@ -337,9 +339,10 @@ unknown revision, unavailable capability, invariant violation, overflow,
 disallowed underflow, malformed output, and precedence cases; no fixtures or
 adapter activate here.
 
-Acceptance of DR-0013 itself is the sole trigger for Readiness 1. Creating this
-Proposed DR does not activate implementation packages, schemas, compiler
-fixtures, or a production geometry commitment. Readiness 2 creates its
+Acceptance of DR-0013 itself is the sole trigger for Readiness 1, and that
+trigger is now active. It activates only the empty Cargo workspace, compiler/
+core-library shell, and thin CLI shell; it does not activate schemas, compiler
+fixtures, parser/resolver, adapters, or geometry. Readiness 2 creates its
 manifest-listed fixture files and parser/bootstrap implementation together in
 the one admitted transaction; neither first compiler consumption nor an
 unlisted fixture can activate it. Readiness 3 is separate from
@@ -620,9 +623,10 @@ prejudge a later geometry worker/backend.
 ## Consequences
 
 - The first production semantic/compiler path has one reproducible stable-Rust
-  implementation and a Cargo workspace once DR-0013 is accepted, while the
-  semantic boundary remains engine-independent; exact schema and admitted
-  fixtures still gate Readiness 2 parser/resolver work.
+  implementation boundary, and Readiness 1 now authorizes its empty Cargo
+  workspace/compiler/core-library/thin-CLI shell while the semantic boundary
+  remains engine-independent; exact schema and admitted fixtures still gate
+  Readiness 2 parser/resolver work.
 - A library plus thin CLI supports headless use and keeps visual tooling from
   becoming a compiler dependency; no daemon or service lifecycle is required
   for the first implementation.
@@ -1070,15 +1074,18 @@ The current-revision Double review examined exact target commit
 records governance findings G3/G4 as mechanical cross-summary corrections
 handled without material DR revision, and [Review 02](reviews/DR-0013-rev-12-review-02.md)
 records no technical findings and recommends **Ready for PR**. These artifacts
-are exact-target current evidence until a successor revision. Review status is
-Complete for evidence only; Owner approval remains Pending, Status remains
-Proposed, and no Cargo package, geometry seam, schema, fixture, parser,
-resolver, adapter, implementation, or package activation follows.
+are exact-target current evidence until a successor revision. They record the
+pre-acceptance review state and remain preserved evidence; they do not
+themselves accept or activate the DR. Ben subsequently accepted Revision 12 on
+2026-08-13. Readiness 1 is triggered/active for only the empty Cargo
+workspace, compiler/core library shell, and thin CLI shell. No schema, fixture,
+parser, resolver, adapter, geometry seam, or later implementation activation
+follows from that acceptance.
 
 ## Implementation and Proof Obligations
 
-- If this DR is accepted, create only the Cargo workspace and empty
-  compiler/library/CLI shell boundary; no second repository trigger or approval
+- With this DR accepted, create only the Cargo workspace and empty
+  compiler/core-library/thin-CLI shell boundary; no second repository trigger or approval
   ceremony is required. Then enforce the readiness gates: exact JSON Schema
   plus a frozen/admitted fixture manifest activates creation of the
   manifest-listed fixture files and parser/bootstrap implementation together;
@@ -1094,8 +1101,10 @@ resolver, adapter, implementation, or package activation follows.
   parser/bootstrap; parser-independent preflight validates paths, hashes,
   profile references, expected status/primary diagnostics, provenance, and
   completeness. Production parsing must not self-admit the corpus.
-  This Proposed record itself creates no packages, fixtures, parser, resolver,
-  or geometry implementation. DR-0009/0010 remain parked and nonblocking.
+  Acceptance of this record creates only the Readiness 1 empty Cargo workspace,
+  compiler/core library shell, and thin CLI shell. It does not activate
+  packages beyond that shell, fixtures, parser, resolver, adapters, or geometry
+  implementation. DR-0009/0010 remain parked and nonblocking.
 - Bind Readiness 2 admission to a fixture-suite payload manifest containing
   suite kind, paths, hashes, profiles, expected results/diagnostics/snapshots,
   and provenance, but no self-digest or approval. A separate readiness/decision

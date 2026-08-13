@@ -44,11 +44,13 @@ Batch 13 resolutions are discussion-approved and incorporated here as Proposed
 product outcomes only. Accepted DR-0001 Revision 5 remains the operative
 governance baseline while DR-0001 Revision 6 is Proposed transition guidance
 with Ben's workflow direction approved and current review complete; formal
-acceptance remains pending Ben's disposition. The current materially revised decision records are
-Proposed at DR-0006 Revision 12, DR-0011 Revision 15, DR-0012 Revision 14, and
-DR-0013 Revision 12, each with Owner approval Pending and Review Complete after
-the current Double review at exact target
-`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. The reviews of the earlier
+acceptance remains pending Ben's disposition. The current materially revised
+decision records DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012
+Revision 14 remain Proposed with Owner approval Pending and Review Complete
+after the current Double review at exact target
+`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. DR-0013 Revision 12 is Accepted,
+with Owner approval Approved by Ben and Review Complete at that exact target,
+decided 2026-08-13. The reviews of the earlier
 predecessor revisions at commit `763cff22d10f6491a05a28312a25250704543dcf`
 are stale exact-target evidence; the immediate-predecessor review at exact
 commit `9b96d18b115126ef09e54ad8c6f21749d5559ff6` is also stale, with its
@@ -58,10 +60,11 @@ Ready for PR at High confidence. Review Complete is evidence only;
 G1/G2 were fixed mechanically, T1–T3 were resolved in the successors, and
 T4 remains unselected and deferred, requiring Ben's retained-human disposition
 before adapter profile/schema activation; it does not block the empty first Rust
-slice. Review evidence is not
-acceptance; no acceptance, schema, fixture,
-parser/resolver, adapter, Cargo package, readiness, experiment, or
-implementation activates.
+slice. Review evidence is not acceptance. DR-0013's accepted platform boundary
+does not accept these Proposed product contracts. Readiness 1 is active in the
+repository and contains only the Cargo workspace, empty `creature-kernel-core`
+library shell, and thin `creature-kernel` CLI shell. No schema, fixture,
+parser/resolver, adapter, experiment, or later readiness stage activates.
 Recommendations and the next discussion are summarized in the [current review
 state](../project/status.md#current-review-and-future-activation-obligations).
 The cross-cutting proposal is [DR-0012:

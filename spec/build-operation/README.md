@@ -2,9 +2,11 @@
 
 Status: Proposed conceptual contract; CK-KICK-012 Batch 13/14 discussion-approved
 canonical owner. Current Batch 13/14 material is recorded in DR-0006 Revision 12,
-DR-0011 Revision 15, DR-0012 Revision 14, and DR-0013 Revision 12; each remains
-Proposed with Owner approval Pending and Review Complete after the current
-Double review at exact target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`;
+DR-0011 Revision 15, and DR-0012 Revision 14; these remain Proposed with Owner
+approval Pending and Review Complete after the current Double review at exact
+target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. DR-0013 Revision 12 is
+Accepted, with Owner approval Approved by Ben and Review Complete at that exact
+target, decided 2026-08-13;
 the earlier-predecessor review at `763cff22d10f6491a05a28312a25250704543dcf`
 and immediate-predecessor review at `9b96d18b115126ef09e54ad8c6f21749d5559ff6`
 are stale, with their findings corrected in these revisions. The 9c governance
@@ -24,7 +26,7 @@ owns source admission, resolution phases, resolver statuses, diagnostics, and
 the in-memory resolved-snapshot handoff. [DR-0006](../../docs/decisions/DR-0006-durable-semantic-and-artifact-identity.md)
 owns durable semantic identity and the separation of build and artifact
 identity. [DR-0013](../../docs/decisions/DR-0013-first-production-implementation-platform-and-geometry-boundary.md)
-owns the Proposed platform boundary and activation gates. The [canonical-data
+owns the accepted platform boundary and activation gates. The [canonical-data
 profile](../canonical-data/README.md) owns canonical JSON and digest framing;
 this contract owns which outcome-affecting values enter the build-request
 projection. This contract does not choose final avatar-package field

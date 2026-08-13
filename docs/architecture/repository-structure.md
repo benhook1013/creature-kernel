@@ -25,8 +25,8 @@ creature-kernel/
 │   ├── canonical-data/       # proposed canonical bytes and digest domains
 │   ├── numeric-frame-profile/# proposed numeric/frame comparison profile
 │   └── diagnostics/          # proposed diagnostic registry/profile
-├── Cargo.toml               # planned Rust workspace; not active
-├── crates/                   # planned engine-independent core/compiler/CLI areas
+├── Cargo.toml               # Readiness 1 empty Rust workspace
+├── crates/                   # Readiness 1 empty compiler/core-library/CLI shell
 ├── experiments/             # reproducible research evidence
 ├── fixtures/                # small stable proof inputs (admitted later)
 ├── benchmarks/              # reproducible performance scenarios
@@ -39,16 +39,17 @@ The fixture-manifest family is an active Proposed authority, but it remains
 conceptual: no manifest schema, parser, or fixture corpus is created here. Its
 manifest payload is admitted by a separate readiness/decision record that
 binds reviewed content identities; there is no custom active-pointer ledger.
-Implementation directories and the Cargo workspace are intentionally absent
-until DR-0013 is accepted. The four readiness stages are: acceptance activates
-only the empty Cargo workspace/compiler/library/CLI shell; a versioned,
+Readiness 1 is triggered and active after DR-0013 Revision 12 acceptance. It
+activates only the empty Cargo workspace, compiler/core library shell, and thin
+CLI shell. The four readiness stages are: Readiness 1's empty shell above; a
+versioned,
 preflighted fixture manifest, its listed files, exact JSON Schema, and
 parser/bootstrap activate together in one review-branch transaction; canonical
 numeric/frame rules plus frozen expected graph outputs activate semantic
 resolver/in-memory snapshot handoff; and a working resolver plus provisional
 geometry profile and project-owned seam activate exploratory Stage 1 geometry.
-While the relevant DRs remain Proposed, no implementation packages, schema,
-manifest payload, or compiler-consumed fixtures are activated. Readiness 2
+No schema, manifest payload, compiler-consumed fixtures, parser/resolver,
+adapter, or geometry implementation is activated by Readiness 1. Readiness 2
 requires one Ben-approved immutable manifest/fixture/schema/parser transaction;
 unlisted fixtures never activate independently.
 
@@ -82,12 +83,11 @@ committed with documented provenance.
 
 ## Future implementation shape
 
-The CK-KICK-013 Proposed platform direction is a Cargo workspace with a stable
+The accepted CK-KICK-013 platform boundary is a Cargo workspace with a stable
 Rust engine-independent semantic/compiler core, thin CLI, project-owned
 versioned backend-neutral GeometryRequest/GeometryResult seam, and later
 adapters. It does not include an initial daemon/service. The exact crate
 layout, geometry backend, isolated C++ worker boundary, artifact serialization,
-and adapter strategy remain evidence-driven and unresolved. These planned paths
-do not activate packages; DR-0013 acceptance activates only the empty shell,
-while exact schema and admitted fixtures/contracts gate Stage 1 parser/resolver
-implementation.
+and adapter strategy remain evidence-driven and unresolved. Readiness 1 activates
+only the empty shell; exact schema and admitted fixtures/contracts gate later
+parser/resolver implementation.
