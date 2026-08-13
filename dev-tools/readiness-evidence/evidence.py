@@ -51,10 +51,107 @@ TOOLCHAIN = "1.97.1"
 PACKAGE = "creature-kernel-core"
 FEATURES = ["default"]
 PROFILE = "dev"
+ENVIRONMENT_POLICY = "ck.sanitized-child-environment.v1"
+CARGO_CONFIG_POLICY = "ck.reject-cargo-config-ancestors-and-home.v1"
+TARGET_PROJECTION_POLICY = "ck.exact-workspace-targets.v1"
+TEST_ARGS = (
+    "test",
+    "-p",
+    PACKAGE,
+    "--all-targets",
+    "--target",
+    TARGET,
+    "--locked",
+    "--offline",
+)
+CLIPPY_ARGS = (
+    "clippy",
+    "-p",
+    PACKAGE,
+    "--all-targets",
+    "--target",
+    TARGET,
+    "--locked",
+    "--offline",
+    "--",
+    "-D",
+    "warnings",
+)
 COMMANDS = [
-    "cargo test -p creature-kernel-core --all-targets --locked --offline",
-    "cargo clippy -p creature-kernel-core --all-targets --locked --offline -- -D warnings",
+    "cargo " + " ".join(TEST_ARGS),
+    "cargo " + " ".join(CLIPPY_ARGS),
 ]
+
+# Cargo's metadata target objects are part of the bound build request.  These
+# are the only workspace targets admitted by the two package manifests.  The
+# source paths are normalized relative to the workspace root before comparison
+# so a checkout's absolute location is not an identity input.
+EXPECTED_TARGETS = {
+    "creature-kernel-core": {
+        "version": "0.1.0",
+        "manifest_path": "crates/creature-kernel-core/Cargo.toml",
+        "targets": [
+            {
+                "crate_types": ["lib"],
+                "doc": True,
+                "doctest": True,
+                "edition": "2024",
+                "kind": ["lib"],
+                "name": "creature_kernel_core",
+                "src_path": "crates/creature-kernel-core/src/lib.rs",
+                "test": True,
+            }
+        ],
+    },
+    "creature-kernel-cli": {
+        "version": "0.1.0",
+        "manifest_path": "crates/creature-kernel-cli/Cargo.toml",
+        "targets": [
+            {
+                "crate_types": ["bin"],
+                "doc": True,
+                "doctest": False,
+                "edition": "2024",
+                "kind": ["bin"],
+                "name": "creature-kernel",
+                "src_path": "crates/creature-kernel-cli/src/main.rs",
+                "test": True,
+            }
+        ],
+    },
+}
+
+# The child environment is deliberately narrow with respect to build
+# controls.  Generic process context (for example PATH and HOME) remains for
+# rustup and the registry cache, but Cargo/Rust/compiler/profile overrides and
+# wrappers never cross the boundary.  CARGO_HOME and RUSTUP_TOOLCHAIN are set
+# below to exact values after ambient values are discarded.
+_CLEAR_ENV_EXACT = {
+    "AR",
+    "CC",
+    "CFLAGS",
+    "CPPFLAGS",
+    "CXX",
+    "CXXFLAGS",
+    "LD",
+    "LDFLAGS",
+    "MAKE",
+    "MAKEFLAGS",
+    "PKG_CONFIG_PATH",
+    "RANLIB",
+    "RUSTC",
+    "RUSTDOC",
+    "RUSTFMT",
+    "RUSTUP_TOOLCHAIN",
+    "RUSTC_BOOTSTRAP",
+    "RUSTC_FORCE_UNSTABLE",
+    "RUSTC_LOG",
+    "RUSTC_WRAPPER",
+    "RUSTC_WORKSPACE_WRAPPER",
+    "RUSTFLAGS",
+    "RUSTDOCFLAGS",
+    "PROFILE",
+}
 _PREFLIGHT: Any | None = None
 
 
@@ -296,6 +393,56 @@ def _parse_lock(lock_bytes: bytes) -> list[dict[str, Any]]:
     return packages
 
 
+def _cargo_home() -> Path:
+    """Resolve the Cargo home used by the sanitized child environment."""
+    home = os.environ.get("HOME")
+    if home is None:
+        home = str(Path.home())
+    return (Path(home).expanduser() / ".cargo").resolve()
+
+
+def _cargo_config_paths(root: str, cargo_home: Path) -> list[Path]:
+    """Return every current/legacy Cargo config Cargo could consult."""
+    paths: list[Path] = []
+    current = Path(root).resolve()
+    while True:
+        for filename in ("config.toml", "config"):
+            paths.append(current / ".cargo" / filename)
+        parent = current.parent
+        if parent == current:
+            break
+        current = parent
+    for filename in ("config.toml", "config"):
+        paths.append(cargo_home / filename)
+    return paths
+
+
+def _reject_cargo_configs(root: str, cargo_home: Path) -> None:
+    """Fail closed when Cargo configuration could change the bound request."""
+    for path in _cargo_config_paths(root, cargo_home):
+        # lexists also rejects a dangling symlink: it is still an uncontrolled
+        # configuration input even when its target is unavailable.
+        if os.path.lexists(path):
+            raise EvidenceError(f"Cargo config is not permitted: {path}")
+
+
+def sanitized_environment(root: str) -> dict[str, str]:
+    """Build the exact environment policy used by metadata and bound checks."""
+    cargo_home = _cargo_home()
+    _reject_cargo_configs(root, cargo_home)
+    environment: dict[str, str] = {}
+    for key, value in os.environ.items():
+        if key.startswith("CARGO_") or key.startswith("RUST") or key in _CLEAR_ENV_EXACT:
+            continue
+        environment[key] = value
+    # These are fixed request inputs, not inherited overrides.  Cargo home
+    # contents remain external dependency-cache evidence; their config files
+    # are rejected above rather than pretending to be vendored or hermetic.
+    environment["CARGO_HOME"] = str(cargo_home)
+    environment["RUSTUP_TOOLCHAIN"] = TOOLCHAIN
+    return environment
+
+
 def _cargo_metadata(root: str) -> dict[str, Any]:
     """Return the locked/offline Cargo resolution or fail closed.
 
@@ -312,11 +459,14 @@ def _cargo_metadata(root: str) -> dict[str, Any]:
                 "1",
                 "--locked",
                 "--offline",
+                "--filter-platform",
+                TARGET,
             ],
             cwd=root,
             check=True,
             capture_output=True,
             text=True,
+            env=sanitized_environment(root),
         )
     except (OSError, subprocess.CalledProcessError) as exc:
         raise EvidenceError("cargo metadata --locked --offline failed; dependencies must be locally available") from exc
@@ -326,6 +476,9 @@ def _cargo_metadata(root: str) -> dict[str, Any]:
         raise EvidenceError("cargo metadata returned invalid JSON") from exc
     if not isinstance(metadata, dict):
         raise EvidenceError("cargo metadata result is not an object")
+    metadata_root = metadata.get("workspace_root")
+    if not isinstance(metadata_root, str) or Path(metadata_root).resolve() != Path(root).resolve():
+        raise EvidenceError("cargo metadata workspace root does not match the requested checkout")
     return metadata
 
 
@@ -336,6 +489,85 @@ def _ascii_json(value: Any) -> bytes:
         return serialized.encode("ascii")
     except (TypeError, UnicodeEncodeError, ValueError) as exc:
         raise EvidenceError("dependency projection is not serializable ASCII JSON") from exc
+
+
+def _target_projection(metadata: dict[str, Any], workspace_root: Path) -> dict[str, Any]:
+    """Validate and return the exact workspace target projection."""
+    packages_value = metadata.get("packages")
+    members_value = metadata.get("workspace_members")
+    if not isinstance(packages_value, list) or not isinstance(members_value, list):
+        raise EvidenceError("cargo metadata packages/workspace members are missing")
+    package_by_id: dict[str, dict[str, Any]] = {}
+    for index, package in enumerate(packages_value):
+        if not isinstance(package, dict) or not isinstance(package.get("id"), str):
+            raise EvidenceError(f"cargo metadata package[{index}] is invalid")
+        package_id = package["id"]
+        if package_id in package_by_id:
+            raise EvidenceError("cargo metadata package IDs are duplicated")
+        package_by_id[package_id] = package
+    if not all(isinstance(member, str) for member in members_value):
+        raise EvidenceError("cargo metadata workspace members are invalid")
+    if len(set(members_value)) != len(members_value):
+        raise EvidenceError("cargo metadata workspace members are duplicated")
+    member_packages: list[dict[str, Any]] = []
+    for member_id in members_value:
+        package = package_by_id.get(member_id)
+        if package is None:
+            raise EvidenceError("cargo metadata workspace member is unknown")
+        member_packages.append(package)
+    member_names = [package.get("name") for package in member_packages]
+    if not all(isinstance(name, str) for name in member_names):
+        raise EvidenceError("cargo metadata workspace member names are invalid")
+    if set(member_names) != set(EXPECTED_TARGETS) or len(member_names) != len(EXPECTED_TARGETS):
+        raise EvidenceError("cargo metadata workspace members are not the bound packages")
+
+    projection: list[dict[str, Any]] = []
+    for name in sorted(EXPECTED_TARGETS):
+        expected = EXPECTED_TARGETS[name]
+        package = next((item for item in member_packages if item.get("name") == name), None)
+        if package is None:
+            raise EvidenceError(f"cargo metadata is missing workspace package {name}")
+        if package.get("version") != expected["version"]:
+            raise EvidenceError(f"cargo metadata package {name} has an unexpected version")
+        manifest_path = package.get("manifest_path")
+        if not isinstance(manifest_path, str):
+            raise EvidenceError(f"cargo metadata package {name} lacks manifest_path")
+        try:
+            relative_manifest = Path(manifest_path).resolve().relative_to(workspace_root)
+        except ValueError as exc:
+            raise EvidenceError(f"cargo metadata package {name} is outside the workspace root") from exc
+        if relative_manifest.as_posix() != expected["manifest_path"]:
+            raise EvidenceError(f"cargo metadata package {name} has an unexpected manifest")
+        targets = package.get("targets")
+        if not isinstance(targets, list):
+            raise EvidenceError(f"cargo metadata package {name} targets are missing")
+        normalized_targets: list[dict[str, Any]] = []
+        for index, target in enumerate(targets):
+            if not isinstance(target, dict):
+                raise EvidenceError(f"cargo metadata package {name} target[{index}] is invalid")
+            normalized = dict(target)
+            source_path = normalized.get("src_path")
+            if not isinstance(source_path, str):
+                raise EvidenceError(f"cargo metadata package {name} target[{index}] lacks src_path")
+            try:
+                relative_source = Path(source_path).resolve().relative_to(workspace_root)
+            except ValueError as exc:
+                raise EvidenceError(
+                    f"cargo metadata package {name} target[{index}] is outside the workspace root"
+                ) from exc
+            normalized["src_path"] = relative_source.as_posix()
+            normalized_targets.append(normalized)
+        if normalized_targets != expected["targets"]:
+            raise EvidenceError(f"cargo metadata package {name} targets do not match the bound projection")
+        projection.append(
+            {
+                "manifest_path": expected["manifest_path"],
+                "name": name,
+                "targets": normalized_targets,
+                "version": expected["version"],
+            }
+        )
+    return {"workspace_members": projection}
 
 
 def _dependency_projection(
@@ -351,6 +583,7 @@ def _dependency_projection(
     ):
         raise EvidenceError("cargo metadata packages/resolve/workspace root are missing")
     workspace_root = Path(workspace_root_value).resolve()
+    target_projection = _target_projection(metadata, workspace_root)
     package_by_id: dict[str, dict[str, Any]] = {}
     for index, package in enumerate(packages_value):
         if not isinstance(package, dict):
@@ -487,7 +720,7 @@ def _dependency_projection(
                 "version": version,
             }
         )
-    return {"packages": projection_packages}
+    return {"packages": projection_packages, "targets": target_projection}
 
 
 def dependency_closure(
@@ -543,6 +776,9 @@ def build_request(
         ("package", PACKAGE),
         ("features", FEATURES),
         ("profile", PROFILE),
+        ("environment_policy", ENVIRONMENT_POLICY),
+        ("cargo_config_policy", CARGO_CONFIG_POLICY),
+        ("target_projection_policy", TARGET_PROJECTION_POLICY),
         ("commands", COMMANDS),
         ("implementation_sha256", implementation_sha256),
         ("dependency_closure_sha256", dependency_closure_sha256),
@@ -563,6 +799,9 @@ def build_request(
         "package": PACKAGE,
         "features": FEATURES,
         "profile": PROFILE,
+        "environment_policy": ENVIRONMENT_POLICY,
+        "cargo_config_policy": CARGO_CONFIG_POLICY,
+        "target_projection_policy": TARGET_PROJECTION_POLICY,
         "commands": COMMANDS,
         "implementation_sha256": implementation_sha256,
         "dependency_closure_sha256": dependency_closure_sha256,
@@ -571,6 +810,9 @@ def build_request(
 
 
 def _tool(name: str) -> str:
+    home_tool = Path.home() / ".cargo" / "bin" / name
+    if os.access(home_tool, os.X_OK):
+        return str(home_tool)
     found = shutil.which(name)
     if found:
         return found
@@ -581,9 +823,24 @@ def _tool(name: str) -> str:
 
 
 def environment_evidence(root: str) -> dict[str, str]:
+    environment = sanitized_environment(root)
     try:
-        rustc = subprocess.run([_tool("rustc"), "-Vv"], cwd=root, check=True, capture_output=True, text=True)
-        cargo = subprocess.run([_tool("cargo"), "-V"], cwd=root, check=True, capture_output=True, text=True)
+        rustc = subprocess.run(
+            [_tool("rustc"), "-Vv"],
+            cwd=root,
+            check=True,
+            capture_output=True,
+            text=True,
+            env=environment,
+        )
+        cargo = subprocess.run(
+            [_tool("cargo"), "-V"],
+            cwd=root,
+            check=True,
+            capture_output=True,
+            text=True,
+            env=environment,
+        )
     except (OSError, subprocess.CalledProcessError) as exc:
         raise EvidenceError("toolchain evidence command failed") from exc
     rustc_vv = rustc.stdout.strip()
@@ -596,6 +853,32 @@ def environment_evidence(root: str) -> dict[str, str]:
     if values.get("release") != TOOLCHAIN or values.get("host") != TARGET:
         raise EvidenceError("active rustc release/host does not match build request")
     return {"rustc_vv": rustc_vv, "cargo_v": cargo_v}
+
+
+def run_bound_checks(root: str) -> None:
+    """Run the exact core test/lint request in the sanitized environment."""
+    environment = sanitized_environment(root)
+    cargo = _tool("cargo")
+    for args in (TEST_ARGS, CLIPPY_ARGS):
+        try:
+            subprocess.run([cargo, *args], cwd=root, check=True, env=environment)
+        except (OSError, subprocess.CalledProcessError) as exc:
+            command = "cargo " + " ".join(args)
+            raise EvidenceError(f"bound command failed: {command}") from exc
+
+
+def fetch_locked(root: str) -> None:
+    """Fetch the lockfile's dependencies before the offline bound checks."""
+    environment = sanitized_environment(root)
+    try:
+        subprocess.run(
+            [_tool("cargo"), "fetch", "--locked"],
+            cwd=root,
+            check=True,
+            env=environment,
+        )
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise EvidenceError("locked dependency fetch failed") from exc
 
 
 def generate(root: str) -> dict[str, Any]:
@@ -625,8 +908,25 @@ def generate(root: str) -> dict[str, Any]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="emit Readiness 2 evidence (does not admit or activate)")
     parser.add_argument("repository_root", nargs="?", default=".")
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument(
+        "--run-bound-checks",
+        action="store_true",
+        help="run the exact sanitized core test and clippy request instead of emitting JSON",
+    )
+    modes.add_argument(
+        "--fetch-locked",
+        action="store_true",
+        help="fetch Cargo.lock dependencies with the sanitized environment",
+    )
     args = parser.parse_args(argv)
     try:
+        if args.run_bound_checks:
+            run_bound_checks(args.repository_root)
+            return 0
+        if args.fetch_locked:
+            fetch_locked(args.repository_root)
+            return 0
         result = generate(args.repository_root)
     except EvidenceError as exc:
         print(f"readiness-evidence: {exc}", file=sys.stderr)

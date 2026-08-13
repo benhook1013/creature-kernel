@@ -6,7 +6,7 @@
 
 use serde::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
-use serde_json::{Number, Value};
+use serde_json::{Number, Value, value::RawValue};
 use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::collections::HashSet;
@@ -62,15 +62,15 @@ pub const TIGHT_MAX_DIAGNOSTICS: usize = 64;
 /// Resource profile supplied by the source-acquisition boundary.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ResourceProfile {
-    pub id: &'static str,
-    pub max_source_bytes: usize,
-    pub max_nesting_depth: usize,
-    pub max_json_values: usize,
-    pub max_object_members: usize,
-    pub max_array_items: usize,
-    pub max_string_bytes: usize,
-    pub max_number_token_bytes: usize,
-    pub max_diagnostics: usize,
+    id: &'static str,
+    max_source_bytes: usize,
+    max_nesting_depth: usize,
+    max_json_values: usize,
+    max_object_members: usize,
+    max_array_items: usize,
+    max_string_bytes: usize,
+    max_number_token_bytes: usize,
+    max_diagnostics: usize,
 }
 
 impl ResourceProfile {
@@ -487,6 +487,8 @@ struct DiagnosticKey {
 struct DiagnosticAccumulator {
     limit: usize,
     entries: Vec<(DiagnosticKey, Diagnostic)>,
+    primary: Option<(DiagnosticKey, Diagnostic)>,
+    saw_error: bool,
     truncated: bool,
 }
 
@@ -495,13 +497,23 @@ impl DiagnosticAccumulator {
         Self {
             limit,
             entries: Vec::new(),
+            primary: None,
+            saw_error: false,
             truncated: false,
         }
     }
 
     fn retain(&mut self, key: DiagnosticKey, diagnostic: Diagnostic) {
+        self.saw_error = true;
         if self.entries.iter().any(|(existing, _)| *existing == key) {
             return;
+        }
+        if self
+            .primary
+            .as_ref()
+            .is_none_or(|(primary_key, _)| key < *primary_key)
+        {
+            self.primary = Some((key.clone(), diagnostic.clone()));
         }
         if self.limit == 0 {
             self.truncated = true;
@@ -513,30 +525,23 @@ impl DiagnosticAccumulator {
         }
 
         self.truncated = true;
-        let Some((worst_index, (worst_key, _))) = self
-            .entries
-            .iter()
-            .enumerate()
-            .max_by(|(_, left), (_, right)| left.0.cmp(&right.0))
-        else {
-            return;
-        };
-        if key < *worst_key {
-            self.entries[worst_index] = (key, diagnostic);
-        }
     }
 
-    fn finish(mut self) -> Option<(Vec<Diagnostic>, bool)> {
-        if self.entries.is_empty() {
+    fn finish(mut self) -> Option<(Vec<Diagnostic>, bool, Diagnostic)> {
+        if !self.saw_error {
             return None;
         }
         self.entries.sort_by(|left, right| left.0.cmp(&right.0));
+        let primary = self
+            .primary
+            .expect("an observed diagnostic always has a reserved primary");
         Some((
             self.entries
                 .into_iter()
                 .map(|(_, diagnostic)| diagnostic)
                 .collect(),
             !self.truncated,
+            primary.1,
         ))
     }
 }
@@ -782,10 +787,23 @@ fn admit_impl(source: &[u8], resource_profile: ResourceProfile) -> AdmissionResu
         );
     }
 
+    // Validate the complete JSON grammar without materializing strings,
+    // numbers, or object values.  This must precede the resource scanner so a
+    // malformed numeric-looking suffix or leading-zero form cannot be
+    // reinterpreted as an oversized valid token.
+    if validate_json_grammar(source).is_err() {
+        return failure(
+            Status::InvalidSource,
+            resource_profile,
+            CODE_INVALID_JSON,
+            "source is not strict UTF-8 JSON",
+            None,
+            true,
+        );
+    }
+
     // Check token lengths against the raw source before serde_json can allocate
-    // decoded strings/keys or materialize number representations.  Invalid
-    // lexical input is left for the strict serde_json pass so it retains the
-    // normal invalid-source classification.
+    // decoded strings/keys or materialize number representations.
     if matches!(
         scan_raw_token_limits(source, resource_profile),
         Err(RawTokenScanError::Resource)
@@ -875,6 +893,17 @@ fn admit_impl(source: &[u8], resource_profile: ResourceProfile) -> AdmissionResu
             true,
         );
     };
+    if contract.len() != 2 || !contract.contains_key("family") || !contract.contains_key("revision")
+    {
+        return failure(
+            Status::InvalidSource,
+            resource_profile,
+            CODE_INVALID_DISCRIMINATOR,
+            "contract discriminator must contain exactly family and revision",
+            None,
+            true,
+        );
+    }
     let Some(family) = contract.get("family").and_then(Value::as_str) else {
         return failure(
             Status::InvalidSource,
@@ -948,13 +977,16 @@ fn admit_impl(source: &[u8], resource_profile: ResourceProfile) -> AdmissionResu
             },
         );
     }
-    if let Some((diagnostics, diagnostics_complete)) = schema_diagnostics.finish() {
+    if let Some((diagnostics, diagnostics_complete, primary_diagnostic)) =
+        schema_diagnostics.finish()
+    {
         return failure_with_diagnostics(
             Status::InvalidSource,
             resource_profile,
             diagnostics,
             diagnostics_complete,
             true,
+            primary_diagnostic,
         );
     }
 
@@ -1055,18 +1087,22 @@ fn failure_with_diagnostics(
     diagnostics: Vec<Diagnostic>,
     diagnostics_complete: bool,
     processing_complete: bool,
+    primary_diagnostic: Diagnostic,
 ) -> AdmissionResult {
-    let primary_diagnostic = diagnostics.first().cloned();
     AdmissionResult {
         status,
         processing_complete,
         diagnostics_complete,
         effective_diagnostic_profile_id: DIAGNOSTIC_PROFILE_ID,
         effective_resource_profile_id: resource_profile.id,
-        primary_diagnostic,
+        primary_diagnostic: Some(primary_diagnostic),
         diagnostics,
         document: None,
     }
+}
+
+fn validate_json_grammar(source: &[u8]) -> Result<(), serde_json::Error> {
+    serde_json::from_slice::<&RawValue>(source).map(|_| ())
 }
 
 fn parse_value(source: &[u8]) -> Result<Value, serde_json::Error> {
@@ -1841,6 +1877,32 @@ mod tests {
     }
 
     #[test]
+    fn malformed_numeric_forms_are_invalid_before_resource_scanning() {
+        for (name, token) in [
+            ("invalid-prefix", "1x"),
+            ("leading-zero", "01"),
+            ("bad-exponent", "1e+"),
+        ] {
+            let result = admit_body_document(
+                &source_with_revision_token(token),
+                ORDINARY_RESOURCE_PROFILE,
+            );
+            assert_eq!(result.status, Status::InvalidSource, "{name}");
+            assert!(result.processing_complete, "{name}");
+            assert_primary(&result, CODE_INVALID_JSON);
+        }
+
+        let oversized_valid = format!("1e{}", "0".repeat(ORDINARY_MAX_NUMBER_TOKEN_BYTES - 1));
+        let result = admit_body_document(
+            &source_with_revision_token(&oversized_valid),
+            ORDINARY_RESOURCE_PROFILE,
+        );
+        assert_eq!(result.status, Status::ResourceLimit);
+        assert!(!result.processing_complete);
+        assert_primary(&result, CODE_RESOURCE_JSON_WORK);
+    }
+
+    #[test]
     fn revision_recognition_uses_json_schema_numeric_equality() {
         for token in ["1.0", "1e0", "1E+0", "0.10e1"] {
             let result = admit_body_document(
@@ -1849,6 +1911,119 @@ mod tests {
             );
             assert_eq!(result.status, Status::Success, "revision token {token}");
         }
+    }
+
+    #[test]
+    fn discriminator_shape_and_types_precede_family_and_revision_recognition() {
+        let mut extra_member: Value =
+            serde_json::from_slice(&fixture("minimal-valid-envelope")).unwrap();
+        let contract = extra_member["contract"].as_object_mut().unwrap();
+        contract.insert("extra".to_owned(), Value::Null);
+        contract["family"] = Value::String("other.family".to_owned());
+        assert_primary(
+            &admit_body_document(
+                &serde_json::to_vec(&extra_member).unwrap(),
+                ORDINARY_RESOURCE_PROFILE,
+            ),
+            CODE_INVALID_DISCRIMINATOR,
+        );
+
+        let mut missing_revision: Value =
+            serde_json::from_slice(&fixture("minimal-valid-envelope")).unwrap();
+        let contract = missing_revision["contract"].as_object_mut().unwrap();
+        contract.remove("revision");
+        contract["family"] = Value::String("other.family".to_owned());
+        assert_primary(
+            &admit_body_document(
+                &serde_json::to_vec(&missing_revision).unwrap(),
+                ORDINARY_RESOURCE_PROFILE,
+            ),
+            CODE_INVALID_DISCRIMINATOR,
+        );
+
+        let mut malformed_revision: Value =
+            serde_json::from_slice(&fixture("minimal-valid-envelope")).unwrap();
+        let contract = malformed_revision["contract"].as_object_mut().unwrap();
+        contract["family"] = Value::String("other.family".to_owned());
+        contract["revision"] = Value::String("1".to_owned());
+        assert_primary(
+            &admit_body_document(
+                &serde_json::to_vec(&malformed_revision).unwrap(),
+                ORDINARY_RESOURCE_PROFILE,
+            ),
+            CODE_INVALID_DISCRIMINATOR,
+        );
+
+        let mut unsupported_with_extra: Value =
+            serde_json::from_slice(&fixture("minimal-valid-envelope")).unwrap();
+        let contract = unsupported_with_extra["contract"].as_object_mut().unwrap();
+        contract["revision"] = Value::Number(serde_json::Number::from(2));
+        contract.insert("extra".to_owned(), Value::Null);
+        assert_primary(
+            &admit_body_document(
+                &serde_json::to_vec(&unsupported_with_extra).unwrap(),
+                ORDINARY_RESOURCE_PROFILE,
+            ),
+            CODE_INVALID_DISCRIMINATOR,
+        );
+    }
+
+    #[test]
+    fn zero_diagnostic_capacity_still_rejects_schema_errors_and_reserves_primary() {
+        let profile = ResourceProfile {
+            max_diagnostics: 0,
+            ..ORDINARY_RESOURCE_PROFILE
+        };
+        let result = admit_fixture("unknown-core-member", profile);
+        assert_eq!(result.status, Status::InvalidSource);
+        assert!(result.processing_complete);
+        assert!(!result.diagnostics_complete);
+        assert!(result.diagnostics.is_empty());
+        assert_eq!(
+            result
+                .primary_diagnostic
+                .as_ref()
+                .map(|diagnostic| diagnostic.code),
+            Some(CODE_SOURCE_SCHEMA)
+        );
+        assert!(result.document.is_none());
+    }
+
+    #[test]
+    fn retention_keeps_reached_entries_and_tracks_normative_primary_independently() {
+        let mut accumulator = DiagnosticAccumulator::new(1);
+        accumulator.retain(
+            DiagnosticKey {
+                instance_path: "/z".to_owned(),
+                schema_path: "/schema".to_owned(),
+                error_kind: "type".to_owned(),
+            },
+            Diagnostic {
+                code: CODE_SOURCE_SCHEMA,
+                message: "later reached".to_owned(),
+                instance_path: Some("/z".to_owned()),
+                schema_path: Some("/schema".to_owned()),
+            },
+        );
+        accumulator.retain(
+            DiagnosticKey {
+                instance_path: "/a".to_owned(),
+                schema_path: "/schema".to_owned(),
+                error_kind: "type".to_owned(),
+            },
+            Diagnostic {
+                code: CODE_SOURCE_SCHEMA,
+                message: "normatively first".to_owned(),
+                instance_path: Some("/a".to_owned()),
+                schema_path: Some("/schema".to_owned()),
+            },
+        );
+
+        let (ordinary, complete, primary) = accumulator.finish().unwrap();
+        assert!(!complete);
+        assert_eq!(ordinary.len(), 1);
+        assert_eq!(ordinary[0].instance_path.as_deref(), Some("/z"));
+        assert_eq!(primary.instance_path.as_deref(), Some("/a"));
     }
 
     #[test]

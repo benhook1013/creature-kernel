@@ -85,6 +85,17 @@ or another typed identity) and when repetition is a legitimate multiset/count.
 It must never silently deduplicate merely because two occurrences have equal
 messages or equal serialized details.
 
+For the Readiness 2 `ck.diagnostic.r2` candidate, a structural-schema
+occurrence (`ck.source.schema`) has the exact identity tuple
+`(instance_path, schema_path, error_kind)`. `instance_path` and `schema_path`
+are normalized JSON Pointer strings (the empty string denotes the document
+root), and `error_kind` is the validator's registered keyword/class spelling.
+The tuple is compared as machine strings in that order; the human-readable
+message is not part of identity. Equal tuples are one logical occurrence and
+may be ignored as duplicate reports, while different tuples remain distinct
+even when their messages or serialized details match. No source array index,
+allocation order, or validator emission order is an identity component.
+
 A diagnostic profile is a versioned selection of registry revision, enabled
 domains/codes, severity and ordering rules, retention policy, and primary-
 diagnostic policy. A resource profile is separate: it owns limits and
@@ -114,6 +125,20 @@ The bootstrap occurrence itself must not require the unknown profile or
 registry to interpret its identity.
 
 ## Determinism and selection
+
+The candidate retention algorithm has two bounded areas: ordinary diagnostic
+retention and one reserved primary slot. Each new logical occurrence is first
+eligible for the reserved primary, which independently keeps the minimum
+occurrence under the profile's normative ordering key. Ordinary diagnostics
+are then retained in reached order until their configured capacity is full;
+later occurrences do not evict or replace already retained ordinary entries.
+Consequently, the reserved primary may be absent from the ordinary retained
+list when a later occurrence is normatively smaller. A zero ordinary capacity
+still records that a diagnostic occurred, retains the reserved primary, marks
+diagnostic completeness incomplete, and cannot convert an invalid source into
+success. Truncation is reported only through diagnostic completeness unless
+the separate operation contract determines that required trusted processing
+could not continue.
 
 The active diagnostic profile defines a total deterministic order over retained
 occurrences. The conceptual order is reached phase, severity/category,

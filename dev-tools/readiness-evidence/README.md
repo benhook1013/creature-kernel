@@ -10,6 +10,20 @@ Run from the repository root (the root argument is optional):
 python3 dev-tools/readiness-evidence/evidence.py [REPOSITORY_ROOT]
 ```
 
+The same module provides the bounded setup/check runner:
+
+```bash
+python3 dev-tools/readiness-evidence/evidence.py --fetch-locked .
+python3 dev-tools/readiness-evidence/evidence.py --run-bound-checks .
+```
+
+Both modes reject legacy/current Cargo config files in the repository, every
+ancestor Cargo searches, and the selected Cargo home. They construct one
+sanitized child environment that drops ambient `CARGO_*`, `RUST*`, compiler
+flags, profile settings, and wrappers, then sets only the pinned toolchain and
+default Cargo home. The bound test and clippy commands are locked/offline and
+target `x86_64-unknown-linux-gnu` explicitly.
+
 The generator imports `dev-tools/fixture-preflight/preflight.py` and places its
 result verbatim under `fixture_payload`. The remaining identities are separate;
 none of them records admission, approval, merge, activation, or expected-result
@@ -35,10 +49,13 @@ correctness:
 * `dependency_closure` uses `ck.cargo-lock.dependency-closure.v1`, followed by
   the Cargo.lock byte length as a big-endian u64 and raw bytes, then the
   compact sorted-key ASCII-JSON projection byte length as a big-endian u64 and
-  its bytes. The projection comes from
-  `cargo metadata --format-version 1 --locked --offline`, and is restricted to
-  the graph reachable from `creature-kernel-core` (the workspace CLI is not
-  included unless reachable). Each package records a normalized package
+  its bytes. The projection comes from the same sanitized child environment
+  using `cargo metadata --format-version 1 --locked --offline --filter-platform
+  x86_64-unknown-linux-gnu`, and is restricted to the graph reachable from
+  `creature-kernel-core` (the workspace CLI is not included unless reachable).
+  It also contains an exact normalized workspace target projection: only the
+  explicit core library and CLI binary may exist; any auto-discovered
+  bin/example/test/bench or build-script target fails closed. Each package records a normalized package
   identity, name, version, source, Cargo.lock checksum, license expression,
   native `links` declaration, sorted enabled feature names, and sorted
   dependency identities. Registry/Git identities retain Cargo's stable package
@@ -51,8 +68,9 @@ correctness:
   must be resolved by local setup/CI dependency fetching.
 * `build_request` uses `ck.rust-build-request.v1` plus a canonical ASCII
   length-prefixed encoding. The fixed field order is target, toolchain,
-  package, features, profile, commands, implementation SHA-256, dependency-
-  closure SHA-256, and admission-support SHA-256. A scalar is
+  package, features, profile, environment policy, Cargo-config policy, target
+  projection policy, commands, implementation SHA-256, dependency-closure
+  SHA-256, and admission-support SHA-256. A scalar is
   `ASCII_DECIMAL_LENGTH:ASCII` and a list is `ASCII_DECIMAL_COUNT:` followed by
   each scalar encoding. Field names are scalar encoded before their values.
   The three referenced identities are emitted as fields and are not fixture
@@ -64,3 +82,8 @@ correctness:
 
 The command performs no file writes. It is a bounded evidence input for a later
 human admission record, not an admission gate or activation mechanism.
+
+The evidence closes checkout path and ambient build-override inputs, but does
+not claim full machine/container reproducibility: registry cache contents,
+host kernel/CPU/filesystem behavior, installed toolchain artifacts, and native
+tool behavior remain external evidence rather than vendored inputs.

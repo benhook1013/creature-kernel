@@ -250,7 +250,7 @@ the normative ordering is:
 | --- | --- | --- |
 | 1 | Acquire the complete authoritative source input, enforce raw-byte/profile admission, and validate UTF-8 incrementally. | An unavailable, unreadable, or incomplete acquisition is `input-failure`; invalid UTF-8 in completely supplied bytes is `invalid-source`; a configured limit breach that prevents required processing or trusted completion is `resource-limit`; loss of implementation trust is `internal-failure`. |
 | 2 | Strictly parse one JSON document while detecting duplicate members and enforcing token, nesting, and member guards. | Strict JSON syntax errors and duplicate members, including a duplicate discriminator member, are `invalid-source`, unless resource or internal failure has precedence. |
-| 3 | Require a top-level object and exactly one minimal, version-neutral contract discriminator carrying a family and revision. A non-object top level or missing/malformed/duplicate discriminator data is `invalid-source`. | `invalid-source` |
+| 3 | Require a top-level object and exactly one minimal, version-neutral contract discriminator whose object is exactly `{family, revision}`, with `family` a JSON string and `revision` a JSON number. Extra or missing members and wrong member types are `invalid-source` before family/revision recognition, including when the family or revision would otherwise be unsupported. | `invalid-source` |
 | 4 | Recognize the family and revision before applying a current revision schema. An unknown family or unsupported revision is a well-formed `unsupported` result and stops schema application. | `unsupported` |
 | 5 | Select the exact schema for the recognized revision, then apply revision-specific structural validation and unknown-member rules. Unknown core members and malformed recognized-source structure are invalid; extensions follow the extension rule below. | `invalid-source` or `unsupported` for an unsupported required extension |
 
@@ -399,8 +399,11 @@ a profile-selected arena. Ordinary diagnostics are
 retained as reached until ordinary capacity is exhausted; earlier diagnostics
 are not silently replaced. Primary selection considers logical diagnostics in
 normative order, and reserved primary capacity preserves the minimal matching
-candidate despite ordinary truncation. If ordinary capacity is exhausted, the
-envelope records truncation and marks diagnostic completeness incomplete, but
+candidate despite ordinary truncation; that primary may therefore be absent
+from the ordinary retained list. A zero ordinary capacity still records the
+logical error and its reserved primary, so it cannot turn invalid input into
+success. If ordinary capacity is exhausted, the envelope records truncation and
+marks diagnostic completeness incomplete, but
 this is not `resource-limit` when required processing and trusted completion
 continue. If arena exhaustion itself prevents trusted completion and establishes
 `resource-limit`, the reserved resource/truncation diagnostic is the primary

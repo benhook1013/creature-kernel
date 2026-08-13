@@ -6,6 +6,7 @@ from pathlib import Path
 import struct
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 HERE = Path(__file__).resolve().parent
@@ -17,8 +18,8 @@ preflight = evidence._preflight_module()
 
 
 class EvidenceTests(unittest.TestCase):
-    def make_root(self, *, lock: bytes = b"version = 4\n") -> Path:
-        root = Path(tempfile.mkdtemp())
+    def make_root(self, *, lock: bytes = b"version = 4\n", parent: Path | None = None) -> Path:
+        root = Path(tempfile.mkdtemp(dir=parent))
         for path in evidence.IMPLEMENTATION_PATHS + evidence.ADMISSION_SUPPORT_PATHS:
             target = root / path
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -39,6 +40,18 @@ class EvidenceTests(unittest.TestCase):
                     "version": "0.1.0",
                     "source": None,
                     "manifest_path": str(root / "crates/creature-kernel-cli/Cargo.toml"),
+                    "targets": [
+                        {
+                            "crate_types": ["bin"],
+                            "doc": True,
+                            "doctest": False,
+                            "edition": "2024",
+                            "kind": ["bin"],
+                            "name": "creature-kernel",
+                            "src_path": str(root / "crates/creature-kernel-cli/src/main.rs"),
+                            "test": True,
+                        }
+                    ],
                 },
                 {
                     "id": dep_id,
@@ -53,8 +66,21 @@ class EvidenceTests(unittest.TestCase):
                     "version": "0.1.0",
                     "source": None,
                     "manifest_path": str(root / "crates/creature-kernel-core/Cargo.toml"),
+                    "targets": [
+                        {
+                            "crate_types": ["lib"],
+                            "doc": True,
+                            "doctest": True,
+                            "edition": "2024",
+                            "kind": ["lib"],
+                            "name": "creature_kernel_core",
+                            "src_path": str(root / "crates/creature-kernel-core/src/lib.rs"),
+                            "test": True,
+                        }
+                    ],
                 },
             ],
+            "workspace_members": [core_id, cli_id],
             "resolve": {
                 "nodes": [
                     {"id": cli_id, "features": [], "deps": [{"pkg": core_id}]},
@@ -154,6 +180,128 @@ class EvidenceTests(unittest.TestCase):
             "path+workspace://crates/creature-kernel-core#creature-kernel-core@0.1.0",
         )
 
+    def test_unexpected_workspace_target_cannot_preserve_dependency_evidence(self):
+        root = self.make_root(lock=b"version = 4\n")
+        metadata = self.metadata_for_root(root)
+        metadata["packages"][0]["targets"].append(
+            {
+                "crate_types": ["bin"],
+                "doc": True,
+                "doctest": False,
+                "edition": "2024",
+                "kind": ["bin"],
+                "name": "unexpected",
+                "src_path": str(root / "crates/creature-kernel-cli/src/unexpected.rs"),
+                "test": True,
+            }
+        )
+        with self.assertRaises(evidence.EvidenceError):
+            evidence.dependency_closure(str(root), metadata=metadata)
+
+    def test_target_projection_is_bound_and_exact(self):
+        root = self.make_root(lock=b"version = 4\n")
+        first = evidence.dependency_closure(str(root), metadata=self.metadata_for_root(root))
+        metadata = self.metadata_for_root(root)
+        metadata["packages"][0]["targets"][0]["src_path"] = str(
+            root / "crates/creature-kernel-cli/src/renamed.rs"
+        )
+        with self.assertRaises(evidence.EvidenceError):
+            evidence.dependency_closure(str(root), metadata=metadata)
+        self.assertIn("targets", first["projection"])
+
+    def test_sanitized_environment_discards_build_flags_and_wrappers(self):
+        root = self.make_root()
+        home = Path(tempfile.mkdtemp())
+        ambient = {
+            "HOME": str(home),
+            "CARGO_HOME": str(home / "ambient-cargo"),
+            "CARGO_BUILD_TARGET": "bad-target",
+            "CARGO_PROFILE_DEV_OPT_LEVEL": "3",
+            "RUSTFLAGS": "--cfg ambient",
+            "RUSTC_WRAPPER": "/tmp/wrapper",
+            "RUSTUP_TOOLCHAIN": "stable",
+            "CC": "/tmp/cc",
+            "CFLAGS": "-Dambient",
+            "PROFILE": "release",
+        }
+        with patch.dict(os.environ, ambient, clear=False):
+            child = evidence.sanitized_environment(str(root))
+        self.assertEqual(child["CARGO_HOME"], str(home / ".cargo"))
+        self.assertEqual(child["RUSTUP_TOOLCHAIN"], evidence.TOOLCHAIN)
+        self.assertNotIn("CARGO_BUILD_TARGET", child)
+        self.assertNotIn("CARGO_PROFILE_DEV_OPT_LEVEL", child)
+        self.assertNotIn("RUSTFLAGS", child)
+        self.assertNotIn("RUSTC_WRAPPER", child)
+        self.assertNotIn("CC", child)
+        self.assertNotIn("CFLAGS", child)
+        self.assertNotIn("PROFILE", child)
+
+    def test_config_files_fail_closed_before_bound_run(self):
+        root = self.make_root()
+        home = Path(tempfile.mkdtemp())
+        (root / ".cargo").mkdir()
+        (root / ".cargo/config.toml").write_text("[build]\ntarget = \"bad\"\n")
+        with patch.dict(os.environ, {"HOME": str(home)}, clear=False):
+            with patch.object(evidence.subprocess, "run") as run:
+                with self.assertRaises(evidence.EvidenceError):
+                    evidence.run_bound_checks(str(root))
+        run.assert_not_called()
+
+        (root / ".cargo/config.toml").unlink()
+        (home / ".cargo").mkdir()
+        (home / ".cargo/config").write_text("[profile.dev]\nopt-level = 3\n")
+        with patch.dict(os.environ, {"HOME": str(home)}, clear=False):
+            with patch.object(evidence.subprocess, "run") as run:
+                with self.assertRaises(evidence.EvidenceError):
+                    evidence.run_bound_checks(str(root))
+        run.assert_not_called()
+
+        base = Path(tempfile.mkdtemp())
+        ancestor_root = self.make_root(parent=base)
+        (base / ".cargo").mkdir()
+        (base / ".cargo/config.toml").write_text("[build]\ntarget = \"bad\"\n")
+        with patch.dict(os.environ, {"HOME": str(Path(tempfile.mkdtemp()))}, clear=False):
+            with self.assertRaises(evidence.EvidenceError):
+                evidence.sanitized_environment(str(ancestor_root))
+
+    def test_bound_run_cannot_inherit_rustflags_or_profile_overrides(self):
+        root = self.make_root()
+        home = Path(tempfile.mkdtemp())
+        ambient = {
+            "HOME": str(home),
+            "RUSTFLAGS": "--cfg ambient",
+            "CARGO_PROFILE_DEV_OPT_LEVEL": "3",
+            "CARGO_BUILD_TARGET": "bad-target",
+        }
+        with patch.dict(os.environ, ambient, clear=False):
+            with patch.object(evidence.subprocess, "run") as run:
+                evidence.run_bound_checks(str(root))
+        self.assertEqual(run.call_count, 2)
+        for call in run.call_args_list:
+            child = call.kwargs["env"]
+            self.assertNotIn("RUSTFLAGS", child)
+            self.assertNotIn("CARGO_PROFILE_DEV_OPT_LEVEL", child)
+            self.assertNotIn("CARGO_BUILD_TARGET", child)
+            args = call.args[0]
+            self.assertEqual(args[args.index("--target") + 1], evidence.TARGET)
+
+    def test_metadata_uses_sanitized_target_filtered_request(self):
+        root = self.make_root()
+        metadata = self.metadata_for_root(root)
+        result = type("Result", (), {"stdout": json.dumps(metadata)})()
+        home = Path(tempfile.mkdtemp())
+        with patch.dict(os.environ, {"HOME": str(home)}, clear=False):
+            with patch.object(evidence.subprocess, "run", return_value=result) as run:
+                actual = evidence._cargo_metadata(str(root))
+        self.assertEqual(actual, metadata)
+        args = run.call_args.args[0]
+        self.assertIn("--locked", args)
+        self.assertIn("--offline", args)
+        self.assertEqual(args[args.index("--filter-platform") + 1], evidence.TARGET)
+        child = run.call_args.kwargs["env"]
+        self.assertEqual(child["RUSTUP_TOOLCHAIN"], evidence.TOOLCHAIN)
+        self.assertNotIn("RUSTFLAGS", child)
+
     def test_resolved_projection_change_changes_dependency_closure(self):
         root = self.make_root(lock=b"version = 4\n")
         first = evidence.dependency_closure(
@@ -193,7 +341,11 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(first["target"], "x86_64-unknown-linux-gnu")
         self.assertEqual(first["toolchain"], "1.97.1")
         self.assertEqual(first["features"], ["default"])
+        self.assertEqual(first["environment_policy"], evidence.ENVIRONMENT_POLICY)
+        self.assertEqual(first["cargo_config_policy"], evidence.CARGO_CONFIG_POLICY)
+        self.assertEqual(first["target_projection_policy"], evidence.TARGET_PROJECTION_POLICY)
         self.assertEqual(first["commands"], evidence.COMMANDS)
+        self.assertTrue(all("--target x86_64-unknown-linux-gnu" in command for command in first["commands"]))
         self.assertEqual(first["implementation_sha256"], refs[0])
         self.assertEqual(first["dependency_closure_sha256"], refs[1])
         self.assertEqual(first["admission_support_sha256"], refs[2])
