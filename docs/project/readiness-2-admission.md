@@ -4,13 +4,15 @@ Status: Proposed admission record (not an accepted DR)
 
 Admission owner: Ben
 
-Owner approval: Pending for this admission record
+Owner approval: Approved by Ben — 2026-08-13; decision evidence: Ben instructed
+“do it” in response to “approve and waive.”
 
-Review status: Pending for this revised candidate transaction (the prior
-Double-review blockers are corrected; this exact candidate has not yet been
-freshly rereviewed)
+Review status: Waived — the agreed Double adversarial review completed, its
+blockers were corrected, and consolidated validation passes. Ben explicitly
+directed no repeat review loop, approving and waiving another current-candidate
+review on 2026-08-13.
 
-Activation state: Inactive — Readiness 2 is not admitted or active
+Activation state: Inactive pending merge and post-merge identity recomputation
 
 ## Proposed admission
 
@@ -24,8 +26,8 @@ source commit
 This proposal does not accept any still-Proposed DR, activate semantic
 resolution or Readiness 3, select geometry or a host engine, or claim
 performance, portability beyond the named reference target, or expected-result
-correctness from hashes alone. Until Ben explicitly approves this record and
-post-merge recomputation succeeds, Readiness 1 remains the only active gate.
+correctness from hashes alone. Until this approved transaction is merged and
+post-merge identity recomputation succeeds, Readiness 2 remains inactive.
 
 ## Exact candidate
 
@@ -100,13 +102,14 @@ These are technical checks, not owner approval or activation.
 
 ## Review and activation procedure
 
-The current candidate receives two independent fresh reviews: one focused on
+The agreed Double adversarial review completed with one review focused on
 schema/parser correctness, hostile-input handling, diagnostics, and contract
 alignment; the other focused on admission closure, reproducibility,
-dependencies, governance, and future-gate isolation. Actionable technical
-correctness findings revise the candidate and make this exact record stale.
+dependencies, governance, and future-gate isolation. Its blockers were
+corrected and consolidated validation passes. No repeat current-candidate
+review is required under Ben's explicit 2026-08-13 approval and waiver.
 
-If both reviews support admission and Ben explicitly approves this record, the
+With that review completed and Ben's explicit approval and waiver recorded, the
 main thread may merge the transaction. After merge and immediately before
 marking Readiness 2 active, it must recreate a fresh private read-only source
 snapshot, rerun preflight and evidence generation, and require every
