@@ -6,8 +6,8 @@ remain operational under Accepted DR-0001 Revision 5
 Use this workflow whenever the main thread considers delegating work or
 requesting model-backed independent review. It preserves safety and ownership
 boundaries while DR-0001 Revision 6 is Proposed. Ben approved the autonomous
-engineering workflow direction on 2026-08-13, but formal current-revision
-acceptance remains pending review. Product, specification, and architecture
+engineering workflow direction on 2026-08-13 and the current review is
+complete, but formal acceptance remains pending Ben's disposition. Product, specification, and architecture
 proposals remain provisional unless their canonical decision status says
 otherwise.
 

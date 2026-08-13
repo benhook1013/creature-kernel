@@ -6,7 +6,7 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 10
+Revision: 11
 
 Decision owner: Ben
 
@@ -82,6 +82,16 @@ experiment, or package. The Batch 13 Revision 9 review is stale evidence after
 this material revision and remains preserved below; Owner approval remains
 Pending and a fresh current-revision review is required.
 
+On 2026-08-13 the fresh technical-review dispositions were applied in this
+Revision 11 proposal: build requests now reference the exact implementation-
+content-binding and dependency-closure identities used for execution; the
+wire-independent `claim-id-1` comparator is defined by conceptual type/rank
+and normalized identifier order; the quaternion normalization versus
+already-normalized tuple-distance wording is corrected; and adapter profile
+validation status remains an explicit pre-activation choice rather than a
+source-admission mapping. This is a technical correction only: the record
+remains Proposed with Owner approval Pending and Review status Pending.
+
 ## Decision
 
 Use two identity levels and an explicit semantic-address boundary:
@@ -133,15 +143,24 @@ active contract; source-document/namespace identity is typed and normalized;
 the authored record address and typed property role are durable and stable; and
 the explicit claim key is present only when the schema permits intentional
 repeated claims.
-The components have a componentwise lexicographic total order. Unordered pairs
+The tuple has the wire-independent total order owned by the
+[semantic-address profile](../../spec/semantic-address/README.md):
+`canonical_target` uses its owning structured semantic-address order;
+`claim_kind` and `typed_property_role` use profile-defined semantic tag ranks,
+not wire enum spelling; typed source-document/namespace identity, authored
+record-address segments, and present claim keys use the profile's restricted
+normalized identifier Unicode-scalar lexical order (the current ASCII subset);
+structured address sequences compare lexicographically with prefix before
+extension; and the claim-key sum type orders absent before present. An
+activated schema must bijectively map wire values to these conceptual types
+and ranks and must not infer order from serialized spelling. Unordered pairs
 are represented conceptually as `(min_id, max_id)`; the same ID with the same
 normalized value is one semantic claim for evaluation while every occurrence
 and provenance is retained, and the same ID with a different value is an
 identity collision. Different IDs are evaluated as all unordered pairs in
-lexicographic order, with the first failing pair the deterministic conflict
+this order, with the first failing pair the deterministic conflict
 representative and the lexicographically smallest value tuple selected only
-after all pairs pass. Exact wire field spellings and enum values are deferred
-to schema activation. A raw JSON pointer is diagnostic provenance only; an
+after all pairs pass. A raw JSON pointer is diagnostic provenance only; an
 activated schema must supply the stable record address, typed property role,
 and any multiplicity key.
 
@@ -186,8 +205,9 @@ For same-target authored claims, use conceptual `claim-id-1` as defined above:
 typed canonical target, closed claim kind, typed source-document/namespace
 identity, stable authored record address, typed property role, and explicit
 claim key or absence. It is never an array, traversal, allocation, thread, time, or
-generated index. Claim IDs have a componentwise lexicographic total order and
-canonical unordered pairs are `(min_id,max_id)`. Same-ID/same-value
+generated index. Claim IDs use the wire-independent component order defined by
+the semantic-address profile, and canonical unordered pairs are
+`(min_id,max_id)`. Same-ID/same-value
 occurrences are evaluated once while every occurrence and provenance is
 retained; same-ID/different-value is an invalid-source identity collision;
 different IDs use all-pairs evaluation in sorted order. DR-0011 owns the
@@ -221,7 +241,10 @@ The scalar predicate
 decoded from admitted finite binary64 values, using bounded integer/dyadic
 arithmetic. Rounded floating intermediates and an undefined “equivalent
 monotonic” evaluation are not permitted at the inclusive boundary. Runtime
-`asin`, `sin`, and `sqrt` are not used for rotation comparison. The admitted
+After deterministic quaternion normalization, the already-normalized
+tuple-distance predicate uses no square root, norm, `asin`, or `sin`. The
+normalization itself uses the required correctly rounded binary64 square root
+specified below. The admitted
 profile stores finite binary64 half-threshold `H` for canonical-tuple chord
 semantics: after deterministic normalization and sign selection, `H` is the
 half-threshold in the Euclidean space of the canonical quaternion tuples. Choose
@@ -271,12 +294,18 @@ committed or hashed bytes, output-location derivation, candidate identity, or
 idempotent lineage equality. It exists only in the returned operation envelope,
 invocation-owned staging metadata, and logs. A deterministic
 `build_request_id` is stable across retries of the same outcome-affecting
-request. It includes the authoritative source or source-set identity, exact
-dependency revisions or digests, compiler/toolchain/build-implementation
-identity, contract/schema/profile revisions, configuration, seed,
-backend/capability/protocol revision, and every output-affecting target or
-platform-profile input. Omitting an outcome-affecting input is an identity
-error, not an implementation choice.
+request. It includes the authoritative source or source-set identity, an
+exact reference to the implementation-content-binding identity used for
+execution, an exact reference to the dependency-closure identity used for
+execution, compiler/toolchain/build-implementation identity, contract/schema/
+profile revisions, configuration, seed, backend/capability/protocol revision,
+and every output-affecting target or platform-profile input. These are
+identity references only: the request projection does not inline raw
+implementation path/mode/content entries or raw dependency sets, which remain
+owned by their separate binding domains. Fixture-payload identity is an
+admission input, not a build-request identity input, and attempt identity is
+excluded. Omitting an outcome-affecting input or either exact execution
+binding reference is an identity error, not an implementation choice.
 
 For each artifact role, the candidate artifact identity is derived from the
 `build_request_id`, that artifact role, and an artifact-identity-rule revision.
@@ -405,8 +434,9 @@ defined.
   a nonblocking later obligation; it must be settled before external authored
   dependencies activate.
 - A retry can use a new `attempt_id` without changing target location or
-  idempotent lineage equality, while every outcome-affecting request input is
-  included in deterministic `build_request_id` construction. Candidate
+  idempotent lineage equality, while every outcome-affecting request input,
+  including exact implementation-binding and dependency-closure references,
+  is included in deterministic `build_request_id` construction. Candidate
   identity is role- and identity-rule-revision-derived, and a successful
   publication preserves it unchanged.
 - Concurrent collision inspection distinguishes an identical committed winner
@@ -630,18 +660,29 @@ Complete for evidence only; Owner approval remains Pending and Status remains
 Proposed. No identity profile, readiness binding, adapter, schema, fixture,
 implementation, or package is accepted or activated by this review.
 
-The Batch 13 findings are dispositioned in this Revision 10 as follows. D1 is
-resolved at this identity boundary by removing the unproven angular
+The Batch 13 findings were dispositioned in the prior Revision 10 as follows.
+D1 was resolved at this identity boundary by removing the unproven angular
 interpretation: `H` is an inclusive canonical-tuple Euclidean threshold, while
-any represented-angular guarantee requires successor evidence. D2 and P1 are
+any represented-angular guarantee requires successor evidence. D2 and P1 were
 resolved by the explicit implementation-closure and root-descriptor,
 no-follow, regular-file-only binding profile cross-linked to the fixture
-manifest and platform records. D3 is resolved by conceptual `claim-id-1`, its
+manifest and platform records. D3 was resolved by conceptual `claim-id-1`, its
 typed component order, canonical unordered-pair form, stable property address,
-and multiplicity rule. P2 is owned by DR-0011's produced-zero `+0` rule and P3
-by the build-operation/platform status mapping. The prior reviews remain stale
-evidence; Review status is Pending and this Proposed revision activates none of
-the described machinery.
+and multiplicity rule. P2 was owned by DR-0011's produced-zero `+0` rule and
+P3 was provisionally described as owned by the build-operation/platform status
+mapping. Revision 11 corrects the comparator details, request-binding
+identity references, and numeric wording above; it records P3 as deferred
+until adapter activation. The prior reviews remain stale evidence; Review
+status is Pending and this Proposed revision activates none of the described
+machinery.
+
+The fresh successor-target reviews are [Review 01](reviews/DR-0006-rev-10-review-01.md)
+and [Review 02](reviews/DR-0006-rev-10-review-02.md). They are exact-target
+evidence for Revision 10 only and are stale for this Revision 11 successor.
+Their G1/G2 mechanical findings were fixed in the successor; T1–T3 were
+resolved here, while T4/P3 is explicitly deferred until adapter activation and
+is not a first Rust slice blocker. Review status for Revision 11 remains
+Pending, and no acceptance or activation follows.
 
 ## Implementation and Proof Obligations
 
@@ -666,10 +707,13 @@ the described machinery.
   operation/publication mechanics to DR-0013
   and exact fields to the canonical build-operation specification.
 - Define unique per-execution `attempt_id` separately from deterministic stable
-  `build_request_id`; include source/source-set identity, exact dependency
-  revisions/digests, compiler/toolchain/build implementation, contract/schema/
+  `build_request_id`; include source/source-set identity, exact references to
+  the implementation-content-binding and dependency-closure identities used
+  for execution, compiler/toolchain/build implementation, contract/schema/
   profile revisions, configuration, seed, backend/capability/protocol revision,
-  and output-affecting target/platform profile in the request identity.
+  and output-affecting target/platform profile in the request identity. Keep
+  those as references to separate domains rather than inlining raw file or
+  dependency sets, and exclude attempt and fixture-payload identities.
 - Keep `attempt_id` only in the returned operation envelope, invocation-owned
   staging metadata, and logs. Exclude it from committed/hashed bytes, target
   derivation, candidate identity, and idempotent comparison. Do not persist a
@@ -695,8 +739,13 @@ the described machinery.
 - Define conceptual versioned `claim-id-1` as the structured tuple of
   canonical target, closed claim kind, typed source-document/namespace
   identity, stable authored record address, typed property role, and explicit
-  authored claim key or absence. Freeze its componentwise lexicographic total order and
-  conceptual unordered pair `(min_id, max_id)`. Evaluate same-ID/same-value
+  authored claim key or absence. Freeze the wire-independent semantic-address
+  comparator: owning structured address order; profile-defined semantic ranks
+  for closed claim kind and typed property role; normalized identifier
+  Unicode-scalar lexical order with structured prefix-before-extension; and
+  absent-before-present claim keys. The activated schema must bijectively map
+  wire values to those conceptual types/ranks. Use conceptual unordered pair
+  `(min_id, max_id)`. Evaluate same-ID/same-value
   occurrences once while retaining all provenance; reject same-ID/different-
   value identity collisions. Evaluate different-ID all-pairs in sorted claim-ID
   order, report the first failing sorted pair, and choose the smallest exact

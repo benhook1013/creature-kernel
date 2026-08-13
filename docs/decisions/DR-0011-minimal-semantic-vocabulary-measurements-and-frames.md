@@ -6,7 +6,7 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 13
+Revision: 14
 
 Decision owner: Ben
 
@@ -122,6 +122,15 @@ fixture, parser/resolver, readiness gate, implementation, adapter, experiment,
 or package. The Batch 13 Revision 12 review is stale evidence after this
 material revision and remains preserved below; Owner approval remains Pending
 and a fresh current-revision review is required.
+
+On 2026-08-13 the fresh technical-review dispositions were applied in this
+Revision 14 proposal: the `claim-id-1` order is now wire-independent with
+profile-defined semantic ranks and normalized identifier ordering; numeric
+wording distinguishes required-sqrt quaternion normalization from the
+already-normalized tuple-distance predicate; and malformed adapter-profile
+status mapping is deferred to the adapter-activation prerequisite rather than
+treated as source admission. This technical correction preserves the Proposed
+status, Owner approval Pending, and Review status Pending.
 
 ## Decision
 
@@ -368,8 +377,12 @@ arithmetic. No rounded floating intermediate or undefined “equivalent
 monotonic” evaluation may decide the inclusive boundary. Translation uses this
 predicate componentwise under L-infinity semantics.
 
-Rotation comparison removes runtime transcendental evaluation. The admitted
-comparison profile stores a finite binary64 half-threshold `H` for canonical-
+Rotation comparison removes runtime transcendental evaluation after inputs have
+been deterministically normalized. The already-normalized tuple-distance
+predicate uses no square root, norm, `asin`, or `sin`; deterministic quaternion
+normalization itself uses the required correctly rounded binary64 square root
+specified below. The admitted comparison profile stores a finite binary64
+half-threshold `H` for canonical-
 tuple chord semantics: after deterministic normalization and sign selection,
 `H` is the half-threshold in the Euclidean space of the canonical quaternion
 tuples.
@@ -379,8 +392,7 @@ zero; compute `di = qa_i - s*qb_i`; and accept iff
 angular `theta`, if retained, is informational/calibration metadata only; this
 record does not claim that `H` or `theta` bounds represented angular error. A
 future represented-direction or angular guarantee requires a new
-comparison-profile revision and successor evidence. Runtime `asin`, `sin`,
-and `sqrt` are not used for comparison.
+comparison-profile revision and successor evidence.
 
 Source quaternion normalization is deterministic: exact max-absolute-component
 scaling; fixed `xyzw` divisions; a fixed left-to-right squared sum without
@@ -394,18 +406,26 @@ For competing authored claims targeting the same owner, property, and frame,
 use conceptual versioned `claim-id-1`: canonical target, closed claim kind,
 typed source-document/namespace identity, stable authored record address,
 typed property role, and an explicit authored claim key or absence. Its
-components have a componentwise lexicographic total order and unordered pairs
-are `(min_id, max_id)`. It never uses array/traversal/allocation/thread/time
-or generated indexes. Same claim ID plus the same normalized value is evaluated
-once while all occurrences/provenance remain; same claim ID plus a different
-value is an invalid-source identity collision. Evaluate unordered pairs in
-sorted claim-ID order, with the first failing sorted pair supplying deterministic
-conflict detail. Every pair must pass; no transitive clustering, first-winner
-rule, residual equality, or approximate deduplication is permitted. Only after
-all pairs pass, choose the lexicographically smallest value-type tuple under an
-exact finite-binary64 total value order (`-0` already `+0`); claim ID breaks
-exact tuple ties only, and all provenance is retained. Exact bounds and profile
-identifiers remain experiment-gated.
+wire-independent total order is owned by the
+[semantic-address profile](../../spec/semantic-address/README.md): the target
+uses its owning structured semantic-address order; closed claim kind and typed
+property role use profile-defined semantic tag ranks rather than wire spelling;
+typed source-document/namespace identity and each address segment use the
+restricted normalized identifier Unicode-scalar lexical order, with structured
+address/anchor sequences using prefix-before-extension; and the claim-key sum
+type orders absent before present, with present keys using that same identifier
+order. An activated schema must bijectively map wire values to these conceptual
+types/ranks and may not infer order from serialized spelling. Unordered pairs
+are `(min_id, max_id)`. Same claim ID plus the same normalized value is
+evaluated once while all occurrences/provenance remain; same claim ID plus a
+different value is an invalid-source identity collision. Evaluate unordered
+pairs in this total order, with the first failing sorted pair supplying
+deterministic conflict detail. Every pair must pass; no transitive clustering,
+first-winner rule, residual equality, or approximate deduplication is
+permitted. Only after all pairs pass, choose the lexicographically smallest
+value-type tuple under an exact finite-binary64 total value order (`-0` already
+`+0`); claim ID breaks exact tuple ties only, and all provenance is retained.
+Exact bounds and profile identifiers remain experiment-gated.
 
 The bounded numeric experiment is part of activation evidence, not a source of
 post-hoc tolerance selection. Intended numeric domains and semantic error
@@ -451,15 +471,22 @@ adapter activation is separate and occurs only after Readiness 3. No engine is
 selected by this record.
 
 The public adapter status mapping is owned by the build-operation and platform
-contracts and reuses existing statuses: malformed authored request/profile is
-`invalid-source`/source-admission; unknown revision or unavailable capability
-is `unsupported`/source-admission; a violated admitted profile invariant is
-`internal-failure`/execution-trust; and valid supported conversion overflow,
-disallowed underflow, or malformed output is `output-failure`/publication.
-Resource and trust precedence remains unchanged. Adapter proof obligations
+contracts and reuses existing statuses, but its malformed-request/profile
+classification is deliberately unselected until adapter activation. An adapter
+profile is a build-request/target-platform input, not authoritative body-source
+content. Before an adapter profile/schema activates, an explicit request-
+validation mapping must be chosen and reviewed while preserving the closed
+operation status set (or explicitly revising it). A well-formed unknown
+revision or unavailable capability remains `unsupported`; a violated admitted
+profile invariant remains `internal-failure`; and valid supported conversion
+overflow, disallowed underflow, or malformed output remains `output-failure`.
+Until then no adapter activates, and malformed adapter-profile input is not
+classified here as `invalid-source`/source-admission. Adapter proof obligations
 cover malformed scale/profile, unknown revision, capability absence, invariant
 violation, overflow, underflow, malformed output, and precedence, but this
-record creates no fixtures or adapter.
+record creates no fixtures or adapter. The request-validation choice is
+implementation/evidence-dependent and is not a blocker for the first Rust
+slice.
 
 ### Numeric-domain and default provenance boundary
 
@@ -934,18 +961,28 @@ status is Complete for evidence only; Owner approval remains Pending and
 Status remains Proposed. No numeric profile, resolver, adapter, fixture,
 implementation, or package is accepted or activated by this review.
 
-The Batch 13 findings are dispositioned in this Revision 13 as follows. D1 is
-resolved by defining `H` as an inclusive post-normalization canonical-tuple
-Euclidean threshold and withdrawing any represented-angular guarantee. D2 and
-P1 are cross-record obligations resolved by the explicit implementation
-closure and root-descriptor no-follow profile in DR-0006, DR-0013, and the
-fixture-manifest specification. D3 is resolved by the conceptual typed
-`claim-id-1` tuple, total order, pair encoding, stable property address, and
-multiplicity rule. P2 is resolved by the post-stage produced-zero `+0` rule;
-P3 is resolved by the build-operation/platform status mapping and proof
-obligations. The prior reviews remain stale evidence; Review status is Pending
-and this Proposed revision activates no numeric, resolver, adapter, or fixture
-machinery.
+The Batch 13 findings were dispositioned in the prior Revision 13 as follows.
+D1 was resolved by defining `H` as an inclusive post-normalization
+canonical-tuple Euclidean threshold and withdrawing any represented-angular
+guarantee. D2 and P1 were cross-record obligations resolved by the explicit
+implementation closure and root-descriptor no-follow profile in DR-0006,
+DR-0013, and the fixture-manifest specification. D3 was resolved by the
+conceptual typed `claim-id-1` tuple, total order, pair encoding, stable
+property address, and multiplicity rule. P2 was resolved by the post-stage
+produced-zero `+0` rule. P3 was previously described as resolved by the
+build-operation/platform mapping; Revision 14 corrects that disposition and
+records malformed adapter-profile validation as a deferred adapter-activation
+prerequisite. The prior reviews remain stale evidence; Review status is
+Pending and this Proposed revision activates no numeric, resolver, adapter, or
+fixture machinery.
+
+The fresh successor-target reviews are [Review 01](reviews/DR-0011-rev-13-review-01.md)
+and [Review 02](reviews/DR-0011-rev-13-review-02.md). They are exact-target
+evidence for Revision 13 only and are stale for this Revision 14 successor.
+Their G1/G2 mechanical findings were fixed in the successor; T1–T3 were
+resolved here, while T4/P3 is explicitly deferred until adapter activation and
+is not a first Rust slice blocker. Review status for Revision 14 remains
+Pending, and no acceptance or activation follows.
 
 ## Implementation and Proof Obligations
 
@@ -1027,9 +1064,11 @@ machinery.
   post-normalization canonical tuples; never use rounded intermediate
   “equivalent monotonic” evaluation. A nominal theta is informational or
   calibration metadata only, not an angular guarantee. A future angular claim
-  requires a new comparison-profile revision and successor evidence; remove
-  runtime `asin`, `sin`, and `sqrt`. Use deterministic max-component quaternion
-  normalization, fixed
+  requires a new comparison-profile revision and successor evidence. After
+  deterministic normalization, the tuple-distance predicate uses no square
+  root, norm, `asin`, or `sin`; normalization itself uses the required
+  correctly rounded binary64 square root. Use deterministic max-component
+  quaternion normalization, fixed
   operation order, canonical sign, no reassociation/FMA/FTZ/DAZ/ambient mode,
   and unsupported when required sqrt is unavailable. Require structured
   authored claim identity, same-ID collision rejection, sorted claim-ID pair

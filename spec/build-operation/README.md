@@ -1,10 +1,11 @@
 # Build operation and derived-output contract
 
 Status: Proposed conceptual contract; CK-KICK-012 Batch 13/14 discussion-approved
-canonical owner. Current Batch 13/14 material is recorded in DR-0006 Revision 10,
-DR-0011 Revision 13, DR-0012 Revision 12, and DR-0013 Revision 10; each remains
-Proposed with Owner approval Pending and Review Pending after the Batch 13
-current-revision Double review. Batch 13/14 cross-links
+canonical owner. Current Batch 13/14 material is recorded in DR-0006 Revision 11,
+DR-0011 Revision 14, DR-0012 Revision 13, and DR-0013 Revision 11; each remains
+Proposed with Owner approval Pending and Review Pending after material
+technical-review resolution edits; prior Batch 13 review evidence is stale and
+fresh successor-target review is pending. Batch 13/14 cross-links
 the C1 keyed-collection, C3 separate implementation-binding, and C4
 diagnostic/bootstrap resolutions. This document owns build/output status and
 adapter output context only; it does not own comparator arithmetic, diagnostic
@@ -97,20 +98,26 @@ transaction with its own conformance fixtures and profile binding; no adapter
 is active from this Proposed contract. The exact runtime capability labels,
 profile IDs, and status code strings remain fixture-gated.
 
-The adapter status mapping reuses the existing operation statuses. A malformed
-authored adapter request or profile, including invalid `C`, zero/negative or
-nonfinite `s`, or other nonfinite profile values, is `invalid-source` during
-source admission. A well-formed unknown profile revision or unavailable
-claimed capability is `unsupported` during source admission. A violated
-already-admitted project-profile invariant is `internal-failure` under
-execution trust. A valid supported profile whose conversion overflows, whose
-underflow is disallowed, or whose output is malformed/invalid is
-`output-failure` at publication. Resource and trust outcomes retain their
-existing precedence over these mappings. Exact diagnostic codes and field
-names remain fixture-gated. Proof obligations include zero/negative/nonfinite
-scale, unknown revision, unavailable capability, invariant violation,
-overflow, disallowed underflow, malformed output, and precedence fixtures;
-this contract does not create those fixtures or activate an adapter.
+The adapter status mapping reuses the existing operation statuses, but
+malformed adapter request/profile mapping is deliberately unselected until
+adapter activation. Adapter profile data is a build-request/target-platform
+input, not authoritative body-source content. Before an adapter profile/schema
+activates, the owning request-validation mapping must be chosen and reviewed
+while preserving the closed operation status set (or explicitly revising it).
+A well-formed unknown profile revision or unavailable claimed capability remains
+`unsupported`; a violated already-admitted project-profile invariant remains
+`internal-failure`; and a valid supported profile whose conversion overflows,
+whose underflow is disallowed, or whose output is malformed/invalid remains
+`output-failure`. Until then no adapter activates, and malformed adapter
+profile input is not classified here as `invalid-source` during source
+admission. Resource and trust outcomes retain their existing precedence over
+these mappings. Exact diagnostic codes and field names remain fixture-gated.
+This request-validation choice is implementation/evidence-dependent and is not
+a blocker for the first Rust slice.
+Proof obligations include zero/negative/nonfinite scale, unknown revision,
+unavailable capability, invariant violation, overflow, disallowed underflow,
+malformed output, and precedence fixtures; this contract does not create those
+fixtures or activate an adapter.
 
 ## Identity and manifest lifecycle
 
@@ -130,15 +137,22 @@ publication does not mint a replacement identity.
 Attempt identity is invocation-local trace data. It never enters committed
 success manifests or other committed artifact bytes, and never affects the
 target, candidate identity, deterministic equality, or idempotent equality. A
-build request includes every outcome-affecting source/dependency, compiler and
-toolchain, contract/schema/profile, configuration and seed, backend
-capability/protocol, and target-platform input. Its deterministic projection
-and digest use the [canonical-data profile](../canonical-data/README.md), and
-activation is blocked until that profile and all referenced semantic profiles
-are admitted. If a readiness gate activates code, the separate implementation
-binding owned by the [fixture-manifest contract](../fixture-manifest/README.md)
-is checked as part of that gate; the binding record is outside the fixture
-payload and is not a whole-repository or commit-equality identity.
+build request includes every outcome-affecting source/source-set, an exact
+reference to the implementation-content-binding identity used for execution,
+an exact reference to the dependency-closure identity used for execution,
+compiler and toolchain, contract/schema/profile, configuration and seed,
+backend capability/protocol, and target-platform input. These are references
+only: its deterministic projection does not inline raw implementation
+path/mode/content entries or raw dependency sets, which remain owned by their
+separate domains. Fixture-payload identity and attempt identity are excluded.
+Omitting an outcome-affecting input or either exact execution binding reference
+is an identity error. Its deterministic projection and digest use the
+[canonical-data profile](../canonical-data/README.md), and activation is blocked
+until that profile and all referenced semantic profiles are admitted. If a
+readiness gate activates code, the separate implementation binding owned by the
+[fixture-manifest contract](../fixture-manifest/README.md) is checked as part of
+that gate; the binding record is outside the fixture payload and is not a
+whole-repository or commit-equality identity.
 
 For each artifact role, candidate artifact identity derives deterministically
 from the build-request identity, artifact role, and identity-rule revision.

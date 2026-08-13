@@ -2,8 +2,9 @@
 
 Status: Proposed conceptual contract; CK-KICK-012 Batch 13/14 discussion-approved
 canonical update. The current decision records remain Proposed with Owner
-approval Pending and Review Pending after the Batch 13 current-revision
-Double review. This
+approval Pending and Review Pending after material technical-review resolution
+edits; prior Batch 13 review evidence is stale and fresh successor-target
+review is pending. This
 document records the approved comparator, claim identity, and graph collection
 key consequences only; no acceptance, implementation, or readiness gate is
 implied. See the [current review state](../../docs/project/status.md#current-review-and-future-activation-obligations)
@@ -291,7 +292,10 @@ claims remain exact. Scalar and translation components use the profile's exact
 inclusive absolute-plus-relative predicate with componentwise L-infinity
 translation semantics. Quaternion claims are normalized and compared with the
 profile's q/-q canonical-tuple chord predicate and dot-zero `+1` sign tie;
-runtime comparison uses no transcendental or norm operation. The profile's
+after deterministic normalization, the tuple-distance predicate uses no square
+root, norm, or transcendental operation. The normalization itself uses the
+required correctly rounded binary64 square root owned by the numeric/frame
+profile. The profile's
 finite `H` is an inclusive Euclidean half-threshold over post-normalization
 canonical tuples, not an angular guarantee. Transform claims are normalized into the
 same canonical local-to-parent frame for direct comparison. A residual
@@ -321,8 +325,15 @@ every claim, including claims not selected as the representative.
 Stable claim identity is conceptual versioned `claim-id-1`, structured from
 canonical target, closed claim kind, typed source-document/namespace identity,
 stable authored record address, typed property role, and explicit authored claim
-key or absence for intentional multiplicity. It has a componentwise lexicographic
-total order and unordered pairs are `(min_id, max_id)`. It never uses a raw
+key or absence for intentional multiplicity. Its wire-independent total order
+is owned by the [semantic-address profile](../semantic-address/README.md): the
+canonical target uses its structured address order; closed claim kind and
+typed property role use profile-defined semantic tag ranks; typed namespace
+and address segments use normalized identifier Unicode-scalar lexical order
+with structured prefix-before-extension ordering; and absent claim keys sort
+before present keys, whose values use that same identifier order. An activated
+schema must bijectively map wire values to those conceptual types/ranks and
+must not infer order from wire spelling. It never uses a raw
 JSON pointer, array/traversal/allocation order, thread, time, or generated
 identifier; a raw pointer is diagnostic provenance only. Same-ID/same-value
 occurrences are evaluated once while provenance remains, same-ID/different-

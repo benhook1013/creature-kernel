@@ -6,7 +6,7 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 10
+Revision: 11
 
 Decision owner: Ben
 
@@ -97,6 +97,17 @@ fixture, parser/resolver, readiness gate, implementation, adapter, experiment,
 or package. The Batch 13 Revision 9 review is stale evidence after this
 material revision and remains preserved below; Owner approval remains Pending
 and a fresh current-revision review is required.
+
+On 2026-08-13 the fresh technical-review dispositions were applied in this
+Revision 11 proposal: build requests now reference the exact implementation-
+content-binding and dependency-closure identities used for execution; the
+wire-independent `claim-id-1` comparator and normalized identifier ordering
+are explicit; numeric wording distinguishes required-sqrt quaternion
+normalization from the already-normalized tuple-distance predicate; and
+malformed adapter-profile status mapping is deferred to the adapter-activation
+prerequisite rather than treated as source admission. This technical correction
+preserves the Proposed status, Owner approval Pending, and Review status
+Pending.
 
 ## Decision
 
@@ -237,8 +248,10 @@ post-normalization Euclidean half-threshold in canonical quaternion tuple space.
 nominal `theta`, if retained, is informational/calibration metadata only; this
 platform boundary does not claim that `H` or `theta` bounds represented angular
 error. A future represented-direction or angular guarantee requires a new
-comparison-profile revision and successor evidence. Runtime `asin`, `sin`, and
-`sqrt` are not used.
+comparison-profile revision and successor evidence. After deterministic
+quaternion normalization, the already-normalized tuple-distance predicate uses
+no square root, norm, `asin`, or `sin`; normalization itself uses the required
+correctly rounded binary64 square root specified below.
 
 Normalize source quaternions with exact max-absolute-component scaling, fixed
 `xyzw` divisions, fixed left-to-right squared sum without reassociation/FMA,
@@ -248,14 +261,21 @@ FTZ/DAZ, and no ambient mode; unsupported platforms cannot provide this sqrt.
 Every unordered claim pair must pass. Conceptual versioned `claim-id-1` is the
 structured tuple of canonical target, closed claim kind, typed
 source-document/namespace identity, stable authored record address, typed
-property role, and explicit authored claim key or absence; its components have a
-componentwise lexicographic total order and unordered pairs are
-`(min_id, max_id)`. It never uses array/traversal/allocation/thread/time/
-generated index. Same ID and same normalized value evaluates once while all
-occurrences/provenance remain; same ID/different value is invalid-source
-identity collision. Different IDs use all-pairs evaluation in sorted claim-ID
-order, report the first failing pair, and only then choose the lexicographically
-smallest exact finite-binary64 value tuple
+property role, and explicit authored claim key or absence. Its wire-independent
+total order is owned by the [semantic-address profile](../../spec/semantic-address/README.md):
+the canonical target uses its structured address order; closed claim kind and
+typed property role use profile-defined semantic tag ranks rather than wire
+spelling; typed source-document/namespace identity and each address segment use
+normalized identifier Unicode-scalar lexical order with structured
+prefix-before-extension ordering; and absent claim keys precede present keys,
+whose values use that same identifier order. An activated schema must
+bijectively map wire values to these conceptual types/ranks and may not infer
+order from wire spelling. Unordered pairs are `(min_id, max_id)`. It never uses
+array/traversal/allocation/thread/time/generated index. Same ID and same
+normalized value evaluates once while all occurrences/provenance remain; same
+ID/different value is invalid-source identity collision. Different IDs use
+all-pairs evaluation in this order, report the first failing pair, and only
+then choose the lexicographically smallest exact finite-binary64 value tuple
 (`-0` already `+0`), with claim ID breaking exact tuple ties only.
 
 The numeric evidence gate pre-registers domains and semantic error budgets,
@@ -285,17 +305,25 @@ capability is unsupported; trusted in-domain overflow/disallowed underflow is
 output-failure. Core snapshots remain binary64 and unchanged; adapter
 activation is separate and after Readiness 3.
 
-Adapter status mapping reuses the existing statuses: malformed authored
-adapter request/profile, including bad `C`, `s <= 0`, or nonfinite values, is
-`invalid-source`/source-admission; a well-formed unknown revision or unavailable
-claimed capability is `unsupported`/source-admission; a violated already-
-admitted project-profile invariant is `internal-failure`/execution-trust; and
-a valid supported conversion overflow, disallowed underflow, or malformed
-output is `output-failure`/publication. Resource and trust outcomes retain
-their existing precedence. Exact codes/field names remain fixture-gated.
-Proof obligations include malformed scale/profile, unknown revision,
-unavailable capability, invariant violation, overflow, disallowed underflow,
-malformed output, and precedence cases; no fixtures or adapter activate here.
+Adapter status mapping reuses the existing statuses, but malformed adapter
+request/profile mapping is deliberately unselected until adapter activation.
+Adapter profile data is a build-request/target-platform input, not
+authoritative body-source content. Before an adapter profile/schema activates,
+the owning build-operation/platform contracts must choose and review the
+request-validation result mapping while preserving the closed operation status
+set (or explicitly revising it). A well-formed unknown revision or unavailable
+claimed capability remains `unsupported`; a violated already-admitted
+project-profile invariant remains `internal-failure`; and valid supported
+conversion overflow, disallowed underflow, or malformed output remains
+`output-failure`. Until then no adapter activates and malformed adapter-profile
+input is not classified as `invalid-source`/source-admission. Resource and
+trust outcomes retain their existing precedence. Exact codes/field names
+remain fixture-gated. This request-validation choice is
+implementation/evidence-dependent and is not a blocker for the first Rust
+slice. Proof obligations include malformed scale/profile,
+unknown revision, unavailable capability, invariant violation, overflow,
+disallowed underflow, malformed output, and precedence cases; no fixtures or
+adapter activate here.
 
 Acceptance of DR-0013 itself is the sole trigger for Readiness 1. Creating this
 Proposed DR does not activate implementation packages, schemas, compiler
@@ -467,11 +495,18 @@ The unique per-execution `attempt_id` exists only in the returned operation
 envelope, invocation-owned staging metadata, and logs. It is excluded from
 committed or hashed bytes, target derivation, candidate identity, and
 idempotent lineage equality. The stable deterministic `build_request_id`
-contains every outcome-affecting source/source-set, exact dependency
-revision/digest, compiler/toolchain/build implementation, contract/schema/
-profile, configuration, seed, backend/capability/protocol, and target/platform
-profile input. Candidate identity derives from that request identity, artifact
-role, and identity-rule revision; successful publication promotes the same
+contains every outcome-affecting source/source-set, an exact reference to the
+implementation-content-binding identity used for execution, an exact reference
+to the dependency-closure identity used for execution, compiler/toolchain/build
+implementation, contract/schema/profile, configuration, seed,
+backend/capability/protocol, and target/platform profile input. These are
+references only: the request projection does not inline raw implementation
+path/mode/content entries or raw dependency sets, which remain owned by their
+separate domains. Fixture-payload identity is admission context and is
+excluded, as is attempt identity. Omitting an outcome-affecting input or either
+exact execution binding reference is an identity error. Candidate identity
+derives from that request identity, artifact role, and identity-rule revision;
+successful publication promotes the same
 candidate. After atomic no-replace collision/EEXIST, inspect the winner: an
 identical committed identity, lineage, complete manifest, hashes, and sizes is
 already-published success; a different lineage/identity is target conflict; a
@@ -784,7 +819,9 @@ quaternion sign change.
 
 ## Adversarial Review Response
 
-This is CK-KICK-013 Revision 8, proposed and discussion-approved on 2026-08-12.
+This is CK-KICK-013 Revision 11, Proposed and discussion-approved on 2026-08-13.
+This section preserves the earlier revision review chronology as historical
+evidence before recording the current revision's disposition and pending review.
 The exact Revision 1 Double review examined commit
 `c64b1b98948304d631eecea6a354c9e42c89c510`. The independent [review 01](reviews/DR-0013-rev-01-review-01.md)
 and [review 02](reviews/DR-0013-rev-01-review-02.md) both recommended **Revise**
@@ -987,17 +1024,27 @@ Status remains Proposed. No Cargo shell, readiness gate, parser, resolver,
 adapter, engine, fixture, implementation, or package is accepted or activated
 by this review.
 
-The Batch 13 findings are dispositioned in this Revision 10 as follows. D1 is
-resolved by the canonical-tuple Euclidean `H` threshold and removal of any
-represented-angular guarantee. D2 and P1 are resolved by the explicit locked/
-offline implementation closure, immutable activation snapshot, and
+The Batch 13 findings were dispositioned in the prior Revision 10 as follows.
+D1 was resolved by the canonical-tuple Euclidean `H` threshold and removal of
+any represented-angular guarantee. D2 and P1 were resolved by the explicit
+locked/offline implementation closure, immutable activation snapshot, and
 root-descriptor no-follow regular-file profile cross-linked to DR-0006 and the
-fixture manifest. D3 is resolved by conceptual typed `claim-id-1` and its
-stable-address/order/multiplicity rules. P2 is resolved by the produced-zero
-`+0` rule in DR-0011; P3 is resolved by the explicit adapter status algebra and
-fixture obligations above. The prior reviews remain stale evidence; Review
-status is Pending and this Proposed revision activates no Cargo shell,
+fixture manifest. D3 was resolved by conceptual typed `claim-id-1` and its
+stable-address/order/multiplicity rules. P2 was resolved by the produced-zero
+`+0` rule in DR-0011. P3 was previously described as resolved by the explicit
+adapter status algebra and fixture obligations; Revision 11 corrects that
+disposition and records malformed adapter-profile validation as a deferred
+adapter-activation prerequisite. The prior reviews remain stale evidence;
+Review status is Pending and this Proposed revision activates no Cargo shell,
 readiness gate, resolver, adapter, or geometry implementation.
+
+The fresh successor-target reviews are [Review 01](reviews/DR-0013-rev-10-review-01.md)
+and [Review 02](reviews/DR-0013-rev-10-review-02.md). They are exact-target
+evidence for Revision 10 only and are stale for this Revision 11 successor.
+Their G1/G2 mechanical findings were fixed in the successor; T1–T3 were
+resolved here, while T4/P3 is explicitly deferred until adapter activation and
+is not a first Rust slice blocker. Review status for Revision 11 remains
+Pending, and no acceptance or activation follows.
 
 ## Implementation and Proof Obligations
 
@@ -1087,7 +1134,9 @@ readiness gate, resolver, adapter, or geometry implementation.
   finite binary64 canonical-tuple Euclidean half-threshold `H`; a nominal theta
   is informational/calibration metadata only, not an angular guarantee. Any
   future angular guarantee requires a new comparison-profile revision and
-  successor evidence. Runtime `asin`, `sin`, and `sqrt` are forbidden. Normalize
+  successor evidence. After deterministic normalization, the tuple-distance
+  predicate uses no square root, norm, `asin`, or `sin`; normalization itself
+  uses the required correctly rounded binary64 square root. Normalize
   quaternions with fixed max-component scaling,
   operation order, correctly rounded sqrt, drift/near-zero validation, canonical
   sign, RN ties-even, and no FTZ/DAZ/ambient mode. Require structured authored

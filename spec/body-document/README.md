@@ -3,10 +3,11 @@
 Status: Proposed conceptual contract; CK-KICK-012 Batch 13/14 discussion-approved
 canonical update. DR-0002 Revision 11 and DR-0008 Revision 11 remain Proposed
 with Owner approval Pending and Review Complete. Current Batch 13/14 material is
-recorded in DR-0006 Revision 10, DR-0011 Revision 13, DR-0012 Revision 12, and
-DR-0013 Revision 10; each remains Proposed with Owner approval Pending and
-Review Pending after the Batch 13 current-revision Double review. Batch 11/12/13 review artifacts are stale for those materially
-revised records and remain evidence only. This Batch 13/14 update carries the
+recorded in DR-0006 Revision 11, DR-0011 Revision 14, DR-0012 Revision 13, and
+DR-0013 Revision 11; each remains Proposed with Owner approval Pending and
+Review Pending after material technical-review resolution edits. Batch 11/12/13 review artifacts are stale for those materially
+revised records and remain evidence only; fresh successor-target review is
+pending. This Batch 13/14 update carries the
 C1 keyed-collection, C3 implementation-binding, C4 diagnostic/bootstrap, and
 Batch 13 resolution directions as Proposed cross-spec contracts; no acceptance, schema, parser,
 resolver, implementation binding, or readiness gate activates. See the
@@ -101,14 +102,22 @@ arithmetic or serialized field spelling.
 
 Authored claims use conceptual versioned `claim-id-1`: canonical target, closed
 claim kind, typed source-document/namespace identity, stable authored record
-address, typed property role, and explicit authored claim key or absence. It has a
-componentwise lexicographic order and canonical unordered pairs are
+address, typed property role, and explicit authored claim key or absence. It has
+the wire-independent order owned by the semantic-address profile and canonical
+unordered pairs are
 `(min_id, max_id)`. Claim identity never comes from a raw JSON pointer, array
 index, source traversal, allocation order, or object serialization. A raw
 pointer remains diagnostic provenance only; the activated schema must supply
-stable record address, typed property role, and multiplicity keys. Body-graph owns claim grouping,
-all-pairs satisfiability, representative selection, and provenance retention;
-the numeric/frame profile owns comparison formulas and evaluation semantics.
+stable record address, typed property role, and multiplicity keys. Body-graph
+owns claim grouping, all-pairs satisfiability, representative selection, and
+provenance retention; the numeric/frame profile owns comparison formulas and
+evaluation semantics. The wire-independent claim-ID comparator is defined by
+the [semantic-address profile](../semantic-address/README.md): canonical-target
+address order, profile-defined semantic ranks for closed claim kind and typed
+property role, normalized identifier Unicode-scalar lexical order for typed
+namespace/address segments, structured prefix-before-extension ordering, and
+absent-before-present claim-key ordering. Wire enum spelling may not supply
+the order.
 
 ## Basis, profiles, and frame roles
 

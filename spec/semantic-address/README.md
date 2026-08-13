@@ -3,8 +3,8 @@
 Status: Proposed canonical specification; CK-KICK-012 Batch 13/14 discussion-
 approved identity cross-link; no resolver or schema is activated
 
-Current Batch 13/14 material is recorded in DR-0006 Revision 10, DR-0011 Revision
-13, DR-0012 Revision 12, and DR-0013 Revision 10; each remains Proposed with
+Current Batch 13/14 material is recorded in DR-0006 Revision 11, DR-0011 Revision
+14, DR-0012 Revision 13, and DR-0013 Revision 11; each remains Proposed with
 Owner approval Pending and Review Pending. This profile remains a Proposed
 identity input and does not activate a parser, resolver, schema, or fixture.
 
@@ -71,14 +71,17 @@ ignored; array order is significant. No display label, source-document order,
 mesh position, or generated array index can make unequal addresses equal.
 
 When this address is used as the owner-declared canonical key for an unordered
-collection, its typed total order is the profile-defined lexicographic order of
-namespace, ordered anchors, kind, and role after normalization. A missing or
-malformed address fails closed; a collision is rejected when the owning
-collection is semantically unique. Repeated records must use the owning
-contract's explicit occurrence, claim, context, or multiset identity rather
-than source order or array index. Canonical-data owns the generic keyed-
-collection algorithm and each collection's multiplicity rule; this profile
-owns only address structure, lexical validity, equality, and address ordering.
+collection, its typed total order compares namespace and role identifiers by
+the restricted profile's normalized Unicode-scalar lexical order (the current
+machine profile is an ASCII subset), compares ordered anchor sequences
+lexicographically with prefix before extension, and compares the closed kind
+through its profile-defined semantic tag rank. A missing or malformed address
+fails closed; a collision is rejected when the owning collection is
+semantically unique. Repeated records must use the owning contract's explicit
+occurrence, claim, context, or multiset identity rather than source order or
+array index. Canonical-data owns the generic keyed-collection algorithm and
+each collection's multiplicity rule; this profile owns address structure,
+lexical validity, equality, and this address ordering.
 
 References use the same object representation and structural equality. A
 reference either resolves to one address in the admitted source set or emits a
@@ -103,20 +106,33 @@ target; `claim_kind` is a closed, typed kind; source-document/namespace
 identity is typed and normalized. The authored record address and typed
 property role are durable and stable across parser traversal and object-member
 order; the explicit claim key is present only for schema-permitted intentional
-repeated claims. The tuple has a componentwise lexicographic total order. An
-unordered pair is
+repeated claims. The tuple has the wire-independent component order and
+conceptual comparator defined below. An unordered pair is
 canonically `(min_id, max_id)`.
+
+The selected claim-ID comparator is wire-independent. Its component order is
+`canonical_target`, `claim_kind`, `source_document_namespace`,
+`authored_record_address`, `typed_property_role`, and
+`explicit_claim_key_or_absent`. The target uses the owning structured
+semantic-address order above. Closed claim kinds and typed property roles use
+profile-defined semantic tag ranks, not serialized enum spelling. Typed source
+document/namespace identities and each semantic-address segment use the same
+restricted normalized identifier Unicode-scalar lexical order; structured
+address tuples and anchor sequences use prefix-before-extension. The claim-key
+sum type orders absent before present, and present keys use that identifier
+order. An activated schema must bijectively map wire values to these
+conceptual types/ranks and may not infer order from wire spelling.
 
 Same-ID occurrences with the same normalized value are evaluated once while
 all occurrence/provenance records remain. Same-ID occurrences with different
 normalized values are an invalid-source identity collision. Different IDs are
-evaluated as all unordered pairs in lexicographic order; the first failing pair
+evaluated as all unordered pairs in this total order; the first failing pair
 is the deterministic conflict representative, and the lexicographically
 smallest value tuple is selected only after every pair passes. Exact wire field
-spellings and enum values are deferred to schema activation. A raw JSON pointer
-is diagnostic provenance only: an activated source schema must provide the
-stable record address, typed property role, and multiplicity key required by
-this profile.
+spellings remain deferred to schema activation. A raw JSON pointer is
+diagnostic provenance only: an activated source schema must provide the stable
+record address, typed property role, and multiplicity key required by this
+profile.
 
 ## Resource and activation boundary
 

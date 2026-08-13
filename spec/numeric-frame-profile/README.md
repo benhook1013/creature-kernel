@@ -132,8 +132,11 @@ path above. Let `d = dot(qa, qb)`, choose `s = +1` when `d >= 0` and
 dyadic sum `sum(di^2) <= (2H)^2`, where `H` is the profile's finite binary64
 post-normalization canonical-tuple Euclidean half-threshold. The dot, subtraction,
 square, sum, and comparison
-are exact dyadic/integer operations; no runtime `asin`, `sin`, norm, or square
-`H` is the finite binary64 half-threshold in the Euclidean space of the
+are exact dyadic/integer operations. Once both inputs have been deterministically
+normalized, this tuple-distance predicate uses no square root, norm, `asin`, or
+`sin`. The deterministic quaternion normalization itself uses the required
+correctly rounded binary64 square root specified above. `H` is the finite
+binary64 half-threshold in the Euclidean space of the
 post-normalization canonical quaternion tuples. It is a canonical-tuple chord
 threshold, not a proven angular bound. A nominal `theta`, if retained, is
 informational/calibration metadata only; any future represented-direction or

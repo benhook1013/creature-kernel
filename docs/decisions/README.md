@@ -39,8 +39,8 @@ Unaccepted material remains clearly labelled `Proposed` or `provisional`. A
 plausible assistant synthesis is not an accepted product or architecture
 baseline. The registry, process, and review structure operate under Accepted
 DR-0001 Revision 5. DR-0001 Revision 6 is Proposed transition guidance with
-Ben's workflow direction approved but formal acceptance pending current-
-revision review; neither governance status accepts any linked product,
+Ben's workflow direction approved and current review complete; formal
+acceptance remains pending Ben's disposition. Neither governance status accepts any linked product,
 specification, or architecture proposal.
 
 ## Revision and review rule

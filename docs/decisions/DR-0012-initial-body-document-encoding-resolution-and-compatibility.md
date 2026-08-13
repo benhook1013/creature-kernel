@@ -6,7 +6,7 @@ Scope: Specification and architecture
 
 Status: Proposed
 
-Revision: 12
+Revision: 13
 
 Decision owner: Ben
 
@@ -117,6 +117,15 @@ parser/resolver, readiness gate, implementation, adapter, experiment, or
 package. The Batch 13 Revision 11 review is stale evidence after this material
 revision and remains preserved below; Owner approval remains Pending and a
 fresh current-revision review is required.
+
+On 2026-08-13 the fresh technical-review dispositions were applied in this
+Revision 13 proposal: the wire-independent `claim-id-1` ordering now uses
+profile-defined semantic ranks and normalized identifier order; numeric wording
+distinguishes required-sqrt quaternion normalization from the already-normalized
+tuple-distance predicate; and malformed adapter-profile status mapping is
+deferred to the adapter-activation prerequisite rather than classified as
+source admission. This technical correction preserves the Proposed status,
+Owner approval Pending, and Review status Pending.
 
 ## Decision
 
@@ -265,8 +274,11 @@ finite binary64 post-normalization Euclidean half-threshold in canonical
 quaternion tuple space. A nominal `theta`, if presented, is informational/calibration
 metadata only; this source contract does not claim that `H` or `theta` bounds
 represented angular error. A future represented-direction or angular
-guarantee requires a new comparison-profile revision and successor evidence.
-Runtime `asin`, `sin`, and `sqrt` are not used.
+ guarantee requires a new comparison-profile revision and successor evidence.
+After deterministic quaternion normalization, the already-normalized
+tuple-distance predicate uses no square root, norm, `asin`, or `sin`. The
+normalization itself uses the required correctly rounded binary64 square root
+specified below.
 
 Source quaternion normalization uses exact max-absolute-component scaling,
 fixed `xyzw` divisions, fixed left-to-right squared sum without
@@ -277,8 +289,16 @@ mode are required; a platform without the required square root is unsupported.
 Bounds remain experiment-gated. Competing claims use conceptual versioned
 `claim-id-1` (canonical target, closed claim kind, typed source-document/
 namespace identity, stable authored record address, typed property role, and
-explicit authored claim key or absence), with componentwise lexicographic total order
-and unordered pair `(min_id, max_id)`. It never uses array/traversal/
+explicit authored claim key or absence). Its wire-independent total order is
+owned by the [semantic-address profile](../../spec/semantic-address/README.md):
+the canonical target uses its structured address order; closed claim kind and
+typed property role use profile-defined semantic tag ranks rather than wire
+spelling; typed source-document/namespace identity and each address segment
+use normalized identifier Unicode-scalar lexical order with structured
+prefix-before-extension ordering; and absent claim keys precede present keys,
+whose values use that same identifier order. An activated schema must
+bijectively map wire values to these conceptual types/ranks and may not infer
+order from wire spelling. Unordered pairs are `(min_id, max_id)`. It never uses array/traversal/
 allocation/thread/time/generated index. Same ID
 and same normalized value is evaluated once while all occurrences/provenance
 remain; same ID with a different value is an invalid-source identity collision.
@@ -316,6 +336,20 @@ subnormal-preserving runtime promise requires FTZ/DAZ probes. A failed
 capability is unsupported, while trusted in-domain overflow/disallowed
 underflow is output-failure. The core binary64 snapshot is unchanged and no
 adapter activates from this Proposed source contract.
+
+Adapter profile data is a build-request/target-platform input, not
+authoritative body-source content. Therefore malformed adapter request/profile
+mapping is deliberately unselected here. Before an adapter profile/schema
+activates, the owning build-operation/platform contracts must choose and review
+the request-validation result mapping while preserving the closed operation
+status set (or explicitly revising it). A well-formed unknown revision or
+unavailable capability remains `unsupported`; a violated admitted-profile
+invariant remains `internal-failure`; and valid supported conversion overflow,
+disallowed underflow, or malformed output remains `output-failure`. Until then
+no adapter activates and malformed adapter-profile input is not classified as
+`invalid-source`/source-admission. This request-validation choice is
+implementation/evidence-dependent and is not a blocker for the first Rust
+slice.
 
 ### Deterministic resolution phases and provenance
 
@@ -1035,16 +1069,27 @@ approval remains Pending and Status remains Proposed. No parser, resolver,
 diagnostic profile, readiness gate, adapter, fixture, implementation, or
 package is accepted or activated by this review.
 
-The Batch 13 findings are dispositioned in this Revision 12 as follows. D1 is
-resolved by the canonical-tuple Euclidean `H` contract with no represented-
-angular guarantee. D2 and P1 are resolved by the explicit implementation
-closure and filesystem-safe root-descriptor/no-follow profile owned by
-DR-0006, DR-0013, and the fixture-manifest specification. D3 is resolved by
-conceptual typed `claim-id-1` with stable record address, typed property role,
-and explicit multiplicity. P2 is resolved by the produced-zero `+0` rule owned by DR-0011;
-P3 is resolved by the build-operation/platform adapter status mapping. The
-prior reviews remain stale evidence; Review status is Pending and this Proposed
-revision activates no parser, resolver, schema, adapter, or fixture machinery.
+The Batch 13 findings were dispositioned in the prior Revision 12 as follows.
+D1 was resolved by the canonical-tuple Euclidean `H` contract with no
+represented-angular guarantee. D2 and P1 were resolved by the explicit
+implementation closure and filesystem-safe root-descriptor/no-follow profile
+owned by DR-0006, DR-0013, and the fixture-manifest specification. D3 was
+resolved by conceptual typed `claim-id-1` with stable record address, typed
+property role, and explicit multiplicity. P2 was resolved by the produced-zero
+`+0` rule owned by DR-0011. P3 was previously described as resolved by the
+build-operation/platform adapter status mapping; Revision 13 corrects that
+disposition and records malformed adapter-profile validation as a deferred
+adapter-activation prerequisite. The prior reviews remain stale evidence;
+Review status is Pending and this Proposed revision activates no parser,
+resolver, schema, adapter, or fixture machinery.
+
+The fresh successor-target reviews are [Review 01](reviews/DR-0012-rev-12-review-01.md)
+and [Review 02](reviews/DR-0012-rev-12-review-02.md). They are exact-target
+evidence for Revision 12 only and are stale for this Revision 13 successor.
+Their G1/G2 mechanical findings were fixed in the successor; T1–T3 were
+resolved here, while T4/P3 is explicitly deferred until adapter activation and
+is not a first Rust slice blocker. Review status for Revision 13 remains
+Pending, and no acceptance or activation follows.
 
 ## Implementation and Proof Obligations
 
@@ -1099,10 +1144,13 @@ revision activates no parser, resolver, schema, adapter, or fixture machinery.
   keep residual transforms only as separately named diagnostic/composition
   comparisons. Decide scalar/component bounds over exact dyadic values with
   bounded integer arithmetic. Compare rotations by exact dyadic dot-sign and
-  the inclusive canonical-tuple Euclidean half-threshold `H`, with no runtime
-  `asin`, `sin`, or `sqrt`; a nominal theta is informational/calibration
-  metadata only, not an angular guarantee. Any future angular guarantee
-  requires a new comparison-profile revision and successor evidence.
+  the inclusive canonical-tuple Euclidean half-threshold `H`; after
+  deterministic normalization, the tuple-distance predicate uses no square
+  root, norm, `asin`, or `sin`, while normalization itself uses the required
+  correctly rounded binary64 square root. A nominal theta is
+  informational/calibration metadata only, not an angular guarantee. Any future
+  angular guarantee requires a new comparison-profile revision and successor
+  evidence.
   Normalize source quaternions with fixed max-component scaling, operation
   order, correctly rounded sqrt, drift/near-zero validation, canonical sign,
   RN ties-even, and no FTZ/DAZ/ambient mode. Require structured authored claim

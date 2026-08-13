@@ -4,10 +4,11 @@ Status: Proposed conceptual specification; CK-KICK-012 Batch 13/14 discussion-
 approved C1/C3/C4 resolutions; no schema, parser, or fixture corpus is
 activated
 
-Current Batch 13/14 material is recorded in DR-0006 Revision 10, DR-0011 Revision
-13, DR-0012 Revision 12, and DR-0013 Revision 10; each remains Proposed with
-Owner approval Pending and Review Pending after the Batch 13 current-revision
-Double review. Batch 13/14 carries the generic
+Current Batch 13/14 material is recorded in DR-0006 Revision 11, DR-0011 Revision
+14, DR-0012 Revision 13, and DR-0013 Revision 11; each remains Proposed with
+Owner approval Pending and Review Pending after material technical-review
+resolution edits; prior Batch 13 review evidence is stale and fresh
+successor-target review is pending. Batch 13/14 carries the generic
 canonical-key, separate implementation-binding, and diagnostic/bootstrap
 directions as Proposed material. Exact identifiers, schema fields, code
 membership, and fixture content remain readiness-gated.
@@ -74,7 +75,10 @@ declared compile/code-generation inputs. Dependency closure separately owns
 registry, vendored, path-dependency, and proc-macro provenance/content.
 Build-request identity separately owns selected packages, targets, target
 triple, features, profile, approved environment/tool/configuration inputs, and
-the exact locked/offline command. Readiness 2 binds the parser/bootstrap
+the exact locked/offline command. Its request projection references the exact
+implementation-content-binding identity and dependency-closure identity used
+for execution; it does not inline raw path/content or dependency sets. Fixture-
+payload identity and attempt identity remain excluded. Readiness 2 binds the parser/bootstrap
 closure; Readiness 3 binds the resolver/source closure. The activation closure
 manifest binds or references all three. Opaque Git, native, vendored, or
 generated inputs that cannot be represented by this closure require an
@@ -210,8 +214,12 @@ directions, reflections/handedness, composition, inverse, quaternion
 round-trips, correctly rounded narrowing, subnormals, nonzero-to-zero
 underflow, overflow, malformed zero/negative/nonfinite scale, unknown revision,
 unavailable capability, admitted-invariant violation, malformed output, and
-status precedence; they are activated only after Readiness 3 and do not select
-an engine.
+status precedence. Exact malformed-adapter-profile status mapping is
+deliberately unselected until the adapter request-validation prerequisite is
+chosen and reviewed; malformed profile data is not classified here as
+source-admission. This request-validation choice is implementation/evidence-
+dependent and is not a blocker for the first Rust slice. These fixtures are
+activated only after Readiness 3 and do not select an engine.
 
 Only listed fixtures participate in an admission. An unlisted fixture, even if
 it exists on the review branch or is readable by an implementation, does not

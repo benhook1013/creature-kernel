@@ -47,12 +47,15 @@ now recorded for the integration batch. Batch 5 blocker resolutions are
 discussion-approved and are reflected in the canonical specifications as
 Proposed material. Accepted DR-0001 Revision 5 remains the operative governance
 baseline while DR-0001 Revision 6 is Proposed transition guidance: Ben approved
-its workflow direction, but formal acceptance remains pending current-revision
-review. The current DR-0006/0011/0012/0013 material is Proposed at Revisions
-10/13/12/10 with Owner approval Pending and Review Pending after material
-resolution edits. Batch 13 review commit `8c38c501eb1262a1b85af0b8605220625601772f`
-and findings D1–D3/P1–P3 are stale historical evidence; those findings are
-resolved in the current proposals and fresh review is pending. No acceptance,
+its workflow direction and the current review is complete; formal acceptance
+remains pending Ben's disposition. The current DR-0006/0011/0012/0013 material is Proposed at Revisions
+11/14/13/11 with Owner approval Pending and Review Pending after material
+technical-review resolution edits. The reviews of the immediate predecessor
+revisions at commit `763cff22d10f6491a05a28312a25250704543dcf` are stale
+exact-target evidence; G1/G2 were fixed mechanically, T1–T3 were resolved in
+the successors, and T4/P3 is deferred until adapter activation rather than
+treated as a first Rust slice blocker. Fresh successor-target review is
+pending. No acceptance,
 schema, fixture, parser/resolver, adapter, Cargo package, readiness,
 experiment, or implementation activates.
 

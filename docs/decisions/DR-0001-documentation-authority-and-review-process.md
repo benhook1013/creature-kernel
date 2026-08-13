@@ -10,10 +10,10 @@ Revision: 6
 
 Decision owner: Ben
 
-Owner approval: Ben approved the workflow direction on 2026-08-13; formal
-Revision 6 acceptance is pending current-revision review
+Owner approval: Workflow direction approved by Ben on 2026-08-13; formal
+acceptance pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-13
 
@@ -342,14 +342,18 @@ prerequisite.
 
 The [Revision 5 architecture/governance review](reviews/DR-0001-rev-05-review-01.md)
 and Ben's acceptance of Revision 5 remain valid historical evidence for that
-revision only. They are stale for Revision 6 and do not satisfy its current
-review prerequisite. Ben explicitly approved the workflow direction on
-2026-08-13; that approval is recorded in the metadata as owner input, not as
-formal acceptance of this proposed revision. Revision 6 current-revision
-review is Pending. Recommended adversarial level: Double — this is a material
-governance change with a broad workflow effect, so two independent fresh
-passes should test the retained-human boundary and the quality/escalation
-controls.
+revision only. They are stale for Revision 6. Ben explicitly approved the
+workflow direction on 2026-08-13; that approval is recorded in the metadata as
+owner input, not as formal acceptance of this proposed revision.
+
+The current [Revision 6 review](reviews/DR-0001-rev-06-review-01.md) is a fresh
+Single governance pass and recommends **Revise** at **High** confidence. It
+found no substantive blocker within the authority boundary. Its G1/G2 findings
+were mechanical summary/reference issues outside that boundary and are fixed
+in the current proposal. Review status is Complete for evidence only; Status
+remains Proposed and formal Owner acceptance remains pending. Recommended
+adversarial level: Single — the current governance review is complete and the
+remaining work is mechanical alignment, not a new direction-setting batch.
 
 ## Implementation and Proof Obligations
 
