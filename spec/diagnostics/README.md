@@ -6,9 +6,14 @@ approved C4 resolution; exact codes and serialized fields are fixture-gated
 Batch 13/14 resolves the diagnostic-domain and bootstrap-compatibility direction
 as Proposed material. Current successor material is recorded in DR-0006 Revision
 12, DR-0011 Revision 15, DR-0012 Revision 14, and DR-0013 Revision 12; each
-remains Proposed with Owner approval Pending and Review Pending after material
-technical-review resolution edits. Prior Batch 13 review evidence is stale;
-fresh successor-target review is pending. No registry,
+remains Proposed with Owner approval Pending and Review Complete after the
+current Double review at exact target
+`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. The earlier-predecessor review at
+`763cff22d10f6491a05a28312a25250704543dcf` and immediate-predecessor review at
+`9b96d18b115126ef09e54ad8c6f21749d5559ff6` are stale, with their findings
+corrected in these revisions. The 9c governance pass corrected two mechanical
+history-label issues and its technical pass found no findings / Ready for PR at
+High confidence. Review Complete is evidence only. No registry,
 profile, code, schema, parser, or readiness gate is accepted or activated.
 
 This document is the sole canonical owner of diagnostic registry definitions,

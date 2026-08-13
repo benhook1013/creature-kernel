@@ -608,15 +608,19 @@ State: active (Batches 1, 4, 5, 6, F1–F3, Batch 8, Batch 9, Batch 10, Batch 11
 documentation; DR-0002/0008 Revision 11 remain Proposed with Owner approval
 Pending and Review Complete, while DR-0006 Revision 12, DR-0011 Revision 15,
 DR-0012 Revision 14, and DR-0013 Revision 12 remain Proposed with Owner approval
-Pending and Review Pending after material technical-review resolution edits. The
+Pending and Review Complete after the current Double review at exact target
+`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. The
 original Batch 13 review at exact commit `8c38c501eb1262a1b85af0b8605220625601772f`
-produced D1–D3/P1–P3, dispositioned in Revisions 10/13/12/10. The immediate-
+produced D1–D3/P1–P3, dispositioned in Revisions 10/13/12/10. The earlier-
 predecessor review at exact commit `763cff22d10f6491a05a28312a25250704543dcf`
 produced G1/G2 and T1–T4; G1/G2 were fixed mechanically, T1–T3 were resolved,
 and T4 remains unselected and deferred, requiring Ben's retained-human
 disposition before adapter profile/schema activation; it does not block the empty
-first Rust slice. Fresh successor-target review is
-pending. No acceptance, schema, fixture, parser/resolver, adapter, Cargo
+first Rust slice. The earlier-predecessor 763cff22 review is stale; the
+immediate-predecessor 9b96d18 review is also stale and its findings were
+corrected in the current revisions. The 9c governance pass corrected two
+mechanical history-label issues and its technical pass found no findings /
+Ready for PR at High confidence. Review Complete is evidence only. No acceptance, schema, fixture, parser/resolver, adapter, Cargo
 package, readiness, experiment, or implementation activates. See the
 [current review state](status.md#current-review-and-future-activation-obligations).
 The prior exact review at
@@ -710,14 +714,17 @@ are stale historical evidence. The current six-record set is DR-0002 Revision
 11, DR-0006 Revision 12, DR-0008 Revision 11, DR-0011 Revision 15, DR-0012
 Revision 14, and DR-0013 Revision 12; DR-0002/0008 retain Review Complete,
 DR-0006 and the three materially revised records remain Proposed with Owner
-approval Pending and Review Pending after material technical-review resolution
-edits. The original 8c38c501 Batch 13 review produced D/P findings later
-dispositioned in Revisions 10/13/12/10. The immediate-predecessor 763cff22
+approval Pending and Review Complete after the current Double review at exact
+target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. The original 8c38c501 Batch 13 review produced D/P findings later
+dispositioned in Revisions 10/13/12/10. The earlier-predecessor 763cff22
 review produced G1/G2 and T1–T4; G1/G2 were fixed mechanically, T1–T3 were
 resolved, and T4 remains unselected and deferred, requiring Ben's retained-human
 disposition before adapter profile/schema activation; it does not block the empty
-first Rust slice. Fresh successor-target
-review is pending. Ben approved the Batch
+first Rust slice. The immediate-predecessor 9b96d18 review is stale; its
+findings were corrected in the current revisions. The 9c governance pass
+corrected two mechanical history-label issues and its technical pass found no
+findings / Ready for PR at High confidence. Review Complete is evidence only.
+Ben approved the Batch
 11/12/13 resolution directions; the
 prior Batch 10 Double-review evidence is stale history. The
 completed Batch 9 Double review targeted
@@ -738,8 +745,9 @@ five actionable findings were resolved by Batch 10 discussion. The prior Batch
 10 Double review remains preserved as stale evidence. The Batch 11 current-
 revision Double-review artifacts are stale for the revised records. DR-0006
 Revision 12, DR-0011 Revision 15, DR-0012 Revision 14, and DR-0013 Revision 12
-remain Proposed with Owner approval Pending and Review Pending after material
-technical-review resolution edits; fresh successor-target review is pending.
+remain Proposed with Owner approval Pending and Review Complete after the
+current Double review at exact target
+`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`.
 No acceptance or implementation/readiness gate is implied.
 
 ### Batch 4 — encoding, resolution, and compatibility (discussion-approved)
@@ -1212,13 +1220,17 @@ from this planning record.
 
 The current affected records are DR-0006 Revision 12, DR-0011 Revision 15,
 DR-0012 Revision 14, and DR-0013 Revision 12, each Proposed with Owner approval
-Pending and Review Pending after material technical-review resolution edits. The
+Pending and Review Complete after the current Double review at exact target
+`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. The
 original 8c38c501 Batch 13 review produced D/P findings later dispositioned in
-Revisions 10/13/12/10. The immediate-predecessor 763cff22 review produced
+Revisions 10/13/12/10. The earlier-predecessor 763cff22 review produced
 G1/G2 and T1–T4; G1/G2 were fixed mechanically, T1–T3 were resolved, and T4
 remains unselected and deferred, requiring Ben's retained-human disposition
 before adapter profile/schema activation; it does not block the empty first Rust
-slice. Fresh successor-target review is pending. No
+slice. The immediate-predecessor 9b96d18 review is stale; its findings were
+corrected in the current revisions. The 9c governance pass corrected two
+mechanical history-label issues and its technical pass found no findings /
+Ready for PR at High confidence. Review Complete is evidence only. No
 acceptance or activation is implied.
 
 ## Round 8 — implementation platform (provisional)
@@ -1226,14 +1238,16 @@ acceptance or activation is implied.
 ### CK-KICK-013: Select the first implementation platform
 
 State: active (discussion-approved Proposed platform direction integrated;
-Proposed DR-0013 Revision 12 has Owner approval Pending and Review Pending after
-material technical-review resolution edits; the original 8c38c501 Batch 13
-review produced D/P findings later dispositioned in Revision 10. The immediate
+Proposed DR-0013 Revision 12 has Owner approval Pending and Review Complete after
+the current Double review at exact target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`; the original 8c38c501 Batch 13
+review produced D/P findings later dispositioned in Revision 10. The earlier
 predecessor 763cff22 review produced G1/G2 and T1–T4; G1/G2 were fixed
 mechanically, T1–T3 were resolved, and T4 remains unselected and deferred,
 requiring Ben's retained-human disposition before adapter profile/schema
 activation; it does not block the empty first Rust slice;
-fresh successor-target review is pending; prior Batch 11/12 review evidence is stale
+the immediate-predecessor 9b96d18 review is stale; its findings were corrected in
+the current revision. The 9c technical pass found no findings / Ready for PR at
+High confidence; Review Complete is evidence only. Prior Batch 11/12 review evidence is stale
 historical evidence for this revised record. The former Batch 12 resolution
 and review of `730a2f77840cc0caa1f838c30dac4ff20f985e69` remain preserved as
 historical findings. The
@@ -1298,7 +1312,8 @@ discussion. The prior Batch 10 review remains preserved as stale evidence. The
 fresh Batch 11 and Batch 12 reviews are stale historical evidence for the
 current successor revisions. DR-0006 Revision 12, DR-0011 Revision 15, DR-0012
 Revision 14, and DR-0013 Revision 12 remain Proposed with Owner approval Pending
-and Review Pending after material technical-review resolution edits; no
+and Review Complete after the current Double review at exact target
+`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`; no
 implementation activates while the DRs remain Proposed.
 Geometry libraries, licensing, platform support, and any C++ worker/FFI boundary remain
 evidence-driven; they are not settled by this proposal. No implementation

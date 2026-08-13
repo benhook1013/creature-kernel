@@ -5,9 +5,14 @@ canonical update. DR-0002 Revision 11 and DR-0008 Revision 11 remain Proposed
 with Owner approval Pending and Review Complete. Current Batch 13/14 material is
 recorded in DR-0006 Revision 12, DR-0011 Revision 15, DR-0012 Revision 14, and
 DR-0013 Revision 12; each remains Proposed with Owner approval Pending and
-Review Pending after material technical-review resolution edits. Batch 11/12/13 review artifacts are stale for those materially
-revised records and remain evidence only; fresh successor-target review is
-pending. This Batch 13/14 update carries the
+Review Complete after the current Double review at exact target
+`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. The earlier-predecessor review at
+`763cff22d10f6491a05a28312a25250704543dcf` and immediate-predecessor review at
+`9b96d18b115126ef09e54ad8c6f21749d5559ff6` are stale; their findings were
+corrected in these revisions. The 9c governance pass corrected two mechanical
+history-label issues and its technical pass found no findings / Ready for PR at
+High confidence. Review Complete is evidence only. Batch 11/12/13 review artifacts are stale for those materially
+revised records and remain evidence only. This Batch 13/14 update carries the
 C1 keyed-collection, C3 implementation-binding, C4 diagnostic/bootstrap, and
 Batch 13 resolution directions as Proposed cross-spec contracts; no acceptance, schema, parser,
 resolver, implementation binding, or readiness gate activates. See the

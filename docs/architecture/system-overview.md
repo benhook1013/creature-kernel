@@ -21,17 +21,22 @@ CK-KICK-012 Batch 6/7/8/9/10/11/12/13 resolutions are discussion-approved and re
 here as Proposed architecture consequences. DR-0002 Revision 11 and DR-0008
 Revision 11 remain Proposed with Owner approval Pending and Review Complete.
 DR-0006 Revision 12, DR-0011 Revision 15, DR-0012 Revision 14, and DR-0013
-Revision 12 remain Proposed with Owner approval Pending and Review Pending
-after material technical-review resolution edits. Accepted DR-0001 Revision 5 remains the
+Revision 12 remain Proposed with Owner approval Pending and Review Complete
+after the current Double review at exact target
+`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. Accepted DR-0001 Revision 5 remains the
 operative governance baseline while DR-0001 Revision 6 is Proposed transition
 guidance with Ben's workflow direction approved and current review complete;
 formal acceptance remains pending Ben's disposition. The reviews of the
-immediate predecessor revisions at commit
+earlier-predecessor revisions at commit
 `763cff22d10f6491a05a28312a25250704543dcf` are stale exact-target evidence;
 G1/G2 were fixed mechanically, T1–T3 were resolved in the successors, and
 T4 remains unselected and deferred, requiring Ben's retained-human disposition
 before adapter profile/schema activation; it does not block the empty first Rust
-slice. Fresh successor-target review is pending. No acceptance, schema,
+slice. The immediate-predecessor review at exact commit
+`9b96d18b115126ef09e54ad8c6f21749d5559ff6` is stale; its findings were
+corrected in the current revisions. The 9c governance pass corrected two
+mechanical history-label issues and its technical pass found no findings /
+Ready for PR at High confidence. Review Complete is evidence only. No acceptance, schema,
 fixture, parser/resolver, adapter, Cargo
 package, readiness, experiment, or implementation activates. The detailed
 review state remains owned by project status. Prior Batch 5/9/11/12 reviews remain
@@ -125,12 +130,16 @@ Proposed focused profiles.
 
 CK-KICK-013 is a discussion-approved platform proposal, not an accepted
 implementation decision. Proposed DR-0013 Revision 12 has Owner approval Pending
-and Review Pending after material technical-review resolution edits. The
-immediate predecessor reviews are stale exact-target evidence; G1/G2 were fixed
+and Review Complete after the current Double review at exact target
+`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. The earlier-predecessor review at
+`763cff22d10f6491a05a28312a25250704543dcf` is stale exact-target evidence; G1/G2 were fixed
 mechanically, T1–T3 were resolved in the successor, and T4 remains unselected
 and deferred, requiring Ben's retained-human disposition before adapter
-profile/schema activation; it does not block the empty first Rust slice. Fresh
-successor-target review is pending. No acceptance, schema, fixture,
+profile/schema activation; it does not block the empty first Rust slice. The
+immediate-predecessor review at `9b96d18b115126ef09e54ad8c6f21749d5559ff6` is
+stale; its findings were corrected in the current revision. The 9c technical
+pass found no findings / Ready for PR at High confidence; Review Complete is
+evidence only. No acceptance, schema, fixture,
 parser/resolver, adapter, Cargo package, readiness, experiment, or
 implementation activates. See the [current review
 state](../project/status.md#current-review-and-future-activation-obligations)

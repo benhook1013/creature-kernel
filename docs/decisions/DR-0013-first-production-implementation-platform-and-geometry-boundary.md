@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-11
 
@@ -108,9 +108,11 @@ malformed adapter-profile status mapping is deferred to the adapter-activation
 prerequisite rather than treated as source admission. The exact-target Double
 review at commit `9b96d18b115126ef09e54ad8c6f21749d5559ff6` is stale for this
 Revision 12 successor. Revision 12 applies the mandatory rank-table activation
-gate and preserves the retained-human T4 gate; fresh successor-target review
-is pending. This technical correction preserves the Proposed status, Owner
-approval Pending, and Review status Pending.
+gate and preserves the retained-human T4 gate. The current Double review at
+`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a` is Complete: its governance
+findings were corrected mechanically and its technical pass found no findings /
+Ready for PR at High confidence. Status remains Proposed and Owner approval
+remains Pending; review evidence is not acceptance.
 
 ## Decision
 
@@ -1045,23 +1047,33 @@ stable-address/order/multiplicity rules. P2 was resolved by the produced-zero
 adapter status algebra and fixture obligations; Revision 11 corrects that
 disposition and records malformed adapter-profile validation as a deferred
 adapter-activation prerequisite. The prior reviews remain stale evidence;
-Review status is Pending and this Proposed revision activates no Cargo shell,
-readiness gate, resolver, adapter, or geometry implementation.
+at Revision 11, review status was Pending and that Proposed revision activated
+no Cargo shell, readiness gate, resolver, adapter, or geometry implementation.
 
 The fresh successor-target reviews are [Review 01](reviews/DR-0013-rev-10-review-01.md)
 and [Review 02](reviews/DR-0013-rev-10-review-02.md). They are exact-target
 evidence for Revision 10 only and are stale for this Revision 12 successor.
 Their G1/G2 mechanical findings were fixed in the successor; T1–T3 were
 resolved here, while T4/P3 is explicitly deferred until adapter activation and
-is not a first Rust slice blocker. Review status for Revision 12 remains
-Pending, and no acceptance or activation follows.
+is not a first Rust slice blocker. At that stage, the Revision 12 current
+review was still pending; no acceptance or activation followed.
 
 The final Double-review [Review 01](reviews/DR-0013-rev-11-review-01.md) and
 [Review 02](reviews/DR-0013-rev-11-review-02.md) examined exact target commit
 `9b96d18b115126ef09e54ad8c6f21749d5559ff6` and are stale for this successor.
 Revision 12 corrects the comparator/rank-table and sqrt wording and preserves
-T4 as a deferred retained-human gate; fresh successor-target review remains
-pending.
+T4 as a deferred retained-human gate; the then-pending successor review is
+recorded below.
+
+The current-revision Double review examined exact target commit
+`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`: [Review 01](reviews/DR-0013-rev-12-review-01.md)
+records governance findings G3/G4 as mechanical cross-summary corrections
+handled without material DR revision, and [Review 02](reviews/DR-0013-rev-12-review-02.md)
+records no technical findings and recommends **Ready for PR**. These artifacts
+are exact-target current evidence until a successor revision. Review status is
+Complete for evidence only; Owner approval remains Pending, Status remains
+Proposed, and no Cargo package, geometry seam, schema, fixture, parser,
+resolver, adapter, implementation, or package activation follows.
 
 ## Implementation and Proof Obligations
 

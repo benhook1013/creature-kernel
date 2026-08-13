@@ -18,14 +18,18 @@ current review complete; formal acceptance remains pending Ben's disposition. DR
 DR-0008 Revision 11 remain Proposed with Owner approval Pending and Review
 Complete. DR-0006 Revision 12, DR-0011 Revision 15, DR-0012 Revision 14, and
 DR-0013 Revision 12 remain Proposed with Owner approval Pending and Review
-Pending after material technical-review resolution edits. The reviews of the
-immediate predecessor revisions at commit
+Complete after the current Double review at exact target
+`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. The reviews of the earlier
+predecessor revisions at commit
 `763cff22d10f6491a05a28312a25250704543dcf` are stale exact-target evidence;
 G1/G2 were fixed mechanically, T1–T3 were resolved
 in the successors, and T4 remains unselected and deferred, requiring Ben's
 retained-human disposition before adapter profile/schema activation; it does not
-block the empty first Rust slice. Fresh successor-target review is
-pending. No acceptance, schema, fixture, parser/resolver,
+block the empty first Rust slice. The immediate-predecessor review at exact
+commit `9b96d18b115126ef09e54ad8c6f21749d5559ff6` is stale; its findings were
+corrected in the current revisions. The 9c governance pass corrected two
+mechanical history-label issues and its technical pass found no findings /
+Ready for PR at High confidence. Review Complete is evidence only. No acceptance, schema, fixture, parser/resolver,
 adapter, Cargo package, readiness, experiment, or implementation activates.
 See
 the [current review state](status.md#current-review-and-future-activation-obligations)
