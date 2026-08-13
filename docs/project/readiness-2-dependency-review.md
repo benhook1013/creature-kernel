@@ -4,7 +4,7 @@ Status: Evidence-only lightweight review; not a licensing decision, security aud
 
 Review date: 2026-08-13 (Pacific/Auckland)
 
-Reviewed source commit: `3992b5e7fc0c12ff6c5ffc9ed15155473c423216` (observed `HEAD`)
+Reviewed source commit: `691ee2ee0946ee2625fc3db8cd1c8a11826be024` (observed `HEAD`)
 
 Target: `x86_64-unknown-linux-gnu`
 
@@ -15,14 +15,16 @@ Requested package: `creature-kernel-core`
 Requested features/profile: default features (`default` in the build-request projection), development profile
 
 This review covers the locked parser/bootstrap slice and its resolved dependency
-closure. The source tree was not clean while this review was performed: the
-reviewed commit is the observed provenance point, while the current working
-tree also contained uncommitted candidate implementation edits. The review is
-therefore not a claim that the commit alone contains the inspected working
-tree. Before admission, recompute the locked/offline metadata, projection, and
-review after the final candidate transaction is assembled. A later commit,
-dependency update, feature change, target/profile change, or distribution
-configuration invalidates this review as evidence.
+closure. Earlier inspection used predecessor commit
+`3992b5e7fc0c12ff6c5ffc9ed15155473c423216` while uncommitted candidate edits
+were present. The current exact candidate `691ee2ee0946ee2625fc3db8cd1c8a11826be024`
+is clean; its locked/offline metadata and projection were regenerated and
+retain the same target-relevant closure below. This record carries forward the
+bounded analysis and is not a fresh adversarial review. Before admission,
+recompute the locked/offline metadata and projection after the final candidate
+transaction is assembled. A later commit, dependency update, feature change,
+target/profile change, or distribution configuration invalidates this review as
+evidence.
 
 ## Inputs and method
 
