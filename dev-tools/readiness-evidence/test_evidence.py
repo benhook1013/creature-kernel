@@ -31,8 +31,15 @@ class EvidenceTests(unittest.TestCase):
         dep_id = "registry+https://github.com/rust-lang/crates.io-index#dep@1.0.0"
         cli_id = f"path+file://{root}/crates/creature-kernel-cli#0.1.0"
         return {
+            "workspace_root": str(root),
             "packages": [
-                {"id": cli_id, "name": "creature-kernel-cli", "version": "0.1.0", "source": None},
+                {
+                    "id": cli_id,
+                    "name": "creature-kernel-cli",
+                    "version": "0.1.0",
+                    "source": None,
+                    "manifest_path": str(root / "crates/creature-kernel-cli/Cargo.toml"),
+                },
                 {
                     "id": dep_id,
                     "name": "dep",
@@ -40,7 +47,13 @@ class EvidenceTests(unittest.TestCase):
                     "source": "registry+https://github.com/rust-lang/crates.io-index",
                     "license": "MIT",
                 },
-                {"id": core_id, "name": "creature-kernel-core", "version": "0.1.0", "source": None},
+                {
+                    "id": core_id,
+                    "name": "creature-kernel-core",
+                    "version": "0.1.0",
+                    "source": None,
+                    "manifest_path": str(root / "crates/creature-kernel-core/Cargo.toml"),
+                },
             ],
             "resolve": {
                 "nodes": [
@@ -118,6 +131,28 @@ class EvidenceTests(unittest.TestCase):
         self.assertIsNone(packages[1]["links"])
         self.assertEqual(result["projection_json"].encode("ascii"), evidence._ascii_json(result["projection"]))
         self.assertEqual(json.loads(result["projection_json"]), result["projection"])
+
+    def test_dependency_projection_is_checkout_location_independent(self):
+        lock = (
+            b"version = 4\n"
+            b"[[package]]\nname = \"dep\"\nversion = \"1.0.0\"\n"
+            b"source = \"registry+https://github.com/rust-lang/crates.io-index\"\n"
+            b"checksum = \"abc\"\n"
+        )
+        first_root = self.make_root(lock=lock)
+        second_root = self.make_root(lock=lock)
+        first = evidence.dependency_closure(
+            str(first_root), metadata=self.metadata_for_root(first_root)
+        )
+        second = evidence.dependency_closure(
+            str(second_root), metadata=self.metadata_for_root(second_root)
+        )
+        self.assertEqual(first["projection"], second["projection"])
+        self.assertEqual(first["sha256"], second["sha256"])
+        self.assertEqual(
+            first["projection"]["packages"][0]["id"],
+            "path+workspace://crates/creature-kernel-core#creature-kernel-core@0.1.0",
+        )
 
     def test_resolved_projection_change_changes_dependency_closure(self):
         root = self.make_root(lock=b"version = 4\n")

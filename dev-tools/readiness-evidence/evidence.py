@@ -343,8 +343,14 @@ def _dependency_projection(
 ) -> dict[str, Any]:
     packages_value = metadata.get("packages")
     resolve = metadata.get("resolve")
-    if not isinstance(packages_value, list) or not isinstance(resolve, dict):
-        raise EvidenceError("cargo metadata packages/resolve are missing")
+    workspace_root_value = metadata.get("workspace_root")
+    if (
+        not isinstance(packages_value, list)
+        or not isinstance(resolve, dict)
+        or not isinstance(workspace_root_value, str)
+    ):
+        raise EvidenceError("cargo metadata packages/resolve/workspace root are missing")
+    workspace_root = Path(workspace_root_value).resolve()
     package_by_id: dict[str, dict[str, Any]] = {}
     for index, package in enumerate(packages_value):
         if not isinstance(package, dict):
@@ -400,8 +406,36 @@ def _dependency_projection(
         key = (package["name"], package["version"], package["source"])
         lock_by_locator.setdefault(key, []).append(package)
 
+    stable_id_by_cargo_id: dict[str, str] = {}
+    for package_id in reachable:
+        package = package_by_id[package_id]
+        name = package.get("name")
+        version = package.get("version")
+        source = package.get("source")
+        if not all(isinstance(value, str) for value in (name, version)):
+            raise EvidenceError(f"cargo metadata package {package_id!r} lacks name/version")
+        if source is not None and not isinstance(source, str):
+            raise EvidenceError(f"cargo metadata package {package_id!r} has an invalid source")
+        if source is None:
+            manifest_path = package.get("manifest_path")
+            if not isinstance(manifest_path, str):
+                raise EvidenceError(f"repository package {package_id!r} lacks manifest_path")
+            try:
+                relative_manifest = Path(manifest_path).resolve().relative_to(workspace_root)
+            except ValueError as exc:
+                raise EvidenceError(
+                    f"repository package {package_id!r} is outside the workspace root"
+                ) from exc
+            relative_directory = relative_manifest.parent.as_posix()
+            stable_id = f"path+workspace://{relative_directory}#{name}@{version}"
+        else:
+            stable_id = package_id
+        if stable_id in stable_id_by_cargo_id.values():
+            raise EvidenceError("normalized Cargo package identities are duplicated")
+        stable_id_by_cargo_id[package_id] = stable_id
+
     projection_packages: list[dict[str, Any]] = []
-    for package_id in sorted(reachable):
+    for package_id in sorted(reachable, key=stable_id_by_cargo_id.__getitem__):
         package = package_by_id[package_id]
         node = node_by_id[package_id]
         name = package.get("name")
@@ -434,13 +468,18 @@ def _dependency_projection(
             dependency_id = dependency.get("pkg") if isinstance(dependency, dict) else None
             if not isinstance(dependency_id, str):
                 raise EvidenceError(f"cargo metadata package {package_id!r} has invalid dependencies")
-            dependency_ids.append(dependency_id)
+            stable_dependency_id = stable_id_by_cargo_id.get(dependency_id)
+            if stable_dependency_id is None:
+                raise EvidenceError(
+                    f"cargo metadata package {package_id!r} references an unreachable dependency"
+                )
+            dependency_ids.append(stable_dependency_id)
         projection_packages.append(
             {
                 "checksum": checksum,
                 "dependencies": sorted(dependency_ids),
                 "features": sorted(features),
-                "id": package_id,
+                "id": stable_id_by_cargo_id[package_id],
                 "license": license_expression,
                 "links": native_links,
                 "name": name,

@@ -38,11 +38,14 @@ correctness:
   its bytes. The projection comes from
   `cargo metadata --format-version 1 --locked --offline`, and is restricted to
   the graph reachable from `creature-kernel-core` (the workspace CLI is not
-  included unless reachable). Each package records its exact Cargo package ID,
-  name, version, source, Cargo.lock checksum, license expression, native `links`
-  declaration, sorted enabled feature names, and sorted dependency package IDs;
-  package records are sorted by exact package ID and every projection key is
-  sorted. The projection bytes are ASCII-only
+  included unless reachable). Each package records a normalized package
+  identity, name, version, source, Cargo.lock checksum, license expression,
+  native `links` declaration, sorted enabled feature names, and sorted
+  dependency identities. Registry/Git identities retain Cargo's stable package
+  ID; repository-local identities replace the absolute checkout prefix with a
+  workspace-relative manifest directory, name, and version. Package records
+  are sorted by normalized identity and every projection key is sorted. The
+  projection bytes are ASCII-only
   (`ensure_ascii` JSON) and are declared evidence only; they do not claim that
   downloaded registry crate contents are vendored. Metadata failure is fatal and
   must be resolved by local setup/CI dependency fetching.
