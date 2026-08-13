@@ -47,6 +47,10 @@ corpus or implementation. Readiness 2 remains inactive until one complete
 transaction contains the exact schema, manifest, files, parser/bootstrap
 closure and current review, followed by Ben's approval of the separate
 admission record. No Proposed owning DR is accepted by these artifacts.
+The separate [Readiness 2 admission record](readiness-2-admission.md) now pins
+the exact candidate and evidence identities; admission-record owner approval
+and fresh candidate review remain Pending. It records no admission or
+activation, and Readiness 2 remains Inactive.
 
 Ben approved the following deferred planning direction on 2026-08-09 for any
 future activation. It is recorded here without accepting or revising either DR:
