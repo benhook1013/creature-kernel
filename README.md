@@ -178,7 +178,12 @@ manifest, fixtures, parser/bootstrap, and preflight. A provisional structural
 address/index and validator plus the `inspect-structure` CLI command now exist
 as preparatory implementation. They do not constitute a finalized resolved
 snapshot or Readiness 3 activation. Rust `1.97.1` is the pinned first
-production toolchain; geometry and runtime implementation remain absent. See
+production toolchain; geometry and runtime implementation remain absent. The
+standalone `creature_kernel_core::numeric` module is preparatory only: it validates strict
+JSON-number grammar, performs the pinned direct correctly-rounded binary64
+conversion, reports typed overflow/nonzero-underflow failures, admits finite
+subnormals, and normalizes lexical zero to `+0`; it is not wired into
+body-document admission or Readiness 3. See
 [developer setup](DEVELOPER_SETUP.md) and [current project
 status](docs/project/status.md) for the live round, review, and owner-
 disposition state.

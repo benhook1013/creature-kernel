@@ -21,29 +21,34 @@ predecessor revisions at commit `763cff22d10f6491a05a28312a25250704543dcf`
 are stale exact-target evidence;
 G1/G2 were fixed mechanically, T1–T3 were resolved in the successor, and
 T4 remains unselected and deferred, requiring Ben's retained-human disposition
-before adapter profile/schema activation; it does not block the empty first Rust
-slice. The immediate-predecessor review at exact commit
+before adapter profile/schema activation; it does not block the current
+preparatory Rust slices. The immediate-predecessor review at exact commit
 `9b96d18b115126ef09e54ad8c6f21749d5559ff6` is stale; its findings were
 corrected in the current revision. The 9c technical pass found no findings /
 Ready for PR at High confidence; Review Complete is evidence only. Readiness 1
-remains the only active gate and its accepted scope is only the Cargo
-workspace, empty `creature-kernel-core` library shell, and thin
-`creature-kernel` CLI shell. The exact body and manifest schemas, manifest,
-nine fixtures, Rust parser/bootstrap, and Python preflight/evidence are present
-as a Proposed Readiness 2 candidate, not an admitted or active gate. No
-Readiness 3 resolver, numeric semantic activation, adapter, experiment, or
-Readiness 3 geometry implementation exists.
+remains active for the Cargo workspace, `creature-kernel-core` library shell,
+and thin `creature-kernel` CLI shell. Readiness 2 is also active for the
+admitted exact body and manifest schemas, manifest, nine fixtures, Rust
+parser/bootstrap, and Python preflight/evidence. The provisional structural
+address/index, validator, and `inspect-structure` command remain preparatory.
+The standalone `creature_kernel_core::numeric` module is preparatory only: it
+checks strict JSON-number grammar, uses pinned Rust 1.97.1 direct correctly-
+rounded binary64 final conversion, returns typed overflow/nonzero-underflow
+failures, admits finite subnormals, normalizes lexical zero to `+0`, and has
+focused boundary tests. It is not wired into body-document admission and does
+not activate numeric semantics or Readiness 3. No Readiness 3 resolver/snapshot,
+adapter, experiment, or geometry activation exists.
 See the [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for recommendations and findings. Its four
-readiness stages are: acceptance has activated Readiness 1, which is only the
-empty Cargo shell; a
-versioned, preflighted fixture manifest, its listed files, the exact schema, and
-parser/bootstrap must be admitted together in one review-branch activation
-transaction; canonical numeric/frame rules plus frozen expected graph outputs
-activate semantic resolution and in-memory snapshot handoff; and a working
-resolver plus provisional geometry profile and project-owned seam activates
-exploratory Stage 1 geometry. Acceptance therefore does not admit or activate
-the Readiness 2 candidate or any resolver/geometry proof. The accepted
+readiness stages are: acceptance activated Readiness 1 for the Cargo workspace,
+compiler/core library shell, and thin CLI shell; the versioned, preflighted
+fixture manifest, its listed files, exact schema, and parser/bootstrap are the
+active Readiness 2 transaction; canonical numeric/frame rules plus frozen
+expected graph outputs activate semantic resolution and in-memory snapshot
+handoff in a distinct Readiness 3 transaction; and a working resolver plus
+provisional geometry profile and project-owned seam activates exploratory Stage
+1 geometry. Readiness 2 admission does not activate Readiness 3 or any
+resolver/geometry proof. The accepted
 direction uses a stable Rust production semantic/compiler core in a Cargo
 workspace,
 exposed as an engine-independent Rust compiler library and thin CLI with a
@@ -119,8 +124,10 @@ invalidates worker output and validation cannot rehabilitate it. The
 the manifest payload and separate content-identity readiness/decision
 admission and successor history.
 Performance claims must be backed by a reproducible benchmark and hardware
-profile. Beyond the active Readiness 1 shell, the Readiness 2 candidate remains
-unadmitted and no Readiness 3 implementation package is activated. Any future
+profile. Readiness 2 is active alongside Readiness 1 for its admitted
+schema/manifest/fixture/parser/bootstrap/preflight transaction; its structural
+index/validator/inspection and the standalone numeric module remain
+preparatory, and no Readiness 3 implementation package is activated. Any future
 worker must negotiate protocol/
 version compatibility, obey bounded time/resource budgets, map crash/timeout/
 resource outcomes, validate outputs before publication, and leave the compiler

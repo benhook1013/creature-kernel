@@ -71,19 +71,25 @@ the earlier-predecessor revisions at commit
 `763cff22d10f6491a05a28312a25250704543dcf` are stale exact-target evidence;
 G1/G2 were fixed mechanically, T1–T3 were resolved in the successors, and
 T4 remains unselected and deferred, requiring Ben's retained-human disposition
-before adapter profile/schema activation; it does not block the empty first Rust
-slice. The immediate-predecessor review at exact commit
+before adapter profile/schema activation; it does not block the current
+preparatory Rust slices. The immediate-predecessor review at exact commit
 `9b96d18b115126ef09e54ad8c6f21749d5559ff6` is also stale; its findings were
 corrected in the current revisions. The 9c governance pass corrected two
 mechanical history-label issues and its technical pass found no findings /
 Ready for PR at High confidence. Review Complete is evidence only. Readiness 1
-remains the only active gate and its accepted scope is only the Cargo
-workspace, empty `creature-kernel-core` library shell, and thin
-`creature-kernel` CLI shell. The exact body and manifest schemas, manifest,
-nine fixtures, Rust parser/bootstrap, and Python preflight/evidence are present
-as a Proposed Readiness 2 candidate, not an admitted or active gate. No
-Readiness 3 resolver, numeric semantic activation, adapter, experiment, or
-Readiness 3 geometry implementation exists. See
+remains active for the Cargo workspace, `creature-kernel-core` library shell,
+and thin `creature-kernel` CLI shell. Readiness 2 is also active for the
+admitted exact body and manifest schemas, manifest, nine fixtures, Rust
+parser/bootstrap, and Python preflight/evidence. The provisional structural
+address/index, validator, and `inspect-structure` command remain preparatory.
+The standalone `creature_kernel_core::numeric` module is also preparatory: it
+checks strict JSON-number grammar, requires caller-enforced resource limits, uses
+pinned Rust 1.97.1 direct correctly-rounded binary64 final conversion, returns
+typed overflow/nonzero-underflow failures, admits finite subnormals, normalizes
+lexical zero to `+0`, and has focused boundary tests. It is not wired into
+body-document admission and does not activate numeric semantics or Readiness 3.
+No Readiness 3 resolver/snapshot, adapter, experiment, or geometry activation
+exists. See
 the [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for the two review lenses, recommendations, and findings. Earlier review
 evidence remains stale. See the
@@ -122,27 +128,33 @@ Owner approval Approved by Ben and Review Complete at exact target
 predecessor review at exact commit `763cff22d10f6491a05a28312a25250704543dcf`
 is stale exact-target evidence; T1–T3 were resolved and T4 remains unselected and deferred, requiring
 Ben's retained-human disposition before adapter profile/schema activation; it does
-not block the empty first Rust slice. The immediate-predecessor review at exact
+not block the current preparatory Rust slices. The immediate-predecessor review at exact
 commit `9b96d18b115126ef09e54ad8c6f21749d5559ff6` is stale; its findings were
 corrected in the current revisions. The 9c technical pass found no findings /
 Ready for PR at High confidence; Review Complete is evidence only.
-Readiness 1 remains the only active gate: its accepted scope is only the Cargo
-workspace, empty `creature-kernel-core` library shell, and thin
-`creature-kernel` CLI shell. The exact body and manifest schemas, manifest,
-nine fixtures, Rust parser/bootstrap, and Python preflight/evidence are present
-as a Proposed Readiness 2 candidate, not an admitted or active gate. No
-Readiness 3 resolver, numeric semantic activation, adapter, experiment, or
-Readiness 3 geometry implementation exists.
+Readiness 1 remains active for the Cargo workspace, `creature-kernel-core`
+library shell, and thin `creature-kernel` CLI shell. Readiness 2 is also active
+for the admitted exact body and manifest schemas, manifest, nine fixtures, Rust
+parser/bootstrap, and Python preflight/evidence. The provisional structural
+address/index, validator, and `inspect-structure` command remain preparatory.
+The standalone `creature_kernel_core::numeric` module is preparatory only: it
+checks strict JSON-number grammar, uses pinned Rust 1.97.1 direct correctly-
+rounded binary64 final conversion, returns typed overflow/nonzero-underflow
+failures, admits finite subnormals, normalizes lexical zero to `+0`, and has
+focused boundary tests. It is not wired into body-document admission and does
+not activate numeric semantics or Readiness 3. No Readiness 3 resolver/snapshot,
+adapter, experiment, or geometry activation exists.
 See the [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for recommendations and findings. The
-four readiness stages are: DR-0013 acceptance has activated Readiness 1,
-which is only the empty Cargo shell; a versioned, preflighted
-fixture manifest, its listed fixture files, the exact schema, and
-parser/bootstrap must be admitted together in one review-branch activation
+four readiness stages are: DR-0013 acceptance activated Readiness 1 for the
+Cargo workspace, compiler/core library shell, and thin CLI shell; the
+versioned, preflighted fixture manifest, its listed fixture files, exact
+schema, and parser/bootstrap are the admitted and active Readiness 2
 transaction; canonical numeric/frame rules plus frozen expected graph outputs
-activate semantic resolution and in-memory snapshot handoff; and a working
-resolver plus provisional geometry profile and project-owned seam activates
-exploratory Stage 1 geometry. It describes a stable Rust
+activate semantic resolution and in-memory snapshot handoff in a distinct
+Readiness 3 transaction; and a working resolver plus provisional geometry
+profile and project-owned seam activates exploratory Stage 1 geometry. It
+describes a stable Rust
 production semantic/compiler core, a thin CLI, and a project-owned versioned,
 backend-neutral GeometryRequest/GeometryResult seam, with no initial daemon or
 service. Stage 1 would use an in-process Rust CPU dense-field evaluator/
@@ -206,16 +218,16 @@ fixture-gated.
 Readiness implementation binding remains a separate scoped content-identity
 transaction from fixture payloads and expected snapshots.
 
-These remain Proposed consequences and do not admit or activate the Readiness 2
-candidate, or any resolver/adapter work beyond the active Readiness 1 shell.
+These remain Proposed consequences and do not change the admitted Readiness 2
+identity or activate Readiness 3 resolver/adapter work.
 
 ## Current maturity
 
-The target architecture remains pre-implementation beyond the active
-Readiness 1 shell and the unadmitted Readiness 2 candidate artifacts.
-Readiness 1 is the only active implementation slice: a Cargo workspace with an
-empty `creature-kernel-core` library shell and thin `creature-kernel` CLI shell.
-The candidate schemas, manifest, fixtures, parser/bootstrap, and Python tools
-are evidence only; the remaining component names describe provisional
-responsibility boundaries, not activated packages, processes, repositories, or
-technologies.
+The target architecture remains pre-implementation beyond the active Readiness
+1 shell and the admitted Readiness 2 schema/manifest/fixture/parser/bootstrap/
+preflight transaction. The provisional structural address/index, validator,
+and inspection command, plus the standalone numeric module, remain preparatory
+implementation outside Readiness 3. The numeric module is not wired into
+body-document admission and does not activate numeric semantics. The remaining
+component names describe provisional responsibility boundaries, not activated
+Readiness 3 packages, processes, repositories, or technologies.
