@@ -452,6 +452,18 @@
       instructions.appendChild(node("p", review.instructions));
       app.appendChild(instructions);
     }
+    var guidance = node("aside", null, "instructions");
+    guidance.appendChild(node("h2", "What to inspect"));
+    guidance.appendChild(node("p", "Check that the authored creature structure matches its intent before later stages generate geometry or runtime behaviour."));
+    var checklist = node("ul");
+    [
+      "Expected parts are present once, use the intended side or other anchors, and sit under the correct parent.",
+      "Joints connect the intended proximal and distal parts.",
+      "Modules, sockets, attachments, regions, and capabilities group the intended subjects."
+    ].forEach(function (item) { checklist.appendChild(node("li", item)); });
+    guidance.appendChild(checklist);
+    guidance.appendChild(node("p", "Do not judge appearance, mesh quality, animation, IK, deformation, or physics here; this view generates none of them.", "muted"));
+    app.appendChild(guidance);
     var graph = isObject(structure) && isObject(structure.graph) ? structure.graph : {};
     var source = isObject(graph.source) ? graph.source : {};
     var contract = isObject(graph.contract) ? graph.contract : {};

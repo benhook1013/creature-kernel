@@ -69,7 +69,6 @@ button.primary { border-color: #3387d5; background: #1768ad; color: #fff; }
 .structure-section > p { color: #a8b7c7; }
 .count-section .structure-metadata { grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); }
 .count-section .structure-metadata dt, .count-section .structure-metadata dd { border: 1px solid #2d4154; }
-.count-section .structure-metadata dt { border-bottom: 0; }
 .count-section .structure-metadata dd { color: #8ec5ff; font-size: 1.1rem; font-weight: 700; }
 .containment-tree { overflow-x: auto; padding: 0.35rem 0 0.1rem 0.5rem; border-left: 3px solid #34536d; }
 .containment-node { margin: 0.45rem 0; padding-left: 0.65rem; border-left: 1px solid #304253; }
@@ -79,6 +78,7 @@ button.primary { border-color: #3387d5; background: #1768ad; color: #fff; }
 .structure-details > summary { cursor: pointer; color: #9fc8ed; font-size: 0.86rem; }
 .structure-details pre { max-height: 18rem; overflow: auto; }
 .structure-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr)); gap: 0.9rem; }
+.structure-section > h2 + .structure-card-grid { margin-top: 1rem; }
 .structure-card { min-width: 0; padding: 0.9rem; border: 1px solid #2d3a49; border-radius: 0.5rem; background: #101822; }
 .structure-card h3 { display: block; margin-bottom: 0.65rem; color: #bdd3e7; }
 .structure-card h4 { margin: 0.8rem 0 0.2rem; color: #b3c0cd; font-size: 0.88rem; }
