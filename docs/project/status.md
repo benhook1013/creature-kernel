@@ -1,6 +1,6 @@
 # Project status
 
-Status date: 2026-08-13
+Status date: 2026-08-15
 
 ## Phase
 
@@ -83,9 +83,21 @@ preparatory results do not constitute Readiness 3 admission or activation:
 they do not activate resolver/numeric semantics, geometry, rigging, animation,
 physics, or runtime.
 
-Immediate next action: begin exact decimal/binary64 preparatory numeric work,
-then subsequent frame/resolver slices, while keeping the provisional structural
-implementation outside the Readiness 3 activation boundary.
+PR #9, “Add inspectable biped structure workflow,” is merged at commit
+`565c32bd35215e23d737fb333604382d3e6958ab`. On the current branch, the
+standalone `creature_kernel_core::numeric` module is preparatory code only: it
+checks strict JSON-number grammar, uses pinned Rust 1.97.1 direct correctly-
+rounded binary64 final conversion, returns typed overflow/nonzero-underflow
+failures, admits finite subnormals, normalizes lexical zero to `+0`, and has
+focused boundary tests. Caller-enforced token/resource limits remain outside
+this module. It is not wired into body-document admission, does not alter the
+admitted Readiness 2 identity, and does not activate numeric semantics or
+Readiness 3.
+
+Immediate next action: begin the next bounded frame-preparation/integration
+slice grounded in the active Readiness 2 transaction, while keeping resolver
+activation and the provisional structural/numeric implementations outside the
+Readiness 3 activation boundary.
 
 Ben approved the following deferred planning direction on 2026-08-09 for any
 future activation. It is recorded here without accepting or revising either DR:
@@ -272,7 +284,7 @@ earlier-predecessor review examined exact target commit
 artifacts are stale for the current revisions. G1/G2 were fixed mechanically,
 T1–T3 were resolved, and T4 remains unselected and deferred, requiring Ben's
 retained-human disposition before adapter profile/schema activation; it does not
-block the empty first Rust slice. The immediate-predecessor review examined
+block the current preparatory Rust slices. The immediate-predecessor review examined
 exact target `9b96d18b115126ef09e54ad8c6f21749d5559ff6`; its findings were
 corrected in the current revisions. The current review examined exact target
 `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`: its governance pass corrected two
@@ -340,9 +352,9 @@ resolver/snapshot transaction is not active.
 DR-0002 Revision 11 and DR-0008 Revision 11 are unchanged and remain Review
 Complete. Owner approval remains Pending.
 
-The immediate next action is exact decimal/binary64 preparatory numeric work
-grounded in the active parser/bootstrap and admitted schema/manifest/fixture
-transaction, followed by frame/resolver slices. Readiness 1 and Readiness 2
+The immediate next action is the next bounded frame-preparation/integration
+slice grounded in the active parser/bootstrap and admitted schema/manifest/
+fixture transaction, followed by resolver slices. Readiness 1 and Readiness 2
 remain active while Readiness 3 and later transactions remain gated.
 The main thread will autonomously resolve technical correctness findings or
 record evidence-dependent triggers under the DR-0001 Revision 6 transition
@@ -452,7 +464,7 @@ nonblocking obligation before external authored dependencies activate.
   13 review evidence is stale historical evidence; G1/G2 were fixed
   mechanically, T1–T3 were resolved, and T4 remains unselected and deferred,
   requiring Ben's retained-human disposition before adapter profile/schema
-  activation; it does not block the empty first Rust slice. The immediate-predecessor 9b96d18 review is stale; its findings were corrected. The 9c governance pass corrected two mechanical history-label issues and its technical pass found no findings / Ready for PR at High confidence.
+  activation; it does not block the current preparatory Rust slices. The immediate-predecessor 9b96d18 review is stale; its findings were corrected. The 9c governance pass corrected two mechanical history-label issues and its technical pass found no findings / Ready for PR at High confidence.
   The completed Batch 9 Double review targeted
   `6cf17270fda2827756c24a8d0fb301bef358f` and is stale for the revised records;
   it is evidence, not acceptance.
@@ -490,9 +502,10 @@ validator, and inspection command remain preparatory. The immediate-predecessor
   compiler/core library shell, and thin CLI shell, with the admitted Readiness 2
   parser/bootstrap transaction active alongside it. The provisional structural
   address/index, validator, and `inspect-structure` command are preparatory and
-  do not activate Readiness 3. Advance exact decimal/binary64 preparatory
-  numeric work, then frame/resolver slices. Numeric/frame/output, adapter, and
-  geometry prerequisites gate later stages. Any performance claim must have
+  do not activate Readiness 3. Advance the next bounded frame-preparation/
+  integration slice, then resolver slices; the standalone numeric module stays
+  preparatory and outside body-document admission. Numeric/frame/output,
+  adapter, and geometry prerequisites gate later stages. Any performance claim must have
   reproducible benchmark and hardware-profile evidence.
 - Preserve the accepted governance process and all historical decision/review
   evidence without reopening the parked confirmatory protocol.
@@ -551,7 +564,7 @@ metadata. Current non-governance proposals include:
 | Research/experiment workflow | partial | unverified | Lightweight template exists; no experiment registered |
 | Body specification | partial | unverified | Proposed body-document, body-graph, build-operation, fixture-manifest, and Batch 11/12/13 focused profiles include discussion-approved updates; the Readiness 2 schema, manifest, nine fixtures, parser/bootstrap, and preflight are active under the admission record, while DR-0002/0008 remain Revision 11 Review Complete, DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14 remain Proposed with Owner approval Pending |
 | Build-operation contract | partial | unverified | Proposed canonical public build/output owner exists; serialization, implementation, and artifact store remain unactivated |
-| Production implementation platform | partial | proven | CK-KICK-013/DR-0013 Revision 12 is Accepted with Owner approval Approved by Ben; the Readiness 1 Cargo workspace, compiler/core library shell, and thin CLI shell pass pinned-toolchain checks. Readiness 2's exact schema, manifest, nine fixtures, parser/bootstrap, and preflight are active after merged commit `766992ab089687e9b1496574e8ffa721388d96f3` / PR #6 and successful post-merge identity recomputation. The provisional structural address/index, validator, and `inspect-structure` command are preparatory; distinct Readiness 3, adapter, and exploratory geometry remain gated |
+| Production implementation platform | partial | proven | CK-KICK-013/DR-0013 Revision 12 is Accepted with Owner approval Approved by Ben; the Readiness 1 Cargo workspace, compiler/core library shell, and thin CLI shell pass pinned-toolchain checks. Readiness 2's exact schema, manifest, nine fixtures, parser/bootstrap, and preflight are active after merged commit `766992ab089687e9b1496574e8ffa721388d96f3` / PR #6 and successful post-merge identity recomputation. PR #9, the inspectable biped structure workflow, is merged at `565c32bd35215e23d737fb333604382d3e6958ab`; its structural index/validator/inspection remain preparatory. The standalone numeric module is likewise preparatory and not wired into body-document admission; distinct Readiness 3, adapter, and exploratory geometry remain gated |
 | Creature compiler | partial | unverified | Disposable CK-KICK-010 walking skeleton implemented; this is not a production compiler |
 | CK-KICK-010 walking skeleton | implemented | audited | Valid/invalid local evidence and the selected Single independent review are complete; five substantive findings plus whitespace were dispositioned in RESULTS, not clean; this is not a production compiler |
 | Local visual-review gallery | implemented | audited | Focused tests and local HTTP/browser smoke passed; subject_context is presentation-only; no visual-evidence or Stage 1 claim |
@@ -560,9 +573,9 @@ metadata. Current non-governance proposals include:
 ## Immediate next actions
 
 - Use the active Readiness 2 parser/bootstrap and admitted schema, manifest, and
-  fixture transaction as the implementation foundation; begin exact
-  decimal/binary64 preparatory numeric work, then frame/resolver slices and
-  successor evidence. Keep adapters, geometry, and later packages gated.
+  fixture transaction as the implementation foundation; take the next bounded
+  frame-preparation/integration slice, then resolver slices and successor
+  evidence. Keep adapters, geometry, and later packages gated.
 - Keep Readiness 1 limited to the Cargo workspace, compiler/core library shell,
   and thin CLI shell. Keep the provisional structural address/index, validator,
   and `inspect-structure` command outside the formal Readiness 3 activation
