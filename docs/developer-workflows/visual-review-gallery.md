@@ -21,6 +21,36 @@ artifact-retention requirements. Human selections and notes remain subjective
 observations unless a later, provenance-complete evidence record explicitly
 adopts them under the applicable protocol.
 
+## Structural inspection review
+
+The same local gallery can present the CLI's provisional, source-preserving
+structural projection for the authored example. From the repository root:
+
+```bash
+cargo build -p creature-kernel-cli
+mkdir -p /tmp/creature-reviews
+python3 dev-tools/visual-review/publish_structure.py \
+  --root /tmp/creature-reviews \
+  --input examples/body-documents/stylized-digitigrade-biped.json \
+  --creature-kernel target/debug/creature-kernel
+python3 dev-tools/visual-review/serve.py \
+  --root /tmp/creature-reviews --port 0
+```
+
+Open the printed localhost URL and select the structural session. Its browser
+view exposes collection counts, explicit Part containment, directed Joints,
+module/Socket/Attachment composition, Regions and Capabilities, diagnostics,
+and the closed raw JSON. This view is source inspection only. It does not
+generate or prove geometry, a resolved snapshot, a rig, animation, physics, or
+runtime behaviour; a successful status does not establish any of those claims.
+
+Publishing creates a local immutable session under the review root. Keep the
+root and session under `/tmp` (or another disposable local directory) and do
+not commit generated sessions. The existing image-manifest publish and review
+workflow remains supported; image sessions and structural sessions are separate
+review kinds. The helper and browser details remain in the
+[visual-review tool README](../../dev-tools/visual-review/README.md).
+
 ## Workflow
 
 1. Prepare a review manifest for the images to compare. Use stable option IDs,

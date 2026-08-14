@@ -27,6 +27,7 @@ def load_module(name: str, filename: str):
 import common
 publish = load_module("visual_review_publish", "publish.py")
 serve = load_module("visual_review_serve", "serve.py")
+publish_structure = load_module("visual_review_publish_structure", "publish_structure.py")
 
 
 class ReviewFixture(unittest.TestCase):
@@ -106,6 +107,7 @@ class ManifestAndPublishTests(ReviewFixture):
     def test_normalization_and_exact_inventory(self):
         session = self.publish()
         normalized = json.loads((session / "review.json").read_text(encoding="utf-8"))
+        self.assertEqual(normalized["kind"], "image")
         item = normalized["groups"][0]["items"][0]
         self.assertEqual(item["image"], "assets/warm.png")
         self.assertNotIn("source", item)
@@ -212,6 +214,308 @@ class ManifestAndPublishTests(ReviewFixture):
             self.manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
             with self.assertRaises(common.ValidationError):
                 publish.publish_session(self.root, self.manifest_path)
+
+
+class StructureReviewFixture(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name) / "reviews"
+        self.root.mkdir()
+        self.structure_source = Path(self.temp.name) / "inspection.json"
+        self.payload = {
+            "format": "creature-kernel.provisional-structural-inspection.v1",
+            "operation": "inspect-structure",
+            "stage": "structural-validation",
+            "status": "success",
+            "processing_complete": True,
+            "diagnostics_complete": True,
+            "diagnostics": [],
+            "summary": {"parts": 1},
+            "graph": {"parts": [{"address": {"kind": "part", "role": "root"}}]},
+        }
+        self.structure_source.write_text(json.dumps(self.payload), encoding="utf-8")
+        self.manifest_path = Path(self.temp.name) / "manifest.json"
+        self.write_manifest()
+
+    def tearDown(self) -> None:
+        self.temp.cleanup()
+
+    def write_manifest(self, **overrides: object) -> None:
+        manifest: dict[str, object] = {
+            "schema_version": 1,
+            "id": "structure-review",
+            "title": "Structure review",
+            "kind": "structure",
+            "structure_source": str(self.structure_source),
+        }
+        manifest.update(overrides)
+        self.manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    def publish(self) -> Path:
+        publish.publish_session(self.root, self.manifest_path)
+        return self.root / "structure-review"
+
+
+class StructureReviewPublishTests(StructureReviewFixture):
+    def test_successful_no_image_structure_publication_and_immutable_copy(self):
+        session = self.publish()
+        normalized = json.loads((session / "review.json").read_text(encoding="utf-8"))
+        self.assertEqual(normalized["kind"], "structure")
+        self.assertEqual(normalized["groups"], [])
+        self.assertEqual(normalized["structure"], self.payload)
+        self.assertNotIn("structure_source", normalized)
+        self.assertEqual(list((session / "assets").iterdir()), [])
+
+        replacement = dict(self.payload, status="invalid-source", diagnostics=[{"code": "changed"}])
+        self.structure_source.write_text(json.dumps(replacement), encoding="utf-8")
+        reread = json.loads((session / "review.json").read_text(encoding="utf-8"))
+        self.assertEqual(reread["structure"], self.payload)
+
+    def test_structure_payload_is_exposed_by_existing_review_api(self):
+        self.publish()
+        server = serve.create_server(self.root, 0)
+        thread = threading.Thread(target=server.serve_forever)
+        thread.start()
+        try:
+            with urlopen(
+                f"http://127.0.0.1:{server.server_port}/api/reviews/structure-review",
+                timeout=3,
+            ) as response:
+                body = json.loads(response.read())
+            self.assertEqual(body["review"]["kind"], "structure")
+            self.assertEqual(body["review"]["structure"], self.payload)
+            self.assertIsNone(body["response"])
+        finally:
+            server.shutdown()
+            thread.join()
+            server.server_close()
+
+    def test_invalid_status_with_diagnostics_is_supported(self):
+        self.payload["status"] = "invalid-source"
+        self.payload["diagnostics"] = [{"code": "ck.test.invalid", "message": "bad source"}]
+        self.payload.pop("graph")
+        self.structure_source.write_text(json.dumps(self.payload), encoding="utf-8")
+        session = self.publish()
+        normalized = json.loads((session / "review.json").read_text(encoding="utf-8"))
+        self.assertEqual(normalized["structure"]["status"], "invalid-source")
+        self.assertEqual(normalized["structure"]["diagnostics"][0]["code"], "ck.test.invalid")
+
+    def test_structure_envelope_rejects_unknown_revision_status_and_contradictions(self):
+        invalid_payloads = (
+            dict(self.payload, format="creature-kernel.provisional-structural-inspection.v999"),
+            dict(self.payload, status="unknown-status"),
+            dict(self.payload, processing_complete=False),
+            dict(self.payload, diagnostics_complete=False),
+            dict(self.payload, status="invalid-source", graph={}),
+            dict(self.payload, status="resource-limit", processing_complete=False, diagnostics_complete=False),
+        )
+        for index, payload in enumerate(invalid_payloads):
+            self.structure_source.write_text(json.dumps(payload), encoding="utf-8")
+            self.write_manifest(id=f"invalid-envelope-{index}")
+            with self.assertRaises(common.ValidationError):
+                publish.publish_session(self.root, self.manifest_path)
+
+        # A bounded diagnostic accumulator may report incomplete diagnostics
+        # while processing still completed; retain that emitted non-success
+        # combination rather than imposing a resolver-specific status policy.
+        supported = dict(
+            self.payload,
+            status="invalid-source",
+            diagnostics_complete=False,
+            diagnostics=[{"code": "many-diagnostics"}],
+        )
+        supported.pop("graph")
+        self.structure_source.write_text(json.dumps(supported), encoding="utf-8")
+        self.write_manifest(id="incomplete-diagnostics")
+        session = publish.publish_session(self.root, self.manifest_path)
+        self.assertEqual(session["id"], "incomplete-diagnostics")
+
+    def test_missing_malformed_non_object_oversized_and_out_of_bound_sources_fail(self):
+        cases: list[tuple[str, object]] = [
+            ("missing", {"kind": "structure"}),
+            ("malformed", {"source_bytes": b"{"}),
+            ("non-object", {"source_value": []}),
+            (
+                "oversized",
+                {"source_bytes": b"{" + b'"x":"' + b"x" * common.MAX_STRUCTURE_JSON_BYTES + b'"}'},
+            ),
+            ("out-of-bound", {"structure_source": "../inspection.json"}),
+        ]
+        for label, change in cases:
+            self.manifest_path.write_text(
+                json.dumps({
+                    "schema_version": 1,
+                    "id": f"structure-{label}",
+                    "title": "Structure review",
+                    "kind": "structure",
+                    "structure_source": str(self.structure_source),
+                    **(change if isinstance(change, dict) and "structure_source" in change else {}),
+                }),
+                encoding="utf-8",
+            )
+            if "source_bytes" in change:
+                self.structure_source.write_bytes(change["source_bytes"])
+            elif "source_value" in change:
+                self.structure_source.write_text(json.dumps(change["source_value"]), encoding="utf-8")
+            elif label == "missing":
+                self.manifest_path.write_text(
+                    json.dumps({
+                        "schema_version": 1,
+                        "id": "structure-missing",
+                        "title": "Structure review",
+                        "kind": "structure",
+                    }),
+                    encoding="utf-8",
+                )
+            else:
+                self.structure_source.write_text(json.dumps(self.payload), encoding="utf-8")
+            with self.assertRaisesRegex(common.ValidationError, "structure"):
+                publish.publish_session(self.root, self.manifest_path)
+
+    def test_symlink_and_invalid_envelope_fail(self):
+        link = Path(self.temp.name) / "inspection-link.json"
+        link.symlink_to(self.structure_source)
+        self.write_manifest(structure_source=str(link), id="structure-symlink")
+        with self.assertRaises(common.ValidationError):
+            publish.publish_session(self.root, self.manifest_path)
+
+        for invalid in (
+            {"status": "success"},
+            dict(self.payload, format="unrelated.json", graph={}),
+            dict(self.payload, operation="other", graph={}),
+            dict(self.payload, status="invalid-source", diagnostics=[]),
+            dict(self.payload, status="success", graph=[]),
+        ):
+            self.structure_source.write_text(json.dumps(invalid), encoding="utf-8")
+            self.write_manifest(id="structure-invalid-envelope")
+            with self.assertRaises(common.ValidationError):
+                publish.publish_session(self.root, self.manifest_path)
+
+    def test_image_kind_rejects_structure_source_and_structure_requires_source(self):
+        self.write_manifest(kind="image", id="image-misuse")
+        with self.assertRaisesRegex(common.ValidationError, "only valid for structure"):
+            publish.publish_session(self.root, self.manifest_path)
+
+        self.write_manifest(id="missing-source")
+        manifest = json.loads(self.manifest_path.read_text(encoding="utf-8"))
+        del manifest["structure_source"]
+        self.manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        with self.assertRaisesRegex(common.ValidationError, "structure_source is required"):
+            publish.publish_session(self.root, self.manifest_path)
+
+
+class StructurePublisherCLITests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temp = tempfile.TemporaryDirectory()
+        self.directory = Path(self.temp.name)
+        self.root = self.directory / "reviews"
+        self.root.mkdir()
+        self.input = self.directory / "body.json"
+        self.input.write_text("{}", encoding="utf-8")
+        self.payload = {
+            "format": "creature-kernel.provisional-structural-inspection.v1",
+            "operation": "inspect-structure",
+            "stage": "structural-validation",
+            "status": "success",
+            "processing_complete": True,
+            "diagnostics_complete": True,
+            "diagnostics": [],
+            "graph": {"parts": []},
+        }
+
+    def tearDown(self) -> None:
+        self.temp.cleanup()
+
+    def fake_binary(self, body: str, *, name: str = "fake-kernel") -> Path:
+        path = self.directory / name
+        path.write_text("#!/usr/bin/env python3\n" + body, encoding="utf-8")
+        path.chmod(0o755)
+        return path
+
+    def publish_with(self, binary: Path, **kwargs: object) -> Path:
+        summary = publish_structure.publish_structure(
+            self.root,
+            self.input,
+            creature_kernel=binary,
+            **kwargs,
+        )
+        return Path(summary["session"])
+
+    def test_success_publishes_real_cli_envelope_and_stable_metadata(self):
+        binary = self.fake_binary(
+            "import json, sys\n"
+            f"sys.stdout.write({json.dumps(json.dumps(self.payload))})\n"
+        )
+        session = self.publish_with(binary, review_id="body-structure", title="Body structure")
+        review = json.loads((session / "review.json").read_text(encoding="utf-8"))
+        self.assertEqual(review["id"], "body-structure")
+        self.assertEqual(review["title"], "Body structure")
+        self.assertEqual(review["kind"], "structure")
+        self.assertEqual(review["structure"], self.payload)
+
+    def test_invalid_source_result_is_published_even_with_nonzero_cli_status(self):
+        payload = dict(self.payload, status="invalid-source", diagnostics=[{"code": "bad"}])
+        payload.pop("graph")
+        binary = self.fake_binary(
+            "import json, sys\n"
+            f"sys.stdout.write({json.dumps(json.dumps(payload))})\n"
+            "sys.exit(1)\n"
+        )
+        session = self.publish_with(binary, review_id="invalid-body")
+        review = json.loads((session / "review.json").read_text(encoding="utf-8"))
+        self.assertEqual(review["structure"]["status"], "invalid-source")
+
+    def test_zero_exit_with_invalid_source_is_rejected(self):
+        payload = dict(self.payload, status="invalid-source", diagnostics=[{"code": "bad"}])
+        payload.pop("graph")
+        binary = self.fake_binary(
+            "import json, sys\n"
+            f"sys.stdout.write({json.dumps(json.dumps(payload))})\n",
+            name="inconsistent-kernel",
+        )
+        with self.assertRaisesRegex(publish_structure.StructurePublishError, "status 0 but reported invalid-source"):
+            self.publish_with(binary, review_id="inconsistent-status")
+        self.assertFalse((self.root / "inconsistent-status").exists())
+
+    def test_missing_binary_and_process_failure_are_clear(self):
+        with self.assertRaisesRegex(publish_structure.StructurePublishError, "cannot execute"):
+            self.publish_with(self.directory / "missing-kernel")
+        binary = self.fake_binary("import sys\nsys.stderr.write('boom')\nsys.exit(7)\n", name="failed-kernel")
+        with self.assertRaisesRegex(publish_structure.StructurePublishError, "no JSON"):
+            self.publish_with(binary)
+
+    def test_malformed_multiple_and_oversized_output_fail_before_publication(self):
+        cases = [
+            ("malformed", "sys.stdout.write('{')\n"),
+            ("multiple", "sys.stdout.write('{} {}')\n"),
+            (
+                "oversized",
+                f"sys.stdout.write('x' * {publish_structure.MAX_STDOUT_BYTES + 1})\n",
+            ),
+        ]
+        for name, body in cases:
+            binary = self.fake_binary("import sys\n" + body, name=f"{name}-kernel")
+            with self.assertRaises(publish_structure.StructurePublishError):
+                self.publish_with(binary, review_id=f"bad-{name}")
+            self.assertFalse((self.root / f"bad-{name}").exists())
+
+    def test_timeout_is_bounded_and_does_not_publish(self):
+        binary = self.fake_binary("import time\ntime.sleep(30)\n", name="slow-kernel")
+        with patch.object(publish_structure, "INSPECTION_TIMEOUT_SECONDS", 0.05):
+            with self.assertRaisesRegex(publish_structure.StructurePublishError, "timed out"):
+                self.publish_with(binary, review_id="timed-out")
+        self.assertFalse((self.root / "timed-out").exists())
+
+    def test_no_overwrite_preserves_existing_session(self):
+        binary = self.fake_binary(
+            "import json, sys\n"
+            f"sys.stdout.write({json.dumps(json.dumps(self.payload))})\n"
+        )
+        session = self.publish_with(binary, review_id="same-id", title="First")
+        before = (session / "review.json").read_bytes()
+        with self.assertRaisesRegex(publish_structure.StructurePublishError, "already exists"):
+            self.publish_with(binary, review_id="same-id", title="Second")
+        self.assertEqual((session / "review.json").read_bytes(), before)
 
 
 class HTTPTests(ReviewFixture):

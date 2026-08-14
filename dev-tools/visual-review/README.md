@@ -18,6 +18,29 @@ python3 dev-tools/visual-review/serve.py \
   --root /tmp/creature-reviews --port 0
 ```
 
+For a structural-only review, build the checked-in CLI and publish the
+checked-in biped example through the bounded wrapper:
+
+```bash
+cargo build -p creature-kernel-cli
+mkdir -p /tmp/creature-structure-reviews
+python3 dev-tools/visual-review/publish_structure.py \
+  --root /tmp/creature-structure-reviews \
+  --input examples/body-documents/stylized-digitigrade-biped.json \
+  --id stylized-biped-structure \
+  --title "Stylized biped structural inspection"
+python3 dev-tools/visual-review/serve.py \
+  --root /tmp/creature-structure-reviews --port 0
+```
+
+The wrapper runs the local `target/debug/creature-kernel` executable without a
+shell, bounds its output and runtime, validates the inspection envelope, and
+then uses the same immutable session publisher as image reviews. A valid
+`invalid-source` inspection remains reviewable with its diagnostics. This is
+a structural, source-preserving review: it renders no geometry and makes no
+runtime or resolver-contract claim. Use `--creature-kernel PATH` when the CLI
+is built elsewhere.
+
 The server binds only to `127.0.0.1`. It prints one localhost URL after the
 socket is bound; port `0` asks the operating system to choose an available
 port. Stop it with Ctrl-C. The reviews root must already exist, and each
