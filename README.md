@@ -183,7 +183,12 @@ standalone `creature_kernel_core::numeric` module is preparatory only: it valida
 JSON-number grammar, performs the pinned direct correctly-rounded binary64
 conversion, reports typed overflow/nonzero-underflow failures, admits finite
 subnormals, and normalizes lexical zero to `+0`; it is not wired into
-body-document admission or Readiness 3. See
+body-document admission or Readiness 3. The standalone
+`creature_kernel_core::frame` module is likewise preparatory: it provides a
+normalized-binary64 structural transform carrier, exact signed-axis
+source-basis mapping, and symbolic length-unit ratios, without unit scaling,
+quaternion/transform algebra or comparison, source integration, resolver, or
+snapshot behavior. See
 [developer setup](DEVELOPER_SETUP.md) and [current project
 status](docs/project/status.md) for the live round, review, and owner-
 disposition state.

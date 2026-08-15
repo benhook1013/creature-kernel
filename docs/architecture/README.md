@@ -88,8 +88,12 @@ pinned Rust 1.97.1 direct correctly-rounded binary64 final conversion, returns
 typed overflow/nonzero-underflow failures, admits finite subnormals, normalizes
 lexical zero to `+0`, and has focused boundary tests. It is not wired into
 body-document admission and does not activate numeric semantics or Readiness 3.
-No Readiness 3 resolver/snapshot, adapter, experiment, or geometry activation
-exists. See
+The standalone `creature_kernel_core::frame` module is also preparatory: it
+provides a normalized-binary64 structural transform carrier, exact signed-axis
+source-basis mapping, and symbolic length-unit ratios, without unit scaling,
+quaternion/transform algebra or comparison, source integration, resolver, or
+snapshot behavior. No Readiness 3 resolver/snapshot, adapter, experiment, or
+geometry activation exists. See
 the [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for the two review lenses, recommendations, and findings. Earlier review
 evidence remains stale. See the
@@ -142,8 +146,12 @@ checks strict JSON-number grammar, uses pinned Rust 1.97.1 direct correctly-
 rounded binary64 final conversion, returns typed overflow/nonzero-underflow
 failures, admits finite subnormals, normalizes lexical zero to `+0`, and has
 focused boundary tests. It is not wired into body-document admission and does
-not activate numeric semantics or Readiness 3. No Readiness 3 resolver/snapshot,
-adapter, experiment, or geometry activation exists.
+not activate numeric semantics or Readiness 3. The standalone
+`creature_kernel_core::frame` module is preparatory only and is not wired into
+source admission or resolver/snapshot behavior; it does not apply unit scaling,
+perform quaternion/transform algebra or comparison, or activate Readiness 3.
+No Readiness 3 resolver/snapshot, adapter, experiment, or geometry activation
+exists.
 See the [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for recommendations and findings. The
 four readiness stages are: DR-0013 acceptance activated Readiness 1 for the
@@ -226,8 +234,9 @@ identity or activate Readiness 3 resolver/adapter work.
 The target architecture remains pre-implementation beyond the active Readiness
 1 shell and the admitted Readiness 2 schema/manifest/fixture/parser/bootstrap/
 preflight transaction. The provisional structural address/index, validator,
-and inspection command, plus the standalone numeric module, remain preparatory
-implementation outside Readiness 3. The numeric module is not wired into
-body-document admission and does not activate numeric semantics. The remaining
+and inspection command, plus the standalone numeric/frame-preparation modules,
+remain preparatory implementation outside Readiness 3. The numeric/frame-
+preparation modules are not wired into body-document admission and do not
+activate numeric semantics. The remaining
 component names describe provisional responsibility boundaries, not activated
 Readiness 3 packages, processes, repositories, or technologies.
