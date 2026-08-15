@@ -99,6 +99,12 @@ impl ResourceProfile {
         max_number_token_bytes: TIGHT_MAX_NUMBER_TOKEN_BYTES,
         max_diagnostics: TIGHT_MAX_DIAGNOSTICS,
     };
+
+    /// Maximum raw bytes permitted for one JSON number token.
+    #[must_use]
+    pub const fn max_number_token_bytes(self) -> usize {
+        self.max_number_token_bytes
+    }
 }
 
 /// The ordinary Readiness 2 profile.

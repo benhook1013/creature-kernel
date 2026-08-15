@@ -88,6 +88,17 @@ Ben directs the project to finish machinery and return to implementation, that
 is a binding prioritization constraint; do not continue discretionary process
 refinement.
 
+When Ben authorizes an autonomous runway of small PRs toward a named human
+checkpoint, record that checkpoint in `docs/project/status.md` before merging
+along the runway. Merge authority applies only within that recorded runway and
+only to internal, reversible preparatory PRs whose required reviews and checks
+are complete. An instruction to merge one named or currently open PR is not
+standing authority to merge its successors. Stop before merging the first PR
+that reaches the named human-visible checkpoint, changes user-visible
+CLI/viewer/API behavior intended for Ben's appraisal, or crosses any
+retained-human boundary. Present that candidate and its review findings to Ben
+first.
+
 ## Decision records and adversarial review
 
 - Use one neutral Decision Record (DR) registry in `docs/decisions/` for

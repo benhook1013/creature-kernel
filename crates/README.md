@@ -18,7 +18,19 @@ identity, and does not activate Readiness 3. The standalone
 normalized-binary64 structural transform carrier, exact signed-axis
 source-basis mapping, and symbolic length-unit ratios, without unit scaling,
 quaternion/transform algebra or comparison, source integration, resolver, or
-snapshot behavior. Normative source meaning remains
-owned by [`spec/body-document`](../spec/body-document/README.md),
+snapshot behavior.
+The public `creature_kernel_core::frame_preparation` bridge converts
+already-admitted wire `Basis`/`RigidTransform` records into these carriers,
+using `Number::as_str` for transform numbers and returning typed
+component-aware conversion errors. `prepare_rigid_transform` requires a sealed
+existing `ResourceProfile` and enforces its bounded materialized
+`Number::as_str` length before conversion, allowing one additional byte only
+for the single positive-exponent `+` normalization byte. This local check does
+not prove or confer whole-document admission; production resolver traversal
+will supply admitted records. Raw lexical spelling/provenance is not
+recovered. It does not apply basis/unit values, perform quaternion
+validation/algebra/comparison, traverse graphs, map diagnostics/statuses, or
+resolve/publish snapshots or activate Readiness 3. Normative source meaning
+remains owned by [`spec/body-document`](../spec/body-document/README.md),
 with the admitted schema at
 [`ck-body-document-v1.schema.json`](../spec/body-document/schema/ck-body-document-v1.schema.json).

@@ -3,6 +3,7 @@
 pub mod body_document;
 pub mod body_graph;
 pub mod frame;
+pub mod frame_preparation;
 pub mod numeric;
 pub mod semantic_address;
 pub mod structural_validation;
