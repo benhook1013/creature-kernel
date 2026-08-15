@@ -9,6 +9,7 @@ pub mod numeric;
 pub(crate) mod numeric_comparison;
 pub(crate) mod quaternion_normalization;
 pub mod reference_placement;
+pub(crate) mod resolver_envelope;
 pub mod semantic_address;
 pub mod source_preparation;
 pub(crate) mod source_set_preparation;
