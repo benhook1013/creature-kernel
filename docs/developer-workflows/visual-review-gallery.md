@@ -95,6 +95,43 @@ not claim surface continuity, anatomical correctness, mesh/topology,
 rigging, animation/IK, deformation, physics, runtime behavior, or Readiness 3.
 Generated sessions remain under `/tmp` and are not committed.
 
+## Disposable continuous-surface preview bridge
+
+The disposable bridge can place the current experiment generator's four
+composite PNG panels in the same image gallery:
+
+Run it from the isolated environment prepared by
+`experiments/current-form-surface-preview/README.md`, or an equivalent
+environment containing that experiment's pinned requirements.
+
+```bash
+python3 dev-tools/visual-review/publish_surface_preview.py \
+  --root /tmp/creature-surface-reviews \
+  --input examples/body-documents/stylized-digitigrade-biped.json \
+  --creature-kernel target/debug/creature-kernel \
+  --generator experiments/current-form-surface-preview/generate_surface_preview.py
+```
+
+The command first requires the Rust producer to emit the canonical v4
+provisional-form envelope, then invokes the experiment-local generator in a
+shell-free, time- and output-bounded subprocess. The generator must provide a
+strict manifest with the four canonical v4 profiles, and for each profile a
+PLY, semantic sidecar, metrics file, and exactly one neutral PNG composite
+containing front, side, and three-quarter views. The bridge verifies safe
+paths, regular non-symlinked files, hashes, byte counts, PNG dimensions and
+view metadata before publishing. Only the four PNGs enter the immutable
+gallery session; the other files remain temporary.
+
+The producer is bounded to 10 seconds and the local extraction/render
+subprocess to a finite 120 seconds, allowing four bounded 72^3 previews without
+turning a failed experiment into an unbounded wait.
+
+This is a current-source disposable visual bridge, not an activation of Stage
+1, Readiness 3, production geometry, runtime behaviour, or DR evidence. The
+gallery presents what the generator produced; it does not decide whether the
+surface is good or accept an architecture. Keep generator work, bundles, and
+sessions under `/tmp` and do not commit them.
+
 ## Workflow
 
 1. Prepare a review manifest for the images to compare. Use stable option IDs,
