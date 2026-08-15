@@ -47,6 +47,20 @@ impl NormalizedBinary64 {
         f64::from_bits(self.bits)
     }
 
+    /// Construct a normalized carrier from an operation result.
+    ///
+    /// This is crate-private because it is an implementation boundary for
+    /// numeric-producing operations, not a public admission API.  It accepts
+    /// every finite binary64 value, canonicalizes both signed zeros to
+    /// [`Self::ZERO`], and rejects NaNs and infinities instead of allowing a
+    /// failed operation to masquerade as a semantic value.
+    pub(crate) fn from_f64_result(value: f64) -> Result<Self, FiniteBinary64Error> {
+        if !value.is_finite() {
+            return Err(FiniteBinary64Error::NonFinite);
+        }
+        Ok(Self::from_f64(value))
+    }
+
     /// Decode this finite binary64 value as an exact bounded signed integer.
     ///
     /// This helper deliberately does not perform a floating-point conversion
@@ -152,6 +166,23 @@ impl NormalizedBinary64 {
         Self { bits }
     }
 }
+
+/// Failure while carrying an `f64` operation result into normalized binary64.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(crate) enum FiniteBinary64Error {
+    /// The operation produced an infinity or NaN.
+    NonFinite,
+}
+
+impl fmt::Display for FiniteBinary64Error {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::NonFinite => formatter.write_str("f64 operation result is not finite"),
+        }
+    }
+}
+
+impl std::error::Error for FiniteBinary64Error {}
 
 /// Failure while converting a normalized binary64 value to or from the
 /// bounded exact-integer domain used by reference placement.
@@ -474,6 +505,34 @@ mod tests {
                 .to_bits(),
             f64::from_bits(0x8000_0000_0000_0001).to_bits()
         );
+    }
+
+    #[test]
+    fn checked_f64_result_carrier_accepts_finite_values_and_canonicalizes_zero() {
+        assert_eq!(
+            NormalizedBinary64::from_f64_result(-0.0).unwrap(),
+            NormalizedBinary64::ZERO
+        );
+        assert_eq!(
+            NormalizedBinary64::from_f64_result(-f64::MIN_POSITIVE).unwrap(),
+            NormalizedBinary64::from_test_bits((-f64::MIN_POSITIVE).to_bits())
+        );
+        assert_eq!(
+            NormalizedBinary64::from_f64_result(f64::MAX)
+                .unwrap()
+                .to_bits(),
+            f64::MAX.to_bits()
+        );
+    }
+
+    #[test]
+    fn checked_f64_result_carrier_rejects_nonfinite_values() {
+        for value in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert_eq!(
+                NormalizedBinary64::from_f64_result(value),
+                Err(FiniteBinary64Error::NonFinite)
+            );
+        }
     }
 
     #[test]
