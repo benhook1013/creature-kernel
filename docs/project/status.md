@@ -83,16 +83,20 @@ preparatory results do not constitute Readiness 3 admission or activation:
 they do not activate resolver/numeric semantics, geometry, rigging, animation,
 physics, or runtime.
 
-The current worktree now contains the first human-visible CLI/viewer candidate:
+The current worktree now contains provisional developer instrumentation:
 `inspect-prepared-source --input <path>` plus its bounded
 `publish_prepared_source.py`/localhost-server flow. It preserves the admitted
 single-source graph projection and adds the declared basis, prepared counts,
-and numeric debug rows with binary64 bits and stable semantic locations. This
-candidate is awaiting Ben's appraisal and must not merge until he reviews it.
-It remains preparatory only: it does not resolve dependencies or produce a
-snapshot or canonical serialization, apply basis/unit values, interpret
-quaternions, expand dependencies/modules, produce geometry, rigging,
-animation, physics, or runtime output, or activate Readiness 3.
+and numeric debug rows with binary64 bits and stable semantic locations. Ben's
+2026-08-15 appraisal found that it adds developer-visible preparation data but
+no meaningful creature visualization. He does not want routine implementation
+details presented for approval. It remains preparatory only: it does not
+resolve dependencies or produce a snapshot or canonical serialization, apply
+basis/unit values, interpret quaternions, expand dependencies/modules, produce
+geometry, rigging, animation, physics, or runtime output, or activate Readiness
+3. PR #14 may be merged as preparatory tooling after its normal checks pass.
+This is not blanket merge authority outside the named runway and does not waive
+real user-visible or direction-setting decisions.
 
 PR #9, “Add inspectable biped structure workflow,” is merged at commit
 `565c32bd35215e23d737fb333604382d3e6958ab`. PR #10, “Add preparatory exact
@@ -125,11 +129,12 @@ snapshots, or serialization, or activate a resolver or Readiness 3.
 This intentionally retires the provisional public record-level
 `frame_preparation` API in favor of the admitted whole-source boundary.
 
-Immediate next action: advance bounded source preparation toward the first
-human-visible CLI/viewer resolver checkpoint by continuing document-wide
-resolver preparation/provenance traversal over admitted records, while keeping
-resolver activation and the preparatory implementation outside the Readiness 3
-activation boundary.
+Immediate next action: advance bounded source preparation by continuing
+document-wide resolver preparation/provenance traversal over admitted records,
+while keeping resolver activation and the preparatory implementation outside
+the Readiness 3 activation boundary. The next retained-human checkpoint is an
+actual rendered creature or primitive spatial preview, or a genuine
+direction-setting decision.
 
 Ben approved the following deferred planning direction on 2026-08-09 for any
 future activation. It is recorded here without accepting or revising either DR:
@@ -384,14 +389,15 @@ resolver/snapshot transaction is not active.
 DR-0002 Revision 11 and DR-0008 Revision 11 are unchanged and remain Review
 Complete. Owner approval remains Pending.
 
-The immediate next action is bounded source preparation toward the first
-human-visible CLI/viewer resolver checkpoint: document-wide resolver
-preparation/provenance traversal over admitted records grounded in the active
-parser/bootstrap and admitted schema/manifest/fixture transaction. Readiness 1
-and Readiness 2 remain active while Readiness 3 and later transactions remain
-gated. The current prepared-source candidate is that checkpoint's first
-human-visible candidate; it is awaiting Ben's appraisal and must not merge
-until he reviews it.
+The immediate next action is bounded source preparation and provenance
+traversal over admitted records, grounded in the active parser/bootstrap and
+admitted schema/manifest/fixture transaction. Readiness 1 and Readiness 2
+remain active while Readiness 3 and later transactions remain gated. The
+prepared-source command is developer-facing preparatory inspection, not a
+human-visible creature result or retained-human checkpoint. PR #14 may merge
+as preparatory tooling after its normal checks pass. The next retained-human
+checkpoint is an actual rendered creature or primitive spatial preview, or a
+genuine direction-setting decision.
 The main thread will autonomously resolve technical correctness findings or
 record evidence-dependent triggers under the DR-0001 Revision 6 transition
 direction; only a retained-human product, architecture-boundary, material
@@ -538,11 +544,12 @@ validator, and inspection command remain preparatory. The immediate-predecessor
   compiler/core library shell, and thin CLI shell, with the admitted Readiness 2
   parser/bootstrap transaction active alongside it. The provisional structural
   address/index, validator, and `inspect-structure` command are preparatory and
-  do not activate Readiness 3. Advance bounded source preparation toward the
-  first human-visible CLI/viewer resolver checkpoint, including document-wide
-  resolver preparation/provenance traversal. The current
-  `inspect-prepared-source` CLI/viewer candidate is awaiting Ben's appraisal and
-  must not merge until he reviews it. The public single-source
+  do not activate Readiness 3. Advance bounded source preparation, including
+  document-wide resolver preparation/provenance traversal. The
+  `inspect-prepared-source` command and its bounded browser flow are
+  developer-facing preparatory inspection, not a human-visible creature result
+  or retained-human checkpoint. PR #14 may merge as preparatory tooling after
+  its normal checks pass. The public single-source
   preparation operation and internal numeric/frame-preparation helpers stay
   preparatory, with no record-level admission bypass. Numeric/frame/output,
   adapter, and geometry prerequisites gate later stages. Any performance claim must have
@@ -613,12 +620,13 @@ metadata. Current non-governance proposals include:
 ## Immediate next actions
 
 Ben authorized an autonomous runway on 2026-08-15 for small, internal,
-reversible preparation PRs leading to the first human-visible CLI/viewer
-resolver checkpoint. The main thread may merge clean internal bridge and
-document-wide preparation/provenance slices along that runway. It must stop
-before merging the first CLI/viewer/API candidate intended for Ben's appraisal
-and present that candidate to him. Earlier permission to merge a specific PR
-does not
+reversible preparation PRs. PR #14 is eligible to merge as preparatory tooling
+after its normal checks pass. The main thread may merge clean internal bridge
+and document-wide preparation/provenance slices along the named runway, but
+this is not blanket authority outside it and does not waive real user-visible
+or direction-setting decisions. The next retained-human checkpoint is an
+actual rendered creature or primitive spatial preview, or a genuine
+direction-setting decision. Earlier permission to merge a specific PR does not
 authorize merging later PRs outside this recorded runway.
 
 - Use the active Readiness 2 parser/bootstrap and admitted schema, manifest, and

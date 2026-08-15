@@ -61,7 +61,7 @@ is only the first gate: an admitted fixture can still fail stronger structural
 inspection with `invalid-source` diagnostics.
 
 `inspect-structure` remains the structural-only command. To inspect the
-prepared-source candidate for one admitted source, run:
+prepared-source developer instrumentation for one admitted source, run:
 
 ```bash
 cargo run -p creature-kernel-cli -- inspect-prepared-source \

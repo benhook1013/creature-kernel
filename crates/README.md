@@ -35,8 +35,8 @@ remains owned by [`spec/body-document`](../spec/body-document/README.md),
 with the admitted schema at
 [`ck-body-document-v1.schema.json`](../spec/body-document/schema/ck-body-document-v1.schema.json).
 
-The CLI also exposes the separate provisional
-`inspect-prepared-source --input <path>` candidate. Unlike unchanged
+The CLI also exposes the separate provisional developer-instrumentation
+`inspect-prepared-source --input <path>` inspection. Unlike unchanged
 `inspect-structure`, it adds the declared basis, prepared counts, and numeric
 debug rows with stable semantic addresses or owner/role locations, display
 values, and binary64 bits for one admitted source. It remains only a graph

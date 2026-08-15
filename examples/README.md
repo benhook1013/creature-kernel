@@ -2,7 +2,7 @@
 
 These examples are small, human-readable body documents for exercising the
 admitted source shape, the provisional structural inspection command, and the
-prepared-source inspection candidate. They are authored fixtures, not
+prepared-source developer inspection. They are authored fixtures, not
 generated meshes or resolver snapshots.
 
 ## Stylized digitigrade biped
@@ -34,7 +34,7 @@ cargo run -p creature-kernel-cli -- inspect-structure \
 ```
 
 The unchanged `inspect-structure` command is structural-only. The prepared
-source candidate adds the declared basis, prepared counts, and numeric debug
+source inspection adds the declared basis, prepared counts, and numeric debug
 rows (stable semantic locations, display values, and binary64 bits) for this
 single admitted source:
 

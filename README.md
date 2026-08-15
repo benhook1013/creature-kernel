@@ -219,7 +219,7 @@ inspection still reports `invalid-source`; see [authored examples](examples/READ
 
 `inspect-structure` is unchanged: it reports only the source-preserving
 structural graph projection and structural diagnostics. The prepared-source
-candidate is a separate command:
+inspection is a separate provisional developer-instrumentation command:
 
 ```bash
 cargo run -p creature-kernel-cli -- inspect-prepared-source \
