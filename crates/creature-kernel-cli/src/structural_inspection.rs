@@ -73,21 +73,38 @@ fn help_response(arguments: &[String]) -> Option<Value> {
     output.insert("processing_complete".to_owned(), Value::Bool(true));
     output.insert("diagnostics_complete".to_owned(), Value::Bool(true));
     output.insert("diagnostics".to_owned(), Value::Array(Vec::new()));
-    output.insert(
-        "help".to_owned(),
-        json!({
-            "usage": usage,
-            "description": description,
-            "options": [
-                {"flag": "--input <path>", "description": "Read a body document from a file (use '-' for stdin)."},
-                {"flag": "--help", "description": "Show this structured help response."}
-            ]
-        }),
-    );
+    let mut help = json!({
+        "usage": usage,
+        "description": description,
+        "options": [
+            {"flag": "--input <path>", "description": "Read a body document from a file (use '-' for stdin)."},
+            {"flag": "--help", "description": "Show this structured help response."}
+        ]
+    });
+    if operation == "help"
+        && let Value::Object(help) = &mut help
+    {
+        help.insert(
+            "commands".to_owned(),
+            json!([
+                {
+                    "command": "inspect-structure",
+                    "usage": "creature-kernel inspect-structure --input <path>",
+                    "description": "Inspect an admitted body document and emit its structural projection."
+                },
+                {
+                    "command": "inspect-prepared-source",
+                    "usage": "creature-kernel inspect-prepared-source --input <path>",
+                    "description": "Inspect bounded source preparation and emit its provisional debug projection."
+                }
+            ]),
+        );
+    }
+    output.insert("help".to_owned(), help);
     Some(Value::Object(output))
 }
 
-fn read_input(input: &Path) -> io::Result<Vec<u8>> {
+pub(crate) fn read_input(input: &Path) -> io::Result<Vec<u8>> {
     if input == Path::new("-") {
         let stdin = io::stdin();
         read_bounded(stdin.lock())
@@ -96,7 +113,7 @@ fn read_input(input: &Path) -> io::Result<Vec<u8>> {
     }
 }
 
-fn read_bounded<R: Read>(reader: R) -> io::Result<Vec<u8>> {
+pub(crate) fn read_bounded<R: Read>(reader: R) -> io::Result<Vec<u8>> {
     let mut source = Vec::new();
     reader
         .take((creature_kernel_core::body_document::ORDINARY_MAX_SOURCE_BYTES + 1) as u64)
@@ -328,7 +345,7 @@ fn structural_diagnostic(diagnostic: &StructuralDiagnostic) -> Value {
     })
 }
 
-fn address_key_value(address: &AddressKey) -> Value {
+pub(crate) fn address_key_value(address: &AddressKey) -> Value {
     json!({
         "namespace": address.namespace(),
         "anchors": address.anchors(),
@@ -347,7 +364,7 @@ fn status_name(status: Status) -> &'static str {
     }
 }
 
-fn graph_projection(graph: &StructuralBodyGraph) -> Value {
+pub(crate) fn graph_projection(graph: &StructuralBodyGraph) -> Value {
     // BTreeMap::values() is intentional: its order is the structural key
     // order, independent of source collection permutation.
     let mut source = graph.source().clone();
@@ -720,6 +737,22 @@ mod tests {
             assert_eq!(stdout.matches('\n').count(), 1);
             assert!(provisional_json::from_str::<Value>(&stdout).is_ok());
         }
+    }
+
+    #[test]
+    fn top_level_help_advertises_both_inspection_commands() {
+        let output = run_cli(["--help"]);
+        let value: Value = provisional_json::from_str(&output.json).unwrap();
+        let commands = value["help"]["commands"].as_array().unwrap();
+        let names: Vec<_> = commands
+            .iter()
+            .map(|command| command["command"].as_str().unwrap())
+            .collect();
+        assert_eq!(names, vec!["inspect-structure", "inspect-prepared-source"]);
+
+        let command_help = run_cli(["inspect-structure", "--help"]);
+        let command_help: Value = provisional_json::from_str(&command_help.json).unwrap();
+        assert!(command_help["help"].get("commands").is_none());
     }
 
     #[test]

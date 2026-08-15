@@ -56,6 +56,18 @@ The lane supports extended research/implementation/test/review cycles until a
 tangible milestone or a retained-human choice requires a handoff; it does not
 run endless theoretical or review-until-clean loops.
 
+Routine developer instrumentation, CLI JSON, metadata tables, diagnostics, and
+correctness plumbing remain autonomous implementation even when surfaced in a
+browser. Do not infer that browser-visible means product-visually meaningful: a
+retained-human visual checkpoint requires actual rendered spatial, form,
+appearance, motion, or interaction output for which subjective judgment is
+useful, unless Ben explicitly asks to inspect the tooling or UI itself. Before
+interrupting Ben for appraisal, state what subjective judgment he can make. If
+the honest answer is only technical correctness already addressed by tests or
+review, do not present it as his checkpoint. Continue small internal and
+reversible work autonomously within the recorded runway and merge authority
+until a genuine retained-human design choice or useful visual result is ready.
+
 A subagent may collect evidence, implement a bounded decision already supported
 by canonical design, or challenge a proposal. It must not make product or
 architecture decisions independently. An independent reviewer recommends; the

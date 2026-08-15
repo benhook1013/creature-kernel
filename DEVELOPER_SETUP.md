@@ -60,6 +60,22 @@ Sockets, 1 Attachment, 4 Regions, and 3 Capabilities. Parser/schema admission
 is only the first gate: an admitted fixture can still fail stronger structural
 inspection with `invalid-source` diagnostics.
 
+`inspect-structure` remains the structural-only command. To inspect the
+prepared-source developer instrumentation for one admitted source, run:
+
+```bash
+cargo run -p creature-kernel-cli -- inspect-prepared-source \
+  --input examples/body-documents/stylized-digitigrade-biped.json
+```
+
+This retains the structural graph projection and adds the declared basis,
+prepared counts, and numeric debug rows. Rows include stable semantic
+addresses or owner/role locations, a display value, and binary64 bits. The
+projection is not a resolver or snapshot and does not perform canonical
+serialization, basis/unit application, quaternion semantics, dependency or
+module expansion, geometry, rigging, animation, physics, or runtime work; it
+does not activate Readiness 3.
+
 To publish that inspection as a local structural-review session, build the CLI,
 create a disposable `/tmp` review root, then publish and serve it:
 
@@ -83,6 +99,24 @@ behaviour. Generated sessions are local and immutable; do not commit them.
 The existing image-review workflow remains supported. Detailed workflow and
 tool behaviour live in the [visual-review workflow](docs/developer-workflows/visual-review-gallery.md)
 and [tool README](dev-tools/visual-review/README.md).
+
+To publish the prepared-source projection instead, use the same local server
+flow with `publish_prepared_source.py` followed by `serve.py`, using a
+disposable `/tmp` review root. The authoritative launch commands, bounds, and
+session behavior are in the [tool README](dev-tools/visual-review/README.md).
+
+```bash
+mkdir -p /tmp/creature-prepared-source-reviews
+python3 dev-tools/visual-review/publish_prepared_source.py \
+  --root /tmp/creature-prepared-source-reviews \
+  --input examples/body-documents/stylized-digitigrade-biped.json \
+  --creature-kernel target/debug/creature-kernel
+python3 dev-tools/visual-review/serve.py \
+  --root /tmp/creature-prepared-source-reviews --port 0
+```
+
+Open the printed localhost URL and stop the server with Ctrl-C. Sessions under
+`/tmp` are disposable and must not be committed.
 
 The evidence runner rejects legacy/current Cargo config files in the checkout,
 its Cargo lookup ancestors, and the selected Cargo home. It removes ambient

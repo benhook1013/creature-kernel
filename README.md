@@ -217,9 +217,32 @@ The command is a provisional source-preserving inspection, not a resolver or
 geometry build. Parser/schema admission can succeed while stronger structural
 inspection still reports `invalid-source`; see [authored examples](examples/README.md).
 
+`inspect-structure` is unchanged: it reports only the source-preserving
+structural graph projection and structural diagnostics. The prepared-source
+inspection is a separate provisional developer-instrumentation command:
+
+```bash
+cargo run -p creature-kernel-cli -- inspect-prepared-source \
+  --input examples/body-documents/stylized-digitigrade-biped.json
+```
+
+For one admitted source, `inspect-prepared-source` emits that same graph plus
+the declared source basis, prepared collection counts, and numeric debug rows
+with stable semantic addresses or owner/role locations, display values, and
+binary64 bits. It is an admitted single-source projection only: it does not
+resolve dependencies or make a snapshot, perform canonical serialization,
+apply basis or unit values, interpret quaternions, expand dependencies or
+modules, or produce geometry, rigging, animation, physics, or runtime output.
+It does not activate Readiness 3. Preparation failures emit bounded
+diagnostics without a partial prepared payload.
+
 For a local browser view of that projection, see the concise
 [structural-review workflow](docs/developer-workflows/visual-review-gallery.md).
-The existing image-review gallery remains supported.
+For a browser session, build the CLI, then run
+`publish_prepared_source.py` followed by `serve.py` against a disposable local
+root. The authoritative commands, bounds, and session behavior are in the
+[visual-review tool README](dev-tools/visual-review/README.md); the existing
+image-review gallery remains supported.
 
 See [docs/FOUNDATION.md](docs/FOUNDATION.md) for the historical
 conversation-derived record. Current contracts are owned by the documentation

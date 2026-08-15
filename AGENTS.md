@@ -99,6 +99,18 @@ CLI/viewer/API behavior intended for Ben's appraisal, or crosses any
 retained-human boundary. Present that candidate and its review findings to Ben
 first.
 
+Routine developer instrumentation, CLI JSON, metadata tables, diagnostics, and
+correctness plumbing remain autonomous implementation even when surfaced in a
+browser. Do not infer that browser-visible means product-visually meaningful: a
+retained-human visual checkpoint requires actual rendered spatial, form,
+appearance, motion, or interaction output for which subjective judgment is
+useful, unless Ben explicitly asks to inspect the tooling or UI itself. Before
+interrupting Ben for appraisal, state what subjective judgment he can make. If
+the honest answer is only technical correctness already addressed by tests or
+review, do not present it as his checkpoint. Continue small internal and
+reversible work autonomously within the recorded runway and merge authority
+until a genuine retained-human design choice or useful visual result is ready.
+
 ## Decision records and adversarial review
 
 - Use one neutral Decision Record (DR) registry in `docs/decisions/` for

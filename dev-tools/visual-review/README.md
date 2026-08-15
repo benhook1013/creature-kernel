@@ -41,6 +41,32 @@ a structural, source-preserving review: it renders no geometry and makes no
 runtime or resolver-contract claim. Use `--creature-kernel PATH` when the CLI
 is built elsewhere.
 
+For prepared-source developer inspection, regenerate the same localhost
+structure session with the additional bounded numeric preparation inventory:
+
+```bash
+cargo build -p creature-kernel-cli
+mkdir -p /tmp/creature-prepared-source-reviews
+python3 dev-tools/visual-review/publish_prepared_source.py \
+  --root /tmp/creature-prepared-source-reviews \
+  --input examples/body-documents/stylized-digitigrade-biped.json \
+  --id stylized-biped-prepared-source \
+  --title "Stylized biped prepared source"
+python3 dev-tools/visual-review/serve.py \
+  --root /tmp/creature-prepared-source-reviews --port 0
+```
+
+`publish_prepared_source.py` invokes
+`creature-kernel inspect-prepared-source --input PATH` without a shell, bounds
+the child output and runtime, validates the
+`creature-kernel.provisional-source-preparation-inspection.v1` envelope, and
+publishes it as the existing immutable `structure` session kind. Its `graph`
+is rendered by the existing structure viewer; `prepared` adds only basis,
+counts, and numeric-value inspection data. This remains a source-preparation
+projection and makes no meaningful creature visualization, geometry, resolver,
+or runtime claim. It is not a retained-human checkpoint. Generated
+sessions live under `/tmp`, are disposable, and are not committed.
+
 The server binds only to `127.0.0.1`. It prints one localhost URL after the
 socket is bound; port `0` asks the operating system to choose an available
 port. Stop it with Ctrl-C. The reviews root must already exist, and each

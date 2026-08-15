@@ -433,6 +433,274 @@
     return section;
   }
 
+  function preparedText(value, fallback) {
+    if (value === undefined || value === null || value === "") {
+      return fallback || "Unavailable";
+    }
+    if (typeof value === "object") {
+      return jsonText(value);
+    }
+    return String(value);
+  }
+
+  function preparedField(row, names) {
+    for (var index = 0; index < names.length; index += 1) {
+      if (row[names[index]] !== undefined && row[names[index]] !== null) {
+        return row[names[index]];
+      }
+    }
+    return undefined;
+  }
+
+  function preparedNumericRows(value) {
+    if (Array.isArray(value)) {
+      return value;
+    }
+    if (!isObject(value)) {
+      return null;
+    }
+    var rows = [];
+    Object.keys(value).forEach(function (key) {
+      var collection = value[key];
+      if (Array.isArray(collection)) {
+        collection.forEach(function (row) {
+          if (isObject(row) && preparedField(row, ["group"]) === undefined) {
+            var grouped = {};
+            Object.keys(row).forEach(function (field) { grouped[field] = row[field]; });
+            grouped.group = key;
+            rows.push(grouped);
+          } else {
+            rows.push(row);
+          }
+        });
+      } else if (isObject(collection)) {
+        var groupedRow = {};
+        Object.keys(collection).forEach(function (field) { groupedRow[field] = collection[field]; });
+        if (preparedField(groupedRow, ["group"]) === undefined) {
+          groupedRow.group = key;
+        }
+        rows.push(groupedRow);
+      } else {
+        rows.push(collection);
+      }
+    });
+    return rows;
+  }
+
+  function preparedLocation(row) {
+    var ownerRole = preparedField(row, ["owner_role", "ownerRole", "owner-role"]);
+    var rowAddress = preparedField(row, ["semantic_key", "semanticKey", "address"]);
+    if (ownerRole !== undefined) {
+      if (isObject(ownerRole)) {
+        var owner = preparedField(ownerRole, ["owner", "address", "semantic_key", "semanticKey"]);
+        var role = preparedField(ownerRole, ["role", "owner_role", "ownerRole"]);
+        if (role === undefined) {
+          role = preparedField(row, ["role"]);
+        }
+        if (owner === undefined && role !== undefined && rowAddress !== undefined) {
+          owner = rowAddress;
+        }
+        if (owner !== undefined && role !== undefined) {
+          var ownerText = isObject(owner) && (owner.namespace !== undefined || owner.kind !== undefined || owner.role !== undefined) ? addressText(owner) : preparedText(owner);
+          return "Owner " + ownerText + " · role " + preparedText(role);
+        }
+      } else if (rowAddress !== undefined) {
+        var addressTextValue = isObject(rowAddress) && (rowAddress.namespace !== undefined || rowAddress.kind !== undefined || rowAddress.role !== undefined) ? addressText(rowAddress) : preparedText(rowAddress);
+        return "Owner " + addressTextValue + " · role " + preparedText(ownerRole);
+      }
+      return preparedText(ownerRole, "Owner-role unavailable");
+    }
+    var rowOwner = preparedField(row, ["owner"]);
+    var rowRole = preparedField(row, ["role"]);
+    if (rowOwner !== undefined && rowRole !== undefined) {
+      var rowOwnerText = isObject(rowOwner) && (rowOwner.namespace !== undefined || rowOwner.kind !== undefined || rowOwner.role !== undefined) ? addressText(rowOwner) : preparedText(rowOwner);
+      return "Owner " + rowOwnerText + " · role " + preparedText(rowRole);
+    }
+    var location = preparedField(row, ["semantic_key", "semanticKey", "address", "location", "key"]);
+    if (isObject(location)) {
+      if (location.namespace !== undefined || location.kind !== undefined || location.role !== undefined) {
+        return addressText(location);
+      }
+      return jsonText(location);
+    }
+    return preparedText(location, "Location unavailable");
+  }
+
+  function validatePrepared(prepared) {
+    var errors = [];
+    if (!isObject(prepared)) {
+      return ["The prepared source payload is not an object."];
+    }
+    if (!isObject(prepared.basis)) {
+      errors.push("prepared.basis is missing or is not an object.");
+    } else {
+      ["length_unit", "handedness", "up", "forward", "source_for_canonical"].forEach(function (name) {
+        if (prepared.basis[name] === undefined || prepared.basis[name] === null) {
+          errors.push("prepared.basis." + name + " is missing.");
+        }
+      });
+    }
+    if (!isObject(prepared.counts)) {
+      errors.push("prepared.counts is missing or is not an object.");
+    }
+    var numericRows = preparedNumericRows(prepared.numeric_values);
+    if (!numericRows) {
+      errors.push("prepared.numeric_values is missing or is not a collection.");
+    } else {
+      numericRows.forEach(function (row, index) {
+        if (!isObject(row)) {
+          errors.push("prepared.numeric_values[" + index + "] is not an object.");
+          return;
+        }
+        if (preparedField(row, ["group"]) === undefined) {
+          errors.push("prepared.numeric_values[" + index + "] has no collection group.");
+        }
+        if (preparedField(row, ["semantic_key", "semanticKey", "address", "owner_role", "ownerRole", "owner-role", "owner", "location", "key"]) === undefined) {
+          errors.push("prepared.numeric_values[" + index + "] has no semantic location.");
+        }
+        if (preparedField(row, ["field"]) === undefined) {
+          errors.push("prepared.numeric_values[" + index + "] has no field.");
+        }
+        if (preparedField(row, ["component"]) === undefined) {
+          errors.push("prepared.numeric_values[" + index + "] has no component.");
+        }
+        if (preparedField(row, ["display_value", "displayValue", "value"]) === undefined) {
+          errors.push("prepared.numeric_values[" + index + "] has no display value.");
+        }
+        if (preparedField(row, ["binary64_bits", "binary64Bits", "bits"]) === undefined) {
+          errors.push("prepared.numeric_values[" + index + "] has no binary64 bits.");
+        }
+      });
+    }
+    return errors;
+  }
+
+  function preparedBasisSection(basis) {
+    var section = node("section", null, "prepared-card prepared-basis");
+    section.appendChild(node("h3", "Declared source basis — inspected, not applied"));
+    section.appendChild(node("p", "These declarations are shown exactly as prepared metadata. This checkpoint inspects them but applies no unit or coordinate-basis conversion.", "prepared-explanation"));
+    var table = node("table", null, "prepared-table prepared-basis-table");
+    var head = node("thead");
+    var heading = node("tr");
+    ["Declaration", "Inspected value"].forEach(function (label) { heading.appendChild(node("th", label)); });
+    head.appendChild(heading);
+    table.appendChild(head);
+    var body = node("tbody");
+    [["Length unit", basis.length_unit], ["Handedness", basis.handedness], ["Up", basis.up], ["Forward", basis.forward], ["Source for canonical", basis.source_for_canonical]].forEach(function (entry) {
+      var row = node("tr");
+      row.appendChild(node("th", entry[0]));
+      row.appendChild(node("td", preparedText(entry[1])));
+      body.appendChild(row);
+    });
+    table.appendChild(body);
+    section.appendChild(table);
+    return section;
+  }
+
+  function preparedCountsSection(counts) {
+    var section = node("section", null, "prepared-card prepared-counts");
+    section.appendChild(node("h3", "Prepared counts"));
+    section.appendChild(node("p", "Prepared collection cardinalities; zero is a valid result.", "prepared-explanation"));
+    var entries = Object.keys(counts);
+    if (!entries.length) {
+      section.appendChild(node("p", "No prepared counts were supplied.", "empty"));
+      return section;
+    }
+    var grid = node("dl", null, "prepared-count-grid");
+    entries.forEach(function (name) {
+      grid.appendChild(node("dt", name.replace(/_/g, " ")));
+      grid.appendChild(node("dd", preparedText(counts[name])));
+    });
+    section.appendChild(grid);
+    return section;
+  }
+
+  function preparedNumericSection(rows) {
+    var section = node("section", null, "prepared-card prepared-numeric");
+    section.appendChild(node("h3", "Prepared numeric values"));
+    section.appendChild(node("p", "Values are grouped by collection. Display values and binary64 bit patterns are reported from preparation; they are not transformed or resolved here.", "prepared-explanation"));
+    if (!rows.length) {
+      section.appendChild(node("p", "No prepared numeric values were supplied.", "empty"));
+      return section;
+    }
+    var groups = Object.create(null);
+    var order = [];
+    rows.forEach(function (row) {
+      var group = preparedText(preparedField(row, ["group"]), "Unspecified collection");
+      if (!groups[group]) {
+        groups[group] = [];
+        order.push(group);
+      }
+      groups[group].push(row);
+    });
+    var container = node("div", null, "prepared-groups");
+    order.forEach(function (group) {
+      var details = node("details", null, "prepared-group");
+      var values = groups[group];
+      details.appendChild(node("summary", group + " (" + values.length + ")"));
+      var table = node("table", null, "prepared-table prepared-values-table");
+      var head = node("thead");
+      var heading = node("tr");
+      ["Location", "Field", "Component", "Display value", "binary64 bits"].forEach(function (label) { heading.appendChild(node("th", label)); });
+      head.appendChild(heading);
+      table.appendChild(head);
+      var body = node("tbody");
+      values.forEach(function (row) {
+        var tableRow = node("tr");
+        tableRow.appendChild(node("th", preparedLocation(row)));
+        tableRow.appendChild(node("td", preparedText(preparedField(row, ["field"]), "Unavailable")));
+        tableRow.appendChild(node("td", preparedText(preparedField(row, ["component"]), "Unavailable")));
+        tableRow.appendChild(node("td", preparedText(preparedField(row, ["display_value", "displayValue", "value"]), "Unavailable")));
+        tableRow.appendChild(node("td", preparedText(preparedField(row, ["binary64_bits", "binary64Bits", "bits"]), "Unavailable")));
+        body.appendChild(tableRow);
+      });
+      table.appendChild(body);
+      details.appendChild(table);
+      container.appendChild(details);
+    });
+    section.appendChild(container);
+    return section;
+  }
+
+  function preparedSourceSection(structure) {
+    if (!isObject(structure) || !Object.prototype.hasOwnProperty.call(structure, "prepared")) {
+      return null;
+    }
+    var prepared = structure.prepared;
+    var section = node("section", null, "prepared-source");
+    var heading = node("div", null, "prepared-heading");
+    var title = node("h2", "Prepared source");
+    title.appendChild(node("span", "Inspected · not applied", "prepared-status-pill"));
+    heading.appendChild(title);
+    heading.appendChild(node("p", "This checkpoint shows source values admitted and prepared into deterministic numeric carriers. It is an inspection of declared source data, not a resolved creature or runtime preview.", "prepared-explanation"));
+    section.appendChild(heading);
+    section.appendChild(metadataGrid([
+      ["Status", preparedText(structure.status, "Unavailable")],
+      ["Stage", preparedText(structure.stage, "Unavailable")],
+      ["Format", preparedText(structure.format, "Unavailable")]
+    ]));
+    var errors = validatePrepared(prepared);
+    if (errors.length) {
+      var invalid = node("div", null, "prepared-invalid");
+      invalid.appendChild(node("h3", "Prepared source unavailable"));
+      invalid.appendChild(node("p", "The prepared-source data is incomplete or malformed. Existing structural and image review content remains available.", "prepared-explanation"));
+      var list = node("ul");
+      errors.slice(0, 8).forEach(function (error) { list.appendChild(node("li", error)); });
+      if (errors.length > 8) { list.appendChild(node("li", (errors.length - 8) + " additional prepared-data issue(s) omitted.")); }
+      invalid.appendChild(list);
+      section.appendChild(invalid);
+    } else {
+      section.appendChild(preparedBasisSection(prepared.basis));
+      section.appendChild(preparedCountsSection(prepared.counts));
+      section.appendChild(preparedNumericSection(preparedNumericRows(prepared.numeric_values) || []));
+    }
+    var limitations = node("aside", null, "prepared-limitations");
+    limitations.appendChild(node("h3", "Current limitation"));
+    limitations.appendChild(node("p", "No resolver or snapshot, geometry, rig, animation, physics, unit/basis conversion, or runtime behavior is present in this checkpoint."));
+    section.appendChild(limitations);
+    return section;
+  }
+
   function renderStructure(rawStructure, review) {
     clear(app);
     var structure = rawStructure;
@@ -451,6 +719,10 @@
       instructions.appendChild(node("h2", "Instructions"));
       instructions.appendChild(node("p", review.instructions));
       app.appendChild(instructions);
+    }
+    var preparedPanel = preparedSourceSection(structure);
+    if (preparedPanel) {
+      app.appendChild(preparedPanel);
     }
     var guidance = node("aside", null, "instructions");
     guidance.appendChild(node("h2", "What to inspect"));

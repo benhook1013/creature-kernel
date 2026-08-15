@@ -36,6 +36,14 @@ MAX_STRUCTURE_JSON_BYTES = 256 * 1024
 MAX_STRING = 8192
 MAX_CONTEXT_JSON = MAX_STRING
 STRUCTURE_FORMAT = "creature-kernel.provisional-structural-inspection.v1"
+PREPARED_SOURCE_FORMAT = "creature-kernel.provisional-source-preparation-inspection.v1"
+PREPARED_SOURCE_OPERATION = "inspect-prepared-source"
+PREPARED_SOURCE_STAGE = "source-preparation"
+# Short aliases mirror STRUCTURE_FORMAT for callers that handle the two
+# structure-session projection formats generically.
+PREPARED_FORMAT = PREPARED_SOURCE_FORMAT
+PREPARED_OPERATION = PREPARED_SOURCE_OPERATION
+PREPARED_STAGE = PREPARED_SOURCE_STAGE
 STRUCTURE_STATUSES = {
     "success",
     "invalid-source",
@@ -364,6 +372,202 @@ def _validate_structure_envelope(value: Any, where: str) -> dict[str, Any]:
     return obj
 
 
+def _validate_prepared_source_envelope(value: Any, where: str) -> dict[str, Any]:
+    """Validate the source-preparation projection used by the structure viewer.
+
+    The graph deliberately uses the existing structural projection contract;
+    only the additional prepared inventory is checked here.  Keeping this
+    validation at the publication boundary prevents a malformed producer from
+    being copied into an otherwise immutable review session.
+    """
+
+    obj = _object(value, where)
+    required = {
+        "format",
+        "operation",
+        "stage",
+        "status",
+        "processing_complete",
+        "diagnostics_complete",
+        "diagnostics",
+    }
+    missing = sorted(required - set(obj))
+    if missing:
+        raise ValidationError(f"{where} is missing required field(s): {', '.join(missing)}")
+    if _string(obj["format"], f"{where}.format", max_len=256) != PREPARED_SOURCE_FORMAT:
+        raise ValidationError(f"{where}.format must be {PREPARED_SOURCE_FORMAT}")
+    if obj["operation"] != PREPARED_SOURCE_OPERATION:
+        raise ValidationError(f"{where}.operation must be {PREPARED_SOURCE_OPERATION}")
+    stage = _string(obj["stage"], f"{where}.stage", max_len=128)
+    if stage not in {"admission", PREPARED_SOURCE_STAGE, "input", "usage"}:
+        raise ValidationError(
+            f"{where}.stage must be admission or {PREPARED_SOURCE_STAGE}"
+        )
+    status = _string(obj["status"], f"{where}.status", max_len=128)
+    if status not in STRUCTURE_STATUSES:
+        raise ValidationError(f"{where}.status is not a supported inspection status")
+    allowed_stages = {
+        "success": {PREPARED_SOURCE_STAGE},
+        "input-failure": {"input"},
+        "usage-error": {"usage"},
+        "invalid-source": {"admission", PREPARED_SOURCE_STAGE},
+        "unsupported": {"admission"},
+        "resource-limit": {"admission"},
+        "internal-failure": {"admission", PREPARED_SOURCE_STAGE},
+    }
+    if stage not in allowed_stages[status]:
+        expected = ", ".join(sorted(allowed_stages[status]))
+        raise ValidationError(f"{where}.stage is invalid for status {status}; expected {expected}")
+    for key in ("processing_complete", "diagnostics_complete"):
+        if not isinstance(obj[key], bool):
+            raise ValidationError(f"{where}.{key} must be a boolean")
+    diagnostics = _array(obj["diagnostics"], f"{where}.diagnostics")
+    for index, diagnostic in enumerate(diagnostics):
+        diagnostic_obj = _object(diagnostic, f"{where}.diagnostics[{index}]")
+        if not diagnostic_obj:
+            raise ValidationError(f"{where}.diagnostics[{index}] must not be empty")
+    if status == "success":
+        if not obj["processing_complete"] or not obj["diagnostics_complete"]:
+            raise ValidationError(f"{where}.success must be complete")
+        if diagnostics:
+            raise ValidationError(f"{where}.diagnostics must be empty for success")
+        if not isinstance(obj.get("graph"), dict):
+            raise ValidationError(f"{where}.graph must be an object for success")
+        graph = obj["graph"]
+        graph_collections = {
+            "parts", "joints", "sockets", "attachments", "landmarks", "dimensions", "frames"
+        }
+        graph_lengths: dict[str, int] = {}
+        for collection in sorted(graph_collections):
+            values = graph.get(collection)
+            if not isinstance(values, list):
+                raise ValidationError(f"{where}.graph.{collection} must be an array")
+            graph_lengths[collection] = len(values)
+        prepared = _object(obj.get("prepared"), f"{where}.prepared")
+        _check_fields(prepared, {"basis", "counts", "numeric_values"}, f"{where}.prepared")
+        basis = _object(prepared.get("basis"), f"{where}.prepared.basis")
+        _check_fields(
+            basis,
+            {"length_unit", "handedness", "up", "forward", "source_for_canonical"},
+            f"{where}.prepared.basis",
+        )
+        for key in ("length_unit", "handedness", "up", "forward"):
+            _string(basis.get(key), f"{where}.prepared.basis.{key}", max_len=128)
+        source_for_canonical = basis["source_for_canonical"]
+        if (
+            not isinstance(source_for_canonical, list)
+            or len(source_for_canonical) != 3
+            or any(
+                not isinstance(axis, str) or not axis.strip()
+                for axis in source_for_canonical
+            )
+        ):
+            raise ValidationError(
+                f"{where}.prepared.basis.source_for_canonical must be an array of 3 strings"
+            )
+        counts = _object(prepared.get("counts"), f"{where}.prepared.counts")
+        expected_counts = {
+            "parts", "joints", "sockets", "attachments", "landmarks", "dimensions", "frames"
+        }
+        _check_fields(counts, expected_counts, f"{where}.prepared.counts")
+        missing_counts = sorted(expected_counts - set(counts))
+        if missing_counts:
+            raise ValidationError(
+                f"{where}.prepared.counts is missing field(s): {', '.join(missing_counts)}"
+            )
+        for key, count in counts.items():
+            if isinstance(count, bool) or not isinstance(count, int) or count < 0:
+                raise ValidationError(f"{where}.prepared.counts.{key} must be a non-negative integer")
+            if count != graph_lengths[key]:
+                raise ValidationError(
+                    f"{where}.prepared.counts.{key} does not match graph.{key} length"
+                )
+        numeric_values = prepared.get("numeric_values")
+        if not isinstance(numeric_values, list):
+            raise ValidationError(f"{where}.prepared.numeric_values must be an array")
+        try:
+            encoded = json.dumps(numeric_values, allow_nan=False, ensure_ascii=False)
+        except (TypeError, ValueError) as exc:
+            raise ValidationError(f"{where}.prepared.numeric_values is not JSON-compatible: {exc}") from exc
+        if len(encoded) > MAX_STRUCTURE_JSON_BYTES:
+            raise ValidationError(f"{where}.prepared.numeric_values is too large")
+        rows: list[Any] = numeric_values
+        expected_rows = {
+            "parts": graph_lengths["parts"] * 7,
+            "joints": graph_lengths["joints"] * 14,
+            "sockets": graph_lengths["sockets"] * 7,
+            "attachments": graph_lengths["attachments"] * 7,
+            "landmarks": graph_lengths["landmarks"] * 3,
+            "dimensions": graph_lengths["dimensions"],
+            "frames": graph_lengths["frames"] * 7,
+        }
+        rows_by_group = {group: 0 for group in expected_rows}
+        for index, row in enumerate(rows):
+            row_where = f"{where}.prepared.numeric_values[{index}]"
+            row_obj = _object(row, row_where)
+            if not _string(row_obj.get("group"), f"{row_where}.group", max_len=128):
+                raise ValidationError(f"{row_where}.group is required")
+            group = row_obj["group"]
+            if group not in expected_rows:
+                raise ValidationError(f"{row_where}.group is not a supported collection")
+            rows_by_group[group] += 1
+            location = next(
+                (row_obj.get(key) for key in (
+                    "semantic_key", "semanticKey", "address", "owner_role", "ownerRole", "location", "key"
+                ) if row_obj.get(key) is not None),
+                None,
+            )
+            if location is None:
+                raise ValidationError(f"{row_where} has no semantic location")
+            for aliases, label in (
+                (("field",), "field"),
+                (("component",), "component"),
+                (("display_value", "displayValue", "value"), "display value"),
+                (("binary64_bits", "binary64Bits", "bits"), "binary64 bits"),
+            ):
+                if not any(row_obj.get(alias) is not None for alias in aliases):
+                    raise ValidationError(f"{row_where} has no {label}")
+            bits = next(
+                row_obj[alias]
+                for alias in ("binary64_bits", "binary64Bits", "bits")
+                if row_obj.get(alias) is not None
+            )
+            if not isinstance(bits, str) or re.fullmatch(r"[0-9a-f]{16}", bits) is None:
+                raise ValidationError(
+                    f"{row_where} binary64 bits must be 16 lowercase hexadecimal digits"
+                )
+        for group, expected in expected_rows.items():
+            if rows_by_group[group] != expected:
+                raise ValidationError(
+                    f"{where}.prepared.numeric_values {group} rows do not match expected cardinality"
+                )
+    else:
+        if not obj["processing_complete"] and not obj["diagnostics_complete"]:
+            raise ValidationError(
+                f"{where} cannot report incomplete processing and incomplete diagnostics together"
+            )
+        if "graph" in obj or "prepared" in obj:
+            raise ValidationError(f"{where}.graph and prepared are only valid for success")
+        if not diagnostics:
+            raise ValidationError(f"{where}.diagnostics must not be empty for a non-success status")
+        primary = obj.get("primary_diagnostic")
+        if not isinstance(primary, dict) or not primary:
+            raise ValidationError(f"{where}.primary_diagnostic must be a non-empty object")
+        if not any(primary == diagnostic for diagnostic in diagnostics):
+            raise ValidationError(f"{where}.primary_diagnostic must be present in diagnostics")
+    return obj
+
+
+def _validate_review_structure_envelope(value: Any, where: str) -> dict[str, Any]:
+    """Validate either supported structure-viewer projection format."""
+
+    obj = _object(value, where)
+    format_name = obj.get("format")
+    if format_name == PREPARED_SOURCE_FORMAT:
+        return _validate_prepared_source_envelope(obj, where)
+    return _validate_structure_envelope(obj, where)
+
+
 def _normalize_image_groups(
     groups: Any,
     manifest_path: Path,
@@ -475,7 +679,7 @@ def _base_manifest(data: Any, manifest_path: Path) -> tuple[dict[str, Any], dict
             "manifest.structure_source",
             max_bytes=MAX_STRUCTURE_JSON_BYTES,
         )
-        result["structure"] = _validate_structure_envelope(structure, "structure_source")
+        result["structure"] = _validate_review_structure_envelope(structure, "structure_source")
         # A structure review may carry optional image groups, but unlike an
         # image review it does not need any.
         if "groups" in obj:
@@ -557,7 +761,7 @@ def validate_normalized_review(
     if "structure" in obj:
         if kind != "structure":
             raise ValidationError("review.structure is only valid for structure reviews")
-        structure = _validate_structure_envelope(obj["structure"], "review.structure")
+        structure = _validate_review_structure_envelope(obj["structure"], "review.structure")
     elif kind == "structure":
         raise ValidationError("review.structure is required for structure reviews")
     else:
