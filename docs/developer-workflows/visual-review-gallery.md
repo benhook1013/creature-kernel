@@ -132,6 +132,22 @@ Generated sessions remain under `/tmp` and are not committed.
    Open or share the printed `http://127.0.0.1:<port>/` (localhost) URL with
    the browser or local reviewer conducting the appraisal. Use the session's
    review page for the side-by-side comparison.
+   For a read-only review from another device on the local network, explicitly
+   use the LAN mode:
+
+   ```bash
+   python3 dev-tools/visual-review/serve.py \
+     --root /tmp/creature-reviews --port 0 --lan-read-only
+   ```
+
+   This binds to `0.0.0.0` and makes review contents readable to devices that
+   can reach the port. Response writes are disabled entirely in this mode,
+   including requests with spoofed localhost `Host`/`Origin` headers or a valid
+   token; use the default loopback mode when a response must be saved. Replace
+   the printed `0.0.0.0` with this host's LAN IP for the second device. OS/WSL/
+   container/firewall forwarding is outside the Python server and may still be
+   required for a second device to connect. Use this only on a trusted local
+   network.
 4. After saving the review, read the session's `response.json` (or the
    response API described in the tool README) and preserve the selections,
    notes, and timestamp as observations. Interpret them under the applicable
@@ -152,15 +168,21 @@ experiment or create visual evidence.
 
 ## Security and operation boundary
 
-The server binds to loopback only and is intended for one local process and
-reviewer. Do not expose it remotely or use it as an untrusted multi-user
-service. Use only images published by the manifest; do not add external assets,
-CDNs, uploads, or arbitrary file endpoints. The review page carries the
-per-process server token needed for response writes, and the server validates
-the response path and request origin. These controls support local appraisal;
-they do not turn the utility into an authenticated or remotely deployable
-service. Secure filesystem operations require POSIX/openat/no-follow support;
-unsupported platforms fail closed. Treat the review root, manifest, and source
-images as private and stable for the invocation. Correctness under concurrent
-replacement by another process running as the same operating-system user is
-outside this local tool's threat model.
+The server binds to loopback by default and is intended for one local process
+and reviewer. The explicit `--lan-read-only` mode is for LAN GET/read access
+only: it exposes review contents to devices able to reach the port while
+disabling response writes entirely. Use the default loopback mode to save a
+response. Do not use it on an untrusted network or as an authenticated
+multi-user service. OS,
+WSL, container, and firewall forwarding are outside the Python server and may
+still be required. Use only images published by the manifest; do not add
+external assets, CDNs, uploads, or arbitrary file endpoints. The review page
+carries the per-process server token needed for response writes in the default
+loopback mode, and the server validates the response path and request origin.
+These controls support local appraisal; they do not turn the utility into an
+authenticated or remotely deployable service. Secure filesystem operations require
+POSIX/openat/no-follow support; unsupported platforms fail closed. Treat the
+review root, manifest, and source images as private and stable for the
+invocation. Correctness under concurrent replacement by another process
+running as the same operating-system user is outside this local tool's threat
+model.

@@ -18,6 +18,24 @@ python3 dev-tools/visual-review/serve.py \
   --root /tmp/creature-reviews --port 0
 ```
 
+For read-only review from another device on the local network, opt in
+explicitly to the wildcard listener:
+
+```bash
+python3 dev-tools/visual-review/serve.py \
+  --root /tmp/creature-reviews --port 0 --lan-read-only
+```
+
+`--lan-read-only` makes the review pages, static files, assets, and read APIs
+readable to any device that can reach the selected port. Response `POST` writes
+are disabled entirely in this mode, including requests with localhost-looking
+Host/Origin headers or a valid token. To save a response, use the default
+loopback-only mode. Replace the printed `0.0.0.0` with this host's LAN IP when
+opening the gallery from another device. The Python server only binds the
+listener; OS, WSL, container, and firewall forwarding are outside its scope
+and may still be required for another device to connect. Do not enable this
+mode on an untrusted network.
+
 For a structural-only review, build the checked-in CLI and publish the
 checked-in biped example through the bounded wrapper:
 
@@ -110,11 +128,11 @@ continuity, anatomical correctness, mesh/topology, rigging, animation/IK,
 deformation, physics, runtime behaviour, or Readiness 3. Keep generated
 sessions under `/tmp`; do not commit them.
 
-The server binds only to `127.0.0.1`. It prints one localhost URL after the
-socket is bound; port `0` asks the operating system to choose an available
-port. Stop it with Ctrl-C. The reviews root must already exist, and each
-session ID is a one-time directory name: publishing refuses to overwrite an
-existing session.
+By default the server binds only to `127.0.0.1` and prints one localhost URL
+after the socket is bound; port `0` asks the operating system to choose an
+available port. Stop it with Ctrl-C. The reviews root must already exist, and
+each session ID is a one-time directory name: publishing refuses to overwrite
+an existing session.
 
 ## Rich manifest v1
 
