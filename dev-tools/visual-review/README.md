@@ -75,6 +75,41 @@ Ben confirmed on 2026-08-15 that the diagrams were decodable and spatially
 accurate for the intended straight tail. Generated sessions live under `/tmp`, are disposable, and are not
 committed.
 
+For the bounded filled-form appraisal candidate, build the CLI and publish the
+four fixed profile variants from the same exact source placements:
+
+```bash
+cargo build -p creature-kernel-cli
+mkdir -p /tmp/creature-provisional-form-reviews
+python3 dev-tools/visual-review/publish_provisional_form.py \
+  --root /tmp/creature-provisional-form-reviews \
+  --input examples/body-documents/stylized-digitigrade-biped.json \
+  --creature-kernel target/debug/creature-kernel \
+  --id stylized-biped-form \
+  --title "Stylized biped filled-form appraisal"
+python3 dev-tools/visual-review/serve.py \
+  --root /tmp/creature-provisional-form-reviews --port 0
+```
+
+`publish_provisional_form.py` invokes `creature-kernel
+inspect-provisional-form --input PATH` shell-free, with a 10-second timeout,
+256 KiB stdout bound, and 64 KiB stderr bound. It accepts only a complete,
+diagnostic-free `creature-kernel.provisional-form-preview.v1` success envelope,
+the exact four variant IDs/order, known Part addresses and provenance, bounded
+integer points, supported ellipsoid/capsule/tapered-segment shapes, and the
+positive reference scale. Failed CLI outcomes and malformed payloads are not
+published. The resulting immutable `provisional-form` session contains the
+validated payload only and no assets or external dependencies.
+
+The read-only browser page renders each variant in front (x/y), side (z/y),
+and top (x/z) filled SVG panels with shared bounds, physical display radii
+derived from the reference scale, deterministic depth ordering, semantic role
+colors, and labels. It is overlapping display primitives with a straight
+tail—not a continuous surface or mesh—and makes no claims of surface
+continuity, anatomical correctness, mesh/topology, rigging, animation/IK,
+deformation, physics, runtime behaviour, or Readiness 3. Keep generated
+sessions under `/tmp`; do not commit them.
+
 The server binds only to `127.0.0.1`. It prints one localhost URL after the
 socket is bound; port `0` asks the operating system to choose an available
 port. Stop it with Ctrl-C. The reviews root must already exist, and each

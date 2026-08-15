@@ -40,7 +40,7 @@
     clear(app);
     var heading = node("h1", "Visual review gallery");
     app.appendChild(heading);
-    addNotice(app, "Local image comparison sessions. Open a session to record choices and notes.", "lede");
+    addNotice(app, "Local image comparison, structural inspection, and read-only filled-form sessions. Open a session to inspect or appraise its bounded content; image sessions can record choices and notes.", "lede");
     var sessions = data.sessions || [];
     if (!sessions.length) {
       addNotice(app, "No valid review sessions are available yet.", "empty");
@@ -56,6 +56,9 @@
       card.appendChild(node("code", session.id, "stable-id"));
       if (session.kind === "structure") {
         card.appendChild(node("span", "Structural inspection", "session-kind"));
+      }
+      if (session.kind === "provisional-form") {
+        card.appendChild(node("span", "Filled primitive appraisal", "session-kind form-session-kind"));
       }
       if (session.description) {
         card.appendChild(node("p", session.description));
@@ -1198,6 +1201,279 @@
     return section;
   }
 
+  var PROVISIONAL_FORM_FORMAT = "creature-kernel.provisional-form-preview.v1";
+  var PROVISIONAL_FORM_VARIANTS = ["neutral-v0", "broad-soft-v0", "lean-readable-v0", "depth-forward-v0"];
+  var PROVISIONAL_FORM_VIEWS = [
+    { title: "Front · x / y", description: "Width and height", horizontal: 0, vertical: 1, depth: 2, horizontalLabel: "x", verticalLabel: "y" },
+    { title: "Side · z / y", description: "Depth and height", horizontal: 2, vertical: 1, depth: 0, horizontalLabel: "z", verticalLabel: "y" },
+    { title: "Top · x / z", description: "Width and depth", horizontal: 0, vertical: 2, depth: 1, horizontalLabel: "x", verticalLabel: "z" }
+  ];
+
+  function formAddressKey(address) {
+    return JSON.stringify([address.namespace, address.anchors, address.kind, address.role]);
+  }
+
+  function formDescriptorQualifier(descriptor) {
+    var anchors = descriptor && descriptor.address && Array.isArray(descriptor.address.anchors) ? descriptor.address.anchors.map(function (anchor) { return String(anchor).toLowerCase(); }) : [];
+    if (anchors.indexOf("left") !== -1 || anchors.indexOf("l") !== -1) { return "left"; }
+    if (anchors.indexOf("right") !== -1 || anchors.indexOf("r") !== -1) { return "right"; }
+    if (anchors.indexOf("tail") !== -1) { return "tail"; }
+    return anchors.length ? anchors.join(", ") : "";
+  }
+
+  function formRoleColor(descriptor) {
+    var role = descriptor && descriptor.address ? descriptor.address.role : "";
+    var qualifier = formDescriptorQualifier(descriptor);
+    var text = String(role || "").toLowerCase();
+    if (/tail/.test(text)) { return "#ef7ca9"; }
+    if (qualifier === "left") { return "#a78bfa"; }
+    if (qualifier === "right") { return "#f4a261"; }
+    if (/tail/.test(qualifier)) { return "#ef7ca9"; }
+    if (/head|neck/.test(text)) { return "#7dd3fc"; }
+    if (/hand|foot/.test(text)) { return "#f6c453"; }
+    return "#63c6a4";
+  }
+
+  function formValidation(payload) {
+    var errors = [];
+    if (!isObject(payload) || payload.format !== PROVISIONAL_FORM_FORMAT) {
+      return ["The provisional filled-form payload is missing or has an unexpected format."];
+    }
+    if (payload.operation !== "inspect-provisional-form" || payload.status !== "success" || payload.stage !== "provisional-form") {
+      errors.push("The payload is not a successful provisional-form inspection.");
+    }
+    if (payload.processing_complete !== true || payload.diagnostics_complete !== true || !Array.isArray(payload.diagnostics) || payload.diagnostics.length) {
+      errors.push("The payload did not report complete, diagnostic-free processing.");
+    }
+    if (!isObject(payload.source) || !isObject(payload.reference_scale) || !Array.isArray(payload.variants)) {
+      errors.push("Source identity, reference scale, or variants are missing.");
+      return errors;
+    }
+    if (payload.variants.length !== 4) { errors.push("Exactly four fixed variants are required."); }
+    payload.variants.forEach(function (variant, index) {
+      if (!isObject(variant) || variant.id !== PROVISIONAL_FORM_VARIANTS[index] || variant.profile_id !== PROVISIONAL_FORM_VARIANTS[index] || !Array.isArray(variant.descriptors)) {
+        errors.push("Variant " + (index + 1) + " does not match the fixed profile contract.");
+        return;
+      }
+      if (!variant.descriptors.length || variant.descriptors.length > 64) {
+        errors.push("Variant " + variant.id + " has an invalid descriptor count.");
+      }
+      variant.descriptors.forEach(function (descriptor, descriptorIndex) {
+        if (!isObject(descriptor) || !isObject(descriptor.address) || !isObject(descriptor.shape) || !Array.isArray(descriptor.reference_point)) {
+          errors.push("Variant " + variant.id + " descriptor " + descriptorIndex + " is incomplete.");
+          return;
+        }
+        if (["ellipsoid", "capsule", "tapered-segment"].indexOf(descriptor.shape.name) === -1) {
+          errors.push("Variant " + variant.id + " contains an unknown shape.");
+        }
+      });
+    });
+    return errors;
+  }
+
+  function formCoordinate(value) {
+    return typeof value === "number" && isFinite(value) ? value : 0;
+  }
+
+  function formShapeRadius(payload, permille) {
+    var squared = formCoordinate(payload.reference_scale.squared_length);
+    var referenceLength = squared > 0 ? Math.sqrt(squared) : 1;
+    return referenceLength * Number(permille) / 1000;
+  }
+
+  function formShapePoints(descriptor) {
+    var shape = descriptor.shape;
+    if (shape.name === "ellipsoid") { return [shape.center]; }
+    return [shape.from, shape.to];
+  }
+
+  function formShapeExtent(payload, descriptor, axis) {
+    var shape = descriptor.shape;
+    if (shape.name === "ellipsoid") {
+      return formShapeRadius(payload, shape.axis_extents_permille[axis]);
+    }
+    return formShapeRadius(payload, Math.max(shape.radius_permille || 0, shape.start_radius_permille || 0, shape.end_radius_permille || 0));
+  }
+
+  function formBounds(payload) {
+    var minimum = Infinity;
+    var maximum = -Infinity;
+    payload.variants.forEach(function (variant) {
+      variant.descriptors.forEach(function (descriptor) {
+        var points = formShapePoints(descriptor);
+        for (var axis = 0; axis < 3; axis += 1) {
+          points.forEach(function (point) {
+            var value = formCoordinate(point[axis]);
+            var extent = formShapeExtent(payload, descriptor, axis);
+            minimum = Math.min(minimum, value - extent);
+            maximum = Math.max(maximum, value + extent);
+          });
+        }
+      });
+    });
+    if (!isFinite(minimum) || !isFinite(maximum)) { minimum = -1; maximum = 1; }
+    var range = Math.max(maximum - minimum, 1);
+    var padding = Math.max(range * 0.06, 0.05);
+    return { min: minimum - padding, max: maximum + padding };
+  }
+
+  function formTransform(bounds) {
+    var plot = { left: 34, top: 22, width: 352, height: 218 };
+    var range = Math.max(bounds.max - bounds.min, 1e-9);
+    var pixelsPerUnit = Math.min(plot.width / range, plot.height / range);
+    return {
+      plot: plot,
+      x: function (value) { return plot.left + (formCoordinate(value) - bounds.min) * pixelsPerUnit; },
+      y: function (value) { return plot.top + plot.height - (formCoordinate(value) - bounds.min) * pixelsPerUnit; },
+      radius: function (value) { return Math.max(0, Number(value) * pixelsPerUnit); }
+    };
+  }
+
+  function formProjectedPoint(point, view, transform) {
+    return { x: transform.x(point[view.horizontal]), y: transform.y(point[view.vertical]) };
+  }
+
+  function formDepth(descriptor, view) {
+    var points = formShapePoints(descriptor);
+    return points.reduce(function (sum, point) { return sum + formCoordinate(point[view.depth]); }, 0) / points.length;
+  }
+
+  function formDrawLabel(svg, descriptor, view, transform) {
+    var point = descriptor.shape.name === "ellipsoid" ? descriptor.shape.center : descriptor.shape.to;
+    var projected = formProjectedPoint(point, view, transform);
+    svg.appendChild(svgNode("text", { x: projected.x + 4, y: projected.y - 4, "class": "form-part-label" }));
+    var labels = svg.lastChild;
+    var qualifier = formDescriptorQualifier(descriptor);
+    labels.textContent = String(descriptor.address.role || "part") + (qualifier ? " · " + qualifier : "");
+  }
+
+  function formDrawPrimitive(svg, payload, descriptor, view, transform) {
+    var shape = descriptor.shape;
+    var color = formRoleColor(descriptor);
+    var outline = "#071019";
+    if (shape.name === "ellipsoid") {
+      var center = formProjectedPoint(shape.center, view, transform);
+      var rx = transform.radius(formShapeRadius(payload, shape.axis_extents_permille[view.horizontal]));
+      var ry = transform.radius(formShapeRadius(payload, shape.axis_extents_permille[view.vertical]));
+      svg.appendChild(svgNode("ellipse", { cx: center.x, cy: center.y, rx: rx, ry: ry, fill: color, "fill-opacity": "0.76", stroke: outline, "stroke-width": 1.6, "class": "form-primitive" }));
+      formDrawLabel(svg, descriptor, view, transform);
+      return;
+    }
+    var from = formProjectedPoint(shape.from, view, transform);
+    var to = formProjectedPoint(shape.to, view, transform);
+    var radiusValue = shape.name === "capsule" ? shape.radius_permille : Math.max(shape.start_radius_permille, shape.end_radius_permille);
+    var radius = transform.radius(formShapeRadius(payload, radiusValue));
+    var dx = to.x - from.x;
+    var dy = to.y - from.y;
+    var length = Math.sqrt(dx * dx + dy * dy);
+    if (shape.name === "capsule" || length < 0.001) {
+      svg.appendChild(svgNode("line", { x1: from.x, y1: from.y, x2: to.x, y2: to.y, stroke: outline, "stroke-width": radius * 2 + 3, "stroke-linecap": "round", fill: "none", "class": "form-primitive" }));
+      svg.appendChild(svgNode("line", { x1: from.x, y1: from.y, x2: to.x, y2: to.y, stroke: color, "stroke-width": radius * 2, "stroke-linecap": "round", fill: "none", "class": "form-primitive" }));
+    } else {
+      var nx = -dy / length;
+      var ny = dx / length;
+      var startRadius = transform.radius(formShapeRadius(payload, shape.start_radius_permille));
+      var endRadius = transform.radius(formShapeRadius(payload, shape.end_radius_permille));
+      var points = [[from.x + nx * startRadius, from.y + ny * startRadius], [to.x + nx * endRadius, to.y + ny * endRadius], [to.x - nx * endRadius, to.y - ny * endRadius], [from.x - nx * startRadius, from.y - ny * startRadius]];
+      svg.appendChild(svgNode("polygon", { points: points.map(function (point) { return point.join(","); }).join(" "), fill: color, "fill-opacity": "0.78", stroke: outline, "stroke-width": 1.6, "class": "form-primitive" }));
+      svg.appendChild(svgNode("circle", { cx: from.x, cy: from.y, r: startRadius, fill: color, "fill-opacity": "0.78", stroke: outline, "stroke-width": 1.6, "class": "form-primitive" }));
+      svg.appendChild(svgNode("circle", { cx: to.x, cy: to.y, r: endRadius, fill: color, "fill-opacity": "0.78", stroke: outline, "stroke-width": 1.6, "class": "form-primitive" }));
+    }
+    formDrawLabel(svg, descriptor, view, transform);
+  }
+
+  function formPanel(payload, variant, view, bounds) {
+    var panel = node("article", null, "form-panel");
+    panel.appendChild(node("h4", view.title));
+    panel.appendChild(node("p", view.description, "form-panel-description"));
+    var svg = document.createElementNS(SVG_NAMESPACE, "svg");
+    svg.setAttribute("viewBox", "0 0 420 270");
+    svg.setAttribute("class", "form-svg");
+    svg.setAttribute("role", "img");
+    svg.setAttribute("aria-label", variant.id + " " + view.title);
+    svg.appendChild(svgNode("rect", { x: 0, y: 0, width: 420, height: 270, "class": "form-background" }));
+    var transform = formTransform(bounds);
+    svg.appendChild(svgNode("rect", { x: transform.plot.left, y: transform.plot.top, width: transform.plot.width, height: transform.plot.height, "class": "form-plot" }));
+    svg.appendChild(svgNode("line", { x1: transform.plot.left, y1: transform.y(0), x2: transform.plot.left + transform.plot.width, y2: transform.y(0), "class": "form-axis" }));
+    svg.appendChild(svgNode("line", { x1: transform.x(0), y1: transform.plot.top, x2: transform.x(0), y2: transform.plot.top + transform.plot.height, "class": "form-axis" }));
+    svg.appendChild(svgNode("text", { x: 394, y: 258, "class": "form-axis-label" }));
+    svg.lastChild.textContent = view.horizontalLabel;
+    svg.appendChild(svgNode("text", { x: 10, y: 28, "class": "form-axis-label" }));
+    svg.lastChild.textContent = view.verticalLabel;
+    var descriptors = variant.descriptors.slice().sort(function (left, right) {
+      var depth = formDepth(left, view) - formDepth(right, view);
+      return depth || (formAddressKey(left.address) < formAddressKey(right.address) ? -1 : 1);
+    });
+    descriptors.forEach(function (descriptor) { formDrawPrimitive(svg, payload, descriptor, view, transform); });
+    panel.appendChild(svg);
+    return panel;
+  }
+
+  function provisionalFormPreviewSection(payload) {
+    var section = node("section", null, "provisional-form-preview");
+    section.appendChild(node("h2", "Filled primitive comparison"));
+    section.appendChild(node("p", "All panels use one shared scale and bounds across every variant and projection. Overlapping filled ellipsoids, capsules, and tapered segments are drawn in deterministic depth order; this is not a continuous surface.", "form-explanation"));
+    var bounds = formBounds(payload);
+    var grid = node("div", null, "form-variant-grid");
+    payload.variants.forEach(function (variant) {
+      var card = node("article", null, "form-variant-card");
+      var heading = node("h3", variant.id);
+      heading.appendChild(node("span", variant.profile_id, "form-profile-pill"));
+      card.appendChild(heading);
+      var panels = node("div", null, "form-panel-grid");
+      PROVISIONAL_FORM_VIEWS.forEach(function (view) { panels.appendChild(formPanel(payload, variant, view, bounds)); });
+      card.appendChild(panels);
+      grid.appendChild(card);
+    });
+    section.appendChild(grid);
+    var legend = node("p", null, "form-legend");
+    legend.textContent = "Role colors: core/torso teal · head/neck blue · left violet · right orange · tail pink · hands/feet gold.";
+    section.appendChild(legend);
+    return section;
+  }
+
+  function renderProvisionalForm(rawPayload, review) {
+    clear(app);
+    var payload = rawPayload;
+    var title = review && review.title ? String(review.title) : "Provisional filled form";
+    document.title = title;
+    var back = node("a", "← All reviews", "back-link");
+    back.href = "/";
+    app.appendChild(back);
+    app.appendChild(node("h1", title));
+    app.appendChild(node("code", "read-only", "stable-id"));
+    if (review && review.description) { app.appendChild(node("p", review.description, "lede")); }
+    var errors = formValidation(payload);
+    if (errors.length) {
+      var invalid = node("section", null, "form-invalid");
+      invalid.appendChild(node("h2", "Filled form unavailable"));
+      errors.slice(0, 6).forEach(function (error) { invalid.appendChild(node("p", error)); });
+      app.appendChild(invalid);
+      app.appendChild(valueDetails("Raw provisional-form JSON", payload));
+      return;
+    }
+    var summary = node("section", null, "form-summary");
+    summary.appendChild(node("h2", "What you're looking at"));
+    summary.appendChild(node("p", "Four deterministic profile variants are derived from the same exact Part placements: neutral, wider/softer, narrower/readable, and selected depth-forward tuning."));
+    summary.appendChild(node("p", "Front is x/y, side is z/y, and top is x/z. The tail is straight in these placements. The gallery draws overlapping filled primitives only."));
+    summary.appendChild(node("p", "This does not claim surface continuity, anatomical correctness, mesh or topology, rigging, animation/IK, deformation, physics, runtime behaviour, or Readiness 3."));
+    app.appendChild(summary);
+    app.appendChild(provisionalFormPreviewSection(payload));
+    var metadata = node("section", null, "structure-header form-metadata");
+    metadata.appendChild(node("p", "Provisional filled-form inspection", "structure-kicker"));
+    metadata.appendChild(metadataGrid([
+      ["Status", payload.status], ["Stage", payload.stage], ["Source identity", String(payload.source.namespace) + " / " + String(payload.source.document)],
+      ["Resource profile", payload.source.resource_profile_id], ["Reference scale", "edge " + payload.reference_scale.parent.role + " → " + payload.reference_scale.child.role + " · squared length " + payload.reference_scale.squared_length],
+      ["Projection format", payload.format], ["Variants", String(payload.variants.length) + " fixed profiles"]
+    ]));
+    metadata.appendChild(node("p", "Developer appraisal candidate only. Display radii and extents are the descriptor permille values multiplied by the square root of the reference squared length.", "disclaimer"));
+    app.appendChild(metadata);
+    var raw = node("details", null, "form-raw");
+    raw.appendChild(node("summary", "Raw provisional-form JSON"));
+    raw.appendChild(node("pre", jsonText(payload), "context-json"));
+    app.appendChild(raw);
+  }
+
   function renderStructure(rawStructure, review) {
     clear(app);
     var structure = rawStructure;
@@ -1303,11 +1579,19 @@
 
   function renderReview(data) {
     document.title = "Creature Kernel visual review";
+    if (data && data.kind === "provisional-form") {
+      renderProvisionalForm(data.provisional_form, data);
+      return;
+    }
     if (data && data.kind === "structure") {
       renderStructure(data.structure, data);
       return;
     }
     var review = data && data.review ? data.review : data;
+    if (review && review.kind === "provisional-form") {
+      renderProvisionalForm(review.provisional_form, review);
+      return;
+    }
     if (review && review.kind === "structure") {
       renderStructure(review.structure, review);
       return;

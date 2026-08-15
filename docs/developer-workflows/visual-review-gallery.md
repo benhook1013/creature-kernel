@@ -64,6 +64,37 @@ inspection only—not a creature visualization or retained-human checkpoint—an
 does not activate resolver, snapshot, geometry, runtime, or Readiness 3
 behavior.
 
+## Filled-form appraisal candidate
+
+The developer-only filled-form candidate is published with the bounded
+`publish_provisional_form.py` adapter:
+
+```bash
+cargo build -p creature-kernel-cli
+mkdir -p /tmp/creature-provisional-form-reviews
+python3 dev-tools/visual-review/publish_provisional_form.py \
+  --root /tmp/creature-provisional-form-reviews \
+  --input examples/body-documents/stylized-digitigrade-biped.json \
+  --creature-kernel target/debug/creature-kernel \
+  --id stylized-biped-form \
+  --title "Stylized biped filled-form appraisal"
+python3 dev-tools/visual-review/serve.py \
+  --root /tmp/creature-provisional-form-reviews --port 0
+```
+
+The adapter runs `inspect-provisional-form --input PATH` without a shell,
+limits the child to 10 seconds, 256 KiB stdout, and 64 KiB stderr, and
+publishes only a complete successful `provisional-form` payload. The browser
+shows neutral, wider/softer, narrower/readable, and selected depth-forward
+variants derived from the same exact placements. Every variant has shared
+scale/bounds front x/y, side z/y, and top x/z panels containing overlapping
+filled primitives and the straight tail.
+
+This is a developer visual-appraisal candidate, not product geometry. It does
+not claim surface continuity, anatomical correctness, mesh/topology,
+rigging, animation/IK, deformation, physics, runtime behavior, or Readiness 3.
+Generated sessions remain under `/tmp` and are not committed.
+
 ## Workflow
 
 1. Prepare a review manifest for the images to compare. Use stable option IDs,

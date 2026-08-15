@@ -29,3 +29,13 @@ geometry, mesh, surface, volume, anatomical quality, rigging, pose/animation,
 IK, deformation, physics, general transforms, resolver activation, or runtime
 evidence. The view is intended for Ben's human appraisal of spatial layout,
 proportions/symmetry, and tail/foot depth before merge.
+
+Filled-form sessions use `review.kind: "provisional-form"` and carry the
+validated CLI envelope in `review.provisional_form`. Their page is appraisal
+only: it shows four deterministic variants derived from the same exact
+placements, each with front x/y, side z/y, and top x/z filled primitive panels.
+The renderer uses shared bounds and deterministic AddressKey tie-breaking for
+overlap order. It draws only ellipsoids, round-ended capsules, and filled
+tapered segments; it does not imply a continuous surface, anatomical
+correctness, mesh/topology, rigging, animation/IK, deformation, physics,
+runtime behaviour, or Readiness 3.
