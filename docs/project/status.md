@@ -132,6 +132,14 @@ snapshots, or serialization, or activate a resolver or Readiness 3.
 This intentionally retires the provisional public record-level
 `frame_preparation` API in favor of the admitted whole-source boundary.
 
+The current implementation also provides a crate-private source-set preparation
+projection: it prepares each member independently, retains exact raw bytes and
+retained structural source metadata, builds a deterministic `(document,
+namespace)` member table, and sorts declared edges deterministically. It does
+not perform declaration matching, resolver statuses, cross-source merge,
+snapshot, digest, or Readiness 3 activation; it remains preparatory and does
+not accept or revise a Proposed decision record.
+
 The current implementation also provides a deliberately restricted exact
 reference-placement foundation over one prepared source. It accepts only
 canonical metres in the right-handed basis (`+Y` up, `+Z` forward), identity
