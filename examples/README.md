@@ -22,9 +22,22 @@ structurally inspectable source projection. On the current CLI it reports
 
 It does not prove geometry, numeric normalization, canonical frame semantics,
 rigging, animation, runtime behaviour, or visual quality. The identity
-transforms and simple placements are deliberately provisional. A document can
-pass parser/schema admission and still fail the stronger structural inspection
-checks (for example, with a disconnected Part or non-immediate Joint child).
+rotations and simple Part/Attachment placements are deliberately provisional.
+A document can pass parser/schema admission and still fail the stronger
+structural inspection checks (for example, with a disconnected Part or
+non-immediate Joint child).
+
+The current exact-placement foundation exercises this example in a deliberately
+restricted domain: canonical metres, right-handed axes, identity rotations, and
+exact integer translations for the Part placements plus Attachment host/mating
+Socket frames and offsets it consumes. Part `placement.translation` values are
+local to their declared containment parent. Unrelated Joint and named-frame
+transforms are not validated or resolved by this operation. The example was
+corrected from world-looking authored values to those parent-local deltas while
+retaining the intended derived reference positions (for example, the head at
+`[0, 3, 0]` and the tail tip at `[0, 0, -2]`). Its Attachment also agrees
+exactly with the authored tail-root delta. This remains placement evidence
+only; it is not general transform resolution, geometry, or a rendered creature.
 
 Run it from the repository root:
 

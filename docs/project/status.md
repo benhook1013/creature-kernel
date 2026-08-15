@@ -83,7 +83,7 @@ preparatory results do not constitute Readiness 3 admission or activation:
 they do not activate resolver/numeric semantics, geometry, rigging, animation,
 physics, or runtime.
 
-The current worktree now contains provisional developer instrumentation:
+The current implementation now provides provisional developer instrumentation:
 `inspect-prepared-source --input <path>` plus its bounded
 `publish_prepared_source.py`/localhost-server flow. It preserves the admitted
 single-source graph projection and adds the declared basis, prepared counts,
@@ -129,12 +129,26 @@ snapshots, or serialization, or activate a resolver or Readiness 3.
 This intentionally retires the provisional public record-level
 `frame_preparation` API in favor of the admitted whole-source boundary.
 
-Immediate next action: advance bounded source preparation by continuing
-document-wide resolver preparation/provenance traversal over admitted records,
-while keeping resolver activation and the preparatory implementation outside
-the Readiness 3 activation boundary. The next retained-human checkpoint is an
-actual rendered creature or primitive spatial preview, or a genuine
-direction-setting decision.
+The current implementation also provides a deliberately restricted exact
+reference-placement foundation over one prepared source. It accepts only
+canonical metres in the right-handed basis (`+Y` up, `+Z` forward), identity
+rotations, and translations that are exact bounded integers in the binary64
+carrier for Part placements plus Attachment host/mating Socket frames and
+offsets. It composes parent-local Part deltas through containment and checks
+exact Attachment agreement between the authored attached-root delta and the
+derived equation result. Unrelated Joint and named-frame transforms are not
+validated or resolved by this operation. This is not general basis/unit/
+quaternion transform math, resolver activation, geometry or surface generation,
+or a user-facing rendered creature. The stylized example was corrected from
+world-looking authored values to contract-compliant parent-local deltas while
+retaining the intended derived reference positions.
+
+Immediate next action: build a directly consuming primitive spatial preview on
+this exact placement result, while keeping general transform resolution,
+resolver activation, geometry/surface generation, and the preparatory
+implementation outside the Readiness 3 activation boundary. That preview is
+the first genuine human visual checkpoint before merge; the current inspection
+and preparation tooling is not such a checkpoint.
 
 Ben approved the following deferred planning direction on 2026-08-09 for any
 future activation. It is recorded here without accepting or revising either DR:
