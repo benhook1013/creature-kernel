@@ -6,6 +6,7 @@ pub(crate) mod exact_dyadic;
 pub mod frame;
 mod frame_preparation;
 pub mod numeric;
+pub(crate) mod numeric_comparison;
 pub mod reference_placement;
 pub mod semantic_address;
 pub mod source_preparation;

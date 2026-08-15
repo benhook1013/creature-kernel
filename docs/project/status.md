@@ -179,6 +179,13 @@ squaring, and four-term summation under a conservative implementation safety
 cap. It supplies no tolerance, profile, claim, resolver, or activation
 semantics.
 
+The next runway slice adds a crate-private typed scalar/translation predicate
+over that foundation. Callers must supply finite nonnegative absolute and
+relative entries explicitly; evaluation follows the specified inclusive exact
+dyadic formula and checks all translation components in fixed order. It still
+selects no profile identity or tolerance values and has no quaternion, claim,
+resolver, diagnostic-status, or activation behavior.
+
 Ben approved the following deferred planning direction on 2026-08-09 for any
 future activation. It is recorded here without accepting or revising either DR:
 
