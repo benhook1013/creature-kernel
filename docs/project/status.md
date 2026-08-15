@@ -186,6 +186,15 @@ dyadic formula and checks all translation components in fixed order. It still
 selects no profile identity or tolerance values and has no quaternion, claim,
 resolver, diagnostic-status, or activation behavior.
 
+The following runway slice adds crate-private deterministic quaternion
+normalization and q/-q sign-canonicalization plumbing. Its fixed binary64
+operation sequence and validation hooks are implemented, but normal builds can
+construct only an unavailable square-root/environment capability. Provider
+execution remains test-only against independently frozen result bits until a
+future attested floating-environment boundary and activation-gated profile
+constants exist. This slice therefore cannot silently normalize production
+source or activate quaternion semantics.
+
 Ben approved the following deferred planning direction on 2026-08-09 for any
 future activation. It is recorded here without accepting or revising either DR:
 
