@@ -217,6 +217,22 @@ The command is a provisional source-preserving inspection, not a resolver or
 geometry build. Parser/schema admission can succeed while stronger structural
 inspection still reports `invalid-source`; see [authored examples](examples/README.md).
 
+The current implementation also contains a deliberately restricted exact
+reference-placement foundation. Given one already prepared source, it accepts
+only the canonical metre, right-handed basis (`+Y` up, `+Z` forward), identity
+rotations, and translations in the bounded exact-integer domain for the Part
+placements plus Attachment host/mating Socket frames and offsets it consumes.
+It composes parent-local Part placements through containment and checks the
+Attachment equation against the authored attached-root delta, retaining exact
+placement and provenance results. Unrelated Joint and named-frame transforms
+are not validated or resolved by this operation. This is not general basis/
+unit/quaternion transform math, a resolver or snapshot activation, geometry or
+surface generation, or a user-facing rendered creature. The corrected example
+stores parent-local deltas rather than world-looking values while preserving
+the intended derived reference positions. The next implementation step is a
+directly consuming primitive spatial preview; that preview is the first
+genuine human visual checkpoint before merge.
+
 `inspect-structure` is unchanged: it reports only the source-preserving
 structural graph projection and structural diagnostics. The prepared-source
 inspection is a separate provisional developer-instrumentation command:

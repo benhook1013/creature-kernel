@@ -5,6 +5,7 @@ pub mod body_graph;
 pub mod frame;
 mod frame_preparation;
 pub mod numeric;
+pub mod reference_placement;
 pub mod semantic_address;
 pub mod source_preparation;
 pub mod structural_validation;

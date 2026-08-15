@@ -245,6 +245,27 @@ transaction from fixture payloads and expected snapshots.
 These remain Proposed consequences and do not change the admitted Readiness 2
 identity or activate Readiness 3 resolver/adapter work.
 
+## Current exact-placement foundation
+
+The current implementation contains a deliberately restricted foundation that
+consumes one already prepared source: exact canonical metres in a right-handed
+basis (`+Y` up, `+Z` forward), identity rotations, and bounded exact-integer
+translations for Part placements plus Attachment host/mating Socket frames and
+offsets. It derives reference placement by composing parent-local Part deltas
+through explicit containment and verifies exact agreement between the
+Attachment equation and an authored attached-root delta. Unrelated Joint and
+named-frame transforms are not validated or resolved by this operation. This
+is implementation evidence for a narrow primitive, not a general basis/unit/
+quaternion transform system or the semantic resolver boundary. It does not
+activate Readiness 3, produce geometry or surfaces, or provide a user-facing
+rendered creature.
+
+The corrected authored example now uses parent-local deltas instead of
+world-looking values while retaining its intended derived reference positions.
+The next architectural consumer should be a directly consuming primitive
+spatial preview; that preview is the first genuine human visual checkpoint
+before merge. These statements do not accept or revise any decision record.
+
 ## Current maturity
 
 The target architecture remains pre-implementation beyond the active Readiness

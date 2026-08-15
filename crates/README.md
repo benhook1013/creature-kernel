@@ -35,6 +35,18 @@ remains owned by [`spec/body-document`](../spec/body-document/README.md),
 with the admitted schema at
 [`ck-body-document-v1.schema.json`](../spec/body-document/schema/ck-body-document-v1.schema.json).
 
+The core also has a deliberately restricted exact reference-placement
+foundation over one prepared source. It requires canonical metres and a
+right-handed basis (`+Y` up, `+Z` forward), identity rotations, and bounded
+translations that remain exact integers in the binary64 carrier for the Part
+placements plus Attachment host/mating Socket frames and offsets it consumes.
+It composes parent-local Part deltas through explicit containment and checks
+authored attached-root placement against the exact Attachment equation.
+Unrelated Joint and named-frame transforms are not validated or resolved by
+this operation. This is a preparatory domain-specific operation, not general
+basis/unit/quaternion transform math, resolver activation, geometry or surface
+generation, or a user-facing rendered creature.
+
 The CLI also exposes the separate provisional developer-instrumentation
 `inspect-prepared-source --input <path>` inspection. Unlike unchanged
 `inspect-structure`, it adds the declared basis, prepared counts, and numeric

@@ -38,6 +38,94 @@ impl NormalizedBinary64 {
         f64::from_bits(self.bits)
     }
 
+    /// Decode this finite binary64 value as an exact bounded signed integer.
+    ///
+    /// This helper deliberately does not perform a floating-point conversion
+    /// or rounding.  It is used by the restricted reference-placement
+    /// operation, whose integer domain is `i64`.
+    pub fn to_exact_i64(self) -> Result<i64, ExactIntegerError> {
+        let sign = (self.bits >> 63) != 0;
+        let exponent = ((self.bits >> 52) & 0x7ff) as i32;
+        let fraction = self.bits & ((1u64 << 52) - 1);
+
+        if exponent == 0x7ff {
+            return Err(ExactIntegerError::NonFinite);
+        }
+        if exponent == 0 {
+            if fraction == 0 {
+                return Ok(0);
+            }
+            return Err(ExactIntegerError::Fractional);
+        }
+
+        let significand = (1u64 << 52) | fraction;
+        let unbiased_exponent = exponent - 1023;
+        let magnitude = if unbiased_exponent < 0 {
+            return Err(ExactIntegerError::Fractional);
+        } else if unbiased_exponent < 52 {
+            let fractional_bits = (52 - unbiased_exponent) as u32;
+            let mask = (1u64 << fractional_bits) - 1;
+            if significand & mask != 0 {
+                return Err(ExactIntegerError::Fractional);
+            }
+            significand >> fractional_bits
+        } else {
+            let shift = (unbiased_exponent - 52) as u32;
+            if shift >= 64 || significand > (u64::MAX >> shift) {
+                return Err(ExactIntegerError::OutOfRange);
+            }
+            // The bound check above is required in addition to checking the
+            // shift count: `checked_shl` only rejects an oversized count and
+            // otherwise discards bits shifted beyond the integer width.
+            significand << shift
+        };
+
+        if sign {
+            if magnitude > (1u64 << 63) {
+                return Err(ExactIntegerError::OutOfRange);
+            }
+            if magnitude == 1u64 << 63 {
+                Ok(i64::MIN)
+            } else {
+                Ok(-(magnitude as i64))
+            }
+        } else if magnitude > i64::MAX as u64 {
+            Err(ExactIntegerError::OutOfRange)
+        } else {
+            Ok(magnitude as i64)
+        }
+    }
+
+    /// Construct an exact binary64 integer when the value is representable.
+    ///
+    /// The conversion is performed by assembling the IEEE-754 fields and
+    /// therefore cannot silently round an integer that the carrier cannot
+    /// represent.
+    pub fn from_exact_i64(value: i64) -> Result<Self, ExactIntegerError> {
+        if value == 0 {
+            return Ok(Self::ZERO);
+        }
+        let negative = value < 0;
+        let magnitude = value.unsigned_abs();
+        let highest = 63 - magnitude.leading_zeros();
+        let significand = if highest <= 52 {
+            magnitude << (52 - highest)
+        } else {
+            let shift = highest - 52;
+            let mask = (1u64 << shift) - 1;
+            if magnitude & mask != 0 {
+                return Err(ExactIntegerError::NotBinary64Representable);
+            }
+            magnitude >> shift
+        };
+        let exponent = (1023 + highest) as u64;
+        let fraction = significand & ((1u64 << 52) - 1);
+        let sign = if negative { 1u64 << 63 } else { 0 };
+        Ok(Self {
+            bits: sign | (exponent << 52) | fraction,
+        })
+    }
+
     /// Negates the exact finite representation, canonicalizing zero.
     pub(crate) const fn negated(self) -> Self {
         if self.bits == 0 {
@@ -55,6 +143,35 @@ impl NormalizedBinary64 {
         Self { bits }
     }
 }
+
+/// Failure while converting a normalized binary64 value to or from the
+/// bounded exact-integer domain used by reference placement.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ExactIntegerError {
+    /// The binary64 value is an infinity or NaN.
+    NonFinite,
+    /// The binary64 value has a nonzero fractional part.
+    Fractional,
+    /// The value is outside the signed `i64` domain.
+    OutOfRange,
+    /// The integer is valid but cannot be represented exactly by binary64.
+    NotBinary64Representable,
+}
+
+impl fmt::Display for ExactIntegerError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::NonFinite => formatter.write_str("binary64 value is not finite"),
+            Self::Fractional => formatter.write_str("binary64 value is not an integer"),
+            Self::OutOfRange => formatter.write_str("integer is outside the bounded i64 domain"),
+            Self::NotBinary64Representable => {
+                formatter.write_str("integer is not exactly representable as binary64")
+            }
+        }
+    }
+}
+
+impl std::error::Error for ExactIntegerError {}
 
 /// Failure while admitting a JSON decimal number as normalized binary64.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -183,6 +300,53 @@ mod tests {
 
     fn bits(token: &str) -> u64 {
         decimal_to_binary64(token).unwrap().to_bits()
+    }
+
+    #[test]
+    fn exact_integer_boundaries_never_wrap_shifted_high_bits() {
+        assert_eq!(
+            decimal_to_binary64("9223372036854775808")
+                .unwrap()
+                .to_exact_i64(),
+            Err(ExactIntegerError::OutOfRange)
+        );
+        assert_eq!(
+            decimal_to_binary64("-9223372036854775808")
+                .unwrap()
+                .to_exact_i64(),
+            Ok(i64::MIN)
+        );
+        assert_eq!(
+            decimal_to_binary64("18446744073709551616")
+                .unwrap()
+                .to_exact_i64(),
+            Err(ExactIntegerError::OutOfRange)
+        );
+        assert_eq!(
+            decimal_to_binary64("-18446744073709551616")
+                .unwrap()
+                .to_exact_i64(),
+            Err(ExactIntegerError::OutOfRange)
+        );
+
+        let minimum = NormalizedBinary64::from_exact_i64(i64::MIN).unwrap();
+        assert_eq!(minimum.to_exact_i64(), Ok(i64::MIN));
+        assert_eq!(
+            NormalizedBinary64::from_exact_i64(1_i64 << 53)
+                .unwrap()
+                .to_exact_i64(),
+            Ok(1_i64 << 53)
+        );
+        assert_eq!(
+            NormalizedBinary64::from_exact_i64((1_i64 << 53) + 2)
+                .unwrap()
+                .to_exact_i64(),
+            Ok((1_i64 << 53) + 2)
+        );
+        assert_eq!(
+            NormalizedBinary64::from_exact_i64((1_i64 << 53) + 1),
+            Err(ExactIntegerError::NotBinary64Representable)
+        );
     }
 
     #[test]
