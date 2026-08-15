@@ -5,9 +5,10 @@
 //! dependency independently with [`prepare_single_source`], keys the admitted
 //! members by their source `(document, namespace)`, retains exact input bytes,
 //! and exposes the declarations each member made.  It does not match a
-//! declaration to a supplied member, acquire or resolve dependencies, merge
+//! declaration by revision identity, acquire or resolve dependencies, merge
 //! namespaces, expand modules, assign content or dependency identities,
-//! classify resolver statuses, or finalize a snapshot.
+//! classify resolver statuses, or finalize a snapshot.  Its locator projection
+//! only classifies declaration locators against already admitted member keys.
 //!
 //! The ordering of each member's dependency array remains preserved in that
 //! member's exact raw bytes and retained structural source metadata, but it is
@@ -193,6 +194,47 @@ impl PartialOrd for SourceSetDependencyEdge {
     }
 }
 
+/// Locator-only classification of one retained dependency declaration.
+///
+/// This classification uses only the declaration's `(document, namespace)`
+/// locator and the admitted source-set member key.  It does not inspect or
+/// compare `content_sha256`; the complete edge is retained so that later
+/// resolver work can perform that separate operation.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) enum SourceSetDependencyLocatorResult {
+    /// The declaration's locator names an admitted source-set member.
+    SuppliedTarget {
+        /// The complete declaration edge, including its opaque revision text.
+        edge: SourceSetDependencyEdge,
+        /// Key of the admitted member named by the declaration locator.
+        target: SourceSetMemberKey,
+    },
+    /// The declaration's locator does not name an admitted source-set member.
+    MissingSuppliedTarget {
+        /// The complete declaration edge, including its opaque revision text.
+        edge: SourceSetDependencyEdge,
+    },
+}
+
+impl SourceSetDependencyLocatorResult {
+    /// Retained declaration edge, including its exact declared revision text.
+    #[must_use]
+    pub(crate) fn edge(&self) -> &SourceSetDependencyEdge {
+        match self {
+            Self::SuppliedTarget { edge, .. } | Self::MissingSuppliedTarget { edge } => edge,
+        }
+    }
+
+    /// Located member key, when the declaration locator was admitted.
+    #[must_use]
+    pub(crate) fn target(&self) -> Option<&SourceSetMemberKey> {
+        match self {
+            Self::SuppliedTarget { target, .. } => Some(target),
+            Self::MissingSuppliedTarget { .. } => None,
+        }
+    }
+}
+
 /// Failure while preparing the non-resolving source-set projection.
 #[derive(Debug, PartialEq)]
 pub(crate) enum SourceSetPreparationError {
@@ -261,8 +303,9 @@ impl std::error::Error for SourceSetPreparationError {
 /// Deterministic, source-preserving preparation of supplied source members.
 ///
 /// Members are keyed by admitted `(document, namespace)` and are never merged.
-/// Dependency declarations are retained as a separately sorted edge list;
-/// this container makes no claim that an edge has a supplied target.
+/// Dependency declarations are retained as a separately sorted edge list; the
+/// locator projection separately classifies whether each edge names an
+/// admitted member without interpreting its declared revision.
 #[derive(Debug)]
 pub(crate) struct PreparedSourceSet<'a> {
     root: SourceSetMemberKey,
@@ -283,10 +326,35 @@ impl<'a> PreparedSourceSet<'a> {
         &self.members
     }
 
-    /// Sorted declared edges, without matching or resolution.
+    /// Sorted declared edges, without revision matching or resolution.
     #[must_use]
     pub(crate) fn dependency_edges(&self) -> &[SourceSetDependencyEdge] {
         &self.dependency_edges
+    }
+
+    /// Classify every retained declaration by its supplied-member locator.
+    ///
+    /// Results have exactly the same order and cardinality as
+    /// [`Self::dependency_edges`].  This is deliberately only a locator
+    /// projection: it does not verify the retained `content_sha256`, acquire
+    /// source bytes, or claim dependency resolution.
+    #[must_use]
+    pub(crate) fn dependency_locator_projection(&self) -> Vec<SourceSetDependencyLocatorResult> {
+        self.dependency_edges
+            .iter()
+            .cloned()
+            .map(|edge| {
+                let target = SourceSetMemberKey {
+                    document: edge.dependency.document.clone(),
+                    namespace: edge.dependency.namespace.clone(),
+                };
+                if self.members.contains_key(&target) {
+                    SourceSetDependencyLocatorResult::SuppliedTarget { edge, target }
+                } else {
+                    SourceSetDependencyLocatorResult::MissingSuppliedTarget { edge }
+                }
+            })
+            .collect()
     }
 }
 
@@ -584,6 +652,150 @@ mod tests {
             })
             .collect();
         assert_eq!(declarations, vec![("a_ns", "dep_a"), ("z_ns", "dep_z")]);
+    }
+
+    #[test]
+    fn root_and_supplied_dependency_declarations_locate_supplied_targets() {
+        let root = with_dependencies(
+            &source("root_doc", "root_ns"),
+            serde_json::json!([declaration("dep_doc", "dep_ns", 'a')]),
+        );
+        let dependency = with_dependencies(
+            &source("dep_doc", "dep_ns"),
+            serde_json::json!([declaration("leaf_doc", "leaf_ns", 'b')]),
+        );
+        let leaf = source("leaf_doc", "leaf_ns");
+        let prepared = prepare_source_set(input(&root, vec![&dependency, &leaf])).unwrap();
+
+        let projection = prepared.dependency_locator_projection();
+        assert_eq!(projection.len(), 2);
+        assert!(projection.iter().all(|result| matches!(
+            result,
+            SourceSetDependencyLocatorResult::SuppliedTarget { .. }
+        )));
+        assert_eq!(
+            projection
+                .iter()
+                .map(|result| (
+                    result.edge().owner().document(),
+                    result.target().unwrap().document(),
+                ))
+                .collect::<Vec<_>>(),
+            vec![("root_doc", "dep_doc"), ("dep_doc", "leaf_doc")]
+        );
+    }
+
+    #[test]
+    fn missing_locator_is_classified_without_error_or_panic() {
+        let root = with_dependencies(
+            &source("root_doc", "root_ns"),
+            serde_json::json!([declaration("missing_doc", "missing_ns", 'a')]),
+        );
+        let prepared = prepare_source_set(input(&root, Vec::new())).unwrap();
+
+        let projection = prepared.dependency_locator_projection();
+        assert_eq!(projection.len(), 1);
+        assert!(matches!(
+            &projection[0],
+            SourceSetDependencyLocatorResult::MissingSuppliedTarget { .. }
+        ));
+        assert_eq!(projection[0].target(), None);
+        assert_eq!(
+            projection[0].edge().dependency(),
+            &Dependency {
+                document: "missing_doc".to_owned(),
+                namespace: "missing_ns".to_owned(),
+                content_sha256: format!("sha256:{}", "a".repeat(64)),
+            }
+        );
+    }
+
+    #[test]
+    fn reversed_supplied_member_order_keeps_locator_results_identical() {
+        let root = with_dependencies(
+            &source("root_doc", "root_ns"),
+            serde_json::json!([declaration("dep_doc", "dep_ns", 'a')]),
+        );
+        let dependency = with_dependencies(
+            &source("dep_doc", "dep_ns"),
+            serde_json::json!([declaration("leaf_doc", "leaf_ns", 'b')]),
+        );
+        let leaf = source("leaf_doc", "leaf_ns");
+        let first = prepare_source_set(input(&root, vec![&dependency, &leaf])).unwrap();
+        let second = prepare_source_set(input(&root, vec![&leaf, &dependency])).unwrap();
+
+        assert_eq!(
+            first.dependency_locator_projection(),
+            second.dependency_locator_projection()
+        );
+    }
+
+    #[test]
+    fn declared_revision_text_is_retained_but_has_no_locator_effect() {
+        let root_a = with_dependencies(
+            &source("root_doc", "root_ns"),
+            serde_json::json!([declaration("dep_doc", "dep_ns", 'a')]),
+        );
+        let root_b = with_dependencies(
+            &source("root_doc", "root_ns"),
+            serde_json::json!([declaration("dep_doc", "dep_ns", 'b')]),
+        );
+        let dependency = source("dep_doc", "dep_ns");
+        let first = prepare_source_set(input(&root_a, vec![&dependency])).unwrap();
+        let second = prepare_source_set(input(&root_b, vec![&dependency])).unwrap();
+        let first_projection = first.dependency_locator_projection();
+        let second_projection = second.dependency_locator_projection();
+
+        assert_eq!(first_projection[0].target(), second_projection[0].target());
+        assert_eq!(
+            first_projection[0].edge().dependency().document,
+            second_projection[0].edge().dependency().document
+        );
+        assert_ne!(
+            first_projection[0].edge().dependency().content_sha256,
+            second_projection[0].edge().dependency().content_sha256
+        );
+        assert!(matches!(
+            &first_projection[0],
+            SourceSetDependencyLocatorResult::SuppliedTarget { .. }
+        ));
+        assert!(matches!(
+            &second_projection[0],
+            SourceSetDependencyLocatorResult::SuppliedTarget { .. }
+        ));
+    }
+
+    #[test]
+    fn every_declared_edge_is_classified_once() {
+        let root = with_dependencies(
+            &source("root_doc", "root_ns"),
+            serde_json::json!([
+                declaration("dep_doc", "dep_ns", 'a'),
+                declaration("other_doc", "other_ns", 'b')
+            ]),
+        );
+        let dependency = source("dep_doc", "dep_ns");
+        let prepared = prepare_source_set(input(&root, vec![&dependency])).unwrap();
+        let projection = prepared.dependency_locator_projection();
+
+        assert_eq!(projection.len(), prepared.dependency_edges().len());
+        assert_eq!(
+            projection
+                .iter()
+                .map(SourceSetDependencyLocatorResult::edge)
+                .collect::<Vec<_>>(),
+            prepared.dependency_edges().iter().collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn extra_undeclared_supplied_member_creates_no_locator_result() {
+        let root = source("root_doc", "root_ns");
+        let extra = source("extra_doc", "extra_ns");
+        let prepared = prepare_source_set(input(&root, vec![&extra])).unwrap();
+
+        assert!(prepared.dependency_edges().is_empty());
+        assert!(prepared.dependency_locator_projection().is_empty());
     }
 
     #[test]
