@@ -140,6 +140,16 @@ not perform declaration matching, resolver statuses, cross-source merge,
 snapshot, digest, or Readiness 3 activation; it remains preparatory and does
 not accept or revise a Proposed decision record.
 
+The current implementation also contains a crate-private, non-serialized
+resolver-envelope/reducer scaffold. It represents the Proposed seven statuses
+and eight ordered phases, with deterministic documented precedence and fatal
+reachability, independent processing and diagnostic completeness, explicit
+generic primary diagnostics with a caller-supplied ordered diagnostic type, and
+fail-closed success/failure payload legality. It adds no public resolver API or
+wire format, concrete diagnostic registry/profile/codes, resource accounting,
+semantic resolution, snapshot, or Readiness 3 activation, and does not accept
+or revise a Proposed DR.
+
 The current implementation also provides a deliberately restricted exact
 reference-placement foundation over one prepared source. It accepts only
 canonical metres in the right-handed basis (`+Y` up, `+Z` forward), identity
