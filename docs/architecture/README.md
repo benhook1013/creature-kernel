@@ -262,9 +262,17 @@ rendered creature.
 
 The corrected authored example now uses parent-local deltas instead of
 world-looking values while retaining its intended derived reference positions.
-The next architectural consumer should be a directly consuming primitive
-spatial preview; that preview is the first genuine human visual checkpoint
-before merge. These statements do not accept or revise any decision record.
+The candidate architectural consumer directly consumes this exact-placement
+result through prepared-source inspection/publication. Its browser output is a
+deliberately crude deterministic point/line scaffold with Part markers,
+containment links, Joint endpoint links, attachment-root distinction, semantic
+labels, and front (x/y), side (z/y), and top (x/z) SVG views. Joint frame
+transforms are not interpreted. This supplied the first genuine human visual
+checkpoint; Ben confirmed on 2026-08-15 that the diagrams were decodable and
+spatially accurate for the intended straight tail. It is not geometry/mesh/surface/volume/anatomical quality,
+rigging, pose/animation, IK, deformation, physics, general transforms,
+resolver activation, or runtime evidence. These statements do not accept or
+revise any decision record.
 
 ## Current maturity
 

@@ -701,6 +701,503 @@
     return section;
   }
 
+  var SVG_NAMESPACE = "http://www.w3.org/2000/svg";
+  var SPATIAL_PREVIEW_FORMAT = "creature-kernel.provisional-exact-placement-preview.v1";
+
+  function svgNode(tag, attributes) {
+    var element = document.createElementNS(SVG_NAMESPACE, tag);
+    Object.keys(attributes || {}).forEach(function (name) {
+      element.setAttribute(name, String(attributes[name]));
+    });
+    return element;
+  }
+
+  var SPATIAL_IDENTIFIER_MAX_LENGTH = 16384;
+  var SPATIAL_MAX_ANCHORS = 4096;
+  var SPATIAL_ADDRESS_FIELDS = ["namespace", "anchors", "kind", "role"];
+  var SPATIAL_ADDRESS_KINDS = ["part", "joint", "socket", "attachment", "region", "capability", "field"];
+
+  function spatialExactFields(value, fields) {
+    if (!isObject(value)) {
+      return false;
+    }
+    var keys = Object.keys(value);
+    return keys.length === fields.length && fields.every(function (field) {
+      return Object.prototype.hasOwnProperty.call(value, field);
+    });
+  }
+
+  function spatialIdentifier(value) {
+    return typeof value === "string" && value.length > 0 && value.length <= SPATIAL_IDENTIFIER_MAX_LENGTH && /^[a-z][a-z0-9_]*$/.test(value);
+  }
+
+  function spatialAddressShape(value, expectedKind) {
+    if (!spatialExactFields(value, SPATIAL_ADDRESS_FIELDS) || !spatialIdentifier(value.namespace) || !Array.isArray(value.anchors) || value.anchors.length > SPATIAL_MAX_ANCHORS || !value.anchors.every(spatialIdentifier) || SPATIAL_ADDRESS_KINDS.indexOf(value.kind) === -1 || !spatialIdentifier(value.role)) {
+      return false;
+    }
+    return expectedKind === undefined || value.kind === expectedKind;
+  }
+
+  function spatialAddress(value) {
+    return spatialAddressShape(value, "part");
+  }
+
+  function spatialSemanticAddress(value, expectedKind) {
+    return spatialAddressShape(value, expectedKind);
+  }
+
+  function spatialAddressKey(address) {
+    // JSON framing is unambiguous for the validated exact address tuple;
+    // unlike delimiter joining, it cannot collide across anchor boundaries.
+    return JSON.stringify([address.namespace, address.anchors, address.kind, address.role]);
+  }
+
+  function spatialInteger(value) {
+    return typeof value === "number" && isFinite(value) && Math.floor(value) === value;
+  }
+
+  function spatialVector(value) {
+    return Array.isArray(value) && value.length === 3 && value.every(spatialInteger);
+  }
+
+  function spatialAddressLabel(address) {
+    if (!spatialAddress(address)) {
+      return "Part";
+    }
+    var role = String(address.role);
+    var anchors = Array.isArray(address.anchors) ? address.anchors.map(String) : [];
+    return role + (anchors.length ? " · " + anchors.join(", ") : "");
+  }
+
+  function spatialAddressMap(parts) {
+    var result = Object.create(null);
+    parts.forEach(function (part) {
+      result[spatialAddressKey(part.address)] = part;
+    });
+    return result;
+  }
+
+  function spatialCompare(left, right) {
+    return left < right ? -1 : (left > right ? 1 : 0);
+  }
+
+  function spatialPreviewValidation(preview) {
+    var errors = [];
+    if (!isObject(preview)) {
+      return { valid: false, unavailable: false, errors: ["The spatial preview payload is missing or is not an object."] };
+    }
+    if (preview.format !== SPATIAL_PREVIEW_FORMAT) {
+      errors.push("preview.format is not the expected exact-placement preview format.");
+    }
+    if (preview.status === "unavailable") {
+      if (!isObject(preview.diagnostic) || preview.diagnostic.code === undefined || preview.diagnostic.message === undefined) {
+        errors.push("An unavailable preview must contain diagnostic.code and diagnostic.message.");
+      }
+      return { valid: false, unavailable: errors.length === 0, errors: errors };
+    }
+    if (preview.status !== "available") {
+      errors.push("preview.status must be available or unavailable.");
+    }
+    if (!isObject(preview.basis)) {
+      errors.push("preview.basis is missing or is not an object.");
+    }
+    if (!Array.isArray(preview.parts)) {
+      errors.push("preview.parts is missing or is not a collection.");
+    }
+    if (!Array.isArray(preview.containment_edges)) {
+      errors.push("preview.containment_edges is missing or is not a collection.");
+    }
+    if (!Array.isArray(preview.joint_edges)) {
+      errors.push("preview.joint_edges is missing or is not a collection.");
+    }
+    if (!Array.isArray(preview.attachments)) {
+      errors.push("preview.attachments is missing or is not a collection.");
+    }
+    if (errors.length) {
+      return { valid: false, unavailable: false, errors: errors };
+    }
+
+    var parts = preview.parts;
+    var partKeys = Object.create(null);
+    parts.forEach(function (part, index) {
+      if (!isObject(part) || !spatialAddress(part.address)) {
+        errors.push("preview.parts[" + index + "] has no valid Part address.");
+        return;
+      }
+      var key = spatialAddressKey(part.address);
+      if (partKeys[key]) {
+        errors.push("preview.parts contains a duplicate Part address.");
+      }
+      partKeys[key] = true;
+      if (!spatialVector(part.position)) {
+        errors.push("preview.parts[" + index + "].position must be three finite integer components.");
+      }
+      if (part.parent !== null && part.parent !== undefined && !spatialAddress(part.parent)) {
+        errors.push("preview.parts[" + index + "].parent must be null or a Part address.");
+      }
+      if (["authored-root", "authored-containment", "authored-attachment"].indexOf(part.placement_source) === -1) {
+        errors.push("preview.parts[" + index + "].placement_source is not recognized.");
+      }
+    });
+    parts.forEach(function (part, index) {
+      if (isObject(part) && spatialAddress(part.parent) && !partKeys[spatialAddressKey(part.parent)]) {
+        errors.push("preview.parts[" + index + "] names a parent that is not in preview.parts.");
+      }
+    });
+
+    function edgeAddress(edge, field, index) {
+      if (!spatialAddress(edge[field])) {
+        errors.push("preview edge " + index + " has no valid " + field + " Part address.");
+        return;
+      }
+      if (!partKeys[spatialAddressKey(edge[field])]) {
+        errors.push("preview edge " + index + " names a Part that is not in preview.parts.");
+      }
+    }
+    preview.containment_edges.forEach(function (edge, index) {
+      if (!isObject(edge)) {
+        errors.push("preview.containment_edges[" + index + "] is not an object.");
+        return;
+      }
+      edgeAddress(edge, "parent", index);
+      edgeAddress(edge, "child", index);
+    });
+    preview.joint_edges.forEach(function (edge, index) {
+      if (!isObject(edge)) {
+        errors.push("preview.joint_edges[" + index + "] is not an object.");
+        return;
+      }
+      if (!spatialSemanticAddress(edge.joint, "joint")) {
+        errors.push("preview.joint_edges[" + index + "].joint is missing.");
+      }
+      edgeAddress(edge, "proximal", index);
+      edgeAddress(edge, "distal", index);
+    });
+    preview.attachments.forEach(function (attachment, index) {
+      if (!isObject(attachment)) {
+        errors.push("preview.attachments[" + index + "] is not an object.");
+        return;
+      }
+      var attachmentAddress = attachment.attachment;
+      var root = attachment.root;
+      var hostSocket = attachment.host_socket;
+      var matingSocket = attachment.mating_socket;
+      if (!spatialSemanticAddress(attachmentAddress, "attachment") || !spatialAddress(root) || !spatialSemanticAddress(hostSocket, "socket") || !spatialSemanticAddress(matingSocket, "socket")) {
+        errors.push("preview.attachments[" + index + "] must identify an attachment and attached-root address.");
+      } else if (!partKeys[spatialAddressKey(root)]) {
+        errors.push("preview.attachments[" + index + "] names a root that is not in preview.parts.");
+      }
+      var translation = attachment.offset || attachment.translation || attachment.derived_root_local || attachment.derivedRootLocal;
+      var authoredRootLocal = attachment.authored_root_local || attachment.authoredRootLocal;
+      var derivedRootLocal = attachment.derived_root_local || attachment.derivedRootLocal;
+      if (!spatialVector(translation) || !spatialVector(authoredRootLocal) || !spatialVector(derivedRootLocal)) {
+        errors.push("preview.attachments[" + index + "] must include offset, authored-root, and derived-root integer translations.");
+      }
+    });
+    return { valid: errors.length === 0, unavailable: false, errors: errors, parts: parts, partKeys: partKeys };
+  }
+
+  function spatialGroup(address) {
+    var text = [address.role].concat(Array.isArray(address.anchors) ? address.anchors : []).join(" ").toLowerCase();
+    if (/(^|[^a-z])tail([^a-z]|$)/.test(text)) {
+      return "tail";
+    }
+    if (/(^|[^a-z])(left|l)([^a-z]|$)/.test(text) || /(^|[_-])l($|[_-])/.test(text)) {
+      return "left";
+    }
+    if (/(^|[^a-z])(right|r)([^a-z]|$)/.test(text) || /(^|[_-])r($|[_-])/.test(text)) {
+      return "right";
+    }
+    if (/(^|[^a-z])(core|root|pelvis|torso|body|spine|chest|neck|head)([^a-z]|$)/.test(text)) {
+      return "core";
+    }
+    return "tail";
+  }
+
+  function spatialGroupColor(group) {
+    return {
+      core: "#69b8ff",
+      left: "#b18cff",
+      right: "#ffae72",
+      tail: "#f17ba9"
+    }[group] || "#b8c9d9";
+  }
+
+  function spatialNormalizedParts(parts) {
+    var largest = 0;
+    var ordered = parts.slice().sort(function (left, right) { return spatialCompare(spatialAddressKey(left.address), spatialAddressKey(right.address)); });
+    ordered.forEach(function (part) {
+      part.position.forEach(function (value) {
+        largest = Math.max(largest, Math.abs(value));
+      });
+    });
+    var divisor = largest > 0 && isFinite(largest) ? largest : 1;
+    return ordered.map(function (part, index) {
+      return {
+        marker_id: "P" + (index + 1),
+        address: part.address,
+        parent: part.parent,
+        placement_source: part.placement_source,
+        exact_position: part.position.slice(),
+        position: part.position.map(function (value) { return value / divisor; })
+      };
+    });
+  }
+
+  function spatialBounds(parts, horizontal, vertical) {
+    var values = { horizontal: [], vertical: [] };
+    parts.forEach(function (part) {
+      values.horizontal.push(part.position[horizontal]);
+      values.vertical.push(part.position[vertical]);
+    });
+    function extent(coordinates) {
+      if (!coordinates.length) {
+        return { min: -1, max: 1 };
+      }
+      var min = Math.min.apply(Math, coordinates);
+      var max = Math.max.apply(Math, coordinates);
+      if (!isFinite(min) || !isFinite(max)) {
+        return { min: -1, max: 1 };
+      }
+      if (min === max) {
+        var radius = Math.max(Math.abs(min) * 0.2, 1);
+        return { min: min - radius, max: max + radius };
+      }
+      var padding = Math.max((max - min) * 0.12, 0.15);
+      return { min: min - padding, max: max + padding };
+    }
+    return { horizontal: extent(values.horizontal), vertical: extent(values.vertical) };
+  }
+
+  function spatialViewTransform(parts, horizontal, vertical) {
+    var bounds = spatialBounds(parts, horizontal, vertical);
+    var plot = { left: 42, top: 24, width: 338, height: 218 };
+    var horizontalRange = Math.max(bounds.horizontal.max - bounds.horizontal.min, 1e-12);
+    var verticalRange = Math.max(bounds.vertical.max - bounds.vertical.min, 1e-12);
+    var pixelsPerUnit = Math.min(plot.width / horizontalRange, plot.height / verticalRange);
+    if (!isFinite(pixelsPerUnit) || pixelsPerUnit <= 0) {
+      pixelsPerUnit = 1;
+    }
+    var usedWidth = horizontalRange * pixelsPerUnit;
+    var usedHeight = verticalRange * pixelsPerUnit;
+    var left = plot.left + (plot.width - usedWidth) / 2;
+    var top = plot.top + (plot.height - usedHeight) / 2;
+    function coordinate(value, axis) {
+      if (!isFinite(value)) {
+        return axis === "horizontal" ? left + usedWidth / 2 : top + usedHeight / 2;
+      }
+      if (axis === "horizontal") {
+        return left + (value - bounds.horizontal.min) * pixelsPerUnit;
+      }
+      return top + usedHeight - (value - bounds.vertical.min) * pixelsPerUnit;
+    }
+    function axisZero(axis) {
+      var extent = bounds[axis];
+      return Math.max(extent.min, Math.min(extent.max, 0));
+    }
+    return {
+      bounds: bounds,
+      plot: plot,
+      x: function (value) { return coordinate(value, "horizontal"); },
+      y: function (value) { return coordinate(value, "vertical"); },
+      zeroX: function () { return coordinate(axisZero("horizontal"), "horizontal"); },
+      zeroY: function () { return coordinate(axisZero("vertical"), "vertical"); }
+    };
+  }
+
+  function spatialDrawAxes(svg, transform, horizontalLabel, verticalLabel) {
+    var plot = transform.plot;
+    svg.appendChild(svgNode("rect", {
+      x: plot.left, y: plot.top, width: plot.width, height: plot.height, class: "preview-plot"
+    }));
+    svg.appendChild(svgNode("line", {
+      x1: plot.left, y1: transform.zeroY(), x2: plot.left + plot.width, y2: transform.zeroY(), class: "preview-axis"
+    }));
+    svg.appendChild(svgNode("line", {
+      x1: transform.zeroX(), y1: plot.top, x2: transform.zeroX(), y2: plot.top + plot.height, class: "preview-axis"
+    }));
+    var horizontal = svgNode("text", { x: plot.left + plot.width - 4, y: plot.top + plot.height + 18, class: "preview-axis-label", "text-anchor": "end" });
+    horizontal.textContent = horizontalLabel;
+    svg.appendChild(horizontal);
+    var vertical = svgNode("text", { x: plot.left - 8, y: plot.top + 10, class: "preview-axis-label", "text-anchor": "end" });
+    vertical.textContent = verticalLabel;
+    svg.appendChild(vertical);
+  }
+
+  function spatialEdgePosition(partMap, address) {
+    var part = partMap[spatialAddressKey(address)];
+    return part && part.position;
+  }
+
+  function spatialDrawEdges(svg, transform, preview, partMap, horizontal, vertical) {
+    preview.containment_edges.slice().sort(function (left, right) {
+      return spatialCompare(spatialAddressKey(left.parent) + spatialAddressKey(left.child), spatialAddressKey(right.parent) + spatialAddressKey(right.child));
+    }).forEach(function (edge) {
+      var parent = spatialEdgePosition(partMap, edge.parent);
+      var child = spatialEdgePosition(partMap, edge.child);
+      if (!parent || !child) {
+        return;
+      }
+      svg.appendChild(svgNode("line", {
+        x1: transform.x(parent[horizontal]), y1: transform.y(parent[vertical]), x2: transform.x(child[horizontal]), y2: transform.y(child[vertical]), class: "preview-containment-edge"
+      }));
+    });
+    preview.joint_edges.slice().sort(function (left, right) {
+      return spatialCompare(spatialAddressKey(left.proximal) + spatialAddressKey(left.distal), spatialAddressKey(right.proximal) + spatialAddressKey(right.distal));
+    }).forEach(function (edge) {
+      var proximal = spatialEdgePosition(partMap, edge.proximal);
+      var distal = spatialEdgePosition(partMap, edge.distal);
+      if (!proximal || !distal) {
+        return;
+      }
+      svg.appendChild(svgNode("line", {
+        x1: transform.x(proximal[horizontal]), y1: transform.y(proximal[vertical]), x2: transform.x(distal[horizontal]), y2: transform.y(distal[vertical]), class: "preview-joint-edge"
+      }));
+    });
+  }
+
+  function spatialDrawParts(svg, transform, parts, horizontal, vertical) {
+    var positions = Object.create(null);
+    parts.forEach(function (part) {
+      var x = Math.round(transform.x(part.position[horizontal]) * 2) / 2;
+      var y = Math.round(transform.y(part.position[vertical]) * 2) / 2;
+      var key = x + ":" + y;
+      var overlap = positions[key] || 0;
+      positions[key] = overlap + 1;
+      var group = spatialGroup(part.address);
+      var color = spatialGroupColor(group);
+      var offset = overlap * 11;
+      var markerX = x;
+      var markerY = y;
+      var labelY = y - 9 - offset;
+      if (part.placement_source === "authored-attachment") {
+        svg.appendChild(svgNode("polygon", {
+          points: markerX + "," + (markerY - 9) + " " + (markerX + 9) + "," + markerY + " " + markerX + "," + (markerY + 9) + " " + (markerX - 9) + "," + markerY,
+          class: "preview-attachment-marker", stroke: color
+        }));
+      }
+      var marker = svgNode("circle", { cx: markerX, cy: markerY, r: 5.5, class: "preview-part-marker group-" + group, fill: color });
+      var markerTitle = svgNode("title");
+      markerTitle.textContent = addressText(part.address) + " · exact position [" + part.exact_position.join(", ") + "] · placement source " + part.placement_source;
+      marker.appendChild(markerTitle);
+      svg.appendChild(marker);
+      var label = svgNode("text", { x: markerX + 8, y: labelY, class: "preview-part-label" });
+      label.textContent = part.marker_id;
+      svg.appendChild(label);
+    });
+  }
+
+  function spatialPanel(view, normalizedParts, preview, partMap) {
+    var panel = node("article", null, "preview-panel");
+    panel.appendChild(node("h3", view.title));
+    panel.appendChild(node("p", view.description, "preview-panel-description"));
+    var svg = svgNode("svg", {
+      viewBox: "0 0 420 300", role: "img", class: "preview-svg", "aria-label": view.title + " orthographic primitive placement preview"
+    });
+    var title = svgNode("title");
+    title.textContent = view.title + " primitive placement";
+    svg.appendChild(title);
+    svg.appendChild(svgNode("rect", { x: 0, y: 0, width: 420, height: 300, class: "preview-background" }));
+    var transform = spatialViewTransform(normalizedParts, view.horizontal, view.vertical);
+    spatialDrawAxes(svg, transform, view.horizontalLabel, view.verticalLabel);
+    spatialDrawEdges(svg, transform, preview, partMap, view.horizontal, view.vertical);
+    spatialDrawParts(svg, transform, normalizedParts, view.horizontal, view.vertical);
+    panel.appendChild(svg);
+    return panel;
+  }
+
+  function spatialLegend(preview) {
+    var legend = node("div", null, "preview-legend");
+    legend.appendChild(node("span", "Legend", "preview-legend-title"));
+    [["core", "Core"], ["left", "Left"], ["right", "Right"], ["tail", "Tail / other"]].forEach(function (entry) {
+      var item = node("span", null, "preview-legend-item");
+      var swatch = node("span", null, "preview-legend-swatch group-" + entry[0]);
+      swatch.setAttribute("aria-hidden", "true");
+      item.appendChild(swatch);
+      item.appendChild(node("span", entry[1]));
+      legend.appendChild(item);
+    });
+    var attachment = node("span", null, "preview-legend-item");
+    var attachmentSwatch = node("span", null, "preview-legend-swatch attachment");
+    attachmentSwatch.setAttribute("aria-hidden", "true");
+    attachment.appendChild(attachmentSwatch);
+    attachment.appendChild(node("span", "Attached root"));
+    legend.appendChild(attachment);
+    var containment = node("span", null, "preview-legend-item");
+    var containmentSwatch = node("span", null, "preview-line-swatch containment");
+    containment.appendChild(node("span", "Containment"));
+    containment.appendChild(containmentSwatch);
+    legend.appendChild(containment);
+    var joint = node("span", null, "preview-legend-item");
+    var jointSwatch = node("span", null, "preview-line-swatch joint");
+    joint.appendChild(node("span", "Joint endpoints"));
+    joint.appendChild(jointSwatch);
+    legend.appendChild(joint);
+    if (preview.attachments.length) {
+      legend.appendChild(node("span", preview.attachments.length + " attachment provenance record" + (preview.attachments.length === 1 ? "" : "s") + " supplied", "preview-legend-note"));
+    }
+    return legend;
+  }
+
+  function spatialPartKey(parts) {
+    var key = node("div", null, "preview-part-key");
+    key.appendChild(node("h3", "Part key"));
+    key.appendChild(node("p", "In-plot IDs follow sorted semantic Part order. Coordinates are the exact reference positions; source describes how each placement was established.", "preview-part-key-explanation"));
+    if (!parts.length) {
+      key.appendChild(node("p", "No Parts are present.", "muted"));
+      return key;
+    }
+    var list = node("dl", null, "preview-part-key-list");
+    parts.forEach(function (part) {
+      var entry = node("div", null, "preview-part-key-entry");
+      entry.appendChild(node("dt", part.marker_id));
+      var anchors = Array.isArray(part.address.anchors) && part.address.anchors.length ? part.address.anchors.map(String).join(", ") : "none";
+      entry.appendChild(node("dd", "role " + String(part.address.role) + " · anchors " + anchors + " · position [" + part.exact_position.join(", ") + "] · source " + part.placement_source));
+      list.appendChild(entry);
+    });
+    key.appendChild(list);
+    return key;
+  }
+
+  function spatialPreviewSection(structure) {
+    if (!isObject(structure) || !Object.prototype.hasOwnProperty.call(structure, "preview")) {
+      return null;
+    }
+    var section = node("section", null, "spatial-preview");
+    section.appendChild(node("h2", "Primitive spatial preview"));
+    section.appendChild(node("p", "Exact integer Part reference placements shown as a deterministic orthographic guide; Joint frame transforms are not interpreted, and this is not a mesh or runtime view.", "preview-explanation"));
+    var validation = spatialPreviewValidation(isObject(structure) ? structure.preview : null);
+    if (!validation.valid) {
+      var errorPanel = node("div", null, "preview-error");
+      errorPanel.appendChild(node("h3", validation.unavailable ? "Preview unavailable" : "Preview could not be rendered"));
+      var message = validation.unavailable && isObject(structure.preview.diagnostic) ?
+        String(structure.preview.diagnostic.code) + ": " + String(structure.preview.diagnostic.message) :
+        validation.errors.slice(0, 2).join(" ");
+      errorPanel.appendChild(node("p", message || "The spatial preview payload is malformed."));
+      if (validation.errors.length > 2) {
+        errorPanel.appendChild(node("p", (validation.errors.length - 2) + " additional preview issue(s) omitted.", "muted"));
+      }
+      section.appendChild(errorPanel);
+      return section;
+    }
+    var normalizedParts = spatialNormalizedParts(validation.parts);
+    var normalizedMap = spatialAddressMap(normalizedParts);
+    var panels = node("div", null, "preview-view-grid");
+    [
+      { title: "Front · x / y", description: "Width and height", horizontal: 0, vertical: 1, horizontalLabel: "x", verticalLabel: "y" },
+      { title: "Side · z / y", description: "Depth and height", horizontal: 2, vertical: 1, horizontalLabel: "z", verticalLabel: "y" },
+      { title: "Top · x / z", description: "Width and depth", horizontal: 0, vertical: 2, horizontalLabel: "x", verticalLabel: "z" }
+    ].forEach(function (view) {
+      panels.appendChild(spatialPanel(view, normalizedParts, structure.preview, normalizedMap));
+    });
+    section.appendChild(panels);
+    section.appendChild(spatialPartKey(normalizedParts));
+    section.appendChild(spatialLegend(structure.preview));
+    var instructions = node("p", "Judge spatial layout, proportions, symmetry, and tail/foot depth. Do not judge mesh, surface, anatomical volume, animation, IK, deformation, or physics.", "preview-instructions");
+    section.appendChild(instructions);
+    return section;
+  }
+
   function renderStructure(rawStructure, review) {
     clear(app);
     var structure = rawStructure;
@@ -719,6 +1216,10 @@
       instructions.appendChild(node("h2", "Instructions"));
       instructions.appendChild(node("p", review.instructions));
       app.appendChild(instructions);
+    }
+    var spatialPanel = spatialPreviewSection(structure);
+    if (spatialPanel) {
+      app.appendChild(spatialPanel);
     }
     var preparedPanel = preparedSourceSection(structure);
     if (preparedPanel) {

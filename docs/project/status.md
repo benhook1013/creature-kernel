@@ -88,9 +88,12 @@ The current implementation now provides provisional developer instrumentation:
 `publish_prepared_source.py`/localhost-server flow. It preserves the admitted
 single-source graph projection and adds the declared basis, prepared counts,
 and numeric debug rows with binary64 bits and stable semantic locations. Ben's
-2026-08-15 appraisal found that it adds developer-visible preparation data but
-no meaningful creature visualization. He does not want routine implementation
-details presented for approval. It remains preparatory only: it does not
+2026-08-15 appraisal found that the prepared-source projection adds
+developer-visible preparation data but no meaningful creature visualization;
+the new spatial candidate was locally validated and appraised successfully on
+2026-08-15. He does not want
+routine implementation details presented for approval. It remains preparatory
+only: it does not
 resolve dependencies or produce a snapshot or canonical serialization, apply
 basis/unit values, interpret quaternions, expand dependencies/modules, produce
 geometry, rigging, animation, physics, or runtime output, or activate Readiness
@@ -143,12 +146,19 @@ or a user-facing rendered creature. The stylized example was corrected from
 world-looking authored values to contract-compliant parent-local deltas while
 retaining the intended derived reference positions.
 
-Immediate next action: build a directly consuming primitive spatial preview on
-this exact placement result, while keeping general transform resolution,
-resolver activation, geometry/surface generation, and the preparatory
-implementation outside the Readiness 3 activation boundary. That preview is
-the first genuine human visual checkpoint before merge; the current inspection
-and preparation tooling is not such a checkpoint.
+Candidate locally validated and appraised by Ben on 2026-08-15: a directly
+consuming primitive spatial preview
+uses this exact placement result through the existing
+`inspect-prepared-source`/`publish_prepared_source.py`/localhost-server flow.
+The browser is limited to deterministic semantic point/line scaffolding with
+Part markers, containment links, Joint endpoint links, attachment-root
+distinction, labels, and front (x/y), side (z/y), and top (x/z) SVG views;
+Joint frame transforms are not interpreted. It supplied the first genuine
+human-appraisable visual checkpoint; Ben confirmed that its diagrams were
+decodable and spatially accurate for the intended straight tail. This remains outside
+the Readiness 3 activation boundary and does not claim geometry, mesh, surface,
+volume, anatomical quality, rigging, pose/animation, IK, deformation, physics,
+general transforms, resolver activation, or runtime evidence.
 
 Ben approved the following deferred planning direction on 2026-08-09 for any
 future activation. It is recorded here without accepting or revising either DR:

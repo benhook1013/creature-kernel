@@ -681,7 +681,8 @@ class StaticAssetTests(unittest.TestCase):
         js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
         css = (HERE / "static" / "style.css").read_text(encoding="utf-8")
         self.assertNotIn("innerHTML", js)
-        self.assertNotRegex(js + css, r"https?://")
+        assets = (js + css).replace("http://www.w3.org/2000/svg", "")
+        self.assertNotRegex(assets, r"https?://")
         for label in (
             "What you're looking at",
             "Authored summary",
