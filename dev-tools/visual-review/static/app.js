@@ -1201,7 +1201,10 @@
     return section;
   }
 
-  var PROVISIONAL_FORM_FORMAT = "creature-kernel.provisional-form-preview.v1";
+  var PROVISIONAL_FORM_FORMATS = [
+    "creature-kernel.provisional-form-preview.v1",
+    "creature-kernel.provisional-form-preview.v2"
+  ];
   var PROVISIONAL_FORM_VARIANTS = ["neutral-v0", "broad-soft-v0", "lean-readable-v0", "depth-forward-v0"];
   var PROVISIONAL_FORM_VIEWS = [
     { title: "Front · x / y", description: "Width and height", horizontal: 0, vertical: 1, depth: 2, horizontalLabel: "x", verticalLabel: "y" },
@@ -1236,7 +1239,7 @@
 
   function formValidation(payload) {
     var errors = [];
-    if (!isObject(payload) || payload.format !== PROVISIONAL_FORM_FORMAT) {
+    if (!isObject(payload) || PROVISIONAL_FORM_FORMATS.indexOf(payload.format) === -1) {
       return ["The provisional filled-form payload is missing or has an unexpected format."];
     }
     if (payload.operation !== "inspect-provisional-form" || payload.status !== "success" || payload.stage !== "provisional-form") {
@@ -1347,16 +1350,43 @@
     labels.textContent = String(descriptor.address.role || "part") + (qualifier ? " · " + qualifier : "");
   }
 
-  function formDrawPrimitive(svg, payload, descriptor, view, transform) {
+  function formDescriptorLabel(descriptor) {
+    var qualifier = formDescriptorQualifier(descriptor);
+    return String(descriptor.address.role || "part") + (qualifier ? " · " + qualifier : "");
+  }
+
+  function formDrawPrimitive(svg, payload, descriptor, view, transform, options, variant) {
     var shape = descriptor.shape;
     var color = formRoleColor(descriptor);
     var outline = "#071019";
+    var label = formDescriptorLabel(descriptor);
+    var activatesInspector = options && typeof options.onActivate === "function";
+    var part = svgNode("g", {
+      "class": "form-part" + (options && options.showLabels ? " form-part-labels-visible" : ""),
+      tabindex: "0",
+      focusable: "true",
+      role: activatesInspector ? "button" : "img",
+      "aria-label": activatesInspector ? "Inspect " + variant.id + " · " + label : label
+    });
+    var title = svgNode("title");
+    title.textContent = label;
+    part.appendChild(title);
+    svg.appendChild(part);
+    if (activatesInspector) {
+      var activate = function (event) {
+        if (event.type === "keydown" && event.key !== "Enter" && event.key !== " ") { return; }
+        if (event.type === "keydown") { event.preventDefault(); }
+        options.onActivate(variant, descriptor);
+      };
+      part.addEventListener("click", activate);
+      part.addEventListener("keydown", activate);
+    }
     if (shape.name === "ellipsoid") {
       var center = formProjectedPoint(shape.center, view, transform);
       var rx = transform.radius(formShapeRadius(payload, shape.axis_extents_permille[view.horizontal]));
       var ry = transform.radius(formShapeRadius(payload, shape.axis_extents_permille[view.vertical]));
-      svg.appendChild(svgNode("ellipse", { cx: center.x, cy: center.y, rx: rx, ry: ry, fill: color, "fill-opacity": "0.76", stroke: outline, "stroke-width": 1.6, "class": "form-primitive" }));
-      formDrawLabel(svg, descriptor, view, transform);
+      part.appendChild(svgNode("ellipse", { cx: center.x, cy: center.y, rx: rx, ry: ry, fill: color, "fill-opacity": "0.76", stroke: outline, "stroke-width": 1.6, "class": "form-primitive" }));
+      formDrawLabel(part, descriptor, view, transform);
       return;
     }
     var from = formProjectedPoint(shape.from, view, transform);
@@ -1367,28 +1397,29 @@
     var dy = to.y - from.y;
     var length = Math.sqrt(dx * dx + dy * dy);
     if (shape.name === "capsule" || length < 0.001) {
-      svg.appendChild(svgNode("line", { x1: from.x, y1: from.y, x2: to.x, y2: to.y, stroke: outline, "stroke-width": radius * 2 + 3, "stroke-linecap": "round", fill: "none", "class": "form-primitive" }));
-      svg.appendChild(svgNode("line", { x1: from.x, y1: from.y, x2: to.x, y2: to.y, stroke: color, "stroke-width": radius * 2, "stroke-linecap": "round", fill: "none", "class": "form-primitive" }));
+      part.appendChild(svgNode("line", { x1: from.x, y1: from.y, x2: to.x, y2: to.y, stroke: outline, "stroke-width": radius * 2 + 3, "stroke-linecap": "round", fill: "none", "class": "form-primitive" }));
+      part.appendChild(svgNode("line", { x1: from.x, y1: from.y, x2: to.x, y2: to.y, stroke: color, "stroke-width": radius * 2, "stroke-linecap": "round", fill: "none", "class": "form-primitive" }));
     } else {
       var nx = -dy / length;
       var ny = dx / length;
       var startRadius = transform.radius(formShapeRadius(payload, shape.start_radius_permille));
       var endRadius = transform.radius(formShapeRadius(payload, shape.end_radius_permille));
       var points = [[from.x + nx * startRadius, from.y + ny * startRadius], [to.x + nx * endRadius, to.y + ny * endRadius], [to.x - nx * endRadius, to.y - ny * endRadius], [from.x - nx * startRadius, from.y - ny * startRadius]];
-      svg.appendChild(svgNode("polygon", { points: points.map(function (point) { return point.join(","); }).join(" "), fill: color, "fill-opacity": "0.78", stroke: outline, "stroke-width": 1.6, "class": "form-primitive" }));
-      svg.appendChild(svgNode("circle", { cx: from.x, cy: from.y, r: startRadius, fill: color, "fill-opacity": "0.78", stroke: outline, "stroke-width": 1.6, "class": "form-primitive" }));
-      svg.appendChild(svgNode("circle", { cx: to.x, cy: to.y, r: endRadius, fill: color, "fill-opacity": "0.78", stroke: outline, "stroke-width": 1.6, "class": "form-primitive" }));
+      part.appendChild(svgNode("polygon", { points: points.map(function (point) { return point.join(","); }).join(" "), fill: color, "fill-opacity": "0.78", stroke: outline, "stroke-width": 1.6, "class": "form-primitive" }));
+      part.appendChild(svgNode("circle", { cx: from.x, cy: from.y, r: startRadius, fill: color, "fill-opacity": "0.78", stroke: outline, "stroke-width": 1.6, "class": "form-primitive" }));
+      part.appendChild(svgNode("circle", { cx: to.x, cy: to.y, r: endRadius, fill: color, "fill-opacity": "0.78", stroke: outline, "stroke-width": 1.6, "class": "form-primitive" }));
     }
-    formDrawLabel(svg, descriptor, view, transform);
+    formDrawLabel(part, descriptor, view, transform);
   }
 
-  function formPanel(payload, variant, view, bounds) {
-    var panel = node("article", null, "form-panel");
+  function formPanel(payload, variant, view, bounds, options) {
+    options = options || {};
+    var panel = node("article", null, "form-panel" + (options.large ? " form-panel-large" : ""));
     panel.appendChild(node("h4", view.title));
     panel.appendChild(node("p", view.description, "form-panel-description"));
     var svg = document.createElementNS(SVG_NAMESPACE, "svg");
     svg.setAttribute("viewBox", "0 0 420 270");
-    svg.setAttribute("class", "form-svg");
+    svg.setAttribute("class", "form-svg" + (options.large ? " form-svg-large" : ""));
     svg.setAttribute("role", "img");
     svg.setAttribute("aria-label", variant.id + " " + view.title);
     svg.appendChild(svgNode("rect", { x: 0, y: 0, width: 420, height: 270, "class": "form-background" }));
@@ -1404,9 +1435,55 @@
       var depth = formDepth(left, view) - formDepth(right, view);
       return depth || (formAddressKey(left.address) < formAddressKey(right.address) ? -1 : 1);
     });
-    descriptors.forEach(function (descriptor) { formDrawPrimitive(svg, payload, descriptor, view, transform); });
+    descriptors.forEach(function (descriptor) { formDrawPrimitive(svg, payload, descriptor, view, transform, options, variant); });
     panel.appendChild(svg);
     return panel;
+  }
+
+  function formInspectLegend(variant) {
+    var section = node("section", null, "form-inspect-legend");
+    section.appendChild(node("h3", "Parts in this variant"));
+    var list = node("ul");
+    variant.descriptors.slice().sort(function (left, right) {
+      return formAddressKey(left.address).localeCompare(formAddressKey(right.address));
+    }).forEach(function (descriptor) {
+      var item = node("li");
+      item.appendChild(node("strong", formDescriptorLabel(descriptor)));
+      item.appendChild(node("span", " · " + descriptor.shape.name));
+      list.appendChild(item);
+    });
+    section.appendChild(list);
+    return section;
+  }
+
+  function openFormInspector(payload, variant, trigger) {
+    var dialog = node("dialog", null, "form-inspect-dialog");
+    var headingId = "form-inspect-heading-" + Math.random().toString(36).slice(2);
+    dialog.setAttribute("aria-labelledby", headingId);
+    var header = node("header", null, "form-inspect-header");
+    var heading = node("h2", "Expanded inspection · " + variant.id);
+    heading.id = headingId;
+    header.appendChild(heading);
+    var close = node("button", "Close", "close-dialog");
+    close.type = "button";
+    close.addEventListener("click", function () { dialog.close(); });
+    header.appendChild(close);
+    dialog.appendChild(header);
+    dialog.appendChild(node("p", "Use the parts legend below, or hover and keyboard-focus one shape to reveal only its label. Escape or Close returns to the comparison gallery.", "form-inspect-description"));
+    var grid = node("div", null, "form-inspect-grid");
+    var bounds = formBounds(payload);
+    PROVISIONAL_FORM_VIEWS.forEach(function (view) {
+      grid.appendChild(formPanel(payload, variant, view, bounds, { large: true }));
+    });
+    dialog.appendChild(grid);
+    dialog.appendChild(formInspectLegend(variant));
+    dialog.addEventListener("close", function () {
+      dialog.remove();
+      if (trigger && typeof trigger.focus === "function" && document.contains(trigger)) { trigger.focus(); }
+    });
+    document.body.appendChild(dialog);
+    dialog.showModal();
+    close.focus();
   }
 
   function provisionalFormPreviewSection(payload) {
@@ -1421,13 +1498,19 @@
       heading.appendChild(node("span", variant.profile_id, "form-profile-pill"));
       card.appendChild(heading);
       var panels = node("div", null, "form-panel-grid");
-      PROVISIONAL_FORM_VIEWS.forEach(function (view) { panels.appendChild(formPanel(payload, variant, view, bounds)); });
+      PROVISIONAL_FORM_VIEWS.forEach(function (view) {
+        panels.appendChild(formPanel(payload, variant, view, bounds, {
+          onActivate: function (selectedVariant, descriptor) {
+            openFormInspector(payload, selectedVariant, document.activeElement);
+          }
+        }));
+      });
       card.appendChild(panels);
       grid.appendChild(card);
     });
     section.appendChild(grid);
     var legend = node("p", null, "form-legend");
-    legend.textContent = "Role colors: core/torso teal · head/neck blue · left violet · right orange · tail pink · hands/feet gold.";
+    legend.textContent = "Role colors: core/torso teal · head/neck blue · left violet · right orange · tail pink · hands/feet gold. Hover or focus a part to reveal its label; click or press Enter/Space for an expanded inspection.";
     section.appendChild(legend);
     return section;
   }

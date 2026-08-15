@@ -86,7 +86,91 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
         summary = publisher.publish_provisional_form(self.root, self.input, creature_kernel=binary, **kwargs)
         return Path(summary["session"])
 
+    def capsule_payload(
+        self, *, format_name: str = common.PROVISIONAL_FORM_FORMAT
+    ) -> dict[str, object]:
+        """Build a small body chain under either versioned capsule contract."""
+
+        def address(role: str, anchors: list[str] | None = None) -> dict[str, object]:
+            return {"namespace": "main", "anchors": anchors or [], "kind": "part", "role": role}
+
+        def descriptor(
+            role: str,
+            point: list[int],
+            parent: dict[str, object] | None,
+            shape: dict[str, object],
+        ) -> dict[str, object]:
+            return {
+                "descriptor_kind": "display-only-form-descriptor",
+                "address": address(role),
+                "parent": parent,
+                "placement_source": "authored-root" if parent is None else "authored-containment",
+                "reference_point": point,
+                "profile_id": "neutral-v0",
+                "source": common.PROVISIONAL_FORM_PROVENANCE,
+                "provenance": {
+                    "source": common.PROVISIONAL_FORM_PROVENANCE,
+                    "resource_profile_id": common.PROVISIONAL_FORM_RESOURCE_PROFILE,
+                },
+                "shape": shape,
+            }
+
+        pelvis = address("pelvis")
+        torso = address("torso")
+        upper_arm = address("upper_arm")
+        forearm = address("forearm")
+        hand = address("hand")
+        descriptors = [
+            descriptor("pelvis", [0, 0, 0], None, {"name": "ellipsoid", "center": [0, 0, 0], "axis_extents_permille": [1000, 900, 800]}),
+            descriptor("torso", [0, 1, 0], pelvis, {"name": "ellipsoid", "center": [0, 1, 0], "axis_extents_permille": [1000, 1000, 900]}),
+            descriptor("upper_arm", [-1, 2, 0], torso, {"name": "capsule", "from": [-1, 2, 0], "to": [-2, 2, 0], "radius_permille": 200}),
+            descriptor("forearm", [-2, 2, 0], upper_arm, {"name": "capsule", "from": [-2, 2, 0], "to": [-3, 2, 0], "radius_permille": 180}),
+            descriptor("hand", [-3, 2, 0], forearm, {"name": "ellipsoid", "center": [-3, 2, 0], "axis_extents_permille": [450, 400, 350]}),
+        ]
+        descriptors.sort(key=lambda item: (
+            item["address"]["namespace"], tuple(item["address"]["anchors"]),
+            item["address"]["kind"], item["address"]["role"],
+        ))
+        payload = copy.deepcopy(self.payload)
+        payload["format"] = format_name
+        if format_name == common.PROVISIONAL_FORM_LEGACY_FORMAT:
+            points = {
+                item["address"]["role"]: item["reference_point"]
+                for item in descriptors
+            }
+            parent_roles = {"upper_arm": "torso", "forearm": "upper_arm"}
+            for item in descriptors:
+                role = item["address"]["role"]
+                if role in parent_roles:
+                    item["shape"]["from"] = points[parent_roles[role]]
+                    item["shape"]["to"] = item["reference_point"]
+        payload["reference_scale"] = {
+            "parent": upper_arm,
+            "child": forearm,
+            "axis_delta": [-1, 0, 0],
+            "squared_length": 1,
+            "source": "exact-containment-edge",
+        }
+        payload["variants"] = []
+        for variant_id in common.PROVISIONAL_FORM_VARIANT_IDS:
+            variant_descriptors = copy.deepcopy(descriptors)
+            for item in variant_descriptors:
+                item["profile_id"] = variant_id
+            payload["variants"].append({
+                "id": variant_id,
+                "profile_id": variant_id,
+                "provenance": {
+                    "source": common.PROVISIONAL_FORM_PROVENANCE,
+                    "resource_profile_id": common.PROVISIONAL_FORM_RESOURCE_PROFILE,
+                },
+                "descriptors": variant_descriptors,
+            })
+        return payload
+
     def test_success_publishes_distinct_immutable_form_session_and_route(self) -> None:
+        self.assertEqual(
+            self.payload["format"], "creature-kernel.provisional-form-preview.v2"
+        )
         binary = self.fake_binary("import json, sys\nsys.stdout.write(" + repr(json.dumps(self.payload)) + ")\n")
         session = self.publish_with(binary, review_id="form-review", title="Filled form")
         review = json.loads((session / "review.json").read_text(encoding="utf-8"))
@@ -133,6 +217,90 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
             with self.assertRaises(publisher.ProvisionalFormPublishError):
                 self.publish_with(binary, review_id=f"bad-form-{index}")
             self.assertFalse((self.root / f"bad-form-{index}").exists())
+
+    def test_v2_capsules_use_their_direct_distal_child_anchor(self) -> None:
+        payload = self.capsule_payload()
+        common._validate_provisional_form_envelope(payload, "capsule fixture")
+
+        old_parent_center = copy.deepcopy(payload)
+        for descriptor in old_parent_center["variants"][0]["descriptors"]:
+            if descriptor["address"]["role"] == "upper_arm":
+                descriptor["shape"]["from"] = [0, 1, 0]
+                break
+        with self.assertRaisesRegex(common.ValidationError, "start does not match its reference point"):
+            common._validate_provisional_form_envelope(old_parent_center, "old capsule fixture")
+
+        missing_distal = copy.deepcopy(payload)
+        for variant in missing_distal["variants"]:
+            variant["descriptors"] = [
+                descriptor
+                for descriptor in variant["descriptors"]
+                if descriptor["address"]["role"] != "forearm"
+            ]
+        with self.assertRaisesRegex(common.ValidationError, "missing its direct forearm child"):
+            common._validate_provisional_form_envelope(missing_distal, "missing capsule fixture")
+
+        ambiguous = self.capsule_payload()
+        for variant in ambiguous["variants"]:
+            descriptors = variant["descriptors"]
+            forearm = next(item for item in descriptors if item["address"]["role"] == "forearm")
+            duplicate_forearm = copy.deepcopy(forearm)
+            duplicate_forearm["address"]["anchors"] = ["branch"]
+            duplicate_forearm["reference_point"] = [-2, 3, 0]
+            duplicate_forearm["shape"]["from"] = [-2, 3, 0]
+            duplicate_forearm["shape"]["to"] = [-3, 3, 0]
+            duplicate_hand = next(item for item in descriptors if item["address"]["role"] == "hand")
+            duplicate_hand = copy.deepcopy(duplicate_hand)
+            duplicate_hand["address"]["anchors"] = ["branch"]
+            duplicate_hand["parent"] = duplicate_forearm["address"]
+            duplicate_hand["reference_point"] = [-3, 3, 0]
+            duplicate_hand["shape"]["center"] = [-3, 3, 0]
+            descriptors.extend([duplicate_forearm, duplicate_hand])
+            descriptors.sort(key=lambda item: (
+                item["address"]["namespace"], tuple(item["address"]["anchors"]),
+                item["address"]["kind"], item["address"]["role"],
+            ))
+        with self.assertRaisesRegex(common.ValidationError, "ambiguous direct forearm children"):
+            common._validate_provisional_form_envelope(ambiguous, "ambiguous capsule fixture")
+
+    def test_v1_capsules_retain_legacy_parent_to_current_contract(self) -> None:
+        legacy = self.capsule_payload(
+            format_name=common.PROVISIONAL_FORM_LEGACY_FORMAT
+        )
+        common._validate_provisional_form_envelope(legacy, "legacy capsule fixture")
+
+        normalized = common.validate_normalized_review(
+            {
+                "schema_version": 1,
+                "id": "legacy-form",
+                "title": "Legacy form",
+                "kind": "provisional-form",
+                "groups": [],
+                "provisional_form": legacy,
+            },
+            self.directory,
+            check_assets=False,
+        )
+        self.assertEqual(
+            normalized["provisional_form"]["format"],
+            common.PROVISIONAL_FORM_LEGACY_FORMAT,
+        )
+
+        corrected_mislabeled_v1 = self.capsule_payload()
+        corrected_mislabeled_v1["format"] = common.PROVISIONAL_FORM_LEGACY_FORMAT
+        with self.assertRaisesRegex(common.ValidationError, "capsule endpoints are invalid"):
+            common._validate_provisional_form_envelope(
+                corrected_mislabeled_v1, "corrected payload mislabeled v1"
+            )
+
+        legacy_mislabeled_v2 = copy.deepcopy(legacy)
+        legacy_mislabeled_v2["format"] = common.PROVISIONAL_FORM_FORMAT
+        with self.assertRaisesRegex(
+            common.ValidationError, "start does not match its reference point"
+        ):
+            common._validate_provisional_form_envelope(
+                legacy_mislabeled_v2, "legacy payload mislabeled v2"
+            )
 
     def test_nonzero_output_bound_timeout_and_collision_are_bounded(self) -> None:
         noisy = self.fake_binary(f"import sys\nsys.stdout.write('x' * {publisher.MAX_STDOUT_BYTES + 1})\n", "noisy")

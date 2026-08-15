@@ -112,17 +112,29 @@ python3 dev-tools/visual-review/serve.py \
 `publish_provisional_form.py` invokes `creature-kernel
 inspect-provisional-form --input PATH` shell-free, with a 10-second timeout,
 256 KiB stdout bound, and 64 KiB stderr bound. It accepts only a complete,
-diagnostic-free `creature-kernel.provisional-form-preview.v1` success envelope,
+diagnostic-free `creature-kernel.provisional-form-preview.v1` or `.v2` success
+envelope,
 the exact four variant IDs/order, known Part addresses and provenance, bounded
 integer points, supported ellipsoid/capsule/tapered-segment shapes, and the
 positive reference scale. Failed CLI outcomes and malformed payloads are not
 published. The resulting immutable `provisional-form` session contains the
 validated payload only and no assets or external dependencies.
 
+The CLI currently emits the corrected provisional v2 contract. A capsule is
+owned by its current Part: `upper_arm` spans its reference point to its direct
+`forearm` child, `forearm` to `hand`, `thigh` to `shin`, and `shin` to `foot`.
+The tapered tail remains parent-to-current Part. The server also retains strict
+read support for immutable v1 sessions, whose capsules used parent-to-current
+Part endpoints. The fixed v2 profiles tune torso and pelvis display volumes to
+overlap the proximal shoulder and hip segments. These are provisional
+display-volume rules, not a generated skeleton, anatomical socket, or general
+junction contract.
+
 The read-only browser page renders each variant in front (x/y), side (z/y),
 and top (x/z) filled SVG panels with shared bounds, physical display radii
 derived from the reference scale, deterministic depth ordering, semantic role
-colors, and labels. It is overlapping display primitives with a straight
+colors, hover/focus labels, and an expanded inspection view with a persistent
+part legend. It is overlapping display primitives with a straight
 tail—not a continuous surface or mesh—and makes no claims of surface
 continuity, anatomical correctness, mesh/topology, rigging, animation/IK,
 deformation, physics, runtime behaviour, or Readiness 3. Keep generated

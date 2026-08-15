@@ -336,6 +336,18 @@ pub enum ProvisionalFormPreviewError {
         address: AddressKey,
         shape: ProvisionalShapeKind,
     },
+    /// A capsule role has no direct child with its expected downstream role.
+    MissingSegmentChild {
+        address: AddressKey,
+        expected_role: String,
+    },
+    /// A capsule role has more than one direct child with its expected
+    /// downstream role.
+    AmbiguousSegmentChild {
+        address: AddressKey,
+        expected_role: String,
+        count: usize,
+    },
     /// A segment role has no containment parent from which to take `from`.
     MissingSegmentParent {
         address: AddressKey,
@@ -389,6 +401,21 @@ impl fmt::Display for ProvisionalFormPreviewError {
             Self::ZeroLengthSegment { address, shape } => {
                 write!(formatter, "zero-length {shape:?} segment at {address}")
             }
+            Self::MissingSegmentChild {
+                address,
+                expected_role,
+            } => write!(
+                formatter,
+                "{expected_role:?} direct child required for capsule at {address}"
+            ),
+            Self::AmbiguousSegmentChild {
+                address,
+                expected_role,
+                count,
+            } => write!(
+                formatter,
+                "capsule at {address} has {count} direct children with expected role {expected_role:?}"
+            ),
             Self::MissingSegmentParent { address, shape } => {
                 write!(
                     formatter,
@@ -681,17 +708,9 @@ fn build_descriptor(
             axis_extents_permille: extents(profile_id, role)?,
         },
         ProvisionalShapeKind::Capsule => {
-            let parent =
-                part.parent()
-                    .ok_or_else(|| ProvisionalFormPreviewError::MissingSegmentParent {
-                        address: part.address().clone(),
-                        shape: shape_kind,
-                    })?;
-            let parent_part = placements
-                .part(parent)
-                .expect("restricted placement retains every containment parent");
-            let from = parent_part.reference_translation();
-            let to = part.reference_translation();
+            let child = expected_segment_child(part, placements)?;
+            let from = part.reference_translation();
+            let to = child.reference_translation();
             if from == to {
                 return Err(ProvisionalFormPreviewError::ZeroLengthSegment {
                     address: part.address().clone(),
@@ -745,6 +764,46 @@ fn build_descriptor(
     })
 }
 
+fn expected_segment_child_role(role: &str) -> Option<&'static str> {
+    match role {
+        "upper_arm" => Some("forearm"),
+        "forearm" => Some("hand"),
+        "thigh" => Some("shin"),
+        "shin" => Some("foot"),
+        _ => None,
+    }
+}
+
+fn expected_segment_child<'a>(
+    part: &ExactPlacedPart,
+    placements: &'a ExactReferencePlacements,
+) -> Result<&'a ExactPlacedPart, ProvisionalFormPreviewError> {
+    let expected_role = expected_segment_child_role(part.address().role())
+        .expect("expected child requested only for capsule roles");
+    let children: Vec<_> = placements
+        .parts()
+        .values()
+        .filter(|candidate| {
+            candidate.address().role() == expected_role
+                && candidate
+                    .parent()
+                    .is_some_and(|parent| parent == part.address())
+        })
+        .collect();
+    match children.as_slice() {
+        [] => Err(ProvisionalFormPreviewError::MissingSegmentChild {
+            address: part.address().clone(),
+            expected_role: expected_role.to_owned(),
+        }),
+        [child] => Ok(*child),
+        _ => Err(ProvisionalFormPreviewError::AmbiguousSegmentChild {
+            address: part.address().clone(),
+            expected_role: expected_role.to_owned(),
+            count: children.len(),
+        }),
+    }
+}
+
 fn shape_kind(role: &str) -> Option<ProvisionalShapeKind> {
     match role {
         "pelvis" | "torso" | "neck" | "head" | "hand" | "foot" => {
@@ -761,8 +820,8 @@ fn shape_kind(role: &str) -> Option<ProvisionalShapeKind> {
 // permille constants so renderers can apply ratios without floating point.
 fn neutral_extents(role: &str) -> [u32; 3] {
     match role {
-        "pelvis" => [1_100, 800, 900],
-        "torso" => [1_200, 1_800, 900],
+        "pelvis" => [1_700, 1_200, 900],
+        "torso" => [1_300, 1_800, 900],
         "neck" => [650, 600, 600],
         "head" => [1_000, 1_000, 900],
         "hand" => [450, 400, 350],
@@ -874,6 +933,33 @@ mod tests {
         crate::provisional_json::to_vec(&value).expect("test JSON")
     }
 
+    fn transverse_ellipse_gap(
+        center: ExactTranslation,
+        axis_extents_permille: [u32; 3],
+        endpoint: ExactTranslation,
+        capsule_axis: usize,
+        reference_length: f64,
+    ) -> f64 {
+        let transverse_axis = if capsule_axis == 0 { 1 } else { 0 };
+        let center_components = center.components();
+        let endpoint_components = endpoint.components();
+        let transverse_delta =
+            (endpoint_components[transverse_axis] - center_components[transverse_axis]) as f64;
+        let transverse_extent =
+            f64::from(axis_extents_permille[transverse_axis]) / 1_000.0 * reference_length;
+        let axis_extent =
+            f64::from(axis_extents_permille[capsule_axis]) / 1_000.0 * reference_length;
+        let normalized = transverse_delta.abs() / transverse_extent;
+        let cross_section = if normalized < 1.0 {
+            axis_extent * (1.0 - normalized * normalized).sqrt()
+        } else {
+            0.0
+        };
+        let axis_delta =
+            (endpoint_components[capsule_axis] - center_components[capsule_axis]) as f64;
+        (axis_delta.abs() - cross_section).max(0.0)
+    }
+
     #[test]
     fn biped_emits_four_ordered_variants_and_eighteen_descriptors() {
         let preview = build_provisional_form_preview(&example(), ResourceProfile::ORDINARY)
@@ -939,15 +1025,28 @@ mod tests {
                         let ProvisionalShape::Capsule { from, to, .. } = descriptor.shape() else {
                             panic!("expected capsule")
                         };
-                        let parent = descriptor.parent().expect("capsule has parent");
-                        let parent_descriptor = variant
+                        let expected_role =
+                            expected_segment_child_role(descriptor.address().role())
+                                .expect("capsule role has expected child");
+                        let child_descriptor = variant
                             .descriptors()
                             .iter()
-                            .find(|candidate| candidate.address() == parent)
-                            .expect("capsule parent descriptor");
-                        assert_eq!(*from, parent_descriptor.reference_point());
-                        assert_eq!(*to, descriptor.reference_point());
+                            .find(|candidate| {
+                                candidate.address().role() == expected_role
+                                    && candidate.parent() == Some(descriptor.address())
+                            })
+                            .expect("capsule expected direct child descriptor");
+                        assert_eq!(*from, descriptor.reference_point());
+                        assert_eq!(*to, child_descriptor.reference_point());
                         assert_ne!(from, to);
+                        if let Some(parent) = descriptor.parent() {
+                            let parent_descriptor = variant
+                                .descriptors()
+                                .iter()
+                                .find(|candidate| candidate.address() == parent)
+                                .expect("capsule parent descriptor");
+                            assert_ne!(*from, parent_descriptor.reference_point());
+                        }
                     }
                     "tail_root" | "tail_tip" => {
                         let ProvisionalShape::TaperedSegment { from, to, .. } = descriptor.shape()
@@ -966,6 +1065,63 @@ mod tests {
                     }
                     role => panic!("unexpected role {role}"),
                 }
+            }
+        }
+    }
+
+    #[test]
+    fn fixed_profiles_overlap_proximal_limb_capsules_without_parent_spokes() {
+        let preview = build_provisional_form_preview(&example(), ResourceProfile::ORDINARY)
+            .expect("checked-in biped is supported");
+        assert_eq!(
+            preview,
+            build_provisional_form_preview(&example(), ResourceProfile::ORDINARY)
+                .expect("repeated build")
+        );
+        let reference_length = (preview.reference_scale().squared_length() as f64).sqrt();
+        for variant in preview.variants() {
+            for descriptor in variant.descriptors() {
+                let capsule_axis = match descriptor.address().role() {
+                    "upper_arm" => 0,
+                    "thigh" => 1,
+                    _ => continue,
+                };
+                let parent = descriptor.parent().expect("proximal capsule parent");
+                let parent_descriptor = variant
+                    .descriptors()
+                    .iter()
+                    .find(|candidate| candidate.address() == parent)
+                    .expect("proximal capsule parent descriptor");
+                let (center, axis_extents_permille) = match parent_descriptor.shape() {
+                    ProvisionalShape::Ellipsoid {
+                        center,
+                        axis_extents_permille,
+                        ..
+                    } => (*center, *axis_extents_permille),
+                    shape => panic!("expected ellipsoid parent, got {shape:?}"),
+                };
+                let (from, radius_permille) = match descriptor.shape() {
+                    ProvisionalShape::Capsule {
+                        from,
+                        radius_permille,
+                        ..
+                    } => (*from, *radius_permille),
+                    shape => panic!("expected capsule, got {shape:?}"),
+                };
+                let gap = transverse_ellipse_gap(
+                    center,
+                    axis_extents_permille,
+                    from,
+                    capsule_axis,
+                    reference_length,
+                );
+                let radius = f64::from(radius_permille) / 1_000.0 * reference_length;
+                assert!(
+                    gap <= radius + f64::EPSILON,
+                    "{} {} gap {gap} exceeds radius {radius} with extents {axis_extents_permille:?}",
+                    variant.id(),
+                    descriptor.address()
+                );
             }
         }
     }
@@ -1155,6 +1311,93 @@ mod tests {
             error,
             ProvisionalFormPreviewError::ZeroLengthSegment { .. }
         ));
+    }
+
+    #[test]
+    fn capsule_child_ownership_fails_closed_when_expected_child_missing_or_ambiguous() {
+        let forearm = json!({
+            "namespace": "main",
+            "anchors": ["left"],
+            "kind": "part",
+            "role": "forearm"
+        });
+        let upper_arm = json!({
+            "namespace": "main",
+            "anchors": ["left"],
+            "kind": "part",
+            "role": "upper_arm"
+        });
+        let hand = json!({
+            "namespace": "main",
+            "anchors": ["left"],
+            "kind": "part",
+            "role": "hand"
+        });
+
+        let mut missing = value();
+        missing["body"]["parts"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|part| part["address"] != forearm);
+        let left_hand = missing["body"]["parts"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|part| part["address"] == hand)
+            .expect("left hand");
+        left_hand["containment"]["parent"] = upper_arm.clone();
+        missing["body"]["joints"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|joint| {
+                !(joint["address"]["anchors"] == json!(["left"])
+                    && (joint["address"]["role"] == "elbow" || joint["address"]["role"] == "wrist"))
+            });
+        missing["body"]["regions"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|region| region["address"]["anchors"] != json!(["left"]));
+        let error =
+            build_provisional_form_preview(&bytes(missing.clone()), ResourceProfile::ORDINARY)
+                .expect_err("upper arm without a forearm is not displayable");
+        assert!(matches!(
+            error,
+            ProvisionalFormPreviewError::MissingSegmentChild {
+                ref address,
+                ref expected_role,
+            } if address.role() == "upper_arm"
+                && address.anchors() == ["left"]
+                && expected_role == "forearm"
+        ));
+        assert!(error.to_string().contains("forearm"));
+
+        let mut ambiguous = value();
+        let extra_forearm = ambiguous["body"]["parts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|part| part["address"] == forearm)
+            .expect("left forearm")
+            .clone();
+        let mut extra_forearm = extra_forearm;
+        extra_forearm["address"]["anchors"] = json!(["left_extra"]);
+        ambiguous["body"]["parts"]
+            .as_array_mut()
+            .unwrap()
+            .push(extra_forearm);
+        let error = build_provisional_form_preview(&bytes(ambiguous), ResourceProfile::ORDINARY)
+            .expect_err("two forearms under one upper arm are ambiguous");
+        assert!(matches!(
+            error,
+            ProvisionalFormPreviewError::AmbiguousSegmentChild {
+                ref address,
+                ref expected_role,
+                count: 2,
+            } if address.role() == "upper_arm"
+                && address.anchors() == ["left"]
+                && expected_role == "forearm"
+        ));
+        assert!(error.to_string().contains("2 direct children"));
     }
 
     #[test]

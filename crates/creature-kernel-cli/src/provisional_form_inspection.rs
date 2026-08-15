@@ -14,7 +14,7 @@ use creature_kernel_core::provisional_json::{Map, Value, json};
 use creature_kernel_core::reference_placement::PlacementSource;
 use std::path::Path;
 
-const FORMAT: &str = "creature-kernel.provisional-form-preview.v1";
+const FORMAT: &str = "creature-kernel.provisional-form-preview.v2";
 const OPERATION: &str = "inspect-provisional-form";
 const LIMITATIONS: &str = "Provisional display-only filled-form descriptors from the restricted single-source exact Part placement projection; no production geometry, mesh, SDF, topology, collision, rig, skin, anatomy, Joint-frame interpretation, authored dimensions, general units or rotations, dependency resolution, canonical snapshot/serialization, runtime claim, or Readiness activation. Descriptors are not graph Parts.";
 
@@ -290,6 +290,20 @@ fn failure(error: ProvisionalFormPreviewError) -> CliResult {
             true,
             true,
         ),
+        ProvisionalFormPreviewError::MissingSegmentChild { .. } => (
+            "descriptor",
+            "invalid-source",
+            "ck.cli.provisional-form.missing-segment-child",
+            true,
+            true,
+        ),
+        ProvisionalFormPreviewError::AmbiguousSegmentChild { .. } => (
+            "descriptor",
+            "invalid-source",
+            "ck.cli.provisional-form.ambiguous-segment-child",
+            true,
+            true,
+        ),
         ProvisionalFormPreviewError::InvalidProfileValue { .. } => (
             "descriptor",
             "internal-failure",
@@ -339,7 +353,7 @@ fn result(value: Value) -> CliResult {
     };
     CliResult {
         json: creature_kernel_core::provisional_json::to_string(&value).unwrap_or_else(|_| {
-            r#"{"format":"creature-kernel.provisional-form-preview.v1","operation":"inspect-provisional-form","status":"internal-failure","stage":"output","diagnostics":[{"code":"ck.cli.provisional-form.output-serialization","message":"could not serialize provisional form inspection result"}]}"#.to_owned()
+            r#"{"format":"creature-kernel.provisional-form-preview.v2","operation":"inspect-provisional-form","status":"internal-failure","stage":"output","diagnostics":[{"code":"ck.cli.provisional-form.output-serialization","message":"could not serialize provisional form inspection result"}]}"#.to_owned()
         }),
         exit_code,
     }

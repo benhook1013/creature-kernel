@@ -39,7 +39,12 @@ STRUCTURE_FORMAT = "creature-kernel.provisional-structural-inspection.v1"
 PREPARED_SOURCE_FORMAT = "creature-kernel.provisional-source-preparation-inspection.v1"
 PREPARED_SOURCE_OPERATION = "inspect-prepared-source"
 PREPARED_SOURCE_STAGE = "source-preparation"
-PROVISIONAL_FORM_FORMAT = "creature-kernel.provisional-form-preview.v1"
+PROVISIONAL_FORM_LEGACY_FORMAT = "creature-kernel.provisional-form-preview.v1"
+PROVISIONAL_FORM_FORMAT = "creature-kernel.provisional-form-preview.v2"
+PROVISIONAL_FORM_FORMATS = {
+    PROVISIONAL_FORM_LEGACY_FORMAT,
+    PROVISIONAL_FORM_FORMAT,
+}
 PROVISIONAL_FORM_OPERATION = "inspect-provisional-form"
 PROVISIONAL_FORM_STAGE = "provisional-form"
 PROVISIONAL_FORM_VARIANT_IDS = (
@@ -64,6 +69,16 @@ PROVISIONAL_FORM_ROLE_SHAPES = {
     "shin": "capsule",
     "tail_root": "tapered-segment",
     "tail_tip": "tapered-segment",
+}
+# Capsules are display volumes for a limb *segment*, so their distal endpoint
+# is the direct semantic child anchor rather than the current part's own
+# reference point.  Keep this explicit: inferring a segment from an arbitrary
+# child would make a branching body silently choose the wrong limb.
+PROVISIONAL_FORM_CAPSULE_CHILD_ROLES = {
+    "upper_arm": "forearm",
+    "forearm": "hand",
+    "thigh": "shin",
+    "shin": "foot",
 }
 PROVISIONAL_FORM_MAX_DESCRIPTORS = 64
 PROVISIONAL_FORM_MAX_PERMILLE = 5000
@@ -1020,8 +1035,12 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
         },
         where,
     )
-    if _string(obj.get("format"), f"{where}.format", max_len=256) != PROVISIONAL_FORM_FORMAT:
-        raise ValidationError(f"{where}.format must be {PROVISIONAL_FORM_FORMAT}")
+    format_name = _string(obj.get("format"), f"{where}.format", max_len=256)
+    if format_name not in PROVISIONAL_FORM_FORMATS:
+        raise ValidationError(
+            f"{where}.format must be {PROVISIONAL_FORM_LEGACY_FORMAT} or "
+            f"{PROVISIONAL_FORM_FORMAT}"
+        )
     if obj.get("operation") != PROVISIONAL_FORM_OPERATION:
         raise ValidationError(f"{where}.operation must be {PROVISIONAL_FORM_OPERATION}")
     if obj.get("status") != "success":
@@ -1180,7 +1199,14 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
                 from_point = _form_i64_vector(shape.get("from"), f"{descriptor_where}.shape.from")
                 to_point = _form_i64_vector(shape.get("to"), f"{descriptor_where}.shape.to")
                 _form_permille(shape.get("radius_permille"), f"{descriptor_where}.shape.radius_permille")
-                if parent is None or from_point == to_point or to_point != reference_point:
+                if (
+                    parent is None
+                    or from_point == to_point
+                    or (
+                        format_name == PROVISIONAL_FORM_LEGACY_FORMAT
+                        and to_point != reference_point
+                    )
+                ):
                     raise ValidationError(f"{descriptor_where}.shape capsule endpoints are invalid")
             else:
                 _check_fields(shape, {"name", "from", "to", "start_radius_permille", "end_radius_permille"}, f"{descriptor_where}.shape")
@@ -1191,7 +1217,15 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
                 if parent is None or from_point == to_point or to_point != reference_point:
                     raise ValidationError(f"{descriptor_where}.shape tapered endpoints are invalid")
             descriptor_keys.append(address)
-            address_map[address] = (reference_point, {"parent": parent, "placement_source": placement_source})
+            address_map[address] = (
+                reference_point,
+                {
+                    "parent": parent,
+                    "placement_source": placement_source,
+                    "shape": shape,
+                    "shape_name": shape_name,
+                },
+            )
         if descriptor_keys != sorted(descriptor_keys):
             raise ValidationError(f"{variant_where}.descriptors must use stable AddressKey order")
         roots = [
@@ -1201,6 +1235,40 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
         ]
         if len(roots) != 1:
             raise ValidationError(f"{variant_where}.descriptors must contain exactly one root")
+
+        # Validate limb segment ownership before walking ordinary parent
+        # invariants.  This keeps a missing distal child diagnostic about the
+        # capsule contract, rather than being obscured by a later orphan check
+        # on a different descriptor.
+        if format_name == PROVISIONAL_FORM_FORMAT:
+            for address, (reference_point, details) in address_map.items():
+                if details["shape_name"] != "capsule":
+                    continue
+                expected_child_role = PROVISIONAL_FORM_CAPSULE_CHILD_ROLES[address[3]]
+                direct_children = [
+                    child
+                    for child, (_, child_details) in address_map.items()
+                    if child_details["parent"] == address and child[3] == expected_child_role
+                ]
+                if not direct_children:
+                    raise ValidationError(
+                        f"{variant_where} capsule {address[3]} is missing its direct {expected_child_role} child"
+                    )
+                if len(direct_children) != 1:
+                    raise ValidationError(
+                        f"{variant_where} capsule {address[3]} has ambiguous direct {expected_child_role} children"
+                    )
+                capsule = details["shape"]
+                if capsule["from"] != reference_point:
+                    raise ValidationError(
+                        f"{variant_where} capsule {address[3]} start does not match its reference point"
+                    )
+                child_point = address_map[direct_children[0]][0]
+                if capsule["to"] != child_point:
+                    raise ValidationError(
+                        f"{variant_where} capsule {address[3]} end does not match its direct {expected_child_role} child point"
+                    )
+
         for address, (reference_point, details) in address_map.items():
             parent = details["parent"]
             if details["placement_source"] == "authored-root" and parent is not None:
@@ -1210,10 +1278,15 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
             if parent is not None and parent not in address_map:
                 raise ValidationError(f"{variant_where} descriptor parent is missing")
             if parent is not None:
-                shape = next(item["shape"] for item in descriptors if _form_address(item["address"], "descriptor.address") == address)
-                if shape["name"] in {"capsule", "tapered-segment"}:
-                    if shape["from"] != address_map[parent][0]:
-                        raise ValidationError(f"{variant_where} segment start does not match parent point")
+                shape = details["shape"]
+                if (
+                    shape["name"] == "tapered-segment"
+                    or (
+                        format_name == PROVISIONAL_FORM_LEGACY_FORMAT
+                        and shape["name"] == "capsule"
+                    )
+                ) and shape["from"] != address_map[parent][0]:
+                    raise ValidationError(f"{variant_where} segment start does not match parent point")
             lineage: set[tuple[str, tuple[str, ...], str, str]] = set()
             current = address
             while current in address_map:

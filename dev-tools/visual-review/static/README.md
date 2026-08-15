@@ -34,6 +34,10 @@ Filled-form sessions use `review.kind: "provisional-form"` and carry the
 validated CLI envelope in `review.provisional_form`. Their page is appraisal
 only: it shows four deterministic variants derived from the same exact
 placements, each with front x/y, side z/y, and top x/z filled primitive panels.
+The client accepts both legacy v1 and corrected v2 envelopes after server-side
+validation. Gallery labels are hidden until a part is hovered or focused; an
+expanded inspection dialog provides larger projections and a persistent part
+legend without enabling review writes.
 The renderer uses shared bounds and deterministic AddressKey tie-breaking for
 overlap order. It draws only ellipsoids, round-ended capsules, and filled
 tapered segments; it does not imply a continuous surface, anatomical
