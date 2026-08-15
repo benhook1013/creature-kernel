@@ -93,7 +93,18 @@ provides a normalized-binary64 structural transform carrier, exact signed-axis
 source-basis mapping, and symbolic length-unit ratios, without unit scaling,
 quaternion/transform algebra or comparison, source integration, resolver, or
 snapshot behavior. No Readiness 3 resolver/snapshot, adapter, experiment, or
-geometry activation exists. See
+geometry activation exists. The public `creature_kernel_core::frame_preparation`
+bridge converts already-admitted wire `Basis`/`RigidTransform` records into
+the carriers using `Number::as_str` for transform numbers and typed
+component-aware conversion errors. `prepare_rigid_transform` requires a sealed
+existing `ResourceProfile` and enforces its bounded materialized
+`Number::as_str` length before conversion, allowing one additional byte only
+for the single positive-exponent `+` normalization byte. This local check does
+not prove or confer whole-document admission; production resolver traversal
+will supply admitted records. Raw lexical spelling/provenance is not
+recovered. It does not apply basis/unit values, perform quaternion
+validation/algebra/comparison, traverse graphs, map diagnostics/statuses, or
+resolve/publish snapshots or activate Readiness 3. See
 the [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for the two review lenses, recommendations, and findings. Earlier review
 evidence remains stale. See the
@@ -150,8 +161,19 @@ not activate numeric semantics or Readiness 3. The standalone
 `creature_kernel_core::frame` module is preparatory only and is not wired into
 source admission or resolver/snapshot behavior; it does not apply unit scaling,
 perform quaternion/transform algebra or comparison, or activate Readiness 3.
-No Readiness 3 resolver/snapshot, adapter, experiment, or geometry activation
-exists.
+The public `creature_kernel_core::frame_preparation` bridge is also preparatory:
+it converts already-admitted wire `Basis`/`RigidTransform` records into the
+carriers using `Number::as_str` for transform numbers and typed
+component-aware conversion errors. `prepare_rigid_transform` requires a sealed
+existing `ResourceProfile` and enforces its bounded materialized
+`Number::as_str` length before conversion, allowing one additional byte only
+for the single positive-exponent `+` normalization byte. This local check does
+not prove or confer whole-document admission; production resolver traversal
+will supply admitted records. Raw lexical spelling/provenance is not
+recovered. It does not apply basis/unit values, perform quaternion
+validation/algebra/comparison, traverse graphs, map diagnostics/statuses, or
+resolve/publish snapshots. No Readiness 3 resolver/snapshot, adapter,
+experiment, or geometry activation exists.
 See the [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for recommendations and findings. The
 four readiness stages are: DR-0013 acceptance activated Readiness 1 for the
@@ -236,7 +258,7 @@ The target architecture remains pre-implementation beyond the active Readiness
 preflight transaction. The provisional structural address/index, validator,
 and inspection command, plus the standalone numeric/frame-preparation modules,
 remain preparatory implementation outside Readiness 3. The numeric/frame-
-preparation modules are not wired into body-document admission and do not
-activate numeric semantics. The remaining
+preparation modules and public bridge are not wired into body-document
+admission and do not activate numeric semantics. The remaining
 component names describe provisional responsibility boundaries, not activated
 Readiness 3 packages, processes, repositories, or technologies.

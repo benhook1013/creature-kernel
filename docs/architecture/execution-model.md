@@ -42,7 +42,18 @@ normalized-binary64 structural transform carrier, exact signed-axis
 source-basis mapping, and symbolic length-unit ratios, without unit scaling,
 quaternion/transform algebra or comparison, source integration, resolver, or
 snapshot behavior. No Readiness 3 resolver/snapshot, adapter, experiment, or
-geometry activation exists.
+geometry activation exists. The public `creature_kernel_core::frame_preparation`
+bridge converts already-admitted wire `Basis`/`RigidTransform` records into
+the carriers, using `Number::as_str` for transform numbers and returning typed
+component-aware conversion errors. `prepare_rigid_transform` requires a sealed
+existing `ResourceProfile` and enforces its bounded materialized
+`Number::as_str` length before conversion, allowing one additional byte only
+for the single positive-exponent `+` normalization byte. This local check does
+not prove or confer whole-document admission; production resolver traversal
+will supply admitted records. Raw lexical spelling/provenance is not
+recovered. It does not apply basis/unit values, perform quaternion
+validation/algebra/comparison, traverse graphs, map diagnostics/statuses, or
+resolve/publish snapshots or activate Readiness 3.
 See the [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for recommendations and findings. Its four
 readiness stages are: acceptance activated Readiness 1 for the Cargo workspace,
@@ -131,8 +142,9 @@ admission and successor history.
 Performance claims must be backed by a reproducible benchmark and hardware
 profile. Readiness 2 is active alongside Readiness 1 for its admitted
 schema/manifest/fixture/parser/bootstrap/preflight transaction; its structural
-index/validator/inspection and the standalone numeric/frame-preparation modules
-remain preparatory, and no Readiness 3 implementation package is activated.
+index/validator/inspection, standalone numeric/frame-preparation modules, and
+the public `frame_preparation` bridge remain preparatory, and no Readiness 3
+implementation package is activated.
 Any future worker must negotiate protocol/
 version compatibility, obey bounded time/resource budgets, map crash/timeout/
 resource outcomes, validate outputs before publication, and leave the compiler

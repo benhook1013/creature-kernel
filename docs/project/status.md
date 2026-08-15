@@ -100,10 +100,22 @@ an exact signed-axis source-basis map, and symbolic length-unit ratios. It does
 not apply unit scaling, validate or normalize quaternions, perform transform
 algebra or comparison, integrate source documents, resolve graphs, publish
 snapshots, or change the active Readiness 2 identity; it does not activate
-Readiness 3.
+Readiness 3. The public `creature_kernel_core::frame_preparation` bridge
+converts already-admitted wire `Basis`/`RigidTransform` records into these
+carriers, using `Number::as_str` for transform numbers and returning typed
+component-aware conversion errors. `prepare_rigid_transform` requires a sealed
+existing `ResourceProfile` and enforces the profile's bounded materialized
+`Number::as_str` length before conversion, allowing one additional byte only
+for the single positive-exponent `+` normalization byte. This local check does
+not prove or confer whole-document admission; production resolver traversal
+will supply admitted records. Raw lexical spelling and provenance are not
+recovered. The bridge does not apply a basis map or unit ratio to values,
+perform quaternion validation/algebra/comparison, traverse graphs, map
+diagnostics/statuses, resolve or publish snapshots, or change the active
+Readiness 2 identity or activate Readiness 3.
 
-Immediate next action: begin the next bounded resolver-preparation/integration
-slice grounded in the active Readiness 2 transaction, while keeping resolver
+Immediate next action: begin bounded document-wide resolver preparation/
+provenance traversal over admitted records, while keeping resolver
 activation and the provisional structural/numeric/frame implementations
 outside the Readiness 3 activation boundary.
 
@@ -360,10 +372,11 @@ resolver/snapshot transaction is not active.
 DR-0002 Revision 11 and DR-0008 Revision 11 are unchanged and remain Review
 Complete. Owner approval remains Pending.
 
-The immediate next action is the next bounded resolver-preparation/integration
-slice grounded in the active parser/bootstrap and admitted schema/manifest/
-fixture transaction, followed by resolver slices. Readiness 1 and Readiness 2
-remain active while Readiness 3 and later transactions remain gated.
+The immediate next action is bounded document-wide resolver preparation/
+provenance traversal over admitted records grounded in the active
+parser/bootstrap and admitted schema/manifest/fixture transaction. Readiness 1
+and Readiness 2 remain active while Readiness 3 and later transactions remain
+gated.
 The main thread will autonomously resolve technical correctness findings or
 record evidence-dependent triggers under the DR-0001 Revision 6 transition
 direction; only a retained-human product, architecture-boundary, material
@@ -510,9 +523,10 @@ validator, and inspection command remain preparatory. The immediate-predecessor
   compiler/core library shell, and thin CLI shell, with the admitted Readiness 2
   parser/bootstrap transaction active alongside it. The provisional structural
   address/index, validator, and `inspect-structure` command are preparatory and
-  do not activate Readiness 3. Advance the next bounded resolver-preparation/
-  integration slice; the standalone numeric/frame-preparation modules stay
-  preparatory and outside body-document admission. Numeric/frame/output,
+  do not activate Readiness 3. Advance bounded document-wide resolver
+  preparation/provenance traversal; the standalone numeric/frame-preparation
+  modules and `frame_preparation` bridge stay preparatory and outside
+  body-document admission. Numeric/frame/output,
   adapter, and geometry prerequisites gate later stages. Any performance claim must have
   reproducible benchmark and hardware-profile evidence.
 - Preserve the accepted governance process and all historical decision/review
@@ -572,7 +586,7 @@ metadata. Current non-governance proposals include:
 | Research/experiment workflow | partial | unverified | Lightweight template exists; no experiment registered |
 | Body specification | partial | unverified | Proposed body-document, body-graph, build-operation, fixture-manifest, and Batch 11/12/13 focused profiles include discussion-approved updates; the Readiness 2 schema, manifest, nine fixtures, parser/bootstrap, and preflight are active under the admission record, while DR-0002/0008 remain Revision 11 Review Complete, DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14 remain Proposed with Owner approval Pending |
 | Build-operation contract | partial | unverified | Proposed canonical public build/output owner exists; serialization, implementation, and artifact store remain unactivated |
-| Production implementation platform | partial | proven | CK-KICK-013/DR-0013 Revision 12 is Accepted with Owner approval Approved by Ben; the Readiness 1 Cargo workspace, compiler/core library shell, and thin CLI shell pass pinned-toolchain checks. Readiness 2's exact schema, manifest, nine fixtures, parser/bootstrap, and preflight are active after merged commit `766992ab089687e9b1496574e8ffa721388d96f3` / PR #6 and successful post-merge identity recomputation. PR #9, the inspectable biped structure workflow, is merged at `565c32bd35215e23d737fb333604382d3e6958ab`; its structural index/validator/inspection remain preparatory. The standalone numeric/frame-preparation modules are likewise preparatory and not wired into body-document admission; distinct Readiness 3, adapter, and exploratory geometry remain gated |
+| Production implementation platform | partial | proven | CK-KICK-013/DR-0013 Revision 12 is Accepted with Owner approval Approved by Ben; the Readiness 1 Cargo workspace, compiler/core library shell, and thin CLI shell pass pinned-toolchain checks. Readiness 2's exact schema, manifest, nine fixtures, parser/bootstrap, and preflight are active after merged commit `766992ab089687e9b1496574e8ffa721388d96f3` / PR #6 and successful post-merge identity recomputation. PR #9, the inspectable biped structure workflow, is merged at `565c32bd35215e23d737fb333604382d3e6958ab`; its structural index/validator/inspection remain preparatory. The standalone numeric/frame-preparation modules and public `frame_preparation` bridge are likewise preparatory and not wired into body-document admission; distinct Readiness 3, adapter, and exploratory geometry remain gated |
 | Creature compiler | partial | unverified | Disposable CK-KICK-010 walking skeleton implemented; this is not a production compiler |
 | CK-KICK-010 walking skeleton | implemented | audited | Valid/invalid local evidence and the selected Single independent review are complete; five substantive findings plus whitespace were dispositioned in RESULTS, not clean; this is not a production compiler |
 | Local visual-review gallery | implemented | audited | Focused tests and local HTTP/browser smoke passed; subject_context is presentation-only; no visual-evidence or Stage 1 claim |
@@ -580,10 +594,18 @@ metadata. Current non-governance proposals include:
 
 ## Immediate next actions
 
+Ben authorized an autonomous runway on 2026-08-15 for small, internal,
+reversible preparation PRs leading to the first human-visible resolver/viewer
+checkpoint. The main thread may merge clean internal bridge and document-wide
+preparation/provenance slices along that runway. It must stop before merging
+the first CLI/viewer/API candidate intended for Ben's appraisal and present
+that candidate to him. Earlier permission to merge a specific PR does not
+authorize merging later PRs outside this recorded runway.
+
 - Use the active Readiness 2 parser/bootstrap and admitted schema, manifest, and
-  fixture transaction as the implementation foundation; take the next bounded
-  resolver-preparation/integration slice and successor evidence. Keep adapters,
-  geometry, and later packages gated.
+  fixture transaction as the implementation foundation; take bounded
+  document-wide resolver preparation/provenance traversal and successor
+  evidence. Keep adapters, geometry, and later packages gated.
 - Keep Readiness 1 limited to the Cargo workspace, compiler/core library shell,
   and thin CLI shell. Keep the provisional structural address/index, validator,
   and `inspect-structure` command outside the formal Readiness 3 activation
