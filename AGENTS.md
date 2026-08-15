@@ -199,7 +199,7 @@ until a genuine retained-human design choice or useful visual result is ready.
   standard input only through
   `dev-tools/visual-review/powershell-stdin.sh`. Never use PowerShell
   `-EncodedCommand`, Base64, or another obfuscated command payload for this
-  work, and never disable Defender or add an exclusion for agent automation.
+  work.
 - Any AI thread may append a genuinely reusable operational observation to
   `docs/project/ai-observations.md` after recurring tool misuse, unavailable or
   broken routes, misleading harness or environment behavior, or other token- or
@@ -250,6 +250,14 @@ the human decision owner, accepts or rejects a DR.
   the end-of-round subagent status. This 30–60 second wait is provisional; use
   outcome reporting to tune it, without adding heavyweight telemetry. Do not
   retry non-capacity failures or start an unbounded retry loop.
+- Subagents must promptly report environment or tool failures that cause a
+  retry, workaround, or changed execution path. Include the command/tool
+  category, exact observed error, attempt count, workaround, and what is known
+  versus inferred about the cause. Do not silently absorb repeated or opaque
+  failures merely because the bounded task eventually succeeds. Evidence-only
+  or read-only scopes prohibit repository edits, not reporting to the
+  orchestrator. The main thread decides whether the friction warrants an AI
+  observation, tooling change, or concise report to Ben.
 - Delegate only bounded work with a disjoint scope and explicit success
   conditions. Proactively use Luna for substantial repository search,
   diagnosis, nontrivial code or documentation edits, evidence preparation, and

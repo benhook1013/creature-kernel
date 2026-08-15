@@ -166,9 +166,8 @@ POWERSHELL
 The launcher accepts no arguments and invokes `powershell.exe` with exactly
 `-NoProfile -NonInteractive -File -`; stdin is forwarded unchanged. Do not use
 `-EncodedCommand`, Base64, or another obfuscated payload. Opaque automation can
-trigger endpoint-protection heuristics and then surface as misleading launch
-errors. Keeping the script readable preserves inspection and auditability.
-Never disable Defender or add an exclusion for agent automation.
+be blocked or misclassified and then surface as a misleading launch error.
+Keeping the script readable preserves inspection and diagnosis.
 
 ## Rich manifest v1
 
