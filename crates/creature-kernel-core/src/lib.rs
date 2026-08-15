@@ -2,6 +2,7 @@
 
 pub mod body_document;
 pub mod body_graph;
+pub(crate) mod exact_dyadic;
 pub mod frame;
 mod frame_preparation;
 pub mod numeric;

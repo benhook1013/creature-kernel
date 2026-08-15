@@ -160,6 +160,25 @@ the Readiness 3 activation boundary and does not claim geometry, mesh, surface,
 volume, anatomical quality, rigging, pose/animation, IK, deformation, physics,
 general transforms, resolver activation, or runtime evidence.
 
+Ben's 2026-08-15 direction authorizes an autonomous runway of small, internal,
+reversible preparatory PRs from this merged checkpoint toward a complete
+Readiness 3 successor candidate. Routine numeric/frame, provenance, resolver,
+snapshot, diagnostic, fixture, and test implementation may merge after its
+required focused checks and risk-scaled review. Stop before merging the
+transaction that claims Readiness 3 activation and ask Ben for its required
+explicit approval; also stop earlier if work reaches a genuinely useful
+rendered-form appraisal or another retained-human boundary. Preparatory merges
+do not accept a Proposed DR, freeze activation-gated constants, or activate
+Readiness 3.
+
+The first runway slice adds a crate-private, fail-closed exact-dyadic arithmetic
+foundation for later typed comparisons. It decodes admitted finite binary64
+values without floating-point arithmetic, canonicalizes representation, and
+provides checked fixed-shape ordering, addition, subtraction, multiplication,
+squaring, and four-term summation under a conservative implementation safety
+cap. It supplies no tolerance, profile, claim, resolver, or activation
+semantics.
+
 Ben approved the following deferred planning direction on 2026-08-09 for any
 future activation. It is recorded here without accepting or revising either DR:
 
