@@ -101,6 +101,15 @@ geometry, rigging, animation, physics, or runtime output, or activate Readiness
 This is not blanket merge authority outside the named runway and does not waive
 real user-visible or direction-setting decisions.
 
+The current work also contains a provisional preparatory filled-form descriptor
+candidate exposed only through the developer CLI
+`inspect-provisional-form --input <path>`. It builds four fixed display-only
+profiles, maps current semantic roles to ellipsoid, capsule, and tapered-segment
+descriptors, and retains exact reference points/segment endpoints with positive
+integer permille display tuning. This is provisional preparatory evidence only:
+it is not production geometry, mesh, SDF, anatomy, runtime output, or Readiness
+3 activation. The filled visual gallery remains the next human form checkpoint.
+
 PR #9, “Add inspectable biped structure workflow,” is merged at commit
 `565c32bd35215e23d737fb333604382d3e6958ab`. PR #10, “Add preparatory exact
 decimal conversion,” is merged at commit
@@ -489,10 +498,9 @@ traversal over admitted records, grounded in the active parser/bootstrap and
 admitted schema/manifest/fixture transaction. Readiness 1 and Readiness 2
 remain active while Readiness 3 and later transactions remain gated. The
 prepared-source command is developer-facing preparatory inspection, not a
-human-visible creature result or retained-human checkpoint. PR #14 may merge
-as preparatory tooling after its normal checks pass. The next retained-human
-checkpoint is an actual rendered creature or primitive spatial preview, or a
-genuine direction-setting decision.
+human-visible creature result or retained-human checkpoint. The next
+retained-human checkpoint is an actual rendered creature or primitive spatial
+preview, or a genuine direction-setting decision.
 The main thread will autonomously resolve technical correctness findings or
 record evidence-dependent triggers under the DR-0001 Revision 6 transition
 direction; only a retained-human product, architecture-boundary, material
@@ -643,12 +651,11 @@ validator, and inspection command remain preparatory. The immediate-predecessor
   document-wide resolver preparation/provenance traversal. The
   `inspect-prepared-source` command and its bounded browser flow are
   developer-facing preparatory inspection, not a human-visible creature result
-  or retained-human checkpoint. PR #14 may merge as preparatory tooling after
-  its normal checks pass. The public single-source
-  preparation operation and internal numeric/frame-preparation helpers stay
-  preparatory, with no record-level admission bypass. Numeric/frame/output,
-  adapter, and geometry prerequisites gate later stages. Any performance claim must have
-  reproducible benchmark and hardware-profile evidence.
+  or retained-human checkpoint. The public single-source preparation operation
+  and internal numeric/frame-preparation helpers stay preparatory, with no
+  record-level admission bypass. Numeric/frame/output, adapter, and geometry
+  prerequisites gate later stages. Any performance claim must have reproducible
+  benchmark and hardware-profile evidence.
 - Preserve the accepted governance process and all historical decision/review
   evidence without reopening the parked confirmatory protocol.
 

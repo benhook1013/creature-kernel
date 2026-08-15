@@ -54,13 +54,13 @@ fn help_response(arguments: &[String]) -> Option<Value> {
     let (operation, usage, description) = match arguments {
         [flag] if flag == "--help" || flag == "-h" => (
             "help",
-            "creature-kernel inspect-structure --input <path>",
+            "creature-kernel inspect-structure --input <path> (use '-' for stdin)",
             "Inspect an admitted body document and emit its structural projection.",
         ),
         [command, flag] if command == "inspect-structure" && (flag == "--help" || flag == "-h") => {
             (
                 "inspect-structure",
-                "creature-kernel inspect-structure --input <path>",
+                "creature-kernel inspect-structure --input <path> (use '-' for stdin)",
                 "Inspect an admitted body document and emit its structural projection.",
             )
         }
@@ -89,13 +89,18 @@ fn help_response(arguments: &[String]) -> Option<Value> {
             json!([
                 {
                     "command": "inspect-structure",
-                    "usage": "creature-kernel inspect-structure --input <path>",
+                    "usage": "creature-kernel inspect-structure --input <path> (use '-' for stdin)",
                     "description": "Inspect an admitted body document and emit its structural projection."
                 },
                 {
                     "command": "inspect-prepared-source",
-                    "usage": "creature-kernel inspect-prepared-source --input <path>",
+                    "usage": "creature-kernel inspect-prepared-source --input <path> (use '-' for stdin)",
                     "description": "Inspect bounded source preparation and emit its provisional debug projection."
+                },
+                {
+                    "command": "inspect-provisional-form",
+                    "usage": "creature-kernel inspect-provisional-form --input <path> (use '-' for stdin)",
+                    "description": "Inspect four fixed display-only provisional filled-form variants."
                 }
             ]),
         );
@@ -748,7 +753,14 @@ mod tests {
             .iter()
             .map(|command| command["command"].as_str().unwrap())
             .collect();
-        assert_eq!(names, vec!["inspect-structure", "inspect-prepared-source"]);
+        assert_eq!(
+            names,
+            vec![
+                "inspect-structure",
+                "inspect-prepared-source",
+                "inspect-provisional-form"
+            ]
+        );
 
         let command_help = run_cli(["inspect-structure", "--help"]);
         let command_help: Value = provisional_json::from_str(&command_help.json).unwrap();

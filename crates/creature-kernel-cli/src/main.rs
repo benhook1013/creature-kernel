@@ -1,3 +1,4 @@
+mod provisional_form_inspection;
 mod source_preparation_inspection;
 mod structural_inspection;
 
@@ -6,6 +7,9 @@ fn main() {
     let (json, exit_code) =
         if arguments.first().map(String::as_str) == Some("inspect-prepared-source") {
             let result = source_preparation_inspection::run_cli(arguments);
+            (result.json, result.exit_code)
+        } else if arguments.first().map(String::as_str) == Some("inspect-provisional-form") {
+            let result = provisional_form_inspection::run_cli(arguments);
             (result.json, result.exit_code)
         } else {
             let result = structural_inspection::run_cli(arguments);

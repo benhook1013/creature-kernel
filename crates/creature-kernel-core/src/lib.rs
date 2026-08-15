@@ -7,6 +7,7 @@ pub mod frame;
 mod frame_preparation;
 pub mod numeric;
 pub(crate) mod numeric_comparison;
+pub mod provisional_form_preview;
 pub(crate) mod quaternion_normalization;
 pub mod reference_placement;
 pub(crate) mod resolver_envelope;
