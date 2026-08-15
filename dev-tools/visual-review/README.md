@@ -62,10 +62,18 @@ the child output and runtime, validates the
 `creature-kernel.provisional-source-preparation-inspection.v1` envelope, and
 publishes it as the existing immutable `structure` session kind. Its `graph`
 is rendered by the existing structure viewer; `prepared` adds only basis,
-counts, and numeric-value inspection data. This remains a source-preparation
-projection and makes no meaningful creature visualization, geometry, resolver,
-or runtime claim. It is not a retained-human checkpoint. Generated
-sessions live under `/tmp`, are disposable, and are not committed.
+counts, and numeric-value inspection data; and `preview`, when available,
+directly consumes the restricted exact reference placements. The browser
+renders a deliberately crude semantic point/line proof: Part markers,
+containment links, Joint endpoint links, attachment-root distinction, semantic
+labels, and deterministic SVG front (x/y), side (z/y), and top (x/z) views.
+Joint frame transforms are not interpreted. This is spatial scaffolding only,
+not geometry/mesh/surface/volume/anatomical quality, rigging, pose/animation,
+IK, deformation, physics, general transforms, resolver activation, or runtime
+evidence. It supplied the first genuine human-appraisable visual checkpoint;
+Ben confirmed on 2026-08-15 that the diagrams were decodable and spatially
+accurate for the intended straight tail. Generated sessions live under `/tmp`, are disposable, and are not
+committed.
 
 The server binds only to `127.0.0.1`. It prints one localhost URL after the
 socket is bound; port `0` asks the operating system to choose an available

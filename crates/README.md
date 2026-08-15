@@ -43,9 +43,14 @@ placements plus Attachment host/mating Socket frames and offsets it consumes.
 It composes parent-local Part deltas through explicit containment and checks
 authored attached-root placement against the exact Attachment equation.
 Unrelated Joint and named-frame transforms are not validated or resolved by
-this operation. This is a preparatory domain-specific operation, not general
-basis/unit/quaternion transform math, resolver activation, geometry or surface
-generation, or a user-facing rendered creature.
+this operation. The CLI's prepared-source inspection directly consumes these
+placements for a candidate deterministic spatial preview; the existing
+browser session draws only crude semantic point/line scaffolding (Part
+markers, containment and Joint endpoint links, attachment-root distinction,
+and front/side/top SVG views). This is not general basis/unit/quaternion
+transform math, geometry/mesh/surface/volume/anatomical quality, rigging,
+pose/animation, IK, deformation, physics, resolver activation, or runtime
+evidence.
 
 The CLI also exposes the separate provisional developer-instrumentation
 `inspect-prepared-source --input <path>` inspection. Unlike unchanged

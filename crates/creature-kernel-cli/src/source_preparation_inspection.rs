@@ -12,6 +12,9 @@ use creature_kernel_core::body_graph::OwnerRoleKey;
 use creature_kernel_core::frame::{self, RigidTransform, SignedAxis};
 use creature_kernel_core::numeric::NormalizedBinary64;
 use creature_kernel_core::provisional_json::{Map, Value, json};
+use creature_kernel_core::reference_placement::{
+    ExactReferencePlacements, PlacementSource, resolve_exact_reference_placements,
+};
 use creature_kernel_core::semantic_address::AddressKey;
 use creature_kernel_core::source_preparation::{
     PositionComponent, PreparedSingleSource, SourceNumericCause, SourceNumericLocation,
@@ -21,7 +24,7 @@ use creature_kernel_core::structural_validation::StructuralDiagnostic;
 use std::path::Path;
 
 const FORMAT: &str = "creature-kernel.provisional-source-preparation-inspection.v1";
-const LIMITATIONS: &str = "Provisional source preparation only: no dependency resolver or snapshot, no basis or unit application, no quaternion semantics, no dependency or module expansion, no geometry, and no runtime claim.";
+const LIMITATIONS: &str = "Provisional source preparation only plus a restricted exact-placement preview: no geometry, general transforms, or Joint-frame resolution; no dependency resolver or snapshot, no basis or unit application, no quaternion semantics, no dependency or module expansion, and no runtime claim.";
 
 /// Serialized result and process status for one CLI invocation.
 #[derive(Debug, PartialEq)]
@@ -138,11 +141,129 @@ fn success(prepared: PreparedSingleSource) -> CliResult {
             "numeric_values": numeric_values(&prepared),
         }),
     );
+    output.insert("preview".to_owned(), exact_placement_preview(&prepared));
     output.insert(
         "limitations".to_owned(),
         Value::String(LIMITATIONS.to_owned()),
     );
     result(Value::Object(output))
+}
+
+fn exact_placement_preview(prepared: &PreparedSingleSource) -> Value {
+    match resolve_exact_reference_placements(prepared) {
+        Ok(placements) => available_exact_placement_preview(prepared, &placements),
+        Err(error) => json!({
+            "format": "creature-kernel.provisional-exact-placement-preview.v1",
+            "status": "unavailable",
+            "diagnostic": {
+                "code": "ck.preview.exact-placement-unavailable",
+                "message": error.to_string(),
+            },
+        }),
+    }
+}
+
+fn available_exact_placement_preview(
+    prepared: &PreparedSingleSource,
+    placements: &ExactReferencePlacements,
+) -> Value {
+    let parts = placements
+        .parts()
+        .values()
+        .map(|part| {
+            json!({
+                "address": structural_inspection::address_key_value(part.address()),
+                "position": exact_translation_value(part.reference_translation()),
+                "parent": part
+                    .parent()
+                    .map(structural_inspection::address_key_value)
+                    .unwrap_or(Value::Null),
+                "placement_source": placement_source_name(part.source()),
+            })
+        })
+        .collect::<Vec<_>>();
+
+    let containment_edges = placements
+        .parts()
+        .values()
+        .filter_map(|part| {
+            part.parent().map(|parent| {
+                json!({
+                    "parent": structural_inspection::address_key_value(parent),
+                    "child": structural_inspection::address_key_value(part.address()),
+                })
+            })
+        })
+        .collect::<Vec<_>>();
+
+    let joint_edges = prepared
+        .graph()
+        .joints()
+        .values()
+        .map(|joint| {
+            let proximal_key = AddressKey::try_from(&joint.proximal)
+                .expect("structural validation guarantees a valid Joint proximal address");
+            let distal_key = AddressKey::try_from(&joint.distal)
+                .expect("structural validation guarantees a valid Joint distal address");
+            let proximal = placements
+                .part(&proximal_key)
+                .expect("exact placement resolves every structural Joint proximal Part")
+                .address();
+            let distal = placements
+                .part(&distal_key)
+                .expect("exact placement resolves every structural Joint distal Part")
+                .address();
+            json!({
+                "joint": structural_inspection::address_key_value(
+                    &AddressKey::try_from(&joint.address)
+                        .expect("structural validation guarantees a valid Joint address")
+                ),
+                "proximal": structural_inspection::address_key_value(proximal),
+                "distal": structural_inspection::address_key_value(distal),
+            })
+        })
+        .collect::<Vec<_>>();
+
+    let attachments = placements
+        .attachments()
+        .values()
+        .map(|attachment| {
+            json!({
+                "attachment": structural_inspection::address_key_value(attachment.address()),
+                "root": structural_inspection::address_key_value(attachment.root()),
+                "host_socket": structural_inspection::address_key_value(attachment.host_socket()),
+                "mating_socket": structural_inspection::address_key_value(attachment.mating_socket()),
+                "offset": exact_translation_value(attachment.offset()),
+                "authored_root_local": exact_translation_value(attachment.authored_root_local()),
+                "derived_root_local": exact_translation_value(attachment.derived_root_local()),
+            })
+        })
+        .collect::<Vec<_>>();
+
+    json!({
+        "format": "creature-kernel.provisional-exact-placement-preview.v1",
+        "status": "available",
+        "basis": basis_projection(prepared.basis()),
+        "parts": parts,
+        "containment_edges": containment_edges,
+        "joint_edges": joint_edges,
+        "attachments": attachments,
+    })
+}
+
+fn exact_translation_value(
+    translation: creature_kernel_core::reference_placement::ExactTranslation,
+) -> Value {
+    let [x, y, z] = translation.components();
+    json!([x, y, z])
+}
+
+fn placement_source_name(source: PlacementSource) -> &'static str {
+    match source {
+        PlacementSource::AuthoredRoot => "authored-root",
+        PlacementSource::AuthoredContainment => "authored-containment",
+        PlacementSource::AuthoredAttachment => "authored-attachment",
+    }
 }
 
 fn failure(error: SourcePreparationError) -> CliResult {
@@ -751,6 +872,50 @@ mod tests {
         assert_eq!(value["prepared"]["counts"]["landmarks"], 0);
         assert_eq!(value["prepared"]["counts"]["dimensions"], 0);
         assert_eq!(value["prepared"]["counts"]["frames"], 0);
+        let preview = &value["preview"];
+        assert_eq!(
+            preview["format"],
+            "creature-kernel.provisional-exact-placement-preview.v1"
+        );
+        assert_eq!(preview["status"], "available");
+        assert_eq!(preview["basis"], value["prepared"]["basis"]);
+        assert_eq!(preview["parts"].as_array().unwrap().len(), 18);
+        assert_eq!(preview["containment_edges"].as_array().unwrap().len(), 17);
+        assert_eq!(preview["joint_edges"].as_array().unwrap().len(), 17);
+        assert_eq!(preview["attachments"].as_array().unwrap().len(), 1);
+
+        let part = |role: &str, anchors: &[&str]| {
+            preview["parts"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|part| {
+                    part["address"]["role"] == role
+                        && part["address"]["anchors"] == json!(anchors.to_vec())
+                })
+                .unwrap()
+        };
+        let head = part("head", &[]);
+        assert_eq!(head["position"], json!([0, 3, 0]));
+        assert_eq!(head["placement_source"], "authored-containment");
+        let left_hand = part("hand", &["left"]);
+        assert_eq!(left_hand["position"], json!([-3, 2, 0]));
+        assert_eq!(left_hand["placement_source"], "authored-containment");
+        let right_foot = part("foot", &["right"]);
+        assert_eq!(right_foot["position"], json!([1, -3, 1]));
+        assert_eq!(right_foot["placement_source"], "authored-containment");
+        let tail_root = part("tail_root", &["tail"]);
+        assert_eq!(tail_root["position"], json!([0, 0, -1]));
+        assert_eq!(tail_root["placement_source"], "authored-attachment");
+        assert_eq!(preview["attachments"][0]["offset"], json!([0, 0, 0]));
+        assert_eq!(
+            preview["attachments"][0]["authored_root_local"],
+            json!([0, 0, -1])
+        );
+        assert_eq!(
+            preview["attachments"][0]["derived_root_local"],
+            json!([0, 0, -1])
+        );
         let rows = value["prepared"]["numeric_values"].as_array().unwrap();
         assert_eq!(rows.len(), 385);
         let pelvis_x = rows
@@ -769,6 +934,12 @@ mod tests {
                 .as_str()
                 .unwrap()
                 .contains("no geometry")
+        );
+        assert!(
+            value["limitations"]
+                .as_str()
+                .unwrap()
+                .contains("general transforms")
         );
     }
 
@@ -818,6 +989,72 @@ mod tests {
         assert_eq!(numeric["diagnostics"][0]["category"], "numeric");
         assert!(numeric["diagnostics"][0]["location"].is_object());
         assert!(numeric.get("prepared").is_none());
+    }
+
+    #[test]
+    fn unsupported_exact_placement_is_unavailable_without_partial_preview() {
+        for (component, value) in [
+            ("fractional", serde_json::json!(0.5)),
+            ("rotation", serde_json::json!(1)),
+        ] {
+            let mut source: serde_json::Value = serde_json::from_slice(&biped()).unwrap();
+            let neck = source["body"]["parts"]
+                .as_array_mut()
+                .unwrap()
+                .iter_mut()
+                .find(|part| part["address"]["role"] == "neck")
+                .unwrap();
+            if component == "fractional" {
+                neck["placement"]["translation"][0] = value;
+            } else {
+                neck["placement"]["rotation_xyzw"] = serde_json::json!([0, 0, 1, 0]);
+            }
+
+            let output = inspect_source(&serde_json::to_vec(&source).unwrap());
+            assert_eq!(
+                output.exit_code, 0,
+                "{component} placement remains prepared"
+            );
+            let output = provisional_json::from_str::<Value>(&output.json).unwrap();
+            assert_eq!(output["status"], "success");
+            assert!(output.get("prepared").is_some());
+            assert!(output.get("graph").is_some());
+            let preview = &output["preview"];
+            assert_eq!(preview["status"], "unavailable");
+            assert_eq!(
+                preview["diagnostic"]["code"],
+                "ck.preview.exact-placement-unavailable"
+            );
+            assert_eq!(
+                preview["diagnostic"]["message"],
+                if component == "fractional" {
+                    "non-integer Part translation component 0 at main:[]:part:neck"
+                } else {
+                    "non-identity Part rotation at main:[]:part:neck"
+                }
+            );
+            assert!(preview.get("basis").is_none());
+            assert!(preview.get("parts").is_none());
+            assert!(preview.get("containment_edges").is_none());
+            assert!(preview.get("joint_edges").is_none());
+            assert!(preview.get("attachments").is_none());
+        }
+    }
+
+    #[test]
+    fn joint_frame_changes_do_not_change_exact_placement_preview() {
+        let baseline = value(&biped());
+        let mut source: serde_json::Value = serde_json::from_slice(&biped()).unwrap();
+        source["body"]["joints"][0]["proximal_frame"] = serde_json::json!({
+            "translation": [17, 19, 23],
+            "rotation_xyzw": [1, 2, 3, 4]
+        });
+        let changed = value(&serde_json::to_vec(&source).unwrap());
+        assert_eq!(baseline["status"], "success");
+        assert_eq!(changed["status"], "success");
+        assert_eq!(baseline["preview"], changed["preview"]);
+        assert_ne!(baseline["prepared"], changed["prepared"]);
+        assert_ne!(baseline["graph"], changed["graph"]);
     }
 
     #[test]

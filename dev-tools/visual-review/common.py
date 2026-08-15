@@ -39,6 +39,22 @@ STRUCTURE_FORMAT = "creature-kernel.provisional-structural-inspection.v1"
 PREPARED_SOURCE_FORMAT = "creature-kernel.provisional-source-preparation-inspection.v1"
 PREPARED_SOURCE_OPERATION = "inspect-prepared-source"
 PREPARED_SOURCE_STAGE = "source-preparation"
+EXACT_PLACEMENT_PREVIEW_FORMAT = (
+    "creature-kernel.provisional-exact-placement-preview.v1"
+)
+EXACT_PLACEMENT_PREVIEW_UNAVAILABLE_CODE = "ck.preview.exact-placement-unavailable"
+EXACT_PLACEMENT_PREVIEW_SOURCES = {
+    "authored-root",
+    "authored-containment",
+    "authored-attachment",
+}
+SIGNED_I64_MIN = -(1 << 63)
+SIGNED_I64_MAX = (1 << 63) - 1
+ADDRESS_COMPONENT_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+ADDRESS_COMPONENT_MAX_BYTES = 16_384
+ADDRESS_MAX_ANCHORS = 4_096
+PREVIEW_ADDRESS_FIELDS = {"namespace", "anchors", "kind", "role"}
+PreviewAddressKey = tuple[str, tuple[str, ...], str, str]
 # Short aliases mirror STRUCTURE_FORMAT for callers that handle the two
 # structure-session projection formats generically.
 PREPARED_FORMAT = PREPARED_SOURCE_FORMAT
@@ -372,6 +388,373 @@ def _validate_structure_envelope(value: Any, where: str) -> dict[str, Any]:
     return obj
 
 
+def _preview_address(value: Any, where: str, kind: str) -> PreviewAddressKey:
+    address = _object(value, where)
+    _check_fields(address, PREVIEW_ADDRESS_FIELDS, where)
+    if set(address) != PREVIEW_ADDRESS_FIELDS:
+        missing = sorted(PREVIEW_ADDRESS_FIELDS - set(address))
+        raise ValidationError(f"{where} is missing field(s): {', '.join(missing)}")
+    namespace = address.get("namespace")
+    role = address.get("role")
+    anchors = address.get("anchors")
+    if type(namespace) is not str or not ADDRESS_COMPONENT_RE.fullmatch(namespace):
+        raise ValidationError(f"{where}.namespace is not a restricted identifier")
+    if type(role) is not str or not ADDRESS_COMPONENT_RE.fullmatch(role):
+        raise ValidationError(f"{where}.role is not a restricted identifier")
+    if len(namespace.encode("ascii", "strict")) > ADDRESS_COMPONENT_MAX_BYTES:
+        raise ValidationError(f"{where}.namespace exceeds the identifier length bound")
+    if len(role.encode("ascii", "strict")) > ADDRESS_COMPONENT_MAX_BYTES:
+        raise ValidationError(f"{where}.role exceeds the identifier length bound")
+    if not isinstance(anchors, list):
+        raise ValidationError(f"{where}.anchors must be an array")
+    if len(anchors) > ADDRESS_MAX_ANCHORS:
+        raise ValidationError(f"{where}.anchors exceeds the resource bound")
+    normalized_anchors: list[str] = []
+    for index, anchor in enumerate(anchors):
+        if type(anchor) is not str or not ADDRESS_COMPONENT_RE.fullmatch(anchor):
+            raise ValidationError(f"{where}.anchors[{index}] is not a restricted identifier")
+        if len(anchor.encode("ascii", "strict")) > ADDRESS_COMPONENT_MAX_BYTES:
+            raise ValidationError(
+                f"{where}.anchors[{index}] exceeds the identifier length bound"
+            )
+        normalized_anchors.append(anchor)
+    if address.get("kind") != kind:
+        raise ValidationError(f"{where}.kind must be {kind}")
+    return (namespace, tuple(normalized_anchors), kind, role)
+
+
+def _preview_graph_addresses(
+    graph: dict[str, Any], collection: str, kind: str, where: str
+) -> dict[PreviewAddressKey, dict[str, Any]]:
+    addresses: dict[PreviewAddressKey, dict[str, Any]] = {}
+    for index, value in enumerate(graph[collection]):
+        item = _object(value, f"{where}.graph.{collection}[{index}]")
+        key = _preview_address(
+            item.get("address"),
+            f"{where}.graph.{collection}[{index}].address",
+            kind,
+        )
+        if key in addresses:
+            raise ValidationError(f"{where}.graph.{collection} contains duplicate addresses")
+        addresses[key] = item
+    return addresses
+
+
+def _preview_part_reference(
+    value: Any, where: str, part_addresses: set[PreviewAddressKey]
+) -> PreviewAddressKey:
+    key = _preview_address(value, where, "part")
+    if key not in part_addresses:
+        raise ValidationError(f"{where} does not reference a graph Part")
+    return key
+
+
+def _preview_translation(value: Any, where: str) -> None:
+    translation = _array(value, where)
+    if len(translation) != 3:
+        raise ValidationError(f"{where} must be an array of 3 integers")
+    for component in translation:
+        if type(component) is not int or not SIGNED_I64_MIN <= component <= SIGNED_I64_MAX:
+            raise ValidationError(
+                f"{where} components must be signed i64 integers exactly representable as binary64"
+            )
+        try:
+            exactly_representable = int(float(component)) == component
+        except (OverflowError, ValueError):
+            exactly_representable = False
+        if not exactly_representable:
+            raise ValidationError(
+                f"{where} components must be signed i64 integers exactly representable as binary64"
+            )
+
+
+def _preview_attachment_required_roots(
+    graph: dict[str, Any], part_addresses: set[PreviewAddressKey], where: str
+) -> set[PreviewAddressKey]:
+    modules = graph.get("modules", [])
+    if not isinstance(modules, list):
+        raise ValidationError(f"{where}.graph.modules must be an array")
+    roots: set[PreviewAddressKey] = set()
+    for index, value in enumerate(modules):
+        module_where = f"{where}.graph.modules[{index}]"
+        module = _object(value, module_where)
+        presence = module.get("presence")
+        if presence not in {"absent", "present"}:
+            raise ValidationError(f"{module_where}.presence must be absent or present")
+        attachment_required = module.get("attachment_required")
+        if type(attachment_required) is not bool:
+            raise ValidationError(f"{module_where}.attachment_required must be a boolean")
+        root = module.get("root")
+        if presence == "absent":
+            if root is not None:
+                raise ValidationError(f"{module_where}.root must be null for an absent module")
+            continue
+        if root is None:
+            raise ValidationError(f"{module_where}.root is required for a present module")
+        root_key = _preview_part_reference(root, f"{module_where}.root", part_addresses)
+        if attachment_required and root_key in roots:
+            raise ValidationError(f"{where}.graph.modules contains duplicate attachment roots")
+        if attachment_required:
+            roots.add(root_key)
+    return roots
+
+
+def _validate_exact_placement_preview(
+    value: Any,
+    where: str,
+    graph: dict[str, Any],
+    prepared_basis: dict[str, Any] | None = None,
+) -> None:
+    preview = _object(value, where)
+    format_name = _string(preview.get("format"), f"{where}.format", max_len=256)
+    if format_name != EXACT_PLACEMENT_PREVIEW_FORMAT:
+        raise ValidationError(f"{where}.format must be {EXACT_PLACEMENT_PREVIEW_FORMAT}")
+    status = _string(preview.get("status"), f"{where}.status", max_len=128)
+
+    try:
+        encoded = json.dumps(preview, allow_nan=False, ensure_ascii=False)
+        encoded_bytes = encoded.encode("utf-8")
+    except (TypeError, ValueError, UnicodeError) as exc:
+        raise ValidationError(f"{where} is not JSON-compatible: {exc}") from exc
+    if len(encoded_bytes) > MAX_STRUCTURE_JSON_BYTES:
+        raise ValidationError(f"{where} is too large")
+
+    if status == "unavailable":
+        _check_fields(preview, {"format", "status", "diagnostic"}, where)
+        diagnostic = _object(preview.get("diagnostic"), f"{where}.diagnostic")
+        _check_fields(diagnostic, {"code", "message"}, f"{where}.diagnostic")
+        if diagnostic.get("code") != EXACT_PLACEMENT_PREVIEW_UNAVAILABLE_CODE:
+            raise ValidationError(
+                f"{where}.diagnostic.code must be {EXACT_PLACEMENT_PREVIEW_UNAVAILABLE_CODE}"
+            )
+        _string(diagnostic.get("message"), f"{where}.diagnostic.message")
+        return
+    if status != "available":
+        raise ValidationError(f"{where}.status must be available or unavailable")
+
+    _check_fields(
+        preview,
+        {
+            "format",
+            "status",
+            "basis",
+            "parts",
+            "containment_edges",
+            "joint_edges",
+            "attachments",
+        },
+        where,
+    )
+    basis = _object(preview.get("basis"), f"{where}.basis")
+    _check_fields(
+        basis,
+        {"length_unit", "handedness", "up", "forward", "source_for_canonical"},
+        f"{where}.basis",
+    )
+    if prepared_basis is not None and basis != prepared_basis:
+        raise ValidationError(f"{where}.basis does not match prepared.basis")
+    if (
+        basis.get("length_unit") != "metre"
+        or basis.get("handedness") != "right"
+        or basis.get("up") != "+y"
+        or basis.get("forward") != "+z"
+        or basis.get("source_for_canonical") != ["+x", "+y", "+z"]
+    ):
+        raise ValidationError(f"{where}.basis is not the closed prepared basis")
+
+    part_records = _preview_graph_addresses(graph, "parts", "part", where)
+    joint_records = _preview_graph_addresses(graph, "joints", "joint", where)
+    socket_records = _preview_graph_addresses(graph, "sockets", "socket", where)
+    attachment_records = _preview_graph_addresses(graph, "attachments", "attachment", where)
+    part_addresses = set(part_records)
+    joint_addresses = set(joint_records)
+    socket_addresses = set(socket_records)
+    attachment_addresses = set(attachment_records)
+    attachment_roots = _preview_attachment_required_roots(graph, part_addresses, where)
+
+    graph_parents: dict[PreviewAddressKey, PreviewAddressKey | None] = {}
+    root_addresses: set[PreviewAddressKey] = set()
+    for address, part_record in part_records.items():
+        containment_where = f"{where}.graph.parts[{address!r}].containment"
+        containment = _object(part_record.get("containment"), containment_where)
+        _check_fields(containment, {"root", "parent"}, containment_where)
+        if set(containment) == {"root"}:
+            if containment["root"] is not True:
+                raise ValidationError(f"{containment_where}.root must be true")
+            graph_parents[address] = None
+            root_addresses.add(address)
+        elif set(containment) == {"parent"}:
+            parent = _preview_part_reference(
+                containment["parent"], f"{containment_where}.parent", part_addresses
+            )
+            if parent == address:
+                raise ValidationError(f"{containment_where}.parent cannot self-reference")
+            graph_parents[address] = parent
+        else:
+            raise ValidationError(
+                f"{containment_where} must contain exactly root or parent"
+            )
+    if len(root_addresses) != 1:
+        raise ValidationError(f"{where}.graph.parts must contain exactly one root")
+    structural_root = next(iter(root_addresses))
+
+    parts = _array(preview.get("parts"), f"{where}.parts")
+    if len(parts) != len(graph["parts"]):
+        raise ValidationError(f"{where}.parts count does not match graph.parts")
+    seen_parts: set[PreviewAddressKey] = set()
+    for index, value in enumerate(parts):
+        part_where = f"{where}.parts[{index}]"
+        part = _object(value, part_where)
+        _check_fields(part, {"address", "position", "parent", "placement_source"}, part_where)
+        address = _preview_part_reference(part.get("address"), f"{part_where}.address", part_addresses)
+        if address in seen_parts:
+            raise ValidationError(f"{where}.parts contains duplicate addresses")
+        seen_parts.add(address)
+        _preview_translation(part.get("position"), f"{part_where}.position")
+        parent = part.get("parent")
+        parent_key = None
+        if parent is not None:
+            parent_key = _preview_part_reference(parent, f"{part_where}.parent", part_addresses)
+        if parent_key != graph_parents[address]:
+            raise ValidationError(f"{part_where}.parent does not match graph containment")
+        source = _string(part.get("placement_source"), f"{part_where}.placement_source")
+        if source not in EXACT_PLACEMENT_PREVIEW_SOURCES:
+            raise ValidationError(f"{part_where}.placement_source is not supported")
+        expected_source = (
+            "authored-root"
+            if address == structural_root
+            else "authored-attachment"
+            if address in attachment_roots
+            else "authored-containment"
+        )
+        if source != expected_source:
+            raise ValidationError(f"{part_where}.placement_source does not match provenance")
+    if seen_parts != part_addresses:
+        raise ValidationError(f"{where}.parts addresses do not match graph.parts")
+
+    containment_edges = _array(preview.get("containment_edges"), f"{where}.containment_edges")
+    expected_containment = {
+        (parent, child)
+        for child, parent in graph_parents.items()
+        if parent is not None
+    }
+    if len(containment_edges) != len(expected_containment):
+        raise ValidationError(f"{where}.containment_edges count must equal parts minus one")
+    seen_containment: set[tuple[PreviewAddressKey, PreviewAddressKey]] = set()
+    for index, value in enumerate(containment_edges):
+        edge_where = f"{where}.containment_edges[{index}]"
+        edge = _object(value, edge_where)
+        _check_fields(edge, {"parent", "child"}, edge_where)
+        parent = _preview_part_reference(edge.get("parent"), f"{edge_where}.parent", part_addresses)
+        child = _preview_part_reference(edge.get("child"), f"{edge_where}.child", part_addresses)
+        if parent == child:
+            raise ValidationError(f"{edge_where} cannot be a self edge")
+        identity = (parent, child)
+        if identity in seen_containment:
+            raise ValidationError(f"{where}.containment_edges contains duplicates")
+        seen_containment.add(identity)
+    if seen_containment != expected_containment:
+        raise ValidationError(f"{where}.containment_edges do not match graph containment")
+
+    joint_edges = _array(preview.get("joint_edges"), f"{where}.joint_edges")
+    if len(joint_edges) != len(graph["joints"]):
+        raise ValidationError(f"{where}.joint_edges count does not match graph.joints")
+    seen_joints: set[PreviewAddressKey] = set()
+    for index, value in enumerate(joint_edges):
+        edge_where = f"{where}.joint_edges[{index}]"
+        edge = _object(value, edge_where)
+        _check_fields(edge, {"joint", "proximal", "distal"}, edge_where)
+        joint = _preview_address(edge.get("joint"), f"{edge_where}.joint", "joint")
+        if joint not in joint_addresses:
+            raise ValidationError(f"{edge_where}.joint does not reference a graph Joint")
+        if joint in seen_joints:
+            raise ValidationError(f"{where}.joint_edges contains duplicate joints")
+        seen_joints.add(joint)
+        proximal = _preview_part_reference(
+            edge.get("proximal"), f"{edge_where}.proximal", part_addresses
+        )
+        distal = _preview_part_reference(
+            edge.get("distal"), f"{edge_where}.distal", part_addresses
+        )
+        graph_joint = joint_records[joint]
+        graph_proximal = _preview_part_reference(
+            graph_joint.get("proximal"), f"{edge_where}.graph.proximal", part_addresses
+        )
+        graph_distal = _preview_part_reference(
+            graph_joint.get("distal"), f"{edge_where}.graph.distal", part_addresses
+        )
+        if (proximal, distal) != (graph_proximal, graph_distal):
+            raise ValidationError(f"{edge_where} endpoints do not match graph Joint")
+    if seen_joints != joint_addresses:
+        raise ValidationError(f"{where}.joint_edges identities do not match graph.joints")
+
+    attachments = _array(preview.get("attachments"), f"{where}.attachments")
+    if len(attachments) != len(graph["attachments"]):
+        raise ValidationError(f"{where}.attachments count does not match graph.attachments")
+    seen_attachments: set[PreviewAddressKey] = set()
+    seen_attachment_roots: set[PreviewAddressKey] = set()
+    for index, value in enumerate(attachments):
+        attachment_where = f"{where}.attachments[{index}]"
+        attachment = _object(value, attachment_where)
+        _check_fields(
+            attachment,
+            {
+                "attachment",
+                "root",
+                "host_socket",
+                "mating_socket",
+                "offset",
+                "authored_root_local",
+                "derived_root_local",
+            },
+            attachment_where,
+        )
+        identity = _preview_address(
+            attachment.get("attachment"), f"{attachment_where}.attachment", "attachment"
+        )
+        if identity not in attachment_addresses:
+            raise ValidationError(
+                f"{attachment_where}.attachment does not reference a graph Attachment"
+            )
+        if identity in seen_attachments:
+            raise ValidationError(f"{where}.attachments contains duplicate attachments")
+        seen_attachments.add(identity)
+        root = _preview_part_reference(
+            attachment.get("root"), f"{attachment_where}.root", part_addresses
+        )
+        if root not in attachment_roots:
+            raise ValidationError(
+                f"{attachment_where}.root is not a present attachment-required module root"
+            )
+        if root in seen_attachment_roots:
+            raise ValidationError(f"{where}.attachments contains duplicate roots")
+        seen_attachment_roots.add(root)
+        graph_attachment = attachment_records[identity]
+        for key in ("host_socket", "mating_socket"):
+            socket = _preview_address(attachment.get(key), f"{attachment_where}.{key}", "socket")
+            if socket not in socket_addresses:
+                raise ValidationError(f"{attachment_where}.{key} does not reference a graph Socket")
+        graph_socket_fields = {"host_socket": "host", "mating_socket": "mating"}
+        for preview_field, graph_field in graph_socket_fields.items():
+            graph_socket = _preview_address(
+                graph_attachment.get(graph_field),
+                f"{attachment_where}.graph.{graph_field}",
+                "socket",
+            )
+            if _preview_address(
+                attachment.get(preview_field), f"{attachment_where}.{preview_field}", "socket"
+            ) != graph_socket:
+                raise ValidationError(
+                    f"{attachment_where}.{preview_field} does not match graph Attachment"
+                )
+        for key in ("offset", "authored_root_local", "derived_root_local"):
+            _preview_translation(attachment.get(key), f"{attachment_where}.{key}")
+    if seen_attachments != attachment_addresses:
+        raise ValidationError(f"{where}.attachments identities do not match graph.attachments")
+    if seen_attachment_roots != attachment_roots:
+        raise ValidationError(f"{where}.attachments roots do not match required module roots")
+
+
 def _validate_prepared_source_envelope(value: Any, where: str) -> dict[str, Any]:
     """Validate the source-preparation projection used by the structure viewer.
 
@@ -541,6 +924,10 @@ def _validate_prepared_source_envelope(value: Any, where: str) -> dict[str, Any]
                 raise ValidationError(
                     f"{where}.prepared.numeric_values {group} rows do not match expected cardinality"
                 )
+        if "preview" in obj:
+            _validate_exact_placement_preview(
+                obj["preview"], f"{where}.preview", graph, prepared["basis"]
+            )
     else:
         if not obj["processing_complete"] and not obj["diagnostics_complete"]:
             raise ValidationError(
@@ -548,6 +935,8 @@ def _validate_prepared_source_envelope(value: Any, where: str) -> dict[str, Any]
             )
         if "graph" in obj or "prepared" in obj:
             raise ValidationError(f"{where}.graph and prepared are only valid for success")
+        if "preview" in obj:
+            raise ValidationError(f"{where}.preview is only valid for success")
         if not diagnostics:
             raise ValidationError(f"{where}.diagnostics must not be empty for a non-success status")
         primary = obj.get("primary_diagnostic")

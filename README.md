@@ -229,9 +229,17 @@ are not validated or resolved by this operation. This is not general basis/
 unit/quaternion transform math, a resolver or snapshot activation, geometry or
 surface generation, or a user-facing rendered creature. The corrected example
 stores parent-local deltas rather than world-looking values while preserving
-the intended derived reference positions. The next implementation step is a
-directly consuming primitive spatial preview; that preview is the first
-genuine human visual checkpoint before merge.
+the intended derived reference positions. The candidate preview now directly
+consumes those restricted exact placements through the existing prepared-source
+inspection/publication flow. It is deterministic spatial scaffolding only: the
+browser draws semantic Part markers, containment and Joint endpoint links, an
+attachment-root distinction, and front (x/y), side (z/y), and top (x/z) SVG
+views. Joint frame transforms are not interpreted. The deliberately crude
+semantic point/line view supplied the first genuine human-appraisable visual
+checkpoint; Ben confirmed on 2026-08-15 that the diagrams were decodable and
+spatially accurate for the intended straight tail. It is not geometry, mesh, surface, volume, anatomical quality,
+rigging, pose/animation, IK, deformation, physics, general transform
+resolution, resolver activation, or runtime evidence.
 
 `inspect-structure` is unchanged: it reports only the source-preserving
 structural graph projection and structural diagnostics. The prepared-source

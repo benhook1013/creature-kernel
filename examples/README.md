@@ -81,9 +81,13 @@ geometry, a resolved snapshot, rig, animation, physics, or runtime proof.
 The existing image-review workflow remains available; see the [developer
 workflow](../docs/developer-workflows/visual-review-gallery.md) for details.
 
-To review the prepared projection in the browser, build the CLI and run
-`publish_prepared_source.py` followed by `serve.py` against a disposable local
-root. The owning [visual-review workflow](../docs/developer-workflows/visual-review-gallery.md)
-and [tool README](../dev-tools/visual-review/README.md) provide the launch
-commands and behavior. Generated sessions are disposable and must not be
-committed.
+To review the candidate primitive spatial preview in the browser, build the
+CLI and run the existing `publish_prepared_source.py` followed by `serve.py`
+against a disposable local root. The publisher invokes
+`inspect-prepared-source --input PATH`; the browser then renders the exact
+placement result as deterministic front (x/y), side (z/y), and top (x/z) SVG
+scaffolding with semantic Part markers and links. Use the [visual-review tool
+README](../dev-tools/visual-review/README.md) for the exact command flow and
+interpretation. This is a crude point/line visual checkpoint, not geometry,
+mesh, rigging, animation, physics, or runtime evidence; generated sessions are
+disposable and must not be committed.

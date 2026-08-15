@@ -20,4 +20,12 @@ regions, capabilities, and closed raw JSON. A structural result is provisional
 and source-preserving: the UI does not infer a skeleton, render geometry,
 describe runtime state, edit data, or execute browser commands. Invalid or
 non-success results show status and diagnostics without drawing a partial
-containment tree.
+containment tree. When the prepared-source payload includes an available exact
+placement preview, the same read-only page draws deterministic SVG front
+(x/y), side (z/y), and top (x/z) views with semantic Part markers, containment
+links, Joint endpoint links, attachment-root distinction, and labels. Joint
+frame transforms are not interpreted; this is crude spatial scaffolding, not
+geometry, mesh, surface, volume, anatomical quality, rigging, pose/animation,
+IK, deformation, physics, general transforms, resolver activation, or runtime
+evidence. The view is intended for Ben's human appraisal of spatial layout,
+proportions/symmetry, and tail/foot depth before merge.
