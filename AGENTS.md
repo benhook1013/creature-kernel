@@ -193,6 +193,13 @@ until a genuine retained-human design choice or useful visual result is ready.
 - Subagent selection, delegation boundaries, model routing, and independent
   review use
   `docs/developer-workflows/ai-delegation-and-review.md`.
+- For browser navigation, inspection, interaction, screenshots, or recordings,
+  use the T3 collaborative preview first. If that preview is unavailable and a
+  Windows Chrome/CDP fallback is required, pass a readable PowerShell script on
+  standard input only through
+  `dev-tools/visual-review/powershell-stdin.sh`. Never use PowerShell
+  `-EncodedCommand`, Base64, or another obfuscated command payload for this
+  work, and never disable Defender or add an exclusion for agent automation.
 - Any AI thread may append a genuinely reusable operational observation to
   `docs/project/ai-observations.md` after recurring tool misuse, unavailable or
   broken routes, misleading harness or environment behavior, or other token- or

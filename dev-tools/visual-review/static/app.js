@@ -1204,7 +1204,8 @@
   var PROVISIONAL_FORM_FORMATS = [
     "creature-kernel.provisional-form-preview.v1",
     "creature-kernel.provisional-form-preview.v2",
-    "creature-kernel.provisional-form-preview.v3"
+    "creature-kernel.provisional-form-preview.v3",
+    "creature-kernel.provisional-form-preview.v4"
   ];
   var PROVISIONAL_FORM_VARIANTS = ["neutral-v0", "broad-soft-v0", "lean-readable-v0", "depth-forward-v0"];
   var PROVISIONAL_FORM_VIEWS = [

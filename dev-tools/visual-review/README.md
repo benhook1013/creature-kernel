@@ -112,22 +112,22 @@ python3 dev-tools/visual-review/serve.py \
 `publish_provisional_form.py` invokes `creature-kernel
 inspect-provisional-form --input PATH` shell-free, with a 10-second timeout,
 256 KiB stdout bound, and 64 KiB stderr bound. It accepts only a complete,
-diagnostic-free `creature-kernel.provisional-form-preview.v1`, `.v2`, or `.v3`
-success envelope,
+diagnostic-free `creature-kernel.provisional-form-preview.v1`, `.v2`, `.v3`, or
+`.v4` success envelope,
 the exact four variant IDs/order, known Part addresses and provenance, bounded
 integer points, supported ellipsoid/capsule/tapered-segment shapes, and the
 positive reference scale. Failed CLI outcomes and malformed payloads are not
 published. The resulting immutable `provisional-form` session contains the
 validated payload only and no assets or external dependencies.
 
-The CLI currently emits the provisional v3 contract. As in v2, a capsule is
-owned by its current Part: `upper_arm` spans its reference point to its direct
-`forearm` child, `forearm` to `hand`, `thigh` to `shin`, and `shin` to `foot`.
-The tapered tail remains parent-to-current Part. The server also retains strict
-read support for immutable v1 and v2 sessions; v1 capsules used
-parent-to-current Part endpoints, while v2 introduced the corrected limb
-ownership. The fixed v3 profiles additionally expose a visible neck bridge,
-separate torso from head, and retain proximal shoulder and hip overlap. These
+The CLI currently emits the provisional v4 contract. As in v2/v3, limb
+capsules are owned by their current Part: `upper_arm` spans its reference point
+to its direct `forearm` child, `forearm` to `hand`, `thigh` to `shin`, and
+`shin` to `foot`. V4 additionally represents `neck` as a narrow axial capsule
+from the neck reference to its direct `head` child, overlapping only the upper
+torso and head rather than behaving like a torso-length spine. The tapered tail
+remains parent-to-current Part. The server retains strict read support for
+immutable v1-v3 sessions under their original role/endpoint contracts. These
 are provisional display-volume rules, not a generated skeleton, anatomical
 socket, or general junction contract.
 
@@ -147,6 +147,28 @@ after the socket is bound; port `0` asks the operating system to choose an
 available port. Stop it with Ctrl-C. The reviews root must already exist, and
 each session ID is a one-time directory name: publishing refuses to overwrite
 an existing session.
+
+## Windows browser/CDP fallback
+
+Use the T3 collaborative preview first for browser navigation, inspection,
+interaction, screenshots, and recordings. If it is unavailable and a Windows
+Chrome/CDP fallback is required, send a readable PowerShell script through the
+stdin-only launcher:
+
+```bash
+dev-tools/visual-review/powershell-stdin.sh <<'POWERSHELL'
+$ErrorActionPreference = 'Stop'
+Invoke-RestMethod -Uri 'http://127.0.0.1:9222/json/version' |
+  ConvertTo-Json -Depth 4
+POWERSHELL
+```
+
+The launcher accepts no arguments and invokes `powershell.exe` with exactly
+`-NoProfile -NonInteractive -File -`; stdin is forwarded unchanged. Do not use
+`-EncodedCommand`, Base64, or another obfuscated payload. Opaque automation can
+trigger endpoint-protection heuristics and then surface as misleading launch
+errors. Keeping the script readable preserves inspection and auditability.
+Never disable Defender or add an exclusion for agent automation.
 
 ## Rich manifest v1
 

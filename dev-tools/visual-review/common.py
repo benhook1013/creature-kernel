@@ -41,9 +41,11 @@ PREPARED_SOURCE_OPERATION = "inspect-prepared-source"
 PREPARED_SOURCE_STAGE = "source-preparation"
 PROVISIONAL_FORM_LEGACY_FORMAT = "creature-kernel.provisional-form-preview.v1"
 PROVISIONAL_FORM_V2_FORMAT = "creature-kernel.provisional-form-preview.v2"
-PROVISIONAL_FORM_FORMAT = "creature-kernel.provisional-form-preview.v3"
+PROVISIONAL_FORM_V3_FORMAT = "creature-kernel.provisional-form-preview.v3"
+PROVISIONAL_FORM_FORMAT = "creature-kernel.provisional-form-preview.v4"
 PROVISIONAL_FORM_CORRECTED_FORMATS = {
     PROVISIONAL_FORM_V2_FORMAT,
+    PROVISIONAL_FORM_V3_FORMAT,
     PROVISIONAL_FORM_FORMAT,
 }
 PROVISIONAL_FORM_FORMATS = {
@@ -75,15 +77,19 @@ PROVISIONAL_FORM_ROLE_SHAPES = {
     "tail_root": "tapered-segment",
     "tail_tip": "tapered-segment",
 }
-# Capsules are display volumes for a limb *segment*, so their distal endpoint
-# is the direct semantic child anchor rather than the current part's own
-# reference point.  Keep this explicit: inferring a segment from an arbitrary
-# child would make a branching body silently choose the wrong limb.
+# Corrected capsules are display volumes for a body *segment*, so their distal
+# endpoint is the direct semantic child anchor. Keep the role relationship
+# explicit: inferring a segment from an arbitrary child would make a branching
+# body silently choose the wrong part.
 PROVISIONAL_FORM_CAPSULE_CHILD_ROLES = {
     "upper_arm": "forearm",
     "forearm": "hand",
     "thigh": "shin",
     "shin": "foot",
+}
+PROVISIONAL_FORM_V4_CAPSULE_CHILD_ROLES = {
+    **PROVISIONAL_FORM_CAPSULE_CHILD_ROLES,
+    "neck": "head",
 }
 PROVISIONAL_FORM_MAX_DESCRIPTORS = 64
 PROVISIONAL_FORM_MAX_PERMILLE = 5000
@@ -1019,6 +1025,18 @@ def _form_address(value: Any, where: str) -> tuple[str, tuple[str, ...], str, st
         raise ValidationError(f"{where} is not a valid Part address") from exc
 
 
+def _form_role_shape(format_name: str, role: str) -> str | None:
+    if format_name == PROVISIONAL_FORM_FORMAT and role == "neck":
+        return "capsule"
+    return PROVISIONAL_FORM_ROLE_SHAPES.get(role)
+
+
+def _form_capsule_child_roles(format_name: str) -> dict[str, str]:
+    if format_name == PROVISIONAL_FORM_FORMAT:
+        return PROVISIONAL_FORM_V4_CAPSULE_CHILD_ROLES
+    return PROVISIONAL_FORM_CAPSULE_CHILD_ROLES
+
+
 def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any]:
     """Validate the successful filled-form CLI envelope before immutable copy."""
 
@@ -1044,7 +1062,8 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
     if format_name not in PROVISIONAL_FORM_FORMATS:
         raise ValidationError(
             f"{where}.format must be {PROVISIONAL_FORM_LEGACY_FORMAT}, "
-            f"{PROVISIONAL_FORM_V2_FORMAT}, or {PROVISIONAL_FORM_FORMAT}"
+            f"{PROVISIONAL_FORM_V2_FORMAT}, {PROVISIONAL_FORM_V3_FORMAT}, "
+            f"or {PROVISIONAL_FORM_FORMAT}"
         )
     if obj.get("operation") != PROVISIONAL_FORM_OPERATION:
         raise ValidationError(f"{where}.operation must be {PROVISIONAL_FORM_OPERATION}")
@@ -1182,7 +1201,7 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
                 raise ValidationError(f"{descriptor_where}.placement_source is not supported")
             shape = _object(descriptor.get("shape"), f"{descriptor_where}.shape")
             shape_name = shape.get("name")
-            expected_shape = PROVISIONAL_FORM_ROLE_SHAPES.get(address[3])
+            expected_shape = _form_role_shape(format_name, address[3])
             if expected_shape is None:
                 raise ValidationError(f"{descriptor_where}.address.role is not supported")
             if shape_name != expected_shape:
@@ -1246,10 +1265,11 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
         # capsule contract, rather than being obscured by a later orphan check
         # on a different descriptor.
         if format_name in PROVISIONAL_FORM_CORRECTED_FORMATS:
+            capsule_child_roles = _form_capsule_child_roles(format_name)
             for address, (reference_point, details) in address_map.items():
                 if details["shape_name"] != "capsule":
                     continue
-                expected_child_role = PROVISIONAL_FORM_CAPSULE_CHILD_ROLES[address[3]]
+                expected_child_role = capsule_child_roles[address[3]]
                 direct_children = [
                     child
                     for child, (_, child_details) in address_map.items()

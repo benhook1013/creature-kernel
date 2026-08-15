@@ -770,6 +770,7 @@ fn expected_segment_child_role(role: &str) -> Option<&'static str> {
         "forearm" => Some("hand"),
         "thigh" => Some("shin"),
         "shin" => Some("foot"),
+        "neck" => Some("head"),
         _ => None,
     }
 }
@@ -806,10 +807,8 @@ fn expected_segment_child<'a>(
 
 fn shape_kind(role: &str) -> Option<ProvisionalShapeKind> {
     match role {
-        "pelvis" | "torso" | "neck" | "head" | "hand" | "foot" => {
-            Some(ProvisionalShapeKind::Ellipsoid)
-        }
-        "upper_arm" | "forearm" | "thigh" | "shin" => Some(ProvisionalShapeKind::Capsule),
+        "pelvis" | "torso" | "head" | "hand" | "foot" => Some(ProvisionalShapeKind::Ellipsoid),
+        "neck" | "upper_arm" | "forearm" | "thigh" | "shin" => Some(ProvisionalShapeKind::Capsule),
         "tail_root" | "tail_tip" => Some(ProvisionalShapeKind::TaperedSegment),
         _ => None,
     }
@@ -822,7 +821,6 @@ fn neutral_extents(role: &str) -> [u32; 3] {
     match role {
         "pelvis" => [1_700, 1_200, 900],
         "torso" => [1_650, 1_200, 900],
-        "neck" => [650, 800, 600],
         "head" => [1_000, 600, 900],
         "hand" => [450, 400, 350],
         "foot" => [500, 350, 700],
@@ -832,6 +830,7 @@ fn neutral_extents(role: &str) -> [u32; 3] {
 
 fn neutral_radius(role: &str) -> u32 {
     match role {
+        "neck" => 350,
         "upper_arm" => 220,
         "forearm" => 190,
         "thigh" => 280,
@@ -1031,13 +1030,13 @@ mod tests {
         for variant in preview.variants() {
             for descriptor in variant.descriptors() {
                 match descriptor.address().role() {
-                    "pelvis" | "torso" | "neck" | "head" | "hand" | "foot" => {
+                    "pelvis" | "torso" | "head" | "hand" | "foot" => {
                         assert!(matches!(
                             descriptor.shape(),
                             ProvisionalShape::Ellipsoid { .. }
                         ));
                     }
-                    "upper_arm" | "forearm" | "thigh" | "shin" => {
+                    "neck" | "upper_arm" | "forearm" | "thigh" | "shin" => {
                         let ProvisionalShape::Capsule { from, to, .. } = descriptor.shape() else {
                             panic!("expected capsule")
                         };
@@ -1159,6 +1158,11 @@ mod tests {
     fn neck_bridges_torso_and_head_without_direct_torso_head_overlap() {
         let preview = build_provisional_form_preview(&example(), ResourceProfile::ORDINARY)
             .expect("checked-in biped is supported");
+        assert_eq!(
+            preview,
+            build_provisional_form_preview(&example(), ResourceProfile::ORDINARY)
+                .expect("repeated build")
+        );
         let reference_length = (preview.reference_scale().squared_length() as f64).sqrt();
         for variant in preview.variants() {
             let ellipsoid = |role: &str| {
@@ -1180,16 +1184,45 @@ mod tests {
                 }
             };
             let (torso_center, torso_extents) = ellipsoid("torso");
-            let (neck_center, neck_extents) = ellipsoid("neck");
             let (head_center, head_extents) = ellipsoid("head");
+            let (pelvis_center, pelvis_extents) = ellipsoid("pelvis");
+            let neck_descriptor = variant
+                .descriptors()
+                .iter()
+                .find(|descriptor| {
+                    descriptor.address().role() == "neck"
+                        && descriptor.address().anchors().is_empty()
+                })
+                .expect("neck descriptor");
+            let (from, to, radius_permille) = match neck_descriptor.shape() {
+                ProvisionalShape::Capsule {
+                    from,
+                    to,
+                    radius_permille,
+                } => (*from, *to, *radius_permille),
+                shape => panic!("expected neck capsule, got {shape:?}"),
+            };
+            assert_eq!(from, neck_descriptor.reference_point());
+            assert_eq!(to, head_center);
+            let expected_radius = match variant.id() {
+                "neutral-v0" | "depth-forward-v0" => 350,
+                "broad-soft-v0" => 402,
+                "lean-readable-v0" => 280,
+                profile => panic!("unexpected profile {profile}"),
+            };
+            assert_eq!(radius_permille, expected_radius);
+            let radius = f64::from(radius_permille) / 1_000.0 * reference_length;
             let interval = |center: ExactTranslation, extent_permille: u32| {
                 let center = center.components()[1] as f64;
                 let extent = f64::from(extent_permille) / 1_000.0 * reference_length;
                 (center - extent, center + extent)
             };
             let torso_y = interval(torso_center, torso_extents[1]);
-            let neck_y = interval(neck_center, neck_extents[1]);
             let head_y = interval(head_center, head_extents[1]);
+            let pelvis_y = interval(pelvis_center, pelvis_extents[1]);
+            let from_y = from.components()[1] as f64;
+            let to_y = to.components()[1] as f64;
+            let neck_y = (from_y.min(to_y) - radius, from_y.max(to_y) + radius);
             let torso_neck_overlap = torso_y.1.min(neck_y.1) - torso_y.0.max(neck_y.0);
             let neck_head_overlap = neck_y.1.min(head_y.1) - neck_y.0.max(head_y.0);
             let torso_head_gap = head_y.0 - torso_y.1;
@@ -1208,6 +1241,19 @@ mod tests {
                 "{} torso directly overlaps head: {torso_y:?} {head_y:?}",
                 variant.id()
             );
+            assert!(
+                neck_y.0 > pelvis_y.1 + 0.25 * reference_length,
+                "{} neck reaches toward pelvis: lower bound {} pelvis upper {}",
+                variant.id(),
+                neck_y.0,
+                pelvis_y.1
+            );
+            assert!(
+                neck_y.0 > torso_center.components()[1] as f64,
+                "{} neck overlaps too far into torso: lower bound {}",
+                variant.id(),
+                neck_y.0
+            );
 
             let bridge_start = torso_y.1.max(neck_y.0);
             let bridge_end = head_y.0.min(neck_y.1);
@@ -1216,20 +1262,9 @@ mod tests {
                 "{} neck bridge is not human-readable: [{bridge_start}, {bridge_end}]",
                 variant.id()
             );
-            let bridge_midpoint = (bridge_start + bridge_end) / 2.0;
-            let neck_y_delta = (bridge_midpoint - neck_center.components()[1] as f64).abs();
-            let neck_y_radius = f64::from(neck_extents[1]) / 1_000.0 * reference_length;
-            for axis in [0, 2] {
-                let neck_axis_radius = f64::from(neck_extents[axis]) / 1_000.0 * reference_length;
-                let cross_section =
-                    neck_axis_radius * (1.0 - (neck_y_delta / neck_y_radius).powi(2)).sqrt();
-                assert!(
-                    cross_section > 0.0,
-                    "{} neck bridge has no {}-projection area",
-                    variant.id(),
-                    if axis == 0 { "front" } else { "side" }
-                );
-            }
+            assert!(bridge_start >= from_y.min(to_y));
+            assert!(bridge_end <= from_y.max(to_y));
+            assert!(radius > 0.0, "neck capsule must have positive bridge area");
         }
     }
 

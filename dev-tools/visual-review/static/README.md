@@ -34,8 +34,10 @@ Filled-form sessions use `review.kind: "provisional-form"` and carry the
 validated CLI envelope in `review.provisional_form`. Their page is appraisal
 only: it shows four deterministic variants derived from the same exact
 placements, each with front x/y, side z/y, and top x/z filled primitive panels.
-The client accepts legacy v1 and corrected v2/v3 envelopes after server-side
-validation. Gallery labels are hidden until a part is hovered or focused; an
+The client accepts legacy v1-v3 and current v4 envelopes after server-side
+validation. V4 changes the neck from an ellipsoid to a short axial capsule;
+the server continues to validate older role-shape contracts in place. Gallery
+labels are hidden until a part is hovered or focused; an
 expanded inspection dialog provides larger projections and a persistent part
 legend without enabling review writes. Hovering or focusing a legend row
 highlights its exact full AddressKey match across all three projections.

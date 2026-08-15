@@ -117,12 +117,21 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
 
         pelvis = address("pelvis")
         torso = address("torso")
+        neck = address("neck")
+        head = address("head")
         upper_arm = address("upper_arm")
         forearm = address("forearm")
         hand = address("hand")
+        neck_shape = (
+            {"name": "capsule", "from": [0, 2, 0], "to": [0, 3, 0], "radius_permille": 500}
+            if format_name == common.PROVISIONAL_FORM_FORMAT
+            else {"name": "ellipsoid", "center": [0, 2, 0], "axis_extents_permille": [650, 600, 600]}
+        )
         descriptors = [
             descriptor("pelvis", [0, 0, 0], None, {"name": "ellipsoid", "center": [0, 0, 0], "axis_extents_permille": [1000, 900, 800]}),
             descriptor("torso", [0, 1, 0], pelvis, {"name": "ellipsoid", "center": [0, 1, 0], "axis_extents_permille": [1000, 1000, 900]}),
+            descriptor("neck", [0, 2, 0], torso, neck_shape),
+            descriptor("head", [0, 3, 0], neck, {"name": "ellipsoid", "center": [0, 3, 0], "axis_extents_permille": [1000, 1000, 900]}),
             descriptor("upper_arm", [-1, 2, 0], torso, {"name": "capsule", "from": [-1, 2, 0], "to": [-2, 2, 0], "radius_permille": 200}),
             descriptor("forearm", [-2, 2, 0], upper_arm, {"name": "capsule", "from": [-2, 2, 0], "to": [-3, 2, 0], "radius_permille": 180}),
             descriptor("hand", [-3, 2, 0], forearm, {"name": "ellipsoid", "center": [-3, 2, 0], "axis_extents_permille": [450, 400, 350]}),
@@ -169,7 +178,7 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
 
     def test_success_publishes_distinct_immutable_form_session_and_route(self) -> None:
         self.assertEqual(
-            self.payload["format"], "creature-kernel.provisional-form-preview.v3"
+            self.payload["format"], "creature-kernel.provisional-form-preview.v4"
         )
         binary = self.fake_binary("import json, sys\nsys.stdout.write(" + repr(json.dumps(self.payload)) + ")\n")
         session = self.publish_with(binary, review_id="form-review", title="Filled form")
@@ -218,9 +227,10 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
                 self.publish_with(binary, review_id=f"bad-form-{index}")
             self.assertFalse((self.root / f"bad-form-{index}").exists())
 
-    def test_v2_and_v3_capsules_use_their_direct_distal_child_anchor(self) -> None:
+    def test_v2_v3_and_v4_limb_capsules_use_their_direct_distal_child_anchor(self) -> None:
         for format_name in (
             common.PROVISIONAL_FORM_V2_FORMAT,
+            common.PROVISIONAL_FORM_V3_FORMAT,
             common.PROVISIONAL_FORM_FORMAT,
         ):
             with self.subTest(format_name=format_name):
@@ -278,6 +288,89 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
         with self.assertRaisesRegex(common.ValidationError, "ambiguous direct forearm children"):
             common._validate_provisional_form_envelope(ambiguous, "ambiguous capsule fixture")
 
+    def test_v4_neck_capsule_requires_exactly_one_direct_head_endpoint(self) -> None:
+        payload = self.capsule_payload()
+        validated = common._validate_provisional_form_envelope(payload, "v4 neck fixture")
+        self.assertEqual(validated["format"], common.PROVISIONAL_FORM_FORMAT)
+
+        neck_ellipsoid = copy.deepcopy(payload)
+        for descriptor in neck_ellipsoid["variants"][0]["descriptors"]:
+            if descriptor["address"]["role"] == "neck":
+                descriptor["shape"] = {
+                    "name": "ellipsoid",
+                    "center": descriptor["reference_point"],
+                    "axis_extents_permille": [650, 600, 600],
+                }
+                break
+        with self.assertRaisesRegex(
+            common.ValidationError, "must be capsule for role neck"
+        ):
+            common._validate_provisional_form_envelope(
+                neck_ellipsoid, "v4 ellipsoid neck fixture"
+            )
+
+        wrong_endpoint = copy.deepcopy(payload)
+        for descriptor in wrong_endpoint["variants"][0]["descriptors"]:
+            if descriptor["address"]["role"] == "neck":
+                descriptor["shape"]["to"] = [0, 4, 0]
+                break
+        with self.assertRaisesRegex(
+            common.ValidationError, "end does not match its direct head child point"
+        ):
+            common._validate_provisional_form_envelope(
+                wrong_endpoint, "v4 wrong neck endpoint fixture"
+            )
+
+        missing_head = copy.deepcopy(payload)
+        for variant in missing_head["variants"]:
+            variant["descriptors"] = [
+                descriptor
+                for descriptor in variant["descriptors"]
+                if descriptor["address"]["role"] != "head"
+            ]
+        with self.assertRaisesRegex(
+            common.ValidationError, "missing its direct head child"
+        ):
+            common._validate_provisional_form_envelope(
+                missing_head, "v4 missing head fixture"
+            )
+
+        ambiguous_head = copy.deepcopy(payload)
+        for variant in ambiguous_head["variants"]:
+            descriptors = variant["descriptors"]
+            head = next(
+                item for item in descriptors if item["address"]["role"] == "head"
+            )
+            extra_head = copy.deepcopy(head)
+            extra_head["address"]["anchors"] = ["branch"]
+            extra_head["reference_point"] = [0, 4, 0]
+            extra_head["shape"]["center"] = [0, 4, 0]
+            descriptors.append(extra_head)
+            descriptors.sort(key=lambda item: (
+                item["address"]["namespace"], tuple(item["address"]["anchors"]),
+                item["address"]["kind"], item["address"]["role"],
+            ))
+        with self.assertRaisesRegex(
+            common.ValidationError, "ambiguous direct head children"
+        ):
+            common._validate_provisional_form_envelope(
+                ambiguous_head, "v4 ambiguous head fixture"
+            )
+
+        for prior_format in (
+            common.PROVISIONAL_FORM_LEGACY_FORMAT,
+            common.PROVISIONAL_FORM_V2_FORMAT,
+            common.PROVISIONAL_FORM_V3_FORMAT,
+        ):
+            prior = self.capsule_payload(format_name=prior_format)
+            prior["format"] = common.PROVISIONAL_FORM_FORMAT
+            with self.subTest(prior_format=prior_format), self.assertRaisesRegex(
+                common.ValidationError, "must be capsule for role neck"
+            ):
+                common._validate_provisional_form_envelope(
+                    prior, "prior payload mislabeled v4"
+                )
+
     def test_v1_capsules_retain_legacy_parent_to_current_contract(self) -> None:
         legacy = self.capsule_payload(
             format_name=common.PROVISIONAL_FORM_LEGACY_FORMAT
@@ -301,7 +394,9 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
             common.PROVISIONAL_FORM_LEGACY_FORMAT,
         )
 
-        corrected_mislabeled_v1 = self.capsule_payload()
+        corrected_mislabeled_v1 = self.capsule_payload(
+            format_name=common.PROVISIONAL_FORM_V2_FORMAT
+        )
         corrected_mislabeled_v1["format"] = common.PROVISIONAL_FORM_LEGACY_FORMAT
         with self.assertRaisesRegex(common.ValidationError, "capsule endpoints are invalid"):
             common._validate_provisional_form_envelope(
@@ -310,7 +405,7 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
 
         for corrected_format in (
             common.PROVISIONAL_FORM_V2_FORMAT,
-            common.PROVISIONAL_FORM_FORMAT,
+            common.PROVISIONAL_FORM_V3_FORMAT,
         ):
             legacy_mislabeled_corrected = copy.deepcopy(legacy)
             legacy_mislabeled_corrected["format"] = corrected_format

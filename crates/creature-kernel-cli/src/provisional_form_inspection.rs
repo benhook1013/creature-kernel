@@ -14,7 +14,7 @@ use creature_kernel_core::provisional_json::{Map, Value, json};
 use creature_kernel_core::reference_placement::PlacementSource;
 use std::path::Path;
 
-const FORMAT: &str = "creature-kernel.provisional-form-preview.v3";
+const FORMAT: &str = "creature-kernel.provisional-form-preview.v4";
 const OPERATION: &str = "inspect-provisional-form";
 const LIMITATIONS: &str = "Provisional display-only filled-form descriptors from the restricted single-source exact Part placement projection; no production geometry, mesh, SDF, topology, collision, rig, skin, anatomy, Joint-frame interpretation, authored dimensions, general units or rotations, dependency resolution, canonical snapshot/serialization, runtime claim, or Readiness activation. Descriptors are not graph Parts.";
 
@@ -353,7 +353,7 @@ fn result(value: Value) -> CliResult {
     };
     CliResult {
         json: creature_kernel_core::provisional_json::to_string(&value).unwrap_or_else(|_| {
-            r#"{"format":"creature-kernel.provisional-form-preview.v3","operation":"inspect-provisional-form","status":"internal-failure","stage":"output","diagnostics":[{"code":"ck.cli.provisional-form.output-serialization","message":"could not serialize provisional form inspection result"}]}"#.to_owned()
+            r#"{"format":"creature-kernel.provisional-form-preview.v4","operation":"inspect-provisional-form","status":"internal-failure","stage":"output","diagnostics":[{"code":"ck.cli.provisional-form.output-serialization","message":"could not serialize provisional form inspection result"}]}"#.to_owned()
         }),
         exit_code,
     }
@@ -445,7 +445,7 @@ mod tests {
         let value = parsed(&output);
         assert_eq!(
             value["format"],
-            "creature-kernel.provisional-form-preview.v3"
+            "creature-kernel.provisional-form-preview.v4"
         );
         assert_eq!(value["operation"], OPERATION);
         assert_eq!(value["status"], "success");
