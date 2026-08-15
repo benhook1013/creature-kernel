@@ -32,6 +32,15 @@ impl NormalizedBinary64 {
         self.bits
     }
 
+    /// Constructs a carrier from raw bits for focused crate-internal tests.
+    ///
+    /// This is intentionally unavailable in non-test builds so production
+    /// callers cannot bypass finite-value admission.
+    #[cfg(test)]
+    pub(crate) const fn from_test_bits(bits: u64) -> Self {
+        Self { bits }
+    }
+
     /// Returns this value as an `f64`.
     #[must_use]
     pub fn as_f64(self) -> f64 {

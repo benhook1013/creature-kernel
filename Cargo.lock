@@ -94,6 +94,8 @@ name = "creature-kernel-core"
 version = "0.1.0"
 dependencies = [
  "jsonschema",
+ "num-bigint",
+ "num-rational",
  "serde",
  "serde_json",
 ]
