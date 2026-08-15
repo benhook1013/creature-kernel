@@ -143,6 +143,14 @@ acquisition, revision/hash verification, resolver status/diagnostic mapping,
 cross-source merge/remap, snapshot/digest, or Readiness 3 activation; it
 remains preparatory and does not accept or revise a Proposed decision record.
 
+The current implementation also provides a crate-private restricted
+single-source snapshot handoff: it owns the exact raw bytes, retains the
+prepared source and authored records, computes exact integer Part/Attachment
+placements, requires zero declared dependencies, and exposes explicit
+unresolved record counts. It is not authoritative resolver success, a public
+snapshot or serialization, general frame resolution, geometry, or Readiness 3
+activation, and accepts or revises no Proposed DR.
+
 The current implementation also contains a crate-private, non-serialized
 resolver-envelope/reducer scaffold. It represents the Proposed seven statuses
 and eight ordered phases, with deterministic documented precedence and fatal
