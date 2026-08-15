@@ -18,6 +18,24 @@ python3 dev-tools/visual-review/serve.py \
   --root /tmp/creature-reviews --port 0
 ```
 
+For read-only review from another device on the local network, opt in
+explicitly to the wildcard listener:
+
+```bash
+python3 dev-tools/visual-review/serve.py \
+  --root /tmp/creature-reviews --port 0 --lan-read-only
+```
+
+`--lan-read-only` makes the review pages, static files, assets, and read APIs
+readable to any device that can reach the selected port. Response `POST` writes
+are disabled entirely in this mode, including requests with localhost-looking
+Host/Origin headers or a valid token. To save a response, use the default
+loopback-only mode. Replace the printed `0.0.0.0` with this host's LAN IP when
+opening the gallery from another device. The Python server only binds the
+listener; OS, WSL, container, and firewall forwarding are outside its scope
+and may still be required for another device to connect. Do not enable this
+mode on an untrusted network.
+
 For a structural-only review, build the checked-in CLI and publish the
 checked-in biped example through the bounded wrapper:
 
@@ -75,11 +93,81 @@ Ben confirmed on 2026-08-15 that the diagrams were decodable and spatially
 accurate for the intended straight tail. Generated sessions live under `/tmp`, are disposable, and are not
 committed.
 
-The server binds only to `127.0.0.1`. It prints one localhost URL after the
-socket is bound; port `0` asks the operating system to choose an available
-port. Stop it with Ctrl-C. The reviews root must already exist, and each
-session ID is a one-time directory name: publishing refuses to overwrite an
-existing session.
+For the bounded filled-form appraisal candidate, build the CLI and publish the
+four fixed profile variants from the same exact source placements:
+
+```bash
+cargo build -p creature-kernel-cli
+mkdir -p /tmp/creature-provisional-form-reviews
+python3 dev-tools/visual-review/publish_provisional_form.py \
+  --root /tmp/creature-provisional-form-reviews \
+  --input examples/body-documents/stylized-digitigrade-biped.json \
+  --creature-kernel target/debug/creature-kernel \
+  --id stylized-biped-form \
+  --title "Stylized biped filled-form appraisal"
+python3 dev-tools/visual-review/serve.py \
+  --root /tmp/creature-provisional-form-reviews --port 0
+```
+
+`publish_provisional_form.py` invokes `creature-kernel
+inspect-provisional-form --input PATH` shell-free, with a 10-second timeout,
+256 KiB stdout bound, and 64 KiB stderr bound. It accepts only a complete,
+diagnostic-free `creature-kernel.provisional-form-preview.v1`, `.v2`, `.v3`, or
+`.v4` success envelope,
+the exact four variant IDs/order, known Part addresses and provenance, bounded
+integer points, supported ellipsoid/capsule/tapered-segment shapes, and the
+positive reference scale. Failed CLI outcomes and malformed payloads are not
+published. The resulting immutable `provisional-form` session contains the
+validated payload only and no assets or external dependencies.
+
+The CLI currently emits the provisional v4 contract. As in v2/v3, limb
+capsules are owned by their current Part: `upper_arm` spans its reference point
+to its direct `forearm` child, `forearm` to `hand`, `thigh` to `shin`, and
+`shin` to `foot`. V4 additionally represents `neck` as a narrow axial capsule
+from the neck reference to its direct `head` child, overlapping only the upper
+torso and head rather than behaving like a torso-length spine. The tapered tail
+remains parent-to-current Part. The server retains strict read support for
+immutable v1-v3 sessions under their original role/endpoint contracts. These
+are provisional display-volume rules, not a generated skeleton, anatomical
+socket, or general junction contract.
+
+The read-only browser page renders each variant in front (x/y), side (z/y),
+and top (x/z) filled SVG panels with shared bounds, physical display radii
+derived from the reference scale, deterministic depth ordering, semantic role
+colors, hover/focus labels, and an expanded inspection view with a persistent
+part legend. Hovering or focusing a legend entry highlights the exact semantic
+part in all three projections. It is overlapping display primitives with a straight
+tail—not a continuous surface or mesh—and makes no claims of surface
+continuity, anatomical correctness, mesh/topology, rigging, animation/IK,
+deformation, physics, runtime behaviour, or Readiness 3. Keep generated
+sessions under `/tmp`; do not commit them.
+
+By default the server binds only to `127.0.0.1` and prints one localhost URL
+after the socket is bound; port `0` asks the operating system to choose an
+available port. Stop it with Ctrl-C. The reviews root must already exist, and
+each session ID is a one-time directory name: publishing refuses to overwrite
+an existing session.
+
+## Windows browser/CDP fallback
+
+Use the T3 collaborative preview first for browser navigation, inspection,
+interaction, screenshots, and recordings. If it is unavailable and a Windows
+Chrome/CDP fallback is required, send a readable PowerShell script through the
+stdin-only launcher:
+
+```bash
+dev-tools/visual-review/powershell-stdin.sh <<'POWERSHELL'
+$ErrorActionPreference = 'Stop'
+Invoke-RestMethod -Uri 'http://127.0.0.1:9222/json/version' |
+  ConvertTo-Json -Depth 4
+POWERSHELL
+```
+
+The launcher accepts no arguments and invokes `powershell.exe` with exactly
+`-NoProfile -NonInteractive -File -`; stdin is forwarded unchanged. Do not use
+`-EncodedCommand`, Base64, or another obfuscated payload. Opaque automation can
+be blocked or misclassified and then surface as a misleading launch error.
+Keeping the script readable preserves inspection and diagnosis.
 
 ## Rich manifest v1
 

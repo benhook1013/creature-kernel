@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Serve local visual-review sessions over a loopback-only HTTP server."""
+"""Serve local visual-review sessions over loopback or explicit LAN read-only HTTP."""
 
 from __future__ import annotations
 
@@ -157,11 +157,12 @@ class VisualReviewHTTPServer(ThreadingHTTPServer):
     allow_reuse_address = True
     daemon_threads = True
 
-    def __init__(self, address: tuple[str, int], reviews_root: Path):
+    def __init__(self, address: tuple[str, int], reviews_root: Path, *, read_only: bool = False):
         self.reviews_root = ensure_root(reviews_root)
         require_secure_fs_support()
         self.root_fd = _open_directory(None, self.reviews_root, "reviews root")
         self.write_token = secrets.token_urlsafe(32)
+        self.read_only = read_only
         try:
             super().__init__(address, VisualReviewHandler)
         except Exception:
@@ -494,6 +495,9 @@ class VisualReviewHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         try:
+            if self.server.read_only:
+                self._error(HTTPStatus.FORBIDDEN, "response writes are disabled in LAN read-only mode")
+                return
             _, segments = self._request_path()
             if not (len(segments) == 4 and segments[:2] == ["api", "reviews"] and segments[3] == "response"):
                 self._error(HTTPStatus.NOT_FOUND, "not found")
@@ -536,27 +540,47 @@ class VisualReviewHandler(BaseHTTPRequestHandler):
             self._error(HTTPStatus.INTERNAL_SERVER_ERROR, f"server error: {exc}")
 
 
-def create_server(reviews_root: Path, port: int = 0) -> VisualReviewHTTPServer:
+def create_server(
+    reviews_root: Path,
+    port: int = 0,
+    *,
+    lan_read_only: bool = False,
+) -> VisualReviewHTTPServer:
     if not isinstance(port, int) or isinstance(port, bool) or not 0 <= port <= 65535:
         raise ValidationError("port must be between 0 and 65535")
-    return VisualReviewHTTPServer(("127.0.0.1", port), reviews_root)
+    bind_host = "0.0.0.0" if lan_read_only else "127.0.0.1"
+    return VisualReviewHTTPServer((bind_host, port), reviews_root, read_only=lan_read_only)
 
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", required=True, type=Path, help="existing reviews root")
-    parser.add_argument("--port", type=int, default=8000, help="loopback TCP port (0 chooses one)")
+    parser.add_argument("--port", type=int, default=8000, help="TCP port (0 chooses one)")
+    parser.add_argument(
+        "--lan-read-only",
+        action="store_true",
+        help="bind to all interfaces for LAN GET/read access; disable all response writes",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
-        server = create_server(args.root, args.port)
+        server = create_server(args.root, args.port, lan_read_only=args.lan_read_only)
     except (ValidationError, OSError, ValueError) as exc:
         print(f"serve failed: {exc}", file=sys.stderr)
         return 2
-    print(f"Visual review gallery: http://127.0.0.1:{server.server_port}/", flush=True)
+    if args.lan_read_only:
+        print(
+            "WARNING: --lan-read-only makes review contents readable to devices "
+            "that can reach this port; response writes are disabled entirely in LAN mode.",
+            flush=True,
+        )
+        print(f"Visual review gallery (LAN read-only): http://0.0.0.0:{server.server_port}/", flush=True)
+        print("For another device, replace 0.0.0.0 with this host's LAN IP.", flush=True)
+    else:
+        print(f"Visual review gallery: http://127.0.0.1:{server.server_port}/", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

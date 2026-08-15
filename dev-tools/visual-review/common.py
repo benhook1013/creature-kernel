@@ -39,6 +39,60 @@ STRUCTURE_FORMAT = "creature-kernel.provisional-structural-inspection.v1"
 PREPARED_SOURCE_FORMAT = "creature-kernel.provisional-source-preparation-inspection.v1"
 PREPARED_SOURCE_OPERATION = "inspect-prepared-source"
 PREPARED_SOURCE_STAGE = "source-preparation"
+PROVISIONAL_FORM_LEGACY_FORMAT = "creature-kernel.provisional-form-preview.v1"
+PROVISIONAL_FORM_V2_FORMAT = "creature-kernel.provisional-form-preview.v2"
+PROVISIONAL_FORM_V3_FORMAT = "creature-kernel.provisional-form-preview.v3"
+PROVISIONAL_FORM_FORMAT = "creature-kernel.provisional-form-preview.v4"
+PROVISIONAL_FORM_CORRECTED_FORMATS = {
+    PROVISIONAL_FORM_V2_FORMAT,
+    PROVISIONAL_FORM_V3_FORMAT,
+    PROVISIONAL_FORM_FORMAT,
+}
+PROVISIONAL_FORM_FORMATS = {
+    PROVISIONAL_FORM_LEGACY_FORMAT,
+    *PROVISIONAL_FORM_CORRECTED_FORMATS,
+}
+PROVISIONAL_FORM_OPERATION = "inspect-provisional-form"
+PROVISIONAL_FORM_STAGE = "provisional-form"
+PROVISIONAL_FORM_VARIANT_IDS = (
+    "neutral-v0",
+    "broad-soft-v0",
+    "lean-readable-v0",
+    "depth-forward-v0",
+)
+PROVISIONAL_FORM_PROVENANCE = "profile-derived-display"
+PROVISIONAL_FORM_RESOURCE_PROFILE = "ck.resource.body.r2"
+PROVISIONAL_FORM_SHAPES = {"ellipsoid", "capsule", "tapered-segment"}
+PROVISIONAL_FORM_ROLE_SHAPES = {
+    "pelvis": "ellipsoid",
+    "torso": "ellipsoid",
+    "neck": "ellipsoid",
+    "head": "ellipsoid",
+    "hand": "ellipsoid",
+    "foot": "ellipsoid",
+    "upper_arm": "capsule",
+    "forearm": "capsule",
+    "thigh": "capsule",
+    "shin": "capsule",
+    "tail_root": "tapered-segment",
+    "tail_tip": "tapered-segment",
+}
+# Corrected capsules are display volumes for a body *segment*, so their distal
+# endpoint is the direct semantic child anchor. Keep the role relationship
+# explicit: inferring a segment from an arbitrary child would make a branching
+# body silently choose the wrong part.
+PROVISIONAL_FORM_CAPSULE_CHILD_ROLES = {
+    "upper_arm": "forearm",
+    "forearm": "hand",
+    "thigh": "shin",
+    "shin": "foot",
+}
+PROVISIONAL_FORM_V4_CAPSULE_CHILD_ROLES = {
+    **PROVISIONAL_FORM_CAPSULE_CHILD_ROLES,
+    "neck": "head",
+}
+PROVISIONAL_FORM_MAX_DESCRIPTORS = 64
+PROVISIONAL_FORM_MAX_PERMILLE = 5000
 EXACT_PLACEMENT_PREVIEW_FORMAT = (
     "creature-kernel.provisional-exact-placement-preview.v1"
 )
@@ -50,6 +104,7 @@ EXACT_PLACEMENT_PREVIEW_SOURCES = {
 }
 SIGNED_I64_MIN = -(1 << 63)
 SIGNED_I64_MAX = (1 << 63) - 1
+PROVISIONAL_FORM_MAX_SQUARED_LENGTH = 3 * SIGNED_I64_MAX * SIGNED_I64_MAX
 ADDRESS_COMPONENT_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 ADDRESS_COMPONENT_MAX_BYTES = 16_384
 ADDRESS_MAX_ANCHORS = 4_096
@@ -947,6 +1002,376 @@ def _validate_prepared_source_envelope(value: Any, where: str) -> dict[str, Any]
     return obj
 
 
+def _form_i64_vector(value: Any, where: str) -> list[int]:
+    # Keep the filled-form adapter on exactly the same integer carrier domain
+    # as the existing exact-placement preview, including binary64 fidelity.
+    _preview_translation(value, where)
+    return list(value)
+
+
+def _form_permille(value: Any, where: str) -> int:
+    if type(value) is not int or not 0 < value <= PROVISIONAL_FORM_MAX_PERMILLE:
+        raise ValidationError(
+            f"{where} must be a positive integer permille no greater than "
+            f"{PROVISIONAL_FORM_MAX_PERMILLE}"
+        )
+    return value
+
+
+def _form_address(value: Any, where: str) -> tuple[str, tuple[str, ...], str, str]:
+    try:
+        return _preview_address(value, where, "part")
+    except (UnicodeEncodeError, TypeError) as exc:
+        raise ValidationError(f"{where} is not a valid Part address") from exc
+
+
+def _form_role_shape(format_name: str, role: str) -> str | None:
+    if format_name == PROVISIONAL_FORM_FORMAT and role == "neck":
+        return "capsule"
+    return PROVISIONAL_FORM_ROLE_SHAPES.get(role)
+
+
+def _form_capsule_child_roles(format_name: str) -> dict[str, str]:
+    if format_name == PROVISIONAL_FORM_FORMAT:
+        return PROVISIONAL_FORM_V4_CAPSULE_CHILD_ROLES
+    return PROVISIONAL_FORM_CAPSULE_CHILD_ROLES
+
+
+def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any]:
+    """Validate the successful filled-form CLI envelope before immutable copy."""
+
+    obj = _object(value, where)
+    _check_fields(
+        obj,
+        {
+            "format",
+            "operation",
+            "status",
+            "stage",
+            "processing_complete",
+            "diagnostics_complete",
+            "diagnostics",
+            "source",
+            "reference_scale",
+            "variants",
+            "limitations",
+        },
+        where,
+    )
+    format_name = _string(obj.get("format"), f"{where}.format", max_len=256)
+    if format_name not in PROVISIONAL_FORM_FORMATS:
+        raise ValidationError(
+            f"{where}.format must be {PROVISIONAL_FORM_LEGACY_FORMAT}, "
+            f"{PROVISIONAL_FORM_V2_FORMAT}, {PROVISIONAL_FORM_V3_FORMAT}, "
+            f"or {PROVISIONAL_FORM_FORMAT}"
+        )
+    if obj.get("operation") != PROVISIONAL_FORM_OPERATION:
+        raise ValidationError(f"{where}.operation must be {PROVISIONAL_FORM_OPERATION}")
+    if obj.get("status") != "success":
+        raise ValidationError(f"{where}.status must be success for publication")
+    if obj.get("stage") != PROVISIONAL_FORM_STAGE:
+        raise ValidationError(f"{where}.stage must be {PROVISIONAL_FORM_STAGE}")
+    if obj.get("processing_complete") is not True or obj.get("diagnostics_complete") is not True:
+        raise ValidationError(f"{where}.success must report complete processing and diagnostics")
+    diagnostics = _array(obj.get("diagnostics"), f"{where}.diagnostics")
+    if diagnostics:
+        raise ValidationError(f"{where}.diagnostics must be empty for success")
+    limitations = _string(obj.get("limitations"), f"{where}.limitations", max_len=MAX_STRING)
+    if "Readiness" not in limitations or "geometry" not in limitations:
+        raise ValidationError(f"{where}.limitations must state the provisional boundary")
+
+    source = _object(obj.get("source"), f"{where}.source")
+    _check_fields(source, {"document", "namespace", "resource_profile_id"}, f"{where}.source")
+    document = _string(source.get("document"), f"{where}.source.document", max_len=MAX_STRING)
+    namespace = _string(source.get("namespace"), f"{where}.source.namespace", max_len=MAX_STRING)
+    resource_profile_id = source.get("resource_profile_id")
+    if resource_profile_id != PROVISIONAL_FORM_RESOURCE_PROFILE:
+        raise ValidationError(
+            f"{where}.source.resource_profile_id must be {PROVISIONAL_FORM_RESOURCE_PROFILE}"
+        )
+
+    scale = _object(obj.get("reference_scale"), f"{where}.reference_scale")
+    _check_fields(
+        scale,
+        {"parent", "child", "axis_delta", "squared_length", "source"},
+        f"{where}.reference_scale",
+    )
+    parent_key = _form_address(scale.get("parent"), f"{where}.reference_scale.parent")
+    child_key = _form_address(scale.get("child"), f"{where}.reference_scale.child")
+    if parent_key[0] != namespace or child_key[0] != namespace:
+        raise ValidationError(f"{where}.reference_scale addresses do not match source namespace")
+    if parent_key == child_key:
+        raise ValidationError(f"{where}.reference_scale parent and child must differ")
+    axis_delta = _form_i64_vector(scale.get("axis_delta"), f"{where}.reference_scale.axis_delta")
+    squared_length = scale.get("squared_length")
+    if (
+        type(squared_length) is not int
+        or not 0 < squared_length <= PROVISIONAL_FORM_MAX_SQUARED_LENGTH
+        or squared_length != sum(component * component for component in axis_delta)
+    ):
+        raise ValidationError(f"{where}.reference_scale.squared_length is invalid")
+    if scale.get("source") != "exact-containment-edge":
+        raise ValidationError(
+            f"{where}.reference_scale.source must be exact-containment-edge"
+        )
+
+    variants = _array(obj.get("variants"), f"{where}.variants")
+    if len(variants) != len(PROVISIONAL_FORM_VARIANT_IDS):
+        raise ValidationError(f"{where}.variants must contain exactly four variants")
+    canonical: list[tuple[Any, ...]] | None = None
+    for index, raw_variant in enumerate(variants):
+        variant_where = f"{where}.variants[{index}]"
+        variant = _object(raw_variant, variant_where)
+        _check_fields(
+            variant,
+            {"id", "profile_id", "provenance", "descriptors"},
+            variant_where,
+        )
+        expected_id = PROVISIONAL_FORM_VARIANT_IDS[index]
+        if variant.get("id") != expected_id or variant.get("profile_id") != expected_id:
+            raise ValidationError(f"{variant_where} must be {expected_id} in fixed order")
+        provenance = _object(variant.get("provenance"), f"{variant_where}.provenance")
+        _check_fields(
+            provenance,
+            {"source", "resource_profile_id"},
+            f"{variant_where}.provenance",
+        )
+        if provenance.get("source") != PROVISIONAL_FORM_PROVENANCE:
+            raise ValidationError(f"{variant_where}.provenance.source is not known")
+        if provenance.get("resource_profile_id") != resource_profile_id:
+            raise ValidationError(f"{variant_where}.provenance profile does not match source")
+        descriptors = _array(variant.get("descriptors"), f"{variant_where}.descriptors")
+        if not descriptors or len(descriptors) > PROVISIONAL_FORM_MAX_DESCRIPTORS:
+            raise ValidationError(
+                f"{variant_where}.descriptors must contain 1..{PROVISIONAL_FORM_MAX_DESCRIPTORS} items"
+            )
+        descriptor_keys: list[tuple[Any, ...]] = []
+        address_map: dict[tuple[str, tuple[str, ...], str, str], tuple[list[int], dict[str, Any]]] = {}
+        for descriptor_index, raw_descriptor in enumerate(descriptors):
+            descriptor_where = f"{variant_where}.descriptors[{descriptor_index}]"
+            descriptor = _object(raw_descriptor, descriptor_where)
+            _check_fields(
+                descriptor,
+                {
+                    "descriptor_kind",
+                    "address",
+                    "parent",
+                    "placement_source",
+                    "reference_point",
+                    "profile_id",
+                    "source",
+                    "provenance",
+                    "shape",
+                },
+                descriptor_where,
+            )
+            if descriptor.get("descriptor_kind") != "display-only-form-descriptor":
+                raise ValidationError(f"{descriptor_where}.descriptor_kind is not supported")
+            address = _form_address(descriptor.get("address"), f"{descriptor_where}.address")
+            if address[0] != namespace:
+                raise ValidationError(f"{descriptor_where}.address does not match source namespace")
+            if address in address_map:
+                raise ValidationError(f"{variant_where}.descriptors contains duplicate addresses")
+            parent_value = descriptor.get("parent")
+            parent = None if parent_value is None else _form_address(parent_value, f"{descriptor_where}.parent")
+            if parent is not None and parent[0] != namespace:
+                raise ValidationError(f"{descriptor_where}.parent does not match source namespace")
+            if parent == address:
+                raise ValidationError(f"{descriptor_where}.parent cannot self-reference")
+            reference_point = _form_i64_vector(
+                descriptor.get("reference_point"), f"{descriptor_where}.reference_point"
+            )
+            if descriptor.get("profile_id") != expected_id or descriptor.get("source") != PROVISIONAL_FORM_PROVENANCE:
+                raise ValidationError(f"{descriptor_where} provenance does not match its variant")
+            descriptor_provenance = _object(
+                descriptor.get("provenance"), f"{descriptor_where}.provenance"
+            )
+            _check_fields(
+                descriptor_provenance,
+                {"source", "resource_profile_id"},
+                f"{descriptor_where}.provenance",
+            )
+            if (
+                descriptor_provenance.get("source") != PROVISIONAL_FORM_PROVENANCE
+                or descriptor_provenance.get("resource_profile_id") != resource_profile_id
+            ):
+                raise ValidationError(f"{descriptor_where}.provenance is not known")
+            placement_source = descriptor.get("placement_source")
+            if placement_source not in {"authored-root", "authored-containment", "authored-attachment"}:
+                raise ValidationError(f"{descriptor_where}.placement_source is not supported")
+            shape = _object(descriptor.get("shape"), f"{descriptor_where}.shape")
+            shape_name = shape.get("name")
+            expected_shape = _form_role_shape(format_name, address[3])
+            if expected_shape is None:
+                raise ValidationError(f"{descriptor_where}.address.role is not supported")
+            if shape_name != expected_shape:
+                raise ValidationError(
+                    f"{descriptor_where}.shape.name must be {expected_shape} for role {address[3]}"
+                )
+            if shape_name == "ellipsoid":
+                _check_fields(shape, {"name", "center", "axis_extents_permille"}, f"{descriptor_where}.shape")
+                center = _form_i64_vector(shape.get("center"), f"{descriptor_where}.shape.center")
+                if center != reference_point:
+                    raise ValidationError(f"{descriptor_where}.shape.center must equal reference_point")
+                extents = _array(shape.get("axis_extents_permille"), f"{descriptor_where}.shape.axis_extents_permille")
+                if len(extents) != 3:
+                    raise ValidationError(f"{descriptor_where}.shape.axis_extents_permille must contain 3 values")
+                for extent_index, extent in enumerate(extents):
+                    _form_permille(extent, f"{descriptor_where}.shape.axis_extents_permille[{extent_index}]")
+            elif shape_name == "capsule":
+                _check_fields(shape, {"name", "from", "to", "radius_permille"}, f"{descriptor_where}.shape")
+                from_point = _form_i64_vector(shape.get("from"), f"{descriptor_where}.shape.from")
+                to_point = _form_i64_vector(shape.get("to"), f"{descriptor_where}.shape.to")
+                _form_permille(shape.get("radius_permille"), f"{descriptor_where}.shape.radius_permille")
+                if (
+                    parent is None
+                    or from_point == to_point
+                    or (
+                        format_name == PROVISIONAL_FORM_LEGACY_FORMAT
+                        and to_point != reference_point
+                    )
+                ):
+                    raise ValidationError(f"{descriptor_where}.shape capsule endpoints are invalid")
+            else:
+                _check_fields(shape, {"name", "from", "to", "start_radius_permille", "end_radius_permille"}, f"{descriptor_where}.shape")
+                from_point = _form_i64_vector(shape.get("from"), f"{descriptor_where}.shape.from")
+                to_point = _form_i64_vector(shape.get("to"), f"{descriptor_where}.shape.to")
+                _form_permille(shape.get("start_radius_permille"), f"{descriptor_where}.shape.start_radius_permille")
+                _form_permille(shape.get("end_radius_permille"), f"{descriptor_where}.shape.end_radius_permille")
+                if parent is None or from_point == to_point or to_point != reference_point:
+                    raise ValidationError(f"{descriptor_where}.shape tapered endpoints are invalid")
+            descriptor_keys.append(address)
+            address_map[address] = (
+                reference_point,
+                {
+                    "parent": parent,
+                    "placement_source": placement_source,
+                    "shape": shape,
+                    "shape_name": shape_name,
+                },
+            )
+        if descriptor_keys != sorted(descriptor_keys):
+            raise ValidationError(f"{variant_where}.descriptors must use stable AddressKey order")
+        roots = [
+            address
+            for address, (_, details) in address_map.items()
+            if details["placement_source"] == "authored-root"
+        ]
+        if len(roots) != 1:
+            raise ValidationError(f"{variant_where}.descriptors must contain exactly one root")
+
+        # Validate limb segment ownership before walking ordinary parent
+        # invariants.  This keeps a missing distal child diagnostic about the
+        # capsule contract, rather than being obscured by a later orphan check
+        # on a different descriptor.
+        if format_name in PROVISIONAL_FORM_CORRECTED_FORMATS:
+            capsule_child_roles = _form_capsule_child_roles(format_name)
+            for address, (reference_point, details) in address_map.items():
+                if details["shape_name"] != "capsule":
+                    continue
+                expected_child_role = capsule_child_roles[address[3]]
+                direct_children = [
+                    child
+                    for child, (_, child_details) in address_map.items()
+                    if child_details["parent"] == address and child[3] == expected_child_role
+                ]
+                if not direct_children:
+                    raise ValidationError(
+                        f"{variant_where} capsule {address[3]} is missing its direct {expected_child_role} child"
+                    )
+                if len(direct_children) != 1:
+                    raise ValidationError(
+                        f"{variant_where} capsule {address[3]} has ambiguous direct {expected_child_role} children"
+                    )
+                capsule = details["shape"]
+                if capsule["from"] != reference_point:
+                    raise ValidationError(
+                        f"{variant_where} capsule {address[3]} start does not match its reference point"
+                    )
+                child_point = address_map[direct_children[0]][0]
+                if capsule["to"] != child_point:
+                    raise ValidationError(
+                        f"{variant_where} capsule {address[3]} end does not match its direct {expected_child_role} child point"
+                    )
+
+        for address, (reference_point, details) in address_map.items():
+            parent = details["parent"]
+            if details["placement_source"] == "authored-root" and parent is not None:
+                raise ValidationError(f"{variant_where} root descriptor has a parent")
+            if details["placement_source"] != "authored-root" and parent is None:
+                raise ValidationError(f"{variant_where} non-root descriptor has no parent")
+            if parent is not None and parent not in address_map:
+                raise ValidationError(f"{variant_where} descriptor parent is missing")
+            if parent is not None:
+                shape = details["shape"]
+                if (
+                    shape["name"] == "tapered-segment"
+                    or (
+                        format_name == PROVISIONAL_FORM_LEGACY_FORMAT
+                        and shape["name"] == "capsule"
+                    )
+                ) and shape["from"] != address_map[parent][0]:
+                    raise ValidationError(f"{variant_where} segment start does not match parent point")
+            lineage: set[tuple[str, tuple[str, ...], str, str]] = set()
+            current = address
+            while current in address_map:
+                if current in lineage:
+                    raise ValidationError(f"{variant_where}.descriptors contain a parent cycle")
+                lineage.add(current)
+                next_parent = address_map[current][1]["parent"]
+                if next_parent is None:
+                    break
+                current = next_parent
+        if canonical is None:
+            canonical = [
+                (
+                    key,
+                    address_map[key][0],
+                    address_map[key][1]["parent"],
+                    address_map[key][1]["placement_source"],
+                    next(item["shape"]["name"] for item in descriptors if _form_address(item["address"], "descriptor.address") == key),
+                )
+                for key in descriptor_keys
+            ]
+        else:
+            current = [
+                (
+                    key,
+                    address_map[key][0],
+                    address_map[key][1]["parent"],
+                    address_map[key][1]["placement_source"],
+                    next(item["shape"]["name"] for item in descriptors if _form_address(item["address"], "descriptor.address") == key),
+                )
+                for key in descriptor_keys
+            ]
+            if current != canonical:
+                raise ValidationError(f"{variant_where}.descriptors do not preserve exact placements and shape kinds")
+    if canonical is None:
+        raise ValidationError(f"{where}.variants did not contain descriptors")
+    canonical_points = {entry[0]: entry[1] for entry in canonical}
+    canonical_parents = {entry[0]: entry[2] for entry in canonical}
+    if parent_key not in canonical_points or child_key not in canonical_points:
+        raise ValidationError(f"{where}.reference_scale must name descriptor addresses")
+    candidates: list[tuple[int, tuple[str, tuple[str, ...], str, str], tuple[str, tuple[str, ...], str, str], list[int]]] = []
+    for child, parent in canonical_parents.items():
+        if parent is None:
+            continue
+        delta = [canonical_points[child][component] - canonical_points[parent][component] for component in range(3)]
+        if any(component < SIGNED_I64_MIN or component > SIGNED_I64_MAX for component in delta):
+            raise ValidationError(f"{where} descriptor edge exceeds the signed i64 domain")
+        squared = sum(component * component for component in delta)
+        if squared:
+            candidates.append((squared, child, parent, delta))
+    if not candidates:
+        raise ValidationError(f"{where}.reference_scale has no nonzero descriptor edge")
+    selected = min(candidates, key=lambda candidate: (candidate[0], candidate[1]))
+    if (squared_length, child_key, parent_key, axis_delta) != (
+        selected[0], selected[1], selected[2], selected[3]
+    ):
+        raise ValidationError(f"{where}.reference_scale does not match the selected descriptor edge")
+    return obj
+
+
 def _validate_review_structure_envelope(value: Any, where: str) -> dict[str, Any]:
     """Validate either supported structure-viewer projection format."""
 
@@ -1031,6 +1456,7 @@ def _base_manifest(data: Any, manifest_path: Path) -> tuple[dict[str, Any], dict
             "kind",
             "groups",
             "structure_source",
+            "provisional_form_source",
         },
         "manifest",
     )
@@ -1041,8 +1467,8 @@ def _base_manifest(data: Any, manifest_path: Path) -> tuple[dict[str, Any], dict
     review_id = validate_id(obj.get("id"), "manifest.id")
     title = _string(obj.get("title"), "manifest.title", max_len=512)
     kind = obj.get("kind", "image")
-    if kind not in {"image", "structure"}:
-        raise ValidationError("manifest.kind must be image or structure")
+    if kind not in {"image", "structure", "provisional-form"}:
+        raise ValidationError("manifest.kind must be image, structure or provisional-form")
 
     result: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
@@ -1059,6 +1485,10 @@ def _base_manifest(data: Any, manifest_path: Path) -> tuple[dict[str, Any], dict
         result["subject_context"] = _subject_context(obj["subject_context"], "manifest.subject_context")
 
     if kind == "structure":
+        if "provisional_form_source" in obj:
+            raise ValidationError(
+                "manifest.provisional_form_source is only valid for provisional-form reviews"
+            )
         if "structure_source" not in obj:
             raise ValidationError("manifest.structure_source is required for structure reviews")
         structure_source = _string(obj["structure_source"], "manifest.structure_source", max_len=4096)
@@ -1082,9 +1512,41 @@ def _base_manifest(data: Any, manifest_path: Path) -> tuple[dict[str, Any], dict
                 sources = {}
         else:
             sources = {}
+    elif kind == "provisional-form":
+        if "provisional_form_source" not in obj:
+            raise ValidationError(
+                "manifest.provisional_form_source is required for provisional-form reviews"
+            )
+        if "structure_source" in obj:
+            raise ValidationError(
+                "manifest.structure_source is not valid for provisional-form reviews"
+            )
+        form_source = _string(
+            obj["provisional_form_source"],
+            "manifest.provisional_form_source",
+            max_len=4096,
+        )
+        form_ref = _resolve_file_reference(
+            form_source, manifest_path, "manifest.provisional_form_source"
+        )
+        form = read_source_json(
+            form_ref,
+            "manifest.provisional_form_source",
+            max_bytes=MAX_STRUCTURE_JSON_BYTES,
+        )
+        result["provisional_form"] = _validate_provisional_form_envelope(
+            form, "manifest.provisional_form_source"
+        )
+        if "groups" in obj and obj["groups"] not in ([], None):
+            raise ValidationError("manifest.groups must be empty for provisional-form reviews")
+        sources = {}
     else:
         if "structure_source" in obj:
             raise ValidationError("manifest.structure_source is only valid for structure reviews")
+        if "provisional_form_source" in obj:
+            raise ValidationError(
+                "manifest.provisional_form_source is only valid for provisional-form reviews"
+            )
         result["groups"], sources = _normalize_image_groups(
             obj.get("groups"), manifest_path, reserved_ids={review_id}
         )
@@ -1137,6 +1599,7 @@ def validate_normalized_review(
             "kind",
             "groups",
             "structure",
+            "provisional_form",
         },
         "review",
     )
@@ -1145,20 +1608,34 @@ def validate_normalized_review(
     review_id = validate_id(obj.get("id"), "review.id")
     title = _string(obj.get("title"), "review.title", max_len=512)
     kind = obj.get("kind", "image")
-    if kind not in {"image", "structure"}:
-        raise ValidationError("review.kind must be image or structure")
+    if kind not in {"image", "structure", "provisional-form"}:
+        raise ValidationError("review.kind must be image, structure or provisional-form")
     if "structure" in obj:
         if kind != "structure":
             raise ValidationError("review.structure is only valid for structure reviews")
+        if "provisional_form" in obj:
+            raise ValidationError("review.provisional_form is only valid for provisional-form reviews")
         structure = _validate_review_structure_envelope(obj["structure"], "review.structure")
     elif kind == "structure":
         raise ValidationError("review.structure is required for structure reviews")
+    elif "provisional_form" in obj:
+        if kind != "provisional-form":
+            raise ValidationError("review.provisional_form is only valid for provisional-form reviews")
+        structure = None
+        provisional_form = _validate_provisional_form_envelope(
+            obj["provisional_form"], "review.provisional_form"
+        )
+    elif kind == "provisional-form":
+        raise ValidationError("review.provisional_form is required for provisional-form reviews")
     else:
         structure = None
+        provisional_form = None
     groups_value = obj.get("groups")
     groups = _array(groups_value, "review.groups")
     if kind == "image" and not groups:
         raise ValidationError("review.groups must not be empty")
+    if kind == "provisional-form" and groups:
+        raise ValidationError("review.groups must be empty for provisional-form reviews")
     result: dict[str, Any] = {
         "schema_version": 1,
         "id": review_id,
@@ -1168,6 +1645,8 @@ def validate_normalized_review(
     }
     if structure is not None:
         result["structure"] = structure
+    if kind == "provisional-form":
+        result["provisional_form"] = provisional_form
     for key in ("description", "instructions"):
         value = _optional_string(obj, key, "review")
         if value is not None:

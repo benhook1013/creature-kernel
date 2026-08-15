@@ -120,6 +120,56 @@ button.primary { border-color: #3387d5; background: #1768ad; color: #fff; }
 .prepared-invalid h3 { color: #ffb6c0; }
 .prepared-invalid li { margin: 0.35rem 0; }
 
+/* Filled-form appraisal is an intentionally bounded primitive gallery, not a mesh viewer. */
+.form-session-kind { background: #3b284d; color: #e0b9ff; }
+.form-summary, .provisional-form-preview, .form-metadata { margin: 1.5rem 0; padding: clamp(1rem, 2vw, 1.4rem); border: 2px solid #8064a5; border-radius: 0.7rem; background: #151323; box-shadow: 0 0.35rem 1.1rem #0006; }
+.form-summary h2, .provisional-form-preview > h2 { color: #e0c9ff; }
+.form-summary p, .form-explanation { color: #c4b9d6; }
+.form-variant-grid { display: grid; gap: 1rem; margin-top: 1rem; }
+.form-variant-card { min-width: 0; padding: 0.85rem; border: 1px solid #4c3d62; border-radius: 0.55rem; background: #100f1b; }
+.form-variant-card > h3 { align-items: center; color: #e5d7f1; }
+.form-profile-pill { display: inline-block; padding: 0.2rem 0.5rem; border: 1px solid #765e9d; border-radius: 999px; color: #c8b5e3; font-size: 0.72rem; font-weight: 650; }
+.form-panel-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.65rem; margin-top: 0.7rem; }
+.form-panel { min-width: 0; padding: 0.45rem; border: 1px solid #3b3150; border-radius: 0.45rem; background: #0c0d15; }
+.form-panel h4 { margin: 0; color: #e2d5ef; font-size: 0.88rem; }
+.form-panel-description { margin: 0.18rem 0 0.35rem; color: #9f93b1; font-size: 0.72rem; }
+.form-svg { display: block; width: 100%; height: auto; min-height: 11rem; overflow: visible; }
+.form-background { fill: #080a10; }
+.form-plot { fill: #0d111b; stroke: #302943; stroke-width: 1; }
+.form-axis { stroke: #4d5165; stroke-width: 0.8; opacity: 0.8; }
+.form-axis-label { fill: #9b91ae; font: 11px ui-monospace, SFMono-Regular, Consolas, monospace; }
+.form-part { cursor: pointer; outline: none; }
+.form-part:focus .form-primitive, .form-part:hover .form-primitive { filter: brightness(1.18); }
+.form-part:focus { outline: none; }
+.form-part:focus-visible .form-primitive { filter: brightness(1.25); }
+.form-part-label { fill: #e7e2f1; font: 9px ui-monospace, SFMono-Regular, Consolas, monospace; paint-order: stroke; stroke: #090b12; stroke-width: 3px; stroke-linejoin: round; pointer-events: none; opacity: 0; transition: opacity 120ms ease; }
+.form-part:hover .form-part-label, .form-part:focus .form-part-label, .form-part-labels-visible .form-part-label { opacity: 1; }
+.form-inspect-dialog.form-has-highlight .form-part { opacity: 0.42; transition: opacity 120ms ease; }
+.form-inspect-dialog.form-has-highlight .form-part.form-part-highlighted { opacity: 1; }
+.form-inspect-dialog.form-has-highlight .form-part:not(.form-part-highlighted) .form-part-label { opacity: 0; }
+.form-inspect-dialog.form-has-highlight .form-part.form-part-highlighted .form-part-label { opacity: 1; }
+.form-legend { margin: 0.9rem 0 0; color: #b1a5c3; font-size: 0.8rem; }
+.form-inspect-dialog { width: min(96vw, 1500px); max-width: none; max-height: 94vh; overflow: auto; overscroll-behavior: contain; padding: clamp(1rem, 2vw, 1.6rem); border: 1px solid #8064a5; border-radius: 0.7rem; background: #151323; color: #dce6f1; box-shadow: 0 1rem 4rem #000b; }
+.form-inspect-dialog::backdrop { background: #080b12e8; }
+.form-inspect-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.form-inspect-header h2 { color: #e0c9ff; }
+.form-inspect-description { color: #c4b9d6; }
+.form-inspect-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+.form-panel-large { padding: 0.8rem; }
+.form-svg-large { min-height: 24rem; }
+.form-inspect-legend { margin-top: 1rem; padding: 0.9rem 1rem; border: 1px solid #4c3d62; border-radius: 0.5rem; background: #100f1b; }
+.form-inspect-legend h3 { margin: 0; color: #e5d7f1; }
+.form-inspect-legend ul { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 0.35rem 1rem; margin: 0.7rem 0 0; padding: 0; list-style: none; }
+.form-inspect-legend li { min-width: 0; }
+.form-inspect-legend-row { width: 100%; padding: 0.38rem 0.5rem; border-color: transparent; background: transparent; color: #b1a5c3; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 0.82rem; text-align: left; }
+.form-inspect-legend-row:hover, .form-inspect-legend-row-active { border-color: #8064a5; background: #211a31; }
+.form-inspect-legend-row:focus-visible { outline: 3px solid #a98ade; outline-offset: 2px; }
+.form-inspect-legend-row strong { color: #e7e2f1; }
+.form-invalid { margin: 1.5rem 0; padding: 1rem; border: 2px solid #9b4b57; border-radius: 0.5rem; background: #2b171d; color: #f0aab2; }
+.form-invalid h2 { color: #ffb6c0; }
+.form-raw { margin: 1.5rem 0; padding: 0.8rem 1rem; border: 1px solid #413653; border-radius: 0.5rem; background: #11101b; }
+.form-raw > summary { cursor: pointer; color: #cbb8e3; font-weight: 700; }
+
 /* The primitive spatial preview is a deterministic SVG guide, not a mesh viewer. */
 .spatial-preview { margin: 1.5rem 0; padding: clamp(1rem, 2vw, 1.4rem); border: 2px solid #557ca0; border-radius: 0.7rem; background: #101a27; box-shadow: 0 0.35rem 1.1rem #0006; }
 .spatial-preview > h2 { color: #c0dcf5; }
@@ -173,4 +223,8 @@ button.primary { border-color: #3387d5; background: #1768ad; color: #fff; }
   .joint-table th, .joint-table td { min-width: 12rem; }
   .prepared-table { display: block; overflow-x: auto; white-space: normal; }
   .prepared-table th, .prepared-table td { min-width: 9rem; }
+  .form-panel-grid { grid-template-columns: 1fr; }
+  .form-svg { min-height: 14rem; }
+  .form-inspect-grid { grid-template-columns: 1fr; }
+  .form-svg-large { min-height: 20rem; }
 }

@@ -553,6 +553,67 @@ class HTTPTests(ReviewFixture):
         _, _, api_body = self.get(self.base + "/api/reviews/demo-review")
         self.assertEqual(json.loads(api_body)["response"]["selections"], {"coat": ["warm"]})
 
+    def test_default_server_binds_loopback(self):
+        self.assertEqual(self.server.server_address[0], "127.0.0.1")
+
+    def test_lan_read_only_server_allows_gets_but_rejects_remote_write(self):
+        self.server.shutdown()
+        self.server.server_close()
+        # Use a separate listener so this test does not depend on an external
+        # interface; 127.0.0.1 reaches the wildcard socket locally.
+        lan_server = serve.create_server(self.root, 0, lan_read_only=True)
+        lan_thread = threading.Thread(target=lan_server.serve_forever)
+        lan_thread.start()
+        self.addCleanup(lambda: (lan_server.shutdown(), lan_thread.join(), lan_server.server_close()))
+        self.assertEqual(lan_server.server_address[0], "0.0.0.0")
+        lan_base = f"http://127.0.0.1:{lan_server.server_port}"
+
+        status, _, body = self.get(lan_base + "/")
+        self.assertEqual(status, 200)
+        self.assertIn(b"visual reviews", body)
+        status, _, body = self.get(lan_base + "/api/reviews/demo-review")
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["review"]["id"], "demo-review")
+
+        response_path = self.root / "demo-review" / "response.json"
+        self.assertFalse(response_path.exists())
+        request_headers = {
+            "Content-Type": "application/json",
+            "X-Visual-Review-Token": lan_server.write_token,
+        }
+
+        request_headers.update({
+            "Host": f"192.0.2.10:{lan_server.server_port}",
+            "Origin": f"http://192.0.2.10:{lan_server.server_port}",
+        })
+        request = Request(
+            lan_base + "/api/reviews/demo-review/response",
+            data=json.dumps(self.response_body()).encode("utf-8"),
+            headers=request_headers,
+            method="POST",
+        )
+        with self.assertRaises(HTTPError) as caught:
+            urlopen(request, timeout=3)
+        self.assertEqual(caught.exception.code, 403)
+        self.assertFalse(response_path.exists())
+
+        sentinel = b'{"unchanged":true}\n'
+        response_path.write_bytes(sentinel)
+        request_headers.update({
+            "Host": f"localhost:{lan_server.server_port}",
+            "Origin": f"http://localhost:{lan_server.server_port}",
+        })
+        request = Request(
+            lan_base + "/api/reviews/demo-review/response",
+            data=json.dumps(self.response_body()).encode("utf-8"),
+            headers=request_headers,
+            method="POST",
+        )
+        with self.assertRaises(HTTPError) as caught:
+            urlopen(request, timeout=3)
+        self.assertEqual(caught.exception.code, 403)
+        self.assertEqual(response_path.read_bytes(), sentinel)
+
     def test_rejection_paths(self):
         body = self.response_body()
         for path in (
