@@ -135,10 +135,13 @@ This intentionally retires the provisional public record-level
 The current implementation also provides a crate-private source-set preparation
 projection: it prepares each member independently, retains exact raw bytes and
 retained structural source metadata, builds a deterministic `(document,
-namespace)` member table, and sorts declared edges deterministically. It does
-not perform declaration matching, resolver statuses, cross-source merge,
-snapshot, digest, or Readiness 3 activation; it remains preparatory and does
-not accept or revise a Proposed decision record.
+namespace)` member table, and sorts declared edges deterministically. Every
+retained declaration can now be classified, in deterministic edge order, as
+naming or not naming an already supplied member by `(document, namespace)`;
+declared `content_sha256` remains opaque and unverified. It does not perform
+acquisition, revision/hash verification, resolver status/diagnostic mapping,
+cross-source merge/remap, snapshot/digest, or Readiness 3 activation; it
+remains preparatory and does not accept or revise a Proposed decision record.
 
 The current implementation also contains a crate-private, non-serialized
 resolver-envelope/reducer scaffold. It represents the Proposed seven statuses
