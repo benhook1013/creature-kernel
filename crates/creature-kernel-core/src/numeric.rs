@@ -18,6 +18,14 @@ pub struct NormalizedBinary64 {
 }
 
 impl NormalizedBinary64 {
+    /// The canonical positive-zero value.
+    pub const ZERO: Self = Self { bits: 0 };
+
+    /// The finite binary64 value one.
+    pub const ONE: Self = Self {
+        bits: 1.0f64.to_bits(),
+    };
+
     /// Returns the normalized IEEE-754 binary64 representation.
     #[must_use]
     pub const fn to_bits(self) -> u64 {
@@ -28,6 +36,17 @@ impl NormalizedBinary64 {
     #[must_use]
     pub fn as_f64(self) -> f64 {
         f64::from_bits(self.bits)
+    }
+
+    /// Negates the exact finite representation, canonicalizing zero.
+    pub(crate) const fn negated(self) -> Self {
+        if self.bits == 0 {
+            Self::ZERO
+        } else {
+            Self {
+                bits: self.bits ^ (1u64 << 63),
+            }
+        }
     }
 
     fn from_f64(value: f64) -> Self {
@@ -261,6 +280,27 @@ mod tests {
         ] {
             assert_eq!(bits(token), 0, "{token}");
         }
+    }
+
+    #[test]
+    fn exact_sign_negation_flips_nonzero_bits_and_keeps_zero_canonical() {
+        assert_eq!(NormalizedBinary64::ZERO.to_bits(), 0);
+        assert_eq!(NormalizedBinary64::ONE.to_bits(), 1.0f64.to_bits());
+        assert_eq!(decimal_to_binary64("-0").unwrap().negated().to_bits(), 0);
+        assert_eq!(
+            decimal_to_binary64("1.7976931348623157e308")
+                .unwrap()
+                .negated()
+                .to_bits(),
+            (-f64::MAX).to_bits()
+        );
+        assert_eq!(
+            decimal_to_binary64("4.9406564584124654e-324")
+                .unwrap()
+                .negated()
+                .to_bits(),
+            f64::from_bits(0x8000_0000_0000_0001).to_bits()
+        );
     }
 
     #[test]

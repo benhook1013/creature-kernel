@@ -36,8 +36,13 @@ checks strict JSON-number grammar, uses pinned Rust 1.97.1 direct correctly-
 rounded binary64 final conversion, returns typed overflow/nonzero-underflow
 failures, admits finite subnormals, normalizes lexical zero to `+0`, and has
 focused boundary tests. It is not wired into body-document admission and does
-not activate numeric semantics or Readiness 3. No Readiness 3 resolver/snapshot,
-adapter, experiment, or geometry activation exists.
+not activate numeric semantics or Readiness 3. The standalone
+`creature_kernel_core::frame` module is preparatory only: it provides a
+normalized-binary64 structural transform carrier, exact signed-axis
+source-basis mapping, and symbolic length-unit ratios, without unit scaling,
+quaternion/transform algebra or comparison, source integration, resolver, or
+snapshot behavior. No Readiness 3 resolver/snapshot, adapter, experiment, or
+geometry activation exists.
 See the [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for recommendations and findings. Its four
 readiness stages are: acceptance activated Readiness 1 for the Cargo workspace,
@@ -126,9 +131,9 @@ admission and successor history.
 Performance claims must be backed by a reproducible benchmark and hardware
 profile. Readiness 2 is active alongside Readiness 1 for its admitted
 schema/manifest/fixture/parser/bootstrap/preflight transaction; its structural
-index/validator/inspection and the standalone numeric module remain
-preparatory, and no Readiness 3 implementation package is activated. Any future
-worker must negotiate protocol/
+index/validator/inspection and the standalone numeric/frame-preparation modules
+remain preparatory, and no Readiness 3 implementation package is activated.
+Any future worker must negotiate protocol/
 version compatibility, obey bounded time/resource budgets, map crash/timeout/
 resource outcomes, validate outputs before publication, and leave the compiler
 surviving worker failure; exact worker serialization remains deferred. The
