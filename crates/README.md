@@ -34,3 +34,14 @@ produce claims/snapshots or serialization, or activate a resolver or Readiness
 remains owned by [`spec/body-document`](../spec/body-document/README.md),
 with the admitted schema at
 [`ck-body-document-v1.schema.json`](../spec/body-document/schema/ck-body-document-v1.schema.json).
+
+The CLI also exposes the separate provisional
+`inspect-prepared-source --input <path>` candidate. Unlike unchanged
+`inspect-structure`, it adds the declared basis, prepared counts, and numeric
+debug rows with stable semantic addresses or owner/role locations, display
+values, and binary64 bits for one admitted source. It remains only a graph
+projection: no resolver/snapshot, canonical serialization, basis/unit
+application, quaternion semantics, dependency/module expansion, geometry,
+rigging, animation, physics, runtime, or Readiness 3 activation. The local
+browser flow uses `publish_prepared_source.py` followed by `serve.py`; see the
+[visual-review tool README](../dev-tools/visual-review/README.md).

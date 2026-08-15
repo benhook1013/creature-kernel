@@ -83,6 +83,17 @@ preparatory results do not constitute Readiness 3 admission or activation:
 they do not activate resolver/numeric semantics, geometry, rigging, animation,
 physics, or runtime.
 
+The current worktree now contains the first human-visible CLI/viewer candidate:
+`inspect-prepared-source --input <path>` plus its bounded
+`publish_prepared_source.py`/localhost-server flow. It preserves the admitted
+single-source graph projection and adds the declared basis, prepared counts,
+and numeric debug rows with binary64 bits and stable semantic locations. This
+candidate is awaiting Ben's appraisal and must not merge until he reviews it.
+It remains preparatory only: it does not resolve dependencies or produce a
+snapshot or canonical serialization, apply basis/unit values, interpret
+quaternions, expand dependencies/modules, produce geometry, rigging,
+animation, physics, or runtime output, or activate Readiness 3.
+
 PR #9, “Add inspectable biped structure workflow,” is merged at commit
 `565c32bd35215e23d737fb333604382d3e6958ab`. PR #10, “Add preparatory exact
 decimal conversion,” is merged at commit
@@ -378,7 +389,9 @@ human-visible CLI/viewer resolver checkpoint: document-wide resolver
 preparation/provenance traversal over admitted records grounded in the active
 parser/bootstrap and admitted schema/manifest/fixture transaction. Readiness 1
 and Readiness 2 remain active while Readiness 3 and later transactions remain
-gated.
+gated. The current prepared-source candidate is that checkpoint's first
+human-visible candidate; it is awaiting Ben's appraisal and must not merge
+until he reviews it.
 The main thread will autonomously resolve technical correctness findings or
 record evidence-dependent triggers under the DR-0001 Revision 6 transition
 direction; only a retained-human product, architecture-boundary, material
@@ -527,7 +540,9 @@ validator, and inspection command remain preparatory. The immediate-predecessor
   address/index, validator, and `inspect-structure` command are preparatory and
   do not activate Readiness 3. Advance bounded source preparation toward the
   first human-visible CLI/viewer resolver checkpoint, including document-wide
-  resolver preparation/provenance traversal; the public single-source
+  resolver preparation/provenance traversal. The current
+  `inspect-prepared-source` CLI/viewer candidate is awaiting Ben's appraisal and
+  must not merge until he reviews it. The public single-source
   preparation operation and internal numeric/frame-preparation helpers stay
   preparatory, with no record-level admission bypass. Numeric/frame/output,
   adapter, and geometry prerequisites gate later stages. Any performance claim must have

@@ -1,8 +1,9 @@
 # Authored examples
 
 These examples are small, human-readable body documents for exercising the
-admitted source shape and the provisional structural inspection command. They
-are authored fixtures, not generated meshes or resolver snapshots.
+admitted source shape, the provisional structural inspection command, and the
+prepared-source inspection candidate. They are authored fixtures, not
+generated meshes or resolver snapshots.
 
 ## Stylized digitigrade biped
 
@@ -32,6 +33,21 @@ cargo run -p creature-kernel-cli -- inspect-structure \
   --input examples/body-documents/stylized-digitigrade-biped.json
 ```
 
+The unchanged `inspect-structure` command is structural-only. The prepared
+source candidate adds the declared basis, prepared counts, and numeric debug
+rows (stable semantic locations, display values, and binary64 bits) for this
+single admitted source:
+
+```bash
+cargo run -p creature-kernel-cli -- inspect-prepared-source \
+  --input examples/body-documents/stylized-digitigrade-biped.json
+```
+
+This projection does not resolve or snapshot, canonicalize, apply basis/unit
+values, interpret quaternions, expand dependencies/modules, or produce
+geometry, rigging, animation, physics, or runtime output; it does not activate
+Readiness 3.
+
 For the local browser structural review, use the built CLI and a disposable
 `/tmp` review root:
 
@@ -51,3 +67,10 @@ browser view is a provisional, source-preserving structural inspection—not
 geometry, a resolved snapshot, rig, animation, physics, or runtime proof.
 The existing image-review workflow remains available; see the [developer
 workflow](../docs/developer-workflows/visual-review-gallery.md) for details.
+
+To review the prepared projection in the browser, build the CLI and run
+`publish_prepared_source.py` followed by `serve.py` against a disposable local
+root. The owning [visual-review workflow](../docs/developer-workflows/visual-review-gallery.md)
+and [tool README](../dev-tools/visual-review/README.md) provide the launch
+commands and behavior. Generated sessions are disposable and must not be
+committed.

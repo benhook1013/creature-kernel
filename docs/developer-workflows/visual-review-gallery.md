@@ -51,6 +51,18 @@ workflow remains supported; image sessions and structural sessions are separate
 review kinds. The helper and browser details remain in the
 [visual-review tool README](../../dev-tools/visual-review/README.md).
 
+## Prepared-source review
+
+The prepared-source candidate is invoked with
+`inspect-prepared-source --input PATH`. It retains the structural projection
+and adds the declared basis, prepared counts, and numeric debug rows for one
+admitted source. For a browser session, run
+`publish_prepared_source.py` followed by `serve.py` in a disposable local root;
+the [visual-review tool README](../../dev-tools/visual-review/README.md) owns
+the exact commands, bounds, and session behavior. This remains source
+inspection only and does not activate resolver, snapshot, geometry, runtime,
+or Readiness 3 behavior.
+
 ## Workflow
 
 1. Prepare a review manifest for the images to compare. Use stable option IDs,
