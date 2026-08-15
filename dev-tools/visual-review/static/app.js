@@ -1203,7 +1203,8 @@
 
   var PROVISIONAL_FORM_FORMATS = [
     "creature-kernel.provisional-form-preview.v1",
-    "creature-kernel.provisional-form-preview.v2"
+    "creature-kernel.provisional-form-preview.v2",
+    "creature-kernel.provisional-form-preview.v3"
   ];
   var PROVISIONAL_FORM_VARIANTS = ["neutral-v0", "broad-soft-v0", "lean-readable-v0", "depth-forward-v0"];
   var PROVISIONAL_FORM_VIEWS = [
@@ -1363,6 +1364,7 @@
     var activatesInspector = options && typeof options.onActivate === "function";
     var part = svgNode("g", {
       "class": "form-part" + (options && options.showLabels ? " form-part-labels-visible" : ""),
+      "data-address-key": formAddressKey(descriptor.address),
       tabindex: "0",
       focusable: "true",
       role: activatesInspector ? "button" : "img",
@@ -1440,20 +1442,117 @@
     return panel;
   }
 
-  function formInspectLegend(variant) {
+  function formSetInspectHighlight(dialog, addressKey) {
+    dialog.classList.toggle("form-has-highlight", Boolean(addressKey));
+    Array.prototype.forEach.call(dialog.querySelectorAll(".form-part"), function (part) {
+      part.classList.toggle("form-part-highlighted", Boolean(addressKey) && part.getAttribute("data-address-key") === addressKey);
+    });
+    Array.prototype.forEach.call(dialog.querySelectorAll(".form-inspect-legend-row"), function (row) {
+      var selected = Boolean(addressKey) && row.getAttribute("data-address-key") === addressKey;
+      row.classList.toggle("form-inspect-legend-row-active", selected);
+    });
+  }
+
+  function formInspectLegend(variant, dialog) {
     var section = node("section", null, "form-inspect-legend");
     section.appendChild(node("h3", "Parts in this variant"));
     var list = node("ul");
+    var hoveredAddressKey = null;
+    var focusedAddressKey = null;
+    function updateHighlight() {
+      formSetInspectHighlight(dialog, hoveredAddressKey || focusedAddressKey);
+    }
     variant.descriptors.slice().sort(function (left, right) {
       return formAddressKey(left.address).localeCompare(formAddressKey(right.address));
     }).forEach(function (descriptor) {
       var item = node("li");
-      item.appendChild(node("strong", formDescriptorLabel(descriptor)));
-      item.appendChild(node("span", " · " + descriptor.shape.name));
+      var label = formDescriptorLabel(descriptor);
+      var addressKey = formAddressKey(descriptor.address);
+      var row = node("button", null, "form-inspect-legend-row");
+      row.type = "button";
+      row.setAttribute("data-address-key", addressKey);
+      row.setAttribute("aria-label", "Highlight " + label + " across all three projections");
+      row.appendChild(node("strong", label));
+      row.appendChild(node("span", " · " + descriptor.shape.name));
+      row.addEventListener("mouseenter", function () {
+        hoveredAddressKey = addressKey;
+        updateHighlight();
+      });
+      row.addEventListener("mouseleave", function () {
+        hoveredAddressKey = null;
+        updateHighlight();
+      });
+      row.addEventListener("focus", function () {
+        focusedAddressKey = addressKey;
+        updateHighlight();
+      });
+      row.addEventListener("blur", function () {
+        focusedAddressKey = null;
+        updateHighlight();
+      });
+      item.appendChild(row);
       list.appendChild(item);
     });
     section.appendChild(list);
     return section;
+  }
+
+  var formInspectScrollLock = null;
+
+  function lockFormInspectScroll() {
+    if (formInspectScrollLock) {
+      formInspectScrollLock.count += 1;
+    } else {
+      var root = document.documentElement;
+      var body = document.body;
+      var scrollX = window.scrollX;
+      var scrollY = window.scrollY;
+      var scrollbarWidth = Math.max(0, window.innerWidth - root.clientWidth);
+      var bodyPaddingRight = parseFloat(window.getComputedStyle(body).paddingRight) || 0;
+      formInspectScrollLock = {
+        count: 1,
+        scrollX: scrollX,
+        scrollY: scrollY,
+        root: root,
+        body: body,
+        rootOverflow: root.style.overflow,
+        bodyPosition: body.style.position,
+        bodyTop: body.style.top,
+        bodyLeft: body.style.left,
+        bodyRight: body.style.right,
+        bodyWidth: body.style.width,
+        bodyOverflow: body.style.overflow,
+        bodyPaddingRight: body.style.paddingRight
+      };
+      root.style.overflow = "hidden";
+      body.style.position = "fixed";
+      body.style.top = -scrollY + "px";
+      body.style.left = -scrollX + "px";
+      body.style.right = "0";
+      body.style.width = "100%";
+      body.style.overflow = "hidden";
+      if (scrollbarWidth) {
+        body.style.paddingRight = bodyPaddingRight + scrollbarWidth + "px";
+      }
+    }
+    var released = false;
+    return function () {
+      if (released || !formInspectScrollLock) { return; }
+      released = true;
+      formInspectScrollLock.count -= 1;
+      if (formInspectScrollLock.count) { return; }
+      var lock = formInspectScrollLock;
+      formInspectScrollLock = null;
+      lock.root.style.overflow = lock.rootOverflow;
+      lock.body.style.position = lock.bodyPosition;
+      lock.body.style.top = lock.bodyTop;
+      lock.body.style.left = lock.bodyLeft;
+      lock.body.style.right = lock.bodyRight;
+      lock.body.style.width = lock.bodyWidth;
+      lock.body.style.overflow = lock.bodyOverflow;
+      lock.body.style.paddingRight = lock.bodyPaddingRight;
+      window.scrollTo(lock.scrollX, lock.scrollY);
+    };
   }
 
   function openFormInspector(payload, variant, trigger) {
@@ -1476,13 +1575,23 @@
       grid.appendChild(formPanel(payload, variant, view, bounds, { large: true }));
     });
     dialog.appendChild(grid);
-    dialog.appendChild(formInspectLegend(variant));
+    dialog.appendChild(formInspectLegend(variant, dialog));
+    var releaseScrollLock = lockFormInspectScroll();
     dialog.addEventListener("close", function () {
       dialog.remove();
-      if (trigger && typeof trigger.focus === "function" && document.contains(trigger)) { trigger.focus(); }
+      if (trigger && typeof trigger.focus === "function" && document.contains(trigger)) {
+        try { trigger.focus({ preventScroll: true }); } catch (error) { trigger.focus(); }
+      }
+      releaseScrollLock();
     });
     document.body.appendChild(dialog);
-    dialog.showModal();
+    try {
+      dialog.showModal();
+    } catch (error) {
+      dialog.remove();
+      releaseScrollLock();
+      throw error;
+    }
     close.focus();
   }
 

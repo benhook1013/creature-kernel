@@ -821,9 +821,9 @@ fn shape_kind(role: &str) -> Option<ProvisionalShapeKind> {
 fn neutral_extents(role: &str) -> [u32; 3] {
     match role {
         "pelvis" => [1_700, 1_200, 900],
-        "torso" => [1_300, 1_800, 900],
-        "neck" => [650, 600, 600],
-        "head" => [1_000, 1_000, 900],
+        "torso" => [1_650, 1_200, 900],
+        "neck" => [650, 800, 600],
+        "head" => [1_000, 600, 900],
         "hand" => [450, 400, 350],
         "foot" => [500, 350, 700],
         _ => [1, 1, 1],
@@ -933,7 +933,7 @@ mod tests {
         crate::provisional_json::to_vec(&value).expect("test JSON")
     }
 
-    fn transverse_ellipse_gap(
+    fn ellipse_capsule_endpoint_gap(
         center: ExactTranslation,
         axis_extents_permille: [u32; 3],
         endpoint: ExactTranslation,
@@ -943,21 +943,37 @@ mod tests {
         let transverse_axis = if capsule_axis == 0 { 1 } else { 0 };
         let center_components = center.components();
         let endpoint_components = endpoint.components();
-        let transverse_delta =
-            (endpoint_components[transverse_axis] - center_components[transverse_axis]) as f64;
+        let point_transverse = (endpoint_components[transverse_axis]
+            - center_components[transverse_axis])
+            .unsigned_abs() as f64;
         let transverse_extent =
             f64::from(axis_extents_permille[transverse_axis]) / 1_000.0 * reference_length;
+        let point_axis = (endpoint_components[capsule_axis] - center_components[capsule_axis])
+            .unsigned_abs() as f64;
         let axis_extent =
             f64::from(axis_extents_permille[capsule_axis]) / 1_000.0 * reference_length;
-        let normalized = transverse_delta.abs() / transverse_extent;
-        let cross_section = if normalized < 1.0 {
-            axis_extent * (1.0 - normalized * normalized).sqrt()
-        } else {
-            0.0
+        let normalized_sq =
+            (point_axis / axis_extent).powi(2) + (point_transverse / transverse_extent).powi(2);
+        if normalized_sq <= 1.0 {
+            return 0.0;
+        }
+        let distance_sq = |angle: f64| {
+            let boundary_axis = axis_extent * angle.cos();
+            let boundary_transverse = transverse_extent * angle.sin();
+            (boundary_axis - point_axis).powi(2) + (boundary_transverse - point_transverse).powi(2)
         };
-        let axis_delta =
-            (endpoint_components[capsule_axis] - center_components[capsule_axis]) as f64;
-        (axis_delta.abs() - cross_section).max(0.0)
+        let mut lower = 0.0;
+        let mut upper = std::f64::consts::FRAC_PI_2;
+        for _ in 0..80 {
+            let first = lower + (upper - lower) / 3.0;
+            let second = upper - (upper - lower) / 3.0;
+            if distance_sq(first) < distance_sq(second) {
+                upper = second;
+            } else {
+                lower = first;
+            }
+        }
+        distance_sq((lower + upper) / 2.0).sqrt()
     }
 
     #[test]
@@ -1108,7 +1124,7 @@ mod tests {
                     } => (*from, *radius_permille),
                     shape => panic!("expected capsule, got {shape:?}"),
                 };
-                let gap = transverse_ellipse_gap(
+                let gap = ellipse_capsule_endpoint_gap(
                     center,
                     axis_extents_permille,
                     from,
@@ -1121,6 +1137,97 @@ mod tests {
                     "{} {} gap {gap} exceeds radius {radius} with extents {axis_extents_permille:?}",
                     variant.id(),
                     descriptor.address()
+                );
+                let center_y = center.components()[1] as f64;
+                let torso_or_pelvis_y_extent =
+                    f64::from(axis_extents_permille[1]) / 1_000.0 * reference_length;
+                let capsule_center_y = from.components()[1] as f64;
+                let side_overlap = (center_y + torso_or_pelvis_y_extent)
+                    .min(capsule_center_y + radius)
+                    - (center_y - torso_or_pelvis_y_extent).max(capsule_center_y - radius);
+                assert!(
+                    side_overlap > 0.0,
+                    "{} {} has no side-projection bridge",
+                    variant.id(),
+                    descriptor.address()
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn neck_bridges_torso_and_head_without_direct_torso_head_overlap() {
+        let preview = build_provisional_form_preview(&example(), ResourceProfile::ORDINARY)
+            .expect("checked-in biped is supported");
+        let reference_length = (preview.reference_scale().squared_length() as f64).sqrt();
+        for variant in preview.variants() {
+            let ellipsoid = |role: &str| {
+                let descriptor = variant
+                    .descriptors()
+                    .iter()
+                    .find(|descriptor| {
+                        descriptor.address().role() == role
+                            && descriptor.address().anchors().is_empty()
+                    })
+                    .expect("unanchored ellipsoid descriptor");
+                match descriptor.shape() {
+                    ProvisionalShape::Ellipsoid {
+                        center,
+                        axis_extents_permille,
+                        ..
+                    } => (*center, *axis_extents_permille),
+                    shape => panic!("expected ellipsoid, got {shape:?}"),
+                }
+            };
+            let (torso_center, torso_extents) = ellipsoid("torso");
+            let (neck_center, neck_extents) = ellipsoid("neck");
+            let (head_center, head_extents) = ellipsoid("head");
+            let interval = |center: ExactTranslation, extent_permille: u32| {
+                let center = center.components()[1] as f64;
+                let extent = f64::from(extent_permille) / 1_000.0 * reference_length;
+                (center - extent, center + extent)
+            };
+            let torso_y = interval(torso_center, torso_extents[1]);
+            let neck_y = interval(neck_center, neck_extents[1]);
+            let head_y = interval(head_center, head_extents[1]);
+            let torso_neck_overlap = torso_y.1.min(neck_y.1) - torso_y.0.max(neck_y.0);
+            let neck_head_overlap = neck_y.1.min(head_y.1) - neck_y.0.max(head_y.0);
+            let torso_head_gap = head_y.0 - torso_y.1;
+            assert!(
+                torso_neck_overlap > 0.0,
+                "{} torso and neck do not overlap: {torso_y:?} {neck_y:?}",
+                variant.id()
+            );
+            assert!(
+                neck_head_overlap > 0.0,
+                "{} neck and head do not overlap: {neck_y:?} {head_y:?}",
+                variant.id()
+            );
+            assert!(
+                torso_head_gap > 0.0,
+                "{} torso directly overlaps head: {torso_y:?} {head_y:?}",
+                variant.id()
+            );
+
+            let bridge_start = torso_y.1.max(neck_y.0);
+            let bridge_end = head_y.0.min(neck_y.1);
+            assert!(
+                bridge_end - bridge_start >= 0.1 * reference_length,
+                "{} neck bridge is not human-readable: [{bridge_start}, {bridge_end}]",
+                variant.id()
+            );
+            let bridge_midpoint = (bridge_start + bridge_end) / 2.0;
+            let neck_y_delta = (bridge_midpoint - neck_center.components()[1] as f64).abs();
+            let neck_y_radius = f64::from(neck_extents[1]) / 1_000.0 * reference_length;
+            for axis in [0, 2] {
+                let neck_axis_radius = f64::from(neck_extents[axis]) / 1_000.0 * reference_length;
+                let cross_section =
+                    neck_axis_radius * (1.0 - (neck_y_delta / neck_y_radius).powi(2)).sqrt();
+                assert!(
+                    cross_section > 0.0,
+                    "{} neck bridge has no {}-projection area",
+                    variant.id(),
+                    if axis == 0 { "front" } else { "side" }
                 );
             }
         }

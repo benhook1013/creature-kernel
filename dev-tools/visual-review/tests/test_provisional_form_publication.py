@@ -169,7 +169,7 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
 
     def test_success_publishes_distinct_immutable_form_session_and_route(self) -> None:
         self.assertEqual(
-            self.payload["format"], "creature-kernel.provisional-form-preview.v2"
+            self.payload["format"], "creature-kernel.provisional-form-preview.v3"
         )
         binary = self.fake_binary("import json, sys\nsys.stdout.write(" + repr(json.dumps(self.payload)) + ")\n")
         session = self.publish_with(binary, review_id="form-review", title="Filled form")
@@ -218,17 +218,32 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
                 self.publish_with(binary, review_id=f"bad-form-{index}")
             self.assertFalse((self.root / f"bad-form-{index}").exists())
 
-    def test_v2_capsules_use_their_direct_distal_child_anchor(self) -> None:
-        payload = self.capsule_payload()
-        common._validate_provisional_form_envelope(payload, "capsule fixture")
+    def test_v2_and_v3_capsules_use_their_direct_distal_child_anchor(self) -> None:
+        for format_name in (
+            common.PROVISIONAL_FORM_V2_FORMAT,
+            common.PROVISIONAL_FORM_FORMAT,
+        ):
+            with self.subTest(format_name=format_name):
+                payload = self.capsule_payload(format_name=format_name)
+                validated = common._validate_provisional_form_envelope(
+                    payload, "capsule fixture"
+                )
+                self.assertEqual(validated["format"], format_name)
 
-        old_parent_center = copy.deepcopy(payload)
-        for descriptor in old_parent_center["variants"][0]["descriptors"]:
-            if descriptor["address"]["role"] == "upper_arm":
-                descriptor["shape"]["from"] = [0, 1, 0]
-                break
-        with self.assertRaisesRegex(common.ValidationError, "start does not match its reference point"):
-            common._validate_provisional_form_envelope(old_parent_center, "old capsule fixture")
+                old_parent_center = copy.deepcopy(payload)
+                for descriptor in old_parent_center["variants"][0]["descriptors"]:
+                    if descriptor["address"]["role"] == "upper_arm":
+                        descriptor["shape"]["from"] = [0, 1, 0]
+                        break
+                with self.assertRaisesRegex(
+                    common.ValidationError,
+                    "start does not match its reference point",
+                ):
+                    common._validate_provisional_form_envelope(
+                        old_parent_center, "old capsule fixture"
+                    )
+
+        payload = self.capsule_payload()
 
         missing_distal = copy.deepcopy(payload)
         for variant in missing_distal["variants"]:
@@ -293,14 +308,19 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
                 corrected_mislabeled_v1, "corrected payload mislabeled v1"
             )
 
-        legacy_mislabeled_v2 = copy.deepcopy(legacy)
-        legacy_mislabeled_v2["format"] = common.PROVISIONAL_FORM_FORMAT
-        with self.assertRaisesRegex(
-            common.ValidationError, "start does not match its reference point"
+        for corrected_format in (
+            common.PROVISIONAL_FORM_V2_FORMAT,
+            common.PROVISIONAL_FORM_FORMAT,
         ):
-            common._validate_provisional_form_envelope(
-                legacy_mislabeled_v2, "legacy payload mislabeled v2"
-            )
+            legacy_mislabeled_corrected = copy.deepcopy(legacy)
+            legacy_mislabeled_corrected["format"] = corrected_format
+            with self.subTest(corrected_format=corrected_format), self.assertRaisesRegex(
+                common.ValidationError, "start does not match its reference point"
+            ):
+                common._validate_provisional_form_envelope(
+                    legacy_mislabeled_corrected,
+                    "legacy payload mislabeled corrected",
+                )
 
     def test_nonzero_output_bound_timeout_and_collision_are_bounded(self) -> None:
         noisy = self.fake_binary(f"import sys\nsys.stdout.write('x' * {publisher.MAX_STDOUT_BYTES + 1})\n", "noisy")

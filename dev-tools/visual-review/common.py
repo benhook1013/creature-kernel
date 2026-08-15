@@ -40,10 +40,15 @@ PREPARED_SOURCE_FORMAT = "creature-kernel.provisional-source-preparation-inspect
 PREPARED_SOURCE_OPERATION = "inspect-prepared-source"
 PREPARED_SOURCE_STAGE = "source-preparation"
 PROVISIONAL_FORM_LEGACY_FORMAT = "creature-kernel.provisional-form-preview.v1"
-PROVISIONAL_FORM_FORMAT = "creature-kernel.provisional-form-preview.v2"
+PROVISIONAL_FORM_V2_FORMAT = "creature-kernel.provisional-form-preview.v2"
+PROVISIONAL_FORM_FORMAT = "creature-kernel.provisional-form-preview.v3"
+PROVISIONAL_FORM_CORRECTED_FORMATS = {
+    PROVISIONAL_FORM_V2_FORMAT,
+    PROVISIONAL_FORM_FORMAT,
+}
 PROVISIONAL_FORM_FORMATS = {
     PROVISIONAL_FORM_LEGACY_FORMAT,
-    PROVISIONAL_FORM_FORMAT,
+    *PROVISIONAL_FORM_CORRECTED_FORMATS,
 }
 PROVISIONAL_FORM_OPERATION = "inspect-provisional-form"
 PROVISIONAL_FORM_STAGE = "provisional-form"
@@ -1038,8 +1043,8 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
     format_name = _string(obj.get("format"), f"{where}.format", max_len=256)
     if format_name not in PROVISIONAL_FORM_FORMATS:
         raise ValidationError(
-            f"{where}.format must be {PROVISIONAL_FORM_LEGACY_FORMAT} or "
-            f"{PROVISIONAL_FORM_FORMAT}"
+            f"{where}.format must be {PROVISIONAL_FORM_LEGACY_FORMAT}, "
+            f"{PROVISIONAL_FORM_V2_FORMAT}, or {PROVISIONAL_FORM_FORMAT}"
         )
     if obj.get("operation") != PROVISIONAL_FORM_OPERATION:
         raise ValidationError(f"{where}.operation must be {PROVISIONAL_FORM_OPERATION}")
@@ -1240,7 +1245,7 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
         # invariants.  This keeps a missing distal child diagnostic about the
         # capsule contract, rather than being obscured by a later orphan check
         # on a different descriptor.
-        if format_name == PROVISIONAL_FORM_FORMAT:
+        if format_name in PROVISIONAL_FORM_CORRECTED_FORMATS:
             for address, (reference_point, details) in address_map.items():
                 if details["shape_name"] != "capsule":
                     continue
