@@ -90,21 +90,19 @@ lexical zero to `+0`, and has focused boundary tests. It is not wired into
 body-document admission and does not activate numeric semantics or Readiness 3.
 The standalone `creature_kernel_core::frame` module is also preparatory: it
 provides a normalized-binary64 structural transform carrier, exact signed-axis
-source-basis mapping, and symbolic length-unit ratios, without unit scaling,
-quaternion/transform algebra or comparison, source integration, resolver, or
-snapshot behavior. No Readiness 3 resolver/snapshot, adapter, experiment, or
-geometry activation exists. The public `creature_kernel_core::frame_preparation`
-bridge converts already-admitted wire `Basis`/`RigidTransform` records into
-the carriers using `Number::as_str` for transform numbers and typed
-component-aware conversion errors. `prepare_rigid_transform` requires a sealed
-existing `ResourceProfile` and enforces its bounded materialized
-`Number::as_str` length before conversion, allowing one additional byte only
-for the single positive-exponent `+` normalization byte. This local check does
-not prove or confer whole-document admission; production resolver traversal
-will supply admitted records. Raw lexical spelling/provenance is not
-recovered. It does not apply basis/unit values, perform quaternion
-validation/algebra/comparison, traverse graphs, map diagnostics/statuses, or
-resolve/publish snapshots or activate Readiness 3. See
+source-basis mapping, and symbolic length-unit ratios. The public
+`creature_kernel_core::source_preparation::prepare_single_source` API accepts
+raw source bytes plus a sealed `ResourceProfile`, performs admission and
+structural validation, then prepares the source basis and complete semantic
+numeric inventory. Its maps cover part/joint/socket/attachment transforms,
+landmark positions, dimensions, and named frames under stable semantic
+addresses or owner/role keys; retained graph source records and context provide
+semantic provenance. Raw lexical spelling/provenance is not recovered. The
+internal `frame_preparation` adapter is an implementation detail and cannot
+provide a public record-level admission bypass. This preparation does not
+apply basis/unit values or quaternion semantics, expand dependencies/modules,
+produce claims/snapshots or serialization, or activate a resolver or Readiness
+3. See
 the [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for the two review lenses, recommendations, and findings. Earlier review
 evidence remains stale. See the
@@ -159,21 +157,17 @@ failures, admits finite subnormals, normalizes lexical zero to `+0`, and has
 focused boundary tests. It is not wired into body-document admission and does
 not activate numeric semantics or Readiness 3. The standalone
 `creature_kernel_core::frame` module is preparatory only and is not wired into
-source admission or resolver/snapshot behavior; it does not apply unit scaling,
-perform quaternion/transform algebra or comparison, or activate Readiness 3.
-The public `creature_kernel_core::frame_preparation` bridge is also preparatory:
-it converts already-admitted wire `Basis`/`RigidTransform` records into the
-carriers using `Number::as_str` for transform numbers and typed
-component-aware conversion errors. `prepare_rigid_transform` requires a sealed
-existing `ResourceProfile` and enforces its bounded materialized
-`Number::as_str` length before conversion, allowing one additional byte only
-for the single positive-exponent `+` normalization byte. This local check does
-not prove or confer whole-document admission; production resolver traversal
-will supply admitted records. Raw lexical spelling/provenance is not
-recovered. It does not apply basis/unit values, perform quaternion
-validation/algebra/comparison, traverse graphs, map diagnostics/statuses, or
-resolve/publish snapshots. No Readiness 3 resolver/snapshot, adapter,
-experiment, or geometry activation exists.
+source admission or resolver/snapshot behavior; it does not apply unit scaling
+or perform quaternion/transform algebra or comparison. The public
+`source_preparation::prepare_single_source` operation accepts raw bytes and a
+sealed `ResourceProfile`, admits and structurally validates one source, and
+prepares its basis plus complete numeric maps for transforms, landmark
+positions, dimensions, and named frames. Stable address/owner-role keys and
+component locations provide semantic provenance; raw lexical spelling is not
+recovered. The internal `frame_preparation` adapter cannot bypass record-level
+admission. No dependency/module expansion, basis/unit application, quaternion
+semantics, claims/snapshots/serialization, resolver, or Readiness 3 activation
+exists.
 See the [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for recommendations and findings. The
 four readiness stages are: DR-0013 acceptance activated Readiness 1 for the
@@ -256,9 +250,9 @@ identity or activate Readiness 3 resolver/adapter work.
 The target architecture remains pre-implementation beyond the active Readiness
 1 shell and the admitted Readiness 2 schema/manifest/fixture/parser/bootstrap/
 preflight transaction. The provisional structural address/index, validator,
-and inspection command, plus the standalone numeric/frame-preparation modules,
-remain preparatory implementation outside Readiness 3. The numeric/frame-
-preparation modules and public bridge are not wired into body-document
-admission and do not activate numeric semantics. The remaining
+inspection command, and single-source preparation API remain preparatory
+implementation outside Readiness 3. The internal numeric/frame-preparation
+adapters are not public admission routes and do not activate numeric
+semantics. The remaining
 component names describe provisional responsibility boundaries, not activated
 Readiness 3 packages, processes, repositories, or technologies.
