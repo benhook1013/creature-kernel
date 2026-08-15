@@ -264,6 +264,14 @@ impl CanonicalQuaternionXyzw {
         Self { components }
     }
 
+    /// Construct an unchecked carrier for formula/error fixtures only.  This
+    /// seam is unavailable in normal builds; contract fixtures must obtain
+    /// values through the gated normalization path.
+    #[cfg(test)]
+    pub(crate) fn from_unchecked_test_components(components: [NormalizedBinary64; 4]) -> Self {
+        Self::from_components(components)
+    }
+
     /// Return canonical components in explicit `x, y, z, w` order.
     pub(crate) const fn components(self) -> [NormalizedBinary64; 4] {
         self.components
@@ -481,6 +489,14 @@ fn checked_operation(
         })
 }
 
+/// Return a canonical fixture produced by the gated test normalization path.
+/// This accessor is unavailable in normal builds; comparator contract tests
+/// use it instead of bypassing canonical construction with arbitrary bits.
+#[cfg(test)]
+pub(crate) fn normalized_test_fixture(input: [f64; 4]) -> CanonicalQuaternionXyzw {
+    tests::normalized_fixture(input)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -582,6 +598,10 @@ mod tests {
             normalize_quaternion(input, &mut gate, SqrtCapability::available(&mut provider))
                 .unwrap();
         (output, gate, provider)
+    }
+
+    pub(super) fn normalized_fixture(input: [f64; 4]) -> CanonicalQuaternionXyzw {
+        normalize(input).0
     }
 
     fn bits(output: CanonicalQuaternionXyzw) -> [u64; 4] {

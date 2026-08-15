@@ -1,14 +1,15 @@
-//! Provisional, non-activating exact scalar and translation comparisons.
+//! Provisional, non-activating exact scalar, translation, and quaternion comparisons.
 //!
 //! This module implements only the already-specified inclusive scalar rule
 //! over admitted finite binary64 values:
 //!
 //! `|a - b| <= A + R * max(|a|, |b|)`
 //!
-//! and its componentwise translation form.  It does not choose a tolerance,
-//! profile identifier, default, or fallback, and it is not connected to a
-//! resolver, operation status, quaternion handling, or Readiness 3
-//! activation.  A caller must provide the A/R entry explicitly.
+//! and its componentwise translation form.  It also contains the exact
+//! canonical-tuple quaternion half-chord predicate, but does not choose a
+//! tolerance, profile identifier, default, or fallback, and it is not
+//! connected to a resolver, operation status, normalization, or Readiness 3
+//! activation.  A caller must provide every tolerance entry explicitly.
 
 #![allow(dead_code)]
 
@@ -17,6 +18,7 @@ use core::fmt;
 use crate::exact_dyadic::{ExactDyadic, ExactDyadicError};
 use crate::frame::Translation3;
 use crate::numeric::NormalizedBinary64;
+use crate::quaternion_normalization::CanonicalQuaternionXyzw;
 
 /// Which tolerance field failed profile-entry validation.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -25,6 +27,8 @@ pub(crate) enum ToleranceField {
     Absolute,
     /// The relative term R.
     Relative,
+    /// The canonical-tuple quaternion half-chord threshold H.
+    QuaternionHalfChord,
 }
 
 /// Why one provisional tolerance entry was not admissible.
@@ -127,6 +131,97 @@ impl ProvisionalScalarTolerance {
     }
 }
 
+/// A validated, explicit provisional quaternion canonical-tuple half-chord
+/// threshold.
+///
+/// The inputs to [`Self::compare`] must already be canonical normalized
+/// quaternions.  This predicate deliberately does not normalize, invoke a
+/// square root, or convert the threshold to an angular claim.  H is a
+/// canonical-tuple Euclidean half-threshold only; profile selection and
+/// activation remain outside this foundation.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ProvisionalQuaternionHalfChord {
+    squared_bound: ExactDyadic,
+}
+
+impl ProvisionalQuaternionHalfChord {
+    /// Validate a finite, nonnegative explicit H and retain `(2H)^2` exactly.
+    pub(crate) fn new(half_threshold: NormalizedBinary64) -> Result<Self, NumericComparisonError> {
+        let half_threshold = admit_entry(half_threshold, ToleranceField::QuaternionHalfChord)?;
+        let doubled = half_threshold.add(&half_threshold)?;
+        let squared_bound = doubled.square()?;
+        Ok(Self { squared_bound })
+    }
+
+    /// Compare two already-normalized canonical `x,y,z,w` tuples exactly.
+    ///
+    /// The dot product chooses `+qB` for a nonnegative dot (including the
+    /// exact zero tie), and `-qB` otherwise.  Differences, four squares, and
+    /// the four-term sum are all exact dyadic operations in fixed `xyzw`
+    /// order.  No normalization, square root, norm, trigonometric operation,
+    /// or angular interpretation is performed here.
+    pub(crate) fn compare(
+        &self,
+        left: CanonicalQuaternionXyzw,
+        right: CanonicalQuaternionXyzw,
+    ) -> Result<bool, NumericComparisonError> {
+        let left = decode_quaternion_components(left.components())?;
+        let right = decode_quaternion_components(right.components())?;
+
+        let dot_terms = [
+            left[0].mul(&right[0])?,
+            left[1].mul(&right[1])?,
+            left[2].mul(&right[2])?,
+            left[3].mul(&right[3])?,
+        ];
+        let dot = ExactDyadic::sum4(&dot_terms[0], &dot_terms[1], &dot_terms[2], &dot_terms[3])?;
+        let use_positive_sign = choose_positive_quaternion_sign(&dot);
+
+        let signed_right = if use_positive_sign {
+            right.clone()
+        } else {
+            [
+                right[0].negated(),
+                right[1].negated(),
+                right[2].negated(),
+                right[3].negated(),
+            ]
+        };
+        let differences = [
+            left[0].sub(&signed_right[0])?,
+            left[1].sub(&signed_right[1])?,
+            left[2].sub(&signed_right[2])?,
+            left[3].sub(&signed_right[3])?,
+        ];
+        let squares = [
+            differences[0].square()?,
+            differences[1].square()?,
+            differences[2].square()?,
+            differences[3].square()?,
+        ];
+        let squared_distance =
+            ExactDyadic::sum4(&squares[0], &squares[1], &squares[2], &squares[3])?;
+        Ok(squared_distance <= self.squared_bound)
+    }
+}
+
+fn decode_quaternion_components(
+    value: [NormalizedBinary64; 4],
+) -> Result<[ExactDyadic; 4], NumericComparisonError> {
+    Ok([
+        decode_input(value[0])?,
+        decode_input(value[1])?,
+        decode_input(value[2])?,
+        decode_input(value[3])?,
+    ])
+}
+
+/// Select the canonical q-sign from an exact dot product.  The zero tie is
+/// deliberately positive, as required by the quaternion comparison rule.
+fn choose_positive_quaternion_sign(dot: &ExactDyadic) -> bool {
+    !dot.total_cmp(&ExactDyadic::zero()).is_lt()
+}
+
 fn admit_entry(
     value: NormalizedBinary64,
     field: ToleranceField,
@@ -179,6 +274,7 @@ mod tests {
 
     use super::*;
     use crate::numeric::decimal_to_binary64;
+    use crate::quaternion_normalization::CanonicalQuaternionXyzw;
 
     fn value(token: &str) -> NormalizedBinary64 {
         decimal_to_binary64(token).unwrap()
@@ -190,6 +286,34 @@ mod tests {
 
     fn raw(bits: u64) -> NormalizedBinary64 {
         NormalizedBinary64::from_test_bits(bits)
+    }
+
+    /// Bypass canonical construction only for formula-oracle and malformed
+    /// input plumbing.  Contract fixtures use `canonical_fixture` below.
+    fn unchecked_formula_quaternion(bits: [u64; 4]) -> CanonicalQuaternionXyzw {
+        CanonicalQuaternionXyzw::from_unchecked_test_components(bits.map(raw))
+    }
+
+    fn canonical_fixture(input: [f64; 4]) -> CanonicalQuaternionXyzw {
+        crate::quaternion_normalization::normalized_test_fixture(input)
+    }
+
+    fn canonical_identity() -> CanonicalQuaternionXyzw {
+        canonical_fixture([0.0, 0.0, 0.0, 1.0])
+    }
+
+    fn canonical_x_axis() -> CanonicalQuaternionXyzw {
+        canonical_fixture([1.0, 0.0, 0.0, 0.0])
+    }
+
+    fn canonical_negative_dot_pair() -> (CanonicalQuaternionXyzw, CanonicalQuaternionXyzw) {
+        // Both outputs are sign-canonical normalized unit tuples produced by
+        // the fixed test normalization path (norm squared = 1.328125):
+        // [1,.5,.25,.125] and [-1,-.5,-.25,.125]. Their exact dot is < 0.
+        (
+            canonical_fixture([1.0, 0.5, 0.25, 0.125]),
+            canonical_fixture([-1.0, -0.5, -0.25, 0.125]),
+        )
     }
 
     fn oracle(bits: u64) -> BigRational {
@@ -233,6 +357,39 @@ mod tests {
         let maximum = left_magnitude.max(right_magnitude);
         let bound = oracle(absolute) + oracle(relative) * maximum;
         difference <= bound
+    }
+
+    fn quaternion_oracle_pass(left: [u64; 4], right: [u64; 4], half_threshold: u64) -> bool {
+        let left = left.map(oracle);
+        let right = right.map(oracle);
+        let dot = left
+            .iter()
+            .zip(right.iter())
+            .map(|(left, right)| left * right)
+            .fold(
+                BigRational::from_integer(BigInt::from(0_u8)),
+                |sum, term| sum + term,
+            );
+        let differences = left
+            .iter()
+            .zip(right.iter())
+            .map(|(left, right)| {
+                if dot >= BigRational::from_integer(BigInt::from(0_u8)) {
+                    left - right
+                } else {
+                    left + right
+                }
+            })
+            .collect::<Vec<_>>();
+        let squared_distance = differences
+            .iter()
+            .map(|difference| difference * difference)
+            .fold(
+                BigRational::from_integer(BigInt::from(0_u8)),
+                |sum, term| sum + term,
+            );
+        let doubled_h = oracle(half_threshold) * BigRational::from_integer(BigInt::from(2_u8));
+        squared_distance <= doubled_h.clone() * doubled_h
     }
 
     #[test]
@@ -464,5 +621,144 @@ mod tests {
                 ExactDyadicError::NonFinite
             ))
         );
+    }
+
+    #[test]
+    fn quaternion_exact_equality_and_zero_threshold() {
+        let profile = ProvisionalQuaternionHalfChord::new(NormalizedBinary64::ZERO).unwrap();
+        let value = canonical_identity();
+        assert!(profile.compare(value, value).unwrap());
+        assert!(!profile.compare(value, canonical_x_axis()).unwrap());
+    }
+
+    #[test]
+    fn quaternion_orthogonal_axes_have_exact_zero_dot_tie() {
+        let profile = ProvisionalQuaternionHalfChord::new(value("1")).unwrap();
+        let left = canonical_identity();
+        let right = canonical_x_axis();
+        // The exact dot is zero and H=1 is an inclusive pass. Sign choice is
+        // tested directly in `quaternion_sign_choice_is_exact_and_tie_safe`.
+        assert!(profile.compare(left, right).unwrap());
+        let strict = ProvisionalQuaternionHalfChord::new(value("0.7")).unwrap();
+        assert!(!strict.compare(left, right).unwrap());
+    }
+
+    #[test]
+    fn quaternion_sign_choice_is_exact_and_tie_safe() {
+        assert!(choose_positive_quaternion_sign(&ExactDyadic::zero()));
+        let negative = ExactDyadic::from_binary64(value("-1")).unwrap();
+        assert!(!choose_positive_quaternion_sign(&negative));
+    }
+
+    #[test]
+    fn quaternion_canonical_negative_dot_boundary_sign_symmetry() {
+        let (left, right) = canonical_negative_dot_pair();
+        // The negative-dot branch makes the tuple distance exactly twice the
+        // positive w component. Supplying that component as H is inclusive;
+        // one exact binary64 step smaller fails. Both operands are genuine
+        // sign-canonical normalized outputs from the test normalization path.
+        let boundary = left.components()[3];
+        let smaller = raw(boundary.to_bits() - 1);
+        assert!(
+            ProvisionalQuaternionHalfChord::new(boundary)
+                .unwrap()
+                .compare(left, right)
+                .unwrap()
+        );
+        assert!(
+            !ProvisionalQuaternionHalfChord::new(smaller)
+                .unwrap()
+                .compare(left, right)
+                .unwrap()
+        );
+        assert_eq!(
+            ProvisionalQuaternionHalfChord::new(boundary)
+                .unwrap()
+                .compare(left, right),
+            ProvisionalQuaternionHalfChord::new(boundary)
+                .unwrap()
+                .compare(right, left)
+        );
+    }
+
+    #[test]
+    fn quaternion_orthogonal_unit_axes_have_symmetric_distance() {
+        let profile = ProvisionalQuaternionHalfChord::new(value("1")).unwrap();
+        let left = canonical_identity();
+        let right = canonical_x_axis();
+        assert_eq!(profile.compare(left, right), profile.compare(right, left));
+        assert!(profile.compare(left, right).unwrap());
+    }
+
+    #[test]
+    fn quaternion_h_validation_is_typed_and_arithmetic_failures_propagate() {
+        assert!(matches!(
+            ProvisionalQuaternionHalfChord::new(value("-1")),
+            Err(NumericComparisonError::InvalidProfileEntry(
+                InvalidProfileEntry::Negative {
+                    field: ToleranceField::QuaternionHalfChord
+                }
+            ))
+        ));
+        assert!(matches!(
+            ProvisionalQuaternionHalfChord::new(raw(0x7ff0000000000000)),
+            Err(NumericComparisonError::InvalidProfileEntry(
+                InvalidProfileEntry::NonFinite {
+                    field: ToleranceField::QuaternionHalfChord
+                }
+            ))
+        ));
+        let profile = ProvisionalQuaternionHalfChord::new(NormalizedBinary64::ZERO).unwrap();
+        let malformed = unchecked_formula_quaternion([0x7ff8000000000000, 0, 0, 0]);
+        assert_eq!(
+            profile.compare(malformed, malformed),
+            Err(NumericComparisonError::ExactArithmetic(
+                ExactDyadicError::NonFinite
+            ))
+        );
+    }
+
+    #[test]
+    fn quaternion_formula_matches_independent_rational_oracle() {
+        let samples = [
+            (
+                [0x3ff0000000000000, 0, 0, 0],
+                [0x3fe0000000000000, 0x3fd0000000000000, 0, 0],
+            ),
+            ([0xbff0000000000000, 0, 0, 0], [0x3ff0000000000000, 0, 0, 0]),
+            (
+                [
+                    0x3fd0000000000000,
+                    0xc000000000000000,
+                    0,
+                    0x3fe0000000000000,
+                ],
+                [
+                    0x3fc0000000000000,
+                    0x3fe0000000000000,
+                    0x3fd0000000000000,
+                    0,
+                ],
+            ),
+        ];
+        for half_threshold in [0x3fd0000000000000, 0x3fe0000000000000] {
+            let profile = ProvisionalQuaternionHalfChord::new(raw(half_threshold)).unwrap();
+            for (left, right) in samples {
+                assert_eq!(
+                    profile.compare(
+                        unchecked_formula_quaternion(left),
+                        unchecked_formula_quaternion(right)
+                    ),
+                    Ok(quaternion_oracle_pass(left, right, half_threshold))
+                );
+                assert_eq!(
+                    profile.compare(
+                        unchecked_formula_quaternion(right),
+                        unchecked_formula_quaternion(left)
+                    ),
+                    Ok(quaternion_oracle_pass(right, left, half_threshold))
+                );
+            }
+        }
     }
 }

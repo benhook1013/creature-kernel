@@ -195,6 +195,13 @@ future attested floating-environment boundary and activation-gated profile
 constants exist. This slice therefore cannot silently normalize production
 source or activate quaternion semantics.
 
+The next runway slice adds the exact canonical-tuple quaternion comparison
+predicate over already normalized private carriers. It uses exact dyadic dot
+sign selection (`0` chooses positive), fixed four-component squared distance,
+and an inclusive explicit `(2H)^2` bound. It chooses no `H`, profile identity,
+fallback, or angular interpretation, and the sealed normalizer still prevents
+normal-build production use.
+
 Ben approved the following deferred planning direction on 2026-08-09 for any
 future activation. It is recorded here without accepting or revising either DR:
 
