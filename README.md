@@ -66,8 +66,13 @@ the current Rust implementation slice. Readiness 2 remains active for the
 admitted schema, manifest, fixtures, parser/bootstrap, and preflight. The
 workspace now also contains a provisional structural address/index and
 validator plus the `inspect-structure` CLI command as preparation over those
-admitted documents. This is not a finalized resolved snapshot or Readiness 3
-activation; geometry and runtime implementation remain absent.
+admitted documents. The public
+`creature_kernel_core::source_preparation::prepare_single_source` API is the
+next bounded source boundary: it accepts raw bytes and a sealed
+`ResourceProfile`, then performs admission, structural validation, basis
+preparation, and numeric preparation for one source. This is not a finalized
+resolved snapshot or Readiness 3 activation; geometry and runtime
+implementation remain absent.
 
 - Durable authored intent lives in an authoritative semantic source set. Every
   operation reports through one authoritative result envelope; the resolved
@@ -186,20 +191,17 @@ subnormals, and normalizes lexical zero to `+0`; it is not wired into
 body-document admission or Readiness 3. The standalone
 `creature_kernel_core::frame` module is likewise preparatory: it provides a
 normalized-binary64 structural transform carrier, exact signed-axis
-source-basis mapping, and symbolic length-unit ratios, without unit scaling,
-quaternion/transform algebra or comparison, source integration, resolver, or
-snapshot behavior. The public `creature_kernel_core::frame_preparation` bridge
-converts already-admitted wire `Basis`/`RigidTransform` records into these
-carriers, using `Number::as_str` for transform numbers and returning typed
-component-aware conversion errors. `prepare_rigid_transform` requires a sealed
-existing `ResourceProfile` and enforces its bounded materialized
-`Number::as_str` length before conversion, allowing one additional byte only
-for the single positive-exponent `+` normalization byte. This local check does
-not prove or confer whole-document admission; production resolver traversal
-will supply admitted records. Raw lexical spelling/provenance is not
-recovered. It does not apply basis/unit values, perform quaternion
-validation/algebra/comparison, traverse graphs, map diagnostics/statuses, or
-resolve/publish snapshots or activate Readiness 3. See
+source-basis mapping, and symbolic length-unit ratios. The internal
+`frame_preparation` adapter is used only by
+`source_preparation::prepare_single_source`; it is not a public record-level
+admission bypass. The source projection exposes complete semantic numeric
+maps for part/joint/socket/attachment transforms, landmark positions,
+dimensions, and named frames, keyed by stable semantic addresses or
+owner/role keys. Its graph retains admitted source records, basis/profile, and
+contract context as semantic provenance; raw lexical spelling/provenance is
+not recovered. Preparation does not apply basis/unit values or quaternion
+semantics, expand dependencies/modules, produce claims/snapshots or
+serialization, or activate a resolver or Readiness 3. See
 [developer setup](DEVELOPER_SETUP.md) and [current project
 status](docs/project/status.md) for the live round, review, and owner-
 disposition state.

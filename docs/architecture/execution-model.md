@@ -39,21 +39,18 @@ focused boundary tests. It is not wired into body-document admission and does
 not activate numeric semantics or Readiness 3. The standalone
 `creature_kernel_core::frame` module is preparatory only: it provides a
 normalized-binary64 structural transform carrier, exact signed-axis
-source-basis mapping, and symbolic length-unit ratios, without unit scaling,
-quaternion/transform algebra or comparison, source integration, resolver, or
-snapshot behavior. No Readiness 3 resolver/snapshot, adapter, experiment, or
-geometry activation exists. The public `creature_kernel_core::frame_preparation`
-bridge converts already-admitted wire `Basis`/`RigidTransform` records into
-the carriers, using `Number::as_str` for transform numbers and returning typed
-component-aware conversion errors. `prepare_rigid_transform` requires a sealed
-existing `ResourceProfile` and enforces its bounded materialized
-`Number::as_str` length before conversion, allowing one additional byte only
-for the single positive-exponent `+` normalization byte. This local check does
-not prove or confer whole-document admission; production resolver traversal
-will supply admitted records. Raw lexical spelling/provenance is not
-recovered. It does not apply basis/unit values, perform quaternion
-validation/algebra/comparison, traverse graphs, map diagnostics/statuses, or
-resolve/publish snapshots or activate Readiness 3.
+source-basis mapping, and symbolic length-unit ratios. The public
+`creature_kernel_core::source_preparation::prepare_single_source` operation
+accepts raw source bytes plus a sealed `ResourceProfile`, performs admission,
+structural validation, basis preparation, and complete semantic numeric
+preparation for one source. Its maps cover part/joint/socket/attachment
+transforms, landmark positions, dimensions, and named frames under stable
+semantic addresses or owner/role keys. The retained graph records source
+context as semantic provenance, but raw lexical spelling/provenance is not
+recovered. Internal `frame_preparation` helpers cannot bypass record-level
+admission. This preparatory operation does not apply basis/unit values or
+quaternion semantics, expand dependencies/modules, produce claims/snapshots or
+serialization, or activate a resolver or Readiness 3.
 See the [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for recommendations and findings. Its four
 readiness stages are: acceptance activated Readiness 1 for the Cargo workspace,
@@ -142,9 +139,10 @@ admission and successor history.
 Performance claims must be backed by a reproducible benchmark and hardware
 profile. Readiness 2 is active alongside Readiness 1 for its admitted
 schema/manifest/fixture/parser/bootstrap/preflight transaction; its structural
-index/validator/inspection, standalone numeric/frame-preparation modules, and
-the public `frame_preparation` bridge remain preparatory, and no Readiness 3
-implementation package is activated.
+index/validator/inspection and single-source preparation operation remain
+preparatory, with internal numeric/frame-preparation helpers and no public
+record-level admission bypass. No Readiness 3 implementation package is
+activated.
 Any future worker must negotiate protocol/
 version compatibility, obey bounded time/resource budgets, map crash/timeout/
 resource outcomes, validate outputs before publication, and leave the compiler
@@ -253,6 +251,17 @@ domains cover source admission, dependencies, semantic identity, graph
 structure, frame/numeric rules, resources, execution trust, publication, and
 inspection. A tiny mandatory bootstrap registry/profile handles unknown
 registry/profile negotiation without adding an operation phase.
+
+The current preparatory boundary is
+`source_preparation::prepare_single_source`: raw bytes and a sealed resource
+profile enter one admission/structural-validation operation, which returns a
+single-source projection with the complete semantic numeric inventory. Stable
+address, owner/role, and component keys locate prepared values and retain
+semantic provenance; raw lexical provenance is outside the projection. This
+operation does not expand dependencies or modules, apply basis/unit or
+quaternion semantics, produce claims, snapshots, or serialization, or activate
+the resolver. `frame_preparation` is internal implementation detail, so no
+record-level admission bypass is public.
 
 The resolver runs the following ordered phases inside one operation-result
 envelope:

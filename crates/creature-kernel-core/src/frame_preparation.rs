@@ -16,7 +16,7 @@ use core::fmt;
 use core::hash::{Hash, Hasher};
 
 /// Prepares a wire basis into the independent frame basis representation.
-pub fn prepare_basis(
+pub(crate) fn prepare_basis(
     basis: &body_document::Basis,
 ) -> Result<frame::SourceBasis, frame::BasisError> {
     let length_unit = match basis.length_unit {
@@ -46,7 +46,7 @@ fn map_axis(axis: &body_document::Axis) -> frame::SignedAxis {
 
 /// The structural transform component being converted when preparation fails.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum TransformComponent {
+pub(crate) enum TransformComponent {
     /// Translation x component.
     TranslationX,
     /// Translation y component.
@@ -65,7 +65,7 @@ pub enum TransformComponent {
 
 /// Failure while preparing one wire transform component.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum TransformPreparationError {
+pub(crate) enum TransformPreparationError {
     /// The materialized `Number::as_str()` representation exceeded its bound.
     MaterializedTokenTooLong {
         /// The component whose conversion was attempted.
@@ -114,33 +114,10 @@ impl Hash for TransformPreparationError {
 impl TransformPreparationError {
     /// The structural component that failed first.
     #[must_use]
-    pub const fn component(self) -> TransformComponent {
+    pub(crate) const fn component(self) -> TransformComponent {
         match self {
             Self::MaterializedTokenTooLong { component, .. }
             | Self::DecimalConversion { component, .. } => component,
-        }
-    }
-
-    /// The exact decimal-to-binary64 failure, if conversion was attempted.
-    #[must_use]
-    pub const fn decimal_error(self) -> Option<DecimalConversionError> {
-        match self {
-            Self::MaterializedTokenTooLong { .. } => None,
-            Self::DecimalConversion { error, .. } => Some(error),
-        }
-    }
-
-    /// The materialized representation length and effective limit, if the
-    /// resource bound was the failure.
-    #[must_use]
-    pub const fn resource_limit(self) -> Option<(usize, usize)> {
-        match self {
-            Self::MaterializedTokenTooLong {
-                actual_bytes,
-                limit_bytes,
-                ..
-            } => Some((actual_bytes, limit_bytes)),
-            Self::DecimalConversion { .. } => None,
         }
     }
 }
@@ -180,7 +157,7 @@ impl std::error::Error for TransformPreparationError {
 /// intentionally deferred.  The adapter enforces only its own conversion
 /// bound; it does not prove or confer whole-document admission, and production
 /// resolver callers still supply successfully admitted records.
-pub fn prepare_rigid_transform(
+pub(crate) fn prepare_rigid_transform(
     transform: &body_document::RigidTransform,
     resource_profile: body_document::ResourceProfile,
 ) -> Result<frame::RigidTransform, TransformPreparationError> {
@@ -234,6 +211,34 @@ fn convert_component(
     component: TransformComponent,
     resource_profile: &body_document::ResourceProfile,
 ) -> Result<NormalizedBinary64, TransformPreparationError> {
+    prepare_number(number, resource_profile).map_err(|error| match error {
+        ScalarPreparationError::MaterializedTokenTooLong {
+            actual_bytes,
+            limit_bytes,
+        } => TransformPreparationError::MaterializedTokenTooLong {
+            component,
+            actual_bytes,
+            limit_bytes,
+        },
+        ScalarPreparationError::DecimalConversion(error) => {
+            TransformPreparationError::DecimalConversion { component, error }
+        }
+    })
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum ScalarPreparationError {
+    MaterializedTokenTooLong {
+        actual_bytes: usize,
+        limit_bytes: usize,
+    },
+    DecimalConversion(DecimalConversionError),
+}
+
+pub(crate) fn prepare_number(
+    number: &serde_json::Number,
+    resource_profile: &body_document::ResourceProfile,
+) -> Result<NormalizedBinary64, ScalarPreparationError> {
     let token = number.as_str();
     let profile_limit = resource_profile.max_number_token_bytes();
     let materialized_limit = if has_positive_exponent(token) {
@@ -242,14 +247,12 @@ fn convert_component(
         profile_limit
     };
     if token.len() > materialized_limit {
-        return Err(TransformPreparationError::MaterializedTokenTooLong {
-            component,
+        return Err(ScalarPreparationError::MaterializedTokenTooLong {
             actual_bytes: token.len(),
             limit_bytes: materialized_limit,
         });
     }
-    decimal_to_binary64(token)
-        .map_err(|error| TransformPreparationError::DecimalConversion { component, error })
+    decimal_to_binary64(token).map_err(ScalarPreparationError::DecimalConversion)
 }
 
 fn has_positive_exponent(token: &str) -> bool {
@@ -530,10 +533,13 @@ mod tests {
         )
         .unwrap_err();
         assert_eq!(overflow.component(), TransformComponent::TranslationX);
-        assert_eq!(
-            overflow.decimal_error(),
-            Some(DecimalConversionError::NonFiniteOrOverflow)
-        );
+        assert!(matches!(
+            overflow,
+            TransformPreparationError::DecimalConversion {
+                component: TransformComponent::TranslationX,
+                error: DecimalConversionError::NonFiniteOrOverflow,
+            }
+        ));
         assert!(overflow.source().is_some());
 
         let underflow = prepare_rigid_transform(
@@ -542,10 +548,13 @@ mod tests {
         )
         .unwrap_err();
         assert_eq!(underflow.component(), TransformComponent::RotationX);
-        assert_eq!(
-            underflow.decimal_error(),
-            Some(DecimalConversionError::NonzeroUnderflowToZero)
-        );
+        assert!(matches!(
+            underflow,
+            TransformPreparationError::DecimalConversion {
+                component: TransformComponent::RotationX,
+                error: DecimalConversionError::NonzeroUnderflowToZero,
+            }
+        ));
 
         let translation_first = prepare_rigid_transform(
             &transform(
@@ -611,8 +620,14 @@ mod tests {
                 limit_bytes: limit,
             }
         );
-        assert_eq!(error.resource_limit(), Some((limit + 1, limit)));
-        assert_eq!(error.decimal_error(), None);
+        assert!(matches!(
+            error,
+            TransformPreparationError::MaterializedTokenTooLong {
+                component: TransformComponent::TranslationY,
+                actual_bytes,
+                limit_bytes,
+            } if actual_bytes == limit + 1 && limit_bytes == limit
+        ));
         assert!(error.source().is_none());
     }
 }

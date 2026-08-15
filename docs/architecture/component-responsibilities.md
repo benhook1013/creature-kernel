@@ -40,21 +40,17 @@ focused boundary tests. It is not wired into body-document admission and does
 not activate numeric semantics or Readiness 3. The standalone
 `creature_kernel_core::frame` module is also preparatory only: it provides a
 normalized-binary64 structural transform carrier, exact signed-axis
-source-basis mapping, and symbolic length-unit ratios, without unit scaling,
-quaternion/transform algebra or comparison, source integration, resolver, or
-snapshot behavior. No Readiness 3 resolver/snapshot, adapter, experiment, or
-geometry activation exists. The public `creature_kernel_core::frame_preparation`
-bridge converts already-admitted wire `Basis`/`RigidTransform` records into
-the preparatory carriers, using `Number::as_str` for transform numbers and
-returning typed component-aware conversion errors. `prepare_rigid_transform`
-requires a sealed existing `ResourceProfile` and enforces its bounded
-materialized `Number::as_str` length before conversion, allowing one additional
-byte only for the single positive-exponent `+` normalization byte. This local
-check does not prove or confer whole-document admission; production resolver
-traversal will supply admitted records. Raw lexical spelling/provenance is not
-recovered. The bridge does not apply basis/unit values, perform quaternion
-validation/algebra/comparison, traverse graphs, map diagnostics/statuses, or
-resolve/publish snapshots or activate Readiness 3. DR-0006 remains
+source-basis mapping, and symbolic length-unit ratios, without unit scaling or
+quaternion/transform algebra or comparison. The public
+`source_preparation::prepare_single_source` operation accepts raw bytes plus a
+sealed `ResourceProfile`, admits and structurally validates one source, and
+prepares its basis plus complete numeric maps for transforms, landmark
+positions, dimensions, and named frames. Stable address/owner-role keys and
+component locations provide semantic provenance; raw lexical spelling is not
+recovered. Internal `frame_preparation` helpers cannot bypass record-level
+admission. Dependency/module expansion, basis/unit application, quaternion
+semantics, claims/snapshots/serialization, resolver, and Readiness 3 activation
+remain outside this preparatory operation. DR-0006 remains
 Proposed with its owner and review state governed by its canonical record. See
 the [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for review ownership and findings. No package is implied.
@@ -64,7 +60,7 @@ for review ownership and findings. No package is implied.
 | Authoritative semantic source set | Admit the initial strict UTF-8 JSON source through the bootstrap and resource rules in the [body-document contract](../../spec/body-document/README.md), preserve authored intent, track exact revisions of outcome-affecting authored dependencies, classify extensions, report one result envelope, and provide the sole authored authority | Generate meshes or run gameplay, or treat an external mesh as semantic truth |
 | Build-request and identity boundary | Assemble every outcome-affecting source/dependency, compiler/toolchain, contract/schema/profile, configuration/seed, backend-capability/protocol, and target-platform input; keep attempt identity unique for envelope/staging/log tracing only and derive candidate identity from deterministic request, role, and identity-rule revision; use the proposed canonical-data profile for domain-separated identity digests | Let attempt identity alter target/equality, use timestamps or staging paths as identity, or activate canonical hashing before its prerequisite is defined |
 | Semantic body resolver | Execute the canonical admission, bootstrap, dependency, explicit-containment/typed-relation, normalization, invariant, and in-memory snapshot-finalization boundaries inside one result envelope; successful `resolve` yields the required compilable inspectable graph snapshot with canonical Joint/Socket frame records and provenance | Host-engine objects, become an authored source, serialize or publish filesystem artifacts, or make derived artifacts authoritative; rejected partial graphs are non-compilable, debug-only, and non-contractual |
-| Rust compiler core (Readiness 1 shell active; Readiness 2 admission active; later capabilities gated) | Own the engine-independent production semantic/compiler library boundary, versioned project-owned GeometryRequest/GeometryResult concepts, and coordinate replaceable geometry evaluation; the admitted parser/bootstrap transaction and preparatory structural/numeric/frame modules plus the public `frame_preparation` bridge remain isolated from later resolver and geometry activation | Leak backend-native types, lock a permanent geometry library/surface, claim DR-0009/0010 evidence, require a daemon/service, or make Rust a forever-only backend promise; the standalone numeric/frame-preparation modules and bridge are not wired into body-document admission, and resolver, Readiness 3, adapter, and geometry work remain gated |
+| Rust compiler core (Readiness 1 shell active; Readiness 2 admission active; later capabilities gated) | Own the engine-independent production semantic/compiler library boundary, versioned project-owned GeometryRequest/GeometryResult concepts, and coordinate replaceable geometry evaluation; the admitted parser/bootstrap transaction, public single-source preparation operation, and preparatory structural/numeric/frame carriers remain isolated from later resolver and geometry activation | Leak backend-native types, lock a permanent geometry library/surface, claim DR-0009/0010 evidence, require a daemon/service, or make Rust a forever-only backend promise; internal frame-preparation helpers cannot bypass body-document admission, and resolver, Readiness 3, adapter, and geometry work remain gated |
 | Thin CLI shell and proposed artifact boundary | Expose the compiler library through a thin headless CLI; delegate the public derived-output and publication contract to the [build-operation specification](../../spec/build-operation/README.md), carrying geometry and publication through one authoritative build envelope. The proposed artifact boundary uses immutable build-scoped sibling staging, manifest-last atomic no-replace, and independent validation of build/artifact identity, paths, hashes, and sizes; trusted derived-output/publication failures normalize as `output-failure`, while failed operations initially return the authoritative envelope without a persisted failure bundle. | Become a visual workbench, settle final avatar-package serialization/compatibility, publish symlinked/unlisted/incomplete/mixed/stale bundles, replace an existing target, or require a service transport |
 | Artifact inspector and admission boundary | Keep inspection as a separate read operation with closed statuses and shared completeness/diagnostic conventions; consume only a manifest payload with a separate readiness/decision content-identity admission and listed files; distinguish producer/output trust from coordinator/reporter/publisher trust | Create a second build-status channel, guess stale output, adopt unverified artifacts, rehabilitate worker output after trust loss, or self-admit fixtures |
 | Independent visual workbench | Consume compiler artifacts and manifests from the filesystem for visual inspection, evidence/render tooling, and disposable workflows | Become a production compiler dependency or silently redefine semantic/artifact contracts |
