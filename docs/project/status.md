@@ -227,6 +227,11 @@ does not hide another member's result. It does not resolve dependencies, verify
 their hashes, remap namespaces, produce an authoritative snapshot or
 serialization, or claim Readiness 3, and it creates no useful visual checkpoint.
 
+The current implementation also provides a crate-private caller-profiled framed
+SHA-256 primitive. It selects no production domain/profile, does not interpret or
+verify `content_sha256`, establishes no canonical identity/snapshot/resolver
+semantics, makes no Readiness 3 claim, and creates no visual checkpoint.
+
 Candidate locally validated and appraised by Ben on 2026-08-15: a directly
 consuming primitive spatial preview
 uses this exact placement result through the existing
