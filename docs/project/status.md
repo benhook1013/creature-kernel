@@ -125,6 +125,17 @@ handoff first, followed by Readiness 4's project-owned geometry seam and Rust
 CPU proof. The candidate's visual result, if appraised, is evidence only and
 does not change that order.
 
+Ben appraised the checkpoint on 2026-08-16 and found that primitive body-part
+placement and proportions remain odd in places, as expected while the grammar
+uses simple oval and primitive forms. He found the continuous smooth-union
+joins sufficient for this stage: corresponding body forms morph together
+convincingly. This completes the retained-human surface-appraisal checkpoint
+for continuing foundational implementation; it does not claim final visual
+quality, anatomy, production geometry, Stage 1, Readiness 3/4, DR acceptance,
+or solver/runtime evidence. The formal next activation order remains
+unchanged: Readiness 3 resolver/snapshot first, followed by Readiness 4
+geometry seam and Rust CPU proof.
+
 PR #9, “Add inspectable biped structure workflow,” is merged at commit
 `565c32bd35215e23d737fb333604382d3e6958ab`. PR #10, “Add preparatory exact
 decimal conversion,” is merged at commit
