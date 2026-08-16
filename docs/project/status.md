@@ -232,6 +232,15 @@ SHA-256 primitive. It selects no production domain/profile, does not interpret o
 verify `content_sha256`, establishes no canonical identity/snapshot/resolver
 semantics, makes no Readiness 3 claim, and creates no visual checkpoint.
 
+The current candidate source-digest observation computes
+deterministic caller-profiled per-member digests over the exact raw bytes owned
+by the source-set handoff, retaining root/dependency roles and deterministic
+member keys. It performs no `content_sha256` interpretation, comparison, or
+verification; establishes no canonical or aggregate identity and no
+resolver/snapshot/Readiness 3 claim; and creates no visual checkpoint. It
+remains within the recorded autonomous preparatory runway, whose existing
+human-stop boundary is unchanged.
+
 Candidate locally validated and appraised by Ben on 2026-08-15: a directly
 consuming primitive spatial preview
 uses this exact placement result through the existing
