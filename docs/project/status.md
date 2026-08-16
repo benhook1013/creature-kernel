@@ -220,6 +220,13 @@ or a user-facing rendered creature. The stylized example was corrected from
 world-looking authored values to contract-compliant parent-local deltas while
 retaining the intended derived reference positions.
 
+The current implementation also adds a crate-private deterministic per-member
+exact-placement projection over the restricted source-set handoff. It preserves
+each member's role and member-local placement `Result`, so one member's failure
+does not hide another member's result. It does not resolve dependencies, verify
+their hashes, remap namespaces, produce an authoritative snapshot or
+serialization, or claim Readiness 3, and it creates no useful visual checkpoint.
+
 Candidate locally validated and appraised by Ben on 2026-08-15: a directly
 consuming primitive spatial preview
 uses this exact placement result through the existing
