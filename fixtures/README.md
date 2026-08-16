@@ -1,7 +1,6 @@
 # Fixtures
 
-Status: Active policy; Proposed Readiness 2 candidate present, not admitted or
-activated
+Status: Active policy; exact Readiness 2 transaction admitted and active
 
 Fixtures are small, stable inputs used to prove specifications, compiler
 behaviour, geometry invariants, interactions, and regressions.
@@ -21,7 +20,7 @@ Each fixture must record:
 - tests or experiments that consume it;
 - whether expected outputs are exact, semantic, metric, or visual.
 
-The Proposed Readiness 2 candidate now contains the exact
+The admitted Readiness 2 transaction contains the exact
 [manifest](body-documents/readiness-2/manifest.v1.json), its
 [nine listed source files](body-documents/readiness-2/), and the exact
 [body-document schema](../spec/body-document/schema/ck-body-document-v1.schema.json).
@@ -43,8 +42,9 @@ planned numeric evidence corpus is separate from this admission corpus until
 its experiment is registered: it must freeze development, held-out, and
 adversarial sets covering decimal midpoint/tie, signed-zero,
 subnormal/underflow, overflow, cancellation, near-zero quaternion, q/-q, long
-chain, ill-conditioned, basis-conversion, and claim-order cases. Exact numeric
-values, expected outcomes, and profile IDs remain unselected.
+chain, ill-conditioned, basis-conversion, and claim-order cases. For that
+planned numeric evidence corpus, exact numeric values, expected outcomes, and
+profile IDs remain unselected.
 
 Current material is recorded in DR-0006 Revision 12, DR-0011 Revision 15, and
 DR-0012 Revision 14; these remain Proposed with Owner approval Pending and
@@ -62,9 +62,12 @@ commit `9b96d18b115126ef09e54ad8c6f21749d5559ff6` is stale; its findings were
 corrected in the current revisions. The 9c governance pass corrected two
 mechanical history-label issues and its technical pass found no findings /
 Ready for PR at High confidence. Review Complete is evidence only. The
-directions remain Proposed policy only. The candidate files and parser/
-bootstrap implementation are evidence on this branch; no fixture corpus,
-schema, parser, adapter, or Readiness 2 gate is admitted or activated.
+directions remain Proposed policy only. The exact Readiness 2 schema, manifest,
+nine fixtures, and parser/bootstrap are admitted and active within the recorded
+transaction. Preflight/evidence support verifies and binds that transaction;
+it is not additional admitted transaction content. Broader fixture-policy
+directions, adapters, and later fixture corpora remain Proposed or gated as
+stated; this does not activate Readiness 3.
 
 Readiness 2 admission is one review-branch activation transaction described by
 the [fixture-manifest specification](../spec/fixture-manifest/README.md). The
@@ -126,13 +129,14 @@ identity/publication cases (first build, retry, concurrent winner, lineage
 change, and byte divergence) use the same manifest mechanism as a
 build-publication suite and remain conceptual.
 
-Before any fixture is used as proof, a cross-DR matrix must link durable
-identity cases to typed concepts, articulation endpoints, measurement/frame
-cases, expected outcomes, and diagnostic coverage across DR-0006, DR-0008, and
-DR-0011. The exact fixture inputs, machine fields, numeric values, tolerances,
-and expected diagnostic codes remain unselected. Compiler-consumed generation
-fixtures activate only through the admitted Readiness 2 transaction, not when
-an implementation happens to read an unadmitted body document.
+Before any later Readiness 3, numeric, graph, adapter, or compiler-generation
+fixture is used as proof, a cross-DR matrix must link durable identity cases to
+typed concepts, articulation endpoints, measurement/frame cases, expected
+outcomes, and diagnostic coverage across DR-0006, DR-0008, and DR-0011. The
+exact fixture inputs, machine fields, numeric values, tolerances, and expected
+diagnostic codes for those future corpora remain unselected. Compiler-consumed
+generation fixtures activate only through the admitted Readiness 2 transaction,
+not when an implementation happens to read an unadmitted body document.
 
 Do not commit large generated assets here merely for convenience. Use manifests
 and an approved artifact store when size or licensing makes normal Git unsuitable.

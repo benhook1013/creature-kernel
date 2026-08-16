@@ -1,6 +1,7 @@
 # Body-document schema
 
-Status: Proposed Readiness 2 candidate; not admitted or activated.
+Status: Proposed schema specification; exact Readiness 2 schema artifact
+admitted and active within the recorded transaction.
 
 `ck-body-document-v1.schema.json` is the exact Draft 2020-12 structural schema
 candidate for the initial strict-UTF-8 JSON body document. It owns shape,
