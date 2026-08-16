@@ -66,6 +66,13 @@ Exploratory prototypes may use this workflow without registering a confirmatory
 experiment. They should label observations and limitations clearly and must not
 claim formal comparative support or reject under the parked surface protocol.
 
+The disposable exploratory current-form surface preview, when present at
+`experiments/current-form-surface-preview/`, is an unregistered current-source
+bridge for a human visual appraisal. It is not `EXP-0001`, does not register an
+experiment, and cannot activate Readiness 3/4, Stage 1, DR-0009/0010, a
+production geometry backend or seam, or any rigging, animation, collision,
+deformation, or runtime claim.
+
 ## Artifact policy
 
 Large meshes, caches, videos, captures, and datasets must not be committed until

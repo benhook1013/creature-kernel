@@ -1,6 +1,6 @@
 # Project status
 
-Status date: 2026-08-15
+Status date: 2026-08-16
 
 ## Phase
 
@@ -108,7 +108,33 @@ profiles, maps current semantic roles to ellipsoid, capsule, and tapered-segment
 descriptors, and retains exact reference points/segment endpoints with positive
 integer permille display tuning. This is provisional preparatory evidence only:
 it is not production geometry, mesh, SDF, anatomy, runtime output, or Readiness
-3 activation. The filled visual gallery remains the next human form checkpoint.
+3 activation. PR #26 delivered the filled-form gallery and merged at
+`240cc055f9536d01152ee401ee342c5f135f3b32`; Ben appraised the intended
+straight-tail provisional form as sufficient on 2026-08-16.
+
+The next retained-human visual appraisal candidate is the disposable
+`experiments/current-form-surface-preview/` continuous-surface gallery. It is
+limited to the question of whether current Rust-derived provisional forms become
+one readable surface with acceptable neck, shoulder, hip, limb, and tail
+junctions. This is an unregistered exploratory current-source bridge only: it
+does not activate Readiness 3 or 4, Stage 1, `EXP-0001`, DR-0009/0010, a
+production backend, the production `GeometryRequest`/`GeometryResult` seam, or
+any rig, animation, collision, deformation, or runtime claim. The formal
+activation order remains Readiness 3's semantic resolver/in-memory snapshot
+handoff first, followed by Readiness 4's project-owned geometry seam and Rust
+CPU proof. The candidate's visual result, if appraised, is evidence only and
+does not change that order.
+
+Ben appraised the checkpoint on 2026-08-16 and found that primitive body-part
+placement and proportions remain odd in places, as expected while the grammar
+uses simple oval and primitive forms. He found the continuous smooth-union
+joins sufficient for this stage: corresponding body forms morph together
+convincingly. This completes the retained-human surface-appraisal checkpoint
+for continuing foundational implementation; it does not claim final visual
+quality, anatomy, production geometry, Stage 1, Readiness 3/4, DR acceptance,
+or solver/runtime evidence. The formal next activation order remains
+unchanged: Readiness 3 resolver/snapshot first, followed by Readiness 4
+geometry seam and Rust CPU proof.
 
 PR #9, “Add inspectable biped structure workflow,” is merged at commit
 `565c32bd35215e23d737fb333604382d3e6958ab`. PR #10, “Add preparatory exact

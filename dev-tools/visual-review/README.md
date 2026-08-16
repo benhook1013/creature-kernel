@@ -253,6 +253,44 @@ normalized `SESSION/review.json`; normalized items contain the relative
 `image` field instead of `source`. A canonical JSON summary is printed on
 success. A failed invocation cleans only its own staging/session files.
 
+## Disposable surface-preview bridge
+
+`publish_surface_preview.py` is a bounded adapter for the current experiment
+surface generator. It runs the Rust v4 provisional-form producer, then runs an
+experiment-local Python generator with explicit `--input` and `--output`
+arguments, and publishes only the four neutral composite PNGs through the
+ordinary image gallery:
+
+Run it from the isolated environment prepared by
+`experiments/current-form-surface-preview/README.md`, or an equivalent
+environment containing that experiment's pinned requirements.
+
+```bash
+cargo build -p creature-kernel-cli
+mkdir -p /tmp/creature-surface-reviews
+python3 dev-tools/visual-review/publish_surface_preview.py \
+  --root /tmp/creature-surface-reviews \
+  --input examples/body-documents/stylized-digitigrade-biped.json \
+  --creature-kernel target/debug/creature-kernel \
+  --generator experiments/current-form-surface-preview/generate_surface_preview.py
+```
+
+The generator bundle is fail-closed: its manifest must identify the v4 source,
+contain the four canonical v4 variants in order, and inventory exactly one PLY,
+semantic sidecar, metrics JSON, and neutral composite PNG per variant. Every
+inventory path is relative, regular, non-symlinked, hash- and size-checked,
+and the PNG must contain front, side, and three-quarter views with bounded
+dimensions. The producer has a 10-second bound and the local extraction/render
+subprocess has a finite 120-second bound. Unlisted regular files, malformed
+inventory, partial variants, and generator or producer timeouts prevent any
+review session from being created. PLYs, sidecars, metrics, and temporary work
+directories are not copied to the gallery.
+
+This is a disposable current-source visual bridge. It does not activate Stage
+1, Readiness 3, production geometry, runtime behaviour, or decision-record
+evidence. Keep generated bundles and sessions under `/tmp`; they are not
+repository artifacts.
+
 ## HTTP routes and response format
 
 Open `/` for a dynamic session index, then `/review/<id>` for a review. The
