@@ -148,6 +148,18 @@ impl<'a> SourceSetMember<'a> {
     pub(crate) fn prepared(&self) -> &PreparedSingleSource {
         &self.prepared
     }
+
+    /// Consume this member into its retained source-set parts.
+    pub(crate) fn into_parts(
+        self,
+    ) -> (
+        SourceSetMemberKey,
+        SourceSetMemberRole,
+        &'a [u8],
+        PreparedSingleSource,
+    ) {
+        (self.key, self.role, self.raw_source, self.prepared)
+    }
 }
 
 /// One retained declaration edge from an owning source member.
@@ -170,6 +182,18 @@ impl SourceSetDependencyEdge {
     #[must_use]
     pub(crate) fn dependency(&self) -> &Dependency {
         &self.dependency
+    }
+
+    /// Member key named by this declaration's locator.
+    ///
+    /// This copies only the locator text needed for lookup. It does not
+    /// interpret or verify the retained revision/hash declaration.
+    #[must_use]
+    pub(crate) fn locator_key(&self) -> SourceSetMemberKey {
+        SourceSetMemberKey {
+            document: self.dependency.document.clone(),
+            namespace: self.dependency.namespace.clone(),
+        }
     }
 }
 
@@ -355,6 +379,21 @@ impl<'a> PreparedSourceSet<'a> {
                 }
             })
             .collect()
+    }
+
+    /// Consume the prepared set into its retained deterministic parts.
+    ///
+    /// This permits a downstream crate-private handoff to move prepared
+    /// projections and declaration edges rather than cloning complete member
+    /// graphs and maps.
+    pub(crate) fn into_parts(
+        self,
+    ) -> (
+        SourceSetMemberKey,
+        BTreeMap<SourceSetMemberKey, SourceSetMember<'a>>,
+        Vec<SourceSetDependencyEdge>,
+    ) {
+        (self.root, self.members, self.dependency_edges)
     }
 }
 

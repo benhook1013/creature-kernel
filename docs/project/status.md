@@ -97,7 +97,8 @@ only: it does not
 resolve dependencies or produce a snapshot or canonical serialization, apply
 basis/unit values, interpret quaternions, expand dependencies/modules, produce
 geometry, rigging, animation, physics, or runtime output, or activate Readiness
-3. PR #14 may be merged as preparatory tooling after its normal checks pass.
+3. PR #14, “Add prepared source developer inspection,” is merged at commit
+`150de082dfb02d77d0b5aa0b7571437f65ce410b`.
 This is not blanket merge authority outside the named runway and does not waive
 real user-visible or direction-setting decisions.
 
@@ -177,6 +178,15 @@ declared `content_sha256` remains opaque and unverified. It does not perform
 acquisition, revision/hash verification, resolver status/diagnostic mapping,
 cross-source merge/remap, snapshot/digest, or Readiness 3 activation; it
 remains preparatory and does not accept or revise a Proposed decision record.
+
+The current implementation also provides a crate-private owned restricted
+source-set handoff that consumes a successful `PreparedSourceSet`, owns raw
+member bytes and prepared projections, and retains deterministic member
+roles/keys plus locator-only dependency outcomes with opaque, unverified
+hashes. It remains non-resolving, non-serialized, and non-authoritative: it
+performs no acquisition, revision/hash verification, namespace merge/remap,
+canonical numeric/frame resolution, authoritative snapshot, public resolver
+envelope/API, or Readiness 3 activation.
 
 The current implementation also provides a crate-private restricted
 single-source snapshot handoff: it owns the exact raw bytes, retains the
@@ -748,13 +758,15 @@ metadata. Current non-governance proposals include:
 ## Immediate next actions
 
 Ben authorized an autonomous runway on 2026-08-15 for small, internal,
-reversible preparation PRs. PR #14 is eligible to merge as preparatory tooling
-after its normal checks pass. The main thread may merge clean internal bridge
+reversible preparation PRs. PR #14, “Add prepared source developer inspection,”
+is merged at commit `150de082dfb02d77d0b5aa0b7571437f65ce410b`. The main
+thread may merge clean internal bridge
 and document-wide preparation/provenance slices along the named runway, but
 this is not blanket authority outside it and does not waive real user-visible
-or direction-setting decisions. The next retained-human checkpoint is an
-actual rendered creature or primitive spatial preview, or a genuine
-direction-setting decision. Earlier permission to merge a specific PR does not
+or direction-setting decisions. Continue the autonomous preparatory runway
+until either the exact Readiness 3 successor/activation decision requires Ben,
+another genuine direction-setting decision appears, or the next genuinely
+useful visual result is ready. Earlier permission to merge a specific PR does not
 authorize merging later PRs outside this recorded runway.
 
 - Use the active Readiness 2 parser/bootstrap and admitted schema, manifest, and
