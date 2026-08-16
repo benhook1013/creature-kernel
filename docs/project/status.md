@@ -241,6 +241,21 @@ resolver/snapshot/Readiness 3 claim; and creates no visual checkpoint. It
 remains within the recorded autonomous preparatory runway, whose existing
 human-stop boundary is unchanged.
 
+The current implementation also provides a crate-private deterministic
+source-set provenance observation. It inventories each supplied member's
+source-local semantic addresses, module declarations, and typed owner/role
+records with explicit member/role ownership; records namespace owners and
+multi-owner namespace collisions; and retains dependency declarations in
+deterministic order. A root-started traversal over supplied locator topology
+records reached edges, missing supplied targets, active-stack back-edges,
+reached members, and supplied-but-unreachable members. It performs no hash
+verification or acquisition, namespace merge/remap, semantic/numeric
+resolution, status/diagnostic mapping, snapshot or serialization, or Readiness
+3 activation, and creates no visual checkpoint. It remains preparatory within
+the recorded runway and does not complete the later Readiness 3 successor
+candidate; the existing human stop before that activation transaction, or at
+another retained-human checkpoint, is unchanged.
+
 Candidate locally validated and appraised by Ben on 2026-08-15: a directly
 consuming primitive spatial preview
 uses this exact placement result through the existing

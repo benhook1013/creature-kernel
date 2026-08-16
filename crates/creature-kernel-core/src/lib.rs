@@ -19,6 +19,7 @@ pub(crate) mod restricted_source_set_placement;
 pub mod semantic_address;
 pub mod source_preparation;
 pub(crate) mod source_set_preparation;
+pub(crate) mod source_set_provenance_observation;
 pub mod structural_validation;
 
 /// Implementation convenience for the provisional CLI/debug adapter.  This
