@@ -1,7 +1,7 @@
 # Fixture manifest and admission contract
 
-Status: Proposed specification; exact Readiness 2 candidate present on this
-branch, not admitted or activated
+Status: Proposed specification; the exact Readiness 2 transaction is admitted
+and active
 
 Current Batch 13/14 material is recorded in DR-0006 Revision 12, DR-0011 Revision
 15, and DR-0012 Revision 14; these remain Proposed with Owner approval Pending
@@ -15,16 +15,20 @@ findings corrected in these revisions. The 9c governance pass corrected two
 mechanical history-label issues and its technical pass found no findings /
 Ready for PR at High confidence. Review Complete is evidence only. Batch 13/14 carries the generic
 canonical-key, separate implementation-binding, and diagnostic/bootstrap
-directions as Proposed material. Exact identifiers, schema fields, code
-membership, and fixture content remain readiness-gated.
+directions as Proposed material. Beyond the admitted transaction, successor
+identifiers, schema fields, code membership, and fixture content remain
+readiness-gated.
 
 This document is the canonical Proposed owner of fixture-manifest and fixture-
 admission semantics. It defines the immutable review/admission boundary. The
-concrete candidate is the [r1 manifest schema](schema/ck-fixture-manifest-v1.schema.json),
+concrete Readiness 2 transaction is the [r1 manifest schema](schema/ck-fixture-manifest-v1.schema.json),
 [r1 manifest](../../fixtures/body-documents/readiness-2/manifest.v1.json),
-nine listed [fixtures](../../fixtures/body-documents/readiness-2/), and
-independent [preflight](../../dev-tools/fixture-preflight/preflight.py). These
-artifacts exist for review evidence; they do not admit or activate Readiness 2.
+nine listed [fixtures](../../fixtures/body-documents/readiness-2/), and the
+admitted parser/bootstrap closure. Independent [preflight](../../dev-tools/fixture-preflight/preflight.py)
+and evidence support verify and bind this transaction; they are not additional
+admitted transaction contents. The exact transaction contents are admitted and
+active as recorded in the [Readiness 2 admission record](../../docs/project/readiness-2-admission.md);
+this broader specification and successor material remain Proposed.
 The [fixture policy](../../fixtures/README.md)
 describes repository practice, while the [body-document contract](../body-document/README.md)
 and [body-graph contract](../body-graph/README.md) own the meanings being tested.
@@ -69,11 +73,13 @@ readiness input and does not expand or alter the fixture payload digest.
 Any readiness gate that activates code must also bind the relevant production
 implementation separately from the fixture payload. The binding is a
 versioned, domain-separated aggregate SHA-256 over an explicit ordered set of
-normalized safe relative paths, file modes, and raw file contents. The exact
-identifier and framing spelling remain readiness-gated, but the SHA-256
-algorithm, ordered path/mode/raw-content semantics, and domain separation are
-fixed Proposed direction. The binding record is outside the bound set and
-contains no self-reference; it is not the `ck/v1/fixture-manifest` digest.
+normalized safe relative paths, file modes, and raw file contents. The admitted
+Readiness 2 implementation binding uses the exact framing
+`ck.implementation-path-set.raw.v1`; future/successor exact binding identifiers
+and framing remain readiness-gated. The SHA-256 algorithm, ordered
+path/mode/raw-content semantics, and domain separation are fixed Proposed
+direction. The binding record is outside the bound set and contains no
+self-reference; it is not the `ck/v1/fixture-manifest` digest.
 
 The closure is explicit and mechanically checkable, not an implementation
 convention. The implementation-content binding owns selected repository paths,
@@ -188,8 +194,9 @@ encoding.
 
 ## Readiness corpus
 
-The exact Proposed Readiness 2 manifest family is
-`creature-kernel.fixture-manifest`, revision `1`, with the candidate schema at
+The broader manifest-family specification remains Proposed; its admitted
+Readiness 2 manifest family is `creature-kernel.fixture-manifest`, revision
+`1`, with the admitted schema at
 [`ck-fixture-manifest-v1.schema.json`](schema/ck-fixture-manifest-v1.schema.json).
 Its [manifest](../../fixtures/body-documents/readiness-2/manifest.v1.json)
 lists exactly nine files and the IDs `minimal-valid-envelope`,
@@ -203,7 +210,9 @@ resource profiles differ only in their 65,536/128 raw-source-byte limit and
 share exact guards for depth (64), values (8,192), aggregate object members and
 array items (4,096 each), decoded string/key bytes (16,384 each), raw number-
 token bytes (256), and retained diagnostics (64).
-The candidate is not admitted or active.
+This exact Readiness 2 corpus is admitted and active within the recorded
+transaction; later readiness corpora and the broader specification remain
+Proposed.
 
 The lean Readiness 2 corpus contains:
 

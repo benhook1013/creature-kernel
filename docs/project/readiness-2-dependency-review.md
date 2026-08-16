@@ -2,9 +2,9 @@
 
 Status: Evidence-only lightweight review; not a licensing decision, security audit, or admission record
 
-Review date: 2026-08-13 (Pacific/Auckland)
+Review date: 2026-08-16 (Pacific/Auckland)
 
-Reviewed source commit: `691ee2ee0946ee2625fc3db8cd1c8a11826be024` (observed `HEAD`)
+Reviewed source commit: `0ebe9424346415301ea57f76402f5009cde380c2` (observed `HEAD` before this record update)
 
 Target: `x86_64-unknown-linux-gnu`
 
@@ -15,16 +15,14 @@ Requested package: `creature-kernel-core`
 Requested features/profile: default features (`default` in the build-request projection), development profile
 
 This review covers the locked parser/bootstrap slice and its resolved dependency
-closure. Earlier inspection used predecessor commit
-`3992b5e7fc0c12ff6c5ffc9ed15155473c423216` while uncommitted candidate edits
-were present. The current exact candidate `691ee2ee0946ee2625fc3db8cd1c8a11826be024`
-is clean; its locked/offline metadata and projection were regenerated and
-retain the same target-relevant closure below. This record carries forward the
-bounded analysis and is not a fresh adversarial review. Before admission,
-recompute the locked/offline metadata and projection after the final candidate
-transaction is assembled. A later commit, dependency update, feature change,
-target/profile change, or distribution configuration invalidates this review as
-evidence.
+closure. The bound Cargo/source inputs and target metadata used here matched
+commit `0ebe9424346415301ea57f76402f5009cde380c2` when regenerated. Unrelated
+documentation edits in the shared working tree were outside the bound input
+sets and do not alter this evidence. This record carries forward the bounded
+analysis and is not a fresh adversarial review. Before admission, recompute the
+locked/offline metadata and projection after the final candidate transaction is
+assembled. A later commit, dependency update, feature change, target/profile
+change, or distribution configuration invalidates this review as evidence.
 
 ## Inputs and method
 
@@ -51,28 +49,70 @@ evidence-generator projection, and the parser's embedded schemas and source.
 
 ## Resolution and direct dependencies
 
-The target-filtered metadata contained 92 workspace packages. The graph
-reachable from the requested core package contained 91 packages: the project
-package plus 90 registry packages. The CLI member is not reachable from the
-core-only request. The current evidence generator projection contained the
-same 91 reachable packages and had dependency-closure SHA-256
-`350d24ef7380530f046687cd8327b1478fed861dab6afd21d0ea3f99460ca962`.
-An unfiltered Cargo metadata run would enumerate 105 core-reachable packages,
+The target-filtered metadata contained 99 packages. The graph reachable from
+the requested core package contained 98 packages: the project package plus 97
+registry packages. The CLI member is not reachable from the core-only request.
+The current evidence generator projection contained the same 98 reachable
+packages and had dependency-closure SHA-256
+`1d98c68906f730fdaab934d595ad6927aed79e4b9f2a0e6170857ac628b50fce` (the
+bound Cargo.lock SHA-256 is
+`f2f72c587ab8ff801a545d420adee1f8a482f0cea9bde2933dfed3fc8f4d9b41`). An
+unfiltered Cargo metadata run would enumerate 112 core-reachable packages,
 including 14 target-conditional packages, but those are outside this
 target-relevant projection.
 
-The core package has three required direct registry dependencies, all with
+The core package has five required direct registry dependencies, all with
 `default-features = false`:
 
-| Dependency and enabled features | Parser-slice rationale |
+| Dependency and manifest feature settings | Parser-slice rationale |
 | --- | --- |
 | `serde 1.0.229`: `std`, `derive` | Typed serialization/deserialization and derive implementations. |
 | `serde_json 1.0.151`: `std`, `float_roundtrip`, `arbitrary_precision`, `raw_value` | JSON input/output, round-trip float handling, preservation of arbitrary-precision number tokens, and grammar/resource preflight without eagerly materializing a value. |
 | `jsonschema 0.49.9`: no crate features | Validation against the embedded Draft 2020-12 body schema. |
+| `num-bigint 0.4.8`: no crate features | Exact dyadic integer carriers used by preparatory numeric comparison code. |
+| `sha2 0.10.9`: no crate features | Crate-private framed SHA-256 primitive over caller-profiled opaque bytes. |
 
-The enabled features above are the resolved features for the current working
-tree. They are part of the dependency review input and must be rechecked if a
-candidate edit changes a manifest.
+The core package also has one direct development-only edge to
+`num-rational 0.4.2`, with `default-features = false` and explicit `num-bigint`
+and `std` features. The same package is independently present as a runtime
+transitive dependency through `jsonschema -> fraction -> num -> num-rational`;
+the direct dev edge therefore adds test use and feature requirements but does
+not make the package runtime-reachable by itself.
+
+The table records manifest declarations, not each package's aggregate resolved
+feature union. In the target-filtered `cargo metadata` projection, the relevant
+aggregate sets are: `serde` = `alloc`, `default`, `derive`, `serde_derive`,
+`std`; `serde_json` = `arbitrary_precision`, `default`, `float_roundtrip`,
+`raw_value`, `std`; `jsonschema` = none; `num-bigint` = `std`;
+`num-rational` = `num-bigint`, `num-bigint-std`, `std`; `sha2` = none;
+`digest` = `block-buffer`, `core-api`, `default`; `generic-array` =
+`more_lengths`; `libc` = `default`, `std`; and `block-buffer`, `cpufeatures`,
+`crypto-common`, `typenum`, `cfg-if`, and `version_check` = none. These
+aggregate features are part of the dependency review input and must be
+rechecked if a candidate edit changes a manifest or transitive feature path.
+
+### SHA-256 closure
+
+The direct `sha2 0.10.9` lockfile entry resolves `cfg-if 1.0.4`,
+`cpufeatures 0.2.17`, and `digest 0.10.7`. `digest` resolves
+`block-buffer 0.10.4` and `crypto-common 0.1.7`; those resolve
+`generic-array 0.14.7` and `typenum 1.20.1`, with `generic-array`'s build
+dependency `version_check 0.9.5`. This is the seven-package closure added by
+the direct SHA-256 dependency; the existing `libc 0.2.189` lockfile package is
+also referenced by target-conditional dependency entries.
+
+For the named `x86_64-unknown-linux-gnu` metadata projection, `sha2` has no
+resolved crate features: `default-features = false` leaves its default `std`
+and optional `asm`, `asm-aarch64`, `compress`, `force-soft`,
+`force-soft-compact`, `loongarch64_asm`, and `oid` features off.
+The package is `no_std` at its own boundary, while `digest` still resolves its
+own default `core-api` feature through the dependency declaration. `sha2`'s
+target-specific `cpufeatures` dependency is active on x86_64; its optional
+`sha2-asm` dependency is not enabled. The cached `cpufeatures-0.2.17` manifest
+declares `libc` dependencies for aarch64 Linux/Android/Apple and loongarch64
+Linux target conditions; the x86_64-filtered metadata has no active
+cpufeatures-to-libc edge. The single `libc` package in the current target
+closure is reached through existing `getrandom` and `parking_lot_core` paths.
 
 The corresponding locked/offline build-request commands are:
 
@@ -83,12 +123,20 @@ cargo clippy -p creature-kernel-core --all-targets --target x86_64-unknown-linux
 
 ## License metadata and disposition
 
-Cargo metadata reported an SPDX license expression for all 90 third-party
+Cargo metadata reported an SPDX license expression for all 97 third-party
 packages in the target-reachable core closure. The expression distribution was:
-40 `MIT OR Apache-2.0`, 18 `Unicode-3.0`, 16 `MIT`, 6 `Apache-2.0 OR MIT`,
+46 `MIT OR Apache-2.0`, 18 `Unicode-3.0`, 17 `MIT`, 6 `Apache-2.0 OR MIT`,
 2 each `Unlicense OR MIT` and `MIT/Apache-2.0`, and one each of
 `(MIT OR Apache-2.0) AND Unicode-3.0`, `MIT-0`, `Zlib`, `Apache-2.0`,
 `Apache-2.0/MIT`, and `BSD-2-Clause OR Apache-2.0 OR MIT`.
+
+For the SHA-256 closure, local cached registry manifests and license files
+reported: `sha2`, `block-buffer`, `crypto-common`, `digest`, `cpufeatures`,
+`cfg-if`, and `libc` as `MIT OR Apache-2.0`; `generic-array` as `MIT`; and
+`typenum` as `MIT OR Apache-2.0` and `version_check` as `MIT/Apache-2.0`.
+Each inspected package had the corresponding local `LICENSE*` material (the
+generic-array package uses a single `LICENSE` file); this corroborates the
+metadata for this lightweight review but is not legal approval.
 
 The project-owned `creature-kernel-core` package has no package license
 metadata and is `publish = false`. This review records that absence; it does
@@ -99,18 +147,19 @@ distribution-license decision.
 
 ## Build scripts and procedural macros
 
-Sixteen target-relevant packages expose `build.rs` targets:
+Seventeen target-relevant packages expose `build.rs` targets:
 
-`ahash`, `getrandom`, `icu_normalizer_data`, `icu_properties_data`, `libc`,
-`num-traits`, `parking_lot_core`, `proc-macro2`, `quote`, `ref-cast`, `serde`,
-`serde_core`, `serde_json`, `unicode-general-category`, `zerocopy`, and
-`zmij`.
+`ahash`, `generic-array`, `getrandom`, `icu_normalizer_data`,
+`icu_properties_data`, `libc`, `num-traits`, `parking_lot_core`, `proc-macro2`,
+`quote`, `ref-cast`, `serde`, `serde_core`, `serde_json`,
+`unicode-general-category`, `zerocopy`, and `zmij`.
 
 The observed roles are target/configuration probes, Rust compiler-version
-probes, generated Rust/private modules or tables, and `cfg` emission. A source
-sweep found no `cc`, `cmake`, `pkg-config`, `bindgen`, or native library link
-step in these build scripts. Several scripts invoke the selected `rustc` for
-version or capability probes and write under Cargo's `OUT_DIR`; those are
+probes, generated Rust/private modules or tables, and `cfg` emission. The new
+`generic-array` script is a compiler-version probe through `version_check`; a
+source sweep found no `cc`, `cmake`, `pkg-config`, `bindgen`, or native library
+link step in these build scripts. Several scripts invoke the selected `rustc`
+for version or capability probes and write under Cargo's `OUT_DIR`; those are
 build-time inputs and outputs, not network retrieval. The `libc` script also
 contains best-effort probes for `emcc` and (under its CI setting)
 `freebsd-version`; absent tools are tolerated and these probes do not compile
@@ -130,22 +179,27 @@ libraries in the graph even where their own target kind is not `proc-macro`.
 
 ## Unsafe, native, portability, and security observations
 
-Cargo metadata reported no `links` declaration in any of the 91 target-relevant
-packages. The graph contains `libc` through target-specific `getrandom` and
-`parking_lot_core` paths, so the slice uses Unix/OS interfaces and inherits
-the system C-library ABI at runtime; this is a system-interface dependency,
-not evidence of a compiled third-party C/C++ library. No `openssl`,
-`native-tls`, `cc`, `cmake`, or `pkg-config` package is in the target graph.
+Cargo metadata reported no `links` declaration in any of the 98 target-relevant
+packages. The graph contains `libc` through `getrandom` and
+`parking_lot_core` paths, so the slice uses Unix/OS interfaces and inherits the
+system C-library ABI at runtime; this is a system-interface dependency, not
+evidence of a compiled third-party C/C++ library. The SHA-256 addition does not
+add a `links` package or native build dependency. No `openssl`, `native-tls`,
+`cc`, `cmake`, or `pkg-config` package is in the target graph.
 
 The workspace source has `unsafe_code = "forbid"`, and the core source had no
 textual `unsafe` occurrence in this inspection. A mechanical textual search of
-cached Rust sources found `unsafe` occurrences in 66 of the 90 third-party
+cached Rust sources found `unsafe` occurrences in 65 of the 97 third-party
 packages (including comments, tests, cfg-disabled code, and declarations).
 This inventory is deliberately not an unsafe-block audit and does not claim
-that every occurrence was manually inspected. It identifies the expected
-transitive unsafe surface in low-level crates such as `libc`, `zerocopy`,
-`hashbrown`, `memchr`, `parking_lot`, and SIMD helpers; no specific material
-concern was established by this bounded review.
+that every occurrence was manually inspected. For the new SHA-256 path,
+`sha2` contains unsafe raw-slice casts and architecture-intrinsic backends;
+`cpufeatures` contains unsafe CPUID/`_xgetbv` wrappers on x86 and OS feature
+queries on other supported architectures; and `block-buffer` and
+`generic-array` contain low-level unsafe operations. `digest`, `crypto-common`,
+and `typenum` explicitly forbid unsafe code. This identifies expected
+low-level/SIMD and system-interface surface, not a finding or a full unsafe
+audit.
 
 The `jsonschema` dependency is selected with `default-features = false` and no
 explicit features. Its default feature set would enable `resolve-http`,
@@ -163,6 +217,13 @@ this review did not assess regex worst-case behaviour or perform a denial-
 of-service audit. If untrusted schemas/patterns or broader schema inputs become
 part of the runtime contract, the parser resource profile and regex behaviour
 need a focused security review.
+
+The `sha2` source is a pure Rust/no-std implementation, but its x86/x86_64
+backend uses runtime CPU-feature detection and unsafe architecture intrinsics;
+it falls back to the software compressor when the detected feature set is not
+available. Other target branches use target-specific architecture code, and
+the optional assembly dependency remains disabled. This is a portability
+observation, not a portability smoke or a cryptographic implementation audit.
 
 The target-filtered graph is a portability observation for the named Linux GNU
 target only. It is not a native-Linux portability smoke, Windows claim, or

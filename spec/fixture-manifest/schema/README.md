@@ -1,6 +1,7 @@
 # Fixture-manifest schema
 
-Status: Proposed Readiness 2 candidate; not admitted or activated.
+Status: Proposed schema specification; exact Readiness 2 schema artifact
+admitted and active within the recorded transaction.
 
 `ck-fixture-manifest-v1.schema.json` defines the closed JSON encoding for the
 Readiness 2 body-document fixture manifest. It covers field shape, constants,

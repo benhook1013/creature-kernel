@@ -1,7 +1,8 @@
 # Diagnostic registry and profile
 
-Status: Proposed canonical specification; exact Readiness 2 candidate codes
-exist on this branch but are not admitted or activated
+Status: Proposed canonical specification; transaction-local `ck.diagnostic.r2`
+identifiers and codes are used by the active Readiness 2 parser/preflight
+transaction
 
 Batch 13/14 resolves the diagnostic-domain and bootstrap-compatibility direction
 as Proposed material. Current successor material is recorded in DR-0006 Revision
@@ -14,9 +15,11 @@ target, decided 2026-08-13. The earlier-predecessor review at
 `9b96d18b115126ef09e54ad8c6f21749d5559ff6` are stale, with their findings
 corrected in these revisions. The 9c governance pass corrected two mechanical
 history-label issues and its technical pass found no findings / Ready for PR at
-High confidence. Review Complete is evidence only. The Proposed Readiness 2
-candidate registry/profile, exact codes, schema, parser, and preflight exist on
-this branch but are not admitted or activated.
+High confidence. Review Complete is evidence only. The broader diagnostic
+registry/profile specification remains Proposed. The active Readiness 2
+parser/preflight transaction uses transaction-local `ck.diagnostic.r2`
+identifiers and codes; it does not admit this owner specification or future
+registry/profile material.
 
 This document is the sole canonical owner of diagnostic registry definitions,
 the initial diagnostic domains and stable classes, diagnostic occurrences,
@@ -33,8 +36,9 @@ every future error.
 
 The registry is a versioned machine-readable definition set. Each registered
 diagnostic code has a stable conceptual code identity, domain/class, applicable
-phase, default severity, and compatibility/revision identity. The Readiness 2
-candidate profile is `ck.diagnostic.r2` and its exact ten-code vocabulary is:
+phase, default severity, and compatibility/revision identity. The active
+parser/preflight transaction uses the transaction-local `ck.diagnostic.r2`
+profile identifier and its exact ten-code vocabulary:
 
 - `ck.resource.source-bytes`
 - `ck.resource.json-work`
@@ -47,9 +51,9 @@ candidate profile is `ck.diagnostic.r2` and its exact ten-code vocabulary is:
 - `ck.extension.unsupported-required`
 - `ck.internal.schema`
 
-These spellings are frozen only if Ben admits the complete Readiness 2
-transaction. Future diagnostic domains and codes are not implied to be
-implemented. The initial registry has
+These transaction-local spellings are frozen for the admitted Readiness 2
+transaction; they do not admit the broader registry/profile specification.
+Future diagnostic domains and codes are not implied to be implemented. The initial registry has
 exactly these nine domains:
 
 - `source-admission` — acquisition, UTF-8, strict JSON, bootstrap, and schema;
@@ -69,8 +73,8 @@ reporter/publisher causes are classes or causal details under
 `execution-trust`, not additional domains. Resource profiles remain separate
 operational inputs even when a diagnostic occurrence records a resource-profile
 reference. These domains are intentionally a small initial boundary, not a
-large frozen code table beyond this candidate. The ten candidate codes are
-implemented only in the candidate parser/preflight path.
+large frozen code table beyond this candidate. The transaction-local ten-code
+set is implemented only in the candidate parser/preflight path.
 
 A diagnostic occurrence is data separate from its registry definition. It
 contains the code and registry revision, phase, severity, optional normalized
@@ -85,7 +89,7 @@ or another typed identity) and when repetition is a legitimate multiset/count.
 It must never silently deduplicate merely because two occurrences have equal
 messages or equal serialized details.
 
-For the Readiness 2 `ck.diagnostic.r2` candidate, a structural-schema
+For the transaction-local Readiness 2 `ck.diagnostic.r2` profile, a structural-schema
 occurrence (`ck.source.schema`) has the exact identity tuple
 `(instance_path, schema_path, error_kind)`. `instance_path` and `schema_path`
 are normalized JSON Pointer strings (the empty string denotes the document
@@ -166,11 +170,12 @@ registry domains or compatibility rules here.
 
 ## Activation and fixtures
 
-The exact candidate code set and `ck.diagnostic.r2` profile are documented and
-used by the Proposed parser/preflight evidence. They become a frozen serialized
-compatibility promise only if Ben admits the complete Readiness 2 transaction.
-Future registry revisions, domains, and publication/inspection codes remain
-separate and are not claimed implemented by this candidate.
+The transaction-local code set and `ck.diagnostic.r2` profile identifier are
+documented and used by the active Readiness 2 parser/preflight transaction.
+They are frozen only for that transaction, while the broader registry/profile
+specification and future registry revisions, domains, and publication/
+inspection codes remain separate Proposed material and are not claimed
+implemented by this candidate.
 
 The fixture suite must cover deterministic multi-diagnostic ordering, primary
 selection, ordinary retention truncation, resource-limit retention failure,
