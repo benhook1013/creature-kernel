@@ -18,6 +18,31 @@ and quaternion comparison are deliberately reported as unsupported. The
 separate `environment.rs` module also supplies a guarded square-root provider
 and synthetic tests for later normalization integration.
 
+## JSONL transport boundary
+
+Each raw request and serialized response frame is capped at 16,384 bytes,
+counting all bytes including CR and an optional LF. An oversized request is
+drained through its newline and produces exactly one `resource-limit` response
+with error code `request-line-bytes`; the next record is then processed. An
+EOF-terminated record is subject to the same cap. Invalid UTF-8, blank input,
+and malformed JSON produce `error`/`malformed-request` and do not prevent later
+records from being read. Input I/O failures and output serialization, write, or
+flush failures propagate as transport failures rather than being converted to
+synthetic observations.
+
+The request identifier is limited to 256 UTF-8 bytes before operation dispatch.
+An over-limit identifier receives `error`/`malformed-request` without an
+echoed identifier. This bound leaves the fixed environment observation,
+maximum accepted identifier, JSON escaping, and newline below the response
+frame cap; a regression test serializes that maximum environment response.
+
+Operation failures use stable machine-readable codes: decimal admission uses
+`rejected` for invalid-number, non-finite/overflow, and nonzero-underflow
+conditions; negative tolerances use `rejected` with a `negative-*-tolerance`
+code; exact arithmetic failures use `error` with an `exact-arithmetic-*` code.
+Existing token, significant-digit, exponent, invalid-input, unsupported, and
+malformed-request categories remain distinct.
+
 ## Environment boundary
 
 `environment.rs` is limited to the research adapter. On x86_64 GNU/Linux it
@@ -43,6 +68,7 @@ cargo run --manifest-path experiments/EXP-0002-numeric-frame-profile/candidate/C
 
 These commands exercise only the current synthetic adapter surface. They do
 not execute a frozen experiment corpus or produce result claims. An exact
-request-byte/line-resource cap is still deferred before any corpus run, as are
-toolchain/code-generation identity and independent square-root vectors before
-quaternion support.
+request/response frame cap is implemented here, but this adapter remains
+research-only and unrun: it has no frozen profile, profile selector, corpus
+result, or R3 activation. Toolchain/code-generation identity and independent
+square-root vectors remain deferred before quaternion support.

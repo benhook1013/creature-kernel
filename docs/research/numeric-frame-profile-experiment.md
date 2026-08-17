@@ -1,8 +1,9 @@
 # Numeric and frame profile experiment design
 
-Status: Proposed evidence design; EXP-0002 is registered as planned, with open
-evidence closure and no technology outcome. The protocol, corpora, profiles,
-and results are not frozen; no run or evidence exists.
+Status: Proposed evidence design; EXP-0002 remains planned, with open evidence
+closure and no technology outcome. Its phase-one input package and bounded
+runner are implemented and frozen-but-unrun; no evaluated run, result, profile
+selection, or R3 activation exists.
 
 ## Question
 
@@ -19,13 +20,14 @@ This design makes no geometry, performance, visual-quality, runtime, or
 cross-platform claim. It selects no package, constant, schema, resolver, or
 adapter and does not activate a readiness gate.
 
-The first executable phase targets five adapter families: decimal admission,
-scalar comparison, translation comparison, quaternion normalization, and
-quaternion comparison. The current candidate executes only decimal, scalar,
-translation, and read-only environment-attestation requests; quaternion
-operations remain unsupported pending their required oracle and provider
-inputs. This phase is not the whole eventual experiment: transform and basis
-conversion, composition/inversion, claim identity and all-pairs evaluation,
+The implemented phase-one candidate/request-response package covers four
+current operations: decimal admission, scalar comparison, translation
+comparison, and read-only environment attestation. Quaternion operations
+remain unsupported pending their required oracle and provider inputs. The
+development, held-out, and adversarial corpora plus manifest identities are
+frozen for phase one, but no candidate/corpus evaluation has run. This is not
+the whole eventual experiment: transform and basis conversion,
+composition/inversion, claim identity and all-pairs evaluation,
 authored-versus-snapshot comparison, and the later adapter tier remain
 separate obligations below.
 
@@ -36,9 +38,13 @@ probe or dynamic subnormal-output claim.
 
 ## Protocol status and preregistration boundary
 
-EXP-0002 is registered as planned with open evidence closure and no technology
-outcome, but this design is not yet a frozen protocol. Before any evaluated
-run, the protocol must preregister, independently of observed outcomes:
+EXP-0002 remains planned with open evidence closure and no technology outcome.
+The phase-one package is frozen and implemented for an unrun evaluation: its
+four-operation request/response shape, opaque wire request IDs, three corpus
+files, manifest identities, bounded runner/oracle/transport, and synthetic
+checks are fixed on disk. This design remains Proposed and is not a complete
+frozen protocol for the broader experiment. Before any evaluated run, the
+broader protocol must still preregister, independently of observed outcomes:
 
 - intended translation magnitude and component ranges, including the intended
   finite-value and decimal-admission domain;

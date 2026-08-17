@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::fmt;
-use std::io::{self, BufRead, Write};
+use std::io::{self, BufRead, BufReader, Write};
 
 #[allow(dead_code)]
 mod environment;
@@ -10,13 +10,24 @@ use creature_kernel_core::frame::Translation3;
 use creature_kernel_core::numeric::{
     DecimalAdmissionError, DecimalResourceLimits, NormalizedBinary64, admit_decimal,
 };
-use creature_kernel_core::numeric_comparison::ProvisionalScalarTolerance;
+use creature_kernel_core::numeric_comparison::{
+    InvalidProfileEntry, NumericArithmeticFailure, NumericComparisonError,
+    ProvisionalScalarTolerance, ToleranceField,
+};
 use creature_kernel_core::provisional_json as json;
 use serde::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 
 const REQUEST_PROTOCOL_ID: &str = "ck.r3.numeric-candidate-request-1";
 const RESPONSE_PROTOCOL_ID: &str = "ck.r3.numeric-candidate-response-1";
+const MAX_FRAME_BYTES: usize = 16_384;
+const MAX_REQUEST_ID_BYTES: usize = 256;
+
+enum InputFrame {
+    End,
+    Record(Vec<u8>),
+    Oversized,
+}
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -39,25 +50,76 @@ struct Response {
     error: Option<String>,
 }
 
-fn main() {
+fn main() -> io::Result<()> {
     let stdin = io::stdin();
     let stdout = io::stdout();
+    let mut input = BufReader::new(stdin.lock());
     let mut output = io::BufWriter::new(stdout.lock());
 
-    for line in stdin.lock().lines() {
-        let response = match line {
-            Ok(line) if line.trim().is_empty() => error_response(None, "malformed-request"),
-            Ok(line) => match parse_request(&line) {
-                Ok(request) => handle_request(request),
+    loop {
+        let response = match read_input_frame(&mut input)? {
+            InputFrame::End => break,
+            InputFrame::Oversized => resource_response(None, "request-line-bytes"),
+            InputFrame::Record(bytes) => match std::str::from_utf8(&bytes) {
+                Ok(line) if line.trim().is_empty() => error_response(None, "malformed-request"),
+                Ok(line) => match parse_request(line) {
+                    Ok(request) => dispatch_request(request),
+                    Err(_) => error_response(None, "malformed-request"),
+                },
                 Err(_) => error_response(None, "malformed-request"),
             },
-            Err(_) => {
-                let response = error_response(None, "input-read-failure");
-                write_response(&mut output, response);
-                break;
-            }
         };
-        write_response(&mut output, response);
+        write_response(&mut output, response)?;
+    }
+
+    Ok(())
+}
+
+fn read_input_frame(reader: &mut impl BufRead) -> io::Result<InputFrame> {
+    let mut frame = Vec::with_capacity(MAX_FRAME_BYTES);
+    loop {
+        let available = reader.fill_buf()?;
+        if available.is_empty() {
+            return if frame.is_empty() {
+                Ok(InputFrame::End)
+            } else {
+                Ok(InputFrame::Record(frame))
+            };
+        }
+
+        let newline = available.iter().position(|byte| *byte == b'\n');
+        let take = newline.map_or(available.len(), |index| index + 1);
+        if frame.len().saturating_add(take) > MAX_FRAME_BYTES {
+            reader.consume(take);
+            if newline.is_none() {
+                drain_input_record(reader)?;
+            }
+            return Ok(InputFrame::Oversized);
+        }
+
+        frame.extend_from_slice(&available[..take]);
+        reader.consume(take);
+        if newline.is_some() {
+            return Ok(InputFrame::Record(frame));
+        }
+    }
+}
+
+fn drain_input_record(reader: &mut impl BufRead) -> io::Result<()> {
+    loop {
+        let available = reader.fill_buf()?;
+        if available.is_empty() {
+            return Ok(());
+        }
+        let take = available
+            .iter()
+            .position(|byte| *byte == b'\n')
+            .map_or(available.len(), |index| index + 1);
+        let has_newline = available[..take].contains(&b'\n');
+        reader.consume(take);
+        if has_newline {
+            return Ok(());
+        }
     }
 }
 
@@ -168,11 +230,17 @@ impl<'de> Visitor<'de> for DuplicateKeyVisitor {
     }
 }
 
-fn write_response(output: &mut impl Write, response: Response) {
-    if let Ok(serialized) = json::to_string(&response) {
-        let _ = writeln!(output, "{serialized}");
-        let _ = output.flush();
+fn write_response(output: &mut impl Write, response: Response) -> io::Result<()> {
+    let serialized = json::to_string(&response)
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+    if serialized.len().saturating_add(1) > MAX_FRAME_BYTES {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "response exceeds frame limit",
+        ));
     }
+    writeln!(output, "{serialized}")?;
+    output.flush()
 }
 
 fn handle_request(request: Request) -> Response {
@@ -190,6 +258,13 @@ fn handle_request(request: Request) -> Response {
         }
         _ => unsupported(request.request_id, "unsupported-operation"),
     }
+}
+
+fn dispatch_request(request: Request) -> Response {
+    if request.request_id.len() > MAX_REQUEST_ID_BYTES {
+        return error_response(None, "malformed-request");
+    }
+    handle_request(request)
 }
 
 fn environment_attestation(request_id: String, input: &json::Value) -> Response {
@@ -285,7 +360,7 @@ fn decimal_admission(request_id: String, input: &json::Value) -> Response {
             request_id: Some(request_id),
             status: "rejected",
             observations: None,
-            error: Some(error.to_string()),
+            error: Some(decimal_conversion_code(error).to_owned()),
         },
     }
 }
@@ -316,11 +391,11 @@ fn scalar_comparison(request_id: String, input: &json::Value) -> Response {
     };
     let tolerance = match ProvisionalScalarTolerance::new(absolute, relative) {
         Ok(value) => value,
-        Err(error) => return error_response(Some(request_id), error.to_string()),
+        Err(error) => return numeric_comparison_response(request_id, error),
     };
     match tolerance.compare_scalar(left, right) {
         Ok(predicate) => predicate_response(request_id, predicate),
-        Err(error) => error_response(Some(request_id), error.to_string()),
+        Err(error) => numeric_comparison_response(request_id, error),
     }
 }
 
@@ -350,11 +425,77 @@ fn translation_comparison(request_id: String, input: &json::Value) -> Response {
     };
     let tolerance = match ProvisionalScalarTolerance::new(absolute, relative) {
         Ok(value) => value,
-        Err(error) => return error_response(Some(request_id), error.to_string()),
+        Err(error) => return numeric_comparison_response(request_id, error),
     };
     match tolerance.compare_translation(left, right) {
         Ok(predicate) => predicate_response(request_id, predicate),
-        Err(error) => error_response(Some(request_id), error.to_string()),
+        Err(error) => numeric_comparison_response(request_id, error),
+    }
+}
+
+fn decimal_conversion_code(
+    error: creature_kernel_core::numeric::DecimalConversionError,
+) -> &'static str {
+    match error {
+        creature_kernel_core::numeric::DecimalConversionError::InvalidJsonNumber => {
+            "invalid-json-number"
+        }
+        creature_kernel_core::numeric::DecimalConversionError::NonFiniteOrOverflow => {
+            "non-finite-or-overflow"
+        }
+        creature_kernel_core::numeric::DecimalConversionError::NonzeroUnderflowToZero => {
+            "nonzero-underflow-to-zero"
+        }
+    }
+}
+
+fn numeric_comparison_response(request_id: String, error: NumericComparisonError) -> Response {
+    match error {
+        NumericComparisonError::InvalidProfileEntry(entry) => {
+            let code = match entry {
+                InvalidProfileEntry::NonFinite { field } => nonfinite_tolerance_code(field),
+                InvalidProfileEntry::Negative { field } => negative_tolerance_code(field),
+            };
+            Response {
+                protocol_id: RESPONSE_PROTOCOL_ID,
+                request_id: Some(request_id),
+                status: "rejected",
+                observations: None,
+                error: Some(code.to_owned()),
+            }
+        }
+        NumericComparisonError::ExactArithmetic(failure) => Response {
+            protocol_id: RESPONSE_PROTOCOL_ID,
+            request_id: Some(request_id),
+            status: "error",
+            observations: None,
+            error: Some(exact_arithmetic_code(failure).to_owned()),
+        },
+    }
+}
+
+fn negative_tolerance_code(field: ToleranceField) -> &'static str {
+    match field {
+        ToleranceField::Absolute => "negative-absolute-tolerance",
+        ToleranceField::Relative => "negative-relative-tolerance",
+        ToleranceField::QuaternionHalfChord => "negative-quaternion-half-chord-tolerance",
+    }
+}
+
+fn nonfinite_tolerance_code(field: ToleranceField) -> &'static str {
+    match field {
+        ToleranceField::Absolute => "non-finite-absolute-tolerance",
+        ToleranceField::Relative => "non-finite-relative-tolerance",
+        ToleranceField::QuaternionHalfChord => "non-finite-quaternion-half-chord-tolerance",
+    }
+}
+
+fn exact_arithmetic_code(failure: NumericArithmeticFailure) -> &'static str {
+    match failure {
+        NumericArithmeticFailure::NonFinite => "exact-arithmetic-non-finite",
+        NumericArithmeticFailure::TemporaryLimitExceeded => "exact-arithmetic-temporary-limit",
+        NumericArithmeticFailure::ExponentOverflow => "exact-arithmetic-exponent-overflow",
+        NumericArithmeticFailure::ShiftOverflow => "exact-arithmetic-shift-overflow",
     }
 }
 
@@ -476,6 +617,16 @@ fn error_response(request_id: Option<String>, error: impl Into<String>) -> Respo
     }
 }
 
+fn resource_response(request_id: Option<String>, error: &str) -> Response {
+    Response {
+        protocol_id: RESPONSE_PROTOCOL_ID,
+        request_id,
+        status: "resource-limit",
+        observations: None,
+        error: Some(error.to_owned()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -487,6 +638,286 @@ mod tests {
             operation: operation.to_owned(),
             input,
         }
+    }
+
+    fn valid_decimal_line() -> Vec<u8> {
+        br#"{"protocol_id":"ck.r3.numeric-candidate-request-1","request_id":"after-frame","operation":"decimal-admission","input":{"token":"0.1","max_token_bytes":"512","max_significant_digits":"128","max_exponent_abs":"10000"}}"#
+            .to_vec()
+    }
+
+    #[test]
+    fn oversized_frame_emits_resource_code_and_recovers() {
+        let mut bytes = vec![b'x'; MAX_FRAME_BYTES + 1];
+        bytes.push(b'\n');
+        bytes.extend_from_slice(&valid_decimal_line());
+        bytes.push(b'\n');
+        let mut reader = BufReader::new(bytes.as_slice());
+
+        assert!(matches!(
+            read_input_frame(&mut reader).unwrap(),
+            InputFrame::Oversized
+        ));
+        let InputFrame::Record(record) = read_input_frame(&mut reader).unwrap() else {
+            panic!("valid record was not recovered after oversized frame");
+        };
+        let response =
+            handle_request(parse_request(std::str::from_utf8(&record).unwrap()).unwrap());
+        assert_eq!(response.status, "observed");
+        let response = resource_response(None, "request-line-bytes");
+        assert_eq!(response.status, "resource-limit");
+        assert_eq!(response.error.as_deref(), Some("request-line-bytes"));
+    }
+
+    #[test]
+    fn invalid_utf8_frame_is_malformed_and_recovers() {
+        let mut bytes = vec![0xff, b'\n'];
+        bytes.extend_from_slice(&valid_decimal_line());
+        bytes.push(b'\n');
+        let mut reader = BufReader::new(bytes.as_slice());
+
+        let InputFrame::Record(record) = read_input_frame(&mut reader).unwrap() else {
+            panic!("invalid UTF-8 record was not read");
+        };
+        let response = match std::str::from_utf8(&record) {
+            Ok(_) => panic!("invalid UTF-8 unexpectedly decoded"),
+            Err(_) => error_response(None, "malformed-request"),
+        };
+        assert_eq!(response.status, "error");
+        let InputFrame::Record(record) = read_input_frame(&mut reader).unwrap() else {
+            panic!("valid record was not recovered after invalid UTF-8");
+        };
+        assert_eq!(
+            handle_request(parse_request(std::str::from_utf8(&record).unwrap()).unwrap()).status,
+            "observed"
+        );
+    }
+
+    #[test]
+    fn write_failure_propagates() {
+        struct FailingWriter;
+
+        impl Write for FailingWriter {
+            fn write(&mut self, _bytes: &[u8]) -> io::Result<usize> {
+                Err(io::Error::new(
+                    io::ErrorKind::BrokenPipe,
+                    "synthetic write failure",
+                ))
+            }
+
+            fn flush(&mut self) -> io::Result<()> {
+                Err(io::Error::new(
+                    io::ErrorKind::BrokenPipe,
+                    "synthetic flush failure",
+                ))
+            }
+        }
+
+        let result = write_response(
+            &mut FailingWriter,
+            error_response(None, "malformed-request"),
+        );
+        assert_eq!(result.unwrap_err().kind(), io::ErrorKind::BrokenPipe);
+    }
+
+    #[test]
+    fn successful_write_then_flush_failure_propagates() {
+        struct FlushFailure {
+            bytes: Vec<u8>,
+        }
+
+        impl Write for FlushFailure {
+            fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+                self.bytes.extend_from_slice(bytes);
+                Ok(bytes.len())
+            }
+
+            fn flush(&mut self) -> io::Result<()> {
+                Err(io::Error::new(
+                    io::ErrorKind::BrokenPipe,
+                    "synthetic flush failure",
+                ))
+            }
+        }
+
+        let mut writer = FlushFailure { bytes: Vec::new() };
+        let result = write_response(&mut writer, error_response(None, "malformed-request"));
+        assert!(!writer.bytes.is_empty());
+        assert_eq!(result.unwrap_err().kind(), io::ErrorKind::BrokenPipe);
+    }
+
+    #[test]
+    fn exact_cap_lf_is_a_single_record() {
+        let mut bytes = valid_decimal_line();
+        bytes.resize(MAX_FRAME_BYTES - 1, b' ');
+        bytes.push(b'\n');
+        let mut reader = BufReader::new(bytes.as_slice());
+
+        let InputFrame::Record(record) = read_input_frame(&mut reader).unwrap() else {
+            panic!("exact-cap LF record was not read");
+        };
+        assert_eq!(record.len(), MAX_FRAME_BYTES);
+        assert!(matches!(
+            read_input_frame(&mut reader).unwrap(),
+            InputFrame::End
+        ));
+    }
+
+    #[test]
+    fn exact_cap_eof_is_a_single_record() {
+        let mut bytes = valid_decimal_line();
+        bytes.resize(MAX_FRAME_BYTES, b' ');
+        let mut reader = BufReader::new(bytes.as_slice());
+
+        let InputFrame::Record(record) = read_input_frame(&mut reader).unwrap() else {
+            panic!("exact-cap EOF record was not read");
+        };
+        assert_eq!(record.len(), MAX_FRAME_BYTES);
+        assert!(matches!(
+            read_input_frame(&mut reader).unwrap(),
+            InputFrame::End
+        ));
+    }
+
+    #[test]
+    fn cap_plus_one_eof_is_oversized_and_recovers_to_eof() {
+        let bytes = vec![b'x'; MAX_FRAME_BYTES + 1];
+        let mut reader = BufReader::new(bytes.as_slice());
+
+        assert!(matches!(
+            read_input_frame(&mut reader).unwrap(),
+            InputFrame::Oversized
+        ));
+        assert!(matches!(
+            read_input_frame(&mut reader).unwrap(),
+            InputFrame::End
+        ));
+    }
+
+    #[test]
+    fn cr_and_crlf_bytes_count_toward_frame_cap() {
+        let mut crlf = vec![b'x'; MAX_FRAME_BYTES - 2];
+        crlf.extend_from_slice(b"\r\n");
+        let mut reader = BufReader::new(crlf.as_slice());
+        let InputFrame::Record(record) = read_input_frame(&mut reader).unwrap() else {
+            panic!("exact-cap CRLF record was not read");
+        };
+        assert_eq!(record.len(), MAX_FRAME_BYTES);
+
+        let mut oversized_crlf = vec![b'x'; MAX_FRAME_BYTES - 1];
+        oversized_crlf.extend_from_slice(b"\r\n");
+        let mut reader = BufReader::new(oversized_crlf.as_slice());
+        assert!(matches!(
+            read_input_frame(&mut reader).unwrap(),
+            InputFrame::Oversized
+        ));
+
+        let mut cr_eof = vec![b'x'; MAX_FRAME_BYTES - 1];
+        cr_eof.push(b'\r');
+        let mut reader = BufReader::new(cr_eof.as_slice());
+        let InputFrame::Record(record) = read_input_frame(&mut reader).unwrap() else {
+            panic!("exact-cap CR EOF record was not read");
+        };
+        assert_eq!(record.len(), MAX_FRAME_BYTES);
+    }
+
+    #[test]
+    fn oversized_request_id_is_not_echoed_and_max_id_environment_fits_cap() {
+        let oversized_id = format!("{}a", "é".repeat(MAX_REQUEST_ID_BYTES / 2));
+        assert_eq!(oversized_id.len(), MAX_REQUEST_ID_BYTES + 1);
+        let oversized = dispatch_request(Request {
+            protocol_id: REQUEST_PROTOCOL_ID.to_owned(),
+            request_id: oversized_id,
+            operation: "decimal-admission".to_owned(),
+            input: json::json!({}),
+        });
+        assert_eq!(oversized.status, "error");
+        assert_eq!(oversized.error.as_deref(), Some("malformed-request"));
+        assert!(oversized.request_id.is_none());
+        let serialized = json::to_string(&oversized).unwrap();
+        assert!(serialized.len() < MAX_FRAME_BYTES);
+
+        let maximum_id = "\0".repeat(MAX_REQUEST_ID_BYTES);
+        assert_eq!(maximum_id.len(), MAX_REQUEST_ID_BYTES);
+        let environment = dispatch_request(Request {
+            protocol_id: REQUEST_PROTOCOL_ID.to_owned(),
+            request_id: maximum_id,
+            operation: "environment-attestation".to_owned(),
+            input: json::json!({}),
+        });
+        let serialized = json::to_string(&environment).unwrap();
+        assert!(serialized.len() < MAX_FRAME_BYTES);
+    }
+
+    #[test]
+    fn wire_error_codes_are_stable_and_statuses_are_consistent() {
+        use creature_kernel_core::numeric::DecimalConversionError;
+
+        assert_eq!(
+            decimal_conversion_code(DecimalConversionError::InvalidJsonNumber),
+            "invalid-json-number"
+        );
+        assert_eq!(
+            decimal_conversion_code(DecimalConversionError::NonFiniteOrOverflow),
+            "non-finite-or-overflow"
+        );
+        assert_eq!(
+            decimal_conversion_code(DecimalConversionError::NonzeroUnderflowToZero),
+            "nonzero-underflow-to-zero"
+        );
+
+        let negative = numeric_comparison_response(
+            "opaque".to_owned(),
+            NumericComparisonError::InvalidProfileEntry(InvalidProfileEntry::Negative {
+                field: ToleranceField::Absolute,
+            }),
+        );
+        assert_eq!(negative.status, "rejected");
+        assert_eq!(
+            negative.error.as_deref(),
+            Some("negative-absolute-tolerance")
+        );
+
+        let arithmetic = numeric_comparison_response(
+            "opaque".to_owned(),
+            NumericComparisonError::ExactArithmetic(
+                NumericArithmeticFailure::TemporaryLimitExceeded,
+            ),
+        );
+        assert_eq!(arithmetic.status, "error");
+        assert_eq!(
+            arithmetic.error.as_deref(),
+            Some("exact-arithmetic-temporary-limit")
+        );
+    }
+
+    #[test]
+    fn decimal_and_negative_tolerance_requests_use_stable_codes() {
+        let rejected = handle_request(request(
+            "decimal-admission",
+            json::json!({
+                "token": "1e309",
+                "max_token_bytes": "512",
+                "max_significant_digits": "128",
+                "max_exponent_abs": "10000"
+            }),
+        ));
+        assert_eq!(rejected.status, "rejected");
+        assert_eq!(rejected.error.as_deref(), Some("non-finite-or-overflow"));
+
+        let negative = handle_request(request(
+            "scalar-comparison",
+            json::json!({
+                "absolute_bits": "0xbff0000000000000",
+                "relative_bits": "0x0000000000000000",
+                "left_bits": "0x0000000000000000",
+                "right_bits": "0x0000000000000000"
+            }),
+        ));
+        assert_eq!(negative.status, "rejected");
+        assert_eq!(
+            negative.error.as_deref(),
+            Some("negative-absolute-tolerance")
+        );
     }
 
     #[test]

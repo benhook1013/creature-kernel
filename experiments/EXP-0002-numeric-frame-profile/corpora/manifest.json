@@ -1,0 +1,226 @@
+{
+  "manifest_version": "ck.r3.numeric-corpus-manifest-1",
+  "experiment_id": "EXP-0002",
+  "lifecycle": "frozen-inputs-unrun",
+  "candidate_request_protocol": "ck.r3.numeric-candidate-request-1",
+  "candidate_response_protocol": "ck.r3.numeric-candidate-response-1",
+  "operations": [
+    "decimal-admission",
+    "scalar-comparison",
+    "translation-comparison",
+    "environment-attestation"
+  ],
+  "corpus_order": [
+    "development.jsonl",
+    "held-out.jsonl",
+    "adversarial.jsonl"
+  ],
+  "experimental_tolerances": {
+    "exp-zero": {
+      "absolute_bits": "0x0000000000000000",
+      "relative_bits": "0x0000000000000000",
+      "role": "exact equality, signed-zero, and opposite-sign screening"
+    },
+    "exp-ulp52-absolute": {
+      "absolute_bits": "0x3cb0000000000000",
+      "relative_bits": "0x0000000000000000",
+      "role": "one-ulp absolute boundary at unit scale"
+    },
+    "exp-minsub-absolute": {
+      "absolute_bits": "0x0000000000000001",
+      "relative_bits": "0x0000000000000000",
+      "role": "minimum-subnormal absolute boundary"
+    },
+    "exp-ulp52-relative": {
+      "absolute_bits": "0x0000000000000000",
+      "relative_bits": "0x3cb0000000000000",
+      "role": "one-ulp relative boundary at unit scale"
+    },
+    "exp-pre-ulp52-relative": {
+      "absolute_bits": "0x0000000000000000",
+      "relative_bits": "0x3caffffffffffffe",
+      "role": "immediate-below relative boundary at unit scale"
+    }
+  },
+  "record_shape": {
+    "required": [
+      "case_id",
+      "wire_request_id",
+      "family",
+      "operation",
+      "expected",
+      "relations"
+    ],
+    "request_member": "exactly one of input or request_raw",
+    "candidate_projection": {
+      "valid": {
+        "protocol_id": "ck.r3.numeric-candidate-request-1",
+        "request_id": "wire_request_id",
+        "operation": "operation",
+        "input": "input"
+      },
+      "raw": "request_raw"
+    },
+    "runner_only": [
+      "case_id",
+      "wire_request_id",
+      "family",
+      "expected",
+      "relations"
+    ]
+  },
+  "result_shape": {
+    "required": ["protocol_id", "status"],
+    "optional": ["request_id", "observations", "error"],
+    "transport_statuses": ["observed", "rejected", "resource-limit", "unsupported", "error"],
+    "candidate_adjudication": "none"
+  },
+  "error_codes": {
+    "malformed-request": "invalid JSON, duplicate member, or request protocol shape",
+    "invalid-json-number": "strict decimal-number lexical admission failed",
+    "non-finite-or-overflow": "decimal conversion produced a non-finite result",
+    "nonzero-underflow-to-zero": "nonzero decimal conversion became canonical zero",
+    "invalid-input": "input shape or finite binary64 admission failed",
+    "token-bytes": "decimal token exceeded its byte budget",
+    "significant-digits": "decimal token exceeded its significant-digit budget",
+    "exponent-magnitude": "decimal exponent exceeded its magnitude budget"
+  },
+  "corpora": [
+    {
+      "order": 1,
+      "role": "development",
+      "path": "development.jsonl",
+      "count": 10,
+      "bytes": 4338,
+      "sha256": "646eeb26f6eb214787282fd9f0e3657180ec11db3cdc9e71557721db01a5172a",
+      "family_counts": {
+        "decimal-admission": 5,
+        "scalar-comparison": 2,
+        "translation-comparison": 2,
+        "environment-attestation": 1
+      },
+      "case_ids": [
+        "ck2-0001",
+        "ck2-0002",
+        "ck2-0003",
+        "ck2-0004",
+        "ck2-0005",
+        "ck2-0006",
+        "ck2-0007",
+        "ck2-0008",
+        "ck2-0009",
+        "ck2-0010"
+      ]
+    },
+    {
+      "order": 2,
+      "role": "held-out",
+      "path": "held-out.jsonl",
+      "count": 13,
+      "bytes": 6524,
+      "sha256": "3c6ec298d48c473d0c6b2372fb29ae91c35dc55e8ac70f06c648a4665db6ae00",
+      "family_counts": {
+        "decimal-admission": 6,
+        "scalar-comparison": 3,
+        "translation-comparison": 3,
+        "environment-attestation": 1
+      },
+      "case_ids": [
+        "ck2-0011",
+        "ck2-0012",
+        "ck2-0013",
+        "ck2-0014",
+        "ck2-0015",
+        "ck2-0016",
+        "ck2-0017",
+        "ck2-0018",
+        "ck2-0019",
+        "ck2-0020",
+        "ck2-0021",
+        "ck2-0022",
+        "ck2-0023"
+      ]
+    },
+    {
+      "order": 3,
+      "role": "adversarial",
+      "path": "adversarial.jsonl",
+      "count": 26,
+      "bytes": 12410,
+      "sha256": "8af9a7f63169ae176ce90fa14a7b950d04f02b850cc4e28606fc6ef6de24b630",
+      "family_counts": {
+        "decimal-admission": 8,
+        "scalar-comparison": 9,
+        "translation-comparison": 7,
+        "environment-attestation": 2
+      },
+      "case_ids": [
+        "ck2-0024",
+        "ck2-0025",
+        "ck2-0026",
+        "ck2-0027",
+        "ck2-0028",
+        "ck2-0029",
+        "ck2-0030",
+        "ck2-0031",
+        "ck2-0032",
+        "ck2-0033",
+        "ck2-0034",
+        "ck2-0035",
+        "ck2-0036",
+        "ck2-0037",
+        "ck2-0038",
+        "ck2-0039",
+        "ck2-0040",
+        "ck2-0041",
+        "ck2-0042",
+        "ck2-0043",
+        "ck2-0044",
+        "ck2-0045",
+        "ck2-0046",
+        "ck2-0047",
+        "ck2-0048",
+        "ck2-0049"
+      ]
+    }
+  ],
+  "relations": [
+    {"id": "lexical-equivalence", "cases": ["ck2-0001", "ck2-0002"], "meaning": "equivalent decimal spellings admit identical bits"},
+    {"id": "signed-zero-canonicalization", "cases": ["ck2-0003", "ck2-0004"], "meaning": "both decimal zero spellings admit canonical positive zero"},
+    {"id": "halfway-ties-even", "cases": ["ck2-0005"], "meaning": "exact halfway decimal rounds to the even binary64 endpoint"},
+    {"id": "scalar-signed-zero", "cases": ["ck2-0006"], "meaning": "signed zero is equal under exact zero tolerance"},
+    {"id": "scalar-opposite-signs", "cases": ["ck2-0007"], "meaning": "opposite unit signs are not equal under zero tolerance"},
+    {"id": "translation-signed-zero-subnormal", "cases": ["ck2-0008"], "meaning": "componentwise comparison accepts signed-zero and equal subnormal components"},
+    {"id": "translation-opposite-signs", "cases": ["ck2-0009"], "meaning": "one opposite-sign component fails componentwise comparison"},
+    {"id": "maximum-finite", "cases": ["ck2-0011"], "meaning": "maximum finite decimal admits maximum finite bits"},
+    {"id": "overflow-midpoint", "cases": ["ck2-0012", "ck2-0013", "ck2-0014"], "meaning": "exact decimal values immediately below, at, and above the overflow midpoint"},
+    {"id": "underflow-boundary", "cases": ["ck2-0015", "ck2-0016"], "meaning": "minimum subnormal and nonzero value below its half-way threshold"},
+    {"id": "scalar-absolute-bound", "cases": ["ck2-0017", "ck2-0018", "ck2-0019"], "meaning": "scalar absolute tolerance below, at, and above one binary64 ulp"},
+    {"id": "scalar-cancellation", "cases": ["ck2-0018"], "meaning": "adjacent unit-scale operands exercise exact subtraction cancellation"},
+    {"id": "translation-absolute-bound", "cases": ["ck2-0020", "ck2-0021", "ck2-0022"], "meaning": "translation componentwise absolute tolerance below, at, and above one binary64 ulp"},
+    {"id": "translation-cancellation", "cases": ["ck2-0021"], "meaning": "adjacent unit-scale translation components exercise exact subtraction cancellation"},
+    {"id": "resource-limit-classification", "cases": ["ck2-0024", "ck2-0025", "ck2-0026"], "meaning": "token, significant-digit, and exponent budgets fail independently"},
+    {"id": "decimal-invalid-input", "cases": ["ck2-0027", "ck2-0028"], "meaning": "string-level invalid decimal and nonfinite JSON injection are rejected"},
+    {"id": "protocol-rejection", "cases": ["ck2-0029"], "meaning": "wrong request protocol is malformed"},
+    {"id": "recursive-duplicate-rejection", "cases": ["ck2-0030", "ck2-0031", "ck2-0043"], "meaning": "top-level and nested duplicate members are malformed"},
+    {"id": "scalar-minsub-bound", "cases": ["ck2-0032", "ck2-0033", "ck2-0034"], "meaning": "scalar minimum-subnormal absolute tolerance below, at, and above the boundary"},
+    {"id": "relative-bound", "cases": ["ck2-0035", "ck2-0036", "ck2-0046"], "meaning": "scalar relative tolerance is below, at, and above one-ulp boundary at unit scale"},
+    {"id": "translation-minsub-bound", "cases": ["ck2-0037", "ck2-0038", "ck2-0039"], "meaning": "translation minimum-subnormal tolerance below, at, and above the boundary"},
+    {"id": "translation-relative-bound", "cases": ["ck2-0047", "ck2-0048", "ck2-0049"], "meaning": "translation relative tolerance is below, at, and above one-ulp boundary at unit scale"},
+    {"id": "scalar-maximum-finite", "cases": ["ck2-0040"], "meaning": "scalar comparison admits finite maximum values"},
+    {"id": "translation-maximum-finite", "cases": ["ck2-0041"], "meaning": "translation comparison admits finite maximum components"},
+    {"id": "nonfinite-bit-rejection", "cases": ["ck2-0042"], "meaning": "raw infinity bit input is rejected by finite admission"},
+    {"id": "environment-repeat", "cases": ["ck2-0044", "ck2-0045"], "meaning": "repeated environment requests are capability observations only"}
+  ],
+  "disjointness": {
+    "case_ids": "unique across all roles",
+    "record_bytes": "no complete JSONL line is shared across roles",
+    "candidate_request_bytes": "distinct opaque wire_request_id values make all projected/raw requests byte-distinct"
+  },
+  "run_state": {
+    "corpus_run": "not-run",
+    "candidate_evaluation": "not performed",
+    "profile_binding": null,
+    "technology_result": null
+  }
+}

@@ -43,3 +43,11 @@ jobs:
           cargo fmt --manifest-path experiments/EXP-0002-numeric-frame-profile/candidate/Cargo.toml -- --check
           cargo test --manifest-path experiments/EXP-0002-numeric-frame-profile/candidate/Cargo.toml --locked
           cargo clippy --manifest-path experiments/EXP-0002-numeric-frame-profile/candidate/Cargo.toml --all-targets --locked -- -D warnings
+
+      - name: Run EXP-0002 runner synthetic checks
+        run: |
+          python3 -m py_compile experiments/EXP-0002-numeric-frame-profile/scripts/*.py
+          PYTHONWARNINGS=error python3 -m unittest discover \
+            -s experiments/EXP-0002-numeric-frame-profile/scripts \
+            -p 'test*.py' \
+            -v

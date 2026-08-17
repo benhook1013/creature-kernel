@@ -15,26 +15,22 @@ Related specification: [proposed numeric/frame profile](../../spec/numeric-frame
 
 ## Status and scope
 
-This is a registered, preparatory protocol/adapter slice. It has not run a
-development, held-out, or adversarial corpus. The protocol, corpora, profiles,
-and results are not frozen. There are no results, profile claims, technology
-outcomes, R3 activation, production profile selection, or runtime/geometry
-claims.
+This is a frozen-input, unrun phase-one package. The development, held-out, and
+adversarial JSONL corpora and their manifest hashes are frozen on disk, but no
+candidate or corpus has been evaluated. There are no results, profile claims,
+technology outcomes, R3 activation, production profile selection, or
+runtime/geometry claims.
 
-The first executable phase targets five operation families:
+The current executable phase covers four operation families:
 
 - decimal admission;
 - scalar comparison;
 - translation comparison;
-- quaternion normalization; and
-- quaternion comparison.
+- same-process environment attestation.
 
-Current executable coverage is smaller: the candidate binary exercises decimal,
-scalar, translation, and same-process environment-attestation operations. The
-research-only environment module also has provider tests; quaternion operations
-remain explicitly unsupported by the candidate binary. Later transform/basis,
-composition/inversion, claim identity/all-pairs, authored/snapshot, and adapter
-tier obligations remain part of the eventual experiment.
+Quaternion operations remain explicitly unsupported. Later normalization,
+transform/basis, composition/inversion, claim identity/all-pairs,
+authored/snapshot, and adapter-tier obligations remain outside this package.
 
 ## Adapter boundary
 
@@ -44,7 +40,9 @@ contains only its protocol identifier, an opaque request identifier, an
 operation, and the required input. Candidate responses contain observations or
 errors only. Expected values, oracle values, profile bindings, corpus role,
 tags, and relation/partner metadata remain runner-side and are never sent to
-the candidate.
+the candidate. Corpus records retain stable opaque `wire_request_id` values;
+these are the only request IDs projected to the candidate, and are distinct
+from runner-side case IDs.
 
 The environment/provider module is research-only and currently targets
 x86_64 GNU/Linux. It performs read-only same-process inspection of C/x87
@@ -54,38 +52,47 @@ dynamic subnormal-output claim and fails closed on any failed or unavailable
 inspection. It never repairs the environment. Other targets are unsupported by
 this adapter; this is not a portability or production capability claim.
 
-## Reproduction commands
+## Package and checks
 
-From the repository root, the current synthetic adapter checks are:
+The standard-library Python runner loads the exact corpus schema, verifies
+direct-child files, hashes, byte counts, family/order/relation metadata, and
+candidate-projection disjointness. It independently recomputes the decimal
+and scalar/translation Fraction/dyadic oracle during preflight and retains it
+in result output. The subprocess transport bounds deadlines and stdout/stderr,
+requires one response per request, rejects trailing output, and treats
+transport or nonzero-exit failures as incomplete. Result output uses exclusive
+creation and cannot overwrite or alias an input.
+
+Run the synthetic runner checks from the repository root with:
 
 ```bash
-cargo build --manifest-path experiments/EXP-0002-numeric-frame-profile/candidate/Cargo.toml --offline
-cargo test --manifest-path experiments/EXP-0002-numeric-frame-profile/candidate/Cargo.toml --offline
-cargo run --manifest-path experiments/EXP-0002-numeric-frame-profile/candidate/Cargo.toml --offline < request.jsonl > response.jsonl
+python3 -m unittest discover \
+  -s experiments/EXP-0002-numeric-frame-profile/scripts \
+  -p 'test*.py'
+python3 -m py_compile experiments/EXP-0002-numeric-frame-profile/scripts/*.py
 ```
 
-The run command is for synthetic requests only at this stage; it must not be
-pointed at a future frozen corpus until the protocol, corpus hashes, oracle,
-runner, and profile bindings have been reviewed and locked.
+The runner CLI shape is:
 
-## Deferred freeze work
+```bash
+python3 experiments/EXP-0002-numeric-frame-profile/scripts/run_adapter.py \
+  --manifest experiments/EXP-0002-numeric-frame-profile/corpora/manifest.json \
+  --output <new-result.json> -- <candidate command and arguments>
+```
 
-The following remain open before an evaluated run:
+The output path must be new and must not alias the manifest, corpus, or
+candidate executable. Do not point this command at the frozen corpora until
+the experiment is explicitly authorized.
 
-- freeze disjoint development, held-out, and adversarial JSONL corpora and
-  their manifest hashes;
-- implement and independently validate the decimal, dyadic, normalization,
-  quaternion, and later transform/claim oracle paths;
-- implement the runner's deterministic ordering, sanitized candidate
-  projection, comparison adjudication, and result schema;
-- bind candidate profiles, domains, budgets, conditioning rules, and expected
-  classifications without moving or tuning cases after observation;
-- define the exact request-byte and line-resource cap before any corpus run;
-- bind toolchain/compiler/code-generation identity and independent square-root
-  vectors before enabling quaternion support; and
-- add quaternion, transform, basis, claim identity, and authored/snapshot
-  fixtures only when their executable interfaces exist.
+## What this does not prove
+
+This package is not an experiment result and does not select numeric constants
+or a production profile. It does not prove quaternion normalization or
+comparison, transform/basis behavior, claim identity/order, authored or
+snapshot conformance, runtime geometry, or Readiness-3/R3 activation. An
+environment failure or unsupported observation remains retained capability
+evidence and is not a technology pass/fail result.
 
 Failures, inconclusive results, unsupported targets, and out-of-domain cases
-must remain visible. This preparatory record is not evidence that any proposed
-profile is suitable.
+remain visible in any later result; this package alone is not evidence that any
+proposed profile is suitable.

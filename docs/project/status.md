@@ -60,13 +60,16 @@ does not activate the distinct Readiness 3 resolver/snapshot transaction.
 
 ## Current implementation status
 
-EXP-0002 is registered as a planned experiment with open evidence closure and
-no technology outcome. Its current candidate is a synthetic-only adapter
-surface for decimal admission, scalar/translation comparison, and read-only
-environment inspection (C/x87 plus raw and decoded MXCSR rounding/FTZ/DAZ
-bits). Raw lexical and binary64-bit boundaries are exercised only by the
-candidate tooling; no protocol, corpus, profile, result, or Readiness 3
-activation is frozen or claimed.
+EXP-0002 remains a planned experiment with open evidence closure and no
+technology outcome. Its implemented, unrun phase-one package contains the
+four-operation candidate surface for decimal admission, scalar/translation
+comparison, and read-only environment inspection (C/x87 plus raw and decoded
+MXCSR rounding/FTZ/DAZ bits). Its request/response boundary, opaque wire
+request IDs, development/held-out/adversarial corpora, and manifest identities
+are frozen; the bounded runner/oracle/transport and synthetic checks are
+implemented. No candidate/corpus evaluation, result, profile selection,
+quaternion support, or Readiness 3 activation is claimed. Broader tolerances
+and later experiment families remain Proposed/open.
 
 Readiness 2 remains active for the admitted schema, manifest, fixtures,
 parser/bootstrap, and preflight. The workspace now also contains a provisional
@@ -487,13 +490,17 @@ semantics, and a small diagnostic-registry direction; concrete profiles,
 constants, and activation bindings remain Proposed or gated.
 Exact numeric bounds remain evidence-dependent; the planned
 [numeric/frame profile experiment](../research/numeric-frame-profile-experiment.md)
-is registered as planned, with no results or evidence. Its Proposed protocol now
-requires preregistered intended domains, separate semantic error budgets,
-correctly rounded decimal-admission rules, fixed operation order and compiler
-floating-point controls, rational/ULP boundaries, deterministic
-normalization/square-root fixtures, offline H derivation, structured claim
-identity/order fixtures, exact/higher-precision independent oracles, frozen
-development/held-out/adversarial corpora, metamorphic and all-pairs checks,
+remains registered as planned, with open evidence closure, no evaluated run or
+result, and no technology outcome. Its implemented phase-one package freezes
+the four-operation request/response boundary, opaque wire request IDs,
+development/held-out/adversarial corpora and manifest identities, together
+with bounded runner/oracle/transport and synthetic checks. This does not freeze
+the broader Proposed protocol, which still requires preregistered intended
+domains, separate semantic error budgets, correctly rounded decimal-admission
+rules, fixed operation order and compiler floating-point controls,
+rational/ULP boundaries, deterministic normalization/square-root fixtures,
+offline H derivation, structured claim identity/order fixtures,
+exact/higher-precision independent oracles, later fixtures and checks,
 condition estimates, and a validation margin whose formula/constant remain
 open. The normative common-frame comparator, exact dyadic arithmetic,
 normalization/sign direction, claim-ID, and sorted-pair direction are accepted
@@ -827,7 +834,7 @@ metadata. Current non-governance decisions and proposals include:
 | --- | --- | --- | --- |
 | Documentation authority | partial | unverified | Operational structure under Accepted DR-0001 Revision 5 |
 | Decision-record and review workflow | partial | unverified | Governance accepted; technical/product proposals remain provisional |
-| Research/experiment workflow | partial | unverified | Lightweight template exists; EXP-0002 is registered as planned with open evidence closure and no technology outcome |
+| Research/experiment workflow | partial | unverified | Lightweight template exists; EXP-0002 remains planned with open evidence closure and no technology outcome; its four-operation phase-one inputs and tooling are frozen and unrun |
 | Body specification | partial | unverified | Proposed body-document, body-graph, build-operation, fixture-manifest, and Batch 11/12/13 focused profiles include discussion-approved updates; the Readiness 2 schema, manifest, nine fixtures, parser/bootstrap, and preflight are active under the admission record, while DR-0002 Revision 11, DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14 are Accepted with Owner approval Approved by Ben; DR-0008 remains Revision 11 Proposed |
 | Build-operation contract | partial | unverified | Proposed canonical public build/output owner exists; serialization, implementation, and artifact store remain unactivated |
 | Production implementation platform | partial | proven | CK-KICK-013/DR-0013 Revision 12 is Accepted with Owner approval Approved by Ben; the Readiness 1 Cargo workspace, compiler/core library shell, and thin CLI shell pass pinned-toolchain checks. Readiness 2's exact schema, manifest, nine fixtures, parser/bootstrap, and preflight are active after merged commit `766992ab089687e9b1496574e8ffa721388d96f3` / PR #6 and successful post-merge identity recomputation. PR #9, the inspectable biped structure workflow, is merged at `565c32bd35215e23d737fb333604382d3e6958ab`; its structural index/validator/inspection remain preparatory. The public single-source preparation operation and internal numeric/frame-preparation helpers remain preparatory; helpers cannot bypass body-document admission, and distinct Readiness 3, adapter, and exploratory geometry remain gated |
