@@ -418,6 +418,18 @@ lifecycle work, visual output, or Readiness 3 activation; the human stop
 remains unchanged. It is internal reversible runway progress only and accepts
 or changes no contract.
 
+The runway also contains an implemented crate-private dependency-topology
+evidence reducer. It emits deterministic fixed-class findings for missing
+supplied targets, reachable DFS cycle back-edges, and supplied members that
+are unreachable from the root. Findings retain complete declaration, target,
+or member context, preserve duplicate occurrences, and include missing
+declarations owned by unreachable members. This is evidence only: it performs
+no validity, status, or diagnostic mapping; dependency selection, acquisition,
+or hash verification; namespace policy; per-document Part/Joint/Socket/
+Attachment revalidation; public or wire contract; fixture or lifecycle work;
+or Readiness 3 activation. It is internal reversible runway progress only and
+accepts or changes no contract.
+
 Candidate locally validated and appraised by Ben on 2026-08-15: a directly
 consuming primitive spatial preview
 uses this exact placement result through the existing
