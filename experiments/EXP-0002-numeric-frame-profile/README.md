@@ -15,12 +15,20 @@ Related specification: [proposed numeric/frame profile](../../spec/numeric-frame
 
 ## Status and phase-one boundary
 
-This is a frozen-input, frozen-tooling, unrun phase-one package. The exact
-candidate, runner, manifest, and three JSONL corpora are identified by their
-recorded package/build and content identities. No candidate or corpus
-evaluation has been run. `profile_binding` remains `null` and
-`technology_result` remains `none`; there is no result, profile selection,
-Readiness 3 activation, or product/technology decision.
+This is a frozen-input, frozen-tooling phase-one package with one completed
+attempt. Attempt `attempt-001` ran at source commit
+`d88f5eca3ad3c0c0cb00dcf7dd012471be979305`; its result and receipt are indexed
+in the [human-readable results summary](RESULTS.md). The exact candidate,
+runner, manifest, and three JSONL corpora are identified by their recorded
+package/build and content identities. `profile_binding` remains `null` and
+`technology_result` remains `none`; the result does not select a profile,
+activate Readiness 3, or make a product/technology decision.
+
+The attempt completed with `run_status: complete` and `evidence_status: passed`:
+development 10/10, held-out 13/13, adversarial 26/26, 49/49 cases
+overall, and 26/26 registered relations. The overall EXP-0002 lifecycle
+remains `planned`, evidence closure remains `open`, and technology outcome
+remains `none` because broader experiment obligations remain.
 
 Phase one is the named exact-artifact persistent-conformance evaluation
 `ck.exp-0002.phase1-persistent-conformance-v1`. One persistent candidate
