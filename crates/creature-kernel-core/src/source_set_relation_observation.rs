@@ -250,7 +250,7 @@ pub(crate) fn observe_source_set_relations<'a>(
     observe_source_set_relation_edges(references)
 }
 
-fn relation_spec(
+pub(crate) fn relation_spec(
     slot: &SourceSetReferenceSlot,
 ) -> (SourceSetRelationFamily, SourceSetRelationExpectedTargetKind) {
     match slot {
@@ -347,7 +347,7 @@ fn classify_evidence<'a>(
     }
 }
 
-fn actual_target_kind(target: &SourceSetReferenceTarget) -> SourceSetRelationTargetKind {
+pub(crate) fn actual_target_kind(target: &SourceSetReferenceTarget) -> SourceSetRelationTargetKind {
     match target {
         SourceSetReferenceTarget::Address(address) => {
             SourceSetRelationTargetKind::Address(address.kind().clone())
@@ -356,7 +356,7 @@ fn actual_target_kind(target: &SourceSetReferenceTarget) -> SourceSetRelationTar
     }
 }
 
-fn target_kind_matches(
+pub(crate) fn target_kind_matches(
     expected: SourceSetRelationExpectedTargetKind,
     actual: &SourceSetRelationTargetKind,
 ) -> bool {

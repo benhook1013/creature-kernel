@@ -401,6 +401,23 @@ fixture or lifecycle work, visual output, or Readiness 3 activation; the human
 stop remains unchanged. It is internal reversible runway progress only and
 accepts or changes no contract.
 
+The runway also contains a reviewed crate-private projected-source-set evidence
+collector. It emits deterministic fixed-class findings for projected namespace
+collisions, full `AddressKey` collisions, typed (`OwnerRoleKey`, record-kind)
+collisions, `Missing`/`Ambiguous` references, and target-kind mismatches. Each
+reference finding retains owner/role/slot, original and projected targets,
+existing relation family and expected kind, and complete candidate provenance.
+Namespace collisions remain separate from full-key collisions; cross-kind
+owner-role coexistence is legal, ambiguity and kind mismatch are orthogonal,
+and no winner is selected. The collector consumes every retained member, and
+index corruption fails loudly. This is evidence only: it performs no collision
+rejection, pass/fail verdict, diagnostics/status mapping, source mutation,
+selection, topology/cycle/cardinality enforcement, public or wire contract,
+canonical/digest/profile binding, snapshot or serialization, fixture or
+lifecycle work, visual output, or Readiness 3 activation; the human stop
+remains unchanged. It is internal reversible runway progress only and accepts
+or changes no contract.
+
 Candidate locally validated and appraised by Ben on 2026-08-15: a directly
 consuming primitive spatial preview
 uses this exact placement result through the existing
