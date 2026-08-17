@@ -13,6 +13,12 @@ autobenches = false
 [lib]
 path = "src/lib.rs"
 
+[features]
+default = []
+# Explicit experiment-only access to unfinished R3 numeric candidate APIs.
+# This feature does not activate a profile, constants, or runtime semantics.
+provisional-r3-numeric-candidate = []
+
 [dependencies]
 serde = { version = "1.0.229", default-features = false, features = ["std", "derive"] }
 serde_json = { version = "1.0.151", default-features = false, features = ["std", "float_roundtrip", "arbitrary_precision", "raw_value"] }

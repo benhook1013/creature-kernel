@@ -13,7 +13,14 @@ performs pinned Rust 1.97.1 direct correctly-rounded binary64 final conversion,
 and remains preparatory with typed overflow/nonzero-underflow failures, finite
 subnormal support, lexical-zero `+0`, and focused boundary tests. It is not
 wired into body-document admission, does not alter the admitted Readiness 2
-identity, and does not activate Readiness 3. The standalone
+identity, and does not activate Readiness 3. An experiment-only numeric
+candidate surface for resource-bounded decimal admission, exact
+scalar/translation comparison, and quaternion normalization/comparison is
+available only with the non-default
+`provisional-r3-numeric-candidate` feature. It has no default provider,
+selected constants, or profile; normalization requires an explicitly injected
+attested provider, and public errors do not expose internal arithmetic types.
+It remains preparatory and does not activate Readiness 3. The standalone
 `creature_kernel_core::frame` module is likewise preparatory: it provides a
 normalized-binary64 structural transform carrier, exact signed-axis
 source-basis mapping, and symbolic length-unit ratios, without unit scaling,

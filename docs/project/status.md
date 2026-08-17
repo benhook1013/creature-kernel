@@ -290,28 +290,39 @@ squaring, and four-term summation under a conservative implementation safety
 cap. It supplies no tolerance, profile, claim, resolver, or activation
 semantics.
 
-The next runway slice adds a crate-private typed scalar/translation predicate
-over that foundation. Callers must supply finite nonnegative absolute and
-relative entries explicitly; evaluation follows the specified inclusive exact
-dyadic formula and checks all translation components in fixed order. It still
-selects no profile identity or tolerance values and has no quaternion, claim,
+The numeric admission slice now also provides explicit resource-bounded
+decimal admission: callers choose token-byte, significant-digit, and
+exponent limits before exact conversion. It retains the strict JSON grammar,
+correctly-rounded binary64 conversion, finite-subnormal support, and lexical
+zero canonicalization. There is no process-wide resource default, and the
+slice remains outside body-document admission and Readiness 3.
+
+The next runway slice adds the typed scalar/translation predicate over that
+foundation. It remains crate-private in default builds and is exposed only
+under the non-default `provisional-r3-numeric-candidate` feature. Callers must
+supply finite nonnegative absolute and relative entries explicitly; evaluation
+follows the specified inclusive exact dyadic formula and checks all translation
+components in fixed order. The feature's public errors map internal exact
+arithmetic failures to stable classifications without exposing implementation
+types. It selects no profile identity or tolerance values and has no claim,
 resolver, diagnostic-status, or activation behavior.
 
-The following runway slice adds crate-private deterministic quaternion
-normalization and q/-q sign-canonicalization plumbing. Its fixed binary64
-operation sequence and validation hooks are implemented, but normal builds can
-construct only an unavailable square-root/environment capability. Provider
-execution remains test-only against independently frozen result bits until a
-future attested floating-environment boundary and activation-gated profile
-constants exist. This slice therefore cannot silently normalize production
-source or activate quaternion semantics.
+The following runway slice adds deterministic quaternion normalization and
+q/-q sign-canonicalization plumbing. Its fixed binary64 operation sequence and
+validation hooks are implemented, but it has no default square-root provider:
+normalization requires an explicitly injected provider whose environment the
+caller has attested. The candidate surface is available only under the same
+non-default experimental feature, with public error types kept independent of
+internal arithmetic details. No near-zero/drift/range constants or profile are
+selected, so this slice cannot normalize production source or activate
+quaternion semantics.
 
 The next runway slice adds the exact canonical-tuple quaternion comparison
-predicate over already normalized private carriers. It uses exact dyadic dot
-sign selection (`0` chooses positive), fixed four-component squared distance,
-and an inclusive explicit `(2H)^2` bound. It chooses no `H`, profile identity,
-fallback, or angular interpretation, and the sealed normalizer still prevents
-normal-build production use.
+predicate over already normalized carriers. It uses exact dyadic dot sign
+selection (`0` chooses positive), fixed four-component squared distance, and
+an inclusive explicit `(2H)^2` bound. It accepts H only when supplied by the
+caller, chooses no H, profile identity, fallback, or angular interpretation,
+and remains outside Readiness 3.
 
 Ben approved the following deferred planning direction on 2026-08-09 for any
 future activation. It is recorded here without accepting or revising either DR:
