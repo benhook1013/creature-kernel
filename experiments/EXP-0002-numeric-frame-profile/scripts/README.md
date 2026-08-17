@@ -12,6 +12,51 @@ the exact decimal and scalar/translation Fraction/dyadic expectations.
 stdout/stderr caps, one-response enforcement, trailing-output rejection, and
 safe cleanup. `runner_common.py` contains strict JSON and protocol helpers.
 
+The manifest preregisters the stable evaluation binding
+`ck.exp-0002.phase1-persistent-conformance-v1`. Phase one uses exactly one
+persistent candidate process and sends development, held-out, then adversarial
+cases. Held-out is non-tuning evidence, not blind or process-isolated; the
+environment observations are conditioned on workload position. The claim is
+limited to 49 exact frozen case adjudications plus runner classifications for
+26 registered named case groups. Only `lexical-equivalence`,
+`signed-zero-canonicalization`, and `environment-repeat` have explicit
+cross-case checks; the other groupings organize member-case outcomes. It makes
+no fresh-process, order-independence, repeatability, generalization, profile,
+production-domain, or technology claim. The existing A/R tolerance entries
+are bound as experiment inputs only; no profile is selected.
+The environment-repeat relation is labelled as a workload-position-conditioned
+capability observation, not a repeatability or order-independence claim.
+
+The preregistration identity object is:
+
+```text
+candidate_artifacts = stream-hashed-before-and-after-execution
+runner_modules = stream-hashed-before-and-after-execution
+filesystem_assumption = controlled-local-no-adversarial-mid-run-replace-and-restore
+candidate_build_context = observational-not-provenance
+```
+
+The identity-artifact read budget is 268435456 bytes (256 MiB). This is a
+pragmatic controlled-local pre/post content-and-stat stability check, not proof
+against an adversarial replace-and-restore during execution; the binary hash
+remains the artifact identity. Result files retain the binding,
+profile-null/technology-`none` state, manifest and corpus hashes, candidate
+command/artifact hashes, runner bundle and configured budgets, plus available
+toolchain and source identity. A dirty Git tree is recorded explicitly rather
+than preventing a local run. Candidate build context is observational, not
+provenance. Exact expected mismatches are completed-but-failed conformance
+evidence; environment failure/unsupported and candidate unsupported are
+inconclusive capability evidence only when no failure exists; transport,
+nonzero-exit, and response-integrity failures are incomplete. A completed
+execution remains `run_status: complete`; any exact failure takes evidence
+precedence over inconclusive/unsupported while counts retain both. No result
+can select or reject a production profile.
+The runner Python toolchain is separate from candidate build context. Where
+available, candidate context hashes `rust-toolchain.toml`, `Cargo.toml`, and
+the workspace `Cargo.lock`, and retains bounded `rustc -Vv`/`cargo -V` output
+plus selected build variables. This context does not prove how the candidate
+binary was built; the candidate artifact hash is the binary identity.
+
 Run synthetic checks from the repository root:
 
 ```bash

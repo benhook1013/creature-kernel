@@ -10,6 +10,7 @@ from typing import Any, Mapping
 from runner_common import (
     CASE_REQUIRED_FIELDS,
     FRAME_BYTES,
+    EVALUATION_BINDING,
     MAX_CASES_PER_CORPUS,
     MAX_RELATIONS,
     MAX_TOTAL_CASES,
@@ -19,12 +20,15 @@ from runner_common import (
     RESPONSE_PROTOCOL_ID,
     ROLES,
     MAX_WIRE_REQUEST_ID_BYTES,
+    PREREGISTERED_LIMITS,
+    TECHNOLOGY_RESULT,
     EXPECTED_FIELDS,
     ProtocolError,
     forbidden_keys,
     frame_json,
     iter_bounded_frames,
     parse_json_bytes,
+    parse_bits,
     read_bounded_bytes,
     parse_raw_request,
     require_exact_fields,
@@ -51,6 +55,8 @@ MANIFEST_FIELDS = {
     "relations",
     "disjointness",
     "run_state",
+    "evaluation_binding",
+    "preregistration",
 }
 CORPUS_FIELDS = {"order", "role", "path", "count", "bytes", "sha256", "family_counts", "case_ids"}
 RELATION_FIELDS = {"id", "cases", "meaning"}
@@ -69,6 +75,101 @@ STABLE_ERROR_CODES = {
     "significant-digits",
     "exponent-magnitude",
 }
+
+PREREGISTRATION_FIELDS = {"topology", "claim_domain", "limits", "tolerance_bindings", "classification", "identity"}
+TOPOLOGY_FIELDS = {
+    "candidate_processes",
+    "persistent_process",
+    "corpus_sequence",
+    "held_out_role",
+    "environment_observations",
+    "fresh_process_claim",
+    "order_independence_claim",
+    "repeatability_claim",
+    "generalization_claim",
+    "profile_claim",
+    "technology_claim",
+}
+CLAIM_DOMAIN_FIELDS = {"kind", "case_count", "relation_count", "scope", "production_domain_claim"}
+CLASSIFICATION_FIELDS = {
+    "exact_expected_mismatch",
+    "environment_failed_or_unsupported",
+    "candidate_unsupported",
+    "transport_nonzero_or_response_integrity",
+    "profile_selection",
+    "technology_result",
+}
+IDENTITY_FIELDS = {"candidate_artifacts", "runner_modules", "filesystem_assumption", "candidate_build_context"}
+IDENTITY_CONTRACT = {
+    "candidate_artifacts": "stream-hashed-before-and-after-execution",
+    "runner_modules": "stream-hashed-before-and-after-execution",
+    "filesystem_assumption": "controlled-local-no-adversarial-mid-run-replace-and-restore",
+    "candidate_build_context": "observational-not-provenance",
+}
+
+
+def _validate_preregistration(manifest: Mapping[str, Any]) -> None:
+    if manifest.get("evaluation_binding") != EVALUATION_BINDING:
+        raise ProtocolError("manifest evaluation binding differs")
+    preregistration = require_object(manifest.get("preregistration"), "preregistration")
+    require_exact_fields(preregistration, PREREGISTRATION_FIELDS, "preregistration")
+
+    topology = require_object(preregistration["topology"], "preregistration topology")
+    require_exact_fields(topology, TOPOLOGY_FIELDS, "preregistration topology")
+    if (
+        topology["candidate_processes"] != 1
+        or topology["persistent_process"] is not True
+        or topology["corpus_sequence"] != ["development", "held-out", "adversarial"]
+        or topology["held_out_role"] != "non-tuning-not-blind-or-process-isolated"
+        or topology["environment_observations"] != "workload-position-conditioned"
+        or any(topology[key] is not False for key in ("fresh_process_claim", "order_independence_claim", "repeatability_claim", "generalization_claim", "profile_claim", "technology_claim"))
+    ):
+        raise ProtocolError("preregistered topology or claim exclusions differ")
+
+    claim_domain = require_object(preregistration["claim_domain"], "preregistration claim domain")
+    require_exact_fields(claim_domain, CLAIM_DOMAIN_FIELDS, "preregistration claim domain")
+    if (
+        claim_domain["kind"] != "exact-artifact-agreement"
+        or claim_domain["case_count"] != 49
+        or claim_domain["relation_count"] != 26
+        or claim_domain["scope"] != "49 exact frozen case adjudications plus runner classifications for 26 registered named case groups; only relation IDs with explicit cross-case checks make the narrower predicate; other groupings organize member-case outcomes"
+        or claim_domain["production_domain_claim"] is not False
+    ):
+        raise ProtocolError("preregistered claim domain differs")
+
+    limits = require_object(preregistration["limits"], "preregistration limits")
+    require_exact_fields(limits, set(PREREGISTERED_LIMITS), "preregistration limits")
+    if limits != PREREGISTERED_LIMITS:
+        raise ProtocolError("preregistered budgets differ from runner bounds")
+
+    tolerance_bindings = require_string_list(preregistration["tolerance_bindings"], "preregistration tolerance bindings")
+    if tolerance_bindings != ["exp-zero", "exp-ulp52-absolute", "exp-minsub-absolute", "exp-ulp52-relative", "exp-pre-ulp52-relative"]:
+        raise ProtocolError("preregistered tolerance bindings differ")
+    tolerances = require_object(manifest["experimental_tolerances"], "experimental tolerances")
+    if set(tolerance_bindings) != set(tolerances):
+        raise ProtocolError("tolerance bindings do not match manifest inputs")
+    for tolerance_id in tolerance_bindings:
+        tolerance = require_object(tolerances[tolerance_id], f"tolerance {tolerance_id}")
+        require_exact_fields(tolerance, {"absolute_bits", "relative_bits", "role"}, f"tolerance {tolerance_id}")
+        parse_bits(tolerance["absolute_bits"], f"tolerance {tolerance_id} absolute_bits")
+        parse_bits(tolerance["relative_bits"], f"tolerance {tolerance_id} relative_bits")
+        require_string(tolerance["role"], f"tolerance {tolerance_id} role")
+
+    classification = require_object(preregistration["classification"], "preregistration classification")
+    require_exact_fields(classification, CLASSIFICATION_FIELDS, "preregistration classification")
+    if classification != {
+        "exact_expected_mismatch": "completed-failed-conformance-evidence",
+        "environment_failed_or_unsupported": "inconclusive-capability-evidence",
+        "candidate_unsupported": "inconclusive-capability-evidence",
+        "transport_nonzero_or_response_integrity": "incomplete",
+        "profile_selection": "none",
+        "technology_result": TECHNOLOGY_RESULT,
+    }:
+        raise ProtocolError("preregistered classification vocabulary differs")
+    identity = require_object(preregistration["identity"], "preregistration identity")
+    require_exact_fields(identity, IDENTITY_FIELDS, "preregistration identity")
+    if identity != IDENTITY_CONTRACT:
+        raise ProtocolError("preregistered identity contract differs")
 
 
 def _case_expected_shape(expected: Any, operation: str) -> dict[str, Any]:
@@ -230,6 +331,7 @@ def load_manifest(path: Path) -> tuple[dict[str, Any], dict[str, list[dict[str, 
     manifest_bytes = read_bounded_bytes(path)
     manifest = require_object(parse_json_bytes(manifest_bytes), "manifest")
     require_exact_fields(manifest, MANIFEST_FIELDS, "manifest")
+    _validate_preregistration(manifest)
     if manifest["manifest_version"] != "ck.r3.numeric-corpus-manifest-1" or manifest["experiment_id"] != "EXP-0002" or manifest["lifecycle"] != "frozen-inputs-unrun":
         raise ProtocolError("manifest identity/lifecycle mismatch")
     if manifest["candidate_request_protocol"] != PROTOCOL_ID or manifest["candidate_response_protocol"] != RESPONSE_PROTOCOL_ID:
@@ -254,7 +356,7 @@ def load_manifest(path: Path) -> tuple[dict[str, Any], dict[str, list[dict[str, 
         raise ProtocolError("manifest result shape differs")
     run_state = require_object(manifest["run_state"], "run_state")
     require_exact_fields(run_state, {"corpus_run", "candidate_evaluation", "profile_binding", "technology_result"}, "run_state")
-    if run_state.get("profile_binding", "not-null") is not None or run_state.get("corpus_run") != "not-run" or run_state.get("candidate_evaluation") != "not performed" or run_state.get("technology_result") is not None:
+    if run_state.get("profile_binding", "not-null") is not None or run_state.get("corpus_run") != "not-run" or run_state.get("candidate_evaluation") != "not performed" or run_state.get("technology_result") != TECHNOLOGY_RESULT:
         raise ProtocolError("manifest is not an unrun profile-null package")
     corpora = manifest["corpora"]
     if not isinstance(corpora, list) or len(corpora) != len(ROLES):
@@ -327,10 +429,13 @@ def load_manifest(path: Path) -> tuple[dict[str, Any], dict[str, list[dict[str, 
             raise ProtocolError(f"case references an unknown relation: {case_id}")
         if any(case_id not in relation_metadata[relation_id]["cases"] for relation_id in ids):
             raise ProtocolError(f"case relation membership is not bidirectional: {case_id}")
-    if max_work_digits > 4_096:
+    claim_domain = manifest["preregistration"]["claim_domain"]
+    if total != claim_domain["case_count"] or len(relation_metadata) != claim_domain["relation_count"]:
+        raise ProtocolError("loaded corpus totals disagree with preregistered claim domain")
+    if max_work_digits > PREREGISTERED_LIMITS["max_oracle_decimal_digits"]:
         raise OracleBoundError(f"frozen corpus needs {max_work_digits} exact decimal work digits")
     manifest_sha = hashlib.sha256(manifest_bytes).hexdigest()
-    return manifest, loaded, {"manifest_sha256": manifest_sha, "corpora": metadata_corpora, "relations": relation_metadata, "case_info": case_info, "oracle_bound": {"max_decimal_materialization_digits": max_work_digits, "bound": 4_096, "proof": "preflight exact admitted-token scan"}}
+    return manifest, loaded, {"manifest_sha256": manifest_sha, "evaluation_binding": EVALUATION_BINDING, "preregistration": manifest["preregistration"], "corpora": metadata_corpora, "relations": relation_metadata, "case_info": case_info, "oracle_bound": {"max_decimal_materialization_digits": max_work_digits, "bound": PREREGISTERED_LIMITS["max_oracle_decimal_digits"], "proof": "preflight exact admitted-token scan"}}
 
 
 def output_path_safe(output: Path, forbidden: list[Path]) -> Path:

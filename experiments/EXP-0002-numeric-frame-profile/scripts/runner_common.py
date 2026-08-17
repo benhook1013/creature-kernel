@@ -13,9 +13,25 @@ MAX_WIRE_REQUEST_ID_BYTES = 256
 MAX_CASES_PER_CORPUS = 128
 MAX_TOTAL_CASES = 256
 MAX_RELATIONS = 256
+EVALUATION_BINDING = "ck.exp-0002.phase1-persistent-conformance-v1"
+TECHNOLOGY_RESULT = "none"
 PROTOCOL_ID = "ck.r3.numeric-candidate-request-1"
 RESPONSE_PROTOCOL_ID = "ck.r3.numeric-candidate-response-1"
 ROLES = ("development", "held-out", "adversarial")
+PREREGISTERED_LIMITS = {
+    "frame_bytes": FRAME_BYTES,
+    "wire_request_id_bytes": MAX_WIRE_REQUEST_ID_BYTES,
+    "stdout_total_bytes": 64 * 1024,
+    "stderr_total_bytes": 64 * 1024,
+    "io_deadline_seconds": 2.0,
+    "shutdown_deadline_seconds": 2.0,
+    "trailing_output_quiet_seconds": 0.02,
+    "max_cases_per_corpus": MAX_CASES_PER_CORPUS,
+    "max_total_cases": MAX_TOTAL_CASES,
+    "max_relations": MAX_RELATIONS,
+    "max_oracle_decimal_digits": 4096,
+    "max_identity_artifact_bytes": 268_435_456,
+}
 OPERATIONS = {
     "decimal-admission",
     "scalar-comparison",

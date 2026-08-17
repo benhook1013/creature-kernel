@@ -66,8 +66,56 @@ broader protocol must still preregister, independently of observed outcomes:
 The experiment must not derive tolerances from observed pass/fail minima in the
 same corpus used to justify them. The exact error formula and validation-margin
 constant remain open protocol decisions here; this document intentionally does
-not freeze an arbitrary numeric value. A failure rejects the proposed profile
-or leaves it inconclusive. It never widens a budget after observing a failure.
+not freeze an arbitrary numeric value. In a later profile-bound evaluation, a
+failure rejects the proposed profile or leaves it inconclusive; it never widens
+a budget after observing a failure. A phase-one mismatch is candidate/artifact
+conformance evidence only and never selects or rejects a profile.
+
+For phase one, the binding is the named exact-artifact persistent-conformance
+evaluation `ck.exp-0002.phase1-persistent-conformance-v1`. Exactly one
+persistent candidate process receives development, then held-out, then
+adversarial. Held-out is non-tuning, not blind or process-isolated from
+development, and environment checkpoints are interpreted at their workload
+position in that persistent process. The phase-one claim is limited to 49
+exact frozen case adjudications plus runner classifications for 26 registered
+named case groups, including represented boundary/resource/error/environment
+observations. Only `lexical-equivalence`, `signed-zero-canonicalization`, and
+`environment-repeat` have explicit cross-case checks; the other groupings
+organize member-case outcomes. It does not support inference about role isolation,
+fresh-process behavior, order independence, repeatability, broad
+generalization, profile selection, or technology outcome. `profile_binding`
+remains `null` and `technology_result` remains `none`.
+
+The concrete phase-one budgets already implemented are experimental inputs, not
+selected profile constants: frame 16,384 bytes; wire request ID 256 UTF-8
+bytes; stdout and stderr 65,536 bytes each; I/O 2.0 seconds; shutdown 2.0
+seconds; trailing quiet 0.02 seconds; at most 128 cases per corpus, 256 total
+cases, and 256 relations; 4,096 decimal-oracle work digits; and a maximum
+identity artifact read of 268435456 bytes (256 MiB). The manifest's current A/R
+entries are experimental inputs and do not bind a production profile. Exact
+mismatch against a case, or against a relation with an explicit cross-case
+check, is failed conformance evidence. Environment failed or unsupported and
+candidate unsupported are inconclusive capability evidence only when no failure
+exists. Transport, nonzero-exit, or response-integrity failure is incomplete
+evidence; none selects or rejects a profile. A completed execution remains
+`run_status: complete`; any exact failure takes evidence precedence over
+inconclusive/unsupported, while counts retain both. A fix after observing a
+frozen-role result creates a new candidate evaluation and must not overwrite or
+be called the original held-out result.
+
+The phase-one preregistration identity object is exactly:
+
+```text
+candidate_artifacts = stream-hashed-before-and-after-execution
+runner_modules = stream-hashed-before-and-after-execution
+filesystem_assumption = controlled-local-no-adversarial-mid-run-replace-and-restore
+candidate_build_context = observational-not-provenance
+```
+
+This is a pragmatic controlled-local pre/post content-and-stat stability check,
+not proof against an adversarial replace-and-restore during execution. The
+binary hash remains the artifact identity; candidate build context is
+observational, not provenance.
 
 ## Canonical evaluation rules
 

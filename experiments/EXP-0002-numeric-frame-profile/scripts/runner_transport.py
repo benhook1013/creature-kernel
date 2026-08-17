@@ -11,13 +11,13 @@ import time
 from dataclasses import dataclass
 from typing import Sequence
 
-from runner_common import FRAME_BYTES, ProtocolError, frame_json
+from runner_common import FRAME_BYTES, PREREGISTERED_LIMITS, ProtocolError, frame_json
 
-IO_DEADLINE_SECONDS = 2.0
-SHUTDOWN_DEADLINE_SECONDS = 2.0
-TRAILING_OUTPUT_QUIET_SECONDS = 0.02
-STDOUT_TOTAL_CAP = 64 * 1024
-STDERR_TOTAL_CAP = 64 * 1024
+IO_DEADLINE_SECONDS = PREREGISTERED_LIMITS["io_deadline_seconds"]
+SHUTDOWN_DEADLINE_SECONDS = PREREGISTERED_LIMITS["shutdown_deadline_seconds"]
+TRAILING_OUTPUT_QUIET_SECONDS = PREREGISTERED_LIMITS["trailing_output_quiet_seconds"]
+STDOUT_TOTAL_CAP = PREREGISTERED_LIMITS["stdout_total_bytes"]
+STDERR_TOTAL_CAP = PREREGISTERED_LIMITS["stderr_total_bytes"]
 
 
 class TransportError(ProtocolError):

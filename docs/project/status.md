@@ -61,15 +61,28 @@ does not activate the distinct Readiness 3 resolver/snapshot transaction.
 ## Current implementation status
 
 EXP-0002 remains a planned experiment with open evidence closure and no
-technology outcome. Its implemented, unrun phase-one package contains the
-four-operation candidate surface for decimal admission, scalar/translation
-comparison, and read-only environment inspection (C/x87 plus raw and decoded
-MXCSR rounding/FTZ/DAZ bits). Its request/response boundary, opaque wire
-request IDs, development/held-out/adversarial corpora, and manifest identities
-are frozen; the bounded runner/oracle/transport and synthetic checks are
-implemented. No candidate/corpus evaluation, result, profile selection,
-quaternion support, or Readiness 3 activation is claimed. Broader tolerances
-and later experiment families remain Proposed/open.
+technology outcome. Its implemented, frozen-but-unrun phase-one package is the
+named exact-artifact persistent-conformance evaluation
+`ck.exp-0002.phase1-persistent-conformance-v1`: one persistent candidate
+process receives development, then held-out, then adversarial. The
+held-out role is non-tuning, not blind or process-isolated, and environment
+checkpoints are workload-position-conditioned. The package binds 49 exact
+frozen case adjudications plus runner classifications for 26 registered named
+case groups, with the four-operation candidate surface for decimal admission,
+scalar/translation comparison, and read-only environment inspection
+(C/x87 plus raw and decoded MXCSR rounding/FTZ/DAZ bits). Its request/response
+boundary, opaque wire request IDs, corpus files, manifest identities, and
+bounded runner/oracle/transport are frozen; synthetic checks are implemented.
+No candidate/corpus evaluation, result, profile selection, quaternion support,
+or Readiness 3 activation is claimed. The exact claim is limited to this
+identified candidate and runner adjudicating those frozen cases and classifying
+those named groups, including represented boundary/resource/error/environment
+observations. Only `lexical-equivalence`, `signed-zero-canonicalization`, and
+`environment-repeat` have explicit cross-case checks; the other groups organize
+member-case outcomes. No role isolation, fresh-process behavior, order
+independence, repeatability, broad generalization, production-domain claim, or
+technology outcome can be inferred. Broader tolerances and later experiment
+families remain Proposed/open.
 
 Readiness 2 remains active for the admitted schema, manifest, fixtures,
 parser/bootstrap, and preflight. The workspace now also contains a provisional
@@ -491,12 +504,40 @@ constants, and activation bindings remain Proposed or gated.
 Exact numeric bounds remain evidence-dependent; the planned
 [numeric/frame profile experiment](../research/numeric-frame-profile-experiment.md)
 remains registered as planned, with open evidence closure, no evaluated run or
-result, and no technology outcome. Its implemented phase-one package freezes
-the four-operation request/response boundary, opaque wire request IDs,
-development/held-out/adversarial corpora and manifest identities, together
-with bounded runner/oracle/transport and synthetic checks. This does not freeze
-the broader Proposed protocol, which still requires preregistered intended
-domains, separate semantic error budgets, correctly rounded decimal-admission
+result, and no technology outcome. Its phase-one package is the named
+exact-artifact persistent-conformance evaluation
+`ck.exp-0002.phase1-persistent-conformance-v1`, with one persistent candidate
+process and the fixed development → held-out → adversarial order. Held-out is
+non-tuning, not blind or process-isolated; environment observations are
+workload-position-conditioned. The exact phase-one claim is limited to this
+identified candidate and runner producing 49 exact frozen case adjudications
+plus runner classifications for 26 registered named case groups, including
+represented boundary/resource/error/environment observations. Only
+`lexical-equivalence`, `signed-zero-canonicalization`, and `environment-repeat`
+have explicit cross-case checks; the other groupings organize member-case
+outcomes. Role isolation, fresh-process behavior, order independence,
+repeatability, broad generalization, production-domain suitability, profile
+selection, and technology outcome are not inferable.
+
+The package preregisters implemented budgets of 16,384 frame bytes, 256 UTF-8
+wire-request-ID bytes, 65,536 stdout bytes, 65,536 stderr bytes, 2.0 seconds
+I/O, 2.0 seconds shutdown, 0.02 seconds trailing quiet, 128 cases per corpus,
+256 total cases, 256 relations, 4,096 decimal-oracle work digits, and a
+268435456-byte (256 MiB) maximum identity artifact read. Its identity object
+uses stream-hashed-before-and-after-execution for candidate artifacts and
+runner modules, assumes controlled-local-no-adversarial-mid-run-replace-and-
+restore, and treats candidate build context as observational-not-provenance.
+This is a pragmatic controlled-local pre/post content-and-stat stability check,
+not proof against adversarial replace-and-restore; the binary hash remains the
+artifact identity. Current `experimental_tolerances` A/R entries are
+experimental inputs, not selected profile constants. A completed execution
+remains `run_status: complete`; any exact failure takes evidence precedence over
+inconclusive/unsupported while counts retain both, and candidate/environment
+unsupported is inconclusive only when no failure exists. A fix after observing
+a frozen-role result creates a new candidate evaluation and must not overwrite
+or be called the original held-out result. The broader Proposed protocol still
+requires preregistered intended domains, semantic error budgets, correctly
+rounded decimal-admission
 rules, fixed operation order and compiler floating-point controls,
 rational/ULP boundaries, deterministic normalization/square-root fixtures,
 offline H derivation, structured claim identity/order fixtures,
@@ -506,13 +547,13 @@ open. The normative common-frame comparator, exact dyadic arithmetic,
 normalization/sign direction, claim-ID, and sorted-pair direction are accepted
 semantic-foundation directions; concrete profiles, constants, ranges, margins/
 error formula, and deterministic evaluation bindings remain Proposed or gated.
-Future adapter evidence covers signed
-permutation/scale (vector lengths `sC`, scalar lengths `s`), storage/output and runtime tiers, precision/domain
-narrowing, and separately evaluated FTZ/DAZ/subnormal runtime probes. The remaining activation order is
-numeric/frame, address, canonical data, diagnostics, and then a distinct
-Readiness 3 expected-snapshot/comparison transaction. No later gate or
-implementation package beyond the admitted Readiness 2 transaction activates
-from this status entry.
+Future adapter evidence covers signed permutation/scale, storage/output and
+runtime tiers, precision/domain narrowing, and separately evaluated FTZ/DAZ/
+subnormal runtime probes. The remaining activation order is numeric/frame,
+address, canonical data, diagnostics, and then a distinct Readiness 3
+expected-snapshot/comparison transaction. No later gate or implementation
+package beyond the admitted Readiness 2 transaction activates from this status
+entry.
 
 Diagnostic compatibility remains Proposed: nine initial domains are
 source-admission, dependency, semantic-identity, graph-structure,

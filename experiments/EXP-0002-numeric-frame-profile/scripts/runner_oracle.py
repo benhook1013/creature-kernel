@@ -13,6 +13,7 @@ from runner_common import (
     MAX_CASES_PER_CORPUS,
     OPERATION_FIELDS,
     OracleBoundError,
+    PREREGISTERED_LIMITS,
     ProtocolError,
     SIGN_MASK,
     UINT32_MAX,
@@ -26,7 +27,7 @@ from runner_common import (
 
 # This is an oracle work bound, not a corpus input limit.  Preflight computes
 # the maximum admitted decimal materialization need and retains that proof.
-MAX_ORACLE_DECIMAL_DIGITS = 4_096
+MAX_ORACLE_DECIMAL_DIGITS = PREREGISTERED_LIMITS["max_oracle_decimal_digits"]
 
 ERR_INVALID_JSON_NUMBER = "invalid-json-number"
 ERR_OVERFLOW = "non-finite-or-overflow"
