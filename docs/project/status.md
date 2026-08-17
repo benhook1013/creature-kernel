@@ -418,6 +418,18 @@ lifecycle work, visual output, or Readiness 3 activation; the human stop
 remains unchanged. It is internal reversible runway progress only and accepts
 or changes no contract.
 
+The runway also contains a crate-private source-set projected-placement
+observation. It consumes canonical source-set placement plus a validated
+namespace projection, projects namespace identity only, and retains source-local
+keys, member roles, transforms, complete Attachment provenance, and both authored
+and derived candidates. It retains exact upstream failure, placement failure,
+and success outcomes per member, with deterministic flat Part/Attachment
+occurrences, projected-key indexes, and collision-key evidence. Collisions are
+retained rather than merged, ranked, or resolved. It performs no remap
+generation, winner/status/diagnostic or snapshot work, public API, geometry or
+runtime work, or Readiness 3 activation; it is internal reversible runway
+progress only and accepts or changes no contract.
+
 The runway also contains an implemented crate-private dependency-topology
 evidence reducer. It emits deterministic fixed-class findings for missing
 supplied targets, reachable DFS cycle back-edges, and supplied members that
