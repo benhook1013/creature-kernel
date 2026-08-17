@@ -5,7 +5,9 @@
 //! or integrate with a body document.  In particular, the following remain
 //! deferred: unit application; quaternion validity, normalization, and sign;
 //! transform composition, inversion, and comparison; source-document
-//! integration; and resolver/snapshot behavior.
+//! integration; and resolver/snapshot behavior.  The crate-private quaternion
+//! basis remap below is only an exact structural component operation; it does
+//! not establish quaternion semantics or validity.
 //!
 //! A [`SourceBasisMap`] is represented as three signed source axes, in
 //! canonical `(+X, +Y, +Z)` output order.  Each output component is obtained
@@ -292,19 +294,74 @@ impl SourceBasisMap {
     pub fn map_translation(self, source: Translation3) -> Translation3 {
         Translation3::from_components(self.map_components(source.components()))
     }
+
+    /// Remaps a structural quaternion under this signed basis map.
+    ///
+    /// If `C` maps source vector components into canonical components, the
+    /// represented rotation is changed by `R_c = C R_s C^-1`.  The vector part
+    /// therefore uses `det(C) * C`, because a quaternion vector component is
+    /// an axial vector; the scalar component is unchanged.  This operation is
+    /// intentionally crate-private and performs only exact component
+    /// selection/sign changes plus canonicalization of zero.  It does not
+    /// validate, normalize, or sign-canonicalize a quaternion.
+    #[must_use]
+    #[allow(dead_code)]
+    pub(crate) fn map_quaternion(self, source: QuaternionXyzw) -> QuaternionXyzw {
+        let source_components = source.components();
+        let mut vector = self.map_components([
+            source_components[0],
+            source_components[1],
+            source_components[2],
+        ]);
+        if self.determinant_sign() < 0 {
+            vector = [
+                vector[0].negated(),
+                vector[1].negated(),
+                vector[2].negated(),
+            ];
+        }
+        QuaternionXyzw::from_components([
+            vector[0],
+            vector[1],
+            vector[2],
+            canonicalize_zero(source_components[3]),
+        ])
+    }
+
+    #[allow(dead_code)]
+    fn determinant_sign(self) -> i8 {
+        let selection = self.source_for_canonical;
+        let inversions = (selection[0].index() > selection[1].index()) as i8
+            + (selection[0].index() > selection[2].index()) as i8
+            + (selection[1].index() > selection[2].index()) as i8;
+        let permutation_sign = if inversions % 2 == 0 { 1 } else { -1 };
+        let axis_sign = selection
+            .iter()
+            .fold(1, |sign, axis| if axis.positive() { sign } else { -sign });
+        permutation_sign * axis_sign
+    }
 }
 
 fn apply_axis(axis: SignedAxis, source: [NormalizedBinary64; 3]) -> NormalizedBinary64 {
     let value = axis.component(source);
     if axis.positive() {
-        value
+        canonicalize_zero(value)
     } else {
-        negate(value)
+        canonicalize_zero(negate(value))
     }
 }
 
 fn negate(value: NormalizedBinary64) -> NormalizedBinary64 {
     value.negated()
+}
+
+fn canonicalize_zero(value: NormalizedBinary64) -> NormalizedBinary64 {
+    const SIGN_MASK: u64 = 1_u64 << 63;
+    if value.to_bits() & !SIGN_MASK == 0 {
+        NormalizedBinary64::ZERO
+    } else {
+        value
+    }
 }
 
 /// Three-component structural translation carrier.
@@ -668,5 +725,181 @@ mod tests {
 
         assert_eq!(orthogonal_count, 48);
         assert_eq!(collinear_count, 24);
+    }
+
+    fn all_basis_maps() -> Vec<SourceBasisMap> {
+        const AXES: [SignedAxis; 6] = [
+            SignedAxis::PositiveX,
+            SignedAxis::NegativeX,
+            SignedAxis::PositiveY,
+            SignedAxis::NegativeY,
+            SignedAxis::PositiveZ,
+            SignedAxis::NegativeZ,
+        ];
+        let mut maps = Vec::new();
+        for handedness in [Handedness::Right, Handedness::Left] {
+            for up in AXES {
+                for forward in AXES {
+                    if let Ok(basis) = SourceBasis::new(LengthUnit::Metre, handedness, up, forward)
+                    {
+                        maps.push(basis.mapping());
+                    }
+                }
+            }
+        }
+        maps
+    }
+
+    type Matrix3 = [[f64; 3]; 3];
+
+    fn quaternion_matrix(quaternion: QuaternionXyzw) -> Matrix3 {
+        let [x, y, z, w] = quaternion.components().map(NormalizedBinary64::as_f64);
+        [
+            [
+                1.0 - 2.0 * (y * y + z * z),
+                2.0 * (x * y - z * w),
+                2.0 * (x * z + y * w),
+            ],
+            [
+                2.0 * (x * y + z * w),
+                1.0 - 2.0 * (x * x + z * z),
+                2.0 * (y * z - x * w),
+            ],
+            [
+                2.0 * (x * z - y * w),
+                2.0 * (y * z + x * w),
+                1.0 - 2.0 * (x * x + y * y),
+            ],
+        ]
+    }
+
+    fn basis_matrix(map: SourceBasisMap) -> Matrix3 {
+        let mut matrix = [[0.0; 3]; 3];
+        for (row, axis) in map.source_for_canonical().into_iter().enumerate() {
+            matrix[row][axis.index()] = if axis.positive() { 1.0 } else { -1.0 };
+        }
+        matrix
+    }
+
+    fn transpose(matrix: Matrix3) -> Matrix3 {
+        [
+            [matrix[0][0], matrix[1][0], matrix[2][0]],
+            [matrix[0][1], matrix[1][1], matrix[2][1]],
+            [matrix[0][2], matrix[1][2], matrix[2][2]],
+        ]
+    }
+
+    fn multiply(left: Matrix3, right: Matrix3) -> Matrix3 {
+        let mut result = [[0.0; 3]; 3];
+        for row in 0..3 {
+            for column in 0..3 {
+                for index in 0..3 {
+                    result[row][column] += left[row][index] * right[index][column];
+                }
+            }
+        }
+        result
+    }
+
+    fn assert_matrix_close(actual: Matrix3, expected: Matrix3) {
+        for row in 0..3 {
+            for column in 0..3 {
+                assert!(
+                    (actual[row][column] - expected[row][column]).abs() < 1.0e-12,
+                    "matrix mismatch at ({row}, {column}): actual {}, expected {}",
+                    actual[row][column],
+                    expected[row][column]
+                );
+            }
+        }
+    }
+
+    fn quaternion(tokens: [&str; 4]) -> QuaternionXyzw {
+        QuaternionXyzw::from_components(tokens.map(value))
+    }
+
+    #[test]
+    fn quaternion_basis_remap_matches_matrix_conjugation_for_every_basis() {
+        let rotations = [
+            quaternion(["0", "0", "0", "1"]),
+            quaternion(["1", "0", "0", "0"]),
+            quaternion(["0", "1", "0", "0"]),
+            quaternion(["0", "0", "1", "0"]),
+            quaternion(["0.5", "0.5", "0.5", "0.5"]),
+        ];
+
+        for map in all_basis_maps() {
+            let basis = basis_matrix(map);
+            let inverse = transpose(basis);
+            for source in rotations {
+                let expected = multiply(multiply(basis, quaternion_matrix(source)), inverse);
+                let actual = quaternion_matrix(map.map_quaternion(source));
+                assert_matrix_close(actual, expected);
+            }
+        }
+    }
+
+    #[test]
+    fn quaternion_basis_remap_preserves_q_negative_q_and_does_not_normalize() {
+        let map = SourceBasis::new(
+            LengthUnit::Metre,
+            Handedness::Left,
+            SignedAxis::NegativeZ,
+            SignedAxis::PositiveX,
+        )
+        .unwrap()
+        .mapping();
+        let source = quaternion(["1.5", "-2.5", "3.5", "-4.5"]);
+        let negative =
+            QuaternionXyzw::from_components(source.components().map(NormalizedBinary64::negated));
+        let mapped = map.map_quaternion(source);
+        let mapped_negative = map.map_quaternion(negative);
+        assert_eq!(
+            mapped_negative
+                .components()
+                .map(NormalizedBinary64::to_bits),
+            mapped
+                .components()
+                .map(|component| component.negated().to_bits())
+        );
+        assert_eq!(
+            mapped.components().map(NormalizedBinary64::to_bits),
+            [
+                2.5f64.to_bits(),
+                3.5f64.to_bits(),
+                (-1.5f64).to_bits(),
+                (-4.5f64).to_bits(),
+            ]
+        );
+    }
+
+    #[test]
+    fn quaternion_basis_remap_preserves_extreme_bits_and_canonicalizes_zero() {
+        const SIGN_MASK: u64 = 1_u64 << 63;
+        let source = QuaternionXyzw::from_components([
+            NormalizedBinary64::from_test_bits(f64::MAX.to_bits()),
+            NormalizedBinary64::from_test_bits(1),
+            NormalizedBinary64::from_test_bits(SIGN_MASK),
+            NormalizedBinary64::from_test_bits(SIGN_MASK),
+        ]);
+
+        for map in all_basis_maps() {
+            let mapped = map.map_quaternion(source).components();
+            let determinant_is_negative = map.determinant_sign() < 0;
+            for (output, axis) in map.source_for_canonical().into_iter().enumerate() {
+                let source_bits = source.components()[axis.index()].to_bits();
+                let axis_is_negative = !axis.positive() ^ determinant_is_negative;
+                let expected = if source_bits & !SIGN_MASK == 0 {
+                    0
+                } else if axis_is_negative {
+                    source_bits ^ SIGN_MASK
+                } else {
+                    source_bits
+                };
+                assert_eq!(mapped[output].to_bits(), expected);
+            }
+            assert_eq!(mapped[3].to_bits(), 0);
+            assert_eq!(map.map_quaternion(source), map.map_quaternion(source));
+        }
     }
 }

@@ -430,6 +430,17 @@ Attachment revalidation; public or wire contract; fixture or lifecycle work;
 or Readiness 3 activation. It is internal reversible runway progress only and
 accepts or changes no contract.
 
+The runway also contains an implemented crate-private exact
+`SourceBasisMap` quaternion remapping primitive. For every valid signed source
+basis, including reflections, it maps the quaternion vector as
+`det(C) * C * v` and leaves `w` unchanged, using only exact component
+permutation/sign changes with zero canonicalization before later quaternion
+normalization. It performs no normalization, validation gate, square-root
+provider or profile-constant selection, unit scaling, transform composition,
+public or wire API change, snapshot or serialization, validity/status/
+diagnostic mapping, or Readiness 3 activation. It is internal reversible
+runway progress only and accepts or changes no contract.
+
 Candidate locally validated and appraised by Ben on 2026-08-15: a directly
 consuming primitive spatial preview
 uses this exact placement result through the existing
