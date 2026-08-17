@@ -382,6 +382,25 @@ serialization, fixture or lifecycle work, visual output, or Readiness 3
 activation; the human stop remains unchanged. This is internal reversible
 runway progress only and accepts or changes no contract.
 
+The runway also contains a reviewed crate-private projected reference-target
+observation. It combines the same admitted handoff with a total validated
+destination table; current admission guarantees references are source-local,
+so each target namespace is projected by its owning member destination while
+the original target/outcome and projected target/recomputed outcome remain
+visible. Exact `AddressKey` and Frame-only `OwnerRoleKey` indexes classify zero,
+one, or many candidates as `Missing`, `Unique`, or `Ambiguous`, retaining all
+provenance without owner filtering or winner selection. Divergent destinations
+can disambiguate equal original keys; equal destinations preserve ambiguity,
+while a namespace collision alone does not imply a full-key collision.
+`ModuleRoot` projects its target while retaining its declaration slot key. Index
+integrity fails loudly, and collection/member order remains deterministic. This
+performs no authored or source mutation, cross-source authored references,
+resolver selection, relation verdict, topology/cardinality enforcement, public
+or wire contract, canonical/digest/profile binding, snapshot or serialization,
+fixture or lifecycle work, visual output, or Readiness 3 activation; the human
+stop remains unchanged. It is internal reversible runway progress only and
+accepts or changes no contract.
+
 Candidate locally validated and appraised by Ben on 2026-08-15: a directly
 consuming primitive spatial preview
 uses this exact placement result through the existing
