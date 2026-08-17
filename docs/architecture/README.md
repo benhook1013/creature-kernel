@@ -40,30 +40,38 @@ baseline.
 The Round 2 product-boundary proposal in
 [DR-0005](../decisions/DR-0005-initial-product-boundary-and-reference-workflow.md)
 keeps Creature Kernel's initial target engine-independent and downstream of a
-real-time game integration. Related Proposed source, operation, and identity
-boundaries are recorded in [DR-0002](../decisions/DR-0002-declarative-body-document-source-of-truth.md),
-[DR-0004 Revision 2](../decisions/DR-0004-external-automation-through-cli-and-api.md),
-and [DR-0006](../decisions/DR-0006-durable-semantic-and-artifact-identity.md).
+real-time game integration. The accepted semantic-foundation source and
+identity directions are recorded in
+[DR-0002](../decisions/DR-0002-declarative-body-document-source-of-truth.md)
+and [DR-0006](../decisions/DR-0006-durable-semantic-and-artifact-identity.md);
+the related operation boundary remains Proposed under
+[DR-0004 Revision 2](../decisions/DR-0004-external-automation-through-cli-and-api.md).
 Those records now settle the minimum inspectable, non-authoritative graph
 boundary, structured semantic-address identity, ownership/relation separation,
 and result-envelope boundary, while deferring physical formats, schema
 technology, identity serialization syntax, and identity lifecycle/remap rules.
-The related
-Proposed compile/runtime boundary is recorded in
+The related Proposed compile/runtime boundary is recorded in
 [DR-0003 Revision 2](../decisions/DR-0003-real-time-first-compiled-avatar-boundary.md)
 and described in the execution model; exact interface schemas, compatibility,
 budgets, and runtime mutation details remain open. The typed semantic
-vocabulary, measurement ownership, and frame-conversion boundary are Proposed
-in [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
+vocabulary, measurement ownership, and frame-conversion direction is an accepted
+semantic-foundation direction under
+[DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md);
+concrete profiles, schemas, and activation bindings remain Proposed or gated.
 CK-KICK-012 Batch 6/7/8/9/10/11/12/13 resolutions are discussion-approved and are
 reflected in the canonical specifications as Proposed material. DR-0002
-Revision 11 and DR-0008 Revision 11 remain Proposed with Owner approval Pending
-and Review Complete. DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012
-Revision 14 remain Proposed with Owner approval Pending and Review Complete
-after the current Double review at exact target
-`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. DR-0013 Revision 12 is Accepted,
+Revision 11, DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14
+are accepted semantic-foundation directions with Owner approval Approved by Ben
+and Review Complete, decided 2026-08-17; their concrete architecture,
+specification, profile, and activation consequences remain Proposed or gated.
+DR-0008 Revision 11 remains Proposed with Owner approval Pending and Review
+Complete. DR-0013 Revision 12 is Accepted,
 with Owner approval Approved by Ben and Review Complete at that exact target, decided
-2026-08-13. Accepted DR-0001 Revision 5
+2026-08-13. Review scope is record-specific: DR-0002 Revision 11's current Double
+review targeted exact commit `6cf17270fda2827756c24a8d0fb301bef358f98f`; the
+current Double reviews for DR-0006 Revision 12, DR-0011 Revision 15, DR-0012
+Revision 14, and DR-0013 Revision 12 targeted exact commit
+`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. Accepted DR-0001 Revision 5
 remains the operative governance baseline while DR-0001 Revision 6 is Proposed
 transition guidance with Ben's workflow direction approved and current review
 complete; formal acceptance remains pending Ben's disposition. The reviews of
@@ -109,7 +117,7 @@ evidence remains stale. See the
 [decision registry](../decisions/registry.md). The CK-KICK-012 Batch 5 review
 at commit `a282dbabffd83afa4e62577086934d00f98e12c7` is stale historical
 evidence; no clean review or acceptance is implied.
-The cross-cutting proposal is [DR-0012: initial body-document encoding, resolution,
+The cross-cutting semantic-foundation direction is [DR-0012: initial body-document encoding, resolution,
 and compatibility](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
 The body-document, body-graph, and fixture-manifest proposals are the canonical
 specification owners; this architecture layer records only their target

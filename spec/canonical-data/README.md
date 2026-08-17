@@ -6,10 +6,11 @@ C1 resolution; no identity/build activation
 Batch 13/14 discussion-approved resolutions add the generic keyed-collection rule
 for C1, cross-link the separate Readiness 2/3 implementation binding for C3,
 and align diagnostic ordering/identity with the C4 diagnostic profile. These
-are Proposed contract updates only. Current successor material is recorded in
-DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14 remain
-Proposed with Owner approval Pending and Review Complete after the current
-Double review at exact target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`.
+are Proposed concrete contract updates only. Current successor material is
+recorded in DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14;
+these revisions are Accepted with Owner approval Approved by Ben and Review
+Complete after the current Double review at exact target
+`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`.
 DR-0013 Revision 12 is Accepted, with Owner approval Approved by Ben and
 Review Complete at that exact target, decided 2026-08-13. The earlier-predecessor
 review at
@@ -17,8 +18,9 @@ review at
 `9b96d18b115126ef09e54ad8c6f21749d5559ff6` are stale, with their findings
 corrected in these revisions. The 9c governance pass corrected two mechanical
 history-label issues and its technical pass found no findings / Ready for PR at
-High confidence. Review Complete is evidence only. No decision record, schema, serializer, fixture, or readiness gate is
-accepted or activated by this document.
+High confidence. Review Complete is preserved evidence for the accepted
+decisions. No concrete specification, schema, serializer, fixture, or
+readiness gate is accepted or activated by this Proposed document.
 
 This document owns Creature Kernel's canonical JSON normalization,
 serialization, digest framing, and digest domains. The [semantic-address

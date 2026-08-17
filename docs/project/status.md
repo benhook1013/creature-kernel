@@ -1,12 +1,13 @@
 # Project status
 
-Status date: 2026-08-16
+Status date: 2026-08-17
 
 ## Phase
 
 Exploratory executable prototype and semantic-contract integration. The
-foundation governance and the product, specification, and architecture
-proposals remain provisional; current work is integrating the CK-KICK-012 Batch
+foundation governance and the remaining product, specification, and architecture
+proposals remain provisional; the reviewed semantic-foundation directions in
+DR-0002/0006/0011/0012 are accepted. Current work is integrating the CK-KICK-012 Batch
 8/9/10/11/12/13 and CK-KICK-013 readiness/publication revisions while keeping later implementation gated rather than
 returning to confirmatory surface research.
 
@@ -332,17 +333,22 @@ The foundation scaffold and governance process are integrated. Accepted DR-0001
 Revision 5 remains the operative governance baseline while DR-0001 Revision 6
 is Proposed transition guidance: Ben approved its workflow direction, but
 its current review is Complete and formal acceptance remains pending Ben's
-disposition. DR-0002 through DR-0012 remain Proposed with their review and
-owner-disposition history preserved; DR-0013 Revision 12 is Accepted with
-Owner approval Approved by Ben and Date decided 2026-08-13. Ben's CK-KICK-012 Batch 5, Batch 6, F1–F7, Batch 8, Batch 9, Batch
+disposition. DR-0002 Revision 11, DR-0006 Revision 12, DR-0011 Revision 15,
+and DR-0012 Revision 14 are Accepted with Owner approval Approved by Ben and
+Date decided 2026-08-17; DR-0003, DR-0004, DR-0005, DR-0007, and DR-0008 remain
+Proposed with their review and owner-disposition history preserved. DR-0013
+Revision 12 is Accepted with Owner approval Approved by Ben and Date decided
+2026-08-13. Ben's CK-KICK-012 Batch 5, Batch 6, F1–F7, Batch 8, Batch 9, Batch
 10, Batch 11, Batch 12, and Batch 13 product/specification/architecture/project
 material remains Proposed where owned by the other records; DR-0013's accepted
 platform boundary is recorded below. The current six-record set is DR-0002
 Revision 11, DR-0006 Revision 12, DR-0008 Revision 11, DR-0011 Revision 15,
-DR-0012 Revision 14, and DR-0013 Revision 12. DR-0002 and DR-0008 remain Proposed with Owner approval Pending
-and Review Complete. DR-0006, DR-0011, and DR-0012 remain Proposed with Owner
-approval Pending and Review Complete after the current Double review
-at exact target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. The original Batch 13 review at exact commit
+DR-0012 Revision 14, and DR-0013 Revision 12. DR-0002 Revision 11, DR-0006
+Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14 are Accepted with
+Owner approval Approved by Ben and Review Complete; DR-0008 Revision 11
+remains Proposed with Owner approval Pending and Review Complete after the
+current Double review at exact target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`.
+The original Batch 13 review at exact commit
 `8c38c501eb1262a1b85af0b8605220625601772f` produced D1–D3/P1–P3, which were
 dispositioned in DR-0006/0011/0012/0013 Revisions 10/13/12/10. The earlier-
 predecessor review at exact commit `763cff22d10f6491a05a28312a25250704543dcf`
@@ -454,9 +460,11 @@ and FTZ/DAZ/subnormal probes. This is Proposed planning material only.
 
 ## Current review and future activation obligations
 
-Batch 11, Batch 12, and Batch 13 are discussion-approved as Proposed material. Their
-focused contract owners cover typed semantic addresses, canonical bytes/digest
-domains, numeric/frame comparison semantics, and a small diagnostic registry.
+Batch 11, Batch 12, and Batch 13 record discussion-approved history. The
+accepted DR-0002/0006/0011/0012 semantic-foundation directions cover typed
+semantic addresses, canonical bytes/digest domains, numeric/frame comparison
+semantics, and a small diagnostic-registry direction; concrete profiles,
+constants, and activation bindings remain Proposed or gated.
 Exact numeric bounds remain evidence-dependent; the planned
 [numeric/frame profile experiment](../research/numeric-frame-profile-experiment.md)
 is unregistered and has no results or evidence. Its Proposed protocol now
@@ -468,9 +476,10 @@ identity/order fixtures, exact/higher-precision independent oracles, frozen
 development/held-out/adversarial corpora, metamorphic and all-pairs checks,
 condition estimates, and a validation margin whose formula/constant remain
 open. The normative common-frame comparator, exact dyadic arithmetic,
-normalization/sign direction, claim-ID, and sorted-pair direction are fixed
-Proposed material; constants, ranges, margins/error formula, and deterministic
-evaluation bindings remain open. Future adapter evidence covers signed
+normalization/sign direction, claim-ID, and sorted-pair direction are accepted
+semantic-foundation directions; concrete profiles, constants, ranges, margins/
+error formula, and deterministic evaluation bindings remain Proposed or gated.
+Future adapter evidence covers signed
 permutation/scale (vector lengths `sC`, scalar lengths `s`), storage/output and runtime tiers, precision/domain
 narrowing, and FTZ/DAZ/subnormal probes. The remaining activation order is
 numeric/frame, address, canonical data, diagnostics, and then a distinct
@@ -499,12 +508,17 @@ T1–T3 were resolved, and T4 remains unselected and deferred, requiring Ben's
 retained-human disposition before adapter profile/schema activation; it does not
 block the current preparatory Rust slices. The immediate-predecessor review examined
 exact target `9b96d18b115126ef09e54ad8c6f21749d5559ff6`; its findings were
-corrected in the current revisions. The current review examined exact target
-`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`: its governance pass corrected two
-mechanical history-label issues and its technical pass found no findings /
+corrected in the current revisions. DR-0002 Revision 11's current review
+examined exact target `6cf17270fda2827756c24a8d0fb301bef358f98f`; the current
+Double reviews for DR-0006 Revision 12, DR-0011 Revision 15, DR-0012 Revision
+14, and DR-0013 Revision 12 examined exact target
+`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. The latter governance pass
+corrected two mechanical history-label issues and its technical pass found no findings /
 Ready for PR at High confidence. The review artifacts remain preserved evidence;
-DR-0002, DR-0006, DR-0008, DR-0011, and DR-0012 remain Proposed with Owner
-approval Pending. DR-0013 Revision 12 is Accepted with Owner approval Approved by Ben.
+DR-0002 Revision 11, DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012
+Revision 14 are Accepted with Owner approval Approved by Ben. DR-0008 Revision
+11 remains Proposed with Owner approval Pending. DR-0013 Revision 12 is
+Accepted with Owner approval Approved by Ben.
 Readiness 1 is triggered/active for the Cargo workspace, compiler/core library
 shell, and thin CLI shell. The exact schema, manifest, nine fixtures,
 parser/bootstrap, and preflight are the active Readiness 2 transaction after
@@ -551,9 +565,10 @@ and the conceptual body-document shape, typed collections, basis/frame/profile,
 and omission/default rules. Batch 11 adds the typed semantic-address,
 numeric/frame, canonical-data, and diagnostic profiles; Batch 12/13 improves
 the numeric evidence protocol and makes DR-0006 Revision 12, DR-0011 Revision
-15, DR-0012 Revision 14, and DR-0013 Revision 12 current. DR-0006, DR-0011,
-and DR-0012 remain Proposed with Owner approval Pending and Review Complete after the current
-Double review at exact target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. Prior Batch 13 review evidence is stale for
+15, DR-0012 Revision 14, and DR-0013 Revision 12 current. DR-0006 Revision 12,
+DR-0011 Revision 15, and DR-0012 Revision 14 are Accepted with Owner approval
+Approved by Ben and Review Complete after the current Double review at exact
+target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. Prior Batch 13 review evidence is stale for
 these revisions; G1/G2 were fixed mechanically, T1–T3 were resolved, and T4
 remains unselected and deferred, requiring Ben's retained-human disposition
 before adapter profile/schema activation; it does not block the current Rust
@@ -562,8 +577,9 @@ compiler/core library shell, and thin CLI shell. The exact schema, manifest,
 nine fixtures, parser/bootstrap, and preflight are the active Readiness 2
 transaction under the admission record; the distinct Readiness 3
 resolver/snapshot transaction is not active.
-DR-0002 Revision 11 and DR-0008 Revision 11 are unchanged and remain Review
-Complete. Owner approval remains Pending.
+DR-0002 Revision 11 is Accepted with Owner approval Approved by Ben and Review
+Complete; DR-0008 Revision 11 remains Proposed with Owner approval Pending and
+Review Complete.
 
 The immediate next action is bounded source preparation and provenance
 traversal over admitted records, grounded in the active parser/bootstrap and
@@ -577,8 +593,10 @@ The main thread will autonomously resolve technical correctness findings or
 record evidence-dependent triggers under the DR-0001 Revision 6 transition
 direction; only a retained-human product, architecture-boundary, material
 trade-off, or external-impact finding returns to Ben. No proposal is silently
-accepted. No later implementation/readiness gate activates while its owning
-records remain Proposed.
+accepted. The four semantic-foundation acceptances authorize autonomous
+construction/review of the exact Readiness 3 successor candidate but do not
+activate Readiness 3; no later implementation/readiness gate activates while
+its own prerequisites or owning records remain Proposed.
 Earlier Batch 8/9 and other
 review artifacts remain preserved as stale historical evidence.
 Do not activate the Readiness 3 resolver, adapters, or geometry work while
@@ -611,8 +629,10 @@ containment, descendant Socket Attachment placement, canonical resolved frame
 records, the closed operation/bootstrap/status/resource contract, the
 in-memory snapshot handoff, the build-operation owner, and the resolved
 diagnostic/cardinality rules. Earlier review evidence is stale after these
-revisions. The Batch 8/9/10/11 resolutions are discussion-approved Proposed changes,
-not acceptance or a clean review.
+revisions. The Batch 8/9/10/11 resolutions were discussion-approved material at
+the time, not acceptance or a clean review; the current DR-0002/0006/0011/0012
+semantic-foundation revisions are now accepted under the explicit 2026-08-17
+Option 1 decision.
 The cross-cutting proposal is [DR-0012: initial
 body-document encoding, resolution, and compatibility](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
 The [Proposed body-document contract](../../spec/body-document/README.md),
@@ -621,7 +641,8 @@ The [Proposed body-document contract](../../spec/body-document/README.md),
 and [Proposed build-operation contract](../../spec/build-operation/README.md)
 are now active canonical specification areas. No implementation package, machine schema,
 numeric limit, exact fixture, or geometry backend is selected; the Batch 11
-canonical basis and machine profiles remain Proposed and activation-gated;
+canonical basis and machine profiles are accepted in direction, while exact
+constants and activation bindings remain gated;
 the accepted Rust/Cargo platform remains bounded to the active Readiness 1
 workspace/compiler-core/thin-CLI shell boundary; the provisional structural
 slice does not activate Readiness 3.
@@ -666,16 +687,17 @@ nonblocking obligation before external authored dependencies activate.
 - CK-KICK-011 follows useful exploratory evidence. A formal comparative
   surface decision is optional and risk-driven, not automatic.
 - CK-KICK-012 is active with Batches 1, 4, 5, 6, F1–F3, Batch 8, Batch 9, Batch
-  10, Batch 11, Batch 12, and Batch 13 integrated as Proposed documentation; its parser/resolver and
+  10, Batch 11, Batch 12, and Batch 13 integrated as reviewed documentation; its parser/resolver and
   fixture-admission proposals establish the four Proposed specification families. The exact Readiness 2
   schema, manifest, nine fixtures, Rust parser/bootstrap, and Python preflight
   are active under the Readiness 2 admission record; later resolver behavior and
   compiler-consumed Readiness 3 fixtures remain unactivated. The separate
   Readiness 1 Cargo shell is active. The current six-record set is DR-0002
   Revision 11, DR-0006 Revision 12, DR-0008 Revision 11, DR-0011 Revision 15,
-  DR-0012 Revision 14, and DR-0013 Revision 12. DR-0002/0008 remain Proposed
-  with Owner approval Pending and Review Complete; DR-0006, DR-0011, and
-  DR-0012 remain Proposed with Owner approval Pending and Review Complete after
+  DR-0012 Revision 14, and DR-0013 Revision 12. DR-0002 Revision 11, DR-0006
+  Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14 are Accepted with
+  Owner approval Approved by Ben and Review Complete; DR-0008 Revision 11
+  remains Proposed with Owner approval Pending and Review Complete after
   the current Double review at exact target
   `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. Prior Batch
   13 review evidence is stale historical evidence; G1/G2 were fixed
@@ -731,14 +753,15 @@ validator, and inspection command remain preparatory. The immediate-predecessor
 - Preserve the accepted governance process and all historical decision/review
   evidence without reopening the parked confirmatory protocol.
 
-## Proposed decisions and review state
+## Decisions and review state
 
 The [decision registry](../decisions/registry.md) is the index for exact DR
-metadata. Current non-governance proposals include:
+metadata. Current non-governance decisions and proposals include:
 
 - [DR-0002](../decisions/DR-0002-declarative-body-document-source-of-truth.md),
-  source set and resolved body graph — Revision 11, Proposed, Owner approval
-  Pending, Review Complete; recommendation Accept High / Accept Medium.
+  source set and resolved body graph — Revision 11, Accepted, Owner approval
+  Approved by Ben, Date decided 2026-08-17, Review Complete; Readiness 3 remains
+  inactive pending its exact successor transaction.
 - [DR-0003](../decisions/DR-0003-real-time-first-compiled-avatar-boundary.md),
   compiled avatar and bounded real-time execution — Revision 2, Proposed,
   Review Complete, owner disposition pending.
@@ -749,10 +772,10 @@ metadata. Current non-governance proposals include:
   initial product boundary — Revision 1, Proposed, Review Complete, owner
   disposition pending.
 - [DR-0006](../decisions/DR-0006-durable-semantic-and-artifact-identity.md),
-  semantic and artifact identity — Revision 12, Proposed, Owner approval
-  Pending, Review Complete after the current Double review at exact target
-  `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`; prior Batch 13 review evidence is
-  stale historical evidence.
+  semantic and artifact identity — Revision 12, Accepted, Owner approval
+  Approved by Ben, Date decided 2026-08-17, Review Complete after the current
+  Double review at exact target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`;
+  prior Batch 13 review evidence is stale historical evidence.
 - [DR-0007](../decisions/DR-0007-staged-first-proof-charter.md) and
   [DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
   first-proof and morphology boundaries — DR-0007 remains Proposed with its
@@ -760,14 +783,16 @@ metadata. Current non-governance proposals include:
   Review Complete; recommendation Accept High / Accept High.
 - [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md),
   semantic vocabulary, measurements, and coordinate frames — Revision 15,
-  Proposed, Owner approval Pending, Review Complete after the current Double
-  review at exact target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`; prior
-  Batch 13 review evidence is stale historical evidence.
+  Accepted, Owner approval Approved by Ben, Date decided 2026-08-17, Review
+  Complete after the current Double review at exact target
+  `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`; prior Batch 13 review evidence is
+  stale historical evidence.
 - [DR-0012](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md),
   initial body-document encoding, resolution, and compatibility — Revision 14,
-  Proposed, Owner approval Pending, Review Complete after the current Double
-  review at exact target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`; prior
-  Batch 13 review evidence is stale historical evidence.
+  Accepted, Owner approval Approved by Ben, Date decided 2026-08-17, Review
+  Complete after the current Double review at exact target
+  `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`; prior Batch 13 review evidence is
+  stale historical evidence.
 - DR-0013, Rust-first production semantic/compiler platform — Revision 12,
   Accepted, Owner approval Approved by Ben, Date decided 2026-08-13, Review Complete
   after the current Double review at exact target
@@ -783,7 +808,7 @@ metadata. Current non-governance proposals include:
 | Documentation authority | partial | unverified | Operational structure under Accepted DR-0001 Revision 5 |
 | Decision-record and review workflow | partial | unverified | Governance accepted; technical/product proposals remain provisional |
 | Research/experiment workflow | partial | unverified | Lightweight template exists; no experiment registered |
-| Body specification | partial | unverified | Proposed body-document, body-graph, build-operation, fixture-manifest, and Batch 11/12/13 focused profiles include discussion-approved updates; the Readiness 2 schema, manifest, nine fixtures, parser/bootstrap, and preflight are active under the admission record, while DR-0002/0008 remain Revision 11 Review Complete, DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14 remain Proposed with Owner approval Pending |
+| Body specification | partial | unverified | Proposed body-document, body-graph, build-operation, fixture-manifest, and Batch 11/12/13 focused profiles include discussion-approved updates; the Readiness 2 schema, manifest, nine fixtures, parser/bootstrap, and preflight are active under the admission record, while DR-0002 Revision 11, DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14 are Accepted with Owner approval Approved by Ben; DR-0008 remains Revision 11 Proposed |
 | Build-operation contract | partial | unverified | Proposed canonical public build/output owner exists; serialization, implementation, and artifact store remain unactivated |
 | Production implementation platform | partial | proven | CK-KICK-013/DR-0013 Revision 12 is Accepted with Owner approval Approved by Ben; the Readiness 1 Cargo workspace, compiler/core library shell, and thin CLI shell pass pinned-toolchain checks. Readiness 2's exact schema, manifest, nine fixtures, parser/bootstrap, and preflight are active after merged commit `766992ab089687e9b1496574e8ffa721388d96f3` / PR #6 and successful post-merge identity recomputation. PR #9, the inspectable biped structure workflow, is merged at `565c32bd35215e23d737fb333604382d3e6958ab`; its structural index/validator/inspection remain preparatory. The public single-source preparation operation and internal numeric/frame-preparation helpers remain preparatory; helpers cannot bypass body-document admission, and distinct Readiness 3, adapter, and exploratory geometry remain gated |
 | Creature compiler | partial | unverified | Disposable CK-KICK-010 walking skeleton implemented; this is not a production compiler |

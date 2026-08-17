@@ -8,17 +8,16 @@ This directory will own machine-facing semantics and serialized contracts. It is
 separate from architecture so an implementation can change without silently
 changing the meaning of persisted bodies or avatar packages.
 
-The current semantic proposal set is represented by [DR-0002](../docs/decisions/DR-0002-declarative-body-document-source-of-truth.md),
+The current semantic-foundation decisions and remaining proposal set are represented by [DR-0002](../docs/decisions/DR-0002-declarative-body-document-source-of-truth.md),
 [DR-0006](../docs/decisions/DR-0006-durable-semantic-and-artifact-identity.md),
 [DR-0008](../docs/decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
 and [DR-0011](../docs/decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
 Their prior revisions and reviews remain preserved as historical evidence.
-DR-0002 Revision 11 and DR-0008 Revision 11 remain Proposed with Owner approval
-Pending and Review Complete. Current material is recorded in DR-0006 Revision
-12, DR-0011 Revision 15, and DR-0012 Revision 14; these remain Proposed with
-Owner approval Pending and Review Complete after the current Double review at
-exact target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. DR-0013 Revision 12 is
-Accepted, with Owner approval Approved by Ben and Review Complete at that exact target,
+DR-0002 Revision 11, DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012
+Revision 14 are Accepted with Owner approval Approved by Ben and Review
+Complete. DR-0008 Revision 11 remains Proposed with Owner approval Pending and
+Review Complete. DR-0013 Revision 12 is Accepted, with Owner approval Approved
+by Ben and Review Complete at exact target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`,
 decided 2026-08-13. Accepted DR-0001 Revision 5 remains the operative governance
 baseline while DR-0001 Revision 6 is Proposed transition guidance with Ben's
 workflow direction approved and current review complete; formal acceptance
@@ -31,11 +30,12 @@ block the empty first Rust slice. The immediate-predecessor review at exact
 commit `9b96d18b115126ef09e54ad8c6f21749d5559ff6` is stale; its findings were
 corrected in the current revisions. The 9c governance pass corrected two
 mechanical history-label issues and its technical pass found no findings /
-Ready for PR at High confidence. Review Complete is evidence only. Readiness 1
-remains active in the repository. The exact schema, manifest, nine fixtures,
-Rust parser/bootstrap, and Python preflight now exist as a Proposed Readiness 2
-branch candidate, but are not admitted or active. See the [current review
-state](../docs/project/status.md#current-review-and-future-activation-obligations)
+Ready for PR at High confidence. Review Complete is preserved evidence for the
+accepted decisions. Readiness 1 remains active in the repository. The exact
+schema, manifest, nine fixtures, Rust parser/bootstrap, and Python preflight
+are the admitted and active Readiness 2 transaction under its admission record.
+The distinct Readiness 3 successor transaction remains inactive. See the
+[current review state](../docs/project/status.md#current-review-and-future-activation-obligations)
 for the current findings.
 The cross-cutting proposal is
 [DR-0012: initial body-document encoding, resolution, and compatibility](../docs/decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
@@ -45,9 +45,10 @@ The cross-cutting proposal is
 - [Body-document contract](body-document/README.md): the initial strict UTF-8
   JSON source encoding, ordered bootstrap and exact contract recognition,
   closed operation statuses and precedence, bounded deterministic diagnostics,
-  and streaming/token-aware finite resource rules. Its Proposed Readiness 2
-  candidate is the exact [Draft 2020-12 schema](body-document/schema/ck-body-document-v1.schema.json)
-  for `creature-kernel.body` revision 1; it is not admitted or active.
+  and streaming/token-aware finite resource rules. Its concrete Readiness 2
+  transaction uses the exact [Draft 2020-12 schema](body-document/schema/ck-body-document-v1.schema.json)
+  for `creature-kernel.body` revision 1 and is admitted and active; the
+  broader body-document contract remains Proposed.
 - [Resolved body-graph contract](body-graph/README.md): typed concepts,
   durable semantic identity, explicit Part containment and transform
   inheritance, directed joints with owner-specific frame records,
@@ -69,14 +70,16 @@ The cross-cutting proposal is
   registry definitions, nine diagnostic domains, stable classes, occurrences,
   bootstrap compatibility, selection profiles, ordering, and compatibility;
   resource profiles remain separate operational inputs. The exact ten-code
-  `ck.diagnostic.r2` candidate is documented there and remains Proposed until
-  the whole Readiness 2 transaction is admitted.
+  transaction-local `ck.diagnostic.r2` profile is frozen in the active
+  Readiness 2 transaction; the broader diagnostic registry/profile remains
+  Proposed.
 - [Fixture-manifest and admission contract](fixture-manifest/README.md): the
   fixture-suite payload, separate external fixture and implementation
   bindings, preflight, successor/rollback, manifest field groups, numeric
   boundary and comparison fixture profile bindings, and readiness corpus
-  admission boundary. Its Proposed Readiness 2 candidate is the exact
-  manifest/schema/preflight plus nine files linked there; it is not admitted.
+  admission boundary. Its concrete Readiness 2 transaction is the exact
+  manifest/schema/preflight plus nine linked files and is admitted and active;
+  the broader fixture-manifest contract remains Proposed.
 - [Build-operation and derived-output contract](build-operation/README.md):
   the Proposed public build envelope, in-memory snapshot handoff boundary,
   candidate-to-committed artifact identity lifecycle, deterministic target and
@@ -102,8 +105,8 @@ accounting remain unselected.
   be omitted only when an operation contract such as `validate` permits it;
   persisted snapshot diagnostics are a derived subset.
   Semantically invalid and well-formed-but-unsupported partial graphs are
-  non-compilable, non-contractual debug data. The proposed source/resolved
-  split is detailed in the [body-document](body-document/README.md) and
+  non-compilable, non-contractual debug data. The accepted source/resolved
+  direction is detailed in the Proposed [body-document](body-document/README.md) and
   [body-graph](body-graph/README.md) contracts.
   The first public build operation extends this envelope with the trusted
   derived-output/publication status `output-failure`; geometry and publication

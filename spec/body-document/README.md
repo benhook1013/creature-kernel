@@ -1,11 +1,12 @@
 # Body-document contract
 
 Status: Proposed conceptual contract; CK-KICK-012 Batch 13/14 discussion-approved
-canonical update. DR-0002 Revision 11 and DR-0008 Revision 11 remain Proposed
-with Owner approval Pending and Review Complete. Current Batch 13/14 material is
-recorded in DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14;
-these remain Proposed with Owner approval Pending and Review Complete after the
-current Double review at exact target
+canonical update. DR-0002 Revision 11 is Accepted with Owner approval Approved
+by Ben and Review Complete. DR-0008 Revision 11 remains Proposed with Owner
+approval Pending and Review Complete. Current Batch 13/14 material is recorded
+in DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14; these
+revisions are Accepted with Owner approval Approved by Ben and Review Complete
+after the current Double review at exact target
 `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. DR-0013 Revision 12 is Accepted,
 with Owner approval Approved by Ben and Review Complete at that exact target,
 decided 2026-08-13. The earlier-predecessor review at
@@ -13,11 +14,13 @@ decided 2026-08-13. The earlier-predecessor review at
 `9b96d18b115126ef09e54ad8c6f21749d5559ff6` are stale; their findings were
 corrected in these revisions. The 9c governance pass corrected two mechanical
 history-label issues and its technical pass found no findings / Ready for PR at
-High confidence. Review Complete is evidence only. Batch 11/12/13 review artifacts are stale for those materially
+High confidence. Review Complete is preserved evidence for the accepted
+decisions. Batch 11/12/13 review artifacts are stale for those materially
 revised records and remain evidence only. This Batch 13/14 update carries the
 C1 keyed-collection, C3 implementation-binding, C4 diagnostic/bootstrap, and
-Batch 13 resolution directions as Proposed cross-spec contracts; no acceptance, schema, parser,
-resolver, implementation binding, or readiness gate activates. See the
+Batch 13 resolution directions as Proposed concrete cross-spec contracts; the
+accepted directions do not accept this specification or activate a schema,
+parser, resolver, implementation binding, or readiness gate. See the
 [decision registry](../../docs/decisions/registry.md) and [project review
 state](../../docs/project/status.md#current-review-and-future-activation-obligations).
 Exact comparator arithmetic and adapter algorithms remain owned by the numeric
@@ -31,17 +34,19 @@ resource behaviour. The [body-graph contract](../body-graph/README.md) owns
 the resolved semantic graph after this operation has admitted and recognized
 the source.
 
-The contract remains Proposed and non-active, but a concrete Readiness 2
-candidate now supplies exact machine artifacts: the [r1 body schema](schema/ck-body-document-v1.schema.json),
+The contract remains Proposed and non-active, but its concrete Readiness 2
+transaction supplies exact machine artifacts: the [r1 body schema](schema/ck-body-document-v1.schema.json),
 the [nine-fixture manifest](../../fixtures/body-documents/readiness-2/manifest.v1.json),
-and the [Rust parser/bootstrap](../../crates/creature-kernel-core/src/body_document.rs).
+and the [Rust parser/bootstrap](../../crates/creature-kernel-core/src/body_document.rs),
+which are admitted and active under the Readiness 2 admission record.
 The [semantic-address profile](../semantic-address/README.md),
 [numeric and frame profile](../numeric-frame-profile/README.md),
 [canonical-data profile](../canonical-data/README.md), and
 [diagnostic profile](../diagnostics/README.md) own their respective exact
-machine-facing rules. Those Proposed profiles are activation-gated and do not
-activate a parser or schema by themselves. Owner disposition remains pending
-for the materially revised decision records.
+machine-facing rules. Those concrete profiles remain Proposed and
+activation-gated; the accepted directions do not activate a parser or schema by
+themselves. The exact Readiness 2 transaction is active separately, while
+Readiness 3 remains inactive.
 
 ## Authority and representations
 
@@ -190,9 +195,9 @@ The initial source adapter accepts one strict UTF-8 JSON document. Duplicate
 object members are rejected, as are comments, includes, expressions, templates,
 and evaluation. JSON Schema Draft 2020-12 is the proposed structural
 validation vocabulary; CK semantic resolution remains authoritative for graph
-meaning, provenance, and invariants. The candidate schema and parser exist on
-this branch, but neither is admitted or activated until the complete Readiness
-2 transaction is approved.
+meaning, provenance, and invariants. The candidate schema and parser are
+admitted and active only within the complete Readiness 2 transaction; the
+separate Readiness 3 semantic-resolution transaction remains inactive.
 
 ### Numeric admission and source consequences
 
@@ -379,17 +384,17 @@ are not relabelled as one of those three semantic outcomes.
 ## Diagnostics
 
 Every non-success result has a primary diagnostic whose category maps to the
-top-level status. A successful result has no failure primary. The candidate
-`ck.diagnostic.r2` vocabulary is exactly: `ck.resource.source-bytes`,
+top-level status. A successful result has no failure primary. The transaction-
+local `ck.diagnostic.r2` vocabulary is exactly: `ck.resource.source-bytes`,
 `ck.resource.json-work`,
 `ck.source.invalid-json`, `ck.source.duplicate-member`,
 `ck.contract.invalid-discriminator`, `ck.contract.unsupported-family`,
 `ck.contract.unsupported-revision`, `ck.source.schema`,
 `ck.extension.unsupported-required`, and `ck.internal.schema`. These spellings
-are Proposed and become frozen only if Ben admits the complete Readiness 2
-transaction; future diagnostic domains and codes are not implied to be
-implemented. Human-readable text is explanatory and never a compatibility or
-ordering key.
+are frozen for the admitted Readiness 2 transaction; the broader diagnostic
+registry/profile and future domains/codes remain Proposed and are not implied
+to be implemented. Human-readable text is explanatory and never a
+compatibility or ordering key.
 
 The [diagnostic registry and profile](../diagnostics/README.md) is the sole
 owner of registry definitions, the nine domains, stable classes, occurrence
@@ -473,6 +478,7 @@ expected-outcome fields, and Readiness 2/3 corpus admission. Its implementation
 binding covers only the relevant parser/bootstrap or resolver closure and is
 distinct from the fixture-manifest canonical digest domain. Post-merge and
 immediately pre-ledger recomputation must match both bindings or activation is
-blocked and a successor is required. Exact fixture files, codes, and numeric
-profiles remain unactivated until that admission and the relevant readiness
-gate are complete.
+blocked and a successor is required. The exact Readiness 2 fixture files and
+transaction-local codes are admitted and active under that transaction; numeric
+profiles and later fixture/codes remain unactivated until the relevant
+readiness gate is complete.

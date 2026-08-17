@@ -46,10 +46,11 @@ chain, ill-conditioned, basis-conversion, and claim-order cases. For that
 planned numeric evidence corpus, exact numeric values, expected outcomes, and
 profile IDs remain unselected.
 
-Current material is recorded in DR-0006 Revision 12, DR-0011 Revision 15, and
-DR-0012 Revision 14; these remain Proposed with Owner approval Pending and
-Review Complete after the current Double review. DR-0013 Revision 12 is
-Accepted with Owner approval Approved by Ben and Review Complete. The
+Current semantic-foundation directions are recorded in DR-0006 Revision 12,
+DR-0011 Revision 15, and DR-0012 Revision 14; these revisions are Accepted
+with Owner approval Approved by Ben and Review Complete after the current
+Double review. DR-0013 Revision 12 is Accepted with Owner approval Approved by
+Ben and Review Complete. The
 current revisions have Review Complete evidence from the Double
 review at exact target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. The reviews
 of the earlier predecessor revisions at commit
@@ -61,13 +62,14 @@ block the empty first Rust slice. The immediate-predecessor review at exact
 commit `9b96d18b115126ef09e54ad8c6f21749d5559ff6` is stale; its findings were
 corrected in the current revisions. The 9c governance pass corrected two
 mechanical history-label issues and its technical pass found no findings /
-Ready for PR at High confidence. Review Complete is evidence only. The
-directions remain Proposed policy only. The exact Readiness 2 schema, manifest,
-nine fixtures, and parser/bootstrap are admitted and active within the recorded
-transaction. Preflight/evidence support verifies and binds that transaction;
-it is not additional admitted transaction content. Broader fixture-policy
-directions, adapters, and later fixture corpora remain Proposed or gated as
-stated; this does not activate Readiness 3.
+Ready for PR at High confidence. Review Complete is evidence only; the
+acceptances cover the semantic-foundation directions, not this fixture policy
+or any new transaction. The exact Readiness 2 schema, manifest, nine fixtures,
+and parser/bootstrap are admitted and active within the recorded transaction.
+Preflight/evidence support verifies and binds that transaction; it is not
+additional admitted transaction content. Broader fixture-policy directions,
+adapters, and later fixture corpora remain Proposed or gated as stated; this
+does not activate Readiness 3.
 
 Readiness 2 admission is one review-branch activation transaction described by
 the [fixture-manifest specification](../spec/fixture-manifest/README.md). The

@@ -4,19 +4,22 @@ Status: Proposed canonical specification; transaction-local `ck.diagnostic.r2`
 identifiers and codes are used by the active Readiness 2 parser/preflight
 transaction
 
-Batch 13/14 resolves the diagnostic-domain and bootstrap-compatibility direction
-as Proposed material. Current successor material is recorded in DR-0006 Revision
-12, DR-0011 Revision 15, and DR-0012 Revision 14; these remain Proposed with
-Owner approval Pending and Review Complete after the current Double review at
-exact target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. DR-0013 Revision 12 is
+Batch 13/14 resolves the diagnostic-domain and bootstrap-compatibility
+direction, accepted in the semantic-foundation decisions while this concrete
+profile remains Proposed. Current successor material is recorded in DR-0006
+Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14; these revisions are
+Accepted with Owner approval Approved by Ben and Review Complete after the
+current Double review at exact target
+`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. DR-0013 Revision 12 is
 Accepted, with Owner approval Approved by Ben and Review Complete at that exact
 target, decided 2026-08-13. The earlier-predecessor review at
 `763cff22d10f6491a05a28312a25250704543dcf` and immediate-predecessor review at
 `9b96d18b115126ef09e54ad8c6f21749d5559ff6` are stale, with their findings
 corrected in these revisions. The 9c governance pass corrected two mechanical
 history-label issues and its technical pass found no findings / Ready for PR at
-High confidence. Review Complete is evidence only. The broader diagnostic
-registry/profile specification remains Proposed. The active Readiness 2
+High confidence. Review Complete is preserved evidence for the accepted
+decisions. The broader diagnostic registry/profile specification remains
+Proposed. The active Readiness 2
 parser/preflight transaction uses transaction-local `ck.diagnostic.r2`
 identifiers and codes; it does not admit this owner specification or future
 registry/profile material.
