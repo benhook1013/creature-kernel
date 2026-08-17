@@ -494,6 +494,30 @@ impl CanonicalQuaternionXyzw {
     }
 }
 
+/// Conjugate a canonical quaternion with exact binary64 sign operations.
+///
+/// Conjugation itself is `(-x,-y,-z,w)`.  The result is then put back through
+/// the canonical quaternion sign rule (the first nonzero component in
+/// `w,x,y,z` is positive).  This matters for canonical half-turns where
+/// `w == 0`: conjugating a canonical +X half-turn initially produces `-X`,
+/// which must be whole-sign-flipped back to the canonical representative.
+/// No arithmetic provider or floating-point arithmetic is involved.
+pub(crate) fn conjugate_canonical_quaternion(
+    quaternion: CanonicalQuaternionXyzw,
+) -> CanonicalQuaternionXyzw {
+    let [x, y, z, w] = quaternion.components();
+    let mut components = [x.negated(), y.negated(), z.negated(), w];
+    let sign_index = [3, 0, 1, 2]
+        .into_iter()
+        .find(|index| components[*index] != NormalizedBinary64::ZERO);
+    if let Some(index) = sign_index
+        && (components[index].to_bits() >> 63) != 0
+    {
+        components = components.map(NormalizedBinary64::negated);
+    }
+    CanonicalQuaternionXyzw::from_components(components)
+}
+
 /// Normalize and sign-canonicalize raw `xyzw` binary64 components.
 ///
 /// The operation sequence is fixed and deliberately visible here:
@@ -1089,6 +1113,60 @@ fn composition_component(
 #[cfg(test)]
 pub(crate) fn normalized_test_fixture(input: [f64; 4]) -> CanonicalQuaternionXyzw {
     tests::normalized_fixture(input)
+}
+
+#[cfg(test)]
+mod conjugation_tests {
+    use super::*;
+
+    fn fixture(components: [f64; 4]) -> CanonicalQuaternionXyzw {
+        CanonicalQuaternionXyzw::from_unchecked_test_components(
+            components.map(|component| NormalizedBinary64::from_f64_result(component).unwrap()),
+        )
+    }
+
+    #[test]
+    fn conjugation_negates_xyz_exactly_and_preserves_positive_w() {
+        let quaternion = fixture([0.25, -0.5, 0.75, 1.0]);
+        let conjugate = conjugate_canonical_quaternion(quaternion);
+        assert_eq!(
+            conjugate.components().map(NormalizedBinary64::to_bits),
+            [
+                (-0.25_f64).to_bits(),
+                0.5_f64.to_bits(),
+                (-0.75_f64).to_bits(),
+                1.0_f64.to_bits()
+            ]
+        );
+    }
+
+    #[test]
+    fn conjugation_reapplies_wxyz_sign_rule_for_zero_w_and_keeps_zero_positive() {
+        // This is the canonical +Y half-turn.  Its raw conjugate is -Y, so
+        // the canonical representative must be whole-sign-flipped back to
+        // +Y.  The x and w zeros must remain normalized +0 throughout.
+        let quaternion = fixture([0.0, 0.0, 1.0, 0.0]);
+        let conjugate = conjugate_canonical_quaternion(quaternion);
+        assert_eq!(
+            conjugate.components().map(NormalizedBinary64::to_bits),
+            [0, 0, 1.0_f64.to_bits(), 0]
+        );
+
+        // A nonzero w takes precedence over x/y/z in the sign scan; no
+        // whole-sign flip is allowed merely because a later component is
+        // negative.  Exact negation also canonicalizes every zero to +0.
+        let quaternion = fixture([1.0, -0.0, 2.0, 3.0]);
+        let conjugate = conjugate_canonical_quaternion(quaternion);
+        assert_eq!(
+            conjugate.components().map(NormalizedBinary64::to_bits),
+            [
+                (-1.0_f64).to_bits(),
+                0,
+                (-2.0_f64).to_bits(),
+                3.0_f64.to_bits()
+            ]
+        );
+    }
 }
 
 #[cfg(test)]
