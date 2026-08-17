@@ -348,6 +348,23 @@ canonical identity, diagnostics/status mapping, serialization or snapshot
 work, public API or visual output, or Readiness 3 activation, and does not
 accept or change a contract; the existing human stop remains unchanged.
 
+The runway also contains a crate-private source-set typed relation-edge
+observation. It emits one deterministic edge per retained reference, using
+closed Part-containment, Joint-endpoint, Socket-ownership, Attachment-endpoint,
+owner/frame, Region-membership, and Capability-membership families with
+expected `Part`, `Socket`, `Frame`, or `AnyIdentity` constraints. Each edge
+preserves source member/role, slot, target, and complete `Unique`/`Missing`/
+`Ambiguous` candidate provenance; cardinality evidence remains separate from
+kind-match evidence and no candidate is selected. Non-semantic array and
+member input order is ignored. Current admission makes kind mismatch and
+`Missing` unreachable through the public handoff path, but the classifier
+representation remains for the later resolver boundary. This is internal,
+reversible runway progress only: it establishes no relation validity verdict,
+topology/cycle/cardinality enforcement, remap, canonical identity,
+diagnostics/status, serialization or snapshot, public API or visual output, or
+Readiness 3 activation; the human stop remains unchanged and no contract is
+accepted or changed.
+
 Candidate locally validated and appraised by Ben on 2026-08-15: a directly
 consuming primitive spatial preview
 uses this exact placement result through the existing
