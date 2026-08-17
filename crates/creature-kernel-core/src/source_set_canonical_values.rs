@@ -14,7 +14,8 @@ use crate::canonical_member_frame_values::{
     prepare_canonical_member_frame_values,
 };
 use crate::quaternion_normalization::{
-    CorrectlyRoundedSqrt, QuaternionNormalizationGate, SqrtCapability,
+    Binary64ArithmeticCapability, Binary64ArithmeticProvider, CorrectlyRoundedSqrt,
+    QuaternionNormalizationGate, SqrtCapability,
 };
 use crate::restricted_source_set_handoff::RestrictedSourceSetHandoff;
 use crate::source_set_preparation::{SourceSetMemberKey, SourceSetMemberRole};
@@ -73,25 +74,36 @@ impl CanonicalSourceSetFrameValues {
 
 /// Prepare every admitted source-set member independently.
 ///
-/// The handoff's `BTreeMap` order is the only coordinator order.  The gate
-/// factory is called exactly once per member and must return fresh gate state.
-/// The square-root factory is likewise called exactly once per member and
+/// The handoff's `BTreeMap` order is the only coordinator order. The gate and
+/// arithmetic factories are called exactly once per member and must return
+/// fresh state. The arithmetic factory is called before the square-root
+/// factory. The square-root factory is likewise called exactly once per member and
 /// returns either a fresh explicitly supplied provider or `None`, which means
-/// that member receives an explicitly unavailable capability.  Neither
-/// factory has a failure channel: the unavailable capability is the only
-/// provider absence represented here.
+/// that member receives an explicitly unavailable capability. Neither factory
+/// has a failure channel: the unavailable capability is the only provider
+/// absence represented here. Provider state is not shared across members.
 ///
 /// Every member receives a result record, including failures.  The operation
 /// does not stop after a member failure and does not calculate an aggregate
 /// status or validity result.
-pub(crate) fn prepare_canonical_source_set_frame_values<GateFactory, Gate, SqrtFactory>(
+pub(crate) fn prepare_canonical_source_set_frame_values<
+    GateFactory,
+    Gate,
+    ArithmeticFactory,
+    SqrtFactory,
+>(
     handoff: &RestrictedSourceSetHandoff,
     mut gate_factory: GateFactory,
+    mut arithmetic_factory: ArithmeticFactory,
     mut sqrt_factory: SqrtFactory,
 ) -> CanonicalSourceSetFrameValues
 where
     GateFactory: FnMut(&SourceSetMemberKey, SourceSetMemberRole) -> Gate,
     Gate: QuaternionNormalizationGate,
+    ArithmeticFactory: FnMut(
+        &SourceSetMemberKey,
+        SourceSetMemberRole,
+    ) -> Option<Box<dyn Binary64ArithmeticProvider>>,
     SqrtFactory:
         FnMut(&SourceSetMemberKey, SourceSetMemberRole) -> Option<Box<dyn CorrectlyRoundedSqrt>>,
 {
@@ -101,12 +113,22 @@ where
         .map(|(key, member)| {
             let role = member.role();
             let mut gate = gate_factory(key, role);
+            let mut arithmetic_provider = arithmetic_factory(key, role);
+            let mut arithmetic_capability = match arithmetic_provider.as_deref_mut() {
+                Some(provider) => Binary64ArithmeticCapability::provided(provider),
+                None => Binary64ArithmeticCapability::unavailable(),
+            };
             let mut provider = sqrt_factory(key, role);
             let mut capability = match provider.as_deref_mut() {
                 Some(provider) => SqrtCapability::provided(provider),
                 None => SqrtCapability::unavailable(),
             };
-            let result = prepare_canonical_member_frame_values(member, &mut gate, &mut capability);
+            let result = prepare_canonical_member_frame_values(
+                member,
+                &mut gate,
+                &mut arithmetic_capability,
+                &mut capability,
+            );
             (key.clone(), CanonicalSourceSetMemberResult { role, result })
         })
         .collect();
@@ -124,7 +146,8 @@ mod tests {
     use crate::canonical_member_frame_values::CanonicalMemberValueSlot;
     use crate::frame::{Handedness, LengthUnit, SignedAxis, SourceBasis};
     use crate::quaternion_normalization::{
-        CorrectlyRoundedSqrt, GateRejection, SqrtProviderFailure,
+        Binary64ArithmeticProvider, Binary64ArithmeticProviderFailure, CorrectlyRoundedSqrt,
+        GateRejection, SqrtProviderFailure,
     };
     use crate::restricted_source_set_handoff::build_restricted_source_set_handoff;
     use crate::source_set_preparation::{SourceSetInput, prepare_source_set};
@@ -133,6 +156,34 @@ mod tests {
 
     const SOURCE: &[u8] =
         include_bytes!("../../../examples/body-documents/stylized-digitigrade-biped.json");
+
+    #[derive(Default)]
+    struct NativeArithmetic;
+
+    impl Binary64ArithmeticProvider for NativeArithmetic {
+        fn add(&mut self, left: f64, right: f64) -> Result<f64, Binary64ArithmeticProviderFailure> {
+            Ok(left + right)
+        }
+
+        fn sub(&mut self, left: f64, right: f64) -> Result<f64, Binary64ArithmeticProviderFailure> {
+            Ok(left - right)
+        }
+
+        fn mul(&mut self, left: f64, right: f64) -> Result<f64, Binary64ArithmeticProviderFailure> {
+            Ok(left * right)
+        }
+
+        fn div(&mut self, left: f64, right: f64) -> Result<f64, Binary64ArithmeticProviderFailure> {
+            Ok(left / right)
+        }
+    }
+
+    fn native_arithmetic_factory(
+        _key: &SourceSetMemberKey,
+        _role: SourceSetMemberRole,
+    ) -> Option<Box<dyn Binary64ArithmeticProvider>> {
+        Some(Box::new(NativeArithmetic))
+    }
 
     #[derive(Default)]
     struct Gate {
@@ -269,6 +320,15 @@ mod tests {
             },
             {
                 let factory_trace = Rc::clone(&factory_trace);
+                move |key: &SourceSetMemberKey, role| {
+                    factory_trace
+                        .borrow_mut()
+                        .push(("arithmetic", key.clone(), role));
+                    Some(Box::new(NativeArithmetic) as Box<dyn Binary64ArithmeticProvider>)
+                }
+            },
+            {
+                let factory_trace = Rc::clone(&factory_trace);
                 let provider_trace = Rc::clone(&provider_trace);
                 move |key: &SourceSetMemberKey, role| {
                     let index = factory_trace
@@ -295,7 +355,11 @@ mod tests {
             .iter()
             .flat_map(|key| {
                 let role = set.members()[key].role();
-                [("gate", key.clone(), role), ("sqrt", key.clone(), role)]
+                [
+                    ("gate", key.clone(), role),
+                    ("arithmetic", key.clone(), role),
+                    ("sqrt", key.clone(), role),
+                ]
             })
             .collect::<Vec<_>>();
         assert_eq!(*factory_trace.borrow(), expected_factory_trace);
@@ -324,6 +388,7 @@ mod tests {
                 reject: key.document() == "dep_a",
                 ..Gate::default()
             },
+            native_arithmetic_factory,
             |_key, role| {
                 (role == SourceSetMemberRole::Root).then(|| {
                     Box::new(Sqrt {
@@ -357,6 +422,7 @@ mod tests {
         let result = prepare_canonical_source_set_frame_values(
             &set,
             |_key, _role| Gate::default(),
+            native_arithmetic_factory,
             |_key, role| {
                 (role == SourceSetMemberRole::Root).then(|| {
                     Box::new(Sqrt {
@@ -398,6 +464,7 @@ mod tests {
                         Gate::default()
                     }
                 },
+                native_arithmetic_factory,
                 {
                     let trace = Rc::clone(&trace);
                     move |key: &SourceSetMemberKey, _| {
@@ -425,6 +492,7 @@ mod tests {
         let output = prepare_canonical_source_set_frame_values(
             &set,
             |_key, _role| Gate::default(),
+            native_arithmetic_factory,
             |_key, _role| {
                 Some(Box::new(Sqrt {
                     trace: Rc::new(RefCell::new(Vec::new())),
