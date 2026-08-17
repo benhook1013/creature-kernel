@@ -1,7 +1,7 @@
 # Experiments
 
-Status: Active workflow; EXP-0002 is planned with open evidence closure and no
-technology outcome.
+Status: Active workflow; EXP-0002 remains planned with open evidence closure
+and no technology outcome; its phase-one package is frozen but unrun.
 
 Experiments provide reproducible evidence for research questions and decisions.
 They do not become product or architecture contracts automatically. Research
@@ -54,8 +54,10 @@ below current as experiments are created.
 ## Registered experiments
 
 - [EXP-0002 numeric/frame profile](EXP-0002-numeric-frame-profile/README.md) —
-  registered first executable five-family adapter phase; planned, evidence
-  closure open, technology outcome none, and not yet run.
+  registered four-operation phase-one adapter package; inputs, manifest,
+  bounded runner, and synthetic checks are implemented and frozen but unrun;
+  overall experiment remains planned, evidence closure open, and technology
+  outcome none.
 
 ## Required properties
 
