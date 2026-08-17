@@ -59,7 +59,11 @@ or comparison constants.
 Readiness 3 freezes the following admission and semantic rules. Exact
 conditioning thresholds, normalization bounds, and comparison tolerances are
 profile data and remain activation-gated; an implementation must not invent
-them.
+them. R3 binds exactly one explicit authored-conflict comparison profile for
+the competing authored and Attachment-equation-derived placements. Its
+identity and constants must be derived and frozen by a bounded successor
+experiment and admitted with the resolver; exact-zero comparison, indefinite
+caller-selected tolerances, and post-hoc widening are not permitted.
 
 ### JSON decimal admission
 
@@ -268,4 +272,6 @@ and fixture transaction. Readiness 3 is a separate successor transaction that
 admits this profile's canonical basis/numeric rules, expected graph snapshots,
 comparison profiles, and their resolver binding. Until those transactions are
 admitted, the rules above are Proposed and no resolver or numeric fixture is
-activated.
+activated. The first R3 resolver/fixture transaction is bounded to the
+stylized digitigrade furry-biped family and its fixed fixture envelope; this
+profile does not extend that scope to arbitrary morphology.

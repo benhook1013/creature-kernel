@@ -199,9 +199,10 @@ host/mating alignment transform `O` in that typed basis. Descendant placement is
 subsequently inherited only by the ordinary containment path. If an
 independently authored root-local placement controls the same degrees of
 freedom, it must compare with this same canonical resolved child-local value
-within the later-defined tolerance; disagreement is semantically invalid,
-while authored and derived provenance are preserved rather than silently
-choosing a winner.
+using the one R3 authored-conflict comparison profile; disagreement that fails
+the profile's bounds is semantically `invalid-source`, with no warning-only
+success, silent overwrite, repair, winner, or successful snapshot. Authored
+and derived provenance are preserved.
 
 Attachment is composition only. It never implies a Joint, articulation,
 mobility, solver constraint, or runtime pose. A movable tail therefore has a
@@ -363,7 +364,11 @@ Adding a passing claim can change the representative and therefore a snapshot;
 a changed comparison profile or expected fixture requires its profile/fixture
 successor process.
 Authored-conflict and expected-snapshot comparisons remain separate profiles,
-and their constants remain experiment-gated.
+and their constants remain experiment-gated. R3 binds exactly one explicit
+authored-conflict profile, frozen from a bounded successor experiment; exact
+zero, indefinite caller-selected tolerances, and post-hoc widening are not
+allowed. Until that profile and its resolver binding are admitted, R3 remains
+inactive.
 
 This local claim representative rule is not a canonical key for unrelated
 unordered collections. Every graph concept collection still uses the generic
@@ -418,8 +423,9 @@ Minimum Stage 1 graph invariants include:
   the inverse of the mating
   Socket frame after composing module-root-to-Socket-owner containment with
   that owner's local frame; any competing authored root-local placement must
-  agree with this same canonical value within the later-defined tolerance,
-  with provenance preserved;
+  agree with this same canonical value within the one R3 authored-conflict
+  comparison profile, with provenance preserved; disagreement is
+  `invalid-source` and produces no successful snapshot;
 - no Attachment-only articulation claim;
 - finite normalized values, complete provenance, valid owner-plus-role
   addressing, declared source basis with recorded normalization provenance,

@@ -6,13 +6,13 @@ Scope: Product, Specification and architecture
 
 Status: Proposed
 
-Revision: 11
+Revision: 12
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-09
 
@@ -55,7 +55,16 @@ declaration identity rule and cross-links the resolver snapshot handoff,
 build/output ownership, Readiness 4, and CK-KICK-014 exploratory prerequisite.
 This material Revision 11 change makes the Revision 10 current-review
 artifacts stale; Revision 11 remains Proposed with Owner approval Pending and
-Review status Pending.
+Review status Pending. Revision 12 records Ben's 2026-08-18 discussion
+approval of the R3 boundary below: disagreement between an authored
+root-local placement and the Attachment-equation-derived placement that fails
+the one later-admitted comparison profile is semantic `invalid-source` with
+no successful snapshot; the first resolver/fixture scope is the bounded
+stylized digitigrade furry-biped family and its fixed fixture envelope; and R3
+will bind exactly one explicit authored-conflict comparison profile whose
+identity and constants are derived and frozen by a bounded successor
+experiment. This discussion approval does not accept this DR, select profile
+values, or activate R3. Revision 12's current adversarial review is pending.
 
 Supersedes: —
 
@@ -231,8 +240,11 @@ root's sole resolved child-local containment placement relative to its host
 parent. Descendants inherit only through containment; Attachment adds no
 parallel transform-inheritance path. If authored root-local placement
 independently controls the same degrees of freedom, it must agree with this
-same canonical derived child-local value within the later contract tolerance or
-the document is semantically invalid. Provenance for all source frames,
+same canonical derived child-local value within the one R3 authored-conflict
+comparison profile. If the values fail that profile's admitted bounds, the
+document is semantically `invalid-source`: resolution must not warn-only,
+silently overwrite, repair, or choose an authored or derived winner, and must
+not emit a successful snapshot. Provenance for all source frames,
 containment transforms, offset, and composition steps remains. Every transform
 entering Attachment composition must be finite, non-degenerate, and invertible
 under the declared transform profile. A source-caused violation is semantic
@@ -260,6 +272,20 @@ ranges, surface primitives, the detailed source fields/schema, or a new
 morphology family. The initial JSON encoding and structural-schema technology
 are selected by DR-0012; their exact source fields and schema remain deferred
 to that specification work.
+
+### Readiness 3 resolver boundary
+
+The first Readiness 3 resolver and fixture transaction is limited to this
+bounded stylized digitigrade furry-biped family and its fixed admitted fixture
+envelope. It does not promise arbitrary morphology, additional limbs,
+quadrupeds, or unbounded attachment graphs. R3 binds exactly one explicit
+authored-conflict comparison profile for the competing authored and
+Attachment-equation-derived root placement described above. The profile
+identity and constants are selected only by a bounded successor evidence
+experiment and frozen in the successor admission transaction. They are not
+selected by this revision; exact-zero comparison, indefinite caller-selected
+tolerances, and post-hoc tolerance widening are not permitted. Until that
+successor evidence and admission transaction exist, R3 remains inactive.
 
 ### Stage 1 embodiment boundary
 
@@ -619,7 +645,10 @@ or reject this proposal.
   diagnostic/provenance, while failure on an admissible transform maps to
   `internal-failure`. Exact representation, scale/shear, conditioning,
   comparison tolerance, matrix layout, and serialization remain
-  resolver-activation prerequisites or deferred specification details.
+  resolver-activation prerequisites or deferred specification details. The
+  successor evidence must select one explicit authored-conflict comparison
+  profile; it must not leave tolerances caller-selectable, use exact-zero, or
+  widen the profile after observing failures.
   Include invalid endpoints, detached/multiply attached roots, and Attachment
   cycles.
 - Define declared units and coordinate basis, explicit local frames and

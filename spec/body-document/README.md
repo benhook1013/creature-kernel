@@ -2,8 +2,8 @@
 
 Status: Proposed conceptual contract; CK-KICK-012 Batch 13/14 discussion-approved
 canonical update. DR-0002 Revision 11 is Accepted with Owner approval Approved
-by Ben and Review Complete. DR-0008 Revision 11 remains Proposed with Owner
-approval Pending and Review Complete. Current Batch 13/14 material is recorded
+by Ben and Review Complete. DR-0008 Revision 12 remains Proposed with Owner
+approval Pending and Review Pending. Current Batch 13/14 material is recorded
 in DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14; these
 revisions are Accepted with Owner approval Approved by Ben and Review Complete
 after the current Double review at exact target
@@ -176,7 +176,14 @@ translation components and exactly four quaternion components in explicit
 successor transaction that admits the profile's canonical basis, finite-number
 and normalization semantics, admissible ranges, conditioning rules,
 tolerances, and expected graph snapshots. It does not reselect the Readiness 2
-carrier.
+carrier. R3's first resolver/fixture transaction is limited to the bounded
+stylized digitigrade furry-biped family and fixed fixture envelope. It binds
+one explicit authored-conflict comparison profile for authored versus
+Attachment-equation-derived root placement; the profile identity and
+constants come from a bounded successor experiment. Exact-zero comparison,
+indefinite caller-selected tolerances, and post-hoc widening are not allowed,
+and no R3 resolver or snapshot is active before that successor transaction is
+admitted.
 
 ## Omission and deterministic defaults
 

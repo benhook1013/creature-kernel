@@ -613,9 +613,10 @@ Ben and Review Complete at its current-review target
 `6cf17270fda2827756c24a8d0fb301bef358f98f`; DR-0006 Revision 12, DR-0011
 Revision 15, and DR-0012 Revision 14 are Accepted with Owner approval Approved
 by Ben and Review Complete at their current Double-review target
-`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`; DR-0008 Revision 11 remains
-Proposed with Owner approval Pending and Review Complete at exact target
-`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. DR-0013 Revision 12 is Accepted
+`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`; DR-0008 Revision 12 remains
+Proposed with Owner approval Pending and Review Pending; its Revision 11
+review at that exact target is stale after the 2026-08-18 proposal change.
+DR-0013 Revision 12 is Accepted
 with Owner approval Approved by Ben and Review Complete at exact target
 `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`, decided 2026-08-13. Readiness 1 is active in the Cargo shell. The
 original Batch 13 review at exact commit `8c38c501eb1262a1b85af0b8605220625601772f`
@@ -726,12 +727,13 @@ Proposed concrete material. The
 CK-KICK-012 Batch 5 Double review at commit
 `a282dbabffd83afa4e62577086934d00f98e12c7` and Batch 6 review at `c64b1b...`
 are stale historical evidence. The current six-record set is DR-0002 Revision
-11, DR-0006 Revision 12, DR-0008 Revision 11, DR-0011 Revision 15, DR-0012
+11, DR-0006 Revision 12, DR-0008 Revision 12, DR-0011 Revision 15, DR-0012
 Revision 14, and DR-0013 Revision 12; DR-0002 Revision 11, DR-0006 Revision
 12, DR-0011 Revision 15, and DR-0012 Revision 14 are Accepted with Owner
-approval Approved by Ben and Review Complete; DR-0008 Revision 11 remains
-Proposed with Owner approval Pending and Review Complete after the current
-Double review at exact target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`.
+approval Approved by Ben and Review Complete; DR-0008 Revision 12 remains
+Proposed with Owner approval Pending and Review Pending; its Revision 11
+Double review at exact target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a` is
+stale after the 2026-08-18 proposal change.
 DR-0013 Revision 12 is Accepted with Owner approval Approved by Ben and Review
 Complete at that exact target, decided 2026-08-13; Readiness 1 and the exact
 Readiness 2 transaction are active. The original 8c38c501 Batch 13 review produced D/P findings later

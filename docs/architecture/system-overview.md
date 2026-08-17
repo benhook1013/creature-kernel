@@ -25,7 +25,7 @@ Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14 are accepted
 semantic-foundation directions with Owner approval Approved by Ben and Review
 Complete, decided 2026-08-17; their concrete architecture, specification,
 profile, and activation consequences remain Proposed or gated. DR-0008 Revision
-11 remains Proposed with Owner approval Pending and Review Complete. DR-0013 Revision 12 is Accepted,
+12 remains Proposed with Owner approval Pending and Review Pending. DR-0013 Revision 12 is Accepted,
 with Owner approval Approved by Ben and Review Complete at that exact target, decided
 2026-08-13. Review scope is record-specific: DR-0002 Revision 11's current
 Double review targeted exact commit `6cf17270fda2827756c24a8d0fb301bef358f98f`;
@@ -239,7 +239,13 @@ normalization/square-root, H-derivation, and claim identity/order fixtures.
 Deterministic normalization/sign direction is an accepted semantic-foundation
 direction; near-zero/drift thresholds, constants, ranges, validation-margin/
 error formula, and deterministic implementation/binding remain Proposed or
-gated. Future adapter
+gated. The first Readiness 3 resolver/fixture transaction is bounded to the
+stylized digitigrade furry-biped family and fixed fixture envelope. It binds
+one authored-conflict comparison profile for authored versus
+Attachment-equation-derived placement; identity and constants are frozen only
+from a bounded successor experiment. Exact-zero comparison, indefinite
+caller-selected tolerances, and post-hoc widening are excluded, and R3 remains
+inactive until admission. Future adapter
 conformance uses signed permutation `C` plus positive scale `s`, with
 storage/output-only default and optional runtime tiers, explicit precision and
 subnormal policy, and FTZ/DAZ probes. These are Proposed architecture
