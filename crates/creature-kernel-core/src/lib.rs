@@ -25,6 +25,7 @@ pub(crate) mod restricted_source_set_handoff;
 pub(crate) mod restricted_source_set_placement;
 pub mod semantic_address;
 pub mod source_preparation;
+pub(crate) mod source_set_namespace_projection;
 pub(crate) mod source_set_preparation;
 pub(crate) mod source_set_provenance_observation;
 pub(crate) mod source_set_reference_observation;

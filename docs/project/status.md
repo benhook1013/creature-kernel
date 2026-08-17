@@ -365,6 +365,23 @@ diagnostics/status, serialization or snapshot, public API or visual output, or
 Readiness 3 activation; the human stop remains unchanged and no contract is
 accepted or changed.
 
+The runway also contains a reviewed crate-private source-set namespace
+projection candidate. It consumes a total validated caller/test-supplied
+in-memory destination table keyed by original `SourceSetMemberKey`, with the
+root namespace fixed while dependency namespaces may change. It projects every
+semantic `AddressKey` and embedded owner address of typed `OwnerRoleKey` values
+by namespace substitution only, preserving address components, member/role
+ownership, and original provenance; `ModuleDeclarationKey` remains unchanged
+as neutral source bookkeeping. Deterministic complete coverage and indexes
+retain namespace, full-address, and typed-owner-role collision evidence without
+selecting a winner. The input is an algorithm candidate only, not authored
+authority or syntax. It performs no reference rewriting, candidate selection,
+relation verdict, topology/cardinality enforcement, merge, diagnostics/status,
+public or wire contract, canonical/digest/profile binding, snapshot or
+serialization, fixture or lifecycle work, visual output, or Readiness 3
+activation; the human stop remains unchanged. This is internal reversible
+runway progress only and accepts or changes no contract.
+
 Candidate locally validated and appraised by Ben on 2026-08-15: a directly
 consuming primitive spatial preview
 uses this exact placement result through the existing
