@@ -25,7 +25,10 @@ Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14 are accepted
 semantic-foundation directions with Owner approval Approved by Ben and Review
 Complete, decided 2026-08-17; their concrete architecture, specification,
 profile, and activation consequences remain Proposed or gated. DR-0008 Revision
-12 remains Proposed with Owner approval Pending and Review Pending. DR-0013 Revision 12 is Accepted,
+12 remains Proposed with Owner approval Pending and Review Complete after the
+current Double review at exact target `e1ead72`; Review 01 found no findings
+and Review 02 recommends Revise at High confidence with three unresolved
+findings. DR-0013 Revision 12 is Accepted,
 with Owner approval Approved by Ben and Review Complete at that exact target, decided
 2026-08-13. Review scope is record-specific: DR-0002 Revision 11's current
 Double review targeted exact commit `6cf17270fda2827756c24a8d0fb301bef358f98f`;

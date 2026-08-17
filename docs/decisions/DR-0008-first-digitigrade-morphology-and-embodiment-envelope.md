@@ -12,7 +12,7 @@ Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Pending
+Review status: Complete
 
 Date proposed: 2026-08-09
 
@@ -64,7 +64,12 @@ stylized digitigrade furry-biped family and its fixed fixture envelope; and R3
 will bind exactly one explicit authored-conflict comparison profile whose
 identity and constants are derived and frozen by a bounded successor
 experiment. This discussion approval does not accept this DR, select profile
-values, or activate R3. Revision 12's current adversarial review is pending.
+values, or activate R3. Revision 12's current Double adversarial review is
+complete as evidence at exact target `e1ead72`: [review 01](reviews/DR-0008-rev-12-review-01.md)
+found no findings and recommends **Ready**; [review 02](reviews/DR-0008-rev-12-review-02.md)
+recommends **Revise** at **High** confidence with three unresolved actionable
+findings. Review completion is evidence only; Owner approval remains Pending
+and this proposal remains Proposed.
 
 Supersedes: —
 
@@ -599,6 +604,18 @@ there is no clean-review or acceptance implication. Any cross-cutting findings
 recorded in the linked reviews await Ben's discussion and owner disposition.
 Owner approval remains Pending and Status remains Proposed. Only Ben may accept
 or reject this proposal.
+
+The current Revision 12 Double review examined exact target commit `e1ead72`.
+Review 01 found no findings under the semantic invalidity, graph, and snapshot
+correctness lens. Review 02 recommends **Revise** at **High** confidence under
+the activation, evidence, compatibility, and reversibility lens, preserving
+three unresolved findings: the authored-conflict profile is not yet separately
+and exactly bound in the activation payload; the successor experiment is not
+yet immutably lineage-bound to admission; and representative morphology
+valid/invalid/unsupported boundary fixtures plus unambiguous taxonomy wording
+are still needed. These are review findings, not resolutions. Review Complete
+records both passes and does not accept this proposal or activate R3. The
+Revision 11 review is stale historical evidence.
 
 ## Implementation and Proof Obligations
 

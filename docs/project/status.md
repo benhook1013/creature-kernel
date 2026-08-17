@@ -688,9 +688,11 @@ Revision 11, DR-0006 Revision 12, DR-0008 Revision 12, DR-0011 Revision 15,
 DR-0012 Revision 14, and DR-0013 Revision 12. DR-0002 Revision 11, DR-0006
 Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14 are Accepted with
 Owner approval Approved by Ben and Review Complete; DR-0008 Revision 12
-remains Proposed with Owner approval Pending and Review Pending; the Revision
-11 Double review at exact target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`
-is stale after the 2026-08-18 proposal change.
+remains Proposed with Owner approval Pending and Review Complete after the
+current Double review at exact target `e1ead72`; Review 01 found no findings
+and Review 02 recommends Revise at High confidence with three unresolved
+findings. The Revision 11 Double review at exact target
+`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a` is stale historical evidence.
 The original Batch 13 review at exact commit
 `8c38c501eb1262a1b85af0b8605220625601772f` produced D1–D3/P1–P3, which were
 dispositioned in DR-0006/0011/0012/0013 Revisions 10/13/12/10. The earlier-
@@ -803,6 +805,13 @@ read-only FTZ/DAZ inspection, and any separately evaluated runtime subnormal
 probe. This is Proposed planning material only.
 
 ## Current review and future activation obligations
+
+The current DR-0008 Revision 12 Double review examined exact target `e1ead72`.
+Review 01 found no findings. Review 02 recommends Revise at High confidence
+with three unresolved findings: separate authored-conflict profile binding,
+immutable successor-experiment admission lineage, and explicit morphology
+boundary taxonomy/fixtures. Review Complete records both passes as evidence;
+DR-0008 remains Proposed with Owner approval Pending and R3 remains inactive.
 
 Batch 11, Batch 12, and Batch 13 record discussion-approved history. The
 accepted DR-0002/0006/0011/0012 semantic-foundation directions cover typed
@@ -958,7 +967,7 @@ transaction under the admission record; the distinct Readiness 3
 resolver/snapshot transaction is not active.
 DR-0002 Revision 11 is Accepted with Owner approval Approved by Ben and Review
 Complete; DR-0008 Revision 12 remains Proposed with Owner approval Pending and
-Review Pending.
+Review Complete after the current Double review at exact target `e1ead72`.
 
 The immediate next action is bounded source preparation and provenance
 traversal over admitted records, grounded in the active parser/bootstrap and
@@ -1076,10 +1085,12 @@ nonblocking obligation before external authored dependencies activate.
   DR-0012 Revision 14, and DR-0013 Revision 12. DR-0002 Revision 11, DR-0006
   Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14 are Accepted with
   Owner approval Approved by Ben and Review Complete; DR-0008 Revision 12
-  remains Proposed with Owner approval Pending and Review Pending; the
-  Revision 11 Double review at exact target
-  `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a` is stale after the 2026-08-18
-  proposal change. Prior Batch
+  remains Proposed with Owner approval Pending and Review Complete after the
+  current Double review at exact target `e1ead72`; Review 01 found no findings
+  and Review 02 recommends Revise at High confidence with three unresolved
+  findings. The Revision 11 Double review at exact target
+  `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a` is stale historical evidence.
+  Prior Batch
   13 review evidence is stale historical evidence; G1/G2 were fixed
   mechanically, T1–T3 were resolved, and T4 remains unselected and deferred,
   requiring Ben's retained-human disposition before adapter profile/schema
@@ -1160,8 +1171,10 @@ metadata. Current non-governance decisions and proposals include:
   [DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
   first-proof and morphology boundaries — DR-0007 remains Proposed with its
   current review; DR-0008 Revision 12 is Proposed, Owner approval Pending,
-  Review Pending; the Revision 11 review is stale after the 2026-08-18
-  proposal change.
+  Review Complete after the current Double review at exact target `e1ead72`;
+  Review 01 found no findings and Review 02 recommends Revise at High
+  confidence with three unresolved findings. The Revision 11 review is stale
+  historical evidence.
 - [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md),
   semantic vocabulary, measurements, and coordinate frames — Revision 15,
   Accepted, Owner approval Approved by Ben, Date decided 2026-08-17, Review

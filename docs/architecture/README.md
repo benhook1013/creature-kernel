@@ -65,7 +65,9 @@ are accepted semantic-foundation directions with Owner approval Approved by Ben
 and Review Complete, decided 2026-08-17; their concrete architecture,
 specification, profile, and activation consequences remain Proposed or gated.
 DR-0008 Revision 12 remains Proposed with Owner approval Pending and Review
-Pending; its Revision 11 review is stale after the 2026-08-18 proposal change.
+Complete after the current Double review at exact target `e1ead72`; Review 01
+found no findings and Review 02 recommends Revise at High confidence with
+three unresolved findings. Its Revision 11 review is stale historical evidence.
 DR-0013 Revision 12 is Accepted,
 with Owner approval Approved by Ben and Review Complete at that exact target, decided
 2026-08-13. Review scope is record-specific: DR-0002 Revision 11's current Double

@@ -16,8 +16,10 @@ Their prior revisions and reviews remain preserved as historical evidence.
 DR-0002 Revision 11, DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012
 Revision 14 are Accepted with Owner approval Approved by Ben and Review
 Complete. DR-0008 Revision 12 remains Proposed with Owner approval Pending and
-Review Pending; its Revision 11 review is stale after the 2026-08-18 proposal
-change. DR-0013 Revision 12 is Accepted, with Owner approval Approved
+Review Complete after the current Double review at exact target `e1ead72`;
+Review 01 found no findings and Review 02 recommends Revise at High confidence
+with three unresolved findings. Its Revision 11 review is stale historical
+evidence. DR-0013 Revision 12 is Accepted, with Owner approval Approved
 by Ben and Review Complete at exact target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`,
 decided 2026-08-13. Accepted DR-0001 Revision 5 remains the operative governance
 baseline while DR-0001 Revision 6 is Proposed transition guidance with Ben's

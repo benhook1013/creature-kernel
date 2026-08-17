@@ -3,7 +3,10 @@
 Status: Proposed conceptual contract; CK-KICK-012 Batch 13/14 discussion-approved
 canonical update. DR-0002 Revision 11 is Accepted with Owner approval Approved
 by Ben and Review Complete. DR-0008 Revision 12 remains Proposed with Owner
-approval Pending and Review Pending. Current Batch 13/14 material is recorded
+approval Pending and Review Complete after the current Double review at exact
+target `e1ead72`; Review 01 found no findings and Review 02 recommends Revise
+at High confidence with three unresolved findings. Current Batch 13/14
+material is recorded
 in DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14; these
 revisions are Accepted with Owner approval Approved by Ben and Review Complete
 after the current Double review at exact target
