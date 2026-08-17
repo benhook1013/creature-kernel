@@ -1,9 +1,10 @@
 # Numeric and frame profile experiment design
 
 Status: Proposed evidence design; EXP-0002 remains planned, with open evidence
-closure and no technology outcome. Its phase-one input package and bounded
-runner are implemented and frozen-but-unrun; no evaluated run, result, profile
-selection, or R3 activation exists.
+closure and no technology outcome. Phase-one attempt-001 is complete and
+passed; the [human-readable evidence summary](../../experiments/EXP-0002-numeric-frame-profile/RESULTS.md)
+links the immutable result and receipt. No profile selection or R3 activation
+exists.
 
 ## Question
 
@@ -25,7 +26,7 @@ current operations: decimal admission, scalar comparison, translation
 comparison, and read-only environment attestation. Quaternion operations
 remain unsupported pending their required oracle and provider inputs. The
 development, held-out, and adversarial corpora plus manifest identities are
-frozen for phase one, but no candidate/corpus evaluation has run. This is not
+frozen for phase one, and attempt-001 evaluated those frozen inputs. This is not
 the whole eventual experiment: transform and basis conversion,
 composition/inversion, claim identity and all-pairs evaluation,
 authored-versus-snapshot comparison, and the later adapter tier remain
@@ -39,12 +40,13 @@ probe or dynamic subnormal-output claim.
 ## Protocol status and preregistration boundary
 
 EXP-0002 remains planned with open evidence closure and no technology outcome.
-The phase-one package is frozen and implemented for an unrun evaluation: its
-four-operation request/response shape, opaque wire request IDs, three corpus
-files, manifest identities, bounded runner/oracle/transport, and synthetic
-checks are fixed on disk. This design remains Proposed and is not a complete
-frozen protocol for the broader experiment. Before any evaluated run, the
-broader protocol must still preregister, independently of observed outcomes:
+The phase-one package is frozen and implemented, and attempt-001 is complete;
+its four-operation request/response shape, opaque wire request IDs, three
+corpus files, manifest identities, bounded runner/oracle/transport, and
+synthetic checks are fixed on disk. This design remains Proposed and is not a
+complete frozen protocol for the broader experiment. Before any broader
+evaluation, the remaining protocol must still preregister, independently of
+observed outcomes:
 
 - intended translation magnitude and component ranges, including the intended
   finite-value and decimal-admission domain;
@@ -85,6 +87,15 @@ organize member-case outcomes. It does not support inference about role isolatio
 fresh-process behavior, order independence, repeatability, broad
 generalization, profile selection, or technology outcome. `profile_binding`
 remains `null` and `technology_result` remains `none`.
+
+Attempt-001 completed at source commit
+`d88f5eca3ad3c0c0cb00dcf7dd012471be979305`, with 49/49 cases and 26/26
+registered relations passed. The wrapper receipt reports one runner invocation,
+exit `0`, and no failure; the raw result and receipt are linked from the
+[phase-one results summary](../../experiments/EXP-0002-numeric-frame-profile/RESULTS.md).
+The result is evidence for this identified candidate and runner only; it does
+not establish a production profile, Readiness 3, portability, repeatability,
+generalization, or the later quaternion/transform/adapter obligations.
 
 The concrete phase-one budgets already implemented are experimental inputs, not
 selected profile constants: frame 16,384 bytes; wire request ID 256 UTF-8
@@ -298,7 +309,8 @@ activate a schema/resolver/adapter, or claim a technology outcome by itself.
 Evaluation tooling and results belong under `experiments/` after the semantic
 shell, relevant profiles, and fixture-admission prerequisites exist. Results
 may support or challenge DR/spec proposals but cannot change them
-automatically. No evaluated run, result, technology outcome, readiness
-activation, or implementation support is claimed by this design. Any Readiness
-implementation binding remains a separate scoped content-identity transaction
-from the fixture payload and expected snapshots.
+automatically. This design does not itself select a profile, calculate a
+technology outcome, activate readiness, or establish implementation support;
+attempt-001 evidence is recorded separately under `experiments/`. Any
+Readiness implementation binding remains a separate scoped content-identity
+transaction from the fixture payload and expected snapshots.

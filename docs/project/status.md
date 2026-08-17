@@ -61,8 +61,8 @@ does not activate the distinct Readiness 3 resolver/snapshot transaction.
 ## Current implementation status
 
 EXP-0002 remains a planned experiment with open evidence closure and no
-technology outcome. Its implemented, frozen-but-unrun phase-one package is the
-named exact-artifact persistent-conformance evaluation
+technology outcome. Its phase-one package is the named exact-artifact
+persistent-conformance evaluation
 `ck.exp-0002.phase1-persistent-conformance-v1`: one persistent candidate
 process receives development, then held-out, then adversarial. The
 held-out role is non-tuning, not blind or process-isolated, and environment
@@ -73,8 +73,15 @@ scalar/translation comparison, and read-only environment inspection
 (C/x87 plus raw and decoded MXCSR rounding/FTZ/DAZ bits). Its request/response
 boundary, opaque wire request IDs, corpus files, manifest identities, and
 bounded runner/oracle/transport are frozen; synthetic checks are implemented.
-No candidate/corpus evaluation, result, profile selection, quaternion support,
-or Readiness 3 activation is claimed. The exact claim is limited to this
+Attempt-001 completed at source commit
+`d88f5eca3ad3c0c0cb00dcf7dd012471be979305` with `run_status: complete` and
+`evidence_status: passed`: development 10/10, held-out 13/13, adversarial
+26/26, 49/49 cases overall, and 26/26 registered relations. Its wrapper
+receipt records `completed-evidence`, `failure: null`, one runner invocation,
+and exit `0`; see the [human-readable results summary](../../experiments/EXP-0002-numeric-frame-profile/RESULTS.md)
+for the immutable artifact links and hashes. `profile_binding` remains `null`;
+there is no profile selection, quaternion support, or Readiness 3 activation.
+The exact claim is limited to this
 identified candidate and runner adjudicating those frozen cases and classifying
 those named groups, including represented boundary/resource/error/environment
 observations. Only `lexical-equivalence`, `signed-zero-canonicalization`, and
@@ -83,6 +90,13 @@ member-case outcomes. No role isolation, fresh-process behavior, order
 independence, repeatability, broad generalization, production-domain claim, or
 technology outcome can be inferred. Broader tolerances and later experiment
 families remain Proposed/open.
+
+The raw receipt records clean wrapper source checkpoints at the same source
+commit. The raw result records runner-side observational identity as
+dirty/untracked at that commit. An independently reviewed explanation is the
+pre-created empty untracked attempt directory plus differing Git probes, but
+the artifacts do not directly encode or prove causation. The audit found no
+evidence of source mutation or inadmissibility.
 
 The phase-one package also includes the committed `run_phase1_once.py` one-shot
 wrapper. It is orchestration/provenance only, not a second numeric runner and
@@ -521,8 +535,11 @@ semantics, and a small diagnostic-registry direction; concrete profiles,
 constants, and activation bindings remain Proposed or gated.
 Exact numeric bounds remain evidence-dependent; the planned
 [numeric/frame profile experiment](../research/numeric-frame-profile-experiment.md)
-remains registered as planned, with open evidence closure, no evaluated run or
-result, and no technology outcome. Its phase-one package is the named
+remains registered as planned, with open evidence closure and no technology
+outcome. Attempt-001 is the completed phase-one run at source commit
+`d88f5eca3ad3c0c0cb00dcf7dd012471be979305`; its immutable result and receipt
+are indexed in the [human-readable results summary](../../experiments/EXP-0002-numeric-frame-profile/RESULTS.md).
+Its phase-one package is the named
 exact-artifact persistent-conformance evaluation
 `ck.exp-0002.phase1-persistent-conformance-v1`, with one persistent candidate
 process and the fixed development → held-out → adversarial order. Held-out is
@@ -893,7 +910,7 @@ metadata. Current non-governance decisions and proposals include:
 | --- | --- | --- | --- |
 | Documentation authority | partial | unverified | Operational structure under Accepted DR-0001 Revision 5 |
 | Decision-record and review workflow | partial | unverified | Governance accepted; technical/product proposals remain provisional |
-| Research/experiment workflow | partial | unverified | Lightweight template exists; EXP-0002 remains planned with open evidence closure and no technology outcome; its four-operation phase-one inputs, bounded runner, and one-shot receipt wrapper are frozen and unrun |
+| Research/experiment workflow | partial | unverified | Lightweight template exists; EXP-0002 remains planned with open evidence closure and no technology outcome; attempt-001 completed and passed its 49 cases and 26 registered relations, while broader obligations remain open |
 | Body specification | partial | unverified | Proposed body-document, body-graph, build-operation, fixture-manifest, and Batch 11/12/13 focused profiles include discussion-approved updates; the Readiness 2 schema, manifest, nine fixtures, parser/bootstrap, and preflight are active under the admission record, while DR-0002 Revision 11, DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14 are Accepted with Owner approval Approved by Ben; DR-0008 remains Revision 11 Proposed |
 | Build-operation contract | partial | unverified | Proposed canonical public build/output owner exists; serialization, implementation, and artifact store remain unactivated |
 | Production implementation platform | partial | proven | CK-KICK-013/DR-0013 Revision 12 is Accepted with Owner approval Approved by Ben; the Readiness 1 Cargo workspace, compiler/core library shell, and thin CLI shell pass pinned-toolchain checks. Readiness 2's exact schema, manifest, nine fixtures, parser/bootstrap, and preflight are active after merged commit `766992ab089687e9b1496574e8ffa721388d96f3` / PR #6 and successful post-merge identity recomputation. PR #9, the inspectable biped structure workflow, is merged at `565c32bd35215e23d737fb333604382d3e6958ab`; its structural index/validator/inspection remain preparatory. The public single-source preparation operation and internal numeric/frame-preparation helpers remain preparatory; helpers cannot bypass body-document admission, and distinct Readiness 3, adapter, and exploratory geometry remain gated |
