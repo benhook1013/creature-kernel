@@ -8,8 +8,14 @@ pub(crate) mod exact_dyadic;
 pub mod frame;
 mod frame_preparation;
 pub mod numeric;
+#[cfg(feature = "provisional-r3-numeric-candidate")]
+pub mod numeric_comparison;
+#[cfg(not(feature = "provisional-r3-numeric-candidate"))]
 pub(crate) mod numeric_comparison;
 pub mod provisional_form_preview;
+#[cfg(feature = "provisional-r3-numeric-candidate")]
+pub mod quaternion_normalization;
+#[cfg(not(feature = "provisional-r3-numeric-candidate"))]
 pub(crate) mod quaternion_normalization;
 pub mod reference_placement;
 pub(crate) mod resolver_envelope;

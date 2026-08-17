@@ -224,6 +224,124 @@ pub enum DecimalConversionError {
     NonzeroUnderflowToZero,
 }
 
+/// Lexical resource limits applied before exact decimal materialization.
+///
+/// These limits are explicit profile data. The low-level
+/// [`decimal_to_binary64`] conversion remains available for callers that have
+/// already charged an equivalent source boundary.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct DecimalResourceLimits {
+    max_token_bytes: usize,
+    max_significant_digits: usize,
+    max_exponent_abs: u32,
+}
+
+impl DecimalResourceLimits {
+    /// Construct nonzero lexical limits. No process-wide default is provided.
+    pub const fn new(
+        max_token_bytes: usize,
+        max_significant_digits: usize,
+        max_exponent_abs: u32,
+    ) -> Result<Self, InvalidDecimalResourceLimits> {
+        if max_token_bytes == 0 || max_significant_digits == 0 {
+            return Err(InvalidDecimalResourceLimits);
+        }
+        Ok(Self {
+            max_token_bytes,
+            max_significant_digits,
+            max_exponent_abs,
+        })
+    }
+
+    /// Maximum admitted UTF-8 token bytes.
+    #[must_use]
+    pub const fn max_token_bytes(self) -> usize {
+        self.max_token_bytes
+    }
+
+    /// Maximum significant mantissa digits after leading zeros.
+    #[must_use]
+    pub const fn max_significant_digits(self) -> usize {
+        self.max_significant_digits
+    }
+
+    /// Maximum absolute lexical decimal exponent.
+    #[must_use]
+    pub const fn max_exponent_abs(self) -> u32 {
+        self.max_exponent_abs
+    }
+}
+
+/// A decimal resource profile used a zero byte or digit bound.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct InvalidDecimalResourceLimits;
+
+impl fmt::Display for InvalidDecimalResourceLimits {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("decimal token and significant-digit limits must be nonzero")
+    }
+}
+
+impl std::error::Error for InvalidDecimalResourceLimits {}
+
+/// Which lexical resource boundary rejected a decimal token.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum DecimalResourceLimit {
+    /// The UTF-8 token is longer than the configured byte limit.
+    TokenBytes,
+    /// The mantissa contains too many significant digits.
+    SignificantDigits,
+    /// The absolute lexical exponent exceeds the configured bound.
+    ExponentMagnitude,
+}
+
+/// Failure while admitting a decimal through an explicit resource profile.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DecimalAdmissionError {
+    /// The token exceeded a declared lexical resource limit.
+    ResourceLimit(DecimalResourceLimit),
+    /// Syntax or binary64 conversion failed after resource admission.
+    Conversion(DecimalConversionError),
+}
+
+impl fmt::Display for DecimalAdmissionError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ResourceLimit(limit) => write!(formatter, "decimal resource limit: {limit:?}"),
+            Self::Conversion(error) => error.fmt(formatter),
+        }
+    }
+}
+
+impl std::error::Error for DecimalAdmissionError {}
+
+/// Admit a strict JSON decimal under explicit lexical resource limits.
+///
+/// The exponent bound is enforced uniformly, including for lexical zero. This
+/// keeps resource admission independent of the later exact-value shortcut.
+pub fn admit_decimal(
+    token: &str,
+    limits: DecimalResourceLimits,
+) -> Result<NormalizedBinary64, DecimalAdmissionError> {
+    if token.len() > limits.max_token_bytes {
+        return Err(DecimalAdmissionError::ResourceLimit(
+            DecimalResourceLimit::TokenBytes,
+        ));
+    }
+    let profile = inspect_json_number(token).map_err(DecimalAdmissionError::Conversion)?;
+    if profile.significant_digits > limits.max_significant_digits {
+        return Err(DecimalAdmissionError::ResourceLimit(
+            DecimalResourceLimit::SignificantDigits,
+        ));
+    }
+    if profile.exponent_abs > u64::from(limits.max_exponent_abs) {
+        return Err(DecimalAdmissionError::ResourceLimit(
+            DecimalResourceLimit::ExponentMagnitude,
+        ));
+    }
+    decimal_to_binary64(token).map_err(DecimalAdmissionError::Conversion)
+}
+
 impl fmt::Display for DecimalConversionError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -263,6 +381,54 @@ pub fn decimal_to_binary64(token: &str) -> Result<NormalizedBinary64, DecimalCon
         return Err(DecimalConversionError::NonzeroUnderflowToZero);
     }
     Ok(NormalizedBinary64::from_f64(value))
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct JsonNumberProfile {
+    significant_digits: usize,
+    exponent_abs: u64,
+}
+
+fn inspect_json_number(token: &str) -> Result<JsonNumberProfile, DecimalConversionError> {
+    validate_json_number(token)?;
+    let bytes = token.as_bytes();
+    let mut index = usize::from(bytes.first() == Some(&b'-'));
+    let mut saw_nonzero = false;
+    let mut significant_digits = 0_usize;
+    while index < bytes.len() && !matches!(bytes[index], b'e' | b'E') {
+        let byte = bytes[index];
+        if byte.is_ascii_digit() {
+            if byte != b'0' {
+                saw_nonzero = true;
+            }
+            if saw_nonzero {
+                significant_digits = significant_digits.saturating_add(1);
+            }
+        }
+        index += 1;
+    }
+    if significant_digits == 0 {
+        significant_digits = 1;
+    }
+
+    let mut exponent_abs = 0_u64;
+    if index < bytes.len() {
+        index += 1;
+        if index < bytes.len() && matches!(bytes[index], b'+' | b'-') {
+            index += 1;
+        }
+        while index < bytes.len() {
+            exponent_abs = exponent_abs
+                .checked_mul(10)
+                .and_then(|value| value.checked_add(u64::from(bytes[index] - b'0')))
+                .unwrap_or(u64::MAX);
+            index += 1;
+        }
+    }
+    Ok(JsonNumberProfile {
+        significant_digits,
+        exponent_abs,
+    })
 }
 
 /// Validates JSON-number syntax and reports whether all mantissa digits are 0.
@@ -540,5 +706,50 @@ mod tests {
         let token = format!("1.{}", "0".repeat(250));
         assert_eq!(token.len(), 252);
         assert_eq!(bits(&token), 1.0f64.to_bits());
+    }
+
+    #[test]
+    fn explicit_resource_profile_is_uniform_for_zero_and_nonzero_tokens() {
+        let limits = DecimalResourceLimits::new(64, 16, 8).unwrap();
+        assert_eq!(admit_decimal("0.1", limits).unwrap().to_bits(), bits("0.1"));
+        assert_eq!(admit_decimal("-0e+8", limits).unwrap().to_bits(), 0);
+        assert_eq!(
+            admit_decimal("-0e+9", limits),
+            Err(DecimalAdmissionError::ResourceLimit(
+                DecimalResourceLimit::ExponentMagnitude
+            ))
+        );
+        assert_eq!(
+            admit_decimal("1.2345678901234567", limits),
+            Err(DecimalAdmissionError::ResourceLimit(
+                DecimalResourceLimit::SignificantDigits
+            ))
+        );
+        assert_eq!(
+            admit_decimal(&format!("1{}", "0".repeat(64)), limits),
+            Err(DecimalAdmissionError::ResourceLimit(
+                DecimalResourceLimit::TokenBytes
+            ))
+        );
+    }
+
+    #[test]
+    fn decimal_resource_profile_has_no_implicit_zero_limits() {
+        assert_eq!(
+            DecimalResourceLimits::new(0, 1, 1),
+            Err(InvalidDecimalResourceLimits)
+        );
+        assert_eq!(
+            DecimalResourceLimits::new(1, 0, 1),
+            Err(InvalidDecimalResourceLimits)
+        );
+
+        let widest_exponent_limit = DecimalResourceLimits::new(64, 1, u32::MAX).unwrap();
+        assert_eq!(
+            admit_decimal("0e99999999999999999999", widest_exponent_limit),
+            Err(DecimalAdmissionError::ResourceLimit(
+                DecimalResourceLimit::ExponentMagnitude
+            ))
+        );
     }
 }

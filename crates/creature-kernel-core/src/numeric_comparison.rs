@@ -22,7 +22,7 @@ use crate::quaternion_normalization::CanonicalQuaternionXyzw;
 
 /// Which tolerance field failed profile-entry validation.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum ToleranceField {
+pub enum ToleranceField {
     /// The absolute term A.
     Absolute,
     /// The relative term R.
@@ -33,7 +33,7 @@ pub(crate) enum ToleranceField {
 
 /// Why one provisional tolerance entry was not admissible.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum InvalidProfileEntry {
+pub enum InvalidProfileEntry {
     /// The entry was infinity or NaN rather than finite binary64.
     NonFinite { field: ToleranceField },
     /// The entry was mathematically negative.  Negative zero is not negative
@@ -57,12 +57,40 @@ impl std::error::Error for InvalidProfileEntry {}
 /// Keeping these cases distinct ensures an arithmetic safety rejection cannot
 /// be mistaken for a malformed profile entry by a future operation layer.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum NumericComparisonError {
+pub enum NumericComparisonError {
     /// A supplied A/R profile entry is not finite and nonnegative.
     InvalidProfileEntry(InvalidProfileEntry),
     /// A finite-input decode or fixed-shape exact operation was rejected by
     /// the exact-dyadic safety bounds.
-    ExactArithmetic(ExactDyadicError),
+    ExactArithmetic(NumericArithmeticFailure),
+}
+
+/// Stable public classification of failures in bounded exact arithmetic.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NumericArithmeticFailure {
+    /// An input carrier contained infinity or NaN.
+    NonFinite,
+    /// An exact intermediate exceeded the implementation's fixed safety cap.
+    TemporaryLimitExceeded,
+    /// An exact exponent could not be represented.
+    ExponentOverflow,
+    /// A checked shift count could not be represented on this platform.
+    ShiftOverflow,
+}
+
+impl fmt::Display for NumericArithmeticFailure {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::NonFinite => formatter.write_str("binary64 value is not finite"),
+            Self::TemporaryLimitExceeded => {
+                formatter.write_str("exact arithmetic temporary exceeds the internal bound")
+            }
+            Self::ExponentOverflow => formatter.write_str("exact arithmetic exponent overflowed"),
+            Self::ShiftOverflow => {
+                formatter.write_str("exact arithmetic shift is not representable")
+            }
+        }
+    }
 }
 
 impl fmt::Display for NumericComparisonError {
@@ -82,14 +110,14 @@ impl std::error::Error for NumericComparisonError {}
 /// Consequently all comparisons use the same canonical `+0` representation
 /// and perform no floating-point arithmetic after carrier decoding.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct ProvisionalScalarTolerance {
+pub struct ProvisionalScalarTolerance {
     absolute: ExactDyadic,
     relative: ExactDyadic,
 }
 
 impl ProvisionalScalarTolerance {
     /// Validates finite, nonnegative A and R entries.
-    pub(crate) fn new(
+    pub fn new(
         absolute: NormalizedBinary64,
         relative: NormalizedBinary64,
     ) -> Result<Self, NumericComparisonError> {
@@ -99,7 +127,7 @@ impl ProvisionalScalarTolerance {
     }
 
     /// Applies the exact inclusive scalar tolerance predicate.
-    pub(crate) fn compare_scalar(
+    pub fn compare_scalar(
         &self,
         left: NormalizedBinary64,
         right: NormalizedBinary64,
@@ -113,7 +141,7 @@ impl ProvisionalScalarTolerance {
     ///
     /// This is the specified componentwise L-infinity translation rule: all
     /// three component predicates must pass, with no residual or norm formed.
-    pub(crate) fn compare_translation(
+    pub fn compare_translation(
         &self,
         left: Translation3,
         right: Translation3,
@@ -140,13 +168,13 @@ impl ProvisionalScalarTolerance {
 /// canonical-tuple Euclidean half-threshold only; profile selection and
 /// activation remain outside this foundation.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct ProvisionalQuaternionHalfChord {
+pub struct ProvisionalQuaternionHalfChord {
     squared_bound: ExactDyadic,
 }
 
 impl ProvisionalQuaternionHalfChord {
     /// Validate a finite, nonnegative explicit H and retain `(2H)^2` exactly.
-    pub(crate) fn new(half_threshold: NormalizedBinary64) -> Result<Self, NumericComparisonError> {
+    pub fn new(half_threshold: NormalizedBinary64) -> Result<Self, NumericComparisonError> {
         let half_threshold = admit_entry(half_threshold, ToleranceField::QuaternionHalfChord)?;
         let doubled = half_threshold.add(&half_threshold)?;
         let squared_bound = doubled.square()?;
@@ -160,7 +188,7 @@ impl ProvisionalQuaternionHalfChord {
     /// the four-term sum are all exact dyadic operations in fixed `xyzw`
     /// order.  No normalization, square root, norm, trigonometric operation,
     /// or angular interpretation is performed here.
-    pub(crate) fn compare(
+    pub fn compare(
         &self,
         left: CanonicalQuaternionXyzw,
         right: CanonicalQuaternionXyzw,
@@ -230,7 +258,7 @@ fn admit_entry(
         ExactDyadicError::NonFinite => {
             NumericComparisonError::InvalidProfileEntry(InvalidProfileEntry::NonFinite { field })
         }
-        other => NumericComparisonError::ExactArithmetic(other),
+        other => NumericComparisonError::ExactArithmetic(other.into()),
     })?;
     if value.total_cmp(&ExactDyadic::zero()).is_lt() {
         return Err(NumericComparisonError::InvalidProfileEntry(
@@ -241,7 +269,8 @@ fn admit_entry(
 }
 
 fn decode_input(value: NormalizedBinary64) -> Result<ExactDyadic, NumericComparisonError> {
-    ExactDyadic::from_binary64(value).map_err(NumericComparisonError::ExactArithmetic)
+    ExactDyadic::from_binary64(value)
+        .map_err(|error| NumericComparisonError::ExactArithmetic(error.into()))
 }
 
 fn compare_dyadics(
@@ -263,7 +292,18 @@ fn compare_dyadics(
 
 impl From<ExactDyadicError> for NumericComparisonError {
     fn from(error: ExactDyadicError) -> Self {
-        Self::ExactArithmetic(error)
+        Self::ExactArithmetic(error.into())
+    }
+}
+
+impl From<ExactDyadicError> for NumericArithmeticFailure {
+    fn from(error: ExactDyadicError) -> Self {
+        match error {
+            ExactDyadicError::NonFinite => Self::NonFinite,
+            ExactDyadicError::TemporaryLimitExceeded => Self::TemporaryLimitExceeded,
+            ExactDyadicError::ExponentOverflow => Self::ExponentOverflow,
+            ExactDyadicError::ShiftOverflow => Self::ShiftOverflow,
+        }
     }
 }
 
@@ -531,7 +571,7 @@ mod tests {
                 Translation3::new(finite_false, invalid_nan, zero),
             ),
             Err(NumericComparisonError::ExactArithmetic(
-                ExactDyadicError::NonFinite
+                NumericArithmeticFailure::NonFinite
             ))
         );
         assert_eq!(
@@ -540,7 +580,7 @@ mod tests {
                 Translation3::new(finite_false, zero, invalid_infinity),
             ),
             Err(NumericComparisonError::ExactArithmetic(
-                ExactDyadicError::NonFinite
+                NumericArithmeticFailure::NonFinite
             ))
         );
     }
@@ -572,7 +612,7 @@ mod tests {
             assert_eq!(
                 profile.compare_translation(left, right),
                 Err(NumericComparisonError::ExactArithmetic(
-                    ExactDyadicError::NonFinite
+                    NumericArithmeticFailure::NonFinite
                 ))
             );
         }
@@ -618,7 +658,7 @@ mod tests {
         assert_eq!(
             profile.compare_scalar(raw(0x7ff0000000000000), raw(0)),
             Err(NumericComparisonError::ExactArithmetic(
-                ExactDyadicError::NonFinite
+                NumericArithmeticFailure::NonFinite
             ))
         );
     }
@@ -713,7 +753,7 @@ mod tests {
         assert_eq!(
             profile.compare(malformed, malformed),
             Err(NumericComparisonError::ExactArithmetic(
-                ExactDyadicError::NonFinite
+                NumericArithmeticFailure::NonFinite
             ))
         );
     }

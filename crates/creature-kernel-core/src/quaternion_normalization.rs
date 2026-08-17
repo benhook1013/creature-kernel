@@ -1,16 +1,12 @@
-//! Crate-private, non-activating quaternion normalization plumbing.
+//! Explicit, non-activating quaternion normalization plumbing.
 //!
 //! The numeric-frame profile is still Proposed and has not selected the
 //! near-zero, drift, range, or conditioning constants needed by production.
 //! This module therefore requires both an explicit validation gate and an
 //! explicitly supplied correctly-rounded-sqrt/environment capability.  It
-//! contains no default gate and no production sqrt provider: normal builds can
-//! construct only the unavailable capability and therefore fail closed.  The
-//! provider-carrying path is `cfg(test)` only.  In particular, the test
-//! provider below is evidence of operation ordering only; it is not a
-//! platform capability attestation.  A future attested environment/provider
-//! boundary must deliberately revise this module before production availability
-//! can be enabled.
+//! contains no default gate, profile constants, or square-root provider.
+//! Callers may fail closed with an unavailable capability or inject an
+//! explicitly attested provider.
 
 #![allow(dead_code)]
 
@@ -22,7 +18,7 @@ use crate::numeric::{FiniteBinary64Error, NormalizedBinary64};
 
 /// Validation boundary reached during normalization.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
-pub(crate) enum QuaternionGateStage {
+pub enum QuaternionGateStage {
     /// Validation of canonicalized input components.
     Input,
     /// Validation of the left-to-right scaled squared norm.
@@ -36,7 +32,7 @@ pub(crate) enum QuaternionGateStage {
 /// Deliberately, this trait has no default implementation: a future activated
 /// profile must inject its own constants and identity rather than inheriting
 /// an unqualified tolerance.
-pub(crate) trait QuaternionNormalizationGate {
+pub trait QuaternionNormalizationGate {
     /// Validate canonicalized input `xyzw` components.
     fn validate_input(&mut self, components: [f64; 4]) -> Result<(), GateRejection>;
 
@@ -49,7 +45,7 @@ pub(crate) trait QuaternionNormalizationGate {
 
 /// The gate rejected a value.  The normalization error records the boundary.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
-pub(crate) enum GateRejection {
+pub enum GateRejection {
     /// The supplied profile gate rejected the value.
     Rejected,
 }
@@ -70,8 +66,7 @@ impl std::error::Error for GateRejection {}
 /// the caller has independently attested round-to-nearest/ties-to-even and
 /// the required FTZ/DAZ and ambient-rounding controls.  This trait is not a
 /// claim that the host `f64::sqrt` environment satisfies those conditions.
-#[cfg(test)]
-pub(crate) trait CorrectlyRoundedSqrt {
+pub trait CorrectlyRoundedSqrt {
     /// Evaluate one square root.  The normalization path calls this exactly
     /// once after scaled-norm gate acceptance.
     fn sqrt(&mut self, input: f64) -> Result<f64, SqrtProviderFailure>;
@@ -79,39 +74,41 @@ pub(crate) trait CorrectlyRoundedSqrt {
 
 /// A required square-root/environment capability, either unavailable or
 /// explicitly provided by the caller.
-pub(crate) struct SqrtCapability<'a> {
+pub struct SqrtCapability<'a> {
     state: SqrtCapabilityState<'a>,
 }
 
 enum SqrtCapabilityState<'a> {
     /// The required capability is unavailable in the current environment.
     Unavailable(PhantomData<&'a ()>),
-    /// A test-only provider used to exercise the plumbing before an attested
-    /// environment/provider boundary is deliberately designed.
-    #[cfg(test)]
+    /// An explicitly supplied provider.
     Available(&'a mut dyn CorrectlyRoundedSqrt),
 }
 
 impl<'a> SqrtCapability<'a> {
     /// Construct an unavailable capability without selecting a fallback.
-    pub(crate) const fn unavailable() -> Self {
+    pub const fn unavailable() -> Self {
         Self {
             state: SqrtCapabilityState::Unavailable(PhantomData),
         }
     }
 
-    /// Wrap a test-only provider for plumbing and fixed-bit tests.
-    #[cfg(test)]
-    pub(crate) fn available(provider: &'a mut dyn CorrectlyRoundedSqrt) -> Self {
+    /// Wrap another explicitly attested provider.
+    pub fn provided(provider: &'a mut dyn CorrectlyRoundedSqrt) -> Self {
         Self {
             state: SqrtCapabilityState::Available(provider),
         }
+    }
+
+    #[cfg(test)]
+    fn available(provider: &'a mut dyn CorrectlyRoundedSqrt) -> Self {
+        Self::provided(provider)
     }
 }
 
 /// Failure reported by an available square-root provider.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
-pub(crate) enum SqrtProviderFailure {
+pub enum SqrtProviderFailure {
     /// The provider could not evaluate the requested square root.
     Failed,
 }
@@ -128,7 +125,7 @@ impl std::error::Error for SqrtProviderFailure {}
 
 /// Why an input component is malformed before arithmetic begins.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
-pub(crate) enum MalformedQuaternionInput {
+pub enum MalformedQuaternionInput {
     /// One component was NaN or infinity.
     NonFiniteComponent { index: usize },
     /// All four canonicalized input components were zero.
@@ -152,7 +149,7 @@ impl std::error::Error for MalformedQuaternionInput {}
 /// required.  These stages intentionally do not use exact dyadic arithmetic:
 /// normalization follows the profile's rounded binary64 operation sequence.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
-pub(crate) enum QuaternionArithmeticStage {
+pub enum QuaternionArithmeticStage {
     /// One of the four max-component scale divisions.
     ScaledComponent,
     /// One of the four separate component squares.
@@ -168,7 +165,7 @@ pub(crate) enum QuaternionArithmeticStage {
 /// A finite arithmetic result was required but the operation produced an
 /// invalid intermediate, or the output lost all nonzero information.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
-pub(crate) enum QuaternionArithmeticError {
+pub enum QuaternionArithmeticError {
     /// The operation produced NaN or infinity.
     NonFiniteIntermediate {
         /// The operation stage.
@@ -202,7 +199,7 @@ impl std::error::Error for QuaternionArithmeticError {}
 
 /// Failure of the non-activating normalization sequence.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
-pub(crate) enum QuaternionNormalizationError {
+pub enum QuaternionNormalizationError {
     /// Input was malformed before arithmetic.
     MalformedInput(MalformedQuaternionInput),
     /// A rounded arithmetic intermediate was invalid.
@@ -251,11 +248,11 @@ impl std::error::Error for QuaternionNormalizationError {}
 
 /// Canonical normalized quaternion in private explicit `x, y, z, w` order.
 ///
-/// Construction and component access are crate-private so this carrier cannot
-/// become a public API before the numeric-frame profile and capability
-/// attestation are activated.
+/// Construction remains private. Under the explicit experimental Cargo
+/// feature, callers may inspect components only after obtaining the carrier
+/// through the gated normalization path.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
-pub(crate) struct CanonicalQuaternionXyzw {
+pub struct CanonicalQuaternionXyzw {
     components: [NormalizedBinary64; 4],
 }
 
@@ -273,7 +270,7 @@ impl CanonicalQuaternionXyzw {
     }
 
     /// Return canonical components in explicit `x, y, z, w` order.
-    pub(crate) const fn components(self) -> [NormalizedBinary64; 4] {
+    pub const fn components(self) -> [NormalizedBinary64; 4] {
         self.components
     }
 }
@@ -288,7 +285,7 @@ impl CanonicalQuaternionXyzw {
 /// canonicalize output zeros; choose the first positive component in
 /// `w,x,y,z`; and finally run the output gate.  No default constants or sqrt
 /// provider are selected.
-pub(crate) fn normalize_quaternion<G: QuaternionNormalizationGate>(
+pub fn normalize_quaternion<G: QuaternionNormalizationGate>(
     input: [f64; 4],
     gate: &mut G,
     mut sqrt_capability: SqrtCapability<'_>,
@@ -437,18 +434,6 @@ pub(crate) fn normalize_quaternion<G: QuaternionNormalizationGate>(
     Ok(CanonicalQuaternionXyzw::from_components(canonical_output))
 }
 
-// Production deliberately has no constructible provider state.  A future
-// attested environment/provider boundary must revise this module before this
-// fail-closed branch is replaced.
-#[cfg(not(test))]
-fn invoke_sqrt(
-    _capability: &mut SqrtCapability<'_>,
-    _squared_norm: f64,
-) -> Result<f64, QuaternionNormalizationError> {
-    Err(QuaternionNormalizationError::SqrtUnavailable)
-}
-
-#[cfg(test)]
 fn invoke_sqrt(
     capability: &mut SqrtCapability<'_>,
     squared_norm: f64,
@@ -462,7 +447,7 @@ fn invoke_sqrt(
 }
 
 /// Normalize an existing structural carrier without widening its public API.
-pub(crate) fn normalize_structural_quaternion<G: QuaternionNormalizationGate>(
+pub fn normalize_structural_quaternion<G: QuaternionNormalizationGate>(
     input: QuaternionXyzw,
     gate: &mut G,
     sqrt_capability: SqrtCapability<'_>,
