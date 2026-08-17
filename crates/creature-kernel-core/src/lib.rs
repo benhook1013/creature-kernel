@@ -3,6 +3,7 @@
 pub mod body_document;
 pub mod body_graph;
 pub(crate) mod candidate_source_digest_observation;
+pub(crate) mod dependency_content_observation;
 pub(crate) mod digest;
 pub(crate) mod exact_dyadic;
 pub mod frame;

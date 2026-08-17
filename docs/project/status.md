@@ -298,6 +298,20 @@ resolver/snapshot/Readiness 3 claim; and creates no visual checkpoint. It
 remains within the recorded autonomous preparatory runway, whose existing
 human-stop boundary is unchanged.
 
+The current implementation also provides a crate-private dependency-content
+observation over the existing owned source-set handoff. It consumes a
+caller-supplied digest profile, parses each retained `sha256:` declaration, and
+produces exactly one result per currently admitted dependency edge by hashing
+the target's exact raw bytes with framed SHA-256. Outcomes are `matched`,
+`missing`, `malformed`, or `mismatch`; each result retains the structural
+member identity and owner role. The retained-edge index is observation-only:
+current structural admission rejects repeated dependency namespaces, and the
+index is not a canonical occurrence identity. This selects no production
+profile and performs no acquisition, canonical or aggregate identity,
+resolver status/diagnostic mapping, namespace remapping or semantic
+resolution, snapshot or serialization, Readiness 3 activation, or visual
+checkpoint.
+
 The current implementation also provides a crate-private deterministic
 source-set provenance observation. It inventories each supplied member's
 source-local semantic addresses, module declarations, and typed owner/role
