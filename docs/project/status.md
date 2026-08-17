@@ -563,6 +563,20 @@ snapshot or public API, geometry or runtime work, or Readiness 3 activation;
 it is internal reversible runway progress only and accepts or changes no
 contract.
 
+The current runway also contains a crate-private provisional Attachment
+placement comparison over `CanonicalSourceSetPlacement`. It consumes each
+member's source-local local-to-parent placement, requires caller-supplied
+provisional translation/quaternion tolerances, and reuses the existing exact
+comparison predicates. It records deterministic per-member and per-Attachment
+outcomes, including upstream/placement skips, `Agree`, `Conflict`, and typed
+numeric `Skipped` results; complete provenance and both authored and
+equation-derived candidates are retained, with member failure isolation. It
+does not select a frozen/default profile, winner, representative, aggregate
+status or diagnostics, merge/project namespaces, create a snapshot or public
+API, perform geometry/runtime work, or activate Readiness 3. This completes
+the currently identified internal pre-checkpoint runway; exact profile,
+fixture, and resolver activation remain deferred to the recorded human stop.
+
 Candidate locally validated and appraised by Ben on 2026-08-15: a directly
 consuming primitive spatial preview
 uses this exact placement result through the existing
