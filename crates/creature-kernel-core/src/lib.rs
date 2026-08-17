@@ -32,6 +32,7 @@ pub(crate) mod source_set_canonical_values;
 pub(crate) mod source_set_dependency_evidence;
 pub(crate) mod source_set_namespace_projection;
 pub(crate) mod source_set_preparation;
+pub(crate) mod source_set_projected_placement;
 pub(crate) mod source_set_projected_reference_observation;
 pub(crate) mod source_set_projection_evidence;
 pub(crate) mod source_set_provenance_observation;
