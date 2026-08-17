@@ -522,6 +522,19 @@ selection, status or diagnostics, public or wire API, snapshot, fixture,
 geometry, runtime, or Readiness 3 activation is included. It is internal,
 reversible runway progress only and accepts or changes no contract.
 
+The next runway slice adds a crate-private, nonactivating canonical placement
+candidate for one admitted source-set member and its prepared canonical frame
+values. It computes deterministic authored containment references, including a
+nonidentity authored root, and the complete source-local Attachment equation,
+including a descendant-owned mating Socket. It retains the authored and
+derived attached-root local candidates separately, with their source/member
+provenance, and does not compare or select a winner. Arithmetic, validation
+gates, and square-root operations remain caller-supplied capabilities. This
+candidate does not merge or remap members, resolve candidates, assign statuses,
+create snapshots or a public API, generate geometry, or activate Readiness 3;
+it is internal reversible runway progress only and accepts or changes no
+contract.
+
 Candidate locally validated and appraised by Ben on 2026-08-15: a directly
 consuming primitive spatial preview
 uses this exact placement result through the existing
