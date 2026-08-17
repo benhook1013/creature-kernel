@@ -12,16 +12,20 @@ import tempfile
 import textwrap
 import time
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import run_adapter as runner  # noqa: E402
 from runner_common import (  # noqa: E402
+    EVALUATION_BINDING,
     FRAME_BYTES,
     MAX_CASES_PER_CORPUS,
     MAX_WIRE_REQUEST_ID_BYTES,
     PROTOCOL_ID,
+    PREREGISTERED_LIMITS,
     ProtocolError,
+    TECHNOLOGY_RESULT,
     parse_bits,
     parse_json_bytes,
     frame_json,
@@ -71,16 +75,96 @@ def _record(case_id: str, wire_id: str, operation: str, input_value: dict[str, o
     return record
 
 
-def _write_package(root: Path, records: dict[str, list[dict[str, object]]], relations: list[dict[str, object]] | None = None) -> Path:
+def _write_package(root: Path, records: dict[str, list[dict[str, object]]], relations: list[dict[str, object]] | None = None, *, full_claims: bool = False) -> Path:
+    records = {role: list(values) for role, values in records.items()}
+    relation_values = [dict(value) for value in (relations or [])]
+    if full_claims:
+        if len(relation_values) > 26:
+            raise ValueError("full synthetic claim fixture cannot exceed 26 relations")
+        relation_ids = {str(relation["id"]) for relation in relation_values}
+        if len(relation_ids) != len(relation_values):
+            raise ValueError("full synthetic claim fixture requires unique relation IDs")
+        all_records = records["development"] + records["held-out"] + records["adversarial"]
+        if len(all_records) > 49:
+            raise ValueError("full synthetic claim fixture cannot exceed 49 cases")
+        for index in range(49 - len(all_records)):
+            filler = _decimal_record()
+            filler["case_id"] = f"synthetic_case_{index:02d}"
+            filler["wire_request_id"] = f"synthetic_wire_{index:032x}"
+            records["development"].append(filler)
+        all_records = records["development"] + records["held-out"] + records["adversarial"]
+        filler_relation_count = 26 - len(relation_values)
+        synthetic_relation_index = 0
+        for index in range(filler_relation_count):
+            relation_id = f"synthetic-relation-{synthetic_relation_index:02d}"
+            while relation_id in relation_ids:
+                synthetic_relation_index += 1
+                relation_id = f"synthetic-relation-{synthetic_relation_index:02d}"
+            synthetic_relation_index += 1
+            relation_ids.add(relation_id)
+            member = all_records[index % len(all_records)]
+            relation_values.append({"id": relation_id, "cases": [str(member["case_id"])], "meaning": "synthetic full-claim fixture"})
+            member["relations"] = list(member["relations"]) + [relation_id]
+        relation_ids = [str(relation["id"]) for relation in relation_values]
+        for index, record in enumerate(all_records):
+            if not record["relations"]:
+                relation_id = relation_ids[index % len(relation_ids)]
+                record["relations"] = [relation_id]
+                next(relation for relation in relation_values if relation["id"] == relation_id)["cases"].append(str(record["case_id"]))
     manifest: dict[str, object] = {
         "manifest_version": "ck.r3.numeric-corpus-manifest-1",
         "experiment_id": "EXP-0002",
         "lifecycle": "frozen-inputs-unrun",
+        "evaluation_binding": EVALUATION_BINDING,
+        "preregistration": {
+            "identity": {
+                "candidate_artifacts": "stream-hashed-before-and-after-execution",
+                "runner_modules": "stream-hashed-before-and-after-execution",
+                "filesystem_assumption": "controlled-local-no-adversarial-mid-run-replace-and-restore",
+                "candidate_build_context": "observational-not-provenance",
+            },
+            "topology": {
+                "candidate_processes": 1,
+                "persistent_process": True,
+                "corpus_sequence": ["development", "held-out", "adversarial"],
+                "held_out_role": "non-tuning-not-blind-or-process-isolated",
+                "environment_observations": "workload-position-conditioned",
+                "fresh_process_claim": False,
+                "order_independence_claim": False,
+                "repeatability_claim": False,
+                "generalization_claim": False,
+                "profile_claim": False,
+                "technology_claim": False,
+            },
+            "claim_domain": {
+                "kind": "exact-artifact-agreement",
+                "case_count": 49,
+                "relation_count": 26,
+                "scope": "49 exact frozen case adjudications plus runner classifications for 26 registered named case groups; only relation IDs with explicit cross-case checks make the narrower predicate; other groupings organize member-case outcomes",
+                "production_domain_claim": False,
+            },
+            "limits": dict(PREREGISTERED_LIMITS),
+            "tolerance_bindings": ["exp-zero", "exp-ulp52-absolute", "exp-minsub-absolute", "exp-ulp52-relative", "exp-pre-ulp52-relative"],
+            "classification": {
+                "exact_expected_mismatch": "completed-failed-conformance-evidence",
+                "environment_failed_or_unsupported": "inconclusive-capability-evidence",
+                "candidate_unsupported": "inconclusive-capability-evidence",
+                "transport_nonzero_or_response_integrity": "incomplete",
+                "profile_selection": "none",
+                "technology_result": TECHNOLOGY_RESULT,
+            },
+        },
         "candidate_request_protocol": "ck.r3.numeric-candidate-request-1",
         "candidate_response_protocol": "ck.r3.numeric-candidate-response-1",
         "operations": ["decimal-admission", "scalar-comparison", "translation-comparison", "environment-attestation"],
         "corpus_order": ["development.jsonl", "held-out.jsonl", "adversarial.jsonl"],
-        "experimental_tolerances": {},
+        "experimental_tolerances": {
+            "exp-zero": {"absolute_bits": "0x0000000000000000", "relative_bits": "0x0000000000000000", "role": "synthetic"},
+            "exp-ulp52-absolute": {"absolute_bits": "0x3cb0000000000000", "relative_bits": "0x0000000000000000", "role": "synthetic"},
+            "exp-minsub-absolute": {"absolute_bits": "0x0000000000000001", "relative_bits": "0x0000000000000000", "role": "synthetic"},
+            "exp-ulp52-relative": {"absolute_bits": "0x0000000000000000", "relative_bits": "0x3cb0000000000000", "role": "synthetic"},
+            "exp-pre-ulp52-relative": {"absolute_bits": "0x0000000000000000", "relative_bits": "0x3caffffffffffffe", "role": "synthetic"},
+        },
         "record_shape": {
             "required": ["case_id", "wire_request_id", "family", "operation", "expected", "relations"],
             "request_member": "exactly one of input or request_raw",
@@ -103,7 +187,7 @@ def _write_package(root: Path, records: dict[str, list[dict[str, object]]], rela
         },
         "error_codes": {code: code for code in STABLE_ERROR_CODES},
         "corpora": [],
-        "relations": relations or [],
+        "relations": relation_values,
         "disjointness": {
             "case_ids": "unique across all roles",
             "record_bytes": "no complete JSONL line is shared across roles",
@@ -113,7 +197,7 @@ def _write_package(root: Path, records: dict[str, list[dict[str, object]]], rela
             "corpus_run": "not-run",
             "candidate_evaluation": "not performed",
             "profile_binding": None,
-            "technology_result": None,
+            "technology_result": TECHNOLOGY_RESULT,
         },
     }
     for order, role in enumerate(("development", "held-out", "adversarial"), 1):
@@ -173,6 +257,16 @@ class RunnerTests(unittest.TestCase):
         self.assertIsNone(runner._candidate_error_code("invalid JSON number token"))
         self.assertEqual(runner._candidate_error_code("invalid-json-number"), "invalid-json-number")
 
+    def test_response_status_member_algebra_rejects_ambiguous_shapes(self) -> None:
+        base = {"protocol_id": runner.RESPONSE_PROTOCOL_ID, "status": "unsupported"}
+        with self.assertRaises(ProtocolError):
+            runner._validate_response_shape(dict(base, observations={}))
+        with self.assertRaises(ProtocolError):
+            runner._validate_response_shape({"protocol_id": runner.RESPONSE_PROTOCOL_ID, "status": "error"})
+        with self.assertRaises(ProtocolError):
+            runner._validate_response_shape({"protocol_id": runner.RESPONSE_PROTOCOL_ID, "status": "observed"})
+        self.assertEqual(runner._validate_response_shape(base)["status"], "unsupported")
+
     def test_decimal_and_dyadic_oracles_are_exact_and_bounded(self) -> None:
         _, expected, work = oracle_case("decimal-admission", {"token": "1.00000000000000011102230246251565404236316680908203125", "max_token_bytes": "512", "max_significant_digits": "400", "max_exponent_abs": "10000"})
         self.assertEqual(expected["observations"]["bits"], "0x3ff0000000000000")
@@ -231,6 +325,44 @@ class RunnerTests(unittest.TestCase):
         identity = runner._runner_identity()
         self.assertEqual(identity["caps"]["wire_request_id_bytes"], MAX_WIRE_REQUEST_ID_BYTES)
         self.assertEqual(len(identity["bundle_sha256"]), 64)
+        self.assertEqual(identity["budgets"]["max_identity_artifact_bytes"], 268_435_456)
+
+    def test_stream_identity_is_capped_and_detects_changed_after_capture(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="ck2-identity-") as temp:
+            path = Path(temp) / "artifact"
+            path.write_bytes(b"abcd")
+            with patch.dict(runner.PREREGISTERED_LIMITS, {"max_identity_artifact_bytes": 3}):
+                with self.assertRaises(ProtocolError):
+                    runner._stream_file_identity(path)
+            with patch.dict(runner.PREREGISTERED_LIMITS, {"max_identity_artifact_bytes": 32}):
+                before = runner._stream_file_identity(path)
+                path.write_bytes(b"changed")
+                observed, failures = runner._recheck_bound_files([before])
+            self.assertTrue(observed)
+            self.assertTrue(failures)
+
+    def test_path_spelled_candidate_launches_resolved_executable(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="ck2-path-candidate-") as temp:
+            root = Path(temp)
+            first_dir = root / "first"
+            second_dir = root / "second"
+            first_dir.mkdir()
+            second_dir.mkdir()
+            for directory, marker in ((first_dir, "first"), (second_dir, "second")):
+                candidate = directory / "phase-candidate"
+                candidate.write_text(f"#!{sys.executable}\nimport sys\nfor _line in sys.stdin:\n    print({marker!r}, flush=True)\n", encoding="utf-8")
+                candidate.chmod(0o755)
+            with patch.dict(os.environ, {"PATH": str(first_dir)}):
+                execution_command, executable, _digest, _artifacts = runner._resolve_candidate_executable(["phase-candidate", "--flag"])
+            self.assertEqual(executable, (first_dir / "phase-candidate").resolve())
+            self.assertEqual(execution_command, [str(executable), "--flag"])
+            with patch.dict(os.environ, {"PATH": str(second_dir)}):
+                session = BoundedSubprocessSession(execution_command)
+                try:
+                    response = session.request({"protocol_id": PROTOCOL_ID, "request_id": "x", "operation": "scalar-comparison", "input": {}})
+                finally:
+                    session.close()
+            self.assertIn(b"first", response)
 
     def test_environment_control_algebra_and_inconclusive_shape(self) -> None:
         base = {"target": "x86_64-unknown-linux-gnu", "status": "passed", "rounding_mode": 0, "mxcsr": "0x00001f80", "mxcsr_rounding_mode": 0, "ftz_enabled": False, "daz_enabled": False, "failure_classification": "none", "scope": "single-threaded-jsonl-loop"}
@@ -271,6 +403,7 @@ class RunnerTests(unittest.TestCase):
         second = {"candidate": {"response": {"observations": second_observation}}, "classification": "pass"}
         result = runner._relation_classification({"a": first, "b": second}, {"id": "environment-repeat", "cases": ["a", "b"], "meaning": "synthetic"})
         self.assertEqual(result["classification"], "pass")
+        self.assertEqual(result["claim_type"], "workload-position-conditioned-capability-observation")
 
     def test_primary_transport_failure_survives_cleanup_evidence(self) -> None:
         case = _decimal_record()
@@ -303,6 +436,64 @@ class RunnerTests(unittest.TestCase):
                 self.assertEqual(result["failure"], primary)
                 self.assertEqual(result["candidate"]["cleanup"]["failure"], cleanup)
                 self.assertGreater(result["candidate"]["cleanup"]["trailing_stdout_bytes"], 0)
+
+    def test_completed_aggregation_fail_outranks_unsupported(self) -> None:
+        first = _decimal_record()
+        first["case_id"] = "case_fail"
+        second = _decimal_record()
+        second["case_id"] = "case_unsupported"
+        _, _, first_info = validate_case(first)
+        _, _, second_info = validate_case(second)
+        first_response = frame_json({"protocol_id": runner.RESPONSE_PROTOCOL_ID, "request_id": first["wire_request_id"], "status": "observed", "observations": {"bits": "0x3ff0000000000000"}})
+        second_response = frame_json({"protocol_id": runner.RESPONSE_PROTOCOL_ID, "request_id": second["wire_request_id"], "status": "unsupported"})
+
+        class Session:
+            def __init__(self) -> None:
+                self.responses = [first_response, second_response]
+
+            def request_frame(self, _request: bytes) -> bytes:
+                return self.responses.pop(0)
+
+        result = runner.run_cases(
+            {"development": [first, second], "held-out": [], "adversarial": []},
+            {first["case_id"]: first_info, second["case_id"]: second_info},
+            {},
+            Session(),
+            {"synthetic": True},
+        )
+        self.assertEqual(result["run_status"], "complete")
+        self.assertEqual(result["evidence_status"], "failed")
+        self.assertEqual(result["summary"]["fail"], 1)
+        self.assertEqual(result["summary"]["unsupported"], 1)
+
+    def test_malformed_response_is_incomplete(self) -> None:
+        case = _decimal_record()
+        _, _, info = validate_case(case)
+        malformed = frame_json({"protocol_id": runner.RESPONSE_PROTOCOL_ID, "request_id": case["wire_request_id"], "status": "unsupported", "observations": {}})
+
+        class Session:
+            def request_frame(self, _request: bytes) -> bytes:
+                return malformed
+
+        result = runner.run_cases(
+            {"development": [case], "held-out": [], "adversarial": []},
+            {case["case_id"]: info},
+            {},
+            Session(),
+            {"synthetic": True},
+        )
+        self.assertEqual(result["run_status"], "incomplete")
+        self.assertEqual(result["evidence_status"], "incomplete")
+        self.assertEqual(result["summary"]["incomplete"], 1)
+
+    def test_relation_fail_outranks_inconclusive(self) -> None:
+        records = {
+            "fail": {"classification": "fail", "candidate": {"response": {} }},
+            "inconclusive": {"classification": "inconclusive", "candidate": {"response": {} }},
+        }
+        relation = runner._relation_classification(records, {"id": "synthetic", "cases": ["fail", "inconclusive"], "meaning": "synthetic"})
+        self.assertEqual(relation["classification"], "fail")
+        self.assertEqual(relation["claim_type"], "registered-case-group")
 
     def test_transport_timeout_and_oversize_frame_or_total_are_visible(self) -> None:
         timeout_script = _response_script("""
@@ -376,7 +567,7 @@ class RunnerTests(unittest.TestCase):
     def test_cli_nonzero_exit_and_identity_hashes(self) -> None:
         with tempfile.TemporaryDirectory(prefix="ck2-runner-") as temp:
             root = Path(temp)
-            manifest = _write_package(root, {"development": [_decimal_record()], "held-out": [], "adversarial": []})
+            manifest = _write_package(root, {"development": [_decimal_record()], "held-out": [], "adversarial": []}, full_claims=True)
             candidate = _response_script("""
                 import json, sys
                 for line in sys.stdin:
@@ -395,17 +586,33 @@ class RunnerTests(unittest.TestCase):
             self.assertEqual(result["runner"]["caps"]["frame_bytes"], FRAME_BYTES)
             self.assertEqual(result["runner"]["caps"]["wire_request_id_bytes"], MAX_WIRE_REQUEST_ID_BYTES)
             self.assertIn("io", result["runner"]["deadlines_seconds"])
+            self.assertEqual(result["evaluation_binding"], EVALUATION_BINDING)
+            self.assertIsNone(result["profile_binding"])
+            self.assertEqual(result["technology_result"], TECHNOLOGY_RESULT)
+            self.assertEqual(result["result_identity"]["evaluation_binding"], EVALUATION_BINDING)
+            self.assertEqual(result["result_identity"]["configured_budgets"], dict(PREREGISTERED_LIMITS))
+            self.assertIn("build_identity", result["result_identity"])
+            self.assertEqual(result["result_identity"]["identity"]["stability"], "verified")
+            self.assertEqual(result["result_identity"]["identity"]["contract"]["candidate_build_context"], "observational-not-provenance")
+            self.assertEqual(result["candidate"]["execution_command"][0], str(Path(sys.executable).resolve()))
+            self.assertEqual(result["result_identity"]["candidate_execution_command"], result["candidate"]["execution_command"])
             artifacts = result["candidate"]["command_artifacts"]
             self.assertEqual({item["path"] for item in artifacts}, {str(Path(sys.executable).resolve()), str(candidate.resolve())})
 
     def test_manifest_hash_and_case_cap_use_bounded_corpus_pass(self) -> None:
         with tempfile.TemporaryDirectory(prefix="ck2-bounded-manifest-") as temp:
             root = Path(temp)
-            manifest = _write_package(root, {"development": [_decimal_record()], "held-out": [], "adversarial": []})
+            manifest = _write_package(root, {"development": [_decimal_record()], "held-out": [], "adversarial": []}, full_claims=True)
             _, _, metadata = load_manifest(manifest)
             self.assertEqual(metadata["manifest_sha256"], hashlib.sha256(manifest.read_bytes()).hexdigest())
             development = root / "development.jsonl"
             self.assertEqual(metadata["corpora"][0]["sha256"], hashlib.sha256(development.read_bytes()).hexdigest())
+            mismatched = json.loads(manifest.read_text(encoding="utf-8"))
+            mismatched["preregistration"]["claim_domain"]["case_count"] = 48
+            mismatched_path = root / "mismatched.json"
+            mismatched_path.write_text(json.dumps(mismatched), encoding="utf-8")
+            with self.assertRaisesRegex(ProtocolError, "claim domain"):
+                load_manifest(mismatched_path)
 
             too_many: list[dict[str, object]] = []
             for index in range(MAX_CASES_PER_CORPUS + 1):
@@ -419,10 +626,25 @@ class RunnerTests(unittest.TestCase):
             with self.assertRaisesRegex(ProtocolError, "case-count bound"):
                 load_manifest(oversized_manifest)
 
+    def test_full_claim_fixture_relation_collision_is_finite(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="ck2-relation-collision-") as temp:
+            root = Path(temp)
+            record = _decimal_record()
+            record["case_id"] = "collision_base"
+            record["relations"] = ["synthetic-relation-00", "synthetic-relation-01"]
+            relations = [
+                {"id": "synthetic-relation-00", "cases": ["collision_base"], "meaning": "synthetic collision fixture"},
+                {"id": "synthetic-relation-01", "cases": ["collision_base"], "meaning": "synthetic collision fixture"},
+            ]
+            manifest = _write_package(root, {"development": [record], "held-out": [], "adversarial": []}, relations, full_claims=True)
+            _, corpora, metadata = load_manifest(manifest)
+            self.assertEqual(sum(len(values) for values in corpora.values()), 49)
+            self.assertEqual(len(metadata["relations"]), 26)
+
     def test_completed_semantic_fail_is_nonzero_and_explicit(self) -> None:
         with tempfile.TemporaryDirectory(prefix="ck2-semantic-fail-") as temp:
             root = Path(temp)
-            manifest = _write_package(root, {"development": [_decimal_record()], "held-out": [], "adversarial": []})
+            manifest = _write_package(root, {"development": [_decimal_record()], "held-out": [], "adversarial": []}, full_claims=True)
             candidate = _response_script("""
                 import json, sys
                 for line in sys.stdin:
@@ -435,7 +657,7 @@ class RunnerTests(unittest.TestCase):
             result = json.loads(output.read_text(encoding="utf-8"))
             self.assertEqual(result["run_status"], "complete")
             self.assertEqual(result["evidence_status"], "failed")
-            self.assertEqual(result["summary"]["fail"], 1)
+            self.assertEqual(result["summary"]["fail"], 49)
             self.assertIsNone(result["failure"])
 
     def test_nonempty_relation_is_retained_and_classified_end_to_end(self) -> None:
@@ -456,6 +678,7 @@ class RunnerTests(unittest.TestCase):
                 root,
                 {"development": [first, second], "held-out": [], "adversarial": []},
                 [{"id": "lexical-equivalence", "cases": ["case_first", "case_second"], "meaning": "equivalent decimal spellings"}],
+                full_claims=True,
             )
             candidate = _response_script("""
                 import json, sys
@@ -476,18 +699,21 @@ class RunnerTests(unittest.TestCase):
             wire_id = "wire_44a0d91c6e7f2385"
             raw = '{"protocol_id":"ck.r3.numeric-candidate-request-1","request_id":"' + wire_id + '","operation":"decimal-admission","operation":"decimal-admission","input":{}}'
             record = _record("case_raw", wire_id, "decimal-admission", {}, {"status": "error", "error_code": "malformed-request"}, request_raw=raw)
-            manifest = _write_package(root, {"development": [], "held-out": [], "adversarial": [record]})
+            manifest = _write_package(root, {"development": [], "held-out": [], "adversarial": [record]}, full_claims=True)
             candidate = _response_script("""
                 import json, sys
                 for line in sys.stdin:
-                    assert line.count('"operation"') == 2
-                    print(json.dumps({"protocol_id":"ck.r3.numeric-candidate-response-1", "status":"error", "error":"malformed-request"}), flush=True)
+                    if line.count('"operation"') == 2:
+                        print(json.dumps({"protocol_id":"ck.r3.numeric-candidate-response-1", "status":"error", "error":"malformed-request"}), flush=True)
+                    else:
+                        request = json.loads(line)
+                        print(json.dumps({"protocol_id":"ck.r3.numeric-candidate-response-1", "request_id":request["request_id"], "status":"observed", "observations":{"bits":"0x3fb999999999999a"}}), flush=True)
             """)
             output = root / "result.json"
             completed = subprocess.run([sys.executable, str(RUNNER), "--manifest", str(manifest), "--output", str(output), "--", sys.executable, str(candidate)], capture_output=True, text=True, timeout=10)
             self.assertEqual(completed.returncode, 0, completed.stderr)
             result = json.loads(output.read_text(encoding="utf-8"))
-            self.assertEqual(result["summary"]["pass"], 1)
+            self.assertEqual(result["summary"]["pass"], 49)
             self.assertIsNone(result["corpora"][2]["cases"][0]["request_id"])
 
 

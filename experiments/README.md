@@ -1,7 +1,8 @@
 # Experiments
 
 Status: Active workflow; EXP-0002 remains planned with open evidence closure
-and no technology outcome; its phase-one package is frozen but unrun.
+and technology outcome `none`; its phase-one exact-artifact package is frozen
+but unrun.
 
 Experiments provide reproducible evidence for research questions and decisions.
 They do not become product or architecture contracts automatically. Research
@@ -54,10 +55,25 @@ below current as experiments are created.
 ## Registered experiments
 
 - [EXP-0002 numeric/frame profile](EXP-0002-numeric-frame-profile/README.md) —
-  registered four-operation phase-one adapter package; inputs, manifest,
-  bounded runner, and synthetic checks are implemented and frozen but unrun;
-  overall experiment remains planned, evidence closure open, and technology
-  outcome none.
+  registered four-operation phase-one exact-artifact persistent-conformance
+  package; one persistent candidate is specified to receive the frozen
+  development, held-out, and adversarial roles in order. Its 49 exact frozen
+  case adjudications and runner classifications for 26 registered named case
+  groups, manifest identities, bounded runner, and synthetic checks are
+  implemented and frozen but unrun; overall experiment remains planned,
+  evidence closure open, and technology outcome `none`.
+
+The phase-one claim is limited to 49 exact frozen case adjudications plus
+runner classifications for 26 registered named case groups, including
+represented boundary/resource/error/environment observations. Only
+`lexical-equivalence`, `signed-zero-canonicalization`, and `environment-repeat`
+have explicit cross-case checks; the other groupings organize member-case
+outcomes. Held-out is non-tuning, not blind or process-isolated. This package
+cannot establish role isolation, fresh-process behavior, order independence,
+repeatability, broad generalization, profile selection, a production-domain
+claim, or a technology outcome. See the
+[package README](EXP-0002-numeric-frame-profile/README.md) for the
+preregistered identity, resource budgets, and classification rules.
 
 ## Required properties
 
