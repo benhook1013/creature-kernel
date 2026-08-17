@@ -3,12 +3,13 @@
 //! This is the smallest semantic successor of the source-linked preparation
 //! projection.  It consumes one already admitted member, maps its source
 //! basis, scales lengths to metres, and normalizes each structural quaternion
-//! using caller-supplied state.  It deliberately does not compose placement,
-//! resolve relations or namespaces, produce a status/diagnostic envelope,
+//! using caller-supplied state.  Its crate-private transform algebra composes
+//! and applies already canonical values, but does not resolve relations or
+//! namespaces, produce a status/diagnostic envelope,
 //! serialize a snapshot, or activate Readiness 3.
 //!
-//! The operation is intentionally single-member. The caller owns the gate,
-//! arithmetic, and square-root capabilities and must supply
+//! Member preparation is intentionally single-member. The caller owns the
+//! gate, arithmetic, and square-root capabilities and must supply
 //! fresh/order-appropriate state for the call. This module selects no
 //! defaults, constants, providers, or factories. A caller may reuse either
 //! provider across quaternions by passing mutable capability carriers. Each
@@ -21,8 +22,10 @@ use crate::body_graph::OwnerRoleKey;
 use crate::frame::{self, LengthUnit, RigidTransform, SourceBasisMap};
 use crate::numeric::NormalizedBinary64;
 use crate::quaternion_normalization::{
-    Binary64ArithmeticCapability, CanonicalQuaternionXyzw, QuaternionNormalizationError,
-    QuaternionNormalizationGate, SqrtCapability, normalize_structural_quaternion,
+    Binary64ArithmeticCapability, CanonicalQuaternionXyzw, QuaternionArithmeticOperation,
+    QuaternionArithmeticStage, QuaternionNormalizationError, QuaternionNormalizationGate,
+    SqrtCapability, checked_operation, compose_canonical_quaternions,
+    normalize_structural_quaternion, rotate_canonical_vector,
 };
 use crate::restricted_source_set_handoff::RestrictedSourceSetMember;
 use crate::source_preparation::PositionComponent;
@@ -229,6 +232,117 @@ impl CanonicalRigidTransform {
     pub(crate) const fn rotation(self) -> CanonicalQuaternionXyzw {
         self.rotation
     }
+}
+
+/// Compose canonical local-to-parent rigid transforms using rightmost-first
+/// application.
+///
+/// For `left = T_A<-B` and `right = T_B<-C`, this computes
+/// `T_A<-C = left * right`: quaternion composition, then rotation of the
+/// right translation by the left rotation, then componentwise translation
+/// addition. Quaternion composition uses 43 arithmetic calls and one sqrt;
+/// vector rotation uses 30 calls; and the final translation uses three calls.
+/// A failed stage returns before any later stage and no partial transform is
+/// exposed.
+pub(crate) fn compose_canonical_rigid_transforms<G: QuaternionNormalizationGate>(
+    left: CanonicalRigidTransform,
+    right: CanonicalRigidTransform,
+    gate: &mut G,
+    arithmetic_capability: &mut Binary64ArithmeticCapability<'_>,
+    sqrt_capability: &mut SqrtCapability<'_>,
+) -> Result<CanonicalRigidTransform, QuaternionNormalizationError> {
+    let rotation = compose_canonical_quaternions(
+        left.rotation,
+        right.rotation,
+        gate,
+        arithmetic_capability,
+        sqrt_capability.reborrow(),
+    )?;
+    let rotated_translation = rotate_canonical_vector(
+        left.rotation,
+        right.translation.components(),
+        arithmetic_capability,
+    )?;
+    let left_translation = left.translation.components();
+    let translation = [
+        checked_operation(
+            arithmetic_capability,
+            QuaternionArithmeticOperation::Add,
+            QuaternionArithmeticStage::TransformTranslationAdd,
+            Some(0),
+            left_translation[0].as_f64(),
+            rotated_translation[0].as_f64(),
+        )?,
+        checked_operation(
+            arithmetic_capability,
+            QuaternionArithmeticOperation::Add,
+            QuaternionArithmeticStage::TransformTranslationAdd,
+            Some(1),
+            left_translation[1].as_f64(),
+            rotated_translation[1].as_f64(),
+        )?,
+        checked_operation(
+            arithmetic_capability,
+            QuaternionArithmeticOperation::Add,
+            QuaternionArithmeticStage::TransformTranslationAdd,
+            Some(2),
+            left_translation[2].as_f64(),
+            rotated_translation[2].as_f64(),
+        )?,
+    ]
+    .map(|component| {
+        NormalizedBinary64::from_f64_result(component)
+            .expect("checked transform translation output was finite")
+    });
+
+    Ok(CanonicalRigidTransform::new(
+        frame::Translation3::from_components(translation),
+        rotation,
+    ))
+}
+
+/// Apply a canonical local-to-parent rigid transform to a point.
+///
+/// Rotation is evaluated first through the fixed 30-call vector path, then
+/// the transform translation is added componentwise through three checked
+/// provider calls. No square root or normalization is performed here.
+pub(crate) fn apply_canonical_rigid_transform(
+    transform: CanonicalRigidTransform,
+    point: [NormalizedBinary64; 3],
+    arithmetic_capability: &mut Binary64ArithmeticCapability<'_>,
+) -> Result<[NormalizedBinary64; 3], QuaternionNormalizationError> {
+    let rotated = rotate_canonical_vector(transform.rotation, point, arithmetic_capability)?;
+    let translation = transform.translation.components();
+    let result = [
+        checked_operation(
+            arithmetic_capability,
+            QuaternionArithmeticOperation::Add,
+            QuaternionArithmeticStage::PointTranslationAdd,
+            Some(0),
+            rotated[0].as_f64(),
+            translation[0].as_f64(),
+        )?,
+        checked_operation(
+            arithmetic_capability,
+            QuaternionArithmeticOperation::Add,
+            QuaternionArithmeticStage::PointTranslationAdd,
+            Some(1),
+            rotated[1].as_f64(),
+            translation[1].as_f64(),
+        )?,
+        checked_operation(
+            arithmetic_capability,
+            QuaternionArithmeticOperation::Add,
+            QuaternionArithmeticStage::PointTranslationAdd,
+            Some(2),
+            rotated[2].as_f64(),
+            translation[2].as_f64(),
+        )?,
+    ];
+    Ok(result.map(|component| {
+        NormalizedBinary64::from_f64_result(component)
+            .expect("checked point application output was finite")
+    }))
 }
 
 /// Canonical proximal and distal Joint frames.
@@ -647,7 +761,7 @@ mod tests {
     use crate::quaternion_normalization::{
         Binary64ArithmeticCapability, Binary64ArithmeticProvider,
         Binary64ArithmeticProviderFailure, CorrectlyRoundedSqrt, GateRejection,
-        QuaternionGateStage, SqrtProviderFailure,
+        QuaternionArithmeticOperation, QuaternionGateStage, SqrtProviderFailure,
     };
     use crate::restricted_source_set_handoff::build_restricted_source_set_handoff;
     use crate::source_set_preparation::{SourceSetInput, prepare_source_set};
@@ -673,6 +787,59 @@ mod tests {
 
         fn div(&mut self, left: f64, right: f64) -> Result<f64, Binary64ArithmeticProviderFailure> {
             Ok(left / right)
+        }
+    }
+
+    #[derive(Default)]
+    struct TraceArithmetic {
+        calls: Vec<QuaternionArithmeticOperation>,
+        fail_at: Option<usize>,
+        nonfinite_output_at: Option<usize>,
+        negative_zero_output_at: Option<usize>,
+    }
+
+    impl TraceArithmetic {
+        fn call(
+            &mut self,
+            operation: QuaternionArithmeticOperation,
+            left: f64,
+            right: f64,
+        ) -> Result<f64, Binary64ArithmeticProviderFailure> {
+            let index = self.calls.len();
+            self.calls.push(operation);
+            if self.fail_at == Some(index) {
+                return Err(Binary64ArithmeticProviderFailure::Failed);
+            }
+            if self.nonfinite_output_at == Some(index) {
+                return Ok(f64::NAN);
+            }
+            if self.negative_zero_output_at == Some(index) {
+                return Ok(-0.0);
+            }
+            Ok(match operation {
+                QuaternionArithmeticOperation::Add => left + right,
+                QuaternionArithmeticOperation::Sub => left - right,
+                QuaternionArithmeticOperation::Mul => left * right,
+                QuaternionArithmeticOperation::Div => left / right,
+            })
+        }
+    }
+
+    impl Binary64ArithmeticProvider for TraceArithmetic {
+        fn add(&mut self, left: f64, right: f64) -> Result<f64, Binary64ArithmeticProviderFailure> {
+            self.call(QuaternionArithmeticOperation::Add, left, right)
+        }
+
+        fn sub(&mut self, left: f64, right: f64) -> Result<f64, Binary64ArithmeticProviderFailure> {
+            self.call(QuaternionArithmeticOperation::Sub, left, right)
+        }
+
+        fn mul(&mut self, left: f64, right: f64) -> Result<f64, Binary64ArithmeticProviderFailure> {
+            self.call(QuaternionArithmeticOperation::Mul, left, right)
+        }
+
+        fn div(&mut self, left: f64, right: f64) -> Result<f64, Binary64ArithmeticProviderFailure> {
+            self.call(QuaternionArithmeticOperation::Div, left, right)
         }
     }
 
@@ -1545,6 +1712,457 @@ mod tests {
                 .map(NormalizedBinary64::to_bits),
             [0, 0, 0, 1.0_f64.to_bits()]
         );
+    }
+
+    fn scalar(value: f64) -> NormalizedBinary64 {
+        NormalizedBinary64::from_f64_result(value).unwrap()
+    }
+
+    fn rigid_transform(translation: [f64; 3], rotation: [f64; 4]) -> CanonicalRigidTransform {
+        let mut gate = Gate::default();
+        let mut arithmetic = NativeArithmetic;
+        let mut sqrt = RecordingSqrt::correct();
+        let rotation = normalize_structural_quaternion(
+            frame::QuaternionXyzw::from_components(rotation.map(scalar)),
+            &mut gate,
+            Binary64ArithmeticCapability::provided(&mut arithmetic),
+            SqrtCapability::provided(&mut sqrt),
+        )
+        .unwrap();
+        CanonicalRigidTransform::new(
+            frame::Translation3::from_components(translation.map(scalar)),
+            rotation,
+        )
+    }
+
+    fn identity_transform(translation: [f64; 3]) -> CanonicalRigidTransform {
+        rigid_transform(translation, [0.0, 0.0, 0.0, 1.0])
+    }
+
+    fn z_quarter_turn(translation: [f64; 3]) -> CanonicalRigidTransform {
+        rigid_transform(translation, [0.0, 0.0, 1.0, 1.0])
+    }
+
+    #[test]
+    fn rigid_transform_point_application_has_exact_thirty_three_call_trace() {
+        let transform = z_quarter_turn([10.0, 20.0, 30.0]);
+        let point = [scalar(1.0), scalar(2.0), scalar(3.0)];
+        let mut arithmetic = TraceArithmetic::default();
+        let output = {
+            let mut capability = Binary64ArithmeticCapability::provided(&mut arithmetic);
+            apply_canonical_rigid_transform(transform, point, &mut capability).unwrap()
+        };
+
+        assert_eq!(
+            output.map(NormalizedBinary64::to_bits),
+            [
+                0x4020_0000_0000_0000,
+                0x4035_0000_0000_0000,
+                0x4040_8000_0000_0000,
+            ]
+        );
+        assert_eq!(arithmetic.calls.len(), 33);
+        assert!(
+            arithmetic.calls[..30]
+                .iter()
+                .all(|operation| *operation != QuaternionArithmeticOperation::Div)
+        );
+        assert_eq!(
+            arithmetic.calls[30..],
+            [
+                QuaternionArithmeticOperation::Add,
+                QuaternionArithmeticOperation::Add,
+                QuaternionArithmeticOperation::Add,
+            ]
+        );
+        assert_eq!(
+            output[0].to_bits(),
+            scalar(8.0).to_bits(),
+            "the frozen fixture uses the exact rounded +90 degree result"
+        );
+    }
+
+    #[test]
+    fn rigid_transform_composition_has_exact_seventy_six_call_trace_and_rightmost_first_translation()
+     {
+        let left = z_quarter_turn([10.0, 20.0, 30.0]);
+        let right = identity_transform([1.0, 2.0, 3.0]);
+        let mut gate = Gate::default();
+        let mut arithmetic = TraceArithmetic::default();
+        let mut sqrt = RecordingSqrt::correct();
+        let result = {
+            let mut capability = Binary64ArithmeticCapability::provided(&mut arithmetic);
+            let mut sqrt_capability = SqrtCapability::provided(&mut sqrt);
+            compose_canonical_rigid_transforms(
+                left,
+                right,
+                &mut gate,
+                &mut capability,
+                &mut sqrt_capability,
+            )
+            .unwrap()
+        };
+
+        assert_eq!(sqrt.inputs.len(), 1);
+        assert_eq!(arithmetic.calls.len(), 76);
+        assert!(arithmetic.calls[..43].contains(&QuaternionArithmeticOperation::Div));
+        assert!(
+            arithmetic.calls[43..73]
+                .iter()
+                .all(|operation| *operation != QuaternionArithmeticOperation::Div)
+        );
+        assert_eq!(
+            arithmetic.calls[73..],
+            [
+                QuaternionArithmeticOperation::Add,
+                QuaternionArithmeticOperation::Add,
+                QuaternionArithmeticOperation::Add,
+            ]
+        );
+        assert_eq!(result.rotation(), left.rotation());
+        assert_eq!(
+            result
+                .translation()
+                .components()
+                .map(NormalizedBinary64::to_bits),
+            [
+                scalar(8.0).to_bits(),
+                scalar(21.0).to_bits(),
+                scalar(33.0).to_bits(),
+            ]
+        );
+
+        // The same exact fixture proves t_out = t_left + R_left * t_right.
+        // A point on the Z axis keeps this fixture exact through both paths;
+        // the non-axis translation is already exercised by the composition
+        // assertion above.
+        let point = [scalar(0.0), scalar(0.0), scalar(6.0)];
+        let mut apply_arithmetic = TraceArithmetic::default();
+        let composed_point = {
+            let mut capability = Binary64ArithmeticCapability::provided(&mut apply_arithmetic);
+            apply_canonical_rigid_transform(result, point, &mut capability).unwrap()
+        };
+        let mut sequential_arithmetic = TraceArithmetic::default();
+        let sequential_point = {
+            let mut capability = Binary64ArithmeticCapability::provided(&mut sequential_arithmetic);
+            let right_point =
+                apply_canonical_rigid_transform(right, point, &mut capability).unwrap();
+            apply_canonical_rigid_transform(left, right_point, &mut capability).unwrap()
+        };
+        assert_eq!(composed_point, sequential_point);
+    }
+
+    #[test]
+    fn rigid_transform_nonidentity_composition_matches_frozen_independent_oracle() {
+        // Independent column-vector oracle: both quaternions normalize to
+        // exact halves.  q_left = (1,1,1,1)/2 maps (x,y,z) to (z,x,y), while
+        // q_right = (1,-1,1,1)/2 maps (x,y,z) to (-y,-z,x). Their Hamilton
+        // product is the exact canonical 180-degree X quaternion (1,0,0,0).
+        // With t_left=(10,-20,30), t_right=(4,5,-6), and p=(7,-8,9), the
+        // independently frozen results are t_out=(4,-16,35) and
+        // (T_left*T_right)(p)=(11,-8,26).
+        let left = rigid_transform([10.0, -20.0, 30.0], [0.5, 0.5, 0.5, 0.5]);
+        let right = rigid_transform([4.0, 5.0, -6.0], [0.5, -0.5, 0.5, 0.5]);
+        let mut gate = Gate::default();
+        let mut arithmetic = TraceArithmetic::default();
+        let mut sqrt = RecordingSqrt::correct();
+        let composed = {
+            let mut capability = Binary64ArithmeticCapability::provided(&mut arithmetic);
+            let mut sqrt_capability = SqrtCapability::provided(&mut sqrt);
+            compose_canonical_rigid_transforms(
+                left,
+                right,
+                &mut gate,
+                &mut capability,
+                &mut sqrt_capability,
+            )
+            .unwrap()
+        };
+        assert_eq!(
+            composed
+                .rotation()
+                .components()
+                .map(NormalizedBinary64::to_bits),
+            [1.0_f64.to_bits(), 0, 0, 0,]
+        );
+        assert_eq!(
+            composed
+                .translation()
+                .components()
+                .map(NormalizedBinary64::to_bits),
+            [4.0_f64.to_bits(), (-16.0_f64).to_bits(), 35.0_f64.to_bits(),]
+        );
+
+        let point = [scalar(7.0), scalar(-8.0), scalar(9.0)];
+        let mut point_arithmetic = TraceArithmetic::default();
+        let applied = {
+            let mut capability = Binary64ArithmeticCapability::provided(&mut point_arithmetic);
+            apply_canonical_rigid_transform(composed, point, &mut capability).unwrap()
+        };
+        assert_eq!(
+            applied.map(NormalizedBinary64::to_bits),
+            [11.0_f64.to_bits(), (-8.0_f64).to_bits(), 26.0_f64.to_bits(),]
+        );
+
+        // Operand order and translation ownership are observable on this
+        // off-axis fixture; swapping rotations cannot satisfy the frozen q.
+        let mut swapped_gate = Gate::default();
+        let mut swapped_arithmetic = TraceArithmetic::default();
+        let mut swapped_sqrt = RecordingSqrt::correct();
+        let swapped = {
+            let mut capability = Binary64ArithmeticCapability::provided(&mut swapped_arithmetic);
+            let mut sqrt_capability = SqrtCapability::provided(&mut swapped_sqrt);
+            compose_canonical_rigid_transforms(
+                right,
+                left,
+                &mut swapped_gate,
+                &mut capability,
+                &mut sqrt_capability,
+            )
+            .unwrap()
+        };
+        assert_ne!(swapped.rotation(), composed.rotation());
+        assert_ne!(swapped.translation(), composed.translation());
+    }
+
+    #[test]
+    fn rigid_transform_operations_propagate_failures_without_late_calls() {
+        let left = z_quarter_turn([10.0, 20.0, 30.0]);
+        let right = identity_transform([1.0, 2.0, 3.0]);
+
+        let mut gate = Gate::default();
+        let mut arithmetic = TraceArithmetic {
+            fail_at: Some(0),
+            ..TraceArithmetic::default()
+        };
+        let mut sqrt = RecordingSqrt::correct();
+        let result = {
+            let mut capability = Binary64ArithmeticCapability::provided(&mut arithmetic);
+            let mut sqrt_capability = SqrtCapability::provided(&mut sqrt);
+            compose_canonical_rigid_transforms(
+                left,
+                right,
+                &mut gate,
+                &mut capability,
+                &mut sqrt_capability,
+            )
+        };
+        assert!(matches!(
+            result,
+            Err(QuaternionNormalizationError::Arithmetic(
+                crate::quaternion_normalization::QuaternionArithmeticError::ProviderFailed {
+                    stage: QuaternionArithmeticStage::CompositionProduct,
+                    ..
+                }
+            ))
+        ));
+        assert_eq!(arithmetic.calls.len(), 1);
+        assert!(sqrt.inputs.is_empty());
+
+        let mut gate = Gate::default();
+        let mut arithmetic = TraceArithmetic {
+            fail_at: Some(43),
+            ..TraceArithmetic::default()
+        };
+        let mut sqrt = RecordingSqrt::correct();
+        let result = {
+            let mut capability = Binary64ArithmeticCapability::provided(&mut arithmetic);
+            let mut sqrt_capability = SqrtCapability::provided(&mut sqrt);
+            compose_canonical_rigid_transforms(
+                left,
+                right,
+                &mut gate,
+                &mut capability,
+                &mut sqrt_capability,
+            )
+        };
+        assert!(matches!(
+            result,
+            Err(QuaternionNormalizationError::Arithmetic(
+                crate::quaternion_normalization::QuaternionArithmeticError::ProviderFailed {
+                    stage: QuaternionArithmeticStage::VectorRotationCrossProduct,
+                    ..
+                }
+            ))
+        ));
+        assert_eq!(arithmetic.calls.len(), 44);
+        assert_eq!(sqrt.inputs.len(), 1);
+
+        let mut arithmetic = TraceArithmetic {
+            fail_at: Some(30),
+            ..TraceArithmetic::default()
+        };
+        let point = [scalar(1.0), scalar(2.0), scalar(3.0)];
+        let result = {
+            let mut capability = Binary64ArithmeticCapability::provided(&mut arithmetic);
+            apply_canonical_rigid_transform(left, point, &mut capability)
+        };
+        assert!(matches!(
+            result,
+            Err(QuaternionNormalizationError::Arithmetic(
+                crate::quaternion_normalization::QuaternionArithmeticError::ProviderFailed {
+                    stage: QuaternionArithmeticStage::PointTranslationAdd,
+                    ..
+                }
+            ))
+        ));
+        assert_eq!(arithmetic.calls.len(), 31);
+    }
+
+    #[test]
+    fn rigid_transform_new_path_capability_error_boundaries_are_typed_and_zero_safe() {
+        let left = identity_transform([0.0, 0.0, 0.0]);
+        let right = identity_transform([0.0, 0.0, 0.0]);
+
+        let mut sqrt = RecordingSqrt::correct();
+        let mut gate = Gate::default();
+        let unavailable = {
+            let mut sqrt_capability = SqrtCapability::provided(&mut sqrt);
+            compose_canonical_rigid_transforms(
+                left,
+                right,
+                &mut gate,
+                &mut Binary64ArithmeticCapability::unavailable(),
+                &mut sqrt_capability,
+            )
+        };
+        assert!(matches!(
+            unavailable,
+            Err(QuaternionNormalizationError::Arithmetic(
+                crate::quaternion_normalization::QuaternionArithmeticError::ProviderUnavailable {
+                    operation: QuaternionArithmeticOperation::Mul,
+                    stage: QuaternionArithmeticStage::CompositionProduct,
+                    index: Some(0),
+                }
+            ))
+        ));
+        assert!(sqrt.inputs.is_empty());
+
+        let point = [scalar(1.0), scalar(2.0), scalar(3.0)];
+        let unavailable_point = apply_canonical_rigid_transform(
+            left,
+            point,
+            &mut Binary64ArithmeticCapability::unavailable(),
+        );
+        assert!(matches!(
+            unavailable_point,
+            Err(QuaternionNormalizationError::Arithmetic(
+                crate::quaternion_normalization::QuaternionArithmeticError::ProviderUnavailable {
+                    operation: QuaternionArithmeticOperation::Mul,
+                    stage: QuaternionArithmeticStage::VectorRotationCrossProduct,
+                    index: Some(0),
+                }
+            ))
+        ));
+
+        let mut point_nonfinite = TraceArithmetic {
+            nonfinite_output_at: Some(30),
+            ..TraceArithmetic::default()
+        };
+        let point_nonfinite_result = {
+            let mut capability = Binary64ArithmeticCapability::provided(&mut point_nonfinite);
+            apply_canonical_rigid_transform(left, point, &mut capability)
+        };
+        assert!(matches!(
+            point_nonfinite_result,
+            Err(QuaternionNormalizationError::Arithmetic(
+                crate::quaternion_normalization::QuaternionArithmeticError::NonFiniteOutput {
+                    operation: QuaternionArithmeticOperation::Add,
+                    stage: QuaternionArithmeticStage::PointTranslationAdd,
+                    index: Some(0),
+                    ..
+                }
+            ))
+        ));
+        assert_eq!(point_nonfinite.calls.len(), 31);
+
+        let mut composition_nonfinite = TraceArithmetic {
+            nonfinite_output_at: Some(73),
+            ..TraceArithmetic::default()
+        };
+        let mut composition_gate = Gate::default();
+        let mut composition_sqrt = RecordingSqrt::correct();
+        let composition_nonfinite_result = {
+            let mut capability = Binary64ArithmeticCapability::provided(&mut composition_nonfinite);
+            let mut sqrt_capability = SqrtCapability::provided(&mut composition_sqrt);
+            compose_canonical_rigid_transforms(
+                left,
+                right,
+                &mut composition_gate,
+                &mut capability,
+                &mut sqrt_capability,
+            )
+        };
+        assert!(matches!(
+            composition_nonfinite_result,
+            Err(QuaternionNormalizationError::Arithmetic(
+                crate::quaternion_normalization::QuaternionArithmeticError::NonFiniteOutput {
+                    operation: QuaternionArithmeticOperation::Add,
+                    stage: QuaternionArithmeticStage::TransformTranslationAdd,
+                    index: Some(0),
+                    ..
+                }
+            ))
+        ));
+        assert_eq!(composition_nonfinite.calls.len(), 74);
+        assert_eq!(composition_sqrt.inputs.len(), 1);
+
+        let mut point_negative_zero = TraceArithmetic {
+            negative_zero_output_at: Some(30),
+            ..TraceArithmetic::default()
+        };
+        let point_output = {
+            let mut capability = Binary64ArithmeticCapability::provided(&mut point_negative_zero);
+            apply_canonical_rigid_transform(left, point, &mut capability).unwrap()
+        };
+        assert_eq!(point_output[0].to_bits(), 0);
+
+        let mut composition_negative_zero = TraceArithmetic {
+            negative_zero_output_at: Some(73),
+            ..TraceArithmetic::default()
+        };
+        let mut composition_gate = Gate::default();
+        let mut composition_sqrt = RecordingSqrt::correct();
+        let composition_output = {
+            let mut capability =
+                Binary64ArithmeticCapability::provided(&mut composition_negative_zero);
+            let mut sqrt_capability = SqrtCapability::provided(&mut composition_sqrt);
+            compose_canonical_rigid_transforms(
+                left,
+                right,
+                &mut composition_gate,
+                &mut capability,
+                &mut sqrt_capability,
+            )
+            .unwrap()
+        };
+        assert_eq!(composition_output.translation().x().to_bits(), 0);
+        assert_eq!(composition_negative_zero.calls.len(), 76);
+    }
+
+    #[test]
+    fn rigid_transform_quaternion_composition_is_noncommuting_and_q_sign_invariant() {
+        let x = rigid_transform([0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 1.0]);
+        let y = rigid_transform([0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 1.0]);
+        let q = rigid_transform([0.0, 0.0, 0.0], [0.25, -0.5, 0.75, 1.0]);
+        let negative_q = rigid_transform([0.0, 0.0, 0.0], [-0.25, 0.5, -0.75, -1.0]);
+        let compose = |left, right| {
+            let mut gate = Gate::default();
+            let mut arithmetic = NativeArithmetic;
+            let mut sqrt = RecordingSqrt::correct();
+            let mut capability = Binary64ArithmeticCapability::provided(&mut arithmetic);
+            let mut sqrt_capability = SqrtCapability::provided(&mut sqrt);
+            compose_canonical_rigid_transforms(
+                left,
+                right,
+                &mut gate,
+                &mut capability,
+                &mut sqrt_capability,
+            )
+            .unwrap()
+        };
+        assert_ne!(compose(x, y).rotation(), compose(y, x).rotation());
+        assert_eq!(compose(q, x).rotation(), compose(negative_q, x).rotation());
     }
 
     #[test]
