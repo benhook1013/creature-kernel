@@ -117,8 +117,17 @@ pub struct UnitRatio {
 
 impl UnitRatio {
     /// Constructs a ratio from positive integer metadata.
-    const fn new(numerator: u32, denominator: u32) -> Self {
+    pub(crate) const fn new(numerator: u32, denominator: u32) -> Self {
         assert!(numerator != 0 && denominator != 0);
+        Self {
+            numerator,
+            denominator,
+        }
+    }
+
+    /// Constructs an unchecked ratio carrier for crate-internal tests.
+    #[cfg(test)]
+    pub(crate) const fn from_test_parts(numerator: u32, denominator: u32) -> Self {
         Self {
             numerator,
             denominator,

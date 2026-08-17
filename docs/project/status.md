@@ -441,6 +441,20 @@ public or wire API change, snapshot or serialization, validity/status/
 diagnostic mapping, or Readiness 3 activation. It is internal reversible
 runway progress only and accepts or changes no contract.
 
+The runway also contains an implemented crate-private exact unit-scaling
+candidate. It applies `UnitRatio` to normalized binary64 values and exposes a
+`scale_to_metres` candidate for the current metre, centimetre, and millimetre
+units using exact integer/rational arithmetic with one round-to-nearest,
+ties-to-even result. It handles normal, subnormal, and significand-carry
+boundaries, canonicalizes zero, and reports typed invalid-ratio, non-finite,
+resource, overflow, and nonzero-underflow failures. The current closed unit
+ratios require no profile constants or other policy choice. It is not wired
+into source or member preparation and uses neither ambient floating-point
+multiplication nor a pre-rounded approximate ratio. It adds no public or wire
+contract, status or diagnostic mapping, snapshot or serialization, fixture or
+profile binding, or Readiness 3 activation. It is internal reversible runway
+progress only and accepts or changes no contract.
+
 Candidate locally validated and appraised by Ben on 2026-08-15: a directly
 consuming primitive spatial preview
 uses this exact placement result through the existing

@@ -62,6 +62,13 @@ impl NormalizedBinary64 {
         Self { bits }
     }
 
+    /// Constructs a carrier from bits that a crate-internal numeric operation
+    /// has already proved finite and canonicalized.
+    #[allow(dead_code)]
+    pub(crate) const fn from_finite_bits(bits: u64) -> Self {
+        Self { bits }
+    }
+
     /// Returns this value as an `f64`.
     #[must_use]
     pub fn as_f64(self) -> f64 {

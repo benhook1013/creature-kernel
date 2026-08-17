@@ -34,6 +34,7 @@ pub(crate) mod source_set_provenance_observation;
 pub(crate) mod source_set_reference_observation;
 pub(crate) mod source_set_relation_observation;
 pub mod structural_validation;
+pub(crate) mod unit_scaling;
 
 /// Implementation convenience for the provisional CLI/debug adapter.  This
 /// is not canonical JSON behavior or a stable public serialization contract.
