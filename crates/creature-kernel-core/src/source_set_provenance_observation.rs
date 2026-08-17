@@ -246,6 +246,8 @@ impl SourceSetDependencyTraversalEdge {
 pub(crate) struct SourceSetProvenanceObservation {
     root: SourceSetMemberKey,
     members: BTreeMap<SourceSetMemberKey, SourceSetMemberProvenance>,
+    semantic_address_occurrences: BTreeMap<AddressKey, Vec<SourceSetRecordProvenance>>,
+    semantic_address_collisions: BTreeSet<AddressKey>,
     namespace_owners: BTreeMap<String, BTreeSet<SourceSetMemberKey>>,
     namespace_collisions: BTreeMap<String, BTreeSet<SourceSetMemberKey>>,
     declared_dependency_edges: Vec<SourceSetDependencyEdgeObservation>,
@@ -267,6 +269,31 @@ impl SourceSetProvenanceObservation {
     #[must_use]
     pub(crate) fn members(&self) -> &BTreeMap<SourceSetMemberKey, SourceSetMemberProvenance> {
         &self.members
+    }
+
+    /// Every admitted occurrence of each source-local semantic address.
+    ///
+    /// The vectors retain all member provenance rather than selecting an
+    /// owner or deduplicating equal keys.  Their order is deterministic:
+    /// members are visited by [`SourceSetMemberKey`] order and each member's
+    /// address inventory is already address-key ordered.  This is an
+    /// observation-only projection; it does not assign canonical occurrence
+    /// identity or resolver status.
+    #[must_use]
+    pub(crate) fn semantic_address_occurrences(
+        &self,
+    ) -> &BTreeMap<AddressKey, Vec<SourceSetRecordProvenance>> {
+        &self.semantic_address_occurrences
+    }
+
+    /// Address entries with more than one retained occurrence.
+    ///
+    /// This is a projection of [`Self::semantic_address_occurrences`], not a
+    /// rejection or ownership decision.  Full provenance remains available
+    /// only through [`Self::semantic_address_occurrences`].
+    #[must_use]
+    pub(crate) fn semantic_address_collisions(&self) -> &BTreeSet<AddressKey> {
+        &self.semantic_address_collisions
     }
 
     /// Namespace to all admitted member owners.
@@ -348,10 +375,18 @@ pub(crate) fn observe_source_set_provenance(
     handoff: &RestrictedSourceSetHandoff,
 ) -> SourceSetProvenanceObservation {
     let mut members = BTreeMap::new();
+    let mut semantic_address_occurrences: BTreeMap<AddressKey, Vec<SourceSetRecordProvenance>> =
+        BTreeMap::new();
     let mut namespace_owners: BTreeMap<String, BTreeSet<SourceSetMemberKey>> = BTreeMap::new();
 
     for (key, member) in handoff.members() {
         let inventory = member_provenance(key, member.role(), member.prepared_source().graph());
+        for (address, provenance) in inventory.semantic_addresses() {
+            semantic_address_occurrences
+                .entry(address.clone())
+                .or_default()
+                .push(provenance.clone());
+        }
         namespace_owners
             .entry(key.namespace().to_owned())
             .or_default()
@@ -363,6 +398,12 @@ pub(crate) fn observe_source_set_provenance(
         .iter()
         .filter(|(_, owners)| owners.len() > 1)
         .map(|(namespace, owners)| (namespace.clone(), owners.clone()))
+        .collect();
+
+    let semantic_address_collisions = semantic_address_occurrences
+        .iter()
+        .filter(|(_, occurrences)| occurrences.len() > 1)
+        .map(|(address, _)| address.clone())
         .collect();
 
     let declared_dependency_edges = handoff
@@ -427,6 +468,8 @@ pub(crate) fn observe_source_set_provenance(
     SourceSetProvenanceObservation {
         root: handoff.root().clone(),
         members,
+        semantic_address_occurrences,
+        semantic_address_collisions,
         namespace_owners,
         namespace_collisions,
         declared_dependency_edges,
@@ -641,6 +684,13 @@ mod tests {
         serde_json::to_vec(&value).expect("source serializes")
     }
 
+    fn source_with_capability_role(document: &str, namespace: &str, role: &str) -> Vec<u8> {
+        let mut value: Value =
+            serde_json::from_slice(&source(document, namespace)).expect("source is valid JSON");
+        value["body"]["capabilities"][0]["address"]["role"] = Value::String(role.to_owned());
+        serde_json::to_vec(&value).expect("source serializes")
+    }
+
     fn rewrite_namespaces(value: &mut Value, namespace: &str) {
         match value {
             Value::Object(object) => {
@@ -796,6 +846,107 @@ mod tests {
         assert_eq!(observation.namespace_collisions()["shared_ns"], *owners);
         assert!(owners.iter().any(|owner| owner.document() == "first_doc"));
         assert!(owners.iter().any(|owner| owner.document() == "second_doc"));
+    }
+
+    #[test]
+    fn semantic_address_occurrences_retain_same_key_and_project_collisions() {
+        let root = source("root_doc", "root_ns");
+        let first = source("first_doc", "shared_ns");
+        let second = source("second_doc", "shared_ns");
+        let observation = observe_source_set_provenance(&handoff(&root, vec![&second, &first]));
+        let address = observation
+            .members()
+            .values()
+            .find(|member| member.key().document() == "first_doc")
+            .expect("first member is admitted")
+            .semantic_addresses()
+            .keys()
+            .next()
+            .expect("shared member has an address")
+            .clone();
+
+        let occurrences = &observation.semantic_address_occurrences()[&address];
+        assert_eq!(occurrences.len(), 2);
+        assert_eq!(
+            occurrences
+                .iter()
+                .map(|occurrence| occurrence.member().document())
+                .collect::<Vec<_>>(),
+            vec!["first_doc", "second_doc"]
+        );
+        assert!(observation.semantic_address_collisions().contains(&address));
+        assert_eq!(observation.namespace_collisions()["shared_ns"].len(), 2);
+        assert!(
+            observation
+                .semantic_address_collisions()
+                .iter()
+                .all(|address| observation.semantic_address_occurrences()[address].len() > 1)
+        );
+    }
+
+    #[test]
+    fn semantic_address_occurrences_are_input_order_independent() {
+        let root = source("root_doc", "root_ns");
+        let first = source("first_doc", "shared_ns");
+        let second = source("second_doc", "shared_ns");
+        let forward = observe_source_set_provenance(&handoff(&root, vec![&first, &second]));
+        let reversed = observe_source_set_provenance(&handoff(&root, vec![&second, &first]));
+
+        assert_eq!(
+            forward.semantic_address_occurrences(),
+            reversed.semantic_address_occurrences()
+        );
+        assert_eq!(
+            forward.semantic_address_collisions(),
+            reversed.semantic_address_collisions()
+        );
+    }
+
+    #[test]
+    fn disjoint_namespaced_addresses_have_no_false_collisions() {
+        let root = source("root_doc", "root_ns");
+        let dependency = source("dependency_doc", "dependency_ns");
+        let observation = observe_source_set_provenance(&handoff(&root, vec![&dependency]));
+
+        assert!(!observation.semantic_address_occurrences().is_empty());
+        assert!(observation.semantic_address_collisions().is_empty());
+    }
+
+    #[test]
+    fn same_namespace_collision_projection_excludes_distinct_address_keys() {
+        let root = source("root_doc", "root_ns");
+        let first = source("first_doc", "shared_ns");
+        let second = source_with_capability_role("second_doc", "shared_ns", "alternate");
+        let observation = observe_source_set_provenance(&handoff(&root, vec![&second, &first]));
+        let first_inventory = observation
+            .members()
+            .values()
+            .find(|member| member.key().document() == "first_doc")
+            .expect("first member is admitted");
+        let second_inventory = observation
+            .members()
+            .values()
+            .find(|member| member.key().document() == "second_doc")
+            .expect("second member is admitted");
+        let expected_intersection = first_inventory
+            .semantic_addresses()
+            .keys()
+            .filter(|address| second_inventory.semantic_addresses().contains_key(*address))
+            .cloned()
+            .collect::<BTreeSet<_>>();
+
+        assert_eq!(observation.namespace_collisions()["shared_ns"].len(), 2);
+        assert_eq!(
+            observation.semantic_address_collisions(),
+            &expected_intersection
+        );
+        assert!(
+            first_inventory
+                .semantic_addresses()
+                .keys()
+                .filter(|address| !second_inventory.semantic_addresses().contains_key(*address))
+                .all(|address| !observation.semantic_address_collisions().contains(address))
+        );
     }
 
     #[test]
