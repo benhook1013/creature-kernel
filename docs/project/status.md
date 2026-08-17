@@ -333,6 +333,21 @@ It remains preparatory within the recorded runway and does not complete the
 later Readiness 3 successor candidate; the existing human stop before that
 activation transaction, or at another retained-human checkpoint, is unchanged.
 
+The current runway also contains a crate-private source-set reference-target
+observation. It deterministically enumerates all admitted typed semantic
+reference slots, separating full `AddressKey` targets from frame
+`OwnerRoleKey` targets, and retains `Unique`, `Missing`, or `Ambiguous`
+candidate evidence without selecting a winner. Provenance comes from the same
+owned handoff and a once-built frame index; non-semantic Region and Capability
+array order does not affect observation equality or ordering. Current
+structural admission makes `Missing` unreachable through the public handoff
+path, but the representation remains for the later resolver boundary, while
+same-namespace cross-document duplicates exercise `Ambiguous`. This is internal,
+reversible runway progress only: it performs no namespace merge/remap,
+canonical identity, diagnostics/status mapping, serialization or snapshot
+work, public API or visual output, or Readiness 3 activation, and does not
+accept or change a contract; the existing human stop remains unchanged.
+
 Candidate locally validated and appraised by Ben on 2026-08-15: a directly
 consuming primitive spatial preview
 uses this exact placement result through the existing
