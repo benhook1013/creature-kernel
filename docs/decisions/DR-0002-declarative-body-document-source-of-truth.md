@@ -4,19 +4,19 @@ ID: DR-0002
 
 Scope: Specification and architecture
 
-Status: Proposed
+Status: Accepted
 
 Revision: 11
 
 Decision owner: Ben
 
-Owner approval: Pending
+Owner approval: Approved by Ben
 
 Review status: Complete
 
 Date proposed: 2026-08-08
 
-Date decided: —
+Date decided: 2026-08-17
 
 Discussion approval date: 2026-08-12
 
@@ -70,8 +70,17 @@ Double review is required. All earlier revisions and reviews, including the
 `c64b1b...` review, remain stale historical evidence. Ben's 2026-08-12 Batch 9
 discussion approval records the resolver snapshot handoff, absent-module
 identity, and build/publication ownership resolutions below. This material
-revision makes the Revision 10 current-review artifacts stale; Revision 11
-remains Proposed with Owner approval Pending and Review status Pending.
+revision makes the Revision 10 current-review artifacts stale. On 2026-08-17,
+after being shown a plain-language explanation of the four exact current
+revisions, Ben was asked whether Option 1 matched his understanding and replied,
+“all of that sounds good.” The main thread explicitly interprets this as
+acceptance of Option 1, including this Revision 11. This acceptance covers the
+reviewed semantic-foundation direction and authorizes autonomous
+construction/review of the exact Readiness 3 successor candidate under the
+accepted foundation. It does not activate Readiness 3, admit any successor
+manifest/fixtures/snapshot, freeze still-gated implementation/profile
+constants, accept other DRs, select geometry/runtime/engine, or authorize
+external publication.
 
 ## Decision
 
@@ -502,11 +511,14 @@ recommended **Accept** at **High** confidence under the contract/schema,
 determinism, and security lens, and [review 02](reviews/DR-0002-rev-11-review-02.md)
 recommended **Accept** at **Medium** confidence under the platform/failure,
 reversibility, and publication lens. No consolidated finding C1–C5 is
-actionable against DR-0002 in this review. Review completion is evidence only;
-there is no clean-review or acceptance implication. Any cross-cutting findings
-recorded in the linked reviews await Ben's discussion and owner disposition.
-Owner approval remains Pending and Status remains Proposed. Only Ben may accept
-or reject this proposal.
+actionable against DR-0002 in this review. Review status is Complete and the
+review artifacts remain preserved current evidence. Ben accepted this Revision
+11 on 2026-08-17 as part of Option 1; Owner approval is Approved by Ben and
+Status is Accepted. This acceptance is limited to the reviewed
+semantic-foundation direction; no successor manifest, fixtures, snapshot,
+implementation/profile constants, geometry/runtime/engine selection, or
+external publication is thereby admitted, frozen, selected, or authorized, and
+Readiness 3 remains inactive.
 
 ## Implementation and Proof Obligations
 

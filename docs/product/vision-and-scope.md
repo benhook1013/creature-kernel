@@ -36,9 +36,12 @@ The compile/runtime direction is Proposed under
 [DR-0003](../decisions/DR-0003-real-time-first-compiled-avatar-boundary.md):
 expensive invariant generation is outside the frame loop, while a bounded
 hybrid package supports live interaction and an initial in-session preview
-reload workflow. The source, identity, and operation directions are recorded
-as Proposed in their respective decision records; exact formats, syntax,
-budgets, and compatibility details remain open.
+reload workflow. The source and identity directions are accepted semantic-
+foundation directions under [DR-0002](../decisions/DR-0002-declarative-body-document-source-of-truth.md)
+and [DR-0006](../decisions/DR-0006-durable-semantic-and-artifact-identity.md);
+the operation direction remains Proposed under
+[DR-0004](../decisions/DR-0004-external-automation-through-cli-and-api.md).
+Exact formats, syntax, budgets, and compatibility details remain open.
 
 ## Primary outcome
 

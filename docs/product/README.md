@@ -29,11 +29,13 @@ workflow, stylized furry and adult-interaction stress cases with general
 mechanisms, and native generation before external-mesh conformance. They remain
 proposals recorded under DR-0005.
 
-Related Proposed boundaries are recorded in [DR-0002](../decisions/DR-0002-declarative-body-document-source-of-truth.md),
-[DR-0004 Revision 2](../decisions/DR-0004-external-automation-through-cli-and-api.md),
+The accepted semantic-foundation directions are recorded in
+[DR-0002](../decisions/DR-0002-declarative-body-document-source-of-truth.md),
 [DR-0006](../decisions/DR-0006-durable-semantic-and-artifact-identity.md),
-[DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
 and [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
+Related Proposed product boundaries are recorded in
+[DR-0004 Revision 2](../decisions/DR-0004-external-automation-through-cli-and-api.md)
+and [DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md).
 The canonical specification owners are the [body-document](../../spec/body-document/README.md),
 [body-graph](../../spec/body-graph/README.md), [build-operation](../../spec/build-operation/README.md),
 and [fixture-manifest](../../spec/fixture-manifest/README.md) contracts.
@@ -44,11 +46,11 @@ Batch 13 resolutions are discussion-approved and incorporated here as Proposed
 product outcomes only. Accepted DR-0001 Revision 5 remains the operative
 governance baseline while DR-0001 Revision 6 is Proposed transition guidance
 with Ben's workflow direction approved and current review complete; formal
-acceptance remains pending Ben's disposition. The current materially revised
-decision records DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012
-Revision 14 remain Proposed with Owner approval Pending and Review Complete
-after the current Double review at exact target
-`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. DR-0013 Revision 12 is Accepted,
+acceptance remains pending Ben's disposition. DR-0002 Revision 11, DR-0006
+Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14 are accepted
+semantic-foundation directions with Owner approval Approved by Ben and Review
+Complete, decided 2026-08-17; their concrete product, specification, profile,
+and activation consequences remain Proposed or gated. DR-0013 Revision 12 is Accepted,
 with Owner approval Approved by Ben and Review Complete at that exact target,
 decided 2026-08-13. The reviews of the earlier
 predecessor revisions at commit `763cff22d10f6491a05a28312a25250704543dcf`
@@ -61,16 +63,15 @@ G1/G2 were fixed mechanically, T1–T3 were resolved in the successors, and
 T4 remains unselected and deferred, requiring Ben's retained-human disposition
 before adapter profile/schema activation; it does not block the empty first Rust
 slice. Review evidence is not acceptance. DR-0013's accepted platform boundary
-does not accept these Proposed product contracts. Readiness 1 remains the only
-active gate and its accepted scope is only the Cargo workspace, empty
-`creature-kernel-core` library shell, and thin `creature-kernel` CLI shell. The
-exact body and manifest schemas, manifest, nine fixtures, Rust parser/bootstrap,
-and Python preflight/evidence are present as a Proposed Readiness 2 candidate,
-not an admitted or active gate. No Readiness 3 resolver, numeric semantic
+does not accept these Proposed product contracts. Readiness 1 remains active
+for the Cargo workspace, empty `creature-kernel-core` library shell, and thin
+`creature-kernel` CLI shell. Readiness 2 is also active for the admitted exact body
+and manifest schemas, manifest, nine fixtures, Rust parser/bootstrap,
+and Python preflight/evidence. No Readiness 3 resolver, numeric semantic
 activation, adapter, experiment, or Readiness 3 geometry implementation exists.
 Recommendations and the next discussion are summarized in the [current review
 state](../project/status.md#current-review-and-future-activation-obligations).
-The cross-cutting proposal is [DR-0012:
+The cross-cutting semantic-foundation direction is [DR-0012:
 initial body-document encoding, resolution, and compatibility](../decisions/DR-0012-initial-body-document-encoding-resolution-and-compatibility.md).
 This documentation records intended product outcomes; exact syntax details,
 machine schema, exact numeric bounds, and implementation mechanisms remain
@@ -90,9 +91,9 @@ and FTZ/DAZ/subnormal probes. Diagnostic compatibility remains a separate
 Proposed owner with nine domains—source-admission, dependency, semantic-
 identity, graph-structure, frame-numeric, resource, execution-trust,
 publication, and inspection—and one mandatory tiny bootstrap registry/profile;
-exact codes/fields remain fixture-gated. All remain Proposed consequences only:
-no constants, profile IDs, resolver, or adapter activates, and the present
-Readiness 2 candidate remains unadmitted.
+exact codes/fields remain fixture-gated. Concrete diagnostic/profile IDs,
+constants, resolver, and adapter bindings remain Proposed or gated; the
+admitted Readiness 2 transaction does not activate Readiness 3.
 Readiness implementation binding remains a separate scoped content-identity
 transaction from the fixture payload and expected snapshots; no implementation
 binding is implied here.

@@ -26,12 +26,12 @@ not intended to hard-code one species, one skeleton, or one rendering style.
 
 These principles remain proposed, provisional, assistant-synthesized project
 direction under the accepted DR-0001 Revision 5 governance process. They are
-not accepted product or architecture contracts. The source-set proposal is
+not accepted product or architecture contracts. The accepted semantic-
+foundation directions for the source set, semantic/artifact identity, and
+semantic vocabulary, measurements, and frames are recorded in
 [DR-0002](docs/decisions/DR-0002-declarative-body-document-source-of-truth.md),
-the semantic/artifact identity proposal is
 [DR-0006](docs/decisions/DR-0006-durable-semantic-and-artifact-identity.md),
-the semantic vocabulary, measurements, and frames proposal is
-[DR-0011](docs/decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md),
+and [DR-0011](docs/decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md),
 the real-time boundary proposal is
 [DR-0003 Revision 2](docs/decisions/DR-0003-real-time-first-compiled-avatar-boundary.md),
 and the CLI/API proposal is
@@ -48,9 +48,11 @@ discussion-approved and are reflected in the canonical specifications as
 Proposed material. Accepted DR-0001 Revision 5 remains the operative governance
 baseline while DR-0001 Revision 6 is Proposed transition guidance: Ben approved
 its workflow direction and the current review is complete; formal acceptance
-remains pending Ben's disposition. DR-0006/0011/0012 remain Proposed at Revisions
-12/15/14 with Owner approval Pending and Review Complete after the current
-Double review at exact target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. DR-0013 Revision 12 is Accepted,
+remains pending Ben's disposition. DR-0002 Revision 11, DR-0006 Revision 12,
+DR-0011 Revision 15, and DR-0012 Revision 14 are accepted semantic-foundation
+directions with Owner approval Approved by Ben and Review Complete, decided
+2026-08-17; their concrete specification, profile, and activation consequences
+remain Proposed or gated. DR-0013 Revision 12 is Accepted,
 with Owner approval Approved by Ben and Review Complete at that exact target, decided
 2026-08-13.
 The earlier-predecessor review at commit `763cff22d10f6491a05a28312a25250704543dcf`

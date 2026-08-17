@@ -7,13 +7,20 @@ directories should be created only after the relevant boundary is accepted and
 its activation trigger is met.
 
 The CK-KICK-012 Batch 6/7/8/9/10/11/12/13 resolutions are discussion-approved and
-represented as Proposed responsibility consequences. DR-0002 Revision 11 and
-DR-0008 Revision 11 remain Proposed with Owner approval Pending and Review
-Complete. DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14
-remain Proposed with Owner approval Pending and Review Complete.
+represented as Proposed responsibility consequences. DR-0002 Revision 11,
+DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14 are accepted
+semantic-foundation directions with Owner approval Approved by Ben and Review
+Complete, decided 2026-08-17; their concrete responsibility, specification,
+profile, and activation consequences remain Proposed or gated. DR-0008 Revision
+11 remains Proposed with Owner approval Pending and Review Complete.
 DR-0013 Revision 12 is Accepted with Owner approval Approved by Ben and
 Review Complete at exact target `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`,
-decided 2026-08-13. Accepted DR-0001 Revision 5
+decided 2026-08-13. Review scope is record-specific: DR-0002 Revision 11's
+current Double review targeted exact commit
+`6cf17270fda2827756c24a8d0fb301bef358f98f`; the current Double reviews for
+DR-0006 Revision 12, DR-0011 Revision 15, DR-0012 Revision 14, and DR-0013
+Revision 12 targeted exact commit
+`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. Accepted DR-0001 Revision 5
 remains the operative governance baseline while DR-0001 Revision 6 is Proposed
 transition guidance with Ben's workflow direction approved and current review
 complete; formal acceptance remains pending Ben's disposition. The reviews of
@@ -50,8 +57,9 @@ component locations provide semantic provenance; raw lexical spelling is not
 recovered. Internal `frame_preparation` helpers cannot bypass record-level
 admission. Dependency/module expansion, basis/unit application, quaternion
 semantics, claims/snapshots/serialization, resolver, and Readiness 3 activation
-remain outside this preparatory operation. DR-0006 remains
-Proposed with its owner and review state governed by its canonical record. See
+remain outside this preparatory operation. The accepted DR-0006 semantic-
+foundation direction does not activate its concrete identity profile or this
+preparatory operation; those remain Proposed or gated. See
 the [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for review ownership and findings. No package is implied.
 

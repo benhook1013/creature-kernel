@@ -13,19 +13,25 @@ animation, contact, deformation, and engine integration. It is not initially a
 game, editor, or general-purpose engine; a real-time game is the first
 downstream proof and integration target. This boundary remains Proposed under
 [DR-0005](../decisions/DR-0005-initial-product-boundary-and-reference-workflow.md).
-The current semantic boundaries are Proposed under [DR-0002](../decisions/DR-0002-declarative-body-document-source-of-truth.md),
+The accepted semantic-foundation directions for source, identity, and
+vocabulary/frames are recorded in [DR-0002](../decisions/DR-0002-declarative-body-document-source-of-truth.md),
 [DR-0006](../decisions/DR-0006-durable-semantic-and-artifact-identity.md),
-[DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
-and [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md).
+and [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md);
+the morphology boundary remains Proposed under
+[DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md).
 CK-KICK-012 Batch 6/7/8/9/10/11/12/13 resolutions are discussion-approved and represented
-here as Proposed architecture consequences. DR-0002 Revision 11 and DR-0008
-Revision 11 remain Proposed with Owner approval Pending and Review Complete.
-DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14 remain
-Proposed with Owner approval Pending and Review Complete
-after the current Double review at exact target
-`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. DR-0013 Revision 12 is Accepted,
+here as Proposed architecture consequences. DR-0002 Revision 11, DR-0006
+Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14 are accepted
+semantic-foundation directions with Owner approval Approved by Ben and Review
+Complete, decided 2026-08-17; their concrete architecture, specification,
+profile, and activation consequences remain Proposed or gated. DR-0008 Revision
+11 remains Proposed with Owner approval Pending and Review Complete. DR-0013 Revision 12 is Accepted,
 with Owner approval Approved by Ben and Review Complete at that exact target, decided
-2026-08-13. Accepted DR-0001 Revision 5 remains the
+2026-08-13. Review scope is record-specific: DR-0002 Revision 11's current
+Double review targeted exact commit `6cf17270fda2827756c24a8d0fb301bef358f98f`;
+the current Double reviews for DR-0006 Revision 12, DR-0011 Revision 15,
+DR-0012 Revision 14, and DR-0013 Revision 12 targeted exact commit
+`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. Accepted DR-0001 Revision 5 remains the
 operative governance baseline while DR-0001 Revision 6 is Proposed transition
 guidance with Ben's workflow direction approved and current review complete;
 formal acceptance remains pending Ben's disposition. The reviews of the
@@ -39,13 +45,12 @@ slice. The immediate-predecessor review at exact commit
 corrected in the current revisions. The 9c governance pass corrected two
 mechanical history-label issues and its technical pass found no findings /
 Ready for PR at High confidence. Review Complete is evidence only. Readiness 1
-remains the only active gate and its accepted scope is only the Cargo
-workspace, empty `creature-kernel-core` library shell, and thin
-`creature-kernel` CLI shell. The exact body and manifest schemas, manifest,
-nine fixtures, Rust parser/bootstrap, and Python preflight/evidence are present
-as a Proposed Readiness 2 candidate, not an admitted or active gate. No
-Readiness 3 resolver, numeric semantic activation, adapter, experiment, or
-Readiness 3 geometry implementation exists. The detailed
+remains active for the Cargo workspace, empty `creature-kernel-core` library
+shell, and thin `creature-kernel` CLI shell. Readiness 2 is also active for the
+admitted exact body and manifest schemas, manifest, nine fixtures, Rust
+parser/bootstrap, and Python preflight/evidence. No Readiness 3 resolver,
+numeric semantic activation, adapter, experiment, or Readiness 3 geometry
+implementation exists. The detailed
 review state remains owned by project status. Prior Batch 5/9/11/12 reviews remain
 preserved historical evidence. The former Batch 12 Double review of
 commit `730a2f77840cc0caa1f838c30dac4ff20f985e69`; both independent passes
@@ -56,9 +61,10 @@ evidence only. The fresh Batch 11 Double
 review targeted commit `053dba58fd344ed636420e0974cf617862fe265f`; both
 independent passes recommended Revise at High confidence at that historical
 revision. The completed Batch 9 Double review targeted commit
-`6cf17270fda2827756c24a8d0fb301bef358f98f`; its evidence is stale for the
-revised records and is not acceptance. No implementation or readiness gate
-beyond the active Readiness 1 shell is admitted or active. See the
+`6cf17270fda2827756c24a8d0fb301bef358f` for DR-0002 Revision 11; it remains
+current review evidence for that record and is stale for the revised
+DR-0006/0011/0012/0013 records. No Readiness 3 implementation or later
+readiness gate is admitted or active. See the
 [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for review lenses, recommendations, and findings. Earlier review evidence is
 stale after these revisions; see the [decision registry](../decisions/registry.md).
@@ -145,20 +151,18 @@ profile/schema activation; it does not block the empty first Rust slice. The
 immediate-predecessor review at `9b96d18b115126ef09e54ad8c6f21749d5559ff6` is
 stale; its findings were corrected in the current revision. The 9c technical
 pass found no findings / Ready for PR at High confidence; Review Complete is
-evidence only. Readiness 1 remains the only active gate: its accepted scope is
-only the Cargo workspace, empty `creature-kernel-core` library shell, and thin
-`creature-kernel` CLI shell. The exact body and manifest schemas, manifest,
-nine fixtures, Rust parser/bootstrap, and Python preflight/evidence are present
-as a Proposed Readiness 2 candidate, not an admitted or active gate. No
-Readiness 3 resolver, numeric semantic activation, adapter, experiment, or
+evidence only. Readiness 1 remains active for the Cargo workspace, empty
+`creature-kernel-core` library shell, and thin `creature-kernel` CLI shell.
+Readiness 2 is also active for the admitted exact body and manifest schemas,
+manifest, nine fixtures, Rust parser/bootstrap, and Python preflight/evidence.
+No Readiness 3 resolver, numeric semantic activation, adapter, experiment, or
 Readiness 3 geometry implementation exists. See the [current review
 state](../project/status.md#current-review-and-future-activation-obligations)
 for recommendations and findings. The four
-readiness stages are: acceptance has activated Readiness 1, which is only the
-empty Cargo shell; numeric/frame, semantic-address, canonical-data, and
-diagnostic profiles precede exact schema/manifest admission; the exact schema,
-versioned preflighted fixture manifest, listed files, and parser/bootstrap must
-be admitted together in one Readiness 2 review-branch transaction; a distinct
+readiness stages are: acceptance has activated Readiness 1 for the Cargo
+workspace, compiler/core library shell, and thin CLI shell; the exact schema,
+versioned preflighted fixture manifest, listed files, and parser/bootstrap are
+admitted together in the active Readiness 2 transaction; a distinct
 Readiness 3 successor transaction with frozen expected graph outputs activates
 semantic resolution and in-memory snapshot handoff; and a working resolver plus provisional geometry profile and
 project-owned seam activates exploratory Stage 1 geometry. Its target is a stable Rust
@@ -215,27 +219,31 @@ read operation with closed statuses;
 producer/output trust is distinct from coordinator/reporter/publisher trust,
 and lost worker trust cannot be rehabilitated by validation.
 
-Batch 11/12/13 propose typed restricted-ASCII machine addresses with separate
-Unicode display names; a right-handed metre semantic basis (+Y up, +Z
-creature-forward); finite binary64 values with correctly rounded decimal
-admission and canonical quaternion treatment; fixed-order operations with no
-reassociation, implicit FMA contraction, FTZ, or DAZ; direct common-frame
-same-target comparisons, exact dyadic scalar predicates, offline half-chord
-rotation bounds without runtime transcendental comparison, structured claim IDs
-and sorted pair evaluation; and a small versioned diagnostic registry.
+Batch 11/12/13 accepted semantic-foundation directions cover semantic-address
+identity with separate Unicode display names; a right-handed metre semantic
+basis (+Y up, +Z creature-forward); finite binary64
+values with correctly rounded decimal admission and canonical quaternion
+treatment; fixed-order operations with no reassociation, implicit FMA
+contraction, FTZ, or DAZ; direct common-frame same-target comparisons, exact
+dyadic scalar predicates, offline half-chord rotation bounds without runtime
+transcendental comparison, structured claim IDs and sorted pair evaluation; and
+a diagnostic-registry/profile boundary. Concrete typed restricted-ASCII
+machine-address, numeric/frame, and diagnostic profiles, profile IDs, and
+activation bindings remain Proposed or gated.
 Readiness 3 is a separate transaction for expected graph snapshots and
 comparison rules, after those prerequisites and the canonical-data profile are
 available. The planned numeric experiment preregisters intended domains,
 separate semantic error budgets, exact/higher-precision oracles, frozen
 development/held-out/adversarial corpora, condition estimates, rational/ULP,
 normalization/square-root, H-derivation, and claim identity/order fixtures.
-Deterministic normalization/sign direction are fixed Proposed material;
-near-zero/drift thresholds, constants, ranges, validation-margin/error formula,
-and deterministic implementation/binding remain open. Future adapter
+Deterministic normalization/sign direction is an accepted semantic-foundation
+direction; near-zero/drift thresholds, constants, ranges, validation-margin/
+error formula, and deterministic implementation/binding remain Proposed or
+gated. Future adapter
 conformance uses signed permutation `C` plus positive scale `s`, with
 storage/output-only default and optional runtime tiers, explicit precision and
 subnormal policy, and FTZ/DAZ probes. These are Proposed architecture
-consequences, not activated implementation work.
+consequences/gated adapter material, not activated implementation work.
 
 Diagnostic compatibility remains separately Proposed: nine domains cover
 source-admission, dependency, semantic-identity, graph-structure, frame-

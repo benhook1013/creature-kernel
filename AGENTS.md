@@ -177,10 +177,12 @@ until a genuine retained-human design choice or useful visual result is ready.
 
 - Keep future components in `docs/project/repository-evolution.md` until their
   activation trigger is met. Do not create empty implementation packages.
-- Track authoritative semantic source, durable semantic identity, and
-  artifact/build identity as Proposed concerns in DR-0002 and DR-0006. Keep
-  engine-independent core boundaries as Proposed concerns in DR-0003; none are
-  binding implementation requirements until the relevant DR is accepted.
+- Track the accepted semantic-foundation directions for authoritative semantic
+  source, durable semantic identity, and artifact/build identity in DR-0002 and
+  DR-0006; keep their concrete schemas, profiles, and activation bindings
+  Proposed or gated. Keep engine-independent core boundaries as Proposed
+  concerns in DR-0003; none are binding implementation requirements until the
+  relevant DR is accepted.
 - Do not commit large generated meshes, caches, captures, or datasets without an
   approved artifact-storage decision.
 - Keep any implementation boundaries consistent with accepted canonical

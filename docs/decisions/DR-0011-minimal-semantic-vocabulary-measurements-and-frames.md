@@ -4,19 +4,19 @@ ID: DR-0011
 
 Scope: Specification and architecture
 
-Status: Proposed
+Status: Accepted
 
 Revision: 15
 
 Decision owner: Ben
 
-Owner approval: Pending
+Owner approval: Approved by Ben
 
 Review status: Complete
 
 Date proposed: 2026-08-11
 
-Date decided: —
+Date decided: 2026-08-17
 
 Discussion approval date: 2026-08-13
 
@@ -135,8 +135,16 @@ successor. Revision 15 applies the mandatory rank-table activation gate and
 preserves the retained-human T4 gate. The current Double review at
 `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a` is Complete: its governance
 findings were corrected mechanically and its technical pass found no findings /
-Ready for PR at High confidence. Status remains Proposed and Owner approval
-remains Pending; review evidence is not acceptance.
+Ready for PR at High confidence. On 2026-08-17, after being shown a
+plain-language explanation of the four exact current revisions, Ben was asked
+whether Option 1 matched his understanding and replied, “all of that sounds
+good.” The main thread explicitly interprets this as acceptance of Option 1,
+including this Revision 15. This acceptance covers the reviewed
+semantic-foundation direction and authorizes autonomous construction/review of
+the exact Readiness 3 successor candidate under the accepted foundation. It
+does not activate Readiness 3, admit any successor manifest/fixtures/snapshot,
+freeze still-gated implementation/profile constants, accept other DRs, select
+geometry/runtime/engine, or authorize external publication.
 
 ## Decision
 
@@ -1010,9 +1018,12 @@ records governance findings G3/G4 as mechanical cross-summary corrections
 handled without material DR revision, and [Review 02](reviews/DR-0011-rev-15-review-02.md)
 records no technical findings and recommends **Ready for PR**. These artifacts
 are exact-target current evidence until a successor revision. Review status is
-Complete for evidence only; Owner approval remains Pending, Status remains
-Proposed, and no numeric/frame profile, fixture, parser, resolver, adapter,
-implementation, or package is accepted or activated.
+Complete. Ben accepted this Revision 15 on 2026-08-17 as part of Option 1;
+Owner approval is Approved by Ben and Status is Accepted. The acceptance is
+limited to the reviewed semantic-foundation direction; it does not admit a
+successor manifest, fixtures, snapshot, parser/resolver implementation,
+adapter, or package, and does not activate Readiness 3 or freeze still-gated
+implementation/profile constants.
 
 ## Implementation and Proof Obligations
 

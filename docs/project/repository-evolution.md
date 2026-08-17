@@ -10,19 +10,22 @@ any product, specification, or architecture proposal.
 
 States: `active`, `planned`, `triggered`, `deferred`, `not-applicable`, `retired`.
 
-CK-KICK-012 remains active Proposed work after discussion-approved F1–F7 and
+CK-KICK-012 remains active work after discussion-approved F1–F7 and
 Batch 8/9/10/11/12/13 resolutions. CK-KICK-013 Readiness 1 is active after
 Ben accepted DR-0013 Revision 12 on 2026-08-13; later platform and
 implementation gates remain separately bounded. Accepted DR-0001
 Revision 5 remains the operative governance baseline while DR-0001 Revision 6
 is Proposed transition guidance with Ben's workflow direction approved and
-current review complete; formal acceptance remains pending Ben's disposition. DR-0002 Revision 11 and
-DR-0008 Revision 11 remain Proposed with Owner approval Pending and Review
-Complete. DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14
-remain Proposed with Owner approval Pending. DR-0013 Revision 12 is Accepted
-with Owner approval Approved by Ben. All four have Review status Complete after
-the current Double review at exact target
-`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. The reviews of the earlier
+current review complete; formal acceptance remains pending Ben's disposition.
+DR-0002 Revision 11, DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012
+Revision 14 are Accepted with Owner approval Approved by Ben on 2026-08-17.
+DR-0008 Revision 11 remains Proposed with Owner approval Pending and Review
+Complete. DR-0013 Revision 12 is Accepted with Owner approval Approved by Ben.
+All four semantic-foundation records have Review status Complete. DR-0002
+Revision 11's current review targeted exact commit
+`6cf17270fda2827756c24a8d0fb301bef358f98f`; the current Double reviews for
+DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14 targeted
+exact commit `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`. The reviews of the earlier
 predecessor revisions at commit
 `763cff22d10f6491a05a28312a25250704543dcf` are stale exact-target evidence;
 G1/G2 were fixed mechanically, T1–T3 were resolved
@@ -71,7 +74,7 @@ this ledger does not accept the diagnostic owner or activate Readiness 3.
 | Fixture-manifest specification | Next | active | Batch 10 creates the canonical Proposed fixture-manifest/admission owner; the exact Readiness 2 manifest and listed corpus are admitted by the recorded post-merge recomputation | `spec/fixture-manifest/` | Immutable reviewed-tree/payload binding, preflight, append-only successor, and admission-link checks |
 | Build-operation specification | Next | active | Proposed public build/output contract exists as the canonical owner; implementation remains gated by DR-0013 readiness | `spec/build-operation/` | Contract, link, and ownership checks |
 | Implementation packages | Now | active | Readiness 1 is active after DR-0013 Revision 12 acceptance for the Cargo workspace, compiler/core library shell, and thin CLI shell. Readiness 2 is active after PR #6 merge commit `766992ab089687e9b1496574e8ffa721388d96f3` and successful fresh-archive identity recomputation for the exact schema, versioned manifest, nine fixtures, parser/bootstrap, and preflight. The distinct Readiness 3 transaction then activates the resolver/snapshot boundary; geometry remains gated by a working resolver plus provisional profile and seam | Cargo workspace (`Cargo.toml`, `crates/`) plus [`schema`](../../spec/body-document/schema/ck-body-document-v1.schema.json), [`manifest`](../../fixtures/body-documents/readiness-2/manifest.v1.json), [`preflight`](../../dev-tools/fixture-preflight/preflight.py), and admitted parser/bootstrap | Readiness 1 shell evidence; Readiness 2 preflight, content identities, and sanitized bound checks; later resolver/snapshot and exploratory-proof evidence |
-| Readiness 3 resolver/snapshot transaction | Next | planned | A distinct Ben-approved successor transaction contains the successor manifest, expected snapshots, comparison profile/rule, resolver implementation or exact implementation binding, and unchanged content-identity preflight; only that explicit ledger activation triggers the Readiness 3 resolver/snapshot boundary; no gate activates while the records remain Proposed | `docs/decisions/DR-0013-first-production-implementation-platform-and-geometry-boundary.md` and admitted fixture manifest | Successor content binding, approval, comparison metadata, resolver binding, and in-memory snapshot handoff |
+| Readiness 3 resolver/snapshot transaction | Next | planned | A distinct Ben-approved successor transaction contains the successor manifest, expected snapshots, comparison profile/rule, resolver implementation or exact implementation binding, and unchanged content-identity preflight; only that explicit ledger activation triggers the Readiness 3 resolver/snapshot boundary; acceptance of the four semantic-foundation records alone does not activate the gate | `docs/decisions/DR-0013-first-production-implementation-platform-and-geometry-boundary.md` and admitted fixture manifest | Successor content binding, approval, comparison metadata, resolver binding, and in-memory snapshot handoff |
 | Generation fixtures | Next | planned | Stage 2 only: a separate Ben-approved readiness/decision record names the reviewed source commit reference, manifest path/digest, SHA-256 payload digest, exact ordered path/mode/content set containing only the manifest and declared schema, fixtures, and snapshots, and the versioned external path-set framing/profile (exact identifier remains readiness-gated); readiness/approval/successor records, mutable pointers, self-reference, and Git commit identity are excluded; rerun on the merged target compares those content identities even when the merge commit changes; append-only successors and unlisted fixtures do not activate independently | `fixtures/body-documents/` | Immutable binding, manifest/listed-source agreement, and deterministic output checks |
 | Geometry exploration | Next | planned | Stage 4 only: working resolver plus provisional geometry profile and project-owned GeometryRequest/GeometryResult seam; CK-KICK-014 is exploratory and does not require accepting/reactivating parked DR-0009/0010 | `experiments/` under an activated proof | Bounded exploratory evidence; generated bundles remain ephemeral/unretained and do not select production geometry |
 | Confirmatory multi-branch surface comparison | Later | deferred | At least two runnable candidate surface implementations and an intended comparative outcome for production architecture, or Ben explicitly reactivates DR-0009/0010 | `experiments/` under an activated protocol | Activated-protocol evidence and review |
