@@ -485,6 +485,22 @@ algebra or placement, namespace or relation resolution, public or wire contract,
 snapshot, fixture binding, or Readiness 3 activation. It is internal reversible
 runway progress only and accepts or changes no contract.
 
+The following runway slice adds an explicit caller-supplied, reborrowable
+binary64 arithmetic capability for add, subtract, multiply, and divide. The
+existing canonical quaternion normalization path is retrofitted to a fixed
+15-call provider sequence with finite-result checks and produced-zero
+canonicalization to `+0`; it selects no default provider. Member and source-set
+preparation propagate the capability through their caller-owned factories, for
+which fresh state and permutation-independent deterministic behavior remain
+caller preconditions. A crate-private fixed-order Hamilton composition
+candidate always re-normalizes its product through the same validation gate,
+arithmetic capability, and square-root capability. This slice supplies no
+native provider or environment attestation, vector rotation, rigid-transform
+or placement operation, tolerance or profile selection, aggregate status,
+public or stable API, wire format, snapshot, fixture binding, or Readiness 3
+activation. It is internal reversible runway progress only and accepts or
+changes no contract.
+
 Candidate locally validated and appraised by Ben on 2026-08-15: a directly
 consuming primitive spatial preview
 uses this exact placement result through the existing

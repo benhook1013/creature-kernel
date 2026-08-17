@@ -7,13 +7,13 @@
 //! resolve relations or namespaces, produce a status/diagnostic envelope,
 //! serialize a snapshot, or activate Readiness 3.
 //!
-//! The operation is intentionally single-member.  The caller owns the gate
-//! and square-root capability and must supply fresh/order-appropriate state
-//! for the call.  This module selects no defaults, constants, providers, or
-//! factories.  A caller may reuse its provider across quaternions by passing a
-//! mutable [`SqrtCapability`].  Each normalization receives a reborrow; one
-//! provider call occurs only when that normalization reaches an available
-//! provider after its input and scaled-norm gates accept.
+//! The operation is intentionally single-member. The caller owns the gate,
+//! arithmetic, and square-root capabilities and must supply
+//! fresh/order-appropriate state for the call. This module selects no
+//! defaults, constants, providers, or factories. A caller may reuse either
+//! provider across quaternions by passing mutable capability carriers. Each
+//! normalization receives a reborrow; arithmetic calls occur only after input
+//! and scaled-norm gates accept, and one sqrt call occurs after the same gates.
 
 #![allow(dead_code)]
 
@@ -21,8 +21,8 @@ use crate::body_graph::OwnerRoleKey;
 use crate::frame::{self, LengthUnit, RigidTransform, SourceBasisMap};
 use crate::numeric::NormalizedBinary64;
 use crate::quaternion_normalization::{
-    CanonicalQuaternionXyzw, QuaternionNormalizationError, QuaternionNormalizationGate,
-    SqrtCapability, normalize_structural_quaternion,
+    Binary64ArithmeticCapability, CanonicalQuaternionXyzw, QuaternionNormalizationError,
+    QuaternionNormalizationGate, SqrtCapability, normalize_structural_quaternion,
 };
 use crate::restricted_source_set_handoff::RestrictedSourceSetMember;
 use crate::source_preparation::PositionComponent;
@@ -372,6 +372,7 @@ impl CanonicalMemberFrameValues {
 pub(crate) fn prepare_canonical_member_frame_values<G: QuaternionNormalizationGate>(
     member: &RestrictedSourceSetMember,
     gate: &mut G,
+    arithmetic_capability: &mut Binary64ArithmeticCapability<'_>,
     sqrt_capability: &mut SqrtCapability<'_>,
 ) -> Result<CanonicalMemberFrameValues, CanonicalMemberFrameValuesError> {
     let prepared = member.prepared_source();
@@ -386,6 +387,7 @@ pub(crate) fn prepare_canonical_member_frame_values<G: QuaternionNormalizationGa
             mapping,
             unit,
             gate,
+            arithmetic_capability,
             sqrt_capability,
             |component| {
                 CanonicalMemberValueLocation::new(
@@ -407,6 +409,7 @@ pub(crate) fn prepare_canonical_member_frame_values<G: QuaternionNormalizationGa
             mapping,
             unit,
             gate,
+            arithmetic_capability,
             sqrt_capability,
             |component| {
                 CanonicalMemberValueLocation::new(
@@ -423,6 +426,7 @@ pub(crate) fn prepare_canonical_member_frame_values<G: QuaternionNormalizationGa
             mapping,
             unit,
             gate,
+            arithmetic_capability,
             sqrt_capability,
             |component| {
                 CanonicalMemberValueLocation::new(
@@ -444,6 +448,7 @@ pub(crate) fn prepare_canonical_member_frame_values<G: QuaternionNormalizationGa
             mapping,
             unit,
             gate,
+            arithmetic_capability,
             sqrt_capability,
             |component| {
                 CanonicalMemberValueLocation::new(
@@ -465,6 +470,7 @@ pub(crate) fn prepare_canonical_member_frame_values<G: QuaternionNormalizationGa
             mapping,
             unit,
             gate,
+            arithmetic_capability,
             sqrt_capability,
             |component| {
                 CanonicalMemberValueLocation::new(
@@ -522,6 +528,7 @@ pub(crate) fn prepare_canonical_member_frame_values<G: QuaternionNormalizationGa
             mapping,
             unit,
             gate,
+            arithmetic_capability,
             sqrt_capability,
             |component| {
                 CanonicalMemberValueLocation::new(
@@ -555,6 +562,7 @@ fn canonical_transform<G, F>(
     mapping: SourceBasisMap,
     unit: LengthUnit,
     gate: &mut G,
+    arithmetic_capability: &mut Binary64ArithmeticCapability<'_>,
     sqrt_capability: &mut SqrtCapability<'_>,
     location: F,
 ) -> Result<CanonicalRigidTransform, CanonicalMemberFrameValuesError>
@@ -576,14 +584,18 @@ where
         )?;
     }
     let mapped_rotation = mapping.map_quaternion(source.rotation());
-    let rotation =
-        normalize_structural_quaternion(mapped_rotation, gate, sqrt_capability.reborrow())
-            .map_err(
-                |error| CanonicalMemberFrameValuesError::QuaternionNormalization {
-                    location: Box::new(location(CanonicalTransformComponent::Rotation)),
-                    error,
-                },
-            )?;
+    let rotation = normalize_structural_quaternion(
+        mapped_rotation,
+        gate,
+        arithmetic_capability.reborrow(),
+        sqrt_capability.reborrow(),
+    )
+    .map_err(
+        |error| CanonicalMemberFrameValuesError::QuaternionNormalization {
+            location: Box::new(location(CanonicalTransformComponent::Rotation)),
+            error,
+        },
+    )?;
     Ok(CanonicalRigidTransform::new(
         frame::Translation3::from_components(translation),
         rotation,
@@ -633,13 +645,36 @@ mod tests {
     use super::*;
     use crate::body_document::ResourceProfile;
     use crate::quaternion_normalization::{
-        CorrectlyRoundedSqrt, GateRejection, QuaternionGateStage, SqrtProviderFailure,
+        Binary64ArithmeticCapability, Binary64ArithmeticProvider,
+        Binary64ArithmeticProviderFailure, CorrectlyRoundedSqrt, GateRejection,
+        QuaternionGateStage, SqrtProviderFailure,
     };
     use crate::restricted_source_set_handoff::build_restricted_source_set_handoff;
     use crate::source_set_preparation::{SourceSetInput, prepare_source_set};
 
     const SOURCE: &[u8] =
         include_bytes!("../../../examples/body-documents/stylized-digitigrade-biped.json");
+
+    #[derive(Default)]
+    struct NativeArithmetic;
+
+    impl Binary64ArithmeticProvider for NativeArithmetic {
+        fn add(&mut self, left: f64, right: f64) -> Result<f64, Binary64ArithmeticProviderFailure> {
+            Ok(left + right)
+        }
+
+        fn sub(&mut self, left: f64, right: f64) -> Result<f64, Binary64ArithmeticProviderFailure> {
+            Ok(left - right)
+        }
+
+        fn mul(&mut self, left: f64, right: f64) -> Result<f64, Binary64ArithmeticProviderFailure> {
+            Ok(left * right)
+        }
+
+        fn div(&mut self, left: f64, right: f64) -> Result<f64, Binary64ArithmeticProviderFailure> {
+            Ok(left / right)
+        }
+    }
 
     #[derive(Default)]
     struct Gate {
@@ -721,6 +756,21 @@ mod tests {
         .unwrap();
         let handoff = build_restricted_source_set_handoff(Ok(prepared)).unwrap();
         handoff.members().get(handoff.root()).unwrap().clone()
+    }
+
+    fn prepare_with_native_arithmetic<G: QuaternionNormalizationGate>(
+        member: &RestrictedSourceSetMember,
+        gate: &mut G,
+        sqrt_capability: &mut SqrtCapability<'_>,
+    ) -> Result<CanonicalMemberFrameValues, CanonicalMemberFrameValuesError> {
+        let mut arithmetic = NativeArithmetic;
+        let mut arithmetic_capability = Binary64ArithmeticCapability::provided(&mut arithmetic);
+        prepare_canonical_member_frame_values(
+            member,
+            gate,
+            &mut arithmetic_capability,
+            sqrt_capability,
+        )
     }
 
     fn enriched_source(reverse: bool) -> Vec<u8> {
@@ -1016,8 +1066,7 @@ mod tests {
         let mut gate = Gate::default();
         let mut sqrt = RecordingSqrt::correct();
         let mut capability = SqrtCapability::provided(&mut sqrt);
-        let values =
-            prepare_canonical_member_frame_values(&member, &mut gate, &mut capability).unwrap();
+        let values = prepare_with_native_arithmetic(&member, &mut gate, &mut capability).unwrap();
         assert_eq!(values.member(), member.key());
         assert_eq!(values.role(), member.role());
         assert_eq!(values.source_basis(), member.prepared_source().basis());
@@ -1053,7 +1102,7 @@ mod tests {
         let mut gate = Gate::default();
         let mut capability = SqrtCapability::unavailable();
         let error =
-            prepare_canonical_member_frame_values(&member, &mut gate, &mut capability).unwrap_err();
+            prepare_with_native_arithmetic(&member, &mut gate, &mut capability).unwrap_err();
         assert!(matches!(
             error,
             CanonicalMemberFrameValuesError::QuaternionNormalization {
@@ -1081,7 +1130,7 @@ mod tests {
         let mut sqrt = RecordingSqrt::correct();
         let mut capability = SqrtCapability::provided(&mut sqrt);
         let error =
-            prepare_canonical_member_frame_values(&member, &mut gate, &mut capability).unwrap_err();
+            prepare_with_native_arithmetic(&member, &mut gate, &mut capability).unwrap_err();
         assert!(matches!(
             error,
             CanonicalMemberFrameValuesError::QuaternionNormalization {
@@ -1109,7 +1158,7 @@ mod tests {
             let mut gate = Gate::default();
             let mut sqrt = RecordingSqrt::correct();
             let mut capability = SqrtCapability::provided(&mut sqrt);
-            let result = prepare_canonical_member_frame_values(&member, &mut gate, &mut capability);
+            let result = prepare_with_native_arithmetic(&member, &mut gate, &mut capability);
             assert!(
                 result.is_err(),
                 "a partial canonical member must not be returned"
@@ -1156,7 +1205,7 @@ mod tests {
             let mut gate = Gate::default();
             let mut sqrt = RecordingSqrt::correct();
             let mut capability = SqrtCapability::provided(&mut sqrt);
-            let result = prepare_canonical_member_frame_values(&member, &mut gate, &mut capability);
+            let result = prepare_with_native_arithmetic(&member, &mut gate, &mut capability);
             assert!(
                 result.is_err(),
                 "a partial canonical member must not be returned"
@@ -1245,8 +1294,8 @@ mod tests {
             };
             let mut sqrt = RecordingSqrt::correct();
             let mut capability = SqrtCapability::provided(&mut sqrt);
-            let error = prepare_canonical_member_frame_values(&member, &mut gate, &mut capability)
-                .unwrap_err();
+            let error =
+                prepare_with_native_arithmetic(&member, &mut gate, &mut capability).unwrap_err();
             assert!(matches!(
                 error,
                 CanonicalMemberFrameValuesError::QuaternionNormalization {
@@ -1306,8 +1355,8 @@ mod tests {
                 result,
             };
             let mut capability = SqrtCapability::provided(&mut sqrt);
-            let error = prepare_canonical_member_frame_values(&member, &mut gate, &mut capability)
-                .unwrap_err();
+            let error =
+                prepare_with_native_arithmetic(&member, &mut gate, &mut capability).unwrap_err();
             assert!(matches!(
                 &error,
                 CanonicalMemberFrameValuesError::QuaternionNormalization {
@@ -1328,8 +1377,7 @@ mod tests {
         let mut gate = Gate::default();
         let mut sqrt = RecordingSqrt::correct();
         let mut capability = SqrtCapability::provided(&mut sqrt);
-        let values =
-            prepare_canonical_member_frame_values(&member, &mut gate, &mut capability).unwrap();
+        let values = prepare_with_native_arithmetic(&member, &mut gate, &mut capability).unwrap();
 
         let part = values
             .parts()
@@ -1509,13 +1557,10 @@ mod tests {
         let mut second_sqrt = RecordingSqrt::correct();
         let mut first_capability = SqrtCapability::provided(&mut first_sqrt);
         let mut second_capability = SqrtCapability::provided(&mut second_sqrt);
-        let first = prepare_canonical_member_frame_values(
-            &first_member,
-            &mut first_gate,
-            &mut first_capability,
-        )
-        .unwrap();
-        let second = prepare_canonical_member_frame_values(
+        let first =
+            prepare_with_native_arithmetic(&first_member, &mut first_gate, &mut first_capability)
+                .unwrap();
+        let second = prepare_with_native_arithmetic(
             &second_member,
             &mut second_gate,
             &mut second_capability,
