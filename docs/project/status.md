@@ -513,6 +513,15 @@ profile constants, diagnostics or status, public or wire API, snapshots or
 fixtures, geometry or runtime behavior, or Readiness 3 activation. It is
 internal reversible runway progress only and accepts or changes no contract.
 
+The successor runway slice adds crate-private exact canonical quaternion
+conjugation with the `wxyz` sign representative and `+0` canonicalization. Its
+checked rigid inverse computes `t_inv = rotate(q_inv, -t)` with exactly 30
+caller-provider calls and no square-root, validation gate, renormalization, or
+default provider. No placement/Attachment equation, comparison or profile
+selection, status or diagnostics, public or wire API, snapshot, fixture,
+geometry, runtime, or Readiness 3 activation is included. It is internal,
+reversible runway progress only and accepts or changes no contract.
+
 Candidate locally validated and appraised by Ben on 2026-08-15: a directly
 consuming primitive spatial preview
 uses this exact placement result through the existing

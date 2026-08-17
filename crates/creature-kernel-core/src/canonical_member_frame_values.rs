@@ -25,7 +25,7 @@ use crate::quaternion_normalization::{
     Binary64ArithmeticCapability, CanonicalQuaternionXyzw, QuaternionArithmeticOperation,
     QuaternionArithmeticStage, QuaternionNormalizationError, QuaternionNormalizationGate,
     SqrtCapability, checked_operation, compose_canonical_quaternions,
-    normalize_structural_quaternion, rotate_canonical_vector,
+    conjugate_canonical_quaternion, normalize_structural_quaternion, rotate_canonical_vector,
 };
 use crate::restricted_source_set_handoff::RestrictedSourceSetMember;
 use crate::source_preparation::PositionComponent;
@@ -343,6 +343,31 @@ pub(crate) fn apply_canonical_rigid_transform(
         NormalizedBinary64::from_f64_result(component)
             .expect("checked point application output was finite")
     }))
+}
+
+/// Invert a canonical local-to-parent rigid transform.
+///
+/// The inverse rotation is the exact canonical quaternion conjugate.  The
+/// inverse translation is the inverse rotation applied to the exact negation
+/// of the original translation.  Rotation therefore consumes exactly the
+/// existing 30-call vector path; no normalization, square root, division, or
+/// other provider capability is introduced here.  A failed call returns
+/// before a partial transform can be exposed.
+pub(crate) fn inverse_canonical_rigid_transform(
+    transform: CanonicalRigidTransform,
+    arithmetic_capability: &mut Binary64ArithmeticCapability<'_>,
+) -> Result<CanonicalRigidTransform, QuaternionNormalizationError> {
+    let rotation = conjugate_canonical_quaternion(transform.rotation);
+    let negated_translation = transform
+        .translation
+        .components()
+        .map(NormalizedBinary64::negated);
+    let translation =
+        rotate_canonical_vector(rotation, negated_translation, arithmetic_capability)?;
+    Ok(CanonicalRigidTransform::new(
+        frame::Translation3::from_components(translation),
+        rotation,
+    ))
 }
 
 /// Canonical proximal and distal Joint frames.
@@ -1780,6 +1805,231 @@ mod tests {
             scalar(8.0).to_bits(),
             "the frozen fixture uses the exact rounded +90 degree result"
         );
+    }
+
+    #[test]
+    fn rigid_transform_inverse_has_exact_thirty_call_trace_and_frozen_oracle() {
+        let identity = identity_transform([10.0, 20.0, 30.0]);
+        let quarter_turn = z_quarter_turn([10.0, 20.0, 30.0]);
+
+        let invert = |transform| {
+            let mut arithmetic = TraceArithmetic::default();
+            let output = {
+                let mut capability = Binary64ArithmeticCapability::provided(&mut arithmetic);
+                inverse_canonical_rigid_transform(transform, &mut capability).unwrap()
+            };
+            assert_eq!(arithmetic.calls.len(), 30);
+            assert!(
+                arithmetic
+                    .calls
+                    .iter()
+                    .all(|operation| *operation != QuaternionArithmeticOperation::Div)
+            );
+            output
+        };
+
+        let identity_inverse = invert(identity);
+        assert_eq!(
+            identity_inverse
+                .translation()
+                .components()
+                .map(NormalizedBinary64::to_bits),
+            [
+                (-10.0_f64).to_bits(),
+                (-20.0_f64).to_bits(),
+                (-30.0_f64).to_bits()
+            ]
+        );
+        assert_eq!(
+            identity_inverse
+                .rotation()
+                .components()
+                .map(NormalizedBinary64::to_bits),
+            [0, 0, 0, 1.0_f64.to_bits()]
+        );
+
+        let quarter_inverse = invert(quarter_turn);
+        // Independent matrix oracle for R^-1 * (-t), with the production
+        // vector path's frozen binary64 rounding retained in the expected
+        // bits.  The exact result is (-20, 10, -30); the tiny drift is part
+        // of the specified expanded arithmetic sequence.
+        assert_eq!(
+            quarter_inverse
+                .translation()
+                .components()
+                .map(NormalizedBinary64::to_bits),
+            [
+                0xc034_0000_0000_0000,
+                0x4023_ffff_ffff_fffd,
+                0xc03e_0000_0000_0000,
+            ]
+        );
+        assert_eq!(
+            quarter_inverse
+                .rotation()
+                .components()
+                .map(NormalizedBinary64::to_bits),
+            [
+                0,
+                0,
+                (-0.7071067811865475_f64).to_bits(),
+                0x3fe6_a09e_667f_3bcc,
+            ]
+        );
+    }
+
+    #[test]
+    fn rigid_transform_inverse_propagates_capability_failures_without_late_calls() {
+        let transform = z_quarter_turn([10.0, 20.0, 30.0]);
+
+        let unavailable = inverse_canonical_rigid_transform(
+            transform,
+            &mut Binary64ArithmeticCapability::unavailable(),
+        );
+        assert!(matches!(
+            unavailable,
+            Err(QuaternionNormalizationError::Arithmetic(
+                crate::quaternion_normalization::QuaternionArithmeticError::ProviderUnavailable {
+                    operation: QuaternionArithmeticOperation::Mul,
+                    stage: QuaternionArithmeticStage::VectorRotationCrossProduct,
+                    index: Some(0),
+                }
+            ))
+        ));
+
+        for fail_at in [0, 29] {
+            let mut arithmetic = TraceArithmetic {
+                fail_at: Some(fail_at),
+                ..TraceArithmetic::default()
+            };
+            let result = {
+                let mut capability = Binary64ArithmeticCapability::provided(&mut arithmetic);
+                inverse_canonical_rigid_transform(transform, &mut capability)
+            };
+            assert!(matches!(
+                result,
+                Err(QuaternionNormalizationError::Arithmetic(
+                    crate::quaternion_normalization::QuaternionArithmeticError::ProviderFailed {
+                        operation: QuaternionArithmeticOperation::Mul
+                            | QuaternionArithmeticOperation::Sub
+                            | QuaternionArithmeticOperation::Add,
+                        stage: QuaternionArithmeticStage::VectorRotationCrossProduct
+                            | QuaternionArithmeticStage::VectorRotationDoubleCrossProduct
+                            | QuaternionArithmeticStage::VectorRotationScale
+                            | QuaternionArithmeticStage::VectorRotationFinalAdd,
+                        ..
+                    }
+                ))
+            ));
+            assert_eq!(arithmetic.calls.len(), fail_at + 1);
+        }
+
+        let mut arithmetic = TraceArithmetic {
+            nonfinite_output_at: Some(29),
+            ..TraceArithmetic::default()
+        };
+        let result = {
+            let mut capability = Binary64ArithmeticCapability::provided(&mut arithmetic);
+            inverse_canonical_rigid_transform(transform, &mut capability)
+        };
+        assert!(matches!(
+            result,
+            Err(QuaternionNormalizationError::Arithmetic(
+                crate::quaternion_normalization::QuaternionArithmeticError::NonFiniteOutput {
+                    operation: QuaternionArithmeticOperation::Add,
+                    stage: QuaternionArithmeticStage::VectorRotationFinalAdd,
+                    index: Some(2),
+                    ..
+                }
+            ))
+        ));
+        assert_eq!(arithmetic.calls.len(), 30);
+
+        let zero = identity_transform([0.0, 0.0, 0.0]);
+        let mut arithmetic = TraceArithmetic {
+            negative_zero_output_at: Some(29),
+            ..TraceArithmetic::default()
+        };
+        let output = {
+            let mut capability = Binary64ArithmeticCapability::provided(&mut arithmetic);
+            inverse_canonical_rigid_transform(zero, &mut capability).unwrap()
+        };
+        assert_eq!(arithmetic.calls.len(), 30);
+        assert_eq!(
+            output
+                .translation()
+                .components()
+                .map(NormalizedBinary64::to_bits),
+            [0, 0, 0]
+        );
+    }
+
+    #[test]
+    fn rigid_transform_and_inverse_compose_to_frozen_identity_both_orders() {
+        // The exact 180-degree X fixture avoids claiming arbitrary inexact
+        // round-trip equality while still exercising a nontrivial conjugate,
+        // nonzero translation, and both composition operand orders.
+        let transform = rigid_transform([10.0, -20.0, 30.0], [1.0, 0.0, 0.0, 0.0]);
+        let inverse = {
+            let mut arithmetic = TraceArithmetic::default();
+            let mut capability = Binary64ArithmeticCapability::provided(&mut arithmetic);
+            inverse_canonical_rigid_transform(transform, &mut capability).unwrap()
+        };
+        assert_eq!(
+            inverse
+                .translation()
+                .components()
+                .map(NormalizedBinary64::to_bits),
+            [
+                (-10.0_f64).to_bits(),
+                (-20.0_f64).to_bits(),
+                30.0_f64.to_bits()
+            ]
+        );
+        assert_eq!(inverse.rotation(), transform.rotation());
+
+        let compose = |left, right| {
+            let mut gate = Gate::default();
+            let mut arithmetic = TraceArithmetic::default();
+            let mut sqrt = RecordingSqrt::correct();
+            let output = {
+                let mut capability = Binary64ArithmeticCapability::provided(&mut arithmetic);
+                let mut sqrt_capability = SqrtCapability::provided(&mut sqrt);
+                compose_canonical_rigid_transforms(
+                    left,
+                    right,
+                    &mut gate,
+                    &mut capability,
+                    &mut sqrt_capability,
+                )
+                .unwrap()
+            };
+            assert_eq!(arithmetic.calls.len(), 76);
+            assert_eq!(sqrt.inputs.len(), 1);
+            output
+        };
+
+        for (name, output) in [
+            ("T * inverse(T)", compose(transform, inverse)),
+            ("inverse(T) * T", compose(inverse, transform)),
+        ] {
+            assert_eq!(
+                output
+                    .translation()
+                    .components()
+                    .map(NormalizedBinary64::to_bits),
+                [0, 0, 0],
+                "{name} translation"
+            );
+            assert_eq!(
+                output
+                    .rotation()
+                    .components()
+                    .map(NormalizedBinary64::to_bits),
+                [0, 0, 0, 1.0_f64.to_bits()],
+                "{name} rotation"
+            );
+        }
     }
 
     #[test]
