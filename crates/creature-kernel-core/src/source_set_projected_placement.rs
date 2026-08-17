@@ -1120,8 +1120,8 @@ mod tests {
 
         assert_eq!(output.parts().len(), 36);
         assert_eq!(output.attachments().len(), 2);
-        assert!(output.part_collisions().len() > 0);
-        assert!(output.attachment_collisions().len() > 0);
+        assert!(!output.part_collisions().is_empty());
+        assert!(!output.attachment_collisions().is_empty());
         for indexes in output
             .part_index()
             .values()
@@ -1330,8 +1330,8 @@ mod tests {
         let second_output =
             observe_source_set_projected_placement(&second_placement, &second_projection).unwrap();
         assert_eq!(first_output, second_output);
-        assert!(first_output.part_collisions().len() > 0);
-        assert!(first_output.attachment_collisions().len() > 0);
+        assert!(!first_output.part_collisions().is_empty());
+        assert!(!first_output.attachment_collisions().is_empty());
     }
 
     #[test]
