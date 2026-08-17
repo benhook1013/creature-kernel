@@ -100,6 +100,20 @@ impl<'a> SqrtCapability<'a> {
         }
     }
 
+    /// Reborrow this caller-supplied capability for one normalization.
+    ///
+    /// A canonical member may contain several quaternions.  Reborrowing keeps
+    /// the provider owned by the caller while allowing each quaternion to
+    /// receive a fresh capability carrier.  A normalization calls an
+    /// available provider exactly once only after its input and scaled-norm
+    /// gates accept.  No fallback capability is introduced.
+    pub(crate) fn reborrow(&mut self) -> SqrtCapability<'_> {
+        match &mut self.state {
+            SqrtCapabilityState::Unavailable(_) => SqrtCapability::unavailable(),
+            SqrtCapabilityState::Available(provider) => SqrtCapability::provided(*provider),
+        }
+    }
+
     #[cfg(test)]
     fn available(provider: &'a mut dyn CorrectlyRoundedSqrt) -> Self {
         Self::provided(provider)

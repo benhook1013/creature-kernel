@@ -455,6 +455,21 @@ contract, status or diagnostic mapping, snapshot or serialization, fixture or
 profile binding, or Readiness 3 activation. It is internal reversible runway
 progress only and accepts or changes no contract.
 
+The runway also contains an implemented crate-private single-member canonical
+frame/value preparation candidate. It covers all seven prepared numeric
+collections while retaining source-local keys, member role, and declared
+basis; it applies the signed source-basis map followed by exact scaling to
+metres for length values, and applies quaternion basis remapping followed by
+caller-injected gated normalization for rotations. Evaluation uses a fixed
+deterministic order and returns the first precise typed error without a partial
+value. The gate and square-root/environment capability remain caller-owned,
+and failure remains isolated to the one member. This candidate selects no
+source-set aggregate, provider factory, default constants, placement
+composition, relation or namespace resolution, public or wire contract,
+snapshot, status or diagnostic mapping, fixture binding, or Readiness 3
+activation. It is internal reversible runway progress only and accepts or
+changes no contract.
+
 Candidate locally validated and appraised by Ben on 2026-08-15: a directly
 consuming primitive spatial preview
 uses this exact placement result through the existing
