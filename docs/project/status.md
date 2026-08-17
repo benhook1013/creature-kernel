@@ -470,6 +470,21 @@ snapshot, status or diagnostic mapping, fixture binding, or Readiness 3
 activation. It is internal reversible runway progress only and accepts or
 changes no contract.
 
+The next runway slice adds an implemented crate-private source-set coordinator
+around the single-member canonical preparation candidate. It visits admitted
+members in deterministic `BTreeMap` key order and invokes a gate factory before
+a provider factory for each member; each factory returns owned per-member state,
+while an explicit `None` provider represents an unavailable capability. The
+owned result retains the source-set root, source-local member keys, member roles,
+and an independent result for every admitted member, so one member failure does
+not suppress the others. Freshness and permutation-independent factory behavior
+are caller preconditions; the coordinator does not prevent factories from
+sharing state or depending on invocation order. This candidate selects no
+aggregate validity or status, shared-state prevention, concurrency, transform
+algebra or placement, namespace or relation resolution, public or wire contract,
+snapshot, fixture binding, or Readiness 3 activation. It is internal reversible
+runway progress only and accepts or changes no contract.
+
 Candidate locally validated and appraised by Ben on 2026-08-15: a directly
 consuming primitive spatial preview
 uses this exact placement result through the existing
