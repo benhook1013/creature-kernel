@@ -113,6 +113,55 @@ dynamic subnormal-output claim and fails closed on any failed or unavailable
 inspection. Other targets are unsupported by this adapter; this is not a
 portability or production capability claim.
 
+## One-shot execution and receipt wrapper
+
+The committed phase-one one-shot wrapper, `scripts/run_phase1_once.py`, is
+orchestration and provenance only. It is not a second numeric runner and is not
+evidence itself. Its default, help, and `--preflight-only` paths cannot run the
+authoritative corpus. `--preflight-only` prints the safe plan, creates no
+attempt, and invokes no corpus runner. An authoritative execution requires all
+three of `--execute`, `--acknowledge RUN-EXP-0002-PHASE1`, and a new
+`--attempt-id` such as `attempt-001` (or a later unused ID).
+
+The wrapper fixes the target to `x86_64-unknown-linux-gnu`, uses the Cargo
+dev/debug profile with `--locked --offline`, and records the exact clean source
+commit; clean means tracked, staged, and fully covered non-ignored untracked
+files are clean. Its synthetic gate runs the runner unit tests, runner-module
+compilation, and candidate `cargo test`; the candidate build must then pass
+before the one authoritative run. Attempts use the exclusive layout
+`experiments/EXP-0002-numeric-frame-profile/results/phase1/<full-commit>/<attempt-id>/{result.json,receipt.json}`.
+An existing attempt is never overwritten. A completed authoritative attempt
+has both files; a pre-run gate failure may preserve a receipt without a result.
+There is no automatic retry.
+
+`receipt.json` records the build/run commands, target/profile/toolchain,
+allowlisted environment, hashes, exit codes, failure stage, and cross-checks.
+The full evidence remains in `result.json`; the receipt does not become a
+second result. Offline integrity checks do not rerun the corpus. Completed
+failed or inconclusive evidence is preserved, and any fix or rerun uses a new
+source commit and attempt ID without overwriting an earlier attempt.
+The wrapper bounds each validation, build, and authoritative-run command to
+180 seconds, version observations to 5 seconds, subprocess stdout/stderr to
+65,536 bytes, result JSON to 4 MiB, candidate artifact reads to 256 MiB, and
+the receipt to 1 MiB.
+
+The safe preflight command is:
+
+```bash
+python3 experiments/EXP-0002-numeric-frame-profile/scripts/run_phase1_once.py --preflight-only
+```
+
+For reference, the exact execution command is:
+
+```bash
+python3 experiments/EXP-0002-numeric-frame-profile/scripts/run_phase1_once.py \
+  --execute --acknowledge RUN-EXP-0002-PHASE1 --attempt-id attempt-001
+```
+
+This command performs the one authoritative corpus run after all gates pass;
+it is not a wrapper-PR test command. Use it only for an explicitly authorized
+run with a clean source commit and an unused attempt ID.
+
 ## Classification and result accounting
 
 For this phase, interpretation is fixed before an evaluation:

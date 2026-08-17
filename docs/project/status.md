@@ -84,6 +84,24 @@ independence, repeatability, broad generalization, production-domain claim, or
 technology outcome can be inferred. Broader tolerances and later experiment
 families remain Proposed/open.
 
+The phase-one package also includes the committed `run_phase1_once.py` one-shot
+wrapper. It is orchestration/provenance only, not a second numeric runner and
+not evidence itself. Default/help/`--preflight-only` paths cannot run the
+authoritative corpus; preflight prints the safe plan without creating an
+attempt. Execution requires all three of `--execute`, exact
+`--acknowledge RUN-EXP-0002-PHASE1`, and a new `--attempt-id`. It fixes
+`x86_64-unknown-linux-gnu`, Cargo dev/debug, and `--locked --offline`, records
+the exact clean source commit, and requires synthetic validation and a
+successful candidate build before the one authoritative run. Attempts use the
+exclusive `experiments/EXP-0002-numeric-frame-profile/results/phase1/<full-commit>/<attempt-id>/`
+layout; completed runs retain `result.json` and `receipt.json`, with no
+overwrite or automatic retry. The receipt records commands,
+target/profile/toolchain, an environment allowlist, hashes, exits, failure
+stage, and cross-checks; full evidence remains in the result. Offline
+integrity checks do not rerun the corpus. Completed failed or inconclusive
+evidence is preserved, and fixes/reruns require a new commit and attempt ID.
+This preparatory wrapper remains within the recorded autonomous runway.
+
 Readiness 2 remains active for the admitted schema, manifest, fixtures,
 parser/bootstrap, and preflight. The workspace now also contains a provisional
 structural address/index and validator plus the `inspect-structure` CLI command
@@ -875,7 +893,7 @@ metadata. Current non-governance decisions and proposals include:
 | --- | --- | --- | --- |
 | Documentation authority | partial | unverified | Operational structure under Accepted DR-0001 Revision 5 |
 | Decision-record and review workflow | partial | unverified | Governance accepted; technical/product proposals remain provisional |
-| Research/experiment workflow | partial | unverified | Lightweight template exists; EXP-0002 remains planned with open evidence closure and no technology outcome; its four-operation phase-one inputs and tooling are frozen and unrun |
+| Research/experiment workflow | partial | unverified | Lightweight template exists; EXP-0002 remains planned with open evidence closure and no technology outcome; its four-operation phase-one inputs, bounded runner, and one-shot receipt wrapper are frozen and unrun |
 | Body specification | partial | unverified | Proposed body-document, body-graph, build-operation, fixture-manifest, and Batch 11/12/13 focused profiles include discussion-approved updates; the Readiness 2 schema, manifest, nine fixtures, parser/bootstrap, and preflight are active under the admission record, while DR-0002 Revision 11, DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14 are Accepted with Owner approval Approved by Ben; DR-0008 remains Revision 11 Proposed |
 | Build-operation contract | partial | unverified | Proposed canonical public build/output owner exists; serialization, implementation, and artifact store remain unactivated |
 | Production implementation platform | partial | proven | CK-KICK-013/DR-0013 Revision 12 is Accepted with Owner approval Approved by Ben; the Readiness 1 Cargo workspace, compiler/core library shell, and thin CLI shell pass pinned-toolchain checks. Readiness 2's exact schema, manifest, nine fixtures, parser/bootstrap, and preflight are active after merged commit `766992ab089687e9b1496574e8ffa721388d96f3` / PR #6 and successful post-merge identity recomputation. PR #9, the inspectable biped structure workflow, is merged at `565c32bd35215e23d737fb333604382d3e6958ab`; its structural index/validator/inspection remain preparatory. The public single-source preparation operation and internal numeric/frame-preparation helpers remain preparatory; helpers cannot bypass body-document admission, and distinct Readiness 3, adapter, and exploratory geometry remain gated |
