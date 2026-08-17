@@ -501,6 +501,18 @@ public or stable API, wire format, snapshot, fixture binding, or Readiness 3
 activation. It is internal reversible runway progress only and accepts or
 changes no contract.
 
+The following runway slice adds crate-private checked canonical 3-vector rotation,
+rigid-transform composition, and point application. Rotation uses a fixed
+30-call provider sequence; composition uses 76 arithmetic calls and one
+caller-supplied square root for quaternion composition and normalization,
+right-translation rotation, and translation addition; point application uses
+33 arithmetic calls. All arithmetic, gate, and square-root capabilities remain
+caller-supplied, with no default provider, and inverse is not included. This
+slice adds no placement or resolver/source-set integration, comparison or
+profile constants, diagnostics or status, public or wire API, snapshots or
+fixtures, geometry or runtime behavior, or Readiness 3 activation. It is
+internal reversible runway progress only and accepts or changes no contract.
+
 Candidate locally validated and appraised by Ben on 2026-08-15: a directly
 consuming primitive spatial preview
 uses this exact placement result through the existing

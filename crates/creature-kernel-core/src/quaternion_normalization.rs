@@ -258,6 +258,18 @@ pub enum QuaternionArithmeticStage {
     SignSelection,
     /// One of the raw Hamilton-product operations before normalization.
     CompositionProduct,
+    /// One of the first cross-product operations in canonical vector rotation.
+    VectorRotationCrossProduct,
+    /// One of the second cross-product operations in canonical vector rotation.
+    VectorRotationDoubleCrossProduct,
+    /// One of the scale operations in canonical vector rotation.
+    VectorRotationScale,
+    /// One of the final component additions in canonical vector rotation.
+    VectorRotationFinalAdd,
+    /// One of the translation additions in canonical transform composition.
+    TransformTranslationAdd,
+    /// One of the translation additions in canonical point application.
+    PointTranslationAdd,
 }
 
 /// Binary64 operation delegated to the arithmetic capability.
@@ -676,6 +688,200 @@ fn invoke_sqrt(
     }
 }
 
+/// Rotate a canonical three-vector through a canonical `xyzw` quaternion.
+///
+/// The operation sequence is fixed to the expanded two-cross-product form:
+/// first `cross(q.xyz, v)`, then `t = 2 * cross1`, then `a = w * t`, then
+/// `cross(q.xyz, t)`, and finally `(v + a) + cross2`. Every arithmetic step is
+/// delegated through the caller-supplied checked capability. This is exactly
+/// 30 provider calls (nine for each cross product, three for `t`, three for
+/// `a`, and six for the final additions). No square root, division,
+/// renormalization, or fused operation is used.
+pub(crate) fn rotate_canonical_vector(
+    rotation: CanonicalQuaternionXyzw,
+    vector: [NormalizedBinary64; 3],
+    arithmetic_capability: &mut Binary64ArithmeticCapability<'_>,
+) -> Result<[NormalizedBinary64; 3], QuaternionNormalizationError> {
+    let [qx, qy, qz, w] = rotation.components().map(NormalizedBinary64::as_f64);
+    let [vx, vy, vz] = vector.map(NormalizedBinary64::as_f64);
+
+    let cx = rotation_cross_component(
+        arithmetic_capability,
+        qy,
+        vz,
+        qz,
+        vy,
+        QuaternionArithmeticStage::VectorRotationCrossProduct,
+        0,
+    )?;
+    let cy = rotation_cross_component(
+        arithmetic_capability,
+        qz,
+        vx,
+        qx,
+        vz,
+        QuaternionArithmeticStage::VectorRotationCrossProduct,
+        1,
+    )?;
+    let cz = rotation_cross_component(
+        arithmetic_capability,
+        qx,
+        vy,
+        qy,
+        vx,
+        QuaternionArithmeticStage::VectorRotationCrossProduct,
+        2,
+    )?;
+
+    let tx = checked_operation(
+        arithmetic_capability,
+        QuaternionArithmeticOperation::Mul,
+        QuaternionArithmeticStage::VectorRotationScale,
+        Some(0),
+        2.0,
+        cx,
+    )?;
+    let ty = checked_operation(
+        arithmetic_capability,
+        QuaternionArithmeticOperation::Mul,
+        QuaternionArithmeticStage::VectorRotationScale,
+        Some(1),
+        2.0,
+        cy,
+    )?;
+    let tz = checked_operation(
+        arithmetic_capability,
+        QuaternionArithmeticOperation::Mul,
+        QuaternionArithmeticStage::VectorRotationScale,
+        Some(2),
+        2.0,
+        cz,
+    )?;
+
+    let ax = checked_operation(
+        arithmetic_capability,
+        QuaternionArithmeticOperation::Mul,
+        QuaternionArithmeticStage::VectorRotationScale,
+        Some(0),
+        w,
+        tx,
+    )?;
+    let ay = checked_operation(
+        arithmetic_capability,
+        QuaternionArithmeticOperation::Mul,
+        QuaternionArithmeticStage::VectorRotationScale,
+        Some(1),
+        w,
+        ty,
+    )?;
+    let az = checked_operation(
+        arithmetic_capability,
+        QuaternionArithmeticOperation::Mul,
+        QuaternionArithmeticStage::VectorRotationScale,
+        Some(2),
+        w,
+        tz,
+    )?;
+
+    let dx = rotation_cross_component(
+        arithmetic_capability,
+        qy,
+        tz,
+        qz,
+        ty,
+        QuaternionArithmeticStage::VectorRotationDoubleCrossProduct,
+        0,
+    )?;
+    let dy = rotation_cross_component(
+        arithmetic_capability,
+        qz,
+        tx,
+        qx,
+        tz,
+        QuaternionArithmeticStage::VectorRotationDoubleCrossProduct,
+        1,
+    )?;
+    let dz = rotation_cross_component(
+        arithmetic_capability,
+        qx,
+        ty,
+        qy,
+        tx,
+        QuaternionArithmeticStage::VectorRotationDoubleCrossProduct,
+        2,
+    )?;
+
+    let x = rotation_final_add(arithmetic_capability, vx, ax, dx, 0)?;
+    let y = rotation_final_add(arithmetic_capability, vy, ay, dy, 1)?;
+    let z = rotation_final_add(arithmetic_capability, vz, az, dz, 2)?;
+
+    Ok([
+        NormalizedBinary64::from_f64_result(x).expect("checked vector rotation output was finite"),
+        NormalizedBinary64::from_f64_result(y).expect("checked vector rotation output was finite"),
+        NormalizedBinary64::from_f64_result(z).expect("checked vector rotation output was finite"),
+    ])
+}
+
+fn rotation_cross_component(
+    arithmetic_capability: &mut Binary64ArithmeticCapability<'_>,
+    left_a: f64,
+    right_a: f64,
+    left_b: f64,
+    right_b: f64,
+    stage: QuaternionArithmeticStage,
+    index: usize,
+) -> Result<f64, QuaternionNormalizationError> {
+    let first = checked_operation(
+        arithmetic_capability,
+        QuaternionArithmeticOperation::Mul,
+        stage,
+        Some(index),
+        left_a,
+        right_a,
+    )?;
+    let second = checked_operation(
+        arithmetic_capability,
+        QuaternionArithmeticOperation::Mul,
+        stage,
+        Some(index),
+        left_b,
+        right_b,
+    )?;
+    checked_operation(
+        arithmetic_capability,
+        QuaternionArithmeticOperation::Sub,
+        stage,
+        Some(index),
+        first,
+        second,
+    )
+}
+
+fn rotation_final_add(
+    arithmetic_capability: &mut Binary64ArithmeticCapability<'_>,
+    vector: f64,
+    scaled_cross: f64,
+    double_cross: f64,
+    index: usize,
+) -> Result<f64, QuaternionNormalizationError> {
+    let first = checked_operation(
+        arithmetic_capability,
+        QuaternionArithmeticOperation::Add,
+        QuaternionArithmeticStage::VectorRotationFinalAdd,
+        Some(index),
+        vector,
+        scaled_cross,
+    )?;
+    checked_operation(
+        arithmetic_capability,
+        QuaternionArithmeticOperation::Add,
+        QuaternionArithmeticStage::VectorRotationFinalAdd,
+        Some(index),
+        first,
+        double_cross,
+    )
+}
+
 /// Normalize an existing structural carrier without widening its public API.
 pub fn normalize_structural_quaternion<G: QuaternionNormalizationGate>(
     input: QuaternionXyzw,
@@ -692,7 +898,7 @@ pub fn normalize_structural_quaternion<G: QuaternionNormalizationGate>(
     )
 }
 
-fn checked_operation(
+pub(crate) fn checked_operation(
     capability: &mut Binary64ArithmeticCapability<'_>,
     operation: QuaternionArithmeticOperation,
     stage: QuaternionArithmeticStage,
@@ -937,6 +1143,7 @@ mod tests {
         calls: Vec<ArithmeticCall>,
         fail_at: Option<usize>,
         nonfinite_output_at: Option<usize>,
+        negative_zero_output_at: Option<usize>,
     }
 
     impl RecordingArithmetic {
@@ -957,6 +1164,9 @@ mod tests {
             }
             if self.nonfinite_output_at == Some(index) {
                 return Ok(f64::NAN);
+            }
+            if self.negative_zero_output_at == Some(index) {
+                return Ok(-0.0);
             }
             Ok(match operation {
                 QuaternionArithmeticOperation::Add => left + right,
@@ -1832,6 +2042,275 @@ mod tests {
             ))
         );
         assert_eq!(sqrt.calls, 1);
+    }
+
+    #[test]
+    fn vector_rotation_has_exact_thirty_call_trace_and_independent_matrix_result() {
+        let rotation = normalize([0.0, 0.0, 1.0, 1.0]).0;
+        let vector = [
+            NormalizedBinary64::from_exact_i64(1).unwrap(),
+            NormalizedBinary64::from_exact_i64(2).unwrap(),
+            NormalizedBinary64::from_exact_i64(3).unwrap(),
+        ];
+        let mut arithmetic = RecordingArithmetic::default();
+        let output = {
+            let mut capability = Binary64ArithmeticCapability::provided(&mut arithmetic);
+            rotate_canonical_vector(rotation, vector, &mut capability).unwrap()
+        };
+
+        // Frozen bits from an independent column-vector matrix oracle for the
+        // canonical +90 degree Z rotation, not an approximate/tolerance
+        // assertion. The tiny binary64 drift is observable because the
+        // required expanded arithmetic sequence rounds each intermediate.
+        assert_eq!(
+            output.map(NormalizedBinary64::to_bits),
+            [
+                0xbfff_ffff_ffff_fffd,
+                0x3ff0_0000_0000_0002,
+                3.0_f64.to_bits(),
+            ]
+        );
+        let expected_operations = [
+            QuaternionArithmeticOperation::Mul,
+            QuaternionArithmeticOperation::Mul,
+            QuaternionArithmeticOperation::Sub,
+            QuaternionArithmeticOperation::Mul,
+            QuaternionArithmeticOperation::Mul,
+            QuaternionArithmeticOperation::Sub,
+            QuaternionArithmeticOperation::Mul,
+            QuaternionArithmeticOperation::Mul,
+            QuaternionArithmeticOperation::Sub,
+            QuaternionArithmeticOperation::Mul,
+            QuaternionArithmeticOperation::Mul,
+            QuaternionArithmeticOperation::Mul,
+            QuaternionArithmeticOperation::Mul,
+            QuaternionArithmeticOperation::Mul,
+            QuaternionArithmeticOperation::Mul,
+            QuaternionArithmeticOperation::Mul,
+            QuaternionArithmeticOperation::Mul,
+            QuaternionArithmeticOperation::Sub,
+            QuaternionArithmeticOperation::Mul,
+            QuaternionArithmeticOperation::Mul,
+            QuaternionArithmeticOperation::Sub,
+            QuaternionArithmeticOperation::Mul,
+            QuaternionArithmeticOperation::Mul,
+            QuaternionArithmeticOperation::Sub,
+            QuaternionArithmeticOperation::Add,
+            QuaternionArithmeticOperation::Add,
+            QuaternionArithmeticOperation::Add,
+            QuaternionArithmeticOperation::Add,
+            QuaternionArithmeticOperation::Add,
+            QuaternionArithmeticOperation::Add,
+        ];
+        assert_eq!(arithmetic.calls.len(), 30);
+        assert_eq!(
+            arithmetic
+                .calls
+                .iter()
+                .map(|call| call.operation)
+                .collect::<Vec<_>>(),
+            expected_operations
+        );
+        assert!(
+            arithmetic
+                .calls
+                .iter()
+                .all(|call| { !matches!(call.operation, QuaternionArithmeticOperation::Div) })
+        );
+    }
+
+    fn independent_column_vector_rotation_oracle(rotation: [f64; 4], vector: [f64; 3]) -> [f64; 3] {
+        // Standard column-vector rotation matrix, kept separate from the
+        // production two-cross-product implementation. The selected fixture
+        // uses exactly representable halves, so this oracle is bit-exact.
+        let [x, y, z, w] = rotation;
+        let matrix = [
+            [
+                1.0 - 2.0 * (y * y + z * z),
+                2.0 * (x * y - z * w),
+                2.0 * (x * z + y * w),
+            ],
+            [
+                2.0 * (x * y + z * w),
+                1.0 - 2.0 * (x * x + z * z),
+                2.0 * (y * z - x * w),
+            ],
+            [
+                2.0 * (x * z - y * w),
+                2.0 * (y * z + x * w),
+                1.0 - 2.0 * (x * x + y * y),
+            ],
+        ];
+        [
+            matrix[0][0] * vector[0] + matrix[0][1] * vector[1] + matrix[0][2] * vector[2],
+            matrix[1][0] * vector[0] + matrix[1][1] * vector[1] + matrix[1][2] * vector[2],
+            matrix[2][0] * vector[0] + matrix[2][1] * vector[1] + matrix[2][2] * vector[2],
+        ]
+    }
+
+    #[test]
+    fn vector_rotation_all_nonzero_signed_fixture_matches_independent_matrix_oracle() {
+        let mut gate = AllowGate::default();
+        let mut sqrt = NativeSqrtProvider;
+        let rotation = normalize_with_native_arithmetic(
+            [1.0, -1.0, 1.0, 1.0],
+            &mut gate,
+            SqrtCapability::available(&mut sqrt),
+        )
+        .unwrap();
+        let vector = [
+            NormalizedBinary64::from_exact_i64(1).unwrap(),
+            NormalizedBinary64::from_exact_i64(-2).unwrap(),
+            NormalizedBinary64::from_exact_i64(3).unwrap(),
+        ];
+        let rotation_components = rotation.components().map(NormalizedBinary64::as_f64);
+        let vector_components = vector.map(NormalizedBinary64::as_f64);
+        assert!(
+            rotation_components
+                .into_iter()
+                .all(|component| component != 0.0)
+        );
+        assert!(
+            vector_components
+                .into_iter()
+                .all(|component| component != 0.0)
+        );
+        let expected =
+            independent_column_vector_rotation_oracle(rotation_components, vector_components);
+        assert_eq!(
+            expected.map(f64::to_bits),
+            [2.0_f64.to_bits(), (-3.0_f64).to_bits(), 1.0_f64.to_bits()]
+        );
+
+        let mut arithmetic = RecordingArithmetic::default();
+        let output = {
+            let mut capability = Binary64ArithmeticCapability::provided(&mut arithmetic);
+            rotate_canonical_vector(rotation, vector, &mut capability).unwrap()
+        };
+        assert_eq!(
+            output.map(NormalizedBinary64::to_bits),
+            expected.map(f64::to_bits)
+        );
+        assert_eq!(arithmetic.calls.len(), 30);
+    }
+
+    #[test]
+    fn vector_rotation_identity_and_negative_canonical_quaternion_match() {
+        let identity = normalize([0.0, 0.0, 0.0, 1.0]).0;
+        let negative_identity = normalize([0.0, 0.0, 0.0, -1.0]).0;
+        let vector = [
+            NormalizedBinary64::from_f64_result(-0.0).unwrap(),
+            NormalizedBinary64::from_exact_i64(-2).unwrap(),
+            NormalizedBinary64::from_exact_i64(5).unwrap(),
+        ];
+        let rotate = |rotation| {
+            let mut arithmetic = NativeArithmetic;
+            let mut capability = Binary64ArithmeticCapability::provided(&mut arithmetic);
+            rotate_canonical_vector(rotation, vector, &mut capability).unwrap()
+        };
+        assert_eq!(rotate(identity), vector);
+        assert_eq!(rotate(identity), rotate(negative_identity));
+        assert_eq!(rotate(identity)[0].to_bits(), 0);
+    }
+
+    #[test]
+    fn vector_rotation_failure_stops_at_first_failed_call_and_never_uses_composition_stage() {
+        for fail_at in [0, 1, 8, 9, 14, 15, 23, 24, 29] {
+            let rotation = normalize([0.0, 0.0, 1.0, 1.0]).0;
+            let vector = [
+                NormalizedBinary64::from_exact_i64(1).unwrap(),
+                NormalizedBinary64::from_exact_i64(2).unwrap(),
+                NormalizedBinary64::from_exact_i64(3).unwrap(),
+            ];
+            let mut arithmetic = RecordingArithmetic {
+                fail_at: Some(fail_at),
+                ..RecordingArithmetic::default()
+            };
+            let result = {
+                let mut capability = Binary64ArithmeticCapability::provided(&mut arithmetic);
+                rotate_canonical_vector(rotation, vector, &mut capability)
+            };
+            assert!(matches!(
+                result,
+                Err(QuaternionNormalizationError::Arithmetic(
+                    QuaternionArithmeticError::ProviderFailed { .. }
+                ))
+            ));
+            assert_eq!(arithmetic.calls.len(), fail_at + 1);
+            assert!(
+                arithmetic
+                    .calls
+                    .iter()
+                    .all(|call| { !matches!(call.operation, QuaternionArithmeticOperation::Div) })
+            );
+        }
+    }
+
+    #[test]
+    fn vector_rotation_capability_and_zero_output_boundaries_are_checked() {
+        let mut gate = AllowGate::default();
+        let mut sqrt = NativeSqrtProvider;
+        let rotation = normalize_with_native_arithmetic(
+            [1.0, -1.0, 1.0, 1.0],
+            &mut gate,
+            SqrtCapability::available(&mut sqrt),
+        )
+        .unwrap();
+        let vector = [
+            NormalizedBinary64::from_exact_i64(1).unwrap(),
+            NormalizedBinary64::from_exact_i64(-2).unwrap(),
+            NormalizedBinary64::from_exact_i64(3).unwrap(),
+        ];
+
+        let unavailable = rotate_canonical_vector(
+            rotation,
+            vector,
+            &mut Binary64ArithmeticCapability::unavailable(),
+        );
+        assert!(matches!(
+            unavailable,
+            Err(QuaternionNormalizationError::Arithmetic(
+                QuaternionArithmeticError::ProviderUnavailable {
+                    operation: QuaternionArithmeticOperation::Mul,
+                    stage: QuaternionArithmeticStage::VectorRotationCrossProduct,
+                    index: Some(0),
+                }
+            ))
+        ));
+
+        let mut nonfinite = RecordingArithmetic {
+            nonfinite_output_at: Some(0),
+            ..RecordingArithmetic::default()
+        };
+        let nonfinite_result = {
+            let mut capability = Binary64ArithmeticCapability::provided(&mut nonfinite);
+            rotate_canonical_vector(rotation, vector, &mut capability)
+        };
+        assert!(matches!(
+            nonfinite_result,
+            Err(QuaternionNormalizationError::Arithmetic(
+                QuaternionArithmeticError::NonFiniteOutput {
+                    operation: QuaternionArithmeticOperation::Mul,
+                    stage: QuaternionArithmeticStage::VectorRotationCrossProduct,
+                    index: Some(0),
+                    ..
+                }
+            ))
+        ));
+        assert_eq!(nonfinite.calls.len(), 1);
+
+        let identity = normalize([0.0, 0.0, 0.0, 1.0]).0;
+        let zero_vector = [NormalizedBinary64::ZERO; 3];
+        let mut negative_zero = RecordingArithmetic {
+            negative_zero_output_at: Some(29),
+            ..RecordingArithmetic::default()
+        };
+        let output = {
+            let mut capability = Binary64ArithmeticCapability::provided(&mut negative_zero);
+            rotate_canonical_vector(identity, zero_vector, &mut capability).unwrap()
+        };
+        assert_eq!(negative_zero.calls.len(), 30);
+        assert_eq!(output.map(NormalizedBinary64::to_bits), [0, 0, 0]);
     }
 
     #[test]
