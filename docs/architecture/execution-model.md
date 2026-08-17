@@ -196,10 +196,16 @@ is preserved opaquely and has no core semantic effect.
 The conceptual top-level shape is `contract`, `source`, `basis`, `profiles`,
 `body`, and `extensions`; `body` uses explicit typed collections and stable
 references, with core collections present even when empty and no generic union.
+An R3-recognized source carries one source-level morphology/grammar request
+profile in `profiles`, separate from the semantic numeric profile. Its exact
+field spelling, IDs, and schema revision remain R3-gated.
 The required basis is length unit, handedness, up, and forward. Stage 1 frame
 roles are owner-specific: Part local/reference, Joint proximal/distal, and
 Socket intrinsic interface; Attachment host/mating are contextual endpoint
-roles. Source profiles initially name only semantic numeric-domain profiles.
+roles. Source profiles name the semantic numeric-domain profile and, for
+R3-recognized sources, the separate morphology/grammar request profile for the
+assembled body. Operational resource and diagnostic profiles remain
+operation/fixture context.
 Readiness 2 uses a rigid transform carrier with exactly three translation and
 four explicit `xyzw` quaternion components and no scale/shear fields; Readiness
 3 freezes numeric basis, normalization, conditioning, and tolerances. Identity,
@@ -234,6 +240,13 @@ and compiler-mode fixtures, separate semantic budgets, independent oracles,
 frozen corpora, condition estimates, and metamorphic checks. Diagnostic
 codes and profiles are owned by the proposed
 [diagnostics contract](../../spec/diagnostics/README.md).
+
+R3 morphology classification is deterministic after admission, dependency, and
+resource checks: missing or malformed request profile is `invalid-source`; a
+recognized supported digitigrade profile runs bounded-family invariants and a
+contradiction is `invalid-source`; a well-formed unknown or recognized
+unsupported profile is `unsupported` without running those invariants. Parser,
+dependency, resource, and internal-failure precedence is unchanged.
 
 Future host adapters remain a separate post-Readiness-3 transaction. Their
 proposed boundary declares signed permutation `C` and finite positive scale `s`

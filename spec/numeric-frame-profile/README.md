@@ -247,18 +247,6 @@ and expected-snapshot comparison profiles. Exact profile identifiers,
 constants, expected bytes, and expected digests remain activation-gated and
 are owned by the fixture-manifest admission transaction.
 
-The same R3 successor corpus must also include representative valid fixtures
-for the bounded stylized digitigrade furry-biped family, recognized
-semantically invalid bounded-family fixtures, and well-formed recognized
-outside-envelope fixtures. At minimum, include a bounded-family invariant
-contradiction, an extra-limb or quadruped (or equivalent) request, and an
-arbitrary/unbounded attachment-graph request. The first is semantic
-`semantically invalid` with operation outcome `invalid-source`; the latter
-outside-envelope cases are `well-formed-but-unsupported` with operation
-outcome `unsupported`. Malformed or unrecognized input remains under the
-body-document/parser rules. These are representative boundary cases, not an
-exhaustive arbitrary-morphology claim.
-
 ## Future adapter conformance
 
 An adapter is a separate boundary after Readiness 3; this profile selects no

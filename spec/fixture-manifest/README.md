@@ -201,7 +201,10 @@ predecessor/supersession reference, and Ben approval. None of those admission
 fields are part of the manifest payload digest.
 
 For the R3 successor, that separate admission record additionally binds the
-immutable protocol, candidate, corpus, result, and receipt identities. These
+immutable protocol, candidate, corpus, result, and receipt identities, plus
+the source-level morphology/grammar request-profile recognition table and
+profile identity used by the corpus. The exact field spelling, IDs, schema
+revision, and table contents remain R3-gated. These
 post-evaluation identities are not inserted into the preregistered manifest
 payload, avoiding a result/manifest self-reference.
 
@@ -259,17 +262,17 @@ retry, concurrent winner, lineage change, and byte divergence use this same
 manifest family with `suite_kind: build-publication`; they remain conceptual
 until admission.
 
-The minimum R3 morphology corpus adds representative valid fixtures for the
-bounded stylized digitigrade furry-biped family, recognized semantically
-invalid bounded-family fixtures, and well-formed recognized requests outside
-the first envelope. It includes a bounded-family invariant contradiction, an
-extra-limb or quadruped (or equivalent) request, and an arbitrary/unbounded
-attachment-graph request. The first is semantic `semantically invalid` with
-operation outcome `invalid-source`; recognized outside-envelope requests are
-`well-formed-but-unsupported` with operation outcome `unsupported`. Malformed
-or unrecognized input remains under the body-document/parser rules. These are
-representative boundary evidence, not an exhaustive arbitrary-morphology
-corpus.
+The minimum R3 morphology corpus adds five representative roles: supported
+digitigrade valid; supported-profile contradiction; explicit quadruped;
+explicit extra-limb; and explicit freeform attachment-topology. The latter
+three are finite, schema-valid, duplicate-free, acyclic, resource-admitted,
+and free of endpoint/capacity defects. A supported-profile contradiction is
+semantic `semantically invalid` with operation outcome `invalid-source`; a
+well-formed unknown or recognized unsupported request is
+`well-formed-but-unsupported` with operation outcome `unsupported`, without
+applying supported-family invariants. Malformed or unrecognized input remains
+under the body-document/parser rules. These are representative boundary
+evidence, not an exhaustive arbitrary-morphology corpus.
 
 The numeric/frame successor corpus must also bind every case to the admitted
 numeric and comparison profiles. Numeric admission boundaries include an

@@ -590,8 +590,11 @@ protocol/candidate/corpus/result/receipt identities and the exact resolver
 binding; failed or inconclusive runs require a new candidate identity, and
 EXP-0002 attempt-001 is ineligible because `profile_binding` is null. The
 recognized taxonomy and minimum valid/invalid/unsupported morphology corpus
-are recorded in DR-0008 Revision 13. R3 remains inactive and exact profile
-constants, IDs, fixtures, and activation bindings are not selected.
+are recorded in DR-0008 Revision 14. Its Revision 13 Double review at exact
+target `117544a` had one clean pass and one Revise pass with three taxonomy
+findings; both artifacts remain stale evidence for Revision 14. R3 remains
+inactive and exact profile constants, IDs, fixtures, and activation bindings
+are not selected.
 
 Candidate locally validated and appraised by Ben on 2026-08-15: a directly
 consuming primitive spatial preview
@@ -689,15 +692,15 @@ Revision 12 is Accepted with Owner approval Approved by Ben and Date decided
 10, Batch 11, Batch 12, and Batch 13 product/specification/architecture/project
 material remains Proposed where owned by the other records; DR-0013's accepted
 platform boundary is recorded below. The current six-record set is DR-0002
-Revision 11, DR-0006 Revision 12, DR-0008 Revision 13, DR-0011 Revision 15,
+Revision 11, DR-0006 Revision 12, DR-0008 Revision 14, DR-0011 Revision 15,
 DR-0012 Revision 14, and DR-0013 Revision 12. DR-0002 Revision 11, DR-0006
 Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14 are Accepted with
-Owner approval Approved by Ben and Review Complete; DR-0008 Revision 13
+Owner approval Approved by Ben and Review Complete; DR-0008 Revision 14
 remains Proposed with Owner approval Pending and Review Pending after the
-Revision 12 Double review at exact target `e1ead72`; Review 01 found no findings
-and Review 02 recommended Revise at High confidence with three findings,
-dispositioned in Revision 13. The Revision 12 artifacts remain preserved stale
-evidence. The Revision 11 Double review at exact target
+Revision 13 Double review at exact target `117544a`; Review 01 found no findings
+and Review 02 recommended Revise at High confidence with three taxonomy
+findings, dispositioned in Revision 14. The Revision 13 artifacts remain
+preserved stale evidence. The Revision 11 Double review at exact target
 `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a` is stale historical evidence.
 The original Batch 13 review at exact commit
 `8c38c501eb1262a1b85af0b8605220625601772f` produced D1–D3/P1–P3, which were
@@ -812,15 +815,15 @@ probe. This is Proposed planning material only.
 
 ## Current review and future activation obligations
 
-The current DR-0008 Revision 12 Double review examined exact target `e1ead72`.
+The current DR-0008 Revision 13 Double review examined exact target `117544a`.
 Review 01 found no findings. Review 02 recommended Revise at High confidence
-with three findings: separate authored-conflict profile binding, immutable
-successor-experiment admission lineage, and explicit morphology boundary
-taxonomy/fixtures. Ben approved their technical resolutions in DR-0008
-Revision 13. The Revision 12 artifacts remain preserved but stale; Revision 13
-is Proposed with Owner approval Pending and Review status Pending. R3 remains
-inactive, and no exact profile constants, IDs, fixture files, or activation
-record are selected.
+with three taxonomy findings: ambiguous outside-envelope wording, missing
+machine-observable morphology request identity/classification order, and
+underspecified boundary fixtures. Ben approved their technical resolutions in
+DR-0008 Revision 14. The Revision 13 artifacts remain preserved but stale;
+Revision 14 is Proposed with Owner approval Pending and Review status Pending.
+R3 remains inactive, and no exact profile constants, IDs, fixture files, or
+activation record are selected.
 
 Batch 11, Batch 12, and Batch 13 record discussion-approved history. The
 accepted DR-0002/0006/0011/0012 semantic-foundation directions cover typed
@@ -975,8 +978,8 @@ nine fixtures, parser/bootstrap, and preflight are the active Readiness 2
 transaction under the admission record; the distinct Readiness 3
 resolver/snapshot transaction is not active.
 DR-0002 Revision 11 is Accepted with Owner approval Approved by Ben and Review
-Complete; DR-0008 Revision 13 remains Proposed with Owner approval Pending and
-Review Pending after the Revision 12 Double review at exact target `e1ead72`.
+Complete; DR-0008 Revision 14 remains Proposed with Owner approval Pending and
+Review Pending after the Revision 13 Double review at exact target `117544a`.
 
 The immediate next action is bounded source preparation and provenance
 traversal over admitted records, grounded in the active parser/bootstrap and
@@ -1090,15 +1093,15 @@ nonblocking obligation before external authored dependencies activate.
   are active under the Readiness 2 admission record; later resolver behavior and
   compiler-consumed Readiness 3 fixtures remain unactivated. The separate
   Readiness 1 Cargo shell is active. The current six-record set is DR-0002
-  Revision 11, DR-0006 Revision 12, DR-0008 Revision 13, DR-0011 Revision 15,
+  Revision 11, DR-0006 Revision 12, DR-0008 Revision 14, DR-0011 Revision 15,
   DR-0012 Revision 14, and DR-0013 Revision 12. DR-0002 Revision 11, DR-0006
   Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14 are Accepted with
-  Owner approval Approved by Ben and Review Complete; DR-0008 Revision 13
+  Owner approval Approved by Ben and Review Complete; DR-0008 Revision 14
   remains Proposed with Owner approval Pending and Review Pending after the
-  Revision 12 Double review at exact target `e1ead72`; Review 01 found no findings
-  and Review 02 recommended Revise at High confidence with three findings,
-  dispositioned in Revision 13. The Revision 12 artifacts remain preserved
-  stale evidence. The Revision 11 Double review at exact target
+  Revision 13 Double review at exact target `117544a`; Review 01 found no findings
+  and Review 02 recommended Revise at High confidence with three taxonomy
+  findings, dispositioned in Revision 14. The Revision 13 artifacts remain
+  preserved stale evidence. The Revision 11 Double review at exact target
   `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a` is stale historical evidence.
   Prior Batch
   13 review evidence is stale historical evidence; G1/G2 were fixed
@@ -1180,8 +1183,8 @@ metadata. Current non-governance decisions and proposals include:
 - [DR-0007](../decisions/DR-0007-staged-first-proof-charter.md) and
   [DR-0008](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md),
   first-proof and morphology boundaries — DR-0007 remains Proposed with its
-  current review; DR-0008 Revision 13 is Proposed, Owner approval Pending,
-  Review Pending; the Revision 12 Double review at exact target `e1ead72` is
+  current review; DR-0008 Revision 14 is Proposed, Owner approval Pending,
+  Review Pending; the Revision 13 Double review at exact target `117544a` is
   stale historical evidence. The Revision 11 review is stale
   historical evidence.
 - [DR-0011](../decisions/DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md),
@@ -1211,7 +1214,7 @@ metadata. Current non-governance decisions and proposals include:
 | Documentation authority | partial | unverified | Operational structure under Accepted DR-0001 Revision 5 |
 | Decision-record and review workflow | partial | unverified | Governance accepted; technical/product proposals remain provisional |
 | Research/experiment workflow | partial | unverified | Lightweight template exists; EXP-0002 remains planned with open evidence closure and no technology outcome; attempt-001 completed and passed its 49 cases and 26 registered relations, while broader obligations remain open |
-| Body specification | partial | unverified | Proposed body-document, body-graph, build-operation, fixture-manifest, and Batch 11/12/13 focused profiles include discussion-approved updates; the Readiness 2 schema, manifest, nine fixtures, parser/bootstrap, and preflight are active under the admission record, while DR-0002 Revision 11, DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14 are Accepted with Owner approval Approved by Ben; DR-0008 remains Revision 13 Proposed with current review Pending |
+| Body specification | partial | unverified | Proposed body-document, body-graph, build-operation, fixture-manifest, and Batch 11/12/13 focused profiles include discussion-approved updates; the Readiness 2 schema, manifest, nine fixtures, parser/bootstrap, and preflight are active under the admission record, while DR-0002 Revision 11, DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14 are Accepted with Owner approval Approved by Ben; DR-0008 remains Revision 14 Proposed with current review Pending |
 | Build-operation contract | partial | unverified | Proposed canonical public build/output owner exists; serialization, implementation, and artifact store remain unactivated |
 | Production implementation platform | partial | proven | CK-KICK-013/DR-0013 Revision 12 is Accepted with Owner approval Approved by Ben; the Readiness 1 Cargo workspace, compiler/core library shell, and thin CLI shell pass pinned-toolchain checks. Readiness 2's exact schema, manifest, nine fixtures, parser/bootstrap, and preflight are active after merged commit `766992ab089687e9b1496574e8ffa721388d96f3` / PR #6 and successful post-merge identity recomputation. PR #9, the inspectable biped structure workflow, is merged at `565c32bd35215e23d737fb333604382d3e6958ab`; its structural index/validator/inspection remain preparatory. The public single-source preparation operation and internal numeric/frame-preparation helpers remain preparatory; helpers cannot bypass body-document admission, and distinct Readiness 3, adapter, and exploratory geometry remain gated |
 | Creature compiler | partial | unverified | Disposable CK-KICK-010 walking skeleton implemented; this is not a production compiler |

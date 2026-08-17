@@ -2,10 +2,10 @@
 
 Status: Proposed conceptual contract; CK-KICK-012 Batch 13/14 discussion-approved
 canonical update. DR-0002 Revision 11 is Accepted with Owner approval Approved
-by Ben and Review Complete. DR-0008 Revision 13 remains Proposed with Owner
-approval Pending and Review Pending; the Revision 12 Double review at exact
-target `e1ead72` is stale historical evidence. Current Batch 13/14
-material is recorded
+by Ben and Review Complete. DR-0008 Revision 14 remains Proposed with Owner
+approval Pending and Review Pending; the Revision 13 Double review at exact
+target `117544a` is stale historical evidence for the current revision.
+Current Batch 13/14 material is recorded
 in DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14; these
 revisions are Accepted with Owner approval Approved by Ben and Review Complete
 after the current Double review at exact target
@@ -166,9 +166,12 @@ one intrinsic interface frame. Host and mating are contextual endpoint roles
 on an Attachment that references Sockets; they are not intrinsic Socket frame
 roles. Resolved world/reference and runtime-pose frames remain distinct
 downstream contexts. A source profile initially references only the semantic
-numeric-domain profile. Operational resource and diagnostic profiles are
-selected by the operation or fixture admission context. No per-value unit
-override is permitted initially.
+numeric-domain profile and, for an R3-recognized source, one source-level
+morphology/grammar request profile for the assembled body. This is separate
+from `semantic_numeric` and is not module-instance or extension metadata; exact
+field spelling, IDs, and schema revision remain R3-gated. Operational resource
+and diagnostic profiles are selected by the operation or fixture admission
+context. No per-value unit override is permitted initially.
 
 Readiness 2 validates document shape, typed records, references, and owner/role
 addressing, including the structural rigid-transform carrier defined by the
@@ -396,13 +399,18 @@ apply only after a recognized, admitted input has reached semantic evaluation:
 resource, and internal failures are separate operation-fixture outcomes and
 are not relabelled as one of those three semantic outcomes.
 
-For the recognized R3 morphology envelope, a bounded-family invariant
-contradiction is `semantically invalid` / `invalid-source`, while a well-formed
-recognized request outside the envelope is `well-formed-but-unsupported` /
-`unsupported`. Malformed or unrecognized input remains under the parser and
-body-document rules. Representative R3 fixtures cover valid bounded-family,
-invalid bounded-family, and outside-envelope requests; they do not claim
-exhaustive arbitrary morphology.
+For the recognized R3 morphology envelope, classification occurs after
+admission, dependency, and resource checks. A missing or malformed source-level
+morphology request is `invalid-source`; a recognized supported profile is
+checked against bounded-family invariants and a contradiction is
+`semantically invalid` / `invalid-source`; a well-formed unknown or recognized
+unsupported request is `well-formed-but-unsupported` / `unsupported` without
+running those invariants. Existing parser, dependency, resource, and internal
+precedence remains unchanged. Representative R3 fixtures cover valid,
+supported-profile contradiction, quadruped, extra-limb, and explicit freeform
+topology requests; the latter three are finite, schema-valid, duplicate-free,
+acyclic, resource-admitted, and free of endpoint/capacity defects. They do not
+claim exhaustive arbitrary morphology.
 
 ## Diagnostics
 

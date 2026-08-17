@@ -64,11 +64,11 @@ Revision 11, DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14
 are accepted semantic-foundation directions with Owner approval Approved by Ben
 and Review Complete, decided 2026-08-17; their concrete architecture,
 specification, profile, and activation consequences remain Proposed or gated.
-DR-0008 Revision 13 remains Proposed with Owner approval Pending and Review
-Pending after the Revision 12 Double review at exact target `e1ead72`; Review 01
+DR-0008 Revision 14 remains Proposed with Owner approval Pending and Review
+Pending after the Revision 13 Double review at exact target `117544a`; Review 01
 found no findings and Review 02 recommended Revise at High confidence with
-three findings, dispositioned in Revision 13. Its Revision 12 artifacts remain
-preserved stale historical evidence.
+three taxonomy findings, dispositioned in Revision 14. Its Revision 13 and
+earlier artifacts remain preserved stale historical evidence.
 DR-0013 Revision 12 is Accepted,
 with Owner approval Approved by Ben and Review Complete at that exact target, decided
 2026-08-13. Review scope is record-specific: DR-0002 Revision 11's current Double

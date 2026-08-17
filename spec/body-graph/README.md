@@ -253,9 +253,13 @@ owner, role, and frame/context. Stage 1 uses owner-specific roles: a Part has a
 local/reference frame, a Joint has proximal and distal frames, and a Socket has
 one intrinsic interface frame. Host and mating are contextual endpoint roles
 on an Attachment that references Sockets; they are not intrinsic Socket frame
-roles. Source profiles initially reference only the semantic numeric-domain
-profile; operational resource and diagnostic profiles remain operation/fixture
-context. There is no per-value unit override initially. Readiness 2 checks
+roles. Source profiles reference the semantic numeric-domain profile and, for
+an R3-recognized source, one source-level morphology/grammar request profile
+for the assembled body. It is separate from `semantic_numeric` and is not
+module-instance or extension metadata; exact field spelling, IDs, and schema
+revision remain R3-gated. Operational resource and diagnostic profiles remain
+operation/fixture context. There is no per-value unit override initially.
+Readiness 2 checks
 shape, references, provenance, and the rigid-transform carrier: exactly three
 translation components and exactly four quaternion components in explicit
 `xyzw` order, with no scale or shear fields. The [numeric and frame
@@ -464,14 +468,16 @@ residual diagnostics; representative-selection and provenance-retention
 consequences; invalid/
 unsupported outcomes; resource limits and diagnostic truncation; and the
 cross-DR fixture matrix. The fixture set is evidence planning, not proof yet.
-The minimum R3 morphology boundary additionally includes representative valid
-bounded-family, semantically invalid bounded-family, and well-formed
-outside-envelope fixtures, including an extra-limb/quadruped (or equivalent)
-request and an arbitrary/unbounded attachment graph. A recognized
-bounded-family contradiction is `semantically invalid` / `invalid-source`;
-recognized outside-envelope input is `well-formed-but-unsupported` /
-`unsupported`. Malformed or unrecognized input remains under body-document
-rules, and the cases do not imply exhaustive arbitrary-morphology support.
+The minimum R3 morphology boundary additionally includes five representative
+roles: supported digitigrade valid; supported-profile contradiction; explicit
+quadruped; explicit extra-limb; and explicit freeform attachment-topology.
+The last three are finite, schema-valid, duplicate-free, acyclic,
+resource-admitted, and free of endpoint/capacity defects. A supported-profile
+contradiction is `semantically invalid` / `invalid-source`; a well-formed
+unknown or recognized unsupported request is `well-formed-but-unsupported` /
+`unsupported` without applying supported-family invariants. Malformed or
+unrecognized input remains under body-document rules, and the cases do not
+imply exhaustive arbitrary-morphology support.
 The [fixture-manifest and admission contract](../fixture-manifest/README.md)
 owns the immutable reviewed tree and payload binding, preflight, and staged
 Readiness 2/3 corpus; it does not change graph semantics or activate these

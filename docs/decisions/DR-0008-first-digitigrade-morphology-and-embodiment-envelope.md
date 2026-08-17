@@ -6,7 +6,7 @@ Scope: Product, Specification and architecture
 
 Status: Proposed
 
-Revision: 13
+Revision: 14
 
 Decision owner: Ben
 
@@ -74,7 +74,13 @@ dispositions on 2026-08-18: separately bind the authored-conflict profile and
 its immutable successor-evidence lineage, make the recognized morphology
 boundary taxonomy explicit with representative fixtures, and keep exact
 profile values, IDs, files, and activation gated. Revision 13 records those
-technical resolutions; its current-revision review is Pending.
+technical resolutions; its current-revision Double review at exact target
+`117544a` had one clean pass and one Revise pass with three taxonomy findings.
+Ben approved the technical resolutions to those findings on 2026-08-18.
+Revision 14 records the source-level morphology request profile identity,
+deterministic classification order, and unambiguous boundary fixtures below.
+Revision 13's review artifacts remain preserved but stale for this material
+revision; Review status is Pending.
 
 Supersedes: —
 
@@ -119,10 +125,12 @@ head/muzzle scale, arm and leg length, foot size and angle, ear length, and
 tail length and curvature. Exact ratios are deferred to evidence; this record
 does not define numeric parameter ranges.
 
-The following are explicitly invalid or deferred for this family: extra limbs,
+The following are outside the first supported family envelope: extra limbs,
 wings, a quadruped stance, arbitrary joint counts or attachment graphs,
 detailed fingers or toes, arbitrary anatomy, plantigrade bodies, and other
-morphology families.
+morphology families. They remain deferred for future support. An explicit,
+well-formed request for one of them is unsupported; a source that requests the
+supported family but violates its invariants is invalid-source.
 
 The fixed qualitative fixture set contains at least four substantially
 different profiles, including:
@@ -283,6 +291,29 @@ morphology family. The initial JSON encoding and structural-schema technology
 are selected by DR-0012; their exact source fields and schema remain deferred
 to that specification work.
 
+### Morphology request identity and classification
+
+R3's normalized semantic source model requires one source-level morphology or
+grammar request profile identifier in the top-level `profiles` collection,
+separate from the `semantic_numeric` profile. It describes the assembled
+source as a whole; it is not module-instance data, an extension, or fixture-only
+metadata. The exact serialized field spelling, profile identifiers, and schema
+revision remain R3-gated.
+
+After byte/JSON/discriminator/schema admission, dependency checks, and resource
+admission, classification resolves that required request profile in this order:
+
+1. A missing or malformed request profile in an R3-recognized source is
+   `invalid-source`.
+2. A recognized supported digitigrade profile is checked against the bounded
+   family invariants; a contradiction is `invalid-source`.
+3. A well-formed unknown or recognized unsupported morphology request is
+   `unsupported` without applying supported-digitigrade invariants.
+
+Existing parser, dependency, resource, and internal-failure precedence remains
+unchanged. This identity and ordering make the unsupported-versus-invalid
+boundary machine-observable without introducing a general morphology language.
+
 ### Readiness 3 resolver boundary
 
 The first Readiness 3 resolver and fixture transaction is limited to this
@@ -315,17 +346,29 @@ inconclusive evaluation requires a new candidate/evaluation identity; it may
 not mutate or widen the admitted candidate. EXP-0002 phase-one attempt-001
 cannot qualify for this successor because its `profile_binding` is `null`.
 
-The minimum R3 corpus includes representative valid bounded-family fixtures,
-semantically invalid bounded-family fixtures, and well-formed unsupported
-outside-envelope fixtures. It includes an extra-limb or quadruped (or
-equivalent) request and an arbitrary/unbounded attachment-graph request; these
-are representative boundary evidence, not an exhaustive arbitrary-morphology
-promise. A recognized bounded-family invariant contradiction is semantic
-`semantically invalid` with operation outcome `invalid-source`. A well-formed,
-recognized request outside the first morphology envelope is
-`well-formed-but-unsupported` with operation outcome `unsupported`. Malformed
-or unrecognized input remains governed by the existing body-document/parser
-rules; it is not relabelled as an outside-envelope morphology case.
+The minimum R3 corpus contains exactly these boundary roles, with all cases
+finite, schema-valid, duplicate-free, acyclic, resource-admitted, and using
+valid endpoints/capacity unless the case is testing a supported-profile
+contradiction:
+
+1. supported digitigrade request with a valid body: `valid-supported`;
+2. supported digitigrade request with a third arm or other extra-limb
+   contradiction: `semantically invalid` / `invalid-source`;
+3. explicit quadruped request with a well-formed quadruped graph:
+   `well-formed-but-unsupported` / `unsupported`;
+4. explicit extra-limb request with a well-formed graph:
+   `well-formed-but-unsupported` / `unsupported`; and
+5. explicit freeform attachment-topology request with a finite, well-formed,
+   acyclic graph whose sole non-success reason is the unsupported profile:
+   `well-formed-but-unsupported` / `unsupported`.
+
+Cycles, dangling endpoints, capacity violations, malformed JSON/schema, and
+resource breaches must not be used to prove unsupported morphology. These are
+representative boundary evidence, not an exhaustive arbitrary-morphology
+promise. Malformed or unrecognized input outside this recognized R3 request
+path means unrecognized contract input and remains governed by the existing
+body-document/parser rules; an unknown but well-formed morphology request is
+the `unsupported` case above.
 
 This revision does not select exact constants, profile IDs, fixture files,
 schema fields, or activation records. Until the successor evidence and
@@ -655,10 +698,14 @@ Ben approved the technical resolutions in Revision 13. They now require one
 content-bound authored-conflict profile distinct from expected-snapshot
 profiles, exact immutable successor evidence lineage, fail-closed binding
 validation, and the minimum representative corpus and taxonomy stated above.
-The Revision 12 artifacts remain preserved but stale; Revision 13 is Proposed
-with Owner approval Pending and Review status Pending. This revision does not
-accept the proposal, select exact values or IDs, or activate R3. The Revision
-11 review is stale historical evidence.
+The Revision 12 artifacts remain preserved but stale. Revision 13's current
+Double review at exact target `117544a` had one clean pass in
+[review 01](reviews/DR-0008-rev-13-review-01.md) and one Revise pass with three
+taxonomy findings in [review 02](reviews/DR-0008-rev-13-review-02.md); those
+artifacts are also stale for Revision 14.
+Revision 14 is Proposed with Owner approval Pending and Review status Pending.
+This revision does not accept the proposal, select exact values or IDs, or
+activate R3. The Revision 11 review is stale historical evidence.
 
 ## Implementation and Proof Obligations
 
@@ -734,14 +781,19 @@ accept the proposal, select exact values or IDs, or activate R3. The Revision
   failed or inconclusive evaluations require a new candidate/evaluation
   identity. The phase-one EXP-0002 attempt with null `profile_binding` cannot
   qualify.
-- Include representative valid, semantically invalid, and well-formed
-  unsupported R3 fixtures. Cover a recognized bounded-family invariant
-  contradiction as `semantically invalid`/`invalid-source`, an extra-limb or
-  quadruped (or equivalent) recognized request as
-  `well-formed-but-unsupported`/`unsupported`, and an
-  arbitrary/unbounded attachment graph as representative unsupported
-  evidence. Keep malformed/unrecognized input under body-document/parser
-  rules and do not imply exhaustive arbitrary-morphology support.
+- Require one source-level morphology/grammar request profile identity in the
+  normalized top-level `profiles`, separate from the semantic numeric profile;
+  keep its exact field spelling, IDs, and schema revision R3-gated. Resolve it
+  after admission/dependency/resource checks, classify missing or malformed as
+  `invalid-source`, validate bounded-family invariants only for a recognized
+  supported request, and classify well-formed unknown/unsupported requests as
+  `unsupported` without running those invariants.
+- Include the five representative R3 boundary fixtures stated above. Keep each
+  morphology-boundary fixture finite, schema-valid, duplicate-free, acyclic,
+  resource-admitted, and free of endpoint/capacity errors unless it tests a
+  supported-profile contradiction. Do not use cycles, dangling endpoints,
+  capacity violations, malformed schema, or resource breaches to demonstrate
+  unsupported morphology.
 - Evaluate all fixed qualitative profiles through the same grammar and
   generators, recording bespoke correction attempts as failures rather than
   silently adding exceptions.
