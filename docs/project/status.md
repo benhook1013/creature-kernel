@@ -535,6 +535,22 @@ create snapshots or a public API, generate geometry, or activate Readiness 3;
 it is internal reversible runway progress only and accepts or changes no
 contract.
 
+The current runway also adds a crate-private source-set canonical-placement
+coordinator over admitted root and dependency members. It preflights the
+source-set root, member set, member roles, and inner successful-value
+identities before constructing fresh caller-supplied gate, arithmetic, and
+square-root capabilities for that attempted member; an upstream
+canonical-frame failure
+skips those factories. The coordinator retains the source-set root globally;
+each deterministic member-key result retains its member key and role, exact
+upstream canonical-frame outcome, and placement state as skipped, typed
+failure, or success, while a member failure does not suppress other members
+after full preflight. It performs no namespace remap or merge,
+candidate resolution or winner selection, aggregate status or diagnostics,
+snapshot or public API, geometry or runtime work, or Readiness 3 activation;
+it is internal reversible runway progress only and accepts or changes no
+contract.
+
 Candidate locally validated and appraised by Ben on 2026-08-15: a directly
 consuming primitive spatial preview
 uses this exact placement result through the existing
