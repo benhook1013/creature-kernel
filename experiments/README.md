@@ -1,8 +1,8 @@
 # Experiments
 
 Status: Active workflow; EXP-0002 remains planned with open evidence closure
-and technology outcome `none`; its phase-one exact-artifact package is frozen
-but unrun.
+and technology outcome `none`; its phase-one exact-artifact package and
+committed one-shot execution/receipt wrapper are frozen but unrun.
 
 Experiments provide reproducible evidence for research questions and decisions.
 They do not become product or architecture contracts automatically. Research
@@ -59,9 +59,10 @@ below current as experiments are created.
   package; one persistent candidate is specified to receive the frozen
   development, held-out, and adversarial roles in order. Its 49 exact frozen
   case adjudications and runner classifications for 26 registered named case
-  groups, manifest identities, bounded runner, and synthetic checks are
-  implemented and frozen but unrun; overall experiment remains planned,
-  evidence closure open, and technology outcome `none`.
+  groups, manifest identities, bounded runner, synthetic checks, and
+  preparatory one-shot receipt wrapper are implemented and frozen but unrun;
+  overall experiment remains planned, evidence closure open, and technology
+  outcome `none`.
 
 The phase-one claim is limited to 49 exact frozen case adjudications plus
 runner classifications for 26 registered named case groups, including
