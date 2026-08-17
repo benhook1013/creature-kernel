@@ -37,3 +37,9 @@ jobs:
 
       - name: Check Rust formatting
         run: cargo fmt --all --check
+
+      - name: Validate EXP-0002 candidate adapter
+        run: |
+          cargo fmt --manifest-path experiments/EXP-0002-numeric-frame-profile/candidate/Cargo.toml -- --check
+          cargo test --manifest-path experiments/EXP-0002-numeric-frame-profile/candidate/Cargo.toml --locked
+          cargo clippy --manifest-path experiments/EXP-0002-numeric-frame-profile/candidate/Cargo.toml --all-targets --locked -- -D warnings
