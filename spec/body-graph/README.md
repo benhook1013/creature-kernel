@@ -364,11 +364,16 @@ Adding a passing claim can change the representative and therefore a snapshot;
 a changed comparison profile or expected fixture requires its profile/fixture
 successor process.
 Authored-conflict and expected-snapshot comparisons remain separate profiles,
-and their constants remain experiment-gated. R3 binds exactly one explicit
-authored-conflict profile, frozen from a bounded successor experiment; exact
-zero, indefinite caller-selected tolerances, and post-hoc widening are not
-allowed. Until that profile and its resolver binding are admitted, R3 remains
-inactive.
+and their constants remain experiment-gated. R3 binds exactly one separately
+content-bound authored-conflict profile, frozen from a bounded successor
+experiment. The activation closure separately binds (a) the profile
+definition/content identity, (b) the resolver/source implementation closure,
+and (c) a resolver binding plus complete build request that reference exactly
+one authored-conflict profile. Mismatch across these activation inputs fails
+closed; there is no caller-selected or global-default tolerance fallback. The
+generic resolver implementation need not itself reference the exact profile.
+Exact zero and post-hoc widening are not allowed. Until that profile and its
+resolver binding are admitted, R3 remains inactive.
 
 This local claim representative rule is not a canonical key for unrelated
 unordered collections. Every graph concept collection still uses the generic
@@ -459,6 +464,14 @@ residual diagnostics; representative-selection and provenance-retention
 consequences; invalid/
 unsupported outcomes; resource limits and diagnostic truncation; and the
 cross-DR fixture matrix. The fixture set is evidence planning, not proof yet.
+The minimum R3 morphology boundary additionally includes representative valid
+bounded-family, semantically invalid bounded-family, and well-formed
+outside-envelope fixtures, including an extra-limb/quadruped (or equivalent)
+request and an arbitrary/unbounded attachment graph. A recognized
+bounded-family contradiction is `semantically invalid` / `invalid-source`;
+recognized outside-envelope input is `well-formed-but-unsupported` /
+`unsupported`. Malformed or unrecognized input remains under body-document
+rules, and the cases do not imply exhaustive arbitrary-morphology support.
 The [fixture-manifest and admission contract](../fixture-manifest/README.md)
 owns the immutable reviewed tree and payload binding, preflight, and staged
 Readiness 2/3 corpus; it does not change graph semantics or activate these

@@ -6,13 +6,13 @@ Scope: Product, Specification and architecture
 
 Status: Proposed
 
-Revision: 12
+Revision: 13
 
 Decision owner: Ben
 
 Owner approval: Pending
 
-Review status: Complete
+Review status: Pending
 
 Date proposed: 2026-08-09
 
@@ -69,7 +69,12 @@ complete as evidence at exact target `e1ead72`: [review 01](reviews/DR-0008-rev-
 found no findings and recommends **Ready**; [review 02](reviews/DR-0008-rev-12-review-02.md)
 recommends **Revise** at **High** confidence with three unresolved actionable
 findings. Review completion is evidence only; Owner approval remains Pending
-and this proposal remains Proposed.
+and this proposal remains Proposed. Ben approved the three Revision 12 finding
+dispositions on 2026-08-18: separately bind the authored-conflict profile and
+its immutable successor-evidence lineage, make the recognized morphology
+boundary taxonomy explicit with representative fixtures, and keep exact
+profile values, IDs, files, and activation gated. Revision 13 records those
+technical resolutions; its current-revision review is Pending.
 
 Supersedes: —
 
@@ -283,14 +288,48 @@ to that specification work.
 The first Readiness 3 resolver and fixture transaction is limited to this
 bounded stylized digitigrade furry-biped family and its fixed admitted fixture
 envelope. It does not promise arbitrary morphology, additional limbs,
-quadrupeds, or unbounded attachment graphs. R3 binds exactly one explicit
-authored-conflict comparison profile for the competing authored and
-Attachment-equation-derived root placement described above. The profile
+quadrupeds, or unbounded attachment graphs. R3 binds exactly one explicit,
+separately content-bound **authored-conflict comparison profile** for the
+competing authored and Attachment-equation-derived root placement described
+above. The profile identity, definition, and constants are distinct from any
+expected-snapshot comparison profile. The activation closure separately binds
+(a) the profile definition/content identity, (b) the resolver/source
+implementation closure, and (c) a resolver binding plus complete build request
+that reference exactly one authored-conflict profile. Mismatch across these
+activation inputs fails closed. The generic resolver implementation need not
+itself reference the exact profile.
+
+The activation binding fails closed when the authored-conflict binding is
+missing, extra, duplicate, unknown, or mismatched with the profile definition,
+resolver closure, or complete build request. There is no caller-selected
+tolerance fallback, global default, or silent substitution. The profile
 identity and constants are selected only by a bounded successor evidence
-experiment and frozen in the successor admission transaction. They are not
-selected by this revision; exact-zero comparison, indefinite caller-selected
-tolerances, and post-hoc tolerance widening are not permitted. Until that
-successor evidence and admission transaction exist, R3 remains inactive.
+experiment and frozen in the successor admission transaction. Exact-zero
+comparison and post-hoc tolerance widening are not permitted.
+
+The successor admission must bind immutable protocol, candidate, corpus,
+result, and receipt identities. Before held-out or adversarial execution, the
+candidate profile/rules/constants, semantic budgets, validation margin and
+formula, and corpus identities and roles must be fixed. A failed or
+inconclusive evaluation requires a new candidate/evaluation identity; it may
+not mutate or widen the admitted candidate. EXP-0002 phase-one attempt-001
+cannot qualify for this successor because its `profile_binding` is `null`.
+
+The minimum R3 corpus includes representative valid bounded-family fixtures,
+semantically invalid bounded-family fixtures, and well-formed unsupported
+outside-envelope fixtures. It includes an extra-limb or quadruped (or
+equivalent) request and an arbitrary/unbounded attachment-graph request; these
+are representative boundary evidence, not an exhaustive arbitrary-morphology
+promise. A recognized bounded-family invariant contradiction is semantic
+`semantically invalid` with operation outcome `invalid-source`. A well-formed,
+recognized request outside the first morphology envelope is
+`well-formed-but-unsupported` with operation outcome `unsupported`. Malformed
+or unrecognized input remains governed by the existing body-document/parser
+rules; it is not relabelled as an outside-envelope morphology case.
+
+This revision does not select exact constants, profile IDs, fixture files,
+schema fields, or activation records. Until the successor evidence and
+admission transaction exist, R3 remains inactive.
 
 ### Stage 1 embodiment boundary
 
@@ -607,15 +646,19 @@ or reject this proposal.
 
 The current Revision 12 Double review examined exact target commit `e1ead72`.
 Review 01 found no findings under the semantic invalidity, graph, and snapshot
-correctness lens. Review 02 recommends **Revise** at **High** confidence under
-the activation, evidence, compatibility, and reversibility lens, preserving
-three unresolved findings: the authored-conflict profile is not yet separately
-and exactly bound in the activation payload; the successor experiment is not
-yet immutably lineage-bound to admission; and representative morphology
-valid/invalid/unsupported boundary fixtures plus unambiguous taxonomy wording
-are still needed. These are review findings, not resolutions. Review Complete
-records both passes and does not accept this proposal or activate R3. The
-Revision 11 review is stale historical evidence.
+correctness lens. Review 02 recommended **Revise** at **High** confidence under
+the activation, evidence, compatibility, and reversibility lens, identifying
+three findings: separate authored-conflict profile binding, immutable
+successor-experiment admission lineage, and representative morphology
+valid/invalid/unsupported boundary fixtures with unambiguous taxonomy wording.
+Ben approved the technical resolutions in Revision 13. They now require one
+content-bound authored-conflict profile distinct from expected-snapshot
+profiles, exact immutable successor evidence lineage, fail-closed binding
+validation, and the minimum representative corpus and taxonomy stated above.
+The Revision 12 artifacts remain preserved but stale; Revision 13 is Proposed
+with Owner approval Pending and Review status Pending. This revision does not
+accept the proposal, select exact values or IDs, or activate R3. The Revision
+11 review is stale historical evidence.
 
 ## Implementation and Proof Obligations
 
@@ -664,8 +707,15 @@ Revision 11 review is stale historical evidence.
   comparison tolerance, matrix layout, and serialization remain
   resolver-activation prerequisites or deferred specification details. The
   successor evidence must select one explicit authored-conflict comparison
-  profile; it must not leave tolerances caller-selectable, use exact-zero, or
-  widen the profile after observing failures.
+  profile whose definition/constants and content identity are separate from
+  expected-snapshot profiles. The activation closure separately binds (a) the
+  profile definition/content identity, (b) the resolver/source implementation
+  closure, and (c) a resolver binding plus complete build request that
+  reference exactly one such profile; missing, extra, duplicate, unknown, or
+  mismatched bindings across these activation inputs fail closed. The generic
+  resolver implementation need not itself reference the exact profile. It must not leave
+  tolerances caller-selectable, use exact-zero, or widen the profile after
+  observing failures.
   Include invalid endpoints, detached/multiply attached roots, and Attachment
   cycles.
 - Define declared units and coordinate basis, explicit local frames and
@@ -677,6 +727,21 @@ Revision 11 review is stale historical evidence.
   semantically invalid, or well-formed-but-unsupported, and the expected
   primary diagnostic class/code for every non-success fixture before EXP-0001
   execution or evidence; this proposal does not create fixture files.
+- Preregister the successor experiment's candidate profile/rules/constants,
+  semantic budgets, validation margin/formula, corpus identities, and corpus
+  roles before held-out/adversarial execution. Bind immutable protocol,
+  candidate, corpus, result, and receipt identities in the admission record;
+  failed or inconclusive evaluations require a new candidate/evaluation
+  identity. The phase-one EXP-0002 attempt with null `profile_binding` cannot
+  qualify.
+- Include representative valid, semantically invalid, and well-formed
+  unsupported R3 fixtures. Cover a recognized bounded-family invariant
+  contradiction as `semantically invalid`/`invalid-source`, an extra-limb or
+  quadruped (or equivalent) recognized request as
+  `well-formed-but-unsupported`/`unsupported`, and an
+  arbitrary/unbounded attachment graph as representative unsupported
+  evidence. Keep malformed/unrecognized input under body-document/parser
+  rules and do not imply exhaustive arbitrary-morphology support.
 - Evaluate all fixed qualitative profiles through the same grammar and
   generators, recording bespoke correction attempts as failures rather than
   silently adding exceptions.

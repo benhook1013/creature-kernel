@@ -2,10 +2,9 @@
 
 Status: Proposed conceptual contract; CK-KICK-012 Batch 13/14 discussion-approved
 canonical update. DR-0002 Revision 11 is Accepted with Owner approval Approved
-by Ben and Review Complete. DR-0008 Revision 12 remains Proposed with Owner
-approval Pending and Review Complete after the current Double review at exact
-target `e1ead72`; Review 01 found no findings and Review 02 recommends Revise
-at High confidence with three unresolved findings. Current Batch 13/14
+by Ben and Review Complete. DR-0008 Revision 13 remains Proposed with Owner
+approval Pending and Review Pending; the Revision 12 Double review at exact
+target `e1ead72` is stale historical evidence. Current Batch 13/14
 material is recorded
 in DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14; these
 revisions are Accepted with Owner approval Approved by Ben and Review Complete
@@ -183,10 +182,16 @@ carrier. R3's first resolver/fixture transaction is limited to the bounded
 stylized digitigrade furry-biped family and fixed fixture envelope. It binds
 one explicit authored-conflict comparison profile for authored versus
 Attachment-equation-derived root placement; the profile identity and
-constants come from a bounded successor experiment. Exact-zero comparison,
-indefinite caller-selected tolerances, and post-hoc widening are not allowed,
-and no R3 resolver or snapshot is active before that successor transaction is
-admitted.
+constants come from a bounded successor experiment. The profile is separately
+content-bound and distinct from expected-snapshot profiles. The activation
+closure separately binds (a) the profile definition/content identity, (b) the
+resolver/source implementation closure, and (c) a resolver binding plus
+complete build request that reference exactly one matching profile. Mismatch
+across these activation inputs fails closed, with no caller-selected or
+global-default tolerance fallback. The generic resolver implementation need
+not itself reference the exact profile.
+Exact-zero comparison and post-hoc widening are not allowed, and no R3
+resolver or snapshot is active before that successor transaction is admitted.
 
 ## Omission and deterministic defaults
 
@@ -390,6 +395,14 @@ apply only after a recognized, admitted input has reached semantic evaluation:
 `well-formed-but-unsupported`. Parser, discriminator, dependency, configured
 resource, and internal failures are separate operation-fixture outcomes and
 are not relabelled as one of those three semantic outcomes.
+
+For the recognized R3 morphology envelope, a bounded-family invariant
+contradiction is `semantically invalid` / `invalid-source`, while a well-formed
+recognized request outside the envelope is `well-formed-but-unsupported` /
+`unsupported`. Malformed or unrecognized input remains under the parser and
+body-document rules. Representative R3 fixtures cover valid bounded-family,
+invalid bounded-family, and outside-envelope requests; they do not claim
+exhaustive arbitrary morphology.
 
 ## Diagnostics
 

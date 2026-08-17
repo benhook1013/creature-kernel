@@ -613,11 +613,12 @@ Ben and Review Complete at its current-review target
 `6cf17270fda2827756c24a8d0fb301bef358f98f`; DR-0006 Revision 12, DR-0011
 Revision 15, and DR-0012 Revision 14 are Accepted with Owner approval Approved
 by Ben and Review Complete at their current Double-review target
-`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`; DR-0008 Revision 12 remains
-Proposed with Owner approval Pending and Review Complete after the current
+`9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`; DR-0008 Revision 13 remains
+Proposed with Owner approval Pending and Review Pending after the Revision 12
 Double review at exact target `e1ead72`; Review 01 found no findings and
-Review 02 recommends Revise at High confidence with three unresolved findings.
-Its Revision 11 review is stale historical evidence.
+Review 02 recommended Revise at High confidence with three findings,
+dispositioned in Revision 13. Its Revision 12 artifacts remain preserved stale
+historical evidence.
 DR-0013 Revision 12 is Accepted
 with Owner approval Approved by Ben and Review Complete at exact target
 `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a`, decided 2026-08-13. Readiness 1 is active in the Cargo shell. The
@@ -729,14 +730,15 @@ Proposed concrete material. The
 CK-KICK-012 Batch 5 Double review at commit
 `a282dbabffd83afa4e62577086934d00f98e12c7` and Batch 6 review at `c64b1b...`
 are stale historical evidence. The current six-record set is DR-0002 Revision
-11, DR-0006 Revision 12, DR-0008 Revision 12, DR-0011 Revision 15, DR-0012
+11, DR-0006 Revision 12, DR-0008 Revision 13, DR-0011 Revision 15, DR-0012
 Revision 14, and DR-0013 Revision 12; DR-0002 Revision 11, DR-0006 Revision
 12, DR-0011 Revision 15, and DR-0012 Revision 14 are Accepted with Owner
-approval Approved by Ben and Review Complete; DR-0008 Revision 12 remains
-Proposed with Owner approval Pending and Review Complete after the current
+approval Approved by Ben and Review Complete; DR-0008 Revision 13 remains
+Proposed with Owner approval Pending and Review Pending after the Revision 12
 Double review at exact target `e1ead72`; Review 01 found no findings and
-Review 02 recommends Revise at High confidence with three unresolved findings.
-Its Revision 11 Double review at exact target
+Review 02 recommended Revise at High confidence with three findings,
+dispositioned in Revision 13. Its Revision 12 Double-review artifacts remain
+preserved stale evidence. Its Revision 11 Double review at exact target
 `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a` is stale historical evidence.
 DR-0013 Revision 12 is Accepted with Owner approval Approved by Ben and Review
 Complete at that exact target, decided 2026-08-13; Readiness 1 and the exact

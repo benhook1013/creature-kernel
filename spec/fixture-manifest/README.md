@@ -104,6 +104,19 @@ equality-bound unless the claim explicitly says so. Implementation binding,
 dependency closure, build-request identity, attempt identity, and
 fixture-payload binding are distinct inputs and identities.
 
+For the Readiness 3 successor, the activation closure additionally binds
+exactly one separately content-bound authored-conflict comparison profile and
+its definition/constants. It is distinct from every expected-snapshot
+comparison profile. The activation closure separately binds (a) the profile
+definition/content identity, (b) the resolver/source implementation closure,
+and (c) a resolver binding plus complete build request that reference exactly
+one authored-conflict profile. Mismatch across these activation inputs fails
+closed; there is no caller-selected tolerance or global-default fallback. The
+generic resolver implementation need not itself reference the exact profile.
+The profile definition must be inside a separately identified content-bound
+profile closure or referenced by an unambiguous content identity without
+self-reference. This is a successor binding rule, not an active R3 binding.
+
 The candidate [preflight](../../dev-tools/fixture-preflight/preflight.py) now
 implements the internal manifest/schema/fixture consistency checks and emits
 the `ck.path-set.raw.v1` binding. It does not validate body semantics, prove
@@ -166,6 +179,9 @@ exact machine schema and serialized member names remain readiness-gated:
 - the primary diagnostic, required for every non-success status;
 - processing completeness and diagnostic completeness;
 - diagnostic-profile and resource-profile IDs; and
+- exactly one authored-conflict comparison-profile identity plus its
+  profile-definition content identity, separate from each per-snapshot
+  comparison-profile identity; and
 - expected snapshot path, digest, and comparison-profile identity where the
   suite requires a graph snapshot.
 
@@ -183,6 +199,11 @@ tree identity, exact ordered path/mode/content scope, versioned external
 path-set framing/profile `ck.path-set.raw.v1`, preflight identity,
 predecessor/supersession reference, and Ben approval. None of those admission
 fields are part of the manifest payload digest.
+
+For the R3 successor, that separate admission record additionally binds the
+immutable protocol, candidate, corpus, result, and receipt identities. These
+post-evaluation identities are not inserted into the preregistered manifest
+payload, avoiding a result/manifest self-reference.
 
 The operation status uses the closed operation vocabulary owned by the relevant
 operation contract. Semantic fixture taxonomy is separate: after recognized,
@@ -238,6 +259,18 @@ retry, concurrent winner, lineage change, and byte divergence use this same
 manifest family with `suite_kind: build-publication`; they remain conceptual
 until admission.
 
+The minimum R3 morphology corpus adds representative valid fixtures for the
+bounded stylized digitigrade furry-biped family, recognized semantically
+invalid bounded-family fixtures, and well-formed recognized requests outside
+the first envelope. It includes a bounded-family invariant contradiction, an
+extra-limb or quadruped (or equivalent) request, and an arbitrary/unbounded
+attachment-graph request. The first is semantic `semantically invalid` with
+operation outcome `invalid-source`; recognized outside-envelope requests are
+`well-formed-but-unsupported` with operation outcome `unsupported`. Malformed
+or unrecognized input remains under the body-document/parser rules. These are
+representative boundary evidence, not an exhaustive arbitrary-morphology
+corpus.
+
 The numeric/frame successor corpus must also bind every case to the admitted
 numeric and comparison profiles. Numeric admission boundaries include an
 ordinary inexact decimal `0.1`, exact values, halfway/ties-to-even values,
@@ -285,8 +318,16 @@ immediately pre-ledger recomputation must match both the fixture payload
 binding and implementation binding.
 Readiness 3 is a separate successor transaction containing the successor
 manifest/payload binding, expected graph snapshots, their comparison profile
-and exact-versus-semantic rule, and the resolver implementation closure bound
-by the same separate mechanism. It uses the same content-identity preflight
-and the same generic suite mechanism; it does not reopen or replace the
-Readiness 2 transform carrier. Nothing in this Proposed conceptual document
-creates implementation packages or activates a readiness gate.
+and exact-versus-semantic rule, the one authored-conflict profile binding, and
+the resolver implementation closure bound by the same separate mechanism. The
+admission record binds immutable protocol, candidate, corpus, result, and
+receipt identities; candidate rules/constants, semantic budgets, validation
+margin/formula, and corpus identities/roles are fixed before held-out or
+adversarial execution. A failed or inconclusive evaluation requires a new
+candidate/evaluation identity, never mutation or widening. EXP-0002 phase-one
+attempt-001 cannot qualify because its `profile_binding` is `null`. It uses
+the same content-identity preflight and generic suite mechanism; it does not
+reopen or replace the Readiness 2 transform carrier. Nothing in this Proposed
+conceptual document creates implementation packages or activates a readiness
+gate, and it selects no exact profile IDs, constants, fixture files, or
+activation record.
