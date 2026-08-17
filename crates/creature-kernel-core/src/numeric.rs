@@ -32,6 +32,27 @@ impl NormalizedBinary64 {
         self.bits
     }
 
+    /// Admit a raw IEEE-754 binary64 bit pattern without rounding.
+    ///
+    /// Finite values are retained exactly, while either signed zero is
+    /// normalized to [`Self::ZERO`]. NaN and infinity bit patterns are
+    /// rejected before they can enter a semantic numeric carrier. This is a
+    /// provisional raw-bit boundary for the candidate experiment, not a
+    /// default production admission API.
+    #[cfg(any(test, feature = "provisional-r3-numeric-candidate"))]
+    pub const fn from_bits(bits: u64) -> Result<Self, Binary64AdmissionError> {
+        const SIGN_MASK: u64 = 1_u64 << 63;
+        const EXPONENT_MASK: u64 = 0x7ff_u64 << 52;
+
+        if bits & EXPONENT_MASK == EXPONENT_MASK {
+            return Err(Binary64AdmissionError::NonFinite);
+        }
+        if bits & !SIGN_MASK == 0 {
+            return Ok(Self::ZERO);
+        }
+        Ok(Self { bits })
+    }
+
     /// Constructs a carrier from raw bits for focused crate-internal tests.
     ///
     /// This is intentionally unavailable in non-test builds so production
@@ -166,6 +187,26 @@ impl NormalizedBinary64 {
         Self { bits }
     }
 }
+
+/// Failure while admitting a raw binary64 bit pattern.
+#[cfg(any(test, feature = "provisional-r3-numeric-candidate"))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Binary64AdmissionError {
+    /// The bit pattern encodes NaN or infinity rather than a finite value.
+    NonFinite,
+}
+
+#[cfg(any(test, feature = "provisional-r3-numeric-candidate"))]
+impl fmt::Display for Binary64AdmissionError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::NonFinite => formatter.write_str("binary64 bit pattern is not finite"),
+        }
+    }
+}
+
+#[cfg(any(test, feature = "provisional-r3-numeric-candidate"))]
+impl std::error::Error for Binary64AdmissionError {}
 
 /// Failure while carrying an `f64` operation result into normalized binary64.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -697,6 +738,52 @@ mod tests {
             assert_eq!(
                 NormalizedBinary64::from_f64_result(value),
                 Err(FiniteBinary64Error::NonFinite)
+            );
+        }
+    }
+
+    #[test]
+    fn raw_binary64_admission_uses_only_bit_classification() {
+        for bits in [
+            0x0010_0000_0000_0000, // minimum normal positive
+            0x0000_0000_0000_0001, // minimum subnormal positive
+            0x8000_0000_0000_0001, // minimum subnormal negative
+            0x3ff8_0000_0000_0000, // 1.5
+            0x7fef_ffff_ffff_ffff, // maximum finite positive
+            0xffef_ffff_ffff_ffff, // maximum finite negative
+        ] {
+            assert_eq!(
+                NormalizedBinary64::from_bits(bits).unwrap().to_bits(),
+                bits,
+                "{bits:#018x}"
+            );
+        }
+    }
+
+    #[test]
+    fn raw_binary64_admission_canonicalizes_both_zero_signs() {
+        assert_eq!(
+            NormalizedBinary64::from_bits(0).unwrap(),
+            NormalizedBinary64::ZERO
+        );
+        assert_eq!(
+            NormalizedBinary64::from_bits(0x8000_0000_0000_0000).unwrap(),
+            NormalizedBinary64::ZERO
+        );
+    }
+
+    #[test]
+    fn raw_binary64_admission_rejects_infinities_and_nan() {
+        for bits in [
+            0x7ff0_0000_0000_0000, // positive infinity
+            0xfff0_0000_0000_0000, // negative infinity
+            0x7ff0_0000_0000_0001,
+            0xfff8_0000_0000_0001,
+        ] {
+            assert_eq!(
+                NormalizedBinary64::from_bits(bits),
+                Err(Binary64AdmissionError::NonFinite),
+                "{bits:#018x}"
             );
         }
     }

@@ -1,6 +1,7 @@
 # Experiments
 
-Status: Active workflow; no experiments registered
+Status: Active workflow; EXP-0002 is planned with open evidence closure and no
+technology outcome.
 
 Experiments provide reproducible evidence for research questions and decisions.
 They do not become product or architecture contracts automatically. Research
@@ -47,8 +48,14 @@ experiments/EXP-NNNN-short-title/
 └── results/             # small textual summaries; large artifacts external
 ```
 
-Copy [the experiment template](experiment-template.md). Add a future registry
-when the first experiment is created.
+Copy [the experiment template](experiment-template.md). Keep the registry
+below current as experiments are created.
+
+## Registered experiments
+
+- [EXP-0002 numeric/frame profile](EXP-0002-numeric-frame-profile/README.md) —
+  registered first executable five-family adapter phase; planned, evidence
+  closure open, technology outcome none, and not yet run.
 
 ## Required properties
 

@@ -1,0 +1,16 @@
+[package]
+name = "exp-0002-numeric-frame-profile-candidate"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97.1"
+publish = false
+
+[workspace]
+resolver = "3"
+
+[dependencies]
+creature-kernel-core = {
+    path = "../../../crates/creature-kernel-core",
+    features = ["provisional-r3-numeric-candidate"],
+}
+serde = { version = "1.0.229", default-features = false, features = ["std", "derive"] }

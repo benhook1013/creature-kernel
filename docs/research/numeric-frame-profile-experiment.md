@@ -1,7 +1,8 @@
 # Numeric and frame profile experiment design
 
-Status: Proposed planned evidence design; unregistered, with no results and no
-evidence.
+Status: Proposed evidence design; EXP-0002 is registered as planned, with open
+evidence closure and no technology outcome. The protocol, corpora, profiles,
+and results are not frozen; no run or evidence exists.
 
 ## Question
 
@@ -18,10 +19,26 @@ This design makes no geometry, performance, visual-quality, runtime, or
 cross-platform claim. It selects no package, constant, schema, resolver, or
 adapter and does not activate a readiness gate.
 
+The first executable phase targets five adapter families: decimal admission,
+scalar comparison, translation comparison, quaternion normalization, and
+quaternion comparison. The current candidate executes only decimal, scalar,
+translation, and read-only environment-attestation requests; quaternion
+operations remain unsupported pending their required oracle and provider
+inputs. This phase is not the whole eventual experiment: transform and basis
+conversion, composition/inversion, claim identity and all-pairs evaluation,
+authored-versus-snapshot comparison, and the later adapter tier remain
+separate obligations below.
+
+The environment attestation is a read-only inspection of C/x87
+`fegetround` plus MXCSR rounding-control (RC), FTZ, and DAZ bits. It records
+the raw MXCSR and decoded RC evidence and performs no subnormal arithmetic
+probe or dynamic subnormal-output claim.
+
 ## Protocol status and preregistration boundary
 
-The experiment remains planned and is not registered. Before any evaluated run,
-the protocol must preregister, independently of observed outcomes:
+EXP-0002 is registered as planned with open evidence closure and no technology
+outcome, but this design is not yet a frozen protocol. Before any evaluated
+run, the protocol must preregister, independently of observed outcomes:
 
 - intended translation magnitude and component ranges, including the intended
   finite-value and decimal-admission domain;
@@ -34,7 +51,11 @@ the protocol must preregister, independently of observed outcomes:
   quaternion equivalence, composition residual, authored-claim conflict, and
   expected-snapshot comparison; and
 - a predeclared validation margin and the rule for classifying a result as
-  pass, reject, or inconclusive.
+  pass, reject, or inconclusive;
+- an exact request-byte and line-resource cap, including malformed-input
+  handling, before any corpus run; and
+- toolchain/compiler/code-generation identity fields plus independent
+  square-root vectors before quaternion support is evaluated.
 
 The experiment must not derive tolerances from observed pass/fail minima in the
 same corpus used to justify them. The exact error formula and validation-margin
@@ -92,6 +113,8 @@ exact/analytic result. The offline H generator is a separately versioned,
 independent high-precision oracle/generator; its theta/H bits, downward
 quantization proof, and generator revision are retained. No oracle result is
 silently rounded into a target budget without recording that uncertainty.
+Quaternion support remains deferred until the toolchain/code-generation
+identity is bound and independent square-root vectors are available.
 
 Freeze three distinct corpora before the evaluated run:
 
@@ -212,16 +235,16 @@ activate a schema/resolver/adapter, or claim a technology outcome by itself.
 - Platform/toolchain differences, oracle uncertainty, failures, and
   inconclusive or out-of-domain cases are retained rather than silently
   averaged away.
-- Adapter tier, scale, precision, and FTZ/DAZ probe results are retained as
-  separate evidence; they cannot be promoted to a runtime capability claim by
-  this experiment.
+- Adapter tier, scale, precision, and read-only FE/x87 plus MXCSR RC/FTZ/DAZ
+  inspection results are retained as separate evidence; they cannot be
+  promoted to a runtime capability claim by this experiment.
 
 ## Activation boundary
 
-The later experiment implementation and results belong under `experiments/`
-after the semantic shell, relevant profiles, and fixture-admission
-prerequisites exist. Results may support or challenge DR/spec proposals but
-cannot change them automatically. No run is registered, and no result,
-technology outcome, readiness activation, or implementation support is claimed
-by this design. Any Readiness implementation binding remains a separate scoped
-content-identity transaction from the fixture payload and expected snapshots.
+Evaluation tooling and results belong under `experiments/` after the semantic
+shell, relevant profiles, and fixture-admission prerequisites exist. Results
+may support or challenge DR/spec proposals but cannot change them
+automatically. No evaluated run, result, technology outcome, readiness
+activation, or implementation support is claimed by this design. Any Readiness
+implementation binding remains a separate scoped content-identity transaction
+from the fixture payload and expected snapshots.
