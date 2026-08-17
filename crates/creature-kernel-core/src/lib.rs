@@ -28,6 +28,7 @@ pub mod source_preparation;
 pub(crate) mod source_set_preparation;
 pub(crate) mod source_set_provenance_observation;
 pub(crate) mod source_set_reference_observation;
+pub(crate) mod source_set_relation_observation;
 pub mod structural_validation;
 
 /// Implementation convenience for the provisional CLI/debug adapter.  This
