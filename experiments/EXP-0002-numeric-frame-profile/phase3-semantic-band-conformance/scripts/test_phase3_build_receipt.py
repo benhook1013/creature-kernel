@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
 import json
 import os
 import stat
@@ -35,32 +36,44 @@ CLOSURE = {
 def _metadata(path: Path) -> Path:
     package_id = f"path+file://{path}/{MODULE.CANDIDATE_MANIFEST}#{MODULE.CANDIDATE_PACKAGE_NAME}@{MODULE.CANDIDATE_PACKAGE_VERSION}"
     serde_id = "registry+https://github.com/rust-lang/crates.io-index#serde@1.0.0"
+    itoa_id = "registry+https://github.com/rust-lang/crates.io-index#itoa@1.0.0"
     cargo_metadata = {
         "version": 1,
         "workspace_root": str(path / MODULE.CANDIDATE_MANIFEST.removesuffix("/Cargo.toml")),
         "packages": [
             {"id": package_id, "name": MODULE.CANDIDATE_PACKAGE_NAME, "version": MODULE.CANDIDATE_PACKAGE_VERSION, "source": None, "checksum": None, "manifest_path": str(path / MODULE.CANDIDATE_MANIFEST)},
             {"id": serde_id, "name": "serde", "version": "1.0.0", "source": MODULE.REGISTRY_SOURCE, "checksum": "a" * 64, "manifest_path": str(path / "registry" / "serde" / "Cargo.toml")},
+            {"id": itoa_id, "name": "itoa", "version": "1.0.0", "source": MODULE.REGISTRY_SOURCE, "checksum": "b" * 64, "manifest_path": str(path / "registry" / "itoa" / "Cargo.toml")},
         ],
         "workspace_members": [package_id],
         "workspace_default_members": [package_id],
-        "resolve": {"root": package_id, "nodes": [{"id": package_id, "dependencies": [serde_id]}, {"id": serde_id, "dependencies": []}]},
+        "resolve": {"root": package_id, "nodes": [{"id": package_id, "dependencies": [serde_id, itoa_id]}, {"id": serde_id, "dependencies": []}, {"id": itoa_id, "dependencies": []}]},
     }
     dependency_path = path / "cargo-metadata.json"
     dependency_path.write_text(json.dumps(cargo_metadata), encoding="utf-8")
     lock_path = path / MODULE.CANDIDATE_LOCK
     lock_path.parent.mkdir(parents=True)
-    lock_path.write_text("# synthetic locked dependency closure\n", encoding="utf-8")
-    vendor_path = path / "vendor"
-    package_path = vendor_path / "serde-1.0.0"
-    package_path.mkdir(parents=True)
-    (package_path / "Cargo.toml").write_text(
-        "[package]\nname = \"serde\"\nversion = \"1.0.0\"\nedition = \"2021\"\n"
-        "authors = [\"Fixture Author\"]\nbuild = false\n\n[dependencies]\nserde_derive = \"1\"\n",
+    lock_path.write_text(
+        "version = 4\n\n"
+        "[[package]]\nname = \"serde\"\nversion = \"1.0.0\"\n"
+        f"source = \"{MODULE.REGISTRY_SOURCE}\"\nchecksum = \"{'a' * 64}\"\n\n"
+        "[[package]]\nname = \"itoa\"\nversion = \"1.0.0\"\n"
+        f"source = \"{MODULE.REGISTRY_SOURCE}\"\nchecksum = \"{'b' * 64}\"\n\n"
+        f"[[package]]\nname = \"{MODULE.CANDIDATE_PACKAGE_NAME}\"\nversion = \"{MODULE.CANDIDATE_PACKAGE_VERSION}\"\ndependencies = [\n \"serde\",\n \"itoa\",\n]\n",
         encoding="utf-8",
     )
-    (package_path / ".cargo-checksum.json").write_text(json.dumps({"$comment": MODULE.VENDOR_CHECKSUM_COMMENT, "files": {}, "package": "a" * 64}), encoding="utf-8")
-    (package_path / "lib.rs").write_text("pub fn fixture() {}\n", encoding="utf-8")
+    vendor_path = path / "vendor"
+    for name, checksum in (("serde", "a" * 64), ("itoa", "b" * 64)):
+        package_path = vendor_path / f"{name}-1.0.0"
+        package_path.mkdir(parents=True)
+        (package_path / "Cargo.toml").write_text(
+            f"[package]\nname = \"{name}\"\nversion = \"1.0.0\"\nedition = \"2021\"\n"
+            "authors = [\"Fixture Author\"]\nbuild = false\n",
+            encoding="utf-8",
+        )
+        (package_path / "lib.rs").write_text(f"pub fn {name}_fixture() {{}}\n", encoding="utf-8")
+        files = {relative: hashlib.sha256((package_path / relative).read_bytes()).hexdigest() for relative in ("Cargo.toml", "lib.rs")}
+        (package_path / ".cargo-checksum.json").write_text(json.dumps({"$comment": MODULE.VENDOR_CHECKSUM_COMMENT, "files": files, "package": checksum}), encoding="utf-8")
     config_path = path / "cargo-home" / "config.toml"
     config_path.parent.mkdir()
     config_path.write_text("[source.crates-io]\nreplace-with = \"vendored-sources\"\n\n[source.vendored-sources]\ndirectory = \"" + str(vendor_path.absolute()) + "\"\n", encoding="utf-8")
@@ -307,17 +320,74 @@ class BuildReceiptTests(unittest.TestCase):
             metadata = _metadata(root)
             cargo_metadata = root / "cargo-metadata.json"
             value = json.loads(cargo_metadata.read_text())
-            value["packages"][1]["checksum"] = None
+            for package in value["packages"]:
+                if package.get("source") == MODULE.REGISTRY_SOURCE:
+                    package["checksum"] = None
             cargo_metadata.write_text(json.dumps(value), encoding="utf-8")
             with self.assertRaises(MODULE.ReceiptError):
                 MODULE._dependency_identity(cargo_metadata, root)
+            self.assertEqual(len(MODULE._cargo_lock_registry(root / MODULE.CANDIDATE_LOCK)), 2)
             validated = MODULE._validate_metadata(root, json.loads(metadata.read_text()))
-            self.assertEqual(validated["dependency_closure"]["packages"], 2)
-            self.assertEqual(validated["dependency_closure"]["nodes"], 2)
+            self.assertEqual(validated["dependency_closure"]["packages"], 3)
+            self.assertEqual(validated["dependency_closure"]["nodes"], 3)
             (root / "vendor" / "serde-1.0.0" / ".cargo-checksum.json").write_text(
                 json.dumps({"$comment": "unexpected", "files": {}, "package": "a" * 64}),
                 encoding="utf-8",
             )
+            with self.assertRaises(MODULE.ReceiptError):
+                MODULE._validate_metadata(root, json.loads(metadata.read_text()))
+
+    def test_metadata_rejects_lock_vendor_checksum_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            metadata = _metadata(root)
+            cargo_metadata = root / "cargo-metadata.json"
+            value = json.loads(cargo_metadata.read_text())
+            for package in value["packages"]:
+                if package.get("source") == MODULE.REGISTRY_SOURCE:
+                    package["checksum"] = None
+            cargo_metadata.write_text(json.dumps(value), encoding="utf-8")
+            lock = root / MODULE.CANDIDATE_LOCK
+            lock.write_text(lock.read_text().replace("a" * 64, "c" * 64), encoding="utf-8")
+            with self.assertRaises(MODULE.ReceiptError):
+                MODULE._validate_metadata(root, json.loads(metadata.read_text()))
+
+    def test_vendor_checksum_file_map_is_closed_and_hashed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            metadata = _metadata(root)
+            checksum_path = root / "vendor" / "serde-1.0.0" / ".cargo-checksum.json"
+            checksum = json.loads(checksum_path.read_text())
+            checksum["files"]["./lib.rs"] = checksum["files"].pop("lib.rs")
+            checksum_path.write_text(json.dumps(checksum), encoding="utf-8")
+            with self.assertRaises(MODULE.ReceiptError):
+                MODULE._validate_metadata(root, json.loads(metadata.read_text()))
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            metadata = _metadata(root)
+            checksum_path = root / "vendor" / "serde-1.0.0" / ".cargo-checksum.json"
+            checksum = json.loads(checksum_path.read_text())
+            checksum["files"]["lib.rs"] = "0" * 64
+            checksum_path.write_text(json.dumps(checksum), encoding="utf-8")
+            with self.assertRaises(MODULE.ReceiptError):
+                MODULE._validate_metadata(root, json.loads(metadata.read_text()))
+
+    def test_metadata_rejects_unsupported_source_and_malformed_checksum(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            metadata = _metadata(root)
+            cargo_metadata = root / "cargo-metadata.json"
+            value = json.loads(cargo_metadata.read_text())
+            value["packages"][1]["source"] = "git+https://example.invalid/repo"
+            cargo_metadata.write_text(json.dumps(value), encoding="utf-8")
+            with self.assertRaises(MODULE.ReceiptError):
+                MODULE._validate_metadata(root, json.loads(metadata.read_text()))
+
+            value = json.loads(cargo_metadata.read_text())
+            value["packages"][1]["source"] = MODULE.REGISTRY_SOURCE
+            value["packages"][1]["checksum"] = "A" * 64
+            cargo_metadata.write_text(json.dumps(value), encoding="utf-8")
             with self.assertRaises(MODULE.ReceiptError):
                 MODULE._validate_metadata(root, json.loads(metadata.read_text()))
 

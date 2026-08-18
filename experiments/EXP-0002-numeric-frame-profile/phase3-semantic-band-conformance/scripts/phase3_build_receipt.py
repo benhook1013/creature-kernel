@@ -567,7 +567,7 @@ def _validate_metadata(repo: Path, metadata: Mapping[str, Any]) -> dict[str, Any
     config_role_path = _safe_relative(build["cargo_config_role_path"], "build.cargo_config_role_path")
     config = _validate_vendor_config(config_path, vendor_path)
     lock_sha, lock_bytes = _sha256(lock_file, "Cargo.lock", max_bytes=MAX_METADATA_BYTES)
-    dependency = _dependency_identity(dependency_path, repo, vendor=vendor_path)
+    dependency = _dependency_identity(dependency_path, repo, vendor=vendor_path, lock=lock_file)
     vendor = capture_vendor_closure(vendor_path)
     validate_vendor_closure(vendor)
     return {
@@ -602,7 +602,7 @@ def _stable_manifest_role(manifest_path: Any, repo: Path, label: str) -> str:
     return _safe_relative(normalized, label)
 
 
-def _validate_vendor_packages(vendor: Path, packages: list[dict[str, Any]]) -> None:
+def _validate_vendor_packages(vendor: Path, packages: list[dict[str, Any]], *, lock_registry: Mapping[tuple[str, str], str] | None = None) -> None:
     """Bind every vendored registry package to Cargo metadata identity."""
     expected: dict[tuple[str, str], str | None] = {}
     for package in packages:
@@ -646,13 +646,19 @@ def _validate_vendor_packages(vendor: Path, packages: list[dict[str, Any]]) -> N
             raise ReceiptError(f"vendor package {child.name} checksum record is malformed")
         if "$comment" in checksum and checksum["$comment"] != VENDOR_CHECKSUM_COMMENT:
             raise ReceiptError(f"vendor package {child.name} checksum record is malformed")
+        _validate_vendor_file_map(child_path, checksum["files"], f"vendor package {child.name}")
         actual[identity] = checksum["package"]
     if set(actual) != set(expected):
         raise ReceiptError("vendored package identities do not exactly match Cargo metadata")
+    if lock_registry is not None and set(actual) != set(lock_registry):
+        raise ReceiptError("vendored package identities do not exactly match Cargo.lock")
     for identity, expected_checksum in expected.items():
         actual_checksum = actual[identity]
+        lock_checksum = lock_registry.get(identity) if lock_registry is not None else None
         if expected_checksum is not None and actual_checksum != expected_checksum:
             raise ReceiptError("vendored package checksum differs from Cargo metadata")
+        if lock_checksum is not None and actual_checksum != lock_checksum:
+            raise ReceiptError("vendored package checksum differs from Cargo.lock")
 
 
 def _toml_file(path: Path, label: str) -> dict[str, Any]:
@@ -740,6 +746,67 @@ def _compat_vendor_config(raw: bytes, label: str) -> dict[str, Any]:
     }
 
 
+def _compat_cargo_lock(raw: bytes, label: str) -> dict[str, Any]:
+    """Parse the bounded Cargo.lock subset needed by the receipt on Python 3.10."""
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise ReceiptError(f"{label} is not valid UTF-8 TOML") from error
+    version: int | None = None
+    packages: list[dict[str, Any]] = []
+    package: dict[str, Any] | None = None
+    array_key: str | None = None
+    array_values: list[str] = []
+    for line_number, line in enumerate(text.splitlines(), 1):
+        stripped = line.strip()
+        if array_key is not None:
+            if stripped == "]":
+                assert package is not None
+                package[array_key] = array_values
+                array_key = None
+                array_values = []
+                continue
+            if not stripped.endswith(","):
+                raise ReceiptError(f"{label} has malformed TOML at line {line_number}")
+            array_values.append(_toml_basic_string(stripped[:-1].strip(), label, line_number))
+            continue
+        if not stripped or stripped.startswith("#"):
+            continue
+        if stripped == "[[package]]":
+            if package is not None:
+                packages.append(package)
+            package = {}
+            continue
+        if stripped.startswith("["):
+            raise ReceiptError(f"{label} has an unexpected TOML section at line {line_number}")
+        if "=" not in stripped:
+            raise ReceiptError(f"{label} has malformed TOML at line {line_number}")
+        key, encoded = (part.strip() for part in stripped.split("=", 1))
+        if package is None:
+            if key != "version" or version is not None or not re.fullmatch(r"[0-9]+", encoded):
+                raise ReceiptError(f"{label} has an unexpected top-level field at line {line_number}")
+            version = int(encoded)
+            continue
+        if key in package or key not in {"name", "version", "source", "checksum", "dependencies"}:
+            raise ReceiptError(f"{label} has an unexpected or duplicate package field at line {line_number}")
+        if key == "dependencies":
+            if encoded == "[]":
+                package[key] = []
+            elif encoded == "[":
+                array_key = key
+            else:
+                raise ReceiptError(f"{label} has malformed dependency array at line {line_number}")
+        else:
+            package[key] = _toml_basic_string(encoded, label, line_number)
+    if array_key is not None:
+        raise ReceiptError(f"{label} has an unterminated dependency array")
+    if package is not None:
+        packages.append(package)
+    if version is None or not packages:
+        raise ReceiptError(f"{label} is missing its version or package records")
+    return {"version": version, "package": packages}
+
+
 def _toml_document(raw: bytes, label: str, *, compatibility: str) -> dict[str, Any]:
     """Parse bounded TOML with stdlib tomllib and a Python 3.10 fallback."""
     if tomllib is None:
@@ -747,6 +814,8 @@ def _toml_document(raw: bytes, label: str, *, compatibility: str) -> dict[str, A
             return _compat_package_manifest(raw, label)
         if compatibility == "vendor-config":
             return _compat_vendor_config(raw, label)
+        if compatibility == "cargo-lock":
+            return _compat_cargo_lock(raw, label)
         raise ReceiptError(f"{label} has no Python 3.10 compatibility parser")
     try:
         value = tomllib.loads(raw.decode("utf-8"))
@@ -759,7 +828,96 @@ def _toml_document(raw: bytes, label: str, *, compatibility: str) -> dict[str, A
     return value
 
 
-def _dependency_identity(path: Path, repo: Path, *, vendor: Path | None = None) -> dict[str, Any]:
+def _cargo_lock_registry(path: Path) -> dict[tuple[str, str], str]:
+    raw, _ = _read_regular_file(path, "Cargo.lock", max_bytes=MAX_METADATA_BYTES)
+    lock = _toml_document(raw, "Cargo.lock", compatibility="cargo-lock")
+    if set(lock) != {"version", "package"} or lock["version"] != 4 or type(lock["package"]) is not list:
+        raise ReceiptError("Cargo.lock is not the exact version-4 package document")
+    registry: dict[tuple[str, str], str] = {}
+    for index, package in enumerate(lock["package"]):
+        if type(package) is not dict:
+            raise ReceiptError(f"Cargo.lock package {index} is malformed")
+        if set(package) - {"name", "version", "source", "checksum", "dependencies"}:
+            raise ReceiptError(f"Cargo.lock package {index} has unexpected fields")
+        name = _string(package.get("name"), f"Cargo.lock package {index}.name")
+        version = _string(package.get("version"), f"Cargo.lock package {index}.version")
+        source = package.get("source")
+        checksum = package.get("checksum")
+        if source is None:
+            if checksum is not None:
+                raise ReceiptError(f"Cargo.lock package {index} path package has a checksum")
+            continue
+        _string(source, f"Cargo.lock package {index}.source")
+        if source != REGISTRY_SOURCE:
+            raise ReceiptError(f"Cargo.lock package {index} uses an unsupported source")
+        if type(checksum) is not str or not re.fullmatch(r"[0-9a-f]{64}", checksum):
+            raise ReceiptError(f"Cargo.lock package {index} checksum is malformed")
+        identity = (name, version)
+        if identity in registry:
+            raise ReceiptError("Cargo.lock contains duplicate registry package identity")
+        registry[identity] = checksum
+    if not registry:
+        raise ReceiptError("Cargo.lock contains no registry packages")
+    return registry
+
+
+def _vendor_relative(path: Any, label: str) -> str:
+    value = _string(path, label)
+    if "\\" in value or value.startswith("/") or "\x00" in value:
+        raise ReceiptError(f"{label} is not a safe relative POSIX path")
+    normalized = posixpath.normpath(value)
+    if normalized != value or normalized in {"", ".", ".."} or normalized.startswith("../"):
+        raise ReceiptError(f"{label} is not a normalized relative POSIX path")
+    return normalized
+
+
+def _validate_vendor_file_map(package: Path, files: Mapping[str, Any], label: str) -> None:
+    expected: dict[str, str] = {}
+    for raw_path, checksum in files.items():
+        relative = _vendor_relative(raw_path, f"{label} file path")
+        if relative in expected:
+            raise ReceiptError(f"{label} contains duplicate file paths")
+        if type(checksum) is not str or not re.fullmatch(r"[0-9a-f]{64}", checksum):
+            raise ReceiptError(f"{label} file checksum is malformed")
+        expected[relative] = checksum
+
+    actual: dict[str, str] = {}
+    stack = [package]
+    while stack:
+        directory = stack.pop()
+        try:
+            children = sorted(os.scandir(directory), key=lambda item: item.name.encode("utf-8"), reverse=True)
+        except OSError as error:
+            raise ReceiptError(f"cannot scan {label} files: {error}") from error
+        for child in children:
+            child_path = Path(child.path)
+            try:
+                info = child_path.lstat()
+            except OSError as error:
+                raise ReceiptError(f"cannot stat {label} file: {error}") from error
+            if stat.S_ISLNK(info.st_mode):
+                raise ReceiptError(f"{label} contains a symlink")
+            if stat.S_ISDIR(info.st_mode):
+                stack.append(child_path)
+                continue
+            if not stat.S_ISREG(info.st_mode):
+                raise ReceiptError(f"{label} contains a non-regular file")
+            relative = child_path.relative_to(package).as_posix()
+            if relative == ".cargo-checksum.json":
+                continue
+            relative = _vendor_relative(relative, f"{label} actual file path")
+            if relative in actual:
+                raise ReceiptError(f"{label} contains duplicate actual file paths")
+            digest, _ = _sha256(child_path, f"{label} file {relative}", max_bytes=MAX_VENDOR_FILE_BYTES)
+            actual[relative] = digest
+    if set(actual) != set(expected):
+        raise ReceiptError(f"{label} file map does not cover the actual vendored files")
+    for relative, expected_checksum in expected.items():
+        if actual[relative] != expected_checksum:
+            raise ReceiptError(f"{label} file checksum does not match the vendored file")
+
+
+def _dependency_identity(path: Path, repo: Path, *, vendor: Path | None = None, lock: Path | None = None) -> dict[str, Any]:
     metadata = _json_file(path, "Cargo metadata")
     required = {"packages", "workspace_members", "workspace_default_members", "resolve", "workspace_root", "version"}
     if not required.issubset(metadata) or type(metadata["packages"]) is not list or type(metadata["workspace_members"]) is not list:
@@ -772,9 +930,11 @@ def _dependency_identity(path: Path, repo: Path, *, vendor: Path | None = None) 
     resolve = metadata["resolve"]
     if type(resolve) is not dict or type(resolve.get("nodes")) is not list:
         raise ReceiptError("Cargo metadata resolve.nodes is missing")
+    lock_registry = _cargo_lock_registry(lock) if lock is not None else None
     packages: list[dict[str, Any]] = []
     package_ids: set[str] = set()
     id_map: dict[str, str] = {}
+    metadata_registry: dict[tuple[str, str], str | None] = {}
     for index, package in enumerate(metadata["packages"]):
         if type(package) is not dict:
             raise ReceiptError(f"Cargo metadata package {index} is malformed")
@@ -801,12 +961,24 @@ def _dependency_identity(path: Path, repo: Path, *, vendor: Path | None = None) 
                 raise ReceiptError("Cargo metadata candidate package identity is not the frozen package")
         elif source != REGISTRY_SOURCE:
             raise ReceiptError("Cargo metadata contains an unsupported dependency source")
-        elif checksum is None and vendor is None:
-            raise ReceiptError("Cargo metadata registry checksum is absent without vendor proof")
-        elif checksum is not None and not re.fullmatch(r"[0-9a-f]{64}", checksum):
-            raise ReceiptError("Cargo metadata registry package checksum is malformed")
+        else:
+            identity = (package["name"], package["version"])
+            if checksum is not None and not re.fullmatch(r"[0-9a-f]{64}", checksum):
+                raise ReceiptError("Cargo metadata registry package checksum is malformed")
+            if lock_registry is not None:
+                if identity not in lock_registry:
+                    raise ReceiptError("Cargo metadata registry identity is missing from Cargo.lock")
+                if checksum is not None and checksum != lock_registry[identity]:
+                    raise ReceiptError("Cargo metadata registry checksum differs from Cargo.lock")
+            if checksum is None and (vendor is None or lock_registry is None):
+                raise ReceiptError("Cargo metadata registry checksum is absent without vendor and lock proof")
+            if identity in metadata_registry:
+                raise ReceiptError("Cargo metadata contains duplicate registry package identity")
+            metadata_registry[identity] = checksum
         id_map[package_id] = normalized_id
         packages.append({"id": normalized_id, "name": package["name"], "version": package["version"], "source": source, "checksum": checksum, "manifest_role": manifest_role})
+    if lock_registry is not None and set(metadata_registry) != set(lock_registry):
+        raise ReceiptError("Cargo metadata registry identities do not exactly match Cargo.lock")
     nodes: list[dict[str, Any]] = []
     node_ids: set[str] = set()
     for index, node in enumerate(resolve["nodes"]):
@@ -839,7 +1011,7 @@ def _dependency_identity(path: Path, repo: Path, *, vendor: Path | None = None) 
         raise ReceiptError("Cargo metadata resolved graph is incomplete")
     canonical = {"packages": sorted(packages, key=lambda item: item["id"]), "workspace_members": members, "nodes": sorted(nodes, key=lambda item: item["id"])}
     if vendor is not None:
-        _validate_vendor_packages(vendor, [{"name": package["name"], "version": package["version"], "source": package["source"], "checksum": package["checksum"]} for package in packages])
+        _validate_vendor_packages(vendor, [{"name": package["name"], "version": package["version"], "source": package["source"], "checksum": package["checksum"]} for package in packages], lock_registry=lock_registry)
     digest = hashlib.sha256(DEPENDENCY_HASH_DOMAIN + _canonical(canonical)).hexdigest()
     raw_sha, raw_bytes = _sha256(path)
     return {"schema": DEPENDENCY_SCHEMA, "algorithm": "ck.exp-0002.phase3.gate-b-dependency-closure.v1", "sha256": digest, "raw_sha256": raw_sha, "bytes": raw_bytes, "packages": len(packages), "nodes": len(nodes)}
