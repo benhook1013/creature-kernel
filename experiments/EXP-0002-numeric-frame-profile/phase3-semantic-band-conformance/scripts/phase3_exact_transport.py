@@ -203,6 +203,7 @@ class ExactTransportResult:
     code: str | None
     detail: str | None
     launch: LaunchResult
+    final_observation: fp.FPStateObservation | None
     returncode: int | None
     exit_code: int | None
     term_signal: int | None
@@ -232,6 +233,7 @@ class ExactTransportResult:
             "code": self.code,
             "detail": self.detail,
             "launch": self.launch.to_dict(),
+            "final_observation": None if self.final_observation is None else self.final_observation.to_dict(),
             "returncode": self.returncode,
             "exit_code": self.exit_code,
             "term_signal": self.term_signal,
@@ -589,6 +591,10 @@ class ExactCandidateSession:
         self._stdout = bytearray()
         self._requests: list[bytes] = []
         self._responses: list[bytes] = []
+        self._final_observation: fp.FPStateObservation | None = None
+        self._final_inconclusive = False
+        self._final_mismatch = False
+        self._final_exit_stop_seen = False
         self._stdout_eof = False
         self._stderr_eof = False
         self._stdin_closed = False
@@ -990,6 +996,85 @@ class ExactCandidateSession:
                     except (KeyError, OSError):
                         pass
 
+    def _observe_final_fp_state(self) -> ExactTransportError | None:
+        if self._final_observation is not None:
+            return None
+        if self.pid is None or self.launch_result is None or not self.launch_result.observed:
+            self._final_inconclusive = True
+            return ExactTransportError("final-fp-observation-unavailable", "initial FP observation was not usable")
+        observation = fp.observe_initial_fp_state(self.pid, expected=self.expected_fp)
+        self._final_observation = observation
+        if observation.status != "observed":
+            if observation.status == "failed":
+                self._final_mismatch = True
+                return ExactTransportError("final-fp-state-mismatch", observation.detail)
+            self._final_inconclusive = True
+            return ExactTransportError("final-fp-observation-unavailable", observation.detail)
+        initial = self.launch_result.observation
+        if initial is None or not initial.usable:
+            self._final_inconclusive = True
+            return ExactTransportError("final-fp-observation-unavailable", "initial FP observation was not usable")
+        drift: list[str] = []
+        for field in (
+            "x87_rounding_mode", "mxcsr_rounding_mode", "ftz", "daz",
+            "x87_control_word", "mxcsr", "x87_exception_masks", "mxcsr_exception_masks",
+        ):
+            if getattr(self.expected_fp, field) is None:
+                continue
+            before = getattr(initial, field)
+            after = getattr(observation, field)
+            if before != after:
+                drift.append(f"{field} changed from {before!r} to {after!r}")
+        if drift:
+            self._final_mismatch = True
+            return ExactTransportError("final-fp-state-drift", "; ".join(drift))
+        return None
+
+    def _handle_ptrace_stop(self, status: int) -> None:
+        if self.pid is None or not os.WIFSTOPPED(status):
+            return
+        stop = fp.parse_wait_status(self.pid, status)
+        if stop.signal == signal.SIGTRAP and stop.event == fp.PTRACE_EVENT_EXIT:
+            if self._final_exit_stop_seen:
+                self._continue_terminal_stop_for_abort(status, record_error=False)
+                raise ExactTransportError("duplicate-final-fp-observation", "tracee produced more than one PTRACE_EVENT_EXIT stop")
+            self._final_exit_stop_seen = True
+            problem = self._observe_final_fp_state()
+            try:
+                fp.ptrace_continue(self.pid, 0)
+            except fp.FPObserverError as error:
+                raise ExactTransportError(error.code, error.detail) from error
+            if problem is not None:
+                self._record_failure(problem.code, problem.detail)
+            return
+        if stop.signal == signal.SIGCHLD and stop.event == 0:
+            try:
+                fp.ptrace_continue(self.pid, 0)
+            except fp.FPObserverError as error:
+                raise ExactTransportError(error.code, error.detail) from error
+            return
+        raise ExactTransportError(
+            "unexpected-ptrace-stop",
+            f"tracee stopped with signal {stop.signal} and event {stop.event} after launch",
+        )
+
+    def _continue_terminal_stop_for_abort(self, status: int, *, record_error: bool = True) -> None:
+        """Release an already-terminal ptrace stop during bounded cleanup."""
+
+        if self.pid is None or not os.WIFSTOPPED(status):
+            return
+        stop = fp.parse_wait_status(self.pid, status)
+        if stop.signal != signal.SIGTRAP or stop.event != fp.PTRACE_EVENT_EXIT:
+            return
+        try:
+            fp.ptrace_continue(self.pid, 0)
+        except fp.FPObserverError as error:
+            # Cleanup must retain the original failure, but this diagnostic
+            # still participates in the bounded lifecycle result if it was
+            # the only failure observed.
+            if record_error:
+                self._record_failure(error.code, error.detail)
+
     def _poll_terminal(self, *, wait_seconds: float = 0.000001) -> None:
         """Consume a terminal wait status without blocking on pipe progress."""
 
@@ -997,20 +1082,7 @@ class ExactCandidateSession:
             return
         status = self._wait_for_status(time.monotonic() + max(0.0, wait_seconds))
         if status is not None and os.WIFSTOPPED(status):
-            # TRACEME makes ordinary signals (notably SIGCHLD from a harmless
-            # subprocess used by a candidate) arrive as ptrace stops.  Only
-            # SIGCHLD is an explicitly benign stop; SIGTRAP and all other
-            # stops are fail-closed and are never resumed as candidate work.
-            try:
-                stop_signal = os.WSTOPSIG(status)
-                if stop_signal != signal.SIGCHLD:
-                    raise ExactTransportError(
-                        "unexpected-ptrace-stop",
-                        f"tracee stopped with signal {stop_signal} after launch",
-                    )
-                fp.ptrace_continue(self.pid, 0)
-            except fp.FPObserverError as error:
-                raise ExactTransportError(error.code, error.detail) from error
+            self._handle_ptrace_stop(status)
 
     def _abort_and_reap(self) -> None:
         if self.pid is None:
@@ -1024,6 +1096,13 @@ class ExactCandidateSession:
             status = self._wait_for_status(deadline)
             if status is not None and self._reaped:
                 break
+            if status is not None and os.WIFSTOPPED(status):
+                try:
+                    self._handle_ptrace_stop(status)
+                except ExactTransportError as error:
+                    self._record_failure(error.code, error.detail)
+                    self._continue_terminal_stop_for_abort(status)
+                    self._kill_process_group()
             time.sleep(0.001)
         if not self._reaped:
             # A traced child that did not report a terminal status is not
@@ -1036,6 +1115,13 @@ class ExactCandidateSession:
                 status = self._wait_for_status(kill_deadline)
                 if status is not None and self._reaped:
                     break
+                if status is not None and os.WIFSTOPPED(status):
+                    try:
+                        self._handle_ptrace_stop(status)
+                    except ExactTransportError as error:
+                        self._record_failure(error.code, error.detail)
+                        self._continue_terminal_stop_for_abort(status)
+                        self._kill_process_group()
                 time.sleep(0.001)
         self._drain_startup_error()
         self._close_parent_fds()
@@ -1218,12 +1304,49 @@ class ExactCandidateSession:
                     raise ExactTransportError("trailing-output", "candidate emitted trailing stdout")
                 if self._returncode not in (None, 0):
                     raise ExactTransportError("candidate-exit", f"candidate exited with status {self._returncode}")
-                self._clean_shutdown = True
+                # A clean terminal lifecycle is not sufficient evidence for
+                # support: exactly one exit-stop xstate observation must have
+                # been retained while the tracee was stopped.  If the exit
+                # event was unavailable/missed, retain the clean reap and
+                # bytes but classify the session as inconclusive.
+                if self._final_observation is None:
+                    self._final_inconclusive = True
+                    self._record_failure(
+                        "final-fp-observation-unavailable",
+                        "normal exit completed without a PTRACE_EVENT_EXIT FP observation",
+                    )
+                    self._clean_shutdown = True
+                elif self._final_observation.status != "observed":
+                    if self._final_observation.status == "failed":
+                        self._final_mismatch = True
+                        self._record_failure("final-fp-state-mismatch", self._final_observation.detail)
+                    else:
+                        self._final_inconclusive = True
+                        self._record_failure(
+                            "final-fp-observation-unavailable", self._final_observation.detail,
+                        )
+                        self._clean_shutdown = True
+                elif self._failure is None:
+                    self._clean_shutdown = True
             except ExactTransportError as error:
                 self._record_failure(error.code, error.detail)
                 self._abort_and_reap()
         elif self._failure is not None:
             self._abort_and_reap()
+        if (
+            self._final_inconclusive
+            and self._failure is not None
+            and self._failure.code == "final-fp-observation-unavailable"
+            and self._reaped
+            and self._stdout_eof
+            and self._stderr_eof
+            and not self._stdout_buffer
+            and self._returncode == 0
+        ):
+            # Final evidence can be discovered during request-time quiet
+            # polling, before close() enters its normal branch.  Preserve the
+            # clean process/pipe lifecycle even though support is inconclusive.
+            self._clean_shutdown = True
         self._drain_startup_error()
         self._close_parent_fds()
         self._close_owned_cwd()
@@ -1239,7 +1362,9 @@ class ExactCandidateSession:
             getattr(self, "seals_initial", None), getattr(self, "seals_pre_fork", None),
             getattr(self, "seals_post_exec", None),
         )
-        if launch.status == "inconclusive" and self._failure is not None and self._failure.code == launch.code:
+        if self._final_inconclusive and self._failure is not None and self._failure.code == "final-fp-observation-unavailable":
+            status = "inconclusive"
+        elif launch.status == "inconclusive" and self._failure is not None and self._failure.code == launch.code:
             status = "inconclusive"
         elif self._failure is not None:
             status = "failed"
@@ -1250,6 +1375,7 @@ class ExactCandidateSession:
             code=None if self._failure is None else self._failure.code,
             detail=None if self._failure is None else self._failure.detail,
             launch=launch,
+            final_observation=self._final_observation,
             returncode=self._returncode,
             exit_code=self._exit_code,
             term_signal=self._term_signal,

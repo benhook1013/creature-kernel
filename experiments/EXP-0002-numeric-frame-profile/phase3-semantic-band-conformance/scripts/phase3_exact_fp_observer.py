@@ -32,8 +32,10 @@ PTRACE_CONT = 7
 PTRACE_SETOPTIONS = 0x4200
 PTRACE_GETREGSET = 0x4204
 PTRACE_O_TRACEEXEC = 1 << 4
+PTRACE_O_TRACEEXIT = 1 << 6
 PTRACE_O_EXITKILL = 1 << 20
 PTRACE_EVENT_EXEC = 4
+PTRACE_EVENT_EXIT = 6
 NT_X86_XSTATE = 0x202
 MAX_XSTATE_BYTES = 64 * 1024
 X87_CONTROL_WORD_OFFSET = 0
@@ -235,7 +237,7 @@ def ptrace_traceme() -> None:
     _ptrace(PTRACE_TRACEME, 0)
 
 
-def ptrace_set_options(pid: int, options: int = PTRACE_O_TRACEEXEC | PTRACE_O_EXITKILL) -> None:
+def ptrace_set_options(pid: int, options: int = PTRACE_O_TRACEEXEC | PTRACE_O_TRACEEXIT | PTRACE_O_EXITKILL) -> None:
     _ptrace(PTRACE_SETOPTIONS, pid, 0, options)
 
 
@@ -340,8 +342,9 @@ def parse_wait_status(pid: int, status: int) -> PtraceStop:
 
 __all__ = [
     "FPExpectation", "FPObserverError", "FPStateObservation", "MAX_XSTATE_BYTES",
-    "MIN_XSTATE_BYTES", "NT_X86_XSTATE", "PTRACE_EVENT_EXEC", "PTRACE_O_EXITKILL",
-    "PTRACE_O_TRACEEXEC", "PtraceStop", "is_supported_platform", "observe_fp_state",
+    "MIN_XSTATE_BYTES", "NT_X86_XSTATE", "PTRACE_EVENT_EXEC", "PTRACE_EVENT_EXIT",
+    "PTRACE_O_EXITKILL", "PTRACE_O_TRACEEXEC", "PTRACE_O_TRACEEXIT", "PtraceStop",
+    "is_supported_platform", "observe_fp_state",
     "observe_initial_fp_state", "parse_wait_status", "ptrace_continue", "ptrace_set_options",
     "ptrace_traceme",
 ]

@@ -7,6 +7,7 @@ import json
 import signal
 import tempfile
 import unittest
+from dataclasses import replace
 from unittest import mock
 from pathlib import Path
 
@@ -107,6 +108,11 @@ class ExactTransportTests(unittest.TestCase):
             os.close(session.executable_fd)
         self.assertEqual(result.status, "supported")
         self.assertTrue(result.reaped)
+        self.assertIsNotNone(result.final_observation)
+        self.assertEqual(result.final_observation.status, "observed")
+        self.assertEqual(result.final_observation.x87_rounding_mode, "nearest")
+        self.assertEqual(result.final_observation.mxcsr_rounding_mode, "nearest")
+        self.assertEqual(result.to_dict()["final_observation"]["status"], "observed")
         self.assertFalse(result.killed)
         self.assertEqual(result.attempt_count, 1)
         self.assertEqual(result.request_count, result.response_count)
@@ -179,6 +185,115 @@ class ExactTransportTests(unittest.TestCase):
             finally:
                 os.close(session.executable_fd)
             self.assertEqual(result.code, expected_code)
+
+    def test_final_fp_state_drift_is_failed_and_retained(self) -> None:
+        session = self.session(auto_launch=False)
+        original = observer.observe_initial_fp_state
+        calls = 0
+
+        def drift(pid: int, *, expected: object = None) -> object:
+            nonlocal calls
+            value = original(pid, expected=expected)  # type: ignore[arg-type]
+            calls += 1
+            if calls == 2:
+                return replace(value, mxcsr=value.mxcsr ^ (0x1 << 13), mxcsr_rounding_mode="downward", code="observed")  # type: ignore[union-attr]
+            return value
+
+        try:
+            with mock.patch.object(observer, "observe_initial_fp_state", side_effect=drift):
+                self.assertTrue(session.launch_result is None)
+                self.assertTrue(session.launch().observed)
+                session.request_frame(b'{"request_id":"drift"}')
+                result = session.close()
+        finally:
+            os.close(session.executable_fd)
+        self.assertEqual(result.status, "failed")
+        self.assertEqual(result.code, "final-fp-state-drift")
+        self.assertIsNotNone(result.final_observation)
+        self.assertEqual(result.final_observation.status, "observed")
+
+    def test_unavailable_final_fp_state_is_inconclusive_and_retained(self) -> None:
+        session = self.session(auto_launch=False)
+        original = observer.observe_initial_fp_state
+        calls = 0
+
+        def unavailable(pid: int, *, expected: object = None) -> object:
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                return observer.FPStateObservation(
+                    "inconclusive", "register-read-unavailable", "test final register read unavailable", pid,
+                )
+            return original(pid, expected=expected)  # type: ignore[arg-type]
+
+        try:
+            with mock.patch.object(observer, "observe_initial_fp_state", side_effect=unavailable):
+                self.assertTrue(session.launch().observed)
+                session.request_frame(b'{"request_id":"final-unavailable"}')
+                result = session.close()
+        finally:
+            os.close(session.executable_fd)
+        self.assertEqual(result.status, "inconclusive")
+        self.assertEqual(result.code, "final-fp-observation-unavailable")
+        self.assertTrue(result.reaped)
+        self.assertIsNotNone(result.final_observation)
+        self.assertEqual(result.final_observation.status, "inconclusive")
+
+    def test_missing_exit_event_is_inconclusive_with_clean_reap(self) -> None:
+        session = self.session(auto_launch=False)
+        original_set_options = observer.ptrace_set_options
+
+        def without_exit_event(pid: int) -> None:
+            original_set_options(pid, options=observer.PTRACE_O_TRACEEXEC | observer.PTRACE_O_EXITKILL)
+
+        try:
+            with mock.patch.object(observer, "ptrace_set_options", side_effect=without_exit_event):
+                self.assertTrue(session.launch().observed)
+                session.request_frame(b'{"request_id":"missing-exit-event"}')
+                result = session.close()
+        finally:
+            os.close(session.executable_fd)
+        self.assertEqual(result.status, "inconclusive")
+        self.assertEqual(result.code, "final-fp-observation-unavailable")
+        self.assertTrue(result.reaped)
+        self.assertTrue(result.clean_shutdown)
+        self.assertIsNone(result.final_observation)
+
+    def test_duplicate_or_wrong_ptrace_exit_stop_fails_closed(self) -> None:
+        session = self.session(auto_launch=False)
+        stopped_exit = (signal.SIGTRAP << 8) | 0x7F | (observer.PTRACE_EVENT_EXIT << 16)
+        stopped_other = (signal.SIGTRAP << 8) | 0x7F | (5 << 16)
+        try:
+            self.assertTrue(session.launch().observed)
+            session._final_exit_stop_seen = True
+            with self.assertRaisesRegex(ExactTransportError, "duplicate-final-fp-observation"):
+                session._handle_ptrace_stop(stopped_exit)
+            session._final_exit_stop_seen = False
+            with self.assertRaisesRegex(ExactTransportError, "unexpected-ptrace-stop"):
+                session._handle_ptrace_stop(stopped_other)
+            session._record_failure("unexpected-ptrace-stop", "synthetic stop")
+            result = session.close()
+        finally:
+            os.close(session.executable_fd)
+        self.assertEqual(result.status, "failed")
+        self.assertEqual(result.code, "unexpected-ptrace-stop")
+        self.assertTrue(result.reaped)
+
+    def test_duplicate_real_exit_stop_cleanup_reaps(self) -> None:
+        session = self.session(SHELL, env={"CK_EXACT_FIXTURE_MODE": "exit7"})
+        try:
+            self.assertTrue(session.launch().observed)
+            # Synthetic reviewer condition: the real exit event is now a
+            # duplicate from the transport state machine's perspective.
+            session._final_exit_stop_seen = True
+            with self.assertRaisesRegex(ExactTransportError, "duplicate-final-fp-observation"):
+                session.request_frame(b'{"request_id":"duplicate-real"}')
+            result = session.close()
+        finally:
+            os.close(session.executable_fd)
+        self.assertEqual(result.status, "failed")
+        self.assertEqual(result.code, "duplicate-final-fp-observation")
+        self.assertTrue(result.reaped)
 
     def test_cwd_path_and_descriptor_are_not_ambiguous(self) -> None:
         descriptor = self.fd()
