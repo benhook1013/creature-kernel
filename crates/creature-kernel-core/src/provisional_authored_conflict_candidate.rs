@@ -30,8 +30,9 @@ use crate::numeric_comparison::{
     ProvisionalQuaternionHalfChord, ProvisionalScalarTolerance, ToleranceField,
 };
 use crate::quaternion_normalization::{
-    Binary64ArithmeticProvider, CorrectlyRoundedSqrt, QuaternionNormalizationError,
-    QuaternionNormalizationGate,
+    Binary64ArithmeticProvider, Binary64Operand, CorrectlyRoundedSqrt, MalformedQuaternionInput,
+    QuaternionArithmeticError, QuaternionArithmeticOperation, QuaternionArithmeticStage,
+    QuaternionGateStage, QuaternionNormalizationError, QuaternionNormalizationGate,
 };
 use crate::restricted_source_set_handoff::build_restricted_source_set_handoff;
 use crate::semantic_address::{AddressKey, kind_name};
@@ -160,6 +161,18 @@ pub enum ProvisionalUnitScalingFailure {
     Overflow,
     NonzeroUnderflow,
 }
+impl ProvisionalUnitScalingFailure {
+    #[must_use]
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::InvalidRatio => "invalid-ratio",
+            Self::NonFinite => "non-finite",
+            Self::ResourceLimit => "resource-limit",
+            Self::Overflow => "overflow",
+            Self::NonzeroUnderflow => "nonzero-underflow",
+        }
+    }
+}
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum ProvisionalPlacementOperation {
     PartContainment,
@@ -179,6 +192,176 @@ pub enum ProvisionalPlacementReferenceContext {
     AttachmentOffset,
     ModuleRoot,
 }
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+pub enum ProvisionalQuaternionMalformedInput {
+    NonFiniteComponent { index: usize },
+    ZeroQuaternion,
+}
+impl ProvisionalQuaternionMalformedInput {
+    #[must_use]
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::NonFiniteComponent { .. } => "non-finite-component",
+            Self::ZeroQuaternion => "zero-quaternion",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+pub enum ProvisionalQuaternionArithmeticOperation {
+    Add,
+    Sub,
+    Mul,
+    Div,
+}
+impl ProvisionalQuaternionArithmeticOperation {
+    #[must_use]
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::Add => "add",
+            Self::Sub => "sub",
+            Self::Mul => "mul",
+            Self::Div => "div",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+pub enum ProvisionalQuaternionArithmeticStage {
+    ScaledComponent,
+    SquaredComponent,
+    ScaledNorm,
+    OutputComponent,
+    SignSelection,
+    CompositionProduct,
+    VectorRotationCrossProduct,
+    VectorRotationDoubleCrossProduct,
+    VectorRotationScale,
+    VectorRotationFinalAdd,
+    TransformTranslationAdd,
+    PointTranslationAdd,
+}
+impl ProvisionalQuaternionArithmeticStage {
+    #[must_use]
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::ScaledComponent => "scaled-component",
+            Self::SquaredComponent => "squared-component",
+            Self::ScaledNorm => "scaled-norm",
+            Self::OutputComponent => "output-component",
+            Self::SignSelection => "sign-selection",
+            Self::CompositionProduct => "composition-product",
+            Self::VectorRotationCrossProduct => "vector-rotation-cross-product",
+            Self::VectorRotationDoubleCrossProduct => "vector-rotation-double-cross-product",
+            Self::VectorRotationScale => "vector-rotation-scale",
+            Self::VectorRotationFinalAdd => "vector-rotation-final-add",
+            Self::TransformTranslationAdd => "transform-translation-add",
+            Self::PointTranslationAdd => "point-translation-add",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+pub enum ProvisionalQuaternionArithmeticOperand {
+    Left,
+    Right,
+}
+impl ProvisionalQuaternionArithmeticOperand {
+    #[must_use]
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::Left => "left",
+            Self::Right => "right",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+pub enum ProvisionalQuaternionArithmeticFailure {
+    ProviderUnavailable {
+        operation: ProvisionalQuaternionArithmeticOperation,
+        stage: ProvisionalQuaternionArithmeticStage,
+        index: Option<usize>,
+    },
+    ProviderFailed {
+        operation: ProvisionalQuaternionArithmeticOperation,
+        stage: ProvisionalQuaternionArithmeticStage,
+        index: Option<usize>,
+    },
+    NonFiniteOperand {
+        operation: ProvisionalQuaternionArithmeticOperation,
+        stage: ProvisionalQuaternionArithmeticStage,
+        index: Option<usize>,
+        operand: ProvisionalQuaternionArithmeticOperand,
+    },
+    NonFiniteOutput {
+        operation: ProvisionalQuaternionArithmeticOperation,
+        stage: ProvisionalQuaternionArithmeticStage,
+        index: Option<usize>,
+        bits: u64,
+    },
+    ZeroScaledNorm,
+    ZeroOutput,
+}
+impl ProvisionalQuaternionArithmeticFailure {
+    #[must_use]
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::ProviderUnavailable { .. } => "provider-unavailable",
+            Self::ProviderFailed { .. } => "provider-failed",
+            Self::NonFiniteOperand { .. } => "non-finite-operand",
+            Self::NonFiniteOutput { .. } => "non-finite-output",
+            Self::ZeroScaledNorm => "zero-scaled-norm",
+            Self::ZeroOutput => "zero-output",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+pub enum ProvisionalQuaternionGateStage {
+    Input,
+    ScaledNorm,
+    Output,
+}
+impl ProvisionalQuaternionGateStage {
+    #[must_use]
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::Input => "input",
+            Self::ScaledNorm => "scaled-norm",
+            Self::Output => "output",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+pub enum ProvisionalQuaternionFailure {
+    MalformedInput(ProvisionalQuaternionMalformedInput),
+    Arithmetic(ProvisionalQuaternionArithmeticFailure),
+    GateRejected {
+        stage: ProvisionalQuaternionGateStage,
+    },
+    SqrtUnavailable,
+    SqrtFailed,
+    InvalidSqrtOutput {
+        bits: u64,
+    },
+}
+impl ProvisionalQuaternionFailure {
+    #[must_use]
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::MalformedInput(error) => error.code(),
+            Self::Arithmetic(error) => error.code(),
+            Self::GateRejected { .. } => "gate-rejected",
+            Self::SqrtUnavailable => "sqrt-unavailable",
+            Self::SqrtFailed => "sqrt-failed",
+            Self::InvalidSqrtOutput { .. } => "invalid-sqrt-output",
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ProvisionalMemberSkipCause {
     FrameValueUnitScaling {
@@ -187,7 +370,7 @@ pub enum ProvisionalMemberSkipCause {
     },
     FrameValueQuaternion {
         location: ProvisionalMemberValueLocation,
-        failure: QuaternionNormalizationError,
+        failure: ProvisionalQuaternionFailure,
     },
     PlacementMemberMismatch {
         member: ProvisionalMemberIdentity,
@@ -211,7 +394,7 @@ pub enum ProvisionalMemberSkipCause {
     PlacementArithmetic {
         address: ProvisionalSemanticAddress,
         operation: ProvisionalPlacementOperation,
-        failure: QuaternionNormalizationError,
+        failure: ProvisionalQuaternionFailure,
     },
 }
 impl ProvisionalMemberSkipCause {
@@ -250,12 +433,32 @@ pub enum ProvisionalInvalidProfileFailure {
     NonFinite,
     Negative,
 }
+impl ProvisionalInvalidProfileFailure {
+    #[must_use]
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::NonFinite => "non-finite",
+            Self::Negative => "negative",
+        }
+    }
+}
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum ProvisionalNumericArithmeticFailure {
     NonFinite,
     TemporaryLimitExceeded,
     ExponentOverflow,
     ShiftOverflow,
+}
+impl ProvisionalNumericArithmeticFailure {
+    #[must_use]
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::NonFinite => "non-finite",
+            Self::TemporaryLimitExceeded => "temporary-limit-exceeded",
+            Self::ExponentOverflow => "exponent-overflow",
+            Self::ShiftOverflow => "shift-overflow",
+        }
+    }
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum ProvisionalNumericSkipCause {
@@ -492,6 +695,16 @@ pub enum ProvisionalToleranceField {
     /// Rotation half-chord H.
     RotationHalfChord,
 }
+impl ProvisionalToleranceField {
+    #[must_use]
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::TranslationAbsolute => "translation-absolute",
+            Self::TranslationRelative => "translation-relative",
+            Self::RotationHalfChord => "rotation-half-chord",
+        }
+    }
+}
 
 /// Typed explicit-tolerance failure.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -501,7 +714,7 @@ pub enum ProvisionalToleranceError {
     /// Negative entry.
     Negative { field: ProvisionalToleranceField },
     /// Exact admission arithmetic failed.
-    ExactArithmetic(NumericComparisonError),
+    ExactArithmetic(ProvisionalNumericArithmeticFailure),
 }
 
 impl fmt::Display for ProvisionalToleranceError {
@@ -509,8 +722,19 @@ impl fmt::Display for ProvisionalToleranceError {
         match self {
             Self::NonFinite { field } => write!(formatter, "non-finite tolerance {field:?}"),
             Self::Negative { field } => write!(formatter, "negative tolerance {field:?}"),
-            Self::ExactArithmetic(error) => error.fmt(formatter),
+            Self::ExactArithmetic(error) => write!(formatter, "exact arithmetic failure: {error}"),
         }
+    }
+}
+
+impl fmt::Display for ProvisionalNumericArithmeticFailure {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(match self {
+            Self::NonFinite => "binary64 value is not finite",
+            Self::TemporaryLimitExceeded => "exact arithmetic temporary exceeds the internal bound",
+            Self::ExponentOverflow => "exact arithmetic exponent overflowed",
+            Self::ShiftOverflow => "exact arithmetic shift is not representable",
+        })
     }
 }
 
@@ -699,9 +923,24 @@ fn map_tolerance_error(error: NumericComparisonError) -> ProvisionalToleranceErr
             }
         }
         NumericComparisonError::ExactArithmetic(error) => {
-            ProvisionalToleranceError::ExactArithmetic(NumericComparisonError::ExactArithmetic(
-                error,
-            ))
+            ProvisionalToleranceError::ExactArithmetic(convert_numeric_arithmetic_failure(error))
+        }
+    }
+}
+
+const fn convert_numeric_arithmetic_failure(
+    error: NumericArithmeticFailure,
+) -> ProvisionalNumericArithmeticFailure {
+    match error {
+        NumericArithmeticFailure::NonFinite => ProvisionalNumericArithmeticFailure::NonFinite,
+        NumericArithmeticFailure::TemporaryLimitExceeded => {
+            ProvisionalNumericArithmeticFailure::TemporaryLimitExceeded
+        }
+        NumericArithmeticFailure::ExponentOverflow => {
+            ProvisionalNumericArithmeticFailure::ExponentOverflow
+        }
+        NumericArithmeticFailure::ShiftOverflow => {
+            ProvisionalNumericArithmeticFailure::ShiftOverflow
         }
     }
 }
@@ -726,7 +965,7 @@ fn convert_frame_value_cause(
         CanonicalMemberFrameValuesError::QuaternionNormalization { location, error } => {
             ProvisionalMemberSkipCause::FrameValueQuaternion {
                 location: convert_value_location(location),
-                failure: *error,
+                failure: convert_quaternion_failure(*error),
             }
         }
     }
@@ -772,10 +1011,173 @@ fn convert_placement_cause(error: &CanonicalMemberPlacementError) -> Provisional
         } => ProvisionalMemberSkipCause::PlacementArithmetic {
             address: convert_address(address),
             operation: convert_placement_operation(*context),
-            failure: *error,
+            failure: convert_quaternion_failure(*error),
         },
     }
 }
+
+const fn convert_quaternion_failure(
+    error: QuaternionNormalizationError,
+) -> ProvisionalQuaternionFailure {
+    match error {
+        QuaternionNormalizationError::MalformedInput(error) => {
+            ProvisionalQuaternionFailure::MalformedInput(convert_quaternion_malformed_input(error))
+        }
+        QuaternionNormalizationError::Arithmetic(error) => {
+            ProvisionalQuaternionFailure::Arithmetic(convert_quaternion_arithmetic_failure(error))
+        }
+        QuaternionNormalizationError::GateRejected {
+            stage,
+            rejection: _,
+        } => ProvisionalQuaternionFailure::GateRejected {
+            stage: convert_quaternion_gate_stage(stage),
+        },
+        QuaternionNormalizationError::SqrtUnavailable => {
+            ProvisionalQuaternionFailure::SqrtUnavailable
+        }
+        QuaternionNormalizationError::SqrtFailed(_) => ProvisionalQuaternionFailure::SqrtFailed,
+        QuaternionNormalizationError::InvalidSqrtOutput { bits } => {
+            ProvisionalQuaternionFailure::InvalidSqrtOutput { bits }
+        }
+    }
+}
+
+const fn convert_quaternion_malformed_input(
+    error: MalformedQuaternionInput,
+) -> ProvisionalQuaternionMalformedInput {
+    match error {
+        MalformedQuaternionInput::NonFiniteComponent { index } => {
+            ProvisionalQuaternionMalformedInput::NonFiniteComponent { index }
+        }
+        MalformedQuaternionInput::ZeroQuaternion => {
+            ProvisionalQuaternionMalformedInput::ZeroQuaternion
+        }
+    }
+}
+
+const fn convert_quaternion_arithmetic_failure(
+    error: QuaternionArithmeticError,
+) -> ProvisionalQuaternionArithmeticFailure {
+    match error {
+        QuaternionArithmeticError::ProviderUnavailable {
+            operation,
+            stage,
+            index,
+        } => ProvisionalQuaternionArithmeticFailure::ProviderUnavailable {
+            operation: convert_quaternion_arithmetic_operation(operation),
+            stage: convert_quaternion_arithmetic_stage(stage),
+            index,
+        },
+        QuaternionArithmeticError::ProviderFailed {
+            operation,
+            stage,
+            index,
+            failure: _,
+        } => ProvisionalQuaternionArithmeticFailure::ProviderFailed {
+            operation: convert_quaternion_arithmetic_operation(operation),
+            stage: convert_quaternion_arithmetic_stage(stage),
+            index,
+        },
+        QuaternionArithmeticError::NonFiniteOperand {
+            operation,
+            stage,
+            index,
+            operand,
+        } => ProvisionalQuaternionArithmeticFailure::NonFiniteOperand {
+            operation: convert_quaternion_arithmetic_operation(operation),
+            stage: convert_quaternion_arithmetic_stage(stage),
+            index,
+            operand: convert_quaternion_arithmetic_operand(operand),
+        },
+        QuaternionArithmeticError::NonFiniteOutput {
+            operation,
+            stage,
+            index,
+            bits,
+        } => ProvisionalQuaternionArithmeticFailure::NonFiniteOutput {
+            operation: convert_quaternion_arithmetic_operation(operation),
+            stage: convert_quaternion_arithmetic_stage(stage),
+            index,
+            bits,
+        },
+        QuaternionArithmeticError::ZeroScaledNorm => {
+            ProvisionalQuaternionArithmeticFailure::ZeroScaledNorm
+        }
+        QuaternionArithmeticError::ZeroOutput => ProvisionalQuaternionArithmeticFailure::ZeroOutput,
+    }
+}
+
+const fn convert_quaternion_arithmetic_operation(
+    operation: QuaternionArithmeticOperation,
+) -> ProvisionalQuaternionArithmeticOperation {
+    match operation {
+        QuaternionArithmeticOperation::Add => ProvisionalQuaternionArithmeticOperation::Add,
+        QuaternionArithmeticOperation::Sub => ProvisionalQuaternionArithmeticOperation::Sub,
+        QuaternionArithmeticOperation::Mul => ProvisionalQuaternionArithmeticOperation::Mul,
+        QuaternionArithmeticOperation::Div => ProvisionalQuaternionArithmeticOperation::Div,
+    }
+}
+
+const fn convert_quaternion_arithmetic_stage(
+    stage: QuaternionArithmeticStage,
+) -> ProvisionalQuaternionArithmeticStage {
+    match stage {
+        QuaternionArithmeticStage::ScaledComponent => {
+            ProvisionalQuaternionArithmeticStage::ScaledComponent
+        }
+        QuaternionArithmeticStage::SquaredComponent => {
+            ProvisionalQuaternionArithmeticStage::SquaredComponent
+        }
+        QuaternionArithmeticStage::ScaledNorm => ProvisionalQuaternionArithmeticStage::ScaledNorm,
+        QuaternionArithmeticStage::OutputComponent => {
+            ProvisionalQuaternionArithmeticStage::OutputComponent
+        }
+        QuaternionArithmeticStage::SignSelection => {
+            ProvisionalQuaternionArithmeticStage::SignSelection
+        }
+        QuaternionArithmeticStage::CompositionProduct => {
+            ProvisionalQuaternionArithmeticStage::CompositionProduct
+        }
+        QuaternionArithmeticStage::VectorRotationCrossProduct => {
+            ProvisionalQuaternionArithmeticStage::VectorRotationCrossProduct
+        }
+        QuaternionArithmeticStage::VectorRotationDoubleCrossProduct => {
+            ProvisionalQuaternionArithmeticStage::VectorRotationDoubleCrossProduct
+        }
+        QuaternionArithmeticStage::VectorRotationScale => {
+            ProvisionalQuaternionArithmeticStage::VectorRotationScale
+        }
+        QuaternionArithmeticStage::VectorRotationFinalAdd => {
+            ProvisionalQuaternionArithmeticStage::VectorRotationFinalAdd
+        }
+        QuaternionArithmeticStage::TransformTranslationAdd => {
+            ProvisionalQuaternionArithmeticStage::TransformTranslationAdd
+        }
+        QuaternionArithmeticStage::PointTranslationAdd => {
+            ProvisionalQuaternionArithmeticStage::PointTranslationAdd
+        }
+    }
+}
+
+const fn convert_quaternion_arithmetic_operand(
+    operand: Binary64Operand,
+) -> ProvisionalQuaternionArithmeticOperand {
+    match operand {
+        Binary64Operand::Left => ProvisionalQuaternionArithmeticOperand::Left,
+        Binary64Operand::Right => ProvisionalQuaternionArithmeticOperand::Right,
+    }
+}
+
+const fn convert_quaternion_gate_stage(
+    stage: QuaternionGateStage,
+) -> ProvisionalQuaternionGateStage {
+    match stage {
+        QuaternionGateStage::Input => ProvisionalQuaternionGateStage::Input,
+        QuaternionGateStage::ScaledNorm => ProvisionalQuaternionGateStage::ScaledNorm,
+        QuaternionGateStage::Output => ProvisionalQuaternionGateStage::Output,
+    }
+}
+
 fn convert_numeric_cause(error: &NumericComparisonError) -> ProvisionalNumericSkipCause {
     match error {
         NumericComparisonError::InvalidProfileEntry(error) => match error {
@@ -1324,6 +1726,35 @@ mod tests {
             skip.code,
             ProvisionalMemberSkipCode::UpstreamCanonical.code()
         );
+        assert_eq!(
+            skip.cause.code(),
+            "ck.provisional-r3-authored-conflict.frame-value.quaternion"
+        );
+        let ProvisionalMemberSkipCause::FrameValueQuaternion { location, failure } = &skip.cause
+        else {
+            panic!("expected quaternion failure cause")
+        };
+        assert_eq!(location.member.document, "stylized_digitigrade_biped");
+        assert_eq!(location.role, ProvisionalMemberRole::Root);
+        assert!(matches!(
+            &location.slot,
+            ProvisionalMemberValueSlot::PartPlacement { address, component: ProvisionalTransformComponent::Rotation }
+                if address.namespace == "main" && address.role == "head"
+        ));
+        let ProvisionalQuaternionFailure::Arithmetic(
+            ProvisionalQuaternionArithmeticFailure::ProviderUnavailable {
+                operation,
+                stage,
+                index,
+            },
+        ) = failure
+        else {
+            panic!("expected unavailable arithmetic failure")
+        };
+        assert_eq!(failure.code(), "provider-unavailable");
+        assert_eq!(operation.code(), "div");
+        assert_eq!(stage.code(), "scaled-component");
+        assert_eq!(*index, Some(0));
 
         struct RejectGate;
         impl QuaternionNormalizationGate for RejectGate {
@@ -1353,5 +1784,22 @@ mod tests {
             skip.code,
             ProvisionalMemberSkipCode::UpstreamCanonical.code()
         );
+        assert_eq!(
+            skip.cause.code(),
+            "ck.provisional-r3-authored-conflict.frame-value.quaternion"
+        );
+        let ProvisionalMemberSkipCause::FrameValueQuaternion { failure, .. } = &skip.cause else {
+            panic!("expected quaternion failure cause")
+        };
+        assert_eq!(failure.code(), "gate-rejected");
+        assert!(matches!(
+            failure,
+            ProvisionalQuaternionFailure::GateRejected {
+                stage: ProvisionalQuaternionGateStage::Input
+            }
+        ));
+        if let ProvisionalQuaternionFailure::GateRejected { stage } = failure {
+            assert_eq!(stage.code(), "input");
+        }
     }
 }
