@@ -16,12 +16,48 @@ or provide evidence.
 ## Questions and scope
 
 The protocol informs the following entries in the [open research question
-registry](open-questions.md): RQ-001, RQ-002, and RQ-003; RQ-010 through RQ-014;
+registry](open-questions.md): RQ-001 through RQ-004; RQ-010 through RQ-014;
 RQ-021 through RQ-024; RQ-030 through RQ-032; RQ-040 through RQ-045; and
 RQ-072 and RQ-074. The open-question states remain unchanged. Stage 1 is
 evaluated as a generation and lineage proof. Shared pose/animation belongs to
 Stage 2, and contact/deformation and real-time interaction belong to Stage 3;
 an assessment must not transfer a later-stage claim to an earlier stage.
+
+## Planned model-assisted visual-appraisal checkpoint
+
+Before the project relies on an AI or multimodal model for visual appraisal,
+hold a recorded discussion with Ben and complete a current-at-the-time
+research pass for RQ-004. This is a proposed research checkpoint, not present
+evidence, a provider selection, or permission to weaken the human gate. The
+discussion must first clarify what assistance is wanted: generic recognition or
+categorisation is not the same capability as fine-grained spatial or geometry
+defect detection, cross-view comparison and localisation, motion/deformation
+review, consistency across repeated views, or iterative critique that is
+specific and actionable enough to guide a revision. Treat claims about any
+provider as time-sensitive; explicitly consider OpenAI, Google, xAI/Grok, and
+other credible accessible providers available at the time, without assuming a
+ranking or that a strong categorisation result implies reliable defect review.
+
+If assistance remains worth testing, preregister a small blinded comparative
+benchmark on Creature Kernel captures. Use repeated front/side/three-quarter
+views and turntable or motion captures where relevant, with known injected or
+labelled defects and clean controls. Mask provider/model and case identity
+where practical, and compare models under documented prompts, image/video
+limits, and tool access. Measure defect detection, spatial localisation,
+explanation quality, actionable revision guidance, false positives, and
+cross-view and repeat-run consistency. Also record cost, latency, privacy and
+data retention terms, API/tooling reliability, version/configuration
+provenance, and unhandled or refused cases. Separate measured results from
+subjective reviewer judgment and from provider documentation or marketing
+claims.
+
+The checkpoint must end with an explicit role and safety decision: keep review
+human-only; use a model only for triage or a second opinion; or permit a
+strictly bounded reviewer role. Define confidence/uncertainty handling,
+escalation to a human, and defect classes the model must not adjudicate. Until
+a later evidence-backed decision changes this boundary, the human subjective
+visual floor remains authoritative and model output cannot turn a failure into
+a pass or replace human appraisal.
 
 ## Evaluation inputs and views
 
