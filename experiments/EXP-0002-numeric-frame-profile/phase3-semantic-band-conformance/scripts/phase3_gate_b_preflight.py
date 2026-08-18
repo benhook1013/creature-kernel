@@ -10,9 +10,11 @@ remaining Gate B bindings rather than authorizing execution.
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import os
 import stat
+import sys
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -28,6 +30,11 @@ EXPECTED_CONTENT_SHA256 = "21825e78c3286cf73d135f44be99eaea5214ce36b5fed6271dce0
 EXPECTED_CANDIDATE_BYTES = 1_494_337
 EXPECTED_PHASE = "exp-0002-phase3-semantic-band-conformance-001"
 EXPECTED_PROFILE = "ck.provisional-r3-authored-conflict.semantic-band-1"
+REPOSITORY = Path(__file__).resolve().parents[4]
+FREEZE_MANIFEST_PATH = "manifests/freeze-manifest.json"
+FREEZE_RECEIPT_DIR = "manifests/build-receipts"
+FREEZE_RECEIPT_NAMES = frozenset({"wsl.json", "native.json"})
+FREEZE_SCRIPT_PATH = "scripts/phase3_freeze_manifest.py"
 TOOL_PATHS = (
     "scripts/phase3_common.py",
     "scripts/phase3_oracle.py",
@@ -175,6 +182,23 @@ def _candidate_identity(value: Any) -> dict[str, Any]:
     }
 
 
+def _manifest_candidate_identity(manifest: Mapping[str, Any]) -> dict[str, Any]:
+    closure = manifest.get("candidate_closure")
+    if not isinstance(closure, Mapping):
+        _fail("freeze-manifest", "freeze manifest candidate closure is unavailable")
+    try:
+        return {
+            "algorithm": closure["algorithm"],
+            "count": closure["count"],
+            "path_set_sha256": closure["path_set_sha256"],
+            "content_sha256": closure["content_sha256"],
+            "total_raw_bytes": closure["total_raw_bytes"],
+        }
+    except KeyError as error:
+        _fail("freeze-manifest", "freeze manifest candidate closure is incomplete")
+        raise AssertionError from error
+
+
 def _tool_identities(value: Any) -> list[dict[str, Any]]:
     _plain(value, "tool_identities")
     if type(value) is dict:
@@ -281,17 +305,92 @@ def _regular_bytes(path: Path, label: str) -> bytes:
     return raw
 
 
-def _validate_tools(root: Path, supplied: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _validate_tools(root: Path, supplied: list[dict[str, Any]], manifest: Mapping[str, Any]) -> list[dict[str, Any]]:
     for identity in supplied:
         raw = _regular_bytes(root / identity["path"], identity["path"])
         if len(raw) != identity["bytes"] or hashlib.sha256(raw).hexdigest() != identity["sha256"]:
             _fail("tool-identity", f"current file identity differs for {identity['path']}")
+    recorded = manifest.get("runtime_tool_identities")
+    if not isinstance(recorded, list):
+        _fail("freeze-manifest", "freeze manifest runtime tool identities are unavailable")
+    normalized = []
+    for identity in recorded:
+        if not isinstance(identity, Mapping) or set(identity) != {"path", "mode", "bytes", "sha256"}:
+            _fail("freeze-manifest", "freeze manifest runtime tool identity is malformed")
+        normalized.append({key: identity[key] for key in ("path", "bytes", "sha256")})
+    if supplied != normalized:
+        _fail("tool-identity", "caller tool identities differ from the canonical freeze manifest")
     return supplied
 
 
-def _report(candidate: dict[str, Any], tools: list[dict[str, Any]], cases: list[dict[str, Any]]) -> dict[str, Any]:
+def _load_freeze_module(root: Path) -> Any:
+    path = root / FREEZE_SCRIPT_PATH
+    try:
+        spec = importlib.util.spec_from_file_location(f"phase3_freeze_manifest_for_preflight_{id(root)}", path)
+        if spec is None or spec.loader is None:
+            _fail("freeze-manifest", "cannot load freeze-manifest validator")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        return module
+    except GateBPreflightError:
+        raise
+    except Exception as error:
+        raise GateBPreflightError("freeze-manifest", "cannot load freeze-manifest validator") from error
+
+
+def _validate_freeze_package(root: Path) -> tuple[Any, dict[str, Any]]:
+    """Validate the canonical freeze and both receipts through freeze logic."""
+    freeze = _load_freeze_module(root)
+    manifest_path = root / FREEZE_MANIFEST_PATH
+    try:
+        manifest = freeze.check_manifest(repo=REPOSITORY, package=root, path=manifest_path)
+    except Exception as error:
+        code = getattr(error, "code", "invalid")
+        raise GateBPreflightError("freeze-manifest", f"canonical freeze validation failed: {code}") from error
+    if not isinstance(manifest, dict):
+        _fail("freeze-manifest", "canonical freeze validator did not return an object")
+    binaries = manifest.get("binaries")
+    if not isinstance(binaries, dict) or set(binaries) != {"wsl2-x86_64", "ubuntu-24.04-x86_64"} or any(not isinstance(binaries[key], Mapping) or binaries[key].get("status") != "bound" for key in binaries):
+        _fail("freeze-state", "both canonical binary slots must be bound")
+    if manifest.get("execution_permitted") is not False:
+        _fail("freeze-state", "canonical freeze manifest permits execution")
+    readiness = manifest.get("readiness")
+    if not isinstance(readiness, Mapping) or readiness.get("materialization_state") != "frozen" or readiness.get("execution_permitted") is not False or readiness.get("freeze_blockers") != []:
+        _fail("freeze-state", "canonical freeze readiness is not an execution-disabled frozen package")
+    receipt_directory = root / FREEZE_RECEIPT_DIR
+    try:
+        entries = {entry.name for entry in receipt_directory.iterdir()}
+    except OSError as error:
+        raise GateBPreflightError("receipt-layout", "cannot inspect the canonical receipt directory") from error
+    if entries != set(FREEZE_RECEIPT_NAMES):
+        _fail("receipt-layout", "canonical receipt directory must contain exactly WSL and native receipts")
+    # check_manifest has already invoked phase3_build_receipt.validate_receipt
+    # for both bound slots.  Requiring the exact paths here prevents a valid
+    # sidecar from being silently substituted by an extra or renamed receipt.
+    for name in FREEZE_RECEIPT_NAMES:
+        path = receipt_directory / name
+        try:
+            info = path.lstat()
+        except OSError as error:
+            raise GateBPreflightError("receipt-layout", f"missing canonical receipt {name}") from error
+        if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or stat.S_IMODE(info.st_mode) != 0o644 or info.st_nlink != 1:
+            _fail("receipt-layout", f"canonical receipt {name} is not a mode-0644 single-link file")
+    return freeze, manifest
+
+
+def _report(candidate: dict[str, Any], tools: list[dict[str, Any]], cases: list[dict[str, Any]], manifest: Mapping[str, Any]) -> dict[str, Any]:
     roles = {"development": 8, "held-out": 40, "controls": 12}
     dispatch = sum(case.get("dispatch_to_candidate", True) for case in cases)
+    receipt_identities = {
+        selector: {
+            "path": slot["receipt_path"],
+            "bytes": slot["receipt_bytes"],
+            "sha256": slot["receipt_sha256"],
+            "self_hash": slot["receipt_self_hash"],
+        }
+        for selector, slot in manifest["binaries"].items()
+    }
     return {
         "schema": SCHEMA,
         "evidence_schema": EVIDENCE_SCHEMA,
@@ -300,6 +399,8 @@ def _report(candidate: dict[str, Any], tools: list[dict[str, Any]], cases: list[
         "candidate_profile_id": EXPECTED_PROFILE,
         "evidence": False,
         "gate_b_ready": False,
+        "readiness": False,
+        "review": False,
         "execution_permitted": False,
         "authorization_accepted": False,
         "technology_outcome": "none",
@@ -309,8 +410,22 @@ def _report(candidate: dict[str, Any], tools: list[dict[str, Any]], cases: list[
             "lifecycle": "planned",
             "evidence_status": "open",
             "materialization": "development-unfrozen",
+            "materialization_scope": "generated corpus and request materialization only",
             "not_evidence": True,
             "not_frozen": True,
+            "freeze_field_note": "These are immutable Gate-A snapshot fields; the canonical freeze manifest supersedes them only for execution-package freeze state.",
+        },
+        "execution_package": {
+            "freeze_state": "frozen",
+            "manifest_path": FREEZE_MANIFEST_PATH,
+            "manifest_sha256": manifest["manifest_sha256"],
+            "candidate_source_commit": manifest["candidate_source_commit"],
+            "runtime_tool_identities": manifest["runtime_tool_identities"],
+            "provenance_tool_identities": manifest["provenance_tool_identities"],
+            "binary_slots": manifest["binaries"],
+            "receipt_identities": receipt_identities,
+            "readiness": manifest["readiness"],
+            "note": "The preregistration pending-freeze fields are immutable Gate-A snapshot state; the canonical freeze manifest supersedes them only for execution-package freeze state.",
         },
         "candidate_identity": candidate,
         "tool_identities": tools,
@@ -325,22 +440,16 @@ def _report(candidate: dict[str, Any], tools: list[dict[str, Any]], cases: list[
         "checks": [
             {"name": "materialized-cases", "status": "passed"},
             {"name": "protocol-profile-tolerance-request-formula", "status": "passed"},
-            {"name": "expected-prebound-candidate-identity", "status": "passed", "detail": "caller-supplied prebinding identity matched expected values; current-disk closure was not recomputed"},
+            {"name": "expected-prebound-candidate-identity", "status": "passed", "detail": "caller-supplied candidate closure matched the canonical freeze manifest"},
             {"name": "current-phase3-tool-identities", "status": "passed"},
-            {"name": "freeze-manifest", "status": "missing"},
+            {"name": "freeze-manifest", "status": "passed", "detail": manifest["manifest_sha256"]},
             {"name": "gate-b-current-double-review", "status": "missing"},
         ],
         "missing_gate_b_items": [
-            "freeze manifest and concrete freeze content identities",
-            "independent current-disk candidate closure/freeze binding (not recomputed by this preflight)",
-            "candidate binary identity",
-            "toolchain/compiler identity",
-            "exact build and run commands and flags",
-            "frozen platform selectors and environment/workflow identity",
             "current Gate B Double review of the frozen concrete package",
             "Ben authorization for the exact attempts and native dispatch",
         ],
-        "scope": "read-only readiness plumbing; no freeze, authorization, or execution",
+        "scope": "read-only readiness plumbing; validates the canonical frozen execution package but does not authorize or execute",
     }
 
 
@@ -363,7 +472,11 @@ def build_gate_b_preflight(
             _fail("package-root", "package root is a symlink")
     except OSError as error:
         raise GateBPreflightError("package-root", "cannot inspect package root") from error
+    freeze, manifest = _validate_freeze_package(root)
     candidate = _candidate_identity(candidate_identity)
+    expected_candidate = _manifest_candidate_identity(manifest)
+    if candidate != expected_candidate:
+        _fail("candidate-identity", "caller candidate closure differs from the canonical freeze manifest")
     tools = _tool_identities(tool_identities)
     # The adapter owns the exact package/preregistration/manifest/protocol,
     # tolerance, request-ID, source, and 60-record checks.  Importantly, this
@@ -376,8 +489,8 @@ def build_gate_b_preflight(
         raise GateBPreflightError(getattr(error, "code", "package-preflight"), str(error)) from error
     if len(cases) != 60:
         _fail("accounting", "materialized package does not contain 60 cases")
-    _validate_tools(root, tools)
-    report = _report(candidate, tools, cases)
+    _validate_tools(root, tools, manifest)
+    report = _report(candidate, tools, cases, manifest)
     # A final strict canonicalization check makes the returned mapping itself
     # the canonical non-evidence report, without exposing an execution handle.
     try:

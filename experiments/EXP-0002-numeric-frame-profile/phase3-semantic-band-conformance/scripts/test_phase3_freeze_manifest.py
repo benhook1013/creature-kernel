@@ -31,6 +31,7 @@ def _copy_package(root: Path) -> tuple[Path, Path]:
     receipts.mkdir(parents=True)
     manifest_path = package / freeze.MANIFEST_REL
     manifest_path.write_bytes(_canonical(freeze.generate_manifest(package=package)))
+    manifest_path.chmod(0o644)
     return package, manifest_path
 
 
@@ -228,6 +229,7 @@ class FreezeManifestTests(unittest.TestCase):
             shutil.copytree(freeze.PACKAGE, package)
             manifest_path = package / freeze.MANIFEST_REL
             manifest_path.write_bytes(_canonical(freeze.generate_manifest(package=package)))
+            manifest_path.chmod(0o644)
             (package / "corpora" / "unexpected.jsonl").write_text("{}\n", encoding="utf-8")
             with patch.object(freeze, "_validate_candidate_commit_snapshot"):
                 with self.assertRaises(freeze.FreezeManifestError) as error:
@@ -358,6 +360,7 @@ class FreezeManifestTests(unittest.TestCase):
             path = root / "nested" / "freeze-manifest.json"
             freeze.write_manifest(manifest, path)
             self.assertEqual(path.read_bytes(), _canonical(manifest))
+            self.assertEqual(path.stat().st_mode & 0o777, 0o644)
             self.assertEqual(list(path.parent.glob(f".{path.name}.*.tmp")), [])
 
     def test_manifest_write_rejects_resealed_arbitrary_overwrite(self) -> None:
@@ -373,6 +376,52 @@ class FreezeManifestTests(unittest.TestCase):
                 freeze.write_manifest(malformed, path)
             self.assertEqual(error.exception.code, "manifest-drift")
             self.assertEqual(path.read_bytes(), original)
+
+    def test_manifest_check_rejects_nonregular_symlink_hardlink_and_wrong_mode(self) -> None:
+        manifest = freeze.generate_manifest()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "freeze-manifest.json"
+            path.write_bytes(_canonical(manifest))
+            path.chmod(0o644)
+            invalid_paths: list[Path] = []
+
+            wrong_mode = root / "wrong-mode.json"
+            wrong_mode.write_bytes(path.read_bytes())
+            wrong_mode.chmod(0o600)
+            invalid_paths.append(wrong_mode)
+
+            hardlink = root / "hardlink.json"
+            hardlink.hardlink_to(path)
+            invalid_paths.append(hardlink)
+
+            symlink = root / "symlink.json"
+            symlink.symlink_to(path)
+            invalid_paths.append(symlink)
+
+            directory_path = root / "directory.json"
+            directory_path.mkdir()
+            invalid_paths.append(directory_path)
+
+            for invalid in invalid_paths:
+                with self.subTest(path=invalid.name), self.assertRaises(freeze.FreezeManifestError) as error:
+                    freeze._load_manifest(invalid)
+                self.assertEqual(error.exception.code, "manifest-file")
+
+    def test_atomic_writer_materializes_mode_before_replace_and_rejects_bad_destination(self) -> None:
+        manifest = freeze.generate_manifest()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "freeze-manifest.json"
+            path.write_bytes(_canonical(manifest))
+            path.chmod(0o600)
+            with self.assertRaises(freeze.FreezeManifestError) as error:
+                freeze._atomic_write_manifest(manifest, path)
+            self.assertEqual(error.exception.code, "manifest-write")
+
+            path.unlink()
+            freeze._atomic_write_manifest(manifest, path)
+            self.assertEqual(path.stat().st_mode & 0o777, 0o644)
 
 
 if __name__ == "__main__":

@@ -275,12 +275,21 @@ or dispatches an attempt. Its focused checks are in
 The new `scripts/phase3_freeze_manifest.py` deterministically generates and
 checks the concrete freeze inputs, with a narrow finalization path that binds
 exactly one durable WSL receipt and one durable native receipt. Until both
-receipt files exist and validate, the freeze remains pre-freeze and the binary
-slots remain unbound. Its focused boundary checks are in
-`scripts/test_phase3_freeze_manifest.py`. The committed WSL/native receipts and
-finalized freeze manifest are now materialized from exact candidate source
+receipt files exist and validate, the execution-package freeze remains
+pre-freeze and the binary slots remain unbound. Its focused boundary checks are
+in `scripts/test_phase3_freeze_manifest.py`. The committed WSL/native receipts
+and finalized freeze manifest are now materialized from exact candidate source
 commit `647eab5297adca1998764904cce98eca154738e4`; execution remains disabled
 pending the current-revision Gate B Double review.
+
+`development-unfrozen` remains the explicit state of the generated
+corpus/request materialization. It is not a statement that the separately
+bound execution package is unfrozen: once the canonical manifest has both
+validated receipts, its execution-package freeze state is `frozen`. The
+preregistration's pending-freeze fields are immutable Gate-A snapshot state;
+the canonical freeze manifest supersedes those fields only for execution-
+package freeze state. The preregistration is not rewritten by finalization or
+preflight.
 
 The manual `.github/workflows/phase3-gate-b-native-build.yml` workflow accepts
 only a full 40-character commit SHA, runs on Ubuntu 24.04, recomputes the
@@ -562,15 +571,17 @@ and response transport hashes, closed cross-bindings, and bounded partial
 retention are contract checks, not execution evidence.
 
 `scripts/phase3_gate_b_preflight.py` is a separate read-only non-evidence
-preflight. It validates the materialized package, current Phase 3 tool
-identities, package counts, and the caller-supplied prebound 47-file candidate
-closure identity. It does not recompute the current-disk candidate closure,
-freeze a package, authorize an attempt, execute anything, create evidence, or
-pass Gate B. The preflight therefore reports the remaining Gate B blockers:
-concrete freeze-manifest bindings, exact build/run/toolchain/platform/binary
-bindings, current-revision Double review, and Ben's exact-attempt/native
-authorization. No R3 activation or product/architecture decision follows from
-these validators.
+preflight. It validates the materialized package and current Phase 3 tool
+identities, then consumes the canonical freeze manifest through the existing
+freeze/build-receipt validators. That binds and reports the manifest self-hash,
+candidate source commit, runtime/provenance tool identities, exact WSL/native
+receipt identities, binary slots, and execution-disabled readiness state. It
+fails closed on canonical-manifest drift or tamper, missing or extra receipts,
+and receipt/build mismatches. It does not create or rewrite a freeze manifest,
+authorize an attempt, execute anything, create evidence, or pass Gate B. The
+remaining blockers are the current-revision Double review of the frozen
+concrete package and Ben's exact-attempt/native authorization. No R3 activation
+or product/architecture decision follows from these validators.
 
 Focused checks for this slice are:
 

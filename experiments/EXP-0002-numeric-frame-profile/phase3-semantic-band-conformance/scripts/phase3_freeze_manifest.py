@@ -103,6 +103,7 @@ REQUEST_FIELDS = [
 RESPONSE_PROTOCOL = "ck.exp-0002.r3-authored-conflict-candidate-response-1"
 REQUEST_PROTOCOL = "ck.exp-0002.r3-authored-conflict-candidate-request-1"
 MAX_FILE_BYTES = 16 * 1024 * 1024
+MAX_MANIFEST_BYTES = 2 * 1024 * 1024
 SHA256_HEX = set("0123456789abcdef")
 FULL_SHA_HEX = SHA256_HEX
 ACTION_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
@@ -603,8 +604,8 @@ def generate_manifest(repo: Path = REPO, package: Path = PACKAGE, *, binaries: M
 
 
 def _load_manifest(path: Path) -> dict[str, Any]:
+    raw = _read_manifest_bytes(path)
     try:
-        raw = path.read_bytes()
         value = json.loads(raw.decode("utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
         raise FreezeManifestError("manifest-read", str(path)) from error
@@ -615,6 +616,71 @@ def _load_manifest(path: Path) -> dict[str, Any]:
     if value.get("manifest_sha256") != _self_hash(value):
         _fail("manifest-self-hash", "manifest self hash does not match")
     return value
+
+
+def _manifest_identity(info: os.stat_result) -> tuple[int, int, int, int, int, int, int]:
+    return (info.st_dev, info.st_ino, info.st_mode, info.st_nlink, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+
+
+def _read_manifest_bytes(path: Path) -> bytes:
+    """Read one canonical manifest through a bounded, identity-checked fd.
+
+    The manifest is a publication boundary, so a path read is not sufficient:
+    reject symlinks, non-regular files, hardlinks, and non-canonical modes and
+    compare the descriptor identity before/after the bounded read.
+    """
+    for component in reversed(path.parents):
+        try:
+            if component.is_symlink():
+                _fail("manifest-file", "manifest path contains a symlink component")
+        except OSError as error:
+            raise FreezeManifestError("manifest-file", str(path)) from error
+    try:
+        before = path.lstat()
+    except OSError as error:
+        raise FreezeManifestError("manifest-read", str(path)) from error
+    if not stat.S_ISREG(before.st_mode) or stat.S_ISLNK(before.st_mode) or stat.S_IMODE(before.st_mode) != 0o644 or before.st_nlink != 1:
+        _fail("manifest-file", "manifest must be a mode-0644 single-link regular file")
+    if before.st_size > MAX_MANIFEST_BYTES:
+        _fail("manifest-size", "manifest exceeds the bounded size")
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as error:
+        if getattr(error, "errno", None) == getattr(os, "ELOOP", 40):
+            raise FreezeManifestError("manifest-file", "manifest is a symlink") from error
+        raise FreezeManifestError("manifest-read", str(path)) from error
+    try:
+        opened = os.fstat(descriptor)
+        if not stat.S_ISREG(opened.st_mode) or stat.S_ISLNK(opened.st_mode) or stat.S_IMODE(opened.st_mode) != 0o644 or opened.st_nlink != 1 or _manifest_identity(opened) != _manifest_identity(before):
+            _fail("manifest-file", "manifest changed before reading")
+        chunks: list[bytes] = []
+        total = 0
+        while True:
+            chunk = os.read(descriptor, min(1024 * 1024, MAX_MANIFEST_BYTES + 1 - total))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            total += len(chunk)
+            if total > MAX_MANIFEST_BYTES:
+                _fail("manifest-size", "manifest grew beyond the bounded size")
+        raw = b"".join(chunks)
+        after = os.fstat(descriptor)
+    except FreezeManifestError:
+        raise
+    except OSError as error:
+        raise FreezeManifestError("manifest-read", str(path)) from error
+    finally:
+        os.close(descriptor)
+    if _manifest_identity(after) != (before.st_dev, before.st_ino, before.st_mode, before.st_nlink, len(raw), before.st_mtime_ns, before.st_ctime_ns):
+        _fail("manifest-file", "manifest changed while reading")
+    try:
+        current = path.lstat()
+    except OSError as error:
+        raise FreezeManifestError("manifest-file", "manifest disappeared after reading") from error
+    if _manifest_identity(current) != (before.st_dev, before.st_ino, before.st_mode, before.st_nlink, len(raw), before.st_mtime_ns, before.st_ctime_ns):
+        _fail("manifest-file", "manifest changed after reading")
+    return raw
 
 
 def _receipt_module(package: Path) -> Any:
@@ -765,10 +831,10 @@ def _validate_bound_receipts(package: Path, manifest: Mapping[str, Any], binarie
 
 
 def check_manifest(repo: Path = REPO, package: Path = PACKAGE, path: Path = MANIFEST) -> dict[str, Any]:
+    recorded = _load_manifest(path)
     # The candidate commit remains authoritative after the later freeze commit,
     # but a check still requires a usable repository with a current HEAD.
     _resolve_source_commit(repo, None)
-    recorded = _load_manifest(path)
     _validate_candidate_commit_snapshot(repo, package, recorded)
     candidate_commit = recorded.get("candidate_source_commit")
     binaries = _validate_binary_slots(recorded.get("binaries"))
@@ -788,9 +854,9 @@ def _atomic_write_manifest(value: Mapping[str, Any], path: Path) -> None:
         existing_info = None
     except OSError as error:
         raise FreezeManifestError("manifest-write", str(path)) from error
-    if existing_info is not None and stat.S_ISLNK(existing_info.st_mode):
-        _fail("manifest-write", "manifest path is a symlink")
     if existing_info is not None:
+        if not stat.S_ISREG(existing_info.st_mode) or stat.S_ISLNK(existing_info.st_mode) or stat.S_IMODE(existing_info.st_mode) != 0o644 or existing_info.st_nlink != 1:
+            _fail("manifest-write", "manifest path must be a mode-0644 single-link regular file")
         try:
             existing = _load_manifest(path)
             existing_binaries = _validate_binary_slots(existing.get("binaries"))
@@ -803,6 +869,10 @@ def _atomic_write_manifest(value: Mapping[str, Any], path: Path) -> None:
     try:
         with tempfile.NamedTemporaryFile(mode="wb", dir=path.parent, prefix=f".{path.name}.", suffix=".tmp", delete=False) as stream:
             temporary = Path(stream.name)
+            os.fchmod(stream.fileno(), 0o644)
+            temporary_info = os.fstat(stream.fileno())
+            if not stat.S_ISREG(temporary_info.st_mode) or stat.S_IMODE(temporary_info.st_mode) != 0o644 or temporary_info.st_nlink != 1:
+                _fail("manifest-write", "temporary manifest is not a mode-0644 single-link regular file")
             stream.write(raw)
             stream.flush()
             os.fsync(stream.fileno())
