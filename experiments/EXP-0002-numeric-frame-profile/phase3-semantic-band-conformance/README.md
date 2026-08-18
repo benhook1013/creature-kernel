@@ -258,6 +258,120 @@ The checker follows production literal `include!`, `include_str!`, and
 checks selected regular-file types, modes, raw content, and relevant Cargo
 build/config inputs, and does not sweep ignored target/cache artifacts.
 
+## Synthetic validation plumbing (development only)
+
+The seven new Python scripts (five `phase3_*.py` implementation modules and
+two `test_phase3_*.py` modules) are implementation plumbing for exercising the scoring
+boundary without running the experiment. They are
+pure in-memory Python: they do not open a candidate, invoke Rust or a
+subprocess, read a corpus or sqrt fixture, use a path/executable, or create an
+attempt. Their result and receipt schemas are deliberately non-evidence
+schemas. This section describes the current implementation behavior; it does
+not add a wire protocol, freeze the package, or alter the preregistered
+execution plan.
+
+The modules and their in-memory entrypoints are:
+
+- `phase3_common.py` provides strict UTF-8/JSON parsing with duplicate-member
+  and non-finite rejection, bounded decimal admission, canonical JSON, exact
+  `Fraction` conversion, rational intervals, directed integer-`isqrt` square
+  root bounds, and binary64 bit conversion.
+- `phase3_oracle.py` exposes `evaluate_source(source_text, metric)` and
+  `verify_sqrt_vectors(vectors)`. The oracle consumes only serialized source
+  text (or an in-memory vector sequence), independently maps basis/unit data,
+  composes the Attachment equation, recomputes domain gates and typed
+  zero-quaternion locations, and returns source-derived `I_truth` plus the
+  expected nested witness. It does not import the materializer or read its
+  generated records when the source is admitted; typed and out-of-domain
+  results retain their corresponding bounded status instead.
+- `phase3_scorer.py` exposes `score_response(request, oracle_result,
+  response, expected_class=..., observation_only=...)`. It scores the actual
+  Phase 2 response shape, not a simplified synthetic response invented for
+  these tests.
+- `phase3_runner.py` exposes `run_synthetic(cases, transcript)` (also
+  exported as `run`). It accepts only a closed list of synthetic request-shaped
+  dictionaries and an in-memory request-ID-to-response-bytes transcript, then
+  calls the oracle and scorer. `dispatch_to_candidate: false` is a preflight
+  decision only: its keyed response is not parsed or inspected, although an
+  unconsumed transcript key is still reported as an extra response.
+- `phase3_receipt.py` exposes `build_receipt(result)` (also exported as
+  `synthetic_validation_receipt` and `receipt_bytes`). It rechecks the closed
+  result/count/status algebra and emits a deterministic synthetic receipt.
+
+The exact nested response scoring performed by `phase3_scorer.py` is:
+
+1. For response bytes, enforce the 64 KiB frame limit and strict JSON; then
+   enforce the closed top-level envelope, the existing response protocol ID,
+   and an exact echoed `request_id`. An `observed` response must contain
+   `observations` and no top-level `error` or `cause`. A typed non-`observed`
+   response is supported only when its expected status and every expected
+   stable cause field match the request; otherwise it is failed when
+   contradictory or inconclusive when the candidate did not provide the
+   expected typed response.
+2. For an observed admitted response, require `observations.root` to equal
+   the oracle source identity, tolerance fields to equal the request's exact
+   binary64 bit encodings, and providers to equal the request selections with
+   the expected unattested wrappers. Require exactly one complete root member
+   with the expected identity/role and exactly one target Attachment whose
+   provenance addresses, offset, and root-to-mating-owner path match the
+   oracle.
+3. Require the nested Attachment equation to contain the source-matching
+   host/mating socket locals, every source-matching root-to-mating-owner part
+   local, and exactly these five ordered operations and outputs:
+   `attachment-containment`, `attachment-mating-socket`,
+   `attachment-host-offset`, `attachment-inverse`, and
+   `attachment-equation`. The reported authored root-local transform must
+   match the oracle, and the reported derived root-local transform must equal
+   the final equation output.
+4. Compute `I_candidate` from the reported binary64 authored/derived root
+   transforms: translation is the exact max component difference; rotation is
+   the certified q/-q-equivalent full-chord interval. Combine it with the
+   source-derived `I_truth` to compute `I_error`. Translation's threshold is
+   `translation_absolute + translation_relative * translation_scale`; rotation's
+   threshold is `2 * rotation_half_chord`. Candidate interval upper `<=`
+   threshold is `agree`, lower `>` threshold is `conflict`, and a straddling
+   interval is incomplete/inconclusive. A non-straddling class must agree with
+   the nested `Attachment.outcome` and any expected class.
+5. A candidate interval radius, error interval radius, or error upper endpoint
+  above `1e-10` is incomplete/inconclusive. Otherwise an ordinary scored
+  response is `supported`. A successfully adjudicated `observation_only` case,
+  including a typed or out-of-domain control, is recorded as `observation`
+  instead. Typed zero-quaternion controls require the exact
+   typed skip code, `rotation` component, `zero-quaternion` cause, and oracle
+   location. Malformed or missing evidence is inconclusive; a complete but
+   contradictory witness is failed.
+
+The runner applies this per-case result with deterministic aggregate
+precedence: any `failed` entry makes the run `failed`; absent failures, any
+`inconclusive` entry makes it `inconclusive`; observation-only entries cannot
+support an aggregate by themselves. It counts preflight cases, dispatched
+synthetic cases, observations, and extra responses, and never turns those
+counts into experiment evidence. The receipt fixes `evidence_eligible: false`,
+`technology_result: none`, null profile/freeze/authorization bindings,
+`r3_activation: inactive`, empty tool identities, and zero candidate
+process/request/response counts.
+
+The pure in-memory bounds are 64 KiB per JSON frame/response, 24 KiB per
+source, 256 UTF-8 bytes per request ID, at most 64 cases and 64 transcript
+frames, and at most 4 MiB of transcript bytes. Numeric tokens are bounded to
+256 bytes, 192 significant digits, and exponent/adjusted-exponent magnitude
+2048; certified square-root bounds use 256-bit integer scaling and outward
+interval endpoints use 96 decimal places. Stable cause strings are bounded
+to 256 UTF-8 bytes and cause indices to one million. These are bounded test
+inputs, not candidate process, filesystem, corpus, or experiment-attempt
+execution.
+
+Run the two focused modules directly from the repository root:
+
+```bash
+PYTHONWARNINGS=error python3 experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/scripts/test_phase3_oracle_scorer.py
+PYTHONWARNINGS=error python3 experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/scripts/test_phase3_runner_receipt.py
+```
+
+They exercise only in-memory synthetic fixtures. They do not run
+`generate_phase3.py`, `check_candidate_prebinding.py`, a candidate binary, a
+Rust build, any corpus, or `sqrt-vectors.json`.
+
 ## Domain and transport contract
 
 Canonical translation components and each contribution are at most `16 m` in
