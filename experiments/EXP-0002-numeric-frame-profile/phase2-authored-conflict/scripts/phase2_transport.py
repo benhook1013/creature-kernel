@@ -14,6 +14,7 @@ from typing import Any
 from phase2_common import (
     FRAME_BYTES,
     IO_DEADLINE_SECONDS,
+    MAX_SESSION_RECORDS,
     REQUEST_PROTOCOL_ID,
     SHUTDOWN_DEADLINE_SECONDS,
     STDERR_TOTAL_CAP,
@@ -105,6 +106,7 @@ class BoundedSubprocessSession:
         self.stderr_total = 0
         self.stdout_eof = False
         self.stderr_eof = False
+        self.request_count = 0
         self.closed = False
         self.failure: str | None = None
 
@@ -203,6 +205,10 @@ class BoundedSubprocessSession:
             self.failure = str(error)
         self._kill_process_group()
 
+    def _record_failure(self, code: str, detail: str) -> None:
+        if self.failure is None:
+            self.failure = f"{code}: {detail}"
+
     def request(self, request: Mapping[str, Any]) -> dict[str, Any]:
         """Send one request and return its opaque, transport-validated response."""
         if not isinstance(request, Mapping):
@@ -231,11 +237,16 @@ class BoundedSubprocessSession:
         if len(frame) > FRAME_BYTES:
             raise self._error("request-frame-too-large", "request frame exceeds 64 KiB")
         validate_request_frame(frame)
+        if self.request_count >= MAX_SESSION_RECORDS:
+            error = self._error("request-limit", "candidate session record limit exceeded")
+            self._abort(error)
+            raise error
         if self.stdout_buffer:
             error = self._error("trailing-output", "candidate emitted output before the next request")
             self._abort(error)
             raise error
         pending = bytearray(frame)
+        self.request_count += 1
         deadline = time.monotonic() + self.io_deadline_seconds
         try:
             while pending:
@@ -313,6 +324,14 @@ class BoundedSubprocessSession:
                         stream.close()
                 except OSError:
                     pass
+        if self.failure is None:
+            if self.stdout_buffer:
+                self._record_failure("trailing-output", "candidate emitted stdout after the final response")
+            elif self.process.returncode not in (None, 0):
+                self._record_failure(
+                    "candidate-exit",
+                    f"candidate exited with status {self.process.returncode}",
+                )
         return CloseResult(
             self.process.returncode,
             bytes(self.stdout_buffer),
@@ -323,5 +342,8 @@ class BoundedSubprocessSession:
     def __enter__(self) -> "BoundedSubprocessSession":
         return self
 
-    def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> None:
-        self.close()
+    def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> bool:
+        result = self.close()
+        if exc_type is None and result.failure is not None:
+            raise self._error("session-integrity", result.failure)
+        return False

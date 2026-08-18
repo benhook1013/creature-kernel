@@ -245,7 +245,7 @@ fn request_id_hint(line: &str) -> Option<String> {
 }
 
 fn valid_request_id(value: &str) -> bool {
-    !value.is_empty() && value.len() <= MAX_REQUEST_ID_BYTES
+    !value.is_empty() && value.as_bytes().len() <= MAX_REQUEST_ID_BYTES
 }
 
 fn exact_keys(map: &json::Map<String, json::Value>, expected: &[&str]) -> bool {
@@ -1133,6 +1133,19 @@ mod tests {
                 .unwrap()
                 .contains("response-line-bytes")
         );
+    }
+
+    #[test]
+    fn multibyte_request_id_over_byte_bound_is_rejected_without_echo() {
+        let mut value = request_value(SOURCE);
+        let request_id = "é".repeat((MAX_REQUEST_ID_BYTES / "é".len()) + 1);
+        assert!(request_id.len() > MAX_REQUEST_ID_BYTES);
+        value["request_id"] = json::Value::String(request_id);
+        let parsed = parse_request(&json::to_string(&value).unwrap()).unwrap();
+        let result = dispatch_request(parsed);
+        assert_eq!(result.status, "error");
+        assert_eq!(result.error.as_deref(), Some("malformed-request"));
+        assert!(result.request_id.is_none());
     }
 
     #[test]

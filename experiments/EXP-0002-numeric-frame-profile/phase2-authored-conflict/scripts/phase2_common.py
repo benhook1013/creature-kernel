@@ -9,6 +9,7 @@ from typing import Any
 
 FRAME_BYTES = 64 * 1024
 MAX_SOURCE_BYTES = 24 * 1024
+MAX_REQUEST_ID_BYTES = 256
 MAX_SESSION_RECORDS = 64
 SESSION_STDOUT_CAP = FRAME_BYTES * MAX_SESSION_RECORDS
 STDOUT_TOTAL_CAP = SESSION_STDOUT_CAP
@@ -68,6 +69,7 @@ def frame_json(value: Mapping[str, Any]) -> bytes:
     """Serialize one request object as one bounded UTF-8 JSONL frame."""
     if not isinstance(value, Mapping):
         raise Phase2ProtocolError("request-not-object", "request must be a JSON object")
+    _validate_request_id(value)
     try:
         encoded = json.dumps(
             value,
@@ -93,6 +95,7 @@ def validate_request_frame(raw: bytes) -> dict[str, Any]:
     value = parse_json_frame(raw)
     if not isinstance(value, dict):
         raise Phase2ProtocolError("request-not-object", "candidate request must be an object")
+    _validate_request_id(value)
     if "source" in value:
         source = value["source"]
         if not isinstance(source, str):
@@ -100,6 +103,16 @@ def validate_request_frame(raw: bytes) -> dict[str, Any]:
         if len(source.encode("utf-8")) > MAX_SOURCE_BYTES:
             raise Phase2ProtocolError("source-too-large", "source material exceeds 24 KiB")
     return value
+
+
+def _validate_request_id(value: Mapping[str, Any]) -> None:
+    if "request_id" not in value:
+        return
+    request_id = value["request_id"]
+    if not isinstance(request_id, str) or not request_id:
+        raise Phase2ProtocolError("request-id", "request_id must be a non-empty string")
+    if len(request_id.encode("utf-8")) > MAX_REQUEST_ID_BYTES:
+        raise Phase2ProtocolError("request-id-too-large", "request_id exceeds 256 UTF-8 bytes")
 
 
 def validate_response_frame(raw: bytes, request_id: str) -> dict[str, Any]:

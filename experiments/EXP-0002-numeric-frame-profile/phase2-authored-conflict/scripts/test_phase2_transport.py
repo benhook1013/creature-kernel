@@ -12,6 +12,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from phase2_common import (
     FRAME_BYTES,
     MAX_SOURCE_BYTES,
+    MAX_REQUEST_ID_BYTES,
+    MAX_SESSION_RECORDS,
     REQUEST_PROTOCOL_ID,
     Phase2ProtocolError,
 )
@@ -55,6 +57,22 @@ SCRIPT = textwrap.dedent(
             time.sleep(10)
             os._exit(0)
         os._exit(0)
+    elif mode == "crash-after-response":
+        for line in sys.stdin:
+            request = json.loads(line)
+            sys.stdout.write(response(request["request_id"]))
+            sys.stdout.flush()
+            os._exit(7)
+    elif mode == "trailing-at-close":
+        for line in sys.stdin:
+            request = json.loads(line)
+            sys.stdout.write(response(request["request_id"]))
+            sys.stdout.flush()
+            time.sleep(0.05)
+            sys.stdout.write("trailing-output\n")
+            sys.stdout.flush()
+            for _ in sys.stdin:
+                pass
     else:
         for line in sys.stdin:
             request = json.loads(line)
@@ -135,6 +153,17 @@ class Phase2TransportTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         self.assertIsNone(result.failure)
 
+    def test_session_record_limit_rejects_the_65th_request(self) -> None:
+        session = self.session("normal")
+        try:
+            for index in range(MAX_SESSION_RECORDS):
+                session.request(self.request(f"request-{index}"))
+            with self.assertRaisesRegex(Phase2TransportError, "request-limit"):
+                session.request(self.request("request-65"))
+        finally:
+            result = session.close()
+        self.assertIn("request-limit", result.failure or "")
+
     def test_duplicate_json_response_is_rejected(self) -> None:
         session = self.session("duplicate")
         try:
@@ -182,6 +211,29 @@ class Phase2TransportTests(unittest.TestCase):
         self.assertLess(time.monotonic() - started, 1.0)
         self.assertIn("io-timeout", result.failure or "")
 
+    def test_close_classifies_nonzero_exit_after_valid_response(self) -> None:
+        session = self.session("crash-after-response")
+        self.assertEqual(session.request(self.request())["status"], "observed")
+        result = session.close()
+        self.assertEqual(result.returncode, 7)
+        self.assertIn("candidate-exit", result.failure or "")
+
+    def test_close_classifies_trailing_stdout_after_response(self) -> None:
+        session = self.session("trailing-at-close")
+        self.assertEqual(session.request(self.request())["status"], "observed")
+        result = session.close()
+        self.assertIn("trailing-output", result.failure or "")
+
+    def test_context_manager_raises_close_integrity_failure(self) -> None:
+        with self.assertRaisesRegex(Phase2TransportError, "session-integrity"):
+            with self.session("crash-after-response") as session:
+                session.request(self.request())
+
+    def test_context_manager_preserves_active_exception_while_closing(self) -> None:
+        with self.assertRaises(ValueError):
+            with self.session("no-response", shutdown_deadline_seconds=0.1):
+                raise ValueError("caller failure")
+
     def test_delayed_inherited_pipe_is_terminated_as_a_process_group(self) -> None:
         session = self.session("inherited-pipe", shutdown_deadline_seconds=0.1)
         started = time.monotonic()
@@ -202,6 +254,21 @@ class Phase2TransportTests(unittest.TestCase):
         try:
             with self.assertRaisesRegex(Phase2ProtocolError, "source-too-large"):
                 session.request(self.request(source="x" * (MAX_SOURCE_BYTES + 1)))
+        finally:
+            result = session.close()
+        self.assertIsNone(result.failure)
+
+    def test_request_id_uses_shared_utf8_byte_bound(self) -> None:
+        accepted_id = "é" * (MAX_REQUEST_ID_BYTES // len("é".encode("utf-8")))
+        rejected_id = "é" * ((MAX_REQUEST_ID_BYTES // len("é".encode("utf-8"))) + 1)
+        self.assertEqual(len(accepted_id.encode("utf-8")), MAX_REQUEST_ID_BYTES)
+        self.assertGreater(len(rejected_id.encode("utf-8")), MAX_REQUEST_ID_BYTES)
+        session = self.session("normal")
+        try:
+            response = session.request(self.request(accepted_id))
+            self.assertEqual(response["request_id"], accepted_id)
+            with self.assertRaisesRegex(Phase2ProtocolError, "request-id-too-large"):
+                session.request(self.request(rejected_id))
         finally:
             result = session.close()
         self.assertIsNone(result.failure)
