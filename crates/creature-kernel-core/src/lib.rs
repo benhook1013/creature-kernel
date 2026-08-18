@@ -16,6 +16,8 @@ pub mod numeric;
 pub mod numeric_comparison;
 #[cfg(not(feature = "provisional-r3-numeric-candidate"))]
 pub(crate) mod numeric_comparison;
+#[cfg(feature = "provisional-r3-numeric-candidate")]
+pub mod provisional_authored_conflict_candidate;
 pub mod provisional_form_preview;
 #[cfg(feature = "provisional-r3-numeric-candidate")]
 pub mod quaternion_normalization;
