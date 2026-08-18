@@ -264,10 +264,17 @@ binary hashes, FE/MXCSR, request/response hashes, lifecycle, shutdown, and
 extra/missing/trailing output. Native evidence is bounded consistency, not
 broad portability.
 
-After a future pre-execution freeze, attempts reuse exact ordered
-case/source/tolerance bytes; request IDs are the only planned substitution,
-from the future attempt/ordinal formula. The current materialization remains
-development-unfrozen. Normalize only those IDs and preregistered
+The corpus materialization remains `development-unfrozen`; separately, the v2
+execution-package freeze preserves candidate/build commit
+`647eab5297adca1998764904cce98eca154738e4` and is materialized at manifest
+commit `cc1531c2e8efe40f8a4896d11b10973147c5636b`, with manifest SHA-256
+`d7365e99945cb2e57cd6bac45bac241fc032dc1312cda3a94cfdba14cd17933a`.
+It binds 8 Phase 3 runtime tools, 7 exact-runtime tools, and 4 provenance
+tools. The 267 synthetic tests passed before execution-tool commit
+`9dca58a84072582db34045b8eac98d6e86d3d5ae`. After the required gates and
+later authorization, attempts reuse exact ordered case/source/tolerance
+bytes; request IDs are the only planned substitution, from the attempt/ordinal
+formula. Normalize only those IDs and preregistered
 environment/attempt metadata. WSL repeats
 require exact status, classification, witness-bit, interval-endpoint, and
 semantic-output equality; fully evidenced difference fails determinism. Native
@@ -290,9 +297,12 @@ its own hash.
 Gate A is complete/passed for this exact development-unfrozen materialization.
 Its fresh current-version Double review is recorded in [Review 01](../../experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/reviews/gate-a-review-01-closure-integrity.md)
 and [Review 02](../../experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/reviews/gate-a-review-02-numeric-claims.md);
-prior issue-finding reviews remain stale historical working evidence. This
-does not freeze the package. Gate B remains a later frozen-package Double
-before execution. Even after both, execution stays false until Ben authorizes exact attempts. Failed
+prior issue-finding reviews remain stale historical working evidence. The v2
+successor package is frozen as described above, but final current-revision
+Gate B Double reviews and admission/custody/authorization records remain
+pending. No candidate or exact experiment attempt has run and no native
+dispatch has occurred. Ben's authorization will be requested only after those
+gates. Failed
 takes precedence for any fully evidenced false admissible assertion even when
 other evidence is incomplete; otherwise incompleteness is inconclusive;
 supported requires complete all-pass evidence. No loss ranking, profile-value

@@ -143,21 +143,29 @@ corrected. Gate A is complete/passed for this exact development-unfrozen
 materialization, with the current Double recorded
 in [Review 01](../../experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/reviews/gate-a-review-01-closure-integrity.md)
 and [Review 02](../../experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/reviews/gate-a-review-02-numeric-claims.md).
-Prior issue-finding reviews remain stale historical working evidence. New
-build-receipt and freeze tooling is preparation only: committed WSL/native
-receipts and the finalized freeze manifest are now materialized from exact
-candidate source commit `647eab5297adca1998764904cce98eca154738e4`. Gate B
-remains a separate current-revision Double review, and explicit Ben
-authorization remains pending before any exact attempt or native dispatch. No
-profile-value validation, production binding, or Readiness 3 activation follows
-from this package.
+Prior issue-finding reviews remain stale historical working evidence. The v2
+successor WSL/native receipts and freeze manifest are now materialized from
+candidate/build commit `647eab5297adca1998764904cce98eca154738e4` at manifest
+commit `cc1531c2e8efe40f8a4896d11b10973147c5636b`, with manifest SHA-256
+`d7365e99945cb2e57cd6bac45bac241fc032dc1312cda3a94cfdba14cd17933a`.
+Final current-revision Gate B Double reviews and admission/custody/
+authorization records remain pending. Explicit Ben authorization will be
+requested only after those gates, before any exact attempt or native dispatch.
+No profile-value validation, production binding, or Readiness 3 activation
+follows from this package.
 
-The Phase 3 package now has twelve implementation modules and nine focused test
-modules. They cover source oracle, actual nested-response scoring, bounded
-runner aggregation, the non-evidence receipt, materialized-package adapter,
-the Proposed in-memory result/receipt/attempt-index contracts, and the
-read-only Gate B preflight, build-only receipt capture, and deterministic freeze
-manifest generation. The adapter validates the current
+The Phase 3 package now includes source oracle, actual nested-response scoring,
+bounded runner aggregation, the non-evidence receipt, materialized-package
+adapter, the Proposed in-memory result/receipt/attempt-index contracts, and
+read-only Gate B preflight, build-only receipt capture, deterministic freeze
+manifest generation, and exact runtime authority/custody/transport/adjudication/
+publication tooling. The v2 successor freeze preserves candidate/build commit
+`647eab5297adca1998764904cce98eca154738e4` and is materialized at manifest
+commit `cc1531c2e8efe40f8a4896d11b10973147c5636b`, with manifest SHA-256
+`d7365e99945cb2e57cd6bac45bac241fc032dc1312cda3a94cfdba14cd17933a`.
+It binds 8 Phase 3 runtime tools, 7 exact-runtime tools, and 4 provenance
+tools. The 267 synthetic tests passed before execution-tool commit
+`9dca58a84072582db34045b8eac98d6e86d3d5ae`. The adapter validates the current
 package/preregistration/manifests, local generator identity, fixed fixture
 declaration/hash (without loading the external fixture), generated source
 identities, and sqrt fixture, then projects opaque 8-development/40-held-out/
@@ -177,11 +185,15 @@ execution-disabled, open-evidence status.
 The manual [Gate B native build workflow](../../.github/workflows/phase3-gate-b-native-build.yml)
 is build-only and transfer-only: it takes a full commit SHA, runs on Ubuntu
 24.04, binds source/dependency/build/toolchain/binary identities, and never
-dispatches an exact native experiment attempt. The next internal action is
-the current-revision Gate B Double review. The committed WSL/native receipt
-artifacts and finalized freeze are materialized from exact candidate source
-commit `647eab5297adca1998764904cce98eca154738e4`; explicit Ben authorization
-remains pending before any exact attempt or native dispatch.
+dispatches an exact native experiment attempt. The v2 successor WSL/native
+receipts and freeze manifest are materialized from candidate/build commit
+`647eab5297adca1998764904cce98eca154738e4` at manifest commit
+`cc1531c2e8efe40f8a4896d11b10973147c5636b` and manifest SHA-256
+`d7365e99945cb2e57cd6bac45bac241fc032dc1312cda3a94cfdba14cd17933a`.
+No candidate or exact experiment attempt has run and no native dispatch has
+occurred. Final current-revision Gate B Double reviews and
+admission/custody/authorization records remain pending; Ben's authorization
+will be requested only after those gates.
 
 The materialized records distinguish `construction_target` (the exact recipe
 magnitude before source serialization) from source-derived `I_truth` (computed
@@ -1424,15 +1436,19 @@ authorize merging later PRs outside this recorded runway.
   fixture transaction as the implementation foundation; take bounded
   document-wide resolver preparation/provenance traversal and successor
   evidence. Keep adapters, geometry, and later packages gated.
-- For EXP-0002 phase three, implement only the development-only deterministic
-  ledger/generator/manifests and independent adapter/oracle/scorer/receipt
-  tooling, plus the in-memory result/receipt/index contracts and read-only Gate
-  B preflight. Keep the package execution-disabled through both current-
-  revision Double gates; the concrete freeze manifest is now materialized from
-  exact candidate source commit `647eab5297adca1998764904cce98eca154738e4`, and
-  the next slice is its current-revision review packet. Stop for Ben before any
-  exact attempt, native dispatch, profile-value validation, production binding,
-  or Readiness 3 activation.
+- For EXP-0002 phase three, retain the development-only deterministic
+  ledger/generator/manifests, independent adapter/oracle/scorer/receipt
+  tooling, in-memory result/receipt/index contracts, read-only Gate B preflight,
+  and exact execution tooling as execution-disabled preparation. The v2
+  successor freeze is materialized under candidate/build commit
+  `647eab5297adca1998764904cce98eca154738e4`, manifest commit
+  `cc1531c2e8efe40f8a4896d11b10973147c5636b`, and manifest SHA-256
+  `d7365e99945cb2e57cd6bac45bac241fc032dc1312cda3a94cfdba14cd17933a`.
+  Final current-revision Gate B Double reviews and admission/custody/
+  authorization records remain pending; stop for Ben before requesting exact
+  attempt/native-dispatch authorization, and before any exact attempt, native
+  dispatch, profile-value validation, production binding, or Readiness 3
+  activation.
 - Keep Readiness 1 limited to the Cargo workspace, compiler/core library shell,
   and thin CLI shell. Keep the provisional structural address/index, validator,
   and `inspect-structure` command outside the formal Readiness 3 activation

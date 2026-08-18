@@ -277,10 +277,18 @@ checks the concrete freeze inputs, with a narrow finalization path that binds
 exactly one durable WSL receipt and one durable native receipt. Until both
 receipt files exist and validate, the execution-package freeze remains
 pre-freeze and the binary slots remain unbound. Its focused boundary checks are
-in `scripts/test_phase3_freeze_manifest.py`. The committed WSL/native receipts
-and finalized freeze manifest are now materialized from exact candidate source
-commit `647eab5297adca1998764904cce98eca154738e4`; execution remains disabled
-pending the current-revision Gate B Double review.
+in `scripts/test_phase3_freeze_manifest.py`. The v2 successor freeze now
+preserves candidate/build commit `647eab5297adca1998764904cce98eca154738e4`
+and is materialized at manifest commit
+`cc1531c2e8efe40f8a4896d11b10973147c5636b`, with manifest SHA-256
+`d7365e99945cb2e57cd6bac45bac241fc032dc1312cda3a94cfdba14cd17933a`.
+It binds 8 Phase 3 runtime tools, 7 exact-runtime tools, and 4 provenance
+tools. The 267 synthetic tests passed before execution-tool commit
+`9dca58a84072582db34045b8eac98d6e86d3d5ae`; no candidate or exact experiment
+attempt has run and no native dispatch has occurred. The successor remains
+execution-disabled: final current-revision Gate B Double reviews and the
+admission, custody, and authorization records are still pending. Ben's exact
+attempt/native-dispatch authorization will be requested only after those gates.
 
 `development-unfrozen` remains the explicit state of the generated
 corpus/request materialization. It is not a statement that the separately
@@ -296,9 +304,10 @@ only a full 40-character commit SHA, runs on Ubuntu 24.04, recomputes the
 candidate closure, performs the sanitized locked build, captures the build-only
 receipt, and uploads a transfer-only bundle. It does not run the candidate,
 perform an exact attempt, or dispatch the native experiment. The next internal
-steps are the current-revision Gate B Double review and explicit Ben
-authorization for any later exact attempt or native experiment dispatch. The
-committed receipt and freeze artifacts remain build-only and execution-disabled.
+steps are the final current-revision Gate B Double reviews and their
+admission/custody records. The committed receipt and v2 freeze artifacts
+remain build-only and execution-disabled; explicit Ben authorization for any
+exact attempt or native dispatch follows those gates.
 
 ## Synthetic validation plumbing (development only)
 
@@ -598,12 +607,12 @@ not run a candidate, Rust, Cargo, shell command, or experiment attempt.
 Gate A is complete/passed for this exact development-unfrozen materialization.
 The fresh current-version Double review is recorded in [Review 01](reviews/gate-a-review-01-closure-integrity.md)
 and [Review 02](reviews/gate-a-review-02-numeric-claims.md); prior issue-finding
-reviews remain stale historical working evidence. This completion does not
-freeze the package. Gate B remains a new current-revision Double review of the
-later frozen concrete package before execution. Even after both technical gates pass,
-`execution_permitted` remains false until Ben separately authorizes the exact
-WSL attempts and native dispatch. That authorization does not imply profile
-selection, production binding, or R3 authorization.
+reviews remain stale historical working evidence. The v2 successor execution
+package is now frozen under the manifest identity above, but final current-
+revision Gate B Double reviews and admission/custody/authorization records
+remain pending. No exact attempt or native dispatch has been executed. Ben's
+authorization will be requested only after those gates, and does not imply
+profile selection, production binding, or R3 authorization.
 
 Only the following conformance outcomes are allowed:
 

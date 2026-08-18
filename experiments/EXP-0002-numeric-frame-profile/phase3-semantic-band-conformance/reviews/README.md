@@ -16,9 +16,16 @@ and does not authorize candidate execution.
 - [Gate A Review 02: numeric claims](gate-a-review-02-numeric-claims.md)
 
 These two fresh independent passes are the current Double review for Gate A.
-Both report no actionable findings. Gate B remains required for the later
-frozen concrete package, and Ben's exact WSL/native execution authorization
-remains pending.
+Both report no actionable findings. The v2 successor freeze now preserves
+candidate/build commit `647eab5297adca1998764904cce98eca154738e4` and is
+materialized at manifest commit
+`cc1531c2e8efe40f8a4896d11b10973147c5636b`, with manifest SHA-256
+`d7365e99945cb2e57cd6bac45bac241fc032dc1312cda3a94cfdba14cd17933a`.
+Final current-revision Gate B Double reviews and admission/custody/
+authorization records are not yet present. The 267 synthetic tests passed
+before execution-tool commit `9dca58a84072582db34045b8eac98d6e86d3d5ae`, but
+no exact attempt or native dispatch has occurred. Ben authorization remains
+pending and will be requested only after those gates.
 
 ## Historical Gate B review
 
@@ -26,7 +33,7 @@ remains pending.
 - [Gate B Review 02: execution admissibility](gate-b-review-02-execution-admissibility.md)
 
 These two fresh independent passes are completed historical issue-finding
-evidence for exact commit
+evidence for the predecessor v1 freeze at exact commit
 `553d51bd55dd837b01b950d063d288369f61e56d` and freeze self-hash
 `122b0a88bf553e95a887acebfe436d95218389e339ea5aa1f3c85d0f5186fef3`.
 Both verdicts are `Revise`; each review is current only for that exact freeze

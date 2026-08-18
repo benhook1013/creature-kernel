@@ -90,9 +90,19 @@ conformance with failed-evidence precedence. Gate A is complete/passed for
 this exact development-unfrozen materialization; its current Double review is
 recorded in [Review 01](phase3-semantic-band-conformance/reviews/gate-a-review-01-closure-integrity.md)
 and [Review 02](phase3-semantic-band-conformance/reviews/gate-a-review-02-numeric-claims.md).
-This does not freeze the package. Gate B remains the later frozen-package
-Double. No loss ranking, production binding, profile-value validation,
-product-quality claim, or Readiness 3 activation follows.
+This does not by itself close Gate B. The v2 successor freeze now preserves
+candidate/build commit `647eab5297adca1998764904cce98eca154738e4` and is
+materialized at manifest commit `cc1531c2e8efe40f8a4896d11b10973147c5636b`,
+with manifest SHA-256
+`d7365e99945cb2e57cd6bac45bac241fc032dc1312cda3a94cfdba14cd17933a`.
+It binds 8 Phase 3 runtime tools, 7 exact-runtime tools, and 4 provenance
+tools; 267 synthetic tests passed before execution-tool commit
+`9dca58a84072582db34045b8eac98d6e86d3d5ae`. No candidate/exact attempt or
+native dispatch has been executed. Final current-revision Gate B Double
+reviews and admission/custody/authorization records remain pending, and Ben's
+authorization will be requested only after those gates. No loss ranking,
+production binding, profile-value validation, product-quality claim, or
+Readiness 3 activation follows.
 
 The materialized ledger distinguishes `construction_target` (the exact recipe
 magnitude used to construct a case) from source-derived `I_truth` (the metric
