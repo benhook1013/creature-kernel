@@ -39,6 +39,7 @@ ADMISSION_SCHEMA = "ck.exp-0002.phase3.gate-b-admission-1"
 AUTHORIZATION_SCHEMA = "ck.exp-0002.phase3.exact-attempt-human-authorization-1"
 ADMISSION_HASH_DOMAIN = b"ck.exp-0002.phase3.gate-b-admission.v1\0"
 AUTHORIZATION_HASH_DOMAIN = b"ck.exp-0002.phase3.exact-attempt-human-authorization.v1\0"
+FREEZE_SCHEMA = "ck.exp-0002.phase3.freeze-manifest-2"
 
 # These are the two independent lenses required for the final Gate B Double.
 # They are intentionally a closed set so a pair of reviews cannot be made
@@ -198,24 +199,18 @@ def _freeze_module() -> Any:
     return module
 
 
-def validate_required_exact_runtime_tools(manifest: Mapping[str, Any], *, require_complete: bool = False) -> dict[str, tuple[str, ...]]:
-    """Validate the exact-runtime declarations available in a freeze.
-
-    The current freeze schema predates these tools, so absence remains an
-    explicit ``missing`` result while ``require_complete`` is false.  Once the
-    canonical freeze contract lists the closed set, admission invokes this
-    same hook with ``require_complete=True`` and every path becomes mandatory.
-    """
-    identities = manifest.get("runtime_tool_identities") if isinstance(manifest, Mapping) else None
+def validate_required_exact_runtime_tools(manifest: Mapping[str, Any]) -> dict[str, tuple[str, ...]]:
+    """Validate the successor freeze's closed exact-runtime tool collection."""
+    identities = manifest.get("exact_runtime_tool_identities") if isinstance(manifest, Mapping) else None
     if type(identities) is not list:
-        _fail("runtime-tool-closure", "freeze runtime_tool_identities is not a list")
+        _fail("runtime-tool-closure", "freeze exact_runtime_tool_identities is not a list")
     counts: dict[str, int] = {path: 0 for path in REQUIRED_EXACT_RUNTIME_TOOLS}
     for index, identity in enumerate(identities):
         if type(identity) is not dict:
-            _fail("runtime-tool-closure", f"runtime tool identity {index} is not an object")
+            _fail("runtime-tool-closure", f"exact runtime tool identity {index} is not an object")
         path = identity.get("path")
         if path not in counts:
-            continue
+            _fail("runtime-tool-closure", f"freeze contains an unexpected exact runtime tool: {path}")
         counts[path] += 1
         if counts[path] != 1:
             _fail("runtime-tool-closure", f"required exact runtime tool is duplicated: {path}")
@@ -226,10 +221,10 @@ def validate_required_exact_runtime_tools(manifest: Mapping[str, Any], *, requir
         _sha(identity["sha256"], f"runtime tool {path}.sha256")
     present = tuple(path for path in REQUIRED_EXACT_RUNTIME_TOOLS if counts[path] == 1)
     missing = tuple(path for path in REQUIRED_EXACT_RUNTIME_TOOLS if counts[path] == 0)
-    if present and missing:
-        _fail("runtime-tool-closure", "freeze contains a partial exact runtime-tool set")
-    if require_complete and missing:
+    if missing:
         _fail("runtime-tool-closure", "successor freeze omits required exact runtime tools: " + ", ".join(missing))
+    if tuple(identity["path"] for identity in identities) != REQUIRED_EXACT_RUNTIME_TOOLS:
+        _fail("runtime-tool-closure", "freeze exact runtime tools are not in canonical order")
     return {"present": present, "missing": missing}
 
 
@@ -241,13 +236,32 @@ def _validate_freeze(raw: bytes) -> tuple[dict[str, Any], str]:
         value = freeze.validate_manifest(raw)
     except Exception as error:
         raise AuthorityError("freeze", f"canonical freeze validator rejected bytes: {error}") from error
-    canonical_runtime_tools = tuple(getattr(freeze, "RUNTIME_TOOLS", ()))
-    evolved_contract = all(path in canonical_runtime_tools for path in REQUIRED_EXACT_RUNTIME_TOOLS)
-    validate_required_exact_runtime_tools(value, require_complete=evolved_contract)
+    if value.get("schema") != FREEZE_SCHEMA:
+        _fail("freeze-version", "exact authority requires the successor freeze-manifest-2 contract")
+    validate_required_exact_runtime_tools(value)
+    _commit(value.get("execution_tool_source_commit"), "manifest.execution_tool_source_commit")
+    try:
+        checked = freeze.check_manifest()
+    except Exception as error:
+        raise AuthorityError(
+            "freeze-current",
+            f"repository-bound current freeze check failed: {error}",
+        ) from error
+    if (
+        type(checked) is not dict
+        or checked != value
+        or checked.get("manifest_sha256") != value.get("manifest_sha256")
+        or _canonical(checked) != raw
+    ):
+        _fail(
+            "freeze-current",
+            "repository-bound current freeze differs from the exact supplied manifest",
+        )
     # The bound freeze identity is the manifest's authenticated domain-framed
-    # self-hash, matching custody records.  The validator still consumes the
-    # exact bytes, so a reserialized or same-object/different-byte input cannot
-    # satisfy this boundary.
+    # self-hash, matching custody records. Pure validation alone is deliberately
+    # insufficient for authority: check_manifest additionally proves the C-to-E
+    # ancestry and current committed execution-tool snapshot owned by the
+    # canonical freeze module.
     return value, value["manifest_sha256"]
 
 
@@ -400,8 +414,9 @@ def validate_gate_b_admission(raw: bytes, *, freeze_manifest: bytes, review_root
     binding = manifest["binding"]
     if normalized["experiment_id"] != binding["experiment_id"] or normalized["phase_id"] != binding["phase_id"] or normalized["candidate_profile_id"] != binding["candidate_profile_id"]:
         _fail("freeze-binding", "admission identity differs from frozen binding")
-    if normalized["execution_tool_source_commit"] != manifest["candidate_source_commit"] or normalized["reviewed_commit"] != manifest["candidate_source_commit"]:
-        _fail("source-binding", "admission commit does not equal frozen candidate source commit")
+    execution_source = manifest["execution_tool_source_commit"]
+    if normalized["execution_tool_source_commit"] != execution_source or normalized["reviewed_commit"] != execution_source:
+        _fail("source-binding", "admission commit does not equal frozen execution-tool source commit")
     binaries = manifest.get("binaries")
     readiness = manifest.get("readiness")
     if (
@@ -516,7 +531,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 __all__ = [
-    "ADMISSION_SCHEMA", "AUTHORIZATION_SCHEMA", "REQUIRED_REVIEW_LENSES", "REQUIRED_EXACT_RUNTIME_TOOLS", "PLATFORM_ORDINALS",
+    "ADMISSION_SCHEMA", "AUTHORIZATION_SCHEMA", "FREEZE_SCHEMA", "REQUIRED_REVIEW_LENSES", "REQUIRED_EXACT_RUNTIME_TOOLS", "PLATFORM_ORDINALS",
     "validate_required_exact_runtime_tools",
     "AuthorityError", "encode_gate_b_admission", "validate_gate_b_admission", "encode_authorization", "validate_authorization",
     "encode_admission_record", "validate_admission_record", "encode_human_authorization", "validate_human_authorization",

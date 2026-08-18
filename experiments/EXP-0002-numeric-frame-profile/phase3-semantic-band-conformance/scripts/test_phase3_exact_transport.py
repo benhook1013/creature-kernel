@@ -12,6 +12,7 @@ from unittest import mock
 from pathlib import Path
 
 import phase3_exact_fp_observer as observer
+import phase3_exact_transport as transport
 from phase3_exact_transport import (
     FRAME_BYTES,
     ExactCandidateSession,
@@ -341,6 +342,106 @@ class ExactTransportTests(unittest.TestCase):
         finally:
             os.close(descriptor)
         self.assertLessEqual(len(os.listdir("/proc/self/fd")), baseline + 1)
+
+    def test_pipe2_failures_close_all_prior_descriptors_without_fork(self) -> None:
+        for failure_at in range(1, 5):
+            with self.subTest(failure_at=failure_at):
+                descriptor = self.fd()
+                expected = self.fixture_bytes(CAT)
+                session = ExactCandidateSession(
+                    descriptor, "cat", {}, "/tmp", expected,
+                    hashlib.sha256(expected).hexdigest(), auto_launch=False,
+                )
+                baseline = len(os.listdir("/proc/self/fd"))
+                pipe_calls: list[int] = []
+                opened: set[int] = set()
+                closed: list[int] = []
+                real_close = os.close
+
+                def pipe2(_: int) -> tuple[int, int]:
+                    call = len(pipe_calls) + 1
+                    pipe_calls.append(call)
+                    if call == failure_at:
+                        raise OSError(24, "synthetic pipe2 failure")
+                    pair = (1000 + (call * 2), 1001 + (call * 2))
+                    opened.update(pair)
+                    return pair
+
+                def close(fd: int) -> None:
+                    closed.append(fd)
+                    if fd not in opened:
+                        real_close(fd)
+
+                try:
+                    with mock.patch.object(transport.os, "pipe2", side_effect=pipe2), \
+                            mock.patch.object(transport.os, "close", side_effect=close), \
+                            mock.patch.object(transport.os, "fork") as fork:
+                        result = session.launch()
+                    self.assertEqual(result.status, "inconclusive")
+                    self.assertEqual(result.code, "launch-failed")
+                    self.assertIsNone(result.pid)
+                    self.assertTrue(session._reaped)
+                    fork.assert_not_called()
+                    self.assertEqual(len(pipe_calls), failure_at)
+                    self.assertEqual([fd for fd in closed if fd in opened], sorted(opened))
+                    for fd in opened:
+                        self.assertEqual(closed.count(fd), 1)
+                    session.close()
+                finally:
+                    real_close(descriptor)
+                self.assertLessEqual(len(os.listdir("/proc/self/fd")), baseline)
+
+    def test_nonblocking_setup_failures_close_all_descriptors_without_fork(self) -> None:
+        for failure_at in range(1, 5):
+            with self.subTest(failure_at=failure_at):
+                descriptor = self.fd()
+                expected = self.fixture_bytes(CAT)
+                session = ExactCandidateSession(
+                    descriptor, "cat", {}, "/tmp", expected,
+                    hashlib.sha256(expected).hexdigest(), auto_launch=False,
+                )
+                baseline = len(os.listdir("/proc/self/fd"))
+                opened: set[int] = set()
+                closed: list[int] = []
+                setup_calls: list[int] = []
+                real_close = os.close
+
+                def pipe2(_: int) -> tuple[int, int]:
+                    call = len(opened) // 2 + 1
+                    pair = (2000 + (call * 2), 2001 + (call * 2))
+                    opened.update(pair)
+                    return pair
+
+                def set_blocking(fd: int, _: bool) -> None:
+                    setup_calls.append(fd)
+                    if len(setup_calls) == failure_at:
+                        raise OSError(22, "synthetic nonblocking setup failure")
+
+                def close(fd: int) -> None:
+                    closed.append(fd)
+                    if fd not in opened:
+                        real_close(fd)
+
+                try:
+                    with mock.patch.object(transport.os, "pipe2", side_effect=pipe2), \
+                            mock.patch.object(transport.os, "set_blocking", side_effect=set_blocking), \
+                            mock.patch.object(transport.os, "close", side_effect=close), \
+                            mock.patch.object(transport.os, "fork") as fork:
+                        result = session.launch()
+                    self.assertEqual(result.status, "inconclusive")
+                    self.assertEqual(result.code, "launch-failed")
+                    self.assertIsNone(result.pid)
+                    self.assertTrue(session._reaped)
+                    fork.assert_not_called()
+                    self.assertEqual(len(setup_calls), failure_at)
+                    self.assertEqual(len(opened), 8)
+                    self.assertEqual([fd for fd in closed if fd in opened], sorted(opened))
+                    for fd in opened:
+                        self.assertEqual(closed.count(fd), 1)
+                    session.close()
+                finally:
+                    real_close(descriptor)
+                self.assertLessEqual(len(os.listdir("/proc/self/fd")), baseline)
 
     def shell_failure(self, command: bytes, *, limits: ExactTransportLimits | None = None, request_id: str = "x") -> tuple[ExactCandidateSession, object]:
         if b"not-json" in command:

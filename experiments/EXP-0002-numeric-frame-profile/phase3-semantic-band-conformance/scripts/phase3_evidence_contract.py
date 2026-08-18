@@ -16,6 +16,7 @@ import json
 import math
 import os
 import re
+import stat
 import struct
 from pathlib import Path
 from typing import Any, Mapping
@@ -45,6 +46,10 @@ MAX_NESTING = 16
 MAX_PROCESS_OBSERVATIONS = 3
 MAX_ADJUDICATIONS = 60
 MAX_TOOLS = 32
+MAX_EXECUTABLE_BYTES = 64 * 1024 * 1024
+# Linux fcntl seal bits used independently by custody and transport:
+# F_SEAL_SEAL | F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE.
+REQUIRED_MEMFD_SEALS = 0x000F
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 ATTEMPT_RE = re.compile(r"^attempt-[A-Za-z0-9][A-Za-z0-9._-]{2,127}$")
 TOOL_ORDER = (
@@ -109,14 +114,14 @@ FE_STATE_KEYS = frozenset({
 })
 PROCESS_KEYS = frozenset({
     "variant", "role", "candidate_request_count", "platform", "launch", "candidate_binary",
-    "fe_mxcsr", "transport", "lifecycle", "output", "outcome",
+    "execution_identity", "fe_mxcsr", "transport", "lifecycle", "output", "outcome",
 })
 INCOMPLETE_PROCESS_KEYS = frozenset({
     "variant", "role", "candidate_request_count", "platform", "launch", "candidate_binary",
-    "fe_mxcsr", "transport", "lifecycle", "output", "missing", "outcome",
+    "execution_identity", "fe_mxcsr", "transport", "lifecycle", "output", "missing", "outcome",
 })
 INCOMPLETE_MISSING_FIELDS = frozenset({
-    "platform", "launch", "candidate_binary", "fe_mxcsr",
+    "platform", "launch", "candidate_binary", "execution_identity", "fe_mxcsr",
     "transport.requests", "transport.responses", "lifecycle", "output",
 })
 LAUNCH_KEYS = frozenset({"identity", "argv", "cwd", "environment"})
@@ -127,6 +132,14 @@ LIFECYCLE_KEYS = frozenset({"state", "exit_code", "clean_shutdown"})
 OUTPUT_KEYS = frozenset({"missing", "extra", "trailing"})
 TRANSPORT_KEYS = frozenset({"requests", "responses"})
 OUTCOME_KEYS = frozenset({"status", "code", "detail"})
+EXECUTION_IDENTITY_KEYS = frozenset({
+    "descriptor_pre", "descriptor_post_exe", "descriptor_post_fd",
+    "cwd_pre", "cwd_post",
+    "content_initial", "content_pre_fork", "content_post_exec",
+    "seals_initial", "seals_pre_fork", "seals_post_exec",
+})
+DESCRIPTOR_IDENTITY_KEYS = frozenset({"device", "inode", "mode", "size", "nlink"})
+CONTENT_OBSERVATION_KEYS = frozenset({"size", "sha256"})
 COUNTS_KEYS = frozenset({
     "cases", "development", "held-out", "controls", "dispatched", "preflight",
     "supported", "failed", "inconclusive", "observation",
@@ -718,6 +731,106 @@ def _outcome(value: Any, label: str) -> dict[str, Any]:
     return obj
 
 
+def _descriptor_identity(value: Any, label: str, *, directory: bool) -> dict[str, int] | None:
+    if value is None:
+        return None
+    obj = _exact(value, DESCRIPTOR_IDENTITY_KEYS, label)
+    _bounded_int(obj["device"], f"{label}.device", (1 << 64) - 1)
+    _bounded_int(obj["inode"], f"{label}.inode", (1 << 64) - 1)
+    _bounded_int(obj["mode"], f"{label}.mode", 0xFFFFFFFF)
+    _bounded_int(obj["size"], f"{label}.size", (1 << 63) - 1)
+    _bounded_int(obj["nlink"], f"{label}.nlink", (1 << 32) - 1)
+    mode_ok = stat.S_ISDIR(obj["mode"]) if directory else stat.S_ISREG(obj["mode"])
+    if not mode_ok:
+        _fail("execution-identity-type", f"{label}.mode has the wrong descriptor type")
+    if not directory and obj["size"] > MAX_EXECUTABLE_BYTES:
+        _fail("execution-identity-size", f"{label}.size exceeds the executable bound")
+    return obj
+
+
+def _content_observation(value: Any, label: str) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    obj = _exact(value, CONTENT_OBSERVATION_KEYS, label)
+    _bounded_int(obj["size"], f"{label}.size", MAX_EXECUTABLE_BYTES)
+    _sha(obj["sha256"], f"{label}.sha256")
+    return obj
+
+
+def _execution_identity(
+    value: Any,
+    label: str,
+    *,
+    require_complete: bool,
+    candidate_binary: Mapping[str, Any] | None,
+) -> tuple[dict[str, Any] | None, bool]:
+    """Validate launch identity evidence and report any observed mismatch.
+
+    Missing observations are represented by nulls and make an incomplete
+    process inconclusive through its variant/missing contract.  Contradictory
+    observations remain durable evidence and derive a failed process result
+    rather than being erased as a schema error.
+    """
+    if value is None:
+        if require_complete:
+            _fail("execution-identity", f"{label} is required for a complete process")
+        return None, False
+    obj = _exact(value, EXECUTION_IDENTITY_KEYS, label)
+    descriptors = {
+        key: _descriptor_identity(obj[key], f"{label}.{key}", directory=False)
+        for key in ("descriptor_pre", "descriptor_post_exe", "descriptor_post_fd")
+    }
+    cwd = {
+        key: _descriptor_identity(obj[key], f"{label}.{key}", directory=True)
+        for key in ("cwd_pre", "cwd_post")
+    }
+    contents = {
+        key: _content_observation(obj[key], f"{label}.{key}")
+        for key in ("content_initial", "content_pre_fork", "content_post_exec")
+    }
+    seals: dict[str, int | None] = {}
+    for key in ("seals_initial", "seals_pre_fork", "seals_post_exec"):
+        item = obj[key]
+        if item is not None:
+            _bounded_int(item, f"{label}.{key}", 0xFFFFFFFF)
+        seals[key] = item
+    all_values = [*descriptors.values(), *cwd.values(), *contents.values(), *seals.values()]
+    if require_complete and any(item is None for item in all_values):
+        _fail("execution-identity", f"{label} must retain the full launch/post-exec identity chain")
+    if not require_complete and all(item is None for item in all_values):
+        _fail("execution-identity", f"{label} partial observation contains no observed field")
+
+    mismatch = False
+    candidate_descriptors = [item for item in descriptors.values() if item is not None]
+    if len(candidate_descriptors) > 1 and any(item != candidate_descriptors[0] for item in candidate_descriptors[1:]):
+        mismatch = True
+    cwd_descriptors = [item for item in cwd.values() if item is not None]
+    if len(cwd_descriptors) > 1 and any(item != cwd_descriptors[0] for item in cwd_descriptors[1:]):
+        mismatch = True
+    observed_contents = [item for item in contents.values() if item is not None]
+    if len(observed_contents) > 1 and any(item != observed_contents[0] for item in observed_contents[1:]):
+        mismatch = True
+    observed_seals = [item for item in seals.values() if item is not None]
+    if len(observed_seals) > 1 and any(item != observed_seals[0] for item in observed_seals[1:]):
+        mismatch = True
+    if any(item != REQUIRED_MEMFD_SEALS for item in observed_seals):
+        mismatch = True
+    if candidate_descriptors and observed_contents:
+        sizes = {item["size"] for item in candidate_descriptors}
+        sizes.update(item["size"] for item in observed_contents)
+        if len(sizes) != 1:
+            mismatch = True
+    if candidate_binary is not None:
+        for key in ("content_initial", "content_pre_fork"):
+            item = contents[key]
+            if item is not None and item["sha256"] != candidate_binary["sha256_pre"]:
+                mismatch = True
+        post = contents["content_post_exec"]
+        if post is not None and post["sha256"] != candidate_binary["sha256_post"]:
+            mismatch = True
+    return obj, mismatch
+
+
 def _process(value: Any, index: int, selector: str) -> dict[str, Any]:
     if type(value) is not dict:
         _fail("process-schema", f"process observation {index} is not an object")
@@ -744,10 +857,15 @@ def _process(value: Any, index: int, selector: str) -> dict[str, Any]:
                 _string(key, f"process[{index}].launch.environment key", max_bytes=256)
                 if item is not None:
                     _string(item, f"process[{index}].launch.environment.{key}", max_bytes=2048, nonempty=False)
+        binary = None
         if obj["candidate_binary"] is not None:
             binary = _exact(obj["candidate_binary"], CANDIDATE_HASH_KEYS, f"process[{index}].candidate_binary")
             _sha(binary["sha256_pre"], f"process[{index}].candidate_binary.sha256_pre")
             _sha(binary["sha256_post"], f"process[{index}].candidate_binary.sha256_post")
+        _execution_identity(
+            obj["execution_identity"], f"process[{index}].execution_identity",
+            require_complete=False, candidate_binary=binary,
+        )
         if obj["fe_mxcsr"] is not None:
             fe = _exact(obj["fe_mxcsr"], FE_KEYS, f"process[{index}].fe_mxcsr")
             for key in FE_KEYS:
@@ -785,7 +903,12 @@ def _process(value: Any, index: int, selector: str) -> dict[str, Any]:
         missing = set(obj["missing"])
         if len(missing) != len(obj["missing"]) or not missing <= INCOMPLETE_MISSING_FIELDS:
             _fail("process-missing", f"process[{index}].missing contains duplicates or unknown fields")
-        actually_missing = {key for key in ("platform", "launch", "candidate_binary", "fe_mxcsr", "lifecycle", "output") if obj[key] is None}
+        actually_missing = {
+            key for key in (
+                "platform", "launch", "candidate_binary", "execution_identity",
+                "fe_mxcsr", "lifecycle", "output",
+            ) if obj[key] is None
+        }
         actually_missing.update(f"transport.{key}" for key in TRANSPORT_KEYS if transport[key] is None)
         if missing != actually_missing:
             _fail("process-missing", f"process[{index}].missing contradicts retained observations")
@@ -817,6 +940,10 @@ def _process(value: Any, index: int, selector: str) -> dict[str, Any]:
     binary = _exact(obj["candidate_binary"], CANDIDATE_HASH_KEYS, f"process[{index}].candidate_binary")
     _sha(binary["sha256_pre"], f"process[{index}].candidate_binary.sha256_pre")
     _sha(binary["sha256_post"], f"process[{index}].candidate_binary.sha256_post")
+    _execution_identity(
+        obj["execution_identity"], f"process[{index}].execution_identity",
+        require_complete=True, candidate_binary=binary,
+    )
     fe = _exact(obj["fe_mxcsr"], FE_KEYS, f"process[{index}].fe_mxcsr")
     for key in FE_KEYS:
         _fe_state(fe[key], f"process[{index}].fe_mxcsr.{key}")
@@ -890,6 +1017,13 @@ def _process_health(processes: list[dict[str, Any]]) -> str:
             return "failed"
         fe = item.get("fe_mxcsr")
         if fe is not None and not _controls_stable(fe):
+            return "failed"
+        _, identity_mismatch = _execution_identity(
+            item.get("execution_identity"), f"process[{item['role']}].execution_identity",
+            require_complete=item.get("variant") != "incomplete-v1",
+            candidate_binary=binary,
+        )
+        if identity_mismatch:
             return "failed"
         lifecycle = item.get("lifecycle")
         if lifecycle is not None and (lifecycle["state"] != "exited" or lifecycle["exit_code"] != 0 or not lifecycle["clean_shutdown"]):

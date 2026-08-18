@@ -450,6 +450,31 @@ def _status_to_exit(status: int) -> tuple[int | None, int | None, int | None]:
     return None, None, None
 
 
+def _allocate_transport_pipes(pipe_flags: int) -> tuple[int, int, int, int, int, int, int, int]:
+    """Allocate and configure the four transport pipes as one bounded unit."""
+
+    pairs: list[tuple[int, int]] = []
+    opened: list[int] = []
+    try:
+        for _ in range(4):
+            pair = os.pipe2(pipe_flags)
+            pairs.append(pair)
+            opened.extend(pair)
+        for fd in (pairs[0][1], pairs[1][0], pairs[2][0], pairs[3][0]):
+            os.set_blocking(fd, False)
+        return (
+            pairs[0][0], pairs[0][1], pairs[1][0], pairs[1][1],
+            pairs[2][0], pairs[2][1], pairs[3][0], pairs[3][1],
+        )
+    except BaseException:
+        for fd in opened:
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+        raise
+
+
 def _rusage_dict(value: resource.struct_rusage | None) -> dict[str, Any] | None:
     if value is None:
         return None
@@ -744,12 +769,10 @@ class ExactCandidateSession:
         if cwd_now != self.cwd_pre:
             return self._launch_failure("failed", "cwd-identity-mismatch", "cwd directory identity changed before fork")
         pipe_flags = getattr(os, "O_CLOEXEC", 0)
-        stdin_r, stdin_w = os.pipe2(pipe_flags)
-        stdout_r, stdout_w = os.pipe2(pipe_flags)
-        stderr_r, stderr_w = os.pipe2(pipe_flags)
-        error_r, error_w = os.pipe2(pipe_flags)
-        for fd in (stdin_w, stdout_r, stderr_r, error_r):
-            os.set_blocking(fd, False)
+        try:
+            stdin_r, stdin_w, stdout_r, stdout_w, stderr_r, stderr_w, error_r, error_w = _allocate_transport_pipes(pipe_flags)
+        except OSError as error:
+            return self._launch_failure("inconclusive", "launch-failed", str(error))
         try:
             pid = os.fork()
         except OSError as error:

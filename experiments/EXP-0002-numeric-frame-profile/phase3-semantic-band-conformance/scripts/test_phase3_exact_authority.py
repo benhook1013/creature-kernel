@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import importlib.util
 import json
@@ -18,12 +19,71 @@ assert SPEC and SPEC.loader
 M = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(M)
 
-PACKAGE = SCRIPT.parents[1]
-FREEZE_PATH = PACKAGE / "manifests/freeze-manifest.json"
-FREEZE_BYTES = FREEZE_PATH.read_bytes()
-FREEZE = json.loads(FREEZE_BYTES)
-FREEZE_SHA = FREEZE["manifest_sha256"]
-SOURCE_COMMIT = FREEZE["candidate_source_commit"]
+FREEZE_SCRIPT = SCRIPT.with_name("phase3_freeze_manifest.py")
+FREEZE_SPEC = importlib.util.spec_from_file_location("phase3_exact_authority_freeze_fixture", FREEZE_SCRIPT)
+assert FREEZE_SPEC and FREEZE_SPEC.loader
+F = importlib.util.module_from_spec(FREEZE_SPEC)
+FREEZE_SPEC.loader.exec_module(F)
+
+CANDIDATE_COMMIT = "c" * 40
+EXECUTION_TOOL_SOURCE_COMMIT = "e" * 40
+FREEZE_SHA = "d" * 64
+
+
+def _exact_tools() -> list[dict[str, object]]:
+    return [
+        {"path": path, "mode": 0o644, "bytes": index + 1, "sha256": f"{index + 1:064x}"}
+        for index, path in enumerate(M.REQUIRED_EXACT_RUNTIME_TOOLS)
+    ]
+
+
+FREEZE = {
+    "schema": M.FREEZE_SCHEMA,
+    "manifest_sha256": FREEZE_SHA,
+    "candidate_source_commit": CANDIDATE_COMMIT,
+    "execution_tool_source_commit": EXECUTION_TOOL_SOURCE_COMMIT,
+    "predecessor_inherited_sha256": F.EXPECTED_INHERITED_V1_SHA256,
+    "exact_runtime_tool_identities": _exact_tools(),
+    "binding": {
+        "experiment_id": M.EXPERIMENT_ID,
+        "phase_id": M.PHASE_ID,
+        "candidate_profile_id": M.CANDIDATE_PROFILE_ID,
+    },
+    "binaries": {
+        "wsl2-x86_64": {"status": "bound"},
+        "ubuntu-24.04-x86_64": {"status": "bound"},
+    },
+    "readiness": {
+        "materialization_state": "frozen",
+        "freeze_blockers": [],
+        "execution_permitted": False,
+    },
+    "execution_permitted": False,
+}
+FREEZE_BYTES = M._canonical(FREEZE)
+
+
+class _FreezeFixture:
+    """Minimal canonical-owner substitute for consumer-focused v2 tests."""
+
+    @staticmethod
+    def validate_manifest(raw: bytes) -> dict[str, object]:
+        value = json.loads(raw)
+        if M._canonical(value) != raw:
+            raise ValueError("fixture freeze is not canonical")
+        return value
+
+    @staticmethod
+    def check_manifest() -> dict[str, object]:
+        return copy.deepcopy(FREEZE)
+
+
+class _UncheckedExecutionFreezeFixture(_FreezeFixture):
+    """Pure-valid fixture whose E snapshot has no repository-bound proof."""
+
+    @staticmethod
+    def check_manifest() -> dict[str, object]:
+        raise ValueError("execution commit is not a descendant/current snapshot")
 
 
 def _review(index: int, lens: str, reviewer: str, path: str) -> dict[str, object]:
@@ -55,8 +115,8 @@ def _admission(review_root: Path) -> bytes:
         "phase_id": M.PHASE_ID,
         "candidate_profile_id": M.CANDIDATE_PROFILE_ID,
         "freeze_manifest_sha256": FREEZE_SHA,
-        "execution_tool_source_commit": SOURCE_COMMIT,
-        "reviewed_commit": SOURCE_COMMIT,
+        "execution_tool_source_commit": EXECUTION_TOOL_SOURCE_COMMIT,
+        "reviewed_commit": EXECUTION_TOOL_SOURCE_COMMIT,
         "reviews": values,
         "status": "passed",
         "execution_permitted": False,
@@ -66,6 +126,8 @@ def _admission(review_root: Path) -> bytes:
 
 class ExactAuthorityTests(unittest.TestCase):
     def setUp(self) -> None:
+        self.freeze_patch = mock.patch.object(M, "_freeze_module", return_value=_FreezeFixture)
+        self.freeze_patch.start()
         self.holder = tempfile.TemporaryDirectory()
         self.root = Path(self.holder.name)
         self.reviews = self.root / "reviews"
@@ -76,26 +138,38 @@ class ExactAuthorityTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.holder.cleanup()
+        self.freeze_patch.stop()
 
     def test_admission_roundtrip_authenticates_freeze_and_anchored_reviews(self) -> None:
-        value = M.validate_gate_b_admission(self.admission, freeze_manifest=FREEZE_BYTES, review_root=self.reviews)
+        with mock.patch.object(_FreezeFixture, "check_manifest", wraps=_FreezeFixture.check_manifest) as current_check:
+            value = M.validate_gate_b_admission(self.admission, freeze_manifest=FREEZE_BYTES, review_root=self.reviews)
+        current_check.assert_called_once_with()
         self.assertEqual(value["freeze_manifest_sha256"], FREEZE_SHA)
-        self.assertEqual(value["execution_tool_source_commit"], SOURCE_COMMIT)
+        self.assertEqual(value["execution_tool_source_commit"], EXECUTION_TOOL_SOURCE_COMMIT)
+        self.assertNotEqual(value["execution_tool_source_commit"], CANDIDATE_COMMIT)
         self.assertFalse(value["execution_permitted"])
 
     def test_admission_rejects_valid_pre_freeze_manifest(self) -> None:
-        freeze_module = M._freeze_module()
-        value = json.loads(FREEZE_BYTES)
-        value["binaries"] = freeze_module._binary_slots({})
-        value["readiness"] = freeze_module._readiness(value["binaries"])
-        value["manifest_sha256"] = freeze_module._self_hash(value)
-        pre_freeze = freeze_module._canonical(value)
+        value = copy.deepcopy(FREEZE)
+        value["readiness"]["materialization_state"] = "planned"
+        value["manifest_sha256"] = "f" * 64
+        pre_freeze = M._canonical(value)
         admission = json.loads(self.admission)
         admission["freeze_manifest_sha256"] = value["manifest_sha256"]
         admission = M.encode_gate_b_admission(admission)
         with self.assertRaises(M.AuthorityError) as context:
             M.validate_gate_b_admission(admission, freeze_manifest=pre_freeze, review_root=self.reviews)
-        self.assertEqual(context.exception.code, "freeze-readiness")
+        self.assertEqual(context.exception.code, "freeze-current")
+
+    def test_pure_valid_unchecked_execution_snapshot_is_not_authority(self) -> None:
+        with mock.patch.object(M, "_freeze_module", return_value=_UncheckedExecutionFreezeFixture):
+            with self.assertRaises(M.AuthorityError) as context:
+                M.validate_gate_b_admission(
+                    self.admission,
+                    freeze_manifest=FREEZE_BYTES,
+                    review_root=self.reviews,
+                )
+        self.assertEqual(context.exception.code, "freeze-current")
 
     def test_admission_tamper_is_rejected_even_when_json_remains_parseable(self) -> None:
         value = json.loads(self.admission)
@@ -125,8 +199,8 @@ class ExactAuthorityTests(unittest.TestCase):
         self.assertEqual(context.exception.code, "review-findings")
 
         value = json.loads(self.admission)
-        value["execution_tool_source_commit"] = "a" * 40
-        value["reviewed_commit"] = "a" * 40
+        value["execution_tool_source_commit"] = CANDIDATE_COMMIT
+        value["reviewed_commit"] = CANDIDATE_COMMIT
         forged = M.encode_gate_b_admission(value)
         with self.assertRaises(M.AuthorityError) as context:
             M.validate_gate_b_admission(forged, freeze_manifest=FREEZE_BYTES, review_root=self.reviews)
@@ -135,6 +209,16 @@ class ExactAuthorityTests(unittest.TestCase):
         with self.assertRaises(M.AuthorityError) as context:
             M.validate_gate_b_admission(self.admission, freeze_manifest=FREEZE_BYTES[:-1] + b"x\n", review_root=self.reviews)
         self.assertEqual(context.exception.code, "freeze")
+
+    def test_admission_rejects_predecessor_freeze_even_if_owner_accepts_it(self) -> None:
+        predecessor = copy.deepcopy(FREEZE)
+        predecessor["schema"] = "ck.exp-0002.phase3.freeze-manifest-1"
+        predecessor["manifest_sha256"] = "f" * 64
+        admission = json.loads(self.admission)
+        admission["freeze_manifest_sha256"] = predecessor["manifest_sha256"]
+        with self.assertRaises(M.AuthorityError) as context:
+            M.validate_gate_b_admission(M.encode_gate_b_admission(admission), freeze_manifest=M._canonical(predecessor), review_root=self.reviews)
+        self.assertEqual(context.exception.code, "freeze-version")
 
     def test_review_symlink_and_review_hash_drift_fail_closed(self) -> None:
         moved = self.reviews / "gate-b-final-02.md"
@@ -160,25 +244,25 @@ class ExactAuthorityTests(unittest.TestCase):
 
     def test_exact_runtime_tool_hook_is_explicit_and_closed(self) -> None:
         current = M.validate_required_exact_runtime_tools(FREEZE)
-        self.assertEqual(current["present"], ())
-        self.assertEqual(current["missing"], M.REQUIRED_EXACT_RUNTIME_TOOLS)
-        identities = [
-            {"path": path, "mode": 0o644, "bytes": index + 1, "sha256": f"{index + 1:064x}"}
-            for index, path in enumerate(M.REQUIRED_EXACT_RUNTIME_TOOLS)
-        ]
-        complete = M.validate_required_exact_runtime_tools({"runtime_tool_identities": identities}, require_complete=True)
+        self.assertEqual(current["present"], M.REQUIRED_EXACT_RUNTIME_TOOLS)
+        self.assertEqual(current["missing"], ())
+        identities = _exact_tools()
+        complete = M.validate_required_exact_runtime_tools({"exact_runtime_tool_identities": identities})
         self.assertEqual(complete["present"], M.REQUIRED_EXACT_RUNTIME_TOOLS)
         with self.assertRaises(M.AuthorityError) as context:
-            M.validate_required_exact_runtime_tools({"runtime_tool_identities": identities + [dict(identities[0])]})
+            M.validate_required_exact_runtime_tools({"exact_runtime_tool_identities": identities + [dict(identities[0])]})
         self.assertEqual(context.exception.code, "runtime-tool-closure")
         with self.assertRaises(M.AuthorityError) as context:
-            M.validate_required_exact_runtime_tools({"runtime_tool_identities": identities[:-1]})
+            M.validate_required_exact_runtime_tools({"exact_runtime_tool_identities": identities[:-1]})
         self.assertEqual(context.exception.code, "runtime-tool-closure")
         with self.assertRaises(M.AuthorityError) as context:
-            M.validate_required_exact_runtime_tools({"runtime_tool_identities": identities[:-1]}, require_complete=True)
+            M.validate_required_exact_runtime_tools({"exact_runtime_tool_identities": []})
         self.assertEqual(context.exception.code, "runtime-tool-closure")
         with self.assertRaises(M.AuthorityError) as context:
-            M.validate_required_exact_runtime_tools({"runtime_tool_identities": []}, require_complete=True)
+            M.validate_required_exact_runtime_tools({"runtime_tool_identities": identities})
+        self.assertEqual(context.exception.code, "runtime-tool-closure")
+        with self.assertRaises(M.AuthorityError) as context:
+            M.validate_required_exact_runtime_tools({"exact_runtime_tool_identities": identities + [{"path": "scripts/unexpected.py", "mode": 0o644, "bytes": 1, "sha256": "f" * 64}]})
         self.assertEqual(context.exception.code, "runtime-tool-closure")
 
     def _authorization(self, *, selector: str = "wsl2-x86_64", ordinal: int = 0, custody: str = "c" * 64, attempt: str = "attempt-001") -> bytes:

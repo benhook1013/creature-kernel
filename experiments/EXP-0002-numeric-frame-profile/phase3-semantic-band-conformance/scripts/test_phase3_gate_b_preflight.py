@@ -33,17 +33,28 @@ def _tools(root: Path) -> list[dict[str, object]]:
 
 
 def _frozen_package(root: Path) -> Path:
-    """Create a finalized package using the current scripts without touching Git artifacts."""
+    """Create a synthetic v2 package without touching Git or executing artifacts."""
     root.mkdir(parents=True, exist_ok=True)
     package = root / "package"
     shutil.copytree(ROOT, package)
     manifest_path = package / freeze.MANIFEST_REL
-    old_manifest = json.loads((ROOT / freeze.MANIFEST_REL).read_text(encoding="utf-8"))
-    baseline = freeze.generate_manifest(package=package, source_commit=old_manifest["candidate_source_commit"])
-    manifest_path.write_bytes((json.dumps(baseline, ensure_ascii=True, sort_keys=True, separators=(",", ":")) + "\n").encode())
+
+    def committed(_repo: Path, _commit: str, paths: tuple[str, ...]) -> list[dict]:
+        return freeze._tool_identities(package, paths)
+
+    with (
+        patch.object(freeze, "_validate_candidate_commit_snapshot"),
+        patch.object(freeze, "_validate_candidate_build_snapshot"),
+        patch.object(freeze, "_assert_descendant_commit"),
+        patch.object(freeze, "_execution_tool_identities_from_commit", side_effect=committed),
+    ):
+        successor = freeze.build_successor_manifest(
+            manifest_path.read_bytes(),
+            execution_tool_source_commit="e" * 40,
+            package=package,
+        )
+    manifest_path.write_bytes((json.dumps(successor, ensure_ascii=True, sort_keys=True, separators=(",", ":")) + "\n").encode())
     manifest_path.chmod(0o644)
-    with patch.object(freeze, "_validate_candidate_commit_snapshot"):
-        freeze.finalize_from_receipts(manifest_path, [package / freeze.RECEIPT_PATHS["wsl2-x86_64"], package / freeze.RECEIPT_PATHS["ubuntu-24.04-x86_64"]], package=package)
     return package
 
 
@@ -51,7 +62,7 @@ class GateBPreflightTests(unittest.TestCase):
     def test_current_package_is_read_only_not_ready(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             package = _frozen_package(Path(directory))
-            with patch.object(preflight, "_load_freeze_module", return_value=freeze), patch.object(freeze, "_validate_candidate_commit_snapshot"):
+            with patch.object(preflight, "_load_freeze_module", return_value=freeze), patch.object(freeze, "_resolve_source_commit", return_value="f" * 40), patch.object(freeze, "_validate_candidate_build_snapshot"), patch.object(freeze, "_validate_execution_commit_snapshot"), patch.object(freeze, "_validate_current_candidate_build_inputs"):
                 report = preflight.build_gate_b_preflight(package, _candidate(), _tools(package))
             self.assertEqual(report["schema"], preflight.SCHEMA)
             self.assertFalse(report["gate_b_ready"])
@@ -68,15 +79,36 @@ class GateBPreflightTests(unittest.TestCase):
             self.assertEqual(next(check for check in report["checks"] if check["name"] == "expected-prebound-candidate-identity")["status"], "passed")
             self.assertEqual(report["execution_package"]["freeze_state"], "frozen")
             self.assertEqual(report["execution_package"]["manifest_sha256"], json.loads((package / freeze.MANIFEST_REL).read_text())["manifest_sha256"])
+            self.assertEqual(report["execution_package"]["predecessor_manifest_sha256"], freeze.EXPECTED_V1_MANIFEST_SHA256)
             self.assertEqual(report["execution_package"]["candidate_source_commit"], "647eab5297adca1998764904cce98eca154738e4")
+            self.assertEqual(report["execution_package"]["execution_tool_source_commit"], "e" * 40)
+            snapshot = report["execution_package"]["source_snapshot_validation"]
+            self.assertEqual(snapshot["status"], "passed")
+            self.assertEqual(snapshot["ancestry_algorithm"], "git merge-base --is-ancestor")
+            self.assertTrue(snapshot["candidate_is_ancestor_of_execution_tools"])
+            self.assertTrue(snapshot["current_execution_tools_match_execution_tool_commit"])
+            self.assertEqual(snapshot["current_execution_tool_identity_count"], 19)
+            self.assertEqual(len(report["execution_package"]["runtime_tool_identities"]), len(freeze.RUNTIME_TOOLS))
+            self.assertEqual(len(report["execution_package"]["exact_runtime_tool_identities"]), len(freeze.EXACT_RUNTIME_TOOLS))
             self.assertEqual(set(report["execution_package"]["binary_slots"]), set(freeze.SELECTORS))
             self.assertEqual(len(report["execution_package"]["provenance_tool_identities"]), len(freeze.PROVENANCE_TOOLS))
+            self.assertEqual(len(report["tool_identities"]), 19)
             self.assertIn("preregistration pending-freeze fields are immutable Gate-A snapshot state", report["execution_package"]["note"])
-            with patch.object(preflight, "_load_freeze_module", return_value=freeze), patch.object(freeze, "_validate_candidate_commit_snapshot"):
+            with patch.object(preflight, "_load_freeze_module", return_value=freeze), patch.object(freeze, "_resolve_source_commit", return_value="f" * 40), patch.object(freeze, "_validate_candidate_build_snapshot"), patch.object(freeze, "_validate_execution_commit_snapshot"), patch.object(freeze, "_validate_current_candidate_build_inputs"):
                 first = preflight.build_gate_b_preflight_bytes(package, _candidate(), _tools(package))
                 second = preflight.build_gate_b_preflight_bytes(package, _candidate(), _tools(package))
             self.assertEqual(first, second)
             self.assertEqual(hashlib.sha256(first).hexdigest(), hashlib.sha256(second).hexdigest())
+
+    def test_historical_v1_package_is_not_current_preflight_input(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            package = Path(directory) / "package"
+            shutil.copytree(ROOT, package)
+            (package / freeze.MANIFEST_REL).chmod(0o644)
+            with patch.object(preflight, "_load_freeze_module", return_value=freeze):
+                with self.assertRaises(preflight.GateBPreflightError) as error:
+                    preflight.build_gate_b_preflight(package, _candidate(), _tools(package))
+            self.assertEqual(error.exception.code, "freeze-manifest")
 
     def test_candidate_tool_tamper_and_forbidden_fields(self) -> None:
         bad_candidate = _candidate()
@@ -100,7 +132,7 @@ class GateBPreflightTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             target = _frozen_package(Path(temporary))
             before = sorted((path.relative_to(target).as_posix(), path.stat().st_size, hashlib.sha256(path.read_bytes()).hexdigest()) for path in target.rglob("*") if path.is_file())
-            with patch.object(preflight, "_load_freeze_module", return_value=freeze), patch.object(freeze, "_validate_candidate_commit_snapshot"):
+            with patch.object(preflight, "_load_freeze_module", return_value=freeze), patch.object(freeze, "_resolve_source_commit", return_value="f" * 40), patch.object(freeze, "_validate_candidate_build_snapshot"), patch.object(freeze, "_validate_execution_commit_snapshot"), patch.object(freeze, "_validate_current_candidate_build_inputs"):
                 report = preflight.build_gate_b_preflight(target, _candidate(), _tools(target))
             after = sorted((path.relative_to(target).as_posix(), path.stat().st_size, hashlib.sha256(path.read_bytes()).hexdigest()) for path in target.rglob("*") if path.is_file())
             self.assertFalse(report["execution_permitted"])
@@ -114,27 +146,27 @@ class GateBPreflightTests(unittest.TestCase):
             manifest["candidate_source_commit"] = "a" * 40
             manifest["manifest_sha256"] = freeze._self_hash(manifest)
             manifest_path.write_bytes((json.dumps(manifest, ensure_ascii=True, sort_keys=True, separators=(",", ":")) + "\n").encode())
-            with patch.object(preflight, "_load_freeze_module", return_value=freeze), patch.object(freeze, "_validate_candidate_commit_snapshot"):
+            with patch.object(preflight, "_load_freeze_module", return_value=freeze), patch.object(freeze, "_resolve_source_commit", return_value="f" * 40), patch.object(freeze, "_validate_candidate_build_snapshot"), patch.object(freeze, "_validate_execution_commit_snapshot"), patch.object(freeze, "_validate_current_candidate_build_inputs"):
                 with self.assertRaises(preflight.GateBPreflightError):
                     preflight.build_gate_b_preflight(package, _candidate(), _tools(package))
 
             # Restore the finalized package, then add an unlisted receipt.
             package = _frozen_package(Path(temporary) / "restored")
             (package / freeze.RECEIPT_DIR_REL / "extra.json").write_text("{}\n", encoding="utf-8")
-            with patch.object(preflight, "_load_freeze_module", return_value=freeze), patch.object(freeze, "_validate_candidate_commit_snapshot"):
+            with patch.object(preflight, "_load_freeze_module", return_value=freeze), patch.object(freeze, "_resolve_source_commit", return_value="f" * 40), patch.object(freeze, "_validate_candidate_build_snapshot"), patch.object(freeze, "_validate_execution_commit_snapshot"), patch.object(freeze, "_validate_current_candidate_build_inputs"):
                 with self.assertRaises(preflight.GateBPreflightError):
                     preflight.build_gate_b_preflight(package, _candidate(), _tools(package))
 
             package = _frozen_package(Path(temporary) / "tampered")
             receipt = package / freeze.RECEIPT_PATHS["wsl2-x86_64"]
             receipt.write_bytes(receipt.read_bytes() + b"\n")
-            with patch.object(preflight, "_load_freeze_module", return_value=freeze), patch.object(freeze, "_validate_candidate_commit_snapshot"):
+            with patch.object(preflight, "_load_freeze_module", return_value=freeze), patch.object(freeze, "_resolve_source_commit", return_value="f" * 40), patch.object(freeze, "_validate_candidate_build_snapshot"), patch.object(freeze, "_validate_execution_commit_snapshot"), patch.object(freeze, "_validate_current_candidate_build_inputs"):
                 with self.assertRaises(preflight.GateBPreflightError):
                     preflight.build_gate_b_preflight(package, _candidate(), _tools(package))
 
             package = _frozen_package(Path(temporary) / "missing")
             (package / freeze.RECEIPT_PATHS["ubuntu-24.04-x86_64"]).unlink()
-            with patch.object(preflight, "_load_freeze_module", return_value=freeze), patch.object(freeze, "_validate_candidate_commit_snapshot"):
+            with patch.object(preflight, "_load_freeze_module", return_value=freeze), patch.object(freeze, "_resolve_source_commit", return_value="f" * 40), patch.object(freeze, "_validate_candidate_build_snapshot"), patch.object(freeze, "_validate_execution_commit_snapshot"), patch.object(freeze, "_validate_current_candidate_build_inputs"):
                 with self.assertRaises(preflight.GateBPreflightError):
                     preflight.build_gate_b_preflight(package, _candidate(), _tools(package))
 

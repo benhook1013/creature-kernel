@@ -10,7 +10,6 @@ import io
 import json
 import os
 import stat
-import re
 import tarfile
 import tempfile
 import unittest
@@ -36,15 +35,53 @@ assert FREEZE_SPEC and FREEZE_SPEC.loader
 F = importlib.util.module_from_spec(FREEZE_SPEC)
 FREEZE_SPEC.loader.exec_module(F)
 
-SOURCE = "a" * 40
+_REAL_SPEC_FROM_FILE_LOCATION = importlib.util.spec_from_file_location
+_REAL_MODULE_FROM_SPEC = importlib.util.module_from_spec
+
+SOURCE = F.EXPECTED_CANDIDATE_SOURCE_COMMIT
+EXECUTION_SOURCE = "e" * 40
+PREDECESSOR_HASH = F.EXPECTED_V1_MANIFEST_SHA256
+PREDECESSOR_INHERITED_HASH = F.EXPECTED_INHERITED_V1_SHA256
 FREEZE_HASH = "d" * 64
 NOW = "2026-08-19T00:00:00Z"
 LATER = "2026-08-20T00:00:00Z"
-REPOSITORY_ROOT = SCRIPT.resolve().parents[4]
-WORKFLOW_FILE = REPOSITORY_ROOT / M.WORKFLOW_PATH
-WORKFLOW_BYTES = WORKFLOW_FILE.read_bytes()
-WORKFLOW_SHA = hashlib.sha256(WORKFLOW_BYTES).hexdigest()
-WORKFLOW_REFS = re.findall(r"(?m)^\s*uses:\s*([^\s#]+)", WORKFLOW_BYTES.decode("utf-8"))
+FROZEN_WORKFLOW_SHA = "9" * 64
+WORKFLOW_REFS = ["actions/checkout@" + "1" * 40]
+
+
+class _FixtureFreezeValidator:
+    """Real pure validator with historical inherited facts isolated from custody."""
+
+    @staticmethod
+    def validate_manifest(raw: bytes) -> dict[str, object]:
+        with mock.patch.object(
+            F,
+            "_inherited_v1_hash",
+            return_value=F.EXPECTED_INHERITED_V1_SHA256,
+        ):
+            return F.validate_manifest(raw)
+
+
+class _NoopFreezeLoader:
+    @staticmethod
+    def exec_module(_module: object) -> None:
+        return None
+
+
+class _FixtureFreezeSpec:
+    loader = _NoopFreezeLoader()
+
+
+def _fixture_spec_from_file_location(name: str, path: Path):
+    if name == "phase3_exact_custody_freeze":
+        return _FixtureFreezeSpec()
+    return _REAL_SPEC_FROM_FILE_LOCATION(name, path)
+
+
+def _fixture_module_from_spec(spec):
+    if isinstance(spec, _FixtureFreezeSpec):
+        return _FixtureFreezeValidator
+    return _REAL_MODULE_FROM_SPEC(spec)
 
 
 def _fixture_identity(path: str, digest: str) -> dict[str, object]:
@@ -166,7 +203,7 @@ def _record(bundle: bytes, root: Path, *, selector: str = "wsl2-x86_64", kind: s
         path.write_bytes(transfer_bytes)
         transfer: dict[str, object] = {
             "kind": "github-actions-artifact-zip", "locator": {"kind": "filesystem-path", "value": str(path)},
-            "workflow": {"path": M.WORKFLOW_PATH, "commit": SOURCE, "sha256": WORKFLOW_SHA},
+            "workflow": {"path": M.WORKFLOW_PATH, "commit": SOURCE, "sha256": FROZEN_WORKFLOW_SHA},
             "run": {"id": 123, "attempt": 1}, "artifact": {"id": 456, "digest": "sha256:" + hashlib.sha256(transfer_bytes).hexdigest(), "created_at": "2026-08-18T00:00:00Z", "expires_at": LATER, "retention_days": M.GITHUB_RETENTION_DAYS},
             "archive": {"bytes": len(transfer_bytes), "sha256": hashlib.sha256(transfer_bytes).hexdigest()}, "bundle": {"bytes": len(bundle), "sha256": hashlib.sha256(bundle).hexdigest()},
         }
@@ -187,15 +224,18 @@ def _record(bundle: bytes, root: Path, *, selector: str = "wsl2-x86_64", kind: s
     slot = {"status": "bound", "binary_identity": manifest_candidate, "receipt_bytes": len(receipt), "receipt_path": "manifests/build-receipts/native.json", "receipt_sha256": receipt_sha, "receipt_self_hash": receipt_obj["receipt_sha256"]}
     wsl_slot = dict(slot)
     wsl_slot["receipt_path"] = "manifests/build-receipts/wsl.json"
-    workflow_identity = {"bytes": len(WORKFLOW_BYTES), "mode": 0o644, "path": M.WORKFLOW_PATH, "sha256": WORKFLOW_SHA}
+    workflow_identity = {"bytes": 1, "mode": 0o644, "path": M.WORKFLOW_PATH, "sha256": FROZEN_WORKFLOW_SHA}
     manifest_value = {
         "attempts": "per-attempt observations and Ben authorization are external to this manifest",
         "binaries": {"wsl2-x86_64": wsl_slot, "ubuntu-24.04-x86_64": slot},
         "binding": {"candidate_profile_id": M.CANDIDATE_PROFILE_ID, "experiment_id": M.EXPERIMENT_ID, "phase_id": M.PHASE_ID},
         "build": {"dependencies": _fixture_dependencies(), "recipe": F._build_recipe(), "toolchain": _fixture_toolchain()},
         "candidate_closure": _fixture_closure(), "candidate_source_commit": SOURCE,
-        "canonicalization": {"encoding": "UTF-8", "ensure_ascii": True, "json": "RFC 8259-compatible strict JSON", "raw_file_hash": "SHA-256 over exact bytes; no parse/reserialize for raw identities", "self_hash_domain": "ck.exp-0002.phase3.freeze-manifest.v1", "self_hash_excludes": ["manifest_sha256"], "separators": [",", ":"], "sort_keys": True, "trailing_newline": True},
+        "canonicalization": F._v2_canonicalization(),
         "execution_permitted": False, "lifecycle": "planned", "manifest_sha256": None,
+        "execution_tool_source_commit": EXECUTION_SOURCE,
+        "predecessor_manifest_sha256": PREDECESSOR_HASH,
+        "predecessor_inherited_sha256": PREDECESSOR_INHERITED_HASH,
         "platform": F._platforms(),
         "protocol": {"request_protocol_id": F.REQUEST_PROTOCOL, "response_protocol_id": F.RESPONSE_PROTOCOL, "request_fields": F.REQUEST_FIELDS, "canonical_wire": "strict UTF-8 JSON object, exact seven request fields, canonical bytes are SHA-256 framed by the evidence contract"},
         "provenance_tool_identities": [_fixture_identity(path, "1" * 64) for path in F.PROVENANCE_TOOLS],
@@ -203,11 +243,10 @@ def _record(bundle: bytes, root: Path, *, selector: str = "wsl2-x86_64", kind: s
         "readiness": F._readiness({"wsl2-x86_64": {"status": "bound"}, "ubuntu-24.04-x86_64": {"status": "bound"}}),
         "repository_inputs": {"native_build_workflow": {"identity": workflow_identity, "path": M.WORKFLOW_PATH, "pinned_action_refs": WORKFLOW_REFS, "runner_label": "ubuntu-24.04"}},
         "runtime_tool_identities": [_fixture_identity(path, "4" * 64) for path in F.RUNTIME_TOOLS],
+        "exact_runtime_tool_identities": [_fixture_identity(path, "5" * 64) for path in F.EXACT_RUNTIME_TOOLS],
         "schema": M.FREEZE_SCHEMA, "status": "Proposed",
     }
-    unsigned = dict(manifest_value)
-    unsigned.pop("manifest_sha256")
-    FREEZE_HASH = hashlib.sha256(M.FREEZE_HASH_DOMAIN + M._canonical(unsigned) + b"\n").hexdigest()
+    FREEZE_HASH = F._self_hash(manifest_value)
     manifest_value["manifest_sha256"] = FREEZE_HASH
     manifest_raw = M._canonical(manifest_value) + b"\n"
     record["successor_manifest_sha256"] = FREEZE_HASH
@@ -218,14 +257,30 @@ def _reseal_manifest(raw: bytes, mutate) -> tuple[bytes, str]:
     """Make a structurally forged manifest with a valid canonical self-hash."""
     value = json.loads(raw)
     mutate(value)
-    unsigned = dict(value)
-    unsigned.pop("manifest_sha256")
-    digest = hashlib.sha256(M.FREEZE_HASH_DOMAIN + M._canonical(unsigned) + b"\n").hexdigest()
+    digest = F._self_hash(value)
     value["manifest_sha256"] = digest
     return M._canonical(value) + b"\n", digest
 
 
 class ExactCustodyTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.freeze_spec_patch = mock.patch.object(
+            M.importlib.util,
+            "spec_from_file_location",
+            side_effect=_fixture_spec_from_file_location,
+        )
+        self.freeze_module_patch = mock.patch.object(
+            M.importlib.util,
+            "module_from_spec",
+            side_effect=_fixture_module_from_spec,
+        )
+        self.freeze_spec_patch.start()
+        self.freeze_module_patch.start()
+
+    def tearDown(self) -> None:
+        self.freeze_module_patch.stop()
+        self.freeze_spec_patch.stop()
+
     def test_raw_wsl_success_materializes_descriptor_bound_files(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -265,6 +320,7 @@ class ExactCustodyTests(unittest.TestCase):
             invocation.mkdir()
             verified = M.verify_and_materialize(raw, expected_manifest=manifest, expected_manifest_sha256=FREEZE_HASH, invocation_dir=invocation, now=NOW)
             self.assertEqual(verified.platform_role, "native")
+            self.assertEqual(json.loads(raw)["transfer"]["workflow"]["sha256"], FROZEN_WORKFLOW_SHA)
             verified.close()
             # A byte change is never repaired by consuming a second locator.
             (root / "artifact.zip").write_bytes((root / "artifact.zip").read_bytes() + b"x")
@@ -284,6 +340,32 @@ class ExactCustodyTests(unittest.TestCase):
             tampered["policy"]["causal_build_attestation"] = True
             with self.assertRaises(M.CustodyError):
                 M.validate_custody_record(M.encode_custody_record(tampered), expected_manifest=manifest, expected_manifest_sha256=FREEZE_HASH, now=NOW)
+
+    def test_predecessor_freeze_is_rejected_even_when_canonical_owner_accepts_it(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            raw, manifest, _ = _record(_bundle(b"tiny"), root)
+            predecessor = F._v1_projection(json.loads(manifest))
+            predecessor_raw = M._canonical(predecessor) + b"\n"
+            with self.assertRaises(M.CustodyError) as context:
+                M.validate_custody_record(
+                    raw,
+                    expected_manifest=predecessor_raw,
+                    expected_manifest_sha256=predecessor["manifest_sha256"],
+                    now=NOW,
+                )
+            self.assertEqual(context.exception.code, "record-binding")
+
+            rebound = json.loads(raw)
+            rebound["successor_manifest_sha256"] = predecessor["manifest_sha256"]
+            with self.assertRaises(M.CustodyError) as context:
+                M.validate_custody_record(
+                    M.encode_custody_record(rebound),
+                    expected_manifest=predecessor_raw,
+                    expected_manifest_sha256=predecessor["manifest_sha256"],
+                    now=NOW,
+                )
+            self.assertEqual(context.exception.code, "manifest-version")
 
     def test_expiry_unavailability_and_fresh_directory_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -472,7 +554,7 @@ class ExactCustodyTests(unittest.TestCase):
             # merely noticing a stale manifest self-hash.
             for mutate in (
                 lambda value: value["binaries"]["wsl2-x86_64"].__setitem__("receipt_bytes", value["binaries"]["wsl2-x86_64"]["receipt_bytes"] + 1),
-                lambda value: value["repository_inputs"]["native_build_workflow"].__setitem__("pinned_action_refs", ["actions/forged@" + "f" * 40]),
+                lambda value: value["repository_inputs"]["native_build_workflow"].__setitem__("pinned_action_refs", ["actions/forged@main"]),
                 lambda value: value.__setitem__("raw_inputs", []),
             ):
                 forged_manifest, forged_hash = _reseal_manifest(manifest, mutate)

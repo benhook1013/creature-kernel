@@ -40,8 +40,7 @@ CANDIDATE_PROFILE_ID = "ck.provisional-r3-authored-conflict.semantic-band-1"
 SCHEMA = "ck.exp-0002.phase3.gate-b-exact-artifact-custody-1"
 SELF_HASH_DOMAIN = b"ck.exp-0002.phase3.gate-b-exact-artifact-custody.v1\0"
 WORKFLOW_PATH = ".github/workflows/phase3-gate-b-native-build.yml"
-FREEZE_SCHEMA = "ck.exp-0002.phase3.freeze-manifest-1"
-FREEZE_HASH_DOMAIN = b"ck.exp-0002.phase3.freeze-manifest.v1\0"
+FREEZE_SCHEMA = "ck.exp-0002.phase3.freeze-manifest-2"
 TARGET = "x86_64-unknown-linux-gnu"
 PROFILE = "dev"
 RECEIPT_SCHEMA = "ck.exp-0002.phase3.gate-b-build-receipt-1"
@@ -281,14 +280,10 @@ def _parse_manifest(expected_manifest: bytes | Mapping[str, Any]) -> dict[str, A
         freeze = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(freeze)
         value = freeze.validate_manifest(expected_manifest)
-        workflow_input = freeze._workflow_input(Path(__file__).resolve().parents[4])
     except Exception as error:
         raise CustodyError("manifest", f"canonical freeze validator rejected successor bytes: {error}") from error
-    workflow = value["repository_inputs"]["native_build_workflow"]
-    if workflow["pinned_action_refs"] != workflow_input["pinned_action_refs"]:
-        raise CustodyError("manifest", "successor workflow action refs differ from canonical workflow")
-    if workflow["identity"]["bytes"] != workflow_input["identity"]["bytes"] or workflow["identity"]["sha256"] != workflow_input["identity"]["sha256"]:
-        raise CustodyError("manifest", "successor workflow identity differs from canonical workflow bytes")
+    if value.get("schema") != FREEZE_SCHEMA:
+        raise CustodyError("manifest-version", "exact custody requires the successor freeze-manifest-2 contract")
     return value
 
 
@@ -320,11 +315,17 @@ def _manifest_binding(manifest: Mapping[str, Any], expected_hash: str, selector:
     receipt_self = slot.get("receipt_self_hash")
     if receipt_sha is None or receipt_self is None:
         raise CustodyError("manifest", "successor freeze receipt identities are unavailable")
-    workflow_identity = None
     repository_inputs = manifest["repository_inputs"]
     workflow = repository_inputs["native_build_workflow"]
+    if workflow.get("path") != WORKFLOW_PATH:
+        raise CustodyError("manifest", "successor freeze workflow path is not the Gate-B build workflow")
     identity = workflow["identity"]
-    workflow_identity = {"path": WORKFLOW_PATH, "sha256": _sha(identity["sha256"], "manifest.workflow.sha256")}
+    if identity.get("path") != workflow["path"]:
+        raise CustodyError("manifest", "successor freeze workflow identity path differs from its declared path")
+    workflow_identity = {
+        "path": _safe_relative(workflow["path"], "manifest.workflow.path"),
+        "sha256": _sha(identity["sha256"], "manifest.workflow.sha256"),
+    }
     return {"source_commit": source, "binary": expected_binary, "receipt_bytes": slot["receipt_bytes"], "receipt_sha256": _sha(receipt_sha, "manifest.receipt_sha256"), "receipt_self_hash": _sha(receipt_self, "manifest.receipt_self_hash"), "workflow": workflow_identity}
 
 

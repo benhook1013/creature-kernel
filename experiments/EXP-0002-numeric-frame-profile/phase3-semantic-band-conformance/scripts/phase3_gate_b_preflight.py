@@ -1,10 +1,11 @@
 """Read-only Gate B readiness preflight for the Phase 3 package.
 
 The preflight consumes the existing materialized package and caller-supplied
-content identities.  It never runs Git, Cargo, a candidate, a shell, or an
-environment probe, and it never creates a freeze manifest or changes package
-state.  A successful call therefore reports readiness *blocked* by the
-remaining Gate B bindings rather than authorizing execution.
+content identities.  Its freeze checker reads the two committed source
+snapshots, but it never runs Cargo, a candidate, a shell, or an environment
+probe, and it never creates a freeze manifest or changes package state.  A
+successful call therefore reports readiness *blocked* by the remaining Gate B
+bindings rather than authorizing execution.
 """
 
 from __future__ import annotations
@@ -21,7 +22,7 @@ from typing import Any, Mapping
 from phase3_materialized_adapter import load_materialized_cases
 
 
-SCHEMA = "ck.exp-0002.phase3.gate-b-preflight-1"
+SCHEMA = "ck.exp-0002.phase3.gate-b-preflight-2"
 EVIDENCE_SCHEMA = "ck.exp-0002.phase3.evidence-proposed-1"
 EXPECTED_ALGORITHM = "ck.phase3-candidate-source-build-closure.v1"
 EXPECTED_CANDIDATE_COUNT = 47
@@ -35,7 +36,7 @@ FREEZE_MANIFEST_PATH = "manifests/freeze-manifest.json"
 FREEZE_RECEIPT_DIR = "manifests/build-receipts"
 FREEZE_RECEIPT_NAMES = frozenset({"wsl.json", "native.json"})
 FREEZE_SCRIPT_PATH = "scripts/phase3_freeze_manifest.py"
-TOOL_PATHS = (
+CORE_TOOL_PATHS = (
     "scripts/phase3_common.py",
     "scripts/phase3_oracle.py",
     "scripts/phase3_scorer.py",
@@ -45,6 +46,22 @@ TOOL_PATHS = (
     "scripts/phase3_evidence_contract.py",
     "scripts/phase3_gate_b_preflight.py",
 )
+EXACT_TOOL_PATHS = (
+    "scripts/phase3_exact_adjudicator.py",
+    "scripts/phase3_exact_authority.py",
+    "scripts/phase3_exact_custody.py",
+    "scripts/phase3_exact_fp_observer.py",
+    "scripts/phase3_exact_publication.py",
+    "scripts/phase3_exact_transport.py",
+    "scripts/phase3_exact_attempt.py",
+)
+PROVENANCE_TOOL_PATHS = (
+    "scripts/generate_phase3.py",
+    "scripts/check_candidate_prebinding.py",
+    "scripts/phase3_build_receipt.py",
+    "scripts/phase3_freeze_manifest.py",
+)
+TOOL_PATHS = (*CORE_TOOL_PATHS, *EXACT_TOOL_PATHS, *PROVENANCE_TOOL_PATHS)
 MAX_IDENTITY_BYTES = 8 * 1024 * 1024
 MAX_STRING_BYTES = 4096
 SHA256_RE = set("0123456789abcdef")
@@ -310,9 +327,14 @@ def _validate_tools(root: Path, supplied: list[dict[str, Any]], manifest: Mappin
         raw = _regular_bytes(root / identity["path"], identity["path"])
         if len(raw) != identity["bytes"] or hashlib.sha256(raw).hexdigest() != identity["sha256"]:
             _fail("tool-identity", f"current file identity differs for {identity['path']}")
-    recorded = manifest.get("runtime_tool_identities")
-    if not isinstance(recorded, list):
-        _fail("freeze-manifest", "freeze manifest runtime tool identities are unavailable")
+    collections = (
+        manifest.get("runtime_tool_identities"),
+        manifest.get("exact_runtime_tool_identities"),
+        manifest.get("provenance_tool_identities"),
+    )
+    if any(not isinstance(collection, list) for collection in collections):
+        _fail("freeze-manifest", "freeze manifest tool identities are unavailable")
+    recorded = [identity for collection in collections for identity in collection]
     normalized = []
     for identity in recorded:
         if not isinstance(identity, Mapping) or set(identity) != {"path", "mode", "bytes", "sha256"}:
@@ -350,6 +372,8 @@ def _validate_freeze_package(root: Path) -> tuple[Any, dict[str, Any]]:
         raise GateBPreflightError("freeze-manifest", f"canonical freeze validation failed: {code}") from error
     if not isinstance(manifest, dict):
         _fail("freeze-manifest", "canonical freeze validator did not return an object")
+    if manifest.get("schema") != freeze.SCHEMA:
+        _fail("freeze-state", "canonical freeze manifest is not the current successor schema")
     binaries = manifest.get("binaries")
     if not isinstance(binaries, dict) or set(binaries) != {"wsl2-x86_64", "ubuntu-24.04-x86_64"} or any(not isinstance(binaries[key], Mapping) or binaries[key].get("status") != "bound" for key in binaries):
         _fail("freeze-state", "both canonical binary slots must be bound")
@@ -419,8 +443,21 @@ def _report(candidate: dict[str, Any], tools: list[dict[str, Any]], cases: list[
             "freeze_state": "frozen",
             "manifest_path": FREEZE_MANIFEST_PATH,
             "manifest_sha256": manifest["manifest_sha256"],
+            "predecessor_manifest_sha256": manifest["predecessor_manifest_sha256"],
             "candidate_source_commit": manifest["candidate_source_commit"],
+            "execution_tool_source_commit": manifest["execution_tool_source_commit"],
+            "source_snapshot_validation": {
+                "status": "passed",
+                "checker": "phase3_freeze_manifest.check_manifest",
+                "ancestry_algorithm": "git merge-base --is-ancestor",
+                "candidate_source_commit": manifest["candidate_source_commit"],
+                "execution_tool_source_commit": manifest["execution_tool_source_commit"],
+                "candidate_is_ancestor_of_execution_tools": True,
+                "current_execution_tools_match_execution_tool_commit": True,
+                "current_execution_tool_identity_count": 19,
+            },
             "runtime_tool_identities": manifest["runtime_tool_identities"],
+            "exact_runtime_tool_identities": manifest["exact_runtime_tool_identities"],
             "provenance_tool_identities": manifest["provenance_tool_identities"],
             "binary_slots": manifest["binaries"],
             "receipt_identities": receipt_identities,
@@ -442,6 +479,8 @@ def _report(candidate: dict[str, Any], tools: list[dict[str, Any]], cases: list[
             {"name": "protocol-profile-tolerance-request-formula", "status": "passed"},
             {"name": "expected-prebound-candidate-identity", "status": "passed", "detail": "caller-supplied candidate closure matched the canonical freeze manifest"},
             {"name": "current-phase3-tool-identities", "status": "passed"},
+            {"name": "candidate-to-execution-tool-ancestry", "status": "passed", "detail": "Git ancestry and both committed snapshots were checked by the freeze validator"},
+            {"name": "current-execution-tool-snapshot", "status": "passed", "detail": manifest["execution_tool_source_commit"]},
             {"name": "freeze-manifest", "status": "passed", "detail": manifest["manifest_sha256"]},
             {"name": "gate-b-current-double-review", "status": "missing"},
         ],

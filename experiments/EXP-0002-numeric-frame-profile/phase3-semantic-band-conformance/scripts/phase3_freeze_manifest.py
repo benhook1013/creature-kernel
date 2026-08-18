@@ -13,6 +13,7 @@ re-read later.
 from __future__ import annotations
 
 import argparse
+import ctypes
 import hashlib
 import importlib.util
 import json
@@ -41,8 +42,14 @@ RECEIPT_DIR_REL = "manifests/build-receipts"
 PHASE_ID = "exp-0002-phase3-semantic-band-conformance-001"
 EXPERIMENT_ID = "EXP-0002"
 CANDIDATE_PROFILE_ID = "ck.provisional-r3-authored-conflict.semantic-band-1"
-SCHEMA = "ck.exp-0002.phase3.freeze-manifest-1"
-HASH_DOMAIN = b"ck.exp-0002.phase3.freeze-manifest.v1\0"
+EXPECTED_CANDIDATE_SOURCE_COMMIT = "647eab5297adca1998764904cce98eca154738e4"
+EXPECTED_V1_MANIFEST_SHA256 = "122b0a88bf553e95a887acebfe436d95218389e339ea5aa1f3c85d0f5186fef3"
+INHERITED_V1_HASH_DOMAIN = b"ck.exp-0002.phase3.freeze-manifest.inherited-v1.v1\0"
+EXPECTED_INHERITED_V1_SHA256 = "4f9bde8be337c49d6cc36162b38f21b1a21c6044160b5a444c31e3d36068b70f"
+V1_SCHEMA = "ck.exp-0002.phase3.freeze-manifest-1"
+V1_HASH_DOMAIN = b"ck.exp-0002.phase3.freeze-manifest.v1\0"
+SCHEMA = "ck.exp-0002.phase3.freeze-manifest-2"
+HASH_DOMAIN = b"ck.exp-0002.phase3.freeze-manifest.v2\0"
 PHASE3_PATH = "scripts/phase3_freeze_manifest.py"
 TARGET = "x86_64-unknown-linux-gnu"
 TOOLCHAIN = "1.97.1"
@@ -58,6 +65,15 @@ RUNTIME_TOOLS = (
     "scripts/phase3_evidence_contract.py",
     "scripts/phase3_gate_b_preflight.py",
 )
+EXACT_RUNTIME_TOOLS = (
+    "scripts/phase3_exact_adjudicator.py",
+    "scripts/phase3_exact_authority.py",
+    "scripts/phase3_exact_custody.py",
+    "scripts/phase3_exact_fp_observer.py",
+    "scripts/phase3_exact_publication.py",
+    "scripts/phase3_exact_transport.py",
+    "scripts/phase3_exact_attempt.py",
+)
 # These are the exact provenance-producing tools.  Keep this list closed:
 # adding a helper changes what the freeze means and therefore needs an explicit
 # update to the manifest contract and its tests.
@@ -66,6 +82,11 @@ PROVENANCE_TOOLS = (
     "scripts/check_candidate_prebinding.py",
     "scripts/phase3_build_receipt.py",
     PHASE3_PATH,
+)
+INHERITED_SUCCESSOR_FIELDS = (
+    "candidate_source_commit", "status", "lifecycle", "execution_permitted",
+    "binding", "protocol", "raw_inputs", "repository_inputs", "candidate_closure",
+    "build", "platform", "binaries", "readiness", "attempts",
 )
 PACKAGE_INPUTS = (
     "preregistration.json",
@@ -76,7 +97,7 @@ PACKAGE_INPUTS = (
     "corpora/held-out.jsonl",
     "sqrt-vectors.json",
 )
-RELEVANT_PACKAGE_FILES = frozenset((*PACKAGE_INPUTS, MANIFEST_REL, *RUNTIME_TOOLS, *PROVENANCE_TOOLS))
+RELEVANT_PACKAGE_FILES = frozenset((*PACKAGE_INPUTS, MANIFEST_REL, *RUNTIME_TOOLS, *EXACT_RUNTIME_TOOLS, *PROVENANCE_TOOLS))
 SELECTORS = ("wsl2-x86_64", "ubuntu-24.04-x86_64")
 ROLE_FOR_SELECTOR = {"wsl2-x86_64": "wsl", "ubuntu-24.04-x86_64": "native"}
 RECEIPT_PATHS = {
@@ -181,6 +202,22 @@ def _resolve_source_commit(repo: Path, source_commit: str | None) -> str:
             _fail("source-commit", "source commit must be a full lowercase SHA-1")
         return source_commit
     return _git_head(repo)
+
+
+def _assert_descendant_commit(repo: Path, ancestor: str, descendant: str) -> None:
+    if not _valid_commit(ancestor) or not _valid_commit(descendant):
+        _fail("execution-tool-commit", "source commits must be full lowercase commit IDs")
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo), "merge-base", "--is-ancestor", ancestor, descendant],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except OSError as error:
+        raise FreezeManifestError("execution-tool-commit", "cannot compare source commits") from error
+    if result.returncode != 0:
+        _fail("execution-tool-commit", "execution tool commit is not a descendant of the candidate commit")
 
 
 def _safe_path(root: Path, relative: str) -> Path:
@@ -331,6 +368,27 @@ def _raw_inputs(repo: Path, package: Path) -> list[dict[str, Any]]:
 
 def _tool_identities(package: Path, paths: tuple[str, ...]) -> list[dict[str, Any]]:
     return [_file_identity(package, path) for path in paths]
+
+
+def _execution_tool_identities_from_commit(
+    repo: Path,
+    commit: str,
+    paths: tuple[str, ...],
+) -> list[dict[str, Any]]:
+    """Read one closed tool collection from the committed execution snapshot."""
+    if not _valid_commit(commit):
+        _fail("execution-tool-commit", "execution tool source commit is not a full commit")
+    identities: list[dict[str, Any]] = []
+    for path in paths:
+        repository_path = f"{PACKAGE_REL}/{path}"
+        identity = _git_blob_identity(repo, commit, repository_path)
+        identities.append({
+            "path": path,
+            "mode": stat.S_IMODE(identity["mode"]),
+            "bytes": identity["bytes"],
+            "sha256": identity["sha256"],
+        })
+    return identities
 
 
 def _parse_preregistration(package: Path) -> dict[str, Any]:
@@ -497,7 +555,7 @@ def _base_manifest(repo: Path = REPO, package: Path = PACKAGE, *, binaries: Mapp
     _parse_preregistration(package)
     binary_slots = _binary_slots(binaries)
     return {
-        "schema": SCHEMA,
+        "schema": V1_SCHEMA,
         "manifest_sha256": None,
         "candidate_source_commit": source_commit,
         "status": "Proposed",
@@ -515,7 +573,7 @@ def _base_manifest(repo: Path = REPO, package: Path = PACKAGE, *, binaries: Mapp
         "binaries": binary_slots,
         "readiness": _readiness(binary_slots),
         "attempts": "per-attempt observations and Ben authorization are external to this manifest",
-        "canonicalization": {"encoding": "UTF-8", "json": "RFC 8259-compatible strict JSON", "sort_keys": True, "separators": [",", ":"], "ensure_ascii": True, "trailing_newline": True, "self_hash_domain": HASH_DOMAIN.decode("ascii").rstrip("\0"), "self_hash_excludes": ["manifest_sha256"], "raw_file_hash": "SHA-256 over exact bytes; no parse/reserialize for raw identities"},
+        "canonicalization": {"encoding": "UTF-8", "json": "RFC 8259-compatible strict JSON", "sort_keys": True, "separators": [",", ":"], "ensure_ascii": True, "trailing_newline": True, "self_hash_domain": V1_HASH_DOMAIN.decode("ascii").rstrip("\0"), "self_hash_excludes": ["manifest_sha256"], "raw_file_hash": "SHA-256 over exact bytes; no parse/reserialize for raw identities"},
     }
 
 
@@ -561,10 +619,78 @@ def _validate_candidate_commit_snapshot(repo: Path, package: Path, manifest: Map
     _assert_git_identity(repo, candidate_commit, "rust-toolchain.toml", toolchain_identity)
 
 
+def _validate_candidate_build_snapshot(repo: Path, manifest: Mapping[str, Any]) -> None:
+    """Validate only candidate/build facts against the immutable candidate C."""
+    candidate_commit = manifest.get("candidate_source_commit")
+    if candidate_commit != EXPECTED_CANDIDATE_SOURCE_COMMIT:
+        _fail("source-commit", "successor does not retain the fixed candidate source commit")
+    closure = manifest.get("candidate_closure")
+    if not isinstance(closure, Mapping) or not isinstance(closure.get("entries"), list):
+        _fail("source-commit", "manifest candidate closure is unavailable")
+    entry_paths: set[str] = set()
+    for entry in closure["entries"]:
+        if not isinstance(entry, Mapping) or not isinstance(entry.get("path"), str):
+            _fail("source-commit", "manifest candidate closure entry is malformed")
+        entry_paths.add(entry["path"])
+        _assert_git_identity(repo, candidate_commit, entry["path"], entry, full_mode=True)
+    if CANDIDATE_MANIFEST_REL not in entry_paths or CANDIDATE_LOCK_REL not in entry_paths:
+        _fail("source-commit", "candidate closure omits Cargo manifest or lockfile")
+    raw_inputs = manifest.get("raw_inputs")
+    if not isinstance(raw_inputs, list):
+        _fail("source-commit", "manifest raw inputs are unavailable")
+    for identity in raw_inputs:
+        if not isinstance(identity, Mapping) or not isinstance(identity.get("path"), str):
+            _fail("source-commit", "manifest raw input entry is malformed")
+        relative = identity["path"] if identity["path"] == FIXTURE_REL else f"{PACKAGE_REL}/{identity['path']}"
+        _assert_git_identity(repo, candidate_commit, relative, identity)
+    repository_inputs = manifest.get("repository_inputs")
+    workflow = repository_inputs.get("native_build_workflow") if isinstance(repository_inputs, Mapping) else None
+    workflow_identity = workflow.get("identity") if isinstance(workflow, Mapping) else None
+    if not isinstance(workflow_identity, Mapping):
+        _fail("source-commit", "manifest native workflow identity is unavailable")
+    _assert_git_identity(repo, candidate_commit, WORKFLOW_REL, workflow_identity)
+    dependencies = manifest.get("build", {}).get("dependencies") if isinstance(manifest.get("build"), Mapping) else None
+    lock = dependencies.get("cargo_lock") if isinstance(dependencies, Mapping) else None
+    if not isinstance(lock, Mapping):
+        _fail("source-commit", "manifest Cargo.lock identity is unavailable")
+    _assert_git_identity(repo, candidate_commit, CANDIDATE_LOCK_REL, lock)
+    toolchain = manifest.get("build", {}).get("toolchain") if isinstance(manifest.get("build"), Mapping) else None
+    toolchain_identity = toolchain.get("rust_toolchain_file_identity") if isinstance(toolchain, Mapping) else None
+    if not isinstance(toolchain_identity, Mapping):
+        _fail("source-commit", "manifest rust-toolchain identity is unavailable")
+    _assert_git_identity(repo, candidate_commit, "rust-toolchain.toml", toolchain_identity)
+
+
+def _validate_execution_commit_snapshot(repo: Path, package: Path, manifest: Mapping[str, Any]) -> None:
+    """Cross-bind all current execution/provenance tools to committed snapshot E."""
+    commit = manifest.get("execution_tool_source_commit")
+    if not _valid_commit(commit):
+        _fail("execution-tool-commit", "execution tool source commit is invalid")
+    _assert_descendant_commit(repo, manifest.get("candidate_source_commit"), commit)
+    for field, paths in (
+        ("runtime_tool_identities", RUNTIME_TOOLS),
+        ("exact_runtime_tool_identities", EXACT_RUNTIME_TOOLS),
+        ("provenance_tool_identities", PROVENANCE_TOOLS),
+    ):
+        expected = _execution_tool_identities_from_commit(repo, commit, paths)
+        if manifest.get(field) != expected:
+            _fail("execution-tool-commit", f"{field} differs from committed execution snapshot")
+        observed = _tool_identities(package, paths)
+        if observed != expected:
+            _fail("execution-tool-drift", f"current {field} differs from committed execution snapshot")
+
+
 def _self_hash(value: Mapping[str, Any]) -> str:
     copy = json.loads(json.dumps(value))
     copy.pop("manifest_sha256", None)
-    return _sha256(HASH_DOMAIN + _canonical(copy))
+    schema = value.get("schema")
+    if schema == V1_SCHEMA:
+        domain = V1_HASH_DOMAIN
+    elif schema == SCHEMA:
+        domain = HASH_DOMAIN
+    else:
+        _fail("manifest-shape", "manifest schema has no self-hash domain")
+    return _sha256(domain + _canonical(copy))
 
 
 def _pure_keys(value: Any, keys: set[str], label: str) -> None:
@@ -589,7 +715,7 @@ def _pure_identity(value: Any, label: str, *, full_mode: bool = False) -> None:
         _fail("manifest-shape", f"{label}.sha256 is invalid")
 
 
-def _validate_pure_manifest(value: Any) -> dict[str, Any]:
+def _validate_pure_manifest_v1(value: Any) -> dict[str, Any]:
     """Validate the complete repository-independent freeze contract.
 
     This deliberately does not inspect the repository.  ``check_manifest``
@@ -599,7 +725,7 @@ def _validate_pure_manifest(value: Any) -> dict[str, Any]:
     """
     top_keys = {"schema", "manifest_sha256", "candidate_source_commit", "status", "lifecycle", "execution_permitted", "binding", "protocol", "raw_inputs", "repository_inputs", "candidate_closure", "runtime_tool_identities", "provenance_tool_identities", "build", "platform", "binaries", "readiness", "attempts", "canonicalization"}
     _pure_keys(value, top_keys, "manifest")
-    if value["schema"] != SCHEMA or value["status"] != "Proposed" or value["lifecycle"] != "planned" or value["execution_permitted"] is not False:
+    if value["schema"] != V1_SCHEMA or value["status"] != "Proposed" or value["lifecycle"] != "planned" or value["execution_permitted"] is not False:
         _fail("manifest-shape", "manifest fixed state is not the freeze contract")
     if not _valid_commit(value["candidate_source_commit"]):
         _fail("manifest-shape", "candidate source commit is invalid")
@@ -611,7 +737,7 @@ def _validate_pure_manifest(value: Any) -> dict[str, Any]:
     protocol = {"request_protocol_id": REQUEST_PROTOCOL, "response_protocol_id": RESPONSE_PROTOCOL, "request_fields": REQUEST_FIELDS, "canonical_wire": "strict UTF-8 JSON object, exact seven request fields, canonical bytes are SHA-256 framed by the evidence contract"}
     if value["protocol"] != protocol:
         _fail("manifest-shape", "manifest protocol contract is wrong")
-    canonicalization = {"encoding": "UTF-8", "json": "RFC 8259-compatible strict JSON", "sort_keys": True, "separators": [",", ":"], "ensure_ascii": True, "trailing_newline": True, "self_hash_domain": HASH_DOMAIN.decode("ascii").rstrip("\0"), "self_hash_excludes": ["manifest_sha256"], "raw_file_hash": "SHA-256 over exact bytes; no parse/reserialize for raw identities"}
+    canonicalization = {"encoding": "UTF-8", "json": "RFC 8259-compatible strict JSON", "sort_keys": True, "separators": [",", ":"], "ensure_ascii": True, "trailing_newline": True, "self_hash_domain": V1_HASH_DOMAIN.decode("ascii").rstrip("\0"), "self_hash_excludes": ["manifest_sha256"], "raw_file_hash": "SHA-256 over exact bytes; no parse/reserialize for raw identities"}
     if value["canonicalization"] != canonicalization:
         _fail("manifest-shape", "manifest canonicalization contract is wrong")
     if value["attempts"] != "per-attempt observations and Ben authorization are external to this manifest":
@@ -689,6 +815,97 @@ def _validate_pure_manifest(value: Any) -> dict[str, Any]:
     return dict(value)
 
 
+def _v2_canonicalization() -> dict[str, Any]:
+    return {
+        "encoding": "UTF-8",
+        "json": "RFC 8259-compatible strict JSON",
+        "sort_keys": True,
+        "separators": [",", ":"],
+        "ensure_ascii": True,
+        "trailing_newline": True,
+        "self_hash_domain": HASH_DOMAIN.decode("ascii").rstrip("\0"),
+        "self_hash_excludes": ["manifest_sha256"],
+        "raw_file_hash": "SHA-256 over exact bytes; no parse/reserialize for raw identities",
+    }
+
+
+def _inherited_v1_projection(value: Mapping[str, Any]) -> dict[str, Any]:
+    """Return the complete closed set of facts v2 must inherit from exact v1."""
+    try:
+        return {field: json.loads(json.dumps(value[field])) for field in INHERITED_SUCCESSOR_FIELDS}
+    except (KeyError, TypeError, ValueError, RecursionError) as error:
+        raise FreezeManifestError("manifest-shape", "inherited v1 projection is incomplete") from error
+
+
+def _inherited_v1_hash(value: Mapping[str, Any]) -> str:
+    return _sha256(INHERITED_V1_HASH_DOMAIN + _canonical(_inherited_v1_projection(value)))
+
+
+def _v1_projection(value: Mapping[str, Any]) -> dict[str, Any]:
+    """Project inherited v2 facts through the immutable v1 pure validator."""
+    projected = json.loads(json.dumps(value))
+    for field in ("predecessor_manifest_sha256", "predecessor_inherited_sha256", "execution_tool_source_commit", "exact_runtime_tool_identities"):
+        projected.pop(field, None)
+    projected["schema"] = V1_SCHEMA
+    projected["canonicalization"] = {
+        **_v2_canonicalization(),
+        "self_hash_domain": V1_HASH_DOMAIN.decode("ascii").rstrip("\0"),
+    }
+    projected["manifest_sha256"] = _self_hash(projected)
+    return projected
+
+
+def _validate_pure_manifest_v2(value: Any) -> dict[str, Any]:
+    """Validate the successor freeze without consulting a repository."""
+    top_keys = {
+        "schema", "manifest_sha256", "predecessor_manifest_sha256",
+        "predecessor_inherited_sha256",
+        "candidate_source_commit", "execution_tool_source_commit", "status",
+        "lifecycle", "execution_permitted", "binding", "protocol", "raw_inputs",
+        "repository_inputs", "candidate_closure", "runtime_tool_identities",
+        "exact_runtime_tool_identities", "provenance_tool_identities", "build",
+        "platform", "binaries", "readiness", "attempts", "canonicalization",
+    }
+    _pure_keys(value, top_keys, "manifest")
+    if value["schema"] != SCHEMA:
+        _fail("manifest-shape", "manifest is not the current successor schema")
+    if value["candidate_source_commit"] != EXPECTED_CANDIDATE_SOURCE_COMMIT:
+        _fail("manifest-shape", "successor candidate source commit is not the frozen candidate")
+    if not _valid_commit(value["execution_tool_source_commit"]) or value["execution_tool_source_commit"] == value["candidate_source_commit"]:
+        _fail("manifest-shape", "execution tool source commit must be a distinct later full commit")
+    if value["predecessor_manifest_sha256"] != EXPECTED_V1_MANIFEST_SHA256:
+        _fail("manifest-shape", "predecessor manifest hash is not the exact historical v1 freeze")
+    inherited_hash = _inherited_v1_hash(value)
+    if value["predecessor_inherited_sha256"] != EXPECTED_INHERITED_V1_SHA256 or inherited_hash != EXPECTED_INHERITED_V1_SHA256:
+        _fail("manifest-shape", "successor inherited facts differ from the exact historical v1 freeze")
+    if value["canonicalization"] != _v2_canonicalization():
+        _fail("manifest-shape", "manifest canonicalization contract is wrong")
+    if value["manifest_sha256"] != _self_hash(value):
+        _fail("manifest-self-hash", "manifest self hash does not match")
+
+    collections = (
+        ("runtime_tool_identities", RUNTIME_TOOLS),
+        ("exact_runtime_tool_identities", EXACT_RUNTIME_TOOLS),
+        ("provenance_tool_identities", PROVENANCE_TOOLS),
+    )
+    observed_paths: list[str] = []
+    for field, expected_paths in collections:
+        collection = value[field]
+        if not isinstance(collection, list) or [item.get("path") for item in collection if isinstance(item, Mapping)] != list(expected_paths):
+            _fail("manifest-shape", f"manifest.{field} paths are not the closed contract")
+        for index, identity in enumerate(collection):
+            _pure_identity(identity, f"manifest.{field}[{index}]")
+        observed_paths.extend(expected_paths)
+    if len(observed_paths) != 19 or len(set(observed_paths)) != 19:
+        _fail("manifest-shape", "successor tool collections are not exactly 19 disjoint identities")
+
+    # All other semantic sections remain byte-for-byte compatible with the v1
+    # contract.  Reusing the frozen validator avoids a second subtly divergent
+    # definition of the candidate/build/receipt/platform facts.
+    _validate_pure_manifest_v1(_v1_projection(value))
+    return dict(value)
+
+
 def _seal(value: dict[str, Any]) -> dict[str, Any]:
     value["manifest_sha256"] = _self_hash(value)
     return value
@@ -719,6 +936,7 @@ def _package_extra_files(package: Path) -> list[str]:
 
 
 def generate_manifest(repo: Path = REPO, package: Path = PACKAGE, *, binaries: Mapping[str, Any] | None = None, source_commit: str | None = None) -> dict[str, Any]:
+    """Generate the historical v1 shape; successor generation is explicit."""
     extras = _package_extra_files(package)
     if extras:
         _fail("extra-input", ", ".join(extras))
@@ -747,7 +965,12 @@ def validate_manifest(raw_or_value: bytes | Mapping[str, Any]) -> dict[str, Any]
         value = dict(raw_or_value)
     else:
         _fail("manifest-shape", "manifest must be canonical bytes or a parsed object")
-    return _validate_pure_manifest(value)
+    schema = value.get("schema") if isinstance(value, Mapping) else None
+    if schema == V1_SCHEMA:
+        return _validate_pure_manifest_v1(value)
+    if schema == SCHEMA:
+        return _validate_pure_manifest_v2(value)
+    _fail("manifest-shape", "manifest schema is unsupported")
 
 
 def _load_manifest(path: Path) -> dict[str, Any]:
@@ -764,8 +987,8 @@ def _manifest_identity(info: os.stat_result) -> tuple[int, int, int, int, int, i
     return (info.st_dev, info.st_ino, info.st_mode, info.st_nlink, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
 
 
-def _read_manifest_bytes(path: Path) -> bytes:
-    """Read one canonical manifest through a bounded, identity-checked fd.
+def _read_manifest_snapshot(path: Path) -> tuple[bytes, tuple[int, int, int, int, int, int, int]]:
+    """Read canonical bytes and the exact stable destination identity.
 
     The manifest is a publication boundary, so a path read is not sufficient:
     reject symlinks, non-regular files, hardlinks, and non-canonical modes and
@@ -822,7 +1045,11 @@ def _read_manifest_bytes(path: Path) -> bytes:
         raise FreezeManifestError("manifest-file", "manifest disappeared after reading") from error
     if _manifest_identity(current) != (before.st_dev, before.st_ino, before.st_mode, before.st_nlink, len(raw), before.st_mtime_ns, before.st_ctime_ns):
         _fail("manifest-file", "manifest changed after reading")
-    return raw
+    return raw, _manifest_identity(current)
+
+
+def _read_manifest_bytes(path: Path) -> bytes:
+    return _read_manifest_snapshot(path)[0]
 
 
 def _receipt_module(package: Path) -> Any:
@@ -972,8 +1199,71 @@ def _validate_bound_receipts(package: Path, manifest: Mapping[str, Any], binarie
         _fail("build-receipt", "platform receipts do not share the same dependency/vendor closure")
 
 
-def check_manifest(repo: Path = REPO, package: Path = PACKAGE, path: Path = MANIFEST) -> dict[str, Any]:
+def _validate_current_candidate_build_inputs(repo: Path, package: Path, manifest: Mapping[str, Any]) -> None:
+    """Recompute inherited v1 facts while deliberately ignoring changed tools."""
+    current = generate_manifest(
+        repo,
+        package,
+        binaries=_validate_binary_slots(manifest.get("binaries")),
+        source_commit=manifest.get("candidate_source_commit"),
+    )
+    for field in INHERITED_SUCCESSOR_FIELDS:
+        if manifest.get(field) != current.get(field):
+            _fail("manifest-drift", f"successor inherited field differs from current inputs: {field}")
+
+
+def build_successor_manifest(
+    predecessor_raw: bytes,
+    *,
+    execution_tool_source_commit: str,
+    repo: Path = REPO,
+    package: Path = PACKAGE,
+) -> dict[str, Any]:
+    """Build v2 from exact canonical, fully bound v1 bytes without executing."""
+    if not isinstance(predecessor_raw, bytes):
+        _fail("predecessor-manifest", "successor input must be the exact v1 bytes")
+    predecessor = validate_manifest(predecessor_raw)
+    if predecessor.get("schema") != V1_SCHEMA:
+        _fail("predecessor-manifest", "successor input must be the historical v1 manifest")
+    if predecessor.get("manifest_sha256") != EXPECTED_V1_MANIFEST_SHA256:
+        _fail("predecessor-manifest", "successor input is not the exact canonical historical v1 manifest")
+    binaries = _validate_binary_slots(predecessor.get("binaries"))
+    if any(slot["status"] != "bound" for slot in binaries.values()):
+        _fail("predecessor-manifest", "successor requires the fully bound historical v1 manifest")
+    if predecessor.get("readiness") != _readiness(binaries) or predecessor["readiness"]["materialization_state"] != "frozen":
+        _fail("predecessor-manifest", "historical v1 manifest is not frozen")
+    if predecessor.get("candidate_source_commit") != EXPECTED_CANDIDATE_SOURCE_COMMIT:
+        _fail("predecessor-manifest", "historical v1 manifest has the wrong candidate commit")
+    if not _valid_commit(execution_tool_source_commit) or execution_tool_source_commit == predecessor["candidate_source_commit"]:
+        _fail("execution-tool-commit", "caller must supply a distinct later full execution tool commit")
+
+    # The predecessor is authenticated independently before any successor
+    # fields are introduced. Its receipts and candidate-era closure remain
+    # governed by C; only execution/provenance tools move to E.
+    _validate_candidate_commit_snapshot(repo, package, predecessor)
+    _validate_bound_receipts(package, predecessor, binaries)
+    successor = json.loads(json.dumps(predecessor))
+    successor["schema"] = SCHEMA
+    successor["manifest_sha256"] = None
+    successor["predecessor_manifest_sha256"] = predecessor["manifest_sha256"]
+    successor["predecessor_inherited_sha256"] = _inherited_v1_hash(predecessor)
+    successor["execution_tool_source_commit"] = execution_tool_source_commit
+    successor["runtime_tool_identities"] = _execution_tool_identities_from_commit(repo, execution_tool_source_commit, RUNTIME_TOOLS)
+    successor["exact_runtime_tool_identities"] = _execution_tool_identities_from_commit(repo, execution_tool_source_commit, EXACT_RUNTIME_TOOLS)
+    successor["provenance_tool_identities"] = _execution_tool_identities_from_commit(repo, execution_tool_source_commit, PROVENANCE_TOOLS)
+    successor["canonicalization"] = _v2_canonicalization()
+    _seal(successor)
+    validated = _validate_pure_manifest_v2(successor)
+    _validate_candidate_build_snapshot(repo, validated)
+    _validate_execution_commit_snapshot(repo, package, validated)
+    return validated
+
+
+def check_historical_manifest(repo: Path = REPO, package: Path = PACKAGE, path: Path = MANIFEST) -> dict[str, Any]:
+    """Check a v1 manifest only; retained for immutable historical validation."""
     recorded = _load_manifest(path)
+    if recorded.get("schema") != V1_SCHEMA:
+        _fail("historical-schema", "historical check requires a v1 freeze manifest")
     # The candidate commit remains authoritative after the later freeze commit,
     # but a check still requires a usable repository with a current HEAD.
     _resolve_source_commit(repo, None)
@@ -987,7 +1277,85 @@ def check_manifest(repo: Path = REPO, package: Path = PACKAGE, path: Path = MANI
     return recorded
 
 
-def _atomic_write_manifest(value: Mapping[str, Any], path: Path) -> None:
+def check_manifest(repo: Path = REPO, package: Path = PACKAGE, path: Path = MANIFEST) -> dict[str, Any]:
+    """Check the current v2 freeze against candidate C and execution tools E."""
+    recorded = _load_manifest(path)
+    if recorded.get("schema") != SCHEMA:
+        _fail("current-schema", "current freeze check requires the v2 successor manifest")
+    _resolve_source_commit(repo, None)
+    _validate_candidate_build_snapshot(repo, recorded)
+    _validate_execution_commit_snapshot(repo, package, recorded)
+    binaries = _validate_binary_slots(recorded.get("binaries"))
+    _validate_bound_receipts(package, recorded, binaries)
+    _validate_current_candidate_build_inputs(repo, package, recorded)
+    return recorded
+
+
+def _rename_exchange(first: Path, second: Path) -> None:
+    """Atomically exchange two Linux directory entries or fail closed."""
+    try:
+        library = ctypes.CDLL(None, use_errno=True)
+        renameat2 = library.renameat2
+    except (OSError, AttributeError) as error:
+        raise FreezeManifestError("manifest-write", "atomic rename exchange is unavailable") from error
+    renameat2.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
+    renameat2.restype = ctypes.c_int
+    at_fdcwd = -100
+    rename_exchange = 2
+    if renameat2(at_fdcwd, os.fsencode(first), at_fdcwd, os.fsencode(second), rename_exchange) != 0:
+        error_number = ctypes.get_errno()
+        raise FreezeManifestError("manifest-write", f"atomic rename exchange failed: {os.strerror(error_number)}")
+
+
+def _rename_noreplace(first: Path, second: Path) -> None:
+    """Atomically publish an absent destination without replacement."""
+    try:
+        library = ctypes.CDLL(None, use_errno=True)
+        renameat2 = library.renameat2
+    except (OSError, AttributeError) as error:
+        raise FreezeManifestError("manifest-write", "atomic no-replace rename is unavailable") from error
+    renameat2.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
+    renameat2.restype = ctypes.c_int
+    at_fdcwd = -100
+    rename_noreplace = 1
+    if renameat2(at_fdcwd, os.fsencode(first), at_fdcwd, os.fsencode(second), rename_noreplace) != 0:
+        error_number = ctypes.get_errno()
+        raise FreezeManifestError("manifest-write", f"atomic no-replace rename failed: {os.strerror(error_number)}")
+
+
+def _same_exchanged_snapshot(
+    observed: tuple[bytes, tuple[int, int, int, int, int, int, int]],
+    expected: tuple[bytes, tuple[int, int, int, int, int, int, int]],
+) -> bool:
+    # Linux rename updates ctime on the exchanged inodes.  The retained
+    # dev/inode, mode, link count, size, mtime, and exact bytes still identify
+    # the destination that occupied the CAS slot at the exchange point.
+    return observed[0] == expected[0] and observed[1][:-1] == expected[1][:-1]
+
+
+def _fsync_directory(path: Path) -> None:
+    try:
+        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+    except OSError as error:
+        raise FreezeManifestError("manifest-write", "cannot open manifest directory for fsync") from error
+    try:
+        os.fsync(descriptor)
+    except OSError as error:
+        raise FreezeManifestError("manifest-write", "cannot fsync manifest directory") from error
+    finally:
+        try:
+            os.close(descriptor)
+        except OSError as error:
+            raise FreezeManifestError("manifest-write", "cannot close fsynced manifest directory") from error
+
+
+def _atomic_write_manifest(
+    value: Mapping[str, Any],
+    path: Path,
+    *,
+    expected_destination_snapshot: tuple[bytes, tuple[int, int, int, int, int, int, int]] | None = None,
+    expect_destination_absent: bool = False,
+) -> None:
     """Write canonical bytes without exposing a partial or bound overwrite."""
     path.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -997,17 +1365,36 @@ def _atomic_write_manifest(value: Mapping[str, Any], path: Path) -> None:
     except OSError as error:
         raise FreezeManifestError("manifest-write", str(path)) from error
     if existing_info is not None:
+        if expect_destination_absent:
+            _fail("manifest-write", "destination appeared after the caller observed absence")
         if not stat.S_ISREG(existing_info.st_mode) or stat.S_ISLNK(existing_info.st_mode) or stat.S_IMODE(existing_info.st_mode) != 0o644 or existing_info.st_nlink != 1:
             _fail("manifest-write", "manifest path must be a mode-0644 single-link regular file")
         try:
-            existing = _load_manifest(path)
+            existing_raw, existing_identity = _read_manifest_snapshot(path)
+            existing = validate_manifest(existing_raw)
             existing_binaries = _validate_binary_slots(existing.get("binaries"))
         except FreezeManifestError as error:
             raise FreezeManifestError("manifest-write", f"existing manifest is not safely replaceable: {error.code}") from error
+        existing_snapshot = (existing_raw, existing_identity)
+        if expected_destination_snapshot is not None and existing_snapshot != expected_destination_snapshot:
+            _fail("manifest-write", "destination differs from the caller-validated snapshot")
         if all(slot["status"] == "bound" for slot in existing_binaries.values()):
-            _fail("manifest-finalized", "refusing to overwrite an already bound freeze manifest")
+            successor_allowed = (
+                expected_destination_snapshot is not None
+                and existing.get("schema") == V1_SCHEMA
+                and value.get("schema") == SCHEMA
+                and value.get("predecessor_manifest_sha256") == existing.get("manifest_sha256")
+            )
+            if not successor_allowed:
+                _fail("manifest-finalized", "refusing to overwrite an already bound freeze manifest")
+        conditional_snapshot = existing_snapshot
+    else:
+        if expected_destination_snapshot is not None:
+            _fail("manifest-write", "expected destination disappeared before publication")
+        conditional_snapshot = None
     raw = _canonical(value)
     temporary: Path | None = None
+    preserve_temporary = False
     try:
         with tempfile.NamedTemporaryFile(mode="wb", dir=path.parent, prefix=f".{path.name}.", suffix=".tmp", delete=False) as stream:
             temporary = Path(stream.name)
@@ -1018,21 +1405,78 @@ def _atomic_write_manifest(value: Mapping[str, Any], path: Path) -> None:
             stream.write(raw)
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temporary, path)
-        temporary = None
-        try:
-            directory_fd = os.open(path.parent, os.O_RDONLY)
-        except OSError:
-            directory_fd = None
-        if directory_fd is not None:
+        if conditional_snapshot is None:
+            _rename_noreplace(temporary, path)
+            temporary = None
+        else:
+            # RENAME_EXCHANGE is the compare-and-swap linearization point.  It
+            # never discards the displaced destination: that entry moves to
+            # ``temporary`` atomically, where it can be compared with the
+            # exact caller-validated destination.  On mismatch, exchange again
+            # to restore it.
+            _rename_exchange(temporary, path)
             try:
-                os.fsync(directory_fd)
-            finally:
-                os.close(directory_fd)
+                displaced_snapshot = _read_manifest_snapshot(temporary)
+                if not _same_exchanged_snapshot(displaced_snapshot, conditional_snapshot):
+                    _fail("manifest-write", "destination changed before conditional exchange")
+            except FreezeManifestError as detection_error:
+                try:
+                    _rename_exchange(path, temporary)
+                except FreezeManifestError as rollback_error:
+                    preserve_temporary = True
+                    raise FreezeManifestError(
+                        "manifest-write",
+                        f"destination changed and rollback failed; displaced entry preserved at {temporary}",
+                    ) from rollback_error
+                raise detection_error
+        try:
+            _fsync_directory(path.parent)
+        except FreezeManifestError as publication_error:
+            if conditional_snapshot is None:
+                # The no-replace publication is already visible and there is
+                # no old entry that can be restored with a conditional atomic
+                # operation. Treat directory sync as best-effort here so the
+                # reported success matches the visible new state.
+                return
+            try:
+                _rename_exchange(path, temporary)
+            except FreezeManifestError as rollback_error:
+                preserve_temporary = True
+                raise FreezeManifestError(
+                    "manifest-write",
+                    f"directory sync failed and rollback failed; displaced entry preserved at {temporary}",
+                ) from rollback_error
+            try:
+                _fsync_directory(path.parent)
+            except FreezeManifestError as rollback_sync_error:
+                preserve_temporary = True
+                raise FreezeManifestError(
+                    "manifest-write",
+                    f"directory sync failed and rollback durability is unknown; replacement preserved at {temporary}",
+                ) from rollback_sync_error
+            raise publication_error
+        if conditional_snapshot is not None:
+            # The new entry is durable before the displaced old entry is
+            # removed. Cleanup failure cannot invalidate successful
+            # publication; retaining the old entry is recoverable.
+            try:
+                temporary.unlink()
+            except OSError:
+                preserve_temporary = True
+            else:
+                temporary = None
+                try:
+                    _fsync_directory(path.parent)
+                except FreezeManifestError:
+                    # Publication was already durable. Failure to durably
+                    # record cleanup can only resurrect the displaced temp
+                    # entry after a crash, so it must not turn success into a
+                    # false publication failure.
+                    pass
     except OSError as error:
         raise FreezeManifestError("manifest-write", str(path)) from error
     finally:
-        if temporary is not None:
+        if temporary is not None and not preserve_temporary:
             try:
                 temporary.unlink()
             except OSError:
@@ -1044,7 +1488,8 @@ def finalize_from_receipts(path: Path, receipt_paths: list[Path], *, repo: Path 
     if len(receipt_paths) != 2:
         _fail("build-receipt", "exactly two build receipts (WSL and native) are required")
     _resolve_source_commit(repo, None)
-    baseline = _load_manifest(path)
+    baseline_snapshot = _read_manifest_snapshot(path)
+    baseline = validate_manifest(baseline_snapshot[0])
     candidate_commit = baseline.get("candidate_source_commit")
     if not _valid_commit(candidate_commit):
         _fail("source-commit", "pre-freeze manifest candidate source commit is invalid")
@@ -1080,7 +1525,7 @@ def finalize_from_receipts(path: Path, receipt_paths: list[Path], *, repo: Path 
     if _vendor_logical(facts[0]["vendor_closure"]) != _vendor_logical(facts[1]["vendor_closure"]):
         _fail("build-receipt", "WSL and native receipts do not share vendor closure")
     sealed = generate_manifest(repo, package, binaries=current, source_commit=candidate_commit)
-    _atomic_write_manifest(sealed, path)
+    _atomic_write_manifest(sealed, path, expected_destination_snapshot=baseline_snapshot)
     return sealed
 
 
@@ -1092,6 +1537,16 @@ def write_manifest(
     package: Path = PACKAGE,
 ) -> None:
     """Write only an exact generated manifest, never arbitrary caller JSON."""
+    try:
+        path.lstat()
+    except FileNotFoundError:
+        destination_snapshot = None
+        destination_was_absent = True
+    except OSError as error:
+        raise FreezeManifestError("manifest-write", str(path)) from error
+    else:
+        destination_snapshot = _read_manifest_snapshot(path)
+        destination_was_absent = False
     if not isinstance(value, dict):
         _fail("manifest-write", "supplied manifest must be an object")
     try:
@@ -1105,7 +1560,35 @@ def write_manifest(
     expected = generate_manifest(repo, package, binaries=binaries, source_commit=candidate_commit)
     if value != expected:
         _fail("manifest-drift", "supplied manifest differs from the generated freeze contract")
-    _atomic_write_manifest(expected, path)
+    _atomic_write_manifest(
+        expected,
+        path,
+        expected_destination_snapshot=destination_snapshot,
+        expect_destination_absent=destination_was_absent,
+    )
+
+
+def write_successor_manifest(
+    path: Path,
+    execution_tool_source_commit: str,
+    *,
+    repo: Path = REPO,
+    package: Path = PACKAGE,
+) -> dict[str, Any]:
+    """Replace the exact bound v1 once; an existing v2 is never overwritten."""
+    predecessor_snapshot = _read_manifest_snapshot(path)
+    predecessor_raw = predecessor_snapshot[0]
+    predecessor = validate_manifest(predecessor_raw)
+    if predecessor.get("schema") != V1_SCHEMA:
+        _fail("manifest-finalized", "successor creation requires the exact bound v1 manifest")
+    successor = build_successor_manifest(
+        predecessor_raw,
+        execution_tool_source_commit=execution_tool_source_commit,
+        repo=repo,
+        package=package,
+    )
+    _atomic_write_manifest(successor, path, expected_destination_snapshot=predecessor_snapshot)
+    return successor
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -1115,11 +1598,20 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--manifest", type=Path, default=MANIFEST)
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--finalize", type=Path, nargs=2, metavar=("WSL_RECEIPT", "NATIVE_RECEIPT"))
+    parser.add_argument("--successor", metavar="EXECUTION_TOOL_COMMIT")
     args = parser.parse_args(argv)
     try:
         if args.check:
             check_manifest(args.repo.resolve(), args.package.resolve(), args.manifest.resolve())
             print("PHASE 3 FREEZE MANIFEST CHECK OK")
+        elif args.successor:
+            successor = write_successor_manifest(
+                args.manifest.resolve(),
+                args.successor,
+                repo=args.repo.resolve(),
+                package=args.package.resolve(),
+            )
+            print(f"PHASE 3 FREEZE MANIFEST SUCCESSOR CREATED: {successor['manifest_sha256']}")
         elif args.finalize:
             finalized = finalize_from_receipts(args.manifest.resolve(), [item.resolve() for item in args.finalize], repo=args.repo.resolve(), package=args.package.resolve())
             print(f"PHASE 3 FREEZE MANIFEST FINALIZED: {finalized['readiness']['materialization_state']}")
@@ -1141,4 +1633,4 @@ if __name__ == "__main__":
     raise SystemExit(main())
 
 
-__all__ = ["SCHEMA", "PHASE_ID", "FreezeManifestError", "validate_manifest", "generate_manifest", "check_manifest", "finalize_from_receipts", "write_manifest", "MANIFEST", "PACKAGE", "REPO"]
+__all__ = ["V1_SCHEMA", "SCHEMA", "PHASE_ID", "FreezeManifestError", "validate_manifest", "generate_manifest", "build_successor_manifest", "check_historical_manifest", "check_manifest", "finalize_from_receipts", "write_manifest", "write_successor_manifest", "MANIFEST", "PACKAGE", "REPO"]

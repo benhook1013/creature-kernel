@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 import struct
@@ -81,7 +82,320 @@ def _portable_checksum_paths(raw: str) -> list[str]:
     return paths
 
 
+def _successor(package: Path, execution_commit: str = "e" * 40) -> dict:
+    predecessor_raw = (package / freeze.MANIFEST_REL).read_bytes()
+
+    def committed(_repo: Path, _commit: str, paths: tuple[str, ...]) -> list[dict]:
+        return freeze._tool_identities(package, paths)
+
+    with (
+        patch.object(freeze, "_validate_candidate_commit_snapshot"),
+        patch.object(freeze, "_validate_candidate_build_snapshot"),
+        patch.object(freeze, "_assert_descendant_commit"),
+        patch.object(freeze, "_execution_tool_identities_from_commit", side_effect=committed),
+    ):
+        return freeze.build_successor_manifest(
+            predecessor_raw,
+            execution_tool_source_commit=execution_commit,
+            package=package,
+        )
+
+
+def _unbound_historical_manifest() -> dict:
+    value = freeze.validate_manifest((freeze.PACKAGE / freeze.MANIFEST_REL).read_bytes())
+    value["binaries"] = freeze._binary_slots()
+    value["readiness"] = freeze._readiness(value["binaries"])
+    return freeze._seal(value)
+
+
 class FreezeManifestTests(unittest.TestCase):
+    def test_historical_v1_bytes_remain_valid_and_current_check_requires_v2(self) -> None:
+        raw = (freeze.PACKAGE / freeze.MANIFEST_REL).read_bytes()
+        historical = freeze.validate_manifest(raw)
+        self.assertEqual(historical["schema"], freeze.V1_SCHEMA)
+        self.assertEqual(historical["manifest_sha256"], freeze._self_hash(historical))
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "freeze-manifest.json"
+            path.write_bytes(raw)
+            path.chmod(0o644)
+            with self.assertRaises(freeze.FreezeManifestError) as error:
+                freeze.check_manifest(path=path)
+        self.assertEqual(error.exception.code, "current-schema")
+
+    def test_successor_preserves_v1_facts_and_binds_disjoint_tool_snapshots(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            package = Path(directory) / "package"
+            shutil.copytree(freeze.PACKAGE, package)
+            predecessor = freeze.validate_manifest((package / freeze.MANIFEST_REL).read_bytes())
+            successor = _successor(package)
+        self.assertEqual(successor["schema"], freeze.SCHEMA)
+        self.assertEqual(successor["predecessor_manifest_sha256"], predecessor["manifest_sha256"])
+        self.assertEqual(successor["candidate_source_commit"], freeze.EXPECTED_CANDIDATE_SOURCE_COMMIT)
+        self.assertEqual(successor["execution_tool_source_commit"], "e" * 40)
+        self.assertEqual(successor["predecessor_inherited_sha256"], freeze.EXPECTED_INHERITED_V1_SHA256)
+        self.assertEqual(freeze._inherited_v1_hash(predecessor), freeze.EXPECTED_INHERITED_V1_SHA256)
+        for field in freeze.INHERITED_SUCCESSOR_FIELDS:
+            self.assertEqual(successor[field], predecessor[field], field)
+        self.assertEqual([item["path"] for item in successor["runtime_tool_identities"]], list(freeze.RUNTIME_TOOLS))
+        self.assertEqual([item["path"] for item in successor["exact_runtime_tool_identities"]], list(freeze.EXACT_RUNTIME_TOOLS))
+        self.assertEqual([item["path"] for item in successor["provenance_tool_identities"]], list(freeze.PROVENANCE_TOOLS))
+        paths = [item["path"] for field in ("runtime_tool_identities", "exact_runtime_tool_identities", "provenance_tool_identities") for item in successor[field]]
+        self.assertEqual(len(paths), 19)
+        self.assertEqual(len(set(paths)), 19)
+        self.assertEqual(freeze.validate_manifest(_canonical(successor)), successor)
+
+    def test_pure_successor_rejects_resealed_inherited_fact_substitutions(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            package = Path(directory) / "package"
+            shutil.copytree(freeze.PACKAGE, package)
+            successor = _successor(package)
+        mutations = {
+            "candidate-closure": lambda value: value["candidate_closure"]["entries"][0].__setitem__("sha256", "0" * 64),
+            "raw-input": lambda value: value["raw_inputs"][0].__setitem__("sha256", "0" * 64),
+            "binary": lambda value: value["binaries"]["wsl2-x86_64"]["binary_identity"].__setitem__("sha256", "0" * 64),
+            "receipt": lambda value: value["binaries"]["wsl2-x86_64"].__setitem__("receipt_sha256", "0" * 64),
+        }
+        for label, mutate in mutations.items():
+            forged = json.loads(_canonical(successor))
+            mutate(forged)
+            forged["manifest_sha256"] = freeze._self_hash(forged)
+            with self.subTest(label=label), self.assertRaises(freeze.FreezeManifestError) as error:
+                freeze.validate_manifest(_canonical(forged))
+            self.assertEqual(error.exception.code, "manifest-shape")
+
+    def test_successor_rejects_a_validly_resealed_v1_substitute(self) -> None:
+        predecessor = freeze.validate_manifest((freeze.PACKAGE / freeze.MANIFEST_REL).read_bytes())
+        forged = json.loads(_canonical(predecessor))
+        forged["runtime_tool_identities"][0]["sha256"] = "0" * 64
+        forged["manifest_sha256"] = freeze._self_hash(forged)
+        self.assertEqual(freeze.validate_manifest(_canonical(forged)), forged)
+        with self.assertRaises(freeze.FreezeManifestError) as error:
+            freeze.build_successor_manifest(
+                _canonical(forged),
+                execution_tool_source_commit="e" * 40,
+            )
+        self.assertEqual(error.exception.code, "predecessor-manifest")
+
+    def test_execution_tool_commit_must_descend_from_candidate_commit(self) -> None:
+        with patch.object(freeze.subprocess, "run") as run:
+            run.return_value.returncode = 0
+            freeze._assert_descendant_commit(freeze.REPO, "a" * 40, "b" * 40)
+            run.return_value.returncode = 1
+            with self.assertRaises(freeze.FreezeManifestError) as error:
+                freeze._assert_descendant_commit(freeze.REPO, "a" * 40, "b" * 40)
+        self.assertEqual(error.exception.code, "execution-tool-commit")
+
+    def test_successor_tool_contract_is_closed_and_current_check_cross_binds(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            package = Path(directory) / "package"
+            shutil.copytree(freeze.PACKAGE, package)
+            successor = _successor(package)
+            manifest_path = package / freeze.MANIFEST_REL
+            manifest_path.write_bytes(_canonical(successor))
+            manifest_path.chmod(0o644)
+            with (
+                patch.object(freeze, "_resolve_source_commit", return_value="f" * 40),
+                patch.object(freeze, "_validate_candidate_build_snapshot"),
+                patch.object(freeze, "_validate_execution_commit_snapshot"),
+                patch.object(freeze, "_validate_current_candidate_build_inputs"),
+            ):
+                self.assertEqual(freeze.check_manifest(package=package, path=manifest_path), successor)
+            forged = json.loads(_canonical(successor))
+            forged["exact_runtime_tool_identities"][0]["path"] = "scripts/not-closed.py"
+            forged["manifest_sha256"] = freeze._self_hash(forged)
+            with self.assertRaises(freeze.FreezeManifestError) as error:
+                freeze.validate_manifest(_canonical(forged))
+            self.assertEqual(error.exception.code, "manifest-shape")
+
+    def test_successor_writer_replaces_exact_v1_once_and_refuses_v2_overwrite(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            package = Path(directory) / "package"
+            shutil.copytree(freeze.PACKAGE, package)
+            manifest_path = package / freeze.MANIFEST_REL
+            manifest_path.chmod(0o644)
+
+            def committed(_repo: Path, _commit: str, paths: tuple[str, ...]) -> list[dict]:
+                return freeze._tool_identities(package, paths)
+
+            with (
+                patch.object(freeze, "_validate_candidate_commit_snapshot"),
+                patch.object(freeze, "_validate_candidate_build_snapshot"),
+                patch.object(freeze, "_assert_descendant_commit"),
+                patch.object(freeze, "_execution_tool_identities_from_commit", side_effect=committed),
+            ):
+                written = freeze.write_successor_manifest(manifest_path, "e" * 40, package=package)
+                with self.assertRaises(freeze.FreezeManifestError) as error:
+                    freeze.write_successor_manifest(manifest_path, "e" * 40, package=package)
+            self.assertEqual(error.exception.code, "manifest-finalized")
+            self.assertEqual(freeze.validate_manifest(manifest_path.read_bytes()), written)
+
+    def test_successor_exchange_detects_and_restores_last_moment_destination_replacement(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            package = Path(directory) / "package"
+            shutil.copytree(freeze.PACKAGE, package)
+            manifest_path = package / freeze.MANIFEST_REL
+            manifest_path.chmod(0o644)
+            predecessor_snapshot = freeze._read_manifest_snapshot(manifest_path)
+            successor = _successor(package)
+            decoy = b'{"decoy":true}\n'
+            exchange = freeze._rename_exchange
+            calls = 0
+
+            def replace_then_exchange(first: Path, second: Path) -> None:
+                nonlocal calls
+                if calls == 0:
+                    decoy_path = second.parent / "last-moment-decoy.json"
+                    decoy_path.write_bytes(decoy)
+                    decoy_path.chmod(0o644)
+                    os.replace(decoy_path, second)
+                calls += 1
+                exchange(first, second)
+
+            with patch.object(freeze, "_rename_exchange", side_effect=replace_then_exchange):
+                with self.assertRaises(freeze.FreezeManifestError) as error:
+                    freeze._atomic_write_manifest(
+                        successor,
+                        manifest_path,
+                        expected_destination_snapshot=predecessor_snapshot,
+                    )
+            self.assertEqual(error.exception.code, "manifest-write")
+            self.assertEqual(calls, 2)
+            self.assertEqual(manifest_path.read_bytes(), decoy)
+            self.assertEqual(list(manifest_path.parent.glob(f".{manifest_path.name}.*.tmp")), [])
+
+    def test_initial_creation_never_replaces_a_last_moment_entry(self) -> None:
+        manifest = _unbound_historical_manifest()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "freeze-manifest.json"
+            decoy = b'{"appeared":true}\n'
+            rename_noreplace = freeze._rename_noreplace
+
+            def appear_then_publish(first: Path, second: Path) -> None:
+                second.write_bytes(decoy)
+                second.chmod(0o644)
+                rename_noreplace(first, second)
+
+            with patch.object(freeze, "_rename_noreplace", side_effect=appear_then_publish):
+                with self.assertRaises(freeze.FreezeManifestError) as error:
+                    freeze._atomic_write_manifest(manifest, path)
+            self.assertEqual(error.exception.code, "manifest-write")
+            self.assertEqual(path.read_bytes(), decoy)
+            self.assertEqual(list(path.parent.glob(f".{path.name}.*.tmp")), [])
+
+    def test_unbound_exchange_detects_and_restores_last_moment_destination_replacement(self) -> None:
+        manifest = _unbound_historical_manifest()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "freeze-manifest.json"
+            path.write_bytes(_canonical(manifest))
+            path.chmod(0o644)
+            decoy = b'{"replacement":true}\n'
+            exchange = freeze._rename_exchange
+            calls = 0
+
+            def replace_then_exchange(first: Path, second: Path) -> None:
+                nonlocal calls
+                if calls == 0:
+                    decoy_path = second.parent / "unbound-decoy.json"
+                    decoy_path.write_bytes(decoy)
+                    decoy_path.chmod(0o644)
+                    os.replace(decoy_path, second)
+                calls += 1
+                exchange(first, second)
+
+            with patch.object(freeze, "_rename_exchange", side_effect=replace_then_exchange):
+                with self.assertRaises(freeze.FreezeManifestError) as error:
+                    freeze._atomic_write_manifest(manifest, path)
+            self.assertEqual(error.exception.code, "manifest-write")
+            self.assertEqual(calls, 2)
+            self.assertEqual(path.read_bytes(), decoy)
+            self.assertEqual(list(path.parent.glob(f".{path.name}.*.tmp")), [])
+
+    def test_finalization_rejects_a_valid_snapshot_substitution_before_publication(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            package = Path(directory) / "package"
+            shutil.copytree(freeze.PACKAGE, package)
+            path = package / freeze.MANIFEST_REL
+            baseline = _unbound_historical_manifest()
+            path.write_bytes(_canonical(baseline))
+            path.chmod(0o644)
+            decoy = json.loads(_canonical(baseline))
+            decoy["raw_inputs"][0]["sha256"] = "0" * 64
+            decoy["manifest_sha256"] = freeze._self_hash(decoy)
+            decoy_raw = _canonical(decoy)
+
+            def generated(
+                _repo: Path = freeze.REPO,
+                _package: Path = package,
+                *,
+                binaries: dict | None = None,
+                source_commit: str | None = None,
+            ) -> dict:
+                value = json.loads(_canonical(baseline))
+                value["candidate_source_commit"] = source_commit
+                value["binaries"] = freeze._binary_slots(binaries)
+                value["readiness"] = freeze._readiness(value["binaries"])
+                return freeze._seal(value)
+
+            atomic_write = freeze._atomic_write_manifest
+
+            def substitute_then_publish(value: dict, destination: Path, **kwargs: object) -> None:
+                decoy_path = destination.parent / "finalize-decoy.json"
+                decoy_path.write_bytes(decoy_raw)
+                decoy_path.chmod(0o644)
+                os.replace(decoy_path, destination)
+                atomic_write(value, destination, **kwargs)
+
+            receipts = [
+                package / freeze.RECEIPT_PATHS["wsl2-x86_64"],
+                package / freeze.RECEIPT_PATHS["ubuntu-24.04-x86_64"],
+            ]
+            with (
+                patch.object(freeze, "_resolve_source_commit", return_value="f" * 40),
+                patch.object(freeze, "_validate_candidate_commit_snapshot"),
+                patch.object(freeze, "generate_manifest", side_effect=generated),
+                patch.object(freeze, "_atomic_write_manifest", side_effect=substitute_then_publish),
+            ):
+                with self.assertRaises(freeze.FreezeManifestError) as error:
+                    freeze.finalize_from_receipts(path, receipts, package=package)
+            self.assertEqual(error.exception.code, "manifest-write")
+            self.assertEqual(path.read_bytes(), decoy_raw)
+
+    def test_initial_creation_reports_success_when_visible_entry_directory_sync_is_unavailable(self) -> None:
+        manifest = _unbound_historical_manifest()
+        for failure in ("directory-open", "directory-fsync"):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "freeze-manifest.json"
+                with patch.object(
+                    freeze,
+                    "_fsync_directory",
+                    side_effect=freeze.FreezeManifestError("manifest-write", failure),
+                ):
+                    freeze._atomic_write_manifest(manifest, path)
+                self.assertEqual(path.read_bytes(), _canonical(manifest))
+                self.assertEqual(list(path.parent.glob(f".{path.name}.*.tmp")), [])
+
+    def test_replacement_directory_sync_failure_restores_exact_old_manifest(self) -> None:
+        old = _unbound_historical_manifest()
+        new = json.loads(_canonical(old))
+        new["raw_inputs"][0]["sha256"] = "0" * 64
+        new["manifest_sha256"] = freeze._self_hash(new)
+        for failure in ("directory-open", "directory-fsync"):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "freeze-manifest.json"
+                old_raw = _canonical(old)
+                path.write_bytes(old_raw)
+                path.chmod(0o644)
+                with patch.object(
+                    freeze,
+                    "_fsync_directory",
+                    side_effect=[freeze.FreezeManifestError("manifest-write", failure), None],
+                ):
+                    with self.assertRaises(freeze.FreezeManifestError) as error:
+                        freeze._atomic_write_manifest(new, path)
+                self.assertEqual(error.exception.code, "manifest-write")
+                self.assertEqual(path.read_bytes(), old_raw)
+                self.assertEqual(list(path.parent.glob(f".{path.name}.*.tmp")), [])
+
     def test_generation_is_deterministic_and_unbound_is_truthful(self) -> None:
         first = freeze.generate_manifest()
         second = freeze.generate_manifest()
@@ -125,14 +439,14 @@ class FreezeManifestTests(unittest.TestCase):
             tampered["manifest_sha256"] = "0" * 64
             path.write_bytes(_canonical(tampered))
             with self.assertRaises(freeze.FreezeManifestError) as error:
-                freeze.check_manifest(path=path)
+                freeze.check_historical_manifest(path=path)
             self.assertEqual(error.exception.code, "manifest-self-hash")
             tampered = json.loads(_canonical(manifest))
             tampered["raw_inputs"][0]["sha256"] = "0" * 64
             tampered["manifest_sha256"] = freeze._self_hash(tampered)
             path.write_bytes(_canonical(tampered))
             with self.assertRaises(freeze.FreezeManifestError) as error:
-                freeze.check_manifest(path=path)
+                freeze.check_historical_manifest(path=path)
             self.assertIn(error.exception.code, {"manifest-drift", "source-commit"})
 
     def test_check_rejects_source_commit_mismatch(self) -> None:
@@ -144,7 +458,7 @@ class FreezeManifestTests(unittest.TestCase):
             tampered["manifest_sha256"] = freeze._self_hash(tampered)
             path.write_bytes(_canonical(tampered))
             with self.assertRaises(freeze.FreezeManifestError) as error:
-                freeze.check_manifest(path=path)
+                freeze.check_historical_manifest(path=path)
             self.assertEqual(error.exception.code, "source-commit")
 
     def test_candidate_commit_blob_drift_is_rejected(self) -> None:
@@ -161,7 +475,7 @@ class FreezeManifestTests(unittest.TestCase):
             path = Path(directory) / "freeze-manifest.json"
             path.write_bytes(_canonical(manifest))
             with patch.object(freeze, "_validate_candidate_commit_snapshot"), patch.object(freeze, "_git_head", return_value="b" * 40):
-                self.assertEqual(freeze.check_manifest(path=path)["candidate_source_commit"], manifest["candidate_source_commit"])
+                self.assertEqual(freeze.check_historical_manifest(path=path)["candidate_source_commit"], manifest["candidate_source_commit"])
 
     def test_workflow_identity_is_bound_and_drift_is_rejected(self) -> None:
         manifest = freeze.generate_manifest()
@@ -177,7 +491,7 @@ class FreezeManifestTests(unittest.TestCase):
             tampered["manifest_sha256"] = freeze._self_hash(tampered)
             path.write_bytes(_canonical(tampered))
             with self.assertRaises(freeze.FreezeManifestError) as error:
-                freeze.check_manifest(path=path)
+                freeze.check_historical_manifest(path=path)
             self.assertIn(error.exception.code, {"manifest-drift", "source-commit"})
 
     def test_pure_validator_rejects_resealed_arbitrary_contract_sections(self) -> None:
@@ -243,7 +557,7 @@ class FreezeManifestTests(unittest.TestCase):
             (package / "corpora" / "unexpected.jsonl").write_text("{}\n", encoding="utf-8")
             with patch.object(freeze, "_validate_candidate_commit_snapshot"):
                 with self.assertRaises(freeze.FreezeManifestError) as error:
-                    freeze.check_manifest(package=package, path=manifest_path)
+                    freeze.check_historical_manifest(package=package, path=manifest_path)
             self.assertEqual(error.exception.code, "extra-input")
 
     def test_two_durable_receipts_bind_binaries_without_execution(self) -> None:
@@ -264,7 +578,7 @@ class FreezeManifestTests(unittest.TestCase):
             self.assertNotIn("artifact_ref", finalized["binaries"]["wsl2-x86_64"])
             self.assertEqual(finalized["binaries"]["wsl2-x86_64"]["receipt_path"], "manifests/build-receipts/wsl.json")
             with patch.object(freeze, "_validate_candidate_commit_snapshot"):
-                self.assertEqual(freeze.check_manifest(package=package, path=manifest_path)["manifest_sha256"], finalized["manifest_sha256"])
+                self.assertEqual(freeze.check_historical_manifest(package=package, path=manifest_path)["manifest_sha256"], finalized["manifest_sha256"])
             original = manifest_path.read_bytes()
             with self.assertRaises(freeze.FreezeManifestError) as error:
                 freeze.write_manifest(finalized, manifest_path)
@@ -279,7 +593,7 @@ class FreezeManifestTests(unittest.TestCase):
             receipt_path.write_bytes(receipt_path.read_bytes() + b"\n")
             with patch.object(freeze, "_validate_candidate_commit_snapshot"):
                 with self.assertRaises(freeze.FreezeManifestError) as error:
-                    freeze.check_manifest(package=package, path=manifest_path)
+                    freeze.check_historical_manifest(package=package, path=manifest_path)
             self.assertIn(error.exception.code, {"receipt-drift", "build-receipt"})
 
     def test_receipt_directory_is_closed(self) -> None:
@@ -288,7 +602,7 @@ class FreezeManifestTests(unittest.TestCase):
             (package / freeze.RECEIPT_DIR_REL / "extra.json").write_text("{}\n", encoding="utf-8")
             with patch.object(freeze, "_validate_candidate_commit_snapshot"):
                 with self.assertRaises(freeze.FreezeManifestError) as error:
-                    freeze.check_manifest(package=package, path=manifest_path)
+                    freeze.check_historical_manifest(package=package, path=manifest_path)
             self.assertEqual(error.exception.code, "extra-input")
 
     def test_mixed_binary_slots_are_rejected(self) -> None:
@@ -307,7 +621,7 @@ class FreezeManifestTests(unittest.TestCase):
             manifest_path.write_bytes(_canonical(finalized))
             with patch.object(freeze, "_validate_candidate_commit_snapshot"):
                 with self.assertRaises(freeze.FreezeManifestError) as error:
-                    freeze.check_manifest(package=package, path=manifest_path)
+                    freeze.check_historical_manifest(package=package, path=manifest_path)
             self.assertEqual(error.exception.code, "binary-binding")
 
     def test_receipts_must_be_same_commit_and_full_recipe(self) -> None:
