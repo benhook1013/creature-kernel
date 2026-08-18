@@ -112,8 +112,99 @@ report-algebra defects. The historical 16-case corpus and 48-request report
 remain unchanged. This is still non-authoritative development evidence: it
 selects no profile, supplies no held-out or adversarial corpus evidence, and
 does not activate Readiness 3.
-Evidence synthesis and any profile-selection proposal remain explicitly
-deferred; Readiness 3 activation remains Ben-owned.
+Evidence synthesis and any production semantic-profile binding remain
+explicitly deferred; Readiness 3 activation remains Ben-owned.
+
+The [EXP-0002 phase-three semantic-band conformance preregistration](../../experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/README.md)
+is now Proposed and execution-disabled. It tests one analytically derived
+semantic-band candidate over 40 deterministic scored cases, with 8 explicit
+development cases, 12 controls, certified interval/oracle gates, and two WSL
+repeatability attempts plus one native consistency attempt. The exact ledger is
+materialized as `development-unfrozen` by the [generator](../../experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/scripts/generate_phase3.py),
+its [focused test](../../experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/scripts/test_generate_phase3.py),
+the three corpora, recipe/artifact manifests, and 12-vector sqrt fixtures;
+the package README records the regeneration/check commands. Strict, micro, and
+stress remain historical analytical comparisons and are not executed. The
+development cases cover the exact translation threshold, near-threshold
+rotation (with the exact singleton retained as a direct comparator unit-test
+obligation), q/-q, conversion, four-edge composition, Attachment, identity,
+and `kappa=999999`. The controls are four gray strictly-inside-band cases, four
+dispatched typed zero-quaternion cases, three runner-preflight out-of-domain
+cases, and one dispatched negative-relative case. Thus each attempt has 60
+case adjudications and 57 candidate wire requests; across three attempts this
+is 180 adjudications and 171 candidate requests, with three fresh candidate
+processes per attempt and nine total. The three preflight cases remain runner
+adjudications, not candidate requests. Current generated records reuse the
+existing phase-two protocol/envelope/operation/providers and canonical source
+string; no new wire protocol is introduced. Gate A is complete/passed for this
+exact development-unfrozen materialization, with the current Double recorded
+in [Review 01](../../experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/reviews/gate-a-review-01-closure-integrity.md)
+and [Review 02](../../experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/reviews/gate-a-review-02-numeric-claims.md).
+Prior issue-finding reviews remain stale historical working evidence. This does
+not freeze the package. Gate B remains a separate later frozen-package Double
+before execution. No profile-value validation, production binding, or
+Readiness 3 activation follows from this package.
+
+The materialized records distinguish `construction_target` (the exact recipe
+magnitude before source serialization) from source-derived `I_truth` (computed
+from the serialized source and its exact numeric lexemes). Current materialization
+contains `I_truth` only: translation truth is exact; rotation truth is a
+certified interval for the normalized q/-q-equivalent full chord, computed with
+exact rational dot/norm-squared arithmetic and 256-bit integer-`isqrt` directed
+enclosures; decimal text is only final outward endpoint encoding. `I_candidate`
+and `I_error` are mandatory future scorer/adjudication outputs after candidate
+witness data exists; their radius and upper-error caps remain preregistered
+obligations, not current artifacts. The current source-derived interval radius
+and future error upper endpoint are capped at `1e-10` full chord.
+Construction metadata retains complete authored/derived contribution lists,
+exact kappa values, and derived canonical/source quaternions, including
+non-identity derived rotations in applicable families. Request IDs are unique
+across development, held-out, and controls; normalized request-content
+uniqueness is checked across the development/held-out roles after removing
+`request_id`, while controls remain separately partitioned for typed and
+preflight behavior.
+
+Source-derived admission independently reconstructs all 60 records: 53 are
+admitted, 4 are typed zero-quaternion controls, and 3 are out-of-domain
+runner-preflight controls; all 40 scored records are admitted and certified
+`kappa_q <= 2`. The four typed locations are the tail-root part placement, host
+tail-mount socket interface, tail attachment offset, and mating tail-mount
+socket interface, each retained as an exact typed location. Negative gate tests
+fail closed for component, contribution sum, quaternion component/norm, path,
+conditioning, and negative-relative tolerance violations.
+
+The unchanged candidate is prebound at base commit
+`f4125342211a1d1436ae48b685ec2342700f39c4`, before the Phase 3 path existed.
+The complete 47-file candidate/core/build closure includes the compile-time
+embedded `spec/body-document/schema/ck-body-document-v1.schema.json`, a
+compiled include input. It has path-set SHA-256
+`10605701d02f117ff7ef2756004fbf53a475eb92fbc0616e139f919d7a8480dc`, content
+SHA-256
+`21825e78c3286cf73d135f44be99eaea5214ce36b5fed6271dce096d364468e2`, and
+1,494,337 raw bytes; base tree/current-disk recomputation matches. The closure
+is immutable from Gate A through exact attempts; any change requires a new
+candidate identity plus unseen scored material or exact-public-corpus
+adjudication. FE/MXCSR remains external and runner/oracle/scorer code cannot
+alter candidate source.
+
+The durable candidate prebinding checker and focused nine-test file are
+development tools, not generated corpus outputs or execution evidence. The
+checker is 17,745 bytes with SHA-256
+`d21c122ecf5256b7e83402ba2a5a150807a1cfc64eef5e8df2002d86b1058c8b`; the test
+file is 5,389 bytes with SHA-256
+`063206d1e9ecf4a5c2770061cca80e3492dc4bd3d34df56963c380690902d566`. Run:
+
+```bash
+python3 experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/scripts/check_candidate_prebinding.py
+python3 experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/scripts/test_candidate_prebinding.py
+```
+
+The checker follows production literal `include!`, `include_str!`, and
+`include_bytes!` references recursively, rejects dynamic or unbound targets,
+checks selected regular-file types, modes, raw content, and relevant Cargo
+build/config inputs, and does not sweep ignored target/cache artifacts. It
+parses Git's textual `100644` as OCTAL integer `33188` before big-endian u32
+framing.
 
 The raw receipt records clean wrapper source checkpoints at the same source
 commit. The raw result records runner-side observational identity as
@@ -1295,6 +1386,11 @@ authorize merging later PRs outside this recorded runway.
   fixture transaction as the implementation foundation; take bounded
   document-wide resolver preparation/provenance traversal and successor
   evidence. Keep adapters, geometry, and later packages gated.
+- For EXP-0002 phase three, implement only the development-only deterministic
+  ledger/generator/manifests and independent adapter/oracle/scorer/receipt
+  tooling. Keep the package execution-disabled through both current-revision
+  Double gates; stop for Ben before any exact attempt, native dispatch,
+  profile-value validation, production binding, or Readiness 3 activation.
 - Keep Readiness 1 limited to the Cargo workspace, compiler/core library shell,
   and thin CLI shell. Keep the provisional structural address/index, validator,
   and `inspect-structure` command outside the formal Readiness 3 activation

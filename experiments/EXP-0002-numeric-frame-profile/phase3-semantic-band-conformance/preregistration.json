@@ -1,0 +1,736 @@
+{
+  "schema": "ck.exp-0002.phase3.semantic-band-conformance-preregistration-2",
+  "experiment_id": "EXP-0002",
+  "phase_id": "exp-0002-phase3-semantic-band-conformance-001",
+  "status": "Proposed",
+  "lifecycle": "planned",
+  "evidence_status": "open",
+  "technology_outcome": "none",
+  "execution_permitted": false,
+  "purpose": "Conformance of one candidate implementation to one analytically derived provisional semantic profile over a bounded standalone transform domain.",
+  "outcome": {
+    "allowed": [
+      "supported",
+      "failed",
+      "inconclusive"
+    ],
+    "meaning": "Conformance evidence only; this experiment does not select tolerances, compare profiles, rank candidates, validate permanent values, bind production semantics, activate Readiness 3, or make a product-quality claim.",
+    "precedence": [
+      "failed when at least one fully evidenced admissible conformance assertion is false, even if other evidence is incomplete",
+      "otherwise inconclusive when any mandatory evidence is incomplete or unable to support the bounded claim",
+      "otherwise supported when evidence is complete and every mandatory assertion passes"
+    ],
+    "supported": "Complete evidence and every mandatory classification, witness, typed control, deterministic semantic output, process, platform, identity, and environment assertion passes.",
+    "failed": "At least one fully evidenced admissible candidate assertion is false: classification, witness, typed control, deterministic semantic output, repeatability, or bounded consistency.",
+    "inconclusive": "No fully evidenced false assertion exists, but transport/process/identity/environment/oracle evidence is incomplete, an interval is wide or straddling, or platform comparison cannot support the claim."
+  },
+  "authority": {
+    "protocol": "proposed-non-authoritative",
+    "profile_selection": "not-applicable-one-candidate",
+    "production_binding": "prohibited",
+    "readiness_3_activation": "prohibited",
+    "loss_ranking": "prohibited",
+    "human_authorization": "Ben must separately authorize exact WSL attempts and native dispatch after both technical gates. Such authorization is not technical evidence, profile-value validation, or R3 authorization."
+  },
+  "scope": {
+    "comparison_target": "one-source standalone authored-vs-attachment-derived rigid transform",
+    "included": [
+      "translation comparison",
+      "quaternion rotation comparison",
+      "source-basis and length-unit conversion within the one source",
+      "bounded rigid-transform composition and Attachment equation witness"
+    ],
+    "excluded": [
+      "module or aggregate resolution",
+      "namespace merge or remap",
+      "snapshot publication or serialization",
+      "geometry, rendering, rigging, animation, physics, or runtime output",
+      "production API or resolver activation",
+      "Readiness 3 activation",
+      "visual or product-quality assessment"
+    ],
+    "historical_evidence": {
+      "phase1": "unchanged historical non-selection evidence",
+      "phase2": "unchanged historical analytical negative-comparison evidence; not executed in this phase"
+    }
+  },
+  "candidate": {
+    "candidate_id": "semantic-band",
+    "profile_id": "ck.provisional-r3-authored-conflict.semantic-band-1",
+    "state": "one-proposed-candidate",
+    "derivation": "A, R, and H are analytically derived from the declared provisional semantic bands below, not selected from observed outcomes or a profile sweep.",
+    "constants": {
+      "translation_absolute_A_m": {
+        "bits": "0x3f0a36e2eb1c432d",
+        "decimal": "5.0000000000000002e-05"
+      },
+      "translation_relative_R": {
+        "bits": "0x0000000000000000",
+        "decimal": "0.0"
+      },
+      "rotation_half_chord_H": {
+        "bits": "0x3ec4f8b588e368f1",
+        "decimal": "2.5000000000000002e-06"
+      }
+    },
+    "historical_negative_comparisons": [
+      {
+        "candidate_id": "strict",
+        "profile_id": "ck.provisional-r3-authored-conflict.dev.strict-1",
+        "source": "phase2-authored-conflict/profiles/development-sweep.json",
+        "execution": "not-executed"
+      },
+      {
+        "candidate_id": "micro",
+        "profile_id": "ck.provisional-r3-authored-conflict.dev.micro-1",
+        "source": "phase2-authored-conflict/profiles/development-sweep.json",
+        "execution": "not-executed"
+      },
+      {
+        "candidate_id": "stress",
+        "profile_id": "ck.provisional-r3-authored-conflict.dev.stress-1",
+        "source": "phase2-authored-conflict/profiles/development-sweep.json",
+        "execution": "not-executed"
+      }
+    ]
+  },
+  "semantic_bands": {
+    "status": "provisional-evaluation-assumptions",
+    "technical_evidence": false,
+    "permanent_product_truth": false,
+    "canonical_decision_thresholds": {
+      "translation": {
+        "metric": "L_inf translation discrepancy in canonical metres",
+        "source": "exact binary64 A",
+        "bits": "0x3f0a36e2eb1c432d",
+        "exact_dyadic_fraction_m": "7378697629483821/147573952589676412928",
+        "nominal_shorthand_m": "5e-5"
+      },
+      "rotation": {
+        "metric": "q/-q full quaternion chord after normalization",
+        "source": "exact 2H",
+        "H_bits": "0x3ec4f8b588e368f1",
+        "two_H_bits": "0x3ed4f8b588e368f1",
+        "exact_two_H_dyadic_fraction": "5902958103587057/1180591620717411303424",
+        "nominal_shorthand": "5e-6",
+        "angular_claim": false
+      }
+    },
+    "translation": {
+      "unit": "metre",
+      "clear_agree_nominal_shorthand_m": 0.00005,
+      "material_floor_m": 0.0002,
+      "conflict_certain_min_m": 0.00023,
+      "gross_conflict_min_m": 0.002,
+      "semantic_conflict_guard": {
+        "ratio": 1.15,
+        "expression": "2.3e-4 / 2.0e-4 = 1.15",
+        "description": "15% guard from material floor to conflict-certain minimum"
+      }
+    },
+    "rotation": {
+      "metric": "full quaternion chord after q/-q equivalence",
+      "clear_agree_nominal_shorthand_full_chord": 0.000005,
+      "material_floor_full_chord": 0.00002,
+      "conflict_certain_min_full_chord": 0.000023,
+      "gross_conflict_min_full_chord": 0.002,
+      "semantic_conflict_guard": {
+        "ratio": 1.15,
+        "expression": "2.3e-5 / 2.0e-5 = 1.15",
+        "description": "15% guard from material floor to conflict-certain minimum"
+      }
+    }
+  },
+  "validation_margin": {
+    "fraction": 0.1,
+    "fixed": true,
+    "purpose": "Decision-threshold separation for non-boundary scored cases, distinct from the 15% semantic conflict guard.",
+    "threshold_definition": "T is the applicable candidate threshold: A + R * scale for translation and 2H in full-chord terms for rotation.",
+    "agree_rule": "certified upper bound <= 0.9 * T",
+    "conflict_rule": "certified lower bound >= max(1.1 * T, conflict-certain minimum)",
+    "inclusive_threshold_cases": "Development/comparator controls only; require singleton/exact oracle intervals.",
+    "post_result_widening": false
+  },
+  "certified_discrepancy_intervals": {
+    "translation_max_radius_m": 0.0000000001,
+    "rotation_max_radius_full_chord": 0.0000000001,
+    "rotation_certification": {
+      "metric": "normalized q/-q full chord min(||qa-qb||_2,||qa+qb||_2)",
+      "method": "exact-rational dot and norm-squared arithmetic; integer-isqrt directed rational enclosures for every square root; outward decimal serialization only at the final endpoint",
+      "precision_bits": 256,
+      "propagation": "exact norm-squared product -> directed sqrt product -> absolute-dot quotient -> directed full-chord square -> directed final sqrt",
+      "cap": "current final I_truth interval radius and mandatory future I_error upper endpoint <= 1e-10 full chord",
+      "angular_claim": false
+    },
+    "objects": {
+      "I_truth": "Current materialization contains this source-derived interval only: the ideal source-semantic metric, with exact translation truth or a certified rotation min(||qa-qb||_2, ||qa+qb||_2) interval after normalization.",
+      "I_candidate": "Mandatory future scorer/adjudication output, computed and certified from the candidate-reported binary64 witness after candidate witness data exists; it is not a current materialized artifact.",
+      "I_error": "Mandatory future scorer/adjudication output after candidate witness data exists: a certified interval enclosing absolute candidate-versus-ideal metric error, derived from I_truth and I_candidate. Its upper endpoint and interval radius must each be within the applicable 1e-10 cap; it is not a current materialized artifact."
+    },
+    "decision_thresholds": [
+      "0.9*T",
+      "T",
+      "1.1*T",
+      "conflict-certain minimum"
+    ],
+    "scored_preflight": "Admit a scored case only when I_truth is wholly within its declared class and outside the 10% threshold margin.",
+    "candidate_straddling": "I_candidate straddling T is inconclusive.",
+    "wide_or_unresolved": "Any overly wide or unresolved current I_truth, or future I_candidate or I_error, is incomplete/inconclusive; never silently rounded and never treated as a candidate mismatch.",
+    "classification_mismatch": "A fully certified candidate classification or status inconsistent with the expected class is failed.",
+    "exact_threshold_controls": "Exact comparator threshold controls require singleton exact I_truth and, after candidate witness data exists, singleton exact I_candidate intervals."
+  },
+  "case_plan": {
+    "randomness": "none",
+    "seed": null,
+    "state": "development-unfrozen materialization present; pre-execution freeze remains pending",
+    "scored_held_out": {
+      "unique_cases": 40,
+      "family_count": 5,
+      "cases_per_family_and_metric_class_cell": 2,
+      "cells": [
+        "translation-agree",
+        "rotation-agree",
+        "translation-conflict",
+        "rotation-conflict"
+      ],
+      "agree_strata": [
+        "0.50*T",
+        "0.85*T"
+      ],
+      "conflict_strata": [
+        "1.05*conflict-certain-min",
+        "1.05*gross-conflict-min"
+      ],
+      "families": [
+        "identity-axis",
+        "non-identity-rigid",
+        "basis-unit-conversion",
+        "composed-rigid-chain",
+        "conditioning-safe-mixed"
+      ],
+      "case_id_formula": "phase3/{family}/{metric}/{class}/{stratum}/{ordinal}",
+      "assignment_rule": "Axis, sign, scale, and chain assignments are table/formula-driven by the current recipe manifest; no discretionary replacement is permitted.",
+      "construction": "closed Cartesian product: five families x two metrics x two classes x two registered strata",
+      "generator_rules": [
+        "reject duplicate IDs",
+        "reject duplicate constructions",
+        "reject invalid constructions",
+        "do not replace a rejected construction",
+        "do not tune or move a case after inspection of outcomes"
+      ],
+      "case_bytes_and_identities": "development-unfrozen; see development_materialization for current paths and hashes",
+      "request_uniqueness": "Request IDs are unique across development, held-out, and controls. The generator's request-content uniqueness check (after removing request_id) covers development and held-out across that role boundary; controls remain separately materialized and ID-unique."
+    },
+    "development": {
+      "unique_cases": 8,
+      "scored": false,
+      "purpose": "protocol, comparator, harness, transport, witness, and receipt development",
+      "cases": [
+        "exact translation threshold",
+        "near-threshold rotation; exact singleton remains a direct comparator unit-test obligation",
+        "q/-q sign equivalence",
+        "conversion",
+        "four-edge composition",
+        "Attachment equation",
+        "identity zero/zero",
+        "kappa=999999"
+      ]
+    },
+    "controls": {
+      "unique_cases": 12,
+      "scored": false,
+      "required_controls": {
+        "gray-band": 4,
+        "candidate-local-invalid-source-admission": 4,
+        "out-of-domain-or-numeric": 4
+      },
+      "out_of_domain_dispatch_partition": {
+        "runner-preflight-dispatch-false": 3,
+        "dispatched-negative-relative": 1
+      },
+      "construction_details": {
+        "gray-band": "4 cases strictly inside the semantic band",
+        "candidate-local-invalid-source-admission": "4 dispatched typed zero-quaternion controls",
+        "runner-preflight-out-of-domain": "3 runner adjudications with dispatch_to_candidate=false",
+        "dispatched-negative-relative": "1 dispatched typed negative-relative control"
+      },
+      "invalid_source_boundary": "candidate-local admission only; not resolver invalid-source semantics",
+      "expectations": {
+        "gray-band": "Non-scored observation only; it cannot support or fail semantic conformance unless another mandatory integrity assertion is fully evidenced false.",
+        "candidate-local-invalid-source-admission": "Must return the preregistered typed skipped zero-quaternion observation and cause.",
+        "out-of-domain-or-numeric": "Three runner-preflight cases are retained adjudications with dispatch_to_candidate=false; the fourth is dispatched and requires its preregistered typed rejection.",
+        "typed_result_precedence": "A wrong completed typed result is failed; missing or uncertain evidence is inconclusive."
+      },
+      "transport_malformed": "unit tests only; not a corpus case"
+    },
+    "materialization": "Exact constructions are present as development-unfrozen files; this does not close or freeze the package and is not execution evidence. Each record distinguishes construction_target (the requested exact magnitude used to build a case) from source_truth (the source-derived truth computed from the serialized source, including its exact numeric lexemes). Current materialization contains I_truth only: translation truth is exact or rotation truth is a certified interval, not an exact singleton. I_candidate and I_error are mandatory future scorer/adjudication outputs after candidate witness data exists; their caps remain preregistered obligations, not current artifacts. Construction metadata retains complete authored/derived translation contributions, exact kappa values, and derived canonical/source quaternions; non-identity derived rotations are represented where the family construction produces them."
+  },
+  "numeric_domain": {
+    "translation": {
+      "canonical_component_abs_max_m": 16.0,
+      "contribution_component_abs_max_m": 16.0,
+      "sum_contribution_infinity_norms_max_m": 64.0
+    },
+    "quaternion": {
+      "finite_component_abs_max": 1.0,
+      "source_norm_min": 0.5,
+      "source_norm_max": 2.0,
+      "q_neg_q_equivalent": true,
+      "near_zero_input": "excluded"
+    },
+    "path": {
+      "max_containment_or_composition_edges_per_endpoint": 4,
+      "attachment_equation": "one inverse/composition sequence"
+    },
+    "conditioning": {
+      "translation": {
+        "decomposition": "After exact basis/unit/sign/inverse decomposition, each path has ordered canonical-metre translation contributions c_i.",
+        "S": "sum(||c_i||_inf)",
+        "D": "||sum(c_i)||_inf",
+        "kappa_t": "1 when S = D = 0; infinity when D = 0 < S; otherwise S / D",
+        "arithmetic": "exact rational",
+        "paths": [
+          "authored",
+          "derived"
+        ],
+        "kappa_pair": "max(kappa_t_authored, kappa_t_derived)",
+        "ordinary_scored_kappa_pair_max": 1000000.0,
+        "nonzero_exact_cancellation": "analytic control only with the same certified interval cap; otherwise out-of-domain"
+      },
+      "quaternion": {
+        "kappa_q": "max(1 / ||q_source||_2) over all source quaternions in the case",
+        "arithmetic": "certified high precision",
+        "maximum": 2.0,
+        "basis": "source quaternion norm floor 0.5",
+        "accumulation": "bounded by the path/chain limit and certified end-to-end interval",
+        "angular_condition_claim": false
+      }
+    }
+  },
+  "source_derived_domain_evidence": {
+    "method": "Reparse each serialized source with exact numeric lexemes and independently recompute all translation contributions, authored/derived paths, path edges, quaternion components, source quaternion norm bounds, exact rational kappa_t, and certified integer-isqrt kappa_q; construction metadata is not used for admission.",
+    "materialized_partition": {
+      "total_records": 60,
+      "admitted": 53,
+      "typed_control": 4,
+      "out_of_domain": 3,
+      "partition_assertion": "Every record is exactly one of admitted, typed-control, or out-of-domain; all 40 scored held-out records are admitted."
+    },
+    "admitted_gates": [
+      "canonical and contribution translation components <= 16 m",
+      "contribution infinity-norm sum <= 64 m",
+      "quaternion components <= 1 in absolute value",
+      "every source quaternion norm in [0.5,2]",
+      "endpoint path edges <= 4",
+      "exact rational authored/derived kappa_pair <= 1e6",
+      "certified kappa_q <= 2"
+    ],
+    "kappa_q": {
+      "definition": "max over every source quaternion of 1/sqrt(sum(component^2))",
+      "method": "exact rational norm-squared with 256-bit integer-isqrt directed upper bound",
+      "admitted_bound": "certified upper <= 2 for all 53 admitted records",
+      "typed_controls": "not applicable because each has a preregistered zero-quaternion typed admission observation"
+    },
+    "typed_zero_quaternion_locations": [
+      "part-placement: main/tail_root anchors [tail]",
+      "socket-interface: main/tail_mount anchors []",
+      "attachment-offset: main/tail_mount anchors [tail]",
+      "socket-interface: main/tail_mount anchors [tail]"
+    ],
+    "negative_gate_tests": {
+      "source_component_over_16": "canonical_translation_components=false and contribution_components=false; out-of-domain",
+      "contribution_sum_over_64": "contribution_inf_norm_sum=false; out-of-domain",
+      "quaternion_component_over_1": "quaternion_components=false; out-of-domain",
+      "quaternion_norm_below_0.5": "source_quaternion_norm=false and kappa_q=false; out-of-domain",
+      "path_over_four_edges": "path_edges=false; out-of-domain",
+      "translation_kappa_over_1e6": "translation_kappa_pair=false; out-of-domain",
+      "negative_relative_tolerance": "typed candidate rejection invalid-tolerance / numeric-comparison.invalid-profile / negative / translation-relative"
+    },
+    "negative_tests_are_not_execution_evidence": true
+  },
+  "transport_contract": {
+    "jsonl_frame_and_response_bytes": 65536,
+    "source_bytes": 24576,
+    "request_id_utf8_bytes": 256,
+    "records_per_process": 64,
+    "stdout_bytes": 4194304,
+    "stderr_bytes": 65536,
+    "io_deadline_seconds": 2.0,
+    "shutdown_deadline_seconds": 2.0,
+    "trailing_output_quiet_seconds": 0.02,
+    "strictness": [
+      "strict UTF-8",
+      "strict JSON",
+      "duplicate-key rejection",
+      "nonfinite rejection",
+      "oversize drain and recovery"
+    ],
+    "sqrt_oracle_self_check": {
+      "required_before_quaternion_corpus": true,
+      "vectors": {
+        "exact_squares": 4,
+        "non_square_certified_brackets": 4,
+        "scale_metamorphics": 2,
+        "domain_endpoint_vectors": 2,
+        "total": 12
+      },
+      "independent": true
+    }
+  },
+  "request_boundary": {
+    "request_fields": [
+      "opaque request_id",
+      "closed protocol identifier",
+      "operation identifier",
+      "standalone source",
+      "runner-supplied tolerance tuple"
+    ],
+    "existing_phase2_wire_contract": {
+      "reference": "../phase2-authored-conflict/candidate/README.md",
+      "reference_sha256": "26fc3e0dacbf871afdc9aef72b08f8436b0f213f7f06ce78113317f2ebd4757e",
+      "protocol_id": "ck.exp-0002.r3-authored-conflict-candidate-request-1",
+      "operation": "observe-authored-conflict",
+      "resource_profile": "ordinary",
+      "providers": {
+        "gate": "allow",
+        "arithmetic": "native",
+        "sqrt": "native",
+        "environment": "unattested-no-probe-v1"
+      },
+      "source_field": "canonical JSON body-document string; the current generated source is derived from the phase-two fixture and exact phase-three construction, with source numeric lexemes emitted and hashed as serialized",
+      "new_wire_protocol": false
+    },
+    "request_id": {
+      "max_utf8_bytes": 256,
+      "opaque": true,
+      "unique_per_attempt": true,
+      "formula": "p3-{attempt_id}-{global_ordinal:03d}; current recipe materialization uses the placeholder {attempt_id}",
+      "cross_attempt_substitution": "request IDs are the sole planned per-attempt substitution in ordered request bytes",
+      "response_rule": "exactly one response must echo exactly one request ID"
+    },
+    "response_rules": [
+      "missing response is incomplete",
+      "extra response is incomplete",
+      "collision or duplicate response ID fails closed",
+      "mismatched echo fails closed",
+      "trailing output fails closed",
+      "unaccounted request/response fails closed"
+    ],
+    "blindness": "No blindness claim: tolerance tuple and process length can be inferred.",
+    "withheld_labels": [
+      "direct role",
+      "family",
+      "truth",
+      "expected outcome",
+      "semantic bands",
+      "scoring labels"
+    ]
+  },
+  "oracle_and_witness": {
+    "oracle": "Independent exact-rational basis/unit and analytic rigid-transform oracle with integer-isqrt directed square-root interval certification; decimal text is only a final outward endpoint encoding, never the radius or truth computation.",
+    "rotation_equivalence": "q and -q are equivalent after canonical normalization.",
+    "required_evidence": [
+      "full authored and Attachment-derived transform witness",
+      "source provenance and semantic paths",
+      "equation inputs and every equation step",
+      "exact oracle value and certified discrepancy interval",
+      "authored and derived path condition estimates",
+      "candidate errors and final conformance classification"
+    ],
+    "uncertainty": "Unresolved oracle or witness evidence is incomplete/inconclusive and never silently rounded. A fully evidenced false witness assertion is failed."
+  },
+  "execution_accounting": {
+    "candidate_count": 1,
+    "processes_per_attempt": 3,
+    "fresh_process_roles": [
+      {
+        "role": "development",
+        "case_adjudications": 8,
+        "candidate_wire_requests": 8
+      },
+      {
+        "role": "held-out",
+        "case_adjudications": 40,
+        "candidate_wire_requests": 40
+      },
+      {
+        "role": "controls",
+        "case_adjudications": 12,
+        "candidate_wire_requests": 9,
+        "runner_preflight_adjudications": 3
+      }
+    ],
+    "case_adjudications_per_attempt": 60,
+    "candidate_wire_requests_per_attempt": 57,
+    "requests_per_attempt": 57,
+    "requests_definition": "candidate wire requests; case adjudications are counted separately",
+    "platform_attempts": [
+      {
+        "platform": "WSL2 x86_64 GNU/Linux",
+        "attempts": 2,
+        "purpose": "independent repeatability"
+      },
+      {
+        "platform": "Ubuntu 24.04 x86_64",
+        "attempts": 1,
+        "dispatch": "manual workflow dispatch",
+        "purpose": "full bounded consistency attempt"
+      }
+    ],
+    "total_case_adjudications": 180,
+    "total_candidate_wire_requests": 171,
+    "total_requests": 171,
+    "total_fresh_processes": 9,
+    "same_ordered_inputs_after_future_freeze": true,
+    "current_materialization_state": "development-unfrozen; preflight cases remain runner adjudications",
+    "same_ordered_input_bytes": "After a future pre-execution freeze, all attempts use identical ordered case, source, and tolerance bytes; only request IDs change by the current recipe attempt/ordinal formula.",
+    "native_scope": "bounded consistency evidence, not broad portability",
+    "automatic_retry": false,
+    "comparison_normalization": "Normalize only request IDs plus preregistered environment and attempt metadata before cross-attempt comparison.",
+    "repeatability_and_consistency": {
+      "wsl_repeatability": "The two WSL attempts require exact equality of statuses, classifications, witness binary64 bits, certified interval endpoints, and retained semantic output. A fully evidenced difference is failed determinism.",
+      "native_consistency": "Native requires the same semantic equality. A fully evidenced semantic mismatch is failed bounded consistency; a missing or uncomparable platform record is inconclusive."
+    },
+    "platform_identity": {
+      "expected_selectors": "Frozen before execution for each WSL and native attempt.",
+      "retain_per_attempt": [
+        "CPU model and features",
+        "architecture",
+        "kernel and WSL version where applicable",
+        "OS image and release",
+        "filesystem type and mount context",
+        "workflow runner and image identity",
+        "toolchain and compiler"
+      ],
+      "selector_mismatch": "Inconclusive unless it also proves a fully evidenced semantic mismatch already classified failed."
+    },
+    "per_process_observations": [
+      "launch identity",
+      "exact argv, cwd, and environment",
+      "pre/post candidate binary hash",
+      "pre/post FE/MXCSR state",
+      "request/response counts and hashes",
+      "lifecycle and exit status",
+      "clean shutdown",
+      "missing, extra, and trailing output"
+    ]
+  },
+  "identity_split": {
+    "freeze_manifest_state": "pending-freeze",
+    "candidate_source_prebinding": {
+      "state": "bound-for-gate-a-materialization",
+      "base_git_commit": "f4125342211a1d1436ae48b685ec2342700f39c4",
+      "purpose": "Prove that the unchanged candidate semantics and local build inputs predate public Phase 3 corpus materialization; this is a Gate-A pre-disclosure binding, not a binary, compiler, platform, or execution binding.",
+      "source_predates_phase3_materialization": {
+        "phase3_package_at_base_commit": "absent",
+        "candidate_history": [
+          "5bae1009f6f18ce39147954eca2a5bfbb632f7fc Add phase two authored-conflict candidate",
+          "71c9a73f04755ed287ce053467ac76ae10ea691e feat: project attachment equation evidence",
+          "a1bdc145d1c1a3a1bc80cc8fde1fe445c9a5b6ec feat: emit typed authored-conflict causes",
+          "b695d8a5519d2d849d56f9fca2507c43785af2c8 fix: enforce phase-two session integrity",
+          "acd512f3a014955890b8665f440c0b82ad7a4b4a fix: satisfy phase-two candidate lint contract"
+        ],
+        "history_evidence": "All five candidate commits are ancestors of the base commit; the Phase 3 package path is absent from the base tree. The candidate source/build closure is unchanged on the current disk.",
+        "materialization_time_evidence": "The public Phase 3 materialization is a later untracked working-tree package; its current identities are bound separately below and do not enter this candidate closure."
+      },
+      "scope": {
+        "compiled_source_and_build_roots": [
+          "experiments/EXP-0002-numeric-frame-profile/phase2-authored-conflict/candidate/{Cargo.toml,Cargo.lock,src/**}",
+          "crates/creature-kernel-core/Cargo.toml",
+          "crates/creature-kernel-core/src/**",
+          "Cargo.toml",
+          "rust-toolchain.toml"
+        ],
+        "protocol_noncompiled": "experiments/EXP-0002-numeric-frame-profile/phase2-authored-conflict/candidate/README.md is included because it records the candidate request/response contract and build invocation; it is not compiled.",
+        "external_dependency_resolution": "The candidate Cargo.lock is included as the lockfile consumed by the standalone candidate manifest; registry/compiler/install contents remain later Gate-B/pre-execution bindings.",
+        "excluded_by_evidence": "Root Cargo.lock is not consumed by the candidate's standalone manifest/lockfile build. No relevant candidate or core build.rs, nor .cargo/config or .cargo/config.toml on the candidate-to-repository ancestor path, exists in the base tree; no other local outcome-affecting build file is included."
+      },
+      "algorithm": {
+        "version": "ck.phase3-candidate-source-build-closure.v1",
+        "selection": "From the exact base Git tree, select every tracked regular file under the candidate directory, every tracked file under crates/creature-kernel-core/**, root Cargo.toml, and rust-toolchain.toml; then recursively add every literal include!, include_str!, and include_bytes! target reached by production source, including the compile-time embedded body-document schema spec/body-document/schema/ck-body-document-v1.schema.json. Retain the README as protocol-only and all other selected files as source/build inputs. Reject missing, duplicate, symlink, non-regular, dynamic, or unbound targets; do not sweep ignored target/cache artifacts.",
+        "normalized_path": "Repository-relative UTF-8 path with / separators, no leading ./ or /, no empty, . or .. component; sort by raw UTF-8 bytes.",
+        "mode": "Parse Git's six-digit textual regular-file mode 100644 as OCTAL integer 33188, then encode that integer as unsigned big-endian u32; all selected entries are 100644 and current disk mode must equal the base mode.",
+        "path_set_bytes": "ASCII framing ck.phase3-candidate-source-build-path-set.v1 followed by NUL; for each sorted entry append big-endian u32 UTF-8 path length, path bytes, and big-endian u32 mode.",
+        "content_bytes": "ASCII framing ck.phase3-candidate-source-build-content.v1 followed by NUL; for each sorted entry append the same path/mode fields, then big-endian u64 raw-byte length and the exact raw bytes.",
+        "digest": "SHA-256 of each framed byte stream; no JSON, newline normalization, text decoding, or Git object hashing is used."
+      },
+      "path_set": {
+        "count": 47,
+        "sha256": "10605701d02f117ff7ef2756004fbf53a475eb92fbc0616e139f919d7a8480dc"
+      },
+      "content": {
+        "sha256": "21825e78c3286cf73d135f44be99eaea5214ce36b5fed6271dce096d364468e2",
+        "total_raw_bytes": 1494337
+      },
+      "independent_recomputation": {
+        "base_commit": {
+          "path_set_count": 47,
+          "path_set_sha256": "10605701d02f117ff7ef2756004fbf53a475eb92fbc0616e139f919d7a8480dc",
+          "content_sha256": "21825e78c3286cf73d135f44be99eaea5214ce36b5fed6271dce096d364468e2"
+        },
+        "current_disk": {
+          "path_set_count": 47,
+          "path_set_sha256": "10605701d02f117ff7ef2756004fbf53a475eb92fbc0616e139f919d7a8480dc",
+          "content_sha256": "21825e78c3286cf73d135f44be99eaea5214ce36b5fed6271dce096d364468e2"
+        },
+        "match": true
+      },
+      "immutability": "From this Gate-A materialization through every exact attempt, the bound candidate source/build closure is frozen and immutable. Any change invalidates the public-corpus bounded-domain claim and requires a new candidate identity plus unseen scored material, or an explicit narrowing to exact-public-corpus adjudication. The runner, oracle, and scorer may be implemented separately but may not change this closure; FE/MXCSR observation remains external."
+    },
+    "pre_execution_bindings": [
+      "protocol and candidate profile",
+      "deterministic ledger and corpora",
+      "generator",
+      "independent oracle and sqrt vectors",
+      "scorer",
+      "result and receipt schemas and writers",
+      "attempt-index schema, writer, and canonicalization",
+      "normalized path/mode/byte dependency closure",
+      "exact build/run commands, flags, and tool versions",
+      "candidate source and binary",
+      "runner and workflow definitions"
+    ],
+    "per_attempt": "Observations are created at execution and include platform/process state.",
+    "post_execution": "Result and receipt are exclusive outputs; a separate immutable attempt index/envelope binds their hashes using the frozen schema/writer/canonicalization without self-hash or circularity.",
+    "immutability": "No overwrite or in-place repair; any changed input or rerun receives a new identity."
+  },
+  "development_materialization": {
+    "state": "development-unfrozen",
+    "not_evidence": true,
+    "not_frozen": true,
+    "generator": {
+      "path": "scripts/generate_phase3.py",
+      "bytes": 47539,
+      "sha256": "a96ac78f3a59b268becfdc2e814b4422973bf4198b048bb9823db3072e00e90f"
+    },
+    "checker_tools": {
+      "purpose": "Durable non-generating, non-execution prebinding checker and focused tests; these are development tools, not generated corpus outputs or execution evidence.",
+      "checker": {
+        "path": "scripts/check_candidate_prebinding.py",
+        "bytes": 17745,
+        "sha256": "d21c122ecf5256b7e83402ba2a5a150807a1cfc64eef5e8df2002d86b1058c8b",
+        "command": "python3 experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/scripts/check_candidate_prebinding.py",
+        "behavior": "Follows production literal include!, include_str!, and include_bytes! references recursively for selected files, rejects dynamic or unbound targets, checks selected regular-file types, parsed modes, raw content, and relevant Cargo build/config inputs, and does not sweep ignored target/cache artifacts."
+      },
+      "focused_test": {
+        "path": "scripts/test_candidate_prebinding.py",
+        "bytes": 5389,
+        "sha256": "063206d1e9ecf4a5c2770061cca80e3492dc4bd3d34df56963c380690902d566",
+        "command": "python3 experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/scripts/test_candidate_prebinding.py",
+        "test_count": 9
+      }
+    },
+    "focused_test": {
+      "path": "scripts/test_generate_phase3.py",
+      "bytes": 33943,
+      "sha256": "2dc9e9164a5ae820d6b170a28a1d5889e17e795d5d87c235bb5c3c75bb78a263"
+    },
+    "corpora": [
+      {
+        "path": "corpora/development.jsonl",
+        "bytes": 147358,
+        "sha256": "26401712d12545ba38df110a28232ae211c4991c89d8c635bb1b77ccd7dd9e20"
+      },
+      {
+        "path": "corpora/held-out.jsonl",
+        "bytes": 753548,
+        "sha256": "86606497543e642c1995b5ff22081f0c2ba24a6c4ad5bb68a1cf74899fd7c49b"
+      },
+      {
+        "path": "corpora/controls.jsonl",
+        "bytes": 219560,
+        "sha256": "9abba94abab5b0b8384bc90ae58c9b11c2bfa0f998ef259e94d06dd8c5acc7b7"
+      }
+    ],
+    "recipe_manifest": {
+      "path": "manifests/recipe-manifest.json",
+      "bytes": 1163082,
+      "sha256": "a81c6511335c9cb63fa432e633e7a5bd3a262df0f8ae2036a54cff9ae94ab638"
+    },
+    "artifact_manifest": {
+      "path": "manifests/artifact-manifest.json",
+      "bytes": 799,
+      "sha256": "ec28e222b0a4af6de23b24c4ae8f9aa4263a7a8f548f6cd1002ef62e37bda6db",
+      "self_binding": false,
+      "listed_artifacts_exclude_manifest_itself": true
+    },
+    "sqrt_vectors": {
+      "path": "sqrt-vectors.json",
+      "bytes": 1946,
+      "sha256": "20668c89c7a213a73b73494540bf612ac2b253d81e255c686ad78255869e7953"
+    },
+    "commands": [
+      "python3 experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/scripts/generate_phase3.py",
+      "python3 experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/scripts/generate_phase3.py --check",
+      "python3 experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/scripts/test_generate_phase3.py"
+    ],
+    "freeze_content_identities": "null until the later pre-execution freeze"
+  },
+  "review_gates": {
+    "gate_a": {
+      "name": "current-preregistration Double review",
+      "required_before": "corpus/tool construction is treated as frozen design",
+      "status": "complete",
+      "outcome": "passed",
+      "target_materialization": "exact current development-unfrozen materialization",
+      "prior_review": "completed prior review forced this material revision; prior issue-finding reviews remain stale historical working evidence",
+      "reviews": [
+        {
+          "path": "reviews/gate-a-review-01-closure-integrity.md",
+          "result": "None. No actionable findings.",
+          "lens": "closure integrity, recursive production/build inputs, immutability, counts, authority, and stale identity",
+          "execution": "not-performed"
+        },
+        {
+          "path": "reviews/gate-a-review-02-numeric-claims.md",
+          "result": "None. No actionable findings.",
+          "lens": "numeric source truth, exact-rational intervals, admission gates, identities, and authority",
+          "execution": "not-performed"
+        }
+      ],
+      "checks": "checker and 9 checker tests; generator --check and 13 generator tests; docs validation; diff check",
+      "closure": "Gate A is complete/passed for this exact development-unfrozen materialization. This does not freeze the package, close Gate B, permit execution, validate profile values, bind production semantics, or activate Readiness 3."
+    },
+    "gate_b": {
+      "name": "frozen concrete package current-revision Double review",
+      "required_before": "execution",
+      "status": "required"
+    },
+    "execution_authorization": "Even after both technical gates, execution_permitted remains false until Ben separately authorizes the exact WSL attempts and native dispatch."
+  },
+  "content_identity": {
+    "protocol_content_sha256": null,
+    "candidate_content_sha256": null,
+    "ledger_and_corpus_content_sha256": null,
+    "generator_content_sha256": null,
+    "oracle_content_sha256": null,
+    "scorer_content_sha256": null,
+    "state": "pending-freeze"
+  },
+  "result_binding": {
+    "state": "unbound",
+    "result_id": null,
+    "content_sha256": null
+  },
+  "receipt_binding": {
+    "state": "unbound",
+    "receipt_id": null,
+    "content_sha256": null
+  },
+  "attempt_index_binding": {
+    "state": "unbound",
+    "index_id": null,
+    "content_sha256": null,
+    "schema_writer_and_canonicalization": "pre-execution freeze inputs",
+    "required_fields": [
+      "freeze-manifest identity",
+      "unique attempt ID",
+      "platform and ordinal",
+      "exact Ben authorization reference",
+      "result hash",
+      "receipt hash"
+    ],
+    "canonical_hash_basis": "canonical envelope bytes excluding the envelope's own hash field",
+    "self_hashing": false
+  }
+}
