@@ -13,11 +13,11 @@ evidence, and does not activate Readiness 3.
 The run is insufficient to choose strict, micro, or stress. Its discriminating
 cases are synthetic scalar ladders plus two tiny direct socket-rotation
 thresholds; it lacks realistic composed transforms, unit/basis conversion,
-descendant paths, and independent equation-output verification. A bounded
-future development-only extension is therefore planned: one deterministic
-descendant-socket variant and six predeclared realistic-transform/oracle cases.
-Their exact corpus identity and values remain unspecified until that extension
-is designed; no profile is selected.
+descendant paths, and independent equation-output verification. A separate
+development-only extension now covers that gap: one deterministic three-Part
+descendant-tail variant and six realistic-transform/oracle cases. Its exact
+corpus identity and values are frozen in its own package; no profile is
+selected.
 
 The draft preserves the mechanics already decided for this successor:
 
@@ -43,6 +43,17 @@ bridge. The provisional candidate retains and projects typed causes plus
 equation inputs and steps, but the profile, corpus, result, receipt, resolver,
 and R3 activation bindings remain absent and non-authoritative; those missing
 bindings still block authoritative corpus/profile freezing.
+
+The separate [development extension](corpora/development-extension/README.md)
+executes those six cases against the same three profiles (18 requests). Its
+cases combine centimetre units, a left-handed signed basis, a three-Part
+descendant tail path, and non-identity half-turn rotations. An independent
+exact-rational oracle checks the complete placement witness, not only the
+classification. The candidate run passed 18/18 requests: 9 `agree` and 9
+`conflict`. Hands-on trial and adversarial review found and covered
+quaternion-sign canonicalization, source-derived document-identity, and
+report-algebra defects. This remains non-authoritative development evidence:
+it selects no profile and does not activate Readiness 3.
 
 ## Safe preflight
 
