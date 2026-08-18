@@ -57,6 +57,11 @@ def _safe_detail(value: object) -> str:
     return text[:256]
 
 
+def _stable_failure_code(value: object) -> str:
+    """Retain the bounded machine-facing prefix from a formatted failure."""
+    return _safe_detail(value).split(":", 1)[0]
+
+
 def _hash_file(path: Path, limit: int, label: str) -> tuple[str, int]:
     if path.is_symlink() or not path.is_file():
         raise DevelopmentRunError("file-type", f"{label} must be a regular non-symlink file")
@@ -198,6 +203,9 @@ def _report(
     passed = sum(1 for item in entries if item["pass"])
     total = len(entries)
     failed = total - passed
+    expectation_mismatches = sum(
+        1 for item in entries if not item["pass"] and item["failure"] is None
+    )
     completed = sum(1 for item in entries if item["response_sha256"] is not None)
     return {
         "schema": REPORT_SCHEMA,
@@ -213,6 +221,7 @@ def _report(
             "responses_received": completed,
             "passed": passed,
             "failed": failed,
+            "expectation_mismatches": expectation_mismatches,
             "classification_totals": classification_totals,
             "failures": failures,
         },
@@ -326,7 +335,7 @@ def run_development(
         failures.append(f"transport:close:{_safe_detail(close_error)}")
     elif close_result is not None:
         if close_result.failure:
-            failures.append(f"transport:{_safe_detail(close_result.failure)}")
+            failures.append(f"transport:{_stable_failure_code(close_result.failure)}")
         if close_result.returncode not in (0, None):
             failures.append(f"candidate-exit:{close_result.returncode}")
     # Preserve one occurrence per diagnostic code while retaining order.
@@ -353,6 +362,7 @@ def _error_report(error: Exception) -> dict[str, Any]:
             "responses_received": 0,
             "passed": 0,
             "failed": 0,
+            "expectation_mismatches": 0,
             "classification_totals": {},
             "failures": [f"{code}:{detail}"],
         },

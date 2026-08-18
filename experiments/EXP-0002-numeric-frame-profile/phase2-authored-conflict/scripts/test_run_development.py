@@ -83,6 +83,10 @@ class DevelopmentRunnerE2ETests(unittest.TestCase):
             run_development.DevelopmentRunError("file-type", "candidate is missing")
         )
         self.assertEqual(report["summary"]["failures"], ["file-type:candidate is missing"])
+        self.assertEqual(
+            run_development._stable_failure_code("stdin-write: [Errno 32] Broken pipe"),
+            "stdin-write",
+        )
 
     def test_real_subprocess_runs_all_48_and_reports_mismatch_and_incomplete(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -124,6 +128,7 @@ for line in sys.stdin:
             self.assertEqual(report["summary"]["requests_sent"], 48)
             self.assertEqual(report["summary"]["responses_received"], 48)
             self.assertGreater(report["summary"]["failed"], 0)
+            self.assertGreater(report["summary"]["expectation_mismatches"], 0)
             self.assertEqual(report["entries"][0]["observed_classification"], "incomplete")
             self.assertTrue(all("request_sha256" in entry and "response_sha256" in entry for entry in report["entries"]))
             self.assertTrue(report["non_authoritative"])
@@ -157,6 +162,10 @@ sys.exit(7)
             self.assertEqual(report["summary"]["responses_received"], 48)
             self.assertEqual(report["run_status"], "fail")
             self.assertIn("candidate-exit:7", report["summary"]["failures"])
+            self.assertEqual(
+                len(report["summary"]["failures"]),
+                len(set(report["summary"]["failures"])),
+            )
 
     def test_oversized_cause_is_per_entry_incomplete_with_bounded_report(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
