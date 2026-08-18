@@ -90,17 +90,20 @@ conformance with failed-evidence precedence. Gate A is complete/passed for
 this exact development-unfrozen materialization; its current Double review is
 recorded in [Review 01](phase3-semantic-band-conformance/reviews/gate-a-review-01-closure-integrity.md)
 and [Review 02](phase3-semantic-band-conformance/reviews/gate-a-review-02-numeric-claims.md).
-This does not by itself close Gate B. The v2 successor freeze now preserves
-candidate/build commit `647eab5297adca1998764904cce98eca154738e4` and is
-materialized at manifest commit `cc1531c2e8efe40f8a4896d11b10973147c5636b`,
-with manifest SHA-256
-`d7365e99945cb2e57cd6bac45bac241fc032dc1312cda3a94cfdba14cd17933a`.
-It binds 8 Phase 3 runtime tools, 7 exact-runtime tools, and 4 provenance
-tools; 267 synthetic tests passed before execution-tool commit
-`9dca58a84072582db34045b8eac98d6e86d3d5ae`. No candidate/exact attempt or
-native dispatch has been executed. Final current-revision Gate B Double
-reviews and admission/custody/authorization records remain pending, and Ben's
-authorization will be requested only after those gates. No loss ranking,
+This does not by itself close Gate B. The current v3 successor freeze is
+materialized from execution-tool/materialization snapshot
+`762b04b8db3397cb1885d94236ad5d47cb321830` under schema
+`ck.exp-0002.phase3.freeze-manifest-3`, with manifest SHA-256
+`faafe7680fcc3509a245dde6759396a1391e02c40891128ca44d007726adef85`.
+It binds the experiment-wide closure tool, exact runtime contract, fixed
+binary cap, exact slot reservation, and runtime/platform observations. The v2
+freeze and its `Revise` reviews remain historical. The consolidated 296-test
+suite passed before new E `762b04b8db3397cb1885d94236ad5d47cb321830`. No
+candidate/exact attempt or native dispatch has been executed. The later commit
+containing the exact v3 bytes still requires fresh current-revision Gate B
+Double review, followed by execution-disabled admission and artifact-custody
+preparation. An exact-attempt authorization is created separately only after
+Ben explicitly authorizes execution. No loss ranking,
 production binding, profile-value validation, product-quality claim, or
 Readiness 3 activation follows.
 

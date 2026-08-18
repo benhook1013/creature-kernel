@@ -277,18 +277,23 @@ checks the concrete freeze inputs, with a narrow finalization path that binds
 exactly one durable WSL receipt and one durable native receipt. Until both
 receipt files exist and validate, the execution-package freeze remains
 pre-freeze and the binary slots remain unbound. Its focused boundary checks are
-in `scripts/test_phase3_freeze_manifest.py`. The v2 successor freeze now
-preserves candidate/build commit `647eab5297adca1998764904cce98eca154738e4`
-and is materialized at manifest commit
-`cc1531c2e8efe40f8a4896d11b10973147c5636b`, with manifest SHA-256
-`d7365e99945cb2e57cd6bac45bac241fc032dc1312cda3a94cfdba14cd17933a`.
-It binds 8 Phase 3 runtime tools, 7 exact-runtime tools, and 4 provenance
-tools. The 267 synthetic tests passed before execution-tool commit
-`9dca58a84072582db34045b8eac98d6e86d3d5ae`; no candidate or exact experiment
-attempt has run and no native dispatch has occurred. The successor remains
-execution-disabled: final current-revision Gate B Double reviews and the
-admission, custody, and authorization records are still pending. Ben's exact
-attempt/native-dispatch authorization will be requested only after those gates.
+in `scripts/test_phase3_freeze_manifest.py`. The current v3 successor freeze is
+materialized from execution-tool/materialization snapshot
+`762b04b8db3397cb1885d94236ad5d47cb321830` under schema
+`ck.exp-0002.phase3.freeze-manifest-3`, with manifest SHA-256
+`faafe7680fcc3509a245dde6759396a1391e02c40891128ca44d007726adef85`.
+It binds the experiment-wide closure tool, exact runtime contract, fixed
+binary cap, exact slot reservation, and runtime/platform observations. The v2
+freeze and its `Revise` reviews remain historical. The consolidated 296-test
+suite passed before new E `762b04b8db3397cb1885d94236ad5d47cb321830`; the
+older 267-test pass before historical v2 execution-tool commit
+`9dca58a84072582db34045b8eac98d6e86d3d5ae` remains historical. No candidate
+or exact experiment attempt has run and no native dispatch has occurred. The
+v3 successor remains execution-disabled: the later commit containing its exact
+bytes requires fresh current-revision Gate B Double review, followed by
+execution-disabled admission and artifact-custody preparation. An exact-
+attempt authorization is created separately only after Ben explicitly
+authorizes execution.
 
 `development-unfrozen` remains the explicit state of the generated
 corpus/request materialization. It is not a statement that the separately

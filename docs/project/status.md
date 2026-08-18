@@ -143,14 +143,22 @@ corrected. Gate A is complete/passed for this exact development-unfrozen
 materialization, with the current Double recorded
 in [Review 01](../../experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/reviews/gate-a-review-01-closure-integrity.md)
 and [Review 02](../../experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/reviews/gate-a-review-02-numeric-claims.md).
-Prior issue-finding reviews remain stale historical working evidence. The v2
-successor WSL/native receipts and freeze manifest are now materialized from
-candidate/build commit `647eab5297adca1998764904cce98eca154738e4` at manifest
-commit `cc1531c2e8efe40f8a4896d11b10973147c5636b`, with manifest SHA-256
+Prior issue-finding reviews remain stale historical working evidence. The
+current v3 successor is materialized locally under execution-tool/materialization
+snapshot `762b04b8db3397cb1885d94236ad5d47cb321830`, with schema
+`ck.exp-0002.phase3.freeze-manifest-3` and manifest SHA-256
+`faafe7680fcc3509a245dde6759396a1391e02c40891128ca44d007726adef85`.
+It binds the experiment-wide closure, exact runtime contract, fixed binary
+cap, exact slot reservation, and runtime/platform evidence. The v2 identities
+remain historical evidence: execution-tool commit
+`9dca58a84072582db34045b8eac98d6e86d3d5ae`, manifest commit
+`cc1531c2e8efe40f8a4896d11b10973147c5636b`, and self-hash
 `d7365e99945cb2e57cd6bac45bac241fc032dc1312cda3a94cfdba14cd17933a`.
-Final current-revision Gate B Double reviews and admission/custody/
-authorization records remain pending. Explicit Ben authorization will be
-requested only after those gates, before any exact attempt or native dispatch.
+The v3 bytes still require a fresh current-revision Gate B Double review of
+the later commit that contains them, followed by execution-disabled Gate B
+admission and artifact-custody records. An exact-attempt/native-dispatch
+authorization is created separately only after Ben explicitly authorizes
+execution.
 No profile-value validation, production binding, or Readiness 3 activation
 follows from this package.
 
@@ -159,12 +167,16 @@ bounded runner aggregation, the non-evidence receipt, materialized-package
 adapter, the Proposed in-memory result/receipt/attempt-index contracts, and
 read-only Gate B preflight, build-only receipt capture, deterministic freeze
 manifest generation, and exact runtime authority/custody/transport/adjudication/
-publication tooling. The v2 successor freeze preserves candidate/build commit
-`647eab5297adca1998764904cce98eca154738e4` and is materialized at manifest
-commit `cc1531c2e8efe40f8a4896d11b10973147c5636b`, with manifest SHA-256
-`d7365e99945cb2e57cd6bac45bac241fc032dc1312cda3a94cfdba14cd17933a`.
-It binds 8 Phase 3 runtime tools, 7 exact-runtime tools, and 4 provenance
-tools. The 267 synthetic tests passed before execution-tool commit
+publication tooling. The current v3 successor is materialized from execution-
+tool/materialization snapshot `762b04b8db3397cb1885d94236ad5d47cb321830` with
+schema `ck.exp-0002.phase3.freeze-manifest-3` and manifest SHA-256
+`faafe7680fcc3509a245dde6759396a1391e02c40891128ca44d007726adef85`. It binds
+the experiment-wide closure tool, current exact-runtime contract, fixed binary
+cap, exact experiment-slot reservation, and runtime/platform observations. The
+v2 freeze and its two `Revise` reviews remain historical. The consolidated
+296-test suite passed before new E
+`762b04b8db3397cb1885d94236ad5d47cb321830`; the older 267-test pass before
+the historical v2 execution-tool commit
 `9dca58a84072582db34045b8eac98d6e86d3d5ae`. The adapter validates the current
 package/preregistration/manifests, local generator identity, fixed fixture
 declaration/hash (without loading the external fixture), generated source
@@ -185,15 +197,16 @@ execution-disabled, open-evidence status.
 The manual [Gate B native build workflow](../../.github/workflows/phase3-gate-b-native-build.yml)
 is build-only and transfer-only: it takes a full commit SHA, runs on Ubuntu
 24.04, binds source/dependency/build/toolchain/binary identities, and never
-dispatches an exact native experiment attempt. The v2 successor WSL/native
-receipts and freeze manifest are materialized from candidate/build commit
-`647eab5297adca1998764904cce98eca154738e4` at manifest commit
-`cc1531c2e8efe40f8a4896d11b10973147c5636b` and manifest SHA-256
-`d7365e99945cb2e57cd6bac45bac241fc032dc1312cda3a94cfdba14cd17933a`.
+dispatches an exact native experiment attempt. The current v3 freeze is
+materialized from execution-tool/materialization snapshot
+`762b04b8db3397cb1885d94236ad5d47cb321830` under schema
+`ck.exp-0002.phase3.freeze-manifest-3` and manifest SHA-256
+`faafe7680fcc3509a245dde6759396a1391e02c40891128ca44d007726adef85`.
 No candidate or exact experiment attempt has run and no native dispatch has
-occurred. Final current-revision Gate B Double reviews and
-admission/custody/authorization records remain pending; Ben's authorization
-will be requested only after those gates.
+occurred. The later commit containing the v3 bytes still requires fresh Double
+review, then execution-disabled Gate B admission and artifact-custody records.
+An exact-attempt/native-dispatch authorization is created separately only
+after Ben explicitly authorizes execution.
 
 The materialized records distinguish `construction_target` (the exact recipe
 magnitude before source serialization) from source-derived `I_truth` (computed
@@ -1439,16 +1452,16 @@ authorize merging later PRs outside this recorded runway.
 - For EXP-0002 phase three, retain the development-only deterministic
   ledger/generator/manifests, independent adapter/oracle/scorer/receipt
   tooling, in-memory result/receipt/index contracts, read-only Gate B preflight,
-  and exact execution tooling as execution-disabled preparation. The v2
-  successor freeze is materialized under candidate/build commit
-  `647eab5297adca1998764904cce98eca154738e4`, manifest commit
-  `cc1531c2e8efe40f8a4896d11b10973147c5636b`, and manifest SHA-256
-  `d7365e99945cb2e57cd6bac45bac241fc032dc1312cda3a94cfdba14cd17933a`.
-  Final current-revision Gate B Double reviews and admission/custody/
-  authorization records remain pending; stop for Ben before requesting exact
-  attempt/native-dispatch authorization, and before any exact attempt, native
-  dispatch, profile-value validation, production binding, or Readiness 3
-  activation.
+  and exact execution tooling as execution-disabled preparation. The current
+  v3 successor is materialized under execution-tool/materialization snapshot
+  `762b04b8db3397cb1885d94236ad5d47cb321830`, schema
+  `ck.exp-0002.phase3.freeze-manifest-3`, and manifest SHA-256
+  `faafe7680fcc3509a245dde6759396a1391e02c40891128ca44d007726adef85`.
+  The later commit containing those exact v3 bytes still needs fresh current-
+  revision Double review, followed by execution-disabled Gate B admission and
+  artifact-custody records. Stop for Ben before creating an exact-attempt or
+  native-dispatch authorization, and before any exact attempt, native dispatch,
+  profile-value validation, production binding, or Readiness 3 activation.
 - Keep Readiness 1 limited to the Cargo workspace, compiler/core library shell,
   and thin CLI shell. Keep the provisional structural address/index, validator,
   and `inspect-structure` command outside the formal Readiness 3 activation

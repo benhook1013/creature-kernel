@@ -264,15 +264,23 @@ binary hashes, FE/MXCSR, request/response hashes, lifecycle, shutdown, and
 extra/missing/trailing output. Native evidence is bounded consistency, not
 broad portability.
 
-The corpus materialization remains `development-unfrozen`; separately, the v2
-execution-package freeze preserves candidate/build commit
-`647eab5297adca1998764904cce98eca154738e4` and is materialized at manifest
-commit `cc1531c2e8efe40f8a4896d11b10973147c5636b`, with manifest SHA-256
-`d7365e99945cb2e57cd6bac45bac241fc032dc1312cda3a94cfdba14cd17933a`.
-It binds 8 Phase 3 runtime tools, 7 exact-runtime tools, and 4 provenance
-tools. The 267 synthetic tests passed before execution-tool commit
-`9dca58a84072582db34045b8eac98d6e86d3d5ae`. After the required gates and
-later authorization, attempts reuse exact ordered case/source/tolerance
+The corpus materialization remains `development-unfrozen`; separately, the
+current v3 execution-package freeze is materialized from execution-tool/
+materialization snapshot `762b04b8db3397cb1885d94236ad5d47cb321830` under
+schema `ck.exp-0002.phase3.freeze-manifest-3`, with manifest SHA-256
+`faafe7680fcc3509a245dde6759396a1391e02c40891128ca44d007726adef85`. It binds
+the experiment-wide closure tool, exact runtime contract, fixed binary cap,
+exact slot reservation, and runtime/platform observations. The v2 freeze
+(`cc1531c2e8efe40f8a4896d11b10973147c5636b`, self-hash
+`d7365e99945cb2e57cd6bac45bac241fc032dc1312cda3a94cfdba14cd17933a`) and its
+`Revise` reviews remain historical. The consolidated 296-test suite passed
+before new E `762b04b8db3397cb1885d94236ad5d47cb321830`; the older 267-test
+pass before the historical v2 execution-tool commit
+`9dca58a84072582db34045b8eac98d6e86d3d5ae` remains historical. After the later
+commit containing the exact v3 bytes receives fresh current-revision Double
+review and execution-disabled Gate B admission and artifact-custody records,
+an exact-attempt/native-dispatch authorization is created separately only
+after Ben explicitly authorizes execution; only then may attempts reuse exact ordered case/source/tolerance
 bytes; request IDs are the only planned substitution, from the attempt/ordinal
 formula. Normalize only those IDs and preregistered
 environment/attempt metadata. WSL repeats
@@ -297,12 +305,13 @@ its own hash.
 Gate A is complete/passed for this exact development-unfrozen materialization.
 Its fresh current-version Double review is recorded in [Review 01](../../experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/reviews/gate-a-review-01-closure-integrity.md)
 and [Review 02](../../experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/reviews/gate-a-review-02-numeric-claims.md);
-prior issue-finding reviews remain stale historical working evidence. The v2
-successor package is frozen as described above, but final current-revision
-Gate B Double reviews and admission/custody/authorization records remain
-pending. No candidate or exact experiment attempt has run and no native
-dispatch has occurred. Ben's authorization will be requested only after those
-gates. Failed
+prior issue-finding reviews remain stale historical working evidence. The v3
+successor package is materialized as described above, but the later commit
+containing its exact bytes still requires fresh current-revision Gate B Double
+review, followed by execution-disabled Gate B admission and artifact-custody
+records. No candidate or exact experiment attempt has run and no native
+dispatch has occurred. An exact-attempt/native-dispatch authorization is
+created separately only after Ben explicitly authorizes execution. Failed
 takes precedence for any fully evidenced false admissible assertion even when
 other evidence is incomplete; otherwise incompleteness is inconclusive;
 supported requires complete all-pass evidence. No loss ranking, profile-value
