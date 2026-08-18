@@ -26,6 +26,8 @@ def _copy_package(root: Path) -> tuple[Path, Path]:
     package = root / "phase3-package"
     shutil.copytree(freeze.PACKAGE, package)
     receipts = package / freeze.RECEIPT_DIR_REL
+    if receipts.exists():
+        shutil.rmtree(receipts)
     receipts.mkdir(parents=True)
     manifest_path = package / freeze.MANIFEST_REL
     manifest_path.write_bytes(_canonical(freeze.generate_manifest(package=package)))

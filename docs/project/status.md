@@ -144,11 +144,13 @@ materialization, with the current Double recorded
 in [Review 01](../../experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/reviews/gate-a-review-01-closure-integrity.md)
 and [Review 02](../../experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/reviews/gate-a-review-02-numeric-claims.md).
 Prior issue-finding reviews remain stale historical working evidence. New
-build-receipt and freeze tooling is preparation only: the freeze remains
-pre-freeze and binary slots remain unbound until durable WSL/native receipts
-exist and validate. Gate B remains a separate later frozen-package Double
-before execution. No profile-value validation, production binding, or
-Readiness 3 activation follows from this package.
+build-receipt and freeze tooling is preparation only: committed WSL/native
+receipts and the finalized freeze manifest are now materialized from exact
+candidate source commit `647eab5297adca1998764904cce98eca154738e4`. Gate B
+remains a separate current-revision Double review, and explicit Ben
+authorization remains pending before any exact attempt or native dispatch. No
+profile-value validation, production binding, or Readiness 3 activation follows
+from this package.
 
 The Phase 3 package now has twelve implementation modules and nine focused test
 modules. They cover source oracle, actual nested-response scoring, bounded
@@ -176,9 +178,10 @@ The manual [Gate B native build workflow](../../.github/workflows/phase3-gate-b-
 is build-only and transfer-only: it takes a full commit SHA, runs on Ubuntu
 24.04, binds source/dependency/build/toolchain/binary identities, and never
 dispatches an exact native experiment attempt. The next internal action is
-merge preparation, followed by manufacturing the WSL/native receipt artifacts,
-the final immutable freeze, and the current-revision Gate B Double review. Ben
-remains needed for later exact attempts and native dispatch only.
+the current-revision Gate B Double review. The committed WSL/native receipt
+artifacts and finalized freeze are materialized from exact candidate source
+commit `647eab5297adca1998764904cce98eca154738e4`; explicit Ben authorization
+remains pending before any exact attempt or native dispatch.
 
 The materialized records distinguish `construction_target` (the exact recipe
 magnitude before source serialization) from source-derived `I_truth` (computed
@@ -1425,9 +1428,11 @@ authorize merging later PRs outside this recorded runway.
   ledger/generator/manifests and independent adapter/oracle/scorer/receipt
   tooling, plus the in-memory result/receipt/index contracts and read-only Gate
   B preflight. Keep the package execution-disabled through both current-
-  revision Double gates; the next slice is the concrete freeze manifest and
-  its review packet. Stop for Ben before any exact attempt, native dispatch,
-  profile-value validation, production binding, or Readiness 3 activation.
+  revision Double gates; the concrete freeze manifest is now materialized from
+  exact candidate source commit `647eab5297adca1998764904cce98eca154738e4`, and
+  the next slice is its current-revision review packet. Stop for Ben before any
+  exact attempt, native dispatch, profile-value validation, production binding,
+  or Readiness 3 activation.
 - Keep Readiness 1 limited to the Cargo workspace, compiler/core library shell,
   and thin CLI shell. Keep the provisional structural address/index, validator,
   and `inspect-structure` command outside the formal Readiness 3 activation

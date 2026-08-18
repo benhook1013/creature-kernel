@@ -277,17 +277,19 @@ checks the concrete freeze inputs, with a narrow finalization path that binds
 exactly one durable WSL receipt and one durable native receipt. Until both
 receipt files exist and validate, the freeze remains pre-freeze and the binary
 slots remain unbound. Its focused boundary checks are in
-`scripts/test_phase3_freeze_manifest.py`. The generated freeze manifest is
-intentionally not committed in this preparation change.
+`scripts/test_phase3_freeze_manifest.py`. The committed WSL/native receipts and
+finalized freeze manifest are now materialized from exact candidate source
+commit `647eab5297adca1998764904cce98eca154738e4`; execution remains disabled
+pending the current-revision Gate B Double review.
 
 The manual `.github/workflows/phase3-gate-b-native-build.yml` workflow accepts
 only a full 40-character commit SHA, runs on Ubuntu 24.04, recomputes the
 candidate closure, performs the sanitized locked build, captures the build-only
 receipt, and uploads a transfer-only bundle. It does not run the candidate,
 perform an exact attempt, or dispatch the native experiment. The next internal
-steps are merge preparation, manufacture of the WSL/native receipt artifacts,
-then final immutable freeze and the current-revision Gate B Double review. Ben
-is still required only for later exact attempts and native experiment dispatch.
+steps are the current-revision Gate B Double review and explicit Ben
+authorization for any later exact attempt or native experiment dispatch. The
+committed receipt and freeze artifacts remain build-only and execution-disabled.
 
 ## Synthetic validation plumbing (development only)
 
