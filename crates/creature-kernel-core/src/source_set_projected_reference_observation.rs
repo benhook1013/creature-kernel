@@ -90,6 +90,32 @@ impl SourceSetProjectedReferenceOccurrence {
     pub(crate) fn projected_outcome(&self) -> &SourceSetReferenceCandidates {
         self.projected_candidates()
     }
+
+    /// Construct a synthetic occurrence for crate-internal reducer tests.
+    ///
+    /// This is test-only support for later resolver-boundary states that the
+    /// current structural admission path rejects before handoff. It does not
+    /// participate in production observation or alter admitted behavior.
+    #[cfg(test)]
+    pub(crate) fn from_test_parts(
+        owner: SourceSetMemberKey,
+        owner_role: SourceSetMemberRole,
+        slot: SourceSetReferenceSlot,
+        original_target: SourceSetReferenceTarget,
+        original_candidates: SourceSetReferenceCandidates,
+        projected_target: SourceSetReferenceTarget,
+        projected_candidates: SourceSetReferenceCandidates,
+    ) -> Self {
+        Self {
+            owner,
+            owner_role,
+            slot,
+            original_target,
+            original_candidates,
+            projected_target,
+            projected_candidates,
+        }
+    }
 }
 
 /// Owned deterministic projected reference-target observation.
@@ -128,6 +154,21 @@ impl SourceSetProjectedReferenceObservation {
     #[must_use]
     pub(crate) fn is_empty(&self) -> bool {
         self.references.is_empty()
+    }
+
+    /// Replace only the retained occurrences for crate-internal reducer
+    /// tests, preserving the owned namespace projection. This exercises
+    /// synthetic later-boundary evidence without changing production
+    /// observation behavior.
+    #[cfg(test)]
+    pub(crate) fn with_test_references(
+        &self,
+        references: Vec<SourceSetProjectedReferenceOccurrence>,
+    ) -> Self {
+        Self {
+            projection: self.projection.clone(),
+            references,
+        }
     }
 }
 

@@ -1,10 +1,23 @@
-# EXP-0002 successor: authored-conflict preregistration
+# EXP-0002 successor: authored-conflict development package
 
-This is the smallest non-executing successor slice for the R3 authored-root
-versus Attachment-derived placement comparison. It validates a strict draft
-manifest and prints a deterministic preflight plan; it does not run a
-candidate, inspect the frozen phase-one corpora, select numeric constants, or
-create a result or receipt.
+PR #65 (merged at `9bcf2172d0433d35d2d96e6841a83890899d11e9`) adds the
+development-only phase-two authored-conflict runner for the R3 authored-root
+versus Attachment-derived placement comparison. It includes the exact
+unselected strict/micro/stress development sweep, a 16-case authored-conflict
+development corpus, bounded JSONL transport, and a 16-case × 3-profile (48
+request) adjudicator/runner with CI. The actual run passed all 48 requests:
+18 `agree`, 15 `conflict`, 12 `skipped`, and 3 `rejected`; its report was under
+128 KiB. This run selects no profile, supplies no held-out or adversarial
+evidence, and does not activate Readiness 3.
+
+The run is insufficient to choose strict, micro, or stress. Its discriminating
+cases are synthetic scalar ladders plus two tiny direct socket-rotation
+thresholds; it lacks realistic composed transforms, unit/basis conversion,
+descendant paths, and independent equation-output verification. A bounded
+future development-only extension is therefore planned: one deterministic
+descendant-socket variant and six predeclared realistic-transform/oracle cases.
+Their exact corpus identity and values remain unspecified until that extension
+is designed; no profile is selected.
 
 The draft preserves the mechanics already decided for this successor:
 

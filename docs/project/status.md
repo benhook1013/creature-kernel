@@ -91,6 +91,22 @@ independence, repeatability, broad generalization, production-domain claim, or
 technology outcome can be inferred. Broader tolerances and later experiment
 families remain Proposed/open.
 
+PR #65, “Add the phase-two authored-conflict development runner,” merged at
+`9bcf2172d0433d35d2d96e6841a83890899d11e9`. Its development-only package adds
+the exact unselected strict/micro/stress sweep, a 16-case authored-conflict
+corpus, bounded JSONL transport, and a 16-case × 3-profile (48-request)
+adjudicator/runner with CI. The actual run passed 48/48: 18 `agree`, 15
+`conflict`, 12 `skipped`, and 3 `rejected`, with a report under 128 KiB. This
+selects no profile, supplies no held-out or adversarial evidence, and does not
+activate Readiness 3. Technical disposition is that this is insufficient to
+choose strict/micro/stress: only synthetic scalar ladders and two tiny direct
+socket-rotation thresholds discriminate them; realistic composed transforms,
+unit/basis conversion, descendant paths, and independent equation-output
+verification remain absent. A bounded development-only extension is planned
+with one deterministic descendant-socket variant and six predeclared
+realistic-transform/oracle cases; exact corpus identity and values remain
+unspecified.
+
 The raw receipt records clean wrapper source checkpoints at the same source
 commit. The raw result records runner-side observational identity as
 dirty/untracked at that commit. An independently reviewed explanation is the
@@ -154,8 +170,9 @@ only: it does not
 resolve dependencies or produce a snapshot or canonical serialization, apply
 basis/unit values, interpret quaternions, expand dependencies/modules, produce
 geometry, rigging, animation, physics, or runtime output, or activate Readiness
-3. PR #14, “Add prepared source developer inspection,” is merged at commit
-`150de082dfb02d77d0b5aa0b7571437f65ce410b`.
+The earlier PR #14, “Add prepared source developer inspection,” is merged at
+commit `150de082dfb02d77d0b5aa0b7571437f65ce410b`; the later PR #65 checkpoint
+is recorded above.
 This is not blanket merge authority outside the named runway and does not waive
 real user-visible or direction-setting decisions.
 
@@ -364,6 +381,18 @@ topology/cycle/cardinality enforcement, remap, canonical identity,
 diagnostics/status, serialization or snapshot, public API or visual output, or
 Readiness 3 activation; the human stop remains unchanged and no contract is
 accepted or changed.
+
+The current internal slice is implemented as a crate-private projected
+relation-validity reducer. It emits bounded deterministic findings for missing,
+ambiguous, and wrong-kind projected references, plus repeated Attachment
+endpoint pairs, host Socket reuse, mating Socket reuse, and total cross-role
+Socket-capacity reuse for uniquely resolved expected-kind endpoints. Complete
+context and provenance are retained, invalid endpoints are excluded from
+grouping, and no winner is selected. Current structural admission makes
+several adverse states unreachable; test-only synthetic observations exercise
+the later reducer boundary. It performs no aggregate resolver/source validity,
+public API, diagnostic/status mapping, snapshot/profile selection, or
+Readiness 3 activation.
 
 The runway also contains a reviewed crate-private source-set namespace
 projection candidate. It consumes a total validated caller/test-supplied
@@ -590,9 +619,9 @@ protocol/candidate/corpus/result/receipt identities and the exact resolver
 binding; failed or inconclusive runs require a new candidate identity, and
 EXP-0002 attempt-001 is ineligible because `profile_binding` is null. The
 recognized taxonomy and minimum valid/invalid/unsupported morphology corpus
-are recorded in DR-0008 Revision 14. Its Revision 13 Double review at exact
-target `117544a` had one clean pass and one Revise pass with three taxonomy
-findings; both artifacts remain stale evidence for Revision 14. R3 remains
+are recorded in DR-0008 Revision 14. The Revision 13 Double-review artifacts at
+exact target `117544a` remain stale evidence for Revision 14; their three
+taxonomy findings were dispositioned in Revision 14. R3 remains
 inactive and exact profile constants, IDs, fixtures, and activation bindings
 are not selected.
 
@@ -696,11 +725,11 @@ Revision 11, DR-0006 Revision 12, DR-0008 Revision 14, DR-0011 Revision 15,
 DR-0012 Revision 14, and DR-0013 Revision 12. DR-0002 Revision 11, DR-0006
 Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14 are Accepted with
 Owner approval Approved by Ben and Review Complete; DR-0008 Revision 14
-remains Proposed with Owner approval Pending and Review Pending after the
-Revision 13 Double review at exact target `117544a`; Review 01 found no findings
-and Review 02 recommended Revise at High confidence with three taxonomy
-findings, dispositioned in Revision 14. The Revision 13 artifacts remain
-preserved stale evidence. The Revision 11 Double review at exact target
+remains Proposed with Owner approval Pending and Review Pending. The Revision 13
+Double-review artifacts at exact target `117544a` are stale evidence; Review 01
+found no findings and Review 02 recommended Revise at High confidence with
+three taxonomy findings, dispositioned in Revision 14. The Revision 11 Double
+review at exact target
 `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a` is stale historical evidence.
 The original Batch 13 review at exact commit
 `8c38c501eb1262a1b85af0b8605220625601772f` produced D1–D3/P1–P3, which were
@@ -815,15 +844,12 @@ probe. This is Proposed planning material only.
 
 ## Current review and future activation obligations
 
-The current DR-0008 Revision 13 Double review examined exact target `117544a`.
-Review 01 found no findings. Review 02 recommended Revise at High confidence
-with three taxonomy findings: ambiguous outside-envelope wording, missing
-machine-observable morphology request identity/classification order, and
-underspecified boundary fixtures. Ben approved their technical resolutions in
-DR-0008 Revision 14. The Revision 13 artifacts remain preserved but stale;
-Revision 14 is Proposed with Owner approval Pending and Review status Pending.
-R3 remains inactive, and no exact profile constants, IDs, fixture files, or
-activation record are selected.
+DR-0008 Revision 14 is the current Proposed morphology-boundary revision, with
+Owner approval Pending and Review status Pending. Its Revision 13 Double-review
+artifacts at exact target `117544a` are preserved stale evidence; their three
+taxonomy findings were dispositioned in Revision 14. R3 remains inactive, and
+no exact profile constants, IDs, fixture files, or activation record are
+selected.
 
 Batch 11, Batch 12, and Batch 13 record discussion-approved history. The
 accepted DR-0002/0006/0011/0012 semantic-foundation directions cover typed
@@ -979,14 +1005,17 @@ transaction under the admission record; the distinct Readiness 3
 resolver/snapshot transaction is not active.
 DR-0002 Revision 11 is Accepted with Owner approval Approved by Ben and Review
 Complete; DR-0008 Revision 14 remains Proposed with Owner approval Pending and
-Review Pending after the Revision 13 Double review at exact target `117544a`.
+Review Pending; the prior Revision 13 Double-review artifacts at exact target
+`117544a` are stale evidence.
 
-The immediate next action is bounded source preparation and provenance
-traversal over admitted records, grounded in the active parser/bootstrap and
-admitted schema/manifest/fixture transaction. Readiness 1 and Readiness 2
-remain active while Readiness 3 and later transactions remain gated. The
-prepared-source command is developer-facing preparatory inspection, not a
-human-visible creature result or retained-human checkpoint. The next
+The immediate next internal work is to extend the same bounded validation path
+into containment and typed-relation topology, without yet assigning aggregate
+resolver/source validity, public diagnostics or status, a snapshot, profile
+selection, or Readiness 3 activation. The phase-two development run remains
+non-authoritative and insufficient to choose
+strict/micro/stress; its bounded descendant-socket and realistic-transform/oracle
+extension remains future development-only work. Readiness 1 and Readiness 2
+remain active while Readiness 3 and later transactions remain gated. The next
 retained-human checkpoint is an actual rendered creature or primitive spatial
 preview, or a genuine direction-setting decision.
 The main thread will autonomously resolve technical correctness findings or
@@ -1097,11 +1126,11 @@ nonblocking obligation before external authored dependencies activate.
   DR-0012 Revision 14, and DR-0013 Revision 12. DR-0002 Revision 11, DR-0006
   Revision 12, DR-0011 Revision 15, and DR-0012 Revision 14 are Accepted with
   Owner approval Approved by Ben and Review Complete; DR-0008 Revision 14
-  remains Proposed with Owner approval Pending and Review Pending after the
-  Revision 13 Double review at exact target `117544a`; Review 01 found no findings
-  and Review 02 recommended Revise at High confidence with three taxonomy
-  findings, dispositioned in Revision 14. The Revision 13 artifacts remain
-  preserved stale evidence. The Revision 11 Double review at exact target
+  remains Proposed with Owner approval Pending and Review Pending. The Revision 13
+  Double-review artifacts at exact target `117544a` are stale evidence; Review 01
+  found no findings and Review 02 recommended Revise at High confidence with
+  three taxonomy findings, dispositioned in Revision 14. The Revision 11 Double
+  review at exact target
   `9c0aa51d9b0307153e1e61100d8b0c18ea0bef3a` is stale historical evidence.
   Prior Batch
   13 review evidence is stale historical evidence; G1/G2 were fixed
@@ -1225,9 +1254,10 @@ metadata. Current non-governance decisions and proposals include:
 ## Immediate next actions
 
 Ben authorized an autonomous runway on 2026-08-15 for small, internal,
-reversible preparation PRs. PR #14, “Add prepared source developer inspection,”
-is merged at commit `150de082dfb02d77d0b5aa0b7571437f65ce410b`. The main
-thread may merge clean internal bridge
+reversible preparation PRs. The latest relevant checkpoint is PR #65, “Add the
+phase-two authored-conflict development runner,” merged at commit
+`9bcf2172d0433d35d2d96e6841a83890899d11e9`. The main thread may merge clean
+internal bridge
 and document-wide preparation/provenance slices along the named runway, but
 this is not blanket authority outside it and does not waive real user-visible
 or direction-setting decisions. Continue the autonomous preparatory runway
