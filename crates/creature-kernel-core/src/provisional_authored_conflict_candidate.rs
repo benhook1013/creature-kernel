@@ -5,11 +5,9 @@
 //! source, rejects declarations, and does not resolve, select a profile,
 //! produce a snapshot, or activate Readiness 3.
 //!
-//! This preparatory DTO is not yet the phase-2 evidence adapter: Attachment
-//! provenance does not yet project every canonical equation input or
-//! composition step. Equation-evidence projection remains separate from the
-//! machine-stable cause projection added here before a corpus or profile is
-//! frozen.
+//! This preparatory DTO projects retained Attachment endpoint and equation
+//! provenance. Fine-grained skip causes remain typed in the bridge but are not
+//! serialized by the candidate yet.
 
 use crate::body_document::ResourceProfile;
 use crate::body_graph::OwnerRoleKey;
@@ -352,8 +350,34 @@ pub struct ProvisionalAttachmentProvenance {
     pub mating_owner: ProvisionalSemanticAddress,
     /// Canonical Attachment offset.
     pub offset: ProvisionalRigidTransform,
+    /// Canonical host Socket local transform.
+    pub host_socket_local: ProvisionalRigidTransform,
+    /// Canonical mating Socket local transform.
+    pub mating_socket_local: ProvisionalRigidTransform,
     /// Root-first path to mating owner.
     pub root_to_mating_owner_path: Vec<ProvisionalSemanticAddress>,
+    /// Ordered non-root Part locals used by the containment fold.
+    pub root_to_mating_owner_part_locals: Vec<ProvisionalAttachmentPlacementPartLocal>,
+    /// Ordered successfully executed Attachment-equation steps.
+    pub equation_steps: Vec<ProvisionalAttachmentPlacementEquationStep>,
+}
+
+/// One Part local retained as an input to the root-to-mating-owner fold.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProvisionalAttachmentPlacementPartLocal {
+    /// Part address.
+    pub address: ProvisionalSemanticAddress,
+    /// Canonical Part local transform.
+    pub local: ProvisionalRigidTransform,
+}
+
+/// One successfully executed Attachment-equation operation and its output.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProvisionalAttachmentPlacementEquationStep {
+    /// Operation executed at this equation step.
+    pub operation: ProvisionalPlacementOperation,
+    /// Canonical transform output by this equation step.
+    pub output: ProvisionalRigidTransform,
 }
 
 /// One compared Attachment with both candidate transforms.
@@ -1012,10 +1036,28 @@ fn convert_provenance(
         host_owner: convert_address(provenance.host_owner()),
         mating_owner: convert_address(provenance.mating_owner()),
         offset: convert_transform(provenance.offset()),
+        host_socket_local: convert_transform(provenance.host_socket_local()),
+        mating_socket_local: convert_transform(provenance.mating_socket_local()),
         root_to_mating_owner_path: provenance
             .root_to_mating_owner_path()
             .iter()
             .map(convert_address)
+            .collect(),
+        root_to_mating_owner_part_locals: provenance
+            .root_to_mating_owner_part_locals()
+            .iter()
+            .map(|part| ProvisionalAttachmentPlacementPartLocal {
+                address: convert_address(part.address()),
+                local: convert_transform(part.local()),
+            })
+            .collect(),
+        equation_steps: provenance
+            .equation_steps()
+            .iter()
+            .map(|step| ProvisionalAttachmentPlacementEquationStep {
+                operation: convert_placement_operation(step.operation()),
+                output: convert_transform(step.output()),
+            })
             .collect(),
     }
 }
@@ -1138,6 +1180,22 @@ mod tests {
             ProvisionalAttachmentOutcome::Agree
         ));
         assert!(!attachments[0].provenance.attachment.role.is_empty());
+        let provenance = &attachments[0].provenance;
+        assert_eq!(
+            provenance
+                .host_socket_local
+                .translation
+                .map(|value| value.as_f64()),
+            [0.0, 0.0, -1.0]
+        );
+        assert_eq!(
+            provenance
+                .mating_socket_local
+                .translation
+                .map(|value| value.as_f64()),
+            [0.0, 0.0, 0.0]
+        );
+        assert!(provenance.root_to_mating_owner_part_locals.is_empty());
         assert_eq!(
             attachments[0].authored_root_local,
             attachments[0].derived_root_local

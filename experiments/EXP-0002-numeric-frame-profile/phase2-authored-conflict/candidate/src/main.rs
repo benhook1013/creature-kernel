@@ -573,7 +573,7 @@ fn observation_value(
             "sqrt": {"selection": request.sqrt, "attestation": "unattested"},
             "environment": ENVIRONMENT,
         },
-        "detail": "provisional bridge observation; fine-grained causes and equation-step evidence are absent",
+        "detail": "provisional bridge observation; equation evidence retained but fine-grained causes are not yet serialized",
     })
 }
 
@@ -625,6 +625,24 @@ fn attachment_value(attachment: ProvisionalAttachmentComparison) -> json::Value 
             "root_to_mating_owner_path": attachment.provenance.root_to_mating_owner_path
                 .into_iter().map(address_value).collect::<Vec<_>>(),
         },
+        "equation": {
+            "host_socket_local": transform_value(attachment.provenance.host_socket_local),
+            "mating_socket_local": transform_value(attachment.provenance.mating_socket_local),
+            "root_to_mating_owner_part_locals": attachment.provenance.root_to_mating_owner_part_locals
+                .into_iter()
+                .map(|part| json::json!({
+                    "address": address_value(part.address),
+                    "local": transform_value(part.local),
+                }))
+                .collect::<Vec<_>>(),
+            "equation_steps": attachment.provenance.equation_steps
+                .into_iter()
+                .map(|step| json::json!({
+                    "operation": placement_operation_name(step.operation),
+                    "output": transform_value(step.output),
+                }))
+                .collect::<Vec<_>>(),
+        },
         "authored_root_local": transform_value(attachment.authored_root_local),
         "derived_root_local": transform_value(attachment.derived_root_local),
     });
@@ -656,6 +674,17 @@ fn attachment_value(attachment: ProvisionalAttachmentComparison) -> json::Value 
         }
     }
     value
+}
+
+fn placement_operation_name(operation: bridge::ProvisionalPlacementOperation) -> &'static str {
+    match operation {
+        bridge::ProvisionalPlacementOperation::PartContainment => "part-containment",
+        bridge::ProvisionalPlacementOperation::AttachmentContainment => "attachment-containment",
+        bridge::ProvisionalPlacementOperation::AttachmentMatingSocket => "attachment-mating-socket",
+        bridge::ProvisionalPlacementOperation::AttachmentHostOffset => "attachment-host-offset",
+        bridge::ProvisionalPlacementOperation::AttachmentInverse => "attachment-inverse",
+        bridge::ProvisionalPlacementOperation::AttachmentEquation => "attachment-equation",
+    }
 }
 
 fn component_name(component: ProvisionalComparisonComponent) -> &'static str {
@@ -762,6 +791,18 @@ mod tests {
         dispatch_request(request(source))
     }
 
+    fn socket_transform(z: &str) -> json::Value {
+        json::json!({
+            "translation": ["0x0000000000000000", "0x0000000000000000", z],
+            "rotation_xyzw": [
+                "0x0000000000000000",
+                "0x0000000000000000",
+                "0x0000000000000000",
+                "0x3ff0000000000000"
+            ]
+        })
+    }
+
     #[test]
     fn exact_example_is_one_root_attachment_and_agree() {
         let response = response(SOURCE);
@@ -775,6 +816,44 @@ mod tests {
         assert_eq!(members[0]["outcome"], "compared");
         assert_eq!(members[0]["attachments"].as_array().unwrap().len(), 1);
         assert_eq!(members[0]["attachments"][0]["outcome"], "agree");
+        let attachment = &members[0]["attachments"][0];
+        let equation = &attachment["equation"];
+        assert_eq!(
+            equation["host_socket_local"],
+            socket_transform("0xbff0000000000000")
+        );
+        assert_eq!(
+            equation["mating_socket_local"],
+            socket_transform("0x0000000000000000")
+        );
+        assert!(
+            equation["root_to_mating_owner_part_locals"]
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
+        let operations = equation["equation_steps"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|step| step["operation"].as_str().unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            operations,
+            vec![
+                "attachment-host-offset",
+                "attachment-inverse",
+                "attachment-equation"
+            ]
+        );
+        assert_eq!(
+            equation["equation_steps"]
+                .as_array()
+                .unwrap()
+                .last()
+                .unwrap()["output"],
+            attachment["derived_root_local"]
+        );
         assert_eq!(
             members[0]["attachments"][0]["authored_root_local"]["translation"][0],
             "0x0000000000000000"
