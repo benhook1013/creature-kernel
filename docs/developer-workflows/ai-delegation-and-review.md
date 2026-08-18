@@ -153,6 +153,20 @@ these outcome reports are used to tune it without adding heavyweight telemetry.
 Capacity retry does not apply to non-capacity failures and must never become an
 unbounded retry loop.
 
+### Thread-slot recovery (provisional)
+
+First inspect the authoritative live-thread list and statuses. Treat an
+`agent thread limit reached` failure as a structural slot condition, not model
+capacity; do not apply model fallback or capacity retry. If an obsolete
+interrupted or idle thread appears to occupy a slot, send it a no-work close-out
+message, trigger one bounded follow-up turn instructing it to return
+immediately without reads or edits, verify that it becomes `completed`, and
+retry the blocked spawn once. Do not interrupt useful active work or recycle a
+thread when fresh-context independence is required; wait for a genuine slot
+instead. The harness has no delete/archive operation. If this bounded recovery
+does not free a slot, report the authoritative statuses and stop rather than
+starting an unbounded recovery loop.
+
 ### Luna max admission gate
 
 The main thread may select Luna at `max` without separate human approval only

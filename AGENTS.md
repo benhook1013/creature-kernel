@@ -252,6 +252,17 @@ the human decision owner, accepts or rejects a DR.
   the end-of-round subagent status. This 30–60 second wait is provisional; use
   outcome reporting to tune it, without adding heavyweight telemetry. Do not
   retry non-capacity failures or start an unbounded retry loop.
+- First inspect the authoritative live-thread list and statuses. Treat an
+  `agent thread limit reached` failure as a structural slot condition, not model
+  capacity; do not apply model fallback or capacity retry. If an obsolete
+  interrupted or idle thread appears to occupy a slot, send it a no-work
+  close-out message, trigger one bounded follow-up turn instructing it to return
+  immediately without reads or edits, verify that it becomes `completed`, and
+  retry the blocked spawn once. Do not interrupt useful active work or recycle a
+  thread when fresh-context independence is required; wait for a genuine slot
+  instead. The harness has no delete/archive operation. If this bounded recovery
+  does not free a slot, report the authoritative statuses and stop rather than
+  starting an unbounded recovery loop.
 - Subagents must promptly report environment or tool failures that cause a
   retry, workaround, or changed execution path. Include the command/tool
   category, exact observed error, attempt count, workaround, and what is known
