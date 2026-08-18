@@ -1,6 +1,6 @@
 # Project status
 
-Status date: 2026-08-18
+Status date: 2026-08-19
 
 ## Phase
 
@@ -145,17 +145,24 @@ not freeze the package. Gate B remains a separate later frozen-package Double
 before execution. No profile-value validation, production binding, or
 Readiness 3 activation follows from this package.
 
-The Phase 3 package now also has nine validation scripts (six implementation
-modules plus three focused `test_phase3_*.py` unit modules) covering source
-oracle, actual nested-response scoring, bounded runner aggregation, the
-non-evidence receipt, and a read-only materialized-package adapter. The adapter
-validates the current package/preregistration/manifests, local generator
-identity, fixed fixture declaration/hash (without loading the external fixture),
-generated source identities, and sqrt fixture, then projects
-opaque 8-development/40-held-out/12-control roles; expected held-out classes
-remain internal to its synthetic handoff, while development and controls are
-observation-only. Rust CI's existing `test_phase3_*.py` glob
-includes its focused test. This plumbing does not execute a candidate, Rust, or
+The Phase 3 package now has ten implementation modules and seven focused test
+modules. They cover source oracle, actual nested-response scoring, bounded
+runner aggregation, the non-evidence receipt, materialized-package adapter,
+the Proposed in-memory result/receipt/attempt-index contracts, and the
+read-only Gate B preflight. The adapter validates the current
+package/preregistration/manifests, local generator identity, fixed fixture
+declaration/hash (without loading the external fixture), generated source
+identities, and sqrt fixture, then projects opaque 8-development/40-held-out/
+12-control roles; expected held-out classes remain internal to its synthetic
+handoff, while development and controls are observation-only. The new
+contracts retain exact request/response bytes and hashes, scorer/oracle and
+process/platform/FE/MXCSR/binary/transport observations, partial evidence,
+60/57/3 and 8/40/12 accounting, and result/receipt/index cross-binding with a
+non-circular index self-hash. The preflight checks current materialized package
+and tool identities against the caller-supplied prebound 47-file candidate
+closure, but does not recompute closure, freeze, authorize, execute, create
+evidence, or pass Gate B. Rust CI's existing `test_phase3_*.py` glob includes
+the new focused tests. This plumbing does not execute a candidate, Rust, or
 experiment process/attempt and does not change the package's Proposed,
 execution-disabled, open-evidence status.
 
@@ -1402,8 +1409,10 @@ authorize merging later PRs outside this recorded runway.
   evidence. Keep adapters, geometry, and later packages gated.
 - For EXP-0002 phase three, implement only the development-only deterministic
   ledger/generator/manifests and independent adapter/oracle/scorer/receipt
-  tooling. Keep the package execution-disabled through both current-revision
-  Double gates; stop for Ben before any exact attempt, native dispatch,
+  tooling, plus the in-memory result/receipt/index contracts and read-only Gate
+  B preflight. Keep the package execution-disabled through both current-
+  revision Double gates; the next slice is the concrete freeze manifest and
+  its review packet. Stop for Ben before any exact attempt, native dispatch,
   profile-value validation, production binding, or Readiness 3 activation.
 - Keep Readiness 1 limited to the Cargo workspace, compiler/core library shell,
   and thin CLI shell. Keep the provisional structural address/index, validator,

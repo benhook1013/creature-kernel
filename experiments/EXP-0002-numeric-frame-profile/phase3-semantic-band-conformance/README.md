@@ -503,6 +503,52 @@ manifest identity, unique attempt ID, platform/ordinal, exact Ben authorization
 reference, result hash, and receipt hash. It hashes canonical envelope bytes
 excluding its own hash. Nothing is overwritten or repaired in place.
 
+## Proposed result, receipt, and Gate B preflight plumbing
+
+The package now contains execution-incapable, in-memory Proposed contracts for
+the future exact-attempt result, derived receipt, and immutable attempt index.
+`scripts/phase3_evidence_contract.py` accepts only already-observed values and
+returns canonical bytes; it does not launch a candidate, inspect a process,
+read a package, or write a file. The result contract retains exact request and
+response bytes and hashes, scorer/oracle context, process/platform/FE/MXCSR,
+binary and transport observations, incomplete observations, and the derived
+status. It enforces the preregistered 60 adjudications (8 development, 40
+held-out, 12 controls), 57 dispatched requests and 3 preflight cases, three
+ordered role processes (8/40/9 requests), and the normal 40 held-out
+supported/20 observation status matrix for a complete correct synthetic
+fixture. Status is derived with failed taking precedence over inconclusive;
+observation-only entries cannot support a run by themselves.
+
+Candidate wire bytes remain the exact seven-field request contract and are
+separate from the hidden scorer context. Future candidate witness details are
+retained as evidence data rather than inferred from summary labels. Receipts
+must validate against the complete result bytes and bind their result hash;
+the attempt index binds the result and receipt hashes and hashes its canonical
+envelope while excluding only its own self-hash field. Domain-framed request
+and response transport hashes, closed cross-bindings, and bounded partial
+retention are contract checks, not execution evidence.
+
+`scripts/phase3_gate_b_preflight.py` is a separate read-only non-evidence
+preflight. It validates the materialized package, current Phase 3 tool
+identities, package counts, and the caller-supplied prebound 47-file candidate
+closure identity. It does not recompute the current-disk candidate closure,
+freeze a package, authorize an attempt, execute anything, create evidence, or
+pass Gate B. The preflight therefore reports the remaining Gate B blockers:
+concrete freeze-manifest bindings, exact build/run/toolchain/platform/binary
+bindings, current-revision Double review, and Ben's exact-attempt/native
+authorization. No R3 activation or product/architecture decision follows from
+these validators.
+
+Focused checks for this slice are:
+
+```bash
+PYTHONWARNINGS=error python3 experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/scripts/test_phase3_evidence_contract.py
+PYTHONWARNINGS=error python3 experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/scripts/test_phase3_gate_b_preflight.py
+```
+
+These tests use only bounded in-memory or package-validation fixtures. They do
+not run a candidate, Rust, Cargo, shell command, or experiment attempt.
+
 ## Gates and outcome
 
 Gate A is complete/passed for this exact development-unfrozen materialization.
