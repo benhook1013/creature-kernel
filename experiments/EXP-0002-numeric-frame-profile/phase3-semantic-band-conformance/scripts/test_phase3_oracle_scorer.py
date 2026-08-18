@@ -300,6 +300,9 @@ class ScorerTests(unittest.TestCase):
         response = {"protocol_id": RESPONSE_PROTOCOL_ID, "request_id": req["request_id"], "status": "rejected", "error": "ck.provisional-r3-authored-conflict.invalid-tolerance", "cause": req["expected_cause"]}
         result = scorer.score_response(req, truth, json.dumps(response).encode())
         self.assertEqual((result["status"], result["cause"]["index"]), ("supported", 3))
+        self.assertEqual(result["cause"], req["expected_cause"])
+        observed = scorer.score_response(req, truth, json.dumps(response).encode(), observation_only=True)
+        self.assertEqual((observed["status"], observed["classification"], observed["cause"]), ("observation", "rejected", req["expected_cause"]))
         for bad_index in (True, -1, 1.5, 1_000_001):
             bad = copy.deepcopy(response)
             bad["cause"]["index"] = bad_index

@@ -437,7 +437,7 @@ def score_response(request: Mapping[str, Any], oracle_result: Mapping[str, Any],
                 expected_cause = request.get("expected_cause")
                 normalized_expected = stable_cause(expected_cause, "request.expected_cause") if isinstance(expected_cause, Mapping) else None
                 if normalized_expected is not None and all(observed.get(key) == item for key, item in normalized_expected.items()):
-                    return {"status": "supported", "classification": status, "cause": observed}
+                    return {"status": "observation" if observation_only else "supported", "classification": status, "cause": observed}
                 return {"status": "failed", "classification": status, "cause": {"code": "typed-control-mismatch", "failure": "top-level-cause"}}
             return {"status": "inconclusive", "classification": "incomplete", "cause": {"code": "candidate-not-observed"}}
         if "observations" not in value or "error" in value or "cause" in value:

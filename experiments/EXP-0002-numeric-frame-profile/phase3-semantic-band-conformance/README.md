@@ -260,15 +260,14 @@ build/config inputs, and does not sweep ignored target/cache artifacts.
 
 ## Synthetic validation plumbing (development only)
 
-The seven new Python scripts (five `phase3_*.py` implementation modules and
-two `test_phase3_*.py` modules) are implementation plumbing for exercising the scoring
-boundary without running the experiment. They are
-pure in-memory Python: they do not open a candidate, invoke Rust or a
-subprocess, read a corpus or sqrt fixture, use a path/executable, or create an
-attempt. Their result and receipt schemas are deliberately non-evidence
-schemas. This section describes the current implementation behavior; it does
-not add a wire protocol, freeze the package, or alter the preregistered
-execution plan.
+The Phase 3 Python modules are implementation plumbing for exercising the
+scoring boundary without running the experiment. The oracle, scorer, runner,
+and receipt modules are pure in-memory Python: they do not open a candidate,
+invoke Rust or a subprocess, use a path/executable, or create an attempt. The
+read-only materialized-package adapter is the one package-reading boundary;
+its result and receipt schemas remain deliberately non-evidence schemas. This
+section describes the current implementation behavior; it does not add a wire
+protocol, freeze the package, or alter the preregistered execution plan.
 
 The modules and their in-memory entrypoints are:
 
@@ -276,6 +275,41 @@ The modules and their in-memory entrypoints are:
   and non-finite rejection, bounded decimal admission, canonical JSON, exact
   `Fraction` conversion, rational intervals, directed integer-`isqrt` square
   root bounds, and binary64 bit conversion.
+- `phase3_materialized_adapter.py` exposes the read-only
+  `load_materialized_cases(package_root)` and
+  `run_materialized(package_root, transcript)` entrypoints. The adapter
+  validates the current closed materialization: the expected corpus,
+  manifest, sqrt-vector, and `preregistration.json` layout; Proposed/planned,
+  open, `technology_outcome: none`, execution-disabled preregistration; the
+  `development-unfrozen`/`not_evidence`/`not_frozen` materialization flags and
+  all preregistered artifact identities; the local generator's declared size
+  and SHA-256 identity; the artifact manifest's schema, generator path, artifact
+  paths, sizes, and SHA-256 values; the recipe manifest's 60
+  ordered cases, five held-out families and strata, the fixed fixture
+  declaration/hash and generated-source identities, threshold bits, request-ID
+  formula, dispatch roles, typed expectations, and negative-relative control;
+  and the 12-vector certified sqrt fixture. It
+  then checks every request's existing protocol/operation/profile/providers,
+  placeholder request ID and ordinal, source size/UTF-8 JSON/hash linkage, and
+  exact binary64 tolerance bits. Files are bounded and read fail-closed: paths
+  must be regular mode-0644 single-link files with no symlink components, and
+  descriptor identity/size is checked before, during, and after reading;
+  package, manifest, partition, preregistration, source, line/frame, request-ID,
+  and numeric-token limits are enforced.
+- The adapter projects exactly 8 development, 40 held-out, and 12 control
+  records. Development and controls are observation-only (including the three
+  `dispatch_to_candidate: false` preflight controls); held-out cases are the
+  only internally scored role. `load_materialized_cases` deliberately omits
+  recipe case IDs, construction metadata, `construction_target`, `source_truth`,
+  and expected classes, keeping held-out cases opaque to callers. During
+  `run_materialized`, expected held-out classes are retained only in the
+  adapter's private handoff, and the materialized
+  `p3-{attempt_id}-{global_ordinal:03d}` IDs are mapped internally to
+  `synthetic/phase3/NNN`; a response must first echo its exact materialized ID
+  before that echo is rewritten at the private boundary. Transcript keys are
+  interpreted as materialized IDs only. Unknown keys, including an unpaired
+  synthetic ID, are mapped to collision-free internal extra IDs for runner
+  accounting and restored in the returned entries.
 - `phase3_oracle.py` exposes `evaluate_source(source_text, metric)` and
   `verify_sqrt_vectors(vectors)`. The oracle consumes only serialized source
   text (or an in-memory vector sequence), independently maps basis/unit data,
@@ -370,7 +404,19 @@ PYTHONWARNINGS=error python3 experiments/EXP-0002-numeric-frame-profile/phase3-s
 
 They exercise only in-memory synthetic fixtures. They do not run
 `generate_phase3.py`, `check_candidate_prebinding.py`, a candidate binary, a
-Rust build, any corpus, or `sqrt-vectors.json`.
+Rust build, or an experiment process/attempt. The adapter test additionally
+reads and copies the materialized package into temporary directories to test
+its validation and file-safety boundary. The existing CI discovery command
+now includes it through the `test_phase3_*.py` glob:
+
+```bash
+PYTHONWARNINGS=error python3 -m unittest discover \
+  -s experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/scripts \
+  -p 'test_phase3_*.py' -v
+```
+
+All of these paths are development-only, never start a candidate/Rust
+process, create an experiment attempt, or produce experiment evidence.
 
 ## Domain and transport contract
 

@@ -145,13 +145,19 @@ not freeze the package. Gate B remains a separate later frozen-package Double
 before execution. No profile-value validation, production binding, or
 Readiness 3 activation follows from this package.
 
-The Phase 3 package now also has seven pure in-memory synthetic-validation
-scripts (five implementation modules plus two focused `test_phase3_*.py` unit
-modules) covering source oracle, actual nested-response scoring, bounded runner
-aggregation, and the non-evidence receipt. Rust CI runs only those focused
-tests; this plumbing does not execute a candidate, Rust, corpus, or sqrt-file
-input and does not change the package's Proposed, execution-disabled,
-open-evidence status.
+The Phase 3 package now also has nine validation scripts (six implementation
+modules plus three focused `test_phase3_*.py` unit modules) covering source
+oracle, actual nested-response scoring, bounded runner aggregation, the
+non-evidence receipt, and a read-only materialized-package adapter. The adapter
+validates the current package/preregistration/manifests, local generator
+identity, fixed fixture declaration/hash (without loading the external fixture),
+generated source identities, and sqrt fixture, then projects
+opaque 8-development/40-held-out/12-control roles; expected held-out classes
+remain internal to its synthetic handoff, while development and controls are
+observation-only. Rust CI's existing `test_phase3_*.py` glob
+includes its focused test. This plumbing does not execute a candidate, Rust, or
+experiment process/attempt and does not change the package's Proposed,
+execution-disabled, open-evidence status.
 
 The materialized records distinguish `construction_target` (the exact recipe
 magnitude before source serialization) from source-derived `I_truth` (computed

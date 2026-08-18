@@ -5,11 +5,14 @@ from __future__ import annotations
 import copy
 import json
 import unittest
+from decimal import Decimal
 from pathlib import Path
 
 import phase3_oracle as oracle
 import phase3_receipt as receipt
 import phase3_runner as runner
+from phase3_common import parse_json
+from phase3_common import MAX_REQUEST_ID_BYTES
 from test_phase3_oracle_scorer import request, skipped_response, source_text, transform, wire_response
 
 
@@ -20,6 +23,36 @@ def case(request_id: str = "synthetic-1", **extra: object) -> dict[str, object]:
 
 
 class RunnerTests(unittest.TestCase):
+    def test_transcript_keys_are_nonempty_bounded_utf8(self) -> None:
+        for key in ("", "x" * (MAX_REQUEST_ID_BYTES + 1), "\udcff"):
+            with self.subTest(key=repr(key)), self.assertRaises(runner.RunnerError) as context:
+                runner.run_synthetic([], {key: b""})
+            self.assertEqual(context.exception.code, "transcript-key")
+
+    def test_oversized_extra_response_is_per_record_inconclusive(self) -> None:
+        result = runner.run_synthetic([], {
+            "synthetic-extra": b"",
+            "synthetic-extra-large": b"x" * (runner.FRAME_BYTES + 1),
+        })
+        entries = {entry["request_id"]: entry for entry in result["entries"]}
+        self.assertEqual(entries["synthetic-extra"]["cause"]["code"], "extra-response")
+        self.assertEqual(entries["synthetic-extra-large"]["cause"]["code"], "extra-response-too-large")
+        self.assertEqual(result["counts"]["inconclusive"], 2)
+        self.assertEqual(result["status"], "inconclusive")
+
+    def test_strict_parser_materialized_like_cases_run_without_numeric_loss(self) -> None:
+        materialized = parse_json(json.dumps(case("synthetic-materialized", expected_class="agree", translation_scale=1.25)).encode())
+        truth = oracle.evaluate_source(materialized["source"], "translation")
+        result = runner.run_synthetic([materialized], {materialized["request_id"]: wire_response(materialized, truth)})
+        self.assertEqual(result["entries"][0]["status"], "supported")
+
+    def test_decimal_case_metadata_is_finite_and_bounded(self) -> None:
+        for value, code in ((Decimal("NaN"), "nonfinite"), (Decimal("1e2049"), "numeric-exponent-too-large")):
+            with self.subTest(value=str(value)), self.assertRaises(runner.RunnerError) as context:
+                runner.run_synthetic([case(translation_scale=value)], {})
+            self.assertEqual(context.exception.code, "case-shape")
+            self.assertIn(code, str(context.exception))
+
     def test_actual_nested_response_and_gray_count_algebra(self) -> None:
         first = case("synthetic-1", expected_class="agree")
         truth = oracle.evaluate_source(first["source"], "translation")
@@ -73,6 +106,8 @@ class RunnerTests(unittest.TestCase):
         }
         result = runner.run_synthetic(cases, transcript)
         self.assertEqual(result["counts"]["inconclusive"], 4)
+        entries = {entry["request_id"]: entry for entry in result["entries"]}
+        self.assertEqual(entries["synthetic-oversized"]["cause"]["code"], "response-too-large")
         self.assertEqual(result["status"], "inconclusive")
 
     def test_transcript_count_and_total_caps(self) -> None:
