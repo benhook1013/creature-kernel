@@ -1384,12 +1384,11 @@ mod tests {
         if let Some(index) = [3, 0, 1, 2]
             .into_iter()
             .find(|index| rotation[*index] != 0.0)
+            && rotation[index].is_sign_negative()
         {
-            if rotation[index].is_sign_negative() {
-                rotation
-                    .iter_mut()
-                    .for_each(|component| *component = -*component);
-            }
+            rotation
+                .iter_mut()
+                .for_each(|component| *component = -*component);
         }
         rotation.iter_mut().for_each(|component| {
             if *component == 0.0 {
