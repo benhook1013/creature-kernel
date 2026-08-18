@@ -1,0 +1,39 @@
+{
+  "schema": "ck.exp-0002.r3-authored-conflict-development-sweep-1",
+  "sweep_id": "ck.exp-0002.r3-authored-conflict-sweep-1",
+  "definition_id": "ck.exp-0002.r3-authored-conflict-development-sweep-definition-1",
+  "profile_role": "development-sweep-constants",
+  "authored_conflict_target": "authored-root-local-vs-attachment-derived",
+  "semantic_comparison_mode": "semantic-exact-dyadic-tolerance",
+  "selected_profile_id": null,
+  "r3_activation": "inactive",
+  "candidates": [
+    {
+      "candidate_id": "strict",
+      "profile_id": "ck.provisional-r3-authored-conflict.dev.strict-1",
+      "constants": {
+        "A": {"bits": "0x3cf0000000000000", "decimal": "3.552713678800501e-15"},
+        "R": {"bits": "0x3d10000000000000", "decimal": "1.4210854715202004e-14"},
+        "H": {"bits": "0x3d10000000000000", "decimal": "1.4210854715202004e-14"}
+      }
+    },
+    {
+      "candidate_id": "micro",
+      "profile_id": "ck.provisional-r3-authored-conflict.dev.micro-1",
+      "constants": {
+        "A": {"bits": "0x3eb0000000000000", "decimal": "9.5367431640625e-07"},
+        "R": {"bits": "0x3d70000000000000", "decimal": "9.094947017729282e-13"},
+        "H": {"bits": "0x3eb0000000000000", "decimal": "9.5367431640625e-07"}
+      }
+    },
+    {
+      "candidate_id": "stress",
+      "profile_id": "ck.provisional-r3-authored-conflict.dev.stress-1",
+      "constants": {
+        "A": {"bits": "0x3f50000000000000", "decimal": "0.0009765625"},
+        "R": {"bits": "0x3df0000000000000", "decimal": "2.3283064365386963e-10"},
+        "H": {"bits": "0x3f30000000000000", "decimal": "0.000244140625"}
+      }
+    }
+  ]
+}
