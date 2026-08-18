@@ -258,6 +258,37 @@ The checker follows production literal `include!`, `include_str!`, and
 checks selected regular-file types, modes, raw content, and relevant Cargo
 build/config inputs, and does not sweep ignored target/cache artifacts.
 
+## Gate B build/freeze preparation (development only)
+
+The evidence and read-only Gate B preflight contracts now use the canonical
+phase identifier `exp-0002-phase3-semantic-band-conformance-001`, matching this
+preregistration. The earlier phase-ID mismatch is corrected; this is identity
+plumbing, not experiment evidence.
+
+The new `scripts/phase3_build_receipt.py` captures a build-only receipt from an
+already-built candidate artifact. It binds the source closure, normalized
+vendored dependency closure, sanitized exact build invocation, pinned
+toolchain, and binary identity. It never starts the candidate, feeds it input,
+or dispatches an attempt. Its focused checks are in
+`scripts/test_phase3_build_receipt.py`.
+
+The new `scripts/phase3_freeze_manifest.py` deterministically generates and
+checks the concrete freeze inputs, with a narrow finalization path that binds
+exactly one durable WSL receipt and one durable native receipt. Until both
+receipt files exist and validate, the freeze remains pre-freeze and the binary
+slots remain unbound. Its focused boundary checks are in
+`scripts/test_phase3_freeze_manifest.py`. The generated freeze manifest is
+intentionally not committed in this preparation change.
+
+The manual `.github/workflows/phase3-gate-b-native-build.yml` workflow accepts
+only a full 40-character commit SHA, runs on Ubuntu 24.04, recomputes the
+candidate closure, performs the sanitized locked build, captures the build-only
+receipt, and uploads a transfer-only bundle. It does not run the candidate,
+perform an exact attempt, or dispatch the native experiment. The next internal
+steps are merge preparation, manufacture of the WSL/native receipt artifacts,
+then final immutable freeze and the current-revision Gate B Double review. Ben
+is still required only for later exact attempts and native experiment dispatch.
+
 ## Synthetic validation plumbing (development only)
 
 The Phase 3 Python modules are implementation plumbing for exercising the

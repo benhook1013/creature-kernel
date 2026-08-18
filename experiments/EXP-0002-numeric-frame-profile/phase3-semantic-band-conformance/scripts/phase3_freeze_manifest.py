@@ -1,0 +1,932 @@
+#!/usr/bin/env python3
+"""Generate and validate the execution-disabled Phase 3 freeze manifest.
+
+The freeze binds repository inputs and the *artifact build contract*.  It does
+not launch the candidate, capture a run, or grant Gate B authorization.  Build
+receipts are the only narrow finalization input: once two already-created,
+validated receipts are placed under ``manifests/build-receipts/``, this module
+records their durable file identities and the binary identities they report.
+The receipt files, rather than an ignored binary, are what ordinary checks
+re-read later.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import importlib.util
+import json
+import os
+import re
+import stat
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+from typing import Any, Mapping
+
+
+REPO = Path(__file__).resolve().parents[4]
+PACKAGE = REPO / "experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance"
+PACKAGE_REL = "experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance"
+MANIFEST_REL = "manifests/freeze-manifest.json"
+MANIFEST = PACKAGE / MANIFEST_REL
+CANDIDATE_REL = "experiments/EXP-0002-numeric-frame-profile/phase2-authored-conflict/candidate"
+CANDIDATE_MANIFEST_REL = f"{CANDIDATE_REL}/Cargo.toml"
+CANDIDATE_LOCK_REL = f"{CANDIDATE_REL}/Cargo.lock"
+FIXTURE_REL = "examples/body-documents/stylized-digitigrade-biped.json"
+WORKFLOW_REL = ".github/workflows/phase3-gate-b-native-build.yml"
+RECEIPT_DIR_REL = "manifests/build-receipts"
+PHASE_ID = "exp-0002-phase3-semantic-band-conformance-001"
+EXPERIMENT_ID = "EXP-0002"
+CANDIDATE_PROFILE_ID = "ck.provisional-r3-authored-conflict.semantic-band-1"
+SCHEMA = "ck.exp-0002.phase3.freeze-manifest-1"
+HASH_DOMAIN = b"ck.exp-0002.phase3.freeze-manifest.v1\0"
+PHASE3_PATH = "scripts/phase3_freeze_manifest.py"
+TARGET = "x86_64-unknown-linux-gnu"
+TOOLCHAIN = "1.97.1"
+BINARY_NAME = "exp-0002-r3-authored-conflict-candidate"
+
+RUNTIME_TOOLS = (
+    "scripts/phase3_common.py",
+    "scripts/phase3_oracle.py",
+    "scripts/phase3_scorer.py",
+    "scripts/phase3_runner.py",
+    "scripts/phase3_receipt.py",
+    "scripts/phase3_materialized_adapter.py",
+    "scripts/phase3_evidence_contract.py",
+    "scripts/phase3_gate_b_preflight.py",
+)
+# These are the exact provenance-producing tools.  Keep this list closed:
+# adding a helper changes what the freeze means and therefore needs an explicit
+# update to the manifest contract and its tests.
+PROVENANCE_TOOLS = (
+    "scripts/generate_phase3.py",
+    "scripts/check_candidate_prebinding.py",
+    "scripts/phase3_build_receipt.py",
+    PHASE3_PATH,
+)
+PACKAGE_INPUTS = (
+    "preregistration.json",
+    "manifests/artifact-manifest.json",
+    "manifests/recipe-manifest.json",
+    "corpora/controls.jsonl",
+    "corpora/development.jsonl",
+    "corpora/held-out.jsonl",
+    "sqrt-vectors.json",
+)
+RELEVANT_PACKAGE_FILES = frozenset((*PACKAGE_INPUTS, MANIFEST_REL, *RUNTIME_TOOLS, *PROVENANCE_TOOLS))
+SELECTORS = ("wsl2-x86_64", "ubuntu-24.04-x86_64")
+ROLE_FOR_SELECTOR = {"wsl2-x86_64": "wsl", "ubuntu-24.04-x86_64": "native"}
+RECEIPT_PATHS = {
+    "wsl2-x86_64": f"{RECEIPT_DIR_REL}/wsl.json",
+    "ubuntu-24.04-x86_64": f"{RECEIPT_DIR_REL}/native.json",
+}
+SELECTOR_DETAILS = {
+    "wsl2-x86_64": {
+        "family": "WSL2 x86_64 GNU/Linux",
+        "filesystem": "Linux filesystem under /home; repository is not /mnt/c",
+        "runner": "Ben-controlled WSL2 shell",
+        "workflow": "local WSL2 execution after separate authorization",
+    },
+    "ubuntu-24.04-x86_64": {
+        "family": "Ubuntu 24.04 x86_64",
+        "filesystem": "native Linux filesystem",
+        "runner": "controlled native Ubuntu 24.04 x86_64 runner",
+        "workflow": "native dispatch after separate authorization",
+    },
+}
+REQUEST_FIELDS = [
+    "protocol_id", "request_id", "operation", "resource_profile", "source",
+    "tolerances", "providers",
+]
+RESPONSE_PROTOCOL = "ck.exp-0002.r3-authored-conflict-candidate-response-1"
+REQUEST_PROTOCOL = "ck.exp-0002.r3-authored-conflict-candidate-request-1"
+MAX_FILE_BYTES = 16 * 1024 * 1024
+SHA256_HEX = set("0123456789abcdef")
+FULL_SHA_HEX = SHA256_HEX
+ACTION_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+ENV_POLICY = {
+    "mode": "sanitized-env-i",
+    "ambient": "excluded",
+    "variables": {
+        "PATH": "<tool-path>",
+        "HOME": "<build-home>",
+        "CARGO_HOME": "<cargo-home>",
+        "RUSTUP_HOME": "<rustup-home>",
+        "CARGO_NET_OFFLINE": "true",
+        "CARGO_TARGET_DIR": "<fresh-target-dir>",
+        "TMPDIR": "<runner-temp>",
+    },
+}
+RECEIPT_DEPENDENCY_FIELDS = ["schema", "algorithm", "sha256", "raw_sha256", "bytes", "packages", "nodes"]
+RECEIPT_VENDOR_FIELDS = ["role_path", "algorithm", "files", "bytes", "path_sha256", "content_sha256"]
+PLATFORM_OBSERVATION_FIELDS = ["stability", "runner_os", "runner_arch", "image_os", "image_version", "kernel", "sanitized_environment_keys"]
+
+
+class FreezeManifestError(ValueError):
+    """Stable fail-closed error for freeze generation and validation."""
+
+    def __init__(self, code: str, detail: str = "") -> None:
+        self.code = str(code)
+        self.detail = str(detail).replace("\x00", "?").replace("\n", " ").replace("\r", "")[:256]
+        super().__init__(f"{self.code}: {self.detail}" if self.detail else self.code)
+
+
+def _fail(code: str, detail: str) -> None:
+    raise FreezeManifestError(code, detail)
+
+
+def _canonical(value: Any) -> bytes:
+    try:
+        return (json.dumps(value, ensure_ascii=True, allow_nan=False, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
+    except (TypeError, ValueError, UnicodeEncodeError) as error:
+        raise FreezeManifestError("canonical-json", "value cannot be encoded as canonical JSON") from error
+
+
+def _sha256(raw: bytes) -> str:
+    return hashlib.sha256(raw).hexdigest()
+
+
+def _valid_sha(value: Any) -> bool:
+    return isinstance(value, str) and len(value) == 64 and all(char in SHA256_HEX for char in value)
+
+
+def _valid_commit(value: Any) -> bool:
+    return isinstance(value, str) and len(value) == 40 and all(char in FULL_SHA_HEX for char in value)
+
+
+def _git_head(repo: Path) -> str:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo), "rev-parse", "--verify", "HEAD"],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+    except OSError as error:
+        raise FreezeManifestError("source-commit", "cannot invoke Git to resolve HEAD") from error
+    commit = result.stdout.strip()
+    if result.returncode or not _valid_commit(commit):
+        _fail("source-commit", "repository HEAD is unavailable or is not a full commit")
+    return commit
+
+
+def _resolve_source_commit(repo: Path, source_commit: str | None) -> str:
+    if source_commit is not None:
+        if not _valid_commit(source_commit):
+            _fail("source-commit", "source commit must be a full lowercase SHA-1")
+        return source_commit
+    return _git_head(repo)
+
+
+def _safe_path(root: Path, relative: str) -> Path:
+    if not relative or relative.startswith("/") or "\\" in relative:
+        _fail("path", f"unsafe relative path {relative!r}")
+    parts = relative.split("/")
+    if any(part in ("", ".", "..") for part in parts):
+        _fail("path", f"unsafe relative path {relative!r}")
+    path = root.joinpath(*parts)
+    current = root
+    for part in parts:
+        current = current / part
+        try:
+            info = current.lstat()
+        except OSError as error:
+            raise FreezeManifestError("missing-file", relative) from error
+        if stat.S_ISLNK(info.st_mode):
+            _fail("symlink", f"{relative} contains a symlink")
+    return path
+
+
+def _file_identity(root: Path, relative: str) -> dict[str, Any]:
+    path = _safe_path(root, relative)
+    try:
+        info = path.lstat()
+    except OSError as error:
+        raise FreezeManifestError("missing-file", relative) from error
+    if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+        _fail("file-type", f"{relative} is not a single-link regular file")
+    if info.st_size > MAX_FILE_BYTES:
+        _fail("file-size", f"{relative} exceeds the bounded identity size")
+    raw = path.read_bytes()
+    if len(raw) != info.st_size:
+        _fail("file-race", f"{relative} changed while reading")
+    return {"path": relative, "mode": stat.S_IMODE(info.st_mode), "bytes": len(raw), "sha256": _sha256(raw)}
+
+
+def _workflow_input(repo: Path) -> dict[str, Any]:
+    """Bind the native build workflow bytes and expose only descriptive facts."""
+    identity = _file_identity(repo, WORKFLOW_REL)
+    raw = _safe_path(repo, WORKFLOW_REL).read_bytes()
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise FreezeManifestError("workflow", "native build workflow is not UTF-8") from error
+    runner_match = re.search(r"(?m)^\s*runs-on:\s*([^\s#]+)", text)
+    if runner_match is None:
+        _fail("workflow", "native build workflow has no runner label")
+    action_refs = re.findall(r"(?m)^\s*uses:\s*([^\s#]+)", text)
+    for reference in action_refs:
+        if "@" not in reference or not ACTION_SHA_RE.fullmatch(reference.rsplit("@", 1)[1]):
+            _fail("workflow", "native build workflow action refs must use immutable 40-hex SHAs")
+    return {
+        "identity": identity,
+        "runner_label": runner_match.group(1),
+        "pinned_action_refs": action_refs,
+    }
+
+
+def _git_blob_identity(repo: Path, commit: str, relative: str) -> dict[str, Any]:
+    """Read one bounded blob and its tree mode from a candidate commit."""
+    if not relative or relative.startswith("/") or "\\" in relative or any(part in {"", ".", ".."} for part in relative.split("/")):
+        _fail("source-commit", f"unsafe Git source path {relative!r}")
+    try:
+        tree = subprocess.run(
+            ["git", "-C", str(repo), "ls-tree", "-z", commit, "--", relative],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except OSError as error:
+        raise FreezeManifestError("source-commit", "cannot read candidate Git tree") from error
+    records = [record for record in tree.stdout.split(b"\0") if record]
+    if tree.returncode or len(records) != 1:
+        _fail("source-commit", f"candidate commit does not contain exactly one source blob: {relative}")
+    try:
+        metadata, path_bytes = records[0].split(b"\t", 1)
+        mode_text, kind, object_id = metadata.decode("ascii").split(" ")
+        path = path_bytes.decode("utf-8")
+        mode = int(mode_text, 8)
+    except (UnicodeDecodeError, ValueError) as error:
+        raise FreezeManifestError("source-commit", f"malformed Git tree record for {relative}") from error
+    if kind != "blob" or path != relative or not stat.S_ISREG(mode):
+        _fail("source-commit", f"candidate commit source is not a regular blob: {relative}")
+    try:
+        blob = subprocess.run(
+            ["git", "-C", str(repo), "cat-file", "blob", object_id],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except OSError as error:
+        raise FreezeManifestError("source-commit", "cannot read candidate Git blob") from error
+    if blob.returncode or len(blob.stdout) > MAX_FILE_BYTES:
+        _fail("source-commit", f"candidate Git blob is unavailable or oversized: {relative}")
+    return {"path": relative, "mode": mode, "bytes": len(blob.stdout), "sha256": _sha256(blob.stdout)}
+
+
+def _assert_git_identity(repo: Path, commit: str, relative: str, expected: Mapping[str, Any], *, full_mode: bool = False) -> None:
+    observed = _git_blob_identity(repo, commit, relative)
+    expected_mode = expected.get("mode")
+    if not isinstance(expected_mode, int):
+        _fail("source-commit", f"frozen source mode is malformed: {relative}")
+    if not full_mode:
+        expected_mode = stat.S_IFREG | expected_mode
+    if {"path": relative, "mode": expected_mode, "bytes": expected.get("bytes"), "sha256": expected.get("sha256")} != observed:
+        _fail("source-commit", f"candidate commit bytes differ from frozen identity: {relative}")
+
+
+def _load_module(name: str, path: Path) -> Any:
+    spec = importlib.util.spec_from_file_location(name, path)
+    if spec is None or spec.loader is None:
+        _fail("import", f"cannot load {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _candidate_entries(repo: Path, package: Path) -> tuple[Any, list[dict[str, Any]]]:
+    checker = _load_module(f"phase3_candidate_prebinding_for_freeze_{id(package)}", package / "scripts/check_candidate_prebinding.py")
+    try:
+        checker.check(repo, checker.BASE_COMMIT)
+        base_entries = checker.select_base_entries(repo, checker.BASE_COMMIT)
+        current = [checker._safe_current_entry(repo, entry) for entry in base_entries]
+    except Exception as error:
+        raise FreezeManifestError("candidate-closure", str(error)) from error
+    entries = [
+        {"path": entry.path, "mode": entry.mode, "bytes": len(entry.content), "sha256": _sha256(entry.content)}
+        for entry in sorted(current, key=lambda item: item.path.encode("utf-8"))
+    ]
+    return checker, entries
+
+
+def _closure_identity(entries: list[dict[str, Any]]) -> dict[str, Any]:
+    path_stream = bytearray(b"ck.phase3-candidate-source-build-path-set.v1\0")
+    total = 0
+    for item in entries:
+        encoded = item["path"].encode("utf-8")
+        path_stream += len(encoded).to_bytes(4, "big") + encoded + int(item["mode"]).to_bytes(4, "big")
+        total += int(item["bytes"])
+    return {"count": len(entries), "total_raw_bytes": total, "path_set_sha256": _sha256(bytes(path_stream))}
+
+
+def _raw_inputs(repo: Path, package: Path) -> list[dict[str, Any]]:
+    return [_file_identity(package, item) for item in PACKAGE_INPUTS] + [_file_identity(repo, FIXTURE_REL)]
+
+
+def _tool_identities(package: Path, paths: tuple[str, ...]) -> list[dict[str, Any]]:
+    return [_file_identity(package, path) for path in paths]
+
+
+def _parse_preregistration(package: Path) -> dict[str, Any]:
+    try:
+        value = json.loads(_safe_path(package, "preregistration.json").read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise FreezeManifestError("preregistration", "preregistration is not JSON") from error
+    if value.get("experiment_id") != EXPERIMENT_ID or value.get("phase_id") != PHASE_ID:
+        _fail("phase-binding", "preregistration does not use the canonical phase ID")
+    if value.get("execution_permitted") is not False:
+        _fail("execution-state", "preregistration execution must remain disabled")
+    return value
+
+
+def _dependencies(repo: Path) -> dict[str, Any]:
+    lock = _file_identity(repo, CANDIDATE_LOCK_REL)
+    return {
+        "cargo_lock": lock,
+        "dependency_closure_contract": {
+            "schema": "ck.exp-0002.phase3.gate-b-cargo-metadata-1",
+            "algorithm": "ck.exp-0002.phase3.gate-b-dependency-closure.v1",
+            "fields": RECEIPT_DEPENDENCY_FIELDS,
+        },
+        "vendor_closure_contract": {
+            "algorithm": "ck.exp-0002.phase3.gate-b-vendor-closure.v1",
+            "fields": RECEIPT_VENDOR_FIELDS,
+            "role_path_pattern": "phase3-gate-b-{platform_role}-vendor",
+        },
+        "cargo_config_contract": {
+            "algorithm": "ck.exp-0002.phase3.gate-b-controlled-vendor-config.v1",
+            "fields": ["role_path", "algorithm", "sha256", "bytes"],
+            "role_path_pattern": "phase3-gate-b-{platform_role}-cargo-config",
+        },
+        "offline": True,
+    }
+
+
+def _build_recipe() -> dict[str, Any]:
+    argv = [
+        "cargo", "+1.97.1", "build", "--manifest-path", CANDIDATE_MANIFEST_REL,
+        "--target", TARGET, "--target-dir", "<fresh-target-dir>", "--locked", "--offline",
+    ]
+    return {
+        "artifact_build": {
+            "argv_template": argv,
+            "working_directory": ".",
+            "target": TARGET,
+            "profile": "dev",
+            "environment": ENV_POLICY,
+            "binary_role_path_pattern": "phase3-gate-b-{platform_role}-target/{target}/debug/" + BINARY_NAME,
+            "vendor_role_path_pattern": "phase3-gate-b-{platform_role}-vendor",
+            "forbidden_overrides": [
+                "extra argv tokens", "cargo test", "cargo run", "cargo install", "wrapper commands",
+                "features", "--release", "ambient CARGO_* configuration", "RUSTFLAGS",
+                "CARGO_BUILD_RUSTFLAGS", "target-cpu=native", "network access", "non-fresh target directory",
+            ],
+        },
+        "validation": {"scope": "focused checks are separate from artifact identity and do not authorize execution"},
+        "manifest_path": CANDIDATE_MANIFEST_REL,
+        "source": "candidate Cargo.toml and Cargo.lock in the candidate closure",
+    }
+
+
+def _toolchain(repo: Path) -> dict[str, Any]:
+    return {
+        "rust_toolchain_file": "rust-toolchain.toml",
+        "rust_toolchain_file_identity": _file_identity(repo, "rust-toolchain.toml"),
+        "channel": TOOLCHAIN,
+        "profile": "minimal",
+        "components": ["rustfmt", "clippy"],
+        "rustc": {"release": TOOLCHAIN, "commit_hash": "8bab26f4f68e0e26f0bb7960be334d5b520ea452", "host": TARGET, "llvm": "22.1.6"},
+        "cargo": {"release": TOOLCHAIN, "commit_hash": "c980f4866141969fab6254a680546a277789d6f0"},
+        "receipt_contract": {
+            "rust_toolchain": TOOLCHAIN,
+            "rustc_prefix": "rustc 1.97.1",
+            "rustc_commit_hash": "8bab26f4f68e0e26f0bb7960be334d5b520ea452",
+            "rustc_host": TARGET,
+            "rustc_llvm": "22.1.6",
+            "cargo_prefix": "cargo 1.97.1",
+            "cargo_commit_hash": "c980f4866141969fab6254a680546a277789d6f0",
+            "cargo_host": TARGET,
+            "python_prefix": "Python 3",
+        },
+    }
+
+
+def _platforms() -> dict[str, Any]:
+    return {
+        "selectors": [{"selector": selector, **SELECTOR_DETAILS[selector], "architecture": "x86_64", "target": TARGET} for selector in SELECTORS],
+        "runner_contract": {
+            "processes_per_attempt": 3, "roles": ["development", "held-out", "controls"],
+            "request_counts": {"development": 8, "held-out": 40, "controls": 9},
+            "filesystem_observation": "recorded per attempt outside this manifest",
+            "order": "fixed development; held-out; controls; no automatic retry or reordering",
+            "build_receipt_platform_observation": {"fields": PLATFORM_OBSERVATION_FIELDS, "stability": "observed-for-this-build-only"},
+        },
+    }
+
+
+_SLOT_KEYS = {"status", "receipt_path", "receipt_bytes", "receipt_sha256", "receipt_self_hash", "binary_identity"}
+
+
+def _binary_slots(bindings: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    bindings = bindings or {}
+    slots: dict[str, Any] = {}
+    for selector in SELECTORS:
+        value = bindings.get(selector)
+        if value is None:
+            slots[selector] = {"status": "unbound", "receipt_path": None, "receipt_bytes": None, "receipt_sha256": None, "receipt_self_hash": None, "binary_identity": None}
+            continue
+        if not isinstance(value, Mapping) or set(value) != _SLOT_KEYS:
+            _fail("binary-binding", f"binary binding for {selector} is not closed")
+        if value["status"] == "unbound":
+            if any(value[key] is not None for key in _SLOT_KEYS - {"status"}):
+                _fail("binary-binding", f"unbound binary slot for {selector} contains an identity")
+            slots[selector] = {"status": "unbound", "receipt_path": None, "receipt_bytes": None, "receipt_sha256": None, "receipt_self_hash": None, "binary_identity": None}
+            continue
+        if value["status"] != "bound" or not isinstance(value["binary_identity"], Mapping):
+            _fail("binary-binding", f"binary binding for {selector} is not bound")
+        path = value["receipt_path"]
+        if not isinstance(path, str) or not path.startswith(RECEIPT_DIR_REL + "/") or "\\" in path or ".." in path.split("/"):
+            _fail("binary-binding", f"receipt path for {selector} is unsafe")
+        if type(value["receipt_bytes"]) is not int or value["receipt_bytes"] <= 0:
+            _fail("binary-binding", f"receipt bytes for {selector} are invalid")
+        for key in ("receipt_sha256", "receipt_self_hash"):
+            if not _valid_sha(value[key]):
+                _fail("binary-binding", f"{key} for {selector} is invalid")
+        identity = value["binary_identity"]
+        if set(identity) != {"bytes", "mode", "sha256"} or type(identity["bytes"]) is not int or identity["bytes"] <= 0 or type(identity["mode"]) is not int or not stat.S_ISREG(identity["mode"]) or not _valid_sha(identity["sha256"]):
+            _fail("binary-binding", f"binary identity for {selector} is invalid")
+        slots[selector] = {
+            "status": "bound", "receipt_path": path, "receipt_bytes": value["receipt_bytes"],
+            "receipt_sha256": value["receipt_sha256"], "receipt_self_hash": value["receipt_self_hash"],
+            "binary_identity": dict(identity),
+        }
+    states = {slots[selector]["status"] for selector in SELECTORS}
+    if states not in ({"unbound"}, {"bound"}):
+        _fail("binary-binding", "binary slots must be both unbound or both bound")
+    return slots
+
+
+def _readiness(binaries: Mapping[str, Any]) -> dict[str, Any]:
+    missing = [f"{selector} build receipt and binary identity" for selector in SELECTORS if binaries[selector]["status"] != "bound"]
+    if not missing:
+        missing = []
+    return {
+        "materialization_state": "frozen" if not missing else "pre-freeze",
+        "gate_b_review_requirement": "external current-revision Double review must bind this immutable manifest hash",
+        "authorization_boundary": "external Ben authorization is required for exact attempts and native dispatch",
+        "execution_permitted": False,
+        "freeze_blockers": missing,
+    }
+
+
+def _base_manifest(repo: Path = REPO, package: Path = PACKAGE, *, binaries: Mapping[str, Any] | None = None, source_commit: str | None = None) -> dict[str, Any]:
+    if not _valid_commit(source_commit):
+        _fail("source-commit", "base manifest requires a full source commit")
+    checker, entries = _candidate_entries(repo, package)
+    closure = _closure_identity(entries)
+    expected = checker.Identity(checker.EXPECTED_COUNT, checker.EXPECTED_BYTES, checker.EXPECTED_PATH_SHA256, checker.EXPECTED_CONTENT_SHA256)
+    if closure["count"] != expected.count or closure["total_raw_bytes"] != expected.total_bytes or closure["path_set_sha256"] != expected.path_sha256:
+        _fail("candidate-closure", "manifest path closure differs from the prebinding checker")
+    closure.update({"content_sha256": expected.content_sha256, "algorithm": "ck.phase3-candidate-source-build-closure.v1", "base_commit": checker.BASE_COMMIT, "entries": entries})
+    _parse_preregistration(package)
+    binary_slots = _binary_slots(binaries)
+    return {
+        "schema": SCHEMA,
+        "manifest_sha256": None,
+        "candidate_source_commit": source_commit,
+        "status": "Proposed",
+        "lifecycle": "planned",
+        "execution_permitted": False,
+        "binding": {"experiment_id": EXPERIMENT_ID, "phase_id": PHASE_ID, "candidate_profile_id": CANDIDATE_PROFILE_ID},
+        "protocol": {"request_protocol_id": REQUEST_PROTOCOL, "response_protocol_id": RESPONSE_PROTOCOL, "request_fields": REQUEST_FIELDS, "canonical_wire": "strict UTF-8 JSON object, exact seven request fields, canonical bytes are SHA-256 framed by the evidence contract"},
+        "raw_inputs": _raw_inputs(repo, package),
+        "repository_inputs": {"native_build_workflow": {"path": WORKFLOW_REL, **_workflow_input(repo)}},
+        "candidate_closure": closure,
+        "runtime_tool_identities": _tool_identities(package, RUNTIME_TOOLS),
+        "provenance_tool_identities": _tool_identities(package, PROVENANCE_TOOLS),
+        "build": {"recipe": _build_recipe(), "toolchain": _toolchain(repo), "dependencies": _dependencies(repo)},
+        "platform": _platforms(),
+        "binaries": binary_slots,
+        "readiness": _readiness(binary_slots),
+        "attempts": "per-attempt observations and Ben authorization are external to this manifest",
+        "canonicalization": {"encoding": "UTF-8", "json": "RFC 8259-compatible strict JSON", "sort_keys": True, "separators": [",", ":"], "ensure_ascii": True, "trailing_newline": True, "self_hash_domain": HASH_DOMAIN.decode("ascii").rstrip("\0"), "self_hash_excludes": ["manifest_sha256"], "raw_file_hash": "SHA-256 over exact bytes; no parse/reserialize for raw identities"},
+    }
+
+
+def _validate_candidate_commit_snapshot(repo: Path, package: Path, manifest: Mapping[str, Any]) -> None:
+    """Prove frozen source identities existed byte-for-byte at candidate commit."""
+    candidate_commit = manifest.get("candidate_source_commit")
+    if not _valid_commit(candidate_commit):
+        _fail("source-commit", "manifest candidate source commit is not a full commit")
+    closure = manifest.get("candidate_closure")
+    if not isinstance(closure, Mapping) or not isinstance(closure.get("entries"), list):
+        _fail("source-commit", "manifest candidate closure is unavailable")
+    entry_paths: set[str] = set()
+    for entry in closure["entries"]:
+        if not isinstance(entry, Mapping) or not isinstance(entry.get("path"), str):
+            _fail("source-commit", "manifest candidate closure entry is malformed")
+        entry_paths.add(entry["path"])
+        _assert_git_identity(repo, candidate_commit, entry["path"], entry, full_mode=True)
+    if CANDIDATE_MANIFEST_REL not in entry_paths or CANDIDATE_LOCK_REL not in entry_paths:
+        _fail("source-commit", "candidate closure omits Cargo manifest or lockfile")
+    for collection_name in ("raw_inputs", "runtime_tool_identities", "provenance_tool_identities"):
+        collection = manifest.get(collection_name)
+        if not isinstance(collection, list):
+            _fail("source-commit", f"manifest {collection_name} is unavailable")
+        for identity in collection:
+            if not isinstance(identity, Mapping) or not isinstance(identity.get("path"), str):
+                _fail("source-commit", f"manifest {collection_name} entry is malformed")
+            relative = identity["path"] if identity["path"] == FIXTURE_REL else f"{PACKAGE_REL}/{identity['path']}"
+            _assert_git_identity(repo, candidate_commit, relative, identity)
+    repository_inputs = manifest.get("repository_inputs")
+    workflow = repository_inputs.get("native_build_workflow") if isinstance(repository_inputs, Mapping) else None
+    workflow_identity = workflow.get("identity") if isinstance(workflow, Mapping) else None
+    if not isinstance(workflow, Mapping) or not isinstance(workflow_identity, Mapping):
+        _fail("source-commit", "manifest native workflow identity is unavailable")
+    _assert_git_identity(repo, candidate_commit, WORKFLOW_REL, workflow_identity)
+    lock = manifest.get("build", {}).get("dependencies", {}).get("cargo_lock") if isinstance(manifest.get("build"), Mapping) else None
+    if not isinstance(lock, Mapping):
+        _fail("source-commit", "manifest Cargo.lock identity is unavailable")
+    _assert_git_identity(repo, candidate_commit, CANDIDATE_LOCK_REL, lock)
+    toolchain = manifest.get("build", {}).get("toolchain") if isinstance(manifest.get("build"), Mapping) else None
+    toolchain_identity = toolchain.get("rust_toolchain_file_identity") if isinstance(toolchain, Mapping) else None
+    if not isinstance(toolchain_identity, Mapping):
+        _fail("source-commit", "manifest rust-toolchain identity is unavailable")
+    _assert_git_identity(repo, candidate_commit, "rust-toolchain.toml", toolchain_identity)
+
+
+def _self_hash(value: Mapping[str, Any]) -> str:
+    copy = json.loads(json.dumps(value))
+    copy.pop("manifest_sha256", None)
+    return _sha256(HASH_DOMAIN + _canonical(copy))
+
+
+def _seal(value: dict[str, Any]) -> dict[str, Any]:
+    value["manifest_sha256"] = _self_hash(value)
+    return value
+
+
+def _validate_binary_slots(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict) or set(value) != set(SELECTORS):
+        _fail("binary-binding", "binary slots are incomplete or unexpected")
+    return _binary_slots(value)
+
+
+def _package_extra_files(package: Path) -> list[str]:
+    found: list[str] = []
+    for directory in ("corpora", "manifests"):
+        base = _safe_path(package, directory)
+        if not base.is_dir():
+            _fail("missing-directory", directory)
+        for path in base.rglob("*"):
+            relative = path.relative_to(package).as_posix()
+            if relative.startswith(RECEIPT_DIR_REL + "/"):
+                if path.is_symlink() or not path.is_file() or relative not in set(RECEIPT_PATHS.values()):
+                    found.append(relative)
+            elif path.is_symlink():
+                found.append(relative)
+            elif path.is_file() and relative not in RELEVANT_PACKAGE_FILES:
+                found.append(relative)
+    return sorted(found)
+
+
+def generate_manifest(repo: Path = REPO, package: Path = PACKAGE, *, binaries: Mapping[str, Any] | None = None, source_commit: str | None = None) -> dict[str, Any]:
+    extras = _package_extra_files(package)
+    if extras:
+        _fail("extra-input", ", ".join(extras))
+    resolved_commit = _resolve_source_commit(repo, source_commit)
+    return _seal(_base_manifest(repo, package, binaries=binaries, source_commit=resolved_commit))
+
+
+def _load_manifest(path: Path) -> dict[str, Any]:
+    try:
+        raw = path.read_bytes()
+        value = json.loads(raw.decode("utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise FreezeManifestError("manifest-read", str(path)) from error
+    if not isinstance(value, dict):
+        _fail("manifest-shape", "manifest is not an object")
+    if _canonical(value) != raw:
+        _fail("manifest-canonical", "manifest bytes are not canonical")
+    if value.get("manifest_sha256") != _self_hash(value):
+        _fail("manifest-self-hash", "manifest self hash does not match")
+    return value
+
+
+def _receipt_module(package: Path) -> Any:
+    return _load_module(f"phase3_build_receipt_for_freeze_{id(package)}", package / "scripts/phase3_build_receipt.py")
+
+
+def _receipt_path(package: Path, path: Path) -> str:
+    try:
+        absolute = path.absolute()
+        relative = absolute.relative_to(package.absolute()).as_posix()
+    except ValueError as error:
+        raise FreezeManifestError("build-receipt-path", "receipt must be under the package") from error
+    if relative not in set(RECEIPT_PATHS.values()):
+        _fail("build-receipt-path", "receipt must use the fixed WSL or native receipt path")
+    _safe_path(package, relative)
+    info = Path(absolute).lstat()
+    if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+        _fail("build-receipt-path", "receipt must be a single-link regular non-symlink file")
+    return relative
+
+
+def _receipt_contract(manifest: Mapping[str, Any]) -> tuple[Mapping[str, Any], Mapping[str, Any], Mapping[str, Any], Mapping[str, Any]]:
+    try:
+        artifact = manifest["build"]["recipe"]["artifact_build"]
+        environment = artifact["environment"]
+        dependencies = manifest["build"]["dependencies"]
+        toolchain = manifest["build"]["toolchain"]
+    except (KeyError, TypeError) as error:
+        raise FreezeManifestError("build-recipe", "manifest receipt contract is incomplete") from error
+    if artifact["argv_template"][:7] != ["cargo", "+1.97.1", "build", "--manifest-path", CANDIDATE_MANIFEST_REL, "--target", TARGET] or artifact["argv_template"][7:] != ["--target-dir", "<fresh-target-dir>", "--locked", "--offline"]:
+        _fail("build-recipe", "artifact build argv template is not exact")
+    if artifact["working_directory"] != "." or artifact["target"] != TARGET or artifact["profile"] != "dev" or environment != ENV_POLICY:
+        _fail("build-recipe", "artifact build contract differs from receipt policy")
+    return artifact, environment, dependencies, toolchain
+
+
+def _load_build_receipt(path: Path, package: Path, expected_closure: Mapping[str, Any], manifest: Mapping[str, Any]) -> tuple[str, dict[str, Any], str, Mapping[str, Any]]:
+    relative = _receipt_path(package, path)
+    try:
+        raw = path.read_bytes()
+        module = _receipt_module(package)
+        value = module.validate_receipt(raw)
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError, RecursionError) as error:
+        raise FreezeManifestError("build-receipt", str(path)) from error
+    if not isinstance(value, Mapping) or value.get("phase_id") != PHASE_ID or value.get("source_closure") is None:
+        _fail("build-receipt", "receipt has the wrong fixed identity")
+    closure = value["source_closure"]
+    expected_source = {"algorithm": expected_closure["algorithm"], "base_commit": expected_closure["base_commit"], "files": expected_closure["count"], "bytes": expected_closure["total_raw_bytes"], "path_sha256": expected_closure["path_set_sha256"], "content_sha256": expected_closure["content_sha256"]}
+    if dict(closure) != expected_source:
+        _fail("build-receipt", "receipt source closure differs from frozen closure")
+    build = value["build"]
+    artifact, environment, dependencies, toolchain = _receipt_contract(manifest)
+    selector = {"wsl": "wsl2-x86_64", "native": "ubuntu-24.04-x86_64"}.get(build.get("platform_role"))
+    if selector not in SELECTORS or build.get("target") != TARGET or build.get("profile") != "dev" or build.get("cwd") != ".":
+        _fail("build-receipt", "receipt platform/target/profile/cwd differs from freeze")
+    if relative != RECEIPT_PATHS[selector]:
+        _fail("build-receipt-path", "receipt path does not match its platform role")
+    expected_prefix = artifact["argv_template"][:7]
+    argv = build.get("argv")
+    target_dir = argv[8] if isinstance(argv, list) and len(argv) == 11 and len(argv) > 8 else None
+    if not isinstance(argv, list) or len(argv) != 11 or argv[:7] != expected_prefix or argv[7:] != ["--target-dir", target_dir, "--locked", "--offline"] or not isinstance(target_dir, str) or not os.path.isabs(target_dir):
+        _fail("build-receipt", "receipt argv is not the exact sanitized artifact build")
+    if build.get("env_policy") != environment:
+        _fail("build-receipt", "receipt environment policy differs from frozen policy")
+    receipt_toolchain = build.get("toolchain")
+    contract = toolchain["receipt_contract"]
+    rustc_facts = str(receipt_toolchain.get("rustc", "")) if isinstance(receipt_toolchain, Mapping) else ""
+    cargo_facts = str(receipt_toolchain.get("cargo", "")) if isinstance(receipt_toolchain, Mapping) else ""
+    rustc_required = (contract["rustc_prefix"], f"commit-hash: {contract['rustc_commit_hash']}", f"host: {contract['rustc_host']}", f"LLVM version: {contract['rustc_llvm']}")
+    cargo_required = (contract["cargo_prefix"], f"commit-hash: {contract['cargo_commit_hash']}", f"host: {contract['cargo_host']}")
+    if not isinstance(receipt_toolchain, Mapping) or receipt_toolchain.get("rust_toolchain") != contract["rust_toolchain"] or any(item not in rustc_facts for item in rustc_required) or any(item not in cargo_facts for item in cargo_required) or not str(receipt_toolchain.get("python", "")).startswith(contract["python_prefix"]):
+        _fail("build-receipt", "receipt toolchain facts differ from frozen toolchain contract")
+    lock = build.get("cargo_lock")
+    frozen_lock = dependencies["cargo_lock"]
+    if not isinstance(lock, Mapping) or {key: lock.get(key) for key in ("path", "sha256", "bytes")} != {key: frozen_lock.get(key) for key in ("path", "sha256", "bytes")}:
+        _fail("build-receipt", "receipt Cargo.lock identity differs from frozen lock")
+    dep = build.get("dependency_closure")
+    dep_contract = dependencies["dependency_closure_contract"]
+    if not isinstance(dep, Mapping) or set(dep) != set(RECEIPT_DEPENDENCY_FIELDS) or dep.get("schema") != dep_contract["schema"] or dep.get("algorithm") != dep_contract["algorithm"]:
+        _fail("build-receipt", "receipt dependency closure schema differs from frozen contract")
+    vendor = build.get("vendor_closure")
+    vendor_contract = dependencies["vendor_closure_contract"]
+    expected_vendor_role = vendor_contract["role_path_pattern"].format(platform_role=build["platform_role"])
+    if not isinstance(vendor, Mapping) or set(vendor) != set(RECEIPT_VENDOR_FIELDS) or vendor.get("algorithm") != vendor_contract["algorithm"] or vendor.get("role_path") != expected_vendor_role:
+        _fail("build-receipt", "receipt vendor closure differs from frozen contract")
+    observation = build.get("platform_observation")
+    string_observation_fields = set(PLATFORM_OBSERVATION_FIELDS) - {"sanitized_environment_keys"}
+    if not isinstance(observation, Mapping) or set(observation) != set(PLATFORM_OBSERVATION_FIELDS) or observation.get("stability") != "observed-for-this-build-only" or any(not isinstance(observation[key], str) or not observation[key] for key in string_observation_fields) or observation.get("sanitized_environment_keys") != sorted(ENV_POLICY["variables"]):
+        _fail("build-receipt", "receipt platform observation differs from frozen contract")
+    config = build.get("cargo_config")
+    config_contract = dependencies["cargo_config_contract"]
+    expected_config_role = config_contract["role_path_pattern"].format(platform_role=build["platform_role"])
+    if not isinstance(config, Mapping) or set(config) != set(config_contract["fields"]) or config.get("role_path") != expected_config_role or config.get("algorithm") != config_contract["algorithm"] or not _valid_sha(config.get("sha256")) or type(config.get("bytes")) is not int or config["bytes"] <= 0:
+        _fail("build-receipt", "receipt Cargo vendor config differs from frozen contract")
+    binary = value.get("binary")
+    expected_binary_role = artifact["binary_role_path_pattern"].format(platform_role=build["platform_role"], target=TARGET)
+    expected_binary = artifact["binary_role_path_pattern"].format(platform_role=build["platform_role"], target=TARGET)
+    if build.get("binary_role_path") != expected_binary_role or not isinstance(binary, Mapping) or binary.get("role") != "phase3-candidate" or binary.get("path") != expected_binary:
+        _fail("build-receipt", "receipt binary role path differs from frozen contract")
+    if not _valid_sha(binary.get("sha256")) or type(binary.get("bytes")) is not int or binary["bytes"] <= 0:
+        _fail("build-receipt", "receipt binary identity is invalid")
+    mode = binary.get("mode")
+    try:
+        full_mode = stat.S_IFREG | int(mode, 8)
+    except (TypeError, ValueError):
+        _fail("build-receipt", "receipt binary mode is invalid")
+    if not stat.S_ISREG(full_mode):
+        _fail("build-receipt", "receipt binary mode is not regular")
+    binding = {
+        "status": "bound", "receipt_path": relative, "receipt_bytes": len(raw), "receipt_sha256": _sha256(raw),
+        "receipt_self_hash": value["receipt_sha256"], "binary_identity": {"bytes": binary["bytes"], "mode": full_mode, "sha256": binary["sha256"]},
+    }
+    return selector, binding, value["source_commit"], value
+
+
+def _dependency_logical(value: Mapping[str, Any]) -> dict[str, Any]:
+    """Return dependency facts stable across platform metadata captures."""
+    return {key: value[key] for key in ("schema", "algorithm", "sha256", "packages", "nodes")}
+
+
+def _vendor_logical(value: Mapping[str, Any]) -> dict[str, Any]:
+    """Return vendor facts while excluding the platform-specific role path."""
+    return {key: value[key] for key in ("algorithm", "files", "bytes", "path_sha256", "content_sha256")}
+
+
+def _validate_bound_receipts(package: Path, manifest: Mapping[str, Any], binaries: Mapping[str, Any]) -> None:
+    paths = []
+    for selector in SELECTORS:
+        slot = binaries[selector]
+        if slot["status"] == "bound":
+            paths.append((selector, package / slot["receipt_path"]))
+    if not paths:
+        return
+    commits: set[str] = set()
+    build_facts: list[Mapping[str, Any]] = []
+    for selector, path in paths:
+        actual_selector, binding, commit, value = _load_build_receipt(path, package, manifest["candidate_closure"], manifest)
+        if actual_selector != selector or binding != binaries[selector]:
+            _fail("receipt-drift", f"receipt binding for {selector} differs from manifest")
+        if commit != manifest.get("candidate_source_commit"):
+            _fail("source-commit", f"receipt source commit for {selector} differs from manifest")
+        commits.add(commit)
+        build_facts.append(value["build"])
+    if len(paths) == 2 and len(commits) != 1:
+        _fail("build-receipt", "WSL and native receipts do not use the same full source commit")
+    if len(build_facts) == 2 and (_dependency_logical(build_facts[0]["dependency_closure"]) != _dependency_logical(build_facts[1]["dependency_closure"]) or _vendor_logical(build_facts[0]["vendor_closure"]) != _vendor_logical(build_facts[1]["vendor_closure"])):
+        _fail("build-receipt", "platform receipts do not share the same dependency/vendor closure")
+
+
+def check_manifest(repo: Path = REPO, package: Path = PACKAGE, path: Path = MANIFEST) -> dict[str, Any]:
+    # The candidate commit remains authoritative after the later freeze commit,
+    # but a check still requires a usable repository with a current HEAD.
+    _resolve_source_commit(repo, None)
+    recorded = _load_manifest(path)
+    _validate_candidate_commit_snapshot(repo, package, recorded)
+    candidate_commit = recorded.get("candidate_source_commit")
+    binaries = _validate_binary_slots(recorded.get("binaries"))
+    _validate_bound_receipts(package, recorded, binaries)
+    expected = generate_manifest(repo, package, binaries=binaries, source_commit=candidate_commit)
+    if recorded != expected:
+        _fail("manifest-drift", "manifest differs from current disk identities or canonical bindings")
+    return recorded
+
+
+def _atomic_write_manifest(value: Mapping[str, Any], path: Path) -> None:
+    """Write canonical bytes without exposing a partial or bound overwrite."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        existing_info = path.lstat()
+    except FileNotFoundError:
+        existing_info = None
+    except OSError as error:
+        raise FreezeManifestError("manifest-write", str(path)) from error
+    if existing_info is not None and stat.S_ISLNK(existing_info.st_mode):
+        _fail("manifest-write", "manifest path is a symlink")
+    if existing_info is not None:
+        try:
+            existing = _load_manifest(path)
+            existing_binaries = _validate_binary_slots(existing.get("binaries"))
+        except FreezeManifestError as error:
+            raise FreezeManifestError("manifest-write", f"existing manifest is not safely replaceable: {error.code}") from error
+        if all(slot["status"] == "bound" for slot in existing_binaries.values()):
+            _fail("manifest-finalized", "refusing to overwrite an already bound freeze manifest")
+    raw = _canonical(value)
+    temporary: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="wb", dir=path.parent, prefix=f".{path.name}.", suffix=".tmp", delete=False) as stream:
+            temporary = Path(stream.name)
+            stream.write(raw)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+        temporary = None
+        try:
+            directory_fd = os.open(path.parent, os.O_RDONLY)
+        except OSError:
+            directory_fd = None
+        if directory_fd is not None:
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+    except OSError as error:
+        raise FreezeManifestError("manifest-write", str(path)) from error
+    finally:
+        if temporary is not None:
+            try:
+                temporary.unlink()
+            except OSError:
+                pass
+
+
+def finalize_from_receipts(path: Path, receipt_paths: list[Path], *, repo: Path = REPO, package: Path = PACKAGE) -> dict[str, Any]:
+    """Bind exactly one WSL and one native receipt, without executing anything."""
+    if len(receipt_paths) != 2:
+        _fail("build-receipt", "exactly two build receipts (WSL and native) are required")
+    _resolve_source_commit(repo, None)
+    baseline = _load_manifest(path)
+    candidate_commit = baseline.get("candidate_source_commit")
+    if not _valid_commit(candidate_commit):
+        _fail("source-commit", "pre-freeze manifest candidate source commit is invalid")
+    _validate_candidate_commit_snapshot(repo, package, baseline)
+    current = _validate_binary_slots(baseline.get("binaries"))
+    if any(slot["status"] == "bound" for slot in current.values()):
+        _fail("build-receipt", "finalization requires an unbound pre-freeze manifest")
+    current_baseline = generate_manifest(repo, package, binaries=current, source_commit=candidate_commit)
+    if baseline != current_baseline:
+        _fail("manifest-drift", "pre-freeze manifest differs from current frozen inputs")
+    expected_closure = baseline.get("candidate_closure")
+    if not isinstance(expected_closure, Mapping):
+        _fail("build-receipt", "manifest candidate closure is missing")
+    seen: set[str] = set()
+    commits: set[str] = set()
+    facts: list[Mapping[str, Any]] = []
+    for receipt_path in receipt_paths:
+        selector, binding, commit, value = _load_build_receipt(receipt_path, package, expected_closure, baseline)
+        if selector in seen:
+            _fail("build-receipt", f"duplicate receipt selector {selector}")
+        if commit != candidate_commit:
+            _fail("source-commit", "build receipt source commit differs from candidate source commit")
+        seen.add(selector)
+        commits.add(commit)
+        facts.append(value["build"])
+        current[selector] = binding
+    if seen != set(SELECTORS):
+        _fail("build-receipt", "both frozen platform selectors are required")
+    if len(commits) != 1:
+        _fail("build-receipt", "WSL and native receipts do not use the same full source commit")
+    if _dependency_logical(facts[0]["dependency_closure"]) != _dependency_logical(facts[1]["dependency_closure"]):
+        _fail("build-receipt", "WSL and native receipts do not share dependency closure")
+    if _vendor_logical(facts[0]["vendor_closure"]) != _vendor_logical(facts[1]["vendor_closure"]):
+        _fail("build-receipt", "WSL and native receipts do not share vendor closure")
+    sealed = generate_manifest(repo, package, binaries=current, source_commit=candidate_commit)
+    _atomic_write_manifest(sealed, path)
+    return sealed
+
+
+def write_manifest(
+    value: Mapping[str, Any],
+    path: Path = MANIFEST,
+    *,
+    repo: Path = REPO,
+    package: Path = PACKAGE,
+) -> None:
+    """Write only an exact generated manifest, never arbitrary caller JSON."""
+    if not isinstance(value, dict):
+        _fail("manifest-write", "supplied manifest must be an object")
+    try:
+        supplied_self_hash = _self_hash(value)
+    except (TypeError, ValueError, UnicodeEncodeError, RecursionError) as error:
+        raise FreezeManifestError("manifest-write", "supplied manifest is not canonical JSON data") from error
+    if value.get("manifest_sha256") != supplied_self_hash:
+        _fail("manifest-self-hash", "supplied manifest self hash does not match")
+    candidate_commit = value.get("candidate_source_commit")
+    binaries = _validate_binary_slots(value.get("binaries"))
+    expected = generate_manifest(repo, package, binaries=binaries, source_commit=candidate_commit)
+    if value != expected:
+        _fail("manifest-drift", "supplied manifest differs from the generated freeze contract")
+    _atomic_write_manifest(expected, path)
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="generate or check the execution-disabled Phase 3 freeze manifest")
+    parser.add_argument("--repo", type=Path, default=REPO)
+    parser.add_argument("--package", type=Path, default=PACKAGE)
+    parser.add_argument("--manifest", type=Path, default=MANIFEST)
+    parser.add_argument("--check", action="store_true")
+    parser.add_argument("--finalize", type=Path, nargs=2, metavar=("WSL_RECEIPT", "NATIVE_RECEIPT"))
+    args = parser.parse_args(argv)
+    try:
+        if args.check:
+            check_manifest(args.repo.resolve(), args.package.resolve(), args.manifest.resolve())
+            print("PHASE 3 FREEZE MANIFEST CHECK OK")
+        elif args.finalize:
+            finalized = finalize_from_receipts(args.manifest.resolve(), [item.resolve() for item in args.finalize], repo=args.repo.resolve(), package=args.package.resolve())
+            print(f"PHASE 3 FREEZE MANIFEST FINALIZED: {finalized['readiness']['materialization_state']}")
+        else:
+            write_manifest(
+                generate_manifest(args.repo.resolve(), args.package.resolve()),
+                args.manifest.resolve(),
+                repo=args.repo.resolve(),
+                package=args.package.resolve(),
+            )
+            print("PHASE 3 FREEZE MANIFEST GENERATED: execution remains disabled")
+    except FreezeManifestError as error:
+        print(f"PHASE 3 FREEZE MANIFEST FAILED: {error}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+
+
+__all__ = ["SCHEMA", "PHASE_ID", "FreezeManifestError", "generate_manifest", "check_manifest", "finalize_from_receipts", "write_manifest", "MANIFEST", "PACKAGE", "REPO"]

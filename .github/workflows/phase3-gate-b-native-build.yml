@@ -1,0 +1,241 @@
+name: Phase 3 Gate B native build
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: "Full 40-character commit SHA to build (no branch or tag resolution)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  native-build:
+    name: Build-only Ubuntu 24.04 candidate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Validate requested full commit SHA
+        env:
+          REQUESTED_COMMIT: ${{ inputs.commit }}
+        run: |
+          if [[ ! "$REQUESTED_COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "commit input must be a lowercase full 40-character SHA" >&2
+            exit 1
+          fi
+
+      - name: Check out requested immutable commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.commit }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Confirm checkout identity
+        env:
+          REQUESTED_COMMIT: ${{ inputs.commit }}
+        run: test "$(git rev-parse --verify HEAD)" = "$REQUESTED_COMMIT"
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Install pinned Rust toolchain and target
+        run: |
+          env -i PATH="$PATH" HOME="$RUNNER_TEMP/ck-phase3-home" CARGO_HOME="$RUNNER_TEMP/ck-phase3-cargo-home" RUSTUP_HOME="$RUNNER_TEMP/ck-phase3-rustup-home" TMPDIR="$RUNNER_TEMP" \
+            rustup toolchain install 1.97.1 --profile minimal
+          env -i PATH="$PATH" HOME="$RUNNER_TEMP/ck-phase3-home" CARGO_HOME="$RUNNER_TEMP/ck-phase3-cargo-home" RUSTUP_HOME="$RUNNER_TEMP/ck-phase3-rustup-home" TMPDIR="$RUNNER_TEMP" \
+            rustup target add x86_64-unknown-linux-gnu --toolchain 1.97.1
+
+      - name: Recompute Gate-A candidate source closure
+        run: >-
+          python3
+          experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/scripts/check_candidate_prebinding.py
+          --repo .
+
+      - name: Configure isolated build directories
+        run: |
+          {
+            echo "CARGO_HOME=$RUNNER_TEMP/ck-phase3-cargo-home"
+            echo "RUSTUP_HOME=$RUNNER_TEMP/ck-phase3-rustup-home"
+            echo "CK_ISOLATED_HOME=$RUNNER_TEMP/ck-phase3-home"
+            echo "CK_TARGET_DIR=$RUNNER_TEMP/ck-phase3-gate-b-target"
+            echo "CK_VENDOR_DIR=$RUNNER_TEMP/ck-phase3-vendor"
+            echo "CK_DEPENDENCY_METADATA=$RUNNER_TEMP/ck-phase3-cargo-metadata.json"
+            echo "CK_BUILD_METADATA=$RUNNER_TEMP/ck-phase3-build-metadata.json"
+            echo "CK_CARGO_CONFIG=$RUNNER_TEMP/ck-phase3-cargo-home/config.toml"
+            echo "CK_PLATFORM_ROLE=native"
+          } >> "$GITHUB_ENV"
+          for path in "$RUNNER_TEMP/ck-phase3-home" "$RUNNER_TEMP/ck-phase3-cargo-home" "$RUNNER_TEMP/ck-phase3-rustup-home" "$RUNNER_TEMP/ck-phase3-gate-b-target" "$RUNNER_TEMP/ck-phase3-vendor"; do
+            test ! -e "$path"
+            mkdir "$path"
+          done
+
+      - name: Materialize locked dependencies
+        run: >-
+          env -i PATH="$PATH" HOME="$CK_ISOLATED_HOME" CARGO_HOME="$CARGO_HOME" RUSTUP_HOME="$RUSTUP_HOME" CARGO_NET_OFFLINE=false TMPDIR="$RUNNER_TEMP"
+          cargo +1.97.1 fetch
+          --manifest-path experiments/EXP-0002-numeric-frame-profile/phase2-authored-conflict/candidate/Cargo.toml
+          --locked
+
+      - name: Materialize fresh vendored dependency tree
+        run: |
+          env -i PATH="$PATH" HOME="$CK_ISOLATED_HOME" CARGO_HOME="$CARGO_HOME" RUSTUP_HOME="$RUSTUP_HOME" CARGO_NET_OFFLINE=false TMPDIR="$RUNNER_TEMP" \
+            cargo +1.97.1 vendor "$CK_VENDOR_DIR" \
+            --manifest-path experiments/EXP-0002-numeric-frame-profile/phase2-authored-conflict/candidate/Cargo.toml \
+            --locked --versioned-dirs > "$CARGO_HOME/config.toml"
+          test -f "$CK_CARGO_CONFIG"
+          test ! -L "$CK_CARGO_CONFIG"
+          test -z "$(find "$CK_VENDOR_DIR" -mindepth 1 -maxdepth 1 -type f -print -quit)"
+
+      - name: Confirm fresh target remains empty before build
+        run: test -z "$(find "$CK_TARGET_DIR" -mindepth 1 -print -quit)"
+
+      - name: Record resolved Cargo dependency metadata
+        run: >-
+          env -i PATH="$PATH" HOME="$CK_ISOLATED_HOME" CARGO_HOME="$CARGO_HOME" RUSTUP_HOME="$RUSTUP_HOME" CARGO_NET_OFFLINE=true TMPDIR="$RUNNER_TEMP"
+          cargo +1.97.1 metadata
+          --manifest-path experiments/EXP-0002-numeric-frame-profile/phase2-authored-conflict/candidate/Cargo.toml
+          --locked --offline --format-version 1 > "$CK_DEPENDENCY_METADATA"
+
+      - name: Build candidate in fresh explicit target directory
+        run: >-
+          env -i PATH="$PATH" HOME="$CK_ISOLATED_HOME" CARGO_HOME="$CARGO_HOME" RUSTUP_HOME="$RUSTUP_HOME" CARGO_NET_OFFLINE=true CARGO_TARGET_DIR="$CK_TARGET_DIR" TMPDIR="$RUNNER_TEMP"
+          cargo +1.97.1 build
+          --manifest-path experiments/EXP-0002-numeric-frame-profile/phase2-authored-conflict/candidate/Cargo.toml
+          --target x86_64-unknown-linux-gnu
+          --target-dir "$CK_TARGET_DIR"
+          --locked --offline
+
+      - name: Write build metadata
+        env:
+          REQUESTED_COMMIT: ${{ inputs.commit }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          target = "x86_64-unknown-linux-gnu"
+          candidate = "experiments/EXP-0002-numeric-frame-profile/phase2-authored-conflict/candidate"
+          binary_name = "exp-0002-r3-authored-conflict-candidate"
+          metadata = {
+              "schema": "ck.exp-0002.phase3.gate-b-build-metadata-1",
+              "source_commit": os.environ["REQUESTED_COMMIT"],
+              "candidate_profile_id": "ck.provisional-r3-authored-conflict.semantic-band-1",
+              "platform_role": "native",
+              "target": target,
+              "profile": "dev",
+              "platform_observation": {
+                  "stability": "observed-for-this-build-only",
+                  "runner_os": os.environ.get("RUNNER_OS", "<unavailable>"),
+                  "runner_arch": os.environ.get("RUNNER_ARCH", "<unavailable>"),
+                  "image_os": os.environ.get("ImageOS", "<unavailable>"),
+                  "image_version": os.environ.get("ImageVersion", "<unavailable>"),
+                  "kernel": "",
+                  "sanitized_environment_keys": [],
+              },
+              "build": {
+                  "argv": [
+                      "cargo", "+1.97.1", "build", "--manifest-path", candidate + "/Cargo.toml",
+                      "--target", target, "--target-dir", os.environ["CK_TARGET_DIR"], "--locked", "--offline",
+                  ],
+                  "cwd": ".",
+                  "env_policy": {
+                      "mode": "sanitized-env-i",
+                      "ambient": "excluded",
+                      "variables": {
+                          "PATH": "<tool-path>",
+                          "HOME": "<build-home>",
+                          "CARGO_HOME": "<cargo-home>",
+                          "RUSTUP_HOME": "<rustup-home>",
+                          "CARGO_NET_OFFLINE": "true",
+                          "CARGO_TARGET_DIR": "<fresh-target-dir>",
+                          "TMPDIR": "<runner-temp>",
+                      },
+                  },
+                  "toolchain": {
+                      "rust_toolchain": "1.97.1",
+                      "rustc": "",
+                      "cargo": "",
+                      "python": "",
+                  },
+                  "cargo_lock_path": candidate + "/Cargo.lock",
+                  "dependency_metadata_path": os.environ["CK_DEPENDENCY_METADATA"],
+                  "vendor_path": os.environ["CK_VENDOR_DIR"],
+                  "vendor_role_path": "phase3-gate-b-native-vendor",
+                  "cargo_config_path": os.environ["CK_CARGO_CONFIG"],
+                  "cargo_config_role_path": "phase3-gate-b-native-cargo-config",
+                  "binary_role_path": "phase3-gate-b-native-target/" + target + "/debug/" + binary_name,
+              },
+          }
+          sanitized = {
+              "PATH": os.environ["PATH"],
+              "HOME": os.environ["CK_ISOLATED_HOME"],
+              "CARGO_HOME": os.environ["CARGO_HOME"],
+              "RUSTUP_HOME": os.environ["RUSTUP_HOME"],
+              "TMPDIR": os.environ["RUNNER_TEMP"],
+              "CARGO_NET_OFFLINE": "true",
+              "CARGO_TARGET_DIR": os.environ["CK_TARGET_DIR"],
+          }
+          def checked(command):
+              import subprocess
+              result = subprocess.run(command, check=True, capture_output=True, text=True, env=sanitized)
+              return result.stdout.strip()
+          metadata["build"]["toolchain"]["rustc"] = checked(["rustc", "+1.97.1", "-Vv"])
+          metadata["build"]["toolchain"]["cargo"] = checked(["cargo", "+1.97.1", "-Vv"])
+          metadata["build"]["toolchain"]["python"] = checked(["python3", "--version"])
+          metadata["platform_observation"]["kernel"] = checked(["uname", "-srmo"])
+          env_lines = checked(["env"]).splitlines()
+          observed_env_names = sorted(line.split("=", 1)[0] for line in env_lines if "=" in line)
+          expected_env_names = sorted({"PATH", "HOME", "CARGO_HOME", "RUSTUP_HOME", "CARGO_NET_OFFLINE", "CARGO_TARGET_DIR", "TMPDIR"})
+          if observed_env_names != expected_env_names:
+              raise SystemExit("sanitized environment did not match the declared allowlist")
+          metadata["platform_observation"]["sanitized_environment_keys"] = observed_env_names
+          Path(os.environ["CK_BUILD_METADATA"]).write_text(json.dumps(metadata, sort_keys=True), encoding="utf-8")
+          PY
+
+      - name: Capture build-only receipt (never executes candidate)
+        run: |
+          binary="$CK_TARGET_DIR/x86_64-unknown-linux-gnu/debug/exp-0002-r3-authored-conflict-candidate"
+          test -x "$binary"
+          python3 experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/scripts/phase3_build_receipt.py \
+            --repo . \
+            --binary "$binary" \
+            --metadata "$CK_BUILD_METADATA" \
+            --output "$RUNNER_TEMP/phase3-gate-b-build-receipt.json"
+
+      - name: Assemble transfer-only build bundle
+        run: |
+          bundle="$RUNNER_TEMP/phase3-gate-b-native-build"
+          mkdir -p "$bundle"
+          cp "$CK_TARGET_DIR/x86_64-unknown-linux-gnu/debug/exp-0002-r3-authored-conflict-candidate" "$bundle/candidate"
+          cp "$RUNNER_TEMP/phase3-gate-b-build-receipt.json" "$bundle/build-receipt.json"
+          cp "$CK_BUILD_METADATA" "$bundle/build-metadata.json"
+          cp "$CK_DEPENDENCY_METADATA" "$bundle/cargo-metadata.json"
+          sha256sum "$bundle"/* > "$bundle/SHA256SUMS"
+          tar -cf "$RUNNER_TEMP/phase3-gate-b-native-build.tar" -C "$bundle" candidate build-receipt.json build-metadata.json cargo-metadata.json SHA256SUMS
+
+      - name: Upload transfer-only build bundle
+        id: upload
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: phase3-gate-b-native-build-${{ inputs.commit }}
+          path: ${{ runner.temp }}/phase3-gate-b-native-build.tar
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Publish transfer artifact identity
+        if: always()
+        env:
+          ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
+        run: |
+          {
+            echo "### Phase 3 Gate B native transfer artifact"
+            echo "- artifact ID: \`$ARTIFACT_ID\`"
+            echo "- artifact digest: \`$ARTIFACT_DIGEST\`"
+          } >> "$GITHUB_STEP_SUMMARY"

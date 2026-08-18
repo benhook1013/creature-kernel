@@ -30,7 +30,7 @@ RECEIPT_SCHEMA = "ck.exp-0002.phase3.exact-attempt-receipt-1"
 ATTEMPT_INDEX_SCHEMA = "ck.exp-0002.phase3.immutable-attempt-index-1"
 EVIDENCE_SCHEMA = "ck.exp-0002.phase3.evidence-proposed-1"
 EXPERIMENT_ID = "EXP-0002"
-PHASE_ID = "phase3-semantic-band-conformance"
+PHASE_ID = "exp-0002-phase3-semantic-band-conformance-001"
 CANDIDATE_PROFILE_ID = "ck.provisional-r3-authored-conflict.semantic-band-1"
 
 MAX_RESULT_BYTES = 16 * 1024 * 1024

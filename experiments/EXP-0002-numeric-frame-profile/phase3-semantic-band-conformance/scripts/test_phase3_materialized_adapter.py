@@ -149,6 +149,44 @@ class MaterializedAdapterTests(unittest.TestCase):
         extra = next(entry for entry in result["entries"] if entry["cause"]["code"] == "extra-response")
         self.assertEqual(extra["request_id"], "synthetic/phase3/000")
 
+    def test_optional_freeze_sidecars_are_ignored_but_unknown_layout_fails_closed(self) -> None:
+        # The development-unfrozen package has no freeze sidecars and remains
+        # a valid adapter input.
+        holder, root = self.copy_package()
+        try:
+            self.assertEqual(len(load_materialized_cases(root)), 60)
+        finally:
+            holder.cleanup()
+
+        # The exact future provenance paths are permitted, but are not part of
+        # the generated artifact closure and are not parsed as candidate data.
+        holder, root = self.copy_package()
+        try:
+            (root / "manifests/freeze-manifest.json").write_bytes(b"not candidate data\n")
+            receipts = root / "manifests/build-receipts"
+            receipts.mkdir()
+            (receipts / "wsl.json").write_bytes(b"{}\n")
+            (receipts / "native.json").write_bytes(b"{}\n")
+            self.assertEqual(len(load_materialized_cases(root)), 60)
+        finally:
+            holder.cleanup()
+
+        for relative in (
+            "manifests/unexpected.json",
+            "manifests/build-receipts/alternate.json",
+            "manifests/build-receipts/nested/receipt.json",
+        ):
+            holder, root = self.copy_package()
+            try:
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b"{}\n")
+                with self.assertRaises(MaterializedAdapterError) as context:
+                    load_materialized_cases(root)
+                self.assertEqual(context.exception.code, "package-layout")
+            finally:
+                holder.cleanup()
+
     def test_transcript_shape_errors_are_stable(self) -> None:
         with self.assertRaises(MaterializedAdapterError) as context:
             run_materialized(PACKAGE, [])
