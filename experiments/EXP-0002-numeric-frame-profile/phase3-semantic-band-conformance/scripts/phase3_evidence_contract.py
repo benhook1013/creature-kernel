@@ -73,7 +73,8 @@ RESULT_KEYS = frozenset({
 })
 ATTEMPT_KEYS = frozenset({
     "freeze_manifest_sha256", "attempt_id", "platform_selector", "ordinal",
-    "authorization_reference",
+    "authorization_reference", "gate_b_admission_sha256", "authorization_record_sha256",
+    "custody_record_sha256",
 })
 ADJUDICATION_KEYS = frozenset({
     "ordinal", "request_id", "role", "dispatch_to_candidate", "status",
@@ -101,14 +102,22 @@ PLATFORM_KEYS = frozenset({
     "os_release", "filesystem", "mount_context", "workflow_runner", "workflow_image",
     "toolchain", "compiler",
 })
-FE_STATE_KEYS = frozenset({"fe_rounding", "mxcsr", "ftz", "daz"})
+FE_STATE_KEYS = frozenset({
+    "x87_control_word", "mxcsr", "x87_rounding_mode", "mxcsr_rounding_mode",
+    "x87_exception_masks", "mxcsr_exception_masks", "x87_flags", "mxcsr_flags",
+    "ftz", "daz",
+})
 PROCESS_KEYS = frozenset({
     "variant", "role", "candidate_request_count", "platform", "launch", "candidate_binary",
-    "fe_mxcsr", "transport", "lifecycle", "output",
+    "fe_mxcsr", "transport", "lifecycle", "output", "outcome",
 })
 INCOMPLETE_PROCESS_KEYS = frozenset({
     "variant", "role", "candidate_request_count", "platform", "launch", "candidate_binary",
-    "fe_mxcsr", "transport", "lifecycle", "output", "missing",
+    "fe_mxcsr", "transport", "lifecycle", "output", "missing", "outcome",
+})
+INCOMPLETE_MISSING_FIELDS = frozenset({
+    "platform", "launch", "candidate_binary", "fe_mxcsr",
+    "transport.requests", "transport.responses", "lifecycle", "output",
 })
 LAUNCH_KEYS = frozenset({"identity", "argv", "cwd", "environment"})
 HASH_PAIR_KEYS = frozenset({"count", "sha256"})
@@ -117,6 +126,7 @@ FE_KEYS = frozenset({"pre", "post"})
 LIFECYCLE_KEYS = frozenset({"state", "exit_code", "clean_shutdown"})
 OUTPUT_KEYS = frozenset({"missing", "extra", "trailing"})
 TRANSPORT_KEYS = frozenset({"requests", "responses"})
+OUTCOME_KEYS = frozenset({"status", "code", "detail"})
 COUNTS_KEYS = frozenset({
     "cases", "development", "held-out", "controls", "dispatched", "preflight",
     "supported", "failed", "inconclusive", "observation",
@@ -128,7 +138,7 @@ RECEIPT_KEYS = frozenset({
 RECEIPT_PROCESS_KEYS = frozenset({
     "variant", "role", "candidate_request_count", "request_count", "request_sha256",
     "response_count", "response_sha256", "candidate_sha256_pre",
-    "candidate_sha256_post",
+    "candidate_sha256_post", "outcome",
 })
 RECEIPT_INCOMPLETE_PROCESS_KEYS = frozenset({"variant", "role", "candidate_request_count", "partial_observation"})
 
@@ -267,6 +277,9 @@ def _decode(raw: bytes, label: str, limit: int) -> dict[str, Any]:
 def _attempt(value: Any, label: str = "attempt") -> dict[str, Any]:
     obj = _exact(value, ATTEMPT_KEYS, label)
     _sha(obj["freeze_manifest_sha256"], f"{label}.freeze_manifest_sha256")
+    _sha(obj["gate_b_admission_sha256"], f"{label}.gate_b_admission_sha256")
+    _sha(obj["authorization_record_sha256"], f"{label}.authorization_record_sha256")
+    _sha(obj["custody_record_sha256"], f"{label}.custody_record_sha256")
     attempt_id = _string(obj["attempt_id"], f"{label}.attempt_id", max_bytes=MAX_ID_BYTES)
     if ATTEMPT_RE.fullmatch(attempt_id) is None or attempt_id in {"attempt-id", "attempt-000"}:
         _fail("attempt-id", f"{label}.attempt_id is a placeholder or invalid")
@@ -579,6 +592,52 @@ def _hash_pair(value: Any, label: str, domain: bytes) -> dict[str, Any]:
     return obj
 
 
+def _control_signature(state: Mapping[str, Any]) -> tuple[Any, ...]:
+    """Return only admission-relevant FP controls.
+
+    MXCSR's low six bits are exception status flags and may legitimately drift
+    during execution.  x87 flags are likewise observational and are excluded;
+    the complete x87 control word, masked MXCSR, decoded modes/masks, FTZ and
+    DAZ remain admission-relevant.
+    """
+    return (
+        int(state["x87_control_word"], 16),
+        int(state["mxcsr"], 16) & ~0x3F,
+        state["x87_rounding_mode"], state["mxcsr_rounding_mode"],
+        state["x87_exception_masks"], state["mxcsr_exception_masks"],
+        state["ftz"], state["daz"],
+    )
+
+
+def _controls_stable(fe: Mapping[str, Any]) -> bool:
+    return _control_signature(fe["pre"]) == _control_signature(fe["post"])
+
+
+def _validate_transport_prefix(
+    pair: Mapping[str, Any] | None,
+    available: list[bytes],
+    domain: bytes,
+    label: str,
+    maximum: int,
+    *,
+    explicitly_missing: bool,
+) -> None:
+    """Validate an observed transport pair against an available frame prefix."""
+    if pair is None:
+        if not explicitly_missing:
+            _fail("transport-derived", f"{label} omits transport without an explicit missing marker")
+        return
+    if explicitly_missing:
+        _fail("process-missing", f"{label} is observed but also marked missing")
+    if pair["count"] > maximum:
+        _fail("transport-count", f"{label} exceeds the role request bound")
+    if pair["count"] > len(available):
+        _fail("transport-derived", f"{label} exceeds the available adjudication prefix")
+    expected = _framed_hash(available[:pair["count"]], domain)
+    if pair["sha256"] != expected:
+        _fail("transport-derived", f"{label} is not derived from an adjudication prefix")
+
+
 def _platform(value: Any, label: str, selector: str) -> dict[str, Any]:
     obj = _exact(value, PLATFORM_KEYS, label)
     if obj["selector"] != selector or selector not in PLATFORM_SELECTORS:
@@ -593,12 +652,69 @@ def _platform(value: Any, label: str, selector: str) -> dict[str, Any]:
     return obj
 
 
+_ROUNDING_NAMES = {0: "nearest", 1: "downward", 2: "upward", 3: "toward-zero"}
+_ROUNDING_VALUES = frozenset(_ROUNDING_NAMES.values())
+
+
+def _hex_register(value: Any, label: str, digits: int, maximum: int) -> int:
+    text = _string(value, label, max_bytes=digits + 2)
+    if re.fullmatch(rf"0x[0-9a-f]{{{digits}}}", text) is None:
+        _fail("hex-register", f"{label} must be lowercase 0x plus {digits} hex digits")
+    parsed = int(text[2:], 16)
+    if parsed > maximum:
+        _fail("hex-register", f"{label} is outside its register range")
+    return parsed
+
+
 def _fe_state(value: Any, label: str) -> dict[str, Any]:
+    """Validate a closed, lossless x87/MXCSR observation.
+
+    The raw register words are retained as canonical lowercase hex strings.
+    Decoded fields are checked back against those words so a caller cannot
+    report a plausible mode/mask while silently retaining a different ABI
+    state.  Exception/status flags are observations; only the control fields
+    participate in process-health stability below.
+    """
     obj = _exact(value, FE_STATE_KEYS, label)
-    _string(obj["fe_rounding"], f"{label}.fe_rounding", max_bytes=128)
-    _string(obj["mxcsr"], f"{label}.mxcsr", max_bytes=64)
+    x87 = _hex_register(obj["x87_control_word"], f"{label}.x87_control_word", 4, 0xFFFF)
+    mxcsr = _hex_register(obj["mxcsr"], f"{label}.mxcsr", 8, 0xFFFFFFFF)
+    for key in ("x87_rounding_mode", "mxcsr_rounding_mode"):
+        if obj[key] not in _ROUNDING_VALUES:
+            _fail("fe-rounding", f"{label}.{key} is not a supported rounding mode")
+    if obj["x87_rounding_mode"] != _ROUNDING_NAMES[(x87 >> 10) & 0x3]:
+        _fail("fe-hex-consistency", f"{label}.x87_rounding_mode differs from x87_control_word")
+    if obj["mxcsr_rounding_mode"] != _ROUNDING_NAMES[(mxcsr >> 13) & 0x3]:
+        _fail("fe-hex-consistency", f"{label}.mxcsr_rounding_mode differs from mxcsr")
+    for key in ("x87_exception_masks", "mxcsr_exception_masks"):
+        _bounded_int(obj[key], f"{label}.{key}", 0x3F)
+    if obj["x87_exception_masks"] != x87 & 0x3F:
+        _fail("fe-hex-consistency", f"{label}.x87_exception_masks differs from x87_control_word")
+    if obj["mxcsr_exception_masks"] != (mxcsr >> 7) & 0x3F:
+        _fail("fe-hex-consistency", f"{label}.mxcsr_exception_masks differs from mxcsr")
+    if obj["x87_flags"] is not None:
+        _bounded_int(obj["x87_flags"], f"{label}.x87_flags", 0x3F)
+    _bounded_int(obj["mxcsr_flags"], f"{label}.mxcsr_flags", 0x3F)
+    if obj["mxcsr_flags"] != mxcsr & 0x3F:
+        _fail("fe-hex-consistency", f"{label}.mxcsr_flags differs from mxcsr")
     if type(obj["ftz"]) is not bool or type(obj["daz"]) is not bool:
         _fail("fe-mxcsr", f"{label}.ftz/daz must be boolean")
+    if obj["ftz"] != bool(mxcsr & (1 << 15)):
+        _fail("fe-hex-consistency", f"{label}.ftz differs from mxcsr")
+    if obj["daz"] != bool(mxcsr & (1 << 6)):
+        _fail("fe-hex-consistency", f"{label}.daz differs from mxcsr")
+    return obj
+
+
+def _outcome(value: Any, label: str) -> dict[str, Any]:
+    obj = _exact(value, OUTCOME_KEYS, label)
+    if obj["status"] not in {"supported", "failed", "inconclusive"}:
+        _fail("outcome-status", f"{label}.status is invalid")
+    if obj["status"] == "supported":
+        if obj["code"] is not None or obj["detail"] is not None:
+            _fail("outcome-supported", f"{label} supported outcome must not retain a failure code/detail")
+    else:
+        _string(obj["code"], f"{label}.code", max_bytes=256)
+        _string(obj["detail"], f"{label}.detail", max_bytes=1024)
     return obj
 
 
@@ -640,6 +756,17 @@ def _process(value: Any, index: int, selector: str) -> dict[str, Any]:
         for key, domain in (("requests", REQUEST_FRAME_DOMAIN), ("responses", RESPONSE_FRAME_DOMAIN)):
             if transport[key] is not None:
                 _hash_pair(transport[key], f"process[{index}].transport.{key}", domain)
+        request_pair = transport["requests"]
+        response_pair = transport["responses"]
+        maximum = PROCESS_REQUEST_COUNTS[obj["role"]]
+        if request_pair is not None and request_pair["count"] > maximum:
+            _fail("transport-count", f"process[{index}] request count exceeds role bound")
+        if response_pair is not None and response_pair["count"] > maximum:
+            _fail("transport-count", f"process[{index}] response count exceeds role bound")
+        if request_pair is None and response_pair is not None and response_pair["count"]:
+            _fail("transport-count", f"process[{index}] response count has no request observation")
+        if request_pair is not None and response_pair is not None and response_pair["count"] > request_pair["count"]:
+            _fail("transport-count", f"process[{index}] response count exceeds request count")
         if obj["lifecycle"] is not None:
             lifecycle = _exact(obj["lifecycle"], LIFECYCLE_KEYS, f"process[{index}].lifecycle")
             if lifecycle["state"] not in {"exited", "terminated", "failed"} or type(lifecycle["exit_code"]) is not int or not -128 <= lifecycle["exit_code"] <= 255 or type(lifecycle["clean_shutdown"]) is not bool:
@@ -651,10 +778,18 @@ def _process(value: Any, index: int, selector: str) -> dict[str, Any]:
                     _fail("output-observation", f"process[{index}].output.{key} is invalid")
                 for n, item in enumerate(output[key]):
                     _string(item, f"process[{index}].output.{key}[{n}]", max_bytes=MAX_ID_BYTES)
-        if type(obj["missing"]) is not list or not obj["missing"] or len(obj["missing"]) > 32:
+        if type(obj["missing"]) is not list or len(obj["missing"]) > len(INCOMPLETE_MISSING_FIELDS):
             _fail("process-missing", f"process[{index}].missing must retain bounded unavailable fields")
         for n, item in enumerate(obj["missing"]):
             _string(item, f"process[{index}].missing[{n}]", max_bytes=128)
+        missing = set(obj["missing"])
+        if len(missing) != len(obj["missing"]) or not missing <= INCOMPLETE_MISSING_FIELDS:
+            _fail("process-missing", f"process[{index}].missing contains duplicates or unknown fields")
+        actually_missing = {key for key in ("platform", "launch", "candidate_binary", "fe_mxcsr", "lifecycle", "output") if obj[key] is None}
+        actually_missing.update(f"transport.{key}" for key in TRANSPORT_KEYS if transport[key] is None)
+        if missing != actually_missing:
+            _fail("process-missing", f"process[{index}].missing contradicts retained observations")
+        _outcome(obj["outcome"], f"process[{index}].outcome")
         return obj
     obj = _exact(value, PROCESS_KEYS, f"process_observations[{index}]")
     if obj["variant"] != "complete-v1":
@@ -703,6 +838,7 @@ def _process(value: Any, index: int, selector: str) -> dict[str, Any]:
             _fail("output-observation", f"process[{index}].output.{key} is invalid")
         for n, item in enumerate(output[key]):
             _string(item, f"process[{index}].output.{key}[{n}]", max_bytes=MAX_ID_BYTES)
+    _outcome(obj["outcome"], f"process[{index}].outcome")
     return obj
 
 
@@ -741,33 +877,34 @@ def _wire_frames(adjudications: list[dict[str, Any]]) -> dict[str, tuple[list[by
 
 
 def _process_health(processes: list[dict[str, Any]]) -> str:
-    """Return the aggregate process disposition without accepting drift."""
-    if any(item.get("variant") == "incomplete-v1" for item in processes):
-        for item in processes:
-            if item.get("variant") != "incomplete-v1":
-                continue
-            binary = item.get("candidate_binary")
-            if binary is not None and binary["sha256_pre"] != binary["sha256_post"]:
-                return "failed"
-            fe = item.get("fe_mxcsr")
-            if fe is not None and fe["pre"] != fe["post"]:
-                return "failed"
-            lifecycle = item.get("lifecycle")
-            if lifecycle is not None and (lifecycle["state"] != "exited" or lifecycle["exit_code"] != 0 or not lifecycle["clean_shutdown"]):
-                return "failed"
-        return "inconclusive"
+    """Return aggregate process disposition with global failure precedence."""
+    # Inspect every process for fully evidenced failures before considering
+    # any incomplete observation.  Process order must never affect aggregate
+    # status: an early short transcript cannot hide a later binary, FP,
+    # lifecycle, or explicit transport outcome failure.
     for item in processes:
-        if item["candidate_binary"]["sha256_pre"] != item["candidate_binary"]["sha256_post"]:
+        if item["outcome"]["status"] == "failed":
             return "failed"
-        if item["transport"]["responses"]["count"] != item["transport"]["requests"]["count"]:
+        binary = item.get("candidate_binary")
+        if binary is not None and binary["sha256_pre"] != binary["sha256_post"]:
+            return "failed"
+        fe = item.get("fe_mxcsr")
+        if fe is not None and not _controls_stable(fe):
+            return "failed"
+        lifecycle = item.get("lifecycle")
+        if lifecycle is not None and (lifecycle["state"] != "exited" or lifecycle["exit_code"] != 0 or not lifecycle["clean_shutdown"]):
+            return "failed"
+
+    # Only after all failure-bearing observations have been inspected may
+    # missing evidence or an incomplete transcript lower the result to
+    # inconclusive.
+    for item in processes:
+        if item.get("variant") != "incomplete-v1" and item["transport"]["responses"]["count"] != item["transport"]["requests"]["count"]:
             return "inconclusive"
-        fe = item["fe_mxcsr"]
-        if fe["pre"] != fe["post"]:
-            return "failed"
-        if item["lifecycle"]["state"] != "exited" or item["lifecycle"]["exit_code"] != 0 or not item["lifecycle"]["clean_shutdown"]:
-            return "failed"
-        if any(item["output"][key] for key in OUTPUT_KEYS):
+        if item.get("variant") != "incomplete-v1" and any(item["output"][key] for key in OUTPUT_KEYS):
             return "inconclusive"
+    if any(item["outcome"]["status"] == "inconclusive" or item.get("variant") == "incomplete-v1" for item in processes):
+        return "inconclusive"
     return "supported"
 
 
@@ -800,14 +937,22 @@ def _validate_result_obj(result: Any) -> dict[str, Any]:
         if process.get("variant") == "incomplete-v1":
             requests, responses = frames_by_role[process["role"]]
             transport = process["transport"]
-            if transport["requests"] is None and requests:
-                _fail("transport-derived", f"incomplete process {process['role']} omits available request transport")
-            if transport["responses"] is None and responses:
-                _fail("transport-derived", f"incomplete process {process['role']} omits available response transport")
-            if transport["requests"] is not None and (transport["requests"]["count"] != len(requests) or transport["requests"]["sha256"] != _framed_hash(requests, REQUEST_FRAME_DOMAIN)):
-                _fail("transport-derived", f"incomplete process {process['role']} request transport is not derived from adjudications")
-            if transport["responses"] is not None and (transport["responses"]["count"] != len(responses) or transport["responses"]["sha256"] != _framed_hash(responses, RESPONSE_FRAME_DOMAIN)):
-                _fail("transport-derived", f"incomplete process {process['role']} response transport is not derived from adjudications")
+            maximum = PROCESS_REQUEST_COUNTS[process["role"]]
+            request_pair = transport["requests"]
+            response_pair = transport["responses"]
+            if request_pair is not None and response_pair is not None and response_pair["count"] > request_pair["count"]:
+                _fail("transport-count", f"incomplete process {process['role']} response count exceeds request count")
+            missing = set(process["missing"])
+            _validate_transport_prefix(
+                request_pair, requests, REQUEST_FRAME_DOMAIN,
+                f"incomplete process {process['role']} requests", maximum,
+                explicitly_missing="transport.requests" in missing,
+            )
+            _validate_transport_prefix(
+                response_pair, responses, RESPONSE_FRAME_DOMAIN,
+                f"incomplete process {process['role']} responses", maximum,
+                explicitly_missing="transport.responses" in missing,
+            )
             continue
         requests, responses = frames_by_role[process["role"]]
         retained_requests = process["transport"]["requests"]
@@ -861,14 +1006,10 @@ def _make_result(attempt: Mapping[str, Any], adjudications: Any, process_observa
 
 def _derived_status(result: Mapping[str, Any]) -> str:
     adjudications = result["adjudications"]
-    if any(item["status"] == "failed" for item in adjudications):
-        return "failed"
-    if any(item["status"] == "inconclusive" for item in adjudications):
-        return "inconclusive"
     process_status = _process_health(result["process_observations"])
-    if process_status == "failed":
+    if any(item["status"] == "failed" for item in adjudications) or process_status == "failed":
         return "failed"
-    if process_status == "inconclusive":
+    if any(item["status"] == "inconclusive" for item in adjudications) or process_status == "inconclusive":
         return "inconclusive"
     heldout_good = all(item["status"] == "supported" for item in adjudications[8:48])
     return "supported" if heldout_good else "inconclusive"
@@ -929,6 +1070,7 @@ def _receipt_obj(result_bytes: bytes) -> dict[str, Any]:
             "response_sha256": process["transport"]["responses"]["sha256"],
             "candidate_sha256_pre": process["candidate_binary"]["sha256_pre"],
             "candidate_sha256_post": process["candidate_binary"]["sha256_post"],
+            "outcome": process["outcome"],
         })
     return {
         "schema": RECEIPT_SCHEMA,
@@ -1002,6 +1144,7 @@ def validate_receipt(receipt_bytes: bytes, result_bytes: bytes | None = None) ->
         _sha(process["response_sha256"], "response_sha256")
         _sha(process["candidate_sha256_pre"], "candidate_sha256_pre")
         _sha(process["candidate_sha256_post"], "candidate_sha256_post")
+        _outcome(process["outcome"], f"receipt.processes[{index}].outcome")
         if process["candidate_request_count"] != process["request_count"] or process["response_count"] > process["request_count"]:
             _fail("transport-count", "receipt process counts differ")
     if roles != ["development", "held-out", "controls"]:
