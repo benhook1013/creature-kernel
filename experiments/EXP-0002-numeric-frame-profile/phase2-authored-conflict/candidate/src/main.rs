@@ -245,6 +245,7 @@ fn request_id_hint(line: &str) -> Option<String> {
 }
 
 fn valid_request_id(value: &str) -> bool {
+    // Rust string length is the UTF-8 byte length required by the protocol.
     !value.is_empty() && value.len() <= MAX_REQUEST_ID_BYTES
 }
 
@@ -382,7 +383,7 @@ fn dispatch_request(request: Request) -> Response {
         return rejected_response(request.request_id, "provider-selection", None::<String>);
     }
 
-    if request.source.as_bytes().len() > MAX_SOURCE_BYTES {
+    if request.source.len() > MAX_SOURCE_BYTES {
         return resource_response(Some(request.request_id), "source-bytes");
     }
 
@@ -391,25 +392,25 @@ fn dispatch_request(request: Request) -> Response {
         &request.translation_absolute,
         bridge::ProvisionalToleranceField::TranslationAbsolute,
     ) {
-            Ok(value) => value,
-            Err(response) => return response,
-        };
+        Ok(value) => value,
+        Err(response) => return response,
+    };
     let translation_relative = match admit_request_tolerance(
         &request.request_id,
         &request.translation_relative,
         bridge::ProvisionalToleranceField::TranslationRelative,
     ) {
-            Ok(value) => value,
-            Err(response) => return response,
-        };
+        Ok(value) => value,
+        Err(response) => return response,
+    };
     let rotation_half_chord = match admit_request_tolerance(
         &request.request_id,
         &request.rotation_half_chord,
         bridge::ProvisionalToleranceField::RotationHalfChord,
     ) {
-            Ok(value) => value,
-            Err(response) => return response,
-        };
+        Ok(value) => value,
+        Err(response) => return response,
+    };
 
     let tolerances = ProvisionalAuthoredConflictTolerances {
         translation_absolute,
@@ -460,6 +461,9 @@ enum ToleranceNumberError {
     NonzeroUnderflow { lexeme: String },
 }
 
+// Returning the complete bounded protocol response keeps all rejection
+// construction at this narrow input boundary; the large variant is error-only.
+#[allow(clippy::result_large_err)]
 fn admit_request_tolerance(
     request_id: &str,
     value: &json::Value,
@@ -1133,6 +1137,19 @@ mod tests {
                 .unwrap()
                 .contains("response-line-bytes")
         );
+    }
+
+    #[test]
+    fn multibyte_request_id_over_byte_bound_is_rejected_without_echo() {
+        let mut value = request_value(SOURCE);
+        let request_id = "é".repeat((MAX_REQUEST_ID_BYTES / "é".len()) + 1);
+        assert!(request_id.len() > MAX_REQUEST_ID_BYTES);
+        value["request_id"] = json::Value::String(request_id);
+        let parsed = parse_request(&json::to_string(&value).unwrap()).unwrap();
+        let result = dispatch_request(parsed);
+        assert_eq!(result.status, "error");
+        assert_eq!(result.error.as_deref(), Some("malformed-request"));
+        assert!(result.request_id.is_none());
     }
 
     #[test]
