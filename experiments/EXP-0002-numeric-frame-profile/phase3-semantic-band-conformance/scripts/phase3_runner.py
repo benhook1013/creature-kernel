@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from decimal import Decimal
 import math
 from typing import Any
 
@@ -39,6 +40,15 @@ def _plain_json_value(value: Any, label: str) -> None:
         _fail("negative-capability", f"{label} is callable")
     if isinstance(value, float) and not math.isfinite(value):
         _fail("case-shape", f"{label} is non-finite")
+    if isinstance(value, Decimal):
+        try:
+            # Keep the exact Decimal intact.  ``as_fraction`` performs the
+            # shared finite-and-bounded numeric check without a float round
+            # trip; field-specific validation below still owns its meaning.
+            as_fraction(value, label)
+        except Phase3Error as error:
+            _fail("case-shape", f"{label} is invalid: {error.code}")
+        return
     if value is None or isinstance(value, (str, int, float, bool)):
         return
     if type(value) is list:
@@ -136,7 +146,15 @@ def _transcript(value: Any) -> dict[str, bytes]:
     total = 0
     result: dict[str, bytes] = {}
     for key, raw in value.items():
-        if not isinstance(key, str) or type(raw) is not bytes:
+        if not isinstance(key, str) or not key:
+            _fail("transcript-key", "transcript keys must be non-empty strings")
+        try:
+            key_bytes = key.encode("utf-8")
+        except UnicodeEncodeError as error:
+            raise RunnerError("transcript-key", "transcript key is not valid UTF-8") from error
+        if len(key_bytes) > MAX_REQUEST_ID_BYTES:
+            _fail("transcript-key", "transcript key exceeds 256 UTF-8 bytes")
+        if type(raw) is not bytes:
             _fail("transcript-shape", "transcript must map string IDs to bytes")
         if len(raw) > FRAME_BYTES:
             # Retain the frame for per-case adjudication, while still applying
@@ -195,7 +213,8 @@ def run_synthetic(cases: Any, transcript: Any) -> dict[str, Any]:
         entries.append(result)
     extras = sorted(set(frames) - used)
     for request_id in extras:
-        entries.append({"request_id": request_id, "status": "inconclusive", "classification": "incomplete", "preflight": True, "cause": {"code": "extra-response"}})
+        cause_code = "extra-response-too-large" if len(frames[request_id]) > FRAME_BYTES else "extra-response"
+        entries.append({"request_id": request_id, "status": "inconclusive", "classification": "incomplete", "preflight": True, "cause": {"code": cause_code}})
     counts = {name: sum(1 for item in entries if item["status"] == name) for name in ("supported", "failed", "inconclusive", "observation")}
     counts.update({"cases": len(case_list), "entries": len(entries), "extra_responses": len(extras)})
     return {
