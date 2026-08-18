@@ -200,6 +200,48 @@ impl std::error::Error for CanonicalMemberPlacementError {
     }
 }
 
+/// One Part local retained as an input to the root-to-mating-owner fold.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct CanonicalAttachmentPlacementPartLocal {
+    address: AddressKey,
+    local: CanonicalRigidTransform,
+}
+
+impl CanonicalAttachmentPlacementPartLocal {
+    /// Part address.
+    #[must_use]
+    pub(crate) fn address(&self) -> &AddressKey {
+        &self.address
+    }
+
+    /// Canonical Part local transform used by the fold.
+    #[must_use]
+    pub(crate) const fn local(&self) -> CanonicalRigidTransform {
+        self.local
+    }
+}
+
+/// One successfully executed Attachment-equation operation and its output.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct CanonicalAttachmentPlacementEquationStep {
+    operation: CanonicalMemberPlacementOperation,
+    output: CanonicalRigidTransform,
+}
+
+impl CanonicalAttachmentPlacementEquationStep {
+    /// Operation executed at this equation step.
+    #[must_use]
+    pub(crate) const fn operation(&self) -> CanonicalMemberPlacementOperation {
+        self.operation
+    }
+
+    /// Canonical transform output by this equation step.
+    #[must_use]
+    pub(crate) const fn output(&self) -> CanonicalRigidTransform {
+        self.output
+    }
+}
+
 /// Provenance retained on an attached-root Part.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct CanonicalAttachmentPlacementProvenance {
@@ -211,6 +253,10 @@ pub(crate) struct CanonicalAttachmentPlacementProvenance {
     mating_owner: AddressKey,
     offset: CanonicalRigidTransform,
     root_to_mating_owner_path: Vec<AddressKey>,
+    host_socket_local: CanonicalRigidTransform,
+    mating_socket_local: CanonicalRigidTransform,
+    root_to_mating_owner_part_locals: Vec<CanonicalAttachmentPlacementPartLocal>,
+    equation_steps: Vec<CanonicalAttachmentPlacementEquationStep>,
 }
 
 impl CanonicalAttachmentPlacementProvenance {
@@ -256,11 +302,37 @@ impl CanonicalAttachmentPlacementProvenance {
         self.offset
     }
 
+    /// Canonical host Socket local transform `T_H<-S_h`.
+    #[must_use]
+    pub(crate) const fn host_socket_local(&self) -> CanonicalRigidTransform {
+        self.host_socket_local
+    }
+
+    /// Canonical mating Socket local transform `T_M<-S_m`.
+    #[must_use]
+    pub(crate) const fn mating_socket_local(&self) -> CanonicalRigidTransform {
+        self.mating_socket_local
+    }
+
     /// Root-first containment path from the attached root to the mating
     /// Socket owner, including both endpoints.
     #[must_use]
     pub(crate) fn root_to_mating_owner_path(&self) -> &[AddressKey] {
         &self.root_to_mating_owner_path
+    }
+
+    /// Ordered non-root Part locals used by the root-to-mating-owner fold.
+    #[must_use]
+    pub(crate) fn root_to_mating_owner_part_locals(
+        &self,
+    ) -> &[CanonicalAttachmentPlacementPartLocal] {
+        &self.root_to_mating_owner_part_locals
+    }
+
+    /// Ordered successfully executed Attachment-equation steps.
+    #[must_use]
+    pub(crate) fn equation_steps(&self) -> &[CanonicalAttachmentPlacementEquationStep] {
+        &self.equation_steps
     }
 }
 
@@ -364,10 +436,36 @@ impl CanonicalAttachmentPlacement {
         self.provenance.offset()
     }
 
+    /// Canonical host Socket local transform.
+    #[must_use]
+    pub(crate) const fn host_socket_local(&self) -> CanonicalRigidTransform {
+        self.provenance.host_socket_local()
+    }
+
+    /// Canonical mating Socket local transform.
+    #[must_use]
+    pub(crate) const fn mating_socket_local(&self) -> CanonicalRigidTransform {
+        self.provenance.mating_socket_local()
+    }
+
     /// Root-first path from attached root to mating-owner Part.
     #[must_use]
     pub(crate) fn root_to_mating_owner_path(&self) -> &[AddressKey] {
         self.provenance.root_to_mating_owner_path()
+    }
+
+    /// Ordered non-root Part locals used by the root-to-mating-owner fold.
+    #[must_use]
+    pub(crate) fn root_to_mating_owner_part_locals(
+        &self,
+    ) -> &[CanonicalAttachmentPlacementPartLocal] {
+        self.provenance.root_to_mating_owner_part_locals()
+    }
+
+    /// Ordered successfully executed Attachment-equation steps.
+    #[must_use]
+    pub(crate) fn equation_steps(&self) -> &[CanonicalAttachmentPlacementEquationStep] {
+        self.provenance.equation_steps()
     }
 
     /// Full retained endpoint/offset/path provenance.
@@ -796,6 +894,15 @@ fn prepare_attachment(
             detail: "mating Socket owner is not in the attached root subtree",
         }
     })?;
+    let root_to_mating_owner_part_locals = root_to_mating_owner_path
+        .iter()
+        .skip(1)
+        .map(|address| CanonicalAttachmentPlacementPartLocal {
+            address: address.clone(),
+            local: local[address],
+        })
+        .collect();
+    let mut equation_steps = Vec::new();
 
     // A zero-edge path uses the mating Socket frame directly.  No identity
     // transform is manufactured or exposed for this case.
@@ -804,7 +911,7 @@ fn prepare_attachment(
     } else {
         let mut folded = local[&root_to_mating_owner_path[1]];
         for child in root_to_mating_owner_path.iter().skip(2) {
-            folded = compose_canonical_rigid_transforms(
+            let output = compose_canonical_rigid_transforms(
                 folded,
                 local[child],
                 gate,
@@ -816,8 +923,13 @@ fn prepare_attachment(
                 context: CanonicalMemberPlacementOperation::AttachmentContainment,
                 error,
             })?;
+            equation_steps.push(CanonicalAttachmentPlacementEquationStep {
+                operation: CanonicalMemberPlacementOperation::AttachmentContainment,
+                output,
+            });
+            folded = output;
         }
-        compose_canonical_rigid_transforms(
+        let output = compose_canonical_rigid_transforms(
             folded,
             mating_frame,
             gate,
@@ -828,7 +940,12 @@ fn prepare_attachment(
             address: attachment_address.clone(),
             context: CanonicalMemberPlacementOperation::AttachmentMatingSocket,
             error,
-        })?
+        })?;
+        equation_steps.push(CanonicalAttachmentPlacementEquationStep {
+            operation: CanonicalMemberPlacementOperation::AttachmentMatingSocket,
+            output,
+        });
+        output
     };
 
     let host_plus_offset = compose_canonical_rigid_transforms(
@@ -843,6 +960,10 @@ fn prepare_attachment(
         context: CanonicalMemberPlacementOperation::AttachmentHostOffset,
         error,
     })?;
+    equation_steps.push(CanonicalAttachmentPlacementEquationStep {
+        operation: CanonicalMemberPlacementOperation::AttachmentHostOffset,
+        output: host_plus_offset,
+    });
     let inverse_mating =
         inverse_canonical_rigid_transform(root_to_mating_socket, arithmetic_capability).map_err(
             |error| CanonicalMemberPlacementError::Arithmetic {
@@ -851,6 +972,10 @@ fn prepare_attachment(
                 error,
             },
         )?;
+    equation_steps.push(CanonicalAttachmentPlacementEquationStep {
+        operation: CanonicalMemberPlacementOperation::AttachmentInverse,
+        output: inverse_mating,
+    });
     let derived_root_local = compose_canonical_rigid_transforms(
         host_plus_offset,
         inverse_mating,
@@ -863,6 +988,10 @@ fn prepare_attachment(
         context: CanonicalMemberPlacementOperation::AttachmentEquation,
         error,
     })?;
+    equation_steps.push(CanonicalAttachmentPlacementEquationStep {
+        operation: CanonicalMemberPlacementOperation::AttachmentEquation,
+        output: derived_root_local,
+    });
 
     let provenance = CanonicalAttachmentPlacementProvenance {
         attachment: attachment_address.clone(),
@@ -873,6 +1002,10 @@ fn prepare_attachment(
         mating_owner,
         offset,
         root_to_mating_owner_path,
+        host_socket_local: host_frame,
+        mating_socket_local: mating_frame,
+        root_to_mating_owner_part_locals,
+        equation_steps,
     };
     Ok(CanonicalAttachmentPlacement {
         provenance,
@@ -1200,6 +1333,11 @@ mod tests {
                 .iter_mut()
                 .for_each(|component| *component = -*component);
         }
+        result.iter_mut().for_each(|component| {
+            if *component == 0.0 {
+                *component = 0.0;
+            }
+        });
         result
     }
 
@@ -1232,12 +1370,32 @@ mod tests {
     }
 
     fn oracle_inverse(value: OracleRigid) -> OracleRigid {
-        let rotation = [
+        let mut rotation = [
             -value.rotation[0],
             -value.rotation[1],
             -value.rotation[2],
             value.rotation[3],
         ];
+        rotation.iter_mut().for_each(|component| {
+            if *component == 0.0 {
+                *component = 0.0;
+            }
+        });
+        if let Some(index) = [3, 0, 1, 2]
+            .into_iter()
+            .find(|index| rotation[*index] != 0.0)
+        {
+            if rotation[index].is_sign_negative() {
+                rotation
+                    .iter_mut()
+                    .for_each(|component| *component = -*component);
+            }
+        }
+        rotation.iter_mut().for_each(|component| {
+            if *component == 0.0 {
+                *component = 0.0;
+            }
+        });
         let negated = value.translation.map(|component| -component);
         OracleRigid {
             translation: oracle_rotate(rotation, negated),
@@ -1265,6 +1423,29 @@ mod tests {
     fn descendant_mating_source() -> Vec<u8> {
         let mut value: serde_json::Value = serde_json::from_slice(SOURCE).unwrap();
         let body = value["body"].as_object_mut().unwrap();
+        body["parts"]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({
+                "address": {
+                    "namespace": "main",
+                    "anchors": ["tail", "end"],
+                    "kind": "part",
+                    "role": "tail_end"
+                },
+                "containment": {
+                    "parent": {
+                        "namespace": "main",
+                        "anchors": ["tail"],
+                        "kind": "part",
+                        "role": "tail_tip"
+                    }
+                },
+                "placement": {
+                    "translation": [11, 12, 13],
+                    "rotation_xyzw": [0, 0, 0, 1]
+                }
+            }));
         let tail_tip = body["parts"]
             .as_array_mut()
             .unwrap()
@@ -1298,7 +1479,8 @@ mod tests {
             .iter_mut()
             .find(|socket| socket["address"]["anchors"] == serde_json::json!(["tail"]))
             .unwrap();
-        mating["owner"]["role"] = serde_json::json!("tail_tip");
+        mating["owner"]["role"] = serde_json::json!("tail_end");
+        mating["owner"]["anchors"] = serde_json::json!(["tail", "end"]);
         mating["interface_frame"] = serde_json::json!({
             "translation": [5, 6, 7],
             "rotation_xyzw": [0, 1, 0, 0]
@@ -1407,6 +1589,42 @@ mod tests {
             [0.0, 0.0, -1.0]
         );
         let attachment = placement.attachments().values().next().unwrap();
+        let (_, values) = member_and_values(SOURCE);
+        let host_socket = address(values.sockets(), "tail_mount", &[]);
+        let mating_socket = address(values.sockets(), "tail_mount", &["tail"]);
+        assert_eq!(
+            attachment.host_socket_local(),
+            values.sockets()[&host_socket]
+        );
+        assert_eq!(
+            attachment.mating_socket_local(),
+            values.sockets()[&mating_socket]
+        );
+        assert!(attachment.root_to_mating_owner_part_locals().is_empty());
+        assert_eq!(
+            attachment
+                .equation_steps()
+                .iter()
+                .map(|step| step.operation())
+                .collect::<Vec<_>>(),
+            vec![
+                CanonicalMemberPlacementOperation::AttachmentHostOffset,
+                CanonicalMemberPlacementOperation::AttachmentInverse,
+                CanonicalMemberPlacementOperation::AttachmentEquation,
+            ]
+        );
+        let host = oracle_transform(values.sockets()[&host_socket]);
+        let offset = oracle_transform(values.attachments().values().next().copied().unwrap());
+        let mating = oracle_transform(values.sockets()[&mating_socket]);
+        let host_plus_offset = oracle_compose(host, offset);
+        let inverse_mating = oracle_inverse(mating);
+        let steps = attachment.equation_steps();
+        assert_transform_matches(steps[0].output(), host_plus_offset);
+        assert_eq!(steps[1].output(), values.sockets()[&mating_socket]);
+        assert_transform_matches(
+            steps[2].output(),
+            oracle_compose(host_plus_offset, inverse_mating),
+        );
         assert_eq!(attachment.root_to_mating_owner_path().len(), 1);
         assert_eq!(
             attachment.authored_root_local(),
@@ -1789,24 +2007,65 @@ mod tests {
         let mating_socket = address(values.sockets(), "tail_mount", &["tail"]);
         let tail_root = address(values.parts(), "tail_root", &["tail"]);
         let tail_tip = address(values.parts(), "tail_tip", &["tail"]);
+        let tail_end = address(values.parts(), "tail_end", &["tail", "end"]);
         let host = oracle_transform(values.sockets()[&host_socket]);
         let offset = oracle_transform(values.attachments().values().next().copied().unwrap());
         let mating = oracle_transform(values.sockets()[&mating_socket]);
-        let root_to_owner = oracle_transform(values.parts()[&tail_tip]);
-        let expected = oracle_compose(
-            oracle_compose(host, offset),
-            oracle_inverse(oracle_compose(root_to_owner, mating)),
-        );
+        let tail_tip_local = oracle_transform(values.parts()[&tail_tip]);
+        let tail_end_local = oracle_transform(values.parts()[&tail_end]);
+        let folded = oracle_compose(tail_tip_local, tail_end_local);
+        let root_to_mating_socket = oracle_compose(folded, mating);
+        let host_plus_offset = oracle_compose(host, offset);
+        let inverse_mating = oracle_inverse(root_to_mating_socket);
+        let expected = oracle_compose(host_plus_offset, inverse_mating);
         assert_transform_matches(attachment.derived_root_local(), expected);
         assert_eq!(attachment.root(), &tail_root);
         assert_eq!(attachment.host_socket(), &host_socket);
         assert_eq!(attachment.mating_socket(), &mating_socket);
         assert_eq!(attachment.host_owner().role(), "pelvis");
-        assert_eq!(attachment.mating_owner(), &tail_tip);
+        assert_eq!(attachment.mating_owner(), &tail_end);
         assert_eq!(
             attachment.root_to_mating_owner_path(),
-            &[tail_root.clone(), tail_tip.clone()]
+            &[tail_root.clone(), tail_tip.clone(), tail_end.clone()]
         );
+        let part_locals = attachment.root_to_mating_owner_part_locals();
+        assert_eq!(
+            part_locals
+                .iter()
+                .map(|part| part.address().clone())
+                .collect::<Vec<_>>(),
+            vec![tail_tip.clone(), tail_end.clone()]
+        );
+        assert_eq!(part_locals[0].local(), values.parts()[&tail_tip]);
+        assert_eq!(part_locals[1].local(), values.parts()[&tail_end]);
+        assert_eq!(
+            attachment.host_socket_local(),
+            values.sockets()[&host_socket]
+        );
+        assert_eq!(
+            attachment.mating_socket_local(),
+            values.sockets()[&mating_socket]
+        );
+        assert_eq!(
+            attachment
+                .equation_steps()
+                .iter()
+                .map(|step| step.operation())
+                .collect::<Vec<_>>(),
+            vec![
+                CanonicalMemberPlacementOperation::AttachmentContainment,
+                CanonicalMemberPlacementOperation::AttachmentMatingSocket,
+                CanonicalMemberPlacementOperation::AttachmentHostOffset,
+                CanonicalMemberPlacementOperation::AttachmentInverse,
+                CanonicalMemberPlacementOperation::AttachmentEquation,
+            ]
+        );
+        let steps = attachment.equation_steps();
+        assert_transform_matches(steps[0].output(), folded);
+        assert_transform_matches(steps[1].output(), root_to_mating_socket);
+        assert_transform_matches(steps[2].output(), host_plus_offset);
+        assert_transform_matches(steps[3].output(), inverse_mating);
+        assert_transform_matches(steps[4].output(), expected);
         assert_eq!(attachment.authored_root_local(), values.parts()[&tail_root]);
         assert_ne!(
             attachment.authored_root_local(),
