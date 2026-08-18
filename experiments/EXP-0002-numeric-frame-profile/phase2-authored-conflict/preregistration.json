@@ -1,0 +1,239 @@
+{
+  "schema": "ck.exp-0002.r3-authored-conflict-preregistration-1",
+  "experiment_id": "EXP-0002",
+  "successor_id": "exp-0002-phase2-authored-conflict-draft-001",
+  "lifecycle": "draft",
+  "protocol_binding": {
+    "state": "draft",
+    "id": "ck.r3.authored-conflict-successor-draft-1",
+    "content_sha256": null,
+    "required_before_execution": true
+  },
+  "candidate_binding": {
+    "state": "unbound",
+    "id": null,
+    "content_sha256": null,
+    "required_before_execution": true
+  },
+  "profile_binding": {
+    "state": "unbound",
+    "kind": "authored-conflict",
+    "id": null,
+    "definition_sha256": null,
+    "source": "bounded-successor-evidence-only",
+    "separate_from_expected_snapshot": true,
+    "required_before_held_out": true
+  },
+  "semantic_budget_binding": {
+    "state": "unbound",
+    "values": null,
+    "required_before_held_out": true
+  },
+  "validation_binding": {
+    "state": "unbound",
+    "values": null,
+    "required_before_held_out": true
+  },
+  "corpus_binding": {
+    "state": "unbound",
+    "role_order": [
+      "development",
+      "held-out",
+      "adversarial"
+    ],
+    "roles": [
+      {
+        "role": "development",
+        "state": "unbound",
+        "id": null,
+        "path": null,
+        "sha256": null,
+        "execution_order": 1,
+        "tuning_allowed": true,
+        "held_out_blind": false
+      },
+      {
+        "role": "held-out",
+        "state": "unbound",
+        "id": null,
+        "path": null,
+        "sha256": null,
+        "execution_order": 2,
+        "tuning_allowed": false,
+        "held_out_blind": false
+      },
+      {
+        "role": "adversarial",
+        "state": "unbound",
+        "id": null,
+        "path": null,
+        "sha256": null,
+        "execution_order": 3,
+        "tuning_allowed": false,
+        "held_out_blind": false
+      }
+    ],
+    "required_before_held_out": true
+  },
+  "boundary_fixtures": [
+    {
+      "id": "supported-valid",
+      "request_profile": "supported-digitigrade",
+      "expected_outcome": "valid-supported",
+      "expected_diagnostic": null,
+      "graph_constraints": [
+        "finite",
+        "schema-valid",
+        "duplicate-free",
+        "acyclic",
+        "resource-admitted",
+        "valid-endpoints-and-capacity"
+      ],
+      "state": "unbound",
+      "path": null,
+      "sha256": null
+    },
+    {
+      "id": "supported-extra-limb-invalid",
+      "request_profile": "supported-digitigrade",
+      "expected_outcome": "semantically-invalid",
+      "expected_diagnostic": "invalid-source",
+      "graph_constraints": [
+        "finite",
+        "schema-valid",
+        "duplicate-free",
+        "acyclic",
+        "resource-admitted",
+        "valid-endpoints-and-capacity",
+        "supported-profile-invariant-contradiction-extra-limb"
+      ],
+      "state": "unbound",
+      "path": null,
+      "sha256": null
+    },
+    {
+      "id": "quadruped-unsupported",
+      "request_profile": "explicit-quadruped",
+      "expected_outcome": "well-formed-but-unsupported",
+      "expected_diagnostic": "unsupported",
+      "graph_constraints": [
+        "finite",
+        "schema-valid",
+        "duplicate-free",
+        "acyclic",
+        "resource-admitted",
+        "valid-endpoints-and-capacity",
+        "unsupported-profile-is-sole-non-success-reason"
+      ],
+      "state": "unbound",
+      "path": null,
+      "sha256": null
+    },
+    {
+      "id": "extra-limb-unsupported",
+      "request_profile": "explicit-extra-limb",
+      "expected_outcome": "well-formed-but-unsupported",
+      "expected_diagnostic": "unsupported",
+      "graph_constraints": [
+        "finite",
+        "schema-valid",
+        "duplicate-free",
+        "acyclic",
+        "resource-admitted",
+        "valid-endpoints-and-capacity",
+        "unsupported-profile-is-sole-non-success-reason"
+      ],
+      "state": "unbound",
+      "path": null,
+      "sha256": null
+    },
+    {
+      "id": "freeform-attachment-unsupported",
+      "request_profile": "explicit-freeform-attachment-topology",
+      "expected_outcome": "well-formed-but-unsupported",
+      "expected_diagnostic": "unsupported",
+      "graph_constraints": [
+        "finite",
+        "schema-valid",
+        "duplicate-free",
+        "acyclic",
+        "resource-admitted",
+        "valid-endpoints-and-capacity",
+        "unsupported-profile-is-sole-non-success-reason"
+      ],
+      "state": "unbound",
+      "path": null,
+      "sha256": null
+    }
+  ],
+  "activation_bindings": {
+    "state": "unbound",
+    "resolver_source": null,
+    "resolver_binding": null,
+    "complete_build_request": null,
+    "required_before_execution": true
+  },
+  "rules": {
+    "comparison_target": "authored-root-local-vs-attachment-derived",
+    "comparison_profile": "one-explicit-separately-content-bound-authored-conflict-profile",
+    "held_out_tuning": "prohibited",
+    "failure_or_inconclusive": "new-candidate-evaluation",
+    "outcomes": [
+      "agree",
+      "conflict",
+      "skipped",
+      "incomplete",
+      "unsupported"
+    ],
+    "mismatch_policy": "fail-closed",
+    "admitted_conflict_policy": "no-successful-snapshot",
+    "evidence_lineage": [
+      "protocol",
+      "candidate",
+      "corpora",
+      "result",
+      "receipt"
+    ],
+    "execution_gate": "complete-registration-required"
+  },
+  "result_binding": {
+    "state": "unbound",
+    "id": null,
+    "content_sha256": null,
+    "required_before_execution": true
+  },
+  "receipt_binding": {
+    "state": "unbound",
+    "id": null,
+    "content_sha256": null,
+    "required_before_execution": true
+  },
+  "execution_policy": {
+    "preflight_only_supported": true,
+    "execution_permitted": false,
+    "result_or_receipt_created": false
+  },
+  "content_references": [
+    {
+      "id": "dr-0008-revision-14",
+      "path": "docs/decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md",
+      "role": "r3-boundary-contract",
+      "expected_sha256": "e4d140ff05e9b344f7ab6c84064011f17e9bd8bde2e104e6bf7492690b2f28db",
+      "expected_bytes": 48991
+    },
+    {
+      "id": "numeric-frame-research-design",
+      "path": "docs/research/numeric-frame-profile-experiment.md",
+      "role": "successor-evidence-design",
+      "expected_sha256": "f0e5694694158a166c9a1375e4803d661f51f0fc3b37e6ed1d4426ec0829bb19",
+      "expected_bytes": 19861
+    },
+    {
+      "id": "exp-0002-phase-one-boundary",
+      "path": "experiments/EXP-0002-numeric-frame-profile/README.md",
+      "role": "phase-one-lineage-boundary",
+      "expected_sha256": "8a0e2a8d351dce07277117af4a2d1597aea1741eab0fc4f957b8b5a4a848717c",
+      "expected_bytes": 11191
+    }
+  ]
+}

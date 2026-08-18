@@ -66,6 +66,8 @@ below current as experiments are created.
   [human-readable results summary](EXP-0002-numeric-frame-profile/RESULTS.md).
   Overall experiment remains planned, evidence closure open, and technology
   outcome `none` because broader obligations remain.
+  The [authored-conflict successor preregistration](EXP-0002-numeric-frame-profile/phase2-authored-conflict/README.md)
+  is a separate draft-only, non-executing preflight package.
 
 The phase-one claim is limited to 49 exact frozen case adjudications plus
 runner classifications for 26 registered named case groups, including
