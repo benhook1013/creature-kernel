@@ -43,19 +43,6 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Install pinned Rust toolchain and target
-        run: |
-          env -i PATH="$PATH" HOME="$RUNNER_TEMP/ck-phase3-home" CARGO_HOME="$RUNNER_TEMP/ck-phase3-cargo-home" RUSTUP_HOME="$RUNNER_TEMP/ck-phase3-rustup-home" TMPDIR="$RUNNER_TEMP" \
-            rustup toolchain install 1.97.1 --profile minimal
-          env -i PATH="$PATH" HOME="$RUNNER_TEMP/ck-phase3-home" CARGO_HOME="$RUNNER_TEMP/ck-phase3-cargo-home" RUSTUP_HOME="$RUNNER_TEMP/ck-phase3-rustup-home" TMPDIR="$RUNNER_TEMP" \
-            rustup target add x86_64-unknown-linux-gnu --toolchain 1.97.1
-
-      - name: Recompute Gate-A candidate source closure
-        run: >-
-          python3
-          experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/scripts/check_candidate_prebinding.py
-          --repo .
-
       - name: Configure isolated build directories
         run: |
           {
@@ -73,6 +60,19 @@ jobs:
             test ! -e "$path"
             mkdir "$path"
           done
+
+      - name: Install pinned Rust toolchain and target
+        run: |
+          env -i PATH="$PATH" HOME="$RUNNER_TEMP/ck-phase3-home" CARGO_HOME="$RUNNER_TEMP/ck-phase3-cargo-home" RUSTUP_HOME="$RUNNER_TEMP/ck-phase3-rustup-home" TMPDIR="$RUNNER_TEMP" \
+            rustup toolchain install 1.97.1 --profile minimal --no-self-update
+          env -i PATH="$PATH" HOME="$RUNNER_TEMP/ck-phase3-home" CARGO_HOME="$RUNNER_TEMP/ck-phase3-cargo-home" RUSTUP_HOME="$RUNNER_TEMP/ck-phase3-rustup-home" TMPDIR="$RUNNER_TEMP" \
+            rustup target add x86_64-unknown-linux-gnu --toolchain 1.97.1
+
+      - name: Recompute Gate-A candidate source closure
+        run: >-
+          python3
+          experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/scripts/check_candidate_prebinding.py
+          --repo .
 
       - name: Materialize locked dependencies
         run: >-

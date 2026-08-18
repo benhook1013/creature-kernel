@@ -159,6 +159,29 @@ class FreezeManifestTests(unittest.TestCase):
                 freeze.check_manifest(path=path)
             self.assertIn(error.exception.code, {"manifest-drift", "source-commit"})
 
+    def test_native_workflow_bootstraps_rustup_before_prebinding(self) -> None:
+        workflow = (freeze.REPO / freeze.WORKFLOW_REL).read_text(encoding="utf-8")
+        configure = workflow.index("      - name: Configure isolated build directories")
+        install = workflow.index("      - name: Install pinned Rust toolchain and target")
+        prebinding = workflow.index("      - name: Recompute Gate-A candidate source closure")
+        self.assertLess(configure, install)
+        self.assertLess(install, prebinding)
+        install_step = workflow[install:prebinding]
+        self.assertIn(
+            "rustup toolchain install 1.97.1 --profile minimal --no-self-update",
+            install_step,
+        )
+        self.assertIn('CARGO_HOME="$RUNNER_TEMP/ck-phase3-cargo-home"', install_step)
+        self.assertIn('RUSTUP_HOME="$RUNNER_TEMP/ck-phase3-rustup-home"', install_step)
+        self.assertIn('test ! -e "$path"', workflow[configure:install])
+        build = workflow[workflow.index("      - name: Build candidate in fresh explicit target directory") :]
+        self.assertIn(
+            'env -i PATH="$PATH" HOME="$CK_ISOLATED_HOME" CARGO_HOME="$CARGO_HOME" '
+            'RUSTUP_HOME="$RUSTUP_HOME" CARGO_NET_OFFLINE=true '
+            'CARGO_TARGET_DIR="$CK_TARGET_DIR" TMPDIR="$RUNNER_TEMP"',
+            build,
+        )
+
     def test_check_rejects_extra_materialized_input(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             package = Path(directory) / "package"
