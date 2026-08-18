@@ -19,8 +19,12 @@ is Proposed transition guidance with Ben's workflow direction approved and
 current review complete; formal acceptance remains pending Ben's disposition.
 DR-0002 Revision 11, DR-0006 Revision 12, DR-0011 Revision 15, and DR-0012
 Revision 14 are Accepted with Owner approval Approved by Ben on 2026-08-17.
-DR-0008 Revision 11 remains Proposed with Owner approval Pending and Review
-Complete. DR-0013 Revision 12 is Accepted with Owner approval Approved by Ben.
+DR-0008 Revision 14 remains Proposed with Owner approval Pending and Review
+Pending after the Revision 13 Double review at exact target `117544a`; Review 01
+found no findings and Review 02 recommended Revise at High confidence with
+three taxonomy findings, dispositioned in Revision 14. Its Revision 13 and
+earlier artifacts remain preserved stale historical evidence.
+DR-0013 Revision 12 is Accepted with Owner approval Approved by Ben.
 All four semantic-foundation records have Review status Complete. DR-0002
 Revision 11's current review targeted exact commit
 `6cf17270fda2827756c24a8d0fb301bef358f98f`; the current Double reviews for

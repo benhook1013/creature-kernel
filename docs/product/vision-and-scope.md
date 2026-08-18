@@ -60,6 +60,16 @@ data. Live work remains bounded to pose, contact, parameterized deformation,
 and activated regional solvers; it is neither a fully live implicit character
 nor a semantics-free conventional asset.
 
+The first Readiness 3 resolver/fixture proof is intentionally narrower than
+the long-term platform: it covers the bounded stylized digitigrade furry-biped
+family and fixed fixture envelope. It binds one explicit authored-conflict
+comparison profile for authored versus Attachment-equation-derived placement,
+with identity and constants frozen only from a bounded successor experiment.
+Once admitted, disagreement that fails that profile's bounds is invalid source
+with no successful snapshot; exact-zero, indefinite caller-selected
+tolerances, and post-hoc widening are not part of the proof. Readiness 3
+remains inactive until its successor admission transaction is complete.
+
 ## Product character
 
 Creature Kernel is intended to become:

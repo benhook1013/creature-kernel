@@ -199,9 +199,10 @@ host/mating alignment transform `O` in that typed basis. Descendant placement is
 subsequently inherited only by the ordinary containment path. If an
 independently authored root-local placement controls the same degrees of
 freedom, it must compare with this same canonical resolved child-local value
-within the later-defined tolerance; disagreement is semantically invalid,
-while authored and derived provenance are preserved rather than silently
-choosing a winner.
+using the one R3 authored-conflict comparison profile; disagreement that fails
+the profile's bounds is semantically `invalid-source`, with no warning-only
+success, silent overwrite, repair, winner, or successful snapshot. Authored
+and derived provenance are preserved.
 
 Attachment is composition only. It never implies a Joint, articulation,
 mobility, solver constraint, or runtime pose. A movable tail therefore has a
@@ -252,9 +253,13 @@ owner, role, and frame/context. Stage 1 uses owner-specific roles: a Part has a
 local/reference frame, a Joint has proximal and distal frames, and a Socket has
 one intrinsic interface frame. Host and mating are contextual endpoint roles
 on an Attachment that references Sockets; they are not intrinsic Socket frame
-roles. Source profiles initially reference only the semantic numeric-domain
-profile; operational resource and diagnostic profiles remain operation/fixture
-context. There is no per-value unit override initially. Readiness 2 checks
+roles. Source profiles reference the semantic numeric-domain profile and, for
+an R3-recognized source, one source-level morphology/grammar request profile
+for the assembled body. It is separate from `semantic_numeric` and is not
+module-instance or extension metadata; exact field spelling, IDs, and schema
+revision remain R3-gated. Operational resource and diagnostic profiles remain
+operation/fixture context. There is no per-value unit override initially.
+Readiness 2 checks
 shape, references, provenance, and the rigid-transform carrier: exactly three
 translation components and exactly four quaternion components in explicit
 `xyzw` order, with no scale or shear fields. The [numeric and frame
@@ -363,7 +368,16 @@ Adding a passing claim can change the representative and therefore a snapshot;
 a changed comparison profile or expected fixture requires its profile/fixture
 successor process.
 Authored-conflict and expected-snapshot comparisons remain separate profiles,
-and their constants remain experiment-gated.
+and their constants remain experiment-gated. R3 binds exactly one separately
+content-bound authored-conflict profile, frozen from a bounded successor
+experiment. The activation closure separately binds (a) the profile
+definition/content identity, (b) the resolver/source implementation closure,
+and (c) a resolver binding plus complete build request that reference exactly
+one authored-conflict profile. Mismatch across these activation inputs fails
+closed; there is no caller-selected or global-default tolerance fallback. The
+generic resolver implementation need not itself reference the exact profile.
+Exact zero and post-hoc widening are not allowed. Until that profile and its
+resolver binding are admitted, R3 remains inactive.
 
 This local claim representative rule is not a canonical key for unrelated
 unordered collections. Every graph concept collection still uses the generic
@@ -418,8 +432,9 @@ Minimum Stage 1 graph invariants include:
   the inverse of the mating
   Socket frame after composing module-root-to-Socket-owner containment with
   that owner's local frame; any competing authored root-local placement must
-  agree with this same canonical value within the later-defined tolerance,
-  with provenance preserved;
+  agree with this same canonical value within the one R3 authored-conflict
+  comparison profile, with provenance preserved; disagreement is
+  `invalid-source` and produces no successful snapshot;
 - no Attachment-only articulation claim;
 - finite normalized values, complete provenance, valid owner-plus-role
   addressing, declared source basis with recorded normalization provenance,
@@ -453,6 +468,16 @@ residual diagnostics; representative-selection and provenance-retention
 consequences; invalid/
 unsupported outcomes; resource limits and diagnostic truncation; and the
 cross-DR fixture matrix. The fixture set is evidence planning, not proof yet.
+The minimum R3 morphology boundary additionally includes five representative
+roles: supported digitigrade valid; supported-profile contradiction; explicit
+quadruped; explicit extra-limb; and explicit freeform attachment-topology.
+The last three are finite, schema-valid, duplicate-free, acyclic,
+resource-admitted, and free of endpoint/capacity defects. A supported-profile
+contradiction is `semantically invalid` / `invalid-source`; a well-formed
+unknown or recognized unsupported request is `well-formed-but-unsupported` /
+`unsupported` without applying supported-family invariants. Malformed or
+unrecognized input remains under body-document rules, and the cases do not
+imply exhaustive arbitrary-morphology support.
 The [fixture-manifest and admission contract](../fixture-manifest/README.md)
 owns the immutable reviewed tree and payload binding, preflight, and staged
 Readiness 2/3 corpus; it does not change graph semantics or activate these

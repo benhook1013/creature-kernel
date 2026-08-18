@@ -11,7 +11,7 @@ Status: Operational under Accepted DR-0001 Revision 5
 | [DR-0005](DR-0005-initial-product-boundary-and-reference-workflow.md) | Initial product boundary and reference workflow | Product and architecture | Proposed | 1 | Complete | Ben |
 | [DR-0006](DR-0006-durable-semantic-and-artifact-identity.md) | Durable semantic and artifact/build identity | Specification and architecture | Accepted | 12 | Complete | Ben |
 | [DR-0007](DR-0007-staged-first-proof-charter.md) | Staged first-proof charter and claim boundaries | Product | Proposed | 2 | Complete | Ben |
-| [DR-0008](DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md) | First digitigrade morphology and Stage 1 embodiment envelope | Product, Specification and architecture | Proposed | 11 | Complete | Ben |
+| [DR-0008](DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md) | First digitigrade morphology and Stage 1 embodiment envelope | Product, Specification and architecture | Proposed | 14 | Pending | Ben |
 | [DR-0009](DR-0009-hybrid-surface-generation-experiment-hypothesis.md) | Hybrid surface-generation experiment hypothesis | Architecture | Proposed | 8 | Complete | Ben |
 | [DR-0010](DR-0010-stage-1-surface-extraction-and-semantic-field-propagation.md) | Stage 1 surface extraction and semantic-field propagation | Specification and architecture | Proposed | 8 | Pending | Ben |
 | [DR-0011](DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md) | Minimal semantic vocabulary, measurements, and frames | Specification and architecture | Accepted | 15 | Complete | Ben |
@@ -336,6 +336,15 @@ the 9b96d18 review is stale for those successors. DR-0006 Revision 12, DR-0011
 Revision 15, and DR-0012 Revision 14 are Accepted with Owner approval Approved
 by Ben and Review Complete on the current review evidence; DR-0013 Revision 12
 is Accepted with Owner approval Approved by Ben and Review Complete.
+
+The current DR-0008 Revision 12 Double review examined exact target `e1ead72`.
+Review 01 found no findings; Review 02 recommended Revise at High confidence
+with three findings concerning authored-conflict profile binding,
+successor-experiment admission lineage, and morphology boundary taxonomy/
+fixtures. Ben approved their technical resolutions in DR-0008 Revision 13,
+which remains Proposed with Owner approval Pending and Review status Pending.
+The Revision 12 artifacts remain preserved but stale; the Revision 11 review
+is stale history.
 
 ## CK-KICK-012/013 Batch 13 Double review (stale historical evidence)
 

@@ -59,7 +59,27 @@ or comparison constants.
 Readiness 3 freezes the following admission and semantic rules. Exact
 conditioning thresholds, normalization bounds, and comparison tolerances are
 profile data and remain activation-gated; an implementation must not invent
-them.
+them. R3 binds exactly one separately content-bound authored-conflict
+comparison profile for the competing authored and Attachment-equation-derived
+placements. Its definition/constants and identity are distinct from any
+expected-snapshot comparison profile. The activation closure separately binds
+(a) the profile definition/content identity, (b) the resolver/source
+implementation closure, and (c) a resolver binding plus complete build request
+that reference exactly one authored-conflict profile. Mismatch across these
+activation inputs fails closed; no caller-selected tolerance or global-default
+fallback is permitted. The generic resolver implementation need not itself
+reference the exact profile. The profile is derived and frozen by a bounded
+successor experiment and admitted with the resolver; exact-zero comparison and
+post-hoc widening are not permitted.
+
+The successor admission binds immutable protocol, candidate, corpus, result,
+and receipt identities. The candidate profile/rules/constants, semantic
+budgets, validation margin/formula, and corpus identities/roles are fixed
+before held-out or adversarial execution. A failed or inconclusive evaluation
+requires a new candidate/evaluation identity rather than mutation or budget
+widening. EXP-0002 phase-one attempt-001 cannot qualify for this successor
+because its `profile_binding` is `null`. This specification does not select
+any exact profile ID, constant, file, or activation record.
 
 ### JSON decimal admission
 
@@ -268,4 +288,6 @@ and fixture transaction. Readiness 3 is a separate successor transaction that
 admits this profile's canonical basis/numeric rules, expected graph snapshots,
 comparison profiles, and their resolver binding. Until those transactions are
 admitted, the rules above are Proposed and no resolver or numeric fixture is
-activated.
+activated. The first R3 resolver/fixture transaction is bounded to the
+stylized digitigrade furry-biped family and its fixed fixture envelope; this
+profile does not extend that scope to arbitrary morphology.

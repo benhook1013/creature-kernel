@@ -163,6 +163,16 @@ readiness gate activates code, the separate implementation binding owned by the
 that gate; the binding record is outside the fixture payload and is not a
 whole-repository or commit-equality identity.
 
+For the Readiness 3 successor, the build request must also reference exactly
+one separately content-bound authored-conflict comparison profile identity and
+definition/constants, distinct from expected-snapshot comparison profiles.
+Missing, extra, duplicate, unknown, or mismatched authored-conflict bindings
+fail closed; the request cannot select a caller-supplied tolerance or global
+default. The request's profile reference is checked against the separately
+bound profile definition/content identity before activation; resolver/source
+implementation binding is owned by the activation closure rather than by this
+build-request contract.
+
 For each artifact role, candidate artifact identity derives deterministically
 from the build-request identity, artifact role, and identity-rule revision.
 When publication succeeds, that candidate is promoted unchanged to the

@@ -54,6 +54,17 @@ collision proxies and proving one shared pose/control scenario. Stage 3 proves b
 real-time interaction, including actual contact, localized deformation,
 physical response, and declared budget evidence.
 
+The first Readiness 3 resolver/fixture transaction is limited to the bounded
+stylized digitigrade furry-biped family and its fixed fixture envelope. It
+binds exactly one explicit authored-conflict comparison profile for competing
+authored root-local and Attachment-equation-derived placement. The profile
+identity and constants must be derived and frozen by a bounded successor
+experiment; exact-zero comparison, indefinite caller-selected tolerances, and
+post-hoc widening are not permitted. Once admitted, disagreement that fails
+the profile's bounds is an `invalid-source` outcome with no successful
+snapshot. Until that successor transaction is admitted, Readiness 3 remains
+inactive.
+
 The initial family is a stylized digitigrade furry biped with required
 torso/pelvis, head/simplified muzzle, two arms/simplified hands-paws, and two
 digitigrade legs/simplified feet-paws. Predefined ears and tail are optional
@@ -299,8 +310,9 @@ sole incoming Attachment for that attached root. Each Socket has total active
 capacity one across host and mating roles; cross-role reuse is invalid.
 Host/mating Socket frames, an optional typed Attachment offset, and the inverse
 mating frame determine the module-root placement; a competing authored
-placement must agree within the later-defined tolerance or be semantically
-invalid. Duplicate, detached, cyclic, or invalid endpoint cases fail.
+placement must agree within the one R3 authored-conflict comparison profile or
+be semantically `invalid-source` with no successful snapshot. Duplicate,
+detached, cyclic, or invalid endpoint cases fail.
 Attachment never implies a Joint. Module is an authored reusable scope, not an
 embodied graph concept; landmark, anchor, dimension, and frame are typed
 owner+role records. Region never owns, Capability is not an implementation,

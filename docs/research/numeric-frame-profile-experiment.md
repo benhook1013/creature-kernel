@@ -97,6 +97,24 @@ The result is evidence for this identified candidate and runner only; it does
 not establish a production profile, Readiness 3, portability, repeatability,
 generalization, or the later quaternion/transform/adapter obligations.
 
+## R3 successor admission lineage
+
+The later authored-conflict evaluation is a distinct successor protocol, not a
+promotion of phase one. Before held-out or adversarial execution it must freeze
+the candidate profile/rules/constants, semantic budgets, validation margin and
+formula, and the corpus identities and roles. Its admission record binds the
+immutable protocol, candidate, corpus, result, and receipt identities, plus
+the activation closure's separately bound resolver/source implementation
+closure and a resolver binding plus complete build request that reference the
+exact authored-conflict profile. The profile definition/content identity is a
+separate activation input. Mismatch across these inputs fails closed. The
+generic resolver implementation need not itself reference the exact profile. A
+failed or inconclusive evaluation creates a new
+candidate/evaluation identity and cannot mutate or widen the prior candidate.
+Attempt-001 is explicitly ineligible because its `profile_binding` is `null`.
+This record selects no exact profile ID, constant, fixture file, or activation
+record, and its result cannot itself grant R3 activation.
+
 The concrete phase-one budgets already implemented are experimental inputs, not
 selected profile constants: frame 16,384 bytes; wire request ID 256 UTF-8
 bytes; stdout and stderr 65,536 bytes each; I/O 2.0 seconds; shutdown 2.0
