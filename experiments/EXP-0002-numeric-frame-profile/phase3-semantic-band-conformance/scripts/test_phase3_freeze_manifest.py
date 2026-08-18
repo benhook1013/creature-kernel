@@ -15,6 +15,9 @@ import phase3_build_receipt as build_receipt
 import phase3_freeze_manifest as freeze
 
 
+BUNDLE_FILES = ("candidate", "build-receipt.json", "build-metadata.json", "cargo-metadata.json")
+
+
 def _canonical(value: object) -> bytes:
     return (json.dumps(value, ensure_ascii=True, allow_nan=False, sort_keys=True, separators=(",", ":")) + "\n").encode()
 
@@ -58,6 +61,21 @@ def _receipt_raw(manifest: dict, role: str, *, source_commit: str | None = None,
         build=build,
         binary={"role": "phase3-candidate", "path": binary_path, "sha256": "f" * 64, "bytes": 17, "mode": "0755", "elf": {"class": "ELF64", "data": "little-endian", "machine": "x86_64", "type": "ET_DYN", "osabi": 0, "entry_point": "0x0000000000000000"}},
     )
+
+
+def _portable_checksum_paths(raw: str) -> list[str]:
+    paths: list[str] = []
+    for line in raw.splitlines():
+        try:
+            digest, path = line.split("  ", 1)
+        except ValueError as error:
+            raise ValueError("checksum manifest line is malformed") from error
+        if len(digest) != 64 or any(character not in "0123456789abcdef" for character in digest):
+            raise ValueError("checksum manifest digest is malformed")
+        if not path or path.startswith("/") or "/" in path or path in paths:
+            raise ValueError("checksum manifest path is not a unique basename")
+        paths.append(path)
+    return paths
 
 
 class FreezeManifestTests(unittest.TestCase):
@@ -181,6 +199,26 @@ class FreezeManifestTests(unittest.TestCase):
             'CARGO_TARGET_DIR="$CK_TARGET_DIR" TMPDIR="$RUNNER_TEMP"',
             build,
         )
+
+    def test_native_bundle_checksums_are_portable_closed_and_self_verified(self) -> None:
+        workflow = (freeze.REPO / freeze.WORKFLOW_REL).read_text(encoding="utf-8")
+        assemble = workflow[workflow.index("      - name: Assemble transfer-only build bundle") : workflow.index("      - name: Upload transfer-only build bundle")]
+        checksum_command = next(line.strip() for line in assemble.splitlines() if line.strip().startswith("sha256sum candidate "))
+        self.assertEqual(
+            checksum_command,
+            "sha256sum candidate build-receipt.json build-metadata.json cargo-metadata.json > SHA256SUMS",
+        )
+        self.assertIn('cd "$bundle"', assemble)
+        self.assertIn("sha256sum -c SHA256SUMS", assemble)
+        self.assertNotIn('sha256sum "$bundle"/*', assemble)
+        self.assertIn("candidate build-receipt.json build-metadata.json cargo-metadata.json SHA256SUMS", assemble)
+
+        digest = "0123456789abcdef" * 4
+        portable = "\n".join(f"{digest}  {path}" for path in BUNDLE_FILES) + "\n"
+        self.assertEqual(_portable_checksum_paths(portable), list(BUNDLE_FILES))
+        for path in ("/home/runner/work/_temp/candidate", "nested/candidate"):
+            with self.assertRaises(ValueError):
+                _portable_checksum_paths(f"{digest}  {path}\n")
 
     def test_check_rejects_extra_materialized_input(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

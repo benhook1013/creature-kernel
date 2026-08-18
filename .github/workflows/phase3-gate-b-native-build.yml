@@ -216,7 +216,11 @@ jobs:
           cp "$RUNNER_TEMP/phase3-gate-b-build-receipt.json" "$bundle/build-receipt.json"
           cp "$CK_BUILD_METADATA" "$bundle/build-metadata.json"
           cp "$CK_DEPENDENCY_METADATA" "$bundle/cargo-metadata.json"
-          sha256sum "$bundle"/* > "$bundle/SHA256SUMS"
+          (
+            cd "$bundle"
+            sha256sum candidate build-receipt.json build-metadata.json cargo-metadata.json > SHA256SUMS
+            sha256sum -c SHA256SUMS
+          )
           tar -cf "$RUNNER_TEMP/phase3-gate-b-native-build.tar" -C "$bundle" candidate build-receipt.json build-metadata.json cargo-metadata.json SHA256SUMS
 
       - name: Upload transfer-only build bundle
