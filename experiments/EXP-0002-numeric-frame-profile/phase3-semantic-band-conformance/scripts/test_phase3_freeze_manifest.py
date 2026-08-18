@@ -180,6 +180,16 @@ class FreezeManifestTests(unittest.TestCase):
                 freeze.check_manifest(path=path)
             self.assertIn(error.exception.code, {"manifest-drift", "source-commit"})
 
+    def test_pure_validator_rejects_resealed_arbitrary_contract_sections(self) -> None:
+        manifest = freeze.generate_manifest()
+        for field in ("protocol", "platform", "build", "candidate_closure"):
+            forged = json.loads(_canonical(manifest))
+            forged[field] = {"forged": True}
+            forged["manifest_sha256"] = freeze._self_hash(forged)
+            with self.assertRaises(freeze.FreezeManifestError) as error:
+                freeze.validate_manifest(_canonical(forged))
+            self.assertEqual(error.exception.code, "manifest-shape")
+
     def test_native_workflow_bootstraps_rustup_before_prebinding(self) -> None:
         workflow = (freeze.REPO / freeze.WORKFLOW_REL).read_text(encoding="utf-8")
         configure = workflow.index("      - name: Configure isolated build directories")

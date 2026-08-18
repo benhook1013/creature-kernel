@@ -19,6 +19,7 @@ import json
 import os
 import re
 import stat
+import struct
 import subprocess
 import sys
 import tempfile
@@ -566,6 +567,128 @@ def _self_hash(value: Mapping[str, Any]) -> str:
     return _sha256(HASH_DOMAIN + _canonical(copy))
 
 
+def _pure_keys(value: Any, keys: set[str], label: str) -> None:
+    if not isinstance(value, Mapping) or set(value) != keys:
+        _fail("manifest-shape", f"{label} has missing or unexpected fields")
+
+
+def _pure_path(value: Any, label: str) -> str:
+    if not isinstance(value, str) or not value or value.startswith("/") or "\\" in value or any(part in {"", ".", ".."} for part in value.split("/")):
+        _fail("manifest-shape", f"{label} is not a safe relative path")
+    return value
+
+
+def _pure_identity(value: Any, label: str, *, full_mode: bool = False) -> None:
+    _pure_keys(value, {"path", "mode", "bytes", "sha256"}, label)
+    _pure_path(value["path"], f"{label}.path")
+    if type(value["mode"]) is not int or not stat.S_ISREG(value["mode"] if full_mode else stat.S_IFREG | value["mode"]):
+        _fail("manifest-shape", f"{label}.mode is not a regular-file mode")
+    if type(value["bytes"]) is not int or value["bytes"] < 0 or value["bytes"] > MAX_FILE_BYTES:
+        _fail("manifest-shape", f"{label}.bytes is invalid")
+    if not _valid_sha(value["sha256"]):
+        _fail("manifest-shape", f"{label}.sha256 is invalid")
+
+
+def _validate_pure_manifest(value: Any) -> dict[str, Any]:
+    """Validate the complete repository-independent freeze contract.
+
+    This deliberately does not inspect the repository.  ``check_manifest``
+    performs that separate identity/recomputation phase; custody can therefore
+    authenticate exact canonical bytes and all frozen semantics without a
+    rebuild or a repository substitution.
+    """
+    top_keys = {"schema", "manifest_sha256", "candidate_source_commit", "status", "lifecycle", "execution_permitted", "binding", "protocol", "raw_inputs", "repository_inputs", "candidate_closure", "runtime_tool_identities", "provenance_tool_identities", "build", "platform", "binaries", "readiness", "attempts", "canonicalization"}
+    _pure_keys(value, top_keys, "manifest")
+    if value["schema"] != SCHEMA or value["status"] != "Proposed" or value["lifecycle"] != "planned" or value["execution_permitted"] is not False:
+        _fail("manifest-shape", "manifest fixed state is not the freeze contract")
+    if not _valid_commit(value["candidate_source_commit"]):
+        _fail("manifest-shape", "candidate source commit is invalid")
+    if value["manifest_sha256"] != _self_hash(value):
+        _fail("manifest-self-hash", "manifest self hash does not match")
+    _pure_keys(value["binding"], {"experiment_id", "phase_id", "candidate_profile_id"}, "manifest.binding")
+    if value["binding"] != {"experiment_id": EXPERIMENT_ID, "phase_id": PHASE_ID, "candidate_profile_id": CANDIDATE_PROFILE_ID}:
+        _fail("manifest-shape", "manifest binding values are wrong")
+    protocol = {"request_protocol_id": REQUEST_PROTOCOL, "response_protocol_id": RESPONSE_PROTOCOL, "request_fields": REQUEST_FIELDS, "canonical_wire": "strict UTF-8 JSON object, exact seven request fields, canonical bytes are SHA-256 framed by the evidence contract"}
+    if value["protocol"] != protocol:
+        _fail("manifest-shape", "manifest protocol contract is wrong")
+    canonicalization = {"encoding": "UTF-8", "json": "RFC 8259-compatible strict JSON", "sort_keys": True, "separators": [",", ":"], "ensure_ascii": True, "trailing_newline": True, "self_hash_domain": HASH_DOMAIN.decode("ascii").rstrip("\0"), "self_hash_excludes": ["manifest_sha256"], "raw_file_hash": "SHA-256 over exact bytes; no parse/reserialize for raw identities"}
+    if value["canonicalization"] != canonicalization:
+        _fail("manifest-shape", "manifest canonicalization contract is wrong")
+    if value["attempts"] != "per-attempt observations and Ben authorization are external to this manifest":
+        _fail("manifest-shape", "manifest attempts contract is wrong")
+
+    closure = value["candidate_closure"]
+    _pure_keys(closure, {"count", "total_raw_bytes", "path_set_sha256", "content_sha256", "algorithm", "base_commit", "entries"}, "manifest.candidate_closure")
+    if closure["algorithm"] != "ck.phase3-candidate-source-build-closure.v1" or not _valid_commit(closure["base_commit"]):
+        _fail("manifest-shape", "candidate closure algorithm/base commit is wrong")
+    if not isinstance(closure["entries"], list) or type(closure["count"]) is not int or closure["count"] <= 0 or closure["count"] != len(closure["entries"]):
+        _fail("manifest-shape", "candidate closure count is wrong")
+    if type(closure["total_raw_bytes"]) is not int or closure["total_raw_bytes"] < 0:
+        _fail("manifest-shape", "candidate closure totals are wrong")
+    path_stream = bytearray(b"ck.phase3-candidate-source-build-path-set.v1\0")
+    total = 0
+    previous: bytes | None = None
+    for index, entry in enumerate(closure["entries"]):
+        _pure_identity(entry, f"manifest.candidate_closure.entries[{index}]", full_mode=True)
+        path = entry["path"].encode("utf-8")
+        if previous is not None and path <= previous:
+            _fail("manifest-shape", "candidate closure entries are not strictly ordered")
+        previous = path
+        mode = int(entry["mode"])
+        size = int(entry["bytes"])
+        path_stream += struct.pack(">I", len(path)) + path + struct.pack(">I", mode)
+        total += size
+    if total != closure["total_raw_bytes"] or not _valid_sha(closure["content_sha256"]) or _sha256(bytes(path_stream)) != closure["path_set_sha256"]:
+        _fail("manifest-shape", "candidate closure digest fields do not match entries")
+
+    for field, expected_paths in (("raw_inputs", list((*PACKAGE_INPUTS, FIXTURE_REL))), ("runtime_tool_identities", list(RUNTIME_TOOLS)), ("provenance_tool_identities", list(PROVENANCE_TOOLS))):
+        collection = value[field]
+        if not isinstance(collection, list) or [item.get("path") for item in collection if isinstance(item, Mapping)] != expected_paths:
+            _fail("manifest-shape", f"manifest.{field} paths are not the closed contract")
+        for index, identity in enumerate(collection):
+            _pure_identity(identity, f"manifest.{field}[{index}]")
+
+    repository_inputs = value["repository_inputs"]
+    _pure_keys(repository_inputs, {"native_build_workflow"}, "manifest.repository_inputs")
+    workflow = repository_inputs["native_build_workflow"]
+    _pure_keys(workflow, {"path", "identity", "runner_label", "pinned_action_refs"}, "manifest.native_build_workflow")
+    if workflow["path"] != WORKFLOW_REL or workflow["runner_label"] != "ubuntu-24.04" or not isinstance(workflow["pinned_action_refs"], list) or any(not isinstance(ref, str) or "@" not in ref or not ACTION_SHA_RE.fullmatch(ref.rsplit("@", 1)[1]) for ref in workflow["pinned_action_refs"]):
+        _fail("manifest-shape", "native workflow contract is wrong")
+    _pure_identity(workflow["identity"], "manifest.native_build_workflow.identity")
+    if workflow["identity"]["path"] != WORKFLOW_REL:
+        _fail("manifest-shape", "native workflow identity path is wrong")
+
+    build = value["build"]
+    _pure_keys(build, {"recipe", "toolchain", "dependencies"}, "manifest.build")
+    if build["recipe"] != _build_recipe():
+        _fail("manifest-shape", "build recipe differs from the frozen contract")
+    toolchain = build["toolchain"]
+    _pure_keys(toolchain, {"rust_toolchain_file", "rust_toolchain_file_identity", "channel", "profile", "components", "rustc", "cargo", "receipt_contract"}, "manifest.build.toolchain")
+    if toolchain["rust_toolchain_file"] != "rust-toolchain.toml" or toolchain["channel"] != TOOLCHAIN or toolchain["profile"] != "minimal" or toolchain["components"] != ["rustfmt", "clippy"]:
+        _fail("manifest-shape", "toolchain contract is wrong")
+    _pure_identity(toolchain["rust_toolchain_file_identity"], "manifest.build.toolchain.rust_toolchain_file_identity")
+    if toolchain["rustc"] != {"release": TOOLCHAIN, "commit_hash": "8bab26f4f68e0e26f0bb7960be334d5b520ea452", "host": TARGET, "llvm": "22.1.6"} or toolchain["cargo"] != {"release": TOOLCHAIN, "commit_hash": "c980f4866141969fab6254a680546a277789d6f0"}:
+        _fail("manifest-shape", "toolchain identity contract is wrong")
+    expected_receipt_contract = {"rust_toolchain": TOOLCHAIN, "rustc_prefix": "rustc 1.97.1", "rustc_commit_hash": "8bab26f4f68e0e26f0bb7960be334d5b520ea452", "rustc_host": TARGET, "rustc_llvm": "22.1.6", "cargo_prefix": "cargo 1.97.1", "cargo_commit_hash": "c980f4866141969fab6254a680546a277789d6f0", "cargo_host": TARGET, "python_prefix": "Python 3"}
+    if toolchain["receipt_contract"] != expected_receipt_contract:
+        _fail("manifest-shape", "toolchain receipt contract is wrong")
+    dependencies = build["dependencies"]
+    _pure_keys(dependencies, {"cargo_lock", "dependency_closure_contract", "vendor_closure_contract", "cargo_config_contract", "offline"}, "manifest.build.dependencies")
+    _pure_identity(dependencies["cargo_lock"], "manifest.build.dependencies.cargo_lock")
+    if dependencies["cargo_lock"]["path"] != CANDIDATE_LOCK_REL or dependencies["offline"] is not True:
+        _fail("manifest-shape", "dependency lock/offline contract is wrong")
+    if dependencies["dependency_closure_contract"] != {"schema": "ck.exp-0002.phase3.gate-b-cargo-metadata-1", "algorithm": "ck.exp-0002.phase3.gate-b-dependency-closure.v1", "fields": RECEIPT_DEPENDENCY_FIELDS} or dependencies["vendor_closure_contract"] != {"algorithm": "ck.exp-0002.phase3.gate-b-vendor-closure.v1", "fields": RECEIPT_VENDOR_FIELDS, "role_path_pattern": "phase3-gate-b-{platform_role}-vendor"} or dependencies["cargo_config_contract"] != {"algorithm": "ck.exp-0002.phase3.gate-b-controlled-vendor-config.v1", "fields": ["role_path", "algorithm", "sha256", "bytes"], "role_path_pattern": "phase3-gate-b-{platform_role}-cargo-config"}:
+        _fail("manifest-shape", "dependency/vendor/config contract is wrong")
+    if value["platform"] != _platforms():
+        _fail("manifest-shape", "platform contract is wrong")
+    binaries = _validate_binary_slots(value["binaries"])
+    if any(slot["status"] == "bound" and slot["receipt_path"] != RECEIPT_PATHS[selector] for selector, slot in binaries.items()):
+        _fail("manifest-shape", "binary receipt paths are wrong")
+    if value["readiness"] != _readiness(binaries):
+        _fail("manifest-shape", "manifest readiness contract is wrong")
+    return dict(value)
+
+
 def _seal(value: dict[str, Any]) -> dict[str, Any]:
     value["manifest_sha256"] = _self_hash(value)
     return value
@@ -603,19 +726,38 @@ def generate_manifest(repo: Path = REPO, package: Path = PACKAGE, *, binaries: M
     return _seal(_base_manifest(repo, package, binaries=binaries, source_commit=resolved_commit))
 
 
+def validate_manifest(raw_or_value: bytes | Mapping[str, Any]) -> dict[str, Any]:
+    """Validate exact canonical bytes and the complete pure freeze contract."""
+    if isinstance(raw_or_value, bytes):
+        raw = raw_or_value
+        if len(raw) > MAX_MANIFEST_BYTES or not raw.endswith(b"\n"):
+            _fail("manifest-read", "manifest bytes are absent, oversized, or missing the trailing newline")
+        try:
+            def collect(items: list[tuple[str, Any]]) -> dict[str, Any]:
+                keys = [key for key, _ in items]
+                if len(keys) != len(set(keys)):
+                    _fail("manifest-shape", "manifest contains duplicate JSON keys")
+                return dict(items)
+            value = json.loads(raw.decode("utf-8"), object_pairs_hook=collect, parse_constant=lambda token: _fail("manifest-shape", f"non-finite JSON value {token}"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise FreezeManifestError("manifest-read", "manifest is not strict JSON") from error
+        if not isinstance(value, dict) or _canonical(value) != raw:
+            _fail("manifest-canonical", "manifest bytes are not canonical")
+    elif isinstance(raw_or_value, Mapping):
+        value = dict(raw_or_value)
+    else:
+        _fail("manifest-shape", "manifest must be canonical bytes or a parsed object")
+    return _validate_pure_manifest(value)
+
+
 def _load_manifest(path: Path) -> dict[str, Any]:
     raw = _read_manifest_bytes(path)
     try:
-        value = json.loads(raw.decode("utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        return validate_manifest(raw)
+    except FreezeManifestError:
+        raise
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, RecursionError) as error:
         raise FreezeManifestError("manifest-read", str(path)) from error
-    if not isinstance(value, dict):
-        _fail("manifest-shape", "manifest is not an object")
-    if _canonical(value) != raw:
-        _fail("manifest-canonical", "manifest bytes are not canonical")
-    if value.get("manifest_sha256") != _self_hash(value):
-        _fail("manifest-self-hash", "manifest self hash does not match")
-    return value
 
 
 def _manifest_identity(info: os.stat_result) -> tuple[int, int, int, int, int, int, int]:
@@ -999,4 +1141,4 @@ if __name__ == "__main__":
     raise SystemExit(main())
 
 
-__all__ = ["SCHEMA", "PHASE_ID", "FreezeManifestError", "generate_manifest", "check_manifest", "finalize_from_receipts", "write_manifest", "MANIFEST", "PACKAGE", "REPO"]
+__all__ = ["SCHEMA", "PHASE_ID", "FreezeManifestError", "validate_manifest", "generate_manifest", "check_manifest", "finalize_from_receipts", "write_manifest", "MANIFEST", "PACKAGE", "REPO"]
