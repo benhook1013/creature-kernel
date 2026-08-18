@@ -50,6 +50,7 @@ CANDIDATE_PACKAGE_NAME = "exp-0002-r3-authored-conflict-candidate"
 CANDIDATE_PACKAGE_VERSION = "0.1.0"
 CORE_MANIFEST = "crates/creature-kernel-core/Cargo.toml"
 REGISTRY_SOURCE = "registry+https://github.com/rust-lang/crates.io-index"
+VENDOR_CHECKSUM_COMMENT = "This file only protects against accidental modifications. It is not a security mechanism and does not protect against malicious changes."
 PLATFORM_ROLES = frozenset({"wsl", "native"})
 ENV_POLICY_VALUES = {
     "PATH": "<tool-path>",
@@ -603,16 +604,21 @@ def _stable_manifest_role(manifest_path: Any, repo: Path, label: str) -> str:
 
 def _validate_vendor_packages(vendor: Path, packages: list[dict[str, Any]]) -> None:
     """Bind every vendored registry package to Cargo metadata identity."""
-    expected: dict[tuple[str, str], str] = {}
+    expected: dict[tuple[str, str], str | None] = {}
     for package in packages:
         if package["source"] is None:
             continue
-        if package["source"] != REGISTRY_SOURCE or not isinstance(package["checksum"], str) or not re.fullmatch(r"[0-9a-f]{64}", package["checksum"]):
+        checksum = package["checksum"]
+        # Cargo metadata reports null for registry packages after the
+        # crates.io source has been replaced with a directory vendor.  The
+        # generated vendor checksum is validated below; a present metadata
+        # checksum remains an independently checked cross-binding.
+        if package["source"] != REGISTRY_SOURCE or (checksum is not None and (not isinstance(checksum, str) or not re.fullmatch(r"[0-9a-f]{64}", checksum))):
             raise ReceiptError("Cargo metadata contains a non-crates.io or unchecksummed dependency")
         identity = (package["name"], package["version"])
         if identity in expected:
             raise ReceiptError("Cargo metadata contains duplicate vendored package identity")
-        expected[identity] = package["checksum"]
+        expected[identity] = checksum
 
     actual: dict[tuple[str, str], str] = {}
     root = _safe_tree_root(vendor, "vendor directory")
@@ -636,11 +642,17 @@ def _validate_vendor_packages(vendor: Path, packages: list[dict[str, Any]]) -> N
         if identity in actual:
             raise ReceiptError("vendor directory contains duplicate package identity")
         checksum = _json_file(child_path / ".cargo-checksum.json", f"vendor package {child.name} checksum")
-        if set(checksum) != {"files", "package"} or type(checksum["files"]) is not dict or type(checksum["package"]) is not str or not re.fullmatch(r"[0-9a-f]{64}", checksum["package"]):
+        if set(checksum) not in ({"files", "package"}, {"$comment", "files", "package"}) or type(checksum["files"]) is not dict or type(checksum["package"]) is not str or not re.fullmatch(r"[0-9a-f]{64}", checksum["package"]):
+            raise ReceiptError(f"vendor package {child.name} checksum record is malformed")
+        if "$comment" in checksum and checksum["$comment"] != VENDOR_CHECKSUM_COMMENT:
             raise ReceiptError(f"vendor package {child.name} checksum record is malformed")
         actual[identity] = checksum["package"]
-    if actual != expected:
+    if set(actual) != set(expected):
         raise ReceiptError("vendored package identities do not exactly match Cargo metadata")
+    for identity, expected_checksum in expected.items():
+        actual_checksum = actual[identity]
+        if expected_checksum is not None and actual_checksum != expected_checksum:
+            raise ReceiptError("vendored package checksum differs from Cargo metadata")
 
 
 def _toml_file(path: Path, label: str) -> dict[str, Any]:
@@ -789,7 +801,9 @@ def _dependency_identity(path: Path, repo: Path, *, vendor: Path | None = None) 
                 raise ReceiptError("Cargo metadata candidate package identity is not the frozen package")
         elif source != REGISTRY_SOURCE:
             raise ReceiptError("Cargo metadata contains an unsupported dependency source")
-        elif checksum is None or not re.fullmatch(r"[0-9a-f]{64}", checksum):
+        elif checksum is None and vendor is None:
+            raise ReceiptError("Cargo metadata registry checksum is absent without vendor proof")
+        elif checksum is not None and not re.fullmatch(r"[0-9a-f]{64}", checksum):
             raise ReceiptError("Cargo metadata registry package checksum is malformed")
         id_map[package_id] = normalized_id
         packages.append({"id": normalized_id, "name": package["name"], "version": package["version"], "source": source, "checksum": checksum, "manifest_role": manifest_role})

@@ -59,7 +59,7 @@ def _metadata(path: Path) -> Path:
         "authors = [\"Fixture Author\"]\nbuild = false\n\n[dependencies]\nserde_derive = \"1\"\n",
         encoding="utf-8",
     )
-    (package_path / ".cargo-checksum.json").write_text(json.dumps({"files": {}, "package": "a" * 64}), encoding="utf-8")
+    (package_path / ".cargo-checksum.json").write_text(json.dumps({"$comment": MODULE.VENDOR_CHECKSUM_COMMENT, "files": {}, "package": "a" * 64}), encoding="utf-8")
     (package_path / "lib.rs").write_text("pub fn fixture() {}\n", encoding="utf-8")
     config_path = path / "cargo-home" / "config.toml"
     config_path.parent.mkdir()
@@ -300,6 +300,26 @@ class BuildReceiptTests(unittest.TestCase):
             config.write_text(config.read_text().replace("vendored-sources", "unrelated-source"))
             with self.assertRaises(MODULE.ReceiptError):
                 MODULE._validate_metadata(root, value)
+
+    def test_metadata_accepts_null_registry_checksum_with_vendor_proof(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            metadata = _metadata(root)
+            cargo_metadata = root / "cargo-metadata.json"
+            value = json.loads(cargo_metadata.read_text())
+            value["packages"][1]["checksum"] = None
+            cargo_metadata.write_text(json.dumps(value), encoding="utf-8")
+            with self.assertRaises(MODULE.ReceiptError):
+                MODULE._dependency_identity(cargo_metadata, root)
+            validated = MODULE._validate_metadata(root, json.loads(metadata.read_text()))
+            self.assertEqual(validated["dependency_closure"]["packages"], 2)
+            self.assertEqual(validated["dependency_closure"]["nodes"], 2)
+            (root / "vendor" / "serde-1.0.0" / ".cargo-checksum.json").write_text(
+                json.dumps({"$comment": "unexpected", "files": {}, "package": "a" * 64}),
+                encoding="utf-8",
+            )
+            with self.assertRaises(MODULE.ReceiptError):
+                MODULE._validate_metadata(root, json.loads(metadata.read_text()))
 
     def test_metadata_rejects_build_affecting_extras(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
