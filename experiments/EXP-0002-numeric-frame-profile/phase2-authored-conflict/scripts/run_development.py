@@ -338,7 +338,7 @@ def run_development(
 
 def _error_report(error: Exception) -> dict[str, Any]:
     code = getattr(error, "code", "runner-error")
-    detail = _safe_detail(error)
+    detail = _safe_detail(getattr(error, "detail", error))
     return {
         "schema": REPORT_SCHEMA,
         "non_authoritative": True,

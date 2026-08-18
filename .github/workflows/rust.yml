@@ -51,3 +51,20 @@ jobs:
             -s experiments/EXP-0002-numeric-frame-profile/scripts \
             -p 'test*.py' \
             -v
+
+      - name: Validate EXP-0002 phase-two development diagnostic
+        run: |
+          phase2_root=experiments/EXP-0002-numeric-frame-profile/phase2-authored-conflict
+          cargo fmt --manifest-path "$phase2_root/candidate/Cargo.toml" -- --check
+          cargo test --manifest-path "$phase2_root/candidate/Cargo.toml" --locked
+          cargo clippy --manifest-path "$phase2_root/candidate/Cargo.toml" --all-targets --locked -- -D warnings
+          python3 -m py_compile "$phase2_root"/scripts/*.py
+          PYTHONWARNINGS=error python3 -m unittest discover \
+            -s "$phase2_root/scripts" \
+            -p 'test*.py' \
+            -v
+          cargo build --manifest-path "$phase2_root/candidate/Cargo.toml" --locked
+          PYTHONPATH="$phase2_root/scripts" python3 "$phase2_root/scripts/run_development.py" \
+            --candidate "$phase2_root/candidate/target/debug/exp-0002-r3-authored-conflict-candidate" \
+            > "$RUNNER_TEMP/phase2-development-report.json"
+          python3 -m json.tool "$RUNNER_TEMP/phase2-development-report.json" > /dev/null

@@ -78,6 +78,12 @@ class AdjudicatorTests(unittest.TestCase):
 
 
 class DevelopmentRunnerE2ETests(unittest.TestCase):
+    def test_error_report_does_not_duplicate_a_typed_error_code(self) -> None:
+        report = run_development._error_report(
+            run_development.DevelopmentRunError("file-type", "candidate is missing")
+        )
+        self.assertEqual(report["summary"]["failures"], ["file-type:candidate is missing"])
+
     def test_real_subprocess_runs_all_48_and_reports_mismatch_and_incomplete(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
