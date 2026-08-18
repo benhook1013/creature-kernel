@@ -606,6 +606,22 @@ API, perform geometry/runtime work, or activate Readiness 3. This completes
 the currently identified internal pre-checkpoint runway; exact profile,
 fixture, and resolver activation remain deferred to the recorded human stop.
 
+The runway also contains an implemented crate-private module-binding ingredient
+observation. It consumes `RestrictedSourceSetHandoff` and retains one
+deterministic record per admitted `Module`: owner/role, all declaration fields
+and provenance, the declaration document/namespace locator, separately matching
+owner-authored dependency evidence, supplied-member existence/role/structural
+root, and the present instance root with its immediate owner-local parent. It
+observes ingredients only: it does not claim module-to-dependency/template
+binding, compare `root_role`, derive remapped identity or an aggregate
+containment edge, infer `Attachment`, verify revision/hash, assign
+validity/status/diagnostics, snapshot, select a profile, or activate Readiness
+3. Current structural admission guarantees exactly one member structural root
+and at most one dependency declaration per namespace; the code asserts the
+former and does not pretend duplicate same-locator dependencies are reachable.
+It is internal reversible runway progress only and accepts or changes no
+contract.
+
 Ben's 2026-08-18 discussion approval records the next R3 direction: the first
 resolver/fixture transaction is bounded to the stylized digitigrade furry-biped
 family and fixed fixture envelope; exactly one separately content-bound
@@ -1008,16 +1024,17 @@ Complete; DR-0008 Revision 14 remains Proposed with Owner approval Pending and
 Review Pending; the prior Revision 13 Double-review artifacts at exact target
 `117544a` are stale evidence.
 
-The immediate next internal work is to extend the same bounded validation path
-into containment and typed-relation topology, without yet assigning aggregate
-resolver/source validity, public diagnostics or status, a snapshot, profile
-selection, or Readiness 3 activation. The phase-two development run remains
-non-authoritative and insufficient to choose
-strict/micro/stress; its bounded descendant-socket and realistic-transform/oracle
-extension remains future development-only work. Readiness 1 and Readiness 2
-remain active while Readiness 3 and later transactions remain gated. The next
-retained-human checkpoint is an actual rendered creature or primitive spatial
-preview, or a genuine direction-setting decision.
+Containment/topology validation is not an honest immediate next slice: source-
+local rules are already validated, while aggregate semantics lack an accepted
+module/template binding edge. The next safe autonomous implementation is the
+already-recorded six-case development-only realistic
+composed-transform extension for profile discrimination. Exact aggregate
+module-binding semantics and Readiness 3 activation remain gated; the phase-two
+development run remains non-authoritative and insufficient to choose
+strict/micro/stress. Readiness 1 and Readiness 2 remain active while Readiness 3
+and later transactions remain gated. The next retained-human checkpoint is an
+actual rendered creature or primitive spatial preview, or a genuine
+direction-setting decision.
 The main thread will autonomously resolve technical correctness findings or
 record evidence-dependent triggers under the DR-0001 Revision 6 transition
 direction; only a retained-human product, architecture-boundary, material
