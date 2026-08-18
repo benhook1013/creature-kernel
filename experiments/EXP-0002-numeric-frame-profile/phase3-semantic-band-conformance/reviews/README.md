@@ -40,3 +40,19 @@ Both verdicts are `Revise`; each review is current only for that exact freeze
 revision and is stale for any successor. A successor freeze must receive a
 fresh current-revision Double review after the findings are addressed. These
 reviews do not authorize execution and do not claim Ben acceptance or waiver.
+
+## Historical Gate B v2 review
+
+- [Gate B v2 Review 01: closure and custody](gate-b-v2-review-01-closure-and-custody.md)
+- [Gate B v2 Review 02: execution admissibility](gate-b-v2-review-02-execution-admissibility.md)
+
+These two fresh independent passes are completed historical issue-finding
+evidence for reviewed E
+`9dca58a84072582db34045b8eac98d6e86d3d5ae`, manifest self-hash
+`d7365e99945cb2e57cd6bac45bac241fc032dc1312cda3a94cfdba14cd17933a`, and
+reviewed HEAD `6d9a812387c0704e5f58ac09556361af609a7e1`, dated 2026-08-19.
+Both verdicts are `Revise`. They are stale for any corrected successor; that
+successor requires a fresh current-version Double review after the findings
+are addressed. The current reviews remain Gate A only until that successor
+review exists. These reviews do not authorize execution, claim a clean
+successor, or imply Ben acceptance or waiver.
