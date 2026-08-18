@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+import os
 import stat
+import subprocess
+import sys
 import tempfile
 import unittest
 from decimal import Decimal
@@ -69,6 +72,9 @@ class AdjudicatorTests(unittest.TestCase):
         self.assertTrue(adjudicator.cause_matches(observed, expected))
         self.assertFalse(adjudicator.cause_matches(observed, {"code": "other"}))
         self.assertFalse(adjudicator.cause_matches(observed, None))
+        self.assertFalse(adjudicator.cause_matches({"code": "frame", "index": 0}, {"code": "frame", "index": False}))
+        with self.assertRaisesRegex(adjudicator.AdjudicationError, "cause-size"):
+            adjudicator.stable_cause({"code": "frame", "failure": "x" * 257})
 
 
 class DevelopmentRunnerE2ETests(unittest.TestCase):
@@ -145,6 +151,77 @@ sys.exit(7)
             self.assertEqual(report["summary"]["responses_received"], 48)
             self.assertEqual(report["run_status"], "fail")
             self.assertIn("candidate-exit:7", report["summary"]["failures"])
+
+    def test_oversized_cause_is_per_entry_incomplete_with_bounded_report(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            candidate = Path(temporary) / "candidate.py"
+            candidate.write_text(
+                """#!/usr/bin/env python3
+import json
+import sys
+
+for line in sys.stdin:
+    request = json.loads(line)
+    response = {
+        'protocol_id': 'ck.exp-0002.r3-authored-conflict-candidate-response-1',
+        'request_id': request['request_id'],
+        'status': 'observed',
+        'observations': {'root': {}, 'members': [{'outcome': 'skipped', 'attachments': [], 'skip': {'code': 'skip', 'cause': {'code': 'frame', 'failure': 'x' * 10000}}}], 'tolerances': {}, 'providers': {}},
+    }
+    print(json.dumps(response, separators=(',', ':')), flush=True)
+""",
+                encoding="utf-8",
+            )
+            candidate.chmod(candidate.stat().st_mode | stat.S_IXUSR)
+            report = run_development.run_development([str(candidate)])
+            self.assertEqual(report["summary"]["entries"], 48)
+            self.assertEqual(report["summary"]["requests_sent"], 48)
+            self.assertEqual(report["summary"]["responses_received"], 48)
+            self.assertEqual(report["summary"]["classification_totals"], {"incomplete": 48})
+            self.assertTrue(all(entry["request_sha256"] and entry["response_sha256"] for entry in report["entries"]))
+            self.assertEqual(report["run_status"], "fail")
+
+    def test_cli_candidate_arg_option_like_value_reaches_candidate(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            candidate = root / "candidate.py"
+            marker = root / "marker"
+            candidate.write_text(
+                """#!/usr/bin/env python3
+import json
+import sys
+from pathlib import Path
+
+if sys.argv[1] != '--sentinel':
+    raise SystemExit(9)
+Path(sys.argv[2]).write_text('seen')
+for line in sys.stdin:
+    request = json.loads(line)
+    print(json.dumps({'protocol_id': 'ck.exp-0002.r3-authored-conflict-candidate-response-1', 'request_id': request['request_id'], 'status': 'observed', 'observations': {'root': {}, 'members': [{'outcome': 'compared', 'attachments': [{'outcome': 'agree'}]}], 'tolerances': {}, 'providers': {}}}, separators=(',', ':')), flush=True)
+""",
+                encoding="utf-8",
+            )
+            candidate.chmod(candidate.stat().st_mode | stat.S_IXUSR)
+            environment = dict(os.environ)
+            environment["PYTHONPATH"] = str(Path(run_development.__file__).resolve().parent)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(Path(run_development.__file__).resolve()),
+                    "--candidate",
+                    str(candidate),
+                    "--candidate-arg=--sentinel",
+                    "--candidate-arg",
+                    str(marker),
+                ],
+                capture_output=True,
+                text=True,
+                env=environment,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 2)
+            self.assertEqual(marker.read_text(encoding="utf-8"), "seen")
+            self.assertEqual(json.loads(result.stdout)["summary"]["requests_sent"], 48)
 
 
 if __name__ == "__main__":

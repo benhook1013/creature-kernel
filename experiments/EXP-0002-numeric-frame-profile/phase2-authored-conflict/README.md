@@ -61,12 +61,23 @@ PYTHONPATH=experiments/EXP-0002-numeric-frame-profile/phase2-authored-conflict/s
   --candidate experiments/EXP-0002-numeric-frame-profile/phase2-authored-conflict/candidate/target/debug/exp-0002-r3-authored-conflict-candidate
 ```
 
+Repeatable candidate arguments use `--candidate-arg VALUE`; for an option-like
+value, use the unambiguous form `--candidate-arg=--foo`. The candidate path and
+arguments are passed as an argv sequence, never as a shell string.
+
 The command emits one bounded JSON diagnostic report to stdout for exactly 16
 cases × 3 development profiles. It is marked `non_authoritative: true`,
 `profile_selection: none`, and `r3_activation: inactive`; it is not an
 experiment result, evidence, receipt, snapshot, admission, resolver output,
 or activation artifact. A nonzero exit indicates a mismatch, incomplete
 adjudication, candidate/transport failure, or report failure.
+
+This is controlled-local diagnostic execution, not an OS process sandbox. The
+explicit candidate is trusted and must not daemonize, call `setsid`, change
+session, or intentionally leave descendant processes. Ordinary group-contained
+hangs or children and terminal integrity are bounded and detected by the
+transport; OS-level containment of hostile or escaping descendants is out of
+scope. No cgroup or job-object machinery is provided.
 
 Focused checks:
 

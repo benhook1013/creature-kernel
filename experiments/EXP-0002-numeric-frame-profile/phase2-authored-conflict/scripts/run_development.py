@@ -362,12 +362,19 @@ def _error_report(error: Exception) -> dict[str, Any]:
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="run the non-authoritative EXP-0002 development diagnostic")
-    parser.add_argument("--candidate", nargs="+", required=True, metavar="ARGV", help="candidate executable followed by explicit argv")
+    parser.add_argument("--candidate", required=True, metavar="PATH", help="candidate executable path")
+    parser.add_argument(
+        "--candidate-arg",
+        action="append",
+        default=[],
+        metavar="VALUE",
+        help="repeatable argument passed to the candidate (use --candidate-arg=--foo for option-like values)",
+    )
     parser.add_argument("--sweep", type=Path, default=DEFAULT_SWEEP)
     parser.add_argument("--corpus", type=Path, default=DEFAULT_CORPUS)
     args = parser.parse_args(argv)
     try:
-        report = run_development(args.candidate, sweep_path=args.sweep, corpus_path=args.corpus)
+        report = run_development([args.candidate, *args.candidate_arg], sweep_path=args.sweep, corpus_path=args.corpus)
     except Exception as error:  # keep CLI diagnostics bounded and body-free
         report = _error_report(error)
         encoded = _encode_report(report)

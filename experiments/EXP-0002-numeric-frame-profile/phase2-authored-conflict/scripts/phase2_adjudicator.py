@@ -12,6 +12,8 @@ from typing import Any, Mapping
 
 
 MAX_ERROR_DETAIL = 256
+MAX_CAUSE_STRING_BYTES = 256
+MAX_CAUSE_INDEX = 1_000_000
 STABLE_CAUSE_FIELDS = frozenset(
     {"code", "failure", "operation", "stage", "index", "field", "component"}
 )
@@ -52,10 +54,16 @@ def _string(value: Any, label: str) -> str:
     return value
 
 
-def _stable_value(value: Any, label: str) -> Any:
-    if isinstance(value, (str, int, bool)) or value is None:
-        return value
-    _fail("cause-shape", f"{label} is not a stable scalar")
+def _stable_string(value: Any, label: str) -> str:
+    if not isinstance(value, str) or not value:
+        _fail("cause-shape", f"{label} must be a non-empty string")
+    try:
+        encoded = value.encode("utf-8")
+    except UnicodeEncodeError:
+        _fail("cause-shape", f"{label} is not valid UTF-8")
+    if len(encoded) > MAX_CAUSE_STRING_BYTES:
+        _fail("cause-size", f"{label} exceeds {MAX_CAUSE_STRING_BYTES} UTF-8 bytes")
+    return value
 
 
 def stable_cause(cause: Any, label: str = "cause") -> dict[str, Any]:
@@ -64,12 +72,17 @@ def stable_cause(cause: Any, label: str = "cause") -> dict[str, Any]:
     unknown = set(value) - KNOWN_CAUSE_FIELDS
     if unknown:
         _fail("cause-fields", f"{label} contains unknown fields")
-    if "code" not in value or not isinstance(value["code"], str) or not value["code"]:
+    if "code" not in value:
         _fail("cause-shape", f"{label}.code is required")
     result: dict[str, Any] = {}
-    for key in STABLE_CAUSE_FIELDS:
+    for key in STABLE_CAUSE_FIELDS - {"index"}:
         if key in value:
-            result[key] = _stable_value(value[key], f"{label}.{key}")
+            result[key] = _stable_string(value[key], f"{label}.{key}")
+    if "index" in value:
+        index = value["index"]
+        if isinstance(index, bool) or not isinstance(index, int) or not 0 <= index <= MAX_CAUSE_INDEX:
+            _fail("cause-shape", f"{label}.index must be a bounded nonnegative integer")
+        result["index"] = index
     return result
 
 
@@ -93,11 +106,12 @@ def cause_matches(observed: Any, expected: Any) -> bool:
 
 def _member_skip(member: Mapping[str, Any], index: int) -> dict[str, Any]:
     skip = _object(member.get("skip"), f"members[{index}].skip")
-    if not isinstance(skip.get("code"), str) or not skip["code"]:
-        _fail("skip-shape", f"members[{index}].skip.code is required")
+    skip_code = _stable_string(skip.get("code"), f"members[{index}].skip.code")
     if "detail" in skip and not isinstance(skip["detail"], str):
         _fail("skip-shape", f"members[{index}].skip.detail must be a string")
-    return stable_cause(skip.get("cause"), f"members[{index}].skip.cause")
+    cause = stable_cause(skip.get("cause"), f"members[{index}].skip.cause")
+    cause.setdefault("code", skip_code)
+    return cause
 
 
 def _attachment(attachment: Any, member_index: int, attachment_index: int) -> tuple[str, dict[str, Any] | None]:
@@ -107,14 +121,13 @@ def _attachment(attachment: Any, member_index: int, attachment_index: int) -> tu
         return outcome, None
     if outcome != "skipped":
         _fail("attachment-outcome", f"unsupported attachment outcome {outcome}")
-    if not isinstance(value.get("component"), str) or not value["component"]:
-        _fail("attachment-shape", "skipped attachment component is required")
-    if not isinstance(value.get("code"), str) or not value["code"]:
-        _fail("attachment-shape", "skipped attachment code is required")
+    component = _stable_string(value.get("component"), "skipped attachment component")
+    code = _stable_string(value.get("code"), "skipped attachment code")
     if "detail" in value and not isinstance(value["detail"], str):
         _fail("attachment-shape", "attachment detail must be a string")
     cause = stable_cause(value.get("cause"), "attachment.cause")
-    cause.setdefault("component", value["component"])
+    cause.setdefault("code", code)
+    cause.setdefault("component", component)
     return outcome, cause
 
 
