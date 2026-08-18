@@ -12,6 +12,32 @@ cargo test --manifest-path experiments/EXP-0002-numeric-frame-profile/phase2-aut
 cargo run --manifest-path experiments/EXP-0002-numeric-frame-profile/phase2-authored-conflict/candidate/Cargo.toml --locked --offline
 ```
 
+For a first request, from the repository root, compact the existing body
+document into the JSON string required by `source` and emit exactly one JSONL
+record:
+
+```bash
+fixture_source="$(jq -c . examples/body-documents/stylized-digitigrade-biped.json)"
+jq -cn --arg source "$fixture_source" '{
+  protocol_id: "ck.exp-0002.r3-authored-conflict-candidate-request-1",
+  request_id: "fixture-1",
+  operation: "observe-authored-conflict",
+  resource_profile: "ordinary",
+  source: $source,
+  tolerances: {
+    translation_absolute: 0.0,
+    translation_relative: 0.0,
+    rotation_half_chord: 0.0
+  },
+  providers: {
+    gate: "allow",
+    arithmetic: "native",
+    sqrt: "native",
+    environment: "unattested-no-probe-v1"
+  }
+}' | cargo run --manifest-path experiments/EXP-0002-numeric-frame-profile/phase2-authored-conflict/candidate/Cargo.toml --locked --offline
+```
+
 The process reads one bounded record at a time from stdin and writes one JSON
 response per record to stdout. The request and response protocol identifiers
 are respectively:
@@ -61,6 +87,10 @@ exact finite binary64 component spellings (`0x` plus 16 hexadecimal digits),
 and `agree`, `conflict`, or numeric `skipped` outcomes with component, code,
 and detail.
 
+Top-level `observed` means observation completed; consumers inspect each
+member/attachment outcome and typed cause for compared/skipped/agree/conflict.
+`detail` is display-only and non-contractual; typed `cause` is machine-facing.
+
 Transport bounds are 64 KiB per request or response line (including LF), 24
 KiB decoded source bytes, and 256 UTF-8 bytes for `request_id`. An oversized
 request record is drained through LF/EOF and receives one small
@@ -73,8 +103,10 @@ not stop subsequent records. Valid request IDs are echoed for syntactically
 valid request errors; an over-limit ID is never echoed. Broken output or I/O
 remains a process failure.
 
-This bridge currently lacks fine-grained failure causes and equation-step
-evidence. Consequently these observations are provisional synthetic
-instrumentation only and are not eligible for authoritative corpus or profile
+The provisional candidate retains and projects fine-grained typed causes plus
+equation inputs and steps, but these observations remain synthetic,
+non-authoritative instrumentation. The profile, corpus, result, receipt,
+resolver, and R3 activation bindings remain absent and non-authoritative, so
+the observations are not eligible for authoritative corpus or profile
 freezing. In particular, the output must not be read as an `invalid-source`,
 snapshot, resolver, selected-profile, activation, or evidence-qualified claim.

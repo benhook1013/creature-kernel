@@ -26,9 +26,10 @@ cannot activate Readiness 3.
 
 The standalone [phase-2 candidate](candidate/README.md) provides the bounded
 JSONL transport and inspectable observations over the merged provisional
-bridge. It remains synthetic, non-authoritative instrumentation; the bridge's
-current fine-grained cause and equation-step evidence gaps still block
-corpus/profile freezing.
+bridge. The provisional candidate retains and projects typed causes plus
+equation inputs and steps, but the profile, corpus, result, receipt, resolver,
+and R3 activation bindings remain absent and non-authoritative; those missing
+bindings still block authoritative corpus/profile freezing.
 
 ## Safe preflight
 
