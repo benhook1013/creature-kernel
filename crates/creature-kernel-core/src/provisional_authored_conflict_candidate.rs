@@ -6,8 +6,8 @@
 //! produce a snapshot, or activate Readiness 3.
 //!
 //! This preparatory DTO projects retained Attachment endpoint and equation
-//! provenance. Fine-grained skip causes remain typed in the bridge but are not
-//! serialized by the candidate yet.
+//! provenance. Fine-grained skip causes remain typed in the bridge and are
+//! projected by the candidate through this owned vocabulary.
 
 use crate::body_document::ResourceProfile;
 use crate::body_graph::OwnerRoleKey;
@@ -66,7 +66,7 @@ pub struct ProvisionalAuthoredConflictTolerances {
 }
 
 /// A deterministic source member identity.
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, serde::Serialize)]
 pub struct ProvisionalMemberIdentity {
     /// Source document identifier.
     pub document: String,
@@ -75,7 +75,8 @@ pub struct ProvisionalMemberIdentity {
 }
 
 /// A source member's root/dependency role.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum ProvisionalMemberRole {
     /// Standalone source root.
     Root,
@@ -84,7 +85,7 @@ pub enum ProvisionalMemberRole {
 }
 
 /// An owned source semantic address.
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, serde::Serialize)]
 pub struct ProvisionalSemanticAddress {
     /// Address namespace.
     pub namespace: String,
@@ -95,25 +96,28 @@ pub struct ProvisionalSemanticAddress {
     /// Address role.
     pub role: String,
 }
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, serde::Serialize)]
 pub struct ProvisionalOwnerRole {
     pub owner: ProvisionalSemanticAddress,
     pub role: String,
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum ProvisionalTransformComponent {
     TranslationX,
     TranslationY,
     TranslationZ,
     Rotation,
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum ProvisionalPositionComponent {
     X,
     Y,
     Z,
 }
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, serde::Serialize)]
+#[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum ProvisionalMemberValueSlot {
     PartPlacement {
         address: ProvisionalSemanticAddress,
@@ -147,13 +151,14 @@ pub enum ProvisionalMemberValueSlot {
         component: ProvisionalTransformComponent,
     },
 }
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, serde::Serialize)]
 pub struct ProvisionalMemberValueLocation {
     pub member: ProvisionalMemberIdentity,
     pub role: ProvisionalMemberRole,
     pub slot: ProvisionalMemberValueSlot,
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum ProvisionalUnitScalingFailure {
     InvalidRatio,
     NonFinite,
@@ -173,7 +178,8 @@ impl ProvisionalUnitScalingFailure {
         }
     }
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum ProvisionalPlacementOperation {
     PartContainment,
     AttachmentContainment,
@@ -182,7 +188,8 @@ pub enum ProvisionalPlacementOperation {
     AttachmentInverse,
     AttachmentEquation,
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum ProvisionalPlacementReferenceContext {
     Part,
     Socket,
@@ -193,7 +200,8 @@ pub enum ProvisionalPlacementReferenceContext {
     ModuleRoot,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, serde::Serialize)]
+#[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum ProvisionalQuaternionMalformedInput {
     NonFiniteComponent { index: usize },
     ZeroQuaternion,
@@ -208,7 +216,8 @@ impl ProvisionalQuaternionMalformedInput {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum ProvisionalQuaternionArithmeticOperation {
     Add,
     Sub,
@@ -227,7 +236,8 @@ impl ProvisionalQuaternionArithmeticOperation {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum ProvisionalQuaternionArithmeticStage {
     ScaledComponent,
     SquaredComponent,
@@ -262,7 +272,8 @@ impl ProvisionalQuaternionArithmeticStage {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum ProvisionalQuaternionArithmeticOperand {
     Left,
     Right,
@@ -277,7 +288,8 @@ impl ProvisionalQuaternionArithmeticOperand {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, serde::Serialize)]
+#[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum ProvisionalQuaternionArithmeticFailure {
     ProviderUnavailable {
         operation: ProvisionalQuaternionArithmeticOperation,
@@ -299,6 +311,7 @@ pub enum ProvisionalQuaternionArithmeticFailure {
         operation: ProvisionalQuaternionArithmeticOperation,
         stage: ProvisionalQuaternionArithmeticStage,
         index: Option<usize>,
+        #[serde(skip_serializing)]
         bits: u64,
     },
     ZeroScaledNorm,
@@ -318,7 +331,8 @@ impl ProvisionalQuaternionArithmeticFailure {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum ProvisionalQuaternionGateStage {
     Input,
     ScaledNorm,
@@ -335,7 +349,8 @@ impl ProvisionalQuaternionGateStage {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, serde::Serialize)]
+#[serde(tag = "kind", content = "context", rename_all = "kebab-case")]
 pub enum ProvisionalQuaternionFailure {
     MalformedInput(ProvisionalQuaternionMalformedInput),
     Arithmetic(ProvisionalQuaternionArithmeticFailure),
@@ -345,6 +360,7 @@ pub enum ProvisionalQuaternionFailure {
     SqrtUnavailable,
     SqrtFailed,
     InvalidSqrtOutput {
+        #[serde(skip_serializing)]
         bits: u64,
     },
 }
@@ -362,7 +378,8 @@ impl ProvisionalQuaternionFailure {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize)]
+#[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum ProvisionalMemberSkipCause {
     FrameValueUnitScaling {
         location: ProvisionalMemberValueLocation,
@@ -428,10 +445,12 @@ impl ProvisionalMemberSkipCause {
         }
     }
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum ProvisionalInvalidProfileFailure {
     NonFinite,
     Negative,
+    NonzeroUnderflow,
 }
 impl ProvisionalInvalidProfileFailure {
     #[must_use]
@@ -439,10 +458,12 @@ impl ProvisionalInvalidProfileFailure {
         match self {
             Self::NonFinite => "non-finite",
             Self::Negative => "negative",
+            Self::NonzeroUnderflow => "nonzero-underflow",
         }
     }
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum ProvisionalNumericArithmeticFailure {
     NonFinite,
     TemporaryLimitExceeded,
@@ -460,7 +481,8 @@ impl ProvisionalNumericArithmeticFailure {
         }
     }
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, serde::Serialize)]
+#[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum ProvisionalNumericSkipCause {
     InvalidProfile {
         field: ProvisionalToleranceField,
@@ -686,7 +708,8 @@ impl ProvisionalAuthoredConflictErrorCode {
 }
 
 /// Which explicit tolerance entry failed.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum ProvisionalToleranceField {
     /// Translation absolute A.
     TranslationAbsolute,
@@ -715,6 +738,26 @@ pub enum ProvisionalToleranceError {
     Negative { field: ProvisionalToleranceField },
     /// Exact admission arithmetic failed.
     ExactArithmetic(ProvisionalNumericArithmeticFailure),
+}
+
+impl ProvisionalToleranceError {
+    /// Project the top-level tolerance failure into the shared numeric cause.
+    #[must_use]
+    pub const fn numeric_cause(self) -> ProvisionalNumericSkipCause {
+        match self {
+            Self::NonFinite { field } => ProvisionalNumericSkipCause::InvalidProfile {
+                field,
+                failure: ProvisionalInvalidProfileFailure::NonFinite,
+            },
+            Self::Negative { field } => ProvisionalNumericSkipCause::InvalidProfile {
+                field,
+                failure: ProvisionalInvalidProfileFailure::Negative,
+            },
+            Self::ExactArithmetic(failure) => {
+                ProvisionalNumericSkipCause::ExactArithmetic { failure }
+            }
+        }
+    }
 }
 
 impl fmt::Display for ProvisionalToleranceError {
