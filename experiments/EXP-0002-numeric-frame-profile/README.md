@@ -61,6 +61,97 @@ basis conversion, composition/inversion, claim identity/all-pairs,
 authored/snapshot comparison, and adapter-tier obligations remain outside this
 phase.
 
+## Phase-three semantic-band conformance preregistration
+
+The separate [phase-three conformance package](phase3-semantic-band-conformance/README.md)
+is Proposed, non-authoritative, and execution-disabled. It tests one candidate
+(`ck.provisional-r3-authored-conflict.semantic-band-1`) against one provisional
+semantic profile over one standalone authored-versus-Attachment-derived rigid
+transform. The declared bands analytically derive the candidate; this phase
+does not select tolerances or compare profiles. Strict, micro, and stress remain
+historical analytical negative comparisons and are not executed.
+Its canonical thresholds are exact dyadic A and exact `2H` from the fixed bits;
+`5e-5 m` and `5e-6` are nominal shorthand, and no angular claim is made.
+
+The plan has 40 deterministic scored held-out cases across five families, plus
+8 explicit development cases and 12 non-scored controls. The exact
+constructions are now materialized as `development-unfrozen` in the
+[generator](phase3-semantic-band-conformance/scripts/generate_phase3.py),
+[focused test](phase3-semantic-band-conformance/scripts/test_generate_phase3.py),
+three [corpora](phase3-semantic-band-conformance/corpora/), [recipe and
+artifact manifests](phase3-semantic-band-conformance/manifests/), and
+[sqrt vectors](phase3-semantic-band-conformance/sqrt-vectors.json). The
+regeneration/check commands and current hashes are recorded in the phase-three
+package and machine preregistration. It requires certified case-specific
+discrepancy intervals, an independent oracle and witness, two WSL repeatability
+attempts, one native consistency attempt, and two current Double review gates
+before execution. Outcomes are only supported, failed, or inconclusive
+conformance with failed-evidence precedence. Gate A is complete/passed for
+this exact development-unfrozen materialization; its current Double review is
+recorded in [Review 01](phase3-semantic-band-conformance/reviews/gate-a-review-01-closure-integrity.md)
+and [Review 02](phase3-semantic-band-conformance/reviews/gate-a-review-02-numeric-claims.md).
+This does not freeze the package. Gate B remains the later frozen-package
+Double. No loss ranking, production binding, profile-value validation,
+product-quality claim, or Readiness 3 activation follows.
+
+The materialized ledger distinguishes `construction_target` (the exact recipe
+magnitude used to construct a case) from source-derived `I_truth` (the metric
+computed from the serialized source and its exact numeric lexemes). Current
+materialization contains `I_truth` only: translation truth is exact; rotation
+truth is a certified interval around the normalized q/-q-equivalent full chord,
+not an exact singleton. `I_candidate` and `I_error` are mandatory future
+scorer/adjudication outputs after candidate witness data exists; their caps are
+preregistered obligations, not current artifacts. Records retain complete
+authored and derived contribution lists, exact kappa metadata, and derived
+canonical/source quaternions, including non-identity derived rotations.
+Request IDs are unique across development, held-out, and controls;
+normalized request-content uniqueness is checked across the development/held-out
+roles, with controls separately partitioned for their typed and preflight
+behavior.
+
+The latest generator correction uses exact-rational dot/norm-squared rotation
+truth with 256-bit integer-`isqrt` directed enclosures; decimal text is only
+the final outward endpoint encoding. The certified interval radius and error
+upper endpoint are capped at `1e-10` full chord. Source-derived admission
+recomputes all 60 serialized records and finds 53 admitted, 4 typed controls,
+and 3 out-of-domain controls; it certifies `kappa_q <= 2`, records the four
+exact zero-quaternion typed locations, and exercises fail-closed negative
+component, sum, quaternion, path, conditioning, and negative-relative gates.
+
+The unchanged candidate is prebound at base commit
+`f4125342211a1d1436ae48b685ec2342700f39c4`, before the Phase 3 package existed
+in that tree. The complete 47-file candidate/core/build closure (including
+protocol README, candidate `Cargo.lock`, and the compile-time embedded
+`spec/body-document/schema/ck-body-document-v1.schema.json`) has path-set
+SHA-256
+`10605701d02f117ff7ef2756004fbf53a475eb92fbc0616e139f919d7a8480dc` and
+content SHA-256
+`21825e78c3286cf73d135f44be99eaea5214ce36b5fed6271dce096d364468e2`; base
+tree and current-disk recomputation match. The schema is a compiled include
+input. It is frozen from Gate A through exact attempts: any change requires a
+new candidate identity and unseen scored material, or exact-public-corpus
+adjudication. FE/MXCSR stays external and runner/oracle/scorer code cannot
+change candidate source.
+
+The durable candidate prebinding checker and focused test are development
+tools, not generated corpus outputs or execution evidence. The checker is
+17,745 bytes with SHA-256
+`d21c122ecf5256b7e83402ba2a5a150807a1cfc64eef5e8df2002d86b1058c8b`; its
+focused nine-test file is 5,389 bytes with SHA-256
+`063206d1e9ecf4a5c2770061cca80e3492dc4bd3d34df56963c380690902d566`.
+They run with:
+
+```bash
+python3 experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/scripts/check_candidate_prebinding.py
+python3 experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/scripts/test_candidate_prebinding.py
+```
+
+The checker follows production literal `include!`, `include_str!`, and
+`include_bytes!` references recursively, rejects dynamic or unbound targets,
+checks selected file types, modes, raw content, and relevant Cargo build/config
+inputs, and does not sweep ignored target/cache artifacts. Git's textual mode
+`100644` is parsed as OCTAL integer `33188` before big-endian u32 framing.
+
 ## Preregistered phase-one budgets
 
 These are concrete runner/candidate resource budgets already implemented for

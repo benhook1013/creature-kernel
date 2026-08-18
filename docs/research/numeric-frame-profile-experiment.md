@@ -146,6 +146,207 @@ not proof against an adversarial replace-and-restore during execution. The
 binary hash remains the artifact identity; candidate build context is
 observational, not provenance.
 
+## Phase-three semantic-band conformance preregistration
+
+The [phase-three conformance package](../../experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/README.md)
+is a separate Proposed, non-authoritative conformance design. It tests one
+candidate, `ck.provisional-r3-authored-conflict.semantic-band-1`, against one
+provisional semantic profile over one standalone authored-versus-Attachment-
+derived rigid transform. The declared bands analytically derive the candidate;
+this phase does not select tolerances or compare profiles. Strict, micro, and
+stress remain historical analytical negative comparisons and are not executed.
+
+The candidate constants are A bits `0x3f0a36e2eb1c432d`, R bits
+`0x0000000000000000`, and H bits `0x3ec4f8b588e368f1`. Canonical thresholds
+are exact dyadic A and exact `2H` (full-chord bits `0x3ed4f8b588e368f1`);
+`5e-5 m` and `5e-6` are nominal shorthand. Provisional material/conflict/gross
+bands are translation `2e-4 m`, `2.3e-4 m`, `2e-3 m` and rotation full chord
+`2e-5`, `2.3e-5`, `2e-3`. The 2.3/2.0 ratio is a 15% semantic conflict guard.
+Phase three uses q/-q full-chord semantics and makes no angular claim. A
+separate fixed 10% validation margin requires non-boundary
+agree upper bounds `<=0.9*T` and conflict lower bounds
+`>=max(1.1*T, conflict-certain minimum)`; inclusive thresholds are controls
+with singleton/exact oracle intervals.
+
+The 40 scored held-out cases are deterministic: five families x two cases in
+each translation/rotation agree/conflict cell, with strata `0.50*T`, `0.85*T`,
+`1.05*conflict-certain-min`, and `1.05*gross-conflict-min`. Eight explicit
+development cases and twelve non-scored controls (four gray-band, four
+dispatched typed zero-quaternion, three runner-preflight out-of-domain, and
+one dispatched negative-relative) remain separate; malformed transport is
+unit-tested. The exact ledger is now materialized as `development-unfrozen` by
+the [generator](../../experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/scripts/generate_phase3.py)
+and checked by its [focused test](../../experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/scripts/test_generate_phase3.py),
+with the [three corpora](../../experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/corpora/),
+[recipe/artifact manifests](../../experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/manifests/),
+and [sqrt vectors](../../experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/sqrt-vectors.json).
+Regenerate or check it with:
+
+```bash
+python3 experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/scripts/generate_phase3.py
+python3 experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/scripts/generate_phase3.py --check
+python3 experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/scripts/test_generate_phase3.py
+```
+
+Generator IDs and axis/sign/scale/chain assignments are table/formula-driven,
+with no random seed, discretionary replacement, or tuning. Development covers
+the exact translation threshold, near-threshold rotation (the exact singleton
+remains a direct comparator unit-test obligation), q/-q sign equivalence,
+conversion, four-edge composition, the Attachment equation, identity zero/zero,
+and `kappa=999999`. Gray-band controls are strictly inside the band and
+observation-only. The three preflight cases remain runner adjudications, not
+candidate requests. Admission controls require their preregistered typed
+skipped zero-quaternion observation and cause. The three preflight controls
+require an out-of-domain runner adjudication; the negative-relative control
+requires its typed candidate rejection. A wrong completed typed result is
+failed; missing or uncertain evidence is inconclusive.
+
+Each materialized record separates `construction_target` (the exact recipe
+magnitude used before serialization) from source-derived `I_truth` (the metric
+computed from the serialized source and its exact numeric lexemes). Current
+materialization contains `I_truth` only: translation truth may be exact;
+rotation truth is a certified interval for the normalized q/-q-equivalent full
+chord, not an exact singleton. `I_candidate` and `I_error` are mandatory future
+scorer/adjudication outputs after candidate witness data exists; their caps
+remain preregistered obligations, not current artifacts. Construction metadata
+retains complete authored and derived contribution lists, exact authored,
+derived, and pair kappa values, plus derived canonical/source quaternions;
+non-identity derived rotations are represented in the applicable family
+records. Request IDs are unique across all three roles, while the generator's
+normalized request-content uniqueness check covers the development/held-out
+cross-role boundary after removing `request_id`; controls are separately
+partitioned for typed and preflight behavior.
+
+`I_truth` is the current source-derived ideal metric (translation L-infinity;
+rotation `min(||qa-qb||_2,||qa+qb||_2)` after normalization), with exact
+translation truth or a certified rotation interval. `I_candidate` certifies
+the metric computed from candidate witness bits and `I_error` encloses their
+absolute difference, but both are mandatory future scorer/adjudication outputs
+after candidate witness data exists, not current artifacts. Their radius and
+upper error caps remain `1e-10 m` for translation or `1e-10` full chord for
+rotation. Preflight checks `0.9T`, `T`, `1.1T`, and the conflict floor; scored
+truth must lie wholly within its class and margin. Wide/unresolved current
+`I_truth`, future `I_candidate`/`I_error`, or candidate straddling of `T` is
+inconclusive; a fully certified wrong status is failed. Exact-threshold
+controls use singleton exact intervals.
+
+The bounded domain caps canonical/contribution components at `16 m`,
+contribution sum at `64 m`, quaternion components at `1`, source norm to
+`[0.5,2]`, and endpoint paths to four edges plus one Attachment sequence. After
+exact basis/unit/sign/inverse decomposition, each translation path uses ordered
+contributions `c_i`, exact rational `S=sum(||c_i||_inf)`, and
+`D=||sum(c_i)||_inf`; `kappa_t` is 1 for `S=D=0`, infinity for `D=0<S`, else
+`S/D`. Scored `max(kappa_t_authored,kappa_t_derived) <= 1e6`; nonzero exact
+cancellation is analytic-control-only. Certified high-precision quaternion
+`kappa_q=max(1/||q_source||_2) <= 2`; chain and interval bounds handle
+accumulation without an angular condition claim.
+
+Phase-two transport limits are inherited explicitly: 64 KiB frame/response,
+24 KiB source, 256-byte request ID, 64 records/process, stdout frame x records,
+64 KiB stderr, 2 s I/O/shutdown, and 0.02 s trailing quiet window, with strict
+UTF-8/JSON, duplicate/nonfinite rejection, and oversize recovery. A separate
+12-vector independent sqrt/oracle self-check (four exact squares, four
+certified brackets, two scale metamorphics, two endpoint vectors) precedes
+quaternion corpus execution. Requests echo unique opaque IDs exactly; no
+blindness is claimed because tolerances and process length can be inferred,
+but role/family/truth/expected/band/scoring labels are withheld.
+
+Each attempt uses one candidate and three fresh candidate processes (8, 40,
+and 12 case adjudications): 60 case adjudications and 57 candidate wire
+requests. The controls role contains 12 case records, but its three runner-
+preflight out-of-domain controls have `dispatch_to_candidate:false`; the
+controls candidate process therefore receives 9 requests. Those three records
+remain runner adjudications. Two
+independent WSL2 x86_64 attempts and one full manually dispatched Ubuntu 24.04
+x86_64 consistency attempt produce 180 case adjudications, 171 candidate wire
+requests, and nine fresh candidate processes. Record launch argv/cwd/env,
+binary hashes, FE/MXCSR, request/response hashes, lifecycle, shutdown, and
+extra/missing/trailing output. Native evidence is bounded consistency, not
+broad portability.
+
+After a future pre-execution freeze, attempts reuse exact ordered
+case/source/tolerance bytes; request IDs are the only planned substitution,
+from the future attempt/ordinal formula. The current materialization remains
+development-unfrozen. Normalize only those IDs and preregistered
+environment/attempt metadata. WSL repeats
+require exact status, classification, witness-bit, interval-endpoint, and
+semantic-output equality; fully evidenced difference fails determinism. Native
+requires the same semantic equality; evidenced mismatch fails bounded
+consistency and missing/uncomparable platform evidence is inconclusive. Freeze
+expected selectors and retain CPU/features, architecture, kernel/WSL version,
+OS image/release, filesystem/mount, workflow runner/image, and toolchain. A
+selector mismatch is inconclusive unless semantic mismatch is already fully
+evidenced failed.
+
+The freeze manifest binds all outcome-affecting protocol/profile, deterministic
+ledger/corpus, generator/oracle/sqrt, scorer, result/receipt and attempt-index
+schemas/writers/canonicalization, dependency closure, commands/tools,
+candidate, runner, and workflow identities. Per-attempt observations are
+created at execution. Exclusive result/receipt outputs are bound by an attempt
+envelope containing freeze identity, attempt ID, platform/ordinal, exact Ben
+authorization reference, and both hashes; it hashes canonical bytes excluding
+its own hash.
+
+Gate A is complete/passed for this exact development-unfrozen materialization.
+Its fresh current-version Double review is recorded in [Review 01](../../experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/reviews/gate-a-review-01-closure-integrity.md)
+and [Review 02](../../experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/reviews/gate-a-review-02-numeric-claims.md);
+prior issue-finding reviews remain stale historical working evidence. This
+does not freeze the package. Gate B remains a later frozen-package Double
+before execution. Even after both, execution stays false until Ben authorizes exact attempts. Failed
+takes precedence for any fully evidenced false admissible assertion even when
+other evidence is incomplete; otherwise incompleteness is inconclusive;
+supported requires complete all-pass evidence. No loss ranking, profile-value
+validation, production binding, R3 activation, or product-quality claim is
+possible.
+
+The current materialization corrects source-derived rotation `I_truth` to an
+exact-rational, integer-`isqrt` directed enclosure: exact dot products and
+norm-squared values are propagated through 256-bit rational square-root bounds,
+with decimal text used only for outward final endpoints. The current `I_truth`
+interval radius and mandatory future `I_error` upper endpoint are each capped
+at `1e-10` full chord; `I_error` is not a current artifact. Source-derived
+admission independently reparses all 60 serialized records and partitions them
+into 53 admitted, 4 typed-control, and 3 out-of-domain records; all 40 scored
+records are admitted. It certifies `kappa_q <= 2` from the source quaternion
+norm floor, retains the four exact zero-quaternion typed locations, and
+fail-closes component, contribution-sum, quaternion-component, quaternion-norm,
+path-edge, `kappa_pair`, and negative-relative tolerance controls.
+
+The unchanged candidate is prebound before Phase 3 public materialization at
+base commit `f4125342211a1d1436ae48b685ec2342700f39c4` (the Phase 3 path is
+absent there). Its complete 47-file candidate/core/build closure includes the
+compile-time embedded
+`spec/body-document/schema/ck-body-document-v1.schema.json`, a compiled include
+input. The path-set SHA-256 is
+`10605701d02f117ff7ef2756004fbf53a475eb92fbc0616e139f919d7a8480dc`; raw
+content SHA-256 is
+`21825e78c3286cf73d135f44be99eaea5214ce36b5fed6271dce096d364468e2`; total
+raw bytes are `1,494,337`. An independent base-tree/current-disk
+recomputation matches. This closure is frozen through exact attempts. Any
+source/build change invalidates the public-corpus bounded-domain claim and
+requires a new candidate identity plus unseen scored material, or
+exact-public-corpus adjudication. FE/MXCSR remains external;
+runner/oracle/scorer code cannot alter candidate source.
+
+The durable candidate prebinding checker and focused nine-test file are
+development tools, not generated corpus outputs or execution evidence. The
+checker is 17,745 bytes with SHA-256
+`d21c122ecf5256b7e83402ba2a5a150807a1cfc64eef5e8df2002d86b1058c8b`; the test
+file is 5,389 bytes with SHA-256
+`063206d1e9ecf4a5c2770061cca80e3492dc4bd3d34df56963c380690902d566`. Run:
+
+```bash
+python3 experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/scripts/check_candidate_prebinding.py
+python3 experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/scripts/test_candidate_prebinding.py
+```
+
+The checker follows production literal `include!`, `include_str!`, and
+`include_bytes!` references recursively, rejects dynamic or unbound targets,
+checks selected regular-file types, modes, raw content, and relevant Cargo
+build/config inputs, and does not sweep ignored target/cache artifacts. It
+parses Git's textual `100644` as OCTAL integer `33188` before big-endian u32
+framing.
+
 ## Canonical evaluation rules
 
 The evaluated implementation must use a fixed, preregistered operation order
@@ -175,6 +376,11 @@ fixed division. Runtime comparison then uses exact `sum((qa_i-s qb_i)^2) <=
 derived offline from a declared independent high-precision oracle/generator
 revision as the greatest binary64 value no greater than exact `sin(theta/4)`;
 retain theta/H exact bits and derivation metadata.
+
+That downward `H <= sin(theta/4)` derivation belongs to historical or optional
+angular-calibration work only. Phase three does not use it, calibrate an angle,
+or make an angular claim: its canonical rotation threshold is exact `2H` from
+the fixed H bits and its accepted semantic metric is q/-q full chord.
 
 The evaluated implementation must preserve raw source text and parsed bits,
 canonical values, oracle values and uncertainty, comparison inputs and
