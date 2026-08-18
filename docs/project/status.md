@@ -100,12 +100,20 @@ adjudicator/runner with CI. The actual run passed 48/48: 18 `agree`, 15
 selects no profile, supplies no held-out or adversarial evidence, and does not
 activate Readiness 3. Technical disposition is that this is insufficient to
 choose strict/micro/stress: only synthetic scalar ladders and two tiny direct
-socket-rotation thresholds discriminate them; realistic composed transforms,
-unit/basis conversion, descendant paths, and independent equation-output
-verification remain absent. A bounded development-only extension is planned
-with one deterministic descendant-socket variant and six predeclared
-realistic-transform/oracle cases; exact corpus identity and values remain
-unspecified.
+socket-rotation thresholds discriminate them. A separate development-only
+extension now covers the missing evidence with one deterministic three-Part
+descendant-tail variant and six cases across the same three profiles (18
+requests). The cases combine centimetre units, a left-handed signed basis,
+non-identity half-turn rotations, and an independent exact-rational closed
+witness oracle. The actual candidate run passed 18/18: 9 `agree` and 9
+`conflict`. Hands-on trial and adversarial review found and covered
+quaternion-sign canonicalization, source-derived document-identity, and
+report-algebra defects. The historical 16-case corpus and 48-request report
+remain unchanged. This is still non-authoritative development evidence: it
+selects no profile, supplies no held-out or adversarial corpus evidence, and
+does not activate Readiness 3.
+Evidence synthesis and any profile-selection proposal remain explicitly
+deferred; Readiness 3 activation remains Ben-owned.
 
 The raw receipt records clean wrapper source checkpoints at the same source
 commit. The raw result records runner-side observational identity as
