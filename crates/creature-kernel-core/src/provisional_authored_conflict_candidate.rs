@@ -5,15 +5,20 @@
 //! source, rejects declarations, and does not resolve, select a profile,
 //! produce a snapshot, or activate Readiness 3.
 //!
-//! This preparatory DTO is not yet the phase-2 evidence adapter: member skips
-//! retain only their stable stage class plus supplemental detail, and
-//! Attachment provenance does not yet project every canonical equation input
-//! or composition step. The later adapter must add those machine-stable cause
-//! and equation-evidence projections before a corpus or profile is frozen.
+//! This preparatory DTO projects retained Attachment endpoint and equation
+//! provenance. Fine-grained skip causes remain typed in the bridge and are
+//! projected by the candidate through this owned vocabulary.
 
 use crate::body_document::ResourceProfile;
-use crate::canonical_member_frame_values::CanonicalRigidTransform;
-use crate::canonical_member_placement::CanonicalAttachmentPlacementProvenance;
+use crate::body_graph::OwnerRoleKey;
+use crate::canonical_member_frame_values::{
+    CanonicalMemberFrameValuesError, CanonicalMemberValueLocation, CanonicalMemberValueSlot,
+    CanonicalRigidTransform, CanonicalTransformComponent,
+};
+use crate::canonical_member_placement::{
+    CanonicalAttachmentPlacementProvenance, CanonicalMemberPlacementError,
+    CanonicalMemberPlacementOperation, CanonicalMemberPlacementReferenceContext,
+};
 use crate::canonical_placement_comparison::CanonicalPlacementComparisonComponent;
 use crate::canonical_placement_comparison::{
     CanonicalAttachmentComparisonOutcome, CanonicalMemberPlacementComparisonOutcome,
@@ -21,19 +26,23 @@ use crate::canonical_placement_comparison::{
 };
 use crate::numeric::NormalizedBinary64;
 use crate::numeric_comparison::{
-    InvalidProfileEntry, NumericComparisonError, ProvisionalQuaternionHalfChord,
-    ProvisionalScalarTolerance, ToleranceField,
+    InvalidProfileEntry, NumericArithmeticFailure, NumericComparisonError,
+    ProvisionalQuaternionHalfChord, ProvisionalScalarTolerance, ToleranceField,
 };
 use crate::quaternion_normalization::{
-    Binary64ArithmeticProvider, CorrectlyRoundedSqrt, QuaternionNormalizationGate,
+    Binary64ArithmeticProvider, Binary64Operand, CorrectlyRoundedSqrt, MalformedQuaternionInput,
+    QuaternionArithmeticError, QuaternionArithmeticOperation, QuaternionArithmeticStage,
+    QuaternionGateStage, QuaternionNormalizationError, QuaternionNormalizationGate,
 };
 use crate::restricted_source_set_handoff::build_restricted_source_set_handoff;
 use crate::semantic_address::{AddressKey, kind_name};
+use crate::source_preparation::PositionComponent;
 use crate::source_set_canonical_placement::prepare_canonical_source_set_placement;
 use crate::source_set_canonical_values::prepare_canonical_source_set_frame_values;
 use crate::source_set_preparation::{
     SourceSetInput, SourceSetMemberKey, SourceSetMemberRole, prepare_source_set,
 };
+use crate::unit_scaling::UnitScalingError;
 use std::fmt;
 
 /// The explicit phase requested from a caller-supplied provider factory.
@@ -57,7 +66,7 @@ pub struct ProvisionalAuthoredConflictTolerances {
 }
 
 /// A deterministic source member identity.
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, serde::Serialize)]
 pub struct ProvisionalMemberIdentity {
     /// Source document identifier.
     pub document: String,
@@ -66,7 +75,8 @@ pub struct ProvisionalMemberIdentity {
 }
 
 /// A source member's root/dependency role.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum ProvisionalMemberRole {
     /// Standalone source root.
     Root,
@@ -75,7 +85,7 @@ pub enum ProvisionalMemberRole {
 }
 
 /// An owned source semantic address.
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, serde::Serialize)]
 pub struct ProvisionalSemanticAddress {
     /// Address namespace.
     pub namespace: String,
@@ -85,6 +95,415 @@ pub struct ProvisionalSemanticAddress {
     pub kind: String,
     /// Address role.
     pub role: String,
+}
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, serde::Serialize)]
+pub struct ProvisionalOwnerRole {
+    pub owner: ProvisionalSemanticAddress,
+    pub role: String,
+}
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ProvisionalTransformComponent {
+    TranslationX,
+    TranslationY,
+    TranslationZ,
+    Rotation,
+}
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ProvisionalPositionComponent {
+    X,
+    Y,
+    Z,
+}
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, serde::Serialize)]
+#[serde(tag = "kind", rename_all = "kebab-case")]
+pub enum ProvisionalMemberValueSlot {
+    PartPlacement {
+        address: ProvisionalSemanticAddress,
+        component: ProvisionalTransformComponent,
+    },
+    JointProximal {
+        address: ProvisionalSemanticAddress,
+        component: ProvisionalTransformComponent,
+    },
+    JointDistal {
+        address: ProvisionalSemanticAddress,
+        component: ProvisionalTransformComponent,
+    },
+    SocketInterface {
+        address: ProvisionalSemanticAddress,
+        component: ProvisionalTransformComponent,
+    },
+    AttachmentOffset {
+        address: ProvisionalSemanticAddress,
+        component: ProvisionalTransformComponent,
+    },
+    LandmarkPosition {
+        owner_role: ProvisionalOwnerRole,
+        component: ProvisionalPositionComponent,
+    },
+    DimensionValue {
+        owner_role: ProvisionalOwnerRole,
+    },
+    NamedFrame {
+        owner_role: ProvisionalOwnerRole,
+        component: ProvisionalTransformComponent,
+    },
+}
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, serde::Serialize)]
+pub struct ProvisionalMemberValueLocation {
+    pub member: ProvisionalMemberIdentity,
+    pub role: ProvisionalMemberRole,
+    pub slot: ProvisionalMemberValueSlot,
+}
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ProvisionalUnitScalingFailure {
+    InvalidRatio,
+    NonFinite,
+    ResourceLimit,
+    Overflow,
+    NonzeroUnderflow,
+}
+impl ProvisionalUnitScalingFailure {
+    #[must_use]
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::InvalidRatio => "invalid-ratio",
+            Self::NonFinite => "non-finite",
+            Self::ResourceLimit => "resource-limit",
+            Self::Overflow => "overflow",
+            Self::NonzeroUnderflow => "nonzero-underflow",
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ProvisionalPlacementOperation {
+    PartContainment,
+    AttachmentContainment,
+    AttachmentMatingSocket,
+    AttachmentHostOffset,
+    AttachmentInverse,
+    AttachmentEquation,
+}
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ProvisionalPlacementReferenceContext {
+    Part,
+    Socket,
+    Containment,
+    HostSocket,
+    MatingSocket,
+    AttachmentOffset,
+    ModuleRoot,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, serde::Serialize)]
+#[serde(tag = "kind", rename_all = "kebab-case")]
+pub enum ProvisionalQuaternionMalformedInput {
+    NonFiniteComponent { index: usize },
+    ZeroQuaternion,
+}
+impl ProvisionalQuaternionMalformedInput {
+    #[must_use]
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::NonFiniteComponent { .. } => "non-finite-component",
+            Self::ZeroQuaternion => "zero-quaternion",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ProvisionalQuaternionArithmeticOperation {
+    Add,
+    Sub,
+    Mul,
+    Div,
+}
+impl ProvisionalQuaternionArithmeticOperation {
+    #[must_use]
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::Add => "add",
+            Self::Sub => "sub",
+            Self::Mul => "mul",
+            Self::Div => "div",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ProvisionalQuaternionArithmeticStage {
+    ScaledComponent,
+    SquaredComponent,
+    ScaledNorm,
+    OutputComponent,
+    SignSelection,
+    CompositionProduct,
+    VectorRotationCrossProduct,
+    VectorRotationDoubleCrossProduct,
+    VectorRotationScale,
+    VectorRotationFinalAdd,
+    TransformTranslationAdd,
+    PointTranslationAdd,
+}
+impl ProvisionalQuaternionArithmeticStage {
+    #[must_use]
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::ScaledComponent => "scaled-component",
+            Self::SquaredComponent => "squared-component",
+            Self::ScaledNorm => "scaled-norm",
+            Self::OutputComponent => "output-component",
+            Self::SignSelection => "sign-selection",
+            Self::CompositionProduct => "composition-product",
+            Self::VectorRotationCrossProduct => "vector-rotation-cross-product",
+            Self::VectorRotationDoubleCrossProduct => "vector-rotation-double-cross-product",
+            Self::VectorRotationScale => "vector-rotation-scale",
+            Self::VectorRotationFinalAdd => "vector-rotation-final-add",
+            Self::TransformTranslationAdd => "transform-translation-add",
+            Self::PointTranslationAdd => "point-translation-add",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ProvisionalQuaternionArithmeticOperand {
+    Left,
+    Right,
+}
+impl ProvisionalQuaternionArithmeticOperand {
+    #[must_use]
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::Left => "left",
+            Self::Right => "right",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, serde::Serialize)]
+#[serde(tag = "kind", rename_all = "kebab-case")]
+pub enum ProvisionalQuaternionArithmeticFailure {
+    ProviderUnavailable {
+        operation: ProvisionalQuaternionArithmeticOperation,
+        stage: ProvisionalQuaternionArithmeticStage,
+        index: Option<usize>,
+    },
+    ProviderFailed {
+        operation: ProvisionalQuaternionArithmeticOperation,
+        stage: ProvisionalQuaternionArithmeticStage,
+        index: Option<usize>,
+    },
+    NonFiniteOperand {
+        operation: ProvisionalQuaternionArithmeticOperation,
+        stage: ProvisionalQuaternionArithmeticStage,
+        index: Option<usize>,
+        operand: ProvisionalQuaternionArithmeticOperand,
+    },
+    NonFiniteOutput {
+        operation: ProvisionalQuaternionArithmeticOperation,
+        stage: ProvisionalQuaternionArithmeticStage,
+        index: Option<usize>,
+        #[serde(skip_serializing)]
+        bits: u64,
+    },
+    ZeroScaledNorm,
+    ZeroOutput,
+}
+impl ProvisionalQuaternionArithmeticFailure {
+    #[must_use]
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::ProviderUnavailable { .. } => "provider-unavailable",
+            Self::ProviderFailed { .. } => "provider-failed",
+            Self::NonFiniteOperand { .. } => "non-finite-operand",
+            Self::NonFiniteOutput { .. } => "non-finite-output",
+            Self::ZeroScaledNorm => "zero-scaled-norm",
+            Self::ZeroOutput => "zero-output",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ProvisionalQuaternionGateStage {
+    Input,
+    ScaledNorm,
+    Output,
+}
+impl ProvisionalQuaternionGateStage {
+    #[must_use]
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::Input => "input",
+            Self::ScaledNorm => "scaled-norm",
+            Self::Output => "output",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, serde::Serialize)]
+#[serde(tag = "kind", content = "context", rename_all = "kebab-case")]
+pub enum ProvisionalQuaternionFailure {
+    MalformedInput(ProvisionalQuaternionMalformedInput),
+    Arithmetic(ProvisionalQuaternionArithmeticFailure),
+    GateRejected {
+        stage: ProvisionalQuaternionGateStage,
+    },
+    SqrtUnavailable,
+    SqrtFailed,
+    InvalidSqrtOutput {
+        #[serde(skip_serializing)]
+        bits: u64,
+    },
+}
+impl ProvisionalQuaternionFailure {
+    #[must_use]
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::MalformedInput(error) => error.code(),
+            Self::Arithmetic(error) => error.code(),
+            Self::GateRejected { .. } => "gate-rejected",
+            Self::SqrtUnavailable => "sqrt-unavailable",
+            Self::SqrtFailed => "sqrt-failed",
+            Self::InvalidSqrtOutput { .. } => "invalid-sqrt-output",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize)]
+#[serde(tag = "kind", rename_all = "kebab-case")]
+pub enum ProvisionalMemberSkipCause {
+    FrameValueUnitScaling {
+        location: ProvisionalMemberValueLocation,
+        failure: ProvisionalUnitScalingFailure,
+    },
+    FrameValueQuaternion {
+        location: ProvisionalMemberValueLocation,
+        failure: ProvisionalQuaternionFailure,
+    },
+    PlacementMemberMismatch {
+        member: ProvisionalMemberIdentity,
+        values_member: ProvisionalMemberIdentity,
+        role: ProvisionalMemberRole,
+        values_role: ProvisionalMemberRole,
+    },
+    PlacementRootInvariant {
+        address: Option<ProvisionalSemanticAddress>,
+    },
+    PlacementContainmentInvariant {
+        address: ProvisionalSemanticAddress,
+    },
+    PlacementReferenceInvariant {
+        address: ProvisionalSemanticAddress,
+        context: ProvisionalPlacementReferenceContext,
+    },
+    PlacementAttachmentInvariant {
+        address: ProvisionalSemanticAddress,
+    },
+    PlacementArithmetic {
+        address: ProvisionalSemanticAddress,
+        operation: ProvisionalPlacementOperation,
+        failure: ProvisionalQuaternionFailure,
+    },
+}
+impl ProvisionalMemberSkipCause {
+    #[must_use]
+    pub const fn code(&self) -> &'static str {
+        match self {
+            Self::FrameValueUnitScaling { .. } => {
+                "ck.provisional-r3-authored-conflict.frame-value.unit-scaling"
+            }
+            Self::FrameValueQuaternion { .. } => {
+                "ck.provisional-r3-authored-conflict.frame-value.quaternion"
+            }
+            Self::PlacementMemberMismatch { .. } => {
+                "ck.provisional-r3-authored-conflict.placement.member-mismatch"
+            }
+            Self::PlacementRootInvariant { .. } => {
+                "ck.provisional-r3-authored-conflict.placement.root-invariant"
+            }
+            Self::PlacementContainmentInvariant { .. } => {
+                "ck.provisional-r3-authored-conflict.placement.containment-invariant"
+            }
+            Self::PlacementReferenceInvariant { .. } => {
+                "ck.provisional-r3-authored-conflict.placement.reference-invariant"
+            }
+            Self::PlacementAttachmentInvariant { .. } => {
+                "ck.provisional-r3-authored-conflict.placement.attachment-invariant"
+            }
+            Self::PlacementArithmetic { .. } => {
+                "ck.provisional-r3-authored-conflict.placement.arithmetic"
+            }
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ProvisionalInvalidProfileFailure {
+    NonFinite,
+    Negative,
+    NonzeroUnderflow,
+}
+impl ProvisionalInvalidProfileFailure {
+    #[must_use]
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::NonFinite => "non-finite",
+            Self::Negative => "negative",
+            Self::NonzeroUnderflow => "nonzero-underflow",
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ProvisionalNumericArithmeticFailure {
+    NonFinite,
+    TemporaryLimitExceeded,
+    ExponentOverflow,
+    ShiftOverflow,
+}
+impl ProvisionalNumericArithmeticFailure {
+    #[must_use]
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::NonFinite => "non-finite",
+            Self::TemporaryLimitExceeded => "temporary-limit-exceeded",
+            Self::ExponentOverflow => "exponent-overflow",
+            Self::ShiftOverflow => "shift-overflow",
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, serde::Serialize)]
+#[serde(tag = "kind", rename_all = "kebab-case")]
+pub enum ProvisionalNumericSkipCause {
+    InvalidProfile {
+        field: ProvisionalToleranceField,
+        failure: ProvisionalInvalidProfileFailure,
+    },
+    ExactArithmetic {
+        failure: ProvisionalNumericArithmeticFailure,
+    },
+}
+impl ProvisionalNumericSkipCause {
+    #[must_use]
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::InvalidProfile { .. } => {
+                "ck.provisional-r3-authored-conflict.numeric-comparison.invalid-profile"
+            }
+            Self::ExactArithmetic { .. } => {
+                "ck.provisional-r3-authored-conflict.numeric-comparison.exact-arithmetic"
+            }
+        }
+    }
 }
 
 /// An exact finite canonical rigid transform.
@@ -123,6 +542,7 @@ pub struct ProvisionalNumericSkip {
     pub component: ProvisionalComparisonComponent,
     /// Stable component code.
     pub code: &'static str,
+    pub cause: ProvisionalNumericSkipCause,
     /// Human-readable supplemental context.
     pub detail: String,
 }
@@ -155,8 +575,34 @@ pub struct ProvisionalAttachmentProvenance {
     pub mating_owner: ProvisionalSemanticAddress,
     /// Canonical Attachment offset.
     pub offset: ProvisionalRigidTransform,
+    /// Canonical host Socket local transform.
+    pub host_socket_local: ProvisionalRigidTransform,
+    /// Canonical mating Socket local transform.
+    pub mating_socket_local: ProvisionalRigidTransform,
     /// Root-first path to mating owner.
     pub root_to_mating_owner_path: Vec<ProvisionalSemanticAddress>,
+    /// Ordered non-root Part locals used by the containment fold.
+    pub root_to_mating_owner_part_locals: Vec<ProvisionalAttachmentPlacementPartLocal>,
+    /// Ordered successfully executed Attachment-equation steps.
+    pub equation_steps: Vec<ProvisionalAttachmentPlacementEquationStep>,
+}
+
+/// One Part local retained as an input to the root-to-mating-owner fold.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProvisionalAttachmentPlacementPartLocal {
+    /// Part address.
+    pub address: ProvisionalSemanticAddress,
+    /// Canonical Part local transform.
+    pub local: ProvisionalRigidTransform,
+}
+
+/// One successfully executed Attachment-equation operation and its output.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProvisionalAttachmentPlacementEquationStep {
+    /// Operation executed at this equation step.
+    pub operation: ProvisionalPlacementOperation,
+    /// Canonical transform output by this equation step.
+    pub output: ProvisionalRigidTransform,
 }
 
 /// One compared Attachment with both candidate transforms.
@@ -199,6 +645,7 @@ impl ProvisionalMemberSkipCode {
 pub struct ProvisionalMemberSkip {
     /// Stable aggregate skip class.
     pub code: &'static str,
+    pub cause: ProvisionalMemberSkipCause,
     /// Supplemental display detail.
     pub detail: String,
 }
@@ -261,7 +708,8 @@ impl ProvisionalAuthoredConflictErrorCode {
 }
 
 /// Which explicit tolerance entry failed.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum ProvisionalToleranceField {
     /// Translation absolute A.
     TranslationAbsolute,
@@ -269,6 +717,16 @@ pub enum ProvisionalToleranceField {
     TranslationRelative,
     /// Rotation half-chord H.
     RotationHalfChord,
+}
+impl ProvisionalToleranceField {
+    #[must_use]
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::TranslationAbsolute => "translation-absolute",
+            Self::TranslationRelative => "translation-relative",
+            Self::RotationHalfChord => "rotation-half-chord",
+        }
+    }
 }
 
 /// Typed explicit-tolerance failure.
@@ -279,7 +737,27 @@ pub enum ProvisionalToleranceError {
     /// Negative entry.
     Negative { field: ProvisionalToleranceField },
     /// Exact admission arithmetic failed.
-    ExactArithmetic(NumericComparisonError),
+    ExactArithmetic(ProvisionalNumericArithmeticFailure),
+}
+
+impl ProvisionalToleranceError {
+    /// Project the top-level tolerance failure into the shared numeric cause.
+    #[must_use]
+    pub const fn numeric_cause(self) -> ProvisionalNumericSkipCause {
+        match self {
+            Self::NonFinite { field } => ProvisionalNumericSkipCause::InvalidProfile {
+                field,
+                failure: ProvisionalInvalidProfileFailure::NonFinite,
+            },
+            Self::Negative { field } => ProvisionalNumericSkipCause::InvalidProfile {
+                field,
+                failure: ProvisionalInvalidProfileFailure::Negative,
+            },
+            Self::ExactArithmetic(failure) => {
+                ProvisionalNumericSkipCause::ExactArithmetic { failure }
+            }
+        }
+    }
 }
 
 impl fmt::Display for ProvisionalToleranceError {
@@ -287,8 +765,19 @@ impl fmt::Display for ProvisionalToleranceError {
         match self {
             Self::NonFinite { field } => write!(formatter, "non-finite tolerance {field:?}"),
             Self::Negative { field } => write!(formatter, "negative tolerance {field:?}"),
-            Self::ExactArithmetic(error) => error.fmt(formatter),
+            Self::ExactArithmetic(error) => write!(formatter, "exact arithmetic failure: {error}"),
         }
+    }
+}
+
+impl fmt::Display for ProvisionalNumericArithmeticFailure {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(match self {
+            Self::NonFinite => "binary64 value is not finite",
+            Self::TemporaryLimitExceeded => "exact arithmetic temporary exceeds the internal bound",
+            Self::ExponentOverflow => "exact arithmetic exponent overflowed",
+            Self::ShiftOverflow => "exact arithmetic shift is not representable",
+        })
     }
 }
 
@@ -477,9 +966,24 @@ fn map_tolerance_error(error: NumericComparisonError) -> ProvisionalToleranceErr
             }
         }
         NumericComparisonError::ExactArithmetic(error) => {
-            ProvisionalToleranceError::ExactArithmetic(NumericComparisonError::ExactArithmetic(
-                error,
-            ))
+            ProvisionalToleranceError::ExactArithmetic(convert_numeric_arithmetic_failure(error))
+        }
+    }
+}
+
+const fn convert_numeric_arithmetic_failure(
+    error: NumericArithmeticFailure,
+) -> ProvisionalNumericArithmeticFailure {
+    match error {
+        NumericArithmeticFailure::NonFinite => ProvisionalNumericArithmeticFailure::NonFinite,
+        NumericArithmeticFailure::TemporaryLimitExceeded => {
+            ProvisionalNumericArithmeticFailure::TemporaryLimitExceeded
+        }
+        NumericArithmeticFailure::ExponentOverflow => {
+            ProvisionalNumericArithmeticFailure::ExponentOverflow
+        }
+        NumericArithmeticFailure::ShiftOverflow => {
+            ProvisionalNumericArithmeticFailure::ShiftOverflow
         }
     }
 }
@@ -489,6 +993,413 @@ const fn map_tolerance_field(field: ToleranceField) -> ProvisionalToleranceField
         ToleranceField::Absolute => ProvisionalToleranceField::TranslationAbsolute,
         ToleranceField::Relative => ProvisionalToleranceField::TranslationRelative,
         ToleranceField::QuaternionHalfChord => ProvisionalToleranceField::RotationHalfChord,
+    }
+}
+fn convert_frame_value_cause(
+    error: &CanonicalMemberFrameValuesError,
+) -> ProvisionalMemberSkipCause {
+    match error {
+        CanonicalMemberFrameValuesError::UnitScaling { location, error } => {
+            ProvisionalMemberSkipCause::FrameValueUnitScaling {
+                location: convert_value_location(location),
+                failure: convert_unit_scaling_failure(*error),
+            }
+        }
+        CanonicalMemberFrameValuesError::QuaternionNormalization { location, error } => {
+            ProvisionalMemberSkipCause::FrameValueQuaternion {
+                location: convert_value_location(location),
+                failure: convert_quaternion_failure(*error),
+            }
+        }
+    }
+}
+fn convert_placement_cause(error: &CanonicalMemberPlacementError) -> ProvisionalMemberSkipCause {
+    match error {
+        CanonicalMemberPlacementError::MemberMismatch {
+            member,
+            values_member,
+            role,
+            values_role,
+        } => ProvisionalMemberSkipCause::PlacementMemberMismatch {
+            member: convert_member_key(member),
+            values_member: convert_member_key(values_member),
+            role: convert_member_role(*role),
+            values_role: convert_member_role(*values_role),
+        },
+        CanonicalMemberPlacementError::RootInvariant { address, .. } => {
+            ProvisionalMemberSkipCause::PlacementRootInvariant {
+                address: address.as_ref().map(convert_address),
+            }
+        }
+        CanonicalMemberPlacementError::ContainmentInvariant { address, .. } => {
+            ProvisionalMemberSkipCause::PlacementContainmentInvariant {
+                address: convert_address(address),
+            }
+        }
+        CanonicalMemberPlacementError::ReferenceInvariant {
+            address, context, ..
+        } => ProvisionalMemberSkipCause::PlacementReferenceInvariant {
+            address: convert_address(address),
+            context: convert_reference_context(*context),
+        },
+        CanonicalMemberPlacementError::AttachmentInvariant { address, .. } => {
+            ProvisionalMemberSkipCause::PlacementAttachmentInvariant {
+                address: convert_address(address),
+            }
+        }
+        CanonicalMemberPlacementError::Arithmetic {
+            address,
+            context,
+            error,
+        } => ProvisionalMemberSkipCause::PlacementArithmetic {
+            address: convert_address(address),
+            operation: convert_placement_operation(*context),
+            failure: convert_quaternion_failure(*error),
+        },
+    }
+}
+
+const fn convert_quaternion_failure(
+    error: QuaternionNormalizationError,
+) -> ProvisionalQuaternionFailure {
+    match error {
+        QuaternionNormalizationError::MalformedInput(error) => {
+            ProvisionalQuaternionFailure::MalformedInput(convert_quaternion_malformed_input(error))
+        }
+        QuaternionNormalizationError::Arithmetic(error) => {
+            ProvisionalQuaternionFailure::Arithmetic(convert_quaternion_arithmetic_failure(error))
+        }
+        QuaternionNormalizationError::GateRejected {
+            stage,
+            rejection: _,
+        } => ProvisionalQuaternionFailure::GateRejected {
+            stage: convert_quaternion_gate_stage(stage),
+        },
+        QuaternionNormalizationError::SqrtUnavailable => {
+            ProvisionalQuaternionFailure::SqrtUnavailable
+        }
+        QuaternionNormalizationError::SqrtFailed(_) => ProvisionalQuaternionFailure::SqrtFailed,
+        QuaternionNormalizationError::InvalidSqrtOutput { bits } => {
+            ProvisionalQuaternionFailure::InvalidSqrtOutput { bits }
+        }
+    }
+}
+
+const fn convert_quaternion_malformed_input(
+    error: MalformedQuaternionInput,
+) -> ProvisionalQuaternionMalformedInput {
+    match error {
+        MalformedQuaternionInput::NonFiniteComponent { index } => {
+            ProvisionalQuaternionMalformedInput::NonFiniteComponent { index }
+        }
+        MalformedQuaternionInput::ZeroQuaternion => {
+            ProvisionalQuaternionMalformedInput::ZeroQuaternion
+        }
+    }
+}
+
+const fn convert_quaternion_arithmetic_failure(
+    error: QuaternionArithmeticError,
+) -> ProvisionalQuaternionArithmeticFailure {
+    match error {
+        QuaternionArithmeticError::ProviderUnavailable {
+            operation,
+            stage,
+            index,
+        } => ProvisionalQuaternionArithmeticFailure::ProviderUnavailable {
+            operation: convert_quaternion_arithmetic_operation(operation),
+            stage: convert_quaternion_arithmetic_stage(stage),
+            index,
+        },
+        QuaternionArithmeticError::ProviderFailed {
+            operation,
+            stage,
+            index,
+            failure: _,
+        } => ProvisionalQuaternionArithmeticFailure::ProviderFailed {
+            operation: convert_quaternion_arithmetic_operation(operation),
+            stage: convert_quaternion_arithmetic_stage(stage),
+            index,
+        },
+        QuaternionArithmeticError::NonFiniteOperand {
+            operation,
+            stage,
+            index,
+            operand,
+        } => ProvisionalQuaternionArithmeticFailure::NonFiniteOperand {
+            operation: convert_quaternion_arithmetic_operation(operation),
+            stage: convert_quaternion_arithmetic_stage(stage),
+            index,
+            operand: convert_quaternion_arithmetic_operand(operand),
+        },
+        QuaternionArithmeticError::NonFiniteOutput {
+            operation,
+            stage,
+            index,
+            bits,
+        } => ProvisionalQuaternionArithmeticFailure::NonFiniteOutput {
+            operation: convert_quaternion_arithmetic_operation(operation),
+            stage: convert_quaternion_arithmetic_stage(stage),
+            index,
+            bits,
+        },
+        QuaternionArithmeticError::ZeroScaledNorm => {
+            ProvisionalQuaternionArithmeticFailure::ZeroScaledNorm
+        }
+        QuaternionArithmeticError::ZeroOutput => ProvisionalQuaternionArithmeticFailure::ZeroOutput,
+    }
+}
+
+const fn convert_quaternion_arithmetic_operation(
+    operation: QuaternionArithmeticOperation,
+) -> ProvisionalQuaternionArithmeticOperation {
+    match operation {
+        QuaternionArithmeticOperation::Add => ProvisionalQuaternionArithmeticOperation::Add,
+        QuaternionArithmeticOperation::Sub => ProvisionalQuaternionArithmeticOperation::Sub,
+        QuaternionArithmeticOperation::Mul => ProvisionalQuaternionArithmeticOperation::Mul,
+        QuaternionArithmeticOperation::Div => ProvisionalQuaternionArithmeticOperation::Div,
+    }
+}
+
+const fn convert_quaternion_arithmetic_stage(
+    stage: QuaternionArithmeticStage,
+) -> ProvisionalQuaternionArithmeticStage {
+    match stage {
+        QuaternionArithmeticStage::ScaledComponent => {
+            ProvisionalQuaternionArithmeticStage::ScaledComponent
+        }
+        QuaternionArithmeticStage::SquaredComponent => {
+            ProvisionalQuaternionArithmeticStage::SquaredComponent
+        }
+        QuaternionArithmeticStage::ScaledNorm => ProvisionalQuaternionArithmeticStage::ScaledNorm,
+        QuaternionArithmeticStage::OutputComponent => {
+            ProvisionalQuaternionArithmeticStage::OutputComponent
+        }
+        QuaternionArithmeticStage::SignSelection => {
+            ProvisionalQuaternionArithmeticStage::SignSelection
+        }
+        QuaternionArithmeticStage::CompositionProduct => {
+            ProvisionalQuaternionArithmeticStage::CompositionProduct
+        }
+        QuaternionArithmeticStage::VectorRotationCrossProduct => {
+            ProvisionalQuaternionArithmeticStage::VectorRotationCrossProduct
+        }
+        QuaternionArithmeticStage::VectorRotationDoubleCrossProduct => {
+            ProvisionalQuaternionArithmeticStage::VectorRotationDoubleCrossProduct
+        }
+        QuaternionArithmeticStage::VectorRotationScale => {
+            ProvisionalQuaternionArithmeticStage::VectorRotationScale
+        }
+        QuaternionArithmeticStage::VectorRotationFinalAdd => {
+            ProvisionalQuaternionArithmeticStage::VectorRotationFinalAdd
+        }
+        QuaternionArithmeticStage::TransformTranslationAdd => {
+            ProvisionalQuaternionArithmeticStage::TransformTranslationAdd
+        }
+        QuaternionArithmeticStage::PointTranslationAdd => {
+            ProvisionalQuaternionArithmeticStage::PointTranslationAdd
+        }
+    }
+}
+
+const fn convert_quaternion_arithmetic_operand(
+    operand: Binary64Operand,
+) -> ProvisionalQuaternionArithmeticOperand {
+    match operand {
+        Binary64Operand::Left => ProvisionalQuaternionArithmeticOperand::Left,
+        Binary64Operand::Right => ProvisionalQuaternionArithmeticOperand::Right,
+    }
+}
+
+const fn convert_quaternion_gate_stage(
+    stage: QuaternionGateStage,
+) -> ProvisionalQuaternionGateStage {
+    match stage {
+        QuaternionGateStage::Input => ProvisionalQuaternionGateStage::Input,
+        QuaternionGateStage::ScaledNorm => ProvisionalQuaternionGateStage::ScaledNorm,
+        QuaternionGateStage::Output => ProvisionalQuaternionGateStage::Output,
+    }
+}
+
+fn convert_numeric_cause(error: &NumericComparisonError) -> ProvisionalNumericSkipCause {
+    match error {
+        NumericComparisonError::InvalidProfileEntry(error) => match error {
+            InvalidProfileEntry::NonFinite { field } => {
+                ProvisionalNumericSkipCause::InvalidProfile {
+                    field: map_tolerance_field(*field),
+                    failure: ProvisionalInvalidProfileFailure::NonFinite,
+                }
+            }
+            InvalidProfileEntry::Negative { field } => {
+                ProvisionalNumericSkipCause::InvalidProfile {
+                    field: map_tolerance_field(*field),
+                    failure: ProvisionalInvalidProfileFailure::Negative,
+                }
+            }
+        },
+        NumericComparisonError::ExactArithmetic(error) => {
+            ProvisionalNumericSkipCause::ExactArithmetic {
+                failure: match error {
+                    NumericArithmeticFailure::NonFinite => {
+                        ProvisionalNumericArithmeticFailure::NonFinite
+                    }
+                    NumericArithmeticFailure::TemporaryLimitExceeded => {
+                        ProvisionalNumericArithmeticFailure::TemporaryLimitExceeded
+                    }
+                    NumericArithmeticFailure::ExponentOverflow => {
+                        ProvisionalNumericArithmeticFailure::ExponentOverflow
+                    }
+                    NumericArithmeticFailure::ShiftOverflow => {
+                        ProvisionalNumericArithmeticFailure::ShiftOverflow
+                    }
+                },
+            }
+        }
+    }
+}
+fn convert_value_location(
+    location: &CanonicalMemberValueLocation,
+) -> ProvisionalMemberValueLocation {
+    ProvisionalMemberValueLocation {
+        member: convert_member_key(location.member()),
+        role: convert_member_role(location.role()),
+        slot: convert_value_slot(location.slot()),
+    }
+}
+fn convert_value_slot(slot: &CanonicalMemberValueSlot) -> ProvisionalMemberValueSlot {
+    match slot {
+        CanonicalMemberValueSlot::PartPlacement { address, component } => {
+            ProvisionalMemberValueSlot::PartPlacement {
+                address: convert_address(address),
+                component: convert_transform_component(*component),
+            }
+        }
+        CanonicalMemberValueSlot::JointProximal { address, component } => {
+            ProvisionalMemberValueSlot::JointProximal {
+                address: convert_address(address),
+                component: convert_transform_component(*component),
+            }
+        }
+        CanonicalMemberValueSlot::JointDistal { address, component } => {
+            ProvisionalMemberValueSlot::JointDistal {
+                address: convert_address(address),
+                component: convert_transform_component(*component),
+            }
+        }
+        CanonicalMemberValueSlot::SocketInterface { address, component } => {
+            ProvisionalMemberValueSlot::SocketInterface {
+                address: convert_address(address),
+                component: convert_transform_component(*component),
+            }
+        }
+        CanonicalMemberValueSlot::AttachmentOffset { address, component } => {
+            ProvisionalMemberValueSlot::AttachmentOffset {
+                address: convert_address(address),
+                component: convert_transform_component(*component),
+            }
+        }
+        CanonicalMemberValueSlot::LandmarkPosition {
+            owner_role,
+            component,
+        } => ProvisionalMemberValueSlot::LandmarkPosition {
+            owner_role: convert_owner_role(owner_role),
+            component: convert_position_component(*component),
+        },
+        CanonicalMemberValueSlot::DimensionValue { owner_role } => {
+            ProvisionalMemberValueSlot::DimensionValue {
+                owner_role: convert_owner_role(owner_role),
+            }
+        }
+        CanonicalMemberValueSlot::NamedFrame {
+            owner_role,
+            component,
+        } => ProvisionalMemberValueSlot::NamedFrame {
+            owner_role: convert_owner_role(owner_role),
+            component: convert_transform_component(*component),
+        },
+    }
+}
+const fn convert_transform_component(
+    component: CanonicalTransformComponent,
+) -> ProvisionalTransformComponent {
+    match component {
+        CanonicalTransformComponent::TranslationX => ProvisionalTransformComponent::TranslationX,
+        CanonicalTransformComponent::TranslationY => ProvisionalTransformComponent::TranslationY,
+        CanonicalTransformComponent::TranslationZ => ProvisionalTransformComponent::TranslationZ,
+        CanonicalTransformComponent::Rotation => ProvisionalTransformComponent::Rotation,
+    }
+}
+const fn convert_position_component(component: PositionComponent) -> ProvisionalPositionComponent {
+    match component {
+        PositionComponent::X => ProvisionalPositionComponent::X,
+        PositionComponent::Y => ProvisionalPositionComponent::Y,
+        PositionComponent::Z => ProvisionalPositionComponent::Z,
+    }
+}
+const fn convert_placement_operation(
+    operation: CanonicalMemberPlacementOperation,
+) -> ProvisionalPlacementOperation {
+    match operation {
+        CanonicalMemberPlacementOperation::PartContainment => {
+            ProvisionalPlacementOperation::PartContainment
+        }
+        CanonicalMemberPlacementOperation::AttachmentContainment => {
+            ProvisionalPlacementOperation::AttachmentContainment
+        }
+        CanonicalMemberPlacementOperation::AttachmentMatingSocket => {
+            ProvisionalPlacementOperation::AttachmentMatingSocket
+        }
+        CanonicalMemberPlacementOperation::AttachmentHostOffset => {
+            ProvisionalPlacementOperation::AttachmentHostOffset
+        }
+        CanonicalMemberPlacementOperation::AttachmentInverse => {
+            ProvisionalPlacementOperation::AttachmentInverse
+        }
+        CanonicalMemberPlacementOperation::AttachmentEquation => {
+            ProvisionalPlacementOperation::AttachmentEquation
+        }
+    }
+}
+const fn convert_reference_context(
+    context: CanonicalMemberPlacementReferenceContext,
+) -> ProvisionalPlacementReferenceContext {
+    match context {
+        CanonicalMemberPlacementReferenceContext::Part => {
+            ProvisionalPlacementReferenceContext::Part
+        }
+        CanonicalMemberPlacementReferenceContext::Socket => {
+            ProvisionalPlacementReferenceContext::Socket
+        }
+        CanonicalMemberPlacementReferenceContext::Containment => {
+            ProvisionalPlacementReferenceContext::Containment
+        }
+        CanonicalMemberPlacementReferenceContext::HostSocket => {
+            ProvisionalPlacementReferenceContext::HostSocket
+        }
+        CanonicalMemberPlacementReferenceContext::MatingSocket => {
+            ProvisionalPlacementReferenceContext::MatingSocket
+        }
+        CanonicalMemberPlacementReferenceContext::AttachmentOffset => {
+            ProvisionalPlacementReferenceContext::AttachmentOffset
+        }
+        CanonicalMemberPlacementReferenceContext::ModuleRoot => {
+            ProvisionalPlacementReferenceContext::ModuleRoot
+        }
+    }
+}
+const fn convert_unit_scaling_failure(error: UnitScalingError) -> ProvisionalUnitScalingFailure {
+    match error {
+        UnitScalingError::InvalidRatio => ProvisionalUnitScalingFailure::InvalidRatio,
+        UnitScalingError::NonFinite => ProvisionalUnitScalingFailure::NonFinite,
+        UnitScalingError::ResourceLimit => ProvisionalUnitScalingFailure::ResourceLimit,
+        UnitScalingError::Overflow => ProvisionalUnitScalingFailure::Overflow,
+        UnitScalingError::NonzeroUnderflow => ProvisionalUnitScalingFailure::NonzeroUnderflow,
+    }
+}
+fn convert_owner_role(key: &OwnerRoleKey) -> ProvisionalOwnerRole {
+    ProvisionalOwnerRole {
+        owner: convert_address(key.owner()),
+        role: key.role().to_owned(),
     }
 }
 
@@ -506,12 +1417,14 @@ fn convert_observation(
                 CanonicalMemberPlacementComparisonOutcome::SkippedUpstreamCanonical(error) => {
                     ProvisionalMemberOutcome::Skipped(ProvisionalMemberSkip {
                         code: ProvisionalMemberSkipCode::UpstreamCanonical.code(),
+                        cause: convert_frame_value_cause(&error),
                         detail: error.to_string(),
                     })
                 }
                 CanonicalMemberPlacementComparisonOutcome::SkippedMemberPlacement(error) => {
                     ProvisionalMemberOutcome::Skipped(ProvisionalMemberSkip {
                         code: ProvisionalMemberSkipCode::MemberPlacement.code(),
+                        cause: convert_placement_cause(&error),
                         detail: error.to_string(),
                     })
                 }
@@ -544,6 +1457,7 @@ fn convert_attachment(
             ProvisionalAttachmentOutcome::Skipped(ProvisionalNumericSkip {
                 component,
                 code: component.code(),
+                cause: convert_numeric_cause(error.error()),
                 detail: error.error().to_string(),
             })
         }
@@ -567,10 +1481,28 @@ fn convert_provenance(
         host_owner: convert_address(provenance.host_owner()),
         mating_owner: convert_address(provenance.mating_owner()),
         offset: convert_transform(provenance.offset()),
+        host_socket_local: convert_transform(provenance.host_socket_local()),
+        mating_socket_local: convert_transform(provenance.mating_socket_local()),
         root_to_mating_owner_path: provenance
             .root_to_mating_owner_path()
             .iter()
             .map(convert_address)
+            .collect(),
+        root_to_mating_owner_part_locals: provenance
+            .root_to_mating_owner_part_locals()
+            .iter()
+            .map(|part| ProvisionalAttachmentPlacementPartLocal {
+                address: convert_address(part.address()),
+                local: convert_transform(part.local()),
+            })
+            .collect(),
+        equation_steps: provenance
+            .equation_steps()
+            .iter()
+            .map(|step| ProvisionalAttachmentPlacementEquationStep {
+                operation: convert_placement_operation(step.operation()),
+                output: convert_transform(step.output()),
+            })
             .collect(),
     }
 }
@@ -693,6 +1625,22 @@ mod tests {
             ProvisionalAttachmentOutcome::Agree
         ));
         assert!(!attachments[0].provenance.attachment.role.is_empty());
+        let provenance = &attachments[0].provenance;
+        assert_eq!(
+            provenance
+                .host_socket_local
+                .translation
+                .map(|value| value.as_f64()),
+            [0.0, 0.0, -1.0]
+        );
+        assert_eq!(
+            provenance
+                .mating_socket_local
+                .translation
+                .map(|value| value.as_f64()),
+            [0.0, 0.0, 0.0]
+        );
+        assert!(provenance.root_to_mating_owner_part_locals.is_empty());
         assert_eq!(
             attachments[0].authored_root_local,
             attachments[0].derived_root_local
@@ -821,6 +1769,35 @@ mod tests {
             skip.code,
             ProvisionalMemberSkipCode::UpstreamCanonical.code()
         );
+        assert_eq!(
+            skip.cause.code(),
+            "ck.provisional-r3-authored-conflict.frame-value.quaternion"
+        );
+        let ProvisionalMemberSkipCause::FrameValueQuaternion { location, failure } = &skip.cause
+        else {
+            panic!("expected quaternion failure cause")
+        };
+        assert_eq!(location.member.document, "stylized_digitigrade_biped");
+        assert_eq!(location.role, ProvisionalMemberRole::Root);
+        assert!(matches!(
+            &location.slot,
+            ProvisionalMemberValueSlot::PartPlacement { address, component: ProvisionalTransformComponent::Rotation }
+                if address.namespace == "main" && address.role == "head"
+        ));
+        let ProvisionalQuaternionFailure::Arithmetic(
+            ProvisionalQuaternionArithmeticFailure::ProviderUnavailable {
+                operation,
+                stage,
+                index,
+            },
+        ) = failure
+        else {
+            panic!("expected unavailable arithmetic failure")
+        };
+        assert_eq!(failure.code(), "provider-unavailable");
+        assert_eq!(operation.code(), "div");
+        assert_eq!(stage.code(), "scaled-component");
+        assert_eq!(*index, Some(0));
 
         struct RejectGate;
         impl QuaternionNormalizationGate for RejectGate {
@@ -850,5 +1827,22 @@ mod tests {
             skip.code,
             ProvisionalMemberSkipCode::UpstreamCanonical.code()
         );
+        assert_eq!(
+            skip.cause.code(),
+            "ck.provisional-r3-authored-conflict.frame-value.quaternion"
+        );
+        let ProvisionalMemberSkipCause::FrameValueQuaternion { failure, .. } = &skip.cause else {
+            panic!("expected quaternion failure cause")
+        };
+        assert_eq!(failure.code(), "gate-rejected");
+        assert!(matches!(
+            failure,
+            ProvisionalQuaternionFailure::GateRejected {
+                stage: ProvisionalQuaternionGateStage::Input
+            }
+        ));
+        if let ProvisionalQuaternionFailure::GateRejected { stage } = failure {
+            assert_eq!(stage.code(), "input");
+        }
     }
 }

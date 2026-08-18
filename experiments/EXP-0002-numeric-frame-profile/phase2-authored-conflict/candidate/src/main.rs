@@ -66,6 +66,8 @@ struct Response {
     error: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     detail: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    cause: Option<json::Value>,
 }
 
 fn main() -> io::Result<()> {
@@ -384,18 +386,27 @@ fn dispatch_request(request: Request) -> Response {
         return resource_response(Some(request.request_id), "source-bytes");
     }
 
-    let translation_absolute =
-        match admit_request_tolerance(&request.request_id, &request.translation_absolute) {
+    let translation_absolute = match admit_request_tolerance(
+        &request.request_id,
+        &request.translation_absolute,
+        bridge::ProvisionalToleranceField::TranslationAbsolute,
+    ) {
             Ok(value) => value,
             Err(response) => return response,
         };
-    let translation_relative =
-        match admit_request_tolerance(&request.request_id, &request.translation_relative) {
+    let translation_relative = match admit_request_tolerance(
+        &request.request_id,
+        &request.translation_relative,
+        bridge::ProvisionalToleranceField::TranslationRelative,
+    ) {
             Ok(value) => value,
             Err(response) => return response,
         };
-    let rotation_half_chord =
-        match admit_request_tolerance(&request.request_id, &request.rotation_half_chord) {
+    let rotation_half_chord = match admit_request_tolerance(
+        &request.request_id,
+        &request.rotation_half_chord,
+        bridge::ProvisionalToleranceField::RotationHalfChord,
+    ) {
             Ok(value) => value,
             Err(response) => return response,
         };
@@ -426,7 +437,16 @@ fn dispatch_request(request: Request) -> Response {
             request_id,
             observation_value(observation, &request, tolerances),
         ),
-        Err(error) => rejected_response(request_id, error.code(), Some(error.to_string())),
+        Err(error) => {
+            let cause = match &error {
+                bridge::ProvisionalAuthoredConflictError::InvalidTolerance(error) => {
+                    let cause = error.numeric_cause();
+                    Some(cause_value(cause.code(), &cause))
+                }
+                _ => None,
+            };
+            rejected_response_with_cause(request_id, error.code(), Some(error.to_string()), cause)
+        }
     }
 }
 
@@ -440,7 +460,11 @@ enum ToleranceNumberError {
     NonzeroUnderflow { lexeme: String },
 }
 
-fn admit_request_tolerance(request_id: &str, value: &json::Value) -> Result<f64, Response> {
+fn admit_request_tolerance(
+    request_id: &str,
+    value: &json::Value,
+    field: bridge::ProvisionalToleranceField,
+) -> Result<f64, Response> {
     match tolerance_number(value) {
         Ok(value) => Ok(value),
         Err(ToleranceNumberError::Malformed) => Err(error_response(
@@ -448,13 +472,20 @@ fn admit_request_tolerance(request_id: &str, value: &json::Value) -> Result<f64,
             "malformed-request",
             None,
         )),
-        Err(ToleranceNumberError::NonzeroUnderflow { lexeme }) => Err(rejected_response(
-            request_id.to_owned(),
-            INVALID_TOLERANCE_CODE,
-            Some(format!(
-                "nonzero decimal tolerance underflowed to binary64 zero: {lexeme}"
-            )),
-        )),
+        Err(ToleranceNumberError::NonzeroUnderflow { lexeme }) => {
+            let cause = bridge::ProvisionalNumericSkipCause::InvalidProfile {
+                field,
+                failure: bridge::ProvisionalInvalidProfileFailure::NonzeroUnderflow,
+            };
+            Err(rejected_response_with_cause(
+                request_id.to_owned(),
+                INVALID_TOLERANCE_CODE,
+                Some(format!(
+                    "nonzero decimal tolerance underflowed to binary64 zero: {lexeme}"
+                )),
+                Some(cause_value(cause.code(), &cause)),
+            ))
+        }
     }
 }
 
@@ -550,13 +581,16 @@ fn observation_value(
                 "outcome": "compared",
                 "attachments": attachments.into_iter().map(attachment_value).collect::<Vec<_>>(),
             }),
-            ProvisionalMemberOutcome::Skipped(skip) => json::json!({
-                "identity": identity_value(member.identity),
-                "role": role_name(member.role),
-                "outcome": "skipped",
-                "attachments": [],
-                "skip": {"code": skip.code, "detail": skip.detail},
-            }),
+            ProvisionalMemberOutcome::Skipped(skip) => {
+                let cause = cause_value(skip.cause.code(), &skip.cause);
+                json::json!({
+                    "identity": identity_value(member.identity),
+                    "role": role_name(member.role),
+                    "outcome": "skipped",
+                    "attachments": [],
+                    "skip": {"code": skip.code, "detail": skip.detail, "cause": cause},
+                })
+            }
         })
         .collect::<Vec<_>>();
     json::json!({
@@ -573,7 +607,7 @@ fn observation_value(
             "sqrt": {"selection": request.sqrt, "attestation": "unattested"},
             "environment": ENVIRONMENT,
         },
-        "detail": "provisional bridge observation; fine-grained causes and equation-step evidence are absent",
+        "detail": "provisional bridge observation; equation and typed cause evidence retained",
     })
 }
 
@@ -625,6 +659,24 @@ fn attachment_value(attachment: ProvisionalAttachmentComparison) -> json::Value 
             "root_to_mating_owner_path": attachment.provenance.root_to_mating_owner_path
                 .into_iter().map(address_value).collect::<Vec<_>>(),
         },
+        "equation": {
+            "host_socket_local": transform_value(attachment.provenance.host_socket_local),
+            "mating_socket_local": transform_value(attachment.provenance.mating_socket_local),
+            "root_to_mating_owner_part_locals": attachment.provenance.root_to_mating_owner_part_locals
+                .into_iter()
+                .map(|part| json::json!({
+                    "address": address_value(part.address),
+                    "local": transform_value(part.local),
+                }))
+                .collect::<Vec<_>>(),
+            "equation_steps": attachment.provenance.equation_steps
+                .into_iter()
+                .map(|step| json::json!({
+                    "operation": placement_operation_name(step.operation),
+                    "output": transform_value(step.output),
+                }))
+                .collect::<Vec<_>>(),
+        },
         "authored_root_local": transform_value(attachment.authored_root_local),
         "derived_root_local": transform_value(attachment.derived_root_local),
     });
@@ -643,6 +695,14 @@ fn attachment_value(attachment: ProvisionalAttachmentComparison) -> json::Value 
             );
         }
         ProvisionalAttachmentOutcome::Skipped(skip) => {
+            let mut cause = cause_value(skip.cause.code(), &skip.cause);
+            cause
+                .as_object_mut()
+                .expect("serialized numeric cause object")
+                .insert(
+                    "component".to_owned(),
+                    json::Value::String(component_name(skip.component).to_owned()),
+                );
             object.insert(
                 "outcome".to_owned(),
                 json::Value::String("skipped".to_owned()),
@@ -653,9 +713,54 @@ fn attachment_value(attachment: ProvisionalAttachmentComparison) -> json::Value 
             );
             object.insert("code".to_owned(), json::Value::String(skip.code.to_owned()));
             object.insert("detail".to_owned(), json::Value::String(skip.detail));
+            object.insert("cause".to_owned(), cause);
         }
     }
     value
+}
+
+/// Serialize an owned tagged cause, inject its full family code, and expose
+/// the leaf failure with its typed context as compact sibling fields.
+fn cause_value<T: Serialize>(code: &'static str, cause: &T) -> json::Value {
+    let mut value = json::to_value(cause).expect("owned cause vocabulary serializes");
+    let object = value
+        .as_object_mut()
+        .expect("owned cause vocabulary is a tagged object");
+    let variant = object.remove("kind");
+    match object.get("failure") {
+        Some(json::Value::String(_)) => {}
+        Some(json::Value::Object(_)) => {
+            let nested = object.remove("failure").expect("nested failure");
+            let mut nested = nested.as_object().expect("tagged failure object").clone();
+            let mut leaf = nested.remove("kind");
+            if let Some(context) = nested.remove("context") {
+                let mut context = context
+                    .as_object()
+                    .expect("tagged failure context object")
+                    .clone();
+                leaf = context.remove("kind").or(leaf);
+                object.extend(context);
+            }
+            object.insert("failure".to_owned(), leaf.expect("stable failure tag"));
+        }
+        None => {
+            object.insert("failure".to_owned(), variant.expect("stable cause tag"));
+        }
+        Some(_) => panic!("owned cause failure has an unexpected shape"),
+    }
+    object.insert("code".to_owned(), json::Value::String(code.to_owned()));
+    value
+}
+
+fn placement_operation_name(operation: bridge::ProvisionalPlacementOperation) -> &'static str {
+    match operation {
+        bridge::ProvisionalPlacementOperation::PartContainment => "part-containment",
+        bridge::ProvisionalPlacementOperation::AttachmentContainment => "attachment-containment",
+        bridge::ProvisionalPlacementOperation::AttachmentMatingSocket => "attachment-mating-socket",
+        bridge::ProvisionalPlacementOperation::AttachmentHostOffset => "attachment-host-offset",
+        bridge::ProvisionalPlacementOperation::AttachmentInverse => "attachment-inverse",
+        bridge::ProvisionalPlacementOperation::AttachmentEquation => "attachment-equation",
+    }
 }
 
 fn component_name(component: ProvisionalComparisonComponent) -> &'static str {
@@ -673,6 +778,7 @@ fn observed_response(request_id: String, observations: json::Value) -> Response 
         observations: Some(observations),
         error: None,
         detail: None,
+        cause: None,
     }
 }
 
@@ -684,7 +790,19 @@ fn rejected_response(request_id: String, error: &str, detail: Option<String>) ->
         observations: None,
         error: Some(error.to_owned()),
         detail,
+        cause: None,
     }
+}
+
+fn rejected_response_with_cause(
+    request_id: String,
+    error: &str,
+    detail: Option<String>,
+    cause: Option<json::Value>,
+) -> Response {
+    let mut response = rejected_response(request_id, error, detail);
+    response.cause = cause;
+    response
 }
 
 fn unsupported_response(request_id: String, error: &str, detail: Option<&str>) -> Response {
@@ -695,6 +813,7 @@ fn unsupported_response(request_id: String, error: &str, detail: Option<&str>) -
         observations: None,
         error: Some(error.to_owned()),
         detail: detail.map(str::to_owned),
+        cause: None,
     }
 }
 
@@ -706,6 +825,7 @@ fn error_response(request_id: Option<String>, error: &str, detail: Option<&str>)
         observations: None,
         error: Some(error.to_owned()),
         detail: detail.map(str::to_owned),
+        cause: None,
     }
 }
 
@@ -717,6 +837,7 @@ fn resource_response(request_id: Option<String>, error: &str) -> Response {
         observations: None,
         error: Some(error.to_owned()),
         detail: None,
+        cause: None,
     }
 }
 
@@ -762,6 +883,18 @@ mod tests {
         dispatch_request(request(source))
     }
 
+    fn socket_transform(z: &str) -> json::Value {
+        json::json!({
+            "translation": ["0x0000000000000000", "0x0000000000000000", z],
+            "rotation_xyzw": [
+                "0x0000000000000000",
+                "0x0000000000000000",
+                "0x0000000000000000",
+                "0x3ff0000000000000"
+            ]
+        })
+    }
+
     #[test]
     fn exact_example_is_one_root_attachment_and_agree() {
         let response = response(SOURCE);
@@ -775,6 +908,44 @@ mod tests {
         assert_eq!(members[0]["outcome"], "compared");
         assert_eq!(members[0]["attachments"].as_array().unwrap().len(), 1);
         assert_eq!(members[0]["attachments"][0]["outcome"], "agree");
+        let attachment = &members[0]["attachments"][0];
+        let equation = &attachment["equation"];
+        assert_eq!(
+            equation["host_socket_local"],
+            socket_transform("0xbff0000000000000")
+        );
+        assert_eq!(
+            equation["mating_socket_local"],
+            socket_transform("0x0000000000000000")
+        );
+        assert!(
+            equation["root_to_mating_owner_part_locals"]
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
+        let operations = equation["equation_steps"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|step| step["operation"].as_str().unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            operations,
+            vec![
+                "attachment-host-offset",
+                "attachment-inverse",
+                "attachment-equation"
+            ]
+        );
+        assert_eq!(
+            equation["equation_steps"]
+                .as_array()
+                .unwrap()
+                .last()
+                .unwrap()["output"],
+            attachment["derived_root_local"]
+        );
         assert_eq!(
             members[0]["attachments"][0]["authored_root_local"]["translation"][0],
             "0x0000000000000000"
@@ -811,6 +982,13 @@ mod tests {
             result.error.as_deref(),
             Some("ck.provisional-r3-authored-conflict.invalid-tolerance")
         );
+        let cause = result.cause.as_ref().expect("typed tolerance cause");
+        assert_eq!(
+            cause["code"],
+            "ck.provisional-r3-authored-conflict.numeric-comparison.invalid-profile"
+        );
+        assert_eq!(cause["field"], "translation-relative");
+        assert_eq!(cause["failure"], "negative");
 
         let mut overflow = request(SOURCE);
         overflow.rotation_half_chord = json::from_str("1e9999").unwrap();
@@ -871,17 +1049,29 @@ mod tests {
         let result = dispatch_request(unavailable);
         assert_eq!(result.status, "observed");
         assert_eq!(
-            result.observations.unwrap()["members"][0]["outcome"],
+            result.observations.as_ref().unwrap()["members"][0]["outcome"],
             "skipped"
         );
+        let cause = &result.observations.as_ref().unwrap()["members"][0]["skip"]["cause"];
+        assert_eq!(
+            cause["code"],
+            "ck.provisional-r3-authored-conflict.frame-value.quaternion"
+        );
+        assert_eq!(cause["failure"], "provider-unavailable");
+        assert_eq!(cause["operation"], "div");
+        assert_eq!(cause["stage"], "scaled-component");
+        assert_eq!(cause["index"], 0);
         let mut rejected = request(SOURCE);
         rejected.gate = "reject".to_owned();
         let result = dispatch_request(rejected);
         assert_eq!(result.status, "observed");
         assert_eq!(
-            result.observations.unwrap()["members"][0]["outcome"],
+            result.observations.as_ref().unwrap()["members"][0]["outcome"],
             "skipped"
         );
+        let cause = &result.observations.as_ref().unwrap()["members"][0]["skip"]["cause"];
+        assert_eq!(cause["failure"], "gate-rejected");
+        assert_eq!(cause["stage"], "input");
     }
 
     #[test]
