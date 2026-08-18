@@ -4,6 +4,12 @@
 //! canonical placement, and exact comparison. It accepts one standalone
 //! source, rejects declarations, and does not resolve, select a profile,
 //! produce a snapshot, or activate Readiness 3.
+//!
+//! This preparatory DTO is not yet the phase-2 evidence adapter: member skips
+//! retain only their stable stage class plus supplemental detail, and
+//! Attachment provenance does not yet project every canonical equation input
+//! or composition step. The later adapter must add those machine-stable cause
+//! and equation-evidence projections before a corpus or profile is frozen.
 
 use crate::body_document::ResourceProfile;
 use crate::canonical_member_frame_values::CanonicalRigidTransform;
