@@ -44,7 +44,9 @@ from phase3_common import (
 
 STDOUT_TOTAL_CAP = SESSION_STDOUT_CAP
 MAX_SESSION_FRAMES = MAX_SESSION_RECORDS
-MAX_EXECUTABLE_BYTES = 64 * 1024 * 1024
+# The v2 freeze binds both platform binaries. Keep one explicit cap equal to
+# the larger frozen slot: WSL is 100,944,288 bytes and native is 100,945,304.
+MAX_EXECUTABLE_BYTES = 100_945_304
 MAX_DEADLINE_SECONDS = 60.0
 MAX_REQUEST_ID_BYTES = 256
 MAX_ARGV0_BYTES = 256
@@ -163,6 +165,8 @@ class LaunchResult:
     descriptor_post_fd: DescriptorIdentity | None
     cwd_pre: DescriptorIdentity | None = None
     cwd_post: DescriptorIdentity | None = None
+    # Captured at the terminal ptrace exit stop while /proc/<pid>/cwd exists.
+    cwd_terminal: DescriptorIdentity | None = None
     content_initial: ContentObservation | None = None
     content_pre_fork: ContentObservation | None = None
     content_post_exec: ContentObservation | None = None
@@ -187,6 +191,7 @@ class LaunchResult:
             "descriptor_post_fd": None if self.descriptor_post_fd is None else self.descriptor_post_fd.to_dict(),
             "cwd_pre": None if self.cwd_pre is None else self.cwd_pre.to_dict(),
             "cwd_post": None if self.cwd_post is None else self.cwd_post.to_dict(),
+            "cwd_terminal": None if self.cwd_terminal is None else self.cwd_terminal.to_dict(),
             "content_initial": None if self.content_initial is None else self.content_initial.to_dict(),
             "content_pre_fork": None if self.content_pre_fork is None else self.content_pre_fork.to_dict(),
             "content_post_exec": None if self.content_post_exec is None else self.content_post_exec.to_dict(),
@@ -226,6 +231,39 @@ class ExactTransportResult:
     attempt_count: int = 1
     rusage: Mapping[str, Any] | None = None
     startup_error: bytes = b""
+    terminal_cwd: DescriptorIdentity | None = None
+
+    @property
+    def lifecycle(self) -> dict[str, Any]:
+        """Return bounded terminal process state for durable evidence."""
+        if self.term_signal is not None:
+            state = "terminated"
+        elif self.exit_code is not None:
+            state = "exited" if self.exit_code >= 0 else "terminated"
+        else:
+            state = "failed"
+        return {
+            "state": state,
+            "exit_code": self.exit_code if self.exit_code is not None else (self.returncode if self.returncode is not None else -1),
+            "term_signal": self.term_signal,
+            "reaped": self.reaped,
+            "killed": self.killed,
+            "partial": self.partial,
+            "clean_shutdown": self.clean_shutdown,
+            "startup_error": self.startup_error.decode("utf-8", errors="replace")[:4096],
+            "rusage": None if self.rusage is None else dict(self.rusage),
+        }
+
+    @property
+    def output(self) -> dict[str, Any]:
+        """Return bounded stream observations and protocol output markers."""
+        return {
+            "missing": [],
+            "extra": [],
+            "trailing": [],
+            "stdout": {"bytes": len(self.stdout), "sha256": self.stdout_sha256},
+            "stderr": {"bytes": len(self.stderr), "sha256": self.stderr_sha256},
+        }
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -252,6 +290,9 @@ class ExactTransportResult:
             "attempt_count": self.attempt_count,
             "rusage": None if self.rusage is None else dict(self.rusage),
             "startup_error": self.startup_error.decode("utf-8", errors="replace"),
+            "terminal_cwd": None if self.terminal_cwd is None else self.terminal_cwd.to_dict(),
+            "lifecycle": self.lifecycle,
+            "output": self.output,
         }
 
 
@@ -603,6 +644,8 @@ class ExactCandidateSession:
         self.seals_pre_fork: int | None = None
         self.seals_post_exec: int | None = None
         self.cwd_post: DescriptorIdentity | None = None
+        self.cwd_terminal: DescriptorIdentity | None = None
+        self.cwd_terminal_error: str | None = None
         self.launch_result: LaunchResult | None = None
         self.pid: int | None = None
         self.process_group_id: int | None = None
@@ -730,11 +773,24 @@ class ExactCandidateSession:
             self._reaped = True
         self._abort_and_reap()
         self.launch_result = LaunchResult(
-            status, code, detail, self.pid, observation, self.descriptor_pre,
-            self.descriptor_post_exe, self.descriptor_post_fd, self.cwd_pre,
-            self.cwd_post, self.content_initial, self.content_pre_fork,
-            self.content_post_exec, self._startup_error, self.seals_initial,
-            self.seals_pre_fork, self.seals_post_exec,
+            status=status,
+            code=code,
+            detail=detail,
+            pid=self.pid,
+            observation=observation,
+            descriptor_pre=self.descriptor_pre,
+            descriptor_post_exe=self.descriptor_post_exe,
+            descriptor_post_fd=self.descriptor_post_fd,
+            cwd_pre=self.cwd_pre,
+            cwd_post=self.cwd_post,
+            cwd_terminal=self.cwd_terminal,
+            content_initial=self.content_initial,
+            content_pre_fork=self.content_pre_fork,
+            content_post_exec=self.content_post_exec,
+            startup_error=self._startup_error,
+            seals_initial=self.seals_initial,
+            seals_pre_fork=self.seals_pre_fork,
+            seals_post_exec=self.seals_post_exec,
         )
         return self.launch_result
 
@@ -840,12 +896,24 @@ class ExactCandidateSession:
                 return self._launch_failure(observation.status, observation.code, observation.detail, observation)
             fp.ptrace_continue(pid)
             self.launch_result = LaunchResult(
-                "observed", "observed", "post-exec FP state, descriptor content, cwd, and identity observed",
-                pid, observation, self.descriptor_pre, self.descriptor_post_exe,
-                self.descriptor_post_fd, self.cwd_pre, self.cwd_post,
-                self.content_initial, self.content_pre_fork, self.content_post_exec,
-                self._startup_error, self.seals_initial, self.seals_pre_fork,
-                self.seals_post_exec,
+                status="observed",
+                code="observed",
+                detail="post-exec FP state, descriptor content, cwd, and identity observed",
+                pid=pid,
+                observation=observation,
+                descriptor_pre=self.descriptor_pre,
+                descriptor_post_exe=self.descriptor_post_exe,
+                descriptor_post_fd=self.descriptor_post_fd,
+                cwd_pre=self.cwd_pre,
+                cwd_post=self.cwd_post,
+                cwd_terminal=self.cwd_terminal,
+                content_initial=self.content_initial,
+                content_pre_fork=self.content_pre_fork,
+                content_post_exec=self.content_post_exec,
+                startup_error=self._startup_error,
+                seals_initial=self.seals_initial,
+                seals_pre_fork=self.seals_pre_fork,
+                seals_post_exec=self.seals_post_exec,
             )
             return self.launch_result
         except fp.FPObserverError as error:
@@ -1062,6 +1130,13 @@ class ExactCandidateSession:
                 self._continue_terminal_stop_for_abort(status, record_error=False)
                 raise ExactTransportError("duplicate-final-fp-observation", "tracee produced more than one PTRACE_EVENT_EXIT stop")
             self._final_exit_stop_seen = True
+            try:
+                # The terminal ptrace stop is the last point at which procfs
+                # exposes the tracee's cwd. Do not substitute cwd_post when
+                # this observation is unavailable.
+                self.cwd_terminal = self._stat_proc_directory("cwd")
+            except ExactTransportError as error:
+                self.cwd_terminal_error = error.detail
             problem = self._observe_final_fp_state()
             try:
                 fp.ptrace_continue(self.pid, 0)
@@ -1377,13 +1452,24 @@ class ExactCandidateSession:
 
     def _result(self) -> ExactTransportResult:
         launch = self.launch_result or LaunchResult(
-            "inconclusive", "not-launched", "candidate was not launched", self.pid,
-            None, getattr(self, "descriptor_pre", None), self.descriptor_post_exe,
-            self.descriptor_post_fd, getattr(self, "cwd_pre", None), self.cwd_post,
-            getattr(self, "content_initial", None), self.content_pre_fork,
-            self.content_post_exec, self._startup_error,
-            getattr(self, "seals_initial", None), getattr(self, "seals_pre_fork", None),
-            getattr(self, "seals_post_exec", None),
+            status="inconclusive",
+            code="not-launched",
+            detail="candidate was not launched",
+            pid=self.pid,
+            observation=None,
+            descriptor_pre=getattr(self, "descriptor_pre", None),
+            descriptor_post_exe=self.descriptor_post_exe,
+            descriptor_post_fd=self.descriptor_post_fd,
+            cwd_pre=getattr(self, "cwd_pre", None),
+            cwd_post=self.cwd_post,
+            cwd_terminal=getattr(self, "cwd_terminal", None),
+            content_initial=getattr(self, "content_initial", None),
+            content_pre_fork=self.content_pre_fork,
+            content_post_exec=self.content_post_exec,
+            startup_error=self._startup_error,
+            seals_initial=getattr(self, "seals_initial", None),
+            seals_pre_fork=getattr(self, "seals_pre_fork", None),
+            seals_post_exec=getattr(self, "seals_post_exec", None),
         )
         if self._final_inconclusive and self._failure is not None and self._failure.code == "final-fp-observation-unavailable":
             status = "inconclusive"
@@ -1421,6 +1507,7 @@ class ExactCandidateSession:
             attempt_count=self.attempt_count,
             rusage=self._rusage,
             startup_error=self._startup_error,
+            terminal_cwd=self.cwd_terminal,
         )
 
     def __enter__(self) -> "ExactCandidateSession":

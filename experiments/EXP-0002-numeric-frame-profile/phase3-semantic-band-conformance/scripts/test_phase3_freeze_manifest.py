@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import shutil
 import struct
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -17,10 +18,34 @@ import phase3_freeze_manifest as freeze
 
 
 BUNDLE_FILES = ("candidate", "build-receipt.json", "build-metadata.json", "cargo-metadata.json")
+HISTORICAL_V1_COMMIT = "553d51bd55dd837b01b950d063d288369f61e56d"
+HISTORICAL_V2_COMMIT = "cc1531c2e8efe40f8a4896d11b10973147c5636b"
+MANIFEST_REPOSITORY_PATH = "experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/manifests/freeze-manifest.json"
 
 
 def _canonical(value: object) -> bytes:
     return (json.dumps(value, ensure_ascii=True, allow_nan=False, sort_keys=True, separators=(",", ":")) + "\n").encode()
+
+
+def _historical_manifest_bytes(commit: str) -> bytes:
+    """Read a pinned historical manifest, never the package's current successor."""
+    result = subprocess.run(
+        ["git", "-C", str(freeze.REPO), "show", f"{commit}:{MANIFEST_REPOSITORY_PATH}"],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if result.returncode != 0 or not result.stdout.endswith(b"\n"):
+        raise AssertionError(f"historical manifest fixture unavailable: {commit}")
+    return result.stdout
+
+
+def _v1_fixture() -> bytes:
+    return _historical_manifest_bytes(HISTORICAL_V1_COMMIT)
+
+
+def _v2_fixture() -> bytes:
+    return _historical_manifest_bytes(HISTORICAL_V2_COMMIT)
 
 
 def _copy_package(root: Path) -> tuple[Path, Path]:
@@ -83,7 +108,7 @@ def _portable_checksum_paths(raw: str) -> list[str]:
 
 
 def _successor(package: Path, execution_commit: str = "e" * 40) -> dict:
-    predecessor_raw = (package / freeze.MANIFEST_REL).read_bytes()
+    predecessor_raw = _v1_fixture()
 
     def committed(_repo: Path, _commit: str, paths: tuple[str, ...]) -> list[dict]:
         return freeze._tool_identities(package, paths)
@@ -101,16 +126,66 @@ def _successor(package: Path, execution_commit: str = "e" * 40) -> dict:
         )
 
 
+def _v3_successor(package: Path, execution_commit: str = "a" * 40, materialization_commit: str = "b" * 40) -> dict:
+    predecessor_raw = (package / freeze.MANIFEST_REL).read_bytes()
+    predecessor = freeze.validate_manifest(predecessor_raw)
+
+    def committed(_repo: Path, _commit: str, paths: tuple[str, ...]) -> list[dict]:
+        if _commit == freeze.EXPECTED_V2_EXECUTION_TOOL_SOURCE_COMMIT:
+            for field in ("runtime_tool_identities", "exact_runtime_tool_identities", "provenance_tool_identities"):
+                if [item["path"] for item in predecessor[field]] == list(paths):
+                    return predecessor[field]
+        return freeze._tool_identities(package, paths)
+
+    with (
+        patch.object(freeze, "_validate_candidate_build_snapshot"),
+        patch.object(freeze, "_validate_execution_commit_snapshot"),
+        patch.object(freeze, "_assert_descendant_commit"),
+        patch.object(freeze, "_execution_tool_identities_from_commit", side_effect=committed),
+    ):
+        return freeze.build_v3_successor_manifest(
+            predecessor_raw,
+            execution_tool_source_commit=execution_commit,
+            materialization_commit=materialization_commit,
+            package=package,
+        )
+
+
 def _unbound_historical_manifest() -> dict:
-    value = freeze.validate_manifest((freeze.PACKAGE / freeze.MANIFEST_REL).read_bytes())
+    # Keep low-level atomic-write tests on the immutable v1 shape.  The
+    # package's checked-in manifest is the current v2 successor and must not
+    # be used as a predecessor fixture.
+    value = freeze.validate_manifest(_v1_fixture())
     value["binaries"] = freeze._binary_slots()
     value["readiness"] = freeze._readiness(value["binaries"])
     return freeze._seal(value)
 
 
 class FreezeManifestTests(unittest.TestCase):
+    def test_v3_successor_preserves_exact_v1_v2_history_and_closure_binding(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            package = Path(directory) / "package"
+            shutil.copytree(freeze.PACKAGE, package)
+            successor = _v3_successor(package)
+        self.assertEqual(successor["schema"], freeze.V3_SCHEMA)
+        self.assertEqual(successor["predecessor_manifest_sha256"], freeze.EXPECTED_V2_MANIFEST_SHA256)
+        self.assertEqual(successor["predecessor_v1_manifest_sha256"], freeze.EXPECTED_V1_MANIFEST_SHA256)
+        self.assertEqual(successor["previous_execution_tool_source_commit"], freeze.EXPECTED_V2_EXECUTION_TOOL_SOURCE_COMMIT)
+        self.assertEqual(successor["experiment_closure_schema"], "ck.exp-0002.phase3.experiment-closure-1")
+        self.assertEqual(freeze.validate_manifest(_canonical(successor)), successor)
+
+    def test_v3_requires_exact_v2_predecessor_and_distinct_materialization(self) -> None:
+        with self.assertRaises(freeze.FreezeManifestError) as error:
+            freeze.build_v3_successor_manifest(b"{}\n", execution_tool_source_commit="a" * 40, materialization_commit="b" * 40)
+        self.assertEqual(error.exception.code, "manifest-shape")
+        with tempfile.TemporaryDirectory() as directory:
+            package = Path(directory) / "package"
+            shutil.copytree(freeze.PACKAGE, package)
+            with self.assertRaises(freeze.FreezeManifestError) as error:
+                _v3_successor(package, materialization_commit=freeze.EXPECTED_V2_MATERIALIZATION_COMMIT)
+        self.assertEqual(error.exception.code, "materialization-commit")
     def test_historical_v1_bytes_remain_valid_and_current_check_requires_v2(self) -> None:
-        raw = (freeze.PACKAGE / freeze.MANIFEST_REL).read_bytes()
+        raw = _v1_fixture()
         historical = freeze.validate_manifest(raw)
         self.assertEqual(historical["schema"], freeze.V1_SCHEMA)
         self.assertEqual(historical["manifest_sha256"], freeze._self_hash(historical))
@@ -121,12 +196,13 @@ class FreezeManifestTests(unittest.TestCase):
             with self.assertRaises(freeze.FreezeManifestError) as error:
                 freeze.check_manifest(path=path)
         self.assertEqual(error.exception.code, "current-schema")
+        self.assertEqual(freeze.validate_manifest(_v2_fixture())["schema"], freeze.V2_SCHEMA)
 
     def test_successor_preserves_v1_facts_and_binds_disjoint_tool_snapshots(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             package = Path(directory) / "package"
             shutil.copytree(freeze.PACKAGE, package)
-            predecessor = freeze.validate_manifest((package / freeze.MANIFEST_REL).read_bytes())
+            predecessor = freeze.validate_manifest(_v1_fixture())
             successor = _successor(package)
         self.assertEqual(successor["schema"], freeze.SCHEMA)
         self.assertEqual(successor["predecessor_manifest_sha256"], predecessor["manifest_sha256"])
@@ -164,7 +240,7 @@ class FreezeManifestTests(unittest.TestCase):
             self.assertEqual(error.exception.code, "manifest-shape")
 
     def test_successor_rejects_a_validly_resealed_v1_substitute(self) -> None:
-        predecessor = freeze.validate_manifest((freeze.PACKAGE / freeze.MANIFEST_REL).read_bytes())
+        predecessor = freeze.validate_manifest(_v1_fixture())
         forged = json.loads(_canonical(predecessor))
         forged["runtime_tool_identities"][0]["sha256"] = "0" * 64
         forged["manifest_sha256"] = freeze._self_hash(forged)
@@ -212,6 +288,7 @@ class FreezeManifestTests(unittest.TestCase):
             package = Path(directory) / "package"
             shutil.copytree(freeze.PACKAGE, package)
             manifest_path = package / freeze.MANIFEST_REL
+            manifest_path.write_bytes(_v1_fixture())
             manifest_path.chmod(0o644)
 
             def committed(_repo: Path, _commit: str, paths: tuple[str, ...]) -> list[dict]:
@@ -234,6 +311,7 @@ class FreezeManifestTests(unittest.TestCase):
             package = Path(directory) / "package"
             shutil.copytree(freeze.PACKAGE, package)
             manifest_path = package / freeze.MANIFEST_REL
+            manifest_path.write_bytes(_v1_fixture())
             manifest_path.chmod(0o644)
             predecessor_snapshot = freeze._read_manifest_snapshot(manifest_path)
             successor = _successor(package)

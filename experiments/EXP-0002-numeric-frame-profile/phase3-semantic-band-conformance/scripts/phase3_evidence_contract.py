@@ -23,7 +23,7 @@ from typing import Any, Mapping
 
 import phase3_oracle as oracle
 import phase3_scorer as scorer
-from phase3_common import FRAME_BYTES, REQUEST_PROTOCOL_ID, RESPONSE_PROTOCOL_ID, canonical_json, parse_json
+from phase3_common import FRAME_BYTES, REQUEST_PROTOCOL_ID, RESPONSE_PROTOCOL_ID, SESSION_STDOUT_CAP, STDERR_TOTAL_CAP, canonical_json, parse_json
 
 
 RESULT_SCHEMA = "ck.exp-0002.phase3.exact-attempt-result-1"
@@ -46,7 +46,8 @@ MAX_NESTING = 16
 MAX_PROCESS_OBSERVATIONS = 3
 MAX_ADJUDICATIONS = 60
 MAX_TOOLS = 32
-MAX_EXECUTABLE_BYTES = 64 * 1024 * 1024
+# Must admit both frozen v2 binaries and no larger executable.
+MAX_EXECUTABLE_BYTES = 100_945_304
 # Linux fcntl seal bits used independently by custody and transport:
 # F_SEAL_SEAL | F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE.
 REQUIRED_MEMFD_SEALS = 0x000F
@@ -105,8 +106,12 @@ RUNNER_KEYS = frozenset({"reason", "domain_status"})
 PLATFORM_KEYS = frozenset({
     "selector", "cpu_model", "cpu_features", "architecture", "kernel_or_wsl",
     "os_release", "filesystem", "mount_context", "workflow_runner", "workflow_image",
-    "toolchain", "compiler",
+    "toolchain", "compiler", "locations", "runtime", "build_receipt",
 })
+LOCATION_KEYS = frozenset({"path", "kind", "device", "inode", "mode", "size", "nlink", "filesystem", "mount"})
+LOCATION_ROLE_KEYS = frozenset({"development", "held-out", "controls"})
+RUNTIME_KEYS = frozenset({"implementation", "version", "executable", "python_version", "platform", "libc"})
+BUILD_RECEIPT_KEYS = frozenset({"source", "selector", "receipt_sha256", "receipt_self_hash", "platform_role", "runner_os", "image_os", "image_version", "toolchain", "compiler"})
 FE_STATE_KEYS = frozenset({
     "x87_control_word", "mxcsr", "x87_rounding_mode", "mxcsr_rounding_mode",
     "x87_exception_masks", "mxcsr_exception_masks", "x87_flags", "mxcsr_flags",
@@ -122,19 +127,21 @@ INCOMPLETE_PROCESS_KEYS = frozenset({
 })
 INCOMPLETE_MISSING_FIELDS = frozenset({
     "platform", "launch", "candidate_binary", "execution_identity", "fe_mxcsr",
-    "transport.requests", "transport.responses", "lifecycle", "output",
+    "execution_identity.cwd_terminal", "transport.requests", "transport.responses", "lifecycle", "output",
+    "output.stdout", "output.stderr",
 })
 LAUNCH_KEYS = frozenset({"identity", "argv", "cwd", "environment"})
 HASH_PAIR_KEYS = frozenset({"count", "sha256"})
 CANDIDATE_HASH_KEYS = frozenset({"sha256_pre", "sha256_post"})
 FE_KEYS = frozenset({"pre", "post"})
-LIFECYCLE_KEYS = frozenset({"state", "exit_code", "clean_shutdown"})
-OUTPUT_KEYS = frozenset({"missing", "extra", "trailing"})
+LIFECYCLE_KEYS = frozenset({"state", "exit_code", "term_signal", "reaped", "killed", "partial", "clean_shutdown", "startup_error", "rusage"})
+OUTPUT_KEYS = frozenset({"missing", "extra", "trailing", "stdout", "stderr"})
+STREAM_KEYS = frozenset({"bytes", "sha256"})
 TRANSPORT_KEYS = frozenset({"requests", "responses"})
 OUTCOME_KEYS = frozenset({"status", "code", "detail"})
 EXECUTION_IDENTITY_KEYS = frozenset({
     "descriptor_pre", "descriptor_post_exe", "descriptor_post_fd",
-    "cwd_pre", "cwd_post",
+    "cwd_pre", "cwd_post", "cwd_terminal",
     "content_initial", "content_pre_fork", "content_post_exec",
     "seals_initial", "seals_pre_fork", "seals_post_exec",
 })
@@ -655,13 +662,45 @@ def _platform(value: Any, label: str, selector: str) -> dict[str, Any]:
     obj = _exact(value, PLATFORM_KEYS, label)
     if obj["selector"] != selector or selector not in PLATFORM_SELECTORS:
         _fail("platform-selector", f"{label}.selector differs from the attempt selector")
-    for key in PLATFORM_KEYS - {"cpu_features"}:
+    for key in PLATFORM_KEYS - {"cpu_features", "locations", "runtime", "build_receipt"}:
         _string(obj[key], f"{label}.{key}", max_bytes=1024)
     features = obj["cpu_features"]
     if type(features) is not list or not features or len(features) > 128:
         _fail("platform-features", f"{label}.cpu_features is empty or oversized")
     for index, feature in enumerate(features):
         _string(feature, f"{label}.cpu_features[{index}]", max_bytes=256)
+    locations = _exact(obj["locations"], frozenset({"package", "output", "work", "custody", "roles"}), f"{label}.locations")
+    for name in ("package", "output", "work", "custody"):
+        item = locations[name]
+        if item is not None:
+            loc = _exact(item, LOCATION_KEYS, f"{label}.locations.{name}")
+            _string(loc["path"], f"{label}.locations.{name}.path", max_bytes=4096)
+            _string(loc["kind"], f"{label}.locations.{name}.kind", max_bytes=64)
+            for key in ("device", "inode", "mode", "size", "nlink"):
+                _bounded_int(loc[key], f"{label}.locations.{name}.{key}", (1 << 63) - 1)
+            _string(loc["filesystem"], f"{label}.locations.{name}.filesystem", max_bytes=256)
+            _string(loc["mount"], f"{label}.locations.{name}.mount", max_bytes=4096)
+    roles = _exact(locations["roles"], LOCATION_ROLE_KEYS, f"{label}.locations.roles")
+    for role, item in roles.items():
+        if item is None:
+            continue
+        loc = _exact(item, LOCATION_KEYS, f"{label}.locations.roles.{role}")
+        _string(loc["path"], f"{label}.locations.roles.{role}.path", max_bytes=4096)
+        _string(loc["kind"], f"{label}.locations.roles.{role}.kind", max_bytes=64)
+        for key in ("device", "inode", "mode", "size", "nlink"):
+            _bounded_int(loc[key], f"{label}.locations.roles.{role}.{key}", (1 << 63) - 1)
+        _string(loc["filesystem"], f"{label}.locations.roles.{role}.filesystem", max_bytes=256)
+        _string(loc["mount"], f"{label}.locations.roles.{role}.mount", max_bytes=4096)
+    runtime = _exact(obj["runtime"], RUNTIME_KEYS, f"{label}.runtime")
+    for key in RUNTIME_KEYS:
+        _string(runtime[key], f"{label}.runtime.{key}", max_bytes=4096)
+    build = _exact(obj["build_receipt"], BUILD_RECEIPT_KEYS, f"{label}.build_receipt")
+    for key in BUILD_RECEIPT_KEYS:
+        _string(build[key], f"{label}.build_receipt.{key}", max_bytes=16 * 1024)
+    if build["source"] != "frozen-build-receipt":
+        _fail("platform-build", f"{label}.build_receipt.source is not frozen-build-receipt")
+    _sha(build["receipt_sha256"], f"{label}.build_receipt.receipt_sha256")
+    _sha(build["receipt_self_hash"], f"{label}.build_receipt.receipt_self_hash")
     return obj
 
 
@@ -782,7 +821,7 @@ def _execution_identity(
     }
     cwd = {
         key: _descriptor_identity(obj[key], f"{label}.{key}", directory=True)
-        for key in ("cwd_pre", "cwd_post")
+        for key in ("cwd_pre", "cwd_post", "cwd_terminal")
     }
     contents = {
         key: _content_observation(obj[key], f"{label}.{key}")
@@ -829,6 +868,44 @@ def _execution_identity(
         if post is not None and post["sha256"] != candidate_binary["sha256_post"]:
             mismatch = True
     return obj, mismatch
+
+
+def _lifecycle(value: Any, label: str) -> dict[str, Any]:
+    obj = _exact(value, LIFECYCLE_KEYS, label)
+    if obj["state"] not in {"exited", "terminated", "failed"}:
+        _fail("lifecycle", f"{label}.state is invalid")
+    if type(obj["exit_code"]) is not int or not -128 <= obj["exit_code"] <= 255:
+        _fail("exit-code", f"{label}.exit_code is invalid")
+    if obj["term_signal"] is not None and (type(obj["term_signal"]) is not int or not 1 <= obj["term_signal"] <= 64):
+        _fail("term-signal", f"{label}.term_signal is invalid")
+    for key in ("reaped", "killed", "partial", "clean_shutdown"):
+        if type(obj[key]) is not bool:
+            _fail("lifecycle", f"{label}.{key} is invalid")
+    _string(obj["startup_error"], f"{label}.startup_error", max_bytes=4096, nonempty=False)
+    if obj["rusage"] is not None:
+        usage = _exact(obj["rusage"], frozenset({"user_seconds", "system_seconds", "max_rss", "minor_faults", "major_faults", "involuntary_context_switches", "voluntary_context_switches"}), f"{label}.rusage")
+        for key in usage:
+            if type(usage[key]) not in (int, float) or isinstance(usage[key], bool) or usage[key] < 0 or not math.isfinite(float(usage[key])):
+                _fail("rusage", f"{label}.rusage.{key} is invalid")
+    if obj["state"] == "terminated" and obj["term_signal"] is None and obj["exit_code"] >= 0:
+        _fail("lifecycle", f"{label} terminated state lacks signal/negative exit code")
+    return obj
+
+
+def _output(value: Any, label: str, *, allow_missing_streams: bool = False) -> dict[str, Any]:
+    obj = _exact(value, OUTPUT_KEYS, label)
+    for key in ("missing", "extra", "trailing"):
+        if type(obj[key]) is not list or len(obj[key]) > MAX_ADJUDICATIONS:
+            _fail("output-observation", f"{label}.{key} is invalid")
+        for index, item in enumerate(obj[key]):
+            _string(item, f"{label}.{key}[{index}]", max_bytes=MAX_ID_BYTES)
+    for key in ("stdout", "stderr"):
+        if allow_missing_streams and obj[key] is None:
+            continue
+        stream = _exact(obj[key], STREAM_KEYS, f"{label}.{key}")
+        _bounded_int(stream["bytes"], f"{label}.{key}.bytes", SESSION_STDOUT_CAP if key == "stdout" else STDERR_TOTAL_CAP)
+        _sha(stream["sha256"], f"{label}.{key}.sha256")
+    return obj
 
 
 def _process(value: Any, index: int, selector: str) -> dict[str, Any]:
@@ -886,16 +963,9 @@ def _process(value: Any, index: int, selector: str) -> dict[str, Any]:
         if request_pair is not None and response_pair is not None and response_pair["count"] > request_pair["count"]:
             _fail("transport-count", f"process[{index}] response count exceeds request count")
         if obj["lifecycle"] is not None:
-            lifecycle = _exact(obj["lifecycle"], LIFECYCLE_KEYS, f"process[{index}].lifecycle")
-            if lifecycle["state"] not in {"exited", "terminated", "failed"} or type(lifecycle["exit_code"]) is not int or not -128 <= lifecycle["exit_code"] <= 255 or type(lifecycle["clean_shutdown"]) is not bool:
-                _fail("lifecycle", f"process[{index}] lifecycle observation is invalid")
+            _lifecycle(obj["lifecycle"], f"process[{index}].lifecycle")
         if obj["output"] is not None:
-            output = _exact(obj["output"], OUTPUT_KEYS, f"process[{index}].output")
-            for key in OUTPUT_KEYS:
-                if type(output[key]) is not list or len(output[key]) > MAX_ADJUDICATIONS:
-                    _fail("output-observation", f"process[{index}].output.{key} is invalid")
-                for n, item in enumerate(output[key]):
-                    _string(item, f"process[{index}].output.{key}[{n}]", max_bytes=MAX_ID_BYTES)
+            _output(obj["output"], f"process[{index}].output", allow_missing_streams=True)
         if type(obj["missing"]) is not list or len(obj["missing"]) > len(INCOMPLETE_MISSING_FIELDS):
             _fail("process-missing", f"process[{index}].missing must retain bounded unavailable fields")
         for n, item in enumerate(obj["missing"]):
@@ -910,6 +980,10 @@ def _process(value: Any, index: int, selector: str) -> dict[str, Any]:
             ) if obj[key] is None
         }
         actually_missing.update(f"transport.{key}" for key in TRANSPORT_KEYS if transport[key] is None)
+        if obj["execution_identity"] is not None and obj["execution_identity"].get("cwd_terminal") is None:
+            actually_missing.add("execution_identity.cwd_terminal")
+        if obj["output"] is not None:
+            actually_missing.update(f"output.{key}" for key in ("stdout", "stderr") if obj["output"].get(key) is None)
         if missing != actually_missing:
             _fail("process-missing", f"process[{index}].missing contradicts retained observations")
         _outcome(obj["outcome"], f"process[{index}].outcome")
@@ -952,19 +1026,8 @@ def _process(value: Any, index: int, selector: str) -> dict[str, Any]:
     responses = _hash_pair(transport["responses"], f"process[{index}].transport.responses", RESPONSE_FRAME_DOMAIN)
     if requests["count"] != obj["candidate_request_count"] or responses["count"] > requests["count"]:
         _fail("transport-count", f"process[{index}] request/response counts are outside the observed candidate bounds")
-    lifecycle = _exact(obj["lifecycle"], LIFECYCLE_KEYS, f"process[{index}].lifecycle")
-    if lifecycle["state"] not in {"exited", "terminated", "failed"}:
-        _fail("lifecycle", f"process[{index}] lifecycle state is invalid")
-    if type(lifecycle["exit_code"]) is not int or not -128 <= lifecycle["exit_code"] <= 255:
-        _fail("exit-code", f"process[{index}] exit code is invalid")
-    if type(lifecycle["clean_shutdown"]) is not bool:
-        _fail("clean-shutdown", f"process[{index}] clean_shutdown is invalid")
-    output = _exact(obj["output"], OUTPUT_KEYS, f"process[{index}].output")
-    for key in OUTPUT_KEYS:
-        if type(output[key]) is not list or len(output[key]) > MAX_ADJUDICATIONS:
-            _fail("output-observation", f"process[{index}].output.{key} is invalid")
-        for n, item in enumerate(output[key]):
-            _string(item, f"process[{index}].output.{key}[{n}]", max_bytes=MAX_ID_BYTES)
+    lifecycle = _lifecycle(obj["lifecycle"], f"process[{index}].lifecycle")
+    output = _output(obj["output"], f"process[{index}].output")
     _outcome(obj["outcome"], f"process[{index}].outcome")
     return obj
 
@@ -1035,7 +1098,7 @@ def _process_health(processes: list[dict[str, Any]]) -> str:
     for item in processes:
         if item.get("variant") != "incomplete-v1" and item["transport"]["responses"]["count"] != item["transport"]["requests"]["count"]:
             return "inconclusive"
-        if item.get("variant") != "incomplete-v1" and any(item["output"][key] for key in OUTPUT_KEYS):
+        if item.get("variant") != "incomplete-v1" and any(item["output"][key] for key in ("missing", "extra", "trailing")):
             return "inconclusive"
     if any(item["outcome"]["status"] == "inconclusive" or item.get("variant") == "incomplete-v1" for item in processes):
         return "inconclusive"

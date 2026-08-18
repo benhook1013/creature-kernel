@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
 import stat
 import sys
@@ -43,13 +44,13 @@ class ExactPublicationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "published"
             root.mkdir()
-            reservation = M.reserve_attempt(root, "attempt-001")
+            reservation = M._reserve_attempt_for_test(root, "attempt-001")
             marker = root / "attempt-001"
             self.assertTrue(marker.is_dir())
             self.assertEqual(stat.S_IMODE(marker.stat().st_mode), 0o700)
             self.assertEqual(list(marker.iterdir()), [])
             with self.assertRaises(M.PublicationError) as caught:
-                M.reserve_attempt(root, "attempt-001")
+                M._reserve_attempt_for_test(root, "attempt-001")
             self.assertEqual(caught.exception.code, "collision")
             reservation.close()
             reservation.close()
@@ -59,13 +60,43 @@ class ExactPublicationTests(unittest.TestCase):
                 M.publish_reserved_attempt(reservation, result, receipt, index)
             self.assertEqual(caught.exception.code, "reservation-closed")
 
+    def test_experiment_slot_reservation_is_global_across_output_roots(self) -> None:
+        result, receipt, index = _blobs()
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            root_one = base / "published-one"; root_one.mkdir()
+            root_two = base / "published-two"; root_two.mkdir()
+            slot_namespace = base / "canonical-slots"
+            with mock.patch.object(M, "EXPERIMENT_SLOT_NAMESPACE", slot_namespace):
+                reservation = M.reserve_experiment_slot(root_one, "a" * 64, "wsl2-x86_64", 0, "attempt-001")
+                with self.assertRaises(M.PublicationError) as caught:
+                    M.reserve_experiment_slot(root_two, "a" * 64, "wsl2-x86_64", 0, "attempt-002")
+                self.assertEqual(caught.exception.code, "slot-consumed")
+                reservation.close()
+
+    def test_experiment_slot_binding_is_checked_before_publication(self) -> None:
+        result, receipt, index = _blobs()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "published"; root.mkdir()
+            with mock.patch.object(M, "EXPERIMENT_SLOT_NAMESPACE", Path(directory) / "canonical-slots"):
+                reservation = M.reserve_experiment_slot(root, "a" * 64, "wsl2-x86_64", 0, "attempt-001")
+                forged = json.loads(result.decode())
+                forged["attempt"]["freeze_manifest_sha256"] = "b" * 64
+                forged_result = contract._canonical(forged, "result", contract.MAX_RESULT_BYTES)
+                forged_receipt = contract.build_receipt(forged_result)
+                forged_index = contract.build_attempt_index(forged_result, forged_receipt)
+                with self.assertRaises(M.PublicationError) as caught:
+                    M.publish_reserved_attempt(reservation, forged_result, forged_receipt, forged_index)
+                self.assertEqual(caught.exception.code, "slot-binding")
+                self.assertTrue(reservation.closed)
+
     def test_reservation_normalizes_umask_to_private_marker_mode(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "published"
             root.mkdir()
             previous = os.umask(0o777)
             try:
-                reservation = M.reserve_attempt(root, "attempt-001")
+                reservation = M._reserve_attempt_for_test(root, "attempt-001")
             finally:
                 os.umask(previous)
             try:
@@ -78,7 +109,7 @@ class ExactPublicationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "published"
             root.mkdir()
-            reservation = M.reserve_attempt(root, "attempt-001")
+            reservation = M._reserve_attempt_for_test(root, "attempt-001")
             published = M.publish_reserved_attempt(reservation, result, receipt, index)
             self.assertTrue(reservation.closed)
             self.assertEqual(published.attempt_id, "attempt-001")
@@ -91,14 +122,14 @@ class ExactPublicationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "published"
             root.mkdir()
-            reservation = M.reserve_attempt(root, "attempt-002")
+            reservation = M._reserve_attempt_for_test(root, "attempt-002")
             with self.assertRaises(M.PublicationError) as caught:
                 M.publish_reserved_attempt(reservation, result, receipt, index)
             self.assertEqual(caught.exception.code, "attempt-mismatch")
             self.assertTrue(reservation.closed)
             self.assertEqual(list((root / "attempt-002").iterdir()), [])
             with self.assertRaises(M.PublicationError):
-                M.reserve_attempt(root, "attempt-002")
+                M._reserve_attempt_for_test(root, "attempt-002")
 
     def test_reservation_rejects_preexisting_partial_and_added_member(self) -> None:
         result, receipt, index = _blobs()
@@ -109,12 +140,12 @@ class ExactPublicationTests(unittest.TestCase):
             partial.mkdir(mode=0o700)
             (partial / "partial").write_bytes(b"diagnostic")
             with self.assertRaises(M.PublicationError) as caught:
-                M.reserve_attempt(root, "attempt-001")
+                M._reserve_attempt_for_test(root, "attempt-001")
             self.assertEqual(caught.exception.code, "collision")
 
             fresh_root = Path(directory) / "fresh"
             fresh_root.mkdir()
-            reservation = M.reserve_attempt(fresh_root, "attempt-001")
+            reservation = M._reserve_attempt_for_test(fresh_root, "attempt-001")
             (fresh_root / "attempt-001" / "unexpected").write_bytes(b"diagnostic")
             with self.assertRaises(M.PublicationError):
                 M.publish_reserved_attempt(reservation, result, receipt, index)
@@ -129,7 +160,7 @@ class ExactPublicationTests(unittest.TestCase):
             root.mkdir()
             other_root.mkdir()
 
-            renamed = M.reserve_attempt(root, "attempt-001")
+            renamed = M._reserve_attempt_for_test(root, "attempt-001")
             (root / "attempt-001").rename(root / "moved-attempt-001")
             (root / "attempt-001").mkdir(mode=0o700)
             with self.assertRaises(M.PublicationError):
@@ -137,7 +168,7 @@ class ExactPublicationTests(unittest.TestCase):
 
             cross_parent = base / "cross"
             cross_parent.mkdir()
-            cross_root = M.reserve_attempt(cross_parent, "attempt-001")
+            cross_root = M._reserve_attempt_for_test(cross_parent, "attempt-001")
             with self.assertRaises(AttributeError):
                 cross_root._issued.parent_root = other_root
             cross_root.close()
@@ -151,12 +182,17 @@ class ExactPublicationTests(unittest.TestCase):
         self.assertEqual(M.PUBLICATION_TRUST_BOUNDARY, "cooperating-same-process-local-posix-v1")
         self.assertIn("not an unforgeable capability", M.AttemptReservation.__doc__)
 
+    def test_legacy_arbitrary_root_helpers_are_private_only(self) -> None:
+        for name in ("reserve_attempt", "publish_attempt", "publish"):
+            with self.subTest(name=name):
+                self.assertFalse(hasattr(M, name))
+
     def test_same_reservation_concurrent_publish_has_one_typed_loser(self) -> None:
         result, receipt, index = _blobs()
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "published"
             root.mkdir()
-            reservation = M.reserve_attempt(root, "attempt-001")
+            reservation = M._reserve_attempt_for_test(root, "attempt-001")
             entered = threading.Event()
             release = threading.Event()
             original = M._write_file
@@ -208,7 +244,7 @@ class ExactPublicationTests(unittest.TestCase):
                 base = Path(directory)
                 root = base / "published"
                 root.mkdir()
-                reservation = M.reserve_attempt(root, "attempt-001")
+                reservation = M._reserve_attempt_for_test(root, "attempt-001")
                 original = M._verify_closure
 
                 def replace_after_closure(*args, **kwargs):
@@ -245,7 +281,7 @@ class ExactPublicationTests(unittest.TestCase):
 
             with mock.patch.object(M, "_open_dir_name", side_effect=replace_before_open):
                 with self.assertRaises(M.PublicationError) as caught:
-                    M.reserve_attempt(root, "attempt-001")
+                    M._reserve_attempt_for_test(root, "attempt-001")
             self.assertTrue(replaced)
             self.assertEqual(caught.exception.code, "race")
 
@@ -254,7 +290,7 @@ class ExactPublicationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "published"
             root.mkdir()
-            published = M.publish_attempt(root, result, receipt, index)
+            published = M._publish_attempt_for_test(root, result, receipt, index)
             self.assertEqual(published.attempt_id, "attempt-001")
             self.assertEqual(published.directory, root / "attempt-001")
             self.assertEqual(set(published.files), set(M.FILE_NAMES))
@@ -278,7 +314,7 @@ class ExactPublicationTests(unittest.TestCase):
             root = Path(directory) / "published"
             root.mkdir()
             with self.assertRaises(M.PublicationError) as caught:
-                M.publish_attempt(root, result, receipt[:-1] + b"x", index)
+                M._publish_attempt_for_test(root, result, receipt[:-1] + b"x", index)
             self.assertEqual(caught.exception.code, "contract")
             self.assertEqual(list(root.iterdir()), [])
             other_adjudications = evidence_fixture._adjudications()
@@ -296,7 +332,7 @@ class ExactPublicationTests(unittest.TestCase):
             )
             other_receipt = contract.build_receipt(other_result)
             with self.assertRaises(M.PublicationError):
-                M.publish_attempt(root, result, other_receipt, index)
+                M._publish_attempt_for_test(root, result, other_receipt, index)
             self.assertEqual(list(root.iterdir()), [])
 
     def test_existing_attempt_is_exclusive_and_partial_output_is_retained(self) -> None:
@@ -304,9 +340,9 @@ class ExactPublicationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "published"
             root.mkdir()
-            M.publish_attempt(root, result, receipt, index)
+            M._publish_attempt_for_test(root, result, receipt, index)
             with self.assertRaises(M.PublicationError) as caught:
-                M.publish_attempt(root, result, receipt, index)
+                M._publish_attempt_for_test(root, result, receipt, index)
             self.assertEqual(caught.exception.code, "collision")
             partial_root = Path(directory) / "partial"
             partial_root.mkdir()
@@ -322,7 +358,7 @@ class ExactPublicationTests(unittest.TestCase):
 
             with mock.patch.object(M, "_write_file", side_effect=fail_after_result):
                 with self.assertRaises(M.PublicationError):
-                    M.publish_attempt(partial_root, result, receipt, index)
+                    M._publish_attempt_for_test(partial_root, result, receipt, index)
             partial = partial_root / "attempt-001"
             self.assertTrue(partial.is_dir())
             self.assertTrue((partial / M.RESULT_NAME).is_file())
@@ -344,7 +380,7 @@ class ExactPublicationTests(unittest.TestCase):
 
             with mock.patch.object(M, "_read_descriptor", side_effect=corrupt_readback):
                 with self.assertRaises(M.PublicationError) as caught:
-                    M.publish_attempt(root, result, receipt, index)
+                    M._publish_attempt_for_test(root, result, receipt, index)
             self.assertEqual(caught.exception.code, "persisted-bytes")
             self.assertTrue((root / "attempt-001" / M.RESULT_NAME).is_file())
             self.assertFalse((root / "attempt-001" / M.RECEIPT_NAME).exists())
@@ -354,7 +390,7 @@ class ExactPublicationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "published"
             root.mkdir()
-            M.publish_attempt(root, result, receipt, index)
+            M._publish_attempt_for_test(root, result, receipt, index)
             original = M._read_descriptor
 
             def corrupt_second_read(fd, limit, label):
@@ -373,7 +409,7 @@ class ExactPublicationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "published"
             root.mkdir()
-            published = M.publish_attempt(root, result, receipt, index)
+            published = M._publish_attempt_for_test(root, result, receipt, index)
             result_path = published.result.path
             original = M._read_descriptor
             mutated = False
@@ -400,7 +436,7 @@ class ExactPublicationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "published"
             root.mkdir()
-            published = M.publish_attempt(root, result, receipt, index)
+            published = M._publish_attempt_for_test(root, result, receipt, index)
             original = M._bounded_layout
             calls = 0
 
@@ -450,7 +486,7 @@ class ExactPublicationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "published"
             root.mkdir()
-            M.publish_attempt(root, result, receipt, index)
+            M._publish_attempt_for_test(root, result, receipt, index)
             parent_fd = os.open(root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
             try:
                 before = len(os.listdir("/proc/self/fd"))
@@ -464,7 +500,7 @@ class ExactPublicationTests(unittest.TestCase):
 
     def _make_mutable(self, root: Path, name: str, action) -> None:
         result, receipt, index = _blobs()
-        published = M.publish_attempt(root, result, receipt, index)
+        published = M._publish_attempt_for_test(root, result, receipt, index)
         os.chmod(published.directory, 0o755)
         action(published.directory / name)
         os.chmod(published.directory, M.DIRECTORY_MODE)
@@ -490,7 +526,7 @@ class ExactPublicationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "published"
             root.mkdir()
-            M.publish_attempt(root, result, receipt, index)
+            M._publish_attempt_for_test(root, result, receipt, index)
             outside = Path(directory) / "outside"
             outside.mkdir()
             (root / "attempt-002").symlink_to(outside, target_is_directory=True)
@@ -504,7 +540,7 @@ class ExactPublicationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "published"
             root.mkdir()
-            published = M.publish_attempt(root, result, receipt, index)
+            published = M._publish_attempt_for_test(root, result, receipt, index)
             os.chmod(published.directory, 0o755)
             (published.directory / M.INDEX_NAME).unlink()
             os.chmod(published.directory, M.DIRECTORY_MODE)

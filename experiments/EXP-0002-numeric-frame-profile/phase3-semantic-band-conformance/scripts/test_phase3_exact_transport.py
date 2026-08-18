@@ -117,6 +117,27 @@ class ExactTransportTests(unittest.TestCase):
         self.assertFalse(result.killed)
         self.assertEqual(result.attempt_count, 1)
         self.assertEqual(result.request_count, result.response_count)
+        self.assertIn("terminal_cwd", result.to_dict())
+        self.assertEqual(set(result.lifecycle), {"state", "exit_code", "term_signal", "reaped", "killed", "partial", "clean_shutdown", "startup_error", "rusage"})
+        self.assertEqual(set(result.output), {"missing", "extra", "trailing", "stdout", "stderr"})
+        self.assertEqual(result.output["stdout"]["bytes"], len(result.stdout))
+
+    def test_executable_bound_admits_both_frozen_sizes_and_rejects_above_cap(self) -> None:
+        class SizedBytes(bytes):
+            reported_size = 0
+
+            def __len__(self) -> int:
+                return self.reported_size
+
+        with mock.patch.object(transport, "_hash", return_value="a" * 64):
+            for size in (100_944_288, 100_945_304):
+                payload = SizedBytes(b"x")
+                payload.reported_size = size
+                self.assertEqual(transport._validate_expected_content(payload, "a" * 64)[0], payload)
+            payload = SizedBytes(b"x")
+            payload.reported_size = 100_945_305
+            with self.assertRaisesRegex(ExactTransportError, "expected-content-too-large"):
+                transport._validate_expected_content(payload, "a" * 64)
 
     def test_request_bytes_are_preserved_and_only_missing_lf_is_added(self) -> None:
         session = self.session()

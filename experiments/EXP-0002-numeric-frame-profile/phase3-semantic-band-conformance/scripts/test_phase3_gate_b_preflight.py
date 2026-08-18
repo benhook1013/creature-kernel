@@ -7,6 +7,7 @@ import hashlib
 import json
 from pathlib import Path
 import shutil
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -16,6 +17,21 @@ import phase3_freeze_manifest as freeze
 
 
 ROOT = Path(__file__).resolve().parents[1]
+HISTORICAL_V1_COMMIT = "553d51bd55dd837b01b950d063d288369f61e56d"
+MANIFEST_REPOSITORY_PATH = "experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/manifests/freeze-manifest.json"
+
+
+def _v1_fixture() -> bytes:
+    """Read the immutable v1 predecessor, never the current package file."""
+    result = subprocess.run(
+        ["git", "-C", str(freeze.REPO), "show", f"{HISTORICAL_V1_COMMIT}:{MANIFEST_REPOSITORY_PATH}"],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if result.returncode != 0 or not result.stdout.endswith(b"\n"):
+        raise AssertionError("historical v1 manifest fixture unavailable")
+    return result.stdout
 
 
 def _candidate() -> dict[str, object]:
@@ -49,7 +65,7 @@ def _frozen_package(root: Path) -> Path:
         patch.object(freeze, "_execution_tool_identities_from_commit", side_effect=committed),
     ):
         successor = freeze.build_successor_manifest(
-            manifest_path.read_bytes(),
+            _v1_fixture(),
             execution_tool_source_commit="e" * 40,
             package=package,
         )
@@ -104,6 +120,7 @@ class GateBPreflightTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             package = Path(directory) / "package"
             shutil.copytree(ROOT, package)
+            (package / freeze.MANIFEST_REL).write_bytes(_v1_fixture())
             (package / freeze.MANIFEST_REL).chmod(0o644)
             with patch.object(preflight, "_load_freeze_module", return_value=freeze):
                 with self.assertRaises(preflight.GateBPreflightError) as error:

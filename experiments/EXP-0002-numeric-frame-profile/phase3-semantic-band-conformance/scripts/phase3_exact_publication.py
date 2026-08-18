@@ -17,14 +17,17 @@ replace entries after this module returns.  Mutations reflected in the
 verifier's repeated reads or final retained-descriptor/path observations are
 detected.  This is an observed-overlap boundary, not external custody against
 a malicious peer that can act after an individual final observation or after
-the verifier returns.  Reservation tokens and locks enforce cooperative API
-use and same-process thread safety; they are deliberately not described as
-unforgeable security capabilities or cross-process/global locks.
+the verifier returns.  ``reserve_experiment_slot`` additionally leaves a
+durable marker in one package-owned namespace before attempt work begins.  It
+provides exactly-once cooperative accounting for the frozen manifest hash,
+platform selector, and ordinal; tokens and markers are deliberately not
+described as unforgeable security capabilities or hostile cross-process locks.
 """
 
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import stat
 import threading
@@ -47,6 +50,12 @@ MAX_COMPONENT_BYTES = 255
 MAX_ATTEMPT_ID_BYTES = contract.MAX_ID_BYTES
 ATTEMPT_RE = contract.ATTEMPT_RE
 PUBLICATION_TRUST_BOUNDARY = "cooperating-same-process-local-posix-v1"
+EXPERIMENT_SLOT_SCHEMA = "ck.exp-0002.phase3.experiment-slot-reservation-1"
+EXPERIMENT_SLOT_NAMESPACE = Path(__file__).resolve().parents[1] / "results" / "exact-slot-reservations"
+EXPERIMENT_SLOT_SELECTORS = {
+    "wsl2-x86_64": frozenset({0, 1}),
+    "ubuntu-24.04-x86_64": frozenset({2}),
+}
 
 
 class PublicationError(ValueError):
@@ -115,7 +124,7 @@ class AttemptReservation:
     """
 
     __slots__ = (
-        "_token", "_issued", "_parent_fd", "_directory_fd", "_lock", "_state",
+        "_token", "_issued", "_parent_fd", "_directory_fd", "_lock", "_state", "_slot_binding",
     )
 
     def __init__(
@@ -137,6 +146,7 @@ class AttemptReservation:
         self._directory_fd = directory_fd
         self._lock = threading.RLock()
         self._state = "issued"
+        self._slot_binding = None
 
     @property
     def parent_root(self) -> Path:
@@ -149,6 +159,11 @@ class AttemptReservation:
     @property
     def directory(self) -> Path:
         return self._issued.parent_root / self._issued.attempt_id
+
+    @property
+    def experiment_slot(self) -> Mapping[str, object] | None:
+        binding = self._slot_binding
+        return None if binding is None else MappingProxyType(dict(binding))
 
     @property
     def closed(self) -> bool:
@@ -215,6 +230,83 @@ def _attempt_id(value: object) -> str:
     if ATTEMPT_RE.fullmatch(value) is None or value in {"attempt-id", "attempt-000"}:
         _fail("attempt-id", "attempt ID is invalid or a placeholder")
     return value
+
+
+def _slot_binding(
+    successor_manifest_sha256: object,
+    platform_selector: object,
+    ordinal: object,
+    attempt_id: object,
+) -> dict[str, object]:
+    if type(successor_manifest_sha256) is not str or len(successor_manifest_sha256) != 64 or any(c not in "0123456789abcdef" for c in successor_manifest_sha256):
+        _fail("slot-key", "successor manifest hash is not lowercase SHA-256")
+    if type(platform_selector) is not str or platform_selector not in EXPERIMENT_SLOT_SELECTORS:
+        _fail("slot-key", "platform selector is not preregistered")
+    if type(ordinal) is not int or isinstance(ordinal, bool) or ordinal not in EXPERIMENT_SLOT_SELECTORS[platform_selector]:
+        _fail("slot-key", "ordinal is not allowed for the selected platform")
+    return {
+        "successor_manifest_sha256": successor_manifest_sha256,
+        "platform_selector": platform_selector,
+        "ordinal": ordinal,
+        "attempt_id": _attempt_id(attempt_id),
+    }
+
+
+def _slot_canonical(value: Mapping[str, object]) -> bytes:
+    try:
+        return (json.dumps(value, ensure_ascii=True, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
+    except (TypeError, ValueError, UnicodeEncodeError) as error:
+        raise PublicationError("slot-record", "slot reservation is not canonical JSON") from error
+
+
+def _slot_paths(binding: Mapping[str, object], namespace: Path) -> tuple[Path, Path]:
+    digest = str(binding["successor_manifest_sha256"])
+    selector = str(binding["platform_selector"])
+    ordinal = str(binding["ordinal"])
+    directory = namespace / digest / selector
+    return directory, directory / f"ordinal-{ordinal}.json"
+
+
+def _reserve_slot_marker(binding: Mapping[str, object]) -> None:
+    """Persist the experiment-wide consumed slot before attempt work begins."""
+    namespace = _path(EXPERIMENT_SLOT_NAMESPACE, "experiment slot namespace")
+    directory, marker = _slot_paths(binding, namespace)
+    try:
+        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+        os.chmod(directory, 0o700)
+        raw = _slot_canonical({"schema": EXPERIMENT_SLOT_SCHEMA, **dict(binding)})
+        fd = os.open(marker, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_CLOEXEC", 0), 0o600)
+        try:
+            offset = 0
+            while offset < len(raw):
+                written = os.write(fd, raw[offset:])
+                if written <= 0:
+                    _fail("slot-write", "slot marker made no progress")
+                offset += written
+            os.fsync(fd)
+            os.fchmod(fd, 0o600)
+            os.fsync(fd)
+        finally:
+            _close(fd)
+        _fsync_path(directory)
+        _fsync_path(namespace)
+    except FileExistsError as error:
+        raise PublicationError("slot-consumed", "experiment slot is already bound to an attempt") from error
+    except PublicationError:
+        raise
+    except OSError as error:
+        raise PublicationError("slot-reservation", f"cannot consume experiment slot: {error}") from error
+
+
+def _fsync_path(path: Path) -> None:
+    fd = -1
+    try:
+        fd = os.open(path, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) if path.is_dir() else os.O_RDONLY)
+        os.fsync(fd)
+    except OSError as error:
+        raise PublicationError("slot-reservation", f"cannot fsync slot namespace: {error}") from error
+    finally:
+        _close(fd)
 
 
 def _open_directory(path: Path, label: str) -> int:
@@ -397,8 +489,8 @@ def _empty_directory(directory_fd: int) -> None:
         raise PublicationError("unavailable", f"reserved attempt directory listing: {error}") from error
 
 
-def reserve_attempt(parent_root: Path | str, attempt_id: str) -> AttemptReservation:
-    """Exclusively consume one prelaunch attempt ID beneath an existing root.
+def _reserve_attempt_for_test(parent_root: Path | str, attempt_id: str) -> AttemptReservation:
+    """Test-only local reservation helper; it is not experiment-wide.
 
     The empty ``0700`` directory is the durable consumed marker.  Closing the
     returned reservation, process failure, or a later publication failure
@@ -464,6 +556,34 @@ def reserve_attempt(parent_root: Path | str, attempt_id: str) -> AttemptReservat
         _close(parent_fd)
 
 
+def reserve_experiment_slot(
+    parent_root: Path | str,
+    successor_manifest_sha256: str,
+    platform_selector: str,
+    ordinal: int,
+    attempt_id: str,
+) -> AttemptReservation:
+    """Consume one experiment-wide slot and return a publication reservation.
+
+    The slot marker is rooted at the package-owned ``EXPERIMENT_SLOT_NAMESPACE``;
+    ``parent_root`` is only the immutable publication directory for the returned
+    handle.  Consequently two callers cannot evade exactly-once accounting by
+    selecting different output roots.  The marker is written first, so every
+    failed or abandoned reservation remains consumed.  This is cooperative
+    local trust, not a hostile-process or cross-machine lock.
+    """
+    binding = _slot_binding(successor_manifest_sha256, platform_selector, ordinal, attempt_id)
+    _reserve_slot_marker(binding)
+    try:
+        reservation = _reserve_attempt_for_test(parent_root, str(binding["attempt_id"]))
+    except Exception:
+        # Deliberately retain the marker: a consumed slot cannot be retried
+        # after an output-root failure or a process interruption.
+        raise
+    reservation._slot_binding = dict(binding)
+    return reservation
+
+
 def _require_reservation(value: object) -> AttemptReservation:
     if type(value) is not AttemptReservation or getattr(value, "_token", None) is not _RESERVATION_TOKEN:
         _fail("reservation", "reservation was not issued by this module or has the wrong type")
@@ -518,6 +638,27 @@ def _verify_reservation(reservation: AttemptReservation) -> None:
         _close(reopened_root)
 
 
+def _verify_experiment_slot(reservation: AttemptReservation, result_bytes: bytes) -> None:
+    binding = getattr(reservation, "_slot_binding", None)
+    if binding is None:
+        return
+    try:
+        result = contract.validate_result(result_bytes)
+    except contract.EvidenceContractError as error:
+        raise PublicationError("contract", str(error)) from error
+    attempt = result.get("attempt")
+    if not isinstance(attempt, Mapping):
+        _fail("slot-binding", "result attempt metadata is unavailable")
+    expected = {
+        "successor_manifest_sha256": attempt.get("freeze_manifest_sha256"),
+        "platform_selector": attempt.get("platform_selector"),
+        "ordinal": attempt.get("ordinal"),
+        "attempt_id": attempt.get("attempt_id"),
+    }
+    if expected != binding:
+        _fail("slot-binding", "result attempt metadata differs from the consumed experiment slot")
+
+
 def _verify_final_named_paths(reservation: AttemptReservation) -> None:
     """Rebind both public names to the retained descriptors before return."""
     try:
@@ -558,6 +699,7 @@ def publish_reserved_attempt(
         attempt_id, result_bytes, receipt_bytes, index_bytes = _contract_bytes(result_bytes, receipt_bytes, index_bytes)
         if attempt_id != reservation.attempt_id:
             _fail("attempt-mismatch", "evidence attempt ID differs from the prelaunch reservation")
+        _verify_experiment_slot(reservation, result_bytes)
         _verify_reservation(reservation)
         directory_fd = reservation._directory_fd
         parent_fd = reservation._parent_fd
@@ -589,10 +731,10 @@ def publish_reserved_attempt(
         _finish_reservation(reservation)
 
 
-def publish_attempt(parent_root: Path | str, result_bytes: bytes, receipt_bytes: bytes, index_bytes: bytes) -> PublishedAttempt:
-    """Validate, reserve, and publish one attempt for compatibility callers."""
+def _publish_attempt_for_test(parent_root: Path | str, result_bytes: bytes, receipt_bytes: bytes, index_bytes: bytes) -> PublishedAttempt:
+    """Test-only local publication helper; it is not experiment-wide."""
     attempt_id, result_bytes, receipt_bytes, index_bytes = _contract_bytes(result_bytes, receipt_bytes, index_bytes)
-    reservation = reserve_attempt(parent_root, attempt_id)
+    reservation = _reserve_attempt_for_test(parent_root, attempt_id)
     return publish_reserved_attempt(reservation, result_bytes, receipt_bytes, index_bytes)
 
 
@@ -721,13 +863,13 @@ def read_attempt(parent_root: Path | str, attempt_id: str) -> PublishedAttempt:
         _close(parent_fd)
 
 
-# Small aliases for callers that prefer noun/verb names.
-publish = publish_attempt
+# Small reader alias for callers that prefer a noun name.
 read_published_attempt = read_attempt
 
 
 __all__ = [
     "RESULT_NAME", "RECEIPT_NAME", "INDEX_NAME", "FILE_NAMES", "FILE_MODES", "DIRECTORY_MODE",
-    "PUBLICATION_TRUST_BOUNDARY", "PublicationError", "FileIdentity", "PublishedAttempt", "AttemptReservation", "reserve_attempt",
-    "publish_reserved_attempt", "publish_attempt", "publish", "read_attempt", "read_published_attempt",
+    "PUBLICATION_TRUST_BOUNDARY", "EXPERIMENT_SLOT_SCHEMA", "EXPERIMENT_SLOT_NAMESPACE", "EXPERIMENT_SLOT_SELECTORS",
+    "PublicationError", "FileIdentity", "PublishedAttempt", "AttemptReservation", "reserve_experiment_slot",
+    "publish_reserved_attempt", "read_attempt", "read_published_attempt",
 ]

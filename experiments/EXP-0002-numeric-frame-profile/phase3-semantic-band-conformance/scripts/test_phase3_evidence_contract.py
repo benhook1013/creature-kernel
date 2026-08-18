@@ -44,13 +44,13 @@ def _execution_identity(*, partial: bool = False) -> dict[str, object]:
     if partial:
         return {
             "descriptor_pre": dict(candidate), "descriptor_post_exe": None, "descriptor_post_fd": None,
-            "cwd_pre": None, "cwd_post": None,
+            "cwd_pre": None, "cwd_post": None, "cwd_terminal": None,
             "content_initial": dict(content), "content_pre_fork": None, "content_post_exec": None,
             "seals_initial": 15, "seals_pre_fork": None, "seals_post_exec": None,
         }
     return {
         "descriptor_pre": dict(candidate), "descriptor_post_exe": dict(candidate), "descriptor_post_fd": dict(candidate),
-        "cwd_pre": dict(cwd), "cwd_post": dict(cwd),
+        "cwd_pre": dict(cwd), "cwd_post": dict(cwd), "cwd_terminal": dict(cwd),
         "content_initial": dict(content), "content_pre_fork": dict(content), "content_post_exec": dict(content),
         "seals_initial": 15, "seals_pre_fork": 15, "seals_post_exec": 15,
     }
@@ -145,18 +145,46 @@ def _process(role: str, count: int, adjudications: list[dict[str, object]], *, i
             "candidate_binary": {"sha256_pre": "e" * 64, "sha256_post": "e" * 64},
             "execution_identity": _execution_identity(partial=True),
             "fe_mxcsr": None, "transport": {"requests": pair(requests, contract.REQUEST_FRAME_DOMAIN), "responses": pair(responses, contract.RESPONSE_FRAME_DOMAIN)},
-            "lifecycle": None, "output": None, "missing": ["platform", "launch", "fe_mxcsr", "lifecycle", "output"],
+            "lifecycle": None, "output": None, "missing": ["platform", "launch", "fe_mxcsr", "execution_identity.cwd_terminal", "lifecycle", "output"],
             "outcome": {"status": "inconclusive", "code": "startup-observation-incomplete", "detail": "test fixture intentionally omits process observations"},
         }
+    def location(name: str) -> dict[str, object]:
+        return {
+            "path": f"/home/test/{name}", "kind": "directory", "device": 1,
+            "inode": 200, "mode": stat.S_IFDIR | 0o700, "size": 0, "nlink": 1,
+            "filesystem": "ext4", "mount": "/home",
+        }
+    platform = {
+        "selector": "wsl2-x86_64", "cpu_model": "test-cpu", "cpu_features": ["sse2"],
+        "architecture": "x86_64", "kernel_or_wsl": "test-kernel", "os_release": "test-os",
+        "filesystem": "ext4", "mount_context": "/home", "workflow_runner": "build-receipt:test-runner",
+        "workflow_image": "build-receipt:test-image:1", "toolchain": "build-receipt:rust-test",
+        "compiler": "build-receipt:rustc-test",
+        "locations": {
+            "package": location("package"), "output": location("output"), "work": location("work"),
+            "custody": location("custody"), "roles": {name: location(name) for name in contract.ROLE_COUNTS},
+        },
+        "runtime": {
+            "implementation": "cpython", "version": "3.13.0", "executable": "/usr/bin/python3",
+            "python_version": "3.13.0", "platform": "linux-x86_64", "libc": "glibc 2.39",
+        },
+        "build_receipt": {
+            "source": "frozen-build-receipt", "selector": "wsl2-x86_64",
+            "receipt_sha256": "1" * 64, "receipt_self_hash": "2" * 64, "platform_role": "wsl",
+            "runner_os": "test-runner", "image_os": "test-image", "image_version": "1",
+            "toolchain": "rust-test", "compiler": "rustc-test",
+        },
+    }
     return {
         "variant": "complete-v1", "role": role, "candidate_request_count": count,
-        "platform": {"selector": "wsl2-x86_64", "cpu_model": "test-cpu", "cpu_features": ["sse2"], "architecture": "x86_64", "kernel_or_wsl": "test-kernel", "os_release": "test-os", "filesystem": "ext4", "mount_context": "/work", "workflow_runner": "local-test", "workflow_image": "test-image", "toolchain": "rust-test", "compiler": "rustc-test"},
+        "platform": platform,
         "launch": {"identity": f"launch-{role}", "argv": ["candidate", "--role", role], "cwd": "/work/candidate", "environment": {"CK_ROLE": role}},
         "candidate_binary": {"sha256_pre": "e" * 64, "sha256_post": "e" * 64},
         "execution_identity": _execution_identity(),
         "fe_mxcsr": {"pre": {"x87_control_word": "0x037f", "mxcsr": "0x00001f80", "x87_rounding_mode": "nearest", "mxcsr_rounding_mode": "nearest", "x87_exception_masks": 63, "mxcsr_exception_masks": 63, "x87_flags": None, "mxcsr_flags": 0, "ftz": False, "daz": False}, "post": {"x87_control_word": "0x037f", "mxcsr": "0x00001f80", "x87_rounding_mode": "nearest", "mxcsr_rounding_mode": "nearest", "x87_exception_masks": 63, "mxcsr_exception_masks": 63, "x87_flags": None, "mxcsr_flags": 0, "ftz": False, "daz": False}},
         "transport": {"requests": pair(requests, contract.REQUEST_FRAME_DOMAIN), "responses": pair(responses, contract.RESPONSE_FRAME_DOMAIN)},
-        "lifecycle": {"state": "exited", "exit_code": 0, "clean_shutdown": True}, "output": {"missing": [], "extra": [], "trailing": []},
+        "lifecycle": {"state": "exited", "exit_code": 0, "term_signal": None, "reaped": True, "killed": False, "partial": False, "clean_shutdown": True, "startup_error": "", "rusage": None},
+        "output": {"missing": [], "extra": [], "trailing": [], "stdout": {"bytes": 0, "sha256": hashlib.sha256(b"").hexdigest()}, "stderr": {"bytes": 0, "sha256": hashlib.sha256(b"").hexdigest()}},
         "outcome": {"status": "supported", "code": None, "detail": None},
     }
 
@@ -261,6 +289,7 @@ class EvidenceContractTests(unittest.TestCase):
         complete = json.loads(_result())
         identity = complete["process_observations"][0]["execution_identity"]
         self.assertEqual(identity["descriptor_pre"], identity["descriptor_post_exe"])
+        self.assertEqual(identity["cwd_terminal"], identity["cwd_post"])
         self.assertEqual(identity["content_initial"]["sha256"], "e" * 64)
 
         partial = json.loads(_result(incomplete_process=True))
@@ -272,6 +301,7 @@ class EvidenceContractTests(unittest.TestCase):
         adjudications = _adjudications()
         processes = [_process("development", 8, adjudications, incomplete=True), _process("held-out", 40, adjudications), _process("controls", 9, adjudications)]
         processes[0]["execution_identity"] = None
+        processes[0]["missing"].remove("execution_identity.cwd_terminal")
         processes[0]["missing"].append("execution_identity")
         self.assertEqual(json.loads(contract.build_result(_attempt(), adjudications, processes, _tools()))["status"], "inconclusive")
 
@@ -327,7 +357,11 @@ class EvidenceContractTests(unittest.TestCase):
             post["x87_rounding_mode"] = "downward"
 
         def fail_lifecycle(process: dict[str, object]) -> None:
-            process["lifecycle"] = {"state": "failed", "exit_code": 1, "clean_shutdown": False}
+            process["lifecycle"] = {
+                "state": "failed", "exit_code": 1, "term_signal": None,
+                "reaped": True, "killed": False, "partial": True,
+                "clean_shutdown": False, "startup_error": "", "rusage": None,
+            }
 
         def fail_outcome(process: dict[str, object]) -> None:
             process["outcome"] = {"status": "failed", "code": "transport-failed", "detail": "candidate transport failed"}

@@ -26,10 +26,13 @@ from dataclasses import dataclass
 import hashlib
 import inspect
 import json
+import math
 import os
 from pathlib import Path
 import platform as _platform
 import stat
+import sys
+import sysconfig
 from types import MappingProxyType
 from typing import Any, Callable, Mapping, Sequence
 
@@ -74,6 +77,9 @@ MALFORMED_OUTPUT_ID = "malformed-response"
 EXTRA_OUTPUT_ID = "extra-response"
 MISMATCH_OUTPUT_ID = "mismatched-response"
 TRAILING_OUTPUT_ID = "trailing-output"
+# Keep this in lockstep with the exact transport/evidence contracts.  It is
+# deliberately equal to the larger of the two frozen v2 binary slots.
+MAX_EXECUTABLE_BYTES = 100_945_304
 
 
 class ExactAttemptError(ValueError):
@@ -273,7 +279,7 @@ def _read_candidate_descriptor(fd: int, expected_size: int, expected_sha256: str
         info = os.fstat(fd)
         if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_size != expected_size:
             _fail("custody", "candidate descriptor identity differs from custody")
-        if expected_size > transport.MAX_EXECUTABLE_BYTES:
+        if expected_size > MAX_EXECUTABLE_BYTES:
             _fail("custody", "candidate descriptor exceeds transport bound")
         raw = os.pread(fd, expected_size, 0)
         after = os.fstat(fd)
@@ -284,6 +290,36 @@ def _read_candidate_descriptor(fd: int, expected_size: int, expected_sha256: str
     if info != after or len(raw) != expected_size or _sha256(raw) != expected_sha256:
         _fail("custody", "candidate descriptor changed or hash differs")
     return raw
+
+
+def _validate_selected_binary_compatibility(
+    freeze: Mapping[str, Any], platform_selector: str, custody_value: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Bind the selected frozen binary slot to static custody before reserve."""
+    binaries = freeze.get("binaries")
+    if not isinstance(binaries, Mapping) or platform_selector not in binaries:
+        _fail("custody", "selected platform has no frozen binary slot")
+    slot = binaries[platform_selector]
+    if not isinstance(slot, Mapping) or slot.get("status") != "bound":
+        _fail("custody", "selected frozen binary slot is not bound")
+    frozen = slot.get("binary_identity")
+    if not isinstance(frozen, Mapping) or set(frozen) != {"bytes", "mode", "sha256"}:
+        _fail("custody", "selected frozen binary identity is malformed")
+    size = frozen["bytes"]
+    digest = frozen["sha256"]
+    mode = frozen["mode"]
+    if type(size) is not int or isinstance(size, bool) or size <= 0 or size > MAX_EXECUTABLE_BYTES:
+        _fail("custody", "selected frozen binary size exceeds exact transport bound")
+    if type(mode) is not int or stat.S_IMODE(mode) != 0o755 or not stat.S_ISREG(mode):
+        _fail("custody", "selected frozen binary mode is not regular executable 0755")
+    if type(digest) is not str or len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest):
+        _fail("custody", "selected frozen binary hash is malformed")
+    candidate = custody_value.get("candidate")
+    if not isinstance(candidate, Mapping) or set(candidate) < {"bytes", "mode", "sha256"}:
+        _fail("custody", "static custody did not retain selected candidate identity")
+    if {key: candidate[key] for key in ("bytes", "mode", "sha256")} != {"bytes": size, "mode": mode, "sha256": digest}:
+        _fail("custody", "static custody candidate differs from selected frozen binary slot")
+    return {"bytes": size, "mode": mode, "sha256": digest}
 
 
 def _freeze_identity(raw: bytes) -> tuple[dict[str, Any], str]:
@@ -413,47 +449,173 @@ def _actual_platform_selector() -> str:
     return "native-unregistered-x86_64"
 
 
-def _platform_observation(requested_selector: str) -> dict[str, Any]:
-    """Return bounded facts from this host, including the truthful selector."""
-    del requested_selector
-    machine = _platform.machine() or "unknown"
-    uname = _platform.uname()
-    selector = _actual_platform_selector()
-    cpu_model = _platform.processor() or machine
-    flags: list[str] = []
-    for line in _read_bounded_text("/proc/cpuinfo", 64 * 1024).splitlines():
-        if line.casefold().startswith(("flags", "features")) and ":" in line:
-            flags = [item for item in line.split(":", 1)[1].split() if item][:128]
-            break
-    os_release = _read_bounded_text("/etc/os-release", 4096).strip() or (_platform.platform()[:1024] or "unavailable")
+def _mount_for_path(path: Path) -> tuple[str, str]:
+    """Return the observed filesystem type and mountpoint for one path."""
+    raw = _read_bounded_text("/proc/self/mountinfo", 256 * 1024)
+    if raw == "unavailable":
+        _fail("platform", "mountinfo is unavailable")
+    target = str(path)
+    best: tuple[int, str, str] | None = None
+    for line in raw.splitlines():
+        fields = line.split(" - ", 1)
+        if len(fields) != 2:
+            continue
+        left, right = fields
+        left_fields = left.split()
+        right_fields = right.split()
+        if len(left_fields) < 5 or not right_fields:
+            continue
+        mountpoint = left_fields[4].replace("\\040", " ").replace("\\011", "\t")
+        if target == mountpoint or target.startswith(mountpoint.rstrip("/") + "/"):
+            if best is None or len(mountpoint) > best[0]:
+                best = (len(mountpoint), right_fields[0], mountpoint)
+    if best is None:
+        _fail("platform", f"no mountinfo entry for {path}")
+    return best[1], best[2]
+
+
+def _location_observation(path: Path | None, label: str) -> dict[str, Any] | None:
+    if path is None:
+        return None
+    path = Path(path)
+    if not path.is_absolute():
+        _fail("platform", f"{label} is not absolute")
+    _reject_symlink_components(path)
     try:
-        statvfs = os.statvfs(".")
-        filesystem = f"statvfs-bsize={statvfs.f_bsize};blocks={statvfs.f_blocks}"
-    except OSError:
-        filesystem = "unavailable"
-    mount_context = "wsl-or-native-undetermined"
-    mount_info = _read_bounded_text("/proc/self/mountinfo", 64 * 1024)
-    if "/mnt/c" in mount_info:
-        mount_context = "mountinfo-includes-/mnt/c"
-    elif mount_info != "unavailable":
-        mount_context = "mountinfo-no-/mnt/c"
+        info = path.lstat()
+    except OSError as error:
+        raise ExactAttemptError("platform", f"{label} identity unavailable") from error
+    if stat.S_ISLNK(info.st_mode):
+        _fail("platform", f"{label} is symlinked")
+    if not stat.S_ISDIR(info.st_mode):
+        _fail("platform", f"{label} is not a directory")
+    filesystem, mount = _mount_for_path(path)
     return {
-        "selector": selector,
-        "cpu_model": cpu_model[:1024],
-        "cpu_features": flags or [machine],
-        "architecture": machine[:1024],
-        "kernel_or_wsl": (uname.release or "unknown")[:1024],
-        "os_release": os_release,
-        "filesystem": filesystem[:1024],
-        "mount_context": mount_context,
-        "workflow_runner": "local exact-attempt wrapper",
-        "workflow_image": "unreported",
-        "toolchain": "unreported",
-        "compiler": "unreported",
+        "path": str(path), "kind": "directory", "device": int(info.st_dev),
+        "inode": int(info.st_ino), "mode": int(info.st_mode), "size": int(info.st_size),
+        "nlink": int(info.st_nlink), "filesystem": filesystem, "mount": mount,
     }
 
 
-def _validate_platform_observation(value: Any, requested_selector: str) -> dict[str, Any]:
+def _load_frozen_build_facts(package_root: Path, freeze: Mapping[str, Any], selector: str) -> dict[str, str]:
+    """Read and bind the selected frozen receipt without inventing workflow facts."""
+    binaries = freeze.get("binaries")
+    build = freeze.get("build")
+    if not isinstance(binaries, Mapping) or not isinstance(build, Mapping) or selector not in binaries:
+        _fail("platform", "frozen selected build facts are unavailable")
+    slot = binaries[selector]
+    if not isinstance(slot, Mapping):
+        _fail("platform", "frozen selected binary slot is malformed")
+    receipt_path = slot.get("receipt_path") if isinstance(slot, Mapping) else None
+    if type(receipt_path) is not str or receipt_path.startswith("/") or ".." in Path(receipt_path).parts:
+        _fail("platform", "frozen receipt path is unsafe")
+    try:
+        raw = (package_root / receipt_path).read_bytes()
+    except OSError as error:
+        raise ExactAttemptError("platform", "frozen selected receipt is unavailable") from error
+    if type(slot.get("receipt_bytes")) is not int or slot["receipt_bytes"] <= 0 or len(raw) != slot["receipt_bytes"]:
+        _fail("platform", "selected receipt byte count differs from frozen identity")
+    if _sha256(raw) != slot.get("receipt_sha256"):
+        _fail("platform", "selected receipt bytes differ from frozen identity")
+    receipt = _canonical_record(raw, "selected build receipt")
+    if receipt.get("receipt_sha256") != slot.get("receipt_self_hash"):
+        _fail("platform", "selected receipt self-hash differs from frozen identity")
+    receipt_build = receipt.get("build")
+    if not isinstance(receipt_build, Mapping):
+        _fail("platform", "selected receipt build facts are unavailable")
+    observation = receipt_build.get("platform_observation")
+    toolchain = receipt_build.get("toolchain")
+    if not isinstance(observation, Mapping) or not isinstance(toolchain, Mapping):
+        _fail("platform", "selected receipt platform/toolchain facts are unavailable")
+    required = ("runner_os", "image_os", "image_version")
+    if any(type(observation.get(key)) is not str or not observation.get(key) for key in required):
+        _fail("platform", "selected receipt workflow facts are incomplete")
+    if type(receipt_build.get("platform_role")) is not str or not receipt_build["platform_role"]:
+        _fail("platform", "selected receipt platform role is incomplete")
+    for key in ("rust_toolchain", "rustc"):
+        if type(toolchain.get(key)) is not str or not toolchain.get(key):
+            _fail("platform", "selected receipt compiler facts are incomplete")
+    return {
+        "source": "frozen-build-receipt", "selector": selector,
+        "receipt_sha256": str(slot["receipt_sha256"]), "receipt_self_hash": str(slot["receipt_self_hash"]),
+        "platform_role": str(receipt_build.get("platform_role", "")),
+        "runner_os": observation["runner_os"], "image_os": observation["image_os"],
+        "image_version": observation["image_version"], "toolchain": toolchain["rust_toolchain"],
+        "compiler": toolchain["rustc"],
+    }
+
+
+def _platform_observation(
+    requested_selector: str,
+    *, package_root: Path, output_root: Path, work_root: Path,
+    custody_root: Path | None = None, role_dirs: Mapping[str, Path] | None = None,
+    frozen_build: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
+    """Return descriptor/path-specific runtime facts and frozen build facts."""
+    machine = _platform.machine()
+    uname = _platform.uname()
+    selector = _actual_platform_selector()
+    if selector != requested_selector or machine != "x86_64":
+        _fail("platform", "actual platform does not match requested x86_64 selector")
+    cpu_model = _platform.processor()
+    if not cpu_model:
+        _fail("platform", "CPU model observation is unavailable")
+    flags: list[str] = []
+    cpuinfo = _read_bounded_text("/proc/cpuinfo", 64 * 1024)
+    for line in cpuinfo.splitlines():
+        if line.casefold().startswith(("flags", "features")) and ":" in line:
+            flags = [item for item in line.split(":", 1)[1].split() if item][:128]
+            break
+    if not flags:
+        _fail("platform", "CPU feature observation is unavailable")
+    os_release = _read_bounded_text("/etc/os-release", 4096).strip()
+    if os_release == "unavailable":
+        _fail("platform", "OS release observation is unavailable")
+    if requested_selector == "ubuntu-24.04-x86_64" and ("ID=ubuntu" not in os_release or "VERSION_ID=24.04" not in os_release):
+        _fail("platform", "native selector requires Ubuntu 24.04 runtime facts")
+    if requested_selector == "wsl2-x86_64" and "microsoft" not in (uname.release or "").casefold() and "wsl" not in (uname.release or "").casefold():
+        _fail("platform", "WSL selector requires WSL kernel facts")
+    locations = {
+        "package": _location_observation(package_root, "package root"),
+        "output": _location_observation(output_root, "output root"),
+        "work": _location_observation(work_root, "work root"),
+        "custody": _location_observation(custody_root, "custody root"),
+        "roles": {role: _location_observation((role_dirs or {}).get(role), f"{role} role root") for role in ROLE_ORDER},
+    }
+    if requested_selector == "wsl2-x86_64":
+        for name, item in (("package", locations["package"]), ("output", locations["output"]), ("work", locations["work"]), ("custody", locations["custody"])):
+            if item is not None and not str(item["path"]).startswith("/home/"):
+                _fail("platform", f"WSL {name} location is outside the declared /home boundary")
+        for role, item in locations["roles"].items():
+            if item is not None and not str(item["path"]).startswith("/home/"):
+                _fail("platform", f"WSL {role} role location is outside the declared /home boundary")
+    if frozen_build is None:
+        _fail("platform", "frozen build receipt facts are required")
+    runtime = {
+        "implementation": sys.implementation.name,
+        "version": sys.version.split()[0],
+        "executable": str(Path(sys.executable).resolve()),
+        "python_version": _platform.python_version(),
+        "platform": sysconfig.get_platform(),
+        "libc": " ".join(item for item in _platform.libc_ver() if item) or "unknown",
+    }
+    if any(not value or value == "unknown" for value in runtime.values()):
+        _fail("platform", "Python runtime facts are incomplete")
+    return {
+        "selector": selector, "cpu_model": cpu_model[:1024], "cpu_features": flags,
+        "architecture": machine, "kernel_or_wsl": (uname.release or "")[:1024],
+        "os_release": os_release[:1024], "filesystem": locations["package"]["filesystem"],
+        "mount_context": locations["package"]["mount"],
+        "workflow_runner": f"build-receipt:{frozen_build['runner_os']}",
+        "workflow_image": f"build-receipt:{frozen_build['image_os']}:{frozen_build['image_version']}",
+        "toolchain": f"build-receipt:{frozen_build['toolchain']}",
+        "compiler": f"build-receipt:{frozen_build['compiler']}",
+        "locations": locations, "runtime": runtime,
+        "build_receipt": dict(frozen_build),
+    }
+
+
+def _validate_platform_observation(value: Any, requested_selector: str, *, require_locations: bool = True) -> dict[str, Any]:
     if not isinstance(value, Mapping) or set(value) != set(evidence_contract.PLATFORM_KEYS):
         _fail("platform", "platform observation is not the closed evidence schema")
     if requested_selector not in evidence_contract.PLATFORM_SELECTORS or value.get("selector") != requested_selector:
@@ -463,8 +625,18 @@ def _validate_platform_observation(value: Any, requested_selector: str) -> dict[
         if key == "cpu_features":
             if not isinstance(item, list) or not item or len(item) > 128 or any(type(x) is not str or len(x.encode("utf-8")) > 256 for x in item):
                 _fail("platform", "platform cpu_features are malformed")
-        elif type(item) is not str or len(item.encode("utf-8")) > 1024:
+        elif key not in {"locations", "runtime", "build_receipt"} and (type(item) is not str or len(item.encode("utf-8")) > 1024):
             _fail("platform", f"platform field {key} is malformed")
+    # Reuse the evidence owner's closed nested schemas. This deliberately
+    # rejects missing location/runtime/build facts rather than supporting from
+    # a partial ambient probe.
+    evidence_contract._platform(result, "exact-attempt platform", requested_selector)
+    locations = result["locations"]
+    for name in ("package", "output", "work"):
+        if locations[name] is None:
+            _fail("platform", f"required {name} location observation is missing")
+    if require_locations and (locations["custody"] is None or any(locations["roles"].get(role) is None for role in ROLE_ORDER)):
+        _fail("platform", "required custody/role location observation is missing")
     return result
 
 
@@ -526,20 +698,36 @@ def _bounded_detail(value: Any, fallback: str, maximum: int = 1024) -> str:
 
 
 def _valid_lifecycle(value: Any) -> dict[str, Any] | None:
-    if not isinstance(value, Mapping) or set(value) != {"state", "exit_code", "clean_shutdown"}:
+    if not isinstance(value, Mapping) or set(value) != {"state", "exit_code", "term_signal", "reaped", "killed", "partial", "clean_shutdown", "startup_error", "rusage"}:
         return None
     state = value.get("state")
     exit_code = value.get("exit_code")
-    clean = value.get("clean_shutdown")
-    if state not in {"exited", "terminated", "failed"} or type(exit_code) is not int or not -128 <= exit_code <= 255 or type(clean) is not bool:
+    if state not in {"exited", "terminated", "failed"} or type(exit_code) is not int or not -128 <= exit_code <= 255:
         return None
-    return {"state": state, "exit_code": exit_code, "clean_shutdown": clean}
+    term_signal = value.get("term_signal")
+    if term_signal is not None and (type(term_signal) is not int or not 1 <= term_signal <= 64):
+        return None
+    if any(type(value.get(key)) is not bool for key in ("reaped", "killed", "partial", "clean_shutdown")):
+        return None
+    startup_error = value.get("startup_error")
+    if type(startup_error) is not str or len(startup_error.encode("utf-8")) > 4096:
+        return None
+    usage = value.get("rusage")
+    if usage is not None:
+        if not isinstance(usage, Mapping) or set(usage) != {"user_seconds", "system_seconds", "max_rss", "minor_faults", "major_faults", "involuntary_context_switches", "voluntary_context_switches"}:
+            return None
+        if any(type(item) not in (int, float) or isinstance(item, bool) or item < 0 or not math.isfinite(float(item)) for item in usage.values()):
+            return None
+        usage = dict(usage)
+    if state == "terminated" and term_signal is None and exit_code >= 0:
+        return None
+    return {"state": state, "exit_code": exit_code, "term_signal": term_signal, "reaped": value["reaped"], "killed": value["killed"], "partial": value["partial"], "clean_shutdown": value["clean_shutdown"], "startup_error": startup_error, "rusage": usage}
 
 
-def _valid_output(value: Any) -> tuple[dict[str, list[str]] | None, bool]:
+def _valid_output(value: Any) -> tuple[dict[str, Any] | None, bool]:
     if not isinstance(value, Mapping):
         return None, value is not None
-    output: dict[str, list[str]] = {}
+    output: dict[str, Any] = {}
     malformed = False
     for key in ("missing", "extra", "trailing"):
         items = value.get(key, [])
@@ -559,12 +747,31 @@ def _valid_output(value: Any) -> tuple[dict[str, list[str]] | None, bool]:
             malformed = True
             retained.append(MALFORMED_OUTPUT_ID)
         output[key] = list(dict.fromkeys(retained))[:MAX_OUTPUT_IDS]
+    for key, maximum in (("stdout", transport.STDOUT_TOTAL_CAP), ("stderr", transport.STDERR_TOTAL_CAP)):
+        if key not in value:
+            output[key] = None
+            continue
+        stream = value.get(key)
+        if stream is None:
+            output[key] = None
+            continue
+        if not isinstance(stream, Mapping) or set(stream) != {"bytes", "sha256"}:
+            malformed = True
+            output[key] = None
+            continue
+        size = stream.get("bytes")
+        digest = _valid_sha(stream.get("sha256"))
+        if type(size) is not int or size < 0 or size > maximum or digest is None:
+            malformed = True
+            output[key] = None
+        else:
+            output[key] = {"bytes": size, "sha256": digest}
     return output, malformed
 
 
 EXECUTION_IDENTITY_KEYS = (
     "descriptor_pre", "descriptor_post_exe", "descriptor_post_fd",
-    "cwd_pre", "cwd_post", "content_initial", "content_pre_fork",
+    "cwd_pre", "cwd_post", "cwd_terminal", "content_initial", "content_pre_fork",
     "content_post_exec", "seals_initial", "seals_pre_fork", "seals_post_exec",
 )
 
@@ -591,7 +798,7 @@ def _identity_mapping(value: Any, *, content: bool = False) -> dict[str, Any] | 
     return {key: int(value[key]) for key in ("device", "inode", "mode", "size", "nlink")}
 
 
-def _execution_identity(launch: Any, prepared_cwd: Mapping[str, int] | None) -> tuple[dict[str, Any] | None, list[str]]:
+def _execution_identity(launch: Any, prepared_cwd: Mapping[str, int] | None, result: Any = None) -> tuple[dict[str, Any] | None, list[str]]:
     if launch is None:
         return None, []
     launch_dict: Mapping[str, Any] | None = None
@@ -607,6 +814,8 @@ def _execution_identity(launch: Any, prepared_cwd: Mapping[str, int] | None) -> 
     issues: list[str] = []
     for key in EXECUTION_IDENTITY_KEYS:
         raw = launch_dict.get(key)
+        if key == "cwd_terminal" and raw is None:
+            raw = _get(result, "terminal_cwd", None)
         if key.startswith("descriptor_") or key.startswith("cwd_"):
             value = _identity_mapping(raw)
         elif key.startswith("content_"):
@@ -615,8 +824,10 @@ def _execution_identity(launch: Any, prepared_cwd: Mapping[str, int] | None) -> 
             value = raw if raw is None or (type(raw) is int and raw >= 0) else None
         if raw is not None and value is None:
             issues.append(f"invalid-{key}")
+        elif key == "cwd_terminal" and value is None:
+            issues.append("missing-cwd-terminal")
         identity[key] = value
-    for key in ("cwd_pre", "cwd_post"):
+    for key in ("cwd_pre", "cwd_post", "cwd_terminal"):
         observed = identity[key]
         if prepared_cwd is not None and observed is None:
             issues.append(f"missing-{key}")
@@ -861,7 +1072,7 @@ def _process_observation(
     launch_identity = f"exact-{role}"
     if launch_dict is not None:
         launch_identity = _bounded_detail(launch_dict.get("identity"), launch_identity, 1024)
-    execution_identity, identity_issues = _execution_identity(launch, prepared_cwd_identity)
+    execution_identity, identity_issues = _execution_identity(launch, prepared_cwd_identity, result)
     issues.extend(identity_issues)
     issues.extend(_content_custody_issues(execution_identity, candidate_sha256, launch, result))
 
@@ -893,11 +1104,18 @@ def _process_observation(
     if lifecycle is None:
         returncode = _get(result, "returncode", None)
         if type(returncode) is int and not isinstance(returncode, bool) and -128 <= returncode <= 255:
-            lifecycle = {"state": "exited" if returncode >= 0 else "terminated", "exit_code": returncode, "clean_shutdown": _get(result, "clean_shutdown", False) is True}
+            lifecycle = {
+                "state": "exited" if returncode >= 0 else "terminated", "exit_code": returncode,
+                "term_signal": _get(result, "term_signal", None), "reaped": _get(result, "reaped", False) is True,
+                "killed": _get(result, "killed", False) is True, "partial": _get(result, "partial", False) is True,
+                "clean_shutdown": _get(result, "clean_shutdown", False) is True,
+                "startup_error": _bounded_detail(_get(result, "startup_error", b"").decode("utf-8", errors="replace") if isinstance(_get(result, "startup_error", b""), bytes) else _get(result, "startup_error", ""), "", 4096),
+                "rusage": _get(result, "rusage", None),
+            }
 
     output, output_malformed = _valid_output(_get(result, "output", None))
     if result is not None and output is None:
-        output = {"missing": [], "extra": [], "trailing": []}
+        output = {"missing": [], "extra": [], "trailing": [], "stdout": None, "stderr": None}
     if output_malformed:
         issues.append("invalid-output-metadata")
         if output is not None:
@@ -927,7 +1145,7 @@ def _process_observation(
             issues.append("fe-pre-observed-final-missing")
     if issues:
         detail = _bounded_detail(detail + "; " + "; ".join(issues), "candidate process observation is incomplete")
-        failure_issues = [item for item in issues if item not in {"fe-pre-observed-final-missing", "candidate-binary-post-missing", "candidate-binary-pre-missing"}]
+        failure_issues = [item for item in issues if item not in {"fe-pre-observed-final-missing", "candidate-binary-post-missing", "candidate-binary-pre-missing", "missing-cwd-terminal", "missing-cwd_terminal", "invalid-lifecycle"}]
         if status == "supported" or failure_issues:
             status = "failed"
     if code is None and status != "supported":
@@ -937,7 +1155,8 @@ def _process_observation(
         and execution_identity is not None and not identity_issues
         and transport_view["requests"] is not None and transport_view["responses"] is not None
         and transport_view["requests"]["count"] == len(requests) and transport_view["responses"]["count"] == len(requests)
-        and not any(output.values())
+        and not any(output[key] for key in ("missing", "extra", "trailing"))
+        and output.get("stdout") is not None and output.get("stderr") is not None
     )
     if not complete:
         if status == "supported":
@@ -962,7 +1181,10 @@ def _process_observation(
         "fe_mxcsr": fe,
         "transport": {"requests": transport_view["requests"], "responses": transport_view["responses"]},
         "lifecycle": dict(lifecycle),
-        "output": {key: list(output.get(key, [])) for key in ("missing", "extra", "trailing")},
+        "output": {
+            **{key: list(output.get(key, [])) for key in ("missing", "extra", "trailing")},
+            "stdout": dict(output["stdout"]), "stderr": dict(output["stderr"]),
+        },
         "outcome": {"status": status, "code": None if status == "supported" else str(code), "detail": None if status == "supported" else str(detail)},
     }
     return process
@@ -983,7 +1205,11 @@ def _incomplete_process(role: str, count: int, transport_view: Mapping[str, Any]
         "fe_mxcsr": None if fe is None else fe,
         "transport": {"requests": transport_view.get("requests"), "responses": transport_view.get("responses")},
         "lifecycle": None if lifecycle is None else dict(lifecycle),
-        "output": None if output is None else {key: list(output.get(key, [])) for key in ("missing", "extra", "trailing")},
+        "output": None if output is None else {
+            **{key: list(output.get(key, [])) for key in ("missing", "extra", "trailing")},
+            "stdout": None if output.get("stdout") is None else dict(output["stdout"]),
+            "stderr": None if output.get("stderr") is None else dict(output["stderr"]),
+        },
         "outcome": {"status": outcome_status, "code": None if outcome_status == "supported" else str(code or "transport-incomplete"), "detail": None if outcome_status == "supported" else str(detail or "candidate process observation is incomplete")},
     }
     missing = []
@@ -993,13 +1219,19 @@ def _incomplete_process(role: str, count: int, transport_view: Mapping[str, Any]
     for key in ("requests", "responses"):
         if retained["transport"][key] is None:
             missing.append(f"transport.{key}")
+    if retained["execution_identity"] is not None and retained["execution_identity"].get("cwd_terminal") is None:
+        missing.append("execution_identity.cwd_terminal")
+    if retained["output"] is not None:
+        for key in ("stdout", "stderr"):
+            if retained["output"].get(key) is None:
+                missing.append(f"output.{key}")
     retained["missing"] = missing
     return retained
 
 
 @dataclass(frozen=True)
-class ExactAttemptDependencies:
-    """Injectable boundaries used by synthetic tests and controlled callers."""
+class _ExactAttemptDependencies:
+    """Private dependency bundle used only by the focused synthetic tests."""
 
     preflight: Callable[..., Any] = gate_b_preflight.build_gate_b_preflight
     prepare: Callable[..., Any] = adjudicator.prepare_exact_attempt
@@ -1007,7 +1239,7 @@ class ExactAttemptDependencies:
     validate_authorization: Callable[..., Any] = authority.validate_authorization
     validate_custody_record: Callable[..., Any] = custody.validate_custody_record
     verify_custody: Callable[..., Any] = custody.verify_and_materialize
-    reserve_attempt: Callable[..., Any] = publication.reserve_attempt
+    reserve_attempt: Callable[..., Any] = publication.reserve_experiment_slot
     transport_factory: Callable[..., Any] = transport.ExactCandidateSession
     adjudicate: Callable[..., Any] = adjudicator.adjudicate_exact
     build_result: Callable[..., bytes] = evidence_contract.build_result
@@ -1060,34 +1292,48 @@ def _validate_prepared_cohorts(prepared: Any) -> tuple[Any, ...]:
     return cohorts
 
 
-def _validate_reservation(value: Any, attempt_id: str) -> Any:
-    """Require the real one-shot handle or the explicit synthetic protocol."""
+def _validate_reservation(
+    value: Any,
+    successor_manifest_sha256: str,
+    platform_selector: str,
+    ordinal: int,
+    attempt_id: str,
+) -> Any:
+    """Require a live handle bound to this exact experiment slot."""
     close = getattr(value, "close", None) if value is not None else None
     try:
         value_attempt_id = getattr(value, "attempt_id")
         closed = getattr(value, "closed")
+        experiment_slot = getattr(value, "experiment_slot")
     except Exception as error:
         if callable(close):
             try:
                 close()
             except Exception:
                 pass
-        raise ExactAttemptError("reservation", "reserve_attempt returned a malformed handle") from error
-    valid = (
-        isinstance(value, publication.AttemptReservation)
-        or (type(value_attempt_id) is str and callable(close) and type(closed) is bool)
-    )
+        raise ExactAttemptError("reservation", "reserve_experiment_slot returned a malformed handle") from error
+    expected_slot = {
+        "successor_manifest_sha256": successor_manifest_sha256,
+        "platform_selector": platform_selector,
+        "ordinal": ordinal,
+        "attempt_id": attempt_id,
+    }
+    try:
+        slot_matches = isinstance(experiment_slot, Mapping) and dict(experiment_slot) == expected_slot
+    except (TypeError, ValueError):
+        slot_matches = False
+    valid = type(value_attempt_id) is str and callable(close) and type(closed) is bool and slot_matches
     if not valid or value_attempt_id != attempt_id or closed is not False:
         if callable(close) and closed is False:
             try:
                 close()
             except Exception:
                 pass
-        _fail("reservation", "reserve_attempt did not return a live matching one-shot handle")
+        _fail("reservation", "reserve_experiment_slot did not return a live handle bound to the requested slot")
     return value
 
 
-def run_exact_attempt(
+def _run_exact_attempt_with_dependencies(
     package_root: str | Path,
     attempt_id: str,
     *,
@@ -1103,7 +1349,7 @@ def run_exact_attempt(
     tool_identities: Sequence[Mapping[str, Any]],
     output_root: str | Path,
     work_root: str | Path,
-    dependencies: ExactAttemptDependencies | None = None,
+    dependencies: _ExactAttemptDependencies | None = None,
 ) -> ExactAttemptRun:
     """Validate and execute exactly one fixed Phase 3 attempt.
 
@@ -1113,16 +1359,16 @@ def run_exact_attempt(
     place by the publication module.
     """
     if dependencies is None:
-        deps = ExactAttemptDependencies()
-    elif isinstance(dependencies, ExactAttemptDependencies):
+        deps = _ExactAttemptDependencies()
+    elif isinstance(dependencies, _ExactAttemptDependencies):
         deps = dependencies
     elif isinstance(dependencies, Mapping):
         try:
-            deps = ExactAttemptDependencies(**dict(dependencies))
+            deps = _ExactAttemptDependencies(**dict(dependencies))
         except (TypeError, ValueError) as error:
             raise ExactAttemptError("dependencies", "dependency mapping is not a closed boundary set") from error
     else:
-        raise ExactAttemptError("dependencies", "dependencies must be ExactAttemptDependencies or a mapping")
+        raise ExactAttemptError("dependencies", "private test dependencies must be _ExactAttemptDependencies or a mapping")
     attempt_id = _attempt_id(attempt_id)
     if platform_selector not in PLATFORM_ORDINALS or type(ordinal) is not int or ordinal not in PLATFORM_ORDINALS[platform_selector]:
         _fail("platform", "platform selector/ordinal is not preregistered")
@@ -1140,6 +1386,7 @@ def run_exact_attempt(
     _record_hash(custody_bytes, "custody record")
     tools = _normalize_tools(tool_identities)
     evidence_tools = _validate_tool_binding(freeze, tools)
+    package_path = _root_path(package_root, "package root")
     output_path = _root_path(output_root, "output root")
     work_path = _root_path(work_root, "work root")
     review_path = _root_path(review_root, "review root")
@@ -1153,14 +1400,14 @@ def run_exact_attempt(
     # than reserialized or replaced by a path-selected manifest.
     verified = None
     try:
-        preflight_report = deps.preflight(package_root, candidate_identity, tools)
+        preflight_report = deps.preflight(package_path, candidate_identity, tools)
         if not isinstance(preflight_report, Mapping) or preflight_report.get("execution_permitted") is not False:
             _fail("preflight", "Gate B preflight did not return an execution-disabled report")
         execution_package = preflight_report.get("execution_package")
         if not isinstance(execution_package, Mapping) or execution_package.get("manifest_sha256") != freeze_hash:
             _fail("preflight", "Gate B preflight package does not bind the supplied freeze")
         if preflight_report.get("schema") != gate_b_preflight.SCHEMA:
-            _fail("preflight", "Gate B preflight report is not the current v2 schema")
+            _fail("preflight", "Gate B preflight report is not the current v3 schema")
         reported_tools = preflight_report.get("tool_identities")
         if reported_tools is None or _normalize_report_tools(reported_tools, "tool_identities") != tools:
             _fail("preflight", "Gate B preflight report does not retain the full frozen tool closure")
@@ -1183,6 +1430,7 @@ def run_exact_attempt(
         )
         if not isinstance(static_custody, Mapping):
             _fail("custody", "static custody validation returned a partial record")
+        selected_binary = _validate_selected_binary_compatibility(freeze, platform_selector, static_custody)
         # Custody's authenticated identity is its domain-framed self-hash,
         # while the evidence contract binds the exact admission and
         # authorization bytes by their ordinary SHA-256 identities.
@@ -1208,7 +1456,7 @@ def run_exact_attempt(
         )
         if not isinstance(authorization_value, Mapping) or authorization_value.get("attempt_id") != attempt_id or authorization_value.get("platform_selector") != platform_selector or authorization_value.get("ordinal") != ordinal or authorization_value.get("execution_permitted") is not True or authorization_value.get("automatic_retry") is not False:
             _fail("authorization", "authorization validator returned a partial or retry-enabled record")
-        prepared = deps.prepare(package_root, attempt_id)
+        prepared = deps.prepare(package_path, attempt_id)
         cohorts = _validate_prepared_cohorts(prepared)
     except ExactAttemptError:
         if verified is not None:
@@ -1226,18 +1474,29 @@ def run_exact_attempt(
         raise ExactAttemptError(getattr(error, "code", "preflight"), str(error)) from error
 
     try:
-        platform_value = _validate_platform_observation(deps.platform_probe(platform_selector), platform_selector)
+        frozen_build = None
+        if deps.platform_probe is _platform_observation:
+            frozen_build = _load_frozen_build_facts(package_path, freeze, platform_selector)
+        pre_platform = deps.platform_probe(
+            platform_selector, package_root=package_path, output_root=output_path,
+            work_root=work_path, frozen_build=frozen_build,
+        )
+        _validate_platform_observation(pre_platform, platform_selector, require_locations=False)
     except ExactAttemptError:
-        try:
-            verified.close()
-        except Exception:
-            pass
+        if verified is not None:
+            try:
+                verified.close()
+            except Exception:
+                pass
         raise
     except Exception as error:
         raise ExactAttemptError(getattr(error, "code", "custody"), str(error)) from error
 
     try:
-        reservation = _validate_reservation(deps.reserve_attempt(output_path, attempt_id), attempt_id)
+        reservation = _validate_reservation(
+            deps.reserve_attempt(output_path, freeze_hash, platform_selector, ordinal, attempt_id),
+            freeze_hash, platform_selector, ordinal, attempt_id,
+        )
     except Exception as error:
         raise ExactAttemptError(getattr(error, "code", "reservation"), str(error)) from error
 
@@ -1249,6 +1508,14 @@ def run_exact_attempt(
     role_identities: dict[str, dict[str, int]] = {}
     try:
         custody_path, role_dirs, role_fds, role_identities = _prepare_work_locations(output_path, work_path, attempt_id)
+        platform_value = _validate_platform_observation(
+            deps.platform_probe(
+                platform_selector, package_root=package_path, output_root=output_path,
+                work_root=work_path, custody_root=custody_path, role_dirs=role_dirs,
+                frozen_build=frozen_build,
+            ),
+            platform_selector,
+        )
         verified = deps.verify_custody(
             custody_bytes,
             expected_manifest=freeze_bytes,
@@ -1260,8 +1527,10 @@ def run_exact_attempt(
             _fail("custody", "verified custody did not supply an open candidate descriptor")
         candidate_bytes = _get(verified, "candidate_bytes", None)
         candidate_sha256 = _valid_sha(_get(verified, "candidate_sha256", None))
-        if type(candidate_bytes) is not int or candidate_bytes <= 0 or candidate_sha256 is None:
+        if type(candidate_bytes) is not int or candidate_bytes <= 0 or candidate_bytes > MAX_EXECUTABLE_BYTES or candidate_sha256 is None:
             _fail("custody", "verified custody did not supply a bounded candidate identity")
+        if candidate_bytes != selected_binary["bytes"] or candidate_sha256 != selected_binary["sha256"]:
+            _fail("custody", "materialized candidate differs from selected frozen binary slot")
         candidate_content = _read_candidate_descriptor(candidate_fd, candidate_bytes, candidate_sha256)
         for cohort in cohorts:
             role = getattr(cohort, "role", None)
@@ -1306,12 +1575,27 @@ def run_exact_attempt(
                 responses.extend(valid_pairs)
                 process_observations.append(_process_observation(role, role_dirs[role], requests, request_ids, session, result_for_observation, platform_value, candidate_sha256, role_identities[role]))
             except Exception as error:
+                # ``run()`` can raise after transport has already collected a
+                # terminal result (for example a malformed frame, output cap,
+                # or child signal).  Close once here so that result's bounded
+                # lifecycle and stream observations survive into durable
+                # incomplete evidence instead of being discarded by the
+                # exception path.
+                if session is not None and result is None and not _session_is_closed(session):
+                    close_on_failure = getattr(session, "close", None)
+                    if callable(close_on_failure):
+                        try:
+                            result = close_on_failure()
+                        except Exception:
+                            result = None
                 result_for_observation = _transport_result(session, result) if session is not None else None
                 transport_view, valid_pairs, transport_status, transport_detail = _transport_prefix(requests, request_ids, result_for_observation)
                 responses.extend(valid_pairs)
                 launch_for_failure = _get(session, "launch_result", None) or _get(session, "launch", None)
                 launch_observed = launch_for_failure is not None
-                execution_identity, identity_issues = _execution_identity(launch_for_failure, role_identities.get(role))
+                execution_identity, identity_issues = _execution_identity(
+                    launch_for_failure, role_identities.get(role), result_for_observation,
+                )
                 content_issues = _content_custody_issues(execution_identity, candidate_sha256, launch_for_failure, result_for_observation)
                 failure_binary = _candidate_binary_from_identity(execution_identity, launch_for_failure, result_for_observation)
                 failure_status = transport_status if transport_status in {"failed", "inconclusive"} else "inconclusive"
@@ -1322,9 +1606,16 @@ def run_exact_attempt(
                 if failure_binary is not None and (failure_binary["sha256_pre"] != candidate_sha256 or failure_binary["sha256_post"] != candidate_sha256):
                     failure_status = "failed"
                     failure_detail = (failure_detail + "; candidate-binary-custody-mismatch")[:1024]
+                lifecycle = _valid_lifecycle(_get(result_for_observation, "lifecycle", None))
+                output, output_malformed = _valid_output(_get(result_for_observation, "output", None))
+                if output_malformed:
+                    failure_detail = (failure_detail + "; invalid-output-metadata")[:1024]
+                if output is not None:
+                    for marker in ("missing", "extra", "trailing"):
+                        output[marker] = list(dict.fromkeys(output[marker] + transport_view[marker]))[:MAX_OUTPUT_IDS]
                 process_observations.append(_incomplete_process(
                     role, len(requests), transport_view, platform_value, launch_observed, f"exact-{role}", str(role_dirs[role]),
-                    failure_binary, None, None, None, execution_identity, failure_status,
+                    failure_binary, None, lifecycle, output, execution_identity, failure_status,
                     getattr(error, "code", "transport-failure"), failure_detail,
                 ))
                 continue
@@ -1385,8 +1676,44 @@ def run_exact_attempt(
             pass
 
 
-# Explicit aliases make the fixed entrypoint discoverable without creating
-# alternate behavior or a second execution path.
+_PRODUCTION_DEPENDENCIES = _ExactAttemptDependencies()
+
+
+def run_exact_attempt(
+    package_root: str | Path,
+    attempt_id: str,
+    *,
+    platform_selector: str,
+    ordinal: int,
+    authorization_reference: str,
+    freeze_manifest: bytes,
+    admission_record: bytes,
+    authorization_record: bytes,
+    custody_record: bytes,
+    review_root: str | Path,
+    candidate_identity: Mapping[str, Any],
+    tool_identities: Sequence[Mapping[str, Any]],
+    output_root: str | Path,
+    work_root: str | Path,
+) -> ExactAttemptRun:
+    """Run using the frozen production dependency closure only."""
+    return _run_exact_attempt_with_dependencies(
+        package_root, attempt_id, platform_selector=platform_selector, ordinal=ordinal,
+        authorization_reference=authorization_reference, freeze_manifest=freeze_manifest,
+        admission_record=admission_record, authorization_record=authorization_record,
+        custody_record=custody_record, review_root=review_root, candidate_identity=candidate_identity,
+        tool_identities=tool_identities, output_root=output_root, work_root=work_root,
+        dependencies=_PRODUCTION_DEPENDENCIES,
+    )
+
+
+def _run_exact_attempt_for_tests(*args: Any, dependencies: _ExactAttemptDependencies, **kwargs: Any) -> ExactAttemptRun:
+    """Private synthetic-test seam; never exported through execution aliases."""
+    return _run_exact_attempt_with_dependencies(*args, dependencies=dependencies, **kwargs)
+
+
+# Explicit aliases make the fixed entrypoint discoverable while ensuring every
+# public name uses the same frozen production dependency object.
 execute_exact_attempt = run_exact_attempt
 orchestrate_exact_attempt = run_exact_attempt
 run = run_exact_attempt
@@ -1397,6 +1724,6 @@ exact_attempt = run_exact_attempt
 __all__ = [
     "PHASE_ID", "EXPERIMENT_ID", "CANDIDATE_PROFILE_ID", "ROLE_ORDER", "ROLE_CASE_COUNTS", "ROLE_REQUEST_COUNTS",
     "PLATFORM_ORDINALS", "TARGET", "CANDIDATE_ARGV0", "CANDIDATE_ENVIRONMENT", "EXPECTED_FP",
-    "ExactAttemptError", "ExactAttemptDependencies", "ExactAttemptRun", "run_exact_attempt",
+    "ExactAttemptError", "ExactAttemptRun", "run_exact_attempt",
     "execute_exact_attempt", "orchestrate_exact_attempt", "run", "execute", "exact_attempt",
 ]

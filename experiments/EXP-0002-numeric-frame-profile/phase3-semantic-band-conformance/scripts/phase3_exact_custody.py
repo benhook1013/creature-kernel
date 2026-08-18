@@ -40,7 +40,13 @@ CANDIDATE_PROFILE_ID = "ck.provisional-r3-authored-conflict.semantic-band-1"
 SCHEMA = "ck.exp-0002.phase3.gate-b-exact-artifact-custody-1"
 SELF_HASH_DOMAIN = b"ck.exp-0002.phase3.gate-b-exact-artifact-custody.v1\0"
 WORKFLOW_PATH = ".github/workflows/phase3-gate-b-native-build.yml"
-FREEZE_SCHEMA = "ck.exp-0002.phase3.freeze-manifest-2"
+# Custody is a current-artifact consumer.  Keep the v2 name available for
+# diagnostics and historical records, but only the closure-bearing v3 freeze
+# can authorize a new exact custody record.
+FREEZE_SCHEMA = "ck.exp-0002.phase3.freeze-manifest-3"
+LEGACY_FREEZE_SCHEMA = "ck.exp-0002.phase3.freeze-manifest-2"
+EXPERIMENT_CLOSURE_SCHEMA = "ck.exp-0002.phase3.experiment-closure-1"
+EXPERIMENT_CLOSURE_TOOL = "scripts/phase3_experiment_closure.py"
 TARGET = "x86_64-unknown-linux-gnu"
 PROFILE = "dev"
 RECEIPT_SCHEMA = "ck.exp-0002.phase3.gate-b-build-receipt-1"
@@ -283,7 +289,16 @@ def _parse_manifest(expected_manifest: bytes | Mapping[str, Any]) -> dict[str, A
     except Exception as error:
         raise CustodyError("manifest", f"canonical freeze validator rejected successor bytes: {error}") from error
     if value.get("schema") != FREEZE_SCHEMA:
-        raise CustodyError("manifest-version", "exact custody requires the successor freeze-manifest-2 contract")
+        raise CustodyError("manifest-version", "exact custody requires the successor freeze-manifest-3 contract")
+    if value.get("experiment_closure_schema") != EXPERIMENT_CLOSURE_SCHEMA:
+        raise CustodyError("manifest-closure", "successor freeze does not bind the current experiment-closure schema")
+    closure_tools = value.get("experiment_closure_tool_identities")
+    if type(closure_tools) is not list or len(closure_tools) != 1:
+        raise CustodyError("manifest-closure", "successor freeze closure tool identity is not a singleton list")
+    closure_tool = closure_tools[0]
+    _manifest_file_identity(closure_tool, "manifest.experiment_closure_tool_identities[0]")
+    if closure_tool["path"] != EXPERIMENT_CLOSURE_TOOL:
+        raise CustodyError("manifest-closure", "successor freeze closure tool path is not canonical")
     return value
 
 

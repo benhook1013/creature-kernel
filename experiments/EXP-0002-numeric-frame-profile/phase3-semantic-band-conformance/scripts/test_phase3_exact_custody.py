@@ -40,7 +40,7 @@ _REAL_MODULE_FROM_SPEC = importlib.util.module_from_spec
 
 SOURCE = F.EXPECTED_CANDIDATE_SOURCE_COMMIT
 EXECUTION_SOURCE = "e" * 40
-PREDECESSOR_HASH = F.EXPECTED_V1_MANIFEST_SHA256
+PREDECESSOR_HASH = F.EXPECTED_V2_MANIFEST_SHA256
 PREDECESSOR_INHERITED_HASH = F.EXPECTED_INHERITED_V1_SHA256
 FREEZE_HASH = "d" * 64
 NOW = "2026-08-19T00:00:00Z"
@@ -231,11 +231,16 @@ def _record(bundle: bytes, root: Path, *, selector: str = "wsl2-x86_64", kind: s
         "binding": {"candidate_profile_id": M.CANDIDATE_PROFILE_ID, "experiment_id": M.EXPERIMENT_ID, "phase_id": M.PHASE_ID},
         "build": {"dependencies": _fixture_dependencies(), "recipe": F._build_recipe(), "toolchain": _fixture_toolchain()},
         "candidate_closure": _fixture_closure(), "candidate_source_commit": SOURCE,
-        "canonicalization": F._v2_canonicalization(),
+        "canonicalization": F._v3_canonicalization(),
         "execution_permitted": False, "lifecycle": "planned", "manifest_sha256": None,
         "execution_tool_source_commit": EXECUTION_SOURCE,
         "predecessor_manifest_sha256": PREDECESSOR_HASH,
         "predecessor_inherited_sha256": PREDECESSOR_INHERITED_HASH,
+        "predecessor_v1_manifest_sha256": F.EXPECTED_V1_MANIFEST_SHA256,
+        "predecessor_v2_inherited_sha256": PREDECESSOR_INHERITED_HASH,
+        "previous_execution_tool_source_commit": F.EXPECTED_V2_EXECUTION_TOOL_SOURCE_COMMIT,
+        "old_materialization_commit": "a" * 40,
+        "materialization_commit": "b" * 40,
         "platform": F._platforms(),
         "protocol": {"request_protocol_id": F.REQUEST_PROTOCOL, "response_protocol_id": F.RESPONSE_PROTOCOL, "request_fields": F.REQUEST_FIELDS, "canonical_wire": "strict UTF-8 JSON object, exact seven request fields, canonical bytes are SHA-256 framed by the evidence contract"},
         "provenance_tool_identities": [_fixture_identity(path, "1" * 64) for path in F.PROVENANCE_TOOLS],
@@ -244,6 +249,8 @@ def _record(bundle: bytes, root: Path, *, selector: str = "wsl2-x86_64", kind: s
         "repository_inputs": {"native_build_workflow": {"identity": workflow_identity, "path": M.WORKFLOW_PATH, "pinned_action_refs": WORKFLOW_REFS, "runner_label": "ubuntu-24.04"}},
         "runtime_tool_identities": [_fixture_identity(path, "4" * 64) for path in F.RUNTIME_TOOLS],
         "exact_runtime_tool_identities": [_fixture_identity(path, "5" * 64) for path in F.EXACT_RUNTIME_TOOLS],
+        "experiment_closure_tool_identities": [_fixture_identity(path, "6" * 64) for path in F.EXPERIMENT_CLOSURE_TOOLS],
+        "experiment_closure_schema": "ck.exp-0002.phase3.experiment-closure-1",
         "schema": M.FREEZE_SCHEMA, "status": "Proposed",
     }
     FREEZE_HASH = F._self_hash(manifest_value)
@@ -366,6 +373,28 @@ class ExactCustodyTests(unittest.TestCase):
                     now=NOW,
                 )
             self.assertEqual(context.exception.code, "manifest-version")
+
+            current_repository_v2 = (SCRIPT.parent.parent / "manifests/freeze-manifest.json").resolve().read_bytes()
+            with self.assertRaises(M.CustodyError) as context:
+                M._parse_manifest(current_repository_v2)
+            self.assertEqual(context.exception.code, "manifest-version")
+
+    def test_v3_freeze_requires_the_closure_binding(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            raw, manifest, _ = _record(_bundle(b"tiny"), root)
+            value = json.loads(manifest)
+            value["experiment_closure_schema"] = "ck.exp-0002.phase3.experiment-closure-0"
+            forged, _ = _reseal_manifest(manifest, lambda target: target.__setitem__("experiment_closure_schema", value["experiment_closure_schema"]))
+            forged_record = json.loads(raw)
+            forged_record["successor_manifest_sha256"] = json.loads(forged)["manifest_sha256"]
+            with self.assertRaises(M.CustodyError):
+                M.validate_custody_record(
+                    M.encode_custody_record(forged_record),
+                    expected_manifest=forged,
+                    expected_manifest_sha256=json.loads(forged)["manifest_sha256"],
+                    now=NOW,
+                )
 
     def test_expiry_unavailability_and_fresh_directory_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

@@ -16,8 +16,10 @@ independence remains a trusted review-orchestration boundary.
 
 The validator consumes exact bytes.  Freeze bytes are authenticated by the
 canonical pure freeze validator, review files are read through an anchored
-descriptor walk with no-follow checks, and no Git, process, candidate, or
-network operation is performed here.
+descriptor walk with no-follow checks, and admission validation additionally
+uses bounded read-only Git plumbing to prove that the later review target
+contains the exact frozen manifest.  No candidate, network, or build
+operation is performed here.
 """
 
 from __future__ import annotations
@@ -28,6 +30,7 @@ import json
 import os
 from pathlib import Path
 import stat
+import subprocess
 from typing import Any, Mapping
 
 
@@ -39,7 +42,14 @@ ADMISSION_SCHEMA = "ck.exp-0002.phase3.gate-b-admission-1"
 AUTHORIZATION_SCHEMA = "ck.exp-0002.phase3.exact-attempt-human-authorization-1"
 ADMISSION_HASH_DOMAIN = b"ck.exp-0002.phase3.gate-b-admission.v1\0"
 AUTHORIZATION_HASH_DOMAIN = b"ck.exp-0002.phase3.exact-attempt-human-authorization.v1\0"
-FREEZE_SCHEMA = "ck.exp-0002.phase3.freeze-manifest-2"
+# Exact authority consumes the current successor only.  The canonical freeze
+# validator continues to understand v1/v2 for historical inspection, but a
+# new admission must bind the v3 closure-bearing freeze and may not silently
+# fall back to the older contract.
+FREEZE_SCHEMA = "ck.exp-0002.phase3.freeze-manifest-3"
+LEGACY_FREEZE_SCHEMA = "ck.exp-0002.phase3.freeze-manifest-2"
+EXPERIMENT_CLOSURE_SCHEMA = "ck.exp-0002.phase3.experiment-closure-1"
+EXPERIMENT_CLOSURE_TOOLS = ("scripts/phase3_experiment_closure.py",)
 
 # These are the two independent lenses required for the final Gate B Double.
 # They are intentionally a closed set so a pair of reviews cannot be made
@@ -64,6 +74,8 @@ MAX_REVIEW_BYTES = 256 * 1024
 MAX_JSON_DEPTH = 24
 MAX_STRING_BYTES = 4096
 MAX_PATH_BYTES = 512
+MAX_GIT_OUTPUT_BYTES = 2 * 1024 * 1024
+GIT_TIMEOUT_SECONDS = 5
 SHA_HEX = set("0123456789abcdef")
 COMMIT_HEX = SHA_HEX
 
@@ -228,7 +240,27 @@ def validate_required_exact_runtime_tools(manifest: Mapping[str, Any]) -> dict[s
     return {"present": present, "missing": missing}
 
 
-def _validate_freeze(raw: bytes) -> tuple[dict[str, Any], str]:
+def validate_experiment_closure_tool(manifest: Mapping[str, Any]) -> tuple[str, ...]:
+    """Validate the v3 experiment-closure schema and its closed tool identity."""
+    if not isinstance(manifest, Mapping) or manifest.get("experiment_closure_schema") != EXPERIMENT_CLOSURE_SCHEMA:
+        _fail("closure-tool-closure", "freeze does not bind the current experiment-closure schema")
+    identities = manifest.get("experiment_closure_tool_identities")
+    if type(identities) is not list or len(identities) != len(EXPERIMENT_CLOSURE_TOOLS):
+        _fail("closure-tool-closure", "freeze experiment closure tool identities are not a singleton list")
+    for index, identity in enumerate(identities):
+        if type(identity) is not dict:
+            _fail("closure-tool-closure", f"experiment closure tool identity {index} is not an object")
+        _exact_keys(identity, {"path", "mode", "bytes", "sha256"}, f"experiment closure tool {index}")
+        if identity.get("path") != EXPERIMENT_CLOSURE_TOOLS[index]:
+            _fail("closure-tool-closure", "freeze experiment closure tool path is not canonical")
+        if type(identity["mode"]) is not int or identity["mode"] != 0o644:
+            _fail("closure-tool-closure", "experiment closure tool mode is not 0644")
+        _bounded_int(identity["bytes"], f"experiment closure tool {index}.bytes", minimum=1, maximum=16 * 1024 * 1024)
+        _sha(identity["sha256"], f"experiment closure tool {index}.sha256")
+    return tuple(identity["path"] for identity in identities)
+
+
+def _validate_freeze(raw: bytes) -> tuple[dict[str, Any], str, Any]:
     if type(raw) is not bytes:
         _fail("freeze", "freeze manifest must be supplied as exact bytes")
     try:
@@ -237,8 +269,9 @@ def _validate_freeze(raw: bytes) -> tuple[dict[str, Any], str]:
     except Exception as error:
         raise AuthorityError("freeze", f"canonical freeze validator rejected bytes: {error}") from error
     if value.get("schema") != FREEZE_SCHEMA:
-        _fail("freeze-version", "exact authority requires the successor freeze-manifest-2 contract")
+        _fail("freeze-version", "exact authority requires the successor freeze-manifest-3 contract")
     validate_required_exact_runtime_tools(value)
+    validate_experiment_closure_tool(value)
     _commit(value.get("execution_tool_source_commit"), "manifest.execution_tool_source_commit")
     try:
         checked = freeze.check_manifest()
@@ -259,10 +292,85 @@ def _validate_freeze(raw: bytes) -> tuple[dict[str, Any], str]:
         )
     # The bound freeze identity is the manifest's authenticated domain-framed
     # self-hash, matching custody records. Pure validation alone is deliberately
-    # insufficient for authority: check_manifest additionally proves the C-to-E
-    # ancestry and current committed execution-tool snapshot owned by the
-    # canonical freeze module.
-    return value, value["manifest_sha256"]
+    # insufficient for authority: check_manifest additionally proves the
+    # canonical C-to-E-to-materialization ancestry and current committed
+    # execution-tool snapshot owned by the freeze module.  The later review
+    # target is checked against that materialization below.
+    return value, value["manifest_sha256"], freeze
+
+
+def _git_command(repo: Path, arguments: list[str], *, maximum_output: int = MAX_GIT_OUTPUT_BYTES) -> bytes:
+    """Run one bounded, read-only Git plumbing command against a trusted repo."""
+    if not isinstance(repo, Path) or not repo.is_absolute() or not repo.is_dir():
+        _fail("review-target-repository", "canonical freeze repository is unavailable")
+    if any(type(argument) is not str or not argument or "\x00" in argument for argument in arguments):
+        _fail("review-target-git", "Git argument is malformed")
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo), *arguments],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            check=False,
+            timeout=GIT_TIMEOUT_SECONDS,
+        )
+    except (FileNotFoundError, OSError, subprocess.TimeoutExpired) as error:
+        raise AuthorityError("review-target-git", "bounded Git plumbing was unavailable") from error
+    if len(result.stdout) > maximum_output:
+        _fail("review-target-git", "Git output exceeds the bounded authority limit")
+    if result.returncode != 0:
+        _fail("review-target-git", "Git plumbing rejected the requested object or relation")
+    return result.stdout
+
+
+def _git_commit(repo: Path, revision: str, label: str) -> str:
+    output = _git_command(repo, ["rev-parse", "--verify", "--quiet", f"{revision}^{{commit}}"], maximum_output=128)
+    try:
+        resolved = output.decode("ascii").strip()
+    except UnicodeDecodeError as error:
+        raise AuthorityError("review-target-git", f"{label} resolved to non-ASCII output") from error
+    return _commit(resolved, label)
+
+
+def _git_is_ancestor(repo: Path, older: str, newer: str, label: str) -> None:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo), "merge-base", "--is-ancestor", older, newer],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+            timeout=GIT_TIMEOUT_SECONDS,
+        )
+    except (FileNotFoundError, OSError, subprocess.TimeoutExpired) as error:
+        raise AuthorityError("review-target-git", "bounded Git ancestry check was unavailable") from error
+    if result.returncode != 0:
+        _fail("review-target-ancestry", f"{label} is not an ancestor relation")
+
+
+def _canonical_manifest_path(freeze: Any) -> tuple[Path, str]:
+    try:
+        repo = Path(freeze.REPO).resolve()
+        manifest = Path(freeze.MANIFEST).resolve()
+        relative = manifest.relative_to(repo).as_posix()
+    except (AttributeError, OSError, ValueError) as error:
+        raise AuthorityError("review-target-path", "canonical freeze repository path is unavailable") from error
+    if not relative or relative.startswith("/") or any(part in {"", ".", ".."} for part in relative.split("/")):
+        _fail("review-target-path", "canonical freeze manifest path is not a safe repository-relative path")
+    return repo, relative
+
+
+def _validate_reviewed_target(freeze: Any, manifest: Mapping[str, Any], freeze_raw: bytes, reviewed_commit: str) -> None:
+    """Prove the later review commit contains the exact frozen manifest."""
+    repo, manifest_path = _canonical_manifest_path(freeze)
+    materialization = _commit(manifest.get("materialization_commit"), "manifest.materialization_commit")
+    reviewed = _commit(reviewed_commit, "admission.reviewed_commit")
+    if reviewed == materialization:
+        _fail("reviewed-commit", "review target must be later than the materialization commit")
+    _git_is_ancestor(repo, materialization, reviewed, "materialization commit")
+    current_head = _git_commit(repo, "HEAD", "repository HEAD")
+    _git_is_ancestor(repo, reviewed, current_head, "review target")
+    blob = _git_command(repo, ["cat-file", "blob", f"{reviewed}:{manifest_path}"], maximum_output=MAX_GIT_OUTPUT_BYTES)
+    if blob != freeze_raw:
+        _fail("review-target-manifest", "review target manifest bytes differ from supplied freeze bytes")
 
 
 def _open_root(root: Path) -> int:
@@ -370,8 +478,11 @@ def _admission_shape(value: Mapping[str, Any]) -> dict[str, Any]:
     freeze_hash = _sha(value["freeze_manifest_sha256"], "admission.freeze_manifest_sha256")
     source = _commit(value["execution_tool_source_commit"], "admission.execution_tool_source_commit")
     reviewed = _commit(value["reviewed_commit"], "admission.reviewed_commit")
-    if source != reviewed:
-        _fail("reviewed-commit", "reviewed commit differs from execution-tool source commit")
+    # The execution-tool snapshot E exists before the v3 freeze can be
+    # materialized and reviewed.  Do not make a review of the later package
+    # impossible by requiring the review target to equal E; the current
+    # freeze-binding check below proves the v3 materialization target is on the
+    # authenticated E-to-materialization chain.
     if value["status"] != "passed" or value["execution_permitted"] is not False:
         _fail("admission-status", "admission is not passed and execution-disabled")
     reviews = value["reviews"]
@@ -408,15 +519,15 @@ def validate_gate_b_admission(raw: bytes, *, freeze_manifest: bytes, review_root
     """Validate an admission against exact freeze bytes and anchored reviews."""
     value = _parse_record(raw, "admission record")
     normalized = _admission_shape(value)
-    manifest, manifest_hash = _validate_freeze(freeze_manifest)
+    manifest, manifest_hash, freeze = _validate_freeze(freeze_manifest)
     if manifest_hash != normalized["freeze_manifest_sha256"]:
         _fail("freeze-binding", "admission freeze hash differs from exact manifest bytes")
     binding = manifest["binding"]
     if normalized["experiment_id"] != binding["experiment_id"] or normalized["phase_id"] != binding["phase_id"] or normalized["candidate_profile_id"] != binding["candidate_profile_id"]:
         _fail("freeze-binding", "admission identity differs from frozen binding")
     execution_source = manifest["execution_tool_source_commit"]
-    if normalized["execution_tool_source_commit"] != execution_source or normalized["reviewed_commit"] != execution_source:
-        _fail("source-binding", "admission commit does not equal frozen execution-tool source commit")
+    if normalized["execution_tool_source_commit"] != execution_source:
+        _fail("source-binding", "admission execution-tool source does not equal the frozen execution-tool source commit")
     binaries = manifest.get("binaries")
     readiness = manifest.get("readiness")
     if (
@@ -440,6 +551,7 @@ def validate_gate_b_admission(raw: bytes, *, freeze_manifest: bytes, review_root
     finally:
         os.close(root_fd)
     _check_self_hash(normalized, "admission_record_sha256", ADMISSION_HASH_DOMAIN, "admission record")
+    _validate_reviewed_target(freeze, manifest, freeze_manifest, normalized["reviewed_commit"])
     return normalized
 
 
@@ -531,8 +643,9 @@ def main(argv: list[str] | None = None) -> int:
 
 
 __all__ = [
-    "ADMISSION_SCHEMA", "AUTHORIZATION_SCHEMA", "FREEZE_SCHEMA", "REQUIRED_REVIEW_LENSES", "REQUIRED_EXACT_RUNTIME_TOOLS", "PLATFORM_ORDINALS",
+    "ADMISSION_SCHEMA", "AUTHORIZATION_SCHEMA", "FREEZE_SCHEMA", "LEGACY_FREEZE_SCHEMA", "EXPERIMENT_CLOSURE_SCHEMA", "EXPERIMENT_CLOSURE_TOOLS", "REQUIRED_REVIEW_LENSES", "REQUIRED_EXACT_RUNTIME_TOOLS", "PLATFORM_ORDINALS",
     "validate_required_exact_runtime_tools",
+    "validate_experiment_closure_tool",
     "AuthorityError", "encode_gate_b_admission", "validate_gate_b_admission", "encode_authorization", "validate_authorization",
     "encode_admission_record", "validate_admission_record", "encode_human_authorization", "validate_human_authorization",
 ]

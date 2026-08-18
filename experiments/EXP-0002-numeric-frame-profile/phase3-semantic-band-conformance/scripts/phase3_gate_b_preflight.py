@@ -22,7 +22,7 @@ from typing import Any, Mapping
 from phase3_materialized_adapter import load_materialized_cases
 
 
-SCHEMA = "ck.exp-0002.phase3.gate-b-preflight-2"
+SCHEMA = "ck.exp-0002.phase3.gate-b-preflight-3"
 EVIDENCE_SCHEMA = "ck.exp-0002.phase3.evidence-proposed-1"
 EXPECTED_ALGORITHM = "ck.phase3-candidate-source-build-closure.v1"
 EXPECTED_CANDIDATE_COUNT = 47
@@ -61,6 +61,7 @@ PROVENANCE_TOOL_PATHS = (
     "scripts/phase3_build_receipt.py",
     "scripts/phase3_freeze_manifest.py",
 )
+EXPERIMENT_CLOSURE_TOOL_PATHS = ("scripts/phase3_experiment_closure.py",)
 TOOL_PATHS = (*CORE_TOOL_PATHS, *EXACT_TOOL_PATHS, *PROVENANCE_TOOL_PATHS)
 MAX_IDENTITY_BYTES = 8 * 1024 * 1024
 MAX_STRING_BYTES = 4096
@@ -227,21 +228,22 @@ def _tool_identities(value: Any) -> list[dict[str, Any]]:
             item["path"] = path
             items.append(item)
         value = items
-    if type(value) is not list or len(value) != len(TOOL_PATHS):
+    if type(value) is not list or len(value) not in {len(TOOL_PATHS), len(TOOL_PATHS) + len(EXPERIMENT_CLOSURE_TOOL_PATHS)}:
         _fail("tool-identity", "current Phase 3 tool identities are incomplete")
+    expected_paths = (*TOOL_PATHS, *EXPERIMENT_CLOSURE_TOOL_PATHS) if len(value) == len(TOOL_PATHS) + len(EXPERIMENT_CLOSURE_TOOL_PATHS) else TOOL_PATHS
     normalized: list[dict[str, Any]] = []
     seen: set[str] = set()
     for index, item in enumerate(value):
         if type(item) is not dict or set(item) != {"path", "bytes", "sha256"}:
             _fail("tool-identity", f"tool identity {index} is not closed")
         path = _string(item["path"], f"tool identity {index}.path")
-        if path not in TOOL_PATHS or path in seen:
+        if path not in expected_paths or path in seen:
             _fail("tool-identity", f"tool identity path {path} is unexpected or duplicated")
         seen.add(path)
         byte_count = _bounded_int(item["bytes"], f"tool identity {path}.bytes")
         digest = _sha(item["sha256"], f"tool identity {path}.sha256")
         normalized.append({"path": path, "bytes": byte_count, "sha256": digest})
-    if [item["path"] for item in normalized] != list(TOOL_PATHS):
+    if [item["path"] for item in normalized] != list(expected_paths):
         _fail("tool-order", "tool identities must follow the preregistered order")
     return normalized
 
@@ -340,9 +342,33 @@ def _validate_tools(root: Path, supplied: list[dict[str, Any]], manifest: Mappin
         if not isinstance(identity, Mapping) or set(identity) != {"path", "mode", "bytes", "sha256"}:
             _fail("freeze-manifest", "freeze manifest runtime tool identity is malformed")
         normalized.append({key: identity[key] for key in ("path", "bytes", "sha256")})
-    if supplied != normalized:
+    # v1/v2 historical manifests predate the closure tool.  They remain
+    # independently valid, but a caller may already supply the new tool list;
+    # v3 records it as a fourth, explicitly bound collection.
+    closure = manifest.get("experiment_closure_tool_identities")
+    if isinstance(closure, list):
+        for identity in closure:
+            if not isinstance(identity, Mapping) or set(identity) != {"path", "mode", "bytes", "sha256"}:
+                _fail("freeze-manifest", "freeze closure tool identity is malformed")
+            normalized.append({key: identity[key] for key in ("path", "bytes", "sha256")})
+    if supplied != normalized and not (isinstance(closure, list) and supplied == normalized[:-len(closure)]):
         _fail("tool-identity", "caller tool identities differ from the canonical freeze manifest")
     return supplied
+
+
+def _validate_experiment_closure_tools(root: Path, manifest: Mapping[str, Any]) -> list[dict[str, Any]]:
+    closure = manifest.get("experiment_closure_tool_identities")
+    if closure is None:
+        return []
+    if type(closure) is not list or [item.get("path") for item in closure if isinstance(item, Mapping)] != list(EXPERIMENT_CLOSURE_TOOL_PATHS):
+        _fail("freeze-manifest", "experiment closure tool identity is not the closed contract")
+    for identity in closure:
+        if not isinstance(identity, Mapping) or set(identity) != {"path", "mode", "bytes", "sha256"}:
+            _fail("freeze-manifest", "experiment closure tool identity is malformed")
+        raw = _regular_bytes(root / identity["path"], identity["path"])
+        if len(raw) != identity["bytes"] or hashlib.sha256(raw).hexdigest() != identity["sha256"]:
+            _fail("tool-identity", f"current file identity differs for {identity['path']}")
+    return [dict(item) for item in closure]
 
 
 def _load_freeze_module(root: Path) -> Any:
@@ -372,8 +398,9 @@ def _validate_freeze_package(root: Path) -> tuple[Any, dict[str, Any]]:
         raise GateBPreflightError("freeze-manifest", f"canonical freeze validation failed: {code}") from error
     if not isinstance(manifest, dict):
         _fail("freeze-manifest", "canonical freeze validator did not return an object")
-    if manifest.get("schema") != freeze.SCHEMA:
-        _fail("freeze-state", "canonical freeze manifest is not the current successor schema")
+    allowed_schemas = {freeze.SCHEMA, getattr(freeze, "V3_SCHEMA", freeze.SCHEMA)}
+    if manifest.get("schema") not in allowed_schemas:
+        _fail("freeze-state", "canonical freeze manifest is not a supported successor schema")
     binaries = manifest.get("binaries")
     if not isinstance(binaries, dict) or set(binaries) != {"wsl2-x86_64", "ubuntu-24.04-x86_64"} or any(not isinstance(binaries[key], Mapping) or binaries[key].get("status") != "bound" for key in binaries):
         _fail("freeze-state", "both canonical binary slots must be bound")
@@ -415,6 +442,9 @@ def _report(candidate: dict[str, Any], tools: list[dict[str, Any]], cases: list[
         }
         for selector, slot in manifest["binaries"].items()
     }
+    closure_tools = manifest.get("experiment_closure_tool_identities", [])
+    closure_schema = manifest.get("experiment_closure_schema", "ck.exp-0002.phase3.experiment-closure-1")
+    closure_bound = isinstance(closure_tools, list) and bool(closure_tools)
     return {
         "schema": SCHEMA,
         "evidence_schema": EVIDENCE_SCHEMA,
@@ -429,6 +459,19 @@ def _report(candidate: dict[str, Any], tools: list[dict[str, Any]], cases: list[
         "authorization_accepted": False,
         "technology_outcome": "none",
         "r3_activation": "inactive",
+        "exact_runtime_closure": {
+            "required": True,
+            "status": "passed" if closure_bound else "missing",
+            "tool_count": len(manifest["runtime_tool_identities"]) + len(manifest["exact_runtime_tool_identities"]) + len(manifest["provenance_tool_identities"]) + len(closure_tools),
+            "execution_permitted": False,
+        },
+        "experiment_closure_requirement": {
+            "required": True,
+            "schema": closure_schema,
+            "ordinals": [0, 1, 2],
+            "status": "missing",
+            "execution_permitted": False,
+        },
         "package": {
             "status": "Proposed",
             "lifecycle": "planned",
@@ -446,6 +489,8 @@ def _report(candidate: dict[str, Any], tools: list[dict[str, Any]], cases: list[
             "predecessor_manifest_sha256": manifest["predecessor_manifest_sha256"],
             "candidate_source_commit": manifest["candidate_source_commit"],
             "execution_tool_source_commit": manifest["execution_tool_source_commit"],
+            "predecessor_v1_manifest_sha256": manifest.get("predecessor_v1_manifest_sha256", "122b0a88bf553e95a887acebfe436d95218389e339ea5aa1f3c85d0f5186fef3"),
+            "predecessor_v2_manifest_sha256": manifest.get("predecessor_manifest_sha256"),
             "source_snapshot_validation": {
                 "status": "passed",
                 "checker": "phase3_freeze_manifest.check_manifest",
@@ -454,11 +499,20 @@ def _report(candidate: dict[str, Any], tools: list[dict[str, Any]], cases: list[
                 "execution_tool_source_commit": manifest["execution_tool_source_commit"],
                 "candidate_is_ancestor_of_execution_tools": True,
                 "current_execution_tools_match_execution_tool_commit": True,
-                "current_execution_tool_identity_count": 19,
+                "current_execution_tool_identity_count": len(manifest["runtime_tool_identities"]) + len(manifest["exact_runtime_tool_identities"]) + len(manifest["provenance_tool_identities"]) + len(closure_tools),
             },
             "runtime_tool_identities": manifest["runtime_tool_identities"],
             "exact_runtime_tool_identities": manifest["exact_runtime_tool_identities"],
             "provenance_tool_identities": manifest["provenance_tool_identities"],
+            "experiment_closure": {
+                "schema": closure_schema,
+                "tool_identities": closure_tools,
+                "required_ordinals": [0, 1, 2],
+                "status": "unbound",
+                "execution_permitted": False,
+                "normalization": "only request IDs and declared attempt/platform environment metadata",
+                "global_status_precedence": ["failed", "inconclusive", "supported"],
+            },
             "binary_slots": manifest["binaries"],
             "receipt_identities": receipt_identities,
             "readiness": manifest["readiness"],
@@ -482,10 +536,14 @@ def _report(candidate: dict[str, Any], tools: list[dict[str, Any]], cases: list[
             {"name": "candidate-to-execution-tool-ancestry", "status": "passed", "detail": "Git ancestry and both committed snapshots were checked by the freeze validator"},
             {"name": "current-execution-tool-snapshot", "status": "passed", "detail": manifest["execution_tool_source_commit"]},
             {"name": "freeze-manifest", "status": "passed", "detail": manifest["manifest_sha256"]},
+            {"name": "exact-runtime-closure", "status": "passed" if closure_bound else "missing", "detail": "exact runtime tools are bound to the immutable execution snapshot" if closure_bound else "successor closure tool binding is required"},
+            {"name": "experiment-closure-adjudicator", "status": "missing", "detail": f"{closure_schema}; ordinals 0, 1, 2 required before any experiment outcome"},
             {"name": "gate-b-current-double-review", "status": "missing"},
         ],
         "missing_gate_b_items": [
             "current Gate B Double review of the frozen concrete package",
+            *( ["new successor exact-runtime closure tool binding"] if not closure_bound else [] ),
+            "experiment-wide closure of WSL ordinals 0/1 and native ordinal 2 using the frozen closure adjudicator",
             "Ben authorization for the exact attempts and native dispatch",
         ],
         "scope": "read-only readiness plumbing; validates the canonical frozen execution package but does not authorize or execute",
@@ -529,6 +587,7 @@ def build_gate_b_preflight(
     if len(cases) != 60:
         _fail("accounting", "materialized package does not contain 60 cases")
     _validate_tools(root, tools, manifest)
+    _validate_experiment_closure_tools(root, manifest)
     report = _report(candidate, tools, cases, manifest)
     # A final strict canonicalization check makes the returned mapping itself
     # the canonical non-evidence report, without exposing an execution handle.

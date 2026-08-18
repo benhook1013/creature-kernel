@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import tempfile
@@ -35,6 +36,17 @@ ALL_PATHS = (*RUNTIME_PATHS, *EXACT_PATHS, *PROVENANCE_PATHS)
 TOOLS = [{"path": path, "bytes": index + 1, "sha256": f"{index + 1:064x}"} for index, path in enumerate(ALL_PATHS)]
 CANDIDATE_COMMIT = "c" * 40
 EXECUTION_COMMIT = "e" * 40
+FROZEN_BINARY = {"bytes": 100_944_288, "mode": 0o100755, "sha256": "f" * 64}
+EMPTY_STREAM = {"bytes": 0, "sha256": hashlib.sha256(b"").hexdigest()}
+LIFECYCLE = {
+    "state": "exited", "exit_code": 0, "term_signal": None,
+    "reaped": True, "killed": False, "partial": False,
+    "clean_shutdown": True, "startup_error": "", "rusage": None,
+}
+EMPTY_OUTPUT = {
+    "missing": [], "extra": [], "trailing": [],
+    "stdout": EMPTY_STREAM, "stderr": EMPTY_STREAM,
+}
 
 
 def _freeze_value() -> bytes:
@@ -48,10 +60,16 @@ def _freeze_value() -> bytes:
         "runtime_tool_identities": [entry(by_path[path]) for path in RUNTIME_PATHS],
         "exact_runtime_tool_identities": [entry(by_path[path]) for path in EXACT_PATHS],
         "provenance_tool_identities": [entry(by_path[path]) for path in PROVENANCE_PATHS],
+        "binaries": {
+            "wsl2-x86_64": {"status": "bound", "binary_identity": FROZEN_BINARY},
+            "ubuntu-24.04-x86_64": {"status": "bound", "binary_identity": {"bytes": 100_945_304, "mode": 0o100755, "sha256": "e" * 64}},
+        },
     })
 
 
 def _platform_value(selector: str = "wsl2-x86_64") -> dict[str, object]:
+    def location(name: str) -> dict[str, object]:
+        return {"path": f"/home/test/{name}", "kind": "directory", "device": 1, "inode": 10, "mode": 0o40700, "size": 0, "nlink": 1, "filesystem": "ext4", "mount": "/home"}
     return {
         "selector": selector,
         "cpu_model": "synthetic-cpu",
@@ -65,6 +83,9 @@ def _platform_value(selector: str = "wsl2-x86_64") -> dict[str, object]:
         "workflow_image": "synthetic-image",
         "toolchain": "synthetic-toolchain",
         "compiler": "synthetic-compiler",
+        "locations": {"package": location("package"), "output": location("output"), "work": location("work"), "custody": location("custody"), "roles": {role: location(role) for role in M.ROLE_ORDER}},
+        "runtime": {"implementation": "CPython", "version": "3.13.0", "executable": "/home/test/python", "python_version": "3.13.0", "platform": "linux-x86_64", "libc": "glibc 2.39"},
+        "build_receipt": {"source": "frozen-build-receipt", "selector": selector, "receipt_sha256": "1" * 64, "receipt_self_hash": "2" * 64, "platform_role": "wsl" if selector == "wsl2-x86_64" else "native", "runner_os": "synthetic-runner", "image_os": "synthetic-image", "image_version": "1", "toolchain": "synthetic-toolchain", "compiler": "synthetic-compiler"},
     }
 
 
@@ -97,7 +118,7 @@ class Prepared:
 
 class Verified:
     candidate_fd = 17
-    candidate_bytes = 11
+    candidate_bytes = FROZEN_BINARY["bytes"]
     candidate_sha256 = "f" * 64
 
     def __init__(self, on_close=None) -> None:
@@ -112,6 +133,12 @@ class Reservation:
     def __init__(self, events: list[str]) -> None:
         self.events = events
         self.attempt_id = "attempt-001"
+        self.experiment_slot = {
+            "successor_manifest_sha256": "a" * 64,
+            "platform_selector": "wsl2-x86_64",
+            "ordinal": 0,
+            "attempt_id": "attempt-001",
+        }
         self.closed = False
         self.marker_exists = True
 
@@ -140,8 +167,8 @@ class Session:
             "detail": "synthetic transport result",
             "requests": tuple(f"request-{index}".encode() for index in range(M.ROLE_REQUEST_COUNTS[self.role])),
             "responses": tuple(b"response" for _ in range(M.ROLE_REQUEST_COUNTS[self.role])),
-            "lifecycle": {"state": "exited", "exit_code": 0, "clean_shutdown": True},
-            "output": {"missing": [], "extra": [], "trailing": []},
+            "lifecycle": {"state": "exited", "exit_code": 0, "term_signal": None, "reaped": True, "killed": False, "partial": False, "clean_shutdown": True, "startup_error": "", "rusage": None},
+            "output": {"missing": [], "extra": [], "trailing": [], "stdout": {"bytes": 0, "sha256": hashlib.sha256(b"").hexdigest()}, "stderr": {"bytes": 0, "sha256": hashlib.sha256(b"").hexdigest()}},
             "fe_mxcsr": None,
         }
 
@@ -167,7 +194,7 @@ class OrchestrationTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.temp.cleanup()
 
-    def deps(self, *, fail_first: bool = True, fail_result: bool = False) -> M.ExactAttemptDependencies:
+    def deps(self, *, fail_first: bool = True, fail_result: bool = False) -> M._ExactAttemptDependencies:
         def preflight(*args: object) -> dict[str, object]:
             self.events.append("preflight")
             def full_entry(item: dict[str, object]) -> dict[str, object]:
@@ -203,7 +230,7 @@ class OrchestrationTests(unittest.TestCase):
 
         def validate_custody_record(*args: object, **kwargs: object) -> dict[str, object]:
             self.events.append("custody-static")
-            return {"custody_record_sha256": "c" * 64}
+            return {"custody_record_sha256": "c" * 64, "candidate": dict(FROZEN_BINARY)}
 
         def authorization(*args: object, **kwargs: object) -> dict[str, object]:
             self.events.append("authorization")
@@ -214,6 +241,9 @@ class OrchestrationTests(unittest.TestCase):
             return Prepared()
 
         def reserve(*args: object, **kwargs: object) -> Reservation:
+            self.assertEqual(len(args), 5)
+            self.assertEqual(args[1:], ("a" * 64, "wsl2-x86_64", 0, "attempt-001"))
+            self.assertEqual(kwargs, {})
             self.events.append("reserve")
             return self.reservation
 
@@ -249,7 +279,7 @@ class OrchestrationTests(unittest.TestCase):
                 raise RuntimeError("synthetic post-reservation failure")
             return b"result"
 
-        return M.ExactAttemptDependencies(
+        return M._ExactAttemptDependencies(
             preflight=preflight,
             prepare=prepare,
             validate_admission=admission,
@@ -263,11 +293,11 @@ class OrchestrationTests(unittest.TestCase):
             build_receipt=lambda result: b"receipt",
             build_attempt_index=lambda result, receipt, attempt: b"index",
             publish_reserved_attempt=lambda reservation, result, receipt, index: (self.events.append("publish") or "published"),
-            platform_probe=lambda selector: _platform_value(selector),
+            platform_probe=lambda selector, **kwargs: _platform_value(selector),
         )
 
-    def invoke(self, deps: M.ExactAttemptDependencies) -> M.ExactAttemptRun:
-        return M.run_exact_attempt(
+    def invoke(self, deps: M._ExactAttemptDependencies) -> M.ExactAttemptRun:
+        return M._run_exact_attempt_for_tests(
             self.root / "package",
             "attempt-001",
             platform_selector="wsl2-x86_64",
@@ -316,10 +346,10 @@ class OrchestrationTests(unittest.TestCase):
             self.assertIsNone(now)
             return {
                 "selector": "wsl2-x86_64", "role": "wsl", "source_commit": CANDIDATE_COMMIT,
-                "receipt": {}, "candidate": {}, "transfer": {}, "manifest": {}, "binding": {},
+                "receipt": {}, "candidate": dict(FROZEN_BINARY), "transfer": {}, "manifest": {}, "binding": {},
             }
 
-        deps = M.ExactAttemptDependencies(**{**base.__dict__, "validate_custody_record": production_validator})
+        deps = M._ExactAttemptDependencies(**{**base.__dict__, "validate_custody_record": production_validator})
         with mock.patch.object(M, "_read_candidate_descriptor", return_value=b"candidate"):
             result = self.invoke(deps)
         self.assertEqual(len(result.process_observations), 3)
@@ -346,7 +376,7 @@ class OrchestrationTests(unittest.TestCase):
             checks.append(("reserve", attempt_path.exists()))
             return base.reserve_attempt(*args, **kwargs)
 
-        deps = M.ExactAttemptDependencies(**{
+        deps = M._ExactAttemptDependencies(**{
             **base.__dict__, "preflight": preflight, "validate_authorization": authorization,
             "prepare": prepare, "reserve_attempt": reserve,
         })
@@ -395,7 +425,7 @@ class OrchestrationTests(unittest.TestCase):
             self.sessions.append(session)
             return session
 
-        deps = M.ExactAttemptDependencies(**{**base.__dict__, "transport_factory": factory})
+        deps = M._ExactAttemptDependencies(**{**base.__dict__, "transport_factory": factory})
         with mock.patch.object(M, "_read_candidate_descriptor", return_value=b"candidate"):
             self.invoke(deps)
         self.assertEqual([session.close_calls for session in self.sessions], [1, 1, 1])
@@ -420,7 +450,7 @@ class OrchestrationTests(unittest.TestCase):
             self.sessions.append(session)
             return session
 
-        deps = M.ExactAttemptDependencies(**{**base.__dict__, "transport_factory": factory})
+        deps = M._ExactAttemptDependencies(**{**base.__dict__, "transport_factory": factory})
         with mock.patch.object(M, "_read_candidate_descriptor", return_value=b"candidate"):
             self.invoke(deps)
         self.assertEqual([session.close_calls for session in self.sessions], [1, 1, 1])
@@ -444,7 +474,7 @@ class OrchestrationTests(unittest.TestCase):
             made.append(session)
             return session
 
-        deps = M.ExactAttemptDependencies(**{**base.__dict__, "transport_factory": factory})
+        deps = M._ExactAttemptDependencies(**{**base.__dict__, "transport_factory": factory})
         with mock.patch.object(M, "_read_candidate_descriptor", return_value=b"candidate"):
             result = self.invoke(deps)
         self.assertEqual([session.runs for session in made], [0, 0, 0])
@@ -459,8 +489,8 @@ class OrchestrationTests(unittest.TestCase):
                 result = {
                     "status": "supported", "requests": requests, "responses": (),
                     "launch": {"identity": "launch", field: content},
-                    "output": {"missing": [], "extra": [], "trailing": []},
-                    "lifecycle": {"state": "exited", "exit_code": 0, "clean_shutdown": True},
+                    "output": EMPTY_OUTPUT,
+                    "lifecycle": LIFECYCLE,
                 }
                 process = M._process_observation("development", self.root, requests, ids, None, result, _platform_value(), "a" * 64, None)
                 self.assertIsNone(process["candidate_binary"])
@@ -474,8 +504,8 @@ class OrchestrationTests(unittest.TestCase):
         launch = {key: None for key in M.EXECUTION_IDENTITY_KEYS}
         result = {
             "status": "inconclusive", "requests": requests, "responses": (),
-            "launch": launch, "output": {"missing": [], "extra": [], "trailing": []},
-            "lifecycle": {"state": "exited", "exit_code": 0, "clean_shutdown": True},
+            "launch": launch, "output": EMPTY_OUTPUT,
+            "lifecycle": LIFECYCLE,
         }
         process = M._process_observation("development", self.root, requests, ids, None, result, _platform_value(), "a" * 64, None)
         self.assertIsNone(process["execution_identity"])
@@ -492,7 +522,7 @@ class OrchestrationTests(unittest.TestCase):
         self.assertNotIn("publish", self.events)
 
     def test_invalid_reservation_is_rejected_before_factory(self) -> None:
-        deps = M.ExactAttemptDependencies(**{**self.deps().__dict__, "reserve_attempt": lambda *args, **kwargs: None})
+        deps = M._ExactAttemptDependencies(**{**self.deps().__dict__, "reserve_attempt": lambda *args, **kwargs: None})
         with mock.patch.object(M, "_read_candidate_descriptor", return_value=b"candidate"):
             with self.assertRaises(M.ExactAttemptError):
                 self.invoke(deps)
@@ -502,7 +532,30 @@ class OrchestrationTests(unittest.TestCase):
     def test_wrong_id_reservation_is_rejected_before_factory(self) -> None:
         invalid = Reservation(self.events)
         invalid.attempt_id = "attempt-wrong"
-        deps = M.ExactAttemptDependencies(**{**self.deps().__dict__, "reserve_attempt": lambda *args, **kwargs: invalid})
+        deps = M._ExactAttemptDependencies(**{**self.deps().__dict__, "reserve_attempt": lambda *args, **kwargs: invalid})
+        with mock.patch.object(M, "_read_candidate_descriptor", return_value=b"candidate"):
+            with self.assertRaises(M.ExactAttemptError):
+                self.invoke(deps)
+        self.assertNotIn("factory-0", self.events)
+        self.assertTrue(invalid.closed)
+
+    def test_alternate_experiment_slot_is_rejected_before_factory(self) -> None:
+        invalid = Reservation(self.events)
+        invalid.experiment_slot = {
+            **invalid.experiment_slot,
+            "ordinal": 1,
+        }
+        deps = M._ExactAttemptDependencies(**{**self.deps().__dict__, "reserve_attempt": lambda *args, **kwargs: invalid})
+        with mock.patch.object(M, "_read_candidate_descriptor", return_value=b"candidate"):
+            with self.assertRaises(M.ExactAttemptError):
+                self.invoke(deps)
+        self.assertNotIn("factory-0", self.events)
+        self.assertTrue(invalid.closed)
+
+    def test_missing_experiment_slot_is_rejected_before_factory(self) -> None:
+        invalid = Reservation(self.events)
+        invalid.experiment_slot = None
+        deps = M._ExactAttemptDependencies(**{**self.deps().__dict__, "reserve_attempt": lambda *args, **kwargs: invalid})
         with mock.patch.object(M, "_read_candidate_descriptor", return_value=b"candidate"):
             with self.assertRaises(M.ExactAttemptError):
                 self.invoke(deps)
@@ -512,7 +565,7 @@ class OrchestrationTests(unittest.TestCase):
     def test_closed_reservation_is_rejected_before_factory(self) -> None:
         invalid = Reservation(self.events)
         invalid.closed = True
-        deps = M.ExactAttemptDependencies(**{**self.deps().__dict__, "reserve_attempt": lambda *args, **kwargs: invalid})
+        deps = M._ExactAttemptDependencies(**{**self.deps().__dict__, "reserve_attempt": lambda *args, **kwargs: invalid})
         with mock.patch.object(M, "_read_candidate_descriptor", return_value=b"candidate"):
             with self.assertRaises(M.ExactAttemptError):
                 self.invoke(deps)
@@ -523,7 +576,7 @@ class OrchestrationTests(unittest.TestCase):
             attempt_id = "attempt-001"
             closed = False
 
-        deps = M.ExactAttemptDependencies(**{**self.deps().__dict__, "reserve_attempt": lambda *args, **kwargs: Malformed()})
+        deps = M._ExactAttemptDependencies(**{**self.deps().__dict__, "reserve_attempt": lambda *args, **kwargs: Malformed()})
         with mock.patch.object(M, "_read_candidate_descriptor", return_value=b"candidate"):
             with self.assertRaises(M.ExactAttemptError):
                 self.invoke(deps)
@@ -538,7 +591,7 @@ class OrchestrationTests(unittest.TestCase):
             captured.update({"attempt": attempt, "adjudications": adjudications, "processes": processes, "tools": tools})
             return original_result(attempt, adjudications, processes, tools)
 
-        deps = M.ExactAttemptDependencies(**{**deps.__dict__, "build_result": capture})
+        deps = M._ExactAttemptDependencies(**{**deps.__dict__, "build_result": capture})
         with mock.patch.object(M.authority, "validate_required_exact_runtime_tools", lambda *args, **kwargs: None), mock.patch.object(M, "_read_candidate_descriptor", return_value=b"candidate"):
             self.invoke(deps)
         self.assertEqual(captured["tools"], TOOLS[: len(RUNTIME_PATHS)])
@@ -573,7 +626,7 @@ class OrchestrationTests(unittest.TestCase):
     def test_factory_failure_has_absent_transport_and_exact_missing_fields(self) -> None:
         def factory(**kwargs: object) -> object:
             raise RuntimeError("factory did not launch")
-        deps = M.ExactAttemptDependencies(**{**self.deps().__dict__, "transport_factory": factory})
+        deps = M._ExactAttemptDependencies(**{**self.deps().__dict__, "transport_factory": factory})
         with mock.patch.object(M, "_read_candidate_descriptor", return_value=b"candidate"):
             result = self.invoke(deps)
         for process in result.process_observations:
@@ -594,8 +647,8 @@ class OrchestrationTests(unittest.TestCase):
                     "detail": "one admitted request",
                     "requests": (b"request-0",),
                     "responses": (),
-                    "lifecycle": {"state": "exited", "exit_code": 0, "clean_shutdown": True},
-                    "output": {"missing": [], "extra": [], "trailing": []},
+                    "lifecycle": LIFECYCLE,
+                    "output": EMPTY_OUTPUT,
                 }
 
         def factory(**kwargs: object) -> object:
@@ -603,7 +656,7 @@ class OrchestrationTests(unittest.TestCase):
             session = ShortSession(role, self.events, False) if not self.sessions else Session(role, self.events, False)
             self.sessions.append(session)
             return session
-        deps = M.ExactAttemptDependencies(**{**base.__dict__, "transport_factory": factory})
+        deps = M._ExactAttemptDependencies(**{**base.__dict__, "transport_factory": factory})
         with mock.patch.object(M, "_read_candidate_descriptor", return_value=b"candidate"):
             result = self.invoke(deps)
         first = result.process_observations[0]
@@ -630,8 +683,8 @@ class OrchestrationTests(unittest.TestCase):
         result = {
             "status": "supported", "requests": requests, "responses": (),
             "launch": {"identity": "launch", "observation": fe},
-            "lifecycle": {"state": "exited", "exit_code": 0, "clean_shutdown": True},
-            "output": {"missing": [], "extra": [], "trailing": []},
+            "lifecycle": LIFECYCLE,
+            "output": EMPTY_OUTPUT,
             "final_observation": None,
         }
         process = M._process_observation("development", self.root, requests, ids, None, result, _platform_value(), "f" * 64, None)
@@ -652,7 +705,7 @@ class OrchestrationTests(unittest.TestCase):
         }
         requests = tuple(f"request-{index}".encode() for index in range(8))
         ids = tuple(f"p3-attempt-001-{index:03d}" for index in range(8))
-        result = {"status": "supported", "requests": requests, "responses": (), "launch": identity_launch, "output": {"missing": [], "extra": [], "trailing": []}, "lifecycle": {"state": "exited", "exit_code": 0, "clean_shutdown": True}, "candidate_binary": {"sha256_pre": "a" * 64, "sha256_post": "a" * 64}}
+        result = {"status": "supported", "requests": requests, "responses": (), "launch": identity_launch, "output": EMPTY_OUTPUT, "lifecycle": LIFECYCLE, "candidate_binary": {"sha256_pre": "a" * 64, "sha256_post": "a" * 64}}
         process = M._process_observation("development", self.root, requests, ids, None, result, _platform_value(), "a" * 64, descriptor)
         self.assertEqual(process["execution_identity"]["cwd_pre"], descriptor)
         self.assertEqual(process["execution_identity"]["content_post_exec"], content)
@@ -679,8 +732,8 @@ class OrchestrationTests(unittest.TestCase):
             result = {
                 "status": "supported", "requests": requests, "responses": (),
                 "launch": {"identity": "launch", "cwd_pre": normalized, "cwd_post": normalized},
-                "output": {"missing": [], "extra": [], "trailing": []},
-                "lifecycle": {"state": "exited", "exit_code": 0, "clean_shutdown": True},
+                "output": EMPTY_OUTPUT,
+                "lifecycle": LIFECYCLE,
                 "candidate_binary": {"sha256_pre": "a" * 64, "sha256_post": "a" * 64},
             }
             process = M._process_observation("development", role_dir, requests, ids, None, result, _platform_value(), "a" * 64, prepared)
@@ -727,8 +780,8 @@ class OrchestrationTests(unittest.TestCase):
             "final_observation": fe,
             "candidate_binary": {"sha256_pre": "bad", "sha256_post": "bad"},
             "fe_mxcsr": "malformed-fe-field",
-            "lifecycle": {"state": "exited", "exit_code": 0, "clean_shutdown": True},
-            "output": {"missing": [], "extra": [], "trailing": []},
+            "lifecycle": LIFECYCLE,
+            "output": EMPTY_OUTPUT,
         }
         process = M._process_observation("development", self.root, requests, ids, None, result, _platform_value(), "a" * 64, None)
         self.assertEqual(process["variant"], "incomplete-v1")
@@ -740,20 +793,102 @@ class OrchestrationTests(unittest.TestCase):
         self.assertIn("invalid-fe-metadata", process["outcome"]["detail"])
 
     def test_platform_mismatch_happens_before_reservation(self) -> None:
-        deps = M.ExactAttemptDependencies(**{
+        deps = M._ExactAttemptDependencies(**{
             **self.deps().__dict__,
-            "platform_probe": lambda selector: {"selector": "ubuntu-24.04-x86_64"},
+            "platform_probe": lambda selector, **kwargs: {"selector": "ubuntu-24.04-x86_64"},
         })
         with mock.patch.object(M, "_read_candidate_descriptor", return_value=b"candidate"):
             with self.assertRaises(M.ExactAttemptError):
                 self.invoke(deps)
+        self.assertNotIn("reserve", self.events)
+
+    def test_public_aliases_have_no_dependency_substitution_surface(self) -> None:
+        import inspect
+        for alias in (M.run_exact_attempt, M.execute_exact_attempt, M.orchestrate_exact_attempt, M.run, M.execute, M.exact_attempt):
+            self.assertNotIn("dependencies", inspect.signature(alias).parameters)
+            with self.assertRaises(TypeError):
+                alias("package", "attempt", platform_selector="wsl2-x86_64", ordinal=0,
+                      authorization_reference="BEN-AUTH-001", freeze_manifest=b"", admission_record=b"",
+                      authorization_record=b"", custody_record=b"", review_root="reviews",
+                      candidate_identity={}, tool_identities=[], output_root="output", work_root="work",
+                      dependencies=self.deps())
+
+    def test_production_reservation_dependency_is_experiment_slot_api(self) -> None:
+        self.assertIs(M._ExactAttemptDependencies().reserve_attempt, M.publication.reserve_experiment_slot)
+
+    def test_selected_frozen_binary_sizes_and_cap_are_checked_before_reservation(self) -> None:
+        self.assertEqual(M.MAX_EXECUTABLE_BYTES, M.transport.MAX_EXECUTABLE_BYTES)
+        self.assertEqual(M.MAX_EXECUTABLE_BYTES, M.evidence_contract.MAX_EXECUTABLE_BYTES)
+        freeze = json.loads(_freeze_value())
+        for selector, size, digest in (
+            ("wsl2-x86_64", 100_944_288, "f" * 64),
+            ("ubuntu-24.04-x86_64", 100_945_304, "e" * 64),
+        ):
+            selected = M._validate_selected_binary_compatibility(
+                freeze, selector, {"candidate": {"bytes": size, "mode": 0o100755, "sha256": digest}},
+            )
+            self.assertEqual(selected, {"bytes": size, "mode": 0o100755, "sha256": digest})
+        freeze["binaries"]["wsl2-x86_64"]["binary_identity"]["bytes"] = 100_945_305
+        with self.assertRaises(M.ExactAttemptError):
+            M._validate_selected_binary_compatibility(
+                freeze, "wsl2-x86_64", {"candidate": {"bytes": 100_945_305, "mode": 0o100755, "sha256": "f" * 64}},
+            )
+
+    def test_lifecycle_accepts_only_finite_nonnegative_rusage(self) -> None:
+        keys = (
+            "user_seconds", "system_seconds", "max_rss", "minor_faults",
+            "major_faults", "involuntary_context_switches", "voluntary_context_switches",
+        )
+        usage = {key: float(index) + 0.5 for index, key in enumerate(keys)}
+        lifecycle = M._valid_lifecycle({**LIFECYCLE, "rusage": usage})
+        self.assertIsNotNone(lifecycle)
+        self.assertEqual(lifecycle["rusage"], usage)  # type: ignore[index]
+        for key, bad in (
+            ("user_seconds", math.nan),
+            ("system_seconds", math.inf),
+            ("max_rss", -1),
+            ("minor_faults", "not-a-number"),
+            ("major_faults", True),
+        ):
+            malformed = {**usage, key: bad}
+            self.assertIsNone(M._valid_lifecycle({**LIFECYCLE, "rusage": malformed}))
+        missing = dict(usage)
+        del missing["major_faults"]
+        self.assertIsNone(M._valid_lifecycle({**LIFECYCLE, "rusage": missing}))
+        extra = {**usage, "unexpected": 1}
+        self.assertIsNone(M._valid_lifecycle({**LIFECYCLE, "rusage": extra}))
+
+    def test_static_candidate_mismatch_is_rejected_before_reservation(self) -> None:
+        base = self.deps()
+
+        def mismatched_static_custody(*args: object, **kwargs: object) -> dict[str, object]:
+            value = base.validate_custody_record(*args, **kwargs)
+            value["candidate"] = {**value["candidate"], "bytes": 100_945_304, "sha256": "e" * 64}
+            return value
+
+        deps = M._ExactAttemptDependencies(**{**base.__dict__, "validate_custody_record": mismatched_static_custody})
+        with self.assertRaises(M.ExactAttemptError):
+            self.invoke(deps)
+        self.assertNotIn("reserve", self.events)
+
+    def test_missing_runtime_platform_facts_are_rejected_before_reservation(self) -> None:
+        base = self.deps()
+
+        def missing_runtime(selector: str, **kwargs: object) -> dict[str, object]:
+            value = _platform_value(selector)
+            value["runtime"] = None
+            return value
+
+        deps = M._ExactAttemptDependencies(**{**base.__dict__, "platform_probe": missing_runtime})
+        with self.assertRaises(M.ExactAttemptError):
+            self.invoke(deps)
         self.assertNotIn("reserve", self.events)
         self.assertEqual(self.verified_closed, 0)
 
     def test_platform_missing_key_fails_before_factory(self) -> None:
         missing = _platform_value()
         del missing["compiler"]
-        deps = M.ExactAttemptDependencies(**{**self.deps().__dict__, "platform_probe": lambda selector: missing})
+        deps = M._ExactAttemptDependencies(**{**self.deps().__dict__, "platform_probe": lambda selector, **kwargs: missing})
         with mock.patch.object(M, "_read_candidate_descriptor", return_value=b"candidate"):
             with self.assertRaises(M.ExactAttemptError):
                 self.invoke(deps)
@@ -762,7 +897,7 @@ class OrchestrationTests(unittest.TestCase):
 
     def test_platform_extra_key_fails_before_factory(self) -> None:
         extra = {**_platform_value(), "unregistered": "value"}
-        deps = M.ExactAttemptDependencies(**{**self.deps().__dict__, "platform_probe": lambda selector: extra})
+        deps = M._ExactAttemptDependencies(**{**self.deps().__dict__, "platform_probe": lambda selector, **kwargs: extra})
         with mock.patch.object(M, "_read_candidate_descriptor", return_value=b"candidate"):
             with self.assertRaises(M.ExactAttemptError):
                 self.invoke(deps)
@@ -777,7 +912,7 @@ class OrchestrationTests(unittest.TestCase):
             report.pop("tool_identities", None)
             return report
 
-        deps = M.ExactAttemptDependencies(**{**base.__dict__, "preflight": missing_tools})
+        deps = M._ExactAttemptDependencies(**{**base.__dict__, "preflight": missing_tools})
         with mock.patch.object(M, "_read_candidate_descriptor", return_value=b"candidate"):
             with self.assertRaises(M.ExactAttemptError):
                 self.invoke(deps)
@@ -791,7 +926,7 @@ class OrchestrationTests(unittest.TestCase):
             report["execution_package"]["runtime_tool_identities"] = []
             return report
 
-        deps = M.ExactAttemptDependencies(**{**base.__dict__, "preflight": mismatched})
+        deps = M._ExactAttemptDependencies(**{**base.__dict__, "preflight": mismatched})
         with mock.patch.object(M, "_read_candidate_descriptor", return_value=b"candidate"):
             with self.assertRaises(M.ExactAttemptError):
                 self.invoke(deps)
@@ -805,7 +940,7 @@ class OrchestrationTests(unittest.TestCase):
             report["execution_package"].pop("source_snapshot_validation", None)
             return report
 
-        deps = M.ExactAttemptDependencies(**{**base.__dict__, "preflight": missing_attestation})
+        deps = M._ExactAttemptDependencies(**{**base.__dict__, "preflight": missing_attestation})
         with mock.patch.object(M, "_read_candidate_descriptor", return_value=b"candidate"):
             with self.assertRaises(M.ExactAttemptError):
                 self.invoke(deps)
@@ -819,7 +954,7 @@ class OrchestrationTests(unittest.TestCase):
             report["execution_package"]["source_snapshot_validation"]["current_execution_tool_identity_count"] = 18
             return report
 
-        deps = M.ExactAttemptDependencies(**{**base.__dict__, "preflight": mismatched_attestation})
+        deps = M._ExactAttemptDependencies(**{**base.__dict__, "preflight": mismatched_attestation})
         with mock.patch.object(M, "_read_candidate_descriptor", return_value=b"candidate"):
             with self.assertRaises(M.ExactAttemptError):
                 self.invoke(deps)
@@ -836,7 +971,7 @@ class OrchestrationTests(unittest.TestCase):
     def test_bad_cohort_closes_custody_before_reservation(self) -> None:
         class BadPrepared:
             transport = (Cohort("development", M.ROLE_REQUEST_COUNTS["development"]),)
-        deps = M.ExactAttemptDependencies(**{**self.deps().__dict__, "prepare": lambda *args, **kwargs: BadPrepared()})
+        deps = M._ExactAttemptDependencies(**{**self.deps().__dict__, "prepare": lambda *args, **kwargs: BadPrepared()})
         with self.assertRaises(M.ExactAttemptError):
             self.invoke(deps)
         self.assertNotIn("reserve", self.events)
@@ -846,7 +981,7 @@ class OrchestrationTests(unittest.TestCase):
         self.freeze = _canonical({"manifest_sha256": "a" * 64})
         with mock.patch.object(M.authority, "validate_required_exact_runtime_tools", lambda *args, **kwargs: None), mock.patch.object(M, "_read_candidate_descriptor", return_value=b"candidate"):
             with self.assertRaises(M.ExactAttemptError):
-                self.invoke(M.ExactAttemptDependencies(**{**deps.__dict__, "preflight": lambda *args: {"execution_permitted": False}, "build_result": deps.build_result}))
+                self.invoke(M._ExactAttemptDependencies(**{**deps.__dict__, "preflight": lambda *args: {"execution_permitted": False}, "build_result": deps.build_result}))
         self.assertNotIn("reserve", self.events)
 
 
