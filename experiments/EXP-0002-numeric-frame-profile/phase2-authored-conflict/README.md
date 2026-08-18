@@ -24,6 +24,12 @@ candidate and corpora, result/receipt identities, morphology request schema,
 and resolver/build activation bindings remain unbound. This package therefore
 cannot activate Readiness 3.
 
+The standalone [phase-2 candidate](candidate/README.md) provides the bounded
+JSONL transport and inspectable observations over the merged provisional
+bridge. It remains synthetic, non-authoritative instrumentation; the bridge's
+current fine-grained cause and equation-step evidence gaps still block
+corpus/profile freezing.
+
 ## Safe preflight
 
 From the repository root:
