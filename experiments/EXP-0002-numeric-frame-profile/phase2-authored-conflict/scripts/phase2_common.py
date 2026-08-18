@@ -111,7 +111,11 @@ def _validate_request_id(value: Mapping[str, Any]) -> None:
     request_id = value["request_id"]
     if not isinstance(request_id, str) or not request_id:
         raise Phase2ProtocolError("request-id", "request_id must be a non-empty string")
-    if len(request_id.encode("utf-8")) > MAX_REQUEST_ID_BYTES:
+    try:
+        request_id_bytes = len(request_id.encode("utf-8"))
+    except UnicodeEncodeError as error:
+        raise Phase2ProtocolError("request-id-encoding", "request_id is not valid UTF-8") from error
+    if request_id_bytes > MAX_REQUEST_ID_BYTES:
         raise Phase2ProtocolError("request-id-too-large", "request_id exceeds 256 UTF-8 bytes")
 
 

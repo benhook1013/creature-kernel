@@ -281,6 +281,19 @@ class BoundedSubprocessSession:
         except OSError:
             pass
 
+    def _classify_terminal_failure(self) -> None:
+        if self.failure is not None:
+            return
+        if self.process.returncode is None:
+            self._record_failure("candidate-not-reaped", "candidate return code is unavailable after shutdown")
+        elif self.stdout_buffer:
+            self._record_failure("trailing-output", "candidate emitted stdout after the final response")
+        elif self.process.returncode != 0:
+            self._record_failure(
+                "candidate-exit",
+                f"candidate exited with status {self.process.returncode}",
+            )
+
     def close(self) -> CloseResult:
         if self.closed:
             return CloseResult(
@@ -324,14 +337,7 @@ class BoundedSubprocessSession:
                         stream.close()
                 except OSError:
                     pass
-        if self.failure is None:
-            if self.stdout_buffer:
-                self._record_failure("trailing-output", "candidate emitted stdout after the final response")
-            elif self.process.returncode not in (None, 0):
-                self._record_failure(
-                    "candidate-exit",
-                    f"candidate exited with status {self.process.returncode}",
-                )
+        self._classify_terminal_failure()
         return CloseResult(
             self.process.returncode,
             bytes(self.stdout_buffer),

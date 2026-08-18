@@ -224,6 +224,16 @@ class Phase2TransportTests(unittest.TestCase):
         result = session.close()
         self.assertIn("trailing-output", result.failure or "")
 
+    def test_unreaped_state_is_a_terminal_failure(self) -> None:
+        session = self.session("normal")
+        try:
+            session.process.returncode = None
+            session._classify_terminal_failure()
+            self.assertIn("candidate-not-reaped", session.failure or "")
+        finally:
+            result = session.close()
+        self.assertIn("candidate-not-reaped", result.failure or "")
+
     def test_context_manager_raises_close_integrity_failure(self) -> None:
         with self.assertRaisesRegex(Phase2TransportError, "session-integrity"):
             with self.session("crash-after-response") as session:
@@ -269,6 +279,15 @@ class Phase2TransportTests(unittest.TestCase):
             self.assertEqual(response["request_id"], accepted_id)
             with self.assertRaisesRegex(Phase2ProtocolError, "request-id-too-large"):
                 session.request(self.request(rejected_id))
+        finally:
+            result = session.close()
+        self.assertIsNone(result.failure)
+
+    def test_request_id_encoding_failure_has_stable_code(self) -> None:
+        session = self.session("normal")
+        try:
+            with self.assertRaisesRegex(Phase2ProtocolError, "request-id-encoding"):
+                session.request(self.request("\ud800"))
         finally:
             result = session.close()
         self.assertIsNone(result.failure)
