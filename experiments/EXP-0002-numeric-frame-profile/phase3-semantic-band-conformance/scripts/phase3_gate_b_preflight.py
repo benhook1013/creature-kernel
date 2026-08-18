@@ -26,7 +26,7 @@ EXPECTED_CANDIDATE_COUNT = 47
 EXPECTED_PATH_SHA256 = "10605701d02f117ff7ef2756004fbf53a475eb92fbc0616e139f919d7a8480dc"
 EXPECTED_CONTENT_SHA256 = "21825e78c3286cf73d135f44be99eaea5214ce36b5fed6271dce096d364468e2"
 EXPECTED_CANDIDATE_BYTES = 1_494_337
-EXPECTED_PHASE = "phase3-semantic-band-conformance"
+EXPECTED_PHASE = "exp-0002-phase3-semantic-band-conformance-001"
 EXPECTED_PROFILE = "ck.provisional-r3-authored-conflict.semantic-band-1"
 TOOL_PATHS = (
     "scripts/phase3_common.py",

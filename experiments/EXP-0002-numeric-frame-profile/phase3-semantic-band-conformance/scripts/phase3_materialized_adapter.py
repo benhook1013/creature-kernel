@@ -59,6 +59,9 @@ PACKAGE_FILES = frozenset({
     "manifests/artifact-manifest.json",
     "sqrt-vectors.json",
 })
+FREEZE_MANIFEST_PATH = "freeze-manifest.json"
+FREEZE_RECEIPT_DIRECTORY = "build-receipts"
+FREEZE_RECEIPT_NAMES = frozenset({"wsl.json", "native.json"})
 PARTITIONS = (
     ("development", "corpora/development.jsonl", 8),
     ("held-out", "corpora/held-out.jsonl", 40),
@@ -331,7 +334,38 @@ def _check_layout(root: Path) -> None:
     # an input to this adapter.
     _expect({"corpora", "manifests", "sqrt-vectors.json", PREREGISTRATION_PATH} <= root_entries, "package-layout", "package is missing expected materialized entries")
     _expect(corpus_entries == {"development.jsonl", "held-out.jsonl", "controls.jsonl"}, "package-layout", "package has unexpected corpus entries")
-    _expect(manifest_entries == {"recipe-manifest.json", "artifact-manifest.json"}, "package-layout", "package has unexpected manifest entries")
+    _expect(
+        manifest_entries <= {"recipe-manifest.json", "artifact-manifest.json", FREEZE_MANIFEST_PATH, FREEZE_RECEIPT_DIRECTORY},
+        "package-layout",
+        "package has unexpected manifest entries",
+    )
+    _expect(
+        {"recipe-manifest.json", "artifact-manifest.json"} <= manifest_entries,
+        "package-layout",
+        "package is missing expected manifest entries",
+    )
+    # Gate B provenance is deliberately an optional sidecar to the generated
+    # materialization.  Do not include it in PACKAGE_FILES or parse it here:
+    # the adapter consumes only the generated request package and must remain
+    # usable before the freeze sidecars exist.  If the sidecars are present,
+    # keep their layout closed and apply the same basic file-safety checks as
+    # package inputs without treating their contents as candidate data.
+    if FREEZE_MANIFEST_PATH in manifest_entries:
+        _regular_bytes(root / "manifests" / FREEZE_MANIFEST_PATH, "freeze manifest sidecar", MAX_MANIFEST_BYTES)
+    if FREEZE_RECEIPT_DIRECTORY in manifest_entries:
+        receipt_directory = root / "manifests" / FREEZE_RECEIPT_DIRECTORY
+        _directory(receipt_directory, "freeze receipt directory")
+        try:
+            receipt_items = list(receipt_directory.iterdir())
+            for item in receipt_items:
+                if item.is_symlink():
+                    _fail("symlink", f"package layout contains symlink {item}")
+            receipt_entries = {entry.name for entry in receipt_items}
+        except OSError as error:
+            raise MaterializedAdapterError("package-io", "cannot inspect freeze receipt directory") from error
+        _expect(receipt_entries <= FREEZE_RECEIPT_NAMES, "package-layout", "package has unexpected freeze receipt entries")
+        for name in receipt_entries:
+            _regular_bytes(receipt_directory / name, f"freeze receipt sidecar {name}", MAX_MANIFEST_BYTES)
     for relative in PACKAGE_FILES:
         _lstat(root / relative, relative)
     _lstat(root / PREREGISTRATION_PATH, PREREGISTRATION_PATH)

@@ -136,20 +136,26 @@ is 180 adjudications and 171 candidate requests, with three fresh candidate
 processes per attempt and nine total. The three preflight cases remain runner
 adjudications, not candidate requests. Current generated records reuse the
 existing phase-two protocol/envelope/operation/providers and canonical source
-string; no new wire protocol is introduced. Gate A is complete/passed for this
-exact development-unfrozen materialization, with the current Double recorded
+string; no new wire protocol is introduced. The evidence and read-only
+preflight contracts now use the canonical phase ID
+`exp-0002-phase3-semantic-band-conformance-001`; their earlier mismatch is
+corrected. Gate A is complete/passed for this exact development-unfrozen
+materialization, with the current Double recorded
 in [Review 01](../../experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/reviews/gate-a-review-01-closure-integrity.md)
 and [Review 02](../../experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/reviews/gate-a-review-02-numeric-claims.md).
-Prior issue-finding reviews remain stale historical working evidence. This does
-not freeze the package. Gate B remains a separate later frozen-package Double
+Prior issue-finding reviews remain stale historical working evidence. New
+build-receipt and freeze tooling is preparation only: the freeze remains
+pre-freeze and binary slots remain unbound until durable WSL/native receipts
+exist and validate. Gate B remains a separate later frozen-package Double
 before execution. No profile-value validation, production binding, or
 Readiness 3 activation follows from this package.
 
-The Phase 3 package now has ten implementation modules and seven focused test
+The Phase 3 package now has twelve implementation modules and nine focused test
 modules. They cover source oracle, actual nested-response scoring, bounded
 runner aggregation, the non-evidence receipt, materialized-package adapter,
 the Proposed in-memory result/receipt/attempt-index contracts, and the
-read-only Gate B preflight. The adapter validates the current
+read-only Gate B preflight, build-only receipt capture, and deterministic freeze
+manifest generation. The adapter validates the current
 package/preregistration/manifests, local generator identity, fixed fixture
 declaration/hash (without loading the external fixture), generated source
 identities, and sqrt fixture, then projects opaque 8-development/40-held-out/
@@ -165,6 +171,14 @@ evidence, or pass Gate B. Rust CI's existing `test_phase3_*.py` glob includes
 the new focused tests. This plumbing does not execute a candidate, Rust, or
 experiment process/attempt and does not change the package's Proposed,
 execution-disabled, open-evidence status.
+
+The manual [Gate B native build workflow](../../.github/workflows/phase3-gate-b-native-build.yml)
+is build-only and transfer-only: it takes a full commit SHA, runs on Ubuntu
+24.04, binds source/dependency/build/toolchain/binary identities, and never
+dispatches an exact native experiment attempt. The next internal action is
+merge preparation, followed by manufacturing the WSL/native receipt artifacts,
+the final immutable freeze, and the current-revision Gate B Double review. Ben
+remains needed for later exact attempts and native dispatch only.
 
 The materialized records distinguish `construction_target` (the exact recipe
 magnitude before source serialization) from source-derived `I_truth` (computed
