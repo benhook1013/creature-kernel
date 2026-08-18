@@ -17,7 +17,9 @@ replace entries after this module returns.  Mutations reflected in the
 verifier's repeated reads or final retained-descriptor/path observations are
 detected.  This is an observed-overlap boundary, not external custody against
 a malicious peer that can act after an individual final observation or after
-the verifier returns.
+the verifier returns.  Reservation tokens and locks enforce cooperative API
+use and same-process thread safety; they are deliberately not described as
+unforgeable security capabilities or cross-process/global locks.
 """
 
 from __future__ import annotations
@@ -25,6 +27,7 @@ from __future__ import annotations
 import hashlib
 import os
 import stat
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
@@ -43,6 +46,7 @@ MAX_PARENT_PATH_BYTES = 4096
 MAX_COMPONENT_BYTES = 255
 MAX_ATTEMPT_ID_BYTES = contract.MAX_ID_BYTES
 ATTEMPT_RE = contract.ATTEMPT_RE
+PUBLICATION_TRUST_BOUNDARY = "cooperating-same-process-local-posix-v1"
 
 
 class PublicationError(ValueError):
@@ -86,6 +90,87 @@ class PublishedAttempt:
     @property
     def attempt_index(self) -> FileIdentity:
         return self.files[INDEX_NAME]
+
+
+_RESERVATION_TOKEN = object()
+
+
+@dataclass(frozen=True)
+class _IssuedReservation:
+    """Immutable facts captured when the cooperative handle is issued."""
+
+    parent_root: Path
+    attempt_id: str
+    parent_initial: os.stat_result
+    directory_initial: os.stat_result
+
+
+class AttemptReservation:
+    """One-shot cooperative handle for an empty prelaunch attempt directory.
+
+    The private token detects accidental construction through the public API;
+    it is not an unforgeable capability against arbitrary Python code in the
+    same process.  A per-handle lock makes publish/close atomic among
+    cooperating same-process threads.
+    """
+
+    __slots__ = (
+        "_token", "_issued", "_parent_fd", "_directory_fd", "_lock", "_state",
+    )
+
+    def __init__(
+        self,
+        *,
+        parent_root: Path,
+        attempt_id: str,
+        parent_fd: int,
+        directory_fd: int,
+        parent_initial: os.stat_result,
+        directory_initial: os.stat_result,
+        _token: object,
+    ) -> None:
+        if _token is not _RESERVATION_TOKEN:
+            _fail("reservation", "attempt reservation was not issued by this module")
+        self._token = _token
+        self._issued = _IssuedReservation(parent_root, attempt_id, parent_initial, directory_initial)
+        self._parent_fd = parent_fd
+        self._directory_fd = directory_fd
+        self._lock = threading.RLock()
+        self._state = "issued"
+
+    @property
+    def parent_root(self) -> Path:
+        return self._issued.parent_root
+
+    @property
+    def attempt_id(self) -> str:
+        return self._issued.attempt_id
+
+    @property
+    def directory(self) -> Path:
+        return self._issued.parent_root / self._issued.attempt_id
+
+    @property
+    def closed(self) -> bool:
+        with self._lock:
+            return self._state == "closed"
+
+    def close(self) -> None:
+        with self._lock:
+            # A re-entrant callback in the publishing thread must not close
+            # descriptors out from under its own active publication.  Other
+            # threads block on the lock until publication has consumed them.
+            if self._state in {"publishing", "closed"}:
+                return
+            self._close_locked()
+
+    def _close_locked(self) -> None:
+        parent_fd, directory_fd = self._parent_fd, self._directory_fd
+        self._parent_fd = -1
+        self._directory_fd = -1
+        self._state = "closed"
+        _close(directory_fd)
+        _close(parent_fd)
 
 
 def _fail(code: str, detail: str) -> None:
@@ -265,12 +350,12 @@ def _write_file(directory_fd: int, name: str, raw: bytes, label: str) -> FileIde
         _close(fd)
 
 
-def _validate_dir_name(directory_fd: int, name: str, label: str, expected_mode: int) -> tuple[int, os.stat_result]:
+def _open_dir_name(directory_fd: int, name: str, label: str) -> tuple[int, os.stat_result]:
     fd = -1
     try:
         path_st = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
-        if not stat.S_ISDIR(path_st.st_mode) or stat.S_IMODE(path_st.st_mode) != expected_mode:
-            _fail("directory", f"{label} has wrong type or mode")
+        if not stat.S_ISDIR(path_st.st_mode):
+            _fail("directory", f"{label} has wrong type")
         fd = os.open(name, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0), dir_fd=directory_fd)
         opened = os.fstat(fd)
         if _metadata(path_st) != _metadata(opened):
@@ -284,14 +369,45 @@ def _validate_dir_name(directory_fd: int, name: str, label: str, expected_mode: 
         raise PublicationError("unavailable", f"{label}: {error}") from error
 
 
-def publish_attempt(parent_root: Path | str, result_bytes: bytes, receipt_bytes: bytes, index_bytes: bytes) -> PublishedAttempt:
-    """Publish one validated attempt beneath an existing absolute directory.
+def _validate_dir_name(directory_fd: int, name: str, label: str, expected_mode: int) -> tuple[int, os.stat_result]:
+    fd = -1
+    try:
+        fd, opened = _open_dir_name(directory_fd, name, label)
+        if stat.S_IMODE(opened.st_mode) != expected_mode:
+            _fail("directory", f"{label} has wrong mode")
+        return fd, opened
+    except PublicationError:
+        _close(fd)
+        raise
 
-    The attempt directory is created exclusively.  Any error after that
-    creation leaves the directory and any files already written untouched.
+
+def _parent_identity(st: os.stat_result) -> tuple[int, int, int]:
+    return st.st_dev, st.st_ino, st.st_mode
+
+
+def _empty_directory(directory_fd: int) -> None:
+    """Reject after observing at most one directory member."""
+    try:
+        with os.scandir(directory_fd) as entries:
+            for _ in entries:
+                _fail("reservation-not-empty", "reserved attempt directory is not empty")
+    except PublicationError:
+        raise
+    except OSError as error:
+        raise PublicationError("unavailable", f"reserved attempt directory listing: {error}") from error
+
+
+def reserve_attempt(parent_root: Path | str, attempt_id: str) -> AttemptReservation:
+    """Exclusively consume one prelaunch attempt ID beneath an existing root.
+
+    The empty ``0700`` directory is the durable consumed marker.  Closing the
+    returned reservation, process failure, or a later publication failure
+    never removes it and a second reservation of the same ID fails closed.
+    This is local to the explicitly supplied root; it is not global replay
+    prevention across independent roots.
     """
     root = _path(parent_root, "parent_root")
-    attempt_id, result_bytes, receipt_bytes, index_bytes = _contract_bytes(result_bytes, receipt_bytes, index_bytes)
+    attempt_id = _attempt_id(attempt_id)
     parent_fd = _open_directory(root, "parent_root")
     directory_fd = -1
     try:
@@ -301,8 +417,150 @@ def publish_attempt(parent_root: Path | str, result_bytes: bytes, receipt_bytes:
             raise PublicationError("collision", f"attempt directory {attempt_id} already exists") from error
         except OSError as error:
             raise PublicationError("mkdir", f"attempt directory {attempt_id}: {error}") from error
-        # The directory is writable only during this one publication call.
-        directory_fd, _ = _validate_dir_name(parent_fd, attempt_id, "attempt directory", 0o700)
+        # POSIX mkdir does not return a descriptor.  Within the supported
+        # cooperating local boundary, immediately capture the dirfd-anchored
+        # identity, normalize umask effects without following symlinks, then
+        # require that the same object is opened.  This detects replacements
+        # overlapping these observations.  A hostile same-UID process that
+        # replaces the name before the first stat remains outside the stated
+        # trust boundary; this is not claimed as a global capability lock.
+        created = os.stat(attempt_id, dir_fd=parent_fd, follow_symlinks=False)
+        if not stat.S_ISDIR(created.st_mode):
+            _fail("race", "created attempt path is no longer a directory")
+        os.chmod(attempt_id, 0o700, dir_fd=parent_fd, follow_symlinks=False)
+        normalized = os.stat(attempt_id, dir_fd=parent_fd, follow_symlinks=False)
+        if (created.st_dev, created.st_ino) != (normalized.st_dev, normalized.st_ino):
+            _fail("race", "attempt directory changed between mkdir and mode normalization")
+        directory_fd, opened = _validate_dir_name(parent_fd, attempt_id, "attempt directory", 0o700)
+        if (created.st_dev, created.st_ino) != (opened.st_dev, opened.st_ino):
+            _fail("race", "attempt directory changed between mkdir and descriptor binding")
+        os.fchmod(directory_fd, 0o700)
+        os.fsync(directory_fd)
+        directory_initial = os.fstat(directory_fd)
+        directory_named = os.stat(attempt_id, dir_fd=parent_fd, follow_symlinks=False)
+        if _metadata(directory_initial) != _metadata(directory_named):
+            _fail("race", "attempt directory changed while setting reservation mode")
+        _empty_directory(directory_fd)
+        os.fsync(parent_fd)
+        parent_initial = os.fstat(parent_fd)
+        reservation = AttemptReservation(
+            parent_root=root,
+            attempt_id=attempt_id,
+            parent_fd=parent_fd,
+            directory_fd=directory_fd,
+            parent_initial=parent_initial,
+            directory_initial=directory_initial,
+            _token=_RESERVATION_TOKEN,
+        )
+        parent_fd = -1
+        directory_fd = -1
+        return reservation
+    except PublicationError:
+        raise
+    except OSError as error:
+        raise PublicationError("reservation", str(error)) from error
+    finally:
+        _close(directory_fd)
+        _close(parent_fd)
+
+
+def _require_reservation(value: object) -> AttemptReservation:
+    if type(value) is not AttemptReservation or getattr(value, "_token", None) is not _RESERVATION_TOKEN:
+        _fail("reservation", "reservation was not issued by this module or has the wrong type")
+    return value
+
+
+def _claim_reservation(value: object) -> AttemptReservation:
+    """Atomically claim a handle and hold its lock through publish/close."""
+    reservation = _require_reservation(value)
+    reservation._lock.acquire()
+    if reservation._state != "issued" or reservation._parent_fd < 0 or reservation._directory_fd < 0:
+        reservation._lock.release()
+        _fail("reservation-closed", "reservation is already closed, consumed, or being published")
+    reservation._state = "publishing"
+    return reservation
+
+
+def _finish_reservation(reservation: AttemptReservation) -> None:
+    """Consume a claimed handle while its same-process lock remains held."""
+    try:
+        reservation._close_locked()
+    finally:
+        reservation._lock.release()
+
+
+def _verify_reservation(reservation: AttemptReservation) -> None:
+    try:
+        parent_now = os.fstat(reservation._parent_fd)
+        directory_now = os.fstat(reservation._directory_fd)
+    except OSError as error:
+        raise PublicationError("reservation-unavailable", str(error)) from error
+    if _parent_identity(parent_now) != _parent_identity(reservation._issued.parent_initial):
+        _fail("reservation-root", "held parent directory identity changed")
+    if _metadata(directory_now) != _metadata(reservation._issued.directory_initial) or stat.S_IMODE(directory_now.st_mode) != 0o700:
+        _fail("reservation-directory", "held attempt directory changed before publication")
+
+    reopened_root = -1
+    reopened_directory = -1
+    try:
+        reopened_root = _open_directory(reservation.parent_root, "reservation parent_root")
+        if _parent_identity(os.fstat(reopened_root)) != _parent_identity(parent_now):
+            _fail("reservation-root", "parent_root path no longer names the held directory")
+        reopened_directory, named = _validate_dir_name(
+            reservation._parent_fd, reservation.attempt_id, "reserved attempt directory", 0o700
+        )
+        if _metadata(named) != _metadata(reservation._issued.directory_initial) or _metadata(os.fstat(reopened_directory)) != _metadata(directory_now):
+            _fail("reservation-directory", "attempt path no longer names the held reservation")
+        _empty_directory(reservation._directory_fd)
+        _empty_directory(reopened_directory)
+    finally:
+        _close(reopened_directory)
+        _close(reopened_root)
+
+
+def _verify_final_named_paths(reservation: AttemptReservation) -> None:
+    """Rebind both public names to the retained descriptors before return."""
+    try:
+        parent_now = os.fstat(reservation._parent_fd)
+        directory_now = os.fstat(reservation._directory_fd)
+    except OSError as error:
+        raise PublicationError("reservation-unavailable", str(error)) from error
+    if _parent_identity(parent_now) != _parent_identity(reservation._issued.parent_initial):
+        _fail("reservation-root", "held parent directory identity changed during publication")
+    if not stat.S_ISDIR(directory_now.st_mode) or stat.S_IMODE(directory_now.st_mode) != DIRECTORY_MODE:
+        _fail("reservation-directory", "held attempt directory is not a closed publication directory")
+
+    reopened_root = -1
+    reopened_directory = -1
+    try:
+        reopened_root = _open_directory(reservation.parent_root, "final reservation parent_root")
+        if _parent_identity(os.fstat(reopened_root)) != _parent_identity(parent_now):
+            _fail("reservation-root", "parent_root path no longer names the held directory at publication return")
+        reopened_directory, named = _validate_dir_name(
+            reopened_root, reservation.attempt_id, "final attempt directory", DIRECTORY_MODE
+        )
+        if _metadata(named) != _metadata(directory_now) or _metadata(os.fstat(reopened_directory)) != _metadata(directory_now):
+            _fail("reservation-directory", "attempt path no longer names the held directory at publication return")
+    finally:
+        _close(reopened_directory)
+        _close(reopened_root)
+
+
+def publish_reserved_attempt(
+    reservation: AttemptReservation,
+    result_bytes: bytes,
+    receipt_bytes: bytes,
+    index_bytes: bytes,
+) -> PublishedAttempt:
+    """Consume one reservation and publish its already-built evidence bytes."""
+    reservation = _claim_reservation(reservation)
+    try:
+        attempt_id, result_bytes, receipt_bytes, index_bytes = _contract_bytes(result_bytes, receipt_bytes, index_bytes)
+        if attempt_id != reservation.attempt_id:
+            _fail("attempt-mismatch", "evidence attempt ID differs from the prelaunch reservation")
+        _verify_reservation(reservation)
+        directory_fd = reservation._directory_fd
+        parent_fd = reservation._parent_fd
         _write_file(directory_fd, RESULT_NAME, result_bytes, RESULT_NAME)
         _write_file(directory_fd, RECEIPT_NAME, receipt_bytes, RECEIPT_NAME)
         _write_file(directory_fd, INDEX_NAME, index_bytes, INDEX_NAME)
@@ -318,18 +576,24 @@ def publish_attempt(parent_root: Path | str, result_bytes: bytes, receipt_bytes:
             attempt_id,
             expected={RESULT_NAME: result_bytes, RECEIPT_NAME: receipt_bytes, INDEX_NAME: index_bytes},
         )
-        final_dir_fd, _ = _validate_dir_name(parent_fd, attempt_id, "attempt directory", DIRECTORY_MODE)
-        _close(final_dir_fd)
-        directory = root / attempt_id
+        directory = reservation.directory
         identities = {name: FileIdentity(directory / name, item.bytes, item.sha256, item.mode) for name, item in identities.items()}
-        return PublishedAttempt(attempt_id, directory, identities)
+        published = PublishedAttempt(attempt_id, directory, identities)
+        _verify_final_named_paths(reservation)
+        return published
     except PublicationError:
         raise
     except OSError as error:
         raise PublicationError("publication", str(error)) from error
     finally:
-        _close(directory_fd)
-        _close(parent_fd)
+        _finish_reservation(reservation)
+
+
+def publish_attempt(parent_root: Path | str, result_bytes: bytes, receipt_bytes: bytes, index_bytes: bytes) -> PublishedAttempt:
+    """Validate, reserve, and publish one attempt for compatibility callers."""
+    attempt_id, result_bytes, receipt_bytes, index_bytes = _contract_bytes(result_bytes, receipt_bytes, index_bytes)
+    reservation = reserve_attempt(parent_root, attempt_id)
+    return publish_reserved_attempt(reservation, result_bytes, receipt_bytes, index_bytes)
 
 
 def _bounded_layout(directory_fd: int) -> tuple[str, ...]:
@@ -464,6 +728,6 @@ read_published_attempt = read_attempt
 
 __all__ = [
     "RESULT_NAME", "RECEIPT_NAME", "INDEX_NAME", "FILE_NAMES", "FILE_MODES", "DIRECTORY_MODE",
-    "PublicationError", "FileIdentity", "PublishedAttempt", "publish_attempt", "publish", "read_attempt",
-    "read_published_attempt",
+    "PUBLICATION_TRUST_BOUNDARY", "PublicationError", "FileIdentity", "PublishedAttempt", "AttemptReservation", "reserve_attempt",
+    "publish_reserved_attempt", "publish_attempt", "publish", "read_attempt", "read_published_attempt",
 ]

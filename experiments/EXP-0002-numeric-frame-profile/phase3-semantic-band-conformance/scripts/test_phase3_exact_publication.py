@@ -7,6 +7,7 @@ import os
 import stat
 import sys
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -23,14 +24,231 @@ sys.modules[SPEC.name] = M
 SPEC.loader.exec_module(M)
 
 
+_BLOB_CACHE: tuple[bytes, bytes, bytes] | None = None
+
+
 def _blobs() -> tuple[bytes, bytes, bytes]:
-    result = evidence_fixture._result()
-    receipt = contract.build_receipt(result)
-    index = contract.build_attempt_index(result, receipt)
-    return result, receipt, index
+    global _BLOB_CACHE
+    if _BLOB_CACHE is None:
+        result = evidence_fixture._result()
+        receipt = contract.build_receipt(result)
+        index = contract.build_attempt_index(result, receipt)
+        _BLOB_CACHE = result, receipt, index
+    return _BLOB_CACHE
 
 
 class ExactPublicationTests(unittest.TestCase):
+    def test_prelaunch_reservation_is_durable_exclusive_and_close_is_idempotent(self) -> None:
+        result, receipt, index = _blobs()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "published"
+            root.mkdir()
+            reservation = M.reserve_attempt(root, "attempt-001")
+            marker = root / "attempt-001"
+            self.assertTrue(marker.is_dir())
+            self.assertEqual(stat.S_IMODE(marker.stat().st_mode), 0o700)
+            self.assertEqual(list(marker.iterdir()), [])
+            with self.assertRaises(M.PublicationError) as caught:
+                M.reserve_attempt(root, "attempt-001")
+            self.assertEqual(caught.exception.code, "collision")
+            reservation.close()
+            reservation.close()
+            self.assertTrue(reservation.closed)
+            self.assertTrue(marker.is_dir())
+            with self.assertRaises(M.PublicationError) as caught:
+                M.publish_reserved_attempt(reservation, result, receipt, index)
+            self.assertEqual(caught.exception.code, "reservation-closed")
+
+    def test_reservation_normalizes_umask_to_private_marker_mode(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "published"
+            root.mkdir()
+            previous = os.umask(0o777)
+            try:
+                reservation = M.reserve_attempt(root, "attempt-001")
+            finally:
+                os.umask(previous)
+            try:
+                self.assertEqual(stat.S_IMODE((root / "attempt-001").stat().st_mode), 0o700)
+            finally:
+                reservation.close()
+
+    def test_reserved_publication_consumes_capability_and_double_publish_fails(self) -> None:
+        result, receipt, index = _blobs()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "published"
+            root.mkdir()
+            reservation = M.reserve_attempt(root, "attempt-001")
+            published = M.publish_reserved_attempt(reservation, result, receipt, index)
+            self.assertTrue(reservation.closed)
+            self.assertEqual(published.attempt_id, "attempt-001")
+            with self.assertRaises(M.PublicationError) as caught:
+                M.publish_reserved_attempt(reservation, result, receipt, index)
+            self.assertEqual(caught.exception.code, "reservation-closed")
+
+    def test_wrong_attempt_consumes_reservation_and_leaves_empty_marker(self) -> None:
+        result, receipt, index = _blobs()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "published"
+            root.mkdir()
+            reservation = M.reserve_attempt(root, "attempt-002")
+            with self.assertRaises(M.PublicationError) as caught:
+                M.publish_reserved_attempt(reservation, result, receipt, index)
+            self.assertEqual(caught.exception.code, "attempt-mismatch")
+            self.assertTrue(reservation.closed)
+            self.assertEqual(list((root / "attempt-002").iterdir()), [])
+            with self.assertRaises(M.PublicationError):
+                M.reserve_attempt(root, "attempt-002")
+
+    def test_reservation_rejects_preexisting_partial_and_added_member(self) -> None:
+        result, receipt, index = _blobs()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "published"
+            root.mkdir()
+            partial = root / "attempt-001"
+            partial.mkdir(mode=0o700)
+            (partial / "partial").write_bytes(b"diagnostic")
+            with self.assertRaises(M.PublicationError) as caught:
+                M.reserve_attempt(root, "attempt-001")
+            self.assertEqual(caught.exception.code, "collision")
+
+            fresh_root = Path(directory) / "fresh"
+            fresh_root.mkdir()
+            reservation = M.reserve_attempt(fresh_root, "attempt-001")
+            (fresh_root / "attempt-001" / "unexpected").write_bytes(b"diagnostic")
+            with self.assertRaises(M.PublicationError):
+                M.publish_reserved_attempt(reservation, result, receipt, index)
+            self.assertTrue((fresh_root / "attempt-001" / "unexpected").is_file())
+
+    def test_reservation_rejects_renamed_replaced_and_unissued_objects(self) -> None:
+        result, receipt, index = _blobs()
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            root = base / "published"
+            other_root = base / "other"
+            root.mkdir()
+            other_root.mkdir()
+
+            renamed = M.reserve_attempt(root, "attempt-001")
+            (root / "attempt-001").rename(root / "moved-attempt-001")
+            (root / "attempt-001").mkdir(mode=0o700)
+            with self.assertRaises(M.PublicationError):
+                M.publish_reserved_attempt(renamed, result, receipt, index)
+
+            cross_parent = base / "cross"
+            cross_parent.mkdir()
+            cross_root = M.reserve_attempt(cross_parent, "attempt-001")
+            with self.assertRaises(AttributeError):
+                cross_root._issued.parent_root = other_root
+            cross_root.close()
+
+            fabricated = object.__new__(M.AttemptReservation)
+            with self.assertRaises(M.PublicationError) as caught:
+                M.publish_reserved_attempt(fabricated, result, receipt, index)
+            self.assertEqual(caught.exception.code, "reservation")
+
+    def test_trust_boundary_is_cooperative_not_unforgeable(self) -> None:
+        self.assertEqual(M.PUBLICATION_TRUST_BOUNDARY, "cooperating-same-process-local-posix-v1")
+        self.assertIn("not an unforgeable capability", M.AttemptReservation.__doc__)
+
+    def test_same_reservation_concurrent_publish_has_one_typed_loser(self) -> None:
+        result, receipt, index = _blobs()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "published"
+            root.mkdir()
+            reservation = M.reserve_attempt(root, "attempt-001")
+            entered = threading.Event()
+            release = threading.Event()
+            original = M._write_file
+            first = True
+            outcomes: list[str] = []
+            outcomes_lock = threading.Lock()
+
+            def block_first_write(*args, **kwargs):
+                nonlocal first
+                if first:
+                    first = False
+                    entered.set()
+                    if not release.wait(5):
+                        raise AssertionError("synthetic publication gate timed out")
+                return original(*args, **kwargs)
+
+            def publish_worker() -> None:
+                try:
+                    M.publish_reserved_attempt(reservation, result, receipt, index)
+                    outcome = "success"
+                except M.PublicationError as error:
+                    outcome = error.code
+                with outcomes_lock:
+                    outcomes.append(outcome)
+
+            with mock.patch.object(M, "_write_file", side_effect=block_first_write):
+                first_thread = threading.Thread(target=publish_worker)
+                second_thread = threading.Thread(target=publish_worker)
+                close_thread = threading.Thread(target=reservation.close)
+                first_thread.start()
+                self.assertTrue(entered.wait(5))
+                second_thread.start()
+                close_thread.start()
+                release.set()
+                first_thread.join(10)
+                second_thread.join(10)
+                close_thread.join(10)
+            self.assertFalse(first_thread.is_alive())
+            self.assertFalse(second_thread.is_alive())
+            self.assertFalse(close_thread.is_alive())
+            self.assertCountEqual(outcomes, ["success", "reservation-closed"])
+            self.assertTrue(reservation.closed)
+            self.assertTrue((root / "attempt-001" / M.INDEX_NAME).is_file())
+
+    def test_publish_revalidates_named_root_and_attempt_before_return(self) -> None:
+        result, receipt, index = _blobs()
+        for replacement in ("attempt", "root"):
+            with self.subTest(replacement=replacement), tempfile.TemporaryDirectory() as directory:
+                base = Path(directory)
+                root = base / "published"
+                root.mkdir()
+                reservation = M.reserve_attempt(root, "attempt-001")
+                original = M._verify_closure
+
+                def replace_after_closure(*args, **kwargs):
+                    verified = original(*args, **kwargs)
+                    if replacement == "attempt":
+                        (root / "attempt-001").rename(root / "moved-attempt-001")
+                        (root / "attempt-001").mkdir()
+                        os.chmod(root / "attempt-001", M.DIRECTORY_MODE)
+                    else:
+                        root.rename(base / "moved-root")
+                        root.mkdir()
+                    return verified
+
+                with mock.patch.object(M, "_verify_closure", side_effect=replace_after_closure):
+                    with self.assertRaises(M.PublicationError) as caught:
+                        M.publish_reserved_attempt(reservation, result, receipt, index)
+                self.assertIn(caught.exception.code, {"reservation-root", "reservation-directory"})
+                self.assertTrue(reservation.closed)
+
+    def test_reservation_detects_mkdir_to_open_name_replacement(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "published"
+            root.mkdir()
+            original = M._open_dir_name
+            replaced = False
+
+            def replace_before_open(parent_fd, name, label):
+                nonlocal replaced
+                if name == "attempt-001" and not replaced:
+                    replaced = True
+                    (root / name).rename(root / "moved-attempt-001")
+                    (root / name).mkdir(mode=0o700)
+                return original(parent_fd, name, label)
+
+            with mock.patch.object(M, "_open_dir_name", side_effect=replace_before_open):
+                with self.assertRaises(M.PublicationError) as caught:
+                    M.reserve_attempt(root, "attempt-001")
+            self.assertTrue(replaced)
+            self.assertEqual(caught.exception.code, "race")
+
     def test_roundtrip_is_canonical_immutable_and_descriptor_checked(self) -> None:
         result, receipt, index = _blobs()
         with tempfile.TemporaryDirectory() as directory:
