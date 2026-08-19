@@ -12,8 +12,11 @@ information. Do not allow one kind to silently redefine another.
 Before autonomous work, read the `Active runway` section at the top of
 `docs/project/status.md` and keep the named human checkpoint as the governing
 destination. Multiple small reviewed PRs may advance direct prerequisites, but
-the main thread must not substitute an internal experiment, evidence, governance,
-or infrastructure gate for that checkpoint. If reaching it would require
+the named human checkpoint—not the next bounded implementation slice—is the
+stop gate. Continue through as many direct, reviewed steps as useful until
+that checkpoint is reached or a genuine retained-human decision or blocker
+appears. The main thread must not substitute an internal experiment, evidence,
+governance, or infrastructure gate for that checkpoint. If reaching it would require
 reactivating a parked workstream or materially expanding the recorded scope,
 stop and ask Ben before taking the detour.
 
