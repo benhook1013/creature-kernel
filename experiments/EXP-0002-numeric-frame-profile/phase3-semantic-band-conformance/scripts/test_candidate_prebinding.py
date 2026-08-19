@@ -22,6 +22,27 @@ SPEC.loader.exec_module(MODULE)
 
 
 class CandidatePrebindingTests(unittest.TestCase):
+    def test_git_calls_use_absolute_seam_and_closed_reproducible_environment(self) -> None:
+        result = mock.Mock(returncode=0, stdout=b"", stderr=b"")
+        with mock.patch.object(MODULE.subprocess, "run", return_value=result) as run:
+            MODULE._git(Path("/repo"), "status")
+        command = run.call_args.args[0]
+        environment = run.call_args.kwargs["env"]
+        self.assertEqual(command[0], MODULE.GIT_EXECUTABLE)
+        self.assertTrue(Path(command[0]).is_absolute())
+        self.assertNotEqual(command[0], "git")
+        self.assertEqual(environment, MODULE.GIT_ENV)
+        self.assertNotIn("PATH", environment)
+        self.assertEqual(environment["LANG"], "C")
+        self.assertEqual(environment["LC_ALL"], "C")
+        self.assertEqual(environment["GIT_CONFIG_NOSYSTEM"], "1")
+        self.assertEqual(environment["GIT_CONFIG_GLOBAL"], "/dev/null")
+        self.assertEqual(environment["GIT_CONFIG_SYSTEM"], "/dev/null")
+        self.assertEqual(environment["HOME"], "/nonexistent")
+        self.assertEqual(environment["XDG_CONFIG_HOME"], "/nonexistent")
+        self.assertEqual(environment["XDG_CACHE_HOME"], "/nonexistent")
+        self.assertEqual(environment["GIT_OPTIONAL_LOCKS"], "0")
+
     def test_git_mode_is_octal(self) -> None:
         self.assertEqual(MODULE.parse_git_mode("100644"), 33188)
 

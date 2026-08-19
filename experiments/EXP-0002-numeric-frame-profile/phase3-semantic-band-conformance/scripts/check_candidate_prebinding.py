@@ -21,6 +21,22 @@ from typing import Iterable
 
 
 REPO = Path(__file__).resolve().parents[4]
+GIT_EXECUTABLE = "/usr/bin/git"
+# Candidate closure reads must not inherit locale, Git configuration, home or
+# optional lock behaviour from the caller.  Keep this environment exact and
+# closed for both standalone and freeze-loaded use.
+GIT_ENV = {
+    "LANG": "C",
+    "LC_ALL": "C",
+    "LC_CTYPE": "C",
+    "GIT_CONFIG_NOSYSTEM": "1",
+    "GIT_CONFIG_SYSTEM": "/dev/null",
+    "GIT_CONFIG_GLOBAL": "/dev/null",
+    "HOME": "/nonexistent",
+    "XDG_CONFIG_HOME": "/nonexistent",
+    "XDG_CACHE_HOME": "/nonexistent",
+    "GIT_OPTIONAL_LOCKS": "0",
+}
 BASE_COMMIT = "f4125342211a1d1436ae48b685ec2342700f39c4"
 CANDIDATE_DIR = "experiments/EXP-0002-numeric-frame-profile/phase2-authored-conflict/candidate"
 CORE_DIR = "crates/creature-kernel-core"
@@ -74,10 +90,11 @@ def normalize_repo_path(path: str) -> str:
 
 def _git(repo: Path, *args: str) -> bytes:
     result = subprocess.run(
-        ["git", "-C", str(repo), *args],
+        [GIT_EXECUTABLE, "-C", str(repo), *args],
         check=False,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        env=dict(GIT_ENV),
     )
     if result.returncode:
         detail = result.stderr.decode("utf-8", "replace").strip()

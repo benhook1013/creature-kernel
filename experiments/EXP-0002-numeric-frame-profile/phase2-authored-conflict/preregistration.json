@@ -225,15 +225,15 @@
       "id": "numeric-frame-research-design",
       "path": "docs/research/numeric-frame-profile-experiment.md",
       "role": "successor-evidence-design",
-      "expected_sha256": "ba5dababe93a40222d3371e381f461d874f1b0223e4674e2f97ea22d6cf05341",
-      "expected_bytes": 33478
+      "expected_sha256": "f07460563b2cf3ec7e1a9098bd698127a9f1261bd136ed19a39bf938fcbaecc8",
+      "expected_bytes": 34867
     },
     {
       "id": "exp-0002-phase-one-boundary",
       "path": "experiments/EXP-0002-numeric-frame-profile/README.md",
       "role": "phase-one-lineage-boundary",
-      "expected_sha256": "009a410b752e729abe9d5edbed92fb07891b2952b8f14253a30405729fb361f3",
-      "expected_bytes": 16948
+      "expected_sha256": "7f2e733095bdea82d803397c3e5a2ee9e004d384140fecda3587ec29054e7c51",
+      "expected_bytes": 17829
     }
   ]
 }

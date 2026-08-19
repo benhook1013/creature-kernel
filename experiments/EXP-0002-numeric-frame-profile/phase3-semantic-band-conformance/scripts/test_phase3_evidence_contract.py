@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import stat
 import unittest
 
 import phase3_evidence_contract as contract
@@ -21,6 +22,9 @@ def _attempt() -> dict[str, object]:
         "platform_selector": "wsl2-x86_64",
         "ordinal": 0,
         "authorization_reference": "BEN-AUTH-2026-08-19-001",
+        "gate_b_admission_sha256": "c" * 64,
+        "authorization_record_sha256": "d" * 64,
+        "custody_record_sha256": "e" * 64,
     }
 
 
@@ -31,6 +35,25 @@ def _tools() -> list[dict[str, object]]:
         "phase3_gate_b_preflight",
     )
     return [{"path": f"scripts/{name}.py", "bytes": 1, "sha256": "b" * 64} for name in names]
+
+
+def _execution_identity(*, partial: bool = False) -> dict[str, object]:
+    candidate = {"device": 1, "inode": 100, "mode": stat.S_IFREG | 0o555, "size": 123, "nlink": 0}
+    cwd = {"device": 1, "inode": 200, "mode": stat.S_IFDIR | 0o700, "size": 4096, "nlink": 2}
+    content = {"size": 123, "sha256": "e" * 64}
+    if partial:
+        return {
+            "descriptor_pre": dict(candidate), "descriptor_post_exe": None, "descriptor_post_fd": None,
+            "cwd_pre": None, "cwd_post": None, "cwd_terminal": None,
+            "content_initial": dict(content), "content_pre_fork": None, "content_post_exec": None,
+            "seals_initial": 15, "seals_pre_fork": None, "seals_post_exec": None,
+        }
+    return {
+        "descriptor_pre": dict(candidate), "descriptor_post_exe": dict(candidate), "descriptor_post_fd": dict(candidate),
+        "cwd_pre": dict(cwd), "cwd_post": dict(cwd), "cwd_terminal": dict(cwd),
+        "content_initial": dict(content), "content_pre_fork": dict(content), "content_post_exec": dict(content),
+        "seals_initial": 15, "seals_pre_fork": 15, "seals_post_exec": 15,
+    }
 
 
 def _wire(value: object) -> dict[str, object]:
@@ -84,6 +107,25 @@ def _adjudications(attempt_id: str = "attempt-001") -> list[dict[str, object]]:
     return result
 
 
+def _make_dispatched_incomplete(adjudications: list[dict[str, object]], ordinal: int) -> None:
+    item = adjudications[ordinal]
+    complete = item["evidence"]["payload"]
+    item["status"] = "inconclusive"
+    item["classification"] = "incomplete"
+    item["evidence"] = {
+        "schema": contract.EVIDENCE_SCHEMA,
+        "payload": {
+            "variant": "dispatched-incomplete-v1",
+            "request": complete["request"],
+            "response": None,
+            "scorer_context": complete["scorer_context"],
+            "reason": "response unavailable",
+            "cause": {"code": "missing-response", "detail": "candidate response was not observed"},
+        },
+    }
+    item["evidence_sha256"] = hashlib.sha256(canonical_json(item["evidence"])).hexdigest()
+
+
 def _process(role: str, count: int, adjudications: list[dict[str, object]], *, incomplete: bool = False) -> dict[str, object]:
     requests = []
     responses = []
@@ -101,17 +143,49 @@ def _process(role: str, count: int, adjudications: list[dict[str, object]], *, i
             "variant": "incomplete-v1", "role": role, "candidate_request_count": count,
             "platform": None, "launch": None,
             "candidate_binary": {"sha256_pre": "e" * 64, "sha256_post": "e" * 64},
+            "execution_identity": _execution_identity(partial=True),
             "fe_mxcsr": None, "transport": {"requests": pair(requests, contract.REQUEST_FRAME_DOMAIN), "responses": pair(responses, contract.RESPONSE_FRAME_DOMAIN)},
-            "lifecycle": None, "output": None, "missing": ["platform", "launch", "fe_mxcsr", "lifecycle", "output"],
+            "lifecycle": None, "output": None, "missing": ["platform", "launch", "fe_mxcsr", "execution_identity.cwd_terminal", "lifecycle", "output"],
+            "outcome": {"status": "inconclusive", "code": "startup-observation-incomplete", "detail": "test fixture intentionally omits process observations"},
         }
+    def location(name: str) -> dict[str, object]:
+        return {
+            "path": f"/home/test/{name}", "kind": "directory", "device": 1,
+            "inode": 200, "mode": stat.S_IFDIR | 0o700, "size": 0, "nlink": 1,
+            "filesystem": "ext4", "mount": "/home",
+        }
+    platform = {
+        "selector": "wsl2-x86_64", "cpu_model": "test-cpu", "cpu_features": ["sse2"],
+        "architecture": "x86_64", "kernel_or_wsl": "test-kernel", "os_release": "test-os",
+        "filesystem": "ext4", "mount_context": "/home", "workflow_runner": "build-receipt:test-runner",
+        "workflow_image": "build-receipt:test-image:1", "toolchain": "build-receipt:rust-test",
+        "compiler": "build-receipt:rustc-test",
+        "locations": {
+            "package": location("package"), "output": location("output"), "work": location("work"),
+            "custody": location("custody"), "roles": {name: location(name) for name in contract.ROLE_COUNTS},
+        },
+        "runtime": {
+            "implementation": "cpython", "version": "3.13.0", "executable": "/usr/bin/python3",
+            "python_version": "3.13.0", "platform": "linux-x86_64", "libc": "glibc 2.39",
+        },
+        "build_receipt": {
+            "source": "frozen-build-receipt", "selector": "wsl2-x86_64",
+            "receipt_sha256": "1" * 64, "receipt_self_hash": "2" * 64, "platform_role": "wsl",
+            "runner_os": "test-runner", "image_os": "test-image", "image_version": "1",
+            "toolchain": "rust-test", "compiler": "rustc-test",
+        },
+    }
     return {
         "variant": "complete-v1", "role": role, "candidate_request_count": count,
-        "platform": {"selector": "wsl2-x86_64", "cpu_model": "test-cpu", "cpu_features": ["sse2"], "architecture": "x86_64", "kernel_or_wsl": "test-kernel", "os_release": "test-os", "filesystem": "ext4", "mount_context": "/work", "workflow_runner": "local-test", "workflow_image": "test-image", "toolchain": "rust-test", "compiler": "rustc-test"},
+        "platform": platform,
         "launch": {"identity": f"launch-{role}", "argv": ["candidate", "--role", role], "cwd": "/work/candidate", "environment": {"CK_ROLE": role}},
         "candidate_binary": {"sha256_pre": "e" * 64, "sha256_post": "e" * 64},
-        "fe_mxcsr": {"pre": {"fe_rounding": "nearest", "mxcsr": "0x1f80", "ftz": False, "daz": False}, "post": {"fe_rounding": "nearest", "mxcsr": "0x1f80", "ftz": False, "daz": False}},
+        "execution_identity": _execution_identity(),
+        "fe_mxcsr": {"pre": {"x87_control_word": "0x037f", "mxcsr": "0x00001f80", "x87_rounding_mode": "nearest", "mxcsr_rounding_mode": "nearest", "x87_exception_masks": 63, "mxcsr_exception_masks": 63, "x87_flags": None, "mxcsr_flags": 0, "ftz": False, "daz": False}, "post": {"x87_control_word": "0x037f", "mxcsr": "0x00001f80", "x87_rounding_mode": "nearest", "mxcsr_rounding_mode": "nearest", "x87_exception_masks": 63, "mxcsr_exception_masks": 63, "x87_flags": None, "mxcsr_flags": 0, "ftz": False, "daz": False}},
         "transport": {"requests": pair(requests, contract.REQUEST_FRAME_DOMAIN), "responses": pair(responses, contract.RESPONSE_FRAME_DOMAIN)},
-        "lifecycle": {"state": "exited", "exit_code": 0, "clean_shutdown": True}, "output": {"missing": [], "extra": [], "trailing": []},
+        "lifecycle": {"state": "exited", "exit_code": 0, "term_signal": None, "reaped": True, "killed": False, "partial": False, "clean_shutdown": True, "startup_error": "", "rusage": None},
+        "output": {"missing": [], "extra": [], "trailing": [], "stdout": {"bytes": 0, "sha256": hashlib.sha256(b"").hexdigest()}, "stderr": {"bytes": 0, "sha256": hashlib.sha256(b"").hexdigest()}},
+        "outcome": {"status": "supported", "code": None, "detail": None},
     }
 
 
@@ -134,6 +208,12 @@ class EvidenceContractTests(unittest.TestCase):
         index = contract.build_attempt_index(result, receipt)
         self.assertEqual(index, contract.build_attempt_index(result, receipt))
         self.assertEqual(contract.validate_attempt_index(index, result, receipt)["envelope_sha256"], json.loads(index)["envelope_sha256"])
+        attempt = value["attempt"]
+        self.assertEqual(attempt["gate_b_admission_sha256"], "c" * 64)
+        self.assertEqual(attempt["authorization_record_sha256"], "d" * 64)
+        self.assertEqual(attempt["custody_record_sha256"], "e" * 64)
+        self.assertEqual(contract.validate_receipt(receipt, result)["attempt"], attempt)
+        self.assertEqual(contract.validate_attempt_index(index, result, receipt)["attempt"], attempt)
 
     def test_ordinal_role_dispatch_and_status_layout_is_closed(self) -> None:
         swapped = _adjudications(); swapped[8]["role"] = "development"
@@ -193,6 +273,187 @@ class EvidenceContractTests(unittest.TestCase):
         processes = [_process("development", 8, drift), _process("held-out", 40, drift), _process("controls", 9, drift)]
         processes[0]["candidate_binary"]["sha256_post"] = "d" * 64
         self.assertEqual(json.loads(contract.build_result(_attempt(), drift, processes, _tools()))["status"], "failed")
+
+    def test_fp_status_flags_may_drift_but_controls_may_not(self) -> None:
+        adjudications = _adjudications()
+        processes = [_process("development", 8, adjudications), _process("held-out", 40, adjudications), _process("controls", 9, adjudications)]
+        post = processes[0]["fe_mxcsr"]["post"]
+        post["mxcsr"] = "0x00001f81"
+        post["mxcsr_flags"] = 1
+        self.assertEqual(json.loads(contract.build_result(_attempt(), adjudications, processes, _tools()))["status"], "supported")
+        post["x87_control_word"] = "0x077f"
+        post["x87_rounding_mode"] = "downward"
+        self.assertEqual(json.loads(contract.build_result(_attempt(), adjudications, processes, _tools()))["status"], "failed")
+
+    def test_execution_identity_complete_partial_and_closed_schema(self) -> None:
+        complete = json.loads(_result())
+        identity = complete["process_observations"][0]["execution_identity"]
+        self.assertEqual(identity["descriptor_pre"], identity["descriptor_post_exe"])
+        self.assertEqual(identity["cwd_terminal"], identity["cwd_post"])
+        self.assertEqual(identity["content_initial"]["sha256"], "e" * 64)
+
+        partial = json.loads(_result(incomplete_process=True))
+        partial_identity = partial["process_observations"][0]["execution_identity"]
+        self.assertIsNotNone(partial_identity["descriptor_pre"])
+        self.assertIsNone(partial_identity["descriptor_post_exe"])
+        self.assertEqual(partial["status"], "inconclusive")
+
+        adjudications = _adjudications()
+        processes = [_process("development", 8, adjudications, incomplete=True), _process("held-out", 40, adjudications), _process("controls", 9, adjudications)]
+        processes[0]["execution_identity"] = None
+        processes[0]["missing"].remove("execution_identity.cwd_terminal")
+        processes[0]["missing"].append("execution_identity")
+        self.assertEqual(json.loads(contract.build_result(_attempt(), adjudications, processes, _tools()))["status"], "inconclusive")
+
+        processes = [_process("development", 8, adjudications), _process("held-out", 40, adjudications), _process("controls", 9, adjudications)]
+        processes[0]["execution_identity"]["unexpected"] = True
+        with self.assertRaises(contract.EvidenceContractError):
+            contract.build_result(_attempt(), adjudications, processes, _tools())
+
+    def test_execution_identity_mismatch_derives_failed_with_global_precedence(self) -> None:
+        adjudications = _adjudications()
+        processes = [_process("development", 8, adjudications, incomplete=True), _process("held-out", 40, adjudications), _process("controls", 9, adjudications)]
+        processes[2]["execution_identity"]["descriptor_post_exe"]["inode"] = 101
+        value = json.loads(contract.build_result(_attempt(), adjudications, processes, _tools()))
+        self.assertEqual(value["status"], "failed")
+
+        processes = [_process("development", 8, adjudications), _process("held-out", 40, adjudications), _process("controls", 9, adjudications)]
+        processes[0]["execution_identity"]["content_post_exec"]["sha256"] = "f" * 64
+        value = json.loads(contract.build_result(_attempt(), adjudications, processes, _tools()))
+        self.assertEqual(value["status"], "failed")
+
+    def test_execution_identity_requires_exact_memfd_seals(self) -> None:
+        adjudications = _adjudications()
+        processes = [_process("development", 8, adjudications), _process("held-out", 40, adjudications), _process("controls", 9, adjudications)]
+        self.assertEqual(processes[0]["execution_identity"]["seals_initial"], contract.REQUIRED_MEMFD_SEALS)
+        for key in ("seals_initial", "seals_pre_fork", "seals_post_exec"):
+            processes[0]["execution_identity"][key] = 0
+        value = json.loads(contract.build_result(_attempt(), adjudications, processes, _tools()))
+        self.assertEqual(value["status"], "failed")
+
+        processes = [_process("development", 8, adjudications, incomplete=True), _process("held-out", 40, adjudications), _process("controls", 9, adjudications)]
+        processes[0]["execution_identity"]["seals_initial"] = 1
+        value = json.loads(contract.build_result(_attempt(), adjudications, processes, _tools()))
+        self.assertEqual(value["status"], "failed")
+
+    def test_process_outcome_retains_failure_and_inconclusive_precedence(self) -> None:
+        adjudications = _adjudications()
+        processes = [_process("development", 8, adjudications), _process("held-out", 40, adjudications), _process("controls", 9, adjudications)]
+        processes[0]["outcome"] = {"status": "failed", "code": "exec-failed", "detail": "candidate launch failed"}
+        self.assertEqual(json.loads(contract.build_result(_attempt(), adjudications, processes, _tools()))["status"], "failed")
+        processes[0]["outcome"] = {"status": "inconclusive", "code": "observation-missing", "detail": "post-exec observation unavailable"}
+        self.assertEqual(json.loads(contract.build_result(_attempt(), adjudications, processes, _tools()))["status"], "inconclusive")
+        processes[0]["outcome"] = {"status": "supported", "code": "not-allowed", "detail": "not allowed"}
+        with self.assertRaises(contract.EvidenceContractError):
+            contract.build_result(_attempt(), adjudications, processes, _tools())
+
+    def test_incomplete_adjudication_cannot_mask_later_process_failures(self) -> None:
+        def fail_binary(process: dict[str, object]) -> None:
+            process["candidate_binary"]["sha256_post"] = "f" * 64
+
+        def fail_fp(process: dict[str, object]) -> None:
+            post = process["fe_mxcsr"]["post"]
+            post["x87_control_word"] = "0x077f"
+            post["x87_rounding_mode"] = "downward"
+
+        def fail_lifecycle(process: dict[str, object]) -> None:
+            process["lifecycle"] = {
+                "state": "failed", "exit_code": 1, "term_signal": None,
+                "reaped": True, "killed": False, "partial": True,
+                "clean_shutdown": False, "startup_error": "", "rusage": None,
+            }
+
+        def fail_outcome(process: dict[str, object]) -> None:
+            process["outcome"] = {"status": "failed", "code": "transport-failed", "detail": "candidate transport failed"}
+
+        for name, mutation in (
+            ("binary", fail_binary), ("fp", fail_fp),
+            ("lifecycle", fail_lifecycle), ("outcome", fail_outcome),
+        ):
+            with self.subTest(failure=name):
+                adjudications = _adjudications()
+                _make_dispatched_incomplete(adjudications, 8)
+                processes = [_process("development", 8, adjudications), _process("held-out", 40, adjudications), _process("controls", 9, adjudications)]
+                mutation(processes[2])
+                value = json.loads(contract.build_result(_attempt(), adjudications, processes, _tools()))
+                self.assertEqual(value["status"], "failed")
+
+    def test_incomplete_transport_and_failure_precedence_is_order_independent(self) -> None:
+        def retain_prefix(process: dict[str, object], adjudications: list[dict[str, object]], role: str) -> None:
+            frames = []
+            for item in adjudications:
+                if item["role"] == role and item["dispatch_to_candidate"]:
+                    frames.append(base64.b64decode(item["evidence"]["payload"]["request"]["bytes_b64"]))
+            process["transport"] = {
+                "requests": {"count": 1, "sha256": contract._framed_hash(frames[:1], contract.REQUEST_FRAME_DOMAIN)},
+                "responses": {"count": 0, "sha256": contract._framed_hash([], contract.RESPONSE_FRAME_DOMAIN)},
+            }
+
+        adjudications = _adjudications()
+        processes = [_process("development", 8, adjudications, incomplete=True), _process("held-out", 40, adjudications), _process("controls", 9, adjudications)]
+        retain_prefix(processes[0], adjudications, "development")
+        processes[2]["outcome"] = {"status": "failed", "code": "late-failure", "detail": "later controls process failed"}
+        self.assertEqual(json.loads(contract.build_result(_attempt(), adjudications, processes, _tools()))["status"], "failed")
+
+        adjudications = _adjudications()
+        processes = [_process("development", 8, adjudications), _process("held-out", 40, adjudications), _process("controls", 9, adjudications, incomplete=True)]
+        processes[0]["candidate_binary"]["sha256_post"] = "f" * 64
+        retain_prefix(processes[2], adjudications, "controls")
+        self.assertEqual(json.loads(contract.build_result(_attempt(), adjudications, processes, _tools()))["status"], "failed")
+
+    def test_incomplete_transport_accepts_only_observed_prefixes(self) -> None:
+        adjudications = _adjudications()
+        processes = [_process("development", 8, adjudications, incomplete=True), _process("held-out", 40, adjudications), _process("controls", 9, adjudications)]
+        requests = []
+        responses = []
+        for item in adjudications[:8]:
+            payload = item["evidence"]["payload"]
+            requests.append(base64.b64decode(payload["request"]["bytes_b64"]))
+            responses.append(base64.b64decode(payload["response"]["bytes_b64"]))
+        processes[0]["transport"] = {
+            "requests": {"count": 2, "sha256": contract._framed_hash(requests[:2], contract.REQUEST_FRAME_DOMAIN)},
+            "responses": {"count": 1, "sha256": contract._framed_hash(responses[:1], contract.RESPONSE_FRAME_DOMAIN)},
+        }
+        self.assertEqual(json.loads(contract.build_result(_attempt(), adjudications, processes, _tools()))["status"], "inconclusive")
+        processes[0]["transport"]["requests"]["sha256"] = "f" * 64
+        with self.assertRaises(contract.EvidenceContractError):
+            contract.build_result(_attempt(), adjudications, processes, _tools())
+        processes[0]["transport"] = {"requests": None, "responses": None}
+        with self.assertRaises(contract.EvidenceContractError):
+            contract.build_result(_attempt(), adjudications, processes, _tools())
+
+    def test_prelaunch_failure_explicitly_marks_unobserved_transport(self) -> None:
+        adjudications = _adjudications()
+        process = _process("development", 8, adjudications, incomplete=True)
+        process["transport"] = {"requests": None, "responses": None}
+        process["missing"].extend(["transport.requests", "transport.responses"])
+        process["outcome"] = {"status": "failed", "code": "candidate-launch-failed", "detail": "candidate never reached transport"}
+        processes = [process, _process("held-out", 40, adjudications), _process("controls", 9, adjudications)]
+        value = json.loads(contract.build_result(_attempt(), adjudications, processes, _tools()))
+        self.assertEqual(value["status"], "failed")
+        retained = value["process_observations"][0]
+        self.assertIsNone(retained["transport"]["requests"])
+        self.assertIsNone(retained["transport"]["responses"])
+
+    def test_incomplete_missing_markers_must_match_observations(self) -> None:
+        adjudications = _adjudications()
+        process = _process("development", 8, adjudications, incomplete=True)
+        process["missing"].append("transport.requests")
+        processes = [process, _process("held-out", 40, adjudications), _process("controls", 9, adjudications)]
+        with self.assertRaises(contract.EvidenceContractError):
+            contract.build_result(_attempt(), adjudications, processes, _tools())
+
+        process = _process("development", 8, adjudications, incomplete=True)
+        process["transport"]["requests"] = None
+        processes = [process, _process("held-out", 40, adjudications), _process("controls", 9, adjudications)]
+        with self.assertRaises(contract.EvidenceContractError):
+            contract.build_result(_attempt(), adjudications, processes, _tools())
+
+        process = _process("development", 8, adjudications, incomplete=True)
+        process["missing"].remove("platform")
+        processes = [process, _process("held-out", 40, adjudications), _process("controls", 9, adjudications)]
+        with self.assertRaises(contract.EvidenceContractError):
+            contract.build_result(_attempt(), adjudications, processes, _tools())
 
     def test_dispatched_incomplete_retains_request_and_missing_or_malformed_response(self) -> None:
         for response in (None, {"bytes_b64": base64.b64encode(b"not-json").decode(), "sha256": hashlib.sha256(b"not-json").hexdigest()}):

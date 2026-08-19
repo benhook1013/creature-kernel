@@ -90,9 +90,22 @@ conformance with failed-evidence precedence. Gate A is complete/passed for
 this exact development-unfrozen materialization; its current Double review is
 recorded in [Review 01](phase3-semantic-band-conformance/reviews/gate-a-review-01-closure-integrity.md)
 and [Review 02](phase3-semantic-band-conformance/reviews/gate-a-review-02-numeric-claims.md).
-This does not freeze the package. Gate B remains the later frozen-package
-Double. No loss ranking, production binding, profile-value validation,
-product-quality claim, or Readiness 3 activation follows.
+This does not by itself close Gate B. The current v3 successor freeze is
+materialized from execution-tool/materialization snapshot
+`762b04b8db3397cb1885d94236ad5d47cb321830` under schema
+`ck.exp-0002.phase3.freeze-manifest-3`, with manifest SHA-256
+`faafe7680fcc3509a245dde6759396a1391e02c40891128ca44d007726adef85`.
+It binds the experiment-wide closure tool, exact runtime contract, fixed
+binary cap, exact slot reservation, and runtime/platform observations. The v2
+freeze and its `Revise` reviews remain historical. The consolidated 296-test
+suite passed before new E `762b04b8db3397cb1885d94236ad5d47cb321830`. No
+candidate/exact attempt or native dispatch has been executed. The later commit
+containing the exact v3 bytes still requires fresh current-revision Gate B
+Double review, followed by execution-disabled admission and artifact-custody
+preparation. An exact-attempt authorization is created separately only after
+Ben explicitly authorizes execution. No loss ranking,
+production binding, profile-value validation, product-quality claim, or
+Readiness 3 activation follows.
 
 The materialized ledger distinguishes `construction_target` (the exact recipe
 magnitude used to construct a case) from source-derived `I_truth` (the metric

@@ -16,13 +16,14 @@ import json
 import math
 import os
 import re
+import stat
 import struct
 from pathlib import Path
 from typing import Any, Mapping
 
 import phase3_oracle as oracle
 import phase3_scorer as scorer
-from phase3_common import FRAME_BYTES, REQUEST_PROTOCOL_ID, RESPONSE_PROTOCOL_ID, canonical_json, parse_json
+from phase3_common import FRAME_BYTES, REQUEST_PROTOCOL_ID, RESPONSE_PROTOCOL_ID, SESSION_STDOUT_CAP, STDERR_TOTAL_CAP, canonical_json, parse_json
 
 
 RESULT_SCHEMA = "ck.exp-0002.phase3.exact-attempt-result-1"
@@ -45,6 +46,11 @@ MAX_NESTING = 16
 MAX_PROCESS_OBSERVATIONS = 3
 MAX_ADJUDICATIONS = 60
 MAX_TOOLS = 32
+# Must admit both frozen v2 binaries and no larger executable.
+MAX_EXECUTABLE_BYTES = 100_945_304
+# Linux fcntl seal bits used independently by custody and transport:
+# F_SEAL_SEAL | F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE.
+REQUIRED_MEMFD_SEALS = 0x000F
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 ATTEMPT_RE = re.compile(r"^attempt-[A-Za-z0-9][A-Za-z0-9._-]{2,127}$")
 TOOL_ORDER = (
@@ -73,7 +79,8 @@ RESULT_KEYS = frozenset({
 })
 ATTEMPT_KEYS = frozenset({
     "freeze_manifest_sha256", "attempt_id", "platform_selector", "ordinal",
-    "authorization_reference",
+    "authorization_reference", "gate_b_admission_sha256", "authorization_record_sha256",
+    "custody_record_sha256",
 })
 ADJUDICATION_KEYS = frozenset({
     "ordinal", "request_id", "role", "dispatch_to_candidate", "status",
@@ -99,24 +106,47 @@ RUNNER_KEYS = frozenset({"reason", "domain_status"})
 PLATFORM_KEYS = frozenset({
     "selector", "cpu_model", "cpu_features", "architecture", "kernel_or_wsl",
     "os_release", "filesystem", "mount_context", "workflow_runner", "workflow_image",
-    "toolchain", "compiler",
+    "toolchain", "compiler", "locations", "runtime", "build_receipt",
 })
-FE_STATE_KEYS = frozenset({"fe_rounding", "mxcsr", "ftz", "daz"})
+LOCATION_KEYS = frozenset({"path", "kind", "device", "inode", "mode", "size", "nlink", "filesystem", "mount"})
+LOCATION_ROLE_KEYS = frozenset({"development", "held-out", "controls"})
+RUNTIME_KEYS = frozenset({"implementation", "version", "executable", "python_version", "platform", "libc"})
+BUILD_RECEIPT_KEYS = frozenset({"source", "selector", "receipt_sha256", "receipt_self_hash", "platform_role", "runner_os", "image_os", "image_version", "toolchain", "compiler"})
+FE_STATE_KEYS = frozenset({
+    "x87_control_word", "mxcsr", "x87_rounding_mode", "mxcsr_rounding_mode",
+    "x87_exception_masks", "mxcsr_exception_masks", "x87_flags", "mxcsr_flags",
+    "ftz", "daz",
+})
 PROCESS_KEYS = frozenset({
     "variant", "role", "candidate_request_count", "platform", "launch", "candidate_binary",
-    "fe_mxcsr", "transport", "lifecycle", "output",
+    "execution_identity", "fe_mxcsr", "transport", "lifecycle", "output", "outcome",
 })
 INCOMPLETE_PROCESS_KEYS = frozenset({
     "variant", "role", "candidate_request_count", "platform", "launch", "candidate_binary",
-    "fe_mxcsr", "transport", "lifecycle", "output", "missing",
+    "execution_identity", "fe_mxcsr", "transport", "lifecycle", "output", "missing", "outcome",
+})
+INCOMPLETE_MISSING_FIELDS = frozenset({
+    "platform", "launch", "candidate_binary", "execution_identity", "fe_mxcsr",
+    "execution_identity.cwd_terminal", "transport.requests", "transport.responses", "lifecycle", "output",
+    "output.stdout", "output.stderr",
 })
 LAUNCH_KEYS = frozenset({"identity", "argv", "cwd", "environment"})
 HASH_PAIR_KEYS = frozenset({"count", "sha256"})
 CANDIDATE_HASH_KEYS = frozenset({"sha256_pre", "sha256_post"})
 FE_KEYS = frozenset({"pre", "post"})
-LIFECYCLE_KEYS = frozenset({"state", "exit_code", "clean_shutdown"})
-OUTPUT_KEYS = frozenset({"missing", "extra", "trailing"})
+LIFECYCLE_KEYS = frozenset({"state", "exit_code", "term_signal", "reaped", "killed", "partial", "clean_shutdown", "startup_error", "rusage"})
+OUTPUT_KEYS = frozenset({"missing", "extra", "trailing", "stdout", "stderr"})
+STREAM_KEYS = frozenset({"bytes", "sha256"})
 TRANSPORT_KEYS = frozenset({"requests", "responses"})
+OUTCOME_KEYS = frozenset({"status", "code", "detail"})
+EXECUTION_IDENTITY_KEYS = frozenset({
+    "descriptor_pre", "descriptor_post_exe", "descriptor_post_fd",
+    "cwd_pre", "cwd_post", "cwd_terminal",
+    "content_initial", "content_pre_fork", "content_post_exec",
+    "seals_initial", "seals_pre_fork", "seals_post_exec",
+})
+DESCRIPTOR_IDENTITY_KEYS = frozenset({"device", "inode", "mode", "size", "nlink"})
+CONTENT_OBSERVATION_KEYS = frozenset({"size", "sha256"})
 COUNTS_KEYS = frozenset({
     "cases", "development", "held-out", "controls", "dispatched", "preflight",
     "supported", "failed", "inconclusive", "observation",
@@ -128,7 +158,7 @@ RECEIPT_KEYS = frozenset({
 RECEIPT_PROCESS_KEYS = frozenset({
     "variant", "role", "candidate_request_count", "request_count", "request_sha256",
     "response_count", "response_sha256", "candidate_sha256_pre",
-    "candidate_sha256_post",
+    "candidate_sha256_post", "outcome",
 })
 RECEIPT_INCOMPLETE_PROCESS_KEYS = frozenset({"variant", "role", "candidate_request_count", "partial_observation"})
 
@@ -267,6 +297,9 @@ def _decode(raw: bytes, label: str, limit: int) -> dict[str, Any]:
 def _attempt(value: Any, label: str = "attempt") -> dict[str, Any]:
     obj = _exact(value, ATTEMPT_KEYS, label)
     _sha(obj["freeze_manifest_sha256"], f"{label}.freeze_manifest_sha256")
+    _sha(obj["gate_b_admission_sha256"], f"{label}.gate_b_admission_sha256")
+    _sha(obj["authorization_record_sha256"], f"{label}.authorization_record_sha256")
+    _sha(obj["custody_record_sha256"], f"{label}.custody_record_sha256")
     attempt_id = _string(obj["attempt_id"], f"{label}.attempt_id", max_bytes=MAX_ID_BYTES)
     if ATTEMPT_RE.fullmatch(attempt_id) is None or attempt_id in {"attempt-id", "attempt-000"}:
         _fail("attempt-id", f"{label}.attempt_id is a placeholder or invalid")
@@ -579,26 +612,299 @@ def _hash_pair(value: Any, label: str, domain: bytes) -> dict[str, Any]:
     return obj
 
 
+def _control_signature(state: Mapping[str, Any]) -> tuple[Any, ...]:
+    """Return only admission-relevant FP controls.
+
+    MXCSR's low six bits are exception status flags and may legitimately drift
+    during execution.  x87 flags are likewise observational and are excluded;
+    the complete x87 control word, masked MXCSR, decoded modes/masks, FTZ and
+    DAZ remain admission-relevant.
+    """
+    return (
+        int(state["x87_control_word"], 16),
+        int(state["mxcsr"], 16) & ~0x3F,
+        state["x87_rounding_mode"], state["mxcsr_rounding_mode"],
+        state["x87_exception_masks"], state["mxcsr_exception_masks"],
+        state["ftz"], state["daz"],
+    )
+
+
+def _controls_stable(fe: Mapping[str, Any]) -> bool:
+    return _control_signature(fe["pre"]) == _control_signature(fe["post"])
+
+
+def _validate_transport_prefix(
+    pair: Mapping[str, Any] | None,
+    available: list[bytes],
+    domain: bytes,
+    label: str,
+    maximum: int,
+    *,
+    explicitly_missing: bool,
+) -> None:
+    """Validate an observed transport pair against an available frame prefix."""
+    if pair is None:
+        if not explicitly_missing:
+            _fail("transport-derived", f"{label} omits transport without an explicit missing marker")
+        return
+    if explicitly_missing:
+        _fail("process-missing", f"{label} is observed but also marked missing")
+    if pair["count"] > maximum:
+        _fail("transport-count", f"{label} exceeds the role request bound")
+    if pair["count"] > len(available):
+        _fail("transport-derived", f"{label} exceeds the available adjudication prefix")
+    expected = _framed_hash(available[:pair["count"]], domain)
+    if pair["sha256"] != expected:
+        _fail("transport-derived", f"{label} is not derived from an adjudication prefix")
+
+
 def _platform(value: Any, label: str, selector: str) -> dict[str, Any]:
     obj = _exact(value, PLATFORM_KEYS, label)
     if obj["selector"] != selector or selector not in PLATFORM_SELECTORS:
         _fail("platform-selector", f"{label}.selector differs from the attempt selector")
-    for key in PLATFORM_KEYS - {"cpu_features"}:
+    for key in PLATFORM_KEYS - {"cpu_features", "locations", "runtime", "build_receipt"}:
         _string(obj[key], f"{label}.{key}", max_bytes=1024)
     features = obj["cpu_features"]
     if type(features) is not list or not features or len(features) > 128:
         _fail("platform-features", f"{label}.cpu_features is empty or oversized")
     for index, feature in enumerate(features):
         _string(feature, f"{label}.cpu_features[{index}]", max_bytes=256)
+    locations = _exact(obj["locations"], frozenset({"package", "output", "work", "custody", "roles"}), f"{label}.locations")
+    for name in ("package", "output", "work", "custody"):
+        item = locations[name]
+        if item is not None:
+            loc = _exact(item, LOCATION_KEYS, f"{label}.locations.{name}")
+            _string(loc["path"], f"{label}.locations.{name}.path", max_bytes=4096)
+            _string(loc["kind"], f"{label}.locations.{name}.kind", max_bytes=64)
+            for key in ("device", "inode", "mode", "size", "nlink"):
+                _bounded_int(loc[key], f"{label}.locations.{name}.{key}", (1 << 63) - 1)
+            _string(loc["filesystem"], f"{label}.locations.{name}.filesystem", max_bytes=256)
+            _string(loc["mount"], f"{label}.locations.{name}.mount", max_bytes=4096)
+    roles = _exact(locations["roles"], LOCATION_ROLE_KEYS, f"{label}.locations.roles")
+    for role, item in roles.items():
+        if item is None:
+            continue
+        loc = _exact(item, LOCATION_KEYS, f"{label}.locations.roles.{role}")
+        _string(loc["path"], f"{label}.locations.roles.{role}.path", max_bytes=4096)
+        _string(loc["kind"], f"{label}.locations.roles.{role}.kind", max_bytes=64)
+        for key in ("device", "inode", "mode", "size", "nlink"):
+            _bounded_int(loc[key], f"{label}.locations.roles.{role}.{key}", (1 << 63) - 1)
+        _string(loc["filesystem"], f"{label}.locations.roles.{role}.filesystem", max_bytes=256)
+        _string(loc["mount"], f"{label}.locations.roles.{role}.mount", max_bytes=4096)
+    runtime = _exact(obj["runtime"], RUNTIME_KEYS, f"{label}.runtime")
+    for key in RUNTIME_KEYS:
+        _string(runtime[key], f"{label}.runtime.{key}", max_bytes=4096)
+    build = _exact(obj["build_receipt"], BUILD_RECEIPT_KEYS, f"{label}.build_receipt")
+    for key in BUILD_RECEIPT_KEYS:
+        _string(build[key], f"{label}.build_receipt.{key}", max_bytes=16 * 1024)
+    if build["source"] != "frozen-build-receipt":
+        _fail("platform-build", f"{label}.build_receipt.source is not frozen-build-receipt")
+    _sha(build["receipt_sha256"], f"{label}.build_receipt.receipt_sha256")
+    _sha(build["receipt_self_hash"], f"{label}.build_receipt.receipt_self_hash")
     return obj
 
 
+_ROUNDING_NAMES = {0: "nearest", 1: "downward", 2: "upward", 3: "toward-zero"}
+_ROUNDING_VALUES = frozenset(_ROUNDING_NAMES.values())
+
+
+def _hex_register(value: Any, label: str, digits: int, maximum: int) -> int:
+    text = _string(value, label, max_bytes=digits + 2)
+    if re.fullmatch(rf"0x[0-9a-f]{{{digits}}}", text) is None:
+        _fail("hex-register", f"{label} must be lowercase 0x plus {digits} hex digits")
+    parsed = int(text[2:], 16)
+    if parsed > maximum:
+        _fail("hex-register", f"{label} is outside its register range")
+    return parsed
+
+
 def _fe_state(value: Any, label: str) -> dict[str, Any]:
+    """Validate a closed, lossless x87/MXCSR observation.
+
+    The raw register words are retained as canonical lowercase hex strings.
+    Decoded fields are checked back against those words so a caller cannot
+    report a plausible mode/mask while silently retaining a different ABI
+    state.  Exception/status flags are observations; only the control fields
+    participate in process-health stability below.
+    """
     obj = _exact(value, FE_STATE_KEYS, label)
-    _string(obj["fe_rounding"], f"{label}.fe_rounding", max_bytes=128)
-    _string(obj["mxcsr"], f"{label}.mxcsr", max_bytes=64)
+    x87 = _hex_register(obj["x87_control_word"], f"{label}.x87_control_word", 4, 0xFFFF)
+    mxcsr = _hex_register(obj["mxcsr"], f"{label}.mxcsr", 8, 0xFFFFFFFF)
+    for key in ("x87_rounding_mode", "mxcsr_rounding_mode"):
+        if obj[key] not in _ROUNDING_VALUES:
+            _fail("fe-rounding", f"{label}.{key} is not a supported rounding mode")
+    if obj["x87_rounding_mode"] != _ROUNDING_NAMES[(x87 >> 10) & 0x3]:
+        _fail("fe-hex-consistency", f"{label}.x87_rounding_mode differs from x87_control_word")
+    if obj["mxcsr_rounding_mode"] != _ROUNDING_NAMES[(mxcsr >> 13) & 0x3]:
+        _fail("fe-hex-consistency", f"{label}.mxcsr_rounding_mode differs from mxcsr")
+    for key in ("x87_exception_masks", "mxcsr_exception_masks"):
+        _bounded_int(obj[key], f"{label}.{key}", 0x3F)
+    if obj["x87_exception_masks"] != x87 & 0x3F:
+        _fail("fe-hex-consistency", f"{label}.x87_exception_masks differs from x87_control_word")
+    if obj["mxcsr_exception_masks"] != (mxcsr >> 7) & 0x3F:
+        _fail("fe-hex-consistency", f"{label}.mxcsr_exception_masks differs from mxcsr")
+    if obj["x87_flags"] is not None:
+        _bounded_int(obj["x87_flags"], f"{label}.x87_flags", 0x3F)
+    _bounded_int(obj["mxcsr_flags"], f"{label}.mxcsr_flags", 0x3F)
+    if obj["mxcsr_flags"] != mxcsr & 0x3F:
+        _fail("fe-hex-consistency", f"{label}.mxcsr_flags differs from mxcsr")
     if type(obj["ftz"]) is not bool or type(obj["daz"]) is not bool:
         _fail("fe-mxcsr", f"{label}.ftz/daz must be boolean")
+    if obj["ftz"] != bool(mxcsr & (1 << 15)):
+        _fail("fe-hex-consistency", f"{label}.ftz differs from mxcsr")
+    if obj["daz"] != bool(mxcsr & (1 << 6)):
+        _fail("fe-hex-consistency", f"{label}.daz differs from mxcsr")
+    return obj
+
+
+def _outcome(value: Any, label: str) -> dict[str, Any]:
+    obj = _exact(value, OUTCOME_KEYS, label)
+    if obj["status"] not in {"supported", "failed", "inconclusive"}:
+        _fail("outcome-status", f"{label}.status is invalid")
+    if obj["status"] == "supported":
+        if obj["code"] is not None or obj["detail"] is not None:
+            _fail("outcome-supported", f"{label} supported outcome must not retain a failure code/detail")
+    else:
+        _string(obj["code"], f"{label}.code", max_bytes=256)
+        _string(obj["detail"], f"{label}.detail", max_bytes=1024)
+    return obj
+
+
+def _descriptor_identity(value: Any, label: str, *, directory: bool) -> dict[str, int] | None:
+    if value is None:
+        return None
+    obj = _exact(value, DESCRIPTOR_IDENTITY_KEYS, label)
+    _bounded_int(obj["device"], f"{label}.device", (1 << 64) - 1)
+    _bounded_int(obj["inode"], f"{label}.inode", (1 << 64) - 1)
+    _bounded_int(obj["mode"], f"{label}.mode", 0xFFFFFFFF)
+    _bounded_int(obj["size"], f"{label}.size", (1 << 63) - 1)
+    _bounded_int(obj["nlink"], f"{label}.nlink", (1 << 32) - 1)
+    mode_ok = stat.S_ISDIR(obj["mode"]) if directory else stat.S_ISREG(obj["mode"])
+    if not mode_ok:
+        _fail("execution-identity-type", f"{label}.mode has the wrong descriptor type")
+    if not directory and obj["size"] > MAX_EXECUTABLE_BYTES:
+        _fail("execution-identity-size", f"{label}.size exceeds the executable bound")
+    return obj
+
+
+def _content_observation(value: Any, label: str) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    obj = _exact(value, CONTENT_OBSERVATION_KEYS, label)
+    _bounded_int(obj["size"], f"{label}.size", MAX_EXECUTABLE_BYTES)
+    _sha(obj["sha256"], f"{label}.sha256")
+    return obj
+
+
+def _execution_identity(
+    value: Any,
+    label: str,
+    *,
+    require_complete: bool,
+    candidate_binary: Mapping[str, Any] | None,
+) -> tuple[dict[str, Any] | None, bool]:
+    """Validate launch identity evidence and report any observed mismatch.
+
+    Missing observations are represented by nulls and make an incomplete
+    process inconclusive through its variant/missing contract.  Contradictory
+    observations remain durable evidence and derive a failed process result
+    rather than being erased as a schema error.
+    """
+    if value is None:
+        if require_complete:
+            _fail("execution-identity", f"{label} is required for a complete process")
+        return None, False
+    obj = _exact(value, EXECUTION_IDENTITY_KEYS, label)
+    descriptors = {
+        key: _descriptor_identity(obj[key], f"{label}.{key}", directory=False)
+        for key in ("descriptor_pre", "descriptor_post_exe", "descriptor_post_fd")
+    }
+    cwd = {
+        key: _descriptor_identity(obj[key], f"{label}.{key}", directory=True)
+        for key in ("cwd_pre", "cwd_post", "cwd_terminal")
+    }
+    contents = {
+        key: _content_observation(obj[key], f"{label}.{key}")
+        for key in ("content_initial", "content_pre_fork", "content_post_exec")
+    }
+    seals: dict[str, int | None] = {}
+    for key in ("seals_initial", "seals_pre_fork", "seals_post_exec"):
+        item = obj[key]
+        if item is not None:
+            _bounded_int(item, f"{label}.{key}", 0xFFFFFFFF)
+        seals[key] = item
+    all_values = [*descriptors.values(), *cwd.values(), *contents.values(), *seals.values()]
+    if require_complete and any(item is None for item in all_values):
+        _fail("execution-identity", f"{label} must retain the full launch/post-exec identity chain")
+    if not require_complete and all(item is None for item in all_values):
+        _fail("execution-identity", f"{label} partial observation contains no observed field")
+
+    mismatch = False
+    candidate_descriptors = [item for item in descriptors.values() if item is not None]
+    if len(candidate_descriptors) > 1 and any(item != candidate_descriptors[0] for item in candidate_descriptors[1:]):
+        mismatch = True
+    cwd_descriptors = [item for item in cwd.values() if item is not None]
+    if len(cwd_descriptors) > 1 and any(item != cwd_descriptors[0] for item in cwd_descriptors[1:]):
+        mismatch = True
+    observed_contents = [item for item in contents.values() if item is not None]
+    if len(observed_contents) > 1 and any(item != observed_contents[0] for item in observed_contents[1:]):
+        mismatch = True
+    observed_seals = [item for item in seals.values() if item is not None]
+    if len(observed_seals) > 1 and any(item != observed_seals[0] for item in observed_seals[1:]):
+        mismatch = True
+    if any(item != REQUIRED_MEMFD_SEALS for item in observed_seals):
+        mismatch = True
+    if candidate_descriptors and observed_contents:
+        sizes = {item["size"] for item in candidate_descriptors}
+        sizes.update(item["size"] for item in observed_contents)
+        if len(sizes) != 1:
+            mismatch = True
+    if candidate_binary is not None:
+        for key in ("content_initial", "content_pre_fork"):
+            item = contents[key]
+            if item is not None and item["sha256"] != candidate_binary["sha256_pre"]:
+                mismatch = True
+        post = contents["content_post_exec"]
+        if post is not None and post["sha256"] != candidate_binary["sha256_post"]:
+            mismatch = True
+    return obj, mismatch
+
+
+def _lifecycle(value: Any, label: str) -> dict[str, Any]:
+    obj = _exact(value, LIFECYCLE_KEYS, label)
+    if obj["state"] not in {"exited", "terminated", "failed"}:
+        _fail("lifecycle", f"{label}.state is invalid")
+    if type(obj["exit_code"]) is not int or not -128 <= obj["exit_code"] <= 255:
+        _fail("exit-code", f"{label}.exit_code is invalid")
+    if obj["term_signal"] is not None and (type(obj["term_signal"]) is not int or not 1 <= obj["term_signal"] <= 64):
+        _fail("term-signal", f"{label}.term_signal is invalid")
+    for key in ("reaped", "killed", "partial", "clean_shutdown"):
+        if type(obj[key]) is not bool:
+            _fail("lifecycle", f"{label}.{key} is invalid")
+    _string(obj["startup_error"], f"{label}.startup_error", max_bytes=4096, nonempty=False)
+    if obj["rusage"] is not None:
+        usage = _exact(obj["rusage"], frozenset({"user_seconds", "system_seconds", "max_rss", "minor_faults", "major_faults", "involuntary_context_switches", "voluntary_context_switches"}), f"{label}.rusage")
+        for key in usage:
+            if type(usage[key]) not in (int, float) or isinstance(usage[key], bool) or usage[key] < 0 or not math.isfinite(float(usage[key])):
+                _fail("rusage", f"{label}.rusage.{key} is invalid")
+    if obj["state"] == "terminated" and obj["term_signal"] is None and obj["exit_code"] >= 0:
+        _fail("lifecycle", f"{label} terminated state lacks signal/negative exit code")
+    return obj
+
+
+def _output(value: Any, label: str, *, allow_missing_streams: bool = False) -> dict[str, Any]:
+    obj = _exact(value, OUTPUT_KEYS, label)
+    for key in ("missing", "extra", "trailing"):
+        if type(obj[key]) is not list or len(obj[key]) > MAX_ADJUDICATIONS:
+            _fail("output-observation", f"{label}.{key} is invalid")
+        for index, item in enumerate(obj[key]):
+            _string(item, f"{label}.{key}[{index}]", max_bytes=MAX_ID_BYTES)
+    for key in ("stdout", "stderr"):
+        if allow_missing_streams and obj[key] is None:
+            continue
+        stream = _exact(obj[key], STREAM_KEYS, f"{label}.{key}")
+        _bounded_int(stream["bytes"], f"{label}.{key}.bytes", SESSION_STDOUT_CAP if key == "stdout" else STDERR_TOTAL_CAP)
+        _sha(stream["sha256"], f"{label}.{key}.sha256")
     return obj
 
 
@@ -628,10 +934,15 @@ def _process(value: Any, index: int, selector: str) -> dict[str, Any]:
                 _string(key, f"process[{index}].launch.environment key", max_bytes=256)
                 if item is not None:
                     _string(item, f"process[{index}].launch.environment.{key}", max_bytes=2048, nonempty=False)
+        binary = None
         if obj["candidate_binary"] is not None:
             binary = _exact(obj["candidate_binary"], CANDIDATE_HASH_KEYS, f"process[{index}].candidate_binary")
             _sha(binary["sha256_pre"], f"process[{index}].candidate_binary.sha256_pre")
             _sha(binary["sha256_post"], f"process[{index}].candidate_binary.sha256_post")
+        _execution_identity(
+            obj["execution_identity"], f"process[{index}].execution_identity",
+            require_complete=False, candidate_binary=binary,
+        )
         if obj["fe_mxcsr"] is not None:
             fe = _exact(obj["fe_mxcsr"], FE_KEYS, f"process[{index}].fe_mxcsr")
             for key in FE_KEYS:
@@ -640,21 +951,42 @@ def _process(value: Any, index: int, selector: str) -> dict[str, Any]:
         for key, domain in (("requests", REQUEST_FRAME_DOMAIN), ("responses", RESPONSE_FRAME_DOMAIN)):
             if transport[key] is not None:
                 _hash_pair(transport[key], f"process[{index}].transport.{key}", domain)
+        request_pair = transport["requests"]
+        response_pair = transport["responses"]
+        maximum = PROCESS_REQUEST_COUNTS[obj["role"]]
+        if request_pair is not None and request_pair["count"] > maximum:
+            _fail("transport-count", f"process[{index}] request count exceeds role bound")
+        if response_pair is not None and response_pair["count"] > maximum:
+            _fail("transport-count", f"process[{index}] response count exceeds role bound")
+        if request_pair is None and response_pair is not None and response_pair["count"]:
+            _fail("transport-count", f"process[{index}] response count has no request observation")
+        if request_pair is not None and response_pair is not None and response_pair["count"] > request_pair["count"]:
+            _fail("transport-count", f"process[{index}] response count exceeds request count")
         if obj["lifecycle"] is not None:
-            lifecycle = _exact(obj["lifecycle"], LIFECYCLE_KEYS, f"process[{index}].lifecycle")
-            if lifecycle["state"] not in {"exited", "terminated", "failed"} or type(lifecycle["exit_code"]) is not int or not -128 <= lifecycle["exit_code"] <= 255 or type(lifecycle["clean_shutdown"]) is not bool:
-                _fail("lifecycle", f"process[{index}] lifecycle observation is invalid")
+            _lifecycle(obj["lifecycle"], f"process[{index}].lifecycle")
         if obj["output"] is not None:
-            output = _exact(obj["output"], OUTPUT_KEYS, f"process[{index}].output")
-            for key in OUTPUT_KEYS:
-                if type(output[key]) is not list or len(output[key]) > MAX_ADJUDICATIONS:
-                    _fail("output-observation", f"process[{index}].output.{key} is invalid")
-                for n, item in enumerate(output[key]):
-                    _string(item, f"process[{index}].output.{key}[{n}]", max_bytes=MAX_ID_BYTES)
-        if type(obj["missing"]) is not list or not obj["missing"] or len(obj["missing"]) > 32:
+            _output(obj["output"], f"process[{index}].output", allow_missing_streams=True)
+        if type(obj["missing"]) is not list or len(obj["missing"]) > len(INCOMPLETE_MISSING_FIELDS):
             _fail("process-missing", f"process[{index}].missing must retain bounded unavailable fields")
         for n, item in enumerate(obj["missing"]):
             _string(item, f"process[{index}].missing[{n}]", max_bytes=128)
+        missing = set(obj["missing"])
+        if len(missing) != len(obj["missing"]) or not missing <= INCOMPLETE_MISSING_FIELDS:
+            _fail("process-missing", f"process[{index}].missing contains duplicates or unknown fields")
+        actually_missing = {
+            key for key in (
+                "platform", "launch", "candidate_binary", "execution_identity",
+                "fe_mxcsr", "lifecycle", "output",
+            ) if obj[key] is None
+        }
+        actually_missing.update(f"transport.{key}" for key in TRANSPORT_KEYS if transport[key] is None)
+        if obj["execution_identity"] is not None and obj["execution_identity"].get("cwd_terminal") is None:
+            actually_missing.add("execution_identity.cwd_terminal")
+        if obj["output"] is not None:
+            actually_missing.update(f"output.{key}" for key in ("stdout", "stderr") if obj["output"].get(key) is None)
+        if missing != actually_missing:
+            _fail("process-missing", f"process[{index}].missing contradicts retained observations")
+        _outcome(obj["outcome"], f"process[{index}].outcome")
         return obj
     obj = _exact(value, PROCESS_KEYS, f"process_observations[{index}]")
     if obj["variant"] != "complete-v1":
@@ -682,6 +1014,10 @@ def _process(value: Any, index: int, selector: str) -> dict[str, Any]:
     binary = _exact(obj["candidate_binary"], CANDIDATE_HASH_KEYS, f"process[{index}].candidate_binary")
     _sha(binary["sha256_pre"], f"process[{index}].candidate_binary.sha256_pre")
     _sha(binary["sha256_post"], f"process[{index}].candidate_binary.sha256_post")
+    _execution_identity(
+        obj["execution_identity"], f"process[{index}].execution_identity",
+        require_complete=True, candidate_binary=binary,
+    )
     fe = _exact(obj["fe_mxcsr"], FE_KEYS, f"process[{index}].fe_mxcsr")
     for key in FE_KEYS:
         _fe_state(fe[key], f"process[{index}].fe_mxcsr.{key}")
@@ -690,19 +1026,9 @@ def _process(value: Any, index: int, selector: str) -> dict[str, Any]:
     responses = _hash_pair(transport["responses"], f"process[{index}].transport.responses", RESPONSE_FRAME_DOMAIN)
     if requests["count"] != obj["candidate_request_count"] or responses["count"] > requests["count"]:
         _fail("transport-count", f"process[{index}] request/response counts are outside the observed candidate bounds")
-    lifecycle = _exact(obj["lifecycle"], LIFECYCLE_KEYS, f"process[{index}].lifecycle")
-    if lifecycle["state"] not in {"exited", "terminated", "failed"}:
-        _fail("lifecycle", f"process[{index}] lifecycle state is invalid")
-    if type(lifecycle["exit_code"]) is not int or not -128 <= lifecycle["exit_code"] <= 255:
-        _fail("exit-code", f"process[{index}] exit code is invalid")
-    if type(lifecycle["clean_shutdown"]) is not bool:
-        _fail("clean-shutdown", f"process[{index}] clean_shutdown is invalid")
-    output = _exact(obj["output"], OUTPUT_KEYS, f"process[{index}].output")
-    for key in OUTPUT_KEYS:
-        if type(output[key]) is not list or len(output[key]) > MAX_ADJUDICATIONS:
-            _fail("output-observation", f"process[{index}].output.{key} is invalid")
-        for n, item in enumerate(output[key]):
-            _string(item, f"process[{index}].output.{key}[{n}]", max_bytes=MAX_ID_BYTES)
+    lifecycle = _lifecycle(obj["lifecycle"], f"process[{index}].lifecycle")
+    output = _output(obj["output"], f"process[{index}].output")
+    _outcome(obj["outcome"], f"process[{index}].outcome")
     return obj
 
 
@@ -741,33 +1067,41 @@ def _wire_frames(adjudications: list[dict[str, Any]]) -> dict[str, tuple[list[by
 
 
 def _process_health(processes: list[dict[str, Any]]) -> str:
-    """Return the aggregate process disposition without accepting drift."""
-    if any(item.get("variant") == "incomplete-v1" for item in processes):
-        for item in processes:
-            if item.get("variant") != "incomplete-v1":
-                continue
-            binary = item.get("candidate_binary")
-            if binary is not None and binary["sha256_pre"] != binary["sha256_post"]:
-                return "failed"
-            fe = item.get("fe_mxcsr")
-            if fe is not None and fe["pre"] != fe["post"]:
-                return "failed"
-            lifecycle = item.get("lifecycle")
-            if lifecycle is not None and (lifecycle["state"] != "exited" or lifecycle["exit_code"] != 0 or not lifecycle["clean_shutdown"]):
-                return "failed"
-        return "inconclusive"
+    """Return aggregate process disposition with global failure precedence."""
+    # Inspect every process for fully evidenced failures before considering
+    # any incomplete observation.  Process order must never affect aggregate
+    # status: an early short transcript cannot hide a later binary, FP,
+    # lifecycle, or explicit transport outcome failure.
     for item in processes:
-        if item["candidate_binary"]["sha256_pre"] != item["candidate_binary"]["sha256_post"]:
+        if item["outcome"]["status"] == "failed":
             return "failed"
-        if item["transport"]["responses"]["count"] != item["transport"]["requests"]["count"]:
+        binary = item.get("candidate_binary")
+        if binary is not None and binary["sha256_pre"] != binary["sha256_post"]:
+            return "failed"
+        fe = item.get("fe_mxcsr")
+        if fe is not None and not _controls_stable(fe):
+            return "failed"
+        _, identity_mismatch = _execution_identity(
+            item.get("execution_identity"), f"process[{item['role']}].execution_identity",
+            require_complete=item.get("variant") != "incomplete-v1",
+            candidate_binary=binary,
+        )
+        if identity_mismatch:
+            return "failed"
+        lifecycle = item.get("lifecycle")
+        if lifecycle is not None and (lifecycle["state"] != "exited" or lifecycle["exit_code"] != 0 or not lifecycle["clean_shutdown"]):
+            return "failed"
+
+    # Only after all failure-bearing observations have been inspected may
+    # missing evidence or an incomplete transcript lower the result to
+    # inconclusive.
+    for item in processes:
+        if item.get("variant") != "incomplete-v1" and item["transport"]["responses"]["count"] != item["transport"]["requests"]["count"]:
             return "inconclusive"
-        fe = item["fe_mxcsr"]
-        if fe["pre"] != fe["post"]:
-            return "failed"
-        if item["lifecycle"]["state"] != "exited" or item["lifecycle"]["exit_code"] != 0 or not item["lifecycle"]["clean_shutdown"]:
-            return "failed"
-        if any(item["output"][key] for key in OUTPUT_KEYS):
+        if item.get("variant") != "incomplete-v1" and any(item["output"][key] for key in ("missing", "extra", "trailing")):
             return "inconclusive"
+    if any(item["outcome"]["status"] == "inconclusive" or item.get("variant") == "incomplete-v1" for item in processes):
+        return "inconclusive"
     return "supported"
 
 
@@ -800,14 +1134,22 @@ def _validate_result_obj(result: Any) -> dict[str, Any]:
         if process.get("variant") == "incomplete-v1":
             requests, responses = frames_by_role[process["role"]]
             transport = process["transport"]
-            if transport["requests"] is None and requests:
-                _fail("transport-derived", f"incomplete process {process['role']} omits available request transport")
-            if transport["responses"] is None and responses:
-                _fail("transport-derived", f"incomplete process {process['role']} omits available response transport")
-            if transport["requests"] is not None and (transport["requests"]["count"] != len(requests) or transport["requests"]["sha256"] != _framed_hash(requests, REQUEST_FRAME_DOMAIN)):
-                _fail("transport-derived", f"incomplete process {process['role']} request transport is not derived from adjudications")
-            if transport["responses"] is not None and (transport["responses"]["count"] != len(responses) or transport["responses"]["sha256"] != _framed_hash(responses, RESPONSE_FRAME_DOMAIN)):
-                _fail("transport-derived", f"incomplete process {process['role']} response transport is not derived from adjudications")
+            maximum = PROCESS_REQUEST_COUNTS[process["role"]]
+            request_pair = transport["requests"]
+            response_pair = transport["responses"]
+            if request_pair is not None and response_pair is not None and response_pair["count"] > request_pair["count"]:
+                _fail("transport-count", f"incomplete process {process['role']} response count exceeds request count")
+            missing = set(process["missing"])
+            _validate_transport_prefix(
+                request_pair, requests, REQUEST_FRAME_DOMAIN,
+                f"incomplete process {process['role']} requests", maximum,
+                explicitly_missing="transport.requests" in missing,
+            )
+            _validate_transport_prefix(
+                response_pair, responses, RESPONSE_FRAME_DOMAIN,
+                f"incomplete process {process['role']} responses", maximum,
+                explicitly_missing="transport.responses" in missing,
+            )
             continue
         requests, responses = frames_by_role[process["role"]]
         retained_requests = process["transport"]["requests"]
@@ -861,14 +1203,10 @@ def _make_result(attempt: Mapping[str, Any], adjudications: Any, process_observa
 
 def _derived_status(result: Mapping[str, Any]) -> str:
     adjudications = result["adjudications"]
-    if any(item["status"] == "failed" for item in adjudications):
-        return "failed"
-    if any(item["status"] == "inconclusive" for item in adjudications):
-        return "inconclusive"
     process_status = _process_health(result["process_observations"])
-    if process_status == "failed":
+    if any(item["status"] == "failed" for item in adjudications) or process_status == "failed":
         return "failed"
-    if process_status == "inconclusive":
+    if any(item["status"] == "inconclusive" for item in adjudications) or process_status == "inconclusive":
         return "inconclusive"
     heldout_good = all(item["status"] == "supported" for item in adjudications[8:48])
     return "supported" if heldout_good else "inconclusive"
@@ -929,6 +1267,7 @@ def _receipt_obj(result_bytes: bytes) -> dict[str, Any]:
             "response_sha256": process["transport"]["responses"]["sha256"],
             "candidate_sha256_pre": process["candidate_binary"]["sha256_pre"],
             "candidate_sha256_post": process["candidate_binary"]["sha256_post"],
+            "outcome": process["outcome"],
         })
     return {
         "schema": RECEIPT_SCHEMA,
@@ -1002,6 +1341,7 @@ def validate_receipt(receipt_bytes: bytes, result_bytes: bytes | None = None) ->
         _sha(process["response_sha256"], "response_sha256")
         _sha(process["candidate_sha256_pre"], "candidate_sha256_pre")
         _sha(process["candidate_sha256_post"], "candidate_sha256_post")
+        _outcome(process["outcome"], f"receipt.processes[{index}].outcome")
         if process["candidate_request_count"] != process["request_count"] or process["response_count"] > process["request_count"]:
             _fail("transport-count", "receipt process counts differ")
     if roles != ["development", "held-out", "controls"]:

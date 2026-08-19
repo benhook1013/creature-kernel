@@ -16,6 +16,43 @@ and does not authorize candidate execution.
 - [Gate A Review 02: numeric claims](gate-a-review-02-numeric-claims.md)
 
 These two fresh independent passes are the current Double review for Gate A.
-Both report no actionable findings. Gate B remains required for the later
-frozen concrete package, and Ben's exact WSL/native execution authorization
-remains pending.
+Both report no actionable findings. The v2 successor freeze now preserves
+candidate/build commit `647eab5297adca1998764904cce98eca154738e4` and is
+materialized at manifest commit
+`cc1531c2e8efe40f8a4896d11b10973147c5636b`, with manifest SHA-256
+`d7365e99945cb2e57cd6bac45bac241fc032dc1312cda3a94cfdba14cd17933a`.
+Final current-revision Gate B Double reviews and admission/custody/
+authorization records are not yet present. The 267 synthetic tests passed
+before execution-tool commit `9dca58a84072582db34045b8eac98d6e86d3d5ae`, but
+no exact attempt or native dispatch has occurred. Ben authorization remains
+pending and will be requested only after those gates.
+
+## Historical Gate B review
+
+- [Gate B Review 01: closure and custody](gate-b-review-01-closure-custody.md)
+- [Gate B Review 02: execution admissibility](gate-b-review-02-execution-admissibility.md)
+
+These two fresh independent passes are completed historical issue-finding
+evidence for the predecessor v1 freeze at exact commit
+`553d51bd55dd837b01b950d063d288369f61e56d` and freeze self-hash
+`122b0a88bf553e95a887acebfe436d95218389e339ea5aa1f3c85d0f5186fef3`.
+Both verdicts are `Revise`; each review is current only for that exact freeze
+revision and is stale for any successor. A successor freeze must receive a
+fresh current-revision Double review after the findings are addressed. These
+reviews do not authorize execution and do not claim Ben acceptance or waiver.
+
+## Historical Gate B v2 review
+
+- [Gate B v2 Review 01: closure and custody](gate-b-v2-review-01-closure-and-custody.md)
+- [Gate B v2 Review 02: execution admissibility](gate-b-v2-review-02-execution-admissibility.md)
+
+These two fresh independent passes are completed historical issue-finding
+evidence for reviewed E
+`9dca58a84072582db34045b8eac98d6e86d3d5ae`, manifest self-hash
+`d7365e99945cb2e57cd6bac45bac241fc032dc1312cda3a94cfdba14cd17933a`, and
+reviewed HEAD `6d9a812387c0704e5f58ac09556361af609a7e1`, dated 2026-08-19.
+Both verdicts are `Revise`. They are stale for any corrected successor; that
+successor requires a fresh current-version Double review after the findings
+are addressed. The current reviews remain Gate A only until that successor
+review exists. These reviews do not authorize execution, claim a clean
+successor, or imply Ben acceptance or waiver.

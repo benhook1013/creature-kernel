@@ -275,19 +275,69 @@ or dispatches an attempt. Its focused checks are in
 The new `scripts/phase3_freeze_manifest.py` deterministically generates and
 checks the concrete freeze inputs, with a narrow finalization path that binds
 exactly one durable WSL receipt and one durable native receipt. Until both
-receipt files exist and validate, the freeze remains pre-freeze and the binary
-slots remain unbound. Its focused boundary checks are in
-`scripts/test_phase3_freeze_manifest.py`. The generated freeze manifest is
-intentionally not committed in this preparation change.
+receipt files exist and validate, the execution-package freeze remains
+pre-freeze and the binary slots remain unbound. Its focused boundary checks are
+in `scripts/test_phase3_freeze_manifest.py`. The current v4 successor freeze is
+materialized from execution-tool/materialization snapshot
+`48bd077d659a0d2fe6d672a33438b2ac3c85f126` under schema
+`ck.exp-0002.phase3.freeze-manifest-4`, with manifest SHA-256
+`092399ed48818b4e6bcf75db12fd6c022fdcbd70d60866eb9f4ddedf48864c72`.
+It binds the experiment-wide closure tool, fixed binary cap, exact slot
+reservation, runtime/platform observations, and the exact Python runtime
+contract required by the exact-attempt entrypoint. The v4 successor binds
+CPython `3.13.15` for both selectors and
+the canonical isolated invocation
+`python3.13 -I scripts/phase3_exact_attempt_launcher.py --launch-record <launch-record>`.
+The launcher loads sibling modules by explicit file path, authenticates the
+freeze/runtime/argv contract, reads one bounded canonical launch record and
+its referenced records as exact bytes, and only then calls
+`phase3_exact_attempt.run_exact_attempt`; its focused tests never execute a
+candidate. The v2 freeze and its `Revise` reviews remain historical. The consolidated 296-test
+suite passed before new E `762b04b8db3397cb1885d94236ad5d47cb321830`; the
+older 267-test pass before historical v2 execution-tool commit
+`9dca58a84072582db34045b8eac98d6e86d3d5ae` remains historical. No candidate
+or exact experiment attempt has run and no native dispatch has occurred. The
+v4 successor remains execution-disabled: the current materialization requires
+fresh current-revision Gate B Double review, followed by
+execution-disabled admission and artifact-custody preparation. An exact-
+attempt authorization is created separately only after Ben explicitly
+authorizes execution.
+
+The proposed v5 successor (`ck.exp-0002.phase3.freeze-manifest-5`) keeps v4
+immutable and adds contract-2 per-selector runtime attestations. Each selector
+must provide a current canonical sidecar from
+`scripts/phase3_python_runtime_probe.py`, an absolute CPython `3.13.15`
+interpreter identity, the exact isolated launcher argv, and a bound absolute
+Git identity for the authority's read-only ancestry checks. The probe is
+bounded, deterministic, no-network, and build/provisioning-only; it does not
+install or probe a runtime on behalf of this package. The v5 generator fails
+closed unless both WSL and native sidecars validate against their current
+interpreter/runtime closure identities. Because the probe is outcome-affecting
+provenance, the v5 closure is 8 runtime + 8 exact + 5 provenance + 1 closure
+tool identity. Its invocation is `<absolute-attested-interpreter> -I
+scripts/phase3_exact_attempt_launcher.py --launch-record <launch-record>`, with
+the selector-specific absolute interpreter path taken from the authenticated
+v5 contract. v4 remains valid historical input but is rejected by exact
+consumers and Gate B preflight until a v5 package exists.
+
+`development-unfrozen` remains the explicit state of the generated
+corpus/request materialization. It is not a statement that the separately
+bound execution package is unfrozen: once the canonical manifest has both
+validated receipts, its execution-package freeze state is `frozen`. The
+preregistration's pending-freeze fields are immutable Gate-A snapshot state;
+the canonical freeze manifest supersedes those fields only for execution-
+package freeze state. The preregistration is not rewritten by finalization or
+preflight.
 
 The manual `.github/workflows/phase3-gate-b-native-build.yml` workflow accepts
 only a full 40-character commit SHA, runs on Ubuntu 24.04, recomputes the
 candidate closure, performs the sanitized locked build, captures the build-only
 receipt, and uploads a transfer-only bundle. It does not run the candidate,
 perform an exact attempt, or dispatch the native experiment. The next internal
-steps are merge preparation, manufacture of the WSL/native receipt artifacts,
-then final immutable freeze and the current-revision Gate B Double review. Ben
-is still required only for later exact attempts and native experiment dispatch.
+steps are the final current-revision Gate B Double reviews and their
+admission/custody records. The committed receipts and v4 freeze artifact remain
+build-only and execution-disabled; explicit Ben authorization for any
+exact attempt or native dispatch follows those gates.
 
 ## Synthetic validation plumbing (development only)
 
@@ -560,21 +610,25 @@ and response transport hashes, closed cross-bindings, and bounded partial
 retention are contract checks, not execution evidence.
 
 `scripts/phase3_gate_b_preflight.py` is a separate read-only non-evidence
-preflight. It validates the materialized package, current Phase 3 tool
-identities, package counts, and the caller-supplied prebound 47-file candidate
-closure identity. It does not recompute the current-disk candidate closure,
-freeze a package, authorize an attempt, execute anything, create evidence, or
-pass Gate B. The preflight therefore reports the remaining Gate B blockers:
-concrete freeze-manifest bindings, exact build/run/toolchain/platform/binary
-bindings, current-revision Double review, and Ben's exact-attempt/native
-authorization. No R3 activation or product/architecture decision follows from
-these validators.
+preflight. It validates the materialized package and current Phase 3 tool
+identities, then consumes the canonical freeze manifest through the existing
+freeze/build-receipt validators. That binds and reports the manifest self-hash,
+candidate source commit, runtime/provenance tool identities, exact WSL/native
+receipt identities, binary slots, and execution-disabled readiness state. It
+fails closed on canonical-manifest drift or tamper, missing or extra receipts,
+and receipt/build mismatches. It does not create or rewrite a freeze manifest,
+authorize an attempt, execute anything, create evidence, or pass Gate B. The
+remaining blockers are the current-revision Double review of the frozen
+concrete package and Ben's exact-attempt/native authorization. No R3 activation
+or product/architecture decision follows from these validators.
 
 Focused checks for this slice are:
 
 ```bash
 PYTHONWARNINGS=error python3 experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/scripts/test_phase3_evidence_contract.py
 PYTHONWARNINGS=error python3 experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/scripts/test_phase3_gate_b_preflight.py
+PYTHONWARNINGS=error python3 experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/scripts/test_phase3_exact_attempt_launcher.py
+PYTHONWARNINGS=error python3 experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/scripts/test_phase3_freeze_manifest.py
 ```
 
 These tests use only bounded in-memory or package-validation fixtures. They do
@@ -585,12 +639,12 @@ not run a candidate, Rust, Cargo, shell command, or experiment attempt.
 Gate A is complete/passed for this exact development-unfrozen materialization.
 The fresh current-version Double review is recorded in [Review 01](reviews/gate-a-review-01-closure-integrity.md)
 and [Review 02](reviews/gate-a-review-02-numeric-claims.md); prior issue-finding
-reviews remain stale historical working evidence. This completion does not
-freeze the package. Gate B remains a new current-revision Double review of the
-later frozen concrete package before execution. Even after both technical gates pass,
-`execution_permitted` remains false until Ben separately authorizes the exact
-WSL attempts and native dispatch. That authorization does not imply profile
-selection, production binding, or R3 authorization.
+reviews remain stale historical working evidence. The v4 successor execution
+package is now frozen under the manifest identity above, but final current-
+revision Gate B Double reviews and admission/custody/authorization records
+remain pending. No exact attempt or native dispatch has been executed. Ben's
+authorization will be requested only after those gates, and does not imply
+profile selection, production binding, or R3 authorization.
 
 Only the following conformance outcomes are allowed:
 

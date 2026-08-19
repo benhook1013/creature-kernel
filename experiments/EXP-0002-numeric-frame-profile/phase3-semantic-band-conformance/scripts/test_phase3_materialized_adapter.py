@@ -26,10 +26,31 @@ PACKAGE = Path(__file__).resolve().parents[1]
 
 
 class MaterializedAdapterTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        super().setUpClass()
+        cls._package_holder = tempfile.TemporaryDirectory()
+        cls.package_root = Path(cls._package_holder.name) / "phase3"
+        shutil.copytree(PACKAGE, cls.package_root, symlinks=True)
+        freeze_manifest = cls.package_root / "manifests/freeze-manifest.json"
+        if freeze_manifest.exists() and not freeze_manifest.is_symlink():
+            freeze_manifest.chmod(0o644)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls._package_holder.cleanup()
+        super().tearDownClass()
+
     def copy_package(self) -> tuple[tempfile.TemporaryDirectory[str], Path]:
         holder = tempfile.TemporaryDirectory()
         destination = Path(holder.name) / "phase3"
         shutil.copytree(PACKAGE, destination, symlinks=True)
+        # The committed pre-fix artifact was mode 0600; normalize only this
+        # disposable copy so adapter tests exercise package contents rather
+        # than the stale checkout mode.
+        freeze_manifest = destination / "manifests/freeze-manifest.json"
+        if freeze_manifest.exists() and not freeze_manifest.is_symlink():
+            freeze_manifest.chmod(0o644)
         return holder, destination
 
     @staticmethod
@@ -94,7 +115,7 @@ class MaterializedAdapterTests(unittest.TestCase):
         return wire_response(case, truth, authored=authored, derived=derived, final_output=derived)
 
     def test_current_materialization_projects_opaque_cases_and_preserves_ids(self) -> None:
-        cases = load_materialized_cases(PACKAGE)
+        cases = load_materialized_cases(self.package_root)
         self.assertEqual(len(cases), 60)
         self.assertEqual(cases[0]["request_id"], "p3-{attempt_id}-000")
         self.assertEqual(cases[59]["request_id"], "p3-{attempt_id}-059")
@@ -116,14 +137,14 @@ class MaterializedAdapterTests(unittest.TestCase):
         self.assertIsInstance(cases[0]["tolerances"]["translation_absolute"], Decimal)
 
     def test_successful_non_evidence_runner_handoff(self) -> None:
-        cases = load_materialized_cases(PACKAGE)
+        cases = load_materialized_cases(self.package_root)
         development = cases[6]
         held_out = cases[8]
         transcript = {
             development["request_id"]: self.response_for(development),
             held_out["request_id"]: self.response_for(held_out),
         }
-        result = run_materialized(PACKAGE, transcript)
+        result = run_materialized(self.package_root, transcript)
         self.assertEqual(result["mode"], "synthetic-validation")
         self.assertEqual(result["counts"]["cases"], 60)
         self.assertEqual(result["preflight_count"], 3)
@@ -134,17 +155,17 @@ class MaterializedAdapterTests(unittest.TestCase):
         self.assertEqual(entries["synthetic/phase3/008"]["classification"], "agree")
 
         mismatched = self.response_for(held_out).replace(b"p3-{attempt_id}-008", b"p3-{attempt_id}-009", 1)
-        result = run_materialized(PACKAGE, {held_out["request_id"]: mismatched})
+        result = run_materialized(self.package_root, {held_out["request_id"]: mismatched})
         mismatch_entry = next(entry for entry in result["entries"] if entry["request_id"] == "synthetic/phase3/008")
         self.assertEqual(mismatch_entry["cause"]["code"], "response-request-id-mismatch")
 
         synthetic_echo = self.response_for(held_out).replace(b"p3-{attempt_id}-008", b"synthetic/phase3/008", 1)
-        result = run_materialized(PACKAGE, {held_out["request_id"]: synthetic_echo})
+        result = run_materialized(self.package_root, {held_out["request_id"]: synthetic_echo})
         synthetic_echo_entry = next(entry for entry in result["entries"] if entry["request_id"] == "synthetic/phase3/008")
         self.assertEqual(synthetic_echo_entry["cause"]["code"], "response-request-id-mismatch")
 
     def test_reserved_unknown_transcript_id_is_extra_and_restored(self) -> None:
-        result = run_materialized(PACKAGE, {"synthetic/phase3/000": b"{}"})
+        result = run_materialized(self.package_root, {"synthetic/phase3/000": b"{}"})
         self.assertEqual(result["counts"]["extra_responses"], 1)
         extra = next(entry for entry in result["entries"] if entry["cause"]["code"] == "extra-response")
         self.assertEqual(extra["request_id"], "synthetic/phase3/000")
@@ -154,6 +175,8 @@ class MaterializedAdapterTests(unittest.TestCase):
         # a valid adapter input.
         holder, root = self.copy_package()
         try:
+            (root / "manifests/freeze-manifest.json").unlink(missing_ok=True)
+            shutil.rmtree(root / "manifests/build-receipts", ignore_errors=True)
             self.assertEqual(len(load_materialized_cases(root)), 60)
         finally:
             holder.cleanup()
@@ -162,6 +185,8 @@ class MaterializedAdapterTests(unittest.TestCase):
         # the generated artifact closure and are not parsed as candidate data.
         holder, root = self.copy_package()
         try:
+            (root / "manifests/freeze-manifest.json").unlink(missing_ok=True)
+            shutil.rmtree(root / "manifests/build-receipts", ignore_errors=True)
             (root / "manifests/freeze-manifest.json").write_bytes(b"not candidate data\n")
             receipts = root / "manifests/build-receipts"
             receipts.mkdir()
@@ -189,15 +214,15 @@ class MaterializedAdapterTests(unittest.TestCase):
 
     def test_transcript_shape_errors_are_stable(self) -> None:
         with self.assertRaises(MaterializedAdapterError) as context:
-            run_materialized(PACKAGE, [])
+            run_materialized(self.package_root, [])
         self.assertEqual(context.exception.code, "transcript-shape")
 
         with self.assertRaises(MaterializedAdapterError) as context:
-            run_materialized(PACKAGE, {1: b"{}"})
+            run_materialized(self.package_root, {1: b"{}"})
         self.assertEqual(context.exception.code, "transcript-key")
 
         with self.assertRaises(MaterializedAdapterError) as context:
-            run_materialized(PACKAGE, {"p3-{attempt_id}-000": bytearray(b"{}")})
+            run_materialized(self.package_root, {"p3-{attempt_id}-000": bytearray(b"{}")})
         self.assertEqual(context.exception.code, "transcript-shape")
 
     def test_tampered_hash_and_size_fail_before_conversion(self) -> None:
