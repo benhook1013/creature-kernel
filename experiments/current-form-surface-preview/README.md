@@ -11,6 +11,27 @@ animation topology, rig, skin, runtime, Readiness 3/4 proof, or DR-0009/0010
 evidence. Winner labels are debug attribution only. Generated bundles belong
 in `/tmp` and must not be committed.
 
+The renderer expands each source descriptor into a bounded, deterministic
+role recipe where useful. The current fixture convention supplies shared
+chest/waist/hip masses, cranium and muzzle, a parent-surface neck/collar,
+source-owned limb root and joint collars, digitigrade lower-leg shaping,
+paw/foot masses, and a tail-root bridge/collar. Recipe components are fields,
+not semantic nodes: every generated component keeps its source descriptor as
+owner and the semantic sidecar emits only source AddressKeys. Limb and root
+bridges are anchored on the parent analytic-field boundary in the existing
+axis-aligned fixture convention; arbitrary orientation is not claimed. Recipe
+expansion therefore fails closed unless the envelope contains the exact 18-Part
+stylized-biped role/parent layout with a mirrored left/right body, +Y as up,
++Z as foot/muzzle forward, and -Z as the straight-tail direction. The expected
+ellipsoid centres, capsule endpoints, and tapered-tail endpoints must also
+remain bound to their source reference points. This is a deliberate preview
+restriction, not a local-frame or general morphology contract.
+
+The manifest metrics report both source descriptor count and actual generated
+field count, including the field-memory bound used for allocation. This is
+resource accounting for the disposable preview only, not a runtime budget or
+future compiler contract.
+
 ## Run
 
 Create an isolated environment outside the repository and install the small
@@ -32,6 +53,9 @@ python experiments/current-form-surface-preview/generate_surface_preview.py \
   --output /tmp/ck-current-form-surface/run-a \
   --samples-per-axis 72
 ```
+
+One generator invocation emits all four fixed variant subdirectories; do not
+run it separately per variant.
 
 The successful bundle contains exactly the manifest and four sets of PLY,
 semantic-winner sidecar, metrics JSON, and neutral composite PNG. The PNG has

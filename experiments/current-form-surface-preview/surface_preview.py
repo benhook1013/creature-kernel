@@ -34,6 +34,10 @@ MAX_SAMPLES = 128
 MAX_VOXELS = 128**3
 MAX_FIELD_VALUES = 32_000_000
 MAX_DESCRIPTORS = 64
+# A source descriptor may intentionally expand into a small deterministic
+# recipe.  This is an implementation bound on the disposable preview, not a
+# promise about a future geometry compiler.
+MAX_GENERATED_FIELDS = 256
 DEFAULT_SAMPLES = 72
 DEFAULT_PADDING = 0.75
 DEFAULT_SMOOTH_K = 0.12
@@ -139,6 +143,20 @@ class Descriptor:
     source: str
     provenance: dict[str, Any]
     raw: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class Field:
+    """One analytic field owned by a source descriptor.
+
+    Recipe components are deliberately not semantic nodes.  ``owner`` is the
+    only identity that can be emitted as a winner label, so a compound recipe
+    cannot accidentally introduce synthetic body-part IDs.
+    """
+
+    owner: Descriptor
+    recipe: str
+    shape: dict[str, Any]
 
 
 @dataclass(frozen=True)
@@ -270,20 +288,358 @@ def _segment_field(points: np.ndarray, start: np.ndarray, end: np.ndarray, r0: f
     return np.linalg.norm(points - closest, axis=-1) - radius
 
 
-def _field(points: np.ndarray, desc: Descriptor, scale: float) -> np.ndarray:
-    shape = desc.shape
+def _normalise_shape(shape: dict[str, Any], scale: float) -> dict[str, Any]:
+    """Convert an envelope shape into the small numeric shape representation."""
+
     if shape["name"] == "ellipsoid":
-        centre = np.asarray(shape["center"], dtype=np.float64) / scale
-        radii = np.asarray(shape["axis_extents_permille"], dtype=np.float64) / 1000.0
-        offset = points - centre
-        normalized = np.sqrt(np.sum((offset / radii) ** 2, axis=-1))
-        return (normalized - 1.0) * float(np.min(radii))
+        return {
+            "name": "ellipsoid",
+            "center": np.asarray(shape["center"], dtype=np.float64) / scale,
+            "radii": np.asarray(shape["axis_extents_permille"], dtype=np.float64) / 1000.0,
+        }
     start = np.asarray(shape["from"], dtype=np.float64) / scale
     end = np.asarray(shape["to"], dtype=np.float64) / scale
     if shape["name"] == "capsule":
         radius = float(shape["radius_permille"]) / 1000.0
-        return _segment_field(points, start, end, radius, radius)
-    return _segment_field(points, start, end, float(shape["start_radius_permille"]) / 1000.0, float(shape["end_radius_permille"]) / 1000.0)
+        return {"name": "capsule", "from": start, "to": end, "r0": radius, "r1": radius}
+    return {
+        "name": "tapered-segment",
+        "from": start,
+        "to": end,
+        "r0": float(shape["start_radius_permille"]) / 1000.0,
+        "r1": float(shape["end_radius_permille"]) / 1000.0,
+    }
+
+
+def _ellipsoid(center: np.ndarray, radii: np.ndarray) -> dict[str, Any]:
+    return {"name": "ellipsoid", "center": np.asarray(center, dtype=np.float64), "radii": np.asarray(radii, dtype=np.float64)}
+
+
+def _segment(name: str, start: np.ndarray, end: np.ndarray, r0: float, r1: float | None = None) -> dict[str, Any]:
+    radius_end = r0 if r1 is None else r1
+    return {"name": name, "from": np.asarray(start, dtype=np.float64), "to": np.asarray(end, dtype=np.float64), "r0": float(r0), "r1": float(radius_end)}
+
+
+def _field(points: np.ndarray, field: Field | Descriptor, scale: float | None = None) -> np.ndarray:
+    """Evaluate a source-owned field or a legacy source descriptor.
+
+    Keeping the descriptor form as a compatibility path makes this helper
+    useful to focused tests while the renderer itself evaluates ``Field``
+    recipes.
+    """
+
+    if isinstance(field, Field):
+        shape = field.shape
+    else:
+        if scale is None:
+            raise TypeError("scale is required when evaluating a descriptor")
+        shape = _normalise_shape(field.shape, scale)
+    if shape["name"] == "ellipsoid":
+        centre = shape["center"]
+        radii = shape["radii"]
+        offset = points - centre
+        normalized = np.sqrt(np.sum((offset / radii) ** 2, axis=-1))
+        return (normalized - 1.0) * float(np.min(radii))
+    return _segment_field(points, shape["from"], shape["to"], shape["r0"], shape["r1"])
+
+
+def _source_shape(desc: Descriptor, scale: float) -> dict[str, Any]:
+    return _normalise_shape(desc.shape, scale)
+
+
+def _parent_surface_anchor(parent: Descriptor, target: np.ndarray, scale: float) -> np.ndarray:
+    """Find the parent-field boundary in the parent-to-child direction.
+
+    The current fixture convention is axis-aligned, so this intentionally
+    avoids claiming arbitrary orientation support.  Segment fields use their
+    nearest centreline point and interpolated radius.  A target exactly on an
+    endpoint takes the outward cap; an interior centreline target is ambiguous
+    and fails closed.
+    """
+
+    shape = _source_shape(parent, scale)
+    if shape["name"] == "ellipsoid":
+        delta = np.asarray(target, dtype=np.float64) - shape["center"]
+        denominator = float(np.sum((delta / shape["radii"]) ** 2))
+        if denominator > 1e-18 and math.isfinite(denominator):
+            return shape["center"] + delta / math.sqrt(denominator)
+        _fail(f"parent surface direction is ambiguous for {_key_text(parent.key)}")
+    start, end = shape["from"], shape["to"]
+    axis = end - start
+    length_sq = float(np.dot(axis, axis))
+    if not math.isfinite(length_sq) or length_sq <= 1e-18:
+        _fail(f"parent segment is degenerate for {_key_text(parent.key)}")
+    raw_t = float(np.dot(np.asarray(target, dtype=np.float64) - start, axis) / length_sq)
+    if not math.isfinite(raw_t):
+        _fail(f"parent surface projection is non-finite for {_key_text(parent.key)}")
+    t = min(max(raw_t, 0.0), 1.0)
+    centreline = start + t * axis
+    radius = float(shape["r0"] + (shape["r1"] - shape["r0"]) * t)
+    offset = np.asarray(target, dtype=np.float64) - centreline
+    offset_length = float(np.linalg.norm(offset))
+    if offset_length > 1e-12 and math.isfinite(offset_length):
+        return centreline + offset / offset_length * radius
+    axis_length = math.sqrt(length_sq)
+    if t <= 1e-12:
+        return start - axis / axis_length * float(shape["r0"])
+    if t >= 1.0 - 1e-12:
+        return end + axis / axis_length * float(shape["r1"])
+    _fail(f"parent surface direction is ambiguous on segment centreline for {_key_text(parent.key)}")
+
+
+def _descriptor_children(descriptors: tuple[Descriptor, ...]) -> dict[tuple[str, tuple[str, ...], str, str], tuple[Descriptor, ...]]:
+    children: dict[tuple[str, tuple[str, ...], str, str], list[Descriptor]] = {}
+    for desc in descriptors:
+        if desc.parent is not None:
+            children.setdefault(desc.parent, []).append(desc)
+    return {key: tuple(sorted(value, key=lambda item: item.key)) for key, value in children.items()}
+
+
+def _child_for(desc: Descriptor, role: str, children: dict[tuple[str, tuple[str, ...], str, str], tuple[Descriptor, ...]]) -> Descriptor | None:
+    matches = tuple(item for item in children.get(desc.key, ()) if item.key[3] == role)
+    return matches[0] if matches else None
+
+
+def _radius_from_shape(shape: dict[str, Any]) -> float:
+    if shape["name"] == "ellipsoid":
+        return float(np.min(shape["radii"]))
+    return max(float(shape["r0"]), float(shape["r1"]), 1e-6)
+
+
+def _validate_recipe_convention(descriptors: tuple[Descriptor, ...], scale: float) -> None:
+    """Fail closed outside the one axis-aligned biped fixture convention."""
+
+    expected = {
+        ((), "pelvis"),
+        ((), "torso"),
+        ((), "neck"),
+        ((), "head"),
+        (("left",), "upper_arm"),
+        (("left",), "forearm"),
+        (("left",), "hand"),
+        (("right",), "upper_arm"),
+        (("right",), "forearm"),
+        (("right",), "hand"),
+        (("left",), "thigh"),
+        (("left",), "shin"),
+        (("left",), "foot"),
+        (("right",), "thigh"),
+        (("right",), "shin"),
+        (("right",), "foot"),
+        (("tail",), "tail_root"),
+        (("tail",), "tail_tip"),
+    }
+    actual = {(desc.key[1], desc.key[3]) for desc in descriptors}
+    if actual != expected or len(descriptors) != len(expected) or any(desc.key[2] != "part" for desc in descriptors):
+        _fail("role recipes require the exact fixed 18-Part stylized-biped fixture")
+    by_role = {(desc.key[1], desc.key[3]): desc for desc in descriptors}
+
+    def item(anchors: tuple[str, ...], role: str) -> Descriptor:
+        return by_role[(anchors, role)]
+
+    pelvis = item((), "pelvis")
+    expected_parents = {
+        ((), "pelvis"): None,
+        ((), "torso"): pelvis,
+        ((), "neck"): item((), "torso"),
+        ((), "head"): item((), "neck"),
+        (("left",), "upper_arm"): item((), "torso"),
+        (("left",), "forearm"): item(("left",), "upper_arm"),
+        (("left",), "hand"): item(("left",), "forearm"),
+        (("right",), "upper_arm"): item((), "torso"),
+        (("right",), "forearm"): item(("right",), "upper_arm"),
+        (("right",), "hand"): item(("right",), "forearm"),
+        (("left",), "thigh"): pelvis,
+        (("left",), "shin"): item(("left",), "thigh"),
+        (("left",), "foot"): item(("left",), "shin"),
+        (("right",), "thigh"): pelvis,
+        (("right",), "shin"): item(("right",), "thigh"),
+        (("right",), "foot"): item(("right",), "shin"),
+        (("tail",), "tail_root"): pelvis,
+        (("tail",), "tail_tip"): item(("tail",), "tail_root"),
+    }
+    for logical_key, expected_parent in expected_parents.items():
+        descriptor = item(*logical_key)
+        parent_key = None if expected_parent is None else expected_parent.key
+        if descriptor.parent != parent_key:
+            _fail(f"fixed-fixture parent relationship is invalid for {_key_text(descriptor.key)}")
+
+    epsilon = 1e-12
+
+    def expect_direction(child: Descriptor, parent: Descriptor, pattern: tuple[int, int, int]) -> None:
+        delta = child.point - parent.point
+        for axis, sign in enumerate(pattern):
+            value = float(delta[axis])
+            valid = abs(value) <= epsilon if sign == 0 else value > epsilon if sign > 0 else value < -epsilon
+            if not valid:
+                _fail(
+                    "role recipes support only the fixed +Y-up/+Z-forward axis convention; "
+                    f"invalid edge at {_key_text(child.key)}"
+                )
+
+    torso, neck, head = item((), "torso"), item((), "neck"), item((), "head")
+    expect_direction(torso, pelvis, (0, 1, 0))
+    expect_direction(neck, torso, (0, 1, 0))
+    expect_direction(head, neck, (0, 1, 0))
+    for anchors, side in ((('left',), -1), (('right',), 1)):
+        upper_arm = item(anchors, "upper_arm")
+        forearm = item(anchors, "forearm")
+        hand = item(anchors, "hand")
+        thigh = item(anchors, "thigh")
+        shin = item(anchors, "shin")
+        foot = item(anchors, "foot")
+        expect_direction(upper_arm, torso, (side, 1, 0))
+        expect_direction(forearm, upper_arm, (side, 0, 0))
+        expect_direction(hand, forearm, (side, 0, 0))
+        expect_direction(thigh, pelvis, (side, -1, 0))
+        expect_direction(shin, thigh, (0, -1, 0))
+        expect_direction(foot, shin, (0, -1, 1))
+    tail_root, tail_tip = item(("tail",), "tail_root"), item(("tail",), "tail_tip")
+    expect_direction(tail_root, pelvis, (0, 0, -1))
+    expect_direction(tail_tip, tail_root, (0, 0, -1))
+
+    for central in (torso, neck, head):
+        if abs(float(central.point[0] - pelvis.point[0])) > epsilon or abs(float(central.point[2] - pelvis.point[2])) > epsilon:
+            _fail("fixed-fixture torso chain must remain on the +Y centreline")
+    for role in ("upper_arm", "forearm", "hand", "thigh", "shin", "foot"):
+        left, right = item(("left",), role), item(("right",), role)
+        if not np.allclose(left.point[[1, 2]], right.point[[1, 2]], rtol=0.0, atol=epsilon) or abs(float(left.point[0] + right.point[0] - 2.0 * pelvis.point[0])) > epsilon:
+            _fail(f"fixed-fixture bilateral placement is not mirrored for role {role!r}")
+
+    ellipsoid_roles = (((), "pelvis"), ((), "torso"), ((), "head"), (("left",), "hand"), (("right",), "hand"), (("left",), "foot"), (("right",), "foot"))
+    for logical_key in ellipsoid_roles:
+        descriptor = item(*logical_key)
+        shape = _source_shape(descriptor, scale)
+        if shape["name"] != "ellipsoid" or not np.allclose(shape["center"], descriptor.point, rtol=0.0, atol=epsilon):
+            _fail(f"fixed-fixture ellipsoid binding is invalid for {_key_text(descriptor.key)}")
+    segment_children = {
+        ((), "neck"): item((), "head"),
+        (("left",), "upper_arm"): item(("left",), "forearm"),
+        (("left",), "forearm"): item(("left",), "hand"),
+        (("right",), "upper_arm"): item(("right",), "forearm"),
+        (("right",), "forearm"): item(("right",), "hand"),
+        (("left",), "thigh"): item(("left",), "shin"),
+        (("left",), "shin"): item(("left",), "foot"),
+        (("right",), "thigh"): item(("right",), "shin"),
+        (("right",), "shin"): item(("right",), "foot"),
+    }
+    for logical_key, child in segment_children.items():
+        descriptor = item(*logical_key)
+        shape = _source_shape(descriptor, scale)
+        if shape["name"] != "capsule" or not np.allclose(shape["from"], descriptor.point, rtol=0.0, atol=epsilon) or not np.allclose(shape["to"], child.point, rtol=0.0, atol=epsilon):
+            _fail(f"fixed-fixture capsule binding is invalid for {_key_text(descriptor.key)}")
+    for descriptor in (tail_root, tail_tip):
+        shape = _source_shape(descriptor, scale)
+        expected_parent = by_role[(descriptor.parent[1], descriptor.parent[3])] if descriptor.parent is not None else None
+        if expected_parent is None or shape["name"] != "tapered-segment" or not np.allclose(shape["from"], expected_parent.point, rtol=0.0, atol=epsilon) or not np.allclose(shape["to"], descriptor.point, rtol=0.0, atol=epsilon):
+            _fail(f"fixed-fixture tail binding is invalid for {_key_text(descriptor.key)}")
+
+
+def _compound_fields(form: Form, descriptors: tuple[Descriptor, ...]) -> tuple[Field, ...]:
+    """Expand fixed roles into deterministic source-owned analytic recipes.
+
+    The recipes are intentionally shared by all variants.  Variant differences
+    remain in the source descriptor dimensions supplied by the producer.
+    """
+
+    _validate_recipe_convention(descriptors, form.reference_scale)
+    by_key = {desc.key: desc for desc in descriptors}
+    children = _descriptor_children(descriptors)
+    fields: list[Field] = []
+
+    def add(owner: Descriptor, recipe: str, shape: dict[str, Any]) -> None:
+        for value in shape.values():
+            if isinstance(value, np.ndarray) and (value.ndim != 1 or value.shape[0] != 3 or not np.all(np.isfinite(value))):
+                _fail(f"recipe {recipe!r} produced a non-finite vector")
+        if shape["name"] != "ellipsoid" and np.linalg.norm(shape["to"] - shape["from"]) <= 1e-12:
+            _fail(f"recipe {recipe!r} produced a zero-length segment")
+        fields.append(Field(owner, recipe, shape))
+
+    for desc in descriptors:
+        role = desc.key[3]
+        source = _source_shape(desc, form.reference_scale)
+        parent = by_key.get(desc.parent) if desc.parent is not None else None
+        if role == "pelvis":
+            centre, radii = source["center"], source["radii"]
+            add(desc, "hips", _ellipsoid(centre, radii * np.asarray([1.0, 0.88, 1.0])))
+            add(desc, "pelvic-core", _ellipsoid(centre + np.asarray([0.0, 0.08 * radii[1], 0.0]), radii * np.asarray([0.92, 0.76, 0.94])))
+        elif role == "torso":
+            centre, radii = source["center"], source["radii"]
+            add(desc, "chest", _ellipsoid(centre + np.asarray([0.0, 0.25 * radii[1], 0.0]), radii * np.asarray([0.97, 0.70, 1.02])))
+            add(desc, "waist", _ellipsoid(centre + np.asarray([0.0, -0.28 * radii[1], 0.0]), radii * np.asarray([0.78, 0.58, 0.88])))
+            if parent is not None:
+                parent_shape = _source_shape(parent, form.reference_scale)
+                anchor = _parent_surface_anchor(parent, desc.point, form.reference_scale)
+                add(desc, "pelvis-waist-bridge", _segment("tapered-segment", anchor, centre - np.asarray([0.0, 0.43 * radii[1], 0.0]), _radius_from_shape(parent_shape) * 0.72, float(np.min(radii)) * 0.72))
+        elif role == "head":
+            centre, radii = source["center"], source["radii"]
+            cranium_centre = centre + np.asarray([0.0, 0.12 * radii[1], -0.05 * radii[2]])
+            cranium_radii = radii * np.asarray([0.90, 0.86, 0.90])
+            add(desc, "cranium", _ellipsoid(cranium_centre, cranium_radii))
+            add(desc, "muzzle", _ellipsoid(centre + np.asarray([0.0, -0.10 * radii[1], 0.72 * radii[2]]), radii * np.asarray([0.52, 0.34, 0.52])))
+            if parent is not None:
+                anchor = _parent_surface_anchor(parent, desc.point, form.reference_scale)
+                head_base = cranium_centre - np.asarray([0.0, 0.72 * cranium_radii[1], 0.0])
+                neck_radius = max(min(float(np.min(cranium_radii)), _radius_from_shape(_source_shape(parent, form.reference_scale))), 0.12)
+                add(desc, "head-base-bridge", _segment("tapered-segment", anchor, head_base, neck_radius * 0.82, neck_radius * 0.62))
+        elif role == "neck":
+            child = _child_for(desc, "head", children)
+            if parent is not None:
+                start = _parent_surface_anchor(parent, desc.point, form.reference_scale)
+            else:
+                start = desc.point.copy()
+            end = (child.point if child is not None else desc.point).copy()
+            # Stop short of the head centre, leaving a collar-like transition
+            # rather than a neck capsule buried down in the torso.
+            end[1] -= 0.35
+            radius = _radius_from_shape(source)
+            add(desc, "tapered-neck", _segment("tapered-segment", start, end, radius * 1.05, radius * 0.78))
+            add(desc, "neck-collar", _ellipsoid(start, np.asarray([radius * 1.18, radius * 0.72, radius * 1.18])))
+        elif role in {"upper_arm", "forearm", "thigh", "shin"}:
+            # Preserve the producer's endpoint semantics for the main limb
+            # while adding source-owned collars/bridges at its joints.
+            add(desc, "limb-segment", source)
+            start = source["from"] if source["name"] != "ellipsoid" else desc.point
+            radius = _radius_from_shape(source)
+            if role in {"upper_arm", "thigh"} and parent is not None:
+                anchor = _parent_surface_anchor(parent, start, form.reference_scale)
+                add(desc, "root-bridge", _segment("tapered-segment", anchor, start, radius * 1.45, radius * 1.12))
+            collar_scale = 1.32 if role in {"upper_arm", "thigh"} else 1.20
+            add(desc, "joint-collar", _ellipsoid(start, np.full(3, radius * collar_scale)))
+            if role == "shin":
+                # The fixture's shin-to-foot diagonal is the only supported
+                # digitigrade convention; this adds a readable hock mass.
+                end = source["to"]
+                add(desc, "digitigrade-lower-leg", _segment("tapered-segment", start, end, radius * 1.16, radius * 0.72))
+        elif role in {"hand", "foot"}:
+            centre, radii = source["center"], source["radii"]
+            if role == "hand":
+                add(desc, "paw-mass", _ellipsoid(centre + np.asarray([0.0, 0.0, 0.10 * radii[2]]), radii * np.asarray([1.08, 0.94, 1.22])))
+            else:
+                add(desc, "paw-mass", _ellipsoid(centre + np.asarray([0.0, -0.05 * radii[1], 0.12 * radii[2]]), radii * np.asarray([1.08, 0.94, 1.20])))
+            if parent is not None:
+                parent_shape = _source_shape(parent, form.reference_scale)
+                anchor = _parent_surface_anchor(parent, centre, form.reference_scale)
+                add(desc, "extremity-bridge", _segment("capsule", anchor, centre, max(_radius_from_shape(parent_shape) * 0.72, float(np.min(radii)) * 0.62)))
+        elif role in {"tail_root", "tail_tip"}:
+            source_start, source_end = source["from"], source["to"]
+            add(desc, "tail-segment", source)
+            if role == "tail_root" and parent is not None:
+                # The producer's root segment intentionally starts at the
+                # pelvis reference point.  Anchor the visible root continuity
+                # toward its distal direction instead of creating a zero-
+                # length centre-to-centre bridge.
+                anchor = _parent_surface_anchor(parent, source_end, form.reference_scale)
+                add(desc, "tail-root-bridge", _segment("tapered-segment", anchor, source_end, source["r0"] * 1.28, source["r0"]))
+                add(desc, "tail-root-collar", _ellipsoid(source_end, np.full(3, source["r0"] * 1.18)))
+        else:
+            # Validation currently admits a closed set of roles, but retain a
+            # safe source-field fallback if a future fixture adds a role.
+            add(desc, "source", source)
+
+    if not fields or len(fields) > MAX_GENERATED_FIELDS:
+        _fail(f"generated field count {len(fields)} exceeds bound {MAX_GENERATED_FIELDS}")
+    return tuple(fields)
 
 
 def _smooth_union(fields: list[np.ndarray], k: float) -> np.ndarray:
@@ -294,31 +650,31 @@ def _smooth_union(fields: list[np.ndarray], k: float) -> np.ndarray:
     return result
 
 
-def _bounds(descriptors: tuple[Descriptor, ...], scale: float, padding: float) -> tuple[np.ndarray, np.ndarray]:
+def _bounds(fields: tuple[Field, ...], padding: float) -> tuple[np.ndarray, np.ndarray]:
     mins: list[np.ndarray] = []
     maxs: list[np.ndarray] = []
-    for desc in descriptors:
-        shape = desc.shape
+    for field in fields:
+        shape = field.shape
         if shape["name"] == "ellipsoid":
-            centre = np.asarray(shape["center"], dtype=np.float64) / scale
-            radii = np.asarray(shape["axis_extents_permille"], dtype=np.float64) / 1000.0
+            centre = shape["center"]
+            radii = shape["radii"]
             mins.append(centre - radii); maxs.append(centre + radii)
         else:
-            a = np.asarray(shape["from"], dtype=np.float64) / scale
-            b = np.asarray(shape["to"], dtype=np.float64) / scale
-            r = max(float(shape.get("radius_permille", shape.get("start_radius_permille", 0))), float(shape.get("radius_permille", shape.get("end_radius_permille", 0)))) / 1000.0
+            a = shape["from"]
+            b = shape["to"]
+            r = max(float(shape["r0"]), float(shape["r1"]))
             mins.append(np.minimum(a, b) - r); maxs.append(np.maximum(a, b) + r)
     return np.min(np.stack(mins), axis=0) - padding, np.max(np.stack(maxs), axis=0) + padding
 
 
-def _orientation(vertices: np.ndarray, faces: np.ndarray, axes: tuple[np.ndarray, np.ndarray, np.ndarray], descriptors: tuple[Descriptor, ...], scale: float, k: float) -> tuple[np.ndarray, np.ndarray, float]:
+def _orientation(vertices: np.ndarray, faces: np.ndarray, axes: tuple[np.ndarray, np.ndarray, np.ndarray], fields: tuple[Field, ...], k: float) -> tuple[np.ndarray, np.ndarray, float]:
     e1 = vertices[faces[:, 1]] - vertices[faces[:, 0]]
     e2 = vertices[faces[:, 2]] - vertices[faces[:, 0]]
     areas = np.cross(e1, e2)
     centers = (vertices[faces[:, 0]] + vertices[faces[:, 1]] + vertices[faces[:, 2]]) / 3.0
     delta = 0.5 * min(float(axes[i][1] - axes[i][0]) for i in range(3))
     def combined(points: np.ndarray) -> np.ndarray:
-        vals = [_field(points, d, scale) for d in descriptors]
+        vals = [_field(points, field) for field in fields]
         return _smooth_union(vals, k)
     gradient = np.column_stack([(combined(centers + np.eye(3)[i] * delta) - combined(centers - np.eye(3)[i] * delta)) / (2.0 * delta) for i in range(3)])
     alignment = np.sum(areas * gradient, axis=1)
@@ -375,15 +731,16 @@ def _mesh_checks(vertices: np.ndarray, faces: np.ndarray, labels: list[tuple[str
 def build_variant(form: Form, descriptors: tuple[Descriptor, ...], samples: int, padding: float, smooth_k: float) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[tuple[str, tuple[str, ...], str, str]], dict[str, Any], dict[str, Any]]:
     if type(samples) is not int or samples > MAX_SAMPLES or samples < 16 or samples**3 > MAX_VOXELS:
         _fail("sampling configuration exceeds bounded limits")
-    if len(descriptors) * samples**3 > MAX_FIELD_VALUES:
-        _fail("descriptor sampling configuration exceeds bounded field-memory limits")
     if not math.isfinite(float(padding)) or padding < 0.0 or not math.isfinite(float(smooth_k)) or smooth_k <= 0.0:
         _fail("padding and smooth-k must be finite, with non-negative padding and positive smooth-k")
-    lower, upper = _bounds(descriptors, form.reference_scale, padding)
+    fields = _compound_fields(form, descriptors)
+    if len(fields) * samples**3 > MAX_FIELD_VALUES:
+        _fail("generated field sampling configuration exceeds bounded field-memory limits")
+    lower, upper = _bounds(fields, padding)
     axes = tuple(np.linspace(lower[i], upper[i], samples, dtype=np.float64) for i in range(3))
     points = np.stack(np.meshgrid(*axes, indexing="ij"), axis=-1)
-    fields = [_field(points, desc, form.reference_scale) for desc in descriptors]
-    field = _smooth_union(fields, smooth_k)
+    grid_fields = [_field(points, generated) for generated in fields]
+    field = _smooth_union(grid_fields, smooth_k)
     if not np.all(np.isfinite(field)) or float(np.min(field)) >= 0 or float(np.max(field)) <= 0:
         _fail("field has no finite zero crossing")
     if np.any(field[(0, -1), :, :] <= 0) or np.any(field[:, (0, -1), :] <= 0) or np.any(field[:, :, (0, -1)] <= 0):
@@ -394,14 +751,28 @@ def build_variant(form: Form, descriptors: tuple[Descriptor, ...], samples: int,
         raise PreviewError(f"surface extraction failed: {exc}") from exc
     vertices = np.asarray(raw_vertices, dtype=np.float64) + lower
     faces = np.asarray(raw_faces, dtype=np.int64)
-    faces, normals, volume = _orientation(vertices, faces, axes, descriptors, form.reference_scale, smooth_k)
+    faces, normals, volume = _orientation(vertices, faces, axes, fields, smooth_k)
     labels: list[tuple[str, tuple[str, ...], str, str]] = []
     # Re-evaluate only at vertices; this avoids carrying a grid-shaped winner channel into artifacts.
     for vertex in vertices:
-        values = [_field(vertex.reshape(1, 3), desc, form.reference_scale)[0] for desc in descriptors]
-        labels.append(descriptors[int(np.argmin(values))].key)
+        values = [_field(vertex.reshape(1, 3), generated)[0] for generated in fields]
+        labels.append(fields[int(np.argmin(values))].owner.key)
     metrics = _mesh_checks(vertices, faces, labels, (lower, upper), volume)
-    metrics.update({"field_minimum": float(np.min(field)), "field_maximum": float(np.max(field)), "smooth_union": {"operator": "polynomial_cubic_smooth_min", "k": smooth_k, "fold_order": "full_address_key_ascending"}, "grid": {"samples_per_axis": samples, "axis_order": ["x", "y", "z"], "bounds_min": lower.tolist(), "bounds_max": upper.tolist(), "spacing": [float(a[1]-a[0]) for a in axes]}})
+    recipe_counts: dict[str, int] = {}
+    for generated in fields:
+        recipe_counts[generated.recipe] = recipe_counts.get(generated.recipe, 0) + 1
+    metrics.update({
+        "field_minimum": float(np.min(field)),
+        "field_maximum": float(np.max(field)),
+        "source_descriptor_count": len(descriptors),
+        "generated_field_count": len(fields),
+        "generated_field_limit": MAX_GENERATED_FIELDS,
+        "field_memory_values": len(fields) * samples**3,
+        "field_memory_limit": MAX_FIELD_VALUES,
+        "field_recipe_counts": recipe_counts,
+        "smooth_union": {"operator": "polynomial_cubic_smooth_min", "k": smooth_k, "fold_order": "source_address_then_recipe_order"},
+        "grid": {"samples_per_axis": samples, "axis_order": ["x", "y", "z"], "bounds_min": lower.tolist(), "bounds_max": upper.tolist(), "spacing": [float(a[1]-a[0]) for a in axes]},
+    })
     return vertices, faces, normals, labels, metrics, {"bounds_min": lower.tolist(), "bounds_max": upper.tolist(), "spacing": [float(a[1]-a[0]) for a in axes]}
 
 
@@ -459,10 +830,10 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
             variant_dir.mkdir()
             ply = variant_dir / "surface.ply"; sidecar = variant_dir / "semantic.json"; metrics_path = variant_dir / "metrics.json"; png = variant_dir / "composite.png"
             _write_ply(ply, vertices, faces, normals)
-            sidecar.write_bytes(_canonical({"format": "creature-kernel.disposable-surface-preview-semantic-winners.v1", "source_format": SOURCE_FORMAT, "variant_id": variant_id, "vertex_count": len(vertices), "source_node_labels": [_address_json(key) for key in labels]}))
+            sidecar.write_bytes(_canonical({"format": "creature-kernel.disposable-surface-preview-semantic-winners.v1", "source_format": SOURCE_FORMAT, "variant_id": variant_id, "vertex_count": len(vertices), "source_node_labels": [_address_json(key) for key in labels], "attribution": "every recipe component resolves to its source descriptor owner; no synthetic node identity is emitted"}))
             metrics_path.write_bytes(_canonical(metrics)); _render(png, vertices, faces, variant_id)
             records.append({"id": variant_id, "profile_id": raw_variant["profile_id"], "source": {"document": form.source["document"], "namespace": form.source["namespace"], "resource_profile_id": form.source["resource_profile_id"]}, "descriptor_address_keys": [_address_json(desc.key) for desc in descriptors], "grid": grid, "metrics": metrics, "inventory": [_sha(ply, "ply", stage), _sha(sidecar, "semantic-sidecar", stage), _sha(metrics_path, "metrics", stage), {**_sha(png, "neutral-composite-png", stage), "width": CANVAS[0], "height": CANVAS[1], "views": ["front", "side", "three-quarter"], "mode": "RGB"}]})
-        manifest = {"format": FORMAT, "status": "success", "source_format": SOURCE_FORMAT, "source": {"format": SOURCE_FORMAT, "sha256": hashlib.sha256(data).hexdigest(), "document": form.source["document"], "namespace": form.source["namespace"], "resource_profile_id": form.source["resource_profile_id"], "reference_scale": form.reference_scale_raw}, "generator": {"samples_per_axis": samples, "padding": padding, "smooth_union": {"operator": "polynomial_cubic_smooth_min", "k": smooth_k, "fold_order": "full_address_key_ascending"}, "field_primitives": ["ellipsoid", "capsule", "linear-radius-tapered-segment"], "boundary": "disposable exploratory visual proof; not production geometry, SDF, collision, rig, topology, or Readiness evidence"}, "variants": records}
+        manifest = {"format": FORMAT, "status": "success", "source_format": SOURCE_FORMAT, "source": {"format": SOURCE_FORMAT, "sha256": hashlib.sha256(data).hexdigest(), "document": form.source["document"], "namespace": form.source["namespace"], "resource_profile_id": form.source["resource_profile_id"], "reference_scale": form.reference_scale_raw}, "generator": {"samples_per_axis": samples, "padding": padding, "smooth_union": {"operator": "polynomial_cubic_smooth_min", "k": smooth_k, "fold_order": "source_address_then_recipe_order"}, "field_primitives": ["ellipsoid", "capsule", "linear-radius-tapered-segment"], "field_recipes": ["hips", "pelvic-core", "chest", "waist", "pelvis-waist-bridge", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar", "limb-segment", "root-bridge", "joint-collar", "digitigrade-lower-leg", "paw-mass", "extremity-bridge", "tail-segment", "tail-root-bridge", "tail-root-collar"], "ownership": "recipe fields are source-owned and winner labels expose only source AddressKeys", "boundary": "disposable exploratory visual proof; not production geometry, SDF, collision, rig, topology, or Readiness evidence"}, "variants": records}
         (stage / "surface-preview-manifest.json").write_bytes(_canonical(manifest) + b"\n")
         expected_files = {"surface-preview-manifest.json"}
         expected_directories = set(VARIANT_IDS)
