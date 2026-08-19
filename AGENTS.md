@@ -7,6 +7,16 @@ runtime. Treat product intent, specifications, architecture, decisions,
 experiments, implementation status, and evidence as different kinds of
 information. Do not allow one kind to silently redefine another.
 
+## Active-runway discipline
+
+Before autonomous work, read the `Active runway` section at the top of
+`docs/project/status.md` and keep the named human checkpoint as the governing
+destination. Multiple small reviewed PRs may advance direct prerequisites, but
+the main thread must not substitute an internal experiment, evidence, governance,
+or infrastructure gate for that checkpoint. If reaching it would require
+reactivating a parked workstream or materially expanding the recorded scope,
+stop and ask Ben before taking the detour.
+
 ## Accepted governance and proposed transition guidance
 
 This file remains binding operational guidance under Accepted DR-0001 Revision

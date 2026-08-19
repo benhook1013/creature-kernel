@@ -7,9 +7,38 @@ Status date: 2026-08-19
 Exploratory executable prototype and semantic-contract integration. The
 foundation governance and the remaining product, specification, and architecture
 proposals remain provisional; the reviewed semantic-foundation directions in
-DR-0002/0006/0011/0012 are accepted. Current work is integrating the CK-KICK-012 Batch
-8/9/10/11/12/13 and CK-KICK-013 readiness/publication revisions while keeping later implementation gated rather than
-returning to confirmatory surface research.
+DR-0002/0006/0011/0012 are accepted. Earlier CK-KICK-012 and CK-KICK-013
+readiness/publication work remains recorded below; the `Active runway` section
+governs what resumes next.
+
+## Active runway
+
+Execution state: paused after the 2026-08-19 course correction; resume only on
+Ben's instruction.
+
+The next autonomous runway returns to visible creature-form progress. Its goal
+is to advance beyond the already-seen overlapping-primitives and disposable
+blob-like continuous-surface previews to a first materially more creature-like
+continuous procedural surface for the fixed stylized digitigrade-biped variants.
+The candidate should make the head/neck/torso/pelvis organization, connected
+limbs, digitigrade leg structure, extremities, tail, silhouette, and major
+junctions meaningfully appraisable. It is not expected to establish production
+topology, rigging, animation, IK, deformation, physics, or a final art style.
+
+The human checkpoint is a running browser gallery that presents the existing
+surface baseline beside the new fixed-variant results so Ben can judge the
+visible change. Multiple small, reviewed, direct-prerequisite PRs may be merged
+autonomously along this runway. Stop before merging the first PR that reaches
+the checkpoint and return to Ben with the viewer. If progress would require a
+new experiment, unrelated subsystem, or material scope expansion, stop and ask
+instead of silently replacing this checkpoint.
+
+EXP-0002 and its Gate B/freeze/runtime-attestation continuation are parked and
+non-blocking. They are not
+prerequisites for this visual runway and must not be resumed without Ben's
+explicit direction. The existing visual gallery, semantic body inputs,
+provisional form producer, and disposable surface-preview bridge are the
+starting foundation rather than milestones to rediscover.
 
 ## Current activation state
 
