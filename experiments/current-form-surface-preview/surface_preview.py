@@ -573,13 +573,13 @@ def _compound_fields(form: Form, descriptors: tuple[Descriptor, ...]) -> tuple[F
                 add(desc, "pelvis-waist-bridge", _segment("tapered-segment", anchor, centre - np.asarray([0.0, 0.43 * radii[1], 0.0]), _radius_from_shape(parent_shape) * 0.72, float(np.min(radii)) * 0.72))
         elif role == "head":
             centre, radii = source["center"], source["radii"]
-            cranium_centre = centre + np.asarray([0.0, 0.12 * radii[1], -0.05 * radii[2]])
-            cranium_radii = radii * np.asarray([0.90, 0.86, 0.90])
+            cranium_centre = centre + np.asarray([0.0, 0.10 * radii[1], -0.04 * radii[2]])
+            cranium_radii = radii * np.asarray([0.85, 1.00, 0.85])
             add(desc, "cranium", _ellipsoid(cranium_centre, cranium_radii))
-            add(desc, "muzzle", _ellipsoid(centre + np.asarray([0.0, -0.10 * radii[1], 0.72 * radii[2]]), radii * np.asarray([0.52, 0.34, 0.52])))
+            add(desc, "muzzle", _ellipsoid(centre + np.asarray([0.0, -0.10 * radii[1], 0.62 * radii[2]]), radii * np.asarray([0.50, 0.48, 0.50])))
             if parent is not None:
                 anchor = _parent_surface_anchor(parent, desc.point, form.reference_scale)
-                head_base = cranium_centre - np.asarray([0.0, 0.72 * cranium_radii[1], 0.0])
+                head_base = cranium_centre - np.asarray([0.0, 0.84 * cranium_radii[1], 0.0])
                 neck_radius = max(min(float(np.min(cranium_radii)), _radius_from_shape(_source_shape(parent, form.reference_scale))), 0.12)
                 add(desc, "head-base-bridge", _segment("tapered-segment", anchor, head_base, neck_radius * 0.82, neck_radius * 0.62))
         elif role == "neck":
@@ -589,9 +589,15 @@ def _compound_fields(form: Form, descriptors: tuple[Descriptor, ...]) -> tuple[F
             else:
                 start = desc.point.copy()
             end = (child.point if child is not None else desc.point).copy()
-            # Stop short of the head centre, leaving a collar-like transition
-            # rather than a neck capsule buried down in the torso.
-            end[1] -= 0.35
+            if child is not None:
+                child_shape = _source_shape(child, form.reference_scale)
+                child_head_radii = child_shape["radii"]
+                # Stop at the lower cranium boundary, leaving a connected
+                # collar-like transition rather than a neck capsule buried in
+                # the torso or through the head.
+                end[1] -= 0.70 * child_head_radii[1]
+            else:
+                end[1] -= 0.35
             radius = _radius_from_shape(source)
             add(desc, "tapered-neck", _segment("tapered-segment", start, end, radius * 1.05, radius * 0.78))
             add(desc, "neck-collar", _ellipsoid(start, np.asarray([radius * 1.18, radius * 0.72, radius * 1.18])))
