@@ -33,8 +33,8 @@ the checkpoint and return to Ben with the viewer. If progress would require a
 new experiment, unrelated subsystem, or material scope expansion, stop and ask
 instead of silently replacing this checkpoint.
 
-EXP-0002, its Gate B/freeze/runtime-attestation continuation, and the local
-`phase3/gate-b-final-freeze` branch are parked and non-blocking. They are not
+EXP-0002 and its Gate B/freeze/runtime-attestation continuation are parked and
+non-blocking. They are not
 prerequisites for this visual runway and must not be resumed without Ben's
 explicit direction. The existing visual gallery, semantic body inputs,
 provisional form producer, and disposable surface-preview bridge are the
