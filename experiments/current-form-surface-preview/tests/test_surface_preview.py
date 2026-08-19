@@ -79,7 +79,7 @@ class SurfacePreviewTests(unittest.TestCase):
         self.assertTrue(fields)
         self.assertTrue(all(field.owner.key in source_keys for field in fields))
         expected_recipes = {
-            "hips", "pelvic-core", "chest", "waist", "pelvis-waist-bridge",
+            "hips", "pelvic-core", "chest", "waist", "axial-trunk",
             "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar",
             "limb-segment", "root-bridge", "joint-collar", "digitigrade-lower-leg",
             "paw-mass", "extremity-bridge", "tail-segment", "tail-root-bridge",
@@ -87,6 +87,23 @@ class SurfacePreviewTests(unittest.TestCase):
         }
         self.assertEqual({field.recipe for field in fields}, expected_recipes)
         self.assertEqual(len(fields), 44)
+
+        pelvis = next(item for item in descriptors if item.key[3] == "pelvis")
+        torso = next(item for item in descriptors if item.key[3] == "torso")
+        trunk = next(item for item in fields if item.owner is torso and item.recipe == "axial-trunk")
+        pelvis_shape = surface_preview._source_shape(pelvis, form.reference_scale)
+        torso_shape = surface_preview._source_shape(torso, form.reference_scale)
+        np.testing.assert_allclose(
+            trunk.shape["from"],
+            surface_preview._parent_surface_anchor(pelvis, torso.point, form.reference_scale),
+        )
+        np.testing.assert_allclose(
+            trunk.shape["to"],
+            torso_shape["center"] - np.asarray([0.0, 0.55 * torso_shape["radii"][1], 0.0]),
+        )
+        self.assertAlmostEqual(float(trunk.shape["r0"]), 0.70 * float(pelvis_shape["radii"][0]), places=12)
+        self.assertAlmostEqual(float(trunk.shape["r1"]), 0.68 * float(torso_shape["radii"][0]), places=12)
+        self.assertIs(trunk.owner, torso)
 
         upper_arm = next(item for item in descriptors if item.key[3] == "upper_arm")
         bridge = next(item for item in fields if item.owner is upper_arm and item.recipe == "root-bridge")
