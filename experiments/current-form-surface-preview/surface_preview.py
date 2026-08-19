@@ -5,6 +5,11 @@ This module intentionally has no dependency on Creature Kernel runtime code.
 It is a small adapter for visual exploration: exact integer form coordinates
 are normalized by the supplied reference edge, analytic fields are folded in
 stable AddressKey order, and marching cubes produces a temporary mesh.
+
+The recipe compiler first derives a private backend-neutral hybrid guide graph
+from the validated descriptors. The current analytic-field implementation is
+only an adapter over those guides; the guide graph is not semantic data or a
+serialized contract.
 """
 
 from __future__ import annotations
@@ -157,6 +162,202 @@ class Field:
     owner: Descriptor
     recipe: str
     shape: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class _GuideAxes:
+    """The fixed prototype frame carried by every derived guide.
+
+    These are guide-space directions, not a public coordinate contract.  The
+    current experiment intentionally admits only +Y-up, +Z-forward and the
+    mirrored +/-X bilateral frame validated below.
+    """
+
+    lateral: tuple[float, float, float]
+    up: tuple[float, float, float]
+    forward: tuple[float, float, float]
+
+
+
+@dataclass(frozen=True)
+class _AxialGuide:
+    """Regional axial controls derived directly from pelvis and torso source data."""
+
+    owner: Descriptor
+    girdle_center: tuple[float, float, float] | None
+    girdle_radii: tuple[float, float, float] | None
+    pelvic_core_center: tuple[float, float, float] | None
+    pelvic_core_radii: tuple[float, float, float] | None
+    chest_center: tuple[float, float, float] | None
+    chest_radii: tuple[float, float, float] | None
+    waist_center: tuple[float, float, float] | None
+    waist_radii: tuple[float, float, float] | None
+    trunk_centerline: tuple[tuple[float, float, float], tuple[float, float, float]] | None
+    trunk_thickness: tuple[float, float] | None
+    axes: _GuideAxes
+
+    @property
+    def source_key(self) -> tuple[str, tuple[str, ...], str, str]:
+        return self.owner.key
+
+    @property
+    def provenance(self) -> dict[str, Any]:
+        return self.owner.provenance
+
+
+@dataclass(frozen=True)
+class _HeadGuide:
+    """Cranium/muzzle and neck-transition controls for the head region."""
+
+    head_owner: Descriptor
+    neck_owner: Descriptor
+    cranium_center: tuple[float, float, float]
+    cranium_radii: tuple[float, float, float]
+    muzzle_center: tuple[float, float, float]
+    muzzle_radii: tuple[float, float, float]
+    head_transition: tuple[tuple[float, float, float], tuple[float, float, float]]
+    head_transition_thickness: tuple[float, float]
+    neck_transition: tuple[tuple[float, float, float], tuple[float, float, float]]
+    neck_transition_thickness: tuple[float, float]
+    neck_collar_center: tuple[float, float, float]
+    neck_collar_radii: tuple[float, float, float]
+    axes: _GuideAxes
+
+    @property
+    def source_key(self) -> tuple[str, tuple[str, ...], str, str]:
+        return self.head_owner.key
+
+    @property
+    def provenance(self) -> dict[str, Any]:
+        return self.head_owner.provenance
+
+
+@dataclass(frozen=True)
+class _LimbGuide:
+    """One source limb centerline, profile, and explicit joint narrowing."""
+
+    owner: Descriptor
+    centerline: tuple[tuple[float, float, float], tuple[float, float, float]]
+    thickness_profile: tuple[float, float]
+    path_kind: str
+    joint_narrowing: tuple[float, float]
+    root_centerline: tuple[tuple[float, float, float], tuple[float, float, float]] | None
+    root_thickness: tuple[float, float] | None
+    hip_centerline: tuple[tuple[float, float, float], tuple[float, float, float]] | None
+    hip_thickness: tuple[float, float] | None
+    shoulder_center: tuple[float, float, float] | None
+    shoulder_radii: tuple[float, float, float] | None
+    joint_center: tuple[float, float, float] | None
+    joint_radii: tuple[float, float, float] | None
+    lower_leg_centerline: tuple[tuple[float, float, float], tuple[float, float, float]] | None
+    lower_leg_thickness: tuple[float, float] | None
+    axes: _GuideAxes
+
+    @property
+    def source_key(self) -> tuple[str, tuple[str, ...], str, str]:
+        return self.owner.key
+
+    @property
+    def provenance(self) -> dict[str, Any]:
+        return self.owner.provenance
+
+
+@dataclass(frozen=True)
+class _PawGuide:
+    """Paw and forefoot controls for one source hand or foot."""
+
+    owner: Descriptor
+    center: tuple[float, float, float]
+    radii: tuple[float, float, float]
+    paw_center: tuple[float, float, float]
+    paw_radii: tuple[float, float, float]
+    forefoot_center: tuple[float, float, float] | None
+    forefoot_radii: tuple[float, float, float] | None
+    attachment_centerline: tuple[tuple[float, float, float], tuple[float, float, float]] | None
+    attachment_radius: float | None
+    attachment_kind: str | None
+    axes: _GuideAxes
+
+    @property
+    def source_key(self) -> tuple[str, tuple[str, ...], str, str]:
+        return self.owner.key
+
+    @property
+    def provenance(self) -> dict[str, Any]:
+        return self.owner.provenance
+
+
+@dataclass(frozen=True)
+class _TailGuide:
+    """Tail centerline and taper controls for one source tail descriptor."""
+
+    owner: Descriptor
+    centerline: tuple[tuple[float, float, float], tuple[float, float, float]]
+    taper: tuple[float, float]
+    extension_centerline: tuple[tuple[float, float, float], tuple[float, float, float]] | None
+    extension_taper: tuple[float, float] | None
+    cap_center: tuple[float, float, float] | None
+    cap_radii: tuple[float, float, float] | None
+    root_attachment_centerline: tuple[tuple[float, float, float], tuple[float, float, float]] | None
+    root_attachment_taper: tuple[float, float] | None
+    root_collar_center: tuple[float, float, float] | None
+    root_collar_radii: tuple[float, float, float] | None
+    axes: _GuideAxes
+
+    @property
+    def source_key(self) -> tuple[str, tuple[str, ...], str, str]:
+        return self.owner.key
+
+    @property
+    def provenance(self) -> dict[str, Any]:
+        return self.owner.provenance
+
+
+@dataclass(frozen=True)
+class _GuideTopology:
+    """Stable source-owned topology and axes for one validated variant."""
+
+    owner_keys: tuple[tuple[str, tuple[str, ...], str, str], ...]
+    parent_edges: tuple[tuple[tuple[str, tuple[str, ...], str, str], tuple[str, tuple[str, ...], str, str]], ...]
+    bilateral_pairs: tuple[tuple[tuple[str, tuple[str, ...], str, str], tuple[str, tuple[str, ...], str, str]], ...]
+    axes: _GuideAxes
+
+
+@dataclass(frozen=True)
+class _HybridGuide:
+    """Private regional guide graph derived from one fixed-form variant."""
+
+    topology: _GuideTopology
+    source_descriptors: tuple[Descriptor, ...]
+    axial_guides: tuple[_AxialGuide, ...]
+    head_guide: _HeadGuide
+    limb_guides: tuple[_LimbGuide, ...]
+    paw_guides: tuple[_PawGuide, ...]
+    tail_guides: tuple[_TailGuide, ...]
+
+    @property
+    def source_owners(self) -> tuple[Descriptor, ...]:
+        return self.source_descriptors
+
+    @property
+    def axial(self) -> tuple[_AxialGuide, ...]:
+        return self.axial_guides
+
+    @property
+    def limbs(self) -> tuple[_LimbGuide, ...]:
+        return self.limb_guides
+
+    @property
+    def paws(self) -> tuple[_PawGuide, ...]:
+        return self.paw_guides
+
+    @property
+    def head(self) -> _HeadGuide:
+        return self.head_guide
+
+    @property
+    def tail(self) -> tuple[_TailGuide, ...]:
+        return self.tail_guides
 
 
 @dataclass(frozen=True)
@@ -318,6 +519,66 @@ def _ellipsoid(center: np.ndarray, radii: np.ndarray) -> dict[str, Any]:
 def _segment(name: str, start: np.ndarray, end: np.ndarray, r0: float, r1: float | None = None) -> dict[str, Any]:
     radius_end = r0 if r1 is None else r1
     return {"name": name, "from": np.asarray(start, dtype=np.float64), "to": np.asarray(end, dtype=np.float64), "r0": float(r0), "r1": float(radius_end)}
+
+
+_FIXED_GUIDE_AXES = _GuideAxes(
+    lateral=(1.0, 0.0, 0.0),
+    up=(0.0, 1.0, 0.0),
+    forward=(0.0, 0.0, 1.0),
+)
+_LIMB_JOINT_NARROWING = {
+    "upper_arm": 0.86,
+    "forearm": 0.90,
+    "thigh": 0.84,
+    "shin": 0.72,
+}
+
+
+def _guide_point(value: np.ndarray | tuple[float, float, float], where: str) -> tuple[float, float, float]:
+    point = tuple(float(item) for item in value)
+    if len(point) != 3 or not all(math.isfinite(item) for item in point):
+        _fail(f"{where} must be a finite three-vector")
+    return point
+
+
+def _guide_radii(value: np.ndarray | tuple[float, float, float], where: str) -> tuple[float, float, float]:
+    radii = _guide_point(value, where)
+    if any(item <= 0.0 for item in radii):
+        _fail(f"{where} must contain positive values")
+    return radii
+
+
+def _guide_profile(value: tuple[float, ...], where: str) -> tuple[float, ...]:
+    profile = tuple(float(item) for item in value)
+    if not profile or not all(math.isfinite(item) and item > 0.0 for item in profile):
+        _fail(f"{where} must contain finite positive values")
+    return profile
+
+
+def _guide_path(
+    start: np.ndarray | tuple[float, float, float],
+    end: np.ndarray | tuple[float, float, float],
+    profile: tuple[float, ...],
+    where: str,
+) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+    path = (_guide_point(start, f"{where}.start"), _guide_point(end, f"{where}.end"))
+    if path[0] == path[1]:
+        _fail(f"{where} must not be zero length")
+    _guide_profile(profile, f"{where}.profile")
+    return path
+
+
+def _guide_topology(descriptors: tuple[Descriptor, ...]) -> _GuideTopology:
+    by_role = {(desc.key[1], desc.key[3]): desc for desc in descriptors}
+    owner_keys = tuple(desc.key for desc in descriptors)
+    parent_edges = tuple(
+        (desc.parent, desc.key) for desc in descriptors if desc.parent is not None
+    )
+    bilateral_pairs = tuple(
+        (by_role[("left",), role].key, by_role[("right",), role].key)
+        for role in ("upper_arm", "forearm", "hand", "thigh", "shin", "foot")
+    )
+    return _GuideTopology(owner_keys, parent_edges, bilateral_pairs, _FIXED_GUIDE_AXES)
 
 
 def _field(points: np.ndarray, field: Field | Descriptor, scale: float | None = None) -> np.ndarray:
@@ -535,213 +796,437 @@ def _validate_recipe_convention(descriptors: tuple[Descriptor, ...], scale: floa
             _fail(f"fixed-fixture tail binding is invalid for {_key_text(descriptor.key)}")
 
 
-def _compound_fields(form: Form, descriptors: tuple[Descriptor, ...]) -> tuple[Field, ...]:
-    """Expand fixed roles into deterministic source-owned analytic recipes.
-
-    The recipes are intentionally shared by all variants.  Variant differences
-    remain in the source descriptor dimensions supplied by the producer.
-    """
+def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _HybridGuide:
+    """Derive regional guide controls directly from validated source data."""
 
     _validate_recipe_convention(descriptors, form.reference_scale)
     by_key = {desc.key: desc for desc in descriptors}
-    children = _descriptor_children(descriptors)
-    fields: list[Field] = []
+    by_role = {(desc.key[1], desc.key[3]): desc for desc in descriptors}
 
-    def add(owner: Descriptor, recipe: str, shape: dict[str, Any]) -> None:
-        for value in shape.values():
-            if isinstance(value, np.ndarray) and (value.ndim != 1 or value.shape[0] != 3 or not np.all(np.isfinite(value))):
-                _fail(f"recipe {recipe!r} produced a non-finite vector")
-        if shape["name"] != "ellipsoid" and np.linalg.norm(shape["to"] - shape["from"]) <= 1e-12:
-            _fail(f"recipe {recipe!r} produced a zero-length segment")
-        fields.append(Field(owner, recipe, shape))
+    def item(anchors: tuple[str, ...], role: str) -> Descriptor:
+        return by_role[(anchors, role)]
 
+    def path_source(desc: Descriptor) -> dict[str, Any]:
+        source = _source_shape(desc, form.reference_scale)
+        if source["name"] not in {"capsule", "tapered-segment"}:
+            _fail(f"guide path source is invalid for {_key_text(desc.key)}")
+        return source
+
+    pelvis = item((), "pelvis")
+    torso = item((), "torso")
+    neck = item((), "neck")
+    head = item((), "head")
+    pelvis_source = _source_shape(pelvis, form.reference_scale)
+    torso_source = _source_shape(torso, form.reference_scale)
+    head_source = _source_shape(head, form.reference_scale)
+    neck_source = path_source(neck)
+
+    pelvis_center = _guide_point(pelvis_source["center"], "pelvis.center")
+    pelvis_radii = _guide_radii(pelvis_source["radii"], "pelvis.radii")
+    torso_center = _guide_point(torso_source["center"], "torso.center")
+    torso_radii = _guide_radii(torso_source["radii"], "torso.radii")
+    head_center = _guide_point(head_source["center"], "head.center")
+    head_radii = _guide_radii(head_source["radii"], "head.radii")
+
+    trunk_start = _parent_surface_anchor(pelvis, torso.point, form.reference_scale)
+    trunk_end = torso_source["center"] - np.asarray([0.0, 0.55 * torso_source["radii"][1], 0.0])
+    axial_guides = (
+        _AxialGuide(
+            owner=pelvis,
+            girdle_center=pelvis_center,
+            girdle_radii=_guide_radii(
+                pelvis_source["radii"] * np.asarray([1.0, 0.88, 1.0]),
+                "pelvis.girdle_radii",
+            ),
+            pelvic_core_center=_guide_point(
+                pelvis_source["center"] + np.asarray([0.0, 0.08 * pelvis_source["radii"][1], 0.0]),
+                "pelvis.pelvic_core_center",
+            ),
+            pelvic_core_radii=_guide_radii(
+                pelvis_source["radii"] * np.asarray([0.92, 0.76, 0.94]),
+                "pelvis.pelvic_core_radii",
+            ),
+            chest_center=None,
+            chest_radii=None,
+            waist_center=None,
+            waist_radii=None,
+            trunk_centerline=None,
+            trunk_thickness=None,
+            axes=_FIXED_GUIDE_AXES,
+        ),
+        _AxialGuide(
+            owner=torso,
+            girdle_center=None,
+            girdle_radii=None,
+            pelvic_core_center=None,
+            pelvic_core_radii=None,
+            chest_center=_guide_point(
+                torso_source["center"] + np.asarray([0.0, 0.25 * torso_source["radii"][1], 0.0]),
+                "torso.chest_center",
+            ),
+            chest_radii=_guide_radii(
+                torso_source["radii"] * np.asarray([0.92, 0.70, 1.02]),
+                "torso.chest_radii",
+            ),
+            waist_center=_guide_point(
+                torso_source["center"] + np.asarray([0.0, -0.28 * torso_source["radii"][1], 0.0]),
+                "torso.waist_center",
+            ),
+            waist_radii=_guide_radii(
+                torso_source["radii"] * np.asarray([0.78, 0.58, 0.88]),
+                "torso.waist_radii",
+            ),
+            trunk_centerline=_guide_path(
+                trunk_start,
+                trunk_end,
+                (
+                    float(pelvis_source["radii"][0]) * 0.70,
+                    float(torso_source["radii"][0]) * 0.68,
+                ),
+                "torso.trunk",
+            ),
+            trunk_thickness=(
+                float(pelvis_source["radii"][0]) * 0.70,
+                float(torso_source["radii"][0]) * 0.68,
+            ),
+            axes=_FIXED_GUIDE_AXES,
+        ),
+    )
+
+    cranium_center = _guide_point(
+        head_source["center"] + np.asarray([0.0, 0.10 * head_source["radii"][1], -0.04 * head_source["radii"][2]]),
+        "head.cranium_center",
+    )
+    cranium_radii = _guide_radii(
+        head_source["radii"] * np.asarray([0.85, 1.00, 0.85]),
+        "head.cranium_radii",
+    )
+    muzzle_center = _guide_point(
+        head_source["center"] + np.asarray([0.0, -0.10 * head_source["radii"][1], 0.62 * head_source["radii"][2]]),
+        "head.muzzle_center",
+    )
+    muzzle_radii = _guide_radii(
+        head_source["radii"] * np.asarray([0.50, 0.48, 0.50]),
+        "head.muzzle_radii",
+    )
+    head_anchor = _parent_surface_anchor(neck, head.point, form.reference_scale)
+    head_base = _guide_point(
+        np.asarray(cranium_center) - np.asarray([0.0, 0.84 * cranium_radii[1], 0.0]),
+        "head.transition_end",
+    )
+    neck_radius = max(min(cranium_radii), _radius_from_shape(neck_source), 0.12)
+    neck_start = _parent_surface_anchor(torso, neck.point, form.reference_scale)
+    neck_end = np.asarray(head.point, dtype=np.float64).copy()
+    neck_end[1] -= 0.70 * head_source["radii"][1]
+    neck_guide = _guide_path(
+        neck_start,
+        neck_end,
+        (float(_radius_from_shape(neck_source) * 1.05), float(_radius_from_shape(neck_source) * 0.78)),
+        "neck.transition",
+    )
+    head_guide = _HeadGuide(
+        head_owner=head,
+        neck_owner=neck,
+        cranium_center=cranium_center,
+        cranium_radii=cranium_radii,
+        muzzle_center=muzzle_center,
+        muzzle_radii=muzzle_radii,
+        head_transition=_guide_path(
+            head_anchor,
+            head_base,
+            (neck_radius * 0.82, neck_radius * 0.62),
+            "head.transition",
+        ),
+        head_transition_thickness=(neck_radius * 0.82, neck_radius * 0.62),
+        neck_transition=neck_guide,
+        neck_transition_thickness=(float(_radius_from_shape(neck_source) * 1.05), float(_radius_from_shape(neck_source) * 0.78)),
+        neck_collar_center=_guide_point(neck_start, "neck.collar_center"),
+        neck_collar_radii=_guide_radii(
+            (float(_radius_from_shape(neck_source) * 1.18), float(_radius_from_shape(neck_source) * 0.72), float(_radius_from_shape(neck_source) * 1.18)),
+            "neck.collar_radii",
+        ),
+        axes=_FIXED_GUIDE_AXES,
+    )
+
+    limb_guides: list[_LimbGuide] = []
     for desc in descriptors:
         role = desc.key[3]
-        source = _source_shape(desc, form.reference_scale)
+        if role not in _LIMB_JOINT_NARROWING:
+            continue
+        source = path_source(desc)
+        start = _guide_point(source["from"], f"{_key_text(desc.key)}.start")
+        end = _guide_point(source["to"], f"{_key_text(desc.key)}.end")
+        thickness = _guide_profile((float(source["r0"]), float(source["r1"])), f"{_key_text(desc.key)}.thickness")
+        root_centerline = None
+        root_thickness = None
+        hip_centerline = None
+        hip_thickness = None
+        shoulder_center = None
+        shoulder_radii = None
+        joint_center = None
+        joint_radii = None
         parent = by_key.get(desc.parent) if desc.parent is not None else None
-        if role == "pelvis":
-            centre, radii = source["center"], source["radii"]
-            add(desc, "hips", _ellipsoid(centre, radii * np.asarray([1.0, 0.88, 1.0])))
-            add(desc, "pelvic-core", _ellipsoid(centre + np.asarray([0.0, 0.08 * radii[1], 0.0]), radii * np.asarray([0.92, 0.76, 0.94])))
-        elif role == "torso":
-            centre, radii = source["center"], source["radii"]
-            add(desc, "chest", _ellipsoid(centre + np.asarray([0.0, 0.25 * radii[1], 0.0]), radii * np.asarray([0.92, 0.70, 1.02])))
-            add(desc, "waist", _ellipsoid(centre + np.asarray([0.0, -0.28 * radii[1], 0.0]), radii * np.asarray([0.78, 0.58, 0.88])))
-            if parent is not None:
-                parent_shape = _source_shape(parent, form.reference_scale)
-                anchor = _parent_surface_anchor(parent, desc.point, form.reference_scale)
-                add(
-                    desc,
-                    "axial-trunk",
-                    _segment(
-                        "tapered-segment",
-                        anchor,
-                        centre - np.asarray([0.0, 0.55 * radii[1], 0.0]),
-                        float(parent_shape["radii"][0]) * 0.70,
-                        float(radii[0]) * 0.68,
-                    ),
-                )
-        elif role == "head":
-            centre, radii = source["center"], source["radii"]
-            cranium_centre = centre + np.asarray([0.0, 0.10 * radii[1], -0.04 * radii[2]])
-            cranium_radii = radii * np.asarray([0.85, 1.00, 0.85])
-            add(desc, "cranium", _ellipsoid(cranium_centre, cranium_radii))
-            add(desc, "muzzle", _ellipsoid(centre + np.asarray([0.0, -0.10 * radii[1], 0.62 * radii[2]]), radii * np.asarray([0.50, 0.48, 0.50])))
-            if parent is not None:
-                anchor = _parent_surface_anchor(parent, desc.point, form.reference_scale)
-                head_base = cranium_centre - np.asarray([0.0, 0.84 * cranium_radii[1], 0.0])
-                neck_radius = max(min(float(np.min(cranium_radii)), _radius_from_shape(_source_shape(parent, form.reference_scale))), 0.12)
-                add(desc, "head-base-bridge", _segment("tapered-segment", anchor, head_base, neck_radius * 0.82, neck_radius * 0.62))
-        elif role == "neck":
-            child = _child_for(desc, "head", children)
-            if parent is not None:
-                start = _parent_surface_anchor(parent, desc.point, form.reference_scale)
-            else:
-                start = desc.point.copy()
-            end = (child.point if child is not None else desc.point).copy()
-            if child is not None:
-                child_shape = _source_shape(child, form.reference_scale)
-                child_head_radii = child_shape["radii"]
-                # Stop at the lower cranium boundary, leaving a connected
-                # collar-like transition rather than a neck capsule buried in
-                # the torso or through the head.
-                end[1] -= 0.70 * child_head_radii[1]
-            else:
-                end[1] -= 0.35
-            radius = _radius_from_shape(source)
-            add(desc, "tapered-neck", _segment("tapered-segment", start, end, radius * 1.05, radius * 0.78))
-            add(desc, "neck-collar", _ellipsoid(start, np.asarray([radius * 1.18, radius * 0.72, radius * 1.18])))
-        elif role in {"upper_arm", "forearm", "thigh", "shin"}:
-            # Preserve the producer's endpoint semantics for the main limb
-            # while adding source-owned collars/bridges at its joints.
-            add(desc, "limb-segment", source)
-            start = source["from"] if source["name"] != "ellipsoid" else desc.point
-            radius = _radius_from_shape(source)
-            if role in {"upper_arm", "thigh"} and parent is not None:
-                anchor = _parent_surface_anchor(parent, start, form.reference_scale)
-                add(desc, "root-bridge", _segment("tapered-segment", anchor, start, radius * 1.45, radius * 1.12))
-                if role == "thigh":
-                    # Extend a broad pelvis-side root into the upper thigh so
-                    # the leg tapers out of the hip silhouette instead of
-                    # hanging from a narrow spherical collar.
-                    transition_end = start + 0.35 * (source["to"] - start)
-                    add(
-                        desc,
-                        "hip-transition",
-                        _segment(
-                            "tapered-segment",
-                            anchor,
-                            transition_end,
-                            radius * 1.25,
-                            radius * 1.15,
-                        ),
-                    )
-            if role == "upper_arm":
-                # Give the fixed fixture a source-owned deltoid mass around
-                # each arm root so the limb emerges from the chest silhouette
-                # instead of reading as a narrow rod-and-ball attachment.
-                add(
-                    desc,
-                    "shoulder-mass",
-                    _ellipsoid(
-                        start + np.asarray([0.0, -0.20 * radius, 0.0]),
-                        radius * np.asarray([1.30, 1.55, 1.55]),
-                    ),
-                )
-            if role != "forearm":
-                collar_scale = 1.32 if role in {"upper_arm", "thigh"} else 1.20
-                add(desc, "joint-collar", _ellipsoid(start, np.full(3, radius * collar_scale)))
-            if role == "shin":
-                # The fixture's shin-to-foot diagonal is the only supported
-                # digitigrade convention; this adds a readable hock mass.
-                end = source["to"]
-                add(desc, "digitigrade-lower-leg", _segment("tapered-segment", start, end, radius * 1.16, radius * 0.72))
-        elif role in {"hand", "foot"}:
-            centre, radii = source["center"], source["radii"]
-            if role == "hand":
-                add(desc, "paw-mass", _ellipsoid(centre + np.asarray([0.0, 0.0, 0.10 * radii[2]]), radii * np.asarray([1.08, 0.94, 1.22])))
-            else:
-                add(desc, "paw-mass", _ellipsoid(centre + np.asarray([0.0, -0.12 * radii[1], -0.12 * radii[2]]), radii * np.asarray([1.15, 0.62, 0.62])))
-                add(desc, "foot-front", _ellipsoid(centre + np.asarray([0.0, -0.16 * radii[1], 0.52 * radii[2]]), radii * np.asarray([1.18, 0.50, 0.50])))
-            if parent is not None:
-                parent_shape = _source_shape(parent, form.reference_scale)
-                anchor = _parent_surface_anchor(parent, centre, form.reference_scale)
-                add(desc, "extremity-bridge", _segment("capsule", anchor, centre, max(_radius_from_shape(parent_shape) * 0.72, float(np.min(radii)) * 0.62)))
-        elif role in {"tail_root", "tail_tip"}:
-            source_start, source_end = source["from"], source["to"]
-            if role == "tail_tip":
-                # The two semantic descriptors retain the fixed straight-tail
-                # convention while the disposable display recipe carries the
-                # distal taper far enough beyond the torso to remain readable.
-                axis = source_end - source_start
-                proximal_radius = source["r0"] * 1.35
-                mid_radius = source["r0"] * 0.90
-                add(
-                    desc,
-                    "tail-segment",
-                    _segment(
-                        "tapered-segment",
-                        source_start,
-                        source_end,
-                        proximal_radius,
-                        mid_radius,
-                    ),
-                )
-                add(
-                    desc,
-                    "tail-tip-extension",
-                    _segment(
-                        "tapered-segment",
-                        source_end,
-                        source_end + 0.50 * axis,
-                        mid_radius,
-                        source["r0"] * 0.55,
-                    ),
-                )
-                add(
-                    desc,
-                    "tail-tip-cap",
-                    _ellipsoid(
-                        source_end + 0.50 * axis,
-                        np.full(3, source["r0"] * 0.70),
-                    ),
-                )
-            else:
-                add(
-                    desc,
-                    "tail-segment",
-                    _segment(
-                        "tapered-segment",
-                        source_start,
-                        source_end,
-                        source["r0"] * 1.15,
-                        source["r1"] * 1.35,
-                    ),
-                )
-            if role == "tail_root" and parent is not None:
-                # The producer's root segment intentionally starts at the
-                # pelvis reference point.  Anchor the visible root continuity
-                # toward its distal direction instead of creating a zero-
-                # length centre-to-centre bridge.
-                anchor = _parent_surface_anchor(parent, source_end, form.reference_scale)
-                add(desc, "tail-root-bridge", _segment("tapered-segment", anchor, source_end, source["r0"] * 1.28, source["r0"]))
-                add(
-                    desc,
-                    "tail-root-collar",
-                    _ellipsoid(
-                        source_end,
-                        source["r1"] * np.asarray([1.50, 1.50, 1.80]),
-                    ),
-                )
-        else:
-            # Validation currently admits a closed set of roles, but retain a
-            # safe source-field fallback if a future fixture adds a role.
-            add(desc, "source", source)
+        radius = _radius_from_shape(source)
+        if role in {"upper_arm", "thigh"} and parent is not None:
+            anchor = _parent_surface_anchor(parent, source["from"], form.reference_scale)
+            root_centerline = _guide_path(anchor, start, (radius * 1.45, radius * 1.12), f"{_key_text(desc.key)}.root")
+            root_thickness = (radius * 1.45, radius * 1.12)
+            if role == "thigh":
+                transition_end = source["from"] + 0.35 * (source["to"] - source["from"])
+                hip_centerline = _guide_path(anchor, transition_end, (radius * 1.25, radius * 1.15), f"{_key_text(desc.key)}.hip")
+                hip_thickness = (radius * 1.25, radius * 1.15)
+        if role == "upper_arm":
+            shoulder_center = _guide_point(source["from"] + np.asarray([0.0, -0.20 * radius, 0.0]), f"{_key_text(desc.key)}.shoulder_center")
+            shoulder_radii = _guide_radii(radius * np.asarray([1.30, 1.55, 1.55]), f"{_key_text(desc.key)}.shoulder_radii")
+        if role != "forearm":
+            collar_scale = 1.32 if role in {"upper_arm", "thigh"} else 1.20
+            joint_center = start
+            joint_radii = _guide_radii((radius * collar_scale, radius * collar_scale, radius * collar_scale), f"{_key_text(desc.key)}.joint_radii")
+        lower_leg_centerline = None
+        lower_leg_thickness = None
+        if role == "shin":
+            lower_leg_centerline = _guide_path(start, end, (radius * 1.16, radius * 0.72), f"{_key_text(desc.key)}.lower_leg")
+            lower_leg_thickness = (radius * 1.16, radius * 0.72)
+        limb_guides.append(
+            _LimbGuide(
+                owner=desc,
+                centerline=_guide_path(start, end, thickness, f"{_key_text(desc.key)}.centerline"),
+                thickness_profile=(thickness[0], thickness[1]),
+                path_kind=str(source["name"]),
+                joint_narrowing=(1.0, float(_LIMB_JOINT_NARROWING[role])),
+                root_centerline=root_centerline,
+                root_thickness=root_thickness,
+                hip_centerline=hip_centerline,
+                hip_thickness=hip_thickness,
+                shoulder_center=shoulder_center,
+                shoulder_radii=shoulder_radii,
+                joint_center=joint_center,
+                joint_radii=joint_radii,
+                lower_leg_centerline=lower_leg_centerline,
+                lower_leg_thickness=lower_leg_thickness,
+                axes=_FIXED_GUIDE_AXES,
+            )
+        )
 
+    paw_guides: list[_PawGuide] = []
+    for desc in descriptors:
+        role = desc.key[3]
+        if role not in {"hand", "foot"}:
+            continue
+        source = _source_shape(desc, form.reference_scale)
+        if source["name"] != "ellipsoid":
+            _fail(f"paw source is not an ellipsoid for {_key_text(desc.key)}")
+        centre = _guide_point(source["center"], f"{_key_text(desc.key)}.center")
+        radii = _guide_radii(source["radii"], f"{_key_text(desc.key)}.radii")
+        if role == "hand":
+            paw_center = _guide_point(source["center"] + np.asarray([0.0, 0.0, 0.10 * source["radii"][2]]), f"{_key_text(desc.key)}.paw_center")
+            paw_radii = _guide_radii(source["radii"] * np.asarray([1.08, 0.94, 1.22]), f"{_key_text(desc.key)}.paw_radii")
+            forefoot_center = None
+            forefoot_radii = None
+        else:
+            paw_center = _guide_point(source["center"] + np.asarray([0.0, -0.12 * source["radii"][1], -0.12 * source["radii"][2]]), f"{_key_text(desc.key)}.paw_center")
+            paw_radii = _guide_radii(source["radii"] * np.asarray([1.15, 0.62, 0.62]), f"{_key_text(desc.key)}.paw_radii")
+            forefoot_center = _guide_point(source["center"] + np.asarray([0.0, -0.16 * source["radii"][1], 0.52 * source["radii"][2]]), f"{_key_text(desc.key)}.forefoot_center")
+            forefoot_radii = _guide_radii(source["radii"] * np.asarray([1.18, 0.50, 0.50]), f"{_key_text(desc.key)}.forefoot_radii")
+        parent = by_key.get(desc.parent) if desc.parent is not None else None
+        attachment_centerline = None
+        attachment_radius = None
+        attachment_kind = None
+        if parent is not None:
+            parent_source = _source_shape(parent, form.reference_scale)
+            attachment_centerline = _guide_path(
+                _parent_surface_anchor(parent, source["center"], form.reference_scale),
+                source["center"],
+                (max(_radius_from_shape(parent_source) * 0.72, float(np.min(source["radii"])) * 0.62),),
+                f"{_key_text(desc.key)}.attachment",
+            )
+            attachment_radius = max(_radius_from_shape(parent_source) * 0.72, float(np.min(source["radii"])) * 0.62)
+            attachment_kind = "capsule"
+        paw_guides.append(
+            _PawGuide(
+                owner=desc,
+                center=centre,
+                radii=radii,
+                paw_center=paw_center,
+                paw_radii=paw_radii,
+                forefoot_center=forefoot_center,
+                forefoot_radii=forefoot_radii,
+                attachment_centerline=attachment_centerline,
+                attachment_radius=attachment_radius,
+                attachment_kind=attachment_kind,
+                axes=_FIXED_GUIDE_AXES,
+            )
+        )
+
+    tail_guides: list[_TailGuide] = []
+    for desc in descriptors:
+        role = desc.key[3]
+        if role not in {"tail_root", "tail_tip"}:
+            continue
+        source = path_source(desc)
+        start = _guide_point(source["from"], f"{_key_text(desc.key)}.start")
+        end = _guide_point(source["to"], f"{_key_text(desc.key)}.end")
+        extension_centerline = None
+        extension_taper = None
+        cap_center = None
+        cap_radii = None
+        root_attachment_centerline = None
+        root_attachment_taper = None
+        root_collar_center = None
+        root_collar_radii = None
+        if role == "tail_tip":
+            axis = source["to"] - source["from"]
+            extension_end = source["to"] + 0.50 * axis
+            extension_centerline = _guide_path(source["to"], extension_end, (float(source["r0"]) * 0.90, float(source["r0"]) * 0.55), f"{_key_text(desc.key)}.extension")
+            extension_taper = (float(source["r0"]) * 0.90, float(source["r0"]) * 0.55)
+            cap_center = _guide_point(extension_end, f"{_key_text(desc.key)}.cap_center")
+            cap_radii = _guide_radii((float(source["r0"]) * 0.70,) * 3, f"{_key_text(desc.key)}.cap_radii")
+            taper = (float(source["r0"]) * 1.35, float(source["r0"]) * 0.90)
+        else:
+            taper = (float(source["r0"]) * 1.15, float(source["r1"]) * 1.35)
+            parent = by_key.get(desc.parent) if desc.parent is not None else None
+            if parent is not None:
+                anchor = _parent_surface_anchor(parent, source["to"], form.reference_scale)
+                root_attachment_centerline = _guide_path(anchor, source["to"], (float(source["r0"]) * 1.28, float(source["r0"])), f"{_key_text(desc.key)}.root_attachment")
+                root_attachment_taper = (float(source["r0"]) * 1.28, float(source["r0"]))
+                root_collar_center = _guide_point(source["to"], f"{_key_text(desc.key)}.root_collar_center")
+                root_collar_radii = _guide_radii(source["r1"] * np.asarray([1.50, 1.50, 1.80]), f"{_key_text(desc.key)}.root_collar_radii")
+        tail_guides.append(
+            _TailGuide(
+                owner=desc,
+                centerline=_guide_path(start, end, taper, f"{_key_text(desc.key)}.centerline"),
+                taper=taper,
+                extension_centerline=extension_centerline,
+                extension_taper=extension_taper,
+                cap_center=cap_center,
+                cap_radii=cap_radii,
+                root_attachment_centerline=root_attachment_centerline,
+                root_attachment_taper=root_attachment_taper,
+                root_collar_center=root_collar_center,
+                root_collar_radii=root_collar_radii,
+                axes=_FIXED_GUIDE_AXES,
+            )
+        )
+
+    return _HybridGuide(
+        topology=_guide_topology(descriptors),
+        source_descriptors=descriptors,
+        axial_guides=tuple(axial_guides),
+        head_guide=head_guide,
+        limb_guides=tuple(limb_guides),
+        paw_guides=tuple(paw_guides),
+        tail_guides=tuple(tail_guides),
+    )
+
+
+def _compile_hybrid_guide(guide: _HybridGuide) -> tuple[Field, ...]:
+    """Adapt regional guides to the disposable analytic-field backend."""
+
+    fields: list[Field] = []
+    axial_by_owner = {item.owner.key: item for item in guide.axial_guides}
+    limbs_by_owner = {item.owner.key: item for item in guide.limb_guides}
+    paws_by_owner = {item.owner.key: item for item in guide.paw_guides}
+    tails_by_owner = {item.owner.key: item for item in guide.tail_guides}
+    head = guide.head_guide
+
+    def add_ellipsoid(owner: Descriptor, recipe: str, center: tuple[float, float, float], radii: tuple[float, float, float]) -> None:
+        values = (*center, *radii)
+        if not all(math.isfinite(value) for value in values) or any(value <= 0.0 for value in radii):
+            _fail(f"guide field {recipe!r} has invalid mass data")
+        fields.append(Field(owner, recipe, _ellipsoid(np.asarray(center), np.asarray(radii))))
+
+    def add_path(owner: Descriptor, recipe: str, path: tuple[tuple[float, float, float], tuple[float, float, float]], profile: tuple[float, ...], primitive: str) -> None:
+        values = (*path[0], *path[1], *profile)
+        if not all(math.isfinite(value) for value in values) or any(value <= 0.0 for value in profile) or path[0] == path[1]:
+            _fail(f"guide field {recipe!r} has invalid path data")
+        if primitive not in {"capsule", "tapered-segment"}:
+            _fail(f"guide field {recipe!r} has invalid path primitive")
+        fields.append(Field(owner, recipe, _segment(primitive, np.asarray(path[0]), np.asarray(path[1]), profile[0], profile[-1])))
+
+    def add_axial(desc: Descriptor, guide_item: _AxialGuide) -> None:
+        if guide_item.girdle_center is not None:
+            add_ellipsoid(desc, "hips", guide_item.girdle_center, guide_item.girdle_radii)  # type: ignore[arg-type]
+            add_ellipsoid(desc, "pelvic-core", guide_item.pelvic_core_center, guide_item.pelvic_core_radii)  # type: ignore[arg-type]
+        if guide_item.chest_center is not None:
+            add_ellipsoid(desc, "chest", guide_item.chest_center, guide_item.chest_radii)  # type: ignore[arg-type]
+            add_ellipsoid(desc, "waist", guide_item.waist_center, guide_item.waist_radii)  # type: ignore[arg-type]
+            add_path(desc, "axial-trunk", guide_item.trunk_centerline, guide_item.trunk_thickness, "tapered-segment")  # type: ignore[arg-type]
+
+    def add_head(desc: Descriptor) -> None:
+        add_ellipsoid(desc, "cranium", head.cranium_center, head.cranium_radii)
+        add_ellipsoid(desc, "muzzle", head.muzzle_center, head.muzzle_radii)
+        add_path(desc, "head-base-bridge", head.head_transition, head.head_transition_thickness, "tapered-segment")
+
+    def add_neck(desc: Descriptor) -> None:
+        add_path(desc, "tapered-neck", head.neck_transition, head.neck_transition_thickness, "tapered-segment")
+        add_ellipsoid(desc, "neck-collar", head.neck_collar_center, head.neck_collar_radii)
+
+    def add_limb(desc: Descriptor, limb: _LimbGuide) -> None:
+        try:
+            narrowing = tuple(float(value) for value in limb.joint_narrowing)
+        except (TypeError, ValueError):
+            _fail(f"joint narrowing is invalid for {_key_text(limb.owner.key)}")
+        if len(narrowing) != 2 or not all(math.isfinite(value) and 0.0 < value <= 1.0 for value in narrowing):
+            _fail(f"joint narrowing is invalid for {_key_text(limb.owner.key)}")
+        if len(limb.thickness_profile) != 2:
+            _fail(f"limb thickness profile is invalid for {_key_text(limb.owner.key)}")
+        effective_thickness = tuple(
+            float(thickness) * factor
+            for thickness, factor in zip(limb.thickness_profile, narrowing)
+        )
+        add_path(desc, "limb-segment", limb.centerline, effective_thickness, limb.path_kind)
+        if limb.root_centerline is not None:
+            add_path(desc, "root-bridge", limb.root_centerline, limb.root_thickness, "tapered-segment")  # type: ignore[arg-type]
+        if limb.hip_centerline is not None:
+            add_path(desc, "hip-transition", limb.hip_centerline, limb.hip_thickness, "tapered-segment")  # type: ignore[arg-type]
+        if limb.shoulder_center is not None:
+            add_ellipsoid(desc, "shoulder-mass", limb.shoulder_center, limb.shoulder_radii)  # type: ignore[arg-type]
+        if limb.joint_center is not None:
+            narrowed = tuple(value * narrowing[0] for value in limb.joint_radii)  # type: ignore[union-attr]
+            add_ellipsoid(desc, "joint-collar", limb.joint_center, narrowed)
+        if limb.lower_leg_centerline is not None:
+            add_path(desc, "digitigrade-lower-leg", limb.lower_leg_centerline, limb.lower_leg_thickness, "tapered-segment")  # type: ignore[arg-type]
+
+    def add_paw(desc: Descriptor, paw: _PawGuide) -> None:
+        add_ellipsoid(desc, "paw-mass", paw.paw_center, paw.paw_radii)
+        if paw.forefoot_center is not None:
+            add_ellipsoid(desc, "foot-front", paw.forefoot_center, paw.forefoot_radii)  # type: ignore[arg-type]
+        if paw.attachment_centerline is not None:
+            add_path(desc, "extremity-bridge", paw.attachment_centerline, (paw.attachment_radius,), paw.attachment_kind or "capsule")
+
+    def add_tail(desc: Descriptor, tail: _TailGuide) -> None:
+        add_path(desc, "tail-segment", tail.centerline, tail.taper, "tapered-segment")
+        if tail.extension_centerline is not None:
+            add_path(desc, "tail-tip-extension", tail.extension_centerline, tail.extension_taper, "tapered-segment")  # type: ignore[arg-type]
+        if tail.cap_center is not None:
+            add_ellipsoid(desc, "tail-tip-cap", tail.cap_center, tail.cap_radii)  # type: ignore[arg-type]
+        if tail.root_attachment_centerline is not None:
+            add_path(desc, "tail-root-bridge", tail.root_attachment_centerline, tail.root_attachment_taper, "tapered-segment")  # type: ignore[arg-type]
+        if tail.root_collar_center is not None:
+            add_ellipsoid(desc, "tail-root-collar", tail.root_collar_center, tail.root_collar_radii)  # type: ignore[arg-type]
+
+    for desc in guide.source_descriptors:
+        if desc.key in axial_by_owner:
+            add_axial(desc, axial_by_owner[desc.key])
+        if desc.key == head.head_owner.key:
+            add_head(desc)
+        if desc.key == head.neck_owner.key:
+            add_neck(desc)
+        if desc.key in limbs_by_owner:
+            add_limb(desc, limbs_by_owner[desc.key])
+        if desc.key in paws_by_owner:
+            add_paw(desc, paws_by_owner[desc.key])
+        if desc.key in tails_by_owner:
+            add_tail(desc, tails_by_owner[desc.key])
     if not fields or len(fields) > MAX_GENERATED_FIELDS:
         _fail(f"generated field count {len(fields)} exceeds bound {MAX_GENERATED_FIELDS}")
     return tuple(fields)
 
+
+def _compound_fields(form: Form, descriptors: tuple[Descriptor, ...]) -> tuple[Field, ...]:
+    """Compile private regional guides for the current analytic-field backend."""
+
+    return _compile_hybrid_guide(_derive_hybrid_guides(form, descriptors))
 
 def _smooth_union(fields: list[np.ndarray], k: float) -> np.ndarray:
     result = fields[0].copy()

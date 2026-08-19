@@ -13,8 +13,7 @@ governs what resumes next.
 
 ## Active runway
 
-Execution state: paused for Ben's 2026-08-20 PC restart; resume only on Ben's
-instruction.
+Execution state: active after Ben resumed the runway on 2026-08-20.
 
 The completed first visual checkpoint established a useful diagnostic boundary:
 the semantic body graph can deterministically produce one connected, attributed

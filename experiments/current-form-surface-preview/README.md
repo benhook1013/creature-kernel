@@ -11,6 +11,22 @@ animation topology, rig, skin, runtime, Readiness 3/4 proof, or DR-0009/0010
 evidence. Winner labels are debug attribution only. Generated bundles belong
 in `/tmp` and must not be committed.
 
+The compiler-owned middle seam is a private regional guide representation
+derived separately for each of the four validated variants. It carries stable
+source AddressKey ownership and provenance, the fixed prototype axes and
+parent topology, axial pelvis/girdle and chest/waist controls, craniofacial
+and neck transitions, per-segment limb centerlines and thickness profiles
+with explicit joint-narrowing values, paw/forefoot controls, and tail
+centerline/taper controls. These guides are internal derivation data: they
+are neither semantic nodes nor a serialized contract, and they contain no
+marching-cubes grid, mesh topology, SDF encoding, or renderer operation.
+Their controls are backend-neutral only at this prototype level; path
+primitive intent is retained so this disposable analytic-field adapter can
+preserve capsule versus tapered-segment meaning. The adapter emits the
+temporary fields and applies joint narrowing to joint collars, so this seam
+may intentionally alter limb and joint-collar preview geometry while preserving source identity,
+bundle layout, and recipe accounting.
+
 The renderer expands each source descriptor into a bounded, deterministic
 role recipe where useful. The current fixture convention supplies shared
 chest/waist/hip masses, a broader axial trunk transition, cranium and muzzle,
