@@ -50,6 +50,20 @@ field count, including the field-memory bound used for allocation. This is
 resource accounting for the disposable preview only, not a runtime budget or
 future compiler contract.
 
+The disposable v2 generator writes one private `regional-guide.json` and one
+`guide-skin-composite.png` for each variant, alongside the retained
+`surface.ply`, `semantic.json`, and `metrics.json` artifacts. The regional
+guide sidecar is a sanitized, source-owned debug projection of `_HybridGuide`:
+it carries only source AddressKeys, counts, projection names/bases, one shared
+world-space render bound, fixed canvas/layout metadata, and finite regional controls.
+It is not a semantic or runtime contract and contains no descriptor input
+records or synthetic semantic IDs. The composite places guide and compiled
+skin panels adjacent for each of front, side, and three-quarter projections.
+Guide and skin panels use exactly the same projection framing, while one shared
+render bound is used for all four variants so geometry differences remain
+directly comparable. Mesh extraction retains each variant's own field bounds
+and grid spacing; the shared render bound does not define sampling.
+
 ## Run
 
 Create an isolated environment outside the repository and install the small
@@ -76,11 +90,11 @@ One generator invocation emits all four fixed variant subdirectories; do not
 run it separately per variant.
 
 The successful bundle contains exactly the manifest and four sets of PLY,
-semantic-winner sidecar, metrics JSON, and neutral composite PNG. The PNG has
-fixed front, side, and three-quarter panels. Repeating the same input and
-configuration on the same host produces byte-identical outputs; no timestamps
-or temporary paths are embedded. The output contains no committed artifact
-policy exception: keep it ephemeral under `/tmp`.
+semantic-winner sidecar, metrics JSON, regional-guide JSON, and guide/skin
+composite PNG. Repeating the same input and configuration on the same host
+produces byte-identical outputs; no timestamps or temporary paths are
+embedded. The output contains no committed artifact policy exception: keep it
+ephemeral under `/tmp`.
 
 Focused tests:
 

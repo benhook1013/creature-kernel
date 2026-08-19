@@ -31,7 +31,8 @@ from PIL import Image, ImageDraw, ImageFont
 from skimage.measure import marching_cubes
 
 
-FORMAT = "creature-kernel.disposable-surface-preview.v1"
+FORMAT = "creature-kernel.disposable-surface-preview.v2"
+REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v1"
 SOURCE_FORMAT = "creature-kernel.provisional-form-preview.v4"
 VARIANT_IDS = ("neutral-v0", "broad-soft-v0", "lean-readable-v0", "depth-forward-v0")
 MAX_INPUT_BYTES = 4 * 1024 * 1024
@@ -46,12 +47,40 @@ MAX_GENERATED_FIELDS = 256
 DEFAULT_SAMPLES = 72
 DEFAULT_PADDING = 0.75
 DEFAULT_SMOOTH_K = 0.12
-CANVAS = (1200, 430)
-VIEW_BOXES = {
-    "front": (12, 62, 392, 418),
-    "side": (410, 62, 790, 418),
-    "three-quarter": (808, 62, 1188, 418),
-}
+# The image is intentionally a fixed, private diagnostic layout.  Each view
+# gets adjacent guide and skin panels.  The two panels for a view share the
+# exact same projected frame; all variants use the same world-space bounds.
+CANVAS = (1800, 570)
+PANEL_TOP = 72
+PANEL_BOTTOM = 548
+PANEL_WIDTH = 280
+PANEL_GAP = 18
+PANEL_LEFT = 12
+PROJECTIONS = (
+    ("front", ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)), "x-right/y-up/z-depth"),
+    ("side", ((0.0, 0.0, -1.0), (0.0, 1.0, 0.0), (1.0, 0.0, 0.0)), "-z-right/y-up/x-depth"),
+    ("three-quarter", ((1.0 / math.sqrt(2.0), 0.0, -1.0 / math.sqrt(2.0),), (0.0, 1.0, 0.0), (1.0 / math.sqrt(2.0), 0.0, 1.0 / math.sqrt(2.0))), "front-right/y-up/depth"),
+)
+
+
+def _panel_box(index: int) -> tuple[int, int, int, int]:
+    left = PANEL_LEFT + index * (PANEL_WIDTH + PANEL_GAP)
+    return left, PANEL_TOP, left + PANEL_WIDTH, PANEL_BOTTOM
+
+
+PANEL_LAYOUT = tuple(
+    {
+        "id": f"{name}-{content}",
+        "projection": name,
+        "content": content,
+        "box": _panel_box(index * 2 + (0 if content == "guide" else 1)),
+    }
+    for index, (name, _, _) in enumerate(PROJECTIONS)
+    for content in ("guide", "skin")
+)
+# Kept as a simple view-to-bounds map for callers of the original preview
+# helper.  Rendering now uses PANEL_LAYOUT for the two adjacent panels.
+VIEW_BOXES = {name: (_panel_box(index * 2)[0], PANEL_TOP, _panel_box(index * 2 + 1)[2], PANEL_BOTTOM) for index, (name, _, _) in enumerate(PROJECTIONS)}
 
 
 class PreviewError(RuntimeError):
@@ -1119,6 +1148,274 @@ def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _H
     )
 
 
+def _guide_point_checked(
+    value: tuple[float, float, float],
+    where: str,
+    bounds: tuple[np.ndarray, np.ndarray] | None,
+) -> tuple[float, float, float]:
+    point = _guide_point(value, where)
+    if bounds is not None:
+        lower, upper = bounds
+        if any(float(item) < float(lower[index]) or float(item) > float(upper[index]) for index, item in enumerate(point)):
+            _fail(f"{where} is outside the shared guide bounds")
+    return point
+
+
+def _guide_mass_checked(
+    center: tuple[float, float, float],
+    radii: tuple[float, float, float],
+    where: str,
+    bounds: tuple[np.ndarray, np.ndarray] | None,
+) -> None:
+    _guide_radii(radii, f"{where}.radii")
+    centre = _guide_point_checked(center, f"{where}.center", bounds)
+    if bounds is not None:
+        lower, upper = bounds
+        for index, radius in enumerate(radii):
+            if centre[index] - radius < float(lower[index]) or centre[index] + radius > float(upper[index]):
+                _fail(f"{where} extends outside the shared guide bounds")
+
+
+def _guide_path_checked(
+    path: tuple[tuple[float, float, float], tuple[float, float, float]],
+    profile: tuple[float, ...],
+    where: str,
+    bounds: tuple[np.ndarray, np.ndarray] | None,
+) -> None:
+    _guide_path(path[0], path[1], profile, where)
+    for index, point in enumerate(path):
+        _guide_point_checked(point, f"{where}.point[{index}]", bounds)
+    if bounds is not None:
+        lower, upper = bounds
+        radius = max(profile)
+        for point in path:
+            if any(point[index] - radius < float(lower[index]) or point[index] + radius > float(upper[index]) for index in range(3)):
+                _fail(f"{where} thickness extends outside the shared guide bounds")
+
+
+def _validate_hybrid_guide(guide: _HybridGuide, bounds: tuple[np.ndarray, np.ndarray] | None = None) -> None:
+    """Validate guide controls before either field compilation or rendering.
+
+    This deliberately walks only the private regional controls.  It never
+    inspects a Descriptor shape, so the guide artifact and guide renderer
+    cannot accidentally become a second descriptor/field projection.
+    """
+
+    def mass(center: tuple[float, float, float] | None, radii: tuple[float, float, float] | None, where: str) -> None:
+        if (center is None) != (radii is None):
+            _fail(f"{where} center/radii controls must be paired")
+        if center is not None and radii is not None:
+            _guide_mass_checked(center, radii, where, bounds)
+
+    def path(path: tuple[tuple[float, float, float], tuple[float, float, float]] | None, profile: tuple[float, ...] | None, where: str) -> None:
+        if (path is None) != (profile is None):
+            _fail(f"{where} path/profile controls must be paired")
+        if path is not None and profile is not None:
+            _guide_path_checked(path, profile, where, bounds)
+
+    for index, axial in enumerate(guide.axial_guides):
+        mass(axial.girdle_center, axial.girdle_radii, f"axial[{index}].girdle")
+        mass(axial.pelvic_core_center, axial.pelvic_core_radii, f"axial[{index}].pelvic_core")
+        mass(axial.chest_center, axial.chest_radii, f"axial[{index}].chest")
+        mass(axial.waist_center, axial.waist_radii, f"axial[{index}].waist")
+        path(axial.trunk_centerline, axial.trunk_thickness, f"axial[{index}].trunk")
+    head = guide.head_guide
+    mass(head.cranium_center, head.cranium_radii, "head.cranium")
+    mass(head.muzzle_center, head.muzzle_radii, "head.muzzle")
+    path(head.head_transition, head.head_transition_thickness, "head.transition")
+    path(head.neck_transition, head.neck_transition_thickness, "head.neck_transition")
+    mass(head.neck_collar_center, head.neck_collar_radii, "head.neck_collar")
+    for index, limb in enumerate(guide.limb_guides):
+        path(limb.centerline, limb.thickness_profile, f"limb[{index}].centerline")
+        path(limb.root_centerline, limb.root_thickness, f"limb[{index}].root")
+        path(limb.hip_centerline, limb.hip_thickness, f"limb[{index}].hip")
+        mass(limb.shoulder_center, limb.shoulder_radii, f"limb[{index}].shoulder")
+        mass(limb.joint_center, limb.joint_radii, f"limb[{index}].joint")
+        path(limb.lower_leg_centerline, limb.lower_leg_thickness, f"limb[{index}].lower_leg")
+        narrowing = _guide_profile(limb.joint_narrowing, f"limb[{index}].joint_narrowing")
+        if any(value > 1.0 for value in narrowing):
+            _fail(f"limb[{index}].joint_narrowing must not widen a joint")
+    for index, paw in enumerate(guide.paw_guides):
+        mass(paw.center, paw.radii, f"paw[{index}].source_region")
+        mass(paw.paw_center, paw.paw_radii, f"paw[{index}].paw")
+        mass(paw.forefoot_center, paw.forefoot_radii, f"paw[{index}].forefoot")
+        if paw.attachment_centerline is not None:
+            if paw.attachment_radius is None or paw.attachment_kind is None:
+                _fail(f"paw[{index}].attachment controls are incomplete")
+            path(paw.attachment_centerline, (float(paw.attachment_radius),), f"paw[{index}].attachment")
+        elif paw.attachment_radius is not None or paw.attachment_kind is not None:
+            _fail(f"paw[{index}].attachment controls are incomplete")
+    for index, tail in enumerate(guide.tail_guides):
+        path(tail.centerline, tail.taper, f"tail[{index}].centerline")
+        path(tail.extension_centerline, tail.extension_taper, f"tail[{index}].extension")
+        mass(tail.cap_center, tail.cap_radii, f"tail[{index}].cap")
+        path(tail.root_attachment_centerline, tail.root_attachment_taper, f"tail[{index}].root_attachment")
+        mass(tail.root_collar_center, tail.root_collar_radii, f"tail[{index}].root_collar")
+
+
+def _point_json(value: tuple[float, float, float]) -> list[float]:
+    return [float(item) for item in value]
+
+
+def _mass_json(name: str, center: tuple[float, float, float] | None, radii: tuple[float, float, float] | None) -> dict[str, Any] | None:
+    if center is None or radii is None:
+        return None
+    return {"control": name, "center": _point_json(center), "radii": _point_json(radii)}
+
+
+def _path_json(
+    name: str,
+    path: tuple[tuple[float, float, float], tuple[float, float, float]] | None,
+    profile: tuple[float, ...] | None,
+    *,
+    path_kind: str | None = None,
+) -> dict[str, Any] | None:
+    if path is None or profile is None:
+        return None
+    result: dict[str, Any] = {"control": name, "points": [_point_json(path[0]), _point_json(path[1])], "thickness": [float(item) for item in profile]}
+    if path_kind is not None:
+        result["path_kind"] = path_kind
+    return result
+
+
+def _projection_json() -> list[dict[str, Any]]:
+    return [
+        {"name": name, "basis": [[float(item) for item in row] for row in basis], "base": base}
+        for name, basis, base in PROJECTIONS
+    ]
+
+
+def _layout_json() -> dict[str, Any]:
+    return {
+        "panel_order": [item["id"] for item in PANEL_LAYOUT],
+        "panels": [
+            {"id": item["id"], "projection": item["projection"], "content": item["content"], "box": list(item["box"])}
+            for item in PANEL_LAYOUT
+        ],
+        "pairing": "guide-left/skin-right per projection",
+        "frame": "shared-world-bounds-and-projection-basis",
+    }
+
+
+def _regional_guide_json(
+    variant_id: str,
+    guide: _HybridGuide,
+    shared_render_bounds: tuple[np.ndarray, np.ndarray],
+) -> dict[str, Any]:
+    _validate_hybrid_guide(guide, shared_render_bounds)
+    lower, upper = shared_render_bounds
+    axial_controls: list[dict[str, Any]] = []
+    for item in guide.axial_guides:
+        axial_controls.append({
+            "owner": _address_json(item.owner.key),
+            "masses": [
+                value for value in (
+                    _mass_json("girdle", item.girdle_center, item.girdle_radii),
+                    _mass_json("pelvic-core", item.pelvic_core_center, item.pelvic_core_radii),
+                    _mass_json("chest", item.chest_center, item.chest_radii),
+                    _mass_json("waist", item.waist_center, item.waist_radii),
+                ) if value is not None
+            ],
+            "centerline": _path_json("trunk", item.trunk_centerline, item.trunk_thickness),
+        })
+    head = guide.head_guide
+    head_controls = {
+        "owners": [_address_json(head.head_owner.key), _address_json(head.neck_owner.key)],
+        "masses": [
+            _mass_json("cranium", head.cranium_center, head.cranium_radii),
+            _mass_json("muzzle", head.muzzle_center, head.muzzle_radii),
+            _mass_json("neck-collar", head.neck_collar_center, head.neck_collar_radii),
+        ],
+        "sections": [
+            value for value in (
+                _path_json("head-transition", head.head_transition, head.head_transition_thickness),
+                _path_json("neck-transition", head.neck_transition, head.neck_transition_thickness),
+            ) if value is not None
+        ],
+    }
+    limb_controls = []
+    for item in guide.limb_guides:
+        sections = [
+            value for value in (
+                _path_json("root", item.root_centerline, item.root_thickness),
+                _path_json("hip", item.hip_centerline, item.hip_thickness),
+                _path_json("lower-leg", item.lower_leg_centerline, item.lower_leg_thickness),
+            ) if value is not None
+        ]
+        masses = [
+            value for value in (
+                _mass_json("shoulder", item.shoulder_center, item.shoulder_radii),
+                _mass_json("joint", item.joint_center, item.joint_radii),
+            ) if value is not None
+        ]
+        limb_controls.append({
+            "owner": _address_json(item.owner.key),
+            "centerline": _path_json("segment", item.centerline, item.thickness_profile, path_kind=item.path_kind),
+            "joint_narrowing": [float(value) for value in item.joint_narrowing],
+            "sections": sections,
+            "masses": masses,
+        })
+    paw_controls = []
+    for item in guide.paw_guides:
+        attachment = _path_json("attachment", item.attachment_centerline, (item.attachment_radius,) if item.attachment_radius is not None else None, path_kind=item.attachment_kind)
+        paw_controls.append({
+            "owner": _address_json(item.owner.key),
+            "masses": [
+                value for value in (
+                    _mass_json("source-region", item.center, item.radii),
+                    _mass_json("paw", item.paw_center, item.paw_radii),
+                    _mass_json("forefoot", item.forefoot_center, item.forefoot_radii),
+                ) if value is not None
+            ],
+            "attachment": attachment,
+        })
+    tail_controls = []
+    for item in guide.tail_guides:
+        tail_controls.append({
+            "owner": _address_json(item.owner.key),
+            "centerline": _path_json("segment", item.centerline, item.taper, path_kind="tapered-segment"),
+            "sections": [
+                value for value in (
+                    _path_json("tip-extension", item.extension_centerline, item.extension_taper, path_kind="tapered-segment"),
+                    _path_json("root-attachment", item.root_attachment_centerline, item.root_attachment_taper, path_kind="tapered-segment"),
+                ) if value is not None
+            ],
+            "masses": [
+                value for value in (
+                    _mass_json("tip-cap", item.cap_center, item.cap_radii),
+                    _mass_json("root-collar", item.root_collar_center, item.root_collar_radii),
+                ) if value is not None
+            ],
+        })
+    return {
+        "format": REGIONAL_GUIDE_FORMAT,
+        "variant": variant_id,
+        "owners": [_address_json(item.key) for item in guide.source_owners],
+        "counts": {
+            "owners": len(guide.source_owners),
+            "axial": len(guide.axial_guides),
+            "head": 1,
+            "limbs": len(guide.limb_guides),
+            "paws": len(guide.paw_guides),
+            "tails": len(guide.tail_guides),
+            "centerlines": sum(item.trunk_centerline is not None for item in guide.axial_guides) + 2 + len(guide.limb_guides) + sum(item.attachment_centerline is not None for item in guide.paw_guides) + len(guide.tail_guides),
+        },
+        "projections": _projection_json(),
+        "shared_render_bounds": {"min": [float(item) for item in lower], "max": [float(item) for item in upper]},
+        "canvas": {"width": CANVAS[0], "height": CANVAS[1], "mode": "RGB"},
+        "layout": _layout_json(),
+        "controls": {
+            "axes": {"lateral": _point_json(guide.topology.axes.lateral), "up": _point_json(guide.topology.axes.up), "forward": _point_json(guide.topology.axes.forward)},
+            "axial": axial_controls,
+            "head": head_controls,
+            "limbs": limb_controls,
+            "paws": paw_controls,
+            "tails": tail_controls,
+        },
+        "boundary": "private disposable regional controls; source-owned AddressKeys only; not a semantic or runtime contract",
+    }
+
+
 def _compile_hybrid_guide(guide: _HybridGuide) -> tuple[Field, ...]:
     """Adapt regional guides to the disposable analytic-field backend."""
 
@@ -1253,6 +1550,24 @@ def _bounds(fields: tuple[Field, ...], padding: float) -> tuple[np.ndarray, np.n
     return np.min(np.stack(mins), axis=0) - padding, np.max(np.stack(maxs), axis=0) + padding
 
 
+def _shared_render_bounds(field_sets: tuple[tuple[Field, ...], ...], padding: float) -> tuple[np.ndarray, np.ndarray]:
+    """Return one deterministic display bound for every fixed variant.
+
+    This bound is intentionally separate from each variant's marching-cubes
+    extraction domain. It is used only for guide validation and guide/skin
+    projection framing.
+    """
+
+    if not field_sets:
+        _fail("cannot derive shared bounds without variants")
+    bounds = [_bounds(fields, 0.0) for fields in field_sets]
+    lower = np.min(np.stack([item[0] for item in bounds]), axis=0) - padding
+    upper = np.max(np.stack([item[1] for item in bounds]), axis=0) + padding
+    if not np.all(np.isfinite(lower)) or not np.all(np.isfinite(upper)) or np.any(upper <= lower):
+        _fail("shared render bounds are invalid")
+    return lower, upper
+
+
 def _orientation(vertices: np.ndarray, faces: np.ndarray, axes: tuple[np.ndarray, np.ndarray, np.ndarray], fields: tuple[Field, ...], k: float) -> tuple[np.ndarray, np.ndarray, float]:
     e1 = vertices[faces[:, 1]] - vertices[faces[:, 0]]
     e2 = vertices[faces[:, 2]] - vertices[faces[:, 0]]
@@ -1314,7 +1629,13 @@ def _mesh_checks(vertices: np.ndarray, faces: np.ndarray, labels: list[tuple[str
     return {"vertex_count": int(len(vertices)), "face_count": int(len(faces)), "component_count": components, "watertight": True, "finite_vertices": True, "finite_normals": True, "valid_indices": True, "signed_volume": volume, "domain_clearance": clearance, "winner_vertex_count": len(labels), "unique_winner_count": len(unique_winners), "winner_addresses": [_address_json(key) for key in unique_winners]}
 
 
-def build_variant(form: Form, descriptors: tuple[Descriptor, ...], samples: int, padding: float, smooth_k: float) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[tuple[str, tuple[str, ...], str, str]], dict[str, Any], dict[str, Any]]:
+def build_variant(
+    form: Form,
+    descriptors: tuple[Descriptor, ...],
+    samples: int,
+    padding: float,
+    smooth_k: float,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[tuple[str, tuple[str, ...], str, str]], dict[str, Any], dict[str, Any]]:
     if type(samples) is not int or samples > MAX_SAMPLES or samples < 16 or samples**3 > MAX_VOXELS:
         _fail("sampling configuration exceeds bounded limits")
     if not math.isfinite(float(padding)) or padding < 0.0 or not math.isfinite(float(smooth_k)) or smooth_k <= 0.0:
@@ -1373,25 +1694,182 @@ def _write_ply(path: Path, vertices: np.ndarray, faces: np.ndarray, normals: np.
     path.write_text("\n".join(lines) + "\n", encoding="ascii")
 
 
-def _render(path: Path, vertices: np.ndarray, faces: np.ndarray, variant_id: str) -> None:
-    image = Image.new("RGB", CANVAS, (24, 27, 34)); draw = ImageDraw.Draw(image); font = ImageFont.load_default()
-    draw.text((16, 16), f"Disposable continuous-surface preview - {variant_id} - neutral shading", fill=(235, 238, 244), font=font)
-    root2 = math.sqrt(2.0)
-    views = {"front": np.eye(3), "side": np.array([[0., 0., -1.], [0., 1., 0.], [1., 0., 0.]]), "three-quarter": np.array([[1/root2, 0., -1/root2], [0., 1., 0.], [1/root2, 0., 1/root2]])}
-    light = np.asarray((0.35, 0.55, 0.76), dtype=np.float64); light /= np.linalg.norm(light)
-    for name, basis in views.items():
-        x0, y0, x1, y1 = VIEW_BOXES[name]; camera = vertices @ basis.T; triangles = camera[faces]
-        normals = np.cross(triangles[:, 1] - triangles[:, 0], triangles[:, 2] - triangles[:, 0]); visible = normals[:, 2] > 0
-        order = np.flatnonzero(visible); order = order[np.argsort(np.mean(triangles[order, :, 2], axis=1))]
-        projected = camera[:, :2]; lo, hi = projected.min(axis=0), projected.max(axis=0); span = np.maximum(hi - lo, 1e-9); scale = min((x1-x0-34)/span[0], (y1-y0-56)/span[1]); centre = (lo+hi)/2
-        def screen(points: np.ndarray) -> list[tuple[float, float]]:
-            return [(x0+(x1-x0)/2+float((p[0]-centre[0])*scale), y0+30+(y1-y0-48)/2-float((p[1]-centre[1])*scale)) for p in points]
-        for index in order:
-            normal = normals[index]; length = np.linalg.norm(normal)
-            if length <= 1e-12: continue
-            brightness = 0.42 + 0.58 * max(0.0, float(np.dot(normal / length, light))); colour = (int(148 * brightness), int(165 * brightness), int(184 * brightness))
-            draw.polygon(screen(triangles[index, :, :2]), fill=colour)
-        draw.rectangle((x0, y0, x1, y1), outline=(74, 82, 96), width=2); draw.text((x0+12, y0+10), name, fill=(235, 238, 244), font=font)
+def _projection_frame(bounds: tuple[np.ndarray, np.ndarray], basis: np.ndarray, box: tuple[int, int, int, int]) -> dict[str, Any]:
+    lower, upper = bounds
+    corners = np.asarray([
+        [lower[0] if mask & 1 else upper[0], lower[1] if mask & 2 else upper[1], lower[2] if mask & 4 else upper[2]]
+        for mask in range(8)
+    ], dtype=np.float64)
+    projected = corners @ basis.T
+    lo, hi = projected[:, :2].min(axis=0), projected[:, :2].max(axis=0)
+    x0, y0, x1, y1 = box
+    span = np.maximum(hi - lo, 1e-9)
+    scale = min((x1 - x0 - 28) / span[0], (y1 - y0 - 48) / span[1])
+    if not math.isfinite(float(scale)) or scale <= 0.0:
+        _fail("projection frame is invalid")
+    centre = (lo + hi) / 2.0
+    return {"basis": basis, "box": box, "centre": centre, "scale": float(scale)}
+
+
+def _frame_screen(frame: dict[str, Any], points: np.ndarray) -> list[tuple[float, float]]:
+    basis = frame["basis"]
+    camera = np.asarray(points, dtype=np.float64) @ basis.T
+    x0, y0, x1, y1 = frame["box"]
+    centre = frame["centre"]
+    scale = frame["scale"]
+    return [
+        (
+            x0 + (x1 - x0) / 2.0 + float((point[0] - centre[0]) * scale),
+            y0 + 26.0 + (y1 - y0 - 42.0) / 2.0 - float((point[1] - centre[1]) * scale),
+        )
+        for point in camera
+    ]
+
+
+def _draw_guide_mass(draw: ImageDraw.ImageDraw, frame: dict[str, Any], center: tuple[float, float, float], radii: tuple[float, float, float], colour: tuple[int, int, int]) -> None:
+    # The projected outline is an orthographic ellipse enclosing the private
+    # guide mass.  It uses only guide center/radii controls, never a descriptor
+    # shape or analytic field.
+    basis = frame["basis"]
+    centre = np.asarray(center, dtype=np.float64) @ basis.T
+    projected_radius = np.asarray([
+        float(np.sum(np.abs(basis[row] * np.asarray(radii, dtype=np.float64))))
+        for row in (0, 1)
+    ])
+    x0, y0, x1, y1 = frame["box"]
+    scale = frame["scale"]
+    cx = x0 + (x1 - x0) / 2.0 + float((centre[0] - frame["centre"][0]) * scale)
+    cy = y0 + 26.0 + (y1 - y0 - 42.0) / 2.0 - float((centre[1] - frame["centre"][1]) * scale)
+    rx, ry = projected_radius * scale
+    draw.ellipse((cx - rx, cy - ry, cx + rx, cy + ry), outline=colour, width=2)
+
+
+def _draw_guide_path(draw: ImageDraw.ImageDraw, frame: dict[str, Any], path: tuple[tuple[float, float, float], tuple[float, float, float]], profile: tuple[float, ...], colour: tuple[int, int, int], *, narrowing: tuple[float, ...] | None = None, dashed: bool = False) -> None:
+    points = _frame_screen(frame, np.asarray(path, dtype=np.float64))
+    if dashed:
+        start, end = np.asarray(points[0]), np.asarray(points[1])
+        for fraction in np.linspace(0.0, 0.85, 6):
+            a = start + (end - start) * fraction
+            b = start + (end - start) * min(fraction + 0.10, 1.0)
+            draw.line((float(a[0]), float(a[1]), float(b[0]), float(b[1])), fill=colour, width=2)
+    else:
+        draw.line((points[0], points[1]), fill=colour, width=2)
+    scale = frame["scale"]
+    for index, point in enumerate(points):
+        radius = float(profile[min(index, len(profile) - 1)])
+        if narrowing is not None:
+            radius *= float(narrowing[min(index, len(narrowing) - 1)])
+        radius_px = max(2.0, min(28.0, radius * scale))
+        draw.ellipse((point[0] - radius_px, point[1] - radius_px, point[0] + radius_px, point[1] + radius_px), outline=colour, width=1)
+
+
+def _draw_guide(draw: ImageDraw.ImageDraw, frame: dict[str, Any], guide: _HybridGuide) -> None:
+    colours = {
+        "axial": (224, 167, 91),
+        "head": (204, 121, 190),
+        "limb": (96, 174, 218),
+        "joint": (235, 124, 100),
+        "paw": (134, 198, 135),
+        "tail": (225, 181, 88),
+    }
+    for item in guide.axial_guides:
+        for center, radii in ((item.girdle_center, item.girdle_radii), (item.pelvic_core_center, item.pelvic_core_radii), (item.chest_center, item.chest_radii), (item.waist_center, item.waist_radii)):
+            if center is not None and radii is not None:
+                _draw_guide_mass(draw, frame, center, radii, colours["axial"])
+        if item.trunk_centerline is not None and item.trunk_thickness is not None:
+            _draw_guide_path(draw, frame, item.trunk_centerline, item.trunk_thickness, colours["axial"], dashed=True)
+    head = guide.head_guide
+    _draw_guide_mass(draw, frame, head.cranium_center, head.cranium_radii, colours["head"])
+    _draw_guide_mass(draw, frame, head.muzzle_center, head.muzzle_radii, colours["head"])
+    _draw_guide_mass(draw, frame, head.neck_collar_center, head.neck_collar_radii, colours["head"])
+    _draw_guide_path(draw, frame, head.head_transition, head.head_transition_thickness, colours["head"])
+    _draw_guide_path(draw, frame, head.neck_transition, head.neck_transition_thickness, colours["head"])
+    for item in guide.limb_guides:
+        _draw_guide_path(draw, frame, item.centerline, item.thickness_profile, colours["limb"], narrowing=item.joint_narrowing)
+        for path, profile in ((item.root_centerline, item.root_thickness), (item.hip_centerline, item.hip_thickness), (item.lower_leg_centerline, item.lower_leg_thickness)):
+            if path is not None and profile is not None:
+                _draw_guide_path(draw, frame, path, profile, colours["limb"])
+        if item.shoulder_center is not None and item.shoulder_radii is not None:
+            _draw_guide_mass(draw, frame, item.shoulder_center, item.shoulder_radii, colours["limb"])
+        if item.joint_center is not None and item.joint_radii is not None:
+            _draw_guide_mass(draw, frame, item.joint_center, item.joint_radii, colours["joint"])
+    for item in guide.paw_guides:
+        _draw_guide_mass(draw, frame, item.center, item.radii, colours["paw"])
+        _draw_guide_mass(draw, frame, item.paw_center, item.paw_radii, colours["paw"])
+        if item.forefoot_center is not None and item.forefoot_radii is not None:
+            _draw_guide_mass(draw, frame, item.forefoot_center, item.forefoot_radii, colours["paw"])
+        if item.attachment_centerline is not None and item.attachment_radius is not None:
+            _draw_guide_path(draw, frame, item.attachment_centerline, (item.attachment_radius,), colours["paw"])
+    for item in guide.tail_guides:
+        _draw_guide_path(draw, frame, item.centerline, item.taper, colours["tail"])
+        if item.extension_centerline is not None and item.extension_taper is not None:
+            _draw_guide_path(draw, frame, item.extension_centerline, item.extension_taper, colours["tail"])
+        if item.cap_center is not None and item.cap_radii is not None:
+            _draw_guide_mass(draw, frame, item.cap_center, item.cap_radii, colours["tail"])
+        if item.root_attachment_centerline is not None and item.root_attachment_taper is not None:
+            _draw_guide_path(draw, frame, item.root_attachment_centerline, item.root_attachment_taper, colours["tail"])
+        if item.root_collar_center is not None and item.root_collar_radii is not None:
+            _draw_guide_mass(draw, frame, item.root_collar_center, item.root_collar_radii, colours["tail"])
+
+
+def _draw_skin(draw: ImageDraw.ImageDraw, frame: dict[str, Any], vertices: np.ndarray, faces: np.ndarray) -> None:
+    basis = frame["basis"]
+    # Keep world-space triangles for screen mapping.  ``_frame_screen`` owns
+    # the one world-to-camera projection; passing camera-space points here
+    # would apply the basis a second time (most visible in the side view,
+    # where the basis swaps the wide lateral and narrow depth spans).
+    triangles = vertices[faces]
+    camera = triangles @ basis.T
+    normals = np.cross(camera[:, 1] - camera[:, 0], camera[:, 2] - camera[:, 0])
+    visible = normals[:, 2] > 0
+    order = np.flatnonzero(visible)
+    order = order[np.argsort(np.mean(camera[order, :, 2], axis=1))]
+    light = np.asarray((0.35, 0.55, 0.76), dtype=np.float64)
+    light /= np.linalg.norm(light)
+    for index in order:
+        normal = normals[index]
+        length = np.linalg.norm(normal)
+        if length <= 1e-12:
+            continue
+        brightness = 0.42 + 0.58 * max(0.0, float(np.dot(normal / length, light)))
+        colour = (int(148 * brightness), int(165 * brightness), int(184 * brightness))
+        draw.polygon(_frame_screen(frame, triangles[index]), fill=colour)
+
+
+def _render(
+    path: Path,
+    vertices: np.ndarray,
+    faces: np.ndarray,
+    variant_id: str,
+    *,
+    guide: _HybridGuide,
+    bounds: tuple[np.ndarray, np.ndarray],
+) -> None:
+    _validate_hybrid_guide(guide, bounds)
+    image = Image.new("RGB", CANVAS, (20, 23, 29))
+    draw = ImageDraw.Draw(image)
+    font = ImageFont.load_default()
+    draw.text((16, 16), f"Disposable guide + compiled skin - {variant_id}", fill=(235, 238, 244), font=font)
+    draw.text((16, 42), "guide controls: regional masses / centerlines / joint narrowing    skin: deterministic compiled field", fill=(167, 176, 190), font=font)
+    projection_lookup = {name: np.asarray(basis, dtype=np.float64) for name, basis, _ in PROJECTIONS}
+    shared_frames: dict[str, dict[str, Any]] = {}
+    for item in PANEL_LAYOUT:
+        name = item["projection"]
+        box = item["box"]
+        if name not in shared_frames:
+            # Establish the projected world frame once per view.  Each panel
+            # receives its own destination box below, while the guide/skin
+            # pair cannot drift to independently fitted frames.
+            shared_frames[name] = _projection_frame(bounds, projection_lookup[name], box)
+        frame = {**shared_frames[name], "box": box}
+        panel_colour = (28, 35, 43) if item["content"] == "guide" else (24, 27, 34)
+        draw.rectangle(box, fill=panel_colour)
+        if item["content"] == "guide":
+            _draw_guide(draw, frame, guide)
+        else:
+            _draw_skin(draw, frame, vertices, faces)
+        draw.rectangle(box, outline=(74, 82, 96), width=2)
+        draw.text((box[0] + 10, box[1] + 8), f"{name} -- {item['content']}", fill=(235, 238, 244), font=font)
     image.save(path, format="PNG")
 
 
@@ -1400,26 +1878,90 @@ def _sha(path: Path, kind: str, root: Path) -> dict[str, Any]:
 
 
 def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, padding: float = DEFAULT_PADDING, smooth_k: float = DEFAULT_SMOOTH_K) -> dict[str, Any]:
-    if output.exists() or os.path.lexists(output): _fail(f"refusing to overwrite output: {output}")
-    if not output.parent.is_dir(): _fail(f"output parent must exist: {output.parent}")
+    if output.exists() or os.path.lexists(output):
+        _fail(f"refusing to overwrite output: {output}")
+    if not output.parent.is_dir():
+        _fail(f"output parent must exist: {output.parent}")
     data = input_path.read_bytes()
-    if len(data) > MAX_INPUT_BYTES: _fail("input exceeds bounded size")
-    try: value = json.loads(data.decode("utf-8"), parse_constant=lambda x: (_ for _ in ()).throw(ValueError(x)))
-    except (UnicodeDecodeError, json.JSONDecodeError, ValueError, RecursionError) as exc: raise PreviewError(f"input is not finite JSON: {exc}") from exc
+    if len(data) > MAX_INPUT_BYTES:
+        _fail("input exceeds bounded size")
+    try:
+        value = json.loads(data.decode("utf-8"), parse_constant=lambda x: (_ for _ in ()).throw(ValueError(x)))
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError, RecursionError) as exc:
+        raise PreviewError(f"input is not finite JSON: {exc}") from exc
     form = validate_envelope(value)
+
+    # Derive every private guide and compiled field set before extracting any
+    # mesh.  This gives the four variants one shared world-space frame while
+    # retaining each variant's own guide controls and skin geometry.
+    prepared: list[tuple[str, tuple[Descriptor, ...], dict[str, Any], _HybridGuide, tuple[Field, ...]]] = []
+    for variant_id, descriptors, raw_variant in form.variants:
+        guide = _derive_hybrid_guides(form, descriptors)
+        _validate_hybrid_guide(guide)
+        fields = _compile_hybrid_guide(guide)
+        prepared.append((variant_id, descriptors, raw_variant, guide, fields))
+    shared_render_bounds = _shared_render_bounds(tuple(item[4] for item in prepared), padding)
+    for _, _, _, guide, _ in prepared:
+        _validate_hybrid_guide(guide, shared_render_bounds)
+
     stage = Path(tempfile.mkdtemp(prefix=f".{output.name}.", dir=str(output.parent)))
     try:
         records = []
-        for variant_id, descriptors, raw_variant in form.variants:
-            vertices, faces, normals, labels, metrics, grid = build_variant(form, descriptors, samples, padding, smooth_k)
+        for variant_id, descriptors, raw_variant, guide, _ in prepared:
+            vertices, faces, normals, labels, metrics, grid = build_variant(
+                form,
+                descriptors,
+                samples,
+                padding,
+                smooth_k,
+            )
             variant_dir = stage / variant_id
             variant_dir.mkdir()
-            ply = variant_dir / "surface.ply"; sidecar = variant_dir / "semantic.json"; metrics_path = variant_dir / "metrics.json"; png = variant_dir / "composite.png"
+            ply = variant_dir / "surface.ply"
+            sidecar = variant_dir / "semantic.json"
+            metrics_path = variant_dir / "metrics.json"
+            png = variant_dir / "guide-skin-composite.png"
+            guide_path = variant_dir / "regional-guide.json"
             _write_ply(ply, vertices, faces, normals)
-            sidecar.write_bytes(_canonical({"format": "creature-kernel.disposable-surface-preview-semantic-winners.v1", "source_format": SOURCE_FORMAT, "variant_id": variant_id, "vertex_count": len(vertices), "source_node_labels": [_address_json(key) for key in labels], "attribution": "every recipe component resolves to its source descriptor owner; no synthetic node identity is emitted"}))
-            metrics_path.write_bytes(_canonical(metrics)); _render(png, vertices, faces, variant_id)
-            records.append({"id": variant_id, "profile_id": raw_variant["profile_id"], "source": {"document": form.source["document"], "namespace": form.source["namespace"], "resource_profile_id": form.source["resource_profile_id"]}, "descriptor_address_keys": [_address_json(desc.key) for desc in descriptors], "grid": grid, "metrics": metrics, "inventory": [_sha(ply, "ply", stage), _sha(sidecar, "semantic-sidecar", stage), _sha(metrics_path, "metrics", stage), {**_sha(png, "neutral-composite-png", stage), "width": CANVAS[0], "height": CANVAS[1], "views": ["front", "side", "three-quarter"], "mode": "RGB"}]})
-        manifest = {"format": FORMAT, "status": "success", "source_format": SOURCE_FORMAT, "source": {"format": SOURCE_FORMAT, "sha256": hashlib.sha256(data).hexdigest(), "document": form.source["document"], "namespace": form.source["namespace"], "resource_profile_id": form.source["resource_profile_id"], "reference_scale": form.reference_scale_raw}, "generator": {"samples_per_axis": samples, "padding": padding, "smooth_union": {"operator": "polynomial_cubic_smooth_min", "k": smooth_k, "fold_order": "source_address_then_recipe_order"}, "field_primitives": ["ellipsoid", "capsule", "linear-radius-tapered-segment"], "field_recipes": ["hips", "pelvic-core", "chest", "waist", "axial-trunk", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar", "limb-segment", "root-bridge", "hip-transition", "shoulder-mass", "joint-collar", "digitigrade-lower-leg", "paw-mass", "foot-front", "extremity-bridge", "tail-segment", "tail-tip-extension", "tail-tip-cap", "tail-root-bridge", "tail-root-collar"], "ownership": "recipe fields are source-owned and winner labels expose only source AddressKeys", "boundary": "disposable exploratory visual proof; not production geometry, SDF, collision, rig, topology, or Readiness evidence"}, "variants": records}
+            sidecar.write_bytes(_canonical({
+                "format": "creature-kernel.disposable-surface-preview-semantic-winners.v1",
+                "source_format": SOURCE_FORMAT,
+                "variant_id": variant_id,
+                "vertex_count": len(vertices),
+                "source_node_labels": [_address_json(key) for key in labels],
+                "attribution": "every recipe component resolves to its source descriptor owner; no synthetic node identity is emitted",
+            }))
+            metrics_path.write_bytes(_canonical(metrics))
+            guide_path.write_bytes(_canonical(_regional_guide_json(variant_id, guide, shared_render_bounds)) + b"\n")
+            _render(png, vertices, faces, variant_id, guide=guide, bounds=shared_render_bounds)
+            records.append({
+                "id": variant_id,
+                "profile_id": raw_variant["profile_id"],
+                "source": {"document": form.source["document"], "namespace": form.source["namespace"], "resource_profile_id": form.source["resource_profile_id"]},
+                "descriptor_address_keys": [_address_json(desc.key) for desc in descriptors],
+                "grid": grid,
+                "metrics": metrics,
+                "inventory": [
+                    _sha(ply, "ply", stage),
+                    _sha(sidecar, "semantic-sidecar", stage),
+                    _sha(metrics_path, "metrics", stage),
+                    {**_sha(png, "guide-skin-composite-png", stage), "width": CANVAS[0], "height": CANVAS[1], "views": ["front", "side", "three-quarter"], "panels_per_view": 2, "mode": "RGB"},
+                    {**_sha(guide_path, "regional-guide-json", stage), "format": REGIONAL_GUIDE_FORMAT, "variant": variant_id},
+                ],
+            })
+        lower, upper = shared_render_bounds
+        manifest = {
+            "format": FORMAT,
+            "status": "success",
+            "source_format": SOURCE_FORMAT,
+            "source": {"format": SOURCE_FORMAT, "sha256": hashlib.sha256(data).hexdigest(), "document": form.source["document"], "namespace": form.source["namespace"], "resource_profile_id": form.source["resource_profile_id"], "reference_scale": form.reference_scale_raw},
+            "shared_render_bounds": {"min": [float(item) for item in lower], "max": [float(item) for item in upper]},
+            "canvas": {"width": CANVAS[0], "height": CANVAS[1], "mode": "RGB"},
+            "layout": _layout_json(),
+            "projections": _projection_json(),
+            "generator": {"bundle_version": 2, "samples_per_axis": samples, "padding": padding, "smooth_union": {"operator": "polynomial_cubic_smooth_min", "k": smooth_k, "fold_order": "source_address_then_recipe_order"}, "field_primitives": ["ellipsoid", "capsule", "linear-radius-tapered-segment"], "field_recipes": ["hips", "pelvic-core", "chest", "waist", "axial-trunk", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar", "limb-segment", "root-bridge", "hip-transition", "shoulder-mass", "joint-collar", "digitigrade-lower-leg", "paw-mass", "foot-front", "extremity-bridge", "tail-segment", "tail-tip-extension", "tail-tip-cap", "tail-root-bridge", "tail-root-collar"], "ownership": "recipe fields are source-owned and winner labels expose only source AddressKeys", "boundary": "disposable exploratory visual proof; not production geometry, SDF, collision, rig, topology, or Readiness evidence"},
+            "variants": records,
+        }
         (stage / "surface-preview-manifest.json").write_bytes(_canonical(manifest) + b"\n")
         expected_files = {"surface-preview-manifest.json"}
         expected_directories = set(VARIANT_IDS)
@@ -1442,7 +1984,8 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
         os.replace(stage, output)
         return manifest
     except Exception:
-        shutil.rmtree(stage, ignore_errors=True); raise
+        shutil.rmtree(stage, ignore_errors=True)
+        raise
 
 
 def main(argv: list[str] | None = None) -> int:
