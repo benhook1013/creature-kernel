@@ -13,8 +13,7 @@ governs what resumes next.
 
 ## Active runway
 
-Execution state: paused after the 2026-08-19 course correction; resume only on
-Ben's instruction.
+Execution state: active after Ben's 2026-08-19 resume instruction.
 
 The next autonomous runway returns to visible creature-form progress. Its goal
 is to advance beyond the already-seen overlapping-primitives and disposable

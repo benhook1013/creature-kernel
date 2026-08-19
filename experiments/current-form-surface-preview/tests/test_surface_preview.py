@@ -109,6 +109,40 @@ class SurfacePreviewTests(unittest.TestCase):
         foot_anchor_value = surface_preview._field(foot_bridge.shape["from"].reshape(1, 3), shin, form.reference_scale)[0]
         self.assertAlmostEqual(float(foot_anchor_value), 0.0, places=12)
 
+    def test_candidate_c_craniofacial_ratios_overlap_and_source_ownership(self) -> None:
+        form = surface_preview.validate_envelope(make_payload())
+        descriptors = form.variants[0][1]
+        fields = surface_preview._compound_fields(form, descriptors)
+        head = next(item for item in descriptors if item.key[3] == "head")
+        neck = next(item for item in descriptors if item.key[3] == "neck")
+        head_shape = surface_preview._source_shape(head, form.reference_scale)
+        hx, hy, hz = head_shape["radii"]
+        cranium = next(item for item in fields if item.owner is head and item.recipe == "cranium")
+        muzzle = next(item for item in fields if item.owner is head and item.recipe == "muzzle")
+        head_base = next(item for item in fields if item.owner is head and item.recipe == "head-base-bridge")
+        tapered_neck = next(item for item in fields if item.owner is neck and item.recipe == "tapered-neck")
+
+        np.testing.assert_allclose(cranium.shape["center"], head.point + np.asarray([0.0, 0.10 * hy, -0.04 * hz]))
+        np.testing.assert_allclose(cranium.shape["radii"], np.asarray([0.85 * hx, 1.00 * hy, 0.85 * hz]))
+        np.testing.assert_allclose(muzzle.shape["center"], head.point + np.asarray([0.0, -0.10 * hy, 0.62 * hz]))
+        np.testing.assert_allclose(muzzle.shape["radii"], np.asarray([0.50 * hx, 0.48 * hy, 0.50 * hz]))
+        self.assertAlmostEqual(
+            float(head_base.shape["to"][1]),
+            float(cranium.shape["center"][1] - 0.84 * cranium.shape["radii"][1]),
+            places=12,
+        )
+        self.assertAlmostEqual(float(tapered_neck.shape["to"][1]), float(head.point[1] - 0.70 * hy), places=12)
+
+        cranium_bottom = float(cranium.shape["center"][1] - cranium.shape["radii"][1])
+        cranium_top = float(cranium.shape["center"][1] + cranium.shape["radii"][1])
+        muzzle_bottom = float(muzzle.shape["center"][1] - muzzle.shape["radii"][1])
+        muzzle_top = float(muzzle.shape["center"][1] + muzzle.shape["radii"][1])
+        self.assertLess(muzzle_bottom, cranium_top)
+        self.assertGreater(muzzle_top, cranium_bottom)
+        self.assertEqual(len(fields), 44)
+        source_keys = {descriptor.key for descriptor in descriptors}
+        self.assertTrue(all(field.owner.key in source_keys for field in fields))
+
     def test_segment_parent_surface_anchor_uses_radius_and_fails_when_ambiguous(self) -> None:
         form = surface_preview.validate_envelope(make_payload())
         descriptors = form.variants[0][1]
