@@ -30,6 +30,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import pwd
 import stat
 import threading
 from dataclasses import dataclass
@@ -55,9 +56,13 @@ ATTEMPT_RE = contract.ATTEMPT_RE
 PUBLICATION_TRUST_BOUNDARY = "operator-enforced-single-dispatch-persistent-ledger-v1"
 EXPERIMENT_SLOT_SCHEMA = "ck.exp-0002.phase3.experiment-slot-reservation-1"
 EXPERIMENT_SLOT_LEDGER_ID = "ck.exp-0002.phase3.experiment-slot-ledger.v1"
-# Persistent local operator state, intentionally outside both the checkout
-# and an attempt output root.  This is not a hosted or cross-machine lock.
-EXPERIMENT_SLOT_NAMESPACE = Path.home() / ".local" / "state" / "creature-kernel" / "exp-0002" / "exact-slot-reservations"
+# Stable local operator state, intentionally outside both the checkout and an
+# attempt output root.  The passwd home is resolved at reservation time, rather
+# than through HOME/XDG or an import-time ``Path.home()`` lookup.  This is not a
+# hosted or cross-machine lock.
+EXPERIMENT_SLOT_NAMESPACE_PARTS = (
+    ".local", "state", "creature-kernel", "exp-0002", "exact-slot-reservations"
+)
 EXPERIMENT_SLOT_SELECTORS = {
     "wsl2-x86_64": frozenset({0, 1}),
     "ubuntu-24.04-x86_64": frozenset({2}),
@@ -280,15 +285,127 @@ def _slot_paths(binding: Mapping[str, object], namespace: Path) -> tuple[Path, P
     return directory, directory / f"ordinal-{ordinal}.json"
 
 
+def _slot_namespace() -> tuple[int, Path]:
+    """Resolve the per-user ledger root from the verified passwd record.
+
+    Environment-derived home/state roots are deliberately not consulted.  The
+    lookup is performed for each reservation, so a long-lived process cannot
+    retain a home chosen by an earlier environment or by import-time state.
+    """
+    uid = os.getuid()
+    try:
+        passwd_entry = pwd.getpwuid(uid)
+        passwd_uid = passwd_entry.pw_uid
+        passwd_home = passwd_entry.pw_dir
+    except (KeyError, OSError, TypeError, AttributeError) as error:
+        raise PublicationError("slot-reservation", f"cannot resolve passwd home for uid {uid}") from error
+    if type(passwd_uid) is not int or passwd_uid != uid:
+        _fail("slot-reservation", "passwd entry does not verify the current uid")
+    if type(passwd_home) is not str or not passwd_home:
+        _fail("slot-reservation", "passwd home is empty or invalid")
+    home = _path(Path(passwd_home), "passwd home")
+    return uid, home.joinpath(*EXPERIMENT_SLOT_NAMESPACE_PARTS)
+
+
+def _validate_ledger_directory(st: os.stat_result, label: str, uid: int) -> None:
+    if not stat.S_ISDIR(st.st_mode):
+        _fail("slot-directory", f"{label} is not a directory")
+    if st.st_uid != uid:
+        _fail("slot-directory", f"{label} is not owned by the current uid")
+    # Directory hard links are not generally creatable by an unprivileged
+    # process, but retaining the check makes an unexpected link count fail
+    # closed instead of becoming part of the trust boundary.
+    if st.st_nlink < 2:
+        _fail("slot-directory", f"{label} has an invalid link count")
+    if stat.S_IMODE(st.st_mode) != 0o700:
+        _fail("slot-directory", f"{label} does not have mode 700")
+
+
+def _open_or_create_ledger_directory(parent_fd: int, name: str, label: str, uid: int) -> int:
+    """Create or descriptor-open one private ledger directory component.
+
+    Existing material is only validated; it is never chmod-ed or otherwise
+    repaired.  A component created by this call may be normalized for umask,
+    then is validated again through both its name and descriptor.
+    """
+    created = False
+    try:
+        try:
+            os.mkdir(name, 0o700, dir_fd=parent_fd)
+            created = True
+            os.fsync(parent_fd)
+        except FileExistsError:
+            pass
+        except OSError as error:
+            raise PublicationError("slot-reservation", f"cannot create {label}: {error}") from error
+
+        named = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+        if created:
+            if not stat.S_ISDIR(named.st_mode) or named.st_uid != uid or named.st_nlink < 2:
+                _fail("slot-directory", f"{label} changed during creation")
+            os.chmod(name, 0o700, dir_fd=parent_fd, follow_symlinks=False)
+            named = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+        _validate_ledger_directory(named, label, uid)
+        flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0)
+        fd = os.open(name, flags, dir_fd=parent_fd)
+        try:
+            opened = os.fstat(fd)
+            if _metadata(named) != _metadata(opened):
+                _fail("slot-directory", f"{label} changed while opening")
+            _validate_ledger_directory(opened, label, uid)
+            return fd
+        except Exception:
+            _close(fd)
+            raise
+    except PublicationError:
+        raise
+    except OSError as error:
+        raise PublicationError("slot-reservation", f"cannot open {label}: {error}") from error
+
+
+def _validate_existing_slot_marker(parent_fd: int, name: str, label: str, uid: int) -> None:
+    """Validate an already-present marker before reporting a duplicate slot."""
+    try:
+        st = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+    except OSError as error:
+        raise PublicationError("slot-reservation", f"cannot inspect {label}: {error}") from error
+    if not stat.S_ISREG(st.st_mode):
+        _fail("slot-marker", f"{label} is not a regular file")
+    if st.st_uid != uid:
+        _fail("slot-marker", f"{label} is not owned by the current uid")
+    if st.st_nlink != 1:
+        _fail("slot-marker", f"{label} has an invalid link count")
+    if stat.S_IMODE(st.st_mode) != 0o600:
+        _fail("slot-marker", f"{label} does not have mode 600")
+
+
 def _reserve_slot_marker(binding: Mapping[str, object]) -> bytes:
     """Persist the experiment-wide consumed slot before attempt work begins."""
-    namespace = _path(EXPERIMENT_SLOT_NAMESPACE, "experiment slot namespace")
-    directory, marker = _slot_paths(binding, namespace)
+    uid, namespace = _slot_namespace()
+    namespace = _path(namespace, "experiment slot namespace")
+    # Open the passwd home without following any component, then walk/create
+    # the fixed namespace entirely through directory descriptors.
+    passwd_home = namespace
+    for _ in EXPERIMENT_SLOT_NAMESPACE_PARTS:
+        passwd_home = passwd_home.parent
+    home_fd = _open_directory(passwd_home, "passwd home")
+    fds: list[int] = [home_fd]
     try:
-        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
-        os.chmod(directory, 0o700)
+        parent_fd = home_fd
+        for component in EXPERIMENT_SLOT_NAMESPACE_PARTS:
+            child_fd = _open_or_create_ledger_directory(parent_fd, component, f"ledger component {component}", uid)
+            fds.append(child_fd)
+            parent_fd = child_fd
+        namespace_fd = parent_fd
+        digest = str(binding["successor_manifest_sha256"])
+        selector = str(binding["platform_selector"])
+        digest_fd = _open_or_create_ledger_directory(namespace_fd, digest, "manifest ledger directory", uid)
+        fds.append(digest_fd)
+        selector_fd = _open_or_create_ledger_directory(digest_fd, selector, "selector ledger directory", uid)
+        fds.append(selector_fd)
         raw = _slot_canonical({"schema": EXPERIMENT_SLOT_SCHEMA, "ledger_id": EXPERIMENT_SLOT_LEDGER_ID, **dict(binding)})
-        fd = os.open(marker, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_CLOEXEC", 0), 0o600)
+        marker_name = f"ordinal-{binding['ordinal']}.json"
+        fd = os.open(marker_name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0), 0o600, dir_fd=selector_fd)
         try:
             offset = 0
             while offset < len(raw):
@@ -298,18 +415,26 @@ def _reserve_slot_marker(binding: Mapping[str, object]) -> bytes:
                 offset += written
             os.fsync(fd)
             os.fchmod(fd, 0o600)
+            marker_st = os.fstat(fd)
+            if marker_st.st_uid != uid or marker_st.st_nlink != 1 or stat.S_IMODE(marker_st.st_mode) != 0o600:
+                _fail("slot-marker", "new slot marker failed ownership, link-count, or mode validation")
             os.fsync(fd)
         finally:
             _close(fd)
-        _fsync_path(directory)
-        _fsync_path(namespace)
+        os.fsync(selector_fd)
+        os.fsync(digest_fd)
+        os.fsync(namespace_fd)
         return raw
     except FileExistsError as error:
+        _validate_existing_slot_marker(selector_fd, marker_name, "slot marker", uid)
         raise PublicationError("slot-consumed", "experiment slot is already bound to an attempt") from error
     except PublicationError:
         raise
     except OSError as error:
         raise PublicationError("slot-reservation", f"cannot consume experiment slot: {error}") from error
+    finally:
+        for fd in reversed(fds):
+            _close(fd)
 
 
 def _fsync_path(path: Path) -> None:
@@ -580,8 +705,8 @@ def reserve_experiment_slot(
     """Consume one persistent local slot and return a publication reservation.
 
     The slot marker is rooted at the persistent local
-    ``EXPERIMENT_SLOT_NAMESPACE``; ``parent_root`` is only the immutable
-    publication directory for the returned handle.  Consequently cooperating
+    passwd-derived Phase 3 ledger namespace; ``parent_root`` is only the
+    immutable publication directory for the returned handle.  Consequently cooperating
     checkouts cannot evade the operator's single-dispatch accounting by
     selecting different output roots.  The marker is written first, so every
     failed or abandoned reservation remains consumed.  This is not a hostile
@@ -954,7 +1079,7 @@ read_published_attempt = read_attempt
 
 __all__ = [
     "RESULT_NAME", "RECEIPT_NAME", "INDEX_NAME", "FILE_NAMES", "FILE_MODES", "DIRECTORY_MODE",
-    "PUBLICATION_TRUST_BOUNDARY", "EXPERIMENT_SLOT_SCHEMA", "EXPERIMENT_SLOT_NAMESPACE", "EXPERIMENT_SLOT_SELECTORS",
+    "PUBLICATION_TRUST_BOUNDARY", "EXPERIMENT_SLOT_SCHEMA", "EXPERIMENT_SLOT_NAMESPACE_PARTS", "EXPERIMENT_SLOT_SELECTORS",
     "PublicationError", "FileIdentity", "PublishedAttempt", "AttemptReservation", "reserve_experiment_slot",
     "publish_reserved_attempt", "read_attempt", "read_published_attempt",
 ]

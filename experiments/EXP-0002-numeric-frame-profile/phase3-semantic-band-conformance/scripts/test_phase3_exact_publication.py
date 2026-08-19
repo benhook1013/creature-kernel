@@ -12,6 +12,7 @@ import threading
 import unittest
 from pathlib import Path
 from unittest import mock
+from types import SimpleNamespace
 
 import phase3_evidence_contract as contract
 import test_phase3_evidence_contract as evidence_fixture
@@ -36,6 +37,12 @@ def _blobs() -> tuple[bytes, bytes, bytes]:
         index = contract.build_attempt_index(result, receipt)
         _BLOB_CACHE = result, receipt, index
     return _BLOB_CACHE
+
+
+def _passwd_home_patch(home: Path):
+    """Keep ledger tests in a patched passwd home, never the real user state."""
+    home.mkdir(parents=True, exist_ok=True)
+    return mock.patch.object(M.pwd, "getpwuid", return_value=SimpleNamespace(pw_uid=os.getuid(), pw_dir=str(home)))
 
 
 class ExactPublicationTests(unittest.TestCase):
@@ -66,19 +73,103 @@ class ExactPublicationTests(unittest.TestCase):
             base = Path(directory)
             root_one = base / "published-one"; root_one.mkdir()
             root_two = base / "published-two"; root_two.mkdir()
-            slot_namespace = base / "canonical-slots"
-            with mock.patch.object(M, "EXPERIMENT_SLOT_NAMESPACE", slot_namespace):
+            with _passwd_home_patch(base / "ledger-home"):
                 reservation = M.reserve_experiment_slot(root_one, "a" * 64, "wsl2-x86_64", 0, "attempt-001")
                 with self.assertRaises(M.PublicationError) as caught:
                     M.reserve_experiment_slot(root_two, "a" * 64, "wsl2-x86_64", 0, "attempt-002")
                 self.assertEqual(caught.exception.code, "slot-consumed")
                 reservation.close()
 
+    def test_ledger_ignores_environment_and_output_checkout_roots(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            passwd_home = base / "passwd-home"
+            output_one = base / "checkout-one" / "work" / "output"
+            output_two = base / "checkout-two" / "other-work" / "output"
+            output_one.mkdir(parents=True)
+            output_two.mkdir(parents=True)
+            with _passwd_home_patch(passwd_home), mock.patch.dict(
+                os.environ,
+                {"HOME": str(base / "attacker-home"), "XDG_STATE_HOME": str(base / "attacker-state")},
+                clear=False,
+            ):
+                first = M.reserve_experiment_slot(output_one, "a" * 64, "wsl2-x86_64", 0, "attempt-001")
+                first.close()
+                first_namespace = M._slot_namespace()[1]
+                second = M.reserve_experiment_slot(output_two, "a" * 64, "wsl2-x86_64", 1, "attempt-002")
+                second.close()
+                second_namespace = M._slot_namespace()[1]
+            self.assertEqual(first_namespace, second_namespace)
+            self.assertTrue((first_namespace / ("a" * 64) / "wsl2-x86_64" / "ordinal-0.json").is_file())
+            self.assertTrue((first_namespace / ("a" * 64) / "wsl2-x86_64" / "ordinal-1.json").is_file())
+            self.assertFalse((base / "attacker-state").exists())
+
+    def test_ledger_rejects_symlink_mode_and_owner_mismatch_without_repair(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            symlink_home = base / "symlink-home"
+            symlink_home.mkdir()
+            (symlink_home / ".local").symlink_to(base / "outside", target_is_directory=True)
+            with _passwd_home_patch(symlink_home):
+                with self.assertRaises(M.PublicationError) as caught:
+                    M.reserve_experiment_slot(base / "output-symlink", "a" * 64, "wsl2-x86_64", 0, "attempt-001")
+            self.assertEqual(caught.exception.code, "slot-directory")
+
+            mode_home = base / "mode-home"
+            mode_output = base / "output-mode"
+            mode_output.mkdir()
+            with _passwd_home_patch(mode_home):
+                first = M.reserve_experiment_slot(mode_output, "b" * 64, "wsl2-x86_64", 0, "attempt-001")
+                first.close()
+                state = mode_home / ".local" / "state"
+                os.chmod(state, 0o755)
+                with self.assertRaises(M.PublicationError) as caught:
+                    M.reserve_experiment_slot(mode_output, "b" * 64, "wsl2-x86_64", 1, "attempt-002")
+            self.assertEqual(caught.exception.code, "slot-directory")
+            self.assertEqual(stat.S_IMODE(state.stat().st_mode), 0o755)
+
+            marker_home = base / "marker-home"
+            marker_output = base / "output-marker"
+            marker_output.mkdir()
+            with _passwd_home_patch(marker_home):
+                first = M.reserve_experiment_slot(marker_output, "e" * 64, "wsl2-x86_64", 0, "attempt-001")
+                first.close()
+                marker = marker_home / ".local" / "state" / "creature-kernel" / "exp-0002" / "exact-slot-reservations" / ("e" * 64) / "wsl2-x86_64" / "ordinal-0.json"
+                os.chmod(marker, 0o644)
+                with self.assertRaises(M.PublicationError) as caught:
+                    M.reserve_experiment_slot(marker_output, "e" * 64, "wsl2-x86_64", 0, "attempt-002")
+            self.assertEqual(caught.exception.code, "slot-marker")
+            self.assertEqual(stat.S_IMODE(marker.stat().st_mode), 0o644)
+
+            owner_home = base / "owner-home"
+            owner_output = base / "output-owner"
+            owner_output.mkdir()
+            actual_uid = os.getuid()
+            with _passwd_home_patch(owner_home), mock.patch.object(M.os, "getuid", return_value=actual_uid + 1), mock.patch.object(
+                M.pwd, "getpwuid", return_value=SimpleNamespace(pw_uid=actual_uid + 1, pw_dir=str(owner_home))
+            ):
+                with self.assertRaises(M.PublicationError) as caught:
+                    M.reserve_experiment_slot(owner_output, "c" * 64, "wsl2-x86_64", 0, "attempt-001")
+            self.assertEqual(caught.exception.code, "slot-directory")
+
+    def test_same_slot_in_distinct_passwd_homes_is_not_cross_host_claim(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            first_home, second_home = base / "host-one", base / "host-two"
+            first_output, second_output = base / "out-one", base / "out-two"
+            first_output.mkdir(); second_output.mkdir()
+            with _passwd_home_patch(first_home):
+                first = M.reserve_experiment_slot(first_output, "d" * 64, "wsl2-x86_64", 0, "attempt-001")
+                first.close()
+            with _passwd_home_patch(second_home):
+                second = M.reserve_experiment_slot(second_output, "d" * 64, "wsl2-x86_64", 0, "attempt-001")
+                second.close()
+
     def test_experiment_slot_binding_is_checked_before_publication(self) -> None:
         result, receipt, index = _blobs()
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "published"; root.mkdir()
-            with mock.patch.object(M, "EXPERIMENT_SLOT_NAMESPACE", Path(directory) / "canonical-slots"):
+            with _passwd_home_patch(Path(directory) / "ledger-home"):
                 reservation = M.reserve_experiment_slot(root, "a" * 64, "wsl2-x86_64", 0, "attempt-001")
                 forged = json.loads(result.decode())
                 forged["attempt"]["freeze_manifest_sha256"] = "b" * 64
@@ -94,7 +185,7 @@ class ExactPublicationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             base = Path(directory)
             root = base / "published"; root.mkdir()
-            with mock.patch.object(M, "EXPERIMENT_SLOT_NAMESPACE", base / "canonical-slots"):
+            with _passwd_home_patch(base / "ledger-home"):
                 reservation = M.reserve_experiment_slot(root, "a" * 64, "wsl2-x86_64", 0, "attempt-terminal-001")
                 terminal = M.write_terminal_failure(reservation, code="synthetic-failure", detail="bounded post-reservation failure")
             self.assertTrue(reservation.closed)
@@ -364,7 +455,6 @@ class ExactPublicationTests(unittest.TestCase):
             # Use the public experiment reservation here so the failure path
             # exercises the same ledger-bound terminal evidence that closure
             # consumes.  The local helper intentionally has no slot binding.
-            slot_namespace = Path(directory) / "canonical-slots"
             original = M._write_file
             calls = 0
 
@@ -375,7 +465,7 @@ class ExactPublicationTests(unittest.TestCase):
                     raise M.PublicationError("synthetic", "second file failure")
                 return original(*args, **kwargs)
 
-            with mock.patch.object(M, "EXPERIMENT_SLOT_NAMESPACE", slot_namespace), mock.patch.object(M, "_write_file", side_effect=fail_after_result):
+            with _passwd_home_patch(Path(directory) / "ledger-home"), mock.patch.object(M, "_write_file", side_effect=fail_after_result):
                 reservation = M.reserve_experiment_slot(partial_root, "a" * 64, "wsl2-x86_64", 0, "attempt-001")
                 with self.assertRaises(M.PublicationError):
                     M.publish_reserved_attempt(reservation, result, receipt, index)
@@ -385,6 +475,11 @@ class ExactPublicationTests(unittest.TestCase):
             self.assertFalse((partial / M.RECEIPT_NAME).exists())
             self.assertFalse((partial / M.INDEX_NAME).exists())
             self.assertTrue((partial / M.TERMINAL_FAILURE_NAME).is_file())
+            ledger_marker = (
+                Path(directory) / "ledger-home" / ".local" / "state" / "creature-kernel" / "exp-0002"
+                / "exact-slot-reservations" / ("a" * 64) / "wsl2-x86_64" / "ordinal-0.json"
+            )
+            self.assertTrue(ledger_marker.is_file())
 
     def test_publication_reopens_and_rejects_persisted_readback_mismatch(self) -> None:
         result, receipt, index = _blobs()
