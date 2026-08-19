@@ -32,6 +32,23 @@ MATERIALIZATION_COMMIT = "b" * 40
 FREEZE_SHA = "d" * 64
 
 
+def _review_bytes(index: int, lens: str, *, reviewer: str | None = None, reviewed_commit: str = MATERIALIZATION_COMMIT, freeze_hash: str = FREEZE_SHA) -> bytes:
+    if reviewer is None:
+        reviewer = "reviewer-alpha" if index == 1 else "reviewer-beta"
+    header = {
+        "schema": M.REVIEW_HEADER_SCHEMA,
+        "review_id": f"gate-b-final-{index}",
+        "reviewer": reviewer,
+        "status": "Complete",
+        "disposition": "Clean",
+        "lens": lens,
+        "reviewed_commit": reviewed_commit,
+        "freeze_manifest_sha256": freeze_hash,
+        "findings": [],
+    }
+    return M.REVIEW_HEADER_PREFIX.encode("ascii") + M._canonical(header)[:-1] + b"\n# review body\n"
+
+
 def _exact_tools() -> list[dict[str, object]]:
     return [
         {"path": path, "mode": 0o644, "bytes": index + 1, "sha256": f"{index + 1:064x}"}
@@ -149,8 +166,8 @@ class ExactAuthorityTests(unittest.TestCase):
         self.root = Path(self.holder.name)
         self.reviews = self.root / "reviews"
         self.reviews.mkdir()
-        (self.reviews / "gate-b-final-01.md").write_bytes(b"# clean closure review\nResult: Clean\n")
-        (self.reviews / "gate-b-final-02.md").write_bytes(b"# clean execution review\nResult: Clean\n")
+        (self.reviews / "gate-b-final-01.md").write_bytes(_review_bytes(1, M.REQUIRED_REVIEW_LENSES[0]))
+        (self.reviews / "gate-b-final-02.md").write_bytes(_review_bytes(2, M.REQUIRED_REVIEW_LENSES[1]))
         self.admission = _admission(self.reviews)
 
     def tearDown(self) -> None:
@@ -328,7 +345,6 @@ class ExactAuthorityTests(unittest.TestCase):
             expected_attempt_id="attempt-001",
             expected_platform_selector="wsl2-x86_64",
             expected_ordinal=0,
-            expected_authorization_reference="ben-approval-2026-08-19-001",
         )
         self.assertTrue(value["execution_permitted"])
         self.assertFalse(value["automatic_retry"])
@@ -337,13 +353,13 @@ class ExactAuthorityTests(unittest.TestCase):
         for selector, ordinals in M.PLATFORM_ORDINALS.items():
             for ordinal in ordinals:
                 raw = self._authorization(selector=selector, ordinal=ordinal)
-                value = M.validate_authorization(raw, admission_bytes=self.admission, freeze_manifest=FREEZE_BYTES, review_root=self.reviews, expected_custody_record_sha256="c" * 64, expected_attempt_id="attempt-001", expected_platform_selector=selector, expected_ordinal=ordinal, expected_authorization_reference="ben-approval-2026-08-19-001")
+                value = M.validate_authorization(raw, admission_bytes=self.admission, freeze_manifest=FREEZE_BYTES, review_root=self.reviews, expected_custody_record_sha256="c" * 64, expected_attempt_id="attempt-001", expected_platform_selector=selector, expected_ordinal=ordinal)
                 self.assertEqual(value["ordinal"], ordinal)
         with self.assertRaises(M.AuthorityError) as context:
             self._authorization(selector="ubuntu-24.04-x86_64", ordinal=0)
         self.assertEqual(context.exception.code, "ordinal")
         with self.assertRaises(M.AuthorityError) as context:
-            M.validate_authorization(self._authorization(), admission_bytes=self.admission, freeze_manifest=FREEZE_BYTES, review_root=self.reviews, expected_custody_record_sha256="d" * 64, expected_attempt_id="attempt-001", expected_platform_selector="wsl2-x86_64", expected_ordinal=0, expected_authorization_reference="ben-approval-2026-08-19-001")
+            M.validate_authorization(self._authorization(), admission_bytes=self.admission, freeze_manifest=FREEZE_BYTES, review_root=self.reviews, expected_custody_record_sha256="d" * 64, expected_attempt_id="attempt-001", expected_platform_selector="wsl2-x86_64", expected_ordinal=0)
         self.assertEqual(context.exception.code, "custody-binding")
 
     def test_authorization_rejects_placeholder_reference_retry_scope_and_admission_tamper(self) -> None:
@@ -355,21 +371,20 @@ class ExactAuthorityTests(unittest.TestCase):
                 M.encode_authorization(forged_value)
             self.assertIn(context.exception.code, {"authorization-reference", "authorization-policy", "record-hash"})
         with self.assertRaises(M.AuthorityError) as context:
-            M.validate_authorization(self._authorization(), admission_bytes=self.admission + b" ", freeze_manifest=FREEZE_BYTES, review_root=self.reviews, expected_custody_record_sha256="c" * 64, expected_attempt_id="attempt-001", expected_platform_selector="wsl2-x86_64", expected_ordinal=0, expected_authorization_reference="ben-approval-2026-08-19-001")
+            M.validate_authorization(self._authorization(), admission_bytes=self.admission + b" ", freeze_manifest=FREEZE_BYTES, review_root=self.reviews, expected_custody_record_sha256="c" * 64, expected_attempt_id="attempt-001", expected_platform_selector="wsl2-x86_64", expected_ordinal=0)
         self.assertIn(context.exception.code, {"record-size", "noncanonical", "freeze", "admission-binding"})
 
     def test_duplicate_keys_and_nonfinite_json_are_rejected(self) -> None:
         duplicate = b'{"admission_record_sha256":null,"admission_record_sha256":null}\n'
         with self.assertRaises(M.AuthorityError) as context:
-            M.validate_authorization(duplicate, admission_bytes=self.admission, freeze_manifest=FREEZE_BYTES, review_root=self.reviews, expected_custody_record_sha256="c" * 64, expected_attempt_id="attempt-001", expected_platform_selector="wsl2-x86_64", expected_ordinal=0, expected_authorization_reference="ben-approval-2026-08-19-001")
+            M.validate_authorization(duplicate, admission_bytes=self.admission, freeze_manifest=FREEZE_BYTES, review_root=self.reviews, expected_custody_record_sha256="c" * 64, expected_attempt_id="attempt-001", expected_platform_selector="wsl2-x86_64", expected_ordinal=0)
         self.assertEqual(context.exception.code, "duplicate-json-key")
 
-    def test_expected_authorization_reference_is_required_and_exact(self) -> None:
+    def test_authorization_reference_is_record_owned_not_caller_expected(self) -> None:
+        value = M.validate_authorization(self._authorization(), admission_bytes=self.admission, freeze_manifest=FREEZE_BYTES, review_root=self.reviews, expected_custody_record_sha256="c" * 64, expected_attempt_id="attempt-001", expected_platform_selector="wsl2-x86_64", expected_ordinal=0)
+        self.assertEqual(value["authorization_reference"], "ben-approval-2026-08-19-001")
         with self.assertRaises(TypeError):
-            M.validate_authorization(self._authorization(), admission_bytes=self.admission, freeze_manifest=FREEZE_BYTES, review_root=self.reviews, expected_custody_record_sha256="c" * 64, expected_attempt_id="attempt-001", expected_platform_selector="wsl2-x86_64", expected_ordinal=0)
-        with self.assertRaises(M.AuthorityError) as context:
-            M.validate_authorization(self._authorization(), admission_bytes=self.admission, freeze_manifest=FREEZE_BYTES, review_root=self.reviews, expected_custody_record_sha256="c" * 64, expected_attempt_id="attempt-001", expected_platform_selector="wsl2-x86_64", expected_ordinal=0, expected_authorization_reference="ben-approval-other")
-        self.assertEqual(context.exception.code, "authorization-reference")
+            M.validate_authorization(self._authorization(), admission_bytes=self.admission, freeze_manifest=FREEZE_BYTES, review_root=self.reviews, expected_custody_record_sha256="c" * 64, expected_attempt_id="attempt-001", expected_platform_selector="wsl2-x86_64", expected_ordinal=0, expected_authorization_reference="caller-forged")
 
 
 def _git(repo: Path, *arguments: str) -> str:
@@ -391,8 +406,8 @@ class GitBoundAuthorityTests(unittest.TestCase):
         self.root = Path(self.holder.name)
         self.reviews = self.root / "reviews"
         self.reviews.mkdir()
-        (self.reviews / "gate-b-final-01.md").write_bytes(b"# clean closure review\nResult: Clean\n")
-        (self.reviews / "gate-b-final-02.md").write_bytes(b"# clean execution review\nResult: Clean\n")
+        (self.reviews / "gate-b-final-01.md").write_bytes(_review_bytes(1, M.REQUIRED_REVIEW_LENSES[0]))
+        (self.reviews / "gate-b-final-02.md").write_bytes(_review_bytes(2, M.REQUIRED_REVIEW_LENSES[1]))
         self.freeze_patch: mock._patch | None = None
 
     def tearDown(self) -> None:
@@ -417,6 +432,10 @@ class GitBoundAuthorityTests(unittest.TestCase):
 
         manifest_path = repo / "frozen" / "freeze-manifest.json"
         manifest_path.parent.mkdir()
+        self.reviews = repo / "reviews"
+        self.reviews.mkdir()
+        (self.reviews / "gate-b-final-01.md").write_bytes(b"# clean closure review\nResult: Clean\n")
+        (self.reviews / "gate-b-final-02.md").write_bytes(b"# clean execution review\nResult: Clean\n")
         freeze = copy.deepcopy(FREEZE)
         freeze["execution_tool_source_commit"] = execution
         freeze["materialization_commit"] = materialization
@@ -427,6 +446,12 @@ class GitBoundAuthorityTests(unittest.TestCase):
         _git(repo, "add", "-A")
         _git(repo, "commit", "--quiet", "-m", "review target")
         reviewed = _git(repo, "rev-parse", "HEAD")
+        # Review artifacts are committed after the target commit; their
+        # header binds the already-known reviewed target without a hash cycle.
+        (self.reviews / "gate-b-final-01.md").write_bytes(_review_bytes(1, M.REQUIRED_REVIEW_LENSES[0], reviewed_commit=reviewed))
+        (self.reviews / "gate-b-final-02.md").write_bytes(_review_bytes(2, M.REQUIRED_REVIEW_LENSES[1], reviewed_commit=reviewed))
+        _git(repo, "add", "reviews")
+        _git(repo, "commit", "--quiet", "-m", "review evidence")
         (repo / "head.txt").write_bytes(b"current head\n")
         _git(repo, "add", "head.txt")
         _git(repo, "commit", "--quiet", "-m", "current head")
@@ -534,6 +559,37 @@ class GitBoundAuthorityTests(unittest.TestCase):
         with self.assertRaises(M.AuthorityError) as context:
             M.validate_gate_b_admission(self._admission(source=execution, reviewed=reviewed), freeze_manifest=freeze_raw, review_root=self.reviews)
         self.assertEqual(context.exception.code, "review-target-git")
+
+    def test_committed_arbitrary_review_markdown_is_not_admissible(self) -> None:
+        _freeze, freeze_raw, execution, _materialization, reviewed, _current, _path = self._history()
+        repo = self.root / "repo"
+        (self.reviews / "gate-b-final-01.md").write_bytes(b"# arbitrary markdown\nResult: Clean\n")
+        _git(repo, "add", "reviews")
+        _git(repo, "commit", "--quiet", "-m", "forged review body")
+        with self.assertRaises(M.AuthorityError) as context:
+            M.validate_gate_b_admission(self._admission(source=execution, reviewed=reviewed), freeze_manifest=freeze_raw, review_root=self.reviews)
+        self.assertEqual(context.exception.code, "review-header")
+
+    def test_committed_review_with_mismatched_semantic_header_is_rejected(self) -> None:
+        _freeze, freeze_raw, execution, _materialization, reviewed, _current, _path = self._history()
+        repo = self.root / "repo"
+        (self.reviews / "gate-b-final-01.md").write_bytes(_review_bytes(1, M.REQUIRED_REVIEW_LENSES[0], reviewed_commit="f" * 40))
+        _git(repo, "add", "reviews")
+        _git(repo, "commit", "--quiet", "-m", "mismatched review header")
+        with self.assertRaises(M.AuthorityError) as context:
+            M.validate_gate_b_admission(self._admission(source=execution, reviewed=reviewed), freeze_manifest=freeze_raw, review_root=self.reviews)
+        self.assertEqual(context.exception.code, "review-header-binding")
+
+    def test_committed_review_with_mismatched_reviewer_header_is_rejected(self) -> None:
+        _freeze, freeze_raw, execution, _materialization, reviewed, _current, _path = self._history()
+        (self.reviews / "gate-b-final-01.md").write_bytes(
+            _review_bytes(1, M.REQUIRED_REVIEW_LENSES[0], reviewer="reviewer-forged", reviewed_commit=reviewed)
+        )
+        _git(self.reviews.parent, "add", "reviews")
+        _git(self.reviews.parent, "commit", "--quiet", "-m", "mismatched reviewer header")
+        with self.assertRaises(M.AuthorityError) as context:
+            M.validate_gate_b_admission(self._admission(source=execution, reviewed=reviewed), freeze_manifest=freeze_raw, review_root=self.reviews)
+        self.assertEqual(context.exception.code, "review-header-binding")
 
     def test_admission_encoding_does_not_run_git(self) -> None:
         record = self._admission(source=EXECUTION_TOOL_SOURCE_COMMIT, reviewed=MATERIALIZATION_COMMIT)

@@ -20,6 +20,7 @@ import phase3_freeze_manifest as freeze
 BUNDLE_FILES = ("candidate", "build-receipt.json", "build-metadata.json", "cargo-metadata.json")
 HISTORICAL_V1_COMMIT = "553d51bd55dd837b01b950d063d288369f61e56d"
 HISTORICAL_V2_COMMIT = "cc1531c2e8efe40f8a4896d11b10973147c5636b"
+HISTORICAL_V3_COMMIT = "e4725412712dab25221949809e7247af9484a4f0"
 MANIFEST_REPOSITORY_PATH = "experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/manifests/freeze-manifest.json"
 
 
@@ -46,6 +47,10 @@ def _v1_fixture() -> bytes:
 
 def _v2_fixture() -> bytes:
     return _historical_manifest_bytes(HISTORICAL_V2_COMMIT)
+
+
+def _v3_fixture() -> bytes:
+    return _historical_manifest_bytes(HISTORICAL_V3_COMMIT)
 
 
 def _copy_package(root: Path) -> tuple[Path, Path]:
@@ -127,7 +132,10 @@ def _successor(package: Path, execution_commit: str = "e" * 40) -> dict:
 
 
 def _v3_successor(package: Path, execution_commit: str = "a" * 40, materialization_commit: str = "b" * 40) -> dict:
-    predecessor_raw = (package / freeze.MANIFEST_REL).read_bytes()
+    # The package copy contains the current v3 successor.  A v3 builder must
+    # be tested against the immutable historical v2 predecessor instead of
+    # accidentally feeding it its own successor.
+    predecessor_raw = _v2_fixture()
     predecessor = freeze.validate_manifest(predecessor_raw)
 
     def committed(_repo: Path, _commit: str, paths: tuple[str, ...]) -> list[dict]:
@@ -147,6 +155,50 @@ def _v3_successor(package: Path, execution_commit: str = "a" * 40, materializati
             predecessor_raw,
             execution_tool_source_commit=execution_commit,
             materialization_commit=materialization_commit,
+            package=package,
+        )
+
+
+def _runtime_contract(native_python_version: str = "3.13.15") -> dict:
+    """Synthetic future-workflow fixture; no host runtime is consulted."""
+    return {
+        "schema": freeze.PYTHON_RUNTIME_CONTRACT_SCHEMA,
+        "platforms": {
+            selector: {
+                "selector": selector,
+                "implementation": "CPython",
+                "version": "3.10.12" if selector == "wsl2-x86_64" else native_python_version,
+                "invocation": list(freeze.PYTHON_RUNTIME_INVOCATION),
+                "module_loading": freeze.PYTHON_RUNTIME_MODULE_LOADING,
+                "entrypoint": freeze.PYTHON_RUNTIME_ENTRYPOINT,
+            }
+            for selector in freeze.SELECTORS
+        },
+    }
+
+
+def _v4_successor(package: Path, execution_commit: str = "c" * 40, materialization_commit: str = "d" * 40, runtime_contract: dict | None = None) -> dict:
+    predecessor_raw = _v3_fixture()
+    predecessor = freeze.validate_manifest(predecessor_raw)
+
+    def committed(_repo: Path, commit: str, paths: tuple[str, ...]) -> list[dict]:
+        if commit == predecessor["execution_tool_source_commit"]:
+            for field in ("runtime_tool_identities", "exact_runtime_tool_identities", "provenance_tool_identities", "experiment_closure_tool_identities"):
+                if [item["path"] for item in predecessor[field]] == list(paths):
+                    return predecessor[field]
+        return freeze._tool_identities(package, paths)
+
+    with (
+        patch.object(freeze, "_validate_candidate_build_snapshot"),
+        patch.object(freeze, "_validate_execution_commit_snapshot"),
+        patch.object(freeze, "_assert_descendant_commit"),
+        patch.object(freeze, "_execution_tool_identities_from_commit", side_effect=committed),
+    ):
+        return freeze.build_v4_successor_manifest(
+            predecessor_raw,
+            execution_tool_source_commit=execution_commit,
+            materialization_commit=materialization_commit,
+            runtime_contract=_runtime_contract() if runtime_contract is None else runtime_contract,
             package=package,
         )
 
@@ -184,6 +236,75 @@ class FreezeManifestTests(unittest.TestCase):
             with self.assertRaises(freeze.FreezeManifestError) as error:
                 _v3_successor(package, materialization_commit=freeze.EXPECTED_V2_MATERIALIZATION_COMMIT)
         self.assertEqual(error.exception.code, "materialization-commit")
+
+    def test_v4_successor_preserves_v3_history_and_binds_both_python_runtimes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            package = Path(directory) / "package"
+            shutil.copytree(freeze.PACKAGE, package)
+            successor = _v4_successor(package)
+        self.assertEqual(successor["schema"], freeze.V4_SCHEMA)
+        self.assertEqual(successor["predecessor_manifest_sha256"], freeze.EXPECTED_V3_MANIFEST_SHA256)
+        self.assertEqual(successor["predecessor_v1_manifest_sha256"], freeze.EXPECTED_V1_MANIFEST_SHA256)
+        self.assertEqual(successor["predecessor_v2_manifest_sha256"], freeze.EXPECTED_V2_MANIFEST_SHA256)
+        self.assertEqual(successor["predecessor_v2_inherited_sha256"], freeze.EXPECTED_INHERITED_V1_SHA256)
+        self.assertEqual(successor["predecessor_v2_execution_tool_source_commit"], freeze.EXPECTED_V2_EXECUTION_TOOL_SOURCE_COMMIT)
+        self.assertEqual(successor["predecessor_v2_materialization_commit"], freeze.EXPECTED_V2_MATERIALIZATION_COMMIT)
+        self.assertEqual(successor["previous_execution_tool_source_commit"], freeze.EXPECTED_V3_EXECUTION_TOOL_SOURCE_COMMIT)
+        self.assertEqual(successor["old_materialization_commit"], freeze.EXPECTED_V3_MATERIALIZATION_COMMIT)
+        contract = successor["exact_python_runtime_contract"]
+        self.assertEqual(contract["schema"], freeze.PYTHON_RUNTIME_CONTRACT_SCHEMA)
+        self.assertEqual(set(contract["platforms"]), set(freeze.SELECTORS))
+        self.assertEqual(contract["platforms"]["wsl2-x86_64"]["version"], "3.10.12")
+        self.assertEqual(contract["platforms"]["ubuntu-24.04-x86_64"]["version"], "3.13.15")
+        self.assertEqual(freeze.validate_manifest(_canonical(successor)), successor)
+
+    def test_v4_requires_an_authoritative_runtime_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            package = Path(directory) / "package"
+            shutil.copytree(freeze.PACKAGE, package)
+            with self.assertRaises(freeze.FreezeManifestError) as error:
+                freeze.build_v4_successor_manifest(
+                    _v3_fixture(),
+                    execution_tool_source_commit="c" * 40,
+                    materialization_commit="d" * 40,
+                    package=package,
+                )
+        self.assertEqual(error.exception.code, "runtime-contract")
+
+    def test_v4_rejects_non_exact_v3_predecessor(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            package = Path(directory) / "package"
+            shutil.copytree(freeze.PACKAGE, package)
+            with self.assertRaises(freeze.FreezeManifestError) as error:
+                freeze.build_v4_successor_manifest(
+                    _v2_fixture(),
+                    execution_tool_source_commit="c" * 40,
+                    materialization_commit="d" * 40,
+                    runtime_contract=_runtime_contract(),
+                    package=package,
+                )
+        self.assertEqual(error.exception.code, "manifest-shape")
+
+    def test_v4_runtime_selector_version_invocation_and_entrypoint_tamper_fail_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            package = Path(directory) / "package"
+            shutil.copytree(freeze.PACKAGE, package)
+            successor = _v4_successor(package)
+        mutations = {
+            "selector": lambda value: value["exact_python_runtime_contract"]["platforms"]["wsl2-x86_64"].__setitem__("selector", "ubuntu-24.04-x86_64"),
+            "version": lambda value: value["exact_python_runtime_contract"]["platforms"]["ubuntu-24.04-x86_64"].__setitem__("version", "3.13"),
+            "invocation": lambda value: value["exact_python_runtime_contract"]["platforms"]["wsl2-x86_64"].__setitem__("invocation", ["python3", "-m", "phase3_exact_attempt"]),
+            "module_loading": lambda value: value["exact_python_runtime_contract"]["platforms"]["wsl2-x86_64"].__setitem__("module_loading", "ambient-import"),
+            "entrypoint": lambda value: value["exact_python_runtime_contract"]["platforms"]["wsl2-x86_64"].__setitem__("entrypoint", "phase3_exact_attempt.run"),
+        }
+        for label, mutate in mutations.items():
+            forged = json.loads(_canonical(successor))
+            mutate(forged)
+            forged["manifest_sha256"] = freeze._self_hash(forged)
+            with self.subTest(label=label), self.assertRaises(freeze.FreezeManifestError) as error:
+                freeze.validate_manifest(_canonical(forged))
+            self.assertEqual(error.exception.code, "manifest-shape")
+
     def test_historical_v1_bytes_remain_valid_and_current_check_requires_v2(self) -> None:
         raw = _v1_fixture()
         historical = freeze.validate_manifest(raw)

@@ -31,7 +31,7 @@ import os
 from pathlib import Path
 import stat
 import subprocess
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 
 PHASE_ID = "exp-0002-phase3-semantic-band-conformance-001"
@@ -55,6 +55,8 @@ EXPERIMENT_CLOSURE_TOOLS = ("scripts/phase3_experiment_closure.py",)
 # They are intentionally a closed set so a pair of reviews cannot be made
 # admissible merely by inventing two agreeable labels.
 REQUIRED_REVIEW_LENSES = ("closure-and-custody", "execution-admissibility")
+REVIEW_HEADER_PREFIX = "Creature-Kernel-Review: "
+REVIEW_HEADER_SCHEMA = "ck.exp-0002.phase3.gate-b-clean-review-header-1"
 REQUIRED_EXACT_RUNTIME_TOOLS = (
     "scripts/phase3_exact_adjudicator.py",
     "scripts/phase3_exact_authority.py",
@@ -373,6 +375,65 @@ def _validate_reviewed_target(freeze: Any, manifest: Mapping[str, Any], freeze_r
         _fail("review-target-manifest", "review target manifest bytes differ from supplied freeze bytes")
 
 
+def _validate_review_bytes_in_target(
+    freeze: Any,
+    manifest: Mapping[str, Any],
+    reviewed_commit: str,
+    review_root: Path,
+    reviews: Sequence[Mapping[str, Any]],
+    local_bytes: Mapping[str, bytes],
+) -> None:
+    """Bind clean-review bytes to the immutable descendant review artifact commit.
+
+    A caller may not point the validator at an arbitrary directory containing
+    a self-declared clean file.  For the real repository-bound validator the
+    review root must map inside the canonical repository and each exact blob
+    must match the reviewed commit.  Minimal consumer fixtures without a
+    repository owner remain covered by their focused shape/hash tests.
+    """
+    for review in reviews:
+        path = str(review["path"])
+        raw = local_bytes.get(path)
+        if type(raw) is not bytes:
+            _fail("review-header", f"authenticated review bytes are unavailable: {path}")
+        header = _parse_review_header(raw, path)
+        expected = {
+            "review_id": review["review_id"],
+            "reviewer": review["reviewer"],
+            "lens": review["lens"],
+            "reviewed_commit": reviewed_commit,
+            "freeze_manifest_sha256": manifest.get("manifest_sha256"),
+        }
+        if any(header[key] != value for key, value in expected.items()):
+            _fail("review-header-binding", f"review header semantics differ from admission: {path}")
+
+    try:
+        repo, _ = _canonical_manifest_path(freeze)
+        root = review_root.resolve()
+        relative_root = root.relative_to(repo).as_posix()
+    except AuthorityError as error:
+        # Minimal pure fixtures have no repository owner.  A real freeze does,
+        # and an out-of-repository review root is then a hard binding error.
+        if "repository path is unavailable" in str(error):
+            return
+        raise
+    except (OSError, ValueError) as error:
+        raise AuthorityError("review-target-path", "review root is outside the canonical repository") from error
+    artifact_commit = _git_commit(repo, "HEAD", "review artifact commit")
+    for review in reviews:
+        path = str(review["path"])
+        relative = f"{relative_root}/{path}" if relative_root else path
+        if any(part in {"", ".", ".."} for part in relative.split("/")):
+            _fail("review-target-path", "review path escapes the canonical repository")
+        # Review artifacts are committed after the immutable target they
+        # describe.  Reading them from the current descendant avoids the
+        # impossible self-reference of a review blob containing its own
+        # reviewed-commit SHA.
+        blob = _git_command(repo, ["cat-file", "blob", f"{artifact_commit}:{relative}"], maximum_output=MAX_REVIEW_BYTES)
+        if blob != local_bytes[path]:
+            _fail("review-target-bytes", f"review bytes differ from immutable review artifact commit: {path}")
+
+
 def _open_root(root: Path) -> int:
     if not isinstance(root, Path):
         root = Path(root)
@@ -468,6 +529,35 @@ def _review_shape(review: Any, index: int) -> dict[str, Any]:
     return {"review_id": review_id, "reviewer": reviewer, "lens": lens, "path": path, "bytes": size, "sha256": digest, "status": "passed", "disposition": "Clean", "findings": []}
 
 
+def _parse_review_header(raw: bytes, path: str) -> dict[str, Any]:
+    """Parse the exact machine-readable semantics at the review's first line."""
+    if not raw.startswith(REVIEW_HEADER_PREFIX.encode("ascii")):
+        _fail("review-header", f"review has no canonical semantic header: {path}")
+    first, separator, _rest = raw.partition(b"\n")
+    if not separator:
+        _fail("review-header", f"review header is not LF terminated: {path}")
+    payload = first[len(REVIEW_HEADER_PREFIX.encode("ascii")):]
+    try:
+        value = json.loads(payload.decode("utf-8"), object_pairs_hook=_pairs, parse_constant=_constant)
+    except (AuthorityError, UnicodeDecodeError, json.JSONDecodeError, RecursionError, ValueError) as error:
+        raise AuthorityError("review-header", f"review header is not strict JSON: {path}") from error
+    if type(value) is not dict or _canonical(value)[:-1] != payload:
+        _fail("review-header", f"review header is not canonical JSON: {path}")
+    required = {"schema", "review_id", "reviewer", "status", "disposition", "lens", "reviewed_commit", "freeze_manifest_sha256", "findings"}
+    _exact_keys(value, required, f"review header {path}")
+    if value["schema"] != REVIEW_HEADER_SCHEMA or value["status"] != "Complete" or value["disposition"] != "Clean":
+        _fail("review-header-status", f"review header is not Complete/Clean: {path}")
+    _string(value["review_id"], f"review header {path}.review_id")
+    _string(value["reviewer"], f"review header {path}.reviewer")
+    if value["lens"] not in REQUIRED_REVIEW_LENSES:
+        _fail("review-header-lens", f"review header lens is not required: {path}")
+    _commit(value["reviewed_commit"], f"review header {path}.reviewed_commit")
+    _sha(value["freeze_manifest_sha256"], f"review header {path}.freeze_manifest_sha256")
+    if value["findings"] != []:
+        _fail("review-header-findings", f"review header records findings: {path}")
+    return value
+
+
 ADMISSION_KEYS = {"schema", "experiment_id", "phase_id", "candidate_profile_id", "freeze_manifest_sha256", "execution_tool_source_commit", "reviewed_commit", "reviews", "status", "execution_permitted", "admission_record_sha256"}
 
 
@@ -542,16 +632,18 @@ def validate_gate_b_admission(raw: bytes, *, freeze_manifest: bytes, review_root
     ):
         _fail("freeze-readiness", "Gate B admission requires a fully bound, blocker-free, execution-disabled frozen manifest")
     root_fd = _open_root(Path(review_root))
+    local_reviews: dict[str, bytes] = {}
     try:
         for review in normalized["reviews"]:
             raw_review, size, digest = _read_review(root_fd, review["path"])
             if size != review["bytes"] or digest != review["sha256"]:
                 _fail("review-identity", f"review bytes or hash differ for {review['path']}")
-            del raw_review
+            local_reviews[review["path"]] = raw_review
     finally:
         os.close(root_fd)
     _check_self_hash(normalized, "admission_record_sha256", ADMISSION_HASH_DOMAIN, "admission record")
     _validate_reviewed_target(freeze, manifest, freeze_manifest, normalized["reviewed_commit"])
+    _validate_review_bytes_in_target(freeze, manifest, normalized["reviewed_commit"], Path(review_root), normalized["reviews"], local_reviews)
     return normalized
 
 
@@ -598,13 +690,18 @@ def encode_authorization(record: Mapping[str, Any]) -> bytes:
     return _canonical(value)
 
 
-def validate_authorization(raw: bytes, *, admission_bytes: bytes, freeze_manifest: bytes, review_root: Path | str, expected_custody_record_sha256: str, expected_attempt_id: str, expected_platform_selector: str, expected_ordinal: int, expected_authorization_reference: str) -> dict[str, Any]:
+def validate_authorization(raw: bytes, *, admission_bytes: bytes, freeze_manifest: bytes, review_root: Path | str, expected_custody_record_sha256: str, expected_attempt_id: str, expected_platform_selector: str, expected_ordinal: int) -> dict[str, Any]:
     """Validate one authorization and its exact, fully reviewed admission.
 
-    The caller must supply the exact expected human-authorization reference.
-    Exclusive prelaunch reservation by the exact-attempt layer separately owns
-    one-shot replay prevention; this execution-incapable validator has no
-    persistent state.
+    The caller supplies only the preregistered attempt slot and the separately
+    authenticated custody identity.  In particular, it cannot supply an
+    ``expected_authorization_reference`` and thereby make an arbitrary record
+    agree with the validator.  The reference is retained as an operator
+    evidence locator; this pure local validator cannot cryptographically prove
+    Ben's intent, so the workflow still requires an explicit Ben approval and
+    durable retention of the exact authorization bytes.  Exclusive prelaunch
+    reservation by the exact-attempt layer separately owns one-shot replay
+    prevention; this execution-incapable validator has no persistent state.
     """
     admission = validate_gate_b_admission(admission_bytes, freeze_manifest=freeze_manifest, review_root=review_root)
     admission_hash = hashlib.sha256(admission_bytes).hexdigest()
@@ -624,8 +721,6 @@ def validate_authorization(raw: bytes, *, admission_bytes: bytes, freeze_manifes
         _fail("platform-binding", "authorization platform differs from expected platform")
     if normalized["ordinal"] != _bounded_int(expected_ordinal, "expected ordinal", maximum=2):
         _fail("ordinal-binding", "authorization ordinal differs from expected ordinal")
-    if normalized["authorization_reference"] != _string(expected_authorization_reference, "expected authorization reference", maximum=1024):
-        _fail("authorization-reference", "authorization reference differs from expected reference")
     _check_self_hash(normalized, "authorization_record_sha256", AUTHORIZATION_HASH_DOMAIN, "authorization record")
     return normalized
 

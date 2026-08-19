@@ -282,9 +282,16 @@ materialized from execution-tool/materialization snapshot
 `762b04b8db3397cb1885d94236ad5d47cb321830` under schema
 `ck.exp-0002.phase3.freeze-manifest-3`, with manifest SHA-256
 `faafe7680fcc3509a245dde6759396a1391e02c40891128ca44d007726adef85`.
-It binds the experiment-wide closure tool, exact runtime contract, fixed
-binary cap, exact slot reservation, and runtime/platform observations. The v2
-freeze and its `Revise` reviews remain historical. The consolidated 296-test
+It binds the experiment-wide closure tool, fixed binary cap, exact slot
+reservation, and runtime/platform observations; v3 deliberately does not yet
+authenticate the exact Python runtime contract required by the exact-attempt
+entrypoint. A v4 successor accepts only a closed contract for both
+`wsl2-x86_64` and `ubuntu-24.04-x86_64`, including CPython `N.N.N`, canonical
+argv/module loading, and entrypoint. The current native workflow fixes only
+Python `3.13` and does not declare that invocation (and no WSL workflow fixes
+an exact patch), so v4 construction fails closed until those facts are pinned
+and supplied as workflow inputs; it never captures ambient `sys` as expected
+truth. The v2 freeze and its `Revise` reviews remain historical. The consolidated 296-test
 suite passed before new E `762b04b8db3397cb1885d94236ad5d47cb321830`; the
 older 267-test pass before historical v2 execution-tool commit
 `9dca58a84072582db34045b8eac98d6e86d3d5ae` remains historical. No candidate
@@ -310,8 +317,8 @@ candidate closure, performs the sanitized locked build, captures the build-only
 receipt, and uploads a transfer-only bundle. It does not run the candidate,
 perform an exact attempt, or dispatch the native experiment. The next internal
 steps are the final current-revision Gate B Double reviews and their
-admission/custody records. The committed receipt and v2 freeze artifacts
-remain build-only and execution-disabled; explicit Ben authorization for any
+admission/custody records. The committed receipt and predecessor v3 freeze
+artifacts remain build-only and execution-disabled; explicit Ben authorization for any
 exact attempt or native dispatch follows those gates.
 
 ## Synthetic validation plumbing (development only)
@@ -612,7 +619,7 @@ not run a candidate, Rust, Cargo, shell command, or experiment attempt.
 Gate A is complete/passed for this exact development-unfrozen materialization.
 The fresh current-version Double review is recorded in [Review 01](reviews/gate-a-review-01-closure-integrity.md)
 and [Review 02](reviews/gate-a-review-02-numeric-claims.md); prior issue-finding
-reviews remain stale historical working evidence. The v2 successor execution
+reviews remain stale historical working evidence. The v3 successor execution
 package is now frozen under the manifest identity above, but final current-
 revision Gate B Double reviews and admission/custody/authorization records
 remain pending. No exact attempt or native dispatch has been executed. Ben's

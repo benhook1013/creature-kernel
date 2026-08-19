@@ -68,6 +68,14 @@ EXPECTED_FP = fp_observer.FPExpectation(
     daz=False,
 )
 
+# v3 does not bind this contract and is therefore not execution-admissible.
+# The orchestrator-owned successor freeze must authenticate exact per-selector
+# patch versions and invocation/module-loading facts before this boundary can
+# reserve a slot.  Nothing here derives an expected value from ambient ``sys``.
+PYTHON_RUNTIME_CONTRACT_FIELD = "exact_python_runtime_contract"
+PYTHON_RUNTIME_CONTRACT_SCHEMA = "ck.exp-0002.phase3.python-runtime-contract-1"
+PYTHON_RUNTIME_CONTRACT_KEYS = frozenset({"selector", "implementation", "version", "invocation", "module_loading", "entrypoint"})
+
 MAX_RECORD_BYTES = 64 * 1024
 MAX_TOOL_IDENTITIES = 32
 MAX_ROOT_BYTES = 4096
@@ -328,6 +336,41 @@ def _freeze_identity(raw: bytes) -> tuple[dict[str, Any], str]:
     if type(manifest_hash) is not str or len(manifest_hash) != 64 or any(char not in "0123456789abcdef" for char in manifest_hash):
         _fail("freeze", "freeze manifest has no lowercase self-hash")
     return value, manifest_hash
+
+
+def _validate_frozen_runtime_contract(freeze: Mapping[str, Any], selector: str) -> Mapping[str, Any]:
+    """Require the authenticated successor runtime contract for one selector."""
+    value = freeze.get(PYTHON_RUNTIME_CONTRACT_FIELD)
+    if not isinstance(value, Mapping):
+        _fail("runtime-contract", "the supplied freeze does not bind exact Python runtime facts; v3 remains execution-disabled")
+    if set(value) != {"schema", "platforms"} or value.get("schema") != PYTHON_RUNTIME_CONTRACT_SCHEMA:
+        _fail("runtime-contract", "freeze Python runtime contract has the wrong schema")
+    platforms = value.get("platforms")
+    if not isinstance(platforms, Mapping) or set(platforms) != set(PLATFORM_ORDINALS):
+        _fail("runtime-contract", "freeze Python runtime contract must bind every platform selector")
+    selected = platforms.get(selector)
+    if not isinstance(selected, Mapping) or set(selected) != PYTHON_RUNTIME_CONTRACT_KEYS:
+        _fail("runtime-contract", f"freeze Python runtime contract is incomplete for {selector}")
+    if selected.get("selector") != selector:
+        _fail("runtime-contract", f"freeze Python runtime contract selector is not {selector}")
+    implementation = selected.get("implementation")
+    version = selected.get("version")
+    invocation = selected.get("invocation")
+    module_loading = selected.get("module_loading")
+    entrypoint = selected.get("entrypoint")
+    version_parts = version.split(".") if type(version) is str else []
+    if (
+        type(implementation) is not str or not implementation
+        or type(version) is not str or not version
+        or len(version_parts) != 3
+        or any(not part or any(char not in "0123456789" for char in part) for part in version_parts)
+    ):
+        _fail("runtime-contract", f"freeze Python runtime contract lacks an exact patch version for {selector}")
+    if type(invocation) is not list or not invocation or any(type(item) is not str or not item for item in invocation):
+        _fail("runtime-contract", f"freeze Python invocation is not a canonical non-empty argv for {selector}")
+    if type(module_loading) is not str or not module_loading or type(entrypoint) is not str or not entrypoint:
+        _fail("runtime-contract", f"freeze Python module-loading contract is incomplete for {selector}")
+    return selected
 
 
 def _normalize_tools(value: Any) -> list[dict[str, Any]]:
@@ -615,7 +658,7 @@ def _platform_observation(
     }
 
 
-def _validate_platform_observation(value: Any, requested_selector: str, *, require_locations: bool = True) -> dict[str, Any]:
+def _validate_platform_observation(value: Any, requested_selector: str, *, require_locations: bool = True, runtime_contract: Mapping[str, Any] | None = None) -> dict[str, Any]:
     if not isinstance(value, Mapping) or set(value) != set(evidence_contract.PLATFORM_KEYS):
         _fail("platform", "platform observation is not the closed evidence schema")
     if requested_selector not in evidence_contract.PLATFORM_SELECTORS or value.get("selector") != requested_selector:
@@ -631,6 +674,15 @@ def _validate_platform_observation(value: Any, requested_selector: str, *, requi
     # rejects missing location/runtime/build facts rather than supporting from
     # a partial ambient probe.
     evidence_contract._platform(result, "exact-attempt platform", requested_selector)
+    if runtime_contract is not None:
+        runtime = result.get("runtime")
+        if not isinstance(runtime, Mapping):
+            _fail("platform", "Python runtime observation is missing")
+        if not isinstance(runtime.get("implementation"), str) or runtime["implementation"].casefold() != str(runtime_contract["implementation"]).casefold():
+            _fail("platform", "Python implementation differs from the bounded runtime contract")
+        version = runtime.get("version")
+        if type(version) is not str or version != runtime_contract["version"] or runtime.get("python_version") != runtime_contract["version"]:
+            _fail("platform", "Python version differs from the bounded runtime contract")
     locations = result["locations"]
     for name in ("package", "output", "work"):
         if locations[name] is None:
@@ -1262,6 +1314,7 @@ class ExactAttemptRun:
     receipt_bytes: bytes
     index_bytes: bytes
     published: Any
+    reservation_record: bytes | None = None
 
 
 def _validate_exact_tool_closure(validator: Callable[..., Any], freeze: Mapping[str, Any]) -> Any:
@@ -1333,13 +1386,36 @@ def _validate_reservation(
     return value
 
 
+def _retain_terminal_failure(reservation: Any, error: BaseException) -> None:
+    """Best-effort terminal evidence for a real consumed reservation.
+
+    Synthetic dependency reservations intentionally do not own filesystem
+    evidence.  The production publication reservation does, and its terminal
+    writer preserves the consumed slot before the outer cleanup closes it.
+    """
+    if not isinstance(reservation, publication.AttemptReservation):
+        return
+    if getattr(reservation, "closed", True):
+        return
+    try:
+        publication.write_terminal_failure(
+            reservation,
+            code=getattr(error, "code", "attempt-failure"),
+            detail=str(error)[:1024] or "exact attempt failed after reservation",
+            status="failed",
+        )
+    except Exception:
+        # The original failure remains authoritative; closure marks the
+        # consumed slot inconclusive if no terminal record was retained.
+        return
+
+
 def _run_exact_attempt_with_dependencies(
     package_root: str | Path,
     attempt_id: str,
     *,
     platform_selector: str,
     ordinal: int,
-    authorization_reference: str,
     freeze_manifest: bytes,
     admission_record: bytes,
     authorization_record: bytes,
@@ -1372,10 +1448,6 @@ def _run_exact_attempt_with_dependencies(
     attempt_id = _attempt_id(attempt_id)
     if platform_selector not in PLATFORM_ORDINALS or type(ordinal) is not int or ordinal not in PLATFORM_ORDINALS[platform_selector]:
         _fail("platform", "platform selector/ordinal is not preregistered")
-    if type(authorization_reference) is not str or len(authorization_reference.encode("utf-8")) > 256:
-        _fail("authorization-reference", "authorization reference is not bounded text")
-    if not authorization_reference or authorization_reference.casefold() in {"ben", "pending", "placeholder", "required"}:
-        _fail("authorization-reference", "authorization reference is empty or a placeholder")
     freeze_bytes = _bounded_bytes(freeze_manifest, "freeze manifest")
     admission_bytes = _bounded_bytes(admission_record, "admission record")
     authorization_bytes = _bounded_bytes(authorization_record, "authorization record")
@@ -1399,6 +1471,7 @@ def _run_exact_attempt_with_dependencies(
     # reserve_attempt returns.  The explicit freeze bytes are retained rather
     # than reserialized or replaced by a path-selected manifest.
     verified = None
+    runtime_contract: Mapping[str, Any] | None = None
     try:
         preflight_report = deps.preflight(package_path, candidate_identity, tools)
         if not isinstance(preflight_report, Mapping) or preflight_report.get("execution_permitted") is not False:
@@ -1419,6 +1492,8 @@ def _run_exact_attempt_with_dependencies(
         required_tool_validator = deps.validate_exact_tools or getattr(authority, "validate_required_exact_runtime_tools", None)
         if callable(required_tool_validator):
             _validate_exact_tool_closure(required_tool_validator, freeze)
+        if deps.platform_probe is _platform_observation:
+            runtime_contract = _validate_frozen_runtime_contract(freeze, platform_selector)
         admission_value = deps.validate_admission(admission_bytes, freeze_manifest=freeze_bytes, review_root=review_path)
         if not isinstance(admission_value, Mapping) or admission_value.get("freeze_manifest_sha256") != freeze_hash or admission_value.get("execution_permitted") is not False:
             _fail("admission", "Gate B admission validator returned a partial or execution-enabled record")
@@ -1452,10 +1527,12 @@ def _run_exact_attempt_with_dependencies(
             expected_attempt_id=attempt_id,
             expected_platform_selector=platform_selector,
             expected_ordinal=ordinal,
-            expected_authorization_reference=authorization_reference,
         )
         if not isinstance(authorization_value, Mapping) or authorization_value.get("attempt_id") != attempt_id or authorization_value.get("platform_selector") != platform_selector or authorization_value.get("ordinal") != ordinal or authorization_value.get("execution_permitted") is not True or authorization_value.get("automatic_retry") is not False:
             _fail("authorization", "authorization validator returned a partial or retry-enabled record")
+        authorization_reference = authorization_value.get("authorization_reference")
+        if type(authorization_reference) is not str or not authorization_reference or len(authorization_reference.encode("utf-8")) > 256:
+            _fail("authorization", "validated authorization reference is missing or unbounded")
         prepared = deps.prepare(package_path, attempt_id)
         cohorts = _validate_prepared_cohorts(prepared)
     except ExactAttemptError:
@@ -1481,7 +1558,7 @@ def _run_exact_attempt_with_dependencies(
             platform_selector, package_root=package_path, output_root=output_path,
             work_root=work_path, frozen_build=frozen_build,
         )
-        _validate_platform_observation(pre_platform, platform_selector, require_locations=False)
+        _validate_platform_observation(pre_platform, platform_selector, require_locations=False, runtime_contract=runtime_contract)
     except ExactAttemptError:
         if verified is not None:
             try:
@@ -1515,6 +1592,7 @@ def _run_exact_attempt_with_dependencies(
                 frozen_build=frozen_build,
             ),
             platform_selector,
+            runtime_contract=runtime_contract,
         )
         verified = deps.verify_custody(
             custody_bytes,
@@ -1652,10 +1730,16 @@ def _run_exact_attempt_with_dependencies(
         receipt_bytes = deps.build_receipt(result_bytes)
         index_bytes = deps.build_attempt_index(result_bytes, receipt_bytes, attempt_metadata)
         published = deps.publish_reserved_attempt(reservation, result_bytes, receipt_bytes, index_bytes)
-        return ExactAttemptRun(attempt_id, prepared, adjudication_run, tuple(process_observations), result_bytes, receipt_bytes, index_bytes, published)
-    except ExactAttemptError:
+        return ExactAttemptRun(
+            attempt_id, prepared, adjudication_run, tuple(process_observations),
+            result_bytes, receipt_bytes, index_bytes, published,
+            getattr(published, "reservation_record", None),
+        )
+    except ExactAttemptError as error:
+        _retain_terminal_failure(reservation, error)
         raise
     except Exception as error:
+        _retain_terminal_failure(reservation, error)
         raise ExactAttemptError(getattr(error, "code", "attempt"), str(error)) from error
     finally:
         # Publication consumes/closes the reservation.  On every earlier
@@ -1685,7 +1769,6 @@ def run_exact_attempt(
     *,
     platform_selector: str,
     ordinal: int,
-    authorization_reference: str,
     freeze_manifest: bytes,
     admission_record: bytes,
     authorization_record: bytes,
@@ -1699,7 +1782,7 @@ def run_exact_attempt(
     """Run using the frozen production dependency closure only."""
     return _run_exact_attempt_with_dependencies(
         package_root, attempt_id, platform_selector=platform_selector, ordinal=ordinal,
-        authorization_reference=authorization_reference, freeze_manifest=freeze_manifest,
+        freeze_manifest=freeze_manifest,
         admission_record=admission_record, authorization_record=authorization_record,
         custody_record=custody_record, review_root=review_root, candidate_identity=candidate_identity,
         tool_identities=tool_identities, output_root=output_root, work_root=work_root,

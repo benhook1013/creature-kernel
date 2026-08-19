@@ -37,7 +37,14 @@ def _custody(ordinal: int, selector: str) -> bytes:
         "candidate_source_commit": "a" * 40,
         "receipt": {"path": "build-receipt.json", "mode": stat.S_IFREG | 0o644, "bytes": 1, "sha256": "1" * 64, "self_hash": "2" * 64},
         "candidate": {"path": "candidate", "mode": stat.S_IFREG | 0o755, "bytes": 1, "sha256": "3" * 64},
-        "transfer": {},
+        "transfer": {
+            "kind": "invocation-owned-raw-bundle-tar",
+            "locator": {"kind": "filesystem-path", "value": "/synthetic/custody/bundle.tar"},
+            "bundle": {"bytes": 10240, "sha256": "4" * 64},
+            "created_at": "2026-08-19T00:00:00Z",
+            "expires_at": "2026-08-20T00:00:00Z",
+            "retention_days": 1,
+        },
         "policy": {"custody": "declared", "candidate_execution": "prohibited", "experiment_dispatch": "prohibited", "causal_build_attestation": False},
         "custody_record_sha256": None,
     }, "custody_record_sha256", b"ck.exp-0002.phase3.gate-b-exact-artifact-custody.v1\0", strip_newline=False)
@@ -52,7 +59,10 @@ def _admission(*, execution_source: str = EXECUTION_SOURCE_COMMIT, reviewed_comm
         "freeze_manifest_sha256": FREEZE_HASH,
         "execution_tool_source_commit": execution_source,
         "reviewed_commit": reviewed_commit,
-        "reviews": [{"status": "passed", "disposition": "Clean", "findings": []}, {"status": "passed", "disposition": "Clean", "findings": []}],
+        "reviews": [
+            {"review_id": "synthetic-review-1", "reviewer": "reviewer-alpha", "lens": "closure-and-custody", "path": "reviews/closure.md", "bytes": 64, "sha256": "1" * 64, "status": "passed", "disposition": "Clean", "findings": []},
+            {"review_id": "synthetic-review-2", "reviewer": "reviewer-beta", "lens": "execution-admissibility", "path": "reviews/execution.md", "bytes": 64, "sha256": "2" * 64, "status": "passed", "disposition": "Clean", "findings": []},
+        ],
         "status": "passed",
         "execution_permitted": False,
         "admission_record_sha256": None,
@@ -149,11 +159,38 @@ def _attempt_record(ordinal: int, *, result_status: str = "supported", process_t
     result = evidence.build_result(attempt, adjudications, processes, evidence_fixture._tools())
     receipt = evidence.build_receipt(result)
     index = evidence.build_attempt_index(result, receipt)
-    return {"ordinal": ordinal, "freeze_manifest": b"synthetic-freeze\n", "admission": admission_raw, "authorization": authorization_raw, "custody": custody_raw, "result": result, "receipt": receipt, "index": index}
+    return {"ordinal": ordinal, "freeze_manifest": b"synthetic-freeze\n", "reservation": _reservation(ordinal, attempt_id), "admission": admission_raw, "authorization": authorization_raw, "custody": custody_raw, "result": result, "receipt": receipt, "index": index}
 
 
 def _freeze() -> dict[str, object]:
     return {"schema": "ck.exp-0002.phase3.freeze-manifest-3", "manifest_sha256": FREEZE_HASH, "execution_permitted": False, "execution_tool_source_commit": EXECUTION_SOURCE_COMMIT}
+
+
+def _terminal(ordinal: int, attempt_id: str, status: str = "failed") -> bytes:
+    value = {
+        "schema": closure.TERMINAL_SCHEMA,
+        "ledger_id": closure.LEDGER_ID,
+        "successor_manifest_sha256": FREEZE_HASH,
+        "platform_selector": closure.EXPECTED_SELECTORS[ordinal],
+        "ordinal": ordinal,
+        "attempt_id": attempt_id,
+        "status": status,
+        "code": "synthetic-failure",
+        "detail": "bounded terminal failure",
+        "terminal_record_sha256": None,
+    }
+    return _self_hashed(value, "terminal_record_sha256", closure.TERMINAL_HASH_DOMAIN, strip_newline=True)
+
+
+def _reservation(ordinal: int, attempt_id: str) -> bytes:
+    return closure._canonical({
+        "schema": closure.RESERVATION_SCHEMA,
+        "ledger_id": closure.LEDGER_ID,
+        "successor_manifest_sha256": FREEZE_HASH,
+        "platform_selector": closure.EXPECTED_SELECTORS[ordinal],
+        "ordinal": ordinal,
+        "attempt_id": attempt_id,
+    })
 
 
 class ExperimentClosureTests(unittest.TestCase):
@@ -170,6 +207,66 @@ class ExperimentClosureTests(unittest.TestCase):
             with self.subTest(code=code), self.assertRaises(closure.ExperimentClosureError) as error:
                 closure.build_experiment_closure(records)
             self.assertEqual(error.exception.code, code)
+
+    def test_terminal_failure_is_closure_visible_and_abandoned_slot_is_inconclusive(self) -> None:
+        records = [{"ordinal": 0, "freeze_manifest": closure._canonical(_freeze()), "reservation": _reservation(0, "attempt-terminal-001"), "terminal": _terminal(0, "attempt-terminal-001")}]
+        with mock.patch.object(closure, "_validate_freeze", return_value=_freeze()):
+            value = json.loads(closure.build_experiment_closure(records))
+        self.assertEqual(value["status"], "failed")
+        self.assertEqual(value["reason"], "attempt-failed")
+        self.assertEqual(value["attempts"][0]["attempt_status"], "failed")
+        self.assertEqual(value["attempts"][0]["terminal_record_sha256"], hashlib.sha256(records[0]["terminal"]).hexdigest())
+
+    def test_terminal_metadata_matches_publication_bounds_and_placeholders(self) -> None:
+        valid = json.loads(_terminal(0, "attempt-terminal-001"))
+        for field, replacement in (
+            ("code", ""),
+            ("code", "x" * 129),
+            ("code", "é" * 65),
+            ("detail", ""),
+            ("detail", "x" * 1025),
+            ("detail", "é" * 513),
+        ):
+            with self.subTest(field=field, length=len(replacement)):
+                candidate = dict(valid)
+                candidate[field] = replacement
+                with self.assertRaises(closure.ExperimentClosureError) as error:
+                    closure._validate_terminal(closure._canonical(candidate), freeze_hash=FREEZE_HASH, ordinal=0)
+                self.assertEqual(error.exception.code, "terminal-schema")
+        for attempt_id in ("attempt-000", "attempt-id", "attempt-_bad"):
+            with self.subTest(attempt_id=attempt_id):
+                candidate = dict(valid)
+                candidate["attempt_id"] = attempt_id
+                with self.assertRaises(closure.ExperimentClosureError) as error:
+                    closure._validate_terminal(closure._canonical(candidate), freeze_hash=FREEZE_HASH, ordinal=0)
+                self.assertEqual(error.exception.code, "terminal-binding")
+
+    def test_abandoned_consumed_marker_without_terminal_is_inconclusive(self) -> None:
+        records = [{"ordinal": 0, "freeze_manifest": closure._canonical(_freeze()), "reservation": _reservation(0, "attempt-abandoned-001")}]
+        with mock.patch.object(closure, "_validate_freeze", return_value=_freeze()):
+            value = json.loads(closure.build_experiment_closure(records))
+        self.assertEqual(value["status"], "inconclusive")
+        self.assertEqual(value["attempts"][0]["attempt_status"], "inconclusive")
+        self.assertIn("terminal", value["attempts"][0]["missing"])
+
+    def test_tampered_or_missing_reservation_is_rejected_for_occupied_slot(self) -> None:
+        complete = _attempt_record(0)
+        missing = {key: value for key, value in complete.items() if key != "reservation"}
+        with mock.patch.object(closure, "_validate_freeze", return_value=_freeze()), self.assertRaises(closure.ExperimentClosureError) as error:
+            closure.build_experiment_closure([missing, _attempt_record(1), _attempt_record(2)], allow_missing=False)
+        self.assertEqual(error.exception.code, "reservation-missing")
+        tampered = dict(complete)
+        tampered["reservation"] = _reservation(0, "attempt-other-001")
+        with mock.patch.object(closure, "_validate_freeze", return_value=_freeze()), self.assertRaises(closure.ExperimentClosureError) as error:
+            closure.build_experiment_closure([tampered, _attempt_record(1), _attempt_record(2)], allow_missing=False)
+        self.assertEqual(error.exception.code, "reservation-binding")
+
+    def test_alternate_attempt_ids_across_slots_fail_closed(self) -> None:
+        records = [_attempt_record(index) for index in range(3)]
+        records[1]["result"] = records[0]["result"]
+        with mock.patch.object(closure, "_validate_freeze", return_value=_freeze()), self.assertRaises(closure.ExperimentClosureError) as error:
+            closure.build_experiment_closure(records, allow_missing=False)
+        self.assertIn(error.exception.code, {"result-binding", "duplicate-attempt-id"})
 
     def test_closure_self_hash_is_not_resealable_without_recomputation(self) -> None:
         raw = closure.build_experiment_closure([])

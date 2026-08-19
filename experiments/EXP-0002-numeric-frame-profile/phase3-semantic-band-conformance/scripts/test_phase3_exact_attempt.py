@@ -234,7 +234,7 @@ class OrchestrationTests(unittest.TestCase):
 
         def authorization(*args: object, **kwargs: object) -> dict[str, object]:
             self.events.append("authorization")
-            return {"attempt_id": "attempt-001", "platform_selector": "wsl2-x86_64", "ordinal": 0, "execution_permitted": True, "automatic_retry": False}
+            return {"attempt_id": "attempt-001", "platform_selector": "wsl2-x86_64", "ordinal": 0, "authorization_reference": "BEN-AUTH-001", "execution_permitted": True, "automatic_retry": False}
 
         def prepare(*args: object, **kwargs: object) -> Prepared:
             self.events.append("prepare")
@@ -302,7 +302,6 @@ class OrchestrationTests(unittest.TestCase):
             "attempt-001",
             platform_selector="wsl2-x86_64",
             ordinal=0,
-            authorization_reference="BEN-AUTH-001",
             freeze_manifest=self.freeze,
             admission_record=self.admission,
             authorization_record=self.authorization,
@@ -808,13 +807,38 @@ class OrchestrationTests(unittest.TestCase):
             self.assertNotIn("dependencies", inspect.signature(alias).parameters)
             with self.assertRaises(TypeError):
                 alias("package", "attempt", platform_selector="wsl2-x86_64", ordinal=0,
-                      authorization_reference="BEN-AUTH-001", freeze_manifest=b"", admission_record=b"",
+                      freeze_manifest=b"", admission_record=b"",
                       authorization_record=b"", custody_record=b"", review_root="reviews",
                       candidate_identity={}, tool_identities=[], output_root="output", work_root="work",
                       dependencies=self.deps())
 
     def test_production_reservation_dependency_is_experiment_slot_api(self) -> None:
         self.assertIs(M._ExactAttemptDependencies().reserve_attempt, M.publication.reserve_experiment_slot)
+
+    def test_v3_freeze_is_blocked_without_authenticated_runtime_contract(self) -> None:
+        with self.assertRaises(M.ExactAttemptError) as error:
+            M._validate_frozen_runtime_contract(json.loads(self.freeze), "wsl2-x86_64")
+        self.assertEqual(error.exception.code, "runtime-contract")
+
+    def test_runtime_contract_requires_three_ascii_numeric_version_components(self) -> None:
+        freeze = json.loads(self.freeze)
+        freeze[M.PYTHON_RUNTIME_CONTRACT_FIELD] = {
+            "schema": M.PYTHON_RUNTIME_CONTRACT_SCHEMA,
+            "platforms": {
+                selector: {
+                    "selector": selector,
+                    "implementation": "cpython",
+                    "version": "3.12.x" if selector == "wsl2-x86_64" else "3.12.4",
+                    "invocation": ["python3"],
+                    "module_loading": "PYTHONPATH=package/scripts",
+                    "entrypoint": "python3 -m phase3_exact_attempt",
+                }
+                for selector in M.PLATFORM_ORDINALS
+            },
+        }
+        with self.assertRaises(M.ExactAttemptError) as error:
+            M._validate_frozen_runtime_contract(freeze, "wsl2-x86_64")
+        self.assertEqual(error.exception.code, "runtime-contract")
 
     def test_selected_frozen_binary_sizes_and_cap_are_checked_before_reservation(self) -> None:
         self.assertEqual(M.MAX_EXECUTABLE_BYTES, M.transport.MAX_EXECUTABLE_BYTES)

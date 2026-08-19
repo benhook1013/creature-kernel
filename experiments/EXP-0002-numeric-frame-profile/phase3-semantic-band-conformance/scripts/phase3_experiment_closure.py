@@ -17,6 +17,7 @@ import base64
 import hashlib
 import importlib.util
 import json
+import re
 import stat
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -32,6 +33,12 @@ CANDIDATE_PROFILE_ID = "ck.provisional-r3-authored-conflict.semantic-band-1"
 EXPECTED_ORDINALS = (0, 1, 2)
 EXPECTED_SELECTORS = {0: "wsl2-x86_64", 1: "wsl2-x86_64", 2: "ubuntu-24.04-x86_64"}
 STATUSES = frozenset({"supported", "failed", "inconclusive"})
+TERMINAL_SCHEMA = "ck.exp-0002.phase3.exact-attempt-terminal-failure-1"
+TERMINAL_HASH_DOMAIN = b"ck.exp-0002.phase3.exact-attempt-terminal-failure.v1\0"
+LEDGER_ID = "ck.exp-0002.phase3.experiment-slot-ledger.v1"
+RESERVATION_SCHEMA = "ck.exp-0002.phase3.experiment-slot-reservation-1"
+ATTEMPT_ID_RE = re.compile(r"^attempt-[A-Za-z0-9][A-Za-z0-9._-]{2,127}$")
+MAX_ATTEMPT_ID_BYTES = 256
 MAX_RECORD_BYTES = 16 * 1024 * 1024
 MAX_CLOSURE_BYTES = 512 * 1024
 REQUEST_ID_MARKER = "<request-id>"
@@ -179,9 +186,20 @@ def _validate_bound_record(raw: bytes, label: str, *, freeze_hash: str, attempt:
         reviews = value.get("reviews")
         if type(reviews) is not list or len(reviews) != 2:
             _fail("admission-reviews", "admission does not retain exactly two reviews")
+        lenses: set[str] = set()
+        reviewers: set[str] = set()
+        paths: set[str] = set()
         for review in reviews:
-            if not isinstance(review, Mapping) or review.get("status") != "passed" or review.get("disposition") != "Clean" or review.get("findings") != []:
+            required_review = {"review_id", "reviewer", "lens", "path", "bytes", "sha256", "status", "disposition", "findings"}
+            if not isinstance(review, Mapping) or set(review) != required_review or review.get("status") != "passed" or review.get("disposition") != "Clean" or review.get("findings") != []:
                 _fail("admission-reviews", "admission review is not a passed Clean review")
+            if not isinstance(review["reviewer"], str) or not review["reviewer"] or not isinstance(review["lens"], str) or not review["lens"] or not isinstance(review["path"], str) or not review["path"].endswith(".md") or not _valid_sha(review["sha256"]):
+                _fail("admission-reviews", "admission review identity is incomplete")
+            if type(review["bytes"]) is not int or review["bytes"] <= 0 or review["bytes"] > 256 * 1024:
+                _fail("admission-reviews", "admission review byte bound is invalid")
+            lenses.add(review["lens"]); reviewers.add(review["reviewer"]); paths.add(review["path"])
+        if len(lenses) != 2 or len(reviewers) != 2 or len(paths) != 2:
+            _fail("admission-reviews", "admission review identities are not independent")
         _self_hash(value, "admission_record_sha256", b"ck.exp-0002.phase3.gate-b-admission.v1\0", strip_newline=True)
     elif label == "authorization":
         if value.get("schema") != "ck.exp-0002.phase3.exact-attempt-human-authorization-1":
@@ -214,6 +232,24 @@ def _validate_bound_record(raw: bytes, label: str, *, freeze_hash: str, attempt:
         platform = value.get("platform")
         if not isinstance(platform, Mapping) or platform.get("selector") != attempt["platform_selector"] or platform.get("role") not in {"wsl", "native"}:
             _fail("custody-binding", "custody platform differs from the attempt slot")
+        transfer = value.get("transfer")
+        if not isinstance(transfer, Mapping) or transfer.get("kind") not in {"invocation-owned-raw-bundle-tar", "github-actions-artifact-zip"}:
+            _fail("custody-transfer", "custody transfer lineage is absent or unsupported")
+        locator = transfer.get("locator")
+        if not isinstance(locator, Mapping) or locator.get("kind") != "filesystem-path" or not isinstance(locator.get("value"), str) or not locator["value"].startswith("/"):
+            _fail("custody-transfer", "custody transfer locator is not an absolute supplied path")
+        if transfer["kind"] == "github-actions-artifact-zip":
+            workflow = transfer.get("workflow")
+            run = transfer.get("run")
+            artifact = transfer.get("artifact")
+            if not isinstance(workflow, Mapping) or not _valid_commit(workflow.get("commit")) or not _valid_sha(workflow.get("sha256")) or workflow.get("path") != ".github/workflows/phase3-gate-b-native-build.yml":
+                _fail("custody-transfer", "GitHub workflow lineage is incomplete")
+            if not isinstance(run, Mapping) or type(run.get("id")) is not int or type(run.get("attempt")) is not int:
+                _fail("custody-transfer", "GitHub run lineage is incomplete")
+            if not isinstance(artifact, Mapping) or type(artifact.get("id")) is not int or not isinstance(artifact.get("digest"), str):
+                _fail("custody-transfer", "GitHub artifact lineage is incomplete")
+        elif set(transfer) != {"kind", "locator", "bundle", "created_at", "expires_at", "retention_days"}:
+            _fail("custody-transfer", "raw transfer lineage is not closed")
         receipt = value.get("receipt")
         if not isinstance(receipt, Mapping) or set(receipt) != {"path", "mode", "bytes", "sha256", "self_hash"} or receipt.get("path") != "build-receipt.json" or receipt.get("mode") != stat.S_IFREG | 0o644 or not _valid_sha(receipt.get("sha256")) or not _valid_sha(receipt.get("self_hash")):
             _fail("custody-receipt", "custody receipt identity is not closed")
@@ -230,6 +266,98 @@ def _validate_bound_record(raw: bytes, label: str, *, freeze_hash: str, attempt:
     else:
         _fail("record", f"unknown bound record {label}")
     return value
+
+
+def _validate_terminal(raw: bytes, *, freeze_hash: str, ordinal: int) -> dict[str, Any]:
+    value = _parse(raw, "terminal failure", limit=16 * 1024)
+    required = {"schema", "ledger_id", "successor_manifest_sha256", "platform_selector", "ordinal", "attempt_id", "status", "code", "detail", "terminal_record_sha256"}
+    if set(value) != required or value.get("schema") != TERMINAL_SCHEMA or value.get("ledger_id") != LEDGER_ID:
+        _fail("terminal-schema", "terminal failure record is not the canonical ledger-bound contract")
+    if value.get("successor_manifest_sha256") != freeze_hash or value.get("ordinal") != ordinal or EXPECTED_SELECTORS.get(ordinal) != value.get("platform_selector"):
+        _fail("terminal-binding", "terminal failure record does not bind the expected slot")
+    attempt_id = value.get("attempt_id")
+    if (
+        not isinstance(attempt_id, str)
+        or not attempt_id
+        or len(attempt_id.encode("utf-8", errors="replace")) > MAX_ATTEMPT_ID_BYTES
+        or ATTEMPT_ID_RE.fullmatch(attempt_id) is None
+        or attempt_id in {"attempt-id", "attempt-000"}
+    ):
+        _fail("terminal-binding", "terminal failure attempt ID is malformed")
+    code = value.get("code")
+    detail = value.get("detail")
+    try:
+        code_bytes = len(code.encode("utf-8")) if isinstance(code, str) else -1
+        detail_bytes = len(detail.encode("utf-8")) if isinstance(detail, str) else -1
+    except UnicodeEncodeError:
+        code_bytes = detail_bytes = -1
+    if (
+        value.get("status") not in {"failed", "inconclusive"}
+        or not isinstance(code, str) or not code or code_bytes > 128 or code_bytes < 0
+        or not isinstance(detail, str) or not detail or detail_bytes > 1024 or detail_bytes < 0
+    ):
+        _fail("terminal-schema", "terminal failure disposition is malformed")
+    unsigned = dict(value); unsigned["terminal_record_sha256"] = None
+    # The publication ledger hashes the canonical object without its
+    # terminating LF, matching the experiment's other authorization-style
+    # self-hash conventions.
+    if _sha(TERMINAL_HASH_DOMAIN + _canonical(unsigned)[:-1]) != value["terminal_record_sha256"]:
+        _fail("terminal-hash", "terminal failure self-hash does not match")
+    return value
+
+
+def _validate_reservation_record(raw: bytes, *, freeze_hash: str, ordinal: int) -> dict[str, Any]:
+    """Validate the exact retained bytes of the consumed slot marker."""
+    value = _parse(raw, "experiment slot reservation", limit=16 * 1024)
+    required = {"schema", "ledger_id", "successor_manifest_sha256", "platform_selector", "ordinal", "attempt_id"}
+    if set(value) != required or value.get("schema") != RESERVATION_SCHEMA or value.get("ledger_id") != LEDGER_ID:
+        _fail("reservation-schema", "reservation record is not the canonical ledger contract")
+    if value.get("successor_manifest_sha256") != freeze_hash or value.get("ordinal") != ordinal or EXPECTED_SELECTORS.get(ordinal) != value.get("platform_selector"):
+        _fail("reservation-binding", "reservation record does not bind the expected slot")
+    if not isinstance(value.get("attempt_id"), str) or ATTEMPT_ID_RE.fullmatch(value["attempt_id"]) is None:
+        _fail("reservation-binding", "reservation record attempt ID is malformed")
+    return value
+
+
+def _canonical_authority_and_custody(
+    *, freeze_raw: bytes, admission_raw: bytes, custody_raw: bytes, freeze_hash: str,
+) -> None:
+    """Run the canonical authority/custody owners for a real frozen package.
+
+    Synthetic fixtures intentionally use a minimal patched freeze owner; those
+    are covered by the complete equivalent checks above.  A real v3 freeze
+    carries the full binary/review/tool sections and therefore must pass the
+    canonical repository-bound validators before closure can compare results.
+    """
+    if not isinstance(freeze_raw, bytes):
+        return
+    try:
+        if not isinstance(_validate_freeze(freeze_raw).get("binaries"), Mapping):
+            return
+        base = Path(__file__).parent
+        for name in ("phase3_exact_authority.py", "phase3_exact_custody.py"):
+            path = base / name
+            spec = importlib.util.spec_from_file_location(f"phase3_closure_owner_{name.replace('.', '_')}", path)
+            if spec is None or spec.loader is None:
+                _fail("owner-validator", f"canonical {name} cannot be loaded")
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            if name == "phase3_exact_authority.py":
+                module.validate_gate_b_admission(
+                    admission_raw,
+                    freeze_manifest=freeze_raw,
+                    review_root=base.parent / "reviews",
+                )
+            else:
+                module.validate_custody_record(
+                    custody_raw,
+                    expected_manifest=freeze_raw,
+                    expected_manifest_sha256=freeze_hash,
+                )
+    except ExperimentClosureError:
+        raise
+    except Exception as error:
+        _fail("owner-validator", str(error))
 
 
 def _normalize_wire(raw_b64: Any) -> tuple[Any, str] | None:
@@ -313,18 +441,41 @@ def _validate_attempt(record: Mapping[str, Any], ordinal: int, freeze: Mapping[s
     result_raw = _record_field(record, "result", "result_bytes")
     receipt_raw = _record_field(record, "receipt", "receipt_bytes")
     index_raw = _record_field(record, "index", "attempt_index", "index_bytes")
+    terminal_raw = _record_field(record, "terminal", "terminal_failure", "terminal_bytes")
+    reservation_raw = _record_field(record, "reservation", "reservation_record", "reservation_bytes", "slot_marker")
     required = (freeze_raw, admission_raw, authorization_raw, custody_raw, result_raw, receipt_raw, index_raw)
+    if reservation_raw is None and any(item is not None for item in (*required, terminal_raw)):
+        _fail("reservation-missing", "occupied slot evidence does not retain its canonical reservation record")
     if any(item is None for item in required):
         if freeze_raw is not None:
             supplied = _validate_freeze(freeze_raw)
             if supplied != freeze:
                 _fail("freeze-binding", "partial attempt freeze differs from the closure freeze")
+        reservation = _validate_reservation_record(reservation_raw, freeze_hash=freeze["manifest_sha256"], ordinal=ordinal) if reservation_raw is not None and freeze_raw is not None else None
+        terminal = _validate_terminal(terminal_raw, freeze_hash=freeze["manifest_sha256"], ordinal=ordinal) if terminal_raw is not None and freeze_raw is not None else None
+        if reservation is not None and terminal is not None and reservation["attempt_id"] != terminal["attempt_id"]:
+            _fail("reservation-binding", "terminal failure attempt ID differs from the consumed reservation")
         names = ("freeze", "admission", "authorization", "custody", "result", "receipt", "index")
-        return {"ordinal": ordinal, "selector": EXPECTED_SELECTORS[ordinal], "attempt_status": None, "missing": [name for name, item in zip(names, required) if item is None], "record_hashes": {name: None if item is None else _sha(item) for name, item in zip(names, required)}}
+        missing = [name for name, item in zip(names, required) if item is None]
+        if reservation is not None and terminal is None:
+            # A durable consumed marker with no terminal record is an
+            # abandoned reservation, never a merely missing optional field.
+            missing.append("terminal")
+        summary = {"ordinal": ordinal, "selector": EXPECTED_SELECTORS[ordinal], "attempt_status": terminal["status"] if terminal is not None else ("inconclusive" if reservation is not None else None), "missing": missing, "record_hashes": {name: None if item is None else _sha(item) for name, item in zip(names, required)}}
+        if reservation is not None:
+            summary["reservation_record_sha256"] = _sha(reservation_raw)
+            summary["attempt_id"] = reservation["attempt_id"]
+        if terminal is not None:
+            summary["attempt_id"] = terminal["attempt_id"]
+            summary["terminal_record_sha256"] = _sha(terminal_raw)
+        return summary
+    if terminal_raw is not None:
+        _fail("terminal-extra", "a complete published attempt cannot also carry terminal failure evidence")
     supplied_freeze = _validate_freeze(freeze_raw)
     if supplied_freeze != freeze:
         _fail("freeze-binding", "attempt freeze bytes differ across slots")
     freeze_hash = freeze["manifest_sha256"]
+    reservation = _validate_reservation_record(reservation_raw, freeze_hash=freeze_hash, ordinal=ordinal)
     result = evidence.validate_result(result_raw)
     attempt = _attempt_metadata(result)
     if attempt["ordinal"] != ordinal or attempt["freeze_manifest_sha256"] != freeze_hash:
@@ -333,6 +484,14 @@ def _validate_attempt(record: Mapping[str, Any], ordinal: int, freeze: Mapping[s
         _fail("attempt-binding", "caller slot metadata differs from result attempt ID")
     if record.get("platform_selector") is not None and record.get("platform_selector") != attempt["platform_selector"]:
         _fail("platform-binding", "caller slot metadata differs from result platform")
+    if reservation["attempt_id"] != attempt["attempt_id"]:
+        _fail("reservation-binding", "result attempt ID differs from the consumed reservation")
+    _canonical_authority_and_custody(
+        freeze_raw=freeze_raw,
+        admission_raw=admission_raw,
+        custody_raw=custody_raw,
+        freeze_hash=freeze_hash,
+    )
     admission_hash = _sha(admission_raw)
     admission = _validate_bound_record(admission_raw, "admission", freeze_hash=freeze_hash, attempt=attempt, freeze_source_commit=freeze.get("execution_tool_source_commit"))
     custody = _validate_bound_record(custody_raw, "custody", freeze_hash=freeze_hash, attempt=attempt)
@@ -355,6 +514,7 @@ def _validate_attempt(record: Mapping[str, Any], ordinal: int, freeze: Mapping[s
         "attempt_status": attempt_status,
         "semantic_sha256": semantic_sha,
         "missing": [],
+        "reservation_record_sha256": _sha(reservation_raw),
         "record_hashes": {name: _sha(raw) for name, raw in (("freeze", freeze_raw), ("admission", admission_raw), ("authorization", authorization_raw), ("custody", custody_raw), ("result", result_raw), ("receipt", receipt_raw), ("index", index_raw))},
         "result_sha256": _sha(result_raw),
         "receipt_sha256": _sha(receipt_raw),
@@ -420,6 +580,9 @@ def build_experiment_closure(
         statuses = [_validate_attempt(by_ordinal[ordinal], ordinal, freeze) if ordinal in by_ordinal else {"ordinal": ordinal, "selector": EXPECTED_SELECTORS[ordinal], "attempt_status": None, "missing": ["attempt"], "record_hashes": {name: None for name in ("freeze", "admission", "authorization", "custody", "result", "receipt", "index")}} for ordinal in EXPECTED_ORDINALS]
     if not allow_missing and any(item.get("missing") for item in statuses):
         _fail("missing", "experiment closure is missing one or more required attempt records")
+    attempt_ids = [item.get("attempt_id") for item in statuses if isinstance(item.get("attempt_id"), str)]
+    if len(attempt_ids) != len(set(attempt_ids)):
+        _fail("duplicate-attempt-id", "closure contains the same attempt ID in more than one slot")
     complete = [item for item in statuses if not item.get("missing")]
     # Only complete, supported attempts are comparable semantic observations.
     # Failed or inconclusive attempts may retain different partial witnesses;
@@ -490,7 +653,7 @@ def validate_experiment_closure(raw: bytes) -> dict[str, Any]:
     for index, item in enumerate(attempts):
         if not isinstance(item, Mapping):
             _fail("closure-attempts", f"attempt summary {index} is not an object")
-        allowed = {"ordinal", "selector", "attempt_id", "attempt_status", "semantic_sha256", "missing", "record_hashes", "result_sha256", "receipt_sha256", "index_sha256"}
+        allowed = {"ordinal", "selector", "attempt_id", "attempt_status", "semantic_sha256", "missing", "record_hashes", "result_sha256", "receipt_sha256", "index_sha256", "terminal_record_sha256", "reservation_record_sha256"}
         required_summary = {"ordinal", "selector", "attempt_status", "missing", "record_hashes"}
         if set(item) - allowed or not required_summary <= set(item) or set(item.get("record_hashes", {})) != {"freeze", "admission", "authorization", "custody", "result", "receipt", "index"}:
             _fail("closure-attempts", f"attempt summary {index} is not closed")
@@ -501,6 +664,10 @@ def validate_experiment_closure(raw: bytes) -> dict[str, Any]:
             _fail("closure-attempts", f"attempt summary {index} missing list is invalid")
         if not missing and (type(item.get("attempt_id")) is not str or not _valid_sha(item.get("semantic_sha256"))):
             _fail("closure-attempts", f"attempt summary {index} is incomplete despite empty missing list")
+        if item.get("terminal_record_sha256") is not None and not _valid_sha(item.get("terminal_record_sha256")):
+            _fail("closure-attempts", f"attempt summary {index} terminal record hash is invalid")
+        if item.get("reservation_record_sha256") is not None and not _valid_sha(item.get("reservation_record_sha256")):
+            _fail("closure-attempts", f"attempt summary {index} reservation record hash is invalid")
         for name, digest in item["record_hashes"].items():
             if digest is not None and not _valid_sha(digest):
                 _fail("closure-attempts", f"attempt summary {index}.{name} hash is invalid")

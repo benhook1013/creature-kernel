@@ -58,12 +58,35 @@ SCHEMA = "ck.exp-0002.phase3.freeze-manifest-2"
 HASH_DOMAIN = b"ck.exp-0002.phase3.freeze-manifest.v2\0"
 V3_SCHEMA = "ck.exp-0002.phase3.freeze-manifest-3"
 V3_HASH_DOMAIN = b"ck.exp-0002.phase3.freeze-manifest.v3\0"
-CURRENT_SCHEMA = V3_SCHEMA
+V4_SCHEMA = "ck.exp-0002.phase3.freeze-manifest-4"
+V4_HASH_DOMAIN = b"ck.exp-0002.phase3.freeze-manifest.v4\0"
+EXPECTED_V3_MANIFEST_SHA256 = "faafe7680fcc3509a245dde6759396a1391e02c40891128ca44d007726adef85"
+# The v3 manifest is the immutable predecessor for the runtime-bound v4
+# successor.  Keep these values explicit: a pure v4 validator must be able to
+# authenticate the predecessor lineage without reading a moving repository.
+EXPECTED_V3_EXECUTION_TOOL_SOURCE_COMMIT = "762b04b8db3397cb1885d94236ad5d47cb321830"
+EXPECTED_V3_MATERIALIZATION_COMMIT = "762b04b8db3397cb1885d94236ad5d47cb321830"
+CURRENT_SCHEMA = V4_SCHEMA
 V2_SCHEMA = SCHEMA
 PHASE3_PATH = "scripts/phase3_freeze_manifest.py"
 TARGET = "x86_64-unknown-linux-gnu"
 TOOLCHAIN = "1.97.1"
 BINARY_NAME = "exp-0002-r3-authored-conflict-candidate"
+
+# These are source-level invocation facts, not observations of a host.  Runtime
+# versions are deliberately absent: neither the checked-in native workflow nor
+# a WSL workflow currently fixes exact CPython patch versions.  v4 generation
+# therefore requires an explicit, closed contract supplied by the workflow
+# update that makes those facts authoritative.
+PYTHON_RUNTIME_CONTRACT_SCHEMA = "ck.exp-0002.phase3.python-runtime-contract-1"
+PYTHON_RUNTIME_INVOCATION = [
+    "python3", "-c", "from phase3_exact_attempt import run_exact_attempt",
+]
+PYTHON_RUNTIME_MODULE_LOADING = "validated-phase3-scripts-directory-top-level-import"
+PYTHON_RUNTIME_ENTRYPOINT = "phase3_exact_attempt.run_exact_attempt"
+PYTHON_RUNTIME_KEYS = {
+    "selector", "implementation", "version", "invocation", "module_loading", "entrypoint",
+}
 
 RUNTIME_TOOLS = (
     "scripts/phase3_common.py",
@@ -499,6 +522,69 @@ def _platforms() -> dict[str, Any]:
     }
 
 
+def _build_python_runtime_contract(
+    *,
+    runtime_contract: Mapping[str, Any] | None,
+    native_python_version: str | None = None,
+) -> dict[str, Any]:
+    """Authenticate an explicit runtime contract supplied by a fixed workflow.
+
+    The repository currently has no authoritative WSL runtime workflow and the
+    native workflow fixes only the CPython minor line (``3.13``).  Consequently
+    this function never probes ``sys`` or invents a patch version: until the
+    workflow records both selectors' exact versions and invocation boundary,
+    v4 construction fails closed.  ``native_python_version`` is retained only
+    as a consistency check for callers migrating from the provisional API.
+    """
+    if runtime_contract is None:
+        _fail(
+            "runtime-contract",
+            "v4 requires an authoritative exact_python_runtime_contract input; pin CPython N.N.N and the canonical invocation/module-loading/entrypoint for WSL and native in the workflow",
+        )
+    normalized = _validate_python_runtime_contract(runtime_contract)
+    if native_python_version is not None and normalized["platforms"]["ubuntu-24.04-x86_64"]["version"] != native_python_version:
+        _fail("runtime-contract", "native Python version does not match the supplied runtime contract")
+    return normalized
+
+
+def _load_runtime_contract_json(path: Path) -> dict[str, Any]:
+    """Load one canonical, strict JSON runtime-contract mapping from disk."""
+    try:
+        info = path.lstat()
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+            _fail("runtime-contract", "runtime-contract JSON must be a single-link regular file")
+        raw = path.read_bytes()
+    except FreezeManifestError:
+        raise
+    except OSError as error:
+        raise FreezeManifestError("runtime-contract", "runtime-contract JSON is unavailable") from error
+    if len(raw) > MAX_MANIFEST_BYTES or not raw.endswith(b"\n"):
+        _fail("runtime-contract", "runtime-contract JSON is oversized or missing its trailing newline")
+
+    def collect(items: list[tuple[str, Any]]) -> dict[str, Any]:
+        keys = [key for key, _ in items]
+        if len(keys) != len(set(keys)):
+            _fail("runtime-contract", "runtime-contract JSON contains duplicate keys")
+        return dict(items)
+
+    try:
+        value = json.loads(
+            raw.decode("utf-8"),
+            object_pairs_hook=collect,
+            parse_constant=lambda token: _fail("runtime-contract", f"runtime-contract JSON contains {token}"),
+        )
+    except FreezeManifestError:
+        raise
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise FreezeManifestError("runtime-contract", "runtime-contract JSON is not strict UTF-8 JSON") from error
+    if not isinstance(value, Mapping) or _canonical(value) != raw:
+        _fail("runtime-contract", "runtime-contract JSON is not a canonical mapping")
+    try:
+        return _validate_python_runtime_contract(value)
+    except FreezeManifestError as error:
+        raise FreezeManifestError("runtime-contract", error.detail) from error
+
+
 _SLOT_KEYS = {"status", "receipt_path", "receipt_bytes", "receipt_sha256", "receipt_self_hash", "binary_identity"}
 
 
@@ -701,6 +787,8 @@ def _self_hash(value: Mapping[str, Any]) -> str:
         domain = HASH_DOMAIN
     elif schema == V3_SCHEMA:
         domain = V3_HASH_DOMAIN
+    elif schema == V4_SCHEMA:
+        domain = V4_HASH_DOMAIN
     else:
         _fail("manifest-shape", "manifest schema has no self-hash domain")
     return _sha256(domain + _canonical(copy))
@@ -715,6 +803,29 @@ def _pure_path(value: Any, label: str) -> str:
     if not isinstance(value, str) or not value or value.startswith("/") or "\\" in value or any(part in {"", ".", ".."} for part in value.split("/")):
         _fail("manifest-shape", f"{label} is not a safe relative path")
     return value
+
+
+def _validate_python_runtime_contract(value: Any) -> dict[str, Any]:
+    """Validate the closed, selector-complete exact Python runtime contract."""
+    _pure_keys(value, {"schema", "platforms"}, "manifest.exact_python_runtime_contract")
+    if value["schema"] != PYTHON_RUNTIME_CONTRACT_SCHEMA:
+        _fail("manifest-shape", "Python runtime contract schema is wrong")
+    platforms = value["platforms"]
+    _pure_keys(platforms, set(SELECTORS), "manifest.exact_python_runtime_contract.platforms")
+    normalized: dict[str, Any] = {}
+    for selector in SELECTORS:
+        selected = platforms[selector]
+        _pure_keys(selected, PYTHON_RUNTIME_KEYS, f"manifest.exact_python_runtime_contract.{selector}")
+        if selected["selector"] != selector or selected["implementation"] != "CPython":
+            _fail("manifest-shape", f"Python runtime selector or implementation is wrong for {selector}")
+        if type(selected["version"]) is not str or re.fullmatch(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)", selected["version"]) is None:
+            _fail("manifest-shape", f"Python runtime patch version is not exact for {selector}")
+        if selected["invocation"] != PYTHON_RUNTIME_INVOCATION:
+            _fail("manifest-shape", f"Python invocation is not the frozen contract for {selector}")
+        if selected["module_loading"] != PYTHON_RUNTIME_MODULE_LOADING or selected["entrypoint"] != PYTHON_RUNTIME_ENTRYPOINT:
+            _fail("manifest-shape", f"Python module-loading or entrypoint contract is wrong for {selector}")
+        normalized[selector] = dict(selected)
+    return {"schema": value["schema"], "platforms": normalized}
 
 
 def _pure_identity(value: Any, label: str, *, full_mode: bool = False) -> None:
@@ -862,6 +973,9 @@ def _v1_projection(value: Mapping[str, Any]) -> dict[str, Any]:
         "exact_runtime_tool_identities", "predecessor_v1_manifest_sha256", "predecessor_v2_inherited_sha256",
         "previous_execution_tool_source_commit", "old_materialization_commit", "materialization_commit",
         "experiment_closure_tool_identities", "experiment_closure_schema",
+        "predecessor_v2_manifest_sha256", "predecessor_v2_execution_tool_source_commit",
+        "predecessor_v2_materialization_commit",
+        "exact_python_runtime_contract",
     ):
         projected.pop(field, None)
     projected["schema"] = V1_SCHEMA
@@ -997,6 +1111,90 @@ def _validate_pure_manifest_v3(value: Any) -> dict[str, Any]:
     return dict(value)
 
 
+def _v4_canonicalization() -> dict[str, Any]:
+    return {
+        "encoding": "UTF-8",
+        "json": "RFC 8259-compatible strict JSON",
+        "sort_keys": True,
+        "separators": [",", ":"],
+        "ensure_ascii": True,
+        "trailing_newline": True,
+        "self_hash_domain": V4_HASH_DOMAIN.decode("ascii").rstrip("\0"),
+        "self_hash_excludes": ["manifest_sha256"],
+        "raw_file_hash": "SHA-256 over exact bytes; no parse/reserialize for raw identities",
+    }
+
+
+def _validate_pure_manifest_v4(value: Any) -> dict[str, Any]:
+    """Validate the v3 successor that binds exact Python runtime facts."""
+    top_keys = {
+        "schema", "manifest_sha256", "predecessor_manifest_sha256",
+        "predecessor_inherited_sha256", "predecessor_v1_manifest_sha256", "predecessor_v2_inherited_sha256",
+        "predecessor_v2_manifest_sha256", "predecessor_v2_execution_tool_source_commit",
+        "predecessor_v2_materialization_commit",
+        "previous_execution_tool_source_commit", "old_materialization_commit",
+        "materialization_commit", "candidate_source_commit", "execution_tool_source_commit",
+        "status", "lifecycle", "execution_permitted", "binding", "protocol", "raw_inputs",
+        "repository_inputs", "candidate_closure", "runtime_tool_identities",
+        "exact_runtime_tool_identities", "provenance_tool_identities",
+        "experiment_closure_tool_identities", "experiment_closure_schema", "build",
+        "platform", "binaries", "readiness", "attempts", "canonicalization",
+        "exact_python_runtime_contract",
+    }
+    _pure_keys(value, top_keys, "manifest")
+    if value["schema"] != V4_SCHEMA:
+        _fail("manifest-shape", "manifest is not the v4 successor schema")
+    if value["candidate_source_commit"] != EXPECTED_CANDIDATE_SOURCE_COMMIT:
+        _fail("manifest-shape", "v4 candidate source commit is not the frozen candidate")
+    for field in ("previous_execution_tool_source_commit", "old_materialization_commit", "materialization_commit", "execution_tool_source_commit"):
+        if not _valid_commit(value[field]):
+            _fail("manifest-shape", f"v4 {field} is not a full commit")
+    if value["execution_tool_source_commit"] in {value["candidate_source_commit"], value["previous_execution_tool_source_commit"]}:
+        _fail("manifest-shape", "v4 new execution commit must be distinct from C and old E")
+    if value["old_materialization_commit"] == value["materialization_commit"]:
+        _fail("manifest-shape", "v4 old and new materialization commits must be distinct")
+    if value["predecessor_manifest_sha256"] != EXPECTED_V3_MANIFEST_SHA256:
+        _fail("manifest-shape", "v4 predecessor is not the exact v3 freeze")
+    if value["predecessor_v1_manifest_sha256"] != EXPECTED_V1_MANIFEST_SHA256:
+        _fail("manifest-shape", "v4 history does not retain the exact v1 hash")
+    if value["predecessor_v2_manifest_sha256"] != EXPECTED_V2_MANIFEST_SHA256:
+        _fail("manifest-shape", "v4 history does not retain the exact v2 manifest hash")
+    if value["predecessor_inherited_sha256"] != EXPECTED_INHERITED_V1_SHA256 or value["predecessor_v2_inherited_sha256"] != EXPECTED_INHERITED_V1_SHA256:
+        _fail("manifest-shape", "v4 history does not retain the exact v1/v2 inherited identity")
+    if value["predecessor_v2_execution_tool_source_commit"] != EXPECTED_V2_EXECUTION_TOOL_SOURCE_COMMIT:
+        _fail("manifest-shape", "v4 history does not retain the exact v2 execution snapshot")
+    if value["predecessor_v2_materialization_commit"] != EXPECTED_V2_MATERIALIZATION_COMMIT:
+        _fail("manifest-shape", "v4 history does not retain the exact v2 materialization snapshot")
+    if value["previous_execution_tool_source_commit"] != EXPECTED_V3_EXECUTION_TOOL_SOURCE_COMMIT:
+        _fail("manifest-shape", "v4 previous execution commit is not the exact v3 execution snapshot")
+    if value["old_materialization_commit"] != EXPECTED_V3_MATERIALIZATION_COMMIT:
+        _fail("manifest-shape", "v4 old materialization commit is not the exact v3 materialization snapshot")
+    if value["experiment_closure_schema"] != "ck.exp-0002.phase3.experiment-closure-1":
+        _fail("manifest-shape", "v4 closure schema binding is wrong")
+    if value["canonicalization"] != _v4_canonicalization():
+        _fail("manifest-shape", "v4 canonicalization contract is wrong")
+    if value["manifest_sha256"] != _self_hash(value):
+        _fail("manifest-self-hash", "v4 manifest self hash does not match")
+    _validate_python_runtime_contract(value["exact_python_runtime_contract"])
+    for field, expected_paths in (
+        ("runtime_tool_identities", RUNTIME_TOOLS),
+        ("exact_runtime_tool_identities", EXACT_RUNTIME_TOOLS),
+        ("provenance_tool_identities", PROVENANCE_TOOLS),
+        ("experiment_closure_tool_identities", EXPERIMENT_CLOSURE_TOOLS),
+    ):
+        collection = value[field]
+        if not isinstance(collection, list) or [item.get("path") for item in collection if isinstance(item, Mapping)] != list(expected_paths):
+            _fail("manifest-shape", f"manifest.{field} paths are not the closed v4 contract")
+        for index, identity in enumerate(collection):
+            _pure_identity(identity, f"manifest.{field}[{index}]")
+    # Reuse the immutable v1 semantic validator for all C-bound facts.  The
+    # v3 validator cannot be reused directly because its E/M fields necessarily
+    # advance in this successor.  The explicit lineage checks above retain the
+    # v1/v2/v3 history while this projection prevents resealing changed inputs.
+    _validate_pure_manifest_v1(_v1_projection(value))
+    return dict(value)
+
+
 def _seal(value: dict[str, Any]) -> dict[str, Any]:
     value["manifest_sha256"] = _self_hash(value)
     return value
@@ -1063,6 +1261,8 @@ def validate_manifest(raw_or_value: bytes | Mapping[str, Any]) -> dict[str, Any]
         return _validate_pure_manifest_v2(value)
     if schema == V3_SCHEMA:
         return _validate_pure_manifest_v3(value)
+    if schema == V4_SCHEMA:
+        return _validate_pure_manifest_v4(value)
     _fail("manifest-shape", "manifest schema is unsupported")
 
 
@@ -1433,6 +1633,103 @@ def build_v3_successor_manifest(
     return validated
 
 
+def build_v4_successor_manifest(
+    predecessor_raw: bytes,
+    *,
+    execution_tool_source_commit: str,
+    materialization_commit: str | None = None,
+    new_materialization_commit: str | None = None,
+    old_materialization_commit: str | None = None,
+    previous_execution_tool_source_commit: str | None = None,
+    runtime_contract: Mapping[str, Any] | None = None,
+    native_python_version: str | None = None,
+    repo: Path = REPO,
+    package: Path = PACKAGE,
+) -> dict[str, Any]:
+    """Build v4 from exact v3 bytes with an explicit Python runtime contract."""
+    if materialization_commit is None:
+        materialization_commit = new_materialization_commit
+    elif new_materialization_commit is not None:
+        _fail("materialization-commit", "new materialization commit was supplied twice")
+    if type(predecessor_raw) is not bytes:
+        _fail("predecessor-manifest", "v4 input must be exact v3 bytes")
+    if materialization_commit is None:
+        _fail("materialization-commit", "v4 requires an explicit new materialization commit")
+    predecessor = validate_manifest(predecessor_raw)
+    if predecessor.get("schema") != V3_SCHEMA or predecessor.get("manifest_sha256") != EXPECTED_V3_MANIFEST_SHA256:
+        _fail("predecessor-manifest", "v4 input must be the exact current v3 manifest")
+    if previous_execution_tool_source_commit is None:
+        previous_execution_tool_source_commit = predecessor.get("execution_tool_source_commit")
+    if old_materialization_commit is None:
+        old_materialization_commit = predecessor.get("materialization_commit")
+    if previous_execution_tool_source_commit != predecessor.get("execution_tool_source_commit"):
+        _fail("execution-tool-commit", "v4 old E does not match the exact v3 execution snapshot")
+    if old_materialization_commit != predecessor.get("materialization_commit"):
+        _fail("materialization-commit", "v4 old M does not match the exact v3 materialization snapshot")
+    for field, value in (
+        ("execution_tool_source_commit", execution_tool_source_commit),
+        ("old_materialization_commit", old_materialization_commit),
+        ("materialization_commit", materialization_commit),
+        ("previous_execution_tool_source_commit", previous_execution_tool_source_commit),
+    ):
+        if not _valid_commit(value):
+            _fail("execution-tool-commit", f"{field} must be a full lowercase commit SHA")
+    if execution_tool_source_commit in {predecessor["candidate_source_commit"], predecessor["execution_tool_source_commit"]}:
+        _fail("execution-tool-commit", "v4 new E must be distinct from C and old E")
+    if old_materialization_commit == materialization_commit:
+        _fail("materialization-commit", "v4 old and new M commits must be distinct")
+    runtime_contract = _build_python_runtime_contract(
+        runtime_contract=runtime_contract,
+        native_python_version=native_python_version,
+    )
+
+    # Authenticate v3's C-bound facts and old execution snapshot before adding
+    # any v4 fields.  The current package may already contain the new E's
+    # uncommitted bytes, so compare old tool identities to their committed E
+    # without requiring them to match the moving working tree.
+    _validate_candidate_build_snapshot(repo, predecessor)
+    for field, paths in (
+        ("runtime_tool_identities", RUNTIME_TOOLS),
+        ("exact_runtime_tool_identities", EXACT_RUNTIME_TOOLS),
+        ("provenance_tool_identities", PROVENANCE_TOOLS),
+        ("experiment_closure_tool_identities", EXPERIMENT_CLOSURE_TOOLS),
+    ):
+        old_expected = _execution_tool_identities_from_commit(repo, previous_execution_tool_source_commit, paths)
+        if predecessor.get(field) != old_expected:
+            _fail("predecessor-manifest", f"v3 {field} differs from its exact old E snapshot")
+    _assert_descendant_commit(repo, predecessor["candidate_source_commit"], previous_execution_tool_source_commit)
+    _assert_descendant_commit(repo, previous_execution_tool_source_commit, old_materialization_commit)
+    _assert_descendant_commit(repo, old_materialization_commit, execution_tool_source_commit)
+    _assert_descendant_commit(repo, execution_tool_source_commit, materialization_commit)
+
+    successor = json.loads(json.dumps(predecessor))
+    successor.update({
+        "schema": V4_SCHEMA,
+        "manifest_sha256": None,
+        "predecessor_manifest_sha256": predecessor["manifest_sha256"],
+        "predecessor_v2_manifest_sha256": predecessor["predecessor_manifest_sha256"],
+        "predecessor_v2_execution_tool_source_commit": predecessor["previous_execution_tool_source_commit"],
+        "predecessor_v2_materialization_commit": predecessor["old_materialization_commit"],
+        "previous_execution_tool_source_commit": previous_execution_tool_source_commit,
+        "old_materialization_commit": old_materialization_commit,
+        "materialization_commit": materialization_commit,
+        "execution_tool_source_commit": execution_tool_source_commit,
+        "runtime_tool_identities": _execution_tool_identities_from_commit(repo, execution_tool_source_commit, RUNTIME_TOOLS),
+        "exact_runtime_tool_identities": _execution_tool_identities_from_commit(repo, execution_tool_source_commit, EXACT_RUNTIME_TOOLS),
+        "provenance_tool_identities": _execution_tool_identities_from_commit(repo, execution_tool_source_commit, PROVENANCE_TOOLS),
+        "experiment_closure_tool_identities": _execution_tool_identities_from_commit(repo, execution_tool_source_commit, EXPERIMENT_CLOSURE_TOOLS),
+        "exact_python_runtime_contract": runtime_contract,
+        "canonicalization": _v4_canonicalization(),
+    })
+    _seal(successor)
+    validated = _validate_pure_manifest_v4(successor)
+    _validate_candidate_build_snapshot(repo, validated)
+    _validate_execution_commit_snapshot(repo, package, validated)
+    if _tool_identities(package, EXPERIMENT_CLOSURE_TOOLS) != validated["experiment_closure_tool_identities"]:
+        _fail("execution-tool-drift", "current experiment closure tool differs from new E")
+    return validated
+
+
 def check_historical_manifest(repo: Path = REPO, package: Path = PACKAGE, path: Path = MANIFEST) -> dict[str, Any]:
     """Check a v1 manifest only; retained for immutable historical validation."""
     recorded = _load_manifest(path)
@@ -1454,7 +1751,7 @@ def check_historical_manifest(repo: Path = REPO, package: Path = PACKAGE, path: 
 def check_manifest(repo: Path = REPO, package: Path = PACKAGE, path: Path = MANIFEST) -> dict[str, Any]:
     """Check the current successor freeze against its C/E/M chain."""
     recorded = _load_manifest(path)
-    if recorded.get("schema") == V3_SCHEMA:
+    if recorded.get("schema") in {V3_SCHEMA, V4_SCHEMA}:
         current_materialization = _resolve_source_commit(repo, None)
         _assert_descendant_commit(repo, recorded.get("candidate_source_commit"), recorded.get("previous_execution_tool_source_commit"))
         _assert_descendant_commit(repo, recorded.get("previous_execution_tool_source_commit"), recorded.get("old_materialization_commit"))
@@ -1470,7 +1767,7 @@ def check_manifest(repo: Path = REPO, package: Path = PACKAGE, path: Path = MANI
             _fail("execution-tool-drift", "current experiment closure tool differs from new E")
         return recorded
     if recorded.get("schema") != SCHEMA:
-        _fail("current-schema", "current freeze check requires the v2 or v3 successor manifest")
+        _fail("current-schema", "current freeze check requires the v2, v3, or v4 successor manifest")
     _resolve_source_commit(repo, None)
     _validate_candidate_build_snapshot(repo, recorded)
     _validate_execution_commit_snapshot(repo, package, recorded)
@@ -1570,7 +1867,11 @@ def _atomic_write_manifest(
         if all(slot["status"] == "bound" for slot in existing_binaries.values()):
             successor_allowed = (
                 expected_destination_snapshot is not None
-                and ((existing.get("schema") == V1_SCHEMA and value.get("schema") == SCHEMA) or (existing.get("schema") == SCHEMA and value.get("schema") == V3_SCHEMA))
+                and (
+                    (existing.get("schema") == V1_SCHEMA and value.get("schema") == SCHEMA)
+                    or (existing.get("schema") == SCHEMA and value.get("schema") == V3_SCHEMA)
+                    or (existing.get("schema") == V3_SCHEMA and value.get("schema") == V4_SCHEMA)
+                )
                 and value.get("predecessor_manifest_sha256") == existing.get("manifest_sha256")
             )
             if not successor_allowed:
@@ -1809,6 +2110,40 @@ def write_v3_successor_manifest(
     return successor
 
 
+def write_v4_successor_manifest(
+    path: Path,
+    execution_tool_source_commit: str,
+    *,
+    materialization_commit: str | None = None,
+    new_materialization_commit: str | None = None,
+    native_python_version: str | None = None,
+    runtime_contract: Mapping[str, Any] | None = None,
+    old_materialization_commit: str | None = None,
+    previous_execution_tool_source_commit: str | None = None,
+    repo: Path = REPO,
+    package: Path = PACKAGE,
+) -> dict[str, Any]:
+    """Atomically replace the exact v3 freeze with a v4 runtime-bound successor."""
+    predecessor_snapshot = _read_manifest_snapshot(path)
+    predecessor = validate_manifest(predecessor_snapshot[0])
+    if predecessor.get("schema") != V3_SCHEMA or predecessor.get("manifest_sha256") != EXPECTED_V3_MANIFEST_SHA256:
+        _fail("manifest-finalized", "v4 creation requires the exact current v3 manifest")
+    successor = build_v4_successor_manifest(
+        predecessor_snapshot[0],
+        execution_tool_source_commit=execution_tool_source_commit,
+        materialization_commit=materialization_commit,
+        new_materialization_commit=new_materialization_commit,
+        runtime_contract=runtime_contract,
+        native_python_version=native_python_version,
+        old_materialization_commit=old_materialization_commit,
+        previous_execution_tool_source_commit=previous_execution_tool_source_commit,
+        repo=repo,
+        package=package,
+    )
+    _atomic_write_manifest(successor, path, expected_destination_snapshot=predecessor_snapshot)
+    return successor
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="generate or check the execution-disabled Phase 3 freeze manifest")
     parser.add_argument("--repo", type=Path, default=REPO)
@@ -1818,6 +2153,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--finalize", type=Path, nargs=2, metavar=("WSL_RECEIPT", "NATIVE_RECEIPT"))
     parser.add_argument("--successor", metavar="EXECUTION_TOOL_COMMIT")
     parser.add_argument("--successor-v3", nargs=2, metavar=("EXECUTION_TOOL_COMMIT", "MATERIALIZATION_COMMIT"))
+    parser.add_argument(
+        "--successor-v4", nargs=4,
+        metavar=("EXECUTION_TOOL_COMMIT", "MATERIALIZATION_COMMIT", "NATIVE_PYTHON_VERSION", "RUNTIME_CONTRACT_JSON"),
+        help="create v4 using a canonical exact_python_runtime_contract JSON file",
+    )
     args = parser.parse_args(argv)
     try:
         if args.check:
@@ -1832,6 +2172,17 @@ def main(argv: list[str] | None = None) -> int:
                 package=args.package.resolve(),
             )
             print(f"PHASE 3 FREEZE MANIFEST V3 SUCCESSOR CREATED: {successor['manifest_sha256']}")
+        elif args.successor_v4:
+            successor = write_v4_successor_manifest(
+                args.manifest.resolve(),
+                args.successor_v4[0],
+                materialization_commit=args.successor_v4[1],
+                native_python_version=args.successor_v4[2],
+                runtime_contract=_load_runtime_contract_json(Path(args.successor_v4[3]).resolve()),
+                repo=args.repo.resolve(),
+                package=args.package.resolve(),
+            )
+            print(f"PHASE 3 FREEZE MANIFEST V4 SUCCESSOR CREATED: {successor['manifest_sha256']}")
         elif args.successor:
             successor = write_successor_manifest(
                 args.manifest.resolve(),
@@ -1861,4 +2212,4 @@ if __name__ == "__main__":
     raise SystemExit(main())
 
 
-__all__ = ["V1_SCHEMA", "SCHEMA", "V2_SCHEMA", "V3_SCHEMA", "CURRENT_SCHEMA", "PHASE_ID", "FreezeManifestError", "validate_manifest", "generate_manifest", "build_successor_manifest", "build_v3_successor_manifest", "check_historical_manifest", "check_manifest", "finalize_from_receipts", "write_manifest", "write_successor_manifest", "write_v3_successor_manifest", "MANIFEST", "PACKAGE", "REPO"]
+__all__ = ["V1_SCHEMA", "SCHEMA", "V2_SCHEMA", "V3_SCHEMA", "V4_SCHEMA", "CURRENT_SCHEMA", "PHASE_ID", "FreezeManifestError", "validate_manifest", "generate_manifest", "build_successor_manifest", "build_v3_successor_manifest", "build_v4_successor_manifest", "check_historical_manifest", "check_manifest", "finalize_from_receipts", "write_manifest", "write_successor_manifest", "write_v3_successor_manifest", "write_v4_successor_manifest", "MANIFEST", "PACKAGE", "REPO"]

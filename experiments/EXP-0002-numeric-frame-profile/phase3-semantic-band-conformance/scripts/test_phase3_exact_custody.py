@@ -10,6 +10,7 @@ import io
 import json
 import os
 import stat
+import subprocess
 import tarfile
 import tempfile
 import unittest
@@ -47,6 +48,20 @@ NOW = "2026-08-19T00:00:00Z"
 LATER = "2026-08-20T00:00:00Z"
 FROZEN_WORKFLOW_SHA = "9" * 64
 WORKFLOW_REFS = ["actions/checkout@" + "1" * 40]
+HISTORICAL_V2_COMMIT = "cc1531c2e8efe40f8a4896d11b10973147c5636b"
+MANIFEST_REPOSITORY_PATH = "experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/manifests/freeze-manifest.json"
+
+
+def _historical_manifest_bytes(commit: str) -> bytes:
+    result = subprocess.run(
+        ["git", "-C", str(F.REPO), "show", f"{commit}:{MANIFEST_REPOSITORY_PATH}"],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if result.returncode != 0 or not result.stdout.endswith(b"\n"):
+        raise AssertionError(f"historical manifest fixture unavailable: {commit}")
+    return result.stdout
 
 
 class _FixtureFreezeValidator:
@@ -374,9 +389,9 @@ class ExactCustodyTests(unittest.TestCase):
                 )
             self.assertEqual(context.exception.code, "manifest-version")
 
-            current_repository_v2 = (SCRIPT.parent.parent / "manifests/freeze-manifest.json").resolve().read_bytes()
+            historical_v2 = _historical_manifest_bytes(HISTORICAL_V2_COMMIT)
             with self.assertRaises(M.CustodyError) as context:
-                M._parse_manifest(current_repository_v2)
+                M._parse_manifest(historical_v2)
             self.assertEqual(context.exception.code, "manifest-version")
 
     def test_v3_freeze_requires_the_closure_binding(self) -> None:

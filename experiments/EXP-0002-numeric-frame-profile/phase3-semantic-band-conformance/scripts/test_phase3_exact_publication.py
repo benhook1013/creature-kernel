@@ -90,6 +90,21 @@ class ExactPublicationTests(unittest.TestCase):
                 self.assertEqual(caught.exception.code, "slot-binding")
                 self.assertTrue(reservation.closed)
 
+    def test_consumed_slot_can_retain_one_terminal_failure_record(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            root = base / "published"; root.mkdir()
+            with mock.patch.object(M, "EXPERIMENT_SLOT_NAMESPACE", base / "canonical-slots"):
+                reservation = M.reserve_experiment_slot(root, "a" * 64, "wsl2-x86_64", 0, "attempt-terminal-001")
+                terminal = M.write_terminal_failure(reservation, code="synthetic-failure", detail="bounded post-reservation failure")
+            self.assertTrue(reservation.closed)
+            self.assertEqual(terminal.name, M.TERMINAL_FAILURE_NAME)
+            value = json.loads(terminal.read_bytes())
+            self.assertEqual(value["schema"], M.TERMINAL_FAILURE_SCHEMA)
+            self.assertEqual(value["ledger_id"], M.EXPERIMENT_SLOT_LEDGER_ID)
+            with self.assertRaises(M.PublicationError):
+                M.write_terminal_failure(reservation, code="second", detail="must not replace")
+
     def test_reservation_normalizes_umask_to_private_marker_mode(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "published"
@@ -179,7 +194,7 @@ class ExactPublicationTests(unittest.TestCase):
             self.assertEqual(caught.exception.code, "reservation")
 
     def test_trust_boundary_is_cooperative_not_unforgeable(self) -> None:
-        self.assertEqual(M.PUBLICATION_TRUST_BOUNDARY, "cooperating-same-process-local-posix-v1")
+        self.assertEqual(M.PUBLICATION_TRUST_BOUNDARY, "operator-enforced-single-dispatch-persistent-ledger-v1")
         self.assertIn("not an unforgeable capability", M.AttemptReservation.__doc__)
 
     def test_legacy_arbitrary_root_helpers_are_private_only(self) -> None:
@@ -346,6 +361,10 @@ class ExactPublicationTests(unittest.TestCase):
             self.assertEqual(caught.exception.code, "collision")
             partial_root = Path(directory) / "partial"
             partial_root.mkdir()
+            # Use the public experiment reservation here so the failure path
+            # exercises the same ledger-bound terminal evidence that closure
+            # consumes.  The local helper intentionally has no slot binding.
+            slot_namespace = Path(directory) / "canonical-slots"
             original = M._write_file
             calls = 0
 
@@ -356,14 +375,16 @@ class ExactPublicationTests(unittest.TestCase):
                     raise M.PublicationError("synthetic", "second file failure")
                 return original(*args, **kwargs)
 
-            with mock.patch.object(M, "_write_file", side_effect=fail_after_result):
+            with mock.patch.object(M, "EXPERIMENT_SLOT_NAMESPACE", slot_namespace), mock.patch.object(M, "_write_file", side_effect=fail_after_result):
+                reservation = M.reserve_experiment_slot(partial_root, "a" * 64, "wsl2-x86_64", 0, "attempt-001")
                 with self.assertRaises(M.PublicationError):
-                    M._publish_attempt_for_test(partial_root, result, receipt, index)
+                    M.publish_reserved_attempt(reservation, result, receipt, index)
             partial = partial_root / "attempt-001"
             self.assertTrue(partial.is_dir())
             self.assertTrue((partial / M.RESULT_NAME).is_file())
             self.assertFalse((partial / M.RECEIPT_NAME).exists())
             self.assertFalse((partial / M.INDEX_NAME).exists())
+            self.assertTrue((partial / M.TERMINAL_FAILURE_NAME).is_file())
 
     def test_publication_reopens_and_rejects_persisted_readback_mismatch(self) -> None:
         result, receipt, index = _blobs()
