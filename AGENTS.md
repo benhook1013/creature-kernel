@@ -234,6 +234,9 @@ The main `gpt-5.6-sol` thread owns planning, human design discussion, task
 decomposition, integration, consolidated validation, Git and pull-request
 operations, CI and review orchestration, external side effects, and final
 repository decisions. It does not delegate product or architecture decisions.
+It must not delegate an autonomous runway or multi-PR goal as one subagent
+task: delegate one bounded step, inspect and integrate its result, then choose
+the next step against the named checkpoint.
 Reviewers may challenge a proposal and recommend a disposition, but only Ben,
 the human decision owner, accepts or rejects a DR.
 
