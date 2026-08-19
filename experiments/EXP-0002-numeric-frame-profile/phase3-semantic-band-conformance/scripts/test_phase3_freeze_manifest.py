@@ -167,7 +167,7 @@ def _runtime_contract(native_python_version: str = "3.13.15") -> dict:
             selector: {
                 "selector": selector,
                 "implementation": "CPython",
-                "version": "3.10.12" if selector == "wsl2-x86_64" else native_python_version,
+                "version": freeze.PYTHON_RUNTIME_VERSION,
                 "invocation": list(freeze.PYTHON_RUNTIME_INVOCATION),
                 "module_loading": freeze.PYTHON_RUNTIME_MODULE_LOADING,
                 "entrypoint": freeze.PYTHON_RUNTIME_ENTRYPOINT,
@@ -254,7 +254,7 @@ class FreezeManifestTests(unittest.TestCase):
         contract = successor["exact_python_runtime_contract"]
         self.assertEqual(contract["schema"], freeze.PYTHON_RUNTIME_CONTRACT_SCHEMA)
         self.assertEqual(set(contract["platforms"]), set(freeze.SELECTORS))
-        self.assertEqual(contract["platforms"]["wsl2-x86_64"]["version"], "3.10.12")
+        self.assertEqual(contract["platforms"]["wsl2-x86_64"]["version"], "3.13.15")
         self.assertEqual(contract["platforms"]["ubuntu-24.04-x86_64"]["version"], "3.13.15")
         self.assertEqual(freeze.validate_manifest(_canonical(successor)), successor)
 
@@ -283,7 +283,7 @@ class FreezeManifestTests(unittest.TestCase):
                     runtime_contract=_runtime_contract(),
                     package=package,
                 )
-        self.assertEqual(error.exception.code, "manifest-shape")
+        self.assertEqual(error.exception.code, "predecessor-manifest")
 
     def test_v4_runtime_selector_version_invocation_and_entrypoint_tamper_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -334,7 +334,7 @@ class FreezeManifestTests(unittest.TestCase):
         for field in freeze.INHERITED_SUCCESSOR_FIELDS:
             self.assertEqual(successor[field], predecessor[field], field)
         self.assertEqual([item["path"] for item in successor["runtime_tool_identities"]], list(freeze.RUNTIME_TOOLS))
-        self.assertEqual([item["path"] for item in successor["exact_runtime_tool_identities"]], list(freeze.EXACT_RUNTIME_TOOLS))
+        self.assertEqual([item["path"] for item in successor["exact_runtime_tool_identities"]], list(freeze.LEGACY_EXACT_RUNTIME_TOOLS))
         self.assertEqual([item["path"] for item in successor["provenance_tool_identities"]], list(freeze.PROVENANCE_TOOLS))
         paths = [item["path"] for field in ("runtime_tool_identities", "exact_runtime_tool_identities", "provenance_tool_identities") for item in successor[field]]
         self.assertEqual(len(paths), 19)
@@ -875,6 +875,20 @@ class FreezeManifestTests(unittest.TestCase):
                 with self.assertRaises(freeze.FreezeManifestError) as error:
                     freeze._load_build_receipt(receipt, package, {}, {})
             self.assertEqual(error.exception.code, "build-receipt")
+
+    def test_receipt_validator_identity_rejects_stale_source_bytes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            package, _ = _copy_package(Path(directory))
+            source = package / "scripts" / "phase3_build_receipt.py"
+            with self.assertRaises(freeze.FreezeManifestError):
+                freeze._receipt_module(package, {
+                    "provenance_tool_identities": [{
+                        "path": "scripts/phase3_build_receipt.py",
+                        "mode": 0o644,
+                        "bytes": source.stat().st_size,
+                        "sha256": "0" * 64,
+                    }],
+                })
 
     def test_manifest_write_is_atomic_and_leaves_no_temporary_file(self) -> None:
         manifest = freeze.generate_manifest()

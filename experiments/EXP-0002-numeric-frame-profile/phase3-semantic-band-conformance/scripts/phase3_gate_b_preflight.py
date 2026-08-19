@@ -16,6 +16,7 @@ import json
 import os
 import stat
 import sys
+import types
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -55,6 +56,7 @@ EXACT_TOOL_PATHS = (
     "scripts/phase3_exact_transport.py",
     "scripts/phase3_exact_attempt.py",
 )
+V4_EXACT_TOOL_PATHS = (*EXACT_TOOL_PATHS, "scripts/phase3_exact_attempt_launcher.py")
 PROVENANCE_TOOL_PATHS = (
     "scripts/generate_phase3.py",
     "scripts/check_candidate_prebinding.py",
@@ -63,6 +65,7 @@ PROVENANCE_TOOL_PATHS = (
 )
 EXPERIMENT_CLOSURE_TOOL_PATHS = ("scripts/phase3_experiment_closure.py",)
 TOOL_PATHS = (*CORE_TOOL_PATHS, *EXACT_TOOL_PATHS, *PROVENANCE_TOOL_PATHS)
+V4_TOOL_PATHS = (*CORE_TOOL_PATHS, *V4_EXACT_TOOL_PATHS, *PROVENANCE_TOOL_PATHS)
 MAX_IDENTITY_BYTES = 8 * 1024 * 1024
 MAX_STRING_BYTES = 4096
 SHA256_RE = set("0123456789abcdef")
@@ -228,9 +231,9 @@ def _tool_identities(value: Any) -> list[dict[str, Any]]:
             item["path"] = path
             items.append(item)
         value = items
-    if type(value) is not list or len(value) not in {len(TOOL_PATHS), len(TOOL_PATHS) + len(EXPERIMENT_CLOSURE_TOOL_PATHS)}:
+    if type(value) is not list or len(value) not in {len(TOOL_PATHS), len(V4_TOOL_PATHS)}:
         _fail("tool-identity", "current Phase 3 tool identities are incomplete")
-    expected_paths = (*TOOL_PATHS, *EXPERIMENT_CLOSURE_TOOL_PATHS) if len(value) == len(TOOL_PATHS) + len(EXPERIMENT_CLOSURE_TOOL_PATHS) else TOOL_PATHS
+    expected_paths = V4_TOOL_PATHS if len(value) == len(V4_TOOL_PATHS) else TOOL_PATHS
     normalized: list[dict[str, Any]] = []
     seen: set[str] = set()
     for index, item in enumerate(value):
@@ -249,79 +252,96 @@ def _tool_identities(value: Any) -> list[dict[str, Any]]:
 
 
 def _regular_bytes(path: Path, label: str) -> bytes:
-    # Descriptor-based read: lstat and reject every symlink component, then
-    # open without following symlinks and compare descriptor identity before,
-    # during, and after the bounded read.  This keeps the preflight read-only
-    # while closing the path/read TOCTOU window.
-    for component in reversed(path.parents):
-        try:
-            if component.is_symlink():
-                _fail("tool-symlink", f"{label} has a symlink component")
-        except OSError as error:
-            raise GateBPreflightError("tool-read", f"cannot inspect {label}") from error
-    try:
-        info = path.lstat()
-    except OSError as error:
-        raise GateBPreflightError("tool-missing", f"cannot inspect {label}") from error
-    if not stat.S_ISREG(info.st_mode) or stat.S_IMODE(info.st_mode) != 0o644 or info.st_nlink != 1:
-        _fail("tool-file", f"{label} is not a mode-0644 single-link file")
-    if info.st_size > MAX_IDENTITY_BYTES:
-        _fail("tool-file", f"{label} is oversized")
+    # Descriptor-based read from the filesystem root.  Every directory walk
+    # and the final file open uses O_NOFOLLOW, so no check-then-path-open race
+    # remains for package-relative tool identities.
+    absolute = path.absolute()
     flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    parent = -1
+    descriptor = -1
     try:
-        descriptor = os.open(path, flags)
+        parent = os.open(os.sep, flags | getattr(os, "O_DIRECTORY", 0))
+        for component in absolute.parts[1:-1]:
+            child = os.open(component, flags | getattr(os, "O_DIRECTORY", 0), dir_fd=parent)
+            os.close(parent)
+            parent = child
+        name = absolute.parts[-1]
+        info = os.stat(name, dir_fd=parent, follow_symlinks=False)
+        if stat.S_ISLNK(info.st_mode):
+            _fail("tool-symlink", f"{label} is a symlink")
+        if not stat.S_ISREG(info.st_mode) or stat.S_IMODE(info.st_mode) != 0o644 or info.st_nlink != 1:
+            _fail("tool-file", f"{label} is not a mode-0644 single-link file")
+        if info.st_size > MAX_IDENTITY_BYTES:
+            _fail("tool-file", f"{label} is oversized")
+        descriptor = os.open(name, flags, dir_fd=parent)
+    except GateBPreflightError:
+        if parent >= 0:
+            os.close(parent)
+        raise
     except OSError as error:
+        if parent >= 0:
+            os.close(parent)
         if getattr(error, "errno", None) == getattr(os, "ELOOP", 40):
             raise GateBPreflightError("tool-symlink", f"{label} is a symlink") from error
         raise GateBPreflightError("tool-read", f"cannot open {label}") from error
     try:
-        opened = os.fstat(descriptor)
-        expected_identity = (info.st_dev, info.st_ino, info.st_size, info.st_mode, info.st_nlink, info.st_mtime_ns, info.st_ctime_ns)
-        actual_identity = (opened.st_dev, opened.st_ino, opened.st_size, opened.st_mode, opened.st_nlink, opened.st_mtime_ns, opened.st_ctime_ns)
-        if actual_identity != expected_identity:
-            _fail("tool-race", f"{label} changed before read")
-        chunks: list[bytes] = []
-        total = 0
-        while True:
-            chunk = os.read(descriptor, min(1024 * 1024, MAX_IDENTITY_BYTES + 1 - total))
-            if not chunk:
-                break
-            chunks.append(chunk)
-            total += len(chunk)
-            if total > MAX_IDENTITY_BYTES:
-                _fail("tool-file", f"{label} grew beyond bound")
-        raw = b"".join(chunks)
-        after = os.fstat(descriptor)
-        os.lseek(descriptor, 0, os.SEEK_SET)
-        second_chunks: list[bytes] = []
-        second_total = 0
-        while True:
-            chunk = os.read(descriptor, min(1024 * 1024, MAX_IDENTITY_BYTES + 1 - second_total))
-            if not chunk:
-                break
-            second_chunks.append(chunk)
-            second_total += len(chunk)
-            if second_total > MAX_IDENTITY_BYTES:
-                _fail("tool-file", f"{label} grew beyond bound on second read")
-        second_raw = b"".join(second_chunks)
-        second_after = os.fstat(descriptor)
-        if second_raw != raw or (second_after.st_dev, second_after.st_ino, second_after.st_size, second_after.st_mode, second_after.st_nlink, second_after.st_mtime_ns, second_after.st_ctime_ns) != (after.st_dev, after.st_ino, after.st_size, after.st_mode, after.st_nlink, after.st_mtime_ns, after.st_ctime_ns):
-            _fail("tool-race", f"{label} changed between descriptor reads")
-    except OSError as error:
-        raise GateBPreflightError("tool-read", f"cannot read {label}") from error
+        try:
+            opened = os.fstat(descriptor)
+            expected_identity = (info.st_dev, info.st_ino, info.st_size, info.st_mode, info.st_nlink, info.st_mtime_ns, info.st_ctime_ns)
+            actual_identity = (opened.st_dev, opened.st_ino, opened.st_size, opened.st_mode, opened.st_nlink, opened.st_mtime_ns, opened.st_ctime_ns)
+            if actual_identity != expected_identity:
+                _fail("tool-race", f"{label} changed before read")
+            chunks: list[bytes] = []
+            total = 0
+            while True:
+                chunk = os.read(descriptor, min(1024 * 1024, MAX_IDENTITY_BYTES + 1 - total))
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                total += len(chunk)
+                if total > MAX_IDENTITY_BYTES:
+                    _fail("tool-file", f"{label} grew beyond bound")
+            raw = b"".join(chunks)
+            after = os.fstat(descriptor)
+            os.lseek(descriptor, 0, os.SEEK_SET)
+            second_chunks: list[bytes] = []
+            second_total = 0
+            while True:
+                chunk = os.read(descriptor, min(1024 * 1024, MAX_IDENTITY_BYTES + 1 - second_total))
+                if not chunk:
+                    break
+                second_chunks.append(chunk)
+                second_total += len(chunk)
+                if second_total > MAX_IDENTITY_BYTES:
+                    _fail("tool-file", f"{label} grew beyond bound on second read")
+            second_raw = b"".join(second_chunks)
+            second_after = os.fstat(descriptor)
+            if second_raw != raw or (second_after.st_dev, second_after.st_ino, second_after.st_size, second_after.st_mode, second_after.st_nlink, second_after.st_mtime_ns, second_after.st_ctime_ns) != (after.st_dev, after.st_ino, after.st_size, after.st_mode, after.st_nlink, after.st_mtime_ns, after.st_ctime_ns):
+                _fail("tool-race", f"{label} changed between descriptor reads")
+            after_identity = (after.st_dev, after.st_ino, after.st_size, after.st_mode, after.st_nlink, after.st_mtime_ns, after.st_ctime_ns)
+            if after_identity != (info.st_dev, info.st_ino, len(raw), info.st_mode, info.st_nlink, info.st_mtime_ns, info.st_ctime_ns):
+                _fail("tool-race", f"{label} changed during read")
+            try:
+                current = os.stat(name, dir_fd=parent, follow_symlinks=False)
+            except OSError as error:
+                raise GateBPreflightError("tool-race", f"cannot recheck {label}") from error
+            current_identity = (current.st_dev, current.st_ino, current.st_size, current.st_mode, current.st_nlink, current.st_mtime_ns, current.st_ctime_ns)
+            if current_identity != (info.st_dev, info.st_ino, len(raw), info.st_mode, info.st_nlink, info.st_mtime_ns, info.st_ctime_ns):
+                _fail("tool-race", f"{label} changed after read")
+            return raw
+        except GateBPreflightError:
+            raise
+        except OSError as error:
+            raise GateBPreflightError("tool-read", f"cannot read {label}") from error
     finally:
-        os.close(descriptor)
-    after_identity = (after.st_dev, after.st_ino, after.st_size, after.st_mode, after.st_nlink, after.st_mtime_ns, after.st_ctime_ns)
-    if after_identity != (info.st_dev, info.st_ino, len(raw), info.st_mode, info.st_nlink, info.st_mtime_ns, info.st_ctime_ns):
-        _fail("tool-race", f"{label} changed during read")
-    try:
-        current = path.lstat()
-    except OSError as error:
-        raise GateBPreflightError("tool-race", f"cannot recheck {label}") from error
-    current_identity = (current.st_dev, current.st_ino, current.st_size, current.st_mode, current.st_nlink, current.st_mtime_ns, current.st_ctime_ns)
-    if current_identity != (info.st_dev, info.st_ino, len(raw), info.st_mode, info.st_nlink, info.st_mtime_ns, info.st_ctime_ns):
-        _fail("tool-race", f"{label} changed after read")
-    return raw
+        if descriptor >= 0:
+            try:
+                os.close(descriptor)
+            finally:
+                if parent >= 0:
+                    os.close(parent)
+        elif parent >= 0:
+            os.close(parent)
 
 
 def _validate_tools(root: Path, supplied: list[dict[str, Any]], manifest: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -342,16 +362,9 @@ def _validate_tools(root: Path, supplied: list[dict[str, Any]], manifest: Mappin
         if not isinstance(identity, Mapping) or set(identity) != {"path", "mode", "bytes", "sha256"}:
             _fail("freeze-manifest", "freeze manifest runtime tool identity is malformed")
         normalized.append({key: identity[key] for key in ("path", "bytes", "sha256")})
-    # v1/v2 historical manifests predate the closure tool.  They remain
-    # independently valid, but a caller may already supply the new tool list;
-    # v3 records it as a fourth, explicitly bound collection.
-    closure = manifest.get("experiment_closure_tool_identities")
-    if isinstance(closure, list):
-        for identity in closure:
-            if not isinstance(identity, Mapping) or set(identity) != {"path", "mode", "bytes", "sha256"}:
-                _fail("freeze-manifest", "freeze closure tool identity is malformed")
-            normalized.append({key: identity[key] for key in ("path", "bytes", "sha256")})
-    if supplied != normalized and not (isinstance(closure, list) and supplied == normalized[:-len(closure)]):
+    # The experiment-closure tool is a separate one-tool contract.  It is
+    # validated below, but is never folded into the exact-runtime 19/20 count.
+    if supplied != normalized:
         _fail("tool-identity", "caller tool identities differ from the canonical freeze manifest")
     return supplied
 
@@ -371,15 +384,50 @@ def _validate_experiment_closure_tools(root: Path, manifest: Mapping[str, Any]) 
     return [dict(item) for item in closure]
 
 
-def _load_freeze_module(root: Path) -> Any:
+def _freeze_validator_identity(raw: bytes) -> dict[str, Any] | None:
+    try:
+        value = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
+        raise GateBPreflightError("freeze-manifest", "freeze manifest is not strict JSON") from error
+    if not isinstance(value, Mapping):
+        _fail("freeze-manifest", "freeze manifest is not an object")
+    for field in ("runtime_tool_identities", "exact_runtime_tool_identities", "provenance_tool_identities"):
+        identities = value.get(field)
+        if isinstance(identities, list):
+            for identity in identities:
+                if isinstance(identity, Mapping) and identity.get("path") == FREEZE_SCRIPT_PATH:
+                    return dict(identity)
+    return None
+
+
+def _load_freeze_module(root: Path, manifest_raw: bytes | None = None) -> Any:
     path = root / FREEZE_SCRIPT_PATH
     try:
-        spec = importlib.util.spec_from_file_location(f"phase3_freeze_manifest_for_preflight_{id(root)}", path)
-        if spec is None or spec.loader is None:
-            _fail("freeze-manifest", "cannot load freeze-manifest validator")
-        module = importlib.util.module_from_spec(spec)
-        sys.modules[spec.name] = module
-        spec.loader.exec_module(module)
+        if manifest_raw is None:
+            manifest_raw = _regular_bytes(root / FREEZE_MANIFEST_PATH, FREEZE_MANIFEST_PATH)
+        expected = _freeze_validator_identity(manifest_raw)
+        if expected is None or expected.get("mode") != 0o644 or type(expected.get("bytes")) is not int or type(expected.get("sha256")) is not str:
+            _fail("freeze-manifest", "freeze manifest does not authenticate its validator")
+        source = _regular_bytes(path, FREEZE_SCRIPT_PATH)
+        if len(source) != expected["bytes"] or hashlib.sha256(source).hexdigest() != expected["sha256"]:
+            _fail("freeze-manifest", "freeze validator bytes differ from the frozen identity")
+        code = compile(source, str(path), "exec", dont_inherit=True, optimize=0)
+        module_name = f"phase3_freeze_manifest_for_preflight_{id(root)}"
+        module = types.ModuleType(module_name)
+        module.__file__ = str(path)
+        module.__package__ = ""
+        module.__loader__ = None
+        module.__spec__ = importlib.util.spec_from_loader(module_name, loader=None, origin=str(path))
+        previous = sys.modules.get(module_name)
+        sys.modules[module_name] = module
+        try:
+            exec(code, module.__dict__)
+        except Exception:
+            if previous is None:
+                sys.modules.pop(module_name, None)
+            else:
+                sys.modules[module_name] = previous
+            raise
         return module
     except GateBPreflightError:
         raise
@@ -389,16 +437,17 @@ def _load_freeze_module(root: Path) -> Any:
 
 def _validate_freeze_package(root: Path) -> tuple[Any, dict[str, Any]]:
     """Validate the canonical freeze and both receipts through freeze logic."""
-    freeze = _load_freeze_module(root)
     manifest_path = root / FREEZE_MANIFEST_PATH
+    manifest_raw = _regular_bytes(manifest_path, FREEZE_MANIFEST_PATH)
+    freeze = _load_freeze_module(root, manifest_raw)
     try:
-        manifest = freeze.check_manifest(repo=REPOSITORY, package=root, path=manifest_path)
+        manifest = freeze.check_manifest(repo=REPOSITORY, package=root, path=manifest_path, manifest_raw=manifest_raw)
     except Exception as error:
         code = getattr(error, "code", "invalid")
         raise GateBPreflightError("freeze-manifest", f"canonical freeze validation failed: {code}") from error
     if not isinstance(manifest, dict):
         _fail("freeze-manifest", "canonical freeze validator did not return an object")
-    allowed_schemas = {freeze.SCHEMA, getattr(freeze, "V3_SCHEMA", freeze.SCHEMA)}
+    allowed_schemas = {freeze.SCHEMA, getattr(freeze, "V3_SCHEMA", freeze.SCHEMA), getattr(freeze, "V4_SCHEMA", freeze.SCHEMA)}
     if manifest.get("schema") not in allowed_schemas:
         _fail("freeze-state", "canonical freeze manifest is not a supported successor schema")
     binaries = manifest.get("binaries")
@@ -445,6 +494,7 @@ def _report(candidate: dict[str, Any], tools: list[dict[str, Any]], cases: list[
     closure_tools = manifest.get("experiment_closure_tool_identities", [])
     closure_schema = manifest.get("experiment_closure_schema", "ck.exp-0002.phase3.experiment-closure-1")
     closure_bound = isinstance(closure_tools, list) and bool(closure_tools)
+    runtime_tool_count = sum(len(manifest[field]) for field in ("runtime_tool_identities", "exact_runtime_tool_identities", "provenance_tool_identities"))
     return {
         "schema": SCHEMA,
         "evidence_schema": EVIDENCE_SCHEMA,
@@ -462,7 +512,8 @@ def _report(candidate: dict[str, Any], tools: list[dict[str, Any]], cases: list[
         "exact_runtime_closure": {
             "required": True,
             "status": "passed" if closure_bound else "missing",
-            "tool_count": len(manifest["runtime_tool_identities"]) + len(manifest["exact_runtime_tool_identities"]) + len(manifest["provenance_tool_identities"]) + len(closure_tools),
+            "tool_count": runtime_tool_count,
+            "closure_tool_count": len(closure_tools),
             "execution_permitted": False,
         },
         "experiment_closure_requirement": {
@@ -499,7 +550,7 @@ def _report(candidate: dict[str, Any], tools: list[dict[str, Any]], cases: list[
                 "execution_tool_source_commit": manifest["execution_tool_source_commit"],
                 "candidate_is_ancestor_of_execution_tools": True,
                 "current_execution_tools_match_execution_tool_commit": True,
-                "current_execution_tool_identity_count": len(manifest["runtime_tool_identities"]) + len(manifest["exact_runtime_tool_identities"]) + len(manifest["provenance_tool_identities"]) + len(closure_tools),
+                "current_execution_tool_identity_count": runtime_tool_count,
             },
             "runtime_tool_identities": manifest["runtime_tool_identities"],
             "exact_runtime_tool_identities": manifest["exact_runtime_tool_identities"],

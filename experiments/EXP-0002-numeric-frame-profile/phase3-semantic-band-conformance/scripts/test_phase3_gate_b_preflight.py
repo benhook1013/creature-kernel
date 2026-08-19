@@ -75,6 +75,59 @@ def _frozen_package(root: Path) -> Path:
 
 
 class GateBPreflightTests(unittest.TestCase):
+    def test_freeze_validator_replacement_after_identity_snapshot_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            scripts = root / "scripts"
+            scripts.mkdir()
+            validator = scripts / "phase3_freeze_manifest.py"
+            original = b"original validator bytes\n"
+            validator.write_bytes(original)
+            manifest = json.dumps({
+                "provenance_tool_identities": [{
+                    "path": preflight.FREEZE_SCRIPT_PATH,
+                    "mode": 0o644,
+                    "bytes": len(original),
+                    "sha256": hashlib.sha256(original).hexdigest(),
+                }],
+            }, sort_keys=True, separators=(",", ":"))
+            validator.write_bytes(b"replacement validator bytes\n")
+            with self.assertRaises(preflight.GateBPreflightError):
+                preflight._load_freeze_module(root, (manifest + "\n").encode())
+
+    def test_regular_bytes_closes_parent_after_post_read_error(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "tool.py"
+            path.write_bytes(b"tool\n")
+            real_open = preflight.os.open
+            real_close = preflight.os.close
+            real_stat = preflight.os.stat
+            opened: list[int] = []
+            closed: list[int] = []
+            stat_calls = 0
+
+            def tracked_open(*args, **kwargs):
+                descriptor = real_open(*args, **kwargs)
+                opened.append(descriptor)
+                return descriptor
+
+            def tracked_close(descriptor: int) -> None:
+                closed.append(descriptor)
+                real_close(descriptor)
+
+            def fail_recheck(*args, **kwargs):
+                nonlocal stat_calls
+                stat_calls += 1
+                if stat_calls == 1:
+                    return real_stat(*args, **kwargs)
+                raise OSError("forced post-read race")
+
+            with patch.object(preflight.os, "open", side_effect=tracked_open), patch.object(preflight.os, "close", side_effect=tracked_close), patch.object(preflight.os, "stat", side_effect=fail_recheck):
+                with self.assertRaises(preflight.GateBPreflightError) as error:
+                    preflight._regular_bytes(path, "tool.py")
+            self.assertEqual(error.exception.code, "tool-race")
+            self.assertEqual(set(opened), set(closed))
+
     def test_current_package_is_read_only_not_ready(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             package = _frozen_package(Path(directory))
@@ -105,7 +158,7 @@ class GateBPreflightTests(unittest.TestCase):
             self.assertTrue(snapshot["current_execution_tools_match_execution_tool_commit"])
             self.assertEqual(snapshot["current_execution_tool_identity_count"], 19)
             self.assertEqual(len(report["execution_package"]["runtime_tool_identities"]), len(freeze.RUNTIME_TOOLS))
-            self.assertEqual(len(report["execution_package"]["exact_runtime_tool_identities"]), len(freeze.EXACT_RUNTIME_TOOLS))
+            self.assertEqual(len(report["execution_package"]["exact_runtime_tool_identities"]), len(freeze.LEGACY_EXACT_RUNTIME_TOOLS))
             self.assertEqual(set(report["execution_package"]["binary_slots"]), set(freeze.SELECTORS))
             self.assertEqual(len(report["execution_package"]["provenance_tool_identities"]), len(freeze.PROVENANCE_TOOLS))
             self.assertEqual(len(report["tool_identities"]), 19)

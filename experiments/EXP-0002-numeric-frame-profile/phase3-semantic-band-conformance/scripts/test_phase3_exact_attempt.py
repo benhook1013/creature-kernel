@@ -212,7 +212,7 @@ class OrchestrationTests(unittest.TestCase):
                     "execution_tool_source_commit": EXECUTION_COMMIT,
                     "candidate_is_ancestor_of_execution_tools": True,
                     "current_execution_tools_match_execution_tool_commit": True,
-                    "current_execution_tool_identity_count": 19,
+                    "current_execution_tool_identity_count": len(TOOLS),
                 },
                 "runtime_tool_identities": [full_entry(by_path[path]) for path in RUNTIME_PATHS],
                 "exact_runtime_tool_identities": [full_entry(by_path[path]) for path in EXACT_PATHS],
@@ -975,7 +975,7 @@ class OrchestrationTests(unittest.TestCase):
 
         def mismatched_attestation(*args: object, **kwargs: object) -> dict[str, object]:
             report = base.preflight(*args, **kwargs)
-            report["execution_package"]["source_snapshot_validation"]["current_execution_tool_identity_count"] = 18
+            report["execution_package"]["source_snapshot_validation"]["current_execution_tool_identity_count"] = len(TOOLS) - 1
             return report
 
         deps = M._ExactAttemptDependencies(**{**base.__dict__, "preflight": mismatched_attestation})

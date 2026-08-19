@@ -65,16 +65,22 @@ def _historical_manifest_bytes(commit: str) -> bytes:
 
 
 class _FixtureFreezeValidator:
-    """Real pure validator with historical inherited facts isolated from custody."""
+    """Synthetic v4 owner used for custody's byte/transfer tests."""
 
     @staticmethod
     def validate_manifest(raw: bytes) -> dict[str, object]:
-        with mock.patch.object(
-            F,
-            "_inherited_v1_hash",
-            return_value=F.EXPECTED_INHERITED_V1_SHA256,
-        ):
-            return F.validate_manifest(raw)
+        value = json.loads(raw)
+        if F._canonical(value) != raw or value.get("schema") != M.FREEZE_SCHEMA:
+            raise ValueError("fixture is not canonical v4")
+        exact = value.get("exact_runtime_tool_identities")
+        if not isinstance(exact, list) or exact[-1].get("path") != "scripts/phase3_exact_attempt_launcher.py":
+            raise ValueError("fixture v4 omits launcher identity")
+        if "exact_python_runtime_contract" not in value:
+            raise ValueError("fixture v4 omits runtime contract")
+        workflow = value.get("repository_inputs", {}).get("native_build_workflow", {})
+        if workflow.get("pinned_action_refs") != WORKFLOW_REFS or not value.get("raw_inputs"):
+            raise ValueError("fixture v4 repository inputs drifted")
+        return value
 
 
 class _NoopFreezeLoader:
@@ -246,7 +252,7 @@ def _record(bundle: bytes, root: Path, *, selector: str = "wsl2-x86_64", kind: s
         "binding": {"candidate_profile_id": M.CANDIDATE_PROFILE_ID, "experiment_id": M.EXPERIMENT_ID, "phase_id": M.PHASE_ID},
         "build": {"dependencies": _fixture_dependencies(), "recipe": F._build_recipe(), "toolchain": _fixture_toolchain()},
         "candidate_closure": _fixture_closure(), "candidate_source_commit": SOURCE,
-        "canonicalization": F._v3_canonicalization(),
+        "canonicalization": F._v4_canonicalization(),
         "execution_permitted": False, "lifecycle": "planned", "manifest_sha256": None,
         "execution_tool_source_commit": EXECUTION_SOURCE,
         "predecessor_manifest_sha256": PREDECESSOR_HASH,
@@ -266,6 +272,7 @@ def _record(bundle: bytes, root: Path, *, selector: str = "wsl2-x86_64", kind: s
         "exact_runtime_tool_identities": [_fixture_identity(path, "5" * 64) for path in F.EXACT_RUNTIME_TOOLS],
         "experiment_closure_tool_identities": [_fixture_identity(path, "6" * 64) for path in F.EXPERIMENT_CLOSURE_TOOLS],
         "experiment_closure_schema": "ck.exp-0002.phase3.experiment-closure-1",
+        "exact_python_runtime_contract": {"schema": "ck.exp-0002.phase3.python-runtime-contract-1", "platforms": {}},
         "schema": M.FREEZE_SCHEMA, "status": "Proposed",
     }
     FREEZE_HASH = F._self_hash(manifest_value)
@@ -286,22 +293,14 @@ def _reseal_manifest(raw: bytes, mutate) -> tuple[bytes, str]:
 
 class ExactCustodyTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.freeze_spec_patch = mock.patch.object(
-            M.importlib.util,
-            "spec_from_file_location",
-            side_effect=_fixture_spec_from_file_location,
-        )
-        self.freeze_module_patch = mock.patch.object(
-            M.importlib.util,
-            "module_from_spec",
-            side_effect=_fixture_module_from_spec,
-        )
-        self.freeze_spec_patch.start()
-        self.freeze_module_patch.start()
+        self.freeze_loader_patch = mock.patch.object(M, "_load_freeze_validator", return_value=_FixtureFreezeValidator)
+        self.receipt_loader_patch = mock.patch.object(M, "_load_receipt_validator", return_value=R)
+        self.freeze_loader_patch.start()
+        self.receipt_loader_patch.start()
 
     def tearDown(self) -> None:
-        self.freeze_module_patch.stop()
-        self.freeze_spec_patch.stop()
+        self.receipt_loader_patch.stop()
+        self.freeze_loader_patch.stop()
 
     def test_raw_wsl_success_materializes_descriptor_bound_files(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -362,6 +361,18 @@ class ExactCustodyTests(unittest.TestCase):
             tampered["policy"]["causal_build_attestation"] = True
             with self.assertRaises(M.CustodyError):
                 M.validate_custody_record(M.encode_custody_record(tampered), expected_manifest=manifest, expected_manifest_sha256=FREEZE_HASH, now=NOW)
+
+    def test_public_freeze_module_is_not_trusted(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            raw, manifest, _ = _record(_bundle(b"tiny"), root)
+            del raw
+            fake = mock.Mock()
+            fake.validate_manifest.side_effect = AssertionError("ambient freeze module was consumed")
+            with mock.patch.dict(M.sys.modules, {"phase3_freeze_manifest": fake}, clear=False):
+                parsed = M._parse_manifest(manifest)
+            self.assertEqual(parsed["schema"], M.FREEZE_SCHEMA)
+            fake.validate_manifest.assert_not_called()
 
     def test_predecessor_freeze_is_rejected_even_when_canonical_owner_accepts_it(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -432,6 +443,7 @@ class ExactCustodyTests(unittest.TestCase):
             with self.assertRaises(M.CustodyError) as error:
                 M.verify_and_materialize(raw, expected_manifest=manifest, expected_manifest_sha256=FREEZE_HASH, invocation_dir=invocation, now=NOW)
             self.assertEqual(error.exception.code, "invocation-dir")
+
 
     def test_materialize_cleanup_keeps_preexisting_and_replaced_paths(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -633,6 +645,33 @@ class ExactCustodyTests(unittest.TestCase):
             github_mismatch["transfer"]["artifact"]["retention_days"] = M.GITHUB_RETENTION_DAYS - 1
             with self.assertRaises(M.CustodyError):
                 M.validate_custody_record(M.encode_custody_record(github_mismatch), expected_manifest=github_manifest, expected_manifest_sha256=FREEZE_HASH, now=NOW)
+
+
+class CustodyValidatorLoaderTests(unittest.TestCase):
+    def test_frozen_validator_identity_rejects_stale_source_bytes(self) -> None:
+        path = FREEZE_SCRIPT
+        raw = M._canonical({
+            "schema": M.FREEZE_SCHEMA,
+            "provenance_tool_identities": [{
+                "path": "scripts/phase3_freeze_manifest.py",
+                "mode": 0o644,
+                "bytes": path.stat().st_size,
+                "sha256": "0" * 64,
+            }],
+        })
+        with self.assertRaises(M.CustodyError):
+            M._load_freeze_validator(raw)
+
+    def test_receipt_validator_identity_rejects_stale_source_bytes(self) -> None:
+        with self.assertRaises(M.CustodyError):
+            M._load_receipt_validator({
+                "provenance_tool_identities": [{
+                    "path": "scripts/phase3_build_receipt.py",
+                    "mode": 0o644,
+                    "bytes": RECEIPT_SCRIPT.stat().st_size,
+                    "sha256": "0" * 64,
+                }],
+            })
 
 
 if __name__ == "__main__":

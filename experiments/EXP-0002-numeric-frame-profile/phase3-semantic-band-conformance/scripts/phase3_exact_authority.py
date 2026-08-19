@@ -31,6 +31,8 @@ import os
 from pathlib import Path
 import stat
 import subprocess
+import sys
+import types
 from typing import Any, Mapping, Sequence
 
 
@@ -42,12 +44,11 @@ ADMISSION_SCHEMA = "ck.exp-0002.phase3.gate-b-admission-1"
 AUTHORIZATION_SCHEMA = "ck.exp-0002.phase3.exact-attempt-human-authorization-1"
 ADMISSION_HASH_DOMAIN = b"ck.exp-0002.phase3.gate-b-admission.v1\0"
 AUTHORIZATION_HASH_DOMAIN = b"ck.exp-0002.phase3.exact-attempt-human-authorization.v1\0"
-# Exact authority consumes the current successor only.  The canonical freeze
-# validator continues to understand v1/v2 for historical inspection, but a
-# new admission must bind the v3 closure-bearing freeze and may not silently
-# fall back to the older contract.
-FREEZE_SCHEMA = "ck.exp-0002.phase3.freeze-manifest-3"
-LEGACY_FREEZE_SCHEMA = "ck.exp-0002.phase3.freeze-manifest-2"
+# Exact authority consumes the current v4 successor only.  v1-v3 remain
+# available to the canonical owner for historical inspection, but a new
+# admission must bind the runtime-bound launcher closure.
+FREEZE_SCHEMA = "ck.exp-0002.phase3.freeze-manifest-4"
+LEGACY_FREEZE_SCHEMA = "ck.exp-0002.phase3.freeze-manifest-3"
 EXPERIMENT_CLOSURE_SCHEMA = "ck.exp-0002.phase3.experiment-closure-1"
 EXPERIMENT_CLOSURE_TOOLS = ("scripts/phase3_experiment_closure.py",)
 
@@ -65,6 +66,7 @@ REQUIRED_EXACT_RUNTIME_TOOLS = (
     "scripts/phase3_exact_publication.py",
     "scripts/phase3_exact_transport.py",
     "scripts/phase3_exact_attempt.py",
+    "scripts/phase3_exact_attempt_launcher.py",
 )
 PLATFORM_ORDINALS = {
     "wsl2-x86_64": frozenset({0, 1}),
@@ -200,17 +202,109 @@ def _safe_relative(value: Any, label: str) -> str:
     return result
 
 
-def _freeze_module() -> Any:
-    path = Path(__file__).with_name("phase3_freeze_manifest.py")
-    spec = importlib.util.spec_from_file_location("phase3_exact_authority_freeze", path)
-    if spec is None or spec.loader is None:
-        _fail("freeze-validator", "canonical freeze validator cannot be loaded")
-    module = importlib.util.module_from_spec(spec)
+def _file_identity(info: os.stat_result) -> tuple[int, int, int, int, int, int, int]:
+    return (info.st_dev, info.st_ino, info.st_mode, info.st_nlink, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+
+
+def _read_sibling_bytes(path: Path, label: str, *, expected: Mapping[str, Any] | None = None) -> bytes:
+    """Read one sibling through stable, descriptor-anchored identities."""
+    absolute = Path(path).absolute()
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    directory_flags = flags | getattr(os, "O_DIRECTORY", 0)
+    parent = -1
+    descriptor = -1
     try:
-        spec.loader.exec_module(module)
+        parent = os.open(os.sep, directory_flags)
+        for component in absolute.parts[1:-1]:
+            child = os.open(component, directory_flags, dir_fd=parent)
+            os.close(parent)
+            parent = child
+        name = absolute.parts[-1]
+        before_path = os.stat(name, dir_fd=parent, follow_symlinks=False)
+        if stat.S_ISLNK(before_path.st_mode) or not stat.S_ISREG(before_path.st_mode) or stat.S_IMODE(before_path.st_mode) != 0o644 or before_path.st_nlink != 1:
+            _fail("freeze-validator", f"{label} is not a mode-0644 single-link file")
+        if before_path.st_size <= 0 or before_path.st_size > 16 * 1024 * 1024:
+            _fail("freeze-validator", f"{label} is outside its bounded size")
+        if expected is not None and (
+            expected.get("mode") != 0o644
+            or expected.get("bytes") != before_path.st_size
+        ):
+            _fail("freeze-validator", f"{label} differs from its frozen size or mode")
+        descriptor = os.open(name, flags, dir_fd=parent)
+        opened = os.fstat(descriptor)
+        if _file_identity(opened) != _file_identity(before_path):
+            _fail("freeze-validator", f"{label} changed before reading")
+        chunks: list[bytes] = []
+        total = 0
+        while True:
+            chunk = os.read(descriptor, min(1024 * 1024, 16 * 1024 * 1024 + 1 - total))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            total += len(chunk)
+            if total > 16 * 1024 * 1024:
+                _fail("freeze-validator", f"{label} grew beyond its bound")
+        raw = b"".join(chunks)
+        after = os.fstat(descriptor)
+        after_path = os.stat(name, dir_fd=parent, follow_symlinks=False)
+        if _file_identity(after) != _file_identity(before_path) or _file_identity(after_path) != _file_identity(after) or len(raw) != before_path.st_size:
+            _fail("freeze-validator", f"{label} changed while reading")
+        if expected is not None and (len(raw) != expected.get("bytes") or hashlib.sha256(raw).hexdigest() != expected.get("sha256")):
+            _fail("freeze-validator", f"{label} differs from its frozen identity")
+        return raw
+    except AuthorityError:
+        raise
+    except OSError as error:
+        raise AuthorityError("freeze-validator", f"cannot read {label}") from error
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+        if parent >= 0:
+            os.close(parent)
+
+
+def _freeze_validator_identity(raw: bytes) -> dict[str, Any] | None:
+    try:
+        value = _parse_record(raw, "freeze manifest")
+    except AuthorityError:
+        raise
+    for field in ("runtime_tool_identities", "exact_runtime_tool_identities", "provenance_tool_identities"):
+        identities = value.get(field)
+        if isinstance(identities, list):
+            for identity in identities:
+                if isinstance(identity, Mapping) and identity.get("path") == "scripts/phase3_freeze_manifest.py":
+                    return dict(identity)
+    return None
+
+
+def _freeze_module(raw: bytes | None = None) -> Any:
+    """Compile the validator from bytes authenticated by the supplied freeze."""
+    path = Path(__file__).with_name("phase3_freeze_manifest.py")
+    expected = _freeze_validator_identity(raw) if raw is not None else None
+    source = _read_sibling_bytes(path, "canonical freeze validator", expected=expected)
+    try:
+        code = compile(source, str(path), "exec", dont_inherit=True, optimize=0)
+        module_name = "phase3_exact_authority_freeze"
+        module = types.ModuleType(module_name)
+        module.__file__ = str(path)
+        module.__package__ = ""
+        module.__loader__ = None
+        module.__spec__ = importlib.util.spec_from_loader(module_name, loader=None, origin=str(path))
+        previous = sys.modules.get(module_name)
+        sys.modules[module_name] = module
+        try:
+            exec(code, module.__dict__)
+        except Exception:
+            if previous is None:
+                sys.modules.pop(module_name, None)
+            else:
+                sys.modules[module_name] = previous
+            raise
+        return module
+    except AuthorityError:
+        raise
     except Exception as error:
         raise AuthorityError("freeze-validator", "canonical freeze validator cannot be loaded") from error
-    return module
 
 
 def validate_required_exact_runtime_tools(manifest: Mapping[str, Any]) -> dict[str, tuple[str, ...]]:
@@ -266,17 +360,17 @@ def _validate_freeze(raw: bytes) -> tuple[dict[str, Any], str, Any]:
     if type(raw) is not bytes:
         _fail("freeze", "freeze manifest must be supplied as exact bytes")
     try:
-        freeze = _freeze_module()
+        freeze = _freeze_module(raw)
         value = freeze.validate_manifest(raw)
     except Exception as error:
         raise AuthorityError("freeze", f"canonical freeze validator rejected bytes: {error}") from error
     if value.get("schema") != FREEZE_SCHEMA:
-        _fail("freeze-version", "exact authority requires the successor freeze-manifest-3 contract")
+        _fail("freeze-version", "exact authority requires the current v4 freeze-manifest-4 contract")
     validate_required_exact_runtime_tools(value)
     validate_experiment_closure_tool(value)
     _commit(value.get("execution_tool_source_commit"), "manifest.execution_tool_source_commit")
     try:
-        checked = freeze.check_manifest()
+        checked = freeze.check_manifest(manifest_raw=raw)
     except Exception as error:
         raise AuthorityError(
             "freeze-current",

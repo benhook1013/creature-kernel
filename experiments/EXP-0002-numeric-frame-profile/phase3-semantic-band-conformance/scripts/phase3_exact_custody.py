@@ -27,8 +27,10 @@ import json
 import os
 import re
 import stat
+import sys
 import tarfile
 import tempfile
+import types
 import zipfile
 from pathlib import Path
 from typing import Any, Mapping
@@ -40,13 +42,23 @@ CANDIDATE_PROFILE_ID = "ck.provisional-r3-authored-conflict.semantic-band-1"
 SCHEMA = "ck.exp-0002.phase3.gate-b-exact-artifact-custody-1"
 SELF_HASH_DOMAIN = b"ck.exp-0002.phase3.gate-b-exact-artifact-custody.v1\0"
 WORKFLOW_PATH = ".github/workflows/phase3-gate-b-native-build.yml"
-# Custody is a current-artifact consumer.  Keep the v2 name available for
-# diagnostics and historical records, but only the closure-bearing v3 freeze
-# can authorize a new exact custody record.
-FREEZE_SCHEMA = "ck.exp-0002.phase3.freeze-manifest-3"
-LEGACY_FREEZE_SCHEMA = "ck.exp-0002.phase3.freeze-manifest-2"
+# Custody is a current-artifact consumer.  Keep v3 available for diagnostics
+# and historical records, but only the runtime-bound v4 freeze can authorize a
+# new exact custody record.
+FREEZE_SCHEMA = "ck.exp-0002.phase3.freeze-manifest-4"
+LEGACY_FREEZE_SCHEMA = "ck.exp-0002.phase3.freeze-manifest-3"
 EXPERIMENT_CLOSURE_SCHEMA = "ck.exp-0002.phase3.experiment-closure-1"
 EXPERIMENT_CLOSURE_TOOL = "scripts/phase3_experiment_closure.py"
+REQUIRED_EXACT_RUNTIME_TOOLS = (
+    "scripts/phase3_exact_adjudicator.py",
+    "scripts/phase3_exact_authority.py",
+    "scripts/phase3_exact_custody.py",
+    "scripts/phase3_exact_fp_observer.py",
+    "scripts/phase3_exact_publication.py",
+    "scripts/phase3_exact_transport.py",
+    "scripts/phase3_exact_attempt.py",
+    "scripts/phase3_exact_attempt_launcher.py",
+)
 TARGET = "x86_64-unknown-linux-gnu"
 PROFILE = "dev"
 RECEIPT_SCHEMA = "ck.exp-0002.phase3.gate-b-build-receipt-1"
@@ -274,22 +286,128 @@ def _manifest_file_identity(value: Any, label: str, *, max_bytes: int = MAX_META
         raise CustodyError("identity", f"{label}.mode is not regular 0644")
 
 
+def _sibling_identity(manifest: Mapping[str, Any], path: str) -> dict[str, Any] | None:
+    for field in ("runtime_tool_identities", "exact_runtime_tool_identities", "provenance_tool_identities"):
+        identities = manifest.get(field)
+        if isinstance(identities, list):
+            for identity in identities:
+                if isinstance(identity, Mapping) and identity.get("path") == path:
+                    return dict(identity)
+    return None
+
+
+def _read_sibling_bytes(path: Path, label: str, *, expected: Mapping[str, Any] | None = None) -> bytes:
+    """Read a validator sibling from stable descriptor-bound bytes."""
+    absolute = Path(path).absolute()
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    directory_flags = flags | getattr(os, "O_DIRECTORY", 0)
+    parent = -1
+    descriptor = -1
+    try:
+        parent = os.open(os.sep, directory_flags)
+        for component in absolute.parts[1:-1]:
+            child = os.open(component, directory_flags, dir_fd=parent)
+            os.close(parent)
+            parent = child
+        name = absolute.parts[-1]
+        before_path = os.stat(name, dir_fd=parent, follow_symlinks=False)
+        if stat.S_ISLNK(before_path.st_mode) or not stat.S_ISREG(before_path.st_mode) or stat.S_IMODE(before_path.st_mode) != 0o644 or before_path.st_nlink != 1:
+            raise CustodyError("validator", f"{label} is not a mode-0644 single-link file")
+        if before_path.st_size <= 0 or before_path.st_size > 16 * 1024 * 1024:
+            raise CustodyError("validator", f"{label} is outside its bounded size")
+        if expected is not None and (expected.get("mode") != 0o644 or expected.get("bytes") != before_path.st_size):
+            raise CustodyError("validator", f"{label} differs from its frozen size or mode")
+        descriptor = os.open(name, flags, dir_fd=parent)
+        opened = os.fstat(descriptor)
+        identity = lambda info: (info.st_dev, info.st_ino, info.st_mode, info.st_nlink, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+        if identity(opened) != identity(before_path):
+            raise CustodyError("validator", f"{label} changed before reading")
+        chunks: list[bytes] = []
+        total = 0
+        while True:
+            chunk = os.read(descriptor, min(1024 * 1024, 16 * 1024 * 1024 + 1 - total))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            total += len(chunk)
+            if total > 16 * 1024 * 1024:
+                raise CustodyError("validator", f"{label} grew beyond its bound")
+        raw = b"".join(chunks)
+        after = os.fstat(descriptor)
+        after_path = os.stat(name, dir_fd=parent, follow_symlinks=False)
+        if identity(after) != identity(before_path) or identity(after_path) != identity(after) or len(raw) != before_path.st_size:
+            raise CustodyError("validator", f"{label} changed while reading")
+        if expected is not None and (len(raw) != expected.get("bytes") or hashlib.sha256(raw).hexdigest() != expected.get("sha256")):
+            raise CustodyError("validator", f"{label} differs from its frozen identity")
+        return raw
+    except CustodyError:
+        raise
+    except OSError as error:
+        raise CustodyError("validator", f"cannot read {label}") from error
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+        if parent >= 0:
+            os.close(parent)
+
+
+def _load_module_from_bytes(module_name: str, path: Path, source: bytes) -> Any:
+    try:
+        code = compile(source, str(path), "exec", dont_inherit=True, optimize=0)
+        module = types.ModuleType(module_name)
+        module.__file__ = str(path)
+        module.__package__ = ""
+        module.__loader__ = None
+        module.__spec__ = importlib.util.spec_from_loader(module_name, loader=None, origin=str(path))
+        previous = sys.modules.get(module_name)
+        sys.modules[module_name] = module
+        try:
+            exec(code, module.__dict__)
+        except Exception:
+            if previous is None:
+                sys.modules.pop(module_name, None)
+            else:
+                sys.modules[module_name] = previous
+            raise
+        return module
+    except CustodyError:
+        raise
+    except Exception as error:
+        raise CustodyError("validator", f"{module_name} cannot be loaded") from error
+
+
+def _load_freeze_validator(raw: bytes) -> Any:
+    bootstrap = _json(raw, "successor freeze manifest", MAX_JSON_BYTES)
+    expected = _sibling_identity(bootstrap, "scripts/phase3_freeze_manifest.py") if isinstance(bootstrap, Mapping) else None
+    if expected is None:
+        raise CustodyError("manifest-closure", "successor freeze does not authenticate its canonical validator")
+    path = Path(__file__).with_name("phase3_freeze_manifest.py")
+    source = _read_sibling_bytes(path, "canonical freeze validator", expected=expected)
+    return _load_module_from_bytes("phase3_exact_custody_freeze", path, source)
+
+
 def _parse_manifest(expected_manifest: bytes | Mapping[str, Any]) -> dict[str, Any]:
     """Authenticate exact bytes through the canonical freeze owner."""
     if not isinstance(expected_manifest, bytes):
         raise CustodyError("manifest", "successor freeze manifest must be supplied as exact bytes")
     try:
-        freeze_script = Path(__file__).with_name("phase3_freeze_manifest.py")
-        spec = importlib.util.spec_from_file_location("phase3_exact_custody_freeze", freeze_script)
-        if spec is None or spec.loader is None:
-            raise RuntimeError("canonical freeze validator unavailable")
-        freeze = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(freeze)
+        bootstrap = _json(expected_manifest, "successor freeze manifest", MAX_JSON_BYTES)
+    except CustodyError:
+        raise
+    if not isinstance(bootstrap, Mapping) or bootstrap.get("schema") != FREEZE_SCHEMA:
+        raise CustodyError("manifest-version", "exact custody requires the current freeze-manifest-4 contract")
+    try:
+        freeze = _load_freeze_validator(expected_manifest)
         value = freeze.validate_manifest(expected_manifest)
     except Exception as error:
         raise CustodyError("manifest", f"canonical freeze validator rejected successor bytes: {error}") from error
     if value.get("schema") != FREEZE_SCHEMA:
-        raise CustodyError("manifest-version", "exact custody requires the successor freeze-manifest-3 contract")
+        raise CustodyError("manifest-version", "exact custody requires the current freeze-manifest-4 contract")
+    exact_tools = value.get("exact_runtime_tool_identities")
+    if type(exact_tools) is not list or tuple(item.get("path") for item in exact_tools if isinstance(item, Mapping)) != REQUIRED_EXACT_RUNTIME_TOOLS:
+        raise CustodyError("manifest-closure", "v4 freeze does not bind the closed launcher exact-runtime tool set")
+    for index, identity in enumerate(exact_tools):
+        _manifest_file_identity(identity, f"manifest.exact_runtime_tool_identities[{index}]")
     if value.get("experiment_closure_schema") != EXPERIMENT_CLOSURE_SCHEMA:
         raise CustodyError("manifest-closure", "successor freeze does not bind the current experiment-closure schema")
     closure_tools = value.get("experiment_closure_tool_identities")
@@ -674,17 +792,26 @@ def _validate_sums(data: bytes, members: Mapping[str, bytes]) -> None:
             raise CustodyError("sums", f"SHA256SUMS does not exactly bind {name}")
 
 
-def _validate_metadata(members: Mapping[str, bytes], role: str, source: str) -> tuple[dict[str, Any], dict[str, Any]]:
+def _load_receipt_validator(manifest: Mapping[str, Any] | None = None) -> Any:
+    path = Path(__file__).with_name("phase3_build_receipt.py")
+    expected = _sibling_identity(manifest, "scripts/phase3_build_receipt.py") if manifest is not None else None
+    if manifest is not None and expected is None:
+        raise CustodyError("receipt", "successor freeze does not authenticate its receipt validator")
+    source = _read_sibling_bytes(path, "build receipt validator", expected=expected)
+    return _load_module_from_bytes("phase3_exact_custody_receipt", path, source)
+
+
+def _validate_metadata(
+    members: Mapping[str, bytes],
+    role: str,
+    source: str,
+    manifest: Mapping[str, Any] | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
     receipt_raw = members["build-receipt.json"]
     if len(receipt_raw) > MAX_RECEIPT_BYTES:
         raise CustodyError("receipt-size", "build receipt is too large")
     try:
-        script = Path(__file__).with_name("phase3_build_receipt.py")
-        spec = importlib.util.spec_from_file_location("phase3_exact_custody_receipt", script)
-        if spec is None or spec.loader is None:
-            raise RuntimeError("receipt validator unavailable")
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        module = _load_receipt_validator(manifest)
         receipt = module.validate_receipt(receipt_raw)
     except CustodyError:
         raise
@@ -881,7 +1008,7 @@ def verify_and_materialize(record_or_raw: bytes | Mapping[str, Any], *, expected
     bundle = _zip_bundle(raw, transfer) if transfer["kind"] == "github-actions-artifact-zip" else raw
     members = _tar_members(bundle, transfer)
     _validate_sums(members["SHA256SUMS"], members)
-    receipt_obj, metadata_obj = _validate_metadata(members, validated["role"], validated["source_commit"])
+    receipt_obj, metadata_obj = _validate_metadata(members, validated["role"], validated["source_commit"], validated["manifest"])
     receipt = validated["receipt"]
     candidate = validated["candidate"]
     if len(members["candidate"]) != candidate["bytes"] or hashlib.sha256(members["candidate"]).hexdigest() != candidate["sha256"]:

@@ -24,6 +24,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import types
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -73,17 +74,17 @@ TARGET = "x86_64-unknown-linux-gnu"
 TOOLCHAIN = "1.97.1"
 BINARY_NAME = "exp-0002-r3-authored-conflict-candidate"
 
-# These are source-level invocation facts, not observations of a host.  Runtime
-# versions are deliberately absent: neither the checked-in native workflow nor
-# a WSL workflow currently fixes exact CPython patch versions.  v4 generation
-# therefore requires an explicit, closed contract supplied by the workflow
-# update that makes those facts authoritative.
+# These are source-level invocation facts, not observations of a host.  The v4
+# successor selects CPython 3.13.15 for both selectors so the wrapper and
+# oracle execute with identical semantics.  The launch-record argument is a
+# shape placeholder; the launcher authenticates the concrete path separately.
 PYTHON_RUNTIME_CONTRACT_SCHEMA = "ck.exp-0002.phase3.python-runtime-contract-1"
 PYTHON_RUNTIME_INVOCATION = [
-    "python3", "-c", "from phase3_exact_attempt import run_exact_attempt",
+    "python3.13", "-I", "scripts/phase3_exact_attempt_launcher.py", "--launch-record", "<launch-record>",
 ]
-PYTHON_RUNTIME_MODULE_LOADING = "validated-phase3-scripts-directory-top-level-import"
-PYTHON_RUNTIME_ENTRYPOINT = "phase3_exact_attempt.run_exact_attempt"
+PYTHON_RUNTIME_MODULE_LOADING = "explicit-sibling-file-loading-under-isolated-mode"
+PYTHON_RUNTIME_ENTRYPOINT = "phase3_exact_attempt_launcher.main->phase3_exact_attempt.run_exact_attempt"
+PYTHON_RUNTIME_VERSION = "3.13.15"
 PYTHON_RUNTIME_KEYS = {
     "selector", "implementation", "version", "invocation", "module_loading", "entrypoint",
 }
@@ -106,7 +107,11 @@ EXACT_RUNTIME_TOOLS = (
     "scripts/phase3_exact_publication.py",
     "scripts/phase3_exact_transport.py",
     "scripts/phase3_exact_attempt.py",
+    "scripts/phase3_exact_attempt_launcher.py",
 )
+# v1–v3 are immutable predecessor shapes. Their exact-runtime closure did not
+# yet contain the launcher; only v4 binds the new list above.
+LEGACY_EXACT_RUNTIME_TOOLS = EXACT_RUNTIME_TOOLS[:-1]
 # These are the exact provenance-producing tools.  Keep this list closed:
 # adding a helper changes what the freeze means and therefore needs an explicit
 # update to the manifest contract and its tests.
@@ -159,6 +164,7 @@ REQUEST_FIELDS = [
 RESPONSE_PROTOCOL = "ck.exp-0002.r3-authored-conflict-candidate-response-1"
 REQUEST_PROTOCOL = "ck.exp-0002.r3-authored-conflict-candidate-request-1"
 MAX_FILE_BYTES = 16 * 1024 * 1024
+MAX_RECEIPT_BYTES = 128 * 1024
 MAX_MANIFEST_BYTES = 2 * 1024 * 1024
 SHA256_HEX = set("0123456789abcdef")
 FULL_SHA_HEX = SHA256_HEX
@@ -529,18 +535,13 @@ def _build_python_runtime_contract(
 ) -> dict[str, Any]:
     """Authenticate an explicit runtime contract supplied by a fixed workflow.
 
-    The repository currently has no authoritative WSL runtime workflow and the
-    native workflow fixes only the CPython minor line (``3.13``).  Consequently
-    this function never probes ``sys`` or invents a patch version: until the
-    workflow records both selectors' exact versions and invocation boundary,
-    v4 construction fails closed.  ``native_python_version`` is retained only
-    as a consistency check for callers migrating from the provisional API.
+    This function never probes ``sys`` or invents a patch version.  Both
+    selectors must explicitly bind the fixed CPython 3.13.15 release and the
+    launcher boundary. ``native_python_version`` is retained only as a
+    consistency check for callers migrating from the provisional API.
     """
     if runtime_contract is None:
-        _fail(
-            "runtime-contract",
-            "v4 requires an authoritative exact_python_runtime_contract input; pin CPython N.N.N and the canonical invocation/module-loading/entrypoint for WSL and native in the workflow",
-        )
+        _fail("runtime-contract", "v4 requires an authoritative exact_python_runtime_contract input")
     normalized = _validate_python_runtime_contract(runtime_contract)
     if native_python_version is not None and normalized["platforms"]["ubuntu-24.04-x86_64"]["version"] != native_python_version:
         _fail("runtime-contract", "native Python version does not match the supplied runtime contract")
@@ -764,9 +765,10 @@ def _validate_execution_commit_snapshot(repo: Path, package: Path, manifest: Map
     if not _valid_commit(commit):
         _fail("execution-tool-commit", "execution tool source commit is invalid")
     _assert_descendant_commit(repo, manifest.get("candidate_source_commit"), commit)
+    exact_paths = EXACT_RUNTIME_TOOLS if manifest.get("schema") == V4_SCHEMA else LEGACY_EXACT_RUNTIME_TOOLS
     for field, paths in (
         ("runtime_tool_identities", RUNTIME_TOOLS),
-        ("exact_runtime_tool_identities", EXACT_RUNTIME_TOOLS),
+        ("exact_runtime_tool_identities", exact_paths),
         ("provenance_tool_identities", PROVENANCE_TOOLS),
     ):
         expected = _execution_tool_identities_from_commit(repo, commit, paths)
@@ -818,8 +820,8 @@ def _validate_python_runtime_contract(value: Any) -> dict[str, Any]:
         _pure_keys(selected, PYTHON_RUNTIME_KEYS, f"manifest.exact_python_runtime_contract.{selector}")
         if selected["selector"] != selector or selected["implementation"] != "CPython":
             _fail("manifest-shape", f"Python runtime selector or implementation is wrong for {selector}")
-        if type(selected["version"]) is not str or re.fullmatch(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)", selected["version"]) is None:
-            _fail("manifest-shape", f"Python runtime patch version is not exact for {selector}")
+        if selected["version"] != PYTHON_RUNTIME_VERSION:
+            _fail("manifest-shape", f"Python runtime version is not the fixed {PYTHON_RUNTIME_VERSION} contract for {selector}")
         if selected["invocation"] != PYTHON_RUNTIME_INVOCATION:
             _fail("manifest-shape", f"Python invocation is not the frozen contract for {selector}")
         if selected["module_loading"] != PYTHON_RUNTIME_MODULE_LOADING or selected["entrypoint"] != PYTHON_RUNTIME_ENTRYPOINT:
@@ -1017,7 +1019,7 @@ def _validate_pure_manifest_v2(value: Any) -> dict[str, Any]:
 
     collections = (
         ("runtime_tool_identities", RUNTIME_TOOLS),
-        ("exact_runtime_tool_identities", EXACT_RUNTIME_TOOLS),
+        ("exact_runtime_tool_identities", LEGACY_EXACT_RUNTIME_TOOLS),
         ("provenance_tool_identities", PROVENANCE_TOOLS),
     )
     observed_paths: list[str] = []
@@ -1096,7 +1098,7 @@ def _validate_pure_manifest_v3(value: Any) -> dict[str, Any]:
         _fail("manifest-self-hash", "v3 manifest self hash does not match")
     for field, expected_paths in (
         ("runtime_tool_identities", RUNTIME_TOOLS),
-        ("exact_runtime_tool_identities", EXACT_RUNTIME_TOOLS),
+        ("exact_runtime_tool_identities", LEGACY_EXACT_RUNTIME_TOOLS),
         ("provenance_tool_identities", PROVENANCE_TOOLS),
         ("experiment_closure_tool_identities", EXPERIMENT_CLOSURE_TOOLS),
     ):
@@ -1266,8 +1268,9 @@ def validate_manifest(raw_or_value: bytes | Mapping[str, Any]) -> dict[str, Any]
     _fail("manifest-shape", "manifest schema is unsupported")
 
 
-def _load_manifest(path: Path) -> dict[str, Any]:
-    raw = _read_manifest_bytes(path)
+def _load_manifest(path: Path, *, raw: bytes | None = None) -> dict[str, Any]:
+    if raw is None:
+        raw = _read_manifest_bytes(path)
     try:
         return validate_manifest(raw)
     except FreezeManifestError:
@@ -1345,8 +1348,101 @@ def _read_manifest_bytes(path: Path) -> bytes:
     return _read_manifest_snapshot(path)[0]
 
 
-def _receipt_module(package: Path) -> Any:
-    return _load_module(f"phase3_build_receipt_for_freeze_{id(package)}", package / "scripts/phase3_build_receipt.py")
+def _read_authenticated_file(path: Path, label: str, expected: Mapping[str, Any] | None, *, maximum: int = MAX_FILE_BYTES) -> bytes:
+    """Read a frozen tool/receipt through anchored, stable descriptors."""
+    absolute = Path(path).absolute()
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    directory_flags = flags | getattr(os, "O_DIRECTORY", 0)
+    parent = -1
+    descriptor = -1
+    try:
+        parent = os.open(os.sep, directory_flags)
+        for component in absolute.parts[1:-1]:
+            child = os.open(component, directory_flags, dir_fd=parent)
+            os.close(parent)
+            parent = child
+        name = absolute.parts[-1]
+        before_path = os.stat(name, dir_fd=parent, follow_symlinks=False)
+        identity = lambda info: (info.st_dev, info.st_ino, info.st_mode, info.st_nlink, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+        if stat.S_ISLNK(before_path.st_mode) or not stat.S_ISREG(before_path.st_mode) or stat.S_IMODE(before_path.st_mode) != 0o644 or before_path.st_nlink != 1:
+            _fail("frozen-file", f"{label} is not a mode-0644 single-link file")
+        if before_path.st_size <= 0 or before_path.st_size > maximum:
+            _fail("frozen-file", f"{label} is outside its bounded size")
+        if expected is not None and (expected.get("mode") != 0o644 or expected.get("bytes") != before_path.st_size):
+            _fail("frozen-file", f"{label} differs from its frozen size or mode")
+        descriptor = os.open(name, flags, dir_fd=parent)
+        opened = os.fstat(descriptor)
+        if identity(opened) != identity(before_path):
+            _fail("frozen-file", f"{label} changed before reading")
+        chunks: list[bytes] = []
+        total = 0
+        while True:
+            chunk = os.read(descriptor, min(1024 * 1024, maximum + 1 - total))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            total += len(chunk)
+            if total > maximum:
+                _fail("frozen-file", f"{label} grew beyond its bound")
+        raw = b"".join(chunks)
+        after = os.fstat(descriptor)
+        after_path = os.stat(name, dir_fd=parent, follow_symlinks=False)
+        if identity(after) != identity(before_path) or identity(after_path) != identity(after) or len(raw) != before_path.st_size:
+            _fail("frozen-file", f"{label} changed while reading")
+        if expected is not None and (len(raw) != expected.get("bytes") or hashlib.sha256(raw).hexdigest() != expected.get("sha256")):
+            _fail("frozen-file", f"{label} differs from its frozen identity")
+        return raw
+    except FreezeManifestError:
+        raise
+    except OSError as error:
+        raise FreezeManifestError("frozen-file", f"cannot read {label}") from error
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+        if parent >= 0:
+            os.close(parent)
+
+
+def _tool_identity(manifest: Mapping[str, Any], path: str) -> dict[str, Any] | None:
+    for field in ("runtime_tool_identities", "exact_runtime_tool_identities", "provenance_tool_identities"):
+        identities = manifest.get(field)
+        if isinstance(identities, list):
+            for identity in identities:
+                if isinstance(identity, Mapping) and identity.get("path") == path:
+                    return dict(identity)
+    return None
+
+
+def _receipt_module(package: Path, manifest: Mapping[str, Any]) -> Any:
+    relative = "scripts/phase3_build_receipt.py"
+    expected = _tool_identity(manifest, relative)
+    if expected is None:
+        _fail("build-receipt", "freeze does not authenticate the receipt validator")
+    path = package / relative
+    source = _read_authenticated_file(path, relative, expected)
+    module_name = f"phase3_build_receipt_for_freeze_{id(package)}"
+    try:
+        code = compile(source, str(path), "exec", dont_inherit=True, optimize=0)
+        module = types.ModuleType(module_name)
+        module.__file__ = str(path)
+        module.__package__ = ""
+        module.__loader__ = None
+        module.__spec__ = importlib.util.spec_from_loader(module_name, loader=None, origin=str(path))
+        previous = sys.modules.get(module_name)
+        sys.modules[module_name] = module
+        try:
+            exec(code, module.__dict__)
+        except Exception:
+            if previous is None:
+                sys.modules.pop(module_name, None)
+            else:
+                sys.modules[module_name] = previous
+            raise
+        return module
+    except FreezeManifestError:
+        raise
+    except Exception as error:
+        raise FreezeManifestError("build-receipt", "receipt validator cannot be loaded") from error
 
 
 def _receipt_path(package: Path, path: Path) -> str:
@@ -1382,8 +1478,15 @@ def _receipt_contract(manifest: Mapping[str, Any]) -> tuple[Mapping[str, Any], M
 def _load_build_receipt(path: Path, package: Path, expected_closure: Mapping[str, Any], manifest: Mapping[str, Any]) -> tuple[str, dict[str, Any], str, Mapping[str, Any]]:
     relative = _receipt_path(package, path)
     try:
-        raw = path.read_bytes()
-        module = _receipt_module(package)
+        expected = None
+        binaries = manifest.get("binaries") if isinstance(manifest, Mapping) else None
+        if isinstance(binaries, Mapping):
+            for slot in binaries.values():
+                if isinstance(slot, Mapping) and slot.get("receipt_path") == relative:
+                    expected = {"mode": 0o644, "bytes": slot.get("receipt_bytes"), "sha256": slot.get("receipt_sha256")}
+                    break
+        raw = _read_authenticated_file(path, relative, expected, maximum=MAX_RECEIPT_BYTES)
+        module = _receipt_module(package, manifest)
         value = module.validate_receipt(raw)
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError, RecursionError) as error:
         raise FreezeManifestError("build-receipt", str(path)) from error
@@ -1542,7 +1645,7 @@ def build_successor_manifest(
     successor["predecessor_inherited_sha256"] = _inherited_v1_hash(predecessor)
     successor["execution_tool_source_commit"] = execution_tool_source_commit
     successor["runtime_tool_identities"] = _execution_tool_identities_from_commit(repo, execution_tool_source_commit, RUNTIME_TOOLS)
-    successor["exact_runtime_tool_identities"] = _execution_tool_identities_from_commit(repo, execution_tool_source_commit, EXACT_RUNTIME_TOOLS)
+    successor["exact_runtime_tool_identities"] = _execution_tool_identities_from_commit(repo, execution_tool_source_commit, LEGACY_EXACT_RUNTIME_TOOLS)
     successor["provenance_tool_identities"] = _execution_tool_identities_from_commit(repo, execution_tool_source_commit, PROVENANCE_TOOLS)
     successor["canonicalization"] = _v2_canonicalization()
     _seal(successor)
@@ -1596,7 +1699,7 @@ def build_v3_successor_manifest(
     # any successor fields.  The explicit chain is C -> old E -> old M -> new
     # E -> new M; each edge is checked independently.
     _validate_candidate_build_snapshot(repo, predecessor)
-    for field, paths in (("runtime_tool_identities", RUNTIME_TOOLS), ("exact_runtime_tool_identities", EXACT_RUNTIME_TOOLS), ("provenance_tool_identities", PROVENANCE_TOOLS)):
+    for field, paths in (("runtime_tool_identities", RUNTIME_TOOLS), ("exact_runtime_tool_identities", LEGACY_EXACT_RUNTIME_TOOLS), ("provenance_tool_identities", PROVENANCE_TOOLS)):
         old_expected = _execution_tool_identities_from_commit(repo, previous_execution_tool_source_commit, paths)
         if predecessor.get(field) != old_expected:
             _fail("predecessor-manifest", f"v2 {field} differs from its exact old E snapshot")
@@ -1617,7 +1720,7 @@ def build_v3_successor_manifest(
         "materialization_commit": materialization_commit,
         "execution_tool_source_commit": execution_tool_source_commit,
         "runtime_tool_identities": _execution_tool_identities_from_commit(repo, execution_tool_source_commit, RUNTIME_TOOLS),
-        "exact_runtime_tool_identities": _execution_tool_identities_from_commit(repo, execution_tool_source_commit, EXACT_RUNTIME_TOOLS),
+        "exact_runtime_tool_identities": _execution_tool_identities_from_commit(repo, execution_tool_source_commit, LEGACY_EXACT_RUNTIME_TOOLS),
         "provenance_tool_identities": _execution_tool_identities_from_commit(repo, execution_tool_source_commit, PROVENANCE_TOOLS),
         "experiment_closure_tool_identities": _execution_tool_identities_from_commit(repo, execution_tool_source_commit, EXPERIMENT_CLOSURE_TOOLS),
         "experiment_closure_schema": "ck.exp-0002.phase3.experiment-closure-1",
@@ -1690,7 +1793,7 @@ def build_v4_successor_manifest(
     _validate_candidate_build_snapshot(repo, predecessor)
     for field, paths in (
         ("runtime_tool_identities", RUNTIME_TOOLS),
-        ("exact_runtime_tool_identities", EXACT_RUNTIME_TOOLS),
+        ("exact_runtime_tool_identities", LEGACY_EXACT_RUNTIME_TOOLS),
         ("provenance_tool_identities", PROVENANCE_TOOLS),
         ("experiment_closure_tool_identities", EXPERIMENT_CLOSURE_TOOLS),
     ):
@@ -1748,9 +1851,15 @@ def check_historical_manifest(repo: Path = REPO, package: Path = PACKAGE, path: 
     return recorded
 
 
-def check_manifest(repo: Path = REPO, package: Path = PACKAGE, path: Path = MANIFEST) -> dict[str, Any]:
+def check_manifest(
+    repo: Path = REPO,
+    package: Path = PACKAGE,
+    path: Path = MANIFEST,
+    *,
+    manifest_raw: bytes | None = None,
+) -> dict[str, Any]:
     """Check the current successor freeze against its C/E/M chain."""
-    recorded = _load_manifest(path)
+    recorded = _load_manifest(path, raw=manifest_raw)
     if recorded.get("schema") in {V3_SCHEMA, V4_SCHEMA}:
         current_materialization = _resolve_source_commit(repo, None)
         _assert_descendant_commit(repo, recorded.get("candidate_source_commit"), recorded.get("previous_execution_tool_source_commit"))

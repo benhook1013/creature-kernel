@@ -285,13 +285,14 @@ materialized from execution-tool/materialization snapshot
 It binds the experiment-wide closure tool, fixed binary cap, exact slot
 reservation, and runtime/platform observations; v3 deliberately does not yet
 authenticate the exact Python runtime contract required by the exact-attempt
-entrypoint. A v4 successor accepts only a closed contract for both
-`wsl2-x86_64` and `ubuntu-24.04-x86_64`, including CPython `N.N.N`, canonical
-argv/module loading, and entrypoint. The current native workflow fixes only
-Python `3.13` and does not declare that invocation (and no WSL workflow fixes
-an exact patch), so v4 construction fails closed until those facts are pinned
-and supplied as workflow inputs; it never captures ambient `sys` as expected
-truth. The v2 freeze and its `Revise` reviews remain historical. The consolidated 296-test
+entrypoint. The v4 successor binds CPython `3.13.15` for both selectors and
+the canonical isolated invocation
+`python3.13 -I scripts/phase3_exact_attempt_launcher.py --launch-record <launch-record>`.
+The launcher loads sibling modules by explicit file path, authenticates the
+freeze/runtime/argv contract, reads one bounded canonical launch record and
+its referenced records as exact bytes, and only then calls
+`phase3_exact_attempt.run_exact_attempt`; its focused tests never execute a
+candidate. The v2 freeze and its `Revise` reviews remain historical. The consolidated 296-test
 suite passed before new E `762b04b8db3397cb1885d94236ad5d47cb321830`; the
 older 267-test pass before historical v2 execution-tool commit
 `9dca58a84072582db34045b8eac98d6e86d3d5ae` remains historical. No candidate
@@ -609,6 +610,8 @@ Focused checks for this slice are:
 ```bash
 PYTHONWARNINGS=error python3 experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/scripts/test_phase3_evidence_contract.py
 PYTHONWARNINGS=error python3 experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/scripts/test_phase3_gate_b_preflight.py
+PYTHONWARNINGS=error python3 experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/scripts/test_phase3_exact_attempt_launcher.py
+PYTHONWARNINGS=error python3 experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance/scripts/test_phase3_freeze_manifest.py
 ```
 
 These tests use only bounded in-memory or package-validation fixtures. They do

@@ -103,7 +103,7 @@ class _FreezeFixture:
         return value
 
     @staticmethod
-    def check_manifest() -> dict[str, object]:
+    def check_manifest(*, manifest_raw: bytes | None = None) -> dict[str, object]:
         return copy.deepcopy(FREEZE)
 
 
@@ -111,7 +111,7 @@ class _UncheckedExecutionFreezeFixture(_FreezeFixture):
     """Pure-valid fixture whose E snapshot has no repository-bound proof."""
 
     @staticmethod
-    def check_manifest() -> dict[str, object]:
+    def check_manifest(*, manifest_raw: bytes | None = None) -> dict[str, object]:
         raise ValueError("execution commit is not a descendant/current snapshot")
 
 
@@ -178,12 +178,13 @@ class ExactAuthorityTests(unittest.TestCase):
     def test_admission_roundtrip_authenticates_freeze_and_anchored_reviews(self) -> None:
         with mock.patch.object(_FreezeFixture, "check_manifest", wraps=_FreezeFixture.check_manifest) as current_check:
             value = M.validate_gate_b_admission(self.admission, freeze_manifest=FREEZE_BYTES, review_root=self.reviews)
-        current_check.assert_called_once_with()
+        current_check.assert_called_once_with(manifest_raw=FREEZE_BYTES)
         self.assertEqual(value["freeze_manifest_sha256"], FREEZE_SHA)
         self.assertEqual(value["execution_tool_source_commit"], EXECUTION_TOOL_SOURCE_COMMIT)
         self.assertEqual(value["reviewed_commit"], MATERIALIZATION_COMMIT)
         self.assertNotEqual(value["execution_tool_source_commit"], CANDIDATE_COMMIT)
         self.assertFalse(value["execution_permitted"])
+
 
     def test_admission_rejects_valid_pre_freeze_manifest(self) -> None:
         value = copy.deepcopy(FREEZE)
@@ -470,7 +471,7 @@ class GitBoundAuthorityTests(unittest.TestCase):
                 return value
 
             @staticmethod
-            def check_manifest() -> dict[str, object]:
+            def check_manifest(*, manifest_raw: bytes | None = None) -> dict[str, object]:
                 return copy.deepcopy(freeze)
 
         self.freeze_patch = mock.patch.object(M, "_freeze_module", return_value=DynamicFreeze)
@@ -595,6 +596,35 @@ class GitBoundAuthorityTests(unittest.TestCase):
         record = self._admission(source=EXECUTION_TOOL_SOURCE_COMMIT, reviewed=MATERIALIZATION_COMMIT)
         with mock.patch.object(M.subprocess, "run", side_effect=AssertionError("encoding must not run Git")):
             self.assertTrue(M.encode_gate_b_admission(json.loads(record)))
+
+
+class AuthorityFreezeLoaderTests(unittest.TestCase):
+    def test_public_freeze_module_is_not_trusted(self) -> None:
+        fake = mock.Mock()
+        private_name = "phase3_exact_authority_freeze"
+        previous = M.sys.modules.pop(private_name, None)
+        try:
+            with mock.patch.dict(M.sys.modules, {"phase3_freeze_manifest": fake}, clear=False):
+                loaded = M._freeze_module()
+            self.assertIsNot(loaded, fake)
+            self.assertTrue(callable(loaded.validate_manifest))
+            fake.validate_manifest.assert_not_called()
+        finally:
+            M.sys.modules.pop(private_name, None)
+            if previous is not None:
+                M.sys.modules[private_name] = previous
+
+    def test_frozen_validator_identity_rejects_stale_source_bytes(self) -> None:
+        raw = M._canonical({
+            "provenance_tool_identities": [{
+                "path": "scripts/phase3_freeze_manifest.py",
+                "mode": 0o644,
+                "bytes": Path(M.__file__).with_name("phase3_freeze_manifest.py").stat().st_size,
+                "sha256": "0" * 64,
+            }],
+        })
+        with self.assertRaises(M.AuthorityError):
+            M._freeze_module(raw)
 
 
 if __name__ == "__main__":

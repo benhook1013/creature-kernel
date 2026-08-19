@@ -411,7 +411,7 @@ def _freeze_tool_collection(freeze: Mapping[str, Any], field: str) -> list[dict[
 
 
 def _validate_tool_binding(freeze: Mapping[str, Any], supplied: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Validate the full frozen 19-tool closure and project the eight core tools.
+    """Validate the full frozen runtime closure and project core tools.
 
     The preflight boundary receives one unambiguous closure in canonical
     runtime/exact-runtime/provenance order.  Evidence is intentionally given
@@ -422,8 +422,15 @@ def _validate_tool_binding(freeze: Mapping[str, Any], supplied: list[dict[str, A
     provenance = _freeze_tool_collection(freeze, "provenance_tool_identities")
     expected = [*runtime, *exact, *provenance]
     if supplied != expected:
-        _fail("tools", "supplied tool identities differ from the canonical 19-tool freeze closure")
+        _fail("tools", f"supplied tool identities differ from the canonical {len(expected)}-tool freeze closure")
     return runtime
+
+
+def _authenticated_tool_count(freeze: Mapping[str, Any]) -> int:
+    """Count execution/provenance tools; the experiment closure is separate."""
+    return sum(len(_freeze_tool_collection(freeze, field)) for field in (
+        "runtime_tool_identities", "exact_runtime_tool_identities", "provenance_tool_identities",
+    ))
 
 
 def _normalize_report_tools(value: Any, label: str) -> list[dict[str, Any]]:
@@ -464,10 +471,10 @@ def _validate_source_snapshot_attestation(
         or snapshot["candidate_is_ancestor_of_execution_tools"] is not True
         or snapshot["current_execution_tools_match_execution_tool_commit"] is not True
         or type(snapshot["current_execution_tool_identity_count"]) is not int
-        or snapshot["current_execution_tool_identity_count"] != 19
-        or len(supplied_tools) != 19
+        or snapshot["current_execution_tool_identity_count"] != _authenticated_tool_count(freeze)
+        or len(supplied_tools) != _authenticated_tool_count(freeze)
     ):
-        _fail("preflight", "source snapshot validation does not attest the authenticated 19-tool closure")
+        _fail("preflight", f"source snapshot validation does not attest the authenticated {_authenticated_tool_count(freeze)}-tool closure")
 
 
 def _read_bounded_text(path: str, limit: int = 4096) -> str:
@@ -552,10 +559,55 @@ def _load_frozen_build_facts(package_root: Path, freeze: Mapping[str, Any], sele
     receipt_path = slot.get("receipt_path") if isinstance(slot, Mapping) else None
     if type(receipt_path) is not str or receipt_path.startswith("/") or ".." in Path(receipt_path).parts:
         _fail("platform", "frozen receipt path is unsafe")
+    receipt = package_root / receipt_path
+    parts = receipt.parts
+    if not receipt.is_absolute() or len(parts) < 2:
+        _fail("platform", "frozen receipt path is not absolute after package binding")
+    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0)
+    parent_fd = -1
+    fd = -1
     try:
-        raw = (package_root / receipt_path).read_bytes()
+        parent_fd = os.open(os.sep, flags)
+        for component in parts[1:-1]:
+            child_fd = os.open(component, flags, dir_fd=parent_fd)
+            os.close(parent_fd)
+            parent_fd = child_fd
+        name = parts[-1]
+        path_before = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+        if stat.S_ISLNK(path_before.st_mode) or not stat.S_ISREG(path_before.st_mode) or path_before.st_nlink != 1:
+            _fail("platform", "frozen selected receipt is not a regular single-link file")
+        fd = os.open(name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0), dir_fd=parent_fd)
+        before = os.fstat(fd)
+        expected_identity = (path_before.st_dev, path_before.st_ino, path_before.st_mode, path_before.st_nlink, path_before.st_size, path_before.st_mtime_ns, path_before.st_ctime_ns)
+        opened_identity = (before.st_dev, before.st_ino, before.st_mode, before.st_nlink, before.st_size, before.st_mtime_ns, before.st_ctime_ns)
+        if opened_identity != expected_identity:
+            _fail("platform", "frozen selected receipt changed before read")
+        chunks: list[bytes] = []
+        total = 0
+        while True:
+            chunk = os.read(fd, min(1024 * 1024, MAX_RECORD_BYTES + 1 - total))
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > MAX_RECORD_BYTES:
+                _fail("platform", "frozen selected receipt exceeds record bound")
+            chunks.append(chunk)
+        raw = b"".join(chunks)
+        after = os.fstat(fd)
+        path_after = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+        after_identity = (after.st_dev, after.st_ino, after.st_mode, after.st_nlink, after.st_size, after.st_mtime_ns, after.st_ctime_ns)
+        path_identity = (path_after.st_dev, path_after.st_ino, path_after.st_mode, path_after.st_nlink, path_after.st_size, path_after.st_mtime_ns, path_after.st_ctime_ns)
+        if after_identity != expected_identity or path_identity != after_identity or total != path_before.st_size:
+            _fail("platform", "frozen selected receipt changed while read")
+    except ExactAttemptError:
+        raise
     except OSError as error:
         raise ExactAttemptError("platform", "frozen selected receipt is unavailable") from error
+    finally:
+        if fd >= 0:
+            os.close(fd)
+        if parent_fd >= 0:
+            os.close(parent_fd)
     if type(slot.get("receipt_bytes")) is not int or slot["receipt_bytes"] <= 0 or len(raw) != slot["receipt_bytes"]:
         _fail("platform", "selected receipt byte count differs from frozen identity")
     if _sha256(raw) != slot.get("receipt_sha256"):
@@ -1480,7 +1532,7 @@ def _run_exact_attempt_with_dependencies(
         if not isinstance(execution_package, Mapping) or execution_package.get("manifest_sha256") != freeze_hash:
             _fail("preflight", "Gate B preflight package does not bind the supplied freeze")
         if preflight_report.get("schema") != gate_b_preflight.SCHEMA:
-            _fail("preflight", "Gate B preflight report is not the current v3 schema")
+            _fail("preflight", "Gate B preflight report is not the current schema")
         reported_tools = preflight_report.get("tool_identities")
         if reported_tools is None or _normalize_report_tools(reported_tools, "tool_identities") != tools:
             _fail("preflight", "Gate B preflight report does not retain the full frozen tool closure")
