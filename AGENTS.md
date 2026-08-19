@@ -12,8 +12,11 @@ information. Do not allow one kind to silently redefine another.
 Before autonomous work, read the `Active runway` section at the top of
 `docs/project/status.md` and keep the named human checkpoint as the governing
 destination. Multiple small reviewed PRs may advance direct prerequisites, but
-the main thread must not substitute an internal experiment, evidence, governance,
-or infrastructure gate for that checkpoint. If reaching it would require
+the named human checkpoint—not the next bounded implementation slice—is the
+stop gate. Continue through as many direct, reviewed steps as useful until
+that checkpoint is reached or a genuine retained-human decision or blocker
+appears. The main thread must not substitute an internal experiment, evidence,
+governance, or infrastructure gate for that checkpoint. If reaching it would require
 reactivating a parked workstream or materially expanding the recorded scope,
 stop and ask Ben before taking the detour.
 
@@ -231,6 +234,9 @@ The main `gpt-5.6-sol` thread owns planning, human design discussion, task
 decomposition, integration, consolidated validation, Git and pull-request
 operations, CI and review orchestration, external side effects, and final
 repository decisions. It does not delegate product or architecture decisions.
+It must not delegate an autonomous runway or multi-PR goal as one subagent
+task: delegate one bounded step, inspect and integrate its result, then choose
+the next step against the named checkpoint.
 Reviewers may challenge a proposal and recommend a disposition, but only Ben,
 the human decision owner, accepts or rejects a DR.
 

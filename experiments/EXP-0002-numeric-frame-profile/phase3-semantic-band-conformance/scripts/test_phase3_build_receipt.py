@@ -145,6 +145,23 @@ def _dependency_fixture(repo: Path) -> Path:
 
 
 class BuildReceiptTests(unittest.TestCase):
+    def test_git_calls_use_absolute_seam_and_closed_reproducible_environment(self) -> None:
+        head = mock.Mock(returncode=0, stdout=COMMIT, stderr="")
+        status = mock.Mock(returncode=0, stdout="", stderr="")
+        with mock.patch.object(MODULE.subprocess, "run", side_effect=[head, status]) as run:
+            self.assertEqual(MODULE._git_head(Path("/repo")), COMMIT)
+        self.assertEqual(run.call_count, 2)
+        for call in run.call_args_list:
+            command = call.args[0]
+            environment = call.kwargs["env"]
+            self.assertEqual(command[0], MODULE.GIT_EXECUTABLE)
+            self.assertTrue(Path(command[0]).is_absolute())
+            self.assertNotEqual(command[0], "git")
+            self.assertEqual(environment, MODULE.GIT_ENV)
+            self.assertNotIn("PATH", environment)
+        self.assertEqual(run.call_args_list[0].args[0][3:6], ["rev-parse", "--verify", "HEAD"])
+        self.assertEqual(run.call_args_list[1].args[0][3:6], ["status", "--porcelain", "--untracked-files=all"])
+
     def test_dependency_identity_normalizes_platform_roots_but_retains_raw_observation(self) -> None:
         with tempfile.TemporaryDirectory() as wsl_directory, tempfile.TemporaryDirectory() as native_directory:
             wsl = Path(wsl_directory)
