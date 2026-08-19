@@ -620,6 +620,18 @@ def _compound_fields(form: Form, descriptors: tuple[Descriptor, ...]) -> tuple[F
             if role in {"upper_arm", "thigh"} and parent is not None:
                 anchor = _parent_surface_anchor(parent, start, form.reference_scale)
                 add(desc, "root-bridge", _segment("tapered-segment", anchor, start, radius * 1.45, radius * 1.12))
+            if role == "upper_arm":
+                # Give the fixed fixture a source-owned deltoid mass around
+                # each arm root so the limb emerges from the chest silhouette
+                # instead of reading as a narrow rod-and-ball attachment.
+                add(
+                    desc,
+                    "shoulder-mass",
+                    _ellipsoid(
+                        start + np.asarray([0.0, -0.20 * radius, 0.0]),
+                        radius * np.asarray([1.90, 1.55, 1.55]),
+                    ),
+                )
             collar_scale = 1.32 if role in {"upper_arm", "thigh"} else 1.20
             add(desc, "joint-collar", _ellipsoid(start, np.full(3, radius * collar_scale)))
             if role == "shin":
@@ -849,7 +861,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
             sidecar.write_bytes(_canonical({"format": "creature-kernel.disposable-surface-preview-semantic-winners.v1", "source_format": SOURCE_FORMAT, "variant_id": variant_id, "vertex_count": len(vertices), "source_node_labels": [_address_json(key) for key in labels], "attribution": "every recipe component resolves to its source descriptor owner; no synthetic node identity is emitted"}))
             metrics_path.write_bytes(_canonical(metrics)); _render(png, vertices, faces, variant_id)
             records.append({"id": variant_id, "profile_id": raw_variant["profile_id"], "source": {"document": form.source["document"], "namespace": form.source["namespace"], "resource_profile_id": form.source["resource_profile_id"]}, "descriptor_address_keys": [_address_json(desc.key) for desc in descriptors], "grid": grid, "metrics": metrics, "inventory": [_sha(ply, "ply", stage), _sha(sidecar, "semantic-sidecar", stage), _sha(metrics_path, "metrics", stage), {**_sha(png, "neutral-composite-png", stage), "width": CANVAS[0], "height": CANVAS[1], "views": ["front", "side", "three-quarter"], "mode": "RGB"}]})
-        manifest = {"format": FORMAT, "status": "success", "source_format": SOURCE_FORMAT, "source": {"format": SOURCE_FORMAT, "sha256": hashlib.sha256(data).hexdigest(), "document": form.source["document"], "namespace": form.source["namespace"], "resource_profile_id": form.source["resource_profile_id"], "reference_scale": form.reference_scale_raw}, "generator": {"samples_per_axis": samples, "padding": padding, "smooth_union": {"operator": "polynomial_cubic_smooth_min", "k": smooth_k, "fold_order": "source_address_then_recipe_order"}, "field_primitives": ["ellipsoid", "capsule", "linear-radius-tapered-segment"], "field_recipes": ["hips", "pelvic-core", "chest", "waist", "axial-trunk", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar", "limb-segment", "root-bridge", "joint-collar", "digitigrade-lower-leg", "paw-mass", "extremity-bridge", "tail-segment", "tail-root-bridge", "tail-root-collar"], "ownership": "recipe fields are source-owned and winner labels expose only source AddressKeys", "boundary": "disposable exploratory visual proof; not production geometry, SDF, collision, rig, topology, or Readiness evidence"}, "variants": records}
+        manifest = {"format": FORMAT, "status": "success", "source_format": SOURCE_FORMAT, "source": {"format": SOURCE_FORMAT, "sha256": hashlib.sha256(data).hexdigest(), "document": form.source["document"], "namespace": form.source["namespace"], "resource_profile_id": form.source["resource_profile_id"], "reference_scale": form.reference_scale_raw}, "generator": {"samples_per_axis": samples, "padding": padding, "smooth_union": {"operator": "polynomial_cubic_smooth_min", "k": smooth_k, "fold_order": "source_address_then_recipe_order"}, "field_primitives": ["ellipsoid", "capsule", "linear-radius-tapered-segment"], "field_recipes": ["hips", "pelvic-core", "chest", "waist", "axial-trunk", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar", "limb-segment", "root-bridge", "shoulder-mass", "joint-collar", "digitigrade-lower-leg", "paw-mass", "extremity-bridge", "tail-segment", "tail-root-bridge", "tail-root-collar"], "ownership": "recipe fields are source-owned and winner labels expose only source AddressKeys", "boundary": "disposable exploratory visual proof; not production geometry, SDF, collision, rig, topology, or Readiness evidence"}, "variants": records}
         (stage / "surface-preview-manifest.json").write_bytes(_canonical(manifest) + b"\n")
         expected_files = {"surface-preview-manifest.json"}
         expected_directories = set(VARIANT_IDS)

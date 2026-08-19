@@ -13,9 +13,10 @@ in `/tmp` and must not be committed.
 
 The renderer expands each source descriptor into a bounded, deterministic
 role recipe where useful. The current fixture convention supplies shared
-chest/waist/hip masses, a broader axial trunk transition, cranium and muzzle, a parent-surface neck/collar,
-source-owned limb root and joint collars, digitigrade lower-leg shaping,
-paw/foot masses, and a tail-root bridge/collar. Recipe components are fields,
+chest/waist/hip masses, a broader axial trunk transition, cranium and muzzle,
+a parent-surface neck/collar, source-owned shoulder masses plus limb root and
+joint collars, digitigrade lower-leg shaping, paw/foot masses, and a tail-root
+bridge/collar. Recipe components are fields,
 not semantic nodes: every generated component keeps its source descriptor as
 owner and the semantic sidecar emits only source AddressKeys. Limb and root
 bridges are anchored on the parent analytic-field boundary in the existing
