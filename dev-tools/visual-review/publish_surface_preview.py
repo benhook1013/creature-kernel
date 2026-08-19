@@ -44,7 +44,7 @@ class SurfacePreviewPublishError(RuntimeError):
 
 
 SURFACE_PREVIEW_FORMAT = "creature-kernel.disposable-surface-preview.v2"
-REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v1"
+REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v2"
 EXPECTED_VARIANTS = common.PROVISIONAL_FORM_VARIANT_IDS
 EXPECTED_VIEWS = ("front", "side", "three-quarter")
 MANIFEST_NAME = "surface-preview-manifest.json"
@@ -79,7 +79,45 @@ EXPECTED_LAYOUT = {
     "pairing": "guide-left/skin-right per projection",
     "frame": "shared-world-bounds-and-projection-basis",
 }
-EXPECTED_GUIDE_COUNTS = {"owners": 18, "axial": 2, "head": 1, "limbs": 8, "paws": 4, "tails": 2, "centerlines": 17}
+EXPECTED_GUIDE_COUNTS = {
+    "owners": 18,
+    "axial_stations": 3,
+    "axial_transitions": 2,
+    "axial_core_masses": 1,
+    "head": 1,
+    "limbs": 8,
+    "paws": 4,
+    "tails": 2,
+    "compiled_fields": 53,
+    "compiled_field_recipe_counts": {
+        "limb-segment": 8,
+        "joint-collar": 6,
+        "paw-mass": 4,
+        "extremity-bridge": 4,
+        "root-bridge": 4,
+        "foot-front": 2,
+        "digitigrade-lower-leg": 2,
+        "hip-transition": 2,
+        "hip-girdle": 2,
+        "shoulder-mass": 2,
+        "tail-segment": 2,
+        "cranium": 1,
+        "muzzle": 1,
+        "head-base-bridge": 1,
+        "tapered-neck": 1,
+        "neck-collar": 1,
+        "hips": 1,
+        "pelvic-core": 1,
+        "waist": 1,
+        "chest": 1,
+        "pelvis-waist-bridge": 1,
+        "waist-chest-bridge": 1,
+        "tail-root-bridge": 1,
+        "tail-root-collar": 1,
+        "tail-tip-extension": 1,
+        "tail-tip-cap": 1,
+    },
+}
 
 
 def default_creature_kernel() -> Path:
@@ -512,26 +550,55 @@ def _validate_controls(
         return parsed
 
     axial = controls["axial"]
-    if not isinstance(axial, list) or len(axial) != 2:
+    if not isinstance(axial, dict) or set(axial) != {"core", "stations", "transitions"}:
         raise SurfacePreviewPublishError("regional guide axial controls are invalid")
-    axial_expected = ({"girdle", "pelvic-core"}, {"chest", "waist"})
-    axial_owner_keys: set[str] = set()
-    for index, item in enumerate(axial):
-        if not isinstance(item, dict) or set(item) != {"owner", "masses", "centerline"}:
-            raise SurfacePreviewPublishError(f"regional guide axial[{index}] has an invalid shape")
-        parsed_owner = owner(item["owner"], f"regional-guide.controls.axial[{index}].owner")
-        owner_key = json.dumps(parsed_owner, sort_keys=True)
-        if owner_key in axial_owner_keys:
-            raise SurfacePreviewPublishError(f"regional guide axial[{index}] owner is duplicated")
-        axial_owner_keys.add(owner_key)
-        _mass_list(item["masses"], f"regional-guide.controls.axial[{index}].masses", lower, upper, axial_expected[index])
-        if index == 0:
-            if item["centerline"] is not None or parsed_owner["role"] != "pelvis":
-                raise SurfacePreviewPublishError("regional guide pelvis axial controls are invalid")
-        else:
-            if parsed_owner["role"] != "torso":
-                raise SurfacePreviewPublishError("regional guide torso axial controls are invalid")
-            _path(item["centerline"], f"regional-guide.controls.axial[{index}].centerline", lower, upper, {"trunk"})
+    core = axial["core"]
+    if not isinstance(core, dict) or set(core) != {"owner", "recipe", "mass"} or core["recipe"] != "pelvic-core":
+        raise SurfacePreviewPublishError("regional guide pelvic core control is invalid")
+    core_owner = owner(core["owner"], "regional-guide.controls.axial.core.owner")
+    if core_owner["role"] != "pelvis":
+        raise SurfacePreviewPublishError("regional guide pelvic core owner role is invalid")
+    if _mass(core["mass"], "regional-guide.controls.axial.core.mass", lower, upper, {"pelvic-core"}) != "pelvic-core":
+        raise SurfacePreviewPublishError("regional guide pelvic core mass is invalid")
+
+    stations = axial["stations"]
+    expected_stations = (
+        ("pelvic-girdle", "pelvis", "hips"),
+        ("waist", "torso", "waist"),
+        ("chest-girdle", "torso", "chest"),
+    )
+    if not isinstance(stations, list) or len(stations) != len(expected_stations):
+        raise SurfacePreviewPublishError("regional guide axial stations are invalid")
+    station_y: list[float] = []
+    for index, (item, (expected_name, expected_role, expected_recipe)) in enumerate(zip(stations, expected_stations)):
+        if not isinstance(item, dict) or set(item) != {"name", "owner", "recipe", "mass"}:
+            raise SurfacePreviewPublishError(f"regional guide axial.stations[{index}] has an invalid shape")
+        if item["name"] != expected_name or item["recipe"] != expected_recipe:
+            raise SurfacePreviewPublishError(f"regional guide axial.stations[{index}] name or recipe is invalid")
+        station_owner = owner(item["owner"], f"regional-guide.controls.axial.stations[{index}].owner")
+        if station_owner["role"] != expected_role:
+            raise SurfacePreviewPublishError(f"regional guide axial.stations[{index}] owner role is invalid")
+        _mass(item["mass"], f"regional-guide.controls.axial.stations[{index}].mass", lower, upper, {expected_name})
+        station_y.append(_finite_number(item["mass"]["center"][1], f"regional-guide.controls.axial.stations[{index}].mass.center[1]"))
+    if not station_y[0] < station_y[1] < station_y[2]:
+        raise SurfacePreviewPublishError("regional guide axial stations are not ordered from pelvis to chest")
+
+    transitions = axial["transitions"]
+    expected_transitions = (
+        ("pelvis-waist", "pelvis-waist-bridge"),
+        ("waist-chest", "waist-chest-bridge"),
+    )
+    if not isinstance(transitions, list) or len(transitions) != len(expected_transitions):
+        raise SurfacePreviewPublishError("regional guide axial transitions are invalid")
+    for index, (item, (expected_name, expected_recipe)) in enumerate(zip(transitions, expected_transitions)):
+        if not isinstance(item, dict) or set(item) != {"name", "owner", "recipe", "path"}:
+            raise SurfacePreviewPublishError(f"regional guide axial.transitions[{index}] has an invalid shape")
+        if item["name"] != expected_name or item["recipe"] != expected_recipe:
+            raise SurfacePreviewPublishError(f"regional guide axial.transitions[{index}] name or recipe is invalid")
+        transition_owner = owner(item["owner"], f"regional-guide.controls.axial.transitions[{index}].owner")
+        if transition_owner["role"] != "torso":
+            raise SurfacePreviewPublishError(f"regional guide axial.transitions[{index}] owner role is invalid")
+        _path(item["path"], f"regional-guide.controls.axial.transitions[{index}].path", lower, upper, {expected_name}, expected_kind="tapered-segment")
 
     head = controls["head"]
     if not isinstance(head, dict) or set(head) != {"owners", "masses", "sections"}:
@@ -549,7 +616,7 @@ def _validate_controls(
     if not isinstance(limbs, list) or len(limbs) != 8:
         raise SurfacePreviewPublishError("regional guide limb controls are invalid")
     section_by_role = {"upper_arm": {"root"}, "forearm": set(), "thigh": {"root", "hip"}, "shin": {"lower-leg"}}
-    masses_by_role = {"upper_arm": {"shoulder", "joint"}, "forearm": set(), "thigh": {"joint"}, "shin": {"joint"}}
+    masses_by_role = {"upper_arm": {"shoulder-girdle", "joint"}, "forearm": set(), "thigh": {"hip-girdle", "joint"}, "shin": {"joint"}}
     limb_owner_keys: set[str] = set()
     limb_roles: list[str] = []
     for index, item in enumerate(limbs):
@@ -652,7 +719,11 @@ def _validate_guide(
     if not isinstance(bounds, dict) or set(bounds) != {"min", "max"}:
         raise SurfacePreviewPublishError("regional guide bounds are invalid")
     lower, upper = bounds["min"], bounds["max"]
-    if not isinstance(lower, list) or not isinstance(upper, list) or len(lower) != 3 or len(upper) != 3 or any(type(item) not in {int, float} for item in lower + upper) or any(a >= b for a, b in zip(lower, upper)):
+    if not isinstance(lower, list) or not isinstance(upper, list) or len(lower) != 3 or len(upper) != 3:
+        raise SurfacePreviewPublishError("regional guide bounds are not finite ordered triples")
+    lower = [_finite_number(item, f"regional-guide.shared_render_bounds.min[{index}]") for index, item in enumerate(lower)]
+    upper = [_finite_number(item, f"regional-guide.shared_render_bounds.max[{index}]") for index, item in enumerate(upper)]
+    if any(a >= b for a, b in zip(lower, upper)):
         raise SurfacePreviewPublishError("regional guide bounds are not finite ordered triples")
     if guide.get("projections") != manifest.get("projections") or guide.get("layout") != manifest.get("layout") or guide.get("canvas") != manifest.get("canvas"):
         raise SurfacePreviewPublishError("regional guide framing does not match manifest")
