@@ -277,15 +277,15 @@ checks the concrete freeze inputs, with a narrow finalization path that binds
 exactly one durable WSL receipt and one durable native receipt. Until both
 receipt files exist and validate, the execution-package freeze remains
 pre-freeze and the binary slots remain unbound. Its focused boundary checks are
-in `scripts/test_phase3_freeze_manifest.py`. The current v3 successor freeze is
+in `scripts/test_phase3_freeze_manifest.py`. The current v4 successor freeze is
 materialized from execution-tool/materialization snapshot
-`762b04b8db3397cb1885d94236ad5d47cb321830` under schema
-`ck.exp-0002.phase3.freeze-manifest-3`, with manifest SHA-256
-`faafe7680fcc3509a245dde6759396a1391e02c40891128ca44d007726adef85`.
+`48bd077d659a0d2fe6d672a33438b2ac3c85f126` under schema
+`ck.exp-0002.phase3.freeze-manifest-4`, with manifest SHA-256
+`092399ed48818b4e6bcf75db12fd6c022fdcbd70d60866eb9f4ddedf48864c72`.
 It binds the experiment-wide closure tool, fixed binary cap, exact slot
-reservation, and runtime/platform observations; v3 deliberately does not yet
-authenticate the exact Python runtime contract required by the exact-attempt
-entrypoint. The v4 successor binds CPython `3.13.15` for both selectors and
+reservation, runtime/platform observations, and the exact Python runtime
+contract required by the exact-attempt entrypoint. The v4 successor binds
+CPython `3.13.15` for both selectors and
 the canonical isolated invocation
 `python3.13 -I scripts/phase3_exact_attempt_launcher.py --launch-record <launch-record>`.
 The launcher loads sibling modules by explicit file path, authenticates the
@@ -297,8 +297,8 @@ suite passed before new E `762b04b8db3397cb1885d94236ad5d47cb321830`; the
 older 267-test pass before historical v2 execution-tool commit
 `9dca58a84072582db34045b8eac98d6e86d3d5ae` remains historical. No candidate
 or exact experiment attempt has run and no native dispatch has occurred. The
-v3 successor remains execution-disabled: the later commit containing its exact
-bytes requires fresh current-revision Gate B Double review, followed by
+v4 successor remains execution-disabled: the current materialization requires
+fresh current-revision Gate B Double review, followed by
 execution-disabled admission and artifact-custody preparation. An exact-
 attempt authorization is created separately only after Ben explicitly
 authorizes execution.
@@ -318,8 +318,8 @@ candidate closure, performs the sanitized locked build, captures the build-only
 receipt, and uploads a transfer-only bundle. It does not run the candidate,
 perform an exact attempt, or dispatch the native experiment. The next internal
 steps are the final current-revision Gate B Double reviews and their
-admission/custody records. The committed receipt and predecessor v3 freeze
-artifacts remain build-only and execution-disabled; explicit Ben authorization for any
+admission/custody records. The committed receipts and v4 freeze artifact remain
+build-only and execution-disabled; explicit Ben authorization for any
 exact attempt or native dispatch follows those gates.
 
 ## Synthetic validation plumbing (development only)
@@ -622,7 +622,7 @@ not run a candidate, Rust, Cargo, shell command, or experiment attempt.
 Gate A is complete/passed for this exact development-unfrozen materialization.
 The fresh current-version Double review is recorded in [Review 01](reviews/gate-a-review-01-closure-integrity.md)
 and [Review 02](reviews/gate-a-review-02-numeric-claims.md); prior issue-finding
-reviews remain stale historical working evidence. The v3 successor execution
+reviews remain stale historical working evidence. The v4 successor execution
 package is now frozen under the manifest identity above, but final current-
 revision Gate B Double reviews and admission/custody/authorization records
 remain pending. No exact attempt or native dispatch has been executed. Ben's
