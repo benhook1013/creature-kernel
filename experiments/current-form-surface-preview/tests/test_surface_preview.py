@@ -81,12 +81,12 @@ class SurfacePreviewTests(unittest.TestCase):
         expected_recipes = {
             "hips", "pelvic-core", "chest", "waist", "axial-trunk",
             "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar",
-            "limb-segment", "root-bridge", "shoulder-mass", "joint-collar", "digitigrade-lower-leg",
+            "limb-segment", "root-bridge", "hip-transition", "shoulder-mass", "joint-collar", "digitigrade-lower-leg",
             "paw-mass", "extremity-bridge", "tail-segment", "tail-root-bridge",
             "tail-root-collar",
         }
         self.assertEqual({field.recipe for field in fields}, expected_recipes)
-        self.assertEqual(len(fields), 46)
+        self.assertEqual(len(fields), 48)
 
         pelvis = next(item for item in descriptors if item.key[3] == "pelvis")
         torso = next(item for item in descriptors if item.key[3] == "torso")
@@ -137,6 +137,36 @@ class SurfacePreviewTests(unittest.TestCase):
             ["limb-segment", "root-bridge", "shoulder-mass", "joint-collar"],
         )
 
+        left_thigh = next(
+            item for item in descriptors if item.key[1] == ("left",) and item.key[3] == "thigh"
+        )
+        right_thigh = next(
+            item for item in descriptors if item.key[1] == ("right",) and item.key[3] == "thigh"
+        )
+        left_hip = next(item for item in fields if item.owner is left_thigh and item.recipe == "hip-transition")
+        right_hip = next(item for item in fields if item.owner is right_thigh and item.recipe == "hip-transition")
+        left_thigh_shape = surface_preview._source_shape(left_thigh, form.reference_scale)
+        thigh_radius = surface_preview._radius_from_shape(left_thigh_shape)
+        np.testing.assert_allclose(
+            left_hip.shape["from"],
+            surface_preview._parent_surface_anchor(pelvis, left_thigh_shape["from"], form.reference_scale),
+        )
+        np.testing.assert_allclose(
+            left_hip.shape["to"],
+            left_thigh_shape["from"] + 0.35 * (left_thigh_shape["to"] - left_thigh_shape["from"]),
+        )
+        self.assertAlmostEqual(float(left_hip.shape["r0"]), 1.65 * thigh_radius, places=12)
+        self.assertAlmostEqual(float(left_hip.shape["r1"]), 1.15 * thigh_radius, places=12)
+        self.assertIs(left_hip.owner, left_thigh)
+        np.testing.assert_allclose(left_hip.shape["from"][[1, 2]], right_hip.shape["from"][[1, 2]])
+        np.testing.assert_allclose(left_hip.shape["to"][[1, 2]], right_hip.shape["to"][[1, 2]])
+        self.assertAlmostEqual(float(left_hip.shape["from"][0]), -float(right_hip.shape["from"][0]))
+        self.assertAlmostEqual(float(left_hip.shape["to"][0]), -float(right_hip.shape["to"][0]))
+        self.assertEqual(
+            [item.recipe for item in fields if item.owner is left_thigh],
+            ["limb-segment", "root-bridge", "hip-transition", "joint-collar"],
+        )
+
         hand = next(item for item in descriptors if item.key[1] == ("left",) and item.key[3] == "hand")
         paw = next(item for item in fields if item.owner is hand and item.recipe == "paw-mass")
         source_hand = surface_preview._source_shape(hand, form.reference_scale)
@@ -182,7 +212,7 @@ class SurfacePreviewTests(unittest.TestCase):
         muzzle_top = float(muzzle.shape["center"][1] + muzzle.shape["radii"][1])
         self.assertLess(muzzle_bottom, cranium_top)
         self.assertGreater(muzzle_top, cranium_bottom)
-        self.assertEqual(len(fields), 46)
+        self.assertEqual(len(fields), 48)
         source_keys = {descriptor.key for descriptor in descriptors}
         self.assertTrue(all(field.owner.key in source_keys for field in fields))
 
@@ -237,7 +267,7 @@ class SurfacePreviewTests(unittest.TestCase):
             manifest = json.loads((output / "surface-preview-manifest.json").read_text())
             metrics = manifest["variants"][0]["metrics"]
             self.assertEqual(metrics["source_descriptor_count"], 18)
-            self.assertEqual(metrics["generated_field_count"], 46)
+            self.assertEqual(metrics["generated_field_count"], 48)
             self.assertEqual(metrics["field_memory_values"], metrics["generated_field_count"] * 24**3)
             source_keys = {json.dumps(field.owner.key, default=list) for field in first}
             winner_keys = {json.dumps(tuple((item["namespace"], tuple(item["anchors"]), item["kind"], item["role"])), default=list) for item in metrics["winner_addresses"]}
@@ -260,7 +290,7 @@ class SurfacePreviewTests(unittest.TestCase):
             self.assertEqual([x["id"] for x in manifest["variants"]], list(surface_preview.VARIANT_IDS))
             self.assertTrue(all(len(x["inventory"]) == 4 for x in manifest["variants"]))
             self.assertTrue(all(x["metrics"]["source_descriptor_count"] == 18 for x in manifest["variants"]))
-            self.assertTrue(all(x["metrics"]["generated_field_count"] == 46 for x in manifest["variants"]))
+            self.assertTrue(all(x["metrics"]["generated_field_count"] == 48 for x in manifest["variants"]))
             self.assertTrue(all(x["metrics"]["component_count"] == 1 and x["metrics"]["watertight"] for x in manifest["variants"]))
 
 
