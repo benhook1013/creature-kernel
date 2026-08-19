@@ -667,7 +667,55 @@ def _compound_fields(form: Form, descriptors: tuple[Descriptor, ...]) -> tuple[F
                 add(desc, "extremity-bridge", _segment("capsule", anchor, centre, max(_radius_from_shape(parent_shape) * 0.72, float(np.min(radii)) * 0.62)))
         elif role in {"tail_root", "tail_tip"}:
             source_start, source_end = source["from"], source["to"]
-            add(desc, "tail-segment", source)
+            if role == "tail_tip":
+                # The two semantic descriptors retain the fixed straight-tail
+                # convention while the disposable display recipe carries the
+                # distal taper far enough beyond the torso to remain readable.
+                axis = source_end - source_start
+                proximal_radius = source["r0"] * 1.35
+                mid_radius = source["r0"] * 0.90
+                add(
+                    desc,
+                    "tail-segment",
+                    _segment(
+                        "tapered-segment",
+                        source_start,
+                        source_end,
+                        proximal_radius,
+                        mid_radius,
+                    ),
+                )
+                add(
+                    desc,
+                    "tail-tip-extension",
+                    _segment(
+                        "tapered-segment",
+                        source_end,
+                        source_end + 0.50 * axis,
+                        mid_radius,
+                        source["r0"] * 0.55,
+                    ),
+                )
+                add(
+                    desc,
+                    "tail-tip-cap",
+                    _ellipsoid(
+                        source_end + 0.50 * axis,
+                        np.full(3, source["r0"] * 0.70),
+                    ),
+                )
+            else:
+                add(
+                    desc,
+                    "tail-segment",
+                    _segment(
+                        "tapered-segment",
+                        source_start,
+                        source_end,
+                        source["r0"] * 1.15,
+                        source["r1"] * 1.35,
+                    ),
+                )
             if role == "tail_root" and parent is not None:
                 # The producer's root segment intentionally starts at the
                 # pelvis reference point.  Anchor the visible root continuity
@@ -675,7 +723,14 @@ def _compound_fields(form: Form, descriptors: tuple[Descriptor, ...]) -> tuple[F
                 # length centre-to-centre bridge.
                 anchor = _parent_surface_anchor(parent, source_end, form.reference_scale)
                 add(desc, "tail-root-bridge", _segment("tapered-segment", anchor, source_end, source["r0"] * 1.28, source["r0"]))
-                add(desc, "tail-root-collar", _ellipsoid(source_end, np.full(3, source["r0"] * 1.18)))
+                add(
+                    desc,
+                    "tail-root-collar",
+                    _ellipsoid(
+                        source_end,
+                        source["r1"] * np.asarray([1.50, 1.50, 1.80]),
+                    ),
+                )
         else:
             # Validation currently admits a closed set of roles, but retain a
             # safe source-field fallback if a future fixture adds a role.
@@ -877,7 +932,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
             sidecar.write_bytes(_canonical({"format": "creature-kernel.disposable-surface-preview-semantic-winners.v1", "source_format": SOURCE_FORMAT, "variant_id": variant_id, "vertex_count": len(vertices), "source_node_labels": [_address_json(key) for key in labels], "attribution": "every recipe component resolves to its source descriptor owner; no synthetic node identity is emitted"}))
             metrics_path.write_bytes(_canonical(metrics)); _render(png, vertices, faces, variant_id)
             records.append({"id": variant_id, "profile_id": raw_variant["profile_id"], "source": {"document": form.source["document"], "namespace": form.source["namespace"], "resource_profile_id": form.source["resource_profile_id"]}, "descriptor_address_keys": [_address_json(desc.key) for desc in descriptors], "grid": grid, "metrics": metrics, "inventory": [_sha(ply, "ply", stage), _sha(sidecar, "semantic-sidecar", stage), _sha(metrics_path, "metrics", stage), {**_sha(png, "neutral-composite-png", stage), "width": CANVAS[0], "height": CANVAS[1], "views": ["front", "side", "three-quarter"], "mode": "RGB"}]})
-        manifest = {"format": FORMAT, "status": "success", "source_format": SOURCE_FORMAT, "source": {"format": SOURCE_FORMAT, "sha256": hashlib.sha256(data).hexdigest(), "document": form.source["document"], "namespace": form.source["namespace"], "resource_profile_id": form.source["resource_profile_id"], "reference_scale": form.reference_scale_raw}, "generator": {"samples_per_axis": samples, "padding": padding, "smooth_union": {"operator": "polynomial_cubic_smooth_min", "k": smooth_k, "fold_order": "source_address_then_recipe_order"}, "field_primitives": ["ellipsoid", "capsule", "linear-radius-tapered-segment"], "field_recipes": ["hips", "pelvic-core", "chest", "waist", "axial-trunk", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar", "limb-segment", "root-bridge", "hip-transition", "shoulder-mass", "joint-collar", "digitigrade-lower-leg", "paw-mass", "extremity-bridge", "tail-segment", "tail-root-bridge", "tail-root-collar"], "ownership": "recipe fields are source-owned and winner labels expose only source AddressKeys", "boundary": "disposable exploratory visual proof; not production geometry, SDF, collision, rig, topology, or Readiness evidence"}, "variants": records}
+        manifest = {"format": FORMAT, "status": "success", "source_format": SOURCE_FORMAT, "source": {"format": SOURCE_FORMAT, "sha256": hashlib.sha256(data).hexdigest(), "document": form.source["document"], "namespace": form.source["namespace"], "resource_profile_id": form.source["resource_profile_id"], "reference_scale": form.reference_scale_raw}, "generator": {"samples_per_axis": samples, "padding": padding, "smooth_union": {"operator": "polynomial_cubic_smooth_min", "k": smooth_k, "fold_order": "source_address_then_recipe_order"}, "field_primitives": ["ellipsoid", "capsule", "linear-radius-tapered-segment"], "field_recipes": ["hips", "pelvic-core", "chest", "waist", "axial-trunk", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar", "limb-segment", "root-bridge", "hip-transition", "shoulder-mass", "joint-collar", "digitigrade-lower-leg", "paw-mass", "extremity-bridge", "tail-segment", "tail-tip-extension", "tail-tip-cap", "tail-root-bridge", "tail-root-collar"], "ownership": "recipe fields are source-owned and winner labels expose only source AddressKeys", "boundary": "disposable exploratory visual proof; not production geometry, SDF, collision, rig, topology, or Readiness evidence"}, "variants": records}
         (stage / "surface-preview-manifest.json").write_bytes(_canonical(manifest) + b"\n")
         expected_files = {"surface-preview-manifest.json"}
         expected_directories = set(VARIANT_IDS)

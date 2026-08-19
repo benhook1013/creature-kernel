@@ -16,8 +16,8 @@ role recipe where useful. The current fixture convention supplies shared
 chest/waist/hip masses, a broader axial trunk transition, cranium and muzzle,
 a parent-surface neck/collar, source-owned shoulder masses plus limb root and
 joint collars, tapered hip-to-thigh transitions, digitigrade lower-leg shaping,
-paw/foot masses, and a tail-root
-bridge/collar. Recipe components are fields,
+paw/foot masses, and a smoothly rooted straight tail with a full midsection and
+short blunt distal taper. Recipe components are fields,
 not semantic nodes: every generated component keeps its source descriptor as
 owner and the semantic sidecar emits only source AddressKeys. Limb and root
 bridges are anchored on the parent analytic-field boundary in the existing

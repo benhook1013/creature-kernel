@@ -82,11 +82,11 @@ class SurfacePreviewTests(unittest.TestCase):
             "hips", "pelvic-core", "chest", "waist", "axial-trunk",
             "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar",
             "limb-segment", "root-bridge", "hip-transition", "shoulder-mass", "joint-collar", "digitigrade-lower-leg",
-            "paw-mass", "extremity-bridge", "tail-segment", "tail-root-bridge",
+            "paw-mass", "extremity-bridge", "tail-segment", "tail-tip-extension", "tail-tip-cap", "tail-root-bridge",
             "tail-root-collar",
         }
         self.assertEqual({field.recipe for field in fields}, expected_recipes)
-        self.assertEqual(len(fields), 48)
+        self.assertEqual(len(fields), 50)
 
         pelvis = next(item for item in descriptors if item.key[3] == "pelvis")
         torso = next(item for item in descriptors if item.key[3] == "torso")
@@ -182,6 +182,54 @@ class SurfacePreviewTests(unittest.TestCase):
         foot_anchor_value = surface_preview._field(foot_bridge.shape["from"].reshape(1, 3), shin, form.reference_scale)[0]
         self.assertAlmostEqual(float(foot_anchor_value), 0.0, places=12)
 
+        tail_root = next(item for item in descriptors if item.key[3] == "tail_root")
+        tail_tip = next(item for item in descriptors if item.key[3] == "tail_tip")
+        root_shape = surface_preview._source_shape(tail_root, form.reference_scale)
+        tip_shape = surface_preview._source_shape(tail_tip, form.reference_scale)
+        root_fields = [item for item in fields if item.owner is tail_root]
+        tip_fields = [item for item in fields if item.owner is tail_tip]
+        self.assertEqual(
+            [item.recipe for item in root_fields],
+            ["tail-segment", "tail-root-bridge", "tail-root-collar"],
+        )
+        self.assertEqual(
+            [item.recipe for item in tip_fields],
+            ["tail-segment", "tail-tip-extension", "tail-tip-cap"],
+        )
+        root_segment = root_fields[0]
+        np.testing.assert_allclose(root_segment.shape["from"], root_shape["from"])
+        np.testing.assert_allclose(root_segment.shape["to"], root_shape["to"])
+        self.assertAlmostEqual(float(root_segment.shape["r0"]), 1.15 * float(root_shape["r0"]), places=12)
+        self.assertAlmostEqual(float(root_segment.shape["r1"]), 1.35 * float(root_shape["r1"]), places=12)
+        tip_segment, tip_extension, tip_cap = tip_fields
+        np.testing.assert_allclose(tip_segment.shape["from"], tip_shape["from"])
+        np.testing.assert_allclose(tip_segment.shape["to"], tip_shape["to"])
+        self.assertAlmostEqual(float(tip_segment.shape["r0"]), 1.35 * float(tip_shape["r0"]), places=12)
+        self.assertAlmostEqual(float(tip_segment.shape["r1"]), 0.90 * float(tip_shape["r0"]), places=12)
+        np.testing.assert_allclose(tip_extension.shape["from"], tip_shape["to"])
+        np.testing.assert_allclose(
+            tip_extension.shape["to"],
+            tip_shape["to"] + 0.50 * (tip_shape["to"] - tip_shape["from"]),
+        )
+        self.assertAlmostEqual(float(tip_extension.shape["r0"]), float(tip_segment.shape["r1"]), places=12)
+        self.assertAlmostEqual(float(tip_extension.shape["r1"]), 0.55 * float(tip_shape["r0"]), places=12)
+        np.testing.assert_allclose(tip_cap.shape["center"], tip_extension.shape["to"])
+        np.testing.assert_allclose(tip_cap.shape["radii"], np.full(3, 0.70 * float(tip_shape["r0"])))
+        root_bridge = next(item for item in root_fields if item.recipe == "tail-root-bridge")
+        root_collar = next(item for item in root_fields if item.recipe == "tail-root-collar")
+        np.testing.assert_allclose(
+            root_bridge.shape["from"],
+            surface_preview._parent_surface_anchor(pelvis, root_shape["to"], form.reference_scale),
+        )
+        np.testing.assert_allclose(root_bridge.shape["to"], root_shape["to"])
+        np.testing.assert_allclose(root_collar.shape["center"], root_shape["to"])
+        np.testing.assert_allclose(
+            root_collar.shape["radii"],
+            root_shape["r1"] * np.asarray([1.50, 1.50, 1.80]),
+        )
+        self.assertTrue(all(item.owner is tail_root for item in root_fields))
+        self.assertTrue(all(item.owner is tail_tip for item in tip_fields))
+
     def test_candidate_c_craniofacial_ratios_overlap_and_source_ownership(self) -> None:
         form = surface_preview.validate_envelope(make_payload())
         descriptors = form.variants[0][1]
@@ -212,7 +260,7 @@ class SurfacePreviewTests(unittest.TestCase):
         muzzle_top = float(muzzle.shape["center"][1] + muzzle.shape["radii"][1])
         self.assertLess(muzzle_bottom, cranium_top)
         self.assertGreater(muzzle_top, cranium_bottom)
-        self.assertEqual(len(fields), 48)
+        self.assertEqual(len(fields), 50)
         source_keys = {descriptor.key for descriptor in descriptors}
         self.assertTrue(all(field.owner.key in source_keys for field in fields))
 
@@ -267,7 +315,7 @@ class SurfacePreviewTests(unittest.TestCase):
             manifest = json.loads((output / "surface-preview-manifest.json").read_text())
             metrics = manifest["variants"][0]["metrics"]
             self.assertEqual(metrics["source_descriptor_count"], 18)
-            self.assertEqual(metrics["generated_field_count"], 48)
+            self.assertEqual(metrics["generated_field_count"], 50)
             self.assertEqual(metrics["field_memory_values"], metrics["generated_field_count"] * 24**3)
             source_keys = {json.dumps(field.owner.key, default=list) for field in first}
             winner_keys = {json.dumps(tuple((item["namespace"], tuple(item["anchors"]), item["kind"], item["role"])), default=list) for item in metrics["winner_addresses"]}
@@ -290,7 +338,7 @@ class SurfacePreviewTests(unittest.TestCase):
             self.assertEqual([x["id"] for x in manifest["variants"]], list(surface_preview.VARIANT_IDS))
             self.assertTrue(all(len(x["inventory"]) == 4 for x in manifest["variants"]))
             self.assertTrue(all(x["metrics"]["source_descriptor_count"] == 18 for x in manifest["variants"]))
-            self.assertTrue(all(x["metrics"]["generated_field_count"] == 48 for x in manifest["variants"]))
+            self.assertTrue(all(x["metrics"]["generated_field_count"] == 50 for x in manifest["variants"]))
             self.assertTrue(all(x["metrics"]["component_count"] == 1 and x["metrics"]["watertight"] for x in manifest["variants"]))
 
 
