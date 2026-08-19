@@ -8,6 +8,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import numpy as np
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location("surface_preview", ROOT / "surface_preview.py")
@@ -28,12 +30,22 @@ def make_payload() -> dict[str, object]:
     descriptors = [
         descriptor("pelvis", [0, 0, 0], None, {"name": "ellipsoid", "center": [0, 0, 0], "axis_extents_permille": [1700, 1200, 900]}),
         descriptor("torso", [0, 1, 0], pelvis, {"name": "ellipsoid", "center": [0, 1, 0], "axis_extents_permille": [1650, 1200, 900]}),
-        # Keep the synthetic body connected: the torso top is y=2.2 and this
-        # head bottom is y=2.1, leaving a small analytic overlap.
-        descriptor("head", [0, 3, 0], address("torso"), {"name": "ellipsoid", "center": [0, 3, 0], "axis_extents_permille": [1000, 900, 900]}),
+        descriptor("neck", [0, 2, 0], address("torso"), {"name": "capsule", "from": [0, 2, 0], "to": [0, 3, 0], "radius_permille": 350}),
+        descriptor("head", [0, 3, 0], address("neck"), {"name": "ellipsoid", "center": [0, 3, 0], "axis_extents_permille": [1000, 600, 900]}),
         descriptor("upper_arm", [-1, 2, 0], address("torso"), {"name": "capsule", "from": [-1, 2, 0], "to": [-2, 2, 0], "radius_permille": 220}, ["left"]),
         descriptor("forearm", [-2, 2, 0], address("upper_arm", ["left"]), {"name": "capsule", "from": [-2, 2, 0], "to": [-3, 2, 0], "radius_permille": 190}, ["left"]),
         descriptor("hand", [-3, 2, 0], address("forearm", ["left"]), {"name": "ellipsoid", "center": [-3, 2, 0], "axis_extents_permille": [450, 400, 350]}, ["left"]),
+        descriptor("upper_arm", [1, 2, 0], address("torso"), {"name": "capsule", "from": [1, 2, 0], "to": [2, 2, 0], "radius_permille": 220}, ["right"]),
+        descriptor("forearm", [2, 2, 0], address("upper_arm", ["right"]), {"name": "capsule", "from": [2, 2, 0], "to": [3, 2, 0], "radius_permille": 190}, ["right"]),
+        descriptor("hand", [3, 2, 0], address("forearm", ["right"]), {"name": "ellipsoid", "center": [3, 2, 0], "axis_extents_permille": [450, 400, 350]}, ["right"]),
+        descriptor("thigh", [-1, -1, 0], pelvis, {"name": "capsule", "from": [-1, -1, 0], "to": [-1, -2, 0], "radius_permille": 280}, ["left"]),
+        descriptor("shin", [-1, -2, 0], address("thigh", ["left"]), {"name": "capsule", "from": [-1, -2, 0], "to": [-1, -3, 1], "radius_permille": 220}, ["left"]),
+        descriptor("foot", [-1, -3, 1], address("shin", ["left"]), {"name": "ellipsoid", "center": [-1, -3, 1], "axis_extents_permille": [500, 350, 700]}, ["left"]),
+        descriptor("thigh", [1, -1, 0], pelvis, {"name": "capsule", "from": [1, -1, 0], "to": [1, -2, 0], "radius_permille": 280}, ["right"]),
+        descriptor("shin", [1, -2, 0], address("thigh", ["right"]), {"name": "capsule", "from": [1, -2, 0], "to": [1, -3, 1], "radius_permille": 220}, ["right"]),
+        descriptor("foot", [1, -3, 1], address("shin", ["right"]), {"name": "ellipsoid", "center": [1, -3, 1], "axis_extents_permille": [500, 350, 700]}, ["right"]),
+        descriptor("tail_root", [0, 0, -1], pelvis, {"name": "tapered-segment", "from": [0, 0, 0], "to": [0, 0, -1], "start_radius_permille": 300, "end_radius_permille": 220}, ["tail"]),
+        descriptor("tail_tip", [0, 0, -2], address("tail_root", ["tail"]), {"name": "tapered-segment", "from": [0, 0, -1], "to": [0, 0, -2], "start_radius_permille": 220, "end_radius_permille": 40}, ["tail"]),
     ]
     descriptors.sort(key=lambda item: (item["address"]["namespace"], tuple(item["address"]["anchors"]), item["address"]["kind"], item["address"]["role"]))
     variants = []
@@ -43,7 +55,7 @@ def make_payload() -> dict[str, object]:
             item["profile_id"] = variant_id
             item["provenance"]["resource_profile_id"] = "ck.resource.body.r2"
         variants.append({"id": variant_id, "profile_id": variant_id, "provenance": {"source": "profile-derived-display", "resource_profile_id": "ck.resource.body.r2"}, "descriptors": current})
-    payload = {"format": surface_preview.SOURCE_FORMAT, "operation": "inspect-provisional-form", "status": "success", "stage": "provisional-form", "processing_complete": True, "diagnostics_complete": True, "diagnostics": [], "source": {"document": "test", "namespace": "main", "resource_profile_id": "ck.resource.body.r2"}, "reference_scale": {"parent": pelvis, "child": address("torso"), "axis_delta": [0, 1, 0], "squared_length": 1, "source": "exact-containment-edge"}, "variants": variants, "limitations": "Provisional display-only geometry descriptors; no production geometry or Readiness 3."}
+    payload = {"format": surface_preview.SOURCE_FORMAT, "operation": "inspect-provisional-form", "status": "success", "stage": "provisional-form", "processing_complete": True, "diagnostics_complete": True, "diagnostics": [], "source": {"document": "test", "namespace": "main", "resource_profile_id": "ck.resource.body.r2"}, "reference_scale": {"parent": address("neck"), "child": address("head"), "axis_delta": [0, 1, 0], "squared_length": 1, "source": "exact-containment-edge"}, "variants": variants, "limitations": "Provisional display-only geometry descriptors; no production geometry or Readiness 3."}
     return payload
 
 
@@ -58,6 +70,101 @@ class SurfacePreviewTests(unittest.TestCase):
         with self.assertRaises(surface_preview.PreviewError): surface_preview.validate_envelope(payload)
         payload = make_payload(); payload["extra"] = True
         with self.assertRaises(surface_preview.PreviewError): surface_preview.validate_envelope(payload)
+
+    def test_role_recipes_anchor_limbs_and_expand_head_and_paw(self) -> None:
+        form = surface_preview.validate_envelope(make_payload())
+        descriptors = form.variants[0][1]
+        fields = surface_preview._compound_fields(form, descriptors)
+        source_keys = {descriptor.key for descriptor in descriptors}
+        self.assertTrue(fields)
+        self.assertTrue(all(field.owner.key in source_keys for field in fields))
+        expected_recipes = {
+            "hips", "pelvic-core", "chest", "waist", "pelvis-waist-bridge",
+            "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar",
+            "limb-segment", "root-bridge", "joint-collar", "digitigrade-lower-leg",
+            "paw-mass", "extremity-bridge", "tail-segment", "tail-root-bridge",
+            "tail-root-collar",
+        }
+        self.assertEqual({field.recipe for field in fields}, expected_recipes)
+        self.assertEqual(len(fields), 44)
+
+        upper_arm = next(item for item in descriptors if item.key[3] == "upper_arm")
+        bridge = next(item for item in fields if item.owner is upper_arm and item.recipe == "root-bridge")
+        torso = next(item for item in descriptors if item.key[3] == "torso")
+        self.assertFalse((bridge.shape["from"] == torso.point).all(), "limb bridge must not start at torso centre")
+        self.assertTrue((bridge.shape["to"] == surface_preview._source_shape(upper_arm, form.reference_scale)["from"]).all())
+
+        hand = next(item for item in descriptors if item.key[1] == ("left",) and item.key[3] == "hand")
+        paw = next(item for item in fields if item.owner is hand and item.recipe == "paw-mass")
+        source_hand = surface_preview._source_shape(hand, form.reference_scale)
+        self.assertGreater(float(paw.shape["radii"][2]), float(source_hand["radii"][2]))
+        hand_bridge = next(item for item in fields if item.owner is hand and item.recipe == "extremity-bridge")
+        forearm = next(item for item in descriptors if item.key == hand.parent)
+        hand_anchor_value = surface_preview._field(hand_bridge.shape["from"].reshape(1, 3), forearm, form.reference_scale)[0]
+        self.assertAlmostEqual(float(hand_anchor_value), 0.0, places=12)
+
+        foot = next(item for item in descriptors if item.key[1] == ("left",) and item.key[3] == "foot")
+        foot_bridge = next(item for item in fields if item.owner is foot and item.recipe == "extremity-bridge")
+        shin = next(item for item in descriptors if item.key == foot.parent)
+        foot_anchor_value = surface_preview._field(foot_bridge.shape["from"].reshape(1, 3), shin, form.reference_scale)[0]
+        self.assertAlmostEqual(float(foot_anchor_value), 0.0, places=12)
+
+    def test_segment_parent_surface_anchor_uses_radius_and_fails_when_ambiguous(self) -> None:
+        form = surface_preview.validate_envelope(make_payload())
+        descriptors = form.variants[0][1]
+        neck = next(item for item in descriptors if item.key[3] == "neck")
+        head = next(item for item in descriptors if item.key[3] == "head")
+        head_cap = surface_preview._parent_surface_anchor(neck, head.point, form.reference_scale)
+        self.assertAlmostEqual(float(head_cap[0]), 0.0)
+        self.assertAlmostEqual(float(head_cap[1]), 3.35)
+        self.assertAlmostEqual(float(head_cap[2]), 0.0)
+        side = surface_preview._parent_surface_anchor(neck, np.asarray([1.0, 2.5, 0.0]), form.reference_scale)
+        self.assertAlmostEqual(float(side[0]), 0.35)
+        self.assertAlmostEqual(float(side[1]), 2.5)
+        with self.assertRaises(surface_preview.PreviewError):
+            surface_preview._parent_surface_anchor(neck, np.asarray([0.0, 2.5, 0.0]), form.reference_scale)
+
+        tail_root = next(item for item in descriptors if item.key[3] == "tail_root")
+        tapered_side = surface_preview._parent_surface_anchor(tail_root, np.asarray([1.0, 0.0, -0.5]), form.reference_scale)
+        self.assertAlmostEqual(float(tapered_side[0]), 0.26)
+        self.assertAlmostEqual(float(tapered_side[2]), -0.5)
+
+    def test_role_recipes_reject_nonconforming_axis_placement(self) -> None:
+        payload = make_payload()
+        for variant in payload["variants"]:
+            upper_arm = next(
+                item for item in variant["descriptors"]
+                if item["address"]["anchors"] == ["left"] and item["address"]["role"] == "upper_arm"
+            )
+            upper_arm["reference_point"] = [0, 2, -1]
+            upper_arm["shape"]["from"] = [0, 2, -1]
+        form = surface_preview.validate_envelope(payload)
+        with self.assertRaisesRegex(surface_preview.PreviewError, r"\+Y-up/\+Z-forward"):
+            surface_preview._compound_fields(form, form.variants[0][1])
+
+    def test_recipe_order_owner_labels_and_resource_accounting_are_deterministic(self) -> None:
+        form = surface_preview.validate_envelope(make_payload())
+        descriptors = form.variants[0][1]
+        first = surface_preview._compound_fields(form, descriptors)
+        second = surface_preview._compound_fields(form, descriptors)
+        self.assertEqual([(field.owner.key, field.recipe) for field in first], [(field.owner.key, field.recipe) for field in second])
+        recipe_signature = [(field.owner.key, field.recipe) for field in first]
+        for _, variant_descriptors, _ in form.variants[1:]:
+            self.assertEqual(recipe_signature, [(field.owner.key, field.recipe) for field in surface_preview._compound_fields(form, variant_descriptors)])
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            input_path = root / "input.json"
+            input_path.write_bytes(surface_preview._canonical(make_payload()))
+            output = root / "output"
+            surface_preview.generate(input_path, output, samples=24, padding=0.5)
+            manifest = json.loads((output / "surface-preview-manifest.json").read_text())
+            metrics = manifest["variants"][0]["metrics"]
+            self.assertEqual(metrics["source_descriptor_count"], 18)
+            self.assertEqual(metrics["generated_field_count"], 44)
+            self.assertEqual(metrics["field_memory_values"], metrics["generated_field_count"] * 24**3)
+            source_keys = {json.dumps(field.owner.key, default=list) for field in first}
+            winner_keys = {json.dumps(tuple((item["namespace"], tuple(item["anchors"]), item["kind"], item["role"])), default=list) for item in metrics["winner_addresses"]}
+            self.assertTrue(winner_keys <= source_keys)
 
     def test_output_is_deterministic_and_has_exact_bundle(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -75,6 +182,9 @@ class SurfacePreviewTests(unittest.TestCase):
             self.assertEqual(manifest["source_format"], surface_preview.SOURCE_FORMAT)
             self.assertEqual([x["id"] for x in manifest["variants"]], list(surface_preview.VARIANT_IDS))
             self.assertTrue(all(len(x["inventory"]) == 4 for x in manifest["variants"]))
+            self.assertTrue(all(x["metrics"]["source_descriptor_count"] == 18 for x in manifest["variants"]))
+            self.assertTrue(all(x["metrics"]["generated_field_count"] == 44 for x in manifest["variants"]))
+            self.assertTrue(all(x["metrics"]["component_count"] == 1 and x["metrics"]["watertight"] for x in manifest["variants"]))
 
 
 if __name__ == "__main__":
