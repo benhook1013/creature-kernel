@@ -59,6 +59,22 @@ def make_payload() -> dict[str, object]:
     return payload
 
 
+def make_varied_payload() -> dict[str, object]:
+    payload = make_payload()
+    factors = (1.0, 1.08, 0.92, 1.16)
+    for variant, factor in zip(payload["variants"], factors):
+        for item in variant["descriptors"]:
+            shape = item["shape"]
+            if shape["name"] == "ellipsoid":
+                shape["axis_extents_permille"] = [max(1, round(value * factor)) for value in shape["axis_extents_permille"]]
+            elif shape["name"] == "capsule":
+                shape["radius_permille"] = max(1, round(shape["radius_permille"] * factor))
+            else:
+                shape["start_radius_permille"] = max(1, round(shape["start_radius_permille"] * factor))
+                shape["end_radius_permille"] = max(1, round(shape["end_radius_permille"] * factor))
+    return payload
+
+
 class SurfacePreviewTests(unittest.TestCase):
     def test_validation_preserves_four_variants_and_full_keys(self) -> None:
         form = surface_preview.validate_envelope(make_payload())
@@ -70,6 +86,123 @@ class SurfacePreviewTests(unittest.TestCase):
         with self.assertRaises(surface_preview.PreviewError): surface_preview.validate_envelope(payload)
         payload = make_payload(); payload["extra"] = True
         with self.assertRaises(surface_preview.PreviewError): surface_preview.validate_envelope(payload)
+
+    def test_private_hybrid_guides_are_stable_source_owned_and_backend_neutral(self) -> None:
+        form = surface_preview.validate_envelope(make_varied_payload())
+        expected_keys = tuple(descriptor.key for descriptor in form.variants[0][1])
+        topology_signatures = []
+        geometry_signatures = []
+        for _, descriptors, _ in form.variants:
+            guide = surface_preview._derive_hybrid_guides(form, descriptors)
+            topology_signatures.append(
+                (
+                    guide.topology.owner_keys,
+                    guide.topology.parent_edges,
+                    guide.topology.bilateral_pairs,
+                )
+            )
+            regional_owners = (
+                tuple(item.owner.key for item in guide.axial_guides)
+                + (guide.head_guide.head_owner.key, guide.head_guide.neck_owner.key)
+                + tuple(item.owner.key for item in guide.limb_guides)
+                + tuple(item.owner.key for item in guide.paw_guides)
+                + tuple(item.owner.key for item in guide.tail_guides)
+            )
+            self.assertEqual(set(regional_owners), set(expected_keys))
+            self.assertEqual(guide.source_owners, descriptors)
+            self.assertEqual(len(guide.axial_guides), 2)
+            self.assertEqual(len(guide.limb_guides), 8)
+            self.assertEqual(len(guide.paw_guides), 4)
+            self.assertEqual(len(guide.tail_guides), 2)
+            self.assertTrue(
+                {"girdle_center", "chest_center", "waist_center"}
+                <= {name for item in guide.axial_guides for name in vars(item) if name.endswith("_center")}
+            )
+            self.assertEqual(
+                {guide.head_guide.head_owner.key, guide.head_guide.neck_owner.key},
+                {item.key for item in descriptors if item.key[3] in {"head", "neck"}},
+            )
+            self.assertTrue(all(item.joint_narrowing[-1] < 1.0 for item in guide.limb_guides))
+            self.assertTrue(all(item.path_kind == "capsule" for item in guide.limb_guides))
+            self.assertTrue(all(item.centerline[0] != item.centerline[1] for item in guide.limb_guides))
+            for limb in guide.limb_guides:
+                self.assertTrue(all(np.isfinite(value) and value > 0.0 for value in (*limb.thickness_profile, *limb.joint_narrowing)))
+            for paw in guide.paw_guides:
+                self.assertTrue(all(np.isfinite(value) and value > 0.0 for value in (*paw.radii, *paw.paw_radii)))
+            for tail in guide.tail_guides:
+                self.assertTrue(all(np.isfinite(value) and value > 0.0 for value in (*tail.taper,)))
+            geometry_signatures.append(
+                (
+                    guide.head_guide.cranium_radii,
+                    tuple(item.thickness_profile for item in guide.limb_guides),
+                    tuple(item.taper for item in guide.tail_guides),
+                )
+            )
+            fields = surface_preview._compile_hybrid_guide(guide)
+            owners_by_key = {descriptor.key: descriptor for descriptor in descriptors}
+            self.assertEqual({field.owner.key for field in fields}, set(expected_keys))
+            self.assertTrue(
+                all(field.owner is owners_by_key[field.owner.key] for field in fields)
+            )
+        self.assertEqual(topology_signatures, [topology_signatures[0]] * 4)
+        self.assertGreater(len(set(geometry_signatures)), 1)
+
+    def test_private_guides_mirror_bilateral_centerlines_and_profiles(self) -> None:
+        form = surface_preview.validate_envelope(make_payload())
+        guide = surface_preview._derive_hybrid_guides(form, form.variants[0][1])
+        for left_key, right_key in guide.topology.bilateral_pairs:
+            if left_key[3] in {"hand", "foot"}:
+                left = next(item for item in guide.paw_guides if item.source_key == left_key)
+                right = next(item for item in guide.paw_guides if item.source_key == right_key)
+                self.assertEqual(left.radii, right.radii)
+                self.assertEqual(left.paw_radii, right.paw_radii)
+                self.assertAlmostEqual(left.paw_center[0], -right.paw_center[0])
+                self.assertEqual(left.paw_center[1:], right.paw_center[1:])
+            else:
+                left = next(item for item in guide.limb_guides if item.source_key == left_key)
+                right = next(item for item in guide.limb_guides if item.source_key == right_key)
+                self.assertEqual(left.thickness_profile, right.thickness_profile)
+                self.assertEqual(left.joint_narrowing, right.joint_narrowing)
+                for left_point, right_point in zip(left.centerline, right.centerline):
+                    self.assertAlmostEqual(left_point[0], -right_point[0])
+                    self.assertEqual(left_point[1:], right_point[1:])
+
+    def test_private_guides_reject_malformed_profile_and_consume_narrowing(self) -> None:
+        import dataclasses
+
+        form = surface_preview.validate_envelope(make_payload())
+        guide = surface_preview._derive_hybrid_guides(form, form.variants[0][1])
+        baseline = surface_preview._compile_hybrid_guide(guide)
+        for limb in guide.limb_guides:
+            baseline_field = next(
+                item for item in baseline
+                if item.owner is limb.owner and item.recipe == "limb-segment"
+            )
+            changed_limb = dataclasses.replace(limb, joint_narrowing=(0.60, 0.45))
+            changed_guides = tuple(changed_limb if item is limb else item for item in guide.limb_guides)
+            changed = surface_preview._compile_hybrid_guide(
+                dataclasses.replace(guide, limb_guides=changed_guides)
+            )
+            changed_field = next(
+                item for item in changed
+                if item.owner is limb.owner and item.recipe == "limb-segment"
+            )
+            self.assertLess(float(changed_field.shape["r0"]), float(baseline_field.shape["r0"]))
+            self.assertLess(float(changed_field.shape["r1"]), float(baseline_field.shape["r1"]))
+        for limb in guide.limb_guides:
+            malformed = dataclasses.replace(limb, joint_narrowing=(0.0, 0.45))
+            malformed_guides = tuple(malformed if item is limb else item for item in guide.limb_guides)
+            with self.assertRaises(surface_preview.PreviewError):
+                surface_preview._compile_hybrid_guide(
+                    dataclasses.replace(guide, limb_guides=malformed_guides)
+                )
+        for limb in guide.limb_guides:
+            malformed = dataclasses.replace(limb, joint_narrowing=(0.60, 1.1))
+            malformed_guides = tuple(malformed if item is limb else item for item in guide.limb_guides)
+            with self.assertRaises(surface_preview.PreviewError):
+                surface_preview._compile_hybrid_guide(
+                    dataclasses.replace(guide, limb_guides=malformed_guides)
+                )
 
     def test_role_recipes_anchor_limbs_and_expand_head_and_paw(self) -> None:
         form = surface_preview.validate_envelope(make_payload())
