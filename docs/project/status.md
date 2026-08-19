@@ -1,6 +1,6 @@
 # Project status
 
-Status date: 2026-08-19
+Status date: 2026-08-20
 
 ## Phase
 
@@ -13,24 +13,43 @@ governs what resumes next.
 
 ## Active runway
 
-Execution state: active after Ben's 2026-08-19 resume instruction.
+Execution state: paused for Ben's 2026-08-20 PC restart; resume only on Ben's
+instruction.
 
-The next autonomous runway returns to visible creature-form progress. Its goal
-is to advance beyond the already-seen overlapping-primitives and disposable
-blob-like continuous-surface previews to a first materially more creature-like
-continuous procedural surface for the fixed stylized digitigrade-biped variants.
-The candidate should make the head/neck/torso/pelvis organization, connected
-limbs, digitigrade leg structure, extremities, tail, silhouette, and major
-junctions meaningfully appraisable. It is not expected to establish production
-topology, rigging, animation, IK, deformation, physics, or a final art style.
+The completed first visual checkpoint established a useful diagnostic boundary:
+the semantic body graph can deterministically produce one connected, attributed
+surface across the four fixed stylized digitigrade-biped variants, but local
+tuning of a small set of ellipsoids and tapered segments converges on a tidier
+metaball-like body rather than convincing creature anatomy. Preserve that
+preview as plumbing evidence and a comparison baseline; do not continue local
+primitive-ratio tuning as the primary visual-quality strategy.
 
-The human checkpoint is a running browser gallery that presents the existing
-surface baseline beside the new fixed-variant results so Ben can judge the
-visible change. Multiple small, reviewed, direct-prerequisite PRs may be merged
-autonomously along this runway. Stop before merging the first PR that reaches
-the checkpoint and return to Ben with the viewer. If progress would require a
-new experiment, unrelated subsystem, or material scope expansion, stop and ask
-instead of silently replacing this checkpoint.
+The next autonomous runway is a layered procedural form-guide prototype. It
+must derive a backend-neutral internal form representation from the existing
+semantic body graph and high-level proportions: skeletal axes and joints,
+anatomical landmarks, spine/ribcage/pelvis and girdle guides, limb thickness
+profiles and joint narrowing, structured paw/forefoot guides, and appropriate
+head/muzzle guides. These generated structures then drive a continuous visible
+skin. They are compiler-owned form controls, not automatically new public
+semantic body parts.
+
+The next human checkpoint is a running browser gallery that makes both the
+generated internal guides and their resulting higher-fidelity skin visible.
+Prove the representation first on the neutral fixed digitigrade biped, then
+show that the same shared guide generator preserves meaningful differences
+across all four fixed variants. The checkpoint must make chest/waist/pelvis
+structure, limb profiles, joint narrowing, paws, head/muzzle, tail, and overall
+silhouette materially appraisable. It need not establish production topology,
+rigging, animation, IK, deformation, physics, or a final art style.
+
+This runway does not yet select the final surface backend. Layered implicit
+fields, structured procedural cages or patches, and a hybrid remain candidate
+consumers of the same form-guide representation. Do not silently promote the
+disposable marching-cubes preview, or any one replacement backend, into a
+production architecture decision. Multiple small reviewed PRs may advance
+direct prerequisites, but stop before merging the PR that first reaches the
+named human checkpoint. If progress requires a new morphology, new public
+semantic vocabulary, or another material scope expansion, stop and ask Ben.
 
 EXP-0002 and its Gate B/freeze/runtime-attestation continuation are parked and
 non-blocking. They are not
