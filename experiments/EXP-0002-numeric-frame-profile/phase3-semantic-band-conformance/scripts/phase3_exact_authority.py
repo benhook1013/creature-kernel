@@ -33,6 +33,7 @@ import stat
 import subprocess
 import sys
 import types
+from types import MappingProxyType
 from typing import Any, Mapping, Sequence
 
 
@@ -44,10 +45,10 @@ ADMISSION_SCHEMA = "ck.exp-0002.phase3.gate-b-admission-1"
 AUTHORIZATION_SCHEMA = "ck.exp-0002.phase3.exact-attempt-human-authorization-1"
 ADMISSION_HASH_DOMAIN = b"ck.exp-0002.phase3.gate-b-admission.v1\0"
 AUTHORIZATION_HASH_DOMAIN = b"ck.exp-0002.phase3.exact-attempt-human-authorization.v1\0"
-# Exact authority consumes the current v4 successor only.  v1-v3 remain
+# Exact authority consumes the current v5 successor only.  v1-v4 remain
 # available to the canonical owner for historical inspection, but a new
 # admission must bind the runtime-bound launcher closure.
-FREEZE_SCHEMA = "ck.exp-0002.phase3.freeze-manifest-4"
+FREEZE_SCHEMA = "ck.exp-0002.phase3.freeze-manifest-5"
 LEGACY_FREEZE_SCHEMA = "ck.exp-0002.phase3.freeze-manifest-3"
 EXPERIMENT_CLOSURE_SCHEMA = "ck.exp-0002.phase3.experiment-closure-1"
 EXPERIMENT_CLOSURE_TOOLS = ("scripts/phase3_experiment_closure.py",)
@@ -68,6 +69,17 @@ REQUIRED_EXACT_RUNTIME_TOOLS = (
     "scripts/phase3_exact_attempt.py",
     "scripts/phase3_exact_attempt_launcher.py",
 )
+GIT_EXECUTABLE = "/usr/bin/git"
+GIT_ENVIRONMENT = MappingProxyType({
+    "LANG": "C",
+    "LC_ALL": "C",
+    "HOME": "/nonexistent",
+    "XDG_CONFIG_HOME": "/nonexistent",
+    "GIT_CONFIG_NOSYSTEM": "1",
+    "GIT_CONFIG_SYSTEM": "/dev/null",
+    "GIT_CONFIG_GLOBAL": "/dev/null",
+    "GIT_OPTIONAL_LOCKS": "0",
+})
 PLATFORM_ORDINALS = {
     "wsl2-x86_64": frozenset({0, 1}),
     "ubuntu-24.04-x86_64": frozenset({2}),
@@ -365,7 +377,7 @@ def _validate_freeze(raw: bytes) -> tuple[dict[str, Any], str, Any]:
     except Exception as error:
         raise AuthorityError("freeze", f"canonical freeze validator rejected bytes: {error}") from error
     if value.get("schema") != FREEZE_SCHEMA:
-        _fail("freeze-version", "exact authority requires the current v4 freeze-manifest-4 contract")
+        _fail("freeze-version", "exact authority requires the current v5 freeze-manifest-5 contract")
     validate_required_exact_runtime_tools(value)
     validate_experiment_closure_tool(value)
     _commit(value.get("execution_tool_source_commit"), "manifest.execution_tool_source_commit")
@@ -401,11 +413,14 @@ def _git_command(repo: Path, arguments: list[str], *, maximum_output: int = MAX_
         _fail("review-target-repository", "canonical freeze repository is unavailable")
     if any(type(argument) is not str or not argument or "\x00" in argument for argument in arguments):
         _fail("review-target-git", "Git argument is malformed")
+    if type(GIT_EXECUTABLE) is not str or not os.path.isabs(GIT_EXECUTABLE) or "\x00" in GIT_EXECUTABLE:
+        _fail("review-target-git", "Git executable binding is not an absolute path")
     try:
         result = subprocess.run(
-            ["git", "-C", str(repo), *arguments],
+            [GIT_EXECUTABLE, "-C", str(repo), *arguments],
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
+            env=dict(GIT_ENVIRONMENT),
             check=False,
             timeout=GIT_TIMEOUT_SECONDS,
         )
@@ -428,11 +443,14 @@ def _git_commit(repo: Path, revision: str, label: str) -> str:
 
 
 def _git_is_ancestor(repo: Path, older: str, newer: str, label: str) -> None:
+    if type(GIT_EXECUTABLE) is not str or not os.path.isabs(GIT_EXECUTABLE) or "\x00" in GIT_EXECUTABLE:
+        _fail("review-target-git", "Git executable binding is not an absolute path")
     try:
         result = subprocess.run(
-            ["git", "-C", str(repo), "merge-base", "--is-ancestor", older, newer],
+            [GIT_EXECUTABLE, "-C", str(repo), "merge-base", "--is-ancestor", older, newer],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            env=dict(GIT_ENVIRONMENT),
             check=False,
             timeout=GIT_TIMEOUT_SECONDS,
         )

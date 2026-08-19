@@ -43,9 +43,9 @@ SCHEMA = "ck.exp-0002.phase3.gate-b-exact-artifact-custody-1"
 SELF_HASH_DOMAIN = b"ck.exp-0002.phase3.gate-b-exact-artifact-custody.v1\0"
 WORKFLOW_PATH = ".github/workflows/phase3-gate-b-native-build.yml"
 # Custody is a current-artifact consumer.  Keep v3 available for diagnostics
-# and historical records, but only the runtime-bound v4 freeze can authorize a
+# and historical records, but only the runtime-attested v5 freeze can authorize a
 # new exact custody record.
-FREEZE_SCHEMA = "ck.exp-0002.phase3.freeze-manifest-4"
+FREEZE_SCHEMA = "ck.exp-0002.phase3.freeze-manifest-5"
 LEGACY_FREEZE_SCHEMA = "ck.exp-0002.phase3.freeze-manifest-3"
 EXPERIMENT_CLOSURE_SCHEMA = "ck.exp-0002.phase3.experiment-closure-1"
 EXPERIMENT_CLOSURE_TOOL = "scripts/phase3_experiment_closure.py"
@@ -58,6 +58,16 @@ REQUIRED_EXACT_RUNTIME_TOOLS = (
     "scripts/phase3_exact_transport.py",
     "scripts/phase3_exact_attempt.py",
     "scripts/phase3_exact_attempt_launcher.py",
+)
+REQUIRED_RUNTIME_TOOLS = (
+    "scripts/phase3_common.py", "scripts/phase3_oracle.py", "scripts/phase3_scorer.py",
+    "scripts/phase3_runner.py", "scripts/phase3_receipt.py", "scripts/phase3_materialized_adapter.py",
+    "scripts/phase3_evidence_contract.py", "scripts/phase3_gate_b_preflight.py",
+)
+REQUIRED_PROVENANCE_TOOLS = (
+    "scripts/generate_phase3.py", "scripts/check_candidate_prebinding.py",
+    "scripts/phase3_build_receipt.py", "scripts/phase3_freeze_manifest.py",
+    "scripts/phase3_python_runtime_probe.py",
 )
 TARGET = "x86_64-unknown-linux-gnu"
 PROFILE = "dev"
@@ -395,19 +405,30 @@ def _parse_manifest(expected_manifest: bytes | Mapping[str, Any]) -> dict[str, A
     except CustodyError:
         raise
     if not isinstance(bootstrap, Mapping) or bootstrap.get("schema") != FREEZE_SCHEMA:
-        raise CustodyError("manifest-version", "exact custody requires the current freeze-manifest-4 contract")
+        raise CustodyError("manifest-version", "exact custody requires the current freeze-manifest-5 contract")
     try:
         freeze = _load_freeze_validator(expected_manifest)
         value = freeze.validate_manifest(expected_manifest)
     except Exception as error:
         raise CustodyError("manifest", f"canonical freeze validator rejected successor bytes: {error}") from error
     if value.get("schema") != FREEZE_SCHEMA:
-        raise CustodyError("manifest-version", "exact custody requires the current freeze-manifest-4 contract")
+        raise CustodyError("manifest-version", "exact custody requires the current freeze-manifest-5 contract")
     exact_tools = value.get("exact_runtime_tool_identities")
     if type(exact_tools) is not list or tuple(item.get("path") for item in exact_tools if isinstance(item, Mapping)) != REQUIRED_EXACT_RUNTIME_TOOLS:
-        raise CustodyError("manifest-closure", "v4 freeze does not bind the closed launcher exact-runtime tool set")
+        raise CustodyError("manifest-closure", "v5 freeze does not bind the closed launcher exact-runtime tool set")
     for index, identity in enumerate(exact_tools):
         _manifest_file_identity(identity, f"manifest.exact_runtime_tool_identities[{index}]")
+    for field, expected_paths in (
+        ("runtime_tool_identities", REQUIRED_RUNTIME_TOOLS),
+        ("provenance_tool_identities", REQUIRED_PROVENANCE_TOOLS),
+    ):
+        collection = value.get(field)
+        if type(collection) is not list or tuple(item.get("path") for item in collection if isinstance(item, Mapping)) != expected_paths:
+            raise CustodyError("manifest-closure", f"v5 freeze does not bind the closed {field} set")
+        for index, identity in enumerate(collection):
+            _manifest_file_identity(identity, f"manifest.{field}[{index}]")
+    if len(REQUIRED_RUNTIME_TOOLS) + len(REQUIRED_EXACT_RUNTIME_TOOLS) + len(REQUIRED_PROVENANCE_TOOLS) != 21:
+        raise CustodyError("manifest-closure", "v5 runtime/provenance tool contract has an invalid total")
     if value.get("experiment_closure_schema") != EXPERIMENT_CLOSURE_SCHEMA:
         raise CustodyError("manifest-closure", "successor freeze does not bind the current experiment-closure schema")
     closure_tools = value.get("experiment_closure_tool_identities")

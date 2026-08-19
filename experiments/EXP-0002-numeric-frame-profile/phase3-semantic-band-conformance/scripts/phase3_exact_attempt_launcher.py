@@ -3,7 +3,7 @@
 
 The launch record is the only CLI input.  It is a small canonical JSON object
 whose paths identify the already-authenticated package records; the launcher
-reads those records as exact bytes, authenticates the v4 runtime contract, and
+reads those records as exact bytes, authenticates the v5 runtime contract, and
 only then calls the production ``run_exact_attempt`` entrypoint.  No retry,
 candidate-path, environment, or alternate module-loading choice is accepted.
 """
@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+import inspect
 import json
 import os
 from pathlib import Path
@@ -24,8 +25,10 @@ from typing import Any, Mapping, Sequence
 
 
 LAUNCH_RECORD_SCHEMA = "ck.exp-0002.phase3.exact-attempt-launch-1"
-FREEZE_SCHEMA = "ck.exp-0002.phase3.freeze-manifest-4"
+FREEZE_SCHEMA = "ck.exp-0002.phase3.freeze-manifest-5"
+LEGACY_FREEZE_SCHEMA = "ck.exp-0002.phase3.freeze-manifest-4"
 PYTHON_RUNTIME_CONTRACT_SCHEMA = "ck.exp-0002.phase3.python-runtime-contract-1"
+PYTHON_RUNTIME_CONTRACT_V2_SCHEMA = "ck.exp-0002.phase3.python-runtime-contract-2"
 PYTHON_VERSION = "3.13.15"
 PYTHON_INVOCATION = (
     "python3.13", "-I", "scripts/phase3_exact_attempt_launcher.py",
@@ -44,10 +47,12 @@ MAX_FREEZE_BYTES = 2 * 1024 * 1024
 MAX_PATH_BYTES = 4096
 MAX_JSON_DEPTH = 24
 MAX_TOOL_IDENTITIES = 32
+MAX_EXECUTABLE_BYTES = 256 * 1024 * 1024
 SCRIPT_RELATIVE_PATH = "scripts/phase3_exact_attempt_launcher.py"
 _SIBLING_DIR = Path(__file__).resolve().parent
 _LOAD_ROOT = _SIBLING_DIR.parent
 _RETAINED_SIBLING_BYTES: dict[str, bytes] = {}
+_BOUND_EXTERNAL_TOOLS: dict[str, str] = {}
 
 
 class LauncherError(ValueError):
@@ -210,7 +215,15 @@ def _open_anchored_parent(path: Path, label: str) -> tuple[int, str]:
         raise LauncherError("record-read", f"cannot open anchored parent for {label}") from error
 
 
-def _read_exact(path: Path, label: str, *, limit: int = MAX_RECORD_BYTES, expected_mode: int | None = None) -> bytes:
+def _read_exact(
+    path: Path,
+    label: str,
+    *,
+    limit: int = MAX_RECORD_BYTES,
+    expected_mode: int | None = None,
+    executable: bool = False,
+    expected_identity: Mapping[str, Any] | None = None,
+) -> bytes:
     """Read an exact file through anchored descriptors and stable identities."""
     parent, name = _open_anchored_parent(path, label)
     fd = -1
@@ -218,14 +231,37 @@ def _read_exact(path: Path, label: str, *, limit: int = MAX_RECORD_BYTES, expect
         before_path = os.stat(name, dir_fd=parent, follow_symlinks=False)
         if stat.S_ISLNK(before_path.st_mode) or not stat.S_ISREG(before_path.st_mode) or before_path.st_nlink != 1:
             _fail("record-size", f"{label} is not a bounded single-link regular file")
+        if executable:
+            mode = stat.S_IMODE(before_path.st_mode)
+            # Only owner-readable/executable files with no group/world write
+            # permission are admissible as identity-bound executables.
+            if mode & 0o500 != 0o500 or mode & 0o022:
+                _fail("record-mode", f"{label} does not have a safe executable mode")
+            if before_path.st_uid not in {0, os.geteuid()}:
+                _fail("record-owner", f"{label} is not owned by root or the current user")
         if expected_mode is not None and stat.S_IMODE(before_path.st_mode) != expected_mode:
             _fail("record-mode", f"{label} does not have the frozen mode")
         if before_path.st_size <= 0 or before_path.st_size > limit:
             _fail("record-size", f"{label} is outside its bounded size")
+        if expected_identity is not None:
+            expected_file_identity = (
+                stat.S_IMODE(before_path.st_mode),
+                before_path.st_uid,
+                before_path.st_gid,
+                before_path.st_nlink,
+            )
+            frozen_file_identity = (
+                expected_identity.get("mode"),
+                expected_identity.get("uid"),
+                expected_identity.get("gid"),
+                expected_identity.get("nlink"),
+            )
+            if expected_file_identity != frozen_file_identity:
+                _fail("record-identity", f"{label} metadata differs from the frozen identity")
         fd = os.open(name, os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0), dir_fd=parent)
         before = os.fstat(fd)
-        expected = (before_path.st_dev, before_path.st_ino, before_path.st_mode, before_path.st_nlink, before_path.st_size, before_path.st_mtime_ns, before_path.st_ctime_ns)
-        opened = (before.st_dev, before.st_ino, before.st_mode, before.st_nlink, before.st_size, before.st_mtime_ns, before.st_ctime_ns)
+        expected = (before_path.st_dev, before_path.st_ino, before_path.st_mode, before_path.st_uid, before_path.st_gid, before_path.st_nlink, before_path.st_size, before_path.st_mtime_ns, before_path.st_ctime_ns)
+        opened = (before.st_dev, before.st_ino, before.st_mode, before.st_uid, before.st_gid, before.st_nlink, before.st_size, before.st_mtime_ns, before.st_ctime_ns)
         if opened != expected:
             _fail("record-race", f"{label} changed before being read")
         chunks: list[bytes] = []
@@ -241,10 +277,33 @@ def _read_exact(path: Path, label: str, *, limit: int = MAX_RECORD_BYTES, expect
         raw = b"".join(chunks)
         after = os.fstat(fd)
         after_path = os.stat(name, dir_fd=parent, follow_symlinks=False)
-        after_identity = (after.st_dev, after.st_ino, after.st_mode, after.st_nlink, after.st_size, after.st_mtime_ns, after.st_ctime_ns)
-        path_identity = (after_path.st_dev, after_path.st_ino, after_path.st_mode, after_path.st_nlink, after_path.st_size, after_path.st_mtime_ns, after_path.st_ctime_ns)
+        after_identity = (after.st_dev, after.st_ino, after.st_mode, after.st_uid, after.st_gid, after.st_nlink, after.st_size, after.st_mtime_ns, after.st_ctime_ns)
+        path_identity = (after_path.st_dev, after_path.st_ino, after_path.st_mode, after_path.st_uid, after_path.st_gid, after_path.st_nlink, after_path.st_size, after_path.st_mtime_ns, after_path.st_ctime_ns)
         if after_identity != expected or path_identity != after_identity or len(raw) != before_path.st_size:
             _fail("record-race", f"{label} changed while being read")
+        if expected_identity is not None:
+            current_file_identity = (
+                stat.S_IMODE(after.st_mode),
+                after.st_uid,
+                after.st_gid,
+                after.st_nlink,
+            )
+            current_path_identity = (
+                stat.S_IMODE(after_path.st_mode),
+                after_path.st_uid,
+                after_path.st_gid,
+                after_path.st_nlink,
+            )
+            frozen_file_identity = (
+                expected_identity.get("mode"),
+                expected_identity.get("uid"),
+                expected_identity.get("gid"),
+                expected_identity.get("nlink"),
+            )
+            if current_file_identity != frozen_file_identity or current_path_identity != frozen_file_identity:
+                _fail("record-identity", f"{label} metadata differs from the frozen identity")
+            if len(raw) != expected_identity.get("bytes") or hashlib.sha256(raw).hexdigest() != expected_identity.get("sha256"):
+                _fail("record-identity", f"{label} bytes differ from the frozen identity")
         return raw
     except LauncherError:
         raise
@@ -310,9 +369,10 @@ def _load_sibling_module(filename: str, module_name: str, *, raw: bytes | None =
 
 
 def _raw_tool_identities(value: Mapping[str, Any]) -> list[dict[str, Any]]:
-    """Return all v4 tool identities, retaining the closure tool separately."""
+    """Return runtime/provenance tools; the experiment closure is separate."""
     result: list[dict[str, Any]] = []
-    for field in ("runtime_tool_identities", "exact_runtime_tool_identities", "provenance_tool_identities", "experiment_closure_tool_identities"):
+    fields = ("runtime_tool_identities", "exact_runtime_tool_identities", "provenance_tool_identities")
+    for field in fields:
         collection = value.get(field)
         if not isinstance(collection, list) or not collection:
             _fail("tool-closure", f"freeze {field} is absent")
@@ -328,20 +388,39 @@ def _raw_tool_identities(value: Mapping[str, Any]) -> list[dict[str, Any]]:
             if type(digest) is not str or len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest):
                 _fail("tool-closure", f"freeze {field} contains an invalid digest")
             result.append({"path": path, "mode": 0o644, "bytes": identity["bytes"], "sha256": digest})
-    if len(result) != 21:
-        _fail("tool-closure", "v4 freeze must bind 20 exact-runtime tools plus one closure tool")
+    declared_count = sum(len(value[field]) for field in fields if isinstance(value.get(field), list))
+    if len(result) != declared_count or len(result) != 21:
+        _fail("tool-closure", "v5 freeze must bind 8 runtime + 8 exact-runtime + 5 provenance tools")
     if len({item["path"] for item in result}) != len(result):
         _fail("tool-closure", "freeze tool identities contain duplicate paths")
     return result
 
 
+def _raw_closure_identity(value: Mapping[str, Any]) -> dict[str, Any]:
+    """Validate the singleton experiment-closure identity separately."""
+    collection = value.get("experiment_closure_tool_identities")
+    if not isinstance(collection, list) or len(collection) != 1:
+        _fail("tool-closure", "freeze must bind one separate experiment-closure tool")
+    identity = collection[0]
+    if not isinstance(identity, Mapping) or set(identity) != {"path", "mode", "bytes", "sha256"} or identity.get("mode") != 0o644:
+        _fail("tool-closure", "freeze closure identity is malformed")
+    if identity.get("path") != "scripts/phase3_experiment_closure.py":
+        _fail("tool-closure", "freeze closure identity is not canonical")
+    if type(identity.get("bytes")) is not int or identity["bytes"] <= 0 or identity["bytes"] > 16 * 1024 * 1024:
+        _fail("tool-closure", "freeze closure identity has an invalid size")
+    if type(identity.get("sha256")) is not str or len(identity["sha256"]) != 64 or any(char not in "0123456789abcdef" for char in identity["sha256"]):
+        _fail("tool-closure", "freeze closure identity has an invalid digest")
+    return {key: identity[key] for key in ("path", "mode", "bytes", "sha256")}
+
+
 def _validate_sibling_identities(raw: bytes, package_root: Path) -> dict[str, bytes]:
     parsed = _parse_freeze_raw(raw)
     if parsed.get("schema") != FREEZE_SCHEMA:
-        _fail("freeze-version", "exact launcher requires the v4 freeze manifest")
+        _fail("freeze-version", "exact launcher requires the v5 freeze manifest")
     identities = _raw_tool_identities(parsed)
+    closure = _raw_closure_identity(parsed)
     retained: dict[str, bytes] = {}
-    for identity in identities:
+    for identity in [*identities, closure]:
         path = identity["path"]
         file_bytes = _read_exact(package_root / path, path, limit=16 * 1024 * 1024, expected_mode=0o644)
         if len(file_bytes) != identity["bytes"] or hashlib.sha256(file_bytes).hexdigest() != identity["sha256"]:
@@ -375,18 +454,18 @@ def _validate_freeze(raw: bytes, *, package_root: Path | None = None) -> dict[st
     except Exception as error:
         raise LauncherError("freeze", "canonical freeze validator rejected the supplied bytes") from error
     if value.get("schema") != FREEZE_SCHEMA:
-        _fail("freeze-version", "exact launcher requires the v4 freeze manifest")
+        _fail("freeze-version", "exact launcher requires the v5 freeze manifest")
     return value
 
 
-def _normalized_orig_argv(argv: Sequence[str], orig_argv: Any) -> list[str]:
+def _normalized_orig_argv(argv: Sequence[str], orig_argv: Any, interpreter: str | None = None) -> list[str]:
     if type(orig_argv) is not list or len(orig_argv) != 5 or any(type(item) is not str or not item for item in orig_argv):
         _fail("invocation", "sys.orig_argv is not the exact five-argument invocation")
     if len(argv) != 2 or argv[0] != "--launch-record" or not isinstance(argv[1], str):
         _fail("invocation", "launcher argv is not the exact launch-record form")
-    interpreter = Path(orig_argv[0]).name
-    if interpreter != "python3.13":
-        _fail("invocation", "sys.orig_argv interpreter is not python3.13")
+    expected_interpreter = interpreter or "python3.13"
+    if orig_argv[0] != expected_interpreter:
+        _fail("invocation", "sys.orig_argv interpreter is not the absolute frozen interpreter")
     if orig_argv[1] != "-I" or orig_argv[3] != "--launch-record":
         _fail("invocation", "sys.orig_argv is missing the isolated launcher flags")
     script = orig_argv[2].replace("\\", "/")
@@ -395,23 +474,26 @@ def _normalized_orig_argv(argv: Sequence[str], orig_argv: Any) -> list[str]:
     _path_text(orig_argv[4], "sys.orig_argv launch record", relative=None)
     if orig_argv[4] != argv[1]:
         _fail("invocation", "sys.orig_argv launch record differs from sys.argv")
-    return ["python3.13", "-I", SCRIPT_RELATIVE_PATH, "--launch-record", "<launch-record>"]
+    return [expected_interpreter, "-I", SCRIPT_RELATIVE_PATH, "--launch-record", "<launch-record>"]
 
 
 def _runtime_preflight(freeze: Mapping[str, Any], selector: str, argv: Sequence[str], orig_argv: Any) -> None:
+    global _BOUND_EXTERNAL_TOOLS
+    _BOUND_EXTERNAL_TOOLS = {}
     contract = freeze.get("exact_python_runtime_contract")
-    if not isinstance(contract, Mapping) or set(contract) != {"schema", "platforms"} or contract.get("schema") != PYTHON_RUNTIME_CONTRACT_SCHEMA:
-        _fail("runtime-contract", "freeze does not bind the exact Python runtime contract")
+    if not isinstance(contract, Mapping) or set(contract) != {"schema", "platforms"} or contract.get("schema") != PYTHON_RUNTIME_CONTRACT_V2_SCHEMA:
+        _fail("runtime-contract", "freeze does not bind the content-addressed Python runtime contract")
     platforms = contract.get("platforms")
     if not isinstance(platforms, Mapping) or set(platforms) != set(SELECTORS):
         _fail("runtime-contract", "freeze runtime contract does not bind both selectors")
     selected = platforms.get(selector)
-    expected_keys = {"selector", "implementation", "version", "invocation", "module_loading", "entrypoint"}
+    expected_keys = {"selector", "implementation", "version", "interpreter", "interpreter_identity", "invocation", "module_loading", "entrypoint", "attestation_identity", "external_tools"}
     if not isinstance(selected, Mapping) or set(selected) != expected_keys or selected.get("selector") != selector:
         _fail("runtime-contract", "selected runtime contract is not closed")
     if selected.get("implementation") != "CPython" or selected.get("version") != PYTHON_VERSION:
         _fail("runtime-contract", "selected runtime contract is not CPython 3.13.15")
-    if selected.get("invocation") != list(PYTHON_INVOCATION) or selected.get("module_loading") != PYTHON_MODULE_LOADING or selected.get("entrypoint") != PYTHON_ENTRYPOINT:
+    interpreter = selected.get("interpreter")
+    if type(interpreter) is not str or not os.path.isabs(interpreter) or selected.get("invocation") != [interpreter, "-I", SCRIPT_RELATIVE_PATH, "--launch-record", "<launch-record>"] or selected.get("module_loading") != PYTHON_MODULE_LOADING or selected.get("entrypoint") != PYTHON_ENTRYPOINT:
         _fail("runtime-contract", "selected runtime invocation/module-loading contract differs")
     implementation = getattr(sys, "implementation", None)
     if getattr(implementation, "name", None) != "cpython":
@@ -421,8 +503,103 @@ def _runtime_preflight(freeze: Mapping[str, Any], selector: str, argv: Sequence[
         _fail("runtime", "actual interpreter is not CPython 3.13.15")
     if type(getattr(getattr(sys, "flags", None), "isolated", None)) is not int or getattr(sys.flags, "isolated") != 1:
         _fail("runtime", "isolated mode (-I) is not active")
-    if _normalized_orig_argv(argv, orig_argv) != list(selected["invocation"]):
+    # CPython installations commonly expose a stable symlink (for example
+    # /usr/bin/python3).  Resolve that name once, then authenticate and read
+    # the non-symlink target through the anchored descriptor walk below.
+    actual_interpreter_path = Path(sys.executable).resolve()
+    if not actual_interpreter_path.is_absolute():
+        _fail("runtime", "sys.executable is not absolute")
+    actual_interpreter = actual_interpreter_path.as_posix()
+    if actual_interpreter != interpreter:
+        _fail("runtime", "sys.executable does not match the absolute frozen interpreter")
+    identity = selected.get("interpreter_identity")
+    if (
+        not isinstance(identity, Mapping)
+        or set(identity) != {"path", "mode", "bytes", "sha256", "uid", "gid", "nlink"}
+        or identity.get("path") != interpreter
+        or type(identity.get("mode")) is not int
+        or identity.get("mode", 0) & 0o500 != 0o500
+        or identity.get("mode", 0) & 0o022
+        or type(identity.get("bytes")) is not int
+        or identity.get("bytes", 0) <= 0
+        or identity.get("bytes", 0) > MAX_EXECUTABLE_BYTES
+        or type(identity.get("sha256")) is not str
+        or len(identity["sha256"]) != 64
+        or any(char not in "0123456789abcdef" for char in identity["sha256"])
+        or any(type(identity.get(field)) is not int or identity.get(field, -1) < 0 or identity.get(field, 0) > 0xFFFFFFFF for field in ("uid", "gid"))
+        or type(identity.get("nlink")) is not int
+        or identity.get("nlink") != 1
+    ):
+        _fail("runtime", "frozen interpreter identity is malformed")
+    try:
+        raw = _read_exact(
+            actual_interpreter_path,
+            "frozen interpreter",
+            limit=MAX_EXECUTABLE_BYTES,
+            expected_mode=identity["mode"],
+            executable=True,
+            expected_identity=identity,
+        )
+    except LauncherError:
+        raise
+    except OSError as error:
+        raise LauncherError("runtime", "frozen interpreter is unavailable") from error
+    if _normalized_orig_argv(argv, orig_argv, interpreter) != list(selected["invocation"]):
         _fail("invocation", "normalized sys.orig_argv differs from the authenticated freeze")
+    attestation_identity = selected.get("attestation_identity")
+    if not isinstance(attestation_identity, Mapping):
+        _fail("runtime-attestation", "selected runtime attestation identity is absent")
+    package_root = _LOAD_ROOT
+    attestation_path = package_root / str(attestation_identity.get("path", ""))
+    try:
+        attestation_raw = _read_exact(attestation_path, "runtime attestation", limit=MAX_FREEZE_BYTES, expected_mode=0o644)
+    except LauncherError:
+        raise
+    if len(attestation_raw) != attestation_identity.get("bytes") or hashlib.sha256(attestation_raw).hexdigest() != attestation_identity.get("sha256"):
+        _fail("runtime-attestation", "runtime attestation bytes differ from the frozen identity")
+    probe_raw = _RETAINED_SIBLING_BYTES.get("scripts/phase3_python_runtime_probe.py")
+    if probe_raw is None:
+        _fail("runtime-attestation", "runtime probe is not in the authenticated provenance closure")
+    probe = _load_sibling_module("phase3_python_runtime_probe.py", "phase3_python_runtime_probe", raw=probe_raw)
+    prepare = getattr(probe, "prepare_runtime_import_closure", None)
+    if not callable(prepare):
+        _fail("runtime-attestation", "runtime probe does not provide the prepared import closure")
+    try:
+        parameters = inspect.signature(prepare).parameters
+        prepared = prepare() if not parameters else prepare(attestation_raw)
+    except Exception as error:
+        raise LauncherError("runtime-attestation", "runtime import closure preparation failed") from error
+    if prepared is False:
+        _fail("runtime-attestation", "runtime import closure preparation was not authenticated")
+    try:
+        attestation = probe.validate_current_attestation(attestation_raw, expected_selector=selector, check_files=True, require_current_runtime=True)
+    except Exception as error:
+        raise LauncherError("runtime-attestation", "runtime attestation validator rejected the record") from error
+    if attestation.get("selector") != selector or attestation.get("interpreter") != interpreter or attestation.get("invocation") != list(selected["invocation"]) or attestation.get("attestation_sha256") != attestation_identity.get("attestation_sha256"):
+        _fail("runtime-attestation", "runtime attestation does not bind selector/interpreter/invocation")
+    external_tools = selected.get("external_tools")
+    if not isinstance(external_tools, Mapping) or set(external_tools) != {"git"}:
+        _fail("external-tool", "v5 exact launch requires a bound absolute Git identity")
+    git = external_tools["git"]
+    if not isinstance(git, Mapping) or set(git) != {"path", "mode", "bytes", "sha256"} or not os.path.isabs(str(git.get("path", ""))):
+        _fail("external-tool", "bound Git executable is not absolute")
+    if type(git.get("bytes")) is not int or git["bytes"] <= 0 or git["bytes"] > MAX_EXECUTABLE_BYTES or type(git.get("mode")) is not int or type(git.get("sha256")) is not str or len(git["sha256"]) != 64 or any(char not in "0123456789abcdef" for char in git["sha256"]):
+        _fail("external-tool", "bound Git executable identity is malformed")
+    try:
+        git_raw = _read_exact(
+            Path(git["path"]),
+            "bound Git executable",
+            limit=MAX_EXECUTABLE_BYTES,
+            expected_mode=git["mode"],
+            executable=True,
+        )
+    except LauncherError:
+        raise
+    except OSError as error:
+        raise LauncherError("external-tool", "bound Git executable is unavailable") from error
+    if len(git_raw) != git["bytes"] or hashlib.sha256(git_raw).hexdigest() != git["sha256"]:
+        _fail("external-tool", "bound Git executable bytes differ from the frozen identity")
+    _BOUND_EXTERNAL_TOOLS = {"git": str(git["path"])}
 
 
 def _candidate_identity(freeze: Mapping[str, Any]) -> dict[str, Any]:
@@ -436,16 +613,9 @@ def _candidate_identity(freeze: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _tool_identities(freeze: Mapping[str, Any]) -> list[dict[str, Any]]:
-    result: list[dict[str, Any]] = []
-    for field in ("runtime_tool_identities", "exact_runtime_tool_identities", "provenance_tool_identities"):
-        collection = freeze.get(field)
-        if not isinstance(collection, list) or not collection:
-            _fail("tool-closure", f"freeze {field} is absent")
-        for identity in collection:
-            if not isinstance(identity, Mapping) or set(identity) != {"path", "mode", "bytes", "sha256"} or identity.get("mode") != 0o644:
-                _fail("tool-closure", f"freeze {field} contains a malformed identity")
-            result.append({key: identity[key] for key in ("path", "bytes", "sha256")})
-    if len(result) != 20 or len(result) > MAX_TOOL_IDENTITIES:
+    _raw_closure_identity(freeze)
+    result = [{key: identity[key] for key in ("path", "bytes", "sha256")} for identity in _raw_tool_identities(freeze)]
+    if len(result) > MAX_TOOL_IDENTITIES:
         _fail("tool-closure", "freeze tool closure exceeds the bound")
     return result
 
@@ -492,6 +662,29 @@ def _invoke_exact_attempt(**inputs: Any) -> Any:
     """Private final-call seam used only by bounded launcher tests."""
     # Import every dependency by an explicit sibling path.  The order follows
     # the import graph of phase3_exact_attempt and does not modify sys.path.
+    def bind_git(module: Any) -> None:
+        if not _BOUND_EXTERNAL_TOOLS:
+            return
+        path = _BOUND_EXTERNAL_TOOLS["git"]
+        module.GIT_EXECUTABLE = path
+        module.AUTHENTICATED_GIT_EXECUTABLE = path
+        # Both consumers can load the canonical freeze validator lazily.  Bind
+        # that nested module too, so no validator can fall back to ambient
+        # PATH after the launcher has authenticated the absolute executable.
+        for loader_name in ("_load_freeze_module", "_freeze_module"):
+            loader = getattr(module, loader_name, None)
+            if not callable(loader) or getattr(loader, "_ck_git_bound", False):
+                continue
+
+            def bound_loader(*args: Any, _loader: Any = loader, **kwargs: Any) -> Any:
+                nested = _loader(*args, **kwargs)
+                nested.GIT_EXECUTABLE = path
+                nested.AUTHENTICATED_GIT_EXECUTABLE = path
+                return nested
+
+            bound_loader._ck_git_bound = True  # type: ignore[attr-defined]
+            setattr(module, loader_name, bound_loader)
+
     for filename in (
         "phase3_common.py", "phase3_oracle.py", "phase3_scorer.py", "phase3_runner.py",
         "phase3_materialized_adapter.py", "phase3_evidence_contract.py", "phase3_exact_fp_observer.py",
@@ -501,8 +694,15 @@ def _invoke_exact_attempt(**inputs: Any) -> Any:
     ):
         name = Path(filename).stem
         retained = _RETAINED_SIBLING_BYTES.get(f"scripts/{filename}")
-        _load_sibling_module(filename, name, raw=retained)
-    module = _load_sibling_module("phase3_exact_attempt.py", "phase3_exact_attempt")
+        if retained is None:
+            _fail("module-loading", f"authenticated sibling bytes are absent for {filename}")
+        loaded = _load_sibling_module(filename, name, raw=retained)
+        if filename in {"phase3_exact_authority.py", "phase3_gate_b_preflight.py"}:
+            bind_git(loaded)
+    retained_attempt = _RETAINED_SIBLING_BYTES.get("scripts/phase3_exact_attempt.py")
+    if retained_attempt is None:
+        _fail("module-loading", "authenticated sibling bytes are absent for phase3_exact_attempt.py")
+    module = _load_sibling_module("phase3_exact_attempt.py", "phase3_exact_attempt", raw=retained_attempt)
     return module.run_exact_attempt(**inputs)
 
 

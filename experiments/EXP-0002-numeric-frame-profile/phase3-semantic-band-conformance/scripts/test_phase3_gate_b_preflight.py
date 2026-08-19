@@ -44,8 +44,8 @@ def _candidate() -> dict[str, object]:
     }
 
 
-def _tools(root: Path) -> list[dict[str, object]]:
-    return [{"path": path, "bytes": (root / path).stat().st_size, "sha256": hashlib.sha256((root / path).read_bytes()).hexdigest()} for path in preflight.TOOL_PATHS]
+def _tools(root: Path, paths: tuple[str, ...] = preflight.TOOL_PATHS) -> list[dict[str, object]]:
+    return [{"path": path, "bytes": (root / path).stat().st_size, "sha256": hashlib.sha256((root / path).read_bytes()).hexdigest()} for path in paths]
 
 
 def _frozen_package(root: Path) -> Path:
@@ -75,6 +75,27 @@ def _frozen_package(root: Path) -> Path:
 
 
 class GateBPreflightTests(unittest.TestCase):
+    def test_fresh_freeze_module_receives_preflight_git_executable_override(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "a" / "b" / "c" / "d" / "package"
+            scripts = root / "scripts"
+            scripts.mkdir(parents=True)
+            source = Path(freeze.__file__).read_bytes()
+            validator = scripts / "phase3_freeze_manifest.py"
+            validator.write_bytes(source)
+            validator.chmod(0o644)
+            manifest = json.dumps({
+                "provenance_tool_identities": [{
+                    "path": preflight.FREEZE_SCRIPT_PATH,
+                    "mode": 0o644,
+                    "bytes": len(source),
+                    "sha256": hashlib.sha256(source).hexdigest(),
+                }],
+            }, sort_keys=True, separators=(",", ":"))
+            with patch.object(preflight, "GIT_EXECUTABLE", "/tmp/preflight-git"):
+                loaded = preflight._load_freeze_module(root, (manifest + "\n").encode())
+            self.assertEqual(loaded.GIT_EXECUTABLE, "/tmp/preflight-git")
+
     def test_freeze_validator_replacement_after_identity_snapshot_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -179,6 +200,26 @@ class GateBPreflightTests(unittest.TestCase):
                 with self.assertRaises(preflight.GateBPreflightError) as error:
                     preflight.build_gate_b_preflight(package, _candidate(), _tools(package))
             self.assertEqual(error.exception.code, "freeze-manifest")
+
+    def test_checked_in_v4_package_remains_inspectable_but_is_not_v5_exact_ready(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            package = Path(directory) / "package"
+            shutil.copytree(ROOT, package)
+            manifest = json.loads((package / freeze.MANIFEST_REL).read_text(encoding="utf-8"))
+            for field in ("runtime_tool_identities", "exact_runtime_tool_identities", "provenance_tool_identities"):
+                for identity in manifest[field]:
+                    raw = (package / identity["path"]).read_bytes()
+                    identity["bytes"] = len(raw)
+                    identity["sha256"] = hashlib.sha256(raw).hexdigest()
+            with (
+                patch.object(preflight, "_load_freeze_module", return_value=freeze),
+                patch.object(freeze, "check_manifest", return_value=manifest),
+            ):
+                report = preflight.build_gate_b_preflight(package, _candidate(), _tools(package, preflight.V4_TOOL_PATHS))
+            self.assertEqual(report["execution_package"]["freeze_state"], "frozen")
+            self.assertEqual(report["execution_package"]["freeze_schema"], freeze.V4_SCHEMA)
+            self.assertEqual(report["exact_runtime_closure"]["status"], "missing")
+            self.assertIn("v5 freeze successor required by exact execution consumers", report["missing_gate_b_items"])
 
     def test_candidate_tool_tamper_and_forbidden_fields(self) -> None:
         bad_candidate = _candidate()

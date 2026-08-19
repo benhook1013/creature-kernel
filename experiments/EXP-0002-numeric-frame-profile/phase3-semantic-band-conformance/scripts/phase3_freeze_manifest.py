@@ -31,6 +31,22 @@ from typing import Any, Mapping
 
 REPO = Path(__file__).resolve().parents[4]
 PACKAGE = REPO / "experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance"
+GIT_EXECUTABLE = "/usr/bin/git"
+# Freeze-time Git reads are deliberately independent of the caller's ambient
+# configuration.  Keep this environment closed: no inherited locale, global
+# or system config, home/XDG config discovery, or optional lock behaviour.
+GIT_ENV = {
+    "LANG": "C",
+    "LC_ALL": "C",
+    "LC_CTYPE": "C",
+    "GIT_CONFIG_NOSYSTEM": "1",
+    "GIT_CONFIG_SYSTEM": "/dev/null",
+    "GIT_CONFIG_GLOBAL": "/dev/null",
+    "HOME": "/nonexistent",
+    "XDG_CONFIG_HOME": "/nonexistent",
+    "XDG_CACHE_HOME": "/nonexistent",
+    "GIT_OPTIONAL_LOCKS": "0",
+}
 PACKAGE_REL = "experiments/EXP-0002-numeric-frame-profile/phase3-semantic-band-conformance"
 MANIFEST_REL = "manifests/freeze-manifest.json"
 MANIFEST = PACKAGE / MANIFEST_REL
@@ -61,13 +77,18 @@ V3_SCHEMA = "ck.exp-0002.phase3.freeze-manifest-3"
 V3_HASH_DOMAIN = b"ck.exp-0002.phase3.freeze-manifest.v3\0"
 V4_SCHEMA = "ck.exp-0002.phase3.freeze-manifest-4"
 V4_HASH_DOMAIN = b"ck.exp-0002.phase3.freeze-manifest.v4\0"
+V5_SCHEMA = "ck.exp-0002.phase3.freeze-manifest-5"
+V5_HASH_DOMAIN = b"ck.exp-0002.phase3.freeze-manifest.v5\0"
 EXPECTED_V3_MANIFEST_SHA256 = "faafe7680fcc3509a245dde6759396a1391e02c40891128ca44d007726adef85"
+EXPECTED_V4_MANIFEST_SHA256 = "092399ed48818b4e6bcf75db12fd6c022fdcbd70d60866eb9f4ddedf48864c72"
 # The v3 manifest is the immutable predecessor for the runtime-bound v4
 # successor.  Keep these values explicit: a pure v4 validator must be able to
 # authenticate the predecessor lineage without reading a moving repository.
 EXPECTED_V3_EXECUTION_TOOL_SOURCE_COMMIT = "762b04b8db3397cb1885d94236ad5d47cb321830"
 EXPECTED_V3_MATERIALIZATION_COMMIT = "762b04b8db3397cb1885d94236ad5d47cb321830"
-CURRENT_SCHEMA = V4_SCHEMA
+EXPECTED_V4_EXECUTION_TOOL_SOURCE_COMMIT = "48bd077d659a0d2fe6d672a33438b2ac3c85f126"
+EXPECTED_V4_MATERIALIZATION_COMMIT = "48bd077d659a0d2fe6d672a33438b2ac3c85f126"
+CURRENT_SCHEMA = V5_SCHEMA
 V2_SCHEMA = SCHEMA
 PHASE3_PATH = "scripts/phase3_freeze_manifest.py"
 TARGET = "x86_64-unknown-linux-gnu"
@@ -79,6 +100,7 @@ BINARY_NAME = "exp-0002-r3-authored-conflict-candidate"
 # oracle execute with identical semantics.  The launch-record argument is a
 # shape placeholder; the launcher authenticates the concrete path separately.
 PYTHON_RUNTIME_CONTRACT_SCHEMA = "ck.exp-0002.phase3.python-runtime-contract-1"
+PYTHON_RUNTIME_CONTRACT_V2_SCHEMA = "ck.exp-0002.phase3.python-runtime-contract-2"
 PYTHON_RUNTIME_INVOCATION = [
     "python3.13", "-I", "scripts/phase3_exact_attempt_launcher.py", "--launch-record", "<launch-record>",
 ]
@@ -88,6 +110,16 @@ PYTHON_RUNTIME_VERSION = "3.13.15"
 PYTHON_RUNTIME_KEYS = {
     "selector", "implementation", "version", "invocation", "module_loading", "entrypoint",
 }
+PYTHON_RUNTIME_V2_KEYS = {
+    "selector", "implementation", "version", "interpreter", "interpreter_identity", "invocation",
+    "module_loading", "entrypoint", "attestation_identity", "external_tools",
+}
+RUNTIME_ATTESTATION_SCHEMA = "ck.exp-0002.phase3.python-runtime-attestation-1"
+RUNTIME_ATTESTATION_PATHS = {
+    "wsl2-x86_64": "manifests/runtime-attestations/wsl.json",
+    "ubuntu-24.04-x86_64": "manifests/runtime-attestations/native.json",
+}
+RUNTIME_PROBE_PATH = "scripts/phase3_python_runtime_probe.py"
 
 RUNTIME_TOOLS = (
     "scripts/phase3_common.py",
@@ -121,6 +153,7 @@ PROVENANCE_TOOLS = (
     "scripts/phase3_build_receipt.py",
     PHASE3_PATH,
 )
+V5_PROVENANCE_TOOLS = (*PROVENANCE_TOOLS, RUNTIME_PROBE_PATH)
 EXPERIMENT_CLOSURE_TOOLS = ("scripts/phase3_experiment_closure.py",)
 INHERITED_SUCCESSOR_FIELDS = (
     "candidate_source_commit", "status", "lifecycle", "execution_permitted",
@@ -136,7 +169,7 @@ PACKAGE_INPUTS = (
     "corpora/held-out.jsonl",
     "sqrt-vectors.json",
 )
-RELEVANT_PACKAGE_FILES = frozenset((*PACKAGE_INPUTS, MANIFEST_REL, *RUNTIME_TOOLS, *EXACT_RUNTIME_TOOLS, *PROVENANCE_TOOLS))
+RELEVANT_PACKAGE_FILES = frozenset((*PACKAGE_INPUTS, MANIFEST_REL, *RUNTIME_TOOLS, *EXACT_RUNTIME_TOOLS, *PROVENANCE_TOOLS, RUNTIME_PROBE_PATH))
 SELECTORS = ("wsl2-x86_64", "ubuntu-24.04-x86_64")
 ROLE_FOR_SELECTOR = {"wsl2-x86_64": "wsl", "ubuntu-24.04-x86_64": "native"}
 RECEIPT_PATHS = {
@@ -219,11 +252,17 @@ def _valid_commit(value: Any) -> bool:
     return isinstance(value, str) and len(value) == 40 and all(char in FULL_SHA_HEX for char in value)
 
 
+def _git_run(repo: Path, *arguments: str, **kwargs: Any) -> subprocess.CompletedProcess:
+    """Run one read-only Git operation through the fixed executable seam."""
+    kwargs.setdefault("check", False)
+    kwargs["env"] = dict(GIT_ENV)
+    return subprocess.run([GIT_EXECUTABLE, "-C", str(repo), *arguments], **kwargs)
+
+
 def _git_head(repo: Path) -> str:
     try:
-        result = subprocess.run(
-            ["git", "-C", str(repo), "rev-parse", "--verify", "HEAD"],
-            check=False,
+        result = _git_run(
+            repo, "rev-parse", "--verify", "HEAD",
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -248,9 +287,8 @@ def _assert_descendant_commit(repo: Path, ancestor: str, descendant: str) -> Non
     if not _valid_commit(ancestor) or not _valid_commit(descendant):
         _fail("execution-tool-commit", "source commits must be full lowercase commit IDs")
     try:
-        result = subprocess.run(
-            ["git", "-C", str(repo), "merge-base", "--is-ancestor", ancestor, descendant],
-            check=False,
+        result = _git_run(
+            repo, "merge-base", "--is-ancestor", ancestor, descendant,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
@@ -322,9 +360,8 @@ def _git_blob_identity(repo: Path, commit: str, relative: str) -> dict[str, Any]
     if not relative or relative.startswith("/") or "\\" in relative or any(part in {"", ".", ".."} for part in relative.split("/")):
         _fail("source-commit", f"unsafe Git source path {relative!r}")
     try:
-        tree = subprocess.run(
-            ["git", "-C", str(repo), "ls-tree", "-z", commit, "--", relative],
-            check=False,
+        tree = _git_run(
+            repo, "ls-tree", "-z", commit, "--", relative,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
@@ -343,9 +380,8 @@ def _git_blob_identity(repo: Path, commit: str, relative: str) -> dict[str, Any]
     if kind != "blob" or path != relative or not stat.S_ISREG(mode):
         _fail("source-commit", f"candidate commit source is not a regular blob: {relative}")
     try:
-        blob = subprocess.run(
-            ["git", "-C", str(repo), "cat-file", "blob", object_id],
-            check=False,
+        blob = _git_run(
+            repo, "cat-file", "blob", object_id,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
@@ -379,6 +415,11 @@ def _load_module(name: str, path: Path) -> Any:
 
 def _candidate_entries(repo: Path, package: Path) -> tuple[Any, list[dict[str, Any]]]:
     checker = _load_module(f"phase3_candidate_prebinding_for_freeze_{id(package)}", package / "scripts/check_candidate_prebinding.py")
+    # The checker is freshly loaded for this validation path.  Bind both its
+    # executable and closed environment to freeze's own seam before invoking
+    # any checker operation; ambient sys.modules and PATH are not authorities.
+    checker.GIT_EXECUTABLE = GIT_EXECUTABLE
+    checker.GIT_ENV = dict(GIT_ENV)
     try:
         checker.check(repo, checker.BASE_COMMIT)
         base_entries = checker.select_base_entries(repo, checker.BASE_COMMIT)
@@ -581,6 +622,8 @@ def _load_runtime_contract_json(path: Path) -> dict[str, Any]:
     if not isinstance(value, Mapping) or _canonical(value) != raw:
         _fail("runtime-contract", "runtime-contract JSON is not a canonical mapping")
     try:
+        if value.get("schema") == PYTHON_RUNTIME_CONTRACT_V2_SCHEMA:
+            return _validate_python_runtime_contract_v2(value)
         return _validate_python_runtime_contract(value)
     except FreezeManifestError as error:
         raise FreezeManifestError("runtime-contract", error.detail) from error
@@ -765,11 +808,12 @@ def _validate_execution_commit_snapshot(repo: Path, package: Path, manifest: Map
     if not _valid_commit(commit):
         _fail("execution-tool-commit", "execution tool source commit is invalid")
     _assert_descendant_commit(repo, manifest.get("candidate_source_commit"), commit)
-    exact_paths = EXACT_RUNTIME_TOOLS if manifest.get("schema") == V4_SCHEMA else LEGACY_EXACT_RUNTIME_TOOLS
+    exact_paths = EXACT_RUNTIME_TOOLS if manifest.get("schema") in {V4_SCHEMA, V5_SCHEMA} else LEGACY_EXACT_RUNTIME_TOOLS
+    provenance_paths = V5_PROVENANCE_TOOLS if manifest.get("schema") == V5_SCHEMA else PROVENANCE_TOOLS
     for field, paths in (
         ("runtime_tool_identities", RUNTIME_TOOLS),
         ("exact_runtime_tool_identities", exact_paths),
-        ("provenance_tool_identities", PROVENANCE_TOOLS),
+        ("provenance_tool_identities", provenance_paths),
     ):
         expected = _execution_tool_identities_from_commit(repo, commit, paths)
         if manifest.get(field) != expected:
@@ -791,6 +835,8 @@ def _self_hash(value: Mapping[str, Any]) -> str:
         domain = V3_HASH_DOMAIN
     elif schema == V4_SCHEMA:
         domain = V4_HASH_DOMAIN
+    elif schema == V5_SCHEMA:
+        domain = V5_HASH_DOMAIN
     else:
         _fail("manifest-shape", "manifest schema has no self-hash domain")
     return _sha256(domain + _canonical(copy))
@@ -828,6 +874,121 @@ def _validate_python_runtime_contract(value: Any) -> dict[str, Any]:
             _fail("manifest-shape", f"Python module-loading or entrypoint contract is wrong for {selector}")
         normalized[selector] = dict(selected)
     return {"schema": value["schema"], "platforms": normalized}
+
+
+def _runtime_probe_module(package: Path) -> Any:
+    path = _safe_path(package, RUNTIME_PROBE_PATH)
+    return _load_module(f"phase3_python_runtime_probe_for_freeze_{id(package)}", path)
+
+
+def _absolute_interpreter_identity(value: Any, label: str) -> dict[str, Any]:
+    identity_keys = {"path", "mode", "bytes", "sha256", "uid", "gid", "nlink"}
+    if not isinstance(value, Mapping) or set(value) != identity_keys:
+        _fail("runtime-contract", f"{label} interpreter identity is not closed")
+    path = value["path"]
+    if not isinstance(path, str) or not os.path.isabs(path) or "\\" in path or "\x00" in path or any(part in {"", ".", ".."} for part in Path(path).parts[1:]):
+        _fail("runtime-contract", f"{label} interpreter path is not absolute and canonical")
+    if type(value["mode"]) is not int or value["mode"] < 0 or value["mode"] > 0o7777 or value["mode"] & 0o022 or not stat.S_ISREG(stat.S_IFREG | value["mode"]) or not (value["mode"] & 0o111):
+        _fail("runtime-contract", f"{label} interpreter mode is not regular")
+    if type(value["bytes"]) is not int or value["bytes"] <= 0 or value["bytes"] > MAX_FILE_BYTES or not _valid_sha(value["sha256"]):
+        _fail("runtime-contract", f"{label} interpreter identity is malformed")
+    if any(type(value[field]) is not int or value[field] < 0 or value[field] > 0xFFFFFFFF for field in ("uid", "gid")) or value["nlink"] != 1:
+        _fail("runtime-contract", f"{label} interpreter identity is malformed")
+    return dict(value)
+
+
+def _validate_runtime_attestation_identity(value: Any, selector: str) -> dict[str, Any]:
+    if not isinstance(value, Mapping) or set(value) != {"path", "bytes", "sha256", "attestation_sha256"}:
+        _fail("runtime-contract", f"runtime attestation identity is not closed for {selector}")
+    path = value["path"]
+    if path != RUNTIME_ATTESTATION_PATHS[selector] or not isinstance(path, str) or path.startswith("/") or "\\" in path or any(part in {"", ".", ".."} for part in path.split("/")):
+        _fail("runtime-contract", f"runtime attestation path is not canonical for {selector}")
+    if type(value["bytes"]) is not int or value["bytes"] <= 0 or value["bytes"] > MAX_MANIFEST_BYTES or not _valid_sha(value["sha256"]) or not _valid_sha(value["attestation_sha256"]):
+        _fail("runtime-contract", f"runtime attestation identity is malformed for {selector}")
+    return dict(value)
+
+
+def _validate_external_tools(value: Any, selector: str) -> dict[str, Any]:
+    if not isinstance(value, Mapping) or set(value) != {"git"}:
+        _fail("runtime-contract", f"external-tool identity is not closed for {selector}")
+    git = value["git"]
+    if not isinstance(git, Mapping) or set(git) != {"path", "mode", "bytes", "sha256"}:
+        _fail("runtime-contract", f"Git identity is not closed for {selector}")
+    path = git["path"]
+    if not isinstance(path, str) or not os.path.isabs(path) or "\\" in path or not Path(path).name:
+        _fail("runtime-contract", f"Git executable is not an absolute path for {selector}")
+    if type(git["mode"]) is not int or not stat.S_ISREG(stat.S_IFREG | git["mode"]) or not (git["mode"] & 0o111) or type(git["bytes"]) is not int or git["bytes"] <= 0 or not _valid_sha(git["sha256"]):
+        _fail("runtime-contract", f"Git executable identity is malformed for {selector}")
+    return {"git": dict(git)}
+
+
+def _validate_python_runtime_contract_v2(value: Any) -> dict[str, Any]:
+    """Validate v5's selector-complete, content-addressed runtime contract."""
+    _pure_keys(value, {"schema", "platforms"}, "manifest.exact_python_runtime_contract")
+    if value["schema"] != PYTHON_RUNTIME_CONTRACT_V2_SCHEMA:
+        _fail("manifest-shape", "Python runtime contract is not contract-2")
+    platforms = value["platforms"]
+    _pure_keys(platforms, set(SELECTORS), "manifest.exact_python_runtime_contract.platforms")
+    normalized: dict[str, Any] = {}
+    for selector in SELECTORS:
+        selected = platforms[selector]
+        _pure_keys(selected, PYTHON_RUNTIME_V2_KEYS, f"manifest.exact_python_runtime_contract.{selector}")
+        if selected["selector"] != selector or selected["implementation"] != "CPython" or selected["version"] != PYTHON_RUNTIME_VERSION:
+            _fail("manifest-shape", f"Python runtime selector/version is wrong for {selector}")
+        _absolute_interpreter_identity(selected["interpreter_identity"], selector)
+        if selected["interpreter_identity"]["path"] != selected["interpreter"] or not isinstance(selected["interpreter"], str) or not os.path.isabs(selected["interpreter"]):
+            _fail("manifest-shape", f"Python interpreter path is not bound for {selector}")
+        if selected["invocation"] != [selected["interpreter"], "-I", "scripts/phase3_exact_attempt_launcher.py", "--launch-record", "<launch-record>"]:
+            _fail("manifest-shape", f"Python invocation is not the canonical absolute launcher argv for {selector}")
+        if selected["module_loading"] != PYTHON_RUNTIME_MODULE_LOADING or selected["entrypoint"] != PYTHON_RUNTIME_ENTRYPOINT:
+            _fail("manifest-shape", f"Python module-loading/entrypoint contract is wrong for {selector}")
+        _validate_runtime_attestation_identity(selected["attestation_identity"], selector)
+        _validate_external_tools(selected["external_tools"], selector)
+        normalized[selector] = json.loads(json.dumps(selected))
+    return {"schema": value["schema"], "platforms": normalized}
+
+
+def _load_runtime_attestation(package: Path, selector: str, identity: Mapping[str, Any]) -> tuple[dict[str, Any], bytes]:
+    relative = identity["path"]
+    try:
+        path = _safe_path(package, relative)
+    except FreezeManifestError as error:
+        raise FreezeManifestError("runtime-attestation", f"runtime attestation for {selector} is unavailable") from error
+    try:
+        info = path.lstat()
+        if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or stat.S_IMODE(info.st_mode) != 0o644:
+            _fail("runtime-attestation", f"runtime attestation for {selector} is not a single-link file")
+        raw = path.read_bytes()
+    except OSError as error:
+        raise FreezeManifestError("runtime-attestation", f"runtime attestation for {selector} is unavailable") from error
+    if len(raw) != identity["bytes"] or _sha256(raw) != identity["sha256"]:
+        _fail("runtime-attestation", f"runtime attestation bytes differ from frozen identity for {selector}")
+    probe = _runtime_probe_module(package)
+    try:
+        # Freeze/build validation authenticates the exact canonical sidecar
+        # bytes and their declared content identities.  It must not inspect
+        # the absolute runtime closure: the other platform is not present and
+        # selected-host live drift is an exact-launcher responsibility.
+        value = probe.validate_current_attestation(raw, expected_selector=selector, check_files=False)
+    except Exception as error:
+        raise FreezeManifestError("runtime-attestation", f"runtime attestation for {selector} is invalid") from error
+    if value.get("selector") != selector or value.get("schema") != RUNTIME_ATTESTATION_SCHEMA or value.get("attestation_sha256") != identity["attestation_sha256"]:
+        _fail("runtime-attestation", f"runtime attestation selector/hash differs for {selector}")
+    return value, raw
+
+
+def _runtime_attestation_contract(package: Path, value: Mapping[str, Any]) -> dict[str, Any]:
+    contract = _validate_python_runtime_contract_v2(value)
+    for selector in SELECTORS:
+        record, _ = _load_runtime_attestation(package, selector, contract["platforms"][selector]["attestation_identity"])
+        selected = contract["platforms"][selector]
+        # Bind every contract selector to the sidecar's structured facts.  In
+        # particular, comparing the complete interpreter identity prevents a
+        # same-version replacement executable from passing on path alone.
+        for field in ("selector", "implementation", "version", "interpreter", "interpreter_identity", "invocation"):
+            if record[field] != selected[field]:
+                _fail("runtime-attestation", f"runtime attestation does not bind {field} for {selector}")
+    return contract
 
 
 def _pure_identity(value: Any, label: str, *, full_mode: bool = False) -> None:
@@ -977,10 +1138,15 @@ def _v1_projection(value: Mapping[str, Any]) -> dict[str, Any]:
         "experiment_closure_tool_identities", "experiment_closure_schema",
         "predecessor_v2_manifest_sha256", "predecessor_v2_execution_tool_source_commit",
         "predecessor_v2_materialization_commit",
+        "predecessor_v3_manifest_sha256", "predecessor_v3_execution_tool_source_commit",
+        "predecessor_v3_materialization_commit", "predecessor_v4_manifest_sha256",
         "exact_python_runtime_contract",
+        "predecessor_exact_python_runtime_contract",
     ):
         projected.pop(field, None)
     projected["schema"] = V1_SCHEMA
+    if value.get("schema") == V5_SCHEMA:
+        projected["provenance_tool_identities"] = projected["provenance_tool_identities"][:-1]
     projected["canonicalization"] = {
         **_v2_canonicalization(),
         "self_hash_domain": V1_HASH_DOMAIN.decode("ascii").rstrip("\0"),
@@ -1197,6 +1363,72 @@ def _validate_pure_manifest_v4(value: Any) -> dict[str, Any]:
     return dict(value)
 
 
+def _v5_canonicalization() -> dict[str, Any]:
+    return {
+        "encoding": "UTF-8", "json": "RFC 8259-compatible strict JSON", "sort_keys": True,
+        "separators": [",", ":"], "ensure_ascii": True, "trailing_newline": True,
+        "self_hash_domain": V5_HASH_DOMAIN.decode("ascii").rstrip("\0"),
+        "self_hash_excludes": ["manifest_sha256"],
+        "raw_file_hash": "SHA-256 over exact bytes; no parse/reserialize for raw identities",
+    }
+
+
+def _validate_pure_manifest_v5(value: Any) -> dict[str, Any]:
+    """Validate the content-addressed runtime successor without repository IO."""
+    top_keys = {
+        "schema", "manifest_sha256", "predecessor_manifest_sha256", "predecessor_inherited_sha256",
+        "predecessor_v1_manifest_sha256", "predecessor_v2_inherited_sha256", "predecessor_v2_manifest_sha256",
+        "predecessor_v2_execution_tool_source_commit", "predecessor_v2_materialization_commit",
+        "predecessor_v3_manifest_sha256", "predecessor_v3_execution_tool_source_commit", "predecessor_v3_materialization_commit",
+        "predecessor_v4_manifest_sha256", "predecessor_exact_python_runtime_contract",
+        "previous_execution_tool_source_commit", "old_materialization_commit", "materialization_commit",
+        "candidate_source_commit", "execution_tool_source_commit", "status", "lifecycle", "execution_permitted",
+        "binding", "protocol", "raw_inputs", "repository_inputs", "candidate_closure", "runtime_tool_identities",
+        "exact_runtime_tool_identities", "provenance_tool_identities", "experiment_closure_tool_identities",
+        "experiment_closure_schema", "build", "platform", "binaries", "readiness", "attempts", "canonicalization",
+        "exact_python_runtime_contract",
+    }
+    _pure_keys(value, top_keys, "manifest")
+    if value["schema"] != V5_SCHEMA or value["candidate_source_commit"] != EXPECTED_CANDIDATE_SOURCE_COMMIT:
+        _fail("manifest-shape", "manifest is not the v5 successor for the fixed candidate")
+    if value["predecessor_manifest_sha256"] != EXPECTED_V4_MANIFEST_SHA256 or value["predecessor_v4_manifest_sha256"] != EXPECTED_V4_MANIFEST_SHA256:
+        _fail("manifest-shape", "v5 predecessor is not the exact immutable v4 freeze")
+    if value["predecessor_v1_manifest_sha256"] != EXPECTED_V1_MANIFEST_SHA256 or value["predecessor_v2_manifest_sha256"] != EXPECTED_V2_MANIFEST_SHA256 or value["predecessor_v3_manifest_sha256"] != EXPECTED_V3_MANIFEST_SHA256:
+        _fail("manifest-shape", "v5 history does not retain exact predecessor hashes")
+    if value["predecessor_inherited_sha256"] != EXPECTED_INHERITED_V1_SHA256 or value["predecessor_v2_inherited_sha256"] != EXPECTED_INHERITED_V1_SHA256:
+        _fail("manifest-shape", "v5 history does not retain exact inherited identity")
+    for field in ("predecessor_v3_execution_tool_source_commit", "predecessor_v3_materialization_commit", "previous_execution_tool_source_commit", "old_materialization_commit", "materialization_commit", "execution_tool_source_commit"):
+        if not _valid_commit(value[field]):
+            _fail("manifest-shape", f"v5 {field} is not a full commit")
+    if value["predecessor_v3_execution_tool_source_commit"] != EXPECTED_V3_EXECUTION_TOOL_SOURCE_COMMIT or value["predecessor_v3_materialization_commit"] != EXPECTED_V3_MATERIALIZATION_COMMIT:
+        _fail("manifest-shape", "v5 history does not retain exact v3 execution/materialization snapshots")
+    if value["previous_execution_tool_source_commit"] != EXPECTED_V4_EXECUTION_TOOL_SOURCE_COMMIT or value["old_materialization_commit"] != EXPECTED_V4_MATERIALIZATION_COMMIT:
+        _fail("manifest-shape", "v5 old execution/materialization snapshots are not the exact v4 snapshots")
+    if value["previous_execution_tool_source_commit"] == value["candidate_source_commit"] or value["execution_tool_source_commit"] in {value["candidate_source_commit"], value["previous_execution_tool_source_commit"]}:
+        _fail("manifest-shape", "v5 execution snapshots are not distinct")
+    if value["old_materialization_commit"] == value["materialization_commit"]:
+        _fail("manifest-shape", "v5 materialization snapshots are not distinct")
+    if value["experiment_closure_schema"] != "ck.exp-0002.phase3.experiment-closure-1" or value["canonicalization"] != _v5_canonicalization():
+        _fail("manifest-shape", "v5 closure/canonicalization contract is wrong")
+    if value["manifest_sha256"] != _self_hash(value):
+        _fail("manifest-self-hash", "v5 manifest self hash does not match")
+    _validate_python_runtime_contract(value["predecessor_exact_python_runtime_contract"])
+    _validate_python_runtime_contract_v2(value["exact_python_runtime_contract"])
+    for field, expected_paths in (
+        ("runtime_tool_identities", RUNTIME_TOOLS),
+        ("exact_runtime_tool_identities", EXACT_RUNTIME_TOOLS),
+        ("provenance_tool_identities", V5_PROVENANCE_TOOLS),
+        ("experiment_closure_tool_identities", EXPERIMENT_CLOSURE_TOOLS),
+    ):
+        collection = value[field]
+        if not isinstance(collection, list) or [item.get("path") for item in collection if isinstance(item, Mapping)] != list(expected_paths):
+            _fail("manifest-shape", f"manifest.{field} paths are not the closed v5 contract")
+        for index, identity in enumerate(collection):
+            _pure_identity(identity, f"manifest.{field}[{index}]")
+    _validate_pure_manifest_v1(_v1_projection(value))
+    return dict(value)
+
+
 def _seal(value: dict[str, Any]) -> dict[str, Any]:
     value["manifest_sha256"] = _self_hash(value)
     return value
@@ -1208,8 +1440,15 @@ def _validate_binary_slots(value: Any) -> dict[str, Any]:
     return _binary_slots(value)
 
 
-def _package_extra_files(package: Path) -> list[str]:
+def _package_extra_files(package: Path, *, allow_v5_runtime_attestations: bool = False) -> list[str]:
+    """Return package files outside the closed freeze input policy.
+
+    Runtime-attestation sidecars are reserved for a v5 package.  Even there,
+    only the two selector-specific canonical paths are permitted; all other
+    files remain extras.
+    """
     found: list[str] = []
+    allowed_attestations = set(RUNTIME_ATTESTATION_PATHS.values()) if allow_v5_runtime_attestations else set()
     for directory in ("corpora", "manifests"):
         base = _safe_path(package, directory)
         if not base.is_dir():
@@ -1219,6 +1458,9 @@ def _package_extra_files(package: Path) -> list[str]:
             if relative.startswith(RECEIPT_DIR_REL + "/"):
                 if path.is_symlink() or not path.is_file() or relative not in set(RECEIPT_PATHS.values()):
                     found.append(relative)
+            elif relative.startswith("manifests/runtime-attestations/"):
+                if path.is_symlink() or not path.is_file() or relative not in allowed_attestations:
+                    found.append(relative)
             elif path.is_symlink():
                 found.append(relative)
             elif path.is_file() and relative not in RELEVANT_PACKAGE_FILES:
@@ -1226,9 +1468,16 @@ def _package_extra_files(package: Path) -> list[str]:
     return sorted(found)
 
 
-def generate_manifest(repo: Path = REPO, package: Path = PACKAGE, *, binaries: Mapping[str, Any] | None = None, source_commit: str | None = None) -> dict[str, Any]:
+def generate_manifest(
+    repo: Path = REPO,
+    package: Path = PACKAGE,
+    *,
+    binaries: Mapping[str, Any] | None = None,
+    source_commit: str | None = None,
+    allow_v5_runtime_attestations: bool = False,
+) -> dict[str, Any]:
     """Generate the historical v1 shape; successor generation is explicit."""
-    extras = _package_extra_files(package)
+    extras = _package_extra_files(package, allow_v5_runtime_attestations=allow_v5_runtime_attestations)
     if extras:
         _fail("extra-input", ", ".join(extras))
     resolved_commit = _resolve_source_commit(repo, source_commit)
@@ -1265,6 +1514,8 @@ def validate_manifest(raw_or_value: bytes | Mapping[str, Any]) -> dict[str, Any]
         return _validate_pure_manifest_v3(value)
     if schema == V4_SCHEMA:
         return _validate_pure_manifest_v4(value)
+    if schema == V5_SCHEMA:
+        return _validate_pure_manifest_v5(value)
     _fail("manifest-shape", "manifest schema is unsupported")
 
 
@@ -1413,13 +1664,77 @@ def _tool_identity(manifest: Mapping[str, Any], path: str) -> dict[str, Any] | N
     return None
 
 
+def _historical_receipt_source(relative: str, expected: Mapping[str, Any], manifest: Mapping[str, Any]) -> bytes | None:
+    """Recover an authenticated predecessor receipt validator from Git.
+
+    Historical v1-v4 manifests bind the receipt validator's exact source
+    bytes.  When the current working copy has advanced that tool, retain the
+    historical check by looking up the exact authenticated SHA-256 in the
+    repository's reachable Git blobs.  Current v5 validation never falls back
+    to history: its validator must be the freshly authenticated package file.
+    """
+    if manifest.get("schema") not in {V1_SCHEMA, V2_SCHEMA, V3_SCHEMA, V4_SCHEMA}:
+        return None
+    if expected.get("mode") != 0o644 or not isinstance(expected.get("bytes"), int) or not _valid_sha(expected.get("sha256")):
+        return None
+    repository_path = f"{PACKAGE_REL}/{relative}"
+    try:
+        listing = _git_run(
+            REPO, "rev-list", "--objects", "--all", "--", repository_path,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except OSError:
+        return None
+    if listing.returncode:
+        return None
+    for record in listing.stdout.splitlines():
+        try:
+            object_id, path_bytes = record.split(b" ", 1)
+            path = path_bytes.decode("utf-8")
+            object_text = object_id.decode("ascii")
+        except (UnicodeDecodeError, ValueError):
+            continue
+        if path != repository_path or not _valid_commit(object_text):
+            continue
+        try:
+            blob = _git_run(
+                REPO, "cat-file", "blob", object_text,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+        except OSError:
+            continue
+        if blob.returncode or len(blob.stdout) > MAX_FILE_BYTES:
+            continue
+        if len(blob.stdout) == expected["bytes"] and _sha256(blob.stdout) == expected["sha256"]:
+            return blob.stdout
+    return None
+
+
 def _receipt_module(package: Path, manifest: Mapping[str, Any]) -> Any:
     relative = "scripts/phase3_build_receipt.py"
     expected = _tool_identity(manifest, relative)
     if expected is None:
         _fail("build-receipt", "freeze does not authenticate the receipt validator")
     path = package / relative
-    source = _read_authenticated_file(path, relative, expected)
+    try:
+        source = _read_authenticated_file(path, relative, expected)
+    except FreezeManifestError as original_error:
+        # Only a regular current file may use the exact historical Git-blob
+        # fallback.  Missing, symlinked, or otherwise unsafe package inputs
+        # remain fail-closed.
+        if not original_error.detail.startswith(f"{relative} differs from its frozen"):
+            raise
+        try:
+            info = path.lstat()
+        except OSError:
+            raise original_error
+        if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode) or stat.S_IMODE(info.st_mode) != 0o644 or info.st_nlink != 1:
+            raise original_error
+        source = _historical_receipt_source(relative, expected, manifest)
+        if source is None:
+            raise original_error
     module_name = f"phase3_build_receipt_for_freeze_{id(package)}"
     try:
         code = compile(source, str(path), "exec", dont_inherit=True, optimize=0)
@@ -1438,6 +1753,10 @@ def _receipt_module(package: Path, manifest: Mapping[str, Any]) -> Any:
             else:
                 sys.modules[module_name] = previous
             raise
+        # Bind the freshly loaded receipt validator before its first caller
+        # can validate a receipt (which may perform Git reads indirectly).
+        module.GIT_EXECUTABLE = GIT_EXECUTABLE
+        module.GIT_ENV = dict(GIT_ENV)
         return module
     except FreezeManifestError:
         raise
@@ -1602,6 +1921,7 @@ def _validate_current_candidate_build_inputs(repo: Path, package: Path, manifest
         package,
         binaries=_validate_binary_slots(manifest.get("binaries")),
         source_commit=manifest.get("candidate_source_commit"),
+        allow_v5_runtime_attestations=manifest.get("schema") == V5_SCHEMA,
     )
     for field in INHERITED_SUCCESSOR_FIELDS:
         if manifest.get(field) != current.get(field):
@@ -1833,6 +2153,99 @@ def build_v4_successor_manifest(
     return validated
 
 
+def build_v5_successor_manifest(
+    predecessor_raw: bytes,
+    *,
+    execution_tool_source_commit: str,
+    materialization_commit: str | None = None,
+    new_materialization_commit: str | None = None,
+    old_materialization_commit: str | None = None,
+    previous_execution_tool_source_commit: str | None = None,
+    runtime_contract: Mapping[str, Any] | None = None,
+    repo: Path = REPO,
+    package: Path = PACKAGE,
+) -> dict[str, Any]:
+    """Build v5 from exact v4 bytes and two current sidecar attestations.
+
+    Runtime truth is never derived from this process.  The caller supplies a
+    contract-2 mapping whose fixed sidecar paths must already exist under the
+    package and whose canonical records are independently validated by the
+    runtime-probe validator.
+    """
+    if materialization_commit is None:
+        materialization_commit = new_materialization_commit
+    elif new_materialization_commit is not None:
+        _fail("materialization-commit", "new materialization commit was supplied twice")
+    if type(predecessor_raw) is not bytes:
+        _fail("predecessor-manifest", "v5 input must be exact v4 bytes")
+    if materialization_commit is None:
+        _fail("materialization-commit", "v5 requires an explicit new materialization commit")
+    predecessor = validate_manifest(predecessor_raw)
+    if predecessor.get("schema") != V4_SCHEMA or predecessor.get("manifest_sha256") != EXPECTED_V4_MANIFEST_SHA256:
+        _fail("predecessor-manifest", "v5 input must be the exact current v4 manifest")
+    if previous_execution_tool_source_commit is None:
+        previous_execution_tool_source_commit = predecessor.get("execution_tool_source_commit")
+    if old_materialization_commit is None:
+        old_materialization_commit = predecessor.get("materialization_commit")
+    if previous_execution_tool_source_commit != predecessor.get("execution_tool_source_commit"):
+        _fail("execution-tool-commit", "v5 old E does not match the exact v4 execution snapshot")
+    if old_materialization_commit != predecessor.get("materialization_commit"):
+        _fail("materialization-commit", "v5 old M does not match the exact v4 materialization snapshot")
+    for field, value in (("execution_tool_source_commit", execution_tool_source_commit), ("old_materialization_commit", old_materialization_commit), ("materialization_commit", materialization_commit), ("previous_execution_tool_source_commit", previous_execution_tool_source_commit)):
+        if not _valid_commit(value):
+            _fail("execution-tool-commit", f"{field} must be a full lowercase commit SHA")
+    if execution_tool_source_commit in {predecessor["candidate_source_commit"], predecessor["execution_tool_source_commit"]}:
+        _fail("execution-tool-commit", "v5 new E must be distinct from C and old E")
+    if old_materialization_commit == materialization_commit:
+        _fail("materialization-commit", "v5 old and new M commits must be distinct")
+    if runtime_contract is None:
+        _fail("runtime-contract", "v5 requires an explicit contract-2 runtime mapping")
+    runtime_contract = _runtime_attestation_contract(package, runtime_contract)
+
+    _validate_candidate_build_snapshot(repo, predecessor)
+    for field, paths in (("runtime_tool_identities", RUNTIME_TOOLS), ("exact_runtime_tool_identities", EXACT_RUNTIME_TOOLS), ("provenance_tool_identities", PROVENANCE_TOOLS), ("experiment_closure_tool_identities", EXPERIMENT_CLOSURE_TOOLS)):
+        old_expected = _execution_tool_identities_from_commit(repo, previous_execution_tool_source_commit, paths)
+        if predecessor.get(field) != old_expected:
+            _fail("predecessor-manifest", f"v4 {field} differs from its exact old E snapshot")
+    _assert_descendant_commit(repo, predecessor["candidate_source_commit"], previous_execution_tool_source_commit)
+    _assert_descendant_commit(repo, previous_execution_tool_source_commit, old_materialization_commit)
+    _assert_descendant_commit(repo, old_materialization_commit, execution_tool_source_commit)
+    _assert_descendant_commit(repo, execution_tool_source_commit, materialization_commit)
+
+    successor = json.loads(json.dumps(predecessor))
+    successor.update({
+        "schema": V5_SCHEMA, "manifest_sha256": None,
+        "predecessor_manifest_sha256": predecessor["manifest_sha256"],
+        "predecessor_v1_manifest_sha256": predecessor["predecessor_v1_manifest_sha256"],
+        "predecessor_v2_manifest_sha256": predecessor["predecessor_v2_manifest_sha256"],
+        "predecessor_v2_inherited_sha256": predecessor["predecessor_v2_inherited_sha256"],
+        "predecessor_v2_execution_tool_source_commit": predecessor["predecessor_v2_execution_tool_source_commit"],
+        "predecessor_v2_materialization_commit": predecessor["predecessor_v2_materialization_commit"],
+        "predecessor_v3_manifest_sha256": predecessor["predecessor_manifest_sha256"],
+        "predecessor_v3_execution_tool_source_commit": predecessor["previous_execution_tool_source_commit"],
+        "predecessor_v3_materialization_commit": predecessor["old_materialization_commit"],
+        "predecessor_v4_manifest_sha256": predecessor["manifest_sha256"],
+        "predecessor_exact_python_runtime_contract": predecessor["exact_python_runtime_contract"],
+        "previous_execution_tool_source_commit": previous_execution_tool_source_commit,
+        "old_materialization_commit": old_materialization_commit,
+        "materialization_commit": materialization_commit,
+        "execution_tool_source_commit": execution_tool_source_commit,
+        "runtime_tool_identities": _execution_tool_identities_from_commit(repo, execution_tool_source_commit, RUNTIME_TOOLS),
+        "exact_runtime_tool_identities": _execution_tool_identities_from_commit(repo, execution_tool_source_commit, EXACT_RUNTIME_TOOLS),
+        "provenance_tool_identities": _execution_tool_identities_from_commit(repo, execution_tool_source_commit, V5_PROVENANCE_TOOLS),
+        "experiment_closure_tool_identities": _execution_tool_identities_from_commit(repo, execution_tool_source_commit, EXPERIMENT_CLOSURE_TOOLS),
+        "exact_python_runtime_contract": runtime_contract,
+        "canonicalization": _v5_canonicalization(),
+    })
+    _seal(successor)
+    validated = _validate_pure_manifest_v5(successor)
+    _validate_candidate_build_snapshot(repo, validated)
+    _validate_execution_commit_snapshot(repo, package, validated)
+    if _tool_identities(package, EXPERIMENT_CLOSURE_TOOLS) != validated["experiment_closure_tool_identities"]:
+        _fail("execution-tool-drift", "current experiment closure tool differs from new E")
+    return validated
+
+
 def check_historical_manifest(repo: Path = REPO, package: Path = PACKAGE, path: Path = MANIFEST) -> dict[str, Any]:
     """Check a v1 manifest only; retained for immutable historical validation."""
     recorded = _load_manifest(path)
@@ -1860,7 +2273,7 @@ def check_manifest(
 ) -> dict[str, Any]:
     """Check the current successor freeze against its C/E/M chain."""
     recorded = _load_manifest(path, raw=manifest_raw)
-    if recorded.get("schema") in {V3_SCHEMA, V4_SCHEMA}:
+    if recorded.get("schema") in {V3_SCHEMA, V4_SCHEMA, V5_SCHEMA}:
         current_materialization = _resolve_source_commit(repo, None)
         _assert_descendant_commit(repo, recorded.get("candidate_source_commit"), recorded.get("previous_execution_tool_source_commit"))
         _assert_descendant_commit(repo, recorded.get("previous_execution_tool_source_commit"), recorded.get("old_materialization_commit"))
@@ -1874,6 +2287,8 @@ def check_manifest(
         _validate_current_candidate_build_inputs(repo, package, recorded)
         if _tool_identities(package, EXPERIMENT_CLOSURE_TOOLS) != recorded.get("experiment_closure_tool_identities"):
             _fail("execution-tool-drift", "current experiment closure tool differs from new E")
+        if recorded.get("schema") == V5_SCHEMA:
+            _runtime_attestation_contract(package, recorded["exact_python_runtime_contract"])
         return recorded
     if recorded.get("schema") != SCHEMA:
         _fail("current-schema", "current freeze check requires the v2, v3, or v4 successor manifest")
@@ -1980,6 +2395,7 @@ def _atomic_write_manifest(
                     (existing.get("schema") == V1_SCHEMA and value.get("schema") == SCHEMA)
                     or (existing.get("schema") == SCHEMA and value.get("schema") == V3_SCHEMA)
                     or (existing.get("schema") == V3_SCHEMA and value.get("schema") == V4_SCHEMA)
+                    or (existing.get("schema") == V4_SCHEMA and value.get("schema") == V5_SCHEMA)
                 )
                 and value.get("predecessor_manifest_sha256") == existing.get("manifest_sha256")
             )
@@ -2253,6 +2669,33 @@ def write_v4_successor_manifest(
     return successor
 
 
+def write_v5_successor_manifest(
+    path: Path,
+    execution_tool_source_commit: str,
+    *,
+    materialization_commit: str | None = None,
+    new_materialization_commit: str | None = None,
+    runtime_contract: Mapping[str, Any] | None = None,
+    old_materialization_commit: str | None = None,
+    previous_execution_tool_source_commit: str | None = None,
+    repo: Path = REPO,
+    package: Path = PACKAGE,
+) -> dict[str, Any]:
+    """Atomically replace exact v4 bytes with a v5 runtime-attested successor."""
+    predecessor_snapshot = _read_manifest_snapshot(path)
+    predecessor = validate_manifest(predecessor_snapshot[0])
+    if predecessor.get("schema") != V4_SCHEMA or predecessor.get("manifest_sha256") != EXPECTED_V4_MANIFEST_SHA256:
+        _fail("manifest-finalized", "v5 creation requires the exact current v4 manifest")
+    successor = build_v5_successor_manifest(
+        predecessor_snapshot[0], execution_tool_source_commit=execution_tool_source_commit,
+        materialization_commit=materialization_commit, new_materialization_commit=new_materialization_commit,
+        runtime_contract=runtime_contract, old_materialization_commit=old_materialization_commit,
+        previous_execution_tool_source_commit=previous_execution_tool_source_commit, repo=repo, package=package,
+    )
+    _atomic_write_manifest(successor, path, expected_destination_snapshot=predecessor_snapshot)
+    return successor
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="generate or check the execution-disabled Phase 3 freeze manifest")
     parser.add_argument("--repo", type=Path, default=REPO)
@@ -2266,6 +2709,11 @@ def main(argv: list[str] | None = None) -> int:
         "--successor-v4", nargs=4,
         metavar=("EXECUTION_TOOL_COMMIT", "MATERIALIZATION_COMMIT", "NATIVE_PYTHON_VERSION", "RUNTIME_CONTRACT_JSON"),
         help="create v4 using a canonical exact_python_runtime_contract JSON file",
+    )
+    parser.add_argument(
+        "--successor-v5", nargs=3,
+        metavar=("EXECUTION_TOOL_COMMIT", "MATERIALIZATION_COMMIT", "RUNTIME_CONTRACT_JSON"),
+        help="create v5 using two current runtime-attestation sidecars and contract-2 JSON",
     )
     args = parser.parse_args(argv)
     try:
@@ -2292,6 +2740,13 @@ def main(argv: list[str] | None = None) -> int:
                 package=args.package.resolve(),
             )
             print(f"PHASE 3 FREEZE MANIFEST V4 SUCCESSOR CREATED: {successor['manifest_sha256']}")
+        elif args.successor_v5:
+            successor = write_v5_successor_manifest(
+                args.manifest.resolve(), args.successor_v5[0], materialization_commit=args.successor_v5[1],
+                runtime_contract=_load_runtime_contract_json(Path(args.successor_v5[2]).resolve()),
+                repo=args.repo.resolve(), package=args.package.resolve(),
+            )
+            print(f"PHASE 3 FREEZE MANIFEST V5 SUCCESSOR CREATED: {successor['manifest_sha256']}")
         elif args.successor:
             successor = write_successor_manifest(
                 args.manifest.resolve(),
@@ -2321,4 +2776,4 @@ if __name__ == "__main__":
     raise SystemExit(main())
 
 
-__all__ = ["V1_SCHEMA", "SCHEMA", "V2_SCHEMA", "V3_SCHEMA", "V4_SCHEMA", "CURRENT_SCHEMA", "PHASE_ID", "FreezeManifestError", "validate_manifest", "generate_manifest", "build_successor_manifest", "build_v3_successor_manifest", "build_v4_successor_manifest", "check_historical_manifest", "check_manifest", "finalize_from_receipts", "write_manifest", "write_successor_manifest", "write_v3_successor_manifest", "write_v4_successor_manifest", "MANIFEST", "PACKAGE", "REPO"]
+__all__ = ["V1_SCHEMA", "SCHEMA", "V2_SCHEMA", "V3_SCHEMA", "V4_SCHEMA", "V5_SCHEMA", "CURRENT_SCHEMA", "PHASE_ID", "FreezeManifestError", "validate_manifest", "generate_manifest", "build_successor_manifest", "build_v3_successor_manifest", "build_v4_successor_manifest", "build_v5_successor_manifest", "check_historical_manifest", "check_manifest", "finalize_from_receipts", "write_manifest", "write_successor_manifest", "write_v3_successor_manifest", "write_v4_successor_manifest", "write_v5_successor_manifest", "MANIFEST", "PACKAGE", "REPO"]

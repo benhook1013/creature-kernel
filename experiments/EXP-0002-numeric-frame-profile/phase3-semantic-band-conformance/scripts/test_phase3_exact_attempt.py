@@ -840,6 +840,53 @@ class OrchestrationTests(unittest.TestCase):
             M._validate_frozen_runtime_contract(freeze, "wsl2-x86_64")
         self.assertEqual(error.exception.code, "runtime-contract")
 
+    def test_runtime_contract_binds_complete_interpreter_descriptor_identity(self) -> None:
+        identity = {
+            "path": "/opt/python3.13",
+            "mode": 0o755,
+            "bytes": 1,
+            "sha256": "a" * 64,
+            "uid": 1000,
+            "gid": 1000,
+            "nlink": 1,
+        }
+
+        def selected(selector: str) -> dict[str, object]:
+            interpreter = identity["path"]
+            return {
+                "selector": selector,
+                "implementation": "CPython",
+                "version": "3.13.15",
+                "interpreter": interpreter,
+                "interpreter_identity": dict(identity),
+                "invocation": [interpreter, "-I", "scripts/phase3_exact_attempt_launcher.py", "--launch-record", "<launch-record>"],
+                "module_loading": "explicit-sibling-file-loading-under-isolated-mode",
+                "entrypoint": "phase3_exact_attempt_launcher.main->phase3_exact_attempt.run_exact_attempt",
+                "attestation_identity": {"path": "manifests/runtime-attestations/runtime.json", "bytes": 1, "sha256": "b" * 64, "attestation_sha256": "c" * 64},
+                "external_tools": {"git": {"path": "/usr/bin/git", "mode": 0o755, "bytes": 1, "sha256": "d" * 64}},
+            }
+
+        freeze = json.loads(_freeze_value())
+        freeze[M.PYTHON_RUNTIME_CONTRACT_FIELD] = {
+            "schema": M.PYTHON_RUNTIME_CONTRACT_SCHEMA,
+            "platforms": {selector: selected(selector) for selector in M.PLATFORM_ORDINALS},
+        }
+        self.assertEqual(M._validate_frozen_runtime_contract(freeze, "wsl2-x86_64")["interpreter_identity"], identity)
+        for field in ("uid", "gid", "nlink"):
+            with self.subTest(field=field):
+                invalid = json.loads(json.dumps(freeze))
+                del invalid[M.PYTHON_RUNTIME_CONTRACT_FIELD]["platforms"]["wsl2-x86_64"]["interpreter_identity"][field]
+                with self.assertRaises(M.ExactAttemptError) as error:
+                    M._validate_frozen_runtime_contract(invalid, "wsl2-x86_64")
+                self.assertEqual(error.exception.code, "runtime-contract")
+        for field, value in (("uid", -1), ("gid", 0x1_0000_0000), ("nlink", 2)):
+            with self.subTest(tampered_field=field):
+                invalid = json.loads(json.dumps(freeze))
+                invalid[M.PYTHON_RUNTIME_CONTRACT_FIELD]["platforms"]["wsl2-x86_64"]["interpreter_identity"][field] = value
+                with self.assertRaises(M.ExactAttemptError) as error:
+                    M._validate_frozen_runtime_contract(invalid, "wsl2-x86_64")
+                self.assertEqual(error.exception.code, "runtime-contract")
+
     def test_selected_frozen_binary_sizes_and_cap_are_checked_before_reservation(self) -> None:
         self.assertEqual(M.MAX_EXECUTABLE_BYTES, M.transport.MAX_EXECUTABLE_BYTES)
         self.assertEqual(M.MAX_EXECUTABLE_BYTES, M.evidence_contract.MAX_EXECUTABLE_BYTES)

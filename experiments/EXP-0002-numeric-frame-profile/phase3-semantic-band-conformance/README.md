@@ -303,6 +303,23 @@ execution-disabled admission and artifact-custody preparation. An exact-
 attempt authorization is created separately only after Ben explicitly
 authorizes execution.
 
+The proposed v5 successor (`ck.exp-0002.phase3.freeze-manifest-5`) keeps v4
+immutable and adds contract-2 per-selector runtime attestations. Each selector
+must provide a current canonical sidecar from
+`scripts/phase3_python_runtime_probe.py`, an absolute CPython `3.13.15`
+interpreter identity, the exact isolated launcher argv, and a bound absolute
+Git identity for the authority's read-only ancestry checks. The probe is
+bounded, deterministic, no-network, and build/provisioning-only; it does not
+install or probe a runtime on behalf of this package. The v5 generator fails
+closed unless both WSL and native sidecars validate against their current
+interpreter/runtime closure identities. Because the probe is outcome-affecting
+provenance, the v5 closure is 8 runtime + 8 exact + 5 provenance + 1 closure
+tool identity. Its invocation is `<absolute-attested-interpreter> -I
+scripts/phase3_exact_attempt_launcher.py --launch-record <launch-record>`, with
+the selector-specific absolute interpreter path taken from the authenticated
+v5 contract. v4 remains valid historical input but is rejected by exact
+consumers and Gate B preflight until a v5 package exists.
+
 `development-unfrozen` remains the explicit state of the generated
 corpus/request materialization. It is not a statement that the separately
 bound execution package is unfrozen: once the canonical manifest has both

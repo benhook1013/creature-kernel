@@ -264,7 +264,7 @@ def _record(bundle: bytes, root: Path, *, selector: str = "wsl2-x86_64", kind: s
         "materialization_commit": "b" * 40,
         "platform": F._platforms(),
         "protocol": {"request_protocol_id": F.REQUEST_PROTOCOL, "response_protocol_id": F.RESPONSE_PROTOCOL, "request_fields": F.REQUEST_FIELDS, "canonical_wire": "strict UTF-8 JSON object, exact seven request fields, canonical bytes are SHA-256 framed by the evidence contract"},
-        "provenance_tool_identities": [_fixture_identity(path, "1" * 64) for path in F.PROVENANCE_TOOLS],
+        "provenance_tool_identities": [_fixture_identity(path, "1" * 64) for path in F.V5_PROVENANCE_TOOLS],
         "raw_inputs": [_fixture_identity(path, "2" * 64) for path in (*F.PACKAGE_INPUTS, F.FIXTURE_REL)],
         "readiness": F._readiness({"wsl2-x86_64": {"status": "bound"}, "ubuntu-24.04-x86_64": {"status": "bound"}}),
         "repository_inputs": {"native_build_workflow": {"identity": workflow_identity, "path": M.WORKFLOW_PATH, "pinned_action_refs": WORKFLOW_REFS, "runner_label": "ubuntu-24.04"}},

@@ -416,6 +416,27 @@ class GitBoundAuthorityTests(unittest.TestCase):
             self.freeze_patch.stop()
         self.holder.cleanup()
 
+    def test_git_plumbing_uses_authenticated_absolute_path_and_closed_environment(self) -> None:
+        completed = type("Completed", (), {"stdout": b"ok\n", "returncode": 0})()
+        with mock.patch.object(M.subprocess, "run", return_value=completed) as run:
+            self.assertEqual(M._git_command(self.root, ["rev-parse", "HEAD"]), b"ok\n")
+        command = run.call_args.args[0]
+        options = run.call_args.kwargs
+        self.assertEqual(command[0], M.GIT_EXECUTABLE)
+        self.assertTrue(Path(command[0]).is_absolute())
+        self.assertEqual(options["env"], dict(M.GIT_ENVIRONMENT))
+        self.assertEqual(options["env"]["LANG"], "C")
+        self.assertEqual(options["env"]["LC_ALL"], "C")
+        self.assertEqual(options["env"]["GIT_CONFIG_NOSYSTEM"], "1")
+        self.assertEqual(options["env"]["GIT_CONFIG_GLOBAL"], "/dev/null")
+        self.assertEqual(options["env"]["GIT_CONFIG_SYSTEM"], "/dev/null")
+        self.assertEqual(options["env"]["GIT_OPTIONAL_LOCKS"], "0")
+        self.assertNotIn("PATH", options["env"])
+        with mock.patch.object(M, "GIT_EXECUTABLE", "git"):
+            with self.assertRaises(M.AuthorityError) as error:
+                M._git_command(self.root, ["rev-parse", "HEAD"])
+        self.assertEqual(error.exception.code, "review-target-git")
+
     def _history(self, *, manifest_bytes: bytes | None = None, missing_manifest: bool = False, repo_name: str = "repo") -> tuple[dict[str, object], bytes, str, str, str, str, str]:
         repo = self.root / repo_name
         repo.mkdir()

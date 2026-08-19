@@ -33,6 +33,7 @@ EXPECTED_CANDIDATE_BYTES = 1_494_337
 EXPECTED_PHASE = "exp-0002-phase3-semantic-band-conformance-001"
 EXPECTED_PROFILE = "ck.provisional-r3-authored-conflict.semantic-band-1"
 REPOSITORY = Path(__file__).resolve().parents[4]
+GIT_EXECUTABLE = "/usr/bin/git"
 FREEZE_MANIFEST_PATH = "manifests/freeze-manifest.json"
 FREEZE_RECEIPT_DIR = "manifests/build-receipts"
 FREEZE_RECEIPT_NAMES = frozenset({"wsl.json", "native.json"})
@@ -56,7 +57,7 @@ EXACT_TOOL_PATHS = (
     "scripts/phase3_exact_transport.py",
     "scripts/phase3_exact_attempt.py",
 )
-V4_EXACT_TOOL_PATHS = (*EXACT_TOOL_PATHS, "scripts/phase3_exact_attempt_launcher.py")
+V5_EXACT_TOOL_PATHS = (*EXACT_TOOL_PATHS, "scripts/phase3_exact_attempt_launcher.py")
 PROVENANCE_TOOL_PATHS = (
     "scripts/generate_phase3.py",
     "scripts/check_candidate_prebinding.py",
@@ -65,7 +66,8 @@ PROVENANCE_TOOL_PATHS = (
 )
 EXPERIMENT_CLOSURE_TOOL_PATHS = ("scripts/phase3_experiment_closure.py",)
 TOOL_PATHS = (*CORE_TOOL_PATHS, *EXACT_TOOL_PATHS, *PROVENANCE_TOOL_PATHS)
-V4_TOOL_PATHS = (*CORE_TOOL_PATHS, *V4_EXACT_TOOL_PATHS, *PROVENANCE_TOOL_PATHS)
+V4_TOOL_PATHS = (*CORE_TOOL_PATHS, *V5_EXACT_TOOL_PATHS, *PROVENANCE_TOOL_PATHS)
+V5_TOOL_PATHS = (*CORE_TOOL_PATHS, *V5_EXACT_TOOL_PATHS, *PROVENANCE_TOOL_PATHS, "scripts/phase3_python_runtime_probe.py")
 MAX_IDENTITY_BYTES = 8 * 1024 * 1024
 MAX_STRING_BYTES = 4096
 SHA256_RE = set("0123456789abcdef")
@@ -231,9 +233,14 @@ def _tool_identities(value: Any) -> list[dict[str, Any]]:
             item["path"] = path
             items.append(item)
         value = items
-    if type(value) is not list or len(value) not in {len(TOOL_PATHS), len(V4_TOOL_PATHS)}:
+    if type(value) is not list or len(value) not in {len(TOOL_PATHS), len(V4_TOOL_PATHS), len(V5_TOOL_PATHS)}:
         _fail("tool-identity", "current Phase 3 tool identities are incomplete")
-    expected_paths = V4_TOOL_PATHS if len(value) == len(V4_TOOL_PATHS) else TOOL_PATHS
+    if len(value) == len(V5_TOOL_PATHS):
+        expected_paths = V5_TOOL_PATHS
+    elif len(value) == len(V4_TOOL_PATHS):
+        expected_paths = V4_TOOL_PATHS
+    else:
+        expected_paths = TOOL_PATHS
     normalized: list[dict[str, Any]] = []
     seen: set[str] = set()
     for index, item in enumerate(value):
@@ -428,6 +435,10 @@ def _load_freeze_module(root: Path, manifest_raw: bytes | None = None) -> Any:
             else:
                 sys.modules[module_name] = previous
             raise
+        # The preflight owns the build-time Git seam.  Keep the freshly loaded
+        # authenticated module's default overridable by a later authenticated
+        # launcher, while this read-only tool remains pinned to /usr/bin/git.
+        module.GIT_EXECUTABLE = GIT_EXECUTABLE
         return module
     except GateBPreflightError:
         raise
@@ -447,7 +458,12 @@ def _validate_freeze_package(root: Path) -> tuple[Any, dict[str, Any]]:
         raise GateBPreflightError("freeze-manifest", f"canonical freeze validation failed: {code}") from error
     if not isinstance(manifest, dict):
         _fail("freeze-manifest", "canonical freeze validator did not return an object")
-    allowed_schemas = {freeze.SCHEMA, getattr(freeze, "V3_SCHEMA", freeze.SCHEMA), getattr(freeze, "V4_SCHEMA", freeze.SCHEMA)}
+    allowed_schemas = {
+        getattr(freeze, "SCHEMA", "ck.exp-0002.phase3.freeze-manifest-2"),
+        getattr(freeze, "V3_SCHEMA", "ck.exp-0002.phase3.freeze-manifest-3"),
+        getattr(freeze, "V4_SCHEMA", "ck.exp-0002.phase3.freeze-manifest-4"),
+        getattr(freeze, "V5_SCHEMA", "ck.exp-0002.phase3.freeze-manifest-5"),
+    }
     if manifest.get("schema") not in allowed_schemas:
         _fail("freeze-state", "canonical freeze manifest is not a supported successor schema")
     binaries = manifest.get("binaries")
@@ -494,6 +510,8 @@ def _report(candidate: dict[str, Any], tools: list[dict[str, Any]], cases: list[
     closure_tools = manifest.get("experiment_closure_tool_identities", [])
     closure_schema = manifest.get("experiment_closure_schema", "ck.exp-0002.phase3.experiment-closure-1")
     closure_bound = isinstance(closure_tools, list) and bool(closure_tools)
+    v5_schema = "ck.exp-0002.phase3.freeze-manifest-5"
+    exact_v5_bound = manifest.get("schema") == v5_schema and closure_bound
     runtime_tool_count = sum(len(manifest[field]) for field in ("runtime_tool_identities", "exact_runtime_tool_identities", "provenance_tool_identities"))
     return {
         "schema": SCHEMA,
@@ -511,7 +529,8 @@ def _report(candidate: dict[str, Any], tools: list[dict[str, Any]], cases: list[
         "r3_activation": "inactive",
         "exact_runtime_closure": {
             "required": True,
-            "status": "passed" if closure_bound else "missing",
+            "required_schema": v5_schema,
+            "status": "passed" if exact_v5_bound else "missing",
             "tool_count": runtime_tool_count,
             "closure_tool_count": len(closure_tools),
             "execution_permitted": False,
@@ -535,6 +554,7 @@ def _report(candidate: dict[str, Any], tools: list[dict[str, Any]], cases: list[
         },
         "execution_package": {
             "freeze_state": "frozen",
+            "freeze_schema": manifest["schema"],
             "manifest_path": FREEZE_MANIFEST_PATH,
             "manifest_sha256": manifest["manifest_sha256"],
             "predecessor_manifest_sha256": manifest["predecessor_manifest_sha256"],
@@ -587,12 +607,13 @@ def _report(candidate: dict[str, Any], tools: list[dict[str, Any]], cases: list[
             {"name": "candidate-to-execution-tool-ancestry", "status": "passed", "detail": "Git ancestry and both committed snapshots were checked by the freeze validator"},
             {"name": "current-execution-tool-snapshot", "status": "passed", "detail": manifest["execution_tool_source_commit"]},
             {"name": "freeze-manifest", "status": "passed", "detail": manifest["manifest_sha256"]},
-            {"name": "exact-runtime-closure", "status": "passed" if closure_bound else "missing", "detail": "exact runtime tools are bound to the immutable execution snapshot" if closure_bound else "successor closure tool binding is required"},
+            {"name": "exact-runtime-closure", "status": "passed" if exact_v5_bound else "missing", "detail": "v5 exact runtime tools are bound to the immutable execution snapshot" if exact_v5_bound else "v5 freeze successor is required by exact execution consumers"},
             {"name": "experiment-closure-adjudicator", "status": "missing", "detail": f"{closure_schema}; ordinals 0, 1, 2 required before any experiment outcome"},
             {"name": "gate-b-current-double-review", "status": "missing"},
         ],
         "missing_gate_b_items": [
             "current Gate B Double review of the frozen concrete package",
+            *( ["v5 freeze successor required by exact execution consumers"] if not exact_v5_bound else [] ),
             *( ["new successor exact-runtime closure tool binding"] if not closure_bound else [] ),
             "experiment-wide closure of WSL ordinals 0/1 and native ordinal 2 using the frozen closure adjudicator",
             "Ben authorization for the exact attempts and native dispatch",
@@ -666,4 +687,4 @@ preflight = build_gate_b_preflight
 gate_b_preflight = build_gate_b_preflight
 preflight_bytes = build_gate_b_preflight_bytes
 
-__all__ = ["SCHEMA", "GateBPreflightError", "build_gate_b_preflight", "build_gate_b_preflight_bytes", "preflight", "gate_b_preflight", "preflight_bytes", "TOOL_PATHS"]
+__all__ = ["SCHEMA", "GateBPreflightError", "build_gate_b_preflight", "build_gate_b_preflight_bytes", "preflight", "gate_b_preflight", "preflight_bytes", "TOOL_PATHS", "V4_TOOL_PATHS", "V5_TOOL_PATHS"]

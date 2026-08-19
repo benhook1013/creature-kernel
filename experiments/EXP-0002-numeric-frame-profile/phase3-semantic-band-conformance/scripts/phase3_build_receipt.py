@@ -34,6 +34,22 @@ except ModuleNotFoundError:  # pragma: no cover - exercised on Python 3.10
 
 
 PHASE_ID = "exp-0002-phase3-semantic-band-conformance-001"
+GIT_EXECUTABLE = "/usr/bin/git"
+# Receipt source/working-tree reads are intentionally independent of ambient
+# locale, Git configuration, home, and optional lock behaviour.  This exact
+# closed environment is also applied when the module is loaded by freeze.
+GIT_ENV = {
+    "LANG": "C",
+    "LC_ALL": "C",
+    "LC_CTYPE": "C",
+    "GIT_CONFIG_NOSYSTEM": "1",
+    "GIT_CONFIG_SYSTEM": "/dev/null",
+    "GIT_CONFIG_GLOBAL": "/dev/null",
+    "HOME": "/nonexistent",
+    "XDG_CONFIG_HOME": "/nonexistent",
+    "XDG_CACHE_HOME": "/nonexistent",
+    "GIT_OPTIONAL_LOCKS": "0",
+}
 RECEIPT_SCHEMA = "ck.exp-0002.phase3.gate-b-build-receipt-1"
 METADATA_SCHEMA = "ck.exp-0002.phase3.gate-b-build-metadata-1"
 DEPENDENCY_SCHEMA = "ck.exp-0002.phase3.gate-b-cargo-metadata-1"
@@ -414,6 +430,11 @@ def _load_prebinding() -> Any:
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
+    # Always bind the freshly loaded checker to this module's seam.  A
+    # receipt loaded by freeze has already received freeze's injected seam;
+    # never rely on an ambient module or the checker's default by accident.
+    module.GIT_EXECUTABLE = GIT_EXECUTABLE
+    module.GIT_ENV = dict(GIT_ENV)
     return module
 
 
@@ -451,9 +472,15 @@ def validate_source_closure(closure: Mapping[str, Any]) -> None:
         raise ReceiptError("source closure does not match the frozen Gate-A identity")
 
 
+def _git_run(repo: Path, *arguments: str, **kwargs: Any) -> subprocess.CompletedProcess:
+    kwargs.setdefault("check", False)
+    kwargs["env"] = dict(GIT_ENV)
+    return subprocess.run([GIT_EXECUTABLE, "-C", str(repo), *arguments], **kwargs)
+
+
 def _git_head(repo: Path) -> str:
-    result = subprocess.run(
-        ["git", "-C", str(repo), "rev-parse", "--verify", "HEAD"],
+    result = _git_run(
+        repo, "rev-parse", "--verify", "HEAD",
         check=False,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -464,9 +491,8 @@ def _git_head(repo: Path) -> str:
     commit = result.stdout.strip()
     if not FULL_SHA_RE.fullmatch(commit):
         raise ReceiptError("repository HEAD is not a full commit SHA")
-    status = subprocess.run(
-        ["git", "-C", str(repo), "status", "--porcelain", "--untracked-files=all"],
-        check=False,
+    status = _git_run(
+        repo, "status", "--porcelain", "--untracked-files=all",
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,

@@ -68,13 +68,14 @@ EXPECTED_FP = fp_observer.FPExpectation(
     daz=False,
 )
 
-# v3 does not bind this contract and is therefore not execution-admissible.
+# v4 does not bind this contract and is therefore not execution-admissible.
 # The orchestrator-owned successor freeze must authenticate exact per-selector
 # patch versions and invocation/module-loading facts before this boundary can
 # reserve a slot.  Nothing here derives an expected value from ambient ``sys``.
 PYTHON_RUNTIME_CONTRACT_FIELD = "exact_python_runtime_contract"
-PYTHON_RUNTIME_CONTRACT_SCHEMA = "ck.exp-0002.phase3.python-runtime-contract-1"
-PYTHON_RUNTIME_CONTRACT_KEYS = frozenset({"selector", "implementation", "version", "invocation", "module_loading", "entrypoint"})
+PYTHON_RUNTIME_CONTRACT_SCHEMA = "ck.exp-0002.phase3.python-runtime-contract-2"
+PYTHON_RUNTIME_CONTRACT_KEYS = frozenset({"selector", "implementation", "version", "interpreter", "interpreter_identity", "invocation", "module_loading", "entrypoint", "attestation_identity", "external_tools"})
+PYTHON_INTERPRETER_IDENTITY_KEYS = frozenset({"path", "mode", "bytes", "sha256", "uid", "gid", "nlink"})
 
 MAX_RECORD_BYTES = 64 * 1024
 MAX_TOOL_IDENTITIES = 32
@@ -342,7 +343,7 @@ def _validate_frozen_runtime_contract(freeze: Mapping[str, Any], selector: str) 
     """Require the authenticated successor runtime contract for one selector."""
     value = freeze.get(PYTHON_RUNTIME_CONTRACT_FIELD)
     if not isinstance(value, Mapping):
-        _fail("runtime-contract", "the supplied freeze does not bind exact Python runtime facts; v3 remains execution-disabled")
+        _fail("runtime-contract", "the supplied freeze does not bind content-addressed Python runtime facts; v4 remains execution-disabled")
     if set(value) != {"schema", "platforms"} or value.get("schema") != PYTHON_RUNTIME_CONTRACT_SCHEMA:
         _fail("runtime-contract", "freeze Python runtime contract has the wrong schema")
     platforms = value.get("platforms")
@@ -366,6 +367,36 @@ def _validate_frozen_runtime_contract(freeze: Mapping[str, Any], selector: str) 
         or any(not part or any(char not in "0123456789" for char in part) for part in version_parts)
     ):
         _fail("runtime-contract", f"freeze Python runtime contract lacks an exact patch version for {selector}")
+    interpreter = selected.get("interpreter")
+    if type(interpreter) is not str or not os.path.isabs(interpreter) or invocation != [interpreter, "-I", "scripts/phase3_exact_attempt_launcher.py", "--launch-record", "<launch-record>"]:
+        _fail("runtime-contract", f"freeze Python invocation is not the canonical absolute launcher argv for {selector}")
+    identity = selected.get("interpreter_identity")
+    if (
+        not isinstance(identity, Mapping)
+        or set(identity) != PYTHON_INTERPRETER_IDENTITY_KEYS
+        or identity.get("path") != interpreter
+        or type(identity.get("mode")) is not int
+        or identity.get("mode", 0) < 0
+        or identity.get("mode", 0) > 0o7777
+        or identity.get("mode", 0) & 0o500 != 0o500
+        or identity.get("mode", 0) & 0o022
+        or type(identity.get("bytes")) is not int
+        or identity.get("bytes", 0) <= 0
+        or identity.get("bytes", 0) > MAX_EXECUTABLE_BYTES
+        or type(identity.get("sha256")) is not str
+        or len(identity["sha256"]) != 64
+        or any(char not in "0123456789abcdef" for char in identity["sha256"])
+        or any(type(identity.get(field)) is not int or identity.get(field, -1) < 0 or identity.get(field, 0) > 0xFFFFFFFF for field in ("uid", "gid"))
+        or type(identity.get("nlink")) is not int
+        or identity.get("nlink") != 1
+    ):
+        _fail("runtime-contract", f"freeze Python interpreter identity is incomplete for {selector}")
+    attestation = selected.get("attestation_identity")
+    if not isinstance(attestation, Mapping) or set(attestation) != {"path", "bytes", "sha256", "attestation_sha256"}:
+        _fail("runtime-contract", f"freeze Python attestation identity is incomplete for {selector}")
+    external_tools = selected.get("external_tools")
+    if not isinstance(external_tools, Mapping) or set(external_tools) != {"git"} or not isinstance(external_tools["git"], Mapping) or not os.path.isabs(str(external_tools["git"].get("path", ""))):
+        _fail("runtime-contract", f"freeze external Git identity is incomplete for {selector}")
     if type(invocation) is not list or not invocation or any(type(item) is not str or not item for item in invocation):
         _fail("runtime-contract", f"freeze Python invocation is not a canonical non-empty argv for {selector}")
     if type(module_loading) is not str or not module_loading or type(entrypoint) is not str or not entrypoint:
