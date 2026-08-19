@@ -82,7 +82,7 @@ class SurfacePreviewTests(unittest.TestCase):
             "hips", "pelvic-core", "chest", "waist", "axial-trunk",
             "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar",
             "limb-segment", "root-bridge", "hip-transition", "shoulder-mass", "joint-collar", "digitigrade-lower-leg",
-            "paw-mass", "extremity-bridge", "tail-segment", "tail-tip-extension", "tail-tip-cap", "tail-root-bridge",
+            "paw-mass", "foot-front", "extremity-bridge", "tail-segment", "tail-tip-extension", "tail-tip-cap", "tail-root-bridge",
             "tail-root-collar",
         }
         self.assertEqual({field.recipe for field in fields}, expected_recipes)
@@ -119,7 +119,7 @@ class SurfacePreviewTests(unittest.TestCase):
         )
         np.testing.assert_allclose(
             shoulder.shape["radii"],
-            upper_arm_radius * np.asarray([1.90, 1.55, 1.55]),
+            upper_arm_radius * np.asarray([1.30, 1.55, 1.55]),
         )
         self.assertIs(shoulder.owner, upper_arm)
         left_upper_arm = next(
@@ -155,7 +155,7 @@ class SurfacePreviewTests(unittest.TestCase):
             left_hip.shape["to"],
             left_thigh_shape["from"] + 0.35 * (left_thigh_shape["to"] - left_thigh_shape["from"]),
         )
-        self.assertAlmostEqual(float(left_hip.shape["r0"]), 1.65 * thigh_radius, places=12)
+        self.assertAlmostEqual(float(left_hip.shape["r0"]), 1.25 * thigh_radius, places=12)
         self.assertAlmostEqual(float(left_hip.shape["r1"]), 1.15 * thigh_radius, places=12)
         self.assertIs(left_hip.owner, left_thigh)
         np.testing.assert_allclose(left_hip.shape["from"][[1, 2]], right_hip.shape["from"][[1, 2]])
@@ -165,6 +165,21 @@ class SurfacePreviewTests(unittest.TestCase):
         self.assertEqual(
             [item.recipe for item in fields if item.owner is left_thigh],
             ["limb-segment", "root-bridge", "hip-transition", "joint-collar"],
+        )
+
+        forearm = next(
+            item for item in descriptors if item.key[1] == ("left",) and item.key[3] == "forearm"
+        )
+        self.assertEqual(
+            [item.recipe for item in fields if item.owner is forearm],
+            ["limb-segment"],
+        )
+
+        torso_shape = surface_preview._source_shape(torso, form.reference_scale)
+        chest = next(item for item in fields if item.owner is torso and item.recipe == "chest")
+        np.testing.assert_allclose(
+            chest.shape["radii"],
+            torso_shape["radii"] * np.asarray([0.92, 0.70, 1.02]),
         )
 
         hand = next(item for item in descriptors if item.key[1] == ("left",) and item.key[3] == "hand")
@@ -177,6 +192,25 @@ class SurfacePreviewTests(unittest.TestCase):
         self.assertAlmostEqual(float(hand_anchor_value), 0.0, places=12)
 
         foot = next(item for item in descriptors if item.key[1] == ("left",) and item.key[3] == "foot")
+        foot_shape = surface_preview._source_shape(foot, form.reference_scale)
+        foot_pad = next(item for item in fields if item.owner is foot and item.recipe == "paw-mass")
+        foot_front = next(item for item in fields if item.owner is foot and item.recipe == "foot-front")
+        np.testing.assert_allclose(
+            foot_pad.shape["center"],
+            foot_shape["center"] + np.asarray([0.0, -0.12 * foot_shape["radii"][1], -0.12 * foot_shape["radii"][2]]),
+        )
+        np.testing.assert_allclose(
+            foot_pad.shape["radii"],
+            foot_shape["radii"] * np.asarray([1.15, 0.62, 0.62]),
+        )
+        np.testing.assert_allclose(
+            foot_front.shape["center"],
+            foot_shape["center"] + np.asarray([0.0, -0.16 * foot_shape["radii"][1], 0.52 * foot_shape["radii"][2]]),
+        )
+        np.testing.assert_allclose(
+            foot_front.shape["radii"],
+            foot_shape["radii"] * np.asarray([1.18, 0.50, 0.50]),
+        )
         foot_bridge = next(item for item in fields if item.owner is foot and item.recipe == "extremity-bridge")
         shin = next(item for item in descriptors if item.key == foot.parent)
         foot_anchor_value = surface_preview._field(foot_bridge.shape["from"].reshape(1, 3), shin, form.reference_scale)[0]
