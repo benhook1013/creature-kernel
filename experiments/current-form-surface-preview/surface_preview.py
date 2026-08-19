@@ -32,7 +32,7 @@ from skimage.measure import marching_cubes
 
 
 FORMAT = "creature-kernel.disposable-surface-preview.v2"
-REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v1"
+REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v2"
 SOURCE_FORMAT = "creature-kernel.provisional-form-preview.v4"
 VARIANT_IDS = ("neutral-v0", "broad-soft-v0", "lean-readable-v0", "depth-forward-v0")
 MAX_INPUT_BYTES = 4 * 1024 * 1024
@@ -207,6 +207,29 @@ class _GuideAxes:
     forward: tuple[float, float, float]
 
 
+@dataclass(frozen=True)
+class _AxialStation:
+    """One ordered source-owned axial station in the private form guide."""
+
+    name: str
+    center: tuple[float, float, float]
+    radii: tuple[float, float, float]
+
+
+@dataclass(frozen=True)
+class _AxialTransition:
+    """A short bridge between adjacent axial stations.
+
+    The transitions are deliberately separate fields rather than one broad
+    trunk fill.  They keep the waist visible while still making the three
+    stations a connected guide for the disposable field adapter.
+    """
+
+    name: str
+    centerline: tuple[tuple[float, float, float], tuple[float, float, float]]
+    thickness: tuple[float, float]
+
+
 
 @dataclass(frozen=True)
 class _AxialGuide:
@@ -223,6 +246,8 @@ class _AxialGuide:
     waist_radii: tuple[float, float, float] | None
     trunk_centerline: tuple[tuple[float, float, float], tuple[float, float, float]] | None
     trunk_thickness: tuple[float, float] | None
+    stations: tuple[_AxialStation, ...]
+    transitions: tuple[_AxialTransition, ...]
     axes: _GuideAxes
 
     @property
@@ -232,6 +257,26 @@ class _AxialGuide:
     @property
     def provenance(self) -> dict[str, Any]:
         return self.owner.provenance
+
+    @property
+    def station_controls(self) -> tuple[_AxialStation, ...]:
+        return self.stations
+
+    @property
+    def transition_controls(self) -> tuple[_AxialTransition, ...]:
+        return self.transitions
+
+    @property
+    def pelvic_station(self) -> _AxialStation | None:
+        return next((station for station in self.stations if station.name == "pelvic-girdle"), None)
+
+    @property
+    def waist_station(self) -> _AxialStation | None:
+        return next((station for station in self.stations if station.name == "waist"), None)
+
+    @property
+    def chest_station(self) -> _AxialStation | None:
+        return next((station for station in self.stations if station.name == "chest-girdle"), None)
 
 
 @dataclass(frozen=True)
@@ -274,6 +319,8 @@ class _LimbGuide:
     root_thickness: tuple[float, float] | None
     hip_centerline: tuple[tuple[float, float, float], tuple[float, float, float]] | None
     hip_thickness: tuple[float, float] | None
+    hip_center: tuple[float, float, float] | None
+    hip_radii: tuple[float, float, float] | None
     shoulder_center: tuple[float, float, float] | None
     shoulder_radii: tuple[float, float, float] | None
     joint_center: tuple[float, float, float] | None
@@ -289,6 +336,22 @@ class _LimbGuide:
     @property
     def provenance(self) -> dict[str, Any]:
         return self.owner.provenance
+
+    @property
+    def shoulder_girdle_center(self) -> tuple[float, float, float] | None:
+        return self.shoulder_center
+
+    @property
+    def shoulder_girdle_radii(self) -> tuple[float, float, float] | None:
+        return self.shoulder_radii
+
+    @property
+    def hip_girdle_center(self) -> tuple[float, float, float] | None:
+        return self.hip_center
+
+    @property
+    def hip_girdle_radii(self) -> tuple[float, float, float] | None:
+        return self.hip_radii
 
 
 @dataclass(frozen=True)
@@ -371,6 +434,14 @@ class _HybridGuide:
     @property
     def axial(self) -> tuple[_AxialGuide, ...]:
         return self.axial_guides
+
+    @property
+    def axial_stations(self) -> tuple[_AxialStation, ...]:
+        return tuple(station for axial in self.axial_guides for station in axial.stations)
+
+    @property
+    def axial_transitions(self) -> tuple[_AxialTransition, ...]:
+        return tuple(transition for axial in self.axial_guides for transition in axial.transitions)
 
     @property
     def limbs(self) -> tuple[_LimbGuide, ...]:
@@ -857,30 +928,85 @@ def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _H
     head_center = _guide_point(head_source["center"], "head.center")
     head_radii = _guide_radii(head_source["radii"], "head.radii")
 
-    trunk_start = _parent_surface_anchor(pelvis, torso.point, form.reference_scale)
-    trunk_end = torso_source["center"] - np.asarray([0.0, 0.55 * torso_source["radii"][1], 0.0])
+    # Keep the axial silhouette legible as three stations.  The broad source
+    # torso is only a placement/provenance input here; it is not emitted as a
+    # competing fill.  Station proportions are private visual controls and
+    # intentionally remain derived from the source pelvis/torso radii.
+    pelvic_girdle_radii = _guide_radii(
+        pelvis_source["radii"] * np.asarray([1.00, 0.70, 0.96]),
+        "pelvis.girdle_radii",
+    )
+    pelvic_station_center = pelvis_center
+    pelvic_station_radii = pelvic_girdle_radii
+    pelvic_core_center = _guide_point(
+        pelvis_center + np.asarray([0.0, 0.10 * pelvis_source["radii"][1], 0.0]),
+        "pelvis.pelvic_core_center",
+    )
+    pelvic_core_radii = _guide_radii(
+        pelvis_source["radii"] * np.asarray([0.78, 0.52, 0.75]),
+        "pelvis.pelvic_core_radii",
+    )
+    waist_center = _guide_point(
+        torso_source["center"] + np.asarray([0.0, -0.18 * torso_source["radii"][1], 0.0]),
+        "torso.waist_center",
+    )
+    waist_radii = _guide_radii(
+        torso_source["radii"] * np.asarray([0.62, 0.40, 0.72]),
+        "torso.waist_radii",
+    )
+    chest_center = _guide_point(
+        torso_source["center"] + np.asarray([0.0, 0.35 * torso_source["radii"][1], 0.0]),
+        "torso.chest_center",
+    )
+    chest_radii = _guide_radii(
+        torso_source["radii"] * np.asarray([0.92, 0.78, 1.00]),
+        "torso.chest_radii",
+    )
+    pelvic_waist_path = _guide_path(
+        np.asarray(pelvic_station_center) + np.asarray([0.0, 0.42 * pelvic_station_radii[1], 0.0]),
+        np.asarray(waist_center) - np.asarray([0.0, 0.30 * waist_radii[1], 0.0]),
+        (float(pelvic_station_radii[0] * 0.46), float(waist_radii[0] * 0.88)),
+        "axial.pelvis_waist_transition",
+    )
+    waist_chest_path = _guide_path(
+        np.asarray(waist_center) + np.asarray([0.0, 0.30 * waist_radii[1], 0.0]),
+        np.asarray(chest_center) - np.asarray([0.0, 0.42 * chest_radii[1], 0.0]),
+        (float(waist_radii[0] * 0.88), float(chest_radii[0] * 0.56)),
+        "axial.waist_chest_transition",
+    )
+    transitions = (
+        _AxialTransition("pelvis-waist", pelvic_waist_path, (float(pelvic_station_radii[0] * 0.46), float(waist_radii[0] * 0.88))),
+        _AxialTransition("waist-chest", waist_chest_path, (float(waist_radii[0] * 0.88), float(chest_radii[0] * 0.56))),
+    )
+    # Keep one private compatibility centerline for the in-memory guide
+    # validator.  It is a display spine only; field compilation consumes the
+    # two short transitions above, never this full-line trunk.  The sidecar
+    # deliberately omits this legacy diagnostic so consumers see the actual
+    # compiled axial controls.
+    display_centerline = _guide_path(
+        pelvic_waist_path[0],
+        waist_chest_path[1],
+        (transitions[0].thickness[0], transitions[1].thickness[-1]),
+        "axial.display_centerline",
+    )
     axial_guides = (
         _AxialGuide(
             owner=pelvis,
             girdle_center=pelvis_center,
-            girdle_radii=_guide_radii(
-                pelvis_source["radii"] * np.asarray([1.0, 0.88, 1.0]),
-                "pelvis.girdle_radii",
-            ),
+            girdle_radii=pelvic_girdle_radii,
             pelvic_core_center=_guide_point(
-                pelvis_source["center"] + np.asarray([0.0, 0.08 * pelvis_source["radii"][1], 0.0]),
+                pelvic_core_center,
                 "pelvis.pelvic_core_center",
             ),
-            pelvic_core_radii=_guide_radii(
-                pelvis_source["radii"] * np.asarray([0.92, 0.76, 0.94]),
-                "pelvis.pelvic_core_radii",
-            ),
+            pelvic_core_radii=pelvic_core_radii,
             chest_center=None,
             chest_radii=None,
             waist_center=None,
             waist_radii=None,
             trunk_centerline=None,
             trunk_thickness=None,
+            stations=(_AxialStation("pelvic-girdle", pelvic_station_center, pelvic_station_radii),),
+            transitions=(),
             axes=_FIXED_GUIDE_AXES,
         ),
         _AxialGuide(
@@ -889,35 +1015,17 @@ def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _H
             girdle_radii=None,
             pelvic_core_center=None,
             pelvic_core_radii=None,
-            chest_center=_guide_point(
-                torso_source["center"] + np.asarray([0.0, 0.25 * torso_source["radii"][1], 0.0]),
-                "torso.chest_center",
+            chest_center=chest_center,
+            chest_radii=chest_radii,
+            waist_center=waist_center,
+            waist_radii=waist_radii,
+            trunk_centerline=display_centerline,
+            trunk_thickness=(transitions[0].thickness[0], transitions[1].thickness[-1]),
+            stations=(
+                _AxialStation("waist", waist_center, waist_radii),
+                _AxialStation("chest-girdle", chest_center, chest_radii),
             ),
-            chest_radii=_guide_radii(
-                torso_source["radii"] * np.asarray([0.92, 0.70, 1.02]),
-                "torso.chest_radii",
-            ),
-            waist_center=_guide_point(
-                torso_source["center"] + np.asarray([0.0, -0.28 * torso_source["radii"][1], 0.0]),
-                "torso.waist_center",
-            ),
-            waist_radii=_guide_radii(
-                torso_source["radii"] * np.asarray([0.78, 0.58, 0.88]),
-                "torso.waist_radii",
-            ),
-            trunk_centerline=_guide_path(
-                trunk_start,
-                trunk_end,
-                (
-                    float(pelvis_source["radii"][0]) * 0.70,
-                    float(torso_source["radii"][0]) * 0.68,
-                ),
-                "torso.trunk",
-            ),
-            trunk_thickness=(
-                float(pelvis_source["radii"][0]) * 0.70,
-                float(torso_source["radii"][0]) * 0.68,
-            ),
+            transitions=transitions,
             axes=_FIXED_GUIDE_AXES,
         ),
     )
@@ -990,6 +1098,8 @@ def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _H
         root_thickness = None
         hip_centerline = None
         hip_thickness = None
+        hip_center = None
+        hip_radii = None
         shoulder_center = None
         shoulder_radii = None
         joint_center = None
@@ -1004,6 +1114,14 @@ def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _H
                 transition_end = source["from"] + 0.35 * (source["to"] - source["from"])
                 hip_centerline = _guide_path(anchor, transition_end, (radius * 1.25, radius * 1.15), f"{_key_text(desc.key)}.hip")
                 hip_thickness = (radius * 1.25, radius * 1.15)
+                hip_center = _guide_point(
+                    source["from"] + np.asarray([0.0, 0.16 * radius, 0.0]),
+                    f"{_key_text(desc.key)}.hip_center",
+                )
+                hip_radii = _guide_radii(
+                    radius * np.asarray([1.55, 1.20, 1.35]),
+                    f"{_key_text(desc.key)}.hip_radii",
+                )
         if role == "upper_arm":
             shoulder_center = _guide_point(source["from"] + np.asarray([0.0, -0.20 * radius, 0.0]), f"{_key_text(desc.key)}.shoulder_center")
             shoulder_radii = _guide_radii(radius * np.asarray([1.30, 1.55, 1.55]), f"{_key_text(desc.key)}.shoulder_radii")
@@ -1027,6 +1145,8 @@ def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _H
                 root_thickness=root_thickness,
                 hip_centerline=hip_centerline,
                 hip_thickness=hip_thickness,
+                hip_center=hip_center,
+                hip_radii=hip_radii,
                 shoulder_center=shoulder_center,
                 shoulder_radii=shoulder_radii,
                 joint_center=joint_center,
@@ -1219,6 +1339,22 @@ def _validate_hybrid_guide(guide: _HybridGuide, bounds: tuple[np.ndarray, np.nda
         mass(axial.chest_center, axial.chest_radii, f"axial[{index}].chest")
         mass(axial.waist_center, axial.waist_radii, f"axial[{index}].waist")
         path(axial.trunk_centerline, axial.trunk_thickness, f"axial[{index}].trunk")
+        for station_index, station in enumerate(axial.stations):
+            if station.name not in {"pelvic-girdle", "waist", "chest-girdle"}:
+                _fail(f"axial[{index}].stations[{station_index}] has an unknown station")
+            _guide_mass_checked(station.center, station.radii, f"axial[{index}].stations[{station_index}]", bounds)
+        for transition_index, transition in enumerate(axial.transitions):
+            if transition.name not in {"pelvis-waist", "waist-chest"}:
+                _fail(f"axial[{index}].transitions[{transition_index}] has an unknown transition")
+            _guide_path_checked(transition.centerline, transition.thickness, f"axial[{index}].transitions[{transition_index}]", bounds)
+    stations = tuple(station for axial in guide.axial_guides for station in axial.stations)
+    if tuple(station.name for station in stations) != ("pelvic-girdle", "waist", "chest-girdle"):
+        _fail("axial stations must be ordered pelvic-girdle, waist, chest-girdle")
+    if any(stations[index].center[1] >= stations[index + 1].center[1] for index in range(len(stations) - 1)):
+        _fail("axial stations must rise monotonically from pelvis to chest")
+    transitions = tuple(transition for axial in guide.axial_guides for transition in axial.transitions)
+    if tuple(transition.name for transition in transitions) != ("pelvis-waist", "waist-chest"):
+        _fail("axial transitions must be ordered pelvis-waist, waist-chest")
     head = guide.head_guide
     mass(head.cranium_center, head.cranium_radii, "head.cranium")
     mass(head.muzzle_center, head.muzzle_radii, "head.muzzle")
@@ -1229,6 +1365,7 @@ def _validate_hybrid_guide(guide: _HybridGuide, bounds: tuple[np.ndarray, np.nda
         path(limb.centerline, limb.thickness_profile, f"limb[{index}].centerline")
         path(limb.root_centerline, limb.root_thickness, f"limb[{index}].root")
         path(limb.hip_centerline, limb.hip_thickness, f"limb[{index}].hip")
+        mass(limb.hip_center, limb.hip_radii, f"limb[{index}].hip_girdle")
         mass(limb.shoulder_center, limb.shoulder_radii, f"limb[{index}].shoulder")
         mass(limb.joint_center, limb.joint_radii, f"limb[{index}].joint")
         path(limb.lower_leg_centerline, limb.lower_leg_thickness, f"limb[{index}].lower_leg")
@@ -1301,23 +1438,50 @@ def _regional_guide_json(
     variant_id: str,
     guide: _HybridGuide,
     shared_render_bounds: tuple[np.ndarray, np.ndarray],
+    compiled_fields: tuple[Field, ...] | None = None,
 ) -> dict[str, Any]:
     _validate_hybrid_guide(guide, shared_render_bounds)
+    if compiled_fields is None:
+        compiled_fields = _compile_hybrid_guide(guide)
     lower, upper = shared_render_bounds
-    axial_controls: list[dict[str, Any]] = []
+    station_recipes = {
+        "pelvic-girdle": "hips",
+        "waist": "waist",
+        "chest-girdle": "chest",
+    }
+    axial_core: dict[str, Any] | None = None
+    stations: list[dict[str, Any]] = []
+    transitions: list[dict[str, Any]] = []
     for item in guide.axial_guides:
-        axial_controls.append({
-            "owner": _address_json(item.owner.key),
-            "masses": [
-                value for value in (
-                    _mass_json("girdle", item.girdle_center, item.girdle_radii),
-                    _mass_json("pelvic-core", item.pelvic_core_center, item.pelvic_core_radii),
-                    _mass_json("chest", item.chest_center, item.chest_radii),
-                    _mass_json("waist", item.waist_center, item.waist_radii),
-                ) if value is not None
-            ],
-            "centerline": _path_json("trunk", item.trunk_centerline, item.trunk_thickness),
-        })
+        if item.pelvic_core_center is not None and item.pelvic_core_radii is not None:
+            axial_core = {
+                "owner": _address_json(item.owner.key),
+                "recipe": "pelvic-core",
+                "mass": _mass_json("pelvic-core", item.pelvic_core_center, item.pelvic_core_radii),
+            }
+        for station in item.stations:
+            recipe = station_recipes[station.name]
+            stations.append({
+                "name": station.name,
+                "owner": _address_json(item.owner.key),
+                "recipe": recipe,
+                "mass": _mass_json(station.name, station.center, station.radii),
+            })
+        for transition in item.transitions:
+            recipe = transition.name + "-bridge"
+            transitions.append({
+                "name": transition.name,
+                "owner": _address_json(item.owner.key),
+                "recipe": recipe,
+                "path": _path_json(transition.name, transition.centerline, transition.thickness, path_kind="tapered-segment"),
+            })
+    if axial_core is None:
+        _fail("axial guide is missing the pelvic core control")
+    axial_controls = {
+        "core": axial_core,
+        "stations": stations,
+        "transitions": transitions,
+    }
     head = guide.head_guide
     head_controls = {
         "owners": [_address_json(head.head_owner.key), _address_json(head.neck_owner.key)],
@@ -1344,7 +1508,8 @@ def _regional_guide_json(
         ]
         masses = [
             value for value in (
-                _mass_json("shoulder", item.shoulder_center, item.shoulder_radii),
+                _mass_json("shoulder-girdle", item.shoulder_center, item.shoulder_radii),
+                _mass_json("hip-girdle", item.hip_center, item.hip_radii),
                 _mass_json("joint", item.joint_center, item.joint_radii),
             ) if value is not None
         ]
@@ -1387,18 +1552,24 @@ def _regional_guide_json(
                 ) if value is not None
             ],
         })
+    recipe_counts: dict[str, int] = {}
+    for field in compiled_fields:
+        recipe_counts[field.recipe] = recipe_counts.get(field.recipe, 0) + 1
     return {
         "format": REGIONAL_GUIDE_FORMAT,
         "variant": variant_id,
         "owners": [_address_json(item.key) for item in guide.source_owners],
         "counts": {
             "owners": len(guide.source_owners),
-            "axial": len(guide.axial_guides),
+            "axial_stations": len(stations),
+            "axial_transitions": len(transitions),
+            "axial_core_masses": 1,
             "head": 1,
             "limbs": len(guide.limb_guides),
             "paws": len(guide.paw_guides),
             "tails": len(guide.tail_guides),
-            "centerlines": sum(item.trunk_centerline is not None for item in guide.axial_guides) + 2 + len(guide.limb_guides) + sum(item.attachment_centerline is not None for item in guide.paw_guides) + len(guide.tail_guides),
+            "compiled_fields": len(compiled_fields),
+            "compiled_field_recipe_counts": recipe_counts,
         },
         "projections": _projection_json(),
         "shared_render_bounds": {"min": [float(item) for item in lower], "max": [float(item) for item in upper]},
@@ -1441,13 +1612,17 @@ def _compile_hybrid_guide(guide: _HybridGuide) -> tuple[Field, ...]:
         fields.append(Field(owner, recipe, _segment(primitive, np.asarray(path[0]), np.asarray(path[1]), profile[0], profile[-1])))
 
     def add_axial(desc: Descriptor, guide_item: _AxialGuide) -> None:
-        if guide_item.girdle_center is not None:
-            add_ellipsoid(desc, "hips", guide_item.girdle_center, guide_item.girdle_radii)  # type: ignore[arg-type]
+        station_recipes = {
+            "pelvic-girdle": "hips",
+            "waist": "waist",
+            "chest-girdle": "chest",
+        }
+        for station in guide_item.stations:
+            add_ellipsoid(desc, station_recipes[station.name], station.center, station.radii)
+        if guide_item.pelvic_core_center is not None:
             add_ellipsoid(desc, "pelvic-core", guide_item.pelvic_core_center, guide_item.pelvic_core_radii)  # type: ignore[arg-type]
-        if guide_item.chest_center is not None:
-            add_ellipsoid(desc, "chest", guide_item.chest_center, guide_item.chest_radii)  # type: ignore[arg-type]
-            add_ellipsoid(desc, "waist", guide_item.waist_center, guide_item.waist_radii)  # type: ignore[arg-type]
-            add_path(desc, "axial-trunk", guide_item.trunk_centerline, guide_item.trunk_thickness, "tapered-segment")  # type: ignore[arg-type]
+        for transition in guide_item.transitions:
+            add_path(desc, transition.name + "-bridge", transition.centerline, transition.thickness, "tapered-segment")
 
     def add_head(desc: Descriptor) -> None:
         add_ellipsoid(desc, "cranium", head.cranium_center, head.cranium_radii)
@@ -1476,6 +1651,8 @@ def _compile_hybrid_guide(guide: _HybridGuide) -> tuple[Field, ...]:
             add_path(desc, "root-bridge", limb.root_centerline, limb.root_thickness, "tapered-segment")  # type: ignore[arg-type]
         if limb.hip_centerline is not None:
             add_path(desc, "hip-transition", limb.hip_centerline, limb.hip_thickness, "tapered-segment")  # type: ignore[arg-type]
+        if limb.hip_center is not None:
+            add_ellipsoid(desc, "hip-girdle", limb.hip_center, limb.hip_radii)  # type: ignore[arg-type]
         if limb.shoulder_center is not None:
             add_ellipsoid(desc, "shoulder-mass", limb.shoulder_center, limb.shoulder_radii)  # type: ignore[arg-type]
         if limb.joint_center is not None:
@@ -1773,11 +1950,12 @@ def _draw_guide(draw: ImageDraw.ImageDraw, frame: dict[str, Any], guide: _Hybrid
         "tail": (225, 181, 88),
     }
     for item in guide.axial_guides:
-        for center, radii in ((item.girdle_center, item.girdle_radii), (item.pelvic_core_center, item.pelvic_core_radii), (item.chest_center, item.chest_radii), (item.waist_center, item.waist_radii)):
-            if center is not None and radii is not None:
-                _draw_guide_mass(draw, frame, center, radii, colours["axial"])
-        if item.trunk_centerline is not None and item.trunk_thickness is not None:
-            _draw_guide_path(draw, frame, item.trunk_centerline, item.trunk_thickness, colours["axial"], dashed=True)
+        for station in item.stations:
+            _draw_guide_mass(draw, frame, station.center, station.radii, colours["axial"])
+        if item.pelvic_core_center is not None and item.pelvic_core_radii is not None:
+            _draw_guide_mass(draw, frame, item.pelvic_core_center, item.pelvic_core_radii, colours["axial"])
+        for transition in item.transitions:
+            _draw_guide_path(draw, frame, transition.centerline, transition.thickness, colours["axial"])
     head = guide.head_guide
     _draw_guide_mass(draw, frame, head.cranium_center, head.cranium_radii, colours["head"])
     _draw_guide_mass(draw, frame, head.muzzle_center, head.muzzle_radii, colours["head"])
@@ -1789,6 +1967,8 @@ def _draw_guide(draw: ImageDraw.ImageDraw, frame: dict[str, Any], guide: _Hybrid
         for path, profile in ((item.root_centerline, item.root_thickness), (item.hip_centerline, item.hip_thickness), (item.lower_leg_centerline, item.lower_leg_thickness)):
             if path is not None and profile is not None:
                 _draw_guide_path(draw, frame, path, profile, colours["limb"])
+        if item.hip_center is not None and item.hip_radii is not None:
+            _draw_guide_mass(draw, frame, item.hip_center, item.hip_radii, colours["limb"])
         if item.shoulder_center is not None and item.shoulder_radii is not None:
             _draw_guide_mass(draw, frame, item.shoulder_center, item.shoulder_radii, colours["limb"])
         if item.joint_center is not None and item.joint_radii is not None:
@@ -1907,7 +2087,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
     stage = Path(tempfile.mkdtemp(prefix=f".{output.name}.", dir=str(output.parent)))
     try:
         records = []
-        for variant_id, descriptors, raw_variant, guide, _ in prepared:
+        for variant_id, descriptors, raw_variant, guide, fields in prepared:
             vertices, faces, normals, labels, metrics, grid = build_variant(
                 form,
                 descriptors,
@@ -1932,7 +2112,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
                 "attribution": "every recipe component resolves to its source descriptor owner; no synthetic node identity is emitted",
             }))
             metrics_path.write_bytes(_canonical(metrics))
-            guide_path.write_bytes(_canonical(_regional_guide_json(variant_id, guide, shared_render_bounds)) + b"\n")
+            guide_path.write_bytes(_canonical(_regional_guide_json(variant_id, guide, shared_render_bounds, compiled_fields=fields)) + b"\n")
             _render(png, vertices, faces, variant_id, guide=guide, bounds=shared_render_bounds)
             records.append({
                 "id": variant_id,
@@ -1959,7 +2139,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
             "canvas": {"width": CANVAS[0], "height": CANVAS[1], "mode": "RGB"},
             "layout": _layout_json(),
             "projections": _projection_json(),
-            "generator": {"bundle_version": 2, "samples_per_axis": samples, "padding": padding, "smooth_union": {"operator": "polynomial_cubic_smooth_min", "k": smooth_k, "fold_order": "source_address_then_recipe_order"}, "field_primitives": ["ellipsoid", "capsule", "linear-radius-tapered-segment"], "field_recipes": ["hips", "pelvic-core", "chest", "waist", "axial-trunk", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar", "limb-segment", "root-bridge", "hip-transition", "shoulder-mass", "joint-collar", "digitigrade-lower-leg", "paw-mass", "foot-front", "extremity-bridge", "tail-segment", "tail-tip-extension", "tail-tip-cap", "tail-root-bridge", "tail-root-collar"], "ownership": "recipe fields are source-owned and winner labels expose only source AddressKeys", "boundary": "disposable exploratory visual proof; not production geometry, SDF, collision, rig, topology, or Readiness evidence"},
+            "generator": {"bundle_version": 2, "samples_per_axis": samples, "padding": padding, "smooth_union": {"operator": "polynomial_cubic_smooth_min", "k": smooth_k, "fold_order": "source_address_then_recipe_order"}, "field_primitives": ["ellipsoid", "capsule", "linear-radius-tapered-segment"], "field_recipes": ["hips", "pelvic-core", "chest", "waist", "pelvis-waist-bridge", "waist-chest-bridge", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar", "limb-segment", "root-bridge", "hip-transition", "hip-girdle", "shoulder-mass", "joint-collar", "digitigrade-lower-leg", "paw-mass", "foot-front", "extremity-bridge", "tail-segment", "tail-tip-extension", "tail-tip-cap", "tail-root-bridge", "tail-root-collar"], "ownership": "recipe fields are source-owned and winner labels expose only source AddressKeys", "boundary": "disposable exploratory visual proof; not production geometry, SDF, collision, rig, topology, or Readiness evidence"},
             "variants": records,
         }
         (stage / "surface-preview-manifest.json").write_bytes(_canonical(manifest) + b"\n")

@@ -14,9 +14,10 @@ in `/tmp` and must not be committed.
 The compiler-owned middle seam is a private regional guide representation
 derived separately for each of the four validated variants. It carries stable
 source AddressKey ownership and provenance, the fixed prototype axes and
-parent topology, axial pelvis/girdle and chest/waist controls, craniofacial
-and neck transitions, per-segment limb centerlines and thickness profiles
-with explicit joint-narrowing values, paw/forefoot controls, and tail
+parent topology, ordered pelvic-girdle/waist/chest-girdle stations with short
+station transitions, explicit shoulder and hip girdle controls at limb roots,
+craniofacial and neck transitions, per-segment limb centerlines and thickness
+profiles with explicit joint-narrowing values, paw/forefoot controls, and tail
 centerline/taper controls. These guides are internal derivation data: they
 are neither semantic nodes nor a serialized contract, and they contain no
 marching-cubes grid, mesh topology, SDF encoding, or renderer operation.
@@ -28,12 +29,13 @@ may intentionally alter limb and joint-collar preview geometry while preserving 
 bundle layout, and recipe accounting.
 
 The renderer expands each source descriptor into a bounded, deterministic
-role recipe where useful. The current fixture convention supplies shared
-chest/waist/hip masses, a broader axial trunk transition, cranium and muzzle,
-a parent-surface neck/collar, source-owned shoulder masses plus limb root and
-joint collars, tapered hip-to-thigh transitions, digitigrade lower-leg shaping,
-paw/foot masses, and a smoothly rooted straight tail with a full midsection and
-short blunt distal taper. Recipe components are fields,
+role recipe where useful. The current fixture convention supplies ordered
+pelvic/chest girdle and narrow-waist masses joined by two short tapered station
+bridges, cranium and muzzle, a parent-surface neck/collar, source-owned
+shoulder and hip girdle masses plus limb root and joint collars, tapered
+hip-to-thigh transitions, digitigrade lower-leg shaping, paw/foot masses, and
+a smoothly rooted straight tail with a full midsection and short blunt distal
+taper. Recipe components are fields,
 not semantic nodes: every generated component keeps its source descriptor as
 owner and the semantic sidecar emits only source AddressKeys. Limb and root
 bridges are anchored on the parent analytic-field boundary in the existing
@@ -54,10 +56,15 @@ The disposable v2 generator writes one private `regional-guide.json` and one
 `guide-skin-composite.png` for each variant, alongside the retained
 `surface.ply`, `semantic.json`, and `metrics.json` artifacts. The regional
 guide sidecar is a sanitized, source-owned debug projection of `_HybridGuide`:
-it carries only source AddressKeys, counts, projection names/bases, one shared
-world-space render bound, fixed canvas/layout metadata, and finite regional controls.
-It is not a semantic or runtime contract and contains no descriptor input
-records or synthetic semantic IDs. The composite places guide and compiled
+it carries only source AddressKeys, compiled recipe counts, projection
+names/bases, one shared world-space render bound, fixed canvas/layout metadata,
+and finite regional controls. Its v2 axial controls are explicit ordered
+`stations` (`pelvic-girdle`, `waist`, `chest-girdle`) and ordered `transitions`
+(`pelvis-waist`, `waist-chest`), each with an owner AddressKey and the mass or
+tapered-segment geometry consumed by the field compiler. Limb controls name
+the source-owned `shoulder-girdle` and `hip-girdle` masses alongside their
+joint collars. It is not a semantic or runtime contract and contains no
+descriptor input records or synthetic semantic IDs. The composite places guide and compiled
 skin panels adjacent for each of front, side, and three-quarter projections.
 Guide and skin panels use exactly the same projection framing, while one shared
 render bound is used for all four variants so geometry differences remain

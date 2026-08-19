@@ -107,24 +107,39 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 directory.mkdir()
                 png = directory / "guide-skin-composite.png"
                 png.write_bytes({png_bytes!r})
-                def mass(control): return {{"control": control, "center": [0.0, 0.0, 0.0], "radii": [0.5, 0.5, 0.5]}}
+                def mass(control):
+                    centers = {{"pelvic-girdle": [0.0, -1.0, 0.0], "waist": [0.0, 0.0, 0.0], "chest-girdle": [0.0, 1.0, 0.0]}}
+                    return {{"control": control, "center": centers.get(control, [0.0, 0.0, 0.0]), "radii": [0.5, 0.5, 0.5]}}
                 def path(control, kind=None):
                     value = {{"control": control, "points": [[-0.5, 0.0, 0.0], [0.5, 0.0, 0.0]], "thickness": [0.2, 0.2]}}
                     if kind is not None: value["path_kind"] = kind
                     return value
-                axial = [{{"owner": owners[0], "masses": [mass("girdle"), mass("pelvic-core")], "centerline": None}}, {{"owner": owners[1], "masses": [mass("chest"), mass("waist")], "centerline": path("trunk")}}]
+                axial = {{"core": {{"owner": owners[0], "recipe": "pelvic-core", "mass": mass("pelvic-core")}}, "stations": [
+                    {{"name": "pelvic-girdle", "owner": owners[0], "recipe": "hips", "mass": mass("pelvic-girdle")}},
+                    {{"name": "waist", "owner": owners[1], "recipe": "waist", "mass": mass("waist")}},
+                    {{"name": "chest-girdle", "owner": owners[1], "recipe": "chest", "mass": mass("chest-girdle")}},
+                ], "transitions": [
+                    {{"name": "pelvis-waist", "owner": owners[1], "recipe": "pelvis-waist-bridge", "path": path("pelvis-waist", "tapered-segment")}},
+                    {{"name": "waist-chest", "owner": owners[1], "recipe": "waist-chest-bridge", "path": path("waist-chest", "tapered-segment")}},
+                ]}}
                 head = {{"owners": [owners[3], owners[2]], "masses": [mass("cranium"), mass("muzzle"), mass("neck-collar")], "sections": [path("head-transition"), path("neck-transition")]}}
-                limb_specs = [(owners[4], {{"root"}}, {{"shoulder", "joint"}}), (owners[5], set(), set()), (owners[7], {{"root"}}, {{"shoulder", "joint"}}), (owners[8], set(), set()), (owners[10], {{"root", "hip"}}, {{"joint"}}), (owners[11], {{"lower-leg"}}, {{"joint"}}), (owners[13], {{"root", "hip"}}, {{"joint"}}), (owners[14], {{"lower-leg"}}, {{"joint"}})]
+                limb_specs = [(owners[4], {{"root"}}, {{"shoulder-girdle", "joint"}}), (owners[5], set(), set()), (owners[7], {{"root"}}, {{"shoulder-girdle", "joint"}}), (owners[8], set(), set()), (owners[10], {{"root", "hip"}}, {{"hip-girdle", "joint"}}), (owners[11], {{"lower-leg"}}, {{"joint"}}), (owners[13], {{"root", "hip"}}, {{"hip-girdle", "joint"}}), (owners[14], {{"lower-leg"}}, {{"joint"}})]
                 limbs = []
                 for owner, sections, masses in limb_specs:
                     limb = {{"owner": owner, "centerline": path("segment", "capsule"), "joint_narrowing": [1.0, 0.85], "sections": [path(control) for control in sorted(sections)], "masses": [mass(control) for control in sorted(masses)]}}
                     limbs.append(limb)
                 paws = [{{"owner": owner, "masses": [mass("source-region"), mass("paw")] + ([mass("forefoot")] if owner["role"] == "foot" else []), "attachment": path("attachment", "capsule")}} for owner in [owners[6], owners[9], owners[12], owners[15]]]
                 tails = [{{"owner": owners[16], "centerline": path("segment", "tapered-segment"), "sections": [path("root-attachment", "tapered-segment")], "masses": [mass("root-collar")]}}, {{"owner": owners[17], "centerline": path("segment", "tapered-segment"), "sections": [path("tip-extension", "tapered-segment")], "masses": [mass("tip-cap")]}}]
-                guide = {{"format": {publisher.REGIONAL_GUIDE_FORMAT!r}, "variant": variant_id, "owners": owners, "counts": {{"owners": 18, "axial": 2, "head": 1, "limbs": 8, "paws": 4, "tails": 2, "centerlines": 17}}, "projections": projections, "shared_render_bounds": bounds, "canvas": canvas, "layout": layout, "controls": {{"axes": {{"lateral": [1.0, 0.0, 0.0], "up": [0.0, 1.0, 0.0], "forward": [0.0, 0.0, 1.0]}}, "axial": axial, "head": head, "limbs": limbs, "paws": paws, "tails": tails}}, "boundary": "private disposable regional controls; source-owned AddressKeys only; not a semantic or runtime contract"}}
+                guide = {{"format": {publisher.REGIONAL_GUIDE_FORMAT!r}, "variant": variant_id, "owners": owners, "counts": {publisher.EXPECTED_GUIDE_COUNTS!r}, "projections": projections, "shared_render_bounds": bounds, "canvas": canvas, "layout": layout, "controls": {{"axes": {{"lateral": [1.0, 0.0, 0.0], "up": [0.0, 1.0, 0.0], "forward": [0.0, 0.0, 1.0]}}, "axial": axial, "head": head, "limbs": limbs, "paws": paws, "tails": tails}}, "boundary": "private disposable regional controls; source-owned AddressKeys only; not a semantic or runtime contract"}}
                 if {mode!r} == "guide-format": guide["format"] = "wrong"
                 if {mode!r} == "guide-provenance": guide["controls"]["head"]["owners"][0]["provenance"] = {{"source": "unexpected"}}
                 if {mode!r} == "guide-controls": guide["controls"]["axes"]["forward"] = [0.0, 0.0, 2.0]
+                if {mode!r} == "guide-station-omitted": guide["controls"]["axial"]["stations"].pop()
+                if {mode!r} == "guide-transition-omitted": guide["controls"]["axial"]["transitions"].pop()
+                if {mode!r} == "guide-girdle-omitted": guide["controls"]["limbs"][0]["masses"].pop()
+                if {mode!r} == "guide-station-malformed": guide["controls"]["axial"]["stations"][1]["mass"]["radii"][0] = 0.0
+                if {mode!r} == "guide-transition-malformed": guide["controls"]["axial"]["transitions"][0]["path"]["path_kind"] = "capsule"
+                if {mode!r} == "guide-girdle-malformed": guide["controls"]["limbs"][0]["masses"][0]["control"] = "wrong"
                 guide_path = directory / "regional-guide.json"
                 guide_path.write_text(json.dumps(guide), encoding="utf-8")
                 if {mode!r} == "guide-omitted": guide_path.unlink()
@@ -194,7 +209,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         self.assertEqual(review["groups"][0]["selection_mode"], "none")
 
     def test_malformed_count_and_unlisted_output_publish_nothing(self) -> None:
-        for index, mode in enumerate(("bad-count", "unlisted", "symlink", "extra-directory", "hash", "source-mismatch", "fabricated-provenance", "fabricated-descriptor", "profile-mismatch", "guide-format", "guide-provenance", "guide-controls", "guide-omitted", "png-small", "png-truncated", "png-crc", "png-no-idat", "png-invalid-idat", "png-unknown-critical")):
+        for index, mode in enumerate(("bad-count", "unlisted", "symlink", "extra-directory", "hash", "source-mismatch", "fabricated-provenance", "fabricated-descriptor", "profile-mismatch", "guide-format", "guide-provenance", "guide-controls", "guide-station-omitted", "guide-transition-omitted", "guide-girdle-omitted", "guide-station-malformed", "guide-transition-malformed", "guide-girdle-malformed", "guide-omitted", "png-small", "png-truncated", "png-crc", "png-no-idat", "png-invalid-idat", "png-unknown-critical")):
             with self.subTest(mode=mode):
                 with patch.object(publisher, "_parse_inspection", return_value=self._payload()):
                     with self.assertRaises(publisher.SurfacePreviewPublishError):
