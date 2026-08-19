@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Publish a disposable experiment surface preview through the image gallery.
 
-This is deliberately an adapter, not a surface renderer.  It runs the current
+This is deliberately an adapter, not a surface renderer. It runs the current
 v4 filled-form producer and an explicitly selected experiment generator in
-isolated temporary storage, then publishes only the generator's four PNG
-composites into the existing immutable image-review format.
+isolated temporary storage, validates the generator's v2 guide/skin bundle,
+then publishes only its four PNG composites into the existing immutable
+image-review format.
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import selectors
 import shutil
@@ -30,6 +32,7 @@ import common
 from common import ValidationError, canonical_json, validate_id
 from publish import PublishError, publish_session
 from publish_provisional_form import (
+    ProvisionalFormPublishError,
     _copy_input_reference,
     _parse_inspection,
     _validate_input,
@@ -40,13 +43,15 @@ class SurfacePreviewPublishError(RuntimeError):
     """A bounded, user-facing publication failure."""
 
 
-SURFACE_PREVIEW_FORMAT = "creature-kernel.disposable-surface-preview.v1"
+SURFACE_PREVIEW_FORMAT = "creature-kernel.disposable-surface-preview.v2"
+REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v1"
 EXPECTED_VARIANTS = common.PROVISIONAL_FORM_VARIANT_IDS
 EXPECTED_VIEWS = ("front", "side", "three-quarter")
 MANIFEST_NAME = "surface-preview-manifest.json"
 MAX_STDOUT_BYTES = common.MAX_STRUCTURE_JSON_BYTES
 MAX_STDERR_BYTES = 64 * 1024
 MAX_MANIFEST_BYTES = 256 * 1024
+MAX_GUIDE_BYTES = 512 * 1024
 MAX_ARTIFACT_BYTES = 16 * 1024 * 1024
 MAX_PNG_WIDTH = 4096
 MAX_PNG_HEIGHT = 4096
@@ -55,6 +60,26 @@ READ_CHUNK = 64 * 1024
 INSPECTION_TIMEOUT_SECONDS = 10.0
 GENERATOR_TIMEOUT_SECONDS = 120.0
 PROCESS_GRACE_SECONDS = 0.5
+EXPECTED_CANVAS = {"width": 1800, "height": 570, "mode": "RGB"}
+EXPECTED_PROJECTIONS = [
+    {"name": "front", "basis": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]], "base": "x-right/y-up/z-depth"},
+    {"name": "side", "basis": [[0.0, 0.0, -1.0], [0.0, 1.0, 0.0], [1.0, 0.0, 0.0]], "base": "-z-right/y-up/x-depth"},
+    {"name": "three-quarter", "basis": [[0.7071067811865475, 0.0, -0.7071067811865475], [0.0, 1.0, 0.0], [0.7071067811865475, 0.0, 0.7071067811865475]], "base": "front-right/y-up/depth"},
+]
+EXPECTED_LAYOUT = {
+    "panel_order": ["front-guide", "front-skin", "side-guide", "side-skin", "three-quarter-guide", "three-quarter-skin"],
+    "panels": [
+        {"id": "front-guide", "projection": "front", "content": "guide", "box": [12, 72, 292, 548]},
+        {"id": "front-skin", "projection": "front", "content": "skin", "box": [310, 72, 590, 548]},
+        {"id": "side-guide", "projection": "side", "content": "guide", "box": [608, 72, 888, 548]},
+        {"id": "side-skin", "projection": "side", "content": "skin", "box": [906, 72, 1186, 548]},
+        {"id": "three-quarter-guide", "projection": "three-quarter", "content": "guide", "box": [1204, 72, 1484, 548]},
+        {"id": "three-quarter-skin", "projection": "three-quarter", "content": "skin", "box": [1502, 72, 1782, 548]},
+    ],
+    "pairing": "guide-left/skin-right per projection",
+    "frame": "shared-world-bounds-and-projection-basis",
+}
+EXPECTED_GUIDE_COUNTS = {"owners": 18, "axial": 2, "head": 1, "limbs": 8, "paws": 4, "tails": 2, "centerlines": 17}
 
 
 def default_creature_kernel() -> Path:
@@ -180,10 +205,13 @@ def _read_json(path: Path, limit: int, where: str) -> dict[str, Any]:
     try:
         if path.stat().st_size > limit:
             raise SurfacePreviewPublishError(f"{where} exceeds {limit} bytes")
-        value = json.loads(path.read_text(encoding="utf-8"))
+        value = json.loads(
+            path.read_text(encoding="utf-8"),
+            parse_constant=lambda value: (_ for _ in ()).throw(ValueError(value)),
+        )
     except SurfacePreviewPublishError:
         raise
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, RecursionError, ValueError) as exc:
         raise SurfacePreviewPublishError(f"{where} is invalid JSON: {exc}") from exc
     if not isinstance(value, dict):
         raise SurfacePreviewPublishError(f"{where} must be a JSON object")
@@ -219,8 +247,9 @@ def _sha256(path: Path, where: str) -> tuple[str, int]:
     return digest.hexdigest(), size
 
 
-def _regular_artifacts(root: Path) -> set[str]:
+def _regular_artifacts(root: Path) -> tuple[set[str], set[str]]:
     found: set[str] = set()
+    directories_found: set[str] = set()
     for current, directories, files in os.walk(root, followlinks=False):
         current_path = Path(current)
         for name in directories + files:
@@ -230,9 +259,11 @@ def _regular_artifacts(root: Path) -> set[str]:
                 raise SurfacePreviewPublishError(f"surface bundle contains symlink: {rel}")
             if path.is_file():
                 found.add(rel)
-            elif not path.is_dir():
+            elif path.is_dir():
+                directories_found.add(rel)
+            else:
                 raise SurfacePreviewPublishError(f"surface bundle contains non-regular path: {rel}")
-    return found
+    return found, directories_found
 
 
 def _validate_png(path: Path, entry: dict[str, Any], where: str) -> None:
@@ -287,9 +318,13 @@ def _validate_png(path: Path, entry: dict[str, Any], where: str) -> None:
     width, height, bit_depth, colour_type, compression, filtering, interlace = struct.unpack(">IIBBBBB", ihdr)
     if not (0 < width <= MAX_PNG_WIDTH and 0 < height <= MAX_PNG_HEIGHT):
         raise SurfacePreviewPublishError(f"{where} dimensions are out of bounds")
+    if width != EXPECTED_CANVAS["width"] or height != EXPECTED_CANVAS["height"]:
+        raise SurfacePreviewPublishError(f"{where} dimensions do not match the v2 canvas")
     if entry.get("width") != width or entry.get("height") != height:
         raise SurfacePreviewPublishError(f"{where} dimensions do not match inventory")
     mode = entry.get("mode")
+    if mode != EXPECTED_CANVAS["mode"]:
+        raise SurfacePreviewPublishError(f"{where}.mode does not match the v2 canvas")
     expected_colour_type = {"RGB": 2, "RGBA": 6}.get(mode)
     if expected_colour_type is None:
         raise SurfacePreviewPublishError(f"{where}.mode must be RGB or RGBA")
@@ -303,6 +338,8 @@ def _validate_png(path: Path, entry: dict[str, Any], where: str) -> None:
         raise SurfacePreviewPublishError(f"{where} IHDR does not match its 8-bit noninterlaced {mode} inventory")
     if entry.get("views") != list(EXPECTED_VIEWS):
         raise SurfacePreviewPublishError(f"{where}.views must be front, side, three-quarter")
+    if entry.get("panels_per_view") != 2:
+        raise SurfacePreviewPublishError(f"{where}.panels_per_view must be 2")
     bytes_per_pixel = 3 if mode == "RGB" else 4
     row_bytes = width * bytes_per_pixel
     expected_decoded = height * (row_bytes + 1)
@@ -326,7 +363,311 @@ def _validate_png(path: Path, entry: dict[str, Any], where: str) -> None:
         raise SurfacePreviewPublishError(f"{where} contains an invalid PNG row filter")
 
 
-def _validate_bundle(bundle: Path, expected_source_sha256: str) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+def _finite_json(value: Any, where: str, *, depth: int = 0) -> None:
+    """Bound the private guide projection without making it a public schema."""
+
+    if depth > 64:
+        raise SurfacePreviewPublishError(f"{where} is too deeply nested")
+    if isinstance(value, float) and not math.isfinite(value):
+        raise SurfacePreviewPublishError(f"{where} contains a non-finite number")
+    if isinstance(value, dict):
+        for key, child in value.items():
+            if not isinstance(key, str):
+                raise SurfacePreviewPublishError(f"{where} contains a non-text key")
+            _finite_json(child, f"{where}.{key}", depth=depth + 1)
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            _finite_json(child, f"{where}[{index}]", depth=depth + 1)
+
+
+def _validate_address(value: Any, where: str) -> dict[str, Any]:
+    if not isinstance(value, dict) or set(value) != {"namespace", "anchors", "kind", "role"}:
+        raise SurfacePreviewPublishError(f"{where} is not a source AddressKey")
+    if not all(isinstance(value[key], str) and value[key] for key in ("namespace", "kind", "role")):
+        raise SurfacePreviewPublishError(f"{where} has invalid AddressKey text")
+    anchors = value["anchors"]
+    if not isinstance(anchors, list) or not all(isinstance(item, str) and item for item in anchors):
+        raise SurfacePreviewPublishError(f"{where}.anchors is invalid")
+    return value
+
+
+def _validate_reference_scale(value: Any, where: str) -> dict[str, Any]:
+    if not isinstance(value, dict) or set(value) != {"parent", "child", "axis_delta", "squared_length", "source"}:
+        raise SurfacePreviewPublishError(f"{where} is invalid")
+    parent = _validate_address(value.get("parent"), f"{where}.parent")
+    child = _validate_address(value.get("child"), f"{where}.child")
+    delta = value.get("axis_delta")
+    squared = value.get("squared_length")
+    if parent == child or not isinstance(delta, list) or len(delta) != 3 or not all(type(item) is int for item in delta):
+        raise SurfacePreviewPublishError(f"{where} has invalid axis reference")
+    if type(squared) is not int or squared <= 0 or squared != sum(item * item for item in delta):
+        raise SurfacePreviewPublishError(f"{where}.squared_length is inconsistent")
+    if value.get("source") != "exact-containment-edge":
+        raise SurfacePreviewPublishError(f"{where}.source is invalid")
+    return value
+
+
+def _finite_number(value: Any, where: str) -> float:
+    if type(value) not in {int, float}:
+        raise SurfacePreviewPublishError(f"{where} must be a finite number")
+    try:
+        number = float(value)
+    except (OverflowError, ValueError) as exc:
+        raise SurfacePreviewPublishError(f"{where} must be a finite number") from exc
+    if not math.isfinite(number):
+        raise SurfacePreviewPublishError(f"{where} must be a finite number")
+    return number
+
+
+def _point(value: Any, where: str) -> list[float]:
+    if not isinstance(value, list) or len(value) != 3:
+        raise SurfacePreviewPublishError(f"{where} must be a numeric triple")
+    return [_finite_number(item, f"{where}[{index}]") for index, item in enumerate(value)]
+
+
+def _contained(point: list[float], radius: list[float], lower: list[float], upper: list[float], where: str) -> None:
+    if any(point[index] - radius[index] < lower[index] or point[index] + radius[index] > upper[index] for index in range(3)):
+        raise SurfacePreviewPublishError(f"{where} extends outside shared render bounds")
+
+
+def _mass(value: Any, where: str, lower: list[float], upper: list[float], allowed_controls: set[str]) -> str:
+    if not isinstance(value, dict) or set(value) != {"control", "center", "radii"}:
+        raise SurfacePreviewPublishError(f"{where} has an invalid mass shape")
+    control = value.get("control")
+    if control not in allowed_controls:
+        raise SurfacePreviewPublishError(f"{where}.control is invalid")
+    center = _point(value.get("center"), f"{where}.center")
+    radii = _point(value.get("radii"), f"{where}.radii")
+    if any(radius <= 0.0 for radius in radii):
+        raise SurfacePreviewPublishError(f"{where}.radii must be positive")
+    _contained(center, radii, lower, upper, where)
+    return control
+
+
+def _path(value: Any, where: str, lower: list[float], upper: list[float], allowed_controls: set[str], expected_kind: str | None = None) -> str:
+    if not isinstance(value, dict) or set(value) not in ({"control", "points", "thickness"}, {"control", "points", "thickness", "path_kind"}):
+        raise SurfacePreviewPublishError(f"{where} has an invalid path shape")
+    control = value.get("control")
+    if control not in allowed_controls:
+        raise SurfacePreviewPublishError(f"{where}.control is invalid")
+    points = value.get("points")
+    if not isinstance(points, list) or len(points) != 2:
+        raise SurfacePreviewPublishError(f"{where}.points must contain two triples")
+    parsed_points = [_point(point, f"{where}.points[{index}]") for index, point in enumerate(points)]
+    if parsed_points[0] == parsed_points[1]:
+        raise SurfacePreviewPublishError(f"{where}.points must not be degenerate")
+    thickness = value.get("thickness")
+    if not isinstance(thickness, list) or len(thickness) not in {1, 2}:
+        raise SurfacePreviewPublishError(f"{where}.thickness must contain one or two values")
+    parsed_thickness = [_finite_number(item, f"{where}.thickness[{index}]") for index, item in enumerate(thickness)]
+    if any(item <= 0.0 for item in parsed_thickness):
+        raise SurfacePreviewPublishError(f"{where}.thickness must be positive")
+    for point in parsed_points:
+        if any(point[index] - max(parsed_thickness) < lower[index] or point[index] + max(parsed_thickness) > upper[index] for index in range(3)):
+            raise SurfacePreviewPublishError(f"{where} thickness extends outside shared render bounds")
+    if "path_kind" in value:
+        path_kind = value["path_kind"]
+        if path_kind not in {"capsule", "tapered-segment"}:
+            raise SurfacePreviewPublishError(f"{where}.path_kind is invalid")
+        if expected_kind is not None and path_kind != expected_kind:
+            raise SurfacePreviewPublishError(f"{where}.path_kind does not match its expected primitive")
+    elif expected_kind is not None:
+        raise SurfacePreviewPublishError(f"{where}.path_kind is missing")
+    return control
+
+
+def _mass_list(value: Any, where: str, lower: list[float], upper: list[float], expected_controls: set[str]) -> None:
+    if not isinstance(value, list):
+        raise SurfacePreviewPublishError(f"{where} must be an array")
+    controls = [_mass(item, f"{where}[{index}]", lower, upper, expected_controls) for index, item in enumerate(value)]
+    if len(controls) != len(expected_controls) or set(controls) != expected_controls:
+        raise SurfacePreviewPublishError(f"{where} has the wrong controls")
+
+
+def _path_list(value: Any, where: str, lower: list[float], upper: list[float], expected_controls: set[str], expected_kind: str | None = None) -> None:
+    if not isinstance(value, list):
+        raise SurfacePreviewPublishError(f"{where} must be an array")
+    controls = [_path(item, f"{where}[{index}]", lower, upper, expected_controls, expected_kind=expected_kind) for index, item in enumerate(value)]
+    if len(controls) != len(expected_controls) or set(controls) != expected_controls:
+        raise SurfacePreviewPublishError(f"{where} has the wrong controls")
+
+
+def _validate_controls(
+    controls: Any,
+    owners: list[dict[str, Any]],
+    lower: list[float],
+    upper: list[float],
+) -> None:
+    if not isinstance(controls, dict) or set(controls) != {"axes", "axial", "head", "limbs", "paws", "tails"}:
+        raise SurfacePreviewPublishError("regional guide controls are invalid")
+    axes = controls["axes"]
+    if not isinstance(axes, dict) or set(axes) != {"lateral", "up", "forward"} or axes != {"lateral": [1.0, 0.0, 0.0], "up": [0.0, 1.0, 0.0], "forward": [0.0, 0.0, 1.0]}:
+        raise SurfacePreviewPublishError("regional guide axes are invalid")
+    owner_keys = {json.dumps(item, sort_keys=True) for item in owners}
+
+    def owner(value: Any, where: str) -> dict[str, Any]:
+        parsed = _validate_address(value, where)
+        if json.dumps(parsed, sort_keys=True) not in owner_keys:
+            raise SurfacePreviewPublishError(f"{where} is not a source owner")
+        return parsed
+
+    axial = controls["axial"]
+    if not isinstance(axial, list) or len(axial) != 2:
+        raise SurfacePreviewPublishError("regional guide axial controls are invalid")
+    axial_expected = ({"girdle", "pelvic-core"}, {"chest", "waist"})
+    axial_owner_keys: set[str] = set()
+    for index, item in enumerate(axial):
+        if not isinstance(item, dict) or set(item) != {"owner", "masses", "centerline"}:
+            raise SurfacePreviewPublishError(f"regional guide axial[{index}] has an invalid shape")
+        parsed_owner = owner(item["owner"], f"regional-guide.controls.axial[{index}].owner")
+        owner_key = json.dumps(parsed_owner, sort_keys=True)
+        if owner_key in axial_owner_keys:
+            raise SurfacePreviewPublishError(f"regional guide axial[{index}] owner is duplicated")
+        axial_owner_keys.add(owner_key)
+        _mass_list(item["masses"], f"regional-guide.controls.axial[{index}].masses", lower, upper, axial_expected[index])
+        if index == 0:
+            if item["centerline"] is not None or parsed_owner["role"] != "pelvis":
+                raise SurfacePreviewPublishError("regional guide pelvis axial controls are invalid")
+        else:
+            if parsed_owner["role"] != "torso":
+                raise SurfacePreviewPublishError("regional guide torso axial controls are invalid")
+            _path(item["centerline"], f"regional-guide.controls.axial[{index}].centerline", lower, upper, {"trunk"})
+
+    head = controls["head"]
+    if not isinstance(head, dict) or set(head) != {"owners", "masses", "sections"}:
+        raise SurfacePreviewPublishError("regional guide head controls are invalid")
+    head_owners = head["owners"]
+    if not isinstance(head_owners, list) or len(head_owners) != 2:
+        raise SurfacePreviewPublishError("regional guide head owners are invalid")
+    parsed_head_owners = [owner(value, f"regional-guide.controls.head.owners[{index}]") for index, value in enumerate(head_owners)]
+    if len({json.dumps(value, sort_keys=True) for value in parsed_head_owners}) != 2 or {value["role"] for value in parsed_head_owners} != {"head", "neck"}:
+        raise SurfacePreviewPublishError("regional guide head owners are invalid")
+    _mass_list(head["masses"], "regional-guide.controls.head.masses", lower, upper, {"cranium", "muzzle", "neck-collar"})
+    _path_list(head["sections"], "regional-guide.controls.head.sections", lower, upper, {"head-transition", "neck-transition"})
+
+    limbs = controls["limbs"]
+    if not isinstance(limbs, list) or len(limbs) != 8:
+        raise SurfacePreviewPublishError("regional guide limb controls are invalid")
+    section_by_role = {"upper_arm": {"root"}, "forearm": set(), "thigh": {"root", "hip"}, "shin": {"lower-leg"}}
+    masses_by_role = {"upper_arm": {"shoulder", "joint"}, "forearm": set(), "thigh": {"joint"}, "shin": {"joint"}}
+    limb_owner_keys: set[str] = set()
+    limb_roles: list[str] = []
+    for index, item in enumerate(limbs):
+        if not isinstance(item, dict) or set(item) != {"owner", "centerline", "joint_narrowing", "sections", "masses"}:
+            raise SurfacePreviewPublishError(f"regional guide limbs[{index}] has an invalid shape")
+        parsed_owner = owner(item["owner"], f"regional-guide.controls.limbs[{index}].owner")
+        role = parsed_owner["role"]
+        if role not in section_by_role:
+            raise SurfacePreviewPublishError(f"regional guide limbs[{index}] owner role is invalid")
+        owner_key = json.dumps(parsed_owner, sort_keys=True)
+        if owner_key in limb_owner_keys:
+            raise SurfacePreviewPublishError(f"regional guide limbs[{index}] owner is duplicated")
+        limb_owner_keys.add(owner_key)
+        limb_roles.append(role)
+        _path(item["centerline"], f"regional-guide.controls.limbs[{index}].centerline", lower, upper, {"segment"}, expected_kind="capsule")
+        narrowing = item["joint_narrowing"]
+        if not isinstance(narrowing, list) or len(narrowing) != 2 or any(_finite_number(value, f"regional-guide.controls.limbs[{index}].joint_narrowing") <= 0.0 or float(value) > 1.0 for value in narrowing):
+            raise SurfacePreviewPublishError(f"regional guide limbs[{index}].joint_narrowing is invalid")
+        _path_list(item["sections"], f"regional-guide.controls.limbs[{index}].sections", lower, upper, section_by_role[role])
+        _mass_list(item["masses"], f"regional-guide.controls.limbs[{index}].masses", lower, upper, masses_by_role[role])
+    if {role: limb_roles.count(role) for role in section_by_role} != {"upper_arm": 2, "forearm": 2, "thigh": 2, "shin": 2}:
+        raise SurfacePreviewPublishError("regional guide limb owner counts are invalid")
+
+    paws = controls["paws"]
+    if not isinstance(paws, list) or len(paws) != 4:
+        raise SurfacePreviewPublishError("regional guide paw controls are invalid")
+    paw_owner_keys: set[str] = set()
+    paw_roles: list[str] = []
+    for index, item in enumerate(paws):
+        if not isinstance(item, dict) or set(item) != {"owner", "masses", "attachment"}:
+            raise SurfacePreviewPublishError(f"regional guide paws[{index}] has an invalid shape")
+        parsed_owner = owner(item["owner"], f"regional-guide.controls.paws[{index}].owner")
+        if parsed_owner["role"] not in {"hand", "foot"}:
+            raise SurfacePreviewPublishError(f"regional guide paws[{index}] owner role is invalid")
+        owner_key = json.dumps(parsed_owner, sort_keys=True)
+        if owner_key in paw_owner_keys:
+            raise SurfacePreviewPublishError(f"regional guide paws[{index}] owner is duplicated")
+        paw_owner_keys.add(owner_key)
+        paw_roles.append(parsed_owner["role"])
+        expected_masses = {"source-region", "paw"} | ({"forefoot"} if parsed_owner["role"] == "foot" else set())
+        _mass_list(item["masses"], f"regional-guide.controls.paws[{index}].masses", lower, upper, expected_masses)
+        _path(item["attachment"], f"regional-guide.controls.paws[{index}].attachment", lower, upper, {"attachment"}, expected_kind="capsule")
+    if {role: paw_roles.count(role) for role in {"hand", "foot"}} != {"hand": 2, "foot": 2}:
+        raise SurfacePreviewPublishError("regional guide paw owner counts are invalid")
+
+    tails = controls["tails"]
+    if not isinstance(tails, list) or len(tails) != 2:
+        raise SurfacePreviewPublishError("regional guide tail controls are invalid")
+    tail_owner_keys: set[str] = set()
+    tail_roles: list[str] = []
+    for index, item in enumerate(tails):
+        if not isinstance(item, dict) or set(item) != {"owner", "centerline", "sections", "masses"}:
+            raise SurfacePreviewPublishError(f"regional guide tails[{index}] has an invalid shape")
+        parsed_owner = owner(item["owner"], f"regional-guide.controls.tails[{index}].owner")
+        if parsed_owner["role"] not in {"tail_root", "tail_tip"}:
+            raise SurfacePreviewPublishError(f"regional guide tails[{index}] owner role is invalid")
+        owner_key = json.dumps(parsed_owner, sort_keys=True)
+        if owner_key in tail_owner_keys:
+            raise SurfacePreviewPublishError(f"regional guide tails[{index}] owner is duplicated")
+        tail_owner_keys.add(owner_key)
+        tail_roles.append(parsed_owner["role"])
+        _path(item["centerline"], f"regional-guide.controls.tails[{index}].centerline", lower, upper, {"segment"}, expected_kind="tapered-segment")
+        sections = {"root-attachment"} if parsed_owner["role"] == "tail_root" else {"tip-extension"}
+        masses = {"root-collar"} if parsed_owner["role"] == "tail_root" else {"tip-cap"}
+        _path_list(item["sections"], f"regional-guide.controls.tails[{index}].sections", lower, upper, sections, expected_kind="tapered-segment")
+        _mass_list(item["masses"], f"regional-guide.controls.tails[{index}].masses", lower, upper, masses)
+    if set(tail_roles) != {"tail_root", "tail_tip"}:
+        raise SurfacePreviewPublishError("regional guide tail owner counts are invalid")
+
+
+def _validate_guide(
+    path: Path,
+    entry: dict[str, Any],
+    *,
+    variant_id: str,
+    manifest: dict[str, Any],
+    descriptor_addresses: list[dict[str, Any]],
+) -> None:
+    guide = _read_json(path, MAX_GUIDE_BYTES, "regional-guide.json")
+    _finite_json(guide, "regional-guide.json")
+    expected_fields = {"format", "variant", "owners", "counts", "projections", "shared_render_bounds", "canvas", "layout", "controls", "boundary"}
+    if set(guide) != expected_fields or guide.get("format") != REGIONAL_GUIDE_FORMAT or guide.get("variant") != variant_id:
+        raise SurfacePreviewPublishError("regional guide has unsupported format, variant, or fields")
+    if entry.get("format") != REGIONAL_GUIDE_FORMAT or entry.get("variant") != variant_id:
+        raise SurfacePreviewPublishError("regional guide inventory metadata is invalid")
+    owners = guide.get("owners")
+    if not isinstance(owners, list) or len(owners) != EXPECTED_GUIDE_COUNTS["owners"]:
+        raise SurfacePreviewPublishError("regional guide owners count is invalid")
+    normalized_owners = [_validate_address(item, f"regional-guide.owners[{index}]") for index, item in enumerate(owners)]
+    if len({json.dumps(item, sort_keys=True) for item in normalized_owners}) != len(normalized_owners):
+        raise SurfacePreviewPublishError("regional guide owners must be unique")
+    if normalized_owners != descriptor_addresses:
+        raise SurfacePreviewPublishError("regional guide owners do not match source descriptors")
+    counts = guide.get("counts")
+    if counts != EXPECTED_GUIDE_COUNTS:
+        raise SurfacePreviewPublishError("regional guide counts are invalid")
+    bounds = guide.get("shared_render_bounds")
+    if bounds != manifest.get("shared_render_bounds"):
+        raise SurfacePreviewPublishError("regional guide bounds do not match manifest")
+    if not isinstance(bounds, dict) or set(bounds) != {"min", "max"}:
+        raise SurfacePreviewPublishError("regional guide bounds are invalid")
+    lower, upper = bounds["min"], bounds["max"]
+    if not isinstance(lower, list) or not isinstance(upper, list) or len(lower) != 3 or len(upper) != 3 or any(type(item) not in {int, float} for item in lower + upper) or any(a >= b for a, b in zip(lower, upper)):
+        raise SurfacePreviewPublishError("regional guide bounds are not finite ordered triples")
+    if guide.get("projections") != manifest.get("projections") or guide.get("layout") != manifest.get("layout") or guide.get("canvas") != manifest.get("canvas"):
+        raise SurfacePreviewPublishError("regional guide framing does not match manifest")
+    if guide.get("canvas") != EXPECTED_CANVAS or guide.get("projections") != EXPECTED_PROJECTIONS or guide.get("layout") != EXPECTED_LAYOUT:
+        raise SurfacePreviewPublishError("regional guide framing is not the fixed v2 layout")
+    _validate_controls(guide.get("controls"), normalized_owners, lower, upper)
+    if guide.get("boundary") != "private disposable regional controls; source-owned AddressKeys only; not a semantic or runtime contract":
+        raise SurfacePreviewPublishError("regional guide boundary is invalid")
+
+
+def _validate_bundle(
+    bundle: Path,
+    expected_source_sha256: str,
+    producer_payload: dict[str, Any] | None = None,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     try:
         bundle_info = bundle.lstat()
     except OSError as exc:
@@ -335,26 +676,51 @@ def _validate_bundle(bundle: Path, expected_source_sha256: str) -> tuple[list[di
         raise SurfacePreviewPublishError("surface bundle root must be a real non-symlink directory")
     manifest_path = bundle / MANIFEST_NAME
     manifest = _read_json(manifest_path, MAX_MANIFEST_BYTES, MANIFEST_NAME)
+    _finite_json(manifest, MANIFEST_NAME)
     if manifest.get("format") != SURFACE_PREVIEW_FORMAT or manifest.get("status") != "success":
         raise SurfacePreviewPublishError("surface bundle has unsupported format or status")
-    if set(manifest) - {"format", "status", "source_format", "source", "generator", "variants"}:
+    expected_manifest_fields = {"format", "status", "source_format", "source", "shared_render_bounds", "canvas", "layout", "projections", "generator", "variants"}
+    if set(manifest) != expected_manifest_fields:
         raise SurfacePreviewPublishError("surface bundle has unknown manifest fields")
     if manifest.get("source_format") != common.PROVISIONAL_FORM_FORMAT:
         raise SurfacePreviewPublishError("surface bundle source_format must be provisional-form v4")
     source = manifest.get("source")
-    if not isinstance(source, dict):
+    if not isinstance(source, dict) or set(source) != {"format", "sha256", "document", "namespace", "resource_profile_id", "reference_scale"}:
         raise SurfacePreviewPublishError("surface bundle source must identify format and sha256")
     if source.get("format") != common.PROVISIONAL_FORM_FORMAT or source.get("sha256") != expected_source_sha256:
         raise SurfacePreviewPublishError("surface bundle source does not match the exact v4 producer output")
     source_hash = source.get("sha256")
-    if not isinstance(source_hash, str) or len(source_hash) != 64:
+    if not isinstance(source_hash, str) or len(source_hash) != 64 or any(character not in "0123456789abcdef" for character in source_hash):
         raise SurfacePreviewPublishError("surface bundle source.sha256 is invalid")
+    if not all(isinstance(source.get(key), str) and source[key] for key in ("document", "namespace", "resource_profile_id")) or source["resource_profile_id"] != common.PROVISIONAL_FORM_RESOURCE_PROFILE:
+        raise SurfacePreviewPublishError("surface bundle source provenance is invalid")
+    _validate_reference_scale(source.get("reference_scale"), "surface bundle source.reference_scale")
+    if producer_payload is not None:
+        producer_source = producer_payload.get("source")
+        producer_reference_scale = producer_payload.get("reference_scale")
+        if not isinstance(producer_source, dict) or not isinstance(producer_reference_scale, dict):
+            raise SurfacePreviewPublishError("surface bundle cannot bind producer provenance")
+        for key in ("document", "namespace", "resource_profile_id"):
+            if source[key] != producer_source.get(key):
+                raise SurfacePreviewPublishError(f"surface bundle source.{key} does not match producer output")
+        if source["reference_scale"] != producer_reference_scale:
+            raise SurfacePreviewPublishError("surface bundle source.reference_scale does not match producer output")
+    if manifest.get("canvas") != EXPECTED_CANVAS or manifest.get("projections") != EXPECTED_PROJECTIONS or manifest.get("layout") != EXPECTED_LAYOUT:
+        raise SurfacePreviewPublishError("surface bundle framing is not the fixed v2 layout")
+    bounds = manifest.get("shared_render_bounds")
+    if not isinstance(bounds, dict) or set(bounds) != {"min", "max"}:
+        raise SurfacePreviewPublishError("surface bundle shared_render_bounds is invalid")
+    lower, upper = bounds["min"], bounds["max"]
+    if not isinstance(lower, list) or not isinstance(upper, list) or len(lower) != 3 or len(upper) != 3 or any(type(item) not in {int, float} for item in lower + upper) or any(a >= b for a, b in zip(lower, upper)):
+        raise SurfacePreviewPublishError("surface bundle shared_render_bounds is not ordered")
     generator = manifest.get("generator")
     if not isinstance(generator, dict):
         raise SurfacePreviewPublishError("surface bundle generator must be an explicit configuration object")
-    required_generator = {"samples_per_axis", "padding", "smooth_union", "field_primitives", "boundary"}
+    required_generator = {"bundle_version", "samples_per_axis", "padding", "smooth_union", "field_primitives", "field_recipes", "ownership", "boundary"}
     if set(generator) != required_generator:
         raise SurfacePreviewPublishError("surface bundle generator has missing or unknown configuration fields")
+    if generator.get("bundle_version") != 2:
+        raise SurfacePreviewPublishError("surface bundle generator.bundle_version must be 2")
     if type(generator.get("samples_per_axis")) is not int or not 1 <= generator["samples_per_axis"] <= 128:
         raise SurfacePreviewPublishError("surface bundle generator.samples_per_axis is out of bounds")
     if type(generator.get("padding")) not in {int, float} or not 0 <= generator["padding"] <= 100:
@@ -362,6 +728,11 @@ def _validate_bundle(bundle: Path, expected_source_sha256: str) -> tuple[list[di
     field_primitives = generator.get("field_primitives")
     if not isinstance(field_primitives, list) or not field_primitives or len(field_primitives) > 16 or not all(isinstance(item, str) and item for item in field_primitives):
         raise SurfacePreviewPublishError("surface bundle generator.field_primitives is invalid")
+    field_recipes = generator.get("field_recipes")
+    if not isinstance(field_recipes, list) or not field_recipes or len(field_recipes) > 64 or not all(isinstance(item, str) and item for item in field_recipes):
+        raise SurfacePreviewPublishError("surface bundle generator.field_recipes is invalid")
+    if not isinstance(generator.get("ownership"), str) or not generator["ownership"]:
+        raise SurfacePreviewPublishError("surface bundle generator.ownership is invalid")
     if not isinstance(generator.get("boundary"), str) or not generator["boundary"] or len(generator["boundary"]) > 1024:
         raise SurfacePreviewPublishError("surface bundle generator.boundary is invalid")
     smooth_union = generator.get("smooth_union")
@@ -380,15 +751,50 @@ def _validate_bundle(bundle: Path, expected_source_sha256: str) -> tuple[list[di
         raise SurfacePreviewPublishError("surface bundle variants must be the canonical v4 variants in order")
     inventory_paths: set[str] = set()
     published: list[dict[str, Any]] = []
+    producer_variants = producer_payload.get("variants") if producer_payload is not None else None
+    if producer_payload is not None and (not isinstance(producer_variants, list) or len(producer_variants) != len(variants)):
+        raise SurfacePreviewPublishError("surface bundle variants cannot bind producer output")
     for index, variant in enumerate(variants):
         where = f"variants[{index}]"
         if not isinstance(variant, dict):
             raise SurfacePreviewPublishError(f"{where} must be an object")
+        if set(variant) != {"id", "profile_id", "source", "descriptor_address_keys", "grid", "metrics", "inventory"}:
+            raise SurfacePreviewPublishError(f"{where} has unknown or missing fields")
         if variant.get("profile_id") != variant.get("id"):
             raise SurfacePreviewPublishError(f"{where}.profile_id must equal id")
+        variant_source = variant.get("source")
+        if not isinstance(variant_source, dict) or set(variant_source) != {"document", "namespace", "resource_profile_id"}:
+            raise SurfacePreviewPublishError(f"{where}.source provenance is invalid")
+        if variant_source != {key: source[key] for key in ("document", "namespace", "resource_profile_id")}:
+            raise SurfacePreviewPublishError(f"{where}.source provenance does not match manifest")
+        producer_variant = producer_variants[index] if producer_variants is not None else None
+        if producer_variant is not None:
+            if not isinstance(producer_variant, dict) or producer_variant.get("id") != variant["id"]:
+                raise SurfacePreviewPublishError(f"{where} does not match producer variant")
+            expected_descriptor_addresses = [item.get("address") for item in producer_variant.get("descriptors", [])] if isinstance(producer_variant.get("descriptors"), list) else None
+            if expected_descriptor_addresses is None or variant.get("descriptor_address_keys") != expected_descriptor_addresses:
+                raise SurfacePreviewPublishError(f"{where}.descriptor_address_keys do not match producer output")
+        descriptor_addresses = variant.get("descriptor_address_keys")
+        if not isinstance(descriptor_addresses, list) or len(descriptor_addresses) != EXPECTED_GUIDE_COUNTS["owners"]:
+            raise SurfacePreviewPublishError(f"{where}.descriptor_address_keys is invalid")
+        descriptor_addresses = [_validate_address(item, f"{where}.descriptor_address_keys[{i}]") for i, item in enumerate(descriptor_addresses)]
+        if len({json.dumps(item, sort_keys=True) for item in descriptor_addresses}) != len(descriptor_addresses):
+            raise SurfacePreviewPublishError(f"{where}.descriptor_address_keys contains duplicates")
+        if any(item["namespace"] != source["namespace"] for item in descriptor_addresses):
+            raise SurfacePreviewPublishError(f"{where}.descriptor_address_keys namespace differs from source")
         inventory = variant.get("inventory")
-        if not isinstance(inventory, list) or len(inventory) != 4:
-            raise SurfacePreviewPublishError(f"{where}.inventory must contain exactly four artifacts")
+        if not isinstance(inventory, list) or len(inventory) != 5:
+            raise SurfacePreviewPublishError(f"{where}.inventory must contain exactly five artifacts")
+        expected_inventory_kinds = ["ply", "semantic-sidecar", "metrics", "guide-skin-composite-png", "regional-guide-json"]
+        if [item.get("kind") for item in inventory if isinstance(item, dict)] != expected_inventory_kinds:
+            raise SurfacePreviewPublishError(f"{where}.inventory is not the canonical v2 order")
+        expected_inventory_paths = {
+            "ply": f"{variant['id']}/surface.ply",
+            "semantic-sidecar": f"{variant['id']}/semantic.json",
+            "metrics": f"{variant['id']}/metrics.json",
+            "guide-skin-composite-png": f"{variant['id']}/guide-skin-composite.png",
+            "regional-guide-json": f"{variant['id']}/regional-guide.json",
+        }
         kinds: set[str] = set()
         image_entry: dict[str, Any] | None = None
         for entry_index, entry in enumerate(inventory):
@@ -396,11 +802,20 @@ def _validate_bundle(bundle: Path, expected_source_sha256: str) -> tuple[list[di
             if not isinstance(entry, dict):
                 raise SurfacePreviewPublishError(f"{entry_where} must be an object")
             kind = entry.get("kind")
-            if kind not in {"ply", "semantic-sidecar", "metrics", "neutral-composite-png"} or kind in kinds:
+            if kind not in {"ply", "semantic-sidecar", "metrics", "guide-skin-composite-png", "regional-guide-json"} or kind in kinds:
                 raise SurfacePreviewPublishError(f"{entry_where}.kind is missing or duplicated")
+            base_entry_fields = {"kind", "path", "sha256", "bytes"}
+            extra_entry_fields = {
+                "guide-skin-composite-png": {"width", "height", "views", "panels_per_view", "mode"},
+                "regional-guide-json": {"format", "variant"},
+            }.get(kind, set())
+            if set(entry) != base_entry_fields | extra_entry_fields:
+                raise SurfacePreviewPublishError(f"{entry_where} has unknown or missing fields")
             kinds.add(kind)
             rel = _safe_relative(entry.get("path"), f"{entry_where}.path")
             rel_text = rel.as_posix()
+            if rel_text != expected_inventory_paths[kind]:
+                raise SurfacePreviewPublishError(f"{entry_where}.path is not the canonical v2 artifact path")
             if rel_text in inventory_paths or rel_text == MANIFEST_NAME:
                 raise SurfacePreviewPublishError(f"duplicate or reserved inventory path: {rel_text}")
             inventory_paths.add(rel_text)
@@ -414,14 +829,17 @@ def _validate_bundle(bundle: Path, expected_source_sha256: str) -> tuple[list[di
             actual_hash, actual_size = _sha256(artifact, rel_text)
             if actual_hash != entry["sha256"] or actual_size != entry["bytes"]:
                 raise SurfacePreviewPublishError(f"inventory does not match {rel_text}")
-            if kind == "neutral-composite-png":
+            if kind == "guide-skin-composite-png":
                 image_entry = entry
                 _validate_png(artifact, entry, rel_text)
-        if kinds != {"ply", "semantic-sidecar", "metrics", "neutral-composite-png"} or image_entry is None:
+            elif kind == "regional-guide-json":
+                _validate_guide(artifact, entry, variant_id=variant["id"], manifest=manifest, descriptor_addresses=descriptor_addresses)
+        if kinds != {"ply", "semantic-sidecar", "metrics", "guide-skin-composite-png", "regional-guide-json"} or image_entry is None:
             raise SurfacePreviewPublishError(f"{where}.inventory has wrong artifact kinds")
         published.append({"id": variant["id"], "entry": image_entry})
-    actual_paths = _regular_artifacts(bundle) - {MANIFEST_NAME}
-    if actual_paths != inventory_paths:
+    actual_paths, actual_directories = _regular_artifacts(bundle)
+    actual_paths -= {MANIFEST_NAME}
+    if actual_paths != inventory_paths or actual_directories != set(EXPECTED_VARIANTS):
         raise SurfacePreviewPublishError("surface bundle contains unlisted or missing regular output")
     return published, {"source": {"format": source["format"], "sha256": source_hash}, "generator": generator_config}
 
@@ -443,7 +861,10 @@ def publish_surface_preview(
         raise SurfacePreviewPublishError(str(exc)) from exc
     if not isinstance(title, str) or not title.strip() or len(title) > 512:
         raise SurfacePreviewPublishError("review title must be a non-empty string no longer than 512 characters")
-    input_source = _validate_input(input_path)
+    try:
+        input_source = _validate_input(input_path)
+    except (ProvisionalFormPublishError, OSError, ValueError) as exc:
+        raise SurfacePreviewPublishError(str(exc)) from exc
     executable = (creature_kernel or default_creature_kernel()).absolute()
     generator_path = (generator or default_generator()).absolute()
     with tempfile.TemporaryDirectory(prefix="ck-surface-preview-") as temp_name:
@@ -451,7 +872,10 @@ def publish_surface_preview(
         input_copy = work / "input.json"
         producer_output = work / "provisional-form.json"
         bundle = work / "bundle"
-        _copy_input_reference(input_source, input_copy)
+        try:
+            _copy_input_reference(input_source, input_copy)
+        except (ProvisionalFormPublishError, OSError, ValueError) as exc:
+            raise SurfacePreviewPublishError(str(exc)) from exc
         stdout, stderr, returncode = _run_bounded(
             [str(executable), "inspect-provisional-form", "--input", str(input_copy)],
             timeout=INSPECTION_TIMEOUT_SECONDS,
@@ -460,7 +884,10 @@ def publish_surface_preview(
         if returncode != 0:
             detail = stderr.decode("utf-8", errors="replace").strip()[:240]
             raise SurfacePreviewPublishError(f"creature-kernel inspection failed ({returncode}){': ' + detail if detail else ''}")
-        payload = _parse_inspection(stdout)
+        try:
+            payload = _parse_inspection(stdout)
+        except (ProvisionalFormPublishError, OSError, ValueError) as exc:
+            raise SurfacePreviewPublishError(str(exc)) from exc
         if payload.get("format") != common.PROVISIONAL_FORM_FORMAT:
             raise SurfacePreviewPublishError("creature-kernel inspection did not produce v4")
         producer_output.write_text(canonical_json(payload), encoding="utf-8")
@@ -473,7 +900,7 @@ def publish_surface_preview(
         if generator_returncode != 0:
             detail = generator_stderr.decode("utf-8", errors="replace").strip()[:240]
             raise SurfacePreviewPublishError(f"surface generator failed ({generator_returncode}){': ' + detail if detail else ''}")
-        published, bundle_metadata = _validate_bundle(bundle, producer_sha256)
+        published, bundle_metadata = _validate_bundle(bundle, producer_sha256, payload)
         manifest_path = work / "review-manifest.json"
         groups = [{
             "id": "profiles",
@@ -483,8 +910,8 @@ def publish_surface_preview(
                 "id": item["id"],
                 "title": item["id"],
                 "source": str(bundle / item["entry"]["path"]),
-                "description": "Neutral composite showing front, side, and three-quarter views.",
-                "metadata": {"source_format": common.PROVISIONAL_FORM_FORMAT, "source_sha256": producer_sha256, "generator": bundle_metadata["generator"], "views": list(EXPECTED_VIEWS)},
+                "description": "Guide and compiled-skin composite showing front, side, and three-quarter views.",
+                "metadata": {"source_format": common.PROVISIONAL_FORM_FORMAT, "source_sha256": producer_sha256, "generator": bundle_metadata["generator"], "views": list(EXPECTED_VIEWS), "panels_per_view": 2},
             } for item in published],
         }]
         manifest_path.write_text(canonical_json({
@@ -494,7 +921,7 @@ def publish_surface_preview(
             "description": "Disposable current-source surface generator preview; not production geometry or Readiness 3 evidence.",
             "instructions": "Compare the four generated profile composites. The gallery records no product decision.",
             "subject_context": {
-                "authored_summary": {"text": "One generated stylized digitigrade biped profile per card; each card contains front, side, and three-quarter views."},
+                "authored_summary": {"text": "One generated stylized digitigrade biped guide/skin composite per card; each card contains front, side, and three-quarter paired views."},
                 "descriptor_snapshot": {"source_format": common.PROVISIONAL_FORM_FORMAT, "source_sha256": producer_sha256, "variants": [item["id"] for item in published]},
                 "provenance": {"producer": "inspect-provisional-form", "generator_script": generator_path.name, "generator": bundle_metadata["generator"], "limitations": "Disposable preview only; no production geometry, runtime, or Readiness 3 claim."},
             },
@@ -522,7 +949,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         args = _parser().parse_args(argv)
         summary = publish_surface_preview(args.root, args.input, generator=args.generator, creature_kernel=args.creature_kernel, review_id=args.review_id, title=args.title)
-    except (SurfacePreviewPublishError, ValidationError, PublishError, OSError) as exc:
+    except (SurfacePreviewPublishError, ProvisionalFormPublishError, ValidationError, PublishError, OSError) as exc:
         print(f"publish-surface-preview failed: {exc}", file=sys.stderr)
         return 2
     print(canonical_json(summary), end="")

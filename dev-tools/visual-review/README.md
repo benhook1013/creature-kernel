@@ -258,7 +258,7 @@ success. A failed invocation cleans only its own staging/session files.
 `publish_surface_preview.py` is a bounded adapter for the current experiment
 surface generator. It runs the Rust v4 provisional-form producer, then runs an
 experiment-local Python generator with explicit `--input` and `--output`
-arguments, and publishes only the four neutral composite PNGs through the
+arguments, and publishes only the four guide/skin composite PNGs through the
 ordinary image gallery:
 
 Run it from the isolated environment prepared by
@@ -275,16 +275,22 @@ python3 dev-tools/visual-review/publish_surface_preview.py \
   --generator experiments/current-form-surface-preview/generate_surface_preview.py
 ```
 
-The generator bundle is fail-closed: its manifest must identify the v4 source,
+The v2 generator bundle is fail-closed: its manifest must identify the v4 source,
 contain the four canonical v4 variants in order, and inventory exactly one PLY,
-semantic sidecar, metrics JSON, and neutral composite PNG per variant. Every
-inventory path is relative, regular, non-symlinked, hash- and size-checked,
-and the PNG must contain front, side, and three-quarter views with bounded
-dimensions. The producer has a 10-second bound and the local extraction/render
-subprocess has a finite 120-second bound. Unlisted regular files, malformed
-inventory, partial variants, and generator or producer timeouts prevent any
-review session from being created. PLYs, sidecars, metrics, and temporary work
-directories are not copied to the gallery.
+semantic sidecar, metrics JSON, regional-guide JSON, and guide/skin composite PNG
+per variant. Every inventory path is relative, regular, non-symlinked, hash- and
+size-checked. The regional guide is checked as a bounded finite source-owned
+projection with the generator's exact private control shapes, positive profiles,
+allowed path primitives, source owners, and shared-bound containment; its shared
+bounds, projections, canvas, and panel layout must match the manifest. Composite
+PNG IHDR and inventory metadata are bound to the fixed 1800x570 RGB canvas. The
+bundle's source/provenance and descriptor AddressKeys are bound to the parsed v4
+producer result. The producer has a 10-second bound and the local extraction/
+render subprocess has a finite 120-second bound. Unlisted files or directories,
+malformed inventory or guide/provenance, partial variants, and generator or
+producer timeouts prevent any review session from being created. Only the four
+composite PNGs are copied to the gallery; guide JSON, PLYs, sidecars, metrics,
+and temporary work directories remain disposable.
 
 This is a disposable current-source visual bridge. It does not activate Stage
 1, Readiness 3, production geometry, runtime behaviour, or decision-record

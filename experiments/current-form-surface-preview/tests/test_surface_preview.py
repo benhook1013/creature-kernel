@@ -9,6 +9,7 @@ import unittest
 from pathlib import Path
 
 import numpy as np
+from PIL import Image, ImageDraw
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -495,18 +496,117 @@ class SurfacePreviewTests(unittest.TestCase):
             surface_preview.generate(input_path, first, samples=24, padding=0.5)
             surface_preview.generate(input_path, second, samples=24, padding=0.5)
             first_files = sorted(x.relative_to(first).as_posix() for x in first.rglob("*") if x.is_file())
-            self.assertEqual(len(first_files), 17)
+            self.assertEqual(len(first_files), 21)
             self.assertEqual(first_files, sorted(x.relative_to(second).as_posix() for x in second.rglob("*") if x.is_file()))
             for name in first_files:
                 self.assertEqual((first / name).read_bytes(), (second / name).read_bytes(), name)
             manifest = json.loads((first / "surface-preview-manifest.json").read_text())
             self.assertEqual(manifest["status"], "success")
+            self.assertEqual(manifest["format"], "creature-kernel.disposable-surface-preview.v2")
             self.assertEqual(manifest["source_format"], surface_preview.SOURCE_FORMAT)
             self.assertEqual([x["id"] for x in manifest["variants"]], list(surface_preview.VARIANT_IDS))
-            self.assertTrue(all(len(x["inventory"]) == 4 for x in manifest["variants"]))
+            self.assertTrue(all(len(x["inventory"]) == 5 for x in manifest["variants"]))
             self.assertTrue(all(x["metrics"]["source_descriptor_count"] == 18 for x in manifest["variants"]))
             self.assertTrue(all(x["metrics"]["generated_field_count"] == 50 for x in manifest["variants"]))
             self.assertTrue(all(x["metrics"]["component_count"] == 1 and x["metrics"]["watertight"] for x in manifest["variants"]))
+            self.assertEqual(
+                sorted(path.name for path in (first / surface_preview.VARIANT_IDS[0]).iterdir()),
+                ["guide-skin-composite.png", "metrics.json", "regional-guide.json", "semantic.json", "surface.ply"],
+            )
+
+    def test_v2_shared_frames_and_private_regional_controls_are_exact_and_sanitized(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            input_path = root / "input.json"
+            input_path.write_bytes(surface_preview._canonical(make_varied_payload()))
+            output = root / "output"
+            manifest = surface_preview.generate(input_path, output, samples=32, padding=0.5)
+            self.assertEqual([item["name"] for item in manifest["projections"]], ["front", "side", "three-quarter"])
+            self.assertEqual(manifest["canvas"], {"width": 1800, "height": 570, "mode": "RGB"})
+            self.assertEqual(manifest["layout"]["panel_order"], [
+                "front-guide", "front-skin", "side-guide", "side-skin", "three-quarter-guide", "three-quarter-skin",
+            ])
+            expected_bounds = manifest["shared_render_bounds"]
+            grid_signatures = []
+            guide_controls = []
+            for variant in manifest["variants"]:
+                grid_signatures.append((tuple(variant["grid"]["bounds_min"]), tuple(variant["grid"]["bounds_max"]), tuple(variant["grid"]["spacing"])))
+                regional = json.loads((output / variant["id"] / "regional-guide.json").read_text())
+                self.assertEqual(regional["variant"], variant["id"])
+                self.assertEqual(regional["shared_render_bounds"], expected_bounds)
+                self.assertEqual(regional["counts"], {"owners": 18, "axial": 2, "head": 1, "limbs": 8, "paws": 4, "tails": 2, "centerlines": 17})
+                self.assertEqual([item["name"] for item in regional["projections"]], ["front", "side", "three-quarter"])
+                self.assertEqual(regional["layout"], manifest["layout"])
+                self.assertEqual(regional["canvas"], manifest["canvas"])
+                self.assertTrue(regional["controls"]["axial"])
+                self.assertTrue(regional["controls"]["limbs"])
+                self.assertTrue(regional["controls"]["paws"])
+                self.assertTrue(regional["controls"]["tails"])
+                guide_controls.append(regional["controls"])
+
+                def has_forbidden_key(value: object) -> bool:
+                    if isinstance(value, dict):
+                        return any(key in {"descriptor_kind", "shape"} or has_forbidden_key(item) for key, item in value.items())
+                    if isinstance(value, list):
+                        return any(has_forbidden_key(item) for item in value)
+                    return False
+
+                self.assertFalse(has_forbidden_key(regional))
+                with Image.open(output / variant["id"] / "guide-skin-composite.png") as image:
+                    self.assertEqual(image.size, (1800, 570))
+            self.assertGreater(len(set(grid_signatures)), 1)
+            direct_form = surface_preview.validate_envelope(make_varied_payload())
+            for variant_id, (_, descriptors, _) in zip(surface_preview.VARIANT_IDS, direct_form.variants):
+                _, _, _, _, direct_metrics, direct_grid = surface_preview.build_variant(
+                    direct_form, descriptors, 32, 0.5, surface_preview.DEFAULT_SMOOTH_K,
+                )
+                generated = next(item for item in manifest["variants"] if item["id"] == variant_id)
+                self.assertEqual(generated["grid"], direct_grid)
+                self.assertEqual(generated["metrics"], direct_metrics)
+            self.assertNotEqual(guide_controls[0]["head"]["masses"], guide_controls[3]["head"]["masses"])
+
+    def test_side_skin_projection_stays_inside_its_panel(self) -> None:
+        # An intentionally asymmetric box makes a second side-basis
+        # application obvious: the world X span is wide while side-screen X
+        # is the narrow world Z span.  This is a lightweight renderer-level
+        # regression rather than a mesh-extraction test.
+        side_basis = np.asarray(next(item[1] for item in surface_preview.PROJECTIONS if item[0] == "side"), dtype=np.float64)
+        side_box = next(item["box"] for item in surface_preview.PANEL_LAYOUT if item["id"] == "side-skin")
+        bounds = (np.asarray([-3.0, -1.0, -0.5]), np.asarray([3.0, 1.0, 0.5]))
+        frame = surface_preview._projection_frame(bounds, side_basis, side_box)
+        vertices = np.asarray([
+            [-3.0, -1.0, -0.5], [3.0, -1.0, -0.5], [3.0, 1.0, -0.5], [-3.0, 1.0, -0.5],
+            [-3.0, -1.0, 0.5], [3.0, -1.0, 0.5], [3.0, 1.0, 0.5], [-3.0, 1.0, 0.5],
+        ])
+        faces = np.asarray([
+            [0, 1, 2], [0, 2, 3], [4, 6, 5], [4, 7, 6],
+            [0, 4, 5], [0, 5, 1], [1, 5, 6], [1, 6, 2],
+            [2, 6, 7], [2, 7, 3], [3, 7, 4], [3, 4, 0],
+        ], dtype=np.int64)
+        image = Image.new("RGB", surface_preview.CANVAS, (0, 0, 0))
+        surface_preview._draw_skin(ImageDraw.Draw(image), frame, vertices, faces)
+        pixels = np.asarray(image)
+        changed = np.any(pixels != 0, axis=2)
+        self.assertTrue(np.any(changed))
+        ys, xs = np.where(changed)
+        x0, y0, x1, y1 = side_box
+        self.assertGreaterEqual(int(xs.min()), x0)
+        self.assertLess(int(xs.max()), x1)
+        self.assertGreaterEqual(int(ys.min()), y0)
+        self.assertLess(int(ys.max()), y1)
+
+    def test_invalid_private_guide_data_fails_closed(self) -> None:
+        import dataclasses
+
+        form = surface_preview.validate_envelope(make_payload())
+        guide = surface_preview._derive_hybrid_guides(form, form.variants[0][1])
+        bounds = surface_preview._shared_render_bounds((surface_preview._compile_hybrid_guide(guide),), 0.5)
+        invalid = dataclasses.replace(guide, head_guide=dataclasses.replace(guide.head_guide, cranium_center=(float("nan"), 0.0, 0.0)))
+        with self.assertRaises(surface_preview.PreviewError):
+            surface_preview._regional_guide_json("neutral-v0", invalid, bounds)
+        invalid = dataclasses.replace(guide, head_guide=dataclasses.replace(guide.head_guide, cranium_center=(bounds[1][0] + 1.0, 0.0, 0.0)))
+        with self.assertRaises(surface_preview.PreviewError):
+            surface_preview._regional_guide_json("neutral-v0", invalid, bounds)
 
 
 if __name__ == "__main__":
