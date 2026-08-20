@@ -17,8 +17,8 @@ source AddressKey ownership and provenance, the fixed prototype axes and
 parent topology, ordered pelvic-girdle/waist/chest-girdle stations with short
 station transitions, compact shoulder and hip root controls at limb roots,
 craniofacial and neck transitions, piecewise tapered limb sections with
-endpoint-owned elbow/knee/hock stations, structured heel/forefoot-pad controls,
-and tail
+endpoint-owned elbow/knee/hock stations, private source-derived digitigrade
+foot-chain controls, and tail
 centerline/taper controls. These guides are internal derivation data: they
 are neither semantic nodes nor a serialized contract, and they contain no
 marching-cubes grid, mesh topology, SDF encoding, or renderer operation.
@@ -34,7 +34,8 @@ pelvic/chest girdle and narrow-waist masses joined by two short tapered station
 bridges, cranium and muzzle, a parent-surface neck/collar, source-owned
 compact shoulder and hip root controls plus embedded limb root bridges, tapered hip-to-thigh
 transitions, piecewise limb profiles, endpoint joint stations, simple
-two-stage hand paws, structured heel/forefoot foot masses, and
+two-stage hand paws, source-derived digitigrade foot chains from the existing
+hock through a tapered metatarsal, planted paw pad, and forward toe box, and
 a smoothly rooted straight tail with a full midsection and short blunt distal
 taper. Recipe components are fields,
 not semantic nodes: every generated component keeps its source descriptor as
@@ -79,8 +80,9 @@ are not the skin-driving controls. Limb controls expose
 named tapered sections, consumed profile radii, source-owned root/hip bridges,
 named endpoint joint stations, and exact parent anchors for hand/foot
 attachments. Forearm controls have no elbow station, avoiding duplicate joint
-ownership. Foot controls expose a hock-to-heel attachment plus separate heel
-and forward, wider/flatter forefoot masses;
+ownership. Foot controls expose the existing source-owned hock, a tapered
+metatarsal, planted paw-pad and forward toe-box masses, plus a guide-only
+contact datum;
 hands retain a simple paw mass and attachment. It is not a semantic or runtime
 contract and contains no
 descriptor input records or synthetic semantic IDs. The composite places guide and compiled

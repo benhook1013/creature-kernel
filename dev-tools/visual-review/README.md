@@ -285,9 +285,10 @@ cage sections, pelvis/torso ownership, axes/orientation, and section
 connections. Its older axial station and transition controls are accepted only
 as explicitly marked compatibility diagnostics and are not rendered. The
 sidecar also checks piecewise named limb sections and endpoint-owned
-elbow/knee/hock stations, exact parent anchors for hand/foot attachments,
-explicit shoulder/hip girdle masses, structured heel/forefoot controls and
-hock-to-heel attachments, positive dimensions,
+elbow/knee/hock stations, hand attachments and foot hock sources,
+explicit shoulder/hip girdle masses, source-derived digitigrade foot chains
+from hock through tapered metatarsal to planted paw-pad and toe-box, a
+guide-only contact datum, positive dimensions,
 allowed path primitives, expected source roles, and shared-bound containment;
 its compiled recipe counts, shared bounds, projections, canvas, and panel layout
 must match the manifest. Composite
