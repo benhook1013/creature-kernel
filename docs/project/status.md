@@ -15,39 +15,47 @@ governs what resumes next.
 
 Execution state: active after Ben resumed the runway on 2026-08-20.
 
-The completed first visual checkpoint established a useful diagnostic boundary:
-the semantic body graph can deterministically produce one connected, attributed
-surface across the four fixed stylized digitigrade-biped variants, but local
-tuning of a small set of ellipsoids and tapered segments converges on a tidier
-metaball-like body rather than convincing creature anatomy. Preserve that
-preview as plumbing evidence and a comparison baseline; do not continue local
+Ben appraised the guide/x-ray checkpoint on 2026-08-20. It succeeded as an
+architectural and diagnostic boundary: the semantic body graph, generated guide
+representation, and four-variant proof are useful foundations. It is not an
+outer-form quality endpoint. The current grey ellipsoid/smooth-union skin is a
+disposable preview consumer and comparison baseline; literal tuning observations
+such as the elbow ring, oval foot, or lateral torso bulge are scoped to that
+artifact and must not become future requirements. Do not continue local
 primitive-ratio tuning as the primary visual-quality strategy.
 
-The next autonomous runway is a layered procedural form-guide prototype. It
-must derive a backend-neutral internal form representation from the existing
-semantic body graph and high-level proportions: skeletal axes and joints,
-anatomical landmarks, spine/ribcage/pelvis and girdle guides, limb thickness
-profiles and joint narrowing, structured paw/forefoot guides, and appropriate
-head/muzzle guides. These generated structures then drive a continuous visible
-skin. They are compiler-owned form controls, not automatically new public
-semantic body parts.
+The next autonomous runway is a structured torso-cage form experiment. It will
+derive a backend-neutral torso representation from the existing semantic body
+graph and guide data, with continuous ribcage, abdomen/waist, and shaped pelvis
+sections, separate shoulder-girdle influence, a coherent neck base, and
+controlled hip/limb transitions. This is intended to replace the stacked-oval
+outer-form recipe for the comparison, while retaining the guide system and
+four-variant proof. It remains exploratory: it does not select a final surface
+backend or expand into production topology, rigging, animation, IK, deformation,
+or physics.
 
-The next human checkpoint is a running browser gallery that makes both the
-generated internal guides and their resulting higher-fidelity skin visible.
-Prove the representation first on the neutral fixed digitigrade biped, then
-show that the same shared guide generator preserves meaningful differences
-across all four fixed variants. The checkpoint must make chest/waist/pelvis
-structure, limb profiles, joint narrowing, paws, head/muzzle, tail, and overall
-silhouette materially appraisable. It need not establish production topology,
-rigging, animation, IK, deformation, physics, or a final art style.
+The next human visual checkpoint is a browser comparison of the current grey
+baseline against the structured torso-cage skin: first the neutral fixed
+digitigrade biped, then all four fixed variants. The result must make a
+continuous ribcage/abdomen/waist/pelvis, distinct shoulder-girdle influence,
+coherent neck base, and hip/limb transitions materially appraisable, without
+the stacked-oval or lateral armpit/side-boob bulge. It should retain the x-ray
+guide view so the relationship between internal guides and generated skin can
+be judged.
+
+Visual feedback against a disposable preview is candidate-scoped evidence, not
+a lasting prescription for its primitive layout or numeric tuning. Preserve
+only explicitly promoted product intent across a material guide or surface-
+consumer replacement; re-baseline feet, elbows, torso transitions, and other
+local form judgments when the generating representation changes.
 
 This runway does not yet select the final surface backend. Layered implicit
 fields, structured procedural cages or patches, and a hybrid remain candidate
 consumers of the same form-guide representation. Do not silently promote the
 disposable marching-cubes preview, or any one replacement backend, into a
 production architecture decision. Multiple small reviewed PRs may advance
-direct prerequisites, but stop before merging the PR that first reaches the
-named human checkpoint. If progress requires a new morphology, new public
+direct prerequisites, but stop before merging the first PR containing the
+appraisable new torso result. If progress requires a new morphology, new public
 semantic vocabulary, or another material scope expansion, stop and ask Ben.
 
 EXP-0002 and its Gate B/freeze/runtime-attestation continuation are parked and

@@ -32,7 +32,7 @@ from skimage.measure import marching_cubes
 
 
 FORMAT = "creature-kernel.disposable-surface-preview.v2"
-REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v2"
+REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v3"
 SOURCE_FORMAT = "creature-kernel.provisional-form-preview.v4"
 VARIANT_IDS = ("neutral-v0", "broad-soft-v0", "lean-readable-v0", "depth-forward-v0")
 MAX_INPUT_BYTES = 4 * 1024 * 1024
@@ -308,13 +308,11 @@ class _HeadGuide:
 
 @dataclass(frozen=True)
 class _LimbGuide:
-    """One source limb centerline, profile, and explicit joint narrowing."""
+    """One source limb with named tapered sections and endpoint joint station."""
 
     owner: Descriptor
-    centerline: tuple[tuple[float, float, float], tuple[float, float, float]]
-    thickness_profile: tuple[float, float]
-    path_kind: str
-    joint_narrowing: tuple[float, float]
+    sections: tuple[_LimbSection, ...]
+    joint: _LimbJoint | None
     root_centerline: tuple[tuple[float, float, float], tuple[float, float, float]] | None
     root_thickness: tuple[float, float] | None
     hip_centerline: tuple[tuple[float, float, float], tuple[float, float, float]] | None
@@ -323,10 +321,6 @@ class _LimbGuide:
     hip_radii: tuple[float, float, float] | None
     shoulder_center: tuple[float, float, float] | None
     shoulder_radii: tuple[float, float, float] | None
-    joint_center: tuple[float, float, float] | None
-    joint_radii: tuple[float, float, float] | None
-    lower_leg_centerline: tuple[tuple[float, float, float], tuple[float, float, float]] | None
-    lower_leg_thickness: tuple[float, float] | None
     axes: _GuideAxes
 
     @property
@@ -353,16 +347,31 @@ class _LimbGuide:
     def hip_girdle_radii(self) -> tuple[float, float, float] | None:
         return self.hip_radii
 
+    @property
+    def joint_center(self) -> tuple[float, float, float] | None:
+        return None if self.joint is None else self.joint.center
+
+    @property
+    def joint_radii(self) -> tuple[float, float, float] | None:
+        return None if self.joint is None else self.joint.radii
+
+    @property
+    def profile_controls(self) -> tuple[float, float, float]:
+        """The three consumed radii at root, section break, and distal end."""
+        if len(self.sections) != 2:
+            return ()
+        return (self.sections[0].thickness[0], self.sections[0].thickness[1], self.sections[1].thickness[1])
+
 
 @dataclass(frozen=True)
 class _PawGuide:
-    """Paw and forefoot controls for one source hand or foot."""
+    """Structured hand paw or digitigrade heel/forefoot controls."""
 
     owner: Descriptor
-    center: tuple[float, float, float]
-    radii: tuple[float, float, float]
     paw_center: tuple[float, float, float]
     paw_radii: tuple[float, float, float]
+    heel_center: tuple[float, float, float] | None
+    heel_radii: tuple[float, float, float] | None
     forefoot_center: tuple[float, float, float] | None
     forefoot_radii: tuple[float, float, float] | None
     attachment_centerline: tuple[tuple[float, float, float], tuple[float, float, float]] | None
@@ -377,6 +386,16 @@ class _PawGuide:
     @property
     def provenance(self) -> dict[str, Any]:
         return self.owner.provenance
+
+    @property
+    def center(self) -> tuple[float, float, float]:
+        """Compatibility alias for the source display center."""
+        return self.paw_center
+
+    @property
+    def radii(self) -> tuple[float, float, float]:
+        """Compatibility alias for the hand paw mass."""
+        return self.paw_radii
 
 
 @dataclass(frozen=True)
@@ -626,12 +645,32 @@ _FIXED_GUIDE_AXES = _GuideAxes(
     up=(0.0, 1.0, 0.0),
     forward=(0.0, 0.0, 1.0),
 )
-_LIMB_JOINT_NARROWING = {
-    "upper_arm": 0.86,
-    "forearm": 0.90,
-    "thigh": 0.84,
-    "shin": 0.72,
+_LIMB_PROFILE_FACTORS = {
+    "upper_arm": (1.05, 0.90, 0.70),
+    "forearm": (0.82, 0.70, 0.88),
+    "thigh": (1.10, 0.88, 0.72),
+    "shin": (0.80, 0.62, 0.70),
 }
+
+
+@dataclass(frozen=True)
+class _LimbSection:
+    """One named source-owned tapered piece of a limb axis."""
+
+    name: str
+    centerline: tuple[tuple[float, float, float], tuple[float, float, float]]
+    thickness: tuple[float, float]
+    path_kind: str
+
+
+@dataclass(frozen=True)
+class _LimbJoint:
+    """A source-owned joint station at the end of its proximal limb."""
+
+    name: str
+    center: tuple[float, float, float]
+    radii: tuple[float, float, float]
+    adjacent_profiles: tuple[float, float]
 
 
 def _guide_point(value: np.ndarray | tuple[float, float, float], where: str) -> tuple[float, float, float]:
@@ -1088,12 +1127,39 @@ def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _H
     limb_guides: list[_LimbGuide] = []
     for desc in descriptors:
         role = desc.key[3]
-        if role not in _LIMB_JOINT_NARROWING:
+        if role not in _LIMB_PROFILE_FACTORS:
             continue
         source = path_source(desc)
         start = _guide_point(source["from"], f"{_key_text(desc.key)}.start")
         end = _guide_point(source["to"], f"{_key_text(desc.key)}.end")
-        thickness = _guide_profile((float(source["r0"]), float(source["r1"])), f"{_key_text(desc.key)}.thickness")
+        factors = _LIMB_PROFILE_FACTORS[role]
+        source_r0, source_r1 = float(source["r0"]), float(source["r1"])
+        middle_radius = 0.5 * (source_r0 + source_r1)
+        profile_controls = _guide_profile(
+            (source_r0 * factors[0], middle_radius * factors[1], source_r1 * factors[2]),
+            f"{_key_text(desc.key)}.profile_controls",
+        )
+        midpoint = np.asarray(source["from"]) + 0.5 * (np.asarray(source["to"]) - np.asarray(source["from"]))
+        section_names = {
+            "upper_arm": ("pre-joint", "joint"),
+            "forearm": ("proximal", "distal"),
+            "thigh": ("pre-joint", "joint"),
+            "shin": ("pre-joint", "joint"),
+        }[role]
+        sections = (
+            _LimbSection(
+                section_names[0],
+                _guide_path(start, midpoint, (profile_controls[0], profile_controls[1]), f"{_key_text(desc.key)}.{section_names[0]}"),
+                (profile_controls[0], profile_controls[1]),
+                str(source["name"]),
+            ),
+            _LimbSection(
+                section_names[1],
+                _guide_path(midpoint, end, (profile_controls[1], profile_controls[2]), f"{_key_text(desc.key)}.{section_names[1]}"),
+                (profile_controls[1], profile_controls[2]),
+                str(source["name"]),
+            ),
+        )
         root_centerline = None
         root_thickness = None
         hip_centerline = None
@@ -1102,8 +1168,6 @@ def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _H
         hip_radii = None
         shoulder_center = None
         shoulder_radii = None
-        joint_center = None
-        joint_radii = None
         parent = by_key.get(desc.parent) if desc.parent is not None else None
         radius = _radius_from_shape(source)
         if role in {"upper_arm", "thigh"} and parent is not None:
@@ -1125,22 +1189,35 @@ def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _H
         if role == "upper_arm":
             shoulder_center = _guide_point(source["from"] + np.asarray([0.0, -0.20 * radius, 0.0]), f"{_key_text(desc.key)}.shoulder_center")
             shoulder_radii = _guide_radii(radius * np.asarray([1.30, 1.55, 1.55]), f"{_key_text(desc.key)}.shoulder_radii")
-        if role != "forearm":
-            collar_scale = 1.32 if role in {"upper_arm", "thigh"} else 1.20
-            joint_center = start
-            joint_radii = _guide_radii((radius * collar_scale, radius * collar_scale, radius * collar_scale), f"{_key_text(desc.key)}.joint_radii")
-        lower_leg_centerline = None
-        lower_leg_thickness = None
-        if role == "shin":
-            lower_leg_centerline = _guide_path(start, end, (radius * 1.16, radius * 0.72), f"{_key_text(desc.key)}.lower_leg")
-            lower_leg_thickness = (radius * 1.16, radius * 0.72)
+
+        joint = None
+        if role in {"upper_arm", "thigh", "shin"}:
+            joint_name = {"upper_arm": "elbow", "thigh": "knee", "shin": "hock"}[role]
+            side = desc.key[1]
+            adjacent_role = {"upper_arm": "forearm", "thigh": "shin", "shin": "foot"}[role]
+            adjacent = by_role.get((side, adjacent_role))
+            if adjacent is None:
+                _fail(f"missing adjacent source geometry for {_key_text(desc.key)}.{joint_name}")
+            adjacent_source = _source_shape(adjacent, form.reference_scale)
+            adjacent_profile = (
+                float(_LIMB_PROFILE_FACTORS[adjacent_role][0]) * _radius_from_shape(adjacent_source)
+                if adjacent_role in _LIMB_PROFILE_FACTORS
+                else float(np.min(adjacent_source["radii"] * np.asarray([1.02, 0.68, 0.78])))
+            )
+            own_profile = profile_controls[-1]
+            adjacent_profiles = (own_profile, adjacent_profile)
+            joint_radius = 0.70 * min(adjacent_profiles)
+            joint = _LimbJoint(
+                joint_name,
+                end,
+                _guide_radii((joint_radius, joint_radius, joint_radius), f"{_key_text(desc.key)}.{joint_name}.radii"),
+                adjacent_profiles,
+            )
         limb_guides.append(
             _LimbGuide(
                 owner=desc,
-                centerline=_guide_path(start, end, thickness, f"{_key_text(desc.key)}.centerline"),
-                thickness_profile=(thickness[0], thickness[1]),
-                path_kind=str(source["name"]),
-                joint_narrowing=(1.0, float(_LIMB_JOINT_NARROWING[role])),
+                sections=sections,
+                joint=joint,
                 root_centerline=root_centerline,
                 root_thickness=root_thickness,
                 hip_centerline=hip_centerline,
@@ -1149,10 +1226,6 @@ def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _H
                 hip_radii=hip_radii,
                 shoulder_center=shoulder_center,
                 shoulder_radii=shoulder_radii,
-                joint_center=joint_center,
-                joint_radii=joint_radii,
-                lower_leg_centerline=lower_leg_centerline,
-                lower_leg_thickness=lower_leg_thickness,
                 axes=_FIXED_GUIDE_AXES,
             )
         )
@@ -1165,27 +1238,38 @@ def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _H
         source = _source_shape(desc, form.reference_scale)
         if source["name"] != "ellipsoid":
             _fail(f"paw source is not an ellipsoid for {_key_text(desc.key)}")
-        centre = _guide_point(source["center"], f"{_key_text(desc.key)}.center")
-        radii = _guide_radii(source["radii"], f"{_key_text(desc.key)}.radii")
         if role == "hand":
             paw_center = _guide_point(source["center"] + np.asarray([0.0, 0.0, 0.10 * source["radii"][2]]), f"{_key_text(desc.key)}.paw_center")
             paw_radii = _guide_radii(source["radii"] * np.asarray([1.08, 0.94, 1.22]), f"{_key_text(desc.key)}.paw_radii")
+            heel_center = None
+            heel_radii = None
             forefoot_center = None
             forefoot_radii = None
         else:
-            paw_center = _guide_point(source["center"] + np.asarray([0.0, -0.12 * source["radii"][1], -0.12 * source["radii"][2]]), f"{_key_text(desc.key)}.paw_center")
-            paw_radii = _guide_radii(source["radii"] * np.asarray([1.15, 0.62, 0.62]), f"{_key_text(desc.key)}.paw_radii")
-            forefoot_center = _guide_point(source["center"] + np.asarray([0.0, -0.16 * source["radii"][1], 0.52 * source["radii"][2]]), f"{_key_text(desc.key)}.forefoot_center")
-            forefoot_radii = _guide_radii(source["radii"] * np.asarray([1.18, 0.50, 0.50]), f"{_key_text(desc.key)}.forefoot_radii")
+            # Digitigrade feet are deliberately two masses: a rear heel under
+            # the hock and a forward, wider/flatter forefoot pad.  The old
+            # single paw oval is not compiled for feet.
+            heel_center = _guide_point(source["center"] + np.asarray([0.0, -0.08 * source["radii"][1], -0.20 * source["radii"][2]]), f"{_key_text(desc.key)}.heel_center")
+            heel_radii = _guide_radii(source["radii"] * np.asarray([1.02, 0.68, 0.78]), f"{_key_text(desc.key)}.heel_radii")
+            forefoot_center = _guide_point(source["center"] + np.asarray([0.0, -0.18 * source["radii"][1], 0.38 * source["radii"][2]]), f"{_key_text(desc.key)}.forefoot_center")
+            forefoot_radii = _guide_radii(source["radii"] * np.asarray([1.30, 0.42, 0.82]), f"{_key_text(desc.key)}.forefoot_radii")
+            paw_center = heel_center
+            paw_radii = heel_radii
         parent = by_key.get(desc.parent) if desc.parent is not None else None
         attachment_centerline = None
         attachment_radius = None
         attachment_kind = None
         if parent is not None:
             parent_source = _source_shape(parent, form.reference_scale)
+            attachment_target = heel_center if heel_center is not None else paw_center
+            attachment_start = (
+                parent_source["to"]
+                if role == "foot" and parent.key[3] == "shin"
+                else _parent_surface_anchor(parent, attachment_target, form.reference_scale)
+            )
             attachment_centerline = _guide_path(
-                _parent_surface_anchor(parent, source["center"], form.reference_scale),
-                source["center"],
+                attachment_start,
+                attachment_target,
                 (max(_radius_from_shape(parent_source) * 0.72, float(np.min(source["radii"])) * 0.62),),
                 f"{_key_text(desc.key)}.attachment",
             )
@@ -1194,10 +1278,10 @@ def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _H
         paw_guides.append(
             _PawGuide(
                 owner=desc,
-                center=centre,
-                radii=radii,
                 paw_center=paw_center,
                 paw_radii=paw_radii,
+                heel_center=heel_center,
+                heel_radii=heel_radii,
                 forefoot_center=forefoot_center,
                 forefoot_radii=forefoot_radii,
                 attachment_centerline=attachment_centerline,
@@ -1362,19 +1446,30 @@ def _validate_hybrid_guide(guide: _HybridGuide, bounds: tuple[np.ndarray, np.nda
     path(head.neck_transition, head.neck_transition_thickness, "head.neck_transition")
     mass(head.neck_collar_center, head.neck_collar_radii, "head.neck_collar")
     for index, limb in enumerate(guide.limb_guides):
-        path(limb.centerline, limb.thickness_profile, f"limb[{index}].centerline")
+        if not limb.sections or len(limb.profile_controls) != 3:
+            _fail(f"limb[{index}] must contain piecewise sections and three profile controls")
+        _guide_profile(limb.profile_controls, f"limb[{index}].profile_controls")
+        for section_index, section in enumerate(limb.sections):
+            if section.name not in {"pre-joint", "joint", "proximal", "distal"}:
+                _fail(f"limb[{index}].sections[{section_index}] has an unknown section")
+            path(section.centerline, section.thickness, f"limb[{index}].sections[{section_index}]")
+        if limb.joint is not None:
+            if limb.joint.name not in {"elbow", "knee", "hock"}:
+                _fail(f"limb[{index}].joint has an unknown station")
+            mass(limb.joint.center, limb.joint.radii, f"limb[{index}].joint")
+            if len(limb.joint.adjacent_profiles) != 2 or any(value <= 0.0 for value in limb.joint.adjacent_profiles):
+                _fail(f"limb[{index}].joint adjacent profiles are invalid")
+            if not math.isclose(limb.joint.radii[0], 0.70 * min(limb.joint.adjacent_profiles), rel_tol=1e-9, abs_tol=1e-12):
+                _fail(f"limb[{index}].joint radius is not derived from adjacent profiles")
+            if any(radius >= adjacent for radius in limb.joint.radii for adjacent in limb.joint.adjacent_profiles):
+                _fail(f"limb[{index}].joint radius must be smaller than adjacent profiles")
         path(limb.root_centerline, limb.root_thickness, f"limb[{index}].root")
         path(limb.hip_centerline, limb.hip_thickness, f"limb[{index}].hip")
         mass(limb.hip_center, limb.hip_radii, f"limb[{index}].hip_girdle")
         mass(limb.shoulder_center, limb.shoulder_radii, f"limb[{index}].shoulder")
-        mass(limb.joint_center, limb.joint_radii, f"limb[{index}].joint")
-        path(limb.lower_leg_centerline, limb.lower_leg_thickness, f"limb[{index}].lower_leg")
-        narrowing = _guide_profile(limb.joint_narrowing, f"limb[{index}].joint_narrowing")
-        if any(value > 1.0 for value in narrowing):
-            _fail(f"limb[{index}].joint_narrowing must not widen a joint")
     for index, paw in enumerate(guide.paw_guides):
-        mass(paw.center, paw.radii, f"paw[{index}].source_region")
         mass(paw.paw_center, paw.paw_radii, f"paw[{index}].paw")
+        mass(paw.heel_center, paw.heel_radii, f"paw[{index}].heel")
         mass(paw.forefoot_center, paw.forefoot_radii, f"paw[{index}].forefoot")
         if paw.attachment_centerline is not None:
             if paw.attachment_radius is None or paw.attachment_kind is None:
@@ -1498,41 +1593,81 @@ def _regional_guide_json(
         ],
     }
     limb_controls = []
+    paw_by_parent: dict[tuple[str, tuple[str, ...], str, str], list[_PawGuide]] = {}
+    for paw in guide.paw_guides:
+        if paw.owner.parent is not None:
+            paw_by_parent.setdefault(paw.owner.parent, []).append(paw)
     for item in guide.limb_guides:
         sections = [
+            _path_json(section.name, section.centerline, section.thickness, path_kind=section.path_kind)
+            for section in item.sections
+        ]
+        bridges = [
             value for value in (
-                _path_json("root", item.root_centerline, item.root_thickness),
-                _path_json("hip", item.hip_centerline, item.hip_thickness),
-                _path_json("lower-leg", item.lower_leg_centerline, item.lower_leg_thickness),
+                _path_json("root", item.root_centerline, item.root_thickness, path_kind="tapered-segment"),
+                _path_json("hip", item.hip_centerline, item.hip_thickness, path_kind="tapered-segment"),
             ) if value is not None
         ]
         masses = [
             value for value in (
                 _mass_json("shoulder-girdle", item.shoulder_center, item.shoulder_radii),
                 _mass_json("hip-girdle", item.hip_center, item.hip_radii),
-                _mass_json("joint", item.joint_center, item.joint_radii),
             ) if value is not None
         ]
+        joints = []
+        if item.joint is not None:
+            joints.append({
+                "name": item.joint.name,
+                "owner": _address_json(item.owner.key),
+                "mass": _mass_json(item.joint.name, item.joint.center, item.joint.radii),
+                "adjacent_profiles": [float(value) for value in item.joint.adjacent_profiles],
+            })
+        anchors = []
+        for paw in paw_by_parent.get(item.owner.key, []):
+            if paw.attachment_centerline is None:
+                _fail(f"paw attachment anchor is incomplete for {_key_text(paw.owner.key)}")
+            anchors.append({
+                "name": "forearm-distal-boundary" if paw.owner.key[3] == "hand" else "hock-endpoint",
+                "kind": "parent-surface-anchor" if paw.owner.key[3] == "hand" else "endpoint",
+                "point": _point_json(paw.attachment_centerline[0]),
+                "boundary_point": _point_json(item.sections[-1].centerline[1]),
+            })
         limb_controls.append({
             "owner": _address_json(item.owner.key),
-            "centerline": _path_json("segment", item.centerline, item.thickness_profile, path_kind=item.path_kind),
-            "joint_narrowing": [float(value) for value in item.joint_narrowing],
+            "profile_controls": [float(value) for value in item.profile_controls],
             "sections": sections,
+            "bridges": bridges,
             "masses": masses,
+            "joints": joints,
+            "anchors": anchors,
         })
     paw_controls = []
+    limb_by_owner = {item.owner.key: item for item in guide.limb_guides}
+    owners_by_key = {item.key: item for item in guide.source_owners}
     for item in guide.paw_guides:
         attachment = _path_json("attachment", item.attachment_centerline, (item.attachment_radius,) if item.attachment_radius is not None else None, path_kind=item.attachment_kind)
+        if attachment is None or item.owner.parent is None or item.owner.parent not in owners_by_key:
+            _fail(f"paw attachment source is incomplete for {_key_text(item.owner.key)}")
+        parent = owners_by_key[item.owner.parent]
+        parent_limb = limb_by_owner.get(parent.key)
+        if parent_limb is None or not parent_limb.sections:
+            _fail(f"paw attachment parent limb is missing for {_key_text(item.owner.key)}")
+        attachment_source = {
+            "owner": _address_json(parent.key),
+            "anchor": "forearm-distal-boundary" if item.owner.key[3] == "hand" else "hock-endpoint",
+            "point": _point_json(item.attachment_centerline[0]),
+            "boundary_point": _point_json(parent_limb.sections[-1].centerline[1]),
+        }
+        paw_masses = (
+            (_mass_json("paw", item.paw_center, item.paw_radii),)
+            if item.heel_center is None
+            else (_mass_json("heel", item.heel_center, item.heel_radii), _mass_json("forefoot", item.forefoot_center, item.forefoot_radii))
+        )
         paw_controls.append({
             "owner": _address_json(item.owner.key),
-            "masses": [
-                value for value in (
-                    _mass_json("source-region", item.center, item.radii),
-                    _mass_json("paw", item.paw_center, item.paw_radii),
-                    _mass_json("forefoot", item.forefoot_center, item.forefoot_radii),
-                ) if value is not None
-            ],
+            "masses": [value for value in paw_masses if value is not None],
             "attachment": attachment,
+            "attachment_source": attachment_source,
         })
     tail_controls = []
     for item in guide.tail_guides:
@@ -1634,19 +1769,12 @@ def _compile_hybrid_guide(guide: _HybridGuide) -> tuple[Field, ...]:
         add_ellipsoid(desc, "neck-collar", head.neck_collar_center, head.neck_collar_radii)
 
     def add_limb(desc: Descriptor, limb: _LimbGuide) -> None:
-        try:
-            narrowing = tuple(float(value) for value in limb.joint_narrowing)
-        except (TypeError, ValueError):
-            _fail(f"joint narrowing is invalid for {_key_text(limb.owner.key)}")
-        if len(narrowing) != 2 or not all(math.isfinite(value) and 0.0 < value <= 1.0 for value in narrowing):
-            _fail(f"joint narrowing is invalid for {_key_text(limb.owner.key)}")
-        if len(limb.thickness_profile) != 2:
-            _fail(f"limb thickness profile is invalid for {_key_text(limb.owner.key)}")
-        effective_thickness = tuple(
-            float(thickness) * factor
-            for thickness, factor in zip(limb.thickness_profile, narrowing)
-        )
-        add_path(desc, "limb-segment", limb.centerline, effective_thickness, limb.path_kind)
+        if len(limb.profile_controls) != 3 or not all(math.isfinite(value) and value > 0.0 for value in limb.profile_controls):
+            _fail(f"limb profile controls are invalid for {_key_text(limb.owner.key)}")
+        if len(limb.sections) != 2:
+            _fail(f"limb piecewise sections are invalid for {_key_text(limb.owner.key)}")
+        for section in limb.sections:
+            add_path(desc, f"{limb.owner.key[3]}-{section.name}", section.centerline, section.thickness, section.path_kind)
         if limb.root_centerline is not None:
             add_path(desc, "root-bridge", limb.root_centerline, limb.root_thickness, "tapered-segment")  # type: ignore[arg-type]
         if limb.hip_centerline is not None:
@@ -1655,16 +1783,19 @@ def _compile_hybrid_guide(guide: _HybridGuide) -> tuple[Field, ...]:
             add_ellipsoid(desc, "hip-girdle", limb.hip_center, limb.hip_radii)  # type: ignore[arg-type]
         if limb.shoulder_center is not None:
             add_ellipsoid(desc, "shoulder-mass", limb.shoulder_center, limb.shoulder_radii)  # type: ignore[arg-type]
-        if limb.joint_center is not None:
-            narrowed = tuple(value * narrowing[0] for value in limb.joint_radii)  # type: ignore[union-attr]
-            add_ellipsoid(desc, "joint-collar", limb.joint_center, narrowed)
-        if limb.lower_leg_centerline is not None:
-            add_path(desc, "digitigrade-lower-leg", limb.lower_leg_centerline, limb.lower_leg_thickness, "tapered-segment")  # type: ignore[arg-type]
+        if limb.joint is not None:
+            if not math.isclose(limb.joint.radii[0], 0.70 * min(limb.joint.adjacent_profiles), rel_tol=1e-9, abs_tol=1e-12):
+                _fail(f"joint radius is not derived from adjacent profiles for {_key_text(limb.owner.key)}")
+            add_ellipsoid(desc, limb.joint.name, limb.joint.center, limb.joint.radii)
 
     def add_paw(desc: Descriptor, paw: _PawGuide) -> None:
-        add_ellipsoid(desc, "paw-mass", paw.paw_center, paw.paw_radii)
-        if paw.forefoot_center is not None:
-            add_ellipsoid(desc, "foot-front", paw.forefoot_center, paw.forefoot_radii)  # type: ignore[arg-type]
+        if paw.heel_center is None:
+            add_ellipsoid(desc, "paw", paw.paw_center, paw.paw_radii)
+        else:
+            add_ellipsoid(desc, "heel", paw.heel_center, paw.heel_radii)  # type: ignore[arg-type]
+            if paw.forefoot_center is None or paw.forefoot_radii is None:
+                _fail(f"foot forefoot controls are incomplete for {_key_text(paw.owner.key)}")
+            add_ellipsoid(desc, "forefoot", paw.forefoot_center, paw.forefoot_radii)
         if paw.attachment_centerline is not None:
             add_path(desc, "extremity-bridge", paw.attachment_centerline, (paw.attachment_radius,), paw.attachment_kind or "capsule")
 
@@ -1963,19 +2094,22 @@ def _draw_guide(draw: ImageDraw.ImageDraw, frame: dict[str, Any], guide: _Hybrid
     _draw_guide_path(draw, frame, head.head_transition, head.head_transition_thickness, colours["head"])
     _draw_guide_path(draw, frame, head.neck_transition, head.neck_transition_thickness, colours["head"])
     for item in guide.limb_guides:
-        _draw_guide_path(draw, frame, item.centerline, item.thickness_profile, colours["limb"], narrowing=item.joint_narrowing)
-        for path, profile in ((item.root_centerline, item.root_thickness), (item.hip_centerline, item.hip_thickness), (item.lower_leg_centerline, item.lower_leg_thickness)):
+        for section in item.sections:
+            _draw_guide_path(draw, frame, section.centerline, section.thickness, colours["limb"])
+        for path, profile in ((item.root_centerline, item.root_thickness), (item.hip_centerline, item.hip_thickness)):
             if path is not None and profile is not None:
                 _draw_guide_path(draw, frame, path, profile, colours["limb"])
         if item.hip_center is not None and item.hip_radii is not None:
             _draw_guide_mass(draw, frame, item.hip_center, item.hip_radii, colours["limb"])
         if item.shoulder_center is not None and item.shoulder_radii is not None:
             _draw_guide_mass(draw, frame, item.shoulder_center, item.shoulder_radii, colours["limb"])
-        if item.joint_center is not None and item.joint_radii is not None:
-            _draw_guide_mass(draw, frame, item.joint_center, item.joint_radii, colours["joint"])
+        if item.joint is not None:
+            _draw_guide_mass(draw, frame, item.joint.center, item.joint.radii, colours["joint"])
     for item in guide.paw_guides:
-        _draw_guide_mass(draw, frame, item.center, item.radii, colours["paw"])
-        _draw_guide_mass(draw, frame, item.paw_center, item.paw_radii, colours["paw"])
+        if item.heel_center is None:
+            _draw_guide_mass(draw, frame, item.paw_center, item.paw_radii, colours["paw"])
+        else:
+            _draw_guide_mass(draw, frame, item.heel_center, item.heel_radii, colours["paw"])
         if item.forefoot_center is not None and item.forefoot_radii is not None:
             _draw_guide_mass(draw, frame, item.forefoot_center, item.forefoot_radii, colours["paw"])
         if item.attachment_centerline is not None and item.attachment_radius is not None:
@@ -2030,7 +2164,7 @@ def _render(
     draw = ImageDraw.Draw(image)
     font = ImageFont.load_default()
     draw.text((16, 16), f"Disposable guide + compiled skin - {variant_id}", fill=(235, 238, 244), font=font)
-    draw.text((16, 42), "guide controls: regional masses / centerlines / joint narrowing    skin: deterministic compiled field", fill=(167, 176, 190), font=font)
+    draw.text((16, 42), "guide controls: regional masses / piecewise limb sections / endpoint joints / heel-pad paws    skin: deterministic compiled field", fill=(167, 176, 190), font=font)
     projection_lookup = {name: np.asarray(basis, dtype=np.float64) for name, basis, _ in PROJECTIONS}
     shared_frames: dict[str, dict[str, Any]] = {}
     for item in PANEL_LAYOUT:
@@ -2139,7 +2273,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
             "canvas": {"width": CANVAS[0], "height": CANVAS[1], "mode": "RGB"},
             "layout": _layout_json(),
             "projections": _projection_json(),
-            "generator": {"bundle_version": 2, "samples_per_axis": samples, "padding": padding, "smooth_union": {"operator": "polynomial_cubic_smooth_min", "k": smooth_k, "fold_order": "source_address_then_recipe_order"}, "field_primitives": ["ellipsoid", "capsule", "linear-radius-tapered-segment"], "field_recipes": ["hips", "pelvic-core", "chest", "waist", "pelvis-waist-bridge", "waist-chest-bridge", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar", "limb-segment", "root-bridge", "hip-transition", "hip-girdle", "shoulder-mass", "joint-collar", "digitigrade-lower-leg", "paw-mass", "foot-front", "extremity-bridge", "tail-segment", "tail-tip-extension", "tail-tip-cap", "tail-root-bridge", "tail-root-collar"], "ownership": "recipe fields are source-owned and winner labels expose only source AddressKeys", "boundary": "disposable exploratory visual proof; not production geometry, SDF, collision, rig, topology, or Readiness evidence"},
+            "generator": {"bundle_version": 2, "samples_per_axis": samples, "padding": padding, "smooth_union": {"operator": "polynomial_cubic_smooth_min", "k": smooth_k, "fold_order": "source_address_then_recipe_order"}, "field_primitives": ["ellipsoid", "capsule", "linear-radius-tapered-segment"], "field_recipes": ["hips", "pelvic-core", "chest", "waist", "pelvis-waist-bridge", "waist-chest-bridge", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar", "upper_arm-pre-joint", "upper_arm-joint", "forearm-proximal", "forearm-distal", "thigh-pre-joint", "thigh-joint", "shin-pre-joint", "shin-joint", "elbow", "knee", "hock", "root-bridge", "hip-transition", "hip-girdle", "shoulder-mass", "paw", "heel", "forefoot", "extremity-bridge", "tail-segment", "tail-tip-extension", "tail-tip-cap", "tail-root-bridge", "tail-root-collar"], "ownership": "recipe fields are source-owned and winner labels expose only source AddressKeys", "boundary": "disposable exploratory visual proof; not production geometry, SDF, collision, rig, topology, or Readiness evidence"},
             "variants": records,
         }
         (stage / "surface-preview-manifest.json").write_bytes(_canonical(manifest) + b"\n")

@@ -123,12 +123,33 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     {{"name": "waist-chest", "owner": owners[1], "recipe": "waist-chest-bridge", "path": path("waist-chest", "tapered-segment")}},
                 ]}}
                 head = {{"owners": [owners[3], owners[2]], "masses": [mass("cranium"), mass("muzzle"), mass("neck-collar")], "sections": [path("head-transition"), path("neck-transition")]}}
-                limb_specs = [(owners[4], {{"root"}}, {{"shoulder-girdle", "joint"}}), (owners[5], set(), set()), (owners[7], {{"root"}}, {{"shoulder-girdle", "joint"}}), (owners[8], set(), set()), (owners[10], {{"root", "hip"}}, {{"hip-girdle", "joint"}}), (owners[11], {{"lower-leg"}}, {{"joint"}}), (owners[13], {{"root", "hip"}}, {{"hip-girdle", "joint"}}), (owners[14], {{"lower-leg"}}, {{"joint"}})]
+                limb_specs = [(owners[4], ("pre-joint", "joint"), ("root",), ("shoulder-girdle",), ("elbow",)), (owners[5], ("proximal", "distal"), (), (), ()), (owners[7], ("pre-joint", "joint"), ("root",), ("shoulder-girdle",), ("elbow",)), (owners[8], ("proximal", "distal"), (), (), ()), (owners[10], ("pre-joint", "joint"), ("root", "hip"), ("hip-girdle",), ("knee",)), (owners[11], ("pre-joint", "joint"), (), (), ("hock",)), (owners[13], ("pre-joint", "joint"), ("root", "hip"), ("hip-girdle",), ("knee",)), (owners[14], ("pre-joint", "joint"), (), (), ("hock",))]
                 limbs = []
-                for owner, sections, masses in limb_specs:
-                    limb = {{"owner": owner, "centerline": path("segment", "capsule"), "joint_narrowing": [1.0, 0.85], "sections": [path(control) for control in sorted(sections)], "masses": [mass(control) for control in sorted(masses)]}}
+                for owner, section_names, bridge_names, mass_names, joint_names in limb_specs:
+                    section_values = [path(control, "capsule") for control in section_names]
+                    if len(section_values) == 2: section_values[1]["points"] = [list(section_values[0]["points"][1]), [1.0, 0.0, 0.0]]
+                    anchors = []
+                    if owner["role"] == "forearm":
+                        anchors = [{{"name": "forearm-distal-boundary", "kind": "parent-surface-anchor", "point": [0.25, 0.0, 0.0], "boundary_point": [1.0, 0.0, 0.0]}}]
+                    elif owner["role"] == "shin":
+                        anchors = [{{"name": "hock-endpoint", "kind": "endpoint", "point": [1.0, 0.0, 0.0], "boundary_point": [1.0, 0.0, 0.0]}}]
+                    limb = {{"owner": owner, "profile_controls": [0.2, 0.2, 0.2], "sections": section_values, "bridges": [path(control, "tapered-segment") for control in bridge_names], "masses": [mass(control) for control in mass_names], "joints": [{{"name": name, "owner": owner, "mass": {{**mass(name), "center": [1.0, 0.0, 0.0], "radii": [0.14, 0.14, 0.14]}}, "adjacent_profiles": [0.2, (0.5 if name == "hock" else 0.2)]}} for name in joint_names], "anchors": anchors}}
                     limbs.append(limb)
-                paws = [{{"owner": owner, "masses": [mass("source-region"), mass("paw")] + ([mass("forefoot")] if owner["role"] == "foot" else []), "attachment": path("attachment", "capsule")}} for owner in [owners[6], owners[9], owners[12], owners[15]]]
+                paws = []
+                for owner in [owners[6], owners[9], owners[12], owners[15]]:
+                    if owner["role"] == "foot":
+                        heel = mass("heel"); heel["center"] = [0.0, 0.0, 0.0]
+                        forefoot = mass("forefoot"); forefoot["center"] = [0.0, 0.0, 0.5]; forefoot["radii"] = [0.6, 0.4, 0.5]
+                        attachment = path("attachment", "capsule"); attachment["points"] = [[1.0, 0.0, 0.0], heel["center"]]
+                        parent = next(candidate for candidate in owners if candidate["role"] == "shin" and candidate["anchors"] == owner["anchors"])
+                        attachment_source = {{"owner": parent, "anchor": "hock-endpoint", "point": list(attachment["points"][0]), "boundary_point": [1.0, 0.0, 0.0]}}
+                        paws.append({{"owner": owner, "masses": [heel, forefoot], "attachment": attachment, "attachment_source": attachment_source}})
+                    else:
+                        paw = mass("paw")
+                        attachment = path("attachment", "capsule"); attachment["points"] = [[0.25, 0.0, 0.0], paw["center"]]
+                        parent = next(candidate for candidate in owners if candidate["role"] == "forearm" and candidate["anchors"] == owner["anchors"])
+                        attachment_source = {{"owner": parent, "anchor": "forearm-distal-boundary", "point": list(attachment["points"][0]), "boundary_point": [1.0, 0.0, 0.0]}}
+                        paws.append({{"owner": owner, "masses": [paw], "attachment": attachment, "attachment_source": attachment_source}})
                 tails = [{{"owner": owners[16], "centerline": path("segment", "tapered-segment"), "sections": [path("root-attachment", "tapered-segment")], "masses": [mass("root-collar")]}}, {{"owner": owners[17], "centerline": path("segment", "tapered-segment"), "sections": [path("tip-extension", "tapered-segment")], "masses": [mass("tip-cap")]}}]
                 guide = {{"format": {publisher.REGIONAL_GUIDE_FORMAT!r}, "variant": variant_id, "owners": owners, "counts": {publisher.EXPECTED_GUIDE_COUNTS!r}, "projections": projections, "shared_render_bounds": bounds, "canvas": canvas, "layout": layout, "controls": {{"axes": {{"lateral": [1.0, 0.0, 0.0], "up": [0.0, 1.0, 0.0], "forward": [0.0, 0.0, 1.0]}}, "axial": axial, "head": head, "limbs": limbs, "paws": paws, "tails": tails}}, "boundary": "private disposable regional controls; source-owned AddressKeys only; not a semantic or runtime contract"}}
                 if {mode!r} == "guide-format": guide["format"] = "wrong"
@@ -136,10 +157,17 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 if {mode!r} == "guide-controls": guide["controls"]["axes"]["forward"] = [0.0, 0.0, 2.0]
                 if {mode!r} == "guide-station-omitted": guide["controls"]["axial"]["stations"].pop()
                 if {mode!r} == "guide-transition-omitted": guide["controls"]["axial"]["transitions"].pop()
-                if {mode!r} == "guide-girdle-omitted": guide["controls"]["limbs"][0]["masses"].pop()
+                if {mode!r} == "guide-girdle-omitted": guide["controls"]["limbs"][2]["masses"].pop()
                 if {mode!r} == "guide-station-malformed": guide["controls"]["axial"]["stations"][1]["mass"]["radii"][0] = 0.0
                 if {mode!r} == "guide-transition-malformed": guide["controls"]["axial"]["transitions"][0]["path"]["path_kind"] = "capsule"
-                if {mode!r} == "guide-girdle-malformed": guide["controls"]["limbs"][0]["masses"][0]["control"] = "wrong"
+                if {mode!r} == "guide-girdle-malformed": guide["controls"]["limbs"][2]["masses"][0]["control"] = "wrong"
+                if {mode!r} == "guide-joint-endpoint": guide["controls"]["limbs"][2]["joints"][0]["mass"]["center"][0] = 0.0
+                if {mode!r} == "guide-foot-order": guide["controls"]["paws"][2]["masses"][1]["center"][2] = -1.0
+                if {mode!r} == "guide-hand-attachment-start": guide["controls"]["paws"][0]["attachment"]["points"][0][2] = 0.75
+                if {mode!r} == "guide-hand-anchor-point": guide["controls"]["limbs"][1]["anchors"][0]["point"][2] = 0.75
+                if {mode!r} == "guide-section-gap": guide["controls"]["limbs"][2]["sections"][1]["points"][0][0] = 0.4
+                if {mode!r} == "guide-profile-second-start": guide["controls"]["limbs"][2]["sections"][1]["thickness"][0] = 0.19
+                if {mode!r} == "guide-adjacent-profile": guide["controls"]["limbs"][2]["joints"][0]["adjacent_profiles"][1] = 0.99
                 guide_path = directory / "regional-guide.json"
                 guide_path.write_text(json.dumps(guide), encoding="utf-8")
                 if {mode!r} == "guide-omitted": guide_path.unlink()
@@ -209,7 +237,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         self.assertEqual(review["groups"][0]["selection_mode"], "none")
 
     def test_malformed_count_and_unlisted_output_publish_nothing(self) -> None:
-        for index, mode in enumerate(("bad-count", "unlisted", "symlink", "extra-directory", "hash", "source-mismatch", "fabricated-provenance", "fabricated-descriptor", "profile-mismatch", "guide-format", "guide-provenance", "guide-controls", "guide-station-omitted", "guide-transition-omitted", "guide-girdle-omitted", "guide-station-malformed", "guide-transition-malformed", "guide-girdle-malformed", "guide-omitted", "png-small", "png-truncated", "png-crc", "png-no-idat", "png-invalid-idat", "png-unknown-critical")):
+        for index, mode in enumerate(("bad-count", "unlisted", "symlink", "extra-directory", "hash", "source-mismatch", "fabricated-provenance", "fabricated-descriptor", "profile-mismatch", "guide-format", "guide-provenance", "guide-controls", "guide-station-omitted", "guide-transition-omitted", "guide-girdle-omitted", "guide-station-malformed", "guide-transition-malformed", "guide-girdle-malformed", "guide-joint-endpoint", "guide-foot-order", "guide-hand-attachment-start", "guide-hand-anchor-point", "guide-section-gap", "guide-profile-second-start", "guide-adjacent-profile", "guide-omitted", "png-small", "png-truncated", "png-crc", "png-no-idat", "png-invalid-idat", "png-unknown-critical")):
             with self.subTest(mode=mode):
                 with patch.object(publisher, "_parse_inspection", return_value=self._payload()):
                     with self.assertRaises(publisher.SurfacePreviewPublishError):

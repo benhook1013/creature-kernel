@@ -279,9 +279,12 @@ The v2 generator bundle is fail-closed: its manifest must identify the v4 source
 contain the four canonical v4 variants in order, and inventory exactly one PLY,
 semantic sidecar, metrics JSON, regional-guide JSON, and guide/skin composite PNG
 per variant. Every inventory path is relative, regular, non-symlinked, hash- and
-size-checked. The regional-guide v2 sidecar is checked as a bounded finite
+size-checked. The regional-guide v3 sidecar is checked as a bounded finite
 source-owned projection with the generator's exact ordered axial station and
-transition controls, explicit shoulder/hip girdle masses, positive dimensions,
+transition controls, piecewise named limb sections and endpoint-owned
+elbow/knee/hock stations, exact parent anchors for hand/foot attachments,
+explicit shoulder/hip girdle masses, structured heel/forefoot controls and
+hock-to-heel attachments, positive dimensions,
 allowed path primitives, expected source roles, and shared-bound containment;
 its compiled recipe counts, shared bounds, projections, canvas, and panel layout
 must match the manifest. Composite
