@@ -84,13 +84,16 @@ EXPECTED_GUIDE_COUNTS = {
     "axial_stations": 3,
     "axial_transitions": 2,
     "axial_core_masses": 1,
-    "torso_cage_sections": 5,
-    "torso_cage_connections": 4,
+    "torso_cage_sections": 7,
+    "torso_cage_connections": 6,
+    "shoulder_frame_sides": 2,
+    "shoulder_frame_curves": 6,
+    "shoulder_frame_compiled_fields": 10,
     "head": 1,
     "limbs": 8,
     "paws": 4,
     "tails": 2,
-    "compiled_fields": 50,
+    "compiled_fields": 60,
     "compiled_field_recipe_counts": {
         "upper_arm-pre-joint": 2,
         "upper_arm-joint": 2,
@@ -109,6 +112,15 @@ EXPECTED_GUIDE_COUNTS = {
         "extremity-bridge": 4,
         "root-bridge": 4,
         "hip-transition": 2,
+        "shoulder-left-anterior-support-0": 1,
+        "shoulder-left-anterior-support-1": 1,
+        "shoulder-left-posterior-return-0": 1,
+        "shoulder-left-posterior-return-1": 1,
+        "shoulder-right-anterior-support-0": 1,
+        "shoulder-right-anterior-support-1": 1,
+        "shoulder-right-posterior-return-0": 1,
+        "shoulder-right-posterior-return-1": 1,
+        "deltoid-sweep-1": 2,
         "tail-segment": 2,
         "cranium": 1,
         "muzzle": 1,
@@ -540,7 +552,7 @@ def _validate_controls(
     lower: list[float],
     upper: list[float],
 ) -> None:
-    if not isinstance(controls, dict) or set(controls) != {"axes", "axial", "torso_cage", "head", "limbs", "paws", "tails"}:
+    if not isinstance(controls, dict) or set(controls) != {"axes", "axial", "torso_cage", "shoulder_frame", "head", "limbs", "paws", "tails"}:
         raise SurfacePreviewPublishError("regional guide controls are invalid")
     axes = controls["axes"]
     if not isinstance(axes, dict) or set(axes) != {"lateral", "up", "forward"} or axes != {"lateral": [1.0, 0.0, 0.0], "up": [0.0, 1.0, 0.0], "forward": [0.0, 0.0, 1.0]}:
@@ -623,7 +635,9 @@ def _validate_controls(
     expected_sections = (
         ("lower-pelvis", "pelvis"),
         ("upper-pelvis", "pelvis"),
+        ("lower-abdomen", "torso"),
         ("waist-abdomen", "torso"),
+        ("upper-abdomen", "torso"),
         ("lower-ribcage", "torso"),
         ("upper-ribcage-shoulder", "torso"),
     )
@@ -653,6 +667,74 @@ def _validate_controls(
     expected_connections = [{"from": expected_sections[index][0], "to": expected_sections[index + 1][0]} for index in range(len(expected_sections) - 1)]
     if connections != expected_connections:
         raise SurfacePreviewPublishError("regional guide torso cage connections are invalid")
+
+    shoulder = controls["shoulder_frame"]
+    if not isinstance(shoulder, dict) or set(shoulder) != {"status", "owners", "central", "sides"} or shoulder["status"] != "skin-driving private shoulder frame":
+        raise SurfacePreviewPublishError("regional guide shoulder frame controls are invalid")
+    shoulder_owners = shoulder["owners"]
+    if not isinstance(shoulder_owners, dict) or set(shoulder_owners) != {"torso", "neck", "left_upper_arm", "right_upper_arm"}:
+        raise SurfacePreviewPublishError("regional guide shoulder frame owners are invalid")
+    parsed_shoulder_owners = {key: owner(value, f"regional-guide.controls.shoulder_frame.owners.{key}") for key, value in shoulder_owners.items()}
+    if parsed_shoulder_owners["torso"]["role"] != "torso" or parsed_shoulder_owners["neck"]["role"] != "neck":
+        raise SurfacePreviewPublishError("regional guide shoulder frame central owners are invalid")
+    if parsed_shoulder_owners["left_upper_arm"]["role"] != "upper_arm" or parsed_shoulder_owners["left_upper_arm"]["anchors"] != ["left"]:
+        raise SurfacePreviewPublishError("regional guide shoulder frame left owner is invalid")
+    if parsed_shoulder_owners["right_upper_arm"]["role"] != "upper_arm" or parsed_shoulder_owners["right_upper_arm"]["anchors"] != ["right"]:
+        raise SurfacePreviewPublishError("regional guide shoulder frame right owner is invalid")
+
+    central = shoulder["central"]
+    if not isinstance(central, dict) or set(central) != {"owner", "anchor", "profile"}:
+        raise SurfacePreviewPublishError("regional guide shoulder frame central control is invalid")
+    if owner(central["owner"], "regional-guide.controls.shoulder_frame.central.owner") != parsed_shoulder_owners["torso"]:
+        raise SurfacePreviewPublishError("regional guide shoulder frame central owner is invalid")
+    _point(central["anchor"], "regional-guide.controls.shoulder_frame.central.anchor")
+    profile = central["profile"]
+    if not isinstance(profile, list) or len(profile) != 2 or any(_finite_number(value, "regional-guide.controls.shoulder_frame.central.profile") <= 0.0 for value in profile):
+        raise SurfacePreviewPublishError("regional guide shoulder frame central profile is invalid")
+    sides = shoulder["sides"]
+    if not isinstance(sides, list) or len(sides) != 2 or [item.get("side") for item in sides if isinstance(item, dict)] != ["left", "right"]:
+        raise SurfacePreviewPublishError("regional guide shoulder frame sides are invalid")
+    for index, side in enumerate(sides):
+        where = f"regional-guide.controls.shoulder_frame.sides[{index}]"
+        if not isinstance(side, dict) or set(side) != {"side", "owner", "socket", "extremum", "span", "slope", "curves"}:
+            raise SurfacePreviewPublishError(f"{where} has an invalid shape")
+        side_owner = owner(side["owner"], f"{where}.owner")
+        expected_owner = parsed_shoulder_owners[f"{side['side']}_upper_arm"]
+        if side_owner != expected_owner:
+            raise SurfacePreviewPublishError(f"{where}.owner is invalid")
+        for control_name in ("socket", "extremum"):
+            control = side[control_name]
+            if not isinstance(control, dict) or set(control) != {"owner", "point"} or owner(control["owner"], f"{where}.{control_name}.owner") != side_owner:
+                raise SurfacePreviewPublishError(f"{where}.{control_name} is invalid")
+            _point(control["point"], f"{where}.{control_name}.point")
+        span = _finite_number(side["span"], f"{where}.span")
+        if span <= 0.0 or not math.isfinite(_finite_number(side["slope"], f"{where}.slope")):
+            raise SurfacePreviewPublishError(f"{where}.span or slope is invalid")
+        curves = side["curves"]
+        if not isinstance(curves, list) or [item.get("name") for item in curves if isinstance(item, dict)] != ["anterior-support", "posterior-return", "deltoid-sweep"]:
+            raise SurfacePreviewPublishError(f"{where}.curves are invalid")
+        for curve_index, curve in enumerate(curves):
+            curve_where = f"{where}.curves[{curve_index}]"
+            if not isinstance(curve, dict) or set(curve) != {"name", "owner", "points", "profile"}:
+                raise SurfacePreviewPublishError(f"{curve_where} has an invalid shape")
+            expected_curve_owner = parsed_shoulder_owners["torso"] if curve["name"] != "deltoid-sweep" else side_owner
+            if owner(curve["owner"], f"{curve_where}.owner") != expected_curve_owner:
+                raise SurfacePreviewPublishError(f"{curve_where}.owner is invalid")
+            points = curve["points"]
+            expected_point_count = 3 if curve["name"] == "deltoid-sweep" else 4
+            if not isinstance(points, list) or len(points) != expected_point_count:
+                raise SurfacePreviewPublishError(f"{curve_where}.points are invalid")
+            for point_index, point in enumerate(points):
+                _point(point, f"{curve_where}.points[{point_index}]")
+            curve_profile = curve["profile"]
+            if not isinstance(curve_profile, list) or len(curve_profile) != expected_point_count or any(_finite_number(value, f"{curve_where}.profile") <= 0.0 for value in curve_profile):
+                raise SurfacePreviewPublishError(f"{curve_where}.profile is invalid")
+            parsed_profile = [_finite_number(value, f"{curve_where}.profile[{profile_index}]") for profile_index, value in enumerate(curve_profile)]
+            for point_index, point in enumerate(points):
+                parsed_point = _point(point, f"{curve_where}.points[{point_index}]")
+                radius = parsed_profile[point_index]
+                if any(parsed_point[axis] - radius < lower[axis] or parsed_point[axis] + radius > upper[axis] for axis in range(3)):
+                    raise SurfacePreviewPublishError(f"{curve_where}.point[{point_index}] extends outside shared render bounds")
 
     head = controls["head"]
     if not isinstance(head, dict) or set(head) != {"owners", "masses", "sections"}:
@@ -806,6 +888,70 @@ def _validate_controls(
         actual_adjacent = [float(value) for value in joint["adjacent_profiles"]]
         if actual_adjacent != expected_adjacent:
             raise SurfacePreviewPublishError(f"{role} joint adjacent profiles do not bind neighboring limb sections")
+
+    # Cross-check the shoulder sidecar against the already validated upper-arm
+    # controls.  Local JSON shape validation alone would allow a plausible but
+    # disconnected frame to pass publication.
+    def close_point(actual: list[float], expected: list[float], where: str) -> None:
+        if len(actual) != 3 or len(expected) != 3 or any(not math.isclose(float(a), float(b), rel_tol=1.0e-9, abs_tol=1.0e-12) for a, b in zip(actual, expected)):
+            raise SurfacePreviewPublishError(f"{where} does not bind its expected point")
+
+    upper_arms = {
+        tuple(item["owner"]["anchors"]): item
+        for item in limbs
+        if isinstance(item, dict) and item.get("owner", {}).get("role") == "upper_arm"
+    }
+    central_anchor = [_finite_number(value, f"regional-guide.controls.shoulder_frame.central.anchor[{index}]") for index, value in enumerate(central["anchor"])]
+    central_profile = [_finite_number(value, f"regional-guide.controls.shoulder_frame.central.profile[{index}]") for index, value in enumerate(profile)]
+    for side_index, side in enumerate(sides):
+        where = f"regional-guide.controls.shoulder_frame.sides[{side_index}]"
+        side_name = side["side"]
+        upper_arm = upper_arms.get((side_name,))
+        if upper_arm is None:
+            raise SurfacePreviewPublishError(f"{where} has no matching upper-arm guide")
+        first_section = {section["control"]: section for section in upper_arm["sections"]}.get("pre-joint")
+        if first_section is None:
+            raise SurfacePreviewPublishError(f"{where} upper-arm guide has no pre-joint section")
+        socket = side["socket"]["point"]
+        extremum = side["extremum"]["point"]
+        expected_span = abs(float(extremum[0]) - central_anchor[0])
+        if expected_span <= 0.0:
+            raise SurfacePreviewPublishError(f"{where} declared shoulder span is degenerate")
+        expected_slope = (float(extremum[1]) - central_anchor[1]) / expected_span
+        if not math.isclose(float(side["span"]), expected_span, rel_tol=1.0e-9, abs_tol=1.0e-12) or not math.isclose(float(side["slope"]), expected_slope, rel_tol=1.0e-9, abs_tol=1.0e-12):
+            raise SurfacePreviewPublishError(f"{where} span and slope do not derive from central anchor and extremum")
+        curves_by_name = {curve["name"]: curve for curve in side["curves"]}
+        anterior = curves_by_name["anterior-support"]
+        posterior = curves_by_name["posterior-return"]
+        deltoid = curves_by_name["deltoid-sweep"]
+        for curve_name, curve in (("anterior-support", anterior), ("posterior-return", posterior), ("deltoid-sweep", deltoid)):
+            points = curve["points"]
+            if any(points[index] == points[index + 1] for index in range(len(points) - 1)):
+                raise SurfacePreviewPublishError(f"{where}.{curve_name} has a degenerate adjacent control")
+        for curve_name, curve in (("anterior-support", anterior), ("posterior-return", posterior)):
+            points = curve["points"]
+            close_point(points[0], central_anchor, f"{where}.{curve_name}.start")
+            close_point(points[2], extremum, f"{where}.{curve_name}.extremum")
+            close_point(points[3], socket, f"{where}.{curve_name}.socket")
+        close_point(deltoid["points"][0], extremum, f"{where}.deltoid-sweep.extremum")
+        close_point(deltoid["points"][1], socket, f"{where}.deltoid-sweep.socket")
+        first_start = first_section["points"][0]
+        first_end = first_section["points"][1]
+        first_quarter = [float(first_start[index]) + 0.25 * (float(first_end[index]) - float(first_start[index])) for index in range(3)]
+        close_point(deltoid["points"][2], first_quarter, f"{where}.deltoid-sweep.first-quarter")
+        anterior_profile = [float(value) for value in anterior["profile"]]
+        posterior_profile = [float(value) for value in posterior["profile"]]
+        deltoid_profile = [float(value) for value in deltoid["profile"]]
+        if not math.isclose(anterior_profile[0], central_profile[0], rel_tol=1.0e-9, abs_tol=1.0e-12) or not math.isclose(posterior_profile[0], central_profile[1], rel_tol=1.0e-9, abs_tol=1.0e-12):
+            raise SurfacePreviewPublishError(f"{where} support profiles do not bind the central profile")
+        if anterior_profile[1:] != posterior_profile[1:]:
+            raise SurfacePreviewPublishError(f"{where} support profiles do not share their rejoin controls")
+        arm_thickness = [float(value) for value in first_section["thickness"]]
+        arm_profile = [float(value) for value in upper_arm["profile_controls"]]
+        if not math.isclose(anterior_profile[-1], arm_profile[0], rel_tol=1.0e-9, abs_tol=1.0e-12) or not math.isclose(anterior_profile[-1], arm_thickness[0], rel_tol=1.0e-9, abs_tol=1.0e-12):
+            raise SurfacePreviewPublishError(f"{where} support profile does not bind the upper-arm root")
+        if not math.isclose(deltoid_profile[0], anterior_profile[2], rel_tol=1.0e-9, abs_tol=1.0e-12) or not math.isclose(deltoid_profile[1], arm_profile[0], rel_tol=1.0e-9, abs_tol=1.0e-12) or not math.isclose(deltoid_profile[2], arm_profile[1], rel_tol=1.0e-9, abs_tol=1.0e-12) or deltoid_profile[1] != arm_thickness[0] or deltoid_profile[2] != arm_thickness[1]:
+            raise SurfacePreviewPublishError(f"{where} deltoid profile does not bind the upper-arm profile")
 
     paws = controls["paws"]
     if not isinstance(paws, list) or len(paws) != 4:

@@ -2491,6 +2491,17 @@ def _path_json(
     return result
 
 
+def _curve_json(name: str, owner: Descriptor, curve: _ShoulderCurve) -> dict[str, Any]:
+    """Serialize every private shoulder curve control, including uncompiled spans."""
+
+    return {
+        "name": name,
+        "owner": _address_json(owner.key),
+        "points": [_point_json(point) for point in curve.points],
+        "profile": [float(item) for item in curve.profile],
+    }
+
+
 def _projection_json() -> list[dict[str, Any]]:
     return [
         {"name": name, "basis": [[float(item) for item in row] for row in basis], "base": base}
@@ -2584,6 +2595,37 @@ def _regional_guide_json(
             {"from": torso_cage.sections[index].name, "to": torso_cage.sections[index + 1].name}
             for index in range(len(torso_cage.sections) - 1)
         ],
+    }
+    frame = guide.shoulder_frame
+    shoulder_sides = []
+    for side in frame.sides:
+        shoulder_sides.append({
+            "side": side.side,
+            "owner": _address_json(side.owner.key),
+            "socket": {"owner": _address_json(side.owner.key), "point": _point_json(side.socket_anchor)},
+            "extremum": {"owner": _address_json(side.owner.key), "point": _point_json(side.shoulder_extremum)},
+            "span": float(side.span),
+            "slope": float(side.slope),
+            "curves": [
+                _curve_json("anterior-support", frame.torso_owner, side.anterior_support),
+                _curve_json("posterior-return", frame.torso_owner, side.posterior_return),
+                _curve_json("deltoid-sweep", side.owner, side.deltoid_sweep),
+            ],
+        })
+    shoulder_frame_controls = {
+        "status": "skin-driving private shoulder frame",
+        "owners": {
+            "torso": _address_json(frame.torso_owner.key),
+            "neck": _address_json(frame.neck_owner.key),
+            "left_upper_arm": _address_json(frame.left.owner.key),
+            "right_upper_arm": _address_json(frame.right.owner.key),
+        },
+        "central": {
+            "owner": _address_json(frame.torso_owner.key),
+            "anchor": _point_json(frame.central_anchor),
+            "profile": [float(item) for item in frame.central_profile],
+        },
+        "sides": shoulder_sides,
     }
     head = guide.head_guide
     head_controls = {
@@ -2709,6 +2751,11 @@ def _regional_guide_json(
             "axial_core_masses": 1,
             "torso_cage_sections": len(torso_cage.sections),
             "torso_cage_connections": len(torso_cage.sections) - 1,
+            "shoulder_frame_sides": len(frame.sides),
+            "shoulder_frame_curves": sum(3 for _ in frame.sides),
+            "shoulder_frame_compiled_fields": sum(
+                2 + 2 + 1 for _ in frame.sides
+            ),
             "head": 1,
             "limbs": len(guide.limb_guides),
             "paws": len(guide.paw_guides),
@@ -2724,6 +2771,7 @@ def _regional_guide_json(
             "axes": {"lateral": _point_json(guide.topology.axes.lateral), "up": _point_json(guide.topology.axes.up), "forward": _point_json(guide.topology.axes.forward)},
             "axial": axial_controls,
             "torso_cage": torso_cage_controls,
+            "shoulder_frame": shoulder_frame_controls,
             "head": head_controls,
             "limbs": limb_controls,
             "paws": paw_controls,
@@ -3135,6 +3183,40 @@ def _draw_guide_path(draw: ImageDraw.ImageDraw, frame: dict[str, Any], path: tup
         draw.ellipse((point[0] - radius_px, point[1] - radius_px, point[0] + radius_px, point[1] + radius_px), outline=colour, width=1)
 
 
+def _draw_guide_curve(
+    draw: ImageDraw.ImageDraw,
+    frame: dict[str, Any],
+    curve: _ShoulderCurve,
+    colour: tuple[int, int, int],
+) -> None:
+    """Draw a complete private multi-control curve without adding labels."""
+
+    points = _frame_screen(frame, np.asarray(curve.points, dtype=np.float64))
+    for index in range(len(points) - 1):
+        draw.line((points[index], points[index + 1]), fill=colour, width=2)
+    scale = frame["scale"]
+    for index, point in enumerate(points):
+        radius_px = max(2.0, min(12.0, float(curve.profile[index]) * scale * 0.55))
+        draw.ellipse(
+            (point[0] - radius_px, point[1] - radius_px, point[0] + radius_px, point[1] + radius_px),
+            outline=colour,
+            width=1,
+        )
+
+
+def _draw_shoulder_frame(draw: ImageDraw.ImageDraw, frame: dict[str, Any], shoulder: _ShoulderFrame, colour: tuple[int, int, int]) -> None:
+    """Draw the skin-driving shoulder frame; old circular diagnostics are excluded."""
+
+    _draw_guide_mass(draw, frame, shoulder.central_anchor, shoulder.central_profile + (shoulder.central_profile[0],), colour)
+    for side in shoulder.sides:
+        _draw_guide_curve(draw, frame, side.anterior_support, colour)
+        _draw_guide_curve(draw, frame, side.posterior_return, colour)
+        _draw_guide_curve(draw, frame, side.deltoid_sweep, colour)
+        for point in (side.shoulder_extremum, side.socket_anchor):
+            screen = _frame_screen(frame, np.asarray([point], dtype=np.float64))[0]
+            draw.ellipse((screen[0] - 3, screen[1] - 3, screen[0] + 3, screen[1] + 3), fill=colour)
+
+
 def _draw_torso_cage(draw: ImageDraw.ImageDraw, frame: dict[str, Any], cage: _TorsoCage, colour: tuple[int, int, int]) -> None:
     """Render the skin-driving cage as section rings and longitudinal seams."""
 
@@ -3170,6 +3252,7 @@ def _draw_torso_cage(draw: ImageDraw.ImageDraw, frame: dict[str, Any], cage: _To
 def _draw_guide(draw: ImageDraw.ImageDraw, frame: dict[str, Any], guide: _HybridGuide) -> None:
     colours = {
         "cage": (244, 174, 76),
+        "shoulder": (244, 104, 186),
         "head": (204, 121, 190),
         "limb": (96, 174, 218),
         "joint": (235, 124, 100),
@@ -3177,6 +3260,7 @@ def _draw_guide(draw: ImageDraw.ImageDraw, frame: dict[str, Any], guide: _Hybrid
         "tail": (225, 181, 88),
     }
     _draw_torso_cage(draw, frame, guide.torso_cage, colours["cage"])
+    _draw_shoulder_frame(draw, frame, guide.shoulder_frame, colours["shoulder"])
     head = guide.head_guide
     _draw_guide_mass(draw, frame, head.cranium_center, head.cranium_radii, colours["head"])
     _draw_guide_mass(draw, frame, head.muzzle_center, head.muzzle_radii, colours["head"])
@@ -3191,8 +3275,6 @@ def _draw_guide(draw: ImageDraw.ImageDraw, frame: dict[str, Any], guide: _Hybrid
                 _draw_guide_path(draw, frame, path, profile, colours["limb"])
         if item.hip_center is not None and item.hip_radii is not None:
             _draw_guide_mass(draw, frame, item.hip_center, item.hip_radii, colours["limb"])
-        if item.shoulder_center is not None and item.shoulder_radii is not None:
-            _draw_guide_mass(draw, frame, item.shoulder_center, item.shoulder_radii, colours["limb"])
         if item.joint is not None:
             _draw_guide_mass(draw, frame, item.joint.center, item.joint.radii, colours["joint"])
     for item in guide.paw_guides:

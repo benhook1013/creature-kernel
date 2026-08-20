@@ -1216,6 +1216,9 @@ class SurfacePreviewTests(unittest.TestCase):
                 self.assertEqual(regional["counts"]["axial_core_masses"], 1)
                 self.assertEqual(regional["counts"]["torso_cage_sections"], 7)
                 self.assertEqual(regional["counts"]["torso_cage_connections"], 6)
+                self.assertEqual(regional["counts"]["shoulder_frame_sides"], 2)
+                self.assertEqual(regional["counts"]["shoulder_frame_curves"], 6)
+                self.assertEqual(regional["counts"]["shoulder_frame_compiled_fields"], 10)
                 self.assertEqual(regional["counts"]["compiled_fields"], 60)
                 self.assertEqual(regional["counts"]["compiled_field_recipe_counts"], {
                     "upper_arm-pre-joint": 2, "upper_arm-joint": 2, "forearm-proximal": 2, "forearm-distal": 2,
@@ -1238,6 +1241,13 @@ class SurfacePreviewTests(unittest.TestCase):
                 self.assertEqual(regional["canvas"], manifest["canvas"])
                 self.assertTrue(regional["controls"]["axial"])
                 self.assertTrue(regional["controls"]["torso_cage"])
+                self.assertEqual(regional["controls"]["shoulder_frame"]["status"], "skin-driving private shoulder frame")
+                shoulder_frame = regional["controls"]["shoulder_frame"]
+                self.assertEqual([item["side"] for item in shoulder_frame["sides"]], ["left", "right"])
+                self.assertEqual(set(shoulder_frame["owners"]), {"torso", "neck", "left_upper_arm", "right_upper_arm"})
+                self.assertEqual(len(shoulder_frame["central"]["profile"]), 2)
+                self.assertTrue(all(len(item["curves"]) == 3 for item in shoulder_frame["sides"]))
+                self.assertTrue(all(len(curve["points"]) == len(curve["profile"]) for item in shoulder_frame["sides"] for curve in item["curves"]))
                 self.assertTrue(regional["controls"]["limbs"])
                 self.assertTrue(regional["controls"]["paws"])
                 self.assertTrue(regional["controls"]["tails"])
@@ -1371,6 +1381,17 @@ class SurfacePreviewTests(unittest.TestCase):
         np.testing.assert_allclose([item["center"] for item in cage["sections"]], [section.center for section in guide.torso_cage.sections])
         np.testing.assert_allclose([item["lateral_radius"] for item in cage["sections"]], [section.lateral_radius for section in guide.torso_cage.sections])
         np.testing.assert_allclose([item["depth_radius"] for item in cage["sections"]], [section.depth_radius for section in guide.torso_cage.sections])
+        shoulder = regional["controls"]["shoulder_frame"]
+        self.assertEqual(shoulder["central"]["owner"], surface_preview._address_json(guide.shoulder_frame.torso_owner.key))
+        self.assertEqual(shoulder["central"]["anchor"], list(guide.shoulder_frame.central_anchor))
+        for side_json, side in zip(shoulder["sides"], guide.shoulder_frame.sides):
+            self.assertEqual(side_json["side"], side.side)
+            self.assertEqual(side_json["span"], side.span)
+            self.assertEqual(side_json["slope"], side.slope)
+            for curve_json, curve in zip(side_json["curves"], (side.anterior_support, side.posterior_return, side.deltoid_sweep)):
+                self.assertEqual(curve_json["name"], curve.name)
+                self.assertEqual(curve_json["points"], [list(point) for point in curve.points])
+                self.assertEqual(curve_json["profile"], list(curve.profile))
         for limb in regional["controls"]["limbs"]:
             for mass in limb["masses"]:
                 recipe = {"shoulder-girdle": "shoulder-mass", "hip-girdle": "hip-girdle", "joint": "joint-collar"}[mass["control"]]
