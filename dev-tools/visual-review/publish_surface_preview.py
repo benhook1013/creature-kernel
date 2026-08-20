@@ -90,7 +90,7 @@ EXPECTED_GUIDE_COUNTS = {
     "limbs": 8,
     "paws": 4,
     "tails": 2,
-    "compiled_fields": 54,
+    "compiled_fields": 50,
     "compiled_field_recipe_counts": {
         "upper_arm-pre-joint": 2,
         "upper_arm-joint": 2,
@@ -109,8 +109,6 @@ EXPECTED_GUIDE_COUNTS = {
         "extremity-bridge": 4,
         "root-bridge": 4,
         "hip-transition": 2,
-        "hip-girdle": 2,
-        "shoulder-mass": 2,
         "tail-segment": 2,
         "cranium": 1,
         "muzzle": 1,

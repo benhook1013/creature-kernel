@@ -160,6 +160,15 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 ]
                 torso_cage = {{"status": "skin-driving torso controls", "owners": [owners[0], owners[1]], "axes": {{"lateral": [1.0, 0.0, 0.0], "up": [0.0, 1.0, 0.0], "forward": [0.0, 0.0, 1.0]}}, "orientation": "elliptical cross-section rings lie in the lateral/forward plane and rise along the up axis", "sections": cage_sections, "connections": [{{"from": cage_sections[index]["name"], "to": cage_sections[index + 1]["name"]}} for index in range(4)]}}
                 guide = {{"format": {publisher.REGIONAL_GUIDE_FORMAT!r}, "variant": variant_id, "owners": owners, "counts": {publisher.EXPECTED_GUIDE_COUNTS!r}, "projections": projections, "shared_render_bounds": bounds, "canvas": canvas, "layout": layout, "controls": {{"axes": {{"lateral": [1.0, 0.0, 0.0], "up": [0.0, 1.0, 0.0], "forward": [0.0, 0.0, 1.0]}}, "axial": axial, "torso_cage": torso_cage, "head": head, "limbs": limbs, "paws": paws, "tails": tails}}, "boundary": "private disposable regional controls; source-owned AddressKeys only; not a semantic or runtime contract"}}
+                if {mode!r} == "guide-obsolete-recipe-count":
+                    guide["counts"] = dict(guide["counts"])
+                    guide["counts"]["compiled_field_recipe_counts"] = dict(guide["counts"]["compiled_field_recipe_counts"])
+                    guide["counts"]["compiled_fields"] = 54
+                    guide["counts"]["compiled_field_recipe_counts"].update({{"hip-girdle": 2, "shoulder-mass": 2}})
+                if {mode!r} == "guide-wrong-recipe-count":
+                    guide["counts"] = dict(guide["counts"])
+                    guide["counts"]["compiled_field_recipe_counts"] = dict(guide["counts"]["compiled_field_recipe_counts"])
+                    guide["counts"]["compiled_field_recipe_counts"]["torso-cage"] = 2
                 if {mode!r} == "guide-format": guide["format"] = "wrong"
                 if {mode!r} == "guide-provenance": guide["controls"]["head"]["owners"][0]["provenance"] = {{"source": "unexpected"}}
                 if {mode!r} == "guide-controls": guide["controls"]["axes"]["forward"] = [0.0, 0.0, 2.0]
@@ -232,6 +241,9 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     publisher._validate_address({**valid, "anchors": anchors}, "address")
 
     def test_success_stubs_both_executables_and_publishes_only_pngs(self) -> None:
+        self.assertEqual(publisher.EXPECTED_GUIDE_COUNTS["compiled_fields"], 50)
+        self.assertNotIn("hip-girdle", publisher.EXPECTED_GUIDE_COUNTS["compiled_field_recipe_counts"])
+        self.assertNotIn("shoulder-mass", publisher.EXPECTED_GUIDE_COUNTS["compiled_field_recipe_counts"])
         with patch.object(publisher, "_parse_inspection", return_value=self._payload()):
             result = publisher.publish_surface_preview(
                 self.root,
@@ -248,7 +260,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         self.assertEqual(review["groups"][0]["selection_mode"], "none")
 
     def test_malformed_count_and_unlisted_output_publish_nothing(self) -> None:
-        for index, mode in enumerate(("bad-count", "unlisted", "symlink", "extra-directory", "hash", "source-mismatch", "fabricated-provenance", "fabricated-descriptor", "profile-mismatch", "guide-format", "guide-provenance", "guide-controls", "guide-station-omitted", "guide-transition-omitted", "guide-cage-omitted", "guide-cage-malformed", "guide-cage-connection", "guide-girdle-omitted", "guide-station-malformed", "guide-transition-malformed", "guide-girdle-malformed", "guide-joint-endpoint", "guide-foot-order", "guide-hand-attachment-start", "guide-hand-anchor-point", "guide-section-gap", "guide-profile-second-start", "guide-adjacent-profile", "guide-omitted", "png-small", "png-truncated", "png-crc", "png-no-idat", "png-invalid-idat", "png-unknown-critical")):
+        for index, mode in enumerate(("bad-count", "unlisted", "symlink", "extra-directory", "hash", "source-mismatch", "fabricated-provenance", "fabricated-descriptor", "profile-mismatch", "guide-format", "guide-provenance", "guide-controls", "guide-station-omitted", "guide-transition-omitted", "guide-cage-omitted", "guide-cage-malformed", "guide-cage-connection", "guide-girdle-omitted", "guide-station-malformed", "guide-transition-malformed", "guide-girdle-malformed", "guide-joint-endpoint", "guide-foot-order", "guide-hand-attachment-start", "guide-hand-anchor-point", "guide-section-gap", "guide-profile-second-start", "guide-adjacent-profile", "guide-obsolete-recipe-count", "guide-wrong-recipe-count", "guide-omitted", "png-small", "png-truncated", "png-crc", "png-no-idat", "png-invalid-idat", "png-unknown-critical")):
             with self.subTest(mode=mode):
                 with patch.object(publisher, "_parse_inspection", return_value=self._payload()):
                     with self.assertRaises(publisher.SurfacePreviewPublishError):
