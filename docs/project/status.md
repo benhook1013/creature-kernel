@@ -15,61 +15,36 @@ governs what resumes next.
 
 Execution state: active after Ben resumed the runway on 2026-08-20.
 
-Ben appraised PR #93's structured torso checkpoint on 2026-08-20 and called it
-“a good step forward.” PR #93 merged on 2026-08-20. It is positive intermediate
-evidence, not final anatomy or backend approval. Preserve its torso
-cage/field/junction result and the four-variant proof as the current baseline:
-the continuous torso is useful, but the outer form remains exploratory and the
-grey preview remains disposable.
+PR #95's shoulder-plus-midsection result was accepted and merged at
+`a64082a`. Ben appraised it as “a bit better” and directed continuation. It is
+an accepted intermediate baseline, not final anatomy or backend approval. Keep
+its four-variant guide/skin comparison as the baseline for the next form pass.
 
-Ben's immediate finding is that the current upper torso still has effectively
-no readable shoulder frame. The shoulder sockets/girdles sit on top of a
-rounded upper cage and do not create a clavicle/scapular/deltoid structure or a
-squarer upper-torso silhouette. This observation is scoped to the current
-candidate while identifying the next form problem to solve.
+The current artifact-scoped defect is that each foot collapses into flattened
+heel/forefoot blobs. It lacks a readable digitigrade load-bearing chain through
+the lower leg, rear-foot transition, planted paw, and toe/contact profile. This
+is a defect for the generator to resolve; Ben is not expected to prescribe the
+anatomy from the preview.
 
-The current five-section torso is also too extremely hourglass-shaped: the
-chest tapers abruptly to one small, point-like waist and then expands into the
-hips. The intended next structure is a softer chest taper into an extended,
-narrower and flatter midsection, with at least a distinct upper-abdomen and
-lower waist/abdomen guide span, followed by gradual hip expansion. This joins
-the shoulder-frame work in the same next upper-body checkpoint because placing
-better shoulders over the point-waist torso would leave the result incomplete.
+The next autonomous runway is to generate private, source-derived, shared
+controls that make the shin-to-hock or ankle transition, elevated
+heel/metatarsal region, planted pad/forefoot, toe/contact profile, and
+continuous skin connection legible across all four existing variants. Keep the
+controls exploratory and backend-neutral; do not freeze exact topology,
+coefficients, or public anatomy vocabulary in this status.
 
-The next autonomous runway is to split the ribcage from a private generated
-shoulder-frame layer. The layer should provide shoulder span and slope, socket
-placement, clavicle/scapular or equivalent stylized support, a
-deltoid-to-upper-arm envelope, and a trapezius/neck-base transition. It must
-be developed together with the softer chest-to-midsection-to-hip transition.
-Both must vary across the same four profiles while remaining anatomically
-readable; do not hardcode every body as identically square or broad. This
-remains private exploratory guide work: exact section names, topology, and
-numeric tuning are implementation details rather than a contract. It remains
-backend-neutral and does not select a final surface backend.
+The next human checkpoint is a browser comparison of the PR #95 baseline
+against revised feet across all four variants, with truthful guide and skin
+views. Ben should judge chain readability, planted contact and silhouette,
+continuity into the shin, bilateral coherence, and retained variant
+differences. Stop before merging the first appraisable foot/paw result.
 
-The next human checkpoint is a browser comparison of PR #93's baseline versus
-the revised shoulder frame and revised chest/midsection/hip transition, first
-neutral and then all four variants. Ben should judge shoulder width/slope, the
-squared-versus-rounded upper-torso read, socket/arm attachment,
-neck/upper-back transition, the chest taper and length/read of the midsection,
-gradual hip expansion, overall continuity, and retained variant differences.
-Stop before merging the first appraisable result for this combined checkpoint.
-
-A separate foot/paw form checkpoint is queued after the shoulder and
-midsection checkpoint. The current flattened heel/forefoot preview lacks a
-readable digitigrade functional chain through the shin/hock, elevated
-heel/metatarsal region, and planted paw/toe contact profile. The generator must
-own the structural correction rather than requiring the reviewer to prescribe
-its anatomy. This is provisional, artifact-scoped visual evidence, not an exact
-anatomy or public semantic contract, and it is not an active implementation
-requirement now.
-
-Multiple small reviewed PRs may advance direct prerequisites toward that
-checkpoint. Do not resume head/face yet. Non-goals are final muscle simulation,
-rigging, animation, deformable physics, detailed anatomy, production topology,
-new public body parts, and final backend selection. If progress requires a new
-morphology, new public semantic vocabulary, or another material scope
-expansion, stop and ask Ben.
+Non-goals for this runway are final toes or claws, animation or gait, dynamic
+contact/physics/deformation, production mesh/topology, hands, head, and
+broader morphology. EXP-0002 and the other parked machinery remain parked.
+Multiple small reviewed PRs may advance direct prerequisites toward the named
+checkpoint; stop if progress requires a new morphology, public semantic
+vocabulary, or another material scope expansion.
 
 EXP-0002 and its Gate B/freeze/runtime-attestation continuation are parked and
 non-blocking. They are not prerequisites for this visual runway and must not be
