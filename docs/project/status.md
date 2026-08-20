@@ -1,6 +1,6 @@
 # Project status
 
-Status date: 2026-08-20
+Status date: 2026-08-21
 
 ## Phase
 
@@ -15,36 +15,33 @@ governs what resumes next.
 
 Execution state: active after Ben resumed the runway on 2026-08-20.
 
-PR #95's shoulder-plus-midsection result was accepted and merged at
-`a64082a`. Ben appraised it as “a bit better” and directed continuation. It is
-an accepted intermediate baseline, not final anatomy or backend approval. Keep
-its four-variant guide/skin comparison as the baseline for the next form pass.
+PR #96 was accepted and merged at `f64eecd` after Ben appraised the feet as
+“better but still bad” and said that was fine. Preserve PR #96 as accepted
+intermediate evidence and the baseline for the next form pass; it is not final
+anatomy or backend approval.
 
-The current artifact-scoped defect is that each foot collapses into flattened
-heel/forefoot blobs. It lacks a readable digitigrade load-bearing chain through
-the lower leg, rear-foot transition, planted paw, and toe/contact profile. This
-is a defect for the generator to resolve; Ben is not expected to prescribe the
-anatomy from the preview.
+The current artifact-scoped defect is that, in front view, conspicuous
+circular bulges appear immediately beneath the armpits at the chest's maximum
+width. This identifies a failure of the displayed candidate, not a durable
+geometric prescription or product requirement.
 
-The next autonomous runway is to generate private, source-derived, shared
-controls that make the shin-to-hock or ankle transition, elevated
-heel/metatarsal region, planted pad/forefoot, toe/contact profile, and
-continuous skin connection legible across all four existing variants. Keep the
-controls exploratory and backend-neutral; do not freeze exact topology,
-coefficients, or public anatomy vocabulary in this status.
+The next autonomous runway is to diagnose which private shoulder, deltoid, or
+torso support fields create the visible lobes, then replace or blend their
+outer-surface contribution into a continuous upper-torso-to-arm transition
+across all four existing variants. Preserve useful shoulder span, arm sockets,
+torso continuity, and variant differences; keep the fix private and
+backend-neutral.
 
-The next human checkpoint is a browser comparison of the PR #95 baseline
-against revised feet across all four variants, with truthful guide and skin
-views. Ben should judge chain readability, planted contact and silhouette,
-continuity into the shin, bilateral coherence, and retained variant
-differences. Stop before merging the first appraisable foot/paw result.
+The next human checkpoint is a PR #96 baseline versus revised front, side, and
+three-quarter guide-plus-skin comparison across all four variants. Ben should
+judge removal of the circular underarm lobes without regression in shoulders,
+arm attachment, or torso. Stop before merging the first appraisable result.
 
-Non-goals for this runway are final toes or claws, animation or gait, dynamic
-contact/physics/deformation, production mesh/topology, hands, head, and
-broader morphology. EXP-0002 and the other parked machinery remain parked.
-Multiple small reviewed PRs may advance direct prerequisites toward the named
-checkpoint; stop if progress requires a new morphology, public semantic
-vocabulary, or another material scope expansion.
+Non-goals for this runway are final muscle anatomy, broader torso redesign,
+feet retuning, head, hands, new public semantics, backend selection, and
+physics, rigging, or animation. EXP-0002 and the other parked machinery remain
+parked. Multiple small reviewed PRs may advance direct prerequisites toward the
+named checkpoint; stop if progress requires a material scope expansion.
 
 EXP-0002 and its Gate B/freeze/runtime-attestation continuation are parked and
 non-blocking. They are not prerequisites for this visual runway and must not be
