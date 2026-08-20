@@ -44,7 +44,7 @@ class SurfacePreviewPublishError(RuntimeError):
 
 
 SURFACE_PREVIEW_FORMAT = "creature-kernel.disposable-surface-preview.v2"
-REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v2"
+REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v3"
 EXPECTED_VARIANTS = common.PROVISIONAL_FORM_VARIANT_IDS
 EXPECTED_VIEWS = ("front", "side", "three-quarter")
 MANIFEST_NAME = "surface-preview-manifest.json"
@@ -88,15 +88,24 @@ EXPECTED_GUIDE_COUNTS = {
     "limbs": 8,
     "paws": 4,
     "tails": 2,
-    "compiled_fields": 53,
+    "compiled_fields": 59,
     "compiled_field_recipe_counts": {
-        "limb-segment": 8,
-        "joint-collar": 6,
-        "paw-mass": 4,
+        "upper_arm-pre-joint": 2,
+        "upper_arm-joint": 2,
+        "forearm-proximal": 2,
+        "forearm-distal": 2,
+        "thigh-pre-joint": 2,
+        "thigh-joint": 2,
+        "shin-pre-joint": 2,
+        "shin-joint": 2,
+        "elbow": 2,
+        "knee": 2,
+        "hock": 2,
+        "paw": 2,
+        "heel": 2,
+        "forefoot": 2,
         "extremity-bridge": 4,
         "root-bridge": 4,
-        "foot-front": 2,
-        "digitigrade-lower-leg": 2,
         "hip-transition": 2,
         "hip-girdle": 2,
         "shoulder-mass": 2,
@@ -615,12 +624,30 @@ def _validate_controls(
     limbs = controls["limbs"]
     if not isinstance(limbs, list) or len(limbs) != 8:
         raise SurfacePreviewPublishError("regional guide limb controls are invalid")
-    section_by_role = {"upper_arm": {"root"}, "forearm": set(), "thigh": {"root", "hip"}, "shin": {"lower-leg"}}
-    masses_by_role = {"upper_arm": {"shoulder-girdle", "joint"}, "forearm": set(), "thigh": {"hip-girdle", "joint"}, "shin": {"joint"}}
+    section_by_role = {
+        "upper_arm": {"pre-joint", "joint"},
+        "forearm": {"proximal", "distal"},
+        "thigh": {"pre-joint", "joint"},
+        "shin": {"pre-joint", "joint"},
+    }
+    section_order_by_role = {
+        "upper_arm": ("pre-joint", "joint"),
+        "forearm": ("proximal", "distal"),
+        "thigh": ("pre-joint", "joint"),
+        "shin": ("pre-joint", "joint"),
+    }
+    bridge_by_role = {"upper_arm": {"root"}, "forearm": set(), "thigh": {"root", "hip"}, "shin": set()}
+    masses_by_role = {"upper_arm": {"shoulder-girdle"}, "forearm": set(), "thigh": {"hip-girdle"}, "shin": set()}
+    joints_by_role = {"upper_arm": {"elbow"}, "forearm": set(), "thigh": {"knee"}, "shin": {"hock"}}
     limb_owner_keys: set[str] = set()
     limb_roles: list[str] = []
+    hock_centers: dict[tuple[str, ...], list[float]] = {}
+    hock_records: dict[tuple[str, ...], tuple[dict[str, Any], list[dict[str, Any]]]] = {}
+    limb_by_owner_key: dict[str, dict[str, Any]] = {}
+    anchor_by_owner_key: dict[str, dict[str, Any]] = {}
+    joint_records: list[tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]] = []
     for index, item in enumerate(limbs):
-        if not isinstance(item, dict) or set(item) != {"owner", "centerline", "joint_narrowing", "sections", "masses"}:
+        if not isinstance(item, dict) or set(item) != {"owner", "profile_controls", "sections", "bridges", "masses", "joints", "anchors"}:
             raise SurfacePreviewPublishError(f"regional guide limbs[{index}] has an invalid shape")
         parsed_owner = owner(item["owner"], f"regional-guide.controls.limbs[{index}].owner")
         role = parsed_owner["role"]
@@ -630,15 +657,110 @@ def _validate_controls(
         if owner_key in limb_owner_keys:
             raise SurfacePreviewPublishError(f"regional guide limbs[{index}] owner is duplicated")
         limb_owner_keys.add(owner_key)
+        limb_by_owner_key[owner_key] = item
         limb_roles.append(role)
-        _path(item["centerline"], f"regional-guide.controls.limbs[{index}].centerline", lower, upper, {"segment"}, expected_kind="capsule")
-        narrowing = item["joint_narrowing"]
-        if not isinstance(narrowing, list) or len(narrowing) != 2 or any(_finite_number(value, f"regional-guide.controls.limbs[{index}].joint_narrowing") <= 0.0 or float(value) > 1.0 for value in narrowing):
-            raise SurfacePreviewPublishError(f"regional guide limbs[{index}].joint_narrowing is invalid")
-        _path_list(item["sections"], f"regional-guide.controls.limbs[{index}].sections", lower, upper, section_by_role[role])
+        profile_controls = item["profile_controls"]
+        if not isinstance(profile_controls, list) or len(profile_controls) != 3 or any(_finite_number(value, f"regional-guide.controls.limbs[{index}].profile_controls") <= 0.0 for value in profile_controls):
+            raise SurfacePreviewPublishError(f"regional guide limbs[{index}].profile_controls is invalid")
+        sections = item["sections"]
+        _path_list(sections, f"regional-guide.controls.limbs[{index}].sections", lower, upper, section_by_role[role], expected_kind="capsule")
+        if not isinstance(sections, list) or len(sections) != 2:
+            raise SurfacePreviewPublishError(f"regional guide limbs[{index}].sections must contain two pieces")
+        by_section = {section["control"]: section for section in sections}
+        ordered_sections = [by_section[name] for name in section_order_by_role[role]]
+        if float(ordered_sections[0]["thickness"][0]) != float(profile_controls[0]):
+            raise SurfacePreviewPublishError(f"regional guide limbs[{index}] profile controls do not bind section geometry")
+        # The section break is the middle profile control.  The final distal
+        # control is consumed by the second piece; no whole-segment fill is
+        # permitted in this private sidecar.
+        if (
+            float(ordered_sections[0]["thickness"][1]) != float(profile_controls[1])
+            or float(ordered_sections[1]["thickness"][0]) != float(profile_controls[1])
+            or float(ordered_sections[1]["thickness"][1]) != float(profile_controls[2])
+        ):
+            raise SurfacePreviewPublishError(f"regional guide limbs[{index}] profile controls do not bind section geometry")
+        if ordered_sections[0]["points"][1] != ordered_sections[1]["points"][0]:
+            raise SurfacePreviewPublishError(f"regional guide limbs[{index}] sections have a gap or overlap")
+        expected_anchor = {
+            "forearm": ("forearm-distal-boundary", "parent-surface-anchor"),
+            "shin": ("hock-endpoint", "endpoint"),
+        }.get(role)
+        anchors = item["anchors"]
+        if not isinstance(anchors, list) or len(anchors) != (1 if expected_anchor is not None else 0):
+            raise SurfacePreviewPublishError(f"regional guide limbs[{index}].anchors are invalid")
+        if expected_anchor is not None:
+            anchor = anchors[0]
+            if not isinstance(anchor, dict) or set(anchor) != {"name", "kind", "point", "boundary_point"}:
+                raise SurfacePreviewPublishError(f"regional guide limbs[{index}].anchors[0] has an invalid shape")
+            if (anchor["name"], anchor["kind"]) != expected_anchor:
+                raise SurfacePreviewPublishError(f"regional guide limbs[{index}].anchors[0] is invalid")
+            anchor["point"] = _point(anchor["point"], f"regional-guide.controls.limbs[{index}].anchors[0].point")
+            anchor["boundary_point"] = _point(anchor["boundary_point"], f"regional-guide.controls.limbs[{index}].anchors[0].boundary_point")
+            if anchor["boundary_point"] != ordered_sections[-1]["points"][1]:
+                raise SurfacePreviewPublishError(f"regional guide limbs[{index}].anchors[0] does not bind the distal boundary")
+            anchor_by_owner_key[owner_key] = anchor
+        _path_list(item["bridges"], f"regional-guide.controls.limbs[{index}].bridges", lower, upper, bridge_by_role[role], expected_kind="tapered-segment")
         _mass_list(item["masses"], f"regional-guide.controls.limbs[{index}].masses", lower, upper, masses_by_role[role])
+        joints = item["joints"]
+        if not isinstance(joints, list) or len(joints) != len(joints_by_role[role]):
+            raise SurfacePreviewPublishError(f"regional guide limbs[{index}].joints are invalid")
+        seen_joints: set[str] = set()
+        for joint_index, joint in enumerate(joints):
+            joint_where = f"regional-guide.controls.limbs[{index}].joints[{joint_index}]"
+            if not isinstance(joint, dict) or set(joint) != {"name", "owner", "mass", "adjacent_profiles"}:
+                raise SurfacePreviewPublishError(f"{joint_where} has an invalid shape")
+            if joint["name"] not in joints_by_role[role] or joint["name"] in seen_joints:
+                raise SurfacePreviewPublishError(f"{joint_where}.name is invalid")
+            seen_joints.add(joint["name"])
+            if owner(joint["owner"], f"{joint_where}.owner") != parsed_owner:
+                raise SurfacePreviewPublishError(f"{joint_where}.owner must be the limb source owner")
+            if _mass(joint["mass"], f"{joint_where}.mass", lower, upper, {joint["name"]}) != joint["name"]:
+                raise SurfacePreviewPublishError(f"{joint_where}.mass is invalid")
+            adjacent_profiles = joint["adjacent_profiles"]
+            if not isinstance(adjacent_profiles, list) or len(adjacent_profiles) != 2 or any(_finite_number(value, f"{joint_where}.adjacent_profiles") <= 0.0 for value in adjacent_profiles):
+                raise SurfacePreviewPublishError(f"{joint_where}.adjacent_profiles is invalid")
+            if float(adjacent_profiles[0]) != float(ordered_sections[-1]["thickness"][1]):
+                raise SurfacePreviewPublishError(f"{joint_where}.adjacent_profiles do not bind the distal section")
+            joint_radii = _point(joint["mass"]["radii"], f"{joint_where}.mass.radii")
+            joint_radius = joint_radii[0]
+            if any(not math.isclose(value, joint_radius, rel_tol=1e-9, abs_tol=1e-12) for value in joint_radii[1:]):
+                raise SurfacePreviewPublishError(f"{joint_where}.mass must be isotropic")
+            if not math.isclose(joint_radius, 0.70 * min(float(value) for value in adjacent_profiles), rel_tol=1e-9, abs_tol=1e-12) or any(joint_radius >= float(value) for value in adjacent_profiles):
+                raise SurfacePreviewPublishError(f"{joint_where} radius is not a narrowed adjacent-profile station")
+            distal_section = ordered_sections[-1]
+            if distal_section["points"][1] != joint["mass"]["center"]:
+                raise SurfacePreviewPublishError(f"{joint_where} must coincide with the distal limb endpoint")
+            if joint["name"] == "hock":
+                hock_centers[tuple(parsed_owner["anchors"])] = joint["mass"]["center"]
+                hock_records[tuple(parsed_owner["anchors"])] = (joint, ordered_sections)
+                anchor = anchor_by_owner_key.get(owner_key)
+                if anchor is None or anchor["point"] != joint["mass"]["center"]:
+                    raise SurfacePreviewPublishError(f"{joint_where} does not bind the hock anchor")
+            joint_records.append((parsed_owner, joint, ordered_sections))
     if {role: limb_roles.count(role) for role in section_by_role} != {"upper_arm": 2, "forearm": 2, "thigh": 2, "shin": 2}:
         raise SurfacePreviewPublishError("regional guide limb owner counts are invalid")
+    for parsed_owner, joint, ordered_sections in joint_records:
+        role = parsed_owner["role"]
+        if role not in {"upper_arm", "thigh"}:
+            continue
+        neighbor_role = "forearm" if role == "upper_arm" else "shin"
+        neighbor_key = next(
+            (
+                key for key, value in limb_by_owner_key.items()
+                if value["owner"]["namespace"] == parsed_owner["namespace"]
+                and value["owner"]["anchors"] == parsed_owner["anchors"]
+                and value["owner"]["kind"] == parsed_owner["kind"]
+                and value["owner"]["role"] == neighbor_role
+            ),
+            None,
+        )
+        if neighbor_key is None:
+            raise SurfacePreviewPublishError(f"{role} joint has no matching neighboring limb")
+        neighbor = limb_by_owner_key[neighbor_key]
+        expected_adjacent = [float(ordered_sections[-1]["thickness"][1]), float(neighbor["sections"][0]["thickness"][0])]
+        actual_adjacent = [float(value) for value in joint["adjacent_profiles"]]
+        if actual_adjacent != expected_adjacent:
+            raise SurfacePreviewPublishError(f"{role} joint adjacent profiles do not bind neighboring limb sections")
 
     paws = controls["paws"]
     if not isinstance(paws, list) or len(paws) != 4:
@@ -646,7 +768,7 @@ def _validate_controls(
     paw_owner_keys: set[str] = set()
     paw_roles: list[str] = []
     for index, item in enumerate(paws):
-        if not isinstance(item, dict) or set(item) != {"owner", "masses", "attachment"}:
+        if not isinstance(item, dict) or set(item) != {"owner", "masses", "attachment", "attachment_source"}:
             raise SurfacePreviewPublishError(f"regional guide paws[{index}] has an invalid shape")
         parsed_owner = owner(item["owner"], f"regional-guide.controls.paws[{index}].owner")
         if parsed_owner["role"] not in {"hand", "foot"}:
@@ -656,9 +778,62 @@ def _validate_controls(
             raise SurfacePreviewPublishError(f"regional guide paws[{index}] owner is duplicated")
         paw_owner_keys.add(owner_key)
         paw_roles.append(parsed_owner["role"])
-        expected_masses = {"source-region", "paw"} | ({"forefoot"} if parsed_owner["role"] == "foot" else set())
+        expected_masses = {"heel", "forefoot"} if parsed_owner["role"] == "foot" else {"paw"}
         _mass_list(item["masses"], f"regional-guide.controls.paws[{index}].masses", lower, upper, expected_masses)
         _path(item["attachment"], f"regional-guide.controls.paws[{index}].attachment", lower, upper, {"attachment"}, expected_kind="capsule")
+        attachment_source = item["attachment_source"]
+        source_where = f"regional-guide.controls.paws[{index}].attachment_source"
+        if not isinstance(attachment_source, dict) or set(attachment_source) != {"owner", "anchor", "point", "boundary_point"}:
+            raise SurfacePreviewPublishError(f"{source_where} has an invalid shape")
+        source_owner = owner(attachment_source["owner"], f"{source_where}.owner")
+        expected_parent_role = "forearm" if parsed_owner["role"] == "hand" else "shin"
+        expected_anchor = "forearm-distal-boundary" if parsed_owner["role"] == "hand" else "hock-endpoint"
+        if source_owner["role"] != expected_parent_role or source_owner["anchors"] != parsed_owner["anchors"]:
+            raise SurfacePreviewPublishError(f"{source_where}.owner does not match the paw parent")
+        if attachment_source["anchor"] != expected_anchor:
+            raise SurfacePreviewPublishError(f"{source_where}.anchor is invalid")
+        source_point = _point(attachment_source["point"], f"{source_where}.point")
+        boundary_point = _point(attachment_source["boundary_point"], f"{source_where}.boundary_point")
+        if source_point != item["attachment"]["points"][0]:
+            raise SurfacePreviewPublishError(f"{source_where}.point does not match the attachment start")
+        parent_key = json.dumps(source_owner, sort_keys=True)
+        parent_limb = limb_by_owner_key.get(parent_key)
+        if parent_limb is None:
+            raise SurfacePreviewPublishError(f"{source_where}.owner has no matching limb guide")
+        parent_sections = {section["control"]: section for section in parent_limb["sections"]}
+        parent_last = parent_sections[section_order_by_role[source_owner["role"]][-1]]
+        expected_boundary = parent_last["points"][1]
+        if boundary_point != expected_boundary:
+            raise SurfacePreviewPublishError(f"{source_where}.boundary_point does not match the parent distal endpoint")
+        parent_anchor = anchor_by_owner_key.get(parent_key)
+        if parent_anchor is None or parent_anchor["name"] != attachment_source["anchor"]:
+            raise SurfacePreviewPublishError(f"{source_where} does not name a compiled parent anchor")
+        if source_point != parent_anchor["point"] or boundary_point != parent_anchor["boundary_point"]:
+            raise SurfacePreviewPublishError(f"{source_where} does not match the compiled parent anchor")
+        masses = {mass["control"]: mass for mass in item["masses"]}
+        attachment = item["attachment"]
+        attachment_target = masses["paw"]["center"] if parsed_owner["role"] == "hand" else masses["heel"]["center"]
+        if attachment["points"][1] != attachment_target:
+            raise SurfacePreviewPublishError(f"regional guide paws[{index}] attachment must terminate at its source-owned mass")
+        if parsed_owner["role"] == "foot":
+            if tuple(attachment["points"][0]) != tuple(hock_centers.get(tuple(parsed_owner["anchors"]), [])):
+                raise SurfacePreviewPublishError(f"regional guide paws[{index}] attachment must start at the source-owned hock")
+            if source_point != attachment["points"][0] or source_point != hock_centers.get(tuple(parsed_owner["anchors"]), []):
+                raise SurfacePreviewPublishError(f"regional guide paws[{index}] hock attachment source is inconsistent")
+            heel = masses["heel"]
+            forefoot = masses["forefoot"]
+            hock_record = hock_records.get(tuple(parsed_owner["anchors"]))
+            if hock_record is None:
+                raise SurfacePreviewPublishError(f"regional guide paws[{index}] has no matching source-owned hock")
+            hock_joint, hock_sections = hock_record
+            expected_hock_profiles = [
+                float(hock_sections[-1]["thickness"][1]),
+                min(float(value) for value in heel["radii"]),
+            ]
+            if [float(value) for value in hock_joint["adjacent_profiles"]] != expected_hock_profiles:
+                raise SurfacePreviewPublishError(f"regional guide paws[{index}] hock adjacent profiles do not bind the heel mass")
+            if forefoot["center"][2] <= heel["center"][2] or forefoot["radii"][0] <= heel["radii"][0] or forefoot["radii"][1] >= heel["radii"][1]:
+                raise SurfacePreviewPublishError(f"regional guide paws[{index}] forefoot must be forward, wider, and flatter than heel")
     if {role: paw_roles.count(role) for role in {"hand", "foot"}} != {"hand": 2, "foot": 2}:
         raise SurfacePreviewPublishError("regional guide paw owner counts are invalid")
 
