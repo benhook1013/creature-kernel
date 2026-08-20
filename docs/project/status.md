@@ -41,6 +41,12 @@ structure, limb profiles, joint narrowing, paws, head/muzzle, tail, and overall
 silhouette materially appraisable. It need not establish production topology,
 rigging, animation, IK, deformation, physics, or a final art style.
 
+Visual feedback against the disposable preview is candidate-scoped evidence,
+not a lasting prescription for its primitive layout or numeric tuning. Preserve
+only explicitly promoted product intent across a material guide or surface-
+consumer replacement; re-baseline feet, elbows, torso transitions, and other
+local form judgments when the generating representation changes.
+
 This runway does not yet select the final surface backend. Layered implicit
 fields, structured procedural cages or patches, and a hybrid remain candidate
 consumers of the same form-guide representation. Do not silently promote the

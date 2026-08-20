@@ -183,6 +183,14 @@ until a genuine retained-human design choice or useful visual result is ready.
 - Performance claims require a reproducible benchmark and hardware profile.
 - Visual or geometric claims require fixtures, captures, metrics, or an explicit
   statement that judgment remains subjective.
+- Treat human visual feedback as scoped by default to the exact displayed
+  artifact, fixture, generator or renderer, and revision. An observation such
+  as a lump, ring, overlap, or poor silhouette identifies a failure of that
+  candidate; it is not automatically a durable geometry prescription or
+  product requirement. When the representation or surface consumer is
+  materially replaced, re-baseline visual judgment and treat prior artifact-
+  specific observations as stale unless Ben explicitly promotes the underlying
+  outcome into canonical product intent.
 - Record failed and inconclusive experiments; they are useful evidence.
 - Generated references must identify their source and regeneration command.
 
