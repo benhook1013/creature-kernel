@@ -213,22 +213,27 @@ class SurfacePreviewTests(unittest.TestCase):
             guide = surface_preview._derive_hybrid_guides(form, descriptors)
             frame = guide.shoulder_frame
             baseline_fields = surface_preview._compile_hybrid_guide(guide)
-            changed_frame = dataclasses.replace(frame, central_profile=(frame.central_profile[0] * 1.17, frame.central_profile[1] * 1.17))
+            changed_central = (frame.central_profile[0] * 1.17, frame.central_profile[1])
+            changed_sides = tuple(
+                dataclasses.replace(
+                    side,
+                    anterior_support=dataclasses.replace(
+                        side.anterior_support,
+                        profile=(changed_central[0], *side.anterior_support.profile[1:]),
+                    ),
+                )
+                for side in frame.sides
+            )
+            changed_frame = dataclasses.replace(frame, central_profile=changed_central, sides=changed_sides)
             changed_fields = surface_preview._compile_hybrid_guide(dataclasses.replace(guide, shoulder_frame=changed_frame))
 
-            def jsonable(value: object) -> object:
-                if isinstance(value, np.ndarray):
-                    return value.tolist()
-                if isinstance(value, dict):
-                    return {key: jsonable(item) for key, item in value.items()}
-                if isinstance(value, (tuple, list)):
-                    return [jsonable(item) for item in value]
-                return value
-
             self.assertEqual(
-                tuple((item.owner.key, item.recipe, jsonable(item.shape)) for item in baseline_fields),
-                tuple((item.owner.key, item.recipe, jsonable(item.shape)) for item in changed_fields),
+                tuple((item.owner.key, item.recipe) for item in baseline_fields),
+                tuple((item.owner.key, item.recipe) for item in changed_fields),
             )
+            baseline_support = next(item for item in baseline_fields if item.recipe == "shoulder-left-anterior-support-0")
+            changed_support = next(item for item in changed_fields if item.recipe == "shoulder-left-anterior-support-0")
+            self.assertNotEqual(float(baseline_support.shape["r0"]), float(changed_support.shape["r0"]))
             self.assertIs(frame.torso_owner, next(item for item in descriptors if item.key[3] == "torso"))
             self.assertIs(frame.neck_owner, next(item for item in descriptors if item.key[3] == "neck"))
             self.assertEqual(tuple(item.side for item in frame.sides), ("left", "right"))
@@ -291,8 +296,63 @@ class SurfacePreviewTests(unittest.TestCase):
         bad_points = frame.left.anterior_support.points[:2] + (frame.left.anterior_support.points[1],) + frame.left.anterior_support.points[3:]
         bad_curve = dataclasses.replace(frame.left.anterior_support, points=bad_points)
         bad_side = dataclasses.replace(frame.left, anterior_support=bad_curve)
+        bad_guide = dataclasses.replace(guide, shoulder_frame=dataclasses.replace(frame, sides=(bad_side, frame.right)))
         with self.assertRaises(surface_preview.PreviewError):
-            surface_preview._validate_hybrid_guide(dataclasses.replace(guide, shoulder_frame=dataclasses.replace(frame, sides=(bad_side, frame.right))))
+            surface_preview._validate_hybrid_guide(bad_guide)
+        with self.assertRaises(surface_preview.PreviewError):
+            surface_preview._compile_hybrid_guide(bad_guide)
+
+    def test_shoulder_frame_compiles_exact_ordered_source_owned_spans_for_all_variants(self) -> None:
+        form = surface_preview.validate_envelope(make_varied_payload())
+        expected_support_recipes = [
+            f"shoulder-{side}-{curve}-{index}"
+            for side in ("left", "right")
+            for curve in ("anterior-support", "posterior-return")
+            for index in range(2)
+        ]
+        for _, descriptors, _ in form.variants:
+            guide = surface_preview._derive_hybrid_guides(form, descriptors)
+            fields = surface_preview._compile_hybrid_guide(guide)
+            frame = guide.shoulder_frame
+            torso_supports = [
+                item for item in fields
+                if item.owner is frame.torso_owner and item.recipe.startswith("shoulder-")
+            ]
+            self.assertEqual([item.recipe for item in torso_supports], expected_support_recipes)
+            self.assertTrue(all(item.owner is frame.torso_owner for item in torso_supports))
+            support_index = 0
+            for side in frame.sides:
+                for curve in (side.anterior_support, side.posterior_return):
+                    for index in (0, 1):
+                        field = torso_supports[support_index]
+                        np.testing.assert_allclose(field.shape["from"], curve.points[index], rtol=0.0, atol=0.0)
+                        np.testing.assert_allclose(field.shape["to"], curve.points[index + 1], rtol=0.0, atol=0.0)
+                        self.assertEqual(float(field.shape["r0"]), curve.profile[index])
+                        self.assertEqual(float(field.shape["r1"]), curve.profile[index + 1])
+                        support_index += 1
+                deltoids = [item for item in fields if item.owner is side.owner and item.recipe.startswith("deltoid-sweep-")]
+                self.assertEqual([item.recipe for item in deltoids], ["deltoid-sweep-1"])
+                field = deltoids[0]
+                np.testing.assert_allclose(field.shape["from"], side.deltoid_sweep.points[1], rtol=0.0, atol=0.0)
+                np.testing.assert_allclose(field.shape["to"], side.deltoid_sweep.points[2], rtol=0.0, atol=0.0)
+                self.assertEqual(float(field.shape["r0"]), side.deltoid_sweep.profile[1])
+                self.assertEqual(float(field.shape["r1"]), side.deltoid_sweep.profile[2])
+            compiled_shoulder_fields = torso_supports + [
+                item for item in fields
+                if item.recipe == "deltoid-sweep-1" or (item.recipe == "root-bridge" and item.owner.key[3] == "upper_arm")
+            ]
+            geometry_signatures = [
+                (
+                    tuple(float(value) for value in item.shape["from"]),
+                    tuple(float(value) for value in item.shape["to"]),
+                    float(item.shape["r0"]),
+                    float(item.shape["r1"]),
+                )
+                for item in compiled_shoulder_fields
+            ]
+            self.assertEqual(len(geometry_signatures), len(set(geometry_signatures)))
+            self.assertEqual(len(fields), 60)
+            self.assertNotIn("shoulder-mass", {item.recipe for item in fields})
 
     def test_limb_stations_are_endpoint_owned_and_feet_are_structured(self) -> None:
         form = surface_preview.validate_envelope(make_payload())
@@ -352,8 +412,20 @@ class SurfacePreviewTests(unittest.TestCase):
             changed_section = dataclasses.replace(first_section, thickness=(first_section.thickness[0] * 0.60, first_section.thickness[1] * 0.45))
             changed_limb = dataclasses.replace(limb, sections=(changed_section, limb.sections[1]))
             changed_guides = tuple(changed_limb if item is limb else item for item in guide.limb_guides)
+            changed_frame = guide.shoulder_frame
+            if limb.owner.key[3] == "upper_arm":
+                changed_sides = []
+                for side in changed_frame.sides:
+                    if side.owner is not limb.owner:
+                        changed_sides.append(side)
+                        continue
+                    anterior = dataclasses.replace(side.anterior_support, profile=(*side.anterior_support.profile[:-1], changed_section.thickness[0]))
+                    posterior = dataclasses.replace(side.posterior_return, profile=(*side.posterior_return.profile[:-1], changed_section.thickness[0]))
+                    deltoid = dataclasses.replace(side.deltoid_sweep, profile=(side.deltoid_sweep.profile[0], *changed_section.thickness))
+                    changed_sides.append(dataclasses.replace(side, anterior_support=anterior, posterior_return=posterior, deltoid_sweep=deltoid))
+                changed_frame = dataclasses.replace(changed_frame, sides=tuple(changed_sides))
             changed = surface_preview._compile_hybrid_guide(
-                dataclasses.replace(guide, limb_guides=changed_guides)
+                dataclasses.replace(guide, limb_guides=changed_guides, shoulder_frame=changed_frame)
             )
             changed_field = next(
                 item for item in changed
@@ -789,8 +861,15 @@ class SurfacePreviewTests(unittest.TestCase):
             "paw", "heel", "forefoot", "extremity-bridge", "tail-segment", "tail-tip-extension", "tail-tip-cap", "tail-root-bridge",
             "tail-root-collar",
         }
+        expected_recipes.update(
+            f"shoulder-{side}-{curve}-{index}"
+            for side in ("left", "right")
+            for curve in ("anterior-support", "posterior-return")
+            for index in range(2)
+        )
+        expected_recipes.add("deltoid-sweep-1")
         self.assertEqual({field.recipe for field in fields}, expected_recipes)
-        self.assertEqual(len(fields), 50)
+        self.assertEqual(len(fields), 60)
 
         pelvis = next(item for item in descriptors if item.key[3] == "pelvis")
         torso = next(item for item in descriptors if item.key[3] == "torso")
@@ -819,7 +898,7 @@ class SurfacePreviewTests(unittest.TestCase):
         )
         self.assertEqual(
             [item.recipe for item in fields if item.owner is left_upper_arm],
-            ["upper_arm-pre-joint", "upper_arm-joint", "root-bridge", "elbow"],
+            ["upper_arm-pre-joint", "upper_arm-joint", "root-bridge", "elbow", "deltoid-sweep-1"],
         )
 
         left_thigh = next(
@@ -987,7 +1066,7 @@ class SurfacePreviewTests(unittest.TestCase):
         muzzle_top = float(muzzle.shape["center"][1] + muzzle.shape["radii"][1])
         self.assertLess(muzzle_bottom, cranium_top)
         self.assertGreater(muzzle_top, cranium_bottom)
-        self.assertEqual(len(fields), 50)
+        self.assertEqual(len(fields), 60)
         source_keys = {descriptor.key for descriptor in descriptors}
         self.assertTrue(all(field.owner.key in source_keys for field in fields))
 
@@ -1030,11 +1109,18 @@ class SurfacePreviewTests(unittest.TestCase):
         first = surface_preview._compound_fields(form, descriptors)
         second = surface_preview._compound_fields(form, descriptors)
         self.assertEqual([(field.owner.key, field.recipe) for field in first], [(field.owner.key, field.recipe) for field in second])
+        shoulder_support_order = [
+            ((), "torso", f"shoulder-{side}-{curve}-{index}")
+            for side in ("left", "right")
+            for curve in ("anterior-support", "posterior-return")
+            for index in range(2)
+        ]
         self.assertEqual(
             [(field.owner.key[1], field.owner.key[3], field.recipe) for field in first],
             [
                 ((), "head", "cranium"), ((), "head", "muzzle"), ((), "head", "head-base-bridge"),
                 ((), "neck", "tapered-neck"), ((), "neck", "neck-collar"), ((), "torso", "torso-cage"),
+                *shoulder_support_order,
                 (("left",), "foot", "heel"), (("left",), "foot", "forefoot"), (("left",), "foot", "extremity-bridge"),
                 (("left",), "forearm", "forearm-proximal"), (("left",), "forearm", "forearm-distal"),
                 (("left",), "hand", "paw"), (("left",), "hand", "extremity-bridge"),
@@ -1044,6 +1130,7 @@ class SurfacePreviewTests(unittest.TestCase):
                 (("left",), "thigh", "knee"),
                 (("left",), "upper_arm", "upper_arm-pre-joint"), (("left",), "upper_arm", "upper_arm-joint"),
                 (("left",), "upper_arm", "root-bridge"), (("left",), "upper_arm", "elbow"),
+                (("left",), "upper_arm", "deltoid-sweep-1"),
                 (("right",), "foot", "heel"), (("right",), "foot", "forefoot"), (("right",), "foot", "extremity-bridge"),
                 (("right",), "forearm", "forearm-proximal"), (("right",), "forearm", "forearm-distal"),
                 (("right",), "hand", "paw"), (("right",), "hand", "extremity-bridge"),
@@ -1053,6 +1140,7 @@ class SurfacePreviewTests(unittest.TestCase):
                 (("right",), "thigh", "knee"),
                 (("right",), "upper_arm", "upper_arm-pre-joint"), (("right",), "upper_arm", "upper_arm-joint"),
                 (("right",), "upper_arm", "root-bridge"), (("right",), "upper_arm", "elbow"),
+                (("right",), "upper_arm", "deltoid-sweep-1"),
                 (("tail",), "tail_root", "tail-segment"), (("tail",), "tail_root", "tail-root-bridge"), (("tail",), "tail_root", "tail-root-collar"),
                 (("tail",), "tail_tip", "tail-segment"), (("tail",), "tail_tip", "tail-tip-extension"), (("tail",), "tail_tip", "tail-tip-cap"),
             ],
@@ -1069,7 +1157,7 @@ class SurfacePreviewTests(unittest.TestCase):
             manifest = json.loads((output / "surface-preview-manifest.json").read_text())
             metrics = manifest["variants"][0]["metrics"]
             self.assertEqual(metrics["source_descriptor_count"], 18)
-            self.assertEqual(metrics["generated_field_count"], 50)
+            self.assertEqual(metrics["generated_field_count"], 60)
             self.assertEqual(metrics["field_memory_values"], metrics["generated_field_count"] * 48**3)
             source_keys = {json.dumps(descriptor.key, default=list) for descriptor in descriptors}
             winner_keys = {json.dumps(tuple((item["namespace"], tuple(item["anchors"]), item["kind"], item["role"])), default=list) for item in metrics["winner_addresses"]}
@@ -1093,7 +1181,7 @@ class SurfacePreviewTests(unittest.TestCase):
             self.assertEqual([x["id"] for x in manifest["variants"]], list(surface_preview.VARIANT_IDS))
             self.assertTrue(all(len(x["inventory"]) == 5 for x in manifest["variants"]))
             self.assertTrue(all(x["metrics"]["source_descriptor_count"] == 18 for x in manifest["variants"]))
-            self.assertTrue(all(x["metrics"]["generated_field_count"] == 50 for x in manifest["variants"]))
+            self.assertTrue(all(x["metrics"]["generated_field_count"] == 60 for x in manifest["variants"]))
             self.assertTrue(all(x["metrics"]["component_count"] == 1 and x["metrics"]["watertight"] for x in manifest["variants"]))
             self.assertEqual(
                 sorted(path.name for path in (first / surface_preview.VARIANT_IDS[0]).iterdir()),
@@ -1128,7 +1216,7 @@ class SurfacePreviewTests(unittest.TestCase):
                 self.assertEqual(regional["counts"]["axial_core_masses"], 1)
                 self.assertEqual(regional["counts"]["torso_cage_sections"], 7)
                 self.assertEqual(regional["counts"]["torso_cage_connections"], 6)
-                self.assertEqual(regional["counts"]["compiled_fields"], 50)
+                self.assertEqual(regional["counts"]["compiled_fields"], 60)
                 self.assertEqual(regional["counts"]["compiled_field_recipe_counts"], {
                     "upper_arm-pre-joint": 2, "upper_arm-joint": 2, "forearm-proximal": 2, "forearm-distal": 2,
                     "thigh-pre-joint": 2, "thigh-joint": 2, "shin-pre-joint": 2, "shin-joint": 2,
@@ -1137,6 +1225,11 @@ class SurfacePreviewTests(unittest.TestCase):
                     "tail-segment": 2, "cranium": 1,
                     "muzzle": 1, "head-base-bridge": 1, "tapered-neck": 1,
                     "neck-collar": 1, "torso-cage": 1,
+                    "shoulder-left-anterior-support-0": 1, "shoulder-left-anterior-support-1": 1,
+                    "shoulder-left-posterior-return-0": 1, "shoulder-left-posterior-return-1": 1,
+                    "shoulder-right-anterior-support-0": 1, "shoulder-right-anterior-support-1": 1,
+                    "shoulder-right-posterior-return-0": 1, "shoulder-right-posterior-return-1": 1,
+                    "deltoid-sweep-1": 2,
                     "tail-root-bridge": 1, "tail-root-collar": 1,
                     "tail-tip-extension": 1, "tail-tip-cap": 1,
                 })

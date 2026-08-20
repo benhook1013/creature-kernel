@@ -388,10 +388,10 @@ class _ShoulderSideGuide:
 class _ShoulderFrame:
     """Private trapezius/shoulder frame for a later surface consumer.
 
-    The frame is deliberately not compiled by the current analytic-field
-    adapter.  Its central anchor remains torso-owned, while its two socket
-    anchors and deltoid controls remain upper-arm-owned.  This keeps a later
-    consumer from having to infer a shoulder girdle from two round masses.
+    Its central anchor remains torso-owned, while its two socket anchors and
+    deltoid controls remain upper-arm-owned.  The disposable analytic-field
+    adapter consumes these exact curves as adjacent tapered spans; it does not
+    infer a second shoulder representation or restore the old round masses.
     """
 
     torso_owner: Descriptor
@@ -2382,6 +2382,12 @@ def _validate_hybrid_guide(guide: _HybridGuide, bounds: tuple[np.ndarray, np.nda
         for curve in (side.anterior_support, side.posterior_return):
             if curve.points[0] != frame.central_anchor or curve.points[2] != side.shoulder_extremum or curve.points[-1] != side.socket_anchor:
                 _fail(f"{where} support curves must join central, extremum, and socket controls")
+        if not math.isclose(side.anterior_support.profile[0], frame.central_profile[0], rel_tol=1.0e-9, abs_tol=1.0e-12) or not math.isclose(side.posterior_return.profile[0], frame.central_profile[1], rel_tol=1.0e-9, abs_tol=1.0e-12):
+            _fail(f"{where} support profiles must join the central trapezius profile")
+        if side.anterior_support.profile[1:] != side.posterior_return.profile[1:]:
+            _fail(f"{where} anterior and posterior support profiles must rejoin identically")
+        if not math.isclose(side.anterior_support.profile[-1], limb.sections[0].thickness[0], rel_tol=1.0e-9, abs_tol=1.0e-12):
+            _fail(f"{where} support profile must overlap the upper-arm root profile")
         if side.anterior_support.points[1][2] <= side.shoulder_extremum[2] or side.posterior_return.points[1][2] >= side.shoulder_extremum[2]:
             _fail(f"{where} anterior and posterior wraps must occupy distinct depth")
         first_quarter = np.asarray(limb.sections[0].centerline[0]) + 0.25 * (
@@ -2389,6 +2395,8 @@ def _validate_hybrid_guide(guide: _HybridGuide, bounds: tuple[np.ndarray, np.nda
         )
         if side.deltoid_sweep.points[0] != side.shoulder_extremum or side.deltoid_sweep.points[1] != side.socket_anchor or not np.allclose(side.deltoid_sweep.points[2], first_quarter, rtol=0.0, atol=1.0e-12):
             _fail(f"{where} deltoid sweep must overlap the root and first quarter of the upper-arm guide")
+        if not math.isclose(side.deltoid_sweep.profile[0], side.anterior_support.profile[2], rel_tol=1.0e-9, abs_tol=1.0e-12) or not math.isclose(side.deltoid_sweep.profile[1], limb.sections[0].thickness[0], rel_tol=1.0e-9, abs_tol=1.0e-12) or not math.isclose(side.deltoid_sweep.profile[2], limb.sections[0].thickness[1], rel_tol=1.0e-9, abs_tol=1.0e-12):
+            _fail(f"{where} deltoid profile must overlap the root and upper-arm guide profiles")
 
     for index, axial in enumerate(guide.axial_guides):
         mass(axial.girdle_center, axial.girdle_radii, f"axial[{index}].girdle")
@@ -2728,11 +2736,13 @@ def _regional_guide_json(
 def _compile_hybrid_guide(guide: _HybridGuide) -> tuple[Field, ...]:
     """Adapt regional guides to the disposable analytic-field backend."""
 
+    _validate_hybrid_guide(guide)
     fields: list[Field] = []
     limbs_by_owner = {item.owner.key: item for item in guide.limb_guides}
     paws_by_owner = {item.owner.key: item for item in guide.paw_guides}
     tails_by_owner = {item.owner.key: item for item in guide.tail_guides}
     head = guide.head_guide
+    shoulder_frame = guide.shoulder_frame
 
     def add_ellipsoid(owner: Descriptor, recipe: str, center: tuple[float, float, float], radii: tuple[float, float, float]) -> None:
         values = (*center, *radii)
@@ -2748,6 +2758,22 @@ def _compile_hybrid_guide(guide: _HybridGuide) -> tuple[Field, ...]:
             _fail(f"guide field {recipe!r} has invalid path primitive")
         fields.append(Field(owner, recipe, _segment(primitive, np.asarray(path[0]), np.asarray(path[1]), profile[0], profile[-1])))
 
+    def add_curve(owner: Descriptor, recipe_prefix: str, curve: _ShoulderCurve, span_indices: tuple[int, ...]) -> None:
+        if curve.owner is not owner:
+            _fail(f"guide curve {recipe_prefix!r} lost source descriptor ownership")
+        if len(curve.points) < 2 or len(curve.points) != len(curve.profile):
+            _fail(f"guide curve {recipe_prefix!r} has invalid controls")
+        if not span_indices or tuple(sorted(set(span_indices))) != span_indices or any(index < 0 or index >= len(curve.points) - 1 for index in span_indices):
+            _fail(f"guide curve {recipe_prefix!r} has invalid compiled span selection")
+        for index in span_indices:
+            add_path(
+                owner,
+                f"{recipe_prefix}-{index}",
+                (curve.points[index], curve.points[index + 1]),
+                (curve.profile[index], curve.profile[index + 1]),
+                "tapered-segment",
+            )
+
     torso_cage = guide.torso_cage
 
     def add_head(desc: Descriptor) -> None:
@@ -2758,6 +2784,19 @@ def _compile_hybrid_guide(guide: _HybridGuide) -> tuple[Field, ...]:
     def add_neck(desc: Descriptor) -> None:
         add_path(desc, "tapered-neck", head.neck_transition, head.neck_transition_thickness, "tapered-segment")
         add_ellipsoid(desc, "neck-collar", head.neck_collar_center, head.neck_collar_radii)
+
+    def add_shoulder_supports(desc: Descriptor) -> None:
+        if desc is not shoulder_frame.torso_owner:
+            _fail("shoulder support fields must retain torso descriptor identity")
+        for side in shoulder_frame.sides:
+            add_curve(desc, f"shoulder-{side.side}-anterior-support", side.anterior_support, (0, 1))
+            add_curve(desc, f"shoulder-{side.side}-posterior-return", side.posterior_return, (0, 1))
+
+    def add_deltoid(desc: Descriptor) -> None:
+        matches = tuple(side for side in shoulder_frame.sides if side.owner is desc)
+        if len(matches) != 1:
+            _fail(f"upper-arm shoulder frame match is missing for {_key_text(desc.key)}")
+        add_curve(desc, "deltoid-sweep", matches[0].deltoid_sweep, (1,))
 
     def add_limb(desc: Descriptor, limb: _LimbGuide) -> None:
         if len(limb.profile_controls) != 3 or not all(math.isfinite(value) and value > 0.0 for value in limb.profile_controls):
@@ -2815,12 +2854,15 @@ def _compile_hybrid_guide(guide: _HybridGuide) -> tuple[Field, ...]:
         # descriptor-ordered recipe stream.
         if desc.key == torso_cage.torso_owner.key:
             fields.append(Field(torso_cage.torso_owner, "torso-cage", _torso_cage_shape(torso_cage)))
+            add_shoulder_supports(desc)
         if desc.key == head.head_owner.key:
             add_head(desc)
         if desc.key == head.neck_owner.key:
             add_neck(desc)
         if desc.key in limbs_by_owner:
             add_limb(desc, limbs_by_owner[desc.key])
+            if desc.key[3] == "upper_arm":
+                add_deltoid(desc)
         if desc.key in paws_by_owner:
             add_paw(desc, paws_by_owner[desc.key])
         if desc.key in tails_by_owner:
@@ -3321,7 +3363,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
             "canvas": {"width": CANVAS[0], "height": CANVAS[1], "mode": "RGB"},
             "layout": _layout_json(),
             "projections": _projection_json(),
-            "generator": {"bundle_version": 2, "samples_per_axis": samples, "padding": padding, "smooth_union": {"operator": "polynomial_cubic_smooth_min", "k": smooth_k, "fold_order": "source_address_then_recipe_order"}, "field_primitives": ["torso-cage", "ellipsoid", "capsule", "linear-radius-tapered-segment"], "field_recipes": ["torso-cage", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar", "upper_arm-pre-joint", "upper_arm-joint", "forearm-proximal", "forearm-distal", "thigh-pre-joint", "thigh-joint", "shin-pre-joint", "shin-joint", "elbow", "knee", "hock", "root-bridge", "hip-transition", "paw", "heel", "forefoot", "extremity-bridge", "tail-segment", "tail-tip-extension", "tail-tip-cap", "tail-root-bridge", "tail-root-collar"], "ownership": "recipe fields are source-owned; the blended torso-cage recipe is torso-owned and winner labels select the nearest axial cage-section owner (lower-index tie break), exposing only source AddressKeys", "boundary": "disposable exploratory visual proof; not production geometry, SDF, collision, rig, topology, or Readiness evidence"},
+            "generator": {"bundle_version": 2, "samples_per_axis": samples, "padding": padding, "smooth_union": {"operator": "polynomial_cubic_smooth_min", "k": smooth_k, "fold_order": "source_address_then_recipe_order"}, "field_primitives": ["torso-cage", "ellipsoid", "capsule", "linear-radius-tapered-segment"], "field_recipes": ["torso-cage", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar", "upper_arm-pre-joint", "upper_arm-joint", "forearm-proximal", "forearm-distal", "thigh-pre-joint", "thigh-joint", "shin-pre-joint", "shin-joint", "elbow", "knee", "hock", "root-bridge", "hip-transition", "shoulder-left-anterior-support-0", "shoulder-left-anterior-support-1", "shoulder-left-posterior-return-0", "shoulder-left-posterior-return-1", "shoulder-right-anterior-support-0", "shoulder-right-anterior-support-1", "shoulder-right-posterior-return-0", "shoulder-right-posterior-return-1", "deltoid-sweep-1", "paw", "heel", "forefoot", "extremity-bridge", "tail-segment", "tail-tip-extension", "tail-tip-cap", "tail-root-bridge", "tail-root-collar"], "ownership": "recipe fields are source-owned; the blended torso-cage and shoulder-support recipes are torso-owned; deltoid recipes retain their upper-arm owners; winner labels expose only source AddressKeys", "boundary": "disposable exploratory visual proof; not production geometry, SDF, collision, rig, topology, or Readiness evidence"},
             "variants": records,
         }
         (stage / "surface-preview-manifest.json").write_bytes(_canonical(manifest) + b"\n")
