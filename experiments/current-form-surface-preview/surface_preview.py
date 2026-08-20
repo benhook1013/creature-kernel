@@ -691,10 +691,11 @@ def _torso_cage_shape(cage: _TorsoCage) -> dict[str, Any]:
     """Materialise the private ordered cage for the disposable field adapter.
 
     The field is intentionally an oriented, axis-aligned prototype.  Each
-    section supplies a centre and two transverse radii; the evaluator linearly
-    interpolates those controls between adjacent sections and clamps at the
-    finite end caps.  Linear interpolation is deliberate here: it is
-    continuous and cannot overshoot a source-derived radius or centre.
+    section supplies a centre and two transverse radii; the evaluator uses a
+    deterministic monotone piecewise-cubic (PCHIP-style) interpolation between
+    adjacent sections and clamps at the finite end caps.  The limiter preserves
+    each interval's endpoint bounds while making the first derivative shared at
+    interior sections.
 
     ``section_owners`` is retained on the private shape so mesh winner labels
     can expose the existing source ownership policy even though the whole
@@ -727,8 +728,171 @@ def _torso_cage_shape(cage: _TorsoCage) -> dict[str, Any]:
         "lateral_radii": lateral,
         "depth_radii": depth,
         "cap_radii": cap_radius,
+        "center_slopes": _monotone_cubic_slopes(heights, centers),
+        "lateral_slopes": _monotone_cubic_slopes(heights, lateral),
+        "depth_slopes": _monotone_cubic_slopes(heights, depth),
         "section_owners": tuple(section.owner for section in cage.sections),
     }
+
+
+def _monotone_cubic_slopes(x: np.ndarray, values: np.ndarray) -> np.ndarray:
+    """Return shape-preserving PCHIP-style slopes for one or more value axes.
+
+    This is the Fritsch--Carlson/Hyman-limited form of monotone cubic Hermite
+    interpolation.  It is intentionally local and dependency-free: every
+    interior tangent is the weighted harmonic mean of neighbouring secants
+    when they have the same sign, and is zero at a turning point.  One-sided
+    endpoint tangents receive the usual sign and three-slope limiter.  The
+    result is therefore safe for positive radii and does not invent extrema
+    between two source sections.
+    """
+
+    try:
+        x = np.asarray(x, dtype=np.float64)
+        values = np.asarray(values, dtype=np.float64)
+    except (TypeError, ValueError, OverflowError):
+        _fail("monotone cubic controls are not numeric")
+    if x.ndim != 1 or values.ndim not in (1, 2) or values.shape[0] != x.size or x.size < 2:
+        _fail("monotone cubic controls have invalid dimensions")
+    if not np.all(np.isfinite(x)) or not np.all(np.isfinite(values)) or np.any(np.diff(x) <= 0.0):
+        _fail("monotone cubic controls are invalid")
+
+    scalar_axis = values.ndim == 1
+    controls = values[:, None] if scalar_axis else values
+    spacing = np.diff(x)
+    if not np.all(np.isfinite(spacing)) or np.any(spacing <= 0.0):
+        _fail("monotone cubic spacing is not finite and strictly increasing")
+    differences = np.diff(controls, axis=0)
+    if not np.all(np.isfinite(differences)):
+        _fail("monotone cubic control differences are not finite")
+    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+        secants = differences / spacing[:, None]
+    if not np.all(np.isfinite(secants)):
+        _fail("monotone cubic secants are not finite")
+    slopes = np.zeros_like(controls)
+
+    if x.size == 2:
+        slopes[0] = secants[0]
+        slopes[1] = secants[0]
+    else:
+        previous = secants[:-1]
+        following = secants[1:]
+        same_sign = previous * following > 0.0
+        # For knot i, h_(i-1) is spacing[i-1] and h_i is spacing[i].
+        with np.errstate(over="ignore", invalid="ignore"):
+            left_weight = 2.0 * spacing[1:] + spacing[:-1]
+            right_weight = spacing[1:] + 2.0 * spacing[:-1]
+        if not np.all(np.isfinite(left_weight)) or not np.all(np.isfinite(right_weight)):
+            _fail("monotone cubic tangent weights are not finite")
+        with np.errstate(divide="ignore", invalid="ignore"):
+            denominator = left_weight[:, None] / previous + right_weight[:, None] / following
+            if np.any(same_sign & ~np.isfinite(denominator)) or np.any(same_sign & (denominator == 0.0)):
+                _fail("monotone cubic tangent denominator is invalid")
+            interior = np.divide(
+                left_weight[:, None] + right_weight[:, None],
+                denominator,
+                out=np.zeros_like(denominator),
+                where=same_sign,
+            )
+        slopes[1:-1] = np.where(same_sign, interior, 0.0)
+
+        first = ((2.0 * spacing[0] + spacing[1]) * secants[0] - spacing[0] * secants[1]) / (spacing[0] + spacing[1])
+        first = np.where(first * secants[0] <= 0.0, 0.0, first)
+        first = np.where(
+            (secants[0] * secants[1] < 0.0) & (np.abs(first) > np.abs(3.0 * secants[0])),
+            3.0 * secants[0],
+            first,
+        )
+        last = ((2.0 * spacing[-1] + spacing[-2]) * secants[-1] - spacing[-1] * secants[-2]) / (spacing[-1] + spacing[-2])
+        last = np.where(last * secants[-1] <= 0.0, 0.0, last)
+        last = np.where(
+            (secants[-1] * secants[-2] < 0.0) & (np.abs(last) > np.abs(3.0 * secants[-1])),
+            3.0 * secants[-1],
+            last,
+        )
+        slopes[0] = first
+        slopes[-1] = last
+
+    if not np.all(np.isfinite(slopes)):
+        _fail("monotone cubic slopes are not finite")
+    return slopes[:, 0] if scalar_axis else slopes
+
+
+def _monotone_cubic_sample(
+    x: np.ndarray,
+    values: np.ndarray,
+    slopes: np.ndarray,
+    query: np.ndarray | float,
+) -> np.ndarray:
+    """Evaluate a bounded cubic Hermite profile at scalar or array queries."""
+
+    try:
+        x = np.asarray(x, dtype=np.float64)
+        values = np.asarray(values, dtype=np.float64)
+        slopes = np.asarray(slopes, dtype=np.float64)
+        query_array = np.asarray(query, dtype=np.float64)
+    except (TypeError, ValueError, OverflowError):
+        _fail("monotone cubic sample controls are not numeric")
+    scalar_axis = values.ndim == 1
+    controls = values[:, None] if scalar_axis else values
+    tangent = slopes[:, None] if scalar_axis else slopes
+    if x.ndim != 1 or controls.ndim != 2 or tangent.shape != controls.shape or x.size != controls.shape[0] or x.size < 2:
+        _fail("monotone cubic sample controls have invalid dimensions")
+    spacing = np.diff(x)
+    if not np.all(np.isfinite(x)) or not np.all(np.isfinite(spacing)) or np.any(spacing <= 0.0):
+        _fail("monotone cubic sample axis is not finite and strictly increasing")
+    if not np.all(np.isfinite(controls)) or not np.all(np.isfinite(tangent)):
+        _fail("monotone cubic sample controls are not finite")
+    if not np.all(np.isfinite(query_array)):
+        _fail("monotone cubic sample query is invalid")
+
+    clipped = np.clip(query_array, x[0], x[-1])
+    interval = np.clip(np.searchsorted(x, clipped, side="right") - 1, 0, x.size - 2)
+    h = x[interval + 1] - x[interval]
+    t = np.divide(clipped - x[interval], h)
+    y0 = controls[interval]
+    y1 = controls[interval + 1]
+    m0 = tangent[interval]
+    m1 = tangent[interval + 1]
+    t2 = t * t
+    t3 = t2 * t
+    h00 = 2.0 * t3 - 3.0 * t2 + 1.0
+    h10 = t3 - 2.0 * t2 + t
+    h01 = -2.0 * t3 + 3.0 * t2
+    h11 = t3 - t2
+    terms = (
+        h00[..., None] * y0,
+        h10[..., None] * h[..., None] * m0,
+        h01[..., None] * y1,
+        h11[..., None] * h[..., None] * m1,
+    )
+    if not np.all(np.isfinite(h)) or not np.all(np.isfinite(t)) or not all(np.all(np.isfinite(term)) for term in terms):
+        _fail("monotone cubic sample arithmetic is not finite")
+    sampled = terms[0] + terms[1] + terms[2] + terms[3]
+    if not np.all(np.isfinite(sampled)):
+        _fail("monotone cubic sample result is not finite")
+
+    # Explicitly restore source values at representable section coordinates;
+    # this makes the exact-section contract independent of floating-point
+    # cancellation in the Hermite basis.
+    for index, coordinate in enumerate(x):
+        exact = clipped == coordinate
+        if np.any(exact):
+            sampled = np.where(exact[..., None], controls[index], sampled)
+    result = sampled[..., 0] if scalar_axis else sampled
+    return result
+
+
+def _torso_cage_sample_controls(shape: dict[str, Any], axial: np.ndarray | float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Sample the shared torso controls used by both field and root anchors."""
+
+    query = np.asarray(axial, dtype=np.float64)
+    clipped = np.clip(query, shape["heights"][0], shape["heights"][-1])
+    center = _monotone_cubic_sample(shape["heights"], shape["centers"], shape["center_slopes"], clipped).copy()
+    center[..., 1] = clipped
+    lateral = _monotone_cubic_sample(shape["heights"], shape["lateral_radii"], shape["lateral_slopes"], clipped)
+    depth = _monotone_cubic_sample(shape["heights"], shape["depth_radii"], shape["depth_slopes"], clipped)
+    return center, lateral, depth
 
 
 def _torso_cage_field(points: np.ndarray, shape: dict[str, Any]) -> np.ndarray:
@@ -745,13 +909,7 @@ def _torso_cage_field(points: np.ndarray, shape: dict[str, Any]) -> np.ndarray:
     upper = float(heights[-1])
     inside = (y >= lower) & (y <= upper)
 
-    interval = np.clip(np.searchsorted(heights, y, side="right") - 1, 0, len(heights) - 2)
-    y0 = heights[interval]
-    y1 = heights[interval + 1]
-    t = np.clip((y - y0) / (y1 - y0), 0.0, 1.0)
-    centre = centers[interval] + t[..., None] * (centers[interval + 1] - centers[interval])
-    lateral_radius = lateral[interval] + t * (lateral[interval + 1] - lateral[interval])
-    depth_radius = depth[interval] + t * (depth[interval + 1] - depth[interval])
+    centre, lateral_radius, depth_radius = _torso_cage_sample_controls(shape, y)
     transverse = points - centre
     transverse_norm = np.sqrt(
         (transverse[..., 0] / lateral_radius) ** 2
@@ -799,10 +957,11 @@ def _torso_cage_boundary_anchor(
     sections = cage.sections
     if len(sections) < 2:
         _fail("torso cage boundary query requires at least two sections")
-    centers = np.asarray([section.center for section in sections], dtype=np.float64)
-    heights = centers[:, 1]
-    lateral = np.asarray([section.lateral_radius for section in sections], dtype=np.float64)
-    depth = np.asarray([section.depth_radius for section in sections], dtype=np.float64)
+    shape = _torso_cage_shape(cage)
+    centers = shape["centers"]
+    heights = shape["heights"]
+    lateral = shape["lateral_radii"]
+    depth = shape["depth_radii"]
     lower, upper = float(heights[0]), float(heights[-1])
     lateral_forward = direction_value[[0, 2]]
     lateral_forward_length = float(np.linalg.norm(lateral_forward))
@@ -831,11 +990,9 @@ def _torso_cage_boundary_anchor(
         lateral_radius = float(lateral[index])
         depth_radius = float(depth[index])
     else:
-        index = int(np.searchsorted(heights, axial, side="right") - 1)
-        t = (axial - heights[index]) / (heights[index + 1] - heights[index])
-        center = centers[index] + t * (centers[index + 1] - centers[index])
-        lateral_radius = float(lateral[index] + t * (lateral[index + 1] - lateral[index]))
-        depth_radius = float(depth[index] + t * (depth[index + 1] - depth[index]))
+        center, lateral_radius, depth_radius = _torso_cage_sample_controls(shape, axial)
+        lateral_radius = float(lateral_radius)
+        depth_radius = float(depth_radius)
 
     dx, dz = lateral_forward / lateral_forward_length
     denominator = math.sqrt((dx / lateral_radius) ** 2 + (dz / depth_radius) ** 2)

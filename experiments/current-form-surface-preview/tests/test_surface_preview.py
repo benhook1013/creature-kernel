@@ -558,6 +558,78 @@ class SurfacePreviewTests(unittest.TestCase):
             point = np.asarray([[centres[index, 0], y, centres[index, 2]]])
             self.assertLess(float(surface_preview._field(point, field)[0]), 0.0)
 
+    def test_monotone_cubic_torso_profile_is_exact_bounded_and_c1(self) -> None:
+        x = np.asarray([0.0, 0.7, 2.0, 3.4, 5.0])
+        radii = np.asarray([1.0, 1.8, 1.2, 1.55, 1.1])
+        slopes = surface_preview._monotone_cubic_slopes(x, radii)
+        dense = np.linspace(x[0], x[-1], 2001)
+        sampled = surface_preview._monotone_cubic_sample(x, radii, slopes, dense)
+        for index, value in enumerate(radii):
+            self.assertEqual(float(surface_preview._monotone_cubic_sample(x, radii, slopes, x[index])), float(value))
+        for index in range(len(x) - 1):
+            interval = (dense >= x[index]) & (dense <= x[index + 1])
+            self.assertTrue(np.all(sampled[interval] >= min(radii[index], radii[index + 1]) - 1.0e-12))
+            self.assertTrue(np.all(sampled[interval] <= max(radii[index], radii[index + 1]) + 1.0e-12))
+            self.assertTrue(np.all(sampled[interval] > 0.0))
+        epsilon = 1.0e-5
+        for coordinate in x[1:-1]:
+            left = (surface_preview._monotone_cubic_sample(x, radii, slopes, coordinate) - surface_preview._monotone_cubic_sample(x, radii, slopes, coordinate - epsilon)) / epsilon
+            right = (surface_preview._monotone_cubic_sample(x, radii, slopes, coordinate + epsilon) - surface_preview._monotone_cubic_sample(x, radii, slopes, coordinate)) / epsilon
+            self.assertAlmostEqual(float(left), float(right), places=4)
+
+    def test_monotone_cubic_matches_independent_hand_calculation(self) -> None:
+        # x=[0,1,2,4], y=[0,1,2,5/2] gives secants [1,1,1/4].
+        # The shape-preserving tangents are [1,1,3/7,0].  At t=1/2 in
+        # [1,2] and [2,4], the Hermite values are 11/7 and 33/14.
+        x = np.asarray([0.0, 1.0, 2.0, 4.0])
+        values = np.asarray([0.0, 1.0, 2.0, 2.5])
+        slopes = surface_preview._monotone_cubic_slopes(x, values)
+        np.testing.assert_allclose(slopes, [1.0, 1.0, 3.0 / 7.0, 0.0], rtol=0.0, atol=1.0e-14)
+        np.testing.assert_allclose(
+            surface_preview._monotone_cubic_sample(x, values, slopes, np.asarray([0.5, 1.5, 3.0])),
+            [0.5, 11.0 / 7.0, 33.0 / 14.0],
+            rtol=0.0,
+            atol=1.0e-14,
+        )
+
+    def test_monotone_cubic_rejects_nonfinite_derived_controls(self) -> None:
+        with self.assertRaises(surface_preview.PreviewError):
+            surface_preview._monotone_cubic_slopes(
+                np.asarray([0.0, 1.0e-320, 2.0e-320]),
+                np.asarray([0.0, 1.0, 2.0]),
+            )
+        with self.assertRaises(surface_preview.PreviewError):
+            surface_preview._monotone_cubic_slopes(
+                np.asarray([-1.0e308, 0.0, 1.0e308]),
+                np.asarray([0.0, 1.0, 2.0]),
+            )
+        with self.assertRaises(surface_preview.PreviewError):
+            surface_preview._monotone_cubic_sample(
+                np.asarray([0.0, 1.0, 2.0]),
+                np.asarray([0.0, 1.0, 2.0]),
+                np.asarray([1.0, np.nan, 1.0]),
+                0.5,
+            )
+
+    def test_torso_cage_sampling_uses_shared_smoothed_controls_for_field_and_anchors(self) -> None:
+        form = surface_preview.validate_envelope(make_payload())
+        for _, descriptors, _ in form.variants:
+            guide = surface_preview._derive_hybrid_guides(form, descriptors)
+            cage = guide.torso_cage
+            shape = surface_preview._torso_cage_shape(cage)
+            field = surface_preview.Field(guide.torso_cage.torso_owner, "torso-cage", shape)
+            lower, upper = shape["heights"][[0, -1]]
+            for axial in np.linspace(lower, upper, 11):
+                center, lateral, depth = surface_preview._torso_cage_sample_controls(shape, axial)
+                point = surface_preview._torso_cage_boundary_anchor(cage, float(axial), (1.0, 0.0, 0.35))
+                np.testing.assert_allclose(center[1], axial, atol=1.0e-12)
+                np.testing.assert_allclose(
+                    ((point[0] - center[0]) / lateral) ** 2 + ((point[2] - center[2]) / depth) ** 2,
+                    1.0,
+                    atol=1.0e-12,
+                )
+                self.assertAlmostEqual(float(surface_preview._field(np.asarray([point]), field)[0]), 0.0, places=12)
+
     def test_torso_cage_attribution_switches_deterministically_between_source_owners(self) -> None:
         form = surface_preview.validate_envelope(make_payload())
         guide = surface_preview._derive_hybrid_guides(form, form.variants[0][1])
@@ -589,9 +661,11 @@ class SurfacePreviewTests(unittest.TestCase):
         upper = cage.sections[-1]
         midpoint = (cage.sections[1].center[1] + cage.sections[2].center[1]) * 0.5
         point = surface_preview._torso_cage_boundary_anchor(cage, midpoint, (1.0, 0.0, 0.5))
+        shape = surface_preview._torso_cage_shape(cage)
+        sampled_center, sampled_lateral, sampled_depth = surface_preview._torso_cage_sample_controls(shape, midpoint)
         self.assertAlmostEqual(
-            ((point[0] - ((cage.sections[1].center[0] + cage.sections[2].center[0]) * 0.5)) / ((cage.sections[1].lateral_radius + cage.sections[2].lateral_radius) * 0.5)) ** 2
-            + ((point[2] - ((cage.sections[1].center[2] + cage.sections[2].center[2]) * 0.5)) / ((cage.sections[1].depth_radius + cage.sections[2].depth_radius) * 0.5)) ** 2,
+            ((point[0] - sampled_center[0]) / sampled_lateral) ** 2
+            + ((point[2] - sampled_center[2]) / sampled_depth) ** 2,
             1.0,
             places=12,
         )
