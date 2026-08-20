@@ -322,6 +322,83 @@ class _TorsoCage:
 
 
 @dataclass(frozen=True)
+class _ShoulderCurve:
+    """One private multi-control shoulder wrap owned by a source part."""
+
+    name: str
+    owner: Descriptor
+    points: tuple[tuple[float, float, float], ...]
+    profile: tuple[float, ...]
+    axes: _GuideAxes
+
+    @property
+    def source_key(self) -> tuple[str, tuple[str, ...], str, str]:
+        return self.owner.key
+
+    @property
+    def provenance(self) -> dict[str, Any]:
+        return self.owner.provenance
+
+
+@dataclass(frozen=True)
+class _ShoulderSideGuide:
+    """One bilateral shoulder frame side derived from cage and arm geometry."""
+
+    side: str
+    owner: Descriptor
+    socket_anchor: tuple[float, float, float]
+    shoulder_extremum: tuple[float, float, float]
+    span: float
+    slope: float
+    anterior_support: _ShoulderCurve
+    posterior_return: _ShoulderCurve
+    deltoid_sweep: _ShoulderCurve
+    axes: _GuideAxes
+
+    @property
+    def source_key(self) -> tuple[str, tuple[str, ...], str, str]:
+        return self.owner.key
+
+    @property
+    def provenance(self) -> dict[str, Any]:
+        return self.owner.provenance
+
+
+@dataclass(frozen=True)
+class _ShoulderFrame:
+    """Private trapezius/shoulder frame for a later surface consumer.
+
+    The frame is deliberately not compiled by the current analytic-field
+    adapter.  Its central anchor remains torso-owned, while its two socket
+    anchors and deltoid controls remain upper-arm-owned.  This keeps a later
+    consumer from having to infer a shoulder girdle from two round masses.
+    """
+
+    torso_owner: Descriptor
+    neck_owner: Descriptor
+    central_anchor: tuple[float, float, float]
+    central_profile: tuple[float, float]
+    sides: tuple[_ShoulderSideGuide, _ShoulderSideGuide]
+    axes: _GuideAxes
+
+    @property
+    def source_owners(self) -> tuple[Descriptor, Descriptor, Descriptor, Descriptor]:
+        return (self.torso_owner, self.neck_owner, self.sides[0].owner, self.sides[1].owner)
+
+    @property
+    def source_keys(self) -> tuple[tuple[str, tuple[str, ...], str, str], ...]:
+        return tuple(owner.key for owner in self.source_owners)
+
+    @property
+    def left(self) -> _ShoulderSideGuide:
+        return self.sides[0]
+
+    @property
+    def right(self) -> _ShoulderSideGuide:
+        return self.sides[1]
+
+
+@dataclass(frozen=True)
 class _HeadGuide:
     """Cranium/muzzle and neck-transition controls for the head region."""
 
@@ -484,6 +561,7 @@ class _HybridGuide:
     source_descriptors: tuple[Descriptor, ...]
     axial_guides: tuple[_AxialGuide, ...]
     torso_cage: _TorsoCage
+    shoulder_frame: _ShoulderFrame
     head_guide: _HeadGuide
     limb_guides: tuple[_LimbGuide, ...]
     paw_guides: tuple[_PawGuide, ...]
@@ -508,6 +586,10 @@ class _HybridGuide:
     @property
     def torso_sections(self) -> tuple[_TorsoCageSection, ...]:
         return self.torso_cage.sections
+
+    @property
+    def shoulders(self) -> _ShoulderFrame:
+        return self.shoulder_frame
 
     @property
     def limbs(self) -> tuple[_LimbGuide, ...]:
@@ -1068,6 +1150,22 @@ def _guide_path(
     return path
 
 
+def _guide_curve(
+    points: tuple[np.ndarray | tuple[float, float, float], ...],
+    profile: tuple[float, ...],
+    where: str,
+) -> tuple[tuple[float, float, float], ...]:
+    """Validate a private polyline control set for a later curve consumer."""
+
+    if len(points) < 3 or len(points) != len(profile):
+        _fail(f"{where} must have matching three-or-more controls and profile")
+    controls = tuple(_guide_point(point, f"{where}.point[{index}]") for index, point in enumerate(points))
+    _guide_profile(profile, f"{where}.profile")
+    if any(controls[index] == controls[index + 1] for index in range(len(controls) - 1)):
+        _fail(f"{where} contains a zero-length adjacent segment")
+    return controls
+
+
 def _embed_boundary_connector(
     path: tuple[tuple[float, float, float], tuple[float, float, float]],
     profile: tuple[float, ...],
@@ -1475,6 +1573,115 @@ def _derive_torso_cage(
     return _TorsoCage(pelvis_owner=pelvis, torso_owner=torso, sections=sections, axes=_FIXED_GUIDE_AXES)
 
 
+def _derive_shoulder_frame(
+    torso_cage: _TorsoCage,
+    head_guide: _HeadGuide,
+    limb_guides: tuple[_LimbGuide, ...],
+) -> _ShoulderFrame:
+    """Derive a bilateral trapezius/shoulder frame without compiling skin.
+
+    The upper-ribcage boundary supplies the shoulder extrema and the existing
+    upper-arm root bridge supplies the socket-to-cage relationship.  Anterior
+    and posterior four-control wraps deliberately share their central,
+    extremum, and socket controls while bowing in opposite forward directions.
+    A separate upper-arm-owned deltoid sweep continues through the first
+    quarter of the existing upper-arm guide.  No variant-specific values are
+    used; all dimensions are consequences of the cage and limb controls.
+    """
+
+    upper_candidates = tuple(section for section in torso_cage.sections if section.name == "upper-ribcage-shoulder")
+    if len(upper_candidates) != 1:
+        _fail("shoulder frame requires one named upper-ribcage-shoulder control")
+    upper = upper_candidates[0]
+    arms = tuple(item for item in limb_guides if item.owner.key[3] == "upper_arm")
+    if len(arms) != 2:
+        _fail("shoulder frame requires exactly two upper-arm guides")
+    by_side = {item.owner.key[1][0]: item for item in arms if len(item.owner.key[1]) == 1}
+    if set(by_side) != {"left", "right"}:
+        _fail("shoulder frame requires one left and one right upper-arm guide")
+    if any(item.root_centerline is None or item.root_thickness is None for item in arms):
+        _fail("shoulder frame requires paired upper-arm root bridges")
+
+    central_anchor = _guide_point(head_guide.neck_transition[0], "shoulder-frame.central-anchor")
+    central_size = max(min(upper.lateral_radius, upper.depth_radius) * 0.24, 1.0e-9)
+    central_profile = _guide_profile(
+        (central_size, central_size * 0.82),
+        "shoulder-frame.central-profile",
+    )
+    sides: list[_ShoulderSideGuide] = []
+    for side in ("left", "right"):
+        limb = by_side[side]
+        owner = limb.owner
+        source_start = _guide_point(limb.sections[0].centerline[0], f"{_key_text(owner.key)}.shoulder.socket-anchor")
+        root_anchor = _guide_point(limb.root_centerline[0], f"{_key_text(owner.key)}.shoulder.extremum")  # type: ignore[index]
+        if not math.isfinite(source_start[0]) or source_start[0] == 0.0:
+            _fail(f"{_key_text(owner.key)} shoulder socket must be laterally placed")
+        expected_sign = -1.0 if side == "left" else 1.0
+        if source_start[0] * expected_sign <= 0.0 or root_anchor[0] * expected_sign <= 0.0:
+            _fail(f"{_key_text(owner.key)} shoulder controls are on the wrong side")
+        span = abs(float(root_anchor[0] - central_anchor[0]))
+        if not math.isfinite(span) or span <= 0.0:
+            _fail(f"{_key_text(owner.key)} shoulder span is invalid")
+        slope = (float(root_anchor[1]) - float(central_anchor[1])) / span
+        if not math.isfinite(slope):
+            _fail(f"{_key_text(owner.key)} shoulder slope is invalid")
+
+        root_profile = _guide_profile(limb.root_thickness, f"{_key_text(owner.key)}.shoulder.root-profile")  # type: ignore[arg-type]
+        arm_profile = _guide_profile(limb.sections[0].thickness, f"{_key_text(owner.key)}.shoulder.arm-profile")
+        wrap_depth = max(
+            min(upper.depth_radius, max(root_profile)) * 0.62,
+            min(arm_profile) * 0.55,
+            1.0e-9,
+        )
+        forward = np.asarray(_FIXED_GUIDE_AXES.forward, dtype=np.float64)
+        extremum = np.asarray(root_anchor, dtype=np.float64)
+        anterior_wrap = tuple(extremum + forward * wrap_depth)
+        posterior_wrap = tuple(extremum - forward * wrap_depth)
+        anterior_profile = tuple(float(value) for value in (central_profile[0], max(root_profile) * 0.94, max(root_profile) * 0.86, arm_profile[0]))
+        posterior_profile = tuple(float(value) for value in (central_profile[1], max(root_profile) * 0.94, max(root_profile) * 0.86, arm_profile[0]))
+        deltoid_profile = tuple(float(value) for value in (max(root_profile) * 0.86, arm_profile[0], arm_profile[1]))
+        anterior_points = _guide_curve(
+            (central_anchor, anterior_wrap, root_anchor, source_start),
+            anterior_profile,
+            f"{_key_text(owner.key)}.shoulder.anterior-support",
+        )
+        posterior_points = _guide_curve(
+            (central_anchor, posterior_wrap, root_anchor, source_start),
+            posterior_profile,
+            f"{_key_text(owner.key)}.shoulder.posterior-return",
+        )
+        first_section_end = np.asarray(limb.sections[0].centerline[1], dtype=np.float64)
+        socket = np.asarray(source_start, dtype=np.float64)
+        first_quarter = socket + 0.25 * (first_section_end - socket)
+        deltoid_points = _guide_curve(
+            (root_anchor, source_start, first_quarter),
+            deltoid_profile,
+            f"{_key_text(owner.key)}.shoulder.deltoid",
+        )
+        sides.append(
+            _ShoulderSideGuide(
+                side=side,
+                owner=owner,
+                socket_anchor=source_start,
+                shoulder_extremum=root_anchor,
+                span=span,
+                slope=float(slope),
+                anterior_support=_ShoulderCurve("anterior-support", torso_cage.torso_owner, anterior_points, anterior_profile, _FIXED_GUIDE_AXES),
+                posterior_return=_ShoulderCurve("posterior-return", torso_cage.torso_owner, posterior_points, posterior_profile, _FIXED_GUIDE_AXES),
+                deltoid_sweep=_ShoulderCurve("deltoid-sweep", owner, deltoid_points, deltoid_profile, _FIXED_GUIDE_AXES),
+                axes=_FIXED_GUIDE_AXES,
+            )
+        )
+    return _ShoulderFrame(
+        torso_owner=torso_cage.torso_owner,
+        neck_owner=head_guide.neck_owner,
+        central_anchor=central_anchor,
+        central_profile=central_profile,
+        sides=(sides[0], sides[1]),
+        axes=_FIXED_GUIDE_AXES,
+    )
+
+
 def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _HybridGuide:
     """Derive regional guide controls directly from validated source data."""
 
@@ -1805,6 +2012,8 @@ def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _H
             )
         )
 
+    shoulder_frame = _derive_shoulder_frame(torso_cage, head_guide, tuple(limb_guides))
+
     paw_guides: list[_PawGuide] = []
     for desc in descriptors:
         role = desc.key[3]
@@ -1921,6 +2130,7 @@ def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _H
         source_descriptors=descriptors,
         axial_guides=tuple(axial_guides),
         torso_cage=torso_cage,
+        shoulder_frame=shoulder_frame,
         head_guide=head_guide,
         limb_guides=tuple(limb_guides),
         paw_guides=tuple(paw_guides),
@@ -1970,6 +2180,22 @@ def _guide_path_checked(
         radius = max(profile)
         for point in path:
             if any(point[index] - radius < float(lower[index]) or point[index] + radius > float(upper[index]) for index in range(3)):
+                _fail(f"{where} thickness extends outside the shared guide bounds")
+
+
+def _guide_curve_checked(
+    points: tuple[tuple[float, float, float], ...],
+    profile: tuple[float, ...],
+    where: str,
+    bounds: tuple[np.ndarray, np.ndarray] | None,
+) -> None:
+    _guide_curve(tuple(points), profile, where)
+    if bounds is not None:
+        lower, upper = bounds
+        radius = max(profile)
+        for index, point in enumerate(points):
+            _guide_point_checked(point, f"{where}.point[{index}]", bounds)
+            if any(point[axis] - radius < float(lower[axis]) or point[axis] + radius > float(upper[axis]) for axis in range(3)):
                 _fail(f"{where} thickness extends outside the shared guide bounds")
 
 
@@ -2023,6 +2249,73 @@ def _validate_hybrid_guide(guide: _HybridGuide, bounds: tuple[np.ndarray, np.nda
         _fail("torso cage axes must match the guide topology and fixed prototype axes")
     if any(cage.sections[index].center[1] >= cage.sections[index + 1].center[1] for index in range(len(cage.sections) - 1)):
         _fail("torso cage sections must rise monotonically from pelvis to shoulders")
+
+    frame = guide.shoulder_frame
+    if frame.axes != guide.topology.axes or frame.axes != _FIXED_GUIDE_AXES:
+        _fail("shoulder frame axes must match the guide topology and fixed prototype axes")
+    if frame.torso_owner is not cage.torso_owner or frame.neck_owner is not guide.head_guide.neck_owner:
+        _fail("shoulder frame central owners must retain torso and neck descriptor identity")
+    if frame.torso_owner.key[3] != "torso" or frame.neck_owner.key[3] != "neck":
+        _fail("shoulder frame central owners must be torso and neck descriptors")
+    _guide_point_checked(frame.central_anchor, "shoulder-frame.central-anchor", bounds)
+    _guide_profile(frame.central_profile, "shoulder-frame.central-profile")
+    if len(frame.central_profile) != 2:
+        _fail("shoulder-frame central profile has unstable topology")
+    if frame.central_anchor != guide.head_guide.neck_transition[0]:
+        _fail("shoulder frame central anchor must equal the neck-base guide anchor")
+    if len(frame.sides) != 2 or tuple(item.side for item in frame.sides) != ("left", "right"):
+        _fail("shoulder frame sides must be ordered left then right")
+    limb_by_key = {item.owner.key: item for item in guide.limb_guides if item.owner.key[3] == "upper_arm"}
+    if len(limb_by_key) != 2:
+        _fail("shoulder frame requires two source-owned upper-arm guides")
+    for index, side in enumerate(frame.sides):
+        where = f"shoulder-frame[{index}]"
+        limb = limb_by_key.get(side.owner.key)
+        if limb is None or limb.owner is not side.owner or side.owner.key[1] != (side.side,):
+            _fail(f"{where} owner must be the matching source upper-arm descriptor")
+        if limb.root_centerline is None or limb.root_thickness is None:
+            _fail(f"{where} upper-arm root controls are missing")
+        socket = limb.sections[0].centerline[0]
+        extremum = limb.root_centerline[0]
+        if side.socket_anchor != socket:
+            _fail(f"{where} socket anchor must equal the existing upper-arm source start")
+        if side.shoulder_extremum != extremum:
+            _fail(f"{where} shoulder extremum must equal the existing torso root anchor")
+        expected_span = abs(float(extremum[0] - frame.central_anchor[0]))
+        if not math.isfinite(expected_span) or expected_span <= 0.0:
+            _fail(f"{where} derived shoulder span is invalid")
+        expected_slope = (float(extremum[1]) - float(frame.central_anchor[1])) / expected_span
+        if not math.isclose(side.span, expected_span, rel_tol=1.0e-9, abs_tol=1.0e-12) or not math.isclose(side.slope, expected_slope, rel_tol=1.0e-9, abs_tol=1.0e-12):
+            _fail(f"{where} span and slope are not derived from cage and root controls")
+        if not math.isfinite(side.span) or side.span <= 0.0 or not math.isfinite(side.slope):
+            _fail(f"{where} span and slope must be finite")
+        for curve_name, curve in (
+            ("anterior", side.anterior_support),
+            ("posterior", side.posterior_return),
+            ("deltoid", side.deltoid_sweep),
+        ):
+            curve_where = f"{where}.{curve_name}"
+            expected_name = {"anterior": "anterior-support", "posterior": "posterior-return", "deltoid": "deltoid-sweep"}[curve_name]
+            expected_controls = 3 if curve_name == "deltoid" else 4
+            if curve.name != expected_name or len(curve.points) != expected_controls or len(curve.profile) != expected_controls:
+                _fail(f"{curve_where} has unstable name or topology")
+            if curve.axes != frame.axes:
+                _fail(f"{curve_where} axes must match the shoulder frame")
+            if curve_name in {"anterior", "posterior"} and curve.owner is not frame.torso_owner:
+                _fail(f"{curve_where} must be torso-owned")
+            if curve_name == "deltoid" and curve.owner is not side.owner:
+                _fail(f"{curve_where} must be upper-arm-owned")
+            _guide_curve_checked(curve.points, curve.profile, curve_where, bounds)
+        for curve in (side.anterior_support, side.posterior_return):
+            if curve.points[0] != frame.central_anchor or curve.points[2] != side.shoulder_extremum or curve.points[-1] != side.socket_anchor:
+                _fail(f"{where} support curves must join central, extremum, and socket controls")
+        if side.anterior_support.points[1][2] <= side.shoulder_extremum[2] or side.posterior_return.points[1][2] >= side.shoulder_extremum[2]:
+            _fail(f"{where} anterior and posterior wraps must occupy distinct depth")
+        first_quarter = np.asarray(limb.sections[0].centerline[0]) + 0.25 * (
+            np.asarray(limb.sections[0].centerline[1]) - np.asarray(limb.sections[0].centerline[0])
+        )
+        if side.deltoid_sweep.points[0] != side.shoulder_extremum or side.deltoid_sweep.points[1] != side.socket_anchor or not np.allclose(side.deltoid_sweep.points[2], first_quarter, rtol=0.0, atol=1.0e-12):
+            _fail(f"{where} deltoid sweep must overlap the root and first quarter of the upper-arm guide")
 
     for index, axial in enumerate(guide.axial_guides):
         mass(axial.girdle_center, axial.girdle_radii, f"axial[{index}].girdle")

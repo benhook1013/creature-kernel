@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import dataclasses
 import importlib.util
 import json
 import sys
@@ -203,6 +204,95 @@ class SurfacePreviewTests(unittest.TestCase):
                 if left_key[3] == "thigh":
                     self.assertEqual(left.hip_radii, right.hip_radii)
                     self.assertAlmostEqual(left.hip_center[0], -right.hip_center[0])  # type: ignore[index]
+
+    def test_private_shoulder_frame_is_bilateral_source_owned_and_input_derived(self) -> None:
+        form = surface_preview.validate_envelope(make_varied_payload())
+        topology_signatures = []
+        dimensions = []
+        for _, descriptors, _ in form.variants:
+            guide = surface_preview._derive_hybrid_guides(form, descriptors)
+            frame = guide.shoulder_frame
+            baseline_fields = surface_preview._compile_hybrid_guide(guide)
+            changed_frame = dataclasses.replace(frame, central_profile=(frame.central_profile[0] * 1.17, frame.central_profile[1] * 1.17))
+            changed_fields = surface_preview._compile_hybrid_guide(dataclasses.replace(guide, shoulder_frame=changed_frame))
+
+            def jsonable(value: object) -> object:
+                if isinstance(value, np.ndarray):
+                    return value.tolist()
+                if isinstance(value, dict):
+                    return {key: jsonable(item) for key, item in value.items()}
+                if isinstance(value, (tuple, list)):
+                    return [jsonable(item) for item in value]
+                return value
+
+            self.assertEqual(
+                tuple((item.owner.key, item.recipe, jsonable(item.shape)) for item in baseline_fields),
+                tuple((item.owner.key, item.recipe, jsonable(item.shape)) for item in changed_fields),
+            )
+            self.assertIs(frame.torso_owner, next(item for item in descriptors if item.key[3] == "torso"))
+            self.assertIs(frame.neck_owner, next(item for item in descriptors if item.key[3] == "neck"))
+            self.assertEqual(tuple(item.side for item in frame.sides), ("left", "right"))
+            self.assertEqual(frame.source_keys[0], frame.torso_owner.key)
+            self.assertEqual(frame.source_keys[1], frame.neck_owner.key)
+            self.assertEqual(frame.source_keys[2:], tuple(item.owner.key for item in frame.sides))
+            self.assertTrue(all(np.isfinite(value) and value > 0.0 for value in frame.central_profile))
+            for side in frame.sides:
+                limb = next(item for item in guide.limb_guides if item.owner is side.owner)
+                self.assertIs(side.owner, next(item for item in descriptors if item.key == side.owner.key))
+                self.assertEqual(side.socket_anchor, limb.sections[0].centerline[0])
+                self.assertEqual(side.shoulder_extremum, limb.root_centerline[0])  # type: ignore[index]
+                self.assertGreater(side.span, 0.0)
+                self.assertTrue(np.isfinite(side.slope))
+                self.assertEqual(side.anterior_support.owner, frame.torso_owner)
+                self.assertEqual(side.posterior_return.owner, frame.torso_owner)
+                self.assertEqual(side.deltoid_sweep.owner, side.owner)
+                for curve in (side.anterior_support, side.posterior_return):
+                    self.assertEqual(len(curve.points), 4)
+                    self.assertEqual(len(curve.points), len(curve.profile))
+                    self.assertEqual(curve.points[0], frame.central_anchor)
+                    self.assertEqual(curve.points[2], side.shoulder_extremum)
+                    self.assertEqual(curve.points[3], side.socket_anchor)
+                self.assertGreater(side.anterior_support.points[1][2], side.shoulder_extremum[2])
+                self.assertLess(side.posterior_return.points[1][2], side.shoulder_extremum[2])
+                self.assertEqual(len(side.deltoid_sweep.points), 3)
+                self.assertEqual(side.deltoid_sweep.points[:2], (side.shoulder_extremum, side.socket_anchor))
+                first = limb.sections[0]
+                first_quarter = np.asarray(first.centerline[0]) + 0.25 * (np.asarray(first.centerline[1]) - np.asarray(first.centerline[0]))
+                np.testing.assert_allclose(side.deltoid_sweep.points[2], first_quarter, rtol=0.0, atol=1.0e-12)
+            left, right = frame.sides
+            self.assertAlmostEqual(left.shoulder_extremum[0], -right.shoulder_extremum[0])
+            self.assertEqual(left.shoulder_extremum[1:], right.shoulder_extremum[1:])
+            self.assertAlmostEqual(left.socket_anchor[0], -right.socket_anchor[0])
+            self.assertEqual(left.socket_anchor[1:], right.socket_anchor[1:])
+            self.assertAlmostEqual(left.span, right.span)
+            self.assertAlmostEqual(left.slope, right.slope)
+            topology_signatures.append(
+                tuple((item.side, item.owner.key, tuple(curve.name for curve in (item.anterior_support, item.posterior_return, item.deltoid_sweep))) for item in frame.sides)
+            )
+            dimensions.append(
+                (frame.central_profile, tuple(item.span for item in frame.sides), tuple(item.anterior_support.profile[1] for item in frame.sides))
+            )
+        self.assertEqual(topology_signatures, [topology_signatures[0]] * 4)
+        self.assertGreater(len(set(dimensions)), 1)
+
+    def test_private_shoulder_frame_rejects_malformed_axes_owners_order_and_connections(self) -> None:
+        form = surface_preview.validate_envelope(make_payload())
+        guide = surface_preview._derive_hybrid_guides(form, form.variants[0][1])
+        frame = guide.shoulder_frame
+        malformed_axes = dataclasses.replace(frame.axes, forward=(0.0, 1.0, 0.0))
+        with self.assertRaises(surface_preview.PreviewError):
+            surface_preview._validate_hybrid_guide(dataclasses.replace(guide, shoulder_frame=dataclasses.replace(frame, axes=malformed_axes)))
+        with self.assertRaises(surface_preview.PreviewError):
+            surface_preview._validate_hybrid_guide(dataclasses.replace(guide, shoulder_frame=dataclasses.replace(frame, sides=(frame.right, frame.left))))
+        torso = next(item for item in form.variants[0][1] if item.key[3] == "torso")
+        bad_owner = dataclasses.replace(frame.left, owner=torso)
+        with self.assertRaises(surface_preview.PreviewError):
+            surface_preview._validate_hybrid_guide(dataclasses.replace(guide, shoulder_frame=dataclasses.replace(frame, sides=(bad_owner, frame.right))))
+        bad_points = frame.left.anterior_support.points[:2] + (frame.left.anterior_support.points[1],) + frame.left.anterior_support.points[3:]
+        bad_curve = dataclasses.replace(frame.left.anterior_support, points=bad_points)
+        bad_side = dataclasses.replace(frame.left, anterior_support=bad_curve)
+        with self.assertRaises(surface_preview.PreviewError):
+            surface_preview._validate_hybrid_guide(dataclasses.replace(guide, shoulder_frame=dataclasses.replace(frame, sides=(bad_side, frame.right))))
 
     def test_limb_stations_are_endpoint_owned_and_feet_are_structured(self) -> None:
         form = surface_preview.validate_envelope(make_payload())
