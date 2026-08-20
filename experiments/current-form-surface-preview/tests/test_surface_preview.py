@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import dataclasses
 import importlib.util
 import json
 import sys
@@ -204,6 +205,155 @@ class SurfacePreviewTests(unittest.TestCase):
                     self.assertEqual(left.hip_radii, right.hip_radii)
                     self.assertAlmostEqual(left.hip_center[0], -right.hip_center[0])  # type: ignore[index]
 
+    def test_private_shoulder_frame_is_bilateral_source_owned_and_input_derived(self) -> None:
+        form = surface_preview.validate_envelope(make_varied_payload())
+        topology_signatures = []
+        dimensions = []
+        for _, descriptors, _ in form.variants:
+            guide = surface_preview._derive_hybrid_guides(form, descriptors)
+            frame = guide.shoulder_frame
+            baseline_fields = surface_preview._compile_hybrid_guide(guide)
+            changed_central = (frame.central_profile[0] * 1.17, frame.central_profile[1])
+            changed_sides = tuple(
+                dataclasses.replace(
+                    side,
+                    anterior_support=dataclasses.replace(
+                        side.anterior_support,
+                        profile=(changed_central[0], *side.anterior_support.profile[1:]),
+                    ),
+                )
+                for side in frame.sides
+            )
+            changed_frame = dataclasses.replace(frame, central_profile=changed_central, sides=changed_sides)
+            changed_fields = surface_preview._compile_hybrid_guide(dataclasses.replace(guide, shoulder_frame=changed_frame))
+
+            self.assertEqual(
+                tuple((item.owner.key, item.recipe) for item in baseline_fields),
+                tuple((item.owner.key, item.recipe) for item in changed_fields),
+            )
+            baseline_support = next(item for item in baseline_fields if item.recipe == "shoulder-left-anterior-support-0")
+            changed_support = next(item for item in changed_fields if item.recipe == "shoulder-left-anterior-support-0")
+            self.assertNotEqual(float(baseline_support.shape["r0"]), float(changed_support.shape["r0"]))
+            self.assertIs(frame.torso_owner, next(item for item in descriptors if item.key[3] == "torso"))
+            self.assertIs(frame.neck_owner, next(item for item in descriptors if item.key[3] == "neck"))
+            self.assertEqual(tuple(item.side for item in frame.sides), ("left", "right"))
+            self.assertEqual(frame.source_keys[0], frame.torso_owner.key)
+            self.assertEqual(frame.source_keys[1], frame.neck_owner.key)
+            self.assertEqual(frame.source_keys[2:], tuple(item.owner.key for item in frame.sides))
+            self.assertTrue(all(np.isfinite(value) and value > 0.0 for value in frame.central_profile))
+            for side in frame.sides:
+                limb = next(item for item in guide.limb_guides if item.owner is side.owner)
+                self.assertIs(side.owner, next(item for item in descriptors if item.key == side.owner.key))
+                self.assertEqual(side.socket_anchor, limb.sections[0].centerline[0])
+                self.assertEqual(side.shoulder_extremum, limb.root_centerline[0])  # type: ignore[index]
+                self.assertGreater(side.span, 0.0)
+                self.assertTrue(np.isfinite(side.slope))
+                self.assertEqual(side.anterior_support.owner, frame.torso_owner)
+                self.assertEqual(side.posterior_return.owner, frame.torso_owner)
+                self.assertEqual(side.deltoid_sweep.owner, side.owner)
+                for curve in (side.anterior_support, side.posterior_return):
+                    self.assertEqual(len(curve.points), 4)
+                    self.assertEqual(len(curve.points), len(curve.profile))
+                    self.assertEqual(curve.points[0], frame.central_anchor)
+                    self.assertEqual(curve.points[2], side.shoulder_extremum)
+                    self.assertEqual(curve.points[3], side.socket_anchor)
+                self.assertGreater(side.anterior_support.points[1][2], side.shoulder_extremum[2])
+                self.assertLess(side.posterior_return.points[1][2], side.shoulder_extremum[2])
+                self.assertEqual(len(side.deltoid_sweep.points), 3)
+                self.assertEqual(side.deltoid_sweep.points[:2], (side.shoulder_extremum, side.socket_anchor))
+                first = limb.sections[0]
+                first_quarter = np.asarray(first.centerline[0]) + 0.25 * (np.asarray(first.centerline[1]) - np.asarray(first.centerline[0]))
+                np.testing.assert_allclose(side.deltoid_sweep.points[2], first_quarter, rtol=0.0, atol=1.0e-12)
+            left, right = frame.sides
+            self.assertAlmostEqual(left.shoulder_extremum[0], -right.shoulder_extremum[0])
+            self.assertEqual(left.shoulder_extremum[1:], right.shoulder_extremum[1:])
+            self.assertAlmostEqual(left.socket_anchor[0], -right.socket_anchor[0])
+            self.assertEqual(left.socket_anchor[1:], right.socket_anchor[1:])
+            self.assertAlmostEqual(left.span, right.span)
+            self.assertAlmostEqual(left.slope, right.slope)
+            topology_signatures.append(
+                tuple((item.side, item.owner.key, tuple(curve.name for curve in (item.anterior_support, item.posterior_return, item.deltoid_sweep))) for item in frame.sides)
+            )
+            dimensions.append(
+                (frame.central_profile, tuple(item.span for item in frame.sides), tuple(item.anterior_support.profile[1] for item in frame.sides))
+            )
+        self.assertEqual(topology_signatures, [topology_signatures[0]] * 4)
+        self.assertGreater(len(set(dimensions)), 1)
+
+    def test_private_shoulder_frame_rejects_malformed_axes_owners_order_and_connections(self) -> None:
+        form = surface_preview.validate_envelope(make_payload())
+        guide = surface_preview._derive_hybrid_guides(form, form.variants[0][1])
+        frame = guide.shoulder_frame
+        malformed_axes = dataclasses.replace(frame.axes, forward=(0.0, 1.0, 0.0))
+        with self.assertRaises(surface_preview.PreviewError):
+            surface_preview._validate_hybrid_guide(dataclasses.replace(guide, shoulder_frame=dataclasses.replace(frame, axes=malformed_axes)))
+        with self.assertRaises(surface_preview.PreviewError):
+            surface_preview._validate_hybrid_guide(dataclasses.replace(guide, shoulder_frame=dataclasses.replace(frame, sides=(frame.right, frame.left))))
+        torso = next(item for item in form.variants[0][1] if item.key[3] == "torso")
+        bad_owner = dataclasses.replace(frame.left, owner=torso)
+        with self.assertRaises(surface_preview.PreviewError):
+            surface_preview._validate_hybrid_guide(dataclasses.replace(guide, shoulder_frame=dataclasses.replace(frame, sides=(bad_owner, frame.right))))
+        bad_points = frame.left.anterior_support.points[:2] + (frame.left.anterior_support.points[1],) + frame.left.anterior_support.points[3:]
+        bad_curve = dataclasses.replace(frame.left.anterior_support, points=bad_points)
+        bad_side = dataclasses.replace(frame.left, anterior_support=bad_curve)
+        bad_guide = dataclasses.replace(guide, shoulder_frame=dataclasses.replace(frame, sides=(bad_side, frame.right)))
+        with self.assertRaises(surface_preview.PreviewError):
+            surface_preview._validate_hybrid_guide(bad_guide)
+        with self.assertRaises(surface_preview.PreviewError):
+            surface_preview._compile_hybrid_guide(bad_guide)
+
+    def test_shoulder_frame_compiles_exact_ordered_source_owned_spans_for_all_variants(self) -> None:
+        form = surface_preview.validate_envelope(make_varied_payload())
+        expected_support_recipes = [
+            f"shoulder-{side}-{curve}-{index}"
+            for side in ("left", "right")
+            for curve in ("anterior-support", "posterior-return")
+            for index in range(2)
+        ]
+        for _, descriptors, _ in form.variants:
+            guide = surface_preview._derive_hybrid_guides(form, descriptors)
+            fields = surface_preview._compile_hybrid_guide(guide)
+            frame = guide.shoulder_frame
+            torso_supports = [
+                item for item in fields
+                if item.owner is frame.torso_owner and item.recipe.startswith("shoulder-")
+            ]
+            self.assertEqual([item.recipe for item in torso_supports], expected_support_recipes)
+            self.assertTrue(all(item.owner is frame.torso_owner for item in torso_supports))
+            support_index = 0
+            for side in frame.sides:
+                for curve in (side.anterior_support, side.posterior_return):
+                    for index in (0, 1):
+                        field = torso_supports[support_index]
+                        np.testing.assert_allclose(field.shape["from"], curve.points[index], rtol=0.0, atol=0.0)
+                        np.testing.assert_allclose(field.shape["to"], curve.points[index + 1], rtol=0.0, atol=0.0)
+                        self.assertEqual(float(field.shape["r0"]), curve.profile[index])
+                        self.assertEqual(float(field.shape["r1"]), curve.profile[index + 1])
+                        support_index += 1
+                deltoids = [item for item in fields if item.owner is side.owner and item.recipe.startswith("deltoid-sweep-")]
+                self.assertEqual([item.recipe for item in deltoids], ["deltoid-sweep-1"])
+                field = deltoids[0]
+                np.testing.assert_allclose(field.shape["from"], side.deltoid_sweep.points[1], rtol=0.0, atol=0.0)
+                np.testing.assert_allclose(field.shape["to"], side.deltoid_sweep.points[2], rtol=0.0, atol=0.0)
+                self.assertEqual(float(field.shape["r0"]), side.deltoid_sweep.profile[1])
+                self.assertEqual(float(field.shape["r1"]), side.deltoid_sweep.profile[2])
+            compiled_shoulder_fields = torso_supports + [
+                item for item in fields
+                if item.recipe == "deltoid-sweep-1" or (item.recipe == "root-bridge" and item.owner.key[3] == "upper_arm")
+            ]
+            geometry_signatures = [
+                (
+                    tuple(float(value) for value in item.shape["from"]),
+                    tuple(float(value) for value in item.shape["to"]),
+                    float(item.shape["r0"]),
+                    float(item.shape["r1"]),
+                )
+                for item in compiled_shoulder_fields
+            ]
+            self.assertEqual(len(geometry_signatures), len(set(geometry_signatures)))
+            self.assertEqual(len(fields), 60)
+            self.assertNotIn("shoulder-mass", {item.recipe for item in fields})
+
     def test_limb_stations_are_endpoint_owned_and_feet_are_structured(self) -> None:
         form = surface_preview.validate_envelope(make_payload())
         descriptors = form.variants[0][1]
@@ -262,8 +412,20 @@ class SurfacePreviewTests(unittest.TestCase):
             changed_section = dataclasses.replace(first_section, thickness=(first_section.thickness[0] * 0.60, first_section.thickness[1] * 0.45))
             changed_limb = dataclasses.replace(limb, sections=(changed_section, limb.sections[1]))
             changed_guides = tuple(changed_limb if item is limb else item for item in guide.limb_guides)
+            changed_frame = guide.shoulder_frame
+            if limb.owner.key[3] == "upper_arm":
+                changed_sides = []
+                for side in changed_frame.sides:
+                    if side.owner is not limb.owner:
+                        changed_sides.append(side)
+                        continue
+                    anterior = dataclasses.replace(side.anterior_support, profile=(*side.anterior_support.profile[:-1], changed_section.thickness[0]))
+                    posterior = dataclasses.replace(side.posterior_return, profile=(*side.posterior_return.profile[:-1], changed_section.thickness[0]))
+                    deltoid = dataclasses.replace(side.deltoid_sweep, profile=(side.deltoid_sweep.profile[0], *changed_section.thickness))
+                    changed_sides.append(dataclasses.replace(side, anterior_support=anterior, posterior_return=posterior, deltoid_sweep=deltoid))
+                changed_frame = dataclasses.replace(changed_frame, sides=tuple(changed_sides))
             changed = surface_preview._compile_hybrid_guide(
-                dataclasses.replace(guide, limb_guides=changed_guides)
+                dataclasses.replace(guide, limb_guides=changed_guides, shoulder_frame=changed_frame)
             )
             changed_field = next(
                 item for item in changed
@@ -293,7 +455,9 @@ class SurfacePreviewTests(unittest.TestCase):
         expected_names = (
             "lower-pelvis",
             "upper-pelvis",
+            "lower-abdomen",
             "waist-abdomen",
+            "upper-abdomen",
             "lower-ribcage",
             "upper-ribcage-shoulder",
         )
@@ -311,7 +475,7 @@ class SurfacePreviewTests(unittest.TestCase):
             self.assertTrue(all(any(section.owner is owner for owner in cage.source_owners) for section in cage.sections))
             self.assertEqual(
                 tuple(section.owner.key[3] for section in cage.sections),
-                ("pelvis", "pelvis", "torso", "torso", "torso"),
+                ("pelvis", "pelvis", "torso", "torso", "torso", "torso", "torso"),
             )
             self.assertTrue(
                 all(
@@ -337,10 +501,13 @@ class SurfacePreviewTests(unittest.TestCase):
             depth = np.asarray([section.depth_radius for section in cage.sections])
             self.assertTrue(np.all((lateral[1:] / lateral[:-1] >= 0.80) & (lateral[1:] / lateral[:-1] <= 1.20)))
             self.assertTrue(np.all((depth[1:] / depth[:-1] >= 0.80) & (depth[1:] / depth[:-1] <= 1.20)))
+            # The abdomen has a genuinely flat short waist band rather than
+            # one sharp local minimum. Its neighbors still taper and widen.
+            np.testing.assert_allclose(lateral[2:5], lateral[2])
+            np.testing.assert_allclose(depth[2:5], depth[2])
             self.assertLess(float(lateral[2]), float(lateral[1]))
-            self.assertLess(float(lateral[2]), float(lateral[3]))
-            self.assertGreaterEqual(float(lateral[3] / lateral[2]), 1.05)
-            self.assertLessEqual(float(lateral[3] / lateral[2]), 1.20)
+            self.assertGreater(float(lateral[5]), float(lateral[4]))
+            self.assertLess(float(lateral[5] / lateral[4]), 1.12)
             topologies.append(
                 tuple((section.name, section.owner.key) for section in cage.sections)
             )
@@ -465,7 +632,7 @@ class SurfacePreviewTests(unittest.TestCase):
                     # its owning section, not from the child path's axial
                     # component. In the fixed fixture the child target is
                     # inward of this side; the connector moves toward it.
-                    section = guide.torso_cage.sections[0] if limb.owner.key[3] == "thigh" else guide.torso_cage.sections[-1]
+                    section = guide.torso_cage.lower_boundary if limb.owner.key[3] == "thigh" else guide.torso_cage.upper_boundary
                     side = semantic_anchor[[0, 2]] - np.asarray(section.center, dtype=np.float64)[[0, 2]]
                     side /= np.linalg.norm(side)
                     outward = np.asarray([side[0], 0.0, side[1]])
@@ -495,21 +662,23 @@ class SurfacePreviewTests(unittest.TestCase):
         baseline = surface_preview._compile_hybrid_guide(guide)
         baseline_cage = next(item for item in baseline if item.recipe == "torso-cage")
         cage = guide.torso_cage
+        lower_abdomen = cage.section("lower-abdomen")
+        lower_abdomen_index = next(index for index, section in enumerate(cage.sections) if section is lower_abdomen)
         changed_section = dataclasses.replace(
-            cage.sections[2],
-            lateral_radius=cage.sections[2].lateral_radius * 0.75,
-            depth_radius=cage.sections[2].depth_radius * 0.75,
+            lower_abdomen,
+            lateral_radius=lower_abdomen.lateral_radius * 0.75,
+            depth_radius=lower_abdomen.depth_radius * 0.75,
         )
         changed_cage = dataclasses.replace(
             cage,
-            sections=(*cage.sections[:2], changed_section, *cage.sections[3:]),
+            sections=tuple(changed_section if index == lower_abdomen_index else section for index, section in enumerate(cage.sections)),
         )
         changed = surface_preview._compile_hybrid_guide(
             dataclasses.replace(guide, torso_cage=changed_cage)
         )
         changed_cage_field = next(item for item in changed if item.recipe == "torso-cage")
-        self.assertLess(float(changed_cage_field.shape["lateral_radii"][2]), float(baseline_cage.shape["lateral_radii"][2]))
-        self.assertLess(float(changed_cage_field.shape["depth_radii"][2]), float(baseline_cage.shape["depth_radii"][2]))
+        self.assertLess(float(changed_cage_field.shape["lateral_radii"][lower_abdomen_index]), float(baseline_cage.shape["lateral_radii"][lower_abdomen_index]))
+        self.assertLess(float(changed_cage_field.shape["depth_radii"][lower_abdomen_index]), float(baseline_cage.shape["depth_radii"][lower_abdomen_index]))
 
         # The shoulder/hip masses remain private guide diagnostics and are no
         # longer emitted as duplicate skin fields; the cage itself is the
@@ -657,9 +826,9 @@ class SurfacePreviewTests(unittest.TestCase):
         form = surface_preview.validate_envelope(make_payload())
         guide = surface_preview._derive_hybrid_guides(form, form.variants[0][1])
         cage = guide.torso_cage
-        lower = cage.sections[0]
-        upper = cage.sections[-1]
-        midpoint = (cage.sections[1].center[1] + cage.sections[2].center[1]) * 0.5
+        lower = cage.lower_boundary
+        upper = cage.upper_boundary
+        midpoint = (cage.section("lower-abdomen").center[1] + cage.section("waist-abdomen").center[1]) * 0.5
         point = surface_preview._torso_cage_boundary_anchor(cage, midpoint, (1.0, 0.0, 0.5))
         shape = surface_preview._torso_cage_shape(cage)
         sampled_center, sampled_lateral, sampled_depth = surface_preview._torso_cage_sample_controls(shape, midpoint)
@@ -692,8 +861,15 @@ class SurfacePreviewTests(unittest.TestCase):
             "paw", "heel", "forefoot", "extremity-bridge", "tail-segment", "tail-tip-extension", "tail-tip-cap", "tail-root-bridge",
             "tail-root-collar",
         }
+        expected_recipes.update(
+            f"shoulder-{side}-{curve}-{index}"
+            for side in ("left", "right")
+            for curve in ("anterior-support", "posterior-return")
+            for index in range(2)
+        )
+        expected_recipes.add("deltoid-sweep-1")
         self.assertEqual({field.recipe for field in fields}, expected_recipes)
-        self.assertEqual(len(fields), 50)
+        self.assertEqual(len(fields), 60)
 
         pelvis = next(item for item in descriptors if item.key[3] == "pelvis")
         torso = next(item for item in descriptors if item.key[3] == "torso")
@@ -701,7 +877,7 @@ class SurfacePreviewTests(unittest.TestCase):
         self.assertIs(torso_field.owner, torso)
         self.assertEqual(
             tuple(owner.key[3] for owner in torso_field.shape["section_owners"]),
-            ("pelvis", "pelvis", "torso", "torso", "torso"),
+            ("pelvis", "pelvis", "torso", "torso", "torso", "torso", "torso"),
         )
         self.assertTrue(any(owner is pelvis for owner in torso_field.shape["section_owners"]))
         self.assertNotIn("axial-trunk", {field.recipe for field in fields})
@@ -722,7 +898,7 @@ class SurfacePreviewTests(unittest.TestCase):
         )
         self.assertEqual(
             [item.recipe for item in fields if item.owner is left_upper_arm],
-            ["upper_arm-pre-joint", "upper_arm-joint", "root-bridge", "elbow"],
+            ["upper_arm-pre-joint", "upper_arm-joint", "root-bridge", "elbow", "deltoid-sweep-1"],
         )
 
         left_thigh = next(
@@ -762,7 +938,7 @@ class SurfacePreviewTests(unittest.TestCase):
             surface_preview._torso_cage_boundary_anchor(
                 torso_cage,
                 float(neck.point[1]),
-                np.asarray(neck.point) - np.asarray(torso_cage.sections[-1].center),
+                np.asarray(neck.point) - np.asarray(torso_cage.upper_boundary.center),
             ),
         )
 
@@ -776,7 +952,7 @@ class SurfacePreviewTests(unittest.TestCase):
 
         torso_field = next(item for item in fields if item.owner is torso and item.recipe == "torso-cage")
         self.assertEqual(torso_field.shape["name"], "torso-cage")
-        self.assertEqual(len(torso_field.shape["centers"]), 5)
+        self.assertEqual(len(torso_field.shape["centers"]), 7)
 
         hand = next(item for item in descriptors if item.key[1] == ("left",) and item.key[3] == "hand")
         paw = next(item for item in fields if item.owner is hand and item.recipe == "paw")
@@ -890,7 +1066,7 @@ class SurfacePreviewTests(unittest.TestCase):
         muzzle_top = float(muzzle.shape["center"][1] + muzzle.shape["radii"][1])
         self.assertLess(muzzle_bottom, cranium_top)
         self.assertGreater(muzzle_top, cranium_bottom)
-        self.assertEqual(len(fields), 50)
+        self.assertEqual(len(fields), 60)
         source_keys = {descriptor.key for descriptor in descriptors}
         self.assertTrue(all(field.owner.key in source_keys for field in fields))
 
@@ -933,11 +1109,18 @@ class SurfacePreviewTests(unittest.TestCase):
         first = surface_preview._compound_fields(form, descriptors)
         second = surface_preview._compound_fields(form, descriptors)
         self.assertEqual([(field.owner.key, field.recipe) for field in first], [(field.owner.key, field.recipe) for field in second])
+        shoulder_support_order = [
+            ((), "torso", f"shoulder-{side}-{curve}-{index}")
+            for side in ("left", "right")
+            for curve in ("anterior-support", "posterior-return")
+            for index in range(2)
+        ]
         self.assertEqual(
             [(field.owner.key[1], field.owner.key[3], field.recipe) for field in first],
             [
                 ((), "head", "cranium"), ((), "head", "muzzle"), ((), "head", "head-base-bridge"),
                 ((), "neck", "tapered-neck"), ((), "neck", "neck-collar"), ((), "torso", "torso-cage"),
+                *shoulder_support_order,
                 (("left",), "foot", "heel"), (("left",), "foot", "forefoot"), (("left",), "foot", "extremity-bridge"),
                 (("left",), "forearm", "forearm-proximal"), (("left",), "forearm", "forearm-distal"),
                 (("left",), "hand", "paw"), (("left",), "hand", "extremity-bridge"),
@@ -947,6 +1130,7 @@ class SurfacePreviewTests(unittest.TestCase):
                 (("left",), "thigh", "knee"),
                 (("left",), "upper_arm", "upper_arm-pre-joint"), (("left",), "upper_arm", "upper_arm-joint"),
                 (("left",), "upper_arm", "root-bridge"), (("left",), "upper_arm", "elbow"),
+                (("left",), "upper_arm", "deltoid-sweep-1"),
                 (("right",), "foot", "heel"), (("right",), "foot", "forefoot"), (("right",), "foot", "extremity-bridge"),
                 (("right",), "forearm", "forearm-proximal"), (("right",), "forearm", "forearm-distal"),
                 (("right",), "hand", "paw"), (("right",), "hand", "extremity-bridge"),
@@ -956,6 +1140,7 @@ class SurfacePreviewTests(unittest.TestCase):
                 (("right",), "thigh", "knee"),
                 (("right",), "upper_arm", "upper_arm-pre-joint"), (("right",), "upper_arm", "upper_arm-joint"),
                 (("right",), "upper_arm", "root-bridge"), (("right",), "upper_arm", "elbow"),
+                (("right",), "upper_arm", "deltoid-sweep-1"),
                 (("tail",), "tail_root", "tail-segment"), (("tail",), "tail_root", "tail-root-bridge"), (("tail",), "tail_root", "tail-root-collar"),
                 (("tail",), "tail_tip", "tail-segment"), (("tail",), "tail_tip", "tail-tip-extension"), (("tail",), "tail_tip", "tail-tip-cap"),
             ],
@@ -972,7 +1157,7 @@ class SurfacePreviewTests(unittest.TestCase):
             manifest = json.loads((output / "surface-preview-manifest.json").read_text())
             metrics = manifest["variants"][0]["metrics"]
             self.assertEqual(metrics["source_descriptor_count"], 18)
-            self.assertEqual(metrics["generated_field_count"], 50)
+            self.assertEqual(metrics["generated_field_count"], 60)
             self.assertEqual(metrics["field_memory_values"], metrics["generated_field_count"] * 48**3)
             source_keys = {json.dumps(descriptor.key, default=list) for descriptor in descriptors}
             winner_keys = {json.dumps(tuple((item["namespace"], tuple(item["anchors"]), item["kind"], item["role"])), default=list) for item in metrics["winner_addresses"]}
@@ -996,7 +1181,7 @@ class SurfacePreviewTests(unittest.TestCase):
             self.assertEqual([x["id"] for x in manifest["variants"]], list(surface_preview.VARIANT_IDS))
             self.assertTrue(all(len(x["inventory"]) == 5 for x in manifest["variants"]))
             self.assertTrue(all(x["metrics"]["source_descriptor_count"] == 18 for x in manifest["variants"]))
-            self.assertTrue(all(x["metrics"]["generated_field_count"] == 50 for x in manifest["variants"]))
+            self.assertTrue(all(x["metrics"]["generated_field_count"] == 60 for x in manifest["variants"]))
             self.assertTrue(all(x["metrics"]["component_count"] == 1 and x["metrics"]["watertight"] for x in manifest["variants"]))
             self.assertEqual(
                 sorted(path.name for path in (first / surface_preview.VARIANT_IDS[0]).iterdir()),
@@ -1029,9 +1214,12 @@ class SurfacePreviewTests(unittest.TestCase):
                 self.assertEqual(regional["counts"]["axial_stations"], 3)
                 self.assertEqual(regional["counts"]["axial_transitions"], 2)
                 self.assertEqual(regional["counts"]["axial_core_masses"], 1)
-                self.assertEqual(regional["counts"]["torso_cage_sections"], 5)
-                self.assertEqual(regional["counts"]["torso_cage_connections"], 4)
-                self.assertEqual(regional["counts"]["compiled_fields"], 50)
+                self.assertEqual(regional["counts"]["torso_cage_sections"], 7)
+                self.assertEqual(regional["counts"]["torso_cage_connections"], 6)
+                self.assertEqual(regional["counts"]["shoulder_frame_sides"], 2)
+                self.assertEqual(regional["counts"]["shoulder_frame_curves"], 6)
+                self.assertEqual(regional["counts"]["shoulder_frame_compiled_fields"], 10)
+                self.assertEqual(regional["counts"]["compiled_fields"], 60)
                 self.assertEqual(regional["counts"]["compiled_field_recipe_counts"], {
                     "upper_arm-pre-joint": 2, "upper_arm-joint": 2, "forearm-proximal": 2, "forearm-distal": 2,
                     "thigh-pre-joint": 2, "thigh-joint": 2, "shin-pre-joint": 2, "shin-joint": 2,
@@ -1040,6 +1228,11 @@ class SurfacePreviewTests(unittest.TestCase):
                     "tail-segment": 2, "cranium": 1,
                     "muzzle": 1, "head-base-bridge": 1, "tapered-neck": 1,
                     "neck-collar": 1, "torso-cage": 1,
+                    "shoulder-left-anterior-support-0": 1, "shoulder-left-anterior-support-1": 1,
+                    "shoulder-left-posterior-return-0": 1, "shoulder-left-posterior-return-1": 1,
+                    "shoulder-right-anterior-support-0": 1, "shoulder-right-anterior-support-1": 1,
+                    "shoulder-right-posterior-return-0": 1, "shoulder-right-posterior-return-1": 1,
+                    "deltoid-sweep-1": 2,
                     "tail-root-bridge": 1, "tail-root-collar": 1,
                     "tail-tip-extension": 1, "tail-tip-cap": 1,
                 })
@@ -1048,6 +1241,13 @@ class SurfacePreviewTests(unittest.TestCase):
                 self.assertEqual(regional["canvas"], manifest["canvas"])
                 self.assertTrue(regional["controls"]["axial"])
                 self.assertTrue(regional["controls"]["torso_cage"])
+                self.assertEqual(regional["controls"]["shoulder_frame"]["status"], "skin-driving private shoulder frame")
+                shoulder_frame = regional["controls"]["shoulder_frame"]
+                self.assertEqual([item["side"] for item in shoulder_frame["sides"]], ["left", "right"])
+                self.assertEqual(set(shoulder_frame["owners"]), {"torso", "neck", "left_upper_arm", "right_upper_arm"})
+                self.assertEqual(len(shoulder_frame["central"]["profile"]), 2)
+                self.assertTrue(all(len(item["curves"]) == 3 for item in shoulder_frame["sides"]))
+                self.assertTrue(all(len(curve["points"]) == len(curve["profile"]) for item in shoulder_frame["sides"] for curve in item["curves"]))
                 self.assertTrue(regional["controls"]["limbs"])
                 self.assertTrue(regional["controls"]["paws"])
                 self.assertTrue(regional["controls"]["tails"])
@@ -1066,14 +1266,16 @@ class SurfacePreviewTests(unittest.TestCase):
                 cage = regional["controls"]["torso_cage"]
                 self.assertEqual(cage["status"], "skin-driving torso controls")
                 self.assertEqual([item["name"] for item in cage["sections"]], [
-                    "lower-pelvis", "upper-pelvis", "waist-abdomen", "lower-ribcage", "upper-ribcage-shoulder",
+                    "lower-pelvis", "upper-pelvis", "lower-abdomen", "waist-abdomen", "upper-abdomen", "lower-ribcage", "upper-ribcage-shoulder",
                 ])
-                self.assertEqual([item["owner"]["role"] for item in cage["sections"]], ["pelvis", "pelvis", "torso", "torso", "torso"])
+                self.assertEqual([item["owner"]["role"] for item in cage["sections"]], ["pelvis", "pelvis", "torso", "torso", "torso", "torso", "torso"])
                 self.assertEqual(cage["axes"], {"lateral": [1.0, 0.0, 0.0], "up": [0.0, 1.0, 0.0], "forward": [0.0, 0.0, 1.0]})
                 self.assertEqual(cage["connections"], [
                     {"from": "lower-pelvis", "to": "upper-pelvis"},
-                    {"from": "upper-pelvis", "to": "waist-abdomen"},
-                    {"from": "waist-abdomen", "to": "lower-ribcage"},
+                    {"from": "upper-pelvis", "to": "lower-abdomen"},
+                    {"from": "lower-abdomen", "to": "waist-abdomen"},
+                    {"from": "waist-abdomen", "to": "upper-abdomen"},
+                    {"from": "upper-abdomen", "to": "lower-ribcage"},
                     {"from": "lower-ribcage", "to": "upper-ribcage-shoulder"},
                 ])
                 cage_topologies.append((
@@ -1179,6 +1381,17 @@ class SurfacePreviewTests(unittest.TestCase):
         np.testing.assert_allclose([item["center"] for item in cage["sections"]], [section.center for section in guide.torso_cage.sections])
         np.testing.assert_allclose([item["lateral_radius"] for item in cage["sections"]], [section.lateral_radius for section in guide.torso_cage.sections])
         np.testing.assert_allclose([item["depth_radius"] for item in cage["sections"]], [section.depth_radius for section in guide.torso_cage.sections])
+        shoulder = regional["controls"]["shoulder_frame"]
+        self.assertEqual(shoulder["central"]["owner"], surface_preview._address_json(guide.shoulder_frame.torso_owner.key))
+        self.assertEqual(shoulder["central"]["anchor"], list(guide.shoulder_frame.central_anchor))
+        for side_json, side in zip(shoulder["sides"], guide.shoulder_frame.sides):
+            self.assertEqual(side_json["side"], side.side)
+            self.assertEqual(side_json["span"], side.span)
+            self.assertEqual(side_json["slope"], side.slope)
+            for curve_json, curve in zip(side_json["curves"], (side.anterior_support, side.posterior_return, side.deltoid_sweep)):
+                self.assertEqual(curve_json["name"], curve.name)
+                self.assertEqual(curve_json["points"], [list(point) for point in curve.points])
+                self.assertEqual(curve_json["profile"], list(curve.profile))
         for limb in regional["controls"]["limbs"]:
             for mass in limb["masses"]:
                 recipe = {"shoulder-girdle": "shoulder-mass", "hip-girdle": "hip-girdle", "joint": "joint-collar"}[mass["control"]]
