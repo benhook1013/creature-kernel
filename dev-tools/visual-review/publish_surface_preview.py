@@ -52,6 +52,7 @@ MAX_STDOUT_BYTES = common.MAX_STRUCTURE_JSON_BYTES
 MAX_STDERR_BYTES = 64 * 1024
 MAX_MANIFEST_BYTES = 256 * 1024
 MAX_GUIDE_BYTES = 512 * 1024
+MAX_METRICS_BYTES = 256 * 1024
 MAX_ARTIFACT_BYTES = 16 * 1024 * 1024
 MAX_PNG_WIDTH = 4096
 MAX_PNG_HEIGHT = 4096
@@ -107,9 +108,10 @@ EXPECTED_GUIDE_COUNTS = {
         "knee": 2,
         "hock": 2,
         "paw": 2,
-        "heel": 2,
-        "forefoot": 2,
-        "extremity-bridge": 4,
+        "metatarsal": 2,
+        "paw-pad": 2,
+        "toe-box": 2,
+        "extremity-bridge": 2,
         "root-bridge": 4,
         "hip-transition": 2,
         "shoulder-left-anterior-support-0": 1,
@@ -134,6 +136,19 @@ EXPECTED_GUIDE_COUNTS = {
         "tail-tip-cap": 1,
     },
 }
+
+EXPECTED_FIELD_RECIPES = (
+    "torso-cage", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar",
+    "upper_arm-pre-joint", "upper_arm-joint", "forearm-proximal", "forearm-distal",
+    "thigh-pre-joint", "thigh-joint", "shin-pre-joint", "shin-joint", "elbow", "knee", "hock",
+    "root-bridge", "hip-transition",
+    "shoulder-left-anterior-support-0", "shoulder-left-anterior-support-1",
+    "shoulder-left-posterior-return-0", "shoulder-left-posterior-return-1",
+    "shoulder-right-anterior-support-0", "shoulder-right-anterior-support-1",
+    "shoulder-right-posterior-return-0", "shoulder-right-posterior-return-1", "deltoid-sweep-1",
+    "paw", "metatarsal", "paw-pad", "toe-box", "extremity-bridge",
+    "tail-segment", "tail-tip-extension", "tail-tip-cap", "tail-root-bridge", "tail-root-collar",
+)
 
 
 def default_creature_kernel() -> Path:
@@ -482,6 +497,19 @@ def _point(value: Any, where: str) -> list[float]:
 def _contained(point: list[float], radius: list[float], lower: list[float], upper: list[float], where: str) -> None:
     if any(point[index] - radius[index] < lower[index] or point[index] + radius[index] > upper[index] for index in range(3)):
         raise SurfacePreviewPublishError(f"{where} extends outside shared render bounds")
+
+
+def _require_axis_aligned_overlap(
+    first: dict[str, Any],
+    second: dict[str, Any],
+    where: str,
+) -> None:
+    if any(
+        abs(first["center"][index] - second["center"][index])
+        >= first["radii"][index] + second["radii"][index]
+        for index in range(3)
+    ):
+        raise SurfacePreviewPublishError(f"{where} masses must overlap on every fixed guide axis")
 
 
 def _mass(value: Any, where: str, lower: list[float], upper: list[float], allowed_controls: set[str]) -> str:
@@ -959,7 +987,7 @@ def _validate_controls(
     paw_owner_keys: set[str] = set()
     paw_roles: list[str] = []
     for index, item in enumerate(paws):
-        if not isinstance(item, dict) or set(item) != {"owner", "masses", "attachment", "attachment_source"}:
+        if not isinstance(item, dict) or not {"owner"} <= set(item):
             raise SurfacePreviewPublishError(f"regional guide paws[{index}] has an invalid shape")
         parsed_owner = owner(item["owner"], f"regional-guide.controls.paws[{index}].owner")
         if parsed_owner["role"] not in {"hand", "foot"}:
@@ -969,24 +997,60 @@ def _validate_controls(
             raise SurfacePreviewPublishError(f"regional guide paws[{index}] owner is duplicated")
         paw_owner_keys.add(owner_key)
         paw_roles.append(parsed_owner["role"])
-        expected_masses = {"heel", "forefoot"} if parsed_owner["role"] == "foot" else {"paw"}
-        _mass_list(item["masses"], f"regional-guide.controls.paws[{index}].masses", lower, upper, expected_masses)
-        _path(item["attachment"], f"regional-guide.controls.paws[{index}].attachment", lower, upper, {"attachment"}, expected_kind="capsule")
-        attachment_source = item["attachment_source"]
-        source_where = f"regional-guide.controls.paws[{index}].attachment_source"
-        if not isinstance(attachment_source, dict) or set(attachment_source) != {"owner", "anchor", "point", "boundary_point"}:
+        where = f"regional-guide.controls.paws[{index}]"
+        if parsed_owner["role"] == "hand":
+            expected_keys = {"owner", "masses", "attachment", "attachment_source"}
+            if set(item) != expected_keys:
+                raise SurfacePreviewPublishError(f"{where} has an invalid hand shape")
+            _mass_list(item["masses"], f"{where}.masses", lower, upper, {"paw"})
+            _path(item["attachment"], f"{where}.attachment", lower, upper, {"attachment"}, expected_kind="capsule")
+            source_value = item["attachment_source"]
+            source_where = f"{where}.attachment_source"
+        else:
+            expected_keys = {"owner", "chain", "hock_source"}
+            if set(item) != expected_keys:
+                raise SurfacePreviewPublishError(f"{where} has an invalid foot shape")
+            chain = item["chain"]
+            if not isinstance(chain, dict) or set(chain) != {"hock", "metatarsal", "masses", "contact_height", "axes"}:
+                raise SurfacePreviewPublishError(f"{where}.chain has an invalid shape")
+            _mass(chain["hock"], f"{where}.chain.hock", lower, upper, {"hock-anchor"})
+            _path(chain["metatarsal"], f"{where}.chain.metatarsal", lower, upper, {"metatarsal"}, expected_kind="tapered-segment")
+            _mass_list(chain["masses"], f"{where}.chain.masses", lower, upper, {"paw-pad", "toe-box"})
+            axes = chain["axes"]
+            if axes != {"lateral": [1.0, 0.0, 0.0], "up": [0.0, 1.0, 0.0], "forward": [0.0, 0.0, 1.0]}:
+                raise SurfacePreviewPublishError(f"{where}.chain.axes are invalid")
+            contact_height = _finite_number(chain["contact_height"], f"{where}.chain.contact_height")
+            chain_masses = {mass["control"]: mass for mass in chain["masses"]}
+            hock = chain["hock"]
+            metatarsal = chain["metatarsal"]
+            pad = chain_masses["paw-pad"]
+            toe = chain_masses["toe-box"]
+            if metatarsal["points"][0] != hock["center"] or metatarsal["points"][1] != pad["center"]:
+                raise SurfacePreviewPublishError(f"{where}.chain.metatarsal does not bind hock to pad")
+            if metatarsal["points"][1][2] <= metatarsal["points"][0][2] or metatarsal["points"][1][1] >= metatarsal["points"][0][1]:
+                raise SurfacePreviewPublishError(f"{where}.chain.metatarsal must descend forward from hock")
+            if toe["center"][2] <= pad["center"][2] or not float(metatarsal["thickness"][0]) > float(metatarsal["thickness"][-1]):
+                raise SurfacePreviewPublishError(f"{where}.chain controls have invalid order or taper")
+            if not math.isclose(pad["center"][1] - pad["radii"][1], contact_height, rel_tol=0.0, abs_tol=1.0e-12) or not math.isclose(toe["center"][1] - toe["radii"][1], contact_height, rel_tol=0.0, abs_tol=1.0e-12):
+                raise SurfacePreviewPublishError(f"{where}.chain masses do not share the contact datum")
+            _require_axis_aligned_overlap(pad, toe, f"{where}.chain.pad-toe")
+            source_value = item["hock_source"]
+            source_where = f"{where}.hock_source"
+        if not isinstance(source_value, dict) or set(source_value) != {"owner", "anchor", "point", "boundary_point"}:
             raise SurfacePreviewPublishError(f"{source_where} has an invalid shape")
-        source_owner = owner(attachment_source["owner"], f"{source_where}.owner")
+        source_owner = owner(source_value["owner"], f"{source_where}.owner")
         expected_parent_role = "forearm" if parsed_owner["role"] == "hand" else "shin"
         expected_anchor = "forearm-distal-boundary" if parsed_owner["role"] == "hand" else "hock-endpoint"
         if source_owner["role"] != expected_parent_role or source_owner["anchors"] != parsed_owner["anchors"]:
             raise SurfacePreviewPublishError(f"{source_where}.owner does not match the paw parent")
-        if attachment_source["anchor"] != expected_anchor:
+        if source_value["anchor"] != expected_anchor:
             raise SurfacePreviewPublishError(f"{source_where}.anchor is invalid")
-        source_point = _point(attachment_source["point"], f"{source_where}.point")
-        boundary_point = _point(attachment_source["boundary_point"], f"{source_where}.boundary_point")
-        if source_point != item["attachment"]["points"][0]:
+        source_point = _point(source_value["point"], f"{source_where}.point")
+        boundary_point = _point(source_value["boundary_point"], f"{source_where}.boundary_point")
+        if parsed_owner["role"] == "hand" and source_point != item["attachment"]["points"][0]:
             raise SurfacePreviewPublishError(f"{source_where}.point does not match the attachment start")
+        if parsed_owner["role"] == "foot" and source_point != item["chain"]["hock"]["center"]:
+            raise SurfacePreviewPublishError(f"{source_where}.point does not match the hock anchor")
         parent_key = json.dumps(source_owner, sort_keys=True)
         parent_limb = limb_by_owner_key.get(parent_key)
         if parent_limb is None:
@@ -997,34 +1061,28 @@ def _validate_controls(
         if boundary_point != expected_boundary:
             raise SurfacePreviewPublishError(f"{source_where}.boundary_point does not match the parent distal endpoint")
         parent_anchor = anchor_by_owner_key.get(parent_key)
-        if parent_anchor is None or parent_anchor["name"] != attachment_source["anchor"]:
+        if parent_anchor is None or parent_anchor["name"] != source_value["anchor"]:
             raise SurfacePreviewPublishError(f"{source_where} does not name a compiled parent anchor")
         if source_point != parent_anchor["point"] or boundary_point != parent_anchor["boundary_point"]:
             raise SurfacePreviewPublishError(f"{source_where} does not match the compiled parent anchor")
-        masses = {mass["control"]: mass for mass in item["masses"]}
-        attachment = item["attachment"]
-        attachment_target = masses["paw"]["center"] if parsed_owner["role"] == "hand" else masses["heel"]["center"]
-        if attachment["points"][1] != attachment_target:
-            raise SurfacePreviewPublishError(f"regional guide paws[{index}] attachment must terminate at its source-owned mass")
-        if parsed_owner["role"] == "foot":
-            if tuple(attachment["points"][0]) != tuple(hock_centers.get(tuple(parsed_owner["anchors"]), [])):
-                raise SurfacePreviewPublishError(f"regional guide paws[{index}] attachment must start at the source-owned hock")
-            if source_point != attachment["points"][0] or source_point != hock_centers.get(tuple(parsed_owner["anchors"]), []):
-                raise SurfacePreviewPublishError(f"regional guide paws[{index}] hock attachment source is inconsistent")
-            heel = masses["heel"]
-            forefoot = masses["forefoot"]
+        if parsed_owner["role"] == "hand":
+            masses = {mass["control"]: mass for mass in item["masses"]}
+            if item["attachment"]["points"][1] != masses["paw"]["center"]:
+                raise SurfacePreviewPublishError(f"{where}.attachment must terminate at its source-owned mass")
+        else:
+            hock = item["chain"]["hock"]
             hock_record = hock_records.get(tuple(parsed_owner["anchors"]))
             if hock_record is None:
-                raise SurfacePreviewPublishError(f"regional guide paws[{index}] has no matching source-owned hock")
+                raise SurfacePreviewPublishError(f"{where} has no matching source-owned hock")
             hock_joint, hock_sections = hock_record
-            expected_hock_profiles = [
-                float(hock_sections[-1]["thickness"][1]),
-                min(float(value) for value in heel["radii"]),
-            ]
+            if hock["radii"] != hock_joint["mass"]["radii"]:
+                raise SurfacePreviewPublishError(f"{where}.chain hock radii do not bind the compiled shin hock")
+            metatarsal = item["chain"]["metatarsal"]
+            expected_hock_profiles = [float(hock_sections[-1]["thickness"][1]), float(metatarsal["thickness"][0])]
             if [float(value) for value in hock_joint["adjacent_profiles"]] != expected_hock_profiles:
-                raise SurfacePreviewPublishError(f"regional guide paws[{index}] hock adjacent profiles do not bind the heel mass")
-            if forefoot["center"][2] <= heel["center"][2] or forefoot["radii"][0] <= heel["radii"][0] or forefoot["radii"][1] >= heel["radii"][1]:
-                raise SurfacePreviewPublishError(f"regional guide paws[{index}] forefoot must be forward, wider, and flatter than heel")
+                raise SurfacePreviewPublishError(f"{where}.chain hock adjacent profiles do not bind the metatarsal")
+            if source_point != hock["center"] or source_point != hock_centers.get(tuple(parsed_owner["anchors"]), []):
+                raise SurfacePreviewPublishError(f"{where}.hock source is inconsistent")
     if {role: paw_roles.count(role) for role in {"hand", "foot"}} != {"hand": 2, "foot": 2}:
         raise SurfacePreviewPublishError("regional guide paw owner counts are invalid")
 
@@ -1060,7 +1118,7 @@ def _validate_guide(
     variant_id: str,
     manifest: dict[str, Any],
     descriptor_addresses: list[dict[str, Any]],
-) -> None:
+) -> dict[str, Any]:
     guide = _read_json(path, MAX_GUIDE_BYTES, "regional-guide.json")
     _finite_json(guide, "regional-guide.json")
     expected_fields = {"format", "variant", "owners", "counts", "projections", "shared_render_bounds", "canvas", "layout", "controls", "boundary"}
@@ -1098,6 +1156,7 @@ def _validate_guide(
     _validate_controls(guide.get("controls"), normalized_owners, lower, upper)
     if guide.get("boundary") != "private disposable regional controls; source-owned AddressKeys only; not a semantic or runtime contract":
         raise SurfacePreviewPublishError("regional guide boundary is invalid")
+    return guide
 
 
 def _validate_bundle(
@@ -1168,6 +1227,8 @@ def _validate_bundle(
     field_recipes = generator.get("field_recipes")
     if not isinstance(field_recipes, list) or not field_recipes or len(field_recipes) > 64 or not all(isinstance(item, str) and item for item in field_recipes):
         raise SurfacePreviewPublishError("surface bundle generator.field_recipes is invalid")
+    if field_recipes != list(EXPECTED_FIELD_RECIPES):
+        raise SurfacePreviewPublishError("surface bundle generator.field_recipes does not match the exact compiled recipe inventory")
     if not isinstance(generator.get("ownership"), str) or not generator["ownership"]:
         raise SurfacePreviewPublishError("surface bundle generator.ownership is invalid")
     if not isinstance(generator.get("boundary"), str) or not generator["boundary"] or len(generator["boundary"]) > 1024:
@@ -1234,6 +1295,8 @@ def _validate_bundle(
         }
         kinds: set[str] = set()
         image_entry: dict[str, Any] | None = None
+        metrics_payload: dict[str, Any] | None = None
+        guide_payload: dict[str, Any] | None = None
         for entry_index, entry in enumerate(inventory):
             entry_where = f"{where}.inventory[{entry_index}]"
             if not isinstance(entry, dict):
@@ -1269,10 +1332,25 @@ def _validate_bundle(
             if kind == "guide-skin-composite-png":
                 image_entry = entry
                 _validate_png(artifact, entry, rel_text)
+            elif kind == "metrics":
+                parsed_metrics = _read_json(artifact, MAX_METRICS_BYTES, f"{where}.metrics.json")
+                _finite_json(parsed_metrics, f"{where}.metrics.json")
+                if not isinstance(parsed_metrics, dict):
+                    raise SurfacePreviewPublishError(f"{where}.metrics.json must be an object")
+                metrics_payload = parsed_metrics
             elif kind == "regional-guide-json":
-                _validate_guide(artifact, entry, variant_id=variant["id"], manifest=manifest, descriptor_addresses=descriptor_addresses)
-        if kinds != {"ply", "semantic-sidecar", "metrics", "guide-skin-composite-png", "regional-guide-json"} or image_entry is None:
+                guide_payload = _validate_guide(artifact, entry, variant_id=variant["id"], manifest=manifest, descriptor_addresses=descriptor_addresses)
+        if kinds != {"ply", "semantic-sidecar", "metrics", "guide-skin-composite-png", "regional-guide-json"} or image_entry is None or metrics_payload is None or guide_payload is None:
             raise SurfacePreviewPublishError(f"{where}.inventory has wrong artifact kinds")
+        if variant.get("metrics") != metrics_payload:
+            raise SurfacePreviewPublishError(f"{where}.metrics does not match the inventoried metrics.json")
+        guide_counts = guide_payload["counts"]
+        if metrics_payload.get("generated_field_count") != guide_counts["compiled_fields"]:
+            raise SurfacePreviewPublishError(f"{where}.metrics.generated_field_count does not match the regional guide")
+        if metrics_payload.get("field_recipe_counts") != guide_counts["compiled_field_recipe_counts"]:
+            raise SurfacePreviewPublishError(f"{where}.metrics.field_recipe_counts do not match the regional guide")
+        if metrics_payload.get("generated_field_count") != EXPECTED_GUIDE_COUNTS["compiled_fields"] or metrics_payload.get("field_recipe_counts") != EXPECTED_GUIDE_COUNTS["compiled_field_recipe_counts"]:
+            raise SurfacePreviewPublishError(f"{where}.metrics recipe inventory does not match the expected guide counts")
         published.append({"id": variant["id"], "entry": image_entry})
     actual_paths, actual_directories = _regular_artifacts(bundle)
     actual_paths -= {MANIFEST_NAME}

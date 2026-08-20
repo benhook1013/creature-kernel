@@ -4,6 +4,7 @@ import copy
 import dataclasses
 import importlib.util
 import json
+import math
 import sys
 import tempfile
 import unittest
@@ -151,9 +152,13 @@ class SurfacePreviewTests(unittest.TestCase):
             for limb in guide.limb_guides:
                 self.assertTrue(all(np.isfinite(value) and value > 0.0 for value in limb.profile_controls))
             for paw in guide.paw_guides:
-                self.assertTrue(all(np.isfinite(value) and value > 0.0 for value in paw.paw_radii))
-                if paw.heel_radii is not None:
-                    self.assertTrue(all(np.isfinite(value) and value > 0.0 for value in paw.heel_radii))
+                if paw.owner.key[3] == "hand":
+                    assert paw.paw_radii is not None
+                    self.assertTrue(all(np.isfinite(value) and value > 0.0 for value in paw.paw_radii))
+                else:
+                    self.assertIsNone(paw.paw_radii)
+                    assert paw.foot_chain is not None
+                    self.assertTrue(all(np.isfinite(value) and value > 0.0 for value in paw.foot_chain.pad_radii))
             for tail in guide.tail_guides:
                 self.assertTrue(all(np.isfinite(value) and value > 0.0 for value in (*tail.taper,)))
             geometry_signatures.append(
@@ -184,10 +189,16 @@ class SurfacePreviewTests(unittest.TestCase):
             if left_key[3] in {"hand", "foot"}:
                 left = next(item for item in guide.paw_guides if item.source_key == left_key)
                 right = next(item for item in guide.paw_guides if item.source_key == right_key)
-                self.assertEqual(left.paw_radii, right.paw_radii)
-                self.assertEqual(left.heel_radii, right.heel_radii)
-                self.assertAlmostEqual(left.paw_center[0], -right.paw_center[0])
-                self.assertEqual(left.paw_center[1:], right.paw_center[1:])
+                if left_key[3] == "hand":
+                    self.assertEqual(left.paw_radii, right.paw_radii)
+                    assert left.paw_center is not None and right.paw_center is not None
+                    self.assertAlmostEqual(left.paw_center[0], -right.paw_center[0])
+                    self.assertEqual(left.paw_center[1:], right.paw_center[1:])
+                else:
+                    assert left.foot_chain is not None and right.foot_chain is not None
+                    self.assertEqual(left.foot_chain.metatarsal_profile, right.foot_chain.metatarsal_profile)
+                    self.assertEqual(left.foot_chain.pad_radii, right.foot_chain.pad_radii)
+                    self.assertEqual(left.foot_chain.toe_radii, right.foot_chain.toe_radii)
             else:
                 left = next(item for item in guide.limb_guides if item.source_key == left_key)
                 right = next(item for item in guide.limb_guides if item.source_key == right_key)
@@ -386,18 +397,24 @@ class SurfacePreviewTests(unittest.TestCase):
             )
         for paw in guide.paw_guides:
             if paw.owner.key[3] == "foot":
-                assert paw.heel_center is not None and paw.heel_radii is not None
-                assert paw.forefoot_center is not None and paw.forefoot_radii is not None
-                self.assertGreater(paw.forefoot_center[2], paw.heel_center[2])
-                self.assertGreater(paw.forefoot_radii[0], paw.heel_radii[0])
-                self.assertLess(paw.forefoot_radii[1], paw.heel_radii[1])
-                attachment = next(item for item in fields if item.owner is paw.owner and item.recipe == "extremity-bridge")
+                assert paw.foot_chain is not None
+                chain = paw.foot_chain
+                self.assertGreater(chain.metatarsal_centerline[1][2], chain.hock_anchor[2])
+                self.assertLess(chain.metatarsal_centerline[1][1], chain.hock_anchor[1])
+                self.assertGreater(chain.pad_center[2], chain.hock_anchor[2])
+                self.assertGreater(chain.toe_center[2], chain.pad_center[2])
+                self.assertGreater(chain.metatarsal_profile[0], chain.metatarsal_profile[1])
+                metatarsal = next(item for item in fields if item.owner is paw.owner and item.recipe == "metatarsal")
+                pad = next(item for item in fields if item.owner is paw.owner and item.recipe == "paw-pad")
+                toe = next(item for item in fields if item.owner is paw.owner and item.recipe == "toe-box")
                 shin = by_role[(paw.owner.key[1], "shin")]
-                self.assertEqual(tuple(attachment.shape["from"]), tuple(surface_preview._source_shape(shin, form.reference_scale)["to"]))
-                self.assertEqual(tuple(attachment.shape["to"]), paw.heel_center)
-                self.assertEqual([item.recipe for item in fields if item.owner is paw.owner], ["heel", "forefoot", "extremity-bridge"])
+                self.assertEqual(tuple(metatarsal.shape["from"]), tuple(surface_preview._source_shape(shin, form.reference_scale)["to"]))
+                self.assertEqual(tuple(metatarsal.shape["from"]), chain.hock_anchor)
+                self.assertEqual(tuple(metatarsal.shape["to"]), chain.pad_center)
+                self.assertEqual(tuple(pad.shape["center"]), chain.pad_center)
+                self.assertEqual(tuple(toe.shape["center"]), chain.toe_center)
+                self.assertEqual([item.recipe for item in fields if item.owner is paw.owner], ["metatarsal", "paw-pad", "toe-box"])
             else:
-                self.assertIsNone(paw.heel_center)
                 self.assertEqual([item.recipe for item in fields if item.owner is paw.owner], ["paw", "extremity-bridge"])
 
     def test_digitigrade_foot_chain_is_source_derived_bilateral_and_contact_grounded(self) -> None:
@@ -414,6 +431,17 @@ class SurfacePreviewTests(unittest.TestCase):
                 source = surface_preview._source_shape(foot.owner, form.reference_scale)
                 shin = next(item for item in guide.limb_guides if item.owner.key == foot.owner.parent)
                 assert shin.joint is not None
+                expected_pad_radii, expected_metatarsal_profile = surface_preview._derive_foot_chain_profile(
+                    source["radii"],
+                    "test.foot_chain",
+                )
+                self.assertEqual(chain.pad_radii, expected_pad_radii)
+                expected_proximal = 0.34 * math.sqrt(expected_pad_radii[0] * expected_pad_radii[2])
+                expected_distal = 0.72 * min(expected_pad_radii)
+                self.assertAlmostEqual(chain.metatarsal_profile[0], expected_proximal, places=12)
+                self.assertAlmostEqual(chain.metatarsal_profile[1], expected_distal, places=12)
+                self.assertEqual(chain.metatarsal_profile, expected_metatarsal_profile)
+                self.assertEqual(shin.joint.adjacent_profiles[1], expected_metatarsal_profile[0])
                 self.assertEqual(chain.hock_anchor, shin.joint.center)
                 self.assertEqual(chain.hock_radii, shin.joint.radii)
                 self.assertEqual(chain.metatarsal_centerline[0], chain.hock_anchor)
@@ -423,6 +451,8 @@ class SurfacePreviewTests(unittest.TestCase):
                 self.assertGreater(chain.toe_center[2], chain.pad_center[2])
                 self.assertGreater(chain.metatarsal_profile[0], chain.metatarsal_profile[1])
                 self.assertTrue(all(value > 0.0 for value in chain.metatarsal_profile))
+                self.assertGreater(chain.metatarsal_profile[0], chain.hock_radii[0])
+                self.assertLess(chain.metatarsal_profile[0], 2.0 * chain.hock_radii[0])
                 self.assertAlmostEqual(chain.contact_height, float(source["center"][1] - source["radii"][1]), places=12)
                 self.assertAlmostEqual(chain.pad_center[1] - chain.pad_radii[1], chain.contact_height, places=12)
                 self.assertAlmostEqual(chain.toe_center[1] - chain.toe_radii[1], chain.contact_height, places=12)
@@ -462,6 +492,7 @@ class SurfacePreviewTests(unittest.TestCase):
         malformed_cases = (
             dataclasses.replace(chain, hock_anchor=(chain.hock_anchor[0], chain.hock_anchor[1] + 0.1, chain.hock_anchor[2])),
             dataclasses.replace(chain, toe_center=(chain.toe_center[0], chain.toe_center[1] + 0.1, chain.toe_center[2])),
+            dataclasses.replace(chain, toe_center=(chain.toe_center[0], chain.toe_center[1], chain.pad_center[2] + chain.pad_radii[2] + chain.toe_radii[2] + 0.01)),
             dataclasses.replace(chain, metatarsal_profile=(chain.metatarsal_profile[1], chain.metatarsal_profile[0])),
         )
         for malformed_chain in malformed_cases:
@@ -928,7 +959,7 @@ class SurfacePreviewTests(unittest.TestCase):
             "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar",
             "upper_arm-pre-joint", "upper_arm-joint", "forearm-proximal", "forearm-distal", "thigh-pre-joint", "thigh-joint", "shin-pre-joint", "shin-joint",
             "elbow", "knee", "hock", "root-bridge", "hip-transition",
-            "paw", "heel", "forefoot", "extremity-bridge", "tail-segment", "tail-tip-extension", "tail-tip-cap", "tail-root-bridge",
+            "paw", "metatarsal", "paw-pad", "toe-box", "extremity-bridge", "tail-segment", "tail-tip-extension", "tail-tip-cap", "tail-root-bridge",
             "tail-root-collar",
         }
         expected_recipes.update(
@@ -1034,29 +1065,21 @@ class SurfacePreviewTests(unittest.TestCase):
         self.assertAlmostEqual(float(hand_anchor_value), 0.0, places=12)
 
         foot = next(item for item in descriptors if item.key[1] == ("left",) and item.key[3] == "foot")
-        foot_shape = surface_preview._source_shape(foot, form.reference_scale)
-        foot_pad = next(item for item in fields if item.owner is foot and item.recipe == "heel")
-        foot_front = next(item for item in fields if item.owner is foot and item.recipe == "forefoot")
-        np.testing.assert_allclose(
-            foot_pad.shape["center"],
-            foot_shape["center"] + np.asarray([0.0, -0.08 * foot_shape["radii"][1], -0.20 * foot_shape["radii"][2]]),
-        )
-        np.testing.assert_allclose(
-            foot_pad.shape["radii"],
-            foot_shape["radii"] * np.asarray([1.02, 0.68, 0.78]),
-        )
-        np.testing.assert_allclose(
-            foot_front.shape["center"],
-            foot_shape["center"] + np.asarray([0.0, -0.18 * foot_shape["radii"][1], 0.38 * foot_shape["radii"][2]]),
-        )
-        np.testing.assert_allclose(
-            foot_front.shape["radii"],
-            foot_shape["radii"] * np.asarray([1.30, 0.42, 0.82]),
-        )
-        foot_bridge = next(item for item in fields if item.owner is foot and item.recipe == "extremity-bridge")
-        shin = next(item for item in descriptors if item.key == foot.parent)
-        np.testing.assert_allclose(foot_bridge.shape["from"], surface_preview._source_shape(shin, form.reference_scale)["to"])
-        self.assertEqual(foot_bridge.shape["to"].tolist(), foot_pad.shape["center"].tolist())
+        foot_guide = next(item for item in surface_preview._derive_hybrid_guides(form, descriptors).paw_guides if item.owner is foot)
+        assert foot_guide.foot_chain is not None
+        chain = foot_guide.foot_chain
+        metatarsal = next(item for item in fields if item.owner is foot and item.recipe == "metatarsal")
+        foot_pad = next(item for item in fields if item.owner is foot and item.recipe == "paw-pad")
+        foot_front = next(item for item in fields if item.owner is foot and item.recipe == "toe-box")
+        np.testing.assert_allclose(metatarsal.shape["from"], chain.hock_anchor)
+        np.testing.assert_allclose(metatarsal.shape["to"], chain.pad_center)
+        np.testing.assert_allclose(metatarsal.shape["r0"], chain.metatarsal_profile[0])
+        np.testing.assert_allclose(metatarsal.shape["r1"], chain.metatarsal_profile[1])
+        np.testing.assert_allclose(foot_pad.shape["center"], chain.pad_center)
+        np.testing.assert_allclose(foot_pad.shape["radii"], chain.pad_radii)
+        np.testing.assert_allclose(foot_front.shape["center"], chain.toe_center)
+        np.testing.assert_allclose(foot_front.shape["radii"], chain.toe_radii)
+        self.assertEqual([item.recipe for item in fields if item.owner is foot], ["metatarsal", "paw-pad", "toe-box"])
 
         tail_root = next(item for item in descriptors if item.key[3] == "tail_root")
         tail_tip = next(item for item in descriptors if item.key[3] == "tail_tip")
@@ -1191,7 +1214,7 @@ class SurfacePreviewTests(unittest.TestCase):
                 ((), "head", "cranium"), ((), "head", "muzzle"), ((), "head", "head-base-bridge"),
                 ((), "neck", "tapered-neck"), ((), "neck", "neck-collar"), ((), "torso", "torso-cage"),
                 *shoulder_support_order,
-                (("left",), "foot", "heel"), (("left",), "foot", "forefoot"), (("left",), "foot", "extremity-bridge"),
+                (("left",), "foot", "metatarsal"), (("left",), "foot", "paw-pad"), (("left",), "foot", "toe-box"),
                 (("left",), "forearm", "forearm-proximal"), (("left",), "forearm", "forearm-distal"),
                 (("left",), "hand", "paw"), (("left",), "hand", "extremity-bridge"),
                 (("left",), "shin", "shin-pre-joint"), (("left",), "shin", "shin-joint"), (("left",), "shin", "hock"),
@@ -1201,7 +1224,7 @@ class SurfacePreviewTests(unittest.TestCase):
                 (("left",), "upper_arm", "upper_arm-pre-joint"), (("left",), "upper_arm", "upper_arm-joint"),
                 (("left",), "upper_arm", "root-bridge"), (("left",), "upper_arm", "elbow"),
                 (("left",), "upper_arm", "deltoid-sweep-1"),
-                (("right",), "foot", "heel"), (("right",), "foot", "forefoot"), (("right",), "foot", "extremity-bridge"),
+                (("right",), "foot", "metatarsal"), (("right",), "foot", "paw-pad"), (("right",), "foot", "toe-box"),
                 (("right",), "forearm", "forearm-proximal"), (("right",), "forearm", "forearm-distal"),
                 (("right",), "hand", "paw"), (("right",), "hand", "extremity-bridge"),
                 (("right",), "shin", "shin-pre-joint"), (("right",), "shin", "shin-joint"), (("right",), "shin", "hock"),
@@ -1293,8 +1316,8 @@ class SurfacePreviewTests(unittest.TestCase):
                 self.assertEqual(regional["counts"]["compiled_field_recipe_counts"], {
                     "upper_arm-pre-joint": 2, "upper_arm-joint": 2, "forearm-proximal": 2, "forearm-distal": 2,
                     "thigh-pre-joint": 2, "thigh-joint": 2, "shin-pre-joint": 2, "shin-joint": 2,
-                    "elbow": 2, "knee": 2, "hock": 2, "paw": 2, "heel": 2, "forefoot": 2,
-                    "extremity-bridge": 4, "root-bridge": 4, "hip-transition": 2,
+                    "elbow": 2, "knee": 2, "hock": 2, "paw": 2, "metatarsal": 2, "paw-pad": 2, "toe-box": 2,
+                    "extremity-bridge": 2, "root-bridge": 4, "hip-transition": 2,
                     "tail-segment": 2, "cranium": 1,
                     "muzzle": 1, "head-base-bridge": 1, "tapered-neck": 1,
                     "neck-collar": 1, "torso-cage": 1,
@@ -1367,13 +1390,15 @@ class SurfacePreviewTests(unittest.TestCase):
                 self.assertNotIn("joint_narrowing", upper_arm)
                 shin = next(item for item in regional["controls"]["limbs"] if item["owner"]["role"] == "shin")
                 self.assertEqual([item["name"] for item in shin["anchors"]], ["hock-endpoint"])
-                self.assertEqual({item["control"] for item in next(item for item in regional["controls"]["paws"] if item["owner"]["role"] == "foot")["masses"]}, {"heel", "forefoot"})
+                foot_control = next(item for item in regional["controls"]["paws"] if item["owner"]["role"] == "foot")
+                self.assertEqual({item["control"] for item in foot_control["chain"]["masses"]}, {"paw-pad", "toe-box"})
+                self.assertEqual(foot_control["chain"]["metatarsal"]["control"], "metatarsal")
+                self.assertEqual(foot_control["chain"]["axes"], {"lateral": [1.0, 0.0, 0.0], "up": [0.0, 1.0, 0.0], "forward": [0.0, 0.0, 1.0]})
                 hand_control = next(item for item in regional["controls"]["paws"] if item["owner"]["role"] == "hand")
                 self.assertEqual(hand_control["attachment_source"]["owner"]["role"], "forearm")
                 self.assertEqual(hand_control["attachment_source"]["anchor"], "forearm-distal-boundary")
-                foot_control = next(item for item in regional["controls"]["paws"] if item["owner"]["role"] == "foot")
-                self.assertEqual(foot_control["attachment_source"]["owner"]["role"], "shin")
-                self.assertEqual(foot_control["attachment_source"]["anchor"], "hock-endpoint")
+                self.assertEqual(foot_control["hock_source"]["owner"]["role"], "shin")
+                self.assertEqual(foot_control["hock_source"]["anchor"], "hock-endpoint")
                 guide_controls.append(regional["controls"])
 
                 def has_forbidden_key(value: object) -> bool:
