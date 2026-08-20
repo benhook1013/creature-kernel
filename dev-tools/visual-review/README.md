@@ -290,8 +290,10 @@ explicit shoulder/hip girdle masses, source-derived digitigrade foot chains
 from hock through tapered metatarsal to planted paw-pad and toe-box, a
 guide-only contact datum, positive dimensions,
 allowed path primitives, expected source roles, and shared-bound containment;
-its compiled recipe counts, shared bounds, projections, canvas, and panel layout
-must match the manifest. Composite
+its shoulder sidecar distinguishes guide-only anterior/posterior support curves
+from the two skin-driving deltoid sweeps, and its compiled recipe counts,
+shared bounds, projections, canvas, and panel layout must match the manifest.
+Stale support-field claims are rejected rather than silently accepted. Composite
 PNG IHDR and inventory metadata are bound to the fixed 1800x570 RGB canvas. The
 bundle's source/provenance and descriptor AddressKeys are bound to the parsed v4
 producer result. The producer has a 10-second bound and the local extraction/

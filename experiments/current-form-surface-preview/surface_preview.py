@@ -389,8 +389,10 @@ class _ShoulderFrame:
     """Private trapezius/shoulder frame for a later surface consumer.
 
     Its central anchor remains torso-owned, while its two socket anchors and
-    deltoid controls remain upper-arm-owned.  The disposable analytic-field
-    adapter consumes these exact curves as adjacent tapered spans; it does not
+    deltoid controls remain upper-arm-owned.  The anterior/posterior support
+    curves are private guide-only controls in this adapter; only the
+    upper-arm-owned deltoid sweep, together with the separate torso-cage and
+    root consumers, drives disposable analytic skin.  The adapter does not
     infer a second shoulder representation or restore the old round masses.
     """
 
@@ -2629,13 +2631,19 @@ def _path_json(
 
 
 def _curve_json(name: str, owner: Descriptor, curve: _ShoulderCurve) -> dict[str, Any]:
-    """Serialize every private shoulder curve control, including uncompiled spans."""
+    """Serialize every private shoulder curve, including uncompiled spans.
+
+    Support curves remain inspectable guide controls, but this disposable
+    analytic adapter does not consume them as skin fields.  The explicit
+    consumption label keeps that boundary truthful in the sidecar.
+    """
 
     return {
         "name": name,
         "owner": _address_json(owner.key),
         "points": [_point_json(point) for point in curve.points],
         "profile": [float(item) for item in curve.profile],
+        "consumption": "skin-driving" if name == "deltoid-sweep" else "guide-only",
     }
 
 
@@ -2750,7 +2758,7 @@ def _regional_guide_json(
             ],
         })
     shoulder_frame_controls = {
-        "status": "skin-driving private shoulder frame",
+        "status": "private shoulder frame; support curves guide-only; deltoid sweep skin-driving",
         "owners": {
             "torso": _address_json(frame.torso_owner.key),
             "neck": _address_json(frame.neck_owner.key),
@@ -2923,9 +2931,7 @@ def _regional_guide_json(
             "torso_cage_connections": len(torso_cage.sections) - 1,
             "shoulder_frame_sides": len(frame.sides),
             "shoulder_frame_curves": sum(3 for _ in frame.sides),
-            "shoulder_frame_compiled_fields": sum(
-                2 + 2 + 1 for _ in frame.sides
-            ),
+            "shoulder_frame_compiled_fields": sum(1 for _ in frame.sides),
             "head": 1,
             "limbs": len(guide.limb_guides),
             "paws": len(guide.paw_guides),
@@ -3003,12 +3009,13 @@ def _compile_hybrid_guide(guide: _HybridGuide) -> tuple[Field, ...]:
         add_path(desc, "tapered-neck", head.neck_transition, head.neck_transition_thickness, "tapered-segment")
         add_ellipsoid(desc, "neck-collar", head.neck_collar_center, head.neck_collar_radii)
 
-    def add_shoulder_supports(desc: Descriptor) -> None:
+    def validate_shoulder_support_guide(desc: Descriptor) -> None:
         if desc is not shoulder_frame.torso_owner:
-            _fail("shoulder support fields must retain torso descriptor identity")
-        for side in shoulder_frame.sides:
-            add_curve(desc, f"shoulder-{side.side}-anterior-support", side.anterior_support, (0, 1))
-            add_curve(desc, f"shoulder-{side.side}-posterior-return", side.posterior_return, (0, 1))
+            _fail("shoulder support guide owner must retain torso descriptor identity")
+        # Keep the private anterior/posterior curves in the guide for x-ray
+        # inspection, but do not feed them to this isotropic skin adapter.
+        # Their outer contour currently produces the underarm lobes; the
+        # torso cage and upper-arm-owned deltoid sweep remain consumed.
 
     def add_deltoid(desc: Descriptor) -> None:
         matches = tuple(side for side in shoulder_frame.sides if side.owner is desc)
@@ -3075,7 +3082,7 @@ def _compile_hybrid_guide(guide: _HybridGuide) -> tuple[Field, ...]:
         # descriptor-ordered recipe stream.
         if desc.key == torso_cage.torso_owner.key:
             fields.append(Field(torso_cage.torso_owner, "torso-cage", _torso_cage_shape(torso_cage)))
-            add_shoulder_supports(desc)
+            validate_shoulder_support_guide(desc)
         if desc.key == head.head_owner.key:
             add_head(desc)
         if desc.key == head.neck_owner.key:
@@ -3619,7 +3626,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
             "canvas": {"width": CANVAS[0], "height": CANVAS[1], "mode": "RGB"},
             "layout": _layout_json(),
             "projections": _projection_json(),
-            "generator": {"bundle_version": 2, "samples_per_axis": samples, "padding": padding, "smooth_union": {"operator": "polynomial_cubic_smooth_min", "k": smooth_k, "fold_order": "source_address_then_recipe_order"}, "field_primitives": ["torso-cage", "ellipsoid", "capsule", "linear-radius-tapered-segment"], "field_recipes": ["torso-cage", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar", "upper_arm-pre-joint", "upper_arm-joint", "forearm-proximal", "forearm-distal", "thigh-pre-joint", "thigh-joint", "shin-pre-joint", "shin-joint", "elbow", "knee", "hock", "root-bridge", "hip-transition", "shoulder-left-anterior-support-0", "shoulder-left-anterior-support-1", "shoulder-left-posterior-return-0", "shoulder-left-posterior-return-1", "shoulder-right-anterior-support-0", "shoulder-right-anterior-support-1", "shoulder-right-posterior-return-0", "shoulder-right-posterior-return-1", "deltoid-sweep-1", "paw", "metatarsal", "paw-pad", "toe-box", "extremity-bridge", "tail-segment", "tail-tip-extension", "tail-tip-cap", "tail-root-bridge", "tail-root-collar"], "ownership": "recipe fields are source-owned; the blended torso-cage and shoulder-support recipes are torso-owned; deltoid recipes retain their upper-arm owners; winner labels expose only source AddressKeys", "boundary": "disposable exploratory visual proof; not production geometry, SDF, collision, rig, topology, or Readiness evidence"},
+            "generator": {"bundle_version": 2, "samples_per_axis": samples, "padding": padding, "smooth_union": {"operator": "polynomial_cubic_smooth_min", "k": smooth_k, "fold_order": "source_address_then_recipe_order"}, "field_primitives": ["torso-cage", "ellipsoid", "capsule", "linear-radius-tapered-segment"], "field_recipes": ["torso-cage", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar", "upper_arm-pre-joint", "upper_arm-joint", "forearm-proximal", "forearm-distal", "thigh-pre-joint", "thigh-joint", "shin-pre-joint", "shin-joint", "elbow", "knee", "hock", "root-bridge", "hip-transition", "deltoid-sweep-1", "paw", "metatarsal", "paw-pad", "toe-box", "extremity-bridge", "tail-segment", "tail-tip-extension", "tail-tip-cap", "tail-root-bridge", "tail-root-collar"], "ownership": "recipe fields are source-owned; the blended torso-cage is torso-owned; shoulder support curves remain torso-owned guide-only controls and are not consumed by this adapter; deltoid recipes retain their upper-arm owners; winner labels expose only source AddressKeys", "boundary": "disposable exploratory visual proof; not production geometry, SDF, collision, rig, topology, or Readiness evidence"},
             "variants": records,
         }
         (stage / "surface-preview-manifest.json").write_bytes(_canonical(manifest) + b"\n")
