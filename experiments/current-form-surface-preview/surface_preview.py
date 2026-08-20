@@ -777,6 +777,73 @@ def _torso_cage_field(points: np.ndarray, shape: dict[str, Any]) -> np.ndarray:
     return np.where(inside, inside_value, cap_value)
 
 
+def _torso_cage_boundary_anchor(
+    cage: _TorsoCage,
+    axial_coordinate: float,
+    direction: np.ndarray | tuple[float, float, float],
+) -> np.ndarray:
+    """Return a deterministic attachment point on the swept cage boundary.
+
+    Limb roots use the lateral/forward ellipse at the nearest cage end when
+    their source point lies below or above the profile.  A direction without a
+    lateral/forward component is only valid outside the profile, where it
+    selects the rounded bottom or top cap.  This keeps junctions on the one
+    torso field rather than silently falling back to the obsolete source
+    ellipsoid.
+    """
+
+    axial = float(axial_coordinate)
+    direction_value = np.asarray(direction, dtype=np.float64)
+    if direction_value.shape != (3,) or not math.isfinite(axial) or not np.all(np.isfinite(direction_value)):
+        _fail("torso cage boundary query requires finite scalar and three-vector")
+    sections = cage.sections
+    if len(sections) < 2:
+        _fail("torso cage boundary query requires at least two sections")
+    centers = np.asarray([section.center for section in sections], dtype=np.float64)
+    heights = centers[:, 1]
+    lateral = np.asarray([section.lateral_radius for section in sections], dtype=np.float64)
+    depth = np.asarray([section.depth_radius for section in sections], dtype=np.float64)
+    lower, upper = float(heights[0]), float(heights[-1])
+    lateral_forward = direction_value[[0, 2]]
+    lateral_forward_length = float(np.linalg.norm(lateral_forward))
+
+    # An axial direction is unambiguous only in the rounded end-cap regions.
+    # It is useful for the neck, whose source target sits above the upper
+    # profile, and prevents a centreline query from inventing a side.
+    if lateral_forward_length <= 1.0e-12:
+        if axial < lower:
+            return centers[0] - np.asarray([0.0, min(lateral[0], depth[0]), 0.0])
+        if axial > upper:
+            return centers[-1] + np.asarray([0.0, min(lateral[-1], depth[-1]), 0.0])
+        _fail("torso cage boundary direction is ambiguous inside profile")
+
+    # Clamp out-of-range root heights to the corresponding end section.  The
+    # path bridge then spans the remaining axial difference while its start is
+    # exactly on the cage perimeter.
+    if axial <= lower:
+        index = 0
+        center = centers[index]
+        lateral_radius = float(lateral[index])
+        depth_radius = float(depth[index])
+    elif axial >= upper:
+        index = len(sections) - 1
+        center = centers[index]
+        lateral_radius = float(lateral[index])
+        depth_radius = float(depth[index])
+    else:
+        index = int(np.searchsorted(heights, axial, side="right") - 1)
+        t = (axial - heights[index]) / (heights[index + 1] - heights[index])
+        center = centers[index] + t * (centers[index + 1] - centers[index])
+        lateral_radius = float(lateral[index] + t * (lateral[index + 1] - lateral[index]))
+        depth_radius = float(depth[index] + t * (depth[index + 1] - depth[index]))
+
+    dx, dz = lateral_forward / lateral_forward_length
+    denominator = math.sqrt((dx / lateral_radius) ** 2 + (dz / depth_radius) ** 2)
+    if not math.isfinite(denominator) or denominator <= 0.0:
+        _fail("torso cage boundary direction is invalid")
+    return center + np.asarray([dx / denominator, 0.0, dz / denominator])
+
+
 _FIXED_GUIDE_AXES = _GuideAxes(
     lateral=(1.0, 0.0, 0.0),
     up=(0.0, 1.0, 0.0),
@@ -842,6 +909,40 @@ def _guide_path(
         _fail(f"{where} must not be zero length")
     _guide_profile(profile, f"{where}.profile")
     return path
+
+
+def _embed_boundary_connector(
+    path: tuple[tuple[float, float, float], tuple[float, float, float]],
+    profile: tuple[float, ...],
+    where: str,
+) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+    """Move a connector's centreline start inside its owning cage boundary.
+
+    ``path[0]`` remains the semantic boundary anchor exposed by the guide.
+    In this fixed fixture the source limb root target lies inside the cage
+    boundary. Therefore “toward the child” means toward that child root point,
+    not toward the branch-facing outward side. The analytic connector
+    centreline starts one support radius toward the child in the
+    lateral/forward plane, so its spherical support meets the cage boundary
+    rather than projecting a full radius outside the torso. The axial
+    component remains in the path itself, preserving the intended limb
+    direction.
+    """
+
+    _guide_profile(profile, f"{where}.profile")
+    boundary = np.asarray(path[0], dtype=np.float64)
+    target = np.asarray(path[1], dtype=np.float64)
+    direction = target - boundary
+    lateral_forward = direction[[0, 2]]
+    lateral_forward_length = float(np.linalg.norm(lateral_forward))
+    support = float(profile[0])
+    if not math.isfinite(lateral_forward_length) or lateral_forward_length <= 1.0e-12 or not math.isfinite(support) or support <= 0.0:
+        _fail(f"{where} cannot embed a degenerate boundary connector")
+    if support >= lateral_forward_length:
+        _fail(f"{where} support radius consumes its boundary-to-child span")
+    lateral_direction = lateral_forward / lateral_forward_length
+    compiled_start = boundary + np.asarray([lateral_direction[0], 0.0, lateral_direction[1]]) * support
+    return _guide_path(compiled_start, target, profile, f"{where}.compiled")
 
 
 def _guide_topology(descriptors: tuple[Descriptor, ...]) -> _GuideTopology:
@@ -1383,7 +1484,11 @@ def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _H
         "head.transition_end",
     )
     neck_radius = max(min(cranium_radii), _radius_from_shape(neck_source), 0.12)
-    neck_start = _parent_surface_anchor(torso, neck.point, form.reference_scale)
+    neck_start = _torso_cage_boundary_anchor(
+        torso_cage,
+        float(neck.point[1]),
+        np.asarray(neck.point, dtype=np.float64) - np.asarray(torso_cage.sections[-1].center, dtype=np.float64),
+    )
     neck_end = np.asarray(head.point, dtype=np.float64).copy()
     neck_end[1] -= 0.70 * head_source["radii"][1]
     neck_guide = _guide_path(
@@ -1463,24 +1568,45 @@ def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _H
         parent = by_key.get(desc.parent) if desc.parent is not None else None
         radius = _radius_from_shape(source)
         if role in {"upper_arm", "thigh"} and parent is not None:
-            anchor = _parent_surface_anchor(parent, source["from"], form.reference_scale)
-            root_centerline = _guide_path(anchor, start, (radius * 1.45, radius * 1.12), f"{_key_text(desc.key)}.root")
-            root_thickness = (radius * 1.45, radius * 1.12)
+            if role == "upper_arm":
+                anchor = _torso_cage_boundary_anchor(
+                    torso_cage,
+                    float(source["from"][1]),
+                    np.asarray(source["from"], dtype=np.float64) - np.asarray(torso_cage.sections[-1].center, dtype=np.float64),
+                )
+            else:
+                anchor = _torso_cage_boundary_anchor(
+                    torso_cage,
+                    float(source["from"][1]),
+                    np.asarray(source["from"], dtype=np.float64) - np.asarray(torso_cage.sections[0].center, dtype=np.float64),
+                )
+            # The guide retains the exact cage boundary anchor.  Compilation
+            # embeds the connector by this restrained support radius so the
+            # branch meets the torso instead of projecting a round shelf.
+            root_centerline = _guide_path(anchor, start, (radius * 0.82, radius * 0.68), f"{_key_text(desc.key)}.root")
+            root_thickness = (radius * 0.82, radius * 0.68)
             if role == "thigh":
                 transition_end = source["from"] + 0.35 * (source["to"] - source["from"])
-                hip_centerline = _guide_path(anchor, transition_end, (radius * 1.25, radius * 1.15), f"{_key_text(desc.key)}.hip")
-                hip_thickness = (radius * 1.25, radius * 1.15)
+                hip_centerline = _guide_path(anchor, transition_end, (radius * 0.78, radius * 0.66), f"{_key_text(desc.key)}.hip")
+                hip_thickness = (radius * 0.78, radius * 0.66)
                 hip_center = _guide_point(
-                    source["from"] + np.asarray([0.0, 0.16 * radius, 0.0]),
+                    anchor,
                     f"{_key_text(desc.key)}.hip_center",
                 )
                 hip_radii = _guide_radii(
-                    radius * np.asarray([1.55, 1.20, 1.35]),
+                    radius * np.asarray([1.12, 0.98, 1.08]),
                     f"{_key_text(desc.key)}.hip_radii",
                 )
         if role == "upper_arm":
-            shoulder_center = _guide_point(source["from"] + np.asarray([0.0, -0.20 * radius, 0.0]), f"{_key_text(desc.key)}.shoulder_center")
-            shoulder_radii = _guide_radii(radius * np.asarray([1.30, 1.55, 1.55]), f"{_key_text(desc.key)}.shoulder_radii")
+            shoulder_anchor = _torso_cage_boundary_anchor(
+                torso_cage,
+                float(source["from"][1]),
+                np.asarray(source["from"], dtype=np.float64) - np.asarray(torso_cage.sections[-1].center, dtype=np.float64),
+            )
+            shoulder_center = _guide_point(shoulder_anchor, f"{_key_text(desc.key)}.shoulder_center")
+            # Keep this as a compact root control, not a second shoulder
+            # ellipsoid capable of recreating the old lateral shelf.
+            shoulder_radii = _guide_radii(radius * np.asarray([0.88, 1.02, 0.94]), f"{_key_text(desc.key)}.shoulder_radii")
 
         joint = None
         if role in {"upper_arm", "thigh", "shin"}:
@@ -2118,13 +2244,21 @@ def _compile_hybrid_guide(guide: _HybridGuide) -> tuple[Field, ...]:
         for section in limb.sections:
             add_path(desc, f"{limb.owner.key[3]}-{section.name}", section.centerline, section.thickness, section.path_kind)
         if limb.root_centerline is not None:
-            add_path(desc, "root-bridge", limb.root_centerline, limb.root_thickness, "tapered-segment")  # type: ignore[arg-type]
+            add_path(
+                desc,
+                "root-bridge",
+                _embed_boundary_connector(limb.root_centerline, limb.root_thickness, f"{_key_text(limb.owner.key)}.root"),
+                limb.root_thickness,
+                "tapered-segment",
+            )  # type: ignore[arg-type]
         if limb.hip_centerline is not None:
-            add_path(desc, "hip-transition", limb.hip_centerline, limb.hip_thickness, "tapered-segment")  # type: ignore[arg-type]
-        if limb.hip_center is not None:
-            add_ellipsoid(desc, "hip-girdle", limb.hip_center, limb.hip_radii)  # type: ignore[arg-type]
-        if limb.shoulder_center is not None:
-            add_ellipsoid(desc, "shoulder-mass", limb.shoulder_center, limb.shoulder_radii)  # type: ignore[arg-type]
+            add_path(
+                desc,
+                "hip-transition",
+                _embed_boundary_connector(limb.hip_centerline, limb.hip_thickness, f"{_key_text(limb.owner.key)}.hip"),
+                limb.hip_thickness,
+                "tapered-segment",
+            )  # type: ignore[arg-type]
         if limb.joint is not None:
             if not math.isclose(limb.joint.radii[0], 0.70 * min(limb.joint.adjacent_profiles), rel_tol=1e-9, abs_tol=1e-12):
                 _fail(f"joint radius is not derived from adjacent profiles for {_key_text(limb.owner.key)}")
@@ -2664,7 +2798,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
             "canvas": {"width": CANVAS[0], "height": CANVAS[1], "mode": "RGB"},
             "layout": _layout_json(),
             "projections": _projection_json(),
-            "generator": {"bundle_version": 2, "samples_per_axis": samples, "padding": padding, "smooth_union": {"operator": "polynomial_cubic_smooth_min", "k": smooth_k, "fold_order": "source_address_then_recipe_order"}, "field_primitives": ["torso-cage", "ellipsoid", "capsule", "linear-radius-tapered-segment"], "field_recipes": ["torso-cage", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar", "upper_arm-pre-joint", "upper_arm-joint", "forearm-proximal", "forearm-distal", "thigh-pre-joint", "thigh-joint", "shin-pre-joint", "shin-joint", "elbow", "knee", "hock", "root-bridge", "hip-transition", "hip-girdle", "shoulder-mass", "paw", "heel", "forefoot", "extremity-bridge", "tail-segment", "tail-tip-extension", "tail-tip-cap", "tail-root-bridge", "tail-root-collar"], "ownership": "recipe fields are source-owned; the blended torso-cage recipe is torso-owned and winner labels select the nearest axial cage-section owner (lower-index tie break), exposing only source AddressKeys", "boundary": "disposable exploratory visual proof; not production geometry, SDF, collision, rig, topology, or Readiness evidence"},
+            "generator": {"bundle_version": 2, "samples_per_axis": samples, "padding": padding, "smooth_union": {"operator": "polynomial_cubic_smooth_min", "k": smooth_k, "fold_order": "source_address_then_recipe_order"}, "field_primitives": ["torso-cage", "ellipsoid", "capsule", "linear-radius-tapered-segment"], "field_recipes": ["torso-cage", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar", "upper_arm-pre-joint", "upper_arm-joint", "forearm-proximal", "forearm-distal", "thigh-pre-joint", "thigh-joint", "shin-pre-joint", "shin-joint", "elbow", "knee", "hock", "root-bridge", "hip-transition", "paw", "heel", "forefoot", "extremity-bridge", "tail-segment", "tail-tip-extension", "tail-tip-cap", "tail-root-bridge", "tail-root-collar"], "ownership": "recipe fields are source-owned; the blended torso-cage recipe is torso-owned and winner labels select the nearest axial cage-section owner (lower-index tie break), exposing only source AddressKeys", "boundary": "disposable exploratory visual proof; not production geometry, SDF, collision, rig, topology, or Readiness evidence"},
             "variants": records,
         }
         (stage / "surface-preview-manifest.json").write_bytes(_canonical(manifest) + b"\n")

@@ -15,7 +15,7 @@ The compiler-owned middle seam is a private regional guide representation
 derived separately for each of the four validated variants. It carries stable
 source AddressKey ownership and provenance, the fixed prototype axes and
 parent topology, ordered pelvic-girdle/waist/chest-girdle stations with short
-station transitions, explicit shoulder and hip girdle controls at limb roots,
+station transitions, compact shoulder and hip root controls at limb roots,
 craniofacial and neck transitions, piecewise tapered limb sections with
 endpoint-owned elbow/knee/hock stations, structured heel/forefoot-pad controls,
 and tail
@@ -32,14 +32,15 @@ The renderer expands each source descriptor into a bounded, deterministic
 role recipe where useful. The current fixture convention supplies ordered
 pelvic/chest girdle and narrow-waist masses joined by two short tapered station
 bridges, cranium and muzzle, a parent-surface neck/collar, source-owned
-shoulder and hip girdle masses plus limb root bridges, tapered hip-to-thigh
+compact shoulder and hip root controls plus embedded limb root bridges, tapered hip-to-thigh
 transitions, piecewise limb profiles, endpoint joint stations, simple
 two-stage hand paws, structured heel/forefoot foot masses, and
 a smoothly rooted straight tail with a full midsection and short blunt distal
 taper. Recipe components are fields,
 not semantic nodes: every generated component keeps its source descriptor as
 owner and the semantic sidecar emits only source AddressKeys. Limb and root
-bridges are anchored on the parent analytic-field boundary in the existing
+bridges are anchored on the torso cage boundary for torso-owned roots, or the
+parent analytic-field boundary for other attachments, in the existing
 axis-aligned fixture convention; arbitrary orientation is not claimed. Recipe
 expansion therefore fails closed unless the envelope contains the exact 18-Part
 stylized-biped role/parent layout with a mirrored left/right body, +Y as up,
@@ -47,6 +48,12 @@ stylized-biped role/parent layout with a mirrored left/right body, +Y as up,
 ellipsoid centres, capsule endpoints, and tapered-tail endpoints must also
 remain bound to their source reference points. This is a deliberate preview
 restriction, not a local-frame or general morphology contract.
+
+The skin adapter embeds torso-owned root and hip connectors toward the child by
+their support radius. Their guide-side boundary anchors remain visible in the
+regional sidecar, while the compiled field uses the embedded centreline; the
+separate shoulder/hip mass controls remain diagnostic and are not emitted as
+additional skin fields.
 
 The manifest metrics report both source descriptor count and actual generated
 field count, including the field-memory bound used for allocation. This is

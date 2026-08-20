@@ -397,6 +397,88 @@ class SurfacePreviewTests(unittest.TestCase):
         )
         self.assertTrue(all(sections[index].center[1] < sections[index + 1].center[1] for index in range(len(sections) - 1)))
 
+    def test_generated_torso_junctions_are_on_symmetric_cage_boundary_for_all_variants(self) -> None:
+        form = surface_preview.validate_envelope(make_varied_payload())
+        for _, descriptors, _ in form.variants:
+            guide = surface_preview._derive_hybrid_guides(form, descriptors)
+            fields = surface_preview._compile_hybrid_guide(guide)
+            torso_field = next(item for item in fields if item.recipe == "torso-cage")
+            torso = next(item for item in descriptors if item.key[3] == "torso")
+            pelvis = next(item for item in descriptors if item.key[3] == "pelvis")
+            torso_center = surface_preview._source_shape(torso, form.reference_scale)["center"]
+            pelvis_center = surface_preview._source_shape(pelvis, form.reference_scale)["center"]
+
+            shoulder_guides = [item for item in guide.limb_guides if item.owner.key[3] == "upper_arm"]
+            hip_guides = [item for item in guide.limb_guides if item.owner.key[3] == "thigh"]
+            shoulder_points = np.asarray([item.root_centerline[0] for item in shoulder_guides])  # type: ignore[index]
+            hip_points = np.asarray([item.hip_centerline[0] for item in hip_guides])  # type: ignore[index]
+            neck_point = np.asarray([guide.head_guide.neck_transition[0]])
+            for points in (shoulder_points, hip_points, neck_point):
+                residual = surface_preview._field(points, torso_field)
+                self.assertTrue(np.all(np.isfinite(residual)))
+                np.testing.assert_allclose(residual, 0.0, atol=1.0e-12)
+            self.assertTrue(np.all(np.linalg.norm(shoulder_points - torso_center, axis=1) > 1.0e-9))
+            self.assertTrue(np.all(np.linalg.norm(hip_points - pelvis_center, axis=1) > 1.0e-9))
+            self.assertGreater(float(np.linalg.norm(neck_point[0] - torso_center)), 1.0e-9)
+
+            np.testing.assert_allclose(shoulder_points[0, 1:], shoulder_points[1, 1:], atol=1.0e-12)
+            self.assertAlmostEqual(float(shoulder_points[0, 0]), -float(shoulder_points[1, 0]), places=12)
+            np.testing.assert_allclose(hip_points[0, 1:], hip_points[1, 1:], atol=1.0e-12)
+            self.assertAlmostEqual(float(hip_points[0, 0]), -float(hip_points[1, 0]), places=12)
+
+            torso_key = torso.key
+            pelvis_key = pelvis.key
+            self.assertEqual(surface_preview._field_owner_keys(shoulder_points, torso_field), (torso_key, torso_key))
+            self.assertEqual(surface_preview._field_owner_keys(hip_points, torso_field), (pelvis_key, pelvis_key))
+            self.assertEqual(surface_preview._field_owner_keys(neck_point, torso_field), (torso_key,))
+
+    def test_embedded_branch_connectors_reduce_sampled_boundary_overshoot(self) -> None:
+        form = surface_preview.validate_envelope(make_varied_payload())
+        for _, descriptors, _ in form.variants:
+            guide = surface_preview._derive_hybrid_guides(form, descriptors)
+            fields = surface_preview._compile_hybrid_guide(guide)
+            torso_field = next(item for item in fields if item.recipe == "torso-cage")
+            for limb in guide.limb_guides:
+                if limb.owner.key[3] not in {"upper_arm", "thigh"}:
+                    continue
+                paths = [("root-bridge", limb.root_centerline, limb.root_thickness)]
+                if limb.hip_centerline is not None:
+                    paths.append(("hip-transition", limb.hip_centerline, limb.hip_thickness))
+                for recipe, semantic_path, semantic_profile in paths:
+                    if semantic_path is None or semantic_profile is None:
+                        continue
+                    bridge = next(item for item in fields if item.owner is limb.owner and item.recipe == recipe)
+                    semantic_anchor = np.asarray(semantic_path[0], dtype=np.float64)
+                    target = np.asarray(semantic_path[1], dtype=np.float64)
+                    support = float(bridge.shape["r0"])
+                    compiled_start = bridge.shape["from"]
+
+                    # Derive the branch-facing side from the cage boundary and
+                    # its owning section, not from the child path's axial
+                    # component. In the fixed fixture the child target is
+                    # inward of this side; the connector moves toward it.
+                    section = guide.torso_cage.sections[0] if limb.owner.key[3] == "thigh" else guide.torso_cage.sections[-1]
+                    side = semantic_anchor[[0, 2]] - np.asarray(section.center, dtype=np.float64)[[0, 2]]
+                    side /= np.linalg.norm(side)
+                    outward = np.asarray([side[0], 0.0, side[1]])
+                    inward = -outward
+                    np.testing.assert_allclose(compiled_start, semantic_anchor + inward * support, atol=1.0e-12)
+                    self.assertGreater(float(np.linalg.norm(compiled_start - target)), 1.0e-9)
+
+                    # Sample beyond the branch-facing cage side. The current
+                    # support must have no measurable field outside the
+                    # semantic boundary; the centreline itself must remain a
+                    # negative, non-degenerate connection into the child.
+                    distances = np.linspace(0.0, support * 1.5, 64)
+                    samples = semantic_anchor[None, :] + distances[:, None] * outward[None, :]
+                    values = surface_preview._field(samples, bridge)
+                    outside = distances[values <= 1.0e-10]
+                    observed_excess = float(np.max(outside)) if len(outside) else 0.0
+                    self.assertLessEqual(observed_excess, 1.0e-10)
+                    midpoint = (compiled_start + target) * 0.5
+                    self.assertLess(float(surface_preview._field(np.asarray([midpoint]), bridge)[0]), 0.0)
+                    self.assertAlmostEqual(float(surface_preview._field(np.asarray([semantic_anchor]), torso_field)[0]), 0.0, places=12)
+
     def test_torso_cage_dimensions_are_consumed_by_the_swept_field(self) -> None:
         import dataclasses
 
@@ -421,16 +503,11 @@ class SurfacePreviewTests(unittest.TestCase):
         self.assertLess(float(changed_cage_field.shape["lateral_radii"][2]), float(baseline_cage.shape["lateral_radii"][2]))
         self.assertLess(float(changed_cage_field.shape["depth_radii"][2]), float(baseline_cage.shape["depth_radii"][2]))
 
-        thigh = next(item for item in guide.limb_guides if item.owner.key[3] == "thigh")
-        changed_thigh = dataclasses.replace(
-            thigh,
-            hip_radii=tuple(value * 0.75 for value in thigh.hip_radii),  # type: ignore[arg-type]
-        )
-        changed_limbs = tuple(changed_thigh if item is thigh else item for item in guide.limb_guides)
-        changed = surface_preview._compile_hybrid_guide(dataclasses.replace(guide, limb_guides=changed_limbs))
-        baseline_hip = next(item for item in baseline if item.owner is thigh.owner and item.recipe == "hip-girdle")
-        changed_hip = next(item for item in changed if item.owner is thigh.owner and item.recipe == "hip-girdle")
-        self.assertLess(float(changed_hip.shape["radii"][0]), float(baseline_hip.shape["radii"][0]))
+        # The shoulder/hip masses remain private guide diagnostics and are no
+        # longer emitted as duplicate skin fields; the cage itself is the
+        # only torso/pelvis field and connector controls consume its boundary.
+        self.assertNotIn("hip-girdle", {item.recipe for item in baseline})
+        self.assertNotIn("shoulder-mass", {item.recipe for item in baseline})
 
     def test_torso_cage_field_is_finite_elliptical_and_has_rounded_caps(self) -> None:
         form = surface_preview.validate_envelope(make_payload())
@@ -491,6 +568,28 @@ class SurfacePreviewTests(unittest.TestCase):
         ])
         self.assertEqual(surface_preview._field_owner_keys(off_axis, field), labels)
 
+    def test_torso_cage_boundary_query_handles_interpolation_and_end_caps(self) -> None:
+        form = surface_preview.validate_envelope(make_payload())
+        guide = surface_preview._derive_hybrid_guides(form, form.variants[0][1])
+        cage = guide.torso_cage
+        lower = cage.sections[0]
+        upper = cage.sections[-1]
+        midpoint = (cage.sections[1].center[1] + cage.sections[2].center[1]) * 0.5
+        point = surface_preview._torso_cage_boundary_anchor(cage, midpoint, (1.0, 0.0, 0.5))
+        self.assertAlmostEqual(
+            ((point[0] - ((cage.sections[1].center[0] + cage.sections[2].center[0]) * 0.5)) / ((cage.sections[1].lateral_radius + cage.sections[2].lateral_radius) * 0.5)) ** 2
+            + ((point[2] - ((cage.sections[1].center[2] + cage.sections[2].center[2]) * 0.5)) / ((cage.sections[1].depth_radius + cage.sections[2].depth_radius) * 0.5)) ** 2,
+            1.0,
+            places=12,
+        )
+        lower_point = surface_preview._torso_cage_boundary_anchor(cage, lower.center[1] - 10.0, (-1.0, 0.0, 0.0))
+        upper_point = surface_preview._torso_cage_boundary_anchor(cage, upper.center[1] + 10.0, (0.0, 1.0, 0.0))
+        self.assertAlmostEqual(float(lower_point[1]), float(lower.center[1]), places=12)
+        self.assertAlmostEqual(float(upper_point[1]), float(upper.center[1] + min(upper.lateral_radius, upper.depth_radius)), places=12)
+        self.assertAlmostEqual(float(surface_preview._field(np.asarray([point]), surface_preview.Field(guide.torso_cage.torso_owner, "torso-cage", surface_preview._torso_cage_shape(cage)))[0]), 0.0, places=12)
+        with self.assertRaises(surface_preview.PreviewError):
+            surface_preview._torso_cage_boundary_anchor(cage, midpoint, (0.0, 0.0, 0.0))
+
     def test_role_recipes_anchor_limbs_and_expand_head_and_paw(self) -> None:
         form = surface_preview.validate_envelope(make_payload())
         descriptors = form.variants[0][1]
@@ -502,12 +601,12 @@ class SurfacePreviewTests(unittest.TestCase):
             "torso-cage",
             "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar",
             "upper_arm-pre-joint", "upper_arm-joint", "forearm-proximal", "forearm-distal", "thigh-pre-joint", "thigh-joint", "shin-pre-joint", "shin-joint",
-            "elbow", "knee", "hock", "root-bridge", "hip-transition", "hip-girdle", "shoulder-mass",
+            "elbow", "knee", "hock", "root-bridge", "hip-transition",
             "paw", "heel", "forefoot", "extremity-bridge", "tail-segment", "tail-tip-extension", "tail-tip-cap", "tail-root-bridge",
             "tail-root-collar",
         }
         self.assertEqual({field.recipe for field in fields}, expected_recipes)
-        self.assertEqual(len(fields), 54)
+        self.assertEqual(len(fields), 50)
 
         pelvis = next(item for item in descriptors if item.key[3] == "pelvis")
         torso = next(item for item in descriptors if item.key[3] == "torso")
@@ -525,31 +624,18 @@ class SurfacePreviewTests(unittest.TestCase):
         torso = next(item for item in descriptors if item.key[3] == "torso")
         self.assertFalse((bridge.shape["from"] == torso.point).all(), "limb bridge must not start at torso centre")
         self.assertTrue((bridge.shape["to"] == surface_preview._source_shape(upper_arm, form.reference_scale)["from"]).all())
-        shoulder = next(item for item in fields if item.owner is upper_arm and item.recipe == "shoulder-mass")
         upper_arm_shape = surface_preview._source_shape(upper_arm, form.reference_scale)
         upper_arm_radius = surface_preview._radius_from_shape(upper_arm_shape)
-        np.testing.assert_allclose(
-            shoulder.shape["center"],
-            upper_arm_shape["from"] + np.asarray([0.0, -0.20 * upper_arm_radius, 0.0]),
-        )
-        np.testing.assert_allclose(
-            shoulder.shape["radii"],
-            upper_arm_radius * np.asarray([1.30, 1.55, 1.55]),
-        )
-        self.assertIs(shoulder.owner, upper_arm)
+        torso_cage = surface_preview._derive_hybrid_guides(form, descriptors).torso_cage
         left_upper_arm = next(
             item for item in descriptors if item.key[1] == ("left",) and item.key[3] == "upper_arm"
         )
         right_upper_arm = next(
             item for item in descriptors if item.key[1] == ("right",) and item.key[3] == "upper_arm"
         )
-        left_shoulder = next(item for item in fields if item.owner is left_upper_arm and item.recipe == "shoulder-mass")
-        right_shoulder = next(item for item in fields if item.owner is right_upper_arm and item.recipe == "shoulder-mass")
-        np.testing.assert_allclose(left_shoulder.shape["center"][[1, 2]], right_shoulder.shape["center"][[1, 2]])
-        self.assertAlmostEqual(float(left_shoulder.shape["center"][0]), -float(right_shoulder.shape["center"][0]))
         self.assertEqual(
             [item.recipe for item in fields if item.owner is left_upper_arm],
-            ["upper_arm-pre-joint", "upper_arm-joint", "root-bridge", "shoulder-mass", "elbow"],
+            ["upper_arm-pre-joint", "upper_arm-joint", "root-bridge", "elbow"],
         )
 
         left_thigh = next(
@@ -560,31 +646,37 @@ class SurfacePreviewTests(unittest.TestCase):
         )
         left_hip = next(item for item in fields if item.owner is left_thigh and item.recipe == "hip-transition")
         right_hip = next(item for item in fields if item.owner is right_thigh and item.recipe == "hip-transition")
-        left_hip_girdle = next(item for item in fields if item.owner is left_thigh and item.recipe == "hip-girdle")
-        right_hip_girdle = next(item for item in fields if item.owner is right_thigh and item.recipe == "hip-girdle")
         left_thigh_shape = surface_preview._source_shape(left_thigh, form.reference_scale)
         thigh_radius = surface_preview._radius_from_shape(left_thigh_shape)
+        left_hip_guide = next(item for item in surface_preview._derive_hybrid_guides(form, descriptors).limb_guides if item.owner is left_thigh)
         np.testing.assert_allclose(
             left_hip.shape["from"],
-            surface_preview._parent_surface_anchor(pelvis, left_thigh_shape["from"], form.reference_scale),
+            surface_preview._embed_boundary_connector(left_hip_guide.hip_centerline, left_hip_guide.hip_thickness, "test")[0],  # type: ignore[arg-type]
         )
         np.testing.assert_allclose(
             left_hip.shape["to"],
             left_thigh_shape["from"] + 0.35 * (left_thigh_shape["to"] - left_thigh_shape["from"]),
         )
-        self.assertAlmostEqual(float(left_hip.shape["r0"]), 1.25 * thigh_radius, places=12)
-        self.assertAlmostEqual(float(left_hip.shape["r1"]), 1.15 * thigh_radius, places=12)
+        self.assertAlmostEqual(float(left_hip.shape["r0"]), 0.78 * thigh_radius, places=12)
+        self.assertAlmostEqual(float(left_hip.shape["r1"]), 0.66 * thigh_radius, places=12)
         self.assertIs(left_hip.owner, left_thigh)
         np.testing.assert_allclose(left_hip.shape["from"][[1, 2]], right_hip.shape["from"][[1, 2]])
         np.testing.assert_allclose(left_hip.shape["to"][[1, 2]], right_hip.shape["to"][[1, 2]])
         self.assertAlmostEqual(float(left_hip.shape["from"][0]), -float(right_hip.shape["from"][0]))
         self.assertAlmostEqual(float(left_hip.shape["to"][0]), -float(right_hip.shape["to"][0]))
-        np.testing.assert_allclose(left_hip_girdle.shape["center"][[1, 2]], right_hip_girdle.shape["center"][[1, 2]])
-        self.assertAlmostEqual(float(left_hip_girdle.shape["center"][0]), -float(right_hip_girdle.shape["center"][0]))
-        np.testing.assert_allclose(left_hip_girdle.shape["radii"], right_hip_girdle.shape["radii"])
         self.assertEqual(
             [item.recipe for item in fields if item.owner is left_thigh],
-            ["thigh-pre-joint", "thigh-joint", "root-bridge", "hip-transition", "hip-girdle", "knee"],
+            ["thigh-pre-joint", "thigh-joint", "root-bridge", "hip-transition", "knee"],
+        )
+        neck = next(item for item in descriptors if item.key[3] == "neck")
+        neck_field = next(item for item in fields if item.owner is neck and item.recipe == "tapered-neck")
+        np.testing.assert_allclose(
+            neck_field.shape["from"],
+            surface_preview._torso_cage_boundary_anchor(
+                torso_cage,
+                float(neck.point[1]),
+                np.asarray(neck.point) - np.asarray(torso_cage.sections[-1].center),
+            ),
         )
 
         forearm = next(
@@ -711,7 +803,7 @@ class SurfacePreviewTests(unittest.TestCase):
         muzzle_top = float(muzzle.shape["center"][1] + muzzle.shape["radii"][1])
         self.assertLess(muzzle_bottom, cranium_top)
         self.assertGreater(muzzle_top, cranium_bottom)
-        self.assertEqual(len(fields), 54)
+        self.assertEqual(len(fields), 50)
         source_keys = {descriptor.key for descriptor in descriptors}
         self.assertTrue(all(field.owner.key in source_keys for field in fields))
 
@@ -765,18 +857,18 @@ class SurfacePreviewTests(unittest.TestCase):
                 (("left",), "shin", "shin-pre-joint"), (("left",), "shin", "shin-joint"), (("left",), "shin", "hock"),
                 (("left",), "thigh", "thigh-pre-joint"), (("left",), "thigh", "thigh-joint"),
                 (("left",), "thigh", "root-bridge"), (("left",), "thigh", "hip-transition"),
-                (("left",), "thigh", "hip-girdle"), (("left",), "thigh", "knee"),
+                (("left",), "thigh", "knee"),
                 (("left",), "upper_arm", "upper_arm-pre-joint"), (("left",), "upper_arm", "upper_arm-joint"),
-                (("left",), "upper_arm", "root-bridge"), (("left",), "upper_arm", "shoulder-mass"), (("left",), "upper_arm", "elbow"),
+                (("left",), "upper_arm", "root-bridge"), (("left",), "upper_arm", "elbow"),
                 (("right",), "foot", "heel"), (("right",), "foot", "forefoot"), (("right",), "foot", "extremity-bridge"),
                 (("right",), "forearm", "forearm-proximal"), (("right",), "forearm", "forearm-distal"),
                 (("right",), "hand", "paw"), (("right",), "hand", "extremity-bridge"),
                 (("right",), "shin", "shin-pre-joint"), (("right",), "shin", "shin-joint"), (("right",), "shin", "hock"),
                 (("right",), "thigh", "thigh-pre-joint"), (("right",), "thigh", "thigh-joint"),
                 (("right",), "thigh", "root-bridge"), (("right",), "thigh", "hip-transition"),
-                (("right",), "thigh", "hip-girdle"), (("right",), "thigh", "knee"),
+                (("right",), "thigh", "knee"),
                 (("right",), "upper_arm", "upper_arm-pre-joint"), (("right",), "upper_arm", "upper_arm-joint"),
-                (("right",), "upper_arm", "root-bridge"), (("right",), "upper_arm", "shoulder-mass"), (("right",), "upper_arm", "elbow"),
+                (("right",), "upper_arm", "root-bridge"), (("right",), "upper_arm", "elbow"),
                 (("tail",), "tail_root", "tail-segment"), (("tail",), "tail_root", "tail-root-bridge"), (("tail",), "tail_root", "tail-root-collar"),
                 (("tail",), "tail_tip", "tail-segment"), (("tail",), "tail_tip", "tail-tip-extension"), (("tail",), "tail_tip", "tail-tip-cap"),
             ],
@@ -793,7 +885,7 @@ class SurfacePreviewTests(unittest.TestCase):
             manifest = json.loads((output / "surface-preview-manifest.json").read_text())
             metrics = manifest["variants"][0]["metrics"]
             self.assertEqual(metrics["source_descriptor_count"], 18)
-            self.assertEqual(metrics["generated_field_count"], 54)
+            self.assertEqual(metrics["generated_field_count"], 50)
             self.assertEqual(metrics["field_memory_values"], metrics["generated_field_count"] * 48**3)
             source_keys = {json.dumps(descriptor.key, default=list) for descriptor in descriptors}
             winner_keys = {json.dumps(tuple((item["namespace"], tuple(item["anchors"]), item["kind"], item["role"])), default=list) for item in metrics["winner_addresses"]}
@@ -817,7 +909,7 @@ class SurfacePreviewTests(unittest.TestCase):
             self.assertEqual([x["id"] for x in manifest["variants"]], list(surface_preview.VARIANT_IDS))
             self.assertTrue(all(len(x["inventory"]) == 5 for x in manifest["variants"]))
             self.assertTrue(all(x["metrics"]["source_descriptor_count"] == 18 for x in manifest["variants"]))
-            self.assertTrue(all(x["metrics"]["generated_field_count"] == 54 for x in manifest["variants"]))
+            self.assertTrue(all(x["metrics"]["generated_field_count"] == 50 for x in manifest["variants"]))
             self.assertTrue(all(x["metrics"]["component_count"] == 1 and x["metrics"]["watertight"] for x in manifest["variants"]))
             self.assertEqual(
                 sorted(path.name for path in (first / surface_preview.VARIANT_IDS[0]).iterdir()),
@@ -852,13 +944,13 @@ class SurfacePreviewTests(unittest.TestCase):
                 self.assertEqual(regional["counts"]["axial_core_masses"], 1)
                 self.assertEqual(regional["counts"]["torso_cage_sections"], 5)
                 self.assertEqual(regional["counts"]["torso_cage_connections"], 4)
-                self.assertEqual(regional["counts"]["compiled_fields"], 54)
+                self.assertEqual(regional["counts"]["compiled_fields"], 50)
                 self.assertEqual(regional["counts"]["compiled_field_recipe_counts"], {
                     "upper_arm-pre-joint": 2, "upper_arm-joint": 2, "forearm-proximal": 2, "forearm-distal": 2,
                     "thigh-pre-joint": 2, "thigh-joint": 2, "shin-pre-joint": 2, "shin-joint": 2,
                     "elbow": 2, "knee": 2, "hock": 2, "paw": 2, "heel": 2, "forefoot": 2,
-                    "extremity-bridge": 4, "root-bridge": 4, "hip-transition": 2, "hip-girdle": 2,
-                    "shoulder-mass": 2, "tail-segment": 2, "cranium": 1,
+                    "extremity-bridge": 4, "root-bridge": 4, "hip-transition": 2,
+                    "tail-segment": 2, "cranium": 1,
                     "muzzle": 1, "head-base-bridge": 1, "tapered-neck": 1,
                     "neck-collar": 1, "torso-cage": 1,
                     "tail-root-bridge": 1, "tail-root-collar": 1,
@@ -1003,8 +1095,7 @@ class SurfacePreviewTests(unittest.TestCase):
         for limb in regional["controls"]["limbs"]:
             for mass in limb["masses"]:
                 recipe = {"shoulder-girdle": "shoulder-mass", "hip-girdle": "hip-girdle", "joint": "joint-collar"}[mass["control"]]
-                field = next(item for item in fields if item.owner.key == tuple((limb["owner"]["namespace"], tuple(limb["owner"]["anchors"]), limb["owner"]["kind"], limb["owner"]["role"])) and item.recipe == recipe)
-                np.testing.assert_allclose(mass["center"], field.shape["center"])
+                self.assertNotIn(recipe, {item.recipe for item in fields})
 
     def test_invalid_private_guide_data_fails_closed(self) -> None:
         import dataclasses
