@@ -738,6 +738,39 @@ class SubjectContextHTTPTests(ReviewFixture):
 
 
 class StaticAssetTests(unittest.TestCase):
+    def test_image_viewer_is_viewport_sized_and_image_scoped(self):
+        js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
+        css = (HERE / "static" / "style.css").read_text(encoding="utf-8")
+        self.assertIn("width: 96vw", css)
+        self.assertIn("height: 94vh", css)
+        self.assertNotIn("min(95vw, 1100px)", css)
+        for selector in (".image-viewport", ".image-canvas", ".image-dialog img"):
+            self.assertIn(selector, css)
+        for behavior in (
+            'document.body.style.overflow = "hidden"',
+            "image.style.transform = \"scale(\" + scale",
+            'viewport.addEventListener("wheel", onWheel, { passive: false })',
+            "event.preventDefault();",
+            'window.removeEventListener("resize", onResize)',
+            'dialog.addEventListener("close", cleanup)',
+            'node("button", "Zoom in"',
+            'node("button", "Zoom out"',
+            'node("button", "Fit / reset"',
+            'scaleLabel.textContent = "Scale: "',
+        ):
+            self.assertIn(behavior, js)
+
+    def test_image_viewer_scroll_lock_survives_rapid_reopen(self):
+        js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
+        self.assertIn("var imageDialogLockCount = 0", js)
+        self.assertIn("function acquireImageDialogLock()", js)
+        self.assertIn("var releaseScrollLock = acquireImageDialogLock()", js)
+        self.assertIn("var released = false", js)
+        self.assertIn("if (imageDialogLockCount === 0)", js)
+        self.assertIn("releaseScrollLock();", js)
+        self.assertIn("imageDialogPreviousOverflow = null", js)
+        self.assertNotIn("document.body.style.overflow = previousBodyOverflow", js)
+
     def test_assets_have_no_external_fetches_or_html_interpolation(self):
         js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
         css = (HERE / "static" / "style.css").read_text(encoding="utf-8")
