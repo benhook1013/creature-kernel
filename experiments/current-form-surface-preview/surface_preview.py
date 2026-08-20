@@ -503,16 +503,46 @@ class _LimbGuide:
 
 
 @dataclass(frozen=True)
+class _FootChainGuide:
+    """Private source-derived controls for one digitigrade foot chain.
+
+    The source foot descriptor supplies proportions, but does not pretend to
+    author an anatomical heel and forefoot.  The shin-owned hock is the
+    proximal joint; this guide then derives the sloping metatarsal, a planted
+    pad, a forward toe box, and a display-only contact datum.  The later field
+    adapter currently exposes a compatibility projection of these controls as
+    the old ``heel``/``forefoot`` recipes.
+    """
+
+    hock_anchor: tuple[float, float, float]
+    hock_radii: tuple[float, float, float]
+    metatarsal_centerline: tuple[tuple[float, float, float], tuple[float, float, float]]
+    metatarsal_profile: tuple[float, float]
+    pad_center: tuple[float, float, float]
+    pad_radii: tuple[float, float, float]
+    toe_center: tuple[float, float, float]
+    toe_radii: tuple[float, float, float]
+    contact_height: float
+    axes: _GuideAxes
+
+
+@dataclass(frozen=True)
 class _PawGuide:
-    """Structured hand paw or digitigrade heel/forefoot controls."""
+    """Structured hand paw or source-derived digitigrade foot guide.
+
+    ``heel_*`` and ``forefoot_*`` are compatibility properties for the
+    current disposable compiler/sidecar.  Feet are represented by
+    ``foot_chain``; those names are not independent guide controls.
+    """
 
     owner: Descriptor
     paw_center: tuple[float, float, float]
     paw_radii: tuple[float, float, float]
-    heel_center: tuple[float, float, float] | None
-    heel_radii: tuple[float, float, float] | None
-    forefoot_center: tuple[float, float, float] | None
-    forefoot_radii: tuple[float, float, float] | None
+    foot_chain: _FootChainGuide | None
+    compatibility_heel_center: tuple[float, float, float] | None
+    compatibility_heel_radii: tuple[float, float, float] | None
+    compatibility_forefoot_center: tuple[float, float, float] | None
+    compatibility_forefoot_radii: tuple[float, float, float] | None
     attachment_centerline: tuple[tuple[float, float, float], tuple[float, float, float]] | None
     attachment_radius: float | None
     attachment_kind: str | None
@@ -535,6 +565,26 @@ class _PawGuide:
     def radii(self) -> tuple[float, float, float]:
         """Compatibility alias for the hand paw mass."""
         return self.paw_radii
+
+    @property
+    def heel_center(self) -> tuple[float, float, float] | None:
+        """Legacy adapter view of the source-derived hock anchor."""
+        return self.compatibility_heel_center
+
+    @property
+    def heel_radii(self) -> tuple[float, float, float] | None:
+        """Legacy adapter view of the shin-owned hock profile."""
+        return self.compatibility_heel_radii
+
+    @property
+    def forefoot_center(self) -> tuple[float, float, float] | None:
+        """Legacy adapter view of the planted pad center."""
+        return self.compatibility_forefoot_center
+
+    @property
+    def forefoot_radii(self) -> tuple[float, float, float] | None:
+        """Legacy adapter view of the planted pad profile."""
+        return self.compatibility_forefoot_radii
 
 
 @dataclass(frozen=True)
@@ -2078,6 +2128,7 @@ def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _H
     shoulder_frame = _derive_shoulder_frame(torso_cage, head_guide, tuple(limb_guides))
 
     paw_guides: list[_PawGuide] = []
+    limb_by_owner = {item.owner.key: item for item in limb_guides}
     for desc in descriptors:
         role = desc.key[3]
         if role not in {"hand", "foot"}:
@@ -2088,27 +2139,98 @@ def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _H
         if role == "hand":
             paw_center = _guide_point(source["center"] + np.asarray([0.0, 0.0, 0.10 * source["radii"][2]]), f"{_key_text(desc.key)}.paw_center")
             paw_radii = _guide_radii(source["radii"] * np.asarray([1.08, 0.94, 1.22]), f"{_key_text(desc.key)}.paw_radii")
-            heel_center = None
-            heel_radii = None
-            forefoot_center = None
-            forefoot_radii = None
+            foot_chain = None
+            compatibility_heel_center = None
+            compatibility_heel_radii = None
+            compatibility_forefoot_center = None
+            compatibility_forefoot_radii = None
         else:
-            # Digitigrade feet are deliberately two masses: a rear heel under
-            # the hock and a forward, wider/flatter forefoot pad.  The old
-            # single paw oval is not compiled for feet.
-            heel_center = _guide_point(source["center"] + np.asarray([0.0, -0.08 * source["radii"][1], -0.20 * source["radii"][2]]), f"{_key_text(desc.key)}.heel_center")
-            heel_radii = _guide_radii(source["radii"] * np.asarray([1.02, 0.68, 0.78]), f"{_key_text(desc.key)}.heel_radii")
-            forefoot_center = _guide_point(source["center"] + np.asarray([0.0, -0.18 * source["radii"][1], 0.38 * source["radii"][2]]), f"{_key_text(desc.key)}.forefoot_center")
-            forefoot_radii = _guide_radii(source["radii"] * np.asarray([1.30, 0.42, 0.82]), f"{_key_text(desc.key)}.forefoot_radii")
-            paw_center = heel_center
-            paw_radii = heel_radii
+            # The hock already belongs to the shin guide.  Build the foot
+            # forward from that endpoint instead of inventing another rear
+            # heel mass from the source ellipsoid.
+            parent = by_key.get(desc.parent) if desc.parent is not None else None
+            parent_limb = None if parent is None else limb_by_owner.get(parent.key)
+            if parent is None or parent.key[3] != "shin" or parent_limb is None or parent_limb.joint is None or parent_limb.joint.name != "hock":
+                _fail(f"digitigrade foot is missing its shin-owned hock for {_key_text(desc.key)}")
+            hock = parent_limb.joint
+            hock_anchor = _guide_point(hock.center, f"{_key_text(desc.key)}.foot_chain.hock_anchor")
+            hock_radii = _guide_radii(hock.radii, f"{_key_text(desc.key)}.foot_chain.hock_radii")
+            source_center = np.asarray(source["center"], dtype=np.float64)
+            source_radii = np.asarray(source["radii"], dtype=np.float64)
+            contact_height = float(source_center[1] - source_radii[1])
+            pad_radii = _guide_radii(
+                source_radii * np.asarray([1.08, 0.32, 0.42]),
+                f"{_key_text(desc.key)}.foot_chain.pad_radii",
+            )
+            pad_center = _guide_point(
+                np.asarray([source_center[0], contact_height + pad_radii[1], hock_anchor[2] + 0.34 * source_radii[2]]),
+                f"{_key_text(desc.key)}.foot_chain.pad_center",
+            )
+            toe_radii = _guide_radii(
+                source_radii * np.asarray([0.92, 0.28, 0.30]),
+                f"{_key_text(desc.key)}.foot_chain.toe_radii",
+            )
+            toe_center = _guide_point(
+                np.asarray([source_center[0], contact_height + toe_radii[1], pad_center[2] + 0.54 * source_radii[2]]),
+                f"{_key_text(desc.key)}.foot_chain.toe_center",
+            )
+            metatarsal_profile = _guide_profile(
+                (0.92 * hock_radii[0], 0.72 * min(pad_radii)),
+                f"{_key_text(desc.key)}.foot_chain.metatarsal_profile",
+            )
+            metatarsal_centerline = _guide_path(
+                hock_anchor,
+                pad_center,
+                metatarsal_profile,
+                f"{_key_text(desc.key)}.foot_chain.metatarsal_centerline",
+            )
+            foot_chain = _FootChainGuide(
+                hock_anchor=hock_anchor,
+                hock_radii=hock_radii,
+                metatarsal_centerline=metatarsal_centerline,
+                metatarsal_profile=metatarsal_profile,
+                pad_center=pad_center,
+                pad_radii=pad_radii,
+                toe_center=toe_center,
+                toe_radii=toe_radii,
+                contact_height=contact_height,
+                axes=_FIXED_GUIDE_AXES,
+            )
+            # Keep the disposable compiler's existing recipe geometry stable
+            # until its dedicated foot consumer lands.  These are explicitly
+            # adapter-only projections; no new guide logic reads them.
+            compatibility_heel_center = _guide_point(
+                source_center + np.asarray([0.0, -0.08 * source_radii[1], -0.20 * source_radii[2]]),
+                f"{_key_text(desc.key)}.compatibility_heel_center",
+            )
+            compatibility_heel_radii = _guide_radii(
+                source_radii * np.asarray([1.02, 0.68, 0.78]),
+                f"{_key_text(desc.key)}.compatibility_heel_radii",
+            )
+            compatibility_forefoot_center = _guide_point(
+                source_center + np.asarray([0.0, -0.18 * source_radii[1], 0.38 * source_radii[2]]),
+                f"{_key_text(desc.key)}.compatibility_forefoot_center",
+            )
+            compatibility_forefoot_radii = _guide_radii(
+                source_radii * np.asarray([1.30, 0.42, 0.82]),
+                f"{_key_text(desc.key)}.compatibility_forefoot_radii",
+            )
+            # Compatibility fields below are derived views only.  The
+            # compiler still emits the old recipes until its dedicated foot
+            # consumer is replaced in the next bounded step.
+            paw_center = hock_anchor
+            paw_radii = hock_radii
         parent = by_key.get(desc.parent) if desc.parent is not None else None
         attachment_centerline = None
         attachment_radius = None
         attachment_kind = None
         if parent is not None:
             parent_source = _source_shape(parent, form.reference_scale)
-            attachment_target = heel_center if heel_center is not None else paw_center
+            attachment_target = (
+                compatibility_heel_center
+                if foot_chain is not None
+                else paw_center
+            )
             attachment_start = (
                 parent_source["to"]
                 if role == "foot" and parent.key[3] == "shin"
@@ -2127,10 +2249,11 @@ def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _H
                 owner=desc,
                 paw_center=paw_center,
                 paw_radii=paw_radii,
-                heel_center=heel_center,
-                heel_radii=heel_radii,
-                forefoot_center=forefoot_center,
-                forefoot_radii=forefoot_radii,
+                foot_chain=foot_chain,
+                compatibility_heel_center=compatibility_heel_center,
+                compatibility_heel_radii=compatibility_heel_radii,
+                compatibility_forefoot_center=compatibility_forefoot_center,
+                compatibility_forefoot_radii=compatibility_forefoot_radii,
                 attachment_centerline=attachment_centerline,
                 attachment_radius=attachment_radius,
                 attachment_kind=attachment_kind,
@@ -2448,10 +2571,42 @@ def _validate_hybrid_guide(guide: _HybridGuide, bounds: tuple[np.ndarray, np.nda
         path(limb.hip_centerline, limb.hip_thickness, f"limb[{index}].hip")
         mass(limb.hip_center, limb.hip_radii, f"limb[{index}].hip_girdle")
         mass(limb.shoulder_center, limb.shoulder_radii, f"limb[{index}].shoulder")
+    limb_by_owner = {item.owner.key: item for item in guide.limb_guides}
     for index, paw in enumerate(guide.paw_guides):
         mass(paw.paw_center, paw.paw_radii, f"paw[{index}].paw")
         mass(paw.heel_center, paw.heel_radii, f"paw[{index}].heel")
         mass(paw.forefoot_center, paw.forefoot_radii, f"paw[{index}].forefoot")
+        if paw.foot_chain is not None:
+            chain = paw.foot_chain
+            where = f"paw[{index}].foot_chain"
+            if chain.axes != guide.topology.axes or chain.axes != _FIXED_GUIDE_AXES:
+                _fail(f"{where} axes must match the fixed guide axes")
+            _guide_mass_checked(chain.hock_anchor, chain.hock_radii, f"{where}.hock", bounds)
+            _guide_path_checked(chain.metatarsal_centerline, chain.metatarsal_profile, f"{where}.metatarsal", bounds)
+            _guide_mass_checked(chain.pad_center, chain.pad_radii, f"{where}.pad", bounds)
+            _guide_mass_checked(chain.toe_center, chain.toe_radii, f"{where}.toe", bounds)
+            if not math.isfinite(chain.contact_height):
+                _fail(f"{where}.contact_height must be finite")
+            parent_key = paw.owner.parent
+            parent_limb = limb_by_owner.get(parent_key) if parent_key is not None else None
+            if parent_limb is None or parent_limb.joint is None or parent_limb.joint.name != "hock":
+                _fail(f"{where} must bind to a shin-owned hock")
+            hock = parent_limb.joint
+            if chain.hock_anchor != hock.center or chain.hock_radii != hock.radii:
+                _fail(f"{where}.hock must retain the shin joint identity")
+            start, metatarsal_end = chain.metatarsal_centerline
+            if start != chain.hock_anchor:
+                _fail(f"{where}.metatarsal must start at the hock anchor")
+            if metatarsal_end[2] <= start[2] or metatarsal_end[1] >= start[1]:
+                _fail(f"{where}.metatarsal must descend forward from the hock")
+            if chain.pad_center[2] <= start[2] or chain.toe_center[2] <= chain.pad_center[2]:
+                _fail(f"{where} controls must progress forward from hock to toe")
+            if not chain.metatarsal_profile[0] > chain.metatarsal_profile[-1]:
+                _fail(f"{where}.metatarsal must taper toward the pad")
+            if not math.isclose(chain.pad_center[1] - chain.pad_radii[1], chain.contact_height, rel_tol=0.0, abs_tol=1.0e-12):
+                _fail(f"{where}.pad must share the contact datum")
+            if not math.isclose(chain.toe_center[1] - chain.toe_radii[1], chain.contact_height, rel_tol=0.0, abs_tol=1.0e-12):
+                _fail(f"{where}.toe must share the contact datum")
         if paw.attachment_centerline is not None:
             if paw.attachment_radius is None or paw.attachment_kind is None:
                 _fail(f"paw[{index}].attachment controls are incomplete")
@@ -3278,14 +3433,15 @@ def _draw_guide(draw: ImageDraw.ImageDraw, frame: dict[str, Any], guide: _Hybrid
         if item.joint is not None:
             _draw_guide_mass(draw, frame, item.joint.center, item.joint.radii, colours["joint"])
     for item in guide.paw_guides:
-        if item.heel_center is None:
-            _draw_guide_mass(draw, frame, item.paw_center, item.paw_radii, colours["paw"])
+        if item.foot_chain is not None:
+            chain = item.foot_chain
+            _draw_guide_path(draw, frame, chain.metatarsal_centerline, chain.metatarsal_profile, colours["paw"])
+            _draw_guide_mass(draw, frame, chain.pad_center, chain.pad_radii, colours["paw"])
+            _draw_guide_mass(draw, frame, chain.toe_center, chain.toe_radii, colours["paw"])
         else:
-            _draw_guide_mass(draw, frame, item.heel_center, item.heel_radii, colours["paw"])
-        if item.forefoot_center is not None and item.forefoot_radii is not None:
-            _draw_guide_mass(draw, frame, item.forefoot_center, item.forefoot_radii, colours["paw"])
-        if item.attachment_centerline is not None and item.attachment_radius is not None:
-            _draw_guide_path(draw, frame, item.attachment_centerline, (item.attachment_radius,), colours["paw"])
+            _draw_guide_mass(draw, frame, item.paw_center, item.paw_radii, colours["paw"])
+            if item.attachment_centerline is not None and item.attachment_radius is not None:
+                _draw_guide_path(draw, frame, item.attachment_centerline, (item.attachment_radius,), colours["paw"])
     for item in guide.tail_guides:
         _draw_guide_path(draw, frame, item.centerline, item.taper, colours["tail"])
         if item.extension_centerline is not None and item.extension_taper is not None:

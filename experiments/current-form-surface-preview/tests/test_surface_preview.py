@@ -400,6 +400,76 @@ class SurfacePreviewTests(unittest.TestCase):
                 self.assertIsNone(paw.heel_center)
                 self.assertEqual([item.recipe for item in fields if item.owner is paw.owner], ["paw", "extremity-bridge"])
 
+    def test_digitigrade_foot_chain_is_source_derived_bilateral_and_contact_grounded(self) -> None:
+        form = surface_preview.validate_envelope(make_varied_payload())
+        signatures = []
+        for _, descriptors, _ in form.variants:
+            guide = surface_preview._derive_hybrid_guides(form, descriptors)
+            feet = tuple(item for item in guide.paw_guides if item.owner.key[3] == "foot")
+            self.assertEqual(len(feet), 2)
+            for foot in feet:
+                self.assertIsNotNone(foot.foot_chain)
+                chain = foot.foot_chain
+                assert chain is not None
+                source = surface_preview._source_shape(foot.owner, form.reference_scale)
+                shin = next(item for item in guide.limb_guides if item.owner.key == foot.owner.parent)
+                assert shin.joint is not None
+                self.assertEqual(chain.hock_anchor, shin.joint.center)
+                self.assertEqual(chain.hock_radii, shin.joint.radii)
+                self.assertEqual(chain.metatarsal_centerline[0], chain.hock_anchor)
+                self.assertGreater(chain.metatarsal_centerline[1][2], chain.hock_anchor[2])
+                self.assertLess(chain.metatarsal_centerline[1][1], chain.hock_anchor[1])
+                self.assertGreater(chain.pad_center[2], chain.hock_anchor[2])
+                self.assertGreater(chain.toe_center[2], chain.pad_center[2])
+                self.assertGreater(chain.metatarsal_profile[0], chain.metatarsal_profile[1])
+                self.assertTrue(all(value > 0.0 for value in chain.metatarsal_profile))
+                self.assertAlmostEqual(chain.contact_height, float(source["center"][1] - source["radii"][1]), places=12)
+                self.assertAlmostEqual(chain.pad_center[1] - chain.pad_radii[1], chain.contact_height, places=12)
+                self.assertAlmostEqual(chain.toe_center[1] - chain.toe_radii[1], chain.contact_height, places=12)
+                signatures.append((chain.metatarsal_centerline, chain.metatarsal_profile, chain.pad_center, chain.toe_center))
+
+            left, right = feet
+            left_chain = left.foot_chain
+            right_chain = right.foot_chain
+            assert left_chain is not None and right_chain is not None
+            self.assertEqual(left_chain.metatarsal_profile, right_chain.metatarsal_profile)
+            self.assertEqual(left_chain.pad_radii, right_chain.pad_radii)
+            self.assertEqual(left_chain.toe_radii, right_chain.toe_radii)
+            for left_point, right_point in zip(left_chain.metatarsal_centerline, right_chain.metatarsal_centerline):
+                self.assertAlmostEqual(left_point[0], -right_point[0])
+                self.assertEqual(left_point[1:], right_point[1:])
+            self.assertAlmostEqual(left_chain.pad_center[0], -right_chain.pad_center[0])
+            self.assertEqual(left_chain.pad_center[1:], right_chain.pad_center[1:])
+            self.assertAlmostEqual(left_chain.toe_center[0], -right_chain.toe_center[0])
+            self.assertEqual(left_chain.toe_center[1:], right_chain.toe_center[1:])
+
+        self.assertEqual(len(signatures), 8)
+        first_descriptors = form.variants[0][1]
+        first_a = surface_preview._derive_hybrid_guides(form, first_descriptors)
+        first_b = surface_preview._derive_hybrid_guides(form, first_descriptors)
+        self.assertEqual(
+            [item.foot_chain for item in first_a.paw_guides],
+            [item.foot_chain for item in first_b.paw_guides],
+        )
+
+    def test_digitigrade_foot_chain_rejects_bad_hock_contact_and_taper(self) -> None:
+        form = surface_preview.validate_envelope(make_payload())
+        guide = surface_preview._derive_hybrid_guides(form, form.variants[0][1])
+        foot = next(item for item in guide.paw_guides if item.owner.key[3] == "foot")
+        chain = foot.foot_chain
+        assert chain is not None
+
+        malformed_cases = (
+            dataclasses.replace(chain, hock_anchor=(chain.hock_anchor[0], chain.hock_anchor[1] + 0.1, chain.hock_anchor[2])),
+            dataclasses.replace(chain, toe_center=(chain.toe_center[0], chain.toe_center[1] + 0.1, chain.toe_center[2])),
+            dataclasses.replace(chain, metatarsal_profile=(chain.metatarsal_profile[1], chain.metatarsal_profile[0])),
+        )
+        for malformed_chain in malformed_cases:
+            malformed_paw = dataclasses.replace(foot, foot_chain=malformed_chain)
+            malformed_paws = tuple(malformed_paw if item is foot else item for item in guide.paw_guides)
+            with self.assertRaises(surface_preview.PreviewError):
+                surface_preview._compile_hybrid_guide(dataclasses.replace(guide, paw_guides=malformed_paws))
+
     def test_private_guides_reject_malformed_profile_and_consume_piecewise_sections(self) -> None:
         import dataclasses
 
