@@ -320,6 +320,26 @@ class _TorsoCage:
     def source_keys(self) -> tuple[tuple[str, tuple[str, ...], str, str], ...]:
         return tuple(owner.key for owner in self.source_owners)
 
+    def section(self, name: str) -> _TorsoCageSection:
+        """Return a named cage control without exposing positional topology."""
+
+        matches = tuple(section for section in self.sections if section.name == name)
+        if len(matches) != 1:
+            _fail(f"torso cage requires one named {name!r} section")
+        return matches[0]
+
+    @property
+    def lower_boundary(self) -> _TorsoCageSection:
+        return self.section("lower-pelvis")
+
+    @property
+    def upper_boundary(self) -> _TorsoCageSection:
+        return self.section("upper-ribcage-shoulder")
+
+    @property
+    def upper_ribcage(self) -> _TorsoCageSection:
+        return self.upper_boundary
+
 
 @dataclass(frozen=True)
 class _ShoulderCurve:
@@ -1464,8 +1484,9 @@ def _derive_torso_cage(
     """Build the fixed-topology torso profile consumed by the next evaluator.
 
     This is deliberately a profile derivation, not another field recipe.  The
-    pelvis and torso descriptors remain the only source owners; all five
-    sections are deterministic functions of their already-derived guides.
+    pelvis and torso descriptors remain the only source owners.  The seven
+    sections are deterministic functions of their already-derived guides: the
+    abdomen gets a short, broad waist band instead of one point-like minimum.
     """
 
     pelvis_origin = np.asarray(pelvis_center, dtype=np.float64)
@@ -1473,8 +1494,6 @@ def _derive_torso_cage(
     chest = np.asarray(chest_center, dtype=np.float64)
     pelvis_size = np.asarray(pelvis_radii, dtype=np.float64)
     torso_size = np.asarray(torso_radii, dtype=np.float64)
-    lower_rib_center = waist + 0.55 * (chest - waist)
-
     # The source convention guarantees that the torso centre is above the
     # pelvis centre, but source radii are intentionally allowed to vary.  Use
     # the raw guide-derived heights, then project them into a deterministic
@@ -1486,11 +1505,35 @@ def _derive_torso_cage(
     span = torso_y - pelvis_y
     if not math.isfinite(span) or span <= 0.0:
         _fail("torso-cage source centres must have positive axial separation")
+    # Use the existing waist and chest controls only as normalized placement
+    # inputs.  The additional abdomen controls make the narrow region occupy a
+    # real axial interval while remaining proportional for every variant.
+    upper_pelvis_y = float(pelvis_origin[1] + 0.24 * pelvis_size[1])
+    chest_y = float(chest[1])
+    # Extremely disproportionate source radii can place the derived pelvis
+    # control above the chest control. Keep the profile ordered by moving only
+    # this private start control into the available source-centre interval;
+    # ordinary variants retain the unmodified upper-pelvis height.
+    profile_start_y = min(upper_pelvis_y, chest_y - max(0.20 * span, 1.0e-6))
+    abdomen_span = chest_y - profile_start_y
+    if not math.isfinite(abdomen_span) or abdomen_span <= 0.0:
+        _fail("torso-cage abdomen profile requires positive axial separation")
+    waist_t = (float(waist[1]) - profile_start_y) / abdomen_span
+    waist_t = min(max(waist_t, 0.28), 0.58)
+    # Named profile relationships, rather than world-space offsets, keep the
+    # band stable as the source proportions change.
+    band_half_span = 0.10
+    lower_abdomen_t = max(0.20, waist_t - band_half_span)
+    upper_abdomen_t = min(0.70, waist_t + band_half_span)
+    lower_rib_t = max(upper_abdomen_t + 0.10, 0.76)
+    lower_rib_t = min(lower_rib_t, 0.88)
     raw_heights = (
         float(pelvis_origin[1] - 0.32 * pelvis_size[1]),
-        float(pelvis_origin[1] + 0.24 * pelvis_size[1]),
-        float(waist[1]),
-        float(lower_rib_center[1]),
+        profile_start_y,
+        profile_start_y + lower_abdomen_t * abdomen_span,
+        profile_start_y + waist_t * abdomen_span,
+        profile_start_y + upper_abdomen_t * abdomen_span,
+        profile_start_y + lower_rib_t * abdomen_span,
         float(chest[1]),
     )
     lower_limit = pelvis_y - 0.50 * span
@@ -1507,12 +1550,21 @@ def _derive_torso_cage(
     section_centres = (
         pelvis_origin.copy(),
         pelvis_origin.copy(),
-        waist.copy(),
-        lower_rib_center.copy(),
+        np.array([torso_center[0], raw_heights[2], torso_center[2]], dtype=np.float64),
+        np.array([torso_center[0], raw_heights[3], torso_center[2]], dtype=np.float64),
+        np.array([torso_center[0], raw_heights[4], torso_center[2]], dtype=np.float64),
+        np.array([torso_center[0], raw_heights[5], torso_center[2]], dtype=np.float64),
         chest.copy(),
     )
     for centre, height in zip(section_centres, heights):
         centre[1] = height
+
+    # The abdomen controls intentionally share one derived cross-section
+    # factor in each transverse axis. This creates a short flat waist band;
+    # the neighboring pelvis and ribcage factors still provide the gradual
+    # transitions into and out of it.
+    abdomen_lateral_factor = 0.76
+    abdomen_depth_factor = 0.82
 
     def section(
         name: str,
@@ -1549,23 +1601,37 @@ def _derive_torso_cage(
             pelvis_size[2] * 0.88,
         ),
         section(
-            "waist-abdomen",
+            "lower-abdomen",
             torso,
             section_centres[2],
-            torso_size[0] * 0.70,
-            torso_size[2] * 0.76,
+            torso_size[0] * abdomen_lateral_factor,
+            torso_size[2] * abdomen_depth_factor,
+        ),
+        section(
+            "waist-abdomen",
+            torso,
+            section_centres[3],
+            torso_size[0] * abdomen_lateral_factor,
+            torso_size[2] * abdomen_depth_factor,
+        ),
+        section(
+            "upper-abdomen",
+            torso,
+            section_centres[4],
+            torso_size[0] * abdomen_lateral_factor,
+            torso_size[2] * abdomen_depth_factor,
         ),
         section(
             "lower-ribcage",
             torso,
-            section_centres[3],
-            torso_size[0] * 0.78,
-            torso_size[2] * 0.84,
+            section_centres[5],
+            torso_size[0] * 0.80,
+            torso_size[2] * 0.86,
         ),
         section(
             "upper-ribcage-shoulder",
             torso,
-            section_centres[4],
+            section_centres[6],
             torso_size[0] * 0.90,
             torso_size[2] * 0.96,
         ),
@@ -1589,10 +1655,7 @@ def _derive_shoulder_frame(
     used; all dimensions are consequences of the cage and limb controls.
     """
 
-    upper_candidates = tuple(section for section in torso_cage.sections if section.name == "upper-ribcage-shoulder")
-    if len(upper_candidates) != 1:
-        _fail("shoulder frame requires one named upper-ribcage-shoulder control")
-    upper = upper_candidates[0]
+    upper = torso_cage.upper_ribcage
     arms = tuple(item for item in limb_guides if item.owner.key[3] == "upper_arm")
     if len(arms) != 2:
         _fail("shoulder frame requires exactly two upper-arm guides")
@@ -1851,7 +1914,7 @@ def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _H
     neck_start = _torso_cage_boundary_anchor(
         torso_cage,
         float(neck.point[1]),
-        np.asarray(neck.point, dtype=np.float64) - np.asarray(torso_cage.sections[-1].center, dtype=np.float64),
+        np.asarray(neck.point, dtype=np.float64) - np.asarray(torso_cage.upper_boundary.center, dtype=np.float64),
     )
     neck_end = np.asarray(head.point, dtype=np.float64).copy()
     neck_end[1] -= 0.70 * head_source["radii"][1]
@@ -1936,13 +1999,13 @@ def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _H
                 anchor = _torso_cage_boundary_anchor(
                     torso_cage,
                     float(source["from"][1]),
-                    np.asarray(source["from"], dtype=np.float64) - np.asarray(torso_cage.sections[-1].center, dtype=np.float64),
+                    np.asarray(source["from"], dtype=np.float64) - np.asarray(torso_cage.upper_boundary.center, dtype=np.float64),
                 )
             else:
                 anchor = _torso_cage_boundary_anchor(
                     torso_cage,
                     float(source["from"][1]),
-                    np.asarray(source["from"], dtype=np.float64) - np.asarray(torso_cage.sections[0].center, dtype=np.float64),
+                    np.asarray(source["from"], dtype=np.float64) - np.asarray(torso_cage.lower_boundary.center, dtype=np.float64),
                 )
             # The guide retains the exact cage boundary anchor.  Compilation
             # embeds the connector by this restrained support radius so the
@@ -1965,7 +2028,7 @@ def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _H
             shoulder_anchor = _torso_cage_boundary_anchor(
                 torso_cage,
                 float(source["from"][1]),
-                np.asarray(source["from"], dtype=np.float64) - np.asarray(torso_cage.sections[-1].center, dtype=np.float64),
+                np.asarray(source["from"], dtype=np.float64) - np.asarray(torso_cage.upper_boundary.center, dtype=np.float64),
             )
             shoulder_center = _guide_point(shoulder_anchor, f"{_key_text(desc.key)}.shoulder_center")
             # Keep this as a compact root control, not a second shoulder
@@ -2223,7 +2286,9 @@ def _validate_hybrid_guide(guide: _HybridGuide, bounds: tuple[np.ndarray, np.nda
     expected_cage_names = (
         "lower-pelvis",
         "upper-pelvis",
+        "lower-abdomen",
         "waist-abdomen",
+        "upper-abdomen",
         "lower-ribcage",
         "upper-ribcage-shoulder",
     )
@@ -2236,7 +2301,15 @@ def _validate_hybrid_guide(guide: _HybridGuide, bounds: tuple[np.ndarray, np.nda
         _fail("torso cage ownership must retain descriptor identity")
     if cage.pelvis_owner.key[3] != "pelvis" or cage.torso_owner.key[3] != "torso":
         _fail("torso cage owners must be the pelvis and torso descriptors")
-    expected_section_owners = (cage.pelvis_owner, cage.pelvis_owner, cage.torso_owner, cage.torso_owner, cage.torso_owner)
+    expected_section_owners = (
+        cage.pelvis_owner,
+        cage.pelvis_owner,
+        cage.torso_owner,
+        cage.torso_owner,
+        cage.torso_owner,
+        cage.torso_owner,
+        cage.torso_owner,
+    )
     for index, section in enumerate(cage.sections):
         if not any(section.owner is owner for owner in cage.source_owners):
             _fail(f"torso-cage[{index}] has an unexpected owner")

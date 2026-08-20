@@ -383,7 +383,9 @@ class SurfacePreviewTests(unittest.TestCase):
         expected_names = (
             "lower-pelvis",
             "upper-pelvis",
+            "lower-abdomen",
             "waist-abdomen",
+            "upper-abdomen",
             "lower-ribcage",
             "upper-ribcage-shoulder",
         )
@@ -401,7 +403,7 @@ class SurfacePreviewTests(unittest.TestCase):
             self.assertTrue(all(any(section.owner is owner for owner in cage.source_owners) for section in cage.sections))
             self.assertEqual(
                 tuple(section.owner.key[3] for section in cage.sections),
-                ("pelvis", "pelvis", "torso", "torso", "torso"),
+                ("pelvis", "pelvis", "torso", "torso", "torso", "torso", "torso"),
             )
             self.assertTrue(
                 all(
@@ -427,10 +429,13 @@ class SurfacePreviewTests(unittest.TestCase):
             depth = np.asarray([section.depth_radius for section in cage.sections])
             self.assertTrue(np.all((lateral[1:] / lateral[:-1] >= 0.80) & (lateral[1:] / lateral[:-1] <= 1.20)))
             self.assertTrue(np.all((depth[1:] / depth[:-1] >= 0.80) & (depth[1:] / depth[:-1] <= 1.20)))
+            # The abdomen has a genuinely flat short waist band rather than
+            # one sharp local minimum. Its neighbors still taper and widen.
+            np.testing.assert_allclose(lateral[2:5], lateral[2])
+            np.testing.assert_allclose(depth[2:5], depth[2])
             self.assertLess(float(lateral[2]), float(lateral[1]))
-            self.assertLess(float(lateral[2]), float(lateral[3]))
-            self.assertGreaterEqual(float(lateral[3] / lateral[2]), 1.05)
-            self.assertLessEqual(float(lateral[3] / lateral[2]), 1.20)
+            self.assertGreater(float(lateral[5]), float(lateral[4]))
+            self.assertLess(float(lateral[5] / lateral[4]), 1.12)
             topologies.append(
                 tuple((section.name, section.owner.key) for section in cage.sections)
             )
@@ -555,7 +560,7 @@ class SurfacePreviewTests(unittest.TestCase):
                     # its owning section, not from the child path's axial
                     # component. In the fixed fixture the child target is
                     # inward of this side; the connector moves toward it.
-                    section = guide.torso_cage.sections[0] if limb.owner.key[3] == "thigh" else guide.torso_cage.sections[-1]
+                    section = guide.torso_cage.lower_boundary if limb.owner.key[3] == "thigh" else guide.torso_cage.upper_boundary
                     side = semantic_anchor[[0, 2]] - np.asarray(section.center, dtype=np.float64)[[0, 2]]
                     side /= np.linalg.norm(side)
                     outward = np.asarray([side[0], 0.0, side[1]])
@@ -585,21 +590,23 @@ class SurfacePreviewTests(unittest.TestCase):
         baseline = surface_preview._compile_hybrid_guide(guide)
         baseline_cage = next(item for item in baseline if item.recipe == "torso-cage")
         cage = guide.torso_cage
+        lower_abdomen = cage.section("lower-abdomen")
+        lower_abdomen_index = next(index for index, section in enumerate(cage.sections) if section is lower_abdomen)
         changed_section = dataclasses.replace(
-            cage.sections[2],
-            lateral_radius=cage.sections[2].lateral_radius * 0.75,
-            depth_radius=cage.sections[2].depth_radius * 0.75,
+            lower_abdomen,
+            lateral_radius=lower_abdomen.lateral_radius * 0.75,
+            depth_radius=lower_abdomen.depth_radius * 0.75,
         )
         changed_cage = dataclasses.replace(
             cage,
-            sections=(*cage.sections[:2], changed_section, *cage.sections[3:]),
+            sections=tuple(changed_section if index == lower_abdomen_index else section for index, section in enumerate(cage.sections)),
         )
         changed = surface_preview._compile_hybrid_guide(
             dataclasses.replace(guide, torso_cage=changed_cage)
         )
         changed_cage_field = next(item for item in changed if item.recipe == "torso-cage")
-        self.assertLess(float(changed_cage_field.shape["lateral_radii"][2]), float(baseline_cage.shape["lateral_radii"][2]))
-        self.assertLess(float(changed_cage_field.shape["depth_radii"][2]), float(baseline_cage.shape["depth_radii"][2]))
+        self.assertLess(float(changed_cage_field.shape["lateral_radii"][lower_abdomen_index]), float(baseline_cage.shape["lateral_radii"][lower_abdomen_index]))
+        self.assertLess(float(changed_cage_field.shape["depth_radii"][lower_abdomen_index]), float(baseline_cage.shape["depth_radii"][lower_abdomen_index]))
 
         # The shoulder/hip masses remain private guide diagnostics and are no
         # longer emitted as duplicate skin fields; the cage itself is the
@@ -747,9 +754,9 @@ class SurfacePreviewTests(unittest.TestCase):
         form = surface_preview.validate_envelope(make_payload())
         guide = surface_preview._derive_hybrid_guides(form, form.variants[0][1])
         cage = guide.torso_cage
-        lower = cage.sections[0]
-        upper = cage.sections[-1]
-        midpoint = (cage.sections[1].center[1] + cage.sections[2].center[1]) * 0.5
+        lower = cage.lower_boundary
+        upper = cage.upper_boundary
+        midpoint = (cage.section("lower-abdomen").center[1] + cage.section("waist-abdomen").center[1]) * 0.5
         point = surface_preview._torso_cage_boundary_anchor(cage, midpoint, (1.0, 0.0, 0.5))
         shape = surface_preview._torso_cage_shape(cage)
         sampled_center, sampled_lateral, sampled_depth = surface_preview._torso_cage_sample_controls(shape, midpoint)
@@ -791,7 +798,7 @@ class SurfacePreviewTests(unittest.TestCase):
         self.assertIs(torso_field.owner, torso)
         self.assertEqual(
             tuple(owner.key[3] for owner in torso_field.shape["section_owners"]),
-            ("pelvis", "pelvis", "torso", "torso", "torso"),
+            ("pelvis", "pelvis", "torso", "torso", "torso", "torso", "torso"),
         )
         self.assertTrue(any(owner is pelvis for owner in torso_field.shape["section_owners"]))
         self.assertNotIn("axial-trunk", {field.recipe for field in fields})
@@ -852,7 +859,7 @@ class SurfacePreviewTests(unittest.TestCase):
             surface_preview._torso_cage_boundary_anchor(
                 torso_cage,
                 float(neck.point[1]),
-                np.asarray(neck.point) - np.asarray(torso_cage.sections[-1].center),
+                np.asarray(neck.point) - np.asarray(torso_cage.upper_boundary.center),
             ),
         )
 
@@ -866,7 +873,7 @@ class SurfacePreviewTests(unittest.TestCase):
 
         torso_field = next(item for item in fields if item.owner is torso and item.recipe == "torso-cage")
         self.assertEqual(torso_field.shape["name"], "torso-cage")
-        self.assertEqual(len(torso_field.shape["centers"]), 5)
+        self.assertEqual(len(torso_field.shape["centers"]), 7)
 
         hand = next(item for item in descriptors if item.key[1] == ("left",) and item.key[3] == "hand")
         paw = next(item for item in fields if item.owner is hand and item.recipe == "paw")
@@ -1119,8 +1126,8 @@ class SurfacePreviewTests(unittest.TestCase):
                 self.assertEqual(regional["counts"]["axial_stations"], 3)
                 self.assertEqual(regional["counts"]["axial_transitions"], 2)
                 self.assertEqual(regional["counts"]["axial_core_masses"], 1)
-                self.assertEqual(regional["counts"]["torso_cage_sections"], 5)
-                self.assertEqual(regional["counts"]["torso_cage_connections"], 4)
+                self.assertEqual(regional["counts"]["torso_cage_sections"], 7)
+                self.assertEqual(regional["counts"]["torso_cage_connections"], 6)
                 self.assertEqual(regional["counts"]["compiled_fields"], 50)
                 self.assertEqual(regional["counts"]["compiled_field_recipe_counts"], {
                     "upper_arm-pre-joint": 2, "upper_arm-joint": 2, "forearm-proximal": 2, "forearm-distal": 2,
@@ -1156,14 +1163,16 @@ class SurfacePreviewTests(unittest.TestCase):
                 cage = regional["controls"]["torso_cage"]
                 self.assertEqual(cage["status"], "skin-driving torso controls")
                 self.assertEqual([item["name"] for item in cage["sections"]], [
-                    "lower-pelvis", "upper-pelvis", "waist-abdomen", "lower-ribcage", "upper-ribcage-shoulder",
+                    "lower-pelvis", "upper-pelvis", "lower-abdomen", "waist-abdomen", "upper-abdomen", "lower-ribcage", "upper-ribcage-shoulder",
                 ])
-                self.assertEqual([item["owner"]["role"] for item in cage["sections"]], ["pelvis", "pelvis", "torso", "torso", "torso"])
+                self.assertEqual([item["owner"]["role"] for item in cage["sections"]], ["pelvis", "pelvis", "torso", "torso", "torso", "torso", "torso"])
                 self.assertEqual(cage["axes"], {"lateral": [1.0, 0.0, 0.0], "up": [0.0, 1.0, 0.0], "forward": [0.0, 0.0, 1.0]})
                 self.assertEqual(cage["connections"], [
                     {"from": "lower-pelvis", "to": "upper-pelvis"},
-                    {"from": "upper-pelvis", "to": "waist-abdomen"},
-                    {"from": "waist-abdomen", "to": "lower-ribcage"},
+                    {"from": "upper-pelvis", "to": "lower-abdomen"},
+                    {"from": "lower-abdomen", "to": "waist-abdomen"},
+                    {"from": "waist-abdomen", "to": "upper-abdomen"},
+                    {"from": "upper-abdomen", "to": "lower-ribcage"},
                     {"from": "lower-ribcage", "to": "upper-ribcage-shoulder"},
                 ])
                 cage_topologies.append((
