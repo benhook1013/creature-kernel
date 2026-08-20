@@ -280,6 +280,48 @@ class _AxialGuide:
 
 
 @dataclass(frozen=True)
+class _TorsoCageSection:
+    """One source-owned cross-section in the private torso cage prototype.
+
+    The section is intentionally smaller than a surface primitive: it records
+    the centre and two transverse radii that a later loft/field evaluator can
+    consume.  Its orientation is inherited from the containing cage.
+    """
+
+    name: str
+    owner: Descriptor
+    center: tuple[float, float, float]
+    lateral_radius: float
+    depth_radius: float
+
+    @property
+    def source_key(self) -> tuple[str, tuple[str, ...], str, str]:
+        return self.owner.key
+
+    @property
+    def provenance(self) -> dict[str, Any]:
+        return self.owner.provenance
+
+
+@dataclass(frozen=True)
+class _TorsoCage:
+    """Private ordered torso profile, derived without adding body parts."""
+
+    pelvis_owner: Descriptor
+    torso_owner: Descriptor
+    sections: tuple[_TorsoCageSection, ...]
+    axes: _GuideAxes
+
+    @property
+    def source_owners(self) -> tuple[Descriptor, Descriptor]:
+        return (self.pelvis_owner, self.torso_owner)
+
+    @property
+    def source_keys(self) -> tuple[tuple[str, tuple[str, ...], str, str], ...]:
+        return tuple(owner.key for owner in self.source_owners)
+
+
+@dataclass(frozen=True)
 class _HeadGuide:
     """Cranium/muzzle and neck-transition controls for the head region."""
 
@@ -441,6 +483,7 @@ class _HybridGuide:
     topology: _GuideTopology
     source_descriptors: tuple[Descriptor, ...]
     axial_guides: tuple[_AxialGuide, ...]
+    torso_cage: _TorsoCage
     head_guide: _HeadGuide
     limb_guides: tuple[_LimbGuide, ...]
     paw_guides: tuple[_PawGuide, ...]
@@ -461,6 +504,10 @@ class _HybridGuide:
     @property
     def axial_transitions(self) -> tuple[_AxialTransition, ...]:
         return tuple(transition for axial in self.axial_guides for transition in axial.transitions)
+
+    @property
+    def torso_sections(self) -> tuple[_TorsoCageSection, ...]:
+        return self.torso_cage.sections
 
     @property
     def limbs(self) -> tuple[_LimbGuide, ...]:
@@ -935,6 +982,128 @@ def _validate_recipe_convention(descriptors: tuple[Descriptor, ...], scale: floa
             _fail(f"fixed-fixture tail binding is invalid for {_key_text(descriptor.key)}")
 
 
+def _derive_torso_cage(
+    pelvis: Descriptor,
+    torso: Descriptor,
+    pelvis_center: tuple[float, float, float],
+    pelvis_radii: tuple[float, float, float],
+    torso_center: tuple[float, float, float],
+    waist_center: tuple[float, float, float],
+    torso_radii: tuple[float, float, float],
+    chest_center: tuple[float, float, float],
+) -> _TorsoCage:
+    """Build the fixed-topology torso profile consumed by the next evaluator.
+
+    This is deliberately a profile derivation, not another field recipe.  The
+    pelvis and torso descriptors remain the only source owners; all five
+    sections are deterministic functions of their already-derived guides.
+    """
+
+    pelvis_origin = np.asarray(pelvis_center, dtype=np.float64)
+    waist = np.asarray(waist_center, dtype=np.float64)
+    chest = np.asarray(chest_center, dtype=np.float64)
+    pelvis_size = np.asarray(pelvis_radii, dtype=np.float64)
+    torso_size = np.asarray(torso_radii, dtype=np.float64)
+    lower_rib_center = waist + 0.46 * (chest - waist)
+
+    # The source convention guarantees that the torso centre is above the
+    # pelvis centre, but source radii are intentionally allowed to vary.  Use
+    # the raw guide-derived heights, then project them into a deterministic
+    # expanded centre interval with a small stable gap.  This keeps the
+    # private profile ordered without rejecting an otherwise admitted source
+    # merely because one body is unusually deep/tall.
+    pelvis_y = float(pelvis_origin[1])
+    torso_y = float(torso_center[1])
+    span = torso_y - pelvis_y
+    if not math.isfinite(span) or span <= 0.0:
+        _fail("torso-cage source centres must have positive axial separation")
+    raw_heights = (
+        float(pelvis_origin[1] - 0.34 * pelvis_size[1]),
+        float(pelvis_origin[1] + 0.38 * pelvis_size[1]),
+        float(waist[1]),
+        float(lower_rib_center[1]),
+        float(chest[1]),
+    )
+    lower_limit = pelvis_y - 0.50 * span
+    upper_limit = torso_y + 0.50 * span
+    minimum_gap = max(span * 1.0e-6, 1.0e-6)
+    heights: list[float] = []
+    for index, raw_height in enumerate(raw_heights):
+        lower = lower_limit + index * minimum_gap
+        upper = upper_limit - (len(raw_heights) - index - 1) * minimum_gap
+        height = min(max(raw_height, lower), upper)
+        if heights and height <= heights[-1]:
+            height = heights[-1] + minimum_gap
+        heights.append(height)
+    section_centres = (
+        pelvis_origin.copy(),
+        pelvis_origin.copy(),
+        waist.copy(),
+        lower_rib_center.copy(),
+        chest.copy(),
+    )
+    for centre, height in zip(section_centres, heights):
+        centre[1] = height
+
+    def section(
+        name: str,
+        owner: Descriptor,
+        center: np.ndarray,
+        lateral: float,
+        depth: float,
+    ) -> _TorsoCageSection:
+        point = _guide_point(center, f"torso-cage.{name}.center")
+        lateral_value, depth_value = float(lateral), float(depth)
+        if not all(math.isfinite(value) and value > 0.0 for value in (lateral_value, depth_value)):
+            _fail(f"torso-cage.{name} radii must be finite and positive")
+        return _TorsoCageSection(
+            name=name,
+            owner=owner,
+            center=point,
+            lateral_radius=lateral_value,
+            depth_radius=depth_value,
+        )
+
+    sections = (
+        section(
+            "lower-pelvis",
+            pelvis,
+            section_centres[0],
+            pelvis_size[0] * 0.94,
+            pelvis_size[2] * 0.96,
+        ),
+        section(
+            "upper-pelvis",
+            pelvis,
+            section_centres[1],
+            pelvis_size[0] * 0.84,
+            pelvis_size[2] * 0.88,
+        ),
+        section(
+            "waist-abdomen",
+            torso,
+            section_centres[2],
+            torso_size[0] * 0.64,
+            torso_size[2] * 0.72,
+        ),
+        section(
+            "lower-ribcage",
+            torso,
+            section_centres[3],
+            torso_size[0] * 0.80,
+            torso_size[2] * 0.86,
+        ),
+        section(
+            "upper-ribcage-shoulder",
+            torso,
+            section_centres[4],
+            torso_size[0] * 0.92,
+            torso_size[2] * 0.98,
+        ),
+    )
+    return _TorsoCage(pelvis_owner=pelvis, torso_owner=torso, sections=sections, axes=_FIXED_GUIDE_AXES)
+
+
 def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _HybridGuide:
     """Derive regional guide controls directly from validated source data."""
 
@@ -1000,6 +1169,16 @@ def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _H
     chest_radii = _guide_radii(
         torso_source["radii"] * np.asarray([0.92, 0.78, 1.00]),
         "torso.chest_radii",
+    )
+    torso_cage = _derive_torso_cage(
+        pelvis,
+        torso,
+        pelvis_center,
+        pelvis_radii,
+        torso_center,
+        waist_center,
+        torso_radii,
+        chest_center,
     )
     pelvic_waist_path = _guide_path(
         np.asarray(pelvic_station_center) + np.asarray([0.0, 0.42 * pelvic_station_radii[1], 0.0]),
@@ -1345,6 +1524,7 @@ def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _H
         topology=_guide_topology(descriptors),
         source_descriptors=descriptors,
         axial_guides=tuple(axial_guides),
+        torso_cage=torso_cage,
         head_guide=head_guide,
         limb_guides=tuple(limb_guides),
         paw_guides=tuple(paw_guides),
@@ -1416,6 +1596,37 @@ def _validate_hybrid_guide(guide: _HybridGuide, bounds: tuple[np.ndarray, np.nda
             _fail(f"{where} path/profile controls must be paired")
         if path is not None and profile is not None:
             _guide_path_checked(path, profile, where, bounds)
+
+    cage = guide.torso_cage
+    expected_cage_names = (
+        "lower-pelvis",
+        "upper-pelvis",
+        "waist-abdomen",
+        "lower-ribcage",
+        "upper-ribcage-shoulder",
+    )
+    if tuple(section.name for section in cage.sections) != expected_cage_names:
+        _fail("torso cage sections have unstable topology or order")
+    source_by_key = {descriptor.key: descriptor for descriptor in guide.source_descriptors}
+    if cage.pelvis_owner.key not in source_by_key or cage.torso_owner.key not in source_by_key:
+        _fail("torso cage owners must remain source descriptors")
+    if any(source_by_key[owner.key] is not owner for owner in cage.source_owners):
+        _fail("torso cage ownership must retain descriptor identity")
+    if cage.pelvis_owner.key[3] != "pelvis" or cage.torso_owner.key[3] != "torso":
+        _fail("torso cage owners must be the pelvis and torso descriptors")
+    expected_section_owners = (cage.pelvis_owner, cage.pelvis_owner, cage.torso_owner, cage.torso_owner, cage.torso_owner)
+    for index, section in enumerate(cage.sections):
+        if not any(section.owner is owner for owner in cage.source_owners):
+            _fail(f"torso-cage[{index}] has an unexpected owner")
+        if section.owner is not expected_section_owners[index]:
+            _fail(f"torso-cage[{index}] has an invalid source owner")
+        if not all(math.isfinite(value) and value > 0.0 for value in (section.lateral_radius, section.depth_radius)):
+            _fail(f"torso-cage[{index}] radii must be finite and positive")
+        _guide_point_checked(section.center, f"torso-cage[{index}].center", bounds)
+    if cage.axes != guide.topology.axes or cage.axes != _FIXED_GUIDE_AXES:
+        _fail("torso cage axes must match the guide topology and fixed prototype axes")
+    if any(cage.sections[index].center[1] >= cage.sections[index + 1].center[1] for index in range(len(cage.sections) - 1)):
+        _fail("torso cage sections must rise monotonically from pelvis to shoulders")
 
     for index, axial in enumerate(guide.axial_guides):
         mass(axial.girdle_center, axial.girdle_radii, f"axial[{index}].girdle")

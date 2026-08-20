@@ -283,6 +283,115 @@ class SurfacePreviewTests(unittest.TestCase):
                     dataclasses.replace(guide, limb_guides=malformed_guides)
                 )
 
+    def test_private_torso_cage_has_shared_ordered_source_owned_sections(self) -> None:
+        form = surface_preview.validate_envelope(make_varied_payload())
+        expected_names = (
+            "lower-pelvis",
+            "upper-pelvis",
+            "waist-abdomen",
+            "lower-ribcage",
+            "upper-ribcage-shoulder",
+        )
+        topologies = []
+        dimensions = []
+        for _, descriptors, _ in form.variants:
+            guide = surface_preview._derive_hybrid_guides(form, descriptors)
+            cage = guide.torso_cage
+            self.assertIsInstance(cage, surface_preview._TorsoCage)
+            self.assertEqual(tuple(section.name for section in cage.sections), expected_names)
+            self.assertEqual(cage.source_keys, (cage.pelvis_owner.key, cage.torso_owner.key))
+            self.assertEqual(cage.pelvis_owner.key[3], "pelvis")
+            self.assertEqual(cage.torso_owner.key[3], "torso")
+            self.assertTrue(all(any(owner is descriptor for descriptor in descriptors) for owner in cage.source_owners))
+            self.assertTrue(all(any(section.owner is owner for owner in cage.source_owners) for section in cage.sections))
+            self.assertEqual(
+                tuple(section.owner.key[3] for section in cage.sections),
+                ("pelvis", "pelvis", "torso", "torso", "torso"),
+            )
+            self.assertTrue(
+                all(
+                    np.isfinite(value)
+                    for section in cage.sections
+                    for value in section.center
+                )
+            )
+            self.assertTrue(
+                all(
+                    np.isfinite(value) and value > 0.0
+                    for section in cage.sections
+                    for value in (section.lateral_radius, section.depth_radius)
+                )
+            )
+            self.assertTrue(
+                all(
+                    cage.sections[index].center[1] < cage.sections[index + 1].center[1]
+                    for index in range(len(cage.sections) - 1)
+                )
+            )
+            topologies.append(
+                tuple((section.name, section.owner.key) for section in cage.sections)
+            )
+            dimensions.append(
+                tuple((section.lateral_radius, section.depth_radius) for section in cage.sections)
+            )
+        self.assertEqual(topologies, [topologies[0]] * len(form.variants))
+        self.assertGreater(len(set(dimensions)), 1)
+
+    def test_torso_cage_rejects_malformed_axes_and_owners(self) -> None:
+        import dataclasses
+
+        form = surface_preview.validate_envelope(make_payload())
+        guide = surface_preview._derive_hybrid_guides(form, form.variants[0][1])
+        malformed_axes = dataclasses.replace(
+            guide.torso_cage.axes,
+            lateral=(0.0, 1.0, 0.0),
+        )
+        malformed_cage = dataclasses.replace(guide.torso_cage, axes=malformed_axes)
+        with self.assertRaises(surface_preview.PreviewError):
+            surface_preview._validate_hybrid_guide(
+                dataclasses.replace(guide, torso_cage=malformed_cage)
+            )
+
+        torso = next(item for item in form.variants[0][1] if item.key[3] == "torso")
+        malformed_cage = dataclasses.replace(guide.torso_cage, pelvis_owner=torso)
+        with self.assertRaises(surface_preview.PreviewError):
+            surface_preview._validate_hybrid_guide(
+                dataclasses.replace(guide, torso_cage=malformed_cage)
+            )
+
+        malformed_sections = tuple(
+            dataclasses.replace(section, owner=torso)
+            if index == 0
+            else section
+            for index, section in enumerate(guide.torso_cage.sections)
+        )
+        malformed_cage = dataclasses.replace(guide.torso_cage, sections=malformed_sections)
+        with self.assertRaises(surface_preview.PreviewError):
+            surface_preview._validate_hybrid_guide(
+                dataclasses.replace(guide, torso_cage=malformed_cage)
+            )
+
+    def test_torso_cage_normalizes_disproportionate_radii_without_rejection(self) -> None:
+        payload = make_payload()
+        for item in payload["variants"][0]["descriptors"]:
+            role = item["address"]["role"]
+            if role == "pelvis":
+                item["shape"]["axis_extents_permille"] = [1700, 5000, 900]
+            elif role == "torso":
+                item["shape"]["axis_extents_permille"] = [1650, 2, 900]
+        form = surface_preview.validate_envelope(payload)
+        guide = surface_preview._derive_hybrid_guides(form, form.variants[0][1])
+        surface_preview._validate_hybrid_guide(guide)
+        sections = guide.torso_cage.sections
+        self.assertTrue(
+            all(
+                np.isfinite(value)
+                for section in sections
+                for value in section.center
+            )
+        )
+        self.assertTrue(all(sections[index].center[1] < sections[index + 1].center[1] for index in range(len(sections) - 1)))
+
     def test_station_and_girdle_controls_are_consumed_by_source_owned_fields(self) -> None:
         import dataclasses
 
