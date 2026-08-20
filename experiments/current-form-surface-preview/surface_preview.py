@@ -687,6 +687,96 @@ def _segment(name: str, start: np.ndarray, end: np.ndarray, r0: float, r1: float
     return {"name": name, "from": np.asarray(start, dtype=np.float64), "to": np.asarray(end, dtype=np.float64), "r0": float(r0), "r1": float(radius_end)}
 
 
+def _torso_cage_shape(cage: _TorsoCage) -> dict[str, Any]:
+    """Materialise the private ordered cage for the disposable field adapter.
+
+    The field is intentionally an oriented, axis-aligned prototype.  Each
+    section supplies a centre and two transverse radii; the evaluator linearly
+    interpolates those controls between adjacent sections and clamps at the
+    finite end caps.  Linear interpolation is deliberate here: it is
+    continuous and cannot overshoot a source-derived radius or centre.
+
+    ``section_owners`` is retained on the private shape so mesh winner labels
+    can expose the existing source ownership policy even though the whole
+    continuous cage is one compiled field.  The canonical recipe owner is the
+    torso descriptor; local labels select the source owner of the nearest
+    axial cage section, with ties resolved toward the lower section index.
+    """
+
+    if len(cage.sections) < 2:
+        _fail("torso cage requires at least two sections")
+    centers = np.asarray([section.center for section in cage.sections], dtype=np.float64)
+    heights = centers[:, 1]
+    lateral = np.asarray([section.lateral_radius for section in cage.sections], dtype=np.float64)
+    depth = np.asarray([section.depth_radius for section in cage.sections], dtype=np.float64)
+    if (
+        centers.shape != (len(cage.sections), 3)
+        or not np.all(np.isfinite(centers))
+        or not np.all(np.isfinite(lateral))
+        or not np.all(np.isfinite(depth))
+        or np.any(lateral <= 0.0)
+        or np.any(depth <= 0.0)
+        or np.any(np.diff(heights) <= 0.0)
+    ):
+        _fail("torso cage field controls are invalid")
+    cap_radius = np.minimum(lateral, depth)
+    return {
+        "name": "torso-cage",
+        "centers": centers,
+        "heights": heights,
+        "lateral_radii": lateral,
+        "depth_radii": depth,
+        "cap_radii": cap_radius,
+        "section_owners": tuple(section.owner for section in cage.sections),
+    }
+
+
+def _torso_cage_field(points: np.ndarray, shape: dict[str, Any]) -> np.ndarray:
+    """Evaluate a clamped, swept elliptical torso cage with rounded end caps."""
+
+    points = np.asarray(points, dtype=np.float64)
+    heights = shape["heights"]
+    centers = shape["centers"]
+    lateral = shape["lateral_radii"]
+    depth = shape["depth_radii"]
+    cap_radii = shape["cap_radii"]
+    y = points[..., 1]
+    lower = float(heights[0])
+    upper = float(heights[-1])
+    inside = (y >= lower) & (y <= upper)
+
+    interval = np.clip(np.searchsorted(heights, y, side="right") - 1, 0, len(heights) - 2)
+    y0 = heights[interval]
+    y1 = heights[interval + 1]
+    t = np.clip((y - y0) / (y1 - y0), 0.0, 1.0)
+    centre = centers[interval] + t[..., None] * (centers[interval + 1] - centers[interval])
+    lateral_radius = lateral[interval] + t * (lateral[interval + 1] - lateral[interval])
+    depth_radius = depth[interval] + t * (depth[interval + 1] - depth[interval])
+    transverse = points - centre
+    transverse_norm = np.sqrt(
+        (transverse[..., 0] / lateral_radius) ** 2
+        + (transverse[..., 2] / depth_radius) ** 2
+    )
+    inside_value = (transverse_norm - 1.0) * np.minimum(lateral_radius, depth_radius)
+
+    # Outside the ordered profile, use an ellipsoidal cap centred at the end
+    # section.  It is finite, rounded, and shares the exact boundary equation
+    # with the swept section at the profile endpoint.
+    cap_index = np.where(y < lower, 0, len(heights) - 1)
+    cap_center = centers[cap_index]
+    cap_lateral = lateral[cap_index]
+    cap_depth = depth[cap_index]
+    cap_height = cap_radii[cap_index]
+    cap_offset = points - cap_center
+    cap_norm = np.sqrt(
+        (cap_offset[..., 0] / cap_lateral) ** 2
+        + (cap_offset[..., 1] / cap_height) ** 2
+        + (cap_offset[..., 2] / cap_depth) ** 2
+    )
+    cap_value = (cap_norm - 1.0) * np.minimum(np.minimum(cap_lateral, cap_depth), cap_height)
+    return np.where(inside, inside_value, cap_value)
+
+
 _FIXED_GUIDE_AXES = _GuideAxes(
     lateral=(1.0, 0.0, 0.0),
     up=(0.0, 1.0, 0.0),
@@ -787,7 +877,30 @@ def _field(points: np.ndarray, field: Field | Descriptor, scale: float | None = 
         offset = points - centre
         normalized = np.sqrt(np.sum((offset / radii) ** 2, axis=-1))
         return (normalized - 1.0) * float(np.min(radii))
+    if shape["name"] == "torso-cage":
+        return _torso_cage_field(points, shape)
     return _segment_field(points, shape["from"], shape["to"], shape["r0"], shape["r1"])
+
+
+def _field_owner_keys(points: np.ndarray, field: Field) -> tuple[tuple[str, tuple[str, ...], str, str], ...]:
+    """Return deterministic source labels for sampled points on a field."""
+
+    shape = field.shape
+    if shape["name"] != "torso-cage":
+        return tuple(field.owner.key for _ in range(len(points)))
+    heights = shape["heights"]
+    y = np.asarray(points, dtype=np.float64)[:, 1]
+    # Nearest axial cage section is the ownership rule for the one blended
+    # field. A midpoint tie is resolved toward the lower section index by
+    # searchsorted. Lateral/depth offsets do not affect this spine-profile
+    # attribution decision.
+    section_index = np.searchsorted(heights, y, side="left")
+    section_index = np.clip(section_index, 0, len(heights) - 1)
+    previous = np.clip(section_index - 1, 0, len(heights) - 1)
+    choose_previous = np.abs(y - heights[previous]) <= np.abs(y - heights[section_index])
+    section_index = np.where(choose_previous, previous, section_index)
+    owners = shape["section_owners"]
+    return tuple(owners[int(index)].key for index in section_index)
 
 
 def _source_shape(desc: Descriptor, scale: float) -> dict[str, Any]:
@@ -1937,7 +2050,6 @@ def _compile_hybrid_guide(guide: _HybridGuide) -> tuple[Field, ...]:
     """Adapt regional guides to the disposable analytic-field backend."""
 
     fields: list[Field] = []
-    axial_by_owner = {item.owner.key: item for item in guide.axial_guides}
     limbs_by_owner = {item.owner.key: item for item in guide.limb_guides}
     paws_by_owner = {item.owner.key: item for item in guide.paw_guides}
     tails_by_owner = {item.owner.key: item for item in guide.tail_guides}
@@ -1957,18 +2069,7 @@ def _compile_hybrid_guide(guide: _HybridGuide) -> tuple[Field, ...]:
             _fail(f"guide field {recipe!r} has invalid path primitive")
         fields.append(Field(owner, recipe, _segment(primitive, np.asarray(path[0]), np.asarray(path[1]), profile[0], profile[-1])))
 
-    def add_axial(desc: Descriptor, guide_item: _AxialGuide) -> None:
-        station_recipes = {
-            "pelvic-girdle": "hips",
-            "waist": "waist",
-            "chest-girdle": "chest",
-        }
-        for station in guide_item.stations:
-            add_ellipsoid(desc, station_recipes[station.name], station.center, station.radii)
-        if guide_item.pelvic_core_center is not None:
-            add_ellipsoid(desc, "pelvic-core", guide_item.pelvic_core_center, guide_item.pelvic_core_radii)  # type: ignore[arg-type]
-        for transition in guide_item.transitions:
-            add_path(desc, transition.name + "-bridge", transition.centerline, transition.thickness, "tapered-segment")
+    torso_cage = guide.torso_cage
 
     def add_head(desc: Descriptor) -> None:
         add_ellipsoid(desc, "cranium", head.cranium_center, head.cranium_radii)
@@ -2022,8 +2123,11 @@ def _compile_hybrid_guide(guide: _HybridGuide) -> tuple[Field, ...]:
             add_ellipsoid(desc, "tail-root-collar", tail.root_collar_center, tail.root_collar_radii)  # type: ignore[arg-type]
 
     for desc in guide.source_descriptors:
-        if desc.key in axial_by_owner:
-            add_axial(desc, axial_by_owner[desc.key])
+        # Keep the new compound field at the torso descriptor's canonical
+        # source-address position rather than prepending it ahead of the
+        # descriptor-ordered recipe stream.
+        if desc.key == torso_cage.torso_owner.key:
+            fields.append(Field(torso_cage.torso_owner, "torso-cage", _torso_cage_shape(torso_cage)))
         if desc.key == head.head_owner.key:
             add_head(desc)
         if desc.key == head.neck_owner.key:
@@ -2061,6 +2165,25 @@ def _bounds(fields: tuple[Field, ...], padding: float) -> tuple[np.ndarray, np.n
             centre = shape["center"]
             radii = shape["radii"]
             mins.append(centre - radii); maxs.append(centre + radii)
+        elif shape["name"] == "torso-cage":
+            centres = shape["centers"]
+            lateral = shape["lateral_radii"]
+            depth = shape["depth_radii"]
+            cap_height = shape["cap_radii"]
+            mins.append(
+                np.asarray([
+                    float(np.min(centres[:, 0] - lateral)),
+                    float(np.min(shape["heights"] - cap_height)),
+                    float(np.min(centres[:, 2] - depth)),
+                ])
+            )
+            maxs.append(
+                np.asarray([
+                    float(np.max(centres[:, 0] + lateral)),
+                    float(np.max(shape["heights"] + cap_height)),
+                    float(np.max(centres[:, 2] + depth)),
+                ])
+            )
         else:
             a = shape["from"]
             b = shape["to"]
@@ -2182,7 +2305,8 @@ def build_variant(
     # Re-evaluate only at vertices; this avoids carrying a grid-shaped winner channel into artifacts.
     for vertex in vertices:
         values = [_field(vertex.reshape(1, 3), generated)[0] for generated in fields]
-        labels.append(fields[int(np.argmin(values))].owner.key)
+        winning_field = fields[int(np.argmin(values))]
+        labels.append(_field_owner_keys(vertex.reshape(1, 3), winning_field)[0])
     metrics = _mesh_checks(vertices, faces, labels, (lower, upper), volume)
     recipe_counts: dict[str, int] = {}
     for generated in fields:
@@ -2484,7 +2608,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
             "canvas": {"width": CANVAS[0], "height": CANVAS[1], "mode": "RGB"},
             "layout": _layout_json(),
             "projections": _projection_json(),
-            "generator": {"bundle_version": 2, "samples_per_axis": samples, "padding": padding, "smooth_union": {"operator": "polynomial_cubic_smooth_min", "k": smooth_k, "fold_order": "source_address_then_recipe_order"}, "field_primitives": ["ellipsoid", "capsule", "linear-radius-tapered-segment"], "field_recipes": ["hips", "pelvic-core", "chest", "waist", "pelvis-waist-bridge", "waist-chest-bridge", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar", "upper_arm-pre-joint", "upper_arm-joint", "forearm-proximal", "forearm-distal", "thigh-pre-joint", "thigh-joint", "shin-pre-joint", "shin-joint", "elbow", "knee", "hock", "root-bridge", "hip-transition", "hip-girdle", "shoulder-mass", "paw", "heel", "forefoot", "extremity-bridge", "tail-segment", "tail-tip-extension", "tail-tip-cap", "tail-root-bridge", "tail-root-collar"], "ownership": "recipe fields are source-owned and winner labels expose only source AddressKeys", "boundary": "disposable exploratory visual proof; not production geometry, SDF, collision, rig, topology, or Readiness evidence"},
+            "generator": {"bundle_version": 2, "samples_per_axis": samples, "padding": padding, "smooth_union": {"operator": "polynomial_cubic_smooth_min", "k": smooth_k, "fold_order": "source_address_then_recipe_order"}, "field_primitives": ["torso-cage", "ellipsoid", "capsule", "linear-radius-tapered-segment"], "field_recipes": ["torso-cage", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar", "upper_arm-pre-joint", "upper_arm-joint", "forearm-proximal", "forearm-distal", "thigh-pre-joint", "thigh-joint", "shin-pre-joint", "shin-joint", "elbow", "knee", "hock", "root-bridge", "hip-transition", "hip-girdle", "shoulder-mass", "paw", "heel", "forefoot", "extremity-bridge", "tail-segment", "tail-tip-extension", "tail-tip-cap", "tail-root-bridge", "tail-root-collar"], "ownership": "recipe fields are source-owned; the blended torso-cage recipe is torso-owned and winner labels select the nearest axial cage-section owner (lower-index tie break), exposing only source AddressKeys", "boundary": "disposable exploratory visual proof; not production geometry, SDF, collision, rig, topology, or Readiness evidence"},
             "variants": records,
         }
         (stage / "surface-preview-manifest.json").write_bytes(_canonical(manifest) + b"\n")
