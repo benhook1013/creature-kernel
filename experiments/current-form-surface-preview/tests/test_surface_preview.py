@@ -333,6 +333,14 @@ class SurfacePreviewTests(unittest.TestCase):
                     for index in range(len(cage.sections) - 1)
                 )
             )
+            lateral = np.asarray([section.lateral_radius for section in cage.sections])
+            depth = np.asarray([section.depth_radius for section in cage.sections])
+            self.assertTrue(np.all((lateral[1:] / lateral[:-1] >= 0.80) & (lateral[1:] / lateral[:-1] <= 1.20)))
+            self.assertTrue(np.all((depth[1:] / depth[:-1] >= 0.80) & (depth[1:] / depth[:-1] <= 1.20)))
+            self.assertLess(float(lateral[2]), float(lateral[1]))
+            self.assertLess(float(lateral[2]), float(lateral[3]))
+            self.assertGreaterEqual(float(lateral[3] / lateral[2]), 1.05)
+            self.assertLessEqual(float(lateral[3] / lateral[2]), 1.20)
             topologies.append(
                 tuple((section.name, section.owner.key) for section in cage.sections)
             )
@@ -529,7 +537,9 @@ class SurfacePreviewTests(unittest.TestCase):
         self.assertLess(float(values[1]), 0.0)
         self.assertAlmostEqual(float(values[2]), 0.0, places=12)
         self.assertLess(float(values[3]), 0.0)
-        self.assertGreaterEqual(float(values[4]), 0.0)
+        # The rounded cap evaluates at its zero boundary; tolerate the tiny
+        # negative residual from floating-point square-root arithmetic.
+        self.assertGreaterEqual(float(values[4]), -1.0e-12)
         for index, (centre, height, lateral, depth) in enumerate(zip(
             shape["centers"], shape["heights"], shape["lateral_radii"], shape["depth_radii"]
         )):
@@ -555,7 +565,10 @@ class SurfacePreviewTests(unittest.TestCase):
         heights = field.shape["heights"]
         lower_midpoint = (heights[0] + heights[1]) * 0.5
         upper_midpoint = (heights[2] + heights[3]) * 0.5
-        tie = (heights[1] + heights[2]) * 0.5
+        # Pick the representable sample immediately below the mathematical
+        # midpoint; this avoids making the test depend on which side a binary
+        # float happens to round the exact midpoint toward.
+        tie = np.nextafter((heights[1] + heights[2]) * 0.5, heights[1])
         points = np.asarray([[0.0, lower_midpoint, 0.0], [0.0, upper_midpoint, 0.0], [0.0, tie, 0.0]])
         labels = surface_preview._field_owner_keys(points, field)
         self.assertEqual(labels[0][3], "pelvis")

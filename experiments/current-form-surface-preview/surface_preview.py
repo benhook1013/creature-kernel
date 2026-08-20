@@ -1218,7 +1218,7 @@ def _derive_torso_cage(
     chest = np.asarray(chest_center, dtype=np.float64)
     pelvis_size = np.asarray(pelvis_radii, dtype=np.float64)
     torso_size = np.asarray(torso_radii, dtype=np.float64)
-    lower_rib_center = waist + 0.46 * (chest - waist)
+    lower_rib_center = waist + 0.55 * (chest - waist)
 
     # The source convention guarantees that the torso centre is above the
     # pelvis centre, but source radii are intentionally allowed to vary.  Use
@@ -1232,8 +1232,8 @@ def _derive_torso_cage(
     if not math.isfinite(span) or span <= 0.0:
         _fail("torso-cage source centres must have positive axial separation")
     raw_heights = (
-        float(pelvis_origin[1] - 0.34 * pelvis_size[1]),
-        float(pelvis_origin[1] + 0.38 * pelvis_size[1]),
+        float(pelvis_origin[1] - 0.32 * pelvis_size[1]),
+        float(pelvis_origin[1] + 0.24 * pelvis_size[1]),
         float(waist[1]),
         float(lower_rib_center[1]),
         float(chest[1]),
@@ -1283,8 +1283,8 @@ def _derive_torso_cage(
             "lower-pelvis",
             pelvis,
             section_centres[0],
-            pelvis_size[0] * 0.94,
-            pelvis_size[2] * 0.96,
+            pelvis_size[0] * 0.92,
+            pelvis_size[2] * 0.94,
         ),
         section(
             "upper-pelvis",
@@ -1297,22 +1297,22 @@ def _derive_torso_cage(
             "waist-abdomen",
             torso,
             section_centres[2],
-            torso_size[0] * 0.64,
-            torso_size[2] * 0.72,
+            torso_size[0] * 0.70,
+            torso_size[2] * 0.76,
         ),
         section(
             "lower-ribcage",
             torso,
             section_centres[3],
-            torso_size[0] * 0.80,
-            torso_size[2] * 0.86,
+            torso_size[0] * 0.78,
+            torso_size[2] * 0.84,
         ),
         section(
             "upper-ribcage-shoulder",
             torso,
             section_centres[4],
-            torso_size[0] * 0.92,
-            torso_size[2] * 0.98,
+            torso_size[0] * 0.90,
+            torso_size[2] * 0.96,
         ),
     )
     return _TorsoCage(pelvis_owner=pelvis, torso_owner=torso, sections=sections, axes=_FIXED_GUIDE_AXES)
