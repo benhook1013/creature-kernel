@@ -44,7 +44,7 @@ class SurfacePreviewPublishError(RuntimeError):
 
 
 SURFACE_PREVIEW_FORMAT = "creature-kernel.disposable-surface-preview.v2"
-REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v3"
+REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v4"
 EXPECTED_VARIANTS = common.PROVISIONAL_FORM_VARIANT_IDS
 EXPECTED_VIEWS = ("front", "side", "three-quarter")
 MANIFEST_NAME = "surface-preview-manifest.json"
@@ -84,11 +84,13 @@ EXPECTED_GUIDE_COUNTS = {
     "axial_stations": 3,
     "axial_transitions": 2,
     "axial_core_masses": 1,
+    "torso_cage_sections": 5,
+    "torso_cage_connections": 4,
     "head": 1,
     "limbs": 8,
     "paws": 4,
     "tails": 2,
-    "compiled_fields": 59,
+    "compiled_fields": 50,
     "compiled_field_recipe_counts": {
         "upper_arm-pre-joint": 2,
         "upper_arm-joint": 2,
@@ -107,20 +109,13 @@ EXPECTED_GUIDE_COUNTS = {
         "extremity-bridge": 4,
         "root-bridge": 4,
         "hip-transition": 2,
-        "hip-girdle": 2,
-        "shoulder-mass": 2,
         "tail-segment": 2,
         "cranium": 1,
         "muzzle": 1,
         "head-base-bridge": 1,
         "tapered-neck": 1,
         "neck-collar": 1,
-        "hips": 1,
-        "pelvic-core": 1,
-        "waist": 1,
-        "chest": 1,
-        "pelvis-waist-bridge": 1,
-        "waist-chest-bridge": 1,
+        "torso-cage": 1,
         "tail-root-bridge": 1,
         "tail-root-collar": 1,
         "tail-tip-extension": 1,
@@ -545,7 +540,7 @@ def _validate_controls(
     lower: list[float],
     upper: list[float],
 ) -> None:
-    if not isinstance(controls, dict) or set(controls) != {"axes", "axial", "head", "limbs", "paws", "tails"}:
+    if not isinstance(controls, dict) or set(controls) != {"axes", "axial", "torso_cage", "head", "limbs", "paws", "tails"}:
         raise SurfacePreviewPublishError("regional guide controls are invalid")
     axes = controls["axes"]
     if not isinstance(axes, dict) or set(axes) != {"lateral", "up", "forward"} or axes != {"lateral": [1.0, 0.0, 0.0], "up": [0.0, 1.0, 0.0], "forward": [0.0, 0.0, 1.0]}:
@@ -559,7 +554,7 @@ def _validate_controls(
         return parsed
 
     axial = controls["axial"]
-    if not isinstance(axial, dict) or set(axial) != {"core", "stations", "transitions"}:
+    if not isinstance(axial, dict) or set(axial) != {"status", "core", "stations", "transitions"} or axial["status"] != "compatibility-diagnostic-not-rendered":
         raise SurfacePreviewPublishError("regional guide axial controls are invalid")
     core = axial["core"]
     if not isinstance(core, dict) or set(core) != {"owner", "recipe", "mass"} or core["recipe"] != "pelvic-core":
@@ -608,6 +603,56 @@ def _validate_controls(
         if transition_owner["role"] != "torso":
             raise SurfacePreviewPublishError(f"regional guide axial.transitions[{index}] owner role is invalid")
         _path(item["path"], f"regional-guide.controls.axial.transitions[{index}].path", lower, upper, {expected_name}, expected_kind="tapered-segment")
+
+    torso_cage = controls["torso_cage"]
+    expected_cage_fields = {"status", "owners", "axes", "orientation", "sections", "connections"}
+    if not isinstance(torso_cage, dict) or set(torso_cage) != expected_cage_fields:
+        raise SurfacePreviewPublishError("regional guide torso cage controls are invalid")
+    if torso_cage["status"] != "skin-driving torso controls":
+        raise SurfacePreviewPublishError("regional guide torso cage status is invalid")
+    cage_owners = torso_cage["owners"]
+    if not isinstance(cage_owners, list) or len(cage_owners) != 2:
+        raise SurfacePreviewPublishError("regional guide torso cage owners are invalid")
+    parsed_cage_owners = [owner(value, f"regional-guide.controls.torso_cage.owners[{index}]") for index, value in enumerate(cage_owners)]
+    if [value["role"] for value in parsed_cage_owners] != ["pelvis", "torso"]:
+        raise SurfacePreviewPublishError("regional guide torso cage owners must be pelvis and torso")
+    cage_axes = torso_cage["axes"]
+    expected_axes = {"lateral": [1.0, 0.0, 0.0], "up": [0.0, 1.0, 0.0], "forward": [0.0, 0.0, 1.0]}
+    if cage_axes != expected_axes or torso_cage["orientation"] != "elliptical cross-section rings lie in the lateral/forward plane and rise along the up axis":
+        raise SurfacePreviewPublishError("regional guide torso cage axes or orientation is invalid")
+    expected_sections = (
+        ("lower-pelvis", "pelvis"),
+        ("upper-pelvis", "pelvis"),
+        ("waist-abdomen", "torso"),
+        ("lower-ribcage", "torso"),
+        ("upper-ribcage-shoulder", "torso"),
+    )
+    sections = torso_cage["sections"]
+    if not isinstance(sections, list) or len(sections) != len(expected_sections):
+        raise SurfacePreviewPublishError("regional guide torso cage sections are invalid")
+    section_y: list[float] = []
+    for index, (item, (expected_name, expected_role)) in enumerate(zip(sections, expected_sections)):
+        if not isinstance(item, dict) or set(item) != {"name", "owner", "center", "lateral_radius", "depth_radius"}:
+            raise SurfacePreviewPublishError(f"regional guide torso cage sections[{index}] has an invalid shape")
+        if item["name"] != expected_name:
+            raise SurfacePreviewPublishError(f"regional guide torso cage sections[{index}] name is invalid")
+        section_owner = owner(item["owner"], f"regional-guide.controls.torso_cage.sections[{index}].owner")
+        if section_owner["role"] != expected_role or section_owner != parsed_cage_owners[0 if expected_role == "pelvis" else 1]:
+            raise SurfacePreviewPublishError(f"regional guide torso cage sections[{index}] owner is invalid")
+        center = _point(item["center"], f"regional-guide.controls.torso_cage.sections[{index}].center")
+        lateral = _finite_number(item["lateral_radius"], f"regional-guide.controls.torso_cage.sections[{index}].lateral_radius")
+        depth = _finite_number(item["depth_radius"], f"regional-guide.controls.torso_cage.sections[{index}].depth_radius")
+        if lateral <= 0.0 or depth <= 0.0:
+            raise SurfacePreviewPublishError(f"regional guide torso cage sections[{index}] radii must be positive")
+        if center[0] - lateral < lower[0] or center[0] + lateral > upper[0] or center[2] - depth < lower[2] or center[2] + depth > upper[2] or center[1] < lower[1] or center[1] > upper[1]:
+            raise SurfacePreviewPublishError(f"regional guide torso cage sections[{index}] extend outside shared render bounds")
+        section_y.append(center[1])
+    if any(section_y[index] >= section_y[index + 1] for index in range(len(section_y) - 1)):
+        raise SurfacePreviewPublishError("regional guide torso cage sections are not ordered from pelvis to shoulders")
+    connections = torso_cage["connections"]
+    expected_connections = [{"from": expected_sections[index][0], "to": expected_sections[index + 1][0]} for index in range(len(expected_sections) - 1)]
+    if connections != expected_connections:
+        raise SurfacePreviewPublishError("regional guide torso cage connections are invalid")
 
     head = controls["head"]
     if not isinstance(head, dict) or set(head) != {"owners", "masses", "sections"}:

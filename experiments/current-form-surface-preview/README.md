@@ -15,7 +15,7 @@ The compiler-owned middle seam is a private regional guide representation
 derived separately for each of the four validated variants. It carries stable
 source AddressKey ownership and provenance, the fixed prototype axes and
 parent topology, ordered pelvic-girdle/waist/chest-girdle stations with short
-station transitions, explicit shoulder and hip girdle controls at limb roots,
+station transitions, compact shoulder and hip root controls at limb roots,
 craniofacial and neck transitions, piecewise tapered limb sections with
 endpoint-owned elbow/knee/hock stations, structured heel/forefoot-pad controls,
 and tail
@@ -32,14 +32,15 @@ The renderer expands each source descriptor into a bounded, deterministic
 role recipe where useful. The current fixture convention supplies ordered
 pelvic/chest girdle and narrow-waist masses joined by two short tapered station
 bridges, cranium and muzzle, a parent-surface neck/collar, source-owned
-shoulder and hip girdle masses plus limb root bridges, tapered hip-to-thigh
+compact shoulder and hip root controls plus embedded limb root bridges, tapered hip-to-thigh
 transitions, piecewise limb profiles, endpoint joint stations, simple
 two-stage hand paws, structured heel/forefoot foot masses, and
 a smoothly rooted straight tail with a full midsection and short blunt distal
 taper. Recipe components are fields,
 not semantic nodes: every generated component keeps its source descriptor as
 owner and the semantic sidecar emits only source AddressKeys. Limb and root
-bridges are anchored on the parent analytic-field boundary in the existing
+bridges are anchored on the torso cage boundary for torso-owned roots, or the
+parent analytic-field boundary for other attachments, in the existing
 axis-aligned fixture convention; arbitrary orientation is not claimed. Recipe
 expansion therefore fails closed unless the envelope contains the exact 18-Part
 stylized-biped role/parent layout with a mirrored left/right body, +Y as up,
@@ -47,6 +48,12 @@ stylized-biped role/parent layout with a mirrored left/right body, +Y as up,
 ellipsoid centres, capsule endpoints, and tapered-tail endpoints must also
 remain bound to their source reference points. This is a deliberate preview
 restriction, not a local-frame or general morphology contract.
+
+The skin adapter embeds torso-owned root and hip connectors toward the child by
+their support radius. Their guide-side boundary anchors remain visible in the
+regional sidecar, while the compiled field uses the embedded centreline; the
+separate shoulder/hip mass controls remain diagnostic and are not emitted as
+additional skin fields.
 
 The manifest metrics report both source descriptor count and actual generated
 field count, including the field-memory bound used for allocation. This is
@@ -59,10 +66,16 @@ The disposable v2 generator writes one private `regional-guide.json` and one
 guide sidecar is a sanitized, source-owned debug projection of `_HybridGuide`:
 it carries only source AddressKeys, compiled recipe counts, projection
 names/bases, one shared world-space render bound, fixed canvas/layout metadata,
-and finite regional controls. Its v3 axial controls retain the explicit ordered
-`stations` (`pelvic-girdle`, `waist`, `chest-girdle`) and ordered `transitions`
-(`pelvis-waist`, `waist-chest`), each with an owner AddressKey and the mass or
-tapered-segment geometry consumed by the field compiler. Limb controls expose
+and finite regional controls. Its v4 `torso_cage` controls are the explicit
+skin-driving representation: they retain pelvis/torso owner AddressKeys,
+fixed guide axes/orientation, five ordered elliptical cross-sections from
+pelvis through the shoulder ribcage, and four connections between adjacent
+sections. The guide renderer draws these sections as rings/contours in the
+front, side, and three-quarter x-ray panels. The older ordered axial
+`stations` (`pelvic-girdle`, `waist`, `chest-girdle`) and `transitions`
+(`pelvis-waist`, `waist-chest`) remain only as a clearly marked
+`compatibility-diagnostic-not-rendered` sidecar view; they are not rendered and
+are not the skin-driving controls. Limb controls expose
 named tapered sections, consumed profile radii, source-owned root/hip bridges,
 named endpoint joint stations, and exact parent anchors for hand/foot
 attachments. Forearm controls have no elbow station, avoiding duplicate joint
