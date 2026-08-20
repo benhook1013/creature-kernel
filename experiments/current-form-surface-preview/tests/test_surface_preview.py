@@ -839,6 +839,7 @@ class SurfacePreviewTests(unittest.TestCase):
             expected_bounds = manifest["shared_render_bounds"]
             grid_signatures = []
             guide_controls = []
+            cage_topologies = []
             for variant in manifest["variants"]:
                 grid_signatures.append((tuple(variant["grid"]["bounds_min"]), tuple(variant["grid"]["bounds_max"]), tuple(variant["grid"]["spacing"])))
                 regional = json.loads((output / variant["id"] / "regional-guide.json").read_text())
@@ -849,6 +850,8 @@ class SurfacePreviewTests(unittest.TestCase):
                 self.assertEqual(regional["counts"]["axial_stations"], 3)
                 self.assertEqual(regional["counts"]["axial_transitions"], 2)
                 self.assertEqual(regional["counts"]["axial_core_masses"], 1)
+                self.assertEqual(regional["counts"]["torso_cage_sections"], 5)
+                self.assertEqual(regional["counts"]["torso_cage_connections"], 4)
                 self.assertEqual(regional["counts"]["compiled_fields"], 54)
                 self.assertEqual(regional["counts"]["compiled_field_recipe_counts"], {
                     "upper_arm-pre-joint": 2, "upper_arm-joint": 2, "forearm-proximal": 2, "forearm-distal": 2,
@@ -865,10 +868,12 @@ class SurfacePreviewTests(unittest.TestCase):
                 self.assertEqual(regional["layout"], manifest["layout"])
                 self.assertEqual(regional["canvas"], manifest["canvas"])
                 self.assertTrue(regional["controls"]["axial"])
+                self.assertTrue(regional["controls"]["torso_cage"])
                 self.assertTrue(regional["controls"]["limbs"])
                 self.assertTrue(regional["controls"]["paws"])
                 self.assertTrue(regional["controls"]["tails"])
                 axial = regional["controls"]["axial"]
+                self.assertEqual(axial["status"], "compatibility-diagnostic-not-rendered")
                 self.assertEqual([item["name"] for item in axial["stations"]], ["pelvic-girdle", "waist", "chest-girdle"])
                 self.assertEqual([item["name"] for item in axial["transitions"]], ["pelvis-waist", "waist-chest"])
                 self.assertEqual([item["owner"]["role"] for item in axial["stations"]], ["pelvis", "torso", "torso"])
@@ -879,6 +884,24 @@ class SurfacePreviewTests(unittest.TestCase):
                 self.assertEqual(axial["transitions"][0]["path"]["path_kind"], "tapered-segment")
                 self.assertLess(axial["stations"][1]["mass"]["radii"][0], axial["stations"][2]["mass"]["radii"][0])
                 self.assertLess(axial["stations"][1]["mass"]["radii"][2], axial["stations"][2]["mass"]["radii"][2])
+                cage = regional["controls"]["torso_cage"]
+                self.assertEqual(cage["status"], "skin-driving torso controls")
+                self.assertEqual([item["name"] for item in cage["sections"]], [
+                    "lower-pelvis", "upper-pelvis", "waist-abdomen", "lower-ribcage", "upper-ribcage-shoulder",
+                ])
+                self.assertEqual([item["owner"]["role"] for item in cage["sections"]], ["pelvis", "pelvis", "torso", "torso", "torso"])
+                self.assertEqual(cage["axes"], {"lateral": [1.0, 0.0, 0.0], "up": [0.0, 1.0, 0.0], "forward": [0.0, 0.0, 1.0]})
+                self.assertEqual(cage["connections"], [
+                    {"from": "lower-pelvis", "to": "upper-pelvis"},
+                    {"from": "upper-pelvis", "to": "waist-abdomen"},
+                    {"from": "waist-abdomen", "to": "lower-ribcage"},
+                    {"from": "lower-ribcage", "to": "upper-ribcage-shoulder"},
+                ])
+                cage_topologies.append((
+                    tuple(item["name"] for item in cage["sections"]),
+                    tuple(item["owner"]["role"] for item in cage["sections"]),
+                    tuple((item["from"], item["to"]) for item in cage["connections"]),
+                ))
                 thigh = next(item for item in regional["controls"]["limbs"] if item["owner"]["role"] == "thigh")
                 upper_arm = next(item for item in regional["controls"]["limbs"] if item["owner"]["role"] == "upper_arm")
                 self.assertEqual({item["control"] for item in thigh["masses"]}, {"hip-girdle"})
@@ -913,6 +936,7 @@ class SurfacePreviewTests(unittest.TestCase):
                 with Image.open(output / variant["id"] / "guide-skin-composite.png") as image:
                     self.assertEqual(image.size, (1800, 570))
             self.assertGreater(len(set(grid_signatures)), 1)
+            self.assertEqual(len(set(cage_topologies)), 1)
             direct_form = surface_preview.validate_envelope(make_varied_payload())
             for variant_id, (_, descriptors, _) in zip(surface_preview.VARIANT_IDS, direct_form.variants):
                 _, _, _, _, direct_metrics, direct_grid = surface_preview.build_variant(
@@ -961,15 +985,21 @@ class SurfacePreviewTests(unittest.TestCase):
         bounds = surface_preview._shared_render_bounds((fields,), 0.5)
         regional = surface_preview._regional_guide_json("neutral-v0", guide, bounds, compiled_fields=fields)
         axial = regional["controls"]["axial"]
-        # The sidecar remains a guide diagnostic and intentionally retains its
-        # axial station/transition controls even though the skin consumer now
-        # replaces those six old field recipes with one private torso cage.
+        # The sidecar retains old axial controls only as an explicitly marked
+        # compatibility diagnostic; the skin-driving controls are the cage.
+        self.assertEqual(axial["status"], "compatibility-diagnostic-not-rendered")
         self.assertEqual([item["recipe"] for item in axial["stations"]], ["hips", "waist", "chest"])
         self.assertEqual([item["recipe"] for item in axial["transitions"]], ["pelvis-waist-bridge", "waist-chest-bridge"])
         torso_field = next(item for item in fields if item.recipe == "torso-cage")
         np.testing.assert_allclose(torso_field.shape["centers"], [section.center for section in guide.torso_cage.sections])
         np.testing.assert_allclose(torso_field.shape["lateral_radii"], [section.lateral_radius for section in guide.torso_cage.sections])
         np.testing.assert_allclose(torso_field.shape["depth_radii"], [section.depth_radius for section in guide.torso_cage.sections])
+        cage = regional["controls"]["torso_cage"]
+        self.assertEqual(cage["status"], "skin-driving torso controls")
+        self.assertEqual([item["name"] for item in cage["sections"]], [section.name for section in guide.torso_cage.sections])
+        np.testing.assert_allclose([item["center"] for item in cage["sections"]], [section.center for section in guide.torso_cage.sections])
+        np.testing.assert_allclose([item["lateral_radius"] for item in cage["sections"]], [section.lateral_radius for section in guide.torso_cage.sections])
+        np.testing.assert_allclose([item["depth_radius"] for item in cage["sections"]], [section.depth_radius for section in guide.torso_cage.sections])
         for limb in regional["controls"]["limbs"]:
             for mass in limb["masses"]:
                 recipe = {"shoulder-girdle": "shoulder-mass", "hip-girdle": "hip-girdle", "joint": "joint-collar"}[mass["control"]]

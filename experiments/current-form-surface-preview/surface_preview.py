@@ -32,7 +32,7 @@ from skimage.measure import marching_cubes
 
 
 FORMAT = "creature-kernel.disposable-surface-preview.v2"
-REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v3"
+REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v4"
 SOURCE_FORMAT = "creature-kernel.provisional-form-preview.v4"
 VARIANT_IDS = ("neutral-v0", "broad-soft-v0", "lean-readable-v0", "depth-forward-v0")
 MAX_INPUT_BYTES = 4 * 1024 * 1024
@@ -1897,9 +1897,36 @@ def _regional_guide_json(
     if axial_core is None:
         _fail("axial guide is missing the pelvic core control")
     axial_controls = {
+        "status": "compatibility-diagnostic-not-rendered",
         "core": axial_core,
         "stations": stations,
         "transitions": transitions,
+    }
+    torso_cage = guide.torso_cage
+    cage_axes = {
+        "lateral": _point_json(torso_cage.axes.lateral),
+        "up": _point_json(torso_cage.axes.up),
+        "forward": _point_json(torso_cage.axes.forward),
+    }
+    torso_cage_controls = {
+        "status": "skin-driving torso controls",
+        "owners": [_address_json(torso_cage.pelvis_owner.key), _address_json(torso_cage.torso_owner.key)],
+        "axes": cage_axes,
+        "orientation": "elliptical cross-section rings lie in the lateral/forward plane and rise along the up axis",
+        "sections": [
+            {
+                "name": section.name,
+                "owner": _address_json(section.owner.key),
+                "center": _point_json(section.center),
+                "lateral_radius": float(section.lateral_radius),
+                "depth_radius": float(section.depth_radius),
+            }
+            for section in torso_cage.sections
+        ],
+        "connections": [
+            {"from": torso_cage.sections[index].name, "to": torso_cage.sections[index + 1].name}
+            for index in range(len(torso_cage.sections) - 1)
+        ],
     }
     head = guide.head_guide
     head_controls = {
@@ -2023,6 +2050,8 @@ def _regional_guide_json(
             "axial_stations": len(stations),
             "axial_transitions": len(transitions),
             "axial_core_masses": 1,
+            "torso_cage_sections": len(torso_cage.sections),
+            "torso_cage_connections": len(torso_cage.sections) - 1,
             "head": 1,
             "limbs": len(guide.limb_guides),
             "paws": len(guide.paw_guides),
@@ -2037,6 +2066,7 @@ def _regional_guide_json(
         "controls": {
             "axes": {"lateral": _point_json(guide.topology.axes.lateral), "up": _point_json(guide.topology.axes.up), "forward": _point_json(guide.topology.axes.forward)},
             "axial": axial_controls,
+            "torso_cage": torso_cage_controls,
             "head": head_controls,
             "limbs": limb_controls,
             "paws": paw_controls,
@@ -2406,22 +2436,48 @@ def _draw_guide_path(draw: ImageDraw.ImageDraw, frame: dict[str, Any], path: tup
         draw.ellipse((point[0] - radius_px, point[1] - radius_px, point[0] + radius_px, point[1] + radius_px), outline=colour, width=1)
 
 
+def _draw_torso_cage(draw: ImageDraw.ImageDraw, frame: dict[str, Any], cage: _TorsoCage, colour: tuple[int, int, int]) -> None:
+    """Render the skin-driving cage as section rings and longitudinal seams."""
+
+    section_points: list[list[tuple[float, float]]] = []
+    lateral_axis = np.asarray(cage.axes.lateral, dtype=np.float64)
+    forward_axis = np.asarray(cage.axes.forward, dtype=np.float64)
+    for section in cage.sections:
+        angles = np.linspace(0.0, 2.0 * math.pi, 33)
+        ring = (
+            np.asarray(section.center, dtype=np.float64)[None, :]
+            + np.cos(angles)[:, None] * float(section.lateral_radius) * lateral_axis[None, :]
+            + np.sin(angles)[:, None] * float(section.depth_radius) * forward_axis[None, :]
+        )
+        projected = _frame_screen(frame, ring)
+        points = [(float(point[0]), float(point[1])) for point in projected]
+        section_points.append(points)
+        draw.line(points, fill=colour, width=2, joint="curve")
+
+    # A sparse set of longitudinal seams makes the ordered sweep readable in
+    # front and side projections, where an ellipse's depth or lateral axis can
+    # otherwise collapse to a single contour.
+    for ring_index in range(len(section_points) - 1):
+        for point_index in range(0, 32, 4):
+            draw.line(
+                (section_points[ring_index][point_index], section_points[ring_index + 1][point_index]),
+                fill=colour,
+                width=1,
+            )
+    centreline = _frame_screen(frame, np.asarray([section.center for section in cage.sections], dtype=np.float64))
+    draw.line([tuple(float(value) for value in point) for point in centreline], fill=colour, width=1)
+
+
 def _draw_guide(draw: ImageDraw.ImageDraw, frame: dict[str, Any], guide: _HybridGuide) -> None:
     colours = {
-        "axial": (224, 167, 91),
+        "cage": (244, 174, 76),
         "head": (204, 121, 190),
         "limb": (96, 174, 218),
         "joint": (235, 124, 100),
         "paw": (134, 198, 135),
         "tail": (225, 181, 88),
     }
-    for item in guide.axial_guides:
-        for station in item.stations:
-            _draw_guide_mass(draw, frame, station.center, station.radii, colours["axial"])
-        if item.pelvic_core_center is not None and item.pelvic_core_radii is not None:
-            _draw_guide_mass(draw, frame, item.pelvic_core_center, item.pelvic_core_radii, colours["axial"])
-        for transition in item.transitions:
-            _draw_guide_path(draw, frame, transition.centerline, transition.thickness, colours["axial"])
+    _draw_torso_cage(draw, frame, guide.torso_cage, colours["cage"])
     head = guide.head_guide
     _draw_guide_mass(draw, frame, head.cranium_center, head.cranium_radii, colours["head"])
     _draw_guide_mass(draw, frame, head.muzzle_center, head.muzzle_radii, colours["head"])
@@ -2499,7 +2555,7 @@ def _render(
     draw = ImageDraw.Draw(image)
     font = ImageFont.load_default()
     draw.text((16, 16), f"Disposable guide + compiled skin - {variant_id}", fill=(235, 238, 244), font=font)
-    draw.text((16, 42), "guide controls: regional masses / piecewise limb sections / endpoint joints / heel-pad paws    skin: deterministic compiled field", fill=(167, 176, 190), font=font)
+    draw.text((16, 42), "guide: skin-driving torso cage rings / regional limb sections / endpoint joints / heel-pad paws    skin: deterministic compiled field", fill=(167, 176, 190), font=font)
     projection_lookup = {name: np.asarray(basis, dtype=np.float64) for name, basis, _ in PROJECTIONS}
     shared_frames: dict[str, dict[str, Any]] = {}
     for item in PANEL_LAYOUT:

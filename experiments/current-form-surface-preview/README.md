@@ -59,10 +59,16 @@ The disposable v2 generator writes one private `regional-guide.json` and one
 guide sidecar is a sanitized, source-owned debug projection of `_HybridGuide`:
 it carries only source AddressKeys, compiled recipe counts, projection
 names/bases, one shared world-space render bound, fixed canvas/layout metadata,
-and finite regional controls. Its v3 axial controls retain the explicit ordered
-`stations` (`pelvic-girdle`, `waist`, `chest-girdle`) and ordered `transitions`
-(`pelvis-waist`, `waist-chest`), each with an owner AddressKey and the mass or
-tapered-segment geometry consumed by the field compiler. Limb controls expose
+and finite regional controls. Its v4 `torso_cage` controls are the explicit
+skin-driving representation: they retain pelvis/torso owner AddressKeys,
+fixed guide axes/orientation, five ordered elliptical cross-sections from
+pelvis through the shoulder ribcage, and four connections between adjacent
+sections. The guide renderer draws these sections as rings/contours in the
+front, side, and three-quarter x-ray panels. The older ordered axial
+`stations` (`pelvic-girdle`, `waist`, `chest-girdle`) and `transitions`
+(`pelvis-waist`, `waist-chest`) remain only as a clearly marked
+`compatibility-diagnostic-not-rendered` sidecar view; they are not rendered and
+are not the skin-driving controls. Limb controls expose
 named tapered sections, consumed profile radii, source-owned root/hip bridges,
 named endpoint joint stations, and exact parent anchors for hand/foot
 attachments. Forearm controls have no elbow station, avoiding duplicate joint

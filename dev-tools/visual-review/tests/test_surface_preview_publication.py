@@ -114,7 +114,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     value = {{"control": control, "points": [[-0.5, 0.0, 0.0], [0.5, 0.0, 0.0]], "thickness": [0.2, 0.2]}}
                     if kind is not None: value["path_kind"] = kind
                     return value
-                axial = {{"core": {{"owner": owners[0], "recipe": "pelvic-core", "mass": mass("pelvic-core")}}, "stations": [
+                axial = {{"status": "compatibility-diagnostic-not-rendered", "core": {{"owner": owners[0], "recipe": "pelvic-core", "mass": mass("pelvic-core")}}, "stations": [
                     {{"name": "pelvic-girdle", "owner": owners[0], "recipe": "hips", "mass": mass("pelvic-girdle")}},
                     {{"name": "waist", "owner": owners[1], "recipe": "waist", "mass": mass("waist")}},
                     {{"name": "chest-girdle", "owner": owners[1], "recipe": "chest", "mass": mass("chest-girdle")}},
@@ -151,7 +151,15 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                         attachment_source = {{"owner": parent, "anchor": "forearm-distal-boundary", "point": list(attachment["points"][0]), "boundary_point": [1.0, 0.0, 0.0]}}
                         paws.append({{"owner": owner, "masses": [paw], "attachment": attachment, "attachment_source": attachment_source}})
                 tails = [{{"owner": owners[16], "centerline": path("segment", "tapered-segment"), "sections": [path("root-attachment", "tapered-segment")], "masses": [mass("root-collar")]}}, {{"owner": owners[17], "centerline": path("segment", "tapered-segment"), "sections": [path("tip-extension", "tapered-segment")], "masses": [mass("tip-cap")]}}]
-                guide = {{"format": {publisher.REGIONAL_GUIDE_FORMAT!r}, "variant": variant_id, "owners": owners, "counts": {publisher.EXPECTED_GUIDE_COUNTS!r}, "projections": projections, "shared_render_bounds": bounds, "canvas": canvas, "layout": layout, "controls": {{"axes": {{"lateral": [1.0, 0.0, 0.0], "up": [0.0, 1.0, 0.0], "forward": [0.0, 0.0, 1.0]}}, "axial": axial, "head": head, "limbs": limbs, "paws": paws, "tails": tails}}, "boundary": "private disposable regional controls; source-owned AddressKeys only; not a semantic or runtime contract"}}
+                cage_sections = [
+                    {{"name": "lower-pelvis", "owner": owners[0], "center": [0.0, -1.0, 0.0], "lateral_radius": 0.5, "depth_radius": 0.5}},
+                    {{"name": "upper-pelvis", "owner": owners[0], "center": [0.0, -0.5, 0.0], "lateral_radius": 0.5, "depth_radius": 0.5}},
+                    {{"name": "waist-abdomen", "owner": owners[1], "center": [0.0, 0.0, 0.0], "lateral_radius": 0.5, "depth_radius": 0.5}},
+                    {{"name": "lower-ribcage", "owner": owners[1], "center": [0.0, 0.5, 0.0], "lateral_radius": 0.5, "depth_radius": 0.5}},
+                    {{"name": "upper-ribcage-shoulder", "owner": owners[1], "center": [0.0, 1.0, 0.0], "lateral_radius": 0.5, "depth_radius": 0.5}},
+                ]
+                torso_cage = {{"status": "skin-driving torso controls", "owners": [owners[0], owners[1]], "axes": {{"lateral": [1.0, 0.0, 0.0], "up": [0.0, 1.0, 0.0], "forward": [0.0, 0.0, 1.0]}}, "orientation": "elliptical cross-section rings lie in the lateral/forward plane and rise along the up axis", "sections": cage_sections, "connections": [{{"from": cage_sections[index]["name"], "to": cage_sections[index + 1]["name"]}} for index in range(4)]}}
+                guide = {{"format": {publisher.REGIONAL_GUIDE_FORMAT!r}, "variant": variant_id, "owners": owners, "counts": {publisher.EXPECTED_GUIDE_COUNTS!r}, "projections": projections, "shared_render_bounds": bounds, "canvas": canvas, "layout": layout, "controls": {{"axes": {{"lateral": [1.0, 0.0, 0.0], "up": [0.0, 1.0, 0.0], "forward": [0.0, 0.0, 1.0]}}, "axial": axial, "torso_cage": torso_cage, "head": head, "limbs": limbs, "paws": paws, "tails": tails}}, "boundary": "private disposable regional controls; source-owned AddressKeys only; not a semantic or runtime contract"}}
                 if {mode!r} == "guide-format": guide["format"] = "wrong"
                 if {mode!r} == "guide-provenance": guide["controls"]["head"]["owners"][0]["provenance"] = {{"source": "unexpected"}}
                 if {mode!r} == "guide-controls": guide["controls"]["axes"]["forward"] = [0.0, 0.0, 2.0]
@@ -160,6 +168,9 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 if {mode!r} == "guide-girdle-omitted": guide["controls"]["limbs"][2]["masses"].pop()
                 if {mode!r} == "guide-station-malformed": guide["controls"]["axial"]["stations"][1]["mass"]["radii"][0] = 0.0
                 if {mode!r} == "guide-transition-malformed": guide["controls"]["axial"]["transitions"][0]["path"]["path_kind"] = "capsule"
+                if {mode!r} == "guide-cage-omitted": guide["controls"].pop("torso_cage")
+                if {mode!r} == "guide-cage-malformed": guide["controls"]["torso_cage"]["sections"][2]["lateral_radius"] = 0.0
+                if {mode!r} == "guide-cage-connection": guide["controls"]["torso_cage"]["connections"][1]["to"] = "wrong"
                 if {mode!r} == "guide-girdle-malformed": guide["controls"]["limbs"][2]["masses"][0]["control"] = "wrong"
                 if {mode!r} == "guide-joint-endpoint": guide["controls"]["limbs"][2]["joints"][0]["mass"]["center"][0] = 0.0
                 if {mode!r} == "guide-foot-order": guide["controls"]["paws"][2]["masses"][1]["center"][2] = -1.0
@@ -237,7 +248,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         self.assertEqual(review["groups"][0]["selection_mode"], "none")
 
     def test_malformed_count_and_unlisted_output_publish_nothing(self) -> None:
-        for index, mode in enumerate(("bad-count", "unlisted", "symlink", "extra-directory", "hash", "source-mismatch", "fabricated-provenance", "fabricated-descriptor", "profile-mismatch", "guide-format", "guide-provenance", "guide-controls", "guide-station-omitted", "guide-transition-omitted", "guide-girdle-omitted", "guide-station-malformed", "guide-transition-malformed", "guide-girdle-malformed", "guide-joint-endpoint", "guide-foot-order", "guide-hand-attachment-start", "guide-hand-anchor-point", "guide-section-gap", "guide-profile-second-start", "guide-adjacent-profile", "guide-omitted", "png-small", "png-truncated", "png-crc", "png-no-idat", "png-invalid-idat", "png-unknown-critical")):
+        for index, mode in enumerate(("bad-count", "unlisted", "symlink", "extra-directory", "hash", "source-mismatch", "fabricated-provenance", "fabricated-descriptor", "profile-mismatch", "guide-format", "guide-provenance", "guide-controls", "guide-station-omitted", "guide-transition-omitted", "guide-cage-omitted", "guide-cage-malformed", "guide-cage-connection", "guide-girdle-omitted", "guide-station-malformed", "guide-transition-malformed", "guide-girdle-malformed", "guide-joint-endpoint", "guide-foot-order", "guide-hand-attachment-start", "guide-hand-anchor-point", "guide-section-gap", "guide-profile-second-start", "guide-adjacent-profile", "guide-omitted", "png-small", "png-truncated", "png-crc", "png-no-idat", "png-invalid-idat", "png-unknown-critical")):
             with self.subTest(mode=mode):
                 with patch.object(publisher, "_parse_inspection", return_value=self._payload()):
                     with self.assertRaises(publisher.SurfacePreviewPublishError):
