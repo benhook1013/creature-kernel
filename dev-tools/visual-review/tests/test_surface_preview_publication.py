@@ -499,6 +499,85 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 )
         self.assertEqual(sorted(path.name for path in self.root.iterdir()), ["surface-test"])
 
+    def test_missing_reviews_root_is_created_before_any_subprocess(self) -> None:
+        missing_root = self.directory / "missing-reviews"
+        calls: list[str] = []
+        original_runner = publisher._run_bounded
+
+        def observe_runner(command, *, timeout, label):
+            self.assertTrue(missing_root.is_dir())
+            calls.append(label)
+            return original_runner(command, timeout=timeout, label=label)
+
+        with patch.object(publisher, "_parse_inspection", return_value=self._payload()), patch.object(
+            publisher, "_run_bounded", side_effect=observe_runner
+        ):
+            result = publisher.publish_surface_preview(
+                missing_root,
+                self.input,
+                creature_kernel=self._producer(),
+                generator=self._generator(),
+                successor_generator=self._successor_generator(),
+                review_id="created-root",
+            )
+
+        self.assertEqual(calls, ["creature-kernel inspection", "baseline surface generator", "successor surface generator"])
+        self.assertTrue(missing_root.is_dir())
+        self.assertTrue((missing_root / "created-root" / "review.json").is_file())
+        self.assertEqual(result["assets"], 8)
+
+    def test_unusable_reviews_root_fails_before_any_subprocess(self) -> None:
+        unusable_root = self.directory / "reviews-file"
+        unusable_root.write_text("not a directory", encoding="utf-8")
+        with patch.object(publisher, "_run_bounded") as runner:
+            with self.assertRaisesRegex(publisher.SurfacePreviewPublishError, "reviews root is not usable"):
+                publisher.publish_surface_preview(
+                    unusable_root,
+                    self.input,
+                    creature_kernel=self._producer(),
+                    generator=self._generator(),
+                    successor_generator=self._successor_generator(),
+                    review_id="unusable-root",
+                )
+        runner.assert_not_called()
+
+    def test_existing_and_dangling_reviews_root_symlinks_fail_before_any_subprocess(self) -> None:
+        target = self.directory / "symlink-target"
+        target.mkdir()
+        cases = (
+            (self.directory / "existing-directory-link", target),
+            (self.directory / "dangling-directory-link", self.directory / "missing-target"),
+        )
+        for link, destination in cases:
+            with self.subTest(link=link.name):
+                link.symlink_to(destination, target_is_directory=True)
+                with patch.object(publisher, "_run_bounded") as runner:
+                    with self.assertRaisesRegex(publisher.SurfacePreviewPublishError, "reviews root is not usable"):
+                        publisher.publish_surface_preview(
+                            link,
+                            self.input,
+                            creature_kernel=self._producer(),
+                            generator=self._generator(),
+                            successor_generator=self._successor_generator(),
+                            review_id=f"{link.stem}-root",
+                        )
+                runner.assert_not_called()
+
+    def test_reviews_root_preflight_probe_is_cleaned_when_subprocess_fails(self) -> None:
+        with patch.object(publisher, "_parse_inspection", return_value=self._payload()), patch.object(
+            publisher, "_run_bounded", side_effect=publisher.SurfacePreviewPublishError("forced runner failure")
+        ):
+            with self.assertRaisesRegex(publisher.SurfacePreviewPublishError, "forced runner failure"):
+                publisher.publish_surface_preview(
+                    self.root,
+                    self.input,
+                    creature_kernel=self._producer(),
+                    generator=self._generator(),
+                    successor_generator=self._successor_generator(),
+                    review_id="probe-cleanup",
+                )
+        self.assertEqual(list(self.root.iterdir()), [])
+
     def test_malformed_count_and_unlisted_output_publish_nothing(self) -> None:
         for index, mode in enumerate(("bad-count", "unlisted", "symlink", "extra-directory", "hash", "source-mismatch", "fabricated-provenance", "fabricated-descriptor", "profile-mismatch", "guide-format", "guide-provenance", "guide-controls", "guide-station-omitted", "guide-transition-omitted", "guide-cage-omitted", "guide-cage-malformed", "guide-cage-connection", "guide-shoulder-omitted", "guide-shoulder-stale-status", "guide-shoulder-consumption", "guide-shoulder-malformed", "guide-shoulder-owner", "guide-shoulder-order", "guide-shoulder-endpoint", "guide-shoulder-span", "guide-shoulder-degenerate", "guide-shoulder-points", "guide-shoulder-profile", "guide-shoulder-profile-continuity", "guide-shoulder-first-quarter", "guide-girdle-omitted", "guide-station-malformed", "guide-transition-malformed", "guide-girdle-malformed", "guide-joint-endpoint", "guide-foot-legacy", "guide-foot-order", "guide-foot-hock-source", "guide-foot-hock-radii", "guide-foot-contact", "guide-foot-taper", "guide-foot-axis", "guide-foot-gap", "guide-hand-attachment-start", "guide-hand-anchor-point", "guide-section-gap", "guide-profile-second-start", "guide-adjacent-profile", "guide-obsolete-recipe-count", "guide-wrong-recipe-count", "metrics-generated-count", "metrics-recipe-count", "manifest-metrics", "generator-recipes", "generator-ownership", "guide-omitted", "png-small", "png-truncated", "png-crc", "png-no-idat", "png-invalid-idat", "png-unknown-critical")):
             with self.subTest(mode=mode):

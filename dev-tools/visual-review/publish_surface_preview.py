@@ -18,6 +18,7 @@ import json
 import math
 import os
 import selectors
+import secrets
 import shutil
 import signal
 import stat
@@ -32,7 +33,7 @@ from typing import Any
 
 import common
 from common import ValidationError, canonical_json, validate_id
-from publish import PublishError, publish_session
+from publish import PublishError, _open_directory, publish_session
 from publish_provisional_form import (
     ProvisionalFormPublishError,
     _copy_input_reference,
@@ -345,6 +346,60 @@ def _sha256(path: Path, where: str) -> tuple[str, int]:
     except OSError as exc:
         raise SurfacePreviewPublishError(f"could not read {where}: {exc}") from exc
     return digest.hexdigest(), size
+
+
+def _prepare_reviews_root(reviews_root: Path) -> Path:
+    """Create and validate the final review root before expensive work."""
+
+    root = reviews_root.absolute()
+    try:
+        # Only establish the caller-selected final directory.  Do not create
+        # missing parents or follow a final-component symlink implicitly.
+        root.mkdir(mode=0o755)
+    except FileExistsError:
+        pass
+    except OSError as exc:
+        raise SurfacePreviewPublishError(f"could not create reviews root: {exc}") from exc
+
+    root_fd: int | None = None
+    probe_name: str | None = None
+    try:
+        root = common.ensure_root(root)
+        common.require_secure_fs_support()
+        if os.mkdir not in getattr(os, "supports_dir_fd", set()):
+            raise ValidationError("secure visual-review filesystem access lacks descriptor-relative mkdir support")
+        # Hold the validated directory itself, and create the owned probe
+        # relative to that descriptor.  Reopening `root` by path here would
+        # permit a final-component symlink swap to redirect the probe.
+        root_fd = _open_directory(None, root, "reviews root")
+        for _ in range(8):
+            candidate = f".ck-surface-preview-preflight-{secrets.token_hex(16)}"
+            try:
+                os.mkdir(candidate, 0o700, dir_fd=root_fd)
+            except FileExistsError:
+                continue
+            probe_name = candidate
+            break
+        if probe_name is None:
+            raise OSError("could not allocate a unique reviews-root probe")
+        probe_fd = _open_directory(root_fd, probe_name, "reviews root probe")
+        os.close(probe_fd)
+    except SurfacePreviewPublishError:
+        raise
+    except (ValidationError, OSError) as exc:
+        raise SurfacePreviewPublishError(f"reviews root is not usable: {exc}") from exc
+    finally:
+        if root_fd is not None:
+            if probe_name is not None:
+                try:
+                    os.rmdir(probe_name, dir_fd=root_fd)
+                except OSError:
+                    pass
+            try:
+                os.close(root_fd)
+            except OSError:
+                pass
+    return root
 
 
 def _regular_artifacts(root: Path) -> tuple[set[str], set[str]]:
@@ -1800,6 +1855,7 @@ def publish_surface_preview(
         input_source = _validate_input(input_path)
     except (ProvisionalFormPublishError, OSError, ValueError) as exc:
         raise SurfacePreviewPublishError(str(exc)) from exc
+    reviews_root = _prepare_reviews_root(reviews_root)
     executable = (creature_kernel or default_creature_kernel()).absolute()
     generator_path = (generator or default_generator()).absolute()
     successor_generator_path = (successor_generator or default_successor_generator()).absolute()
@@ -1926,7 +1982,7 @@ def publish_surface_preview(
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--root", required=True, type=Path, help="existing reviews root")
+    parser.add_argument("--root", required=True, type=Path, help="reviews root (created if its parent exists)")
     parser.add_argument("--input", required=True, type=Path, help="body-document JSON input")
     parser.add_argument("--generator", type=Path, default=None, help="experiment generator script")
     parser.add_argument("--creature-kernel", type=Path, default=None, help="creature-kernel executable")

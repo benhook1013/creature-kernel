@@ -144,9 +144,10 @@ sessions under `/tmp`; do not commit them.
 
 By default the server binds only to `127.0.0.1` and prints one localhost URL
 after the socket is bound; port `0` asks the operating system to choose an
-available port. Stop it with Ctrl-C. The reviews root must already exist, and
-each session ID is a one-time directory name: publishing refuses to overwrite
-an existing session.
+available port. Stop it with Ctrl-C. Most publishers expect the reviews root
+to already exist; `publish_surface_preview.py` creates its final root when its
+parent exists. Each session ID is a one-time directory name: publishing
+refuses to overwrite an existing session.
 
 ## Windows browser/CDP fallback
 
@@ -276,6 +277,17 @@ python3 dev-tools/visual-review/publish_surface_preview.py \
   --creature-kernel target/debug/creature-kernel \
   --generator experiments/current-form-surface-preview/generate_surface_preview.py \
   --successor-generator experiments/current-form-surface-preview/generate_successor_surface_preview.py
+```
+
+For galleries that should survive WSL restarts, use a persistent Linux-side
+root such as `/home/ben/.cache/creature-kernel/visual-reviews`. The publisher
+creates that final directory when its parent exists. Serve it for LAN review
+with the existing read-only command:
+
+```bash
+python3 dev-tools/visual-review/serve.py \
+  --root /home/ben/.cache/creature-kernel/visual-reviews \
+  --port 8765 --lan-read-only
 ```
 
 `--generator` selects the baseline consumer and `--successor-generator` selects
