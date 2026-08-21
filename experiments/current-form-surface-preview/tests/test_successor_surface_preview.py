@@ -1194,6 +1194,23 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
         self.assertEqual(len(signatures), 4)
         self.assertGreater(len(set(signatures)), 1)
 
+    def test_default_successor_capture_frame_matches_baseline_frame(self) -> None:
+        canonical_fields = tuple(
+            surface_preview._compile_hybrid_guide(
+                surface_preview._derive_hybrid_guides(self.form, descriptors)
+            )
+            for _, descriptors, _ in self.form.variants
+        )
+        baseline_bounds = surface_preview._shared_render_bounds(
+            canonical_fields, surface_preview.DEFAULT_PADDING
+        )
+        successor_bounds = surface_preview._shared_render_bounds(
+            canonical_fields, successor.DEFAULT_CAPTURE_PADDING
+        )
+        self.assertEqual(successor.DEFAULT_CAPTURE_PADDING, surface_preview.DEFAULT_PADDING)
+        np.testing.assert_array_equal(successor_bounds[0], baseline_bounds[0])
+        np.testing.assert_array_equal(successor_bounds[1], baseline_bounds[1])
+
     def test_generator_emits_explicit_successor_and_bridge_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -1225,6 +1242,8 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             self.assertEqual(first_manifest["format"], successor.FORMAT)
             self.assertEqual(first_manifest["consumer_id"], successor.CONSUMER_ID)
             self.assertEqual(first_manifest["generator"]["samples_per_axis"], 56)
+            self.assertEqual(first_manifest["generator"]["padding"], 0.5)
+            self.assertEqual(first_manifest["generator"]["capture_padding"], successor.DEFAULT_CAPTURE_PADDING)
             self.assertEqual([item["id"] for item in first_manifest["variants"]], list(surface_preview.VARIANT_IDS))
             self.assertEqual(len(first_manifest["variants"]), 4)
             self.assertEqual(
@@ -1252,11 +1271,20 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 )
                 for _, descriptors, _ in self.form.variants
             )
-            expected_bounds = surface_preview._shared_render_bounds(canonical_fields, 0.5)
+            expected_bounds = surface_preview._shared_render_bounds(
+                canonical_fields, successor.DEFAULT_CAPTURE_PADDING
+            )
+            baseline_default_bounds = surface_preview._shared_render_bounds(
+                canonical_fields, surface_preview.DEFAULT_PADDING
+            )
             expected_bounds_json = {
                 "min": [float(value) for value in expected_bounds[0]],
                 "max": [float(value) for value in expected_bounds[1]],
             }
+            self.assertEqual(expected_bounds_json, {
+                "min": [float(value) for value in baseline_default_bounds[0]],
+                "max": [float(value) for value in baseline_default_bounds[1]],
+            })
             self.assertEqual(first_manifest["shared_render_bounds"], expected_bounds_json)
             self.assertEqual(first_manifest["canvas"], {"width": surface_preview.CANVAS[0], "height": surface_preview.CANVAS[1], "mode": "RGB"})
             self.assertEqual(first_manifest["projections"], surface_preview._projection_json())
@@ -1274,6 +1302,14 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             self.assertEqual(len(set(source_variant_hashes.values())), 4)
             for digest in source_variant_hashes.values():
                 self.assertRegex(digest, r"^[0-9a-f]{64}$")
+            expected_sampling_bounds = {}
+            for variant_id, descriptors, _ in self.form.variants:
+                guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+                fields = surface_preview._compile_hybrid_guide(guide)
+                region = successor.compile_successor_region(guide, fields)
+                expected_sampling_bounds[variant_id] = successor._combined_bounds(
+                    successor._make_components(region, successor.DEFAULT_SMOOTH_K), successor.DEFAULT_PADDING
+                )
             for variant in first_manifest["variants"]:
                 self.assertEqual(variant["profile_id"], variant["id"])
                 self.assertEqual(variant["source_variant_sha256"], source_variant_hashes[variant["id"]])
@@ -1300,6 +1336,16 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                     self.assertEqual(image.mode, "RGB")
                     image.verify()
                 sidecar = json.loads((variant_dir / "successor.json").read_text())
+                metrics_payload = json.loads((variant_dir / "metrics.json").read_text())
+                sampling_lower, sampling_upper = expected_sampling_bounds[variant["id"]]
+                self.assertEqual(
+                    metrics_payload["grid"]["bounds_min"],
+                    [float(value) for value in sampling_lower],
+                )
+                self.assertEqual(
+                    metrics_payload["grid"]["bounds_max"],
+                    [float(value) for value in sampling_upper],
+                )
                 self.assertEqual(sidecar["format"], successor.FORMAT)
                 self.assertEqual(sidecar["variant_id"], variant["id"])
                 self.assertEqual(sidecar["profile_id"], variant["profile_id"])

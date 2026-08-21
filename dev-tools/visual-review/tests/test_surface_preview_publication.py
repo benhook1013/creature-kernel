@@ -286,6 +286,8 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             TAIL_ORDER = __TAIL_ORDER__
             TAIL_KINDS = __TAIL_KINDS__
             REPLACED = __REPLACED__
+            MESH_PADDING = __MESH_PADDING__
+            CAPTURE_PADDING = __CAPTURE_PADDING__
 
             args = dict(zip(sys.argv[1::2], sys.argv[2::2]))
             source_path = pathlib.Path(args["--input"])
@@ -344,6 +346,10 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     sidecar["temporary_bridge"] = {**bridge, "field_count": 7}
                 elif MODE == "sidecar-extremity":
                     sidecar["extremities"] = {**sidecar["extremities"], "sweeps_consumed": 5}
+                elif MODE == "sidecar-extremity-order":
+                    sidecar["extremities"] = {**sidecar["extremities"], "sweep_order": list(reversed(sidecar["extremities"]["sweep_order"]))}
+                elif MODE == "sidecar-extremity-kind":
+                    sidecar["extremities"] = {**sidecar["extremities"], "sweep_kinds": ["wrong", *sidecar["extremities"]["sweep_kinds"][1:]]}
                 elif MODE == "sidecar-tail":
                     sidecar["tail"] = {**sidecar["tail"], "elements_consumed": 5}
                 (variant_dir / "successor.json").write_text(json.dumps(sidecar, sort_keys=True), encoding="utf-8")
@@ -377,7 +383,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 records.pop()
             if MODE == "extra-path":
                 (out / "extra.bin").write_bytes(b"unlisted")
-            manifest = {"format": SUCCESSOR_FORMAT, "status": "success", "consumer_id": CONSUMER_ID, "source_format": payload["format"], "source": source, "shared_render_bounds": frame["shared_render_bounds"], "canvas": frame["canvas"], "layout": frame["layout"], "projections": frame["projections"], "generator": {"samples_per_axis": 56, "padding": 0.75, "smooth_k": 0.12, "consumer_boundary": "successor torso/shoulder/head/neck, four limb chains, bilateral hands, digitigrade feet, and tail; baseline temporary bridge for root/hip connectors", "production_status": "disposable exploratory proof"}, "variants": records}
+            manifest = {"format": SUCCESSOR_FORMAT, "status": "success", "consumer_id": CONSUMER_ID, "source_format": payload["format"], "source": source, "shared_render_bounds": frame["shared_render_bounds"], "canvas": frame["canvas"], "layout": frame["layout"], "projections": frame["projections"], "generator": {"samples_per_axis": 56, "padding": MESH_PADDING, "capture_padding": CAPTURE_PADDING, "smooth_k": 0.12, "consumer_boundary": "successor torso/shoulder/head/neck, four limb chains, bilateral hands, digitigrade feet, and tail; baseline temporary bridge for root/hip connectors", "production_status": "disposable exploratory proof"}, "variants": records}
             (out / "successor-surface-manifest.json").write_text(json.dumps(manifest, sort_keys=True), encoding="utf-8")
         """)
         replacements = {
@@ -395,6 +401,8 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             "__TAIL_ORDER__": repr(list(publisher.SUCCESSOR_TAIL_ORDER)),
             "__TAIL_KINDS__": repr(list(publisher.SUCCESSOR_TAIL_KINDS)),
             "__REPLACED__": repr(sorted(publisher.SUCCESSOR_REPLACED_EXTREMITY_AND_TAIL_RECIPES)),
+            "__MESH_PADDING__": repr(0.5),
+            "__CAPTURE_PADDING__": repr(0.5 if mode == "capture-padding-mismatch" else 0.75),
         }
         for placeholder, value in replacements.items():
             script = script.replace(placeholder, value)
@@ -459,6 +467,10 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             self.assertEqual(baseline["metadata"]["views"], ["front", "side", "three-quarter"])
             self.assertEqual(successor["metadata"]["views"], baseline["metadata"]["views"])
             self.assertEqual(baseline["metadata"]["panels_per_view"], successor["metadata"]["panels_per_view"])
+            self.assertEqual(successor["metadata"]["generator"]["padding"], 0.5)
+            self.assertEqual(successor["metadata"]["generator"]["capture_padding"], 0.75)
+            self.assertNotEqual(successor["metadata"]["generator"]["padding"], successor["metadata"]["generator"]["capture_padding"])
+            self.assertEqual(set(successor["metadata"]["generator"]), {"samples_per_axis", "padding", "capture_padding", "smooth_k", "consumer_boundary", "production_status"})
             self.assertIn("shared capture frame", baseline["description"])
             self.assertIn("same shared capture frame", successor["description"])
         self.assertEqual(review["subject_context"]["descriptor_snapshot"]["images"], 8)
@@ -469,6 +481,8 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         self.assertIn("same source and framing", review["subject_context"]["provenance"]["capture"])
         self.assertEqual(review["subject_context"]["provenance"]["baseline_generator_script"], "generator-success.py")
         self.assertEqual(review["subject_context"]["provenance"]["successor_generator_script"], "successor-generator-success.py")
+        self.assertEqual(review["subject_context"]["provenance"]["successor_generator"]["padding"], 0.5)
+        self.assertEqual(review["subject_context"]["provenance"]["successor_generator"]["capture_padding"], 0.75)
         self.assertIn("Disposable, non-production", review["subject_context"]["provenance"]["limitations"])
 
         # The ordinary image publisher is immutable: a duplicate review ID is
@@ -554,6 +568,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         modes = (
             "source-mismatch",
             "frame-mismatch",
+            "capture-padding-mismatch",
             "cross-variant-digest",
             "variant",
             "variant-profile",
@@ -564,6 +579,8 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             "sidecar-identity",
             "sidecar-bridge",
             "sidecar-extremity",
+            "sidecar-extremity-order",
+            "sidecar-extremity-kind",
             "sidecar-tail",
             "metrics-disagreement",
         )
@@ -571,7 +588,10 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             review_id = f"successor-bad-{index}"
             with self.subTest(mode=mode):
                 with patch.object(publisher, "_parse_inspection", return_value=self._payload()):
-                    expected_error = "source_variant_sha256 does not match producer output" if mode == "cross-variant-digest" else None
+                    expected_error = {
+                        "capture-padding-mismatch": "successor capture_padding does not match validated baseline generator padding",
+                        "cross-variant-digest": "source_variant_sha256 does not match producer output",
+                    }.get(mode)
                     error_context = self.assertRaisesRegex(publisher.SurfacePreviewPublishError, expected_error) if expected_error else self.assertRaises(publisher.SurfacePreviewPublishError)
                     with error_context:
                         publisher.publish_surface_preview(

@@ -1416,8 +1416,8 @@ def _validate_bundle(
 
 
 SUCCESSOR_EXTREMITY_ORDER = (
-    "left-hand-attachment", "left-hand-paw", "left-foot-chain",
-    "right-hand-attachment", "right-hand-paw", "right-foot-chain",
+    "left-hand-attachment", "left-hand-paw", "left-foot",
+    "right-hand-attachment", "right-hand-paw", "right-foot",
 )
 SUCCESSOR_EXTREMITY_KINDS = (
     "hand-attachment", "hand-paw", "foot-chain",
@@ -1663,8 +1663,15 @@ def _validate_successor_bundle(
     if any(manifest.get(key) != baseline_manifest.get(key) for key in frame_keys):
         raise SurfacePreviewPublishError("successor capture framing does not exactly match the validated baseline")
 
+    baseline_generator = baseline_manifest.get("generator")
+    if not isinstance(baseline_generator, dict) or type(baseline_generator.get("padding")) not in {int, float}:
+        raise SurfacePreviewPublishError("validated baseline generator padding is unavailable")
+    baseline_capture_padding = baseline_generator["padding"]
+    if not math.isfinite(float(baseline_capture_padding)) or not 0.0 <= baseline_capture_padding <= 100.0:
+        raise SurfacePreviewPublishError("validated baseline generator padding is out of bounds")
+
     generator = manifest.get("generator")
-    if not isinstance(generator, dict) or set(generator) != {"samples_per_axis", "padding", "smooth_k", "consumer_boundary", "production_status"}:
+    if not isinstance(generator, dict) or set(generator) != {"samples_per_axis", "padding", "capture_padding", "smooth_k", "consumer_boundary", "production_status"}:
         raise SurfacePreviewPublishError("successor generator configuration has unknown or missing fields")
     _finite_json(generator, "successor generator")
     _bounded_json(generator, "successor generator")
@@ -1676,6 +1683,10 @@ def _validate_successor_bundle(
         raise SurfacePreviewPublishError("successor generator.samples_per_axis is out of bounds")
     if type(generator["padding"]) not in {int, float} or not 0.0 <= generator["padding"] <= 100.0:
         raise SurfacePreviewPublishError("successor generator.padding is out of bounds")
+    if type(generator["capture_padding"]) not in {int, float} or not math.isfinite(float(generator["capture_padding"])) or not 0.0 <= generator["capture_padding"] <= 100.0:
+        raise SurfacePreviewPublishError("successor generator.capture_padding is out of bounds")
+    if generator["capture_padding"] != baseline_capture_padding:
+        raise SurfacePreviewPublishError("successor capture_padding does not match validated baseline generator padding")
     if type(generator["smooth_k"]) not in {int, float} or not 0.0 < generator["smooth_k"] <= 100.0:
         raise SurfacePreviewPublishError("successor generator.smooth_k is out of bounds")
     if generator.get("production_status") != "disposable exploratory proof" or not isinstance(generator.get("consumer_boundary"), str) or not generator["consumer_boundary"]:

@@ -48,6 +48,10 @@ CONSUMER_ID = "successor-surface-v1"
 SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-limb-extremity-tail-profile-sweeps-v5"
 DEFAULT_SAMPLES = 56
 DEFAULT_PADDING = 0.50
+# Capture framing is a baseline-compatible concern, separate from the
+# successor mesh sampling domain.  Source this value from the baseline
+# generator so the two consumers cannot silently drift apart.
+DEFAULT_CAPTURE_PADDING = _baseline.DEFAULT_PADDING
 DEFAULT_SMOOTH_K = 0.10
 MAX_SAMPLES = 96
 MAX_VOXELS = 96**3
@@ -2631,7 +2635,9 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
         _baseline._validate_hybrid_guide(guide)
         fields = _baseline._compile_hybrid_guide(guide)
         prepared.append((variant_id, descriptors, raw_variant, guide, fields))
-    shared_render_bounds = _baseline._shared_render_bounds(tuple(item[4] for item in prepared), padding)
+    shared_render_bounds = _baseline._shared_render_bounds(
+        tuple(item[4] for item in prepared), DEFAULT_CAPTURE_PADDING
+    )
     for _, _, _, guide, _ in prepared:
         _baseline._validate_hybrid_guide(guide, shared_render_bounds)
 
@@ -2741,7 +2747,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
             "canvas": canvas,
             "layout": layout,
             "projections": projections,
-            "generator": {"samples_per_axis": samples, "padding": padding, "smooth_k": smooth_k, "consumer_boundary": "successor torso/shoulder/head/neck, four limb chains, bilateral hands, digitigrade feet, and tail; baseline temporary bridge for root/hip connectors", "production_status": "disposable exploratory proof"},
+            "generator": {"samples_per_axis": samples, "padding": padding, "capture_padding": DEFAULT_CAPTURE_PADDING, "smooth_k": smooth_k, "consumer_boundary": "successor torso/shoulder/head/neck, four limb chains, bilateral hands, digitigrade feet, and tail; baseline temporary bridge for root/hip connectors", "production_status": "disposable exploratory proof"},
             "variants": records,
         }
         manifest_path = stage / "successor-surface-manifest.json"
