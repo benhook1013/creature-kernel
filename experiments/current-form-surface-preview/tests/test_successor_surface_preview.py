@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
 import json
 import math
 import sys
@@ -8,8 +9,10 @@ import tempfile
 import unittest
 from dataclasses import replace
 from pathlib import Path
+from unittest import mock
 
 import numpy as np
+from PIL import Image
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -1203,15 +1206,34 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             with self.assertRaisesRegex(successor.SuccessorPreviewError, "refusing to overwrite"):
                 successor.generate(source, existing, padding=0.5)
             self.assertEqual(sentinel.read_text(encoding="utf-8"), "keep")
+            failed = root / "failed"
+            before_failed_run = sorted(path.name for path in root.iterdir())
+            with self.assertRaisesRegex(successor.SuccessorPreviewError, "sampling configuration"):
+                successor.generate(source, failed, samples=19, padding=0.5)
+            self.assertFalse(failed.exists())
+            self.assertEqual(sorted(path.name for path in root.iterdir()), before_failed_run)
             first = root / "first"
             second = root / "second"
             first_manifest = successor.generate(source, first, padding=0.5)
             second_manifest = successor.generate(source, second, padding=0.5)
             self.assertEqual(first_manifest, second_manifest)
+            self.assertEqual(successor.FORMAT, "creature-kernel.disposable-successor-surface-preview.v2")
             self.assertEqual(first_manifest["format"], successor.FORMAT)
             self.assertEqual(first_manifest["consumer_id"], successor.CONSUMER_ID)
             self.assertEqual(first_manifest["generator"]["samples_per_axis"], 56)
             self.assertEqual([item["id"] for item in first_manifest["variants"]], list(surface_preview.VARIANT_IDS))
+            self.assertEqual(len(first_manifest["variants"]), 4)
+            self.assertEqual(
+                sorted(path.relative_to(first).as_posix() for path in first.rglob("*") if path.is_file()),
+                sorted(
+                    ["successor-surface-manifest.json"]
+                    + [
+                        f"{variant_id}/{name}"
+                        for variant_id in surface_preview.VARIANT_IDS
+                        for name in ("guide-skin-composite.png", "metrics.json", "successor.json", "surface.ply")
+                    ]
+                ),
+            )
             self.assertEqual(
                 sorted(path.relative_to(first).as_posix() for path in first.rglob("*") if path.is_file()),
                 sorted(path.relative_to(second).as_posix() for path in second.rglob("*") if path.is_file()),
@@ -1219,9 +1241,60 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             for first_path in first.rglob("*"):
                 if first_path.is_file():
                     self.assertEqual(first_path.read_bytes(), (second / first_path.relative_to(first)).read_bytes())
+            self.assertNotIn(str(first), (first / "successor-surface-manifest.json").read_text())
+            canonical_fields = tuple(
+                surface_preview._compile_hybrid_guide(
+                    surface_preview._derive_hybrid_guides(self.form, descriptors)
+                )
+                for _, descriptors, _ in self.form.variants
+            )
+            expected_bounds = surface_preview._shared_render_bounds(canonical_fields, 0.5)
+            expected_bounds_json = {
+                "min": [float(value) for value in expected_bounds[0]],
+                "max": [float(value) for value in expected_bounds[1]],
+            }
+            self.assertEqual(first_manifest["shared_render_bounds"], expected_bounds_json)
+            self.assertEqual(first_manifest["canvas"], {"width": surface_preview.CANVAS[0], "height": surface_preview.CANVAS[1], "mode": "RGB"})
+            self.assertEqual(first_manifest["projections"], surface_preview._projection_json())
+            self.assertEqual(first_manifest["layout"], surface_preview._layout_json())
+            self.assertEqual([item["name"] for item in first_manifest["projections"]], ["front", "side", "three-quarter"])
+            self.assertEqual(first_manifest["layout"]["panel_order"], [
+                "front-guide", "front-skin", "side-guide", "side-skin", "three-quarter-guide", "three-quarter-skin",
+            ])
+            self.assertTrue(all(not Path(item["path"]).is_absolute() for variant in first_manifest["variants"] for item in variant["inventory"]))
             for variant in first_manifest["variants"]:
-                sidecar = json.loads((first / variant["id"] / "successor.json").read_text())
+                self.assertEqual(variant["profile_id"], variant["id"])
+                variant_dir = first / variant["id"]
+                self.assertEqual(
+                    sorted(path.name for path in variant_dir.iterdir()),
+                    ["guide-skin-composite.png", "metrics.json", "successor.json", "surface.ply"],
+                )
+                self.assertEqual(len(variant["inventory"]), 4)
+                inventory_by_kind = {item["kind"]: item for item in variant["inventory"]}
+                self.assertEqual(set(inventory_by_kind), {"ply", "metrics", "successor-consumer-sidecar", "guide-skin-composite-png"})
+                png_inventory = inventory_by_kind["guide-skin-composite-png"]
+                png_path = variant_dir / "guide-skin-composite.png"
+                self.assertEqual(png_inventory["path"], f"{variant['id']}/guide-skin-composite.png")
+                self.assertEqual(png_inventory["bytes"], png_path.stat().st_size)
+                self.assertEqual(png_inventory["sha256"], hashlib.sha256(png_path.read_bytes()).hexdigest())
+                self.assertEqual(png_inventory["width"], surface_preview.CANVAS[0])
+                self.assertEqual(png_inventory["height"], surface_preview.CANVAS[1])
+                self.assertEqual(png_inventory["views"], ["front", "side", "three-quarter"])
+                self.assertEqual(png_inventory["panels_per_view"], 2)
+                self.assertEqual(png_inventory["mode"], "RGB")
+                with Image.open(png_path) as image:
+                    self.assertEqual(image.size, surface_preview.CANVAS)
+                    self.assertEqual(image.mode, "RGB")
+                    image.verify()
+                sidecar = json.loads((variant_dir / "successor.json").read_text())
+                self.assertEqual(sidecar["format"], successor.FORMAT)
+                self.assertEqual(sidecar["variant_id"], variant["id"])
+                self.assertEqual(sidecar["profile_id"], variant["profile_id"])
                 self.assertEqual(sidecar["consumer_id"], successor.CONSUMER_ID)
+                self.assertEqual(sidecar["capture"]["canvas"], first_manifest["canvas"])
+                self.assertEqual(sidecar["capture"]["projections"], first_manifest["projections"])
+                self.assertEqual(sidecar["capture"]["layout"], first_manifest["layout"])
+                self.assertEqual(sidecar["capture"]["shared_render_bounds"], expected_bounds_json)
                 self.assertEqual(sidecar["torso"]["sections_consumed"], 7)
                 self.assertEqual(sidecar["shoulders"]["inputs_consumed"], 16)
                 self.assertEqual(sidecar["head_neck"]["sweeps_consumed"], 5)
@@ -1276,6 +1349,101 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 self.assertEqual(len(sidecar["replaced_baseline_recipes"]), 28)
                 self.assertTrue(sidecar["temporary_bridge"]["enabled"])
                 self.assertEqual(sidecar["temporary_bridge"]["field_count"], 6)
+
+    def test_generator_rejects_unexpected_staged_entries_and_cleans(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "input.json"
+            source.write_bytes(surface_preview._canonical(fixture.make_varied_payload()))
+
+            def fake_build_variant(form, descriptors, **_kwargs):
+                guide = surface_preview._derive_hybrid_guides(form, descriptors)
+                fields = surface_preview._compile_hybrid_guide(guide)
+                region = successor.compile_successor_region(guide, fields)
+                metrics = {
+                    "successor_region": {
+                        "tail_element_controls": [],
+                        "tail_tip_shared_endpoint": {},
+                    },
+                    "temporary_bridge": {"enabled": True, "field_count": 6},
+                }
+                return successor.SuccessorMesh(
+                    np.empty((0, 3), dtype=np.float64),
+                    np.empty((0, 3), dtype=np.int64),
+                    np.empty((0, 3), dtype=np.float64),
+                    (),
+                    metrics,
+                    region,
+                    {},
+                )
+
+            for entry_kind in ("extra", "symlink"):
+                with self.subTest(entry_kind=entry_kind):
+                    output = root / entry_kind
+
+                    def fake_render(path, *args, **kwargs):
+                        del args, kwargs
+                        path.write_bytes(b"mock-png")
+                        injected = path.parent / f"unexpected-{entry_kind}"
+                        if entry_kind == "extra":
+                            injected.write_bytes(b"unexpected")
+                        else:
+                            try:
+                                injected.symlink_to(path.name)
+                            except (OSError, NotImplementedError) as exc:
+                                raise unittest.SkipTest(f"symlinks unavailable: {exc}") from exc
+
+                    with mock.patch.object(successor, "build_variant", side_effect=fake_build_variant), mock.patch.object(
+                        surface_preview, "_render", side_effect=fake_render
+                    ):
+                        with self.assertRaisesRegex(successor.SuccessorPreviewError, "staging bundle contains a symlink|explicit artifact inventory"):
+                            successor.generate(source, output, padding=0.5)
+                    self.assertFalse(output.exists())
+                    self.assertEqual(sorted(path.name for path in root.iterdir()), ["input.json"])
+
+    def test_generator_cleans_staging_after_render_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "input.json"
+            source.write_bytes(surface_preview._canonical(fixture.make_varied_payload()))
+            output = root / "render-failure"
+
+            def fake_build_variant(form, descriptors, **_kwargs):
+                guide = surface_preview._derive_hybrid_guides(form, descriptors)
+                fields = surface_preview._compile_hybrid_guide(guide)
+                region = successor.compile_successor_region(guide, fields)
+                metrics = {
+                    "successor_region": {
+                        "tail_element_controls": [],
+                        "tail_tip_shared_endpoint": {},
+                    },
+                    "temporary_bridge": {"enabled": True, "field_count": 6},
+                }
+                return successor.SuccessorMesh(
+                    np.empty((0, 3), dtype=np.float64),
+                    np.empty((0, 3), dtype=np.int64),
+                    np.empty((0, 3), dtype=np.float64),
+                    (),
+                    metrics,
+                    region,
+                    {},
+                )
+
+            def failing_render(path, *args, **kwargs):
+                del args, kwargs
+                self.assertTrue((path.parent / "surface.ply").is_file())
+                self.assertTrue((path.parent / "metrics.json").is_file())
+                self.assertTrue((path.parent / "successor.json").is_file())
+                path.write_bytes(b"partial-png")
+                raise RuntimeError("injected render failure")
+
+            with mock.patch.object(successor, "build_variant", side_effect=fake_build_variant), mock.patch.object(
+                surface_preview, "_render", side_effect=failing_render
+            ):
+                with self.assertRaisesRegex(RuntimeError, "injected render failure"):
+                    successor.generate(source, output, padding=0.5)
+            self.assertFalse(output.exists())
+            self.assertEqual(sorted(path.name for path in root.iterdir()), ["input.json"])
 
     def test_rotated_profile_sweep_is_rigid_transform_invariant(self) -> None:
         angle = 0.63

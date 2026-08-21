@@ -176,10 +176,21 @@ robustness; lower values within the accepted argument range may still validly
 fail mesh-connectedness validation, and successful generation is not guaranteed
 at every in-range sampling value.
 
-A successful run writes `successor-surface-manifest.json` plus four variant
-directories. Each variant directory contains exactly `surface.ply`,
-`metrics.json`, and `successor.json`. This slice does not yet produce PNGs or
-publish a visual-gallery session.
+A successful v2 run writes `successor-surface-manifest.json` plus exactly four
+variant directories. Each variant directory contains exactly
+`surface.ply`, `metrics.json`, `successor.json`, and one
+`guide-skin-composite.png`. The PNG is a deterministic RGB capture at the
+baseline-compatible `1800 × 570` canvas. It contains the exact six-panel order
+`front-guide`, `front-skin`, `side-guide`, `side-skin`,
+`three-quarter-guide`, `three-quarter-skin`: each projection has adjacent guide
+and skin panels using the same projection frame, and all four variants use one
+shared world-space render bound computed from the canonical baseline field
+sets. The manifest and successor sidecars expose the profile identity, canvas,
+layout, projections, and shared bounds alongside the four-artifact inventory.
+
+The browser baseline-versus-successor publication and comparison across these
+captures is still the next step; this generator does not publish a
+visual-gallery session yet.
 
 Focused tests:
 

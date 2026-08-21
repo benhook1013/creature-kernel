@@ -41,7 +41,9 @@ except ModuleNotFoundError:  # pragma: no cover - direct source-tree execution
     _baseline = importlib.import_module("surface_preview")
 
 
-FORMAT = "creature-kernel.disposable-successor-surface-preview.v1"
+# v2 adds the baseline-compatible guide/skin capture and its framing metadata;
+# the private consumer identity remains stable across this output expansion.
+FORMAT = "creature-kernel.disposable-successor-surface-preview.v2"
 CONSUMER_ID = "successor-surface-v1"
 SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-limb-extremity-tail-profile-sweeps-v5"
 DEFAULT_SAMPLES = 56
@@ -2618,23 +2620,51 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
     except (UnicodeDecodeError, json.JSONDecodeError, ValueError, RecursionError) as exc:
         raise SuccessorPreviewError(f"input is not finite JSON: {exc}") from exc
     form = _baseline.validate_envelope(value)
+
+    # Prepare every private guide and its canonical baseline field set before
+    # any mesh is published.  The capture frame deliberately follows the
+    # baseline consumer's bounds rather than the successor's mesh bounds so
+    # the two consumers remain directly comparable across all four variants.
+    prepared: list[tuple[str, tuple[Any, ...], dict[str, Any], Any, tuple[Any, ...]]] = []
+    for variant_id, descriptors, raw_variant in form.variants:
+        guide = _baseline._derive_hybrid_guides(form, descriptors)
+        _baseline._validate_hybrid_guide(guide)
+        fields = _baseline._compile_hybrid_guide(guide)
+        prepared.append((variant_id, descriptors, raw_variant, guide, fields))
+    shared_render_bounds = _baseline._shared_render_bounds(tuple(item[4] for item in prepared), padding)
+    for _, _, _, guide, _ in prepared:
+        _baseline._validate_hybrid_guide(guide, shared_render_bounds)
+
     stage = Path(tempfile.mkdtemp(prefix=f".{output.name}.", dir=str(output.parent)))
     try:
         records: list[dict[str, Any]] = []
-        for variant_id, descriptors, raw_variant in form.variants:
+        lower, upper = shared_render_bounds
+        shared_bounds_json = {"min": [float(item) for item in lower], "max": [float(item) for item in upper]}
+        canvas = {"width": _baseline.CANVAS[0], "height": _baseline.CANVAS[1], "mode": "RGB"}
+        layout = _baseline._layout_json()
+        projections = _baseline._projection_json()
+        for variant_id, descriptors, raw_variant, guide, _ in prepared:
             mesh = build_variant(form, descriptors, samples=samples, padding=padding, smooth_k=smooth_k)
             variant_dir = stage / variant_id
             variant_dir.mkdir()
             ply = variant_dir / "surface.ply"
             metrics = variant_dir / "metrics.json"
             successor = variant_dir / "successor.json"
+            png = variant_dir / "guide-skin-composite.png"
             _write_ply(ply, mesh)
             metrics.write_bytes(_canonical(mesh.metrics) + b"\n")
             successor.write_bytes(_canonical({
                 "format": FORMAT,
                 "variant_id": variant_id,
+                "profile_id": raw_variant["profile_id"],
                 "consumer_id": CONSUMER_ID,
                 "successor_region_id": SUCCESSOR_REGION_ID,
+                "capture": {
+                    "canvas": canvas,
+                    "projections": projections,
+                    "layout": layout,
+                    "shared_render_bounds": shared_bounds_json,
+                },
                 "torso": {"representation": "frame-aware-ordered-profile-sweep", "sections_consumed": mesh.representation.sections_consumed, "section_names": list(mesh.representation.section_names)},
                 "shoulders": {"representation": "tapered-swept-curve-spans", "inputs_consumed": mesh.representation.shoulder_inputs_consumed, "curves": sorted({span.curve_name for span in mesh.representation.shoulder_spans})},
                 "head_neck": {
@@ -2686,23 +2716,51 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
                 "temporary_bridge": mesh.metrics["temporary_bridge"],
                 "replaced_baseline_recipes": list(mesh.representation.replaced_baseline_recipes),
             }) + b"\n")
+            _baseline._render(png, mesh.vertices, mesh.faces, variant_id, guide=guide, bounds=shared_render_bounds)
             records.append({
                 "id": variant_id,
                 "profile_id": raw_variant["profile_id"],
                 "metrics": mesh.metrics,
-                "inventory": [_sha(ply, "ply", stage), _sha(metrics, "metrics", stage), _sha(successor, "successor-consumer-sidecar", stage)],
+                "inventory": [
+                    _sha(ply, "ply", stage),
+                    _sha(metrics, "metrics", stage),
+                    _sha(successor, "successor-consumer-sidecar", stage),
+                    {**_sha(png, "guide-skin-composite-png", stage), "width": _baseline.CANVAS[0], "height": _baseline.CANVAS[1], "views": ["front", "side", "three-quarter"], "panels_per_view": 2, "mode": "RGB"},
+                ],
             })
         manifest = {
             "format": FORMAT,
             "status": "success",
             "consumer_id": CONSUMER_ID,
             "source_format": _baseline.SOURCE_FORMAT,
-            "source": {"sha256": hashlib.sha256(data).hexdigest(), "document": form.source["document"], "namespace": form.source["namespace"], "resource_profile_id": form.source["resource_profile_id"]},
+            "source": {"format": _baseline.SOURCE_FORMAT, "sha256": hashlib.sha256(data).hexdigest(), "document": form.source["document"], "namespace": form.source["namespace"], "resource_profile_id": form.source["resource_profile_id"], "reference_scale": form.reference_scale_raw},
+            "shared_render_bounds": shared_bounds_json,
+            "canvas": canvas,
+            "layout": layout,
+            "projections": projections,
             "generator": {"samples_per_axis": samples, "padding": padding, "smooth_k": smooth_k, "consumer_boundary": "successor torso/shoulder/head/neck, four limb chains, bilateral hands, digitigrade feet, and tail; baseline temporary bridge for root/hip connectors", "production_status": "disposable exploratory proof"},
             "variants": records,
         }
         manifest_path = stage / "successor-surface-manifest.json"
         manifest_path.write_bytes(_canonical(manifest) + b"\n")
+        expected_files = {"successor-surface-manifest.json"}
+        expected_directories = set(_baseline.VARIANT_IDS)
+        for record in records:
+            expected_files.update(entry["path"] for entry in record["inventory"])
+        actual_files: set[str] = set()
+        actual_directories: set[str] = set()
+        for item in stage.rglob("*"):
+            relative = item.relative_to(stage).as_posix()
+            if item.is_symlink():
+                _fail(f"staging bundle contains a symlink: {relative}")
+            if item.is_dir():
+                actual_directories.add(relative)
+            elif item.is_file():
+                actual_files.add(relative)
+            else:
+                _fail(f"staging bundle contains a non-regular path: {relative}")
+        if actual_directories != expected_directories or actual_files != expected_files:
+            _fail("staging bundle does not match its explicit artifact inventory")
         try:
             _atomic_rename_noreplace(stage, output)
         except FileExistsError as exc:
