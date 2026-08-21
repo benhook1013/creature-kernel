@@ -3,11 +3,11 @@
 
 This module is intentionally adjacent to, rather than a modification of,
 ``surface_preview.py``.  It consumes the existing private hybrid guide and
-replaces the torso/shoulder, head/neck, and four limb-chain skin consumers with
-explicitly identified profile sweeps and swept shoulder spans.  Paws, tail, and
-root/hip connector fields remain an explicit temporary bridge so the experiment
-can still produce a whole-body mesh without pretending that those regions have
-been redesigned.
+replaces the torso/shoulder, head/neck, four limb-chain, hand/foot, and tail
+skin consumers with explicitly identified profile sweeps and swept shoulder
+spans. Root/hip connector fields remain an explicit temporary bridge so the
+experiment can still produce a whole-body mesh without pretending that those
+connectors have been redesigned.
 
 The representation is exploratory and disposable.  It is not a production
 surface backend, topology contract, SDF, collision shape, or runtime API.
@@ -43,7 +43,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct source-tree execution
 
 FORMAT = "creature-kernel.disposable-successor-surface-preview.v1"
 CONSUMER_ID = "successor-surface-v1"
-SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-limb-profile-sweeps-v3"
+SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-limb-extremity-tail-profile-sweeps-v5"
 DEFAULT_SAMPLES = 56
 DEFAULT_PADDING = 0.50
 DEFAULT_SMOOTH_K = 0.10
@@ -177,6 +177,35 @@ class _RegionalProfileSweep:
 
 
 @dataclass(frozen=True)
+class _ExtremitySweep:
+    """One named hand or foot sweep with section-level source ownership."""
+
+    name: str
+    side: str
+    source_owners: tuple[Any, ...]
+    sweep: _ProfileSweep
+    kind: str
+
+    @property
+    def recipe(self) -> str:
+        """Stable diagnostic label matching the element name."""
+
+        return self.name
+
+    @property
+    def owners(self) -> tuple[Any, ...]:
+        return self.sweep.owners
+
+    @property
+    def section_names(self) -> tuple[str, ...]:
+        return self.sweep.names
+
+    @property
+    def sections_consumed(self) -> int:
+        return len(self.sweep.sections)
+
+
+@dataclass(frozen=True)
 class _LimbChainSweep:
     """One bilateral limb-chain sweep with per-section source ownership."""
 
@@ -202,13 +231,50 @@ class _LimbChainSweep:
 
 
 @dataclass(frozen=True)
+class _TailElement:
+    """One explicitly named, source-owned successor tail element.
+
+    Tail elements deliberately retain the guide's source owner while exposing
+    the generic profile sweep consumed by the evaluator.  ``kind`` describes
+    the guide control family; it is diagnostic metadata, not a new semantic
+    owner.
+    """
+
+    name: str
+    owner: Any
+    sweep: _ProfileSweep
+    kind: str
+
+    @property
+    def source_owners(self) -> tuple[Any, ...]:
+        return (self.owner,)
+
+    @property
+    def owners(self) -> tuple[Any, ...]:
+        return self.sweep.owners
+
+    @property
+    def section_names(self) -> tuple[str, ...]:
+        return self.sweep.names
+
+    @property
+    def sections_consumed(self) -> int:
+        return len(self.sweep.sections)
+
+
+# Keep a descriptive alias available to focused consumers of this disposable
+# experiment; the region stores the concrete named elements above.
+_TailSweep = _TailElement
+
+
+@dataclass(frozen=True)
 class SuccessorRegion:
-    """Explicit successor torso/shoulder/head/neck/limb representation.
+    """Explicit successor torso/shoulder/head/neck/limb/extremity/tail representation.
 
     ``bridge_fields`` are untouched baseline fields for all regions outside
     this successor region.  They are kept here, rather than silently folded
-    into the successor, so later limb/paw/tail consumers have a stable
-    extension point and the temporary boundary remains inspectable.
+    into the successor, so the remaining root/hip connector consumers have a
+    stable extension point and the temporary boundary remains inspectable.
     """
 
     consumer_id: str
@@ -220,6 +286,8 @@ class SuccessorRegion:
     source_owners: tuple[Any, ...]
     head_neck_sweeps: tuple[_RegionalProfileSweep, ...] = ()
     limb_sweeps: tuple[_LimbChainSweep, ...] = ()
+    extremity_sweeps: tuple[_ExtremitySweep, ...] = ()
+    tail_elements: tuple[_TailElement, ...] = ()
 
     @property
     def section_names(self) -> tuple[str, ...]:
@@ -238,6 +306,20 @@ class SuccessorRegion:
         """Compatibility alias for the named successor limb chains."""
 
         return self.limb_sweeps
+
+    @property
+    def hand_sweeps(self) -> tuple[_ExtremitySweep, ...]:
+        return tuple(item for item in self.extremity_sweeps if item.kind in {"hand-attachment", "hand-paw"})
+
+    @property
+    def foot_sweeps(self) -> tuple[_ExtremitySweep, ...]:
+        return tuple(item for item in self.extremity_sweeps if item.kind == "foot-chain")
+
+    @property
+    def tail_sweeps(self) -> tuple[_TailElement, ...]:
+        """Compatibility/readability view of the explicit tail elements."""
+
+        return self.tail_elements
 
 
 @dataclass(frozen=True)
@@ -539,6 +621,49 @@ _COLLAR_PROFILE = (
 # Shared sample-grid visibility correction for the disposable collar only.
 _COLLAR_TRANSVERSE_SCALE = 1.50
 
+# Tail masses use a compact symmetric station layout.  The centre station is
+# intentionally unscaled so the exact guide centre and the first two guide
+# radii remain directly observable.  The third guide radius bounds the axial
+# extent; it is not folded into either transverse profile radius.
+_TAIL_MASS_PROFILE = (
+    (-0.50, 0.82, 0.82),
+    (0.00, 1.00, 1.00),
+    (0.50, 0.82, 0.82),
+)
+
+_TAIL_ELEMENT_ORDER = (
+    "tail-root-source",
+    "tail-root-attachment",
+    "tail-root-collar",
+    "tail-tip-source",
+    "tail-tip-extension",
+    "tail-tip-cap",
+)
+
+_TAIL_ELEMENT_KINDS = (
+    "source-centerline",
+    "root-attachment",
+    "root-collar-mass",
+    "source-centerline",
+    "tip-extension",
+    "tip-cap-mass",
+)
+
+_SUCCESSOR_TAIL_ATTACHMENT_BOUNDARY_TOLERANCE = 1.0e-10
+_SUCCESSOR_TAIL_ATTACHMENT_BISECTION_ITERATIONS = 64
+
+# These controls are shared by every hand and foot in every fixed fixture.
+# Hand offsets are measured in the outward lateral-radius units of the exact
+# guide paw.  The hand profile's two transverse axes are explicitly up and
+# forward; feet use the generic lateral/forward frame derivation below.
+_HAND_PAW_PROFILE = (
+    (-0.55, 0.62, 0.66),
+    (-0.15, 1.00, 1.00),
+    (0.35, 0.92, 1.05),
+    (0.78, 0.55, 0.60),
+)
+_HAND_PAW_SECTION_NAMES = ("hand-paw-base", "hand-paw-palm", "hand-paw-knuckle", "hand-paw-tip")
+
 
 def _make_transition_sweep(
     recipe: str,
@@ -675,6 +800,434 @@ def _make_mass_profile_sweep(
     sweep = _ProfileSweep(ordered, tuple(endpoint_caps))
     _validate_profile_sweep(sweep)
     return sweep
+
+
+def _make_tail_mass_profile_sweep(
+    recipe: str,
+    owner: Any,
+    center: tuple[float, float, float],
+    radii: tuple[float, float, float],
+    tangent_axis: tuple[float, float, float],
+    axes: Any,
+) -> _ProfileSweep:
+    """Compile one bounded tail mass from exact guide centre/radii controls.
+
+    This is the same generic ``_ProfileSweep`` representation used by the
+    other successor regions, with a fixed three-station symmetric layout. The
+    first two guide radii author the transverse profiles; the third radius is
+    the complete axial half-extent (half-station spacing plus half-cap).
+    """
+
+    centre = _vec3(center, f"{recipe}.center")
+    base_radii = _vec3(radii, f"{recipe}.radii")
+    _finite_positive(tuple(float(value) for value in base_radii), f"{recipe}.radii")
+    axial_radius = float(base_radii[2])
+    tangent, first, second = _frame_from_tangent(
+        _vec3(tangent_axis, f"{recipe}.tangent-axis"),
+        _vec3(axes.lateral, f"{recipe}.lateral-axis"),
+        _vec3(axes.up, f"{recipe}.up-axis"),
+        recipe,
+    )
+    sections: list[_ProfileSection] = []
+    path_length = 0.0
+    previous_offset: float | None = None
+    for index, control in enumerate(_TAIL_MASS_PROFILE):
+        offset, first_scale, second_scale = (float(value) for value in control)
+        if previous_offset is not None and offset <= previous_offset:
+            _fail(f"{recipe} profile offsets must be strictly increasing")
+        previous_offset = offset
+        if index:
+            path_length += (offset - float(_TAIL_MASS_PROFILE[index - 1][0])) * axial_radius
+        section_center = centre + offset * axial_radius * tangent
+        section_radii = (
+            float(base_radii[0]) * first_scale,
+            float(base_radii[1]) * second_scale,
+        )
+        _finite_positive(section_radii, f"{recipe}.section[{index}].radii")
+        sections.append(_ProfileSection(
+            f"{recipe}-section-{index}", owner,
+            tuple(float(value) for value in section_center),
+            tuple(float(value) for value in tangent),
+            (tuple(float(value) for value in first), tuple(float(value) for value in second)),
+            section_radii, path_length,
+        ))
+    ordered = tuple(sections)
+    # Stations occupy +/- half the exact third guide radius. The endpoint cap
+    # supplies the other half, so the mass cannot exceed the guide-derived
+    # axial extent in the tangent direction.
+    cap_axial = 0.5 * axial_radius
+    endpoint_caps = (
+        _ProfileEndpointCap(
+            "start", ordered[0].center, tuple(-float(value) for value in tangent),
+            ordered[0].transverse_axes, ordered[0].transverse_radii, cap_axial,
+        ),
+        _ProfileEndpointCap(
+            "end", ordered[-1].center, ordered[-1].tangent,
+            ordered[-1].transverse_axes, ordered[-1].transverse_radii, cap_axial,
+        ),
+    )
+    sweep = _ProfileSweep(ordered, endpoint_caps)
+    _validate_profile_sweep(sweep)
+    return sweep
+
+
+def _tail_axis(tail: Any, where: str) -> tuple[float, float, float]:
+    """Return the exact ordered source-tail axis used by path and mass sweeps."""
+
+    start = _vec3(tail.centerline[0], f"{where}.centerline.start")
+    end = _vec3(tail.centerline[1], f"{where}.centerline.end")
+    axis = end - start
+    return tuple(float(value) for value in _unit(axis, f"{where}.axis"))
+
+
+def _guide_reference_scale_for_connection(guide: Any) -> float:
+    """Recover the validated guide normalization for an exact source anchor."""
+
+    candidates: list[float] = []
+    for descriptor in guide.source_descriptors:
+        for exact, normalized in zip(descriptor.exact_point, descriptor.point):
+            if exact != 0 and math.isfinite(float(normalized)) and abs(float(normalized)) > _DEGENERATE_TOLERANCE:
+                candidates.append(float(exact) / float(normalized))
+    if not candidates or any(not math.isfinite(value) or value <= 0.0 for value in candidates):
+        _fail("successor tail cannot recover the validated guide reference scale")
+    scale = candidates[0]
+    if any(not math.isclose(value, scale, rel_tol=0.0, abs_tol=1.0e-9) for value in candidates[1:]):
+        _fail("successor tail guide reference scale is inconsistent")
+    return scale
+
+
+def _derive_successor_tail_attachment_start(guide: Any, loft: _ProfileSweep) -> np.ndarray:
+    """Find the successor-loft boundary on the guide attachment ray.
+
+    The guide attachment start is a baseline-parent boundary point.  It is
+    retained as the ray target and validated by the baseline inventory, but it
+    is not necessarily a boundary point of the successor loft.  This helper
+    re-anchors the successor sweep from the known interior lower-pelvis
+    section centre by a fixed, bounded bisection.
+    """
+
+    _validate_profile_sweep(loft)
+    tails = tuple(guide.tail_guides)
+    if len(tails) != 2 or tails[0].root_attachment_centerline is None:
+        _fail("successor tail attachment ray requires the canonical root guide")
+    root = tails[0]
+    interior = _vec3(loft.sections[0].center, "successor tail attachment interior centre")
+    guide_start = _vec3(root.root_attachment_centerline[0], "successor tail guide attachment start")
+    ray_vector = guide_start - interior
+    ray_length = float(np.linalg.norm(ray_vector))
+    if not math.isfinite(ray_length) or ray_length <= _DEGENERATE_TOLERANCE:
+        _fail("successor tail attachment ray is degenerate")
+    ray = ray_vector / ray_length
+
+    lower = 0.0
+    lower_value = float(_loft_field(interior.reshape(1, 3), loft)[0])
+    if not math.isfinite(lower_value) or lower_value >= 0.0:
+        _fail("successor tail attachment ray does not start inside the loft")
+    upper = ray_length
+    upper_point = interior + upper * ray
+    upper_value = float(_loft_field(upper_point.reshape(1, 3), loft)[0])
+    if not math.isfinite(upper_value):
+        _fail("successor tail attachment ray boundary query is non-finite")
+    if upper_value < 0.0:
+        _fail("successor tail attachment ray has no bounded loft boundary bracket")
+    if upper_value == 0.0:
+        boundary = upper_point
+    else:
+        for _ in range(_SUCCESSOR_TAIL_ATTACHMENT_BISECTION_ITERATIONS):
+            midpoint = 0.5 * (lower + upper)
+            midpoint_value = float(_loft_field((interior + midpoint * ray).reshape(1, 3), loft)[0])
+            if not math.isfinite(midpoint_value):
+                _fail("successor tail attachment bisection became non-finite")
+            if midpoint_value < 0.0:
+                lower = midpoint
+            else:
+                upper = midpoint
+        boundary = interior + 0.5 * (lower + upper) * ray
+    boundary_value = float(_loft_field(boundary.reshape(1, 3), loft)[0])
+    if not math.isfinite(boundary_value) or abs(boundary_value) > _SUCCESSOR_TAIL_ATTACHMENT_BOUNDARY_TOLERANCE:
+        _fail("successor tail attachment boundary did not converge")
+    if float(np.dot(boundary - interior, ray)) <= 0.0:
+        _fail("successor tail attachment boundary has invalid ray orientation")
+    if float(np.linalg.norm(np.cross(boundary - interior, ray))) > _SUCCESSOR_TAIL_ATTACHMENT_BOUNDARY_TOLERANCE:
+        _fail("successor tail attachment boundary left its source ray")
+    return boundary
+
+
+def _make_tail_elements(guide: Any, loft: _ProfileSweep | None = None) -> tuple[_TailElement, ...]:
+    """Build the fixed six-element, source-owned successor tail topology."""
+
+    source_by_key = {descriptor.key: descriptor for descriptor in guide.source_descriptors}
+    tails = tuple(guide.tail_guides)
+    if tuple(item.owner.key[3] for item in tails) != ("tail_root", "tail_tip"):
+        _fail("successor tail guide order must be tail_root then tail_tip")
+    if len(tails) != 2:
+        _fail("successor tail guide inventory must contain exactly root and tip")
+    if any(source_by_key.get(item.owner.key) is not item.owner for item in tails):
+        _fail("successor tail owner must be the canonical source descriptor")
+    if any(item.axes != guide.topology.axes or item.axes != _baseline._FIXED_GUIDE_AXES for item in tails):
+        _fail("successor tail axes must match the fixed guide axes")
+    tail_root, tail_tip = tails
+    expected_root_parent = guide.torso_cage.pelvis_owner
+    if source_by_key.get(expected_root_parent.key) is not expected_root_parent:
+        _fail("successor tail root parent pelvis owner is not canonical")
+    if tail_root.owner.parent != expected_root_parent.key or source_by_key.get(tail_root.owner.parent) is not expected_root_parent:
+        _fail("successor tail root parent must be the canonical pelvis owner")
+    if tail_tip.owner.parent != tail_root.owner.key or source_by_key.get(tail_tip.owner.parent) is not tail_root.owner:
+        _fail("successor tail tip parent must be tail_root")
+    if tail_root.root_attachment_centerline is None or tail_root.root_attachment_taper is None:
+        _fail("successor tail root attachment controls are incomplete")
+    if tail_root.root_collar_center is None or tail_root.root_collar_radii is None:
+        _fail("successor tail root collar controls are incomplete")
+    if tail_tip.extension_centerline is None or tail_tip.extension_taper is None:
+        _fail("successor tail tip extension controls are incomplete")
+    if tail_tip.cap_center is None or tail_tip.cap_radii is None:
+        _fail("successor tail tip cap controls are incomplete")
+    parent = source_by_key.get(tail_root.owner.parent)
+    if parent is None:
+        _fail("successor tail root parent is not present in the source inventory")
+    reference_scale = _guide_reference_scale_for_connection(guide)
+    expected_anchor = _baseline._parent_surface_anchor(
+        parent,
+        _vec3(tail_root.centerline[1], "tail-root source endpoint"),
+        reference_scale,
+    )
+    _require_exact_same_point(
+        tail_root.root_attachment_centerline[0], expected_anchor,
+        "tail-root attachment/source parent surface anchor",
+    )
+    anchor_field = _baseline._field(expected_anchor.reshape(1, 3), parent, reference_scale)
+    if not np.all(np.isfinite(anchor_field)) or float(abs(anchor_field[0])) > _FRAME_TOLERANCE:
+        _fail("tail-root attachment start is not on its exact source parent boundary")
+
+    if loft is None:
+        loft = _make_loft(guide)
+    successor_attachment_start = _derive_successor_tail_attachment_start(guide, loft)
+    root_attachment_path = (
+        tuple(float(value) for value in successor_attachment_start),
+        tuple(float(value) for value in tail_root.root_attachment_centerline[1]),
+    )
+
+    root_axis = _tail_axis(tail_root, "tail-root")
+    tip_axis = _tail_axis(tail_tip, "tail-tip")
+    root_source = _TailElement(
+        "tail-root-source", tail_root.owner,
+        _make_transition_sweep("tail-root-source", tail_root.owner, tail_root.centerline, tail_root.taper, tail_root.axes),
+        "source-centerline",
+    )
+    root_attachment = _TailElement(
+        "tail-root-attachment", tail_root.owner,
+        _make_transition_sweep("tail-root-attachment", tail_root.owner, root_attachment_path, tail_root.root_attachment_taper, tail_root.axes),  # type: ignore[arg-type]
+        "root-attachment",
+    )
+    root_collar = _TailElement(
+        "tail-root-collar", tail_root.owner,
+        _make_tail_mass_profile_sweep(
+            "tail-root-collar", tail_root.owner, tail_root.root_collar_center,
+            tail_root.root_collar_radii, root_axis, tail_root.axes,  # type: ignore[arg-type]
+        ),
+        "root-collar-mass",
+    )
+    tip_source = _TailElement(
+        "tail-tip-source", tail_tip.owner,
+        _make_transition_sweep("tail-tip-source", tail_tip.owner, tail_tip.centerline, tail_tip.taper, tail_tip.axes),
+        "source-centerline",
+    )
+    tip_extension = _TailElement(
+        "tail-tip-extension", tail_tip.owner,
+        _make_transition_sweep("tail-tip-extension", tail_tip.owner, tail_tip.extension_centerline, tail_tip.extension_taper, tail_tip.axes),  # type: ignore[arg-type]
+        "tip-extension",
+    )
+    tip_cap = _TailElement(
+        "tail-tip-cap", tail_tip.owner,
+        _make_tail_mass_profile_sweep(
+            "tail-tip-cap", tail_tip.owner, tail_tip.cap_center,
+            tail_tip.cap_radii, tip_axis, tail_tip.axes,  # type: ignore[arg-type]
+        ),
+        "tip-cap-mass",
+    )
+    result = (root_source, root_attachment, root_collar, tip_source, tip_extension, tip_cap)
+    _validate_tail_elements(guide, result, loft)
+    return result
+
+
+def _validate_tail_elements(guide: Any, elements: tuple[_TailElement, ...], loft: _ProfileSweep | None = None) -> None:
+    """Fail closed on tail ownership, topology, exact controls, and joins."""
+
+    if tuple(item.name for item in elements) != _TAIL_ELEMENT_ORDER:
+        _fail("successor tail element order is unstable")
+    if tuple(item.kind for item in elements) != _TAIL_ELEMENT_KINDS:
+        _fail("successor tail element kinds are unstable")
+    tails = tuple(guide.tail_guides)
+    if len(tails) != 2 or tuple(item.owner.key[3] for item in tails) != ("tail_root", "tail_tip"):
+        _fail("successor tail guide inventory is not the exact root/tip pair")
+    source_by_key = {descriptor.key: descriptor for descriptor in guide.source_descriptors}
+    root, tip = tails
+    expected_root_parent = guide.torso_cage.pelvis_owner
+    if source_by_key.get(expected_root_parent.key) is not expected_root_parent:
+        _fail("successor tail root parent pelvis owner is not canonical")
+    if root.owner.parent != expected_root_parent.key or source_by_key.get(root.owner.parent) is not expected_root_parent:
+        _fail("successor tail root parent must be the canonical pelvis owner")
+    if tip.owner.parent != root.owner.key or source_by_key.get(tip.owner.parent) is not root.owner:
+        _fail("successor tail tip parent relationship is not canonical")
+    if any(item.owner not in (root.owner, tip.owner) for item in elements):
+        _fail("successor tail element has an unexpected owner")
+    if any(source_by_key.get(item.owner.key) is not item.owner for item in elements):
+        _fail("successor tail element owner identity is not canonical")
+    if any(any(section.owner is not item.owner for section in item.sweep.sections) for item in elements):
+        _fail("successor tail sweep sections must retain one canonical owner")
+    if any(item.sweep.internal_transitions for item in elements):
+        _fail("successor tail topology must not invent internal bend transitions")
+    if any(len(item.sweep.endpoint_caps) != 2 for item in elements):
+        _fail("successor tail elements must have exactly two outer caps")
+
+    root_source, root_attachment, root_collar, tip_source, tip_extension, tip_cap = elements
+    if loft is None:
+        loft = _make_loft(guide)
+    expected_successor_start = _derive_successor_tail_attachment_start(guide, loft)
+    actual_successor_start = _vec3(root_attachment.sweep.sections[0].center, "tail-root successor attachment start")
+    if not np.allclose(actual_successor_start, expected_successor_start, rtol=0.0, atol=_SUCCESSOR_TAIL_ATTACHMENT_BOUNDARY_TOLERANCE):
+        _fail("tail-root successor attachment start is not the derived loft boundary")
+    successor_start_value = float(_loft_field(actual_successor_start.reshape(1, 3), loft)[0])
+    if not math.isfinite(successor_start_value) or abs(successor_start_value) > _SUCCESSOR_TAIL_ATTACHMENT_BOUNDARY_TOLERANCE:
+        _fail("tail-root successor attachment start is not on the successor loft boundary")
+    interior = _vec3(loft.sections[0].center, "tail-root successor attachment interior centre")
+    guide_start = _vec3(root.root_attachment_centerline[0], "tail-root guide attachment start")
+    ray = guide_start - interior
+    ray_length = float(np.linalg.norm(ray))
+    if not math.isfinite(ray_length) or ray_length <= _DEGENERATE_TOLERANCE:
+        _fail("tail-root successor attachment ray is degenerate")
+    ray /= ray_length
+    displacement = actual_successor_start - interior
+    if float(np.dot(displacement, ray)) <= 0.0 or float(np.linalg.norm(np.cross(displacement, ray))) > _SUCCESSOR_TAIL_ATTACHMENT_BOUNDARY_TOLERANCE:
+        _fail("tail-root successor attachment start has invalid ray orientation")
+    expected_root_attachment_path = (
+        tuple(float(value) for value in expected_successor_start),
+        tuple(float(value) for value in root.root_attachment_centerline[1]),  # type: ignore[index]
+    )
+    for element, path, profile, where in (
+        (root_source, root.centerline, root.taper, "tail-root source"),
+        (root_attachment, expected_root_attachment_path, root.root_attachment_taper, "tail-root attachment"),
+        (tip_source, tip.centerline, tip.taper, "tail-tip source"),
+        (tip_extension, tip.extension_centerline, tip.extension_taper, "tail-tip extension"),
+    ):
+        if path is None or profile is None:
+            _fail(f"{where} guide controls are incomplete")
+        sections = element.sweep.sections
+        if len(sections) != 2:
+            _fail(f"{where} must have exactly two profile stations")
+        for section, expected_center, expected_radius in zip(sections, path, profile):
+            if not np.array_equal(_vec3(section.center, f"{where}.center"), _vec3(expected_center, f"{where}.guide-center")):
+                _fail(f"{where} does not retain exact guide path controls")
+            if section.transverse_radii != (float(expected_radius), float(expected_radius)):
+                _fail(f"{where} does not retain exact guide taper controls")
+            if section.owner is not element.owner:
+                _fail(f"{where} section owner is not canonical")
+
+    _require_exact_same_point(
+        root_attachment.sweep.sections[-1].center,
+        root_source.sweep.sections[-1].center,
+        "tail-root attachment/source endpoint",
+    )
+    _require_exact_same_point(
+        root_collar.sweep.sections[len(root_collar.sweep.sections) // 2].center,
+        root_source.sweep.sections[-1].center,
+        "tail-root collar/source endpoint",
+    )
+    _require_exact_same_point(
+        root_source.sweep.sections[-1].center,
+        tip_source.sweep.sections[0].center,
+        "tail-root/tip source join",
+    )
+    _require_exact_same_point(
+        tip_source.sweep.sections[-1].center,
+        tip_extension.sweep.sections[0].center,
+        "tail-tip source/extension shared endpoint",
+    )
+    _require_exact_same_point(
+        tip_extension.sweep.sections[-1].center,
+        tip_cap.sweep.sections[len(tip_cap.sweep.sections) // 2].center,
+        "tail-tip extension/cap endpoint",
+    )
+    # Preserve both independently authored endpoint profiles. Do not average
+    # or infer a replacement radius at their shared endpoint; the current
+    # guide happens to author equal values, but each control remains exact.
+    core_profile = tip_source.sweep.sections[-1].transverse_radii
+    extension_profile = tip_extension.sweep.sections[0].transverse_radii
+    if core_profile != (float(tip.taper[-1]), float(tip.taper[-1])):
+        _fail("tail-tip source endpoint lost its exact guide taper")
+    if extension_profile != (float(tip.extension_taper[0]), float(tip.extension_taper[0])):  # type: ignore[index]
+        _fail("tail-tip extension lost its exact guide start taper")
+
+    for element, centre, radii, axis, where in (
+        (root_collar, root.root_collar_center, root.root_collar_radii, _tail_axis(root, "tail-root"), "tail-root collar"),
+        (tip_cap, tip.cap_center, tip.cap_radii, _tail_axis(tip, "tail-tip"), "tail-tip cap"),
+    ):
+        if centre is None or radii is None:
+            _fail(f"{where} guide controls are incomplete")
+        sections = element.sweep.sections
+        if len(sections) != len(_TAIL_MASS_PROFILE) or tuple(float(value) for value in sections[len(sections) // 2].center) != tuple(float(value) for value in centre):
+            _fail(f"{where} must retain its exact guide centre at the centre station")
+        if sections[len(sections) // 2].transverse_radii != (float(radii[0]), float(radii[1])):  # type: ignore[index]
+            _fail(f"{where} must retain its exact guide transverse radii")
+        expected_tangent = _vec3(axis, f"{where}.axis")
+        _, expected_first, expected_second = _frame_from_tangent(
+            expected_tangent,
+            _vec3(guide.topology.axes.lateral, f"{where}.lateral-axis"),
+            _vec3(guide.topology.axes.up, f"{where}.up-axis"),
+            where,
+        )
+        for section in sections:
+            if section.tangent != tuple(float(value) for value in expected_tangent):
+                _fail(f"{where} must use the fixed guide tail axis")
+            if section.transverse_axes != (tuple(float(value) for value in expected_first), tuple(float(value) for value in expected_second)):
+                _fail(f"{where} must use the fixed guide transverse axes")
+        centre_vector = _vec3(centre, f"{where}.centre")
+        axial = float(radii[2])  # type: ignore[index]
+        # The oriented extent along the tail axis is bounded by the exact
+        # third guide radius. Transverse extents are intentionally independent.
+        for section in sections:
+            axial_distance = abs(float(np.dot(_vec3(section.center, f"{where}.section-center") - centre_vector, expected_tangent)))
+            if axial_distance > axial + _FRAME_TOLERANCE:
+                _fail(f"{where} axial bounds exceed its guide third radius")
+        for cap in element.sweep.endpoint_caps:
+            axial_distance = abs(float(np.dot(_vec3(cap.center, f"{where}.cap-center") - centre_vector, expected_tangent))) + float(cap.axial_radius)
+            if axial_distance > axial + _FRAME_TOLERANCE:
+                _fail(f"{where} cap exceeds its guide third radius")
+
+
+def _tail_element_metadata(elements: tuple[_TailElement, ...]) -> list[dict[str, Any]]:
+    """Serialize every consumed tail station/cap control for the sidecar."""
+
+    return [
+        {
+            "name": item.name,
+            "kind": item.kind,
+            "owner": _baseline._address_json(item.owner.key),
+            "sections": [
+                {
+                    "name": section.name,
+                    "center": [float(value) for value in section.center],
+                    "tangent": [float(value) for value in section.tangent],
+                    "transverse_axes": [[float(value) for value in axis] for axis in section.transverse_axes],
+                    "transverse_radii": [float(value) for value in section.transverse_radii],
+                    "path_length": float(section.path_length),
+                }
+                for section in item.sweep.sections
+            ],
+            "endpoint_caps": [
+                {
+                    "side": cap.side,
+                    "center": [float(value) for value in cap.center],
+                    "outward_tangent": [float(value) for value in cap.outward_tangent],
+                    "transverse_axes": [[float(value) for value in axis] for axis in cap.transverse_axes],
+                    "transverse_radii": [float(value) for value in cap.transverse_radii],
+                    "axial_radius": float(cap.axial_radius),
+                }
+                for cap in item.sweep.endpoint_caps
+            ],
+        }
+        for item in elements
+    ]
 
 
 def _make_head_neck_sweeps(guide: Any) -> tuple[_RegionalProfileSweep, ...]:
@@ -837,6 +1390,181 @@ def _require_path_shape(
         _fail(f"{where} field profile controls do not match the guide")
 
 
+def _require_mass_shape(
+    shape: Any,
+    center: Any,
+    radii: Any,
+    where: str,
+    *,
+    expected_name: str = "ellipsoid",
+) -> None:
+    """Require a retained baseline mass to reproduce exact guide controls."""
+
+    if not isinstance(shape, dict) or shape.get("name") != expected_name:
+        _fail(f"{where} must retain an {expected_name!r} field shape")
+    try:
+        shape_center = _vec3(shape["center"], f"{where}.center")
+        shape_radii = _vec3(shape["radii"], f"{where}.radii")
+    except (KeyError, TypeError, ValueError):
+        _fail(f"{where} field shape is missing mass controls")
+    if not np.array_equal(shape_center, _vec3(center, f"{where}.guide-center")):
+        _fail(f"{where} field center does not match the guide")
+    if not np.array_equal(shape_radii, _vec3(radii, f"{where}.guide-radii")):
+        _fail(f"{where} field radii do not match the guide")
+
+
+def _validate_extremity_baseline_fields(guide: Any, baseline_fields: tuple[Any, ...]) -> None:
+    """Validate the exact bilateral hand/foot baseline inventory being removed."""
+
+    source_by_key = {descriptor.key: descriptor for descriptor in guide.source_descriptors}
+    paws = {(item.owner.key[1][0], item.owner.key[3]): item for item in guide.paw_guides}
+    expected_counts = {recipe: 2 for recipe in ("paw", "extremity-bridge", "metatarsal", "paw-pad", "toe-box")}
+    for recipe, expected_count in expected_counts.items():
+        fields = tuple(field for field in baseline_fields if field.recipe == recipe)
+        if len(fields) != expected_count:
+            _fail(f"baseline extremity recipe {recipe!r} must contain exactly two mirrored fields")
+        seen: set[tuple[str, str]] = set()
+        for field in fields:
+            canonical = source_by_key.get(field.owner.key)
+            if canonical is not field.owner or len(field.owner.key[1]) != 1 or field.owner.key[1][0] not in ("left", "right"):
+                _fail(f"baseline extremity field {recipe!r} has a non-canonical owner")
+            side = field.owner.key[1][0]
+            role = field.owner.key[3]
+            expected_role = "hand" if recipe in {"paw", "extremity-bridge"} else "foot"
+            if role != expected_role or (side, role) in seen:
+                _fail(f"baseline extremity field {recipe!r} has an invalid mirrored owner inventory")
+            seen.add((side, role))
+            paw = paws.get((side, role))
+            if paw is None:
+                _fail(f"baseline extremity field {recipe!r} has no matching guide")
+            where = f"baseline {side} {recipe}"
+            if recipe == "paw":
+                _require_mass_shape(field.shape, paw.paw_center, paw.paw_radii, where)
+            elif recipe == "extremity-bridge":
+                if paw.attachment_centerline is None or paw.attachment_radius is None or paw.attachment_kind is None:
+                    _fail(f"{where} guide attachment is incomplete")
+                _require_path_shape(
+                    field.shape, paw.attachment_centerline, (paw.attachment_radius,), where,
+                    expected_name=paw.attachment_kind,
+                )
+            else:
+                chain = paw.foot_chain
+                if chain is None:
+                    _fail(f"{where} guide chain is incomplete")
+                if recipe == "metatarsal":
+                    _require_path_shape(field.shape, chain.metatarsal_centerline, chain.metatarsal_profile, where)
+                elif recipe == "paw-pad":
+                    _require_mass_shape(field.shape, chain.pad_center, chain.pad_radii, where)
+                else:
+                    _require_mass_shape(field.shape, chain.toe_center, chain.toe_radii, where)
+
+
+def _validate_extremity_sweeps(
+    guide: Any,
+    limb_sweeps: tuple[_LimbChainSweep, ...],
+    extremity_sweeps: tuple[_ExtremitySweep, ...],
+) -> None:
+    """Fail closed on bilateral hand/foot topology, controls and ownership."""
+
+    expected_names = (
+        "left-hand-attachment", "left-hand-paw", "left-foot",
+        "right-hand-attachment", "right-hand-paw", "right-foot",
+    )
+    if tuple(item.name for item in extremity_sweeps) != expected_names:
+        _fail("successor extremity sweep order is unstable")
+    source_by_key = {descriptor.key: descriptor for descriptor in guide.source_descriptors}
+    paws = {(item.owner.key[1][0], item.owner.key[3]): item for item in guide.paw_guides}
+    chains = {item.chain_name: item for item in limb_sweeps}
+    for side in ("left", "right"):
+        hand = paws.get((side, "hand"))
+        foot = paws.get((side, "foot"))
+        arm = chains.get(f"{side}-arm")
+        leg = chains.get(f"{side}-leg")
+        if hand is None or foot is None or arm is None or leg is None:
+            _fail(f"{side} extremity guide inventory is incomplete")
+        attachment, paw, foot_sweep = (item for item in extremity_sweeps if item.side == side)
+        if attachment.kind != "hand-attachment" or paw.kind != "hand-paw" or foot_sweep.kind != "foot-chain":
+            _fail(f"{side} extremity sweep kinds are unstable")
+        if attachment.source_owners != (hand.owner,) or paw.source_owners != (hand.owner,):
+            _fail(f"{side} hand sweeps must be hand-owned")
+        if any(section.owner is not hand.owner for section in attachment.sweep.sections + paw.sweep.sections):
+            _fail(f"{side} hand sweep sections must retain canonical hand ownership")
+        if source_by_key.get(hand.owner.key) is not hand.owner or source_by_key.get(foot.owner.key) is not foot.owner:
+            _fail(f"{side} extremity owner identity is not canonical")
+        if hand.owner.parent != arm.sweep.sections[-1].owner.key or source_by_key.get(hand.owner.parent) is not arm.sweep.sections[-1].owner:
+            _fail(f"{side} hand parent must be the same-side successor forearm owner")
+        if hand.attachment_centerline is None or hand.attachment_radius is None:
+            _fail(f"{side} hand attachment guide is incomplete")
+        _require_exact_same_point(attachment.sweep.sections[0].center, hand.attachment_centerline[0], f"{side} hand attachment start")
+        _require_exact_same_point(attachment.sweep.sections[-1].center, hand.attachment_centerline[1], f"{side} hand attachment end")
+        if any(section.transverse_radii != (float(hand.attachment_radius), float(hand.attachment_radius)) for section in attachment.sweep.sections):
+            _fail(f"{side} hand attachment must use the exact guide radius at both stations")
+        if len(attachment.sweep.endpoint_caps) != 2 or attachment.sweep.internal_transitions:
+            _fail(f"{side} hand attachment must have only two outer endpoint caps")
+        if len(paw.sweep.sections) != 4 or len(paw.sweep.endpoint_caps) != 2:
+            _fail(f"{side} hand paw must have four stations and two outer caps")
+        outward = _vec3(hand.axes.lateral, f"{side}.hand-paw.outward-axis") * (-1.0 if side == "left" else 1.0)
+        outward = _unit(outward, f"{side}.hand-paw.outward-axis")
+        for index, (section, control) in enumerate(zip(paw.sweep.sections, _HAND_PAW_PROFILE)):
+            expected_center = _vec3(hand.paw_center, f"{side}.paw-center") + float(control[0]) * float(hand.paw_radii[0]) * outward
+            if not np.array_equal(_vec3(section.center, f"{side}.hand-paw.section[{index}]"), expected_center):
+                _fail(f"{side} hand paw section {index} does not follow shared outward offsets")
+            expected_radii = (float(hand.paw_radii[1]) * control[1], float(hand.paw_radii[2]) * control[2])
+            if section.transverse_radii != expected_radii:
+                _fail(f"{side} hand paw section {index} does not retain exact guide profile controls")
+            if section.tangent != tuple(float(value) for value in outward):
+                _fail(f"{side} hand paw path must point outward, never reverse")
+            if section.transverse_axes != (tuple(float(value) for value in hand.axes.up), tuple(float(value) for value in hand.axes.forward)):
+                _fail(f"{side} hand paw must use guide up/forward transverse axes")
+        hand_center = np.asarray(hand.paw_center, dtype=np.float64).reshape(1, 3)
+        if float(_profile_sweep_field(hand_center, paw.sweep)[0]) > 0.0:
+            _fail(f"{side} hand paw must contain its exact guide paw center")
+        forearm_end = np.asarray(arm.sweep.sections[-1].center, dtype=np.float64).reshape(1, 3)
+        if float(_profile_sweep_field(forearm_end, attachment.sweep)[0]) > 0.0:
+            _fail(f"{side} hand attachment must overlap its successor forearm endpoint")
+        if float(_profile_sweep_field(forearm_end, paw.sweep)[0]) > 0.0:
+            _fail(f"{side} hand paw must contain its successor forearm endpoint")
+
+        chain = foot.foot_chain
+        if chain is None or foot_sweep.source_owners != (leg.sweep.sections[-1].owner, foot.owner):
+            _fail(f"{side} foot sweep must retain shin then foot ownership")
+        if foot.owner.parent != leg.sweep.sections[-1].owner.key or source_by_key.get(foot.owner.parent) is not leg.sweep.sections[-1].owner:
+            _fail(f"{side} foot parent must be the same-side successor shin owner")
+        sections = foot_sweep.sweep.sections
+        if tuple(section.name for section in sections) != ("hock", "metatarsal-midpoint", "pad", "pad-toe-midpoint", "toe"):
+            _fail(f"{side} foot sweep station names are unstable")
+        if tuple(section.owner for section in sections) != (leg.sweep.sections[-1].owner, foot.owner, foot.owner, foot.owner, foot.owner):
+            _fail(f"{side} foot sweep section ownership is not shin then foot")
+        expected_centers = (
+            chain.hock_anchor,
+            tuple(float(value) for value in (0.5 * (_vec3(chain.metatarsal_centerline[0], "foot start") + _vec3(chain.metatarsal_centerline[1], "foot end")))),
+            chain.pad_center,
+            tuple(float(value) for value in (0.5 * (_vec3(chain.pad_center, "pad") + _vec3(chain.toe_center, "toe")))),
+            chain.toe_center,
+        )
+        met_mid_profile = 0.5 * (float(chain.metatarsal_profile[0]) + float(chain.metatarsal_profile[1]))
+        expected_radii = (
+            (float(chain.hock_radii[0]), float(chain.hock_radii[1])),
+            (met_mid_profile, met_mid_profile),
+            (float(chain.pad_radii[0]), float(chain.pad_radii[1])),
+            ((float(chain.pad_radii[0]) + float(chain.toe_radii[0])) * 0.5, (float(chain.pad_radii[1]) + float(chain.toe_radii[1])) * 0.5),
+            (float(chain.toe_radii[0]), float(chain.toe_radii[1])),
+        )
+        for index, section in enumerate(sections):
+            if not np.array_equal(_vec3(section.center, f"{side}.foot.section[{index}]"), _vec3(expected_centers[index], f"{side}.foot.expected[{index}]")):
+                _fail(f"{side} foot section {index} does not retain exact guide center")
+            if section.transverse_radii != expected_radii[index]:
+                _fail(f"{side} foot section {index} does not retain exact guide profile")
+        if len(foot_sweep.sweep.endpoint_caps) != 2 or tuple(cap.side for cap in foot_sweep.sweep.endpoint_caps) != ("start", "end"):
+            _fail(f"{side} foot sweep must have hock/toe outer caps only")
+        if any(cap.center not in {sections[0].center, sections[-1].center} for cap in foot_sweep.sweep.endpoint_caps):
+            _fail(f"{side} foot sweep contains a non-outer cap")
+        _require_exact_same_point(sections[0].center, leg.sweep.sections[-1].center, f"{side} foot hock/successor leg endpoint")
+        _require_exact_same_point(sections[0].center, chain.metatarsal_centerline[0], f"{side} foot hock/metatarsal start")
+        if sections[-1].center[2] <= sections[0].center[2] or sections[2].center[2] <= sections[0].center[2]:
+            _fail(f"{side} foot stations must preserve hock/contact/forward ordering")
+
+
 _LIMB_SECTION_NAMES = {
     "upper_arm": ("pre-joint", "joint"),
     "forearm": ("proximal", "distal"),
@@ -941,6 +1669,129 @@ def _make_limb_sweeps(guide: Any) -> tuple[_LimbChainSweep, ...]:
     return tuple(sweeps)
 
 
+def _make_hand_paw_sweep(paw: Any, side: str) -> _ProfileSweep:
+    """Build the four-station outward hand profile from exact paw controls."""
+
+    if paw.paw_center is None or paw.paw_radii is None:
+        _fail(f"{side} hand paw controls are incomplete")
+    axes = paw.axes
+    outward = _vec3(axes.lateral, f"{side}.hand-paw.lateral-axis")
+    if side == "left":
+        outward = -outward
+    outward = _unit(outward, f"{side}.hand-paw.outward-axis")
+    up = _unit(_vec3(axes.up, f"{side}.hand-paw.up-axis"), f"{side}.hand-paw.up-axis")
+    forward = _unit(_vec3(axes.forward, f"{side}.hand-paw.forward-axis"), f"{side}.hand-paw.forward-axis")
+    if max(abs(float(np.dot(outward, up))), abs(float(np.dot(outward, forward))), abs(float(np.dot(up, forward)))) > _FRAME_TOLERANCE:
+        _fail(f"{side}.hand-paw guide axes must be orthogonal")
+    centre = _vec3(paw.paw_center, f"{side}.hand-paw.center")
+    paw_radii = _vec3(paw.paw_radii, f"{side}.hand-paw.radii")
+    _finite_positive(tuple(float(value) for value in paw_radii), f"{side}.hand-paw.radii")
+    axial_radius = float(paw_radii[0])
+    sections: list[_ProfileSection] = []
+    path_length = 0.0
+    for index, (offset, up_scale, forward_scale) in enumerate(_HAND_PAW_PROFILE):
+        center = centre + float(offset) * axial_radius * outward
+        radii = (float(paw_radii[1]) * float(up_scale), float(paw_radii[2]) * float(forward_scale))
+        _finite_positive(radii, f"{side}.hand-paw.section[{index}].radii")
+        if index:
+            path_length += abs(float(_HAND_PAW_PROFILE[index][0] - _HAND_PAW_PROFILE[index - 1][0])) * axial_radius
+        sections.append(_ProfileSection(
+            _HAND_PAW_SECTION_NAMES[index], paw.owner,
+            tuple(float(value) for value in center),
+            tuple(float(value) for value in outward),
+            (tuple(float(value) for value in up), tuple(float(value) for value in forward)),
+            radii, path_length,
+        ))
+    ordered = tuple(sections)
+    caps = (
+        _ProfileEndpointCap(
+            "start", ordered[0].center, tuple(-float(value) for value in outward),
+            ordered[0].transverse_axes, ordered[0].transverse_radii,
+            min(min(ordered[0].transverse_radii), 0.85 * (1.0 - abs(_HAND_PAW_PROFILE[0][0])) * axial_radius),
+        ),
+        _ProfileEndpointCap(
+            "end", ordered[-1].center, ordered[-1].tangent,
+            ordered[-1].transverse_axes, ordered[-1].transverse_radii,
+            min(min(ordered[-1].transverse_radii), 0.85 * (1.0 - abs(_HAND_PAW_PROFILE[-1][0])) * axial_radius),
+        ),
+    )
+    sweep = _ProfileSweep(ordered, caps)
+    _validate_profile_sweep(sweep)
+    return sweep
+
+
+def _make_foot_chain_sweep(paw: Any, side: str, leg: _LimbChainSweep) -> _ExtremitySweep:
+    """Build one five-station shin/foot-owned digitigrade sweep."""
+
+    chain = paw.foot_chain
+    if chain is None:
+        _fail(f"{side} foot chain controls are incomplete")
+    if len(chain.metatarsal_profile) != 2:
+        _fail(f"{side} foot metatarsal profile must have two controls")
+    hock = _vec3(chain.hock_anchor, f"{side}.foot.hock")
+    leg_end = _vec3(leg.sweep.sections[-1].center, f"{side}.leg.hock-endpoint")
+    if not np.array_equal(hock, leg_end):
+        _fail(f"{side} foot hock must join the successor leg endpoint exactly")
+    met_start = _vec3(chain.metatarsal_centerline[0], f"{side}.foot.metatarsal.start")
+    met_end = _vec3(chain.metatarsal_centerline[1], f"{side}.foot.metatarsal.end")
+    if not np.array_equal(met_start, hock):
+        _fail(f"{side} foot metatarsal must start at the hock exactly")
+    met_mid = 0.5 * (met_start + met_end)
+    met_profile = 0.5 * (float(chain.metatarsal_profile[0]) + float(chain.metatarsal_profile[1]))
+    pad = _vec3(chain.pad_center, f"{side}.foot.pad")
+    if not np.array_equal(met_end, pad):
+        _fail(f"{side} foot metatarsal must end at the pad exactly")
+    toe = _vec3(chain.toe_center, f"{side}.foot.toe")
+    pad_toe_mid = 0.5 * (pad + toe)
+    pad_radii = _vec3(chain.pad_radii, f"{side}.foot.pad-radii")
+    toe_radii = _vec3(chain.toe_radii, f"{side}.foot.toe-radii")
+    hock_radii = _vec3(chain.hock_radii, f"{side}.foot.hock-radii")
+    station_specs = (
+        ("hock", leg.sweep.sections[-1].owner, tuple(float(value) for value in hock), (float(hock_radii[0]), float(hock_radii[1]))),
+        ("metatarsal-midpoint", paw.owner, tuple(float(value) for value in met_mid), (met_profile, met_profile)),
+        ("pad", paw.owner, tuple(float(value) for value in pad), (float(pad_radii[0]), float(pad_radii[1]))),
+        ("pad-toe-midpoint", paw.owner, tuple(float(value) for value in pad_toe_mid), ((float(pad_radii[0]) + float(toe_radii[0])) * 0.5, (float(pad_radii[1]) + float(toe_radii[1])) * 0.5)),
+        ("toe", paw.owner, tuple(float(value) for value in toe), (float(toe_radii[0]), float(toe_radii[1]))),
+    )
+    limb = _limb_chain_sweep(f"{side}-foot", station_specs, chain.axes)
+    return _ExtremitySweep(f"{side}-foot", side, (leg.sweep.sections[-1].owner, paw.owner), limb.sweep, "foot-chain")
+
+
+def _make_extremity_sweeps(guide: Any, limb_sweeps: tuple[_LimbChainSweep, ...]) -> tuple[_ExtremitySweep, ...]:
+    """Compile identical bilateral hand attachment/paw and foot topologies."""
+
+    source_by_key = {descriptor.key: descriptor for descriptor in guide.source_descriptors}
+    paw_by_side_role = {(item.owner.key[1][0], item.owner.key[3]): item for item in guide.paw_guides}
+    chains = {item.chain_name: item for item in limb_sweeps}
+    result: list[_ExtremitySweep] = []
+    for side in ("left", "right"):
+        hand = paw_by_side_role.get((side, "hand"))
+        foot = paw_by_side_role.get((side, "foot"))
+        arm = chains.get(f"{side}-arm")
+        leg = chains.get(f"{side}-leg")
+        if hand is None or foot is None or arm is None or leg is None:
+            _fail(f"{side} extremity guide inventory is incomplete")
+        if source_by_key.get(hand.owner.key) is not hand.owner or source_by_key.get(foot.owner.key) is not foot.owner:
+            _fail(f"{side} extremity guide owner is not canonical")
+        if hand.axes != guide.topology.axes or hand.axes != _baseline._FIXED_GUIDE_AXES:
+            _fail(f"{side} hand guide axes must match the fixed guide axes")
+        if hand.owner.parent != arm.sweep.sections[-1].owner.key or source_by_key.get(hand.owner.parent) is not arm.sweep.sections[-1].owner:
+            _fail(f"{side} hand parent must be the successor forearm owner")
+        if hand.attachment_centerline is None or hand.attachment_radius is None or hand.attachment_kind is None:
+            _fail(f"{side} hand attachment guide is incomplete")
+        _require_exact_same_point(hand.attachment_centerline[1], hand.paw_center, f"{side} hand attachment/paw endpoint")
+        radius = float(hand.attachment_radius)
+        attachment = _make_transition_sweep(
+            "hand-attachment", hand.owner, hand.attachment_centerline,
+            (radius, radius), hand.axes,
+        )
+        result.append(_ExtremitySweep(f"{side}-hand-attachment", side, (hand.owner,), attachment, "hand-attachment"))
+        paw_sweep = _make_hand_paw_sweep(hand, side)
+        result.append(_ExtremitySweep(f"{side}-hand-paw", side, (hand.owner,), paw_sweep, "hand-paw"))
+        result.append(_make_foot_chain_sweep(foot, side, leg))
+    return tuple(result)
+
+
 _LIMB_CHAIN_BASELINE_RECIPES = (
     "upper_arm-pre-joint",
     "upper_arm-joint",
@@ -954,6 +1805,62 @@ _LIMB_CHAIN_BASELINE_RECIPES = (
     "knee",
     "hock",
 )
+
+_EXTREMITY_BASELINE_RECIPES = (
+    "paw",
+    "extremity-bridge",
+    "metatarsal",
+    "paw-pad",
+    "toe-box",
+)
+
+_TAIL_BASELINE_RECIPES = (
+    "tail-segment",
+    "tail-root-bridge",
+    "tail-root-collar",
+    "tail-tip-extension",
+    "tail-tip-cap",
+)
+
+
+def _validate_tail_baseline_inventory(guide: Any, baseline_fields: tuple[Any, ...]) -> tuple[Any, ...]:
+    """Validate and remove the exact six baseline tail fields."""
+
+    tails = tuple(guide.tail_guides)
+    if len(tails) != 2 or tuple(item.owner.key[3] for item in tails) != ("tail_root", "tail_tip"):
+        _fail("baseline tail inventory requires ordered tail_root and tail_tip guides")
+    source_by_key = {descriptor.key: descriptor for descriptor in guide.source_descriptors}
+    root, tip = tails
+    if any(source_by_key.get(item.owner.key) is not item.owner for item in tails):
+        _fail("baseline tail fields must retain canonical source owners")
+    observed: list[Any] = []
+    for owner, expected_recipes in (
+        (root.owner, ("tail-segment", "tail-root-bridge", "tail-root-collar")),
+        (tip.owner, ("tail-segment", "tail-tip-extension", "tail-tip-cap")),
+    ):
+        fields = tuple(field for field in baseline_fields if field.owner is owner and field.recipe in _TAIL_BASELINE_RECIPES)
+        if tuple(field.recipe for field in fields) != expected_recipes:
+            _fail(f"baseline {owner.key[3]} tail inventory is not the exact ordered recipe set")
+        observed.extend(fields)
+
+    tail_fields = tuple(field for field in baseline_fields if field.recipe in _TAIL_BASELINE_RECIPES)
+    if len(tail_fields) != 6 or len(observed) != 6 or {id(field) for field in observed} != {id(field) for field in tail_fields}:
+        _fail("baseline tail inventory must contain exactly six fields")
+    for field in tail_fields:
+        if field.owner.key[3] not in {"tail_root", "tail_tip"} or source_by_key.get(field.owner.key) is not field.owner:
+            _fail(f"baseline tail field {field.recipe!r} has a non-canonical owner")
+
+    root_fields = {field.recipe: field for field in observed if field.owner is root.owner}
+    tip_fields = {field.recipe: field for field in observed if field.owner is tip.owner}
+    _require_path_shape(root_fields["tail-segment"].shape, root.centerline, root.taper, "baseline tail-root segment")
+    _require_path_shape(root_fields["tail-root-bridge"].shape, root.root_attachment_centerline, root.root_attachment_taper, "baseline tail-root bridge")  # type: ignore[arg-type]
+    _require_mass_shape(root_fields["tail-root-collar"].shape, root.root_collar_center, root.root_collar_radii, "baseline tail-root collar")  # type: ignore[arg-type]
+    _require_path_shape(tip_fields["tail-segment"].shape, tip.centerline, tip.taper, "baseline tail-tip segment")
+    _require_path_shape(tip_fields["tail-tip-extension"].shape, tip.extension_centerline, tip.extension_taper, "baseline tail-tip extension")  # type: ignore[arg-type]
+    _require_mass_shape(tip_fields["tail-tip-cap"].shape, tip.cap_center, tip.cap_radii, "baseline tail-tip cap")  # type: ignore[arg-type]
+    if tip.owner.parent != root.owner.key or source_by_key.get(tip.owner.parent) is not root.owner:
+        _fail("baseline tail_tip parent must be tail_root")
+    return tuple(field for field in baseline_fields if field.recipe not in _TAIL_BASELINE_RECIPES)
 
 
 def _point_to_segment_distance(point: Any, start: Any, end: Any) -> float:
@@ -1124,10 +2031,10 @@ def _validate_limb_bridge_inventory(
 def compile_successor_region(guide: Any, baseline_fields: tuple[Any, ...] | None = None) -> SuccessorRegion:
     """Compile the guide into the successor regional profile-sweep consumer.
 
-    The torso cage, shoulder deltoid spans, five baseline head/neck fields, and
-    the four bilateral limb chains are replaced. Every other baseline field is
-    carried as a named temporary bridge, including root/hip connectors and
-    paws, feet, and tail that preserve whole-body continuity for this slice.
+    The torso cage, shoulder deltoid spans, five baseline head/neck fields,
+    four bilateral limb chains, ten bilateral hand/foot fields, and six tail
+    fields are replaced. Every other baseline field is carried as a named
+    temporary bridge: four limb-root bridges and two hip transitions.
     """
 
     _baseline._validate_hybrid_guide(guide)
@@ -1135,7 +2042,7 @@ def compile_successor_region(guide: Any, baseline_fields: tuple[Any, ...] | None
         baseline_fields = _baseline._compile_hybrid_guide(guide)
     replaced = (
         "torso-cage", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar",
-        "deltoid-sweep-1", *_LIMB_CHAIN_BASELINE_RECIPES,
+        "deltoid-sweep-1", *_LIMB_CHAIN_BASELINE_RECIPES, *_EXTREMITY_BASELINE_RECIPES, *_TAIL_BASELINE_RECIPES,
     )
     torso_fields = tuple(field for field in baseline_fields if field.recipe == "torso-cage")
     expected_torso_owner = guide.torso_cage.torso_owner
@@ -1160,28 +2067,39 @@ def compile_successor_region(guide: Any, baseline_fields: tuple[Any, ...] | None
         or {field.recipe for field in neck_recipe_fields} != {"tapered-neck", "neck-collar"}
     ):
         _fail("baseline inventory must contain exactly the neck-owned transition/collar fields")
-    replaced_fields = tuple(field for field in baseline_fields if field.recipe in replaced)
     limb_sweeps = _make_limb_sweeps(guide)
+    bridge_before_extremities = _validate_limb_bridge_inventory(guide, baseline_fields, limb_sweeps)
+    _validate_extremity_baseline_fields(guide, baseline_fields)
+    bridge_before_tail = _validate_tail_baseline_inventory(guide, bridge_before_extremities)
+    extremity_sweeps = _make_extremity_sweeps(guide, limb_sweeps)
+    _validate_extremity_sweeps(guide, limb_sweeps, extremity_sweeps)
+    replaced_fields = tuple(field for field in baseline_fields if field.recipe in replaced)
     bridge = tuple(
-        field for field in _validate_limb_bridge_inventory(guide, baseline_fields, limb_sweeps)
-        if field.recipe not in {"torso-cage", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar", "deltoid-sweep-1"}
+        field for field in bridge_before_tail
+        if field.recipe not in {"torso-cage", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar", "deltoid-sweep-1", *_EXTREMITY_BASELINE_RECIPES}
     )
     if len(bridge) + len(replaced_fields) != len(baseline_fields):
         _fail("baseline bridge selection lost fields")
+    if len(bridge) != 6 or tuple(field.recipe for field in bridge).count("root-bridge") != 4 or tuple(field.recipe for field in bridge).count("hip-transition") != 2:
+        _fail("successor bridge must contain exactly four root bridges and two hip transitions")
     head_neck_sweeps = _make_head_neck_sweeps(guide)
+    loft = _make_loft(guide)
+    tail_elements = _make_tail_elements(guide, loft)
     source_keys = {descriptor.key for descriptor in guide.source_descriptors}
     if any(sweep.owner.key not in source_keys for sweep in head_neck_sweeps):
         _fail("successor head/neck sweep owner is not an existing source AddressKey")
     return SuccessorRegion(
         consumer_id=CONSUMER_ID,
         region_id=SUCCESSOR_REGION_ID,
-        loft=_make_loft(guide),
+        loft=loft,
         shoulder_spans=_make_spans(guide),
         bridge_fields=bridge,
         replaced_baseline_recipes=replaced,
         source_owners=(guide.torso_cage.torso_owner,) + tuple(side.owner for side in guide.shoulder_frame.sides) + (head.head_owner, head.neck_owner),
         head_neck_sweeps=head_neck_sweeps,
         limb_sweeps=limb_sweeps,
+        extremity_sweeps=extremity_sweeps,
+        tail_elements=tail_elements,
     )
 
 
@@ -1336,6 +2254,8 @@ def _successor_region_field(points: np.ndarray, region: SuccessorRegion, smooth_
     values = [_loft_field(points, region.loft)]
     values.extend(_profile_sweep_field(points, item.sweep) for item in region.head_neck_sweeps)
     values.extend(_profile_sweep_field(points, item.sweep) for item in region.limb_sweeps)
+    values.extend(_profile_sweep_field(points, item.sweep) for item in region.extremity_sweeps)
+    values.extend(_profile_sweep_field(points, item.sweep) for item in region.tail_elements)
     values.extend(_span_field(points, span) for span in region.shoulder_spans)
     return _baseline._smooth_union(values, smooth_k)
 
@@ -1349,6 +2269,14 @@ def _bounds_for_region(region: SuccessorRegion) -> tuple[np.ndarray, np.ndarray]
         mins.append(lower)
         maxs.append(upper)
     for item in region.limb_sweeps:
+        lower, upper = _profile_sweep_bounds(item.sweep)
+        mins.append(lower)
+        maxs.append(upper)
+    for item in region.extremity_sweeps:
+        lower, upper = _profile_sweep_bounds(item.sweep)
+        mins.append(lower)
+        maxs.append(upper)
+    for item in region.tail_elements:
         lower, upper = _profile_sweep_bounds(item.sweep)
         mins.append(lower)
         maxs.append(upper)
@@ -1423,6 +2351,26 @@ def _make_components(region: SuccessorRegion, smooth_k: float) -> tuple[_Compone
         components.append(_Component(
             item.sweep.sections[0].owner,
             f"successor-{item.chain_name}",
+            lambda points, current=item.sweep: _profile_sweep_field(points, current),
+            bounds,
+            True,
+            lambda points, current=item.sweep: _loft_owner_keys(points, current),
+        ))
+    for item in region.extremity_sweeps:
+        bounds = _profile_sweep_bounds(item.sweep)
+        components.append(_Component(
+            item.sweep.sections[0].owner,
+            f"successor-{item.name}",
+            lambda points, current=item.sweep: _profile_sweep_field(points, current),
+            bounds,
+            True,
+            lambda points, current=item.sweep: _loft_owner_keys(points, current),
+        ))
+    for item in region.tail_elements:
+        bounds = _profile_sweep_bounds(item.sweep)
+        components.append(_Component(
+            item.owner,
+            f"successor-{item.name}",
             lambda points, current=item.sweep: _profile_sweep_field(points, current),
             bounds,
             True,
@@ -1561,12 +2509,46 @@ def build_variant(form: Any, descriptors: tuple[Any, ...], samples: int = DEFAUL
                 for item in region.limb_sweeps
                 for owner in item.source_owners
             ],
+            "extremity_representation": "shared-guide-derived-hand-and-digitigrade-foot-profile-sweeps",
+            "extremity_sweeps_consumed": len(region.extremity_sweeps),
+            "extremity_sweep_order": [item.name for item in region.extremity_sweeps],
+            "extremity_sweep_kinds": [item.kind for item in region.extremity_sweeps],
+            "extremity_sweep_station_counts": [item.sections_consumed for item in region.extremity_sweeps],
+            "extremity_sweep_station_names": [list(item.section_names) for item in region.extremity_sweeps],
+            "extremity_sweep_section_owner_keys": [
+                [_baseline._address_json(owner.key) for owner in item.sweep.owners]
+                for item in region.extremity_sweeps
+            ],
+            "extremity_sweep_endpoint_cap_counts": [len(item.sweep.endpoint_caps) for item in region.extremity_sweeps],
+            "extremity_sweep_internal_transition_counts": [len(item.sweep.internal_transitions) for item in region.extremity_sweeps],
+            "extremity_source_owner_keys": [
+                _baseline._address_json(owner.key)
+                for item in region.extremity_sweeps
+                for owner in item.source_owners
+            ],
+            "tail_representation": "shared-guide-derived-profile-sweep-elements",
+            "tail_elements_consumed": len(region.tail_elements),
+            "tail_element_order": [item.name for item in region.tail_elements],
+            "tail_element_kinds": [item.kind for item in region.tail_elements],
+            "tail_element_section_counts": [item.sections_consumed for item in region.tail_elements],
+            "tail_element_section_names": [list(item.section_names) for item in region.tail_elements],
+            "tail_element_owner_keys": [_baseline._address_json(item.owner.key) for item in region.tail_elements],
+            "tail_element_endpoint_cap_counts": [len(item.sweep.endpoint_caps) for item in region.tail_elements],
+            "tail_element_internal_transition_counts": [len(item.sweep.internal_transitions) for item in region.tail_elements],
+            "tail_source_owner_keys": [_baseline._address_json(item.owner.key) for item in region.tail_elements[::3]],
+            "tail_element_controls": _tail_element_metadata(region.tail_elements),
+            "tail_tip_shared_endpoint": {
+                "point": [float(value) for value in region.tail_elements[3].sweep.sections[-1].center],
+                "source_end_profile": [float(value) for value in region.tail_elements[3].sweep.sections[-1].transverse_radii],
+                "extension_start_profile": [float(value) for value in region.tail_elements[4].sweep.sections[0].transverse_radii],
+            },
+            "replaced_baseline_field_count": sum(field.recipe in region.replaced_baseline_recipes for field in baseline_fields),
             "replaced_baseline_recipes": list(region.replaced_baseline_recipes),
         },
         "temporary_bridge": {
             "enabled": True,
             "consumer": "baseline-analytic-fields",
-            "regions": ["paws", "tail", "limb-root-connectors", "hip-transitions"],
+            "regions": ["limb-root-connectors", "hip-transitions"],
             "field_count": len(region.bridge_fields),
             "retained_recipes": sorted({field.recipe for field in region.bridge_fields}),
         },
@@ -1674,6 +2656,33 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
                     ],
                     "endpoint_cap_counts": [len(item.sweep.endpoint_caps) for item in mesh.representation.limb_sweeps],
                 },
+                "extremities": {
+                    "representation": "shared-guide-derived-hand-and-digitigrade-foot-profile-sweeps",
+                    "sweeps_consumed": len(mesh.representation.extremity_sweeps),
+                    "sweep_order": [item.name for item in mesh.representation.extremity_sweeps],
+                    "sweep_kinds": [item.kind for item in mesh.representation.extremity_sweeps],
+                    "station_counts": [item.sections_consumed for item in mesh.representation.extremity_sweeps],
+                    "station_names": [list(item.section_names) for item in mesh.representation.extremity_sweeps],
+                    "section_owner_keys": [
+                        [_baseline._address_json(owner.key) for owner in item.sweep.owners]
+                        for item in mesh.representation.extremity_sweeps
+                    ],
+                    "endpoint_cap_counts": [len(item.sweep.endpoint_caps) for item in mesh.representation.extremity_sweeps],
+                    "internal_transition_counts": [len(item.sweep.internal_transitions) for item in mesh.representation.extremity_sweeps],
+                },
+                "tail": {
+                    "representation": "shared-guide-derived-profile-sweep-elements",
+                    "elements_consumed": len(mesh.representation.tail_elements),
+                    "element_order": [item.name for item in mesh.representation.tail_elements],
+                    "element_kinds": [item.kind for item in mesh.representation.tail_elements],
+                    "section_counts": [item.sections_consumed for item in mesh.representation.tail_elements],
+                    "section_names": [list(item.section_names) for item in mesh.representation.tail_elements],
+                    "owner_keys": [_baseline._address_json(item.owner.key) for item in mesh.representation.tail_elements],
+                    "endpoint_cap_counts": [len(item.sweep.endpoint_caps) for item in mesh.representation.tail_elements],
+                    "internal_transition_counts": [len(item.sweep.internal_transitions) for item in mesh.representation.tail_elements],
+                    "controls": mesh.metrics["successor_region"]["tail_element_controls"],
+                    "tip_shared_endpoint": mesh.metrics["successor_region"]["tail_tip_shared_endpoint"],
+                },
                 "temporary_bridge": mesh.metrics["temporary_bridge"],
                 "replaced_baseline_recipes": list(mesh.representation.replaced_baseline_recipes),
             }) + b"\n")
@@ -1689,7 +2698,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
             "consumer_id": CONSUMER_ID,
             "source_format": _baseline.SOURCE_FORMAT,
             "source": {"sha256": hashlib.sha256(data).hexdigest(), "document": form.source["document"], "namespace": form.source["namespace"], "resource_profile_id": form.source["resource_profile_id"]},
-            "generator": {"samples_per_axis": samples, "padding": padding, "smooth_k": smooth_k, "consumer_boundary": "successor torso/shoulder/head/neck and four limb chains; baseline temporary bridge for root/hip connectors, paws/feet, and tail", "production_status": "disposable exploratory proof"},
+            "generator": {"samples_per_axis": samples, "padding": padding, "smooth_k": smooth_k, "consumer_boundary": "successor torso/shoulder/head/neck, four limb chains, bilateral hands, digitigrade feet, and tail; baseline temporary bridge for root/hip connectors", "production_status": "disposable exploratory proof"},
             "variants": records,
         }
         manifest_path = stage / "successor-surface-manifest.json"
@@ -1707,7 +2716,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Build the disposable successor torso/shoulder/head/neck/limb surface preview")
+    parser = argparse.ArgumentParser(description="Build the disposable successor torso/shoulder/head/neck/limb/extremity/tail surface preview")
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--samples-per-axis", type=int, default=DEFAULT_SAMPLES)
