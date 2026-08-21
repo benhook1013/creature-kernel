@@ -15,33 +15,38 @@ governs what resumes next.
 
 Execution state: active after Ben resumed the runway on 2026-08-20.
 
-PR #96 was accepted and merged at `f64eecd` after Ben appraised the feet as
-“better but still bad” and said that was fine. Preserve PR #96 as accepted
-intermediate evidence and the baseline for the next form pass; it is not final
-anatomy or backend approval.
+PR #97 was accepted and merged at `e78640e` after Ben appraised the revised
+underarm silhouette as better. Preserve PR #97 as accepted intermediate
+evidence and the baseline for the next form pass; it is not final anatomy or
+backend approval.
 
-The current artifact-scoped defect is that, in front view, conspicuous
-circular bulges appear immediately beneath the armpits at the chest's maximum
-width. This identifies a failure of the displayed candidate, not a durable
-geometric prescription or product requirement.
+The current artifact-scoped defect is that the head, face, and neck read as
+stacked rounded blobs or mushroom/bobble forms rather than a coherent stylized
+creature cranium, muzzle/jaw/cheek structure, and neck insertion. This
+identifies a failure of the displayed candidate, not a durable geometric
+prescription or product requirement.
 
-The next autonomous runway is to diagnose which private shoulder, deltoid, or
-torso support fields create the visible lobes, then replace or blend their
-outer-surface contribution into a continuous upper-torso-to-arm transition
-across all four existing variants. Preserve useful shoulder span, arm sockets,
-torso continuity, and variant differences; keep the fix private and
-backend-neutral.
+The next autonomous runway is to diagnose the existing head/neck source,
+guide, and skin consumers, then derive private shared controls that produce a
+coherent cranium/backskull, projected muzzle with readable bridge/taper,
+lower-face/jaw/cheek transition, and neck-to-skull/shoulder insertion across
+all four variants. Exact private topology and coefficients remain disposable.
+Do not invent species-specific ears, eyes, teeth, or public semantic parts
+merely to decorate this checkpoint; paired features may be considered only if
+already supported by source intent and not needed for the first structural
+result.
 
-The next human checkpoint is a PR #96 baseline versus revised front, side, and
-three-quarter guide-plus-skin comparison across all four variants. Ben should
-judge removal of the circular underarm lobes without regression in shoulders,
-arm attachment, or torso. Stop before merging the first appraisable result.
+The next human checkpoint is a PR #97 baseline versus revised guide-plus-skin
+comparison across all four variants. Ben should judge head/neck/muzzle
+silhouette, front/side/three-quarter continuity, absence of the bobble/mushroom
+stack, and retained profiles. Stop before merging the first appraisable result.
 
-Non-goals for this runway are final muscle anatomy, broader torso redesign,
-feet retuning, head, hands, new public semantics, backend selection, and
-physics, rigging, or animation. EXP-0002 and the other parked machinery remain
-parked. Multiple small reviewed PRs may advance direct prerequisites toward the
-named checkpoint; stop if progress requires a material scope expansion.
+Non-goals for this runway are facial animation or expression, production
+topology, detailed eyes/ears/mouth/teeth/tongue, hair/fur, feet/hands/torso
+retuning, public semantics, final backend, physics, rigging, or animation.
+Machinery remains parked. Multiple small reviewed PRs may advance direct
+prerequisites toward the named checkpoint; stop if progress requires a
+material scope expansion.
 
 EXP-0002 and its Gate B/freeze/runtime-attestation continuation are parked and
 non-blocking. They are not prerequisites for this visual runway and must not be
