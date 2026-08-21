@@ -163,7 +163,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 ]
                 torso_cage = {{"status": "skin-driving torso controls", "owners": [owners[0], owners[1]], "axes": {{"lateral": [1.0, 0.0, 0.0], "up": [0.0, 1.0, 0.0], "forward": [0.0, 0.0, 1.0]}}, "orientation": "elliptical cross-section rings lie in the lateral/forward plane and rise along the up axis", "sections": cage_sections, "connections": [{{"from": cage_sections[index]["name"], "to": cage_sections[index + 1]["name"]}} for index in range(6)]}}
                 def shoulder_curve(name, owner, points, profile):
-                    return {{"name": name, "owner": owner, "points": points, "profile": profile}}
+                    return {{"name": name, "owner": owner, "points": points, "profile": profile, "consumption": ("skin-driving" if name == "deltoid-sweep" else "guide-only")}}
                 shoulder_sides = []
                 for side_name, side_owner, sign in (("left", owners[4], -1.0), ("right", owners[7], 1.0)):
                     shoulder_sides.append({{"side": side_name, "owner": side_owner, "socket": {{"owner": side_owner, "point": [sign * 1.5, 0.9, 0.0]}}, "extremum": {{"owner": side_owner, "point": [sign * 1.0, 1.0, 0.0]}}, "span": 1.0, "slope": 0.0, "curves": [
@@ -171,7 +171,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                         shoulder_curve("posterior-return", owners[1], [[0.0, 1.0, 0.0], [sign * 0.5, 1.05, -0.25], [sign * 1.0, 1.0, 0.0], [sign * 1.5, 0.9, 0.0]], [0.2, 0.2, 0.2, 0.2]),
                         shoulder_curve("deltoid-sweep", side_owner, [[sign * 1.0, 1.0, 0.0], [sign * 1.5, 0.9, 0.0], [-0.25, 0.0, 0.0]], [0.2, 0.2, 0.2]),
                     ]}})
-                shoulder_frame = {{"status": "skin-driving private shoulder frame", "owners": {{"torso": owners[1], "neck": owners[2], "left_upper_arm": owners[4], "right_upper_arm": owners[7]}}, "central": {{"owner": owners[1], "anchor": [0.0, 1.0, 0.0], "profile": [0.2, 0.2]}}, "sides": shoulder_sides}}
+                shoulder_frame = {{"status": "private shoulder frame; support curves guide-only; deltoid sweep skin-driving", "owners": {{"torso": owners[1], "neck": owners[2], "left_upper_arm": owners[4], "right_upper_arm": owners[7]}}, "central": {{"owner": owners[1], "anchor": [0.0, 1.0, 0.0], "profile": [0.2, 0.2]}}, "sides": shoulder_sides}}
                 guide = {{"format": {publisher.REGIONAL_GUIDE_FORMAT!r}, "variant": variant_id, "owners": owners, "counts": {publisher.EXPECTED_GUIDE_COUNTS!r}, "projections": projections, "shared_render_bounds": bounds, "canvas": canvas, "layout": layout, "controls": {{"axes": {{"lateral": [1.0, 0.0, 0.0], "up": [0.0, 1.0, 0.0], "forward": [0.0, 0.0, 1.0]}}, "axial": axial, "torso_cage": torso_cage, "shoulder_frame": shoulder_frame, "head": head, "limbs": limbs, "paws": paws, "tails": tails}}, "boundary": "private disposable regional controls; source-owned AddressKeys only; not a semantic or runtime contract"}}
                 if {mode!r} == "guide-obsolete-recipe-count":
                     guide["counts"] = dict(guide["counts"])
@@ -194,6 +194,8 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 if {mode!r} == "guide-cage-malformed": guide["controls"]["torso_cage"]["sections"][2]["lateral_radius"] = 0.0
                 if {mode!r} == "guide-cage-connection": guide["controls"]["torso_cage"]["connections"][1]["to"] = "wrong"
                 if {mode!r} == "guide-shoulder-omitted": guide["controls"].pop("shoulder_frame")
+                if {mode!r} == "guide-shoulder-stale-status": guide["controls"]["shoulder_frame"]["status"] = "skin-driving private shoulder frame"
+                if {mode!r} == "guide-shoulder-consumption": guide["controls"]["shoulder_frame"]["sides"][0]["curves"][0]["consumption"] = "skin-driving"
                 if {mode!r} == "guide-shoulder-malformed": guide["controls"]["shoulder_frame"]["central"]["profile"][0] = 0.0
                 if {mode!r} == "guide-shoulder-owner": guide["controls"]["shoulder_frame"]["sides"][0]["curves"][2]["owner"] = owners[1]
                 if {mode!r} == "guide-shoulder-order": guide["controls"]["shoulder_frame"]["sides"].reverse()
@@ -222,7 +224,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 guide_path = directory / "regional-guide.json"
                 guide_path.write_text(json.dumps(guide), encoding="utf-8")
                 if {mode!r} == "guide-omitted": guide_path.unlink()
-                metrics_payload = {{"source_descriptor_count": 18, "generated_field_count": 60, "field_recipe_counts": {dict(publisher.EXPECTED_GUIDE_COUNTS["compiled_field_recipe_counts"])!r}}}
+                metrics_payload = {{"source_descriptor_count": 18, "generated_field_count": 52, "field_recipe_counts": {dict(publisher.EXPECTED_GUIDE_COUNTS["compiled_field_recipe_counts"])!r}}}
                 if {mode!r} == "metrics-generated-count": metrics_payload["generated_field_count"] = 59
                 if {mode!r} == "metrics-recipe-count": metrics_payload["field_recipe_counts"] = {{**metrics_payload["field_recipe_counts"], "paw-pad": 1}}
                 files = [
@@ -251,7 +253,9 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             if {mode!r} == "manifest-metrics" and variants: variants[0]["metrics"] = {{**variants[0]["metrics"], "generated_field_count": 59}}
             generator_field_recipes = {list(publisher.EXPECTED_FIELD_RECIPES)!r}
             if {mode!r} == "generator-recipes": generator_field_recipes = ["hips"]
-            manifest = {{"format": {publisher.SURFACE_PREVIEW_FORMAT!r}, "status": "success", "source_format": {common.PROVISIONAL_FORM_FORMAT!r}, "source": {{"format": {common.PROVISIONAL_FORM_FORMAT!r}, "sha256": source_hash, "document": "fixture", "namespace": "main", "resource_profile_id": "ck.resource.body.r2", "reference_scale": {{"parent": {{**owners[2], "anchors": []}}, "child": {{**owners[3], "anchors": []}}, "axis_delta": [0, 1, 0], "squared_length": 1, "source": "exact-containment-edge"}}}}, "shared_render_bounds": bounds, "canvas": canvas, "layout": layout, "projections": projections, "generator": {{"bundle_version": 2, "samples_per_axis": 72, "padding": 0.75, "smooth_union": {{"operator": "polynomial_cubic_smooth_min", "k": 0.12, "fold_order": "source_address_then_recipe_order"}}, "field_primitives": ["ellipsoid", "capsule", "linear-radius-tapered-segment"], "field_recipes": generator_field_recipes, "ownership": "recipe fields are source-owned and winner labels expose only source AddressKeys", "boundary": "disposable exploratory visual proof; not production geometry, SDF, collision, rig, topology, or Readiness evidence"}}, "variants": variants}}
+            generator_ownership = {publisher.EXPECTED_GENERATOR_OWNERSHIP!r}
+            if {mode!r} == "generator-ownership": generator_ownership = "recipe fields are source-owned; shoulder support curves are skin-driving"
+            manifest = {{"format": {publisher.SURFACE_PREVIEW_FORMAT!r}, "status": "success", "source_format": {common.PROVISIONAL_FORM_FORMAT!r}, "source": {{"format": {common.PROVISIONAL_FORM_FORMAT!r}, "sha256": source_hash, "document": "fixture", "namespace": "main", "resource_profile_id": "ck.resource.body.r2", "reference_scale": {{"parent": {{**owners[2], "anchors": []}}, "child": {{**owners[3], "anchors": []}}, "axis_delta": [0, 1, 0], "squared_length": 1, "source": "exact-containment-edge"}}}}, "shared_render_bounds": bounds, "canvas": canvas, "layout": layout, "projections": projections, "generator": {{"bundle_version": 2, "samples_per_axis": 72, "padding": 0.75, "smooth_union": {{"operator": "polynomial_cubic_smooth_min", "k": 0.12, "fold_order": "source_address_then_recipe_order"}}, "field_primitives": ["ellipsoid", "capsule", "linear-radius-tapered-segment"], "field_recipes": generator_field_recipes, "ownership": generator_ownership, "boundary": "disposable exploratory visual proof; not production geometry, SDF, collision, rig, topology, or Readiness evidence"}}, "variants": variants}}
             (out / "surface-preview-manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
         """), encoding="utf-8")
         path.chmod(0o755)
@@ -278,8 +282,8 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     publisher._validate_address({**valid, "anchors": anchors}, "address")
 
     def test_success_stubs_both_executables_and_publishes_only_pngs(self) -> None:
-        self.assertEqual(publisher.EXPECTED_GUIDE_COUNTS["compiled_fields"], 60)
-        self.assertEqual(publisher.EXPECTED_GUIDE_COUNTS["shoulder_frame_compiled_fields"], 10)
+        self.assertEqual(publisher.EXPECTED_GUIDE_COUNTS["compiled_fields"], 52)
+        self.assertEqual(publisher.EXPECTED_GUIDE_COUNTS["shoulder_frame_compiled_fields"], 2)
         self.assertNotIn("hip-girdle", publisher.EXPECTED_GUIDE_COUNTS["compiled_field_recipe_counts"])
         self.assertNotIn("shoulder-mass", publisher.EXPECTED_GUIDE_COUNTS["compiled_field_recipe_counts"])
         with patch.object(publisher, "_parse_inspection", return_value=self._payload()):
@@ -298,7 +302,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         self.assertEqual(review["groups"][0]["selection_mode"], "none")
 
     def test_malformed_count_and_unlisted_output_publish_nothing(self) -> None:
-        for index, mode in enumerate(("bad-count", "unlisted", "symlink", "extra-directory", "hash", "source-mismatch", "fabricated-provenance", "fabricated-descriptor", "profile-mismatch", "guide-format", "guide-provenance", "guide-controls", "guide-station-omitted", "guide-transition-omitted", "guide-cage-omitted", "guide-cage-malformed", "guide-cage-connection", "guide-shoulder-omitted", "guide-shoulder-malformed", "guide-shoulder-owner", "guide-shoulder-order", "guide-shoulder-endpoint", "guide-shoulder-span", "guide-shoulder-degenerate", "guide-shoulder-points", "guide-shoulder-profile", "guide-shoulder-profile-continuity", "guide-shoulder-first-quarter", "guide-girdle-omitted", "guide-station-malformed", "guide-transition-malformed", "guide-girdle-malformed", "guide-joint-endpoint", "guide-foot-legacy", "guide-foot-order", "guide-foot-hock-source", "guide-foot-hock-radii", "guide-foot-contact", "guide-foot-taper", "guide-foot-axis", "guide-foot-gap", "guide-hand-attachment-start", "guide-hand-anchor-point", "guide-section-gap", "guide-profile-second-start", "guide-adjacent-profile", "guide-obsolete-recipe-count", "guide-wrong-recipe-count", "metrics-generated-count", "metrics-recipe-count", "manifest-metrics", "generator-recipes", "guide-omitted", "png-small", "png-truncated", "png-crc", "png-no-idat", "png-invalid-idat", "png-unknown-critical")):
+        for index, mode in enumerate(("bad-count", "unlisted", "symlink", "extra-directory", "hash", "source-mismatch", "fabricated-provenance", "fabricated-descriptor", "profile-mismatch", "guide-format", "guide-provenance", "guide-controls", "guide-station-omitted", "guide-transition-omitted", "guide-cage-omitted", "guide-cage-malformed", "guide-cage-connection", "guide-shoulder-omitted", "guide-shoulder-stale-status", "guide-shoulder-consumption", "guide-shoulder-malformed", "guide-shoulder-owner", "guide-shoulder-order", "guide-shoulder-endpoint", "guide-shoulder-span", "guide-shoulder-degenerate", "guide-shoulder-points", "guide-shoulder-profile", "guide-shoulder-profile-continuity", "guide-shoulder-first-quarter", "guide-girdle-omitted", "guide-station-malformed", "guide-transition-malformed", "guide-girdle-malformed", "guide-joint-endpoint", "guide-foot-legacy", "guide-foot-order", "guide-foot-hock-source", "guide-foot-hock-radii", "guide-foot-contact", "guide-foot-taper", "guide-foot-axis", "guide-foot-gap", "guide-hand-attachment-start", "guide-hand-anchor-point", "guide-section-gap", "guide-profile-second-start", "guide-adjacent-profile", "guide-obsolete-recipe-count", "guide-wrong-recipe-count", "metrics-generated-count", "metrics-recipe-count", "manifest-metrics", "generator-recipes", "generator-ownership", "guide-omitted", "png-small", "png-truncated", "png-crc", "png-no-idat", "png-invalid-idat", "png-unknown-critical")):
             with self.subTest(mode=mode):
                 with patch.object(publisher, "_parse_inspection", return_value=self._payload()):
                     with self.assertRaises(publisher.SurfacePreviewPublishError):

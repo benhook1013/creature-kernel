@@ -48,6 +48,12 @@ REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-gui
 EXPECTED_VARIANTS = common.PROVISIONAL_FORM_VARIANT_IDS
 EXPECTED_VIEWS = ("front", "side", "three-quarter")
 MANIFEST_NAME = "surface-preview-manifest.json"
+EXPECTED_GENERATOR_OWNERSHIP = (
+    "recipe fields are source-owned; the blended torso-cage is torso-owned; "
+    "shoulder support curves remain torso-owned guide-only controls and are "
+    "not consumed by this adapter; deltoid recipes retain their upper-arm "
+    "owners; winner labels expose only source AddressKeys"
+)
 MAX_STDOUT_BYTES = common.MAX_STRUCTURE_JSON_BYTES
 MAX_STDERR_BYTES = 64 * 1024
 MAX_MANIFEST_BYTES = 256 * 1024
@@ -89,12 +95,12 @@ EXPECTED_GUIDE_COUNTS = {
     "torso_cage_connections": 6,
     "shoulder_frame_sides": 2,
     "shoulder_frame_curves": 6,
-    "shoulder_frame_compiled_fields": 10,
+    "shoulder_frame_compiled_fields": 2,
     "head": 1,
     "limbs": 8,
     "paws": 4,
     "tails": 2,
-    "compiled_fields": 60,
+    "compiled_fields": 52,
     "compiled_field_recipe_counts": {
         "upper_arm-pre-joint": 2,
         "upper_arm-joint": 2,
@@ -114,14 +120,6 @@ EXPECTED_GUIDE_COUNTS = {
         "extremity-bridge": 2,
         "root-bridge": 4,
         "hip-transition": 2,
-        "shoulder-left-anterior-support-0": 1,
-        "shoulder-left-anterior-support-1": 1,
-        "shoulder-left-posterior-return-0": 1,
-        "shoulder-left-posterior-return-1": 1,
-        "shoulder-right-anterior-support-0": 1,
-        "shoulder-right-anterior-support-1": 1,
-        "shoulder-right-posterior-return-0": 1,
-        "shoulder-right-posterior-return-1": 1,
         "deltoid-sweep-1": 2,
         "tail-segment": 2,
         "cranium": 1,
@@ -142,10 +140,7 @@ EXPECTED_FIELD_RECIPES = (
     "upper_arm-pre-joint", "upper_arm-joint", "forearm-proximal", "forearm-distal",
     "thigh-pre-joint", "thigh-joint", "shin-pre-joint", "shin-joint", "elbow", "knee", "hock",
     "root-bridge", "hip-transition",
-    "shoulder-left-anterior-support-0", "shoulder-left-anterior-support-1",
-    "shoulder-left-posterior-return-0", "shoulder-left-posterior-return-1",
-    "shoulder-right-anterior-support-0", "shoulder-right-anterior-support-1",
-    "shoulder-right-posterior-return-0", "shoulder-right-posterior-return-1", "deltoid-sweep-1",
+    "deltoid-sweep-1",
     "paw", "metatarsal", "paw-pad", "toe-box", "extremity-bridge",
     "tail-segment", "tail-tip-extension", "tail-tip-cap", "tail-root-bridge", "tail-root-collar",
 )
@@ -697,7 +692,7 @@ def _validate_controls(
         raise SurfacePreviewPublishError("regional guide torso cage connections are invalid")
 
     shoulder = controls["shoulder_frame"]
-    if not isinstance(shoulder, dict) or set(shoulder) != {"status", "owners", "central", "sides"} or shoulder["status"] != "skin-driving private shoulder frame":
+    if not isinstance(shoulder, dict) or set(shoulder) != {"status", "owners", "central", "sides"} or shoulder["status"] != "private shoulder frame; support curves guide-only; deltoid sweep skin-driving":
         raise SurfacePreviewPublishError("regional guide shoulder frame controls are invalid")
     shoulder_owners = shoulder["owners"]
     if not isinstance(shoulder_owners, dict) or set(shoulder_owners) != {"torso", "neck", "left_upper_arm", "right_upper_arm"}:
@@ -743,11 +738,14 @@ def _validate_controls(
             raise SurfacePreviewPublishError(f"{where}.curves are invalid")
         for curve_index, curve in enumerate(curves):
             curve_where = f"{where}.curves[{curve_index}]"
-            if not isinstance(curve, dict) or set(curve) != {"name", "owner", "points", "profile"}:
+            if not isinstance(curve, dict) or set(curve) != {"name", "owner", "points", "profile", "consumption"}:
                 raise SurfacePreviewPublishError(f"{curve_where} has an invalid shape")
             expected_curve_owner = parsed_shoulder_owners["torso"] if curve["name"] != "deltoid-sweep" else side_owner
             if owner(curve["owner"], f"{curve_where}.owner") != expected_curve_owner:
                 raise SurfacePreviewPublishError(f"{curve_where}.owner is invalid")
+            expected_consumption = "skin-driving" if curve["name"] == "deltoid-sweep" else "guide-only"
+            if curve["consumption"] != expected_consumption:
+                raise SurfacePreviewPublishError(f"{curve_where}.consumption is invalid")
             points = curve["points"]
             expected_point_count = 3 if curve["name"] == "deltoid-sweep" else 4
             if not isinstance(points, list) or len(points) != expected_point_count:
@@ -1229,8 +1227,8 @@ def _validate_bundle(
         raise SurfacePreviewPublishError("surface bundle generator.field_recipes is invalid")
     if field_recipes != list(EXPECTED_FIELD_RECIPES):
         raise SurfacePreviewPublishError("surface bundle generator.field_recipes does not match the exact compiled recipe inventory")
-    if not isinstance(generator.get("ownership"), str) or not generator["ownership"]:
-        raise SurfacePreviewPublishError("surface bundle generator.ownership is invalid")
+    if generator.get("ownership") != EXPECTED_GENERATOR_OWNERSHIP:
+        raise SurfacePreviewPublishError("surface bundle generator.ownership does not match the current compiled/guide-only boundary")
     if not isinstance(generator.get("boundary"), str) or not generator["boundary"] or len(generator["boundary"]) > 1024:
         raise SurfacePreviewPublishError("surface bundle generator.boundary is invalid")
     smooth_union = generator.get("smooth_union")
