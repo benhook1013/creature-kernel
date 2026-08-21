@@ -25,7 +25,7 @@ import os
 import shutil
 import sys
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
@@ -60,14 +60,92 @@ def _fail(message: str) -> None:
 
 
 @dataclass(frozen=True)
-class _LoftProfile:
-    """The seven ordered cross-sections consumed by the successor loft."""
+class _ProfileSection:
+    """One ordered, source-owned section in a frame-aware profile sweep.
 
-    names: tuple[str, ...]
-    owners: tuple[Any, ...]
-    centers: np.ndarray
-    lateral_radii: np.ndarray
-    depth_radii: np.ndarray
+    Tuples are used instead of mutable arrays so a compiled private profile
+    cannot alias or mutate the guide.  ``transverse_axes`` are ordered as
+    (first transverse axis, second transverse axis) and retain a deterministic
+    orientation with ``tangent``.  The representation is intentionally private and
+    disposable; it is a reusable evaluator input, not a geometry contract.
+    """
+
+    name: str
+    owner: Any
+    center: tuple[float, float, float]
+    tangent: tuple[float, float, float]
+    transverse_axes: tuple[tuple[float, float, float], tuple[float, float, float]]
+    transverse_radii: tuple[float, float]
+    path_length: float
+
+    @property
+    def radii(self) -> tuple[float, float]:
+        return self.transverse_radii
+
+    @property
+    def axes(self) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+        return self.transverse_axes
+
+
+@dataclass(frozen=True)
+class _ProfileEndpointCap:
+    """Finite oriented ellipsoidal cap at one profile endpoint."""
+
+    side: str
+    center: tuple[float, float, float]
+    outward_tangent: tuple[float, float, float]
+    transverse_axes: tuple[tuple[float, float, float], tuple[float, float, float]]
+    transverse_radii: tuple[float, float]
+    axial_radius: float
+
+
+@dataclass(frozen=True)
+class _ProfileJointTransition:
+    """A source-section-owned transition at a genuinely bent station."""
+
+    section_index: int
+    owner: Any
+    center: tuple[float, float, float]
+    tangent: tuple[float, float, float]
+    transverse_axes: tuple[tuple[float, float, float], tuple[float, float, float]]
+    transverse_radii: tuple[float, float]
+    axial_radius: float
+
+
+@dataclass(frozen=True)
+class _ProfileSweep:
+    """Ordered profile sections and their finite oriented endpoint caps."""
+
+    sections: tuple[_ProfileSection, ...]
+    endpoint_caps: tuple[_ProfileEndpointCap, _ProfileEndpointCap]
+    internal_transitions: tuple[_ProfileJointTransition, ...] = ()
+    _validated: bool = field(default=False, compare=False, repr=False)
+
+    def __post_init__(self) -> None:
+        if not self.internal_transitions:
+            object.__setattr__(self, "internal_transitions", _derive_bend_transitions(self.sections))
+
+    @property
+    def names(self) -> tuple[str, ...]:
+        return tuple(section.name for section in self.sections)
+
+    @property
+    def owners(self) -> tuple[Any, ...]:
+        return tuple(section.owner for section in self.sections)
+
+    # These compatibility views keep existing attribution/bounds diagnostics
+    # readable while the evaluator consumes the generic section records.
+    @property
+    def centers(self) -> np.ndarray:
+        return np.asarray([section.center for section in self.sections], dtype=np.float64)
+
+    @property
+    def lateral_radii(self) -> np.ndarray:
+        return np.asarray([section.transverse_radii[0] for section in self.sections], dtype=np.float64)
+
+    @property
+    def depth_radii(self) -> np.ndarray:
+        return np.asarray([section.transverse_radii[1] for section in self.sections], dtype=np.float64)
 
 
 @dataclass(frozen=True)
@@ -100,7 +178,7 @@ class SuccessorRegion:
 
     consumer_id: str
     region_id: str
-    loft: _LoftProfile
+    loft: _ProfileSweep
     shoulder_spans: tuple[_SweptSpan, ...]
     bridge_fields: tuple[Any, ...]
     replaced_baseline_recipes: tuple[str, ...]
@@ -146,23 +224,222 @@ def _finite_positive(values: tuple[float, ...], where: str) -> None:
         _fail(f"{where} must contain finite positive values")
 
 
-def _make_loft(guide: Any) -> _LoftProfile:
-    sections = tuple(guide.torso_cage.sections)
-    names = tuple(section.name for section in sections)
-    if len(sections) != 7:
-        _fail(f"successor torso loft requires exactly seven sections, got {len(sections)}")
-    centers = np.asarray([section.center for section in sections], dtype=np.float64)
-    lateral = np.asarray([section.lateral_radius for section in sections], dtype=np.float64)
-    depth = np.asarray([section.depth_radius for section in sections], dtype=np.float64)
-    if centers.shape != (7, 3) or not np.all(np.isfinite(centers)):
-        _fail("successor torso loft centres are invalid")
-    if not np.all(np.isfinite(lateral)) or not np.all(np.isfinite(depth)):
-        _fail("successor torso loft radii are invalid")
-    if np.any(lateral <= 0.0) or np.any(depth <= 0.0) or np.any(np.diff(centers[:, 1]) <= 0.0):
-        _fail("successor torso loft requires positive radii and increasing heights")
-    # Make copies: the successor owns its representation and cannot mutate
-    # the guide's arrays or baseline shape dictionaries through an alias.
-    return _LoftProfile(names, tuple(section.owner for section in sections), centers.copy(), lateral.copy(), depth.copy())
+_FRAME_TOLERANCE = 1.0e-7
+_DEGENERATE_TOLERANCE = 1.0e-12
+_BEND_COLLINEAR_TOLERANCE = 1.0e-8
+_TANGENT_ALIGNMENT_TOLERANCE = 1.0e-7
+
+
+def _vec3(value: Any, where: str) -> np.ndarray:
+    result = np.asarray(value, dtype=np.float64)
+    if result.shape != (3,) or not np.all(np.isfinite(result)):
+        _fail(f"{where} must be a finite three-vector")
+    return result
+
+
+def _unit(value: np.ndarray, where: str) -> np.ndarray:
+    length = float(np.linalg.norm(value))
+    if not math.isfinite(length) or length <= _DEGENERATE_TOLERANCE:
+        _fail(f"{where} must be non-degenerate")
+    return value / length
+
+
+def _derive_bend_transitions(sections: tuple[_ProfileSection, ...]) -> tuple[_ProfileJointTransition, ...]:
+    """Create transitions only where adjacent centerline spans genuinely bend."""
+
+    transitions: list[_ProfileJointTransition] = []
+    for index in range(1, len(sections) - 1):
+        previous = _vec3(sections[index - 1].center, f"profile section[{index - 1}] center")
+        center = _vec3(sections[index].center, f"profile section[{index}] center")
+        following = _vec3(sections[index + 1].center, f"profile section[{index + 1}] center")
+        incoming = center - previous
+        outgoing = following - center
+        incoming_length = float(np.linalg.norm(incoming))
+        outgoing_length = float(np.linalg.norm(outgoing))
+        if incoming_length <= _DEGENERATE_TOLERANCE or outgoing_length <= _DEGENERATE_TOLERANCE:
+            continue
+        direction_alignment = float(np.dot(incoming / incoming_length, outgoing / outgoing_length))
+        if direction_alignment <= -1.0 + _BEND_COLLINEAR_TOLERANCE:
+            _fail(f"profile section[{index}] reverses its ordered centerline")
+        if direction_alignment >= 1.0 - _BEND_COLLINEAR_TOLERANCE:
+            continue
+        section = sections[index]
+        transitions.append(_ProfileJointTransition(
+            section_index=index,
+            owner=section.owner,
+            center=section.center,
+            tangent=section.tangent,
+            transverse_axes=section.transverse_axes,
+            transverse_radii=section.transverse_radii,
+            axial_radius=min(section.transverse_radii),
+        ))
+    return tuple(transitions)
+
+
+def _frame_from_tangent(
+    tangent: np.ndarray,
+    preferred_first: np.ndarray,
+    preferred_second: np.ndarray,
+    where: str,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Derive a deterministic oriented transverse frame."""
+
+    tangent = _unit(tangent, f"{where}.tangent")
+    first = preferred_first - float(np.dot(preferred_first, tangent)) * tangent
+    if float(np.linalg.norm(first)) <= _DEGENERATE_TOLERANCE:
+        first = preferred_second - float(np.dot(preferred_second, tangent)) * tangent
+    first = _unit(first, f"{where}.transverse-first")
+    second = _unit(np.cross(first, tangent), f"{where}.transverse-second")
+    if float(np.dot(second, preferred_second)) < 0.0:
+        first = -first
+        second = -second
+    return tangent, first, second
+
+
+def _validate_profile_sweep(sweep: _ProfileSweep) -> None:
+    """Fail closed on malformed profile frames, spans, path lengths or caps."""
+
+    if sweep._validated:
+        return
+    sections = sweep.sections
+    if len(sections) < 2:
+        _fail("profile sweep requires at least two ordered sections")
+    centers = tuple(_vec3(section.center, f"profile-section[{index}].center") for index, section in enumerate(sections))
+    previous_path = None
+    for index, section in enumerate(sections):
+        where = f"profile-section[{index}]"
+        center = centers[index]
+        tangent = _vec3(section.tangent, f"{where}.tangent")
+        first = _vec3(section.transverse_axes[0], f"{where}.transverse-first")
+        second = _vec3(section.transverse_axes[1], f"{where}.transverse-second")
+        _finite_positive(tuple(float(value) for value in section.transverse_radii), f"{where}.radii")
+        tangent_length = float(np.linalg.norm(tangent))
+        first_length = float(np.linalg.norm(first))
+        second_length = float(np.linalg.norm(second))
+        if not all(math.isclose(length, 1.0, rel_tol=0.0, abs_tol=_FRAME_TOLERANCE) for length in (tangent_length, first_length, second_length)):
+            _fail(f"{where} frame vectors must be unit length")
+        if max(abs(float(np.dot(tangent, first))), abs(float(np.dot(tangent, second))), abs(float(np.dot(first, second)))) > _FRAME_TOLERANCE:
+            _fail(f"{where} frame vectors must be orthogonal")
+        if index == 0:
+            expected_tangent = centers[1] - centers[0]
+        elif index == len(sections) - 1:
+            expected_tangent = centers[-1] - centers[-2]
+        else:
+            expected_tangent = centers[index + 1] - centers[index - 1]
+        expected_length = float(np.linalg.norm(expected_tangent))
+        if expected_length <= _DEGENERATE_TOLERANCE:
+            _fail(f"{where} expected centerline tangent is degenerate")
+        expected_tangent /= expected_length
+        if float(np.dot(tangent / tangent_length, expected_tangent)) < 1.0 - _TANGENT_ALIGNMENT_TOLERANCE:
+            _fail(f"{where}.tangent must follow the ordered centerline")
+        path = float(section.path_length)
+        if not math.isfinite(path) or (previous_path is not None and path <= previous_path):
+            _fail(f"{where}.path_length must be finite and strictly increasing")
+        if previous_path is not None and float(np.linalg.norm(center - centers[index - 1])) <= _DEGENERATE_TOLERANCE:
+            _fail(f"{where} span is degenerate")
+        previous_path = path
+
+    if len(sweep.endpoint_caps) != 2:
+        _fail("profile sweep requires exactly two endpoint caps")
+    for index, cap in enumerate(sweep.endpoint_caps):
+        where = f"profile-cap[{index}]"
+        _vec3(cap.center, f"{where}.center")
+        outward = _vec3(cap.outward_tangent, f"{where}.outward_tangent")
+        first = _vec3(cap.transverse_axes[0], f"{where}.transverse-first")
+        second = _vec3(cap.transverse_axes[1], f"{where}.transverse-second")
+        _finite_positive((*tuple(float(value) for value in cap.transverse_radii), float(cap.axial_radius)), f"{where}.radii")
+        if not all(math.isclose(float(np.linalg.norm(vector)), 1.0, rel_tol=0.0, abs_tol=_FRAME_TOLERANCE) for vector in (outward, first, second)):
+            _fail(f"{where} frame vectors must be unit length")
+        if max(abs(float(np.dot(outward, first))), abs(float(np.dot(outward, second))), abs(float(np.dot(first, second)))) > _FRAME_TOLERANCE:
+            _fail(f"{where} frame vectors must be orthogonal")
+        endpoint = sections[0 if index == 0 else -1]
+        if not np.allclose(_vec3(cap.center, where), _vec3(endpoint.center, f"profile endpoint[{index}]"), rtol=0.0, atol=_FRAME_TOLERANCE):
+            _fail(f"{where}.center must close the corresponding profile endpoint")
+        if not all(np.allclose(cap.transverse_axes[axis], endpoint.transverse_axes[axis], rtol=0.0, atol=_FRAME_TOLERANCE) for axis in (0, 1)):
+            _fail(f"{where} transverse axes must close the corresponding profile endpoint")
+        outward_alignment = float(np.dot(outward, _vec3(endpoint.tangent, f"profile endpoint[{index}].tangent")))
+        expected_alignment = -1.0 if index == 0 else 1.0
+        if outward_alignment * expected_alignment < 1.0 - _FRAME_TOLERANCE:
+            _fail(f"{where} orientation does not point away from the profile")
+    expected_transitions = _derive_bend_transitions(sections)
+    if tuple(item.section_index for item in sweep.internal_transitions) != tuple(item.section_index for item in expected_transitions):
+        _fail("profile sweep internal transitions must match genuinely bent stations")
+    for transition in sweep.internal_transitions:
+        where = f"profile-transition[{transition.section_index}]"
+        if transition.section_index <= 0 or transition.section_index >= len(sections) - 1:
+            _fail(f"{where} must be an internal section")
+        section = sections[transition.section_index]
+        if transition.owner is not section.owner:
+            _fail(f"{where} must retain its source section owner")
+        if not np.allclose(transition.center, section.center, rtol=0.0, atol=_FRAME_TOLERANCE):
+            _fail(f"{where} must be centered at its source section")
+        if transition.tangent != section.tangent or transition.transverse_axes != section.transverse_axes or transition.transverse_radii != section.transverse_radii:
+            _fail(f"{where} must reuse its source section frame and profile")
+        _vec3(transition.tangent, f"{where}.tangent")
+        first = _vec3(transition.transverse_axes[0], f"{where}.transverse-first")
+        second = _vec3(transition.transverse_axes[1], f"{where}.transverse-second")
+        tangent = _vec3(transition.tangent, f"{where}.tangent")
+        if max(abs(float(np.dot(tangent, first))), abs(float(np.dot(tangent, second))), abs(float(np.dot(first, second)))) > _FRAME_TOLERANCE:
+            _fail(f"{where} frame vectors must be orthogonal")
+        _finite_positive((*transition.transverse_radii, transition.axial_radius), f"{where}.radii")
+        if transition.axial_radius > min(transition.transverse_radii) + _FRAME_TOLERANCE:
+            _fail(f"{where}.axial_radius must not exceed its source profile")
+    object.__setattr__(sweep, "_validated", True)
+
+
+def _make_profile_sweep(guide: Any) -> _ProfileSweep:
+    """Compile the exact seven torso guides into the generic sweep."""
+
+    guide_sections = tuple(guide.torso_cage.sections)
+    if len(guide_sections) != 7:
+        _fail(f"successor torso profile sweep requires exactly seven sections, got {len(guide_sections)}")
+    if guide.torso_cage.axes != guide.topology.axes:
+        _fail("successor torso profile sweep axes must match guide topology")
+    prototype = guide.torso_cage.axes
+    preferred_first = _vec3(prototype.lateral, "torso profile lateral axis")
+    preferred_second = _vec3(prototype.forward, "torso profile forward axis")
+    centers = [_vec3(section.center, f"torso guide section {section.name}.center") for section in guide_sections]
+    sections: list[_ProfileSection] = []
+    path_length = 0.0
+    for index, source in enumerate(guide_sections):
+        if index == 0:
+            direction = centers[1] - centers[0]
+        elif index == len(centers) - 1:
+            direction = centers[-1] - centers[-2]
+        else:
+            direction = centers[index + 1] - centers[index - 1]
+        tangent, first, second = _frame_from_tangent(direction, preferred_first, preferred_second, f"torso profile section {source.name}")
+        if index:
+            span_length = float(np.linalg.norm(centers[index] - centers[index - 1]))
+            if span_length <= _DEGENERATE_TOLERANCE:
+                _fail(f"torso profile section {source.name} follows a degenerate span")
+            path_length += span_length
+        radii = (float(source.lateral_radius), float(source.depth_radius))
+        _finite_positive(radii, f"torso profile section {source.name}.radii")
+        sections.append(_ProfileSection(
+            name=source.name,
+            owner=source.owner,
+            center=tuple(float(value) for value in centers[index]),
+            tangent=tuple(float(value) for value in tangent),
+            transverse_axes=(tuple(float(value) for value in first), tuple(float(value) for value in second)),
+            transverse_radii=radii,
+            path_length=path_length,
+        ))
+    ordered = tuple(sections)
+    caps = (
+        _ProfileEndpointCap("start", ordered[0].center, tuple(-float(value) for value in ordered[0].tangent), ordered[0].transverse_axes, ordered[0].transverse_radii, min(ordered[0].transverse_radii)),
+        _ProfileEndpointCap("end", ordered[-1].center, ordered[-1].tangent, ordered[-1].transverse_axes, ordered[-1].transverse_radii, min(ordered[-1].transverse_radii)),
+    )
+    sweep = _ProfileSweep(ordered, caps)
+    _validate_profile_sweep(sweep)
+    return sweep
+
+
+# Retain the old private constructor name as a narrow source-compatible alias
+# for callers of this disposable experiment.  It now returns the generic
+# frame-aware representation rather than a world-Y-only loft.
+def _make_loft(guide: Any) -> _ProfileSweep:
+    return _make_profile_sweep(guide)
 
 
 def _make_spans(guide: Any) -> tuple[_SweptSpan, ...]:
@@ -227,56 +504,138 @@ def compile_successor_region(guide: Any, baseline_fields: tuple[Any, ...] | None
     )
 
 
-def _loft_field(points: np.ndarray, loft: _LoftProfile) -> np.ndarray:
-    """Evaluate a piecewise linear elliptical loft with finite rounded caps."""
+def _interpolated_span_frame(left: _ProfileSection, right: _ProfileSection, t: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Interpolate a span frame without referring to a world-up coordinate."""
+
+    left_tangent = _vec3(left.tangent, "profile span left tangent")
+    right_tangent = _vec3(right.tangent, "profile span right tangent")
+    left_first = _vec3(left.transverse_axes[0], "profile span left transverse axis")
+    right_first = _vec3(right.transverse_axes[0], "profile span right transverse axis")
+    left_second = _vec3(left.transverse_axes[1], "profile span left transverse axis")
+    right_second = _vec3(right.transverse_axes[1], "profile span right transverse axis")
+    if float(np.dot(left_first, right_first)) < 0.0 and float(np.dot(left_second, right_second)) < 0.0:
+        # A paired sign flip describes the same transverse frame, but direct
+        # linear interpolation would cancel both axes at the midpoint.  Align
+        # the pair to the left frame before interpolation; flipping both
+        # preserves the frame orientation.
+        right_first = -right_first
+        right_second = -right_second
+    tangent = (1.0 - t)[..., None] * left_tangent + t[..., None] * right_tangent
+    tangent_norm = np.linalg.norm(tangent, axis=-1)
+    tangent = np.divide(tangent, tangent_norm[..., None], out=np.zeros_like(tangent), where=tangent_norm[..., None] > _DEGENERATE_TOLERANCE)
+    first_raw = (1.0 - t)[..., None] * left_first + t[..., None] * right_first
+    first_projected = first_raw - np.sum(first_raw * tangent, axis=-1)[..., None] * tangent
+    first_norm = np.linalg.norm(first_projected, axis=-1)
+    second_raw = (1.0 - t)[..., None] * left_second + t[..., None] * right_second
+    second_projected = second_raw - np.sum(second_raw * tangent, axis=-1)[..., None] * tangent
+    second_norm = np.linalg.norm(second_projected, axis=-1)
+    use_second = first_norm <= _DEGENERATE_TOLERANCE
+    first_projected = np.where(use_second[..., None], second_projected, first_projected)
+    first_norm = np.where(use_second, second_norm, first_norm)
+    if np.any(first_norm <= _DEGENERATE_TOLERANCE) or np.any(tangent_norm <= _DEGENERATE_TOLERANCE):
+        _fail("profile span frame interpolation became degenerate")
+    first = first_projected / first_norm[..., None]
+    second = np.cross(first, tangent)
+    second_norm = np.linalg.norm(second, axis=-1)
+    if np.any(second_norm <= _DEGENERATE_TOLERANCE):
+        _fail("profile span transverse frame became degenerate")
+    second = second / second_norm[..., None]
+    orientation = np.where(np.sum(second * second_raw, axis=-1) < 0.0, -1.0, 1.0)
+    first *= orientation[..., None]
+    second *= orientation[..., None]
+    return tangent, first, second
+
+
+def _profile_span_field(points: np.ndarray, left: _ProfileSection, right: _ProfileSection) -> np.ndarray:
+    start = _vec3(left.center, "profile span start")
+    end = _vec3(right.center, "profile span end")
+    axis = end - start
+    length_sq = float(np.dot(axis, axis))
+    if length_sq <= _DEGENERATE_TOLERANCE:
+        _fail("profile span has degenerate centres")
+    raw_t = np.sum((points - start) * axis, axis=-1) / length_sq
+    t = np.clip(raw_t, 0.0, 1.0)
+    centre = start + t[..., None] * axis
+    if left.tangent == right.tangent and left.transverse_axes == right.transverse_axes:
+        # The compiled torso currently uses one fixed prototype frame.  Keep
+        # the generic interpolation path for bent/rotated profiles, but avoid
+        # allocating several large frame arrays for the common fixed-frame
+        # case during mesh orientation and diagnostics.
+        first = np.broadcast_to(_vec3(left.transverse_axes[0], "profile span transverse axis"), points.shape)
+        second = np.broadcast_to(_vec3(left.transverse_axes[1], "profile span transverse axis"), points.shape)
+    else:
+        _, first, second = _interpolated_span_frame(left, right, t)
+    radii = (1.0 - t)[..., None] * np.asarray(left.transverse_radii, dtype=np.float64) + t[..., None] * np.asarray(right.transverse_radii, dtype=np.float64)
+    offset = points - centre
+    first_distance = np.sum(offset * first, axis=-1) / radii[..., 0]
+    second_distance = np.sum(offset * second, axis=-1) / radii[..., 1]
+    radial = (np.sqrt(first_distance**2 + second_distance**2) - 1.0) * np.minimum(radii[..., 0], radii[..., 1])
+    # Spans are finite primitives.  Internal station closure belongs to the
+    # neighbouring span's shared endpoint, not to a synthetic cap on every
+    # span; only the two declared sweep endpoint caps close the full profile.
+    return np.where((raw_t >= 0.0) & (raw_t <= 1.0), radial, np.inf)
+
+
+def _profile_cap_field(points: np.ndarray, cap: _ProfileEndpointCap) -> np.ndarray:
+    center = _vec3(cap.center, "profile cap center")
+    outward = _vec3(cap.outward_tangent, "profile cap outward tangent")
+    first = _vec3(cap.transverse_axes[0], "profile cap transverse axis")
+    second = _vec3(cap.transverse_axes[1], "profile cap transverse axis")
+    offset = points - center
+    axial = np.sum(offset * outward, axis=-1) / float(cap.axial_radius)
+    transverse_first = np.sum(offset * first, axis=-1) / float(cap.transverse_radii[0])
+    transverse_second = np.sum(offset * second, axis=-1) / float(cap.transverse_radii[1])
+    return (np.sqrt(axial**2 + transverse_first**2 + transverse_second**2) - 1.0) * min(*cap.transverse_radii, cap.axial_radius)
+
+
+def _profile_transition_field(points: np.ndarray, transition: _ProfileJointTransition) -> np.ndarray:
+    """Evaluate a bounded source-section-owned internal bend transition."""
+
+    center = _vec3(transition.center, "profile transition center")
+    tangent = _vec3(transition.tangent, "profile transition tangent")
+    first = _vec3(transition.transverse_axes[0], "profile transition transverse axis")
+    second = _vec3(transition.transverse_axes[1], "profile transition transverse axis")
+    offset = points - center
+    axial = np.sum(offset * tangent, axis=-1) / transition.axial_radius
+    transverse_first = np.sum(offset * first, axis=-1) / transition.transverse_radii[0]
+    transverse_second = np.sum(offset * second, axis=-1) / transition.transverse_radii[1]
+    return (np.sqrt(axial**2 + transverse_first**2 + transverse_second**2) - 1.0) * min(*transition.transverse_radii, transition.axial_radius)
+
+
+def _profile_sweep_field(points: np.ndarray, sweep: _ProfileSweep) -> np.ndarray:
+    """Evaluate finite tapered spans and oriented endpoint caps by minimum."""
+
+    _validate_profile_sweep(sweep)
+    points = np.asarray(points, dtype=np.float64)
+    if points.shape[-1] != 3 or not np.all(np.isfinite(points)):
+        _fail("profile sweep query points must be finite three-vectors")
+    values = [
+        *(_profile_span_field(points, left, right) for left, right in zip(sweep.sections, sweep.sections[1:])),
+        *(_profile_transition_field(points, transition) for transition in sweep.internal_transitions),
+        *(_profile_cap_field(points, cap) for cap in sweep.endpoint_caps),
+    ]
+    return np.min(np.stack(values, axis=0), axis=0)
+
+
+def _loft_field(points: np.ndarray, loft: _ProfileSweep) -> np.ndarray:
+    """Compatibility name for the frame-aware successor profile evaluator."""
+
+    return _profile_sweep_field(points, loft)
+
+
+def _loft_section_indices(points: np.ndarray, loft: _ProfileSweep) -> np.ndarray:
+    """Choose the nearest source-owned section, retaining lower-index ties."""
 
     points = np.asarray(points, dtype=np.float64)
-    y = points[..., 1]
-    centres = loft.centers
-    heights = centres[:, 1]
-    lower, upper = float(heights[0]), float(heights[-1])
-    clipped = np.clip(y, lower, upper)
-    interval = np.searchsorted(heights, clipped, side="right") - 1
-    interval = np.clip(interval, 0, len(heights) - 2)
-    y0 = heights[interval]
-    y1 = heights[interval + 1]
-    t = np.divide(clipped - y0, y1 - y0, out=np.zeros_like(clipped), where=(y1 - y0) != 0.0)
-    centre = centres[interval] + t[..., None] * (centres[interval + 1] - centres[interval])
-    lateral = loft.lateral_radii[interval] + t * (loft.lateral_radii[interval + 1] - loft.lateral_radii[interval])
-    depth = loft.depth_radii[interval] + t * (loft.depth_radii[interval + 1] - loft.depth_radii[interval])
-    transverse = points - centre
-    radial = (np.sqrt((transverse[..., 0] / lateral) ** 2 + (transverse[..., 2] / depth) ** 2) - 1.0) * np.minimum(lateral, depth)
-
-    # A finite ellipsoidal end cap shares the endpoint cross-section exactly.
-    cap_index = np.where(y < lower, 0, len(heights) - 1)
-    cap_center = centres[cap_index]
-    cap_lateral = loft.lateral_radii[cap_index]
-    cap_depth = loft.depth_radii[cap_index]
-    cap_height = np.minimum(cap_lateral, cap_depth)
-    cap_offset = points - cap_center
-    cap_norm = np.sqrt(
-        (cap_offset[..., 0] / cap_lateral) ** 2
-        + (cap_offset[..., 1] / cap_height) ** 2
-        + (cap_offset[..., 2] / cap_depth) ** 2
-    )
-    cap = (cap_norm - 1.0) * np.minimum(np.minimum(cap_lateral, cap_depth), cap_height)
-    return np.where((y >= lower) & (y <= upper), radial, cap)
+    centers = loft.centers
+    distances = np.sum((points[..., None, :] - centers) ** 2, axis=-1)
+    # np.argmin returns the first equal minimum, which is the required lower
+    # source-section index at an exact midpoint tie.
+    return np.argmin(distances, axis=-1)
 
 
-def _loft_section_indices(points: np.ndarray, loft: _LoftProfile) -> np.ndarray:
-    """Choose the nearest source-owned section for deterministic attribution."""
-
-    y = np.asarray(points, dtype=np.float64)[..., 1]
-    heights = loft.centers[:, 1]
-    index = np.searchsorted(heights, y, side="left")
-    index = np.clip(index, 0, len(heights) - 1)
-    previous = np.clip(index - 1, 0, len(heights) - 1)
-    choose_previous = np.abs(y - heights[previous]) <= np.abs(y - heights[index])
-    return np.where(choose_previous, previous, index)
-
-
-def _loft_owner_keys(points: np.ndarray, loft: _LoftProfile) -> tuple[tuple[str, tuple[str, ...], str, str], ...]:
-    """Return source AddressKeys without inventing a loft semantic node."""
+def _loft_owner_keys(points: np.ndarray, loft: _ProfileSweep) -> tuple[tuple[str, tuple[str, ...], str, str], ...]:
+    """Return source AddressKeys without inventing a profile semantic node."""
 
     return tuple(loft.owners[int(index)].key for index in _loft_section_indices(points, loft).reshape(-1))
 
@@ -299,14 +658,59 @@ def _successor_region_field(points: np.ndarray, region: SuccessorRegion, smooth_
 
 
 def _bounds_for_region(region: SuccessorRegion) -> tuple[np.ndarray, np.ndarray]:
-    mins = [np.min(region.loft.centers - np.column_stack((region.loft.lateral_radii, np.minimum(region.loft.lateral_radii, region.loft.depth_radii), region.loft.depth_radii)), axis=0)]
-    maxs = [np.max(region.loft.centers + np.column_stack((region.loft.lateral_radii, np.minimum(region.loft.lateral_radii, region.loft.depth_radii), region.loft.depth_radii)), axis=0)]
+    profile_lower, profile_upper = _profile_sweep_bounds(region.loft)
+    mins = [profile_lower]
+    maxs = [profile_upper]
     for span in region.shoulder_spans:
         start, end = np.asarray(span.start), np.asarray(span.end)
         radius = max(span.start_radius, span.end_radius)
         mins.append(np.minimum(start, end) - radius)
         maxs.append(np.maximum(start, end) + radius)
     return np.min(np.stack(mins), axis=0), np.max(np.stack(maxs), axis=0)
+
+
+def _profile_sweep_bounds(sweep: _ProfileSweep) -> tuple[np.ndarray, np.ndarray]:
+    """Return conservative finite world-axis bounds including both caps."""
+
+    _validate_profile_sweep(sweep)
+    lower: list[np.ndarray] = []
+    upper: list[np.ndarray] = []
+    for section in sweep.sections:
+        center = _vec3(section.center, "profile bounds center")
+        first = _vec3(section.transverse_axes[0], "profile bounds transverse axis")
+        second = _vec3(section.transverse_axes[1], "profile bounds transverse axis")
+        extent = np.abs(first) * section.transverse_radii[0] + np.abs(second) * section.transverse_radii[1]
+        lower.append(center - extent)
+        upper.append(center + extent)
+    for left, right in zip(sweep.sections, sweep.sections[1:]):
+        left_center = _vec3(left.center, "profile span bounds start")
+        right_center = _vec3(right.center, "profile span bounds end")
+        radius = math.hypot(
+            max(left.transverse_radii[0], right.transverse_radii[0]),
+            max(left.transverse_radii[1], right.transverse_radii[1]),
+        )
+        # Interpolated frames can tilt out of the endpoint planes. Expanding
+        # every world axis by the two maximum transverse radii's Euclidean
+        # norm conservatively encloses any oriented elliptical cross-section.
+        lower.append(np.minimum(left_center, right_center) - radius)
+        upper.append(np.maximum(left_center, right_center) + radius)
+    for transition in sweep.internal_transitions:
+        center = _vec3(transition.center, "profile transition bounds center")
+        tangent = _vec3(transition.tangent, "profile transition bounds tangent")
+        first = _vec3(transition.transverse_axes[0], "profile transition bounds transverse axis")
+        second = _vec3(transition.transverse_axes[1], "profile transition bounds transverse axis")
+        extent = np.abs(tangent) * transition.axial_radius + np.abs(first) * transition.transverse_radii[0] + np.abs(second) * transition.transverse_radii[1]
+        lower.append(center - extent)
+        upper.append(center + extent)
+    for cap in sweep.endpoint_caps:
+        center = _vec3(cap.center, "profile cap bounds center")
+        outward = _vec3(cap.outward_tangent, "profile cap bounds tangent")
+        first = _vec3(cap.transverse_axes[0], "profile cap bounds transverse axis")
+        second = _vec3(cap.transverse_axes[1], "profile cap bounds transverse axis")
+        extent = np.abs(outward) * cap.axial_radius + np.abs(first) * cap.transverse_radii[0] + np.abs(second) * cap.transverse_radii[1]
+        lower.append(center - extent)
+        upper.append(center + extent)
+    return np.min(np.stack(lower), axis=0), np.max(np.stack(upper), axis=0)
 
 
 def _make_components(region: SuccessorRegion, smooth_k: float) -> tuple[_Component, ...]:
@@ -416,7 +820,7 @@ def build_variant(form: Any, descriptors: tuple[Any, ...], samples: int = DEFAUL
         "consumer_id": CONSUMER_ID,
         "successor_region_id": SUCCESSOR_REGION_ID,
         "successor_region": {
-            "torso_representation": "ordered-linear-cross-section-loft",
+            "torso_representation": "frame-aware-ordered-profile-sweep",
             "torso_sections_consumed": region.sections_consumed,
             "torso_section_names": list(region.section_names),
             "torso_section_owner_keys": [_baseline._address_json(owner.key) for owner in region.loft.owners],
@@ -513,7 +917,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
                 "variant_id": variant_id,
                 "consumer_id": CONSUMER_ID,
                 "successor_region_id": SUCCESSOR_REGION_ID,
-                "torso": {"representation": "ordered-linear-cross-section-loft", "sections_consumed": mesh.representation.sections_consumed, "section_names": list(mesh.representation.section_names)},
+                "torso": {"representation": "frame-aware-ordered-profile-sweep", "sections_consumed": mesh.representation.sections_consumed, "section_names": list(mesh.representation.section_names)},
                 "shoulders": {"representation": "tapered-swept-curve-spans", "inputs_consumed": mesh.representation.shoulder_inputs_consumed, "curves": sorted({span.curve_name for span in mesh.representation.shoulder_spans})},
                 "temporary_bridge": mesh.metrics["temporary_bridge"],
                 "replaced_baseline_recipes": list(mesh.representation.replaced_baseline_recipes),
