@@ -16,37 +16,40 @@ governs what resumes next.
 Execution state: active after Ben resumed the runway on 2026-08-20.
 
 PR #97 was accepted and merged at `e78640e` after Ben appraised the revised
-underarm silhouette as better. Preserve PR #97 as accepted intermediate
-evidence and the baseline for the next form pass; it is not final anatomy or
-backend approval.
+underarm silhouette as better. Preserve it as the accepted baseline for the
+next form pass; it is not final anatomy or backend approval.
 
-The current artifact-scoped defect is that the head, face, and neck read as
-stacked rounded blobs or mushroom/bobble forms rather than a coherent stylized
-creature cranium, muzzle/jaw/cheek structure, and neck insertion. This
-identifies a failure of the displayed candidate, not a durable geometric
-prescription or product requirement.
+Stop polishing the current ellipsoid/capsule/smooth-union grey surface
+consumer. It is disposable and remains only as a debug and comparison
+baseline. The next runway is to build one separate, disposable exploratory
+successor surface consumer driven by the existing semantic body and private
+generated guide/anatomy data. The working implementation hypothesis is a
+hybrid of ordered cross-sections/profile lofts and swept regional forms; this
+is not a permanent backend selection or acceptance of a decision record.
 
-The next autonomous runway is to diagnose the existing head/neck source,
-guide, and skin consumers, then derive private shared controls that produce a
-coherent cranium/backskull, projected muzzle with readable bridge/taper,
-lower-face/jaw/cheek transition, and neck-to-skull/shoulder insertion across
-all four variants. Exact private topology and coefficients remain disposable.
-Do not invent species-specific ears, eyes, teeth, or public semantic parts
-merely to decorate this checkpoint; paired features may be considered only if
-already supported by source intent and not needed for the first structural
-result.
+Use shared generator operations across all four fixed variants. Do not add
+per-fixture patches or a handcrafted base mesh. The successor must consume the
+existing semantic and guide inputs so the checkpoint tests the surface
+boundary rather than replacing the body source.
 
-The next human checkpoint is a PR #97 baseline versus revised guide-plus-skin
-comparison across all four variants. Ben should judge head/neck/muzzle
-silhouette, front/side/three-quarter continuity, absence of the bobble/mushroom
-stack, and retained profiles. Stop before merging the first appraisable result.
+The next human checkpoint is a baseline-versus-successor browser comparison
+across all four variants, with front, side, and three-quarter views and
+inspectable guides. Ben's useful judgment is whether the successor reads as a
+materially more coherent stylized furry biped overall: recognizable
+cranium/muzzle/neck, shoulder/torso/pelvis structure, connected limbs and
+joints, digitigrade legs, paws, and tail; less like blended primitives; with
+the variants still meaningfully different. This is an overall-form proof. Do
+not stop for isolated artifact tuning unless it blocks that checkpoint. Stop
+before merging the first appraisable successor result.
 
-Non-goals for this runway are facial animation or expression, production
-topology, detailed eyes/ears/mouth/teeth/tongue, hair/fur, feet/hands/torso
-retuning, public semantics, final backend, physics, rigging, or animation.
-Machinery remains parked. Multiple small reviewed PRs may advance direct
-prerequisites toward the named checkpoint; stop if progress requires a
-material scope expansion.
+Non-goals are production or animation-ready topology, a permanent
+surface/backend choice, species detailing, facial animation, eyes, teeth,
+tongue, fur, rigging, physics/deformation, performance proof, and reactivation
+or acceptance of parked DR-0009, DR-0010, or EXP-0001. Building the exploratory
+candidate does not reactivate the parked formal comparison; that can be
+considered only after the visual checkpoint. Multiple small reviewed PRs may
+advance direct prerequisites toward the named checkpoint; stop if progress
+requires a material scope expansion.
 
 EXP-0002 and its Gate B/freeze/runtime-attestation continuation are parked and
 non-blocking. They are not prerequisites for this visual runway and must not be
