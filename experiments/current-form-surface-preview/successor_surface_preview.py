@@ -3,11 +3,11 @@
 
 This module is intentionally adjacent to, rather than a modification of,
 ``surface_preview.py``.  It consumes the existing private hybrid guide and
-replaces the torso/shoulder, head/neck, and four limb-chain skin consumers with
-explicitly identified profile sweeps and swept shoulder spans.  Paws, tail, and
-root/hip connector fields remain an explicit temporary bridge so the experiment
-can still produce a whole-body mesh without pretending that those regions have
-been redesigned.
+replaces the torso/shoulder, head/neck, four limb-chain, and hand/foot skin
+consumers with explicitly identified profile sweeps and swept shoulder spans.
+Tail and root/hip connector fields remain an explicit temporary bridge so the
+experiment can still produce a whole-body mesh without pretending that those
+regions have been redesigned.
 
 The representation is exploratory and disposable.  It is not a production
 surface backend, topology contract, SDF, collision shape, or runtime API.
@@ -43,7 +43,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct source-tree execution
 
 FORMAT = "creature-kernel.disposable-successor-surface-preview.v1"
 CONSUMER_ID = "successor-surface-v1"
-SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-limb-profile-sweeps-v3"
+SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-limb-extremity-profile-sweeps-v4"
 DEFAULT_SAMPLES = 56
 DEFAULT_PADDING = 0.50
 DEFAULT_SMOOTH_K = 0.10
@@ -177,6 +177,29 @@ class _RegionalProfileSweep:
 
 
 @dataclass(frozen=True)
+class _ExtremitySweep:
+    """One named hand or foot sweep with section-level source ownership."""
+
+    name: str
+    side: str
+    source_owners: tuple[Any, ...]
+    sweep: _ProfileSweep
+    kind: str
+
+    @property
+    def owners(self) -> tuple[Any, ...]:
+        return self.sweep.owners
+
+    @property
+    def section_names(self) -> tuple[str, ...]:
+        return self.sweep.names
+
+    @property
+    def sections_consumed(self) -> int:
+        return len(self.sweep.sections)
+
+
+@dataclass(frozen=True)
 class _LimbChainSweep:
     """One bilateral limb-chain sweep with per-section source ownership."""
 
@@ -207,8 +230,9 @@ class SuccessorRegion:
 
     ``bridge_fields`` are untouched baseline fields for all regions outside
     this successor region.  They are kept here, rather than silently folded
-    into the successor, so later limb/paw/tail consumers have a stable
-    extension point and the temporary boundary remains inspectable.
+    into the successor, so the remaining root/hip connector and tail
+    consumers have a stable extension point and the temporary boundary
+    remains inspectable.
     """
 
     consumer_id: str
@@ -220,6 +244,7 @@ class SuccessorRegion:
     source_owners: tuple[Any, ...]
     head_neck_sweeps: tuple[_RegionalProfileSweep, ...] = ()
     limb_sweeps: tuple[_LimbChainSweep, ...] = ()
+    extremity_sweeps: tuple[_ExtremitySweep, ...] = ()
 
     @property
     def section_names(self) -> tuple[str, ...]:
@@ -238,6 +263,14 @@ class SuccessorRegion:
         """Compatibility alias for the named successor limb chains."""
 
         return self.limb_sweeps
+
+    @property
+    def hand_sweeps(self) -> tuple[_ExtremitySweep, ...]:
+        return tuple(item for item in self.extremity_sweeps if item.kind in {"hand-attachment", "hand-paw"})
+
+    @property
+    def foot_sweeps(self) -> tuple[_ExtremitySweep, ...]:
+        return tuple(item for item in self.extremity_sweeps if item.kind == "foot-chain")
 
 
 @dataclass(frozen=True)
@@ -539,6 +572,18 @@ _COLLAR_PROFILE = (
 # Shared sample-grid visibility correction for the disposable collar only.
 _COLLAR_TRANSVERSE_SCALE = 1.50
 
+# These controls are shared by every hand and foot in every fixed fixture.
+# Hand offsets are measured in the outward lateral-radius units of the exact
+# guide paw.  The hand profile's two transverse axes are explicitly up and
+# forward; feet use the generic lateral/forward frame derivation below.
+_HAND_PAW_PROFILE = (
+    (-0.55, 0.62, 0.66),
+    (-0.15, 1.00, 1.00),
+    (0.35, 0.92, 1.05),
+    (0.78, 0.55, 0.60),
+)
+_HAND_PAW_SECTION_NAMES = ("hand-paw-base", "hand-paw-palm", "hand-paw-knuckle", "hand-paw-tip")
+
 
 def _make_transition_sweep(
     recipe: str,
@@ -837,6 +882,181 @@ def _require_path_shape(
         _fail(f"{where} field profile controls do not match the guide")
 
 
+def _require_mass_shape(
+    shape: Any,
+    center: Any,
+    radii: Any,
+    where: str,
+    *,
+    expected_name: str = "ellipsoid",
+) -> None:
+    """Require a retained baseline mass to reproduce exact guide controls."""
+
+    if not isinstance(shape, dict) or shape.get("name") != expected_name:
+        _fail(f"{where} must retain an {expected_name!r} field shape")
+    try:
+        shape_center = _vec3(shape["center"], f"{where}.center")
+        shape_radii = _vec3(shape["radii"], f"{where}.radii")
+    except (KeyError, TypeError, ValueError):
+        _fail(f"{where} field shape is missing mass controls")
+    if not np.array_equal(shape_center, _vec3(center, f"{where}.guide-center")):
+        _fail(f"{where} field center does not match the guide")
+    if not np.array_equal(shape_radii, _vec3(radii, f"{where}.guide-radii")):
+        _fail(f"{where} field radii do not match the guide")
+
+
+def _validate_extremity_baseline_fields(guide: Any, baseline_fields: tuple[Any, ...]) -> None:
+    """Validate the exact bilateral hand/foot baseline inventory being removed."""
+
+    source_by_key = {descriptor.key: descriptor for descriptor in guide.source_descriptors}
+    paws = {(item.owner.key[1][0], item.owner.key[3]): item for item in guide.paw_guides}
+    expected_counts = {recipe: 2 for recipe in ("paw", "extremity-bridge", "metatarsal", "paw-pad", "toe-box")}
+    for recipe, expected_count in expected_counts.items():
+        fields = tuple(field for field in baseline_fields if field.recipe == recipe)
+        if len(fields) != expected_count:
+            _fail(f"baseline extremity recipe {recipe!r} must contain exactly two mirrored fields")
+        seen: set[tuple[str, str]] = set()
+        for field in fields:
+            canonical = source_by_key.get(field.owner.key)
+            if canonical is not field.owner or len(field.owner.key[1]) != 1 or field.owner.key[1][0] not in ("left", "right"):
+                _fail(f"baseline extremity field {recipe!r} has a non-canonical owner")
+            side = field.owner.key[1][0]
+            role = field.owner.key[3]
+            expected_role = "hand" if recipe in {"paw", "extremity-bridge"} else "foot"
+            if role != expected_role or (side, role) in seen:
+                _fail(f"baseline extremity field {recipe!r} has an invalid mirrored owner inventory")
+            seen.add((side, role))
+            paw = paws.get((side, role))
+            if paw is None:
+                _fail(f"baseline extremity field {recipe!r} has no matching guide")
+            where = f"baseline {side} {recipe}"
+            if recipe == "paw":
+                _require_mass_shape(field.shape, paw.paw_center, paw.paw_radii, where)
+            elif recipe == "extremity-bridge":
+                if paw.attachment_centerline is None or paw.attachment_radius is None or paw.attachment_kind is None:
+                    _fail(f"{where} guide attachment is incomplete")
+                _require_path_shape(
+                    field.shape, paw.attachment_centerline, (paw.attachment_radius,), where,
+                    expected_name=paw.attachment_kind,
+                )
+            else:
+                chain = paw.foot_chain
+                if chain is None:
+                    _fail(f"{where} guide chain is incomplete")
+                if recipe == "metatarsal":
+                    _require_path_shape(field.shape, chain.metatarsal_centerline, chain.metatarsal_profile, where)
+                elif recipe == "paw-pad":
+                    _require_mass_shape(field.shape, chain.pad_center, chain.pad_radii, where)
+                else:
+                    _require_mass_shape(field.shape, chain.toe_center, chain.toe_radii, where)
+
+
+def _validate_extremity_sweeps(
+    guide: Any,
+    limb_sweeps: tuple[_LimbChainSweep, ...],
+    extremity_sweeps: tuple[_ExtremitySweep, ...],
+) -> None:
+    """Fail closed on bilateral hand/foot topology, controls and ownership."""
+
+    expected_names = (
+        "left-hand-attachment", "left-hand-paw", "left-foot",
+        "right-hand-attachment", "right-hand-paw", "right-foot",
+    )
+    if tuple(item.name for item in extremity_sweeps) != expected_names:
+        _fail("successor extremity sweep order is unstable")
+    source_by_key = {descriptor.key: descriptor for descriptor in guide.source_descriptors}
+    paws = {(item.owner.key[1][0], item.owner.key[3]): item for item in guide.paw_guides}
+    chains = {item.chain_name: item for item in limb_sweeps}
+    for side in ("left", "right"):
+        hand = paws.get((side, "hand"))
+        foot = paws.get((side, "foot"))
+        arm = chains.get(f"{side}-arm")
+        leg = chains.get(f"{side}-leg")
+        if hand is None or foot is None or arm is None or leg is None:
+            _fail(f"{side} extremity guide inventory is incomplete")
+        attachment, paw, foot_sweep = (item for item in extremity_sweeps if item.side == side)
+        if attachment.kind != "hand-attachment" or paw.kind != "hand-paw" or foot_sweep.kind != "foot-chain":
+            _fail(f"{side} extremity sweep kinds are unstable")
+        if attachment.source_owners != (hand.owner,) or paw.source_owners != (hand.owner,):
+            _fail(f"{side} hand sweeps must be hand-owned")
+        if any(section.owner is not hand.owner for section in attachment.sweep.sections + paw.sweep.sections):
+            _fail(f"{side} hand sweep sections must retain canonical hand ownership")
+        if source_by_key.get(hand.owner.key) is not hand.owner or source_by_key.get(foot.owner.key) is not foot.owner:
+            _fail(f"{side} extremity owner identity is not canonical")
+        if hand.owner.parent != arm.sweep.sections[-1].owner.key or source_by_key.get(hand.owner.parent) is not arm.sweep.sections[-1].owner:
+            _fail(f"{side} hand parent must be the same-side successor forearm owner")
+        if hand.attachment_centerline is None or hand.attachment_radius is None:
+            _fail(f"{side} hand attachment guide is incomplete")
+        _require_exact_same_point(attachment.sweep.sections[0].center, hand.attachment_centerline[0], f"{side} hand attachment start")
+        _require_exact_same_point(attachment.sweep.sections[-1].center, hand.attachment_centerline[1], f"{side} hand attachment end")
+        if any(section.transverse_radii != (float(hand.attachment_radius), float(hand.attachment_radius)) for section in attachment.sweep.sections):
+            _fail(f"{side} hand attachment must use the exact guide radius at both stations")
+        if len(attachment.sweep.endpoint_caps) != 2 or attachment.sweep.internal_transitions:
+            _fail(f"{side} hand attachment must have only two outer endpoint caps")
+        if len(paw.sweep.sections) != 4 or len(paw.sweep.endpoint_caps) != 2:
+            _fail(f"{side} hand paw must have four stations and two outer caps")
+        outward = _vec3(hand.axes.lateral, f"{side}.hand-paw.outward-axis") * (-1.0 if side == "left" else 1.0)
+        outward = _unit(outward, f"{side}.hand-paw.outward-axis")
+        for index, (section, control) in enumerate(zip(paw.sweep.sections, _HAND_PAW_PROFILE)):
+            expected_center = _vec3(hand.paw_center, f"{side}.paw-center") + float(control[0]) * float(hand.paw_radii[0]) * outward
+            if not np.array_equal(_vec3(section.center, f"{side}.hand-paw.section[{index}]"), expected_center):
+                _fail(f"{side} hand paw section {index} does not follow shared outward offsets")
+            expected_radii = (float(hand.paw_radii[1]) * control[1], float(hand.paw_radii[2]) * control[2])
+            if section.transverse_radii != expected_radii:
+                _fail(f"{side} hand paw section {index} does not retain exact guide profile controls")
+            if section.tangent != tuple(float(value) for value in outward):
+                _fail(f"{side} hand paw path must point outward, never reverse")
+            if section.transverse_axes != (tuple(float(value) for value in hand.axes.up), tuple(float(value) for value in hand.axes.forward)):
+                _fail(f"{side} hand paw must use guide up/forward transverse axes")
+        hand_center = np.asarray(hand.paw_center, dtype=np.float64).reshape(1, 3)
+        if float(_profile_sweep_field(hand_center, paw.sweep)[0]) > 0.0:
+            _fail(f"{side} hand paw must contain its exact guide paw center")
+        forearm_end = np.asarray(arm.sweep.sections[-1].center, dtype=np.float64).reshape(1, 3)
+        if float(_profile_sweep_field(forearm_end, attachment.sweep)[0]) > 0.0:
+            _fail(f"{side} hand attachment must overlap its successor forearm endpoint")
+        if float(_profile_sweep_field(forearm_end, paw.sweep)[0]) > 0.0:
+            _fail(f"{side} hand paw must contain its successor forearm endpoint")
+
+        chain = foot.foot_chain
+        if chain is None or foot_sweep.source_owners != (leg.sweep.sections[-1].owner, foot.owner):
+            _fail(f"{side} foot sweep must retain shin then foot ownership")
+        if foot.owner.parent != leg.sweep.sections[-1].owner.key or source_by_key.get(foot.owner.parent) is not leg.sweep.sections[-1].owner:
+            _fail(f"{side} foot parent must be the same-side successor shin owner")
+        sections = foot_sweep.sweep.sections
+        if tuple(section.name for section in sections) != ("hock", "metatarsal-midpoint", "pad", "pad-toe-midpoint", "toe"):
+            _fail(f"{side} foot sweep station names are unstable")
+        if tuple(section.owner for section in sections) != (leg.sweep.sections[-1].owner, foot.owner, foot.owner, foot.owner, foot.owner):
+            _fail(f"{side} foot sweep section ownership is not shin then foot")
+        expected_centers = (
+            chain.hock_anchor,
+            tuple(float(value) for value in (0.5 * (_vec3(chain.metatarsal_centerline[0], "foot start") + _vec3(chain.metatarsal_centerline[1], "foot end")))),
+            chain.pad_center,
+            tuple(float(value) for value in (0.5 * (_vec3(chain.pad_center, "pad") + _vec3(chain.toe_center, "toe")))),
+            chain.toe_center,
+        )
+        met_mid_profile = 0.5 * (float(chain.metatarsal_profile[0]) + float(chain.metatarsal_profile[1]))
+        expected_radii = (
+            (float(chain.hock_radii[0]), float(chain.hock_radii[1])),
+            (met_mid_profile, met_mid_profile),
+            (float(chain.pad_radii[0]), float(chain.pad_radii[1])),
+            ((float(chain.pad_radii[0]) + float(chain.toe_radii[0])) * 0.5, (float(chain.pad_radii[1]) + float(chain.toe_radii[1])) * 0.5),
+            (float(chain.toe_radii[0]), float(chain.toe_radii[1])),
+        )
+        for index, section in enumerate(sections):
+            if not np.array_equal(_vec3(section.center, f"{side}.foot.section[{index}]"), _vec3(expected_centers[index], f"{side}.foot.expected[{index}]")):
+                _fail(f"{side} foot section {index} does not retain exact guide center")
+            if section.transverse_radii != expected_radii[index]:
+                _fail(f"{side} foot section {index} does not retain exact guide profile")
+        if len(foot_sweep.sweep.endpoint_caps) != 2 or tuple(cap.side for cap in foot_sweep.sweep.endpoint_caps) != ("start", "end"):
+            _fail(f"{side} foot sweep must have hock/toe outer caps only")
+        if any(cap.center not in {sections[0].center, sections[-1].center} for cap in foot_sweep.sweep.endpoint_caps):
+            _fail(f"{side} foot sweep contains a non-outer cap")
+        _require_exact_same_point(sections[0].center, leg.sweep.sections[-1].center, f"{side} foot hock/successor leg endpoint")
+        _require_exact_same_point(sections[0].center, chain.metatarsal_centerline[0], f"{side} foot hock/metatarsal start")
+        if sections[-1].center[2] <= sections[0].center[2] or sections[2].center[2] <= sections[0].center[2]:
+            _fail(f"{side} foot stations must preserve hock/contact/forward ordering")
+
+
 _LIMB_SECTION_NAMES = {
     "upper_arm": ("pre-joint", "joint"),
     "forearm": ("proximal", "distal"),
@@ -941,6 +1161,129 @@ def _make_limb_sweeps(guide: Any) -> tuple[_LimbChainSweep, ...]:
     return tuple(sweeps)
 
 
+def _make_hand_paw_sweep(paw: Any, side: str) -> _ProfileSweep:
+    """Build the four-station outward hand profile from exact paw controls."""
+
+    if paw.paw_center is None or paw.paw_radii is None:
+        _fail(f"{side} hand paw controls are incomplete")
+    axes = paw.axes
+    outward = _vec3(axes.lateral, f"{side}.hand-paw.lateral-axis")
+    if side == "left":
+        outward = -outward
+    outward = _unit(outward, f"{side}.hand-paw.outward-axis")
+    up = _unit(_vec3(axes.up, f"{side}.hand-paw.up-axis"), f"{side}.hand-paw.up-axis")
+    forward = _unit(_vec3(axes.forward, f"{side}.hand-paw.forward-axis"), f"{side}.hand-paw.forward-axis")
+    if max(abs(float(np.dot(outward, up))), abs(float(np.dot(outward, forward))), abs(float(np.dot(up, forward)))) > _FRAME_TOLERANCE:
+        _fail(f"{side}.hand-paw guide axes must be orthogonal")
+    centre = _vec3(paw.paw_center, f"{side}.hand-paw.center")
+    paw_radii = _vec3(paw.paw_radii, f"{side}.hand-paw.radii")
+    _finite_positive(tuple(float(value) for value in paw_radii), f"{side}.hand-paw.radii")
+    axial_radius = float(paw_radii[0])
+    sections: list[_ProfileSection] = []
+    path_length = 0.0
+    for index, (offset, up_scale, forward_scale) in enumerate(_HAND_PAW_PROFILE):
+        center = centre + float(offset) * axial_radius * outward
+        radii = (float(paw_radii[1]) * float(up_scale), float(paw_radii[2]) * float(forward_scale))
+        _finite_positive(radii, f"{side}.hand-paw.section[{index}].radii")
+        if index:
+            path_length += abs(float(_HAND_PAW_PROFILE[index][0] - _HAND_PAW_PROFILE[index - 1][0])) * axial_radius
+        sections.append(_ProfileSection(
+            _HAND_PAW_SECTION_NAMES[index], paw.owner,
+            tuple(float(value) for value in center),
+            tuple(float(value) for value in outward),
+            (tuple(float(value) for value in up), tuple(float(value) for value in forward)),
+            radii, path_length,
+        ))
+    ordered = tuple(sections)
+    caps = (
+        _ProfileEndpointCap(
+            "start", ordered[0].center, tuple(-float(value) for value in outward),
+            ordered[0].transverse_axes, ordered[0].transverse_radii,
+            min(min(ordered[0].transverse_radii), 0.85 * (1.0 - abs(_HAND_PAW_PROFILE[0][0])) * axial_radius),
+        ),
+        _ProfileEndpointCap(
+            "end", ordered[-1].center, ordered[-1].tangent,
+            ordered[-1].transverse_axes, ordered[-1].transverse_radii,
+            min(min(ordered[-1].transverse_radii), 0.85 * (1.0 - abs(_HAND_PAW_PROFILE[-1][0])) * axial_radius),
+        ),
+    )
+    sweep = _ProfileSweep(ordered, caps)
+    _validate_profile_sweep(sweep)
+    return sweep
+
+
+def _make_foot_chain_sweep(paw: Any, side: str, leg: _LimbChainSweep) -> _ExtremitySweep:
+    """Build one five-station shin/foot-owned digitigrade sweep."""
+
+    chain = paw.foot_chain
+    if chain is None:
+        _fail(f"{side} foot chain controls are incomplete")
+    if len(chain.metatarsal_profile) != 2:
+        _fail(f"{side} foot metatarsal profile must have two controls")
+    hock = _vec3(chain.hock_anchor, f"{side}.foot.hock")
+    leg_end = _vec3(leg.sweep.sections[-1].center, f"{side}.leg.hock-endpoint")
+    if not np.array_equal(hock, leg_end):
+        _fail(f"{side} foot hock must join the successor leg endpoint exactly")
+    met_start = _vec3(chain.metatarsal_centerline[0], f"{side}.foot.metatarsal.start")
+    met_end = _vec3(chain.metatarsal_centerline[1], f"{side}.foot.metatarsal.end")
+    if not np.array_equal(met_start, hock):
+        _fail(f"{side} foot metatarsal must start at the hock exactly")
+    met_mid = 0.5 * (met_start + met_end)
+    met_profile = 0.5 * (float(chain.metatarsal_profile[0]) + float(chain.metatarsal_profile[1]))
+    pad = _vec3(chain.pad_center, f"{side}.foot.pad")
+    if not np.array_equal(met_end, pad):
+        _fail(f"{side} foot metatarsal must end at the pad exactly")
+    toe = _vec3(chain.toe_center, f"{side}.foot.toe")
+    pad_toe_mid = 0.5 * (pad + toe)
+    pad_radii = _vec3(chain.pad_radii, f"{side}.foot.pad-radii")
+    toe_radii = _vec3(chain.toe_radii, f"{side}.foot.toe-radii")
+    hock_radii = _vec3(chain.hock_radii, f"{side}.foot.hock-radii")
+    station_specs = (
+        ("hock", leg.sweep.sections[-1].owner, tuple(float(value) for value in hock), (float(hock_radii[0]), float(hock_radii[1]))),
+        ("metatarsal-midpoint", paw.owner, tuple(float(value) for value in met_mid), (met_profile, met_profile)),
+        ("pad", paw.owner, tuple(float(value) for value in pad), (float(pad_radii[0]), float(pad_radii[1]))),
+        ("pad-toe-midpoint", paw.owner, tuple(float(value) for value in pad_toe_mid), ((float(pad_radii[0]) + float(toe_radii[0])) * 0.5, (float(pad_radii[1]) + float(toe_radii[1])) * 0.5)),
+        ("toe", paw.owner, tuple(float(value) for value in toe), (float(toe_radii[0]), float(toe_radii[1]))),
+    )
+    limb = _limb_chain_sweep(f"{side}-foot", station_specs, chain.axes)
+    return _ExtremitySweep(f"{side}-foot", side, (leg.sweep.sections[-1].owner, paw.owner), limb.sweep, "foot-chain")
+
+
+def _make_extremity_sweeps(guide: Any, limb_sweeps: tuple[_LimbChainSweep, ...]) -> tuple[_ExtremitySweep, ...]:
+    """Compile identical bilateral hand attachment/paw and foot topologies."""
+
+    source_by_key = {descriptor.key: descriptor for descriptor in guide.source_descriptors}
+    paw_by_side_role = {(item.owner.key[1][0], item.owner.key[3]): item for item in guide.paw_guides}
+    chains = {item.chain_name: item for item in limb_sweeps}
+    result: list[_ExtremitySweep] = []
+    for side in ("left", "right"):
+        hand = paw_by_side_role.get((side, "hand"))
+        foot = paw_by_side_role.get((side, "foot"))
+        arm = chains.get(f"{side}-arm")
+        leg = chains.get(f"{side}-leg")
+        if hand is None or foot is None or arm is None or leg is None:
+            _fail(f"{side} extremity guide inventory is incomplete")
+        if source_by_key.get(hand.owner.key) is not hand.owner or source_by_key.get(foot.owner.key) is not foot.owner:
+            _fail(f"{side} extremity guide owner is not canonical")
+        if hand.axes != guide.topology.axes or hand.axes != _baseline._FIXED_GUIDE_AXES:
+            _fail(f"{side} hand guide axes must match the fixed guide axes")
+        if hand.owner.parent != arm.sweep.sections[-1].owner.key or source_by_key.get(hand.owner.parent) is not arm.sweep.sections[-1].owner:
+            _fail(f"{side} hand parent must be the successor forearm owner")
+        if hand.attachment_centerline is None or hand.attachment_radius is None or hand.attachment_kind is None:
+            _fail(f"{side} hand attachment guide is incomplete")
+        _require_exact_same_point(hand.attachment_centerline[1], hand.paw_center, f"{side} hand attachment/paw endpoint")
+        radius = float(hand.attachment_radius)
+        attachment = _make_transition_sweep(
+            "hand-attachment", hand.owner, hand.attachment_centerline,
+            (radius, radius), hand.axes,
+        )
+        result.append(_ExtremitySweep(f"{side}-hand-attachment", side, (hand.owner,), attachment, "hand-attachment"))
+        paw_sweep = _make_hand_paw_sweep(hand, side)
+        result.append(_ExtremitySweep(f"{side}-hand-paw", side, (hand.owner,), paw_sweep, "hand-paw"))
+        result.append(_make_foot_chain_sweep(foot, side, leg))
+    return tuple(result)
+
+
 _LIMB_CHAIN_BASELINE_RECIPES = (
     "upper_arm-pre-joint",
     "upper_arm-joint",
@@ -953,6 +1296,14 @@ _LIMB_CHAIN_BASELINE_RECIPES = (
     "elbow",
     "knee",
     "hock",
+)
+
+_EXTREMITY_BASELINE_RECIPES = (
+    "paw",
+    "extremity-bridge",
+    "metatarsal",
+    "paw-pad",
+    "toe-box",
 )
 
 
@@ -1124,10 +1475,10 @@ def _validate_limb_bridge_inventory(
 def compile_successor_region(guide: Any, baseline_fields: tuple[Any, ...] | None = None) -> SuccessorRegion:
     """Compile the guide into the successor regional profile-sweep consumer.
 
-    The torso cage, shoulder deltoid spans, five baseline head/neck fields, and
-    the four bilateral limb chains are replaced. Every other baseline field is
-    carried as a named temporary bridge, including root/hip connectors and
-    paws, feet, and tail that preserve whole-body continuity for this slice.
+    The torso cage, shoulder deltoid spans, five baseline head/neck fields,
+    four bilateral limb chains, and ten bilateral hand/foot fields are
+    replaced. Every other baseline field is carried as a named temporary
+    bridge: four limb-root bridges, two hip transitions, and six tail fields.
     """
 
     _baseline._validate_hybrid_guide(guide)
@@ -1135,7 +1486,7 @@ def compile_successor_region(guide: Any, baseline_fields: tuple[Any, ...] | None
         baseline_fields = _baseline._compile_hybrid_guide(guide)
     replaced = (
         "torso-cage", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar",
-        "deltoid-sweep-1", *_LIMB_CHAIN_BASELINE_RECIPES,
+        "deltoid-sweep-1", *_LIMB_CHAIN_BASELINE_RECIPES, *_EXTREMITY_BASELINE_RECIPES,
     )
     torso_fields = tuple(field for field in baseline_fields if field.recipe == "torso-cage")
     expected_torso_owner = guide.torso_cage.torso_owner
@@ -1160,11 +1511,15 @@ def compile_successor_region(guide: Any, baseline_fields: tuple[Any, ...] | None
         or {field.recipe for field in neck_recipe_fields} != {"tapered-neck", "neck-collar"}
     ):
         _fail("baseline inventory must contain exactly the neck-owned transition/collar fields")
-    replaced_fields = tuple(field for field in baseline_fields if field.recipe in replaced)
     limb_sweeps = _make_limb_sweeps(guide)
+    bridge_before_extremities = _validate_limb_bridge_inventory(guide, baseline_fields, limb_sweeps)
+    _validate_extremity_baseline_fields(guide, baseline_fields)
+    extremity_sweeps = _make_extremity_sweeps(guide, limb_sweeps)
+    _validate_extremity_sweeps(guide, limb_sweeps, extremity_sweeps)
+    replaced_fields = tuple(field for field in baseline_fields if field.recipe in replaced)
     bridge = tuple(
-        field for field in _validate_limb_bridge_inventory(guide, baseline_fields, limb_sweeps)
-        if field.recipe not in {"torso-cage", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar", "deltoid-sweep-1"}
+        field for field in bridge_before_extremities
+        if field.recipe not in {"torso-cage", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar", "deltoid-sweep-1", *_EXTREMITY_BASELINE_RECIPES}
     )
     if len(bridge) + len(replaced_fields) != len(baseline_fields):
         _fail("baseline bridge selection lost fields")
@@ -1182,6 +1537,7 @@ def compile_successor_region(guide: Any, baseline_fields: tuple[Any, ...] | None
         source_owners=(guide.torso_cage.torso_owner,) + tuple(side.owner for side in guide.shoulder_frame.sides) + (head.head_owner, head.neck_owner),
         head_neck_sweeps=head_neck_sweeps,
         limb_sweeps=limb_sweeps,
+        extremity_sweeps=extremity_sweeps,
     )
 
 
@@ -1336,6 +1692,7 @@ def _successor_region_field(points: np.ndarray, region: SuccessorRegion, smooth_
     values = [_loft_field(points, region.loft)]
     values.extend(_profile_sweep_field(points, item.sweep) for item in region.head_neck_sweeps)
     values.extend(_profile_sweep_field(points, item.sweep) for item in region.limb_sweeps)
+    values.extend(_profile_sweep_field(points, item.sweep) for item in region.extremity_sweeps)
     values.extend(_span_field(points, span) for span in region.shoulder_spans)
     return _baseline._smooth_union(values, smooth_k)
 
@@ -1349,6 +1706,10 @@ def _bounds_for_region(region: SuccessorRegion) -> tuple[np.ndarray, np.ndarray]
         mins.append(lower)
         maxs.append(upper)
     for item in region.limb_sweeps:
+        lower, upper = _profile_sweep_bounds(item.sweep)
+        mins.append(lower)
+        maxs.append(upper)
+    for item in region.extremity_sweeps:
         lower, upper = _profile_sweep_bounds(item.sweep)
         mins.append(lower)
         maxs.append(upper)
@@ -1423,6 +1784,16 @@ def _make_components(region: SuccessorRegion, smooth_k: float) -> tuple[_Compone
         components.append(_Component(
             item.sweep.sections[0].owner,
             f"successor-{item.chain_name}",
+            lambda points, current=item.sweep: _profile_sweep_field(points, current),
+            bounds,
+            True,
+            lambda points, current=item.sweep: _loft_owner_keys(points, current),
+        ))
+    for item in region.extremity_sweeps:
+        bounds = _profile_sweep_bounds(item.sweep)
+        components.append(_Component(
+            item.sweep.sections[0].owner,
+            f"successor-{item.name}",
             lambda points, current=item.sweep: _profile_sweep_field(points, current),
             bounds,
             True,
@@ -1561,12 +1932,30 @@ def build_variant(form: Any, descriptors: tuple[Any, ...], samples: int = DEFAUL
                 for item in region.limb_sweeps
                 for owner in item.source_owners
             ],
+            "extremity_representation": "shared-guide-derived-hand-and-digitigrade-foot-profile-sweeps",
+            "extremity_sweeps_consumed": len(region.extremity_sweeps),
+            "extremity_sweep_order": [item.name for item in region.extremity_sweeps],
+            "extremity_sweep_kinds": [item.kind for item in region.extremity_sweeps],
+            "extremity_sweep_station_counts": [item.sections_consumed for item in region.extremity_sweeps],
+            "extremity_sweep_station_names": [list(item.section_names) for item in region.extremity_sweeps],
+            "extremity_sweep_section_owner_keys": [
+                [_baseline._address_json(owner.key) for owner in item.sweep.owners]
+                for item in region.extremity_sweeps
+            ],
+            "extremity_sweep_endpoint_cap_counts": [len(item.sweep.endpoint_caps) for item in region.extremity_sweeps],
+            "extremity_sweep_internal_transition_counts": [len(item.sweep.internal_transitions) for item in region.extremity_sweeps],
+            "extremity_source_owner_keys": [
+                _baseline._address_json(owner.key)
+                for item in region.extremity_sweeps
+                for owner in item.source_owners
+            ],
+            "replaced_baseline_field_count": sum(field.recipe in region.replaced_baseline_recipes for field in baseline_fields),
             "replaced_baseline_recipes": list(region.replaced_baseline_recipes),
         },
         "temporary_bridge": {
             "enabled": True,
             "consumer": "baseline-analytic-fields",
-            "regions": ["paws", "tail", "limb-root-connectors", "hip-transitions"],
+            "regions": ["tail", "limb-root-connectors", "hip-transitions"],
             "field_count": len(region.bridge_fields),
             "retained_recipes": sorted({field.recipe for field in region.bridge_fields}),
         },
@@ -1674,6 +2063,20 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
                     ],
                     "endpoint_cap_counts": [len(item.sweep.endpoint_caps) for item in mesh.representation.limb_sweeps],
                 },
+                "extremities": {
+                    "representation": "shared-guide-derived-hand-and-digitigrade-foot-profile-sweeps",
+                    "sweeps_consumed": len(mesh.representation.extremity_sweeps),
+                    "sweep_order": [item.name for item in mesh.representation.extremity_sweeps],
+                    "sweep_kinds": [item.kind for item in mesh.representation.extremity_sweeps],
+                    "station_counts": [item.sections_consumed for item in mesh.representation.extremity_sweeps],
+                    "station_names": [list(item.section_names) for item in mesh.representation.extremity_sweeps],
+                    "section_owner_keys": [
+                        [_baseline._address_json(owner.key) for owner in item.sweep.owners]
+                        for item in mesh.representation.extremity_sweeps
+                    ],
+                    "endpoint_cap_counts": [len(item.sweep.endpoint_caps) for item in mesh.representation.extremity_sweeps],
+                    "internal_transition_counts": [len(item.sweep.internal_transitions) for item in mesh.representation.extremity_sweeps],
+                },
                 "temporary_bridge": mesh.metrics["temporary_bridge"],
                 "replaced_baseline_recipes": list(mesh.representation.replaced_baseline_recipes),
             }) + b"\n")
@@ -1689,7 +2092,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
             "consumer_id": CONSUMER_ID,
             "source_format": _baseline.SOURCE_FORMAT,
             "source": {"sha256": hashlib.sha256(data).hexdigest(), "document": form.source["document"], "namespace": form.source["namespace"], "resource_profile_id": form.source["resource_profile_id"]},
-            "generator": {"samples_per_axis": samples, "padding": padding, "smooth_k": smooth_k, "consumer_boundary": "successor torso/shoulder/head/neck and four limb chains; baseline temporary bridge for root/hip connectors, paws/feet, and tail", "production_status": "disposable exploratory proof"},
+            "generator": {"samples_per_axis": samples, "padding": padding, "smooth_k": smooth_k, "consumer_boundary": "successor torso/shoulder/head/neck, four limb chains, bilateral hands, and digitigrade feet; baseline temporary bridge for root/hip connectors and tail", "production_status": "disposable exploratory proof"},
             "variants": records,
         }
         manifest_path = stage / "successor-surface-manifest.json"

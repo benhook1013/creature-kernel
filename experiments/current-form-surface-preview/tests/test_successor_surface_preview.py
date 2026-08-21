@@ -131,7 +131,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             {"cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar"},
             set(),
         )
-        self.assertEqual(len(region.bridge_fields), len(baseline_fields) - 30)
+        self.assertEqual(len(region.bridge_fields), 12)
         self.assertEqual(len(region.limb_sweeps), 4)
 
         # Changing an actual support profile changes the successor skin field;
@@ -155,6 +155,179 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
         )
         after = successor._successor_region_field(point, changed_region, 0.10)
         self.assertFalse(np.array_equal(before, after))
+
+    def test_extremity_sweeps_have_shared_order_topology_and_exact_caps(self) -> None:
+        expected_order = (
+            "left-hand-attachment", "left-hand-paw", "left-foot",
+            "right-hand-attachment", "right-hand-paw", "right-foot",
+        )
+        expected_kinds = (
+            "hand-attachment", "hand-paw", "foot-chain",
+            "hand-attachment", "hand-paw", "foot-chain",
+        )
+        expected_names = {
+            "hand-attachment": ("hand-attachment-start", "hand-attachment-end"),
+            "hand-paw": ("hand-paw-base", "hand-paw-palm", "hand-paw-knuckle", "hand-paw-tip"),
+            "foot-chain": ("hock", "metatarsal-midpoint", "pad", "pad-toe-midpoint", "toe"),
+        }
+        expected_counts = {"hand-attachment": 2, "hand-paw": 4, "foot-chain": 5}
+        expected_roles = {
+            "hand-attachment": ("hand", "hand"),
+            "hand-paw": ("hand", "hand", "hand", "hand"),
+            "foot-chain": ("shin", "foot", "foot", "foot", "foot"),
+        }
+        topologies = []
+        for _, descriptors, _ in self.form.variants:
+            guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+            region = successor.compile_successor_region(guide)
+            source_by_key = {descriptor.key: descriptor for descriptor in guide.source_descriptors}
+            self.assertEqual(tuple(item.name for item in region.extremity_sweeps), expected_order)
+            self.assertEqual(tuple(item.kind for item in region.extremity_sweeps), expected_kinds)
+            for item in region.extremity_sweeps:
+                self.assertEqual(item.section_names, expected_names[item.kind])
+                self.assertEqual(item.sections_consumed, expected_counts[item.kind])
+                self.assertEqual(
+                    tuple(section.owner.key[3] for section in item.sweep.sections),
+                    expected_roles[item.kind],
+                )
+                self.assertTrue(all(source_by_key.get(owner.key) is owner for owner in item.sweep.owners))
+                self.assertEqual(len(item.sweep.endpoint_caps), 2)
+                self.assertEqual(tuple(cap.side for cap in item.sweep.endpoint_caps), ("start", "end"))
+                if item.kind == "foot-chain":
+                    self.assertEqual(tuple(transition.section_index for transition in item.sweep.internal_transitions), (2,))
+                    self.assertEqual(item.sweep.internal_transitions[0].owner.key[3], "foot")
+                else:
+                    self.assertEqual(item.sweep.internal_transitions, ())
+            topologies.append(
+                (
+                    tuple(item.name for item in region.extremity_sweeps),
+                    tuple(item.sections_consumed for item in region.extremity_sweeps),
+                    tuple(len(item.sweep.internal_transitions) for item in region.extremity_sweeps),
+                )
+            )
+        self.assertEqual(len(set(topologies)), 1)
+
+    def test_hand_sweeps_retain_exact_guide_controls_and_forearm_overlap(self) -> None:
+        for _, descriptors, _ in self.form.variants:
+            guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+            region = successor.compile_successor_region(guide)
+            paws = {(item.owner.key[1][0], item.owner.key[3]): item for item in guide.paw_guides}
+            arms = {item.chain_name: item for item in region.limb_sweeps}
+            for item in region.hand_sweeps:
+                side = item.side
+                hand = paws[(side, "hand")]
+                arm = arms[f"{side}-arm"]
+                self.assertEqual(hand.owner.parent, arm.sweep.sections[-1].owner.key)
+                self.assertIs(item.sweep.sections[0].owner, hand.owner)
+                if item.kind == "hand-attachment":
+                    self.assertEqual(item.section_names, ("hand-attachment-start", "hand-attachment-end"))
+                    np.testing.assert_array_equal(item.sweep.sections[0].center, hand.attachment_centerline[0])
+                    np.testing.assert_array_equal(item.sweep.sections[-1].center, hand.attachment_centerline[1])
+                    self.assertEqual(
+                        tuple(section.transverse_radii for section in item.sweep.sections),
+                        ((hand.attachment_radius, hand.attachment_radius),) * 2,
+                    )
+                else:
+                    self.assertEqual(item.section_names, successor._HAND_PAW_SECTION_NAMES)
+                    outward = np.asarray(hand.axes.lateral, dtype=np.float64) * (-1.0 if side == "left" else 1.0)
+                    outward /= np.linalg.norm(outward)
+                    for section, control in zip(item.sweep.sections, successor._HAND_PAW_PROFILE):
+                        expected_center = np.asarray(hand.paw_center) + control[0] * hand.paw_radii[0] * outward
+                        np.testing.assert_array_equal(section.center, expected_center)
+                        self.assertEqual(
+                            section.transverse_radii,
+                            (hand.paw_radii[1] * control[1], hand.paw_radii[2] * control[2]),
+                        )
+                        np.testing.assert_array_equal(section.tangent, outward)
+                        self.assertEqual(
+                            section.transverse_axes,
+                            (tuple(hand.axes.up), tuple(hand.axes.forward)),
+                        )
+                    paw_center = np.asarray(hand.paw_center).reshape(1, 3)
+                    self.assertLess(float(successor._profile_sweep_field(paw_center, item.sweep)[0]), 0.0)
+                forearm_end = np.asarray(arm.sweep.sections[-1].center).reshape(1, 3)
+                self.assertLess(float(successor._profile_sweep_field(forearm_end, item.sweep)[0]), 0.0)
+
+    def test_foot_sweeps_retain_exact_chain_controls_and_forward_contact_order(self) -> None:
+        for _, descriptors, _ in self.form.variants:
+            guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+            region = successor.compile_successor_region(guide)
+            paws = {(item.owner.key[1][0], item.owner.key[3]): item for item in guide.paw_guides}
+            legs = {item.chain_name: item for item in region.limb_sweeps}
+            for item in region.foot_sweeps:
+                side = item.side
+                paw = paws[(side, "foot")]
+                chain = paw.foot_chain
+                leg = legs[f"{side}-leg"]
+                sections = item.sweep.sections
+                self.assertEqual(item.source_owners, (leg.sweep.sections[-1].owner, paw.owner))
+                self.assertEqual(tuple(section.owner for section in sections), item.source_owners[:1] + (paw.owner,) * 4)
+                self.assertEqual(sections[0].owner.key, leg.sweep.sections[-1].owner.key)
+                np.testing.assert_array_equal(sections[0].center, chain.hock_anchor)
+                np.testing.assert_array_equal(sections[0].center, chain.metatarsal_centerline[0])
+                expected_centers = (
+                    chain.hock_anchor,
+                    tuple(0.5 * (np.asarray(chain.metatarsal_centerline[0]) + np.asarray(chain.metatarsal_centerline[1]))),
+                    chain.pad_center,
+                    tuple(0.5 * (np.asarray(chain.pad_center) + np.asarray(chain.toe_center))),
+                    chain.toe_center,
+                )
+                expected_radii = (
+                    tuple(chain.hock_radii[:2]),
+                    (sum(chain.metatarsal_profile) * 0.5,) * 2,
+                    tuple(chain.pad_radii[:2]),
+                    tuple(0.5 * (np.asarray(chain.pad_radii[:2]) + np.asarray(chain.toe_radii[:2]))),
+                    tuple(chain.toe_radii[:2]),
+                )
+                for section, center, radii in zip(sections, expected_centers, expected_radii):
+                    np.testing.assert_array_equal(section.center, center)
+                    self.assertEqual(section.transverse_radii, radii)
+                self.assertGreater(sections[-1].center[2], sections[2].center[2])
+                self.assertLess(chain.contact_height, sections[2].center[1])
+
+    def test_extremity_replacement_and_bridge_inventory_is_exact(self) -> None:
+        _, descriptors, _ = self.form.variants[0]
+        guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+        baseline = surface_preview._compile_hybrid_guide(guide)
+        region = successor.compile_successor_region(guide, baseline)
+        self.assertEqual(len(baseline), 52)
+        self.assertEqual(len(region.bridge_fields), 12)
+        self.assertEqual(len(region.replaced_baseline_recipes), 23)
+        self.assertEqual(sum(field.recipe in region.replaced_baseline_recipes for field in baseline), 40)
+        self.assertEqual(
+            sum(field.recipe in successor._EXTREMITY_BASELINE_RECIPES for field in baseline),
+            10,
+        )
+        self.assertEqual(
+            {field.recipe for field in region.bridge_fields},
+            {"root-bridge", "hip-transition", "tail-segment", "tail-root-bridge", "tail-root-collar", "tail-tip-extension", "tail-tip-cap"},
+        )
+        self.assertEqual(sum(field.recipe == "root-bridge" for field in region.bridge_fields), 4)
+        self.assertEqual(sum(field.recipe == "hip-transition" for field in region.bridge_fields), 2)
+        self.assertEqual(sum(field.recipe in {"tail-segment", "tail-root-bridge", "tail-root-collar", "tail-tip-extension", "tail-tip-cap"} for field in region.bridge_fields), 6)
+        self.assertNotIn("paw", {field.recipe for field in region.bridge_fields})
+        self.assertNotIn("metatarsal", {field.recipe for field in region.bridge_fields})
+        self.assertNotIn("paw-pad", {field.recipe for field in region.bridge_fields})
+        self.assertNotIn("toe-box", {field.recipe for field in region.bridge_fields})
+        self.assertFalse(
+            {component.recipe for component in successor._make_components(region, successor.DEFAULT_SMOOTH_K)}
+            & set(successor._EXTREMITY_BASELINE_RECIPES)
+        )
+
+    def test_extremity_components_consume_all_sweeps_with_dynamic_attribution(self) -> None:
+        for _, descriptors, _ in self.form.variants:
+            guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+            region = successor.compile_successor_region(guide)
+            components = successor._make_components(region, successor.DEFAULT_SMOOTH_K)
+            by_name = {component.recipe: component for component in components}
+            for item in region.extremity_sweeps:
+                component = by_name[f"successor-{item.name}"]
+                self.assertTrue(component.successor)
+                self.assertIs(component.owner, item.sweep.sections[0].owner)
+                points = np.asarray([section.center for section in item.sweep.sections])
+                self.assertTrue(np.all(component.evaluate(points) < 0.0))
+                attributed = component.attribution(points)  # type: ignore[misc]
+                self.assertEqual(tuple(owner[3] for owner in attributed), tuple(section.owner.key[3] for section in item.sweep.sections))
 
     def test_head_neck_sweeps_retain_guide_controls_and_shared_topology(self) -> None:
         topologies = []
@@ -300,22 +473,21 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             topologies.append(tuple(topology))
         self.assertEqual(len(set(topologies)), 1)
 
-    def test_limb_bridge_inventory_retains_expected_twenty_two_fields_and_connectors(self) -> None:
+    def test_bridge_inventory_retains_expected_twelve_fields_and_connectors(self) -> None:
         _, descriptors, _ = self.form.variants[0]
         guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
         baseline = surface_preview._compile_hybrid_guide(guide)
         region = successor.compile_successor_region(guide, baseline)
         expected_bridge_recipes = {
-            "root-bridge", "hip-transition", "paw", "extremity-bridge", "metatarsal",
-            "paw-pad", "toe-box", "tail-segment", "tail-tip-extension", "tail-tip-cap",
+            "root-bridge", "hip-transition", "tail-segment", "tail-tip-extension", "tail-tip-cap",
             "tail-root-bridge", "tail-root-collar",
         }
-        self.assertEqual(len(region.bridge_fields), 22)
+        self.assertEqual(len(region.bridge_fields), 12)
         self.assertEqual({field.recipe for field in region.bridge_fields}, expected_bridge_recipes)
-        self.assertEqual(len(region.replaced_baseline_recipes), 18)
+        self.assertEqual(len(region.replaced_baseline_recipes), 23)
         self.assertEqual(
             sum(field.recipe in region.replaced_baseline_recipes for field in baseline),
-            30,
+            40,
         )
         self.assertEqual(
             sum(field.recipe in successor._LIMB_CHAIN_BASELINE_RECIPES for field in baseline),
@@ -333,15 +505,15 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             np.testing.assert_allclose(leg_root.shape["to"], leg.sweep.sections[0].center, rtol=0.0, atol=1.0e-12)
             hip = next(field for field in region.bridge_fields if field.recipe == "hip-transition" and field.owner is inventory[(side, "thigh")].owner)
             self.assertTrue(np.all(np.isfinite(hip.shape["from"])))
-            hand = next(field for field in region.bridge_fields if field.recipe == "extremity-bridge" and field.owner.key[1] == (side,) and field.owner.key[3] == "hand")
+            hand = next(item for item in region.hand_sweeps if item.side == side and item.kind == "hand-attachment")
             self.assertLessEqual(
-                successor._point_to_segment_distance(arm.sweep.sections[-1].center, hand.shape["from"], hand.shape["to"]),
-                max(arm.sweep.sections[-1].transverse_radii) + max(float(hand.shape["r0"]), float(hand.shape["r1"])) + successor._FRAME_TOLERANCE,
+                float(successor._profile_sweep_field(np.asarray(arm.sweep.sections[-1].center).reshape(1, 3), hand.sweep)[0]),
+                0.0,
             )
-            foot = next(field for field in region.bridge_fields if field.recipe == "metatarsal" and field.owner.key[1] == (side,) and field.owner.key[3] == "foot")
-            np.testing.assert_allclose(foot.shape["from"], leg.sweep.sections[-1].center, rtol=0.0, atol=1.0e-12)
+            foot = next(item for item in region.foot_sweeps if item.side == side)
+            np.testing.assert_allclose(foot.sweep.sections[0].center, leg.sweep.sections[-1].center, rtol=0.0, atol=1.0e-12)
             foot_guide = next(item for item in guide.paw_guides if item.owner.key[1] == (side,) and item.owner.key[3] == "foot")
-            np.testing.assert_allclose(foot_guide.foot_chain.hock_anchor, leg.sweep.sections[-1].center, rtol=0.0, atol=1.0e-12)
+            np.testing.assert_allclose(foot_guide.foot_chain.hock_anchor, foot.sweep.sections[0].center, rtol=0.0, atol=1.0e-12)
 
     def test_limb_components_consume_all_chains_with_dynamic_section_ownership(self) -> None:
         for _, descriptors, _ in self.form.variants:
@@ -393,6 +565,124 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
         )
         with self.assertRaises(successor.SuccessorPreviewError):
             successor.compile_successor_region(guide, wrong_field)
+
+    def test_extremity_validation_rejects_identity_parent_path_profile_inventory_and_controls(self) -> None:
+        _, descriptors, _ = self.form.variants[0]
+        guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+        baseline = surface_preview._compile_hybrid_guide(guide)
+        hand_index = next(index for index, paw in enumerate(guide.paw_guides) if paw.owner.key[1:] == (("left",), "part", "hand"))
+        hand = guide.paw_guides[hand_index]
+
+        cloned_paws = list(guide.paw_guides)
+        cloned_paws[hand_index] = replace(hand, owner=replace(hand.owner))
+        cloned_owner = replace(guide, paw_guides=tuple(cloned_paws))
+
+        wrong_parent = replace(hand.owner, parent=guide.torso_cage.torso_owner.key)
+        source_descriptors = tuple(wrong_parent if owner is hand.owner else owner for owner in guide.source_descriptors)
+        parent_paws = tuple(replace(hand, owner=wrong_parent) if paw is hand else paw for paw in guide.paw_guides)
+        wrong_parent_guide = replace(guide, source_descriptors=source_descriptors, paw_guides=parent_paws)
+
+        drifted_attachment = replace(
+            hand,
+            attachment_centerline=(
+                hand.attachment_centerline[0],
+                tuple(value + 0.1 for value in hand.attachment_centerline[1]),
+            ),
+        )
+        attachment_paws = list(guide.paw_guides)
+        attachment_paws[hand_index] = drifted_attachment
+        attachment_drift = replace(guide, paw_guides=tuple(attachment_paws))
+
+        drifted_axes = replace(hand.axes, forward=(0.0, 0.1, 1.0))
+        control_paws = list(guide.paw_guides)
+        control_paws[hand_index] = replace(hand, axes=drifted_axes)
+        control_drift = replace(guide, paw_guides=tuple(control_paws))
+
+        def mutate_field(recipe: str, role: str, mutation: object) -> tuple[object, ...]:
+            fields = list(baseline)
+            index = next(
+                index for index, field in enumerate(fields)
+                if field.recipe == recipe and field.owner.key[1] == ("left",) and field.owner.key[3] == role
+            )
+            fields[index] = mutation(fields[index])  # type: ignore[operator]
+            return tuple(fields)
+
+        path_drift = mutate_field(
+            "extremity-bridge", "hand",
+            lambda field: replace(field, shape={**field.shape, "from": tuple(value + 0.1 for value in field.shape["from"])}),
+        )
+        profile_drift = mutate_field(
+            "paw-pad", "foot",
+            lambda field: replace(field, shape={**field.shape, "radii": tuple(value + 0.1 for value in field.shape["radii"])}),
+        )
+        missing_mirror = tuple(
+            field for field in baseline
+            if not (field.recipe == "paw" and field.owner.key[1] == ("left",))
+        )
+        duplicated_mirror = tuple(
+            baseline[index]
+            if field.recipe != "paw" or field.owner.key[1] != ("right",)
+            else next(item for item in baseline if item.recipe == "paw" and item.owner.key[1] == ("left",))
+            for index, field in enumerate(baseline)
+        )
+        cases = {
+            "cloned-owner": (cloned_owner, baseline),
+            "attachment-guide-drift": (attachment_drift, baseline),
+            "attachment-path-drift": (guide, path_drift),
+            "foot-profile-drift": (guide, profile_drift),
+            "missing-mirrored-paw": (guide, missing_mirror),
+            "duplicated-mirrored-paw": (guide, duplicated_mirror),
+            "hand-control-drift": (control_drift, baseline),
+        }
+        for name, (invalid_guide, invalid_fields) in cases.items():
+            with self.subTest(name=name), self.assertRaises(successor.SuccessorPreviewError):
+                successor.compile_successor_region(invalid_guide, invalid_fields)
+
+        # Exercise the successor extremity parent check directly: the normal
+        # compile path also validates the temporary baseline bridge first and
+        # would reject this mutation before reaching the new consumer.
+        wrong_parent_limbs = successor._make_limb_sweeps(wrong_parent_guide)
+        with self.assertRaises(successor.SuccessorPreviewError):
+            successor._make_extremity_sweeps(wrong_parent_guide, wrong_parent_limbs)
+
+    def test_extremity_rejects_rotated_orthonormal_hand_frame(self) -> None:
+        _, descriptors, _ = self.form.variants[0]
+        guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+        baseline = surface_preview._compile_hybrid_guide(guide)
+        hand_index = next(index for index, paw in enumerate(guide.paw_guides) if paw.owner.key[1:] == (("left",), "part", "hand"))
+        hand = guide.paw_guides[hand_index]
+        angle = 0.37
+        cosine, sine = math.cos(angle), math.sin(angle)
+        rotated_axes = replace(
+            hand.axes,
+            lateral=(cosine, 0.0, sine),
+            forward=(-sine, 0.0, cosine),
+        )
+        rotated_paws = list(guide.paw_guides)
+        rotated_paws[hand_index] = replace(hand, axes=rotated_axes)
+        rotated_guide = replace(guide, paw_guides=tuple(rotated_paws))
+
+        with self.assertRaisesRegex(successor.SuccessorPreviewError, "hand guide axes"):
+            successor.compile_successor_region(rotated_guide, baseline)
+
+    def test_extremity_rejects_metatarsal_endpoint_drift_from_pad(self) -> None:
+        _, descriptors, _ = self.form.variants[0]
+        guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+        foot_index = next(index for index, paw in enumerate(guide.paw_guides) if paw.owner.key[1:] == (("left",), "part", "foot"))
+        foot = guide.paw_guides[foot_index]
+        chain = foot.foot_chain
+        drifted_end = tuple(value + (0.1 if axis == 0 else 0.0) for axis, value in enumerate(chain.metatarsal_centerline[1]))
+        drifted_chain = replace(
+            chain,
+            metatarsal_centerline=(chain.metatarsal_centerline[0], drifted_end),
+        )
+        drifted_paws = list(guide.paw_guides)
+        drifted_paws[foot_index] = replace(foot, foot_chain=drifted_chain)
+        drifted_guide = replace(guide, paw_guides=tuple(drifted_paws))
+        drifted_baseline = surface_preview._compile_hybrid_guide(drifted_guide)
+
+        with self.assertRaisesRegex(successor.SuccessorPreviewError, "metatarsal must end at the pad exactly"):
+            successor.compile_successor_region(drifted_guide, drifted_baseline)
 
     def test_limb_validation_rejects_identity_topology_inventory_and_bridge_drift(self) -> None:
         _, descriptors, _ = self.form.variants[0]
@@ -502,7 +792,8 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
         self.assertEqual(mesh.metrics["consumer_id"], successor.CONSUMER_ID)
         self.assertEqual(mesh.metrics["successor_region"]["torso_sections_consumed"], 7)
         self.assertTrue(mesh.metrics["temporary_bridge"]["enabled"])
-        self.assertGreater(mesh.metrics["temporary_bridge"]["field_count"], 0)
+        self.assertEqual(mesh.metrics["temporary_bridge"]["field_count"], 12)
+        self.assertEqual(mesh.metrics["successor_region"]["replaced_baseline_field_count"], 40)
         self.assertNotEqual(mesh.metrics["consumer_id"], "creature-kernel.disposable-surface-preview.v2")
         self.assertEqual(len(mesh.vertices.shape), 2)
         self.assertEqual(mesh.vertices.shape[1], 3)
@@ -579,6 +870,21 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             self.assertEqual(limb_metrics["limb_sweep_station_counts"], [5, 5, 5, 5])
             self.assertEqual(limb_metrics["limb_sweep_endpoint_cap_counts"], [2, 2, 2, 2])
             self.assertTrue(all(len(owners) == 5 for owners in limb_metrics["limb_sweep_section_owner_keys"]))
+            self.assertEqual(limb_metrics["extremity_sweeps_consumed"], 6)
+            self.assertEqual(
+                limb_metrics["extremity_sweep_order"],
+                ["left-hand-attachment", "left-hand-paw", "left-foot", "right-hand-attachment", "right-hand-paw", "right-foot"],
+            )
+            self.assertEqual(
+                limb_metrics["extremity_sweep_kinds"],
+                ["hand-attachment", "hand-paw", "foot-chain", "hand-attachment", "hand-paw", "foot-chain"],
+            )
+            self.assertEqual(limb_metrics["extremity_sweep_station_counts"], [2, 4, 5, 2, 4, 5])
+            self.assertEqual(limb_metrics["extremity_sweep_endpoint_cap_counts"], [2, 2, 2, 2, 2, 2])
+            self.assertEqual(limb_metrics["extremity_sweep_internal_transition_counts"], [0, 0, 1, 0, 0, 1])
+            self.assertEqual(limb_metrics["replaced_baseline_field_count"], 40)
+            self.assertEqual(len(limb_metrics["replaced_baseline_recipes"]), 23)
+            self.assertEqual(first.metrics["temporary_bridge"]["field_count"], 12)
             np.testing.assert_array_equal(first.vertices, second.vertices)
             np.testing.assert_array_equal(first.faces, second.faces)
             np.testing.assert_array_equal(first.normals, second.normals)
@@ -650,7 +956,21 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 self.assertEqual(sidecar["limbs"]["endpoint_cap_counts"], [2, 2, 2, 2])
                 self.assertEqual(len(sidecar["limbs"]["section_owner_keys"]), 4)
                 self.assertTrue(all(len(owners) == 5 for owners in sidecar["limbs"]["section_owner_keys"]))
+                self.assertEqual(sidecar["extremities"]["sweeps_consumed"], 6)
+                self.assertEqual(
+                    sidecar["extremities"]["sweep_order"],
+                    ["left-hand-attachment", "left-hand-paw", "left-foot", "right-hand-attachment", "right-hand-paw", "right-foot"],
+                )
+                self.assertEqual(
+                    sidecar["extremities"]["sweep_kinds"],
+                    ["hand-attachment", "hand-paw", "foot-chain", "hand-attachment", "hand-paw", "foot-chain"],
+                )
+                self.assertEqual(sidecar["extremities"]["station_counts"], [2, 4, 5, 2, 4, 5])
+                self.assertEqual(sidecar["extremities"]["endpoint_cap_counts"], [2, 2, 2, 2, 2, 2])
+                self.assertEqual(sidecar["extremities"]["internal_transition_counts"], [0, 0, 1, 0, 0, 1])
+                self.assertEqual(len(sidecar["replaced_baseline_recipes"]), 23)
                 self.assertTrue(sidecar["temporary_bridge"]["enabled"])
+                self.assertEqual(sidecar["temporary_bridge"]["field_count"], 12)
 
     def test_rotated_profile_sweep_is_rigid_transform_invariant(self) -> None:
         angle = 0.63

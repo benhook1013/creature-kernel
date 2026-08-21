@@ -132,15 +132,19 @@ ephemeral under `/tmp`.
 ## Disposable successor consumer
 
 The separate successor consumer is a disposable exploratory proof. Its current
-bounded slice replaces the torso, shoulders, head, neck, and four bilateral
-limb-chain surface consumers. The head/neck consumer uses one fixed-order set of guide-derived
-profile sweeps: a compact cranial profile, a tapered forward muzzle, exact
-guide-owned head and neck transition paths, and a small guide-derived neck
-collar. Every section retains an existing source descriptor AddressKey; the
-profile constants are shared across all four variants, while centres, radii,
-endpoints, thicknesses, and axes come from each private guide. Baseline fields
-remain an explicit bridge only for limb-root/hip connectors, paws/feet, and
-tail. It is neither a permanent backend selection nor the active human
+bounded slice replaces the torso, shoulders, head, neck, four bilateral
+limb-chain consumers, and bilateral hand/foot consumers. The head/neck
+consumer uses one fixed-order set of guide-derived profile sweeps: a compact
+cranial profile, a tapered forward muzzle, exact guide-owned head and neck
+transition paths, and a small guide-derived neck collar. Every section retains
+an existing source descriptor AddressKey; the profile constants are shared
+across all four variants, while centres, radii, endpoints, thicknesses, and
+axes come from each private guide. The successor hand/foot boundary consumes
+ordered hand attachment/paw sweeps and shin-to-foot digitigrade chains,
+including guide-owned hock, metatarsal, pad, and toe controls. Baseline fields
+remain an explicit bridge only for four limb-root connectors, two hip
+transitions, and six tail fields; no baseline paw or foot component remains.
+It is neither a permanent backend selection nor the active human
 visual checkpoint. The [active runway](../../docs/project/status.md#active-runway)
 defines the baseline-versus-successor browser comparison that must be reached
 before human appraisal.
