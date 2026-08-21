@@ -128,6 +128,40 @@ produces byte-identical outputs; no timestamps or temporary paths are
 embedded. The output contains no committed artifact policy exception: keep it
 ephemeral under `/tmp`.
 
+## Disposable successor consumer
+
+The separate successor consumer is a disposable exploratory proof. Its current
+bounded slice replaces only the torso and shoulder surface construction; it
+explicitly bridges the baseline fields for the head, neck, limbs, paws, and
+tail. It is neither a permanent backend selection nor the active human visual
+checkpoint. The [active runway](../../docs/project/status.md#active-runway)
+defines the baseline-versus-successor browser comparison that must be reached
+before human appraisal.
+
+After creating and activating the experiment virtual environment described
+above, the workflow has two steps:
+
+```bash
+cargo run -p creature-kernel-cli -- inspect-provisional-form \
+  --input examples/body-documents/stylized-digitigrade-biped.json \
+  > /tmp/form-v4.json
+
+mkdir -p /tmp/ck-successor-surface
+python experiments/current-form-surface-preview/generate_successor_surface_preview.py \
+  --input /tmp/form-v4.json \
+  --output /tmp/ck-successor-surface/run-a \
+  --samples-per-axis 48
+```
+
+Use `--samples-per-axis 48` for this bounded slice. Lower values within the
+accepted argument range may still validly fail mesh-connectedness validation;
+successful generation is not guaranteed at every in-range sampling value.
+
+A successful run writes `successor-surface-manifest.json` plus four variant
+directories. Each variant directory contains exactly `surface.ply`,
+`metrics.json`, and `successor.json`. This slice does not yet produce PNGs or
+publish a visual-gallery session.
+
 Focused tests:
 
 ```bash

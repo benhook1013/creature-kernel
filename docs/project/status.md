@@ -15,33 +15,41 @@ governs what resumes next.
 
 Execution state: active after Ben resumed the runway on 2026-08-20.
 
-PR #96 was accepted and merged at `f64eecd` after Ben appraised the feet as
-“better but still bad” and said that was fine. Preserve PR #96 as accepted
-intermediate evidence and the baseline for the next form pass; it is not final
-anatomy or backend approval.
+PR #97 was accepted and merged at `e78640e` after Ben appraised the revised
+underarm silhouette as better. Preserve it as the accepted baseline for the
+next form pass; it is not final anatomy or backend approval.
 
-The current artifact-scoped defect is that, in front view, conspicuous
-circular bulges appear immediately beneath the armpits at the chest's maximum
-width. This identifies a failure of the displayed candidate, not a durable
-geometric prescription or product requirement.
+Stop polishing the current ellipsoid/capsule/smooth-union grey surface
+consumer. It is disposable and remains only as a debug and comparison
+baseline. The next runway is to build one separate, disposable exploratory
+successor surface consumer driven by the existing semantic body and private
+generated guide/anatomy data. The working implementation hypothesis is a
+hybrid of ordered cross-sections/profile lofts and swept regional forms; this
+is not a permanent backend selection or acceptance of a decision record.
 
-The next autonomous runway is to diagnose which private shoulder, deltoid, or
-torso support fields create the visible lobes, then replace or blend their
-outer-surface contribution into a continuous upper-torso-to-arm transition
-across all four existing variants. Preserve useful shoulder span, arm sockets,
-torso continuity, and variant differences; keep the fix private and
-backend-neutral.
+Use shared generator operations across all four fixed variants. Do not add
+per-fixture patches or a handcrafted base mesh. The successor must consume the
+existing semantic and guide inputs so the checkpoint tests the surface
+boundary rather than replacing the body source.
 
-The next human checkpoint is a PR #96 baseline versus revised front, side, and
-three-quarter guide-plus-skin comparison across all four variants. Ben should
-judge removal of the circular underarm lobes without regression in shoulders,
-arm attachment, or torso. Stop before merging the first appraisable result.
+The next human checkpoint is a baseline-versus-successor browser comparison
+across all four variants, with front, side, and three-quarter views and
+inspectable guides. Ben's useful judgment is whether the successor reads as a
+materially more coherent stylized furry biped overall: recognizable
+cranium/muzzle/neck, shoulder/torso/pelvis structure, connected limbs and
+joints, digitigrade legs, paws, and tail; less like blended primitives; with
+the variants still meaningfully different. This is an overall-form proof. Do
+not stop for isolated artifact tuning unless it blocks that checkpoint. Stop
+before merging the first appraisable successor result.
 
-Non-goals for this runway are final muscle anatomy, broader torso redesign,
-feet retuning, head, hands, new public semantics, backend selection, and
-physics, rigging, or animation. EXP-0002 and the other parked machinery remain
-parked. Multiple small reviewed PRs may advance direct prerequisites toward the
-named checkpoint; stop if progress requires a material scope expansion.
+Non-goals are production or animation-ready topology, a permanent
+surface/backend choice, species detailing, facial animation, eyes, teeth,
+tongue, fur, rigging, physics/deformation, performance proof, and reactivation
+or acceptance of parked DR-0009, DR-0010, or EXP-0001. Building the exploratory
+candidate does not reactivate the parked formal comparison; that can be
+considered only after the visual checkpoint. Multiple small reviewed PRs may
+advance direct prerequisites toward the named checkpoint; stop if progress
+requires a material scope expansion.
 
 EXP-0002 and its Gate B/freeze/runtime-attestation continuation are parked and
 non-blocking. They are not prerequisites for this visual runway and must not be
