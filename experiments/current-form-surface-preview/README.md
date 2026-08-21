@@ -132,15 +132,15 @@ ephemeral under `/tmp`.
 ## Disposable successor consumer
 
 The separate successor consumer is a disposable exploratory proof. Its current
-bounded slice replaces the torso, shoulders, head, and neck surface
-construction. The head/neck consumer uses one fixed-order set of guide-derived
+bounded slice replaces the torso, shoulders, head, neck, and four bilateral
+limb-chain surface consumers. The head/neck consumer uses one fixed-order set of guide-derived
 profile sweeps: a compact cranial profile, a tapered forward muzzle, exact
 guide-owned head and neck transition paths, and a small guide-derived neck
 collar. Every section retains an existing source descriptor AddressKey; the
 profile constants are shared across all four variants, while centres, radii,
 endpoints, thicknesses, and axes come from each private guide. Baseline fields
-remain an explicit bridge only for limbs, paws, tail, and limb-root/hip
-connectors. It is neither a permanent backend selection nor the active human
+remain an explicit bridge only for limb-root/hip connectors, paws/feet, and
+tail. It is neither a permanent backend selection nor the active human
 visual checkpoint. The [active runway](../../docs/project/status.md#active-runway)
 defines the baseline-versus-successor browser comparison that must be reached
 before human appraisal.
@@ -157,12 +157,15 @@ mkdir -p /tmp/ck-successor-surface
 python experiments/current-form-surface-preview/generate_successor_surface_preview.py \
   --input /tmp/form-v4.json \
   --output /tmp/ck-successor-surface/run-a \
-  --samples-per-axis 48
+  --samples-per-axis 56
 ```
 
-Use `--samples-per-axis 48` for this bounded slice. Lower values within the
-accepted argument range may still validly fail mesh-connectedness validation;
-successful generation is not guaranteed at every in-range sampling value.
+Use `--samples-per-axis 56` for this experiment preview. The lean fixture
+aliases into disconnected sampled components at 48, so 56 is the documented
+preview resolution. This does not solve production topology or minimum-feature
+robustness; lower values within the accepted argument range may still validly
+fail mesh-connectedness validation, and successful generation is not guaranteed
+at every in-range sampling value.
 
 A successful run writes `successor-surface-manifest.json` plus four variant
 directories. Each variant directory contains exactly `surface.ply`,

@@ -3,8 +3,8 @@
 
 This module is intentionally adjacent to, rather than a modification of,
 ``surface_preview.py``.  It consumes the existing private hybrid guide and
-replaces the torso/shoulder and head/neck skin consumers with explicitly
-identified profile sweeps and swept shoulder spans.  Limbs, paws, tail, and
+replaces the torso/shoulder, head/neck, and four limb-chain skin consumers with
+explicitly identified profile sweeps and swept shoulder spans.  Paws, tail, and
 root/hip connector fields remain an explicit temporary bridge so the experiment
 can still produce a whole-body mesh without pretending that those regions have
 been redesigned.
@@ -43,8 +43,8 @@ except ModuleNotFoundError:  # pragma: no cover - direct source-tree execution
 
 FORMAT = "creature-kernel.disposable-successor-surface-preview.v1"
 CONSUMER_ID = "successor-surface-v1"
-SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-profile-sweeps-v2"
-DEFAULT_SAMPLES = 48
+SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-limb-profile-sweeps-v3"
+DEFAULT_SAMPLES = 56
 DEFAULT_PADDING = 0.50
 DEFAULT_SMOOTH_K = 0.10
 MAX_SAMPLES = 96
@@ -177,8 +177,33 @@ class _RegionalProfileSweep:
 
 
 @dataclass(frozen=True)
+class _LimbChainSweep:
+    """One bilateral limb-chain sweep with per-section source ownership."""
+
+    chain_name: str
+    source_owners: tuple[Any, ...]
+    sweep: _ProfileSweep
+
+    @property
+    def name(self) -> str:
+        return self.chain_name
+
+    @property
+    def owners(self) -> tuple[Any, ...]:
+        return self.sweep.owners
+
+    @property
+    def section_names(self) -> tuple[str, ...]:
+        return self.sweep.names
+
+    @property
+    def sections_consumed(self) -> int:
+        return len(self.sweep.sections)
+
+
+@dataclass(frozen=True)
 class SuccessorRegion:
-    """Explicit successor torso/shoulder/head/neck representation.
+    """Explicit successor torso/shoulder/head/neck/limb representation.
 
     ``bridge_fields`` are untouched baseline fields for all regions outside
     this successor region.  They are kept here, rather than silently folded
@@ -194,6 +219,7 @@ class SuccessorRegion:
     replaced_baseline_recipes: tuple[str, ...]
     source_owners: tuple[Any, ...]
     head_neck_sweeps: tuple[_RegionalProfileSweep, ...] = ()
+    limb_sweeps: tuple[_LimbChainSweep, ...] = ()
 
     @property
     def section_names(self) -> tuple[str, ...]:
@@ -206,6 +232,12 @@ class SuccessorRegion:
     @property
     def shoulder_inputs_consumed(self) -> int:
         return len(self.shoulder_spans)
+
+    @property
+    def chain_sweeps(self) -> tuple[_LimbChainSweep, ...]:
+        """Compatibility alias for the named successor limb chains."""
+
+        return self.limb_sweeps
 
 
 @dataclass(frozen=True)
@@ -228,6 +260,7 @@ class _Component:
     evaluate: Callable[[np.ndarray], np.ndarray]
     bounds: tuple[np.ndarray, np.ndarray]
     successor: bool
+    attribution: Callable[[np.ndarray], tuple[tuple[str, tuple[str, ...], str, str], ...]] | None = None
 
 
 def _finite_positive(values: tuple[float, ...], where: str) -> None:
@@ -701,19 +734,409 @@ def _make_head_neck_sweeps(guide: Any) -> tuple[_RegionalProfileSweep, ...]:
     )
 
 
-def compile_successor_region(guide: Any, baseline_fields: tuple[Any, ...] | None = None) -> SuccessorRegion:
-    """Compile the guide into the successor torso/shoulder/head/neck consumer.
+def _limb_chain_sweep(
+    chain_name: str,
+    station_specs: tuple[tuple[str, Any, tuple[float, float, float], tuple[float, float]], ...],
+    axes: Any,
+) -> _LimbChainSweep:
+    """Compile one ordered chain using the shared generalized sweep machinery."""
 
-    The torso cage, shoulder deltoid spans, and five baseline head/neck fields
-    are replaced.  Every other baseline field is carried as a named temporary
-    bridge, including limb root connectors that preserve whole-body continuity
-    for this bounded slice.
+    if len(station_specs) != 5:
+        _fail(f"successor {chain_name} requires exactly five ordered stations")
+    centers = tuple(_vec3(spec[2], f"{chain_name}.{spec[0]}.center") for spec in station_specs)
+    sections: list[_ProfileSection] = []
+    path_length = 0.0
+    for index, (name, owner, _center, radii) in enumerate(station_specs):
+        if index == 0:
+            direction = centers[1] - centers[0]
+        elif index == len(centers) - 1:
+            direction = centers[-1] - centers[-2]
+        else:
+            direction = centers[index + 1] - centers[index - 1]
+        tangent, first, second = _frame_from_tangent(
+            direction,
+            _vec3(axes.lateral, f"{chain_name}.lateral-axis"),
+            _vec3(axes.forward, f"{chain_name}.forward-axis"),
+            f"{chain_name}.{name}",
+        )
+        if index:
+            span_length = float(np.linalg.norm(centers[index] - centers[index - 1]))
+            if span_length <= _DEGENERATE_TOLERANCE:
+                _fail(f"{chain_name}.{name} follows a degenerate station")
+            path_length += span_length
+        _finite_positive(tuple(float(value) for value in radii), f"{chain_name}.{name}.radii")
+        sections.append(_ProfileSection(
+            name=name,
+            owner=owner,
+            center=tuple(float(value) for value in centers[index]),
+            tangent=tuple(float(value) for value in tangent),
+            transverse_axes=(tuple(float(value) for value in first), tuple(float(value) for value in second)),
+            transverse_radii=tuple(float(value) for value in radii),
+            path_length=path_length,
+        ))
+    ordered = tuple(sections)
+    start_cap_axial = max(min(ordered[0].transverse_radii), min(ordered[1].transverse_radii))
+    end_cap_axial = max(min(ordered[-1].transverse_radii), min(ordered[-2].transverse_radii))
+    caps = (
+        _ProfileEndpointCap(
+            "start", ordered[0].center, tuple(-float(value) for value in ordered[0].tangent),
+            ordered[0].transverse_axes, ordered[0].transverse_radii,
+            start_cap_axial,
+        ),
+        _ProfileEndpointCap(
+            "end", ordered[-1].center, ordered[-1].tangent,
+            ordered[-1].transverse_axes, ordered[-1].transverse_radii,
+            end_cap_axial,
+        ),
+    )
+    sweep = _ProfileSweep(ordered, caps)
+    _validate_profile_sweep(sweep)
+    owners: list[Any] = []
+    for section in ordered:
+        if not any(section.owner is owner for owner in owners):
+            owners.append(section.owner)
+    return _LimbChainSweep(chain_name, tuple(owners), sweep)
+
+
+def _require_same_point(first: Any, second: Any, where: str) -> None:
+    if not np.allclose(_vec3(first, f"{where}.first"), _vec3(second, f"{where}.second"), rtol=0.0, atol=_FRAME_TOLERANCE):
+        _fail(f"{where} controls do not overlap")
+
+
+def _require_exact_same_point(first: Any, second: Any, where: str) -> None:
+    """Require two guide controls to be the same endpoint, not merely close."""
+
+    first_vector = _vec3(first, f"{where}.first")
+    second_vector = _vec3(second, f"{where}.second")
+    if not np.array_equal(first_vector, second_vector):
+        _fail(f"{where} controls must join exactly")
+
+
+def _require_path_shape(
+    shape: Any,
+    path: tuple[tuple[float, float, float], tuple[float, float, float]],
+    profile: tuple[float, ...],
+    where: str,
+    *,
+    expected_name: str = "tapered-segment",
+) -> None:
+    """Require a retained baseline segment to reproduce its guide controls."""
+
+    if not isinstance(shape, dict) or shape.get("name") != expected_name:
+        _fail(f"{where} must retain a {expected_name!r} field shape")
+    if not profile:
+        _fail(f"{where} guide profile must provide endpoint controls")
+    _require_exact_same_point(shape.get("from"), path[0], f"{where}.from")
+    _require_exact_same_point(shape.get("to"), path[1], f"{where}.to")
+    try:
+        shape_profile = (float(shape["r0"]), float(shape["r1"]))
+    except (KeyError, TypeError, ValueError):
+        _fail(f"{where} field shape is missing endpoint profile controls")
+    expected_profile = (float(profile[0]), float(profile[-1]))
+    if shape_profile != expected_profile:
+        _fail(f"{where} field profile controls do not match the guide")
+
+
+_LIMB_SECTION_NAMES = {
+    "upper_arm": ("pre-joint", "joint"),
+    "forearm": ("proximal", "distal"),
+    "thigh": ("pre-joint", "joint"),
+    "shin": ("pre-joint", "joint"),
+}
+
+
+def _limb_inventory(guide: Any) -> dict[tuple[str, str], Any]:
+    """Require the exact bilateral eight-guide inventory used by this slice."""
+
+    source_by_key = {descriptor.key: descriptor for descriptor in guide.source_descriptors}
+    expected = {(side, role) for side in ("left", "right") for role in ("upper_arm", "forearm", "thigh", "shin")}
+    inventory: dict[tuple[str, str], Any] = {}
+    for item in guide.limb_guides:
+        if item.axes != guide.topology.axes:
+            _fail(f"limb guide axes do not match topology for {item.owner.key}")
+        key = item.owner.key
+        canonical_owner = source_by_key.get(key)
+        if canonical_owner is None or canonical_owner is not item.owner:
+            _fail("successor limb guide owner must be the canonical source descriptor")
+        if key[1] not in (("left",), ("right",)) or key[3] not in _LIMB_SECTION_NAMES:
+            _fail("successor limb guide owner is not one of the eight source limb AddressKeys")
+        slot = (key[1][0], key[3])
+        if slot in inventory:
+            _fail(f"successor limb guide inventory duplicates {slot}")
+        if len(item.sections) != 2:
+            _fail(f"successor limb guide {slot} must contain exactly two source sections")
+        expected_names = _LIMB_SECTION_NAMES[key[3]]
+        if tuple(section.name for section in item.sections) != expected_names:
+            _fail(f"successor limb guide {slot} must use the exact ordered sections {expected_names!r}")
+        _require_exact_same_point(
+            item.sections[0].centerline[1],
+            item.sections[1].centerline[0],
+            f"successor limb guide {slot} adjacent section endpoint",
+        )
+        inventory[slot] = item
+    if set(inventory) != expected:
+        _fail(f"successor limb guide inventory must contain exactly {len(expected)} bilateral guides")
+    return inventory
+
+
+def _make_limb_sweeps(guide: Any) -> tuple[_LimbChainSweep, ...]:
+    """Build the fixed-order left/right arm and leg chain sweeps."""
+
+    inventory = _limb_inventory(guide)
+    sweeps: list[_LimbChainSweep] = []
+    for side in ("left", "right"):
+        upper = inventory[(side, "upper_arm")]
+        forearm = inventory[(side, "forearm")]
+        if upper.joint is None or upper.joint.name != "elbow":
+            _fail(f"{side} upper-arm guide must provide one elbow station")
+        upper_start, upper_mid = upper.sections[0].centerline
+        upper_joint_endpoint = upper.sections[1].centerline[1]
+        forearm_joint_start = forearm.sections[0].centerline[0]
+        elbow = upper.joint
+        _require_same_point(upper_joint_endpoint, elbow.center, f"{side}.elbow source endpoint")
+        _require_same_point(forearm_joint_start, elbow.center, f"{side}.elbow forearm start")
+        forearm_mid = forearm.sections[0].centerline[1]
+        forearm_end = forearm.sections[1].centerline[1]
+        # The frame is derived by _limb_chain_sweep. The current guide exposes
+        # scalar profile controls, so each station is circular in its local
+        # transverse plane.
+        sweeps.append(_limb_chain_sweep(
+            f"{side}-arm",
+            (
+                ("upper-arm-start", upper.owner, upper_start, (upper.sections[0].thickness[0],) * 2),
+                ("upper-arm-midpoint", upper.owner, upper_mid, (upper.sections[0].thickness[1],) * 2),
+                ("elbow", upper.owner, elbow.center, (float(elbow.radii[0]), float(elbow.radii[1]))),
+                ("forearm-midpoint", forearm.owner, forearm_mid, (forearm.sections[0].thickness[1],) * 2),
+                ("forearm-distal", forearm.owner, forearm_end, (forearm.sections[1].thickness[1],) * 2),
+            ),
+            upper.axes,
+        ))
+
+        thigh = inventory[(side, "thigh")]
+        shin = inventory[(side, "shin")]
+        if thigh.joint is None or thigh.joint.name != "knee":
+            _fail(f"{side} thigh guide must provide one knee station")
+        if shin.joint is None or shin.joint.name != "hock":
+            _fail(f"{side} shin guide must provide one hock station")
+        thigh_start, thigh_mid = thigh.sections[0].centerline
+        knee = thigh.joint
+        _require_same_point(thigh.sections[1].centerline[1], knee.center, f"{side}.knee source endpoint")
+        _require_same_point(shin.sections[0].centerline[0], knee.center, f"{side}.knee shin start")
+        shin_mid = shin.sections[0].centerline[1]
+        hock = shin.joint
+        _require_same_point(shin.sections[1].centerline[1], hock.center, f"{side}.hock source endpoint")
+        sweeps.append(_limb_chain_sweep(
+            f"{side}-leg",
+            (
+                ("thigh-start", thigh.owner, thigh_start, (thigh.sections[0].thickness[0],) * 2),
+                ("thigh-midpoint", thigh.owner, thigh_mid, (thigh.sections[0].thickness[1],) * 2),
+                ("knee", thigh.owner, knee.center, (float(knee.radii[0]), float(knee.radii[1]))),
+                ("shin-midpoint", shin.owner, shin_mid, (shin.sections[0].thickness[1],) * 2),
+                ("hock-endpoint", shin.owner, hock.center, (float(hock.radii[0]), float(hock.radii[1]))),
+            ),
+            thigh.axes,
+        ))
+    if tuple(item.chain_name for item in sweeps) != ("left-arm", "left-leg", "right-arm", "right-leg"):
+        _fail("successor limb chain order is unstable")
+    return tuple(sweeps)
+
+
+_LIMB_CHAIN_BASELINE_RECIPES = (
+    "upper_arm-pre-joint",
+    "upper_arm-joint",
+    "forearm-proximal",
+    "forearm-distal",
+    "thigh-pre-joint",
+    "thigh-joint",
+    "shin-pre-joint",
+    "shin-joint",
+    "elbow",
+    "knee",
+    "hock",
+)
+
+
+def _point_to_segment_distance(point: Any, start: Any, end: Any) -> float:
+    point_vector = _vec3(point, "connector overlap point")
+    start_vector = _vec3(start, "connector overlap start")
+    end_vector = _vec3(end, "connector overlap end")
+    axis = end_vector - start_vector
+    length_sq = float(np.dot(axis, axis))
+    if length_sq <= _DEGENERATE_TOLERANCE:
+        return float(np.linalg.norm(point_vector - start_vector))
+    t = float(np.clip(np.dot(point_vector - start_vector, axis) / length_sq, 0.0, 1.0))
+    return float(np.linalg.norm(point_vector - (start_vector + t * axis)))
+
+
+def _validate_limb_bridge_inventory(
+    guide: Any,
+    baseline_fields: tuple[Any, ...],
+    limb_sweeps: tuple[_LimbChainSweep, ...],
+) -> tuple[Any, ...]:
+    """Remove only limb-chain fields and verify every retained bridge joins them."""
+
+    inventory = _limb_inventory(guide)
+    source_by_key = {descriptor.key: descriptor for descriptor in guide.source_descriptors}
+    removed = tuple(field for field in baseline_fields if field.recipe in _LIMB_CHAIN_BASELINE_RECIPES)
+    expected_roles = {
+        "upper_arm-pre-joint": "upper_arm", "upper_arm-joint": "upper_arm", "elbow": "upper_arm",
+        "forearm-proximal": "forearm", "forearm-distal": "forearm",
+        "thigh-pre-joint": "thigh", "thigh-joint": "thigh", "knee": "thigh",
+        "shin-pre-joint": "shin", "shin-joint": "shin", "hock": "shin",
+    }
+    expected_removed = tuple(sorted(
+        (side, expected_roles[recipe], recipe)
+        for side in ("left", "right")
+        for recipe in _LIMB_CHAIN_BASELINE_RECIPES
+    ))
+    observed_removed: list[tuple[str, str, str]] = []
+    for field in removed:
+        canonical_owner = source_by_key.get(field.owner.key)
+        if canonical_owner is None or canonical_owner is not field.owner:
+            _fail(f"baseline limb field {field.recipe!r} must retain its canonical source owner")
+        key = field.owner.key
+        role = expected_roles.get(field.recipe)
+        if role is None or len(key[1]) != 1 or key[1][0] not in ("left", "right"):
+            _fail(f"baseline limb field {field.recipe!r} has an invalid side/role owner")
+        if key[3] != role:
+            _fail(f"baseline limb field {field.recipe!r} has the wrong source owner")
+        if (key[1][0], role) not in inventory:
+            _fail(f"baseline limb field {field.recipe!r} has a non-guide owner")
+        observed_removed.append((key[1][0], role, field.recipe))
+    if len(removed) != len(expected_removed) or tuple(sorted(observed_removed)) != expected_removed:
+        _fail("baseline limb inventory must contain exactly the mirrored 22 (side, role, recipe) fields")
+
+    expected_bridge_slots = {
+        "root-bridge": tuple(sorted((side, role) for side in ("left", "right") for role in ("upper_arm", "thigh"))),
+        "hip-transition": tuple(sorted((side, "thigh") for side in ("left", "right"))),
+        "metatarsal": tuple(sorted((side, "foot") for side in ("left", "right"))),
+        "extremity-bridge": tuple(sorted((side, "hand") for side in ("left", "right"))),
+    }
+    for recipe, expected_slots in expected_bridge_slots.items():
+        fields = tuple(field for field in baseline_fields if field.recipe == recipe)
+        observed_slots: list[tuple[str, str]] = []
+        for field in fields:
+            canonical_owner = source_by_key.get(field.owner.key)
+            if canonical_owner is None or canonical_owner is not field.owner:
+                _fail(f"baseline {recipe!r} field must retain its canonical source owner")
+            key = field.owner.key
+            if len(key[1]) != 1 or key[1][0] not in ("left", "right"):
+                _fail(f"baseline {recipe!r} field has an invalid side owner")
+            observed_slots.append((key[1][0], key[3]))
+        if tuple(sorted(observed_slots)) != expected_slots:
+            _fail(f"baseline {recipe!r} bridge owner inventory is not the exact bilateral set")
+
+    chains = {item.chain_name: item for item in limb_sweeps}
+    for side in ("left", "right"):
+        for kind, proximal_role, distal_role, root_role in (
+            ("arm", "upper_arm", "forearm", "upper_arm"),
+            ("leg", "thigh", "shin", "thigh"),
+        ):
+            chain = chains[f"{side}-{kind}"]
+            start = chain.sweep.sections[0].center
+            end = chain.sweep.sections[-1].center
+            proximal = inventory[(side, proximal_role)]
+            distal = inventory[(side, distal_role)]
+            root_fields = tuple(field for field in baseline_fields if field.recipe == "root-bridge" and field.owner is proximal.owner)
+            if proximal.root_centerline is None or proximal.root_thickness is None or len(root_fields) != 1:
+                _fail(f"{side}-{kind} must retain one source-owned root bridge")
+            root_shape = root_fields[0].shape
+            root_path = _baseline._embed_boundary_connector(
+                proximal.root_centerline,
+                proximal.root_thickness,
+                f"{side}-{kind}.root",
+            )
+            _require_path_shape(root_shape, root_path, proximal.root_thickness, f"{side}-{kind} root connector")
+            _require_exact_same_point(root_shape.get("to"), start, f"{side}-{kind} root connector")
+            if root_role == "thigh":
+                hip_fields = tuple(field for field in baseline_fields if field.recipe == "hip-transition" and field.owner is proximal.owner)
+                if proximal.hip_centerline is None or proximal.hip_thickness is None or len(hip_fields) != 1:
+                    _fail(f"{side}-{kind} must retain one source-owned hip transition")
+                hip_path = _baseline._embed_boundary_connector(
+                    proximal.hip_centerline,
+                    proximal.hip_thickness,
+                    f"{side}-{kind}.hip",
+                )
+                _require_path_shape(hip_fields[0].shape, hip_path, proximal.hip_thickness, f"{side}-{kind} hip transition")
+
+            if kind == "arm":
+                hand_guides = tuple(item for item in guide.paw_guides if item.owner.key[1] == (side,) and item.owner.key[3] == "hand")
+                if len(hand_guides) != 1:
+                    _fail(f"{side}-arm must retain one canonical source hand paw guide")
+                hand_paw = hand_guides[0]
+                hand_owner = source_by_key.get(hand_paw.owner.key)
+                if hand_owner is None or hand_owner is not hand_paw.owner:
+                    _fail(f"{side}-arm hand paw guide owner is not canonical")
+                if hand_paw.owner.parent != distal.owner.key or source_by_key.get(hand_paw.owner.parent) is not distal.owner:
+                    _fail(f"{side}-arm hand paw must retain canonical parent linkage to the distal forearm")
+                hand_fields = tuple(field for field in baseline_fields if field.recipe == "extremity-bridge" and field.owner is hand_paw.owner)
+                if len(hand_fields) != 1 or hand_paw.attachment_centerline is None or hand_paw.attachment_radius is None:
+                    _fail(f"{side}-arm must retain one hand extremity bridge")
+                shape = hand_fields[0].shape
+                _require_path_shape(
+                    shape,
+                    hand_paw.attachment_centerline,
+                    (hand_paw.attachment_radius,),
+                    f"{side}-arm hand extremity bridge",
+                    expected_name=hand_paw.attachment_kind or "capsule",
+                )
+                chain_radius = max(chain.sweep.sections[-1].transverse_radii)
+                bridge_radius = max(float(shape.get("r0", 0.0)), float(shape.get("r1", 0.0)))
+                if _point_to_segment_distance(end, shape.get("from"), shape.get("to")) > chain_radius + bridge_radius + _FRAME_TOLERANCE:
+                    _fail(f"{side}-arm forearm endpoint does not overlap its hand extremity bridge")
+            else:
+                foot_guides = tuple(item for item in guide.paw_guides if item.owner.key[1] == (side,) and item.owner.key[3] == "foot")
+                if len(foot_guides) != 1 or foot_guides[0].foot_chain is None:
+                    _fail(f"{side}-leg must retain one source-owned foot metatarsal")
+                foot_paw = foot_guides[0]
+                foot_fields = tuple(
+                    field for field in baseline_fields
+                    if field.recipe == "metatarsal" and field.owner is foot_paw.owner
+                )
+                if len(foot_fields) != 1:
+                    _fail(f"{side}-leg must retain one source-owned foot metatarsal")
+                if source_by_key.get(foot_paw.owner.key) is not foot_paw.owner:
+                    _fail(f"{side}-leg foot guide owner is not canonical")
+                if foot_paw.owner.parent != distal.owner.key or source_by_key.get(foot_paw.owner.parent) is not distal.owner:
+                    _fail(f"{side}-leg foot must retain canonical parent linkage to the distal shin")
+                foot_chain = foot_paw.foot_chain
+                _require_path_shape(
+                    foot_fields[0].shape,
+                    foot_chain.metatarsal_centerline,
+                    foot_chain.metatarsal_profile,
+                    f"{side}-leg foot metatarsal",
+                )
+                _require_exact_same_point(foot_fields[0].shape.get("from"), foot_chain.hock_anchor, f"{side}-leg hock/metatarsal connector")
+                _require_exact_same_point(foot_chain.hock_anchor, end, f"{side}-leg hock/foot guide connector")
+
+            # Ensure the distal source guide actually supplies the endpoint
+            # consumed by this chain; this catches accidental field/guide drift.
+            if kind == "arm":
+                _require_exact_same_point(distal.sections[1].centerline[1], end, f"{side}-arm distal endpoint")
+            else:
+                _require_exact_same_point(distal.joint.center if distal.joint is not None else None, end, f"{side}-leg hock endpoint")
+    bridge = tuple(field for field in baseline_fields if field.recipe not in _LIMB_CHAIN_BASELINE_RECIPES)
+    if len(bridge) != len(baseline_fields) - 22:
+        _fail("baseline bridge selection removed more or fewer than the 22 limb fields")
+    return bridge
+
+
+def compile_successor_region(guide: Any, baseline_fields: tuple[Any, ...] | None = None) -> SuccessorRegion:
+    """Compile the guide into the successor regional profile-sweep consumer.
+
+    The torso cage, shoulder deltoid spans, five baseline head/neck fields, and
+    the four bilateral limb chains are replaced. Every other baseline field is
+    carried as a named temporary bridge, including root/hip connectors and
+    paws, feet, and tail that preserve whole-body continuity for this slice.
     """
 
     _baseline._validate_hybrid_guide(guide)
     if baseline_fields is None:
         baseline_fields = _baseline._compile_hybrid_guide(guide)
-    replaced = ("torso-cage", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar", "deltoid-sweep-1")
+    replaced = (
+        "torso-cage", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar",
+        "deltoid-sweep-1", *_LIMB_CHAIN_BASELINE_RECIPES,
+    )
     torso_fields = tuple(field for field in baseline_fields if field.recipe == "torso-cage")
     expected_torso_owner = guide.torso_cage.torso_owner
     if len(torso_fields) != 1 or torso_fields[0].owner is not expected_torso_owner:
@@ -738,7 +1161,11 @@ def compile_successor_region(guide: Any, baseline_fields: tuple[Any, ...] | None
     ):
         _fail("baseline inventory must contain exactly the neck-owned transition/collar fields")
     replaced_fields = tuple(field for field in baseline_fields if field.recipe in replaced)
-    bridge = tuple(field for field in baseline_fields if field.recipe not in replaced)
+    limb_sweeps = _make_limb_sweeps(guide)
+    bridge = tuple(
+        field for field in _validate_limb_bridge_inventory(guide, baseline_fields, limb_sweeps)
+        if field.recipe not in {"torso-cage", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar", "deltoid-sweep-1"}
+    )
     if len(bridge) + len(replaced_fields) != len(baseline_fields):
         _fail("baseline bridge selection lost fields")
     head_neck_sweeps = _make_head_neck_sweeps(guide)
@@ -754,6 +1181,7 @@ def compile_successor_region(guide: Any, baseline_fields: tuple[Any, ...] | None
         replaced_baseline_recipes=replaced,
         source_owners=(guide.torso_cage.torso_owner,) + tuple(side.owner for side in guide.shoulder_frame.sides) + (head.head_owner, head.neck_owner),
         head_neck_sweeps=head_neck_sweeps,
+        limb_sweeps=limb_sweeps,
     )
 
 
@@ -907,6 +1335,7 @@ def _span_field(points: np.ndarray, span: _SweptSpan) -> np.ndarray:
 def _successor_region_field(points: np.ndarray, region: SuccessorRegion, smooth_k: float) -> np.ndarray:
     values = [_loft_field(points, region.loft)]
     values.extend(_profile_sweep_field(points, item.sweep) for item in region.head_neck_sweeps)
+    values.extend(_profile_sweep_field(points, item.sweep) for item in region.limb_sweeps)
     values.extend(_span_field(points, span) for span in region.shoulder_spans)
     return _baseline._smooth_union(values, smooth_k)
 
@@ -916,6 +1345,10 @@ def _bounds_for_region(region: SuccessorRegion) -> tuple[np.ndarray, np.ndarray]
     mins = [profile_lower]
     maxs = [profile_upper]
     for item in region.head_neck_sweeps:
+        lower, upper = _profile_sweep_bounds(item.sweep)
+        mins.append(lower)
+        maxs.append(upper)
+    for item in region.limb_sweeps:
         lower, upper = _profile_sweep_bounds(item.sweep)
         mins.append(lower)
         maxs.append(upper)
@@ -984,6 +1417,16 @@ def _make_components(region: SuccessorRegion, smooth_k: float) -> tuple[_Compone
             lambda points, current=item.sweep: _profile_sweep_field(points, current),
             bounds,
             True,
+        ))
+    for item in region.limb_sweeps:
+        bounds = _profile_sweep_bounds(item.sweep)
+        components.append(_Component(
+            item.sweep.sections[0].owner,
+            f"successor-{item.chain_name}",
+            lambda points, current=item.sweep: _profile_sweep_field(points, current),
+            bounds,
+            True,
+            lambda points, current=item.sweep: _loft_owner_keys(points, current),
         ))
     for span in region.shoulder_spans:
         bounds = (np.minimum(np.asarray(span.start), np.asarray(span.end)) - max(span.start_radius, span.end_radius), np.maximum(np.asarray(span.start), np.asarray(span.end)) + max(span.start_radius, span.end_radius))
@@ -1078,10 +1521,13 @@ def build_variant(form: Any, descriptors: tuple[Any, ...], samples: int = DEFAUL
     for vertex in vertices:
         values = [float(component.evaluate(vertex.reshape(1, 3))[0]) for component in components]
         winner_index = int(np.argmin(values))
-        if winner_index == 0:
+        winner = components[winner_index]
+        if winner.attribution is not None:
+            labels.append(winner.attribution(vertex.reshape(1, 3))[0])
+        elif winner_index == 0:
             labels.append(_loft_owner_keys(vertex.reshape(1, 3), region.loft)[0])
         else:
-            labels.append(components[winner_index].owner.key)
+            labels.append(winner.owner.key)
     metrics = _baseline._mesh_checks(vertices, faces, labels, (lower, upper), volume)
     metrics.update({
         "consumer_id": CONSUMER_ID,
@@ -1099,13 +1545,30 @@ def build_variant(form: Any, descriptors: tuple[Any, ...], samples: int = DEFAUL
             "head_neck_sweep_section_counts": [len(item.sweep.sections) for item in region.head_neck_sweeps],
             "head_neck_sweep_owner_keys": [_baseline._address_json(item.owner.key) for item in region.head_neck_sweeps],
             "head_neck_source_owner_keys": [_baseline._address_json(owner.key) for owner in (region.head_neck_sweeps[0].owner, region.head_neck_sweeps[3].owner)],
+            "limb_representation": "shared-guide-derived-ordered-profile-sweeps",
+            "limb_sweeps_consumed": len(region.limb_sweeps),
+            "limb_sweep_order": [item.chain_name for item in region.limb_sweeps],
+            "limb_sweep_station_counts": [item.sections_consumed for item in region.limb_sweeps],
+            "limb_sweep_station_names": [list(item.section_names) for item in region.limb_sweeps],
+            "limb_sweep_section_owner_keys": [
+                [_baseline._address_json(owner.key) for owner in item.sweep.owners]
+                for item in region.limb_sweeps
+            ],
+            "limb_sweep_endpoint_cap_counts": [len(item.sweep.endpoint_caps) for item in region.limb_sweeps],
+            "limb_sweep_internal_transition_counts": [len(item.sweep.internal_transitions) for item in region.limb_sweeps],
+            "limb_source_owner_keys": [
+                _baseline._address_json(owner.key)
+                for item in region.limb_sweeps
+                for owner in item.source_owners
+            ],
             "replaced_baseline_recipes": list(region.replaced_baseline_recipes),
         },
         "temporary_bridge": {
             "enabled": True,
             "consumer": "baseline-analytic-fields",
-            "regions": ["limbs", "paws", "tail", "limb-root-connectors"],
+            "regions": ["paws", "tail", "limb-root-connectors", "hip-transitions"],
             "field_count": len(region.bridge_fields),
+            "retained_recipes": sorted({field.recipe for field in region.bridge_fields}),
         },
         "baseline_recipe_signature": [[list(field_key[0]), list(field_key[1]), field_key[2], field_key[3], recipe] for field_key, recipe in baseline_signature],
         "source_descriptor_count": len(descriptors),
@@ -1199,6 +1662,18 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
                     "section_counts": [len(item.sweep.sections) for item in mesh.representation.head_neck_sweeps],
                     "owner_keys": [_baseline._address_json(item.owner.key) for item in mesh.representation.head_neck_sweeps],
                 },
+                "limbs": {
+                    "representation": "shared-guide-derived-ordered-profile-sweeps",
+                    "sweeps_consumed": len(mesh.representation.limb_sweeps),
+                    "sweep_order": [item.chain_name for item in mesh.representation.limb_sweeps],
+                    "station_counts": [item.sections_consumed for item in mesh.representation.limb_sweeps],
+                    "station_names": [list(item.section_names) for item in mesh.representation.limb_sweeps],
+                    "section_owner_keys": [
+                        [_baseline._address_json(owner.key) for owner in item.sweep.owners]
+                        for item in mesh.representation.limb_sweeps
+                    ],
+                    "endpoint_cap_counts": [len(item.sweep.endpoint_caps) for item in mesh.representation.limb_sweeps],
+                },
                 "temporary_bridge": mesh.metrics["temporary_bridge"],
                 "replaced_baseline_recipes": list(mesh.representation.replaced_baseline_recipes),
             }) + b"\n")
@@ -1214,7 +1689,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
             "consumer_id": CONSUMER_ID,
             "source_format": _baseline.SOURCE_FORMAT,
             "source": {"sha256": hashlib.sha256(data).hexdigest(), "document": form.source["document"], "namespace": form.source["namespace"], "resource_profile_id": form.source["resource_profile_id"]},
-            "generator": {"samples_per_axis": samples, "padding": padding, "smooth_k": smooth_k, "consumer_boundary": "successor torso/shoulder/head/neck; baseline temporary bridge for limbs/paws/tail/root connectors", "production_status": "disposable exploratory proof"},
+            "generator": {"samples_per_axis": samples, "padding": padding, "smooth_k": smooth_k, "consumer_boundary": "successor torso/shoulder/head/neck and four limb chains; baseline temporary bridge for root/hip connectors, paws/feet, and tail", "production_status": "disposable exploratory proof"},
             "variants": records,
         }
         manifest_path = stage / "successor-surface-manifest.json"
@@ -1232,7 +1707,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Build the disposable successor torso/shoulder/head/neck surface preview")
+    parser = argparse.ArgumentParser(description="Build the disposable successor torso/shoulder/head/neck/limb surface preview")
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--samples-per-axis", type=int, default=DEFAULT_SAMPLES)
