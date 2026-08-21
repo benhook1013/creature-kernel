@@ -1217,6 +1217,10 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             first_manifest = successor.generate(source, first, padding=0.5)
             second_manifest = successor.generate(source, second, padding=0.5)
             self.assertEqual(first_manifest, second_manifest)
+            self.assertEqual(
+                [item["source_variant_sha256"] for item in first_manifest["variants"]],
+                [item["source_variant_sha256"] for item in second_manifest["variants"]],
+            )
             self.assertEqual(successor.FORMAT, "creature-kernel.disposable-successor-surface-preview.v2")
             self.assertEqual(first_manifest["format"], successor.FORMAT)
             self.assertEqual(first_manifest["consumer_id"], successor.CONSUMER_ID)
@@ -1262,8 +1266,17 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 "front-guide", "front-skin", "side-guide", "side-skin", "three-quarter-guide", "three-quarter-skin",
             ])
             self.assertTrue(all(not Path(item["path"]).is_absolute() for variant in first_manifest["variants"] for item in variant["inventory"]))
+            source_variant_hashes = {
+                variant_id: hashlib.sha256(successor._canonical(raw_variant)).hexdigest()
+                for variant_id, _, raw_variant in self.form.variants
+            }
+            self.assertEqual(len(source_variant_hashes), 4)
+            self.assertEqual(len(set(source_variant_hashes.values())), 4)
+            for digest in source_variant_hashes.values():
+                self.assertRegex(digest, r"^[0-9a-f]{64}$")
             for variant in first_manifest["variants"]:
                 self.assertEqual(variant["profile_id"], variant["id"])
+                self.assertEqual(variant["source_variant_sha256"], source_variant_hashes[variant["id"]])
                 variant_dir = first / variant["id"]
                 self.assertEqual(
                     sorted(path.name for path in variant_dir.iterdir()),
@@ -1290,6 +1303,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 self.assertEqual(sidecar["format"], successor.FORMAT)
                 self.assertEqual(sidecar["variant_id"], variant["id"])
                 self.assertEqual(sidecar["profile_id"], variant["profile_id"])
+                self.assertEqual(sidecar["source_variant_sha256"], variant["source_variant_sha256"])
                 self.assertEqual(sidecar["consumer_id"], successor.CONSUMER_ID)
                 self.assertEqual(sidecar["capture"]["canvas"], first_manifest["canvas"])
                 self.assertEqual(sidecar["capture"]["projections"], first_manifest["projections"])

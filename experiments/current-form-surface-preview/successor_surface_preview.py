@@ -2644,6 +2644,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
         layout = _baseline._layout_json()
         projections = _baseline._projection_json()
         for variant_id, descriptors, raw_variant, guide, _ in prepared:
+            source_variant_sha256 = hashlib.sha256(_canonical(raw_variant)).hexdigest()
             mesh = build_variant(form, descriptors, samples=samples, padding=padding, smooth_k=smooth_k)
             variant_dir = stage / variant_id
             variant_dir.mkdir()
@@ -2657,6 +2658,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
                 "format": FORMAT,
                 "variant_id": variant_id,
                 "profile_id": raw_variant["profile_id"],
+                "source_variant_sha256": source_variant_sha256,
                 "consumer_id": CONSUMER_ID,
                 "successor_region_id": SUCCESSOR_REGION_ID,
                 "capture": {
@@ -2720,6 +2722,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
             records.append({
                 "id": variant_id,
                 "profile_id": raw_variant["profile_id"],
+                "source_variant_sha256": source_variant_sha256,
                 "metrics": mesh.metrics,
                 "inventory": [
                     _sha(ply, "ply", stage),

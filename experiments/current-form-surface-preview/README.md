@@ -187,6 +187,12 @@ and skin panels using the same projection frame, and all four variants use one
 shared world-space render bound computed from the canonical baseline field
 sets. The manifest and successor sidecars expose the profile identity, canvas,
 layout, projections, and shared bounds alongside the four-artifact inventory.
+Each manifest variant record and its `successor.json` sidecar also carries
+`source_variant_sha256`, the 64-character lowercase SHA-256 digest of the
+exact canonical raw producer variant object (`_canonical(raw_variant)`). This
+is a deterministic source-record binding, not an artifact hash; the two
+locations must agree for each variant, and distinct producer variants have
+distinct digests.
 
 The browser baseline-versus-successor publication and comparison across these
 captures is still the next step; this generator does not publish a
