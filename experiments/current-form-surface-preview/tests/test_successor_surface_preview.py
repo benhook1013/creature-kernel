@@ -119,9 +119,19 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
         self.assertEqual(region.shoulder_inputs_consumed, 16)
         self.assertEqual({span.curve_name for span in region.shoulder_spans}, {"anterior-support", "posterior-return", "deltoid-sweep"})
         self.assertEqual({span.side for span in region.shoulder_spans}, {"left", "right"})
+        self.assertEqual(
+            tuple(item.recipe for item in region.head_neck_sweeps),
+            ("cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar"),
+        )
+        self.assertEqual(tuple(len(item.sweep.sections) for item in region.head_neck_sweeps), (5, 4, 2, 2, 3))
         self.assertNotIn("torso-cage", {field.recipe for field in region.bridge_fields})
         self.assertNotIn("deltoid-sweep-1", {field.recipe for field in region.bridge_fields})
-        self.assertEqual(len(region.bridge_fields), len(baseline_fields) - 3)
+        self.assertEqual(
+            {field.recipe for field in region.bridge_fields} &
+            {"cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar"},
+            set(),
+        )
+        self.assertEqual(len(region.bridge_fields), len(baseline_fields) - 8)
 
         # Changing an actual support profile changes the successor skin field;
         # the support is not merely emitted as an x-ray guide line.
@@ -144,6 +154,107 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
         )
         after = successor._successor_region_field(point, changed_region, 0.10)
         self.assertFalse(np.array_equal(before, after))
+
+    def test_head_neck_sweeps_retain_guide_controls_and_shared_topology(self) -> None:
+        topologies = []
+        for variant_id, descriptors, _ in self.form.variants:
+            guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+            region = successor.compile_successor_region(guide)
+            topologies.append((tuple(item.recipe for item in region.head_neck_sweeps), tuple(len(item.sweep.sections) for item in region.head_neck_sweeps)))
+            head = guide.head_guide
+            cranium, muzzle, head_transition, neck_transition, collar = region.head_neck_sweeps
+            self.assertIs(cranium.owner, head.head_owner)
+            self.assertIs(muzzle.owner, head.head_owner)
+            self.assertIs(head_transition.owner, head.head_owner)
+            self.assertIs(neck_transition.owner, head.neck_owner)
+            self.assertIs(collar.owner, head.neck_owner)
+            np.testing.assert_allclose(head_transition.sweep.sections[0].center, head.head_transition[0])
+            np.testing.assert_allclose(head_transition.sweep.sections[-1].center, head.head_transition[1])
+            np.testing.assert_allclose(neck_transition.sweep.sections[0].center, head.neck_transition[0])
+            np.testing.assert_allclose(neck_transition.sweep.sections[-1].center, head.neck_transition[1])
+            self.assertEqual(head_transition.sweep.sections[0].transverse_radii, (head.head_transition_thickness[0],) * 2)
+            self.assertEqual(head_transition.sweep.sections[-1].transverse_radii, (head.head_transition_thickness[1],) * 2)
+            self.assertEqual(neck_transition.sweep.sections[0].transverse_radii, (head.neck_transition_thickness[0],) * 2)
+            self.assertEqual(neck_transition.sweep.sections[-1].transverse_radii, (head.neck_transition_thickness[1],) * 2)
+            # The mass profiles are guide-derived and have more than one
+            # station, rather than reproducing the baseline ellipsoids.
+            self.assertNotEqual(tuple(cranium.sweep.sections[0].center), tuple(cranium.sweep.sections[-1].center))
+            self.assertNotEqual(tuple(muzzle.sweep.sections[0].center), tuple(muzzle.sweep.sections[-1].center))
+            muzzle_section = muzzle.sweep.sections[1]
+            self.assertEqual(
+                muzzle_section.transverse_radii,
+                (head.muzzle_radii[0] * successor._MUZZLE_PROFILE[1][1], head.muzzle_radii[1] * successor._MUZZLE_PROFILE[1][2]),
+            )
+            muzzle_tangent = np.asarray(muzzle_section.tangent)
+            muzzle_first, muzzle_second = (np.asarray(axis) for axis in muzzle_section.transverse_axes)
+            np.testing.assert_allclose(muzzle_tangent, np.asarray(head.axes.forward), rtol=0.0, atol=1.0e-12)
+            np.testing.assert_allclose(
+                (np.linalg.norm(muzzle_tangent), np.linalg.norm(muzzle_first), np.linalg.norm(muzzle_second)),
+                (1.0, 1.0, 1.0), rtol=0.0, atol=1.0e-12,
+            )
+            np.testing.assert_allclose(
+                (np.dot(muzzle_tangent, muzzle_first), np.dot(muzzle_tangent, muzzle_second), np.dot(muzzle_first, muzzle_second)),
+                (0.0, 0.0, 0.0), rtol=0.0, atol=1.0e-12,
+            )
+            self.assertAlmostEqual(abs(float(np.dot(muzzle_first, np.asarray(head.axes.lateral)))), 1.0, places=12)
+            self.assertAlmostEqual(abs(float(np.dot(muzzle_second, np.asarray(head.axes.up)))), 1.0, places=12)
+            self.assertLess(
+                muzzle.sweep.sections[-1].transverse_radii[0],
+                muzzle.sweep.sections[1].transverse_radii[0],
+            )
+            collar_section = collar.sweep.sections[1]
+            self.assertEqual(
+                collar_section.transverse_radii,
+                (
+                    head.neck_collar_radii[0] * successor._COLLAR_TRANSVERSE_SCALE * successor._COLLAR_PROFILE[1][1],
+                    head.neck_collar_radii[2] * successor._COLLAR_TRANSVERSE_SCALE * successor._COLLAR_PROFILE[1][2],
+                ),
+            )
+            source_keys = {descriptor.key for descriptor in guide.source_descriptors}
+            self.assertTrue(all(item.owner.key in source_keys for item in region.head_neck_sweeps))
+        self.assertEqual(len(set(topologies)), 1)
+
+    def test_head_neck_invalid_guide_dimensions_fail_closed(self) -> None:
+        _, descriptors, _ = self.form.variants[0]
+        guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+        invalid_head = replace(guide.head_guide, muzzle_radii=(float("nan"), 0.2, 0.2))
+        invalid_guide = replace(guide, head_guide=invalid_head)
+        with self.assertRaises(successor.SuccessorPreviewError):
+            successor._make_head_neck_sweeps(invalid_guide)
+
+    def test_head_neck_sweeps_are_consumed_by_components_and_composed_field(self) -> None:
+        expected_recipes = {"cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar"}
+        for variant_id, descriptors, _ in self.form.variants:
+            guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+            region = successor.compile_successor_region(guide)
+            components = successor._make_components(region, 0.10)
+            head_components = {
+                component.recipe: component
+                for component in components
+                if component.recipe in {f"successor-{recipe}" for recipe in expected_recipes}
+            }
+            self.assertEqual(set(head_components), {f"successor-{recipe}" for recipe in expected_recipes})
+            for item in region.head_neck_sweeps:
+                component = head_components[f"successor-{item.recipe}"]
+                self.assertIs(component.owner, item.owner)
+                representative = np.asarray(item.sweep.sections[len(item.sweep.sections) // 2].center, dtype=np.float64).reshape(1, 3)
+                own_value = successor._profile_sweep_field(representative, item.sweep)
+                self.assertLess(float(own_value[0]), 0.0)
+                np.testing.assert_allclose(component.evaluate(representative), own_value, rtol=0.0, atol=1.0e-12)
+
+                if variant_id == "neutral-v0":
+                    # One shared wiring proof is enough here: overlapping
+                    # guide-derived forms can legitimately swallow a probe at
+                    # another variant's section centre. All-four visibility is
+                    # covered separately by the sample-48 winner-ownership
+                    # regression, not by this pointwise subtraction.
+                    without_item = replace(
+                        region,
+                        head_neck_sweeps=tuple(other for other in region.head_neck_sweeps if other is not item),
+                    )
+                    composed_value = float(successor._successor_region_field(representative, region, 0.10)[0])
+                    without_value = float(successor._successor_region_field(representative, without_item, 0.10)[0])
+                    self.assertGreater(abs(composed_value - without_value), 1.0e-8)
 
     def test_baseline_recipe_signature_is_unchanged_and_successor_is_distinct(self) -> None:
         _, descriptors, _ = self.form.variants[0]
@@ -227,6 +338,11 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             np.testing.assert_array_equal(first.normals, second.normals)
             self.assertEqual(first.metrics, second.metrics)
             self.assertEqual(first.metrics["successor_region"]["torso_section_names"][-1], "upper-ribcage-shoulder")
+            winner_keys = {
+                (item["namespace"], tuple(item["anchors"]), item["kind"], item["role"])
+                for item in first.metrics["winner_addresses"]
+            }
+            self.assertIn(first.representation.head_neck_sweeps[3].owner.key, winner_keys)
             signatures.append((first.vertices.shape, first.metrics["signed_volume"], tuple(first.metrics["grid"]["bounds_max"])))
         self.assertEqual(len(signatures), 4)
         self.assertGreater(len(set(signatures)), 1)
@@ -263,6 +379,15 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 self.assertEqual(sidecar["consumer_id"], successor.CONSUMER_ID)
                 self.assertEqual(sidecar["torso"]["sections_consumed"], 7)
                 self.assertEqual(sidecar["shoulders"]["inputs_consumed"], 16)
+                self.assertEqual(sidecar["head_neck"]["sweeps_consumed"], 5)
+                self.assertEqual(
+                    sidecar["head_neck"]["sweep_order"],
+                    ["cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar"],
+                )
+                self.assertEqual(
+                    sidecar["head_neck"]["section_counts"],
+                    [5, 4, 2, 2, 3],
+                )
                 self.assertTrue(sidecar["temporary_bridge"]["enabled"])
 
     def test_rotated_profile_sweep_is_rigid_transform_invariant(self) -> None:

@@ -3,10 +3,11 @@
 
 This module is intentionally adjacent to, rather than a modification of,
 ``surface_preview.py``.  It consumes the existing private hybrid guide and
-replaces only the torso/shoulder skin consumer with an explicitly identified
-profile loft and swept shoulder spans.  Head, limbs, paws, and tail fields are
-kept as an explicit temporary bridge so the experiment can still produce a
-whole-body mesh without pretending that those regions have been redesigned.
+replaces the torso/shoulder and head/neck skin consumers with explicitly
+identified profile sweeps and swept shoulder spans.  Limbs, paws, tail, and
+root/hip connector fields remain an explicit temporary bridge so the experiment
+can still produce a whole-body mesh without pretending that those regions have
+been redesigned.
 
 The representation is exploratory and disposable.  It is not a production
 surface backend, topology contract, SDF, collision shape, or runtime API.
@@ -42,7 +43,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct source-tree execution
 
 FORMAT = "creature-kernel.disposable-successor-surface-preview.v1"
 CONSUMER_ID = "successor-surface-v1"
-SUCCESSOR_REGION_ID = "successor-torso-shoulder-loft-and-sweeps-v1"
+SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-profile-sweeps-v2"
 DEFAULT_SAMPLES = 48
 DEFAULT_PADDING = 0.50
 DEFAULT_SMOOTH_K = 0.10
@@ -167,13 +168,22 @@ class _SweptSpan:
 
 
 @dataclass(frozen=True)
+class _RegionalProfileSweep:
+    """One guide-derived profile sweep with source ownership and a recipe label."""
+
+    recipe: str
+    owner: Any
+    sweep: _ProfileSweep
+
+
+@dataclass(frozen=True)
 class SuccessorRegion:
-    """Explicit successor torso/shoulder representation.
+    """Explicit successor torso/shoulder/head/neck representation.
 
     ``bridge_fields`` are untouched baseline fields for all regions outside
     this successor region.  They are kept here, rather than silently folded
-    into the successor, so later head/limb consumers have a stable extension
-    point and the temporary boundary remains inspectable.
+    into the successor, so later limb/paw/tail consumers have a stable
+    extension point and the temporary boundary remains inspectable.
     """
 
     consumer_id: str
@@ -183,6 +193,7 @@ class SuccessorRegion:
     bridge_fields: tuple[Any, ...]
     replaced_baseline_recipes: tuple[str, ...]
     source_owners: tuple[Any, ...]
+    head_neck_sweeps: tuple[_RegionalProfileSweep, ...] = ()
 
     @property
     def section_names(self) -> tuple[str, ...]:
@@ -469,18 +480,240 @@ def _make_spans(guide: Any) -> tuple[_SweptSpan, ...]:
     return tuple(spans)
 
 
-def compile_successor_region(guide: Any, baseline_fields: tuple[Any, ...] | None = None) -> SuccessorRegion:
-    """Compile the guide into a successor torso/shoulder consumer.
+# These compact controls are deliberately shared by every fixed variant.  The
+# guide supplies all centres, radii, and axes; these values only describe the
+# disposable profile shape around those controls.  Offsets are fractions of
+# the profile's selected axial radius, while the other two values scale its
+# declared transverse radii.
+_CRANIUM_PROFILE = (
+    (-0.52, 0.68, 0.72),
+    (-0.26, 0.94, 0.93),
+    (0.00, 1.00, 1.00),
+    (0.28, 0.93, 0.92),
+    (0.52, 0.70, 0.75),
+)
+_MUZZLE_PROFILE = (
+    (-0.32, 0.86, 0.84),
+    (-0.05, 0.98, 0.94),
+    (0.24, 0.84, 0.76),
+    (0.56, 0.58, 0.52),
+)
+_COLLAR_PROFILE = (
+    (-0.36, 0.76, 0.72),
+    (0.00, 1.00, 0.96),
+    (0.36, 0.78, 0.73),
+)
+# Shared sample-grid visibility correction for the disposable collar only.
+_COLLAR_TRANSVERSE_SCALE = 1.50
 
-    The baseline torso cage and old deltoid field are replaced.  Every other
-    baseline field is carried as a named temporary bridge, including limb root
-    connectors that preserve whole-body continuity for this bounded slice.
+
+def _make_transition_sweep(
+    recipe: str,
+    owner: Any,
+    path: tuple[tuple[float, float, float], tuple[float, float, float]],
+    thickness: tuple[float, float],
+    axes: Any,
+) -> _ProfileSweep:
+    """Compile one guide path with exact endpoint and thickness ownership."""
+
+    if len(path) != 2 or len(thickness) != 2:
+        _fail(f"successor {recipe} requires two path endpoints and two thicknesses")
+    start = _vec3(path[0], f"{recipe}.start")
+    end = _vec3(path[1], f"{recipe}.end")
+    direction = end - start
+    length = float(np.linalg.norm(direction))
+    if not math.isfinite(length) or length <= _DEGENERATE_TOLERANCE:
+        _fail(f"successor {recipe} path is degenerate")
+    _finite_positive(tuple(float(value) for value in thickness), f"{recipe}.thickness")
+    tangent, first, second = _frame_from_tangent(
+        direction,
+        _vec3(axes.lateral, f"{recipe}.lateral-axis"),
+        _vec3(axes.forward, f"{recipe}.forward-axis"),
+        recipe,
+    )
+    first_radii = (float(thickness[0]), float(thickness[0]))
+    second_radii = (float(thickness[1]), float(thickness[1]))
+    sections = (
+        _ProfileSection(
+            f"{recipe}-start", owner, tuple(float(value) for value in start),
+            tuple(float(value) for value in tangent),
+            (tuple(float(value) for value in first), tuple(float(value) for value in second)),
+            first_radii, 0.0,
+        ),
+        _ProfileSection(
+            f"{recipe}-end", owner, tuple(float(value) for value in end),
+            tuple(float(value) for value in tangent),
+            (tuple(float(value) for value in first), tuple(float(value) for value in second)),
+            second_radii, length,
+        ),
+    )
+    caps = (
+        _ProfileEndpointCap(
+            "start", sections[0].center, tuple(-float(value) for value in tangent),
+            sections[0].transverse_axes, sections[0].transverse_radii,
+            min(sections[0].transverse_radii),
+        ),
+        _ProfileEndpointCap(
+            "end", sections[-1].center, sections[-1].tangent,
+            sections[-1].transverse_axes, sections[-1].transverse_radii,
+            min(sections[-1].transverse_radii),
+        ),
+    )
+    sweep = _ProfileSweep(sections, caps)
+    _validate_profile_sweep(sweep)
+    return sweep
+
+
+def _make_mass_profile_sweep(
+    recipe: str,
+    owner: Any,
+    center: tuple[float, float, float],
+    radii: tuple[float, float, float],
+    tangent_axis: tuple[float, float, float],
+    axial_radius: float,
+    transverse_radii: tuple[float, float],
+    transverse_axis_preferences: tuple[tuple[float, float, float], tuple[float, float, float]],
+    controls: tuple[tuple[float, float, float], ...],
+) -> _ProfileSweep:
+    """Compile a compact mass with explicit guide-derived axial/transverse mapping."""
+
+    centre = _vec3(center, f"{recipe}.center")
+    base_radii = _vec3(radii, f"{recipe}.radii")
+    _finite_positive(tuple(float(value) for value in base_radii), f"{recipe}.radii")
+    transverse = tuple(float(value) for value in transverse_radii)
+    if len(transverse) != 2:
+        _fail(f"{recipe}.transverse-radii must contain two values")
+    _finite_positive(transverse, f"{recipe}.transverse-radii")
+    if len(transverse_axis_preferences) != 2:
+        _fail(f"{recipe}.transverse-axis-preferences must contain two axes")
+    axial = float(axial_radius)
+    if not math.isfinite(axial) or axial <= 0.0:
+        _fail(f"{recipe}.axial-radius must be finite and positive")
+    if len(controls) < 2:
+        _fail(f"{recipe} requires at least two ordered profile sections")
+    tangent, first, second = _frame_from_tangent(
+        _vec3(tangent_axis, f"{recipe}.tangent-axis"),
+        _vec3(transverse_axis_preferences[0], f"{recipe}.transverse-first-axis"),
+        _vec3(transverse_axis_preferences[1], f"{recipe}.transverse-second-axis"),
+        recipe,
+    )
+    sections: list[_ProfileSection] = []
+    path_length = 0.0
+    previous_offset: float | None = None
+    for index, control in enumerate(controls):
+        if len(control) != 3:
+            _fail(f"{recipe} profile section {index} must have offset and two scales")
+        offset, first_scale, second_scale = (float(value) for value in control)
+        if (
+            not all(math.isfinite(value) for value in (offset, first_scale, second_scale))
+            or abs(offset) >= 0.90
+            or first_scale <= 0.0
+            or second_scale <= 0.0
+        ):
+            _fail(f"{recipe} profile section {index} has invalid shared controls")
+        if previous_offset is not None and offset <= previous_offset:
+            _fail(f"{recipe} profile offsets must be strictly increasing")
+        previous_offset = offset
+        if index:
+            path_length += (offset - float(controls[index - 1][0])) * axial
+        section_center = centre + offset * axial * tangent
+        section_radii = (float(transverse[0] * first_scale), float(transverse[1] * second_scale))
+        _finite_positive(section_radii, f"{recipe} profile section {index}.radii")
+        sections.append(_ProfileSection(
+            f"{recipe}-section-{index}", owner,
+            tuple(float(value) for value in section_center),
+            tuple(float(value) for value in tangent),
+            (tuple(float(value) for value in first), tuple(float(value) for value in second)),
+            section_radii, path_length,
+        ))
+    ordered = tuple(sections)
+    endpoint_caps: list[_ProfileEndpointCap] = []
+    for index, section in ((0, ordered[0]), (-1, ordered[-1])):
+        offset = float(controls[0 if index == 0 else -1][0])
+        remaining_axial = axial * (1.0 - abs(offset))
+        # Keep the rounded profile within the guide's declared axial extent.
+        cap_axial = min(min(section.transverse_radii), 0.85 * remaining_axial)
+        _finite_positive((cap_axial,), f"{recipe} endpoint cap axial radius")
+        endpoint_caps.append(_ProfileEndpointCap(
+            "start" if index == 0 else "end", section.center,
+            tuple(-float(value) for value in tangent) if index == 0 else section.tangent,
+            section.transverse_axes, section.transverse_radii, cap_axial,
+        ))
+    sweep = _ProfileSweep(ordered, tuple(endpoint_caps))
+    _validate_profile_sweep(sweep)
+    return sweep
+
+
+def _make_head_neck_sweeps(guide: Any) -> tuple[_RegionalProfileSweep, ...]:
+    """Build the fixed-order shared head/neck successor construction."""
+
+    head = guide.head_guide
+    if head.axes != guide.topology.axes:
+        _fail("successor head/neck axes must match guide topology")
+    axes = head.axes
+    head_owner = head.head_owner
+    neck_owner = head.neck_owner
+    return (
+        _RegionalProfileSweep(
+            "cranium", head_owner,
+            _make_mass_profile_sweep(
+                "cranium", head_owner, head.cranium_center, head.cranium_radii,
+                axes.up, float(head.cranium_radii[1]),
+                (float(head.cranium_radii[0]), float(head.cranium_radii[2])),
+                (axes.lateral, axes.forward), _CRANIUM_PROFILE,
+            ),
+        ),
+        _RegionalProfileSweep(
+            "muzzle", head_owner,
+            _make_mass_profile_sweep(
+                "muzzle", head_owner, head.muzzle_center, head.muzzle_radii,
+                axes.forward, float(head.muzzle_radii[2]),
+                (float(head.muzzle_radii[0]), float(head.muzzle_radii[1])),
+                (axes.lateral, axes.up), _MUZZLE_PROFILE,
+            ),
+        ),
+        _RegionalProfileSweep(
+            "head-base-bridge", head_owner,
+            _make_transition_sweep(
+                "head-base-bridge", head_owner, head.head_transition,
+                head.head_transition_thickness, axes,
+            ),
+        ),
+        _RegionalProfileSweep(
+            "tapered-neck", neck_owner,
+            _make_transition_sweep(
+                "tapered-neck", neck_owner, head.neck_transition,
+                head.neck_transition_thickness, axes,
+            ),
+        ),
+        _RegionalProfileSweep(
+            "neck-collar", neck_owner,
+            _make_mass_profile_sweep(
+                "neck-collar", neck_owner, head.neck_collar_center, head.neck_collar_radii,
+                axes.up, float(head.neck_collar_radii[1]),
+                (
+                    float(head.neck_collar_radii[0]) * _COLLAR_TRANSVERSE_SCALE,
+                    float(head.neck_collar_radii[2]) * _COLLAR_TRANSVERSE_SCALE,
+                ),
+                (axes.lateral, axes.forward), _COLLAR_PROFILE,
+            ),
+        ),
+    )
+
+
+def compile_successor_region(guide: Any, baseline_fields: tuple[Any, ...] | None = None) -> SuccessorRegion:
+    """Compile the guide into the successor torso/shoulder/head/neck consumer.
+
+    The torso cage, shoulder deltoid spans, and five baseline head/neck fields
+    are replaced.  Every other baseline field is carried as a named temporary
+    bridge, including limb root connectors that preserve whole-body continuity
+    for this bounded slice.
     """
 
     _baseline._validate_hybrid_guide(guide)
     if baseline_fields is None:
         baseline_fields = _baseline._compile_hybrid_guide(guide)
-    replaced = ("torso-cage", "deltoid-sweep-1")
+    replaced = ("torso-cage", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar", "deltoid-sweep-1")
     torso_fields = tuple(field for field in baseline_fields if field.recipe == "torso-cage")
     expected_torso_owner = guide.torso_cage.torso_owner
     if len(torso_fields) != 1 or torso_fields[0].owner is not expected_torso_owner:
@@ -489,10 +722,29 @@ def compile_successor_region(guide: Any, baseline_fields: tuple[Any, ...] | None
     expected_deltoid_owners = tuple(side.owner for side in guide.shoulder_frame.sides)
     if len(deltoid_fields) != 2 or {id(field.owner) for field in deltoid_fields} != {id(owner) for owner in expected_deltoid_owners}:
         _fail("baseline inventory must contain exactly two left/right deltoid-sweep-1 fields")
+    head = guide.head_guide
+    head_recipe_fields = tuple(field for field in baseline_fields if field.recipe in {"cranium", "muzzle", "head-base-bridge"})
+    if (
+        len(head_recipe_fields) != 3
+        or any(field.owner is not head.head_owner for field in head_recipe_fields)
+        or {field.recipe for field in head_recipe_fields} != {"cranium", "muzzle", "head-base-bridge"}
+    ):
+        _fail("baseline inventory must contain exactly the head-owned cranium/muzzle/bridge fields")
+    neck_recipe_fields = tuple(field for field in baseline_fields if field.recipe in {"tapered-neck", "neck-collar"})
+    if (
+        len(neck_recipe_fields) != 2
+        or any(field.owner is not head.neck_owner for field in neck_recipe_fields)
+        or {field.recipe for field in neck_recipe_fields} != {"tapered-neck", "neck-collar"}
+    ):
+        _fail("baseline inventory must contain exactly the neck-owned transition/collar fields")
     replaced_fields = tuple(field for field in baseline_fields if field.recipe in replaced)
     bridge = tuple(field for field in baseline_fields if field.recipe not in replaced)
     if len(bridge) + len(replaced_fields) != len(baseline_fields):
         _fail("baseline bridge selection lost fields")
+    head_neck_sweeps = _make_head_neck_sweeps(guide)
+    source_keys = {descriptor.key for descriptor in guide.source_descriptors}
+    if any(sweep.owner.key not in source_keys for sweep in head_neck_sweeps):
+        _fail("successor head/neck sweep owner is not an existing source AddressKey")
     return SuccessorRegion(
         consumer_id=CONSUMER_ID,
         region_id=SUCCESSOR_REGION_ID,
@@ -500,7 +752,8 @@ def compile_successor_region(guide: Any, baseline_fields: tuple[Any, ...] | None
         shoulder_spans=_make_spans(guide),
         bridge_fields=bridge,
         replaced_baseline_recipes=replaced,
-        source_owners=(guide.torso_cage.torso_owner,) + tuple(side.owner for side in guide.shoulder_frame.sides),
+        source_owners=(guide.torso_cage.torso_owner,) + tuple(side.owner for side in guide.shoulder_frame.sides) + (head.head_owner, head.neck_owner),
+        head_neck_sweeps=head_neck_sweeps,
     )
 
 
@@ -653,6 +906,7 @@ def _span_field(points: np.ndarray, span: _SweptSpan) -> np.ndarray:
 
 def _successor_region_field(points: np.ndarray, region: SuccessorRegion, smooth_k: float) -> np.ndarray:
     values = [_loft_field(points, region.loft)]
+    values.extend(_profile_sweep_field(points, item.sweep) for item in region.head_neck_sweeps)
     values.extend(_span_field(points, span) for span in region.shoulder_spans)
     return _baseline._smooth_union(values, smooth_k)
 
@@ -661,6 +915,10 @@ def _bounds_for_region(region: SuccessorRegion) -> tuple[np.ndarray, np.ndarray]
     profile_lower, profile_upper = _profile_sweep_bounds(region.loft)
     mins = [profile_lower]
     maxs = [profile_upper]
+    for item in region.head_neck_sweeps:
+        lower, upper = _profile_sweep_bounds(item.sweep)
+        mins.append(lower)
+        maxs.append(upper)
     for span in region.shoulder_spans:
         start, end = np.asarray(span.start), np.asarray(span.end)
         radius = max(span.start_radius, span.end_radius)
@@ -718,6 +976,15 @@ def _make_components(region: SuccessorRegion, smooth_k: float) -> tuple[_Compone
     components: list[_Component] = [
         _Component(region.source_owners[0], "successor-torso-loft", lambda points: _loft_field(points, region.loft), region_bounds, True),
     ]
+    for item in region.head_neck_sweeps:
+        bounds = _profile_sweep_bounds(item.sweep)
+        components.append(_Component(
+            item.owner,
+            f"successor-{item.recipe}",
+            lambda points, current=item.sweep: _profile_sweep_field(points, current),
+            bounds,
+            True,
+        ))
     for span in region.shoulder_spans:
         bounds = (np.minimum(np.asarray(span.start), np.asarray(span.end)) - max(span.start_radius, span.end_radius), np.maximum(np.asarray(span.start), np.asarray(span.end)) + max(span.start_radius, span.end_radius))
         components.append(_Component(span.owner, span.recipe, lambda points, current=span: _span_field(points, current), bounds, True))
@@ -826,12 +1093,18 @@ def build_variant(form: Any, descriptors: tuple[Any, ...], samples: int = DEFAUL
             "torso_section_owner_keys": [_baseline._address_json(owner.key) for owner in region.loft.owners],
             "shoulder_support_inputs_consumed": region.shoulder_inputs_consumed,
             "shoulder_support_input_kind": "tapered-swept-curve-spans",
+            "head_neck_representation": "shared-guide-derived-profile-sweeps",
+            "head_neck_sweeps_consumed": len(region.head_neck_sweeps),
+            "head_neck_sweep_order": [item.recipe for item in region.head_neck_sweeps],
+            "head_neck_sweep_section_counts": [len(item.sweep.sections) for item in region.head_neck_sweeps],
+            "head_neck_sweep_owner_keys": [_baseline._address_json(item.owner.key) for item in region.head_neck_sweeps],
+            "head_neck_source_owner_keys": [_baseline._address_json(owner.key) for owner in (region.head_neck_sweeps[0].owner, region.head_neck_sweeps[3].owner)],
             "replaced_baseline_recipes": list(region.replaced_baseline_recipes),
         },
         "temporary_bridge": {
             "enabled": True,
             "consumer": "baseline-analytic-fields",
-            "regions": ["head", "neck", "limbs", "paws", "tail", "limb-root-connectors"],
+            "regions": ["limbs", "paws", "tail", "limb-root-connectors"],
             "field_count": len(region.bridge_fields),
         },
         "baseline_recipe_signature": [[list(field_key[0]), list(field_key[1]), field_key[2], field_key[3], recipe] for field_key, recipe in baseline_signature],
@@ -919,6 +1192,13 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
                 "successor_region_id": SUCCESSOR_REGION_ID,
                 "torso": {"representation": "frame-aware-ordered-profile-sweep", "sections_consumed": mesh.representation.sections_consumed, "section_names": list(mesh.representation.section_names)},
                 "shoulders": {"representation": "tapered-swept-curve-spans", "inputs_consumed": mesh.representation.shoulder_inputs_consumed, "curves": sorted({span.curve_name for span in mesh.representation.shoulder_spans})},
+                "head_neck": {
+                    "representation": "shared-guide-derived-profile-sweeps",
+                    "sweeps_consumed": len(mesh.representation.head_neck_sweeps),
+                    "sweep_order": [item.recipe for item in mesh.representation.head_neck_sweeps],
+                    "section_counts": [len(item.sweep.sections) for item in mesh.representation.head_neck_sweeps],
+                    "owner_keys": [_baseline._address_json(item.owner.key) for item in mesh.representation.head_neck_sweeps],
+                },
                 "temporary_bridge": mesh.metrics["temporary_bridge"],
                 "replaced_baseline_recipes": list(mesh.representation.replaced_baseline_recipes),
             }) + b"\n")
@@ -934,7 +1214,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
             "consumer_id": CONSUMER_ID,
             "source_format": _baseline.SOURCE_FORMAT,
             "source": {"sha256": hashlib.sha256(data).hexdigest(), "document": form.source["document"], "namespace": form.source["namespace"], "resource_profile_id": form.source["resource_profile_id"]},
-            "generator": {"samples_per_axis": samples, "padding": padding, "smooth_k": smooth_k, "consumer_boundary": "successor torso/shoulder; baseline temporary bridge elsewhere", "production_status": "disposable exploratory proof"},
+            "generator": {"samples_per_axis": samples, "padding": padding, "smooth_k": smooth_k, "consumer_boundary": "successor torso/shoulder/head/neck; baseline temporary bridge for limbs/paws/tail/root connectors", "production_status": "disposable exploratory proof"},
             "variants": records,
         }
         manifest_path = stage / "successor-surface-manifest.json"
@@ -952,7 +1232,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Build the disposable successor torso/shoulder surface preview")
+    parser = argparse.ArgumentParser(description="Build the disposable successor torso/shoulder/head/neck surface preview")
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--samples-per-axis", type=int, default=DEFAULT_SAMPLES)
