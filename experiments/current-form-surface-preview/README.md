@@ -67,10 +67,11 @@ The disposable v2 generator writes one private `regional-guide.json` and one
 guide sidecar is a sanitized, source-owned debug projection of `_HybridGuide`:
 it carries only source AddressKeys, compiled recipe counts, projection
 names/bases, one shared world-space render bound, fixed canvas/layout metadata,
-and finite regional controls. Its v4 `torso_cage` controls are the explicit
-skin-driving representation: they retain pelvis/torso owner AddressKeys,
-fixed guide axes/orientation, five ordered elliptical cross-sections from
-pelvis through the shoulder ribcage, and four connections between adjacent
+and finite regional controls. Its v4 `torso_cage` controls compile into the
+successor's private frame-aware ordered profile sweep: they retain
+pelvis/torso owner AddressKeys, fixed guide axes/orientation, seven ordered
+elliptical cross-sections from
+pelvis through the shoulder ribcage, and six connections between adjacent
 sections. The guide renderer draws these sections as rings/contours in the
 front, side, and three-quarter x-ray panels. The older ordered axial
 `stations` (`pelvic-girdle`, `waist`, `chest-girdle`) and `transitions`
