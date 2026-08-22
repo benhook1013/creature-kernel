@@ -14,14 +14,14 @@ governs what resumes next.
 ## Active runway
 
 Execution state: active toward the authored-form expressivity checkpoint after
-PR #103 merged on 2026-08-23.
+PR #106 merged at `c94deb0` on 2026-08-23.
 
 Current operational snapshot: the [Codex app handover](current-handover.md)
-(2026-08-23 NZST) records the clean primary checkout, active authored-form
-worktree, merged PR #103 baseline, gallery, and service state. It is a
-navigation aid rather than a new authority owner. PR #103 merged at `f30bdb2`
-after all three required checks passed; its merge retains useful plumbing and
-comparison evidence, not a successful form-quality claim.
+(2026-08-23 NZST) records the clean primary checkout, active runway worktree,
+merged PR state, gallery, and service state. It is a navigation aid rather
+than a new authority owner. PR #106 introduced the distinct authored-form
+source and v5 dimension lineage while preserving the parked EXP-0002 closure;
+it intentionally made no displayed form-quality claim.
 
 Ben's exact feedback on PR #103's successor checkpoint artifact was: "its got
 pointy bulges under the arms again." This is rejection of that displayed
@@ -83,6 +83,15 @@ Before publishing that checkpoint, retain either the exact v5 source envelope
 or an integrity-bound authored-dimension/descriptor-role lineage projection in
 the immutable review evidence. A source hash without the corresponding lineage
 payload is not sufficient for the checkpoint's provenance claim.
+
+The current bounded source-envelope candidate makes future surface reviews
+self-contained by retaining the exact canonical v5 producer bytes consumed by
+the generators in `review.json`, deterministically zlib-compressed and
+Base64-encoded with their original byte count, encoding, and SHA-256. The
+retained v5 hash must equal the existing producer `source_sha256`; the validated
+input body document remains separately identified by its encoding, byte count,
+and SHA-256 without duplicating its bytes. This is lineage plumbing only; it
+does not change the displayed gallery or satisfy the named visual checkpoint.
 
 The active fixture's exact squared reference length is `1`. If a later runway
 admits producer output above JavaScript's exact-integer domain, align or tighten

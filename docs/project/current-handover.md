@@ -10,11 +10,15 @@ the canonical owner of the active runway, and the required reading order in
 ## Where to continue
 
 - Primary checkout: `/home/ben/src/creature-kernel` — clean, synchronized
-  `main` at `116ed6f` / `origin/main`, including the merged embodiment
-  capability guardrails from PR #105.
-- Active worktree: `/home/ben/src/creature-kernel-worktrees/authored-form-expressivity`
-  — branch `implementation/authored-form-expressivity`, created from
-  `f30bdb2` for bounded work toward the next named checkpoint.
+  `main` at `c94deb0` / `origin/main`, including the merged authored-dimension
+  lineage from PR #106.
+- Active worktree: `/home/ben/src/creature-kernel-worktrees/authored-shoulder-envelope`
+  — branch `implementation/surface-source-envelope`, created from `c94deb0`
+  for the exact-source-evidence prerequisite to the next geometry slice.
+- [PR #106](https://github.com/benhook1013/creature-kernel/pull/106)
+  merged at `c94deb0` after all three required CI checks passed. It adds a
+  distinct authored-form source and v5 dimension lineage while preserving all
+  parked EXP-0002 candidate-closure bytes; it changes no displayed geometry.
 - [PR #103](https://github.com/benhook1013/creature-kernel/pull/103)
   merged at `f30bdb2` after all three required CI checks passed. Its merge
   retains useful plumbing and comparison evidence; it does not accept the
@@ -23,6 +27,17 @@ the canonical owner of the active runway, and the required reading order in
 Open the active worktree in the Codex app to continue the runway.
 Read `AGENTS.md` in the required order, then this handover and the linked
 [current status](status.md).
+
+The current bounded candidate retains the exact canonical v5 producer bytes
+actually consumed by the generators inside each new surface review's
+`review.json`, using deterministic zlib plus Base64 with the original UTF-8
+encoding, byte count, and SHA-256. The v5 hash is cross-bound to the existing
+producer hash; the validated input body document is separately identified by
+its encoding, byte count, and SHA-256 without duplicating its bytes. It is
+self-contained v5 lineage plumbing only. After its review and merge, continue
+with the bounded source-driven torso/shoulder envelope slice; do not stop for
+human appraisal until the full named multi-region gallery is genuinely
+appraisable.
 
 ## Gallery and service
 

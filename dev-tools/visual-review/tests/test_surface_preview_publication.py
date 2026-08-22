@@ -460,6 +460,28 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             sorted(f"{v}-{role}.png" for v in common.PROVISIONAL_FORM_VARIANT_IDS for role in ("baseline", "successor")),
         )
         review = json.loads((session / "review.json").read_text(encoding="utf-8"))
+        descriptor_snapshot = review["subject_context"]["descriptor_snapshot"]
+        input_bytes = self.input.read_bytes()
+        self.assertEqual(descriptor_snapshot["input_body_document_encoding"], "utf-8")
+        self.assertEqual(descriptor_snapshot["input_body_document_bytes"], len(input_bytes))
+        self.assertEqual(
+            descriptor_snapshot["input_body_document_sha256"],
+            hashlib.sha256(input_bytes).hexdigest(),
+        )
+        producer_bytes = publisher._decode_producer_evidence(descriptor_snapshot)
+        self.assertEqual(
+            hashlib.sha256(producer_bytes).hexdigest(),
+            descriptor_snapshot["source_sha256"],
+        )
+        self.assertEqual(
+            descriptor_snapshot["producer_v5_sha256"],
+            descriptor_snapshot["source_sha256"],
+        )
+        self.assertEqual(json.loads(producer_bytes), self._payload())
+        tampered_producer = dict(descriptor_snapshot)
+        tampered_producer["producer_v5_sha256"] = "0" * 64
+        with self.assertRaisesRegex(publisher.SurfacePreviewPublishError, "exact source bytes"):
+            publisher._validate_producer_evidence(tampered_producer)
         self.assertEqual(len(review["groups"]), 4)
         self.assertEqual([item["metadata"]["source_role"] for item in review["groups"][0]["items"]], ["baseline", "successor"])
         self.assertEqual([item["title"] for item in review["groups"][0]["items"]], ["Neutral — baseline", "Neutral — successor"])
@@ -584,6 +606,55 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     review_id="probe-cleanup",
                 )
         self.assertEqual(list(self.root.iterdir()), [])
+
+    def test_source_evidence_is_deterministic_and_context_remains_fail_closed(self) -> None:
+        first = publisher._read_input_evidence(self.input)
+        second = publisher._read_input_evidence(self.input)
+        self.assertEqual(first, second)
+        for malformed in (
+            {**first, "input_body_document_encoding": "utf-16"},
+            {**first, "input_body_document_bytes": True},
+            {**first, "input_body_document_sha256": "not-a-hash"},
+        ):
+            with self.subTest(malformed=malformed):
+                with self.assertRaises(publisher.SurfacePreviewPublishError):
+                    publisher._validate_input_evidence(malformed)
+        with self.assertRaises(common.ValidationError):
+            common._subject_context({"descriptor_snapshot": "not-an-object"}, "context")
+
+    def test_checked_in_authored_source_identity_fits_inside_context_bound(self) -> None:
+        source = (
+            HERE.parents[1]
+            / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
+        )
+        raw = source.read_bytes()
+        self.assertEqual(len(raw), 21_722)
+        self.assertEqual(
+            hashlib.sha256(raw).hexdigest(),
+            "8d2201d24f79833f589a55e3c51c09c9e529d8a369bd62f5022ee4a50972a22e",
+        )
+        evidence = publisher._validate_input_evidence(
+            publisher._read_input_evidence(source), "checked-in source"
+        )
+        self.assertEqual(evidence["input_body_document_bytes"], len(raw))
+        self.assertEqual(
+            evidence["input_body_document_sha256"], hashlib.sha256(raw).hexdigest()
+        )
+        self.assertLess(
+            len(json.dumps(evidence, ensure_ascii=False)), common.MAX_CONTEXT_JSON
+        )
+
+    def test_producer_evidence_that_cannot_fit_context_fails_closed(self) -> None:
+        noisy = "".join(
+            hashlib.sha256(str(index).encode("ascii")).hexdigest()
+            for index in range(320)
+        )
+        producer = self.directory / "large-producer.json"
+        producer.write_text(json.dumps({"noise": noisy}), encoding="utf-8")
+        with self.assertRaisesRegex(publisher.SurfacePreviewPublishError, "too large"):
+            publisher._validate_producer_evidence(
+                publisher._read_producer_evidence(producer), "large producer"
+            )
 
     def test_malformed_count_and_unlisted_output_publish_nothing(self) -> None:
         for index, mode in enumerate(("bad-count", "unlisted", "symlink", "extra-directory", "hash", "source-mismatch", "fabricated-provenance", "fabricated-descriptor", "profile-mismatch", "guide-format", "guide-provenance", "guide-controls", "guide-station-omitted", "guide-transition-omitted", "guide-cage-omitted", "guide-cage-malformed", "guide-cage-connection", "guide-shoulder-omitted", "guide-shoulder-stale-status", "guide-shoulder-consumption", "guide-shoulder-malformed", "guide-shoulder-owner", "guide-shoulder-order", "guide-shoulder-endpoint", "guide-shoulder-span", "guide-shoulder-degenerate", "guide-shoulder-points", "guide-shoulder-profile", "guide-shoulder-profile-continuity", "guide-shoulder-first-quarter", "guide-girdle-omitted", "guide-station-malformed", "guide-transition-malformed", "guide-girdle-malformed", "guide-joint-endpoint", "guide-foot-legacy", "guide-foot-order", "guide-foot-hock-source", "guide-foot-hock-radii", "guide-foot-contact", "guide-foot-taper", "guide-foot-axis", "guide-foot-gap", "guide-hand-attachment-start", "guide-hand-anchor-point", "guide-section-gap", "guide-profile-second-start", "guide-adjacent-profile", "guide-obsolete-recipe-count", "guide-wrong-recipe-count", "metrics-generated-count", "metrics-recipe-count", "manifest-metrics", "generator-recipes", "generator-ownership", "guide-omitted", "png-small", "png-truncated", "png-crc", "png-no-idat", "png-invalid-idat", "png-unknown-critical")):
