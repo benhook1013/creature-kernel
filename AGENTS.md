@@ -248,6 +248,20 @@ the next step against the named checkpoint.
 Reviewers may challenge a proposal and recommend a disposition, but only Ben,
 the human decision owner, accepts or rejects a DR.
 
+For materially complex direction-setting, cross-cutting, or hard-to-reverse
+product or architecture idea generation, the main thread must frame the
+question and launch at least two separate fresh-context `gpt-5.6-luna` passes
+at `xhigh`, using distinct named lenses, before forming a proposal. Each pass
+must generate candidate options rather than merely review an existing choice.
+The main thread compares their option spaces and contributes its own synthesis;
+no single subagent supplies project direction. This is not required for
+bounded factual investigation, routine or small technical choices, or
+implementation of an already-decided direction, and it must not become
+ceremonial duplicate prompting. These are pre-proposal explorations and do not
+satisfy or replace any risk-scaled post-proposal adversarial review. Existing
+model ceilings, Ben's decision authority, main-thread ownership, and cost/risk
+discipline remain in force.
+
 - Use `gpt-5.6-luna` at `high` for routine bounded investigation, mechanical
   patches, straightforward test updates, and multi-step search or tool-driven
   investigation. Prefer this route when it preserves Sol context or lowers cost,
