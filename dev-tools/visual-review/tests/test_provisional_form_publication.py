@@ -4,6 +4,7 @@ import copy
 import importlib.util
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import threading
@@ -101,29 +102,7 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
             "variants": [],
             "limitations": "Provisional display-only geometry descriptors; no production geometry or Readiness 3.",
         }
-        for variant_id in common.PROVISIONAL_FORM_VARIANT_IDS:
-            descriptor = {
-                "descriptor_kind": "display-only-form-descriptor",
-                "address": address,
-                "parent": None,
-                "placement_source": "authored-root",
-                "reference_point": [0, 0, 0],
-                "dimension_roles": ["form_extent_x", "form_extent_y", "form_extent_z"],
-                "profile_id": variant_id,
-                "source": common.PROVISIONAL_FORM_PROVENANCE,
-                "provenance": {"source": common.PROVISIONAL_FORM_PROVENANCE, "resource_profile_id": common.PROVISIONAL_FORM_RESOURCE_PROFILE, "shape_basis": common.PROVISIONAL_FORM_SHAPE_BASIS},
-                "shape": {"name": "ellipsoid", "center": [0, 0, 0], "axis_extents_permille": [1000, 900, 800]},
-            }
-            torso = copy.deepcopy(descriptor)
-            torso["address"] = {**address, "role": "torso"}
-            torso["parent"] = {**address, "role": "pelvis"}
-            torso["placement_source"] = "authored-containment"
-            torso["reference_point"] = [0, 1, 0]
-            torso["shape"]["center"] = [0, 1, 0]
-            torso["shape"]["axis_extents_permille"] = [1000, 1000, 900]
-            apply_fixed_display_factors(descriptor, variant_id)
-            apply_fixed_display_factors(torso, variant_id)
-            self.payload["variants"].append({"id": variant_id, "profile_id": variant_id, "provenance": {"source": common.PROVISIONAL_FORM_PROVENANCE, "resource_profile_id": common.PROVISIONAL_FORM_RESOURCE_PROFILE, "shape_basis": common.PROVISIONAL_FORM_SHAPE_BASIS}, "descriptors": [descriptor, torso]})
+        self.payload = self.capsule_payload(format_name=common.PROVISIONAL_FORM_FORMAT)
 
     def tearDown(self) -> None:
         self.temp.cleanup()
@@ -146,20 +125,32 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
         def address(role: str, anchors: list[str] | None = None) -> dict[str, object]:
             return {"namespace": "main", "anchors": anchors or [], "kind": "part", "role": role}
 
+        is_dimension_format = format_name in {
+            common.PROVISIONAL_FORM_HISTORICAL_V5_FORMAT,
+            common.PROVISIONAL_FORM_FORMAT,
+        }
+        is_v6 = format_name == common.PROVISIONAL_FORM_FORMAT
+
         def descriptor(
             role: str,
             point: list[int],
             parent: dict[str, object] | None,
             shape: dict[str, object],
+            anchors: list[str] | None = None,
         ) -> dict[str, object]:
             dimension_roles = {
                 "ellipsoid": ["form_extent_x", "form_extent_y", "form_extent_z"],
-                "capsule": ["form_radius"],
+                "capsule": (
+                    ["form_radius", "form_shoulder_depth_radius"]
+                    if is_v6 and role == "upper_arm"
+                    else ["form_radius"]
+                ),
                 "tapered-segment": ["form_start_radius", "form_end_radius"],
             }[shape["name"]]
+            owner = address(role, anchors)
             return {
                 "descriptor_kind": "display-only-form-descriptor",
-                "address": address(role),
+                "address": owner,
                 "parent": parent,
                 "placement_source": "authored-root" if parent is None else "authored-containment",
                 "reference_point": point,
@@ -178,13 +169,15 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
         torso = address("torso")
         neck = address("neck")
         head = address("head")
-        upper_arm = address("upper_arm")
-        forearm = address("forearm")
-        hand = address("hand")
+
+        def part(role: str, side: str | None = None) -> dict[str, object]:
+            return address(role, [] if side is None else [side])
+
         neck_shape = (
             {"name": "capsule", "from": [0, 2, 0], "to": [0, 3, 0], "radius_permille": 500}
             if format_name in {
                 common.PROVISIONAL_FORM_HISTORICAL_V4_FORMAT,
+                common.PROVISIONAL_FORM_HISTORICAL_V5_FORMAT,
                 common.PROVISIONAL_FORM_FORMAT,
             }
             else {"name": "ellipsoid", "center": [0, 2, 0], "axis_extents_permille": [650, 600, 600]}
@@ -194,14 +187,36 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
             descriptor("torso", [0, 1, 0], pelvis, {"name": "ellipsoid", "center": [0, 1, 0], "axis_extents_permille": [1000, 1000, 900]}),
             descriptor("neck", [0, 2, 0], torso, neck_shape),
             descriptor("head", [0, 3, 0], neck, {"name": "ellipsoid", "center": [0, 3, 0], "axis_extents_permille": [1000, 1000, 900]}),
-            descriptor("upper_arm", [-1, 2, 0], torso, {"name": "capsule", "from": [-1, 2, 0], "to": [-2, 2, 0], "radius_permille": 200}),
-            descriptor("forearm", [-2, 2, 0], upper_arm, {"name": "capsule", "from": [-2, 2, 0], "to": [-3, 2, 0], "radius_permille": 180}),
-            descriptor("hand", [-3, 2, 0], forearm, {"name": "ellipsoid", "center": [-3, 2, 0], "axis_extents_permille": [450, 400, 350]}),
+            descriptor("upper_arm", [-1, 2, 0], torso, {"name": "capsule", "from": [-1, 2, 0], "to": [-2, 2, 0], "radius_permille": 200}, ["left"]),
+            descriptor("forearm", [-2, 2, 0], part("upper_arm", "left"), {"name": "capsule", "from": [-2, 2, 0], "to": [-3, 2, 0], "radius_permille": 180}, ["left"]),
+            descriptor("hand", [-3, 2, 0], part("forearm", "left"), {"name": "ellipsoid", "center": [-3, 2, 0], "axis_extents_permille": [450, 400, 350]}, ["left"]),
+            descriptor("upper_arm", [1, 2, 0], torso, {"name": "capsule", "from": [1, 2, 0], "to": [2, 2, 0], "radius_permille": 200}, ["right"]),
+            descriptor("forearm", [2, 2, 0], part("upper_arm", "right"), {"name": "capsule", "from": [2, 2, 0], "to": [3, 2, 0], "radius_permille": 180}, ["right"]),
+            descriptor("hand", [3, 2, 0], part("forearm", "right"), {"name": "ellipsoid", "center": [3, 2, 0], "axis_extents_permille": [450, 400, 350]}, ["right"]),
+            descriptor("thigh", [-1, 0, 0], pelvis, {"name": "capsule", "from": [-1, 0, 0], "to": [-1, -1, 0], "radius_permille": 240}, ["left"]),
+            descriptor("shin", [-1, -1, 0], part("thigh", "left"), {"name": "capsule", "from": [-1, -1, 0], "to": [-1, -2, 0], "radius_permille": 180}, ["left"]),
+            descriptor("foot", [-1, -2, 0], part("shin", "left"), {"name": "ellipsoid", "center": [-1, -2, 0], "axis_extents_permille": [500, 350, 600]}, ["left"]),
+            descriptor("thigh", [1, 0, 0], pelvis, {"name": "capsule", "from": [1, 0, 0], "to": [1, -1, 0], "radius_permille": 240}, ["right"]),
+            descriptor("shin", [1, -1, 0], part("thigh", "right"), {"name": "capsule", "from": [1, -1, 0], "to": [1, -2, 0], "radius_permille": 180}, ["right"]),
+            descriptor("foot", [1, -2, 0], part("shin", "right"), {"name": "ellipsoid", "center": [1, -2, 0], "axis_extents_permille": [500, 350, 600]}, ["right"]),
+            descriptor("tail_root", [0, -1, 0], pelvis, {"name": "tapered-segment", "from": [0, 0, 0], "to": [0, -1, 0], "start_radius_permille": 220, "end_radius_permille": 180}, ["tail"]),
+            descriptor("tail_tip", [0, -2, 0], part("tail_root", "tail"), {"name": "tapered-segment", "from": [0, -1, 0], "to": [0, -2, 0], "start_radius_permille": 180, "end_radius_permille": 120}, ["tail"]),
         ]
         descriptors.sort(key=lambda item: (
             item["address"]["namespace"], tuple(item["address"]["anchors"]),
             item["address"]["kind"], item["address"]["role"],
         ))
+        if format_name == common.PROVISIONAL_FORM_LEGACY_FORMAT:
+            for item in descriptors:
+                if item["shape"]["name"] != "capsule" or item["parent"] is None:
+                    continue
+                parent = next(
+                    candidate
+                    for candidate in descriptors
+                    if candidate["address"] == item["parent"]
+                )
+                item["shape"]["from"] = copy.deepcopy(parent["reference_point"])
+                item["shape"]["to"] = copy.deepcopy(item["reference_point"])
         payload = copy.deepcopy(self.payload)
         payload["format"] = format_name
         payload["authored_dimensions"] = []
@@ -211,9 +226,13 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
                 values = shape["axis_extents_permille"]
             elif shape["name"] == "capsule":
                 values = [shape["radius_permille"]]
+                if is_v6 and item["address"]["role"] == "upper_arm":
+                    values.append(350)
             else:
                 values = [shape["start_radius_permille"], shape["end_radius_permille"]]
             for role, value in zip(item["dimension_roles"], values):
+                if role == "form_shoulder_depth_radius":
+                    value = 350
                 payload["authored_dimensions"].append({
                     "owner": copy.deepcopy(item["address"]),
                     "role": role,
@@ -224,22 +243,28 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
                         "namespace": "main",
                     },
                 })
-        if format_name == common.PROVISIONAL_FORM_LEGACY_FORMAT:
-            points = {
-                item["address"]["role"]: item["reference_point"]
-                for item in descriptors
-            }
-            parent_roles = {"upper_arm": "torso", "forearm": "upper_arm"}
-            for item in descriptors:
-                role = item["address"]["role"]
-                if role in parent_roles:
-                    item["shape"]["from"] = points[parent_roles[role]]
-                    item["shape"]["to"] = item["reference_point"]
+        payload["authored_dimensions"].sort(key=lambda item: (
+            item["owner"]["namespace"], tuple(item["owner"]["anchors"]),
+            item["owner"]["kind"], item["owner"]["role"], item["role"],
+        ))
+        candidates = []
+        for item in descriptors:
+            parent = item["parent"]
+            if parent is None:
+                continue
+            parent_item = next(candidate for candidate in descriptors if candidate["address"] == parent)
+            delta = [item["reference_point"][index] - parent_item["reference_point"][index] for index in range(3)]
+            squared = sum(component * component for component in delta)
+            if squared:
+                candidates.append((squared, item["address"], parent, delta))
+        selected = min(candidates, key=lambda candidate: (candidate[0], (
+            candidate[1]["namespace"], tuple(candidate[1]["anchors"]), candidate[1]["kind"], candidate[1]["role"]
+        )))
         payload["reference_scale"] = {
-            "parent": upper_arm,
-            "child": forearm,
-            "axis_delta": [-1, 0, 0],
-            "squared_length": 1,
+            "parent": selected[2],
+            "child": selected[1],
+            "axis_delta": selected[3],
+            "squared_length": selected[0],
             "source": "exact-containment-edge",
         }
         payload["variants"] = []
@@ -247,7 +272,7 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
             variant_descriptors = copy.deepcopy(descriptors)
             for item in variant_descriptors:
                 item["profile_id"] = variant_id
-                if format_name == common.PROVISIONAL_FORM_FORMAT:
+                if is_dimension_format:
                     apply_fixed_display_factors(item, variant_id)
             payload["variants"].append({
                 "id": variant_id,
@@ -259,7 +284,44 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
                 },
                 "descriptors": variant_descriptors,
             })
-        if format_name != common.PROVISIONAL_FORM_FORMAT:
+        if is_v6:
+            controls = []
+            for side, x in (("left", -0.1), ("right", 0.1)):
+                owner = address("upper_arm", [side])
+                controls.extend([
+                    {
+                        "owner": copy.deepcopy(owner),
+                        "role": "form_shoulder_peak",
+                        "frame": {"owner": copy.deepcopy(owner), "role": common.PROVISIONAL_FORM_SHOULDER_CONTROL_FRAME_ROLE},
+                        "position": [x, 0.15, 0],
+                        "provenance": {"source": common.PROVISIONAL_FORM_AUTHORED_CONTROL_PROVENANCE, "document": "fixture", "namespace": "main"},
+                    },
+                    {
+                        "owner": copy.deepcopy(owner),
+                        "role": "form_axilla",
+                        "frame": {"owner": copy.deepcopy(owner), "role": common.PROVISIONAL_FORM_SHOULDER_CONTROL_FRAME_ROLE},
+                        "position": [x, -0.3, 0],
+                        "provenance": {"source": common.PROVISIONAL_FORM_AUTHORED_CONTROL_PROVENANCE, "document": "fixture", "namespace": "main"},
+                    },
+                ])
+            payload["authored_landmarks"] = sorted(controls, key=lambda item: (
+                item["owner"]["namespace"], tuple(item["owner"]["anchors"]), item["owner"]["kind"], item["owner"]["role"], item["role"]
+            ))
+            payload["authored_frames"] = sorted([
+                {
+                    "owner": {"namespace": "main", "anchors": [side], "kind": "part", "role": "upper_arm"},
+                    "role": common.PROVISIONAL_FORM_SHOULDER_CONTROL_FRAME_ROLE,
+                    "transform": {"translation": [0, 0, 0], "rotation_xyzw": [0, 0, 0, 1]},
+                    "provenance": {"source": common.PROVISIONAL_FORM_AUTHORED_CONTROL_PROVENANCE, "document": "fixture", "namespace": "main"},
+                }
+                for side in ("left", "right")
+            ], key=lambda item: (
+                item["owner"]["namespace"], tuple(item["owner"]["anchors"]), item["owner"]["kind"], item["owner"]["role"], item["role"]
+            ))
+        if not is_v6:
+            payload.pop("authored_landmarks", None)
+            payload.pop("authored_frames", None)
+        if not is_dimension_format:
             payload.pop("authored_dimensions")
             for variant in payload["variants"]:
                 variant["provenance"].pop("shape_basis")
@@ -277,7 +339,12 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
         self.assertEqual(review["provisional_form"], self.payload)
         self.assertEqual(list((session / "assets").iterdir()), [])
         self.payload["variants"][0]["descriptors"][0]["shape"]["center"][0] = 9
-        self.assertEqual(json.loads((session / "review.json").read_text())["provisional_form"]["variants"][0]["descriptors"][0]["shape"]["center"], [0, 0, 0])
+        stored_descriptors = json.loads((session / "review.json").read_text())["provisional_form"]["variants"][0]["descriptors"]
+        stored_pelvis = next(
+            descriptor for descriptor in stored_descriptors
+            if descriptor["address"]["role"] == "pelvis" and not descriptor["address"]["anchors"]
+        )
+        self.assertEqual(stored_pelvis["shape"]["center"], [0, 0, 0])
         server = serve.create_server(self.root, 0)
         thread = threading.Thread(target=server.serve_forever)
         thread.start()
@@ -289,7 +356,7 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
         finally:
             server.shutdown(); thread.join(); server.server_close()
 
-    def test_v5_rejects_tampered_authored_dimension_with_unchanged_descriptors(self) -> None:
+    def test_v6_rejects_tampered_authored_dimension_with_unchanged_descriptors(self) -> None:
         payload = copy.deepcopy(self.payload)
         payload["authored_dimensions"][0]["value_permille"] += 1
         with self.assertRaisesRegex(
@@ -300,9 +367,14 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
                 payload, "tampered authored dimension fixture"
             )
 
-    def test_v5_rejects_tampered_non_neutral_variant_shape_control(self) -> None:
+    def test_v6_rejects_tampered_non_neutral_variant_shape_control(self) -> None:
         payload = copy.deepcopy(self.payload)
-        payload["variants"][1]["descriptors"][1]["shape"]["axis_extents_permille"][0] += 1
+        torso = next(
+            descriptor
+            for descriptor in payload["variants"][1]["descriptors"]
+            if descriptor["address"]["role"] == "torso"
+        )
+        torso["shape"]["axis_extents_permille"][0] += 1
         with self.assertRaisesRegex(
             common.ValidationError,
             "shape numeric controls do not match source-authored dimensions",
@@ -311,7 +383,7 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
                 payload, "tampered non-neutral variant fixture"
             )
 
-    def test_v5_rejects_unconsumed_authored_dimension(self) -> None:
+    def test_v6_rejects_unconsumed_authored_dimension(self) -> None:
         payload = copy.deepcopy(self.payload)
         payload["authored_dimensions"].append({
             "owner": copy.deepcopy(payload["authored_dimensions"][0]["owner"]),
@@ -331,7 +403,70 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
             common.ValidationError,
             "authored_dimensions must equal the complete descriptor-consumed control set",
         ):
-            common._validate_provisional_form_envelope(payload, "extra v5 dimension fixture")
+            common._validate_provisional_form_envelope(payload, "extra v6 dimension fixture")
+
+    def test_historical_v5_retains_only_its_original_dimension_contract(self) -> None:
+        payload = self.capsule_payload(
+            format_name=common.PROVISIONAL_FORM_HISTORICAL_V5_FORMAT
+        )
+        validated = common._validate_provisional_form_envelope(payload, "historical v5 fixture")
+        self.assertEqual(validated["format"], common.PROVISIONAL_FORM_HISTORICAL_V5_FORMAT)
+        for variant in validated["variants"]:
+            for descriptor in variant["descriptors"]:
+                if descriptor["address"]["role"] == "upper_arm":
+                    self.assertEqual(descriptor["dimension_roles"], ["form_radius"])
+        self.assertNotIn("authored_landmarks", validated)
+        self.assertNotIn("authored_frames", validated)
+
+    def test_v6_shoulder_control_inventory_fails_closed(self) -> None:
+        cases = []
+
+        missing = copy.deepcopy(self.payload)
+        missing["authored_landmarks"].pop()
+        cases.append(missing)
+
+        duplicate = copy.deepcopy(self.payload)
+        duplicate["authored_frames"].append(copy.deepcopy(duplicate["authored_frames"][0]))
+        cases.append(duplicate)
+
+        wrong_owner = copy.deepcopy(self.payload)
+        wrong_owner["authored_landmarks"][0]["owner"]["role"] = "forearm"
+        cases.append(wrong_owner)
+
+        wrong_frame = copy.deepcopy(self.payload)
+        wrong_frame["authored_landmarks"][0]["frame"]["role"] = "wrong_frame"
+        cases.append(wrong_frame)
+
+        nonidentity = copy.deepcopy(self.payload)
+        nonidentity["authored_frames"][0]["transform"]["translation"][0] = 0.1
+        cases.append(nonidentity)
+
+        out_of_bound = copy.deepcopy(self.payload)
+        out_of_bound["authored_landmarks"][0]["position"][0] = 1.01
+        cases.append(out_of_bound)
+
+        nonfinite = copy.deepcopy(self.payload)
+        nonfinite["authored_landmarks"][0]["position"][0] = float("nan")
+        cases.append(nonfinite)
+
+        missing_descriptor = copy.deepcopy(self.payload)
+        for variant in missing_descriptor["variants"]:
+            variant["descriptors"] = [
+                descriptor
+                for descriptor in variant["descriptors"]
+                if not (
+                    descriptor["address"]["role"] == "upper_arm"
+                    and descriptor["address"]["anchors"] == ["right"]
+                )
+            ]
+        cases.append(missing_descriptor)
+
+        for index, payload in enumerate(cases):
+            with self.subTest(index=index):
+                with self.assertRaises(common.ValidationError):
+                    common._validate_provisional_form_envelope(
+                        payload, f"malformed v6 control fixture {index}"
+                    )
 
     def test_unknown_and_malformed_payloads_fail_closed(self) -> None:
         cases = [
@@ -361,11 +496,12 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
                 self.publish_with(binary, review_id=f"bad-form-{index}")
             self.assertFalse((self.root / f"bad-form-{index}").exists())
 
-    def test_v2_through_v5_limb_capsules_use_their_direct_distal_child_anchor(self) -> None:
+    def test_v2_through_v6_limb_capsules_use_their_direct_distal_child_anchor(self) -> None:
         for format_name in (
             common.PROVISIONAL_FORM_V2_FORMAT,
             common.PROVISIONAL_FORM_V3_FORMAT,
             common.PROVISIONAL_FORM_HISTORICAL_V4_FORMAT,
+            common.PROVISIONAL_FORM_HISTORICAL_V5_FORMAT,
             common.PROVISIONAL_FORM_FORMAT,
         ):
             with self.subTest(format_name=format_name):
@@ -448,9 +584,9 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
         with self.assertRaisesRegex(common.ValidationError, "ambiguous direct forearm children"):
             common._validate_provisional_form_envelope(ambiguous, "ambiguous capsule fixture")
 
-    def test_v5_neck_capsule_requires_exactly_one_direct_head_endpoint(self) -> None:
-        payload = self.capsule_payload()
-        validated = common._validate_provisional_form_envelope(payload, "v5 neck fixture")
+    def test_v6_neck_capsule_requires_exactly_one_direct_head_endpoint(self) -> None:
+        payload = self.capsule_payload(format_name=common.PROVISIONAL_FORM_FORMAT)
+        validated = common._validate_provisional_form_envelope(payload, "v6 neck fixture")
         self.assertEqual(validated["format"], common.PROVISIONAL_FORM_FORMAT)
 
         neck_ellipsoid = copy.deepcopy(payload)
@@ -466,7 +602,7 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
             common.ValidationError, "must be capsule for role neck"
         ):
             common._validate_provisional_form_envelope(
-                neck_ellipsoid, "v5 ellipsoid neck fixture"
+                neck_ellipsoid, "v6 ellipsoid neck fixture"
             )
 
         wrong_endpoint = copy.deepcopy(payload)
@@ -478,7 +614,7 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
             common.ValidationError, "end does not match its direct head child point"
         ):
             common._validate_provisional_form_envelope(
-                wrong_endpoint, "v5 wrong neck endpoint fixture"
+                wrong_endpoint, "v6 wrong neck endpoint fixture"
             )
 
         missing_head = copy.deepcopy(payload)
@@ -492,7 +628,7 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
             common.ValidationError, "missing its direct head child"
         ):
             common._validate_provisional_form_envelope(
-                missing_head, "v5 missing head fixture"
+                missing_head, "v6 missing head fixture"
             )
 
         ambiguous_head = copy.deepcopy(payload)
@@ -531,7 +667,7 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
             common.ValidationError, "ambiguous direct head children"
         ):
             common._validate_provisional_form_envelope(
-                ambiguous_head, "v5 ambiguous head fixture"
+                ambiguous_head, "v6 ambiguous head fixture"
             )
 
         for prior_format in (
@@ -539,14 +675,20 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
             common.PROVISIONAL_FORM_V2_FORMAT,
             common.PROVISIONAL_FORM_V3_FORMAT,
             common.PROVISIONAL_FORM_HISTORICAL_V4_FORMAT,
+            common.PROVISIONAL_FORM_HISTORICAL_V5_FORMAT,
         ):
             prior = self.capsule_payload(format_name=prior_format)
             prior["format"] = common.PROVISIONAL_FORM_FORMAT
+            expected_message = (
+                "authored_landmarks is required for v6"
+                if prior_format == common.PROVISIONAL_FORM_HISTORICAL_V5_FORMAT
+                else "authored_dimensions is required for v5 or v6"
+            )
             with self.subTest(prior_format=prior_format), self.assertRaisesRegex(
-                common.ValidationError, "authored_dimensions is required for v5"
+                common.ValidationError, expected_message
             ):
                 common._validate_provisional_form_envelope(
-                    prior, "prior payload mislabeled v5"
+                    prior, "prior payload mislabeled v6"
                 )
 
     def test_v1_capsules_retain_legacy_parent_to_current_contract(self) -> None:
@@ -717,6 +859,78 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
         self.assertIn('"Front · x / y"', app)
         self.assertIn('"Side · z / y"', app)
         self.assertIn('"Top · x / z"', app)
+        self.assertIn('"creature-kernel.provisional-form-preview.v6"', app)
+        self.assertIn('var isV6 = payload.format === PROVISIONAL_FORM_V6_FORMAT;', app)
+        self.assertIn('v5 is an authored-dimension-only format', app)
+        self.assertIn('function formV6ShoulderControls(payload)', app)
+        self.assertIn('form_shoulder_control', app)
+        self.assertIn('form_shoulder_peak', app)
+        self.assertIn('form_axilla', app)
+        self.assertIn('["form_radius", "form_shoulder_depth_radius"]', app)
+        self.assertIn('shape.name === "capsule" ? shape.radius_permille', app)
+
+    def browser_form_errors(self, payload: dict[str, object]) -> list[str]:
+        script = r'''
+const fs = require("fs");
+const vm = require("vm");
+const appPath = process.argv[1];
+let source = fs.readFileSync(appPath, "utf8");
+const entrypoint = "  load();\n}());";
+if (source.split(entrypoint).length !== 2) {
+  throw new Error("unexpected browser app entrypoint");
+}
+source = source.replace(entrypoint, "  globalThis.__formValidation = formValidation;\n}());");
+const context = {
+  console,
+  document: { getElementById: function () { return null; } },
+  window: {}
+};
+vm.runInNewContext(source, context, { filename: appPath });
+process.stdout.write(JSON.stringify(context.__formValidation(JSON.parse(fs.readFileSync(0, "utf8")))));
+'''
+        completed = subprocess.run(
+            ["node", "-e", script, str(HERE / "static" / "app.js")],
+            input=json.dumps(payload),
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return json.loads(completed.stdout)
+
+    def test_browser_vm_enforces_versioned_authored_field_contract(self) -> None:
+        authored_fields = ("authored_dimensions", "authored_frames", "authored_landmarks")
+        for format_name in (
+            common.PROVISIONAL_FORM_LEGACY_FORMAT,
+            common.PROVISIONAL_FORM_V2_FORMAT,
+            common.PROVISIONAL_FORM_V3_FORMAT,
+            common.PROVISIONAL_FORM_HISTORICAL_V4_FORMAT,
+        ):
+            with self.subTest(format_name=format_name):
+                valid = self.capsule_payload(format_name=format_name)
+                self.assertEqual(self.browser_form_errors(valid), [])
+                for field in authored_fields:
+                    malformed = copy.deepcopy(valid)
+                    malformed[field] = []
+                    with self.subTest(field=field):
+                        self.assertTrue(self.browser_form_errors(malformed))
+
+        valid_v5 = self.capsule_payload(
+            format_name=common.PROVISIONAL_FORM_HISTORICAL_V5_FORMAT
+        )
+        self.assertEqual(self.browser_form_errors(valid_v5), [])
+        for field in ("authored_frames", "authored_landmarks"):
+            malformed = copy.deepcopy(valid_v5)
+            malformed[field] = []
+            with self.subTest(format_name="v5", field=field):
+                self.assertTrue(self.browser_form_errors(malformed))
+
+        valid_v6 = self.capsule_payload(format_name=common.PROVISIONAL_FORM_FORMAT)
+        self.assertEqual(self.browser_form_errors(valid_v6), [])
+        for field in authored_fields:
+            malformed = copy.deepcopy(valid_v6)
+            malformed.pop(field)
+            with self.subTest(format_name="v6", field=field):
+                self.assertTrue(self.browser_form_errors(malformed))
 
 
 if __name__ == "__main__":

@@ -1228,8 +1228,14 @@
     "creature-kernel.provisional-form-preview.v2",
     "creature-kernel.provisional-form-preview.v3",
     "creature-kernel.provisional-form-preview.v4",
-    "creature-kernel.provisional-form-preview.v5"
+    "creature-kernel.provisional-form-preview.v5",
+    "creature-kernel.provisional-form-preview.v6"
   ];
+  var PROVISIONAL_FORM_V5_FORMAT = "creature-kernel.provisional-form-preview.v5";
+  var PROVISIONAL_FORM_V6_FORMAT = "creature-kernel.provisional-form-preview.v6";
+  var PROVISIONAL_FORM_SHOULDER_FRAME_ROLE = "form_shoulder_control";
+  var PROVISIONAL_FORM_SHOULDER_LANDMARK_ROLES = ["form_shoulder_peak", "form_axilla"];
+  var PROVISIONAL_FORM_AUTHORED_CONTROL_PROVENANCE = "source-authored";
   var PROVISIONAL_FORM_VARIANTS = ["neutral-v0", "broad-soft-v0", "lean-readable-v0", "depth-forward-v0"];
   var PROVISIONAL_FORM_VIEWS = [
     { title: "Front · x / y", description: "Width and height", horizontal: 0, vertical: 1, depth: 2, horizontalLabel: "x", verticalLabel: "y" },
@@ -1262,6 +1268,122 @@
     return "#63c6a4";
   }
 
+  function formFiniteVector(value, length) {
+    return Array.isArray(value) && value.length === length && value.every(function (component) {
+      return typeof component === "number" && isFinite(component);
+    });
+  }
+
+  function formVectorEquals(value, expected) {
+    return Array.isArray(value) && value.length === expected.length && value.every(function (component, index) {
+      return component === expected[index];
+    });
+  }
+
+  function formControlAddress(address, namespace, side) {
+    return isObject(address) && address.namespace === namespace && address.kind === "part" && address.role === "upper_arm" && Array.isArray(address.anchors) && address.anchors.length === 1 && address.anchors[0] === side;
+  }
+
+  function formControlSortKey(address, role) {
+    return [String(address.namespace), address.anchors.join("\u0001"), String(address.kind), String(address.role), String(role)].join("\u0002");
+  }
+
+  function formControlProvenance(provenance, source) {
+    return isObject(provenance) && provenance.source === PROVISIONAL_FORM_AUTHORED_CONTROL_PROVENANCE && provenance.document === source.document && provenance.namespace === source.namespace;
+  }
+
+  function formV6ShoulderControls(payload) {
+    var errors = [];
+    var source = payload.source;
+    if (typeof source.namespace !== "string" || !source.namespace || typeof source.document !== "string" || !source.document) {
+      return ["v6 source identity must provide non-empty namespace and document strings for shoulder controls."];
+    }
+    var namespace = source.namespace;
+    var expectedFrameKeys = {};
+    ["left", "right"].forEach(function (side) {
+      expectedFrameKeys[formControlSortKey({ namespace: namespace, anchors: [side], kind: "part", role: "upper_arm" }, PROVISIONAL_FORM_SHOULDER_FRAME_ROLE)] = true;
+    });
+    if (!Array.isArray(payload.authored_frames) || payload.authored_frames.length !== 2) {
+      errors.push("v6 authored frames must contain exactly one shoulder control frame per upper arm.");
+    } else {
+      var seenFrames = {};
+      var frameKeys = [];
+      payload.authored_frames.forEach(function (frame, index) {
+        var where = "v6 authored frame " + index;
+        if (!isObject(frame) || !isObject(frame.owner) || typeof frame.role !== "string" || !isObject(frame.transform) || !isObject(frame.provenance)) {
+          errors.push(where + " is incomplete.");
+          return;
+        }
+        var side = Array.isArray(frame.owner.anchors) && frame.owner.anchors.length === 1 ? frame.owner.anchors[0] : null;
+        if (["left", "right"].indexOf(side) === -1 || !formControlAddress(frame.owner, namespace, side) || frame.role !== PROVISIONAL_FORM_SHOULDER_FRAME_ROLE) {
+          errors.push(where + " is not a left/right upper_arm shoulder control frame.");
+          return;
+        }
+        var key = formControlSortKey(frame.owner, frame.role);
+        frameKeys.push(key);
+        if (seenFrames[key]) { errors.push(where + " duplicates an owner/role key."); }
+        seenFrames[key] = true;
+        if (!formControlProvenance(frame.provenance, source)) {
+          errors.push(where + " provenance is not source-authored for this source.");
+        }
+        if (!formFiniteVector(frame.transform.translation, 3) || !formVectorEquals(frame.transform.translation, [0, 0, 0]) || !formFiniteVector(frame.transform.rotation_xyzw, 4) || !formVectorEquals(frame.transform.rotation_xyzw, [0, 0, 0, 1])) {
+          errors.push(where + " must use the identity rigid transform.");
+        }
+      });
+      if (Object.keys(seenFrames).length !== 2 || Object.keys(expectedFrameKeys).some(function (key) { return !seenFrames[key]; })) {
+        errors.push("v6 authored frames must contain exactly the left/right upper_arm shoulder control inventory.");
+      }
+      if (frameKeys.some(function (key, index) { return index > 0 && key < frameKeys[index - 1]; })) {
+        errors.push("v6 authored frames must use stable owner/role order.");
+      }
+    }
+
+    var expectedLandmarkKeys = {};
+    ["left", "right"].forEach(function (side) {
+      PROVISIONAL_FORM_SHOULDER_LANDMARK_ROLES.forEach(function (role) {
+        expectedLandmarkKeys[formControlSortKey({ namespace: namespace, anchors: [side], kind: "part", role: "upper_arm" }, role)] = true;
+      });
+    });
+    if (!Array.isArray(payload.authored_landmarks) || payload.authored_landmarks.length !== 4) {
+      errors.push("v6 authored landmarks must contain exactly peak and axilla per upper arm.");
+    } else {
+      var seenLandmarks = {};
+      var landmarkKeys = [];
+      payload.authored_landmarks.forEach(function (landmark, index) {
+        var where = "v6 authored landmark " + index;
+        if (!isObject(landmark) || !isObject(landmark.owner) || typeof landmark.role !== "string" || !isObject(landmark.frame) || !isObject(landmark.provenance)) {
+          errors.push(where + " is incomplete.");
+          return;
+        }
+        var side = Array.isArray(landmark.owner.anchors) && landmark.owner.anchors.length === 1 ? landmark.owner.anchors[0] : null;
+        if (["left", "right"].indexOf(side) === -1 || !formControlAddress(landmark.owner, namespace, side) || PROVISIONAL_FORM_SHOULDER_LANDMARK_ROLES.indexOf(landmark.role) === -1) {
+          errors.push(where + " is not a peak or axilla landmark on a left/right upper_arm.");
+          return;
+        }
+        var key = formControlSortKey(landmark.owner, landmark.role);
+        landmarkKeys.push(key);
+        if (seenLandmarks[key]) { errors.push(where + " duplicates an owner/role key."); }
+        seenLandmarks[key] = true;
+        if (!isObject(landmark.frame) || !formControlAddress(landmark.frame.owner, namespace, side) || !formControlAddress(landmark.owner, namespace, side) || landmark.frame.owner.namespace !== landmark.owner.namespace || JSON.stringify(landmark.frame.owner.anchors) !== JSON.stringify(landmark.owner.anchors) || landmark.frame.owner.kind !== landmark.owner.kind || landmark.frame.owner.role !== landmark.owner.role || landmark.frame.role !== PROVISIONAL_FORM_SHOULDER_FRAME_ROLE) {
+          errors.push(where + " frame must reference its same-owner shoulder control frame.");
+        }
+        if (!formFiniteVector(landmark.position, 3) || landmark.position.some(function (component) { return Math.abs(component) > 1.0; })) {
+          errors.push(where + " position must be finite and within +/-1.0.");
+        }
+        if (!formControlProvenance(landmark.provenance, source)) {
+          errors.push(where + " provenance is not source-authored for this source.");
+        }
+      });
+      if (Object.keys(seenLandmarks).length !== 4 || Object.keys(expectedLandmarkKeys).some(function (key) { return !seenLandmarks[key]; })) {
+        errors.push("v6 authored landmarks must contain exactly peak and axilla for both upper arms.");
+      }
+      if (landmarkKeys.some(function (key, index) { return index > 0 && key < landmarkKeys[index - 1]; })) {
+        errors.push("v6 authored landmarks must use stable owner/role order.");
+      }
+    }
+    return errors;
+  }
+
   function formValidation(payload) {
     var errors = [];
     if (!isObject(payload) || PROVISIONAL_FORM_FORMATS.indexOf(payload.format) === -1) {
@@ -1277,20 +1399,34 @@
       errors.push("Source identity, reference scale, or variants are missing.");
       return errors;
     }
-    var isV5 = payload.format === "creature-kernel.provisional-form-preview.v5";
+    var isV5 = payload.format === PROVISIONAL_FORM_V5_FORMAT;
+    var isV6 = payload.format === PROVISIONAL_FORM_V6_FORMAT;
+    var hasAuthoredDimensions = isV5 || isV6;
+    if (!hasAuthoredDimensions && Object.prototype.hasOwnProperty.call(payload, "authored_dimensions")) {
+      errors.push("v1-v4 formats cannot contain authored dimensions.");
+    }
+    if (!isV6 && !isV5 && (Object.prototype.hasOwnProperty.call(payload, "authored_frames") || Object.prototype.hasOwnProperty.call(payload, "authored_landmarks"))) {
+      errors.push("v1-v4 formats cannot contain v6 shoulder controls.");
+    }
+    if (isV5 && (Object.prototype.hasOwnProperty.call(payload, "authored_frames") || Object.prototype.hasOwnProperty.call(payload, "authored_landmarks"))) {
+      errors.push("v5 is an authored-dimension-only format and cannot contain v6 shoulder controls.");
+    }
     var authoredDimensionKeys = {};
-    if (isV5) {
+    if (hasAuthoredDimensions) {
       if (!Array.isArray(payload.authored_dimensions) || !payload.authored_dimensions.length) {
-        errors.push("v5 authored dimensions are missing.");
+        errors.push((isV6 ? "v6" : "v5") + " authored dimensions are missing.");
       } else {
         payload.authored_dimensions.forEach(function (dimension, index) {
           if (!isObject(dimension) || !isObject(dimension.owner) || typeof dimension.role !== "string" || !dimension.role || !Number.isInteger(dimension.value_permille) || dimension.value_permille <= 0 || dimension.value_permille > 5000) {
-            errors.push("v5 authored dimension " + index + " is invalid.");
+            errors.push((isV6 ? "v6" : "v5") + " authored dimension " + index + " is invalid.");
             return;
           }
           authoredDimensionKeys[JSON.stringify([formAddressKey(dimension.owner), dimension.role])] = true;
         });
       }
+    }
+    if (isV6) {
+      formV6ShoulderControls(payload).forEach(function (error) { errors.push(error); });
     }
     var consumedDimensionKeys = {};
     if (payload.variants.length !== 4) { errors.push("Exactly four fixed variants are required."); }
@@ -1302,9 +1438,10 @@
       if (!variant.descriptors.length || variant.descriptors.length > 64) {
         errors.push("Variant " + variant.id + " has an invalid descriptor count.");
       }
-      if (isV5 && (!isObject(variant.provenance) || variant.provenance.shape_basis !== "source-authored-dimensions-plus-fixed-display-factor")) {
-        errors.push("Variant " + variant.id + " has invalid v5 shape-basis provenance.");
+      if (hasAuthoredDimensions && (!isObject(variant.provenance) || variant.provenance.shape_basis !== "source-authored-dimensions-plus-fixed-display-factor")) {
+        errors.push("Variant " + variant.id + " has invalid " + (isV6 ? "v6" : "v5") + " shape-basis provenance.");
       }
+      var v6UpperArmKeys = {};
       variant.descriptors.forEach(function (descriptor, descriptorIndex) {
         if (!isObject(descriptor) || !isObject(descriptor.address) || !isObject(descriptor.shape) || !Array.isArray(descriptor.reference_point)) {
           errors.push("Variant " + variant.id + " descriptor " + descriptorIndex + " is incomplete.");
@@ -1313,24 +1450,41 @@
         if (["ellipsoid", "capsule", "tapered-segment"].indexOf(descriptor.shape.name) === -1) {
           errors.push("Variant " + variant.id + " contains an unknown shape.");
         }
-        if (isV5) {
-          var expectedRoles = descriptor.shape.name === "ellipsoid" ? ["form_extent_x", "form_extent_y", "form_extent_z"] : descriptor.shape.name === "capsule" ? ["form_radius"] : ["form_start_radius", "form_end_radius"];
+        if (isV6 && descriptor.address.role === "upper_arm") {
+          var upperArmSide = Array.isArray(descriptor.address.anchors) && descriptor.address.anchors.length === 1 ? descriptor.address.anchors[0] : null;
+          if (["left", "right"].indexOf(upperArmSide) === -1 || descriptor.address.namespace !== payload.source.namespace || descriptor.address.kind !== "part") {
+            errors.push("Variant " + variant.id + " must contain only left/right upper_arm descriptors for v6 shoulder controls.");
+          } else {
+            if (v6UpperArmKeys[upperArmSide]) {
+              errors.push("Variant " + variant.id + " contains a duplicate " + upperArmSide + " upper_arm descriptor.");
+            }
+            v6UpperArmKeys[upperArmSide] = true;
+          }
+          if (descriptor.shape.name !== "capsule") {
+            errors.push("Variant " + variant.id + " upper_arm must remain a capsule display shape.");
+          }
+        }
+        if (hasAuthoredDimensions) {
+          var expectedRoles = descriptor.shape.name === "ellipsoid" ? ["form_extent_x", "form_extent_y", "form_extent_z"] : descriptor.shape.name === "capsule" ? (isV6 && descriptor.address.role === "upper_arm" ? ["form_radius", "form_shoulder_depth_radius"] : ["form_radius"]) : ["form_start_radius", "form_end_radius"];
           if (!Array.isArray(descriptor.dimension_roles) || JSON.stringify(descriptor.dimension_roles) !== JSON.stringify(expectedRoles)) {
-            errors.push("Variant " + variant.id + " descriptor " + descriptorIndex + " has invalid v5 dimension-role references.");
+            errors.push("Variant " + variant.id + " descriptor " + descriptorIndex + " has invalid " + (isV6 ? "v6" : "v5") + " dimension-role references.");
           } else {
             descriptor.dimension_roles.forEach(function (role) {
               var key = JSON.stringify([formAddressKey(descriptor.address), role]);
               consumedDimensionKeys[key] = true;
               if (!authoredDimensionKeys[key]) {
-                errors.push("Variant " + variant.id + " descriptor " + descriptorIndex + " references an unlisted v5 authored dimension.");
+                errors.push("Variant " + variant.id + " descriptor " + descriptorIndex + " references an unlisted " + (isV6 ? "v6" : "v5") + " authored dimension.");
               }
             });
           }
         }
       });
+      if (isV6 && (Object.keys(v6UpperArmKeys).length !== 2 || !v6UpperArmKeys.left || !v6UpperArmKeys.right)) {
+        errors.push("Every v6 variant must contain exactly one left and one right upper_arm descriptor.");
+      }
     });
-    if (isV5 && (Object.keys(authoredDimensionKeys).length !== Object.keys(consumedDimensionKeys).length || Object.keys(authoredDimensionKeys).some(function (key) { return !consumedDimensionKeys[key]; }))) {
-      errors.push("v5 authored dimensions must equal the complete descriptor-consumed control set.");
+    if (hasAuthoredDimensions && (Object.keys(authoredDimensionKeys).length !== Object.keys(consumedDimensionKeys).length || Object.keys(authoredDimensionKeys).some(function (key) { return !consumedDimensionKeys[key]; }))) {
+      errors.push((isV6 ? "v6" : "v5") + " authored dimensions must equal the complete descriptor-consumed control set.");
     }
     return errors;
   }

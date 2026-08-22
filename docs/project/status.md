@@ -14,26 +14,28 @@ governs what resumes next.
 ## Active runway
 
 Execution state: active toward the authored-form expressivity checkpoint after
-PR #106 merged at `c94deb0` on 2026-08-23.
+PR #107 merged at `f69a0a235152e72bd51279634cf3e8618d776e3f` on 2026-08-23.
+The current candidate is [PR #108](https://github.com/benhook1013/creature-kernel/pull/108)
+on `implementation/authored-shoulder-envelope` at `a98a00f`.
 
 Current operational snapshot: the [Codex app handover](current-handover.md)
 (2026-08-23 NZST) records the clean primary checkout, active runway worktree,
 merged PR state, gallery, and service state. It is a navigation aid rather
-than a new authority owner. PR #106 introduced the distinct authored-form
-source and v5 dimension lineage while preserving the parked EXP-0002 closure;
-it intentionally made no displayed form-quality claim.
+than a new authority owner. PR #107 retains the exact consumed producer
+lineage in surface reviews while preserving the parked EXP-0002 closure; it
+intentionally made no displayed form-quality claim.
 
 Ben's exact feedback on PR #103's successor checkpoint artifact was: "its got
 pointy bulges under the arms again." This is rejection of that displayed
 artifact only, not a canonical anatomy prescription or approval of any
-successor direction. The bounded response is a
+successor direction. The earlier bounded response was a
 shared successor-generator correction: consume exactly the distal
 `deltoid-sweep` span at index `1` for each side, retain anterior/posterior
 supports as guide-only, and publish the successor region as v6. No per-fixture
 tuning, guide-derivation change, sampling change, or smooth-union change is
 included.
 
-The regenerated v6 candidate removes the large inferior support-curve lobes
+That regenerated v6 candidate removes the large inferior support-curve lobes
 across all four variants while retaining the existing torso-to-arm
 connection. Independent static-capture trials disagreed about whether a much
 smaller angular root contour still counts as the reported defect. An isolated
@@ -69,7 +71,33 @@ per-fixture patches or handcrafted base mesh. It remains an exploratory
 consumer and does not select a permanent surface/backend or accept a decision
 record. No further aesthetic polishing of it is planned.
 
-The next named human checkpoint is an authored-form expressivity gallery:
+The current PR #108 candidate is a direct, internal, reversible prerequisite
+for that checkpoint. The source/producer advances to
+`creature-kernel.provisional-form-preview.v6` with source-authored bilateral
+`form_shoulder_control` frames, `form_shoulder_peak` and `form_axilla`
+landmarks, and `form_shoulder_depth_radius` controls. Their source provenance
+is exact, and surface publication retains the exact producer envelope bytes
+actually consumed by both generators together with encoding, byte count, and
+SHA-256 cross-bound to `source_sha256`. The baseline private regional guide
+advances to
+`creature-kernel.disposable-surface-preview-regional-guide.v5` and strictly
+derives and binds those controls; the new depth control remains guide-only for
+baseline shoulder skin.
+
+The disposable successor advances to
+`creature-kernel.disposable-successor-surface-preview.v3` and region
+`successor-torso-shoulder-head-neck-limb-extremity-tail-profile-sweeps-v7`.
+It consumes bilateral authored shoulder-envelope sweeps with five ordered
+sections per side, replacing the prior upper-arm root bridges and distal-
+deltoid fields. The retained temporary bridge is only two thigh-root
+connectors plus two hip transitions, four fields total. This candidate is not
+the named human visual checkpoint and claims neither visual acceptance nor
+completion. Its current geometry remains coarse; old artifact-specific
+underarm/point observations remain scoped to those displayed candidates and
+are not silently promoted to durable geometry prescriptions.
+
+The named human checkpoint remains the complete authored-form expressivity
+gallery across the agreed controls and regions:
 richer source-authored dimensions, landmarks, and profiles drive shared
 region-appropriate generator operations across all four fixed variants, with
 source provenance and reproducible evidence. Representative torso, head/neck,
@@ -79,16 +107,16 @@ per-variant or per-fixture patches or a handcrafted base mesh. This remains a
 bounded exploratory expressivity checkpoint, not proof of a finished
 morphology family or production surface system.
 
-Before publishing that checkpoint, retain either the exact v5 source envelope
-or an integrity-bound authored-dimension/descriptor-role lineage projection in
+Before publishing that checkpoint, retain either the exact v6 source envelope
+or an integrity-bound authored-dimension/landmark/frame/descriptor-role lineage projection in
 the immutable review evidence. A source hash without the corresponding lineage
 payload is not sufficient for the checkpoint's provenance claim.
 
 The current bounded source-envelope candidate makes future surface reviews
-self-contained by retaining the exact canonical v5 producer bytes consumed by
+self-contained by retaining the exact canonical v6 producer bytes consumed by
 the generators in `review.json`, deterministically zlib-compressed and
 Base64-encoded with their original byte count, encoding, and SHA-256. The
-retained v5 hash must equal the existing producer `source_sha256`; the validated
+retained v6 hash must equal the existing producer `source_sha256`; the validated
 input body document remains separately identified by its encoding, byte count,
 and SHA-256 without duplicating its bytes. This is lineage plumbing only; it
 does not change the displayed gallery or satisfy the named visual checkpoint.
@@ -100,11 +128,11 @@ output visually; speculative large-coordinate hardening is not a prerequisite
 for this checkpoint.
 
 Routine implementation, tests, reviews, and small internal PRs may proceed
-autonomously toward the checkpoint. Stop before the first genuinely appraisable
-result or any retained-human/material detour. Rigging, contact, deformation, VR
-integration, and permanent backend selection are outside this immediate
-runway. Do not reactivate the parked formal comparison or expand scope without
-Ben's direction.
+autonomously through subsequent bounded region slices toward the checkpoint.
+Stop before the first genuinely appraisable result or any retained-human/
+material detour. Rigging, contact, deformation, VR integration, and permanent
+backend selection are outside this immediate runway. Do not reactivate the
+parked formal comparison or expand scope without Ben's direction.
 
 EXP-0002 and its Gate B/freeze/runtime-attestation continuation are parked and
 non-blocking. They are not prerequisites for this visual runway and must not be
@@ -115,8 +143,8 @@ rediscover.
 
 The required Rust CI workflow still runs Phase 3 freeze-manifest tests whose
 47-path candidate closure includes the current core crate module surface. PR
-#106 therefore keeps every frozen core path byte-identical and carries its v5
-authored-form lineage in the unfrozen developer CLI adapter. If a later runway
+#107 therefore keeps every frozen core path byte-identical and carries the
+consumed producer lineage in the unfrozen developer tooling. If a later runway
 step genuinely requires a frozen core-path edit, first resolve that CI/freeze
 boundary explicitly; do not regenerate, rebind, or resume EXP-0002 as an
 incidental implementation step.

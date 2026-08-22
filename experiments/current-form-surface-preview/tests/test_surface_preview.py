@@ -74,7 +74,8 @@ def make_payload() -> dict[str, object]:
     }
 
     def descriptor(role: str, point: list[int], parent: dict[str, object] | None, shape: dict[str, object], anchors: list[str] | None = None) -> dict[str, object]:
-        return {"descriptor_kind": "display-only-form-descriptor", "address": address(role, anchors), "parent": parent, "placement_source": "authored-root" if parent is None else "authored-containment", "reference_point": point, "dimension_roles": dimension_roles[shape["name"]], "profile_id": "neutral-v0", "source": "profile-derived-display", "provenance": {"source": "profile-derived-display", "resource_profile_id": "ck.resource.body.r2", "shape_basis": "source-authored-dimensions-plus-fixed-display-factor"}, "shape": shape}
+        roles = ["form_radius", "form_shoulder_depth_radius"] if role == "upper_arm" else dimension_roles[shape["name"]]
+        return {"descriptor_kind": "display-only-form-descriptor", "address": address(role, anchors), "parent": parent, "placement_source": "authored-root" if parent is None else "authored-containment", "reference_point": point, "dimension_roles": roles, "profile_id": "neutral-v0", "source": "profile-derived-display", "provenance": {"source": "profile-derived-display", "resource_profile_id": "ck.resource.body.r2", "shape_basis": "source-authored-dimensions-plus-fixed-display-factor"}, "shape": shape}
     pelvis = address("pelvis")
     descriptors = [
         descriptor("pelvis", [0, 0, 0], None, {"name": "ellipsoid", "center": [0, 0, 0], "axis_extents_permille": [1700, 1200, 900]}),
@@ -106,6 +107,8 @@ def make_payload() -> dict[str, object]:
             values = [shape["radius_permille"]]
         else:
             values = [shape["start_radius_permille"], shape["end_radius_permille"]]
+        if item["address"]["role"] == "upper_arm":
+            values = [shape["radius_permille"], 350]
         for role, value in zip(item["dimension_roles"], values):
             authored_dimensions.append({
                 "owner": copy.deepcopy(item["address"]),
@@ -122,7 +125,18 @@ def make_payload() -> dict[str, object]:
             item["provenance"]["resource_profile_id"] = "ck.resource.body.r2"
             apply_fixed_display_factors(item, variant_id)
         variants.append({"id": variant_id, "profile_id": variant_id, "provenance": {"source": "profile-derived-display", "resource_profile_id": "ck.resource.body.r2", "shape_basis": "source-authored-dimensions-plus-fixed-display-factor"}, "descriptors": current})
-    payload = {"format": surface_preview.SOURCE_FORMAT, "operation": "inspect-provisional-form", "status": "success", "stage": "provisional-form", "processing_complete": True, "diagnostics_complete": True, "diagnostics": [], "source": {"document": "test", "namespace": "main", "resource_profile_id": "ck.resource.body.r2"}, "reference_scale": {"parent": address("neck"), "child": address("head"), "axis_delta": [0, 1, 0], "squared_length": 1, "source": "exact-containment-edge"}, "authored_dimensions": authored_dimensions, "variants": variants, "limitations": "Provisional display-only geometry descriptors; source-authored dimensions use a bounded shape-control vocabulary and fixed display factors; no production geometry or Readiness 3."}
+    authored_landmarks = [
+        {"owner": address("upper_arm", ["left"]), "role": "form_shoulder_peak", "frame": {"owner": address("upper_arm", ["left"]), "role": "form_shoulder_control"}, "position": [-0.1, 0.15, 0.0], "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}},
+        {"owner": address("upper_arm", ["left"]), "role": "form_axilla", "frame": {"owner": address("upper_arm", ["left"]), "role": "form_shoulder_control"}, "position": [-0.1, -0.3, 0.0], "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}},
+        {"owner": address("upper_arm", ["right"]), "role": "form_shoulder_peak", "frame": {"owner": address("upper_arm", ["right"]), "role": "form_shoulder_control"}, "position": [0.1, 0.15, 0.0], "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}},
+        {"owner": address("upper_arm", ["right"]), "role": "form_axilla", "frame": {"owner": address("upper_arm", ["right"]), "role": "form_shoulder_control"}, "position": [0.1, -0.3, 0.0], "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}},
+    ]
+    authored_landmarks.sort(key=lambda item: (item["owner"]["namespace"], tuple(item["owner"]["anchors"]), item["owner"]["kind"], item["owner"]["role"], item["role"]))
+    authored_frames = [
+        {"owner": address("upper_arm", [side]), "role": "form_shoulder_control", "transform": {"translation": [0.0, 0.0, 0.0], "rotation_xyzw": [0.0, 0.0, 0.0, 1.0]}, "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}}
+        for side in ("left", "right")
+    ]
+    payload = {"format": surface_preview.SOURCE_FORMAT, "operation": "inspect-provisional-form", "status": "success", "stage": "provisional-form", "processing_complete": True, "diagnostics_complete": True, "diagnostics": [], "source": {"document": "test", "namespace": "main", "resource_profile_id": "ck.resource.body.r2"}, "reference_scale": {"parent": address("neck"), "child": address("head"), "axis_delta": [0, 1, 0], "squared_length": 1, "source": "exact-containment-edge"}, "authored_dimensions": authored_dimensions, "authored_landmarks": authored_landmarks, "authored_frames": authored_frames, "variants": variants, "limitations": "Provisional display-only geometry descriptors; source-authored dimensions and shoulder controls use bounded source-authored controls and fixed display factors; no production geometry or Readiness 3."}
     return payload
 
 
@@ -135,7 +149,9 @@ class SurfacePreviewTests(unittest.TestCase):
         form = surface_preview.validate_envelope(make_payload())
         self.assertEqual([x[0] for x in form.variants], list(surface_preview.VARIANT_IDS))
         self.assertIn(("main", ("left",), "part", "hand"), {x.key for x in form.variants[0][1]})
-        self.assertEqual(len(form.authored_dimensions), 34)
+        self.assertEqual(len(form.authored_dimensions), 36)
+        self.assertEqual(len(form.authored_landmarks), 4)
+        self.assertEqual(len(form.authored_frames), 2)
         self.assertEqual(
             form.authored_dimensions,
             tuple(sorted(form.authored_dimensions, key=lambda item: (item[0], item[1]))),
@@ -148,6 +164,100 @@ class SurfacePreviewTests(unittest.TestCase):
         payload["authored_dimensions"] = []
         with self.assertRaises(surface_preview.PreviewError):
             surface_preview.validate_envelope(payload)
+
+    def test_validation_fails_closed_for_malformed_shoulder_controls(self) -> None:
+        cases: list[dict[str, object]] = []
+
+        missing_landmark = make_payload()
+        missing_landmark["authored_landmarks"].pop()
+        cases.append(missing_landmark)
+
+        duplicate_frame = make_payload()
+        duplicate_frame["authored_frames"].append(
+            copy.deepcopy(duplicate_frame["authored_frames"][0])
+        )
+        cases.append(duplicate_frame)
+
+        wrong_owner = make_payload()
+        wrong_owner["authored_landmarks"][0]["owner"]["role"] = "forearm"
+        cases.append(wrong_owner)
+
+        wrong_frame = make_payload()
+        wrong_frame["authored_landmarks"][0]["frame"]["role"] = "wrong-frame"
+        cases.append(wrong_frame)
+
+        non_identity = make_payload()
+        non_identity["authored_frames"][0]["transform"]["translation"][0] = 0.01
+        cases.append(non_identity)
+
+        out_of_bounds = make_payload()
+        out_of_bounds["authored_landmarks"][0]["position"][0] = 1.01
+        cases.append(out_of_bounds)
+
+        non_finite = make_payload()
+        non_finite["authored_landmarks"][0]["position"][0] = math.nan
+        cases.append(non_finite)
+
+        missing_depth = make_payload()
+        missing_depth["authored_dimensions"] = [
+            item
+            for item in missing_depth["authored_dimensions"]
+            if not (
+                item["owner"]["role"] == "upper_arm"
+                and item["owner"]["anchors"] == ["left"]
+                and item["role"] == "form_shoulder_depth_radius"
+            )
+        ]
+        cases.append(missing_depth)
+
+        for index, payload in enumerate(cases):
+            with self.subTest(index=index), self.assertRaises(surface_preview.PreviewError):
+                surface_preview.validate_envelope(payload)
+
+    def test_authored_shoulder_controls_drive_variant_guides_exactly(self) -> None:
+        form = surface_preview.validate_envelope(make_payload())
+        expected_depth = {
+            "neutral-v0": (1_000, 350, 0.350),
+            "broad-soft-v0": (1_150, 402, 0.402),
+            "lean-readable-v0": (800, 280, 0.280),
+            "depth-forward-v0": (1_000, 350, 0.350),
+        }
+        for variant_id, descriptors, _ in form.variants:
+            frame = surface_preview._derive_hybrid_guides(form, descriptors).shoulder_frame
+            self.assertEqual(tuple(side.side for side in frame.sides), ("left", "right"))
+            factor, scaled, radius = expected_depth[variant_id]
+            for side in frame.sides:
+                sign = -1.0 if side.side == "left" else 1.0
+                self.assertEqual(side.authored_frame.translation, (0.0, 0.0, 0.0))
+                self.assertEqual(side.authored_frame.rotation_xyzw, (0.0, 0.0, 0.0, 1.0))
+                self.assertAlmostEqual(side.peak_anchor[0], 1.1 * sign)
+                self.assertAlmostEqual(side.peak_anchor[1], 2.15)
+                self.assertAlmostEqual(side.axilla_anchor[0], 1.1 * sign)
+                self.assertAlmostEqual(side.axilla_anchor[1], 1.70)
+                self.assertAlmostEqual(side.vertical_midpoint, 1.925)
+                self.assertAlmostEqual(side.vertical_radius, 0.225)
+                self.assertEqual(side.depth_value_permille, 350)
+                self.assertEqual(side.depth_profile_factor, factor)
+                self.assertEqual(side.depth_scaled_permille, scaled)
+                self.assertAlmostEqual(side.depth_radius, radius)
+                depth_control = surface_preview._shoulder_source_control_json(side)[
+                    "depth_control"
+                ]
+                self.assertEqual(
+                    depth_control["consumption"],
+                    "guide-derived shoulder wrap depth; baseline field remains guide-only",
+                )
+
+        changed_payload = make_payload()
+        for landmark in changed_payload["authored_landmarks"]:
+            if landmark["role"] == "form_shoulder_peak":
+                landmark["position"][1] = 0.25
+        changed_form = surface_preview.validate_envelope(changed_payload)
+        changed_frame = surface_preview._derive_hybrid_guides(
+            changed_form, changed_form.variants[0][1]
+        ).shoulder_frame
+        self.assertTrue(all(math.isclose(side.peak_anchor[1], 2.25) for side in changed_frame.sides))
+        self.assertTrue(all(math.isclose(side.vertical_radius, 0.275) for side in changed_frame.sides))
         for invalid in (0, -1, 1.5, 5001):
             payload = make_payload()
             payload["authored_dimensions"][0]["value_permille"] = invalid
@@ -370,7 +480,10 @@ class SurfacePreviewTests(unittest.TestCase):
                 limb = next(item for item in guide.limb_guides if item.owner is side.owner)
                 self.assertIs(side.owner, next(item for item in descriptors if item.key == side.owner.key))
                 self.assertEqual(side.socket_anchor, limb.sections[0].centerline[0])
-                self.assertEqual(side.shoulder_extremum, limb.root_centerline[0])  # type: ignore[index]
+                self.assertEqual(side.shoulder_extremum, side.authored_peak_anchor)
+                self.assertEqual(side.shoulder_extremum, side.peak_anchor)
+                self.assertGreater(side.vertical_radius, 0.0)
+                self.assertGreater(side.depth_radius, 0.0)
                 self.assertGreater(side.span, 0.0)
                 self.assertTrue(np.isfinite(side.slope))
                 self.assertEqual(side.anterior_support.owner, frame.torso_owner)

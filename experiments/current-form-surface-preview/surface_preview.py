@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a bounded, disposable continuous surface from a v5 form envelope.
+"""Build a bounded, disposable continuous surface from a v6 form envelope.
 
 This module intentionally has no dependency on Creature Kernel runtime code.
 It is a small adapter for visual exploration: exact integer form coordinates
@@ -32,8 +32,8 @@ from skimage.measure import marching_cubes
 
 
 FORMAT = "creature-kernel.disposable-surface-preview.v2"
-REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v4"
-SOURCE_FORMAT = "creature-kernel.provisional-form-preview.v5"
+REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v5"
+SOURCE_FORMAT = "creature-kernel.provisional-form-preview.v6"
 VARIANT_IDS = ("neutral-v0", "broad-soft-v0", "lean-readable-v0", "depth-forward-v0")
 MAX_INPUT_BYTES = 4 * 1024 * 1024
 MAX_SAMPLES = 128
@@ -41,6 +41,10 @@ MAX_VOXELS = 128**3
 MAX_FIELD_VALUES = 32_000_000
 MAX_DESCRIPTORS = 64
 MAX_AUTHORED_DIMENSIONS = 256
+MAX_AUTHORED_LANDMARKS = 16
+MAX_AUTHORED_FRAMES = 8
+CONTROL_COORDINATE_BOUND = 1.0
+GUIDE_TOLERANCE = 1.0e-12
 # A source descriptor may intentionally expand into a small deterministic
 # recipe.  This is an implementation bound on the disposable preview, not a
 # promise about a future geometry compiler.
@@ -110,11 +114,27 @@ def _int(value: Any, where: str) -> int:
     return value
 
 
+def _number(value: Any, where: str) -> float:
+    if type(value) not in (int, float) or not math.isfinite(float(value)):
+        _fail(f"{where} must be a finite number")
+    return float(value)
+
+
 def _vector(value: Any, where: str) -> tuple[int, int, int]:
     values = _array(value, where)
     if len(values) != 3:
         _fail(f"{where} must contain three integers")
     return tuple(_int(item, f"{where}[{index}]") for index, item in enumerate(values))  # type: ignore[return-value]
+
+
+def _source_vector(value: Any, where: str, length: int) -> tuple[float, ...]:
+    values = _array(value, where)
+    if len(values) != length:
+        _fail(f"{where} must contain {length} finite numbers")
+    result = tuple(_number(item, f"{where}[{index}]") for index, item in enumerate(values))
+    if length == 3 and any(abs(item) > CONTROL_COORDINATE_BOUND for item in result):
+        _fail(f"{where} components must be within +/-{CONTROL_COORDINATE_BOUND} source units")
+    return result
 
 
 def _address(value: Any, where: str) -> tuple[str, tuple[str, ...], str, str]:
@@ -167,7 +187,7 @@ def _shape(value: Any, where: str) -> dict[str, Any]:
 
 
 def _display_factors(profile_id: str, role: str, shape_name: str) -> tuple[int, ...]:
-    """Return the fixed Rust display factors for one v5 shape control set."""
+    """Return the fixed Rust display factors for one v6 shape control set."""
 
     if shape_name == "ellipsoid":
         if profile_id == "neutral-v0":
@@ -192,7 +212,7 @@ def _display_factors(profile_id: str, role: str, shape_name: str) -> tuple[int, 
         else:
             factor = 1_000
         return (factor,) * (1 if shape_name == "capsule" else 2)
-    _fail(f"unsupported v5 display factor combination: {profile_id}/{role}/{shape_name}")
+    _fail(f"unsupported v6 display factor combination: {profile_id}/{role}/{shape_name}")
 
 
 def _scaled_display_value(value: int, factor: int, where: str) -> int:
@@ -202,6 +222,27 @@ def _scaled_display_value(value: int, factor: int, where: str) -> int:
     if not 0 < scaled <= 5_000:
         _fail(f"{where} fixed display factor produces invalid permille {scaled}")
     return scaled
+
+
+def _shoulder_depth_factor(profile_id: str) -> int:
+    if profile_id == "broad-soft-v0":
+        return 1_150
+    if profile_id == "lean-readable-v0":
+        return 800
+    if profile_id in {"neutral-v0", "depth-forward-v0"}:
+        return 1_000
+    _fail(f"unsupported shoulder depth profile: {profile_id}")
+
+
+def _authored_dimension(
+    form: Form,
+    owner: tuple[str, tuple[str, ...], str, str],
+    role: str,
+) -> tuple[int, dict[str, Any]]:
+    matches = tuple(item for item in form.authored_dimensions if item[0] == owner and item[1] == role)
+    if len(matches) != 1:
+        _fail(f"source-authored dimension {role!r} is not uniquely bound to {_key_text(owner)}")
+    return matches[0][2], matches[0][3]
 
 
 @dataclass(frozen=True)
@@ -402,10 +443,22 @@ class _ShoulderCurve:
 
 @dataclass(frozen=True)
 class _ShoulderSideGuide:
-    """One bilateral shoulder frame side derived from cage and arm geometry."""
+    """One bilateral shoulder frame side derived from authored controls."""
 
     side: str
     owner: Descriptor
+    authored_frame: AuthoredFrame
+    authored_peak: AuthoredLandmark
+    authored_axilla: AuthoredLandmark
+    peak_anchor: tuple[float, float, float]
+    axilla_anchor: tuple[float, float, float]
+    vertical_midpoint: float
+    vertical_radius: float
+    depth_radius: float
+    depth_value_permille: int
+    depth_scaled_permille: int
+    depth_profile_factor: int
+    depth_provenance: dict[str, Any]
     socket_anchor: tuple[float, float, float]
     shoulder_extremum: tuple[float, float, float]
     span: float
@@ -422,6 +475,14 @@ class _ShoulderSideGuide:
     @property
     def provenance(self) -> dict[str, Any]:
         return self.owner.provenance
+
+    @property
+    def authored_peak_anchor(self) -> tuple[float, float, float]:
+        return self.peak_anchor
+
+    @property
+    def authored_axilla_anchor(self) -> tuple[float, float, float]:
+        return self.axilla_anchor
 
 
 @dataclass(frozen=True)
@@ -458,6 +519,14 @@ class _ShoulderFrame:
     @property
     def right(self) -> _ShoulderSideGuide:
         return self.sides[1]
+
+    @property
+    def authored_peak_anchors(self) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+        return tuple(side.peak_anchor for side in self.sides)  # type: ignore[return-value]
+
+    @property
+    def authored_axilla_anchors(self) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+        return tuple(side.axilla_anchor for side in self.sides)  # type: ignore[return-value]
 
 
 @dataclass(frozen=True)
@@ -681,22 +750,46 @@ class _HybridGuide:
 
 
 @dataclass(frozen=True)
+class AuthoredFrame:
+    """One source-authored identity-only control frame."""
+
+    owner: tuple[str, tuple[str, ...], str, str]
+    role: str
+    translation: tuple[float, float, float]
+    rotation_xyzw: tuple[float, float, float, float]
+    provenance: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class AuthoredLandmark:
+    """One source-local landmark bound to an authored control frame."""
+
+    owner: tuple[str, tuple[str, ...], str, str]
+    role: str
+    frame: tuple[tuple[str, tuple[str, ...], str, str], str]
+    position: tuple[float, float, float]
+    provenance: dict[str, Any]
+
+
+@dataclass(frozen=True)
 class Form:
     raw: dict[str, Any]
     source: dict[str, Any]
     reference_scale: float
     reference_scale_raw: dict[str, Any]
     authored_dimensions: tuple[tuple[tuple[str, tuple[str, ...], str, str], str, int, dict[str, Any]], ...]
+    authored_landmarks: tuple[AuthoredLandmark, ...]
+    authored_frames: tuple[AuthoredFrame, ...]
     variants: tuple[tuple[str, tuple[Descriptor, ...], dict[str, Any]], ...]
 
 
 def validate_envelope(value: Any) -> Form:
     root = _obj(value, "envelope")
-    required = {"format", "operation", "status", "stage", "processing_complete", "diagnostics_complete", "diagnostics", "source", "reference_scale", "authored_dimensions", "variants", "limitations"}
+    required = {"format", "operation", "status", "stage", "processing_complete", "diagnostics_complete", "diagnostics", "source", "reference_scale", "authored_dimensions", "authored_landmarks", "authored_frames", "variants", "limitations"}
     if set(root) != required:
         _fail("envelope has unexpected or missing fields")
     if root["format"] != SOURCE_FORMAT or root["operation"] != "inspect-provisional-form" or root["status"] != "success" or root["stage"] != "provisional-form":
-        _fail("envelope is not a successful v5 provisional-form result")
+        _fail("envelope is not a successful v6 provisional-form result")
     if root["processing_complete"] is not True or root["diagnostics_complete"] is not True or root["diagnostics"] != []:
         _fail("envelope success flags or diagnostics are invalid")
     if type(root["limitations"]) is not str or "Readiness" not in root["limitations"] or "geometry" not in root["limitations"]:
@@ -735,6 +828,93 @@ def validate_envelope(value: Any) -> Form:
     dimension_values = {
         (owner, role): value for owner, role, value, _ in parsed_dimensions
     }
+
+    control_provenance = {
+        "source": "source-authored",
+        "document": source["document"],
+        "namespace": source["namespace"],
+    }
+    authored_frames = _array(root["authored_frames"], "authored_frames")
+    if len(authored_frames) != 2 or len(authored_frames) > MAX_AUTHORED_FRAMES:
+        _fail("authored_frames must contain exactly two controls")
+    parsed_frames: list[AuthoredFrame] = []
+    frame_keys: list[tuple[tuple[str, tuple[str, ...], str, str], str]] = []
+    for index, item in enumerate(authored_frames):
+        frame = _obj(item, f"authored_frames[{index}]")
+        if set(frame) != {"owner", "role", "transform", "provenance"}:
+            _fail(f"authored_frames[{index}] has invalid fields")
+        owner = _address(frame["owner"], f"authored_frames[{index}].owner")
+        if owner[0] != source["namespace"] or owner[2:] != ("part", "upper_arm") or owner[1] not in (("left",), ("right",)):
+            _fail(f"authored_frames[{index}].owner is not a supported upper_arm")
+        role = frame["role"]
+        if role != "form_shoulder_control":
+            _fail(f"authored_frames[{index}].role is invalid")
+        provenance = _obj(frame["provenance"], f"authored_frames[{index}].provenance")
+        if set(provenance) != set(control_provenance) or provenance != control_provenance:
+            _fail(f"authored_frames[{index}].provenance is invalid")
+        transform = _obj(frame["transform"], f"authored_frames[{index}].transform")
+        if set(transform) != {"translation", "rotation_xyzw"}:
+            _fail(f"authored_frames[{index}].transform has invalid fields")
+        translation = _source_vector(transform["translation"], f"authored_frames[{index}].transform.translation", 3)
+        rotation = _source_vector(transform["rotation_xyzw"], f"authored_frames[{index}].transform.rotation_xyzw", 4)
+        if translation != (0.0, 0.0, 0.0) or rotation != (0.0, 0.0, 0.0, 1.0):
+            _fail(f"authored_frames[{index}] must be an identity control frame")
+        key = (owner, role)
+        if key in frame_keys:
+            _fail("authored_frames contain duplicates")
+        frame_keys.append(key)
+        parsed_frames.append(AuthoredFrame(owner, role, translation, rotation, provenance))
+    if frame_keys != sorted(frame_keys):
+        _fail("authored_frames are not stable owner/role order")
+    expected_frame_keys = [
+        ((source["namespace"], (side,), "part", "upper_arm"), "form_shoulder_control")
+        for side in ("left", "right")
+    ]
+    if frame_keys != expected_frame_keys:
+        _fail("authored_frames do not have the closed bilateral shoulder topology")
+
+    authored_landmarks = _array(root["authored_landmarks"], "authored_landmarks")
+    if len(authored_landmarks) != 4 or len(authored_landmarks) > MAX_AUTHORED_LANDMARKS:
+        _fail("authored_landmarks must contain exactly four controls")
+    parsed_landmarks: list[AuthoredLandmark] = []
+    landmark_keys: list[tuple[tuple[str, tuple[str, ...], str, str], str]] = []
+    for index, item in enumerate(authored_landmarks):
+        landmark = _obj(item, f"authored_landmarks[{index}]")
+        if set(landmark) != {"owner", "role", "frame", "position", "provenance"}:
+            _fail(f"authored_landmarks[{index}] has invalid fields")
+        owner = _address(landmark["owner"], f"authored_landmarks[{index}].owner")
+        if owner[0] != source["namespace"] or owner[2:] != ("part", "upper_arm") or owner[1] not in (("left",), ("right",)):
+            _fail(f"authored_landmarks[{index}].owner is not a supported upper_arm")
+        role = landmark["role"]
+        if role not in {"form_shoulder_peak", "form_axilla"}:
+            _fail(f"authored_landmarks[{index}].role is invalid")
+        frame = _obj(landmark["frame"], f"authored_landmarks[{index}].frame")
+        if set(frame) != {"owner", "role"}:
+            _fail(f"authored_landmarks[{index}].frame has invalid fields")
+        frame_owner = _address(frame["owner"], f"authored_landmarks[{index}].frame.owner")
+        frame_role = frame["role"]
+        if (frame_owner, frame_role) != (owner, "form_shoulder_control"):
+            _fail(f"authored_landmarks[{index}] must reference its same-owner control frame")
+        if (frame_owner, frame_role) not in frame_keys:
+            _fail(f"authored_landmarks[{index}] references a missing control frame")
+        position = _source_vector(landmark["position"], f"authored_landmarks[{index}].position", 3)
+        provenance = _obj(landmark["provenance"], f"authored_landmarks[{index}].provenance")
+        if set(provenance) != set(control_provenance) or provenance != control_provenance:
+            _fail(f"authored_landmarks[{index}].provenance is invalid")
+        key = (owner, role)
+        if key in landmark_keys:
+            _fail("authored_landmarks contain duplicates")
+        landmark_keys.append(key)
+        parsed_landmarks.append(AuthoredLandmark(owner, role, (frame_owner, frame_role), position, provenance))
+    if landmark_keys != sorted(landmark_keys):
+        _fail("authored_landmarks are not stable owner/role order")
+    expected_landmark_keys = [
+        ((source["namespace"], (side,), "part", "upper_arm"), role)
+        for side in ("left", "right")
+        for role in ("form_axilla", "form_shoulder_peak")
+    ]
+    if landmark_keys != expected_landmark_keys:
+        _fail("authored_landmarks do not have the closed bilateral shoulder topology")
     scale = _obj(root["reference_scale"], "reference_scale")
     if set(scale) != {"parent", "child", "axis_delta", "squared_length", "source"} or scale["source"] != "exact-containment-edge":
         _fail("reference_scale is invalid")
@@ -795,6 +975,8 @@ def validate_envelope(value: Any) -> Form:
                 "capsule": ("form_radius",),
                 "tapered-segment": ("form_start_radius", "form_end_radius"),
             }[shape["name"]]
+            if key[3] == "upper_arm":
+                expected_roles = ("form_radius", "form_shoulder_depth_radius")
             if tuple(dimension_roles) != expected_roles or any((key, role) not in dimension_keys for role in dimension_roles):
                 _fail(f"descriptor {index}/{di}.dimension_roles do not identify its source controls")
             consumed_dimension_keys.update((key, role) for role in dimension_roles)
@@ -814,7 +996,7 @@ def validate_envelope(value: Any) -> Form:
                     factor,
                     f"descriptor {index}/{di}.shape.{role}",
                 )
-                for role, factor in zip(dimension_roles, factors)
+                for role, factor in zip(dimension_roles[: len(factors)], factors)
             )
             if controls != expected_controls:
                 _fail(
@@ -860,7 +1042,10 @@ def validate_envelope(value: Any) -> Form:
                 candidates.append((sq, child, parent, tuple(d)))
     if not candidates or (squared, child_key, parent_key, delta) != min(candidates, key=lambda x: (x[0], x[1])):
         _fail("reference_scale does not name the selected exact descriptor edge")
-    return Form(root, source, reference_scale, scale, tuple(parsed_dimensions), tuple(normalized))
+    descriptor_keys = {descriptor.key for _, descriptors, _ in normalized for descriptor in descriptors}
+    if any(frame.owner not in descriptor_keys for frame in parsed_frames) or any(landmark.owner not in descriptor_keys for landmark in parsed_landmarks):
+        _fail("source-authored shoulder controls must be owned by variant descriptors")
+    return Form(root, source, reference_scale, scale, tuple(parsed_dimensions), tuple(parsed_landmarks), tuple(parsed_frames), tuple(normalized))
 
 
 def _key_text(key: tuple[str, tuple[str, ...], str, str]) -> str:
@@ -1784,19 +1969,19 @@ def _derive_torso_cage(
 
 
 def _derive_shoulder_frame(
+    form: Form,
     torso_cage: _TorsoCage,
     head_guide: _HeadGuide,
     limb_guides: tuple[_LimbGuide, ...],
 ) -> _ShoulderFrame:
     """Derive a bilateral trapezius/shoulder frame without compiling skin.
 
-    The upper-ribcage boundary supplies the shoulder extrema and the existing
-    upper-arm root bridge supplies the socket-to-cage relationship.  Anterior
-    and posterior four-control wraps deliberately share their central,
-    extremum, and socket controls while bowing in opposite forward directions.
-    A separate upper-arm-owned deltoid sweep continues through the first
-    quarter of the existing upper-arm guide.  No variant-specific values are
-    used; all dimensions are consequences of the cage and limb controls.
+    The source-authored peak and axilla landmarks supply the shoulder vertical
+    profile, while the source-authored depth dimension supplies the wrap span.
+    The named control frames are identity-only records: this adapter adds each
+    source-local landmark position to the matching descriptor reference point
+    after reference-scale normalization and performs no general frame/world
+    resolution.
     """
 
     upper = torso_cage.upper_ribcage
@@ -1816,44 +2001,79 @@ def _derive_shoulder_frame(
         "shoulder-frame.central-profile",
     )
     sides: list[_ShoulderSideGuide] = []
+    descriptors_by_key = {item.owner.key: item.owner for item in limb_guides}
     for side in ("left", "right"):
         limb = by_side[side]
         owner = limb.owner
         source_start = _guide_point(limb.sections[0].centerline[0], f"{_key_text(owner.key)}.shoulder.socket-anchor")
-        root_anchor = _guide_point(limb.root_centerline[0], f"{_key_text(owner.key)}.shoulder.extremum")  # type: ignore[index]
+        if descriptors_by_key.get(owner.key) is not owner:
+            _fail(f"{_key_text(owner.key)} shoulder guide lost source descriptor ownership")
+        frames = tuple(frame for frame in form.authored_frames if frame.owner == owner.key and frame.role == "form_shoulder_control")
+        peaks = tuple(landmark for landmark in form.authored_landmarks if landmark.owner == owner.key and landmark.role == "form_shoulder_peak")
+        axillae = tuple(landmark for landmark in form.authored_landmarks if landmark.owner == owner.key and landmark.role == "form_axilla")
+        if len(frames) != 1 or len(peaks) != 1 or len(axillae) != 1:
+            _fail(f"{_key_text(owner.key)} shoulder authored controls are incomplete")
+        authored_frame, authored_peak, authored_axilla = frames[0], peaks[0], axillae[0]
+        if authored_peak.frame != (authored_frame.owner, authored_frame.role) or authored_axilla.frame != (authored_frame.owner, authored_frame.role):
+            _fail(f"{_key_text(owner.key)} shoulder landmarks do not retain their source control frame")
+        peak_anchor = _guide_point(
+            np.asarray(owner.point, dtype=np.float64) + np.asarray(authored_peak.position, dtype=np.float64) / form.reference_scale,
+            f"{_key_text(owner.key)}.shoulder.peak-anchor",
+        )
+        axilla_anchor = _guide_point(
+            np.asarray(owner.point, dtype=np.float64) + np.asarray(authored_axilla.position, dtype=np.float64) / form.reference_scale,
+            f"{_key_text(owner.key)}.shoulder.axilla-anchor",
+        )
+        if not math.isclose(authored_peak.position[0], authored_axilla.position[0], rel_tol=0.0, abs_tol=GUIDE_TOLERANCE):
+            _fail(f"{_key_text(owner.key)} shoulder landmarks must share a local lateral coordinate")
+        if peak_anchor[1] <= axilla_anchor[1] + GUIDE_TOLERANCE:
+            _fail(f"{_key_text(owner.key)} shoulder peak must be above axilla")
         if not math.isfinite(source_start[0]) or source_start[0] == 0.0:
             _fail(f"{_key_text(owner.key)} shoulder socket must be laterally placed")
         expected_sign = -1.0 if side == "left" else 1.0
-        if source_start[0] * expected_sign <= 0.0 or root_anchor[0] * expected_sign <= 0.0:
+        if any(point[0] * expected_sign <= 0.0 for point in (source_start, peak_anchor, axilla_anchor)):
             _fail(f"{_key_text(owner.key)} shoulder controls are on the wrong side")
-        span = abs(float(root_anchor[0] - central_anchor[0]))
+        vertical_midpoint = 0.5 * (peak_anchor[1] + axilla_anchor[1])
+        vertical_radius = 0.5 * (peak_anchor[1] - axilla_anchor[1])
+        if not math.isfinite(vertical_midpoint) or not math.isfinite(vertical_radius) or vertical_radius <= GUIDE_TOLERANCE:
+            _fail(f"{_key_text(owner.key)} shoulder vertical profile is invalid")
+        depth_value_permille, depth_provenance = _authored_dimension(form, owner.key, "form_shoulder_depth_radius")
+        depth_profile_factor = _shoulder_depth_factor(owner.profile_id)
+        depth_scaled_permille = _scaled_display_value(
+            depth_value_permille,
+            depth_profile_factor,
+            f"{_key_text(owner.key)}.form_shoulder_depth_radius",
+        )
+        depth_radius = float(depth_scaled_permille) / 1000.0
+        if not math.isfinite(depth_radius) or depth_radius <= GUIDE_TOLERANCE:
+            _fail(f"{_key_text(owner.key)} shoulder depth profile is invalid")
+        span = abs(float(peak_anchor[0] - central_anchor[0]))
         if not math.isfinite(span) or span <= 0.0:
             _fail(f"{_key_text(owner.key)} shoulder span is invalid")
-        slope = (float(root_anchor[1]) - float(central_anchor[1])) / span
+        slope = (float(peak_anchor[1]) - float(central_anchor[1])) / span
         if not math.isfinite(slope):
             _fail(f"{_key_text(owner.key)} shoulder slope is invalid")
 
         root_profile = _guide_profile(limb.root_thickness, f"{_key_text(owner.key)}.shoulder.root-profile")  # type: ignore[arg-type]
         arm_profile = _guide_profile(limb.sections[0].thickness, f"{_key_text(owner.key)}.shoulder.arm-profile")
-        wrap_depth = max(
-            min(upper.depth_radius, max(root_profile)) * 0.62,
-            min(arm_profile) * 0.55,
-            1.0e-9,
-        )
         forward = np.asarray(_FIXED_GUIDE_AXES.forward, dtype=np.float64)
-        extremum = np.asarray(root_anchor, dtype=np.float64)
-        anterior_wrap = tuple(extremum + forward * wrap_depth)
-        posterior_wrap = tuple(extremum - forward * wrap_depth)
+        extremum = np.asarray(peak_anchor, dtype=np.float64)
+        wrap_anchor = np.asarray(
+            (peak_anchor[0], vertical_midpoint, 0.5 * (peak_anchor[2] + axilla_anchor[2])),
+            dtype=np.float64,
+        )
+        anterior_wrap = tuple(wrap_anchor + forward * depth_radius)
+        posterior_wrap = tuple(wrap_anchor - forward * depth_radius)
         anterior_profile = tuple(float(value) for value in (central_profile[0], max(root_profile) * 0.94, max(root_profile) * 0.86, arm_profile[0]))
         posterior_profile = tuple(float(value) for value in (central_profile[1], max(root_profile) * 0.94, max(root_profile) * 0.86, arm_profile[0]))
         deltoid_profile = tuple(float(value) for value in (max(root_profile) * 0.86, arm_profile[0], arm_profile[1]))
         anterior_points = _guide_curve(
-            (central_anchor, anterior_wrap, root_anchor, source_start),
+            (central_anchor, anterior_wrap, peak_anchor, source_start),
             anterior_profile,
             f"{_key_text(owner.key)}.shoulder.anterior-support",
         )
         posterior_points = _guide_curve(
-            (central_anchor, posterior_wrap, root_anchor, source_start),
+            (central_anchor, posterior_wrap, peak_anchor, source_start),
             posterior_profile,
             f"{_key_text(owner.key)}.shoulder.posterior-return",
         )
@@ -1861,7 +2081,7 @@ def _derive_shoulder_frame(
         socket = np.asarray(source_start, dtype=np.float64)
         first_quarter = socket + 0.25 * (first_section_end - socket)
         deltoid_points = _guide_curve(
-            (root_anchor, source_start, first_quarter),
+            (peak_anchor, source_start, first_quarter),
             deltoid_profile,
             f"{_key_text(owner.key)}.shoulder.deltoid",
         )
@@ -1869,8 +2089,20 @@ def _derive_shoulder_frame(
             _ShoulderSideGuide(
                 side=side,
                 owner=owner,
+                authored_frame=authored_frame,
+                authored_peak=authored_peak,
+                authored_axilla=authored_axilla,
+                peak_anchor=peak_anchor,
+                axilla_anchor=axilla_anchor,
+                vertical_midpoint=float(vertical_midpoint),
+                vertical_radius=float(vertical_radius),
+                depth_radius=depth_radius,
+                depth_value_permille=depth_value_permille,
+                depth_scaled_permille=depth_scaled_permille,
+                depth_profile_factor=depth_profile_factor,
+                depth_provenance=depth_provenance,
                 socket_anchor=source_start,
-                shoulder_extremum=root_anchor,
+                shoulder_extremum=peak_anchor,
                 span=span,
                 slope=float(slope),
                 anterior_support=_ShoulderCurve("anterior-support", torso_cage.torso_owner, anterior_points, anterior_profile, _FIXED_GUIDE_AXES),
@@ -2222,7 +2454,7 @@ def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _H
             )
         )
 
-    shoulder_frame = _derive_shoulder_frame(torso_cage, head_guide, tuple(limb_guides))
+    shoulder_frame = _derive_shoulder_frame(form, torso_cage, head_guide, tuple(limb_guides))
 
     paw_guides: list[_PawGuide] = []
     limb_by_owner = {item.owner.key: item for item in limb_guides}
@@ -2546,17 +2778,38 @@ def _validate_hybrid_guide(guide: _HybridGuide, bounds: tuple[np.ndarray, np.nda
         if limb.root_centerline is None or limb.root_thickness is None:
             _fail(f"{where} upper-arm root controls are missing")
         socket = limb.sections[0].centerline[0]
-        extremum = limb.root_centerline[0]
         if side.socket_anchor != socket:
             _fail(f"{where} socket anchor must equal the existing upper-arm source start")
-        if side.shoulder_extremum != extremum:
-            _fail(f"{where} shoulder extremum must equal the existing torso root anchor")
-        expected_span = abs(float(extremum[0] - frame.central_anchor[0]))
+        if side.shoulder_extremum != side.peak_anchor:
+            _fail(f"{where} shoulder extremum must equal the authored peak anchor")
+        if side.authored_peak.owner != side.owner.key or side.authored_axilla.owner != side.owner.key:
+            _fail(f"{where} authored landmarks must retain upper-arm source ownership")
+        if side.authored_frame.owner != side.owner.key or side.authored_frame.role != "form_shoulder_control":
+            _fail(f"{where} authored frame must retain the matching upper-arm source ownership")
+        if side.authored_peak.frame != (side.authored_frame.owner, side.authored_frame.role) or side.authored_axilla.frame != (side.authored_frame.owner, side.authored_frame.role):
+            _fail(f"{where} authored landmarks must reference the matching identity frame")
+        if side.authored_frame.translation != (0.0, 0.0, 0.0) or side.authored_frame.rotation_xyzw != (0.0, 0.0, 0.0, 1.0):
+            _fail(f"{where} authored shoulder frame must remain identity-only")
+        if not math.isclose(side.authored_peak.position[0], side.authored_axilla.position[0], rel_tol=0.0, abs_tol=GUIDE_TOLERANCE):
+            _fail(f"{where} authored landmarks must share local lateral coordinate")
+        expected_sign = -1.0 if side.side == "left" else 1.0
+        if any(point[0] * expected_sign <= 0.0 for point in (side.peak_anchor, side.axilla_anchor, side.socket_anchor)):
+            _fail(f"{where} authored shoulder controls must remain on the owner side")
+        if side.peak_anchor[1] <= side.axilla_anchor[1] + GUIDE_TOLERANCE:
+            _fail(f"{where} authored peak must remain above axilla")
+        expected_midpoint = 0.5 * (side.peak_anchor[1] + side.axilla_anchor[1])
+        expected_radius = 0.5 * (side.peak_anchor[1] - side.axilla_anchor[1])
+        if not math.isclose(side.vertical_midpoint, expected_midpoint, rel_tol=0.0, abs_tol=GUIDE_TOLERANCE) or not math.isclose(side.vertical_radius, expected_radius, rel_tol=0.0, abs_tol=GUIDE_TOLERANCE) or side.vertical_radius <= GUIDE_TOLERANCE:
+            _fail(f"{where} authored vertical midpoint/radius are invalid")
+        expected_depth_factor = _shoulder_depth_factor(side.owner.profile_id)
+        if side.depth_profile_factor != expected_depth_factor or side.depth_scaled_permille != _scaled_display_value(side.depth_value_permille, expected_depth_factor, f"{where}.depth") or not math.isclose(side.depth_radius, side.depth_scaled_permille / 1000.0, rel_tol=0.0, abs_tol=GUIDE_TOLERANCE) or side.depth_radius <= GUIDE_TOLERANCE:
+            _fail(f"{where} authored shoulder depth radius is invalid")
+        expected_span = abs(float(side.peak_anchor[0] - frame.central_anchor[0]))
         if not math.isfinite(expected_span) or expected_span <= 0.0:
             _fail(f"{where} derived shoulder span is invalid")
-        expected_slope = (float(extremum[1]) - float(frame.central_anchor[1])) / expected_span
+        expected_slope = (float(side.peak_anchor[1]) - float(frame.central_anchor[1])) / expected_span
         if not math.isclose(side.span, expected_span, rel_tol=1.0e-9, abs_tol=1.0e-12) or not math.isclose(side.slope, expected_slope, rel_tol=1.0e-9, abs_tol=1.0e-12):
-            _fail(f"{where} span and slope are not derived from cage and root controls")
+            _fail(f"{where} span and slope are not derived from authored shoulder controls")
         if not math.isfinite(side.span) or side.span <= 0.0 or not math.isfinite(side.slope):
             _fail(f"{where} span and slope must be finite")
         for curve_name, curve in (
@@ -2585,6 +2838,9 @@ def _validate_hybrid_guide(guide: _HybridGuide, bounds: tuple[np.ndarray, np.nda
             _fail(f"{where} anterior and posterior support profiles must rejoin identically")
         if not math.isclose(side.anterior_support.profile[-1], limb.sections[0].thickness[0], rel_tol=1.0e-9, abs_tol=1.0e-12):
             _fail(f"{where} support profile must overlap the upper-arm root profile")
+        expected_wrap = np.asarray((side.peak_anchor[0], side.vertical_midpoint, 0.5 * (side.peak_anchor[2] + side.axilla_anchor[2])), dtype=np.float64)
+        if not np.allclose(side.anterior_support.points[1], expected_wrap + np.asarray(frame.axes.forward) * side.depth_radius, rtol=0.0, atol=GUIDE_TOLERANCE) or not np.allclose(side.posterior_return.points[1], expected_wrap - np.asarray(frame.axes.forward) * side.depth_radius, rtol=0.0, atol=GUIDE_TOLERANCE):
+            _fail(f"{where} support wraps are not derived from authored shoulder depth")
         if side.anterior_support.points[1][2] <= side.shoulder_extremum[2] or side.posterior_return.points[1][2] >= side.shoulder_extremum[2]:
             _fail(f"{where} anterior and posterior wraps must occupy distinct depth")
         first_quarter = np.asarray(limb.sections[0].centerline[0]) + 0.25 * (
@@ -2754,6 +3010,56 @@ def _curve_json(name: str, owner: Descriptor, curve: _ShoulderCurve) -> dict[str
     }
 
 
+def _authored_frame_json(frame: AuthoredFrame) -> dict[str, Any]:
+    return {
+        "owner": _address_json(frame.owner),
+        "role": frame.role,
+        "transform": {
+            "translation": [float(item) for item in frame.translation],
+            "rotation_xyzw": [float(item) for item in frame.rotation_xyzw],
+        },
+        "provenance": dict(frame.provenance),
+    }
+
+
+def _authored_landmark_json(landmark: AuthoredLandmark) -> dict[str, Any]:
+    return {
+        "owner": _address_json(landmark.owner),
+        "role": landmark.role,
+        "frame": {"owner": _address_json(landmark.frame[0]), "role": landmark.frame[1]},
+        "position": [float(item) for item in landmark.position],
+        "provenance": dict(landmark.provenance),
+    }
+
+
+def _shoulder_source_control_json(side: _ShoulderSideGuide) -> dict[str, Any]:
+    """Return the exact authored records and consumed dimension lineage."""
+
+    depth_control = {
+        "owner": _address_json(side.owner.key),
+        "role": "form_shoulder_depth_radius",
+        "value_permille": side.depth_value_permille,
+        "scaled_value_permille": side.depth_scaled_permille,
+        "profile_factor": side.depth_profile_factor,
+        "provenance": dict(side.depth_provenance),
+        "consumption": "guide-derived shoulder wrap depth; baseline field remains guide-only",
+    }
+    return {
+        "side": side.side,
+        "owner": _address_json(side.owner.key),
+        "frame": _authored_frame_json(side.authored_frame),
+        "landmarks": [
+            _authored_landmark_json(side.authored_axilla),
+            _authored_landmark_json(side.authored_peak),
+        ],
+        "depth_control": depth_control,
+    }
+
+
+def _shoulder_source_controls_json(frame: _ShoulderFrame) -> list[dict[str, Any]]:
+    return [_shoulder_source_control_json(side) for side in frame.sides]
+
+
 def _projection_json() -> list[dict[str, Any]]:
     return [
         {"name": name, "basis": [[float(item) for item in row] for row in basis], "base": base}
@@ -2856,6 +3162,17 @@ def _regional_guide_json(
             "owner": _address_json(side.owner.key),
             "socket": {"owner": _address_json(side.owner.key), "point": _point_json(side.socket_anchor)},
             "extremum": {"owner": _address_json(side.owner.key), "point": _point_json(side.shoulder_extremum)},
+            "authored_controls": {
+                "peak": _authored_landmark_json(side.authored_peak),
+                "axilla": _authored_landmark_json(side.authored_axilla),
+                "frame": _authored_frame_json(side.authored_frame),
+            },
+            "peak_anchor": _point_json(side.peak_anchor),
+            "axilla_anchor": _point_json(side.axilla_anchor),
+            "vertical_midpoint": float(side.vertical_midpoint),
+            "vertical_radius": float(side.vertical_radius),
+            "depth_radius": float(side.depth_radius),
+            "depth_control": _shoulder_source_control_json(side)["depth_control"],
             "span": float(side.span),
             "slope": float(side.slope),
             "curves": [
@@ -2877,6 +3194,7 @@ def _regional_guide_json(
             "anchor": _point_json(frame.central_anchor),
             "profile": [float(item) for item in frame.central_profile],
         },
+        "source_controls": _shoulder_source_controls_json(frame),
         "sides": shoulder_sides,
     }
     head = guide.head_guide
@@ -3341,12 +3659,15 @@ def build_variant(
     samples: int,
     padding: float,
     smooth_k: float,
+    guide: _HybridGuide | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[tuple[str, tuple[str, ...], str, str]], dict[str, Any], dict[str, Any]]:
     if type(samples) is not int or samples > MAX_SAMPLES or samples < 16 or samples**3 > MAX_VOXELS:
         _fail("sampling configuration exceeds bounded limits")
     if not math.isfinite(float(padding)) or padding < 0.0 or not math.isfinite(float(smooth_k)) or smooth_k <= 0.0:
         _fail("padding and smooth-k must be finite, with non-negative padding and positive smooth-k")
-    fields = _compound_fields(form, descriptors)
+    if guide is None:
+        guide = _derive_hybrid_guides(form, descriptors)
+    fields = _compile_hybrid_guide(guide)
     if len(fields) * samples**3 > MAX_FIELD_VALUES:
         _fail("generated field sampling configuration exceeds bounded field-memory limits")
     lower, upper = _bounds(fields, padding)
@@ -3386,6 +3707,10 @@ def build_variant(
         "field_recipe_counts": recipe_counts,
         "smooth_union": {"operator": "polynomial_cubic_smooth_min", "k": smooth_k, "fold_order": "source_address_then_recipe_order"},
         "grid": {"samples_per_axis": samples, "axis_order": ["x", "y", "z"], "bounds_min": lower.tolist(), "bounds_max": upper.tolist(), "spacing": [float(a[1]-a[0]) for a in axes]},
+        "source_control_consumption": {
+            "format": SOURCE_FORMAT,
+            "shoulder": _shoulder_source_controls_json(guide.shoulder_frame),
+        },
     })
     return vertices, faces, normals, labels, metrics, {"bounds_min": lower.tolist(), "bounds_max": upper.tolist(), "spacing": [float(a[1]-a[0]) for a in axes]}
 
@@ -3688,6 +4013,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
                 samples,
                 padding,
                 smooth_k,
+                guide=guide,
             )
             variant_dir = stage / variant_id
             variant_dir.mkdir()
