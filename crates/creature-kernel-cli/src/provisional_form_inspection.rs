@@ -6,6 +6,7 @@
 //! SDF, anatomy, runtime, or Readiness 3 output.
 
 use creature_kernel_core::body_document::{ResourceProfile, Status as AdmissionStatus};
+use creature_kernel_core::frame::RigidTransform;
 use creature_kernel_core::provisional_form_preview::{
     MAX_PROVISIONAL_PERMILLE, ProvisionalFormPreview, ProvisionalFormPreviewError,
     ProvisionalPlacementFailureKind, ProvisionalShape, ProvisionalSourceFailureKind,
@@ -15,17 +16,25 @@ use creature_kernel_core::provisional_json::{Map, Value, json};
 use creature_kernel_core::reference_placement::PlacementSource;
 use creature_kernel_core::semantic_address::AddressKey;
 use creature_kernel_core::source_preparation::{
-    PreparedSingleSource, SourcePreparationError, prepare_single_source,
+    PreparedPosition3, PreparedSingleSource, SourceNumericLocation, SourcePreparationError,
+    prepare_single_source,
 };
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::path::Path;
 
-const FORMAT: &str = "creature-kernel.provisional-form-preview.v5";
+const FORMAT: &str = "creature-kernel.provisional-form-preview.v6";
 const OPERATION: &str = "inspect-provisional-form";
 const AUTHORED_DIMENSION_PROVENANCE: &str = "source-authored";
 const SHAPE_BASIS_PROVENANCE: &str = "source-authored-dimensions-plus-fixed-display-factor";
-const LIMITATIONS: &str = "Provisional display-only filled-form descriptors from the restricted single-source exact Part placement projection; source-authored dimensions are consumed only through the closed provisional shape-control vocabulary and fixed display profile factors remain applied; no production geometry, mesh, SDF, topology, collision, rig, skin, anatomy, Joint-frame interpretation, landmarks, frames, general units or rotations, dependency resolution, canonical snapshot/serialization, runtime claim, or Readiness activation. Descriptors are not graph Parts.";
+const AUTHORED_CONTROL_PROVENANCE: &str = "source-authored";
+const SHOULDER_CONTROL_FRAME_ROLE: &str = "form_shoulder_control";
+const SHOULDER_LANDMARK_ROLES: [&str; 2] = ["form_shoulder_peak", "form_axilla"];
+const UPPER_ARM_SIDES: [&str; 2] = ["left", "right"];
+// This is a deliberately small source-coordinate guard for this fixture
+// family. It is not a general coordinate, unit, or frame-semantic bound.
+const PROVISIONAL_CONTROL_COORDINATE_BOUND: f64 = 1.0;
+const LIMITATIONS: &str = "Provisional display-only filled-form descriptors from the restricted single-source exact Part placement projection; source-authored dimensions are consumed only through the closed provisional shape-control vocabulary and fixed display profile factors remain applied; the four upper-arm landmark controls and two identity same-owner control frames are retained only as source-authored source-coordinate controls, with the provisional inclusive coordinate bound |position component| <= 1.0 for this fixture family; no world/reference resolution or general frame semantics; no production geometry, mesh, SDF, topology, collision, rig, skin, anatomy, Joint-frame interpretation, general units or rotations, dependency resolution, canonical snapshot/serialization, runtime claim, or Readiness activation. Descriptors are not graph Parts.";
 
 struct PreparedAuthoredDimensions {
     inventory: Vec<AuthoredDimension>,
@@ -66,6 +75,28 @@ struct AuthoredDimensionProvenance<'a> {
     namespace: &'a str,
 }
 
+struct PreparedAuthoredControls {
+    landmarks: Vec<AuthoredLandmark>,
+    frames: Vec<AuthoredFrame>,
+}
+
+struct AuthoredLandmark {
+    owner: creature_kernel_core::semantic_address::AddressKey,
+    role: String,
+    frame: creature_kernel_core::body_graph::OwnerRoleKey,
+    position: PreparedPosition3,
+    document: String,
+    namespace: String,
+}
+
+struct AuthoredFrame {
+    owner: creature_kernel_core::semantic_address::AddressKey,
+    role: String,
+    transform: RigidTransform,
+    document: String,
+    namespace: String,
+}
+
 impl AuthoredDimensionProvenance<'_> {
     const fn source(&self) -> &'static str {
         AUTHORED_DIMENSION_PROVENANCE
@@ -92,6 +123,18 @@ enum InspectionError {
         role: String,
         value: String,
     },
+    MissingAuthoredControl {
+        owner: String,
+        role: String,
+    },
+    InvalidAuthoredControl {
+        address: AddressKey,
+        role: String,
+        detail: String,
+    },
+    InvalidAuthoredControlStructure {
+        detail: String,
+    },
 }
 
 impl fmt::Display for InspectionError {
@@ -109,6 +152,22 @@ impl fmt::Display for InspectionError {
             } => write!(
                 formatter,
                 "source-authored dimension {role:?} at {address} has invalid positive permille value {value}"
+            ),
+            Self::MissingAuthoredControl { owner, role } => write!(
+                formatter,
+                "required source-authored control {role:?} is missing for {owner}"
+            ),
+            Self::InvalidAuthoredControl {
+                address,
+                role,
+                detail,
+            } => write!(
+                formatter,
+                "source-authored control {role:?} at {address} is invalid: {detail}"
+            ),
+            Self::InvalidAuthoredControlStructure { detail } => write!(
+                formatter,
+                "source-authored shoulder control structure is invalid: {detail}"
             ),
         }
     }
@@ -195,15 +254,29 @@ fn parse_input_path(arguments: &[String]) -> Option<&Path> {
 pub(crate) fn inspect_source(source: &[u8]) -> CliResult {
     match build_provisional_form_preview(source, ResourceProfile::ORDINARY) {
         Ok(preview) => match prepare_single_source(source, ResourceProfile::ORDINARY) {
-            Ok(prepared) => match prepare_authored_dimensions(&preview, &prepared) {
-                Ok(dimensions) => match success(preview, &dimensions) {
-                    Ok(result) => result,
+            Ok(prepared) => match prepare_authored_controls(&prepared) {
+                Ok(controls) => match prepare_authored_dimensions(&preview, &prepared) {
+                    Ok(dimensions) => match success(preview, &dimensions, &controls) {
+                        Ok(result) => result,
+                        Err(error) => failure(error),
+                    },
                     Err(error) => failure(error),
                 },
                 Err(error) => failure(error),
             },
-            Err(error) => failure(InspectionError::Core(map_source_preparation_error(error))),
+            Err(error) => failure(map_source_preparation_error(error)),
         },
+        Err(error)
+            if matches!(
+                &error,
+                ProvisionalFormPreviewError::SourcePreparation { .. }
+            ) =>
+        {
+            match prepare_single_source(source, ResourceProfile::ORDINARY) {
+                Err(preparation_error) => failure(map_source_preparation_error(preparation_error)),
+                Ok(_) => failure(InspectionError::Core(error)),
+            }
+        }
         Err(error) => failure(InspectionError::Core(error)),
     }
 }
@@ -211,6 +284,7 @@ pub(crate) fn inspect_source(source: &[u8]) -> CliResult {
 fn success(
     preview: ProvisionalFormPreview,
     dimensions: &PreparedAuthoredDimensions,
+    controls: &PreparedAuthoredControls,
 ) -> Result<CliResult, InspectionError> {
     let output = json!({
         "format": FORMAT,
@@ -233,6 +307,8 @@ fn success(
             "source": "exact-containment-edge",
         },
         "authored_dimensions": dimensions.inventory.iter().map(authored_dimension_value).collect::<Vec<_>>(),
+        "authored_landmarks": controls.landmarks.iter().map(authored_landmark_value).collect::<Vec<_>>(),
+        "authored_frames": controls.frames.iter().map(authored_frame_value).collect::<Vec<_>>(),
         "variants": preview.variants().iter().map(|variant| variant_value(variant, dimensions)).collect::<Result<Vec<_>, _>>()?,
         "limitations": LIMITATIONS,
     });
@@ -290,6 +366,196 @@ fn authored_dimension_value(dimension: &AuthoredDimension) -> Value {
             "document": dimension.provenance().document(),
             "namespace": dimension.provenance().namespace(),
         },
+    })
+}
+
+fn authored_landmark_value(landmark: &AuthoredLandmark) -> Value {
+    json!({
+        "owner": crate::structural_inspection::address_key_value(&landmark.owner),
+        "role": landmark.role.as_str(),
+        "frame": {
+            "owner": crate::structural_inspection::address_key_value(landmark.frame.owner()),
+            "role": landmark.frame.role(),
+        },
+        "position": source_position_value(landmark.position),
+        "provenance": authored_control_provenance(&landmark.document, &landmark.namespace),
+    })
+}
+
+fn authored_frame_value(frame: &AuthoredFrame) -> Value {
+    json!({
+        "owner": crate::structural_inspection::address_key_value(&frame.owner),
+        "role": frame.role.as_str(),
+        "transform": source_transform_value(frame.transform),
+        "provenance": authored_control_provenance(&frame.document, &frame.namespace),
+    })
+}
+
+fn authored_control_provenance(document: &str, namespace: &str) -> Value {
+    json!({
+        "source": AUTHORED_CONTROL_PROVENANCE,
+        "document": document,
+        "namespace": namespace,
+    })
+}
+
+fn source_position_value(position: PreparedPosition3) -> Value {
+    Value::Array(
+        position
+            .components()
+            .into_iter()
+            .map(source_number_value)
+            .collect(),
+    )
+}
+
+fn source_transform_value(transform: RigidTransform) -> Value {
+    json!({
+        "translation": transform
+            .translation()
+            .components()
+            .into_iter()
+            .map(source_number_value)
+            .collect::<Vec<_>>(),
+        "rotation_xyzw": transform
+            .rotation()
+            .components()
+            .into_iter()
+            .map(source_number_value)
+            .collect::<Vec<_>>(),
+    })
+}
+
+fn source_number_value(value: creature_kernel_core::numeric::NormalizedBinary64) -> Value {
+    json!(value.as_f64())
+}
+
+fn prepare_authored_controls(
+    prepared: &PreparedSingleSource,
+) -> Result<PreparedAuthoredControls, InspectionError> {
+    let owners = required_upper_arm_owners(prepared)?;
+    let source = prepared.graph().source();
+    let mut landmarks = Vec::new();
+    let mut frames = Vec::new();
+
+    for (side, owner) in owners {
+        let Some((frame_key, transform)) =
+            find_owner_role(prepared.frames(), &owner, SHOULDER_CONTROL_FRAME_ROLE)
+        else {
+            return Err(InspectionError::MissingAuthoredControl {
+                owner: format!("{side} upper_arm"),
+                role: SHOULDER_CONTROL_FRAME_ROLE.to_owned(),
+            });
+        };
+        if *transform != RigidTransform::identity() {
+            return Err(InspectionError::InvalidAuthoredControl {
+                address: frame_key.owner().clone(),
+                role: frame_key.role().to_owned(),
+                detail: "control frame must be the identity rigid transform".to_owned(),
+            });
+        }
+        frames.push(AuthoredFrame {
+            owner: frame_key.owner().clone(),
+            role: frame_key.role().to_owned(),
+            transform: *transform,
+            document: source.document.clone(),
+            namespace: source.namespace.clone(),
+        });
+
+        for landmark_role in SHOULDER_LANDMARK_ROLES {
+            let Some((landmark_key, landmark)) =
+                find_owner_role(prepared.landmarks(), &owner, landmark_role)
+            else {
+                return Err(InspectionError::MissingAuthoredControl {
+                    owner: format!("{side} upper_arm"),
+                    role: landmark_role.to_owned(),
+                });
+            };
+            if landmark.frame().owner() != &owner
+                || landmark.frame().role() != SHOULDER_CONTROL_FRAME_ROLE
+            {
+                return Err(InspectionError::InvalidAuthoredControl {
+                    address: landmark_key.owner().clone(),
+                    role: landmark_key.role().to_owned(),
+                    detail: format!(
+                        "landmark must reference same-owner frame role {SHOULDER_CONTROL_FRAME_ROLE:?}"
+                    ),
+                });
+            }
+            if !valid_control_position(landmark.position()) {
+                return Err(InspectionError::InvalidAuthoredControl {
+                    address: landmark_key.owner().clone(),
+                    role: landmark_key.role().to_owned(),
+                    detail: format!(
+                        "source-coordinate position must be finite and each component must satisfy |component| <= {PROVISIONAL_CONTROL_COORDINATE_BOUND}"
+                    ),
+                });
+            }
+            landmarks.push(AuthoredLandmark {
+                owner: landmark_key.owner().clone(),
+                role: landmark_key.role().to_owned(),
+                frame: landmark.frame().clone(),
+                position: landmark.position(),
+                document: source.document.clone(),
+                namespace: source.namespace.clone(),
+            });
+        }
+    }
+
+    landmarks.sort_by(|left, right| {
+        left.owner
+            .cmp(&right.owner)
+            .then_with(|| left.role.cmp(&right.role))
+    });
+    frames.sort_by(|left, right| {
+        left.owner
+            .cmp(&right.owner)
+            .then_with(|| left.role.cmp(&right.role))
+    });
+    Ok(PreparedAuthoredControls { landmarks, frames })
+}
+
+fn required_upper_arm_owners(
+    prepared: &PreparedSingleSource,
+) -> Result<Vec<(&'static str, AddressKey)>, InspectionError> {
+    let mut owners = Vec::with_capacity(UPPER_ARM_SIDES.len());
+    for side in UPPER_ARM_SIDES {
+        let candidates = prepared
+            .graph()
+            .parts()
+            .keys()
+            .filter(|address| {
+                address.role() == "upper_arm"
+                    && address.anchors().len() == 1
+                    && address.anchors()[0] == side
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        if candidates.len() != 1 {
+            return Err(InspectionError::MissingAuthoredControl {
+                owner: format!("{side} upper_arm"),
+                role: "upper_arm owner".to_owned(),
+            });
+        }
+        owners.push((side, candidates.into_iter().next().expect("one candidate")));
+    }
+    Ok(owners)
+}
+
+fn find_owner_role<'a, T>(
+    values: &'a BTreeMap<creature_kernel_core::body_graph::OwnerRoleKey, T>,
+    owner: &AddressKey,
+    role: &str,
+) -> Option<(&'a creature_kernel_core::body_graph::OwnerRoleKey, &'a T)> {
+    values
+        .iter()
+        .find(|(key, _)| key.owner() == owner && key.role() == role)
+}
+
+fn valid_control_position(position: PreparedPosition3) -> bool {
+    position.components().into_iter().all(|component| {
+        let value = component.as_f64();
+        value.is_finite() && value.abs() <= PROVISIONAL_CONTROL_COORDINATE_BOUND
     })
 }
 
@@ -398,7 +664,8 @@ fn authored_dimension_roles(role: &str) -> Option<&'static [&'static str]> {
         "pelvis" | "torso" | "head" | "hand" | "foot" => {
             Some(&["form_extent_x", "form_extent_y", "form_extent_z"])
         }
-        "neck" | "upper_arm" | "forearm" | "thigh" | "shin" => Some(&["form_radius"]),
+        "neck" | "forearm" | "thigh" | "shin" => Some(&["form_radius"]),
+        "upper_arm" => Some(&["form_radius", "form_shoulder_depth_radius"]),
         "tail_root" | "tail_tip" => Some(&["form_start_radius", "form_end_radius"]),
         _ => None,
     }
@@ -508,8 +775,29 @@ fn taper_radii(
     ))
 }
 
-fn map_source_preparation_error(error: SourcePreparationError) -> ProvisionalFormPreviewError {
+fn map_source_preparation_error(error: SourcePreparationError) -> InspectionError {
     let message = error.to_string();
+    if let SourcePreparationError::Structural(structural) = &error {
+        if structural.diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .address
+                .as_ref()
+                .is_some_and(is_upper_arm_side_owner)
+                && (diagnostic.code.starts_with("frame-")
+                    || diagnostic.code.starts_with("landmark-"))
+        }) {
+            return InspectionError::InvalidAuthoredControlStructure { detail: message };
+        }
+    }
+    if let SourcePreparationError::Numeric { location, .. } = &error {
+        if let Some((address, role)) = authored_control_numeric_location(location) {
+            return InspectionError::InvalidAuthoredControl {
+                address,
+                role,
+                detail: format!("source numeric preparation failed: {message}"),
+            };
+        }
+    }
     match error {
         SourcePreparationError::Admission(admission) => {
             let status = match admission.status {
@@ -520,32 +808,58 @@ fn map_source_preparation_error(error: SourcePreparationError) -> ProvisionalFor
                     ProvisionalSourceFailureKind::InternalFailure
                 }
             };
-            ProvisionalFormPreviewError::SourcePreparation {
+            InspectionError::Core(ProvisionalFormPreviewError::SourcePreparation {
                 status,
                 processing_complete: admission.processing_complete,
                 diagnostics_complete: admission.diagnostics_complete,
                 message,
-            }
+            })
         }
         SourcePreparationError::Structural(_)
         | SourcePreparationError::Basis(_)
         | SourcePreparationError::Numeric { .. } => {
-            ProvisionalFormPreviewError::SourcePreparation {
+            InspectionError::Core(ProvisionalFormPreviewError::SourcePreparation {
                 status: ProvisionalSourceFailureKind::InvalidSource,
                 processing_complete: true,
                 diagnostics_complete: true,
                 message,
-            }
+            })
         }
         SourcePreparationError::Invariant { .. } => {
-            ProvisionalFormPreviewError::SourcePreparation {
+            InspectionError::Core(ProvisionalFormPreviewError::SourcePreparation {
                 status: ProvisionalSourceFailureKind::InternalFailure,
                 processing_complete: false,
                 diagnostics_complete: false,
                 message,
-            }
+            })
         }
     }
+}
+
+fn authored_control_numeric_location(
+    location: &SourceNumericLocation,
+) -> Option<(AddressKey, String)> {
+    match location {
+        SourceNumericLocation::LandmarkPosition { owner_role, .. }
+            if is_upper_arm_side_owner(owner_role.owner())
+                && SHOULDER_LANDMARK_ROLES.contains(&owner_role.role()) =>
+        {
+            Some((owner_role.owner().clone(), owner_role.role().to_owned()))
+        }
+        SourceNumericLocation::NamedFrame { owner_role, .. }
+            if is_upper_arm_side_owner(owner_role.owner())
+                && owner_role.role() == SHOULDER_CONTROL_FRAME_ROLE =>
+        {
+            Some((owner_role.owner().clone(), owner_role.role().to_owned()))
+        }
+        _ => None,
+    }
+}
+
+fn is_upper_arm_side_owner(address: &AddressKey) -> bool {
+    address.role() == "upper_arm"
+        && address.anchors().len() == 1
+        && UPPER_ARM_SIDES.contains(&address.anchors()[0].as_str())
 }
 
 fn exact_translation_value(
@@ -671,6 +985,15 @@ fn failure(error: InspectionError) -> CliResult {
             true,
             true,
         ),
+        InspectionError::MissingAuthoredControl { .. }
+        | InspectionError::InvalidAuthoredControl { .. }
+        | InspectionError::InvalidAuthoredControlStructure { .. } => (
+            "controls",
+            "invalid-source",
+            "ck.cli.provisional-form.authored-control",
+            true,
+            true,
+        ),
     };
     let diagnostic = cli_diagnostic(code, error.to_string());
     let mut output = base_output(stage);
@@ -713,7 +1036,7 @@ fn result(value: Value) -> CliResult {
     };
     CliResult {
         json: creature_kernel_core::provisional_json::to_string(&value).unwrap_or_else(|_| {
-            r#"{"format":"creature-kernel.provisional-form-preview.v5","operation":"inspect-provisional-form","status":"internal-failure","stage":"output","diagnostics":[{"code":"ck.cli.provisional-form.output-serialization","message":"could not serialize provisional form inspection result"}]}"#.to_owned()
+            r#"{"format":"creature-kernel.provisional-form-preview.v6","operation":"inspect-provisional-form","status":"internal-failure","stage":"output","diagnostics":[{"code":"ck.cli.provisional-form.output-serialization","message":"could not serialize provisional form inspection result"}]}"#.to_owned()
         }),
         exit_code,
     }
@@ -785,6 +1108,17 @@ mod tests {
         creature_kernel_core::provisional_json::to_vec(&value).expect("JSON bytes")
     }
 
+    fn authored_control_failure(value: Value) -> Value {
+        let result = parsed(&inspect_source(&bytes(value)));
+        assert_eq!(result["status"], "invalid-source");
+        assert_eq!(result["stage"], "controls");
+        assert_eq!(
+            result["diagnostics"][0]["code"],
+            "ck.cli.provisional-form.authored-control"
+        );
+        result
+    }
+
     #[test]
     fn command_help_and_usage_are_structured_and_non_partial() {
         let help = run_cli([OPERATION, "--help"]);
@@ -816,7 +1150,7 @@ mod tests {
         let value = parsed(&output);
         assert_eq!(
             value["format"],
-            "creature-kernel.provisional-form-preview.v5"
+            "creature-kernel.provisional-form-preview.v6"
         );
         assert_eq!(value["operation"], OPERATION);
         assert_eq!(value["status"], "success");
@@ -850,7 +1184,9 @@ mod tests {
                 assert!(descriptor["shape"]["name"].is_string());
             }
         }
-        assert_eq!(value["authored_dimensions"].as_array().unwrap().len(), 34);
+        assert_eq!(value["authored_dimensions"].as_array().unwrap().len(), 36);
+        assert_eq!(value["authored_landmarks"].as_array().unwrap().len(), 4);
+        assert_eq!(value["authored_frames"].as_array().unwrap().len(), 2);
         assert!(
             value["limitations"]
                 .as_str()
@@ -863,7 +1199,7 @@ mod tests {
     fn authored_dimension_inventory_and_descriptor_consumption_are_complete() {
         let value = parsed(&inspect_source(&example()));
         let dimensions = value["authored_dimensions"].as_array().unwrap();
-        assert_eq!(dimensions.len(), 34);
+        assert_eq!(dimensions.len(), 36);
         let keys = dimensions
             .iter()
             .map(|dimension| {
@@ -909,6 +1245,115 @@ mod tests {
     }
 
     #[test]
+    fn authored_shoulder_controls_have_exact_inventory_and_source_provenance() {
+        let value = parsed(&inspect_source(&example()));
+        let landmarks = value["authored_landmarks"].as_array().unwrap();
+        assert_eq!(landmarks.len(), 4);
+        let expected_landmarks = [
+            ("left", "form_axilla", json!([-0.1, -0.3, 0])),
+            ("left", "form_shoulder_peak", json!([-0.1, 0.15, 0])),
+            ("right", "form_axilla", json!([0.1, -0.3, 0])),
+            ("right", "form_shoulder_peak", json!([0.1, 0.15, 0])),
+        ];
+        for (landmark, (side, role, position)) in landmarks.iter().zip(expected_landmarks) {
+            assert_eq!(landmark["owner"]["namespace"], "main");
+            assert_eq!(landmark["owner"]["anchors"], json!([side]));
+            assert_eq!(landmark["owner"]["kind"], "part");
+            assert_eq!(landmark["owner"]["role"], "upper_arm");
+            assert_eq!(landmark["role"], role);
+            assert_eq!(landmark["frame"]["owner"], landmark["owner"]);
+            assert_eq!(landmark["frame"]["role"], SHOULDER_CONTROL_FRAME_ROLE);
+            assert_eq!(
+                landmark["position"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|component| component.as_f64().unwrap())
+                    .collect::<Vec<_>>(),
+                position
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|component| component.as_f64().unwrap())
+                    .collect::<Vec<_>>()
+            );
+            assert_eq!(
+                landmark["provenance"]["source"],
+                AUTHORED_CONTROL_PROVENANCE
+            );
+            assert_eq!(
+                landmark["provenance"]["document"],
+                "stylized_digitigrade_biped_authored_form"
+            );
+            assert_eq!(landmark["provenance"]["namespace"], "main");
+        }
+
+        let frames = value["authored_frames"].as_array().unwrap();
+        assert_eq!(frames.len(), 2);
+        for (frame, side) in frames.iter().zip(["left", "right"]) {
+            assert_eq!(frame["owner"]["namespace"], "main");
+            assert_eq!(frame["owner"]["anchors"], json!([side]));
+            assert_eq!(frame["owner"]["kind"], "part");
+            assert_eq!(frame["owner"]["role"], "upper_arm");
+            assert_eq!(frame["role"], SHOULDER_CONTROL_FRAME_ROLE);
+            assert_eq!(
+                frame["transform"]["translation"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|component| component.as_f64().unwrap())
+                    .collect::<Vec<_>>(),
+                [0.0, 0.0, 0.0]
+            );
+            assert_eq!(
+                frame["transform"]["rotation_xyzw"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|component| component.as_f64().unwrap())
+                    .collect::<Vec<_>>(),
+                [0.0, 0.0, 0.0, 1.0]
+            );
+            assert_eq!(frame["provenance"]["source"], AUTHORED_CONTROL_PROVENANCE);
+            assert_eq!(
+                frame["provenance"]["document"],
+                "stylized_digitigrade_biped_authored_form"
+            );
+            assert_eq!(frame["provenance"]["namespace"], "main");
+        }
+    }
+
+    #[test]
+    fn upper_arm_consumption_includes_depth_radius_but_shape_radius_stays_form_radius() {
+        let value = parsed(&inspect_source(&example()));
+        let dimensions = value["authored_dimensions"].as_array().unwrap();
+        assert_eq!(
+            dimensions
+                .iter()
+                .filter(|dimension| dimension["owner"]["role"] == "upper_arm")
+                .count(),
+            4
+        );
+        for variant in value["variants"].as_array().unwrap() {
+            for descriptor in variant["descriptors"].as_array().unwrap() {
+                if descriptor["address"]["role"] == "upper_arm" {
+                    assert_eq!(
+                        descriptor["dimension_roles"],
+                        json!(["form_radius", "form_shoulder_depth_radius"])
+                    );
+                    assert_eq!(descriptor["shape"]["name"], "capsule");
+                    assert!(descriptor["shape"].get("radius_permille").is_some());
+                    assert!(
+                        descriptor["shape"]
+                            .get("shoulder_depth_radius_permille")
+                            .is_none()
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
     fn missing_fractional_nonpositive_and_oversized_controls_fail_closed() {
         let mut missing = document();
         missing["body"]["dimensions"]
@@ -934,6 +1379,71 @@ mod tests {
                 "ck.cli.provisional-form.authored-dimension"
             );
         }
+
+        let mut fractional_profile = document();
+        let dimension = fractional_profile["body"]["dimensions"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|dimension| dimension["role"] == "form_shoulder_depth_radius")
+            .expect("shoulder depth control");
+        dimension["value"] = json!(350.5);
+        let fractional_profile = parsed(&inspect_source(&bytes(fractional_profile)));
+        assert_eq!(fractional_profile["status"], "invalid-source");
+        assert_eq!(fractional_profile["stage"], "dimensions");
+        assert_eq!(
+            fractional_profile["diagnostics"][0]["code"],
+            "ck.cli.provisional-form.authored-dimension"
+        );
+    }
+
+    #[test]
+    fn missing_wrong_reference_wrong_owner_or_role_and_nonidentity_controls_fail_closed() {
+        let mut missing_landmark = document();
+        missing_landmark["body"]["landmarks"]
+            .as_array_mut()
+            .unwrap()
+            .remove(0);
+        authored_control_failure(missing_landmark);
+
+        let mut missing_frame = document();
+        missing_frame["body"]["frames"]
+            .as_array_mut()
+            .unwrap()
+            .remove(0);
+        authored_control_failure(missing_frame);
+
+        let mut wrong_frame = document();
+        wrong_frame["body"]["landmarks"].as_array_mut().unwrap()[0]["frame"]["role"] =
+            json!("wrong_frame");
+        authored_control_failure(wrong_frame);
+
+        let mut wrong_owner = document();
+        wrong_owner["body"]["landmarks"].as_array_mut().unwrap()[0]["owner"]["role"] =
+            json!("forearm");
+        authored_control_failure(wrong_owner);
+
+        let mut wrong_role = document();
+        wrong_role["body"]["landmarks"].as_array_mut().unwrap()[0]["role"] =
+            json!("wrong_landmark");
+        authored_control_failure(wrong_role);
+
+        let mut nonidentity = document();
+        nonidentity["body"]["frames"].as_array_mut().unwrap()[0]["transform"]["translation"] =
+            json!([0.1, 0, 0]);
+        authored_control_failure(nonidentity);
+    }
+
+    #[test]
+    fn nonfinite_and_out_of_bound_positions_fail_with_stable_control_diagnostic() {
+        let mut out_of_bound = document();
+        out_of_bound["body"]["landmarks"].as_array_mut().unwrap()[0]["position"][0] = json!(1.01);
+        authored_control_failure(out_of_bound);
+
+        let mut nonfinite = document();
+        nonfinite["body"]["landmarks"].as_array_mut().unwrap()[0]["position"][0] =
+            creature_kernel_core::provisional_json::from_str("1e999").unwrap();
+        authored_control_failure(nonfinite);
     }
 
     #[test]
@@ -972,6 +1482,32 @@ mod tests {
                 } else {
                     assert_eq!(original_descriptor["shape"], changed_descriptor["shape"]);
                 }
+            }
+        }
+    }
+
+    #[test]
+    fn one_authored_landmark_changes_only_its_serialized_control_across_variants() {
+        let original = parsed(&inspect_source(&example()));
+        let mut changed_source = document();
+        changed_source["body"]["landmarks"].as_array_mut().unwrap()[0]["position"][1] = json!(0.2);
+        let changed = parsed(&inspect_source(&bytes(changed_source)));
+
+        assert_eq!(original["variants"], changed["variants"]);
+        assert_eq!(
+            original["authored_dimensions"],
+            changed["authored_dimensions"]
+        );
+        assert_eq!(original["authored_frames"], changed["authored_frames"]);
+        let original_landmarks = original["authored_landmarks"].as_array().unwrap();
+        let changed_landmarks = changed["authored_landmarks"].as_array().unwrap();
+        for (index, (original_landmark, changed_landmark)) in
+            original_landmarks.iter().zip(changed_landmarks).enumerate()
+        {
+            if index == 1 {
+                assert_ne!(original_landmark["position"], changed_landmark["position"]);
+            } else {
+                assert_eq!(original_landmark, changed_landmark);
             }
         }
     }

@@ -8,6 +8,7 @@ accepted by one is the same session understood by the other.
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import stat
@@ -42,14 +43,17 @@ PREPARED_SOURCE_STAGE = "source-preparation"
 PROVISIONAL_FORM_LEGACY_FORMAT = "creature-kernel.provisional-form-preview.v1"
 PROVISIONAL_FORM_V2_FORMAT = "creature-kernel.provisional-form-preview.v2"
 PROVISIONAL_FORM_V3_FORMAT = "creature-kernel.provisional-form-preview.v3"
-# Retained only so previously published v4 records remain readable; v5 is the
-# current producer and publication contract.
+# Retained only so previously published records remain readable.  V5 is an
+# explicit historical producer contract; v6 is the current producer and
+# publication contract.
 PROVISIONAL_FORM_HISTORICAL_V4_FORMAT = "creature-kernel.provisional-form-preview.v4"
-PROVISIONAL_FORM_FORMAT = "creature-kernel.provisional-form-preview.v5"
+PROVISIONAL_FORM_HISTORICAL_V5_FORMAT = "creature-kernel.provisional-form-preview.v5"
+PROVISIONAL_FORM_FORMAT = "creature-kernel.provisional-form-preview.v6"
 PROVISIONAL_FORM_CORRECTED_FORMATS = {
     PROVISIONAL_FORM_V2_FORMAT,
     PROVISIONAL_FORM_V3_FORMAT,
     PROVISIONAL_FORM_HISTORICAL_V4_FORMAT,
+    PROVISIONAL_FORM_HISTORICAL_V5_FORMAT,
     PROVISIONAL_FORM_FORMAT,
 }
 PROVISIONAL_FORM_FORMATS = {
@@ -66,6 +70,13 @@ PROVISIONAL_FORM_VARIANT_IDS = (
 )
 PROVISIONAL_FORM_PROVENANCE = "profile-derived-display"
 PROVISIONAL_FORM_AUTHORED_DIMENSION_PROVENANCE = "source-authored"
+PROVISIONAL_FORM_AUTHORED_CONTROL_PROVENANCE = "source-authored"
+PROVISIONAL_FORM_SHOULDER_CONTROL_FRAME_ROLE = "form_shoulder_control"
+PROVISIONAL_FORM_SHOULDER_LANDMARK_ROLES = (
+    "form_shoulder_peak",
+    "form_axilla",
+)
+PROVISIONAL_FORM_CONTROL_COORDINATE_BOUND = 1.0
 PROVISIONAL_FORM_SHAPE_BASIS = (
     "source-authored-dimensions-plus-fixed-display-factor"
 )
@@ -1036,6 +1047,7 @@ def _form_address(value: Any, where: str) -> tuple[str, tuple[str, ...], str, st
 def _form_role_shape(format_name: str, role: str) -> str | None:
     if format_name in {
         PROVISIONAL_FORM_HISTORICAL_V4_FORMAT,
+        PROVISIONAL_FORM_HISTORICAL_V5_FORMAT,
         PROVISIONAL_FORM_FORMAT,
     } and role == "neck":
         return "capsule"
@@ -1045,6 +1057,7 @@ def _form_role_shape(format_name: str, role: str) -> str | None:
 def _form_capsule_child_roles(format_name: str) -> dict[str, str]:
     if format_name in {
         PROVISIONAL_FORM_HISTORICAL_V4_FORMAT,
+        PROVISIONAL_FORM_HISTORICAL_V5_FORMAT,
         PROVISIONAL_FORM_FORMAT,
     }:
         return PROVISIONAL_FORM_V4_CAPSULE_CHILD_ROLES
@@ -1054,7 +1067,7 @@ def _form_capsule_child_roles(format_name: str) -> dict[str, str]:
 def _form_display_factors(
     profile_id: str, role: str, shape_name: str
 ) -> tuple[int, ...]:
-    """Return the fixed Rust display factors for one v5 shape control set."""
+    """Return the fixed Rust display factors for one shape control set."""
 
     if shape_name == "ellipsoid":
         if profile_id == "neutral-v0":
@@ -1080,7 +1093,7 @@ def _form_display_factors(
             factor = 1_000
         return (factor,) * (1 if shape_name == "capsule" else 2)
     raise ValidationError(
-        f"unsupported v5 display factor combination: {profile_id}/{role}/{shape_name}"
+        f"unsupported display factor combination: {profile_id}/{role}/{shape_name}"
     )
 
 
@@ -1093,6 +1106,143 @@ def _form_scaled_display_value(value: int, factor: int, where: str) -> int:
             f"{where} fixed display factor produces invalid permille {scaled}"
         )
     return scaled
+
+
+def _form_finite_vector(value: Any, where: str, length: int) -> list[int | float]:
+    values = _array(value, where)
+    if len(values) != length:
+        raise ValidationError(f"{where} must contain exactly {length} components")
+    normalized: list[int | float] = []
+    for index, component in enumerate(values):
+        if isinstance(component, bool) or not isinstance(component, (int, float)):
+            raise ValidationError(f"{where}[{index}] must be a finite number")
+        if not math.isfinite(component):
+            raise ValidationError(f"{where}[{index}] must be a finite number")
+        normalized.append(component)
+    return normalized
+
+
+def _form_control_provenance(value: Any, where: str, document: str, namespace: str) -> None:
+    provenance = _object(value, where)
+    _check_fields(provenance, {"source", "document", "namespace"}, where)
+    if (
+        provenance.get("source") != PROVISIONAL_FORM_AUTHORED_CONTROL_PROVENANCE
+        or provenance.get("document") != document
+        or provenance.get("namespace") != namespace
+    ):
+        raise ValidationError(f"{where} is not source-authored")
+
+
+def _provisional_form_upper_arm_owner(namespace: str, side: str) -> tuple[str, tuple[str, ...], str, str]:
+    return (namespace, (side,), "part", "upper_arm")
+
+
+def _validate_v6_authored_controls(
+    obj: dict[str, Any], where: str, *, document: str, namespace: str
+) -> None:
+    """Validate the closed source-authored shoulder-control inventory."""
+
+    expected_owners = {
+        _provisional_form_upper_arm_owner(namespace, side)
+        for side in ("left", "right")
+    }
+    expected_frame_keys = {
+        (owner, PROVISIONAL_FORM_SHOULDER_CONTROL_FRAME_ROLE)
+        for owner in expected_owners
+    }
+    frames = _array(obj.get("authored_frames"), f"{where}.authored_frames")
+    if len(frames) != len(expected_frame_keys):
+        raise ValidationError(
+            f"{where}.authored_frames must contain exactly two shoulder control frames"
+        )
+    frame_keys: list[tuple[tuple[str, tuple[str, ...], str, str], str]] = []
+    for index, raw_frame in enumerate(frames):
+        frame_where = f"{where}.authored_frames[{index}]"
+        frame = _object(raw_frame, frame_where)
+        _check_fields(frame, {"owner", "role", "transform", "provenance"}, frame_where)
+        owner = _form_address(frame.get("owner"), f"{frame_where}.owner")
+        role = _string(frame.get("role"), f"{frame_where}.role", max_len=256)
+        key = (owner, role)
+        frame_keys.append(key)
+        if key not in expected_frame_keys:
+            raise ValidationError(
+                f"{frame_where} must be the left/right upper_arm {PROVISIONAL_FORM_SHOULDER_CONTROL_FRAME_ROLE}"
+            )
+        _form_control_provenance(
+            frame.get("provenance"), f"{frame_where}.provenance", document, namespace
+        )
+        transform = _object(frame.get("transform"), f"{frame_where}.transform")
+        _check_fields(transform, {"translation", "rotation_xyzw"}, f"{frame_where}.transform")
+        translation = _form_finite_vector(
+            transform.get("translation"), f"{frame_where}.transform.translation", 3
+        )
+        rotation = _form_finite_vector(
+            transform.get("rotation_xyzw"), f"{frame_where}.transform.rotation_xyzw", 4
+        )
+        if translation != [0, 0, 0] or rotation != [0, 0, 0, 1]:
+            raise ValidationError(
+                f"{frame_where} must use the identity rigid transform"
+            )
+    if len(set(frame_keys)) != len(frame_keys):
+        raise ValidationError(f"{where}.authored_frames contains duplicate owner/role keys")
+    if set(frame_keys) != expected_frame_keys:
+        raise ValidationError(
+            f"{where}.authored_frames must contain exactly one frame per left/right upper_arm"
+        )
+    if frame_keys != sorted(frame_keys):
+        raise ValidationError(f"{where}.authored_frames must use stable owner/role order")
+
+    expected_landmark_keys = {
+        (owner, role)
+        for owner in expected_owners
+        for role in PROVISIONAL_FORM_SHOULDER_LANDMARK_ROLES
+    }
+    landmarks = _array(obj.get("authored_landmarks"), f"{where}.authored_landmarks")
+    if len(landmarks) != len(expected_landmark_keys):
+        raise ValidationError(
+            f"{where}.authored_landmarks must contain exactly four shoulder landmarks"
+        )
+    landmark_keys: list[tuple[tuple[str, tuple[str, ...], str, str], str]] = []
+    for index, raw_landmark in enumerate(landmarks):
+        landmark_where = f"{where}.authored_landmarks[{index}]"
+        landmark = _object(raw_landmark, landmark_where)
+        _check_fields(
+            landmark,
+            {"owner", "role", "frame", "position", "provenance"},
+            landmark_where,
+        )
+        owner = _form_address(landmark.get("owner"), f"{landmark_where}.owner")
+        role = _string(landmark.get("role"), f"{landmark_where}.role", max_len=256)
+        key = (owner, role)
+        landmark_keys.append(key)
+        if key not in expected_landmark_keys:
+            raise ValidationError(
+                f"{landmark_where} must be form_shoulder_peak or form_axilla on a left/right upper_arm"
+            )
+        frame = _object(landmark.get("frame"), f"{landmark_where}.frame")
+        _check_fields(frame, {"owner", "role"}, f"{landmark_where}.frame")
+        frame_owner = _form_address(frame.get("owner"), f"{landmark_where}.frame.owner")
+        frame_role = _string(frame.get("role"), f"{landmark_where}.frame.role", max_len=256)
+        if frame_owner != owner or frame_role != PROVISIONAL_FORM_SHOULDER_CONTROL_FRAME_ROLE:
+            raise ValidationError(
+                f"{landmark_where}.frame must reference its same-owner {PROVISIONAL_FORM_SHOULDER_CONTROL_FRAME_ROLE}"
+            )
+        position = _form_finite_vector(landmark.get("position"), f"{landmark_where}.position", 3)
+        if any(abs(component) > PROVISIONAL_FORM_CONTROL_COORDINATE_BOUND for component in position):
+            raise ValidationError(
+                f"{landmark_where}.position components must be within +/-{PROVISIONAL_FORM_CONTROL_COORDINATE_BOUND}"
+            )
+        _form_control_provenance(
+            landmark.get("provenance"), f"{landmark_where}.provenance", document, namespace
+        )
+    if len(set(landmark_keys)) != len(landmark_keys):
+        raise ValidationError(f"{where}.authored_landmarks contains duplicate owner/role keys")
+    if set(landmark_keys) != expected_landmark_keys:
+        raise ValidationError(
+            f"{where}.authored_landmarks must contain exactly peak and axilla per upper_arm"
+        )
+    if landmark_keys != sorted(landmark_keys):
+        raise ValidationError(f"{where}.authored_landmarks must use stable owner/role order")
 
 
 def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any]:
@@ -1112,6 +1262,8 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
             "source",
             "reference_scale",
             "authored_dimensions",
+            "authored_landmarks",
+            "authored_frames",
             "variants",
             "limitations",
         },
@@ -1123,15 +1275,22 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
             f"{where}.format must be {PROVISIONAL_FORM_LEGACY_FORMAT}, "
             f"{PROVISIONAL_FORM_V2_FORMAT}, {PROVISIONAL_FORM_V3_FORMAT}, "
             f"{PROVISIONAL_FORM_HISTORICAL_V4_FORMAT}, "
-            f"or {PROVISIONAL_FORM_FORMAT}"
+            f"{PROVISIONAL_FORM_HISTORICAL_V5_FORMAT}, or {PROVISIONAL_FORM_FORMAT}"
         )
-    is_v5 = format_name == PROVISIONAL_FORM_FORMAT
-    if is_v5 and "authored_dimensions" not in obj:
-        raise ValidationError(f"{where}.authored_dimensions is required for v5")
-    if not is_v5 and "authored_dimensions" in obj:
+    is_v5 = format_name == PROVISIONAL_FORM_HISTORICAL_V5_FORMAT
+    is_v6 = format_name == PROVISIONAL_FORM_FORMAT
+    has_authored_dimensions = is_v5 or is_v6
+    if has_authored_dimensions and "authored_dimensions" not in obj:
+        raise ValidationError(f"{where}.authored_dimensions is required for v5 or v6")
+    if not has_authored_dimensions and "authored_dimensions" in obj:
         raise ValidationError(
-            f"{where}.authored_dimensions is only valid for {PROVISIONAL_FORM_FORMAT}"
+            f"{where}.authored_dimensions is only valid for v5 or v6"
         )
+    for control_key in ("authored_landmarks", "authored_frames"):
+        if is_v6 and control_key not in obj:
+            raise ValidationError(f"{where}.{control_key} is required for v6")
+        if not is_v6 and control_key in obj:
+            raise ValidationError(f"{where}.{control_key} is only valid for v6")
     if obj.get("operation") != PROVISIONAL_FORM_OPERATION:
         raise ValidationError(f"{where}.operation must be {PROVISIONAL_FORM_OPERATION}")
     if obj.get("status") != "success":
@@ -1161,7 +1320,7 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
     authored_dimension_values: dict[
         tuple[tuple[str, tuple[str, ...], str, str], str], int
     ] = {}
-    if is_v5:
+    if has_authored_dimensions:
         authored_dimensions = _array(
             obj.get("authored_dimensions"), f"{where}.authored_dimensions"
         )
@@ -1233,6 +1392,11 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
             f"{where}.reference_scale.source must be exact-containment-edge"
         )
 
+    if is_v6:
+        _validate_v6_authored_controls(
+            obj, where, document=document, namespace=namespace
+        )
+
     variants = _array(obj.get("variants"), f"{where}.variants")
     if len(variants) != len(PROVISIONAL_FORM_VARIANT_IDS):
         raise ValidationError(f"{where}.variants must contain exactly four variants")
@@ -1255,7 +1419,7 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
         _check_fields(
             provenance,
             {"source", "resource_profile_id", "shape_basis"}
-            if is_v5
+            if has_authored_dimensions
             else {"source", "resource_profile_id"},
             f"{variant_where}.provenance",
         )
@@ -1263,7 +1427,7 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
             raise ValidationError(f"{variant_where}.provenance.source is not known")
         if provenance.get("resource_profile_id") != resource_profile_id:
             raise ValidationError(f"{variant_where}.provenance profile does not match source")
-        if is_v5 and provenance.get("shape_basis") != PROVISIONAL_FORM_SHAPE_BASIS:
+        if has_authored_dimensions and provenance.get("shape_basis") != PROVISIONAL_FORM_SHAPE_BASIS:
             raise ValidationError(f"{variant_where}.provenance.shape_basis is invalid")
         descriptors = _array(variant.get("descriptors"), f"{variant_where}.descriptors")
         if not descriptors or len(descriptors) > PROVISIONAL_FORM_MAX_DESCRIPTORS:
@@ -1291,9 +1455,9 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
                 },
                 descriptor_where,
             )
-            if not is_v5 and "dimension_roles" in descriptor:
+            if not has_authored_dimensions and "dimension_roles" in descriptor:
                 raise ValidationError(
-                    f"{descriptor_where}.dimension_roles is only valid for {PROVISIONAL_FORM_FORMAT}"
+                    f"{descriptor_where}.dimension_roles is only valid for v5 or v6"
                 )
             if descriptor.get("descriptor_kind") != "display-only-form-descriptor":
                 raise ValidationError(f"{descriptor_where}.descriptor_kind is not supported")
@@ -1319,7 +1483,7 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
             _check_fields(
                 descriptor_provenance,
                 {"source", "resource_profile_id", "shape_basis"}
-                if is_v5
+                if has_authored_dimensions
                 else {"source", "resource_profile_id"},
                 f"{descriptor_where}.provenance",
             )
@@ -1327,7 +1491,7 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
                 descriptor_provenance.get("source") != PROVISIONAL_FORM_PROVENANCE
                 or descriptor_provenance.get("resource_profile_id") != resource_profile_id
                 or (
-                    is_v5
+                    has_authored_dimensions
                     and descriptor_provenance.get("shape_basis")
                     != PROVISIONAL_FORM_SHAPE_BASIS
                 )
@@ -1378,7 +1542,7 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
                 if parent is None or from_point == to_point or to_point != reference_point:
                     raise ValidationError(f"{descriptor_where}.shape tapered endpoints are invalid")
             dimension_roles: tuple[str, ...] = ()
-            if is_v5:
+            if has_authored_dimensions:
                 raw_dimension_roles = _array(
                     descriptor.get("dimension_roles"),
                     f"{descriptor_where}.dimension_roles",
@@ -1389,7 +1553,11 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
                         "form_extent_y",
                         "form_extent_z",
                     ),
-                    "capsule": ("form_radius",),
+                    "capsule": (
+                        ("form_radius", "form_shoulder_depth_radius")
+                        if is_v6 and address[3] == "upper_arm"
+                        else ("form_radius",)
+                    ),
                     "tapered-segment": ("form_start_radius", "form_end_radius"),
                 }[shape_name]
                 if tuple(raw_dimension_roles) != expected_dimension_roles:
@@ -1417,13 +1585,27 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
                         shape["start_radius_permille"],
                         shape["end_radius_permille"],
                     )
+                # v6 retains shoulder depth as a consumed authored control,
+                # but the current capsule display shape has one radius.  Only
+                # form_radius is a capsule-radius numeric control; the depth
+                # control must not be silently treated as a second radius.
+                numeric_roles = (
+                    ("form_radius",)
+                    if is_v6 and shape_name == "capsule" and address[3] == "upper_arm"
+                    else dimension_roles
+                )
+                numeric_factors = (
+                    (_form_display_factors(expected_id, address[3], shape_name)[0],)
+                    if numeric_roles != dimension_roles
+                    else factors
+                )
                 expected_controls = tuple(
                     _form_scaled_display_value(
                         authored_dimension_values[(address, role)],
                         factor,
                         f"{descriptor_where}.shape.{role}",
                     )
-                    for role, factor in zip(dimension_roles, factors)
+                    for role, factor in zip(numeric_roles, numeric_factors)
                 )
                 if controls != expected_controls:
                     raise ValidationError(
@@ -1439,8 +1621,17 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
                     "shape": shape,
                     "shape_name": shape_name,
                     "dimension_roles": dimension_roles,
-                },
+                    },
             )
+        if is_v6:
+            expected_upper_arm_owners = {
+                _provisional_form_upper_arm_owner(namespace, side)
+                for side in ("left", "right")
+            }
+            if not expected_upper_arm_owners <= set(address_map):
+                raise ValidationError(
+                    f"{variant_where}.descriptors must contain matching left/right upper_arm owners"
+                )
         if descriptor_keys != sorted(descriptor_keys):
             raise ValidationError(f"{variant_where}.descriptors must use stable AddressKey order")
         roots = [
@@ -1541,7 +1732,7 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
                 raise ValidationError(f"{variant_where}.descriptors do not preserve exact placements and shape kinds")
     if canonical is None:
         raise ValidationError(f"{where}.variants did not contain descriptors")
-    if is_v5 and consumed_dimension_keys != authored_dimension_keys:
+    if has_authored_dimensions and consumed_dimension_keys != authored_dimension_keys:
         raise ValidationError(
             f"{where}.authored_dimensions must equal the complete descriptor-consumed control set"
         )

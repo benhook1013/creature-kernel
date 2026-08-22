@@ -62,7 +62,12 @@
     "attachments": [
       {"address": {"namespace": "main", "anchors": ["tail"], "kind": "attachment", "role": "tail_mount"}, "host": {"namespace": "main", "anchors": [], "kind": "socket", "role": "tail_mount"}, "mating": {"namespace": "main", "anchors": ["tail"], "kind": "socket", "role": "tail_mount"}, "offset": {"translation": [0, 0, 0], "rotation_xyzw": [0, 0, 0, 1]}}
     ],
-    "landmarks": [],
+    "landmarks": [
+      {"owner": {"namespace": "main", "anchors": ["left"], "kind": "part", "role": "upper_arm"}, "role": "form_shoulder_peak", "frame": {"owner": {"namespace": "main", "anchors": ["left"], "kind": "part", "role": "upper_arm"}, "role": "form_shoulder_control"}, "position": [-0.1, 0.15, 0]},
+      {"owner": {"namespace": "main", "anchors": ["left"], "kind": "part", "role": "upper_arm"}, "role": "form_axilla", "frame": {"owner": {"namespace": "main", "anchors": ["left"], "kind": "part", "role": "upper_arm"}, "role": "form_shoulder_control"}, "position": [-0.1, -0.3, 0]},
+      {"owner": {"namespace": "main", "anchors": ["right"], "kind": "part", "role": "upper_arm"}, "role": "form_shoulder_peak", "frame": {"owner": {"namespace": "main", "anchors": ["right"], "kind": "part", "role": "upper_arm"}, "role": "form_shoulder_control"}, "position": [0.1, 0.15, 0]},
+      {"owner": {"namespace": "main", "anchors": ["right"], "kind": "part", "role": "upper_arm"}, "role": "form_axilla", "frame": {"owner": {"namespace": "main", "anchors": ["right"], "kind": "part", "role": "upper_arm"}, "role": "form_shoulder_control"}, "position": [0.1, -0.3, 0]}
+    ],
     "dimensions": [
       {"owner": {"namespace": "main", "anchors": [], "kind": "part", "role": "pelvis"}, "role": "form_extent_x", "value": 1700},
       {"owner": {"namespace": "main", "anchors": [], "kind": "part", "role": "pelvis"}, "role": "form_extent_y", "value": 1200},
@@ -75,11 +80,13 @@
       {"owner": {"namespace": "main", "anchors": [], "kind": "part", "role": "head"}, "role": "form_extent_y", "value": 600},
       {"owner": {"namespace": "main", "anchors": [], "kind": "part", "role": "head"}, "role": "form_extent_z", "value": 900},
       {"owner": {"namespace": "main", "anchors": ["left"], "kind": "part", "role": "upper_arm"}, "role": "form_radius", "value": 220},
+      {"owner": {"namespace": "main", "anchors": ["left"], "kind": "part", "role": "upper_arm"}, "role": "form_shoulder_depth_radius", "value": 350},
       {"owner": {"namespace": "main", "anchors": ["left"], "kind": "part", "role": "forearm"}, "role": "form_radius", "value": 190},
       {"owner": {"namespace": "main", "anchors": ["left"], "kind": "part", "role": "hand"}, "role": "form_extent_x", "value": 450},
       {"owner": {"namespace": "main", "anchors": ["left"], "kind": "part", "role": "hand"}, "role": "form_extent_y", "value": 400},
       {"owner": {"namespace": "main", "anchors": ["left"], "kind": "part", "role": "hand"}, "role": "form_extent_z", "value": 350},
       {"owner": {"namespace": "main", "anchors": ["right"], "kind": "part", "role": "upper_arm"}, "role": "form_radius", "value": 220},
+      {"owner": {"namespace": "main", "anchors": ["right"], "kind": "part", "role": "upper_arm"}, "role": "form_shoulder_depth_radius", "value": 350},
       {"owner": {"namespace": "main", "anchors": ["right"], "kind": "part", "role": "forearm"}, "role": "form_radius", "value": 190},
       {"owner": {"namespace": "main", "anchors": ["right"], "kind": "part", "role": "hand"}, "role": "form_extent_x", "value": 450},
       {"owner": {"namespace": "main", "anchors": ["right"], "kind": "part", "role": "hand"}, "role": "form_extent_y", "value": 400},
@@ -99,7 +106,10 @@
       {"owner": {"namespace": "main", "anchors": ["tail"], "kind": "part", "role": "tail_tip"}, "role": "form_start_radius", "value": 220},
       {"owner": {"namespace": "main", "anchors": ["tail"], "kind": "part", "role": "tail_tip"}, "role": "form_end_radius", "value": 40}
     ],
-    "frames": [],
+    "frames": [
+      {"owner": {"namespace": "main", "anchors": ["left"], "kind": "part", "role": "upper_arm"}, "role": "form_shoulder_control", "transform": {"translation": [0, 0, 0], "rotation_xyzw": [0, 0, 0, 1]}},
+      {"owner": {"namespace": "main", "anchors": ["right"], "kind": "part", "role": "upper_arm"}, "role": "form_shoulder_control", "transform": {"translation": [0, 0, 0], "rotation_xyzw": [0, 0, 0, 1]}}
+    ],
     "regions": [
       {"address": {"namespace": "main", "anchors": [], "kind": "region", "role": "core_body"}, "parts": [
         {"namespace": "main", "anchors": [], "kind": "part", "role": "pelvis"},

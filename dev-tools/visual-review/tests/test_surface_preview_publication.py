@@ -58,6 +58,44 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         extra = cls._chunk(b"ABCD", b"unknown") if unknown_chunk else b""
         return b"\x89PNG\r\n\x1a\n" + ihdr + extra + idat + cls._chunk(b"IEND", b"")
 
+    @staticmethod
+    def _tetra_ply(*, copies: int = 1, missing_last_face: bool = False) -> bytes:
+        base_vertices = (
+            (0.0, 0.0, 0.0, -0.577350269, -0.577350269, -0.577350269),
+            (1.0, 0.0, 0.0, 0.707106781, 0.0, 0.707106781),
+            (0.0, 1.0, 0.0, 0.0, 1.0, 0.0),
+            (0.0, 0.0, 1.0, 0.0, 0.0, 1.0),
+        )
+        base_faces = ((0, 2, 1), (0, 1, 3), (0, 3, 2), (1, 2, 3))
+        vertices = []
+        faces = []
+        for copy_index in range(copies):
+            offset = 4 * copy_index
+            vertices.extend(
+                (x + 3.0 * copy_index, y, z, nx, ny, nz)
+                for x, y, z, nx, ny, nz in base_vertices
+            )
+            faces.extend((first + offset, second + offset, third + offset) for first, second, third in base_faces)
+        if missing_last_face:
+            faces.pop()
+        lines = [
+            "ply",
+            "format ascii 1.0",
+            f"element vertex {len(vertices)}",
+            "property float x",
+            "property float y",
+            "property float z",
+            "property float nx",
+            "property float ny",
+            "property float nz",
+            f"element face {len(faces)}",
+            "property list uchar int vertex_indices",
+            "end_header",
+        ]
+        lines.extend(" ".join(f"{value:.9f}" for value in vertex) for vertex in vertices)
+        lines.extend(f"3 {first} {second} {third}" for first, second, third in faces)
+        return ("\n".join(lines) + "\n").encode("ascii")
+
     def _producer(self) -> Path:
         path = self.directory / "producer"
         path.write_text("#!/usr/bin/env python3\nprint('{}')\n", encoding="utf-8")
@@ -130,6 +168,9 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 limbs = []
                 for owner, section_names, bridge_names, mass_names, joint_names in limb_specs:
                     section_values = [path(control, "capsule") for control in section_names]
+                    if owner["role"] == "upper_arm":
+                        side_sign = -1.0 if owner["anchors"] == ["left"] else 1.0
+                        section_values[0]["points"][0] = [side_sign * 1.5, 0.9, 0.0]
                     if len(section_values) == 2: section_values[1]["points"] = [list(section_values[0]["points"][1]), [1.0, 0.0, 0.0]]
                     anchors = []
                     if owner["role"] == "forearm":
@@ -167,15 +208,34 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 torso_cage = {{"status": "skin-driving torso controls", "owners": [owners[0], owners[1]], "axes": {{"lateral": [1.0, 0.0, 0.0], "up": [0.0, 1.0, 0.0], "forward": [0.0, 0.0, 1.0]}}, "orientation": "elliptical cross-section rings lie in the lateral/forward plane and rise along the up axis", "sections": cage_sections, "connections": [{{"from": cage_sections[index]["name"], "to": cage_sections[index + 1]["name"]}} for index in range(6)]}}
                 def shoulder_curve(name, owner, points, profile):
                     return {{"name": name, "owner": owner, "points": points, "profile": profile, "consumption": ("skin-driving" if name == "deltoid-sweep" else "guide-only")}}
+                shoulder_control_provenance = {{"source": "source-authored", "document": "fixture", "namespace": "main"}}
                 shoulder_sides = []
+                source_controls = []
+                shoulder_factors = {{"neutral-v0": 1000, "broad-soft-v0": 1150, "lean-readable-v0": 800, "depth-forward-v0": 1000}}
+                depth_factor = shoulder_factors[variant_id]
                 for side_name, side_owner, sign in (("left", owners[4], -1.0), ("right", owners[7], 1.0)):
-                    shoulder_sides.append({{"side": side_name, "owner": side_owner, "socket": {{"owner": side_owner, "point": [sign * 1.5, 0.9, 0.0]}}, "extremum": {{"owner": side_owner, "point": [sign * 1.0, 1.0, 0.0]}}, "span": 1.0, "slope": 0.0, "curves": [
-                        shoulder_curve("anterior-support", owners[1], [[0.0, 1.0, 0.0], [sign * 0.5, 1.05, 0.25], [sign * 1.0, 1.0, 0.0], [sign * 1.5, 0.9, 0.0]], [0.2, 0.2, 0.2, 0.2]),
-                        shoulder_curve("posterior-return", owners[1], [[0.0, 1.0, 0.0], [sign * 0.5, 1.05, -0.25], [sign * 1.0, 1.0, 0.0], [sign * 1.5, 0.9, 0.0]], [0.2, 0.2, 0.2, 0.2]),
-                        shoulder_curve("deltoid-sweep", side_owner, [[sign * 1.0, 1.0, 0.0], [sign * 1.5, 0.9, 0.0], [-0.25, 0.0, 0.0]], [0.2, 0.2, 0.2]),
+                    shoulder_frame = {{"owner": side_owner, "role": "form_shoulder_control", "transform": {{"translation": [0.0, 0.0, 0.0], "rotation_xyzw": [0.0, 0.0, 0.0, 1.0]}}, "provenance": shoulder_control_provenance}}
+                    axilla = {{"owner": side_owner, "role": "form_axilla", "frame": {{"owner": side_owner, "role": "form_shoulder_control"}}, "position": [sign * 0.1, -0.3, 0.0], "provenance": shoulder_control_provenance}}
+                    peak = {{"owner": side_owner, "role": "form_shoulder_peak", "frame": {{"owner": side_owner, "role": "form_shoulder_control"}}, "position": [sign * 0.1, 0.15, 0.0], "provenance": shoulder_control_provenance}}
+                    source_controls.append({{"side": side_name, "owner": side_owner, "frame": shoulder_frame, "landmarks": [axilla, peak], "depth_control": {{"owner": side_owner, "role": "form_shoulder_depth_radius", "value_permille": 100, "scaled_value_permille": 100 * depth_factor // 1000, "profile_factor": depth_factor, "provenance": {{"source": "source-authored", "document": "fixture", "namespace": "main"}}, "consumption": "guide-derived shoulder wrap depth; baseline field remains guide-only"}}}})
+                    peak_anchor = [sign * 1.1, 1.15, 0.0]
+                    axilla_anchor = [sign * 1.1, 0.7, 0.0]
+                    vertical_midpoint = 0.5 * (peak_anchor[1] + axilla_anchor[1])
+                    depth_radius = 0.1 * depth_factor / 1000.0
+                    wrap_anchor = [peak_anchor[0], vertical_midpoint, 0.0]
+                    socket = [sign * 1.5, 0.9, 0.0]
+                    upper_arm_first_end = [0.5, 0.0, 0.0]
+                    first_quarter = [socket[axis] + 0.25 * (upper_arm_first_end[axis] - socket[axis]) for axis in range(3)]
+                    shoulder_sides.append({{"side": side_name, "owner": side_owner, "socket": {{"owner": side_owner, "point": socket}}, "extremum": {{"owner": side_owner, "point": peak_anchor}}, "authored_controls": {{"peak": peak, "axilla": axilla, "frame": shoulder_frame}}, "peak_anchor": peak_anchor, "axilla_anchor": axilla_anchor, "vertical_midpoint": vertical_midpoint, "vertical_radius": 0.5 * (peak_anchor[1] - axilla_anchor[1]), "depth_radius": depth_radius, "depth_control": source_controls[-1]["depth_control"], "span": 1.1, "slope": (peak_anchor[1] - 1.0) / 1.1, "curves": [
+                        shoulder_curve("anterior-support", owners[1], [[0.0, 1.0, 0.0], [wrap_anchor[0], wrap_anchor[1], wrap_anchor[2] + depth_radius], peak_anchor, socket], [0.2, 0.2, 0.2, 0.2]),
+                        shoulder_curve("posterior-return", owners[1], [[0.0, 1.0, 0.0], [wrap_anchor[0], wrap_anchor[1], wrap_anchor[2] - depth_radius], peak_anchor, socket], [0.2, 0.2, 0.2, 0.2]),
+                        shoulder_curve("deltoid-sweep", side_owner, [peak_anchor, socket, first_quarter], [0.2, 0.2, 0.2]),
                     ]}})
-                shoulder_frame = {{"status": "private shoulder frame; support curves guide-only; deltoid sweep skin-driving", "owners": {{"torso": owners[1], "neck": owners[2], "left_upper_arm": owners[4], "right_upper_arm": owners[7]}}, "central": {{"owner": owners[1], "anchor": [0.0, 1.0, 0.0], "profile": [0.2, 0.2]}}, "sides": shoulder_sides}}
-                guide = {{"format": {publisher.REGIONAL_GUIDE_FORMAT!r}, "variant": variant_id, "owners": owners, "counts": {publisher.EXPECTED_GUIDE_COUNTS!r}, "projections": projections, "shared_render_bounds": bounds, "canvas": canvas, "layout": layout, "controls": {{"axes": {{"lateral": [1.0, 0.0, 0.0], "up": [0.0, 1.0, 0.0], "forward": [0.0, 0.0, 1.0]}}, "axial": axial, "torso_cage": torso_cage, "shoulder_frame": shoulder_frame, "head": head, "limbs": limbs, "paws": paws, "tails": tails}}, "boundary": "private disposable regional controls; source-owned AddressKeys only; not a semantic or runtime contract"}}
+                shoulder_frame_controls = {{"status": "private shoulder frame; support curves guide-only; deltoid sweep skin-driving", "owners": {{"torso": owners[1], "neck": owners[2], "left_upper_arm": owners[4], "right_upper_arm": owners[7]}}, "central": {{"owner": owners[1], "anchor": [0.0, 1.0, 0.0], "profile": [0.2, 0.2]}}, "source_controls": source_controls, "sides": shoulder_sides}}
+                # Keep the fixture source controls exactly in the producer's canonical order.
+                source_controls = sorted(source_controls, key=lambda item: (item["side"] != "left", item["side"]))
+                shoulder_frame_controls["source_controls"] = source_controls
+                guide = {{"format": {publisher.REGIONAL_GUIDE_FORMAT!r}, "variant": variant_id, "owners": owners, "counts": {publisher.EXPECTED_GUIDE_COUNTS!r}, "projections": projections, "shared_render_bounds": bounds, "canvas": canvas, "layout": layout, "controls": {{"axes": {{"lateral": [1.0, 0.0, 0.0], "up": [0.0, 1.0, 0.0], "forward": [0.0, 0.0, 1.0]}}, "axial": axial, "torso_cage": torso_cage, "shoulder_frame": shoulder_frame_controls, "head": head, "limbs": limbs, "paws": paws, "tails": tails}}, "boundary": "private disposable regional controls; source-owned AddressKeys only; not a semantic or runtime contract"}}
                 if {mode!r} == "guide-obsolete-recipe-count":
                     guide["counts"] = dict(guide["counts"])
                     guide["counts"]["compiled_field_recipe_counts"] = dict(guide["counts"]["compiled_field_recipe_counts"])
@@ -209,6 +269,19 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 if {mode!r} == "guide-shoulder-profile": guide["controls"]["shoulder_frame"]["sides"][0]["curves"][1]["profile"][0] = 0.0
                 if {mode!r} == "guide-shoulder-profile-continuity": guide["controls"]["shoulder_frame"]["sides"][0]["curves"][0]["profile"][1] = 0.3
                 if {mode!r} == "guide-shoulder-first-quarter": guide["controls"]["shoulder_frame"]["sides"][0]["curves"][2]["points"][2][0] = -0.5
+                if {mode!r} == "guide-source-landmark": guide["controls"]["shoulder_frame"]["source_controls"][0]["landmarks"][0]["position"][0] = 0.0
+                if {mode!r} == "guide-source-frame": guide["controls"]["shoulder_frame"]["source_controls"][0]["frame"]["role"] = "wrong-frame"
+                if {mode!r} == "guide-depth-factor": guide["controls"]["shoulder_frame"]["source_controls"][0]["depth_control"]["profile_factor"] = 999
+                if {mode!r} == "guide-depth-scaled": guide["controls"]["shoulder_frame"]["source_controls"][0]["depth_control"]["scaled_value_permille"] += 1
+                if {mode!r} == "guide-derived-anchor": guide["controls"]["shoulder_frame"]["sides"][0]["peak_anchor"][1] += 0.01
+                if {mode!r} == "guide-derived-wrap": guide["controls"]["shoulder_frame"]["sides"][0]["curves"][0]["points"][1][2] += 0.01
+                if {mode!r} == "guide-shoulder-socket":
+                    shoulder_side = guide["controls"]["shoulder_frame"]["sides"][0]
+                    shoulder_side["socket"]["point"][0] += 0.01
+                    changed_socket = list(shoulder_side["socket"]["point"])
+                    shoulder_side["curves"][0]["points"][3] = changed_socket
+                    shoulder_side["curves"][1]["points"][3] = changed_socket
+                    shoulder_side["curves"][2]["points"][1] = changed_socket
                 if {mode!r} == "guide-girdle-malformed": guide["controls"]["limbs"][2]["masses"][0]["control"] = "wrong"
                 if {mode!r} == "guide-joint-endpoint": guide["controls"]["limbs"][2]["joints"][0]["mass"]["center"][0] = 0.0
                 if {mode!r} == "guide-foot-legacy": guide["controls"]["paws"][2] = {{"owner": owners[12], "masses": [], "attachment": {{}}, "attachment_source": {{}}}}
@@ -265,12 +338,12 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         return path
 
     def _successor_generator(self, *, mode: str = "success") -> Path:
-        """Write a small valid successor-v2 fixture, with bounded mutations."""
+        """Write a small valid successor-v3 fixture, with bounded mutations."""
 
         path = self.directory / f"successor-generator-{mode}.py"
         script = textwrap.dedent("""
             #!/usr/bin/env python3
-            import hashlib, json, pathlib, sys, time
+            import hashlib, json, math, pathlib, sys, time
 
             MODE = __MODE__
             PNG = __PNG__
@@ -288,6 +361,9 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             REPLACED = __REPLACED__
             MESH_PADDING = __MESH_PADDING__
             CAPTURE_PADDING = __CAPTURE_PADDING__
+            VALID_PLY = __VALID_PLY__
+            DISCONNECTED_PLY = __DISCONNECTED_PLY__
+            NONWATERTIGHT_PLY = __NONWATERTIGHT_PLY__
 
             args = dict(zip(sys.argv[1::2], sys.argv[2::2]))
             source_path = pathlib.Path(args["--input"])
@@ -319,9 +395,29 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     source_variant_sha256 = variant_digest(raw_variants[1])
                 variant_dir = out / variant_id
                 variant_dir.mkdir()
-                (variant_dir / "surface.ply").write_bytes(b"ply\\n")
-                bridge = {"enabled": True, "consumer": "baseline-analytic-fields", "regions": ["limb-root-connectors", "hip-transitions"], "field_count": 6, "retained_recipes": ["hip-transition", "root-bridge"]}
+                surface_ply = VALID_PLY
+                if MODE == "ply-disconnected": surface_ply = DISCONNECTED_PLY
+                elif MODE == "ply-nonwatertight": surface_ply = NONWATERTIGHT_PLY
+                (variant_dir / "surface.ply").write_bytes(surface_ply)
+                bridge = {"enabled": True, "consumer": "baseline-analytic-fields", "regions": ["thigh-root-connectors", "hip-transitions"], "field_count": 4, "retained_recipes": ["hip-transition", "root-bridge"]}
                 replaced = list(REPLACED)
+                producer_variant = raw_variants[variant_index]
+                descriptors = producer_variant["descriptors"]
+                torso_owner = next(item["address"] for item in descriptors if item["address"]["role"] == "torso" and item["address"]["anchors"] == [])
+                reference_scale = math.sqrt(float(payload["reference_scale"]["squared_length"]))
+                depth_factor = {"neutral-v0": 1_000, "broad-soft-v0": 1_150, "lean-readable-v0": 800, "depth-forward-v0": 1_000}[variant_id]
+                shoulder_controls = []
+                shoulder_owner_keys = []
+                for side in ("left", "right"):
+                    upper_owner = next(item["address"] for item in descriptors if item["address"]["role"] == "upper_arm" and item["address"]["anchors"] == [side])
+                    reference_point = next(item["reference_point"] for item in descriptors if item["address"] == upper_owner)
+                    landmarks = {item["role"]: item for item in payload["authored_landmarks"] if item["owner"] == upper_owner}
+                    peak = [(float(reference_point[axis]) + float(landmarks["form_shoulder_peak"]["position"][axis])) / reference_scale for axis in range(3)]
+                    axilla = [(float(reference_point[axis]) + float(landmarks["form_axilla"]["position"][axis])) / reference_scale for axis in range(3)]
+                    depth_value = next(item["value_permille"] for item in payload["authored_dimensions"] if item["owner"] == upper_owner and item["role"] == "form_shoulder_depth_radius")
+                    shoulder_controls.append({"side": side, "authored_center": [0.5 * (peak[axis] + axilla[axis]) for axis in range(3)], "vertical_radius": 0.5 * (peak[1] - axilla[1]), "depth_radius": (depth_value * depth_factor // 1_000) / 1_000.0})
+                    shoulder_owner_keys.append([torso_owner, torso_owner, upper_owner, upper_owner, upper_owner])
+                shoulder_section_names = ["torso-interior", "torso-boundary", "authored-shoulder", "upper-arm-socket", "upper-arm-midpoint"]
                 sidecar = {
                     "format": SUCCESSOR_FORMAT,
                     "variant_id": variant_id,
@@ -331,7 +427,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     "successor_region_id": REGION_ID,
                     "capture": frame,
                     "torso": {"representation": "frame-aware-ordered-profile-sweep", "sections_consumed": 7, "section_names": ["a", "b", "c", "d", "e", "f", "g"]},
-                    "shoulders": {"representation": "distal-deltoid-swept-curve-spans", "spans_consumed": 2, "curve": "deltoid-sweep", "span_index": 1},
+                    "shoulders": {"representation": "authored-five-section-frame-aware-profile-sweeps", "sweeps_consumed": 2, "sweep_order": ["left-shoulder-envelope", "right-shoulder-envelope"], "section_counts": [5, 5], "section_names": [shoulder_section_names, shoulder_section_names]},
                     "head_neck": {"representation": "shared-guide-derived-profile-sweeps", "sweeps_consumed": 5, "sweep_order": ["a", "b", "c", "d", "e"], "section_counts": [1, 1, 1, 1, 1], "owner_keys": ["a", "b", "c", "d", "e"]},
                     "limbs": {"representation": "shared-guide-derived-ordered-profile-sweeps", "sweeps_consumed": 4, "sweep_order": ["a", "b", "c", "d"], "station_counts": [1, 1, 1, 1], "station_names": [["a"], ["b"], ["c"], ["d"]], "section_owner_keys": [["a"], ["b"], ["c"], ["d"]], "endpoint_cap_counts": [1, 1, 1, 1]},
                     "extremities": {"representation": "shared-guide-derived-hand-and-digitigrade-foot-profile-sweeps", "sweeps_consumed": 6, "sweep_order": EXTREMITY_ORDER, "sweep_kinds": EXTREMITY_KINDS, "station_counts": [1] * 6, "station_names": [["a"]] * 6, "section_owner_keys": [["a"]] * 6, "endpoint_cap_counts": [1] * 6, "internal_transition_counts": [0] * 6},
@@ -339,11 +435,21 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     "temporary_bridge": bridge,
                     "replaced_baseline_recipes": replaced,
                 }
-                metrics = {"consumer_id": CONSUMER_ID, "successor_region_id": REGION_ID, "successor_region": {"shoulder_representation": "distal-deltoid-swept-curve-spans", "shoulder_spans_consumed": 2, "shoulder_curve": "deltoid-sweep", "shoulder_span_index": 1, "extremity_sweeps_consumed": 6, "tail_elements_consumed": 6, "replaced_baseline_recipes": replaced}, "temporary_bridge": bridge}
+                metrics = {"consumer_id": CONSUMER_ID, "successor_region_id": REGION_ID, "successor_region": {"shoulder_representation": "authored-five-section-frame-aware-profile-sweeps", "shoulder_sweeps_consumed": 2, "shoulder_sweep_order": ["left-shoulder-envelope", "right-shoulder-envelope"], "shoulder_sweep_section_counts": [5, 5], "shoulder_sweep_section_names": [shoulder_section_names, shoulder_section_names], "shoulder_sweep_section_owner_keys": shoulder_owner_keys, "shoulder_sweep_controls": shoulder_controls, "extremity_sweeps_consumed": 6, "tail_elements_consumed": 6, "replaced_baseline_field_count": 48, "replaced_baseline_recipes": replaced}, "temporary_bridge": bridge, "vertex_count": 4, "face_count": 4, "component_count": 1, "watertight": True, "finite_vertices": True, "finite_normals": True, "valid_indices": True}
+                if MODE == "metrics-wrong-topology":
+                    metrics.update({"vertex_count": 8, "face_count": 8, "component_count": 1, "watertight": True, "finite_vertices": True, "finite_normals": True, "valid_indices": True})
                 if MODE == "sidecar-identity":
                     sidecar["consumer_id"] = "wrong-consumer"
                 elif MODE == "sidecar-bridge":
                     sidecar["temporary_bridge"] = {**bridge, "field_count": 7}
+                elif MODE == "sidecar-stale-six-bridge":
+                    sidecar["temporary_bridge"] = {**bridge, "regions": ["limb-root-connectors", "hip-transitions"], "field_count": 6}
+                elif MODE == "sidecar-stale-v2":
+                    sidecar["format"] = "creature-kernel.disposable-successor-surface-preview.v2"
+                elif MODE == "sidecar-old-shoulder":
+                    sidecar["shoulders"] = {"representation": "distal-deltoid-swept-curve-spans", "spans_consumed": 2, "curve": "deltoid-sweep", "span_index": 1}
+                elif MODE == "sidecar-stale-region-id":
+                    sidecar["successor_region_id"] = "successor-torso-shoulder-head-neck-limb-extremity-tail-profile-sweeps-v6"
                 elif MODE == "sidecar-extremity":
                     sidecar["extremities"] = {**sidecar["extremities"], "sweeps_consumed": 5}
                 elif MODE == "sidecar-extremity-order":
@@ -361,8 +467,20 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 if MODE == "metrics-disagreement":
                     metrics_file["successor_region"] = {**metrics["successor_region"], "tail_elements_consumed": 5}
                 elif MODE == "metrics-shoulder-span-type":
-                    metrics_file["successor_region"] = {**metrics["successor_region"], "shoulder_span_index": 1.0}
-                metrics_record = metrics_file if MODE == "metrics-shoulder-span-type" else metrics
+                    metrics_file["successor_region"] = {**metrics["successor_region"], "shoulder_sweep_section_counts": [5, 5, 5]}
+                elif MODE == "metrics-shoulder-center":
+                    controls = list(metrics["successor_region"]["shoulder_sweep_controls"])
+                    controls[0] = {**controls[0], "authored_center": [0.0, 0.0, 0.0]}
+                    metrics_file["successor_region"] = {**metrics["successor_region"], "shoulder_sweep_controls": controls}
+                elif MODE == "metrics-shoulder-depth":
+                    controls = list(metrics["successor_region"]["shoulder_sweep_controls"])
+                    controls[0] = {**controls[0], "depth_radius": controls[0]["depth_radius"] + 0.001}
+                    metrics_file["successor_region"] = {**metrics["successor_region"], "shoulder_sweep_controls": controls}
+                elif MODE == "metrics-shoulder-owner":
+                    owner_keys = list(metrics["successor_region"]["shoulder_sweep_section_owner_keys"])
+                    owner_keys[0] = [owner_keys[0][0], owner_keys[0][1], owner_keys[0][1], owner_keys[0][3], owner_keys[0][4]]
+                    metrics_file["successor_region"] = {**metrics["successor_region"], "shoulder_sweep_section_owner_keys": owner_keys}
+                metrics_record = metrics_file
                 (variant_dir / "metrics.json").write_text(json.dumps(metrics_file, sort_keys=True), encoding="utf-8")
                 png = variant_dir / "guide-skin-composite.png"
                 png.write_bytes(PNG)
@@ -390,7 +508,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 records.pop()
             if MODE == "extra-path":
                 (out / "extra.bin").write_bytes(b"unlisted")
-            manifest = {"format": SUCCESSOR_FORMAT, "status": "success", "consumer_id": CONSUMER_ID, "source_format": payload["format"], "source": source, "shared_render_bounds": frame["shared_render_bounds"], "canvas": frame["canvas"], "layout": frame["layout"], "projections": frame["projections"], "generator": {"samples_per_axis": 56, "padding": MESH_PADDING, "capture_padding": CAPTURE_PADDING, "smooth_k": 0.12, "consumer_boundary": "successor torso/shoulder/head/neck, four limb chains, bilateral hands, digitigrade feet, and tail; baseline temporary bridge for root/hip connectors", "production_status": "disposable exploratory proof"}, "variants": records}
+            manifest = {"format": SUCCESSOR_FORMAT, "status": "success", "consumer_id": CONSUMER_ID, "source_format": payload["format"], "source": source, "shared_render_bounds": frame["shared_render_bounds"], "canvas": frame["canvas"], "layout": frame["layout"], "projections": frame["projections"], "generator": {"samples_per_axis": 56, "padding": MESH_PADDING, "capture_padding": CAPTURE_PADDING, "smooth_k": 0.12, "consumer_boundary": "successor torso/shoulder/head/neck, four limb chains, bilateral hands, digitigrade feet, and tail; baseline temporary bridge for thigh-root/hip connectors", "production_status": "disposable exploratory proof"}, "variants": records}
             (out / "successor-surface-manifest.json").write_text(json.dumps(manifest, sort_keys=True), encoding="utf-8")
         """)
         replacements = {
@@ -410,6 +528,9 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             "__REPLACED__": repr(sorted(publisher.SUCCESSOR_REQUIRED_REPLACED_RECIPES)),
             "__MESH_PADDING__": repr(0.5),
             "__CAPTURE_PADDING__": repr(0.5 if mode == "capture-padding-mismatch" else 0.75),
+            "__VALID_PLY__": repr(self._tetra_ply()),
+            "__DISCONNECTED_PLY__": repr(self._tetra_ply(copies=2)),
+            "__NONWATERTIGHT_PLY__": repr(self._tetra_ply(missing_last_face=True)),
         }
         for placeholder, value in replacements.items():
             script = script.replace(placeholder, value)
@@ -422,12 +543,123 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         owners = [{"namespace": "main", "anchors": anchors, "kind": "part", "role": role} for role, anchors in owner_specs]
         source = {"document": "fixture", "namespace": "main", "resource_profile_id": common.PROVISIONAL_FORM_RESOURCE_PROFILE}
         reference_scale = {"parent": owners[2], "child": owners[3], "axis_delta": [0, 1, 0], "squared_length": 1, "source": "exact-containment-edge"}
+        dimension_roles = {
+            "pelvis": ["form_extent_x", "form_extent_y", "form_extent_z"],
+            "torso": ["form_extent_x", "form_extent_y", "form_extent_z"],
+            "neck": ["form_radius"],
+            "head": ["form_extent_x", "form_extent_y", "form_extent_z"],
+            "upper_arm": ["form_radius", "form_shoulder_depth_radius"],
+            "forearm": ["form_radius"],
+            "hand": ["form_extent_x", "form_extent_y", "form_extent_z"],
+            "thigh": ["form_radius"],
+            "shin": ["form_radius"],
+            "foot": ["form_extent_x", "form_extent_y", "form_extent_z"],
+            "tail_root": ["form_start_radius", "form_end_radius"],
+            "tail_tip": ["form_start_radius", "form_end_radius"],
+        }
+        dimensions = []
+        for owner in owners:
+            for role in dimension_roles[owner["role"]]:
+                dimensions.append({
+                    "owner": owner,
+                    "role": role,
+                    "value_permille": 100,
+                    "provenance": {
+                        "source": common.PROVISIONAL_FORM_AUTHORED_DIMENSION_PROVENANCE,
+                        "document": source["document"],
+                        "namespace": source["namespace"],
+                    },
+                })
+        dimensions.sort(key=lambda item: (
+            item["owner"]["namespace"], tuple(item["owner"]["anchors"]),
+            item["owner"]["kind"], item["owner"]["role"], item["role"],
+        ))
+        shoulder_controls = []
+        for side, x in (("left", -0.1), ("right", 0.1)):
+            owner = {"namespace": "main", "anchors": [side], "kind": "part", "role": "upper_arm"}
+            provenance = {"source": common.PROVISIONAL_FORM_AUTHORED_CONTROL_PROVENANCE, "document": "fixture", "namespace": "main"}
+            for role, y in (("form_axilla", -0.3), ("form_shoulder_peak", 0.15)):
+                shoulder_controls.append({
+                    "owner": owner,
+                    "role": role,
+                    "frame": {"owner": owner, "role": common.PROVISIONAL_FORM_SHOULDER_CONTROL_FRAME_ROLE},
+                    "position": [x, y, 0.0],
+                    "provenance": provenance,
+                })
+        frames = [
+            {
+                "owner": {"namespace": "main", "anchors": [side], "kind": "part", "role": "upper_arm"},
+                "role": common.PROVISIONAL_FORM_SHOULDER_CONTROL_FRAME_ROLE,
+                "transform": {"translation": [0.0, 0.0, 0.0], "rotation_xyzw": [0.0, 0.0, 0.0, 1.0]},
+                "provenance": {"source": common.PROVISIONAL_FORM_AUTHORED_CONTROL_PROVENANCE, "document": "fixture", "namespace": "main"},
+            }
+            for side in ("left", "right")
+        ]
+        reference_points = {
+            ("pelvis", ()): [0, 0, 0],
+            ("torso", ()): [0, 1, 0],
+            ("neck", ()): [0, 2, 0],
+            ("head", ()): [0, 3, 0],
+            ("upper_arm", ("left",)): [-1, 1, 0],
+            ("forearm", ("left",)): [-2, 1, 0],
+            ("hand", ("left",)): [-3, 1, 0],
+            ("upper_arm", ("right",)): [1, 1, 0],
+            ("forearm", ("right",)): [2, 1, 0],
+            ("hand", ("right",)): [3, 1, 0],
+            ("thigh", ("left",)): [-1, -1, 0],
+            ("shin", ("left",)): [-1, -2, 0],
+            ("foot", ("left",)): [-1, -3, 1],
+            ("thigh", ("right",)): [1, -1, 0],
+            ("shin", ("right",)): [1, -2, 0],
+            ("foot", ("right",)): [1, -3, 1],
+            ("tail_root", ("tail",)): [0, 0, -1],
+            ("tail_tip", ("tail",)): [0, 0, -2],
+        }
+        descriptors = [{"address": owner, "reference_point": reference_points[(owner["role"], tuple(owner["anchors"]))], "dimension_roles": dimension_roles[owner["role"]]} for owner in owners]
         return {
             "format": common.PROVISIONAL_FORM_FORMAT,
+            "operation": common.PROVISIONAL_FORM_OPERATION,
+            "status": "success",
+            "stage": common.PROVISIONAL_FORM_STAGE,
+            "processing_complete": True,
+            "diagnostics_complete": True,
+            "diagnostics": [],
             "source": source,
             "reference_scale": reference_scale,
-            "variants": [{"id": variant_id, "profile_id": variant_id, "descriptors": [{"address": owner} for owner in owners]} for variant_id in common.PROVISIONAL_FORM_VARIANT_IDS],
+            "authored_dimensions": dimensions,
+            "authored_landmarks": sorted(shoulder_controls, key=lambda item: (
+                item["owner"]["namespace"], tuple(item["owner"]["anchors"]), item["owner"]["kind"], item["owner"]["role"], item["role"]
+            )),
+            "authored_frames": frames,
+            "variants": [{"id": variant_id, "profile_id": variant_id, "provenance": {"source": common.PROVISIONAL_FORM_PROVENANCE, "resource_profile_id": common.PROVISIONAL_FORM_RESOURCE_PROFILE, "shape_basis": common.PROVISIONAL_FORM_SHAPE_BASIS}, "descriptors": descriptors} for variant_id in common.PROVISIONAL_FORM_VARIANT_IDS],
+            "limitations": "Provisional display-only geometry descriptors; no production geometry or Readiness 3.",
         }
+
+    def test_successor_ply_parser_rejects_malformed_schema_values_and_indices(self) -> None:
+        valid = self._tetra_ply()
+        cases = {
+            "schema": valid.replace(b"property float nx", b"property double nx", 1),
+            "nonfinite": valid.replace(
+                b"0.000000000 0.000000000 0.000000000",
+                b"nan 0.000000000 0.000000000",
+                1,
+            ),
+            "index": valid.replace(b"3 1 2 3\n", b"3 1 2 9\n", 1),
+        }
+        expected = {
+            "schema": "property schema",
+            "nonfinite": "non-finite value",
+            "index": "out-of-range index",
+        }
+        for name, payload in cases.items():
+            with self.subTest(name=name):
+                path = self.directory / f"malformed-{name}.ply"
+                path.write_bytes(payload)
+                with self.assertRaisesRegex(
+                    publisher.SurfacePreviewPublishError,
+                    expected[name],
+                ):
+                    publisher._validate_successor_ply(path, path.name)
 
     def test_address_validation_accepts_empty_anchors_and_rejects_malformed_entries(self) -> None:
         valid = {"namespace": "main", "anchors": [], "kind": "part", "role": "neck"}
@@ -474,12 +706,12 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             descriptor_snapshot["source_sha256"],
         )
         self.assertEqual(
-            descriptor_snapshot["producer_v5_sha256"],
+            descriptor_snapshot["producer_envelope_sha256"],
             descriptor_snapshot["source_sha256"],
         )
         self.assertEqual(json.loads(producer_bytes), self._payload())
         tampered_producer = dict(descriptor_snapshot)
-        tampered_producer["producer_v5_sha256"] = "0" * 64
+        tampered_producer["producer_envelope_sha256"] = "0" * 64
         with self.assertRaisesRegex(publisher.SurfacePreviewPublishError, "exact source bytes"):
             publisher._validate_producer_evidence(tampered_producer)
         self.assertEqual(len(review["groups"]), 4)
@@ -527,6 +759,49 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     review_id="surface-test",
                 )
         self.assertEqual(sorted(path.name for path in self.root.iterdir()), ["surface-test"])
+
+    def test_publication_ignores_unusable_process_temp_default(self) -> None:
+        unusable_temp = self.directory / "missing-process-temp"
+        with patch.object(tempfile, "tempdir", str(unusable_temp)), patch.object(
+            publisher, "_parse_inspection", return_value=self._payload()
+        ):
+            result = publisher.publish_surface_preview(
+                self.root,
+                self.input,
+                creature_kernel=self._producer(),
+                generator=self._generator(),
+                successor_generator=self._successor_generator(),
+                review_id="root-filesystem-temp",
+            )
+
+        self.assertEqual(result["assets"], 8)
+        self.assertTrue((self.root / "root-filesystem-temp" / "review.json").is_file())
+        self.assertFalse(unusable_temp.exists())
+
+    def test_baseline_publication_rejects_tampered_v6_shoulder_lineage_and_derivations(self) -> None:
+        cases = (
+            ("guide-source-landmark", "landmarks do not match"),
+            ("guide-source-frame", "frame does not match"),
+            ("guide-depth-factor", "depth_control does not match"),
+            ("guide-depth-scaled", "depth_control does not match"),
+            ("guide-derived-anchor", "peak_anchor does not bind its expected point"),
+            ("guide-derived-wrap", "authored-depth-wrap does not bind its expected point"),
+            ("guide-shoulder-socket", "socket-to-upper-arm-root does not bind"),
+        )
+        for index, (mode, expected_error) in enumerate(cases):
+            review_id = f"tampered-shoulder-{index}"
+            with self.subTest(mode=mode):
+                with patch.object(publisher, "_parse_inspection", return_value=self._payload()):
+                    with self.assertRaisesRegex(publisher.SurfacePreviewPublishError, expected_error):
+                        publisher.publish_surface_preview(
+                            self.root,
+                            self.input,
+                            creature_kernel=self._producer(),
+                            generator=self._generator(mode=mode),
+                            successor_generator=self._successor_generator(),
+                            review_id=review_id,
+                        )
+                self.assertFalse((self.root / review_id).exists())
 
     def test_missing_reviews_root_is_created_before_any_subprocess(self) -> None:
         missing_root = self.directory / "missing-reviews"
@@ -628,10 +903,10 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
         )
         raw = source.read_bytes()
-        self.assertEqual(len(raw), 21_722)
+        self.assertEqual(len(raw), 23_590)
         self.assertEqual(
             hashlib.sha256(raw).hexdigest(),
-            "8d2201d24f79833f589a55e3c51c09c9e529d8a369bd62f5022ee4a50972a22e",
+            "f6423fd7858e846119bd8c17c4cdedd5588aa17b8c07623df5a6a251dd3d091b",
         )
         evidence = publisher._validate_input_evidence(
             publisher._read_input_evidence(source), "checked-in source"
@@ -731,6 +1006,9 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             "variant-profile",
             "inventory",
             "hash",
+            "ply-disconnected",
+            "ply-nonwatertight",
+            "metrics-wrong-topology",
             "extra-path",
             "invalid-png",
             "sidecar-identity",
@@ -741,8 +1019,15 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             "sidecar-tail",
             "sidecar-shoulder-span-type",
             "sidecar-missing-deltoid-replacement",
+            "sidecar-stale-v2",
+            "sidecar-old-shoulder",
+            "sidecar-stale-six-bridge",
+            "sidecar-stale-region-id",
             "metrics-disagreement",
             "metrics-shoulder-span-type",
+            "metrics-shoulder-center",
+            "metrics-shoulder-depth",
+            "metrics-shoulder-owner",
         )
         for index, mode in enumerate(modes):
             review_id = f"successor-bad-{index}"
@@ -751,6 +1036,9 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     expected_error = {
                         "capture-padding-mismatch": "successor capture_padding does not match validated baseline generator padding",
                         "cross-variant-digest": "source_variant_sha256 does not match producer output",
+                        "ply-disconnected": "exactly one connected component",
+                        "ply-nonwatertight": "not watertight",
+                        "metrics-wrong-topology": "metrics topology does not match",
                     }.get(mode)
                     error_context = self.assertRaisesRegex(publisher.SurfacePreviewPublishError, expected_error) if expected_error else self.assertRaises(publisher.SurfacePreviewPublishError)
                     with error_context:

@@ -4,8 +4,8 @@
 This module is intentionally adjacent to, rather than a modification of,
 ``surface_preview.py``.  It consumes the existing private hybrid guide and
 replaces the torso/shoulder, head/neck, four limb-chain, hand/foot, and tail
-skin consumers with explicitly identified profile sweeps and swept shoulder
-spans. Root/hip connector fields remain an explicit temporary bridge so the
+skin consumers with explicitly identified profile sweeps. Thigh/hip connector
+fields remain an explicit temporary bridge so the
 experiment can still produce a whole-body mesh without pretending that those
 connectors have been redesigned.
 
@@ -41,11 +41,12 @@ except ModuleNotFoundError:  # pragma: no cover - direct source-tree execution
     _baseline = importlib.import_module("surface_preview")
 
 
-# v2 adds the baseline-compatible guide/skin capture and its framing metadata;
-# the private consumer identity remains stable across this output expansion.
-FORMAT = "creature-kernel.disposable-successor-surface-preview.v2"
+# V2 added the baseline-compatible guide/skin capture and framing metadata.
+# V3 replaces the deltoid-span/arm-root bridge with the bounded authored
+# five-section shoulder envelopes while retaining the private consumer ID.
+FORMAT = "creature-kernel.disposable-successor-surface-preview.v3"
 CONSUMER_ID = "successor-surface-v1"
-SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-limb-extremity-tail-profile-sweeps-v6"
+SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-limb-extremity-tail-profile-sweeps-v7"
 DEFAULT_SAMPLES = 56
 DEFAULT_PADDING = 0.50
 # Capture framing is a baseline-compatible concern, separate from the
@@ -156,30 +157,27 @@ class _ProfileSweep:
 
 
 @dataclass(frozen=True)
-class _SweptSpan:
-    """One source-owned, tapered span of a shoulder support curve."""
-
-    side: str
-    curve_name: str
-    span_index: int
-    owner: Any
-    start: tuple[float, float, float]
-    end: tuple[float, float, float]
-    start_radius: float
-    end_radius: float
-
-    @property
-    def recipe(self) -> str:
-        return f"successor-shoulder-{self.side}-{self.curve_name}-{self.span_index}"
-
-
-@dataclass(frozen=True)
 class _RegionalProfileSweep:
     """One guide-derived profile sweep with source ownership and a recipe label."""
 
     recipe: str
     owner: Any
     sweep: _ProfileSweep
+
+
+@dataclass(frozen=True)
+class _ShoulderEnvelopeSweep:
+    """One authored shoulder branch with its guide-relative frame axes."""
+
+    side: str
+    owner: Any
+    sweep: _ProfileSweep
+    preferred_up: tuple[float, float, float]
+    preferred_forward: tuple[float, float, float]
+
+    @property
+    def recipe(self) -> str:
+        return f"{self.side}-shoulder-envelope"
 
 
 @dataclass(frozen=True)
@@ -286,7 +284,7 @@ class SuccessorRegion:
     consumer_id: str
     region_id: str
     loft: _ProfileSweep
-    shoulder_spans: tuple[_SweptSpan, ...]
+    shoulder_sweeps: tuple[_ShoulderEnvelopeSweep, ...]
     bridge_fields: tuple[Any, ...]
     replaced_baseline_recipes: tuple[str, ...]
     source_owners: tuple[Any, ...]
@@ -304,8 +302,8 @@ class SuccessorRegion:
         return len(self.loft.names)
 
     @property
-    def shoulder_spans_consumed(self) -> int:
-        return len(self.shoulder_spans)
+    def shoulder_sweeps_consumed(self) -> int:
+        return len(self.shoulder_sweeps)
 
     @property
     def chain_sweeps(self) -> tuple[_LimbChainSweep, ...]:
@@ -360,6 +358,9 @@ _FRAME_TOLERANCE = 1.0e-7
 _DEGENERATE_TOLERANCE = 1.0e-12
 _BEND_COLLINEAR_TOLERANCE = 1.0e-8
 _TANGENT_ALIGNMENT_TOLERANCE = 1.0e-7
+_SHOULDER_BOUNDARY_TOLERANCE = 1.0e-10
+_SHOULDER_BOUNDARY_ITERATIONS = 64
+_SHOULDER_BOUNDARY_MAX_EXTENSION = 4.0
 
 
 def _vec3(value: Any, where: str) -> np.ndarray:
@@ -574,30 +575,191 @@ def _make_loft(guide: Any) -> _ProfileSweep:
     return _make_profile_sweep(guide)
 
 
-def _make_spans(guide: Any) -> tuple[_SweptSpan, ...]:
-    """Consume only the accepted distal deltoid span for each side."""
+def _shoulder_torso_boundary(
+    loft: _ProfileSweep,
+    side: Any,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return a local interior station and exact loft boundary on the peak ray."""
 
-    spans: list[_SweptSpan] = []
-    frame = guide.shoulder_frame
-    for side in frame.sides:
-        curve_name = "deltoid-sweep"
-        curve = side.deltoid_sweep
-        index = 1
-        if len(curve.points) != len(curve.profile) or len(curve.points) <= index + 1:
-            _fail(f"successor distal deltoid input {side.side} is malformed")
-        start = tuple(float(value) for value in curve.points[index])
-        end = tuple(float(value) for value in curve.points[index + 1])
-        start_radius = float(curve.profile[index])
-        end_radius = float(curve.profile[index + 1])
-        if not all(math.isfinite(value) for value in (*start, *end)):
-            _fail(f"{side.side}/{curve_name}-{index} contains non-finite points")
-        _finite_positive((start_radius, end_radius), f"{side.side}/{curve_name}-{index}.profile")
-        if start == end:
-            _fail(f"successor distal deltoid input {side.side} contains a degenerate span")
-        spans.append(_SweptSpan(side.side, curve_name, index, curve.owner, start, end, start_radius, end_radius))
-    if len(spans) != 2:
-        _fail(f"successor distal deltoid span count is unstable: {len(spans)}")
-    return tuple(spans)
+    _validate_profile_sweep(loft)
+    torso_center = _vec3(
+        loft.sections[-1].center,
+        f"{side.side}.shoulder.torso-ray-origin",
+    )
+    peak = _vec3(side.peak_anchor, f"{side.side}.shoulder.peak-ray-target")
+    displacement = peak - torso_center
+    target_distance = float(np.linalg.norm(displacement))
+    if not math.isfinite(target_distance) or target_distance <= _DEGENERATE_TOLERANCE:
+        _fail(f"{side.side} shoulder torso-boundary ray is degenerate")
+    ray = displacement / target_distance
+    origin_value = float(_loft_field(torso_center.reshape(1, 3), loft)[0])
+    if not math.isfinite(origin_value) or origin_value >= 0.0:
+        _fail(f"{side.side} shoulder torso-boundary ray does not start inside the loft")
+
+    lower = 0.0
+    upper = target_distance
+    upper_value = float(_loft_field((torso_center + upper * ray).reshape(1, 3), loft)[0])
+    while upper_value < 0.0 and upper < target_distance * _SHOULDER_BOUNDARY_MAX_EXTENSION:
+        upper = min(upper * 1.5, target_distance * _SHOULDER_BOUNDARY_MAX_EXTENSION)
+        upper_value = float(_loft_field((torso_center + upper * ray).reshape(1, 3), loft)[0])
+    if not math.isfinite(upper_value) or upper_value < 0.0:
+        _fail(f"{side.side} shoulder torso-boundary ray has no bounded loft exit")
+    for _ in range(_SHOULDER_BOUNDARY_ITERATIONS):
+        midpoint = 0.5 * (lower + upper)
+        midpoint_value = float(
+            _loft_field((torso_center + midpoint * ray).reshape(1, 3), loft)[0]
+        )
+        if not math.isfinite(midpoint_value):
+            _fail(f"{side.side} shoulder torso-boundary bisection became non-finite")
+        if midpoint_value < 0.0:
+            lower = midpoint
+        else:
+            upper = midpoint
+    boundary = torso_center + 0.5 * (lower + upper) * ray
+    boundary_value = float(_loft_field(boundary.reshape(1, 3), loft)[0])
+    if not math.isfinite(boundary_value) or abs(boundary_value) > _SHOULDER_BOUNDARY_TOLERANCE:
+        _fail(f"{side.side} shoulder torso boundary did not converge")
+
+    overlap = max(float(side.vertical_radius), 0.10)
+    interior = boundary - overlap * ray
+    interior_value = float(_loft_field(interior.reshape(1, 3), loft)[0])
+    if not math.isfinite(interior_value) or interior_value >= 0.0:
+        _fail(f"{side.side} shoulder torso-interior station is not inside the loft")
+    return interior, boundary
+
+
+def _make_shoulder_sweep(
+    side: Any,
+    torso_owner: Any,
+    upper_arm: Any,
+    loft: _ProfileSweep,
+) -> _ShoulderEnvelopeSweep:
+    """Build one disposable five-section authored shoulder envelope.
+
+    The first two sections follow the existing torso interior/boundary and
+    upper-arm root controls.  The middle section is the source-authored
+    peak/axilla midpoint, with its two transverse radii retained exactly as
+    the vertical and depth controls.  The final two sections overlap the
+    existing upper-arm profile at its socket and first midpoint; no deltoid
+    curve or analytic root bridge is consumed by this construction.
+    """
+
+    if upper_arm.root_centerline is None or upper_arm.root_thickness is None:
+        _fail(f"{side.side} shoulder sweep requires an upper-arm root control")
+    if len(upper_arm.sections) != 2:
+        _fail(f"{side.side} shoulder sweep requires two upper-arm source sections")
+    if side.authored_frame.owner != side.owner.key or side.authored_frame.role != "form_shoulder_control":
+        _fail(f"{side.side} shoulder sweep lost its authored control frame")
+    if side.authored_peak.owner != side.owner.key or side.authored_axilla.owner != side.owner.key:
+        _fail(f"{side.side} shoulder sweep lost authored landmark ownership")
+    peak = _vec3(side.peak_anchor, f"{side.side}.shoulder.peak")
+    axilla = _vec3(side.axilla_anchor, f"{side.side}.shoulder.axilla")
+    authored_center = 0.5 * (peak + axilla)
+    vertical_radius = float(side.vertical_radius)
+    depth_radius = float(side.depth_radius)
+    _finite_positive((vertical_radius, depth_radius), f"{side.side}.shoulder.authored-profile")
+
+    upper_start, upper_midpoint = upper_arm.sections[0].centerline
+    torso_interior, torso_boundary = _shoulder_torso_boundary(loft, side)
+    root_thickness = tuple(float(value) for value in upper_arm.root_thickness)
+    centers = (
+        tuple(float(value) for value in torso_interior),
+        tuple(float(value) for value in torso_boundary),
+        tuple(float(value) for value in authored_center),
+        tuple(float(value) for value in side.socket_anchor),
+        tuple(float(value) for value in upper_midpoint),
+    )
+    if tuple(float(value) for value in upper_start) != centers[3]:
+        _fail(f"{side.side} shoulder sweep socket does not overlap upper-arm start")
+    if not np.all(np.isfinite(np.asarray(centers, dtype=np.float64))):
+        _fail(f"{side.side} shoulder sweep contains non-finite centers")
+
+    root_radius = float(root_thickness[0])
+    socket_radius = float(upper_arm.sections[0].thickness[0])
+    midpoint_radius = float(upper_arm.sections[0].thickness[1])
+    radii = (
+        (root_radius * 1.08, root_radius * 1.08),
+        (root_radius, root_radius),
+        (vertical_radius, depth_radius),
+        (socket_radius, socket_radius),
+        (midpoint_radius, midpoint_radius),
+    )
+    sections: list[_ProfileSection] = []
+    path_length = 0.0
+    for index, (name, owner, center, profile) in enumerate(zip(
+        ("torso-interior", "torso-boundary", "authored-shoulder", "upper-arm-socket", "upper-arm-midpoint"),
+        (torso_owner, torso_owner, side.owner, side.owner, side.owner),
+        centers,
+        radii,
+    )):
+        current = _vec3(center, f"{side.side}.shoulder.{name}.center")
+        if index:
+            span_length = float(np.linalg.norm(current - _vec3(centers[index - 1], "shoulder previous center")))
+            if span_length <= _DEGENERATE_TOLERANCE:
+                _fail(f"{side.side} shoulder sweep section {name!r} follows a degenerate span")
+            path_length += span_length
+        _finite_positive(tuple(float(value) for value in profile), f"{side.side}.shoulder.{name}.radii")
+        direction = (
+            _vec3(centers[1], "shoulder next center") - current
+            if index == 0
+            else _vec3(centers[-1], "shoulder previous endpoint") - _vec3(centers[-2], "shoulder endpoint predecessor")
+            if index == len(centers) - 1
+            else _vec3(centers[index + 1], "shoulder following center") - _vec3(centers[index - 1], "shoulder preceding center")
+        )
+        tangent, first, second = _frame_from_tangent(
+            direction,
+            _vec3(side.axes.up, f"{side.side}.shoulder.up-axis"),
+            _vec3(side.axes.forward, f"{side.side}.shoulder.forward-axis"),
+            f"{side.side}.shoulder.{name}",
+        )
+        sections.append(_ProfileSection(
+            name=name,
+            owner=owner,
+            center=tuple(float(value) for value in current),
+            tangent=tuple(float(value) for value in tangent),
+            transverse_axes=(tuple(float(value) for value in first), tuple(float(value) for value in second)),
+            transverse_radii=tuple(float(value) for value in profile),
+            path_length=path_length,
+        ))
+    sweep = _ProfileSweep(tuple(sections), (
+        _ProfileEndpointCap("start", sections[0].center, tuple(-float(value) for value in sections[0].tangent), sections[0].transverse_axes, sections[0].transverse_radii, min(sections[0].transverse_radii)),
+        _ProfileEndpointCap("end", sections[-1].center, sections[-1].tangent, sections[-1].transverse_axes, sections[-1].transverse_radii, min(sections[-1].transverse_radii)),
+    ))
+    _validate_profile_sweep(sweep)
+    return _ShoulderEnvelopeSweep(
+        side=side.side,
+        owner=side.owner,
+        sweep=sweep,
+        preferred_up=tuple(float(value) for value in side.axes.up),
+        preferred_forward=tuple(float(value) for value in side.axes.forward),
+    )
+
+
+def _make_shoulder_sweeps(
+    guide: Any,
+    loft: _ProfileSweep,
+) -> tuple[_ShoulderEnvelopeSweep, ...]:
+    """Build exactly one source-owned shoulder envelope per bilateral side."""
+
+    upper_arms = {
+        item.owner.key[1][0]: item
+        for item in guide.limb_guides
+        if item.owner.key[3] == "upper_arm" and len(item.owner.key[1]) == 1
+    }
+    if set(upper_arms) != {"left", "right"}:
+        _fail("successor shoulder sweep inventory must contain exactly two upper arms")
+    result = tuple(
+        _make_shoulder_sweep(
+            side,
+            guide.shoulder_frame.torso_owner,
+            upper_arms[side.side],
+            loft,
+        )
+        for side in guide.shoulder_frame.sides
+    )
+    if tuple(item.recipe for item in result) != ("left-shoulder-envelope", "right-shoulder-envelope"):
+        _fail("successor shoulder sweep order is unstable")
+    return result
 
 
 # These compact controls are deliberately shared by every fixed variant.  The
@@ -2036,10 +2198,10 @@ def _validate_limb_bridge_inventory(
 def compile_successor_region(guide: Any, baseline_fields: tuple[Any, ...] | None = None) -> SuccessorRegion:
     """Compile the guide into the successor regional profile-sweep consumer.
 
-    The torso cage, one distal deltoid span per side, five baseline head/neck fields,
+    The torso cage, one authored shoulder envelope per side, five baseline head/neck fields,
     four bilateral limb chains, ten bilateral hand/foot fields, and six tail
     fields are replaced. Every other baseline field is carried as a named
-    temporary bridge: four limb-root bridges and two hip transitions.
+    temporary bridge: two thigh-root bridges and two hip transitions.
     """
 
     _baseline._validate_hybrid_guide(guide)
@@ -2078,17 +2240,24 @@ def compile_successor_region(guide: Any, baseline_fields: tuple[Any, ...] | None
     bridge_before_tail = _validate_tail_baseline_inventory(guide, bridge_before_extremities)
     extremity_sweeps = _make_extremity_sweeps(guide, limb_sweeps)
     _validate_extremity_sweeps(guide, limb_sweeps, extremity_sweeps)
-    replaced_fields = tuple(field for field in baseline_fields if field.recipe in replaced)
+    loft = _make_loft(guide)
+    shoulder_sweeps = _make_shoulder_sweeps(guide, loft)
+    upper_arm_owner_ids = {id(side.owner) for side in guide.shoulder_frame.sides}
+    replaced_fields = tuple(
+        field for field in baseline_fields
+        if field.recipe in replaced
+        or (field.recipe == "root-bridge" and id(field.owner) in upper_arm_owner_ids)
+    )
     bridge = tuple(
         field for field in bridge_before_tail
         if field.recipe not in {"torso-cage", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar", "deltoid-sweep-1", *_EXTREMITY_BASELINE_RECIPES}
+        and not (field.recipe == "root-bridge" and id(field.owner) in upper_arm_owner_ids)
     )
     if len(bridge) + len(replaced_fields) != len(baseline_fields):
         _fail("baseline bridge selection lost fields")
-    if len(bridge) != 6 or tuple(field.recipe for field in bridge).count("root-bridge") != 4 or tuple(field.recipe for field in bridge).count("hip-transition") != 2:
-        _fail("successor bridge must contain exactly four root bridges and two hip transitions")
+    if len(bridge) != 4 or tuple(field.recipe for field in bridge).count("root-bridge") != 2 or tuple(field.recipe for field in bridge).count("hip-transition") != 2:
+        _fail("successor bridge must contain exactly two thigh root bridges and two hip transitions")
     head_neck_sweeps = _make_head_neck_sweeps(guide)
-    loft = _make_loft(guide)
     tail_elements = _make_tail_elements(guide, loft)
     source_keys = {descriptor.key for descriptor in guide.source_descriptors}
     if any(sweep.owner.key not in source_keys for sweep in head_neck_sweeps):
@@ -2097,7 +2266,7 @@ def compile_successor_region(guide: Any, baseline_fields: tuple[Any, ...] | None
         consumer_id=CONSUMER_ID,
         region_id=SUCCESSOR_REGION_ID,
         loft=loft,
-        shoulder_spans=_make_spans(guide),
+        shoulder_sweeps=shoulder_sweeps,
         bridge_fields=bridge,
         replaced_baseline_recipes=replaced,
         source_owners=(guide.torso_cage.torso_owner,) + tuple(side.owner for side in guide.shoulder_frame.sides) + (head.head_owner, head.neck_owner),
@@ -2221,6 +2390,87 @@ def _profile_sweep_field(points: np.ndarray, sweep: _ProfileSweep) -> np.ndarray
     return np.min(np.stack(values, axis=0), axis=0)
 
 
+def _shoulder_span_field(
+    points: np.ndarray,
+    left: _ProfileSection,
+    right: _ProfileSection,
+    preferred_up: np.ndarray,
+    preferred_forward: np.ndarray,
+) -> np.ndarray:
+    """Evaluate one bounded shoulder span in its actual straight-span frame.
+
+    Generic profile sweeps interpolate station tangents to smooth ordinary
+    bends.  A shoulder branch can double back locally between an authored
+    surface profile and an embedded arm socket; using the interpolated tangent
+    there leaves a radial direction unbounded and creates remote satellite
+    lobes.  This bounded consumer instead projects the guide-relative up and
+    forward axes around each actual finite span.
+    """
+
+    start = _vec3(left.center, "shoulder span start")
+    end = _vec3(right.center, "shoulder span end")
+    axis = end - start
+    length_sq = float(np.dot(axis, axis))
+    if length_sq <= _DEGENERATE_TOLERANCE:
+        _fail("shoulder span has degenerate centres")
+    raw_t = np.sum((points - start) * axis, axis=-1) / length_sq
+    t = np.clip(raw_t, 0.0, 1.0)
+    center = start + t[..., None] * axis
+    _, first, second = _frame_from_tangent(
+        axis,
+        preferred_up,
+        preferred_forward,
+        "shoulder finite span",
+    )
+    radii = (
+        (1.0 - t)[..., None] * np.asarray(left.transverse_radii, dtype=np.float64)
+        + t[..., None] * np.asarray(right.transverse_radii, dtype=np.float64)
+    )
+    offset = points - center
+    first_distance = np.sum(offset * first, axis=-1) / radii[..., 0]
+    second_distance = np.sum(offset * second, axis=-1) / radii[..., 1]
+    radial = (
+        np.sqrt(first_distance**2 + second_distance**2) - 1.0
+    ) * np.minimum(radii[..., 0], radii[..., 1])
+    return np.where((raw_t >= 0.0) & (raw_t <= 1.0), radial, np.inf)
+
+
+def _shoulder_sweep_field(
+    points: np.ndarray,
+    shoulder: _ShoulderEnvelopeSweep,
+) -> np.ndarray:
+    """Evaluate one five-section authored shoulder branch without ghost lobes."""
+
+    sweep = shoulder.sweep
+    _validate_profile_sweep(sweep)
+    points = np.asarray(points, dtype=np.float64)
+    if points.shape[-1] != 3 or not np.all(np.isfinite(points)):
+        _fail("shoulder sweep query points must be finite three-vectors")
+    preferred_up = _vec3(shoulder.preferred_up, "shoulder preferred up")
+    preferred_forward = _vec3(
+        shoulder.preferred_forward,
+        "shoulder preferred forward",
+    )
+    values = [
+        *(
+            _shoulder_span_field(
+                points,
+                left,
+                right,
+                preferred_up,
+                preferred_forward,
+            )
+            for left, right in zip(sweep.sections, sweep.sections[1:])
+        ),
+        *(
+            _profile_transition_field(points, transition)
+            for transition in sweep.internal_transitions
+        ),
+        *(_profile_cap_field(points, cap) for cap in sweep.endpoint_caps),
+    ]
+    return np.min(np.stack(values, axis=0), axis=0)
+
+
 def _loft_field(points: np.ndarray, loft: _ProfileSweep) -> np.ndarray:
     """Compatibility name for the frame-aware successor profile evaluator."""
 
@@ -2244,24 +2494,13 @@ def _loft_owner_keys(points: np.ndarray, loft: _ProfileSweep) -> tuple[tuple[str
     return tuple(loft.owners[int(index)].key for index in _loft_section_indices(points, loft).reshape(-1))
 
 
-def _span_field(points: np.ndarray, span: _SweptSpan) -> np.ndarray:
-    start = np.asarray(span.start, dtype=np.float64)
-    end = np.asarray(span.end, dtype=np.float64)
-    axis = end - start
-    length_sq = float(np.dot(axis, axis))
-    t = np.clip(np.sum((points - start) * axis, axis=-1) / length_sq, 0.0, 1.0)
-    closest = start + t[..., None] * axis
-    radius = span.start_radius + (span.end_radius - span.start_radius) * t
-    return np.linalg.norm(points - closest, axis=-1) - radius
-
-
 def _successor_region_field(points: np.ndarray, region: SuccessorRegion, smooth_k: float) -> np.ndarray:
     values = [_loft_field(points, region.loft)]
     values.extend(_profile_sweep_field(points, item.sweep) for item in region.head_neck_sweeps)
     values.extend(_profile_sweep_field(points, item.sweep) for item in region.limb_sweeps)
     values.extend(_profile_sweep_field(points, item.sweep) for item in region.extremity_sweeps)
     values.extend(_profile_sweep_field(points, item.sweep) for item in region.tail_elements)
-    values.extend(_span_field(points, span) for span in region.shoulder_spans)
+    values.extend(_shoulder_sweep_field(points, item) for item in region.shoulder_sweeps)
     return _baseline._smooth_union(values, smooth_k)
 
 
@@ -2285,11 +2524,10 @@ def _bounds_for_region(region: SuccessorRegion) -> tuple[np.ndarray, np.ndarray]
         lower, upper = _profile_sweep_bounds(item.sweep)
         mins.append(lower)
         maxs.append(upper)
-    for span in region.shoulder_spans:
-        start, end = np.asarray(span.start), np.asarray(span.end)
-        radius = max(span.start_radius, span.end_radius)
-        mins.append(np.minimum(start, end) - radius)
-        maxs.append(np.maximum(start, end) + radius)
+    for item in region.shoulder_sweeps:
+        lower, upper = _profile_sweep_bounds(item.sweep)
+        mins.append(lower)
+        maxs.append(upper)
     return np.min(np.stack(mins), axis=0), np.max(np.stack(maxs), axis=0)
 
 
@@ -2381,9 +2619,16 @@ def _make_components(region: SuccessorRegion, smooth_k: float) -> tuple[_Compone
             True,
             lambda points, current=item.sweep: _loft_owner_keys(points, current),
         ))
-    for span in region.shoulder_spans:
-        bounds = (np.minimum(np.asarray(span.start), np.asarray(span.end)) - max(span.start_radius, span.end_radius), np.maximum(np.asarray(span.start), np.asarray(span.end)) + max(span.start_radius, span.end_radius))
-        components.append(_Component(span.owner, span.recipe, lambda points, current=span: _span_field(points, current), bounds, True))
+    for item in region.shoulder_sweeps:
+        bounds = _profile_sweep_bounds(item.sweep)
+        components.append(_Component(
+            item.owner,
+            f"successor-{item.recipe}",
+            lambda points, current=item: _shoulder_sweep_field(points, current),
+            bounds,
+            True,
+            lambda points, current=item.sweep: _loft_owner_keys(points, current),
+        ))
     for field in region.bridge_fields:
         shape = field.shape
         if shape["name"] == "ellipsoid":
@@ -2490,10 +2735,24 @@ def build_variant(form: Any, descriptors: tuple[Any, ...], samples: int = DEFAUL
             "torso_sections_consumed": region.sections_consumed,
             "torso_section_names": list(region.section_names),
             "torso_section_owner_keys": [_baseline._address_json(owner.key) for owner in region.loft.owners],
-            "shoulder_representation": "distal-deltoid-swept-curve-spans",
-            "shoulder_spans_consumed": region.shoulder_spans_consumed,
-            "shoulder_curve": "deltoid-sweep",
-            "shoulder_span_index": 1,
+            "shoulder_representation": "authored-five-section-frame-aware-profile-sweeps",
+            "shoulder_sweeps_consumed": region.shoulder_sweeps_consumed,
+            "shoulder_sweep_order": [item.recipe for item in region.shoulder_sweeps],
+            "shoulder_sweep_section_counts": [len(item.sweep.sections) for item in region.shoulder_sweeps],
+            "shoulder_sweep_section_names": [list(item.sweep.names) for item in region.shoulder_sweeps],
+            "shoulder_sweep_section_owner_keys": [
+                [_baseline._address_json(owner.key) for owner in item.sweep.owners]
+                for item in region.shoulder_sweeps
+            ],
+            "shoulder_sweep_controls": [
+                {
+                    "side": item.recipe.split("-", 1)[0],
+                    "authored_center": [float(value) for value in item.sweep.sections[2].center],
+                    "vertical_radius": float(item.sweep.sections[2].transverse_radii[0]),
+                    "depth_radius": float(item.sweep.sections[2].transverse_radii[1]),
+                }
+                for item in region.shoulder_sweeps
+            ],
             "head_neck_representation": "shared-guide-derived-profile-sweeps",
             "head_neck_sweeps_consumed": len(region.head_neck_sweeps),
             "head_neck_sweep_order": [item.recipe for item in region.head_neck_sweeps],
@@ -2549,13 +2808,13 @@ def build_variant(form: Any, descriptors: tuple[Any, ...], samples: int = DEFAUL
                 "source_end_profile": [float(value) for value in region.tail_elements[3].sweep.sections[-1].transverse_radii],
                 "extension_start_profile": [float(value) for value in region.tail_elements[4].sweep.sections[0].transverse_radii],
             },
-            "replaced_baseline_field_count": sum(field.recipe in region.replaced_baseline_recipes for field in baseline_fields),
+            "replaced_baseline_field_count": len(baseline_fields) - len(region.bridge_fields),
             "replaced_baseline_recipes": list(region.replaced_baseline_recipes),
         },
         "temporary_bridge": {
             "enabled": True,
             "consumer": "baseline-analytic-fields",
-            "regions": ["limb-root-connectors", "hip-transitions"],
+            "regions": ["thigh-root-connectors", "hip-transitions"],
             "field_count": len(region.bridge_fields),
             "retained_recipes": sorted({field.recipe for field in region.bridge_fields}),
         },
@@ -2614,12 +2873,25 @@ def _atomic_rename_noreplace(source: Path, target: Path) -> None:
     raise OSError(errno.ENOTSUP, "atomic no-replace directory rename unavailable")
 
 
+def _read_bounded_input(input_path: Path) -> bytes:
+    """Read at most the shared limit plus one sentinel byte."""
+
+    try:
+        with input_path.open("rb") as stream:
+            data = stream.read(_baseline.MAX_INPUT_BYTES + 1)
+    except OSError as exc:
+        raise SuccessorPreviewError(f"could not read input: {exc}") from exc
+    if len(data) > _baseline.MAX_INPUT_BYTES:
+        _fail("input exceeds bounded size")
+    return data
+
+
 def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, padding: float = DEFAULT_PADDING, smooth_k: float = DEFAULT_SMOOTH_K) -> dict[str, Any]:
     if output.exists() or os.path.lexists(output):
         _fail(f"refusing to overwrite output: {output}")
     if not output.parent.is_dir():
         _fail(f"output parent must exist: {output.parent}")
-    data = input_path.read_bytes()
+    data = _read_bounded_input(input_path)
     try:
         value = json.loads(data.decode("utf-8"), parse_constant=lambda token: (_ for _ in ()).throw(ValueError(token)))
     except (UnicodeDecodeError, json.JSONDecodeError, ValueError, RecursionError) as exc:
@@ -2675,7 +2947,13 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
                     "shared_render_bounds": shared_bounds_json,
                 },
                 "torso": {"representation": "frame-aware-ordered-profile-sweep", "sections_consumed": mesh.representation.sections_consumed, "section_names": list(mesh.representation.section_names)},
-                "shoulders": {"representation": "distal-deltoid-swept-curve-spans", "spans_consumed": mesh.representation.shoulder_spans_consumed, "curve": "deltoid-sweep", "span_index": 1},
+                "shoulders": {
+                    "representation": "authored-five-section-frame-aware-profile-sweeps",
+                    "sweeps_consumed": mesh.representation.shoulder_sweeps_consumed,
+                    "sweep_order": [item.recipe for item in mesh.representation.shoulder_sweeps],
+                    "section_counts": [len(item.sweep.sections) for item in mesh.representation.shoulder_sweeps],
+                    "section_names": [list(item.sweep.names) for item in mesh.representation.shoulder_sweeps],
+                },
                 "head_neck": {
                     "representation": "shared-guide-derived-profile-sweeps",
                     "sweeps_consumed": len(mesh.representation.head_neck_sweeps),
@@ -2748,7 +3026,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
             "canvas": canvas,
             "layout": layout,
             "projections": projections,
-            "generator": {"samples_per_axis": samples, "padding": padding, "capture_padding": DEFAULT_CAPTURE_PADDING, "smooth_k": smooth_k, "consumer_boundary": "successor torso/shoulder/head/neck, four limb chains, bilateral hands, digitigrade feet, and tail; baseline temporary bridge for root/hip connectors", "production_status": "disposable exploratory proof"},
+            "generator": {"samples_per_axis": samples, "padding": padding, "capture_padding": DEFAULT_CAPTURE_PADDING, "smooth_k": smooth_k, "consumer_boundary": "successor torso/shoulder/head/neck, four limb chains, bilateral hands, digitigrade feet, and tail; baseline temporary bridge for thigh-root/hip connectors", "production_status": "disposable exploratory proof"},
             "variants": records,
         }
         manifest_path = stage / "successor-surface-manifest.json"

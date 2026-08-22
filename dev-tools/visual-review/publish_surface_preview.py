@@ -2,7 +2,7 @@
 """Publish the first disposable baseline-versus-successor surface checkpoint.
 
 This is deliberately an adapter, not a surface renderer. It runs the current
-v5 filled-form producer once, then the baseline and successor experiment
+filled-form producer once, then the baseline and successor experiment
 generators in isolated temporary storage. Both bundles are validated against
 the same source and capture frame before four baseline/successor image pairs
 are published into the existing immutable image-review format. The result is
@@ -49,11 +49,11 @@ class SurfacePreviewPublishError(RuntimeError):
 
 
 SURFACE_PREVIEW_FORMAT = "creature-kernel.disposable-surface-preview.v2"
-REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v4"
-SUCCESSOR_PREVIEW_FORMAT = "creature-kernel.disposable-successor-surface-preview.v2"
+REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v5"
+SUCCESSOR_PREVIEW_FORMAT = "creature-kernel.disposable-successor-surface-preview.v3"
 SUCCESSOR_MANIFEST_NAME = "successor-surface-manifest.json"
 SUCCESSOR_CONSUMER_ID = "successor-surface-v1"
-SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-limb-extremity-tail-profile-sweeps-v6"
+SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-limb-extremity-tail-profile-sweeps-v7"
 EXPECTED_VARIANTS = common.PROVISIONAL_FORM_VARIANT_IDS
 EXPECTED_VIEWS = ("front", "side", "three-quarter")
 MANIFEST_NAME = "surface-preview-manifest.json"
@@ -69,11 +69,17 @@ MAX_MANIFEST_BYTES = 256 * 1024
 MAX_GUIDE_BYTES = 512 * 1024
 MAX_METRICS_BYTES = 256 * 1024
 MAX_ARTIFACT_BYTES = 16 * 1024 * 1024
+# The current fixed <=96-sample fixtures are far below these limits.  Keep
+# them substantially tighter than the voxel-grid cardinality so an adversarial
+# compact text artifact cannot turn the 16 MiB byte cap into excessive Python
+# object/edge-map allocation.
+MAX_SUCCESSOR_PLY_VERTICES = 100_000
+MAX_SUCCESSOR_PLY_FACES = 200_000
 SOURCE_EVIDENCE_ENCODING = "utf-8"
 SOURCE_EVIDENCE_TRANSFER = "base64"
 SOURCE_EVIDENCE_COMPRESSION = "zlib"
 INPUT_EVIDENCE_PREFIX = "input_body_document"
-PRODUCER_EVIDENCE_PREFIX = "producer_v5"
+PRODUCER_EVIDENCE_PREFIX = "producer_envelope"
 INPUT_EVIDENCE_FIELDS = {
     "input_body_document_encoding",
     "input_body_document_bytes",
@@ -360,6 +366,175 @@ def _sha256(path: Path, where: str) -> tuple[str, int]:
     return digest.hexdigest(), size
 
 
+def _parse_successor_ply_integer(raw: bytes, where: str) -> int:
+    if not raw or any(not 48 <= value <= 57 for value in raw):
+        raise SurfacePreviewPublishError(f"{where} must be a canonical non-negative integer")
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise SurfacePreviewPublishError(f"{where} is not a bounded integer") from exc
+    if str(value).encode("ascii") != raw:
+        raise SurfacePreviewPublishError(f"{where} must be a canonical non-negative integer")
+    return value
+
+
+def _parse_successor_ply_count(
+    line: bytes, prefix: bytes, *, limit: int, where: str
+) -> int:
+    if not line.startswith(prefix):
+        raise SurfacePreviewPublishError(f"{where} has an invalid ASCII PLY header")
+    value = _parse_successor_ply_integer(line[len(prefix):], f"{where} count")
+    if value <= 0 or value > limit:
+        raise SurfacePreviewPublishError(f"{where} count is outside the bounded positive range")
+    return value
+
+
+def _validate_successor_ply(path: Path, where: str) -> dict[str, Any]:
+    """Verify the exact bounded ASCII triangular PLY emitted by the successor."""
+
+    try:
+        with path.open("rb") as stream:
+            encoded = stream.read(MAX_ARTIFACT_BYTES + 1)
+    except OSError as exc:
+        raise SurfacePreviewPublishError(f"could not read {where}: {exc}") from exc
+    if len(encoded) > MAX_ARTIFACT_BYTES:
+        raise SurfacePreviewPublishError(f"{where} exceeds {MAX_ARTIFACT_BYTES} bytes")
+    if not encoded.endswith(b"\n") or b"\r" in encoded:
+        raise SurfacePreviewPublishError(f"{where} is not exact ASCII PLY text")
+    lines = encoded[:-1].split(b"\n")
+    if len(lines) < 12 or lines[0:2] != [b"ply", b"format ascii 1.0"]:
+        raise SurfacePreviewPublishError(f"{where} has an invalid ASCII PLY header")
+    if lines[3:9] != [
+        b"property float x",
+        b"property float y",
+        b"property float z",
+        b"property float nx",
+        b"property float ny",
+        b"property float nz",
+    ] or lines[10:12] != [b"property list uchar int vertex_indices", b"end_header"]:
+        raise SurfacePreviewPublishError(f"{where} has an unsupported ASCII PLY property schema")
+    vertex_count = _parse_successor_ply_count(
+        lines[2], b"element vertex ", limit=MAX_SUCCESSOR_PLY_VERTICES, where=f"{where} vertex"
+    )
+    face_count = _parse_successor_ply_count(
+        lines[9], b"element face ", limit=MAX_SUCCESSOR_PLY_FACES, where=f"{where} face"
+    )
+    expected_line_count = 12 + vertex_count + face_count
+    if len(lines) != expected_line_count:
+        raise SurfacePreviewPublishError(f"{where} contains extra, trailing, or missing records")
+
+    vertices: list[tuple[float, float, float, float, float, float]] = []
+    for index in range(vertex_count):
+        record_where = f"{where} vertex[{index}]"
+        fields = lines[12 + index].split()
+        if len(fields) != 6:
+            raise SurfacePreviewPublishError(f"{record_where} must contain six numeric values")
+        try:
+            values = tuple(float(field.decode("ascii")) for field in fields)
+        except (UnicodeDecodeError, ValueError) as exc:
+            raise SurfacePreviewPublishError(f"{record_where} is not a numeric six-value record") from exc
+        if not all(math.isfinite(value) for value in values):
+            raise SurfacePreviewPublishError(f"{record_where} contains a non-finite value")
+        vertices.append(values)
+
+    parent = list(range(vertex_count))
+    rank = [0] * vertex_count
+    component_count = vertex_count
+
+    def find(index: int) -> int:
+        while parent[index] != index:
+            parent[index] = parent[parent[index]]
+            index = parent[index]
+        return index
+
+    def union(left: int, right: int) -> None:
+        nonlocal component_count
+        left_root = find(left)
+        right_root = find(right)
+        if left_root == right_root:
+            return
+        if rank[left_root] < rank[right_root]:
+            left_root, right_root = right_root, left_root
+        parent[right_root] = left_root
+        if rank[left_root] == rank[right_root]:
+            rank[left_root] += 1
+        component_count -= 1
+
+    edge_incidence: dict[tuple[int, int], int] = {}
+    for index in range(face_count):
+        record_where = f"{where} face[{index}]"
+        fields = lines[12 + vertex_count + index].split()
+        if len(fields) != 4 or fields[0] != b"3":
+            raise SurfacePreviewPublishError(f"{record_where} must be triangular ASCII PLY data")
+        try:
+            indices = tuple(
+                _parse_successor_ply_integer(field, f"{record_where} index")
+                for field in fields[1:]
+            )
+        except SurfacePreviewPublishError:
+            raise
+        if any(value >= vertex_count for value in indices):
+            raise SurfacePreviewPublishError(f"{record_where} contains an out-of-range index")
+        if len(set(indices)) != 3:
+            raise SurfacePreviewPublishError(f"{record_where} contains duplicate indices")
+        first, second, third = (vertices[value] for value in indices)
+        edge_one = (second[0] - first[0], second[1] - first[1], second[2] - first[2])
+        edge_two = (third[0] - first[0], third[1] - first[1], third[2] - first[2])
+        cross = (
+            edge_one[1] * edge_two[2] - edge_one[2] * edge_two[1],
+            edge_one[2] * edge_two[0] - edge_one[0] * edge_two[2],
+            edge_one[0] * edge_two[1] - edge_one[1] * edge_two[0],
+        )
+        cross_norm_squared = sum(value * value for value in cross)
+        if not math.isfinite(cross_norm_squared) or cross_norm_squared <= 1.0e-28:
+            raise SurfacePreviewPublishError(f"{record_where} is degenerate")
+        union(indices[0], indices[1])
+        union(indices[1], indices[2])
+        union(indices[2], indices[0])
+        for left, right in (
+            (indices[0], indices[1]),
+            (indices[1], indices[2]),
+            (indices[2], indices[0]),
+        ):
+            edge = (left, right) if left < right else (right, left)
+            incidence = edge_incidence.get(edge, 0) + 1
+            if incidence > 2:
+                raise SurfacePreviewPublishError(f"{where} has an edge incident to more than two faces")
+            edge_incidence[edge] = incidence
+
+    if any(incidence != 2 for incidence in edge_incidence.values()):
+        raise SurfacePreviewPublishError(f"{where} is not watertight: every edge must have two incident faces")
+    if component_count != 1:
+        raise SurfacePreviewPublishError(f"{where} must contain exactly one connected component")
+    return {
+        "vertex_count": vertex_count,
+        "face_count": face_count,
+        "component_count": component_count,
+        "watertight": True,
+        "finite_vertices": True,
+        "finite_normals": True,
+        "valid_indices": True,
+    }
+
+
+def _validate_successor_ply_metrics(
+    ply_metrics: dict[str, Any], metrics: dict[str, Any], where: str
+) -> None:
+    if (
+        type(metrics.get("vertex_count")) is not int
+        or metrics.get("vertex_count") != ply_metrics["vertex_count"]
+        or type(metrics.get("face_count")) is not int
+        or metrics.get("face_count") != ply_metrics["face_count"]
+        or type(metrics.get("component_count")) is not int
+        or metrics.get("component_count") != 1
+        or metrics.get("watertight") is not True
+        or metrics.get("finite_vertices") is not True
+        or metrics.get("finite_normals") is not True
+        or metrics.get("valid_indices") is not True
+    ):
+        raise SurfacePreviewPublishError(f"{where}.metrics topology does not match the validated successor PLY")
+
+
 def _evidence_fields(prefix: str) -> set[str]:
     return {
         f"{prefix}_zlib_base64",
@@ -524,12 +699,12 @@ def _read_producer_evidence(path: Path) -> dict[str, Any]:
         path,
         prefix=PRODUCER_EVIDENCE_PREFIX,
         max_bytes=MAX_STDOUT_BYTES,
-        where="v5 producer output",
+        where="producer envelope output",
     )
 
 
 def _decode_producer_evidence(
-    value: Any, where: str = "v5 producer evidence"
+    value: Any, where: str = "producer envelope evidence"
 ) -> bytes:
     return _decode_exact_evidence(
         value,
@@ -540,7 +715,7 @@ def _decode_producer_evidence(
 
 
 def _validate_producer_evidence(
-    value: Any, where: str = "v5 producer evidence"
+    value: Any, where: str = "producer envelope evidence"
 ) -> dict[str, Any]:
     return _validate_exact_evidence(
         value,
@@ -889,6 +1064,9 @@ def _validate_controls(
     owners: list[dict[str, Any]],
     lower: list[float],
     upper: list[float],
+    *,
+    variant_id: str,
+    producer_payload: dict[str, Any],
 ) -> None:
     if not isinstance(controls, dict) or set(controls) != {"axes", "axial", "torso_cage", "shoulder_frame", "head", "limbs", "paws", "tails"}:
         raise SurfacePreviewPublishError("regional guide controls are invalid")
@@ -902,6 +1080,13 @@ def _validate_controls(
         if json.dumps(parsed, sort_keys=True) not in owner_keys:
             raise SurfacePreviewPublishError(f"{where} is not a source owner")
         return parsed
+
+    def close_point(actual: list[float], expected: list[float], where: str) -> None:
+        if len(actual) != 3 or len(expected) != 3 or any(
+            not math.isclose(float(a), float(b), rel_tol=1.0e-9, abs_tol=1.0e-12)
+            for a, b in zip(actual, expected)
+        ):
+            raise SurfacePreviewPublishError(f"{where} does not bind its expected point")
 
     axial = controls["axial"]
     if not isinstance(axial, dict) or set(axial) != {"status", "core", "stations", "transitions"} or axial["status"] != "compatibility-diagnostic-not-rendered":
@@ -1007,7 +1192,7 @@ def _validate_controls(
         raise SurfacePreviewPublishError("regional guide torso cage connections are invalid")
 
     shoulder = controls["shoulder_frame"]
-    if not isinstance(shoulder, dict) or set(shoulder) != {"status", "owners", "central", "sides"} or shoulder["status"] != "private shoulder frame; support curves guide-only; deltoid sweep skin-driving":
+    if not isinstance(shoulder, dict) or set(shoulder) != {"status", "owners", "central", "source_controls", "sides"} or shoulder["status"] != "private shoulder frame; support curves guide-only; deltoid sweep skin-driving":
         raise SurfacePreviewPublishError("regional guide shoulder frame controls are invalid")
     shoulder_owners = shoulder["owners"]
     if not isinstance(shoulder_owners, dict) or set(shoulder_owners) != {"torso", "neck", "left_upper_arm", "right_upper_arm"}:
@@ -1029,22 +1214,187 @@ def _validate_controls(
     profile = central["profile"]
     if not isinstance(profile, list) or len(profile) != 2 or any(_finite_number(value, "regional-guide.controls.shoulder_frame.central.profile") <= 0.0 for value in profile):
         raise SurfacePreviewPublishError("regional guide shoulder frame central profile is invalid")
+    producer_source = producer_payload.get("source")
+    producer_scale = producer_payload.get("reference_scale")
+    producer_frames = producer_payload.get("authored_frames")
+    producer_landmarks = producer_payload.get("authored_landmarks")
+    producer_dimensions = producer_payload.get("authored_dimensions")
+    producer_variants = producer_payload.get("variants")
+    if (
+        not isinstance(producer_source, dict)
+        or not isinstance(producer_scale, dict)
+        or not isinstance(producer_frames, list)
+        or not isinstance(producer_landmarks, list)
+        or not isinstance(producer_dimensions, list)
+        or not isinstance(producer_variants, list)
+    ):
+        raise SurfacePreviewPublishError("regional guide cannot bind v6 producer shoulder controls")
+    squared_length = producer_scale.get("squared_length")
+    if type(squared_length) is not int or squared_length <= 0:
+        raise SurfacePreviewPublishError("regional guide cannot bind the producer reference scale")
+    reference_scale = math.sqrt(float(squared_length))
+    producer_variant = next(
+        (
+            item
+            for item in producer_variants
+            if isinstance(item, dict) and item.get("id") == variant_id
+        ),
+        None,
+    )
+    if not isinstance(producer_variant, dict) or not isinstance(producer_variant.get("descriptors"), list):
+        raise SurfacePreviewPublishError("regional guide cannot bind its producer variant")
+
+    source_controls = shoulder["source_controls"]
+    if not isinstance(source_controls, list) or len(source_controls) != 2:
+        raise SurfacePreviewPublishError("regional guide shoulder source controls are invalid")
+    expected_factor = {
+        "neutral-v0": 1_000,
+        "broad-soft-v0": 1_150,
+        "lean-readable-v0": 800,
+        "depth-forward-v0": 1_000,
+    }.get(variant_id)
+    if expected_factor is None:
+        raise SurfacePreviewPublishError("regional guide shoulder source-control variant is invalid")
+
+    source_controls_by_side: dict[str, dict[str, Any]] = {}
+    expected_control_records: dict[str, dict[str, Any]] = {}
+    for control_index, control in enumerate(source_controls):
+        control_where = f"regional-guide.controls.shoulder_frame.source_controls[{control_index}]"
+        if not isinstance(control, dict) or set(control) != {"side", "owner", "frame", "landmarks", "depth_control"}:
+            raise SurfacePreviewPublishError(f"{control_where} has an invalid shape")
+        side_name = control.get("side")
+        if side_name not in {"left", "right"} or side_name in source_controls_by_side:
+            raise SurfacePreviewPublishError(f"{control_where}.side is invalid or duplicated")
+        expected_owner = parsed_shoulder_owners[f"{side_name}_upper_arm"]
+        if owner(control.get("owner"), f"{control_where}.owner") != expected_owner:
+            raise SurfacePreviewPublishError(f"{control_where}.owner is invalid")
+        expected_frames = [
+            item
+            for item in producer_frames
+            if isinstance(item, dict)
+            and item.get("owner") == expected_owner
+            and item.get("role") == "form_shoulder_control"
+        ]
+        if len(expected_frames) != 1 or control.get("frame") != expected_frames[0]:
+            raise SurfacePreviewPublishError(f"{control_where}.frame does not match the producer")
+        expected_landmarks = [
+            item
+            for item in producer_landmarks
+            if isinstance(item, dict)
+            and item.get("owner") == expected_owner
+            and item.get("role") in {"form_axilla", "form_shoulder_peak"}
+        ]
+        if len(expected_landmarks) != 2 or control.get("landmarks") != expected_landmarks:
+            raise SurfacePreviewPublishError(f"{control_where}.landmarks do not match the producer")
+        expected_dimensions = [
+            item
+            for item in producer_dimensions
+            if isinstance(item, dict)
+            and item.get("owner") == expected_owner
+            and item.get("role") == "form_shoulder_depth_radius"
+        ]
+        depth_control = control.get("depth_control")
+        if len(expected_dimensions) != 1 or not isinstance(depth_control, dict):
+            raise SurfacePreviewPublishError(f"{control_where}.depth_control cannot bind the producer")
+        if set(depth_control) != {
+            "owner", "role", "value_permille", "scaled_value_permille",
+            "profile_factor", "provenance", "consumption",
+        }:
+            raise SurfacePreviewPublishError(f"{control_where}.depth_control has an invalid shape")
+        expected_dimension = expected_dimensions[0]
+        raw_value = expected_dimension.get("value_permille")
+        if type(raw_value) is not int or raw_value <= 0:
+            raise SurfacePreviewPublishError(f"{control_where}.depth_control producer value is invalid")
+        expected_scaled = raw_value * expected_factor // 1_000
+        if (
+            depth_control.get("owner") != expected_dimension.get("owner")
+            or depth_control.get("role") != expected_dimension.get("role")
+            or depth_control.get("value_permille") != raw_value
+            or depth_control.get("scaled_value_permille") != expected_scaled
+            or depth_control.get("profile_factor") != expected_factor
+            or depth_control.get("provenance") != expected_dimension.get("provenance")
+            or depth_control.get("consumption")
+            != "guide-derived shoulder wrap depth; baseline field remains guide-only"
+        ):
+            raise SurfacePreviewPublishError(f"{control_where}.depth_control does not match the producer and variant")
+        descriptors = [
+            item
+            for item in producer_variant["descriptors"]
+            if isinstance(item, dict) and item.get("address") == expected_owner
+        ]
+        if len(descriptors) != 1:
+            raise SurfacePreviewPublishError(f"{control_where} has no unique producer descriptor")
+        reference_point = descriptors[0].get("reference_point")
+        if not isinstance(reference_point, list) or len(reference_point) != 3:
+            raise SurfacePreviewPublishError(f"{control_where} producer reference point is invalid")
+        landmark_by_role = {item["role"]: item for item in expected_landmarks}
+        derived: dict[str, list[float]] = {}
+        for role in ("form_axilla", "form_shoulder_peak"):
+            position = landmark_by_role[role].get("position")
+            if not isinstance(position, list) or len(position) != 3:
+                raise SurfacePreviewPublishError(f"{control_where}.{role} position is invalid")
+            derived[role] = [
+                (float(reference_point[axis]) + float(position[axis])) / reference_scale
+                for axis in range(3)
+            ]
+        source_controls_by_side[side_name] = control
+        expected_control_records[side_name] = {
+            "frame": expected_frames[0],
+            "axilla": landmark_by_role["form_axilla"],
+            "peak": landmark_by_role["form_shoulder_peak"],
+            "axilla_anchor": derived["form_axilla"],
+            "peak_anchor": derived["form_shoulder_peak"],
+            "depth_control": depth_control,
+            "depth_radius": expected_scaled / 1_000.0,
+        }
+    if list(source_controls_by_side) != ["left", "right"]:
+        raise SurfacePreviewPublishError("regional guide shoulder source controls are not in canonical side order")
+
     sides = shoulder["sides"]
     if not isinstance(sides, list) or len(sides) != 2 or [item.get("side") for item in sides if isinstance(item, dict)] != ["left", "right"]:
         raise SurfacePreviewPublishError("regional guide shoulder frame sides are invalid")
     for index, side in enumerate(sides):
         where = f"regional-guide.controls.shoulder_frame.sides[{index}]"
-        if not isinstance(side, dict) or set(side) != {"side", "owner", "socket", "extremum", "span", "slope", "curves"}:
+        if not isinstance(side, dict) or set(side) != {
+            "side", "owner", "socket", "extremum", "authored_controls",
+            "peak_anchor", "axilla_anchor", "vertical_midpoint", "vertical_radius",
+            "depth_radius", "depth_control", "span", "slope", "curves",
+        }:
             raise SurfacePreviewPublishError(f"{where} has an invalid shape")
         side_owner = owner(side["owner"], f"{where}.owner")
         expected_owner = parsed_shoulder_owners[f"{side['side']}_upper_arm"]
         if side_owner != expected_owner:
             raise SurfacePreviewPublishError(f"{where}.owner is invalid")
+        expected_records = expected_control_records[side["side"]]
+        authored_controls = side["authored_controls"]
+        if not isinstance(authored_controls, dict) or set(authored_controls) != {"peak", "axilla", "frame"}:
+            raise SurfacePreviewPublishError(f"{where}.authored_controls are invalid")
+        if (
+            authored_controls["peak"] != expected_records["peak"]
+            or authored_controls["axilla"] != expected_records["axilla"]
+            or authored_controls["frame"] != expected_records["frame"]
+            or side["depth_control"] != expected_records["depth_control"]
+        ):
+            raise SurfacePreviewPublishError(f"{where}.authored_controls do not match the producer")
+        peak_anchor = _point(side["peak_anchor"], f"{where}.peak_anchor")
+        axilla_anchor = _point(side["axilla_anchor"], f"{where}.axilla_anchor")
+        close_point(peak_anchor, expected_records["peak_anchor"], f"{where}.peak_anchor")
+        close_point(axilla_anchor, expected_records["axilla_anchor"], f"{where}.axilla_anchor")
+        expected_midpoint = 0.5 * (peak_anchor[1] + axilla_anchor[1])
+        expected_vertical_radius = 0.5 * (peak_anchor[1] - axilla_anchor[1])
+        if (
+            expected_vertical_radius <= 0.0
+            or not math.isclose(_finite_number(side["vertical_midpoint"], f"{where}.vertical_midpoint"), expected_midpoint, rel_tol=0.0, abs_tol=1.0e-12)
+            or not math.isclose(_finite_number(side["vertical_radius"], f"{where}.vertical_radius"), expected_vertical_radius, rel_tol=0.0, abs_tol=1.0e-12)
+            or not math.isclose(_finite_number(side["depth_radius"], f"{where}.depth_radius"), float(expected_records["depth_radius"]), rel_tol=0.0, abs_tol=1.0e-12)
+        ):
+            raise SurfacePreviewPublishError(f"{where} derived authored shoulder controls are invalid")
         for control_name in ("socket", "extremum"):
             control = side[control_name]
             if not isinstance(control, dict) or set(control) != {"owner", "point"} or owner(control["owner"], f"{where}.{control_name}.owner") != side_owner:
                 raise SurfacePreviewPublishError(f"{where}.{control_name} is invalid")
             _point(control["point"], f"{where}.{control_name}.point")
+        close_point(side["extremum"]["point"], peak_anchor, f"{where}.extremum")
         span = _finite_number(side["span"], f"{where}.span")
         if span <= 0.0 or not math.isfinite(_finite_number(side["slope"], f"{where}.slope")):
             raise SurfacePreviewPublishError(f"{where}.span or slope is invalid")
@@ -1233,10 +1583,6 @@ def _validate_controls(
     # Cross-check the shoulder sidecar against the already validated upper-arm
     # controls.  Local JSON shape validation alone would allow a plausible but
     # disconnected frame to pass publication.
-    def close_point(actual: list[float], expected: list[float], where: str) -> None:
-        if len(actual) != 3 or len(expected) != 3 or any(not math.isclose(float(a), float(b), rel_tol=1.0e-9, abs_tol=1.0e-12) for a, b in zip(actual, expected)):
-            raise SurfacePreviewPublishError(f"{where} does not bind its expected point")
-
     upper_arms = {
         tuple(item["owner"]["anchors"]): item
         for item in limbs
@@ -1247,6 +1593,7 @@ def _validate_controls(
     for side_index, side in enumerate(sides):
         where = f"regional-guide.controls.shoulder_frame.sides[{side_index}]"
         side_name = side["side"]
+        expected_records = expected_control_records[side_name]
         upper_arm = upper_arms.get((side_name,))
         if upper_arm is None:
             raise SurfacePreviewPublishError(f"{where} has no matching upper-arm guide")
@@ -1254,6 +1601,11 @@ def _validate_controls(
         if first_section is None:
             raise SurfacePreviewPublishError(f"{where} upper-arm guide has no pre-joint section")
         socket = side["socket"]["point"]
+        close_point(
+            socket,
+            first_section["points"][0],
+            f"{where}.socket-to-upper-arm-root",
+        )
         extremum = side["extremum"]["point"]
         expected_span = abs(float(extremum[0]) - central_anchor[0])
         if expected_span <= 0.0:
@@ -1274,6 +1626,24 @@ def _validate_controls(
             close_point(points[0], central_anchor, f"{where}.{curve_name}.start")
             close_point(points[2], extremum, f"{where}.{curve_name}.extremum")
             close_point(points[3], socket, f"{where}.{curve_name}.socket")
+        peak_anchor = [float(value) for value in side["peak_anchor"]]
+        axilla_anchor = [float(value) for value in side["axilla_anchor"]]
+        wrap_anchor = [
+            peak_anchor[0],
+            0.5 * (peak_anchor[1] + axilla_anchor[1]),
+            0.5 * (peak_anchor[2] + axilla_anchor[2]),
+        ]
+        depth_radius = float(expected_records["depth_radius"])
+        close_point(
+            anterior["points"][1],
+            [wrap_anchor[0], wrap_anchor[1], wrap_anchor[2] + depth_radius],
+            f"{where}.anterior-support.authored-depth-wrap",
+        )
+        close_point(
+            posterior["points"][1],
+            [wrap_anchor[0], wrap_anchor[1], wrap_anchor[2] - depth_radius],
+            f"{where}.posterior-return.authored-depth-wrap",
+        )
         close_point(deltoid["points"][0], extremum, f"{where}.deltoid-sweep.extremum")
         close_point(deltoid["points"][1], socket, f"{where}.deltoid-sweep.socket")
         first_start = first_section["points"][0]
@@ -1431,6 +1801,7 @@ def _validate_guide(
     variant_id: str,
     manifest: dict[str, Any],
     descriptor_addresses: list[dict[str, Any]],
+    producer_payload: dict[str, Any],
 ) -> dict[str, Any]:
     guide = _read_json(path, MAX_GUIDE_BYTES, "regional-guide.json")
     _finite_json(guide, "regional-guide.json")
@@ -1466,7 +1837,14 @@ def _validate_guide(
         raise SurfacePreviewPublishError("regional guide framing does not match manifest")
     if guide.get("canvas") != EXPECTED_CANVAS or guide.get("projections") != EXPECTED_PROJECTIONS or guide.get("layout") != EXPECTED_LAYOUT:
         raise SurfacePreviewPublishError("regional guide framing is not the fixed v2 layout")
-    _validate_controls(guide.get("controls"), normalized_owners, lower, upper)
+    _validate_controls(
+        guide.get("controls"),
+        normalized_owners,
+        lower,
+        upper,
+        variant_id=variant_id,
+        producer_payload=producer_payload,
+    )
     if guide.get("boundary") != "private disposable regional controls; source-owned AddressKeys only; not a semantic or runtime contract":
         raise SurfacePreviewPublishError("regional guide boundary is invalid")
     return guide
@@ -1492,12 +1870,12 @@ def _validate_bundle(
     if set(manifest) != expected_manifest_fields:
         raise SurfacePreviewPublishError("surface bundle has unknown manifest fields")
     if manifest.get("source_format") != common.PROVISIONAL_FORM_FORMAT:
-        raise SurfacePreviewPublishError("surface bundle source_format must be provisional-form v5")
+        raise SurfacePreviewPublishError("surface bundle source_format must be provisional-form v6")
     source = manifest.get("source")
     if not isinstance(source, dict) or set(source) != {"format", "sha256", "document", "namespace", "resource_profile_id", "reference_scale"}:
         raise SurfacePreviewPublishError("surface bundle source must identify format and sha256")
     if source.get("format") != common.PROVISIONAL_FORM_FORMAT or source.get("sha256") != expected_source_sha256:
-        raise SurfacePreviewPublishError("surface bundle source does not match the exact v5 producer output")
+        raise SurfacePreviewPublishError("surface bundle source does not match the exact current producer output")
     source_hash = source.get("sha256")
     if not isinstance(source_hash, str) or len(source_hash) != 64 or any(character not in "0123456789abcdef" for character in source_hash):
         raise SurfacePreviewPublishError("surface bundle source.sha256 is invalid")
@@ -1559,7 +1937,7 @@ def _validate_bundle(
         raise SurfacePreviewPublishError(str(exc)) from exc
     variants = manifest.get("variants")
     if not isinstance(variants, list) or [v.get("id") for v in variants if isinstance(v, dict)] != list(EXPECTED_VARIANTS):
-        raise SurfacePreviewPublishError("surface bundle variants must be the canonical v5 variants in order")
+        raise SurfacePreviewPublishError("surface bundle variants must be the canonical current-format variants in order")
     inventory_paths: set[str] = set()
     published: list[dict[str, Any]] = []
     producer_variants = producer_payload.get("variants") if producer_payload is not None else None
@@ -1652,7 +2030,18 @@ def _validate_bundle(
                     raise SurfacePreviewPublishError(f"{where}.metrics.json must be an object")
                 metrics_payload = parsed_metrics
             elif kind == "regional-guide-json":
-                guide_payload = _validate_guide(artifact, entry, variant_id=variant["id"], manifest=manifest, descriptor_addresses=descriptor_addresses)
+                if producer_payload is None:
+                    raise SurfacePreviewPublishError(
+                        f"{where}.regional-guide.json cannot bind producer output"
+                    )
+                guide_payload = _validate_guide(
+                    artifact,
+                    entry,
+                    variant_id=variant["id"],
+                    manifest=manifest,
+                    descriptor_addresses=descriptor_addresses,
+                    producer_payload=producer_payload,
+                )
         if kinds != {"ply", "semantic-sidecar", "metrics", "guide-skin-composite-png", "regional-guide-json"} or image_entry is None or metrics_payload is None or guide_payload is None:
             raise SurfacePreviewPublishError(f"{where}.inventory has wrong artifact kinds")
         if variant.get("metrics") != metrics_payload:
@@ -1753,6 +2142,7 @@ def _validate_successor_sidecar(
     source: dict[str, Any],
     frame: dict[str, Any],
     metrics: dict[str, Any],
+    producer_payload: dict[str, Any],
 ) -> dict[str, Any]:
     sidecar = _read_json(path, MAX_METRICS_BYTES, "successor.json")
     _finite_json(sidecar, "successor.json")
@@ -1786,16 +2176,28 @@ def _validate_successor_sidecar(
     if not isinstance(torso.get("section_names"), list) or len(torso["section_names"]) != torso["sections_consumed"]:
         raise SurfacePreviewPublishError("successor torso section metadata is invalid")
 
+    shoulder_section_names = [
+        "torso-interior",
+        "torso-boundary",
+        "authored-shoulder",
+        "upper-arm-socket",
+        "upper-arm-midpoint",
+    ]
     shoulders = sidecar.get("shoulders")
-    if not isinstance(shoulders, dict) or set(shoulders) != {"representation", "spans_consumed", "curve", "span_index"}:
+    if not isinstance(shoulders, dict) or set(shoulders) != {
+        "representation", "sweeps_consumed", "sweep_order",
+        "section_counts", "section_names",
+    }:
         raise SurfacePreviewPublishError("successor shoulder representation metadata is missing")
     if (
-        shoulders.get("representation") != "distal-deltoid-swept-curve-spans"
-        or type(shoulders.get("spans_consumed")) is not int
-        or shoulders["spans_consumed"] != 2
-        or shoulders.get("curve") != "deltoid-sweep"
-        or type(shoulders.get("span_index")) is not int
-        or shoulders.get("span_index") != 1
+        shoulders.get("representation")
+        != "authored-five-section-frame-aware-profile-sweeps"
+        or shoulders.get("sweeps_consumed") != 2
+        or shoulders.get("sweep_order")
+        != ["left-shoulder-envelope", "right-shoulder-envelope"]
+        or shoulders.get("section_counts") != [5, 5]
+        or shoulders.get("section_names")
+        != [shoulder_section_names, shoulder_section_names]
     ):
         raise SurfacePreviewPublishError("successor shoulder representation metadata is invalid")
 
@@ -1851,11 +2253,13 @@ def _validate_successor_sidecar(
     if (
         bridge.get("enabled") is not True
         or bridge.get("consumer") != "baseline-analytic-fields"
-        or bridge.get("regions") != ["limb-root-connectors", "hip-transitions"]
-        or bridge.get("field_count") != 6
+        or bridge.get("regions") != ["thigh-root-connectors", "hip-transitions"]
+        or bridge.get("field_count") != 4
         or bridge.get("retained_recipes") != list(SUCCESSOR_RETAINED_BRIDGE_RECIPES)
     ):
-        raise SurfacePreviewPublishError("successor temporary bridge must contain only six root/hip fields")
+        raise SurfacePreviewPublishError(
+            "successor temporary bridge must contain only two thigh-root and two hip fields"
+        )
     retained = bridge["retained_recipes"]
     if any(recipe in SUCCESSOR_REPLACED_EXTREMITY_AND_TAIL_RECIPES for recipe in retained):
         raise SurfacePreviewPublishError("successor temporary bridge retains baseline paw, foot, or tail recipes")
@@ -1874,16 +2278,189 @@ def _validate_successor_sidecar(
     if not isinstance(metrics_region, dict) or not metrics_region:
         raise SurfacePreviewPublishError("successor metrics lack region representation metadata")
     if (
-        metrics_region.get("shoulder_representation") != "distal-deltoid-swept-curve-spans"
-        or type(metrics_region.get("shoulder_spans_consumed")) is not int
-        or metrics_region.get("shoulder_spans_consumed") != 2
-        or metrics_region.get("shoulder_curve") != "deltoid-sweep"
-        or type(metrics_region.get("shoulder_span_index")) is not int
-        or metrics_region.get("shoulder_span_index") != 1
+        metrics_region.get("shoulder_representation")
+        != "authored-five-section-frame-aware-profile-sweeps"
+        or metrics_region.get("shoulder_sweeps_consumed") != 2
+        or metrics_region.get("shoulder_sweep_order") != shoulders["sweep_order"]
+        or metrics_region.get("shoulder_sweep_section_counts")
+        != shoulders["section_counts"]
+        or metrics_region.get("shoulder_sweep_section_names")
+        != shoulders["section_names"]
         or metrics_region.get("extremity_sweeps_consumed") != 6
         or metrics_region.get("tail_elements_consumed") != 6
+        or metrics_region.get("replaced_baseline_field_count") != 48
     ):
         raise SurfacePreviewPublishError("successor metrics lack truthful shoulder, extremity, and tail claims")
+
+    producer_variants = producer_payload.get("variants")
+    producer_landmarks = producer_payload.get("authored_landmarks")
+    producer_dimensions = producer_payload.get("authored_dimensions")
+    producer_scale = producer_payload.get("reference_scale")
+    if (
+        not isinstance(producer_variants, list)
+        or not isinstance(producer_landmarks, list)
+        or not isinstance(producer_dimensions, list)
+        or not isinstance(producer_scale, dict)
+        or type(producer_scale.get("squared_length")) is not int
+        or producer_scale["squared_length"] <= 0
+    ):
+        raise SurfacePreviewPublishError(
+            "successor shoulder metrics cannot bind v6 producer controls"
+        )
+    producer_variant = next(
+        (
+            item
+            for item in producer_variants
+            if isinstance(item, dict) and item.get("id") == variant_id
+        ),
+        None,
+    )
+    if not isinstance(producer_variant, dict) or not isinstance(
+        producer_variant.get("descriptors"), list
+    ):
+        raise SurfacePreviewPublishError(
+            "successor shoulder metrics cannot bind their producer variant"
+        )
+    descriptors = producer_variant["descriptors"]
+    torso_descriptors = [
+        item
+        for item in descriptors
+        if isinstance(item, dict)
+        and isinstance(item.get("address"), dict)
+        and item["address"].get("role") == "torso"
+        and item["address"].get("anchors") == []
+    ]
+    if len(torso_descriptors) != 1:
+        raise SurfacePreviewPublishError(
+            "successor shoulder metrics have no unique torso producer owner"
+        )
+    torso_owner = torso_descriptors[0]["address"]
+    controls = metrics_region.get("shoulder_sweep_controls")
+    owner_keys = metrics_region.get("shoulder_sweep_section_owner_keys")
+    if not isinstance(controls, list) or len(controls) != 2:
+        raise SurfacePreviewPublishError(
+            "successor shoulder metrics lack the two authored control records"
+        )
+    if not isinstance(owner_keys, list) or len(owner_keys) != 2:
+        raise SurfacePreviewPublishError(
+            "successor shoulder metrics lack section ownership"
+        )
+    reference_scale = math.sqrt(float(producer_scale["squared_length"]))
+    depth_factor = {
+        "neutral-v0": 1_000,
+        "broad-soft-v0": 1_150,
+        "lean-readable-v0": 800,
+        "depth-forward-v0": 1_000,
+    }[variant_id]
+    for index, side_name in enumerate(("left", "right")):
+        where = f"successor shoulder metrics[{side_name}]"
+        upper_arms = [
+            item
+            for item in descriptors
+            if isinstance(item, dict)
+            and isinstance(item.get("address"), dict)
+            and item["address"].get("role") == "upper_arm"
+            and item["address"].get("anchors") == [side_name]
+        ]
+        if len(upper_arms) != 1:
+            raise SurfacePreviewPublishError(f"{where} has no unique upper-arm producer owner")
+        upper_arm = upper_arms[0]
+        upper_owner = upper_arm["address"]
+        reference_point = upper_arm.get("reference_point")
+        if not isinstance(reference_point, list) or len(reference_point) != 3:
+            raise SurfacePreviewPublishError(f"{where} producer reference point is invalid")
+        landmarks = [
+            item
+            for item in producer_landmarks
+            if isinstance(item, dict)
+            and item.get("owner") == upper_owner
+            and item.get("role") in {"form_axilla", "form_shoulder_peak"}
+        ]
+        dimensions = [
+            item
+            for item in producer_dimensions
+            if isinstance(item, dict)
+            and item.get("owner") == upper_owner
+            and item.get("role") == "form_shoulder_depth_radius"
+        ]
+        if len(landmarks) != 2 or len(dimensions) != 1:
+            raise SurfacePreviewPublishError(f"{where} producer controls are incomplete")
+        landmark_by_role = {item["role"]: item for item in landmarks}
+        peak_position = landmark_by_role["form_shoulder_peak"].get("position")
+        axilla_position = landmark_by_role["form_axilla"].get("position")
+        depth_value = dimensions[0].get("value_permille")
+        if (
+            not isinstance(peak_position, list)
+            or len(peak_position) != 3
+            or not isinstance(axilla_position, list)
+            or len(axilla_position) != 3
+            or type(depth_value) is not int
+            or depth_value <= 0
+        ):
+            raise SurfacePreviewPublishError(f"{where} producer control values are invalid")
+        peak_anchor = [
+            (float(reference_point[axis]) + float(peak_position[axis]))
+            / reference_scale
+            for axis in range(3)
+        ]
+        axilla_anchor = [
+            (float(reference_point[axis]) + float(axilla_position[axis]))
+            / reference_scale
+            for axis in range(3)
+        ]
+        expected_center = [
+            0.5 * (peak_anchor[axis] + axilla_anchor[axis])
+            for axis in range(3)
+        ]
+        expected_vertical = 0.5 * (peak_anchor[1] - axilla_anchor[1])
+        expected_depth = (depth_value * depth_factor // 1_000) / 1_000.0
+        control = controls[index]
+        if not isinstance(control, dict) or set(control) != {
+            "side", "authored_center", "vertical_radius", "depth_radius"
+        }:
+            raise SurfacePreviewPublishError(f"{where} control record is invalid")
+        center = control.get("authored_center")
+        parsed_center = (
+            [
+                _finite_number(value, f"{where}.authored_center[{axis}]")
+                for axis, value in enumerate(center)
+            ]
+            if isinstance(center, list) and len(center) == 3
+            else None
+        )
+        actual_vertical = _finite_number(
+            control.get("vertical_radius"), f"{where}.vertical_radius"
+        )
+        actual_depth = _finite_number(
+            control.get("depth_radius"), f"{where}.depth_radius"
+        )
+        if (
+            control.get("side") != side_name
+            or parsed_center is None
+            or any(
+                not math.isclose(float(actual), expected, rel_tol=0.0, abs_tol=1.0e-12)
+                for actual, expected in zip(parsed_center or (), expected_center)
+            )
+            or not math.isclose(
+                actual_vertical,
+                expected_vertical,
+                rel_tol=0.0,
+                abs_tol=1.0e-12,
+            )
+            or not math.isclose(
+                actual_depth,
+                expected_depth,
+                rel_tol=0.0,
+                abs_tol=1.0e-12,
+            )
+        ):
+            raise SurfacePreviewPublishError(
+                f"{where} does not match the exact producer controls"
+            )
+        if owner_keys[index] != [torso_owner, torso_owner, upper_owner, upper_owner, upper_owner]:
+            raise SurfacePreviewPublishError(
+                f"{where} section ownership is not torso/upper-arm source-owned"
+            )
     if metrics_region.get("replaced_baseline_recipes") != replaced or metrics.get("temporary_bridge") != bridge:
         raise SurfacePreviewPublishError("successor metrics disagree with sidecar checkpoint metadata")
     return sidecar
@@ -1895,7 +2472,7 @@ def _validate_successor_bundle(
     producer_payload: dict[str, Any],
     baseline_manifest: dict[str, Any],
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """Validate only the successor v2 publication boundary against baseline v2."""
+    """Validate only the successor v3 publication boundary against baseline v2."""
 
     try:
         bundle_info = bundle.lstat()
@@ -1963,7 +2540,11 @@ def _validate_successor_bundle(
         raise SurfacePreviewPublishError("successor capture_padding does not match validated baseline generator padding")
     if type(generator["smooth_k"]) not in {int, float} or not 0.0 < generator["smooth_k"] <= 100.0:
         raise SurfacePreviewPublishError("successor generator.smooth_k is out of bounds")
-    if generator.get("production_status") != "disposable exploratory proof" or not isinstance(generator.get("consumer_boundary"), str) or not generator["consumer_boundary"]:
+    if (
+        generator.get("production_status") != "disposable exploratory proof"
+        or generator.get("consumer_boundary")
+        != "successor torso/shoulder/head/neck, four limb chains, bilateral hands, digitigrade feet, and tail; baseline temporary bridge for thigh-root/hip connectors"
+    ):
         raise SurfacePreviewPublishError("successor generator boundary metadata is invalid")
 
     variants = manifest.get("variants")
@@ -1999,6 +2580,7 @@ def _validate_successor_bundle(
             "guide-skin-composite-png": f"{variant_id}/guide-skin-composite.png",
         }
         metrics_payload: dict[str, Any] | None = None
+        ply_metrics: dict[str, Any] | None = None
         sidecar_payload: dict[str, Any] | None = None
         image_entry: dict[str, Any] | None = None
         kinds: set[str] = set()
@@ -2026,7 +2608,9 @@ def _validate_successor_bundle(
             actual_hash, actual_size = _sha256(artifact, rel_text)
             if actual_hash != entry["sha256"] or actual_size != entry["bytes"]:
                 raise SurfacePreviewPublishError(f"successor inventory does not match {rel_text}")
-            if kind == "guide-skin-composite-png":
+            if kind == "ply":
+                ply_metrics = _validate_successor_ply(artifact, rel_text)
+            elif kind == "guide-skin-composite-png":
                 image_entry = entry
                 _validate_png(artifact, entry, rel_text)
                 if entry["width"] != expected_frame["canvas"]["width"] or entry["height"] != expected_frame["canvas"]["height"] or entry["mode"] != expected_frame["canvas"]["mode"]:
@@ -2036,13 +2620,27 @@ def _validate_successor_bundle(
                 _finite_json(metrics_payload, f"{where}.metrics.json")
                 _bounded_json(metrics_payload, f"{where}.metrics.json")
             elif kind == "successor-consumer-sidecar":
-                sidecar_payload = _validate_successor_sidecar(artifact, variant_id=variant_id, profile_id=variant_id, source_variant_sha256=source_variant_sha256, source=source, frame=expected_frame, metrics=variant["metrics"] if isinstance(variant.get("metrics"), dict) else {})
-        if kinds != set(expected_kinds) or metrics_payload is None or sidecar_payload is None or image_entry is None:
+                sidecar_payload = _validate_successor_sidecar(
+                    artifact,
+                    variant_id=variant_id,
+                    profile_id=variant_id,
+                    source_variant_sha256=source_variant_sha256,
+                    source=source,
+                    frame=expected_frame,
+                    metrics=(
+                        variant["metrics"]
+                        if isinstance(variant.get("metrics"), dict)
+                        else {}
+                    ),
+                    producer_payload=producer_payload,
+                )
+        if kinds != set(expected_kinds) or ply_metrics is None or metrics_payload is None or sidecar_payload is None or image_entry is None:
             raise SurfacePreviewPublishError(f"{where}.inventory is incomplete")
         if variant.get("metrics") != metrics_payload:
             raise SurfacePreviewPublishError(f"{where}.metrics does not match the inventoried metrics.json")
         if not isinstance(variant.get("metrics"), dict):
             raise SurfacePreviewPublishError(f"{where}.metrics must be an object")
+        _validate_successor_ply_metrics(ply_metrics, metrics_payload, where)
         published.append({"id": variant_id, "entry": image_entry, "metrics": metrics_payload, "sidecar": sidecar_payload})
 
     actual_paths, actual_directories = _regular_artifacts(bundle)
@@ -2078,7 +2676,9 @@ def publish_surface_preview(
     executable = (creature_kernel or default_creature_kernel()).absolute()
     generator_path = (generator or default_generator()).absolute()
     successor_generator_path = (successor_generator or default_successor_generator()).absolute()
-    with tempfile.TemporaryDirectory(prefix="ck-surface-preview-") as temp_name:
+    with tempfile.TemporaryDirectory(
+        prefix=".ck-surface-preview-", dir=reviews_root.parent
+    ) as temp_name:
         work = Path(temp_name)
         input_copy = work / "input.json"
         producer_output = work / "provisional-form.json"
@@ -2104,15 +2704,15 @@ def publish_surface_preview(
         except (ProvisionalFormPublishError, OSError, ValueError) as exc:
             raise SurfacePreviewPublishError(str(exc)) from exc
         if payload.get("format") != common.PROVISIONAL_FORM_FORMAT:
-            raise SurfacePreviewPublishError("creature-kernel inspection did not produce v5")
+            raise SurfacePreviewPublishError("creature-kernel inspection did not produce v6")
         producer_output.write_text(canonical_json(payload), encoding="utf-8")
-        producer_sha256, _ = _sha256(producer_output, "v5 producer output")
+        producer_sha256, _ = _sha256(producer_output, "producer envelope output")
         producer_evidence = _validate_producer_evidence(
-            _read_producer_evidence(producer_output), "v5 producer evidence"
+            _read_producer_evidence(producer_output), "producer envelope evidence"
         )
-        if producer_evidence["producer_v5_sha256"] != producer_sha256:
+        if producer_evidence["producer_envelope_sha256"] != producer_sha256:
             raise SurfacePreviewPublishError(
-                "v5 producer evidence does not match the consumed producer output"
+                "producer envelope evidence does not match the consumed producer output"
             )
         _, generator_stderr, generator_returncode = _run_bounded(
             [sys.executable, str(generator_path), "--input", str(producer_output), "--output", str(baseline_bundle)],
@@ -2200,9 +2800,9 @@ def publish_surface_preview(
         _validate_producer_evidence(
             descriptor_snapshot, "review.subject_context.descriptor_snapshot"
         )
-        if descriptor_snapshot["producer_v5_sha256"] != descriptor_snapshot["source_sha256"]:
+        if descriptor_snapshot["producer_envelope_sha256"] != descriptor_snapshot["source_sha256"]:
             raise SurfacePreviewPublishError(
-                "review lineage does not bind the consumed v5 producer output"
+                "review lineage does not bind the consumed producer envelope"
             )
         manifest_path.write_text(canonical_json({
             "schema_version": 1,

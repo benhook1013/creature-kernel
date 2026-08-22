@@ -1,7 +1,7 @@
 # Disposable current-form surface preview
 
 This is an exploratory visual workbench for the exact four-variant
-`creature-kernel.provisional-form-preview.v5` envelope. It converts the
+`creature-kernel.provisional-form-preview.v6` envelope. It converts the
 source-authored dimension-backed integer descriptors into analytic ellipsoid, capsule, and
 linear-radius tapered-segment fields, folds them in stable full-AddressKey
 order, and extracts a bounded continuous surface on a fixed uniform grid.
@@ -52,9 +52,10 @@ restriction, not a local-frame or general morphology contract.
 
 The skin adapter embeds torso-owned root and hip connectors toward the child by
 their support radius. Their guide-side boundary anchors remain visible in the
-regional sidecar, while the compiled field uses the embedded centreline; the
-separate shoulder/hip mass controls remain diagnostic and are not emitted as
-additional skin fields.
+regional sidecar, while the compiled field uses the embedded centreline. The
+successor shoulder consumer separately uses the authored shoulder peak/axilla
+controls and frame axes described below; the bilateral support curves remain
+guide-only.
 
 The manifest metrics report both source descriptor count and actual generated
 field count, including the field-memory bound used for allocation. This is
@@ -83,12 +84,18 @@ named endpoint joint stations, and exact parent anchors for hand/foot
 attachments. Forearm controls have no elbow station, avoiding duplicate joint
 ownership. Foot controls expose the existing source-owned hock, a tapered
 metatarsal, planted paw-pad and forward toe-box masses, plus a guide-only
-contact datum. Shoulder controls retain bilateral anterior/posterior support
-curves for x-ray inspection, but mark them `guide-only`; only the
-upper-arm-owned distal `deltoid-sweep` span at index `1` per side remains
-skin-driving in this disposable analytic adapter. The sidecar and manifest
-therefore report the exact compiled recipe inventory separately from the
-richer private guide controls;
+contact datum. Shoulder controls retain authored peak/axilla anchors, vertical
+and depth radii, and frame axes. The successor consumes them as exactly two
+ordered, deterministic, frame-aware five-section lateral profile sweeps, one
+per side: `torso-interior`, `torso-boundary`, `authored-shoulder`,
+`upper-arm-socket`, and `upper-arm-midpoint`. The first two sections are
+torso-owned; the authored shoulder, socket, and midpoint sections are matching
+`upper_arm`-owned, with the last two overlapping the existing upper-arm sweep.
+A shoulder-specific finite-span evaluator rejects malformed frames and axes
+and keeps representative remote points away from accidental zero crossings.
+The bilateral support curves remain `guide-only`; no arm root bridge or distal
+deltoid field is emitted. The sidecar and manifest therefore report the exact
+compiled recipe inventory separately from the richer private guide controls;
 hands retain a simple paw mass and attachment. It is not a semantic or runtime
 contract and contains no
 descriptor input records or synthetic semantic IDs. The composite places guide and compiled
@@ -116,19 +123,24 @@ python3 -m venv /tmp/ck-current-form-surface-venv
 python -m pip install -r experiments/current-form-surface-preview/requirements.txt
 ```
 
-The input must be a successful v5 inspection envelope. The output directory
+The input must be a successful v6 inspection envelope. The output directory
 must not already exist, and its parent must already exist:
 
 ```bash
 mkdir -p /tmp/ck-current-form-surface
 python experiments/current-form-surface-preview/generate_surface_preview.py \
-  --input /tmp/form-v5.json \
+  --input /tmp/form-v6.json \
   --output /tmp/ck-current-form-surface/run-a \
   --samples-per-axis 72
 ```
 
 One generator invocation emits all four fixed variant subdirectories; do not
 run it separately per variant.
+
+The direct successor applies the same baseline raw-input bound,
+`surface_preview.MAX_INPUT_BYTES` (currently 4 MiB). Inputs at or below the
+inclusive bound continue to normal UTF-8/JSON validation; an oversized input
+fails with `input exceeds bounded size` before output staging or mesh work.
 
 The successful bundle contains exactly the manifest and four sets of PLY,
 semantic-winner sidecar, metrics JSON, regional-guide JSON, and guide/skin
@@ -152,8 +164,9 @@ ordered hand attachment/paw sweeps and shin-to-foot digitigrade chains,
 including guide-owned hock, metatarsal, pad, and toe controls. The successor
 tail boundary consumes six source-owned tail elements (root source,
 attachment, collar mass, tip source, extension, and cap); baseline fields
-remain an explicit bridge only for four limb-root connectors and two hip
-transitions. No baseline tail, paw, or foot component remains. The shared
+remain an explicit bridge only for two thigh root connectors and two hip
+transitions. The two arm root bridges are replaced by the authored shoulder
+sweeps above; no baseline tail, paw, or foot component remains. The shared
 tail source/extension endpoint retains its independently authored profiles;
 this experiment does not claim that the resulting tail silhouette or visual
 quality has been observed or accepted.
@@ -162,17 +175,23 @@ visual checkpoint. The [active runway](../../docs/project/status.md#active-runwa
 defines the baseline-versus-successor browser comparison that must be reached
 before human appraisal.
 
+The shoulder slice is an authored, disposable consumer intended to test
+frame-aware profile continuity and bounded field behavior around the torso and
+upper-arm join. It does not establish anatomical realism, production topology,
+general morphology support, or the quality of the final visual result; those
+remain unproven until the named visual checkpoint is reviewed.
+
 After creating and activating the experiment virtual environment described
 above, the workflow has two steps:
 
 ```bash
 cargo run -p creature-kernel-cli -- inspect-provisional-form \
   --input examples/body-documents/stylized-digitigrade-biped-authored-form.json \
-  > /tmp/form-v5.json
+  > /tmp/form-v6.json
 
 mkdir -p /tmp/ck-successor-surface
 python experiments/current-form-surface-preview/generate_successor_surface_preview.py \
-  --input /tmp/form-v5.json \
+  --input /tmp/form-v6.json \
   --output /tmp/ck-successor-surface/run-a \
   --samples-per-axis 56
 ```
@@ -184,7 +203,7 @@ robustness; lower values within the accepted argument range may still validly
 fail mesh-connectedness validation, and successful generation is not guaranteed
 at every in-range sampling value.
 
-A successful v2 run writes `successor-surface-manifest.json` plus exactly four
+A successful v3 run writes `successor-surface-manifest.json` plus exactly four
 variant directories. Each variant directory contains exactly
 `surface.ply`, `metrics.json`, `successor.json`, and one
 `guide-skin-composite.png`. The PNG is a deterministic RGB capture at the

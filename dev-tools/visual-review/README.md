@@ -113,23 +113,28 @@ python3 dev-tools/visual-review/serve.py \
 inspect-provisional-form --input PATH` shell-free, with a 10-second timeout,
 256 KiB stdout bound, and 64 KiB stderr bound. It accepts only a complete,
 diagnostic-free `creature-kernel.provisional-form-preview.v1`, `.v2`, `.v3`,
-`.v4`, or `.v5` success envelope,
+`.v4`, `.v5`, or `.v6` success envelope,
 the exact four variant IDs/order, known Part addresses and provenance, bounded
 integer points, supported ellipsoid/capsule/tapered-segment shapes, and the
 positive reference scale. Failed CLI outcomes and malformed payloads are not
 published. The resulting immutable `provisional-form` session contains the
 validated payload only and no assets or external dependencies.
 
-The CLI currently emits the provisional v5 contract. As in v2/v3, limb
+The CLI currently emits the provisional v6 contract. As in v2/v3, limb
 capsules are owned by their current Part: `upper_arm` spans its reference point
 to its direct `forearm` child, `forearm` to `hand`, `thigh` to `shin`, and
 `shin` to `foot`. V4 introduced `neck` as a narrow axial capsule
 from the neck reference to its direct `head` child, overlapping only the upper
 torso and head rather than behaving like a torso-length spine. The tapered tail
-remains parent-to-current Part. V5 retains that geometry while carrying the
-source-authored dimension inventory, each descriptor's consumed dimension
-roles, and the subsequent fixed display-factor provenance. The server retains
-strict read support for immutable v1-v4 sessions under their original
+remains parent-to-current Part. Historical v5 retains that geometry while
+carrying only the source-authored dimension inventory and each descriptor's
+original consumed dimension roles; its `upper_arm` capsule role is
+`["form_radius"]`. Current v6 retains the same display geometry while adding
+source-authored shoulder landmarks and identity control frames. Its upper-arm
+role inventory is `["form_radius", "form_shoulder_depth_radius"]`; only
+`form_radius` supplies the capsule radius, while the depth control remains a
+consumed authored control for later region-aware consumers. The server retains
+strict read support for immutable v1-v5 sessions under their original
 role/endpoint contracts. These are provisional display-volume rules, not a
 generated skeleton, anatomical socket, or general junction contract.
 
@@ -263,7 +268,7 @@ success. A failed invocation cleans only its own staging/session files.
 ## Disposable baseline-versus-successor surface checkpoint
 
 `publish_surface_preview.py` is a bounded adapter for the current experiment
-surface consumers. It runs the Rust v5 provisional-form producer once, runs the
+surface consumers. It runs the current v6 provisional-form producer once, runs the
 baseline and successor Python generators against that same producer output,
 validates both bundles, and publishes four ordered baseline/successor image
 pairs (eight guide/skin composite PNGs) through the ordinary image gallery.
@@ -291,6 +296,10 @@ root such as `/home/ben/.cache/creature-kernel/visual-reviews`. The publisher
 creates that final directory when its parent exists. Serve it for LAN review
 with the existing read-only command:
 
+Transient generator work is allocated beside the selected review root so WSL
+Windows TEMP/TMP does not redirect it to DrvFS; callers must still choose a
+POSIX filesystem supporting the required operations.
+
 ```bash
 python3 dev-tools/visual-review/serve.py \
   --root /home/ben/.cache/creature-kernel/visual-reviews \
@@ -305,16 +314,18 @@ eight copied images. Every pair uses the same source provenance and shared
 front, side, and three-quarter framing (`1800 × 570`, RGB), so the appraisal
 can focus on the consumer boundary rather than capture differences.
 
-The published `review.json` also retains the exact canonical v5 producer bytes
+The published `review.json` also retains the exact canonical current producer
+envelope bytes
 actually consumed by both generators in
 `subject_context.descriptor_snapshot`. That payload is deterministically
 zlib-compressed and Base64-encoded to stay within the bounded review-context
 carrier, with its original UTF-8 encoding, byte count, and SHA-256 recorded
 alongside it; its hash must equal the existing producer `source_sha256`.
-Decoding the field must reproduce the exact v5 bytes and therefore the complete
-authored-dimension/descriptor-role mapping. The original validated body
+The fields use the version-neutral `producer_envelope_*` prefix. Decoding the
+field must reproduce the exact current-format bytes and therefore the complete
+authored-dimension/landmark/frame/descriptor-role mapping. The original validated body
 document remains identified by its UTF-8 encoding, byte count, and SHA-256
-without duplicating its bytes. This is self-contained v5 lineage evidence, not
+without duplicating its bytes. This is self-contained current-format lineage evidence, not
 an image asset, a new body-document contract, or a claim that the disposable
 consumers are production geometry.
 
@@ -325,11 +336,11 @@ paws, and tail; less like blended primitives; and with the four variants still
 meaningfully different. The gallery records the comparison only; it does not
 record acceptance.
 
-The baseline v2 generator bundle is fail-closed: its manifest must identify the v5 source,
-contain the four canonical v5 variants in order, and inventory exactly one PLY,
+The baseline v2 generator bundle is fail-closed: its manifest must identify the
+current v6 source, contain the four canonical v6 variants in order, and inventory exactly one PLY,
 semantic sidecar, metrics JSON, regional-guide JSON, and guide/skin composite PNG
 per variant. Every inventory path is relative, regular, non-symlinked, hash- and
-size-checked. The regional-guide v4 sidecar is checked as a bounded finite
+size-checked. The regional-guide v5 sidecar is checked as a bounded finite
 source-owned projection with the generator's exact skin-driving ordered torso
 cage sections, pelvis/torso ownership, axes/orientation, and section
 connections. Its older axial station and transition controls are accepted only
@@ -340,12 +351,14 @@ explicit shoulder/hip girdle masses, source-derived digitigrade foot chains
 from hock through tapered metatarsal to planted paw-pad and toe-box, a
 guide-only contact datum, positive dimensions,
 allowed path primitives, expected source roles, and shared-bound containment;
-its shoulder sidecar distinguishes guide-only anterior/posterior support curves
-from the two skin-driving deltoid sweeps, and its compiled recipe counts,
+its shoulder sidecar binds the exact v6 identity frames, peak/axilla landmarks,
+and variant-scaled depth controls to the producer. It distinguishes those
+guide-derived controls and guide-only anterior/posterior support curves from
+the baseline's two skin-driving deltoid sweeps; its compiled recipe counts,
 shared bounds, projections, canvas, and panel layout must match the manifest.
 Stale support-field claims are rejected rather than silently accepted. Composite
 PNG IHDR and inventory metadata are bound to the fixed 1800x570 RGB canvas. The
-bundle's source/provenance and descriptor AddressKeys are bound to the parsed v5
+bundle's source/provenance and descriptor AddressKeys are bound to the parsed v6
 producer result. The producer has a 10-second bound and the local extraction/
 render subprocess has a finite 120-second bound. Unlisted files or directories,
 malformed inventory or guide/provenance, partial variants, and generator or
