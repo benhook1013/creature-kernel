@@ -738,6 +738,37 @@ class SubjectContextHTTPTests(ReviewFixture):
 
 
 class StaticAssetTests(unittest.TestCase):
+    def test_image_comparator_exposes_group_navigation_and_stale_load_guard(self):
+        js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
+        css = (HERE / "static" / "style.css").read_text(encoding="utf-8")
+        for contract in (
+            "function openImage(items, selectedIndex)",
+            "var imageItems = group.items.map",
+            "openImage(imageItems, itemIndex);",
+            'event.key === "ArrowLeft"',
+            'event.key === "ArrowRight"',
+            'showItem(currentIndex + 1);',
+            'node("button", "Previous"',
+            'node("button", "Next"',
+            'positionLabel.textContent = "Item "',
+            'Use Previous/Next, the Left/Right arrow keys',
+            'nextImage.addEventListener("click"',
+            'loadToken !== imageLoadToken || image !== nextImage',
+            'nextImage.alt = item.title',
+            'nextImage.title = item.title',
+            'nextImage.setAttribute("role", "button")',
+            'nextImage.setAttribute("aria-label", "Show next comparison image")',
+            'nextImage.addEventListener("keydown", showNextImage)',
+            "var returnFocus = document.activeElement",
+            "document.documentElement.contains(returnFocus)",
+            "function closeImageDialog()",
+            'close.addEventListener("click", closeImageDialog)',
+            "closeImageDialog();",
+        ):
+            self.assertIn(contract, js)
+        for selector in (".image-navigation-control", ".image-position", ".image-dialog-instructions", ".image-dialog img:focus-visible"):
+            self.assertIn(selector, css)
+
     def test_image_viewer_is_viewport_sized_and_image_scoped(self):
         js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
         css = (HERE / "static" / "style.css").read_text(encoding="utf-8")

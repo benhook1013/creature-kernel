@@ -41,11 +41,17 @@ except ModuleNotFoundError:  # pragma: no cover - direct source-tree execution
     _baseline = importlib.import_module("surface_preview")
 
 
-FORMAT = "creature-kernel.disposable-successor-surface-preview.v1"
+# v2 adds the baseline-compatible guide/skin capture and its framing metadata;
+# the private consumer identity remains stable across this output expansion.
+FORMAT = "creature-kernel.disposable-successor-surface-preview.v2"
 CONSUMER_ID = "successor-surface-v1"
-SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-limb-extremity-tail-profile-sweeps-v5"
+SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-limb-extremity-tail-profile-sweeps-v6"
 DEFAULT_SAMPLES = 56
 DEFAULT_PADDING = 0.50
+# Capture framing is a baseline-compatible concern, separate from the
+# successor mesh sampling domain.  Source this value from the baseline
+# generator so the two consumers cannot silently drift apart.
+DEFAULT_CAPTURE_PADDING = _baseline.DEFAULT_PADDING
 DEFAULT_SMOOTH_K = 0.10
 MAX_SAMPLES = 96
 MAX_VOXELS = 96**3
@@ -298,7 +304,7 @@ class SuccessorRegion:
         return len(self.loft.names)
 
     @property
-    def shoulder_inputs_consumed(self) -> int:
+    def shoulder_spans_consumed(self) -> int:
         return len(self.shoulder_spans)
 
     @property
@@ -569,29 +575,28 @@ def _make_loft(guide: Any) -> _ProfileSweep:
 
 
 def _make_spans(guide: Any) -> tuple[_SweptSpan, ...]:
+    """Consume only the accepted distal deltoid span for each side."""
+
     spans: list[_SweptSpan] = []
     frame = guide.shoulder_frame
     for side in frame.sides:
-        for curve_name, curve in (
-            ("anterior-support", side.anterior_support),
-            ("posterior-return", side.posterior_return),
-            ("deltoid-sweep", side.deltoid_sweep),
-        ):
-            if len(curve.points) != len(curve.profile) or len(curve.points) < 2:
-                _fail(f"successor shoulder input {side.side}/{curve_name} is malformed")
-            for index in range(len(curve.points) - 1):
-                start = tuple(float(value) for value in curve.points[index])
-                end = tuple(float(value) for value in curve.points[index + 1])
-                start_radius = float(curve.profile[index])
-                end_radius = float(curve.profile[index + 1])
-                if not all(math.isfinite(value) for value in (*start, *end)):
-                    _fail(f"{side.side}/{curve_name} contains non-finite points")
-                _finite_positive((start_radius, end_radius), f"{side.side}/{curve_name}.profile")
-                if start == end:
-                    _fail(f"successor shoulder input {side.side}/{curve_name} contains a degenerate span")
-                spans.append(_SweptSpan(side.side, curve_name, index, curve.owner, start, end, start_radius, end_radius))
-    if len(spans) != 16:  # 2 sides: 3 + 3 + 2 spans
-        _fail(f"successor shoulder input count is unstable: {len(spans)}")
+        curve_name = "deltoid-sweep"
+        curve = side.deltoid_sweep
+        index = 1
+        if len(curve.points) != len(curve.profile) or len(curve.points) <= index + 1:
+            _fail(f"successor distal deltoid input {side.side} is malformed")
+        start = tuple(float(value) for value in curve.points[index])
+        end = tuple(float(value) for value in curve.points[index + 1])
+        start_radius = float(curve.profile[index])
+        end_radius = float(curve.profile[index + 1])
+        if not all(math.isfinite(value) for value in (*start, *end)):
+            _fail(f"{side.side}/{curve_name}-{index} contains non-finite points")
+        _finite_positive((start_radius, end_radius), f"{side.side}/{curve_name}-{index}.profile")
+        if start == end:
+            _fail(f"successor distal deltoid input {side.side} contains a degenerate span")
+        spans.append(_SweptSpan(side.side, curve_name, index, curve.owner, start, end, start_radius, end_radius))
+    if len(spans) != 2:
+        _fail(f"successor distal deltoid span count is unstable: {len(spans)}")
     return tuple(spans)
 
 
@@ -2031,7 +2036,7 @@ def _validate_limb_bridge_inventory(
 def compile_successor_region(guide: Any, baseline_fields: tuple[Any, ...] | None = None) -> SuccessorRegion:
     """Compile the guide into the successor regional profile-sweep consumer.
 
-    The torso cage, shoulder deltoid spans, five baseline head/neck fields,
+    The torso cage, one distal deltoid span per side, five baseline head/neck fields,
     four bilateral limb chains, ten bilateral hand/foot fields, and six tail
     fields are replaced. Every other baseline field is carried as a named
     temporary bridge: four limb-root bridges and two hip transitions.
@@ -2485,8 +2490,10 @@ def build_variant(form: Any, descriptors: tuple[Any, ...], samples: int = DEFAUL
             "torso_sections_consumed": region.sections_consumed,
             "torso_section_names": list(region.section_names),
             "torso_section_owner_keys": [_baseline._address_json(owner.key) for owner in region.loft.owners],
-            "shoulder_support_inputs_consumed": region.shoulder_inputs_consumed,
-            "shoulder_support_input_kind": "tapered-swept-curve-spans",
+            "shoulder_representation": "distal-deltoid-swept-curve-spans",
+            "shoulder_spans_consumed": region.shoulder_spans_consumed,
+            "shoulder_curve": "deltoid-sweep",
+            "shoulder_span_index": 1,
             "head_neck_representation": "shared-guide-derived-profile-sweeps",
             "head_neck_sweeps_consumed": len(region.head_neck_sweeps),
             "head_neck_sweep_order": [item.recipe for item in region.head_neck_sweeps],
@@ -2618,25 +2625,57 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
     except (UnicodeDecodeError, json.JSONDecodeError, ValueError, RecursionError) as exc:
         raise SuccessorPreviewError(f"input is not finite JSON: {exc}") from exc
     form = _baseline.validate_envelope(value)
+
+    # Prepare every private guide and its canonical baseline field set before
+    # any mesh is published.  The capture frame deliberately follows the
+    # baseline consumer's bounds rather than the successor's mesh bounds so
+    # the two consumers remain directly comparable across all four variants.
+    prepared: list[tuple[str, tuple[Any, ...], dict[str, Any], Any, tuple[Any, ...]]] = []
+    for variant_id, descriptors, raw_variant in form.variants:
+        guide = _baseline._derive_hybrid_guides(form, descriptors)
+        _baseline._validate_hybrid_guide(guide)
+        fields = _baseline._compile_hybrid_guide(guide)
+        prepared.append((variant_id, descriptors, raw_variant, guide, fields))
+    shared_render_bounds = _baseline._shared_render_bounds(
+        tuple(item[4] for item in prepared), DEFAULT_CAPTURE_PADDING
+    )
+    for _, _, _, guide, _ in prepared:
+        _baseline._validate_hybrid_guide(guide, shared_render_bounds)
+
     stage = Path(tempfile.mkdtemp(prefix=f".{output.name}.", dir=str(output.parent)))
     try:
         records: list[dict[str, Any]] = []
-        for variant_id, descriptors, raw_variant in form.variants:
+        lower, upper = shared_render_bounds
+        shared_bounds_json = {"min": [float(item) for item in lower], "max": [float(item) for item in upper]}
+        canvas = {"width": _baseline.CANVAS[0], "height": _baseline.CANVAS[1], "mode": "RGB"}
+        layout = _baseline._layout_json()
+        projections = _baseline._projection_json()
+        for variant_id, descriptors, raw_variant, guide, _ in prepared:
+            source_variant_sha256 = hashlib.sha256(_canonical(raw_variant)).hexdigest()
             mesh = build_variant(form, descriptors, samples=samples, padding=padding, smooth_k=smooth_k)
             variant_dir = stage / variant_id
             variant_dir.mkdir()
             ply = variant_dir / "surface.ply"
             metrics = variant_dir / "metrics.json"
             successor = variant_dir / "successor.json"
+            png = variant_dir / "guide-skin-composite.png"
             _write_ply(ply, mesh)
             metrics.write_bytes(_canonical(mesh.metrics) + b"\n")
             successor.write_bytes(_canonical({
                 "format": FORMAT,
                 "variant_id": variant_id,
+                "profile_id": raw_variant["profile_id"],
+                "source_variant_sha256": source_variant_sha256,
                 "consumer_id": CONSUMER_ID,
                 "successor_region_id": SUCCESSOR_REGION_ID,
+                "capture": {
+                    "canvas": canvas,
+                    "projections": projections,
+                    "layout": layout,
+                    "shared_render_bounds": shared_bounds_json,
+                },
                 "torso": {"representation": "frame-aware-ordered-profile-sweep", "sections_consumed": mesh.representation.sections_consumed, "section_names": list(mesh.representation.section_names)},
-                "shoulders": {"representation": "tapered-swept-curve-spans", "inputs_consumed": mesh.representation.shoulder_inputs_consumed, "curves": sorted({span.curve_name for span in mesh.representation.shoulder_spans})},
+                "shoulders": {"representation": "distal-deltoid-swept-curve-spans", "spans_consumed": mesh.representation.shoulder_spans_consumed, "curve": "deltoid-sweep", "span_index": 1},
                 "head_neck": {
                     "representation": "shared-guide-derived-profile-sweeps",
                     "sweeps_consumed": len(mesh.representation.head_neck_sweeps),
@@ -2686,23 +2725,52 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
                 "temporary_bridge": mesh.metrics["temporary_bridge"],
                 "replaced_baseline_recipes": list(mesh.representation.replaced_baseline_recipes),
             }) + b"\n")
+            _baseline._render(png, mesh.vertices, mesh.faces, variant_id, guide=guide, bounds=shared_render_bounds)
             records.append({
                 "id": variant_id,
                 "profile_id": raw_variant["profile_id"],
+                "source_variant_sha256": source_variant_sha256,
                 "metrics": mesh.metrics,
-                "inventory": [_sha(ply, "ply", stage), _sha(metrics, "metrics", stage), _sha(successor, "successor-consumer-sidecar", stage)],
+                "inventory": [
+                    _sha(ply, "ply", stage),
+                    _sha(metrics, "metrics", stage),
+                    _sha(successor, "successor-consumer-sidecar", stage),
+                    {**_sha(png, "guide-skin-composite-png", stage), "width": _baseline.CANVAS[0], "height": _baseline.CANVAS[1], "views": ["front", "side", "three-quarter"], "panels_per_view": 2, "mode": "RGB"},
+                ],
             })
         manifest = {
             "format": FORMAT,
             "status": "success",
             "consumer_id": CONSUMER_ID,
             "source_format": _baseline.SOURCE_FORMAT,
-            "source": {"sha256": hashlib.sha256(data).hexdigest(), "document": form.source["document"], "namespace": form.source["namespace"], "resource_profile_id": form.source["resource_profile_id"]},
-            "generator": {"samples_per_axis": samples, "padding": padding, "smooth_k": smooth_k, "consumer_boundary": "successor torso/shoulder/head/neck, four limb chains, bilateral hands, digitigrade feet, and tail; baseline temporary bridge for root/hip connectors", "production_status": "disposable exploratory proof"},
+            "source": {"format": _baseline.SOURCE_FORMAT, "sha256": hashlib.sha256(data).hexdigest(), "document": form.source["document"], "namespace": form.source["namespace"], "resource_profile_id": form.source["resource_profile_id"], "reference_scale": form.reference_scale_raw},
+            "shared_render_bounds": shared_bounds_json,
+            "canvas": canvas,
+            "layout": layout,
+            "projections": projections,
+            "generator": {"samples_per_axis": samples, "padding": padding, "capture_padding": DEFAULT_CAPTURE_PADDING, "smooth_k": smooth_k, "consumer_boundary": "successor torso/shoulder/head/neck, four limb chains, bilateral hands, digitigrade feet, and tail; baseline temporary bridge for root/hip connectors", "production_status": "disposable exploratory proof"},
             "variants": records,
         }
         manifest_path = stage / "successor-surface-manifest.json"
         manifest_path.write_bytes(_canonical(manifest) + b"\n")
+        expected_files = {"successor-surface-manifest.json"}
+        expected_directories = set(_baseline.VARIANT_IDS)
+        for record in records:
+            expected_files.update(entry["path"] for entry in record["inventory"])
+        actual_files: set[str] = set()
+        actual_directories: set[str] = set()
+        for item in stage.rglob("*"):
+            relative = item.relative_to(stage).as_posix()
+            if item.is_symlink():
+                _fail(f"staging bundle contains a symlink: {relative}")
+            if item.is_dir():
+                actual_directories.add(relative)
+            elif item.is_file():
+                actual_files.add(relative)
+            else:
+                _fail(f"staging bundle contains a non-regular path: {relative}")
+        if actual_directories != expected_directories or actual_files != expected_files:
+            _fail("staging bundle does not match its explicit artifact inventory")
         try:
             _atomic_rename_noreplace(stage, output)
         except FileExistsError as exc:

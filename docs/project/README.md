@@ -8,6 +8,8 @@ not define product or architecture contracts.
 ## Documents
 
 - [Current status](status.md)
+- [Current operational handover](current-handover.md) – snapshot for continuing
+  the active runway in the Codex app; `status.md` remains authoritative.
 - [Project kickoff decision plan](kickoff-plan.md)
 - [Outcome roadmap](roadmap.md)
 - [Repository evolution](repository-evolution.md)

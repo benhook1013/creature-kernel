@@ -1777,15 +1777,22 @@
     app.appendChild(valueDetails("Raw structural JSON", structure));
   }
 
-  function openImage(item, source) {
+  function openImage(items, selectedIndex) {
+    var returnFocus = document.activeElement;
     var dialog = node("dialog", null, "image-dialog");
-    var heading = node("h2", item.title, "image-dialog-title");
+    var heading = node("h2", "Image comparison", "image-dialog-title");
     heading.id = "image-dialog-title";
     dialog.setAttribute("aria-labelledby", "image-dialog-title");
     var header = node("header", null, "image-dialog-header");
     header.appendChild(heading);
 
     var controls = node("div", null, "image-dialog-controls");
+    var previous = node("button", "Previous", "image-control image-navigation-control");
+    previous.type = "button";
+    previous.setAttribute("aria-label", "Show previous image");
+    var next = node("button", "Next", "image-control image-navigation-control");
+    next.type = "button";
+    next.setAttribute("aria-label", "Show next image");
     var zoomOut = node("button", "Zoom out", "image-control");
     zoomOut.type = "button";
     zoomOut.setAttribute("aria-label", "Zoom out of image");
@@ -1797,10 +1804,16 @@
     fit.setAttribute("aria-label", "Fit image to viewport and reset zoom");
     var scaleLabel = node("span", "Scale: —", "image-scale");
     scaleLabel.setAttribute("aria-live", "polite");
+    var positionLabel = node("span", "Item: —", "image-position");
+    positionLabel.setAttribute("aria-live", "polite");
+    positionLabel.setAttribute("role", "status");
+    controls.appendChild(previous);
+    controls.appendChild(next);
     controls.appendChild(zoomOut);
     controls.appendChild(zoomIn);
     controls.appendChild(fit);
     controls.appendChild(scaleLabel);
+    controls.appendChild(positionLabel);
 
     var close = node("button", "Close", "close-dialog");
     close.type = "button";
@@ -1815,11 +1828,10 @@
     viewport.setAttribute("aria-label", "Scrollable image viewport");
     var canvas = node("div", null, "image-canvas");
     var image = node("img");
-    image.src = source;
-    image.alt = item.title;
     canvas.appendChild(image);
     viewport.appendChild(canvas);
     dialog.appendChild(viewport);
+    dialog.appendChild(node("p", "Use Previous/Next, the Left/Right arrow keys, or click the displayed image to compare items. Escape closes the viewer.", "image-dialog-instructions"));
 
     var MIN_SCALE = 0.1;
     var MAX_SCALE = 8;
@@ -1827,6 +1839,8 @@
     var scale = 1;
     var fitScale = 1;
     var cleaned = false;
+    var currentIndex = Math.max(0, Math.min(items.length - 1, selectedIndex || 0));
+    var imageLoadToken = 0;
     var releaseScrollLock = acquireImageDialogLock();
 
     function imageSize() {
@@ -1898,7 +1912,13 @@
     function onKeyDown(event) {
       if (event.key === "Escape") {
         event.preventDefault();
-        dialog.close();
+        closeImageDialog();
+      } else if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        showItem(currentIndex - 1);
+      } else if (event.key === "ArrowRight") {
+        event.preventDefault();
+        showItem(currentIndex + 1);
       } else if (event.key === "+" || event.key === "=" || event.key === "Add") {
         event.preventDefault();
         zoomBy(ZOOM_FACTOR);
@@ -1912,6 +1932,46 @@
       fitToViewport();
     }
 
+    function showItem(index) {
+      if (!items.length) {
+        return;
+      }
+      currentIndex = (index + items.length) % items.length;
+      var item = items[currentIndex];
+      var loadToken = ++imageLoadToken;
+      var nextImage = node("img");
+      nextImage.alt = item.title;
+      nextImage.title = item.title;
+      nextImage.tabIndex = 0;
+      nextImage.setAttribute("role", "button");
+      nextImage.setAttribute("aria-label", "Show next comparison image");
+      function showNextImage(event) {
+        if (event.type === "keydown" && event.key !== "Enter" && event.key !== " ") {
+          return;
+        }
+        if (event.type === "keydown") {
+          event.preventDefault();
+        }
+        showItem(currentIndex + 1);
+      }
+      nextImage.addEventListener("click", showNextImage);
+      nextImage.addEventListener("keydown", showNextImage);
+      nextImage.addEventListener("load", function () {
+        if (cleaned || loadToken !== imageLoadToken || image !== nextImage) {
+          return;
+        }
+        fitToViewport();
+      });
+      canvas.replaceChild(nextImage, image);
+      image = nextImage;
+      image.src = item.source;
+      heading.textContent = item.title;
+      positionLabel.textContent = "Item " + (currentIndex + 1) + " of " + items.length + ": " + item.title;
+      previous.disabled = items.length < 2;
+      next.disabled = items.length < 2;
+      fitToViewport();
+    }
+
     function cleanup() {
       if (cleaned) {
         return;
@@ -1922,18 +1982,32 @@
       viewport.removeEventListener("wheel", onWheel);
       dialog.removeEventListener("keydown", onKeyDown);
       dialog.remove();
+      if (returnFocus && returnFocus.focus && document.documentElement.contains(returnFocus)) {
+        returnFocus.focus();
+      }
     }
 
-    close.addEventListener("click", function () { dialog.close(); });
+    function closeImageDialog() {
+      if (cleaned) {
+        return;
+      }
+      if (dialog.open) {
+        dialog.close();
+      }
+      cleanup();
+    }
+
+    close.addEventListener("click", closeImageDialog);
+    previous.addEventListener("click", function () { showItem(currentIndex - 1); });
+    next.addEventListener("click", function () { showItem(currentIndex + 1); });
     zoomOut.addEventListener("click", function () { zoomBy(1 / ZOOM_FACTOR); });
     zoomIn.addEventListener("click", function () { zoomBy(ZOOM_FACTOR); });
     fit.addEventListener("click", fitToViewport);
-    image.addEventListener("load", fitToViewport);
     viewport.addEventListener("wheel", onWheel, { passive: false });
     dialog.addEventListener("keydown", onKeyDown);
     dialog.addEventListener("cancel", function (event) {
       event.preventDefault();
-      dialog.close();
+      closeImageDialog();
     });
     dialog.addEventListener("close", cleanup);
     document.body.appendChild(dialog);
@@ -1944,7 +2018,7 @@
       throw error;
     }
     window.addEventListener("resize", onResize);
-    fitToViewport();
+    showItem(currentIndex);
     updateScaleLabel();
   }
 
@@ -1999,18 +2073,24 @@
         section.appendChild(node("p", group.description));
       }
       var cards = node("div", null, "option-grid");
+      var imageItems = group.items.map(function (groupItem) {
+        var imageItem = {};
+        Object.keys(groupItem).forEach(function (key) { imageItem[key] = groupItem[key]; });
+        imageItem.source = "/api/reviews/" + encodeURIComponent(review.id) + "/assets/" + groupItem.image.substring("assets/".length).split("/").map(encodeURIComponent).join("/");
+        return imageItem;
+      });
       var selected = (oldResponse && oldResponse.selections[group.id]) || [];
-      group.items.forEach(function (item) {
+      group.items.forEach(function (item, itemIndex) {
         var card = node("article", null, "option-card");
         var imageButton = node("button", null, "image-button");
         imageButton.type = "button";
         imageButton.setAttribute("aria-label", "Expand " + item.title);
         var image = node("img");
-        image.src = "/api/reviews/" + encodeURIComponent(review.id) + "/assets/" + item.image.substring("assets/".length).split("/").map(encodeURIComponent).join("/");
+        image.src = imageItems[itemIndex].source;
         image.alt = item.title;
         image.loading = "lazy";
         imageButton.appendChild(image);
-        imageButton.addEventListener("click", function () { openImage(item, image.src); });
+        imageButton.addEventListener("click", function () { openImage(imageItems, itemIndex); });
         card.appendChild(imageButton);
         var body = node("div", null, "option-body");
         var itemTitle = node("h3", item.title);

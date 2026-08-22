@@ -12,7 +12,7 @@ import tempfile
 import textwrap
 import unittest
 import zlib
-from contextlib import redirect_stderr
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
@@ -86,6 +86,9 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             import hashlib, json, pathlib, struct, sys, time
             args = dict(zip(sys.argv[1::2], sys.argv[2::2]))
             out = pathlib.Path(args["--output"])
+            if {mode!r} == "failure":
+                print("fixture generator failed", file=sys.stderr)
+                raise SystemExit(3)
             source_hash = hashlib.sha256(pathlib.Path(args["--input"]).read_bytes()).hexdigest()
             if {mode!r} == "source-mismatch": source_hash = "0" * 64
             if out.exists(): raise RuntimeError("output must not already exist")
@@ -261,6 +264,159 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         path.chmod(0o755)
         return path
 
+    def _successor_generator(self, *, mode: str = "success") -> Path:
+        """Write a small valid successor-v2 fixture, with bounded mutations."""
+
+        path = self.directory / f"successor-generator-{mode}.py"
+        script = textwrap.dedent("""
+            #!/usr/bin/env python3
+            import hashlib, json, pathlib, sys, time
+
+            MODE = __MODE__
+            PNG = __PNG__
+            CANVAS = __CANVAS__
+            PROJECTIONS = __PROJECTIONS__
+            LAYOUT = __LAYOUT__
+            BOUNDS = __BOUNDS__
+            SUCCESSOR_FORMAT = __SUCCESSOR_FORMAT__
+            CONSUMER_ID = __CONSUMER_ID__
+            REGION_ID = __REGION_ID__
+            EXTREMITY_ORDER = __EXTREMITY_ORDER__
+            EXTREMITY_KINDS = __EXTREMITY_KINDS__
+            TAIL_ORDER = __TAIL_ORDER__
+            TAIL_KINDS = __TAIL_KINDS__
+            REPLACED = __REPLACED__
+            MESH_PADDING = __MESH_PADDING__
+            CAPTURE_PADDING = __CAPTURE_PADDING__
+
+            args = dict(zip(sys.argv[1::2], sys.argv[2::2]))
+            source_path = pathlib.Path(args["--input"])
+            out = pathlib.Path(args["--output"])
+            if MODE == "failure":
+                print("successor fixture generator failed", file=sys.stderr)
+                raise SystemExit(7)
+            if MODE == "timeout":
+                time.sleep(60)
+            if out.exists():
+                raise RuntimeError("output must not already exist")
+            payload = json.loads(source_path.read_text(encoding="utf-8"))
+            def variant_digest(raw_variant):
+                encoded = json.dumps(raw_variant, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
+                return hashlib.sha256(encoded).hexdigest()
+            source = {"format": payload["format"], "sha256": hashlib.sha256(source_path.read_bytes()).hexdigest(), **payload["source"], "reference_scale": payload["reference_scale"]}
+            if MODE == "source-mismatch":
+                source["sha256"] = "0" * 64
+            frame = {"canvas": CANVAS, "projections": PROJECTIONS, "layout": LAYOUT, "shared_render_bounds": BOUNDS}
+            if MODE == "frame-mismatch":
+                frame["shared_render_bounds"] = {"min": [-4.0, -5.0, -5.0], "max": [5.0, 5.0, 5.0]}
+            out.mkdir(parents=True)
+            records = []
+            raw_variants = payload["variants"]
+            for variant_index, raw_variant in enumerate(raw_variants):
+                variant_id = raw_variant["id"]
+                source_variant_sha256 = variant_digest(raw_variant)
+                if MODE == "cross-variant-digest" and variant_index == 0:
+                    source_variant_sha256 = variant_digest(raw_variants[1])
+                variant_dir = out / variant_id
+                variant_dir.mkdir()
+                (variant_dir / "surface.ply").write_bytes(b"ply\\n")
+                bridge = {"enabled": True, "consumer": "baseline-analytic-fields", "regions": ["limb-root-connectors", "hip-transitions"], "field_count": 6, "retained_recipes": ["hip-transition", "root-bridge"]}
+                replaced = list(REPLACED)
+                sidecar = {
+                    "format": SUCCESSOR_FORMAT,
+                    "variant_id": variant_id,
+                    "profile_id": variant_id,
+                    "source_variant_sha256": source_variant_sha256,
+                    "consumer_id": CONSUMER_ID,
+                    "successor_region_id": REGION_ID,
+                    "capture": frame,
+                    "torso": {"representation": "frame-aware-ordered-profile-sweep", "sections_consumed": 7, "section_names": ["a", "b", "c", "d", "e", "f", "g"]},
+                    "shoulders": {"representation": "distal-deltoid-swept-curve-spans", "spans_consumed": 2, "curve": "deltoid-sweep", "span_index": 1},
+                    "head_neck": {"representation": "shared-guide-derived-profile-sweeps", "sweeps_consumed": 5, "sweep_order": ["a", "b", "c", "d", "e"], "section_counts": [1, 1, 1, 1, 1], "owner_keys": ["a", "b", "c", "d", "e"]},
+                    "limbs": {"representation": "shared-guide-derived-ordered-profile-sweeps", "sweeps_consumed": 4, "sweep_order": ["a", "b", "c", "d"], "station_counts": [1, 1, 1, 1], "station_names": [["a"], ["b"], ["c"], ["d"]], "section_owner_keys": [["a"], ["b"], ["c"], ["d"]], "endpoint_cap_counts": [1, 1, 1, 1]},
+                    "extremities": {"representation": "shared-guide-derived-hand-and-digitigrade-foot-profile-sweeps", "sweeps_consumed": 6, "sweep_order": EXTREMITY_ORDER, "sweep_kinds": EXTREMITY_KINDS, "station_counts": [1] * 6, "station_names": [["a"]] * 6, "section_owner_keys": [["a"]] * 6, "endpoint_cap_counts": [1] * 6, "internal_transition_counts": [0] * 6},
+                    "tail": {"representation": "shared-guide-derived-profile-sweep-elements", "elements_consumed": 6, "element_order": TAIL_ORDER, "element_kinds": TAIL_KINDS, "section_counts": [1] * 6, "section_names": [["a"]] * 6, "owner_keys": ["a"] * 6, "endpoint_cap_counts": [1] * 6, "internal_transition_counts": [0] * 6, "controls": [], "tip_shared_endpoint": {}},
+                    "temporary_bridge": bridge,
+                    "replaced_baseline_recipes": replaced,
+                }
+                metrics = {"consumer_id": CONSUMER_ID, "successor_region_id": REGION_ID, "successor_region": {"shoulder_representation": "distal-deltoid-swept-curve-spans", "shoulder_spans_consumed": 2, "shoulder_curve": "deltoid-sweep", "shoulder_span_index": 1, "extremity_sweeps_consumed": 6, "tail_elements_consumed": 6, "replaced_baseline_recipes": replaced}, "temporary_bridge": bridge}
+                if MODE == "sidecar-identity":
+                    sidecar["consumer_id"] = "wrong-consumer"
+                elif MODE == "sidecar-bridge":
+                    sidecar["temporary_bridge"] = {**bridge, "field_count": 7}
+                elif MODE == "sidecar-extremity":
+                    sidecar["extremities"] = {**sidecar["extremities"], "sweeps_consumed": 5}
+                elif MODE == "sidecar-extremity-order":
+                    sidecar["extremities"] = {**sidecar["extremities"], "sweep_order": list(reversed(sidecar["extremities"]["sweep_order"]))}
+                elif MODE == "sidecar-extremity-kind":
+                    sidecar["extremities"] = {**sidecar["extremities"], "sweep_kinds": ["wrong", *sidecar["extremities"]["sweep_kinds"][1:]]}
+                elif MODE == "sidecar-tail":
+                    sidecar["tail"] = {**sidecar["tail"], "elements_consumed": 5}
+                elif MODE == "sidecar-shoulder-span-type":
+                    sidecar["shoulders"] = {**sidecar["shoulders"], "span_index": True}
+                elif MODE == "sidecar-missing-deltoid-replacement":
+                    sidecar["replaced_baseline_recipes"] = [recipe for recipe in replaced if recipe != "deltoid-sweep-1"]
+                (variant_dir / "successor.json").write_text(json.dumps(sidecar, sort_keys=True), encoding="utf-8")
+                metrics_file = dict(metrics)
+                if MODE == "metrics-disagreement":
+                    metrics_file["successor_region"] = {**metrics["successor_region"], "tail_elements_consumed": 5}
+                elif MODE == "metrics-shoulder-span-type":
+                    metrics_file["successor_region"] = {**metrics["successor_region"], "shoulder_span_index": 1.0}
+                metrics_record = metrics_file if MODE == "metrics-shoulder-span-type" else metrics
+                (variant_dir / "metrics.json").write_text(json.dumps(metrics_file, sort_keys=True), encoding="utf-8")
+                png = variant_dir / "guide-skin-composite.png"
+                png.write_bytes(PNG)
+                def entry(kind, artifact, extra=None):
+                    data = artifact.read_bytes()
+                    result = {"kind": kind, "path": artifact.relative_to(out).as_posix(), "sha256": hashlib.sha256(data).hexdigest(), "bytes": len(data)}
+                    if extra:
+                        result.update(extra)
+                    return result
+                inventory = [
+                    entry("ply", variant_dir / "surface.ply"),
+                    entry("metrics", variant_dir / "metrics.json"),
+                    entry("successor-consumer-sidecar", variant_dir / "successor.json"),
+                    entry("guide-skin-composite-png", png, {"width": 1800, "height": 570, "views": ["front", "side", "three-quarter"], "panels_per_view": 2, "mode": "RGB"}),
+                ]
+                if MODE == "inventory":
+                    inventory[0] = {**inventory[0], "path": variant_id + "/wrong.ply"}
+                if MODE == "hash":
+                    inventory[0] = {**inventory[0], "sha256": "0" * 64}
+                if MODE == "invalid-png":
+                    png.write_bytes(PNG[:-1])
+                    inventory[-1] = entry("guide-skin-composite-png", png, {"width": 1800, "height": 570, "views": ["front", "side", "three-quarter"], "panels_per_view": 2, "mode": "RGB"})
+                records.append({"id": variant_id, "profile_id": ("wrong" if MODE == "variant-profile" and not records else variant_id), "source_variant_sha256": source_variant_sha256, "metrics": metrics_record, "inventory": inventory})
+            if MODE == "variant":
+                records.pop()
+            if MODE == "extra-path":
+                (out / "extra.bin").write_bytes(b"unlisted")
+            manifest = {"format": SUCCESSOR_FORMAT, "status": "success", "consumer_id": CONSUMER_ID, "source_format": payload["format"], "source": source, "shared_render_bounds": frame["shared_render_bounds"], "canvas": frame["canvas"], "layout": frame["layout"], "projections": frame["projections"], "generator": {"samples_per_axis": 56, "padding": MESH_PADDING, "capture_padding": CAPTURE_PADDING, "smooth_k": 0.12, "consumer_boundary": "successor torso/shoulder/head/neck, four limb chains, bilateral hands, digitigrade feet, and tail; baseline temporary bridge for root/hip connectors", "production_status": "disposable exploratory proof"}, "variants": records}
+            (out / "successor-surface-manifest.json").write_text(json.dumps(manifest, sort_keys=True), encoding="utf-8")
+        """)
+        replacements = {
+            "__MODE__": repr(mode),
+            "__PNG__": repr(self._png()),
+            "__CANVAS__": repr(publisher.EXPECTED_CANVAS),
+            "__PROJECTIONS__": repr(publisher.EXPECTED_PROJECTIONS),
+            "__LAYOUT__": repr(publisher.EXPECTED_LAYOUT),
+            "__BOUNDS__": repr({"min": [-5.0, -5.0, -5.0], "max": [5.0, 5.0, 5.0]}),
+            "__SUCCESSOR_FORMAT__": repr(publisher.SUCCESSOR_PREVIEW_FORMAT),
+            "__CONSUMER_ID__": repr(publisher.SUCCESSOR_CONSUMER_ID),
+            "__REGION_ID__": repr(publisher.SUCCESSOR_REGION_ID),
+            "__EXTREMITY_ORDER__": repr(list(publisher.SUCCESSOR_EXTREMITY_ORDER)),
+            "__EXTREMITY_KINDS__": repr(list(publisher.SUCCESSOR_EXTREMITY_KINDS)),
+            "__TAIL_ORDER__": repr(list(publisher.SUCCESSOR_TAIL_ORDER)),
+            "__TAIL_KINDS__": repr(list(publisher.SUCCESSOR_TAIL_KINDS)),
+            "__REPLACED__": repr(sorted(publisher.SUCCESSOR_REQUIRED_REPLACED_RECIPES)),
+            "__MESH_PADDING__": repr(0.5),
+            "__CAPTURE_PADDING__": repr(0.5 if mode == "capture-padding-mismatch" else 0.75),
+        }
+        for placeholder, value in replacements.items():
+            script = script.replace(placeholder, value)
+        path.write_text(script, encoding="utf-8")
+        path.chmod(0o755)
+        return path
+
     def _payload(self) -> dict[str, object]:
         owner_specs = [("pelvis", []), ("torso", []), ("neck", []), ("head", []), ("upper_arm", ["left"]), ("forearm", ["left"]), ("hand", ["left"]), ("upper_arm", ["right"]), ("forearm", ["right"]), ("hand", ["right"]), ("thigh", ["left"]), ("shin", ["left"]), ("foot", ["left"]), ("thigh", ["right"]), ("shin", ["right"]), ("foot", ["right"]), ("tail_root", ["tail"]), ("tail_tip", ["tail"])]
         owners = [{"namespace": "main", "anchors": anchors, "kind": "part", "role": role} for role, anchors in owner_specs]
@@ -281,7 +437,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 with self.assertRaises(publisher.SurfacePreviewPublishError):
                     publisher._validate_address({**valid, "anchors": anchors}, "address")
 
-    def test_success_stubs_both_executables_and_publishes_only_pngs(self) -> None:
+    def test_success_publishes_four_ordered_baseline_successor_pairs(self) -> None:
         self.assertEqual(publisher.EXPECTED_GUIDE_COUNTS["compiled_fields"], 52)
         self.assertEqual(publisher.EXPECTED_GUIDE_COUNTS["shoulder_frame_compiled_fields"], 2)
         self.assertNotIn("hip-girdle", publisher.EXPECTED_GUIDE_COUNTS["compiled_field_recipe_counts"])
@@ -292,28 +448,280 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 self.input,
                 creature_kernel=self._producer(),
                 generator=self._generator(),
+                successor_generator=self._successor_generator(),
                 review_id="surface-test",
             )
         session = Path(result["session"])
         self.assertEqual(result["variants"], 4)
-        self.assertEqual(sorted(p.name for p in (session / "assets").iterdir()), sorted(f"{v}.png" for v in common.PROVISIONAL_FORM_VARIANT_IDS))
+        self.assertEqual(result["images"], 8)
+        self.assertEqual(result["assets"], 8)
+        self.assertEqual(
+            sorted(p.name for p in (session / "assets").iterdir()),
+            sorted(f"{v}-{role}.png" for v in common.PROVISIONAL_FORM_VARIANT_IDS for role in ("baseline", "successor")),
+        )
         review = json.loads((session / "review.json").read_text(encoding="utf-8"))
-        self.assertIn("subject_context", review)
+        self.assertEqual(len(review["groups"]), 4)
+        self.assertEqual([item["metadata"]["source_role"] for item in review["groups"][0]["items"]], ["baseline", "successor"])
+        self.assertEqual([item["title"] for item in review["groups"][0]["items"]], ["Neutral — baseline", "Neutral — successor"])
         self.assertEqual(review["groups"][0]["selection_mode"], "none")
+        expected_prefixes = ["Neutral", "Broad soft", "Lean readable", "Depth forward"]
+        for group, variant_id, title_prefix in zip(review["groups"], common.PROVISIONAL_FORM_VARIANT_IDS, expected_prefixes):
+            self.assertEqual(group["id"], variant_id)
+            self.assertEqual(group["title"], f"{title_prefix} ({variant_id})")
+            baseline, successor = group["items"]
+            self.assertEqual([item["metadata"]["source_role"] for item in group["items"]], ["baseline", "successor"])
+            self.assertEqual(baseline["metadata"]["source_sha256"], successor["metadata"]["source_sha256"])
+            self.assertEqual(baseline["metadata"]["views"], ["front", "side", "three-quarter"])
+            self.assertEqual(successor["metadata"]["views"], baseline["metadata"]["views"])
+            self.assertEqual(baseline["metadata"]["panels_per_view"], successor["metadata"]["panels_per_view"])
+            self.assertEqual(successor["metadata"]["generator"]["padding"], 0.5)
+            self.assertEqual(successor["metadata"]["generator"]["capture_padding"], 0.75)
+            self.assertNotEqual(successor["metadata"]["generator"]["padding"], successor["metadata"]["generator"]["capture_padding"])
+            self.assertEqual(set(successor["metadata"]["generator"]), {"samples_per_axis", "padding", "capture_padding", "smooth_k", "consumer_boundary", "production_status"})
+            self.assertIn("shared capture frame", baseline["description"])
+            self.assertIn("same shared capture frame", successor["description"])
+        self.assertEqual(review["subject_context"]["descriptor_snapshot"]["images"], 8)
+        self.assertEqual(review["subject_context"]["descriptor_snapshot"]["source_sha256"], review["groups"][0]["items"][0]["metadata"]["source_sha256"])
+        self.assertIn("same source and shared front/side/three-quarter framing", review["subject_context"]["authored_summary"]["text"])
+        self.assertIn("compare baseline first and successor second", review["instructions"])
+        self.assertIn("overall creature coherence", review["instructions"])
+        self.assertIn("same source and framing", review["subject_context"]["provenance"]["capture"])
+        self.assertEqual(review["subject_context"]["provenance"]["baseline_generator_script"], "generator-success.py")
+        self.assertEqual(review["subject_context"]["provenance"]["successor_generator_script"], "successor-generator-success.py")
+        self.assertEqual(review["subject_context"]["provenance"]["successor_generator"]["padding"], 0.5)
+        self.assertEqual(review["subject_context"]["provenance"]["successor_generator"]["capture_padding"], 0.75)
+        self.assertIn("Disposable, non-production", review["subject_context"]["provenance"]["limitations"])
+
+        # The ordinary image publisher is immutable: a duplicate review ID is
+        # rejected and does not replace the first published session.
+        with patch.object(publisher, "_parse_inspection", return_value=self._payload()):
+            with self.assertRaisesRegex(publisher.SurfacePreviewPublishError, "session already exists"):
+                publisher.publish_surface_preview(
+                    self.root,
+                    self.input,
+                    creature_kernel=self._producer(),
+                    generator=self._generator(),
+                    successor_generator=self._successor_generator(),
+                    review_id="surface-test",
+                )
+        self.assertEqual(sorted(path.name for path in self.root.iterdir()), ["surface-test"])
+
+    def test_missing_reviews_root_is_created_before_any_subprocess(self) -> None:
+        missing_root = self.directory / "missing-reviews"
+        calls: list[str] = []
+        original_runner = publisher._run_bounded
+
+        def observe_runner(command, *, timeout, label):
+            self.assertTrue(missing_root.is_dir())
+            calls.append(label)
+            return original_runner(command, timeout=timeout, label=label)
+
+        with patch.object(publisher, "_parse_inspection", return_value=self._payload()), patch.object(
+            publisher, "_run_bounded", side_effect=observe_runner
+        ):
+            result = publisher.publish_surface_preview(
+                missing_root,
+                self.input,
+                creature_kernel=self._producer(),
+                generator=self._generator(),
+                successor_generator=self._successor_generator(),
+                review_id="created-root",
+            )
+
+        self.assertEqual(calls, ["creature-kernel inspection", "baseline surface generator", "successor surface generator"])
+        self.assertTrue(missing_root.is_dir())
+        self.assertTrue((missing_root / "created-root" / "review.json").is_file())
+        self.assertEqual(result["assets"], 8)
+
+    def test_unusable_reviews_root_fails_before_any_subprocess(self) -> None:
+        unusable_root = self.directory / "reviews-file"
+        unusable_root.write_text("not a directory", encoding="utf-8")
+        with patch.object(publisher, "_run_bounded") as runner:
+            with self.assertRaisesRegex(publisher.SurfacePreviewPublishError, "reviews root is not usable"):
+                publisher.publish_surface_preview(
+                    unusable_root,
+                    self.input,
+                    creature_kernel=self._producer(),
+                    generator=self._generator(),
+                    successor_generator=self._successor_generator(),
+                    review_id="unusable-root",
+                )
+        runner.assert_not_called()
+
+    def test_existing_and_dangling_reviews_root_symlinks_fail_before_any_subprocess(self) -> None:
+        target = self.directory / "symlink-target"
+        target.mkdir()
+        cases = (
+            (self.directory / "existing-directory-link", target),
+            (self.directory / "dangling-directory-link", self.directory / "missing-target"),
+        )
+        for link, destination in cases:
+            with self.subTest(link=link.name):
+                link.symlink_to(destination, target_is_directory=True)
+                with patch.object(publisher, "_run_bounded") as runner:
+                    with self.assertRaisesRegex(publisher.SurfacePreviewPublishError, "reviews root is not usable"):
+                        publisher.publish_surface_preview(
+                            link,
+                            self.input,
+                            creature_kernel=self._producer(),
+                            generator=self._generator(),
+                            successor_generator=self._successor_generator(),
+                            review_id=f"{link.stem}-root",
+                        )
+                runner.assert_not_called()
+
+    def test_reviews_root_preflight_probe_is_cleaned_when_subprocess_fails(self) -> None:
+        with patch.object(publisher, "_parse_inspection", return_value=self._payload()), patch.object(
+            publisher, "_run_bounded", side_effect=publisher.SurfacePreviewPublishError("forced runner failure")
+        ):
+            with self.assertRaisesRegex(publisher.SurfacePreviewPublishError, "forced runner failure"):
+                publisher.publish_surface_preview(
+                    self.root,
+                    self.input,
+                    creature_kernel=self._producer(),
+                    generator=self._generator(),
+                    successor_generator=self._successor_generator(),
+                    review_id="probe-cleanup",
+                )
+        self.assertEqual(list(self.root.iterdir()), [])
 
     def test_malformed_count_and_unlisted_output_publish_nothing(self) -> None:
         for index, mode in enumerate(("bad-count", "unlisted", "symlink", "extra-directory", "hash", "source-mismatch", "fabricated-provenance", "fabricated-descriptor", "profile-mismatch", "guide-format", "guide-provenance", "guide-controls", "guide-station-omitted", "guide-transition-omitted", "guide-cage-omitted", "guide-cage-malformed", "guide-cage-connection", "guide-shoulder-omitted", "guide-shoulder-stale-status", "guide-shoulder-consumption", "guide-shoulder-malformed", "guide-shoulder-owner", "guide-shoulder-order", "guide-shoulder-endpoint", "guide-shoulder-span", "guide-shoulder-degenerate", "guide-shoulder-points", "guide-shoulder-profile", "guide-shoulder-profile-continuity", "guide-shoulder-first-quarter", "guide-girdle-omitted", "guide-station-malformed", "guide-transition-malformed", "guide-girdle-malformed", "guide-joint-endpoint", "guide-foot-legacy", "guide-foot-order", "guide-foot-hock-source", "guide-foot-hock-radii", "guide-foot-contact", "guide-foot-taper", "guide-foot-axis", "guide-foot-gap", "guide-hand-attachment-start", "guide-hand-anchor-point", "guide-section-gap", "guide-profile-second-start", "guide-adjacent-profile", "guide-obsolete-recipe-count", "guide-wrong-recipe-count", "metrics-generated-count", "metrics-recipe-count", "manifest-metrics", "generator-recipes", "generator-ownership", "guide-omitted", "png-small", "png-truncated", "png-crc", "png-no-idat", "png-invalid-idat", "png-unknown-critical")):
             with self.subTest(mode=mode):
                 with patch.object(publisher, "_parse_inspection", return_value=self._payload()):
                     with self.assertRaises(publisher.SurfacePreviewPublishError):
-                        publisher.publish_surface_preview(self.root, self.input, creature_kernel=self._producer(), generator=self._generator(mode=mode), review_id=f"bad-{index}")
+                        publisher.publish_surface_preview(self.root, self.input, creature_kernel=self._producer(), generator=self._generator(mode=mode), successor_generator=self._successor_generator(), review_id=f"bad-{index}")
                 self.assertFalse((self.root / f"bad-{index}").exists())
 
     def test_generator_timeout_is_bounded(self) -> None:
         with patch.object(publisher, "_parse_inspection", return_value=self._payload()), patch.object(publisher, "GENERATOR_TIMEOUT_SECONDS", 0.05):
             with self.assertRaisesRegex(publisher.SurfacePreviewPublishError, "timed out"):
-                publisher.publish_surface_preview(self.root, self.input, creature_kernel=self._producer(), generator=self._generator(mode="timeout"), review_id="timeout")
+                publisher.publish_surface_preview(self.root, self.input, creature_kernel=self._producer(), generator=self._generator(mode="timeout"), successor_generator=self._successor_generator(), review_id="timeout")
         self.assertEqual(list(self.root.iterdir()), [])
+
+    def test_baseline_and_successor_process_failures_are_bounded_and_atomic(self) -> None:
+        for label, baseline_mode, successor_mode in (
+            ("baseline-failure", "failure", "success"),
+            ("successor-failure", "success", "failure"),
+        ):
+            with self.subTest(label=label):
+                with patch.object(publisher, "_parse_inspection", return_value=self._payload()):
+                    with self.assertRaisesRegex(publisher.SurfacePreviewPublishError, "generator failed"):
+                        publisher.publish_surface_preview(
+                            self.root,
+                            self.input,
+                            creature_kernel=self._producer(),
+                            generator=self._generator(mode=baseline_mode),
+                            successor_generator=self._successor_generator(mode=successor_mode),
+                            review_id=label,
+                        )
+                self.assertEqual(list(self.root.iterdir()), [])
+
+        for label, baseline_mode, successor_mode in (
+            ("baseline-timeout", "timeout", "success"),
+            ("successor-timeout", "success", "timeout"),
+        ):
+            with self.subTest(label=label):
+                with patch.object(publisher, "_parse_inspection", return_value=self._payload()), patch.object(publisher, "GENERATOR_TIMEOUT_SECONDS", 0.05):
+                    with self.assertRaisesRegex(publisher.SurfacePreviewPublishError, "timed out"):
+                        publisher.publish_surface_preview(
+                            self.root,
+                            self.input,
+                            creature_kernel=self._producer(),
+                            generator=self._generator(mode=baseline_mode),
+                            successor_generator=self._successor_generator(mode=successor_mode),
+                            review_id=label,
+                        )
+                self.assertEqual(list(self.root.iterdir()), [])
+
+    def test_successor_cli_route_accepts_both_generator_paths(self) -> None:
+        output = io.StringIO()
+        with patch.object(publisher, "_parse_inspection", return_value=self._payload()), redirect_stdout(output):
+            result = publisher.main([
+                "--root", str(self.root),
+                "--input", str(self.input),
+                "--creature-kernel", str(self._producer()),
+                "--generator", str(self._generator()),
+                "--successor-generator", str(self._successor_generator()),
+                "--id", "cli-surface-test",
+            ])
+        self.assertEqual(result, 0)
+        self.assertEqual(json.loads(output.getvalue())["assets"], 8)
+        review = json.loads((self.root / "cli-surface-test" / "review.json").read_text(encoding="utf-8"))
+        self.assertEqual([len(group["items"]) for group in review["groups"]], [2, 2, 2, 2])
+
+    def test_successor_validation_fails_closed_for_representative_boundary_errors(self) -> None:
+        modes = (
+            "source-mismatch",
+            "frame-mismatch",
+            "capture-padding-mismatch",
+            "cross-variant-digest",
+            "variant",
+            "variant-profile",
+            "inventory",
+            "hash",
+            "extra-path",
+            "invalid-png",
+            "sidecar-identity",
+            "sidecar-bridge",
+            "sidecar-extremity",
+            "sidecar-extremity-order",
+            "sidecar-extremity-kind",
+            "sidecar-tail",
+            "sidecar-shoulder-span-type",
+            "sidecar-missing-deltoid-replacement",
+            "metrics-disagreement",
+            "metrics-shoulder-span-type",
+        )
+        for index, mode in enumerate(modes):
+            review_id = f"successor-bad-{index}"
+            with self.subTest(mode=mode):
+                with patch.object(publisher, "_parse_inspection", return_value=self._payload()):
+                    expected_error = {
+                        "capture-padding-mismatch": "successor capture_padding does not match validated baseline generator padding",
+                        "cross-variant-digest": "source_variant_sha256 does not match producer output",
+                    }.get(mode)
+                    error_context = self.assertRaisesRegex(publisher.SurfacePreviewPublishError, expected_error) if expected_error else self.assertRaises(publisher.SurfacePreviewPublishError)
+                    with error_context:
+                        publisher.publish_surface_preview(
+                            self.root,
+                            self.input,
+                            creature_kernel=self._producer(),
+                            generator=self._generator(),
+                            successor_generator=self._successor_generator(mode=mode),
+                            review_id=review_id,
+                        )
+                self.assertFalse((self.root / review_id).exists())
+        self.assertEqual(list(self.root.iterdir()), [])
+
+    @unittest.skipUnless(os.name == "posix", "private process groups are POSIX-specific")
+    def test_run_bounded_cleans_a_child_after_successful_parent_exit(self) -> None:
+        child = self.directory / "marker-child.py"
+        child.write_text(textwrap.dedent("""
+            import pathlib, sys, time
+            time.sleep(0.25)
+            pathlib.Path(sys.argv[1]).write_text("child-survived", encoding="utf-8")
+        """), encoding="utf-8")
+        parent = self.directory / "spawning-parent.py"
+        parent.write_text(textwrap.dedent("""
+            import subprocess, sys
+            subprocess.Popen([sys.executable, sys.argv[1], sys.argv[2]], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            print("parent-exited")
+        """), encoding="utf-8")
+        marker = self.directory / "child-marker.txt"
+        stdout, stderr, returncode = publisher._run_bounded(
+            [sys.executable, str(parent), str(child), str(marker)],
+            timeout=1.0,
+            label="successful parent fixture",
+        )
+        self.assertEqual(returncode, 0)
+        self.assertEqual(stdout, b"parent-exited\n")
+        self.assertEqual(stderr, b"")
+        # Give a surviving child enough time to perform its write.  A private
+        # process-group cleanup should have terminated it before this point.
+        import time
+        time.sleep(0.35)
+        self.assertFalse(marker.exists())
 
     def test_bundle_root_symlink_is_rejected_before_manifest_access(self) -> None:
         real_bundle = self.directory / "real-bundle"
@@ -322,6 +730,29 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         link.symlink_to(real_bundle, target_is_directory=True)
         with self.assertRaisesRegex(publisher.SurfacePreviewPublishError, "real non-symlink directory"):
             publisher._validate_bundle(link, "0" * 64)
+
+    def test_regular_artifacts_scans_valid_fixture_and_enforces_entry_depth_bounds(self) -> None:
+        valid = self.directory / "regular-valid"
+        (valid / "neutral-v0").mkdir(parents=True)
+        (valid / "neutral-v0" / "surface.ply").write_bytes(b"ply\n")
+        paths, directories = publisher._regular_artifacts(valid)
+        self.assertEqual(paths, {"neutral-v0/surface.ply"})
+        self.assertEqual(directories, {"neutral-v0"})
+
+        overfull = self.directory / "regular-overfull"
+        overfull.mkdir()
+        (overfull / "one").write_bytes(b"1")
+        (overfull / "two").write_bytes(b"2")
+        with patch.object(publisher, "MAX_BUNDLE_SCAN_ENTRIES", 1):
+            with self.assertRaisesRegex(publisher.SurfacePreviewPublishError, "too many entries"):
+                publisher._regular_artifacts(overfull)
+
+        deep = self.directory / "regular-deep" / "a" / "b"
+        deep.mkdir(parents=True)
+        (deep / "surface.ply").write_bytes(b"ply\n")
+        with patch.object(publisher, "MAX_BUNDLE_SCAN_DEPTH", 2):
+            with self.assertRaisesRegex(publisher.SurfacePreviewPublishError, "excessive directory depth"):
+                publisher._regular_artifacts(self.directory / "regular-deep")
 
     def test_deeply_nested_bundle_json_is_rejected_without_recursion_traceback(self) -> None:
         path = self.directory / "nested.json"

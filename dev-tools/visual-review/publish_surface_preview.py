@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Publish a disposable experiment surface preview through the image gallery.
+"""Publish the first disposable baseline-versus-successor surface checkpoint.
 
 This is deliberately an adapter, not a surface renderer. It runs the current
-v4 filled-form producer and an explicitly selected experiment generator in
-isolated temporary storage, validates the generator's v2 guide/skin bundle,
-then publishes only its four PNG composites into the existing immutable
-image-review format.
+v4 filled-form producer once, then the baseline and successor experiment
+generators in isolated temporary storage. Both bundles are validated against
+the same source and capture frame before four baseline/successor image pairs
+are published into the existing immutable image-review format. The result is
+for visual appraisal only; it is not production geometry or acceptance
+evidence.
 """
 
 from __future__ import annotations
@@ -16,6 +18,7 @@ import json
 import math
 import os
 import selectors
+import secrets
 import shutil
 import signal
 import stat
@@ -30,7 +33,7 @@ from typing import Any
 
 import common
 from common import ValidationError, canonical_json, validate_id
-from publish import PublishError, publish_session
+from publish import PublishError, _open_directory, publish_session
 from publish_provisional_form import (
     ProvisionalFormPublishError,
     _copy_input_reference,
@@ -45,6 +48,10 @@ class SurfacePreviewPublishError(RuntimeError):
 
 SURFACE_PREVIEW_FORMAT = "creature-kernel.disposable-surface-preview.v2"
 REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v4"
+SUCCESSOR_PREVIEW_FORMAT = "creature-kernel.disposable-successor-surface-preview.v2"
+SUCCESSOR_MANIFEST_NAME = "successor-surface-manifest.json"
+SUCCESSOR_CONSUMER_ID = "successor-surface-v1"
+SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-limb-extremity-tail-profile-sweeps-v6"
 EXPECTED_VARIANTS = common.PROVISIONAL_FORM_VARIANT_IDS
 EXPECTED_VIEWS = ("front", "side", "three-quarter")
 MANIFEST_NAME = "surface-preview-manifest.json"
@@ -60,6 +67,10 @@ MAX_MANIFEST_BYTES = 256 * 1024
 MAX_GUIDE_BYTES = 512 * 1024
 MAX_METRICS_BYTES = 256 * 1024
 MAX_ARTIFACT_BYTES = 16 * 1024 * 1024
+MAX_BUNDLE_SCAN_DEPTH = 8
+MAX_BUNDLE_SCAN_ENTRIES = 1024
+MAX_BUNDLE_SCAN_BYTES = 128 * 1024 * 1024
+MAX_BUNDLE_SCAN_SECONDS = 5.0
 MAX_PNG_WIDTH = 4096
 MAX_PNG_HEIGHT = 4096
 MAX_PNG_DECODED_BYTES = MAX_PNG_WIDTH * MAX_PNG_HEIGHT * 4 + MAX_PNG_HEIGHT
@@ -159,10 +170,19 @@ def default_generator() -> Path:
     )
 
 
-def _stop_process(process: subprocess.Popen[bytes]) -> None:
-    if os.name == "posix":
+def default_successor_generator() -> Path:
+    return (
+        Path(__file__).resolve().parents[2]
+        / "experiments"
+        / "current-form-surface-preview"
+        / "generate_successor_surface_preview.py"
+    )
+
+
+def _stop_process(process: subprocess.Popen[bytes], *, process_group_id: int | None = None) -> None:
+    if os.name == "posix" and process_group_id is not None:
         try:
-            os.killpg(process.pid, signal.SIGTERM)
+            os.killpg(process_group_id, signal.SIGTERM)
         except OSError:
             pass
     try:
@@ -173,9 +193,9 @@ def _stop_process(process: subprocess.Popen[bytes]) -> None:
         process.wait(timeout=PROCESS_GRACE_SECONDS)
     except subprocess.TimeoutExpired:
         pass
-    if os.name == "posix":
+    if os.name == "posix" and process_group_id is not None:
         try:
-            os.killpg(process.pid, signal.SIGKILL)
+            os.killpg(process_group_id, signal.SIGKILL)
         except OSError:
             pass
     try:
@@ -203,6 +223,18 @@ def _run_bounded(command: list[str], *, timeout: float, label: str) -> tuple[byt
     except (OSError, ValueError) as exc:
         raise SurfacePreviewPublishError(f"cannot execute {label}: {exc}") from exc
     assert process.stdout is not None and process.stderr is not None
+    process_group_id: int | None = None
+    if os.name == "posix":
+        try:
+            candidate = os.getpgid(process.pid)
+        except OSError:
+            # start_new_session makes the child PID the session/process-group
+            # ID.  Retain that ID if the direct child exits before inspection.
+            candidate = process.pid
+        # Never signal the caller's process group, even if process setup is
+        # changed in the future or the child exits during setup.
+        if candidate > 1 and candidate not in {os.getpid(), os.getpgrp()}:
+            process_group_id = candidate
     selector = selectors.DefaultSelector()
     stdout_fd = process.stdout.fileno()
     stderr_fd = process.stderr.fileno()
@@ -219,12 +251,12 @@ def _run_bounded(command: list[str], *, timeout: float, label: str) -> tuple[byt
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 failure = SurfacePreviewPublishError(f"{label} timed out after {timeout:g}s")
-                _stop_process(process)
+                _stop_process(process, process_group_id=process_group_id)
                 break
             events = selector.select(remaining)
             if not events:
                 failure = SurfacePreviewPublishError(f"{label} timed out after {timeout:g}s")
-                _stop_process(process)
+                _stop_process(process, process_group_id=process_group_id)
                 break
             for key, _ in events:
                 stream = key.fileobj
@@ -239,7 +271,7 @@ def _run_bounded(command: list[str], *, timeout: float, label: str) -> tuple[byt
                     failure = SurfacePreviewPublishError(
                         f"{label} {stream_name} exceeded {limit} bytes"
                     )
-                    _stop_process(process)
+                    _stop_process(process, process_group_id=process_group_id)
                     break
                 buffer.extend(chunk)
             if failure is not None:
@@ -249,8 +281,13 @@ def _run_bounded(command: list[str], *, timeout: float, label: str) -> tuple[byt
         try:
             returncode = process.wait(timeout=PROCESS_GRACE_SECONDS)
         except subprocess.TimeoutExpired as exc:
-            _stop_process(process)
+            _stop_process(process, process_group_id=process_group_id)
             raise SurfacePreviewPublishError(f"{label} did not exit") from exc
+        # Preserve the direct child's completed status, then terminate any
+        # surviving process in its private session before returning the
+        # captured output.  This prevents a generator grandchild from
+        # mutating a validated bundle during publication.
+        _stop_process(process, process_group_id=process_group_id)
         return bytes(streams[stdout_fd][1]), bytes(streams[stderr_fd][1]), returncode
     finally:
         selector.close()
@@ -260,7 +297,7 @@ def _run_bounded(command: list[str], *, timeout: float, label: str) -> tuple[byt
             except OSError:
                 pass
         if process.poll() is None:
-            _stop_process(process)
+            _stop_process(process, process_group_id=process_group_id)
 
 
 def _read_json(path: Path, limit: int, where: str) -> dict[str, Any]:
@@ -311,17 +348,93 @@ def _sha256(path: Path, where: str) -> tuple[str, int]:
     return digest.hexdigest(), size
 
 
+def _prepare_reviews_root(reviews_root: Path) -> Path:
+    """Create and validate the final review root before expensive work."""
+
+    root = reviews_root.absolute()
+    try:
+        # Only establish the caller-selected final directory.  Do not create
+        # missing parents or follow a final-component symlink implicitly.
+        root.mkdir(mode=0o755)
+    except FileExistsError:
+        pass
+    except OSError as exc:
+        raise SurfacePreviewPublishError(f"could not create reviews root: {exc}") from exc
+
+    root_fd: int | None = None
+    probe_name: str | None = None
+    try:
+        root = common.ensure_root(root)
+        common.require_secure_fs_support()
+        if os.mkdir not in getattr(os, "supports_dir_fd", set()):
+            raise ValidationError("secure visual-review filesystem access lacks descriptor-relative mkdir support")
+        # Hold the validated directory itself, and create the owned probe
+        # relative to that descriptor.  Reopening `root` by path here would
+        # permit a final-component symlink swap to redirect the probe.
+        root_fd = _open_directory(None, root, "reviews root")
+        for _ in range(8):
+            candidate = f".ck-surface-preview-preflight-{secrets.token_hex(16)}"
+            try:
+                os.mkdir(candidate, 0o700, dir_fd=root_fd)
+            except FileExistsError:
+                continue
+            probe_name = candidate
+            break
+        if probe_name is None:
+            raise OSError("could not allocate a unique reviews-root probe")
+        probe_fd = _open_directory(root_fd, probe_name, "reviews root probe")
+        os.close(probe_fd)
+    except SurfacePreviewPublishError:
+        raise
+    except (ValidationError, OSError) as exc:
+        raise SurfacePreviewPublishError(f"reviews root is not usable: {exc}") from exc
+    finally:
+        if root_fd is not None:
+            if probe_name is not None:
+                try:
+                    os.rmdir(probe_name, dir_fd=root_fd)
+                except OSError:
+                    pass
+            try:
+                os.close(root_fd)
+            except OSError:
+                pass
+    return root
+
+
 def _regular_artifacts(root: Path) -> tuple[set[str], set[str]]:
     found: set[str] = set()
     directories_found: set[str] = set()
+    entries_seen = 0
+    regular_bytes = 0
+    started = time.monotonic()
     for current, directories, files in os.walk(root, followlinks=False):
+        if time.monotonic() - started > MAX_BUNDLE_SCAN_SECONDS:
+            raise SurfacePreviewPublishError("surface bundle scan exceeded its time bound")
         current_path = Path(current)
+        current_relative = current_path.relative_to(root)
+        current_depth = 0 if current_relative == Path(".") else len(current_relative.parts)
+        if current_depth > MAX_BUNDLE_SCAN_DEPTH:
+            raise SurfacePreviewPublishError("surface bundle contains excessive directory depth")
         for name in directories + files:
+            if time.monotonic() - started > MAX_BUNDLE_SCAN_SECONDS:
+                raise SurfacePreviewPublishError("surface bundle scan exceeded its time bound")
+            entries_seen += 1
+            if entries_seen > MAX_BUNDLE_SCAN_ENTRIES:
+                raise SurfacePreviewPublishError("surface bundle contains too many entries")
             path = current_path / name
             rel = path.relative_to(root).as_posix()
+            if len(path.relative_to(root).parts) > MAX_BUNDLE_SCAN_DEPTH:
+                raise SurfacePreviewPublishError("surface bundle contains excessive directory depth")
             if path.is_symlink():
                 raise SurfacePreviewPublishError(f"surface bundle contains symlink: {rel}")
             if path.is_file():
+                try:
+                    regular_bytes += path.stat(follow_symlinks=False).st_size
+                except OSError as exc:
+                    raise SurfacePreviewPublishError(f"could not inspect surface bundle path: {rel}") from exc
+                if regular_bytes > MAX_BUNDLE_SCAN_BYTES:
+                    raise SurfacePreviewPublishError("surface bundle contains too many regular-file bytes")
                 found.add(rel)
             elif path.is_dir():
                 directories_found.add(rel)
@@ -1357,16 +1470,397 @@ def _validate_bundle(
     return published, {"source": {"format": source["format"], "sha256": source_hash}, "generator": generator_config}
 
 
+SUCCESSOR_EXTREMITY_ORDER = (
+    "left-hand-attachment", "left-hand-paw", "left-foot",
+    "right-hand-attachment", "right-hand-paw", "right-foot",
+)
+SUCCESSOR_EXTREMITY_KINDS = (
+    "hand-attachment", "hand-paw", "foot-chain",
+    "hand-attachment", "hand-paw", "foot-chain",
+)
+SUCCESSOR_TAIL_ORDER = (
+    "tail-root-source", "tail-root-attachment", "tail-root-collar",
+    "tail-tip-source", "tail-tip-extension", "tail-tip-cap",
+)
+SUCCESSOR_TAIL_KINDS = (
+    "source-centerline", "root-attachment", "root-collar-mass",
+    "source-centerline", "tip-extension", "tip-cap-mass",
+)
+SUCCESSOR_RETAINED_BRIDGE_RECIPES = ("hip-transition", "root-bridge")
+SUCCESSOR_REPLACED_EXTREMITY_AND_TAIL_RECIPES = {
+    "paw", "extremity-bridge", "metatarsal", "paw-pad", "toe-box",
+    "tail-segment", "tail-root-bridge", "tail-root-collar",
+    "tail-tip-extension", "tail-tip-cap",
+}
+SUCCESSOR_REQUIRED_REPLACED_RECIPES = (
+    SUCCESSOR_REPLACED_EXTREMITY_AND_TAIL_RECIPES | {"deltoid-sweep-1"}
+)
+
+
+def _bounded_json(value: Any, where: str, *, depth: int = 0) -> None:
+    """Keep retained experiment metadata finite and within adapter bounds."""
+
+    if depth > 64:
+        raise SurfacePreviewPublishError(f"{where} is too deeply nested")
+    if type(value) in {int, float}:
+        try:
+            number = float(value)
+        except (OverflowError, ValueError) as exc:
+            raise SurfacePreviewPublishError(f"{where} is not a bounded number") from exc
+        if not math.isfinite(number) or abs(number) > 1.0e12:
+            raise SurfacePreviewPublishError(f"{where} is not a bounded number")
+    elif isinstance(value, str):
+        if len(value) > 8192:
+            raise SurfacePreviewPublishError(f"{where} contains an oversized string")
+    elif isinstance(value, dict):
+        if len(value) > 1024:
+            raise SurfacePreviewPublishError(f"{where} contains too many fields")
+        for key, child in value.items():
+            if not isinstance(key, str):
+                raise SurfacePreviewPublishError(f"{where} contains a non-text key")
+            _bounded_json(child, f"{where}.{key}", depth=depth + 1)
+    elif isinstance(value, list):
+        if len(value) > 10000:
+            raise SurfacePreviewPublishError(f"{where} contains too many entries")
+        for index, child in enumerate(value):
+            _bounded_json(child, f"{where}[{index}]", depth=depth + 1)
+
+
+def _source_variant_sha256(raw_variant: Any, where: str) -> str:
+    """Hash one producer raw-variant using the successor's canonical framing."""
+
+    try:
+        encoded = json.dumps(
+            raw_variant,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode("utf-8")
+    except (TypeError, ValueError, UnicodeEncodeError) as exc:
+        raise SurfacePreviewPublishError(f"{where} cannot be canonically hashed") from exc
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _validate_successor_sidecar(
+    path: Path,
+    *,
+    variant_id: str,
+    profile_id: str,
+    source_variant_sha256: str,
+    source: dict[str, Any],
+    frame: dict[str, Any],
+    metrics: dict[str, Any],
+) -> dict[str, Any]:
+    sidecar = _read_json(path, MAX_METRICS_BYTES, "successor.json")
+    _finite_json(sidecar, "successor.json")
+    _bounded_json(sidecar, "successor.json")
+    expected_fields = {
+        "format", "variant_id", "profile_id", "source_variant_sha256", "consumer_id", "successor_region_id",
+        "capture", "torso", "shoulders", "head_neck", "limbs", "extremities", "tail",
+        "temporary_bridge", "replaced_baseline_recipes",
+    }
+    if set(sidecar) != expected_fields:
+        raise SurfacePreviewPublishError("successor sidecar has unknown or missing fields")
+    if (
+        sidecar.get("format") != SUCCESSOR_PREVIEW_FORMAT
+        or sidecar.get("variant_id") != variant_id
+        or sidecar.get("profile_id") != profile_id
+        or sidecar.get("source_variant_sha256") != source_variant_sha256
+        or sidecar.get("consumer_id") != SUCCESSOR_CONSUMER_ID
+        or sidecar.get("successor_region_id") != SUCCESSOR_REGION_ID
+    ):
+        raise SurfacePreviewPublishError("successor sidecar identity is invalid")
+
+    capture = sidecar.get("capture")
+    if not isinstance(capture, dict) or set(capture) != set(frame) or capture != frame:
+        raise SurfacePreviewPublishError("successor sidecar capture framing does not match baseline")
+
+    torso = sidecar.get("torso")
+    if not isinstance(torso, dict) or set(torso) != {"representation", "sections_consumed", "section_names"}:
+        raise SurfacePreviewPublishError("successor torso representation metadata is missing")
+    if torso.get("representation") != "frame-aware-ordered-profile-sweep" or type(torso.get("sections_consumed")) is not int or torso["sections_consumed"] != 7:
+        raise SurfacePreviewPublishError("successor torso representation metadata is invalid")
+    if not isinstance(torso.get("section_names"), list) or len(torso["section_names"]) != torso["sections_consumed"]:
+        raise SurfacePreviewPublishError("successor torso section metadata is invalid")
+
+    shoulders = sidecar.get("shoulders")
+    if not isinstance(shoulders, dict) or set(shoulders) != {"representation", "spans_consumed", "curve", "span_index"}:
+        raise SurfacePreviewPublishError("successor shoulder representation metadata is missing")
+    if (
+        shoulders.get("representation") != "distal-deltoid-swept-curve-spans"
+        or type(shoulders.get("spans_consumed")) is not int
+        or shoulders["spans_consumed"] != 2
+        or shoulders.get("curve") != "deltoid-sweep"
+        or type(shoulders.get("span_index")) is not int
+        or shoulders.get("span_index") != 1
+    ):
+        raise SurfacePreviewPublishError("successor shoulder representation metadata is invalid")
+
+    head_neck = sidecar.get("head_neck")
+    if not isinstance(head_neck, dict) or set(head_neck) != {"representation", "sweeps_consumed", "sweep_order", "section_counts", "owner_keys"}:
+        raise SurfacePreviewPublishError("successor head/neck representation metadata is missing")
+    if head_neck.get("representation") != "shared-guide-derived-profile-sweeps" or type(head_neck.get("sweeps_consumed")) is not int or head_neck["sweeps_consumed"] != 5:
+        raise SurfacePreviewPublishError("successor head/neck representation metadata is invalid")
+    if not isinstance(head_neck.get("sweep_order"), list) or len(head_neck["sweep_order"]) != 5 or not isinstance(head_neck.get("section_counts"), list) or len(head_neck["section_counts"]) != 5:
+        raise SurfacePreviewPublishError("successor head/neck sweep metadata is invalid")
+
+    limbs = sidecar.get("limbs")
+    if not isinstance(limbs, dict) or set(limbs) != {"representation", "sweeps_consumed", "sweep_order", "station_counts", "station_names", "section_owner_keys", "endpoint_cap_counts"}:
+        raise SurfacePreviewPublishError("successor limb representation metadata is missing")
+    if limbs.get("representation") != "shared-guide-derived-ordered-profile-sweeps" or type(limbs.get("sweeps_consumed")) is not int or limbs["sweeps_consumed"] != 4:
+        raise SurfacePreviewPublishError("successor limb representation metadata is invalid")
+    for key in ("sweep_order", "station_counts", "station_names", "section_owner_keys", "endpoint_cap_counts"):
+        if not isinstance(limbs.get(key), list) or len(limbs[key]) != 4:
+            raise SurfacePreviewPublishError(f"successor limb {key} metadata is invalid")
+
+    extremities = sidecar.get("extremities")
+    if not isinstance(extremities, dict) or set(extremities) != {
+        "representation", "sweeps_consumed", "sweep_order", "sweep_kinds", "station_counts",
+        "station_names", "section_owner_keys", "endpoint_cap_counts", "internal_transition_counts",
+    }:
+        raise SurfacePreviewPublishError("successor extremity representation metadata is missing")
+    if extremities.get("representation") != "shared-guide-derived-hand-and-digitigrade-foot-profile-sweeps" or extremities.get("sweeps_consumed") != 6:
+        raise SurfacePreviewPublishError("successor extremity sweep count is not six")
+    if extremities.get("sweep_order") != list(SUCCESSOR_EXTREMITY_ORDER) or extremities.get("sweep_kinds") != list(SUCCESSOR_EXTREMITY_KINDS):
+        raise SurfacePreviewPublishError("successor extremity sweep order or kinds are invalid")
+    for key in ("station_counts", "station_names", "section_owner_keys", "endpoint_cap_counts", "internal_transition_counts"):
+        if not isinstance(extremities.get(key), list) or len(extremities[key]) != 6:
+            raise SurfacePreviewPublishError(f"successor extremity {key} metadata is invalid")
+
+    tail = sidecar.get("tail")
+    if not isinstance(tail, dict) or set(tail) != {
+        "representation", "elements_consumed", "element_order", "element_kinds", "section_counts",
+        "section_names", "owner_keys", "endpoint_cap_counts", "internal_transition_counts",
+        "controls", "tip_shared_endpoint",
+    }:
+        raise SurfacePreviewPublishError("successor tail representation metadata is missing")
+    if tail.get("representation") != "shared-guide-derived-profile-sweep-elements" or tail.get("elements_consumed") != 6:
+        raise SurfacePreviewPublishError("successor tail element count is not six")
+    if tail.get("element_order") != list(SUCCESSOR_TAIL_ORDER) or tail.get("element_kinds") != list(SUCCESSOR_TAIL_KINDS):
+        raise SurfacePreviewPublishError("successor tail element order or kinds are invalid")
+    for key in ("section_counts", "section_names", "owner_keys", "endpoint_cap_counts", "internal_transition_counts"):
+        if not isinstance(tail.get(key), list) or len(tail[key]) != 6:
+            raise SurfacePreviewPublishError(f"successor tail {key} metadata is invalid")
+
+    bridge = sidecar.get("temporary_bridge")
+    if not isinstance(bridge, dict) or set(bridge) != {"enabled", "consumer", "regions", "field_count", "retained_recipes"}:
+        raise SurfacePreviewPublishError("successor temporary bridge metadata is missing")
+    if (
+        bridge.get("enabled") is not True
+        or bridge.get("consumer") != "baseline-analytic-fields"
+        or bridge.get("regions") != ["limb-root-connectors", "hip-transitions"]
+        or bridge.get("field_count") != 6
+        or bridge.get("retained_recipes") != list(SUCCESSOR_RETAINED_BRIDGE_RECIPES)
+    ):
+        raise SurfacePreviewPublishError("successor temporary bridge must contain only six root/hip fields")
+    retained = bridge["retained_recipes"]
+    if any(recipe in SUCCESSOR_REPLACED_EXTREMITY_AND_TAIL_RECIPES for recipe in retained):
+        raise SurfacePreviewPublishError("successor temporary bridge retains baseline paw, foot, or tail recipes")
+
+    replaced = sidecar.get("replaced_baseline_recipes")
+    if not isinstance(replaced, list) or not all(isinstance(recipe, str) and recipe for recipe in replaced):
+        raise SurfacePreviewPublishError("successor replaced-baseline recipe metadata is invalid")
+    if not SUCCESSOR_REQUIRED_REPLACED_RECIPES <= set(replaced):
+        raise SurfacePreviewPublishError("successor sidecar does not claim replacement of baseline deltoid, paw, foot, and tail recipes")
+    if any(recipe in SUCCESSOR_REPLACED_EXTREMITY_AND_TAIL_RECIPES for recipe in retained):
+        raise SurfacePreviewPublishError("successor sidecar retains a replaced baseline recipe")
+
+    if metrics.get("consumer_id") != SUCCESSOR_CONSUMER_ID or metrics.get("successor_region_id") != SUCCESSOR_REGION_ID:
+        raise SurfacePreviewPublishError("successor metrics identity does not match sidecar")
+    metrics_region = metrics.get("successor_region")
+    if not isinstance(metrics_region, dict) or not metrics_region:
+        raise SurfacePreviewPublishError("successor metrics lack region representation metadata")
+    if (
+        metrics_region.get("shoulder_representation") != "distal-deltoid-swept-curve-spans"
+        or type(metrics_region.get("shoulder_spans_consumed")) is not int
+        or metrics_region.get("shoulder_spans_consumed") != 2
+        or metrics_region.get("shoulder_curve") != "deltoid-sweep"
+        or type(metrics_region.get("shoulder_span_index")) is not int
+        or metrics_region.get("shoulder_span_index") != 1
+        or metrics_region.get("extremity_sweeps_consumed") != 6
+        or metrics_region.get("tail_elements_consumed") != 6
+    ):
+        raise SurfacePreviewPublishError("successor metrics lack truthful shoulder, extremity, and tail claims")
+    if metrics_region.get("replaced_baseline_recipes") != replaced or metrics.get("temporary_bridge") != bridge:
+        raise SurfacePreviewPublishError("successor metrics disagree with sidecar checkpoint metadata")
+    return sidecar
+
+
+def _validate_successor_bundle(
+    bundle: Path,
+    expected_source_sha256: str,
+    producer_payload: dict[str, Any],
+    baseline_manifest: dict[str, Any],
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Validate only the successor v2 publication boundary against baseline v2."""
+
+    try:
+        bundle_info = bundle.lstat()
+    except OSError as exc:
+        raise SurfacePreviewPublishError("successor bundle root is unavailable") from exc
+    if stat.S_ISLNK(bundle_info.st_mode) or not stat.S_ISDIR(bundle_info.st_mode):
+        raise SurfacePreviewPublishError("successor bundle root must be a real non-symlink directory")
+    manifest = _read_json(bundle / SUCCESSOR_MANIFEST_NAME, MAX_MANIFEST_BYTES, SUCCESSOR_MANIFEST_NAME)
+    _finite_json(manifest, SUCCESSOR_MANIFEST_NAME)
+    expected_fields = {"format", "status", "consumer_id", "source_format", "source", "shared_render_bounds", "canvas", "layout", "projections", "generator", "variants"}
+    if set(manifest) != expected_fields or manifest.get("format") != SUCCESSOR_PREVIEW_FORMAT or manifest.get("status") != "success":
+        raise SurfacePreviewPublishError("successor bundle has unsupported format, status, or fields")
+    if manifest.get("consumer_id") != SUCCESSOR_CONSUMER_ID or manifest.get("source_format") != common.PROVISIONAL_FORM_FORMAT:
+        raise SurfacePreviewPublishError("successor bundle identity or source format is invalid")
+
+    producer_source = producer_payload.get("source")
+    producer_reference_scale = producer_payload.get("reference_scale")
+    if not isinstance(producer_source, dict) or not isinstance(producer_reference_scale, dict):
+        raise SurfacePreviewPublishError("successor bundle cannot bind producer provenance")
+    source = manifest.get("source")
+    expected_source = {
+        "format": common.PROVISIONAL_FORM_FORMAT,
+        "sha256": expected_source_sha256,
+        "document": producer_source.get("document"),
+        "namespace": producer_source.get("namespace"),
+        "resource_profile_id": producer_source.get("resource_profile_id"),
+        "reference_scale": producer_reference_scale,
+    }
+    if not isinstance(source, dict) or source != expected_source:
+        raise SurfacePreviewPublishError("successor source hash or provenance does not match producer output")
+    if source.get("resource_profile_id") != common.PROVISIONAL_FORM_RESOURCE_PROFILE:
+        raise SurfacePreviewPublishError("successor source resource profile is invalid")
+    if not isinstance(source.get("sha256"), str) or len(source["sha256"]) != 64 or any(character not in "0123456789abcdef" for character in source["sha256"]):
+        raise SurfacePreviewPublishError("successor source.sha256 is invalid")
+    _validate_reference_scale(source.get("reference_scale"), "successor source.reference_scale")
+
+    frame_keys = ("canvas", "projections", "layout", "shared_render_bounds")
+    frame = {key: manifest.get(key) for key in frame_keys}
+    if any(manifest.get(key) != baseline_manifest.get(key) for key in frame_keys):
+        raise SurfacePreviewPublishError("successor capture framing does not exactly match the validated baseline")
+
+    baseline_generator = baseline_manifest.get("generator")
+    if not isinstance(baseline_generator, dict) or type(baseline_generator.get("padding")) not in {int, float}:
+        raise SurfacePreviewPublishError("validated baseline generator padding is unavailable")
+    baseline_capture_padding = baseline_generator["padding"]
+    if not math.isfinite(float(baseline_capture_padding)) or not 0.0 <= baseline_capture_padding <= 100.0:
+        raise SurfacePreviewPublishError("validated baseline generator padding is out of bounds")
+
+    generator = manifest.get("generator")
+    if not isinstance(generator, dict) or set(generator) != {"samples_per_axis", "padding", "capture_padding", "smooth_k", "consumer_boundary", "production_status"}:
+        raise SurfacePreviewPublishError("successor generator configuration has unknown or missing fields")
+    _finite_json(generator, "successor generator")
+    _bounded_json(generator, "successor generator")
+    try:
+        generator_metadata = common._metadata(generator, "successor generator", max_len=8192)
+    except ValidationError as exc:
+        raise SurfacePreviewPublishError(str(exc)) from exc
+    if type(generator["samples_per_axis"]) is not int or not 20 <= generator["samples_per_axis"] <= 96:
+        raise SurfacePreviewPublishError("successor generator.samples_per_axis is out of bounds")
+    if type(generator["padding"]) not in {int, float} or not 0.0 <= generator["padding"] <= 100.0:
+        raise SurfacePreviewPublishError("successor generator.padding is out of bounds")
+    if type(generator["capture_padding"]) not in {int, float} or not math.isfinite(float(generator["capture_padding"])) or not 0.0 <= generator["capture_padding"] <= 100.0:
+        raise SurfacePreviewPublishError("successor generator.capture_padding is out of bounds")
+    if generator["capture_padding"] != baseline_capture_padding:
+        raise SurfacePreviewPublishError("successor capture_padding does not match validated baseline generator padding")
+    if type(generator["smooth_k"]) not in {int, float} or not 0.0 < generator["smooth_k"] <= 100.0:
+        raise SurfacePreviewPublishError("successor generator.smooth_k is out of bounds")
+    if generator.get("production_status") != "disposable exploratory proof" or not isinstance(generator.get("consumer_boundary"), str) or not generator["consumer_boundary"]:
+        raise SurfacePreviewPublishError("successor generator boundary metadata is invalid")
+
+    variants = manifest.get("variants")
+    if not isinstance(variants, list) or len(variants) != len(EXPECTED_VARIANTS) or [item.get("id") for item in variants if isinstance(item, dict)] != list(EXPECTED_VARIANTS):
+        raise SurfacePreviewPublishError("successor variants must be the canonical four variants in order")
+    producer_variants = producer_payload.get("variants")
+    if not isinstance(producer_variants, list) or len(producer_variants) != len(EXPECTED_VARIANTS):
+        raise SurfacePreviewPublishError("successor variants cannot bind producer raw variants")
+    published: list[dict[str, Any]] = []
+    inventory_paths: set[str] = set()
+    expected_kinds = ["ply", "metrics", "successor-consumer-sidecar", "guide-skin-composite-png"]
+    expected_frame = {key: baseline_manifest[key] for key in frame_keys}
+    for index, variant in enumerate(variants):
+        where = f"successor.variants[{index}]"
+        if not isinstance(variant, dict) or set(variant) != {"id", "profile_id", "source_variant_sha256", "metrics", "inventory"}:
+            raise SurfacePreviewPublishError(f"{where} has unknown or missing fields")
+        variant_id = EXPECTED_VARIANTS[index]
+        if variant.get("id") != variant_id or variant.get("profile_id") != variant_id:
+            raise SurfacePreviewPublishError(f"{where} has an invalid canonical id or profile")
+        expected_variant_sha256 = _source_variant_sha256(producer_variants[index], f"{where}.source_variant_sha256")
+        source_variant_sha256 = variant.get("source_variant_sha256")
+        if not isinstance(source_variant_sha256, str) or len(source_variant_sha256) != 64 or any(character not in "0123456789abcdef" for character in source_variant_sha256):
+            raise SurfacePreviewPublishError(f"{where}.source_variant_sha256 is invalid")
+        if source_variant_sha256 != expected_variant_sha256:
+            raise SurfacePreviewPublishError(f"{where}.source_variant_sha256 does not match producer output")
+        inventory = variant.get("inventory")
+        if not isinstance(inventory, list) or len(inventory) != 4 or [item.get("kind") for item in inventory if isinstance(item, dict)] != expected_kinds:
+            raise SurfacePreviewPublishError(f"{where}.inventory is not the exact four-artifact order")
+        expected_paths = {
+            "ply": f"{variant_id}/surface.ply",
+            "metrics": f"{variant_id}/metrics.json",
+            "successor-consumer-sidecar": f"{variant_id}/successor.json",
+            "guide-skin-composite-png": f"{variant_id}/guide-skin-composite.png",
+        }
+        metrics_payload: dict[str, Any] | None = None
+        sidecar_payload: dict[str, Any] | None = None
+        image_entry: dict[str, Any] | None = None
+        kinds: set[str] = set()
+        for entry_index, entry in enumerate(inventory):
+            entry_where = f"{where}.inventory[{entry_index}]"
+            if not isinstance(entry, dict):
+                raise SurfacePreviewPublishError(f"{entry_where} must be an object")
+            kind = entry.get("kind")
+            if kind not in expected_kinds or kind in kinds:
+                raise SurfacePreviewPublishError(f"{entry_where}.kind is missing or duplicated")
+            extra_fields = {"guide-skin-composite-png": {"width", "height", "views", "panels_per_view", "mode"}}.get(kind, set())
+            if set(entry) != {"kind", "path", "sha256", "bytes"} | extra_fields:
+                raise SurfacePreviewPublishError(f"{entry_where} has unknown or missing fields")
+            kinds.add(kind)
+            rel = _safe_relative(entry.get("path"), f"{entry_where}.path")
+            rel_text = rel.as_posix()
+            if rel_text != expected_paths[kind] or rel_text in inventory_paths or rel_text == SUCCESSOR_MANIFEST_NAME:
+                raise SurfacePreviewPublishError(f"{entry_where}.path is not the canonical successor artifact path")
+            inventory_paths.add(rel_text)
+            artifact = bundle / rel
+            if artifact.is_symlink() or not artifact.is_file():
+                raise SurfacePreviewPublishError(f"{entry_where}.path is not a regular file")
+            if type(entry.get("bytes")) is not int or entry["bytes"] < 0 or not isinstance(entry.get("sha256"), str) or len(entry["sha256"]) != 64 or any(character not in "0123456789abcdef" for character in entry["sha256"]):
+                raise SurfacePreviewPublishError(f"{entry_where} has invalid bytes or sha256")
+            actual_hash, actual_size = _sha256(artifact, rel_text)
+            if actual_hash != entry["sha256"] or actual_size != entry["bytes"]:
+                raise SurfacePreviewPublishError(f"successor inventory does not match {rel_text}")
+            if kind == "guide-skin-composite-png":
+                image_entry = entry
+                _validate_png(artifact, entry, rel_text)
+                if entry["width"] != expected_frame["canvas"]["width"] or entry["height"] != expected_frame["canvas"]["height"] or entry["mode"] != expected_frame["canvas"]["mode"]:
+                    raise SurfacePreviewPublishError(f"{entry_where} PNG metadata does not match baseline framing")
+            elif kind == "metrics":
+                metrics_payload = _read_json(artifact, MAX_METRICS_BYTES, f"{where}.metrics.json")
+                _finite_json(metrics_payload, f"{where}.metrics.json")
+                _bounded_json(metrics_payload, f"{where}.metrics.json")
+            elif kind == "successor-consumer-sidecar":
+                sidecar_payload = _validate_successor_sidecar(artifact, variant_id=variant_id, profile_id=variant_id, source_variant_sha256=source_variant_sha256, source=source, frame=expected_frame, metrics=variant["metrics"] if isinstance(variant.get("metrics"), dict) else {})
+        if kinds != set(expected_kinds) or metrics_payload is None or sidecar_payload is None or image_entry is None:
+            raise SurfacePreviewPublishError(f"{where}.inventory is incomplete")
+        if variant.get("metrics") != metrics_payload:
+            raise SurfacePreviewPublishError(f"{where}.metrics does not match the inventoried metrics.json")
+        if not isinstance(variant.get("metrics"), dict):
+            raise SurfacePreviewPublishError(f"{where}.metrics must be an object")
+        published.append({"id": variant_id, "entry": image_entry, "metrics": metrics_payload, "sidecar": sidecar_payload})
+
+    actual_paths, actual_directories = _regular_artifacts(bundle)
+    actual_paths -= {SUCCESSOR_MANIFEST_NAME}
+    if actual_paths != inventory_paths or actual_directories != set(EXPECTED_VARIANTS):
+        raise SurfacePreviewPublishError("successor bundle contains unlisted or missing regular output")
+    return published, {"source": {"format": source["format"], "sha256": source["sha256"]}, "generator": generator_metadata}
+
+
 def publish_surface_preview(
     reviews_root: Path,
     input_path: Path,
     *,
     generator: Path | None = None,
+    successor_generator: Path | None = None,
     creature_kernel: Path | None = None,
     review_id: str = "surface-preview",
-    title: str = "Disposable continuous-surface preview",
+    title: str = "First baseline-versus-successor surface checkpoint",
 ) -> dict[str, Any]:
-    """Run producer/generator in temp space and publish four composite images."""
+    """Run producer and both consumers in temp space and publish four pairs."""
 
     try:
         stable_id = validate_id(review_id, "review id")
@@ -1378,13 +1872,16 @@ def publish_surface_preview(
         input_source = _validate_input(input_path)
     except (ProvisionalFormPublishError, OSError, ValueError) as exc:
         raise SurfacePreviewPublishError(str(exc)) from exc
+    reviews_root = _prepare_reviews_root(reviews_root)
     executable = (creature_kernel or default_creature_kernel()).absolute()
     generator_path = (generator or default_generator()).absolute()
+    successor_generator_path = (successor_generator or default_successor_generator()).absolute()
     with tempfile.TemporaryDirectory(prefix="ck-surface-preview-") as temp_name:
         work = Path(temp_name)
         input_copy = work / "input.json"
         producer_output = work / "provisional-form.json"
-        bundle = work / "bundle"
+        baseline_bundle = work / "baseline-bundle"
+        successor_bundle = work / "successor-bundle"
         try:
             _copy_input_reference(input_source, input_copy)
         except (ProvisionalFormPublishError, OSError, ValueError) as exc:
@@ -1405,38 +1902,91 @@ def publish_surface_preview(
             raise SurfacePreviewPublishError("creature-kernel inspection did not produce v4")
         producer_output.write_text(canonical_json(payload), encoding="utf-8")
         producer_sha256, _ = _sha256(producer_output, "v4 producer output")
-        generator_stdout, generator_stderr, generator_returncode = _run_bounded(
-            [sys.executable, str(generator_path), "--input", str(producer_output), "--output", str(bundle)],
+        _, generator_stderr, generator_returncode = _run_bounded(
+            [sys.executable, str(generator_path), "--input", str(producer_output), "--output", str(baseline_bundle)],
             timeout=GENERATOR_TIMEOUT_SECONDS,
-            label="surface generator",
+            label="baseline surface generator",
         )
         if generator_returncode != 0:
             detail = generator_stderr.decode("utf-8", errors="replace").strip()[:240]
-            raise SurfacePreviewPublishError(f"surface generator failed ({generator_returncode}){': ' + detail if detail else ''}")
-        published, bundle_metadata = _validate_bundle(bundle, producer_sha256, payload)
+            raise SurfacePreviewPublishError(f"baseline surface generator failed ({generator_returncode}){': ' + detail if detail else ''}")
+        published_baseline, baseline_metadata = _validate_bundle(baseline_bundle, producer_sha256, payload)
+        baseline_manifest = _read_json(baseline_bundle / MANIFEST_NAME, MAX_MANIFEST_BYTES, MANIFEST_NAME)
+
+        _, successor_stderr, successor_returncode = _run_bounded(
+            [sys.executable, str(successor_generator_path), "--input", str(producer_output), "--output", str(successor_bundle)],
+            timeout=GENERATOR_TIMEOUT_SECONDS,
+            label="successor surface generator",
+        )
+        if successor_returncode != 0:
+            detail = successor_stderr.decode("utf-8", errors="replace").strip()[:240]
+            raise SurfacePreviewPublishError(f"successor surface generator failed ({successor_returncode}){': ' + detail if detail else ''}")
+        published_successor, successor_metadata = _validate_successor_bundle(
+            successor_bundle, producer_sha256, payload, baseline_manifest
+        )
+        baseline_by_id = {item["id"]: item for item in published_baseline}
+        successor_by_id = {item["id"]: item for item in published_successor}
+        variant_titles = {
+            "neutral-v0": "Neutral",
+            "broad-soft-v0": "Broad soft",
+            "lean-readable-v0": "Lean readable",
+            "depth-forward-v0": "Depth forward",
+        }
         manifest_path = work / "review-manifest.json"
-        groups = [{
-            "id": "profiles",
-            "title": "Surface profiles",
-            "selection_mode": "none",
-            "items": [{
-                "id": item["id"],
-                "title": item["id"],
-                "source": str(bundle / item["entry"]["path"]),
-                "description": "Guide and compiled-skin composite showing front, side, and three-quarter views.",
-                "metadata": {"source_format": common.PROVISIONAL_FORM_FORMAT, "source_sha256": producer_sha256, "generator": bundle_metadata["generator"], "views": list(EXPECTED_VIEWS), "panels_per_view": 2},
-            } for item in published],
-        }]
+        groups = []
+        for variant_id in EXPECTED_VARIANTS:
+            baseline_item = baseline_by_id[variant_id]
+            successor_item = successor_by_id[variant_id]
+            title_prefix = variant_titles[variant_id]
+            groups.append({
+                "id": variant_id,
+                "title": f"{title_prefix} ({variant_id})",
+                "selection_mode": "none",
+                "items": [
+                    {
+                        "id": f"{variant_id}-baseline",
+                        "title": f"{title_prefix} — baseline",
+                        "source": str(baseline_bundle / baseline_item["entry"]["path"]),
+                        "description": "Baseline analytic-form composite: front, side, and three-quarter views in the shared capture frame.",
+                        "metadata": {
+                            "variant_id": variant_id,
+                            "source_role": "baseline",
+                            "source_format": common.PROVISIONAL_FORM_FORMAT,
+                            "source_sha256": producer_sha256,
+                            "generator": baseline_metadata["generator"],
+                            "views": list(EXPECTED_VIEWS),
+                            "panels_per_view": 2,
+                        },
+                    },
+                    {
+                        "id": f"{variant_id}-successor",
+                        "title": f"{title_prefix} — successor",
+                        "source": str(successor_bundle / successor_item["entry"]["path"]),
+                        "description": "Successor profile-sweep composite: front, side, and three-quarter views in the same shared capture frame.",
+                        "metadata": {
+                            "variant_id": variant_id,
+                            "source_role": "successor",
+                            "source_format": SUCCESSOR_PREVIEW_FORMAT,
+                            "source_sha256": producer_sha256,
+                            "consumer_id": SUCCESSOR_CONSUMER_ID,
+                            "successor_region_id": SUCCESSOR_REGION_ID,
+                            "generator": successor_metadata["generator"],
+                            "views": list(EXPECTED_VIEWS),
+                            "panels_per_view": 2,
+                        },
+                    },
+                ],
+            })
         manifest_path.write_text(canonical_json({
             "schema_version": 1,
             "id": stable_id,
             "title": title,
-            "description": "Disposable current-source surface generator preview; not production geometry or Readiness 3 evidence.",
-            "instructions": "Compare the four generated profile composites. The gallery records no product decision.",
+            "description": "First disposable baseline-versus-successor visual checkpoint using one source and one shared capture frame; not production geometry or acceptance evidence.",
+            "instructions": "For each variant, compare baseline first and successor second. Appraise overall creature coherence and recognizability, connected joints/extremities/tail, silhouette, and meaningful differentiation between variants. This gallery records no acceptance decision.",
             "subject_context": {
-                "authored_summary": {"text": "One generated stylized digitigrade biped guide/skin composite per card; each card contains front, side, and three-quarter paired views."},
-                "descriptor_snapshot": {"source_format": common.PROVISIONAL_FORM_FORMAT, "source_sha256": producer_sha256, "variants": [item["id"] for item in published]},
-                "provenance": {"producer": "inspect-provisional-form", "generator_script": generator_path.name, "generator": bundle_metadata["generator"], "limitations": "Disposable preview only; no production geometry, runtime, or Readiness 3 claim."},
+                "authored_summary": {"text": "This is the first baseline-versus-successor visual checkpoint: the same source and shared front/side/three-quarter framing are shown as four ordered pairs. Ben should appraise overall creature coherence and recognizability, connected joints/extremities/tail, silhouette, and meaningful variant differentiation."},
+                "descriptor_snapshot": {"source_format": common.PROVISIONAL_FORM_FORMAT, "source_sha256": producer_sha256, "variants": list(EXPECTED_VARIANTS), "images": 8},
+                "provenance": {"producer": "inspect-provisional-form", "baseline_generator_script": generator_path.name, "successor_generator_script": successor_generator_path.name, "baseline_generator": baseline_metadata["generator"], "successor_generator": successor_metadata["generator"], "capture": "same source and framing", "limitations": "Disposable, non-production visual checkpoint only; no acceptance, runtime, or Readiness 3 claim."},
             },
             "groups": groups,
         }), encoding="utf-8")
@@ -1444,24 +1994,25 @@ def publish_surface_preview(
             summary = publish_session(reviews_root, manifest_path)
         except (ValidationError, PublishError, OSError) as exc:
             raise SurfacePreviewPublishError(f"could not publish surface preview: {exc}") from exc
-    return {**summary, "kind": "surface-preview", "variants": len(published)}
+    return {**summary, "kind": "surface-preview", "variants": len(EXPECTED_VARIANTS), "images": len(EXPECTED_VARIANTS) * 2}
 
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--root", required=True, type=Path, help="existing reviews root")
+    parser.add_argument("--root", required=True, type=Path, help="reviews root (created if its parent exists)")
     parser.add_argument("--input", required=True, type=Path, help="body-document JSON input")
     parser.add_argument("--generator", type=Path, default=None, help="experiment generator script")
     parser.add_argument("--creature-kernel", type=Path, default=None, help="creature-kernel executable")
     parser.add_argument("--id", default="surface-preview", dest="review_id")
-    parser.add_argument("--title", default="Disposable continuous-surface preview")
+    parser.add_argument("--successor-generator", type=Path, default=None, help="successor experiment generator script")
+    parser.add_argument("--title", default="First baseline-versus-successor surface checkpoint")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     try:
         args = _parser().parse_args(argv)
-        summary = publish_surface_preview(args.root, args.input, generator=args.generator, creature_kernel=args.creature_kernel, review_id=args.review_id, title=args.title)
+        summary = publish_surface_preview(args.root, args.input, generator=args.generator, successor_generator=args.successor_generator, creature_kernel=args.creature_kernel, review_id=args.review_id, title=args.title)
     except (SurfacePreviewPublishError, ProvisionalFormPublishError, ValidationError, PublishError, OSError) as exc:
         print(f"publish-surface-preview failed: {exc}", file=sys.stderr)
         return 2
