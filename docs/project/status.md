@@ -21,6 +21,26 @@ worktree, PR #103, gallery, and service state. It is a navigation aid rather
 than a new authority owner. PR #103 remains unmerged until Ben appraises the
 gallery and explicitly authorizes the merge.
 
+Ben's exact feedback on PR #103's successor checkpoint artifact was: "its got
+pointy bulges under the arms again." This is rejection of that displayed
+artifact only, not a canonical anatomy prescription or approval of any
+successor direction; PR #103 remains unmerged. The bounded response is a
+shared successor-generator correction: consume exactly the distal
+`deltoid-sweep` span at index `1` for each side, retain anterior/posterior
+supports as guide-only, and publish the successor region as v6. No per-fixture
+tuning, guide-derivation change, sampling change, or smooth-union change is
+included.
+
+The regenerated v6 candidate removes the large inferior support-curve lobes
+across all four variants while retaining the existing torso-to-arm
+connection. Independent static-capture trials disagreed about whether a much
+smaller angular root contour still counts as the reported defect. An isolated
+no-deltoid trial left that contour unchanged, and removing the temporary
+upper-arm bridge made the attachment visibly thinner rather than providing a
+better bounded correction. The v6 gallery is therefore returned for Ben's
+artifact-scoped reappraisal; this is not approval, and PR #103 remains
+unmerged.
+
 PR #97 was accepted and merged at `e78640e` after Ben appraised the revised
 underarm silhouette as better. Preserve it as the accepted baseline for the
 next form pass; it is not final anatomy or backend approval.

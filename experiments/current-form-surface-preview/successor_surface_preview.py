@@ -45,7 +45,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct source-tree execution
 # the private consumer identity remains stable across this output expansion.
 FORMAT = "creature-kernel.disposable-successor-surface-preview.v2"
 CONSUMER_ID = "successor-surface-v1"
-SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-limb-extremity-tail-profile-sweeps-v5"
+SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-limb-extremity-tail-profile-sweeps-v6"
 DEFAULT_SAMPLES = 56
 DEFAULT_PADDING = 0.50
 # Capture framing is a baseline-compatible concern, separate from the
@@ -304,7 +304,7 @@ class SuccessorRegion:
         return len(self.loft.names)
 
     @property
-    def shoulder_inputs_consumed(self) -> int:
+    def shoulder_spans_consumed(self) -> int:
         return len(self.shoulder_spans)
 
     @property
@@ -575,29 +575,28 @@ def _make_loft(guide: Any) -> _ProfileSweep:
 
 
 def _make_spans(guide: Any) -> tuple[_SweptSpan, ...]:
+    """Consume only the accepted distal deltoid span for each side."""
+
     spans: list[_SweptSpan] = []
     frame = guide.shoulder_frame
     for side in frame.sides:
-        for curve_name, curve in (
-            ("anterior-support", side.anterior_support),
-            ("posterior-return", side.posterior_return),
-            ("deltoid-sweep", side.deltoid_sweep),
-        ):
-            if len(curve.points) != len(curve.profile) or len(curve.points) < 2:
-                _fail(f"successor shoulder input {side.side}/{curve_name} is malformed")
-            for index in range(len(curve.points) - 1):
-                start = tuple(float(value) for value in curve.points[index])
-                end = tuple(float(value) for value in curve.points[index + 1])
-                start_radius = float(curve.profile[index])
-                end_radius = float(curve.profile[index + 1])
-                if not all(math.isfinite(value) for value in (*start, *end)):
-                    _fail(f"{side.side}/{curve_name} contains non-finite points")
-                _finite_positive((start_radius, end_radius), f"{side.side}/{curve_name}.profile")
-                if start == end:
-                    _fail(f"successor shoulder input {side.side}/{curve_name} contains a degenerate span")
-                spans.append(_SweptSpan(side.side, curve_name, index, curve.owner, start, end, start_radius, end_radius))
-    if len(spans) != 16:  # 2 sides: 3 + 3 + 2 spans
-        _fail(f"successor shoulder input count is unstable: {len(spans)}")
+        curve_name = "deltoid-sweep"
+        curve = side.deltoid_sweep
+        index = 1
+        if len(curve.points) != len(curve.profile) or len(curve.points) <= index + 1:
+            _fail(f"successor distal deltoid input {side.side} is malformed")
+        start = tuple(float(value) for value in curve.points[index])
+        end = tuple(float(value) for value in curve.points[index + 1])
+        start_radius = float(curve.profile[index])
+        end_radius = float(curve.profile[index + 1])
+        if not all(math.isfinite(value) for value in (*start, *end)):
+            _fail(f"{side.side}/{curve_name}-{index} contains non-finite points")
+        _finite_positive((start_radius, end_radius), f"{side.side}/{curve_name}-{index}.profile")
+        if start == end:
+            _fail(f"successor distal deltoid input {side.side} contains a degenerate span")
+        spans.append(_SweptSpan(side.side, curve_name, index, curve.owner, start, end, start_radius, end_radius))
+    if len(spans) != 2:
+        _fail(f"successor distal deltoid span count is unstable: {len(spans)}")
     return tuple(spans)
 
 
@@ -2037,7 +2036,7 @@ def _validate_limb_bridge_inventory(
 def compile_successor_region(guide: Any, baseline_fields: tuple[Any, ...] | None = None) -> SuccessorRegion:
     """Compile the guide into the successor regional profile-sweep consumer.
 
-    The torso cage, shoulder deltoid spans, five baseline head/neck fields,
+    The torso cage, one distal deltoid span per side, five baseline head/neck fields,
     four bilateral limb chains, ten bilateral hand/foot fields, and six tail
     fields are replaced. Every other baseline field is carried as a named
     temporary bridge: four limb-root bridges and two hip transitions.
@@ -2491,8 +2490,10 @@ def build_variant(form: Any, descriptors: tuple[Any, ...], samples: int = DEFAUL
             "torso_sections_consumed": region.sections_consumed,
             "torso_section_names": list(region.section_names),
             "torso_section_owner_keys": [_baseline._address_json(owner.key) for owner in region.loft.owners],
-            "shoulder_support_inputs_consumed": region.shoulder_inputs_consumed,
-            "shoulder_support_input_kind": "tapered-swept-curve-spans",
+            "shoulder_representation": "distal-deltoid-swept-curve-spans",
+            "shoulder_spans_consumed": region.shoulder_spans_consumed,
+            "shoulder_curve": "deltoid-sweep",
+            "shoulder_span_index": 1,
             "head_neck_representation": "shared-guide-derived-profile-sweeps",
             "head_neck_sweeps_consumed": len(region.head_neck_sweeps),
             "head_neck_sweep_order": [item.recipe for item in region.head_neck_sweeps],
@@ -2674,7 +2675,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
                     "shared_render_bounds": shared_bounds_json,
                 },
                 "torso": {"representation": "frame-aware-ordered-profile-sweep", "sections_consumed": mesh.representation.sections_consumed, "section_names": list(mesh.representation.section_names)},
-                "shoulders": {"representation": "tapered-swept-curve-spans", "inputs_consumed": mesh.representation.shoulder_inputs_consumed, "curves": sorted({span.curve_name for span in mesh.representation.shoulder_spans})},
+                "shoulders": {"representation": "distal-deltoid-swept-curve-spans", "spans_consumed": mesh.representation.shoulder_spans_consumed, "curve": "deltoid-sweep", "span_index": 1},
                 "head_neck": {
                     "representation": "shared-guide-derived-profile-sweeps",
                     "sweeps_consumed": len(mesh.representation.head_neck_sweeps),

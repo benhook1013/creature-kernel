@@ -52,6 +52,23 @@ head/muzzle/neck, shoulder/torso/pelvis, connected limbs/joints, digitigrade
 legs, paws, and tail; less like blended primitives; with the variants remaining
 meaningfully different.
 
+Ben's exact feedback on the displayed PR #103 successor artifact was: "its got
+pointy bulges under the arms again." This remains an artifact-scoped rejection;
+PR #103 is unmerged and no approval is implied. The bounded response is the
+shared v6 successor-generator selection of exactly one distal `deltoid-sweep`
+span (index `1`) per side, with anterior/posterior supports retained only as
+guide metadata. Fixture-specific tuning, guide derivation, sampling, and
+smooth-union parameters remain unchanged.
+
+The regenerated v6 gallery is now the served candidate. Its four baseline
+PNGs are byte-identical to the rejected gallery and all four successor PNGs
+changed. One independent static-capture trial judged the reported lobes
+removed; a second still saw a smaller angular root contour. Follow-up isolation
+showed that removing the distal deltoid span did not remove that contour, while
+removing the temporary upper-arm bridge produced a visibly thinner attachment.
+The bounded v6 correction is therefore presented for Ben's reappraisal rather
+than treated as internally accepted.
+
 If Ben approves, record the explicit authorization and proceed with the normal
 PR merge path. If feedback is qualified or rejects the candidate, keep PR #103
 unmerged, record the feedback in chat/docs, and make only bounded successor
@@ -60,8 +77,11 @@ candidate.
 
 ## Evidence and limits
 
-T3 browser automation was unavailable. Actual publication and the HTTP/image
-trial succeeded. The latest validation included 72 geometry/render tests, 72
-visual-review tests after the latest root fix, documentation validation, green
-CI, and a final fresh review with no findings. This handover does not claim
-modal-click testing that was not performed.
+The v6 local validation passed 38 successor geometry/render tests, 16 focused
+publication tests, documentation validation, and `git diff --check`. The live
+gallery publication contains exactly eight images, reports the v6 successor
+region for all four variants, and returns HTTP 200. A fresh code/contract review
+found two publication-validation issues; both were fixed with negative tests.
+Current-head CI must still be rechecked after push. The earlier viewer-navigation
+browser trial remains applicable because v6 changes the captured assets rather
+than the viewer interaction.

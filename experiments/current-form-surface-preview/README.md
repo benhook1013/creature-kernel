@@ -85,9 +85,10 @@ ownership. Foot controls expose the existing source-owned hock, a tapered
 metatarsal, planted paw-pad and forward toe-box masses, plus a guide-only
 contact datum. Shoulder controls retain bilateral anterior/posterior support
 curves for x-ray inspection, but mark them `guide-only`; only the
-upper-arm-owned deltoid sweep remains skin-driving in this disposable
-analytic adapter. The sidecar and manifest therefore report the exact
-compiled recipe inventory separately from the richer private guide controls;
+upper-arm-owned distal `deltoid-sweep` span at index `1` per side remains
+skin-driving in this disposable analytic adapter. The sidecar and manifest
+therefore report the exact compiled recipe inventory separately from the
+richer private guide controls;
 hands retain a simple paw mass and attachment. It is not a semantic or runtime
 contract and contains no
 descriptor input records or synthetic semantic IDs. The composite places guide and compiled

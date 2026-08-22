@@ -51,7 +51,7 @@ REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-gui
 SUCCESSOR_PREVIEW_FORMAT = "creature-kernel.disposable-successor-surface-preview.v2"
 SUCCESSOR_MANIFEST_NAME = "successor-surface-manifest.json"
 SUCCESSOR_CONSUMER_ID = "successor-surface-v1"
-SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-limb-extremity-tail-profile-sweeps-v5"
+SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-limb-extremity-tail-profile-sweeps-v6"
 EXPECTED_VARIANTS = common.PROVISIONAL_FORM_VARIANT_IDS
 EXPECTED_VIEWS = ("front", "side", "three-quarter")
 MANIFEST_NAME = "surface-preview-manifest.json"
@@ -1492,6 +1492,9 @@ SUCCESSOR_REPLACED_EXTREMITY_AND_TAIL_RECIPES = {
     "tail-segment", "tail-root-bridge", "tail-root-collar",
     "tail-tip-extension", "tail-tip-cap",
 }
+SUCCESSOR_REQUIRED_REPLACED_RECIPES = (
+    SUCCESSOR_REPLACED_EXTREMITY_AND_TAIL_RECIPES | {"deltoid-sweep-1"}
+)
 
 
 def _bounded_json(value: Any, where: str, *, depth: int = 0) -> None:
@@ -1582,12 +1585,17 @@ def _validate_successor_sidecar(
         raise SurfacePreviewPublishError("successor torso section metadata is invalid")
 
     shoulders = sidecar.get("shoulders")
-    if not isinstance(shoulders, dict) or set(shoulders) != {"representation", "inputs_consumed", "curves"}:
+    if not isinstance(shoulders, dict) or set(shoulders) != {"representation", "spans_consumed", "curve", "span_index"}:
         raise SurfacePreviewPublishError("successor shoulder representation metadata is missing")
-    if shoulders.get("representation") != "tapered-swept-curve-spans" or type(shoulders.get("inputs_consumed")) is not int or shoulders["inputs_consumed"] != 16:
+    if (
+        shoulders.get("representation") != "distal-deltoid-swept-curve-spans"
+        or type(shoulders.get("spans_consumed")) is not int
+        or shoulders["spans_consumed"] != 2
+        or shoulders.get("curve") != "deltoid-sweep"
+        or type(shoulders.get("span_index")) is not int
+        or shoulders.get("span_index") != 1
+    ):
         raise SurfacePreviewPublishError("successor shoulder representation metadata is invalid")
-    if shoulders.get("curves") != ["anterior-support", "deltoid-sweep", "posterior-return"]:
-        raise SurfacePreviewPublishError("successor shoulder curve metadata is invalid")
 
     head_neck = sidecar.get("head_neck")
     if not isinstance(head_neck, dict) or set(head_neck) != {"representation", "sweeps_consumed", "sweep_order", "section_counts", "owner_keys"}:
@@ -1653,8 +1661,8 @@ def _validate_successor_sidecar(
     replaced = sidecar.get("replaced_baseline_recipes")
     if not isinstance(replaced, list) or not all(isinstance(recipe, str) and recipe for recipe in replaced):
         raise SurfacePreviewPublishError("successor replaced-baseline recipe metadata is invalid")
-    if not SUCCESSOR_REPLACED_EXTREMITY_AND_TAIL_RECIPES <= set(replaced):
-        raise SurfacePreviewPublishError("successor sidecar does not claim replacement of baseline paw, foot, and tail recipes")
+    if not SUCCESSOR_REQUIRED_REPLACED_RECIPES <= set(replaced):
+        raise SurfacePreviewPublishError("successor sidecar does not claim replacement of baseline deltoid, paw, foot, and tail recipes")
     if any(recipe in SUCCESSOR_REPLACED_EXTREMITY_AND_TAIL_RECIPES for recipe in retained):
         raise SurfacePreviewPublishError("successor sidecar retains a replaced baseline recipe")
 
@@ -1663,8 +1671,17 @@ def _validate_successor_sidecar(
     metrics_region = metrics.get("successor_region")
     if not isinstance(metrics_region, dict) or not metrics_region:
         raise SurfacePreviewPublishError("successor metrics lack region representation metadata")
-    if metrics_region.get("extremity_sweeps_consumed") != 6 or metrics_region.get("tail_elements_consumed") != 6:
-        raise SurfacePreviewPublishError("successor metrics lack six extremity and tail claims")
+    if (
+        metrics_region.get("shoulder_representation") != "distal-deltoid-swept-curve-spans"
+        or type(metrics_region.get("shoulder_spans_consumed")) is not int
+        or metrics_region.get("shoulder_spans_consumed") != 2
+        or metrics_region.get("shoulder_curve") != "deltoid-sweep"
+        or type(metrics_region.get("shoulder_span_index")) is not int
+        or metrics_region.get("shoulder_span_index") != 1
+        or metrics_region.get("extremity_sweeps_consumed") != 6
+        or metrics_region.get("tail_elements_consumed") != 6
+    ):
+        raise SurfacePreviewPublishError("successor metrics lack truthful shoulder, extremity, and tail claims")
     if metrics_region.get("replaced_baseline_recipes") != replaced or metrics.get("temporary_bridge") != bridge:
         raise SurfacePreviewPublishError("successor metrics disagree with sidecar checkpoint metadata")
     return sidecar

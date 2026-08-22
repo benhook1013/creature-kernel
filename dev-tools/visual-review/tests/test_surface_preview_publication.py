@@ -331,7 +331,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     "successor_region_id": REGION_ID,
                     "capture": frame,
                     "torso": {"representation": "frame-aware-ordered-profile-sweep", "sections_consumed": 7, "section_names": ["a", "b", "c", "d", "e", "f", "g"]},
-                    "shoulders": {"representation": "tapered-swept-curve-spans", "inputs_consumed": 16, "curves": ["anterior-support", "deltoid-sweep", "posterior-return"]},
+                    "shoulders": {"representation": "distal-deltoid-swept-curve-spans", "spans_consumed": 2, "curve": "deltoid-sweep", "span_index": 1},
                     "head_neck": {"representation": "shared-guide-derived-profile-sweeps", "sweeps_consumed": 5, "sweep_order": ["a", "b", "c", "d", "e"], "section_counts": [1, 1, 1, 1, 1], "owner_keys": ["a", "b", "c", "d", "e"]},
                     "limbs": {"representation": "shared-guide-derived-ordered-profile-sweeps", "sweeps_consumed": 4, "sweep_order": ["a", "b", "c", "d"], "station_counts": [1, 1, 1, 1], "station_names": [["a"], ["b"], ["c"], ["d"]], "section_owner_keys": [["a"], ["b"], ["c"], ["d"]], "endpoint_cap_counts": [1, 1, 1, 1]},
                     "extremities": {"representation": "shared-guide-derived-hand-and-digitigrade-foot-profile-sweeps", "sweeps_consumed": 6, "sweep_order": EXTREMITY_ORDER, "sweep_kinds": EXTREMITY_KINDS, "station_counts": [1] * 6, "station_names": [["a"]] * 6, "section_owner_keys": [["a"]] * 6, "endpoint_cap_counts": [1] * 6, "internal_transition_counts": [0] * 6},
@@ -339,7 +339,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     "temporary_bridge": bridge,
                     "replaced_baseline_recipes": replaced,
                 }
-                metrics = {"consumer_id": CONSUMER_ID, "successor_region_id": REGION_ID, "successor_region": {"extremity_sweeps_consumed": 6, "tail_elements_consumed": 6, "replaced_baseline_recipes": replaced}, "temporary_bridge": bridge}
+                metrics = {"consumer_id": CONSUMER_ID, "successor_region_id": REGION_ID, "successor_region": {"shoulder_representation": "distal-deltoid-swept-curve-spans", "shoulder_spans_consumed": 2, "shoulder_curve": "deltoid-sweep", "shoulder_span_index": 1, "extremity_sweeps_consumed": 6, "tail_elements_consumed": 6, "replaced_baseline_recipes": replaced}, "temporary_bridge": bridge}
                 if MODE == "sidecar-identity":
                     sidecar["consumer_id"] = "wrong-consumer"
                 elif MODE == "sidecar-bridge":
@@ -352,10 +352,17 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     sidecar["extremities"] = {**sidecar["extremities"], "sweep_kinds": ["wrong", *sidecar["extremities"]["sweep_kinds"][1:]]}
                 elif MODE == "sidecar-tail":
                     sidecar["tail"] = {**sidecar["tail"], "elements_consumed": 5}
+                elif MODE == "sidecar-shoulder-span-type":
+                    sidecar["shoulders"] = {**sidecar["shoulders"], "span_index": True}
+                elif MODE == "sidecar-missing-deltoid-replacement":
+                    sidecar["replaced_baseline_recipes"] = [recipe for recipe in replaced if recipe != "deltoid-sweep-1"]
                 (variant_dir / "successor.json").write_text(json.dumps(sidecar, sort_keys=True), encoding="utf-8")
                 metrics_file = dict(metrics)
                 if MODE == "metrics-disagreement":
                     metrics_file["successor_region"] = {**metrics["successor_region"], "tail_elements_consumed": 5}
+                elif MODE == "metrics-shoulder-span-type":
+                    metrics_file["successor_region"] = {**metrics["successor_region"], "shoulder_span_index": 1.0}
+                metrics_record = metrics_file if MODE == "metrics-shoulder-span-type" else metrics
                 (variant_dir / "metrics.json").write_text(json.dumps(metrics_file, sort_keys=True), encoding="utf-8")
                 png = variant_dir / "guide-skin-composite.png"
                 png.write_bytes(PNG)
@@ -378,7 +385,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 if MODE == "invalid-png":
                     png.write_bytes(PNG[:-1])
                     inventory[-1] = entry("guide-skin-composite-png", png, {"width": 1800, "height": 570, "views": ["front", "side", "three-quarter"], "panels_per_view": 2, "mode": "RGB"})
-                records.append({"id": variant_id, "profile_id": ("wrong" if MODE == "variant-profile" and not records else variant_id), "source_variant_sha256": source_variant_sha256, "metrics": metrics, "inventory": inventory})
+                records.append({"id": variant_id, "profile_id": ("wrong" if MODE == "variant-profile" and not records else variant_id), "source_variant_sha256": source_variant_sha256, "metrics": metrics_record, "inventory": inventory})
             if MODE == "variant":
                 records.pop()
             if MODE == "extra-path":
@@ -400,7 +407,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             "__EXTREMITY_KINDS__": repr(list(publisher.SUCCESSOR_EXTREMITY_KINDS)),
             "__TAIL_ORDER__": repr(list(publisher.SUCCESSOR_TAIL_ORDER)),
             "__TAIL_KINDS__": repr(list(publisher.SUCCESSOR_TAIL_KINDS)),
-            "__REPLACED__": repr(sorted(publisher.SUCCESSOR_REPLACED_EXTREMITY_AND_TAIL_RECIPES)),
+            "__REPLACED__": repr(sorted(publisher.SUCCESSOR_REQUIRED_REPLACED_RECIPES)),
             "__MESH_PADDING__": repr(0.5),
             "__CAPTURE_PADDING__": repr(0.5 if mode == "capture-padding-mismatch" else 0.75),
         }
@@ -661,7 +668,10 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             "sidecar-extremity-order",
             "sidecar-extremity-kind",
             "sidecar-tail",
+            "sidecar-shoulder-span-type",
+            "sidecar-missing-deltoid-replacement",
             "metrics-disagreement",
+            "metrics-shoulder-span-type",
         )
         for index, mode in enumerate(modes):
             review_id = f"successor-bad-{index}"

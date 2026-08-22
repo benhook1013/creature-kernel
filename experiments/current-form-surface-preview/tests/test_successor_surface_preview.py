@@ -105,7 +105,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
     def setUp(self) -> None:
         self.form = surface_preview.validate_envelope(fixture.make_varied_payload())
 
-    def test_successor_consumes_ordered_cage_and_real_shoulder_inputs(self) -> None:
+    def test_successor_consumes_ordered_cage_and_distal_deltoid_spans(self) -> None:
         _, descriptors, _ = self.form.variants[0]
         guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
         baseline_fields = surface_preview._compile_hybrid_guide(guide)
@@ -119,9 +119,17 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             "lower-pelvis", "upper-pelvis", "lower-abdomen", "waist-abdomen",
             "upper-abdomen", "lower-ribcage", "upper-ribcage-shoulder",
         ))
-        self.assertEqual(region.shoulder_inputs_consumed, 16)
-        self.assertEqual({span.curve_name for span in region.shoulder_spans}, {"anterior-support", "posterior-return", "deltoid-sweep"})
-        self.assertEqual({span.side for span in region.shoulder_spans}, {"left", "right"})
+        self.assertEqual(region.shoulder_spans_consumed, 2)
+        self.assertEqual(
+            [(span.side, span.curve_name, span.span_index) for span in region.shoulder_spans],
+            [("left", "deltoid-sweep", 1), ("right", "deltoid-sweep", 1)],
+        )
+        for span, side in zip(region.shoulder_spans, guide.shoulder_frame.sides):
+            curve = side.deltoid_sweep
+            self.assertEqual(span.start, curve.points[1])
+            self.assertEqual(span.end, curve.points[2])
+            self.assertEqual(span.start_radius, curve.profile[1])
+            self.assertEqual(span.end_radius, curve.profile[2])
         self.assertEqual(
             tuple(item.recipe for item in region.head_neck_sweeps),
             ("cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar"),
@@ -137,8 +145,8 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
         self.assertEqual(len(region.bridge_fields), 6)
         self.assertEqual(len(region.limb_sweeps), 4)
 
-        # Changing an actual support profile changes the successor skin field;
-        # the support is not merely emitted as an x-ray guide line.
+        # Changing the accepted distal deltoid profile changes successor skin;
+        # anterior/posterior supports remain guide-only.
         point = np.asarray(region.shoulder_spans[0].start, dtype=np.float64).reshape(1, 3)
         before = successor._successor_region_field(point, region, 0.10)
         changed = region.shoulder_spans[0].__class__(
@@ -1142,12 +1150,25 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
         for variant_id, descriptors, _ in self.form.variants:
             first = successor.build_variant(self.form, descriptors, padding=0.5)
             second = successor.build_variant(self.form, descriptors, padding=0.5)
+            guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+            self.assertEqual(
+                [(span.side, span.curve_name, span.span_index) for span in first.representation.shoulder_spans],
+                [("left", "deltoid-sweep", 1), ("right", "deltoid-sweep", 1)],
+            )
+            for span, side in zip(first.representation.shoulder_spans, guide.shoulder_frame.sides):
+                curve = side.deltoid_sweep
+                self.assertEqual((span.start, span.end), (curve.points[1], curve.points[2]))
+                self.assertEqual((span.start_radius, span.end_radius), (curve.profile[1], curve.profile[2]))
             self.assertEqual(first.metrics["grid"]["samples_per_axis"], 56)
             self.assertTrue(first.metrics["watertight"])
             self.assertEqual(first.metrics["component_count"], 1)
             self.assertTrue(first.metrics["finite_vertices"] and first.metrics["finite_normals"])
             self.assertGreater(first.metrics["signed_volume"], 0.0)
             limb_metrics = first.metrics["successor_region"]
+            self.assertEqual(limb_metrics["shoulder_representation"], "distal-deltoid-swept-curve-spans")
+            self.assertEqual(limb_metrics["shoulder_spans_consumed"], 2)
+            self.assertEqual(limb_metrics["shoulder_curve"], "deltoid-sweep")
+            self.assertEqual(limb_metrics["shoulder_span_index"], 1)
             self.assertEqual(limb_metrics["limb_sweeps_consumed"], 4)
             self.assertEqual(limb_metrics["limb_sweep_order"], ["left-arm", "left-leg", "right-arm", "right-leg"])
             self.assertEqual(limb_metrics["limb_sweep_station_counts"], [5, 5, 5, 5])
@@ -1356,7 +1377,10 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 self.assertEqual(sidecar["capture"]["layout"], first_manifest["layout"])
                 self.assertEqual(sidecar["capture"]["shared_render_bounds"], expected_bounds_json)
                 self.assertEqual(sidecar["torso"]["sections_consumed"], 7)
-                self.assertEqual(sidecar["shoulders"]["inputs_consumed"], 16)
+                self.assertEqual(
+                    sidecar["shoulders"],
+                    {"representation": "distal-deltoid-swept-curve-spans", "spans_consumed": 2, "curve": "deltoid-sweep", "span_index": 1},
+                )
                 self.assertEqual(sidecar["head_neck"]["sweeps_consumed"], 5)
                 self.assertEqual(
                     sidecar["head_neck"]["sweep_order"],
