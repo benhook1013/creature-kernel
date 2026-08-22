@@ -306,7 +306,7 @@ mod tests {
         assert_eq!(unresolved.joints(), 17);
         assert_eq!(unresolved.sockets(), 2);
         assert_eq!(unresolved.landmarks(), 0);
-        assert_eq!(unresolved.dimensions(), 34);
+        assert_eq!(unresolved.dimensions(), 0);
         assert_eq!(unresolved.named_frames(), 0);
     }
 

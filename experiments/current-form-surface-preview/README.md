@@ -167,7 +167,7 @@ above, the workflow has two steps:
 
 ```bash
 cargo run -p creature-kernel-cli -- inspect-provisional-form \
-  --input examples/body-documents/stylized-digitigrade-biped.json \
+  --input examples/body-documents/stylized-digitigrade-biped-authored-form.json \
   > /tmp/form-v5.json
 
 mkdir -p /tmp/ck-successor-surface

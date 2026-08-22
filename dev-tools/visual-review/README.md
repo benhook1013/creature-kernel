@@ -101,7 +101,7 @@ cargo build -p creature-kernel-cli
 mkdir -p /tmp/creature-provisional-form-reviews
 python3 dev-tools/visual-review/publish_provisional_form.py \
   --root /tmp/creature-provisional-form-reviews \
-  --input examples/body-documents/stylized-digitigrade-biped.json \
+  --input examples/body-documents/stylized-digitigrade-biped-authored-form.json \
   --creature-kernel target/debug/creature-kernel \
   --id stylized-biped-form \
   --title "Stylized biped filled-form appraisal"
@@ -280,7 +280,7 @@ cargo build -p creature-kernel-cli
 mkdir -p /tmp/creature-surface-reviews
 python3 dev-tools/visual-review/publish_surface_preview.py \
   --root /tmp/creature-surface-reviews \
-  --input examples/body-documents/stylized-digitigrade-biped.json \
+  --input examples/body-documents/stylized-digitigrade-biped-authored-form.json \
   --creature-kernel target/debug/creature-kernel \
   --generator experiments/current-form-surface-preview/generate_surface_preview.py \
   --successor-generator experiments/current-form-surface-preview/generate_successor_surface_preview.py

@@ -1,12 +1,12 @@
 {
   "contract": {"family": "creature-kernel.body", "revision": 1},
-  "source": {"document": "stylized_digitigrade_biped", "namespace": "main", "dependencies": []},
+  "source": {"document": "stylized_digitigrade_biped_authored_form", "namespace": "main", "dependencies": []},
   "basis": {"length_unit": "metre", "handedness": "right", "up": "+y", "forward": "+z"},
   "profiles": {"semantic_numeric": "ck.numeric-frame.r1"},
   "body": {
     "modules": [
       {
-        "declaration": {"document": "stylized_digitigrade_biped", "namespace": "main", "anchors": ["tail"], "role": "tail_module"},
+        "declaration": {"document": "stylized_digitigrade_biped_authored_form", "namespace": "main", "anchors": ["tail"], "role": "tail_module"},
         "module": "tail",
         "root_role": "tail_root",
         "instance_anchor": "tail",
@@ -63,7 +63,42 @@
       {"address": {"namespace": "main", "anchors": ["tail"], "kind": "attachment", "role": "tail_mount"}, "host": {"namespace": "main", "anchors": [], "kind": "socket", "role": "tail_mount"}, "mating": {"namespace": "main", "anchors": ["tail"], "kind": "socket", "role": "tail_mount"}, "offset": {"translation": [0, 0, 0], "rotation_xyzw": [0, 0, 0, 1]}}
     ],
     "landmarks": [],
-    "dimensions": [],
+    "dimensions": [
+      {"owner": {"namespace": "main", "anchors": [], "kind": "part", "role": "pelvis"}, "role": "form_extent_x", "value": 1700},
+      {"owner": {"namespace": "main", "anchors": [], "kind": "part", "role": "pelvis"}, "role": "form_extent_y", "value": 1200},
+      {"owner": {"namespace": "main", "anchors": [], "kind": "part", "role": "pelvis"}, "role": "form_extent_z", "value": 900},
+      {"owner": {"namespace": "main", "anchors": [], "kind": "part", "role": "torso"}, "role": "form_extent_x", "value": 1650},
+      {"owner": {"namespace": "main", "anchors": [], "kind": "part", "role": "torso"}, "role": "form_extent_y", "value": 1200},
+      {"owner": {"namespace": "main", "anchors": [], "kind": "part", "role": "torso"}, "role": "form_extent_z", "value": 900},
+      {"owner": {"namespace": "main", "anchors": [], "kind": "part", "role": "neck"}, "role": "form_radius", "value": 350},
+      {"owner": {"namespace": "main", "anchors": [], "kind": "part", "role": "head"}, "role": "form_extent_x", "value": 1000},
+      {"owner": {"namespace": "main", "anchors": [], "kind": "part", "role": "head"}, "role": "form_extent_y", "value": 600},
+      {"owner": {"namespace": "main", "anchors": [], "kind": "part", "role": "head"}, "role": "form_extent_z", "value": 900},
+      {"owner": {"namespace": "main", "anchors": ["left"], "kind": "part", "role": "upper_arm"}, "role": "form_radius", "value": 220},
+      {"owner": {"namespace": "main", "anchors": ["left"], "kind": "part", "role": "forearm"}, "role": "form_radius", "value": 190},
+      {"owner": {"namespace": "main", "anchors": ["left"], "kind": "part", "role": "hand"}, "role": "form_extent_x", "value": 450},
+      {"owner": {"namespace": "main", "anchors": ["left"], "kind": "part", "role": "hand"}, "role": "form_extent_y", "value": 400},
+      {"owner": {"namespace": "main", "anchors": ["left"], "kind": "part", "role": "hand"}, "role": "form_extent_z", "value": 350},
+      {"owner": {"namespace": "main", "anchors": ["right"], "kind": "part", "role": "upper_arm"}, "role": "form_radius", "value": 220},
+      {"owner": {"namespace": "main", "anchors": ["right"], "kind": "part", "role": "forearm"}, "role": "form_radius", "value": 190},
+      {"owner": {"namespace": "main", "anchors": ["right"], "kind": "part", "role": "hand"}, "role": "form_extent_x", "value": 450},
+      {"owner": {"namespace": "main", "anchors": ["right"], "kind": "part", "role": "hand"}, "role": "form_extent_y", "value": 400},
+      {"owner": {"namespace": "main", "anchors": ["right"], "kind": "part", "role": "hand"}, "role": "form_extent_z", "value": 350},
+      {"owner": {"namespace": "main", "anchors": ["left"], "kind": "part", "role": "thigh"}, "role": "form_radius", "value": 280},
+      {"owner": {"namespace": "main", "anchors": ["left"], "kind": "part", "role": "shin"}, "role": "form_radius", "value": 220},
+      {"owner": {"namespace": "main", "anchors": ["left"], "kind": "part", "role": "foot"}, "role": "form_extent_x", "value": 500},
+      {"owner": {"namespace": "main", "anchors": ["left"], "kind": "part", "role": "foot"}, "role": "form_extent_y", "value": 350},
+      {"owner": {"namespace": "main", "anchors": ["left"], "kind": "part", "role": "foot"}, "role": "form_extent_z", "value": 700},
+      {"owner": {"namespace": "main", "anchors": ["right"], "kind": "part", "role": "thigh"}, "role": "form_radius", "value": 280},
+      {"owner": {"namespace": "main", "anchors": ["right"], "kind": "part", "role": "shin"}, "role": "form_radius", "value": 220},
+      {"owner": {"namespace": "main", "anchors": ["right"], "kind": "part", "role": "foot"}, "role": "form_extent_x", "value": 500},
+      {"owner": {"namespace": "main", "anchors": ["right"], "kind": "part", "role": "foot"}, "role": "form_extent_y", "value": 350},
+      {"owner": {"namespace": "main", "anchors": ["right"], "kind": "part", "role": "foot"}, "role": "form_extent_z", "value": 700},
+      {"owner": {"namespace": "main", "anchors": ["tail"], "kind": "part", "role": "tail_root"}, "role": "form_start_radius", "value": 300},
+      {"owner": {"namespace": "main", "anchors": ["tail"], "kind": "part", "role": "tail_root"}, "role": "form_end_radius", "value": 220},
+      {"owner": {"namespace": "main", "anchors": ["tail"], "kind": "part", "role": "tail_tip"}, "role": "form_start_radius", "value": 220},
+      {"owner": {"namespace": "main", "anchors": ["tail"], "kind": "part", "role": "tail_tip"}, "role": "form_end_radius", "value": 40}
+    ],
     "frames": [],
     "regions": [
       {"address": {"namespace": "main", "anchors": [], "kind": "region", "role": "core_body"}, "parts": [

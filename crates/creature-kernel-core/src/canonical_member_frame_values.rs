@@ -1276,10 +1276,7 @@ mod tests {
             member.prepared_source().attachments().len()
         );
         assert!(values.landmarks().is_empty());
-        assert_eq!(
-            values.dimensions().len(),
-            member.prepared_source().dimensions().len()
-        );
+        assert!(values.dimensions().is_empty());
         assert!(values.frames().is_empty());
         assert_eq!(
             sqrt.inputs.len(),

@@ -870,7 +870,7 @@ mod tests {
         assert_eq!(value["prepared"]["counts"]["sockets"], 2);
         assert_eq!(value["prepared"]["counts"]["attachments"], 1);
         assert_eq!(value["prepared"]["counts"]["landmarks"], 0);
-        assert_eq!(value["prepared"]["counts"]["dimensions"], 34);
+        assert_eq!(value["prepared"]["counts"]["dimensions"], 0);
         assert_eq!(value["prepared"]["counts"]["frames"], 0);
         let preview = &value["preview"];
         assert_eq!(
@@ -917,7 +917,7 @@ mod tests {
             json!([0, 0, -1])
         );
         let rows = value["prepared"]["numeric_values"].as_array().unwrap();
-        assert_eq!(rows.len(), 419);
+        assert_eq!(rows.len(), 385);
         let pelvis_x = rows
             .iter()
             .find(|row| {

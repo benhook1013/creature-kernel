@@ -434,7 +434,10 @@ mod tests {
     use creature_kernel_core::provisional_json::{Value, json};
 
     fn example() -> Vec<u8> {
-        include_bytes!("../../../examples/body-documents/stylized-digitigrade-biped.json").to_vec()
+        include_bytes!(
+            "../../../examples/body-documents/stylized-digitigrade-biped-authored-form.json"
+        )
+        .to_vec()
     }
 
     fn parsed(output: &CliResult) -> Value {
