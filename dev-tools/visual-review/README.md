@@ -305,6 +305,19 @@ eight copied images. Every pair uses the same source provenance and shared
 front, side, and three-quarter framing (`1800 × 570`, RGB), so the appraisal
 can focus on the consumer boundary rather than capture differences.
 
+The published `review.json` also retains the exact canonical v5 producer bytes
+actually consumed by both generators in
+`subject_context.descriptor_snapshot`. That payload is deterministically
+zlib-compressed and Base64-encoded to stay within the bounded review-context
+carrier, with its original UTF-8 encoding, byte count, and SHA-256 recorded
+alongside it; its hash must equal the existing producer `source_sha256`.
+Decoding the field must reproduce the exact v5 bytes and therefore the complete
+authored-dimension/descriptor-role mapping. The original validated body
+document remains identified by its UTF-8 encoding, byte count, and SHA-256
+without duplicating its bytes. This is self-contained v5 lineage evidence, not
+an image asset, a new body-document contract, or a claim that the disposable
+consumers are production geometry.
+
 For each pair, appraise whether the successor reads as a more coherent
 stylized furry biped overall: recognizable cranium/muzzle/neck,
 shoulder/torso/pelvis structure, connected limbs and joints, digitigrade legs,

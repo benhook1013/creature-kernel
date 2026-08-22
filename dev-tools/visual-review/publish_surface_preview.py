@@ -13,6 +13,7 @@ evidence.
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import json
 import math
@@ -35,6 +36,7 @@ import common
 from common import ValidationError, canonical_json, validate_id
 from publish import PublishError, _open_directory, publish_session
 from publish_provisional_form import (
+    ORDINARY_SOURCE_BYTES,
     ProvisionalFormPublishError,
     _copy_input_reference,
     _parse_inspection,
@@ -67,6 +69,16 @@ MAX_MANIFEST_BYTES = 256 * 1024
 MAX_GUIDE_BYTES = 512 * 1024
 MAX_METRICS_BYTES = 256 * 1024
 MAX_ARTIFACT_BYTES = 16 * 1024 * 1024
+SOURCE_EVIDENCE_ENCODING = "utf-8"
+SOURCE_EVIDENCE_TRANSFER = "base64"
+SOURCE_EVIDENCE_COMPRESSION = "zlib"
+INPUT_EVIDENCE_PREFIX = "input_body_document"
+PRODUCER_EVIDENCE_PREFIX = "producer_v5"
+INPUT_EVIDENCE_FIELDS = {
+    "input_body_document_encoding",
+    "input_body_document_bytes",
+    "input_body_document_sha256",
+}
 MAX_BUNDLE_SCAN_DEPTH = 8
 MAX_BUNDLE_SCAN_ENTRIES = 1024
 MAX_BUNDLE_SCAN_BYTES = 128 * 1024 * 1024
@@ -346,6 +358,196 @@ def _sha256(path: Path, where: str) -> tuple[str, int]:
     except OSError as exc:
         raise SurfacePreviewPublishError(f"could not read {where}: {exc}") from exc
     return digest.hexdigest(), size
+
+
+def _evidence_fields(prefix: str) -> set[str]:
+    return {
+        f"{prefix}_zlib_base64",
+        f"{prefix}_encoding",
+        f"{prefix}_transfer",
+        f"{prefix}_compression",
+        f"{prefix}_bytes",
+        f"{prefix}_sha256",
+    }
+
+
+def _read_exact_evidence(
+    path: Path, *, prefix: str, max_bytes: int, where: str
+) -> dict[str, Any]:
+    """Read one exact bounded UTF-8 payload into the review evidence carrier."""
+
+    if path.is_symlink() or not path.is_file():
+        raise SurfacePreviewPublishError(f"{where} must be a regular non-symlink file")
+    try:
+        with path.open("rb") as stream:
+            size = os.fstat(stream.fileno()).st_size
+            if size > max_bytes:
+                raise SurfacePreviewPublishError(f"{where} exceeds {max_bytes} bytes")
+            raw = stream.read(max_bytes + 1)
+    except SurfacePreviewPublishError:
+        raise
+    except OSError as exc:
+        raise SurfacePreviewPublishError(f"could not read {where}: {exc}") from exc
+    if len(raw) != size or len(raw) > max_bytes:
+        raise SurfacePreviewPublishError(f"{where} changed or exceeds its byte limit")
+    try:
+        text = raw.decode(SOURCE_EVIDENCE_ENCODING)
+    except UnicodeDecodeError as exc:
+        raise SurfacePreviewPublishError(f"{where} cannot be retained as UTF-8 evidence") from exc
+    if text.encode(SOURCE_EVIDENCE_ENCODING) != raw:
+        raise SurfacePreviewPublishError(f"{where} UTF-8 evidence is not byte-exact")
+    return {
+        f"{prefix}_zlib_base64": base64.b64encode(
+            zlib.compress(raw, level=9)
+        ).decode("ascii"),
+        f"{prefix}_encoding": SOURCE_EVIDENCE_ENCODING,
+        f"{prefix}_transfer": SOURCE_EVIDENCE_TRANSFER,
+        f"{prefix}_compression": SOURCE_EVIDENCE_COMPRESSION,
+        f"{prefix}_bytes": len(raw),
+        f"{prefix}_sha256": hashlib.sha256(raw).hexdigest(),
+    }
+
+
+def _decode_exact_evidence(
+    value: Any, *, prefix: str, max_bytes: int, where: str
+) -> bytes:
+    """Recover one bounded exact payload from its review binding."""
+
+    if not isinstance(value, dict):
+        raise SurfacePreviewPublishError(f"{where} must be an object")
+    encoded = value.get(f"{prefix}_zlib_base64")
+    if not isinstance(encoded, str):
+        raise SurfacePreviewPublishError(f"{where} has an invalid Base64 payload")
+    try:
+        compressed = base64.b64decode(encoded.encode("ascii"), validate=True)
+    except (UnicodeEncodeError, ValueError) as exc:
+        raise SurfacePreviewPublishError(f"{where} has an invalid Base64 payload") from exc
+    decoder = zlib.decompressobj()
+    try:
+        raw = decoder.decompress(compressed, max_bytes + 1)
+    except zlib.error as exc:
+        raise SurfacePreviewPublishError(f"{where} has invalid compressed bytes") from exc
+    if (
+        len(raw) > max_bytes
+        or decoder.unconsumed_tail
+        or decoder.unused_data
+        or not decoder.eof
+    ):
+        raise SurfacePreviewPublishError(f"{where} compressed bytes are not one bounded stream")
+    try:
+        text = raw.decode(SOURCE_EVIDENCE_ENCODING)
+    except UnicodeDecodeError as exc:
+        raise SurfacePreviewPublishError(f"{where} is not valid UTF-8 text") from exc
+    if text.encode(SOURCE_EVIDENCE_ENCODING) != raw:
+        raise SurfacePreviewPublishError(f"{where} UTF-8 payload is not byte-exact")
+    return raw
+
+
+def _validate_exact_evidence(
+    value: Any, *, prefix: str, max_bytes: int, where: str
+) -> dict[str, Any]:
+    """Validate one lossless payload binding before it enters review.json."""
+
+    if not isinstance(value, dict) or not _evidence_fields(prefix) <= set(value):
+        raise SurfacePreviewPublishError(f"{where} is missing its exact UTF-8 binding")
+    encoding = value.get(f"{prefix}_encoding")
+    transfer = value.get(f"{prefix}_transfer")
+    compression = value.get(f"{prefix}_compression")
+    byte_count = value.get(f"{prefix}_bytes")
+    digest = value.get(f"{prefix}_sha256")
+    if (
+        encoding != SOURCE_EVIDENCE_ENCODING
+        or transfer != SOURCE_EVIDENCE_TRANSFER
+        or compression != SOURCE_EVIDENCE_COMPRESSION
+    ):
+        raise SurfacePreviewPublishError(f"{where} has an invalid encoding declaration")
+    if type(byte_count) is not int or not 0 <= byte_count <= max_bytes:
+        raise SurfacePreviewPublishError(f"{where} has an invalid byte count")
+    if (
+        not isinstance(digest, str)
+        or len(digest) != hashlib.sha256().digest_size * 2
+        or any(character not in "0123456789abcdef" for character in digest)
+    ):
+        raise SurfacePreviewPublishError(f"{where} has an invalid SHA-256")
+    raw = _decode_exact_evidence(
+        value, prefix=prefix, max_bytes=max_bytes, where=where
+    )
+    if len(raw) != byte_count or hashlib.sha256(raw).hexdigest() != digest:
+        raise SurfacePreviewPublishError(f"{where} does not bind its exact source bytes")
+    try:
+        common._metadata(value, where)
+    except ValidationError as exc:
+        raise SurfacePreviewPublishError(str(exc)) from exc
+    return value
+
+
+def _read_input_evidence(path: Path) -> dict[str, Any]:
+    exact = _read_exact_evidence(
+        path,
+        prefix=INPUT_EVIDENCE_PREFIX,
+        max_bytes=ORDINARY_SOURCE_BYTES,
+        where="producer input",
+    )
+    return {
+        "input_body_document_encoding": exact["input_body_document_encoding"],
+        "input_body_document_bytes": exact["input_body_document_bytes"],
+        "input_body_document_sha256": exact["input_body_document_sha256"],
+    }
+
+
+def _validate_input_evidence(
+    value: Any, where: str = "source evidence"
+) -> dict[str, Any]:
+    if not isinstance(value, dict) or not INPUT_EVIDENCE_FIELDS <= set(value):
+        raise SurfacePreviewPublishError(f"{where} is missing its input-source binding")
+    if value.get("input_body_document_encoding") != SOURCE_EVIDENCE_ENCODING:
+        raise SurfacePreviewPublishError(f"{where} has an invalid input encoding")
+    byte_count = value.get("input_body_document_bytes")
+    digest = value.get("input_body_document_sha256")
+    if type(byte_count) is not int or not 0 <= byte_count <= ORDINARY_SOURCE_BYTES:
+        raise SurfacePreviewPublishError(f"{where} has an invalid input byte count")
+    if (
+        not isinstance(digest, str)
+        or len(digest) != hashlib.sha256().digest_size * 2
+        or any(character not in "0123456789abcdef" for character in digest)
+    ):
+        raise SurfacePreviewPublishError(f"{where} has an invalid input SHA-256")
+    try:
+        common._metadata(value, where)
+    except ValidationError as exc:
+        raise SurfacePreviewPublishError(str(exc)) from exc
+    return value
+
+
+def _read_producer_evidence(path: Path) -> dict[str, Any]:
+    return _read_exact_evidence(
+        path,
+        prefix=PRODUCER_EVIDENCE_PREFIX,
+        max_bytes=MAX_STDOUT_BYTES,
+        where="v5 producer output",
+    )
+
+
+def _decode_producer_evidence(
+    value: Any, where: str = "v5 producer evidence"
+) -> bytes:
+    return _decode_exact_evidence(
+        value,
+        prefix=PRODUCER_EVIDENCE_PREFIX,
+        max_bytes=MAX_STDOUT_BYTES,
+        where=where,
+    )
+
+
+def _validate_producer_evidence(
+    value: Any, where: str = "v5 producer evidence"
+) -> dict[str, Any]:
+    return _validate_exact_evidence(
+        value,
+        prefix=PRODUCER_EVIDENCE_PREFIX,
+        max_bytes=MAX_STDOUT_BYTES,
+        where=where,
+    )
 
 
 def _prepare_reviews_root(reviews_root: Path) -> Path:
@@ -1886,6 +2088,9 @@ def publish_surface_preview(
             _copy_input_reference(input_source, input_copy)
         except (ProvisionalFormPublishError, OSError, ValueError) as exc:
             raise SurfacePreviewPublishError(str(exc)) from exc
+        input_evidence = _validate_input_evidence(
+            _read_input_evidence(input_copy), "source evidence"
+        )
         stdout, stderr, returncode = _run_bounded(
             [str(executable), "inspect-provisional-form", "--input", str(input_copy)],
             timeout=INSPECTION_TIMEOUT_SECONDS,
@@ -1902,6 +2107,13 @@ def publish_surface_preview(
             raise SurfacePreviewPublishError("creature-kernel inspection did not produce v5")
         producer_output.write_text(canonical_json(payload), encoding="utf-8")
         producer_sha256, _ = _sha256(producer_output, "v5 producer output")
+        producer_evidence = _validate_producer_evidence(
+            _read_producer_evidence(producer_output), "v5 producer evidence"
+        )
+        if producer_evidence["producer_v5_sha256"] != producer_sha256:
+            raise SurfacePreviewPublishError(
+                "v5 producer evidence does not match the consumed producer output"
+            )
         _, generator_stderr, generator_returncode = _run_bounded(
             [sys.executable, str(generator_path), "--input", str(producer_output), "--output", str(baseline_bundle)],
             timeout=GENERATOR_TIMEOUT_SECONDS,
@@ -1977,6 +2189,21 @@ def publish_surface_preview(
                     },
                 ],
             })
+        descriptor_snapshot = _validate_input_evidence({
+            "source_format": common.PROVISIONAL_FORM_FORMAT,
+            "source_sha256": producer_sha256,
+            "variants": list(EXPECTED_VARIANTS),
+            "images": 8,
+            **input_evidence,
+            **producer_evidence,
+        }, "review.subject_context.descriptor_snapshot")
+        _validate_producer_evidence(
+            descriptor_snapshot, "review.subject_context.descriptor_snapshot"
+        )
+        if descriptor_snapshot["producer_v5_sha256"] != descriptor_snapshot["source_sha256"]:
+            raise SurfacePreviewPublishError(
+                "review lineage does not bind the consumed v5 producer output"
+            )
         manifest_path.write_text(canonical_json({
             "schema_version": 1,
             "id": stable_id,
@@ -1985,7 +2212,7 @@ def publish_surface_preview(
             "instructions": "For each variant, compare baseline first and successor second. Appraise overall creature coherence and recognizability, connected joints/extremities/tail, silhouette, and meaningful differentiation between variants. This gallery records no acceptance decision.",
             "subject_context": {
                 "authored_summary": {"text": "This is the first baseline-versus-successor visual checkpoint: the same source and shared front/side/three-quarter framing are shown as four ordered pairs. Ben should appraise overall creature coherence and recognizability, connected joints/extremities/tail, silhouette, and meaningful variant differentiation."},
-                "descriptor_snapshot": {"source_format": common.PROVISIONAL_FORM_FORMAT, "source_sha256": producer_sha256, "variants": list(EXPECTED_VARIANTS), "images": 8},
+                "descriptor_snapshot": descriptor_snapshot,
                 "provenance": {"producer": "inspect-provisional-form", "baseline_generator_script": generator_path.name, "successor_generator_script": successor_generator_path.name, "baseline_generator": baseline_metadata["generator"], "successor_generator": successor_metadata["generator"], "capture": "same source and framing", "limitations": "Disposable, non-production visual checkpoint only; no acceptance, runtime, or Readiness 3 claim."},
             },
             "groups": groups,
