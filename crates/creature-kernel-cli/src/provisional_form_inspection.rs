@@ -5,18 +5,114 @@
 //! dimensions, and fixed profile tuning; it does not publish geometry, mesh,
 //! SDF, anatomy, runtime, or Readiness 3 output.
 
-use creature_kernel_core::body_document::ResourceProfile;
+use creature_kernel_core::body_document::{ResourceProfile, Status as AdmissionStatus};
 use creature_kernel_core::provisional_form_preview::{
-    ProvisionalFormPreview, ProvisionalFormPreviewError, ProvisionalPlacementFailureKind,
-    ProvisionalShape, ProvisionalSourceFailureKind, build_provisional_form_preview,
+    MAX_PROVISIONAL_PERMILLE, ProvisionalFormPreview, ProvisionalFormPreviewError,
+    ProvisionalPlacementFailureKind, ProvisionalShape, ProvisionalSourceFailureKind,
+    build_provisional_form_preview,
 };
 use creature_kernel_core::provisional_json::{Map, Value, json};
 use creature_kernel_core::reference_placement::PlacementSource;
+use creature_kernel_core::semantic_address::AddressKey;
+use creature_kernel_core::source_preparation::{
+    PreparedSingleSource, SourcePreparationError, prepare_single_source,
+};
+use std::collections::{BTreeMap, BTreeSet};
+use std::fmt;
 use std::path::Path;
 
 const FORMAT: &str = "creature-kernel.provisional-form-preview.v5";
 const OPERATION: &str = "inspect-provisional-form";
+const AUTHORED_DIMENSION_PROVENANCE: &str = "source-authored";
+const SHAPE_BASIS_PROVENANCE: &str = "source-authored-dimensions-plus-fixed-display-factor";
 const LIMITATIONS: &str = "Provisional display-only filled-form descriptors from the restricted single-source exact Part placement projection; source-authored dimensions are consumed only through the closed provisional shape-control vocabulary and fixed display profile factors remain applied; no production geometry, mesh, SDF, topology, collision, rig, skin, anatomy, Joint-frame interpretation, landmarks, frames, general units or rotations, dependency resolution, canonical snapshot/serialization, runtime claim, or Readiness activation. Descriptors are not graph Parts.";
+
+struct PreparedAuthoredDimensions {
+    inventory: Vec<AuthoredDimension>,
+    values: BTreeMap<(AddressKey, String), u32>,
+}
+
+struct AuthoredDimension {
+    owner: AddressKey,
+    role: String,
+    value_permille: u32,
+    document: String,
+    namespace: String,
+}
+
+impl AuthoredDimension {
+    fn owner(&self) -> &AddressKey {
+        &self.owner
+    }
+
+    fn role(&self) -> &str {
+        &self.role
+    }
+
+    const fn value_permille(&self) -> u32 {
+        self.value_permille
+    }
+
+    fn provenance(&self) -> AuthoredDimensionProvenance<'_> {
+        AuthoredDimensionProvenance {
+            document: &self.document,
+            namespace: &self.namespace,
+        }
+    }
+}
+
+struct AuthoredDimensionProvenance<'a> {
+    document: &'a str,
+    namespace: &'a str,
+}
+
+impl AuthoredDimensionProvenance<'_> {
+    const fn source(&self) -> &'static str {
+        AUTHORED_DIMENSION_PROVENANCE
+    }
+
+    const fn document(&self) -> &str {
+        self.document
+    }
+
+    const fn namespace(&self) -> &str {
+        self.namespace
+    }
+}
+
+#[derive(Debug)]
+enum InspectionError {
+    Core(ProvisionalFormPreviewError),
+    MissingAuthoredDimension {
+        address: AddressKey,
+        role: String,
+    },
+    InvalidAuthoredDimension {
+        address: AddressKey,
+        role: String,
+        value: String,
+    },
+}
+
+impl fmt::Display for InspectionError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Core(error) => error.fmt(formatter),
+            Self::MissingAuthoredDimension { address, role } => write!(
+                formatter,
+                "required source-authored dimension {role:?} is missing at {address}"
+            ),
+            Self::InvalidAuthoredDimension {
+                address,
+                role,
+                value,
+            } => write!(
+                formatter,
+                "source-authored dimension {role:?} at {address} has invalid positive permille value {value}"
+            ),
+        }
+    }
+}
 
 /// Serialized result and process status for one CLI invocation.
 #[derive(Debug, PartialEq)]
@@ -98,12 +194,24 @@ fn parse_input_path(arguments: &[String]) -> Option<&Path> {
 /// Inspect already-acquired source bytes.
 pub(crate) fn inspect_source(source: &[u8]) -> CliResult {
     match build_provisional_form_preview(source, ResourceProfile::ORDINARY) {
-        Ok(preview) => success(preview),
-        Err(error) => failure(error),
+        Ok(preview) => match prepare_single_source(source, ResourceProfile::ORDINARY) {
+            Ok(prepared) => match prepare_authored_dimensions(&preview, &prepared) {
+                Ok(dimensions) => match success(preview, &dimensions) {
+                    Ok(result) => result,
+                    Err(error) => failure(error),
+                },
+                Err(error) => failure(error),
+            },
+            Err(error) => failure(InspectionError::Core(map_source_preparation_error(error))),
+        },
+        Err(error) => failure(InspectionError::Core(error)),
     }
 }
 
-fn success(preview: ProvisionalFormPreview) -> CliResult {
+fn success(
+    preview: ProvisionalFormPreview,
+    dimensions: &PreparedAuthoredDimensions,
+) -> Result<CliResult, InspectionError> {
     let output = json!({
         "format": FORMAT,
         "operation": OPERATION,
@@ -124,52 +232,55 @@ fn success(preview: ProvisionalFormPreview) -> CliResult {
             "squared_length": preview.reference_scale().squared_length(),
             "source": "exact-containment-edge",
         },
-        "authored_dimensions": preview.authored_dimensions().iter().map(authored_dimension_value).collect::<Vec<_>>(),
-        "variants": preview.variants().iter().map(variant_value).collect::<Vec<_>>(),
+        "authored_dimensions": dimensions.inventory.iter().map(authored_dimension_value).collect::<Vec<_>>(),
+        "variants": preview.variants().iter().map(|variant| variant_value(variant, dimensions)).collect::<Result<Vec<_>, _>>()?,
         "limitations": LIMITATIONS,
     });
-    result(output)
+    Ok(result(output))
 }
 
 fn variant_value(
     variant: &creature_kernel_core::provisional_form_preview::ProvisionalFormVariant,
-) -> Value {
-    json!({
+    dimensions: &PreparedAuthoredDimensions,
+) -> Result<Value, InspectionError> {
+    Ok(json!({
         "id": variant.id(),
         "profile_id": variant.provenance().profile_id(),
         "provenance": {
             "source": variant.provenance().source(),
             "resource_profile_id": variant.provenance().resource_profile_id(),
-            "shape_basis": variant.provenance().shape_basis(),
+            "shape_basis": SHAPE_BASIS_PROVENANCE,
         },
-        "descriptors": variant.descriptors().iter().map(descriptor_value).collect::<Vec<_>>(),
-    })
+        "descriptors": variant.descriptors().iter().map(|descriptor| descriptor_value(descriptor, variant.id(), dimensions)).collect::<Result<Vec<_>, _>>()?,
+    }))
 }
 
 fn descriptor_value(
     descriptor: &creature_kernel_core::provisional_form_preview::ProvisionalPartDescriptor,
-) -> Value {
-    json!({
+    profile_id: &'static str,
+    dimensions: &PreparedAuthoredDimensions,
+) -> Result<Value, InspectionError> {
+    let dimension_roles = authored_dimension_roles(descriptor.address().role())
+        .expect("core preview role is in the closed provisional shape vocabulary");
+    Ok(json!({
         "descriptor_kind": "display-only-form-descriptor",
         "address": crate::structural_inspection::address_key_value(descriptor.address()),
         "parent": descriptor.parent().map(crate::structural_inspection::address_key_value).unwrap_or(Value::Null),
         "placement_source": placement_source_name(descriptor.placement_source()),
         "reference_point": exact_translation_value(descriptor.reference_point()),
-        "dimension_roles": descriptor.dimension_roles(),
+        "dimension_roles": dimension_roles,
         "profile_id": descriptor.provenance().profile_id(),
         "source": descriptor.provenance().source(),
         "provenance": {
             "source": descriptor.provenance().source(),
             "resource_profile_id": descriptor.provenance().resource_profile_id(),
-            "shape_basis": descriptor.provenance().shape_basis(),
+            "shape_basis": SHAPE_BASIS_PROVENANCE,
         },
-        "shape": shape_value(descriptor.shape()),
-    })
+        "shape": shape_value(descriptor.shape(), profile_id, descriptor.address(), dimensions)?,
+    }))
 }
 
-fn authored_dimension_value(
-    dimension: &creature_kernel_core::provisional_form_preview::ProvisionalAuthoredDimension,
-) -> Value {
+fn authored_dimension_value(dimension: &AuthoredDimension) -> Value {
     json!({
         "owner": crate::structural_inspection::address_key_value(dimension.owner()),
         "role": dimension.role(),
@@ -182,38 +293,258 @@ fn authored_dimension_value(
     })
 }
 
-fn shape_value(shape: &ProvisionalShape) -> Value {
+fn shape_value(
+    shape: &ProvisionalShape,
+    profile_id: &'static str,
+    address: &AddressKey,
+    dimensions: &PreparedAuthoredDimensions,
+) -> Result<Value, InspectionError> {
     match shape {
-        ProvisionalShape::Ellipsoid {
-            center,
-            axis_extents_permille,
-        } => json!({
+        ProvisionalShape::Ellipsoid { center, .. } => Ok(json!({
             "name": "ellipsoid",
             "center": exact_translation_value(*center),
-            "axis_extents_permille": axis_extents_permille,
-        }),
-        ProvisionalShape::Capsule {
-            from,
-            to,
-            radius_permille,
-        } => json!({
+            "axis_extents_permille": extents(profile_id, address, dimensions)?,
+        })),
+        ProvisionalShape::Capsule { from, to, .. } => Ok(json!({
             "name": "capsule",
             "from": exact_translation_value(*from),
             "to": exact_translation_value(*to),
-            "radius_permille": radius_permille,
-        }),
-        ProvisionalShape::TaperedSegment {
-            from,
-            to,
-            start_radius_permille,
-            end_radius_permille,
-        } => json!({
+            "radius_permille": radius(profile_id, address, dimensions)?,
+        })),
+        ProvisionalShape::TaperedSegment { from, to, .. } => {
+            let (start, end) = taper_radii(profile_id, address, dimensions)?;
+            Ok(json!({
             "name": "tapered-segment",
             "from": exact_translation_value(*from),
             "to": exact_translation_value(*to),
-            "start_radius_permille": start_radius_permille,
-            "end_radius_permille": end_radius_permille,
-        }),
+            "start_radius_permille": start,
+            "end_radius_permille": end,
+            }))
+        }
+    }
+}
+
+fn prepare_authored_dimensions(
+    preview: &ProvisionalFormPreview,
+    prepared: &PreparedSingleSource,
+) -> Result<PreparedAuthoredDimensions, InspectionError> {
+    let mut required = BTreeSet::new();
+    for variant in preview.variants() {
+        for descriptor in variant.descriptors() {
+            for role in authored_dimension_roles(descriptor.address().role())
+                .expect("core preview role is in the closed provisional shape vocabulary")
+            {
+                required.insert((descriptor.address().clone(), (*role).to_owned()));
+            }
+        }
+    }
+
+    let mut values = BTreeMap::new();
+    for (owner_role, value) in prepared.dimensions() {
+        let key = (owner_role.owner().clone(), owner_role.role().to_owned());
+        if !required.contains(&key) {
+            continue;
+        }
+        let exact = match value.to_exact_i64() {
+            Ok(exact) => exact,
+            Err(cause) => {
+                return Err(InspectionError::InvalidAuthoredDimension {
+                    address: key.0,
+                    role: key.1,
+                    value: format!("bits=0x{:016x} ({cause})", value.to_bits()),
+                });
+            }
+        };
+        let value_permille = match u32::try_from(exact) {
+            Ok(value_permille) if (1..=i64::from(MAX_PROVISIONAL_PERMILLE)).contains(&exact) => {
+                value_permille
+            }
+            _ => {
+                return Err(InspectionError::InvalidAuthoredDimension {
+                    address: key.0,
+                    role: key.1,
+                    value: format!("integer={exact} bits=0x{:016x}", value.to_bits()),
+                });
+            }
+        };
+        values.insert(key, value_permille);
+    }
+
+    for (address, role) in &required {
+        if !values.contains_key(&(address.clone(), role.clone())) {
+            return Err(InspectionError::MissingAuthoredDimension {
+                address: address.clone(),
+                role: role.clone(),
+            });
+        }
+    }
+
+    let source = prepared.graph().source();
+    let inventory = values
+        .iter()
+        .map(|((owner, role), value_permille)| AuthoredDimension {
+            owner: owner.clone(),
+            role: role.clone(),
+            value_permille: *value_permille,
+            document: source.document.clone(),
+            namespace: source.namespace.clone(),
+        })
+        .collect();
+    Ok(PreparedAuthoredDimensions { inventory, values })
+}
+
+fn authored_dimension_roles(role: &str) -> Option<&'static [&'static str]> {
+    match role {
+        "pelvis" | "torso" | "head" | "hand" | "foot" => {
+            Some(&["form_extent_x", "form_extent_y", "form_extent_z"])
+        }
+        "neck" | "upper_arm" | "forearm" | "thigh" | "shin" => Some(&["form_radius"]),
+        "tail_root" | "tail_tip" => Some(&["form_start_radius", "form_end_radius"]),
+        _ => None,
+    }
+}
+
+fn dimension_value(
+    dimensions: &PreparedAuthoredDimensions,
+    address: &AddressKey,
+    role: &str,
+) -> u32 {
+    *dimensions
+        .values
+        .get(&(address.clone(), role.to_owned()))
+        .expect("required authored dimension was validated before shape construction")
+}
+
+fn scale(value: u32, factor: u32, profile_id: &'static str) -> Result<u32, InspectionError> {
+    let scaled = u64::from(value)
+        .checked_mul(u64::from(factor))
+        .ok_or(InspectionError::Core(
+            ProvisionalFormPreviewError::InvalidProfileValue { profile_id, value },
+        ))?
+        / 1_000;
+    let scaled = u32::try_from(scaled).map_err(|_| {
+        InspectionError::Core(ProvisionalFormPreviewError::InvalidProfileValue {
+            profile_id,
+            value: u32::MAX,
+        })
+    })?;
+    if scaled == 0 || scaled > MAX_PROVISIONAL_PERMILLE {
+        return Err(InspectionError::Core(
+            ProvisionalFormPreviewError::InvalidProfileValue {
+                profile_id,
+                value: scaled,
+            },
+        ));
+    }
+    Ok(scaled)
+}
+
+fn extents(
+    profile_id: &'static str,
+    address: &AddressKey,
+    dimensions: &PreparedAuthoredDimensions,
+) -> Result<[u32; 3], InspectionError> {
+    let base = [
+        dimension_value(dimensions, address, "form_extent_x"),
+        dimension_value(dimensions, address, "form_extent_y"),
+        dimension_value(dimensions, address, "form_extent_z"),
+    ];
+    let role = address.role();
+    let factors = match profile_id {
+        "neutral-v0" => [1_000, 1_000, 1_000],
+        "broad-soft-v0" if matches!(role, "pelvis" | "torso" | "head") => [1_200, 1_000, 1_150],
+        "broad-soft-v0" if matches!(role, "hand" | "foot") => [1_150, 1_000, 1_150],
+        "broad-soft-v0" => [1_000; 3],
+        "lean-readable-v0" => [800, 1_000, 800],
+        "depth-forward-v0" if matches!(role, "torso" | "head" | "foot") => [1_000, 1_000, 1_300],
+        "depth-forward-v0" => [1_000; 3],
+        _ => [1_000; 3],
+    };
+    let mut result = [0; 3];
+    for index in 0..3 {
+        result[index] = scale(base[index], factors[index], profile_id)?;
+    }
+    Ok(result)
+}
+
+fn radius(
+    profile_id: &'static str,
+    address: &AddressKey,
+    dimensions: &PreparedAuthoredDimensions,
+) -> Result<u32, InspectionError> {
+    let factor = match profile_id {
+        "broad-soft-v0" => 1_150,
+        "lean-readable-v0" => 800,
+        _ => 1_000,
+    };
+    scale(
+        dimension_value(dimensions, address, "form_radius"),
+        factor,
+        profile_id,
+    )
+}
+
+fn taper_radii(
+    profile_id: &'static str,
+    address: &AddressKey,
+    dimensions: &PreparedAuthoredDimensions,
+) -> Result<(u32, u32), InspectionError> {
+    let (start_factor, end_factor) = match profile_id {
+        "broad-soft-v0" => (1_150, 1_150),
+        "lean-readable-v0" => (800, 800),
+        _ => (1_000, 1_000),
+    };
+    Ok((
+        scale(
+            dimension_value(dimensions, address, "form_start_radius"),
+            start_factor,
+            profile_id,
+        )?,
+        scale(
+            dimension_value(dimensions, address, "form_end_radius"),
+            end_factor,
+            profile_id,
+        )?,
+    ))
+}
+
+fn map_source_preparation_error(error: SourcePreparationError) -> ProvisionalFormPreviewError {
+    let message = error.to_string();
+    match error {
+        SourcePreparationError::Admission(admission) => {
+            let status = match admission.status {
+                AdmissionStatus::InvalidSource => ProvisionalSourceFailureKind::InvalidSource,
+                AdmissionStatus::Unsupported => ProvisionalSourceFailureKind::Unsupported,
+                AdmissionStatus::ResourceLimit => ProvisionalSourceFailureKind::ResourceLimit,
+                AdmissionStatus::InternalFailure | AdmissionStatus::Success => {
+                    ProvisionalSourceFailureKind::InternalFailure
+                }
+            };
+            ProvisionalFormPreviewError::SourcePreparation {
+                status,
+                processing_complete: admission.processing_complete,
+                diagnostics_complete: admission.diagnostics_complete,
+                message,
+            }
+        }
+        SourcePreparationError::Structural(_)
+        | SourcePreparationError::Basis(_)
+        | SourcePreparationError::Numeric { .. } => {
+            ProvisionalFormPreviewError::SourcePreparation {
+                status: ProvisionalSourceFailureKind::InvalidSource,
+                processing_complete: true,
+                diagnostics_complete: true,
+                message,
+            }
+        }
+        SourcePreparationError::Invariant { .. } => {
+            ProvisionalFormPreviewError::SourcePreparation {
+                status: ProvisionalSourceFailureKind::InternalFailure,
+                processing_complete: false,
+                diagnostics_complete: false,
+                message,
+            }
+        }
     }
 }
 
@@ -232,106 +563,108 @@ fn placement_source_name(source: PlacementSource) -> &'static str {
     }
 }
 
-fn failure(error: ProvisionalFormPreviewError) -> CliResult {
+fn failure(error: InspectionError) -> CliResult {
     let (stage, status, code, processing_complete, diagnostics_complete) = match &error {
-        ProvisionalFormPreviewError::SourcePreparation {
+        InspectionError::Core(ProvisionalFormPreviewError::SourcePreparation {
             status,
             processing_complete,
             diagnostics_complete,
             ..
-        } => (
+        }) => (
             "source-preparation",
             source_status_name(*status),
             "ck.cli.provisional-form.source-preparation",
             *processing_complete,
             *diagnostics_complete,
         ),
-        ProvisionalFormPreviewError::DeclaredDependenciesUnsupported { .. } => (
+        InspectionError::Core(ProvisionalFormPreviewError::DeclaredDependenciesUnsupported {
+            ..
+        }) => (
             "provisional-form",
             "unsupported",
             "ck.cli.provisional-form.dependencies",
             true,
             true,
         ),
-        ProvisionalFormPreviewError::ReferencePlacement {
+        InspectionError::Core(ProvisionalFormPreviewError::ReferencePlacement {
             kind,
             processing_complete,
             diagnostics_complete,
             ..
-        } => (
+        }) => (
             "reference-placement",
             placement_status_name(*kind),
             "ck.cli.provisional-form.reference-placement",
             *processing_complete,
             *diagnostics_complete,
         ),
-        ProvisionalFormPreviewError::NoNonzeroReferenceEdge {
+        InspectionError::Core(ProvisionalFormPreviewError::NoNonzeroReferenceEdge {
             kind,
             processing_complete,
             diagnostics_complete,
-        } => (
+        }) => (
             "reference-scale",
             placement_status_name(*kind),
             "ck.cli.provisional-form.no-reference-edge",
             *processing_complete,
             *diagnostics_complete,
         ),
-        ProvisionalFormPreviewError::ReferenceEdgeArithmeticOverflow {
+        InspectionError::Core(ProvisionalFormPreviewError::ReferenceEdgeArithmeticOverflow {
             kind,
             processing_complete,
             diagnostics_complete,
             ..
-        } => (
+        }) => (
             "reference-scale",
             placement_status_name(*kind),
             "ck.cli.provisional-form.reference-arithmetic",
             *processing_complete,
             *diagnostics_complete,
         ),
-        ProvisionalFormPreviewError::UnsupportedPartRole { .. } => (
+        InspectionError::Core(ProvisionalFormPreviewError::UnsupportedPartRole { .. }) => (
             "descriptor",
             "unsupported",
             "ck.cli.provisional-form.unsupported-role",
             true,
             true,
         ),
-        ProvisionalFormPreviewError::ZeroLengthSegment { .. } => (
+        InspectionError::Core(ProvisionalFormPreviewError::ZeroLengthSegment { .. }) => (
             "descriptor",
             "invalid-source",
             "ck.cli.provisional-form.zero-length-segment",
             true,
             true,
         ),
-        ProvisionalFormPreviewError::MissingSegmentParent { .. } => (
+        InspectionError::Core(ProvisionalFormPreviewError::MissingSegmentParent { .. }) => (
             "descriptor",
             "invalid-source",
             "ck.cli.provisional-form.missing-segment-parent",
             true,
             true,
         ),
-        ProvisionalFormPreviewError::MissingSegmentChild { .. } => (
+        InspectionError::Core(ProvisionalFormPreviewError::MissingSegmentChild { .. }) => (
             "descriptor",
             "invalid-source",
             "ck.cli.provisional-form.missing-segment-child",
             true,
             true,
         ),
-        ProvisionalFormPreviewError::AmbiguousSegmentChild { .. } => (
+        InspectionError::Core(ProvisionalFormPreviewError::AmbiguousSegmentChild { .. }) => (
             "descriptor",
             "invalid-source",
             "ck.cli.provisional-form.ambiguous-segment-child",
             true,
             true,
         ),
-        ProvisionalFormPreviewError::InvalidProfileValue { .. } => (
+        InspectionError::Core(ProvisionalFormPreviewError::InvalidProfileValue { .. }) => (
             "descriptor",
             "internal-failure",
             "ck.cli.provisional-form.profile-value",
             false,
             false,
         ),
-        ProvisionalFormPreviewError::MissingAuthoredDimension { .. }
-        | ProvisionalFormPreviewError::InvalidAuthoredDimension { .. } => (
+        InspectionError::MissingAuthoredDimension { .. }
+        | InspectionError::InvalidAuthoredDimension { .. } => (
             "dimensions",
             "invalid-source",
             "ck.cli.provisional-form.authored-dimension",
@@ -444,6 +777,14 @@ mod tests {
         creature_kernel_core::provisional_json::from_str(&output.json).expect("JSON output")
     }
 
+    fn document() -> Value {
+        creature_kernel_core::provisional_json::from_slice(&example()).expect("example JSON")
+    }
+
+    fn bytes(value: Value) -> Vec<u8> {
+        creature_kernel_core::provisional_json::to_vec(&value).expect("JSON bytes")
+    }
+
     #[test]
     fn command_help_and_usage_are_structured_and_non_partial() {
         let help = run_cli([OPERATION, "--help"]);
@@ -503,7 +844,7 @@ mod tests {
                 );
                 assert_eq!(
                     descriptor["provenance"]["shape_basis"],
-                    creature_kernel_core::provisional_form_preview::SHAPE_BASIS_PROVENANCE
+                    SHAPE_BASIS_PROVENANCE
                 );
                 assert!(descriptor["reference_point"].is_array());
                 assert!(descriptor["shape"]["name"].is_string());
@@ -516,6 +857,123 @@ mod tests {
                 .unwrap()
                 .contains("no production geometry")
         );
+    }
+
+    #[test]
+    fn authored_dimension_inventory_and_descriptor_consumption_are_complete() {
+        let value = parsed(&inspect_source(&example()));
+        let dimensions = value["authored_dimensions"].as_array().unwrap();
+        assert_eq!(dimensions.len(), 34);
+        let keys = dimensions
+            .iter()
+            .map(|dimension| {
+                (
+                    dimension["owner"]["namespace"].as_str().unwrap().to_owned(),
+                    dimension["owner"]["anchors"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .map(|anchor| anchor.as_str().unwrap().to_owned())
+                        .collect::<Vec<_>>(),
+                    dimension["owner"]["role"].as_str().unwrap().to_owned(),
+                    dimension["role"].as_str().unwrap().to_owned(),
+                )
+            })
+            .collect::<Vec<_>>();
+        assert!(keys.windows(2).all(|pair| pair[0] < pair[1]));
+        assert!(dimensions.iter().all(|dimension| {
+            dimension["value_permille"]
+                .as_u64()
+                .is_some_and(|value| value > 0 && value <= u64::from(MAX_PROVISIONAL_PERMILLE))
+                && dimension["provenance"]["source"] == AUTHORED_DIMENSION_PROVENANCE
+                && dimension["provenance"]["document"] == "stylized_digitigrade_biped_authored_form"
+                && dimension["provenance"]["namespace"] == "main"
+        }));
+
+        for variant in value["variants"].as_array().unwrap() {
+            for descriptor in variant["descriptors"].as_array().unwrap() {
+                let expected =
+                    authored_dimension_roles(descriptor["address"]["role"].as_str().unwrap())
+                        .expect("descriptor role has authored controls");
+                assert_eq!(
+                    descriptor["dimension_roles"],
+                    Value::Array(expected.iter().map(|role| json!(role)).collect())
+                );
+                for role in expected {
+                    assert!(dimensions.iter().any(|dimension| {
+                        dimension["owner"] == descriptor["address"] && dimension["role"] == *role
+                    }));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn missing_fractional_nonpositive_and_oversized_controls_fail_closed() {
+        let mut missing = document();
+        missing["body"]["dimensions"]
+            .as_array_mut()
+            .unwrap()
+            .remove(0);
+        let missing = parsed(&inspect_source(&bytes(missing)));
+        assert_eq!(missing["status"], "invalid-source");
+        assert_eq!(missing["stage"], "dimensions");
+        assert_eq!(
+            missing["diagnostics"][0]["code"],
+            "ck.cli.provisional-form.authored-dimension"
+        );
+
+        for invalid in [json!(1.5), json!(0), json!(-1), json!(5_001)] {
+            let mut document = document();
+            document["body"]["dimensions"].as_array_mut().unwrap()[0]["value"] = invalid;
+            let result = parsed(&inspect_source(&bytes(document)));
+            assert_eq!(result["status"], "invalid-source");
+            assert_eq!(result["stage"], "dimensions");
+            assert_eq!(
+                result["diagnostics"][0]["code"],
+                "ck.cli.provisional-form.authored-dimension"
+            );
+        }
+    }
+
+    #[test]
+    fn one_authored_dimension_changes_only_its_shape_basis_in_all_variants() {
+        let original = parsed(&inspect_source(&example()));
+        let mut changed_source = document();
+        let torso_x = changed_source["body"]["dimensions"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|dimension| {
+                dimension["owner"]["role"] == "torso" && dimension["role"] == "form_extent_x"
+            })
+            .expect("torso x control");
+        torso_x["value"] = json!(1_750);
+        let changed = parsed(&inspect_source(&bytes(changed_source)));
+
+        for (original_variant, changed_variant) in original["variants"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .zip(changed["variants"].as_array().unwrap())
+        {
+            for (original_descriptor, changed_descriptor) in original_variant["descriptors"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .zip(changed_variant["descriptors"].as_array().unwrap())
+            {
+                assert_eq!(
+                    original_descriptor["address"],
+                    changed_descriptor["address"]
+                );
+                if original_descriptor["address"]["role"] == "torso" {
+                    assert_ne!(original_descriptor["shape"], changed_descriptor["shape"]);
+                } else {
+                    assert_eq!(original_descriptor["shape"], changed_descriptor["shape"]);
+                }
+            }
+        }
     }
 
     #[test]

@@ -108,6 +108,13 @@ result or any retained-human/material detour. Rigging, contact, deformation, VR
 integration, and permanent backend selection remain outside this immediate
 runway.
 
+The required Rust CI workflow still exercises the parked Phase 3 freeze
+manifest, whose 47-path candidate closure includes the current core crate
+module surface. PR #106 leaves those frozen paths byte-identical and implements
+its v5 authored-form lineage in the unfrozen developer CLI adapter. Treat a
+future need to edit a frozen core path as a trigger to resolve the CI/freeze
+boundary explicitly, not as authority to regenerate or rebind EXP-0002.
+
 ## Evidence and limits
 
 The v6 local validation passed 38 successor geometry/render tests, 16 focused

@@ -104,6 +104,14 @@ body inputs, provisional form producer, disposable surface-preview bridge, and
 PR #93 torso result are the starting foundation rather than milestones to
 rediscover.
 
+The required Rust CI workflow still runs Phase 3 freeze-manifest tests whose
+47-path candidate closure includes the current core crate module surface. PR
+#106 therefore keeps every frozen core path byte-identical and carries its v5
+authored-form lineage in the unfrozen developer CLI adapter. If a later runway
+step genuinely requires a frozen core-path edit, first resolve that CI/freeze
+boundary explicitly; do not regenerate, rebind, or resume EXP-0002 as an
+incidental implementation step.
+
 ## Current activation state
 
 The Stage 1 confirmatory surface protocol is parked and non-blocking:
