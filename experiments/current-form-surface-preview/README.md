@@ -1,8 +1,8 @@
 # Disposable current-form surface preview
 
 This is an exploratory visual workbench for the exact four-variant
-`creature-kernel.provisional-form-preview.v4` envelope. It converts the
-temporary integer descriptors into analytic ellipsoid, capsule, and
+`creature-kernel.provisional-form-preview.v5` envelope. It converts the
+source-authored dimension-backed integer descriptors into analytic ellipsoid, capsule, and
 linear-radius tapered-segment fields, folds them in stable full-AddressKey
 order, and extracts a bounded continuous surface on a fixed uniform grid.
 
@@ -116,13 +116,13 @@ python3 -m venv /tmp/ck-current-form-surface-venv
 python -m pip install -r experiments/current-form-surface-preview/requirements.txt
 ```
 
-The input must be a successful v4 inspection envelope. The output directory
+The input must be a successful v5 inspection envelope. The output directory
 must not already exist, and its parent must already exist:
 
 ```bash
 mkdir -p /tmp/ck-current-form-surface
 python experiments/current-form-surface-preview/generate_surface_preview.py \
-  --input /tmp/form-v4.json \
+  --input /tmp/form-v5.json \
   --output /tmp/ck-current-form-surface/run-a \
   --samples-per-axis 72
 ```
@@ -167,12 +167,12 @@ above, the workflow has two steps:
 
 ```bash
 cargo run -p creature-kernel-cli -- inspect-provisional-form \
-  --input examples/body-documents/stylized-digitigrade-biped.json \
-  > /tmp/form-v4.json
+  --input examples/body-documents/stylized-digitigrade-biped-authored-form.json \
+  > /tmp/form-v5.json
 
 mkdir -p /tmp/ck-successor-surface
 python experiments/current-form-surface-preview/generate_successor_surface_preview.py \
-  --input /tmp/form-v4.json \
+  --input /tmp/form-v5.json \
   --output /tmp/ck-successor-surface/run-a \
   --samples-per-axis 56
 ```

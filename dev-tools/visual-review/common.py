@@ -42,10 +42,14 @@ PREPARED_SOURCE_STAGE = "source-preparation"
 PROVISIONAL_FORM_LEGACY_FORMAT = "creature-kernel.provisional-form-preview.v1"
 PROVISIONAL_FORM_V2_FORMAT = "creature-kernel.provisional-form-preview.v2"
 PROVISIONAL_FORM_V3_FORMAT = "creature-kernel.provisional-form-preview.v3"
-PROVISIONAL_FORM_FORMAT = "creature-kernel.provisional-form-preview.v4"
+# Retained only so previously published v4 records remain readable; v5 is the
+# current producer and publication contract.
+PROVISIONAL_FORM_HISTORICAL_V4_FORMAT = "creature-kernel.provisional-form-preview.v4"
+PROVISIONAL_FORM_FORMAT = "creature-kernel.provisional-form-preview.v5"
 PROVISIONAL_FORM_CORRECTED_FORMATS = {
     PROVISIONAL_FORM_V2_FORMAT,
     PROVISIONAL_FORM_V3_FORMAT,
+    PROVISIONAL_FORM_HISTORICAL_V4_FORMAT,
     PROVISIONAL_FORM_FORMAT,
 }
 PROVISIONAL_FORM_FORMATS = {
@@ -61,6 +65,10 @@ PROVISIONAL_FORM_VARIANT_IDS = (
     "depth-forward-v0",
 )
 PROVISIONAL_FORM_PROVENANCE = "profile-derived-display"
+PROVISIONAL_FORM_AUTHORED_DIMENSION_PROVENANCE = "source-authored"
+PROVISIONAL_FORM_SHAPE_BASIS = (
+    "source-authored-dimensions-plus-fixed-display-factor"
+)
 PROVISIONAL_FORM_RESOURCE_PROFILE = "ck.resource.body.r2"
 PROVISIONAL_FORM_SHAPES = {"ellipsoid", "capsule", "tapered-segment"}
 PROVISIONAL_FORM_ROLE_SHAPES = {
@@ -1026,15 +1034,65 @@ def _form_address(value: Any, where: str) -> tuple[str, tuple[str, ...], str, st
 
 
 def _form_role_shape(format_name: str, role: str) -> str | None:
-    if format_name == PROVISIONAL_FORM_FORMAT and role == "neck":
+    if format_name in {
+        PROVISIONAL_FORM_HISTORICAL_V4_FORMAT,
+        PROVISIONAL_FORM_FORMAT,
+    } and role == "neck":
         return "capsule"
     return PROVISIONAL_FORM_ROLE_SHAPES.get(role)
 
 
 def _form_capsule_child_roles(format_name: str) -> dict[str, str]:
-    if format_name == PROVISIONAL_FORM_FORMAT:
+    if format_name in {
+        PROVISIONAL_FORM_HISTORICAL_V4_FORMAT,
+        PROVISIONAL_FORM_FORMAT,
+    }:
         return PROVISIONAL_FORM_V4_CAPSULE_CHILD_ROLES
     return PROVISIONAL_FORM_CAPSULE_CHILD_ROLES
+
+
+def _form_display_factors(
+    profile_id: str, role: str, shape_name: str
+) -> tuple[int, ...]:
+    """Return the fixed Rust display factors for one v5 shape control set."""
+
+    if shape_name == "ellipsoid":
+        if profile_id == "neutral-v0":
+            return (1_000, 1_000, 1_000)
+        if profile_id == "broad-soft-v0":
+            if role in {"pelvis", "torso", "head"}:
+                return (1_200, 1_000, 1_150)
+            if role in {"hand", "foot"}:
+                return (1_150, 1_000, 1_150)
+            return (1_000, 1_000, 1_000)
+        if profile_id == "lean-readable-v0":
+            return (800, 1_000, 800)
+        if profile_id == "depth-forward-v0":
+            if role in {"torso", "head", "foot"}:
+                return (1_000, 1_000, 1_300)
+            return (1_000, 1_000, 1_000)
+    elif shape_name in {"capsule", "tapered-segment"}:
+        if profile_id == "broad-soft-v0":
+            factor = 1_150
+        elif profile_id == "lean-readable-v0":
+            factor = 800
+        else:
+            factor = 1_000
+        return (factor,) * (1 if shape_name == "capsule" else 2)
+    raise ValidationError(
+        f"unsupported v5 display factor combination: {profile_id}/{role}/{shape_name}"
+    )
+
+
+def _form_scaled_display_value(value: int, factor: int, where: str) -> int:
+    """Apply the Rust fixed-factor integer operation and its result bound."""
+
+    scaled = value * factor // 1_000
+    if not 0 < scaled <= PROVISIONAL_FORM_MAX_PERMILLE:
+        raise ValidationError(
+            f"{where} fixed display factor produces invalid permille {scaled}"
+        )
+    return scaled
 
 
 def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any]:
@@ -1053,6 +1111,7 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
             "diagnostics",
             "source",
             "reference_scale",
+            "authored_dimensions",
             "variants",
             "limitations",
         },
@@ -1063,7 +1122,15 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
         raise ValidationError(
             f"{where}.format must be {PROVISIONAL_FORM_LEGACY_FORMAT}, "
             f"{PROVISIONAL_FORM_V2_FORMAT}, {PROVISIONAL_FORM_V3_FORMAT}, "
+            f"{PROVISIONAL_FORM_HISTORICAL_V4_FORMAT}, "
             f"or {PROVISIONAL_FORM_FORMAT}"
+        )
+    is_v5 = format_name == PROVISIONAL_FORM_FORMAT
+    if is_v5 and "authored_dimensions" not in obj:
+        raise ValidationError(f"{where}.authored_dimensions is required for v5")
+    if not is_v5 and "authored_dimensions" in obj:
+        raise ValidationError(
+            f"{where}.authored_dimensions is only valid for {PROVISIONAL_FORM_FORMAT}"
         )
     if obj.get("operation") != PROVISIONAL_FORM_OPERATION:
         raise ValidationError(f"{where}.operation must be {PROVISIONAL_FORM_OPERATION}")
@@ -1089,6 +1156,57 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
         raise ValidationError(
             f"{where}.source.resource_profile_id must be {PROVISIONAL_FORM_RESOURCE_PROFILE}"
         )
+
+    authored_dimension_keys: set[tuple[tuple[str, tuple[str, ...], str, str], str]] = set()
+    authored_dimension_values: dict[
+        tuple[tuple[str, tuple[str, ...], str, str], str], int
+    ] = {}
+    if is_v5:
+        authored_dimensions = _array(
+            obj.get("authored_dimensions"), f"{where}.authored_dimensions"
+        )
+        if not authored_dimensions:
+            raise ValidationError(f"{where}.authored_dimensions must not be empty")
+        ordered_dimension_keys: list[
+            tuple[tuple[str, tuple[str, ...], str, str], str]
+        ] = []
+        for dimension_index, raw_dimension in enumerate(authored_dimensions):
+            dimension_where = f"{where}.authored_dimensions[{dimension_index}]"
+            dimension = _object(raw_dimension, dimension_where)
+            _check_fields(
+                dimension,
+                {"owner", "role", "value_permille", "provenance"},
+                dimension_where,
+            )
+            owner = _form_address(dimension.get("owner"), f"{dimension_where}.owner")
+            if owner[0] != namespace:
+                raise ValidationError(f"{dimension_where}.owner does not match source namespace")
+            role = _string(dimension.get("role"), f"{dimension_where}.role", max_len=256)
+            value_permille = _form_permille(
+                dimension.get("value_permille"), f"{dimension_where}.value_permille"
+            )
+            provenance = _object(
+                dimension.get("provenance"), f"{dimension_where}.provenance"
+            )
+            _check_fields(
+                provenance,
+                {"source", "document", "namespace"},
+                f"{dimension_where}.provenance",
+            )
+            if (
+                provenance.get("source") != PROVISIONAL_FORM_AUTHORED_DIMENSION_PROVENANCE
+                or provenance.get("document") != document
+                or provenance.get("namespace") != namespace
+            ):
+                raise ValidationError(f"{dimension_where}.provenance is invalid")
+            key = (owner, role)
+            ordered_dimension_keys.append(key)
+            authored_dimension_keys.add(key)
+            authored_dimension_values[key] = value_permille
+        if len(authored_dimension_keys) != len(ordered_dimension_keys):
+            raise ValidationError(f"{where}.authored_dimensions contains duplicate owner/role keys")
+        if ordered_dimension_keys != sorted(ordered_dimension_keys):
+            raise ValidationError(f"{where}.authored_dimensions must use stable owner/role order")
 
     scale = _object(obj.get("reference_scale"), f"{where}.reference_scale")
     _check_fields(
@@ -1119,6 +1237,9 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
     if len(variants) != len(PROVISIONAL_FORM_VARIANT_IDS):
         raise ValidationError(f"{where}.variants must contain exactly four variants")
     canonical: list[tuple[Any, ...]] | None = None
+    consumed_dimension_keys: set[
+        tuple[tuple[str, tuple[str, ...], str, str], str]
+    ] = set()
     for index, raw_variant in enumerate(variants):
         variant_where = f"{where}.variants[{index}]"
         variant = _object(raw_variant, variant_where)
@@ -1133,13 +1254,17 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
         provenance = _object(variant.get("provenance"), f"{variant_where}.provenance")
         _check_fields(
             provenance,
-            {"source", "resource_profile_id"},
+            {"source", "resource_profile_id", "shape_basis"}
+            if is_v5
+            else {"source", "resource_profile_id"},
             f"{variant_where}.provenance",
         )
         if provenance.get("source") != PROVISIONAL_FORM_PROVENANCE:
             raise ValidationError(f"{variant_where}.provenance.source is not known")
         if provenance.get("resource_profile_id") != resource_profile_id:
             raise ValidationError(f"{variant_where}.provenance profile does not match source")
+        if is_v5 and provenance.get("shape_basis") != PROVISIONAL_FORM_SHAPE_BASIS:
+            raise ValidationError(f"{variant_where}.provenance.shape_basis is invalid")
         descriptors = _array(variant.get("descriptors"), f"{variant_where}.descriptors")
         if not descriptors or len(descriptors) > PROVISIONAL_FORM_MAX_DESCRIPTORS:
             raise ValidationError(
@@ -1162,9 +1287,14 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
                     "source",
                     "provenance",
                     "shape",
+                    "dimension_roles",
                 },
                 descriptor_where,
             )
+            if not is_v5 and "dimension_roles" in descriptor:
+                raise ValidationError(
+                    f"{descriptor_where}.dimension_roles is only valid for {PROVISIONAL_FORM_FORMAT}"
+                )
             if descriptor.get("descriptor_kind") != "display-only-form-descriptor":
                 raise ValidationError(f"{descriptor_where}.descriptor_kind is not supported")
             address = _form_address(descriptor.get("address"), f"{descriptor_where}.address")
@@ -1188,12 +1318,19 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
             )
             _check_fields(
                 descriptor_provenance,
-                {"source", "resource_profile_id"},
+                {"source", "resource_profile_id", "shape_basis"}
+                if is_v5
+                else {"source", "resource_profile_id"},
                 f"{descriptor_where}.provenance",
             )
             if (
                 descriptor_provenance.get("source") != PROVISIONAL_FORM_PROVENANCE
                 or descriptor_provenance.get("resource_profile_id") != resource_profile_id
+                or (
+                    is_v5
+                    and descriptor_provenance.get("shape_basis")
+                    != PROVISIONAL_FORM_SHAPE_BASIS
+                )
             ):
                 raise ValidationError(f"{descriptor_where}.provenance is not known")
             placement_source = descriptor.get("placement_source")
@@ -1240,6 +1377,59 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
                 _form_permille(shape.get("end_radius_permille"), f"{descriptor_where}.shape.end_radius_permille")
                 if parent is None or from_point == to_point or to_point != reference_point:
                     raise ValidationError(f"{descriptor_where}.shape tapered endpoints are invalid")
+            dimension_roles: tuple[str, ...] = ()
+            if is_v5:
+                raw_dimension_roles = _array(
+                    descriptor.get("dimension_roles"),
+                    f"{descriptor_where}.dimension_roles",
+                )
+                expected_dimension_roles = {
+                    "ellipsoid": (
+                        "form_extent_x",
+                        "form_extent_y",
+                        "form_extent_z",
+                    ),
+                    "capsule": ("form_radius",),
+                    "tapered-segment": ("form_start_radius", "form_end_radius"),
+                }[shape_name]
+                if tuple(raw_dimension_roles) != expected_dimension_roles:
+                    raise ValidationError(
+                        f"{descriptor_where}.dimension_roles do not match its shape"
+                    )
+                if any(
+                    (address, role) not in authored_dimension_keys
+                    for role in raw_dimension_roles
+                ):
+                    raise ValidationError(
+                        f"{descriptor_where}.dimension_roles do not identify source controls"
+                    )
+                dimension_roles = tuple(raw_dimension_roles)
+                consumed_dimension_keys.update(
+                    (address, role) for role in dimension_roles
+                )
+                factors = _form_display_factors(expected_id, address[3], shape_name)
+                if shape_name == "ellipsoid":
+                    controls = tuple(shape["axis_extents_permille"])
+                elif shape_name == "capsule":
+                    controls = (shape["radius_permille"],)
+                else:
+                    controls = (
+                        shape["start_radius_permille"],
+                        shape["end_radius_permille"],
+                    )
+                expected_controls = tuple(
+                    _form_scaled_display_value(
+                        authored_dimension_values[(address, role)],
+                        factor,
+                        f"{descriptor_where}.shape.{role}",
+                    )
+                    for role, factor in zip(dimension_roles, factors)
+                )
+                if controls != expected_controls:
+                    raise ValidationError(
+                        f"{descriptor_where}.shape numeric controls do not match "
+                        "source-authored dimensions after the fixed display factor"
+                    )
             descriptor_keys.append(address)
             address_map[address] = (
                 reference_point,
@@ -1248,6 +1438,7 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
                     "placement_source": placement_source,
                     "shape": shape,
                     "shape_name": shape_name,
+                    "dimension_roles": dimension_roles,
                 },
             )
         if descriptor_keys != sorted(descriptor_keys):
@@ -1330,6 +1521,7 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
                     address_map[key][1]["parent"],
                     address_map[key][1]["placement_source"],
                     next(item["shape"]["name"] for item in descriptors if _form_address(item["address"], "descriptor.address") == key),
+                    address_map[key][1]["dimension_roles"],
                 )
                 for key in descriptor_keys
             ]
@@ -1341,6 +1533,7 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
                     address_map[key][1]["parent"],
                     address_map[key][1]["placement_source"],
                     next(item["shape"]["name"] for item in descriptors if _form_address(item["address"], "descriptor.address") == key),
+                    address_map[key][1]["dimension_roles"],
                 )
                 for key in descriptor_keys
             ]
@@ -1348,6 +1541,10 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
                 raise ValidationError(f"{variant_where}.descriptors do not preserve exact placements and shape kinds")
     if canonical is None:
         raise ValidationError(f"{where}.variants did not contain descriptors")
+    if is_v5 and consumed_dimension_keys != authored_dimension_keys:
+        raise ValidationError(
+            f"{where}.authored_dimensions must equal the complete descriptor-consumed control set"
+        )
     canonical_points = {entry[0]: entry[1] for entry in canonical}
     canonical_parents = {entry[0]: entry[2] for entry in canonical}
     if parent_key not in canonical_points or child_key not in canonical_points:

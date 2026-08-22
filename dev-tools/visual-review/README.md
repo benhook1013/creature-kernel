@@ -101,7 +101,7 @@ cargo build -p creature-kernel-cli
 mkdir -p /tmp/creature-provisional-form-reviews
 python3 dev-tools/visual-review/publish_provisional_form.py \
   --root /tmp/creature-provisional-form-reviews \
-  --input examples/body-documents/stylized-digitigrade-biped.json \
+  --input examples/body-documents/stylized-digitigrade-biped-authored-form.json \
   --creature-kernel target/debug/creature-kernel \
   --id stylized-biped-form \
   --title "Stylized biped filled-form appraisal"
@@ -112,24 +112,26 @@ python3 dev-tools/visual-review/serve.py \
 `publish_provisional_form.py` invokes `creature-kernel
 inspect-provisional-form --input PATH` shell-free, with a 10-second timeout,
 256 KiB stdout bound, and 64 KiB stderr bound. It accepts only a complete,
-diagnostic-free `creature-kernel.provisional-form-preview.v1`, `.v2`, `.v3`, or
-`.v4` success envelope,
+diagnostic-free `creature-kernel.provisional-form-preview.v1`, `.v2`, `.v3`,
+`.v4`, or `.v5` success envelope,
 the exact four variant IDs/order, known Part addresses and provenance, bounded
 integer points, supported ellipsoid/capsule/tapered-segment shapes, and the
 positive reference scale. Failed CLI outcomes and malformed payloads are not
 published. The resulting immutable `provisional-form` session contains the
 validated payload only and no assets or external dependencies.
 
-The CLI currently emits the provisional v4 contract. As in v2/v3, limb
+The CLI currently emits the provisional v5 contract. As in v2/v3, limb
 capsules are owned by their current Part: `upper_arm` spans its reference point
 to its direct `forearm` child, `forearm` to `hand`, `thigh` to `shin`, and
-`shin` to `foot`. V4 additionally represents `neck` as a narrow axial capsule
+`shin` to `foot`. V4 introduced `neck` as a narrow axial capsule
 from the neck reference to its direct `head` child, overlapping only the upper
 torso and head rather than behaving like a torso-length spine. The tapered tail
-remains parent-to-current Part. The server retains strict read support for
-immutable v1-v3 sessions under their original role/endpoint contracts. These
-are provisional display-volume rules, not a generated skeleton, anatomical
-socket, or general junction contract.
+remains parent-to-current Part. V5 retains that geometry while carrying the
+source-authored dimension inventory, each descriptor's consumed dimension
+roles, and the subsequent fixed display-factor provenance. The server retains
+strict read support for immutable v1-v4 sessions under their original
+role/endpoint contracts. These are provisional display-volume rules, not a
+generated skeleton, anatomical socket, or general junction contract.
 
 The read-only browser page renders each variant in front (x/y), side (z/y),
 and top (x/z) filled SVG panels with shared bounds, physical display radii
@@ -141,6 +143,10 @@ tail—not a continuous surface or mesh—and makes no claims of surface
 continuity, anatomical correctness, mesh/topology, rigging, animation/IK,
 deformation, physics, runtime behaviour, or Readiness 3. Keep generated
 sessions under `/tmp`; do not commit them.
+
+The server revalidates each stored `review.json` before serving it; the
+browser's checks are a rendering guard, not the authoritative publication
+contract.
 
 By default the server binds only to `127.0.0.1` and prints one localhost URL
 after the socket is bound; port `0` asks the operating system to choose an
@@ -257,12 +263,13 @@ success. A failed invocation cleans only its own staging/session files.
 ## Disposable baseline-versus-successor surface checkpoint
 
 `publish_surface_preview.py` is a bounded adapter for the current experiment
-surface consumers. It runs the Rust v4 provisional-form producer once, runs the
+surface consumers. It runs the Rust v5 provisional-form producer once, runs the
 baseline and successor Python generators against that same producer output,
 validates both bundles, and publishes four ordered baseline/successor image
 pairs (eight guide/skin composite PNGs) through the ordinary image gallery.
-This is the named human visual checkpoint in the [active runway](../../docs/project/status.md#active-runway),
-not a production or acceptance gate.
+This supplied the prior successor visual checkpoint and remains reusable
+plumbing and baseline evidence for the [active runway](../../docs/project/status.md#active-runway),
+not the current named checkpoint or a production/acceptance gate.
 
 Run it from the isolated environment prepared by
 `experiments/current-form-surface-preview/README.md`, or an equivalent
@@ -273,7 +280,7 @@ cargo build -p creature-kernel-cli
 mkdir -p /tmp/creature-surface-reviews
 python3 dev-tools/visual-review/publish_surface_preview.py \
   --root /tmp/creature-surface-reviews \
-  --input examples/body-documents/stylized-digitigrade-biped.json \
+  --input examples/body-documents/stylized-digitigrade-biped-authored-form.json \
   --creature-kernel target/debug/creature-kernel \
   --generator experiments/current-form-surface-preview/generate_surface_preview.py \
   --successor-generator experiments/current-form-surface-preview/generate_successor_surface_preview.py
@@ -305,8 +312,8 @@ paws, and tail; less like blended primitives; and with the four variants still
 meaningfully different. The gallery records the comparison only; it does not
 record acceptance.
 
-The baseline v2 generator bundle is fail-closed: its manifest must identify the v4 source,
-contain the four canonical v4 variants in order, and inventory exactly one PLY,
+The baseline v2 generator bundle is fail-closed: its manifest must identify the v5 source,
+contain the four canonical v5 variants in order, and inventory exactly one PLY,
 semantic sidecar, metrics JSON, regional-guide JSON, and guide/skin composite PNG
 per variant. Every inventory path is relative, regular, non-symlinked, hash- and
 size-checked. The regional-guide v4 sidecar is checked as a bounded finite
@@ -325,7 +332,7 @@ from the two skin-driving deltoid sweeps, and its compiled recipe counts,
 shared bounds, projections, canvas, and panel layout must match the manifest.
 Stale support-field claims are rejected rather than silently accepted. Composite
 PNG IHDR and inventory metadata are bound to the fixed 1800x570 RGB canvas. The
-bundle's source/provenance and descriptor AddressKeys are bound to the parsed v4
+bundle's source/provenance and descriptor AddressKeys are bound to the parsed v5
 producer result. The producer has a 10-second bound and the local extraction/
 render subprocess has a finite 120-second bound. Unlisted files or directories,
 malformed inventory or guide/provenance, partial variants, and generator or

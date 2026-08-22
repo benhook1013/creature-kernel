@@ -31,6 +31,46 @@ serve = load_module("provisional_form_serve", "serve.py")
 publisher = load_module("provisional_form_publisher", "publish_provisional_form.py")
 
 
+def fixed_display_factors(profile_id: str, role: str, shape_name: str) -> tuple[int, ...]:
+    if shape_name == "ellipsoid":
+        if profile_id == "neutral-v0":
+            return (1_000, 1_000, 1_000)
+        if profile_id == "broad-soft-v0":
+            if role in {"pelvis", "torso", "head"}:
+                return (1_200, 1_000, 1_150)
+            if role in {"hand", "foot"}:
+                return (1_150, 1_000, 1_150)
+            return (1_000, 1_000, 1_000)
+        if profile_id == "lean-readable-v0":
+            return (800, 1_000, 800)
+        if profile_id == "depth-forward-v0":
+            if role in {"torso", "head", "foot"}:
+                return (1_000, 1_000, 1_300)
+            return (1_000, 1_000, 1_000)
+    if shape_name == "capsule":
+        return ((1_150 if profile_id == "broad-soft-v0" else 800 if profile_id == "lean-readable-v0" else 1_000),)
+    if shape_name == "tapered-segment":
+        factor = 1_150 if profile_id == "broad-soft-v0" else 800 if profile_id == "lean-readable-v0" else 1_000
+        return (factor, factor)
+    raise AssertionError(f"unsupported fixture shape {shape_name!r}")
+
+
+def apply_fixed_display_factors(item: dict[str, object], profile_id: str) -> None:
+    shape = item["shape"]
+    role = item["address"]["role"]
+    factors = fixed_display_factors(profile_id, role, shape["name"])
+    if shape["name"] == "ellipsoid":
+        shape["axis_extents_permille"] = [
+            value * factor // 1_000
+            for value, factor in zip(shape["axis_extents_permille"], factors)
+        ]
+    elif shape["name"] == "capsule":
+        shape["radius_permille"] = shape["radius_permille"] * factors[0] // 1_000
+    else:
+        shape["start_radius_permille"] = shape["start_radius_permille"] * factors[0] // 1_000
+        shape["end_radius_permille"] = shape["end_radius_permille"] * factors[1] // 1_000
+
+
 class ProvisionalFormPublicationTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
@@ -50,6 +90,14 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
             "diagnostics": [],
             "source": {"document": "fixture", "namespace": "main", "resource_profile_id": common.PROVISIONAL_FORM_RESOURCE_PROFILE},
             "reference_scale": {"parent": {**address, "role": "pelvis"}, "child": {**address, "role": "torso"}, "axis_delta": [0, 1, 0], "squared_length": 1, "source": "exact-containment-edge"},
+            "authored_dimensions": [
+                {"owner": {**address, "role": "pelvis"}, "role": "form_extent_x", "value_permille": 1000, "provenance": {"source": common.PROVISIONAL_FORM_AUTHORED_DIMENSION_PROVENANCE, "document": "fixture", "namespace": "main"}},
+                {"owner": {**address, "role": "pelvis"}, "role": "form_extent_y", "value_permille": 900, "provenance": {"source": common.PROVISIONAL_FORM_AUTHORED_DIMENSION_PROVENANCE, "document": "fixture", "namespace": "main"}},
+                {"owner": {**address, "role": "pelvis"}, "role": "form_extent_z", "value_permille": 800, "provenance": {"source": common.PROVISIONAL_FORM_AUTHORED_DIMENSION_PROVENANCE, "document": "fixture", "namespace": "main"}},
+                {"owner": {**address, "role": "torso"}, "role": "form_extent_x", "value_permille": 1000, "provenance": {"source": common.PROVISIONAL_FORM_AUTHORED_DIMENSION_PROVENANCE, "document": "fixture", "namespace": "main"}},
+                {"owner": {**address, "role": "torso"}, "role": "form_extent_y", "value_permille": 1000, "provenance": {"source": common.PROVISIONAL_FORM_AUTHORED_DIMENSION_PROVENANCE, "document": "fixture", "namespace": "main"}},
+                {"owner": {**address, "role": "torso"}, "role": "form_extent_z", "value_permille": 900, "provenance": {"source": common.PROVISIONAL_FORM_AUTHORED_DIMENSION_PROVENANCE, "document": "fixture", "namespace": "main"}},
+            ],
             "variants": [],
             "limitations": "Provisional display-only geometry descriptors; no production geometry or Readiness 3.",
         }
@@ -60,9 +108,10 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
                 "parent": None,
                 "placement_source": "authored-root",
                 "reference_point": [0, 0, 0],
+                "dimension_roles": ["form_extent_x", "form_extent_y", "form_extent_z"],
                 "profile_id": variant_id,
                 "source": common.PROVISIONAL_FORM_PROVENANCE,
-                "provenance": {"source": common.PROVISIONAL_FORM_PROVENANCE, "resource_profile_id": common.PROVISIONAL_FORM_RESOURCE_PROFILE},
+                "provenance": {"source": common.PROVISIONAL_FORM_PROVENANCE, "resource_profile_id": common.PROVISIONAL_FORM_RESOURCE_PROFILE, "shape_basis": common.PROVISIONAL_FORM_SHAPE_BASIS},
                 "shape": {"name": "ellipsoid", "center": [0, 0, 0], "axis_extents_permille": [1000, 900, 800]},
             }
             torso = copy.deepcopy(descriptor)
@@ -71,7 +120,10 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
             torso["placement_source"] = "authored-containment"
             torso["reference_point"] = [0, 1, 0]
             torso["shape"]["center"] = [0, 1, 0]
-            self.payload["variants"].append({"id": variant_id, "profile_id": variant_id, "provenance": {"source": common.PROVISIONAL_FORM_PROVENANCE, "resource_profile_id": common.PROVISIONAL_FORM_RESOURCE_PROFILE}, "descriptors": [descriptor, torso]})
+            torso["shape"]["axis_extents_permille"] = [1000, 1000, 900]
+            apply_fixed_display_factors(descriptor, variant_id)
+            apply_fixed_display_factors(torso, variant_id)
+            self.payload["variants"].append({"id": variant_id, "profile_id": variant_id, "provenance": {"source": common.PROVISIONAL_FORM_PROVENANCE, "resource_profile_id": common.PROVISIONAL_FORM_RESOURCE_PROFILE, "shape_basis": common.PROVISIONAL_FORM_SHAPE_BASIS}, "descriptors": [descriptor, torso]})
 
     def tearDown(self) -> None:
         self.temp.cleanup()
@@ -100,17 +152,24 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
             parent: dict[str, object] | None,
             shape: dict[str, object],
         ) -> dict[str, object]:
+            dimension_roles = {
+                "ellipsoid": ["form_extent_x", "form_extent_y", "form_extent_z"],
+                "capsule": ["form_radius"],
+                "tapered-segment": ["form_start_radius", "form_end_radius"],
+            }[shape["name"]]
             return {
                 "descriptor_kind": "display-only-form-descriptor",
                 "address": address(role),
                 "parent": parent,
                 "placement_source": "authored-root" if parent is None else "authored-containment",
                 "reference_point": point,
+                "dimension_roles": dimension_roles,
                 "profile_id": "neutral-v0",
                 "source": common.PROVISIONAL_FORM_PROVENANCE,
                 "provenance": {
                     "source": common.PROVISIONAL_FORM_PROVENANCE,
                     "resource_profile_id": common.PROVISIONAL_FORM_RESOURCE_PROFILE,
+                    "shape_basis": common.PROVISIONAL_FORM_SHAPE_BASIS,
                 },
                 "shape": shape,
             }
@@ -124,7 +183,10 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
         hand = address("hand")
         neck_shape = (
             {"name": "capsule", "from": [0, 2, 0], "to": [0, 3, 0], "radius_permille": 500}
-            if format_name == common.PROVISIONAL_FORM_FORMAT
+            if format_name in {
+                common.PROVISIONAL_FORM_HISTORICAL_V4_FORMAT,
+                common.PROVISIONAL_FORM_FORMAT,
+            }
             else {"name": "ellipsoid", "center": [0, 2, 0], "axis_extents_permille": [650, 600, 600]}
         )
         descriptors = [
@@ -142,6 +204,26 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
         ))
         payload = copy.deepcopy(self.payload)
         payload["format"] = format_name
+        payload["authored_dimensions"] = []
+        for item in descriptors:
+            shape = item["shape"]
+            if shape["name"] == "ellipsoid":
+                values = shape["axis_extents_permille"]
+            elif shape["name"] == "capsule":
+                values = [shape["radius_permille"]]
+            else:
+                values = [shape["start_radius_permille"], shape["end_radius_permille"]]
+            for role, value in zip(item["dimension_roles"], values):
+                payload["authored_dimensions"].append({
+                    "owner": copy.deepcopy(item["address"]),
+                    "role": role,
+                    "value_permille": value,
+                    "provenance": {
+                        "source": common.PROVISIONAL_FORM_AUTHORED_DIMENSION_PROVENANCE,
+                        "document": "fixture",
+                        "namespace": "main",
+                    },
+                })
         if format_name == common.PROVISIONAL_FORM_LEGACY_FORMAT:
             points = {
                 item["address"]["role"]: item["reference_point"]
@@ -165,21 +247,29 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
             variant_descriptors = copy.deepcopy(descriptors)
             for item in variant_descriptors:
                 item["profile_id"] = variant_id
+                if format_name == common.PROVISIONAL_FORM_FORMAT:
+                    apply_fixed_display_factors(item, variant_id)
             payload["variants"].append({
                 "id": variant_id,
                 "profile_id": variant_id,
                 "provenance": {
                     "source": common.PROVISIONAL_FORM_PROVENANCE,
                     "resource_profile_id": common.PROVISIONAL_FORM_RESOURCE_PROFILE,
+                    "shape_basis": common.PROVISIONAL_FORM_SHAPE_BASIS,
                 },
                 "descriptors": variant_descriptors,
             })
+        if format_name != common.PROVISIONAL_FORM_FORMAT:
+            payload.pop("authored_dimensions")
+            for variant in payload["variants"]:
+                variant["provenance"].pop("shape_basis")
+                for item in variant["descriptors"]:
+                    item.pop("dimension_roles")
+                    item["provenance"].pop("shape_basis")
         return payload
 
     def test_success_publishes_distinct_immutable_form_session_and_route(self) -> None:
-        self.assertEqual(
-            self.payload["format"], "creature-kernel.provisional-form-preview.v4"
-        )
+        self.assertEqual(self.payload["format"], common.PROVISIONAL_FORM_FORMAT)
         binary = self.fake_binary("import json, sys\nsys.stdout.write(" + repr(json.dumps(self.payload)) + ")\n")
         session = self.publish_with(binary, review_id="form-review", title="Filled form")
         review = json.loads((session / "review.json").read_text(encoding="utf-8"))
@@ -198,6 +288,50 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
             self.assertEqual(len(body["review"]["provisional_form"]["variants"]), 4)
         finally:
             server.shutdown(); thread.join(); server.server_close()
+
+    def test_v5_rejects_tampered_authored_dimension_with_unchanged_descriptors(self) -> None:
+        payload = copy.deepcopy(self.payload)
+        payload["authored_dimensions"][0]["value_permille"] += 1
+        with self.assertRaisesRegex(
+            common.ValidationError,
+            "shape numeric controls do not match source-authored dimensions",
+        ):
+            common._validate_provisional_form_envelope(
+                payload, "tampered authored dimension fixture"
+            )
+
+    def test_v5_rejects_tampered_non_neutral_variant_shape_control(self) -> None:
+        payload = copy.deepcopy(self.payload)
+        payload["variants"][1]["descriptors"][1]["shape"]["axis_extents_permille"][0] += 1
+        with self.assertRaisesRegex(
+            common.ValidationError,
+            "shape numeric controls do not match source-authored dimensions",
+        ):
+            common._validate_provisional_form_envelope(
+                payload, "tampered non-neutral variant fixture"
+            )
+
+    def test_v5_rejects_unconsumed_authored_dimension(self) -> None:
+        payload = copy.deepcopy(self.payload)
+        payload["authored_dimensions"].append({
+            "owner": copy.deepcopy(payload["authored_dimensions"][0]["owner"]),
+            "role": "form_unconsumed",
+            "value_permille": 100,
+            "provenance": {
+                "source": common.PROVISIONAL_FORM_AUTHORED_DIMENSION_PROVENANCE,
+                "document": "fixture",
+                "namespace": "main",
+            },
+        })
+        payload["authored_dimensions"].sort(key=lambda item: (
+            item["owner"]["namespace"], tuple(item["owner"]["anchors"]),
+            item["owner"]["kind"], item["owner"]["role"], item["role"],
+        ))
+        with self.assertRaisesRegex(
+            common.ValidationError,
+            "authored_dimensions must equal the complete descriptor-consumed control set",
+        ):
+            common._validate_provisional_form_envelope(payload, "extra v5 dimension fixture")
 
     def test_unknown_and_malformed_payloads_fail_closed(self) -> None:
         cases = [
@@ -227,10 +361,11 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
                 self.publish_with(binary, review_id=f"bad-form-{index}")
             self.assertFalse((self.root / f"bad-form-{index}").exists())
 
-    def test_v2_v3_and_v4_limb_capsules_use_their_direct_distal_child_anchor(self) -> None:
+    def test_v2_through_v5_limb_capsules_use_their_direct_distal_child_anchor(self) -> None:
         for format_name in (
             common.PROVISIONAL_FORM_V2_FORMAT,
             common.PROVISIONAL_FORM_V3_FORMAT,
+            common.PROVISIONAL_FORM_HISTORICAL_V4_FORMAT,
             common.PROVISIONAL_FORM_FORMAT,
         ):
             with self.subTest(format_name=format_name):
@@ -285,12 +420,37 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
                 item["address"]["namespace"], tuple(item["address"]["anchors"]),
                 item["address"]["kind"], item["address"]["role"],
             ))
+        ambiguous["authored_dimensions"].extend([
+            {
+                "owner": {"namespace": "main", "anchors": ["branch"], "kind": "part", "role": "forearm"},
+                "role": "form_radius",
+                "value_permille": 180,
+                "provenance": {"source": common.PROVISIONAL_FORM_AUTHORED_DIMENSION_PROVENANCE, "document": "fixture", "namespace": "main"},
+            },
+            *[
+                {
+                    "owner": {"namespace": "main", "anchors": ["branch"], "kind": "part", "role": "hand"},
+                    "role": role,
+                    "value_permille": value,
+                    "provenance": {"source": common.PROVISIONAL_FORM_AUTHORED_DIMENSION_PROVENANCE, "document": "fixture", "namespace": "main"},
+                }
+                for role, value in (
+                    ("form_extent_x", 450),
+                    ("form_extent_y", 400),
+                    ("form_extent_z", 350),
+                )
+            ],
+        ])
+        ambiguous["authored_dimensions"].sort(key=lambda item: (
+            item["owner"]["namespace"], tuple(item["owner"]["anchors"]),
+            item["owner"]["kind"], item["owner"]["role"], item["role"],
+        ))
         with self.assertRaisesRegex(common.ValidationError, "ambiguous direct forearm children"):
             common._validate_provisional_form_envelope(ambiguous, "ambiguous capsule fixture")
 
-    def test_v4_neck_capsule_requires_exactly_one_direct_head_endpoint(self) -> None:
+    def test_v5_neck_capsule_requires_exactly_one_direct_head_endpoint(self) -> None:
         payload = self.capsule_payload()
-        validated = common._validate_provisional_form_envelope(payload, "v4 neck fixture")
+        validated = common._validate_provisional_form_envelope(payload, "v5 neck fixture")
         self.assertEqual(validated["format"], common.PROVISIONAL_FORM_FORMAT)
 
         neck_ellipsoid = copy.deepcopy(payload)
@@ -306,7 +466,7 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
             common.ValidationError, "must be capsule for role neck"
         ):
             common._validate_provisional_form_envelope(
-                neck_ellipsoid, "v4 ellipsoid neck fixture"
+                neck_ellipsoid, "v5 ellipsoid neck fixture"
             )
 
         wrong_endpoint = copy.deepcopy(payload)
@@ -318,7 +478,7 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
             common.ValidationError, "end does not match its direct head child point"
         ):
             common._validate_provisional_form_envelope(
-                wrong_endpoint, "v4 wrong neck endpoint fixture"
+                wrong_endpoint, "v5 wrong neck endpoint fixture"
             )
 
         missing_head = copy.deepcopy(payload)
@@ -332,7 +492,7 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
             common.ValidationError, "missing its direct head child"
         ):
             common._validate_provisional_form_envelope(
-                missing_head, "v4 missing head fixture"
+                missing_head, "v5 missing head fixture"
             )
 
         ambiguous_head = copy.deepcopy(payload)
@@ -350,25 +510,43 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
                 item["address"]["namespace"], tuple(item["address"]["anchors"]),
                 item["address"]["kind"], item["address"]["role"],
             ))
+        ambiguous_head["authored_dimensions"].extend([
+            {
+                "owner": {"namespace": "main", "anchors": ["branch"], "kind": "part", "role": "head"},
+                "role": role,
+                "value_permille": value,
+                "provenance": {"source": common.PROVISIONAL_FORM_AUTHORED_DIMENSION_PROVENANCE, "document": "fixture", "namespace": "main"},
+            }
+            for role, value in (
+                ("form_extent_x", 1000),
+                ("form_extent_y", 1000),
+                ("form_extent_z", 900),
+            )
+        ])
+        ambiguous_head["authored_dimensions"].sort(key=lambda item: (
+            item["owner"]["namespace"], tuple(item["owner"]["anchors"]),
+            item["owner"]["kind"], item["owner"]["role"], item["role"],
+        ))
         with self.assertRaisesRegex(
             common.ValidationError, "ambiguous direct head children"
         ):
             common._validate_provisional_form_envelope(
-                ambiguous_head, "v4 ambiguous head fixture"
+                ambiguous_head, "v5 ambiguous head fixture"
             )
 
         for prior_format in (
             common.PROVISIONAL_FORM_LEGACY_FORMAT,
             common.PROVISIONAL_FORM_V2_FORMAT,
             common.PROVISIONAL_FORM_V3_FORMAT,
+            common.PROVISIONAL_FORM_HISTORICAL_V4_FORMAT,
         ):
             prior = self.capsule_payload(format_name=prior_format)
             prior["format"] = common.PROVISIONAL_FORM_FORMAT
             with self.subTest(prior_format=prior_format), self.assertRaisesRegex(
-                common.ValidationError, "must be capsule for role neck"
+                common.ValidationError, "authored_dimensions is required for v5"
             ):
                 common._validate_provisional_form_envelope(
-                    prior, "prior payload mislabeled v4"
+                    prior, "prior payload mislabeled v5"
                 )
 
     def test_v1_capsules_retain_legacy_parent_to_current_contract(self) -> None:
@@ -497,7 +675,9 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
             "time.sleep(30)\n",
             "fork-kernel",
         )
-        with patch.object(publisher, "INSPECTION_TIMEOUT_SECONDS", 0.05):
+        # Leave enough startup time for the helper to fork and persist its PID;
+        # the timeout still interrupts the deliberately long-running process.
+        with patch.object(publisher, "INSPECTION_TIMEOUT_SECONDS", 1.0):
             with self.assertRaises(publisher.ProvisionalFormPublishError):
                 self.publish_with(binary, review_id="forked-timeout")
         child_pid = int(pid_path.read_text())

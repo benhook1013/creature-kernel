@@ -1227,7 +1227,8 @@
     "creature-kernel.provisional-form-preview.v1",
     "creature-kernel.provisional-form-preview.v2",
     "creature-kernel.provisional-form-preview.v3",
-    "creature-kernel.provisional-form-preview.v4"
+    "creature-kernel.provisional-form-preview.v4",
+    "creature-kernel.provisional-form-preview.v5"
   ];
   var PROVISIONAL_FORM_VARIANTS = ["neutral-v0", "broad-soft-v0", "lean-readable-v0", "depth-forward-v0"];
   var PROVISIONAL_FORM_VIEWS = [
@@ -1276,6 +1277,22 @@
       errors.push("Source identity, reference scale, or variants are missing.");
       return errors;
     }
+    var isV5 = payload.format === "creature-kernel.provisional-form-preview.v5";
+    var authoredDimensionKeys = {};
+    if (isV5) {
+      if (!Array.isArray(payload.authored_dimensions) || !payload.authored_dimensions.length) {
+        errors.push("v5 authored dimensions are missing.");
+      } else {
+        payload.authored_dimensions.forEach(function (dimension, index) {
+          if (!isObject(dimension) || !isObject(dimension.owner) || typeof dimension.role !== "string" || !dimension.role || !Number.isInteger(dimension.value_permille) || dimension.value_permille <= 0 || dimension.value_permille > 5000) {
+            errors.push("v5 authored dimension " + index + " is invalid.");
+            return;
+          }
+          authoredDimensionKeys[JSON.stringify([formAddressKey(dimension.owner), dimension.role])] = true;
+        });
+      }
+    }
+    var consumedDimensionKeys = {};
     if (payload.variants.length !== 4) { errors.push("Exactly four fixed variants are required."); }
     payload.variants.forEach(function (variant, index) {
       if (!isObject(variant) || variant.id !== PROVISIONAL_FORM_VARIANTS[index] || variant.profile_id !== PROVISIONAL_FORM_VARIANTS[index] || !Array.isArray(variant.descriptors)) {
@@ -1285,6 +1302,9 @@
       if (!variant.descriptors.length || variant.descriptors.length > 64) {
         errors.push("Variant " + variant.id + " has an invalid descriptor count.");
       }
+      if (isV5 && (!isObject(variant.provenance) || variant.provenance.shape_basis !== "source-authored-dimensions-plus-fixed-display-factor")) {
+        errors.push("Variant " + variant.id + " has invalid v5 shape-basis provenance.");
+      }
       variant.descriptors.forEach(function (descriptor, descriptorIndex) {
         if (!isObject(descriptor) || !isObject(descriptor.address) || !isObject(descriptor.shape) || !Array.isArray(descriptor.reference_point)) {
           errors.push("Variant " + variant.id + " descriptor " + descriptorIndex + " is incomplete.");
@@ -1293,8 +1313,25 @@
         if (["ellipsoid", "capsule", "tapered-segment"].indexOf(descriptor.shape.name) === -1) {
           errors.push("Variant " + variant.id + " contains an unknown shape.");
         }
+        if (isV5) {
+          var expectedRoles = descriptor.shape.name === "ellipsoid" ? ["form_extent_x", "form_extent_y", "form_extent_z"] : descriptor.shape.name === "capsule" ? ["form_radius"] : ["form_start_radius", "form_end_radius"];
+          if (!Array.isArray(descriptor.dimension_roles) || JSON.stringify(descriptor.dimension_roles) !== JSON.stringify(expectedRoles)) {
+            errors.push("Variant " + variant.id + " descriptor " + descriptorIndex + " has invalid v5 dimension-role references.");
+          } else {
+            descriptor.dimension_roles.forEach(function (role) {
+              var key = JSON.stringify([formAddressKey(descriptor.address), role]);
+              consumedDimensionKeys[key] = true;
+              if (!authoredDimensionKeys[key]) {
+                errors.push("Variant " + variant.id + " descriptor " + descriptorIndex + " references an unlisted v5 authored dimension.");
+              }
+            });
+          }
+        }
       });
     });
+    if (isV5 && (Object.keys(authoredDimensionKeys).length !== Object.keys(consumedDimensionKeys).length || Object.keys(authoredDimensionKeys).some(function (key) { return !consumedDimensionKeys[key]; }))) {
+      errors.push("v5 authored dimensions must equal the complete descriptor-consumed control set.");
+    }
     return errors;
   }
 

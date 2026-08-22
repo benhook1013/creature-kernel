@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a bounded, disposable continuous surface from a v4 form envelope.
+"""Build a bounded, disposable continuous surface from a v5 form envelope.
 
 This module intentionally has no dependency on Creature Kernel runtime code.
 It is a small adapter for visual exploration: exact integer form coordinates
@@ -33,13 +33,14 @@ from skimage.measure import marching_cubes
 
 FORMAT = "creature-kernel.disposable-surface-preview.v2"
 REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v4"
-SOURCE_FORMAT = "creature-kernel.provisional-form-preview.v4"
+SOURCE_FORMAT = "creature-kernel.provisional-form-preview.v5"
 VARIANT_IDS = ("neutral-v0", "broad-soft-v0", "lean-readable-v0", "depth-forward-v0")
 MAX_INPUT_BYTES = 4 * 1024 * 1024
 MAX_SAMPLES = 128
 MAX_VOXELS = 128**3
 MAX_FIELD_VALUES = 32_000_000
 MAX_DESCRIPTORS = 64
+MAX_AUTHORED_DIMENSIONS = 256
 # A source descriptor may intentionally expand into a small deterministic
 # recipe.  This is an implementation bound on the disposable preview, not a
 # promise about a future geometry compiler.
@@ -165,6 +166,44 @@ def _shape(value: Any, where: str) -> dict[str, Any]:
     _fail(f"{where}.name is unsupported")
 
 
+def _display_factors(profile_id: str, role: str, shape_name: str) -> tuple[int, ...]:
+    """Return the fixed Rust display factors for one v5 shape control set."""
+
+    if shape_name == "ellipsoid":
+        if profile_id == "neutral-v0":
+            return (1_000, 1_000, 1_000)
+        if profile_id == "broad-soft-v0":
+            if role in {"pelvis", "torso", "head"}:
+                return (1_200, 1_000, 1_150)
+            if role in {"hand", "foot"}:
+                return (1_150, 1_000, 1_150)
+            return (1_000, 1_000, 1_000)
+        if profile_id == "lean-readable-v0":
+            return (800, 1_000, 800)
+        if profile_id == "depth-forward-v0":
+            if role in {"torso", "head", "foot"}:
+                return (1_000, 1_000, 1_300)
+            return (1_000, 1_000, 1_000)
+    elif shape_name in {"capsule", "tapered-segment"}:
+        if profile_id == "broad-soft-v0":
+            factor = 1_150
+        elif profile_id == "lean-readable-v0":
+            factor = 800
+        else:
+            factor = 1_000
+        return (factor,) * (1 if shape_name == "capsule" else 2)
+    _fail(f"unsupported v5 display factor combination: {profile_id}/{role}/{shape_name}")
+
+
+def _scaled_display_value(value: int, factor: int, where: str) -> int:
+    """Apply the Rust fixed-factor integer operation and its result bound."""
+
+    scaled = value * factor // 1_000
+    if not 0 < scaled <= 5_000:
+        _fail(f"{where} fixed display factor produces invalid permille {scaled}")
+    return scaled
+
+
 @dataclass(frozen=True)
 class Descriptor:
     key: tuple[str, tuple[str, ...], str, str]
@@ -172,6 +211,7 @@ class Descriptor:
     point: np.ndarray
     exact_point: tuple[int, int, int]
     shape: dict[str, Any]
+    dimension_roles: tuple[str, ...]
     placement_source: str
     profile_id: str
     source: str
@@ -646,16 +686,17 @@ class Form:
     source: dict[str, Any]
     reference_scale: float
     reference_scale_raw: dict[str, Any]
+    authored_dimensions: tuple[tuple[tuple[str, tuple[str, ...], str, str], str, int, dict[str, Any]], ...]
     variants: tuple[tuple[str, tuple[Descriptor, ...], dict[str, Any]], ...]
 
 
 def validate_envelope(value: Any) -> Form:
     root = _obj(value, "envelope")
-    required = {"format", "operation", "status", "stage", "processing_complete", "diagnostics_complete", "diagnostics", "source", "reference_scale", "variants", "limitations"}
+    required = {"format", "operation", "status", "stage", "processing_complete", "diagnostics_complete", "diagnostics", "source", "reference_scale", "authored_dimensions", "variants", "limitations"}
     if set(root) != required:
         _fail("envelope has unexpected or missing fields")
     if root["format"] != SOURCE_FORMAT or root["operation"] != "inspect-provisional-form" or root["status"] != "success" or root["stage"] != "provisional-form":
-        _fail("envelope is not a successful v4 provisional-form result")
+        _fail("envelope is not a successful v5 provisional-form result")
     if root["processing_complete"] is not True or root["diagnostics_complete"] is not True or root["diagnostics"] != []:
         _fail("envelope success flags or diagnostics are invalid")
     if type(root["limitations"]) is not str or "Readiness" not in root["limitations"] or "geometry" not in root["limitations"]:
@@ -665,6 +706,35 @@ def validate_envelope(value: Any) -> Form:
         _fail("source is invalid")
     if source["resource_profile_id"] != "ck.resource.body.r2":
         _fail("unsupported resource profile")
+    authored_dimensions = _array(root["authored_dimensions"], "authored_dimensions")
+    if not authored_dimensions or len(authored_dimensions) > MAX_AUTHORED_DIMENSIONS:
+        _fail("authored_dimensions count is invalid")
+    parsed_dimensions: list[tuple[tuple[str, tuple[str, ...], str, str], str, int, dict[str, Any]]] = []
+    for index, item in enumerate(authored_dimensions):
+        dimension = _obj(item, f"authored_dimensions[{index}]")
+        if set(dimension) != {"owner", "role", "value_permille", "provenance"}:
+            _fail(f"authored_dimensions[{index}] has invalid fields")
+        owner = _address(dimension["owner"], f"authored_dimensions[{index}].owner")
+        if owner[0] != source["namespace"] or owner[2] != "part":
+            _fail(f"authored_dimensions[{index}].owner is invalid")
+        role = dimension["role"]
+        if type(role) is not str or not role:
+            _fail(f"authored_dimensions[{index}].role is invalid")
+        value_permille = _int(dimension["value_permille"], f"authored_dimensions[{index}].value_permille")
+        if not 0 < value_permille <= 5000:
+            _fail(f"authored_dimensions[{index}].value_permille is outside 1..5000")
+        provenance = _obj(dimension["provenance"], f"authored_dimensions[{index}].provenance")
+        if set(provenance) != {"source", "document", "namespace"} or provenance != {"source": "source-authored", "document": source["document"], "namespace": source["namespace"]}:
+            _fail(f"authored_dimensions[{index}].provenance is invalid")
+        parsed_dimensions.append((owner, role, value_permille, provenance))
+    if parsed_dimensions != sorted(parsed_dimensions, key=lambda item: (item[0], item[1])):
+        _fail("authored_dimensions are not stable owner/role order")
+    dimension_keys = {(owner, role) for owner, role, _, _ in parsed_dimensions}
+    if len(dimension_keys) != len(parsed_dimensions):
+        _fail("authored_dimensions contain duplicates")
+    dimension_values = {
+        (owner, role): value for owner, role, value, _ in parsed_dimensions
+    }
     scale = _obj(root["reference_scale"], "reference_scale")
     if set(scale) != {"parent", "child", "axis_delta", "squared_length", "source"} or scale["source"] != "exact-containment-edge":
         _fail("reference_scale is invalid")
@@ -680,12 +750,13 @@ def validate_envelope(value: Any) -> Form:
         _fail("variants must contain exactly four items")
     normalized: list[tuple[str, tuple[Descriptor, ...], dict[str, Any]]] = []
     canonical: list[tuple[Any, ...]] | None = None
+    consumed_dimension_keys: set[tuple[tuple[str, tuple[str, ...], str, str], str]] = set()
     for index, item in enumerate(variants):
         variant = _obj(item, f"variants[{index}]")
         if set(variant) != {"id", "profile_id", "provenance", "descriptors"} or variant.get("id") != VARIANT_IDS[index] or variant.get("profile_id") != VARIANT_IDS[index]:
             _fail(f"variants[{index}] is not the fixed {VARIANT_IDS[index]} variant")
         provenance = _obj(variant["provenance"], f"variants[{index}].provenance")
-        if set(provenance) != {"source", "resource_profile_id"} or provenance.get("source") != "profile-derived-display" or provenance.get("resource_profile_id") != source["resource_profile_id"]:
+        if set(provenance) != {"source", "resource_profile_id", "shape_basis"} or provenance.get("source") != "profile-derived-display" or provenance.get("resource_profile_id") != source["resource_profile_id"] or provenance.get("shape_basis") != "source-authored-dimensions-plus-fixed-display-factor":
             _fail(f"variants[{index}].provenance is invalid")
         descriptors = _array(variant["descriptors"], f"variants[{index}].descriptors")
         if not descriptors or len(descriptors) > MAX_DESCRIPTORS:
@@ -694,7 +765,7 @@ def validate_envelope(value: Any) -> Form:
         keys: list[tuple[str, tuple[str, ...], str, str]] = []
         for di, raw_item in enumerate(descriptors):
             raw = _obj(raw_item, f"variants[{index}].descriptors[{di}]")
-            expected = {"descriptor_kind", "address", "parent", "placement_source", "reference_point", "profile_id", "source", "provenance", "shape"}
+            expected = {"descriptor_kind", "address", "parent", "placement_source", "reference_point", "dimension_roles", "profile_id", "source", "provenance", "shape"}
             if set(raw) != expected or raw.get("descriptor_kind") != "display-only-form-descriptor":
                 _fail(f"descriptor {index}/{di} has invalid fields")
             key = _address(raw["address"], f"descriptor {index}/{di}.address")
@@ -712,11 +783,45 @@ def validate_envelope(value: Any) -> Form:
             if raw["profile_id"] != VARIANT_IDS[index] or raw["source"] != "profile-derived-display":
                 _fail(f"descriptor {index}/{di} provenance is invalid")
             descriptor_provenance = _obj(raw["provenance"], f"descriptor {index}/{di}.provenance")
-            if set(descriptor_provenance) != {"source", "resource_profile_id"} or descriptor_provenance != provenance:
+            if set(descriptor_provenance) != {"source", "resource_profile_id", "shape_basis"} or descriptor_provenance != provenance:
                 _fail(f"descriptor {index}/{di}.provenance is invalid")
             point = _vector(raw["reference_point"], f"descriptor {index}/{di}.reference_point")
             shape = _shape(raw["shape"], f"descriptor {index}/{di}.shape")
-            parsed.append(Descriptor(key, parent, np.asarray(point, dtype=np.float64) / reference_scale, point, shape, placement, raw["profile_id"], raw["source"], descriptor_provenance, raw))
+            dimension_roles = _array(raw["dimension_roles"], f"descriptor {index}/{di}.dimension_roles")
+            if not all(type(role) is str and role for role in dimension_roles):
+                _fail(f"descriptor {index}/{di}.dimension_roles is invalid")
+            expected_roles = {
+                "ellipsoid": ("form_extent_x", "form_extent_y", "form_extent_z"),
+                "capsule": ("form_radius",),
+                "tapered-segment": ("form_start_radius", "form_end_radius"),
+            }[shape["name"]]
+            if tuple(dimension_roles) != expected_roles or any((key, role) not in dimension_keys for role in dimension_roles):
+                _fail(f"descriptor {index}/{di}.dimension_roles do not identify its source controls")
+            consumed_dimension_keys.update((key, role) for role in dimension_roles)
+            factors = _display_factors(VARIANT_IDS[index], key[3], shape["name"])
+            if shape["name"] == "ellipsoid":
+                controls = tuple(shape["axis_extents_permille"])
+            elif shape["name"] == "capsule":
+                controls = (shape["radius_permille"],)
+            else:
+                controls = (
+                    shape["start_radius_permille"],
+                    shape["end_radius_permille"],
+                )
+            expected_controls = tuple(
+                _scaled_display_value(
+                    dimension_values[(key, role)],
+                    factor,
+                    f"descriptor {index}/{di}.shape.{role}",
+                )
+                for role, factor in zip(dimension_roles, factors)
+            )
+            if controls != expected_controls:
+                _fail(
+                    f"descriptor {index}/{di}.shape numeric controls do not match "
+                    "source-authored dimensions after the fixed display factor"
+                )
+            parsed.append(Descriptor(key, parent, np.asarray(point, dtype=np.float64) / reference_scale, point, shape, tuple(dimension_roles), placement, raw["profile_id"], raw["source"], descriptor_provenance, raw))
         sorted_keys = sorted(keys)
         if keys != sorted_keys:
             _fail(f"variants[{index}].descriptors are not stable AddressKey order")
@@ -734,7 +839,7 @@ def validate_envelope(value: Any) -> Form:
                     _fail(f"variants[{index}] contains a parent cycle")
                 lineage.add(current)
                 current = by_key[current].parent
-        signature = [(x.key, x.exact_point, x.parent, x.placement_source, x.shape["name"]) for x in parsed]
+        signature = [(x.key, x.exact_point, x.parent, x.placement_source, x.shape["name"], x.dimension_roles) for x in parsed]
         if canonical is None:
             canonical = signature
         elif signature != canonical:
@@ -742,6 +847,8 @@ def validate_envelope(value: Any) -> Form:
         normalized.append((VARIANT_IDS[index], tuple(parsed), variant))
     if canonical is None:
         _fail("no descriptors")
+    if consumed_dimension_keys != dimension_keys:
+        _fail("authored_dimensions must equal the complete descriptor-consumed control set")
     candidates = []
     points = {row[0]: row[1] for row in canonical}
     parents = {row[0]: row[2] for row in canonical}
@@ -753,7 +860,7 @@ def validate_envelope(value: Any) -> Form:
                 candidates.append((sq, child, parent, tuple(d)))
     if not candidates or (squared, child_key, parent_key, delta) != min(candidates, key=lambda x: (x[0], x[1])):
         _fail("reference_scale does not name the selected exact descriptor edge")
-    return Form(root, source, reference_scale, scale, tuple(normalized))
+    return Form(root, source, reference_scale, scale, tuple(parsed_dimensions), tuple(normalized))
 
 
 def _key_text(key: tuple[str, tuple[str, ...], str, str]) -> str:
