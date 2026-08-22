@@ -23,10 +23,10 @@ is the project developer or researcher using structured source, CLI/API
 operations, diagnostics, and reproducible evidence; technical artists and game
 developers are important downstream review and integration users.
 
-Stylized furry characters are the initial domain. Adult interactions are
-explicit motivating use cases and difficult contact/deformation stress cases,
-while reusable body, contact, and solver mechanisms remain general rather than
-hard-coded to adult mechanics. Native programmatic generation without a
+Stylized furry characters are the initial domain. Demanding close-contact and
+deformation scenarios are motivating use cases and stress cases, while reusable
+body, contact, and solver mechanisms remain general rather than hard-coded to
+one interaction domain. Native programmatic generation without a
 handcrafted base mesh is the first reference path. External authored-mesh
 conformance is later, and early contracts must not foreclose it.
 
@@ -117,7 +117,8 @@ Creature Kernel is intended to become:
 - Dynamic topology changes every frame.
 - Dense fur or hair, clothing or cloth, and self-collision at cinematic
   fidelity.
-- Stage 1 claims of shared pose, adult contact, or visible deformation.
+- Stage 1 claims of shared pose, close-contact behaviour, or visible
+  deformation.
 - A built-in language model or chat interface.
 - A production SaaS, multiplayer service, marketplace, or deployment platform.
 - Automatic replacement of artistic judgment in every generated detail.
