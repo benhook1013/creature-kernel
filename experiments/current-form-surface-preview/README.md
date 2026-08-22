@@ -85,9 +85,10 @@ ownership. Foot controls expose the existing source-owned hock, a tapered
 metatarsal, planted paw-pad and forward toe-box masses, plus a guide-only
 contact datum. Shoulder controls retain bilateral anterior/posterior support
 curves for x-ray inspection, but mark them `guide-only`; only the
-upper-arm-owned deltoid sweep remains skin-driving in this disposable
-analytic adapter. The sidecar and manifest therefore report the exact
-compiled recipe inventory separately from the richer private guide controls;
+upper-arm-owned distal `deltoid-sweep` span at index `1` per side remains
+skin-driving in this disposable analytic adapter. The sidecar and manifest
+therefore report the exact compiled recipe inventory separately from the
+richer private guide controls;
 hands retain a simple paw mass and attachment. It is not a semantic or runtime
 contract and contains no
 descriptor input records or synthetic semantic IDs. The composite places guide and compiled
@@ -96,6 +97,13 @@ Guide and skin panels use exactly the same projection framing, while one shared
 render bound is used for all four variants so geometry differences remain
 directly comparable. Mesh extraction retains each variant's own field bounds
 and grid spacing; the shared render bound does not define sampling.
+
+The successor keeps these concerns independent: the manifest generator's
+`padding` is the successor mesh sampling padding (default `0.50`), while its
+`capture_padding` is sourced from the baseline generator default and frames
+the shared guide/skin captures (currently `0.75`). This preserves the
+successor's known-good mesh grid while keeping default baseline and successor
+capture frames exactly comparable.
 
 ## Run
 
@@ -176,10 +184,30 @@ robustness; lower values within the accepted argument range may still validly
 fail mesh-connectedness validation, and successful generation is not guaranteed
 at every in-range sampling value.
 
-A successful run writes `successor-surface-manifest.json` plus four variant
-directories. Each variant directory contains exactly `surface.ply`,
-`metrics.json`, and `successor.json`. This slice does not yet produce PNGs or
-publish a visual-gallery session.
+A successful v2 run writes `successor-surface-manifest.json` plus exactly four
+variant directories. Each variant directory contains exactly
+`surface.ply`, `metrics.json`, `successor.json`, and one
+`guide-skin-composite.png`. The PNG is a deterministic RGB capture at the
+baseline-compatible `1800 × 570` canvas. It contains the exact six-panel order
+`front-guide`, `front-skin`, `side-guide`, `side-skin`,
+`three-quarter-guide`, `three-quarter-skin`: each projection has adjacent guide
+and skin panels using the same projection frame, and all four variants use one
+shared world-space render bound computed from the canonical baseline field
+sets. The manifest and successor sidecars expose the profile identity, canvas,
+layout, projections, and shared bounds alongside the four-artifact inventory.
+The manifest generator configuration reports both independent padding values:
+`padding` controls successor mesh sampling and `capture_padding` controls the
+baseline-compatible shared capture frame.
+Each manifest variant record and its `successor.json` sidecar also carries
+`source_variant_sha256`, the 64-character lowercase SHA-256 digest of the
+exact canonical raw producer variant object (`_canonical(raw_variant)`). This
+is a deterministic source-record binding, not an artifact hash; the two
+locations must agree for each variant, and distinct producer variants have
+distinct digests.
+
+The browser baseline-versus-successor publication and comparison across these
+captures is still the next step; this generator does not publish a
+visual-gallery session yet.
 
 Focused tests:
 

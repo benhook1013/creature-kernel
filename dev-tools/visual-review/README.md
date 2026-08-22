@@ -144,9 +144,10 @@ sessions under `/tmp`; do not commit them.
 
 By default the server binds only to `127.0.0.1` and prints one localhost URL
 after the socket is bound; port `0` asks the operating system to choose an
-available port. Stop it with Ctrl-C. The reviews root must already exist, and
-each session ID is a one-time directory name: publishing refuses to overwrite
-an existing session.
+available port. Stop it with Ctrl-C. Most publishers expect the reviews root
+to already exist; `publish_surface_preview.py` creates its final root when its
+parent exists. Each session ID is a one-time directory name: publishing
+refuses to overwrite an existing session.
 
 ## Windows browser/CDP fallback
 
@@ -253,13 +254,15 @@ normalized `SESSION/review.json`; normalized items contain the relative
 `image` field instead of `source`. A canonical JSON summary is printed on
 success. A failed invocation cleans only its own staging/session files.
 
-## Disposable surface-preview bridge
+## Disposable baseline-versus-successor surface checkpoint
 
 `publish_surface_preview.py` is a bounded adapter for the current experiment
-surface generator. It runs the Rust v4 provisional-form producer, then runs an
-experiment-local Python generator with explicit `--input` and `--output`
-arguments, and publishes only the four guide/skin composite PNGs through the
-ordinary image gallery:
+surface consumers. It runs the Rust v4 provisional-form producer once, runs the
+baseline and successor Python generators against that same producer output,
+validates both bundles, and publishes four ordered baseline/successor image
+pairs (eight guide/skin composite PNGs) through the ordinary image gallery.
+This is the named human visual checkpoint in the [active runway](../../docs/project/status.md#active-runway),
+not a production or acceptance gate.
 
 Run it from the isolated environment prepared by
 `experiments/current-form-surface-preview/README.md`, or an equivalent
@@ -272,10 +275,37 @@ python3 dev-tools/visual-review/publish_surface_preview.py \
   --root /tmp/creature-surface-reviews \
   --input examples/body-documents/stylized-digitigrade-biped.json \
   --creature-kernel target/debug/creature-kernel \
-  --generator experiments/current-form-surface-preview/generate_surface_preview.py
+  --generator experiments/current-form-surface-preview/generate_surface_preview.py \
+  --successor-generator experiments/current-form-surface-preview/generate_successor_surface_preview.py
 ```
 
-The v2 generator bundle is fail-closed: its manifest must identify the v4 source,
+For galleries that should survive WSL restarts, use a persistent Linux-side
+root such as `/home/ben/.cache/creature-kernel/visual-reviews`. The publisher
+creates that final directory when its parent exists. Serve it for LAN review
+with the existing read-only command:
+
+```bash
+python3 dev-tools/visual-review/serve.py \
+  --root /home/ben/.cache/creature-kernel/visual-reviews \
+  --port 8765 --lan-read-only
+```
+
+`--generator` selects the baseline consumer and `--successor-generator` selects
+the separate successor consumer. Both default to the current experiment
+scripts when omitted. A successful publication contains exactly four groups in
+canonical variant order, each with baseline first and successor second, for
+eight copied images. Every pair uses the same source provenance and shared
+front, side, and three-quarter framing (`1800 × 570`, RGB), so the appraisal
+can focus on the consumer boundary rather than capture differences.
+
+For each pair, appraise whether the successor reads as a more coherent
+stylized furry biped overall: recognizable cranium/muzzle/neck,
+shoulder/torso/pelvis structure, connected limbs and joints, digitigrade legs,
+paws, and tail; less like blended primitives; and with the four variants still
+meaningfully different. The gallery records the comparison only; it does not
+record acceptance.
+
+The baseline v2 generator bundle is fail-closed: its manifest must identify the v4 source,
 contain the four canonical v4 variants in order, and inventory exactly one PLY,
 semantic sidecar, metrics JSON, regional-guide JSON, and guide/skin composite PNG
 per variant. Every inventory path is relative, regular, non-symlinked, hash- and
@@ -299,14 +329,20 @@ bundle's source/provenance and descriptor AddressKeys are bound to the parsed v4
 producer result. The producer has a 10-second bound and the local extraction/
 render subprocess has a finite 120-second bound. Unlisted files or directories,
 malformed inventory or guide/provenance, partial variants, and generator or
-producer timeouts prevent any review session from being created. Only the four
-composite PNGs are copied to the gallery; guide JSON, PLYs, sidecars, metrics,
-and temporary work directories remain disposable.
+producer timeouts prevent any review session from being created. The successor
+v2 bundle is independently fail-closed: it must contain exactly four variants
+with one PLY, metrics JSON, successor-consumer sidecar, and composite PNG per
+variant. Its source identity, shared canvas/projections/layout/bounds, sidecar
+identity, torso/shoulder/head-neck/limb/extremity/tail claims, temporary bridge,
+metrics, inventory hashes, and regular-file set are checked against the
+baseline boundary. Only the eight composite PNGs are copied to the gallery;
+guide JSON, PLYs, sidecars, metrics, and temporary work directories remain
+disposable.
 
 This is a disposable current-source visual bridge. It does not activate Stage
 1, Readiness 3, production geometry, runtime behaviour, or decision-record
-evidence. Keep generated bundles and sessions under `/tmp`; they are not
-repository artifacts.
+evidence, and it has not yet been appraised or accepted. Keep generated bundles
+and sessions under `/tmp`; they are not repository artifacts.
 
 ## HTTP routes and response format
 

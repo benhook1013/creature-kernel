@@ -1,6 +1,6 @@
 # Project status
 
-Status date: 2026-08-21
+Status date: 2026-08-23
 
 ## Phase
 
@@ -15,41 +15,77 @@ governs what resumes next.
 
 Execution state: active after Ben resumed the runway on 2026-08-20.
 
+Current operational snapshot: the [Codex app handover](current-handover.md)
+(2026-08-23 NZST) records the clean primary checkout, active successor
+worktree, PR #103, gallery, and service state. It is a navigation aid rather
+than a new authority owner. At this branch state PR #103 remains
+draft/unmerged; on 2026-08-23 Ben delegated its disposition to the main thread.
+
+Ben's exact feedback on PR #103's successor checkpoint artifact was: "its got
+pointy bulges under the arms again." This is rejection of that displayed
+artifact only, not a canonical anatomy prescription or approval of any
+successor direction. The bounded response is a
+shared successor-generator correction: consume exactly the distal
+`deltoid-sweep` span at index `1` for each side, retain anterior/posterior
+supports as guide-only, and publish the successor region as v6. No per-fixture
+tuning, guide-derivation change, sampling change, or smooth-union change is
+included.
+
+The regenerated v6 candidate removes the large inferior support-curve lobes
+across all four variants while retaining the existing torso-to-arm
+connection. Independent static-capture trials disagreed about whether a much
+smaller angular root contour still counts as the reported defect. An isolated
+no-deltoid trial left that contour unchanged, and removing the temporary
+upper-arm bridge made the attachment visibly thinner rather than providing a
+better bounded correction. Ben's current appraisal is that the v6 disposable
+successor demonstrates deterministic connected whole-body generation and
+plumbing across variants, but does not demonstrate convincing complex
+skin/form expressivity. No further aesthetic polishing of this disposable
+consumer is planned. This appraisal is not a successful form-quality claim.
+In the project's 2026-08-22 Codex chat, Ben said the goals-and-roadmap write-up
+"sounds good" and that "your next visual checkpoint also sounds good," then
+instructed, "also we have agreed on your goals roadmap discussion and next
+visual checkpoint, ensure that info is baked into repo now too." This approves
+the direction to stop aesthetic polishing of this disposable consumer and
+prepare the next authored-form expressivity gallery; it did not by itself
+authorize the merge.
+
+On 2026-08-23 Ben said, "i dont care about 103 do what you want," delegating
+PR #103's disposition to the main thread. The main thread selects merge after
+the required review and checks because the branch retains useful deterministic
+generation, publication, and comparison plumbing as a bounded baseline. This
+authorization supersedes the earlier merge hold; it does not turn the
+disposable surface into a successful form-quality proof.
+
 PR #97 was accepted and merged at `e78640e` after Ben appraised the revised
 underarm silhouette as better. Preserve it as the accepted baseline for the
 next form pass; it is not final anatomy or backend approval.
 
-Stop polishing the current ellipsoid/capsule/smooth-union grey surface
-consumer. It is disposable and remains only as a debug and comparison
-baseline. The next runway is to build one separate, disposable exploratory
-successor surface consumer driven by the existing semantic body and private
-generated guide/anatomy data. The working implementation hypothesis is a
-hybrid of ordered cross-sections/profile lofts and swept regional forms; this
-is not a permanent backend selection or acceptance of a decision record.
+The v6 disposable successor was built with shared generator operations across
+all four fixed variants, existing semantic and guide inputs, and no
+per-fixture patches or handcrafted base mesh. It remains an exploratory
+consumer and does not select a permanent surface/backend or accept a decision
+record. No further aesthetic polishing of it is planned.
 
-Use shared generator operations across all four fixed variants. Do not add
-per-fixture patches or a handcrafted base mesh. The successor must consume the
-existing semantic and guide inputs so the checkpoint tests the surface
-boundary rather than replacing the body source.
+After PR #103 is merged, the next named human checkpoint is an authored-form
+expressivity gallery: richer source-authored dimensions, landmarks, and
+profiles drive shared
+region-appropriate generator operations across all four fixed variants, with
+source provenance and reproducible evidence. Representative torso, head/neck,
+shoulder/arm, pelvis/leg, and digitigrade foot transitions must read as
+controlled continuous skin rather than joined procedural masses. Do not use
+per-variant or per-fixture patches or a handcrafted base mesh. This remains a
+bounded exploratory expressivity checkpoint, not proof of a finished
+morphology family or production surface system.
 
-The next human checkpoint is a baseline-versus-successor browser comparison
-across all four variants, with front, side, and three-quarter views and
-inspectable guides. Ben's useful judgment is whether the successor reads as a
-materially more coherent stylized furry biped overall: recognizable
-cranium/muzzle/neck, shoulder/torso/pelvis structure, connected limbs and
-joints, digitigrade legs, paws, and tail; less like blended primitives; with
-the variants still meaningfully different. This is an overall-form proof. Do
-not stop for isolated artifact tuning unless it blocks that checkpoint. Stop
-before merging the first appraisable successor result.
-
-Non-goals are production or animation-ready topology, a permanent
-surface/backend choice, species detailing, facial animation, eyes, teeth,
-tongue, fur, rigging, physics/deformation, performance proof, and reactivation
-or acceptance of parked DR-0009, DR-0010, or EXP-0001. Building the exploratory
-candidate does not reactivate the parked formal comparison; that can be
-considered only after the visual checkpoint. Multiple small reviewed PRs may
-advance direct prerequisites toward the named checkpoint; stop if progress
-requires a material scope expansion.
+Convert PR #103 from draft to ready for review, then merge it only after its
+required review and checks pass. After merge, routine implementation, tests,
+reviews, and small internal PRs may proceed autonomously toward the checkpoint.
+Stop before the first genuinely appraisable result or any
+retained-human/material detour. Rigging, contact, deformation, VR integration,
+and permanent backend selection are outside this immediate runway. Do not
+reactivate the parked formal comparison or expand scope without Ben's
+direction.
 
 EXP-0002 and its Gate B/freeze/runtime-attestation continuation are parked and
 non-blocking. They are not prerequisites for this visual runway and must not be
@@ -1477,7 +1513,12 @@ metadata. Current non-governance decisions and proposals include:
 | Local visual-review gallery | implemented | audited | Focused tests and local HTTP/browser smoke passed; subject_context is presentation-only; no visual-evidence or Stage 1 claim |
 | Runtime avatar | not-implemented | not-applicable | No runtime adapter selected |
 
-## Immediate next actions
+## Historical immediate next actions (inactive)
+
+The following section is preserved historical planning context from the earlier
+Readiness 3 preparation runway. It is inactive and must not be treated as the
+current next actions; the `Active runway` above and the [current operational
+handover](current-handover.md) govern current continuation.
 
 Ben authorized an autonomous runway on 2026-08-15 for small, internal,
 reversible preparation PRs. The latest relevant checkpoint is PR #65, “Add the
