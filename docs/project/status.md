@@ -13,13 +13,15 @@ governs what resumes next.
 
 ## Active runway
 
-Execution state: active after Ben resumed the runway on 2026-08-20.
+Execution state: active toward the authored-form expressivity checkpoint after
+PR #103 merged on 2026-08-23.
 
 Current operational snapshot: the [Codex app handover](current-handover.md)
-(2026-08-23 NZST) records the clean primary checkout, active successor
-worktree, PR #103, gallery, and service state. It is a navigation aid rather
-than a new authority owner. At this branch state PR #103 remains
-draft/unmerged; on 2026-08-23 Ben delegated its disposition to the main thread.
+(2026-08-23 NZST) records the clean primary checkout, active authored-form
+worktree, merged PR #103 baseline, gallery, and service state. It is a
+navigation aid rather than a new authority owner. PR #103 merged at `f30bdb2`
+after all three required checks passed; its merge retains useful plumbing and
+comparison evidence, not a successful form-quality claim.
 
 Ben's exact feedback on PR #103's successor checkpoint artifact was: "its got
 pointy bulges under the arms again." This is rejection of that displayed
@@ -67,9 +69,8 @@ per-fixture patches or handcrafted base mesh. It remains an exploratory
 consumer and does not select a permanent surface/backend or accept a decision
 record. No further aesthetic polishing of it is planned.
 
-After PR #103 is merged, the next named human checkpoint is an authored-form
-expressivity gallery: richer source-authored dimensions, landmarks, and
-profiles drive shared
+The next named human checkpoint is an authored-form expressivity gallery:
+richer source-authored dimensions, landmarks, and profiles drive shared
 region-appropriate generator operations across all four fixed variants, with
 source provenance and reproducible evidence. Representative torso, head/neck,
 shoulder/arm, pelvis/leg, and digitigrade foot transitions must read as
@@ -78,14 +79,12 @@ per-variant or per-fixture patches or a handcrafted base mesh. This remains a
 bounded exploratory expressivity checkpoint, not proof of a finished
 morphology family or production surface system.
 
-Convert PR #103 from draft to ready for review, then merge it only after its
-required review and checks pass. After merge, routine implementation, tests,
-reviews, and small internal PRs may proceed autonomously toward the checkpoint.
-Stop before the first genuinely appraisable result or any
-retained-human/material detour. Rigging, contact, deformation, VR integration,
-and permanent backend selection are outside this immediate runway. Do not
-reactivate the parked formal comparison or expand scope without Ben's
-direction.
+Routine implementation, tests, reviews, and small internal PRs may proceed
+autonomously toward the checkpoint. Stop before the first genuinely appraisable
+result or any retained-human/material detour. Rigging, contact, deformation, VR
+integration, and permanent backend selection are outside this immediate
+runway. Do not reactivate the parked formal comparison or expand scope without
+Ben's direction.
 
 EXP-0002 and its Gate B/freeze/runtime-attestation continuation are parked and
 non-blocking. They are not prerequisites for this visual runway and must not be

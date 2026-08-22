@@ -10,20 +10,18 @@ the canonical owner of the active runway, and the required reading order in
 ## Where to continue
 
 - Primary checkout: `/home/ben/src/creature-kernel` — clean, synchronized
-  `main` at `cdedc914` / `origin/main`.
-- Active worktree: `/home/ben/src/creature-kernel-worktrees/successor-gallery-checkpoint`
-  — branch `implementation/successor-gallery-checkpoint`; the validated
-  pushed implementation candidate before this documentation transition runs
-  through `556db3b`; the handover documentation may be newer.
-- Draft PR: [#103](https://github.com/benhook1013/creature-kernel/pull/103)
-  — mergeable; all three CI checks passed at `556db3b` and must be rechecked
-  after the documentation transition is pushed. On 2026-08-23 Ben delegated
-  its disposition to the main thread; convert the draft to ready for review
-  before merging after the required review and checks pass.
+  `main` at `f30bdb2` / `origin/main`.
+- Active worktree: `/home/ben/src/creature-kernel-worktrees/authored-form-expressivity`
+  — branch `implementation/authored-form-expressivity`, created from
+  `f30bdb2` for bounded work toward the next named checkpoint.
+- [PR #103](https://github.com/benhook1013/creature-kernel/pull/103)
+  merged at `f30bdb2` after all three required CI checks passed. Its merge
+  retains useful plumbing and comparison evidence; it does not accept the
+  disposable surface as a form-quality success.
 
-Open the active worktree in the Codex app to inspect or continue the candidate.
+Open the active worktree in the Codex app to continue the runway.
 Read `AGENTS.md` in the required order, then this handover and the linked
-[current status](status.md). Do not infer approval to merge from the CI state.
+[current status](status.md).
 
 ## Gallery and service
 
@@ -81,11 +79,10 @@ removed; a second still saw a smaller angular root contour. Follow-up isolation
 showed that removing the distal deltoid span did not remove that contour, while
 removing the temporary upper-arm bridge produced a visibly thinner attachment.
 The bounded v6 correction and its evidence are retained as the basis for Ben's
-appraisal above, not as a claim of merge approval.
+appraisal above, not as a claim of form-quality approval.
 
-After PR #103 is merged, the next named human checkpoint is an authored-form
-expressivity gallery: richer source-authored dimensions, landmarks, and
-profiles drive shared
+The next named human checkpoint is an authored-form expressivity gallery:
+richer source-authored dimensions, landmarks, and profiles drive shared
 region-appropriate generator operations across all four fixed variants, with
 source provenance and reproducible evidence. Representative torso, head/neck,
 shoulder/arm, pelvis/leg, and digitigrade foot transitions must read as
@@ -94,12 +91,11 @@ per-variant or per-fixture patches or a handcrafted base mesh. This remains a
 bounded exploratory expressivity checkpoint, not proof of a finished
 morphology family or production surface system.
 
-Convert PR #103 from draft to ready for review, then merge it only after its
-required review and checks pass. After merge, routine implementation, tests,
-reviews, and small internal PRs may proceed autonomously toward the checkpoint.
-Stop before the first genuinely appraisable result or any
-retained-human/material detour. Rigging, contact, deformation, VR integration,
-and permanent backend selection remain outside this immediate runway.
+Routine implementation, tests, reviews, and small internal PRs may proceed
+autonomously toward the checkpoint. Stop before the first genuinely appraisable
+result or any retained-human/material detour. Rigging, contact, deformation, VR
+integration, and permanent backend selection remain outside this immediate
+runway.
 
 ## Evidence and limits
 
@@ -108,6 +104,6 @@ publication tests, documentation validation, and `git diff --check`. The live
 gallery publication contains exactly eight images, reports the v6 successor
 region for all four variants, and returns HTTP 200. A fresh code/contract review
 found two publication-validation issues; both were fixed with negative tests.
-Current-head CI must still be rechecked after push. The earlier viewer-navigation
-browser trial remains applicable because v6 changes the captured assets rather
-than the viewer interaction.
+All three final-head CI checks passed before merge. The earlier
+viewer-navigation browser trial remains applicable because v6 changes the
+captured assets rather than the viewer interaction.
