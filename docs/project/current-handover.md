@@ -13,8 +13,9 @@ the canonical owner of the active runway, and the required reading order in
   `main` at `f69a0a235152e72bd51279634cf3e8618d776e3f` / `origin/main`,
   including merged PR #107.
 - Active worktree: `/home/ben/src/creature-kernel-worktrees/authored-shoulder-envelope`
-  — uncommitted branch `implementation/authored-shoulder-envelope`, based on
-  `f69a0a235152e72bd51279634cf3e8618d776e3f`; no PR number exists yet.
+  — branch `implementation/authored-shoulder-envelope` at `a98a00f`, based on
+  `f69a0a235152e72bd51279634cf3e8618d776e3f`; [PR #108](https://github.com/benhook1013/creature-kernel/pull/108)
+  is the current internal runway candidate.
 - [PR #107](https://github.com/benhook1013/creature-kernel/pull/107)
   merged at `f69a0a235152e72bd51279634cf3e8618d776e3f`. It retains the exact
   consumed producer envelope lineage in surface reviews while preserving all
@@ -32,7 +33,7 @@ Open the active worktree in the Codex app to continue the runway.
 Read `AGENTS.md` in the required order, then this handover and the linked
 [current status](status.md).
 
-The current uncommitted candidate advances the source/producer to the exact
+The current PR #108 candidate advances the source/producer to the exact
 `creature-kernel.provisional-form-preview.v6` envelope. It retains the exact
 canonical v6 producer bytes actually consumed by the generators inside each
 new surface review's `review.json`, using deterministic zlib plus Base64 with

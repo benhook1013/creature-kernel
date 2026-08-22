@@ -15,8 +15,8 @@ governs what resumes next.
 
 Execution state: active toward the authored-form expressivity checkpoint after
 PR #107 merged at `f69a0a235152e72bd51279634cf3e8618d776e3f` on 2026-08-23.
-The current uncommitted candidate is on
-`implementation/authored-shoulder-envelope`; it has no PR number yet.
+The current candidate is [PR #108](https://github.com/benhook1013/creature-kernel/pull/108)
+on `implementation/authored-shoulder-envelope` at `a98a00f`.
 
 Current operational snapshot: the [Codex app handover](current-handover.md)
 (2026-08-23 NZST) records the clean primary checkout, active runway worktree,
@@ -71,7 +71,7 @@ per-fixture patches or handcrafted base mesh. It remains an exploratory
 consumer and does not select a permanent surface/backend or accept a decision
 record. No further aesthetic polishing of it is planned.
 
-The current uncommitted candidate is a direct, internal, reversible prerequisite
+The current PR #108 candidate is a direct, internal, reversible prerequisite
 for that checkpoint. The source/producer advances to
 `creature-kernel.provisional-form-preview.v6` with source-authored bilateral
 `form_shoulder_control` frames, `form_shoulder_peak` and `form_axilla`
