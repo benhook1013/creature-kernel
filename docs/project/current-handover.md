@@ -1,6 +1,6 @@
 # Current operational handover
 
-Snapshot: 2026-08-22 NZST
+Snapshot: 2026-08-23 NZST
 
 This is a concise operational handoff for continuing the current runway in the
 Codex app. It is not a new authority owner: `docs/project/status.md` remains
@@ -13,11 +13,13 @@ the canonical owner of the active runway, and the required reading order in
   `main` at `cdedc914` / `origin/main`.
 - Active worktree: `/home/ben/src/creature-kernel-worktrees/successor-gallery-checkpoint`
   — branch `implementation/successor-gallery-checkpoint`; the validated
-  implementation candidate runs through `c4fcd38`, followed by this
-  operational handover update.
+  pushed implementation candidate before this documentation transition runs
+  through `556db3b`; the handover documentation may be newer.
 - Draft PR: [#103](https://github.com/benhook1013/creature-kernel/pull/103)
-  — mergeable; all three CI checks passed at `c4fcd38` and must be rechecked
-  for the current head; no merge or review approval has been given.
+  — mergeable; all three CI checks passed at `556db3b` and must be rechecked
+  after the documentation transition is pushed. On 2026-08-23 Ben delegated
+  its disposition to the main thread; convert the draft to ready for review
+  before merging after the required review and checks pass.
 
 Open the active worktree in the Codex app to inspect or continue the candidate.
 Read `AGENTS.md` in the required order, then this handover and the linked
@@ -43,37 +45,61 @@ systemctl --user restart creature-kernel-visual-review.service
 Because LAN mode is read-only, capture Ben's visual feedback in chat or project
 docs; do not expect the gallery to create `response.json`.
 
-## Human gate
+## PR #103 disposition and next checkpoint
 
-Do not merge PR #103 until Ben appraises the gallery and explicitly authorizes
-the merge. The required judgment is the active runway checkpoint: overall,
-whether the result is a materially more coherent stylized furry biped, including
-head/muzzle/neck, shoulder/torso/pelvis, connected limbs/joints, digitigrade
-legs, paws, and tail; less like blended primitives; with the variants remaining
-meaningfully different.
+Ben's current appraisal is that the v6 disposable successor demonstrates
+deterministic connected whole-body generation and plumbing across variants,
+but does not demonstrate convincing complex skin/form expressivity. No further
+aesthetic polishing of this disposable consumer is planned.
+In the project's 2026-08-22 Codex chat, Ben said the goals-and-roadmap write-up
+"sounds good" and that "your next visual checkpoint also sounds good," then
+instructed, "also we have agreed on your goals roadmap discussion and next
+visual checkpoint, ensure that info is baked into repo now too." This approves
+the direction to stop aesthetic polishing of this disposable consumer and
+prepare the next authored-form expressivity gallery; it did not by itself
+authorize the merge.
+
+On 2026-08-23 Ben said, "i dont care about 103 do what you want," delegating
+PR #103's disposition to the main thread. The main thread selects merge after
+the required review and checks because the branch retains useful deterministic
+generation, publication, and comparison plumbing as a bounded baseline. This
+authorization supersedes the earlier merge hold; it does not turn the
+disposable surface into a successful form-quality proof.
 
 Ben's exact feedback on the displayed PR #103 successor artifact was: "its got
 pointy bulges under the arms again." This remains an artifact-scoped rejection;
-PR #103 is unmerged and no approval is implied. The bounded response is the
+no form-quality approval is implied. The bounded response is the
 shared v6 successor-generator selection of exactly one distal `deltoid-sweep`
 span (index `1`) per side, with anterior/posterior supports retained only as
 guide metadata. Fixture-specific tuning, guide derivation, sampling, and
 smooth-union parameters remain unchanged.
 
-The regenerated v6 gallery is now the served candidate. Its four baseline
+The regenerated v6 gallery was the served candidate. Its four baseline
 PNGs are byte-identical to the rejected gallery and all four successor PNGs
 changed. One independent static-capture trial judged the reported lobes
 removed; a second still saw a smaller angular root contour. Follow-up isolation
 showed that removing the distal deltoid span did not remove that contour, while
 removing the temporary upper-arm bridge produced a visibly thinner attachment.
-The bounded v6 correction is therefore presented for Ben's reappraisal rather
-than treated as internally accepted.
+The bounded v6 correction and its evidence are retained as the basis for Ben's
+appraisal above, not as a claim of merge approval.
 
-If Ben approves, record the explicit authorization and proceed with the normal
-PR merge path. If feedback is qualified or rejects the candidate, keep PR #103
-unmerged, record the feedback in chat/docs, and make only bounded successor
-work consistent with the active runway before presenting the next visual
-candidate.
+After PR #103 is merged, the next named human checkpoint is an authored-form
+expressivity gallery: richer source-authored dimensions, landmarks, and
+profiles drive shared
+region-appropriate generator operations across all four fixed variants, with
+source provenance and reproducible evidence. Representative torso, head/neck,
+shoulder/arm, pelvis/leg, and digitigrade foot transitions must read as
+controlled continuous skin rather than joined procedural masses. Do not use
+per-variant or per-fixture patches or a handcrafted base mesh. This remains a
+bounded exploratory expressivity checkpoint, not proof of a finished
+morphology family or production surface system.
+
+Convert PR #103 from draft to ready for review, then merge it only after its
+required review and checks pass. After merge, routine implementation, tests,
+reviews, and small internal PRs may proceed autonomously toward the checkpoint.
+Stop before the first genuinely appraisable result or any
+retained-human/material detour. Rigging, contact, deformation, VR integration,
+and permanent backend selection remain outside this immediate runway.
 
 ## Evidence and limits
 
