@@ -58,11 +58,15 @@ button.primary { border-color: #3387d5; background: #1768ad; color: #fff; }
 .image-dialog-title { min-width: 0; margin: 0; overflow-wrap: anywhere; font-size: 1.05rem; }
 .image-dialog-controls { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 0.45rem; margin-left: auto; }
 .image-control { padding: 0.4rem 0.6rem; font-size: 0.86rem; }
+.image-navigation-control { border-color: #4b86b6; background: #183149; }
 .image-scale { min-width: 5.5rem; color: #b7c8d9; font-size: 0.82rem; text-align: center; }
+.image-position { min-width: 9rem; color: #d2e3f3; font-size: 0.82rem; text-align: center; }
+.image-dialog-instructions { flex: 0 0 auto; margin: 0; color: #b7c8d9; font-size: 0.82rem; }
 .image-viewport { flex: 1 1 auto; min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; border: 1px solid #304253; border-radius: 0.35rem; background: #080d13; cursor: zoom-in; }
 .image-viewport:focus-visible { outline: 2px solid #79b8ff; outline-offset: -2px; }
 .image-canvas { position: relative; flex: 0 0 auto; }
-.image-dialog img { position: absolute; display: block; max-width: none; max-height: none; margin: 0; object-fit: fill; transform-origin: top left; user-select: none; }
+.image-dialog img { position: absolute; display: block; max-width: none; max-height: none; margin: 0; object-fit: fill; transform-origin: top left; cursor: pointer; user-select: none; }
+.image-dialog img:focus-visible { outline: 3px solid #79b8ff; outline-offset: -3px; }
 .close-dialog { display: block; margin-left: auto; }
 
 @media (max-width: 38rem) {
