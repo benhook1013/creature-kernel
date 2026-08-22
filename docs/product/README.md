@@ -25,9 +25,14 @@ product review; it is not an accepted project contract.
 The four Round 2 initial-boundary choices are recorded in
 [DR-0005](../decisions/DR-0005-initial-product-boundary-and-reference-workflow.md):
 engine-independent compiler/runtime identity, the developer/researcher-first
-workflow, stylized furry and adult-interaction stress cases with general
-mechanisms, and native generation before external-mesh conformance. They remain
+workflow, stylized furry and demanding interaction/deformation stress cases
+with general mechanisms, and native generation before external-mesh
+conformance. They remain
 proposals recorded under DR-0005.
+
+DR-0005 preserves the proposal's original motivation and review context. The
+product documents in this directory own the current neutral public-facing
+framing; the decision record does not override them.
 
 The accepted semantic-foundation directions are recorded in
 [DR-0002](../decisions/DR-0002-declarative-body-document-source-of-truth.md),

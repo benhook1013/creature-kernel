@@ -17,9 +17,9 @@ The current Round 2 proposal defines four bounded product choices:
   structured source, CLI/API operations, diagnostics, and reproducible
   evidence; technical artists and game developers are downstream review and
   integration users.
-- Stylized furry characters are the initial domain, with adult interactions as
-  motivating contact/deformation stress cases and reusable mechanisms kept
-  general.
+- Stylized furry characters are the initial domain, with demanding
+  close-contact and deformation scenarios as motivating stress cases and
+  reusable mechanisms kept general.
 - Native programmatic generation without a handcrafted base mesh is the first
   reference path; external authored-mesh conformance is later and must not be
   foreclosed by early contracts.
@@ -390,6 +390,20 @@ textures. Stage 1 does not require dense fur/hair, clothing/cloth, cinematic
 rendering, or detailed facial and digit features; these remain deferred or
 semantic-only until later evidence.
 
+### CK-PROD-015: Deferred external-tracking compatibility
+
+Future embodiment and control design must not make animation clips the
+exclusive pose source or foreclose external tracked pose or target inputs. When
+that capability is activated, it must define explicit control bindings,
+coordinate calibration, and retargeting across supported generated
+proportions.
+
+This is a required compatibility constraint on later design, not a Stage 2
+implementation or current evidence gate. External-tracking implementation,
+tracking-loss and fallback behaviour, headset APIs, OpenXR, device integration,
+first-person rendering, concrete schemas, and exact tracked-node sets remain
+deferred and unselected.
+
 ## Real-time experience
 
 ### CK-PROD-020: Real-time-first downstream target
@@ -416,8 +430,17 @@ than requiring animation authored for one exact pair of meshes.
 
 ### CK-PROD-024: Selective deformation
 
-The platform should support localized visual deformation and physical response
-without requiring full-character high-resolution soft-body simulation.
+The platform should support localized compression, sliding, shear, and recovery
+with visual deformation and physical response, without requiring full-character
+high-resolution soft-body simulation.
+
+Beyond the bounded Stage 3 proof, potential later outcomes include compliant
+boundary regions and internal contact paths, through-thickness coupling so
+internal contact can produce controlled external regional displacement, and
+optional bounded regional shape adaptation. Structural body-plan changes remain
+build/recompile-time changes. These are provisional outcome-level goals; exact
+representations, algorithms, solvers, and activation boundaries remain
+deferred.
 
 Live work is bounded to pose, contact, parameterized deformation, and activated
 regional solvers. A larger high-end-PC budget remains finite, and capability
