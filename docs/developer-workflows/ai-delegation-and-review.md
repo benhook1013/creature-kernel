@@ -114,6 +114,22 @@ thread may fix correctness now or record an implementation/evidence trigger
 for later. A new scope, trade-off, or authority choice returns to Ben.
 Unaccepted material remains clearly labelled Proposed or provisional.
 
+### Pre-proposal ideation
+
+When generating a materially complex direction-setting, cross-cutting, or
+hard-to-reverse product or architecture idea, the main thread first frames the
+question and launches at least two separate fresh-context `gpt-5.6-luna`
+passes at `xhigh`, each with a distinct named lens. Each pass must generate
+candidate options rather than merely review an existing choice. The main thread
+then compares their option spaces and contributes its own synthesis before
+forming a proposal; explorations are inputs, not delegated project direction.
+This is not required for bounded factual investigation, routine or small
+technical choices, or implementation of an already-decided direction. Avoid
+ceremonial duplicate prompts. These pre-proposal explorations do not satisfy or
+replace any risk-scaled post-proposal adversarial review. Existing model
+ceilings, Ben's authority, main-thread ownership, and cost/risk discipline
+continue to apply.
+
 ## Model routing
 
 - Delegate to `gpt-5.6-luna` at `high` for routine bounded investigation,
