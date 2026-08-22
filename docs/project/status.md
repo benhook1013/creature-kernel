@@ -1,6 +1,6 @@
 # Project status
 
-Status date: 2026-08-21
+Status date: 2026-08-22
 
 ## Phase
 
@@ -14,6 +14,12 @@ governs what resumes next.
 ## Active runway
 
 Execution state: active after Ben resumed the runway on 2026-08-20.
+
+Current operational snapshot: the [Codex app handover](current-handover.md)
+(2026-08-22 NZST) records the clean primary checkout, active successor
+worktree, PR #103, gallery, and service state. It is a navigation aid rather
+than a new authority owner. PR #103 remains unmerged until Ben appraises the
+gallery and explicitly authorizes the merge.
 
 PR #97 was accepted and merged at `e78640e` after Ben appraised the revised
 underarm silhouette as better. Preserve it as the accepted baseline for the
@@ -1477,7 +1483,12 @@ metadata. Current non-governance decisions and proposals include:
 | Local visual-review gallery | implemented | audited | Focused tests and local HTTP/browser smoke passed; subject_context is presentation-only; no visual-evidence or Stage 1 claim |
 | Runtime avatar | not-implemented | not-applicable | No runtime adapter selected |
 
-## Immediate next actions
+## Historical immediate next actions (inactive)
+
+The following section is preserved historical planning context from the earlier
+Readiness 3 preparation runway. It is inactive and must not be treated as the
+current next actions; the `Active runway` above and the [current operational
+handover](current-handover.md) govern current continuation.
 
 Ben authorized an autonomous runway on 2026-08-15 for small, internal,
 reversible preparation PRs. The latest relevant checkpoint is PR #65, “Add the
