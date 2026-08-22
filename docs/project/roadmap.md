@@ -49,6 +49,11 @@ Exit outcomes:
   actual contact behaviour, deformation quality, or runtime performance.
 - Structured diagnostics identify known geometry and rigging failures.
 
+Non-gating compatibility guardrail: Stage 2 embodiment choices must not make
+animation clips the exclusive pose source or foreclose later external pose or
+target inputs. No external-tracking, headset, OpenXR, device, or first-person
+implementation is required by this stage.
+
 ## Stage 3: Prove bounded real-time interaction
 
 Exit outcomes:
@@ -68,6 +73,23 @@ Candidate outcomes:
 - A first external-mesh conformance path.
 - More advanced regional deformation.
 - Versioned package compatibility and migration.
+
+## Provisional longer-horizon capability envelope
+
+Stage 3 already owns bounded inter-body contact, local deformation, and quality
+tiers. Beyond that baseline, this provisional capability envelope—not a
+detailed implementation queue—may include:
+
+- Compliant boundary regions and internal contact paths.
+- Through-thickness coupling so internal contact can produce controlled
+  external regional displacement.
+- Optional bounded regional shape adaptation, while structural body-plan
+  changes remain build/recompile-time changes.
+
+Activate and rebaseline one evidence-bearing checkpoint at a time. Intermediate
+evidence may reorder, split, combine, or retire later outcomes. This envelope
+selects no muscles, anatomy, topology, SDF/PBD/FEM, solver, engine, schema,
+hardware target, or exact ordering.
 
 ## Later productization
 

@@ -14,10 +14,10 @@ generated creature.
 Technical artists and game developers are important downstream review and
 integration users; this ordering does not exclude them from the product.
 
-The initial domain is stylized furry characters. Adult interactions are explicit
-motivating use cases and difficult contact/deformation stress cases for the
-general body, contact, and solver mechanisms. Those mechanisms remain reusable
-and are not defined as adult-only product behavior.
+The initial domain is stylized furry characters. Demanding close-contact and
+deformation scenarios are motivating use cases and stress cases for the general
+body, contact, and solver mechanisms. Those mechanisms remain reusable and are
+not defined for only one interaction domain.
 
 Native programmatic generation without a handcrafted base mesh is the first
 reference path. External authored-mesh conformance is a later workflow, while

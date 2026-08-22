@@ -190,8 +190,8 @@ Discussion batch:
 - Platform/compiler/runtime versus game/editor/general engine.
 - Initial project developer/researcher versus downstream artist/game-developer
   users.
-- Stylized furry focus and adult-interaction stress cases versus general
-  embodiment architecture.
+- Stylized furry focus and demanding interaction/deformation stress cases
+  versus general embodiment architecture.
 - Native generated creatures first and external mesh conformance later.
 
 This batch remains bounded to product identity and initial users. Its discussion
@@ -395,8 +395,9 @@ structural checks from a modest recorded human visual assessment over the fixed
 profiles and views. It defines conspicuous seams, detached parts, collapsed
 joints, and undifferentiated primitive blobs as failures of the subjective
 floor while keeping the judgment explicitly subjective. Detailed facial and
-digit features, dense fur/hair, clothing, adult contact/deformation, cinematic
-rendering, and arbitrary anatomy remain outside the Stage 1 quality claim.
+digit features, dense fur/hair, clothing, demanding contact/deformation,
+cinematic rendering, and arbitrary anatomy remain outside the Stage 1 quality
+claim.
 
 ## Round 6 — surface research and geometry decision (provisional)
 

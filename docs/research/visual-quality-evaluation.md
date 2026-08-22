@@ -228,7 +228,7 @@ only when the hybrid otherwise passes.
 The following are deferred or semantic-only in Stage 1 and must not be treated
 as required visual-quality failures: face or mouth interiors; detailed eyes or
 eyelids; teeth or tongue; fingers, toes, or claws; dense fur or hair;
-clothing/cloth; adult contact or deformation; cinematic rendering; and
+clothing/cloth; contact or deformation; cinematic rendering; and
 arbitrary anatomy. A simplified muzzle and hands/paws or feet/paws remain part
 of the bounded family, while their detailed subfeatures are deferred.
 
