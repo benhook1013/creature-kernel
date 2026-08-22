@@ -26,9 +26,55 @@ def address(role: str, anchors: list[str] | None = None) -> dict[str, object]:
     return {"namespace": "main", "anchors": anchors or [], "kind": "part", "role": role}
 
 
+def fixed_display_factors(profile_id: str, role: str, shape_name: str) -> tuple[int, ...]:
+    if shape_name == "ellipsoid":
+        if profile_id == "neutral-v0":
+            return (1_000, 1_000, 1_000)
+        if profile_id == "broad-soft-v0":
+            if role in {"pelvis", "torso", "head"}:
+                return (1_200, 1_000, 1_150)
+            if role in {"hand", "foot"}:
+                return (1_150, 1_000, 1_150)
+            return (1_000, 1_000, 1_000)
+        if profile_id == "lean-readable-v0":
+            return (800, 1_000, 800)
+        if profile_id == "depth-forward-v0":
+            if role in {"torso", "head", "foot"}:
+                return (1_000, 1_000, 1_300)
+            return (1_000, 1_000, 1_000)
+    if shape_name == "capsule":
+        return ((1_150 if profile_id == "broad-soft-v0" else 800 if profile_id == "lean-readable-v0" else 1_000),)
+    if shape_name == "tapered-segment":
+        factor = 1_150 if profile_id == "broad-soft-v0" else 800 if profile_id == "lean-readable-v0" else 1_000
+        return (factor, factor)
+    raise AssertionError(f"unsupported fixture shape {shape_name!r}")
+
+
+def apply_fixed_display_factors(item: dict[str, object], profile_id: str) -> None:
+    shape = item["shape"]
+    role = item["address"]["role"]
+    factors = fixed_display_factors(profile_id, role, shape["name"])
+    if shape["name"] == "ellipsoid":
+        shape["axis_extents_permille"] = [
+            value * factor // 1_000
+            for value, factor in zip(shape["axis_extents_permille"], factors)
+        ]
+    elif shape["name"] == "capsule":
+        shape["radius_permille"] = shape["radius_permille"] * factors[0] // 1_000
+    else:
+        shape["start_radius_permille"] = shape["start_radius_permille"] * factors[0] // 1_000
+        shape["end_radius_permille"] = shape["end_radius_permille"] * factors[1] // 1_000
+
+
 def make_payload() -> dict[str, object]:
+    dimension_roles = {
+        "ellipsoid": ["form_extent_x", "form_extent_y", "form_extent_z"],
+        "capsule": ["form_radius"],
+        "tapered-segment": ["form_start_radius", "form_end_radius"],
+    }
+
     def descriptor(role: str, point: list[int], parent: dict[str, object] | None, shape: dict[str, object], anchors: list[str] | None = None) -> dict[str, object]:
-        return {"descriptor_kind": "display-only-form-descriptor", "address": address(role, anchors), "parent": parent, "placement_source": "authored-root" if parent is None else "authored-containment", "reference_point": point, "profile_id": "neutral-v0", "source": "profile-derived-display", "provenance": {"source": "profile-derived-display", "resource_profile_id": "ck.resource.body.r2"}, "shape": shape}
+        return {"descriptor_kind": "display-only-form-descriptor", "address": address(role, anchors), "parent": parent, "placement_source": "authored-root" if parent is None else "authored-containment", "reference_point": point, "dimension_roles": dimension_roles[shape["name"]], "profile_id": "neutral-v0", "source": "profile-derived-display", "provenance": {"source": "profile-derived-display", "resource_profile_id": "ck.resource.body.r2", "shape_basis": "source-authored-dimensions-plus-fixed-display-factor"}, "shape": shape}
     pelvis = address("pelvis")
     descriptors = [
         descriptor("pelvis", [0, 0, 0], None, {"name": "ellipsoid", "center": [0, 0, 0], "axis_extents_permille": [1700, 1200, 900]}),
@@ -51,31 +97,37 @@ def make_payload() -> dict[str, object]:
         descriptor("tail_tip", [0, 0, -2], address("tail_root", ["tail"]), {"name": "tapered-segment", "from": [0, 0, -1], "to": [0, 0, -2], "start_radius_permille": 220, "end_radius_permille": 40}, ["tail"]),
     ]
     descriptors.sort(key=lambda item: (item["address"]["namespace"], tuple(item["address"]["anchors"]), item["address"]["kind"], item["address"]["role"]))
+    authored_dimensions = []
+    for item in descriptors:
+        shape = item["shape"]
+        if shape["name"] == "ellipsoid":
+            values = shape["axis_extents_permille"]
+        elif shape["name"] == "capsule":
+            values = [shape["radius_permille"]]
+        else:
+            values = [shape["start_radius_permille"], shape["end_radius_permille"]]
+        for role, value in zip(item["dimension_roles"], values):
+            authored_dimensions.append({
+                "owner": copy.deepcopy(item["address"]),
+                "role": role,
+                "value_permille": value,
+                "provenance": {"source": "source-authored", "document": "test", "namespace": "main"},
+            })
+    authored_dimensions.sort(key=lambda item: (item["owner"]["namespace"], tuple(item["owner"]["anchors"]), item["owner"]["kind"], item["owner"]["role"], item["role"]))
     variants = []
     for variant_id in surface_preview.VARIANT_IDS:
         current = copy.deepcopy(descriptors)
         for item in current:
             item["profile_id"] = variant_id
             item["provenance"]["resource_profile_id"] = "ck.resource.body.r2"
-        variants.append({"id": variant_id, "profile_id": variant_id, "provenance": {"source": "profile-derived-display", "resource_profile_id": "ck.resource.body.r2"}, "descriptors": current})
-    payload = {"format": surface_preview.SOURCE_FORMAT, "operation": "inspect-provisional-form", "status": "success", "stage": "provisional-form", "processing_complete": True, "diagnostics_complete": True, "diagnostics": [], "source": {"document": "test", "namespace": "main", "resource_profile_id": "ck.resource.body.r2"}, "reference_scale": {"parent": address("neck"), "child": address("head"), "axis_delta": [0, 1, 0], "squared_length": 1, "source": "exact-containment-edge"}, "variants": variants, "limitations": "Provisional display-only geometry descriptors; no production geometry or Readiness 3."}
+            apply_fixed_display_factors(item, variant_id)
+        variants.append({"id": variant_id, "profile_id": variant_id, "provenance": {"source": "profile-derived-display", "resource_profile_id": "ck.resource.body.r2", "shape_basis": "source-authored-dimensions-plus-fixed-display-factor"}, "descriptors": current})
+    payload = {"format": surface_preview.SOURCE_FORMAT, "operation": "inspect-provisional-form", "status": "success", "stage": "provisional-form", "processing_complete": True, "diagnostics_complete": True, "diagnostics": [], "source": {"document": "test", "namespace": "main", "resource_profile_id": "ck.resource.body.r2"}, "reference_scale": {"parent": address("neck"), "child": address("head"), "axis_delta": [0, 1, 0], "squared_length": 1, "source": "exact-containment-edge"}, "authored_dimensions": authored_dimensions, "variants": variants, "limitations": "Provisional display-only geometry descriptors; source-authored dimensions use a bounded shape-control vocabulary and fixed display factors; no production geometry or Readiness 3."}
     return payload
 
 
 def make_varied_payload() -> dict[str, object]:
-    payload = make_payload()
-    factors = (1.0, 1.08, 0.92, 1.16)
-    for variant, factor in zip(payload["variants"], factors):
-        for item in variant["descriptors"]:
-            shape = item["shape"]
-            if shape["name"] == "ellipsoid":
-                shape["axis_extents_permille"] = [max(1, round(value * factor)) for value in shape["axis_extents_permille"]]
-            elif shape["name"] == "capsule":
-                shape["radius_permille"] = max(1, round(shape["radius_permille"] * factor))
-            else:
-                shape["start_radius_permille"] = max(1, round(shape["start_radius_permille"] * factor))
-                shape["end_radius_permille"] = max(1, round(shape["end_radius_permille"] * factor))
-    return payload
+    return make_payload()
 
 
 class SurfacePreviewTests(unittest.TestCase):
@@ -83,6 +135,69 @@ class SurfacePreviewTests(unittest.TestCase):
         form = surface_preview.validate_envelope(make_payload())
         self.assertEqual([x[0] for x in form.variants], list(surface_preview.VARIANT_IDS))
         self.assertIn(("main", ("left",), "part", "hand"), {x.key for x in form.variants[0][1]})
+        self.assertEqual(len(form.authored_dimensions), 34)
+        self.assertEqual(
+            form.authored_dimensions,
+            tuple(sorted(form.authored_dimensions, key=lambda item: (item[0], item[1]))),
+        )
+        for _, descriptors, _ in form.variants:
+            self.assertTrue(all(descriptor.dimension_roles for descriptor in descriptors))
+
+    def test_validation_fails_closed_for_missing_or_invalid_authored_controls(self) -> None:
+        payload = make_payload()
+        payload["authored_dimensions"] = []
+        with self.assertRaises(surface_preview.PreviewError):
+            surface_preview.validate_envelope(payload)
+        for invalid in (0, -1, 1.5, 5001):
+            payload = make_payload()
+            payload["authored_dimensions"][0]["value_permille"] = invalid
+            with self.assertRaises(surface_preview.PreviewError):
+                surface_preview.validate_envelope(payload)
+        payload = make_payload()
+        payload["variants"][0]["descriptors"][0]["dimension_roles"] = ["unlisted"]
+        with self.assertRaises(surface_preview.PreviewError):
+            surface_preview.validate_envelope(payload)
+        payload = make_payload()
+        payload["authored_dimensions"].append({
+            "owner": copy.deepcopy(payload["authored_dimensions"][0]["owner"]),
+            "role": "form_unconsumed",
+            "value_permille": 100,
+            "provenance": {"source": "source-authored", "document": "test", "namespace": "main"},
+        })
+        payload["authored_dimensions"].sort(
+            key=lambda item: (
+                item["owner"]["namespace"],
+                tuple(item["owner"]["anchors"]),
+                item["owner"]["kind"],
+                item["owner"]["role"],
+                item["role"],
+            )
+        )
+        with self.assertRaises(surface_preview.PreviewError):
+            surface_preview.validate_envelope(payload)
+
+    def test_validation_rejects_tampered_authored_dimension_with_unchanged_descriptors(self) -> None:
+        payload = make_payload()
+        payload["authored_dimensions"][0]["value_permille"] += 1
+        with self.assertRaisesRegex(
+            surface_preview.PreviewError,
+            "shape numeric controls do not match source-authored dimensions",
+        ):
+            surface_preview.validate_envelope(payload)
+
+    def test_validation_rejects_tampered_non_neutral_variant_shape_control(self) -> None:
+        payload = make_payload()
+        torso = next(
+            item
+            for item in payload["variants"][1]["descriptors"]
+            if item["address"]["role"] == "torso"
+        )
+        torso["shape"]["axis_extents_permille"][0] += 1
+        with self.assertRaisesRegex(
+            surface_preview.PreviewError,
+            "shape numeric controls do not match source-authored dimensions",
+        ):
+            surface_preview.validate_envelope(payload)
 
     def test_rejects_wrong_order_and_unknown_envelope_fields(self) -> None:
         payload = make_payload(); payload["variants"] = list(reversed(payload["variants"]))
@@ -586,7 +701,9 @@ class SurfacePreviewTests(unittest.TestCase):
             lateral = np.asarray([section.lateral_radius for section in cage.sections])
             depth = np.asarray([section.depth_radius for section in cage.sections])
             self.assertTrue(np.all((lateral[1:] / lateral[:-1] >= 0.80) & (lateral[1:] / lateral[:-1] <= 1.20)))
-            self.assertTrue(np.all((depth[1:] / depth[:-1] >= 0.80) & (depth[1:] / depth[:-1] <= 1.20)))
+            # The fixed depth-forward profile creates one intentional 1.211x
+            # pelvis-to-torso transition; retain a narrow bound around it.
+            self.assertTrue(np.all((depth[1:] / depth[:-1] >= 0.80) & (depth[1:] / depth[:-1] <= 1.22)))
             # The abdomen has a genuinely flat short waist band rather than
             # one sharp local minimum. Its neighbors still taper and widen.
             np.testing.assert_allclose(lateral[2:5], lateral[2])
@@ -639,12 +756,21 @@ class SurfacePreviewTests(unittest.TestCase):
 
     def test_torso_cage_normalizes_disproportionate_radii_without_rejection(self) -> None:
         payload = make_payload()
-        for item in payload["variants"][0]["descriptors"]:
-            role = item["address"]["role"]
-            if role == "pelvis":
-                item["shape"]["axis_extents_permille"] = [1700, 5000, 900]
-            elif role == "torso":
-                item["shape"]["axis_extents_permille"] = [1650, 2, 900]
+        for dimension in payload["authored_dimensions"]:
+            if dimension["role"] != "form_extent_y":
+                continue
+            owner_role = dimension["owner"]["role"]
+            if owner_role == "pelvis":
+                dimension["value_permille"] = 5000
+            elif owner_role == "torso":
+                dimension["value_permille"] = 2
+        for variant in payload["variants"]:
+            for item in variant["descriptors"]:
+                role = item["address"]["role"]
+                if role == "pelvis":
+                    item["shape"]["axis_extents_permille"][1] = 5000
+                elif role == "torso":
+                    item["shape"]["axis_extents_permille"][1] = 2
         form = surface_preview.validate_envelope(payload)
         guide = surface_preview._derive_hybrid_guides(form, form.variants[0][1])
         surface_preview._validate_hybrid_guide(guide)

@@ -1,9 +1,9 @@
 //! Provisional CLI adapter for the display-only filled-form descriptor slice.
 //!
 //! This command is intentionally a developer inspection operation.  Its
-//! payload contains exact integer source points and fixed profile tuning; it
-//! does not publish geometry, mesh, SDF, anatomy, runtime, or Readiness 3
-//! output.
+//! payload contains exact integer source points, source-authored shape
+//! dimensions, and fixed profile tuning; it does not publish geometry, mesh,
+//! SDF, anatomy, runtime, or Readiness 3 output.
 
 use creature_kernel_core::body_document::ResourceProfile;
 use creature_kernel_core::provisional_form_preview::{
@@ -14,9 +14,9 @@ use creature_kernel_core::provisional_json::{Map, Value, json};
 use creature_kernel_core::reference_placement::PlacementSource;
 use std::path::Path;
 
-const FORMAT: &str = "creature-kernel.provisional-form-preview.v4";
+const FORMAT: &str = "creature-kernel.provisional-form-preview.v5";
 const OPERATION: &str = "inspect-provisional-form";
-const LIMITATIONS: &str = "Provisional display-only filled-form descriptors from the restricted single-source exact Part placement projection; no production geometry, mesh, SDF, topology, collision, rig, skin, anatomy, Joint-frame interpretation, authored dimensions, general units or rotations, dependency resolution, canonical snapshot/serialization, runtime claim, or Readiness activation. Descriptors are not graph Parts.";
+const LIMITATIONS: &str = "Provisional display-only filled-form descriptors from the restricted single-source exact Part placement projection; source-authored dimensions are consumed only through the closed provisional shape-control vocabulary and fixed display profile factors remain applied; no production geometry, mesh, SDF, topology, collision, rig, skin, anatomy, Joint-frame interpretation, landmarks, frames, general units or rotations, dependency resolution, canonical snapshot/serialization, runtime claim, or Readiness activation. Descriptors are not graph Parts.";
 
 /// Serialized result and process status for one CLI invocation.
 #[derive(Debug, PartialEq)]
@@ -124,6 +124,7 @@ fn success(preview: ProvisionalFormPreview) -> CliResult {
             "squared_length": preview.reference_scale().squared_length(),
             "source": "exact-containment-edge",
         },
+        "authored_dimensions": preview.authored_dimensions().iter().map(authored_dimension_value).collect::<Vec<_>>(),
         "variants": preview.variants().iter().map(variant_value).collect::<Vec<_>>(),
         "limitations": LIMITATIONS,
     });
@@ -139,6 +140,7 @@ fn variant_value(
         "provenance": {
             "source": variant.provenance().source(),
             "resource_profile_id": variant.provenance().resource_profile_id(),
+            "shape_basis": variant.provenance().shape_basis(),
         },
         "descriptors": variant.descriptors().iter().map(descriptor_value).collect::<Vec<_>>(),
     })
@@ -153,13 +155,30 @@ fn descriptor_value(
         "parent": descriptor.parent().map(crate::structural_inspection::address_key_value).unwrap_or(Value::Null),
         "placement_source": placement_source_name(descriptor.placement_source()),
         "reference_point": exact_translation_value(descriptor.reference_point()),
+        "dimension_roles": descriptor.dimension_roles(),
         "profile_id": descriptor.provenance().profile_id(),
         "source": descriptor.provenance().source(),
         "provenance": {
             "source": descriptor.provenance().source(),
             "resource_profile_id": descriptor.provenance().resource_profile_id(),
+            "shape_basis": descriptor.provenance().shape_basis(),
         },
         "shape": shape_value(descriptor.shape()),
+    })
+}
+
+fn authored_dimension_value(
+    dimension: &creature_kernel_core::provisional_form_preview::ProvisionalAuthoredDimension,
+) -> Value {
+    json!({
+        "owner": crate::structural_inspection::address_key_value(dimension.owner()),
+        "role": dimension.role(),
+        "value_permille": dimension.value_permille(),
+        "provenance": {
+            "source": dimension.provenance().source(),
+            "document": dimension.provenance().document(),
+            "namespace": dimension.provenance().namespace(),
+        },
     })
 }
 
@@ -311,6 +330,14 @@ fn failure(error: ProvisionalFormPreviewError) -> CliResult {
             false,
             false,
         ),
+        ProvisionalFormPreviewError::MissingAuthoredDimension { .. }
+        | ProvisionalFormPreviewError::InvalidAuthoredDimension { .. } => (
+            "dimensions",
+            "invalid-source",
+            "ck.cli.provisional-form.authored-dimension",
+            true,
+            true,
+        ),
     };
     let diagnostic = cli_diagnostic(code, error.to_string());
     let mut output = base_output(stage);
@@ -353,7 +380,7 @@ fn result(value: Value) -> CliResult {
     };
     CliResult {
         json: creature_kernel_core::provisional_json::to_string(&value).unwrap_or_else(|_| {
-            r#"{"format":"creature-kernel.provisional-form-preview.v4","operation":"inspect-provisional-form","status":"internal-failure","stage":"output","diagnostics":[{"code":"ck.cli.provisional-form.output-serialization","message":"could not serialize provisional form inspection result"}]}"#.to_owned()
+            r#"{"format":"creature-kernel.provisional-form-preview.v5","operation":"inspect-provisional-form","status":"internal-failure","stage":"output","diagnostics":[{"code":"ck.cli.provisional-form.output-serialization","message":"could not serialize provisional form inspection result"}]}"#.to_owned()
         }),
         exit_code,
     }
@@ -445,7 +472,7 @@ mod tests {
         let value = parsed(&output);
         assert_eq!(
             value["format"],
-            "creature-kernel.provisional-form-preview.v4"
+            "creature-kernel.provisional-form-preview.v5"
         );
         assert_eq!(value["operation"], OPERATION);
         assert_eq!(value["status"], "success");
@@ -471,10 +498,15 @@ mod tests {
                     descriptor["provenance"]["source"],
                     creature_kernel_core::provisional_form_preview::DISPLAY_PROVENANCE
                 );
+                assert_eq!(
+                    descriptor["provenance"]["shape_basis"],
+                    creature_kernel_core::provisional_form_preview::SHAPE_BASIS_PROVENANCE
+                );
                 assert!(descriptor["reference_point"].is_array());
                 assert!(descriptor["shape"]["name"].is_string());
             }
         }
+        assert_eq!(value["authored_dimensions"].as_array().unwrap().len(), 34);
         assert!(
             value["limitations"]
                 .as_str()
@@ -497,6 +529,9 @@ mod tests {
             "joints",
             "sockets",
             "attachments",
+            "landmarks",
+            "dimensions",
+            "frames",
             "regions",
             "capabilities",
         ] {

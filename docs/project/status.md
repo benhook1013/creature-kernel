@@ -79,6 +79,17 @@ per-variant or per-fixture patches or a handcrafted base mesh. This remains a
 bounded exploratory expressivity checkpoint, not proof of a finished
 morphology family or production surface system.
 
+Before publishing that checkpoint, retain either the exact v5 source envelope
+or an integrity-bound authored-dimension/descriptor-role lineage projection in
+the immutable review evidence. A source hash without the corresponding lineage
+payload is not sufficient for the checkpoint's provenance claim.
+
+The active fixture's exact squared reference length is `1`. If a later runway
+admits producer output above JavaScript's exact-integer domain, align or tighten
+the Rust, publication, surface-consumer, and browser bounds before using that
+output visually; speculative large-coordinate hardening is not a prerequisite
+for this checkpoint.
+
 Routine implementation, tests, reviews, and small internal PRs may proceed
 autonomously toward the checkpoint. Stop before the first genuinely appraisable
 result or any retained-human/material detour. Rigging, contact, deformation, VR

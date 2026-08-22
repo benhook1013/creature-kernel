@@ -2,7 +2,7 @@
 """Publish the first disposable baseline-versus-successor surface checkpoint.
 
 This is deliberately an adapter, not a surface renderer. It runs the current
-v4 filled-form producer once, then the baseline and successor experiment
+v5 filled-form producer once, then the baseline and successor experiment
 generators in isolated temporary storage. Both bundles are validated against
 the same source and capture frame before four baseline/successor image pairs
 are published into the existing immutable image-review format. The result is
@@ -1290,12 +1290,12 @@ def _validate_bundle(
     if set(manifest) != expected_manifest_fields:
         raise SurfacePreviewPublishError("surface bundle has unknown manifest fields")
     if manifest.get("source_format") != common.PROVISIONAL_FORM_FORMAT:
-        raise SurfacePreviewPublishError("surface bundle source_format must be provisional-form v4")
+        raise SurfacePreviewPublishError("surface bundle source_format must be provisional-form v5")
     source = manifest.get("source")
     if not isinstance(source, dict) or set(source) != {"format", "sha256", "document", "namespace", "resource_profile_id", "reference_scale"}:
         raise SurfacePreviewPublishError("surface bundle source must identify format and sha256")
     if source.get("format") != common.PROVISIONAL_FORM_FORMAT or source.get("sha256") != expected_source_sha256:
-        raise SurfacePreviewPublishError("surface bundle source does not match the exact v4 producer output")
+        raise SurfacePreviewPublishError("surface bundle source does not match the exact v5 producer output")
     source_hash = source.get("sha256")
     if not isinstance(source_hash, str) or len(source_hash) != 64 or any(character not in "0123456789abcdef" for character in source_hash):
         raise SurfacePreviewPublishError("surface bundle source.sha256 is invalid")
@@ -1357,7 +1357,7 @@ def _validate_bundle(
         raise SurfacePreviewPublishError(str(exc)) from exc
     variants = manifest.get("variants")
     if not isinstance(variants, list) or [v.get("id") for v in variants if isinstance(v, dict)] != list(EXPECTED_VARIANTS):
-        raise SurfacePreviewPublishError("surface bundle variants must be the canonical v4 variants in order")
+        raise SurfacePreviewPublishError("surface bundle variants must be the canonical v5 variants in order")
     inventory_paths: set[str] = set()
     published: list[dict[str, Any]] = []
     producer_variants = producer_payload.get("variants") if producer_payload is not None else None
@@ -1899,9 +1899,9 @@ def publish_surface_preview(
         except (ProvisionalFormPublishError, OSError, ValueError) as exc:
             raise SurfacePreviewPublishError(str(exc)) from exc
         if payload.get("format") != common.PROVISIONAL_FORM_FORMAT:
-            raise SurfacePreviewPublishError("creature-kernel inspection did not produce v4")
+            raise SurfacePreviewPublishError("creature-kernel inspection did not produce v5")
         producer_output.write_text(canonical_json(payload), encoding="utf-8")
-        producer_sha256, _ = _sha256(producer_output, "v4 producer output")
+        producer_sha256, _ = _sha256(producer_output, "v5 producer output")
         _, generator_stderr, generator_returncode = _run_bounded(
             [sys.executable, str(generator_path), "--input", str(producer_output), "--output", str(baseline_bundle)],
             timeout=GENERATOR_TIMEOUT_SECONDS,

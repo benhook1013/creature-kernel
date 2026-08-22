@@ -5,7 +5,7 @@
 //! exact integer points plus reversible profile tuning.  The descriptors are
 //! not graph Parts, production geometry, meshes, SDFs, anatomy, or a
 //! Readiness 3 result.  In particular, this module never reads Joint frames,
-//! named frames, dimensions, or authored profile values.
+//! named frames, landmarks, or authored profile values.
 
 #![allow(clippy::result_large_err)]
 
@@ -20,11 +20,20 @@ use crate::restricted_snapshot::{
     RestrictedSingleSourceSnapshotError, build_restricted_single_source_snapshot,
 };
 use crate::semantic_address::AddressKey;
-use crate::source_preparation::SourcePreparationError;
+use crate::source_preparation::{PreparedSingleSource, SourcePreparationError};
+use std::collections::BTreeMap;
 use std::fmt;
 
 /// Format-independent provenance label for every descriptor.
 pub const DISPLAY_PROVENANCE: &str = "profile-derived-display";
+
+/// Provenance label for the source-owned dimension controls admitted by this
+/// provisional adapter.
+pub const AUTHORED_DIMENSION_PROVENANCE: &str = "source-authored";
+
+/// Shape provenance retained alongside display-profile provenance.  The
+/// fixed variant factors remain an explicit second transformation.
+pub const SHAPE_BASIS_PROVENANCE: &str = "source-authored-dimensions-plus-fixed-display-factor";
 
 /// Fixed display variants emitted by [`build_provisional_form_preview`].
 pub const FIXED_VARIANT_IDS: [&str; 4] = [
@@ -65,6 +74,69 @@ pub struct ProvisionalReferenceScale {
     child: AddressKey,
     axis_delta: ExactTranslation,
     squared_length: u128,
+}
+
+/// Provenance for one source-authored provisional dimension.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ProvisionalAuthoredDimensionProvenance {
+    source: &'static str,
+    document: String,
+    namespace: String,
+}
+
+impl ProvisionalAuthoredDimensionProvenance {
+    /// Source-authored provenance label.
+    #[must_use]
+    pub const fn source(&self) -> &'static str {
+        self.source
+    }
+
+    /// Source document retained as provenance.
+    #[must_use]
+    pub fn document(&self) -> &str {
+        &self.document
+    }
+
+    /// Source namespace retained as provenance.
+    #[must_use]
+    pub fn namespace(&self) -> &str {
+        &self.namespace
+    }
+}
+
+/// One stable source-owned dimension consumed by a provisional shape.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ProvisionalAuthoredDimension {
+    owner: AddressKey,
+    role: String,
+    value_permille: u32,
+    provenance: ProvisionalAuthoredDimensionProvenance,
+}
+
+impl ProvisionalAuthoredDimension {
+    /// Owner address of this source dimension.
+    #[must_use]
+    pub fn owner(&self) -> &AddressKey {
+        &self.owner
+    }
+
+    /// Owner-local source dimension role.
+    #[must_use]
+    pub fn role(&self) -> &str {
+        &self.role
+    }
+
+    /// Exact positive permille value retained from source preparation.
+    #[must_use]
+    pub const fn value_permille(&self) -> u32 {
+        self.value_permille
+    }
+
+    /// Source-authored provenance.
+    #[must_use]
+    pub const fn provenance(&self) -> &ProvisionalAuthoredDimensionProvenance {
+        &self.provenance
+    }
 }
 
 impl ProvisionalReferenceScale {
@@ -124,6 +196,7 @@ pub struct ProvisionalDescriptorProvenance {
     profile_id: &'static str,
     source: &'static str,
     resource_profile_id: &'static str,
+    shape_basis: &'static str,
 }
 
 impl ProvisionalDescriptorProvenance {
@@ -144,6 +217,12 @@ impl ProvisionalDescriptorProvenance {
     pub const fn resource_profile_id(&self) -> &'static str {
         self.resource_profile_id
     }
+
+    /// Shape-basis provenance, including the subsequent fixed profile factor.
+    #[must_use]
+    pub const fn shape_basis(&self) -> &'static str {
+        self.shape_basis
+    }
 }
 
 /// One display-only descriptor corresponding to exactly one current source
@@ -154,6 +233,7 @@ pub struct ProvisionalPartDescriptor {
     parent: Option<AddressKey>,
     placement_source: PlacementSource,
     reference_point: ExactTranslation,
+    dimension_roles: Vec<String>,
     provenance: ProvisionalDescriptorProvenance,
     shape: ProvisionalShape,
 }
@@ -186,6 +266,12 @@ impl ProvisionalPartDescriptor {
     #[must_use]
     pub const fn reference_point(&self) -> ExactTranslation {
         self.reference_point
+    }
+
+    /// Owner-local source dimension roles consumed by this descriptor shape.
+    #[must_use]
+    pub fn dimension_roles(&self) -> &[String] {
+        &self.dimension_roles
     }
 
     /// Fixed profile identifier used for this descriptor.
@@ -248,6 +334,7 @@ pub struct ProvisionalFormPreview {
     source: ProvisionalSourceIdentity,
     resource_profile_id: &'static str,
     reference_scale: ProvisionalReferenceScale,
+    authored_dimensions: Vec<ProvisionalAuthoredDimension>,
     variants: Vec<ProvisionalFormVariant>,
 }
 
@@ -268,6 +355,12 @@ impl ProvisionalFormPreview {
     #[must_use]
     pub const fn reference_scale(&self) -> &ProvisionalReferenceScale {
         &self.reference_scale
+    }
+
+    /// Stable AddressKey/role-sorted source-authored shape-control inventory.
+    #[must_use]
+    pub fn authored_dimensions(&self) -> &[ProvisionalAuthoredDimension] {
+        &self.authored_dimensions
     }
 
     /// All four fixed variants, in [`FIXED_VARIANT_IDS`] order.
@@ -359,6 +452,15 @@ pub enum ProvisionalFormPreviewError {
         profile_id: &'static str,
         value: u32,
     },
+    /// A required source-authored shape control was not supplied.
+    MissingAuthoredDimension { address: AddressKey, role: String },
+    /// A required source-authored shape control was not a positive bounded
+    /// integer permille value.
+    InvalidAuthoredDimension {
+        address: AddressKey,
+        role: String,
+        value: String,
+    },
 }
 
 /// Shape category used in typed provisional failures.
@@ -426,6 +528,18 @@ impl fmt::Display for ProvisionalFormPreviewError {
                 formatter,
                 "profile {profile_id} contains invalid positive permille value {value}"
             ),
+            Self::MissingAuthoredDimension { address, role } => write!(
+                formatter,
+                "required source-authored dimension {role:?} is missing at {address}"
+            ),
+            Self::InvalidAuthoredDimension {
+                address,
+                role,
+                value,
+            } => write!(
+                formatter,
+                "source-authored dimension {role:?} at {address} has invalid positive permille value {value}"
+            ),
         }
     }
 }
@@ -435,8 +549,8 @@ impl std::error::Error for ProvisionalFormPreviewError {}
 /// Build all four fixed, display-only filled-form variants from one source.
 ///
 /// The `ResourceProfile` controls only the existing source admission/preparation
-/// boundary.  Variant values are fixed implementation constants; user-authored
-/// dimensions and profile values are never read.
+/// boundary.  Source-authored shape dimensions form the neutral basis; the
+/// existing fixed variant factors are then applied as display tuning.
 pub fn build_provisional_form_preview(
     source: &[u8],
     resource_profile: ResourceProfile,
@@ -469,16 +583,19 @@ pub fn build_provisional_form_preview(
             .namespace
             .clone(),
     };
+    let authored_dimensions =
+        prepare_authored_dimensions(snapshot.prepared_source(), placements, &source_identity)?;
 
     let variants = FIXED_VARIANT_IDS
         .into_iter()
-        .map(|id| build_variant(id, resource_profile_id, placements))
+        .map(|id| build_variant(id, resource_profile_id, placements, &authored_dimensions))
         .collect::<Result<Vec<_>, _>>()?;
 
     Ok(ProvisionalFormPreview {
         source: source_identity,
         resource_profile_id,
         reference_scale,
+        authored_dimensions: authored_dimensions.inventory,
         variants,
     })
 }
@@ -668,20 +785,130 @@ fn checked_delta(
     Ok(ExactTranslation::from_components(delta))
 }
 
+struct PreparedAuthoredDimensions {
+    inventory: Vec<ProvisionalAuthoredDimension>,
+    values: BTreeMap<(AddressKey, String), u32>,
+}
+
+fn prepare_authored_dimensions(
+    prepared: &PreparedSingleSource,
+    placements: &ExactReferencePlacements,
+    source: &ProvisionalSourceIdentity,
+) -> Result<PreparedAuthoredDimensions, ProvisionalFormPreviewError> {
+    let mut required = BTreeMap::new();
+    for part in placements.parts().values() {
+        let roles = authored_dimension_roles(part.address().role())
+            .expect("validated provisional shape role has dimension roles");
+        for role in roles {
+            required.insert((part.address().clone(), (*role).to_owned()), ());
+        }
+    }
+
+    let mut values = BTreeMap::new();
+    for (owner_role, value) in prepared.dimensions() {
+        let key = (owner_role.owner().clone(), owner_role.role().to_owned());
+        if !required.contains_key(&key) {
+            // Other semantic dimensions remain outside this narrow
+            // provisional vocabulary and are intentionally not rejected.
+            continue;
+        }
+        let exact = match value.to_exact_i64() {
+            Ok(exact) => exact,
+            Err(cause) => {
+                return Err(ProvisionalFormPreviewError::InvalidAuthoredDimension {
+                    address: key.0,
+                    role: key.1,
+                    value: format!("bits=0x{:016x} ({cause})", value.to_bits()),
+                });
+            }
+        };
+        let value_permille = match u32::try_from(exact) {
+            Ok(value_permille) if (1..=i64::from(MAX_PROVISIONAL_PERMILLE)).contains(&exact) => {
+                value_permille
+            }
+            _ => {
+                return Err(ProvisionalFormPreviewError::InvalidAuthoredDimension {
+                    address: key.0,
+                    role: key.1,
+                    value: format!("integer={exact} bits=0x{:016x}", value.to_bits()),
+                });
+            }
+        };
+        values.insert(key, value_permille);
+    }
+
+    for (address, role) in required.keys() {
+        if !values.contains_key(&(address.clone(), role.clone())) {
+            return Err(ProvisionalFormPreviewError::MissingAuthoredDimension {
+                address: address.clone(),
+                role: role.clone(),
+            });
+        }
+    }
+
+    let inventory = values
+        .iter()
+        .map(
+            |((owner, role), value_permille)| ProvisionalAuthoredDimension {
+                owner: owner.clone(),
+                role: role.clone(),
+                value_permille: *value_permille,
+                provenance: ProvisionalAuthoredDimensionProvenance {
+                    source: AUTHORED_DIMENSION_PROVENANCE,
+                    document: source.document.clone(),
+                    namespace: source.namespace.clone(),
+                },
+            },
+        )
+        .collect();
+    Ok(PreparedAuthoredDimensions { inventory, values })
+}
+
+fn authored_dimension_roles(role: &str) -> Option<&'static [&'static str]> {
+    match shape_kind(role)? {
+        ProvisionalShapeKind::Ellipsoid => {
+            Some(&["form_extent_x", "form_extent_y", "form_extent_z"])
+        }
+        ProvisionalShapeKind::Capsule => Some(&["form_radius"]),
+        ProvisionalShapeKind::TaperedSegment => Some(&["form_start_radius", "form_end_radius"]),
+    }
+}
+
+fn authored_dimension_value(
+    dimensions: &PreparedAuthoredDimensions,
+    address: &AddressKey,
+    role: &str,
+) -> u32 {
+    *dimensions
+        .values
+        .get(&(address.clone(), role.to_owned()))
+        .expect("required authored dimension was validated before descriptor construction")
+}
+
 fn build_variant(
     profile_id: &'static str,
     resource_profile_id: &'static str,
     placements: &ExactReferencePlacements,
+    dimensions: &PreparedAuthoredDimensions,
 ) -> Result<ProvisionalFormVariant, ProvisionalFormPreviewError> {
     let provenance = ProvisionalDescriptorProvenance {
         profile_id,
         source: DISPLAY_PROVENANCE,
         resource_profile_id,
+        shape_basis: SHAPE_BASIS_PROVENANCE,
     };
     let descriptors = placements
         .parts()
         .values()
-        .map(|part| build_descriptor(profile_id, resource_profile_id, part, placements))
+        .map(|part| {
+            build_descriptor(
+                profile_id,
+                resource_profile_id,
+                part,
+                placements,
+                dimensions,
+            )
+        })
         .collect::<Result<Vec<_>, _>>()?;
     Ok(ProvisionalFormVariant {
         id: profile_id,
@@ -695,6 +922,7 @@ fn build_descriptor(
     resource_profile_id: &'static str,
     part: &ExactPlacedPart,
     placements: &ExactReferencePlacements,
+    dimensions: &PreparedAuthoredDimensions,
 ) -> Result<ProvisionalPartDescriptor, ProvisionalFormPreviewError> {
     let role = part.address().role();
     let shape_kind =
@@ -702,10 +930,15 @@ fn build_descriptor(
             address: part.address().clone(),
             role: role.to_owned(),
         })?;
+    let dimension_roles = authored_dimension_roles(role)
+        .expect("validated provisional shape role has dimension roles")
+        .iter()
+        .map(|role| (*role).to_owned())
+        .collect::<Vec<_>>();
     let shape = match shape_kind {
         ProvisionalShapeKind::Ellipsoid => ProvisionalShape::Ellipsoid {
             center: part.reference_translation(),
-            axis_extents_permille: extents(profile_id, role)?,
+            axis_extents_permille: extents(profile_id, part.address(), dimensions)?,
         },
         ProvisionalShapeKind::Capsule => {
             let child = expected_segment_child(part, placements)?;
@@ -720,7 +953,7 @@ fn build_descriptor(
             ProvisionalShape::Capsule {
                 from,
                 to,
-                radius_permille: radius(profile_id, role)?,
+                radius_permille: radius(profile_id, part.address(), dimensions)?,
             }
         }
         ProvisionalShapeKind::TaperedSegment => {
@@ -741,7 +974,8 @@ fn build_descriptor(
                     shape: shape_kind,
                 });
             }
-            let (start_radius_permille, end_radius_permille) = taper_radii(profile_id, role)?;
+            let (start_radius_permille, end_radius_permille) =
+                taper_radii(profile_id, part.address(), dimensions)?;
             ProvisionalShape::TaperedSegment {
                 from,
                 to,
@@ -755,10 +989,12 @@ fn build_descriptor(
         parent: part.parent().cloned(),
         placement_source: part.source(),
         reference_point: part.reference_translation(),
+        dimension_roles,
         provenance: ProvisionalDescriptorProvenance {
             profile_id,
             source: DISPLAY_PROVENANCE,
             resource_profile_id,
+            shape_basis: SHAPE_BASIS_PROVENANCE,
         },
         shape,
     })
@@ -814,39 +1050,6 @@ fn shape_kind(role: &str) -> Option<ProvisionalShapeKind> {
     }
 }
 
-// These values are provisional display tuning only, not authored dimensions or
-// morphology promises.  They are deliberately kept as bounded positive
-// permille constants so renderers can apply ratios without floating point.
-fn neutral_extents(role: &str) -> [u32; 3] {
-    match role {
-        "pelvis" => [1_700, 1_200, 900],
-        "torso" => [1_650, 1_200, 900],
-        "head" => [1_000, 600, 900],
-        "hand" => [450, 400, 350],
-        "foot" => [500, 350, 700],
-        _ => [1, 1, 1],
-    }
-}
-
-fn neutral_radius(role: &str) -> u32 {
-    match role {
-        "neck" => 350,
-        "upper_arm" => 220,
-        "forearm" => 190,
-        "thigh" => 280,
-        "shin" => 220,
-        _ => 1,
-    }
-}
-
-fn neutral_taper_radii(role: &str) -> (u32, u32) {
-    match role {
-        "tail_root" => (300, 220),
-        "tail_tip" => (220, 40),
-        _ => (1, 1),
-    }
-}
-
 fn scale(
     value: u32,
     factor: u32,
@@ -870,8 +1073,17 @@ fn scale(
     Ok(scaled)
 }
 
-fn extents(profile_id: &'static str, role: &str) -> Result<[u32; 3], ProvisionalFormPreviewError> {
-    let neutral = neutral_extents(role);
+fn extents(
+    profile_id: &'static str,
+    address: &AddressKey,
+    dimensions: &PreparedAuthoredDimensions,
+) -> Result<[u32; 3], ProvisionalFormPreviewError> {
+    let neutral = [
+        authored_dimension_value(dimensions, address, "form_extent_x"),
+        authored_dimension_value(dimensions, address, "form_extent_y"),
+        authored_dimension_value(dimensions, address, "form_extent_z"),
+    ];
+    let role = address.role();
     let factors = match profile_id {
         "neutral-v0" => [1_000, 1_000, 1_000],
         "broad-soft-v0" if matches!(role, "pelvis" | "torso" | "head") => [1_200, 1_000, 1_150],
@@ -889,20 +1101,30 @@ fn extents(profile_id: &'static str, role: &str) -> Result<[u32; 3], Provisional
     Ok(result)
 }
 
-fn radius(profile_id: &'static str, role: &str) -> Result<u32, ProvisionalFormPreviewError> {
+fn radius(
+    profile_id: &'static str,
+    address: &AddressKey,
+    dimensions: &PreparedAuthoredDimensions,
+) -> Result<u32, ProvisionalFormPreviewError> {
     let factor = match profile_id {
         "broad-soft-v0" => 1_150,
         "lean-readable-v0" => 800,
         _ => 1_000,
     };
-    scale(neutral_radius(role), factor, profile_id)
+    scale(
+        authored_dimension_value(dimensions, address, "form_radius"),
+        factor,
+        profile_id,
+    )
 }
 
 fn taper_radii(
     profile_id: &'static str,
-    role: &str,
+    address: &AddressKey,
+    dimensions: &PreparedAuthoredDimensions,
 ) -> Result<(u32, u32), ProvisionalFormPreviewError> {
-    let (start, end) = neutral_taper_radii(role);
+    let start = authored_dimension_value(dimensions, address, "form_start_radius");
+    let end = authored_dimension_value(dimensions, address, "form_end_radius");
     let (start_factor, end_factor) = match profile_id {
         "broad-soft-v0" => (1_150, 1_150),
         "lean-readable-v0" => (800, 800),
@@ -1021,6 +1243,102 @@ mod tests {
             [0, 1, 0]
         );
         assert_eq!(preview.reference_scale().squared_length(), 1);
+    }
+
+    #[test]
+    fn authored_dimension_inventory_and_descriptor_consumption_are_complete() {
+        let preview = build_provisional_form_preview(&example(), ResourceProfile::ORDINARY)
+            .expect("checked-in biped is supported");
+        assert_eq!(preview.authored_dimensions().len(), 34);
+        assert!(
+            preview.authored_dimensions().windows(2).all(|pair| {
+                (pair[0].owner(), pair[0].role()) < (pair[1].owner(), pair[1].role())
+            })
+        );
+        assert!(
+            preview
+                .authored_dimensions()
+                .iter()
+                .all(|dimension| dimension.value_permille() > 0
+                    && dimension.value_permille() <= MAX_PROVISIONAL_PERMILLE
+                    && dimension.provenance().source() == AUTHORED_DIMENSION_PROVENANCE
+                    && dimension.provenance().document() == "stylized_digitigrade_biped"
+                    && dimension.provenance().namespace() == "main")
+        );
+        for variant in preview.variants() {
+            for descriptor in variant.descriptors() {
+                let expected = authored_dimension_roles(descriptor.address().role())
+                    .expect("shape role has controls");
+                assert_eq!(
+                    descriptor.dimension_roles(),
+                    expected
+                        .iter()
+                        .map(|role| (*role).to_owned())
+                        .collect::<Vec<_>>()
+                );
+                for role in descriptor.dimension_roles() {
+                    assert!(preview.authored_dimensions().iter().any(|dimension| {
+                        dimension.owner() == descriptor.address() && dimension.role() == role
+                    }));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn missing_fractional_nonpositive_and_oversized_controls_fail_closed() {
+        let mut missing = value();
+        missing["body"]["dimensions"]
+            .as_array_mut()
+            .unwrap()
+            .remove(0);
+        assert!(matches!(
+            build_provisional_form_preview(&bytes(missing), ResourceProfile::ORDINARY),
+            Err(ProvisionalFormPreviewError::MissingAuthoredDimension { .. })
+        ));
+
+        for invalid in [json!(1.5), json!(0), json!(-1), json!(5_001)] {
+            let mut document = value();
+            document["body"]["dimensions"].as_array_mut().unwrap()[0]["value"] = invalid;
+            assert!(matches!(
+                build_provisional_form_preview(&bytes(document), ResourceProfile::ORDINARY),
+                Err(ProvisionalFormPreviewError::InvalidAuthoredDimension { .. })
+            ));
+        }
+    }
+
+    #[test]
+    fn one_authored_dimension_changes_only_its_shape_basis_in_all_variants() {
+        let original = build_provisional_form_preview(&example(), ResourceProfile::ORDINARY)
+            .expect("original");
+        let mut changed = value();
+        let torso_x = changed["body"]["dimensions"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|dimension| {
+                dimension["owner"]["role"] == "torso" && dimension["role"] == "form_extent_x"
+            })
+            .expect("torso x control");
+        torso_x["value"] = json!(1_750);
+        let changed = build_provisional_form_preview(&bytes(changed), ResourceProfile::ORDINARY)
+            .expect("changed");
+        for (original_variant, changed_variant) in
+            original.variants().iter().zip(changed.variants())
+        {
+            for (original_descriptor, changed_descriptor) in original_variant
+                .descriptors()
+                .iter()
+                .zip(changed_variant.descriptors())
+            {
+                assert_eq!(original_descriptor.address(), changed_descriptor.address());
+                if original_descriptor.address().role() == "torso" {
+                    assert_ne!(original_descriptor.shape(), changed_descriptor.shape());
+                } else {
+                    assert_eq!(original_descriptor.shape(), changed_descriptor.shape());
+                }
+            }
+        }
     }
 
     #[test]
@@ -1426,6 +1744,10 @@ mod tests {
                 part["address"]["role"] == "hand" && part["address"]["anchors"] == json!(["left"])
             })
             .unwrap()["address"]["role"] = json!("muzzle");
+        document["body"]["dimensions"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|dimension| dimension["owner"]["role"] != "hand");
         document["body"]["joints"] = json!([]);
         document["body"]["regions"] = json!([]);
         document["body"]["capabilities"] = json!([]);
@@ -1481,6 +1803,10 @@ mod tests {
             .as_array_mut()
             .unwrap()
             .retain(|part| part["address"] != forearm);
+        missing["body"]["dimensions"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|dimension| dimension["owner"] != forearm);
         let left_hand = missing["body"]["parts"]
             .as_array_mut()
             .unwrap()
@@ -1527,6 +1853,14 @@ mod tests {
             .as_array_mut()
             .unwrap()
             .push(extra_forearm);
+        ambiguous["body"]["dimensions"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({
+                "owner": {"namespace": "main", "anchors": ["left_extra"], "kind": "part", "role": "forearm"},
+                "role": "form_radius",
+                "value": 190
+            }));
         let error = build_provisional_form_preview(&bytes(ambiguous), ResourceProfile::ORDINARY)
             .expect_err("two forearms under one upper arm are ambiguous");
         assert!(matches!(
@@ -1553,6 +1887,9 @@ mod tests {
             "joints",
             "sockets",
             "attachments",
+            "landmarks",
+            "dimensions",
+            "frames",
             "regions",
             "capabilities",
         ] {

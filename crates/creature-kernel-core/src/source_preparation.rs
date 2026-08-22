@@ -636,7 +636,7 @@ mod tests {
         assert_eq!(prepared.sockets().len(), 2);
         assert_eq!(prepared.attachments().len(), 1);
         assert!(prepared.landmarks().is_empty());
-        assert!(prepared.dimensions().is_empty());
+        assert_eq!(prepared.dimensions().len(), 34);
         assert!(prepared.frames().is_empty());
         assert_eq!(prepared.graph().extensions(), &[]);
     }

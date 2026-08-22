@@ -10,7 +10,8 @@ the canonical owner of the active runway, and the required reading order in
 ## Where to continue
 
 - Primary checkout: `/home/ben/src/creature-kernel` — clean, synchronized
-  `main` at `f30bdb2` / `origin/main`.
+  `main` at `116ed6f` / `origin/main`, including the merged embodiment
+  capability guardrails from PR #105.
 - Active worktree: `/home/ben/src/creature-kernel-worktrees/authored-form-expressivity`
   — branch `implementation/authored-form-expressivity`, created from
   `f30bdb2` for bounded work toward the next named checkpoint.
@@ -90,6 +91,16 @@ controlled continuous skin rather than joined procedural masses. Do not use
 per-variant or per-fixture patches or a handcrafted base mesh. This remains a
 bounded exploratory expressivity checkpoint, not proof of a finished
 morphology family or production surface system.
+
+Before that gallery is published, its immutable evidence must retain either
+the exact v5 source envelope or an integrity-bound authored-dimension and
+descriptor-role lineage projection. The existing source hash alone is not a
+self-contained lineage record.
+
+The current fixture's exact squared reference length is `1`. Before a future
+large-coordinate fixture exceeds JavaScript's exact-integer domain, align or
+tighten the producer/publication/surface/browser numeric bounds. That trigger
+is not active for this checkpoint.
 
 Routine implementation, tests, reviews, and small internal PRs may proceed
 autonomously toward the checkpoint. Stop before the first genuinely appraisable
