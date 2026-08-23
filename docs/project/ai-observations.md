@@ -76,3 +76,8 @@ Entry format:
   - Context: a main-thread `gh pr create --body-file -` call supplied a complete body in orchestration code but did not attach that text to the command process's standard input.
   - Observation: `gh` received immediate EOF, successfully created PR #110 with an empty body, and reported no command error. A follow-up `gh pr view` exposed `"body":""`; writing the intended body to an explicit temporary file and using `gh pr edit --body-file` repaired it.
   - Expected pattern: do not use `--body-file -` with the ordinary non-interactive command wrapper unless its standard input is explicitly supported and populated. Use an explicit reviewed file for long PR bodies, then read the PR back immediately to verify title, body, head, base, and state before treating creation as complete.
+
+- `2026-08-23`: Ripgrep options must precede the explicit pattern separator
+  - Context: the main thread twice tried to protect a pattern with `rg --` but placed an option after the separator, first while searching for a pattern beginning with hyphens and later while adding context lines.
+  - Observation: every token after `--` is positional, so `rg -n -- "pattern" -C 2` treats `-C` and `2` as paths and reports misleading missing-file errors instead of applying context. The failure is deterministic command construction, not repository or tool instability.
+  - Expected pattern: place every option before the separator, for example `rg -n -C 2 -- "pattern" paths`; use `--` immediately before the pattern only when option parsing must end.

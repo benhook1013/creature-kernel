@@ -66,17 +66,39 @@ the review's one documentation defect was corrected and its two non-contract
 concerns were dispositioned. No user appraisal is requested because this is
 an internal region slice, not the complete authored-form gallery.
 
-The current direct region slice is shoulder/arm authored control. Existing
-source-authored shoulder landmarks and frames remain the attachment boundary;
-the bounded target is one shared bilateral five-station arm profile replacing
-the remaining scalar-derived upper-arm/forearm shaping through the same
-producer, guide, successor, and publication path. It must not restore the old
-skin-driving underarm support curves or root bridge, and it must not add
-per-variant station tuning. No PR exists yet for this current work.
+The shoulder/arm authored-control slice is now a completed local candidate in
+the active worktree. Producer v9 carries `authored_arm_profile` v1 with a
+bilateral five-station profile per side, 10 landmarks, four identity frames,
+30 lateral/up/forward radii, and shared neutral, broad, lean, and
+depth-forward factors. Guide v8 projects the exact authored stations and
+retains an authored anisotropic upper-arm-owned elbow mass. Successor v6 and
+region
+`successor-torso-shoulder-head-neck-arm-limb-extremity-tail-profile-sweeps-v10`
+consume four arm routes plus two leg sweeps, a shared upper-arm-owned elbow
+seam, and all 30 radii; the successor has no arm root bridge, old underarm
+supports, or per-variant station tuning.
 
-After implementation, review, PR, CI, and merge gates, the next direct region
-slice toward the same named checkpoint is pelvis/leg authored control. The
-final human stop remains the complete authored-form gallery.
+The real publication retains the exact 143586-byte v9 producer envelope using
+XZ/Base64 and a 7290-character subject context under the unchanged 8192
+character cap. It produced four groups and eight assets at
+`/tmp/ck-authored-arm-publisher.LFm2eK/reviews/authored-arm-v9`. Main-thread
+internal visual inspection and two fresh hands-on trials passed the
+arm-focused connectivity, spike/lobe, and variant-response checks, along with
+the browser, evidence, and HTTP scenarios. This is still an internal
+candidate: no PR exists, no merge has occurred, and no human appraisal is
+requested. The final human stop remains the complete authored-form gallery;
+the candidate does not claim that gallery is complete.
+
+The arm-slice checks include 415 Rust workspace tests (47 CLI and 368 core),
+52 successor tests, 34 publisher tests, and 25 browser/parity tests passing;
+the unchanged baseline suite's 56 tests were already green. Rust formatting,
+Clippy with warnings denied, documentation validation, and `git diff --check`
+pass. The final adversarial review, PR, CI, and merge gates remain pending.
+
+The non-blocking rejected-POST secondary-400 logging concern is deferred
+unrelated usability cleanup, not an arm blocker. After those review/PR/CI/merge
+gates, the next direct region slice toward the same named checkpoint is
+pelvis/leg authored control.
 
 PR #109 also contained Ben-approved neutral public-facing wording cleanup and
 accepted MIT OR Apache-2.0 licensing DR-0014. That ancillary work does not
@@ -192,15 +214,15 @@ boundary explicitly, not as authority to regenerate or rebind EXP-0002.
 
 ## Evidence and limits
 
-Current checks known: 411 Rust workspace tests, 51 baseline surface tests, 49
-successor tests, 24 browser/publication parity tests with more than 93
-JavaScript VM executions, and 30 publisher tests pass. Documentation
-validation, `git diff --check`, Python/JavaScript syntax, formatting, and
-Clippy with warnings denied pass. A fresh real publication produced four
-groups and eight assets with no response artifact.
-Two fresh hands-on trials are complete. They exercised exact evidence and
-asset bindings, generation and publication, HTTP success and failure paths,
+Current arm-slice checks known: 415 Rust workspace tests (47 CLI and 368 core),
+52 successor tests, 34 publisher tests, and 25 browser/publication parity tests
+pass; the unchanged baseline suite's 56 tests were already green. Rust
+formatting, Clippy with warnings denied, documentation validation, and
+`git diff --check` pass. The final adversarial review, PR, CI, and merge gates
+remain pending. The real publication produced four groups and eight assets
+with no response artifact. Two fresh hands-on trials are complete. They
+exercised exact evidence and asset bindings, HTTP success and failure paths,
 modal click and keyboard navigation including wrap and Escape focus return,
-and browser console/network behavior. Both found the four generated successor
+and browser console/network behavior. Both found the arm-focused successor
 meshes connected and visibly variant-sensitive; neither result constitutes
 visual acceptance or completion of the named gallery checkpoint.
