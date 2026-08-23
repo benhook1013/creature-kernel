@@ -49,6 +49,11 @@ only the empty Cargo workspace, compiler/core library shell, and thin CLI shell;
 later schema, fixture, parser/resolver, adapter, and geometry activation remains
 gated by the record's separate readiness transactions.
 
+DR-0014 Revision 2 is accepted by Ben as of 2026-08-23, with Owner approval
+`Approved by Ben` and Review status `Complete`. It establishes the project's
+MIT OR Apache-2.0 licensing and same-terms contribution direction; it does not
+settle rights for independently generated outputs or third-party material.
+
 ## Revision and review rule
 
 Every proposal has an integer revision. A material change to the decision,

@@ -17,7 +17,7 @@ The current Round 2 proposal defines four bounded product choices:
   structured source, CLI/API operations, diagnostics, and reproducible
   evidence; technical artists and game developers are downstream review and
   integration users.
-- Stylized furry characters are the initial domain, with demanding
+- Stylized creature characters are the initial domain, with demanding
   close-contact and deformation scenarios as motivating stress cases and
   reusable mechanisms kept general.
 - Native programmatic generation without a handcrafted base mesh is the first
@@ -55,7 +55,7 @@ real-time interaction, including actual contact, localized deformation,
 physical response, and declared budget evidence.
 
 The first Readiness 3 resolver/fixture transaction is limited to the bounded
-stylized digitigrade furry-biped family and its fixed fixture envelope. It
+stylized digitigrade anthropomorphic/animal-like biped family and its fixed fixture envelope. It
 binds exactly one explicit authored-conflict comparison profile for competing
 authored root-local and Attachment-equation-derived placement. The profile
 identity and constants must be derived and frozen by a bounded successor
@@ -65,7 +65,7 @@ the profile's bounds is an `invalid-source` outcome with no successful
 snapshot. Until that successor transaction is admitted, Readiness 3 remains
 inactive.
 
-The initial family is a stylized digitigrade furry biped with required
+The initial family is a stylized digitigrade anthropomorphic/animal-like biped with required
 torso/pelvis, head/simplified muzzle, two arms/simplified hands-paws, and two
 digitigrade legs/simplified feet-paws. Predefined ears and tail are optional
 through named sockets. Qualitative variation spans stature, torso width and

@@ -22,11 +22,12 @@ architecture contracts; see [documentation authority](README.md).
 
 ## Origin and evolution of the idea
 
-The conversation began with the difficulty of creating a 3D adult furry game
-with convincing graphics, inverse kinematics, character-to-character contact,
-soft-body effects, localized stretching, and deformation. Existing small furry
-games often fail during development because their creators encounter a tightly
-coupled collection of hard problems:
+The conversation began with the difficulty of creating a 3D stylized
+digitigrade anthropomorphic-creature game with convincing graphics, inverse
+kinematics, demanding close-contact interactions, soft-body effects, localized
+stretching, and deformation. Existing small stylized-creature games often fail
+during development because their creators encounter a tightly coupled
+collection of hard problems:
 
 - animation made for one body does not fit another body;
 - inverse kinematics can align bones but cannot deform skin or preserve volume;
@@ -103,7 +104,8 @@ that DR's current review and an explicit decision-owner disposition.
 
 - The project name is **Creature Kernel** and the repository slug is
   `creature-kernel`.
-- The initial domain is stylized furry creatures.
+- The initial domain is stylized anthropomorphic creatures, with the first
+  bounded family represented by upright digitigrade animal-like bipeds.
 - The project is a platform or engine component, not initially a game by itself.
 - A real-time interactive game remains the primary downstream experience and a
   first-class architectural constraint.
@@ -112,9 +114,9 @@ that DR's current review and an explicit decision-owner disposition.
 - A conventional game engine may be used for rendering and runtime integration;
   building an unrelated renderer, editor, networking stack, or general-purpose
   game engine is not the initial objective.
-- The motivating use cases include difficult adult-character interactions, but
-  the core body and interaction technology is general rather than tied to adult
-  content.
+- The motivating use cases include difficult close-contact character
+  interactions, but the core body and interaction technology is general rather
+  than tied to a particular application context.
 - Expensive creature generation and preprocessing may occur ahead of time, on a
   loading screen, or asynchronously. This does not make the resulting experience
   noninteractive.
@@ -725,7 +727,8 @@ experiment is approximately:
 
 1. Define a minimal body-document schema.
 2. Support a small set of volumetric primitives and smooth composition.
-3. Generate one upright furry morphology family without a handcrafted base mesh.
+3. Generate one first bounded upright digitigrade animal-like biped morphology
+   family without a handcrafted base mesh.
 4. Generate a skeleton and basic distance-derived skinning.
 5. Attach semantic part fields and simple procedural colours.
 6. Generate analytic collision proxies.
@@ -752,7 +755,7 @@ architecture records:
 4. Where and when does first-version creature compilation run?
 5. What mesh quality is sufficient for the first animation test?
 6. What minimum facial and paw features are needed for the result to read as a
-   furry character rather than a generic articulated blob?
+   stylized anthropomorphic creature rather than a generic articulated blob?
 7. How are semantic fields represented and preserved through surface extraction?
 8. How are skinning weights derived, normalized, and validated?
 9. What is the first animation or control test?

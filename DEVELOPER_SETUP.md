@@ -146,3 +146,43 @@ remain external evidence and are not vendored or claimed identical.
 
 These checks provide shell evidence only. They are not performance evidence
 or portability evidence.
+
+## Current-form surface preview Python environment
+
+The disposable current-form surface preview has pinned Python dependencies in
+`experiments/current-form-surface-preview/requirements.txt`. Run its commands
+through the repository-owned launcher:
+
+```bash
+surface_preview_launcher=experiments/current-form-surface-preview/surface_preview_launcher.sh
+surface_preview_venv_root="${XDG_CACHE_HOME:-$HOME/.cache}/creature-kernel/current-form-surface-venv"
+mkdir -p "$(dirname "$surface_preview_venv_root")"
+python3 -m venv "$surface_preview_venv_root"
+surface_preview_python="$surface_preview_venv_root/bin/python"
+"$surface_preview_python" -m pip install -r experiments/current-form-surface-preview/requirements.txt
+```
+
+The launcher verifies that this existing interpreter has exactly the pinned
+distribution versions and required imports before it executes any requested
+Python arguments. Set `CK_CURRENT_FORM_SURFACE_PYTHON` to an existing Linux
+interpreter to use a different environment, such as
+`/tmp/ck-current-form-surface-venv/bin/python`. No environment is created and
+no package is installed by an ordinary launcher invocation.
+
+It also verifies a native-Linux temporary root. An existing writable native
+`TMPDIR`, `TEMP`, or `TMP` is preserved; inherited Windows/DrvFS values are
+ignored in favor of `/tmp`. Set
+`CK_CURRENT_FORM_SURFACE_TMPDIR=/home/.../tmp` to select another existing
+writable native-Linux directory explicitly. This keeps tempfile-based atomic
+publication checks on a filesystem that supports their required Linux rename
+operation.
+
+The Python arguments are passed through unchanged after preflight, so the same
+entrypoint covers version checks, unittest discovery, both surface generators,
+and visual-review publishers:
+
+```bash
+"$surface_preview_launcher" --version
+"$surface_preview_launcher" -m unittest discover -s experiments/current-form-surface-preview/tests
+"$surface_preview_launcher" experiments/current-form-surface-preview/generate_surface_preview.py --help
+```

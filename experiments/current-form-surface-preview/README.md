@@ -1,7 +1,7 @@
 # Disposable current-form surface preview
 
 This is an exploratory visual workbench for the exact four-variant
-`creature-kernel.provisional-form-preview.v6` envelope. It converts the
+`creature-kernel.provisional-form-preview.v7` envelope. It converts the
 source-authored dimension-backed integer descriptors into analytic ellipsoid, capsule, and
 linear-radius tapered-segment fields, folds them in stable full-AddressKey
 order, and extracts a bounded continuous surface on a fixed uniform grid.
@@ -114,22 +114,40 @@ capture frames exactly comparable.
 
 ## Run
 
-Create an isolated environment outside the repository and install the small
-experiment-local dependency set:
+Use the repository-owned launcher for every experiment Python command. It
+selects the already-created interpreter from
+`CK_CURRENT_FORM_SURFACE_PYTHON`, or by default from the native-Linux XDG
+cache (`$XDG_CACHE_HOME/creature-kernel/current-form-surface-venv/bin/python`
+or `$HOME/.cache/creature-kernel/current-form-surface-venv/bin/python`). It
+checks the pinned dependencies and imports before each command, and replaces
+inherited Windows `TMPDIR`/`TEMP`/`TMP` values with a verified native-Linux
+temporary root. `CK_CURRENT_FORM_SURFACE_TMPDIR` may select an existing,
+writable native-Linux directory explicitly. The launcher does not create an
+environment or install packages.
+
+Create the isolated environment once, outside the repository, and install the
+small experiment-local dependency set explicitly:
 
 ```bash
-python3 -m venv /tmp/ck-current-form-surface-venv
-. /tmp/ck-current-form-surface-venv/bin/activate
-python -m pip install -r experiments/current-form-surface-preview/requirements.txt
+surface_preview_launcher=experiments/current-form-surface-preview/surface_preview_launcher.sh
+surface_preview_venv_root="${XDG_CACHE_HOME:-$HOME/.cache}/creature-kernel/current-form-surface-venv"
+mkdir -p "$(dirname "$surface_preview_venv_root")"
+python3 -m venv "$surface_preview_venv_root"
+surface_preview_python="$surface_preview_venv_root/bin/python"
+"$surface_preview_python" -m pip install -r experiments/current-form-surface-preview/requirements.txt
 ```
 
-The input must be a successful v6 inspection envelope. The output directory
+For a disposable `/tmp` environment, set
+`CK_CURRENT_FORM_SURFACE_PYTHON=/tmp/ck-current-form-surface-venv/bin/python`
+when invoking the launcher.
+
+The input must be a successful v7 inspection envelope. The output directory
 must not already exist, and its parent must already exist:
 
 ```bash
 mkdir -p /tmp/ck-current-form-surface
-python experiments/current-form-surface-preview/generate_surface_preview.py \
-  --input /tmp/form-v6.json \
+"$surface_preview_launcher" experiments/current-form-surface-preview/generate_surface_preview.py \
+  --input /tmp/form-v7.json \
   --output /tmp/ck-current-form-surface/run-a \
   --samples-per-axis 72
 ```
@@ -187,11 +205,11 @@ above, the workflow has two steps:
 ```bash
 cargo run -p creature-kernel-cli -- inspect-provisional-form \
   --input examples/body-documents/stylized-digitigrade-biped-authored-form.json \
-  > /tmp/form-v6.json
+  > /tmp/form-v7.json
 
 mkdir -p /tmp/ck-successor-surface
-python experiments/current-form-surface-preview/generate_successor_surface_preview.py \
-  --input /tmp/form-v6.json \
+"$surface_preview_launcher" experiments/current-form-surface-preview/generate_successor_surface_preview.py \
+  --input /tmp/form-v7.json \
   --output /tmp/ck-successor-surface/run-a \
   --samples-per-axis 56
 ```
@@ -203,7 +221,7 @@ robustness; lower values within the accepted argument range may still validly
 fail mesh-connectedness validation, and successful generation is not guaranteed
 at every in-range sampling value.
 
-A successful v3 run writes `successor-surface-manifest.json` plus exactly four
+A successful v4 run writes `successor-surface-manifest.json` plus exactly four
 variant directories. Each variant directory contains exactly
 `surface.ply`, `metrics.json`, `successor.json`, and one
 `guide-skin-composite.png`. The PNG is a deterministic RGB capture at the
@@ -224,12 +242,21 @@ is a deterministic source-record binding, not an artifact hash; the two
 locations must agree for each variant, and distinct producer variants have
 distinct digests.
 
-The browser baseline-versus-successor publication and comparison across these
-captures is still the next step; this generator does not publish a
-visual-gallery session yet.
+The generator alone writes this disposable bundle; it does not publish a
+visual-gallery session. The active
+[`publish_surface_preview.py`](../../dev-tools/visual-review/README.md#disposable-baseline-versus-successor-surface-checkpoint)
+workflow runs the current producer and both generators, validates the bundles,
+and publishes the baseline-versus-successor captures through the visual-review
+gallery.
 
 Focused tests:
 
 ```bash
-python -m unittest discover -s experiments/current-form-surface-preview/tests
+"$surface_preview_launcher" -m unittest discover -s experiments/current-form-surface-preview/tests
+```
+
+The same interface runs publishers and other Python entrypoints, for example:
+
+```bash
+"$surface_preview_launcher" dev-tools/visual-review/publish_surface_preview.py --help
 ```

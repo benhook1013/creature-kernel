@@ -1229,12 +1229,30 @@
     "creature-kernel.provisional-form-preview.v3",
     "creature-kernel.provisional-form-preview.v4",
     "creature-kernel.provisional-form-preview.v5",
-    "creature-kernel.provisional-form-preview.v6"
+    "creature-kernel.provisional-form-preview.v6",
+    "creature-kernel.provisional-form-preview.v7"
   ];
   var PROVISIONAL_FORM_V5_FORMAT = "creature-kernel.provisional-form-preview.v5";
   var PROVISIONAL_FORM_V6_FORMAT = "creature-kernel.provisional-form-preview.v6";
+  var PROVISIONAL_FORM_V7_FORMAT = "creature-kernel.provisional-form-preview.v7";
+  var PROVISIONAL_FORM_TORSO_PROFILE_FORMAT = "creature-kernel.provisional-form-torso-profile.v1";
   var PROVISIONAL_FORM_SHOULDER_FRAME_ROLE = "form_shoulder_control";
   var PROVISIONAL_FORM_SHOULDER_LANDMARK_ROLES = ["form_shoulder_peak", "form_axilla"];
+  var PROVISIONAL_FORM_TORSO_FRAME_ROLE = "form_torso_profile_control";
+  var PROVISIONAL_FORM_TORSO_SECTIONS = [
+    { name: "lower-pelvis", ownerRole: "pelvis" },
+    { name: "upper-pelvis", ownerRole: "pelvis" },
+    { name: "lower-abdomen", ownerRole: "torso" },
+    { name: "waist-abdomen", ownerRole: "torso" },
+    { name: "upper-abdomen", ownerRole: "torso" },
+    { name: "lower-ribcage", ownerRole: "torso" },
+    { name: "upper-ribcage-shoulder", ownerRole: "torso" }
+  ];
+  var PROVISIONAL_FORM_TORSO_RADIUS_FACTORS = [
+    { name: "lateral", roleSuffix: "lateral_radius" },
+    { name: "anterior", roleSuffix: "anterior_radius" },
+    { name: "posterior", roleSuffix: "posterior_radius" }
+  ];
   var PROVISIONAL_FORM_AUTHORED_CONTROL_PROVENANCE = "source-authored";
   var PROVISIONAL_FORM_VARIANTS = ["neutral-v0", "broad-soft-v0", "lean-readable-v0", "depth-forward-v0"];
   var PROVISIONAL_FORM_VIEWS = [
@@ -1245,6 +1263,10 @@
 
   function formAddressKey(address) {
     return JSON.stringify([address.namespace, address.anchors, address.kind, address.role]);
+  }
+
+  function formDimensionKey(address, role) {
+    return JSON.stringify([formAddressKey(address), role]);
   }
 
   function formDescriptorQualifier(descriptor) {
@@ -1286,6 +1308,11 @@
 
   function formControlSortKey(address, role) {
     return [String(address.namespace), address.anchors.join("\u0001"), String(address.kind), String(address.role), String(role)].join("\u0002");
+  }
+
+  function formSafeControlSortKey(address, role) {
+    var anchors = isObject(address) && Array.isArray(address.anchors) ? address.anchors.join("\u0001") : "";
+    return [String(isObject(address) ? address.namespace : ""), anchors, String(isObject(address) ? address.kind : ""), String(isObject(address) ? address.role : ""), String(role)].join("\u0002");
   }
 
   function formControlProvenance(provenance, source) {
@@ -1384,6 +1411,288 @@
     return errors;
   }
 
+  function formHasExactFields(value, expected) {
+    if (!isObject(value)) { return false; }
+    var actual = Object.keys(value).sort();
+    var required = expected.slice().sort();
+    return actual.length === required.length && actual.every(function (key, index) {
+      return key === required[index];
+    });
+  }
+
+  function formAddressEquals(left, right) {
+    return isObject(left) && isObject(right) &&
+      left.namespace === right.namespace && left.kind === right.kind && left.role === right.role &&
+      Array.isArray(left.anchors) && Array.isArray(right.anchors) &&
+      JSON.stringify(left.anchors) === JSON.stringify(right.anchors);
+  }
+
+  function formTorsoOwner(namespace, role) {
+    return { namespace: namespace, anchors: [], kind: "part", role: role };
+  }
+
+  function formV7AuthoredTorsoProfile(payload) {
+    var errors = [];
+    var dimensionKeys = {};
+    var sourceSections = [];
+    var source = payload.source;
+    if (!formHasExactFields(source, ["document", "namespace", "resource_profile_id"]) || typeof source.namespace !== "string" || !source.namespace || typeof source.document !== "string" || !source.document || source.resource_profile_id !== "ck.resource.body.r2") {
+      return { errors: ["v7 source identity must provide non-empty namespace and document strings for torso controls."], dimensionKeys: dimensionKeys, sourceSections: sourceSections };
+    }
+    var namespace = source.namespace;
+    var frames = Array.isArray(payload.authored_frames) ? payload.authored_frames : [];
+    var landmarks = Array.isArray(payload.authored_landmarks) ? payload.authored_landmarks : [];
+    var shoulderFrames = frames.filter(function (item) { return isObject(item) && item.role === PROVISIONAL_FORM_SHOULDER_FRAME_ROLE; });
+    var shoulderLandmarks = landmarks.filter(function (item) { return isObject(item) && PROVISIONAL_FORM_SHOULDER_LANDMARK_ROLES.indexOf(item.role) !== -1; });
+    formV6ShoulderControls({ source: source, authored_frames: shoulderFrames, authored_landmarks: shoulderLandmarks }).forEach(function (error) {
+      errors.push(error);
+    });
+
+    var expectedFrameKeys = {};
+    ["left", "right"].forEach(function (side) {
+      var owner = { namespace: namespace, anchors: [side], kind: "part", role: "upper_arm" };
+      expectedFrameKeys[JSON.stringify([owner.namespace, owner.anchors, owner.kind, owner.role, PROVISIONAL_FORM_SHOULDER_FRAME_ROLE])] = true;
+    });
+    ["pelvis", "torso"].forEach(function (role) {
+      var owner = formTorsoOwner(namespace, role);
+      expectedFrameKeys[JSON.stringify([owner.namespace, owner.anchors, owner.kind, owner.role, PROVISIONAL_FORM_TORSO_FRAME_ROLE])] = true;
+    });
+    var frameMap = {};
+    var frameOrder = [];
+    if (frames.length !== 4) {
+      errors.push("v7 authored frames must contain exactly four shoulder and torso control frames.");
+    }
+    frames.forEach(function (frame, index) {
+      var where = "v7 authored frame " + index;
+      if (!formHasExactFields(frame, ["owner", "role", "transform", "provenance"]) || !formHasExactFields(frame.owner, ["namespace", "anchors", "kind", "role"]) || typeof frame.role !== "string" || !isObject(frame.transform) || !isObject(frame.provenance)) {
+        errors.push(where + " is incomplete or has unknown fields.");
+        return;
+      }
+      var key = JSON.stringify([frame.owner.namespace, frame.owner.anchors, frame.owner.kind, frame.owner.role, frame.role]);
+      if (!expectedFrameKeys[key]) { errors.push(where + " is not a v7 shoulder or torso control frame."); }
+      if (frameMap[key]) { errors.push(where + " duplicates an owner/role key."); }
+      frameMap[key] = frame;
+      frameOrder.push(formSafeControlSortKey(frame.owner, frame.role));
+      if (!formControlProvenance(frame.provenance, source) || !formHasExactFields(frame.provenance, ["source", "document", "namespace"])) {
+        errors.push(where + " provenance is not exact source-authored provenance.");
+      }
+      if (!formHasExactFields(frame.transform, ["translation", "rotation_xyzw"]) || !formFiniteVector(frame.transform.translation, 3) || !formVectorEquals(frame.transform.translation, [0, 0, 0]) || !formFiniteVector(frame.transform.rotation_xyzw, 4) || !formVectorEquals(frame.transform.rotation_xyzw, [0, 0, 0, 1])) {
+        errors.push(where + " must use the identity rigid transform.");
+      }
+    });
+    if (Object.keys(frameMap).length !== Object.keys(expectedFrameKeys).length || Object.keys(expectedFrameKeys).some(function (key) { return !frameMap[key]; })) {
+      errors.push("v7 authored frames must contain the exact shoulder and torso control inventory.");
+    }
+    if (frameOrder.some(function (key, index) { return index > 0 && key < frameOrder[index - 1]; })) {
+      errors.push("v7 authored frames must use stable owner/role order.");
+    }
+
+    var expectedLandmarkKeys = {};
+    ["left", "right"].forEach(function (side) {
+      var owner = { namespace: namespace, anchors: [side], kind: "part", role: "upper_arm" };
+      PROVISIONAL_FORM_SHOULDER_LANDMARK_ROLES.forEach(function (role) {
+        expectedLandmarkKeys[JSON.stringify([owner.namespace, owner.anchors, owner.kind, owner.role, role])] = true;
+      });
+    });
+    PROVISIONAL_FORM_TORSO_SECTIONS.forEach(function (section) {
+      var owner = formTorsoOwner(namespace, section.ownerRole);
+      var role = "form_torso_profile_" + section.name.replace(/-/g, "_");
+      expectedLandmarkKeys[JSON.stringify([owner.namespace, owner.anchors, owner.kind, owner.role, role])] = true;
+    });
+    var landmarkMap = {};
+    var landmarkOrder = [];
+    if (landmarks.length !== 11) {
+      errors.push("v7 authored landmarks must contain exactly eleven shoulder and torso landmarks.");
+    }
+    landmarks.forEach(function (landmark, index) {
+      var where = "v7 authored landmark " + index;
+      if (!formHasExactFields(landmark, ["owner", "role", "frame", "position", "provenance"]) || !formHasExactFields(landmark.owner, ["namespace", "anchors", "kind", "role"]) || typeof landmark.role !== "string" || !isObject(landmark.frame) || !formHasExactFields(landmark.frame.owner, ["namespace", "anchors", "kind", "role"]) || !isObject(landmark.provenance)) {
+        errors.push(where + " is incomplete or has unknown fields.");
+        return;
+      }
+      var key = JSON.stringify([landmark.owner.namespace, landmark.owner.anchors, landmark.owner.kind, landmark.owner.role, landmark.role]);
+      if (!expectedLandmarkKeys[key]) { errors.push(where + " is not a v7 shoulder or torso landmark."); }
+      if (landmarkMap[key]) { errors.push(where + " duplicates an owner/role key."); }
+      landmarkMap[key] = landmark;
+      landmarkOrder.push(formSafeControlSortKey(landmark.owner, landmark.role));
+      if (!formControlProvenance(landmark.provenance, source) || !formHasExactFields(landmark.provenance, ["source", "document", "namespace"])) {
+        errors.push(where + " provenance is not exact source-authored provenance.");
+      }
+      var isTorsoLandmark = landmark.owner.role === "pelvis" || landmark.owner.role === "torso";
+      var expectedFrameRole = isTorsoLandmark ? PROVISIONAL_FORM_TORSO_FRAME_ROLE : PROVISIONAL_FORM_SHOULDER_FRAME_ROLE;
+      if (!formHasExactFields(landmark.frame, ["owner", "role"]) || !formAddressEquals(landmark.frame.owner, landmark.owner) || landmark.frame.role !== expectedFrameRole) {
+        errors.push(where + " frame must reference its same-owner control frame.");
+      }
+      var frameKey = isObject(landmark.frame.owner) ? JSON.stringify([landmark.frame.owner.namespace, landmark.frame.owner.anchors, landmark.frame.owner.kind, landmark.frame.owner.role, landmark.frame.role]) : "";
+      if (!frameMap[frameKey]) { errors.push(where + " frame references an unlisted authored frame."); }
+      if (!formFiniteVector(landmark.position, 3) || landmark.position.some(function (component) { return Math.abs(component) > 1.0; })) {
+        errors.push(where + " position must be finite and within +/-1.0.");
+      }
+      if (isTorsoLandmark && (!formFiniteVector(landmark.position, 3) || landmark.position[0] !== 0 || landmark.position[2] !== 0)) {
+        errors.push(where + " position must be an axial [0,y,0] point.");
+      }
+    });
+    if (Object.keys(landmarkMap).length !== Object.keys(expectedLandmarkKeys).length || Object.keys(expectedLandmarkKeys).some(function (key) { return !landmarkMap[key]; })) {
+      errors.push("v7 authored landmarks must contain the exact shoulder and torso landmark inventory.");
+    }
+    if (landmarkOrder.some(function (key, index) { return index > 0 && key < landmarkOrder[index - 1]; })) {
+      errors.push("v7 authored landmarks must use stable owner/role order.");
+    }
+
+    var dimensions = Array.isArray(payload.authored_dimensions) ? payload.authored_dimensions : [];
+    var dimensionMap = {};
+    var dimensionOrder = [];
+    dimensions.forEach(function (dimension, index) {
+      var where = "v7 authored dimension " + index;
+      if (!formHasExactFields(dimension, ["owner", "role", "value_permille", "provenance"]) || !formHasExactFields(dimension.owner, ["namespace", "anchors", "kind", "role"]) || typeof dimension.role !== "string" || !isObject(dimension.provenance) || !Number.isInteger(dimension.value_permille) || dimension.value_permille <= 0 || dimension.value_permille > 5000) {
+        errors.push(where + " is incomplete, unknown, or outside the positive permille bound.");
+        return;
+      }
+      var key = formDimensionKey(dimension.owner, dimension.role);
+      if (dimensionMap[key]) { errors.push(where + " duplicates an owner/role key."); }
+      dimensionMap[key] = dimension;
+      dimensionOrder.push(formSafeControlSortKey(dimension.owner, dimension.role));
+      if (dimension.owner.namespace !== namespace || !formControlProvenance(dimension.provenance, source) || !formHasExactFields(dimension.provenance, ["source", "document", "namespace"])) {
+        errors.push(where + " has invalid source provenance or namespace.");
+      }
+    });
+    if (dimensionOrder.some(function (key, index) { return index > 0 && key < dimensionOrder[index - 1]; })) {
+      errors.push("v7 authored dimensions must use stable owner/role order.");
+    }
+
+    var profile = payload.authored_torso_profile;
+    if (!formHasExactFields(profile, ["format", "provenance", "sections"]) || profile.format !== PROVISIONAL_FORM_TORSO_PROFILE_FORMAT || !formControlProvenance(profile.provenance, source) || !formHasExactFields(profile.provenance, ["source", "document", "namespace"]) || !Array.isArray(profile.sections)) {
+      errors.push("v7 authored_torso_profile has an unexpected format or fields.");
+      return { errors: errors, dimensionKeys: dimensionKeys, sourceSections: sourceSections };
+    }
+    if (profile.sections.length !== PROVISIONAL_FORM_TORSO_SECTIONS.length) {
+      errors.push("v7 authored_torso_profile must contain exactly seven sections.");
+    }
+    var sectionY = [];
+    PROVISIONAL_FORM_TORSO_SECTIONS.forEach(function (expected, index) {
+      var section = profile.sections[index];
+      var where = "v7 torso profile section " + index;
+      var sourceSection = { name: expected.name, ownerRole: expected.ownerRole, position: null, radii: {} };
+      sourceSections.push(sourceSection);
+      if (!formHasExactFields(section, ["name", "frame_index", "landmark_index", "dimension_indices", "provenance", "section_index"]) || !isObject(section.dimension_indices) || !formControlProvenance(section.provenance, source) || !formHasExactFields(section.provenance, ["source", "document", "namespace"])) {
+        errors.push(where + " is incomplete or has unknown fields.");
+        return;
+      }
+      if (section.name !== expected.name) { errors.push(where + " is not in the required stable order."); }
+      if (!Number.isInteger(section.section_index) || section.section_index !== index) {
+        errors.push(where + " section_index must equal its stable array index.");
+      }
+      var owner = formTorsoOwner(namespace, expected.ownerRole);
+      if (!Number.isInteger(section.frame_index) || section.frame_index < 0 || section.frame_index >= frames.length) {
+        errors.push(where + " frame_index must be an in-range integer index.");
+      } else {
+        var indexedFrame = frames[section.frame_index];
+        if (!isObject(indexedFrame) || !formAddressEquals(indexedFrame.owner, owner) || indexedFrame.role !== PROVISIONAL_FORM_TORSO_FRAME_ROLE) {
+          errors.push(where + " frame_index does not resolve to its identity owner torso control frame.");
+        }
+      }
+      var sectionKey = expected.name.replace(/-/g, "_");
+      var landmarkRole = "form_torso_profile_" + sectionKey;
+      if (!Number.isInteger(section.landmark_index) || section.landmark_index < 0 || section.landmark_index >= landmarks.length) {
+        errors.push(where + " landmark_index must be an in-range integer index.");
+      } else {
+        var indexedLandmark = landmarks[section.landmark_index];
+        if (!isObject(indexedLandmark) || !formAddressEquals(indexedLandmark.owner, owner) || indexedLandmark.role !== landmarkRole) {
+          errors.push(where + " landmark_index does not resolve to the canonical axial landmark.");
+        } else if (formFiniteVector(indexedLandmark.position, 3)) {
+          sourceSection.position = indexedLandmark.position.slice();
+          sectionY.push(indexedLandmark.position[1]);
+        }
+      }
+      if (!formHasExactFields(section.dimension_indices, ["lateral", "anterior", "posterior"])) {
+        errors.push(where + " dimension_indices must contain exactly lateral, anterior, and posterior.");
+        return;
+      }
+      PROVISIONAL_FORM_TORSO_RADIUS_FACTORS.forEach(function (factor) {
+        var dimensionIndex = section.dimension_indices[factor.name];
+        var role = "form_torso_profile_" + sectionKey + "_" + factor.roleSuffix;
+        if (!Number.isInteger(dimensionIndex) || dimensionIndex < 0 || dimensionIndex >= dimensions.length) {
+          errors.push(where + " dimension_indices." + factor.name + " must be an in-range integer index.");
+          return;
+        }
+        var indexedDimension = dimensions[dimensionIndex];
+        if (!isObject(indexedDimension) || !formAddressEquals(indexedDimension.owner, owner) || indexedDimension.role !== role) {
+          errors.push(where + " dimension_indices." + factor.name + " does not resolve to " + role + ".");
+          return;
+        }
+        var key = formDimensionKey(indexedDimension.owner, indexedDimension.role);
+        dimensionKeys[key] = true;
+        sourceSection.radii[factor.name] = indexedDimension.value_permille;
+      });
+    });
+    if (sectionY.some(function (value, index) { return index > 0 && value <= sectionY[index - 1]; })) {
+      errors.push("v7 torso profile landmarks must have strictly increasing y.");
+    }
+    return { errors: errors, dimensionKeys: dimensionKeys, sourceSections: sourceSections };
+  }
+
+  function formTorsoProfileFactors(profileId, ownerRole) {
+    if (profileId === "neutral-v0") { return { lateral: 1000, depth: 1000 }; }
+    if (profileId === "broad-soft-v0" && (ownerRole === "pelvis" || ownerRole === "torso")) { return { lateral: 1200, depth: 1150 }; }
+    if (profileId === "lean-readable-v0") { return { lateral: 800, depth: 800 }; }
+    if (profileId === "depth-forward-v0" && ownerRole === "torso") { return { lateral: 1000, depth: 1300 }; }
+    return { lateral: 1000, depth: 1000 };
+  }
+
+  function formV7VariantTorsoProfile(profile, profileId, source, sourceSections) {
+    var errors = [];
+    var prefix = "Variant " + profileId + " torso_profile";
+    if (!formHasExactFields(profile, ["format", "source", "provenance", "sections"]) || profile.format !== PROVISIONAL_FORM_TORSO_PROFILE_FORMAT || profile.source !== "authored_torso_profile" || !formControlProvenance(profile.provenance, source) || !formHasExactFields(profile.provenance, ["source", "document", "namespace"]) || !Array.isArray(profile.sections)) {
+      return [prefix + " has an unexpected format, source, provenance, or fields."];
+    }
+    if (profile.sections.length !== PROVISIONAL_FORM_TORSO_SECTIONS.length || sourceSections.length !== PROVISIONAL_FORM_TORSO_SECTIONS.length) {
+      errors.push(prefix + " must contain exactly seven source-indexed sections.");
+      return errors;
+    }
+    profile.sections.forEach(function (section, index) {
+      var where = prefix + " section " + index;
+      var sourceSection = sourceSections[index];
+      if (!formHasExactFields(section, ["source_section_index", "name", "position", "lateral_radius_permille", "anterior_radius_permille", "posterior_radius_permille", "scaling", "provenance"]) || !isObject(sourceSection) || !isObject(section.scaling) || !formControlProvenance(section.provenance, source) || !formHasExactFields(section.provenance, ["source", "document", "namespace"])) {
+        errors.push(where + " is incomplete or has unknown fields.");
+        return;
+      }
+      if (!Number.isInteger(section.source_section_index) || section.source_section_index !== index) {
+        errors.push(where + " source_section_index must equal its stable source index.");
+      }
+      if (section.name !== sourceSection.name) {
+        errors.push(where + " name does not match its indexed source section.");
+      }
+      if (!formFiniteVector(section.position, 3) || !Array.isArray(sourceSection.position) || !formVectorEquals(section.position, sourceSection.position)) {
+        errors.push(where + " position must equal its indexed source landmark.");
+      }
+      var factors = formTorsoProfileFactors(profileId, sourceSection.ownerRole);
+      var expectedScaling = {
+        lateral_factor_permille: factors.lateral,
+        anterior_factor_permille: factors.depth,
+        posterior_factor_permille: factors.depth
+      };
+      if (!formHasExactFields(section.scaling, Object.keys(expectedScaling))) {
+        errors.push(where + " scaling must contain exactly the three axis factors.");
+      } else {
+        Object.keys(expectedScaling).forEach(function (field) {
+          if (!Number.isInteger(section.scaling[field]) || section.scaling[field] <= 0 || section.scaling[field] > 5000 || section.scaling[field] !== expectedScaling[field]) {
+            errors.push(where + " " + field + " does not match the fixed variant factor.");
+          }
+        });
+      }
+      PROVISIONAL_FORM_TORSO_RADIUS_FACTORS.forEach(function (factor) {
+        var field = factor.name + "_radius_permille";
+        var axisFactor = factor.name === "lateral" ? factors.lateral : factors.depth;
+        var sourceRadius = sourceSection.radii[factor.name];
+        var expectedRadius = Number.isInteger(sourceRadius) ? Math.floor(sourceRadius * axisFactor / 1000) : NaN;
+        if (!Number.isInteger(section[field]) || section[field] <= 0 || section[field] > 5000 || section[field] !== expectedRadius) {
+          errors.push(where + " " + field + " does not match its indexed source radius and fixed factor.");
+        }
+      });
+    });
+    return errors;
+  }
+
   function formValidation(payload) {
     var errors = [];
     if (!isObject(payload) || PROVISIONAL_FORM_FORMATS.indexOf(payload.format) === -1) {
@@ -1401,45 +1710,77 @@
     }
     var isV5 = payload.format === PROVISIONAL_FORM_V5_FORMAT;
     var isV6 = payload.format === PROVISIONAL_FORM_V6_FORMAT;
-    var hasAuthoredDimensions = isV5 || isV6;
+    var isV7 = payload.format === PROVISIONAL_FORM_V7_FORMAT;
+    var hasShoulderControls = isV6 || isV7;
+    var hasAuthoredDimensions = isV5 || hasShoulderControls;
+    if (isV7 && !formHasExactFields(payload, [
+      "format", "operation", "status", "stage", "processing_complete",
+      "diagnostics_complete", "diagnostics", "source", "reference_scale",
+      "authored_dimensions", "authored_landmarks", "authored_frames",
+      "authored_torso_profile", "variants", "limitations"
+    ])) {
+      errors.push("v7 payload must contain exactly the closed envelope fields.");
+    }
     if (!hasAuthoredDimensions && Object.prototype.hasOwnProperty.call(payload, "authored_dimensions")) {
       errors.push("v1-v4 formats cannot contain authored dimensions.");
     }
-    if (!isV6 && !isV5 && (Object.prototype.hasOwnProperty.call(payload, "authored_frames") || Object.prototype.hasOwnProperty.call(payload, "authored_landmarks"))) {
+    if (!hasShoulderControls && !isV5 && (Object.prototype.hasOwnProperty.call(payload, "authored_frames") || Object.prototype.hasOwnProperty.call(payload, "authored_landmarks"))) {
       errors.push("v1-v4 formats cannot contain v6 shoulder controls.");
     }
     if (isV5 && (Object.prototype.hasOwnProperty.call(payload, "authored_frames") || Object.prototype.hasOwnProperty.call(payload, "authored_landmarks"))) {
       errors.push("v5 is an authored-dimension-only format and cannot contain v6 shoulder controls.");
     }
+    if (isV7 && !Object.prototype.hasOwnProperty.call(payload, "authored_torso_profile")) {
+      errors.push("v7 authored_torso_profile is missing.");
+    }
+    if (!isV7 && Object.prototype.hasOwnProperty.call(payload, "authored_torso_profile")) {
+      errors.push("v1-v6 formats cannot contain authored_torso_profile.");
+    }
     var authoredDimensionKeys = {};
     if (hasAuthoredDimensions) {
       if (!Array.isArray(payload.authored_dimensions) || !payload.authored_dimensions.length) {
-        errors.push((isV6 ? "v6" : "v5") + " authored dimensions are missing.");
+        errors.push((isV7 ? "v7" : isV6 ? "v6" : "v5") + " authored dimensions are missing.");
       } else {
         payload.authored_dimensions.forEach(function (dimension, index) {
           if (!isObject(dimension) || !isObject(dimension.owner) || typeof dimension.role !== "string" || !dimension.role || !Number.isInteger(dimension.value_permille) || dimension.value_permille <= 0 || dimension.value_permille > 5000) {
-            errors.push((isV6 ? "v6" : "v5") + " authored dimension " + index + " is invalid.");
+            errors.push((isV7 ? "v7" : isV6 ? "v6" : "v5") + " authored dimension " + index + " is invalid.");
             return;
           }
-          authoredDimensionKeys[JSON.stringify([formAddressKey(dimension.owner), dimension.role])] = true;
+          authoredDimensionKeys[formDimensionKey(dimension.owner, dimension.role)] = true;
         });
       }
     }
     if (isV6) {
       formV6ShoulderControls(payload).forEach(function (error) { errors.push(error); });
     }
-    var consumedDimensionKeys = {};
+    var torsoProfileResult = { errors: [], dimensionKeys: {}, sourceSections: [] };
+    if (isV7) {
+      torsoProfileResult = formV7AuthoredTorsoProfile(payload);
+      torsoProfileResult.errors.forEach(function (error) { errors.push(error); });
+    }
+    var consumedDimensionKeys = isV7 ? torsoProfileResult.dimensionKeys : {};
     if (payload.variants.length !== 4) { errors.push("Exactly four fixed variants are required."); }
     payload.variants.forEach(function (variant, index) {
       if (!isObject(variant) || variant.id !== PROVISIONAL_FORM_VARIANTS[index] || variant.profile_id !== PROVISIONAL_FORM_VARIANTS[index] || !Array.isArray(variant.descriptors)) {
         errors.push("Variant " + (index + 1) + " does not match the fixed profile contract.");
         return;
       }
+      if (isV7 && !formHasExactFields(variant, ["id", "profile_id", "provenance", "descriptors", "torso_profile"])) {
+        errors.push("Variant " + variant.id + " must contain exactly the closed v7 variant fields.");
+      }
+      if (!isV7 && Object.prototype.hasOwnProperty.call(variant, "torso_profile")) {
+        errors.push("v1-v6 variants cannot contain torso_profile.");
+      }
       if (!variant.descriptors.length || variant.descriptors.length > 64) {
         errors.push("Variant " + variant.id + " has an invalid descriptor count.");
       }
       if (hasAuthoredDimensions && (!isObject(variant.provenance) || variant.provenance.shape_basis !== "source-authored-dimensions-plus-fixed-display-factor")) {
-        errors.push("Variant " + variant.id + " has invalid " + (isV6 ? "v6" : "v5") + " shape-basis provenance.");
+        errors.push("Variant " + variant.id + " has invalid " + (isV7 ? "v7" : isV6 ? "v6" : "v5") + " shape-basis provenance.");
+      }
+      if (isV7) {
+        formV7VariantTorsoProfile(variant.torso_profile, variant.id, payload.source, torsoProfileResult.sourceSections).forEach(function (error) {
+          errors.push(error);
+        });
       }
       var v6UpperArmKeys = {};
       variant.descriptors.forEach(function (descriptor, descriptorIndex) {
@@ -1450,10 +1791,10 @@
         if (["ellipsoid", "capsule", "tapered-segment"].indexOf(descriptor.shape.name) === -1) {
           errors.push("Variant " + variant.id + " contains an unknown shape.");
         }
-        if (isV6 && descriptor.address.role === "upper_arm") {
+        if (hasShoulderControls && descriptor.address.role === "upper_arm") {
           var upperArmSide = Array.isArray(descriptor.address.anchors) && descriptor.address.anchors.length === 1 ? descriptor.address.anchors[0] : null;
           if (["left", "right"].indexOf(upperArmSide) === -1 || descriptor.address.namespace !== payload.source.namespace || descriptor.address.kind !== "part") {
-            errors.push("Variant " + variant.id + " must contain only left/right upper_arm descriptors for v6 shoulder controls.");
+            errors.push("Variant " + variant.id + " must contain only left/right upper_arm descriptors for shoulder controls.");
           } else {
             if (v6UpperArmKeys[upperArmSide]) {
               errors.push("Variant " + variant.id + " contains a duplicate " + upperArmSide + " upper_arm descriptor.");
@@ -1465,26 +1806,26 @@
           }
         }
         if (hasAuthoredDimensions) {
-          var expectedRoles = descriptor.shape.name === "ellipsoid" ? ["form_extent_x", "form_extent_y", "form_extent_z"] : descriptor.shape.name === "capsule" ? (isV6 && descriptor.address.role === "upper_arm" ? ["form_radius", "form_shoulder_depth_radius"] : ["form_radius"]) : ["form_start_radius", "form_end_radius"];
+          var expectedRoles = descriptor.shape.name === "ellipsoid" ? ["form_extent_x", "form_extent_y", "form_extent_z"] : descriptor.shape.name === "capsule" ? (hasShoulderControls && descriptor.address.role === "upper_arm" ? ["form_radius", "form_shoulder_depth_radius"] : ["form_radius"]) : ["form_start_radius", "form_end_radius"];
           if (!Array.isArray(descriptor.dimension_roles) || JSON.stringify(descriptor.dimension_roles) !== JSON.stringify(expectedRoles)) {
-            errors.push("Variant " + variant.id + " descriptor " + descriptorIndex + " has invalid " + (isV6 ? "v6" : "v5") + " dimension-role references.");
+            errors.push("Variant " + variant.id + " descriptor " + descriptorIndex + " has invalid " + (isV7 ? "v7" : isV6 ? "v6" : "v5") + " dimension-role references.");
           } else {
             descriptor.dimension_roles.forEach(function (role) {
-              var key = JSON.stringify([formAddressKey(descriptor.address), role]);
+              var key = formDimensionKey(descriptor.address, role);
               consumedDimensionKeys[key] = true;
               if (!authoredDimensionKeys[key]) {
-                errors.push("Variant " + variant.id + " descriptor " + descriptorIndex + " references an unlisted " + (isV6 ? "v6" : "v5") + " authored dimension.");
+                errors.push("Variant " + variant.id + " descriptor " + descriptorIndex + " references an unlisted " + (isV7 ? "v7" : isV6 ? "v6" : "v5") + " authored dimension.");
               }
             });
           }
         }
       });
-      if (isV6 && (Object.keys(v6UpperArmKeys).length !== 2 || !v6UpperArmKeys.left || !v6UpperArmKeys.right)) {
-        errors.push("Every v6 variant must contain exactly one left and one right upper_arm descriptor.");
+      if (hasShoulderControls && (Object.keys(v6UpperArmKeys).length !== 2 || !v6UpperArmKeys.left || !v6UpperArmKeys.right)) {
+        errors.push("Every shoulder-control variant must contain exactly one left and one right upper_arm descriptor.");
       }
     });
     if (hasAuthoredDimensions && (Object.keys(authoredDimensionKeys).length !== Object.keys(consumedDimensionKeys).length || Object.keys(authoredDimensionKeys).some(function (key) { return !consumedDimensionKeys[key]; }))) {
-      errors.push((isV6 ? "v6" : "v5") + " authored dimensions must equal the complete descriptor-consumed control set.");
+      errors.push((isV7 ? "v7" : isV6 ? "v6" : "v5") + " authored dimensions must equal the complete descriptor-consumed control set.");
     }
     return errors;
   }
@@ -2106,10 +2447,10 @@
         closeImageDialog();
       } else if (event.key === "ArrowLeft") {
         event.preventDefault();
-        showItem(currentIndex - 1);
+        showItem(currentIndex - 1, document.activeElement === image);
       } else if (event.key === "ArrowRight") {
         event.preventDefault();
-        showItem(currentIndex + 1);
+        showItem(currentIndex + 1, document.activeElement === image);
       } else if (event.key === "+" || event.key === "=" || event.key === "Add") {
         event.preventDefault();
         zoomBy(ZOOM_FACTOR);
@@ -2123,7 +2464,7 @@
       fitToViewport();
     }
 
-    function showItem(index) {
+    function showItem(index, focusImage) {
       if (!items.length) {
         return;
       }
@@ -2143,7 +2484,7 @@
         if (event.type === "keydown") {
           event.preventDefault();
         }
-        showItem(currentIndex + 1);
+        showItem(currentIndex + 1, true);
       }
       nextImage.addEventListener("click", showNextImage);
       nextImage.addEventListener("keydown", showNextImage);
@@ -2156,6 +2497,9 @@
       canvas.replaceChild(nextImage, image);
       image = nextImage;
       image.src = item.source;
+      if (focusImage) {
+        image.focus();
+      }
       heading.textContent = item.title;
       positionLabel.textContent = "Item " + (currentIndex + 1) + " of " + items.length + ": " + item.title;
       previous.disabled = items.length < 2;

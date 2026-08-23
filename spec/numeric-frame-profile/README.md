@@ -289,5 +289,5 @@ admits this profile's canonical basis/numeric rules, expected graph snapshots,
 comparison profiles, and their resolver binding. Until those transactions are
 admitted, the rules above are Proposed and no resolver or numeric fixture is
 activated. The first R3 resolver/fixture transaction is bounded to the
-stylized digitigrade furry-biped family and its fixed fixture envelope; this
+stylized digitigrade anthropomorphic/animal-like biped family and its fixed fixture envelope; this
 profile does not extend that scope to arbitrary morphology.

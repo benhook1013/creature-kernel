@@ -41,12 +41,15 @@ except ModuleNotFoundError:  # pragma: no cover - direct source-tree execution
     _baseline = importlib.import_module("surface_preview")
 
 
-# V2 added the baseline-compatible guide/skin capture and framing metadata.
-# V3 replaces the deltoid-span/arm-root bridge with the bounded authored
-# five-section shoulder envelopes while retaining the private consumer ID.
-FORMAT = "creature-kernel.disposable-successor-surface-preview.v3"
+# V4 consumes the current v6 regional guide's seven source-authored torso
+# sections.  The torso evaluator is the only successor consumer changed in
+# this slice; the rest of the disposable regional inventory remains shared.
+FORMAT = "creature-kernel.disposable-successor-surface-preview.v4"
+REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v6"
 CONSUMER_ID = "successor-surface-v1"
-SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-limb-extremity-tail-profile-sweeps-v7"
+SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-limb-extremity-tail-profile-sweeps-v8"
+TORSO_PROFILE_OPERATION = "rounded-superellipse-axial-profile-sweep-v1"
+TORSO_SUPERELLIPSE_EXPONENT = 4.0
 DEFAULT_SAMPLES = 56
 DEFAULT_PADDING = 0.50
 # Capture framing is a baseline-compatible concern, separate from the
@@ -85,6 +88,12 @@ class _ProfileSection:
     transverse_axes: tuple[tuple[float, float, float], tuple[float, float, float]]
     transverse_radii: tuple[float, float]
     path_length: float
+    # Only the successor torso profile populates this optional triple.  The
+    # generic limb/head/tail sweeps retain their existing two-radius profile.
+    # The first value is lateral, the second is +forward/anterior, and the
+    # third is -forward/posterior.
+    torso_cardinal_radii: tuple[float, float, float] | None = None
+    axial_position: float | None = None
 
     @property
     def radii(self) -> tuple[float, float]:
@@ -93,6 +102,12 @@ class _ProfileSection:
     @property
     def axes(self) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
         return self.transverse_axes
+
+    @property
+    def cardinal_radii(self) -> tuple[float, float, float] | None:
+        """Return (lateral, anterior, posterior) for a torso section."""
+
+        return self.torso_cardinal_radii
 
 
 @dataclass(frozen=True)
@@ -128,6 +143,7 @@ class _ProfileSweep:
     endpoint_caps: tuple[_ProfileEndpointCap, _ProfileEndpointCap]
     internal_transitions: tuple[_ProfileJointTransition, ...] = ()
     _validated: bool = field(default=False, compare=False, repr=False)
+    profile_operation: str = "symmetric-ellipse"
 
     def __post_init__(self) -> None:
         if not self.internal_transitions:
@@ -437,6 +453,8 @@ def _validate_profile_sweep(sweep: _ProfileSweep) -> None:
     sections = sweep.sections
     if len(sections) < 2:
         _fail("profile sweep requires at least two ordered sections")
+    if sweep.profile_operation not in {"symmetric-ellipse", TORSO_PROFILE_OPERATION}:
+        _fail(f"profile sweep has unknown profile operation {sweep.profile_operation!r}")
     centers = tuple(_vec3(section.center, f"profile-section[{index}].center") for index, section in enumerate(sections))
     previous_path = None
     for index, section in enumerate(sections):
@@ -446,6 +464,22 @@ def _validate_profile_sweep(sweep: _ProfileSweep) -> None:
         first = _vec3(section.transverse_axes[0], f"{where}.transverse-first")
         second = _vec3(section.transverse_axes[1], f"{where}.transverse-second")
         _finite_positive(tuple(float(value) for value in section.transverse_radii), f"{where}.radii")
+        cardinal_radii = section.cardinal_radii
+        if sweep.profile_operation == TORSO_PROFILE_OPERATION:
+            if cardinal_radii is None:
+                _fail(f"{where} is missing torso cardinal radii")
+            _finite_positive(tuple(float(value) for value in cardinal_radii), f"{where}.cardinal-radii")
+            if not math.isclose(
+                float(section.transverse_radii[0]),
+                float(cardinal_radii[0]),
+                rel_tol=0.0,
+                abs_tol=_FRAME_TOLERANCE,
+            ):
+                _fail(f"{where} lateral compatibility radius disagrees with cardinal radius")
+            if float(section.transverse_radii[1]) + _FRAME_TOLERANCE < max(float(cardinal_radii[1]), float(cardinal_radii[2])):
+                _fail(f"{where} compatibility depth radius does not enclose cardinal radii")
+        elif cardinal_radii is not None:
+            _fail(f"{where} symmetric profile cannot carry torso cardinal radii")
         tangent_length = float(np.linalg.norm(tangent))
         first_length = float(np.linalg.norm(first))
         second_length = float(np.linalg.norm(second))
@@ -520,8 +554,77 @@ def _validate_profile_sweep(sweep: _ProfileSweep) -> None:
     object.__setattr__(sweep, "_validated", True)
 
 
+def _guide_member(value: Any, name: str, where: str, *, required: bool = True) -> Any:
+    """Read a private guide member from either an object or a v6-like map."""
+
+    if isinstance(value, dict):
+        result = value.get(name)
+    else:
+        result = getattr(value, name, None)
+    if result is None and required:
+        _fail(f"{where} is missing {name!r}")
+    return result
+
+
+def _torso_section_center(
+    source: Any,
+    index: int,
+    axis_anchor: np.ndarray | None,
+    axial_axis: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray | None]:
+    """Resolve a v6 exact axial position while retaining v5 center fallback.
+
+    The v6 guide carries the exact section center (and therefore its axial
+    position in the fixed guide frame).  A scalar ``axial_position`` is also
+    accepted for focused private consumers that provide that equivalent form.
+    """
+
+    name = _guide_member(source, "name", f"torso guide section[{index}]")
+    center_value = _guide_member(source, "center", f"torso guide section {name}", required=False)
+    axial_value = _guide_member(source, "axial_position", f"torso guide section {name}", required=False)
+    if axial_value is not None:
+        try:
+            axial_array = np.asarray(axial_value, dtype=np.float64)
+        except (TypeError, ValueError, OverflowError) as exc:
+            _fail(f"torso guide section {name}.axial_position is not numeric: {exc}")
+        if axial_array.shape == ():
+            axial = float(axial_array)
+            if not math.isfinite(axial):
+                _fail(f"torso guide section {name}.axial_position must be finite")
+            if center_value is None:
+                if axis_anchor is None:
+                    axis_anchor = np.zeros(3, dtype=np.float64)
+                center = axis_anchor + axial * axial_axis
+            else:
+                center = _vec3(center_value, f"torso guide section {name}.center")
+                center = center + (axial - float(np.dot(center, axial_axis))) * axial_axis
+            return center, np.asarray(axial, dtype=np.float64)
+        if axial_array.shape == (3,):
+            center = _vec3(axial_value, f"torso guide section {name}.axial_position")
+            return center, np.asarray(float(np.dot(center, axial_axis)), dtype=np.float64)
+        _fail(f"torso guide section {name}.axial_position must be a scalar or three-vector")
+    if center_value is None:
+        _fail(f"torso guide section {name} requires center or axial_position")
+    center = _vec3(center_value, f"torso guide section {name}.center")
+    return center, np.asarray(float(np.dot(center, axial_axis)), dtype=np.float64)
+
+
+def _torso_section_cardinal_radii(source: Any, name: str) -> tuple[float, float, float]:
+    """Read exact v7 lateral/anterior/posterior controls."""
+
+    lateral = _guide_member(source, "lateral_radius", f"torso guide section {name}")
+    anterior = _guide_member(source, "anterior_radius", f"torso guide section {name}")
+    posterior = _guide_member(source, "posterior_radius", f"torso guide section {name}")
+    try:
+        radii = (float(lateral), float(anterior), float(posterior))
+    except (TypeError, ValueError, OverflowError) as exc:
+        _fail(f"torso guide section {name}.cardinal-radii are not numeric: {exc}")
+    _finite_positive(radii, f"torso guide section {name}.cardinal-radii")
+    return radii
+
+
 def _make_profile_sweep(guide: Any) -> _ProfileSweep:
-    """Compile the exact seven torso guides into the generic sweep."""
+    """Compile the exact seven v7 torso sections into one continuous sweep."""
 
     guide_sections = tuple(guide.torso_cage.sections)
     if len(guide_sections) != 7:
@@ -531,7 +634,23 @@ def _make_profile_sweep(guide: Any) -> _ProfileSweep:
     prototype = guide.torso_cage.axes
     preferred_first = _vec3(prototype.lateral, "torso profile lateral axis")
     preferred_second = _vec3(prototype.forward, "torso profile forward axis")
-    centers = [_vec3(section.center, f"torso guide section {section.name}.center") for section in guide_sections]
+    axial_axis = _unit(_vec3(prototype.up, "torso profile axial axis"), "torso profile axial axis")
+    centers: list[np.ndarray] = []
+    axial_positions: list[float | None] = []
+    axis_anchor: np.ndarray | None = None
+    for index, source in enumerate(guide_sections):
+        center, explicit_axial = _torso_section_center(source, index, axis_anchor, axial_axis)
+        if axis_anchor is None:
+            axis_anchor = center - float(np.dot(center, axial_axis)) * axial_axis
+        centers.append(center)
+        axial_positions.append(None if explicit_axial is None else float(explicit_axial))
+    if any(
+        axial_positions[index] is None
+        or axial_positions[index + 1] is None
+        or not axial_positions[index] < axial_positions[index + 1]
+        for index in range(len(axial_positions) - 1)
+    ):
+        _fail("successor torso profile axial positions must be finite and strictly increasing")
     sections: list[_ProfileSection] = []
     path_length = 0.0
     for index, source in enumerate(guide_sections):
@@ -541,29 +660,35 @@ def _make_profile_sweep(guide: Any) -> _ProfileSweep:
             direction = centers[-1] - centers[-2]
         else:
             direction = centers[index + 1] - centers[index - 1]
-        tangent, first, second = _frame_from_tangent(direction, preferred_first, preferred_second, f"torso profile section {source.name}")
+        name = str(_guide_member(source, "name", f"torso guide section[{index}]"))
+        tangent, first, second = _frame_from_tangent(direction, preferred_first, preferred_second, f"torso profile section {name}")
         if index:
             span_length = float(np.linalg.norm(centers[index] - centers[index - 1]))
             if span_length <= _DEGENERATE_TOLERANCE:
-                _fail(f"torso profile section {source.name} follows a degenerate span")
+                _fail(f"torso profile section {name} follows a degenerate span")
             path_length += span_length
-        radii = (float(source.lateral_radius), float(source.depth_radius))
-        _finite_positive(radii, f"torso profile section {source.name}.radii")
+        cardinal_radii = _torso_section_cardinal_radii(source, name)
+        owner = _guide_member(source, "owner", f"torso guide section {name}")
+        expected_owner = guide.torso_cage.pelvis_owner if index < 2 else guide.torso_cage.torso_owner
+        if owner is not expected_owner:
+            _fail(f"torso profile section {name} lost its canonical pelvis/torso owner")
         sections.append(_ProfileSection(
-            name=source.name,
-            owner=source.owner,
+            name=name,
+            owner=owner,
             center=tuple(float(value) for value in centers[index]),
             tangent=tuple(float(value) for value in tangent),
             transverse_axes=(tuple(float(value) for value in first), tuple(float(value) for value in second)),
-            transverse_radii=radii,
+            transverse_radii=(cardinal_radii[0], max(cardinal_radii[1], cardinal_radii[2])),
             path_length=path_length,
+            torso_cardinal_radii=cardinal_radii,
+            axial_position=axial_positions[index] if axial_positions[index] is not None else path_length,
         ))
     ordered = tuple(sections)
     caps = (
-        _ProfileEndpointCap("start", ordered[0].center, tuple(-float(value) for value in ordered[0].tangent), ordered[0].transverse_axes, ordered[0].transverse_radii, min(ordered[0].transverse_radii)),
-        _ProfileEndpointCap("end", ordered[-1].center, ordered[-1].tangent, ordered[-1].transverse_axes, ordered[-1].transverse_radii, min(ordered[-1].transverse_radii)),
+        _ProfileEndpointCap("start", ordered[0].center, tuple(-float(value) for value in ordered[0].tangent), ordered[0].transverse_axes, ordered[0].transverse_radii, min(ordered[0].cardinal_radii or ordered[0].transverse_radii)),
+        _ProfileEndpointCap("end", ordered[-1].center, ordered[-1].tangent, ordered[-1].transverse_axes, ordered[-1].transverse_radii, min(ordered[-1].cardinal_radii or ordered[-1].transverse_radii)),
     )
-    sweep = _ProfileSweep(ordered, caps)
+    sweep = _ProfileSweep(ordered, caps, profile_operation=TORSO_PROFILE_OPERATION)
     _validate_profile_sweep(sweep)
     return sweep
 
@@ -2319,6 +2444,163 @@ def _interpolated_span_frame(left: _ProfileSection, right: _ProfileSection, t: n
     return tangent, first, second
 
 
+def _shape_preserving_slopes(path: np.ndarray, values: np.ndarray) -> np.ndarray:
+    """Compute local monotone-cubic slopes without inventing profile extrema."""
+
+    path = np.asarray(path, dtype=np.float64)
+    values = np.asarray(values, dtype=np.float64)
+    if path.ndim != 1 or values.shape != (path.size, 3) or path.size < 2:
+        _fail("torso profile interpolation controls have invalid dimensions")
+    if not np.all(np.isfinite(path)) or not np.all(np.isfinite(values)) or np.any(np.diff(path) <= 0.0):
+        _fail("torso profile interpolation controls are invalid")
+    spacing = np.diff(path)
+    secants = np.diff(values, axis=0) / spacing[:, None]
+    if not np.all(np.isfinite(secants)):
+        _fail("torso profile interpolation secants are not finite")
+    slopes = np.zeros_like(values)
+    if path.size == 2:
+        slopes[0] = secants[0]
+        slopes[1] = secants[0]
+        return slopes
+    for index in range(1, path.size - 1):
+        previous = secants[index - 1]
+        following = secants[index]
+        if np.all(previous * following > 0.0):
+            left_weight = 2.0 * spacing[index] + spacing[index - 1]
+            right_weight = spacing[index] + 2.0 * spacing[index - 1]
+            slopes[index] = (left_weight + right_weight) / (left_weight / previous + right_weight / following)
+    first = ((2.0 * spacing[0] + spacing[1]) * secants[0] - spacing[0] * secants[1]) / (spacing[0] + spacing[1])
+    first = np.where(first * secants[0] <= 0.0, 0.0, first)
+    first = np.where(
+        (secants[0] * secants[1] < 0.0) & (np.abs(first) > np.abs(3.0 * secants[0])),
+        3.0 * secants[0],
+        first,
+    )
+    last = ((2.0 * spacing[-1] + spacing[-2]) * secants[-1] - spacing[-1] * secants[-2]) / (spacing[-1] + spacing[-2])
+    last = np.where(last * secants[-1] <= 0.0, 0.0, last)
+    last = np.where(
+        (secants[-1] * secants[-2] < 0.0) & (np.abs(last) > np.abs(3.0 * secants[-1])),
+        3.0 * secants[-1],
+        last,
+    )
+    slopes[0] = first
+    slopes[-1] = last
+    if not np.all(np.isfinite(slopes)):
+        _fail("torso profile interpolation slopes are not finite")
+    return slopes
+
+
+def _shape_preserving_sample(path: np.ndarray, values: np.ndarray, slopes: np.ndarray, query: np.ndarray) -> np.ndarray:
+    """Evaluate the bounded shape-preserving interpolation at profile arc positions."""
+
+    index = np.searchsorted(path, query, side="right") - 1
+    index = np.clip(index, 0, path.size - 2)
+    left_path = path[index]
+    width = path[index + 1] - left_path
+    t = np.divide(query - left_path, width, out=np.zeros_like(query), where=width > 0.0)
+    left = values[index]
+    right = values[index + 1]
+    left_slope = slopes[index]
+    right_slope = slopes[index + 1]
+    h00 = 2.0 * t**3 - 3.0 * t**2 + 1.0
+    h10 = t**3 - 2.0 * t**2 + t
+    h01 = -2.0 * t**3 + 3.0 * t**2
+    h11 = t**3 - t**2
+    return h00[..., None] * left + h10[..., None] * width[..., None] * left_slope + h01[..., None] * right + h11[..., None] * width[..., None] * right_slope
+
+
+def _torso_superellipse_field(
+    lateral_distance: np.ndarray,
+    forward_distance: np.ndarray,
+    radii: np.ndarray,
+    axial_distance: np.ndarray | None = None,
+    axial_radius: float | None = None,
+) -> np.ndarray:
+    """Evaluate one rounded, asymmetric cardinal profile or endpoint cap."""
+
+    lateral_radius = radii[..., 0]
+    anterior_radius = radii[..., 1]
+    posterior_radius = radii[..., 2]
+    forward_radius = np.where(forward_distance >= 0.0, anterior_radius, posterior_radius)
+    lateral_term = np.abs(lateral_distance / lateral_radius) ** TORSO_SUPERELLIPSE_EXPONENT
+    forward_term = np.abs(forward_distance / forward_radius) ** TORSO_SUPERELLIPSE_EXPONENT
+    terms = [lateral_term, forward_term]
+    if axial_distance is not None and axial_radius is not None:
+        terms.append(np.abs(axial_distance / axial_radius) ** TORSO_SUPERELLIPSE_EXPONENT)
+    radial = np.power(np.sum(np.stack(terms, axis=0), axis=0), 1.0 / TORSO_SUPERELLIPSE_EXPONENT) - 1.0
+    scale = np.minimum(lateral_radius, np.minimum(anterior_radius, posterior_radius))
+    if axial_radius is not None:
+        scale = np.minimum(scale, axial_radius)
+    return radial * scale
+
+
+def _torso_span_field(
+    points: np.ndarray,
+    left: _ProfileSection,
+    right: _ProfileSection,
+    path: np.ndarray,
+    radii: np.ndarray,
+    slopes: np.ndarray,
+) -> np.ndarray:
+    start = _vec3(left.center, "torso profile span start")
+    end = _vec3(right.center, "torso profile span end")
+    axis = end - start
+    length_sq = float(np.dot(axis, axis))
+    if length_sq <= _DEGENERATE_TOLERANCE:
+        _fail("torso profile span has degenerate centres")
+    raw_t = np.sum((points - start) * axis, axis=-1) / length_sq
+    t = np.clip(raw_t, 0.0, 1.0)
+    centre = start + t[..., None] * axis
+    if left.tangent == right.tangent and left.transverse_axes == right.transverse_axes:
+        first = np.broadcast_to(_vec3(left.transverse_axes[0], "torso profile span transverse axis"), points.shape)
+        second = np.broadcast_to(_vec3(left.transverse_axes[1], "torso profile span transverse axis"), points.shape)
+    else:
+        _, first, second = _interpolated_span_frame(left, right, t)
+    span_length = math.sqrt(length_sq)
+    query_path = float(left.path_length) + t * span_length
+    local_radii = _shape_preserving_sample(path, radii, slopes, query_path)
+    offset = points - centre
+    lateral_distance = np.sum(offset * first, axis=-1)
+    forward_distance = np.sum(offset * second, axis=-1)
+    radial = _torso_superellipse_field(lateral_distance, forward_distance, local_radii)
+    return np.where((raw_t >= 0.0) & (raw_t <= 1.0), radial, np.inf)
+
+
+def _torso_cap_field(points: np.ndarray, cap: _ProfileEndpointCap, cardinal_radii: tuple[float, float, float]) -> np.ndarray:
+    center = _vec3(cap.center, "torso profile cap center")
+    outward = _vec3(cap.outward_tangent, "torso profile cap outward tangent")
+    first = _vec3(cap.transverse_axes[0], "torso profile cap transverse axis")
+    second = _vec3(cap.transverse_axes[1], "torso profile cap transverse axis")
+    offset = points - center
+    axial_distance = np.sum(offset * outward, axis=-1)
+    lateral_distance = np.sum(offset * first, axis=-1)
+    forward_distance = np.sum(offset * second, axis=-1)
+    return _torso_superellipse_field(
+        lateral_distance,
+        forward_distance,
+        np.broadcast_to(np.asarray(cardinal_radii, dtype=np.float64), points.shape[:-1] + (3,)),
+        axial_distance,
+        float(cap.axial_radius),
+    )
+
+
+def _torso_profile_sweep_field(points: np.ndarray, sweep: _ProfileSweep) -> np.ndarray:
+    """Evaluate one finite seven-section asymmetric torso field."""
+
+    _validate_profile_sweep(sweep)
+    points = np.asarray(points, dtype=np.float64)
+    if points.shape[-1] != 3 or not np.all(np.isfinite(points)):
+        _fail("torso profile query points must be finite three-vectors")
+    cardinal = np.asarray([section.cardinal_radii for section in sweep.sections], dtype=np.float64)
+    path = np.asarray([section.path_length for section in sweep.sections], dtype=np.float64)
+    slopes = _shape_preserving_slopes(path, cardinal)
+    values = [
+        *(_torso_span_field(points, left, right, path, cardinal, slopes) for left, right in zip(sweep.sections, sweep.sections[1:])),
+        *(_torso_cap_field(points, cap, tuple(float(value) for value in cardinal[index])) for index, cap in ((0, sweep.endpoint_caps[0]), (-1, sweep.endpoint_caps[1]))),
+    ]
+    return np.min(np.stack(values, axis=0), axis=0)
+
+
 def _profile_span_field(points: np.ndarray, left: _ProfileSection, right: _ProfileSection) -> np.ndarray:
     start = _vec3(left.center, "profile span start")
     end = _vec3(right.center, "profile span end")
@@ -2378,6 +2660,8 @@ def _profile_transition_field(points: np.ndarray, transition: _ProfileJointTrans
 def _profile_sweep_field(points: np.ndarray, sweep: _ProfileSweep) -> np.ndarray:
     """Evaluate finite tapered spans and oriented endpoint caps by minimum."""
 
+    if sweep.profile_operation == TORSO_PROFILE_OPERATION:
+        return _torso_profile_sweep_field(points, sweep)
     _validate_profile_sweep(sweep)
     points = np.asarray(points, dtype=np.float64)
     if points.shape[-1] != 3 or not np.all(np.isfinite(points)):
@@ -2731,10 +3015,24 @@ def build_variant(form: Any, descriptors: tuple[Any, ...], samples: int = DEFAUL
         "consumer_id": CONSUMER_ID,
         "successor_region_id": SUCCESSOR_REGION_ID,
         "successor_region": {
-            "torso_representation": "frame-aware-ordered-profile-sweep",
+            "regional_guide_format": REGIONAL_GUIDE_FORMAT,
+            "torso_representation": TORSO_PROFILE_OPERATION,
+            "torso_profile_exponent": TORSO_SUPERELLIPSE_EXPONENT,
             "torso_sections_consumed": region.sections_consumed,
             "torso_section_names": list(region.section_names),
             "torso_section_owner_keys": [_baseline._address_json(owner.key) for owner in region.loft.owners],
+            "torso_section_controls": [
+                {
+                    "name": section.name,
+                    "owner": _baseline._address_json(section.owner.key),
+                    "center": [float(value) for value in section.center],
+                    "axial_position": float(section.axial_position if section.axial_position is not None else section.path_length),
+                    "lateral_radius": float(section.cardinal_radii[0]),
+                    "anterior_radius": float(section.cardinal_radii[1]),
+                    "posterior_radius": float(section.cardinal_radii[2]),
+                }
+                for section in region.loft.sections
+            ],
             "shoulder_representation": "authored-five-section-frame-aware-profile-sweeps",
             "shoulder_sweeps_consumed": region.shoulder_sweeps_consumed,
             "shoulder_sweep_order": [item.recipe for item in region.shoulder_sweeps],
@@ -2946,7 +3244,14 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
                     "layout": layout,
                     "shared_render_bounds": shared_bounds_json,
                 },
-                "torso": {"representation": "frame-aware-ordered-profile-sweep", "sections_consumed": mesh.representation.sections_consumed, "section_names": list(mesh.representation.section_names)},
+                "torso": {
+                    "representation": TORSO_PROFILE_OPERATION,
+                    "regional_guide_format": REGIONAL_GUIDE_FORMAT,
+                    "superellipse_exponent": TORSO_SUPERELLIPSE_EXPONENT,
+                    "sections_consumed": mesh.representation.sections_consumed,
+                    "section_names": list(mesh.representation.section_names),
+                    "section_controls": mesh.metrics["successor_region"]["torso_section_controls"],
+                },
                 "shoulders": {
                     "representation": "authored-five-section-frame-aware-profile-sweeps",
                     "sweeps_consumed": mesh.representation.shoulder_sweeps_consumed,

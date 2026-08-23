@@ -9,13 +9,12 @@ the canonical owner of the active runway, and the required reading order in
 
 ## Where to continue
 
-- Primary checkout: `/home/ben/src/creature-kernel` — clean, synchronized
-  `main` at `f69a0a235152e72bd51279634cf3e8618d776e3f` / `origin/main`,
-  including merged PR #107.
-- Active worktree: `/home/ben/src/creature-kernel-worktrees/authored-shoulder-envelope`
-  — branch `implementation/authored-shoulder-envelope` at `a98a00f`, based on
-  `f69a0a235152e72bd51279634cf3e8618d776e3f`; [PR #108](https://github.com/benhook1013/creature-kernel/pull/108)
-  is the current internal runway candidate.
+- Primary checkout: `/home/ben/src/creature-kernel` — `main` and
+  `origin/main` are at merged PR #108 commit
+  `32e8816664b9e94065f8423da2272d4374567b35`.
+- Active worktree: `/home/ben/src/creature-kernel-worktrees/authored-torso-profiles`
+  — branch `implementation/authored-torso-profiles`, based on that commit;
+  there is presently no PR.
 - [PR #107](https://github.com/benhook1013/creature-kernel/pull/107)
   merged at `f69a0a235152e72bd51279634cf3e8618d776e3f`. It retains the exact
   consumed producer envelope lineage in surface reviews while preserving all
@@ -33,31 +32,26 @@ Open the active worktree in the Codex app to continue the runway.
 Read `AGENTS.md` in the required order, then this handover and the linked
 [current status](status.md).
 
-The current PR #108 candidate advances the source/producer to the exact
-`creature-kernel.provisional-form-preview.v6` envelope. It retains the exact
-canonical v6 producer bytes actually consumed by the generators inside each
-new surface review's `review.json`, using deterministic zlib plus Base64 with
-the original UTF-8 encoding, byte count, and SHA-256. The v6 hash is
-cross-bound to the existing producer hash; the validated input body document
-is separately identified by its encoding, byte count, and SHA-256 without
-duplicating its bytes. The v6 source-authored controls are bilateral shoulder
-frames, peak/axilla landmarks, and depth-radius controls with exact provenance.
-The baseline private regional guide is
-`creature-kernel.disposable-surface-preview-regional-guide.v5`; it strictly
-derives and binds those controls, while the new depth control remains
-guide-only for baseline shoulder skin.
+The current candidate is a direct, internal, reversible torso prerequisite and
+makes no form-quality acceptance claim. Producer v7 adds a source-authored
+seven-section pelvis/torso axial profile, two identity frames, seven landmarks,
+21 asymmetric lateral/anterior/posterior radii with exact indexed provenance,
+and four shared variant projections. Baseline guide v6 retains both depth sides
+and lineage. Successor v4 / region v8 consumes a continuous asymmetric
+rounded-superellipse torso sweep. The publisher cross-binds producer, guide,
+and successor lineage and validates real bundles. The comparator adds
+Previous/Next controls, arrows, click-to-advance, and zoom.
 
-The disposable successor is
-`creature-kernel.disposable-successor-surface-preview.v3`, region
-`successor-torso-shoulder-head-neck-limb-extremity-tail-profile-sweeps-v7`.
-It uses bilateral five-section authored shoulder-envelope sweeps, replacing
-the prior upper-arm root bridges and distal-deltoid fields. Its only retained
-temporary bridge is two thigh-root connectors plus two hip transitions (four
-fields). This is an internal, reversible direct prerequisite, not the named
-human visual checkpoint; it claims neither visual acceptance nor completion.
-Continue through subsequent bounded region slices and small reviewed PRs until
-the complete named gallery is ready, unless a retained-human blocker or
-direction appears.
+The candidate also contains Ben-approved neutral public-facing wording cleanup
+and accepted MIT OR Apache-2.0 licensing DR-0014. That ancillary work does not
+change the active runway. Root license files, README, and CONTRIBUTING carry the
+current terms; Cargo package metadata is deliberately deferred because the
+parked Phase 3 evidence closure exact-binds the affected manifest bytes.
+
+The named human checkpoint remains the complete authored-form expressivity
+gallery. Continue through subsequent bounded region slices and small reviewed
+PRs until that gallery is ready, unless a retained-human blocker or direction
+appears.
 
 ## Gallery and service
 
@@ -134,9 +128,10 @@ bounded exploratory expressivity checkpoint, not proof of a finished
 morphology family or production surface system.
 
 Before that gallery is published, its immutable evidence must retain either
-the exact v6 source envelope or an integrity-bound authored-dimension,
-landmark, frame, and descriptor-role lineage projection. The existing source
-hash alone is not a self-contained lineage record.
+the exact current producer envelope — v7 in this candidate — or an integrity-
+bound authored-dimension, landmark, frame, and descriptor-role lineage
+projection, including indexed authored provenance. The existing source hash
+alone is not a self-contained lineage record.
 
 The current fixture's exact squared reference length is `1`. Before a future
 large-coordinate fixture exceeds JavaScript's exact-integer domain, align or
@@ -158,22 +153,16 @@ boundary explicitly, not as authority to regenerate or rebind EXP-0002.
 
 ## Evidence and limits
 
-Current-candidate local validation passed 398 Rust workspace tests, 39 baseline
-surface tests, 42 successor geometry/render/input-bound tests, and 85 complete
-visual-review tests. Documentation validation, Rust formatting, Python
-compilation, JavaScript syntax, and `git diff --check` also passed. A real
-default WSL publication with inherited Windows `TEMP`/`TMP` produced the exact
-four ordered variant pairs and eight immutable images on a native review-root
-filesystem; the publisher independently verified each successor PLY's bounded
-ASCII schema, finite triangle geometry, edge incidence, single connected
-component, and agreement with topology metrics.
-
-Two fresh hands-on trials exercised first-use and malformed/stale-control
-paths. They found one WSL operability defect: process-global temporary storage
-could redirect generator staging to DrvFS. The candidate now allocates staging
-beside the selected review root, and the default no-override trial passes. One
-fresh adversarial code/contract review found four correctness gaps: independent
-PLY topology verification, shoulder-socket/upper-arm-root binding, legacy
-browser rejection of newer authored fields, and bounded direct-successor input
-reading. All four are fixed with focused regressions. None of this evidence is
+Current checks known: 405 Rust workspace tests, 44 baseline surface tests, 46
+successor tests, 92 visual-review tests, 82 Phase 2 Python tests, and 368 Phase 3
+Python tests on native `/tmp` pass. Documentation validation,
+`git diff --check`, Python/JavaScript syntax, formatting, default Clippy, and
+exact CI-readiness checks pass. A fresh real publication produced 4 groups and
+8 assets with no response artifact.
+Two fresh hands-on trials are complete. The broad adversarial pass completed
+55/55 comparator, keyboard, zoom, asset, scoping, wrap, resize, console, and
+network checks across all eight assets. A focused first-use pass exposed focus
+loss after click/arrow navigation; the repaired candidate then passed a fresh
+independent click/arrow/zoom/close-reopen regression across two groups with no
+browser errors. This remains implementation evidence only and does not claim
 visual acceptance or completion of the named gallery checkpoint.

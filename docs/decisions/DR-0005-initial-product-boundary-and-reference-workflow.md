@@ -41,10 +41,12 @@ choices:
    structured source, CLI/API operations, diagnostics, and reproducible
    evidence. Technical artists and game developers are important downstream
    review and integration users, not excluded users.
-3. Stylized furry characters are the initial domain. Adult interactions are
-   explicit motivating use cases and difficult contact/deformation stress cases;
-   reusable body, contact, and solver mechanisms remain general rather than
-   hard-coded to adult mechanics.
+3. Stylized anthropomorphic creatures are the initial domain, with the first
+   bounded family represented by upright digitigrade animal-like bipeds.
+   Demanding close-contact interactions are motivating use cases and difficult
+   contact/deformation stress cases; reusable body, contact, and solver
+   mechanisms remain general rather than hard-coded to one interaction
+   category.
 4. Native programmatic generation without a handcrafted base mesh is the first
    reference path. External authored-mesh conformance is later, and early
    contracts must not foreclose that path.
@@ -60,8 +62,9 @@ Those remain Proposed or provisional questions for later batches.
   making Creature Kernel a general-purpose engine.
 - The developer/researcher workflow is the first reference path, while
   downstream artist and game-developer integration remains in scope.
-- Adult interactions motivate difficult contact and deformation cases without
-  narrowing reusable mechanisms to one interaction category.
+- Demanding close-contact interactions motivate difficult contact and
+  deformation cases without narrowing reusable mechanisms to one interaction
+  category.
 - Native generation is the first proof path while external-mesh conformance
   remains a later compatibility path.
 - Detailed source, runtime, automation, morphology, backend, and budget choices
@@ -87,11 +90,11 @@ This could improve immediate artist integration, but would make conformance and
 mapping the first proof instead of native procedural generation. The later path
 must remain open without making it the initial reference path.
 
-### Restrict the architecture to adult interaction mechanics
+### Restrict the architecture to close-contact interaction mechanics
 
-Adult interactions are important motivating stress cases, but a hard-coded
-mechanical scope would prevent the reusable body, contact, and solver contracts
-from serving other embodiment cases.
+Demanding close-contact interactions are important motivating stress cases, but
+a hard-coded mechanical scope would prevent the reusable body, contact, and
+solver contracts from serving other embodiment cases.
 
 ## Adversarial Review Response
 
@@ -99,8 +102,8 @@ The current [Revision 1 review](reviews/DR-0005-rev-01-review-01.md)
 recommends `Accept` with medium confidence and found no blockers. It leaves
 five non-blocking risks visible or deferred: speculative engine-independent or
 external-mesh abstraction, untested artist/integrator usability, unproved
-generalization from adult stress cases, DR-0005's upstream constraint on later
-DR-0002/DR-0004 detail, and misleading README review wording. The wording
+generalization from close-contact stress cases, DR-0005's upstream constraint
+on later DR-0002/DR-0004 detail, and misleading README review wording. The wording
 defect is corrected mechanically in the root README. Revision 1 remains
 Proposed with owner approval pending; this response records the review
 evidence and recommendation and does not claim that Ben accepted any risk or
@@ -135,4 +138,4 @@ the DR.
 Revisit if initial evidence shows that the compiler/runtime boundary, earliest
 workflow, motivating domain, or native reference path prevents useful proof or
 downstream integration. Revisit before committing to a general-purpose engine,
-an adult-only mechanism, or a closed external-mesh contract.
+a close-contact-only mechanism, or a closed external-mesh contract.

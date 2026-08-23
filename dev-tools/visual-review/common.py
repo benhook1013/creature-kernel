@@ -43,17 +43,24 @@ PREPARED_SOURCE_STAGE = "source-preparation"
 PROVISIONAL_FORM_LEGACY_FORMAT = "creature-kernel.provisional-form-preview.v1"
 PROVISIONAL_FORM_V2_FORMAT = "creature-kernel.provisional-form-preview.v2"
 PROVISIONAL_FORM_V3_FORMAT = "creature-kernel.provisional-form-preview.v3"
-# Retained only so previously published records remain readable.  V5 is an
-# explicit historical producer contract; v6 is the current producer and
-# publication contract.
+# Retained only so previously published records remain readable.  V5 and v6
+# are explicit historical producer contracts; v7 is the current publication
+# contract.
 PROVISIONAL_FORM_HISTORICAL_V4_FORMAT = "creature-kernel.provisional-form-preview.v4"
 PROVISIONAL_FORM_HISTORICAL_V5_FORMAT = "creature-kernel.provisional-form-preview.v5"
-PROVISIONAL_FORM_FORMAT = "creature-kernel.provisional-form-preview.v6"
+PROVISIONAL_FORM_HISTORICAL_V6_FORMAT = "creature-kernel.provisional-form-preview.v6"
+PROVISIONAL_FORM_V6_FORMAT = PROVISIONAL_FORM_HISTORICAL_V6_FORMAT
+PROVISIONAL_FORM_V7_FORMAT = "creature-kernel.provisional-form-preview.v7"
+PROVISIONAL_FORM_FORMAT = PROVISIONAL_FORM_V7_FORMAT
+PROVISIONAL_FORM_TORSO_PROFILE_FORMAT = (
+    "creature-kernel.provisional-form-torso-profile.v1"
+)
 PROVISIONAL_FORM_CORRECTED_FORMATS = {
     PROVISIONAL_FORM_V2_FORMAT,
     PROVISIONAL_FORM_V3_FORMAT,
     PROVISIONAL_FORM_HISTORICAL_V4_FORMAT,
     PROVISIONAL_FORM_HISTORICAL_V5_FORMAT,
+    PROVISIONAL_FORM_HISTORICAL_V6_FORMAT,
     PROVISIONAL_FORM_FORMAT,
 }
 PROVISIONAL_FORM_FORMATS = {
@@ -75,6 +82,30 @@ PROVISIONAL_FORM_SHOULDER_CONTROL_FRAME_ROLE = "form_shoulder_control"
 PROVISIONAL_FORM_SHOULDER_LANDMARK_ROLES = (
     "form_shoulder_peak",
     "form_axilla",
+)
+PROVISIONAL_FORM_TORSO_PROFILE_FRAME_ROLE = "form_torso_profile_control"
+PROVISIONAL_FORM_TORSO_PROFILE_SECTION_NAMES = (
+    "lower-pelvis",
+    "upper-pelvis",
+    "lower-abdomen",
+    "waist-abdomen",
+    "upper-abdomen",
+    "lower-ribcage",
+    "upper-ribcage-shoulder",
+)
+PROVISIONAL_FORM_TORSO_PROFILE_OWNER_ROLES = (
+    "pelvis",
+    "pelvis",
+    "torso",
+    "torso",
+    "torso",
+    "torso",
+    "torso",
+)
+PROVISIONAL_FORM_TORSO_PROFILE_RADIUS_AXES = (
+    ("lateral", "lateral_radius"),
+    ("anterior", "anterior_radius"),
+    ("posterior", "posterior_radius"),
 )
 PROVISIONAL_FORM_CONTROL_COORDINATE_BOUND = 1.0
 PROVISIONAL_FORM_SHAPE_BASIS = (
@@ -1048,6 +1079,7 @@ def _form_role_shape(format_name: str, role: str) -> str | None:
     if format_name in {
         PROVISIONAL_FORM_HISTORICAL_V4_FORMAT,
         PROVISIONAL_FORM_HISTORICAL_V5_FORMAT,
+        PROVISIONAL_FORM_HISTORICAL_V6_FORMAT,
         PROVISIONAL_FORM_FORMAT,
     } and role == "neck":
         return "capsule"
@@ -1058,6 +1090,7 @@ def _form_capsule_child_roles(format_name: str) -> dict[str, str]:
     if format_name in {
         PROVISIONAL_FORM_HISTORICAL_V4_FORMAT,
         PROVISIONAL_FORM_HISTORICAL_V5_FORMAT,
+        PROVISIONAL_FORM_HISTORICAL_V6_FORMAT,
         PROVISIONAL_FORM_FORMAT,
     }:
         return PROVISIONAL_FORM_V4_CAPSULE_CHILD_ROLES
@@ -1245,6 +1278,430 @@ def _validate_v6_authored_controls(
         raise ValidationError(f"{where}.authored_landmarks must use stable owner/role order")
 
 
+def _provisional_form_torso_owner(
+    namespace: str, role: str
+) -> tuple[str, tuple[str, ...], str, str]:
+    return (namespace, (), "part", role)
+
+
+def _provisional_form_index(value: Any, length: int, where: str) -> int:
+    if type(value) is not int or not 0 <= value < length:
+        raise ValidationError(f"{where} must be an in-range integer index")
+    return value
+
+
+def _validate_v7_authored_torso_profile(
+    obj: dict[str, Any],
+    where: str,
+    *,
+    document: str,
+    namespace: str,
+    authored_dimension_values: dict[
+        tuple[tuple[str, tuple[str, ...], str, str], str], int
+    ],
+) -> tuple[
+    set[tuple[tuple[str, tuple[str, ...], str, str], str]],
+    list[dict[str, Any]],
+]:
+    """Validate the closed v7 torso-profile index and its canonical records."""
+
+    profile_where = f"{where}.authored_torso_profile"
+    profile = _object(obj.get("authored_torso_profile"), profile_where)
+    _check_fields(profile, {"format", "provenance", "sections"}, profile_where)
+    if profile.get("format") != PROVISIONAL_FORM_TORSO_PROFILE_FORMAT:
+        raise ValidationError(
+            f"{profile_where}.format must be {PROVISIONAL_FORM_TORSO_PROFILE_FORMAT}"
+        )
+    _form_control_provenance(
+        profile.get("provenance"),
+        f"{profile_where}.provenance",
+        document,
+        namespace,
+    )
+
+    frames = _array(obj.get("authored_frames"), f"{where}.authored_frames")
+    shoulder_frames = [
+        item
+        for item in frames
+        if isinstance(item, dict) and item.get("role") == PROVISIONAL_FORM_SHOULDER_CONTROL_FRAME_ROLE
+    ]
+    landmarks = _array(obj.get("authored_landmarks"), f"{where}.authored_landmarks")
+    shoulder_landmarks = [
+        item
+        for item in landmarks
+        if isinstance(item, dict) and item.get("role") in PROVISIONAL_FORM_SHOULDER_LANDMARK_ROLES
+    ]
+    # Preserve the exact v6 shoulder contract inside v7.  The complete-array
+    # checks below still reject unknown, missing, or duplicate torso records.
+    _validate_v6_authored_controls(
+        {"authored_frames": shoulder_frames, "authored_landmarks": shoulder_landmarks},
+        where,
+        document=document,
+        namespace=namespace,
+    )
+
+    torso_owners = {
+        _provisional_form_torso_owner(namespace, role)
+        for role in {"pelvis", "torso"}
+    }
+    expected_frame_keys = {
+        (owner, PROVISIONAL_FORM_SHOULDER_CONTROL_FRAME_ROLE)
+        for owner in {
+            _provisional_form_upper_arm_owner(namespace, side)
+            for side in ("left", "right")
+        }
+    }
+    expected_frame_keys.update(
+        (owner, PROVISIONAL_FORM_TORSO_PROFILE_FRAME_ROLE)
+        for owner in torso_owners
+    )
+    if len(frames) != len(expected_frame_keys):
+        raise ValidationError(
+            f"{where}.authored_frames must contain exactly four v7 control frames"
+        )
+    frame_keys: list[tuple[tuple[str, tuple[str, ...], str, str], str]] = []
+    seen_frame_keys: set[
+        tuple[tuple[str, tuple[str, ...], str, str], str]
+    ] = set()
+    for index, raw_frame in enumerate(frames):
+        frame_where = f"{where}.authored_frames[{index}]"
+        frame = _object(raw_frame, frame_where)
+        _check_fields(frame, {"owner", "role", "transform", "provenance"}, frame_where)
+        owner = _form_address(frame.get("owner"), f"{frame_where}.owner")
+        role = _string(frame.get("role"), f"{frame_where}.role", max_len=256)
+        key = (owner, role)
+        frame_keys.append(key)
+        if key in seen_frame_keys:
+            raise ValidationError(f"{where}.authored_frames contains duplicate owner/role keys")
+        if key not in expected_frame_keys:
+            raise ValidationError(f"{frame_where} is not a v7 torso or shoulder control frame")
+        _form_control_provenance(
+            frame.get("provenance"), f"{frame_where}.provenance", document, namespace
+        )
+        transform = _object(frame.get("transform"), f"{frame_where}.transform")
+        _check_fields(transform, {"translation", "rotation_xyzw"}, f"{frame_where}.transform")
+        translation = _form_finite_vector(
+            transform.get("translation"), f"{frame_where}.transform.translation", 3
+        )
+        rotation = _form_finite_vector(
+            transform.get("rotation_xyzw"), f"{frame_where}.transform.rotation_xyzw", 4
+        )
+        if translation != [0, 0, 0] or rotation != [0, 0, 0, 1]:
+            raise ValidationError(f"{frame_where} must use the identity rigid transform")
+        seen_frame_keys.add(key)
+    if set(frame_keys) != expected_frame_keys:
+        raise ValidationError(
+            f"{where}.authored_frames must contain the exact v7 shoulder and torso inventory"
+        )
+    if frame_keys != sorted(frame_keys):
+        raise ValidationError(f"{where}.authored_frames must use stable owner/role order")
+
+    expected_landmark_keys = {
+        (owner, role)
+        for owner in {
+            _provisional_form_upper_arm_owner(namespace, side)
+            for side in ("left", "right")
+        }
+        for role in PROVISIONAL_FORM_SHOULDER_LANDMARK_ROLES
+    }
+    expected_landmark_keys.update(
+        (
+            _provisional_form_torso_owner(namespace, owner_role),
+            f"form_torso_profile_{section_name.replace('-', '_')}",
+        )
+        for section_name, owner_role in zip(
+            PROVISIONAL_FORM_TORSO_PROFILE_SECTION_NAMES,
+            PROVISIONAL_FORM_TORSO_PROFILE_OWNER_ROLES,
+        )
+    )
+    if len(landmarks) != len(expected_landmark_keys):
+        raise ValidationError(
+            f"{where}.authored_landmarks must contain exactly eleven v7 control landmarks"
+        )
+    landmark_keys: list[tuple[tuple[str, tuple[str, ...], str, str], str]] = []
+    landmark_positions: list[list[int | float]] = []
+    seen_landmark_keys: set[
+        tuple[tuple[str, tuple[str, ...], str, str], str]
+    ] = set()
+    for index, raw_landmark in enumerate(landmarks):
+        landmark_where = f"{where}.authored_landmarks[{index}]"
+        landmark = _object(raw_landmark, landmark_where)
+        _check_fields(
+            landmark,
+            {"owner", "role", "frame", "position", "provenance"},
+            landmark_where,
+        )
+        owner = _form_address(landmark.get("owner"), f"{landmark_where}.owner")
+        role = _string(landmark.get("role"), f"{landmark_where}.role", max_len=256)
+        key = (owner, role)
+        landmark_keys.append(key)
+        if key in seen_landmark_keys:
+            raise ValidationError(f"{where}.authored_landmarks contains duplicate owner/role keys")
+        if key not in expected_landmark_keys:
+            raise ValidationError(f"{landmark_where} is not a v7 torso or shoulder landmark")
+        _form_control_provenance(
+            landmark.get("provenance"), f"{landmark_where}.provenance", document, namespace
+        )
+        frame = _object(landmark.get("frame"), f"{landmark_where}.frame")
+        _check_fields(frame, {"owner", "role"}, f"{landmark_where}.frame")
+        frame_owner = _form_address(frame.get("owner"), f"{landmark_where}.frame.owner")
+        frame_role = _string(frame.get("role"), f"{landmark_where}.frame.role", max_len=256)
+        expected_frame_role = (
+            PROVISIONAL_FORM_SHOULDER_CONTROL_FRAME_ROLE
+            if owner[3] == "upper_arm"
+            else PROVISIONAL_FORM_TORSO_PROFILE_FRAME_ROLE
+        )
+        if frame_owner != owner or frame_role != expected_frame_role:
+            raise ValidationError(f"{landmark_where}.frame must reference its same-owner control frame")
+        if (frame_owner, frame_role) not in seen_frame_keys:
+            raise ValidationError(f"{landmark_where}.frame references an unlisted authored frame")
+        position = _form_finite_vector(landmark.get("position"), f"{landmark_where}.position", 3)
+        if any(abs(component) > PROVISIONAL_FORM_CONTROL_COORDINATE_BOUND for component in position):
+            raise ValidationError(
+                f"{landmark_where}.position components must be within +/-{PROVISIONAL_FORM_CONTROL_COORDINATE_BOUND}"
+            )
+        if owner[3] in {"pelvis", "torso"} and (position[0] != 0 or position[2] != 0):
+            raise ValidationError(f"{landmark_where}.position must be an axial [0,y,0] point")
+        landmark_positions.append(position)
+        seen_landmark_keys.add(key)
+    if set(landmark_keys) != expected_landmark_keys:
+        raise ValidationError(
+            f"{where}.authored_landmarks must contain the exact v7 shoulder and torso inventory"
+        )
+    if landmark_keys != sorted(landmark_keys):
+        raise ValidationError(f"{where}.authored_landmarks must use stable owner/role order")
+
+    dimension_records: list[
+        tuple[tuple[str, tuple[str, ...], str, str], str, int]
+    ] = []
+    for index, raw_dimension in enumerate(
+        _array(obj.get("authored_dimensions"), f"{where}.authored_dimensions")
+    ):
+        dimension_where = f"{where}.authored_dimensions[{index}]"
+        dimension = _object(raw_dimension, dimension_where)
+        owner = _form_address(dimension.get("owner"), f"{dimension_where}.owner")
+        role = _string(dimension.get("role"), f"{dimension_where}.role", max_len=256)
+        dimension_records.append(
+            (owner, role, authored_dimension_values[(owner, role)])
+        )
+
+    sections = _array(profile.get("sections"), f"{profile_where}.sections")
+    if len(sections) != len(PROVISIONAL_FORM_TORSO_PROFILE_SECTION_NAMES):
+        raise ValidationError(f"{profile_where}.sections must contain exactly seven sections")
+    consumed_dimension_keys: set[
+        tuple[tuple[str, tuple[str, ...], str, str], str]
+    ] = set()
+    section_y: list[float | int] = []
+    source_sections: list[dict[str, Any]] = []
+    for index, (raw_section, expected_name, expected_owner_role) in enumerate(
+        zip(
+            sections,
+            PROVISIONAL_FORM_TORSO_PROFILE_SECTION_NAMES,
+            PROVISIONAL_FORM_TORSO_PROFILE_OWNER_ROLES,
+        )
+    ):
+        section_where = f"{profile_where}.sections[{index}]"
+        section = _object(raw_section, section_where)
+        _check_fields(
+            section,
+            {
+                "name",
+                "frame_index",
+                "landmark_index",
+                "dimension_indices",
+                "provenance",
+                "section_index",
+            },
+            section_where,
+        )
+        if section.get("name") != expected_name:
+            raise ValidationError(f"{section_where}.name is not in the required stable order")
+        if type(section.get("section_index")) is not int or section["section_index"] != index:
+            raise ValidationError(f"{section_where}.section_index must equal its stable array index")
+        _form_control_provenance(
+            section.get("provenance"),
+            f"{section_where}.provenance",
+            document,
+            namespace,
+        )
+        expected_owner = _provisional_form_torso_owner(namespace, expected_owner_role)
+        frame_index = _provisional_form_index(
+            section.get("frame_index"), len(frame_keys), f"{section_where}.frame_index"
+        )
+        if frame_keys[frame_index] != (
+            expected_owner,
+            PROVISIONAL_FORM_TORSO_PROFILE_FRAME_ROLE,
+        ):
+            raise ValidationError(
+                f"{section_where}.frame_index does not resolve to its identity owner torso control frame"
+            )
+
+        section_key = expected_name.replace("-", "_")
+        expected_landmark_role = f"form_torso_profile_{section_key}"
+        landmark_index = _provisional_form_index(
+            section.get("landmark_index"),
+            len(landmark_keys),
+            f"{section_where}.landmark_index",
+        )
+        if landmark_keys[landmark_index] != (expected_owner, expected_landmark_role):
+            raise ValidationError(
+                f"{section_where}.landmark_index does not resolve to the canonical section landmark"
+            )
+        position = landmark_positions[landmark_index]
+        section_y.append(position[1])
+
+        dimension_indices = _object(
+            section.get("dimension_indices"), f"{section_where}.dimension_indices"
+        )
+        _check_fields(
+            dimension_indices,
+            {"lateral", "anterior", "posterior"},
+            f"{section_where}.dimension_indices",
+        )
+        radii: dict[str, int] = {}
+        for axis, role_suffix in PROVISIONAL_FORM_TORSO_PROFILE_RADIUS_AXES:
+            dimension_index = _provisional_form_index(
+                dimension_indices.get(axis),
+                len(dimension_records),
+                f"{section_where}.dimension_indices.{axis}",
+            )
+            expected_role = f"form_torso_profile_{section_key}_{role_suffix}"
+            owner, role, value_permille = dimension_records[dimension_index]
+            if (owner, role) != (expected_owner, expected_role):
+                raise ValidationError(
+                    f"{section_where}.dimension_indices.{axis} does not resolve to {expected_role}"
+                )
+            key = (owner, role)
+            consumed_dimension_keys.add(key)
+            radii[axis] = value_permille
+        source_sections.append(
+            {
+                "name": expected_name,
+                "owner_role": expected_owner_role,
+                "position": position,
+                "radii": radii,
+            }
+        )
+    if any(section_y[index] >= section_y[index + 1] for index in range(len(section_y) - 1)):
+        raise ValidationError(f"{profile_where}.sections landmarks must have strictly increasing y")
+    return consumed_dimension_keys, source_sections
+
+
+def _provisional_form_torso_profile_factors(
+    profile_id: str, owner_role: str
+) -> tuple[int, int]:
+    """Return the fixed lateral and depth factors used by the Rust producer."""
+
+    if profile_id == "neutral-v0":
+        return (1_000, 1_000)
+    if profile_id == "broad-soft-v0" and owner_role in {"pelvis", "torso"}:
+        return (1_200, 1_150)
+    if profile_id == "lean-readable-v0":
+        return (800, 800)
+    if profile_id == "depth-forward-v0" and owner_role == "torso":
+        return (1_000, 1_300)
+    return (1_000, 1_000)
+
+
+def _validate_v7_variant_torso_profile(
+    value: Any,
+    where: str,
+    *,
+    profile_id: str,
+    document: str,
+    namespace: str,
+    source_sections: list[dict[str, Any]],
+) -> None:
+    profile = _object(value, where)
+    _check_fields(profile, {"format", "source", "provenance", "sections"}, where)
+    if profile.get("format") != PROVISIONAL_FORM_TORSO_PROFILE_FORMAT:
+        raise ValidationError(
+            f"{where}.format must be {PROVISIONAL_FORM_TORSO_PROFILE_FORMAT}"
+        )
+    if profile.get("source") != "authored_torso_profile":
+        raise ValidationError(f"{where}.source must be authored_torso_profile")
+    _form_control_provenance(
+        profile.get("provenance"), f"{where}.provenance", document, namespace
+    )
+    sections = _array(profile.get("sections"), f"{where}.sections")
+    if len(sections) != len(source_sections):
+        raise ValidationError(f"{where}.sections must contain exactly seven sections")
+    for index, (raw_section, source_section) in enumerate(zip(sections, source_sections)):
+        section_where = f"{where}.sections[{index}]"
+        section = _object(raw_section, section_where)
+        _check_fields(
+            section,
+            {
+                "source_section_index",
+                "name",
+                "position",
+                "lateral_radius_permille",
+                "anterior_radius_permille",
+                "posterior_radius_permille",
+                "scaling",
+                "provenance",
+            },
+            section_where,
+        )
+        if (
+            type(section.get("source_section_index")) is not int
+            or section["source_section_index"] != index
+        ):
+            raise ValidationError(
+                f"{section_where}.source_section_index must equal its stable source index"
+            )
+        if section.get("name") != source_section["name"]:
+            raise ValidationError(f"{section_where}.name does not match its source section")
+        position = _form_finite_vector(
+            section.get("position"), f"{section_where}.position", 3
+        )
+        if position != source_section["position"]:
+            raise ValidationError(f"{section_where}.position must equal its source landmark")
+        lateral_factor, depth_factor = _provisional_form_torso_profile_factors(
+            profile_id, source_section["owner_role"]
+        )
+        expected_factors = {
+            "lateral_factor_permille": lateral_factor,
+            "anterior_factor_permille": depth_factor,
+            "posterior_factor_permille": depth_factor,
+        }
+        scaling = _object(section.get("scaling"), f"{section_where}.scaling")
+        _check_fields(scaling, set(expected_factors), f"{section_where}.scaling")
+        for field, expected_factor in expected_factors.items():
+            actual_factor = _form_permille(
+                scaling.get(field), f"{section_where}.scaling.{field}"
+            )
+            if actual_factor != expected_factor:
+                raise ValidationError(
+                    f"{section_where}.scaling.{field} does not match the fixed variant factor"
+                )
+        factor_by_axis = {
+            "lateral": lateral_factor,
+            "anterior": depth_factor,
+            "posterior": depth_factor,
+        }
+        for axis, _role_suffix in PROVISIONAL_FORM_TORSO_PROFILE_RADIUS_AXES:
+            field = f"{axis}_radius_permille"
+            actual_radius = _form_permille(
+                section.get(field), f"{section_where}.{field}"
+            )
+            expected_radius = _form_scaled_display_value(
+                source_section["radii"][axis],
+                factor_by_axis[axis],
+                f"{section_where}.{field}",
+            )
+            if actual_radius != expected_radius:
+                raise ValidationError(
+                    f"{section_where}.{field} does not match its indexed source radius and fixed factor"
+                )
+        _form_control_provenance(
+            section.get("provenance"),
+            f"{section_where}.provenance",
+            document,
+            namespace,
+        )
+
+
 def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any]:
     """Validate the successful filled-form CLI envelope before immutable copy."""
 
@@ -1264,6 +1721,7 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
             "authored_dimensions",
             "authored_landmarks",
             "authored_frames",
+            "authored_torso_profile",
             "variants",
             "limitations",
         },
@@ -1275,22 +1733,29 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
             f"{where}.format must be {PROVISIONAL_FORM_LEGACY_FORMAT}, "
             f"{PROVISIONAL_FORM_V2_FORMAT}, {PROVISIONAL_FORM_V3_FORMAT}, "
             f"{PROVISIONAL_FORM_HISTORICAL_V4_FORMAT}, "
-            f"{PROVISIONAL_FORM_HISTORICAL_V5_FORMAT}, or {PROVISIONAL_FORM_FORMAT}"
+            f"{PROVISIONAL_FORM_HISTORICAL_V5_FORMAT}, "
+            f"{PROVISIONAL_FORM_HISTORICAL_V6_FORMAT}, or {PROVISIONAL_FORM_FORMAT}"
         )
     is_v5 = format_name == PROVISIONAL_FORM_HISTORICAL_V5_FORMAT
-    is_v6 = format_name == PROVISIONAL_FORM_FORMAT
-    has_authored_dimensions = is_v5 or is_v6
+    is_v6 = format_name == PROVISIONAL_FORM_HISTORICAL_V6_FORMAT
+    is_v7 = format_name == PROVISIONAL_FORM_FORMAT
+    has_shoulder_controls = is_v6 or is_v7
+    has_authored_dimensions = is_v5 or has_shoulder_controls
     if has_authored_dimensions and "authored_dimensions" not in obj:
-        raise ValidationError(f"{where}.authored_dimensions is required for v5 or v6")
+        raise ValidationError(f"{where}.authored_dimensions is required for v5, v6, or v7")
     if not has_authored_dimensions and "authored_dimensions" in obj:
         raise ValidationError(
-            f"{where}.authored_dimensions is only valid for v5 or v6"
+            f"{where}.authored_dimensions is only valid for v5, v6, or v7"
         )
     for control_key in ("authored_landmarks", "authored_frames"):
-        if is_v6 and control_key not in obj:
-            raise ValidationError(f"{where}.{control_key} is required for v6")
-        if not is_v6 and control_key in obj:
-            raise ValidationError(f"{where}.{control_key} is only valid for v6")
+        if has_shoulder_controls and control_key not in obj:
+            raise ValidationError(f"{where}.{control_key} is required for v6 or v7")
+        if not has_shoulder_controls and control_key in obj:
+            raise ValidationError(f"{where}.{control_key} is only valid for v6 or v7")
+    if is_v7 and "authored_torso_profile" not in obj:
+        raise ValidationError(f"{where}.authored_torso_profile is required for v7")
+    if not is_v7 and "authored_torso_profile" in obj:
+        raise ValidationError(f"{where}.authored_torso_profile is only valid for v7")
     if obj.get("operation") != PROVISIONAL_FORM_OPERATION:
         raise ValidationError(f"{where}.operation must be {PROVISIONAL_FORM_OPERATION}")
     if obj.get("status") != "success":
@@ -1392,9 +1857,21 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
             f"{where}.reference_scale.source must be exact-containment-edge"
         )
 
+    profile_dimension_keys: set[
+        tuple[tuple[str, tuple[str, ...], str, str], str]
+    ] = set()
+    torso_profile_sections: list[dict[str, Any]] = []
     if is_v6:
         _validate_v6_authored_controls(
             obj, where, document=document, namespace=namespace
+        )
+    elif is_v7:
+        profile_dimension_keys, torso_profile_sections = _validate_v7_authored_torso_profile(
+            obj,
+            where,
+            document=document,
+            namespace=namespace,
+            authored_dimension_values=authored_dimension_values,
         )
 
     variants = _array(obj.get("variants"), f"{where}.variants")
@@ -1403,13 +1880,19 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
     canonical: list[tuple[Any, ...]] | None = None
     consumed_dimension_keys: set[
         tuple[tuple[str, tuple[str, ...], str, str], str]
-    ] = set()
+    ] = set(profile_dimension_keys)
     for index, raw_variant in enumerate(variants):
         variant_where = f"{where}.variants[{index}]"
         variant = _object(raw_variant, variant_where)
         _check_fields(
             variant,
-            {"id", "profile_id", "provenance", "descriptors"},
+            {
+                "id",
+                "profile_id",
+                "provenance",
+                "descriptors",
+                *( {"torso_profile"} if is_v7 else set() ),
+            },
             variant_where,
         )
         expected_id = PROVISIONAL_FORM_VARIANT_IDS[index]
@@ -1429,6 +1912,15 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
             raise ValidationError(f"{variant_where}.provenance profile does not match source")
         if has_authored_dimensions and provenance.get("shape_basis") != PROVISIONAL_FORM_SHAPE_BASIS:
             raise ValidationError(f"{variant_where}.provenance.shape_basis is invalid")
+        if is_v7:
+            _validate_v7_variant_torso_profile(
+                variant.get("torso_profile"),
+                f"{variant_where}.torso_profile",
+                profile_id=expected_id,
+                document=document,
+                namespace=namespace,
+                source_sections=torso_profile_sections,
+            )
         descriptors = _array(variant.get("descriptors"), f"{variant_where}.descriptors")
         if not descriptors or len(descriptors) > PROVISIONAL_FORM_MAX_DESCRIPTORS:
             raise ValidationError(
@@ -1457,7 +1949,7 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
             )
             if not has_authored_dimensions and "dimension_roles" in descriptor:
                 raise ValidationError(
-                    f"{descriptor_where}.dimension_roles is only valid for v5 or v6"
+                    f"{descriptor_where}.dimension_roles is only valid for v5, v6, or v7"
                 )
             if descriptor.get("descriptor_kind") != "display-only-form-descriptor":
                 raise ValidationError(f"{descriptor_where}.descriptor_kind is not supported")
@@ -1555,7 +2047,7 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
                     ),
                     "capsule": (
                         ("form_radius", "form_shoulder_depth_radius")
-                        if is_v6 and address[3] == "upper_arm"
+                        if has_shoulder_controls and address[3] == "upper_arm"
                         else ("form_radius",)
                     ),
                     "tapered-segment": ("form_start_radius", "form_end_radius"),
@@ -1591,7 +2083,7 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
                 # control must not be silently treated as a second radius.
                 numeric_roles = (
                     ("form_radius",)
-                    if is_v6 and shape_name == "capsule" and address[3] == "upper_arm"
+                    if has_shoulder_controls and shape_name == "capsule" and address[3] == "upper_arm"
                     else dimension_roles
                 )
                 numeric_factors = (
@@ -1623,7 +2115,7 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
                     "dimension_roles": dimension_roles,
                     },
             )
-        if is_v6:
+        if has_shoulder_controls:
             expected_upper_arm_owners = {
                 _provisional_form_upper_arm_owner(namespace, side)
                 for side in ("left", "right")

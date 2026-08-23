@@ -98,6 +98,15 @@ def make_payload() -> dict[str, object]:
         descriptor("tail_tip", [0, 0, -2], address("tail_root", ["tail"]), {"name": "tapered-segment", "from": [0, 0, -1], "to": [0, 0, -2], "start_radius_permille": 220, "end_radius_permille": 40}, ["tail"]),
     ]
     descriptors.sort(key=lambda item: (item["address"]["namespace"], tuple(item["address"]["anchors"]), item["address"]["kind"], item["address"]["role"]))
+    torso_specs = [
+        ("lower-pelvis", "pelvis", -0.45, (1500, 850, 600)),
+        ("upper-pelvis", "pelvis", -0.20, (1350, 780, 560)),
+        ("lower-abdomen", "torso", 0.10, (1050, 620, 500)),
+        ("waist-abdomen", "torso", 0.30, (900, 520, 420)),
+        ("upper-abdomen", "torso", 0.50, (1125, 650, 500)),
+        ("lower-ribcage", "torso", 0.75, (1400, 850, 650)),
+        ("upper-ribcage-shoulder", "torso", 0.95, (1500, 900, 700)),
+    ]
     authored_dimensions = []
     for item in descriptors:
         shape = item["shape"]
@@ -116,6 +125,16 @@ def make_payload() -> dict[str, object]:
                 "value_permille": value,
                 "provenance": {"source": "source-authored", "document": "test", "namespace": "main"},
             })
+    for name, owner_role, _, radii in torso_specs:
+        owner = address(owner_role)
+        underscore_name = name.replace("-", "_")
+        for suffix, value in zip(surface_preview.TORSO_PROFILE_DIMENSION_SUFFIXES, radii):
+            authored_dimensions.append({
+                "owner": copy.deepcopy(owner),
+                "role": surface_preview.TORSO_PROFILE_DIMENSION_PREFIX + underscore_name + "_" + suffix,
+                "value_permille": value,
+                "provenance": {"source": "source-authored", "document": "test", "namespace": "main"},
+            })
     authored_dimensions.sort(key=lambda item: (item["owner"]["namespace"], tuple(item["owner"]["anchors"]), item["owner"]["kind"], item["owner"]["role"], item["role"]))
     variants = []
     for variant_id in surface_preview.VARIANT_IDS:
@@ -124,19 +143,79 @@ def make_payload() -> dict[str, object]:
             item["profile_id"] = variant_id
             item["provenance"]["resource_profile_id"] = "ck.resource.body.r2"
             apply_fixed_display_factors(item, variant_id)
-        variants.append({"id": variant_id, "profile_id": variant_id, "provenance": {"source": "profile-derived-display", "resource_profile_id": "ck.resource.body.r2", "shape_basis": "source-authored-dimensions-plus-fixed-display-factor"}, "descriptors": current})
+        torso_profile_sections = []
+        for index, (name, owner_role, y, radii) in enumerate(torso_specs):
+            lateral_factor, depth_factor = surface_preview._torso_profile_factors(variant_id, owner_role)
+            torso_profile_sections.append({
+                "source_section_index": index,
+                "name": name,
+                "position": [0.0, y, 0.0],
+                "lateral_radius_permille": radii[0] * lateral_factor // 1_000,
+                "anterior_radius_permille": radii[1] * depth_factor // 1_000,
+                "posterior_radius_permille": radii[2] * depth_factor // 1_000,
+                "scaling": {
+                    "lateral_factor_permille": lateral_factor,
+                    "anterior_factor_permille": depth_factor,
+                    "posterior_factor_permille": depth_factor,
+                },
+                "provenance": {"source": "source-authored", "document": "test", "namespace": "main"},
+            })
+        variants.append({"id": variant_id, "profile_id": variant_id, "provenance": {"source": "profile-derived-display", "resource_profile_id": "ck.resource.body.r2", "shape_basis": "source-authored-dimensions-plus-fixed-display-factor"}, "descriptors": current, "torso_profile": {"format": surface_preview.AUTHORED_TORSO_PROFILE_FORMAT, "source": "authored_torso_profile", "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}, "sections": torso_profile_sections}})
     authored_landmarks = [
         {"owner": address("upper_arm", ["left"]), "role": "form_shoulder_peak", "frame": {"owner": address("upper_arm", ["left"]), "role": "form_shoulder_control"}, "position": [-0.1, 0.15, 0.0], "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}},
         {"owner": address("upper_arm", ["left"]), "role": "form_axilla", "frame": {"owner": address("upper_arm", ["left"]), "role": "form_shoulder_control"}, "position": [-0.1, -0.3, 0.0], "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}},
         {"owner": address("upper_arm", ["right"]), "role": "form_shoulder_peak", "frame": {"owner": address("upper_arm", ["right"]), "role": "form_shoulder_control"}, "position": [0.1, 0.15, 0.0], "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}},
         {"owner": address("upper_arm", ["right"]), "role": "form_axilla", "frame": {"owner": address("upper_arm", ["right"]), "role": "form_shoulder_control"}, "position": [0.1, -0.3, 0.0], "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}},
     ]
+    for name, owner_role, y, _ in torso_specs:
+        owner = address(owner_role)
+        authored_landmarks.append({
+            "owner": copy.deepcopy(owner),
+            "role": surface_preview.TORSO_PROFILE_LANDMARK_PREFIX + name.replace("-", "_"),
+            "frame": {"owner": copy.deepcopy(owner), "role": surface_preview.TORSO_PROFILE_FRAME_ROLE},
+            "position": [0.0, y, 0.0],
+            "provenance": {"source": "source-authored", "document": "test", "namespace": "main"},
+        })
     authored_landmarks.sort(key=lambda item: (item["owner"]["namespace"], tuple(item["owner"]["anchors"]), item["owner"]["kind"], item["owner"]["role"], item["role"]))
     authored_frames = [
+        {"owner": address(role), "role": surface_preview.TORSO_PROFILE_FRAME_ROLE, "transform": {"translation": [0.0, 0.0, 0.0], "rotation_xyzw": [0.0, 0.0, 0.0, 1.0]}, "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}}
+        for role in ("pelvis", "torso")
+    ] + [
         {"owner": address("upper_arm", [side]), "role": "form_shoulder_control", "transform": {"translation": [0.0, 0.0, 0.0], "rotation_xyzw": [0.0, 0.0, 0.0, 1.0]}, "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}}
         for side in ("left", "right")
     ]
-    payload = {"format": surface_preview.SOURCE_FORMAT, "operation": "inspect-provisional-form", "status": "success", "stage": "provisional-form", "processing_complete": True, "diagnostics_complete": True, "diagnostics": [], "source": {"document": "test", "namespace": "main", "resource_profile_id": "ck.resource.body.r2"}, "reference_scale": {"parent": address("neck"), "child": address("head"), "axis_delta": [0, 1, 0], "squared_length": 1, "source": "exact-containment-edge"}, "authored_dimensions": authored_dimensions, "authored_landmarks": authored_landmarks, "authored_frames": authored_frames, "variants": variants, "limitations": "Provisional display-only geometry descriptors; source-authored dimensions and shoulder controls use bounded source-authored controls and fixed display factors; no production geometry or Readiness 3."}
+    source_provenance = {"source": "source-authored", "document": "test", "namespace": "main"}
+    frame_indices = {
+        (item["owner"]["role"], tuple(item["owner"]["anchors"]), item["role"]): index
+        for index, item in enumerate(authored_frames)
+    }
+    landmark_indices = {
+        (item["owner"]["role"], tuple(item["owner"]["anchors"]), item["role"]): index
+        for index, item in enumerate(authored_landmarks)
+    }
+    dimension_indices = {
+        (item["owner"]["role"], tuple(item["owner"]["anchors"]), item["role"]): index
+        for index, item in enumerate(authored_dimensions)
+    }
+    authored_torso_profile = {
+        "format": surface_preview.AUTHORED_TORSO_PROFILE_FORMAT,
+        "provenance": copy.deepcopy(source_provenance),
+        "sections": [
+            {
+                "name": name,
+                "frame_index": frame_indices[(owner_role, (), surface_preview.TORSO_PROFILE_FRAME_ROLE)],
+                "landmark_index": landmark_indices[(owner_role, (), surface_preview.TORSO_PROFILE_LANDMARK_PREFIX + name.replace("-", "_"))],
+                "dimension_indices": {
+                    suffix.split("_")[0]: dimension_indices[(owner_role, (), surface_preview.TORSO_PROFILE_DIMENSION_PREFIX + name.replace("-", "_") + "_" + suffix)]
+                    for suffix in surface_preview.TORSO_PROFILE_DIMENSION_SUFFIXES
+                },
+                "provenance": copy.deepcopy(source_provenance),
+                "section_index": index,
+            }
+            for index, (name, owner_role, _, _) in enumerate(torso_specs)
+        ],
+    }
+    payload = {"format": surface_preview.SOURCE_FORMAT, "operation": "inspect-provisional-form", "status": "success", "stage": "provisional-form", "processing_complete": True, "diagnostics_complete": True, "diagnostics": [], "source": {"document": "test", "namespace": "main", "resource_profile_id": "ck.resource.body.r2"}, "reference_scale": {"parent": address("neck"), "child": address("head"), "axis_delta": [0, 1, 0], "squared_length": 1, "source": "exact-containment-edge"}, "authored_dimensions": authored_dimensions, "authored_landmarks": authored_landmarks, "authored_frames": authored_frames, "authored_torso_profile": authored_torso_profile, "variants": variants, "limitations": "Provisional display-only geometry descriptors; source-authored dimensions, shoulder controls, and authored_torso_profile v1 use bounded source-authored controls and fixed display factors; no production geometry or Readiness 3."}
     return payload
 
 
@@ -149,9 +228,9 @@ class SurfacePreviewTests(unittest.TestCase):
         form = surface_preview.validate_envelope(make_payload())
         self.assertEqual([x[0] for x in form.variants], list(surface_preview.VARIANT_IDS))
         self.assertIn(("main", ("left",), "part", "hand"), {x.key for x in form.variants[0][1]})
-        self.assertEqual(len(form.authored_dimensions), 36)
-        self.assertEqual(len(form.authored_landmarks), 4)
-        self.assertEqual(len(form.authored_frames), 2)
+        self.assertEqual(len(form.authored_dimensions), 57)
+        self.assertEqual(len(form.authored_landmarks), 11)
+        self.assertEqual(len(form.authored_frames), 4)
         self.assertEqual(
             form.authored_dimensions,
             tuple(sorted(form.authored_dimensions, key=lambda item: (item[0], item[1]))),
@@ -802,7 +881,12 @@ class SurfacePreviewTests(unittest.TestCase):
                 all(
                     np.isfinite(value) and value > 0.0
                     for section in cage.sections
-                    for value in (section.lateral_radius, section.depth_radius)
+                    for value in (
+                        section.lateral_radius,
+                        section.anterior_radius,
+                        section.posterior_radius,
+                        section.depth_radius,
+                    )
                 )
             )
             self.assertTrue(
@@ -813,17 +897,20 @@ class SurfacePreviewTests(unittest.TestCase):
             )
             lateral = np.asarray([section.lateral_radius for section in cage.sections])
             depth = np.asarray([section.depth_radius for section in cage.sections])
-            self.assertTrue(np.all((lateral[1:] / lateral[:-1] >= 0.80) & (lateral[1:] / lateral[:-1] <= 1.20)))
-            # The fixed depth-forward profile creates one intentional 1.211x
-            # pelvis-to-torso transition; retain a narrow bound around it.
-            self.assertTrue(np.all((depth[1:] / depth[:-1] >= 0.80) & (depth[1:] / depth[:-1] <= 1.22)))
-            # The abdomen has a genuinely flat short waist band rather than
-            # one sharp local minimum. Its neighbors still taper and widen.
-            np.testing.assert_allclose(lateral[2:5], lateral[2])
-            np.testing.assert_allclose(depth[2:5], depth[2])
-            self.assertLess(float(lateral[2]), float(lateral[1]))
-            self.assertGreater(float(lateral[5]), float(lateral[4]))
-            self.assertLess(float(lateral[5] / lateral[4]), 1.12)
+            self.assertEqual(
+                tuple(section.lateral_lineage.base for section in cage.sections),
+                (1500, 1350, 1050, 900, 1125, 1400, 1500),
+            )
+            self.assertEqual(
+                tuple(section.anterior_lineage.base for section in cage.sections),
+                (850, 780, 620, 520, 650, 850, 900),
+            )
+            self.assertEqual(
+                tuple(section.posterior_lineage.base for section in cage.sections),
+                (600, 560, 500, 420, 500, 650, 700),
+            )
+            self.assertTrue(np.all(lateral > 0.0))
+            self.assertTrue(np.all(depth > 0.0))
             topologies.append(
                 tuple((section.name, section.owner.key) for section in cage.sections)
             )
@@ -832,6 +919,140 @@ class SurfacePreviewTests(unittest.TestCase):
             )
         self.assertEqual(topologies, [topologies[0]] * len(form.variants))
         self.assertGreater(len(set(dimensions)), 1)
+
+    def test_authored_torso_profile_derives_exact_sections_and_lineage(self) -> None:
+        form = surface_preview.validate_envelope(make_payload())
+        self.assertEqual(
+            tuple(section.name for section in form.authored_torso_profile.sections),
+            surface_preview.TORSO_PROFILE_SECTION_NAMES,
+        )
+        for variant_index, (variant_id, descriptors, _) in enumerate(form.variants):
+            guide = surface_preview._derive_hybrid_guides(form, descriptors)
+            profile = form.variant_torso_profiles[variant_index]
+            by_key = {descriptor.key: descriptor for descriptor in descriptors}
+            for index, (authored, projected, section) in enumerate(
+                zip(form.authored_torso_profile.sections, profile.sections, guide.torso_cage.sections)
+            ):
+                owner = by_key[authored.owner]
+                expected_center = tuple(
+                    float(owner.point[axis] + projected.position[axis] / form.reference_scale)
+                    for axis in range(3)
+                )
+                self.assertEqual(section.owner, owner)
+                self.assertEqual(section.center, expected_center)
+                expected_lateral, expected_depth = surface_preview._torso_profile_factors(variant_id, owner.key[3])
+                self.assertEqual(section.lateral_lineage.base, authored.lateral.value_permille)
+                self.assertEqual(section.lateral_lineage.factor, expected_lateral)
+                self.assertEqual(section.lateral_lineage.scaled, projected.lateral_radius_permille)
+                self.assertEqual(section.anterior_lineage.base, authored.anterior.value_permille)
+                self.assertEqual(section.anterior_lineage.factor, expected_depth)
+                self.assertEqual(section.anterior_lineage.scaled, projected.anterior_radius_permille)
+                self.assertEqual(section.posterior_lineage.base, authored.posterior.value_permille)
+                self.assertEqual(section.posterior_lineage.factor, expected_depth)
+                self.assertEqual(section.posterior_lineage.scaled, projected.posterior_radius_permille)
+                self.assertEqual(section.lateral_lineage.reference, (owner.key, authored.lateral.role))
+                self.assertEqual(section.anterior_lineage.reference, (owner.key, authored.anterior.role))
+                self.assertEqual(section.posterior_lineage.reference, (owner.key, authored.posterior.role))
+                self.assertEqual(section.lateral_lineage.reference_index, authored.lateral.source_index)
+                self.assertEqual(section.anterior_lineage.reference_index, authored.anterior.source_index)
+                self.assertEqual(section.posterior_lineage.reference_index, authored.posterior.source_index)
+                self.assertEqual(section.lateral_lineage.consumed_section, authored.name)
+                self.assertEqual(section.anterior_lineage.consumed_section, authored.name)
+                self.assertEqual(section.posterior_lineage.consumed_section, authored.name)
+                self.assertAlmostEqual(
+                    section.depth_radius,
+                    0.5 * (section.anterior_radius + section.posterior_radius),
+                )
+                self.assertEqual(section.landmark.role, authored.landmark.role)
+                self.assertEqual(section.frame.role, surface_preview.TORSO_PROFILE_FRAME_ROLE)
+
+    def test_authored_torso_profile_factor_behavior_is_shared_and_asymmetric_depth_is_retained(self) -> None:
+        form = surface_preview.validate_envelope(make_payload())
+        for variant_index, (variant_id, descriptors, _) in enumerate(form.variants):
+            guide = surface_preview._derive_hybrid_guides(form, descriptors)
+            projected = form.variant_torso_profiles[variant_index]
+            for authored, variant_section, guide_section in zip(
+                form.authored_torso_profile.sections,
+                projected.sections,
+                guide.torso_cage.sections,
+            ):
+                lateral_factor, depth_factor = surface_preview._torso_profile_factors(variant_id, authored.owner[3])
+                self.assertEqual(variant_section.lateral_factor, lateral_factor)
+                self.assertEqual(variant_section.anterior_factor, depth_factor)
+                self.assertEqual(variant_section.posterior_factor, depth_factor)
+                self.assertEqual(guide_section.lateral_lineage.factor, lateral_factor)
+                self.assertEqual(guide_section.anterior_lineage.factor, depth_factor)
+                self.assertEqual(guide_section.posterior_lineage.factor, depth_factor)
+                self.assertEqual(guide_section.anterior_lineage.factor, guide_section.posterior_lineage.factor)
+        payload = make_payload()
+        dimension = next(
+            item
+            for item in payload["authored_dimensions"]
+            if item["role"] == surface_preview.TORSO_PROFILE_DIMENSION_PREFIX + "lower_abdomen_anterior_radius"
+        )
+        dimension["value_permille"] = 700
+        for variant in payload["variants"]:
+            section = variant["torso_profile"]["sections"][2]
+            factor = section["scaling"]["anterior_factor_permille"]
+            section["anterior_radius_permille"] = 700 * factor // 1_000
+        form = surface_preview.validate_envelope(payload)
+        neutral = surface_preview._derive_hybrid_guides(form, form.variants[0][1]).torso_cage.section("lower-abdomen")
+        self.assertNotEqual(neutral.anterior_radius, neutral.posterior_radius)
+        self.assertAlmostEqual(neutral.depth_radius, (neutral.anterior_radius + neutral.posterior_radius) / 2.0)
+
+    def test_authored_torso_profile_source_perturbation_is_local(self) -> None:
+        payload = make_payload()
+        profile = payload["authored_torso_profile"]
+        landmark_index = profile["sections"][3]["landmark_index"]
+        payload["authored_landmarks"][landmark_index]["position"][1] = 0.34
+        for variant in payload["variants"]:
+            variant["torso_profile"]["sections"][3]["position"][1] = 0.34
+        form = surface_preview.validate_envelope(payload)
+        baseline = surface_preview._derive_hybrid_guides(form, form.variants[0][1]).torso_cage
+        original = make_payload()
+        original_form = surface_preview.validate_envelope(original)
+        original_cage = surface_preview._derive_hybrid_guides(original_form, original_form.variants[0][1]).torso_cage
+        for index, (before, after) in enumerate(zip(original_cage.sections, baseline.sections)):
+            if index == 3:
+                self.assertNotEqual(before.center, after.center)
+            else:
+                self.assertEqual(before.center, after.center)
+                self.assertEqual(before.lateral_lineage, after.lateral_lineage)
+                self.assertEqual(before.anterior_lineage, after.anterior_lineage)
+                self.assertEqual(before.posterior_lineage, after.posterior_lineage)
+
+    def test_authored_torso_profile_rejects_malformed_index_roles_and_scaling(self) -> None:
+        cases: list[dict[str, object]] = []
+        payload = make_payload()
+        payload["authored_torso_profile"]["sections"][0]["section_index"] = 1
+        cases.append(payload)
+        payload = make_payload()
+        payload["authored_torso_profile"]["sections"][0]["frame_index"] = 99
+        cases.append(payload)
+        payload = make_payload()
+        payload["authored_torso_profile"]["sections"][0]["dimension_indices"]["posterior"] = payload["authored_torso_profile"]["sections"][0]["dimension_indices"]["anterior"]
+        cases.append(payload)
+        payload = make_payload()
+        payload["variants"][0]["torso_profile"]["sections"][2]["scaling"]["posterior_factor_permille"] += 1
+        cases.append(payload)
+        payload = make_payload()
+        payload["authored_landmarks"][payload["authored_torso_profile"]["sections"][1]["landmark_index"]]["position"][0] = 0.1
+        cases.append(payload)
+        for malformed in cases:
+            with self.subTest(malformed=malformed):
+                with self.assertRaises(surface_preview.PreviewError):
+                    surface_preview.validate_envelope(malformed)
+
+    def test_authored_torso_profile_generation_is_deterministic_for_all_variants(self) -> None:
+        form = surface_preview.validate_envelope(make_payload())
+        first = []
+        second = []
+        for variant in form.variants:
+            first.append(tuple(surface_preview._torso_section_json(section) for section in surface_preview._derive_hybrid_guides(form, variant[1]).torso_cage.sections))
+        form_again = surface_preview.validate_envelope(make_payload())
+        for variant in form_again.variants:
+            second.append(tuple(surface_preview._torso_section_json(section) for section in surface_preview._derive_hybrid_guides(form_again, variant[1]).torso_cage.sections))
+        self.assertEqual(first, second)
 
     def test_torso_cage_rejects_malformed_axes_and_owners(self) -> None:
         import dataclasses
@@ -992,6 +1213,8 @@ class SurfacePreviewTests(unittest.TestCase):
         changed_section = dataclasses.replace(
             lower_abdomen,
             lateral_radius=lower_abdomen.lateral_radius * 0.75,
+            anterior_radius=lower_abdomen.anterior_radius * 0.75,
+            posterior_radius=lower_abdomen.posterior_radius * 0.75,
             depth_radius=lower_abdomen.depth_radius * 0.75,
         )
         changed_cage = dataclasses.replace(

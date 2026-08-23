@@ -72,6 +72,18 @@ def apply_fixed_display_factors(item: dict[str, object], profile_id: str) -> Non
         shape["end_radius_permille"] = shape["end_radius_permille"] * factors[1] // 1_000
 
 
+def torso_profile_factors(profile_id: str, owner_role: str) -> tuple[int, int]:
+    if profile_id == "neutral-v0":
+        return (1_000, 1_000)
+    if profile_id == "broad-soft-v0" and owner_role in {"pelvis", "torso"}:
+        return (1_200, 1_150)
+    if profile_id == "lean-readable-v0":
+        return (800, 800)
+    if profile_id == "depth-forward-v0" and owner_role == "torso":
+        return (1_000, 1_300)
+    return (1_000, 1_000)
+
+
 class ProvisionalFormPublicationTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
@@ -82,7 +94,7 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
         self.input.write_text("{}", encoding="utf-8")
         address = {"namespace": "main", "anchors": [], "kind": "part", "role": "pelvis"}
         self.payload = {
-            "format": common.PROVISIONAL_FORM_FORMAT,
+            "format": common.PROVISIONAL_FORM_HISTORICAL_V6_FORMAT,
             "operation": common.PROVISIONAL_FORM_OPERATION,
             "status": "success",
             "stage": common.PROVISIONAL_FORM_STAGE,
@@ -102,7 +114,7 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
             "variants": [],
             "limitations": "Provisional display-only geometry descriptors; no production geometry or Readiness 3.",
         }
-        self.payload = self.capsule_payload(format_name=common.PROVISIONAL_FORM_FORMAT)
+        self.payload = self.capsule_payload(format_name=common.PROVISIONAL_FORM_HISTORICAL_V6_FORMAT)
 
     def tearDown(self) -> None:
         self.temp.cleanup()
@@ -118,7 +130,7 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
         return Path(summary["session"])
 
     def capsule_payload(
-        self, *, format_name: str = common.PROVISIONAL_FORM_FORMAT
+        self, *, format_name: str = common.PROVISIONAL_FORM_HISTORICAL_V6_FORMAT
     ) -> dict[str, object]:
         """Build a small body chain under either versioned capsule contract."""
 
@@ -127,9 +139,13 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
 
         is_dimension_format = format_name in {
             common.PROVISIONAL_FORM_HISTORICAL_V5_FORMAT,
+            common.PROVISIONAL_FORM_HISTORICAL_V6_FORMAT,
             common.PROVISIONAL_FORM_FORMAT,
         }
-        is_v6 = format_name == common.PROVISIONAL_FORM_FORMAT
+        is_v6 = format_name in {
+            common.PROVISIONAL_FORM_HISTORICAL_V6_FORMAT,
+            common.PROVISIONAL_FORM_FORMAT,
+        }
 
         def descriptor(
             role: str,
@@ -178,6 +194,7 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
             if format_name in {
                 common.PROVISIONAL_FORM_HISTORICAL_V4_FORMAT,
                 common.PROVISIONAL_FORM_HISTORICAL_V5_FORMAT,
+                common.PROVISIONAL_FORM_HISTORICAL_V6_FORMAT,
                 common.PROVISIONAL_FORM_FORMAT,
             }
             else {"name": "ellipsoid", "center": [0, 2, 0], "axis_extents_permille": [650, 600, 600]}
@@ -284,6 +301,43 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
                 },
                 "descriptors": variant_descriptors,
             })
+        if format_name == common.PROVISIONAL_FORM_FORMAT:
+            torso_section_values = [
+                ("lower-pelvis", "pelvis", -0.55, (820, 760, 700)),
+                ("upper-pelvis", "pelvis", -0.35, (760, 700, 660)),
+                ("lower-abdomen", "torso", -0.10, (680, 620, 600)),
+                ("waist-abdomen", "torso", 0.05, (640, 580, 560)),
+                ("upper-abdomen", "torso", 0.20, (690, 630, 610)),
+                ("lower-ribcage", "torso", 0.38, (780, 720, 700)),
+                ("upper-ribcage-shoulder", "torso", 0.58, (860, 800, 780)),
+            ]
+            control_provenance = {
+                "source": common.PROVISIONAL_FORM_AUTHORED_CONTROL_PROVENANCE,
+                "document": "fixture",
+                "namespace": "main",
+            }
+            for section_name, owner_role, y, radii in torso_section_values:
+                owner = address(owner_role)
+                section_key = section_name.replace("-", "_")
+                for role_suffix, value in zip(
+                    ("lateral_radius", "anterior_radius", "posterior_radius"),
+                    radii,
+                ):
+                    payload["authored_dimensions"].append({
+                        "owner": copy.deepcopy(owner),
+                        "role": f"form_torso_profile_{section_key}_{role_suffix}",
+                        "value_permille": value,
+                        "provenance": {
+                            "source": common.PROVISIONAL_FORM_AUTHORED_DIMENSION_PROVENANCE,
+                            "document": "fixture",
+                            "namespace": "main",
+                        },
+                    })
+            payload["authored_dimensions"].sort(key=lambda item: (
+                item["owner"]["namespace"], tuple(item["owner"]["anchors"]),
+                item["owner"]["kind"], item["owner"]["role"], item["role"],
+            ))
+
         if is_v6:
             controls = []
             for side, x in (("left", -0.1), ("right", 0.1)):
@@ -318,9 +372,111 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
             ], key=lambda item: (
                 item["owner"]["namespace"], tuple(item["owner"]["anchors"]), item["owner"]["kind"], item["owner"]["role"], item["role"]
             ))
+            if format_name == common.PROVISIONAL_FORM_FORMAT:
+                torso_frame_owners = set()
+                for section_name, owner_role, y, _radii in torso_section_values:
+                    owner = address(owner_role)
+                    if owner_role not in torso_frame_owners:
+                        payload["authored_frames"].append({
+                            "owner": copy.deepcopy(owner),
+                            "role": common.PROVISIONAL_FORM_TORSO_PROFILE_FRAME_ROLE,
+                            "transform": {"translation": [0, 0, 0], "rotation_xyzw": [0, 0, 0, 1]},
+                            "provenance": copy.deepcopy(control_provenance),
+                        })
+                        torso_frame_owners.add(owner_role)
+                    payload["authored_landmarks"].append({
+                        "owner": copy.deepcopy(owner),
+                        "role": f"form_torso_profile_{section_name.replace('-', '_')}",
+                        "frame": {"owner": copy.deepcopy(owner), "role": common.PROVISIONAL_FORM_TORSO_PROFILE_FRAME_ROLE},
+                        "position": [0, y, 0],
+                        "provenance": {"source": common.PROVISIONAL_FORM_AUTHORED_CONTROL_PROVENANCE, "document": "fixture", "namespace": "main"},
+                    })
+                payload["authored_frames"].sort(key=lambda item: (
+                    item["owner"]["namespace"], tuple(item["owner"]["anchors"]), item["owner"]["kind"], item["owner"]["role"], item["role"]
+                ))
+                payload["authored_landmarks"].sort(key=lambda item: (
+                    item["owner"]["namespace"], tuple(item["owner"]["anchors"]), item["owner"]["kind"], item["owner"]["role"], item["role"]
+                ))
+                payload["authored_torso_profile"] = {
+                    "format": common.PROVISIONAL_FORM_TORSO_PROFILE_FORMAT,
+                    "provenance": copy.deepcopy(control_provenance),
+                    "sections": [
+                        {
+                            "name": section_name,
+                            "frame_index": next(
+                                index
+                                for index, frame in enumerate(payload["authored_frames"])
+                                if frame["owner"] == address(owner_role)
+                                and frame["role"] == common.PROVISIONAL_FORM_TORSO_PROFILE_FRAME_ROLE
+                            ),
+                            "landmark_index": next(
+                                index
+                                for index, landmark in enumerate(payload["authored_landmarks"])
+                                if landmark["owner"] == address(owner_role)
+                                and landmark["role"]
+                                == f"form_torso_profile_{section_name.replace('-', '_')}"
+                            ),
+                            "dimension_indices": {
+                                axis: next(
+                                    index
+                                    for index, dimension in enumerate(payload["authored_dimensions"])
+                                    if dimension["owner"] == address(owner_role)
+                                    and dimension["role"]
+                                    == f"form_torso_profile_{section_name.replace('-', '_')}_{role_suffix}"
+                                )
+                                for axis, role_suffix in (
+                                    ("lateral", "lateral_radius"),
+                                    ("anterior", "anterior_radius"),
+                                    ("posterior", "posterior_radius"),
+                                )
+                            },
+                            "provenance": copy.deepcopy(control_provenance),
+                            "section_index": section_index,
+                        }
+                        for section_index, (
+                            section_name,
+                            owner_role,
+                            _y,
+                            _radii,
+                        ) in enumerate(torso_section_values)
+                    ],
+                }
+                for variant in payload["variants"]:
+                    variant_sections = []
+                    for section_index, (
+                        section_name,
+                        owner_role,
+                        y,
+                        radii,
+                    ) in enumerate(torso_section_values):
+                        lateral_factor, depth_factor = torso_profile_factors(
+                            variant["id"], owner_role
+                        )
+                        variant_sections.append({
+                            "source_section_index": section_index,
+                            "name": section_name,
+                            "position": [0, y, 0],
+                            "lateral_radius_permille": radii[0] * lateral_factor // 1_000,
+                            "anterior_radius_permille": radii[1] * depth_factor // 1_000,
+                            "posterior_radius_permille": radii[2] * depth_factor // 1_000,
+                            "scaling": {
+                                "lateral_factor_permille": lateral_factor,
+                                "anterior_factor_permille": depth_factor,
+                                "posterior_factor_permille": depth_factor,
+                            },
+                            "provenance": copy.deepcopy(control_provenance),
+                        })
+                    variant["torso_profile"] = {
+                        "format": common.PROVISIONAL_FORM_TORSO_PROFILE_FORMAT,
+                        "source": "authored_torso_profile",
+                        "provenance": copy.deepcopy(control_provenance),
+                        "sections": variant_sections,
+                    }
         if not is_v6:
             payload.pop("authored_landmarks", None)
             payload.pop("authored_frames", None)
+        if format_name != common.PROVISIONAL_FORM_FORMAT:
+            payload.pop("authored_torso_profile", None)
         if not is_dimension_format:
             payload.pop("authored_dimensions")
             for variant in payload["variants"]:
@@ -331,7 +487,7 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
         return payload
 
     def test_success_publishes_distinct_immutable_form_session_and_route(self) -> None:
-        self.assertEqual(self.payload["format"], common.PROVISIONAL_FORM_FORMAT)
+        self.assertEqual(self.payload["format"], common.PROVISIONAL_FORM_HISTORICAL_V6_FORMAT)
         binary = self.fake_binary("import json, sys\nsys.stdout.write(" + repr(json.dumps(self.payload)) + ")\n")
         session = self.publish_with(binary, review_id="form-review", title="Filled form")
         review = json.loads((session / "review.json").read_text(encoding="utf-8"))
@@ -468,6 +624,168 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
                         payload, f"malformed v6 control fixture {index}"
                     )
 
+    def test_v7_torso_profile_is_a_closed_index_over_canonical_controls(self) -> None:
+        payload = self.capsule_payload(format_name=common.PROVISIONAL_FORM_FORMAT)
+        validated = common._validate_provisional_form_envelope(payload, "v7 torso fixture")
+        profile = validated["authored_torso_profile"]
+        self.assertEqual(profile["format"], common.PROVISIONAL_FORM_TORSO_PROFILE_FORMAT)
+        self.assertEqual(
+            [section["name"] for section in profile["sections"]],
+            list(common.PROVISIONAL_FORM_TORSO_PROFILE_SECTION_NAMES),
+        )
+        self.assertEqual(len(validated["authored_frames"]), 4)
+        self.assertEqual(len(validated["authored_landmarks"]), 11)
+        self.assertEqual(len(validated["authored_dimensions"]), 57)
+        self.assertTrue(
+            all(
+                set(section)
+                == {
+                    "name",
+                    "frame_index",
+                    "landmark_index",
+                    "dimension_indices",
+                    "provenance",
+                    "section_index",
+                }
+                for section in profile["sections"]
+            )
+        )
+        for section_index, (section, owner_role) in enumerate(zip(
+            profile["sections"], common.PROVISIONAL_FORM_TORSO_PROFILE_OWNER_ROLES
+        )):
+            self.assertEqual(section["section_index"], section_index)
+            self.assertEqual(
+                validated["authored_frames"][section["frame_index"]]["owner"]["role"],
+                owner_role,
+            )
+            self.assertEqual(
+                validated["authored_landmarks"][section["landmark_index"]]["role"],
+                f"form_torso_profile_{section['name'].replace('-', '_')}",
+            )
+            for axis, suffix in (
+                ("lateral", "lateral_radius"),
+                ("anterior", "anterior_radius"),
+                ("posterior", "posterior_radius"),
+            ):
+                dimension = validated["authored_dimensions"][
+                    section["dimension_indices"][axis]
+                ]
+                self.assertEqual(
+                    dimension["role"],
+                    f"form_torso_profile_{section['name'].replace('-', '_')}_{suffix}",
+                )
+        self.assertTrue(all("torso_profile" in variant for variant in validated["variants"]))
+
+        cases = []
+        unknown_envelope_field = copy.deepcopy(payload)
+        unknown_envelope_field["unexpected"] = True
+        cases.append(unknown_envelope_field)
+
+        wrong_profile_format = copy.deepcopy(payload)
+        wrong_profile_format["authored_torso_profile"]["format"] = "wrong"
+        cases.append(wrong_profile_format)
+
+        wrong_profile_provenance = copy.deepcopy(payload)
+        wrong_profile_provenance["authored_torso_profile"]["provenance"]["document"] = "wrong"
+        cases.append(wrong_profile_provenance)
+
+        wrong_section_order = copy.deepcopy(payload)
+        wrong_section_order["authored_torso_profile"]["sections"][1]["name"] = "lower-pelvis"
+        cases.append(wrong_section_order)
+
+        wrong_section_index = copy.deepcopy(payload)
+        wrong_section_index["authored_torso_profile"]["sections"][1]["section_index"] = 0
+        cases.append(wrong_section_index)
+
+        wrong_frame_reference = copy.deepcopy(payload)
+        wrong_frame_reference["authored_torso_profile"]["sections"][0]["frame_index"] = 2
+        cases.append(wrong_frame_reference)
+
+        non_integer_frame_index = copy.deepcopy(payload)
+        non_integer_frame_index["authored_torso_profile"]["sections"][0]["frame_index"] = True
+        cases.append(non_integer_frame_index)
+
+        wrong_landmark_reference = copy.deepcopy(payload)
+        wrong_landmark_reference["authored_torso_profile"]["sections"][0]["landmark_index"] = 1
+        cases.append(wrong_landmark_reference)
+
+        non_identity_frame = copy.deepcopy(payload)
+        non_identity_frame["authored_frames"][0]["transform"]["translation"][1] = 0.1
+        cases.append(non_identity_frame)
+
+        non_axial_landmark = copy.deepcopy(payload)
+        non_axial_landmark["authored_landmarks"][0]["position"][2] = 0.1
+        cases.append(non_axial_landmark)
+
+        non_increasing_y = copy.deepcopy(payload)
+        non_increasing_y["authored_landmarks"][1]["position"][1] = non_increasing_y["authored_landmarks"][0]["position"][1]
+        cases.append(non_increasing_y)
+
+        zero_radius = copy.deepcopy(payload)
+        zero_radius["authored_dimensions"][0]["value_permille"] = 0
+        cases.append(zero_radius)
+
+        wrong_dimension_reference = copy.deepcopy(payload)
+        wrong_dimension_reference["authored_torso_profile"]["sections"][0]["dimension_indices"]["lateral"] = 0
+        cases.append(wrong_dimension_reference)
+
+        unknown_source_field = copy.deepcopy(payload)
+        unknown_source_field["authored_torso_profile"]["sections"][0]["radius"] = 1
+        cases.append(unknown_source_field)
+
+        wrong_variant_source_index = copy.deepcopy(payload)
+        wrong_variant_source_index["variants"][0]["torso_profile"]["sections"][0]["source_section_index"] = 1
+        cases.append(wrong_variant_source_index)
+
+        changed_variant_position = copy.deepcopy(payload)
+        changed_variant_position["variants"][0]["torso_profile"]["sections"][0]["position"][1] += 0.01
+        cases.append(changed_variant_position)
+
+        wrong_variant_factor = copy.deepcopy(payload)
+        wrong_variant_factor["variants"][1]["torso_profile"]["sections"][0]["scaling"]["lateral_factor_permille"] = 1_199
+        cases.append(wrong_variant_factor)
+
+        wrong_scaled_radius = copy.deepcopy(payload)
+        wrong_scaled_radius["variants"][3]["torso_profile"]["sections"][2]["anterior_radius_permille"] += 1
+        cases.append(wrong_scaled_radius)
+
+        wrong_variant_provenance = copy.deepcopy(payload)
+        wrong_variant_provenance["variants"][0]["torso_profile"]["sections"][0]["provenance"]["namespace"] = "wrong"
+        cases.append(wrong_variant_provenance)
+
+        unknown_variant_field = copy.deepcopy(payload)
+        unknown_variant_field["variants"][0]["torso_profile"]["extra"] = True
+        cases.append(unknown_variant_field)
+
+        for index, malformed in enumerate(cases):
+            with self.subTest(index=index), self.assertRaises(common.ValidationError):
+                common._validate_provisional_form_envelope(malformed, f"malformed v7 torso fixture {index}")
+
+        for prior_format in (
+            common.PROVISIONAL_FORM_LEGACY_FORMAT,
+            common.PROVISIONAL_FORM_V2_FORMAT,
+            common.PROVISIONAL_FORM_V3_FORMAT,
+            common.PROVISIONAL_FORM_HISTORICAL_V4_FORMAT,
+            common.PROVISIONAL_FORM_HISTORICAL_V5_FORMAT,
+            common.PROVISIONAL_FORM_HISTORICAL_V6_FORMAT,
+        ):
+            prior = self.capsule_payload(format_name=prior_format)
+            prior["authored_torso_profile"] = copy.deepcopy(payload["authored_torso_profile"])
+            with self.subTest(prior_format=prior_format), self.assertRaisesRegex(
+                common.ValidationError, "authored_torso_profile is only valid for v7"
+            ):
+                common._validate_provisional_form_envelope(prior, f"v7 field on {prior_format}")
+            prior_variant = self.capsule_payload(format_name=prior_format)
+            prior_variant["variants"][0]["torso_profile"] = copy.deepcopy(
+                payload["variants"][0]["torso_profile"]
+            )
+            with self.subTest(prior_variant_format=prior_format), self.assertRaisesRegex(
+                common.ValidationError, "torso_profile"
+            ):
+                common._validate_provisional_form_envelope(
+                    prior_variant, f"v7 variant field on {prior_format}"
+                )
+
     def test_unknown_and_malformed_payloads_fail_closed(self) -> None:
         cases = [
             {"unknown": True},
@@ -502,7 +820,7 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
             common.PROVISIONAL_FORM_V3_FORMAT,
             common.PROVISIONAL_FORM_HISTORICAL_V4_FORMAT,
             common.PROVISIONAL_FORM_HISTORICAL_V5_FORMAT,
-            common.PROVISIONAL_FORM_FORMAT,
+            common.PROVISIONAL_FORM_HISTORICAL_V6_FORMAT,
         ):
             with self.subTest(format_name=format_name):
                 payload = self.capsule_payload(format_name=format_name)
@@ -585,9 +903,9 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
             common._validate_provisional_form_envelope(ambiguous, "ambiguous capsule fixture")
 
     def test_v6_neck_capsule_requires_exactly_one_direct_head_endpoint(self) -> None:
-        payload = self.capsule_payload(format_name=common.PROVISIONAL_FORM_FORMAT)
+        payload = self.capsule_payload(format_name=common.PROVISIONAL_FORM_HISTORICAL_V6_FORMAT)
         validated = common._validate_provisional_form_envelope(payload, "v6 neck fixture")
-        self.assertEqual(validated["format"], common.PROVISIONAL_FORM_FORMAT)
+        self.assertEqual(validated["format"], common.PROVISIONAL_FORM_HISTORICAL_V6_FORMAT)
 
         neck_ellipsoid = copy.deepcopy(payload)
         for descriptor in neck_ellipsoid["variants"][0]["descriptors"]:
@@ -678,11 +996,11 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
             common.PROVISIONAL_FORM_HISTORICAL_V5_FORMAT,
         ):
             prior = self.capsule_payload(format_name=prior_format)
-            prior["format"] = common.PROVISIONAL_FORM_FORMAT
+            prior["format"] = common.PROVISIONAL_FORM_HISTORICAL_V6_FORMAT
             expected_message = (
                 "authored_landmarks is required for v6"
                 if prior_format == common.PROVISIONAL_FORM_HISTORICAL_V5_FORMAT
-                else "authored_dimensions is required for v5 or v6"
+                else "authored_dimensions is required for v5, v6, or v7"
             )
             with self.subTest(prior_format=prior_format), self.assertRaisesRegex(
                 common.ValidationError, expected_message
@@ -860,6 +1178,7 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
         self.assertIn('"Side · z / y"', app)
         self.assertIn('"Top · x / z"', app)
         self.assertIn('"creature-kernel.provisional-form-preview.v6"', app)
+        self.assertIn('"creature-kernel.provisional-form-preview.v7"', app)
         self.assertIn('var isV6 = payload.format === PROVISIONAL_FORM_V6_FORMAT;', app)
         self.assertIn('v5 is an authored-dimension-only format', app)
         self.assertIn('function formV6ShoulderControls(payload)', app)
@@ -924,13 +1243,109 @@ process.stdout.write(JSON.stringify(context.__formValidation(JSON.parse(fs.readF
             with self.subTest(format_name="v5", field=field):
                 self.assertTrue(self.browser_form_errors(malformed))
 
-        valid_v6 = self.capsule_payload(format_name=common.PROVISIONAL_FORM_FORMAT)
+        valid_v6 = self.capsule_payload(format_name=common.PROVISIONAL_FORM_HISTORICAL_V6_FORMAT)
         self.assertEqual(self.browser_form_errors(valid_v6), [])
         for field in authored_fields:
             malformed = copy.deepcopy(valid_v6)
             malformed.pop(field)
             with self.subTest(format_name="v6", field=field):
                 self.assertTrue(self.browser_form_errors(malformed))
+
+    def test_browser_vm_enforces_v7_torso_profile_index_contract(self) -> None:
+        valid_v7 = self.capsule_payload(format_name=common.PROVISIONAL_FORM_FORMAT)
+        self.assertEqual(self.browser_form_errors(valid_v7), [])
+
+        cases = []
+        unknown_envelope_field = copy.deepcopy(valid_v7)
+        unknown_envelope_field["unexpected"] = True
+        cases.append(unknown_envelope_field)
+        wrong_format = copy.deepcopy(valid_v7)
+        wrong_format["authored_torso_profile"]["format"] = "wrong"
+        cases.append(wrong_format)
+        wrong_order = copy.deepcopy(valid_v7)
+        wrong_order["authored_torso_profile"]["sections"][0]["name"] = "upper-pelvis"
+        cases.append(wrong_order)
+        wrong_frame = copy.deepcopy(valid_v7)
+        wrong_frame["authored_torso_profile"]["sections"][0]["frame_index"] = 2
+        cases.append(wrong_frame)
+        non_integer_index = copy.deepcopy(valid_v7)
+        non_integer_index["authored_torso_profile"]["sections"][0]["landmark_index"] = 0.5
+        cases.append(non_integer_index)
+        non_axial = copy.deepcopy(valid_v7)
+        non_axial["authored_landmarks"][0]["position"][0] = 0.1
+        cases.append(non_axial)
+        non_increasing_y = copy.deepcopy(valid_v7)
+        non_increasing_y["authored_landmarks"][1]["position"][1] = non_increasing_y["authored_landmarks"][0]["position"][1]
+        cases.append(non_increasing_y)
+        missing_dimension = copy.deepcopy(valid_v7)
+        missing_dimension["authored_torso_profile"]["sections"][0]["dimension_indices"]["lateral"] = 0
+        cases.append(missing_dimension)
+        unknown_section_field = copy.deepcopy(valid_v7)
+        unknown_section_field["authored_torso_profile"]["sections"][0]["radius"] = 1
+        cases.append(unknown_section_field)
+        wrong_position = copy.deepcopy(valid_v7)
+        wrong_position["variants"][0]["torso_profile"]["sections"][0]["position"][1] += 0.1
+        cases.append(wrong_position)
+        wrong_factor = copy.deepcopy(valid_v7)
+        wrong_factor["variants"][1]["torso_profile"]["sections"][0]["scaling"]["posterior_factor_permille"] = 1_149
+        cases.append(wrong_factor)
+        wrong_scaled_radius = copy.deepcopy(valid_v7)
+        wrong_scaled_radius["variants"][3]["torso_profile"]["sections"][2]["posterior_radius_permille"] += 1
+        cases.append(wrong_scaled_radius)
+        unknown_variant_field = copy.deepcopy(valid_v7)
+        unknown_variant_field["variants"][0]["torso_profile"]["unexpected"] = True
+        cases.append(unknown_variant_field)
+
+        for index, malformed in enumerate(cases):
+            with self.subTest(index=index):
+                self.assertTrue(self.browser_form_errors(malformed))
+
+        for prior_format in (
+            common.PROVISIONAL_FORM_LEGACY_FORMAT,
+            common.PROVISIONAL_FORM_V2_FORMAT,
+            common.PROVISIONAL_FORM_V3_FORMAT,
+            common.PROVISIONAL_FORM_HISTORICAL_V4_FORMAT,
+            common.PROVISIONAL_FORM_HISTORICAL_V5_FORMAT,
+            common.PROVISIONAL_FORM_HISTORICAL_V6_FORMAT,
+        ):
+            prior = self.capsule_payload(format_name=prior_format)
+            prior["authored_torso_profile"] = copy.deepcopy(valid_v7["authored_torso_profile"])
+            with self.subTest(prior_format=prior_format):
+                self.assertTrue(self.browser_form_errors(prior))
+            prior_variant = self.capsule_payload(format_name=prior_format)
+            prior_variant["variants"][0]["torso_profile"] = copy.deepcopy(
+                valid_v7["variants"][0]["torso_profile"]
+            )
+            with self.subTest(prior_variant_format=prior_format):
+                self.assertTrue(self.browser_form_errors(prior_variant))
+
+    def test_current_rust_producer_passes_python_and_browser_validators(self) -> None:
+        repository = HERE.parents[1]
+        completed = subprocess.run(
+            [
+                "cargo",
+                "run",
+                "--quiet",
+                "--package",
+                "creature-kernel-cli",
+                "--bin",
+                "creature-kernel",
+                "--",
+                "inspect-provisional-form",
+                "--input",
+                "examples/body-documents/stylized-digitigrade-biped-authored-form.json",
+            ],
+            cwd=repository,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        produced = json.loads(completed.stdout)
+        validated = common._validate_provisional_form_envelope(
+            produced, "current Rust producer output"
+        )
+        self.assertEqual(validated["format"], common.PROVISIONAL_FORM_FORMAT)
+        self.assertEqual(self.browser_form_errors(produced), [])
 
 
 if __name__ == "__main__":

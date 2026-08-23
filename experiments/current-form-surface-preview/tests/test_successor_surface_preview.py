@@ -9,6 +9,7 @@ import tempfile
 import unittest
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 import numpy as np
@@ -23,6 +24,30 @@ FIXTURE_SPEC.loader.exec_module(fixture)
 sys.path.insert(0, str(ROOT))
 import surface_preview  # noqa: E402
 import successor_surface_preview as successor  # noqa: E402
+
+
+def _native_temporary_directory() -> tempfile.TemporaryDirectory:
+    """Keep Linux publication tests on a filesystem with renameat2 support."""
+
+    native_root = "/tmp" if sys.platform.startswith("linux") else None
+    return tempfile.TemporaryDirectory(dir=native_root)
+
+
+def _serialized_torso_section_controls(region: successor.SuccessorRegion) -> list[dict[str, object]]:
+    """Give generator test doubles the same source-authored controls as real meshes."""
+
+    return [
+        {
+            "name": section.name,
+            "owner": surface_preview._address_json(section.owner.key),
+            "center": [float(value) for value in section.center],
+            "axial_position": float(section.axial_position if section.axial_position is not None else section.path_length),
+            "lateral_radius": float(section.cardinal_radii[0]),
+            "anterior_radius": float(section.cardinal_radii[1]),
+            "posterior_radius": float(section.cardinal_radii[2]),
+        }
+        for section in region.loft.sections
+    ]
 
 
 class _TestOwner:
@@ -85,6 +110,60 @@ def _bent_test_profile_sweep() -> successor._ProfileSweep:
     return successor._ProfileSweep(sections, caps)
 
 
+def _test_torso_profile_sweep(transform: tuple[np.ndarray, np.ndarray] | None = None) -> successor._ProfileSweep:
+    """Build a v7-shaped seven-section guide without fixture dependencies."""
+
+    pelvis = _TestOwner("pelvis")
+    torso = _TestOwner("torso")
+    centers = np.asarray(tuple((0.0, float(index), 0.0) for index in range(7)), dtype=np.float64)
+    axes = np.asarray(((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)), dtype=np.float64)
+    if transform is not None:
+        rotation, translation = transform
+        centers = centers @ rotation.T + translation
+        axes = axes @ rotation.T
+    guide_axes = SimpleNamespace(
+        lateral=tuple(axes[0]),
+        up=tuple(axes[1]),
+        forward=tuple(axes[2]),
+    )
+    cardinal_radii = (
+        (1.00, 0.70, 0.95),
+        (1.10, 0.78, 0.90),
+        (1.25, 0.88, 1.00),
+        (1.18, 0.96, 0.82),
+        (1.30, 1.10, 0.86),
+        (1.42, 1.16, 0.92),
+        (1.34, 1.24, 0.88),
+    )
+    source_sections = tuple(
+        SimpleNamespace(
+            name=name,
+            owner=pelvis if index < 2 else torso,
+            center=tuple(centers[index]),
+            lateral_radius=profile[0],
+            anterior_radius=profile[1],
+            posterior_radius=profile[2],
+        )
+        for index, (name, profile) in enumerate(zip(
+            (
+                "lower-pelvis", "upper-pelvis", "lower-abdomen", "waist-abdomen",
+                "upper-abdomen", "lower-ribcage", "upper-ribcage-shoulder",
+            ),
+            cardinal_radii,
+        ))
+    )
+    guide = SimpleNamespace(
+        torso_cage=SimpleNamespace(
+            sections=source_sections,
+            axes=guide_axes,
+            pelvis_owner=pelvis,
+            torso_owner=torso,
+        ),
+        topology=SimpleNamespace(axes=guide_axes),
+    )
+    return successor._make_profile_sweep(guide)
+
+
 def _rotated_between_sections_profile_sweep() -> successor._ProfileSweep:
     owner = _TestOwner("rotated-frame")
     angle = np.pi / 4.0
@@ -99,6 +178,75 @@ def _rotated_between_sections_profile_sweep() -> successor._ProfileSweep:
         successor._ProfileEndpointCap("end", sections[-1].center, (0.0, 1.0, 0.0), right_axes, sections[-1].transverse_radii, 0.8),
     )
     return successor._ProfileSweep(sections, caps)
+
+
+class SuccessorTorsoProfileNumericalTests(unittest.TestCase):
+    def test_torso_profile_hits_exact_cardinals_and_has_finite_outside_caps(self) -> None:
+        sweep = _test_torso_profile_sweep()
+        for section in sweep.sections:
+            center = np.asarray(section.center, dtype=np.float64)
+            lateral_axis, forward_axis = (np.asarray(axis, dtype=np.float64) for axis in section.transverse_axes)
+            lateral, anterior, posterior = section.cardinal_radii
+            cardinal_points = np.asarray((
+                center + lateral * lateral_axis,
+                center - lateral * lateral_axis,
+                center + anterior * forward_axis,
+                center - posterior * forward_axis,
+            ))
+            np.testing.assert_allclose(successor._loft_field(cardinal_points, sweep), 0.0, rtol=0.0, atol=1.0e-12)
+
+        start, end = sweep.sections[0], sweep.sections[-1]
+        outside = np.asarray((
+            np.asarray(start.center) + 2.0 * sweep.endpoint_caps[0].axial_radius * np.asarray(sweep.endpoint_caps[0].outward_tangent),
+            np.asarray(end.center) + 2.0 * sweep.endpoint_caps[1].axial_radius * np.asarray(sweep.endpoint_caps[1].outward_tangent),
+            (0.0, 3.0, 12.0),
+            (12.0, 3.0, 0.0),
+        ), dtype=np.float64)
+        values = successor._loft_field(outside, sweep)
+        self.assertTrue(np.all(np.isfinite(values)))
+        self.assertTrue(np.all(values > 0.0))
+
+    def test_torso_profile_is_shape_preserving_asymmetric_and_non_elliptical(self) -> None:
+        sweep = _test_torso_profile_sweep()
+        path = np.asarray([section.path_length for section in sweep.sections], dtype=np.float64)
+        controls = np.asarray([section.cardinal_radii for section in sweep.sections], dtype=np.float64)
+        slopes = successor._shape_preserving_slopes(path, controls)
+        for index in range(len(path) - 1):
+            samples = np.linspace(path[index], path[index + 1], 17)
+            interpolated = successor._shape_preserving_sample(path, controls, slopes, samples)
+            lower = np.minimum(controls[index], controls[index + 1]) - 1.0e-12
+            upper = np.maximum(controls[index], controls[index + 1]) + 1.0e-12
+            self.assertTrue(np.all(interpolated >= lower))
+            self.assertTrue(np.all(interpolated <= upper))
+
+        section = sweep.sections[4]
+        center = np.asarray(section.center, dtype=np.float64)
+        lateral_axis, forward_axis = (np.asarray(axis, dtype=np.float64) for axis in section.transverse_axes)
+        lateral, anterior, posterior = section.cardinal_radii
+        front = successor._loft_field((center + 0.8 * anterior * forward_axis).reshape(1, 3), sweep)[0]
+        back = successor._loft_field((center - 0.8 * anterior * forward_axis).reshape(1, 3), sweep)[0]
+        self.assertNotAlmostEqual(float(front), float(back), places=10)
+
+        rounded_point = center + 0.75 * lateral * lateral_axis + 0.75 * anterior * forward_axis
+        rounded_value = float(successor._loft_field(rounded_point.reshape(1, 3), sweep)[0])
+        ellipse_value = (math.sqrt(0.75**2 + 0.75**2) - 1.0) * min(lateral, anterior, posterior)
+        self.assertLess(rounded_value, ellipse_value - 1.0e-3)
+
+    def test_torso_profile_is_invariant_under_fixed_frame_rotation_and_translation(self) -> None:
+        angle_x, angle_y = 0.31, -0.47
+        rx = np.asarray(((1.0, 0.0, 0.0), (0.0, math.cos(angle_x), -math.sin(angle_x)), (0.0, math.sin(angle_x), math.cos(angle_x))))
+        ry = np.asarray(((math.cos(angle_y), 0.0, math.sin(angle_y)), (0.0, 1.0, 0.0), (-math.sin(angle_y), 0.0, math.cos(angle_y))))
+        rotation = ry @ rx
+        translation = np.asarray((2.5, -1.25, 0.75), dtype=np.float64)
+        original = _test_torso_profile_sweep()
+        transformed = _test_torso_profile_sweep((rotation, translation))
+        points = np.asarray(((0.2, 0.6, 0.1), (0.9, 2.5, -0.35), (-1.0, 4.4, 0.55), (0.1, 6.7, 0.0)))
+        np.testing.assert_allclose(
+            successor._loft_field(points @ rotation.T + translation, transformed),
+            successor._loft_field(points, original),
+            rtol=0.0,
+            atol=1.0e-11,
+        )
 
 
 class SuccessorSurfacePreviewTests(unittest.TestCase):
@@ -258,6 +406,53 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                     float(np.max(np.abs(flank_values))),
                     max(0.25, side.depth_radius),
                 )
+
+    def test_torso_profile_rebinds_five_section_shoulder_attachment_probes(self) -> None:
+        for _, descriptors, _ in self.form.variants:
+            guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+            region = successor.compile_successor_region(guide)
+            self.assertEqual(region.loft.profile_operation, successor.TORSO_PROFILE_OPERATION)
+            for section in region.loft.sections:
+                center = np.asarray(section.center, dtype=np.float64)
+                lateral_axis, forward_axis = (np.asarray(axis, dtype=np.float64) for axis in section.transverse_axes)
+                lateral, anterior, posterior = section.cardinal_radii
+                probes = np.asarray((
+                    center + lateral * lateral_axis,
+                    center - lateral * lateral_axis,
+                    center + anterior * forward_axis,
+                    center - posterior * forward_axis,
+                ))
+                probe_values = successor._loft_field(probes, region.loft)
+                self.assertTrue(
+                    np.all(probe_values <= successor._SHOULDER_BOUNDARY_TOLERANCE),
+                    msg=f"torso station probes escaped the continuous sweep: {probe_values!r}",
+                )
+
+            for shoulder, side in zip(region.shoulder_sweeps, guide.shoulder_frame.sides):
+                interior = np.asarray(shoulder.sweep.sections[0].center, dtype=np.float64)
+                boundary = np.asarray(shoulder.sweep.sections[1].center, dtype=np.float64)
+                self.assertLess(float(successor._loft_field(interior.reshape(1, 3), region.loft)[0]), 0.0)
+                self.assertLessEqual(abs(float(successor._loft_field(boundary.reshape(1, 3), region.loft)[0])), successor._SHOULDER_BOUNDARY_TOLERANCE)
+                self.assertIs(shoulder.sweep.sections[0].owner, guide.shoulder_frame.torso_owner)
+                self.assertIs(shoulder.sweep.sections[1].owner, guide.shoulder_frame.torso_owner)
+                upper_arm = next(item for item in region.limb_sweeps if item.chain_name == f"{side.side}-arm")
+                np.testing.assert_array_equal(shoulder.sweep.sections[3].center, upper_arm.sweep.sections[0].center)
+                np.testing.assert_array_equal(shoulder.sweep.sections[4].center, upper_arm.sweep.sections[1].center)
+                remote = np.asarray(((8.0, 3.0, 0.0), (-8.0, 3.0, 0.0), (0.0, 8.0, 0.0), (0.0, -4.0, 0.0)))
+                remote_values = successor._shoulder_sweep_field(remote, shoulder)
+                self.assertTrue(np.all(np.isfinite(remote_values)))
+                self.assertTrue(np.all(remote_values > 0.0))
+
+            center = np.asarray(region.loft.sections[3].center, dtype=np.float64)
+            lateral_axis = np.asarray(region.loft.sections[3].transverse_axes[0], dtype=np.float64)
+            probe = center + 0.6 * lateral_axis
+            mirrored = center - 0.6 * lateral_axis
+            np.testing.assert_allclose(
+                successor._loft_field(np.asarray((probe, mirrored)), region.loft)[0],
+                successor._loft_field(np.asarray((probe, mirrored)), region.loft)[1],
+                rtol=0.0,
+                atol=1.0e-12,
+            )
 
     def test_extremity_sweeps_have_shared_order_topology_and_exact_caps(self) -> None:
         expected_order = (
@@ -1267,6 +1462,14 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             self.assertTrue(first.metrics["finite_vertices"] and first.metrics["finite_normals"])
             self.assertGreater(first.metrics["signed_volume"], 0.0)
             limb_metrics = first.metrics["successor_region"]
+            self.assertEqual(limb_metrics["regional_guide_format"], successor.REGIONAL_GUIDE_FORMAT)
+            self.assertEqual(limb_metrics["torso_representation"], successor.TORSO_PROFILE_OPERATION)
+            self.assertEqual(limb_metrics["torso_profile_exponent"], successor.TORSO_SUPERELLIPSE_EXPONENT)
+            self.assertEqual(len(limb_metrics["torso_section_controls"]), 7)
+            self.assertEqual(
+                [item["owner"]["role"] for item in limb_metrics["torso_section_controls"]],
+                ["pelvis", "pelvis", "torso", "torso", "torso", "torso", "torso"],
+            )
             self.assertEqual(limb_metrics["shoulder_representation"], "authored-five-section-frame-aware-profile-sweeps")
             self.assertEqual(limb_metrics["shoulder_sweeps_consumed"], 2)
             self.assertEqual(limb_metrics["shoulder_sweep_order"], ["left-shoulder-envelope", "right-shoulder-envelope"])
@@ -1308,11 +1511,11 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             np.testing.assert_array_equal(first.normals, second.normals)
             self.assertEqual(first.metrics, second.metrics)
             self.assertEqual(first.metrics["successor_region"]["torso_section_names"][-1], "upper-ribcage-shoulder")
-            winner_keys = {
+            head_neck_owner_keys = {
                 (item["namespace"], tuple(item["anchors"]), item["kind"], item["role"])
-                for item in first.metrics["winner_addresses"]
+                for item in limb_metrics["head_neck_sweep_owner_keys"]
             }
-            self.assertIn(first.representation.head_neck_sweeps[3].owner.key, winner_keys)
+            self.assertIn(first.representation.head_neck_sweeps[3].owner.key, head_neck_owner_keys)
             signatures.append((first.vertices.shape, first.metrics["signed_volume"], tuple(first.metrics["grid"]["bounds_max"])))
         self.assertEqual(len(signatures), 4)
         self.assertGreater(len(set(signatures)), 1)
@@ -1335,7 +1538,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
         np.testing.assert_array_equal(successor_bounds[1], baseline_bounds[1])
 
     def test_generator_emits_explicit_successor_and_bridge_metadata(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
+        with _native_temporary_directory() as directory:
             root = Path(directory)
             source = root / "input.json"
             source.write_bytes(surface_preview._canonical(fixture.make_varied_payload()))
@@ -1361,7 +1564,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 [item["source_variant_sha256"] for item in first_manifest["variants"]],
                 [item["source_variant_sha256"] for item in second_manifest["variants"]],
             )
-            self.assertEqual(successor.FORMAT, "creature-kernel.disposable-successor-surface-preview.v3")
+            self.assertEqual(successor.FORMAT, "creature-kernel.disposable-successor-surface-preview.v4")
             self.assertEqual(first_manifest["format"], successor.FORMAT)
             self.assertEqual(first_manifest["consumer_id"], successor.CONSUMER_ID)
             self.assertEqual(first_manifest["generator"]["samples_per_axis"], 56)
@@ -1478,7 +1681,11 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 self.assertEqual(sidecar["capture"]["projections"], first_manifest["projections"])
                 self.assertEqual(sidecar["capture"]["layout"], first_manifest["layout"])
                 self.assertEqual(sidecar["capture"]["shared_render_bounds"], expected_bounds_json)
+                self.assertEqual(sidecar["torso"]["representation"], successor.TORSO_PROFILE_OPERATION)
+                self.assertEqual(sidecar["torso"]["regional_guide_format"], successor.REGIONAL_GUIDE_FORMAT)
+                self.assertEqual(sidecar["torso"]["superellipse_exponent"], successor.TORSO_SUPERELLIPSE_EXPONENT)
                 self.assertEqual(sidecar["torso"]["sections_consumed"], 7)
+                self.assertEqual(len(sidecar["torso"]["section_controls"]), 7)
                 self.assertEqual(
                     sidecar["shoulders"],
                     {
@@ -1546,7 +1753,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 self.assertEqual(sidecar["temporary_bridge"]["field_count"], 4)
 
     def test_generator_rejects_oversized_input_before_parse_or_staging(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
+        with _native_temporary_directory() as directory:
             root = Path(directory)
             source = root / "oversized.json"
             source.write_bytes(b"not-json" + b"x" * surface_preview.MAX_INPUT_BYTES)
@@ -1562,7 +1769,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             self.assertEqual(sorted(path.name for path in root.iterdir()), ["oversized.json"])
 
     def test_bounded_input_reader_accepts_the_exact_inclusive_limit(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
+        with _native_temporary_directory() as directory:
             source = Path(directory) / "exact-limit.json"
             source.write_bytes(b"x" * surface_preview.MAX_INPUT_BYTES)
 
@@ -1571,7 +1778,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             self.assertEqual(len(data), surface_preview.MAX_INPUT_BYTES)
 
     def test_generator_rejects_unexpected_staged_entries_and_cleans(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
+        with _native_temporary_directory() as directory:
             root = Path(directory)
             source = root / "input.json"
             source.write_bytes(surface_preview._canonical(fixture.make_varied_payload()))
@@ -1582,6 +1789,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 region = successor.compile_successor_region(guide, fields)
                 metrics = {
                     "successor_region": {
+                        "torso_section_controls": _serialized_torso_section_controls(region),
                         "tail_element_controls": [],
                         "tail_tip_shared_endpoint": {},
                     },
@@ -1622,7 +1830,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                     self.assertEqual(sorted(path.name for path in root.iterdir()), ["input.json"])
 
     def test_generator_cleans_staging_after_render_failure(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
+        with _native_temporary_directory() as directory:
             root = Path(directory)
             source = root / "input.json"
             source.write_bytes(surface_preview._canonical(fixture.make_varied_payload()))
@@ -1634,6 +1842,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 region = successor.compile_successor_region(guide, fields)
                 metrics = {
                     "successor_region": {
+                        "torso_section_controls": _serialized_torso_section_controls(region),
                         "tail_element_controls": [],
                         "tail_tip_shared_endpoint": {},
                     },
@@ -1782,7 +1991,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
         np.testing.assert_allclose(flipped_values, base_values, rtol=0.0, atol=1.0e-12)
 
     def test_atomic_directory_collision_preserves_stage_and_target(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
+        with _native_temporary_directory() as directory:
             root = Path(directory)
             stage = root / "stage"
             target = root / "target"

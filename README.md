@@ -1,151 +1,131 @@
 # Creature Kernel
 
-Creature Kernel is an exploratory platform for generating programmable
-creatures from semantic body definitions instead of starting with a
-hand-authored mesh. It is aimed at making varied, physically meaningful
-characters easier to construct, inspect, and eventually use in real-time
-experiences.
+Creature Kernel is an engine-independent procedural creature compiler and
+future embodiment runtime research prototype. It explores how one
+authoritative semantic body definition can support generation, inspection, and
+later runtime representations without making arbitrary creature or character
+support a present-day claim.
 
-The initial focus is stylized furry characters. The longer-term idea is that a
-single body definition can provide the shared lineage for geometry, rigging,
-collision, materials, deformation, and runtime capabilities—while specialized
-representations remain free to do their own jobs.
+## Current demonstrated boundary
 
-## Where the project is now
+The current demonstrated boundary is a bounded stylized digitigrade
+anthropomorphic/animal-like biped with a torso/pelvis, head and simplified
+muzzle, paired arms with simplified hands or paws, paired digitigrade legs
+with simplified feet or paws, and optional named ear and tail modules. The
+checked-in body document can be admitted and inspected structurally, prepared
+into a source-preserving numeric/debug projection, and used to produce four
+fixed display-only provisional filled-form variants.
 
-This is an exploratory executable prototype, not a finished game or engine.
-The Rust workspace contains the emerging semantic/compiler core and a thin
-CLI. Disposable Python experiments and a local browser gallery currently make
-the generated structures and surface hypotheses visible. The project does not
-yet provide production-ready animation, IK, physics, soft-body deformation,
-arbitrary creature support, or a game runtime.
+These are preparatory developer-facing capabilities in an exploratory
+prototype. They do not establish arbitrary morphology or model support, a
+production compiler contract, production geometry, or a runtime avatar.
 
-The current work is testing an important boundary: can the same semantic body
-and generated private guides drive different surface-generation approaches?
-The old ellipsoid/capsule preview remains as a comparison baseline while a
-successor surface experiment explores more coherent continuous forms. Neither
-preview is a permanent geometry backend.
+The longer-term generic direction is to derive geometry, rigging, collision,
+materials, deformation data, and runtime adapters from shared semantic
+lineage. Those are future capabilities, not capabilities of the current
+prototype.
 
-See [current project status](docs/project/status.md) for the active runway and
-the exact checkpoint currently being pursued.
+## Explicit non-capabilities today
 
-## The intended direction
+- No arbitrary creature, character, anatomy, quadruped, wing, extra-limb, or
+  detailed-digit support.
+- No production mesh or surface-generation backend, final topology, or
+  authored-mesh conformance path.
+- No usable skeleton, skin weights, animation, IK, collision, contact,
+  deformation, physics, or real-time runtime implementation.
+- No standalone renderer, editor, game engine, service, or embedded AI
+  assistant.
+
+## Architecture direction
 
 ```text
 semantic body document
-        -> deterministic preparation and validation
-        -> private guides and derived representations
-        -> geometry, rigging, collision, appearance, and runtime adapters
-        -> an engine or real-time interactive experience
+        -> admission, preparation, and validation
+        -> resolved semantic body graph
+        -> specialized geometry, rig, collision, and appearance representations
+        -> embodiment runtime and host-engine adapters
 ```
 
-The source of truth is intended to be the semantic body, not generated mesh
-topology. Humans, scripts, and external AI agents should eventually be able to
-use the same deterministic CLI/API operations to create, inspect, validate,
-and revise bodies. The core does not require an embedded AI assistant.
-
-This is deliberately staged. The first proof is a bounded stylized
-digitigrade furry-biped family generated through shared operations. Broader
-morphologies, authored-mesh conformance, richer appearance, usable rigs,
-contact, deformation, and runtime interaction are later capabilities—not
-claims made by the current prototype.
-
-## What exists now
-
-- A Rust/Cargo workspace for the semantic and compiler foundation.
-- A strict, proposed body-document and body-graph direction with a checked-in
-  stylized digitigrade biped example.
-- Provisional source admission, structural inspection, numeric preparation, and
-  placement scaffolding.
-- A thin CLI for inspecting the authored structural and prepared-source views.
-- Four fixed body-profile variants used to test shared generation operations.
-- Disposable Python surface-preview experiments and deterministic visual
-  artifacts for comparing baseline and successor hypotheses.
-- A small local visual-review gallery for inspecting JSON, diagrams, and image
-  comparisons in a browser.
-
-These pieces are evidence and working foundations. They are not yet a
-production compiler contract, final mesh pipeline, or runtime avatar system.
+The semantic source is intended to remain authoritative; generated mesh
+topology and runtime artifacts are derived representations. The graph,
+geometry, rigging, collision, and runtime stages are proposed or gated beyond
+the current provisional CLI and inspection slices.
 
 ## Quick start
 
 The repository uses the Rust toolchain declared in
-[`rust-toolchain.toml`](rust-toolchain.toml). With Rust installed, run the
-workspace tests from the repository root:
+[`rust-toolchain.toml`](rust-toolchain.toml). From the repository root:
 
 ```bash
 cargo test --workspace --all-targets
 ```
 
-Inspect the checked-in semantic example:
+Inspect the checked-in examples with the three current provisional CLI
+entrypoints:
 
 ```bash
 cargo run -p creature-kernel-cli -- inspect-structure \
   --input examples/body-documents/stylized-digitigrade-biped.json
+
+cargo run -p creature-kernel-cli -- inspect-prepared-source \
+  --input examples/body-documents/stylized-digitigrade-biped.json
+
+cargo run -p creature-kernel-cli -- inspect-provisional-form \
+  --input examples/body-documents/stylized-digitigrade-biped-authored-form.json
 ```
 
-For the full setup, pinned-toolchain checks, prepared-source inspection, and
-local browser sessions, see [`DEVELOPER_SETUP.md`](DEVELOPER_SETUP.md).
+`inspect-structure` emits a source-preserving structural debug projection;
+`inspect-prepared-source` exposes bounded preparation data; and
+`inspect-provisional-form` emits four fixed display-only filled-form variants.
+The provisional-form entrypoint uses the checked-in authored-form input because
+it consumes the current source-authored form controls.
+All three accept `--input -` for stdin and emit structured JSON. They are
+provisional inspection operations, not a general compile or runtime API.
 
-## Find your way around
+For pinned-toolchain checks, prepared-source inspection, and local browser
+workflows, see [`DEVELOPER_SETUP.md`](DEVELOPER_SETUP.md).
 
-- [Documentation map and reading order](docs/README.md) — where each kind of
-  project information belongs.
-- [Vision and scope](docs/product/vision-and-scope.md) — intended outcomes,
-  boundaries, and staged success shape.
-- [Requirements](docs/product/requirements.md) — proposed product
-  requirements and first-proof limits.
-- [Architecture](docs/architecture/README.md) — target boundaries and
-  responsibilities.
-- [Body-document specification](spec/body-document/README.md) — the proposed
-  source-document direction.
-- [Body-graph specification](spec/body-graph/README.md) — the proposed
-  semantic graph direction.
-- [Decision registry](docs/decisions/registry.md) — rationale for consequential
-  choices; these records do not replace canonical contracts.
-- [Research questions](docs/research/open-questions.md) — unresolved
-  hypotheses and investigations.
-- [Experiments](experiments/README.md) — reproducible exploratory evidence.
-- [Visual-review tooling](dev-tools/visual-review/README.md) — disposable
-  local browser/gallery workflows.
-- [Current status](docs/project/status.md) — active work, checkpoint, and
-  implementation state.
+## Repository map
 
-## Project boundaries
+- [`crates/creature-kernel-core/`](crates/creature-kernel-core/) — semantic,
+  admission, and preparation foundations.
+- [`crates/creature-kernel-cli/`](crates/creature-kernel-cli/) — the thin
+  provisional CLI adapter.
+- [`examples/body-documents/`](examples/body-documents/) — checked-in semantic
+  body inputs, including the current biped example.
+- [`spec/`](spec/) — proposed normative document, graph, numeric, and related
+  contract areas.
+- [`docs/product/`](docs/product/), [`docs/architecture/`](docs/architecture/),
+  [`docs/research/`](docs/research/), and [`docs/project/`](docs/project/) —
+  intended outcomes, boundaries, evidence questions, and status.
+- [`experiments/`](experiments/) — disposable, reproducible exploratory work.
+- [`dev-tools/visual-review/`](dev-tools/visual-review/) — local inspection
+  and gallery tooling for provisional artifacts.
 
-Creature Kernel is intended to be an engine-independent compiler and
-embodiment runtime, not a replacement for a general-purpose game engine. A
-real-time game is the first downstream proof and integration target.
+## Licensing and contributions
 
-The initial reference path is native programmatic generation without requiring
-a handcrafted base mesh. Later support for externally supplied meshes must not
-be ruled out by the semantic contracts. The first proof intentionally excludes
-arbitrary anatomy, quadrupeds, extra limbs, detailed digits, full-resolution
-soft-body simulation, dynamic topology every frame, and a built-in language
-model.
+Project-authored tracked repository material is available under either the MIT
+License or Apache License, Version 2.0, at your option. See
+[`LICENSE-MIT`](LICENSE-MIT) and [`LICENSE-APACHE`](LICENSE-APACHE). Contributions
+are accepted under the same dual terms; no CLA is required.
 
-## Contributing and validation
+The project license applies to project-authored repository material and does
+not by itself impose a license on independently generated outputs. Input
+rights, third-party material, and outputs incorporating separately licensed
+repository assets remain subject to their own rights and terms.
 
-Read the [documentation authority map](docs/README.md) and
-[`AGENTS.md`](AGENTS.md) before making consequential changes. Keep generated
-meshes, captures, caches, and other disposable artifacts outside the repository
-unless an explicit storage decision exists.
+## Further reading
 
-For documentation changes, run:
+- [Documentation map](docs/README.md)
+- [Vision and scope](docs/product/vision-and-scope.md)
+- [Requirements](docs/product/requirements.md)
+- [Architecture](docs/architecture/README.md)
+- [Body-document specification](spec/body-document/README.md)
+- [Numeric and frame profile](spec/numeric-frame-profile/README.md)
+- [Research questions](docs/research/open-questions.md)
+- [Current project status](docs/project/status.md)
 
-```bash
-python3 dev-tools/validation/validate_docs.py
-git diff --check
-```
-
-The project is still deciding which technical approaches deserve promotion
-from experiments into durable contracts. Treat proposed documents and visual
-previews as clearly labelled working material, and use
-[`docs/project/status.md`](docs/project/status.md) to distinguish current
-implementation from future direction.
-
-## Historical context
-
-[`docs/FOUNDATION.md`](docs/FOUNDATION.md) preserves the founding conversation.
-It is useful context, but current product, specification, architecture, and
-status documents are the authoritative sources for present work.
+Most product, architecture, and specification material remains Proposed or
+gated. The [decision registry](docs/decisions/registry.md) records rationale
+and review state; [the founding record](docs/FOUNDATION.md) is historical
+context rather than current authority.

@@ -17,6 +17,7 @@ Status: Operational under Accepted DR-0001 Revision 5
 | [DR-0011](DR-0011-minimal-semantic-vocabulary-measurements-and-frames.md) | Minimal semantic vocabulary, measurements, and frames | Specification and architecture | Accepted | 15 | Complete | Ben |
 | [DR-0012](DR-0012-initial-body-document-encoding-resolution-and-compatibility.md) | Initial body-document encoding, resolution, and compatibility | Specification and architecture | Accepted | 14 | Complete | Ben |
 | [DR-0013](DR-0013-first-production-implementation-platform-and-geometry-boundary.md) | First production implementation platform and geometry boundary | Specification and architecture | Accepted | 12 | Complete | Ben |
+| [DR-0014](DR-0014-project-licensing-and-contribution-terms.md) | Project licensing and contribution terms | Governance | Accepted | 2 | Complete | Ben |
 
 Accepted DR-0001 Revision 5 remains the operative governance baseline. DR-0001
 Revision 6 is `Proposed`; Ben approved its workflow direction on 2026-08-13,
@@ -765,9 +766,11 @@ inputs; native smoke precedes native portability claims.
 
 ## Candidate decisions
 
-Remaining candidates do not yet have reserved DR numbers. The first production
-platform proposal is recorded in DR-0013; its later geometry backend remains
-conditional and unaccepted.
+The accepted project licensing and contribution terms are recorded in DR-0014
+Revision 2 with Review Complete and Owner approval Approved by Ben. Remaining
+candidates do not yet have reserved DR numbers. The first production platform
+proposal is recorded in DR-0013; its later geometry backend remains conditional
+and unaccepted.
 
 | Candidate | Trigger for proposal |
 | --- | --- |
@@ -777,4 +780,3 @@ conditional and unaccepted.
 | Avatar package serialization | Before persisting compiled avatars |
 | Determinism and replay level | Before defining runtime state contracts |
 | Artifact storage | Before committing or publishing large generated assets |
-| Project licence | Before accepting external contributions or distribution |

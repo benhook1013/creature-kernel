@@ -243,7 +243,7 @@ Deterministic normalization/sign direction is an accepted semantic-foundation
 direction; near-zero/drift thresholds, constants, ranges, validation-margin/
 error formula, and deterministic implementation/binding remain Proposed or
 gated. The first Readiness 3 resolver/fixture transaction is bounded to the
-stylized digitigrade furry-biped family and fixed fixture envelope. It binds
+stylized digitigrade anthropomorphic/animal-like biped family and fixed fixture envelope. It binds
 one authored-conflict comparison profile for authored versus
 Attachment-equation-derived placement; identity and constants are frozen only
 from a bounded successor experiment. Exact-zero comparison, indefinite
