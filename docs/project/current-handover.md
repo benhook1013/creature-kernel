@@ -183,16 +183,15 @@ boundary explicitly, not as authority to regenerate or rebind EXP-0002.
 
 ## Evidence and limits
 
-Current checks known: 405 Rust workspace tests, 44 baseline surface tests, 46
-successor tests, 92 visual-review tests, 82 Phase 2 Python tests, and 368 Phase 3
-Python tests on native `/tmp` pass. Documentation validation,
-`git diff --check`, Python/JavaScript syntax, formatting, default Clippy, and
-exact CI-readiness checks pass. A fresh real publication produced 4 groups and
-8 assets with no response artifact.
-Two fresh hands-on trials are complete. The broad adversarial pass completed
-55/55 comparator, keyboard, zoom, asset, scoping, wrap, resize, console, and
-network checks across all eight assets. A focused first-use pass exposed focus
-loss after click/arrow navigation; the repaired candidate then passed a fresh
-independent click/arrow/zoom/close-reopen regression across two groups with no
-browser errors. This remains implementation evidence only and does not claim
+Current checks known: 411 Rust workspace tests, 51 baseline surface tests, 49
+successor tests, 24 browser/publication parity tests with more than 93
+JavaScript VM executions, and 30 publisher tests pass. Documentation
+validation, `git diff --check`, Python/JavaScript syntax, formatting, and
+Clippy with warnings denied pass. A fresh real publication produced four
+groups and eight assets with no response artifact.
+Two fresh hands-on trials are complete. They exercised exact evidence and
+asset bindings, generation and publication, HTTP success and failure paths,
+modal click and keyboard navigation including wrap and Escape focus return,
+and browser console/network behavior. Both found the four generated successor
+meshes connected and visibly variant-sensitive; neither result constitutes
 visual acceptance or completion of the named gallery checkpoint.
