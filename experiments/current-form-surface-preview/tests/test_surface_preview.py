@@ -124,6 +124,13 @@ def make_payload() -> dict[str, object]:
         ("forearm-midpoint", "forearm", -0.5, (210, 200, 190)),
         ("forearm-distal", "forearm", -1.0, (180, 170, 160)),
     ]
+    leg_specs = [
+        ("thigh-start", "thigh", 0.0, (320, 280, 300)),
+        ("thigh-midpoint", "thigh", -0.5, (300, 260, 280)),
+        ("knee", "thigh", -1.0, (240, 210, 225)),
+        ("shin-midpoint", "shin", -0.5, (225, 195, 210)),
+        ("hock-endpoint", "shin", -1.0, (185, 165, 175)),
+    ]
     authored_dimensions = []
     for item in descriptors:
         shape = item["shape"]
@@ -170,6 +177,16 @@ def make_payload() -> dict[str, object]:
                 authored_dimensions.append({
                     "owner": copy.deepcopy(owner),
                     "role": surface_preview.ARM_PROFILE_DIMENSION_PREFIX + underscore_name + "_" + suffix,
+                    "value_permille": value,
+                    "provenance": {"source": "source-authored", "document": "test", "namespace": "main"},
+                })
+        for name, owner_role, _, radii in leg_specs:
+            owner = address(owner_role, [side])
+            underscore_name = name.replace("-", "_")
+            for suffix, value in zip(surface_preview.LEG_PROFILE_DIMENSION_SUFFIXES, radii):
+                authored_dimensions.append({
+                    "owner": copy.deepcopy(owner),
+                    "role": surface_preview.LEG_PROFILE_DIMENSION_PREFIX + underscore_name + "_" + suffix,
                     "value_permille": value,
                     "provenance": {"source": "source-authored", "document": "test", "namespace": "main"},
                 })
@@ -238,11 +255,34 @@ def make_payload() -> dict[str, object]:
                     for index, (name, _, y, radii) in enumerate(arm_specs)
                 ],
             })
+        leg_profile_sides = []
+        for side in ("left", "right"):
+            factors = surface_preview._arm_profile_factors(variant_id)
+            leg_profile_sides.append({
+                "side": side,
+                "sections": [
+                    {
+                        "source_section_index": index,
+                        "name": name,
+                        "position": [0.0, y, 0.0],
+                        "lateral_radius_permille": radii[0] * factors[0] // 1_000,
+                        "up_radius_permille": radii[1] * factors[1] // 1_000,
+                        "forward_radius_permille": radii[2] * factors[2] // 1_000,
+                        "scaling": {
+                            "lateral_factor_permille": factors[0],
+                            "up_factor_permille": factors[1],
+                            "forward_factor_permille": factors[2],
+                        },
+                        "provenance": {"source": "source-authored", "document": "test", "namespace": "main"},
+                    }
+                    for index, (name, _, y, radii) in enumerate(leg_specs)
+                ],
+            })
         head_neck_connections = [
             {"name": name, "from_section_index": from_index, "to_section_index": to_index, "route": route}
             for name, from_index, to_index, route in surface_preview.HEAD_NECK_PROFILE_CONNECTIONS
         ]
-        variants.append({"id": variant_id, "profile_id": variant_id, "provenance": {"source": "profile-derived-display", "resource_profile_id": "ck.resource.body.r2", "shape_basis": "source-authored-dimensions-plus-fixed-display-factor"}, "descriptors": current, "torso_profile": {"format": surface_preview.AUTHORED_TORSO_PROFILE_FORMAT, "source": "authored_torso_profile", "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}, "sections": torso_profile_sections}, "head_neck_profile": {"format": surface_preview.AUTHORED_HEAD_NECK_PROFILE_FORMAT, "source": "authored_head_neck_profile", "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}, "sections": head_neck_profile_sections, "connections": head_neck_connections}, "arm_profile": {"format": surface_preview.AUTHORED_ARM_PROFILE_FORMAT, "source": "authored_arm_profile", "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}, "sides": arm_profile_sides}})
+        variants.append({"id": variant_id, "profile_id": variant_id, "provenance": {"source": "profile-derived-display", "resource_profile_id": "ck.resource.body.r2", "shape_basis": "source-authored-dimensions-plus-fixed-display-factor"}, "descriptors": current, "torso_profile": {"format": surface_preview.AUTHORED_TORSO_PROFILE_FORMAT, "source": "authored_torso_profile", "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}, "sections": torso_profile_sections}, "head_neck_profile": {"format": surface_preview.AUTHORED_HEAD_NECK_PROFILE_FORMAT, "source": "authored_head_neck_profile", "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}, "sections": head_neck_profile_sections, "connections": head_neck_connections}, "arm_profile": {"format": surface_preview.AUTHORED_ARM_PROFILE_FORMAT, "source": "authored_arm_profile", "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}, "sides": arm_profile_sides}, "leg_profile": {"format": surface_preview.AUTHORED_LEG_PROFILE_FORMAT, "source": "authored_leg_profile", "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}, "sides": leg_profile_sides}})
     authored_landmarks = [
         {"owner": address("upper_arm", ["left"]), "role": "form_shoulder_peak", "frame": {"owner": address("upper_arm", ["left"]), "role": "form_shoulder_control"}, "position": [-0.1, 0.15, 0.0], "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}},
         {"owner": address("upper_arm", ["left"]), "role": "form_axilla", "frame": {"owner": address("upper_arm", ["left"]), "role": "form_shoulder_control"}, "position": [-0.1, -0.3, 0.0], "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}},
@@ -277,6 +317,15 @@ def make_payload() -> dict[str, object]:
                 "position": [0.0, y, 0.0],
                 "provenance": {"source": "source-authored", "document": "test", "namespace": "main"},
             })
+        for name, owner_role, y, _ in leg_specs:
+            owner = address(owner_role, [side])
+            authored_landmarks.append({
+                "owner": copy.deepcopy(owner),
+                "role": surface_preview.LEG_PROFILE_LANDMARK_PREFIX + name.replace("-", "_"),
+                "frame": {"owner": copy.deepcopy(owner), "role": surface_preview.LEG_PROFILE_CONTROL_FRAME_ROLE},
+                "position": [0.0, y, 0.0],
+                "provenance": {"source": "source-authored", "document": "test", "namespace": "main"},
+            })
     authored_landmarks.sort(key=lambda item: (item["owner"]["namespace"], tuple(item["owner"]["anchors"]), item["owner"]["kind"], item["owner"]["role"], item["role"]))
     authored_frames = [
         {"owner": address(role), "role": surface_preview.HEAD_NECK_PROFILE_FRAME_ROLE, "transform": {"translation": [0.0, 0.0, 0.0], "rotation_xyzw": [0.0, 0.0, 0.0, 1.0]}, "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}}
@@ -291,6 +340,10 @@ def make_payload() -> dict[str, object]:
         {"owner": address(owner_role, [side]), "role": surface_preview.ARM_PROFILE_CONTROL_FRAME_ROLE, "transform": {"translation": [0.0, 0.0, 0.0], "rotation_xyzw": [0.0, 0.0, 0.0, 1.0]}, "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}}
         for side in ("left", "right")
         for owner_role in ("forearm", "upper_arm")
+    ] + [
+        {"owner": address(owner_role, [side]), "role": surface_preview.LEG_PROFILE_CONTROL_FRAME_ROLE, "transform": {"translation": [0.0, 0.0, 0.0], "rotation_xyzw": [0.0, 0.0, 0.0, 1.0]}, "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}}
+        for side in ("left", "right")
+        for owner_role in ("shin", "thigh")
     ]
     authored_frames.sort(key=lambda item: (item["owner"]["namespace"], tuple(item["owner"]["anchors"]), item["owner"]["kind"], item["owner"]["role"], item["role"]))
     source_provenance = {"source": "source-authored", "document": "test", "namespace": "main"}
@@ -370,7 +423,31 @@ def make_payload() -> dict[str, object]:
             for side in ("left", "right")
         ],
     }
-    payload = {"format": surface_preview.SOURCE_FORMAT, "operation": "inspect-provisional-form", "status": "success", "stage": "provisional-form", "processing_complete": True, "diagnostics_complete": True, "diagnostics": [], "source": {"document": "test", "namespace": "main", "resource_profile_id": "ck.resource.body.r2"}, "reference_scale": {"parent": address("neck"), "child": address("head"), "axis_delta": [0, 1, 0], "squared_length": 1, "source": "exact-containment-edge"}, "authored_dimensions": authored_dimensions, "authored_landmarks": authored_landmarks, "authored_frames": authored_frames, "authored_torso_profile": authored_torso_profile, "authored_head_neck_profile": authored_head_neck_profile, "authored_arm_profile": authored_arm_profile, "variants": variants, "limitations": "Provisional display-only geometry descriptors; source-authored dimensions, shoulder controls, authored_torso_profile v1, authored_head_neck_profile v1, and authored_arm_profile v1 use bounded source-authored controls and fixed display factors; no production geometry or Readiness 3."}
+    authored_leg_profile = {
+        "format": surface_preview.AUTHORED_LEG_PROFILE_FORMAT,
+        "provenance": copy.deepcopy(source_provenance),
+        "sides": [
+            {
+                "side": side,
+                "sections": [
+                    {
+                        "name": name,
+                        "frame_index": frame_indices[(owner_role, (side,), surface_preview.LEG_PROFILE_CONTROL_FRAME_ROLE)],
+                        "landmark_index": landmark_indices[(owner_role, (side,), surface_preview.LEG_PROFILE_LANDMARK_PREFIX + name.replace("-", "_"))],
+                        "dimension_indices": {
+                            suffix.split("_")[0]: dimension_indices[(owner_role, (side,), surface_preview.LEG_PROFILE_DIMENSION_PREFIX + name.replace("-", "_") + "_" + suffix)]
+                            for suffix in surface_preview.LEG_PROFILE_DIMENSION_SUFFIXES
+                        },
+                        "provenance": copy.deepcopy(source_provenance),
+                        "section_index": index,
+                    }
+                    for index, (name, owner_role, _, _) in enumerate(leg_specs)
+                ],
+            }
+            for side in ("left", "right")
+        ],
+    }
+    payload = {"format": surface_preview.SOURCE_FORMAT, "operation": "inspect-provisional-form", "status": "success", "stage": "provisional-form", "processing_complete": True, "diagnostics_complete": True, "diagnostics": [], "source": {"document": "test", "namespace": "main", "resource_profile_id": "ck.resource.body.r2"}, "reference_scale": {"parent": address("neck"), "child": address("head"), "axis_delta": [0, 1, 0], "squared_length": 1, "source": "exact-containment-edge"}, "authored_dimensions": authored_dimensions, "authored_landmarks": authored_landmarks, "authored_frames": authored_frames, "authored_torso_profile": authored_torso_profile, "authored_head_neck_profile": authored_head_neck_profile, "authored_arm_profile": authored_arm_profile, "authored_leg_profile": authored_leg_profile, "variants": variants, "limitations": "Provisional display-only geometry descriptors; source-authored dimensions, shoulder controls, authored_torso_profile v1, authored_head_neck_profile v1, authored_arm_profile v1, and authored_leg_profile v1 use bounded source-authored controls and fixed display factors; no production geometry or Readiness 3."}
     return payload
 
 
@@ -383,9 +460,9 @@ class SurfacePreviewTests(unittest.TestCase):
         form = surface_preview.validate_envelope(make_payload())
         self.assertEqual([x[0] for x in form.variants], list(surface_preview.VARIANT_IDS))
         self.assertIn(("main", ("left",), "part", "hand"), {x.key for x in form.variants[0][1]})
-        self.assertEqual(len(form.authored_dimensions), 111)
-        self.assertEqual(len(form.authored_landmarks), 29)
-        self.assertEqual(len(form.authored_frames), 10)
+        self.assertEqual(len(form.authored_dimensions), 141)
+        self.assertEqual(len(form.authored_landmarks), 39)
+        self.assertEqual(len(form.authored_frames), 14)
         self.assertEqual(
             form.authored_dimensions,
             tuple(sorted(form.authored_dimensions, key=lambda item: (item[0], item[1]))),
@@ -619,6 +696,184 @@ class SurfacePreviewTests(unittest.TestCase):
             with self.subTest(index=index), self.assertRaises(surface_preview.PreviewError):
                 surface_preview.validate_envelope(malformed)
 
+    def test_authored_leg_profile_projects_all_ten_stations_and_thirty_radii_with_lineage(self) -> None:
+        form = surface_preview.validate_envelope(make_payload())
+        self.assertEqual(tuple(side.side for side in form.authored_leg_profile.sides), surface_preview.LEG_PROFILE_SIDE_NAMES)
+        self.assertEqual(tuple(section.name for section in form.authored_leg_profile.sides[0].sections), surface_preview.LEG_PROFILE_SECTION_NAMES)
+        radius_count = 0
+        for variant_index, (variant_id, descriptors, _) in enumerate(form.variants):
+            guide = surface_preview._derive_hybrid_guides(form, descriptors)
+            projected = form.variant_leg_profiles[variant_index]
+            by_key = {descriptor.key: descriptor for descriptor in descriptors}
+            for authored_side, projected_side, guide_side in zip(form.authored_leg_profile.sides, projected.sides, guide.leg_profile.sides):
+                self.assertEqual(guide_side.side, authored_side.side)
+                self.assertEqual(tuple(section.name for section in guide_side.sections), surface_preview.LEG_PROFILE_SECTION_NAMES)
+                for authored, variant_section, station in zip(authored_side.sections, projected_side.sections, guide_side.sections):
+                    owner = by_key[authored.owner]
+                    source = surface_preview._source_shape(owner, form.reference_scale)
+                    fraction = -variant_section.position[1]
+                    expected_center = tuple(float(source["from"][axis] + fraction * (source["to"][axis] - source["from"][axis])) for axis in range(3))
+                    self.assertIs(station.owner, owner)
+                    self.assertEqual(station.center, expected_center)
+                    self.assertEqual(station.frame.role, surface_preview.LEG_PROFILE_CONTROL_FRAME_ROLE)
+                    self.assertEqual(station.profile_provenance, form.authored_leg_profile.provenance)
+                    self.assertEqual(station.variant_provenance, variant_section.provenance)
+                    factors = surface_preview._arm_profile_factors(variant_id)
+                    for lineage, control, factor, projected_radius in zip(
+                        (station.lateral_lineage, station.up_lineage, station.forward_lineage),
+                        (authored.lateral, authored.up, authored.forward),
+                        factors,
+                        (variant_section.lateral_radius_permille, variant_section.up_radius_permille, variant_section.forward_radius_permille),
+                    ):
+                        self.assertEqual(lineage.base, control.value_permille)
+                        self.assertEqual(lineage.factor, factor)
+                        self.assertEqual(lineage.scaled, projected_radius)
+                        self.assertEqual(lineage.reference, (owner.key, control.role))
+                        self.assertEqual(lineage.reference_index, control.source_index)
+                        self.assertEqual(lineage.provenance, control.provenance)
+                        if variant_index == 0:
+                            radius_count += 1
+        self.assertEqual(radius_count, 30)
+
+    def test_authored_leg_profile_preserves_route_ownership_seam_hock_and_full_radius_fields(self) -> None:
+        form = surface_preview.validate_envelope(make_payload())
+        guide = surface_preview._derive_hybrid_guides(form, form.variants[0][1])
+        fields = surface_preview._compile_hybrid_guide(guide)
+        expected_owners = ("thigh", "thigh", "thigh", "shin", "shin")
+        for side in guide.leg_profile.sides:
+            self.assertEqual(tuple(section.owner.key[3] for section in side.sections), expected_owners)
+            thigh = next(item for item in guide.limb_guides if item.owner.key[1:] == ((side.side,), "part", "thigh"))
+            shin = next(item for item in guide.limb_guides if item.owner.key[1:] == ((side.side,), "part", "shin"))
+            self.assertEqual(side.sections[0].center, thigh.sections[0].centerline[0])
+            self.assertEqual(side.sections[1].center, thigh.sections[0].centerline[1])
+            self.assertEqual(side.sections[2].center, thigh.sections[1].centerline[1])
+            self.assertEqual(side.sections[2].center, shin.sections[0].centerline[0])
+            self.assertEqual(side.sections[3].center, shin.sections[0].centerline[1])
+            self.assertEqual(side.sections[4].center, shin.sections[1].centerline[1])
+            self.assertEqual(thigh.joint.center, side.sections[2].center)
+            self.assertEqual(shin.joint.center, side.sections[4].center)
+        route_fields = [item for item in fields if item.recipe in {"thigh-pre-joint", "thigh-joint", "shin-pre-joint", "shin-joint"}]
+        self.assertEqual(len(route_fields), 8)
+        self.assertTrue(all(item.shape["name"] == "leg-profile-segment" for item in route_fields))
+        self.assertTrue(all(len(item.shape["radii0"]) == 3 and len(item.shape["radii1"]) == 3 for item in route_fields))
+        self.assertEqual({item.owner.key[3] for item in fields if item.recipe == "knee"}, {"thigh"})
+        self.assertEqual({item.owner.key[3] for item in fields if item.recipe == "hock"}, {"shin"})
+
+    def test_authored_leg_profile_rejects_malformed_closure_owner_order_seam_radius_and_provenance(self) -> None:
+        cases: list[dict[str, object]] = []
+        payload = make_payload()
+        payload["authored_leg_profile"]["sides"][0]["sections"][2]["section_index"] = 1
+        cases.append(payload)
+        payload = make_payload()
+        payload["authored_leg_profile"]["sides"][0]["sections"][1]["dimension_indices"]["forward"] = payload["authored_leg_profile"]["sides"][0]["sections"][1]["dimension_indices"]["lateral"]
+        cases.append(payload)
+        payload = make_payload()
+        payload["authored_leg_profile"]["sides"] = list(reversed(payload["authored_leg_profile"]["sides"]))
+        cases.append(payload)
+        payload = make_payload()
+        payload["variants"][0]["leg_profile"]["sides"][0]["sections"][2]["forward_radius_permille"] += 1
+        cases.append(payload)
+        payload = make_payload()
+        payload["variants"][0]["leg_profile"]["sides"][0]["sections"][2]["source_section_index"] = 1
+        cases.append(payload)
+        payload = make_payload()
+        payload["variants"][0]["leg_profile"]["sides"][0]["sections"][2]["scaling"]["lateral_factor_permille"] += 1
+        cases.append(payload)
+        payload = make_payload()
+        payload["variants"][0]["leg_profile"]["sides"][0]["sections"][2]["position"][0] = 0.01
+        cases.append(payload)
+        payload = make_payload()
+        knee_index = payload["authored_leg_profile"]["sides"][0]["sections"][2]["landmark_index"]
+        payload["authored_landmarks"][knee_index]["position"][1] = -0.5
+        cases.append(payload)
+        payload = make_payload()
+        for section_index, y in enumerate((0.75, 0.25, -0.25)):
+            landmark_index = payload["authored_leg_profile"]["sides"][0]["sections"][section_index]["landmark_index"]
+            payload["authored_landmarks"][landmark_index]["position"][1] = y
+        cases.append(payload)
+        payload = make_payload()
+        payload["authored_leg_profile"]["sides"][0]["sections"][2]["provenance"]["source"] = "tampered"
+        cases.append(payload)
+        for index, malformed in enumerate(cases):
+            with self.subTest(index=index), self.assertRaises(surface_preview.PreviewError):
+                surface_preview.validate_envelope(malformed)
+
+        form = surface_preview.validate_envelope(make_payload())
+        guide = surface_preview._derive_hybrid_guides(form, form.variants[0][1])
+        side = guide.leg_profile.left
+        broken_station = dataclasses.replace(side.sections[2], center=(side.sections[2].center[0], side.sections[2].center[1] + 0.1, side.sections[2].center[2]))
+        broken_side = dataclasses.replace(side, sections=(*side.sections[:2], broken_station, *side.sections[3:]))
+        broken_profile = dataclasses.replace(guide.leg_profile, sides=(broken_side, guide.leg_profile.right))
+        with self.assertRaises(surface_preview.PreviewError):
+            surface_preview._compile_hybrid_guide(dataclasses.replace(guide, leg_profile=broken_profile))
+
+    def test_authored_leg_profile_radius_perturbation_is_local_to_one_station_and_side(self) -> None:
+        baseline_form = surface_preview.validate_envelope(make_payload())
+        baseline_guide = surface_preview._derive_hybrid_guides(baseline_form, baseline_form.variants[0][1])
+        baseline_fields = surface_preview._compile_hybrid_guide(baseline_guide)
+        payload = make_payload()
+        role = surface_preview.LEG_PROFILE_DIMENSION_PREFIX + "knee_forward_radius"
+        dimension = next(item for item in payload["authored_dimensions"] if item["owner"]["anchors"] == ["left"] and item["owner"]["role"] == "thigh" and item["role"] == role)
+        dimension["value_permille"] += 13
+        for variant in payload["variants"]:
+            factor = surface_preview._arm_profile_factors(variant["id"])[2]
+            section = next(item for item in variant["leg_profile"]["sides"][0]["sections"] if item["name"] == "knee")
+            section["forward_radius_permille"] = dimension["value_permille"] * factor // 1_000
+        changed_form = surface_preview.validate_envelope(payload)
+        changed_guide = surface_preview._derive_hybrid_guides(changed_form, changed_form.variants[0][1])
+        changed_fields = surface_preview._compile_hybrid_guide(changed_guide)
+        baseline_sides = {side.side: side for side in baseline_guide.leg_profile.sides}
+        changed_sides = {side.side: side for side in changed_guide.leg_profile.sides}
+        for side_name in ("left", "right"):
+            for index, name in enumerate(surface_preview.LEG_PROFILE_SECTION_NAMES):
+                before = baseline_sides[side_name].sections[index]
+                after = changed_sides[side_name].sections[index]
+                if side_name == "left" and name == "knee":
+                    self.assertNotEqual(before.radii, after.radii)
+                    self.assertEqual(before.radii[:2], after.radii[:2])
+                else:
+                    self.assertEqual(before.radii, after.radii)
+                self.assertEqual(before.center, after.center)
+        def field_map(fields: tuple[surface_preview.Field, ...]) -> dict[tuple[tuple[str, tuple[str, ...], str, str], str], surface_preview.Field]:
+            return {(item.owner.key, item.recipe): item for item in fields}
+        before = field_map(baseline_fields)
+        after = field_map(changed_fields)
+        self.assertNotEqual(before[(('main', ('left',), 'part', 'thigh'), "thigh-joint")].shape["radii1"].tolist(), after[(('main', ('left',), 'part', 'thigh'), "thigh-joint")].shape["radii1"].tolist())
+        self.assertNotEqual(before[(('main', ('left',), 'part', 'shin'), "shin-pre-joint")].shape["radii0"].tolist(), after[(('main', ('left',), 'part', 'shin'), "shin-pre-joint")].shape["radii0"].tolist())
+        self.assertEqual(before[(('main', ('right',), 'part', 'thigh'), "thigh-joint")].shape["radii1"].tolist(), after[(('main', ('right',), 'part', 'thigh'), "thigh-joint")].shape["radii1"].tolist())
+        self.assertEqual(before[(('main', ('left',), 'part', 'shin'), "hock")].shape["radii"].tolist(), after[(('main', ('left',), 'part', 'shin'), "hock")].shape["radii"].tolist())
+
+    def test_authored_leg_profile_regional_controls_are_observable_deterministic_and_keep_foot_bridge(self) -> None:
+        form = surface_preview.validate_envelope(make_payload())
+        guide = surface_preview._derive_hybrid_guides(form, form.variants[0][1])
+        fields = surface_preview._compile_hybrid_guide(guide)
+        bounds = surface_preview._shared_render_bounds((fields,), 0.5)
+        first = surface_preview._regional_guide_json("neutral-v0", guide, bounds, compiled_fields=fields)
+        second = surface_preview._regional_guide_json("neutral-v0", guide, bounds, compiled_fields=fields)
+        self.assertEqual(first, second)
+        self.assertEqual(first["format"], surface_preview.REGIONAL_GUIDE_FORMAT)
+        self.assertEqual(first["counts"]["leg_profile_sides"], 2)
+        self.assertEqual(first["counts"]["leg_profile_sections"], 10)
+        controls = first["controls"]["leg_profile"]
+        self.assertEqual(controls["format"], surface_preview.AUTHORED_LEG_PROFILE_FORMAT)
+        self.assertEqual(controls["route_topology"]["owner_roles"], list(surface_preview.LEG_PROFILE_OWNER_ROLES))
+        self.assertEqual(controls["route_topology"]["seam"], {"name": "knee", "index": 2, "owner_role": "thigh"})
+        self.assertEqual(controls["route_topology"]["endpoint"], {"name": "hock-endpoint", "index": 4, "owner_role": "shin"})
+        self.assertEqual(sum(len(side["sections"]) for side in controls["sides"]), 10)
+        self.assertTrue(all(set(section["lineage"]) == {"lateral", "up", "forward"} for side in controls["sides"] for section in side["sections"]))
+        self.assertTrue(all(section["consumption"] == ("skin-driving; knee seam owned by thigh station" if section["name"] == "knee" else "skin-driving") for side in controls["sides"] for section in side["sections"]))
+        for side in guide.leg_profile.sides:
+            thigh = next(item for item in guide.limb_guides if item.owner.key[1:] == ((side.side,), "part", "thigh"))
+            shin = next(item for item in guide.limb_guides if item.owner.key[1:] == ((side.side,), "part", "shin"))
+            self.assertIsNotNone(thigh.root_centerline)
+            self.assertIsNotNone(thigh.hip_centerline)
+            foot = next(item for item in guide.paw_guides if item.owner.key[1:] == ((side.side,), "part", "foot"))
+            self.assertIsNotNone(foot.foot_chain)
+            assert foot.foot_chain is not None and shin.joint is not None
+            self.assertEqual(foot.foot_chain.hock_anchor, side.sections[4].center)
+            self.assertEqual(foot.foot_chain.hock_anchor, shin.joint.center)
+            self.assertEqual(foot.foot_chain.metatarsal_centerline[0], foot.foot_chain.hock_anchor)
+
     def test_validation_fails_closed_for_malformed_shoulder_controls(self) -> None:
         cases: list[dict[str, object]] = []
 
@@ -831,6 +1086,10 @@ class SurfacePreviewTests(unittest.TestCase):
                 if item.owner.key[3] == "upper_arm":
                     arm_side = next(side for side in guide.arm_profile.sides if side.side == item.owner.key[1][0])
                     self.assertEqual(item.joint.radii, arm_side.sections[2].radii)
+                elif item.owner.key[3] in {"thigh", "shin"}:
+                    leg_side = next(side for side in guide.leg_profile.sides if side.side == item.owner.key[1][0])
+                    station_index = 2 if item.owner.key[3] == "thigh" else 4
+                    self.assertEqual(item.joint.radii, leg_side.sections[station_index].radii)
                 else:
                     self.assertLess(item.joint.radii[0], min(item.joint.adjacent_profiles))
             self.assertTrue(all(len(item.sections) == 2 and all(section.path_kind == "capsule" for section in item.sections) for item in guide.limb_guides))
@@ -1060,6 +1319,10 @@ class SurfacePreviewTests(unittest.TestCase):
             if role == "upper_arm":
                 arm_side = next(side for side in guide.arm_profile.sides if side.side == limb.owner.key[1][0])
                 self.assertEqual(limb.joint.radii, arm_side.sections[2].radii)
+            elif role in {"thigh", "shin"}:
+                leg_side = next(side for side in guide.leg_profile.sides if side.side == limb.owner.key[1][0])
+                station_index = 2 if role == "thigh" else 4
+                self.assertEqual(limb.joint.radii, leg_side.sections[station_index].radii)
             else:
                 self.assertAlmostEqual(limb.joint.radii[0], 0.70 * min(limb.joint.adjacent_profiles), places=12)
                 self.assertTrue(all(limb.joint.radii[0] < value for value in limb.joint.adjacent_profiles))
@@ -1100,6 +1363,7 @@ class SurfacePreviewTests(unittest.TestCase):
         signatures = []
         for _, descriptors, _ in form.variants:
             guide = surface_preview._derive_hybrid_guides(form, descriptors)
+            fields = surface_preview._compile_hybrid_guide(guide)
             feet = tuple(item for item in guide.paw_guides if item.owner.key[3] == "foot")
             self.assertEqual(len(feet), 2)
             for foot in feet:
@@ -1129,8 +1393,15 @@ class SurfacePreviewTests(unittest.TestCase):
                 self.assertGreater(chain.toe_center[2], chain.pad_center[2])
                 self.assertGreater(chain.metatarsal_profile[0], chain.metatarsal_profile[1])
                 self.assertTrue(all(value > 0.0 for value in chain.metatarsal_profile))
-                self.assertGreater(chain.metatarsal_profile[0], chain.hock_radii[0])
-                self.assertLess(chain.metatarsal_profile[0], 2.0 * chain.hock_radii[0])
+                hock_field = next(item for item in fields if item.owner is shin.owner and item.recipe == "hock")
+                metatarsal_field = next(item for item in fields if item.owner is foot.owner and item.recipe == "metatarsal")
+                np.testing.assert_array_equal(hock_field.shape["center"], chain.hock_anchor)
+                np.testing.assert_array_equal(hock_field.shape["radii"], chain.hock_radii)
+                self.assertEqual(float(shin.joint.adjacent_profiles[1]), float(metatarsal_field.shape["r0"]))
+                self.assertEqual(float(chain.metatarsal_profile[0]), float(metatarsal_field.shape["r0"]))
+                shared_anchor = np.asarray([chain.hock_anchor])
+                self.assertLess(float(surface_preview._field(shared_anchor, hock_field)[0]), 0.0)
+                self.assertLess(float(surface_preview._field(shared_anchor, metatarsal_field)[0]), 0.0)
                 self.assertAlmostEqual(chain.contact_height, float(source["center"][1] - source["radii"][1]), places=12)
                 self.assertAlmostEqual(chain.pad_center[1] - chain.pad_radii[1], chain.contact_height, places=12)
                 self.assertAlmostEqual(chain.toe_center[1] - chain.toe_radii[1], chain.contact_height, places=12)
@@ -1186,7 +1457,7 @@ class SurfacePreviewTests(unittest.TestCase):
         guide = surface_preview._derive_hybrid_guides(form, form.variants[0][1])
         baseline = surface_preview._compile_hybrid_guide(guide)
         for limb in guide.limb_guides:
-            if limb.owner.key[3] in {"upper_arm", "forearm"}:
+            if limb.owner.key[3] in {"upper_arm", "forearm", "thigh", "shin"}:
                 continue
             baseline_field = next(item for item in baseline if item.owner is limb.owner and item.recipe.endswith("-pre-joint") or item.owner is limb.owner and item.recipe.endswith("-proximal"))
             first_section = limb.sections[0]
@@ -2352,6 +2623,10 @@ class SurfacePreviewTests(unittest.TestCase):
                 self.assertEqual(regional["counts"]["shoulder_frame_sides"], 2)
                 self.assertEqual(regional["counts"]["shoulder_frame_curves"], 6)
                 self.assertEqual(regional["counts"]["shoulder_frame_compiled_fields"], 2)
+                self.assertEqual(regional["counts"]["arm_profile_sides"], 2)
+                self.assertEqual(regional["counts"]["arm_profile_sections"], 10)
+                self.assertEqual(regional["counts"]["leg_profile_sides"], 2)
+                self.assertEqual(regional["counts"]["leg_profile_sections"], 10)
                 self.assertEqual(regional["counts"]["head_neck_profile_sections"], 8)
                 self.assertEqual(regional["counts"]["head_neck_profile_connections"], 7)
                 self.assertEqual(regional["counts"]["compiled_fields"], 52)
@@ -2393,6 +2668,13 @@ class SurfacePreviewTests(unittest.TestCase):
                 self.assertTrue(regional["controls"]["limbs"])
                 self.assertTrue(regional["controls"]["paws"])
                 self.assertTrue(regional["controls"]["tails"])
+                leg_profile = regional["controls"]["leg_profile"]
+                self.assertEqual(leg_profile["format"], surface_preview.AUTHORED_LEG_PROFILE_FORMAT)
+                self.assertEqual([item["side"] for item in leg_profile["sides"]], ["left", "right"])
+                self.assertEqual(leg_profile["route_topology"]["section_names"], list(surface_preview.LEG_PROFILE_SECTION_NAMES))
+                self.assertEqual(leg_profile["route_topology"]["owner_roles"], list(surface_preview.LEG_PROFILE_OWNER_ROLES))
+                self.assertEqual(sum(len(item["sections"]) for item in leg_profile["sides"]), 10)
+                self.assertTrue(all({"lateral", "up", "forward"} <= set(item["lineage"]) for side in leg_profile["sides"] for item in side["sections"]))
                 axial = regional["controls"]["axial"]
                 self.assertEqual(axial["status"], "compatibility-diagnostic-not-rendered")
                 self.assertEqual([item["name"] for item in axial["stations"]], ["pelvic-girdle", "waist", "chest-girdle"])

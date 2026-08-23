@@ -302,6 +302,68 @@ def _arm_route_signature(routes: tuple[successor._LimbChainSweep, ...], guide: o
     return np.concatenate((route_values, np.asarray(station_values, dtype=np.float64)))
 
 
+_LEG_AXIS_INDEX = {"lateral": 0, "up": 1, "forward": 2}
+
+
+def _mutate_leg_profile_radius(
+    guide: object,
+    side_index: int,
+    station_index: int,
+    axis: str,
+    factor: float = 1.37,
+) -> object:
+    """Make a guide-valid-for-the-successor authored leg radius perturbation."""
+
+    profile = guide.leg_profile  # type: ignore[attr-defined]
+    sides = list(profile.sides)
+    side = sides[side_index]
+    stations = list(side.sections)
+    source = stations[station_index]
+    lineage_name = ("lateral_lineage", "up_lineage", "forward_lineage")[_LEG_AXIS_INDEX[axis]]
+    lineage = getattr(source, lineage_name)
+    base = max(1, int(round(lineage.base * factor)))
+    scaled = base * lineage.factor // 1000
+    changed_lineage = replace(lineage, base=base, scaled=scaled)
+    radii = list(source.radii)
+    radii[_LEG_AXIS_INDEX[axis]] = scaled / 1000.0
+    stations[station_index] = replace(
+        source,
+        radii=tuple(radii),
+        **{lineage_name: changed_lineage},
+    )
+    sides[side_index] = replace(side, sections=tuple(stations))
+    return replace(guide, leg_profile=replace(profile, sides=tuple(sides)))  # type: ignore[attr-defined]
+
+
+def _leg_route_signature(routes: tuple[successor._LimbChainSweep, ...], guide: object) -> np.ndarray:
+    """Capture direct route, station-volume, and bounds observables."""
+
+    axes = guide.topology.axes  # type: ignore[attr-defined]
+    guide_axes = tuple(np.asarray(getattr(axes, axis), dtype=np.float64) for axis in ("lateral", "up", "forward"))
+    profile_sides = {side.side: side for side in guide.leg_profile.sides}  # type: ignore[attr-defined]
+    probes = []
+    station_values = []
+    for route in routes:
+        side_name = route.chain_name.split("-", 1)[0]
+        profile_side = profile_sides[side_name]
+        for station, section in zip(route.source_stations, route.sweep.sections):
+            baseline_station = profile_side.sections[station.source_section_index]
+            center = np.asarray(baseline_station.center, dtype=np.float64)
+            probes.extend(
+                center + 0.55 * float(baseline_station.radii[index]) * guide_axes[index]
+                for index in range(3)
+            )
+            station_values.extend(
+                successor._profile_station_volume_field(
+                    np.asarray((point,), dtype=np.float64), section,
+                )[0]
+                for point in probes[-3:]
+            )
+    route_values = np.concatenate(tuple(successor._profile_sweep_field(np.asarray(probes), route.sweep) for route in routes))
+    bounds = np.concatenate(tuple(np.concatenate(successor._profile_sweep_bounds(route.sweep)) for route in routes))
+    return np.concatenate((route_values, np.asarray(station_values, dtype=np.float64), bounds))
+
+
 class SuccessorTorsoProfileNumericalTests(unittest.TestCase):
     def test_torso_profile_hits_exact_cardinals_and_has_finite_outside_caps(self) -> None:
         sweep = _test_torso_profile_sweep()
@@ -1419,6 +1481,140 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             topologies.append(tuple(topology))
         self.assertEqual(len(set(topologies)), 1)
 
+    def test_authored_leg_routes_have_exact_topology_ownership_and_seams(self) -> None:
+        expected_names = ("thigh-start", "thigh-midpoint", "knee", "shin-midpoint", "hock-endpoint")
+        expected_roles = ("thigh", "thigh", "thigh", "shin", "shin")
+        expected_routes = ("left-leg", "right-leg")
+        topologies = []
+        for variant_id, descriptors, _ in self.form.variants:
+            guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+            region = successor.compile_successor_region(guide)
+            self.assertIs(region.leg_profile, guide.leg_profile)
+            self.assertEqual(tuple(item.chain_name for item in region.leg_sweeps), expected_routes)
+            for route, guide_side in zip(region.leg_sweeps, guide.leg_profile.sides):
+                self.assertEqual(route.route_kind, "leg-profile")
+                self.assertEqual(route.profile_operation if hasattr(route, "profile_operation") else route.sweep.profile_operation, successor._LEG_PROFILE_OPERATION)
+                self.assertEqual(route.section_names, expected_names)
+                self.assertEqual(tuple(section.owner.key[3] for section in route.sweep.sections), expected_roles)
+                self.assertEqual(tuple(route.source_stations), tuple(guide_side.sections))
+                self.assertEqual(
+                    tuple(section.source_section_index for section in route.sweep.sections),
+                    (0, 1, 2, 3, 4),
+                )
+                self.assertEqual(
+                    tuple(section.station_volume_radii for section in route.sweep.sections),
+                    tuple(station.radii for station in guide_side.sections),
+                )
+                self.assertEqual(len(route.sweep.endpoint_caps), 2)
+                for route_section, guide_station in zip(route.sweep.sections, guide_side.sections):
+                    np.testing.assert_array_equal(route_section.center, guide_station.center)
+                    self.assertIs(route_section.owner, guide_station.owner)
+                    self.assertEqual(route_section.owner.key, guide_station.owner.key)
+                shin = next(item for item in guide.limb_guides if item.owner is guide_side.sections[3].owner)
+                thigh = next(item for item in guide.limb_guides if item.owner is guide_side.sections[0].owner)
+                self.assertEqual(route.sweep.sections[2].center, shin.sections[0].centerline[0])
+                self.assertEqual(route.sweep.sections[2].center, thigh.joint.center)
+                self.assertEqual(route.sweep.sections[4].center, shin.joint.center)
+                foot = next(item for item in region.foot_sweeps if item.side == guide_side.side)
+                self.assertEqual(foot.sweep.sections[0].center, route.sweep.sections[-1].center)
+                self.assertIs(foot.sweep.sections[0].owner, route.sweep.sections[-1].owner)
+            topologies.append(tuple((item.chain_name, item.route_kind, item.section_names, tuple(section.owner.key for section in item.sweep.sections)) for item in region.leg_sweeps))
+            self.assertEqual(region.replaced_baseline_recipes.count("knee"), 1)
+            self.assertEqual(region.replaced_baseline_recipes.count("hock"), 1)
+            self.assertFalse(any(field.recipe in {"thigh-pre-joint", "thigh-joint", "shin-pre-joint", "shin-joint", "knee", "hock"} for field in region.bridge_fields))
+        self.assertEqual(len(set(topologies)), 1, msg=f"leg route topology drifted across {variant_id}")
+
+    def test_every_authored_leg_station_and_radius_changes_a_route_observable(self) -> None:
+        for variant_id, descriptors, _ in self.form.variants:
+            guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+            baseline = successor._make_leg_profile_sweeps(guide)
+            baseline_by_name = {item.chain_name: item for item in baseline}
+            for side_index, side in enumerate(guide.leg_profile.sides):
+                for station_index, station in enumerate(side.sections):
+                    for axis in _LEG_AXIS_INDEX:
+                        with self.subTest(variant=variant_id, station=station.name, axis=axis, side=side.side):
+                            changed = successor._make_leg_profile_sweeps(
+                                _mutate_leg_profile_radius(guide, side_index, station_index, axis)
+                            )
+                            changed_by_name = {item.chain_name: item for item in changed}
+                            self.assertEqual(set(changed_by_name), set(baseline_by_name))
+                            changed_signature = _leg_route_signature((changed_by_name[f"{side.side}-leg"],), guide)
+                            baseline_signature = _leg_route_signature((baseline_by_name[f"{side.side}-leg"],), guide)
+                            self.assertGreater(
+                                float(np.max(np.abs(changed_signature - baseline_signature))),
+                                1.0e-8,
+                                msg=f"{side.side}.{station.name}.{axis} did not affect its authored route",
+                            )
+                            other_side = "right" if side.side == "left" else "left"
+                            np.testing.assert_array_equal(
+                                _leg_route_signature((changed_by_name[f"{other_side}-leg"],), guide),
+                                _leg_route_signature((baseline_by_name[f"{other_side}-leg"],), guide),
+                            )
+
+    def test_authored_leg_profile_metadata_and_metrics_are_exact_and_deterministic(self) -> None:
+        guide = surface_preview._derive_hybrid_guides(self.form, self.form.variants[0][1])
+        first = successor.compile_successor_region(guide)
+        second = successor.compile_successor_region(guide)
+        first_metadata = successor._leg_profile_metadata(first)
+        second_metadata = successor._leg_profile_metadata(second)
+        self.assertEqual(first_metadata, second_metadata)
+        self.assertEqual(first_metadata["format"], surface_preview.AUTHORED_LEG_PROFILE_FORMAT)
+        self.assertEqual(first_metadata["source_format"], surface_preview.SOURCE_FORMAT)
+        self.assertEqual(first_metadata["regional_guide_format"], surface_preview.REGIONAL_GUIDE_FORMAT)
+        self.assertEqual(first_metadata["operation"], successor._LEG_PROFILE_OPERATION)
+        self.assertEqual(first_metadata["route_order"], ["left-leg", "right-leg"])
+        self.assertEqual(first_metadata["route_kinds"], ["leg-profile", "leg-profile"])
+        self.assertEqual(first_metadata["section_names"], list(surface_preview.LEG_PROFILE_SECTION_NAMES))
+        self.assertEqual(first_metadata["owner_roles"], list(surface_preview.LEG_PROFILE_OWNER_ROLES))
+        self.assertEqual(first_metadata["station_count"], 10)
+        self.assertEqual(first_metadata["radius_count"], 30)
+        self.assertEqual(
+            [len(side["stations"]) for side in first_metadata["sides"]],
+            [5, 5],
+        )
+        for side in first_metadata["sides"]:
+            self.assertEqual(
+                [station["owner"]["role"] for station in side["stations"]],
+                list(surface_preview.LEG_PROFILE_OWNER_ROLES),
+            )
+            self.assertTrue(all(set(station["lineage"]) == {"lateral", "up", "forward"} for station in side["stations"]))
+        mesh = successor.build_variant(self.form, self.form.variants[0][1], padding=0.5)
+        self.assertEqual(mesh.metrics["source_format"], surface_preview.SOURCE_FORMAT)
+        self.assertEqual(mesh.metrics["successor_region"]["regional_guide_format"], surface_preview.REGIONAL_GUIDE_FORMAT)
+        self.assertEqual(mesh.metrics["successor_region"]["leg_profile"], first_metadata)
+        self.assertEqual(mesh.metrics["successor_region"]["limb_sweep_station_owner_keys"][-2:], [
+            [surface_preview._address_json(section.owner.key) for section in first.leg_sweeps[0].sweep.sections],
+            [surface_preview._address_json(section.owner.key) for section in first.leg_sweeps[1].sweep.sections],
+        ])
+
+    def test_malformed_authored_leg_profile_guide_fails_closed(self) -> None:
+        guide = surface_preview._derive_hybrid_guides(self.form, self.form.variants[0][1])
+        profile = guide.leg_profile
+        left = profile.left
+        malformed_station = replace(left.sections[2], name="renamed-knee")
+        malformed_name = replace(left, sections=left.sections[:2] + (malformed_station,) + left.sections[3:])
+        cloned_owner = replace(left.sections[0].owner)
+        malformed_owner = replace(left.sections[0], owner=cloned_owner)
+        malformed_owner_side = replace(left, sections=(malformed_owner,) + left.sections[1:])
+        malformed_lineage = replace(
+            left.sections[1],
+            forward_lineage=replace(left.sections[1].forward_lineage, reference_index=999),
+        )
+        malformed_lineage_side = replace(left, sections=(left.sections[0], malformed_lineage, *left.sections[2:]))
+        malformed_center = replace(left.sections[4], center=(left.sections[4].center[0], left.sections[4].center[1] + 0.1, left.sections[4].center[2]))
+        malformed_center_side = replace(left, sections=(*left.sections[:4], malformed_center))
+        malformed_axes = replace(profile, axes=SimpleNamespace(lateral=(1.0, 0.0, 0.0), up=(0.0, 1.0, 0.0), forward=(0.0, 1.0, 0.0)))
+        cases = {
+            "name": replace(profile, sides=(malformed_name, profile.right)),
+            "owner": replace(profile, sides=(malformed_owner_side, profile.right)),
+            "lineage": replace(profile, sides=(malformed_lineage_side, profile.right)),
+            "center": replace(profile, sides=(malformed_center_side, profile.right)),
+            "axes": malformed_axes,
+        }
+        for name, invalid_profile in cases.items():
+            with self.subTest(name=name), self.assertRaises(successor.SuccessorPreviewError):
+                successor._make_leg_profile_sweeps(replace(guide, leg_profile=invalid_profile))
+
     def test_bridge_inventory_retains_expected_four_thigh_and_hip_connectors(self) -> None:
         _, descriptors, _ = self.form.variants[0]
         guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
@@ -1848,7 +2044,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 limb_metrics["limb_sweep_order"],
                 ["left-upper-arm-route", "left-forearm-route", "right-upper-arm-route", "right-forearm-route", "left-leg", "right-leg"],
             )
-            self.assertEqual(limb_metrics["limb_sweep_route_kinds"], ["arm-profile", "arm-profile", "arm-profile", "arm-profile", "limb", "limb"])
+            self.assertEqual(limb_metrics["limb_sweep_route_kinds"], ["arm-profile", "arm-profile", "arm-profile", "arm-profile", "leg-profile", "leg-profile"])
             self.assertEqual(limb_metrics["limb_sweep_station_counts"], [3, 3, 3, 3, 5, 5])
             self.assertEqual(limb_metrics["limb_sweep_endpoint_cap_counts"], [2, 2, 2, 2, 2, 2])
             self.assertEqual([len(owners) for owners in limb_metrics["limb_sweep_section_owner_keys"]], [3, 3, 3, 3, 5, 5])
@@ -1965,7 +2161,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 [item["source_variant_sha256"] for item in first_manifest["variants"]],
                 [item["source_variant_sha256"] for item in second_manifest["variants"]],
             )
-            self.assertEqual(successor.FORMAT, "creature-kernel.disposable-successor-surface-preview.v6")
+            self.assertEqual(successor.FORMAT, "creature-kernel.disposable-successor-surface-preview.v7")
             self.assertEqual(first_manifest["format"], successor.FORMAT)
             self.assertEqual(first_manifest["consumer_id"], successor.CONSUMER_ID)
             self.assertEqual(first_manifest["generator"]["samples_per_axis"], 56)
@@ -2120,7 +2316,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 self.assertTrue(all(set(item["lineage"]) == {"lateral", "up", "forward"} for item in sidecar["head_neck"]["sections"]))
                 self.assertEqual(sidecar["limbs"]["sweeps_consumed"], 6)
                 self.assertEqual(sidecar["limbs"]["sweep_order"], ["left-upper-arm-route", "left-forearm-route", "right-upper-arm-route", "right-forearm-route", "left-leg", "right-leg"])
-                self.assertEqual(sidecar["limbs"]["route_kinds"], ["arm-profile", "arm-profile", "arm-profile", "arm-profile", "limb", "limb"])
+                self.assertEqual(sidecar["limbs"]["route_kinds"], ["arm-profile", "arm-profile", "arm-profile", "arm-profile", "leg-profile", "leg-profile"])
                 self.assertEqual(sidecar["limbs"]["station_counts"], [3, 3, 3, 3, 5, 5])
                 self.assertEqual(
                     sidecar["limbs"]["station_names"],

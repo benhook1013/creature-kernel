@@ -41,22 +41,23 @@ except ModuleNotFoundError:  # pragma: no cover - direct source-tree execution
     _baseline = importlib.import_module("surface_preview")
 
 
-# V6 consumes the current v8 regional guide's seven source-authored torso,
-# eight-station branched head/neck, and bilateral five-station arm profile.
-# The torso evaluator and every non-arm consumer remain shared with the
-# predecessor.
-FORMAT = "creature-kernel.disposable-successor-surface-preview.v6"
-REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v8"
+# V7 consumes the current v9 regional guide's seven source-authored torso,
+# eight-station branched head/neck, bilateral five-station arm profile, and
+# bilateral five-station authored leg profile.  The torso evaluator and every
+# non-profile consumer remain shared with the predecessor.
+FORMAT = "creature-kernel.disposable-successor-surface-preview.v7"
+REGIONAL_GUIDE_FORMAT = _baseline.REGIONAL_GUIDE_FORMAT
 CONSUMER_ID = "successor-surface-v1"
-SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-arm-limb-extremity-tail-profile-sweeps-v10"
+SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-arm-leg-profile-limb-extremity-tail-profile-sweeps-v11"
 TORSO_PROFILE_OPERATION = "rounded-superellipse-axial-profile-sweep-v1"
 _HEAD_NECK_PROFILE_OPERATION = "authored-head-neck-branched-route-profile-v1"
 _ARM_PROFILE_OPERATION = "authored-arm-profile-route-v1"
+_LEG_PROFILE_OPERATION = "authored-leg-profile-route-v1"
 _HEAD_NECK_ROUTE_TOPOLOGY = (
     ("vertical-neck-cranium", (0, 1, 2, 3, 4), "up", ("lateral", "forward")),
     ("forward-muzzle", (3, 5, 6, 7), "forward", ("lateral", "up")),
 )
-# These are the exact indexed bindings emitted by producer v8 for the v1
+# These are the exact indexed bindings emitted by producer v10 for the v1
 # authored head/neck profile.  They are lineage admission checks, not new
 # source controls or geometry parameters.
 _HEAD_NECK_FRAME_INDICES = {"head": 0, "neck": 1}
@@ -285,6 +286,10 @@ class _LimbChainSweep:
     def is_arm_profile_route(self) -> bool:
         return self.route_kind == "arm-profile"
 
+    @property
+    def is_leg_profile_route(self) -> bool:
+        return self.route_kind == "leg-profile"
+
 
 @dataclass(frozen=True)
 class _TailElement:
@@ -342,6 +347,7 @@ class SuccessorRegion:
     source_owners: tuple[Any, ...]
     head_neck_sweeps: tuple[_RegionalProfileSweep, ...] = ()
     head_neck_profile: Any | None = None
+    leg_profile: Any | None = None
     limb_sweeps: tuple[_LimbChainSweep, ...] = ()
     extremity_sweeps: tuple[_ExtremitySweep, ...] = ()
     tail_elements: tuple[_TailElement, ...] = ()
@@ -372,9 +378,9 @@ class SuccessorRegion:
 
     @property
     def leg_sweeps(self) -> tuple[_LimbChainSweep, ...]:
-        """The two retained shared non-arm leg sweeps."""
+        """The two shared authored leg-profile routes."""
 
-        return tuple(item for item in self.limb_sweeps if not item.is_arm_profile_route)
+        return tuple(item for item in self.limb_sweeps if item.is_leg_profile_route)
 
     @property
     def hand_sweeps(self) -> tuple[_ExtremitySweep, ...]:
@@ -507,10 +513,14 @@ def _validate_profile_sweep(sweep: _ProfileSweep) -> None:
         TORSO_PROFILE_OPERATION,
         _HEAD_NECK_PROFILE_OPERATION,
         _ARM_PROFILE_OPERATION,
+        _LEG_PROFILE_OPERATION,
     }:
         _fail(f"profile sweep has unknown profile operation {sweep.profile_operation!r}")
     is_head_neck_route = sweep.profile_operation == _HEAD_NECK_PROFILE_OPERATION
-    is_arm_profile_route = sweep.profile_operation == _ARM_PROFILE_OPERATION
+    is_authored_profile_route = sweep.profile_operation in {
+        _ARM_PROFILE_OPERATION,
+        _LEG_PROFILE_OPERATION,
+    }
     centers = tuple(_vec3(section.center, f"profile-section[{index}].center") for index, section in enumerate(sections))
     previous_path = None
     for index, section in enumerate(sections):
@@ -524,13 +534,13 @@ def _validate_profile_sweep(sweep: _ProfileSweep) -> None:
             _finite_positive((float(section.tangent_radius),), f"{where}.tangent-radius")
         elif is_head_neck_route:
             _fail(f"{where} is missing its authored tangent-axis radius")
-        if is_head_neck_route and type(section.source_section_index) is not int:
+        if (is_head_neck_route or is_authored_profile_route) and type(section.source_section_index) is not int:
             _fail(f"{where} is missing its authored source section index")
         station_axes = section.station_volume_axes
         station_radii = section.station_volume_radii
         if (station_axes is None) != (station_radii is None):
             _fail(f"{where} station-volume axes and radii must be provided together")
-        if is_arm_profile_route and station_axes is None:
+        if is_authored_profile_route and station_axes is None:
             _fail(f"{where} is missing its full authored station volume")
         if station_axes is not None and station_radii is not None:
             if len(station_axes) != 3 or len(station_radii) != 3:
@@ -1911,7 +1921,7 @@ def _limb_chain_sweep(
 
 
 def _authored_arm_profile_from_guide(guide: Any) -> Any:
-    """Read the v8 bilateral arm profile through the guide control boundary."""
+    """Read the v10 bilateral arm profile through the guide control boundary."""
 
     controls = getattr(guide, "controls", None)
     profile = getattr(controls, "arm_profile", None) if controls is not None else None
@@ -1938,7 +1948,7 @@ def _effective_authored_radius(
 
 
 def _validate_arm_profile_guide(guide: Any) -> Any:
-    """Fail closed on exact v8 arm station topology and guide lineage."""
+    """Fail closed on exact v10 arm station topology and guide lineage."""
 
     profile = _authored_arm_profile_from_guide(guide)
     topology_axes = getattr(getattr(guide, "topology", None), "axes", None)
@@ -2111,6 +2121,249 @@ def _make_arm_profile_sweeps(guide: Any) -> tuple[_LimbChainSweep, ...]:
         if result[-2].source_stations[-1].owner.key[3] != "upper_arm":
             _fail(f"{side.side} authored elbow seam is not upper-arm owned")
     return tuple(result)
+
+
+def _authored_leg_profile_from_guide(guide: Any) -> Any:
+    """Read the v9 bilateral authored leg profile through the guide boundary."""
+
+    controls = getattr(guide, "controls", None)
+    profile = getattr(controls, "leg_profile", None) if controls is not None else None
+    if profile is None:
+        profile = getattr(guide, "leg_profile", None)
+    if profile is None:
+        _fail("successor guide is missing controls.leg_profile")
+    return profile
+
+
+def _validate_leg_profile_guide(guide: Any) -> Any:
+    """Fail closed on exact v10 authored leg station topology and lineage."""
+
+    profile = _authored_leg_profile_from_guide(guide)
+    topology_axes = getattr(getattr(guide, "topology", None), "axes", None)
+    if topology_axes is None or getattr(profile, "axes", None) != topology_axes:
+        _fail("successor leg profile axes must match guide topology")
+    if profile.axes != _baseline._FIXED_GUIDE_AXES:
+        _fail("successor leg profile axes must match the fixed guide axes")
+    if tuple(side.side for side in profile.sides) != ("left", "right"):
+        _fail("successor leg profile sides must be ordered left then right")
+
+    source_by_key = {descriptor.key: descriptor for descriptor in guide.source_descriptors}
+    limb_by_key = {
+        item.owner.key: item
+        for item in guide.limb_guides
+        if item.owner.key[3] in {"thigh", "shin"}
+    }
+    expected_names = (
+        "thigh-start",
+        "thigh-midpoint",
+        "knee",
+        "shin-midpoint",
+        "hock-endpoint",
+    )
+    expected_roles = ("thigh", "thigh", "thigh", "shin", "shin")
+    expected_axis_lineages = ("lateral_lineage", "up_lineage", "forward_lineage")
+    expected_suffixes = _baseline.LEG_PROFILE_DIMENSION_SUFFIXES
+    for side_index, side in enumerate(profile.sides):
+        where_side = f"leg-profile.{side.side}"
+        if tuple(section.name for section in side.sections) != expected_names:
+            _fail(f"{where_side} stations are not the exact five-station topology")
+        if len(side.sections) != 5:
+            _fail(f"{where_side} must contain exactly five stations")
+        previous_by_owner: dict[Any, float] = {}
+        for index, station in enumerate(side.sections):
+            where = f"{where_side}.{station.name}"
+            if station.section_index != index or station.source_section_index != index:
+                _fail(f"{where} source indices are not exact")
+            canonical_owner = source_by_key.get(station.owner.key)
+            if canonical_owner is None or canonical_owner is not station.owner:
+                _fail(f"{where} lost canonical descriptor identity")
+            if station.owner.key[1] != (side.side,) or station.owner.key[3] != expected_roles[index]:
+                _fail(f"{where} lost source ownership")
+            if station.frame.owner != station.owner.key or station.frame.role != _baseline.LEG_PROFILE_CONTROL_FRAME_ROLE:
+                _fail(f"{where} lost frame ownership")
+            if (
+                station.frame_index < 0
+                or station.frame_index >= _baseline.MAX_AUTHORED_FRAMES
+                or station.landmark_index < 0
+                or station.landmark_index >= _baseline.MAX_AUTHORED_LANDMARKS
+            ):
+                _fail(f"{where} has an invalid source frame or landmark index")
+            expected_landmark_role = _baseline.LEG_PROFILE_LANDMARK_PREFIX + station.name.replace("-", "_")
+            if station.landmark.owner != station.owner.key or station.landmark.role != expected_landmark_role:
+                _fail(f"{where} lost landmark ownership")
+            if station.landmark.frame != (station.frame.owner, station.frame.role):
+                _fail(f"{where} lost frame/landmark binding")
+            if station.frame.translation != (0.0, 0.0, 0.0) or station.frame.rotation_xyzw != (0.0, 0.0, 0.0, 1.0):
+                _fail(f"{where} control frame is not identity-only")
+            if station.landmark.position[0] != 0.0 or station.landmark.position[2] != 0.0:
+                _fail(f"{where} moved its source-local landmark off the leg path")
+            local_y = float(station.landmark.position[1])
+            previous = previous_by_owner.get(station.owner.key)
+            if previous is not None and local_y >= previous:
+                _fail(f"{where} stations are not ordered toward the distal end")
+            previous_by_owner[station.owner.key] = local_y
+
+            _vec3(station.center, f"{where}.center")
+            _finite_positive(tuple(float(value) for value in station.radii), f"{where}.radii")
+            for axis_name, lineage_name, suffix, radius in zip(
+                ("lateral", "up", "forward"),
+                expected_axis_lineages,
+                expected_suffixes,
+                station.radii,
+            ):
+                lineage = getattr(station, lineage_name, None)
+                if lineage is None:
+                    _fail(f"{where} is missing {lineage_name}")
+                expected_role = (
+                    _baseline.LEG_PROFILE_DIMENSION_PREFIX
+                    + station.name.replace("-", "_")
+                    + "_"
+                    + suffix
+                )
+                if lineage.reference != (station.owner.key, expected_role):
+                    _fail(f"{where}.{lineage_name} has invalid source reference")
+                if (
+                    lineage.consumed_section != station.name
+                    or lineage.reference_index < 0
+                    or lineage.reference_index >= _baseline.MAX_AUTHORED_DIMENSIONS
+                    or lineage.base <= 0
+                    or lineage.factor <= 0
+                ):
+                    _fail(f"{where}.{lineage_name} has invalid consumed section or factor")
+                if lineage.scaled != lineage.base * lineage.factor // 1000:
+                    _fail(f"{where}.{lineage_name} lost exact producer projection")
+                if not math.isclose(float(radius), lineage.scaled / 1000.0, rel_tol=0.0, abs_tol=_FRAME_TOLERANCE):
+                    _fail(f"{where}.{lineage_name} is not the skin-consumed radius")
+                if lineage.provenance != profile.provenance:
+                    _fail(f"{where}.{lineage_name} lost producer provenance")
+                if axis_name not in {"lateral", "up", "forward"}:
+                    _fail(f"{where} has an unknown authored axis")
+            if station.profile_provenance != profile.provenance:
+                _fail(f"{where} lost authored profile provenance")
+            if station.variant_provenance != profile.variant_provenance:
+                _fail(f"{where} lost variant projection provenance")
+
+        thigh = limb_by_key.get(profile.sides[side_index].sections[0].owner.key)
+        shin = limb_by_key.get(profile.sides[side_index].sections[3].owner.key)
+        if thigh is None or shin is None or thigh.owner.key[3] != "thigh" or shin.owner.key[3] != "shin":
+            _fail(f"{where_side} is missing its thigh/shin centerlines")
+        route_points = (
+            thigh.sections[0].centerline[0],
+            thigh.sections[0].centerline[1],
+            thigh.sections[1].centerline[1],
+            shin.sections[0].centerline[1],
+            shin.sections[1].centerline[1],
+        )
+        for index, point in enumerate(route_points):
+            _require_exact_same_point(side.sections[index].center, point, f"{where_side}.{expected_names[index]} centerline binding")
+        _require_exact_same_point(side.sections[2].center, shin.sections[0].centerline[0], f"{where_side}.knee/thigh-shin seam")
+        if thigh.joint is None or thigh.joint.name != "knee":
+            _fail(f"{where_side} is missing its thigh-owned knee")
+        if thigh.joint.center != side.sections[2].center:
+            _fail(f"{where_side} knee seam is not thigh-owned")
+        if shin.joint is None or shin.joint.name != "hock":
+            _fail(f"{where_side} is missing its shin-owned hock")
+        if shin.joint.center != side.sections[4].center:
+            _fail(f"{where_side} hock endpoint is not shin-owned")
+    return profile
+
+
+def _make_leg_profile_route(
+    route_name: str,
+    side: str,
+    source_stations: tuple[Any, ...],
+    axes: Any,
+) -> _LimbChainSweep:
+    """Compile one exact five-station authored leg route."""
+
+    if len(source_stations) != 5:
+        _fail(f"{route_name} requires exactly five authored leg stations")
+    guide_axes = tuple(
+        _unit(_vec3(getattr(axes, axis), f"{route_name}.{axis}-axis"), f"{route_name}.{axis}-axis")
+        for axis in ("lateral", "up", "forward")
+    )
+    centers = tuple(_vec3(station.center, f"{route_name}.{station.name}.center") for station in source_stations)
+    full_radii = tuple(tuple(float(value) for value in station.radii) for station in source_stations)
+    sections: list[_ProfileSection] = []
+    path_length = 0.0
+    for index, (station, center, radii) in enumerate(zip(source_stations, centers, full_radii)):
+        if index == 0:
+            direction = centers[1] - centers[0]
+        elif index == len(centers) - 1:
+            direction = centers[-1] - centers[-2]
+        else:
+            direction = centers[index + 1] - centers[index - 1]
+        tangent, first, second = _frame_from_tangent(
+            direction,
+            guide_axes[0],
+            guide_axes[1],
+            f"{route_name}.{station.name}",
+        )
+        if index:
+            span_length = float(np.linalg.norm(centers[index] - centers[index - 1]))
+            if span_length <= _DEGENERATE_TOLERANCE:
+                _fail(f"{route_name}.{station.name} follows a degenerate station")
+            path_length += span_length
+        transverse_radii = (
+            _effective_authored_radius(first, guide_axes, radii, f"{route_name}.{station.name}.transverse-first"),
+            _effective_authored_radius(second, guide_axes, radii, f"{route_name}.{station.name}.transverse-second"),
+        )
+        sections.append(_ProfileSection(
+            name=station.name,
+            owner=station.owner,
+            center=tuple(float(value) for value in center),
+            tangent=tuple(float(value) for value in tangent),
+            transverse_axes=(
+                tuple(float(value) for value in first),
+                tuple(float(value) for value in second),
+            ),
+            transverse_radii=transverse_radii,
+            path_length=path_length,
+            tangent_radius=_effective_authored_radius(tangent, guide_axes, radii, f"{route_name}.{station.name}.tangent"),
+            source_section_index=int(station.source_section_index),
+            station_volume_axes=tuple(tuple(float(value) for value in axis) for axis in guide_axes),
+            station_volume_radii=radii,
+        ))
+    ordered = tuple(sections)
+    caps = (
+        _ProfileEndpointCap(
+            "start", ordered[0].center, tuple(-float(value) for value in ordered[0].tangent),
+            ordered[0].transverse_axes, ordered[0].transverse_radii,
+            ordered[0].tangent_radius or min(ordered[0].transverse_radii),
+        ),
+        _ProfileEndpointCap(
+            "end", ordered[-1].center, ordered[-1].tangent,
+            ordered[-1].transverse_axes, ordered[-1].transverse_radii,
+            ordered[-1].tangent_radius or min(ordered[-1].transverse_radii),
+        ),
+    )
+    sweep = _ProfileSweep(ordered, caps, profile_operation=_LEG_PROFILE_OPERATION)
+    _validate_profile_sweep(sweep)
+    owners: list[Any] = []
+    for station in source_stations:
+        if not any(station.owner is owner for owner in owners):
+            owners.append(station.owner)
+    return _LimbChainSweep(route_name, tuple(owners), sweep, "leg-profile", source_stations)
+
+
+def _make_leg_profile_sweeps(guide: Any) -> tuple[_LimbChainSweep, ...]:
+    """Build exactly one authored five-station route per bilateral side."""
+
+    profile = _validate_leg_profile_guide(guide)
+    result = tuple(
+        _make_leg_profile_route(f"{side.side}-leg", side.side, tuple(side.sections), profile.axes)
+        for side in profile.sides
+    )
+    if tuple(item.chain_name for item in result) != ("left-leg", "right-leg"):
+        _fail("successor authored leg route order is unstable")
+    for route, side in zip(result, profile.sides):
+        if route.source_stations != tuple(side.sections):
+            _fail(f"{route.chain_name} lost its exact authored station binding")
+        if route.source_stations[2].owner.key[3] != "thigh":
+            _fail(f"{route.chain_name} knee seam is not thigh-owned")
+        if route.source_stations[4].owner.key[3] != "shin":
+            _fail(f"{route.chain_name} hock endpoint is not shin-owned")
+    return result
 
 
 def _require_same_point(first: Any, second: Any, where: str) -> None:
@@ -2370,10 +2623,12 @@ def _limb_inventory(guide: Any) -> dict[tuple[str, str], Any]:
 
 
 def _make_limb_sweeps(guide: Any) -> tuple[_LimbChainSweep, ...]:
-    """Build fixed-order authored arm routes and shared non-arm leg sweeps."""
+    """Build fixed-order authored arm and bilateral leg profile routes."""
 
     inventory = _limb_inventory(guide)
     sweeps: list[_LimbChainSweep] = list(_make_arm_profile_sweeps(guide))
+    sweeps.extend(_make_leg_profile_sweeps(guide))
+    chains = {item.chain_name: item for item in sweeps}
     for side in ("left", "right"):
         thigh = inventory[(side, "thigh")]
         shin = inventory[(side, "shin")]
@@ -2388,17 +2643,14 @@ def _make_limb_sweeps(guide: Any) -> tuple[_LimbChainSweep, ...]:
         shin_mid = shin.sections[0].centerline[1]
         hock = shin.joint
         _require_same_point(shin.sections[1].centerline[1], hock.center, f"{side}.hock source endpoint")
-        sweeps.append(_limb_chain_sweep(
-            f"{side}-leg",
-            (
-                ("thigh-start", thigh.owner, thigh_start, (thigh.sections[0].thickness[0],) * 2),
-                ("thigh-midpoint", thigh.owner, thigh_mid, (thigh.sections[0].thickness[1],) * 2),
-                ("knee", thigh.owner, knee.center, (float(knee.radii[0]), float(knee.radii[1]))),
-                ("shin-midpoint", shin.owner, shin_mid, (shin.sections[0].thickness[1],) * 2),
-                ("hock-endpoint", shin.owner, hock.center, (float(hock.radii[0]), float(hock.radii[1]))),
-            ),
-            thigh.axes,
-        ))
+        leg = chains.get(f"{side}-leg")
+        if leg is None:
+            _fail(f"{side}-leg authored profile route is missing")
+        _require_exact_same_point(leg.sweep.sections[0].center, thigh_start, f"{side}.leg authored start")
+        _require_exact_same_point(leg.sweep.sections[1].center, thigh_mid, f"{side}.leg authored midpoint")
+        _require_exact_same_point(leg.sweep.sections[2].center, knee.center, f"{side}.leg authored knee")
+        _require_exact_same_point(leg.sweep.sections[3].center, shin_mid, f"{side}.leg authored shin midpoint")
+        _require_exact_same_point(leg.sweep.sections[4].center, hock.center, f"{side}.leg authored hock")
     if tuple(item.chain_name for item in sweeps) != (
         "left-upper-arm-route", "left-forearm-route", "right-upper-arm-route", "right-forearm-route",
         "left-leg", "right-leg",
@@ -2778,6 +3030,7 @@ def compile_successor_region(guide: Any, baseline_fields: tuple[Any, ...] | None
 
     _baseline._validate_hybrid_guide(guide)
     head_neck_profile = _validate_authored_head_neck_guide(guide)
+    leg_profile = _validate_leg_profile_guide(guide)
     if baseline_fields is None:
         baseline_fields = _baseline._compile_hybrid_guide(guide)
     replaced = (
@@ -2845,6 +3098,7 @@ def compile_successor_region(guide: Any, baseline_fields: tuple[Any, ...] | None
         source_owners=(guide.torso_cage.torso_owner,) + tuple(side.owner for side in guide.shoulder_frame.sides) + (head.head_owner, head.neck_owner),
         head_neck_sweeps=head_neck_sweeps,
         head_neck_profile=head_neck_profile,
+        leg_profile=leg_profile,
         limb_sweeps=limb_sweeps,
         extremity_sweeps=extremity_sweeps,
         tail_elements=tail_elements,
@@ -3351,6 +3605,96 @@ def _arm_profile_metadata(region: SuccessorRegion) -> dict[str, Any]:
     }
 
 
+def _leg_profile_lineage_json(lineage: Any) -> dict[str, Any]:
+    return {
+        "base": int(lineage.base),
+        "factor": int(lineage.factor),
+        "scaled": int(lineage.scaled),
+        "reference": {
+            "owner": _baseline._address_json(lineage.reference[0]),
+            "role": lineage.reference[1],
+            "index": int(lineage.reference_index),
+        },
+        "provenance": dict(lineage.provenance),
+        "consumed_section": lineage.consumed_section,
+    }
+
+
+def _leg_profile_station_json(station: Any) -> dict[str, Any]:
+    if station.name == "knee":
+        consumption = "skin-driving; knee seam owned by thigh station"
+    elif station.name == "hock-endpoint":
+        consumption = "skin-driving; hock endpoint owned by shin station"
+    else:
+        consumption = "skin-driving"
+    return {
+        "name": station.name,
+        "section_index": int(station.section_index),
+        "source_section_index": int(station.source_section_index),
+        "frame_index": int(station.frame_index),
+        "landmark_index": int(station.landmark_index),
+        "owner": _baseline._address_json(station.owner.key),
+        "center": [float(value) for value in station.center],
+        "radii": {
+            "lateral": float(station.radii[0]),
+            "up": float(station.radii[1]),
+            "forward": float(station.radii[2]),
+        },
+        "lineage": {
+            "lateral": _leg_profile_lineage_json(station.lateral_lineage),
+            "up": _leg_profile_lineage_json(station.up_lineage),
+            "forward": _leg_profile_lineage_json(station.forward_lineage),
+        },
+        "profile_provenance": dict(station.profile_provenance),
+        "variant_provenance": dict(station.variant_provenance),
+        "consumption": consumption,
+    }
+
+
+def _leg_profile_metadata(region: SuccessorRegion) -> dict[str, Any]:
+    routes = region.leg_sweeps
+    if tuple(item.chain_name for item in routes) != ("left-leg", "right-leg"):
+        _fail("successor leg profile metadata route order is unstable")
+    if any(item.route_kind != "leg-profile" for item in routes):
+        _fail("successor leg profile metadata contains a non-authored route")
+    route_by_side = {item.chain_name.split("-", 1)[0]: item for item in routes}
+    side_metadata = []
+    for side in ("left", "right"):
+        route = route_by_side[side]
+        stations = tuple(route.source_stations)
+        if len(stations) != 5:
+            _fail(f"{side} leg profile metadata has the wrong station count")
+        side_metadata.append({
+            "side": side,
+            "route": route.chain_name,
+            "route_kind": route.route_kind,
+            "station_count": len(stations),
+            "source_section_indices": [int(station.source_section_index) for station in stations],
+            "owner_keys": [_baseline._address_json(station.owner.key) for station in stations],
+            "stations": [_leg_profile_station_json(station) for station in stations],
+        })
+    first_station = routes[0].source_stations[0]
+    return {
+        "format": _baseline.AUTHORED_LEG_PROFILE_FORMAT,
+        "source": "authored_leg_profile",
+        "source_format": _baseline.SOURCE_FORMAT,
+        "regional_guide_format": REGIONAL_GUIDE_FORMAT,
+        "operation": _LEG_PROFILE_OPERATION,
+        "topology": "one-five-station-route-per-side-thigh-knee-shin-hock",
+        "route_order": [item.chain_name for item in routes],
+        "route_kinds": [item.route_kind for item in routes],
+        "section_names": list(_baseline.LEG_PROFILE_SECTION_NAMES),
+        "owner_roles": list(_baseline.LEG_PROFILE_OWNER_ROLES),
+        "knee_seam": {"name": "knee", "index": 2, "owner_role": "thigh"},
+        "hock_endpoint": {"name": "hock-endpoint", "index": 4, "owner_role": "shin"},
+        "station_count": 10,
+        "radius_count": 30,
+        "provenance": dict(first_station.profile_provenance),
+        "variant_provenance": dict(first_station.variant_provenance),
+        "sides": side_metadata,
+    }
+
+
 def _bounds_for_region(region: SuccessorRegion) -> tuple[np.ndarray, np.ndarray]:
     profile_lower, profile_upper = _profile_sweep_bounds(region.loft)
     mins = [profile_lower]
@@ -3587,6 +3931,7 @@ def build_variant(form: Any, descriptors: tuple[Any, ...], samples: int = DEFAUL
     metrics.update({
         "consumer_id": CONSUMER_ID,
         "successor_region_id": SUCCESSOR_REGION_ID,
+        "source_format": _baseline.SOURCE_FORMAT,
         "successor_region": {
             "regional_guide_format": REGIONAL_GUIDE_FORMAT,
             "torso_representation": TORSO_PROFILE_OPERATION,
@@ -3626,7 +3971,8 @@ def build_variant(form: Any, descriptors: tuple[Any, ...], samples: int = DEFAUL
             ],
             "head_neck": _head_neck_metadata(region),
             "arm_profile": _arm_profile_metadata(region),
-            "limb_representation": "shared-guide-derived-authored-arm-routes-and-ordered-leg-profile-sweeps",
+            "leg_profile": _leg_profile_metadata(region),
+            "limb_representation": "shared-guide-derived-authored-arm-and-leg-profile-routes",
             "limb_sweeps_consumed": len(region.limb_sweeps),
             "limb_sweep_order": [item.chain_name for item in region.limb_sweeps],
             "limb_sweep_route_kinds": [item.route_kind for item in region.limb_sweeps],
@@ -3634,6 +3980,10 @@ def build_variant(form: Any, descriptors: tuple[Any, ...], samples: int = DEFAUL
             "limb_sweep_station_names": [list(item.section_names) for item in region.limb_sweeps],
             "limb_sweep_section_owner_keys": [
                 [_baseline._address_json(owner.key) for owner in item.sweep.owners]
+                for item in region.limb_sweeps
+            ],
+            "limb_sweep_station_owner_keys": [
+                [_baseline._address_json(section.owner.key) for section in item.sweep.sections]
                 for item in region.limb_sweeps
             ],
             "limb_sweep_endpoint_cap_counts": [len(item.sweep.endpoint_caps) for item in region.limb_sweeps],
@@ -3833,7 +4183,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
                     **_head_neck_metadata(mesh.representation),
                 },
                 "limbs": {
-                    "representation": "shared-guide-derived-authored-arm-routes-and-ordered-leg-profile-sweeps",
+                    "representation": "shared-guide-derived-authored-arm-and-leg-profile-routes",
                     "sweeps_consumed": len(mesh.representation.limb_sweeps),
                     "sweep_order": [item.chain_name for item in mesh.representation.limb_sweeps],
                     "route_kinds": [item.route_kind for item in mesh.representation.limb_sweeps],
@@ -3843,8 +4193,13 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
                         [_baseline._address_json(owner.key) for owner in item.sweep.owners]
                         for item in mesh.representation.limb_sweeps
                     ],
+                    "station_owner_keys": [
+                        [_baseline._address_json(section.owner.key) for section in item.sweep.sections]
+                        for item in mesh.representation.limb_sweeps
+                    ],
                     "endpoint_cap_counts": [len(item.sweep.endpoint_caps) for item in mesh.representation.limb_sweeps],
                     "arm_profile": _arm_profile_metadata(mesh.representation),
+                    "leg_profile": _leg_profile_metadata(mesh.representation),
                 },
                 "extremities": {
                     "representation": "shared-guide-derived-hand-and-digitigrade-foot-profile-sweeps",
@@ -3899,7 +4254,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
             "canvas": canvas,
             "layout": layout,
             "projections": projections,
-            "generator": {"samples_per_axis": samples, "padding": padding, "capture_padding": DEFAULT_CAPTURE_PADDING, "smooth_k": smooth_k, "consumer_boundary": "successor torso/shoulder/head/neck, four limb chains, bilateral hands, digitigrade feet, and tail; baseline temporary bridge for thigh-root/hip connectors", "production_status": "disposable exploratory proof"},
+            "generator": {"samples_per_axis": samples, "padding": padding, "capture_padding": DEFAULT_CAPTURE_PADDING, "smooth_k": smooth_k, "consumer_boundary": "successor torso/shoulder/head/neck, authored arm and leg profile routes, bilateral hands, digitigrade feet, and tail; baseline temporary bridge for thigh-root/hip connectors", "production_status": "disposable exploratory proof"},
             "variants": records,
         }
         manifest_path = stage / "successor-surface-manifest.json"

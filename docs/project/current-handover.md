@@ -1,6 +1,6 @@
 # Current operational handover
 
-Snapshot: 2026-08-23 NZST
+Snapshot: 2026-08-24 NZST
 
 This is a concise operational handoff for continuing the current runway in the
 Codex app. It is not a new authority owner: `docs/project/status.md` remains
@@ -10,12 +10,15 @@ the canonical owner of the active runway, and the required reading order in
 ## Where to continue
 
 - Primary checkout: `/home/ben/src/creature-kernel` — `main` and
-  `origin/main` are at merged PR #110 commit
-  `a45920df1322bafbbd56ea6939837f8b0b9b8b33`.
-- Active worktree: `/home/ben/src/creature-kernel-worktrees/authored-arm-profiles`
-  — branch `implementation/authored-arm-profiles`, based on that commit;
-  [PR #111](https://github.com/benhook1013/creature-kernel/pull/111) is open and
-  required CI is running.
+  `origin/main` are at merged PR #111 commit
+  `6df6168cdf27477f3b275441616ab4cfd0ab814d`.
+- Active worktree:
+  `/home/ben/src/creature-kernel-worktrees/authored-pelvis-leg-profiles` —
+  branch `implementation/authored-pelvis-leg-profiles`, based on that commit;
+  no PR exists yet for the current work.
+- [PR #111](https://github.com/benhook1013/creature-kernel/pull/111) merged at
+  `6df6168cdf27477f3b275441616ab4cfd0ab814d`. Its authored arm profile is
+  merged predecessor evidence, not completion or visual-quality acceptance.
 - [PR #110](https://github.com/benhook1013/creature-kernel/pull/110) merged at
   `a45920df1322bafbbd56ea6939837f8b0b9b8b33`. Its authored head/neck profile
   is merged predecessor evidence, not completion or visual-quality acceptance.
@@ -67,8 +70,9 @@ the review's one documentation defect was corrected and its two non-contract
 concerns were dispositioned. No user appraisal is requested because this is
 an internal region slice, not the complete authored-form gallery.
 
-The shoulder/arm authored-control slice is now a completed local candidate in
-the active worktree. Producer v9 carries `authored_arm_profile` v1 with a
+PR #111 contains the completed internal, reversible shoulder/arm
+authored-control prerequisite and remains predecessor evidence on the runway.
+Producer v9 carries `authored_arm_profile` v1 with a
 bilateral five-station profile per side, 10 landmarks, four identity frames,
 30 lateral/up/forward radii, and shared neutral, broad, lean, and
 depth-forward factors. Guide v8 projects the exact authored stations and
@@ -85,10 +89,9 @@ character cap. It produced four groups and eight assets at
 `/tmp/ck-authored-arm-publisher.LFm2eK/reviews/authored-arm-v9`. Main-thread
 internal visual inspection and two fresh hands-on trials passed the
 arm-focused connectivity, spike/lobe, and variant-response checks, along with
-the browser, evidence, and HTTP scenarios. This is still an internal
-candidate: PR #111 is open, no merge has occurred, and no human appraisal is
-requested. The final human stop remains the complete authored-form gallery;
-the candidate does not claim that gallery is complete.
+the browser, evidence, and HTTP scenarios. No human appraisal was requested:
+this merged slice is not the complete authored-form gallery and makes no
+form-quality acceptance claim.
 
 The arm-slice checks include 415 Rust workspace tests (47 CLI and 368 core),
 52 successor tests, 34 publisher tests, and 25 browser/parity tests passing;
@@ -96,12 +99,50 @@ the unchanged baseline suite's 56 tests were already green. Rust formatting,
 Clippy with warnings denied, documentation validation, and `git diff --check`
 pass. The final adversarial review found one XZ decoder-memory blocker, which
 is fixed with an explicit 128 MiB decoder limit and a passing malicious-header
-regression. PR #111 is open; CI and merge remain pending.
+regression. All three required CI lanes passed before PR #111 merged.
+
+The completed local authored pelvis/leg implementation slice is not merged and
+has no PR yet. Producer v10 carries `authored_leg_profile` v1 with bilateral
+five-station routes, 10 landmarks, four identity frames, 30 radii, and four
+shared variant factors. Guide v9 projects the exact anisotropic authored leg
+segments, with a thigh-owned knee, shin-owned hock, and preserved foot seam.
+Successor v7 / region v11 consumes exactly two authored leg routes and all
+radii, retains the existing feet, has no legacy duplicate leg mass, and keeps
+exactly four temporary thigh-root/hip bridges. The publisher binds exact v10/
+v9/v7 lineage: 175587 raw evidence bytes, 5732 XZ bytes, 7644 Base64
+characters, SHA-256
+`8702f81b52690ee6c1d32e5b4a6e50ded81e7b09398b9bd2560a7f00b8547adc`, and a
+final subject context of 8128 Python-JSON characters (within the 8192 cap).
+It successfully published the temporary four-group/eight-image review at
+`/tmp/ck-authored-leg-publisher.RM32b9/reviews/authored-leg-v10`.
+
+Checks so far are 419 Rust workspace tests (51 CLI and 368 core), Clippy/fmt,
+107 full visual-review tests, 61 baseline-guide tests, 56 successor tests,
+35 publisher tests, and documentation/diff checks. Two fresh hands-on trials
+passed publication, browser interaction, asset integrity, and leg-focused
+visual scenarios. The final fresh adversarial review found one contract
+mismatch: positive but descending leg-station coordinates were accepted by
+the producer and publication boundaries even though the surface consumer's
+distal-fraction mapping requires inclusive `[-1, 0]`. That mismatch is fixed
+at every boundary with explicit malformed-input regressions; the affected 34
+producer, 26 publication/browser-parity, 61 baseline-surface, and 35 publisher
+tests pass. Main-thread visual inspection found connected
+pelvis/thigh/knee/shin/hock/foot across all four variants, with no point
+spikes, detached islands, or duplicate bulb masses; the lower foot chain
+remains coarse and is not accepted final quality. This is an internal
+reversible prerequisite, not the complete authored-form gallery, and no Ben
+appraisal is requested. After this slice's PR/CI/merge, the next direct region
+toward the unchanged named checkpoint is digitigrade foot transition authored
+control.
+
+The hands-on operator trial also found that LAN read-only mode still displays
+an enabled Save response control even though the server rejects writes. No
+response was submitted or created. This pre-existing UI/usability mismatch is
+deferred unrelated cleanup, not a pelvis/leg geometry or publication blocker.
 
 The non-blocking rejected-POST secondary-400 logging concern is deferred
-unrelated usability cleanup, not an arm blocker. After the remaining CI/merge
-gates, the next direct region slice toward the same named checkpoint is
-pelvis/leg authored control.
+unrelated usability cleanup, not an arm blocker. The active local region slice
+is the unmerged pelvis/leg authored-control prerequisite described above.
 
 PR #109 also contained Ben-approved neutral public-facing wording cleanup and
 accepted MIT OR Apache-2.0 licensing DR-0014. That ancillary work does not
@@ -223,8 +264,8 @@ pass; the unchanged baseline suite's 56 tests were already green. Rust
 formatting, Clippy with warnings denied, documentation validation, and
 `git diff --check` pass. The final adversarial review found one XZ decoder-memory
 blocker, which is fixed with an explicit 128 MiB decoder limit and passing
-focused/full publisher regressions. PR #111 is open; CI and merge remain
-pending. The real publication produced four groups and eight assets
+focused/full publisher regressions. All three required CI lanes passed before
+PR #111 merged. The real publication produced four groups and eight assets
 with no response artifact. Two fresh hands-on trials are complete. They
 exercised exact evidence and asset bindings, HTTP success and failure paths,
 modal click and keyboard navigation including wrap and Escape focus return,
