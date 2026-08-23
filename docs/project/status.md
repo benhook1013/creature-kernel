@@ -18,8 +18,8 @@ form expressivity gallery. `origin/main` and the primary `main` checkout are
 at merged PR #108 commit
 `32e8816664b9e94065f8423da2272d4374567b35`. The active worktree is
 `/home/ben/src/creature-kernel-worktrees/authored-torso-profiles`, on branch
-`implementation/authored-torso-profiles`, based on that commit; it presently
-has no PR.
+`implementation/authored-torso-profiles`, based on that commit. The current
+candidate is [PR #109](https://github.com/benhook1013/creature-kernel/pull/109).
 
 Current operational snapshot: the [Codex app handover](current-handover.md)
 (2026-08-23 NZST) records the primary checkout, active runway worktree,

@@ -14,7 +14,8 @@ the canonical owner of the active runway, and the required reading order in
   `32e8816664b9e94065f8423da2272d4374567b35`.
 - Active worktree: `/home/ben/src/creature-kernel-worktrees/authored-torso-profiles`
   — branch `implementation/authored-torso-profiles`, based on that commit;
-  there is presently no PR.
+  [PR #109](https://github.com/benhook1013/creature-kernel/pull/109) is the
+  current internal runway candidate.
 - [PR #107](https://github.com/benhook1013/creature-kernel/pull/107)
   merged at `f69a0a235152e72bd51279634cf3e8618d776e3f`. It retains the exact
   consumed producer envelope lineage in surface reviews while preserving all
