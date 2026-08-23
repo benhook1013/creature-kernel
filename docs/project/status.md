@@ -22,7 +22,8 @@ at merged PR #112 commit
 `80179614ea693cd45d55743d1d83d044c653a08f`. The active worktree is
 `/home/ben/src/creature-kernel-worktrees/authored-digitigrade-foot-profiles`,
 on branch `implementation/authored-digitigrade-foot-profiles`, based on that
-commit. No PR exists yet for the current work. The authored torso, head/neck,
+commit. Draft PR #113 is open for the current work and held for Ben's visual
+appraisal and explicit merge authorization. The authored torso, head/neck,
 arm, and pelvis/leg profiles are merged predecessor evidence; the current
 internal, reversible foot-control slice has reached the complete authored-form
 expressivity gallery checkpoint and is held for Ben's visual appraisal and
@@ -230,8 +231,9 @@ SHA-256 `5c42afe0b599b3afff52d687c3e46c9f4ae7d31f7d8e426d0b17e55858331161`;
 subject context 8812 bytes; subject-context SHA-256
 `0210c5f225869d9030ff82a2898f122be21b4da328dcb668e0b83a674f486fb7`.
 Strict decode equality passed. Publication machinery is evidence plumbing,
-not acceptance: this candidate has no approval, merge, or PR, and the named
-gallery is held for Ben's visual appraisal and explicit merge authorization.
+not acceptance: this candidate has no approval or merge; draft PR #113 and the
+named gallery are held for Ben's visual appraisal and explicit merge
+authorization.
 
 Current local gates pass: 422 Rust workspace tests, Rust formatting and Clippy
 with warnings denied, 122 full surface-preview tests, 112 full visual-review

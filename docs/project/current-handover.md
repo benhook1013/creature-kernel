@@ -15,8 +15,9 @@ the canonical owner of the active runway, and the required reading order in
 - Active worktree:
   `/home/ben/src/creature-kernel-worktrees/authored-digitigrade-foot-profiles` —
   branch `implementation/authored-digitigrade-foot-profiles`, based on that
-  commit;
-  no PR exists yet for the current work. The current implementation candidate
+  commit. [Draft PR #113](https://github.com/benhook1013/creature-kernel/pull/113)
+  is open for the current work and held for Ben's visual appraisal and explicit
+  merge authorization. The current implementation candidate
   has reached the named complete authored-form expressivity gallery checkpoint,
   completed its local tests, hands-on trials, and fresh adversarial review, and
   is held for Ben's visual appraisal and explicit merge authorization.
@@ -170,7 +171,8 @@ The published form gallery is the named human checkpoint. Publication
 machinery is evidence plumbing, not acceptance: local tests, two fresh
 hands-on trials, and fresh adversarial review are complete, and the candidate
 is held for Ben's visual appraisal and explicit merge authorization, with no
-approval, merge, or PR. Ben's appraisal is of the rendered spatial form and
+approval or merge. Draft PR #113 carries the candidate. Ben's appraisal is of
+the rendered spatial form and
 variant response: whether the authored torso, head/neck, shoulder/arm,
 pelvis/leg, and digitigrade foot transitions read as controlled continuous
 skin rather than joined procedural masses across the four variants.
