@@ -10,12 +10,16 @@ the canonical owner of the active runway, and the required reading order in
 ## Where to continue
 
 - Primary checkout: `/home/ben/src/creature-kernel` — `main` and
-  `origin/main` are at merged PR #111 commit
-  `6df6168cdf27477f3b275441616ab4cfd0ab814d`.
+  `origin/main` are at merged PR #112 commit
+  `80179614ea693cd45d55743d1d83d044c653a08f`.
 - Active worktree:
-  `/home/ben/src/creature-kernel-worktrees/authored-pelvis-leg-profiles` —
-  branch `implementation/authored-pelvis-leg-profiles`, based on that commit;
+  `/home/ben/src/creature-kernel-worktrees/authored-digitigrade-foot-profiles` —
+  branch `implementation/authored-digitigrade-foot-profiles`, based on that
+  commit;
   no PR exists yet for the current work.
+- [PR #112](https://github.com/benhook1013/creature-kernel/pull/112) merged at
+  `80179614ea693cd45d55743d1d83d044c653a08f`. Its authored pelvis/leg profile
+  is merged predecessor evidence, not completion or visual-quality acceptance.
 - [PR #111](https://github.com/benhook1013/creature-kernel/pull/111) merged at
   `6df6168cdf27477f3b275441616ab4cfd0ab814d`. Its authored arm profile is
   merged predecessor evidence, not completion or visual-quality acceptance.
@@ -101,8 +105,10 @@ pass. The final adversarial review found one XZ decoder-memory blocker, which
 is fixed with an explicit 128 MiB decoder limit and a passing malicious-header
 regression. All three required CI lanes passed before PR #111 merged.
 
-The completed local authored pelvis/leg implementation slice is not merged and
-has no PR yet. Producer v10 carries `authored_leg_profile` v1 with bilateral
+PR #112 is merged at `80179614ea693cd45d55743d1d83d044c653a08f`. Its completed
+internal, reversible authored pelvis/leg control slice is merged predecessor
+evidence and makes no form-quality acceptance claim. Producer v10 carries
+`authored_leg_profile` v1 with bilateral
 five-station routes, 10 landmarks, four identity frames, 30 radii, and four
 shared variant factors. Guide v9 projects the exact anisotropic authored leg
 segments, with a thigh-owned knee, shin-owned hock, and preserved foot seam.
@@ -116,9 +122,10 @@ final subject context of 8128 Python-JSON characters (within the 8192 cap).
 It successfully published the temporary four-group/eight-image review at
 `/tmp/ck-authored-leg-publisher.RM32b9/reviews/authored-leg-v10`.
 
-Checks so far are 419 Rust workspace tests (51 CLI and 368 core), Clippy/fmt,
-107 full visual-review tests, 61 baseline-guide tests, 56 successor tests,
-35 publisher tests, and documentation/diff checks. Two fresh hands-on trials
+PR #112's completed gates include 419 Rust workspace tests (51 CLI and 368
+core), Clippy/fmt, 107 full visual-review tests, 61 baseline-guide tests, 56
+successor tests, 35 publisher tests, and documentation/diff checks. Two fresh
+hands-on trials
 passed publication, browser interaction, asset integrity, and leg-focused
 visual scenarios. The final fresh adversarial review found one contract
 mismatch: positive but descending leg-station coordinates were accepted by
@@ -129,11 +136,11 @@ producer, 26 publication/browser-parity, 61 baseline-surface, and 35 publisher
 tests pass. Main-thread visual inspection found connected
 pelvis/thigh/knee/shin/hock/foot across all four variants, with no point
 spikes, detached islands, or duplicate bulb masses; the lower foot chain
-remains coarse and is not accepted final quality. This is an internal
-reversible prerequisite, not the complete authored-form gallery, and no Ben
-appraisal is requested. After this slice's PR/CI/merge, the next direct region
-toward the unchanged named checkpoint is digitigrade foot transition authored
-control.
+remains coarse and is not accepted final quality. This merged slice is an
+internal reversible prerequisite, not the complete authored-form gallery, and
+no Ben appraisal has been requested. The next current internal, reversible
+slice toward the unchanged named checkpoint is source-authored digitigrade
+foot transition control; no Ben appraisal is requested yet.
 
 The hands-on operator trial also found that LAN read-only mode still displays
 an enabled Save response control even though the server rejects writes. No
@@ -141,8 +148,9 @@ response was submitted or created. This pre-existing UI/usability mismatch is
 deferred unrelated cleanup, not a pelvis/leg geometry or publication blocker.
 
 The non-blocking rejected-POST secondary-400 logging concern is deferred
-unrelated usability cleanup, not an arm blocker. The active local region slice
-is the unmerged pelvis/leg authored-control prerequisite described above.
+unrelated usability cleanup, not an arm blocker. The active internal region
+slice is the source-authored digitigrade foot transition control described
+above.
 
 PR #109 also contained Ben-approved neutral public-facing wording cleanup and
 accepted MIT OR Apache-2.0 licensing DR-0014. That ancillary work does not
