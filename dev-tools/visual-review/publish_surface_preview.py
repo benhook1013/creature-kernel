@@ -49,11 +49,11 @@ class SurfacePreviewPublishError(RuntimeError):
 
 
 SURFACE_PREVIEW_FORMAT = "creature-kernel.disposable-surface-preview.v2"
-REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v6"
-SUCCESSOR_PREVIEW_FORMAT = "creature-kernel.disposable-successor-surface-preview.v4"
+REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v7"
+SUCCESSOR_PREVIEW_FORMAT = "creature-kernel.disposable-successor-surface-preview.v5"
 SUCCESSOR_MANIFEST_NAME = "successor-surface-manifest.json"
 SUCCESSOR_CONSUMER_ID = "successor-surface-v1"
-SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-limb-extremity-tail-profile-sweeps-v8"
+SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-limb-extremity-tail-profile-sweeps-v9"
 AUTHORED_TORSO_PROFILE_FORMAT = "creature-kernel.provisional-form-torso-profile.v1"
 AUTHORED_TORSO_PROFILE_FRAME_ROLE = "form_torso_profile_control"
 AUTHORED_TORSO_PROFILE_SECTION_NAMES = (
@@ -73,6 +73,22 @@ AUTHORED_TORSO_PROFILE_DIMENSION_SUFFIXES = (
     "lateral_radius", "anterior_radius", "posterior_radius",
 )
 AUTHORED_TORSO_PROFILE_PROVENANCE_SOURCE = "source-authored"
+AUTHORED_HEAD_NECK_PROFILE_FORMAT = common.PROVISIONAL_FORM_HEAD_NECK_PROFILE_FORMAT
+AUTHORED_HEAD_NECK_PROFILE_FRAME_ROLE = common.PROVISIONAL_FORM_HEAD_NECK_PROFILE_FRAME_ROLE
+AUTHORED_HEAD_NECK_PROFILE_SECTION_NAMES = common.PROVISIONAL_FORM_HEAD_NECK_PROFILE_SECTION_NAMES
+AUTHORED_HEAD_NECK_PROFILE_OWNER_ROLES = common.PROVISIONAL_FORM_HEAD_NECK_PROFILE_OWNER_ROLES
+AUTHORED_HEAD_NECK_PROFILE_RADIUS_AXES = tuple(
+    axis for axis, _role_suffix in common.PROVISIONAL_FORM_HEAD_NECK_PROFILE_RADIUS_AXES
+)
+AUTHORED_HEAD_NECK_PROFILE_DIMENSION_SUFFIXES = tuple(
+    suffix for _axis, suffix in common.PROVISIONAL_FORM_HEAD_NECK_PROFILE_RADIUS_AXES
+)
+AUTHORED_HEAD_NECK_PROFILE_FRAME_INDICES = {"head": 0, "neck": 1}
+AUTHORED_HEAD_NECK_PROFILE_LANDMARK_INDICES = (6, 7, 2, 1, 0, 4, 3, 5)
+SUCCESSOR_HEAD_NECK_ROUTE_TOPOLOGY = (
+    ("vertical-neck-cranium", (0, 1, 2, 3, 4), "up", ("lateral", "forward"), (0, 1, 2, 3)),
+    ("forward-muzzle", (3, 5, 6, 7), "forward", ("lateral", "up"), (4, 5, 6)),
+)
 EXPECTED_VARIANTS = common.PROVISIONAL_FORM_VARIANT_IDS
 EXPECTED_VIEWS = ("front", "side", "three-quarter")
 MANIFEST_NAME = "surface-preview-manifest.json"
@@ -154,6 +170,8 @@ EXPECTED_GUIDE_COUNTS = {
     "shoulder_frame_curves": 6,
     "shoulder_frame_compiled_fields": 2,
     "head": 1,
+    "head_neck_profile_sections": 8,
+    "head_neck_profile_connections": 7,
     "limbs": 8,
     "paws": 4,
     "tails": 2,
@@ -635,6 +653,46 @@ def _evidence_fields(prefix: str) -> set[str]:
     }
 
 
+def _exact_evidence_metadata_limit(*, prefix: str, max_bytes: int) -> int:
+    """Bound one evidence carrier from its raw byte ceiling and encoding."""
+
+    # zlib's compressBound() formula for the default wrapper used by
+    # zlib.compress(), followed by Base64's exact four-characters-per-three-
+    # bytes expansion.  The remaining allowance is exactly the JSON encoding
+    # of the fixed evidence fields at their longest validated values.
+    compressed_bytes = (
+        max_bytes
+        + (max_bytes >> 12)
+        + (max_bytes >> 14)
+        + (max_bytes >> 25)
+        + 13
+    )
+    encoded_bytes = 4 * ((compressed_bytes + 2) // 3)
+    fixed_carrier = {
+        f"{prefix}_zlib_base64": "",
+        f"{prefix}_encoding": SOURCE_EVIDENCE_ENCODING,
+        f"{prefix}_transfer": SOURCE_EVIDENCE_TRANSFER,
+        f"{prefix}_compression": SOURCE_EVIDENCE_COMPRESSION,
+        f"{prefix}_bytes": max_bytes,
+        f"{prefix}_sha256": "0" * (hashlib.sha256().digest_size * 2),
+    }
+    return len(
+        json.dumps(fixed_carrier, allow_nan=False, ensure_ascii=False)
+    ) + encoded_bytes
+
+
+def _compact_canonical_json(value: Any) -> str:
+    """Encode an internal handoff deterministically without display whitespace."""
+
+    return json.dumps(
+        value,
+        allow_nan=False,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ) + "\n"
+
+
 def _read_exact_evidence(
     path: Path, *, prefix: str, max_bytes: int, where: str
 ) -> dict[str, Any]:
@@ -733,15 +791,21 @@ def _validate_exact_evidence(
         or any(character not in "0123456789abcdef" for character in digest)
     ):
         raise SurfacePreviewPublishError(f"{where} has an invalid SHA-256")
+    try:
+        common._metadata(
+            value,
+            where,
+            max_len=_exact_evidence_metadata_limit(
+                prefix=prefix, max_bytes=max_bytes
+            ),
+        )
+    except ValidationError as exc:
+        raise SurfacePreviewPublishError(str(exc)) from exc
     raw = _decode_exact_evidence(
         value, prefix=prefix, max_bytes=max_bytes, where=where
     )
     if len(raw) != byte_count or hashlib.sha256(raw).hexdigest() != digest:
         raise SurfacePreviewPublishError(f"{where} does not bind its exact source bytes")
-    try:
-        common._metadata(value, where)
-    except ValidationError as exc:
-        raise SurfacePreviewPublishError(str(exc)) from exc
     return value
 
 
@@ -1185,7 +1249,7 @@ def _profile_provenance(source: dict[str, Any], where: str) -> dict[str, str]:
 def _validate_authored_torso_profile(
     producer_payload: dict[str, Any],
 ) -> dict[str, Any]:
-    """Validate and normalize the producer v7 torso profile for all consumers.
+    """Validate and normalize the producer v8 torso/head profile for all consumers.
 
     The returned object is an internal binding, not a new public artifact
     schema.  Every downstream consumer is keyed by the source AddressKey and
@@ -1193,8 +1257,8 @@ def _validate_authored_torso_profile(
     """
 
     where = "provisional-form"
-    if not isinstance(producer_payload, dict) or producer_payload.get("format") != common.PROVISIONAL_FORM_FORMAT:
-        raise SurfacePreviewPublishError("producer envelope is not provisional-form-preview.v7")
+    if not isinstance(producer_payload, dict) or producer_payload.get("format") != common.PROVISIONAL_FORM_V8_FORMAT:
+        raise SurfacePreviewPublishError("producer envelope is not provisional-form-preview.v8")
     source = producer_payload.get("source")
     reference_scale = producer_payload.get("reference_scale")
     if not isinstance(source, dict) or set(source) != {"document", "namespace", "resource_profile_id"}:
@@ -1217,8 +1281,8 @@ def _validate_authored_torso_profile(
         return (_address_sort_key(address), role)
 
     frames = producer_payload.get("authored_frames")
-    if not isinstance(frames, list) or len(frames) != 4:
-        raise SurfacePreviewPublishError("v7 authored_frames must contain exactly four owner identity frames")
+    if not isinstance(frames, list) or len(frames) != 6:
+        raise SurfacePreviewPublishError("v8 authored_frames must contain exactly six owner identity frames")
     frame_map: dict[tuple[str, str], dict[str, Any]] = {}
     for index, raw in enumerate(frames):
         frame_where = f"{where}.authored_frames[{index}]"
@@ -1228,7 +1292,11 @@ def _validate_authored_torso_profile(
         role = raw["role"]
         if not isinstance(role, str) or not role:
             raise SurfacePreviewPublishError(f"{frame_where}.role is invalid")
-        if role not in {common.PROVISIONAL_FORM_SHOULDER_CONTROL_FRAME_ROLE, AUTHORED_TORSO_PROFILE_FRAME_ROLE}:
+        if role not in {
+            common.PROVISIONAL_FORM_SHOULDER_CONTROL_FRAME_ROLE,
+            AUTHORED_TORSO_PROFILE_FRAME_ROLE,
+            AUTHORED_HEAD_NECK_PROFILE_FRAME_ROLE,
+        }:
             raise SurfacePreviewPublishError(f"{frame_where}.role is not an authored identity frame")
         if raw["provenance"] != provenance:
             raise SurfacePreviewPublishError(f"{frame_where}.provenance is invalid")
@@ -1253,13 +1321,16 @@ def _validate_authored_torso_profile(
     } | {
         key({"namespace": source["namespace"], "anchors": [], "kind": "part", "role": role}, AUTHORED_TORSO_PROFILE_FRAME_ROLE)
         for role in ("pelvis", "torso")
+    } | {
+        key({"namespace": source["namespace"], "anchors": [], "kind": "part", "role": role}, AUTHORED_HEAD_NECK_PROFILE_FRAME_ROLE)
+        for role in ("neck", "head")
     }
     if set(frame_map) != expected_frame_keys or [key(item["owner"], item["role"]) for item in frames] != sorted(expected_frame_keys, key=_identity_key_sort):
-        raise SurfacePreviewPublishError("authored_frames do not contain the exact stable v7 owner identity inventory")
+        raise SurfacePreviewPublishError("authored_frames do not contain the exact stable v8 owner identity inventory")
 
     landmarks = producer_payload.get("authored_landmarks")
-    if not isinstance(landmarks, list) or len(landmarks) != 11:
-        raise SurfacePreviewPublishError("v7 authored_landmarks must contain exactly eleven axial and shoulder landmarks")
+    if not isinstance(landmarks, list) or len(landmarks) != 19:
+        raise SurfacePreviewPublishError("v8 authored_landmarks must contain exactly nineteen axial, head/neck, and shoulder landmarks")
     landmark_map: dict[tuple[str, str], dict[str, Any]] = {}
     for index, raw in enumerate(landmarks):
         landmark_where = f"{where}.authored_landmarks[{index}]"
@@ -1269,7 +1340,13 @@ def _validate_authored_torso_profile(
         role = raw["role"]
         if not isinstance(role, str) or not role:
             raise SurfacePreviewPublishError(f"{landmark_where}.role is invalid")
-        expected_frame_role = common.PROVISIONAL_FORM_SHOULDER_CONTROL_FRAME_ROLE if landmark_owner["role"] == "upper_arm" else AUTHORED_TORSO_PROFILE_FRAME_ROLE
+        expected_frame_role = (
+            common.PROVISIONAL_FORM_SHOULDER_CONTROL_FRAME_ROLE
+            if landmark_owner["role"] == "upper_arm"
+            else AUTHORED_HEAD_NECK_PROFILE_FRAME_ROLE
+            if landmark_owner["role"] in {"neck", "head"}
+            else AUTHORED_TORSO_PROFILE_FRAME_ROLE
+        )
         frame_ref = raw["frame"]
         if not isinstance(frame_ref, dict) or set(frame_ref) != {"owner", "role"} or frame_ref["owner"] != landmark_owner or frame_ref["role"] != expected_frame_role:
             raise SurfacePreviewPublishError(f"{landmark_where}.frame does not bind its owner identity frame")
@@ -1279,6 +1356,8 @@ def _validate_authored_torso_profile(
         if any(abs(value) > 1.0 for value in position):
             raise SurfacePreviewPublishError(f"{landmark_where}.position is outside the authored control bound")
         if landmark_owner["role"] in {"pelvis", "torso"} and (position[0] != 0.0 or position[2] != 0.0):
+            raise SurfacePreviewPublishError(f"{landmark_where}.position must be axial")
+        if landmark_owner["role"] in {"neck", "head"} and position[0] != 0.0:
             raise SurfacePreviewPublishError(f"{landmark_where}.position must be axial")
         if raw["provenance"] != provenance:
             raise SurfacePreviewPublishError(f"{landmark_where}.provenance is invalid")
@@ -1292,9 +1371,12 @@ def _validate_authored_torso_profile(
     } | {
         key({"namespace": source["namespace"], "anchors": [], "kind": "part", "role": owner_role}, f"form_torso_profile_{name.replace('-', '_')}")
         for name, owner_role in zip(AUTHORED_TORSO_PROFILE_SECTION_NAMES, AUTHORED_TORSO_PROFILE_OWNER_ROLES)
+    } | {
+        key({"namespace": source["namespace"], "anchors": [], "kind": "part", "role": owner_role}, f"form_head_neck_profile_{name.replace('-', '_')}")
+        for name, owner_role in zip(AUTHORED_HEAD_NECK_PROFILE_SECTION_NAMES, AUTHORED_HEAD_NECK_PROFILE_OWNER_ROLES)
     }
     if set(landmark_map) != expected_landmark_keys or [key(item["owner"], item["role"]) for item in landmarks] != sorted(expected_landmark_keys, key=_identity_key_sort):
-        raise SurfacePreviewPublishError("authored_landmarks do not contain the exact stable v7 inventory")
+        raise SurfacePreviewPublishError("authored_landmarks do not contain the exact stable v8 inventory")
 
     dimensions = producer_payload.get("authored_dimensions")
     if not isinstance(dimensions, list) or not dimensions:
@@ -1307,6 +1389,17 @@ def _validate_authored_torso_profile(
         for name, owner_role in zip(AUTHORED_TORSO_PROFILE_SECTION_NAMES, AUTHORED_TORSO_PROFILE_OWNER_ROLES)
         for suffix in AUTHORED_TORSO_PROFILE_DIMENSION_SUFFIXES
     }
+    expected_head_neck_dimension_keys = {
+        key(
+            {"namespace": source["namespace"], "anchors": [], "kind": "part", "role": owner_role},
+            f"form_head_neck_profile_{name.replace('-', '_')}_{suffix}",
+        )
+        for name, owner_role in zip(
+            AUTHORED_HEAD_NECK_PROFILE_SECTION_NAMES,
+            AUTHORED_HEAD_NECK_PROFILE_OWNER_ROLES,
+        )
+        for suffix in AUTHORED_HEAD_NECK_PROFILE_DIMENSION_SUFFIXES
+    }
     dimension_map: dict[tuple[str, str], dict[str, Any]] = {}
     for index, raw in enumerate(dimensions):
         dimension_where = f"{where}.authored_dimensions[{index}]"
@@ -1318,7 +1411,7 @@ def _validate_authored_torso_profile(
         if not isinstance(role, str) or not role or type(value) is not int or raw["provenance"] != provenance:
             raise SurfacePreviewPublishError(f"{dimension_where} is invalid or has wrong provenance")
         dimension_key = key(dimension_owner, role)
-        if dimension_key in expected_torso_dimension_keys:
+        if dimension_key in expected_torso_dimension_keys or dimension_key in expected_head_neck_dimension_keys:
             if not AUTHORED_TORSO_PROFILE_MIN_RADIUS_PERMILLE <= value <= AUTHORED_TORSO_PROFILE_MAX_RADIUS_PERMILLE:
                 raise SurfacePreviewPublishError(
                     f"{dimension_where} source torso radius must be an integer in the inclusive range "
@@ -1331,6 +1424,8 @@ def _validate_authored_torso_profile(
         dimension_map[dimension_key] = raw
     if not expected_torso_dimension_keys <= set(dimension_map):
         raise SurfacePreviewPublishError("authored_dimensions omit a torso profile radius reference")
+    if not expected_head_neck_dimension_keys <= set(dimension_map):
+        raise SurfacePreviewPublishError("authored_dimensions omit a head/neck profile radius reference")
     if [key(item["owner"], item["role"]) for item in dimensions] != sorted(dimension_map, key=_identity_key_sort):
         raise SurfacePreviewPublishError("authored_dimensions do not use stable owner/role order")
 
@@ -1392,13 +1487,169 @@ def _validate_authored_torso_profile(
             ],
         })
 
+    head_profile = producer_payload.get("authored_head_neck_profile")
+    if not isinstance(head_profile, dict) or set(head_profile) != {
+        "format", "provenance", "sections", "connections"
+    }:
+        raise SurfacePreviewPublishError(
+            "authored_head_neck_profile has unknown or missing fields"
+        )
+    if (
+        head_profile["format"] != AUTHORED_HEAD_NECK_PROFILE_FORMAT
+        or head_profile["provenance"] != provenance
+    ):
+        raise SurfacePreviewPublishError(
+            "authored_head_neck_profile format or provenance is invalid"
+        )
+    connections = head_profile["connections"]
+    if not isinstance(connections, list) or len(connections) != len(common.PROVISIONAL_FORM_HEAD_NECK_PROFILE_CONNECTIONS):
+        raise SurfacePreviewPublishError(
+            "authored_head_neck_profile.connections must contain exactly seven records"
+        )
+    for index, (connection, expected) in enumerate(
+        zip(connections, common.PROVISIONAL_FORM_HEAD_NECK_PROFILE_CONNECTIONS)
+    ):
+        connection_where = f"{where}.authored_head_neck_profile.connections[{index}]"
+        if not isinstance(connection, dict) or set(connection) != {
+            "name", "from_section_index", "to_section_index", "route"
+        }:
+            raise SurfacePreviewPublishError(f"{connection_where} has an invalid shape")
+        if (
+            connection["name"],
+            connection["from_section_index"],
+            connection["to_section_index"],
+            connection["route"],
+        ) != expected:
+            raise SurfacePreviewPublishError(
+                f"{connection_where} does not match the exact v8 connection route"
+            )
+
+    raw_head_sections = head_profile["sections"]
+    if not isinstance(raw_head_sections, list) or len(raw_head_sections) != len(AUTHORED_HEAD_NECK_PROFILE_SECTION_NAMES):
+        raise SurfacePreviewPublishError(
+            "authored_head_neck_profile.sections must contain exactly eight ordered sections"
+        )
+    head_lineage: list[dict[str, Any]] = []
+    route_positions: dict[str, list[float]] = {
+        "neck vertical": [],
+        "cranium vertical": [],
+        "forward muzzle": [],
+    }
+    for index, (raw, name, owner_role) in enumerate(
+        zip(
+            raw_head_sections,
+            AUTHORED_HEAD_NECK_PROFILE_SECTION_NAMES,
+            AUTHORED_HEAD_NECK_PROFILE_OWNER_ROLES,
+        )
+    ):
+        section_where = f"{where}.authored_head_neck_profile.sections[{index}]"
+        expected_fields = {
+            "name", "frame_index", "landmark_index", "dimension_indices",
+            "provenance", "section_index",
+        }
+        if not isinstance(raw, dict) or set(raw) != expected_fields:
+            raise SurfacePreviewPublishError(f"{section_where} has an invalid indexed shape")
+        if (
+            raw["name"] != name
+            or type(raw["section_index"]) is not int
+            or raw["section_index"] != index
+            or raw["provenance"] != provenance
+        ):
+            raise SurfacePreviewPublishError(
+                f"{section_where} name, order, index, or provenance is invalid"
+            )
+        frame_index = raw["frame_index"]
+        landmark_index = raw["landmark_index"]
+        expected_owner = {
+            "namespace": source["namespace"], "anchors": [], "kind": "part", "role": owner_role
+        }
+        if (
+            type(frame_index) is not int
+            or not 0 <= frame_index < len(frames)
+            or frame_index != AUTHORED_HEAD_NECK_PROFILE_FRAME_INDICES[owner_role]
+            or frames[frame_index]["owner"] != expected_owner
+            or frames[frame_index]["role"] != AUTHORED_HEAD_NECK_PROFILE_FRAME_ROLE
+            or type(landmark_index) is not int
+            or not 0 <= landmark_index < len(landmarks)
+            or landmark_index != AUTHORED_HEAD_NECK_PROFILE_LANDMARK_INDICES[index]
+        ):
+            raise SurfacePreviewPublishError(
+                f"{section_where} frame or landmark index does not bind its owner"
+            )
+        expected_landmark_role = f"form_head_neck_profile_{name.replace('-', '_')}"
+        landmark = landmarks[landmark_index]
+        if (
+            landmark["owner"] != expected_owner
+            or landmark["role"] != expected_landmark_role
+            or landmark["frame"] != {
+                "owner": expected_owner,
+                "role": AUTHORED_HEAD_NECK_PROFILE_FRAME_ROLE,
+            }
+        ):
+            raise SurfacePreviewPublishError(
+                f"{section_where} does not bind its identity frame and landmark"
+            )
+        position = landmark["position"]
+        if index in (0, 1):
+            route_positions["neck vertical"].append(float(position[1]))
+        if index in (2, 3, 4):
+            route_positions["cranium vertical"].append(float(position[1]))
+        if index in (3, 5, 6, 7):
+            route_positions["forward muzzle"].append(float(position[2]))
+        dimension_indices = raw["dimension_indices"]
+        if not isinstance(dimension_indices, dict) or set(dimension_indices) != set(AUTHORED_HEAD_NECK_PROFILE_RADIUS_AXES):
+            raise SurfacePreviewPublishError(f"{section_where}.dimension_indices is invalid")
+        dimensions_for_section: list[dict[str, Any]] = []
+        for axis, suffix in zip(
+            AUTHORED_HEAD_NECK_PROFILE_RADIUS_AXES,
+            AUTHORED_HEAD_NECK_PROFILE_DIMENSION_SUFFIXES,
+        ):
+            dimension_index = dimension_indices[axis]
+            expected_role = f"form_head_neck_profile_{name.replace('-', '_')}_{suffix}"
+            if (
+                type(dimension_index) is not int
+                or not 0 <= dimension_index < len(dimensions)
+                or dimensions[dimension_index]["owner"] != expected_owner
+                or dimensions[dimension_index]["role"] != expected_role
+            ):
+                raise SurfacePreviewPublishError(
+                    f"{section_where}.dimension_indices.{axis} does not bind its radius reference"
+                )
+            dimensions_for_section.append(dimensions[dimension_index])
+        head_lineage.append({
+            "section_index": index,
+            "name": name,
+            "owner": expected_owner,
+            "frame_index": frame_index,
+            "landmark_index": landmark_index,
+            "frame": {"owner": expected_owner, "role": AUTHORED_HEAD_NECK_PROFILE_FRAME_ROLE},
+            "landmark": {"owner": expected_owner, "role": expected_landmark_role, "position": list(position)},
+            "dimension_indices": dict(dimension_indices),
+            "dimensions": [
+                {
+                    "axis": axis,
+                    "role": dimension["role"],
+                    "index": dimension_indices[axis],
+                    "base_value_permille": dimension["value_permille"],
+                }
+                for axis, dimension in zip(AUTHORED_HEAD_NECK_PROFILE_RADIUS_AXES, dimensions_for_section)
+            ],
+        })
+    for route, positions in route_positions.items():
+        if any(left >= right for left, right in zip(positions, positions[1:])):
+            raise SurfacePreviewPublishError(
+                f"authored head/neck profile landmarks are not strictly ordered on {route} route"
+            )
+
     producer_variants = producer_payload.get("variants")
     if not isinstance(producer_variants, list) or len(producer_variants) != len(EXPECTED_VARIANTS):
         raise SurfacePreviewPublishError("producer variants are not the canonical four variant records")
     variant_bindings: dict[str, dict[str, Any]] = {}
     for raw_variant in producer_variants:
-        if not isinstance(raw_variant, dict) or set(raw_variant) != {"id", "profile_id", "provenance", "descriptors", "torso_profile"}:
-            raise SurfacePreviewPublishError("producer variant has unknown or missing v7 fields")
+        if not isinstance(raw_variant, dict) or set(raw_variant) != {
+            "id", "profile_id", "provenance", "descriptors", "torso_profile", "head_neck_profile"
+        }:
+            raise SurfacePreviewPublishError("producer variant has unknown or missing v8 fields")
         variant_id = raw_variant["id"]
         if variant_id not in EXPECTED_VARIANTS or variant_id in variant_bindings or raw_variant["profile_id"] != variant_id:
             raise SurfacePreviewPublishError("producer variants have duplicate, unknown, or mismatched ids")
@@ -1451,12 +1702,85 @@ def _validate_authored_torso_profile(
             if actual_values != expected_values:
                 raise SurfacePreviewPublishError(f"{section_where} radius values do not match authored factors")
             scaled_lineage.append({**base, "scaling": {axis: factor for axis, factor in zip(AUTHORED_TORSO_PROFILE_RADIUS_AXES, factors)}, "scaled_values_permille": {axis: value for axis, value in zip(AUTHORED_TORSO_PROFILE_RADIUS_AXES, actual_values)}})
+        variant_head_profile = raw_variant["head_neck_profile"]
+        if not isinstance(variant_head_profile, dict) or set(variant_head_profile) != {
+            "format", "source", "provenance", "sections", "connections"
+        } or variant_head_profile["format"] != AUTHORED_HEAD_NECK_PROFILE_FORMAT or variant_head_profile["source"] != "authored_head_neck_profile" or variant_head_profile["provenance"] != provenance:
+            raise SurfacePreviewPublishError(
+                f"producer variant {variant_id} head/neck profile identity is invalid"
+            )
+        if variant_head_profile["connections"] != connections:
+            raise SurfacePreviewPublishError(
+                f"producer variant {variant_id} head/neck connections do not bind the authored profile"
+            )
+        variant_head_lineage: list[dict[str, Any]] = []
+        variant_head_sections = variant_head_profile["sections"]
+        if not isinstance(variant_head_sections, list) or len(variant_head_sections) != len(head_lineage):
+            raise SurfacePreviewPublishError(
+                f"producer variant {variant_id} head/neck profile section count is invalid"
+            )
+        for index, (section, base) in enumerate(zip(variant_head_sections, head_lineage)):
+            section_where = f"producer variant {variant_id}.head_neck_profile.sections[{index}]"
+            expected_fields = {
+                "source_section_index", "name", "position",
+                "lateral_radius_permille", "up_radius_permille", "forward_radius_permille",
+                "scaling", "provenance",
+            }
+            if not isinstance(section, dict) or set(section) != expected_fields:
+                raise SurfacePreviewPublishError(f"{section_where} has an invalid shape")
+            factors = common._provisional_form_head_neck_profile_factors(
+                variant_id, base["owner"]["role"]
+            )
+            if (
+                type(section["source_section_index"]) is not int
+                or section["source_section_index"] != index
+                or section["name"] != base["name"]
+                or section["position"] != base["landmark"]["position"]
+                or section["provenance"] != provenance
+            ):
+                raise SurfacePreviewPublishError(
+                    f"{section_where} does not bind its source section"
+                )
+            if section["scaling"] != {
+                "lateral_factor_permille": factors[0],
+                "up_factor_permille": factors[1],
+                "forward_factor_permille": factors[2],
+            }:
+                raise SurfacePreviewPublishError(f"{section_where}.scaling is invalid")
+            expected_values = tuple(
+                dimension["base_value_permille"] * factor // 1_000
+                for dimension, factor in zip(base["dimensions"], factors)
+            )
+            actual_values = tuple(
+                section[f"{axis}_radius_permille"]
+                for axis in AUTHORED_HEAD_NECK_PROFILE_RADIUS_AXES
+            )
+            if actual_values != expected_values or any(
+                type(value) is not int
+                or not AUTHORED_TORSO_PROFILE_MIN_RADIUS_PERMILLE <= value <= AUTHORED_TORSO_PROFILE_MAX_RADIUS_PERMILLE
+                for value in actual_values
+            ):
+                raise SurfacePreviewPublishError(
+                    f"{section_where} radius values do not match authored head/neck factors"
+                )
+            variant_head_lineage.append({
+                **base,
+                "scaling": {
+                    axis: factor
+                    for axis, factor in zip(AUTHORED_HEAD_NECK_PROFILE_RADIUS_AXES, factors)
+                },
+                "scaled_values_permille": {
+                    axis: value
+                    for axis, value in zip(AUTHORED_HEAD_NECK_PROFILE_RADIUS_AXES, actual_values)
+                },
+            })
         variant_bindings[variant_id] = {
             "variant_id": variant_id,
             "profile_id": raw_variant["profile_id"],
             "producer_variant_sha256": _source_variant_sha256(raw_variant, f"producer variant {variant_id}"),
             "descriptor_owners": sorted(descriptor_owners, key=_address_sort_key),
             "torso_lineage": scaled_lineage,
+            "head_neck_lineage": variant_head_lineage,
         }
     if set(variant_bindings) != set(EXPECTED_VARIANTS):
         raise SurfacePreviewPublishError("producer variants do not contain the exact canonical variant set")
@@ -1469,6 +1793,8 @@ def _validate_authored_torso_profile(
         "landmarks": landmark_map,
         "dimensions": dimension_map,
         "base_torso_lineage": torso_lineage,
+        "base_head_neck_lineage": head_lineage,
+        "head_neck_profile": head_profile,
         "variants": variant_bindings,
     }
 
@@ -1696,7 +2022,7 @@ def _validate_controls(
         or not isinstance(producer_dimensions, list)
         or not isinstance(producer_variants, list)
     ):
-        raise SurfacePreviewPublishError("regional guide cannot bind v7 producer shoulder controls")
+        raise SurfacePreviewPublishError("regional guide cannot bind v8 producer shoulder controls")
     squared_length = producer_scale.get("squared_length")
     if type(squared_length) is not int or squared_length <= 0:
         raise SurfacePreviewPublishError("regional guide cannot bind the producer reference scale")
@@ -1896,16 +2222,181 @@ def _validate_controls(
                     raise SurfacePreviewPublishError(f"{curve_where}.point[{point_index}] extends outside shared render bounds")
 
     head = controls["head"]
-    if not isinstance(head, dict) or set(head) != {"owners", "masses", "sections"}:
+    if not isinstance(head, dict) or set(head) != {
+        "owners", "profile_format", "provenance", "sections", "connections", "masses", "paths"
+    }:
         raise SurfacePreviewPublishError("regional guide head controls are invalid")
     head_owners = head["owners"]
     if not isinstance(head_owners, list) or len(head_owners) != 2:
         raise SurfacePreviewPublishError("regional guide head owners are invalid")
-    parsed_head_owners = [owner(value, f"regional-guide.controls.head.owners[{index}]") for index, value in enumerate(head_owners)]
-    if len({json.dumps(value, sort_keys=True) for value in parsed_head_owners}) != 2 or {value["role"] for value in parsed_head_owners} != {"head", "neck"}:
+    parsed_head_owners = [
+        owner(value, f"regional-guide.controls.head.owners[{index}]")
+        for index, value in enumerate(head_owners)
+    ]
+    if (
+        [value["role"] for value in parsed_head_owners] != ["head", "neck"]
+        or parsed_head_owners[0]["anchors"] != []
+        or parsed_head_owners[1]["anchors"] != []
+    ):
         raise SurfacePreviewPublishError("regional guide head owners are invalid")
-    _mass_list(head["masses"], "regional-guide.controls.head.masses", lower, upper, {"cranium", "muzzle", "neck-collar"})
-    _path_list(head["sections"], "regional-guide.controls.head.sections", lower, upper, {"head-transition", "neck-transition"})
+    if (
+        head["profile_format"] != AUTHORED_HEAD_NECK_PROFILE_FORMAT
+        or head["provenance"] != profile_context["provenance"]
+    ):
+        raise SurfacePreviewPublishError("regional guide head profile identity is invalid")
+
+    base_head = profile_context["base_head_neck_lineage"]
+    variant_head = profile_context["variants"][variant_id]["head_neck_lineage"]
+    descriptor_by_owner = {
+        _address_sort_key(descriptor["address"]): descriptor
+        for descriptor in next(
+            item for item in producer_payload["variants"] if item.get("id") == variant_id
+        )["descriptors"]
+    }
+    guide_sections = head["sections"]
+    if not isinstance(guide_sections, list) or len(guide_sections) != len(base_head):
+        raise SurfacePreviewPublishError(
+            "regional guide head profile sections must contain exactly eight records"
+        )
+    scale = math.sqrt(float(profile_context["reference_scale"]["squared_length"]))
+    for index, (section, base, projected) in enumerate(zip(guide_sections, base_head, variant_head)):
+        section_where = f"regional-guide.controls.head.sections[{index}]"
+        expected_fields = {
+            "name", "section_index", "source_section_index", "frame_index", "landmark_index",
+            "owner", "frame", "landmark", "center", "radii", "lateral_radius", "up_radius",
+            "forward_radius", "lineage",
+        }
+        if not isinstance(section, dict) or set(section) != expected_fields:
+            raise SurfacePreviewPublishError(f"{section_where} has an invalid shape")
+        if (
+            section["name"] != base["name"]
+            or section["section_index"] != index
+            or section["source_section_index"] != index
+            or section["frame_index"] != base["frame_index"]
+            or section["landmark_index"] != base["landmark_index"]
+            or section["owner"] != base["owner"]
+            or section["frame"] != base["frame"]
+        ):
+            raise SurfacePreviewPublishError(
+                f"{section_where} indexed identity does not match the producer profile"
+            )
+        expected_landmark = profile_context["landmarks"][
+            (_address_sort_key(base["owner"]), base["landmark"]["role"])
+        ]
+        if section["landmark"] != expected_landmark:
+            raise SurfacePreviewPublishError(
+                f"{section_where}.landmark does not match the producer profile"
+            )
+        descriptor = descriptor_by_owner.get(_address_sort_key(base["owner"]))
+        if not isinstance(descriptor, dict):
+            raise SurfacePreviewPublishError(f"{section_where} has no source descriptor")
+        expected_center = [
+            (float(descriptor["reference_point"][axis]) + float(base["landmark"]["position"][axis])) / scale
+            for axis in range(3)
+        ]
+        center = _point(section["center"], f"{section_where}.center")
+        if any(not math.isclose(actual, expected, rel_tol=0.0, abs_tol=1.0e-12) for actual, expected in zip(center, expected_center)):
+            raise SurfacePreviewPublishError(f"{section_where}.center does not bind its source position")
+        expected_radii = {
+            axis: projected["scaled_values_permille"][axis] / 1000.0
+            for axis in AUTHORED_HEAD_NECK_PROFILE_RADIUS_AXES
+        }
+        if section["radii"] != expected_radii or any(
+            not math.isclose(float(section[f"{axis}_radius"]), expected_radii[axis], rel_tol=0.0, abs_tol=1.0e-12)
+            for axis in AUTHORED_HEAD_NECK_PROFILE_RADIUS_AXES
+        ):
+            raise SurfacePreviewPublishError(f"{section_where}.radii do not bind the variant profile")
+        expected_lineage = {}
+        for axis, dimension in zip(AUTHORED_HEAD_NECK_PROFILE_RADIUS_AXES, base["dimensions"]):
+            expected_lineage[axis] = {
+                "base": dimension["base_value_permille"],
+                "factor": projected["scaling"][axis],
+                "scaled": projected["scaled_values_permille"][axis],
+                "reference": {
+                    "owner": base["owner"],
+                    "role": dimension["role"],
+                    "index": dimension["index"],
+                },
+                "provenance": dimension["provenance"] if "provenance" in dimension else profile_context["provenance"],
+                "consumed_section": base["name"],
+            }
+        if section["lineage"] != expected_lineage:
+            raise SurfacePreviewPublishError(f"{section_where}.lineage does not bind source dimensions")
+
+    expected_connections = []
+    for index, (name, from_index, to_index, route) in enumerate(common.PROVISIONAL_FORM_HEAD_NECK_PROFILE_CONNECTIONS):
+        connection_where = f"regional-guide.controls.head.connections[{index}]"
+        if not isinstance(head["connections"], list) or index >= len(head["connections"]):
+            raise SurfacePreviewPublishError("regional guide head profile connections are incomplete")
+        connection = head["connections"][index]
+        if not isinstance(connection, dict) or set(connection) != {
+            "name", "from_section_index", "to_section_index", "route", "from", "to", "path"
+        }:
+            raise SurfacePreviewPublishError(f"{connection_where} has an invalid shape")
+        source_from = guide_sections[from_index]
+        source_to = guide_sections[to_index]
+        expected_path = {
+            "control": name,
+            "points": [source_from["center"], source_to["center"]],
+            "thickness": [
+                min(float(value) for value in source_from["radii"].values()),
+                min(float(value) for value in source_to["radii"].values()),
+            ],
+            "path_kind": "tapered-segment",
+        }
+        expected_connection = {
+            "name": name,
+            "from_section_index": from_index,
+            "to_section_index": to_index,
+            "route": route,
+            "from": {"name": source_from["name"], "owner": source_from["owner"]},
+            "to": {"name": source_to["name"], "owner": source_to["owner"]},
+            "path": expected_path,
+        }
+        if connection != expected_connection:
+            raise SurfacePreviewPublishError(
+                f"{connection_where} does not bind the exact producer connection"
+            )
+        _path(connection["path"], connection_where + ".path", lower, upper, {name}, expected_kind="tapered-segment")
+        expected_connections.append(expected_connection)
+    if len(head["connections"]) != len(expected_connections):
+        raise SurfacePreviewPublishError("regional guide head profile connections must contain exactly seven records")
+
+    # The complete profile above is source-owned carried guide data.  The
+    # compatibility renderer consumes only these three named stations and the
+    # two transition paths below; it must not silently claim every profile
+    # station as a skin-driving baseline primitive.
+    expected_masses = []
+    for control, section_name in (
+        ("cranium", "cranium-mid"),
+        ("muzzle", "muzzle-mid"),
+        ("neck-collar", "neck-collar"),
+    ):
+        selected = next(section for section in guide_sections if section["name"] == section_name)
+        expected_masses.append({
+            "control": control,
+            "center": selected["center"],
+            "radii": [selected["radii"][axis] for axis in ("lateral", "up", "forward")],
+        })
+    if head["masses"] != expected_masses:
+        raise SurfacePreviewPublishError("regional guide head compatibility masses do not bind selected profile stations")
+    expected_paths = []
+    for control, from_name, to_name in (
+        ("head-transition", "neck-upper", "head-base"),
+        ("neck-transition", "neck-collar", "neck-upper"),
+    ):
+        source_from = next(section for section in guide_sections if section["name"] == from_name)
+        source_to = next(section for section in guide_sections if section["name"] == to_name)
+        expected_paths.append({
+            "control": control,
+            "points": [source_from["center"], source_to["center"]],
+            "thickness": [
+                min(float(value) for value in source_from["radii"].values()),
+                min(float(value) for value in source_to["radii"].values()),
+            ],
+        })
+    if head["paths"] != expected_paths:
+        raise SurfacePreviewPublishError("regional guide head compatibility paths do not bind selected profile stations")
 
     limbs = controls["limbs"]
     if not isinstance(limbs, list) or len(limbs) != 8:
@@ -2338,7 +2829,7 @@ def _validate_bundle(
     if set(manifest) != expected_manifest_fields:
         raise SurfacePreviewPublishError("surface bundle has unknown manifest fields")
     if manifest.get("source_format") != common.PROVISIONAL_FORM_FORMAT:
-        raise SurfacePreviewPublishError("surface bundle source_format must be provisional-form v7")
+        raise SurfacePreviewPublishError("surface bundle source_format must be provisional-form v8")
     source = manifest.get("source")
     if not isinstance(source, dict) or set(source) != {"format", "sha256", "document", "namespace", "resource_profile_id", "reference_scale"}:
         raise SurfacePreviewPublishError("surface bundle source must identify format and sha256")
@@ -2544,6 +3035,7 @@ def _validate_bundle(
                 "descriptor_owners": sorted(descriptor_addresses, key=_address_sort_key),
                 "capture": {key: manifest[key] for key in ("canvas", "projections", "layout", "shared_render_bounds")},
                 "torso_lineage": profile_binding["variants"][variant["id"]]["torso_lineage"] if profile_binding else None,
+                "head_neck_lineage": profile_binding["variants"][variant["id"]]["head_neck_lineage"] if profile_binding else None,
             },
         })
     actual_paths, actual_directories = _regular_artifacts(bundle)
@@ -2566,9 +3058,9 @@ SUCCESSOR_EXTREMITY_KINDS = (
     "hand-attachment", "hand-paw", "foot-chain",
 )
 SUCCESSOR_HEAD_NECK_ORDER = (
-    "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar",
+    "vertical-neck-cranium", "forward-muzzle",
 )
-SUCCESSOR_HEAD_NECK_SECTION_COUNTS = (5, 4, 2, 2, 3)
+SUCCESSOR_HEAD_NECK_SECTION_COUNTS = (5, 4)
 SUCCESSOR_LIMB_ORDER = ("left-arm", "left-leg", "right-arm", "right-leg")
 SUCCESSOR_LIMB_STATION_NAMES = (
     ("upper-arm-start", "upper-arm-midpoint", "elbow", "forearm-midpoint", "forearm-distal"),
@@ -2733,11 +3225,71 @@ def _profile_bend_count(points: list[list[float]], where: str) -> int:
     return count
 
 
+def _expected_successor_head_neck_metadata(guide: dict[str, Any]) -> dict[str, Any]:
+    """Re-derive the v5 head/neck sidecar from the validated v7 guide."""
+
+    head = guide["controls"]["head"]
+    sections = head["sections"]
+    connections = head["connections"]
+    expected_sections = [
+        {
+            "name": section["name"],
+            "section_index": section["section_index"],
+            "source_section_index": section["source_section_index"],
+            "frame_index": section["frame_index"],
+            "landmark_index": section["landmark_index"],
+            "owner": section["owner"],
+            "center": section["center"],
+            "radii": section["radii"],
+            "lineage": section["lineage"],
+        }
+        for section in sections
+    ]
+    expected_connections = [
+        {
+            "name": connection["name"],
+            "from_section_index": connection["from_section_index"],
+            "to_section_index": connection["to_section_index"],
+            "route": connection["route"],
+            "centerline": connection["path"]["points"],
+            "thickness": connection["path"]["thickness"],
+        }
+        for connection in connections
+    ]
+    route_topology = []
+    for route_name, indices, tangent_axis, transverse_axes, connection_indices in SUCCESSOR_HEAD_NECK_ROUTE_TOPOLOGY:
+        route_sections = [sections[index] for index in indices]
+        route_topology.append({
+            "name": route_name,
+            "operation": "authored-head-neck-branched-route-profile-v1",
+            "section_indices": list(indices),
+            "section_names": [section["name"] for section in route_sections],
+            "connection_names": [connections[index]["name"] for index in connection_indices],
+            "tangent_axis": tangent_axis,
+            "transverse_axes": list(transverse_axes),
+            "owner_keys": [section["owner"] for section in route_sections],
+            "station_radii": [section["radii"] for section in route_sections],
+            "endpoint_cap_count": 2,
+            "internal_transition_count": 0,
+        })
+    return {
+        "profile_format": AUTHORED_HEAD_NECK_PROFILE_FORMAT,
+        "operation": "authored-head-neck-branched-route-profile-v1",
+        "regional_guide_format": REGIONAL_GUIDE_FORMAT,
+        "provenance": head["provenance"],
+        "sections_consumed": len(sections),
+        "connections_consumed": len(connections),
+        "sections": expected_sections,
+        "connections": expected_connections,
+        "route_topology": route_topology,
+    }
+
+
 def _expected_successor_region_metadata(
     guide: dict[str, Any],
     torso_controls: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """Build the exact structural metadata emitted by the v8 successor.
+    """Build the exact structural metadata emitted by the v9 successor.
 
     The values are derived from the already validated regional guide.  This is
     deliberately a complete metadata binding rather than independent length
@@ -2748,13 +3300,7 @@ def _expected_successor_region_metadata(
     controls = guide["controls"]
     head = controls["head"]
     head_owner, neck_owner = head["owners"]
-    head_neck = {
-        "representation": "shared-guide-derived-profile-sweeps",
-        "sweeps_consumed": len(SUCCESSOR_HEAD_NECK_ORDER),
-        "sweep_order": list(SUCCESSOR_HEAD_NECK_ORDER),
-        "section_counts": list(SUCCESSOR_HEAD_NECK_SECTION_COUNTS),
-        "owner_keys": [head_owner, head_owner, head_owner, neck_owner, neck_owner],
-    }
+    head_neck = _expected_successor_head_neck_metadata(guide)
 
     limbs_by_key = {
         (tuple(item["owner"]["anchors"]), item["owner"]["role"]): item
@@ -2935,12 +3481,7 @@ def _expected_successor_region_metadata(
             for side in ("left", "right")
         ],
         "shoulder_sweep_controls": None,
-        "head_neck_representation": head_neck["representation"],
-        "head_neck_sweeps_consumed": head_neck["sweeps_consumed"],
-        "head_neck_sweep_order": head_neck["sweep_order"],
-        "head_neck_sweep_section_counts": head_neck["section_counts"],
-        "head_neck_sweep_owner_keys": head_neck["owner_keys"],
-        "head_neck_source_owner_keys": [head_owner, neck_owner],
+        "head_neck": head_neck,
         "limb_representation": limbs["representation"],
         "limb_sweeps_consumed": limbs["sweeps_consumed"],
         "limb_sweep_order": limbs["sweep_order"],
@@ -3633,6 +4174,7 @@ def _validate_successor_bundle(
                 "descriptor_owners": profile_binding["variants"][variant_id]["descriptor_owners"],
                 "capture": expected_frame,
                 "torso_lineage": profile_binding["variants"][variant_id]["torso_lineage"],
+                "head_neck_lineage": profile_binding["variants"][variant_id]["head_neck_lineage"],
             },
         })
 
@@ -3697,8 +4239,10 @@ def publish_surface_preview(
         except (ProvisionalFormPublishError, OSError, ValueError) as exc:
             raise SurfacePreviewPublishError(str(exc)) from exc
         if payload.get("format") != common.PROVISIONAL_FORM_FORMAT:
-            raise SurfacePreviewPublishError("creature-kernel inspection did not produce v7")
-        producer_output.write_text(canonical_json(payload), encoding="utf-8")
+            raise SurfacePreviewPublishError("creature-kernel inspection did not produce v8")
+        producer_output.write_text(
+            _compact_canonical_json(payload), encoding="utf-8"
+        )
         producer_sha256, _ = _sha256(producer_output, "producer envelope output")
         producer_evidence = _validate_producer_evidence(
             _read_producer_evidence(producer_output), "producer envelope evidence"
@@ -3794,28 +4338,16 @@ def publish_surface_preview(
                 ],
             })
         descriptor_snapshot = _validate_input_evidence({
-            "source_format": common.PROVISIONAL_FORM_FORMAT,
-            "source_sha256": producer_sha256,
-            "variants": list(EXPECTED_VARIANTS),
-            "images": 8,
             **input_evidence,
             **producer_evidence,
         }, "review.subject_context.descriptor_snapshot")
         _validate_producer_evidence(
             descriptor_snapshot, "review.subject_context.descriptor_snapshot"
         )
-        if descriptor_snapshot["producer_envelope_sha256"] != descriptor_snapshot["source_sha256"]:
+        if descriptor_snapshot["producer_envelope_sha256"] != producer_sha256:
             raise SurfacePreviewPublishError(
                 "review lineage does not bind the consumed producer envelope"
             )
-        baseline_generator_summary = {
-            key: baseline_metadata["generator"][key]
-            for key in ("bundle_version", "samples_per_axis", "padding", "smooth_union")
-        }
-        successor_generator_summary = {
-            key: successor_metadata["generator"][key]
-            for key in ("samples_per_axis", "padding", "capture_padding", "smooth_k", "production_status")
-        }
         manifest_path.write_text(canonical_json({
             "schema_version": 1,
             "id": stable_id,
@@ -3823,9 +4355,9 @@ def publish_surface_preview(
             "description": "Disposable baseline-versus-successor comparison using one source and one shared capture frame; publication itself is not production geometry or acceptance evidence.",
             "instructions": "For each variant, compare baseline first and successor second. Appraise overall creature coherence and recognizability, connected joints/extremities/tail, silhouette, and meaningful differentiation between variants. This gallery records no acceptance decision.",
             "subject_context": {
-                "authored_summary": {"text": "The same source and shared front/side/three-quarter framing are shown as four ordered baseline/successor pairs for bounded technical and visual inspection."},
+                "authored_summary": {"text": "Four baseline/successor pairs share one source and capture frame."},
                 "descriptor_snapshot": descriptor_snapshot,
-                "provenance": {"producer": "inspect-provisional-form", "baseline_generator_script": generator_path.name, "successor_generator_script": successor_generator_path.name, "baseline_generator": baseline_generator_summary, "successor_generator": successor_generator_summary, "capture": "same source and framing", "limitations": "Disposable, non-production comparison only; no acceptance, runtime, or Readiness 3 claim."},
+                "provenance": {"producer": "inspect-provisional-form", "baseline_generator_script": generator_path.name, "successor_generator_script": successor_generator_path.name, "capture": "shared source and frame", "limitations": "Disposable, non-production comparison; no acceptance or Readiness claim."},
             },
             "groups": groups,
         }), encoding="utf-8")

@@ -113,14 +113,14 @@ python3 dev-tools/visual-review/serve.py \
 inspect-provisional-form --input PATH` shell-free, with a 10-second timeout,
 256 KiB stdout bound, and 64 KiB stderr bound. It accepts only a complete,
 diagnostic-free `creature-kernel.provisional-form-preview.v1`, `.v2`, `.v3`,
-`.v4`, `.v5`, `.v6`, or `.v7` success envelope,
+`.v4`, `.v5`, `.v6`, `.v7`, or `.v8` success envelope,
 the exact four variant IDs/order, known Part addresses and provenance, bounded
 integer points, supported ellipsoid/capsule/tapered-segment shapes, and the
 positive reference scale. Failed CLI outcomes and malformed payloads are not
 published. The resulting immutable `provisional-form` session contains the
 validated payload only and no assets or external dependencies.
 
-The CLI currently emits the provisional v7 contract. As in v2/v3, limb
+The CLI currently emits the provisional v8 contract. As in v2/v3, limb
 capsules are owned by their current Part: `upper_arm` spans its reference point
 to its direct `forearm` child, `forearm` to `hand`, `thigh` to `shin`, and
 `shin` to `foot`. V4 introduced `neck` as a narrow axial capsule
@@ -138,11 +138,15 @@ strict read support for immutable v1-v5 sessions under their original
 role/endpoint contracts. These are provisional display-volume rules, not a
 generated skeleton, anatomical socket, or general junction contract.
 
-Current v7 additionally carries the source-owned `authored_torso_profile`:
-seven ordered axial sections, explicit pelvis/torso identity frames and
-landmarks, lateral/anterior/posterior radius references, provenance, and
-variant-scaled profile factors. The profile is a producer-consumer binding,
-not a new runtime or semantic contract.
+Current v8 carries the source-owned `authored_torso_profile` and
+`authored_head_neck_profile`. The torso profile contains seven ordered axial
+sections, explicit pelvis/torso identity frames and landmarks,
+lateral/anterior/posterior radius references, provenance, and variant-scaled
+profile factors. The head/neck profile contains eight ordered sections and
+seven connections, with head/neck identity frames and landmarks,
+lateral/up/forward radius references, provenance, and variant-scaled profile
+factors. These profiles are producer-consumer bindings, not new runtime or
+semantic contracts.
 
 The read-only browser page renders each variant in front (x/y), side (z/y),
 and top (x/z) filled SVG panels with shared bounds, physical display radii
@@ -195,8 +199,8 @@ shape is:
 ```json
 {
   "schema_version": 1,
-  "id": "fur-options-2026-08-09",
-  "title": "Fur options",
+  "id": "surface-options-2026-08-09",
+  "title": "Surface options",
   "description": "Optional description",
   "instructions": "Choose one option in each single-choice group.",
   "subject_context": {
@@ -209,15 +213,15 @@ shape is:
   },
   "groups": [
     {
-      "id": "coat",
-      "title": "Coat",
-      "description": "Compare the silhouette and surface.",
+      "id": "surface",
+      "title": "Surface",
+      "description": "Compare the rendered surface.",
       "selection_mode": "single",
       "items": [
         {
           "id": "warm",
-          "title": "Warm coat",
-          "source": "renders/warm.png",
+          "title": "Warm surface",
+          "source": "renders/warm-surface.png",
           "description": "Optional item description",
           "metadata": {"seed": 12, "renderer": "debug"}
         }
@@ -274,7 +278,7 @@ success. A failed invocation cleans only its own staging/session files.
 ## Disposable baseline-versus-successor surface checkpoint
 
 `publish_surface_preview.py` is a bounded adapter for the current experiment
-surface consumers. It runs the current v7 provisional-form producer once, runs the
+surface consumers. It runs the current v8 provisional-form producer once, runs the
 baseline and successor Python generators against that same producer output,
 validates both bundles, and publishes four ordered baseline/successor image
 pairs (eight guide/skin composite PNGs) through the ordinary image gallery.
@@ -326,7 +330,8 @@ actually consumed by both generators in
 `subject_context.descriptor_snapshot`. That payload is deterministically
 zlib-compressed and Base64-encoded to stay within the bounded review-context
 carrier, with its original UTF-8 encoding, byte count, and SHA-256 recorded
-alongside it; its hash must equal the existing producer `source_sha256`.
+alongside it. `producer_envelope_sha256` binds the exact consumed producer
+file; each published image's `source_sha256` carries that same digest.
 The fields use the version-neutral `producer_envelope_*` prefix. Decoding the
 field must reproduce the exact current-format bytes and therefore the complete
 authored-dimension/landmark/frame/descriptor-role mapping. The original validated body
@@ -343,23 +348,31 @@ meaningfully different. The gallery records the comparison only; it does not
 record acceptance.
 
 The baseline v2 generator bundle is fail-closed: its manifest must identify the
-current v7 source, contain the four canonical v7 variants, and inventory exactly one PLY,
+current v8 source, contain the four canonical v8 variants, and inventory exactly one PLY,
 semantic sidecar, metrics JSON, regional-guide JSON, and guide/skin composite PNG
 per variant. Every inventory path is relative, regular, non-symlinked, hash- and
-size-checked. The regional-guide v6 sidecar is checked as a bounded finite
+size-checked. The regional-guide v7 sidecar is checked as a bounded finite
 source-owned projection with the generator's exact skin-driving ordered torso
 cage sections, pelvis/torso ownership, axes/orientation, and section
 connections. Its older axial station and transition controls are accepted only
 as explicitly marked compatibility diagnostics and are not rendered. The
-producer v7 authored torso profile is checked as an exact seven-section
+producer v8 authored torso profile is checked as an exact seven-section
 ordered index: every section binds its pelvis/torso owner identity frame,
 axial landmark, lateral/anterior/posterior source dimensions and values,
 provenance, and variant scaling factors. The guide repeats that source lineage
-and the successor repeats it in its consumed profile-sweep controls. Baseline
+and the successor repeats it in its consumed profile-sweep controls. The
+producer v8 authored head/neck profile is checked as an exact eight-section,
+seven-connection ordered index. Each section binds its head/neck owner identity
+frame, landmark, lateral/up/forward source dimensions and values, provenance,
+and variant scaling factors; the guide and successor retain that exact source
+lineage. The successor head/neck consumer uses source-authored head/neck
+profile controls projected through the regional guide, retaining exact source
+ownership/provenance and branched neck/cranium plus muzzle route lineage across
+all four variants. Baseline
 and successor pairing uses a canonical per-variant binding of source identity,
 reference scale, variant/profile ids, producer-variant digest, descriptor owners,
 capture framing, and torso lineage; it never pairs by list position alone.
-The successor v4 sidecar and v8 region claims are checked against the guide and
+The successor v5 sidecar and v9 region claims are checked against the guide and
 metrics, including the current rounded-superellipse axial profile operation.
 The retained producer envelope remains the exact consumed evidence, and every
 successor PLY is parsed and checked for finite values, valid indices, one
@@ -372,19 +385,19 @@ explicit shoulder/hip girdle masses, source-derived digitigrade foot chains
 from hock through tapered metatarsal to planted paw-pad and toe-box, a
 guide-only contact datum, positive dimensions,
 allowed path primitives, expected source roles, and shared-bound containment;
-its shoulder sidecar binds the exact v7 identity frames, peak/axilla landmarks,
+its shoulder sidecar binds the exact v8 identity frames, peak/axilla landmarks,
 and variant-scaled depth controls to the producer. It distinguishes those
 guide-derived controls and guide-only anterior/posterior support curves from
 the baseline's two skin-driving deltoid sweeps; its compiled recipe counts,
 shared bounds, projections, canvas, and panel layout must match the manifest.
 Stale support-field claims are rejected rather than silently accepted. Composite
 PNG IHDR and inventory metadata are bound to the fixed 1800x570 RGB canvas. The
-bundle's source/provenance and descriptor AddressKeys are bound to the parsed v7
+bundle's source/provenance and descriptor AddressKeys are bound to the parsed v8
 producer result. The producer has a 10-second bound and the local extraction/
 render subprocess has a finite 120-second bound. Unlisted files or directories,
 malformed inventory or guide/provenance, partial variants, and generator or
 producer timeouts prevent any review session from being created. The successor
-v4 bundle is independently fail-closed: it must contain exactly four variants
+v5 bundle is independently fail-closed: it must contain exactly four variants
 with one PLY, metrics JSON, successor-consumer sidecar, and composite PNG per
 variant. Its source identity, shared canvas/projections/layout/bounds, sidecar
 identity, torso/shoulder/head-neck/limb/extremity/tail claims, temporary bridge,

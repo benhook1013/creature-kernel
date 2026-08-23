@@ -41,14 +41,28 @@ except ModuleNotFoundError:  # pragma: no cover - direct source-tree execution
     _baseline = importlib.import_module("surface_preview")
 
 
-# V4 consumes the current v6 regional guide's seven source-authored torso
-# sections.  The torso evaluator is the only successor consumer changed in
-# this slice; the rest of the disposable regional inventory remains shared.
-FORMAT = "creature-kernel.disposable-successor-surface-preview.v4"
-REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v6"
+# V5 consumes the current v7 regional guide's seven source-authored torso
+# sections and eight-station branched head/neck profile.  The torso evaluator
+# and every non-head/neck consumer remain shared with the predecessor.
+FORMAT = "creature-kernel.disposable-successor-surface-preview.v5"
+REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v7"
 CONSUMER_ID = "successor-surface-v1"
-SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-limb-extremity-tail-profile-sweeps-v8"
+SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-limb-extremity-tail-profile-sweeps-v9"
 TORSO_PROFILE_OPERATION = "rounded-superellipse-axial-profile-sweep-v1"
+_HEAD_NECK_PROFILE_OPERATION = "authored-head-neck-branched-route-profile-v1"
+_HEAD_NECK_ROUTE_TOPOLOGY = (
+    ("vertical-neck-cranium", (0, 1, 2, 3, 4), "up", ("lateral", "forward")),
+    ("forward-muzzle", (3, 5, 6, 7), "forward", ("lateral", "up")),
+)
+# These are the exact indexed bindings emitted by producer v8 for the v1
+# authored head/neck profile.  They are lineage admission checks, not new
+# source controls or geometry parameters.
+_HEAD_NECK_FRAME_INDICES = {"head": 0, "neck": 1}
+_HEAD_NECK_LANDMARK_INDICES = (6, 7, 2, 1, 0, 4, 3, 5)
+_HEAD_NECK_RADIUS_REFERENCE_INDICES = (
+    (22, 23, 21), (25, 26, 24), (10, 11, 9), (7, 8, 6),
+    (4, 5, 3), (16, 17, 15), (13, 14, 12), (19, 20, 18),
+)
 TORSO_SUPERELLIPSE_EXPONENT = 4.0
 DEFAULT_SAMPLES = 56
 DEFAULT_PADDING = 0.50
@@ -94,6 +108,11 @@ class _ProfileSection:
     # third is -forward/posterior.
     torso_cardinal_radii: tuple[float, float, float] | None = None
     axial_position: float | None = None
+    # Generic station-volume extension.  Head/neck route stations retain the
+    # authored radius along their route tangent here; ordinary two-radius
+    # sweeps leave it unset and therefore retain their existing evaluator.
+    tangent_radius: float | None = None
+    source_section_index: int | None = None
 
     @property
     def radii(self) -> tuple[float, float]:
@@ -147,7 +166,10 @@ class _ProfileSweep:
 
     def __post_init__(self) -> None:
         if not self.internal_transitions:
-            object.__setattr__(self, "internal_transitions", _derive_bend_transitions(self.sections))
+            if self.profile_operation == _HEAD_NECK_PROFILE_OPERATION:
+                object.__setattr__(self, "internal_transitions", ())
+            else:
+                object.__setattr__(self, "internal_transitions", _derive_bend_transitions(self.sections))
 
     @property
     def names(self) -> tuple[str, ...]:
@@ -305,6 +327,7 @@ class SuccessorRegion:
     replaced_baseline_recipes: tuple[str, ...]
     source_owners: tuple[Any, ...]
     head_neck_sweeps: tuple[_RegionalProfileSweep, ...] = ()
+    head_neck_profile: Any | None = None
     limb_sweeps: tuple[_LimbChainSweep, ...] = ()
     extremity_sweeps: tuple[_ExtremitySweep, ...] = ()
     tail_elements: tuple[_TailElement, ...] = ()
@@ -453,8 +476,9 @@ def _validate_profile_sweep(sweep: _ProfileSweep) -> None:
     sections = sweep.sections
     if len(sections) < 2:
         _fail("profile sweep requires at least two ordered sections")
-    if sweep.profile_operation not in {"symmetric-ellipse", TORSO_PROFILE_OPERATION}:
+    if sweep.profile_operation not in {"symmetric-ellipse", TORSO_PROFILE_OPERATION, _HEAD_NECK_PROFILE_OPERATION}:
         _fail(f"profile sweep has unknown profile operation {sweep.profile_operation!r}")
+    is_head_neck_route = sweep.profile_operation == _HEAD_NECK_PROFILE_OPERATION
     centers = tuple(_vec3(section.center, f"profile-section[{index}].center") for index, section in enumerate(sections))
     previous_path = None
     for index, section in enumerate(sections):
@@ -464,6 +488,12 @@ def _validate_profile_sweep(sweep: _ProfileSweep) -> None:
         first = _vec3(section.transverse_axes[0], f"{where}.transverse-first")
         second = _vec3(section.transverse_axes[1], f"{where}.transverse-second")
         _finite_positive(tuple(float(value) for value in section.transverse_radii), f"{where}.radii")
+        if section.tangent_radius is not None:
+            _finite_positive((float(section.tangent_radius),), f"{where}.tangent-radius")
+        elif is_head_neck_route:
+            _fail(f"{where} is missing its authored tangent-axis radius")
+        if is_head_neck_route and type(section.source_section_index) is not int:
+            _fail(f"{where} is missing its authored source section index")
         cardinal_radii = section.cardinal_radii
         if sweep.profile_operation == TORSO_PROFILE_OPERATION:
             if cardinal_radii is None:
@@ -487,18 +517,19 @@ def _validate_profile_sweep(sweep: _ProfileSweep) -> None:
             _fail(f"{where} frame vectors must be unit length")
         if max(abs(float(np.dot(tangent, first))), abs(float(np.dot(tangent, second))), abs(float(np.dot(first, second)))) > _FRAME_TOLERANCE:
             _fail(f"{where} frame vectors must be orthogonal")
-        if index == 0:
-            expected_tangent = centers[1] - centers[0]
-        elif index == len(sections) - 1:
-            expected_tangent = centers[-1] - centers[-2]
-        else:
-            expected_tangent = centers[index + 1] - centers[index - 1]
-        expected_length = float(np.linalg.norm(expected_tangent))
-        if expected_length <= _DEGENERATE_TOLERANCE:
-            _fail(f"{where} expected centerline tangent is degenerate")
-        expected_tangent /= expected_length
-        if float(np.dot(tangent / tangent_length, expected_tangent)) < 1.0 - _TANGENT_ALIGNMENT_TOLERANCE:
-            _fail(f"{where}.tangent must follow the ordered centerline")
+        if not is_head_neck_route:
+            if index == 0:
+                expected_tangent = centers[1] - centers[0]
+            elif index == len(sections) - 1:
+                expected_tangent = centers[-1] - centers[-2]
+            else:
+                expected_tangent = centers[index + 1] - centers[index - 1]
+            expected_length = float(np.linalg.norm(expected_tangent))
+            if expected_length <= _DEGENERATE_TOLERANCE:
+                _fail(f"{where} expected centerline tangent is degenerate")
+            expected_tangent /= expected_length
+            if float(np.dot(tangent / tangent_length, expected_tangent)) < 1.0 - _TANGENT_ALIGNMENT_TOLERANCE:
+                _fail(f"{where}.tangent must follow the ordered centerline")
         path = float(section.path_length)
         if not math.isfinite(path) or (previous_path is not None and path <= previous_path):
             _fail(f"{where}.path_length must be finite and strictly increasing")
@@ -528,7 +559,7 @@ def _validate_profile_sweep(sweep: _ProfileSweep) -> None:
         expected_alignment = -1.0 if index == 0 else 1.0
         if outward_alignment * expected_alignment < 1.0 - _FRAME_TOLERANCE:
             _fail(f"{where} orientation does not point away from the profile")
-    expected_transitions = _derive_bend_transitions(sections)
+    expected_transitions = () if is_head_neck_route else _derive_bend_transitions(sections)
     if tuple(item.section_index for item in sweep.internal_transitions) != tuple(item.section_index for item in expected_transitions):
         _fail("profile sweep internal transitions must match genuinely bent stations")
     for transition in sweep.internal_transitions:
@@ -886,32 +917,6 @@ def _make_shoulder_sweeps(
         _fail("successor shoulder sweep order is unstable")
     return result
 
-
-# These compact controls are deliberately shared by every fixed variant.  The
-# guide supplies all centres, radii, and axes; these values only describe the
-# disposable profile shape around those controls.  Offsets are fractions of
-# the profile's selected axial radius, while the other two values scale its
-# declared transverse radii.
-_CRANIUM_PROFILE = (
-    (-0.52, 0.68, 0.72),
-    (-0.26, 0.94, 0.93),
-    (0.00, 1.00, 1.00),
-    (0.28, 0.93, 0.92),
-    (0.52, 0.70, 0.75),
-)
-_MUZZLE_PROFILE = (
-    (-0.32, 0.86, 0.84),
-    (-0.05, 0.98, 0.94),
-    (0.24, 0.84, 0.76),
-    (0.56, 0.58, 0.52),
-)
-_COLLAR_PROFILE = (
-    (-0.36, 0.76, 0.72),
-    (0.00, 1.00, 0.96),
-    (0.36, 0.78, 0.73),
-)
-# Shared sample-grid visibility correction for the disposable collar only.
-_COLLAR_TRANSVERSE_SCALE = 1.50
 
 # Tail masses use a compact symmetric station layout.  The centre station is
 # intentionally unscaled so the exact guide centre and the first two guide
@@ -1522,61 +1527,270 @@ def _tail_element_metadata(elements: tuple[_TailElement, ...]) -> list[dict[str,
     ]
 
 
-def _make_head_neck_sweeps(guide: Any) -> tuple[_RegionalProfileSweep, ...]:
-    """Build the fixed-order shared head/neck successor construction."""
+def _validate_authored_head_neck_guide(guide: Any) -> Any:
+    """Validate the exact producer/guide head/neck envelope before compiling."""
 
-    head = guide.head_guide
-    if head.axes != guide.topology.axes:
-        _fail("successor head/neck axes must match guide topology")
-    axes = head.axes
-    head_owner = head.head_owner
-    neck_owner = head.neck_owner
-    return (
-        _RegionalProfileSweep(
-            "cranium", head_owner,
-            _make_mass_profile_sweep(
-                "cranium", head_owner, head.cranium_center, head.cranium_radii,
-                axes.up, float(head.cranium_radii[1]),
-                (float(head.cranium_radii[0]), float(head.cranium_radii[2])),
-                (axes.lateral, axes.forward), _CRANIUM_PROFILE,
-            ),
+    try:
+        head = guide.head_guide
+        profile = head.profile
+        axes = profile.axes
+        topology_axes = guide.topology.axes
+        sections = tuple(profile.sections)
+        connections = tuple(profile.connections)
+        source_descriptors = tuple(guide.source_descriptors)
+    except (AttributeError, TypeError, ValueError) as exc:
+        _fail(f"successor authored head/neck guide is incomplete: {exc}")
+    if axes != topology_axes or axes != _baseline._FIXED_GUIDE_AXES:
+        _fail("successor authored head/neck axes must match the fixed guide topology")
+    if len(sections) != 8 or len(connections) != 7:
+        _fail("successor authored head/neck guide must contain exactly eight sections and seven connections")
+    provenance = getattr(profile, "provenance", None)
+    if not isinstance(provenance, dict) or set(provenance) != {"source", "document", "namespace"}:
+        _fail("successor authored head/neck guide provenance is incomplete")
+    source_by_key = {descriptor.key: descriptor for descriptor in source_descriptors}
+    expected_connections = tuple(_baseline.HeadNeckConnection(*item) for item in _baseline.HEAD_NECK_PROFILE_CONNECTIONS)
+    expected_route_indices = {name: indices for name, indices, _, _ in _HEAD_NECK_ROUTE_TOPOLOGY}
+    for index, section in enumerate(sections):
+        where = f"successor head/neck section[{index}]"
+        try:
+            name = section.name
+            owner = section.owner
+            frame = section.frame
+            landmark = section.landmark
+            controls = (section.lateral_lineage, section.up_lineage, section.forward_lineage)
+            radii = tuple(float(value) for value in section.radii)
+        except (AttributeError, TypeError, ValueError) as exc:
+            _fail(f"{where} is malformed: {exc}")
+        if name != _baseline.HEAD_NECK_PROFILE_SECTION_NAMES[index]:
+            _fail(f"{where} has unstable authored section name/order")
+        if section.section_index != index or section.source_section_index != index:
+            _fail(f"{where} lost exact producer source section indices")
+        if owner.key not in source_by_key or source_by_key[owner.key] is not owner:
+            _fail(f"{where} lost canonical source ownership")
+        if owner.key[1] != () or owner.key[3] != _baseline.HEAD_NECK_PROFILE_OWNER_ROLES[index]:
+            _fail(f"{where} has an invalid source owner role")
+        if frame.owner != owner.key or frame.role != _baseline.HEAD_NECK_PROFILE_FRAME_ROLE:
+            _fail(f"{where} lost exact source frame ownership")
+        if section.frame_index != _HEAD_NECK_FRAME_INDICES[owner.key[3]] or section.landmark_index != _HEAD_NECK_LANDMARK_INDICES[index]:
+            _fail(f"{where} lost exact source frame/landmark indices")
+        if landmark.owner != owner.key or landmark.frame != (frame.owner, frame.role):
+            _fail(f"{where} lost exact source landmark/frame binding")
+        if frame.translation != (0.0, 0.0, 0.0) or frame.rotation_xyzw != (0.0, 0.0, 0.0, 1.0):
+            _fail(f"{where} source frame is not the fixed identity frame")
+        if len(radii) != 3:
+            _fail(f"{where} must retain all three authored radii")
+        _finite_positive(radii, f"{where}.radii")
+        expected_roles = tuple(
+            _baseline.HEAD_NECK_PROFILE_DIMENSION_PREFIX + name.replace("-", "_") + "_" + suffix
+            for suffix in _baseline.HEAD_NECK_PROFILE_DIMENSION_SUFFIXES
+        )
+        for axis, control, expected_role, expected_index in zip(
+            ("lateral", "up", "forward"), controls, expected_roles, _HEAD_NECK_RADIUS_REFERENCE_INDICES[index]
+        ):
+            if control.consumed_section != name or control.reference != (owner.key, expected_role):
+                _fail(f"{where}.{axis} lineage lost source role or section")
+            if control.reference_index != expected_index:
+                _fail(f"{where}.{axis} lineage lost source index")
+            if control.provenance != provenance:
+                _fail(f"{where}.{axis} lineage provenance does not match the producer profile")
+            if control.base <= 0 or control.factor <= 0 or control.scaled <= 0:
+                _fail(f"{where}.{axis} lineage contains a non-positive authored value")
+        _vec3(section.center, f"{where}.center")
+    for index, connection in enumerate(connections):
+        where = f"successor head/neck connection[{index}]"
+        try:
+            spec = connection.spec
+            actual = (spec.name, spec.from_section_index, spec.to_section_index, spec.route)
+        except (AttributeError, TypeError, ValueError) as exc:
+            _fail(f"{where} is malformed: {exc}")
+        expected = _baseline.HEAD_NECK_PROFILE_CONNECTIONS[index]
+        if actual != expected or spec != expected_connections[index]:
+            _fail(f"{where} lost exact authored name/route/index topology")
+        if not 0 <= spec.from_section_index < len(sections) or not 0 <= spec.to_section_index < len(sections):
+            _fail(f"{where} has an out-of-range station index")
+        from_section = sections[spec.from_section_index]
+        to_section = sections[spec.to_section_index]
+        if connection.from_section is not from_section or connection.to_section is not to_section:
+            _fail(f"{where} lost exact station identity references")
+        expected_thickness = (min(from_section.radii), min(to_section.radii))
+        if connection.thickness != expected_thickness or connection.centerline != (from_section.center, to_section.center):
+            _fail(f"{where} lost direct producer/guide endpoint lineage")
+        if not math.isfinite(float(connection.thickness[0])) or not math.isfinite(float(connection.thickness[1])):
+            _fail(f"{where} thickness is not finite")
+    for route_name, indices in expected_route_indices.items():
+        route_connections = tuple(
+            connection.spec for connection in connections if connection.spec.route == route_name
+        )
+        if tuple(spec.from_section_index for spec in route_connections) != indices[:-1] or tuple(spec.to_section_index for spec in route_connections) != indices[1:]:
+            _fail(f"successor {route_name} route topology does not match the authored branch")
+    return profile
+
+
+def _make_authored_head_neck_route_sweep(
+    profile: Any,
+    recipe: str,
+    section_indices: tuple[int, ...],
+    tangent_axis_name: str,
+    transverse_axis_names: tuple[str, str],
+) -> _RegionalProfileSweep:
+    """Compile one exact authored route, including full station ellipsoids."""
+
+    axes = profile.axes
+    tangent = tuple(float(value) for value in _vec3(getattr(axes, tangent_axis_name), f"{recipe}.tangent-axis"))
+    first = tuple(float(value) for value in _vec3(getattr(axes, transverse_axis_names[0]), f"{recipe}.transverse-first-axis"))
+    second = tuple(float(value) for value in _vec3(getattr(axes, transverse_axis_names[1]), f"{recipe}.transverse-second-axis"))
+    axis_index = {"lateral": 0, "up": 1, "forward": 2}
+    tangent_index = axis_index[tangent_axis_name]
+    transverse_indices = tuple(axis_index[name] for name in transverse_axis_names)
+    sections: list[_ProfileSection] = []
+    path_length = 0.0
+    for route_index, source_index in enumerate(section_indices):
+        source = profile.sections[source_index]
+        center = _vec3(source.center, f"{recipe}.{source.name}.center")
+        radii = tuple(float(value) for value in source.radii)
+        _finite_positive(radii, f"{recipe}.{source.name}.authored-radii")
+        if route_index:
+            span = float(np.linalg.norm(center - _vec3(sections[-1].center, f"{recipe}.previous-center")))
+            if not math.isfinite(span) or span <= _DEGENERATE_TOLERANCE:
+                _fail(f"{recipe}.{source.name} follows a degenerate authored span")
+            path_length += span
+        sections.append(_ProfileSection(
+            name=source.name,
+            owner=source.owner,
+            center=tuple(float(value) for value in center),
+            tangent=tangent,
+            transverse_axes=(first, second),
+            transverse_radii=(radii[transverse_indices[0]], radii[transverse_indices[1]]),
+            path_length=path_length,
+            tangent_radius=radii[tangent_index],
+            source_section_index=source_index,
+        ))
+    ordered = tuple(sections)
+    caps = (
+        _ProfileEndpointCap(
+            "start", ordered[0].center, tuple(-value for value in tangent),
+            ordered[0].transverse_axes, ordered[0].transverse_radii,
+            float(ordered[0].tangent_radius),
         ),
-        _RegionalProfileSweep(
-            "muzzle", head_owner,
-            _make_mass_profile_sweep(
-                "muzzle", head_owner, head.muzzle_center, head.muzzle_radii,
-                axes.forward, float(head.muzzle_radii[2]),
-                (float(head.muzzle_radii[0]), float(head.muzzle_radii[1])),
-                (axes.lateral, axes.up), _MUZZLE_PROFILE,
-            ),
-        ),
-        _RegionalProfileSweep(
-            "head-base-bridge", head_owner,
-            _make_transition_sweep(
-                "head-base-bridge", head_owner, head.head_transition,
-                head.head_transition_thickness, axes,
-            ),
-        ),
-        _RegionalProfileSweep(
-            "tapered-neck", neck_owner,
-            _make_transition_sweep(
-                "tapered-neck", neck_owner, head.neck_transition,
-                head.neck_transition_thickness, axes,
-            ),
-        ),
-        _RegionalProfileSweep(
-            "neck-collar", neck_owner,
-            _make_mass_profile_sweep(
-                "neck-collar", neck_owner, head.neck_collar_center, head.neck_collar_radii,
-                axes.up, float(head.neck_collar_radii[1]),
-                (
-                    float(head.neck_collar_radii[0]) * _COLLAR_TRANSVERSE_SCALE,
-                    float(head.neck_collar_radii[2]) * _COLLAR_TRANSVERSE_SCALE,
-                ),
-                (axes.lateral, axes.forward), _COLLAR_PROFILE,
-            ),
+        _ProfileEndpointCap(
+            "end", ordered[-1].center, tangent,
+            ordered[-1].transverse_axes, ordered[-1].transverse_radii,
+            float(ordered[-1].tangent_radius),
         ),
     )
+    sweep = _ProfileSweep(ordered, caps, profile_operation=_HEAD_NECK_PROFILE_OPERATION)
+    _validate_profile_sweep(sweep)
+    return _RegionalProfileSweep(recipe, ordered[0].owner, sweep)
+
+
+def _make_head_neck_sweeps(guide: Any) -> tuple[_RegionalProfileSweep, ...]:
+    """Build exactly the shared vertical and forward authored route sweeps."""
+
+    profile = _validate_authored_head_neck_guide(guide)
+    return tuple(
+        _make_authored_head_neck_route_sweep(profile, name, indices, tangent_axis, transverse_axes)
+        for name, indices, tangent_axis, transverse_axes in _HEAD_NECK_ROUTE_TOPOLOGY
+    )
+
+
+def _head_neck_radius_lineage_json(lineage: Any) -> dict[str, Any]:
+    return {
+        "base": int(lineage.base),
+        "factor": int(lineage.factor),
+        "scaled": int(lineage.scaled),
+        "reference": {
+            "owner": _baseline._address_json(lineage.reference[0]),
+            "role": lineage.reference[1],
+            "index": int(lineage.reference_index),
+        },
+        "provenance": dict(lineage.provenance),
+        "consumed_section": lineage.consumed_section,
+    }
+
+
+def _head_neck_section_json(section: Any) -> dict[str, Any]:
+    return {
+        "name": section.name,
+        "section_index": int(section.section_index),
+        "source_section_index": int(section.source_section_index),
+        "frame_index": int(section.frame_index),
+        "landmark_index": int(section.landmark_index),
+        "owner": _baseline._address_json(section.owner.key),
+        "center": [float(value) for value in section.center],
+        "radii": {
+            "lateral": float(section.radii[0]),
+            "up": float(section.radii[1]),
+            "forward": float(section.radii[2]),
+        },
+        "lineage": {
+            "lateral": _head_neck_radius_lineage_json(section.lateral_lineage),
+            "up": _head_neck_radius_lineage_json(section.up_lineage),
+            "forward": _head_neck_radius_lineage_json(section.forward_lineage),
+        },
+    }
+
+
+def _head_neck_connection_json(connection: Any) -> dict[str, Any]:
+    return {
+        "name": connection.spec.name,
+        "from_section_index": int(connection.spec.from_section_index),
+        "to_section_index": int(connection.spec.to_section_index),
+        "route": connection.spec.route,
+        "centerline": [[float(value) for value in point] for point in connection.centerline],
+        "thickness": [float(value) for value in connection.thickness],
+    }
+
+
+def _head_neck_route_json(item: _RegionalProfileSweep) -> dict[str, Any]:
+    route = next((entry for entry in _HEAD_NECK_ROUTE_TOPOLOGY if entry[0] == item.recipe), None)
+    if route is None:
+        _fail(f"unknown successor head/neck route {item.recipe!r}")
+    name, section_indices, tangent_axis, transverse_axes = route
+    axis_index = {"lateral": 0, "up": 1, "forward": 2}
+    tangent_index = axis_index[tangent_axis]
+    transverse_indices = tuple(axis_index[axis] for axis in transverse_axes)
+
+    def full_radii(section: _ProfileSection) -> dict[str, float]:
+        values = [0.0, 0.0, 0.0]
+        values[tangent_index] = float(section.tangent_radius)
+        values[transverse_indices[0]] = float(section.transverse_radii[0])
+        values[transverse_indices[1]] = float(section.transverse_radii[1])
+        return {axis: values[index] for axis, index in axis_index.items()}
+
+    return {
+        "name": name,
+        "operation": _HEAD_NECK_PROFILE_OPERATION,
+        "section_indices": list(section_indices),
+        "section_names": list(item.sweep.names),
+        "connection_names": [
+            connection[0]
+            for connection in _baseline.HEAD_NECK_PROFILE_CONNECTIONS
+            if connection[3] == name
+        ],
+        "tangent_axis": tangent_axis,
+        "transverse_axes": list(transverse_axes),
+        "owner_keys": [_baseline._address_json(owner.key) for owner in item.sweep.owners],
+        "station_radii": [full_radii(section) for section in item.sweep.sections],
+        "endpoint_cap_count": len(item.sweep.endpoint_caps),
+        "internal_transition_count": len(item.sweep.internal_transitions),
+    }
+
+
+def _head_neck_metadata(region: SuccessorRegion) -> dict[str, Any]:
+    profile = region.head_neck_profile
+    if profile is None:
+        _fail("successor region is missing the consumed authored head/neck profile")
+    return {
+        "profile_format": _baseline.AUTHORED_HEAD_NECK_PROFILE_FORMAT,
+        "operation": _HEAD_NECK_PROFILE_OPERATION,
+        "regional_guide_format": REGIONAL_GUIDE_FORMAT,
+        "provenance": dict(profile.provenance),
+        "sections_consumed": len(profile.sections),
+        "connections_consumed": len(profile.connections),
+        "sections": [_head_neck_section_json(section) for section in profile.sections],
+        "connections": [_head_neck_connection_json(connection) for connection in profile.connections],
+        "route_topology": [_head_neck_route_json(item) for item in region.head_neck_sweeps],
+    }
 
 
 def _limb_chain_sweep(
@@ -2323,13 +2537,14 @@ def _validate_limb_bridge_inventory(
 def compile_successor_region(guide: Any, baseline_fields: tuple[Any, ...] | None = None) -> SuccessorRegion:
     """Compile the guide into the successor regional profile-sweep consumer.
 
-    The torso cage, one authored shoulder envelope per side, five baseline head/neck fields,
+    The torso cage, one authored shoulder envelope per side, two authored head/neck route fields,
     four bilateral limb chains, ten bilateral hand/foot fields, and six tail
     fields are replaced. Every other baseline field is carried as a named
     temporary bridge: two thigh-root bridges and two hip transitions.
     """
 
     _baseline._validate_hybrid_guide(guide)
+    head_neck_profile = _validate_authored_head_neck_guide(guide)
     if baseline_fields is None:
         baseline_fields = _baseline._compile_hybrid_guide(guide)
     replaced = (
@@ -2396,6 +2611,7 @@ def compile_successor_region(guide: Any, baseline_fields: tuple[Any, ...] | None
         replaced_baseline_recipes=replaced,
         source_owners=(guide.torso_cage.torso_owner,) + tuple(side.owner for side in guide.shoulder_frame.sides) + (head.head_owner, head.neck_owner),
         head_neck_sweeps=head_neck_sweeps,
+        head_neck_profile=head_neck_profile,
         limb_sweeps=limb_sweeps,
         extremity_sweeps=extremity_sweeps,
         tail_elements=tail_elements,
@@ -2643,6 +2859,24 @@ def _profile_cap_field(points: np.ndarray, cap: _ProfileEndpointCap) -> np.ndarr
     return (np.sqrt(axial**2 + transverse_first**2 + transverse_second**2) - 1.0) * min(*cap.transverse_radii, cap.axial_radius)
 
 
+def _profile_station_volume_field(points: np.ndarray, section: _ProfileSection) -> np.ndarray:
+    """Evaluate a full three-radius station volume when one is authored."""
+
+    if section.tangent_radius is None:
+        _fail(f"profile station {section.name!r} is missing its tangent-axis radius")
+    center = _vec3(section.center, f"profile station {section.name}.center")
+    tangent = _vec3(section.tangent, f"profile station {section.name}.tangent")
+    first = _vec3(section.transverse_axes[0], f"profile station {section.name}.transverse-first")
+    second = _vec3(section.transverse_axes[1], f"profile station {section.name}.transverse-second")
+    offset = points - center
+    axial = np.sum(offset * tangent, axis=-1) / float(section.tangent_radius)
+    transverse_first = np.sum(offset * first, axis=-1) / float(section.transverse_radii[0])
+    transverse_second = np.sum(offset * second, axis=-1) / float(section.transverse_radii[1])
+    return (np.sqrt(axial**2 + transverse_first**2 + transverse_second**2) - 1.0) * min(
+        *section.transverse_radii, float(section.tangent_radius)
+    )
+
+
 def _profile_transition_field(points: np.ndarray, transition: _ProfileJointTransition) -> np.ndarray:
     """Evaluate a bounded source-section-owned internal bend transition."""
 
@@ -2670,6 +2904,7 @@ def _profile_sweep_field(points: np.ndarray, sweep: _ProfileSweep) -> np.ndarray
         *(_profile_span_field(points, left, right) for left, right in zip(sweep.sections, sweep.sections[1:])),
         *(_profile_transition_field(points, transition) for transition in sweep.internal_transitions),
         *(_profile_cap_field(points, cap) for cap in sweep.endpoint_caps),
+        *(_profile_station_volume_field(points, section) for section in sweep.sections if section.tangent_radius is not None),
     ]
     return np.min(np.stack(values, axis=0), axis=0)
 
@@ -2826,6 +3061,9 @@ def _profile_sweep_bounds(sweep: _ProfileSweep) -> tuple[np.ndarray, np.ndarray]
         first = _vec3(section.transverse_axes[0], "profile bounds transverse axis")
         second = _vec3(section.transverse_axes[1], "profile bounds transverse axis")
         extent = np.abs(first) * section.transverse_radii[0] + np.abs(second) * section.transverse_radii[1]
+        if section.tangent_radius is not None:
+            tangent = _vec3(section.tangent, "profile bounds tangent axis")
+            extent = extent + np.abs(tangent) * float(section.tangent_radius)
         lower.append(center - extent)
         upper.append(center + extent)
     for left, right in zip(sweep.sections, sweep.sections[1:]):
@@ -2872,6 +3110,7 @@ def _make_components(region: SuccessorRegion, smooth_k: float) -> tuple[_Compone
             lambda points, current=item.sweep: _profile_sweep_field(points, current),
             bounds,
             True,
+            lambda points, current=item.sweep: _loft_owner_keys(points, current),
         ))
     for item in region.limb_sweeps:
         bounds = _profile_sweep_bounds(item.sweep)
@@ -3051,12 +3290,7 @@ def build_variant(form: Any, descriptors: tuple[Any, ...], samples: int = DEFAUL
                 }
                 for item in region.shoulder_sweeps
             ],
-            "head_neck_representation": "shared-guide-derived-profile-sweeps",
-            "head_neck_sweeps_consumed": len(region.head_neck_sweeps),
-            "head_neck_sweep_order": [item.recipe for item in region.head_neck_sweeps],
-            "head_neck_sweep_section_counts": [len(item.sweep.sections) for item in region.head_neck_sweeps],
-            "head_neck_sweep_owner_keys": [_baseline._address_json(item.owner.key) for item in region.head_neck_sweeps],
-            "head_neck_source_owner_keys": [_baseline._address_json(owner.key) for owner in (region.head_neck_sweeps[0].owner, region.head_neck_sweeps[3].owner)],
+            "head_neck": _head_neck_metadata(region),
             "limb_representation": "shared-guide-derived-ordered-profile-sweeps",
             "limb_sweeps_consumed": len(region.limb_sweeps),
             "limb_sweep_order": [item.chain_name for item in region.limb_sweeps],
@@ -3260,11 +3494,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
                     "section_names": [list(item.sweep.names) for item in mesh.representation.shoulder_sweeps],
                 },
                 "head_neck": {
-                    "representation": "shared-guide-derived-profile-sweeps",
-                    "sweeps_consumed": len(mesh.representation.head_neck_sweeps),
-                    "sweep_order": [item.recipe for item in mesh.representation.head_neck_sweeps],
-                    "section_counts": [len(item.sweep.sections) for item in mesh.representation.head_neck_sweeps],
-                    "owner_keys": [_baseline._address_json(item.owner.key) for item in mesh.representation.head_neck_sweeps],
+                    **_head_neck_metadata(mesh.representation),
                 },
                 "limbs": {
                     "representation": "shared-guide-derived-ordered-profile-sweeps",

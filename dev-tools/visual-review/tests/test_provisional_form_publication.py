@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
+import math
 import os
 import subprocess
 import sys
@@ -140,12 +141,16 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
         is_dimension_format = format_name in {
             common.PROVISIONAL_FORM_HISTORICAL_V5_FORMAT,
             common.PROVISIONAL_FORM_HISTORICAL_V6_FORMAT,
-            common.PROVISIONAL_FORM_FORMAT,
+            common.PROVISIONAL_FORM_V7_FORMAT,
+            common.PROVISIONAL_FORM_V8_FORMAT,
         }
         is_v6 = format_name in {
             common.PROVISIONAL_FORM_HISTORICAL_V6_FORMAT,
-            common.PROVISIONAL_FORM_FORMAT,
+            common.PROVISIONAL_FORM_V7_FORMAT,
+            common.PROVISIONAL_FORM_V8_FORMAT,
         }
+        is_v7 = format_name == common.PROVISIONAL_FORM_V7_FORMAT
+        is_v8 = format_name == common.PROVISIONAL_FORM_V8_FORMAT
 
         def descriptor(
             role: str,
@@ -195,7 +200,8 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
                 common.PROVISIONAL_FORM_HISTORICAL_V4_FORMAT,
                 common.PROVISIONAL_FORM_HISTORICAL_V5_FORMAT,
                 common.PROVISIONAL_FORM_HISTORICAL_V6_FORMAT,
-                common.PROVISIONAL_FORM_FORMAT,
+                common.PROVISIONAL_FORM_V7_FORMAT,
+                common.PROVISIONAL_FORM_V8_FORMAT,
             }
             else {"name": "ellipsoid", "center": [0, 2, 0], "axis_extents_permille": [650, 600, 600]}
         )
@@ -301,7 +307,7 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
                 },
                 "descriptors": variant_descriptors,
             })
-        if format_name == common.PROVISIONAL_FORM_FORMAT:
+        if is_v7 or is_v8:
             torso_section_values = [
                 ("lower-pelvis", "pelvis", -0.55, (820, 760, 700)),
                 ("upper-pelvis", "pelvis", -0.35, (760, 700, 660)),
@@ -372,7 +378,7 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
             ], key=lambda item: (
                 item["owner"]["namespace"], tuple(item["owner"]["anchors"]), item["owner"]["kind"], item["owner"]["role"], item["role"]
             ))
-            if format_name == common.PROVISIONAL_FORM_FORMAT:
+            if is_v7 or is_v8:
                 torso_frame_owners = set()
                 for section_name, owner_role, y, _radii in torso_section_values:
                     owner = address(owner_role)
@@ -472,11 +478,175 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
                         "provenance": copy.deepcopy(control_provenance),
                         "sections": variant_sections,
                     }
+        if is_v8:
+            head_neck_section_values = [
+                ("neck-collar", "neck", 0.60, 0.00, (420, 380, 360)),
+                ("neck-upper", "neck", 0.72, 0.00, (400, 360, 340)),
+                ("head-base", "head", 0.82, 0.00, (560, 520, 500)),
+                ("cranium-mid", "head", 0.88, 0.00, (620, 580, 560)),
+                ("cranium-crown", "head", 0.94, 0.00, (600, 560, 540)),
+                ("muzzle-root", "head", 0.94, 0.10, (430, 390, 400)),
+                ("muzzle-mid", "head", 0.94, 0.20, (390, 350, 360)),
+                ("muzzle-tip", "head", 0.94, 0.30, (300, 280, 300)),
+            ]
+            for section_name, owner_role, y, z, radii in head_neck_section_values:
+                owner = address(owner_role)
+                section_key = section_name.replace("-", "_")
+                for role_suffix, value in zip(
+                    ("lateral_radius", "up_radius", "forward_radius"), radii
+                ):
+                    payload["authored_dimensions"].append({
+                        "owner": copy.deepcopy(owner),
+                        "role": f"form_head_neck_profile_{section_key}_{role_suffix}",
+                        "value_permille": value,
+                        "provenance": copy.deepcopy(control_provenance),
+                    })
+            payload["authored_dimensions"].sort(key=lambda item: (
+                item["owner"]["namespace"], tuple(item["owner"]["anchors"]),
+                item["owner"]["kind"], item["owner"]["role"], item["role"],
+            ))
+            head_neck_frame_owners = set()
+            for section_name, owner_role, _y, _z, _radii in head_neck_section_values:
+                owner = address(owner_role)
+                if owner_role not in head_neck_frame_owners:
+                    payload["authored_frames"].append({
+                        "owner": copy.deepcopy(owner),
+                        "role": common.PROVISIONAL_FORM_HEAD_NECK_PROFILE_FRAME_ROLE,
+                        "transform": {"translation": [0, 0, 0], "rotation_xyzw": [0, 0, 0, 1]},
+                        "provenance": copy.deepcopy(control_provenance),
+                    })
+                    head_neck_frame_owners.add(owner_role)
+                payload["authored_landmarks"].append({
+                    "owner": copy.deepcopy(owner),
+                    "role": f"form_head_neck_profile_{section_name.replace('-', '_')}",
+                    "frame": {"owner": copy.deepcopy(owner), "role": common.PROVISIONAL_FORM_HEAD_NECK_PROFILE_FRAME_ROLE},
+                    "position": [0, _y, _z],
+                    "provenance": copy.deepcopy(control_provenance),
+                })
+            payload["authored_frames"].sort(key=lambda item: (
+                item["owner"]["namespace"], tuple(item["owner"]["anchors"]), item["owner"]["kind"], item["owner"]["role"], item["role"]
+            ))
+            payload["authored_landmarks"].sort(key=lambda item: (
+                item["owner"]["namespace"], tuple(item["owner"]["anchors"]), item["owner"]["kind"], item["owner"]["role"], item["role"]
+            ))
+            payload["authored_head_neck_profile"] = {
+                "format": common.PROVISIONAL_FORM_HEAD_NECK_PROFILE_FORMAT,
+                "provenance": copy.deepcopy(control_provenance),
+                "sections": [
+                    {
+                        "name": section_name,
+                        "frame_index": next(
+                            index for index, frame in enumerate(payload["authored_frames"])
+                            if frame["owner"] == address(owner_role)
+                            and frame["role"] == common.PROVISIONAL_FORM_HEAD_NECK_PROFILE_FRAME_ROLE
+                        ),
+                        "landmark_index": next(
+                            index for index, landmark in enumerate(payload["authored_landmarks"])
+                            if landmark["owner"] == address(owner_role)
+                            and landmark["role"] == f"form_head_neck_profile_{section_name.replace('-', '_')}"
+                        ),
+                        "dimension_indices": {
+                            axis: next(
+                                index for index, dimension in enumerate(payload["authored_dimensions"])
+                                if dimension["owner"] == address(owner_role)
+                                and dimension["role"] == f"form_head_neck_profile_{section_name.replace('-', '_')}_{role_suffix}"
+                            )
+                            for axis, role_suffix in (
+                                ("lateral", "lateral_radius"),
+                                ("up", "up_radius"),
+                                ("forward", "forward_radius"),
+                            )
+                        },
+                        "provenance": copy.deepcopy(control_provenance),
+                        "section_index": section_index,
+                    }
+                    for section_index, (section_name, owner_role, _y, _z, _radii)
+                    in enumerate(head_neck_section_values)
+                ],
+                "connections": [
+                    {
+                        "name": name,
+                        "from_section_index": from_index,
+                        "to_section_index": to_index,
+                        "route": route,
+                    }
+                    for name, from_index, to_index, route
+                    in common.PROVISIONAL_FORM_HEAD_NECK_PROFILE_CONNECTIONS
+                ],
+            }
+            for variant in payload["variants"]:
+                variant_sections = []
+                for section_index, (section_name, owner_role, y, z, radii) in enumerate(head_neck_section_values):
+                    factors = {
+                        "lateral": 1000,
+                        "up": 1000,
+                        "forward": 1000,
+                    }
+                    if owner_role == "head":
+                        if variant["id"] == "broad-soft-v0": factors = {"lateral": 1200, "up": 1000, "forward": 1150}
+                        elif variant["id"] == "lean-readable-v0": factors = {"lateral": 800, "up": 1000, "forward": 800}
+                        elif variant["id"] == "depth-forward-v0": factors = {"lateral": 1000, "up": 1000, "forward": 1300}
+                    elif variant["id"] == "broad-soft-v0": factors = {"lateral": 1150, "up": 1150, "forward": 1150}
+                    elif variant["id"] == "lean-readable-v0": factors = {"lateral": 800, "up": 800, "forward": 800}
+                    variant_sections.append({
+                        "source_section_index": section_index,
+                        "name": section_name,
+                        "position": [0, y, z],
+                        "lateral_radius_permille": radii[0] * factors["lateral"] // 1000,
+                        "up_radius_permille": radii[1] * factors["up"] // 1000,
+                        "forward_radius_permille": radii[2] * factors["forward"] // 1000,
+                        "scaling": {
+                            "lateral_factor_permille": factors["lateral"],
+                            "up_factor_permille": factors["up"],
+                            "forward_factor_permille": factors["forward"],
+                        },
+                        "provenance": copy.deepcopy(control_provenance),
+                    })
+                variant["head_neck_profile"] = {
+                    "format": common.PROVISIONAL_FORM_HEAD_NECK_PROFILE_FORMAT,
+                    "source": "authored_head_neck_profile",
+                    "provenance": copy.deepcopy(control_provenance),
+                    "sections": variant_sections,
+                    "connections": copy.deepcopy(payload["authored_head_neck_profile"]["connections"]),
+                }
+            # Head/neck controls are added after the torso section values above;
+            # rebuild every torso binding against the final sorted inventories so
+            # v8 indices refer to the emitted arrays rather than the intermediate
+            # v7-shaped arrays.
+            for section in payload["authored_torso_profile"]["sections"]:
+                owner = address(
+                    "pelvis" if section["name"] in {"lower-pelvis", "upper-pelvis"} else "torso"
+                )
+                section_key = section["name"].replace("-", "_")
+                section["frame_index"] = next(
+                    index for index, frame in enumerate(payload["authored_frames"])
+                    if frame["owner"] == owner
+                    and frame["role"] == common.PROVISIONAL_FORM_TORSO_PROFILE_FRAME_ROLE
+                )
+                section["landmark_index"] = next(
+                    index for index, landmark in enumerate(payload["authored_landmarks"])
+                    if landmark["owner"] == owner
+                    and landmark["role"] == f"form_torso_profile_{section_key}"
+                )
+                section["dimension_indices"] = {
+                    axis: next(
+                        index for index, dimension in enumerate(payload["authored_dimensions"])
+                        if dimension["owner"] == owner
+                        and dimension["role"] == f"form_torso_profile_{section_key}_{role_suffix}"
+                    )
+                    for axis, role_suffix in (
+                        ("lateral", "lateral_radius"),
+                        ("anterior", "anterior_radius"),
+                        ("posterior", "posterior_radius"),
+                    )
+                }
         if not is_v6:
             payload.pop("authored_landmarks", None)
             payload.pop("authored_frames", None)
-        if format_name != common.PROVISIONAL_FORM_FORMAT:
+        if not (is_v7 or is_v8):
             payload.pop("authored_torso_profile", None)
+        if not is_v8:
+            payload.pop("authored_head_neck_profile", None)
         if not is_dimension_format:
             payload.pop("authored_dimensions")
             for variant in payload["variants"]:
@@ -625,7 +795,7 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
                     )
 
     def test_v7_torso_profile_is_a_closed_index_over_canonical_controls(self) -> None:
-        payload = self.capsule_payload(format_name=common.PROVISIONAL_FORM_FORMAT)
+        payload = self.capsule_payload(format_name=common.PROVISIONAL_FORM_V7_FORMAT)
         validated = common._validate_provisional_form_envelope(payload, "v7 torso fixture")
         profile = validated["authored_torso_profile"]
         self.assertEqual(profile["format"], common.PROVISIONAL_FORM_TORSO_PROFILE_FORMAT)
@@ -813,6 +983,161 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
             with self.assertRaises(publisher.ProvisionalFormPublishError):
                 self.publish_with(binary, review_id=f"bad-form-{index}")
             self.assertFalse((self.root / f"bad-form-{index}").exists())
+
+    def test_v8_head_neck_profile_is_closed_indexed_ordered_and_source_provenant(self) -> None:
+        payload = self.capsule_payload(format_name=common.PROVISIONAL_FORM_V8_FORMAT)
+        validated = common._validate_provisional_form_envelope(payload, "v8 head/neck fixture")
+        self.assertEqual(validated["format"], common.PROVISIONAL_FORM_V8_FORMAT)
+        self.assertEqual(len(validated["authored_dimensions"]), 81)
+        self.assertEqual(len(validated["authored_frames"]), 6)
+        self.assertEqual(len(validated["authored_landmarks"]), 19)
+        profile = validated["authored_head_neck_profile"]
+        self.assertEqual(profile["format"], common.PROVISIONAL_FORM_HEAD_NECK_PROFILE_FORMAT)
+        self.assertEqual(
+            [section["name"] for section in profile["sections"]],
+            list(common.PROVISIONAL_FORM_HEAD_NECK_PROFILE_SECTION_NAMES),
+        )
+        self.assertEqual(
+            profile["connections"],
+            [
+                {
+                    "name": name,
+                    "from_section_index": from_index,
+                    "to_section_index": to_index,
+                    "route": route,
+                }
+                for name, from_index, to_index, route
+                in common.PROVISIONAL_FORM_HEAD_NECK_PROFILE_CONNECTIONS
+            ],
+        )
+        for index, (section, owner_role) in enumerate(zip(
+            profile["sections"], common.PROVISIONAL_FORM_HEAD_NECK_PROFILE_OWNER_ROLES
+        )):
+            self.assertEqual(section["section_index"], index)
+            frame = validated["authored_frames"][section["frame_index"]]
+            landmark = validated["authored_landmarks"][section["landmark_index"]]
+            self.assertEqual(frame["owner"]["role"], owner_role)
+            self.assertEqual(frame["role"], common.PROVISIONAL_FORM_HEAD_NECK_PROFILE_FRAME_ROLE)
+            self.assertEqual(landmark["owner"], frame["owner"])
+            self.assertEqual(
+                landmark["role"],
+                f"form_head_neck_profile_{section['name'].replace('-', '_')}",
+            )
+            self.assertEqual(landmark["frame"]["role"], common.PROVISIONAL_FORM_HEAD_NECK_PROFILE_FRAME_ROLE)
+            self.assertEqual(landmark["position"][0], 0)
+            for axis, suffix in common.PROVISIONAL_FORM_HEAD_NECK_PROFILE_RADIUS_AXES:
+                dimension = validated["authored_dimensions"][section["dimension_indices"][axis]]
+                self.assertEqual(
+                    dimension["role"],
+                    f"form_head_neck_profile_{section['name'].replace('-', '_')}_{suffix}",
+                )
+        for variant in validated["variants"]:
+            self.assertIn("torso_profile", variant)
+            self.assertIn("head_neck_profile", variant)
+            self.assertEqual(
+                variant["head_neck_profile"]["connections"],
+                profile["connections"],
+            )
+
+        cases = []
+        missing_head_profile = copy.deepcopy(payload)
+        missing_head_profile.pop("authored_head_neck_profile")
+        cases.append(missing_head_profile)
+        missing_torso_profile = copy.deepcopy(payload)
+        missing_torso_profile.pop("authored_torso_profile")
+        cases.append(missing_torso_profile)
+        unknown_envelope_field = copy.deepcopy(payload)
+        unknown_envelope_field["unexpected"] = True
+        cases.append(unknown_envelope_field)
+        wrong_profile_format = copy.deepcopy(payload)
+        wrong_profile_format["authored_head_neck_profile"]["format"] = "wrong"
+        cases.append(wrong_profile_format)
+        wrong_connection_route = copy.deepcopy(payload)
+        wrong_connection_route["authored_head_neck_profile"]["connections"][0]["route"] = "wrong"
+        cases.append(wrong_connection_route)
+        wrong_section_order = copy.deepcopy(payload)
+        wrong_section_order["authored_head_neck_profile"]["sections"][0]["name"] = "neck-upper"
+        cases.append(wrong_section_order)
+        wrong_section_index = copy.deepcopy(payload)
+        wrong_section_index["authored_head_neck_profile"]["sections"][1]["section_index"] = 0
+        cases.append(wrong_section_index)
+        wrong_frame_index = copy.deepcopy(payload)
+        wrong_frame_index["authored_head_neck_profile"]["sections"][0]["frame_index"] = 0
+        cases.append(wrong_frame_index)
+        wrong_landmark_index = copy.deepcopy(payload)
+        wrong_landmark_index["authored_head_neck_profile"]["sections"][0]["landmark_index"] = 0
+        cases.append(wrong_landmark_index)
+        non_axial = copy.deepcopy(payload)
+        non_axial["authored_landmarks"][non_axial["authored_head_neck_profile"]["sections"][0]["landmark_index"]]["position"][0] = 0.1
+        cases.append(non_axial)
+        non_increasing_neck_y = copy.deepcopy(payload)
+        neck_sections = non_increasing_neck_y["authored_head_neck_profile"]["sections"]
+        first_neck = neck_sections[0]["landmark_index"]
+        second_neck = neck_sections[1]["landmark_index"]
+        non_increasing_neck_y["authored_landmarks"][second_neck]["position"][1] = non_increasing_neck_y["authored_landmarks"][first_neck]["position"][1]
+        cases.append(non_increasing_neck_y)
+        muzzle_root_at_cranium_mid = copy.deepcopy(payload)
+        muzzle_sections = muzzle_root_at_cranium_mid["authored_head_neck_profile"]["sections"]
+        cranium_mid = muzzle_sections[3]["landmark_index"]
+        muzzle_root = muzzle_sections[5]["landmark_index"]
+        muzzle_root_at_cranium_mid["authored_landmarks"][muzzle_root]["position"][2] = muzzle_root_at_cranium_mid["authored_landmarks"][cranium_mid]["position"][2]
+        cases.append(muzzle_root_at_cranium_mid)
+        muzzle_root_before_cranium_mid = copy.deepcopy(payload)
+        muzzle_sections = muzzle_root_before_cranium_mid["authored_head_neck_profile"]["sections"]
+        cranium_mid = muzzle_sections[3]["landmark_index"]
+        muzzle_root = muzzle_sections[5]["landmark_index"]
+        muzzle_root_before_cranium_mid["authored_landmarks"][muzzle_root]["position"][2] = muzzle_root_before_cranium_mid["authored_landmarks"][cranium_mid]["position"][2] - 0.1
+        cases.append(muzzle_root_before_cranium_mid)
+        non_increasing_muzzle_z = copy.deepcopy(payload)
+        muzzle_sections = non_increasing_muzzle_z["authored_head_neck_profile"]["sections"]
+        first_muzzle = muzzle_sections[5]["landmark_index"]
+        second_muzzle = muzzle_sections[6]["landmark_index"]
+        non_increasing_muzzle_z["authored_landmarks"][second_muzzle]["position"][2] = non_increasing_muzzle_z["authored_landmarks"][first_muzzle]["position"][2]
+        cases.append(non_increasing_muzzle_z)
+        wrong_dimension_index = copy.deepcopy(payload)
+        wrong_dimension_index["authored_head_neck_profile"]["sections"][0]["dimension_indices"]["up"] = 0
+        cases.append(wrong_dimension_index)
+        wrong_variant_position = copy.deepcopy(payload)
+        wrong_variant_position["variants"][0]["head_neck_profile"]["sections"][0]["position"][1] += 0.01
+        cases.append(wrong_variant_position)
+        wrong_variant_factor = copy.deepcopy(payload)
+        wrong_variant_factor["variants"][1]["head_neck_profile"]["sections"][2]["scaling"]["lateral_factor_permille"] = 1_201
+        cases.append(wrong_variant_factor)
+        wrong_scaled_radius = copy.deepcopy(payload)
+        wrong_scaled_radius["variants"][3]["head_neck_profile"]["sections"][2]["forward_radius_permille"] += 1
+        cases.append(wrong_scaled_radius)
+        unknown_variant_field = copy.deepcopy(payload)
+        unknown_variant_field["variants"][0]["head_neck_profile"]["extra"] = True
+        cases.append(unknown_variant_field)
+        for index, malformed in enumerate(cases):
+            with self.subTest(index=index), self.assertRaises(common.ValidationError):
+                common._validate_provisional_form_envelope(malformed, f"malformed v8 head/neck fixture {index}")
+
+        for prior_format in (
+            common.PROVISIONAL_FORM_LEGACY_FORMAT,
+            common.PROVISIONAL_FORM_V2_FORMAT,
+            common.PROVISIONAL_FORM_V3_FORMAT,
+            common.PROVISIONAL_FORM_HISTORICAL_V4_FORMAT,
+            common.PROVISIONAL_FORM_HISTORICAL_V5_FORMAT,
+            common.PROVISIONAL_FORM_HISTORICAL_V6_FORMAT,
+            common.PROVISIONAL_FORM_V7_FORMAT,
+        ):
+            prior = self.capsule_payload(format_name=prior_format)
+            prior["authored_head_neck_profile"] = copy.deepcopy(payload["authored_head_neck_profile"])
+            with self.subTest(prior_format=prior_format), self.assertRaisesRegex(
+                common.ValidationError, "authored_head_neck_profile is only valid for v8"
+            ):
+                common._validate_provisional_form_envelope(prior, f"v8 field on {prior_format}")
+            prior_variant = self.capsule_payload(format_name=prior_format)
+            prior_variant["variants"][0]["head_neck_profile"] = copy.deepcopy(
+                payload["variants"][0]["head_neck_profile"]
+            )
+            with self.subTest(prior_variant_format=prior_format), self.assertRaisesRegex(
+                common.ValidationError, "head_neck_profile"
+            ):
+                common._validate_provisional_form_envelope(
+                    prior_variant, f"v8 variant field on {prior_format}"
+                )
 
     def test_v2_through_v6_limb_capsules_use_their_direct_distal_child_anchor(self) -> None:
         for format_name in (
@@ -1179,7 +1504,9 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
         self.assertIn('"Top · x / z"', app)
         self.assertIn('"creature-kernel.provisional-form-preview.v6"', app)
         self.assertIn('"creature-kernel.provisional-form-preview.v7"', app)
+        self.assertIn('"creature-kernel.provisional-form-preview.v8"', app)
         self.assertIn('var isV6 = payload.format === PROVISIONAL_FORM_V6_FORMAT;', app)
+        self.assertIn('var isV8 = payload.format === PROVISIONAL_FORM_V8_FORMAT;', app)
         self.assertIn('v5 is an authored-dimension-only format', app)
         self.assertIn('function formV6ShoulderControls(payload)', app)
         self.assertIn('form_shoulder_control', app)
@@ -1187,6 +1514,8 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
         self.assertIn('form_axilla', app)
         self.assertIn('["form_radius", "form_shoulder_depth_radius"]', app)
         self.assertIn('shape.name === "capsule" ? shape.radius_permille', app)
+        self.assertIn('form_head_neck_profile_control', app)
+        self.assertIn('forward-muzzle', app)
 
     def browser_form_errors(self, payload: dict[str, object]) -> list[str]:
         script = r'''
@@ -1205,11 +1534,27 @@ const context = {
   window: {}
 };
 vm.runInNewContext(source, context, { filename: appPath });
-process.stdout.write(JSON.stringify(context.__formValidation(JSON.parse(fs.readFileSync(0, "utf8")))));
+function reviveNonfinite(key, value) {
+  if (value && value.__browser_nonfinite__ === "nan") { return NaN; }
+  if (value && value.__browser_nonfinite__ === "infinity") { return Infinity; }
+  if (value && value.__browser_nonfinite__ === "negative-infinity") { return -Infinity; }
+  return value;
+}
+process.stdout.write(JSON.stringify(context.__formValidation(JSON.parse(fs.readFileSync(0, "utf8"), reviveNonfinite))));
 '''
+        def encode_nonfinite(value: object) -> object:
+            if isinstance(value, float) and not math.isfinite(value):
+                kind = "nan" if math.isnan(value) else "negative-infinity" if value < 0 else "infinity"
+                return {"__browser_nonfinite__": kind}
+            if isinstance(value, dict):
+                return {key: encode_nonfinite(item) for key, item in value.items()}
+            if isinstance(value, list):
+                return [encode_nonfinite(item) for item in value]
+            return value
+
         completed = subprocess.run(
             ["node", "-e", script, str(HERE / "static" / "app.js")],
-            input=json.dumps(payload),
+            input=json.dumps(encode_nonfinite(payload)),
             capture_output=True,
             text=True,
             check=True,
@@ -1252,7 +1597,7 @@ process.stdout.write(JSON.stringify(context.__formValidation(JSON.parse(fs.readF
                 self.assertTrue(self.browser_form_errors(malformed))
 
     def test_browser_vm_enforces_v7_torso_profile_index_contract(self) -> None:
-        valid_v7 = self.capsule_payload(format_name=common.PROVISIONAL_FORM_FORMAT)
+        valid_v7 = self.capsule_payload(format_name=common.PROVISIONAL_FORM_V7_FORMAT)
         self.assertEqual(self.browser_form_errors(valid_v7), [])
 
         cases = []
@@ -1319,6 +1664,184 @@ process.stdout.write(JSON.stringify(context.__formValidation(JSON.parse(fs.readF
             with self.subTest(prior_variant_format=prior_format):
                 self.assertTrue(self.browser_form_errors(prior_variant))
 
+    def test_browser_vm_enforces_v8_head_neck_profile_index_contract(self) -> None:
+        valid_v8 = self.capsule_payload(format_name=common.PROVISIONAL_FORM_V8_FORMAT)
+        self.assertEqual(self.browser_form_errors(valid_v8), [])
+
+        cases = []
+        unknown_envelope_field = copy.deepcopy(valid_v8)
+        unknown_envelope_field["unexpected"] = True
+        cases.append(unknown_envelope_field)
+        missing_head_profile = copy.deepcopy(valid_v8)
+        missing_head_profile.pop("authored_head_neck_profile")
+        cases.append(missing_head_profile)
+        wrong_profile_format = copy.deepcopy(valid_v8)
+        wrong_profile_format["authored_head_neck_profile"]["format"] = "wrong"
+        cases.append(wrong_profile_format)
+        wrong_connection = copy.deepcopy(valid_v8)
+        wrong_connection["authored_head_neck_profile"]["connections"][0]["route"] = "wrong"
+        cases.append(wrong_connection)
+        wrong_order = copy.deepcopy(valid_v8)
+        wrong_order["authored_head_neck_profile"]["sections"][0]["name"] = "neck-upper"
+        cases.append(wrong_order)
+        wrong_section_index = copy.deepcopy(valid_v8)
+        wrong_section_index["authored_head_neck_profile"]["sections"][1]["section_index"] = 0
+        cases.append(wrong_section_index)
+        wrong_frame_index = copy.deepcopy(valid_v8)
+        wrong_frame_index["authored_head_neck_profile"]["sections"][0]["frame_index"] = 0
+        cases.append(wrong_frame_index)
+        non_integer_landmark_index = copy.deepcopy(valid_v8)
+        non_integer_landmark_index["authored_head_neck_profile"]["sections"][0]["landmark_index"] = 0.5
+        cases.append(non_integer_landmark_index)
+        non_axial = copy.deepcopy(valid_v8)
+        non_axial["authored_landmarks"][valid_v8["authored_head_neck_profile"]["sections"][0]["landmark_index"]]["position"][0] = 0.1
+        cases.append(non_axial)
+        non_increasing_neck_y = copy.deepcopy(valid_v8)
+        neck_sections = non_increasing_neck_y["authored_head_neck_profile"]["sections"]
+        first_neck = neck_sections[0]["landmark_index"]
+        second_neck = neck_sections[1]["landmark_index"]
+        non_increasing_neck_y["authored_landmarks"][second_neck]["position"][1] = non_increasing_neck_y["authored_landmarks"][first_neck]["position"][1]
+        cases.append(non_increasing_neck_y)
+        muzzle_root_at_cranium_mid = copy.deepcopy(valid_v8)
+        muzzle_sections = muzzle_root_at_cranium_mid["authored_head_neck_profile"]["sections"]
+        cranium_mid = muzzle_sections[3]["landmark_index"]
+        muzzle_root = muzzle_sections[5]["landmark_index"]
+        muzzle_root_at_cranium_mid["authored_landmarks"][muzzle_root]["position"][2] = muzzle_root_at_cranium_mid["authored_landmarks"][cranium_mid]["position"][2]
+        cases.append(muzzle_root_at_cranium_mid)
+        muzzle_root_before_cranium_mid = copy.deepcopy(valid_v8)
+        muzzle_sections = muzzle_root_before_cranium_mid["authored_head_neck_profile"]["sections"]
+        cranium_mid = muzzle_sections[3]["landmark_index"]
+        muzzle_root = muzzle_sections[5]["landmark_index"]
+        muzzle_root_before_cranium_mid["authored_landmarks"][muzzle_root]["position"][2] = muzzle_root_before_cranium_mid["authored_landmarks"][cranium_mid]["position"][2] - 0.1
+        cases.append(muzzle_root_before_cranium_mid)
+        non_increasing_muzzle_z = copy.deepcopy(valid_v8)
+        muzzle_sections = non_increasing_muzzle_z["authored_head_neck_profile"]["sections"]
+        first_muzzle = muzzle_sections[5]["landmark_index"]
+        second_muzzle = muzzle_sections[6]["landmark_index"]
+        non_increasing_muzzle_z["authored_landmarks"][second_muzzle]["position"][2] = non_increasing_muzzle_z["authored_landmarks"][first_muzzle]["position"][2]
+        cases.append(non_increasing_muzzle_z)
+        wrong_dimension_index = copy.deepcopy(valid_v8)
+        wrong_dimension_index["authored_head_neck_profile"]["sections"][0]["dimension_indices"]["up"] = 0
+        cases.append(wrong_dimension_index)
+        wrong_variant_position = copy.deepcopy(valid_v8)
+        wrong_variant_position["variants"][0]["head_neck_profile"]["sections"][0]["position"][1] += 0.01
+        cases.append(wrong_variant_position)
+        wrong_variant_factor = copy.deepcopy(valid_v8)
+        wrong_variant_factor["variants"][1]["head_neck_profile"]["sections"][2]["scaling"]["lateral_factor_permille"] = 1_201
+        cases.append(wrong_variant_factor)
+        wrong_scaled_radius = copy.deepcopy(valid_v8)
+        wrong_scaled_radius["variants"][3]["head_neck_profile"]["sections"][2]["forward_radius_permille"] += 1
+        cases.append(wrong_scaled_radius)
+        unknown_variant_field = copy.deepcopy(valid_v8)
+        unknown_variant_field["variants"][0]["head_neck_profile"]["extra"] = True
+        cases.append(unknown_variant_field)
+        for index, malformed in enumerate(cases):
+            with self.subTest(index=index):
+                self.assertTrue(self.browser_form_errors(malformed))
+
+        for prior_format in (
+            common.PROVISIONAL_FORM_LEGACY_FORMAT,
+            common.PROVISIONAL_FORM_V2_FORMAT,
+            common.PROVISIONAL_FORM_V3_FORMAT,
+            common.PROVISIONAL_FORM_HISTORICAL_V4_FORMAT,
+            common.PROVISIONAL_FORM_HISTORICAL_V5_FORMAT,
+            common.PROVISIONAL_FORM_HISTORICAL_V6_FORMAT,
+            common.PROVISIONAL_FORM_V7_FORMAT,
+        ):
+            prior = self.capsule_payload(format_name=prior_format)
+            prior["authored_head_neck_profile"] = copy.deepcopy(valid_v8["authored_head_neck_profile"])
+            with self.subTest(prior_format=prior_format):
+                self.assertTrue(self.browser_form_errors(prior))
+            prior_variant = self.capsule_payload(format_name=prior_format)
+            prior_variant["variants"][0]["head_neck_profile"] = copy.deepcopy(
+                valid_v8["variants"][0]["head_neck_profile"]
+            )
+            with self.subTest(prior_variant_format=prior_format):
+                self.assertTrue(self.browser_form_errors(prior_variant))
+
+    def test_browser_vm_matches_common_for_v8_geometry_and_scale_invariants(self) -> None:
+        valid_v8 = self.capsule_payload(format_name=common.PROVISIONAL_FORM_V8_FORMAT)
+        self.assertEqual(self.browser_form_errors(valid_v8), [])
+
+        def descriptor(payload: dict[str, object], role: str, anchors: list[str] | None = None) -> dict[str, object]:
+            return next(
+                item
+                for item in payload["variants"][0]["descriptors"]
+                if item["address"]["role"] == role
+                and item["address"]["anchors"] == (anchors or [])
+            )
+
+        cases: list[tuple[str, dict[str, object]]] = []
+        zero_squared_length = copy.deepcopy(valid_v8)
+        zero_squared_length["reference_scale"]["squared_length"] = 0
+        cases.append(("zero squared length", zero_squared_length))
+
+        invalid_squared_length = copy.deepcopy(valid_v8)
+        invalid_squared_length["reference_scale"]["squared_length"] = 2
+        cases.append(("mismatched squared length", invalid_squared_length))
+
+        nonfinite_scale = copy.deepcopy(valid_v8)
+        nonfinite_scale["reference_scale"]["axis_delta"][0] = float("nan")
+        cases.append(("non-finite reference-scale coordinate", nonfinite_scale))
+
+        zero_extent = copy.deepcopy(valid_v8)
+        descriptor(zero_extent, "pelvis")["shape"]["axis_extents_permille"][0] = 0
+        cases.append(("zero ellipsoid extent", zero_extent))
+
+        nonfinite_coordinate = copy.deepcopy(valid_v8)
+        descriptor(nonfinite_coordinate, "pelvis")["reference_point"][0] = float("nan")
+        cases.append(("non-finite descriptor coordinate", nonfinite_coordinate))
+
+        center_mismatch = copy.deepcopy(valid_v8)
+        descriptor(center_mismatch, "pelvis")["shape"]["center"][0] = 1
+        cases.append(("ellipsoid center/reference mismatch", center_mismatch))
+
+        malformed_segment_endpoint = copy.deepcopy(valid_v8)
+        upper_arm = descriptor(malformed_segment_endpoint, "upper_arm", ["left"])
+        upper_arm["shape"]["to"] = copy.deepcopy(upper_arm["shape"]["from"])
+        cases.append(("malformed segment endpoints", malformed_segment_endpoint))
+
+        nonfinite_segment_endpoint = copy.deepcopy(valid_v8)
+        descriptor(nonfinite_segment_endpoint, "upper_arm", ["left"])["shape"]["from"][0] = float("nan")
+        cases.append(("non-finite segment endpoint", nonfinite_segment_endpoint))
+
+        zero_segment_radius = copy.deepcopy(valid_v8)
+        descriptor(zero_segment_radius, "upper_arm", ["left"])["shape"]["radius_permille"] = 0
+        cases.append(("zero segment radius", zero_segment_radius))
+
+        empty_limitations = copy.deepcopy(valid_v8)
+        empty_limitations["limitations"] = ""
+        cases.append(("empty limitations", empty_limitations))
+
+        unsupported_limitations = copy.deepcopy(valid_v8)
+        unsupported_limitations["limitations"] = "display-only preview"
+        cases.append(("unsupported limitations", unsupported_limitations))
+
+        for label, malformed in cases:
+            with self.subTest(case=label), self.assertRaises(common.ValidationError):
+                common._validate_provisional_form_envelope(malformed, f"malformed v8 {label}")
+            with self.subTest(browser_case=label):
+                self.assertTrue(self.browser_form_errors(malformed))
+
+    def test_browser_vm_matches_common_for_v8_cranium_mid_to_muzzle_root_route(self) -> None:
+        valid_v8 = self.capsule_payload(format_name=common.PROVISIONAL_FORM_V8_FORMAT)
+        self.assertEqual(self.browser_form_errors(valid_v8), [])
+
+        for label, offset in (("equal", 0.0), ("before", -0.1)):
+            malformed = copy.deepcopy(valid_v8)
+            sections = malformed["authored_head_neck_profile"]["sections"]
+            cranium_mid = sections[3]["landmark_index"]
+            muzzle_root = sections[5]["landmark_index"]
+            malformed["authored_landmarks"][muzzle_root]["position"][2] = (
+                malformed["authored_landmarks"][cranium_mid]["position"][2] + offset
+            )
+            with self.subTest(common_case=label), self.assertRaises(common.ValidationError):
+                common._validate_provisional_form_envelope(
+                    malformed, f"muzzle-root {label} cranium-mid z"
+                )
+            with self.subTest(browser_case=label):
+                self.assertTrue(self.browser_form_errors(malformed))
+
     def test_current_rust_producer_passes_python_and_browser_validators(self) -> None:
         repository = HERE.parents[1]
         completed = subprocess.run(
@@ -1344,7 +1867,12 @@ process.stdout.write(JSON.stringify(context.__formValidation(JSON.parse(fs.readF
         validated = common._validate_provisional_form_envelope(
             produced, "current Rust producer output"
         )
-        self.assertEqual(validated["format"], common.PROVISIONAL_FORM_FORMAT)
+        self.assertEqual(validated["format"], common.PROVISIONAL_FORM_V8_FORMAT)
+        self.assertIn("authored_torso_profile", produced)
+        self.assertIn("authored_head_neck_profile", produced)
+        for variant in produced["variants"]:
+            self.assertIn("torso_profile", variant)
+            self.assertIn("head_neck_profile", variant)
         self.assertEqual(self.browser_form_errors(produced), [])
 
 

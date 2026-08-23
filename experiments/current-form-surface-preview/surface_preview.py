@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a bounded, disposable continuous surface from a v6 form envelope.
+"""Build a bounded, disposable continuous surface from a v8 form envelope.
 
 This module intentionally has no dependency on Creature Kernel runtime code.
 It is a small adapter for visual exploration: exact integer form coordinates
@@ -32,9 +32,10 @@ from skimage.measure import marching_cubes
 
 
 FORMAT = "creature-kernel.disposable-surface-preview.v2"
-REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v6"
-SOURCE_FORMAT = "creature-kernel.provisional-form-preview.v7"
+REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v7"
+SOURCE_FORMAT = "creature-kernel.provisional-form-preview.v8"
 AUTHORED_TORSO_PROFILE_FORMAT = "creature-kernel.provisional-form-torso-profile.v1"
+AUTHORED_HEAD_NECK_PROFILE_FORMAT = "creature-kernel.provisional-form-head-neck-profile.v1"
 VARIANT_IDS = ("neutral-v0", "broad-soft-v0", "lean-readable-v0", "depth-forward-v0")
 MAX_INPUT_BYTES = 4 * 1024 * 1024
 MAX_SAMPLES = 128
@@ -42,7 +43,7 @@ MAX_VOXELS = 128**3
 MAX_FIELD_VALUES = 32_000_000
 MAX_DESCRIPTORS = 64
 MAX_AUTHORED_DIMENSIONS = 256
-MAX_AUTHORED_LANDMARKS = 16
+MAX_AUTHORED_LANDMARKS = 32
 MAX_AUTHORED_FRAMES = 8
 CONTROL_COORDINATE_BOUND = 1.0
 GUIDE_TOLERANCE = 1.0e-12
@@ -58,6 +59,40 @@ TORSO_PROFILE_SECTION_NAMES = (
     "upper-abdomen",
     "lower-ribcage",
     "upper-ribcage-shoulder",
+)
+HEAD_NECK_PROFILE_FRAME_ROLE = "form_head_neck_profile_control"
+HEAD_NECK_PROFILE_LANDMARK_PREFIX = "form_head_neck_profile_"
+HEAD_NECK_PROFILE_DIMENSION_PREFIX = "form_head_neck_profile_"
+HEAD_NECK_PROFILE_DIMENSION_SUFFIXES = ("lateral_radius", "up_radius", "forward_radius")
+HEAD_NECK_PROFILE_SECTION_NAMES = (
+    "neck-collar",
+    "neck-upper",
+    "head-base",
+    "cranium-mid",
+    "cranium-crown",
+    "muzzle-root",
+    "muzzle-mid",
+    "muzzle-tip",
+)
+HEAD_NECK_PROFILE_OWNER_ROLES = ("neck", "neck", "head", "head", "head", "head", "head", "head")
+HEAD_NECK_PROFILE_CONNECTIONS = (
+    ("neck-collar-to-neck-upper", 0, 1, "vertical-neck-cranium"),
+    ("neck-upper-to-head-base", 1, 2, "vertical-neck-cranium"),
+    ("head-base-to-cranium-mid", 2, 3, "vertical-neck-cranium"),
+    ("cranium-mid-to-cranium-crown", 3, 4, "vertical-neck-cranium"),
+    ("cranium-mid-to-muzzle-root", 3, 5, "forward-muzzle"),
+    ("muzzle-root-to-muzzle-mid", 5, 6, "forward-muzzle"),
+    ("muzzle-mid-to-muzzle-tip", 6, 7, "forward-muzzle"),
+)
+REGIONAL_ROUTE_ORDER_TORSO = (("torso", (0, 1, 2, 3, 4, 5, 6), 1, "y"),)
+REGIONAL_ROUTE_ORDER_AUTHORED_HEAD_NECK = (
+    ("neck", (0, 1), 1, "y"),
+    ("cranium", (2, 3, 4), 1, "y"),
+    ("forward-muzzle", (3, 5, 6, 7), 2, "z"),
+)
+REGIONAL_ROUTE_ORDER_GUIDE_HEAD_NECK = (
+    ("vertical-neck-cranium", (0, 1, 2, 3, 4), 1, "y"),
+    ("forward-muzzle", (3, 5, 6, 7), 2, "z"),
 )
 # A source descriptor may intentionally expand into a small deterministic
 # recipe.  This is an implementation bound on the disposable preview, not a
@@ -201,7 +236,7 @@ def _shape(value: Any, where: str) -> dict[str, Any]:
 
 
 def _display_factors(profile_id: str, role: str, shape_name: str) -> tuple[int, ...]:
-    """Return the fixed Rust display factors for one v6 shape control set."""
+    """Return the fixed Rust display factors for the closed shape controls."""
 
     if shape_name == "ellipsoid":
         if profile_id == "neutral-v0":
@@ -226,7 +261,7 @@ def _display_factors(profile_id: str, role: str, shape_name: str) -> tuple[int, 
         else:
             factor = 1_000
         return (factor,) * (1 if shape_name == "capsule" else 2)
-    _fail(f"unsupported v6 display factor combination: {profile_id}/{role}/{shape_name}")
+    _fail(f"unsupported display factor combination: {profile_id}/{role}/{shape_name}")
 
 
 def _scaled_display_value(value: int, factor: int, where: str) -> int:
@@ -236,6 +271,33 @@ def _scaled_display_value(value: int, factor: int, where: str) -> int:
     if not 0 < scaled <= 5_000:
         _fail(f"{where} fixed display factor produces invalid permille {scaled}")
     return scaled
+
+
+def _validate_regional_route_order(
+    positions: Any,
+    routes: tuple[tuple[str, tuple[int, ...], int, str], ...],
+    where: str,
+) -> None:
+    """Reject non-monotone station coordinates for every regional route."""
+
+    try:
+        position_count = len(positions)
+    except (TypeError, AttributeError):
+        _fail(f"{where} route positions are invalid")
+    for route_name, indices, axis, axis_name in routes:
+        previous: float | None = None
+        for index in indices:
+            if index < 0 or index >= position_count:
+                _fail(f"{where} {route_name} route index {index} is out of range")
+            try:
+                value = float(positions[index][axis])
+            except (IndexError, KeyError, TypeError, ValueError, OverflowError):
+                _fail(f"{where} {route_name} route position {index} is invalid")
+            if not math.isfinite(value):
+                _fail(f"{where} {route_name} route position {index} is not finite")
+            if previous is not None and value <= previous:
+                _fail(f"{where} {route_name} route must be strictly increasing along {axis_name}")
+            previous = value
 
 
 def _shoulder_depth_factor(profile_id: str) -> int:
@@ -567,11 +629,69 @@ class _ShoulderFrame:
 
 
 @dataclass(frozen=True)
+class _HeadNeckRadiusLineage:
+    """Exact source-to-guide lineage for one authored head/neck radius."""
+
+    base: int
+    factor: int
+    scaled: int
+    reference: tuple[tuple[str, tuple[str, ...], str, str], str]
+    reference_index: int
+    provenance: dict[str, Any]
+    consumed_section: str
+
+
+@dataclass(frozen=True)
+class _HeadNeckGuideSection:
+    """One projected head/neck station retained in the regional guide."""
+
+    name: str
+    section_index: int
+    source_section_index: int
+    frame_index: int
+    landmark_index: int
+    owner: Descriptor
+    frame: AuthoredFrame
+    landmark: AuthoredLandmark
+    center: tuple[float, float, float]
+    radii: tuple[float, float, float]
+    lateral_lineage: _HeadNeckRadiusLineage
+    up_lineage: _HeadNeckRadiusLineage
+    forward_lineage: _HeadNeckRadiusLineage
+
+    @property
+    def source_key(self) -> tuple[str, tuple[str, ...], str, str]:
+        return self.owner.key
+
+
+@dataclass(frozen=True)
+class _HeadNeckGuideConnection:
+    """One authored connection with its direct guide path and thickness."""
+
+    spec: HeadNeckConnection
+    from_section: _HeadNeckGuideSection
+    to_section: _HeadNeckGuideSection
+    centerline: tuple[tuple[float, float, float], tuple[float, float, float]]
+    thickness: tuple[float, float]
+
+
+@dataclass(frozen=True)
+class _HeadNeckProfileGuide:
+    """Complete eight-station/seven-connection projected head/neck guide."""
+
+    sections: tuple[_HeadNeckGuideSection, ...]
+    connections: tuple[_HeadNeckGuideConnection, ...]
+    provenance: dict[str, Any]
+    axes: _GuideAxes
+
+
+@dataclass(frozen=True)
 class _HeadGuide:
     """Cranium/muzzle and neck-transition controls for the head region."""
 
     head_owner: Descriptor
     neck_owner: Descriptor
+    profile: "_HeadNeckProfileGuide"
     cranium_center: tuple[float, float, float]
     cranium_radii: tuple[float, float, float]
     muzzle_center: tuple[float, float, float]
@@ -844,6 +964,41 @@ class AuthoredTorsoProfile:
 
 
 @dataclass(frozen=True)
+class HeadNeckConnection:
+    """One exact named connection in the authored head/neck profile."""
+
+    name: str
+    from_section_index: int
+    to_section_index: int
+    route: str
+
+
+@dataclass(frozen=True)
+class AuthoredHeadNeckSection:
+    """One indexed source-authored head/neck profile station."""
+
+    name: str
+    section_index: int
+    frame_index: int
+    landmark_index: int
+    owner: tuple[str, tuple[str, ...], str, str]
+    frame: tuple[tuple[str, tuple[str, ...], str, str], str]
+    landmark: AuthoredLandmark
+    lateral: AuthoredRadius
+    up: AuthoredRadius
+    forward: AuthoredRadius
+
+
+@dataclass(frozen=True)
+class AuthoredHeadNeckProfile:
+    """Validated authored_head_neck_profile v1 controls."""
+
+    sections: tuple[AuthoredHeadNeckSection, ...]
+    connections: tuple[HeadNeckConnection, ...]
+    provenance: dict[str, Any]
+
+
+@dataclass(frozen=True)
 class VariantTorsoProfileSection:
     """One producer-projected per-variant torso profile section."""
 
@@ -866,6 +1021,29 @@ class VariantTorsoProfile:
 
 
 @dataclass(frozen=True)
+class VariantHeadNeckProfileSection:
+    """One producer-projected per-variant head/neck profile station."""
+
+    source_section_index: int
+    name: str
+    position: tuple[float, float, float]
+    lateral_radius_permille: int
+    up_radius_permille: int
+    forward_radius_permille: int
+    lateral_factor: int
+    up_factor: int
+    forward_factor: int
+    provenance: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class VariantHeadNeckProfile:
+    sections: tuple[VariantHeadNeckProfileSection, ...]
+    connections: tuple[HeadNeckConnection, ...]
+    provenance: dict[str, Any]
+
+
+@dataclass(frozen=True)
 class Form:
     raw: dict[str, Any]
     source: dict[str, Any]
@@ -875,7 +1053,9 @@ class Form:
     authored_landmarks: tuple[AuthoredLandmark, ...]
     authored_frames: tuple[AuthoredFrame, ...]
     authored_torso_profile: AuthoredTorsoProfile
+    authored_head_neck_profile: AuthoredHeadNeckProfile
     variant_torso_profiles: tuple[VariantTorsoProfile, ...]
+    variant_head_neck_profiles: tuple[VariantHeadNeckProfile, ...]
     variants: tuple[tuple[str, tuple[Descriptor, ...], dict[str, Any]], ...]
 
 
@@ -957,12 +1137,133 @@ def _parse_authored_torso_profile(
                 controls[2],
             )
         )
+    _validate_regional_route_order(
+        tuple(section.landmark.position for section in parsed),
+        REGIONAL_ROUTE_ORDER_TORSO,
+        "authored_torso_profile.sections",
+    )
     return AuthoredTorsoProfile(tuple(parsed), provenance)
+
+
+def _parse_head_neck_connections(value: Any, where: str) -> tuple[HeadNeckConnection, ...]:
+    raw_connections = _array(value, where)
+    if len(raw_connections) != len(HEAD_NECK_PROFILE_CONNECTIONS):
+        _fail(f"{where} must contain exactly seven connections")
+    parsed: list[HeadNeckConnection] = []
+    for index, (expected_name, expected_from, expected_to, expected_route) in enumerate(HEAD_NECK_PROFILE_CONNECTIONS):
+        connection_where = f"{where}[{index}]"
+        connection = _obj(raw_connections[index], connection_where)
+        if set(connection) != {"name", "from_section_index", "to_section_index", "route"}:
+            _fail(f"{connection_where} has unexpected fields")
+        from_section_index = _int(connection["from_section_index"], f"{connection_where}.from_section_index")
+        to_section_index = _int(connection["to_section_index"], f"{connection_where}.to_section_index")
+        if (connection["name"], from_section_index, to_section_index, connection["route"]) != (
+            expected_name,
+            expected_from,
+            expected_to,
+            expected_route,
+        ):
+            _fail(f"{connection_where} is not the required ordered named route")
+        parsed.append(HeadNeckConnection(expected_name, expected_from, expected_to, expected_route))
+    return tuple(parsed)
+
+
+def _parse_authored_head_neck_profile(
+    value: Any,
+    source: dict[str, Any],
+    dimensions: tuple[tuple[tuple[str, tuple[str, ...], str, str], str, int, dict[str, Any]], ...],
+    landmarks: tuple[AuthoredLandmark, ...],
+    frames: tuple[AuthoredFrame, ...],
+) -> AuthoredHeadNeckProfile:
+    """Validate the exact index-bound authored_head_neck_profile v1 slice."""
+
+    profile = _obj(value, "authored_head_neck_profile")
+    if set(profile) != {"format", "provenance", "sections", "connections"} or profile["format"] != AUTHORED_HEAD_NECK_PROFILE_FORMAT:
+        _fail("authored_head_neck_profile is not format v1")
+    source_provenance = {"source": "source-authored", "document": source["document"], "namespace": source["namespace"]}
+    provenance = _authored_torso_provenance(profile["provenance"], source_provenance, "authored_head_neck_profile.provenance")
+    raw_sections = _array(profile["sections"], "authored_head_neck_profile.sections")
+    if len(raw_sections) != len(HEAD_NECK_PROFILE_SECTION_NAMES):
+        _fail("authored_head_neck_profile.sections must contain exactly eight sections")
+    parsed: list[AuthoredHeadNeckSection] = []
+    expected_owner_roles = HEAD_NECK_PROFILE_OWNER_ROLES
+    for index, raw in enumerate(raw_sections):
+        where = f"authored_head_neck_profile.sections[{index}]"
+        section = _obj(raw, where)
+        expected_fields = {"name", "frame_index", "landmark_index", "dimension_indices", "provenance", "section_index"}
+        if set(section) != expected_fields:
+            _fail(f"{where} has unexpected fields")
+        if section["section_index"] != index or section["name"] != HEAD_NECK_PROFILE_SECTION_NAMES[index]:
+            _fail(f"{where} is not the required ordered section")
+        frame_index = _int(section["frame_index"], f"{where}.frame_index")
+        landmark_index = _int(section["landmark_index"], f"{where}.landmark_index")
+        if not 0 <= frame_index < len(frames) or not 0 <= landmark_index < len(landmarks):
+            _fail(f"{where} references an out-of-range authored control")
+        owner = (source["namespace"], (), "part", expected_owner_roles[index])
+        landmark = landmarks[landmark_index]
+        frame = frames[frame_index]
+        expected_landmark_role = HEAD_NECK_PROFILE_LANDMARK_PREFIX + section["name"].replace("-", "_")
+        if landmark.owner != owner or landmark.role != expected_landmark_role:
+            _fail(f"{where}.landmark_index does not retain the exact owner/landmark role")
+        if frame.owner != owner or frame.role != HEAD_NECK_PROFILE_FRAME_ROLE:
+            _fail(f"{where}.frame_index does not retain the exact owner/frame role")
+        if landmark.frame != (frame.owner, frame.role):
+            _fail(f"{where} landmark/frame binding is invalid")
+        indices = _obj(section["dimension_indices"], f"{where}.dimension_indices")
+        if set(indices) != set(HEAD_NECK_PROFILE_DIMENSION_SUFFIXES[i].removesuffix("_radius") for i in range(3)):
+            _fail(f"{where}.dimension_indices has unexpected fields")
+        controls: list[AuthoredRadius] = []
+        expected_roles = tuple(
+            HEAD_NECK_PROFILE_DIMENSION_PREFIX + section["name"].replace("-", "_") + "_" + suffix
+            for suffix in HEAD_NECK_PROFILE_DIMENSION_SUFFIXES
+        )
+        for axis, expected_role in zip(("lateral", "up", "forward"), expected_roles):
+            dimension_index = _int(indices[axis], f"{where}.dimension_indices.{axis}")
+            if not 0 <= dimension_index < len(dimensions):
+                _fail(f"{where}.dimension_indices.{axis} is out of range")
+            dimension_owner, role, value_permille, control_provenance = dimensions[dimension_index]
+            if (dimension_owner, role) != (owner, expected_role):
+                _fail(f"{where}.dimension_indices.{axis} does not retain the exact owner/role")
+            controls.append(AuthoredRadius(dimension_owner, role, value_permille, control_provenance, dimension_index))
+        _authored_torso_provenance(section["provenance"], source_provenance, f"{where}.provenance")
+        parsed.append(
+            AuthoredHeadNeckSection(
+                section["name"],
+                index,
+                frame_index,
+                landmark_index,
+                owner,
+                (frame.owner, frame.role),
+                landmark,
+                controls[0],
+                controls[1],
+                controls[2],
+            )
+        )
+    _validate_regional_route_order(
+        tuple(section.landmark.position for section in parsed),
+        REGIONAL_ROUTE_ORDER_AUTHORED_HEAD_NECK,
+        "authored_head_neck_profile.sections",
+    )
+    return AuthoredHeadNeckProfile(
+        tuple(parsed),
+        _parse_head_neck_connections(profile["connections"], "authored_head_neck_profile.connections"),
+        provenance,
+    )
 
 
 def _torso_profile_factors(profile_id: str, owner_role: str) -> tuple[int, int]:
     shared = _display_factors(profile_id, owner_role, "ellipsoid")
     return shared[0], shared[2]
+
+
+def _head_neck_profile_factors(profile_id: str, owner_role: str) -> tuple[int, int, int]:
+    if owner_role == "head":
+        return _display_factors(profile_id, owner_role, "ellipsoid")
+    if owner_role == "neck":
+        factor = _display_factors(profile_id, owner_role, "capsule")[0]
+        return (factor, factor, factor)
+    _fail(f"unsupported head/neck profile owner role: {owner_role}")
 
 
 def _parse_variant_torso_profile(
@@ -1013,13 +1314,86 @@ def _parse_variant_torso_profile(
     return VariantTorsoProfile(tuple(parsed), provenance)
 
 
+def _parse_variant_head_neck_profile(
+    value: Any,
+    source: dict[str, Any],
+    authored: AuthoredHeadNeckProfile,
+    profile_id: str,
+) -> VariantHeadNeckProfile:
+    profile = _obj(value, f"{profile_id}.head_neck_profile")
+    if set(profile) != {"format", "source", "provenance", "sections", "connections"} or profile["format"] != AUTHORED_HEAD_NECK_PROFILE_FORMAT or profile["source"] != "authored_head_neck_profile":
+        _fail(f"{profile_id}.head_neck_profile is invalid")
+    expected_provenance = {"source": "source-authored", "document": source["document"], "namespace": source["namespace"]}
+    provenance = _authored_torso_provenance(profile["provenance"], expected_provenance, f"{profile_id}.head_neck_profile.provenance")
+    raw_sections = _array(profile["sections"], f"{profile_id}.head_neck_profile.sections")
+    if len(raw_sections) != len(authored.sections):
+        _fail(f"{profile_id}.head_neck_profile must contain exactly eight sections")
+    parsed: list[VariantHeadNeckProfileSection] = []
+    for index, raw in enumerate(raw_sections):
+        where = f"{profile_id}.head_neck_profile.sections[{index}]"
+        section = _obj(raw, where)
+        expected_fields = {
+            "source_section_index", "name", "position", "lateral_radius_permille", "up_radius_permille",
+            "forward_radius_permille", "scaling", "provenance",
+        }
+        if set(section) != expected_fields or section["source_section_index"] != index or section["name"] != authored.sections[index].name:
+            _fail(f"{where} is not the required ordered section")
+        position = _source_vector(section["position"], f"{where}.position", 3)
+        if position != authored.sections[index].landmark.position:
+            _fail(f"{where}.position is not the source-authored landmark position")
+        scaling = _obj(section["scaling"], f"{where}.scaling")
+        if set(scaling) != {"lateral_factor_permille", "up_factor_permille", "forward_factor_permille"}:
+            _fail(f"{where}.scaling has unexpected fields")
+        factors = tuple(
+            _int(scaling[f"{axis}_factor_permille"], f"{where}.scaling.{axis}_factor_permille")
+            for axis in ("lateral", "up", "forward")
+        )
+        expected_factors = _head_neck_profile_factors(profile_id, authored.sections[index].owner[3])
+        if factors != expected_factors:
+            _fail(f"{where}.scaling does not use the producer head/neck variant factors")
+        scaled: list[int] = []
+        for axis, field, control, factor in (
+            ("lateral", "lateral_radius_permille", authored.sections[index].lateral, factors[0]),
+            ("up", "up_radius_permille", authored.sections[index].up, factors[1]),
+            ("forward", "forward_radius_permille", authored.sections[index].forward, factors[2]),
+        ):
+            scaled_value = _int(section[field], f"{where}.{field}")
+            if scaled_value != _scaled_display_value(control.value_permille, factor, f"{where}.{field}"):
+                _fail(f"{where}.{field} is not the exact scaled authored radius")
+            scaled.append(scaled_value)
+        _authored_torso_provenance(section["provenance"], expected_provenance, f"{where}.provenance")
+        parsed.append(
+            VariantHeadNeckProfileSection(
+                index,
+                section["name"],
+                position,
+                scaled[0],
+                scaled[1],
+                scaled[2],
+                factors[0],
+                factors[1],
+                factors[2],
+                provenance,
+            )
+        )
+    _validate_regional_route_order(
+        tuple(section.position for section in parsed),
+        REGIONAL_ROUTE_ORDER_AUTHORED_HEAD_NECK,
+        f"{profile_id}.head_neck_profile.sections",
+    )
+    connections = _parse_head_neck_connections(profile["connections"], f"{profile_id}.head_neck_profile.connections")
+    if connections != authored.connections:
+        _fail(f"{profile_id}.head_neck_profile.connections do not retain the authored topology")
+    return VariantHeadNeckProfile(tuple(parsed), connections, provenance)
+
+
 def validate_envelope(value: Any) -> Form:
     root = _obj(value, "envelope")
-    required = {"format", "operation", "status", "stage", "processing_complete", "diagnostics_complete", "diagnostics", "source", "reference_scale", "authored_dimensions", "authored_landmarks", "authored_frames", "authored_torso_profile", "variants", "limitations"}
+    required = {"format", "operation", "status", "stage", "processing_complete", "diagnostics_complete", "diagnostics", "source", "reference_scale", "authored_dimensions", "authored_landmarks", "authored_frames", "authored_torso_profile", "authored_head_neck_profile", "variants", "limitations"}
     if set(root) != required:
         _fail("envelope has unexpected or missing fields")
     if root["format"] != SOURCE_FORMAT or root["operation"] != "inspect-provisional-form" or root["status"] != "success" or root["stage"] != "provisional-form":
-        _fail("envelope is not a successful v7 provisional-form result")
+        _fail("envelope is not a successful v8 provisional-form result")
     if root["processing_complete"] is not True or root["diagnostics_complete"] is not True or root["diagnostics"] != []:
         _fail("envelope success flags or diagnostics are invalid")
     if type(root["limitations"]) is not str or "Readiness" not in root["limitations"] or "geometry" not in root["limitations"]:
@@ -1065,8 +1439,8 @@ def validate_envelope(value: Any) -> Form:
         "namespace": source["namespace"],
     }
     authored_frames = _array(root["authored_frames"], "authored_frames")
-    if len(authored_frames) != 4 or len(authored_frames) > MAX_AUTHORED_FRAMES:
-        _fail("authored_frames must contain exactly four controls")
+    if len(authored_frames) != 6 or len(authored_frames) > MAX_AUTHORED_FRAMES:
+        _fail("authored_frames must contain exactly six controls")
     parsed_frames: list[AuthoredFrame] = []
     frame_keys: list[tuple[tuple[str, tuple[str, ...], str, str], str]] = []
     for index, item in enumerate(authored_frames):
@@ -1074,15 +1448,17 @@ def validate_envelope(value: Any) -> Form:
         if set(frame) != {"owner", "role", "transform", "provenance"}:
             _fail(f"authored_frames[{index}] has invalid fields")
         owner = _address(frame["owner"], f"authored_frames[{index}].owner")
-        if owner[0] != source["namespace"] or owner[2] != "part" or owner[1] not in ((), ("left",), ("right",)) or owner[3] not in {"pelvis", "torso", "upper_arm"}:
+        if owner[0] != source["namespace"] or owner[2] != "part" or owner[1] not in ((), ("left",), ("right",)) or owner[3] not in {"head", "neck", "pelvis", "torso", "upper_arm"}:
             _fail(f"authored_frames[{index}].owner is not a supported authored-control owner")
         role = frame["role"]
-        if role not in {"form_shoulder_control", TORSO_PROFILE_FRAME_ROLE}:
+        if role not in {"form_shoulder_control", TORSO_PROFILE_FRAME_ROLE, HEAD_NECK_PROFILE_FRAME_ROLE}:
             _fail(f"authored_frames[{index}].role is invalid")
         if role == "form_shoulder_control" and owner[1] not in (("left",), ("right",)):
             _fail(f"authored_frames[{index}] shoulder frame owner is invalid")
         if role == TORSO_PROFILE_FRAME_ROLE and (owner[1] != () or owner[3] not in {"pelvis", "torso"}):
             _fail(f"authored_frames[{index}] torso profile frame owner is invalid")
+        if role == HEAD_NECK_PROFILE_FRAME_ROLE and (owner[1] != () or owner[3] not in {"head", "neck"}):
+            _fail(f"authored_frames[{index}] head/neck profile frame owner is invalid")
         provenance = _obj(frame["provenance"], f"authored_frames[{index}].provenance")
         if set(provenance) != set(control_provenance) or provenance != control_provenance:
             _fail(f"authored_frames[{index}].provenance is invalid")
@@ -1101,6 +1477,8 @@ def validate_envelope(value: Any) -> Form:
     if frame_keys != sorted(frame_keys):
         _fail("authored_frames are not stable owner/role order")
     expected_frame_keys = [
+        ((source["namespace"], (), "part", "head"), HEAD_NECK_PROFILE_FRAME_ROLE),
+        ((source["namespace"], (), "part", "neck"), HEAD_NECK_PROFILE_FRAME_ROLE),
         ((source["namespace"], (), "part", "pelvis"), TORSO_PROFILE_FRAME_ROLE),
         ((source["namespace"], (), "part", "torso"), TORSO_PROFILE_FRAME_ROLE),
         ((source["namespace"], ("left",), "part", "upper_arm"), "form_shoulder_control"),
@@ -1110,8 +1488,8 @@ def validate_envelope(value: Any) -> Form:
         _fail("authored_frames do not have the closed shoulder-and-torso control inventory")
 
     authored_landmarks = _array(root["authored_landmarks"], "authored_landmarks")
-    if len(authored_landmarks) != 11 or len(authored_landmarks) > MAX_AUTHORED_LANDMARKS:
-        _fail("authored_landmarks must contain exactly eleven controls")
+    if len(authored_landmarks) != 19 or len(authored_landmarks) > MAX_AUTHORED_LANDMARKS:
+        _fail("authored_landmarks must contain exactly nineteen controls")
     parsed_landmarks: list[AuthoredLandmark] = []
     landmark_keys: list[tuple[tuple[str, tuple[str, ...], str, str], str]] = []
     for index, item in enumerate(authored_landmarks):
@@ -1119,23 +1497,25 @@ def validate_envelope(value: Any) -> Form:
         if set(landmark) != {"owner", "role", "frame", "position", "provenance"}:
             _fail(f"authored_landmarks[{index}] has invalid fields")
         owner = _address(landmark["owner"], f"authored_landmarks[{index}].owner")
-        if owner[0] != source["namespace"] or owner[2] != "part" or owner[1] not in ((), ("left",), ("right",)) or owner[3] not in {"pelvis", "torso", "upper_arm"}:
+        if owner[0] != source["namespace"] or owner[2] != "part" or owner[1] not in ((), ("left",), ("right",)) or owner[3] not in {"head", "neck", "pelvis", "torso", "upper_arm"}:
             _fail(f"authored_landmarks[{index}].owner is not a supported authored-control owner")
         role = landmark["role"]
-        if role not in {"form_shoulder_peak", "form_axilla"} and not role.startswith(TORSO_PROFILE_LANDMARK_PREFIX):
+        if role not in {"form_shoulder_peak", "form_axilla"} and not role.startswith(TORSO_PROFILE_LANDMARK_PREFIX) and not role.startswith(HEAD_NECK_PROFILE_LANDMARK_PREFIX):
             _fail(f"authored_landmarks[{index}].role is invalid")
         frame = _obj(landmark["frame"], f"authored_landmarks[{index}].frame")
         if set(frame) != {"owner", "role"}:
             _fail(f"authored_landmarks[{index}].frame has invalid fields")
         frame_owner = _address(frame["owner"], f"authored_landmarks[{index}].frame.owner")
         frame_role = frame["role"]
-        if frame_role not in {"form_shoulder_control", TORSO_PROFILE_FRAME_ROLE} or (frame_owner, frame_role) != (owner, frame_role):
+        if frame_role not in {"form_shoulder_control", TORSO_PROFILE_FRAME_ROLE, HEAD_NECK_PROFILE_FRAME_ROLE} or (frame_owner, frame_role) != (owner, frame_role):
             _fail(f"authored_landmarks[{index}] must reference its same-owner control frame")
         if (frame_owner, frame_role) not in frame_keys:
             _fail(f"authored_landmarks[{index}] references a missing control frame")
         position = _source_vector(landmark["position"], f"authored_landmarks[{index}].position", 3)
         if role.startswith(TORSO_PROFILE_LANDMARK_PREFIX) and (owner[1] != () or owner[3] not in {"pelvis", "torso"} or position[0] != 0.0 or position[2] != 0.0):
             _fail(f"authored_landmarks[{index}] torso profile landmark must be axial and unanchored")
+        if role.startswith(HEAD_NECK_PROFILE_LANDMARK_PREFIX) and (owner[1] != () or owner[3] not in {"head", "neck"} or position[0] != 0.0):
+            _fail(f"authored_landmarks[{index}] head/neck profile landmark must be unanchored with zero lateral position")
         provenance = _obj(landmark["provenance"], f"authored_landmarks[{index}].provenance")
         if set(provenance) != set(control_provenance) or provenance != control_provenance:
             _fail(f"authored_landmarks[{index}].provenance is invalid")
@@ -1152,6 +1532,9 @@ def validate_envelope(value: Any) -> Form:
     ] + [
         ((source["namespace"], (), "part", "torso"), TORSO_PROFILE_LANDMARK_PREFIX + name.replace("-", "_"))
         for name in TORSO_PROFILE_SECTION_NAMES[2:]
+    ] + [
+        ((source["namespace"], (), "part", owner_role), HEAD_NECK_PROFILE_LANDMARK_PREFIX + name.replace("-", "_"))
+        for name, owner_role in zip(HEAD_NECK_PROFILE_SECTION_NAMES, HEAD_NECK_PROFILE_OWNER_ROLES)
     ] + [
         ((source["namespace"], (side,), "part", "upper_arm"), role)
         for side in ("left", "right")
@@ -1177,16 +1560,24 @@ def validate_envelope(value: Any) -> Form:
         tuple(parsed_landmarks),
         tuple(parsed_frames),
     )
+    authored_head_neck_profile = _parse_authored_head_neck_profile(
+        root["authored_head_neck_profile"],
+        source,
+        tuple(parsed_dimensions),
+        tuple(parsed_landmarks),
+        tuple(parsed_frames),
+    )
     variants = _array(root["variants"], "variants")
     if len(variants) != 4:
         _fail("variants must contain exactly four items")
     normalized: list[tuple[str, tuple[Descriptor, ...], dict[str, Any]]] = []
     variant_torso_profiles: list[VariantTorsoProfile] = []
+    variant_head_neck_profiles: list[VariantHeadNeckProfile] = []
     canonical: list[tuple[Any, ...]] | None = None
     consumed_dimension_keys: set[tuple[tuple[str, tuple[str, ...], str, str], str]] = set()
     for index, item in enumerate(variants):
         variant = _obj(item, f"variants[{index}]")
-        if set(variant) != {"id", "profile_id", "provenance", "descriptors", "torso_profile"} or variant.get("id") != VARIANT_IDS[index] or variant.get("profile_id") != VARIANT_IDS[index]:
+        if set(variant) != {"id", "profile_id", "provenance", "descriptors", "torso_profile", "head_neck_profile"} or variant.get("id") != VARIANT_IDS[index] or variant.get("profile_id") != VARIANT_IDS[index]:
             _fail(f"variants[{index}] is not the fixed {VARIANT_IDS[index]} variant")
         provenance = _obj(variant["provenance"], f"variants[{index}].provenance")
         if set(provenance) != {"source", "resource_profile_id", "shape_basis"} or provenance.get("source") != "profile-derived-display" or provenance.get("resource_profile_id") != source["resource_profile_id"] or provenance.get("shape_basis") != "source-authored-dimensions-plus-fixed-display-factor":
@@ -1288,6 +1679,14 @@ def validate_envelope(value: Any) -> Form:
                 VARIANT_IDS[index],
             )
         )
+        variant_head_neck_profiles.append(
+            _parse_variant_head_neck_profile(
+                variant["head_neck_profile"],
+                source,
+                authored_head_neck_profile,
+                VARIANT_IDS[index],
+            )
+        )
     if canonical is None:
         _fail("no descriptors")
     profile_dimension_keys = {
@@ -1296,6 +1695,11 @@ def validate_envelope(value: Any) -> Form:
         for control in (section.lateral, section.anterior, section.posterior)
     }
     consumed_dimension_keys.update(profile_dimension_keys)
+    consumed_dimension_keys.update(
+        (control.owner, control.role)
+        for section in authored_head_neck_profile.sections
+        for control in (section.lateral, section.up, section.forward)
+    )
     if consumed_dimension_keys != dimension_keys:
         _fail("authored_dimensions must equal the complete descriptor-consumed control set")
     candidates = []
@@ -1314,6 +1718,8 @@ def validate_envelope(value: Any) -> Form:
         _fail("source-authored shoulder controls must be owned by variant descriptors")
     if any(section.owner not in descriptor_keys for section in authored_torso_profile.sections):
         _fail("authored_torso_profile sections must be owned by variant descriptors")
+    if any(section.owner not in descriptor_keys for section in authored_head_neck_profile.sections):
+        _fail("authored_head_neck_profile sections must be owned by variant descriptors")
     return Form(
         root,
         source,
@@ -1323,7 +1729,9 @@ def validate_envelope(value: Any) -> Form:
         tuple(parsed_landmarks),
         tuple(parsed_frames),
         authored_torso_profile,
+        authored_head_neck_profile,
         tuple(variant_torso_profiles),
+        tuple(variant_head_neck_profiles),
         tuple(normalized),
     )
 
@@ -2201,12 +2609,136 @@ def _derive_torso_cage(
                 posterior_lineage=posterior_lineage,
             )
         )
-    if any(sections[index].center[1] >= sections[index + 1].center[1] for index in range(len(sections) - 1)):
-        _fail("authored torso profile landmarks must rise monotonically")
+    _validate_regional_route_order(
+        tuple(section.center for section in sections),
+        REGIONAL_ROUTE_ORDER_TORSO,
+        "torso-cage.sections",
+    )
     return _TorsoCage(
         pelvis_owner=pelvis,
         torso_owner=torso,
         sections=tuple(sections),
+        axes=_FIXED_GUIDE_AXES,
+    )
+
+
+def _head_neck_transition_radius(section: _HeadNeckGuideSection) -> float:
+    """Use the smallest authored cross-axis radius as the direct path radius."""
+
+    radius = min(section.radii)
+    if not math.isfinite(radius) or radius <= 0.0:
+        _fail(f"head/neck station {section.name!r} has no valid transition radius")
+    return float(radius)
+
+
+def _derive_head_neck_profile(
+    form: Form,
+    descriptors: tuple[Descriptor, ...],
+    profile: AuthoredHeadNeckProfile,
+) -> _HeadNeckProfileGuide:
+    """Project all authored head/neck stations and retain their exact lineage."""
+
+    by_key = {descriptor.key: descriptor for descriptor in descriptors}
+    variant_index = VARIANT_IDS.index(descriptors[0].profile_id)
+    if len(form.variant_head_neck_profiles) != len(VARIANT_IDS):
+        _fail("authored head/neck profile is missing a variant projection")
+    variant_profile = form.variant_head_neck_profiles[variant_index]
+    if variant_profile.connections != profile.connections:
+        _fail("head/neck variant projection lost authored connections")
+    frame_by_key = {(frame.owner, frame.role): frame for frame in form.authored_frames}
+    sections: list[_HeadNeckGuideSection] = []
+
+    def lineage(control: AuthoredRadius, factor: int, section_name: str, where: str) -> _HeadNeckRadiusLineage:
+        scaled = _scaled_display_value(control.value_permille, factor, where)
+        return _HeadNeckRadiusLineage(
+            base=control.value_permille,
+            factor=factor,
+            scaled=scaled,
+            reference=(control.owner, control.role),
+            reference_index=control.source_index,
+            provenance=dict(control.provenance),
+            consumed_section=section_name,
+        )
+
+    for index, authored in enumerate(profile.sections):
+        projected = variant_profile.sections[index]
+        if projected.source_section_index != authored.section_index or projected.name != authored.name:
+            _fail(f"head/neck guide section {authored.name!r} lost source section order")
+        owner = by_key.get(authored.owner)
+        if owner is None or owner.key[3] != HEAD_NECK_PROFILE_OWNER_ROLES[index]:
+            _fail(f"head/neck guide section {authored.name!r} lost descriptor ownership")
+        if authored.landmark.owner != authored.owner or authored.frame != authored.landmark.frame:
+            _fail(f"head/neck guide section {authored.name!r} lost frame/landmark binding")
+        frame_record = frame_by_key.get(authored.frame)
+        if frame_record is None or frame_record.role != HEAD_NECK_PROFILE_FRAME_ROLE:
+            _fail(f"head/neck guide section {authored.name!r} lost its identity frame")
+        center = _guide_point(
+            np.asarray(owner.point, dtype=np.float64) + np.asarray(projected.position, dtype=np.float64) / form.reference_scale,
+            f"head-neck.{authored.name}.landmark",
+        )
+        factors = (projected.lateral_factor, projected.up_factor, projected.forward_factor)
+        controls = (authored.lateral, authored.up, authored.forward)
+        lineages = tuple(
+            lineage(control, factor, authored.name, f"head-neck.{authored.name}.{axis}")
+            for axis, control, factor in zip(("lateral", "up", "forward"), controls, factors)
+        )
+        scaled = (lineages[0].scaled, lineages[1].scaled, lineages[2].scaled)
+        projected_scaled = (
+            projected.lateral_radius_permille,
+            projected.up_radius_permille,
+            projected.forward_radius_permille,
+        )
+        if scaled != projected_scaled:
+            _fail(f"head/neck guide section {authored.name!r} lost exact projected radii")
+        radii = tuple(value / 1000.0 for value in scaled)
+        _guide_radii(radii, f"head-neck.{authored.name}.radii")
+        sections.append(
+            _HeadNeckGuideSection(
+                name=authored.name,
+                section_index=authored.section_index,
+                source_section_index=projected.source_section_index,
+                frame_index=authored.frame_index,
+                landmark_index=authored.landmark_index,
+                owner=owner,
+                frame=frame_record,
+                landmark=authored.landmark,
+                center=center,
+                radii=radii,  # type: ignore[arg-type]
+                lateral_lineage=lineages[0],
+                up_lineage=lineages[1],
+                forward_lineage=lineages[2],
+            )
+        )
+    _validate_regional_route_order(
+        tuple(section.center for section in sections),
+        REGIONAL_ROUTE_ORDER_GUIDE_HEAD_NECK,
+        "head-neck.sections",
+    )
+    connections: list[_HeadNeckGuideConnection] = []
+    for spec in profile.connections:
+        if not 0 <= spec.from_section_index < len(sections) or not 0 <= spec.to_section_index < len(sections):
+            _fail(f"head/neck connection {spec.name!r} has an invalid station index")
+        from_section = sections[spec.from_section_index]
+        to_section = sections[spec.to_section_index]
+        thickness = (_head_neck_transition_radius(from_section), _head_neck_transition_radius(to_section))
+        connections.append(
+            _HeadNeckGuideConnection(
+                spec=spec,
+                from_section=from_section,
+                to_section=to_section,
+                centerline=_guide_path(
+                    from_section.center,
+                    to_section.center,
+                    thickness,
+                    f"head-neck.{spec.name}",
+                ),
+                thickness=thickness,
+            )
+        )
+    return _HeadNeckProfileGuide(
+        sections=tuple(sections),
+        connections=tuple(connections),
+        provenance=dict(profile.provenance),
         axes=_FIXED_GUIDE_AXES,
     )
 
@@ -2386,16 +2918,11 @@ def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _H
     head = item((), "head")
     pelvis_source = _source_shape(pelvis, form.reference_scale)
     torso_source = _source_shape(torso, form.reference_scale)
-    head_source = _source_shape(head, form.reference_scale)
-    neck_source = path_source(neck)
 
     pelvis_center = _guide_point(pelvis_source["center"], "pelvis.center")
     pelvis_radii = _guide_radii(pelvis_source["radii"], "pelvis.radii")
     torso_center = _guide_point(torso_source["center"], "torso.center")
     torso_radii = _guide_radii(torso_source["radii"], "torso.radii")
-    head_center = _guide_point(head_source["center"], "head.center")
-    head_radii = _guide_radii(head_source["radii"], "head.radii")
-
     # Keep the axial silhouette legible as three stations.  The broad source
     # torso is only a placement/provenance input here; it is not emitted as a
     # competing fill.  Station proportions are private visual controls and
@@ -2499,62 +3026,41 @@ def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _H
         ),
     )
 
-    cranium_center = _guide_point(
-        head_source["center"] + np.asarray([0.0, 0.10 * head_source["radii"][1], -0.04 * head_source["radii"][2]]),
-        "head.cranium_center",
+    head_neck_profile = _derive_head_neck_profile(form, descriptors, form.authored_head_neck_profile)
+    stations_by_name = {section.name: section for section in head_neck_profile.sections}
+    cranium_station = stations_by_name["cranium-mid"]
+    muzzle_station = stations_by_name["muzzle-mid"]
+    neck_collar_station = stations_by_name["neck-collar"]
+    neck_upper_station = stations_by_name["neck-upper"]
+    head_base_station = stations_by_name["head-base"]
+    cranium_center = cranium_station.center
+    cranium_radii = cranium_station.radii
+    muzzle_center = muzzle_station.center
+    muzzle_radii = muzzle_station.radii
+    head_transition = (neck_upper_station.center, head_base_station.center)
+    head_transition_thickness = (
+        _head_neck_transition_radius(neck_upper_station),
+        _head_neck_transition_radius(head_base_station),
     )
-    cranium_radii = _guide_radii(
-        head_source["radii"] * np.asarray([0.85, 1.00, 0.85]),
-        "head.cranium_radii",
-    )
-    muzzle_center = _guide_point(
-        head_source["center"] + np.asarray([0.0, -0.10 * head_source["radii"][1], 0.62 * head_source["radii"][2]]),
-        "head.muzzle_center",
-    )
-    muzzle_radii = _guide_radii(
-        head_source["radii"] * np.asarray([0.50, 0.48, 0.50]),
-        "head.muzzle_radii",
-    )
-    head_anchor = _parent_surface_anchor(neck, head.point, form.reference_scale)
-    head_base = _guide_point(
-        np.asarray(cranium_center) - np.asarray([0.0, 0.84 * cranium_radii[1], 0.0]),
-        "head.transition_end",
-    )
-    neck_radius = max(min(cranium_radii), _radius_from_shape(neck_source), 0.12)
-    neck_start = _torso_cage_boundary_anchor(
-        torso_cage,
-        float(neck.point[1]),
-        np.asarray(neck.point, dtype=np.float64) - np.asarray(torso_cage.upper_boundary.center, dtype=np.float64),
-    )
-    neck_end = np.asarray(head.point, dtype=np.float64).copy()
-    neck_end[1] -= 0.70 * head_source["radii"][1]
-    neck_guide = _guide_path(
-        neck_start,
-        neck_end,
-        (float(_radius_from_shape(neck_source) * 1.05), float(_radius_from_shape(neck_source) * 0.78)),
-        "neck.transition",
+    neck_transition = (neck_collar_station.center, neck_upper_station.center)
+    neck_transition_thickness = (
+        _head_neck_transition_radius(neck_collar_station),
+        _head_neck_transition_radius(neck_upper_station),
     )
     head_guide = _HeadGuide(
         head_owner=head,
         neck_owner=neck,
+        profile=head_neck_profile,
         cranium_center=cranium_center,
         cranium_radii=cranium_radii,
         muzzle_center=muzzle_center,
         muzzle_radii=muzzle_radii,
-        head_transition=_guide_path(
-            head_anchor,
-            head_base,
-            (neck_radius * 0.82, neck_radius * 0.62),
-            "head.transition",
-        ),
-        head_transition_thickness=(neck_radius * 0.82, neck_radius * 0.62),
-        neck_transition=neck_guide,
-        neck_transition_thickness=(float(_radius_from_shape(neck_source) * 1.05), float(_radius_from_shape(neck_source) * 0.78)),
-        neck_collar_center=_guide_point(neck_start, "neck.collar_center"),
-        neck_collar_radii=_guide_radii(
-            (float(_radius_from_shape(neck_source) * 1.18), float(_radius_from_shape(neck_source) * 0.72), float(_radius_from_shape(neck_source) * 1.18)),
-            "neck.collar_radii",
-        ),
+        head_transition=_guide_path(head_transition[0], head_transition[1], head_transition_thickness, "head.transition"),
+        head_transition_thickness=head_transition_thickness,
+        neck_transition=_guide_path(neck_transition[0], neck_transition[1], neck_transition_thickness, "neck.transition"),
+        neck_transition_thickness=neck_transition_thickness,
+        neck_collar_center=neck_collar_station.center,
+        neck_collar_radii=neck_collar_station.radii,
         axes=_FIXED_GUIDE_AXES,
     )
 
@@ -3021,8 +3527,11 @@ def _validate_hybrid_guide(guide: _HybridGuide, bounds: tuple[np.ndarray, np.nda
         _guide_point_checked(section.center, f"torso-cage[{index}].center", bounds)
     if cage.axes != guide.topology.axes or cage.axes != _FIXED_GUIDE_AXES:
         _fail("torso cage axes must match the guide topology and fixed prototype axes")
-    if any(cage.sections[index].center[1] >= cage.sections[index + 1].center[1] for index in range(len(cage.sections) - 1)):
-        _fail("torso cage sections must rise monotonically from pelvis to shoulders")
+    _validate_regional_route_order(
+        tuple(section.center for section in cage.sections),
+        REGIONAL_ROUTE_ORDER_TORSO,
+        "torso-cage.sections",
+    )
 
     frame = guide.shoulder_frame
     if frame.axes != guide.topology.axes or frame.axes != _FIXED_GUIDE_AXES:
@@ -3146,6 +3655,80 @@ def _validate_hybrid_guide(guide: _HybridGuide, bounds: tuple[np.ndarray, np.nda
     if tuple(transition.name for transition in transitions) != ("pelvis-waist", "waist-chest"):
         _fail("axial transitions must be ordered pelvis-waist, waist-chest")
     head = guide.head_guide
+    head_profile = head.profile
+    if head_profile.axes != guide.topology.axes or head_profile.axes != _FIXED_GUIDE_AXES:
+        _fail("head/neck profile axes must match the guide topology and fixed prototype axes")
+    if tuple(section.name for section in head_profile.sections) != HEAD_NECK_PROFILE_SECTION_NAMES:
+        _fail("head/neck profile stations have unstable topology or order")
+    source_by_key = {descriptor.key: descriptor for descriptor in guide.source_descriptors}
+    for index, section in enumerate(head_profile.sections):
+        where = f"head-neck[{index}]"
+        if section.section_index != index or section.source_section_index != index:
+            _fail(f"{where} source section indices are not exact")
+        if section.owner.key not in source_by_key or source_by_key[section.owner.key] is not section.owner:
+            _fail(f"{where} owner must retain descriptor identity")
+        if section.owner.key[1] != () or section.owner.key[3] != HEAD_NECK_PROFILE_OWNER_ROLES[index]:
+            _fail(f"{where} owner role is invalid")
+        if section.frame.owner != section.owner.key or section.frame.role != HEAD_NECK_PROFILE_FRAME_ROLE:
+            _fail(f"{where} frame ownership is invalid")
+        if section.landmark.owner != section.owner.key or section.landmark.frame != (section.frame.owner, section.frame.role):
+            _fail(f"{where} landmark/frame binding is invalid")
+        if section.frame.translation != (0.0, 0.0, 0.0) or section.frame.rotation_xyzw != (0.0, 0.0, 0.0, 1.0):
+            _fail(f"{where} control frame must remain identity-only")
+        if section.landmark.position[0] != 0.0:
+            _fail(f"{where} landmark must retain zero lateral source position")
+        controls = (section.lateral_lineage, section.up_lineage, section.forward_lineage)
+        for axis, control, suffix in zip(("lateral", "up", "forward"), controls, HEAD_NECK_PROFILE_DIMENSION_SUFFIXES):
+            expected_factor = _head_neck_profile_factors(section.owner.profile_id, section.owner.key[3])[{"lateral": 0, "up": 1, "forward": 2}[axis]]
+            expected_role = HEAD_NECK_PROFILE_DIMENSION_PREFIX + section.name.replace("-", "_") + "_" + suffix
+            if control.consumed_section != section.name or control.base <= 0 or control.factor != expected_factor or control.scaled != control.base * control.factor // 1000:
+                _fail(f"{where}.{axis} lineage is invalid")
+            if control.reference != (section.owner.key, expected_role) or control.reference_index < 0:
+                _fail(f"{where}.{axis} lineage lost source ownership or index")
+            if set(control.provenance) != {"source", "document", "namespace"}:
+                _fail(f"{where}.{axis} lineage provenance is invalid")
+            if not math.isclose(section.radii[{"lateral": 0, "up": 1, "forward": 2}[axis]], control.scaled / 1000.0, rel_tol=0.0, abs_tol=GUIDE_TOLERANCE):
+                _fail(f"{where}.{axis} radius was not retained from lineage")
+        _guide_mass_checked(section.center, section.radii, f"{where}.station", bounds)
+    _validate_regional_route_order(
+        tuple(section.center for section in head_profile.sections),
+        REGIONAL_ROUTE_ORDER_GUIDE_HEAD_NECK,
+        "head-neck.sections",
+    )
+    expected_connections = tuple(HeadNeckConnection(*connection) for connection in HEAD_NECK_PROFILE_CONNECTIONS)
+    if tuple(connection.spec for connection in head_profile.connections) != expected_connections:
+        _fail("head/neck profile connections have unstable names, indices, or routes")
+    for index, connection in enumerate(head_profile.connections):
+        where = f"head-neck-connection[{index}]"
+        from_section = head_profile.sections[connection.spec.from_section_index]
+        to_section = head_profile.sections[connection.spec.to_section_index]
+        if connection.from_section is not from_section or connection.to_section is not to_section:
+            _fail(f"{where} lost exact station references")
+        expected_thickness = (_head_neck_transition_radius(from_section), _head_neck_transition_radius(to_section))
+        if connection.thickness != expected_thickness or connection.centerline != (from_section.center, to_section.center):
+            _fail(f"{where} is not directly derived from its authored endpoints")
+        _guide_path_checked(connection.centerline, connection.thickness, where, bounds)
+    selected = {section.name: section for section in head_profile.sections}
+    if head.cranium_center != selected["cranium-mid"].center or head.cranium_radii != selected["cranium-mid"].radii:
+        _fail("head cranium compatibility controls must select cranium-mid directly")
+    if head.muzzle_center != selected["muzzle-mid"].center or head.muzzle_radii != selected["muzzle-mid"].radii:
+        _fail("head muzzle compatibility controls must select muzzle-mid directly")
+    if head.head_transition != (selected["neck-upper"].center, selected["head-base"].center):
+        _fail("head-base bridge compatibility path must select neck-upper to head-base")
+    if head.head_transition_thickness != (
+        _head_neck_transition_radius(selected["neck-upper"]),
+        _head_neck_transition_radius(selected["head-base"]),
+    ):
+        _fail("head-base bridge thickness must be the direct endpoint-radius function")
+    if head.neck_transition != (selected["neck-collar"].center, selected["neck-upper"].center):
+        _fail("tapered-neck compatibility path must select neck-collar to neck-upper")
+    if head.neck_transition_thickness != (
+        _head_neck_transition_radius(selected["neck-collar"]),
+        _head_neck_transition_radius(selected["neck-upper"]),
+    ):
+        _fail("tapered-neck thickness must be the direct endpoint-radius function")
+    if head.neck_collar_center != selected["neck-collar"].center or head.neck_collar_radii != selected["neck-collar"].radii:
+        _fail("neck-collar compatibility controls must select neck-collar directly")
     mass(head.cranium_center, head.cranium_radii, "head.cranium")
     mass(head.muzzle_center, head.muzzle_radii, "head.muzzle")
     path(head.head_transition, head.head_transition_thickness, "head.transition")
@@ -3349,6 +3932,62 @@ def _torso_section_json(section: _TorsoCageSection) -> dict[str, Any]:
     }
 
 
+def _head_neck_radius_lineage_json(lineage: _HeadNeckRadiusLineage) -> dict[str, Any]:
+    return {
+        "base": lineage.base,
+        "factor": lineage.factor,
+        "scaled": lineage.scaled,
+        "reference": {
+            "owner": _address_json(lineage.reference[0]),
+            "role": lineage.reference[1],
+            "index": lineage.reference_index,
+        },
+        "provenance": dict(lineage.provenance),
+        "consumed_section": lineage.consumed_section,
+    }
+
+
+def _head_neck_section_json(section: _HeadNeckGuideSection) -> dict[str, Any]:
+    lineage = {
+        "lateral": _head_neck_radius_lineage_json(section.lateral_lineage),
+        "up": _head_neck_radius_lineage_json(section.up_lineage),
+        "forward": _head_neck_radius_lineage_json(section.forward_lineage),
+    }
+    return {
+        "name": section.name,
+        "section_index": section.section_index,
+        "source_section_index": section.source_section_index,
+        "frame_index": section.frame_index,
+        "landmark_index": section.landmark_index,
+        "owner": _address_json(section.owner.key),
+        "frame": {"owner": _address_json(section.frame.owner), "role": section.frame.role},
+        "landmark": _authored_landmark_json(section.landmark),
+        "center": _point_json(section.center),
+        "radii": {
+            "lateral": float(section.radii[0]),
+            "up": float(section.radii[1]),
+            "forward": float(section.radii[2]),
+        },
+        "lateral_radius": float(section.radii[0]),
+        "up_radius": float(section.radii[1]),
+        "forward_radius": float(section.radii[2]),
+        "lineage": lineage,
+    }
+
+
+def _head_neck_connection_json(connection: _HeadNeckGuideConnection) -> dict[str, Any]:
+    spec = connection.spec
+    return {
+        "name": spec.name,
+        "from_section_index": spec.from_section_index,
+        "to_section_index": spec.to_section_index,
+        "route": spec.route,
+        "from": {"name": connection.from_section.name, "owner": _address_json(connection.from_section.owner.key)},
+        "to": {"name": connection.to_section.name, "owner": _address_json(connection.to_section.owner.key)},
+        "path": _path_json(spec.name, connection.centerline, connection.thickness, path_kind="tapered-segment"),
+    }
+
+
 def _shoulder_source_control_json(side: _ShoulderSideGuide) -> dict[str, Any]:
     """Return the exact authored records and consumed dimension lineage."""
 
@@ -3509,12 +4148,16 @@ def _regional_guide_json(
     head = guide.head_guide
     head_controls = {
         "owners": [_address_json(head.head_owner.key), _address_json(head.neck_owner.key)],
+        "profile_format": AUTHORED_HEAD_NECK_PROFILE_FORMAT,
+        "provenance": dict(head.profile.provenance),
+        "sections": [_head_neck_section_json(section) for section in head.profile.sections],
+        "connections": [_head_neck_connection_json(connection) for connection in head.profile.connections],
         "masses": [
             _mass_json("cranium", head.cranium_center, head.cranium_radii),
             _mass_json("muzzle", head.muzzle_center, head.muzzle_radii),
             _mass_json("neck-collar", head.neck_collar_center, head.neck_collar_radii),
         ],
-        "sections": [
+        "paths": [
             value for value in (
                 _path_json("head-transition", head.head_transition, head.head_transition_thickness),
                 _path_json("neck-transition", head.neck_transition, head.neck_transition_thickness),
@@ -3666,6 +4309,8 @@ def _regional_guide_json(
             "shoulder_frame_sides": len(frame.sides),
             "shoulder_frame_curves": sum(3 for _ in frame.sides),
             "shoulder_frame_compiled_fields": sum(1 for _ in frame.sides),
+            "head_neck_profile_sections": len(head.profile.sections),
+            "head_neck_profile_connections": len(head.profile.connections),
             "head": 1,
             "limbs": len(guide.limb_guides),
             "paws": len(guide.paw_guides),

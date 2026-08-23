@@ -1,7 +1,7 @@
 # Disposable current-form surface preview
 
 This is an exploratory visual workbench for the exact four-variant
-`creature-kernel.provisional-form-preview.v7` envelope. It converts the
+`creature-kernel.provisional-form-preview.v8` envelope. It converts the
 source-authored dimension-backed integer descriptors into analytic ellipsoid, capsule, and
 linear-radius tapered-segment fields, folds them in stable full-AddressKey
 order, and extracts a bounded continuous surface on a fixed uniform grid.
@@ -11,7 +11,7 @@ animation topology, rig, skin, runtime, Readiness 3/4 proof, or DR-0009/0010
 evidence. Winner labels are debug attribution only. Generated bundles belong
 in `/tmp` and must not be committed.
 
-The compiler-owned middle seam is a private regional guide representation
+The compiler-owned middle seam is a private regional-guide v7 representation
 derived separately for each of the four validated variants. It carries stable
 source AddressKey ownership and provenance, the fixed prototype axes and
 parent topology, ordered pelvic-girdle/waist/chest-girdle stations with short
@@ -65,7 +65,7 @@ future compiler contract.
 The disposable v2 generator writes one private `regional-guide.json` and one
 `guide-skin-composite.png` for each variant, alongside the retained
 `surface.ply`, `semantic.json`, and `metrics.json` artifacts. The regional
-guide sidecar is a sanitized, source-owned debug projection of `_HybridGuide`:
+guide v7 sidecar is a sanitized, source-owned debug projection of `_HybridGuide`:
 it carries only source AddressKeys, compiled recipe counts, projection
 names/bases, one shared world-space render bound, fixed canvas/layout metadata,
 and finite regional controls. Its v4 `torso_cage` controls compile into the
@@ -141,13 +141,13 @@ For a disposable `/tmp` environment, set
 `CK_CURRENT_FORM_SURFACE_PYTHON=/tmp/ck-current-form-surface-venv/bin/python`
 when invoking the launcher.
 
-The input must be a successful v7 inspection envelope. The output directory
+The input must be a successful v8 inspection envelope. The output directory
 must not already exist, and its parent must already exist:
 
 ```bash
 mkdir -p /tmp/ck-current-form-surface
 "$surface_preview_launcher" experiments/current-form-surface-preview/generate_surface_preview.py \
-  --input /tmp/form-v7.json \
+  --input /tmp/form-v8.json \
   --output /tmp/ck-current-form-surface/run-a \
   --samples-per-axis 72
 ```
@@ -172,12 +172,14 @@ ephemeral under `/tmp`.
 The separate successor consumer is a disposable exploratory proof. Its current
 bounded slice replaces the torso, shoulders, head, neck, four bilateral
 limb-chain consumers, bilateral hand/foot consumers, and tail. The head/neck
-consumer uses one fixed-order set of guide-derived profile sweeps: a compact
-cranial profile, a tapered forward muzzle, exact guide-owned head and neck
-transition paths, and a small guide-derived neck collar. Every section retains
-an existing source descriptor AddressKey; the profile constants are shared
-across all four variants, while centres, radii, endpoints, thicknesses, and
-axes come from each private guide. The successor hand/foot boundary consumes
+consumer uses source-authored head/neck profile controls projected through the
+regional guide. It retains exact source AddressKey ownership and provenance
+for all eight ordered profile sections and seven connections across all four
+variants. The projection preserves branched route lineage: a vertical
+neck/cranium route from `neck-collar` through `cranium-crown`, and a forward
+muzzle route from `cranium-mid` through `muzzle-tip`; centres, radii, endpoints,
+thicknesses, and fixed axes come from each private guide. The successor
+hand/foot boundary consumes
 ordered hand attachment/paw sweeps and shin-to-foot digitigrade chains,
 including guide-owned hock, metatarsal, pad, and toe controls. The successor
 tail boundary consumes six source-owned tail elements (root source,
@@ -205,11 +207,11 @@ above, the workflow has two steps:
 ```bash
 cargo run -p creature-kernel-cli -- inspect-provisional-form \
   --input examples/body-documents/stylized-digitigrade-biped-authored-form.json \
-  > /tmp/form-v7.json
+  > /tmp/form-v8.json
 
 mkdir -p /tmp/ck-successor-surface
 "$surface_preview_launcher" experiments/current-form-surface-preview/generate_successor_surface_preview.py \
-  --input /tmp/form-v7.json \
+  --input /tmp/form-v8.json \
   --output /tmp/ck-successor-surface/run-a \
   --samples-per-axis 56
 ```
@@ -221,7 +223,7 @@ robustness; lower values within the accepted argument range may still validly
 fail mesh-connectedness validation, and successful generation is not guaranteed
 at every in-range sampling value.
 
-A successful v4 run writes `successor-surface-manifest.json` plus exactly four
+A successful v5 run writes `successor-surface-manifest.json` plus exactly four
 variant directories. Each variant directory contains exactly
 `surface.ply`, `metrics.json`, `successor.json`, and one
 `guide-skin-composite.png`. The PNG is a deterministic RGB capture at the
