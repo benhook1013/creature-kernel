@@ -10,12 +10,15 @@ the canonical owner of the active runway, and the required reading order in
 ## Where to continue
 
 - Primary checkout: `/home/ben/src/creature-kernel` — `main` and
-  `origin/main` are at merged PR #110 commit
-  `a45920df1322bafbbd56ea6939837f8b0b9b8b33`.
-- Active worktree: `/home/ben/src/creature-kernel-worktrees/authored-arm-profiles`
-  — branch `implementation/authored-arm-profiles`, based on that commit;
-  [PR #111](https://github.com/benhook1013/creature-kernel/pull/111) is open and
-  required CI is running.
+  `origin/main` are at merged PR #111 commit
+  `6df6168cdf27477f3b275441616ab4cfd0ab814d`.
+- Active worktree:
+  `/home/ben/src/creature-kernel-worktrees/authored-pelvis-leg-profiles` —
+  branch `implementation/authored-pelvis-leg-profiles`, based on that commit;
+  no PR exists yet for the current work.
+- [PR #111](https://github.com/benhook1013/creature-kernel/pull/111) merged at
+  `6df6168cdf27477f3b275441616ab4cfd0ab814d`. Its authored arm profile is
+  merged predecessor evidence, not completion or visual-quality acceptance.
 - [PR #110](https://github.com/benhook1013/creature-kernel/pull/110) merged at
   `a45920df1322bafbbd56ea6939837f8b0b9b8b33`. Its authored head/neck profile
   is merged predecessor evidence, not completion or visual-quality acceptance.
@@ -67,8 +70,9 @@ the review's one documentation defect was corrected and its two non-contract
 concerns were dispositioned. No user appraisal is requested because this is
 an internal region slice, not the complete authored-form gallery.
 
-The shoulder/arm authored-control slice is now a completed local candidate in
-the active worktree. Producer v9 carries `authored_arm_profile` v1 with a
+PR #111 contains the completed internal, reversible shoulder/arm
+authored-control prerequisite and remains predecessor evidence on the runway.
+Producer v9 carries `authored_arm_profile` v1 with a
 bilateral five-station profile per side, 10 landmarks, four identity frames,
 30 lateral/up/forward radii, and shared neutral, broad, lean, and
 depth-forward factors. Guide v8 projects the exact authored stations and
@@ -85,10 +89,9 @@ character cap. It produced four groups and eight assets at
 `/tmp/ck-authored-arm-publisher.LFm2eK/reviews/authored-arm-v9`. Main-thread
 internal visual inspection and two fresh hands-on trials passed the
 arm-focused connectivity, spike/lobe, and variant-response checks, along with
-the browser, evidence, and HTTP scenarios. This is still an internal
-candidate: PR #111 is open, no merge has occurred, and no human appraisal is
-requested. The final human stop remains the complete authored-form gallery;
-the candidate does not claim that gallery is complete.
+the browser, evidence, and HTTP scenarios. No human appraisal was requested:
+this merged slice is not the complete authored-form gallery and makes no
+form-quality acceptance claim.
 
 The arm-slice checks include 415 Rust workspace tests (47 CLI and 368 core),
 52 successor tests, 34 publisher tests, and 25 browser/parity tests passing;
@@ -96,12 +99,11 @@ the unchanged baseline suite's 56 tests were already green. Rust formatting,
 Clippy with warnings denied, documentation validation, and `git diff --check`
 pass. The final adversarial review found one XZ decoder-memory blocker, which
 is fixed with an explicit 128 MiB decoder limit and a passing malicious-header
-regression. PR #111 is open; CI and merge remain pending.
+regression. All three required CI lanes passed before PR #111 merged.
 
 The non-blocking rejected-POST secondary-400 logging concern is deferred
-unrelated usability cleanup, not an arm blocker. After the remaining CI/merge
-gates, the next direct region slice toward the same named checkpoint is
-pelvis/leg authored control.
+unrelated usability cleanup, not an arm blocker. The active direct region
+slice toward the same named checkpoint is pelvis/leg authored control.
 
 PR #109 also contained Ben-approved neutral public-facing wording cleanup and
 accepted MIT OR Apache-2.0 licensing DR-0014. That ancillary work does not
@@ -223,8 +225,8 @@ pass; the unchanged baseline suite's 56 tests were already green. Rust
 formatting, Clippy with warnings denied, documentation validation, and
 `git diff --check` pass. The final adversarial review found one XZ decoder-memory
 blocker, which is fixed with an explicit 128 MiB decoder limit and passing
-focused/full publisher regressions. PR #111 is open; CI and merge remain
-pending. The real publication produced four groups and eight assets
+focused/full publisher regressions. All three required CI lanes passed before
+PR #111 merged. The real publication produced four groups and eight assets
 with no response artifact. Two fresh hands-on trials are complete. They
 exercised exact evidence and asset bindings, HTTP success and failure paths,
 modal click and keyboard navigation including wrap and Escape focus return,
