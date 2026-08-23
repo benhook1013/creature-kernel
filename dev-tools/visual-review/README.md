@@ -113,14 +113,14 @@ python3 dev-tools/visual-review/serve.py \
 inspect-provisional-form --input PATH` shell-free, with a 10-second timeout,
 256 KiB stdout bound, and 64 KiB stderr bound. It accepts only a complete,
 diagnostic-free `creature-kernel.provisional-form-preview.v1`, `.v2`, `.v3`,
-`.v4`, `.v5`, `.v6`, `.v7`, `.v8`, or `.v9` success envelope,
+`.v4`, `.v5`, `.v6`, `.v7`, `.v8`, `.v9`, or `.v10` success envelope,
 the exact four variant IDs/order, known Part addresses and provenance, bounded
 integer points, supported ellipsoid/capsule/tapered-segment shapes, and the
 positive reference scale. Failed CLI outcomes and malformed payloads are not
 published. The resulting immutable `provisional-form` session contains the
 validated payload only and no assets or external dependencies.
 
-The CLI currently emits the provisional v9 contract. As in v2/v3, limb
+The CLI currently emits the provisional v10 contract. As in v2/v3, limb
 capsules are owned by their current Part: `upper_arm` spans its reference point
 to its direct `forearm` child, `forearm` to `hand`, `thigh` to `shin`, and
 `shin` to `foot`. V4 introduced `neck` as a narrow axial capsule
@@ -138,17 +138,21 @@ strict read support for immutable v1-v5 sessions under their original
 role/endpoint contracts. These are provisional display-volume rules, not a
 generated skeleton, anatomical socket, or general junction contract.
 
-Current v9 carries the source-owned `authored_torso_profile` and
+Current v10 carries the source-owned `authored_torso_profile` and
 `authored_head_neck_profile`. The torso profile contains seven ordered axial
 sections, explicit pelvis/torso identity frames and landmarks,
 lateral/anterior/posterior radius references, provenance, and variant-scaled
 profile factors. The head/neck profile contains eight ordered sections and
 seven connections, with head/neck identity frames and landmarks,
 lateral/up/forward radius references, provenance, and variant-scaled profile
-factors. It also carries a bilateral five-station `authored_arm_profile`
-v1; the guide projects those exact arm stations and carries authored anisotropic
-elbow compatibility masses. These profiles are producer-consumer bindings, not
-new runtime or semantic contracts.
+factors. It also carries bilateral five-station `authored_arm_profile` v1 and
+`authored_leg_profile` v1. The leg profile has the ordered stations
+`thigh-start`, `thigh-midpoint`, `knee`, `shin-midpoint`, and `hock-endpoint`
+per side, with `thigh/thigh/thigh/shin/shin` ownership and 30 total authored
+lateral/up/forward radii. The guide projects those exact stations and carries
+anisotropic arm and leg profile fields. Arm and leg variant factors are shared
+projections, not per-side or per-variant station tuning. These profiles are
+producer-consumer bindings, not new runtime or semantic contracts.
 
 The read-only browser page renders each variant in front (x/y), side (z/y),
 and top (x/z) filled SVG panels with shared bounds, physical display radii
@@ -280,7 +284,7 @@ success. A failed invocation cleans only its own staging/session files.
 ## Disposable baseline-versus-successor surface checkpoint
 
 `publish_surface_preview.py` is a bounded adapter for the current experiment
-surface consumers. It runs the current v9 provisional-form producer once, runs the
+surface consumers. It runs the current v10 provisional-form producer once, runs the
 baseline and successor Python generators against that same producer output,
 validates both bundles, and publishes four ordered baseline/successor image
 pairs (eight guide/skin composite PNGs) through the ordinary image gallery.
@@ -288,13 +292,15 @@ This supplied the prior successor visual checkpoint and remains reusable
 plumbing and baseline evidence for the [active runway](../../docs/project/status.md#active-runway),
 not the current named checkpoint or a production/acceptance gate.
 
-The current successor is v6 with region id
-`successor-torso-shoulder-head-neck-arm-limb-extremity-tail-profile-sweeps-v10`.
-It contains four authored arm-profile routes (left/right upper arm and
-left/right forearm) plus two leg sweeps. The shared elbow seam is exact and
-upper-arm-owned; all three authored lateral/up/forward radii are consumed.
-There is no successor arm root bridge or old underarm support, and station
-tuning does not vary per variant.
+The current successor is v7 with region id
+`successor-torso-shoulder-head-neck-arm-leg-profile-limb-extremity-tail-profile-sweeps-v11`.
+It contains four authored arm-profile routes plus two authored leg-profile
+routes. The shared elbow seam is exact and upper-arm-owned; the leg routes
+retain the thigh-owned knee, shin-owned hock, and source-derived digitigrade
+feet, consuming all three authored lateral/up/forward radii. There is no
+successor arm root bridge, old underarm support, or duplicate legacy leg mass.
+Exactly four temporary thigh-root/hip bridges remain, one root bridge and one
+hip transition per side. Station tuning does not vary per side or variant.
 
 Run it from the isolated environment prepared by
 `experiments/current-form-surface-preview/README.md`, or an equivalent
@@ -303,7 +309,8 @@ environment containing that experiment's pinned requirements.
 ```bash
 cargo build -p creature-kernel-cli
 mkdir -p /tmp/creature-surface-reviews
-python3 dev-tools/visual-review/publish_surface_preview.py \
+surface_preview_launcher=experiments/current-form-surface-preview/surface_preview_launcher.sh
+"$surface_preview_launcher" dev-tools/visual-review/publish_surface_preview.py \
   --root /tmp/creature-surface-reviews \
   --input examples/body-documents/stylized-digitigrade-biped-authored-form.json \
   --creature-kernel target/debug/creature-kernel \
@@ -338,8 +345,8 @@ The published `review.json` also retains the exact canonical current producer
 envelope bytes
 actually consumed by both generators in
 `subject_context.descriptor_snapshot`. That payload is deterministically
-XZ-compressed and Base64-encoded to stay within the bounded review-context
-carrier, with its original UTF-8 encoding, byte count, and SHA-256 recorded
+XZ-compressed and Base64-encoded to stay within the unchanged 8192-character
+review-context cap, with its original UTF-8 encoding, byte count, and SHA-256 recorded
 alongside it. `producer_envelope_sha256` binds the exact consumed producer
 file; each published image's `source_sha256` carries that same digest.
 The fields use the version-neutral `producer_envelope_*` prefix. Decoding the
@@ -348,7 +355,9 @@ authored-dimension/landmark/frame/descriptor-role mapping. The original validate
 document remains identified by its UTF-8 encoding, byte count, and SHA-256
 without duplicating its bytes. This is self-contained current-format lineage evidence, not
 an image asset, a new body-document contract, or a claim that the disposable
-consumers are production geometry.
+consumers are production geometry. The current publisher omits only the
+redundant outer `subject_context.provenance`; generator and source roles remain
+bound in each published asset's metadata.
 
 For each pair, appraise whether the successor reads as a more coherent
 stylized digitigrade biped overall: recognizable cranium/muzzle/neck,
@@ -358,20 +367,20 @@ meaningfully different. The gallery records the comparison only; it does not
 record acceptance.
 
 The baseline v2 generator bundle is fail-closed: its manifest must identify the
-current v9 source, contain the four canonical v9 variants, and inventory exactly one PLY,
+current v10 source, contain the four canonical v10 variants, and inventory exactly one PLY,
 semantic sidecar, metrics JSON, regional-guide JSON, and guide/skin composite PNG
 per variant. Every inventory path is relative, regular, non-symlinked, hash- and
-size-checked. The regional-guide v8 sidecar is checked as a bounded finite
+size-checked. The regional-guide v9 sidecar is checked as a bounded finite
 source-owned projection with the generator's exact skin-driving ordered torso
 cage sections, pelvis/torso ownership, axes/orientation, and section
 connections. Its older axial station and transition controls are accepted only
 as explicitly marked compatibility diagnostics and are not rendered. The
-producer v9 authored torso profile is checked as an exact seven-section
+producer v10 authored torso profile is checked as an exact seven-section
 ordered index: every section binds its pelvis/torso owner identity frame,
 axial landmark, lateral/anterior/posterior source dimensions and values,
 provenance, and variant scaling factors. The guide repeats that source lineage
 and the successor repeats it in its consumed profile-sweep controls. The
-producer v9 authored head/neck profile is checked as an exact eight-section,
+producer v10 authored head/neck profile is checked as an exact eight-section,
 seven-connection ordered index. Each section binds its head/neck owner identity
 frame, landmark, lateral/up/forward source dimensions and values, provenance,
 and variant scaling factors; the guide and successor retain that exact source
@@ -382,7 +391,11 @@ all four variants. Baseline
 and successor pairing uses a canonical per-variant binding of source identity,
 reference scale, variant/profile ids, producer-variant digest, descriptor owners,
 capture framing, and torso lineage; it never pairs by list position alone.
-The successor v6 sidecar and v10 region claims are checked against the guide and
+The producer v10 authored leg profile is checked as two exact bilateral
+five-station routes with `thigh/thigh/thigh/shin/shin` ownership and 30
+indexed lateral/up/forward radii. The guide and successor retain those exact
+projected controls and anisotropic leg-profile segment fields. The successor
+v7 sidecar and v11 region claims are checked against the guide and
 metrics, including the current rounded-superellipse axial profile operation.
 The retained producer envelope remains the exact consumed evidence, and every
 successor PLY is parsed and checked for finite values, valid indices, one
@@ -395,7 +408,7 @@ explicit shoulder/hip girdle masses, source-derived digitigrade foot chains
 from hock through tapered metatarsal to planted paw-pad and toe-box, a
 guide-only contact datum, positive dimensions,
 allowed path primitives, expected source roles, and shared-bound containment;
-its shoulder and arm sidecar binds the exact v9 identity frames, peak/axilla landmarks,
+its shoulder, arm, and leg sidecar binds the exact v10 identity frames, peak/axilla landmarks,
 and variant-scaled depth controls to the producer. It distinguishes those
 guide-derived controls and guide-only anterior/posterior support curves from
 the baseline's two skin-driving deltoid sweeps; the successor arm routes
@@ -403,12 +416,12 @@ contain no root bridge or old underarm support. Its compiled recipe counts,
 shared bounds, projections, canvas, and panel layout must match the manifest.
 Stale support-field claims are rejected rather than silently accepted. Composite
 PNG IHDR and inventory metadata are bound to the fixed 1800x570 RGB canvas. The
-bundle's source/provenance and descriptor AddressKeys are bound to the parsed v9
+bundle's source/provenance and descriptor AddressKeys are bound to the parsed v10
 producer result. The producer has a 10-second bound and the local extraction/
 render subprocess has a finite 120-second bound. Unlisted files or directories,
 malformed inventory or guide/provenance, partial variants, and generator or
 producer timeouts prevent any review session from being created. The successor
-v6 bundle is independently fail-closed: it must contain exactly four variants
+v7 bundle is independently fail-closed: it must contain exactly four variants
 with one PLY, metrics JSON, successor-consumer sidecar, and composite PNG per
 variant. Its source identity, shared canvas/projections/layout/bounds, sidecar
 identity, torso/shoulder/head-neck/limb/extremity/tail claims, temporary bridge,

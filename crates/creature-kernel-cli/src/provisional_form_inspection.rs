@@ -25,7 +25,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::path::Path;
 
-const FORMAT: &str = "creature-kernel.provisional-form-preview.v9";
+const FORMAT: &str = "creature-kernel.provisional-form-preview.v10";
 const OPERATION: &str = "inspect-provisional-form";
 const AUTHORED_DIMENSION_PROVENANCE: &str = "source-authored";
 const SHAPE_BASIS_PROVENANCE: &str = "source-authored-dimensions-plus-fixed-display-factor";
@@ -105,10 +105,26 @@ const ARM_PROFILE_RADIUS_AXES: [&str; 3] = ["lateral", "up", "forward"];
 const ARM_PROFILE_DIMENSION_SUFFIXES: [&str; 3] = ["lateral_radius", "up_radius", "forward_radius"];
 const ARM_PROFILE_LANDMARK_PREFIX: &str = "form_arm_profile_";
 const ARM_PROFILE_DIMENSION_PREFIX: &str = "form_arm_profile_";
+const LEG_PROFILE_FORMAT: &str = "creature-kernel.provisional-form-leg-profile.v1";
+const LEG_PROFILE_CONTROL_FRAME_ROLE: &str = "form_leg_profile_control";
+const LEG_PROFILE_SIDE_NAMES: [&str; 2] = ["left", "right"];
+const LEG_PROFILE_SECTION_NAMES: [&str; 5] = [
+    "thigh-start",
+    "thigh-midpoint",
+    "knee",
+    "shin-midpoint",
+    "hock-endpoint",
+];
+const LEG_PROFILE_OWNER_ROLES: [&str; 5] = ["thigh", "thigh", "thigh", "shin", "shin"];
+#[cfg(test)]
+const LEG_PROFILE_RADIUS_AXES: [&str; 3] = ["lateral", "up", "forward"];
+const LEG_PROFILE_DIMENSION_SUFFIXES: [&str; 3] = ["lateral_radius", "up_radius", "forward_radius"];
+const LEG_PROFILE_LANDMARK_PREFIX: &str = "form_leg_profile_";
+const LEG_PROFILE_DIMENSION_PREFIX: &str = "form_leg_profile_";
 // This is a deliberately small source-coordinate guard for this fixture
 // family. It is not a general coordinate, unit, or frame-semantic bound.
 const PROVISIONAL_CONTROL_COORDINATE_BOUND: f64 = 1.0;
-const LIMITATIONS: &str = "Provisional display-only filled-form descriptors from the restricted single-source exact Part placement projection; source-authored dimensions are consumed only through the closed provisional shape-control vocabulary and fixed display profile factors remain applied; the four upper-arm landmark controls, two upper-arm identity control frames, seven ordered torso profile landmarks, two torso profile identity control frames, twenty-one torso profile radius dimensions, eight ordered head/neck profile landmarks, two head/neck profile identity control frames, twenty-four head/neck profile radius dimensions, ten ordered bilateral arm profile landmarks, four arm profile identity control frames, and thirty arm profile radius dimensions are retained only as source-authored source-coordinate controls, with the provisional inclusive coordinate bound |position component| <= 1.0 for this fixture family; no world/reference resolution or general frame semantics; no production geometry, mesh, SDF, topology, collision, rig, skin, anatomy, Joint-frame interpretation, general units or rotations, dependency resolution, canonical snapshot/serialization, runtime claim, or Readiness activation. Descriptors are not graph Parts.";
+const LIMITATIONS: &str = "Provisional display-only filled-form descriptors from the restricted single-source exact Part placement projection; source-authored dimensions are consumed only through the closed provisional shape-control vocabulary and fixed display profile factors remain applied; the four upper-arm landmark controls, two upper-arm identity control frames, seven ordered torso profile landmarks, two torso profile identity control frames, twenty-one torso profile radius dimensions, eight ordered head/neck profile landmarks, two head/neck profile identity control frames, twenty-four head/neck profile radius dimensions, ten ordered bilateral arm profile landmarks, four arm profile identity control frames, thirty arm profile radius dimensions, ten ordered bilateral leg profile landmarks, four leg profile identity control frames, and thirty leg profile radius dimensions are retained only as source-authored source-coordinate controls, with the provisional inclusive coordinate bound |position component| <= 1.0 for this fixture family; no world/reference resolution or general frame semantics; no production geometry, mesh, SDF, topology, collision, rig, skin, anatomy, Joint-frame interpretation, general units or rotations, dependency resolution, canonical snapshot/serialization, runtime claim, or Readiness activation. Descriptors are not graph Parts.";
 
 struct PreparedAuthoredDimensions {
     inventory: Vec<AuthoredDimension>,
@@ -155,6 +171,7 @@ struct PreparedAuthoredControls {
     torso_profile: PreparedTorsoProfile,
     head_neck_profile: PreparedHeadNeckProfile,
     arm_profile: PreparedArmProfile,
+    leg_profile: PreparedLegProfile,
 }
 
 struct PreparedTorsoProfile {
@@ -199,6 +216,26 @@ struct PreparedArmProfileSide {
 }
 
 struct PreparedArmProfileSection {
+    name: &'static str,
+    owner: AddressKey,
+    frame_role: String,
+    landmark_role: String,
+    position: PreparedPosition3,
+    dimensions: [String; 3],
+}
+
+struct PreparedLegProfile {
+    document: String,
+    namespace: String,
+    sides: Vec<PreparedLegProfileSide>,
+}
+
+struct PreparedLegProfileSide {
+    side: &'static str,
+    sections: Vec<PreparedLegProfileSection>,
+}
+
+struct PreparedLegProfileSection {
     name: &'static str,
     owner: AddressKey,
     frame_role: String,
@@ -389,6 +426,7 @@ pub(crate) fn inspect_source(source: &[u8]) -> CliResult {
                         &controls.torso_profile,
                         &controls.head_neck_profile,
                         &controls.arm_profile,
+                        &controls.leg_profile,
                     ) {
                         Ok(dimensions) => match success(preview, &dimensions, &controls) {
                             Ok(result) => result,
@@ -447,6 +485,7 @@ fn success(
         "authored_torso_profile": authored_torso_profile_value(controls, dimensions),
         "authored_head_neck_profile": authored_head_neck_profile_value(controls, dimensions),
         "authored_arm_profile": authored_arm_profile_value(controls, dimensions),
+        "authored_leg_profile": authored_leg_profile_value(controls, dimensions),
         "variants": preview.variants().iter().map(|variant| variant_value(variant, dimensions, controls)).collect::<Result<Vec<_>, _>>()?,
         "limitations": LIMITATIONS,
     });
@@ -470,6 +509,7 @@ fn variant_value(
         "torso_profile": variant_torso_profile_value(variant.id(), controls, dimensions),
         "head_neck_profile": variant_head_neck_profile_value(variant.id(), controls, dimensions),
         "arm_profile": variant_arm_profile_value(variant.id(), controls, dimensions),
+        "leg_profile": variant_leg_profile_value(variant.id(), controls, dimensions),
     }))
 }
 
@@ -733,6 +773,79 @@ fn variant_arm_profile_value(
     })
 }
 
+fn authored_leg_profile_value(
+    controls: &PreparedAuthoredControls,
+    dimensions: &PreparedAuthoredDimensions,
+) -> Value {
+    let profile = &controls.leg_profile;
+    json!({
+        "format": LEG_PROFILE_FORMAT,
+        "provenance": authored_control_provenance(&profile.document, &profile.namespace),
+        "sides": profile.sides.iter().map(|side| {
+            json!({
+                "side": side.side,
+                "sections": side.sections.iter().enumerate().map(|(section_index, section)| {
+                    let frame_index = authored_frame_index(&controls.frames, &section.owner, &section.frame_role);
+                    let landmark_index = authored_landmark_index(&controls.landmarks, &section.owner, &section.landmark_role);
+                    let dimension_indices = section
+                        .dimensions
+                        .iter()
+                        .map(|role| authored_dimension_index(dimensions, &section.owner, role))
+                        .collect::<Vec<_>>();
+                    json!({
+                        "name": section.name,
+                        "frame_index": frame_index,
+                        "landmark_index": landmark_index,
+                        "dimension_indices": {
+                            "lateral": dimension_indices[0],
+                            "up": dimension_indices[1],
+                            "forward": dimension_indices[2],
+                        },
+                        "provenance": authored_control_provenance(&profile.document, &profile.namespace),
+                        "section_index": section_index,
+                    })
+                }).collect::<Vec<_>>(),
+            })
+        }).collect::<Vec<_>>(),
+    })
+}
+
+fn variant_leg_profile_value(
+    profile_id: &'static str,
+    controls: &PreparedAuthoredControls,
+    dimensions: &PreparedAuthoredDimensions,
+) -> Value {
+    let profile = &controls.leg_profile;
+    json!({
+        "format": LEG_PROFILE_FORMAT,
+        "source": "authored_leg_profile",
+        "provenance": authored_control_provenance(&profile.document, &profile.namespace),
+        "sides": profile.sides.iter().map(|side| {
+            json!({
+                "side": side.side,
+                "sections": side.sections.iter().enumerate().map(|(section_index, section)| {
+                    let [lateral_factor, up_factor, forward_factor] =
+                        leg_profile_factors(profile_id);
+                    json!({
+                        "source_section_index": section_index,
+                        "name": section.name,
+                        "position": source_position_value(section.position),
+                        "lateral_radius_permille": scale_leg_profile_radius(dimension_value(dimensions, &section.owner, &section.dimensions[0]), lateral_factor),
+                        "up_radius_permille": scale_leg_profile_radius(dimension_value(dimensions, &section.owner, &section.dimensions[1]), up_factor),
+                        "forward_radius_permille": scale_leg_profile_radius(dimension_value(dimensions, &section.owner, &section.dimensions[2]), forward_factor),
+                        "scaling": {
+                            "lateral_factor_permille": lateral_factor,
+                            "up_factor_permille": up_factor,
+                            "forward_factor_permille": forward_factor,
+                        },
+                        "provenance": authored_control_provenance(&profile.document, &profile.namespace),
+                    })
+                }).collect::<Vec<_>>(),
+            })
+        }).collect::<Vec<_>>(),
+    })
+}
+
 fn head_neck_profile_connections_value() -> Value {
     HEAD_NECK_PROFILE_CONNECTIONS
         .iter()
@@ -866,6 +979,14 @@ fn validate_head_neck_profile_radius(
 }
 
 fn arm_profile_factors(profile_id: &str) -> [u32; 3] {
+    limb_profile_factors(profile_id)
+}
+
+fn leg_profile_factors(profile_id: &str) -> [u32; 3] {
+    limb_profile_factors(profile_id)
+}
+
+fn limb_profile_factors(profile_id: &str) -> [u32; 3] {
     match profile_id {
         "neutral-v0" => [1_000; 3],
         "broad-soft-v0" => [1_150, 1_000, 1_150],
@@ -901,6 +1022,56 @@ fn validate_arm_profile_radius(
 
     for variant in preview.variants() {
         let factor = arm_profile_factors(variant.id())[axis];
+        let Some(scaled) = checked_scale_torso_profile_radius(value, factor) else {
+            return Err(InspectionError::InvalidAuthoredDimension {
+                address: address.clone(),
+                role: role.to_owned(),
+                value: format!(
+                    "integer={value} cannot be checked-scaled for variant {:?} with factor {factor}",
+                    variant.id()
+                ),
+            });
+        };
+        if !(1..=MAX_PROVISIONAL_PERMILLE).contains(&scaled) {
+            return Err(InspectionError::InvalidAuthoredDimension {
+                address: address.clone(),
+                role: role.to_owned(),
+                value: format!(
+                    "integer={value} projects to {scaled} for variant {:?} with factor {factor}; expected 1..={MAX_PROVISIONAL_PERMILLE}",
+                    variant.id()
+                ),
+            });
+        }
+    }
+    Ok(())
+}
+
+fn scale_leg_profile_radius(value: u32, factor: u32) -> u32 {
+    checked_scale_torso_profile_radius(value, factor)
+        .expect("validated leg profile radius scaling must fit u32")
+}
+
+fn leg_profile_radius_axis(role: &str) -> Option<usize> {
+    if !role.starts_with(LEG_PROFILE_DIMENSION_PREFIX) {
+        return None;
+    }
+    LEG_PROFILE_DIMENSION_SUFFIXES
+        .iter()
+        .position(|suffix| role.ends_with(suffix))
+}
+
+fn validate_leg_profile_radius(
+    preview: &ProvisionalFormPreview,
+    address: &AddressKey,
+    role: &str,
+    value: u32,
+) -> Result<(), InspectionError> {
+    let Some(axis) = leg_profile_radius_axis(role) else {
+        return Ok(());
+    };
+
+    for variant in preview.variants() {
+        let factor = leg_profile_factors(variant.id())[axis];
         let Some(scaled) = checked_scale_torso_profile_radius(value, factor) else {
             return Err(InspectionError::InvalidAuthoredDimension {
                 address: address.clone(),
@@ -1100,6 +1271,7 @@ fn prepare_authored_controls(
     let torso_profile = prepare_torso_profile(prepared, &mut landmarks, &mut frames)?;
     let head_neck_profile = prepare_head_neck_profile(prepared, &mut landmarks, &mut frames)?;
     let arm_profile = prepare_arm_profile(prepared, &mut landmarks, &mut frames)?;
+    let leg_profile = prepare_leg_profile(prepared, &mut landmarks, &mut frames)?;
 
     landmarks.sort_by(|left, right| {
         left.owner
@@ -1117,6 +1289,7 @@ fn prepare_authored_controls(
         torso_profile,
         head_neck_profile,
         arm_profile,
+        leg_profile,
     })
 }
 
@@ -1579,6 +1752,169 @@ fn prepare_arm_profile(
     })
 }
 
+fn prepare_leg_profile(
+    prepared: &PreparedSingleSource,
+    landmarks: &mut Vec<AuthoredLandmark>,
+    frames: &mut Vec<AuthoredFrame>,
+) -> Result<PreparedLegProfile, InspectionError> {
+    let source = prepared.graph().source();
+    let mut side_owners = Vec::with_capacity(LEG_PROFILE_SIDE_NAMES.len());
+    for side in LEG_PROFILE_SIDE_NAMES {
+        side_owners.push((
+            side,
+            required_limb_profile_owner(prepared, side, "thigh")?,
+            required_limb_profile_owner(prepared, side, "shin")?,
+        ));
+    }
+
+    let expected_frame_owners = side_owners
+        .iter()
+        .flat_map(|(_, thigh, shin)| [thigh, shin])
+        .collect::<BTreeSet<_>>();
+    for frame_key in prepared.frames().keys() {
+        if frame_key.role() == LEG_PROFILE_CONTROL_FRAME_ROLE
+            && !expected_frame_owners.contains(frame_key.owner())
+        {
+            return Err(InspectionError::InvalidAuthoredControl {
+                address: frame_key.owner().clone(),
+                role: frame_key.role().to_owned(),
+                detail: "leg profile control frame has an unsupported owner".to_owned(),
+            });
+        }
+    }
+
+    let mut sides = Vec::with_capacity(LEG_PROFILE_SIDE_NAMES.len());
+    for (side, thigh, shin) in side_owners {
+        let mut sections = Vec::with_capacity(LEG_PROFILE_SECTION_NAMES.len());
+        let mut previous_owner = None;
+        let mut previous_y = None;
+        for (section_index, (name, owner_role)) in LEG_PROFILE_SECTION_NAMES
+            .into_iter()
+            .zip(LEG_PROFILE_OWNER_ROLES)
+            .enumerate()
+        {
+            let owner = if owner_role == "thigh" {
+                thigh.clone()
+            } else {
+                shin.clone()
+            };
+            let Some((frame_key, transform)) =
+                find_owner_role(prepared.frames(), &owner, LEG_PROFILE_CONTROL_FRAME_ROLE)
+            else {
+                return Err(InspectionError::MissingAuthoredControl {
+                    owner: format!("{side} {owner_role}"),
+                    role: LEG_PROFILE_CONTROL_FRAME_ROLE.to_owned(),
+                });
+            };
+            if *transform != RigidTransform::identity() {
+                return Err(InspectionError::InvalidAuthoredControl {
+                    address: frame_key.owner().clone(),
+                    role: frame_key.role().to_owned(),
+                    detail: "control frame must be the identity rigid transform".to_owned(),
+                });
+            }
+            if !frames
+                .iter()
+                .any(|frame| frame.owner == owner && frame.role == LEG_PROFILE_CONTROL_FRAME_ROLE)
+            {
+                frames.push(AuthoredFrame {
+                    owner: owner.clone(),
+                    role: LEG_PROFILE_CONTROL_FRAME_ROLE.to_owned(),
+                    transform: *transform,
+                    document: source.document.clone(),
+                    namespace: source.namespace.clone(),
+                });
+            }
+
+            let underscore_name = name.replace('-', "_");
+            let landmark_role = format!("{LEG_PROFILE_LANDMARK_PREFIX}{underscore_name}");
+            let Some((landmark_key, landmark)) =
+                find_owner_role(prepared.landmarks(), &owner, &landmark_role)
+            else {
+                return Err(InspectionError::MissingAuthoredControl {
+                    owner: format!("{side} {owner_role}"),
+                    role: landmark_role,
+                });
+            };
+            if landmark.frame().owner() != &owner
+                || landmark.frame().role() != LEG_PROFILE_CONTROL_FRAME_ROLE
+            {
+                return Err(InspectionError::InvalidAuthoredControl {
+                    address: landmark_key.owner().clone(),
+                    role: landmark_key.role().to_owned(),
+                    detail: format!(
+                        "landmark must reference same-owner frame role {LEG_PROFILE_CONTROL_FRAME_ROLE:?}"
+                    ),
+                });
+            }
+            if !valid_leg_profile_position(landmark.position()) {
+                return Err(InspectionError::InvalidAuthoredControl {
+                    address: landmark_key.owner().clone(),
+                    role: landmark_key.role().to_owned(),
+                    detail: "source-coordinate position must be [0, y, 0] with y in inclusive [-1, 0], finite, and each component must satisfy the provisional bound".to_owned(),
+                });
+            }
+            let y = landmark.position().components()[1].as_f64();
+            if previous_owner.as_ref() == Some(&owner)
+                && previous_y.is_some_and(|previous| y >= previous)
+            {
+                return Err(InspectionError::InvalidAuthoredControl {
+                    address: landmark_key.owner().clone(),
+                    role: landmark_key.role().to_owned(),
+                    detail: "leg profile stations must be strictly ordered toward the distal end within each Part frame".to_owned(),
+                });
+            }
+            previous_owner = Some(owner.clone());
+            previous_y = Some(y);
+            landmarks.push(AuthoredLandmark {
+                owner: landmark_key.owner().clone(),
+                role: landmark_key.role().to_owned(),
+                frame: landmark.frame().clone(),
+                position: landmark.position(),
+                document: source.document.clone(),
+                namespace: source.namespace.clone(),
+            });
+            sections.push(PreparedLegProfileSection {
+                name,
+                owner,
+                frame_role: LEG_PROFILE_CONTROL_FRAME_ROLE.to_owned(),
+                landmark_role,
+                position: landmark.position(),
+                dimensions: LEG_PROFILE_DIMENSION_SUFFIXES.map(|suffix| {
+                    format!("{LEG_PROFILE_DIMENSION_PREFIX}{underscore_name}_{suffix}")
+                }),
+            });
+
+            debug_assert_eq!(section_index, sections.len() - 1);
+        }
+
+        sides.push(PreparedLegProfileSide { side, sections });
+    }
+
+    for key in prepared.landmarks().keys() {
+        if key.role().starts_with(LEG_PROFILE_LANDMARK_PREFIX)
+            && !sides
+                .iter()
+                .flat_map(|side| &side.sections)
+                .any(|section| section.owner == *key.owner() && section.landmark_role == key.role())
+        {
+            return Err(InspectionError::InvalidAuthoredControl {
+                address: key.owner().clone(),
+                role: key.role().to_owned(),
+                detail:
+                    "leg profile landmark is outside the closed bilateral five-station inventory"
+                        .to_owned(),
+            });
+        }
+    }
+
+    Ok(PreparedLegProfile {
+        document: source.document.clone(),
+        namespace: source.namespace.clone(),
+        sides,
+    })
+}
+
 fn required_head_neck_profile_owner(
     prepared: &PreparedSingleSource,
     role: &str,
@@ -1650,6 +1986,16 @@ fn valid_arm_profile_position(position: PreparedPosition3) -> bool {
     [x.as_f64(), y.as_f64(), z.as_f64()]
         .into_iter()
         .all(|value| value.is_finite() && value.abs() <= PROVISIONAL_CONTROL_COORDINATE_BOUND)
+        && x.as_f64() == 0.0
+        && z.as_f64() == 0.0
+}
+
+fn valid_leg_profile_position(position: PreparedPosition3) -> bool {
+    let [x, y, z] = position.components();
+    [x.as_f64(), y.as_f64(), z.as_f64()]
+        .into_iter()
+        .all(|value| value.is_finite() && value.abs() <= PROVISIONAL_CONTROL_COORDINATE_BOUND)
+        && (-PROVISIONAL_CONTROL_COORDINATE_BOUND..=0.0).contains(&y.as_f64())
         && x.as_f64() == 0.0
         && z.as_f64() == 0.0
 }
@@ -1748,6 +2094,7 @@ fn prepare_authored_dimensions(
     torso_profile: &PreparedTorsoProfile,
     head_neck_profile: &PreparedHeadNeckProfile,
     arm_profile: &PreparedArmProfile,
+    leg_profile: &PreparedLegProfile,
 ) -> Result<PreparedAuthoredDimensions, InspectionError> {
     let mut required = BTreeSet::new();
     for variant in preview.variants() {
@@ -1770,6 +2117,13 @@ fn prepare_authored_dimensions(
         }
     }
     for side in &arm_profile.sides {
+        for section in &side.sections {
+            for role in &section.dimensions {
+                required.insert((section.owner.clone(), role.clone()));
+            }
+        }
+    }
+    for side in &leg_profile.sides {
         for section in &side.sections {
             for role in &section.dimensions {
                 required.insert((section.owner.clone(), role.clone()));
@@ -1813,6 +2167,15 @@ fn prepare_authored_dimensions(
                         .to_owned(),
             });
         }
+        if owner_role.role().starts_with(LEG_PROFILE_DIMENSION_PREFIX) && !required.contains(&key) {
+            return Err(InspectionError::InvalidAuthoredControl {
+                address: key.0,
+                role: key.1,
+                detail:
+                    "leg profile dimension is outside the closed bilateral five-station inventory"
+                        .to_owned(),
+            });
+        }
         if !required.contains(&key) {
             continue;
         }
@@ -1841,6 +2204,7 @@ fn prepare_authored_dimensions(
         validate_torso_profile_radius(preview, &key.0, &key.1, value_permille)?;
         validate_head_neck_profile_radius(preview, &key.0, &key.1, value_permille)?;
         validate_arm_profile_radius(preview, &key.0, &key.1, value_permille)?;
+        validate_leg_profile_radius(preview, &key.0, &key.1, value_permille)?;
         values.insert(key, value_permille);
     }
 
@@ -2053,7 +2417,8 @@ fn authored_control_numeric_location(
                 && SHOULDER_LANDMARK_ROLES.contains(&owner_role.role()))
                 || is_torso_profile_landmark(owner_role.role())
                 || is_head_neck_profile_landmark(owner_role.role())
-                || is_arm_profile_landmark(owner_role.role()) =>
+                || is_arm_profile_landmark(owner_role.role())
+                || is_leg_profile_landmark(owner_role.role()) =>
         {
             Some((owner_role.owner().clone(), owner_role.role().to_owned()))
         }
@@ -2062,7 +2427,8 @@ fn authored_control_numeric_location(
                 && owner_role.role() == SHOULDER_CONTROL_FRAME_ROLE)
                 || owner_role.role() == TORSO_PROFILE_CONTROL_FRAME_ROLE
                 || owner_role.role() == HEAD_NECK_PROFILE_CONTROL_FRAME_ROLE
-                || owner_role.role() == ARM_PROFILE_CONTROL_FRAME_ROLE =>
+                || owner_role.role() == ARM_PROFILE_CONTROL_FRAME_ROLE
+                || owner_role.role() == LEG_PROFILE_CONTROL_FRAME_ROLE =>
         {
             Some((owner_role.owner().clone(), owner_role.role().to_owned()))
         }
@@ -2082,8 +2448,15 @@ fn is_arm_profile_owner(address: &AddressKey) -> bool {
         && matches!(address.role(), "upper_arm" | "forearm")
 }
 
+fn is_leg_profile_owner(address: &AddressKey) -> bool {
+    address.anchors().len() == 1
+        && LEG_PROFILE_SIDE_NAMES.contains(&address.anchors()[0].as_str())
+        && matches!(address.role(), "thigh" | "shin")
+}
+
 fn is_authored_control_owner(address: &AddressKey) -> bool {
     is_arm_profile_owner(address)
+        || is_leg_profile_owner(address)
         || (address.anchors().is_empty()
             && matches!(address.role(), "pelvis" | "torso" | "neck" | "head"))
 }
@@ -2098,6 +2471,10 @@ fn is_head_neck_profile_landmark(role: &str) -> bool {
 
 fn is_arm_profile_landmark(role: &str) -> bool {
     role.starts_with(ARM_PROFILE_LANDMARK_PREFIX)
+}
+
+fn is_leg_profile_landmark(role: &str) -> bool {
+    role.starts_with(LEG_PROFILE_LANDMARK_PREFIX)
 }
 
 fn exact_translation_value(
@@ -2274,7 +2651,7 @@ fn result(value: Value) -> CliResult {
     };
     CliResult {
         json: creature_kernel_core::provisional_json::to_string(&value).unwrap_or_else(|_| {
-            r#"{"format":"creature-kernel.provisional-form-preview.v9","operation":"inspect-provisional-form","status":"internal-failure","stage":"output","diagnostics":[{"code":"ck.cli.provisional-form.output-serialization","message":"could not serialize provisional form inspection result"}]}"#.to_owned()
+            r#"{"format":"creature-kernel.provisional-form-preview.v10","operation":"inspect-provisional-form","status":"internal-failure","stage":"output","diagnostics":[{"code":"ck.cli.provisional-form.output-serialization","message":"could not serialize provisional form inspection result"}]}"#.to_owned()
         }),
         exit_code,
     }
@@ -2397,6 +2774,23 @@ mod tests {
         }
     }
 
+    fn set_leg_profile_radii(
+        source: &mut Value,
+        owner_role: Option<&str>,
+        axis_suffix: Option<&str>,
+        value: Value,
+    ) {
+        for dimension in source["body"]["dimensions"].as_array_mut().unwrap() {
+            let role = dimension["role"].as_str().unwrap();
+            if role.starts_with(LEG_PROFILE_DIMENSION_PREFIX)
+                && owner_role.is_none_or(|owner| dimension["owner"]["role"] == json!(owner))
+                && axis_suffix.is_none_or(|suffix| role.ends_with(suffix))
+            {
+                dimension["value"] = value.clone();
+            }
+        }
+    }
+
     fn assert_emitted_variant_radii_are_bounded(value: &Value) {
         fn visit(value: &Value) {
             match value {
@@ -2481,7 +2875,7 @@ mod tests {
         let value = parsed(&output);
         assert_eq!(
             value["format"],
-            "creature-kernel.provisional-form-preview.v9"
+            "creature-kernel.provisional-form-preview.v10"
         );
         assert_eq!(value["operation"], OPERATION);
         assert_eq!(value["status"], "success");
@@ -2515,9 +2909,9 @@ mod tests {
                 assert!(descriptor["shape"]["name"].is_string());
             }
         }
-        assert_eq!(value["authored_dimensions"].as_array().unwrap().len(), 111);
-        assert_eq!(value["authored_landmarks"].as_array().unwrap().len(), 29);
-        assert_eq!(value["authored_frames"].as_array().unwrap().len(), 10);
+        assert_eq!(value["authored_dimensions"].as_array().unwrap().len(), 141);
+        assert_eq!(value["authored_landmarks"].as_array().unwrap().len(), 39);
+        assert_eq!(value["authored_frames"].as_array().unwrap().len(), 14);
         assert_eq!(
             value["authored_torso_profile"]["format"],
             TORSO_PROFILE_FORMAT
@@ -2543,13 +2937,21 @@ mod tests {
                 .len(),
             ARM_PROFILE_SIDE_NAMES.len()
         );
+        assert_eq!(value["authored_leg_profile"]["format"], LEG_PROFILE_FORMAT);
+        assert_eq!(
+            value["authored_leg_profile"]["sides"]
+                .as_array()
+                .unwrap()
+                .len(),
+            LEG_PROFILE_SIDE_NAMES.len()
+        );
     }
 
     #[test]
     fn authored_dimension_inventory_and_descriptor_consumption_are_complete() {
         let value = parsed(&inspect_source(&example()));
         let dimensions = value["authored_dimensions"].as_array().unwrap();
-        assert_eq!(dimensions.len(), 111);
+        assert_eq!(dimensions.len(), 141);
         let keys = dimensions
             .iter()
             .map(|dimension| {
@@ -2605,6 +3007,16 @@ mod tests {
             })
             .count();
         assert_eq!(arm_profile_roles, 30);
+
+        let leg_profile_roles = dimensions
+            .iter()
+            .filter(|dimension| {
+                dimension["role"]
+                    .as_str()
+                    .is_some_and(|role| role.starts_with(LEG_PROFILE_DIMENSION_PREFIX))
+            })
+            .count();
+        assert_eq!(leg_profile_roles, 30);
 
         for variant in value["variants"].as_array().unwrap() {
             for descriptor in variant["descriptors"].as_array().unwrap() {
@@ -3105,6 +3517,540 @@ mod tests {
                     }
                 }
             }
+        }
+    }
+
+    #[test]
+    fn authored_leg_profile_is_bilateral_closed_indexed_owned_and_source_provenant() {
+        let value = parsed(&inspect_source(&example()));
+        let profile = &value["authored_leg_profile"];
+        let provenance = json!({
+            "source": AUTHORED_CONTROL_PROVENANCE,
+            "document": "stylized_digitigrade_biped_authored_form",
+            "namespace": "main",
+        });
+        let expected_radii = [
+            [320_u64, 280, 300],
+            [300, 260, 280],
+            [240, 210, 225],
+            [225, 195, 210],
+            [185, 165, 175],
+        ];
+        let expected_source_local_positions = [
+            json!([0.0, 0.0, 0.0]),
+            json!([0.0, -0.5, 0.0]),
+            json!([0.0, -1.0, 0.0]),
+            json!([0.0, -0.5, 0.0]),
+            json!([0.0, -1.0, 0.0]),
+        ];
+        assert_eq!(profile["format"], LEG_PROFILE_FORMAT);
+        assert_eq!(profile["provenance"], provenance);
+        let sides = profile["sides"].as_array().unwrap();
+        assert_eq!(sides.len(), LEG_PROFILE_SIDE_NAMES.len());
+        let frames = value["authored_frames"].as_array().unwrap();
+        let landmarks = value["authored_landmarks"].as_array().unwrap();
+        let dimensions = value["authored_dimensions"].as_array().unwrap();
+
+        for (side_index, (side, expected_side)) in
+            sides.iter().zip(LEG_PROFILE_SIDE_NAMES).enumerate()
+        {
+            assert_eq!(side["side"], expected_side);
+            let sections = side["sections"].as_array().unwrap();
+            assert_eq!(sections.len(), LEG_PROFILE_SECTION_NAMES.len());
+            for (section_index, section) in sections.iter().enumerate() {
+                assert_eq!(section["section_index"], json!(section_index));
+                assert_eq!(section["name"], LEG_PROFILE_SECTION_NAMES[section_index]);
+                assert_eq!(section["provenance"], provenance);
+
+                let frame = &frames[section["frame_index"].as_u64().unwrap() as usize];
+                let landmark = &landmarks[section["landmark_index"].as_u64().unwrap() as usize];
+                let expected_owner_role = LEG_PROFILE_OWNER_ROLES[section_index];
+                assert_eq!(frame["owner"]["namespace"], "main");
+                assert_eq!(frame["owner"]["anchors"], json!([expected_side]));
+                assert_eq!(frame["owner"]["kind"], "part");
+                assert_eq!(frame["owner"]["role"], expected_owner_role);
+                assert_eq!(frame["role"], LEG_PROFILE_CONTROL_FRAME_ROLE);
+                assert_eq!(
+                    frame["transform"],
+                    json!({
+                        "translation": [0.0, 0.0, 0.0],
+                        "rotation_xyzw": [0.0, 0.0, 0.0, 1.0],
+                    })
+                );
+                assert_eq!(frame["provenance"], provenance);
+
+                assert_eq!(landmark["owner"], frame["owner"]);
+                assert_eq!(
+                    landmark["role"],
+                    format!(
+                        "{LEG_PROFILE_LANDMARK_PREFIX}{}",
+                        LEG_PROFILE_SECTION_NAMES[section_index].replace('-', "_")
+                    )
+                );
+                assert_eq!(landmark["frame"]["owner"], frame["owner"]);
+                assert_eq!(landmark["frame"]["role"], LEG_PROFILE_CONTROL_FRAME_ROLE);
+                assert_eq!(
+                    landmark["position"],
+                    expected_source_local_positions[section_index]
+                );
+                assert_eq!(landmark["provenance"], provenance);
+
+                let dimension_indices = &section["dimension_indices"];
+                for (axis, suffix) in LEG_PROFILE_DIMENSION_SUFFIXES.iter().enumerate() {
+                    let dimension = &dimensions[dimension_indices[LEG_PROFILE_RADIUS_AXES[axis]]
+                        .as_u64()
+                        .unwrap() as usize];
+                    assert_eq!(dimension["owner"], frame["owner"]);
+                    assert_eq!(
+                        dimension["role"],
+                        format!(
+                            "{LEG_PROFILE_DIMENSION_PREFIX}{}_{}",
+                            LEG_PROFILE_SECTION_NAMES[section_index].replace('-', "_"),
+                            suffix
+                        )
+                    );
+                    assert_eq!(
+                        dimension["value_permille"],
+                        json!(expected_radii[section_index][axis])
+                    );
+                    assert_eq!(dimension["provenance"], provenance);
+                }
+            }
+
+            assert_eq!(
+                side_index,
+                sides
+                    .iter()
+                    .position(|candidate| candidate["side"] == expected_side)
+                    .unwrap()
+            );
+        }
+
+        for variant in value["variants"].as_array().unwrap() {
+            let projected = &variant["leg_profile"];
+            assert_eq!(projected["format"], LEG_PROFILE_FORMAT);
+            assert_eq!(projected["source"], "authored_leg_profile");
+            assert_eq!(projected["provenance"], provenance);
+            let projected_sides = projected["sides"].as_array().unwrap();
+            assert_eq!(projected_sides.len(), LEG_PROFILE_SIDE_NAMES.len());
+            let variant_id = variant["id"].as_str().unwrap();
+            let factors = match variant_id {
+                "neutral-v0" => [1_000, 1_000, 1_000],
+                "broad-soft-v0" => [1_150, 1_000, 1_150],
+                "lean-readable-v0" => [800, 1_000, 800],
+                "depth-forward-v0" => [1_000, 1_000, 1_300],
+                other => panic!("unexpected leg profile variant {other:?}"),
+            };
+            assert_eq!(leg_profile_factors(variant_id), factors);
+            assert_eq!(arm_profile_factors(variant_id), factors);
+            for (side_index, projected_side) in projected_sides.iter().enumerate() {
+                assert_eq!(projected_side["side"], LEG_PROFILE_SIDE_NAMES[side_index]);
+                let projected_sections = projected_side["sections"].as_array().unwrap();
+                assert_eq!(projected_sections.len(), LEG_PROFILE_SECTION_NAMES.len());
+                for (section_index, projected_section) in projected_sections.iter().enumerate() {
+                    let source_section = &sides[side_index]["sections"][section_index];
+                    assert_eq!(
+                        projected_section["source_section_index"],
+                        json!(section_index)
+                    );
+                    assert_eq!(projected_section["name"], source_section["name"]);
+                    let landmark =
+                        &landmarks[source_section["landmark_index"].as_u64().unwrap() as usize];
+                    assert_eq!(projected_section["position"], landmark["position"]);
+                    assert_eq!(
+                        projected_section["position"],
+                        expected_source_local_positions[section_index]
+                    );
+                    assert_eq!(projected_section["provenance"], provenance);
+                    for (axis, axis_name) in LEG_PROFILE_RADIUS_AXES.iter().enumerate() {
+                        let authored = expected_radii[section_index][axis];
+                        assert_eq!(
+                            projected_section[format!("{axis_name}_radius_permille")],
+                            json!(authored * u64::from(factors[axis]) / 1_000)
+                        );
+                        assert_eq!(
+                            projected_section["scaling"][format!("{axis_name}_factor_permille")],
+                            json!(factors[axis])
+                        );
+                        assert!(
+                            projected_section[format!("{axis_name}_radius_permille")]
+                                .as_u64()
+                                .is_some_and(|radius| {
+                                    (1..=u64::from(MAX_PROVISIONAL_PERMILLE)).contains(&radius)
+                                })
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn leg_profile_side_perturbations_are_local_to_the_changed_station() {
+        let original = parsed(&inspect_source(&example()));
+
+        let mut changed_landmark_source = document();
+        changed_landmark_source["body"]["landmarks"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|landmark| {
+                landmark["role"] == "form_leg_profile_thigh_midpoint"
+                    && landmark["owner"]["anchors"] == json!(["left"])
+            })
+            .unwrap()["position"][1] = json!(-0.4);
+        let changed_landmark = parsed(&inspect_source(&bytes(changed_landmark_source)));
+        assert_eq!(changed_landmark["status"], "success");
+
+        for (before, after) in original["authored_landmarks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .zip(changed_landmark["authored_landmarks"].as_array().unwrap())
+        {
+            if before["role"] == "form_leg_profile_thigh_midpoint"
+                && before["owner"]["anchors"] == json!(["left"])
+            {
+                assert_ne!(before["position"], after["position"]);
+            } else {
+                assert_eq!(before, after);
+            }
+        }
+
+        for (before_variant, after_variant) in original["variants"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .zip(changed_landmark["variants"].as_array().unwrap())
+        {
+            for (before_side, after_side) in before_variant["leg_profile"]["sides"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .zip(after_variant["leg_profile"]["sides"].as_array().unwrap())
+            {
+                if before_side["side"] == "left" {
+                    for (before_section, after_section) in before_side["sections"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .zip(after_side["sections"].as_array().unwrap())
+                    {
+                        if before_section["name"] == "thigh-midpoint" {
+                            assert_ne!(before_section["position"], after_section["position"]);
+                        } else {
+                            assert_eq!(before_section, after_section);
+                        }
+                    }
+                } else {
+                    assert_eq!(before_side, after_side);
+                }
+            }
+        }
+
+        let mut changed_radius_source = document();
+        changed_radius_source["body"]["dimensions"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|dimension| {
+                dimension["role"] == "form_leg_profile_hock_endpoint_forward_radius"
+                    && dimension["owner"]["anchors"] == json!(["right"])
+            })
+            .unwrap()["value"] = json!(180);
+        let changed_radius = parsed(&inspect_source(&bytes(changed_radius_source)));
+        assert_eq!(changed_radius["status"], "success");
+
+        for (before, after) in original["authored_dimensions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .zip(changed_radius["authored_dimensions"].as_array().unwrap())
+        {
+            if before["role"] == "form_leg_profile_hock_endpoint_forward_radius"
+                && before["owner"]["anchors"] == json!(["right"])
+            {
+                assert_ne!(before["value_permille"], after["value_permille"]);
+            } else {
+                assert_eq!(before, after);
+            }
+        }
+
+        for (before_variant, after_variant) in original["variants"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .zip(changed_radius["variants"].as_array().unwrap())
+        {
+            for (before_side, after_side) in before_variant["leg_profile"]["sides"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .zip(after_variant["leg_profile"]["sides"].as_array().unwrap())
+            {
+                if before_side["side"] == "right" {
+                    for (before_section, after_section) in before_side["sections"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .zip(after_side["sections"].as_array().unwrap())
+                    {
+                        if before_section["name"] == "hock-endpoint" {
+                            assert_ne!(
+                                before_section["forward_radius_permille"],
+                                after_section["forward_radius_permille"]
+                            );
+                        } else {
+                            assert_eq!(before_section, after_section);
+                        }
+                    }
+                } else {
+                    assert_eq!(before_side, after_side);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn leg_profile_controls_and_dimensions_fail_closed_for_malformed_inventory() {
+        let mut missing_landmark = document();
+        missing_landmark["body"]["landmarks"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|landmark| landmark["role"] != "form_leg_profile_knee");
+        authored_control_failure(missing_landmark);
+
+        let mut duplicate_landmark = document();
+        let duplicate = duplicate_landmark["body"]["landmarks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|landmark| landmark["role"] == "form_leg_profile_knee")
+            .cloned()
+            .unwrap();
+        duplicate_landmark["body"]["landmarks"]
+            .as_array_mut()
+            .unwrap()
+            .push(duplicate);
+        authored_control_failure(duplicate_landmark);
+
+        let mut extra_landmark = document();
+        let mut extra = extra_landmark["body"]["landmarks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|landmark| landmark["role"] == "form_leg_profile_knee")
+            .cloned()
+            .unwrap();
+        extra["role"] = json!("form_leg_profile_extra");
+        extra_landmark["body"]["landmarks"]
+            .as_array_mut()
+            .unwrap()
+            .push(extra);
+        authored_control_failure(extra_landmark);
+
+        let mut wrong_owner = document();
+        wrong_owner["body"]["landmarks"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|landmark| landmark["role"] == "form_leg_profile_knee")
+            .unwrap()["owner"]["role"] = json!("shin");
+        authored_control_failure(wrong_owner);
+
+        let mut wrong_frame = document();
+        wrong_frame["body"]["landmarks"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|landmark| landmark["role"] == "form_leg_profile_knee")
+            .unwrap()["frame"]["role"] = json!("wrong_frame");
+        authored_control_failure(wrong_frame);
+
+        let mut nonidentity = document();
+        nonidentity["body"]["frames"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|frame| frame["role"] == LEG_PROFILE_CONTROL_FRAME_ROLE)
+            .unwrap()["transform"]["translation"] = json!([0.1, 0, 0]);
+        authored_control_failure(nonidentity);
+
+        let mut missing_profile_frame = document();
+        missing_profile_frame["body"]["frames"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|frame| {
+                !(frame["role"] == LEG_PROFILE_CONTROL_FRAME_ROLE
+                    && frame["owner"]["role"] == "shin"
+                    && frame["owner"]["anchors"] == json!(["left"]))
+            });
+        authored_control_failure(missing_profile_frame);
+
+        let mut nonfinite_position = document();
+        nonfinite_position["body"]["landmarks"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|landmark| {
+                landmark["role"] == "form_leg_profile_shin_midpoint"
+                    && landmark["owner"]["anchors"] == json!(["right"])
+            })
+            .unwrap()["position"][1] =
+            creature_kernel_core::provisional_json::from_str("1e999").unwrap();
+        authored_control_failure(nonfinite_position);
+
+        let mut out_of_bound_position = document();
+        out_of_bound_position["body"]["landmarks"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|landmark| {
+                landmark["role"] == "form_leg_profile_knee"
+                    && landmark["owner"]["anchors"] == json!(["left"])
+            })
+            .unwrap()["position"][1] = json!(-1.01);
+        authored_control_failure(out_of_bound_position);
+
+        let mut nonmonotone = document();
+        nonmonotone["body"]["landmarks"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|landmark| landmark["role"] == "form_leg_profile_thigh_midpoint")
+            .unwrap()["position"][1] = json!(0);
+        authored_control_failure(nonmonotone);
+
+        let mut positive_but_descending = document();
+        for (role, y) in [
+            ("form_leg_profile_thigh_start", 0.75),
+            ("form_leg_profile_thigh_midpoint", 0.25),
+            ("form_leg_profile_knee", -0.25),
+        ] {
+            positive_but_descending["body"]["landmarks"]
+                .as_array_mut()
+                .unwrap()
+                .iter_mut()
+                .find(|landmark| landmark["role"] == role)
+                .unwrap()["position"][1] = json!(y);
+        }
+        authored_control_failure(positive_but_descending);
+
+        let mut missing_dimension = document();
+        missing_dimension["body"]["dimensions"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|dimension| dimension["role"] != "form_leg_profile_knee_forward_radius");
+        let result = parsed(&inspect_source(&bytes(missing_dimension)));
+        assert_eq!(result["status"], "invalid-source");
+        assert_eq!(result["stage"], "dimensions");
+
+        for invalid in [json!(0), json!(-1), json!(5_001), json!(350.5)] {
+            let mut invalid_source = document();
+            invalid_source["body"]["dimensions"]
+                .as_array_mut()
+                .unwrap()
+                .iter_mut()
+                .find(|dimension| dimension["role"] == "form_leg_profile_knee_forward_radius")
+                .unwrap()["value"] = invalid;
+            let result = parsed(&inspect_source(&bytes(invalid_source)));
+            assert_eq!(result["status"], "invalid-source");
+            assert_eq!(result["stage"], "dimensions");
+            assert_eq!(
+                result["diagnostics"][0]["code"],
+                "ck.cli.provisional-form.authored-dimension"
+            );
+        }
+
+        let mut wrong_dimension_owner = document();
+        wrong_dimension_owner["body"]["dimensions"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|dimension| {
+                dimension["role"] == "form_leg_profile_knee_forward_radius"
+                    && dimension["owner"]["anchors"] == json!(["left"])
+            })
+            .unwrap()["owner"]["role"] = json!("torso");
+        let result = parsed(&inspect_source(&bytes(wrong_dimension_owner)));
+        assert_eq!(result["status"], "invalid-source");
+
+        let mut extra_dimension = document();
+        let mut extra = extra_dimension["body"]["dimensions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|dimension| dimension["role"] == "form_leg_profile_knee_forward_radius")
+            .cloned()
+            .unwrap();
+        extra["role"] = json!("form_leg_profile_extra_forward_radius");
+        extra_dimension["body"]["dimensions"]
+            .as_array_mut()
+            .unwrap()
+            .push(extra);
+        let result = parsed(&inspect_source(&bytes(extra_dimension)));
+        assert_eq!(result["status"], "invalid-source");
+    }
+
+    #[test]
+    fn leg_profile_radius_projection_boundaries_remain_positive_and_bounded() {
+        let mut all_axes_at_projectable_lower_bound = document();
+        set_leg_profile_radii(
+            &mut all_axes_at_projectable_lower_bound,
+            None,
+            None,
+            json!(2),
+        );
+        let all_axes_at_projectable_lower_bound =
+            parsed(&inspect_source(&bytes(all_axes_at_projectable_lower_bound)));
+        assert_eq!(all_axes_at_projectable_lower_bound["status"], "success");
+        assert_emitted_variant_radii_are_bounded(&all_axes_at_projectable_lower_bound);
+
+        let mut up_at_source_minimum = document();
+        set_leg_profile_radii(&mut up_at_source_minimum, None, Some("up_radius"), json!(1));
+        let up_at_source_minimum = parsed(&inspect_source(&bytes(up_at_source_minimum)));
+        assert_eq!(up_at_source_minimum["status"], "success");
+        assert_emitted_variant_radii_are_bounded(&up_at_source_minimum);
+
+        for axis_suffix in ["lateral_radius", "forward_radius"] {
+            let mut below_projectable_lower_bound = document();
+            set_leg_profile_radii(
+                &mut below_projectable_lower_bound,
+                None,
+                Some(axis_suffix),
+                json!(1),
+            );
+            let below_projectable_lower_bound =
+                parsed(&inspect_source(&bytes(below_projectable_lower_bound)));
+            assert_eq!(below_projectable_lower_bound["status"], "invalid-source");
+            assert_eq!(below_projectable_lower_bound["stage"], "dimensions");
+            assert_eq!(
+                below_projectable_lower_bound["diagnostics"][0]["code"],
+                "ck.cli.provisional-form.authored-dimension"
+            );
+        }
+
+        let boundaries = [
+            ("lateral_radius", 4_348),
+            ("up_radius", 5_000),
+            ("forward_radius", 3_846),
+        ];
+        for (axis_suffix, boundary) in boundaries {
+            let mut valid = document();
+            set_leg_profile_radii(&mut valid, None, Some(axis_suffix), json!(boundary));
+            let valid = parsed(&inspect_source(&bytes(valid)));
+            assert_eq!(valid["status"], "success");
+            assert_emitted_variant_radii_are_bounded(&valid);
+
+            let mut invalid = document();
+            set_leg_profile_radii(&mut invalid, None, Some(axis_suffix), json!(boundary + 1));
+            let invalid = parsed(&inspect_source(&bytes(invalid)));
+            assert_eq!(invalid["status"], "invalid-source");
+            assert_eq!(invalid["stage"], "dimensions");
+            assert_eq!(
+                invalid["diagnostics"][0]["code"],
+                "ck.cli.provisional-form.authored-dimension"
+            );
         }
     }
 
@@ -4319,7 +5265,7 @@ mod tests {
     }
 
     #[test]
-    fn v9_keeps_the_historical_shoulder_vocabulary_closed_and_torso_refs_nonduplicated() {
+    fn v10_keeps_the_historical_shoulder_vocabulary_closed_and_torso_refs_nonduplicated() {
         let value = parsed(&inspect_source(&example()));
         let shoulder_dimensions = value["authored_dimensions"]
             .as_array()

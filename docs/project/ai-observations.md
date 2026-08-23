@@ -81,3 +81,13 @@ Entry format:
   - Context: the main thread twice tried to protect a pattern with `rg --` but placed an option after the separator, first while searching for a pattern beginning with hyphens and later while adding context lines.
   - Observation: every token after `--` is positional, so `rg -n -- "pattern" -C 2` treats `-C` and `2` as paths and reports misleading missing-file errors instead of applying context. The failure is deterministic command construction, not repository or tool instability.
   - Expected pattern: place every option before the separator, for example `rg -n -C 2 -- "pattern" paths`; use `--` immediately before the pattern only when option parsing must end.
+
+- `2026-08-23`: Surface-preview launcher use is still fragile across working directories and focused test selectors
+  - Context: a delegated focused regression invoked the repository launcher twice from the tests directory using its worktree-relative path, then once from the worktree root with a top-level unittest module name.
+  - Observation: the first two calls failed with exit 127 because the relative launcher path was resolved from the tests directory; the third reached the launcher but failed with `ModuleNotFoundError: No module named 'test_surface_preview'`. Falling back to full discovery succeeded but reran all 61 tests, adding avoidable delay after the prompt had already required the launcher.
+  - Expected pattern: delegation prompts and examples should give a worktree-root command using the repository-relative launcher plus a valid discovery command. If focused single-test execution is common, add a documented launcher-supported selector or wrapper that resolves paths independently of the caller's working directory.
+
+- `2026-08-24`: Provisioned Playwright wrapper does not make arbitrary module styles interchangeable
+  - Context: a WSL browser trial was given the exact provisioned `ck-playwright-node` launcher but first combined CommonJS `require()` with top-level `await`, then changed to a bare ESM `playwright` import.
+  - Observation: the first script failed with `ReferenceError: Cannot determine intended module format because both require() and top-level await are present`; the second failed with `ERR_MODULE_NOT_FOUND` because ESM package resolution did not use the wrapper's CommonJS-oriented module path. An `.mjs` script importing the provisioned `playwright/index.mjs` by its explicit absolute path succeeded.
+  - Expected pattern: provide one checked browser-trial script template with a single module style and the provisioned runtime's exact import path, or extend the wrapper to expose a stable script entrypoint. Naming the launcher alone does not prevent repeated JavaScript module-resolution failures.
