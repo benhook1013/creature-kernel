@@ -318,7 +318,29 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 # Keep the fixture source controls exactly in the producer's canonical order.
                 source_controls = sorted(source_controls, key=lambda item: (item["side"] != "left", item["side"]))
                 shoulder_frame_controls["source_controls"] = source_controls
-                guide = {{"format": {publisher.REGIONAL_GUIDE_FORMAT!r}, "variant": variant_id, "owners": owners, "counts": {publisher.EXPECTED_GUIDE_COUNTS!r}, "projections": projections, "shared_render_bounds": bounds, "canvas": canvas, "layout": layout, "controls": {{"axes": {{"lateral": [1.0, 0.0, 0.0], "up": [0.0, 1.0, 0.0], "forward": [0.0, 0.0, 1.0]}}, "axial": axial, "torso_cage": torso_cage, "shoulder_frame": shoulder_frame_controls, "head": head, "limbs": limbs, "paws": paws, "tails": tails}}, "boundary": "private disposable regional controls; source-owned AddressKeys only; not a semantic or runtime contract"}}
+                arm_profile_sides = []
+                for side_name in ("left", "right"):
+                    source_side = next(item for item in payload["authored_arm_profile"]["sides"] if item["side"] == side_name)
+                    projected_side = next(item for item in producer_variant["arm_profile"]["sides"] if item["side"] == side_name)
+                    arm_sections_json = []
+                    for source_section, projected_section in zip(source_side["sections"], projected_side["sections"]):
+                        landmark = payload["authored_landmarks"][source_section["landmark_index"]]
+                        owner = landmark["owner"]
+                        limb = next(item for item in limbs if item["owner"] == owner)
+                        path_start = limb["sections"][0]["points"][0]
+                        path_end = limb["sections"][-1]["points"][1]
+                        local_y = float(landmark["position"][1])
+                        center = [float(path_start[axis]) - local_y * (float(path_end[axis]) - float(path_start[axis])) for axis in range(3)]
+                        radii = {{axis: projected_section[f"{{axis}}_radius_permille"] / 1000.0 for axis in ("lateral", "up", "forward")}}
+                        lineage = {{}}
+                        for axis, dimension_index in source_section["dimension_indices"].items():
+                            dimension = payload["authored_dimensions"][dimension_index]
+                            factor = projected_section["scaling"][f"{{axis}}_factor_permille"]
+                            lineage[axis] = {{"base": dimension["value_permille"], "factor": factor, "scaled": projected_section[f"{{axis}}_radius_permille"], "reference": {{"owner": owner, "role": dimension["role"], "index": dimension_index}}, "provenance": dimension["provenance"], "consumed_section": source_section["name"]}}
+                        arm_sections_json.append({{"name": source_section["name"], "section_index": source_section["section_index"], "source_section_index": projected_section["source_section_index"], "frame_index": source_section["frame_index"], "landmark_index": source_section["landmark_index"], "owner": owner, "frame": {{"owner": owner, "role": {common.PROVISIONAL_FORM_ARM_PROFILE_FRAME_ROLE!r}}}, "landmark": landmark, "center": center, "radii": radii, "lateral_radius": radii["lateral"], "up_radius": radii["up"], "forward_radius": radii["forward"], "lineage": lineage, "consumption": ("skin-driving; elbow seam owned by upper_arm station" if source_section["name"] == "elbow" else "skin-driving")}})
+                    arm_profile_sides.append({{"side": side_name, "sections": arm_sections_json}})
+                arm_profile_controls = {{"format": {publisher.AUTHORED_ARM_PROFILE_FORMAT!r}, "status": "skin-driving arm profile; legacy shoulder supports remain guide-only", "provenance": payload["authored_arm_profile"]["provenance"], "axes": {{"lateral": [1.0, 0.0, 0.0], "up": [0.0, 1.0, 0.0], "forward": [0.0, 0.0, 1.0]}}, "sides": arm_profile_sides}}
+                guide = {{"format": {publisher.REGIONAL_GUIDE_FORMAT!r}, "variant": variant_id, "owners": owners, "counts": {publisher.EXPECTED_GUIDE_COUNTS!r}, "projections": projections, "shared_render_bounds": bounds, "canvas": canvas, "layout": layout, "controls": {{"axes": {{"lateral": [1.0, 0.0, 0.0], "up": [0.0, 1.0, 0.0], "forward": [0.0, 0.0, 1.0]}}, "axial": axial, "torso_cage": torso_cage, "shoulder_frame": shoulder_frame_controls, "arm_profile": arm_profile_controls, "head": head, "limbs": limbs, "paws": paws, "tails": tails}}, "boundary": "private disposable regional controls; source-owned AddressKeys only; not a semantic or runtime contract"}}
                 if {mode!r} == "guide-obsolete-recipe-count":
                     guide["counts"] = dict(guide["counts"])
                     guide["counts"]["compiled_field_recipe_counts"] = dict(guide["counts"]["compiled_field_recipe_counts"])
@@ -365,6 +387,14 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     shoulder_side["curves"][0]["points"][3] = changed_socket
                     shoulder_side["curves"][1]["points"][3] = changed_socket
                     shoulder_side["curves"][2]["points"][1] = changed_socket
+                if {mode!r} == "guide-arm-omitted": guide["controls"].pop("arm_profile")
+                if {mode!r} == "guide-arm-side-order": guide["controls"]["arm_profile"]["sides"].reverse()
+                if {mode!r} == "guide-arm-source-index": guide["controls"]["arm_profile"]["sides"][0]["sections"][1]["source_section_index"] = 4
+                if {mode!r} == "guide-arm-owner": guide["controls"]["arm_profile"]["sides"][0]["sections"][0]["owner"] = owners[7]
+                if {mode!r} == "guide-arm-lineage": guide["controls"]["arm_profile"]["sides"][0]["sections"][2]["lineage"]["lateral"]["scaled"] += 1
+                if {mode!r} == "guide-arm-attachment": guide["controls"]["arm_profile"]["sides"][0]["sections"][0]["center"][0] += 0.01
+                if {mode!r} == "guide-arm-elbow": guide["controls"]["arm_profile"]["sides"][0]["sections"][2]["center"][0] += 0.01
+                if {mode!r} == "guide-arm-midpoint": guide["controls"]["arm_profile"]["sides"][0]["sections"][3]["center"][1] += 0.01
                 if {mode!r} == "guide-head-section-omitted":
                     guide["controls"]["head"]["sections"].pop()
                 if {mode!r} == "guide-head-section-malformed":
@@ -600,7 +630,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 head_neck = {
                     "profile_format": "creature-kernel.provisional-form-head-neck-profile.v1",
                     "operation": "authored-head-neck-branched-route-profile-v1",
-                    "regional_guide_format": "creature-kernel.disposable-surface-preview-regional-guide.v7",
+                    "regional_guide_format": "creature-kernel.disposable-surface-preview-regional-guide.v8",
                     "provenance": source_head["provenance"],
                     "sections_consumed": 8,
                     "connections_consumed": 7,
@@ -612,21 +642,47 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     ],
                 }
                 limb_owners = {(side, role): source_owner(descriptors, role, [side]) for side in ("left", "right") for role in ("upper_arm", "forearm", "thigh", "shin")}
+                arm_station_sides = []
+                arm_routes = []
+                for side_name in ("left", "right"):
+                    source_side = next(item for item in payload["authored_arm_profile"]["sides"] if item["side"] == side_name)
+                    projected_side = next(item for item in producer_variant["arm_profile"]["sides"] if item["side"] == side_name)
+                    stations = []
+                    for source_section, projected_section in zip(source_side["sections"], projected_side["sections"]):
+                        landmark = payload["authored_landmarks"][source_section["landmark_index"]]
+                        owner = landmark["owner"]
+                        side_sign = -1.0 if side_name == "left" else 1.0
+                        path_start = [side_sign * (1.5 if owner["role"] == "upper_arm" else 1.0), 0.9 if owner["role"] == "upper_arm" else 0.0, 0.0]
+                        path_end = [side_sign * (1.0 if owner["role"] == "upper_arm" else 1.2), 0.0 if owner["role"] == "upper_arm" else -0.7, 0.0]
+                        local_y = float(landmark["position"][1])
+                        center = [float(path_start[axis]) - local_y * (float(path_end[axis]) - float(path_start[axis])) for axis in range(3)]
+                        radii = {axis: projected_section[f"{axis}_radius_permille"] / 1000.0 for axis in ("lateral", "up", "forward")}
+                        lineage = {}
+                        for axis, dimension_index in source_section["dimension_indices"].items():
+                            dimension = payload["authored_dimensions"][dimension_index]
+                            lineage[axis] = {"base": dimension["value_permille"], "factor": projected_section["scaling"][f"{axis}_factor_permille"], "scaled": projected_section[f"{axis}_radius_permille"], "reference": {"owner": owner, "role": dimension["role"], "index": dimension_index}, "provenance": dimension["provenance"], "consumed_section": source_section["name"]}
+                        stations.append({"name": source_section["name"], "section_index": source_section["section_index"], "source_section_index": projected_section["source_section_index"], "owner": owner, "center": center, "radii": radii, "lineage": lineage, "consumption": ("skin-driving; elbow seam owned by upper_arm station" if source_section["name"] == "elbow" else "skin-driving")})
+                    arm_station_sides.append({"side": side_name, "sections": stations})
+                    for route_name, route_kind, route_sections in ((f"{side_name}-upper-arm-route", "upper-arm", stations[:3]), (f"{side_name}-forearm-route", "forearm", stations[2:])):
+                        arm_routes.append({"name": route_name, "side": side_name, "route": route_kind, "station_names": [item["name"] for item in route_sections], "source_section_indices": [int(item["source_section_index"]) for item in route_sections], "owner_keys": [item["owner"] for item in route_sections], "station_count": len(route_sections)})
+                arm_profile = {"format": "creature-kernel.provisional-form-arm-profile.v1", "source": "authored_arm_profile", "regional_guide_format": "creature-kernel.disposable-surface-preview-regional-guide.v8", "operation": "authored-arm-profile-route-v1", "topology": "two-routes-per-side-shared-upper-arm-elbow-seam", "route_order": [item["name"] for item in arm_routes], "routes": arm_routes, "stations": arm_station_sides, "elbow_ownership": "upper_arm"}
                 limb_owner_keys = [
-                    [limb_owners[("left", "upper_arm")]] * 3 + [limb_owners[("left", "forearm")]] * 2,
+                    [limb_owners[("left", "upper_arm")]] * 3,
+                    [limb_owners[("left", "upper_arm")], limb_owners[("left", "forearm")], limb_owners[("left", "forearm")]],
+                    [limb_owners[("right", "upper_arm")]] * 3,
+                    [limb_owners[("right", "upper_arm")], limb_owners[("right", "forearm")], limb_owners[("right", "forearm")]],
                     [limb_owners[("left", "thigh")]] * 3 + [limb_owners[("left", "shin")]] * 2,
-                    [limb_owners[("right", "upper_arm")]] * 3 + [limb_owners[("right", "forearm")]] * 2,
                     [limb_owners[("right", "thigh")]] * 3 + [limb_owners[("right", "shin")]] * 2,
                 ]
                 limb_centerlines = []
-                for side, proximal_role in (("left", "upper_arm"), ("left", "thigh"), ("right", "upper_arm"), ("right", "thigh")):
+                for side, proximal_role in (("left", "thigh"), ("right", "thigh")):
                     side_sign = -1.0 if side == "left" else 1.0
                     if proximal_role == "upper_arm":
                         limb_centerlines.append([[side_sign * 1.5, 0.9, 0.0], [side_sign * 1.25, 0.45, 0.0], [side_sign * 1.0, 0.0, 0.0], [side_sign * 1.1, -0.35, 0.0], [side_sign * 1.2, -0.7, 0.0]])
                     else:
                         limb_centerlines.append([[side_sign * 0.8, -0.2, 0.0], [side_sign * 0.7, -0.8, 0.0], [side_sign * 0.65, -1.4, 0.0], [side_sign * 0.7, -1.8, 0.0], [side_sign * 0.75, -2.2, 0.0]])
-                limb_internal_transition_counts = [bend_count(points) for points in limb_centerlines]
-                limbs = {"representation": "shared-guide-derived-ordered-profile-sweeps", "sweeps_consumed": len(LIMB_ORDER), "sweep_order": list(LIMB_ORDER), "station_counts": [len(names) for names in LIMB_STATION_NAMES], "station_names": [list(names) for names in LIMB_STATION_NAMES], "section_owner_keys": limb_owner_keys, "endpoint_cap_counts": [2] * len(LIMB_ORDER)}
+                limb_internal_transition_counts = [0, 0, 0, 0, *[bend_count(points) for points in limb_centerlines]]
+                limbs = {"representation": "shared-guide-derived-authored-arm-routes-and-ordered-leg-profile-sweeps", "sweeps_consumed": len(LIMB_ORDER), "sweep_order": list(LIMB_ORDER), "route_kinds": ["arm-profile", "arm-profile", "arm-profile", "arm-profile", "limb", "limb"], "station_counts": [len(names) for names in LIMB_STATION_NAMES], "station_names": [list(names) for names in LIMB_STATION_NAMES], "section_owner_keys": limb_owner_keys, "endpoint_cap_counts": [2] * len(LIMB_ORDER), "arm_profile": arm_profile}
                 paw_owners = {(side, role): source_owner(descriptors, role, [side]) for side in ("left", "right") for role in ("hand", "foot")}
                 extremity_owner_keys = []
                 extremity_internal_transition_counts = []
@@ -649,7 +705,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 tail_controls, tip_shared_endpoint = generated_tail_controls(tail_root_owner, tail_tip_owner)
                 tail = {"representation": "shared-guide-derived-profile-sweep-elements", "elements_consumed": len(TAIL_ORDER), "element_order": list(TAIL_ORDER), "element_kinds": list(TAIL_KINDS), "section_counts": [len(names) for names in TAIL_SECTION_NAMES], "section_names": [list(names) for names in TAIL_SECTION_NAMES], "owner_keys": [tail_root_owner] * 3 + [tail_tip_owner] * 3, "endpoint_cap_counts": [2] * len(TAIL_ORDER), "internal_transition_counts": [0] * len(TAIL_ORDER), "controls": tail_controls, "tip_shared_endpoint": tip_shared_endpoint}
                 metrics_region = {
-                    "regional_guide_format": "creature-kernel.disposable-surface-preview-regional-guide.v7",
+                    "regional_guide_format": "creature-kernel.disposable-surface-preview-regional-guide.v8",
                     "torso_representation": "rounded-superellipse-axial-profile-sweep-v1",
                     "torso_profile_exponent": 4.0,
                     "torso_sections_consumed": len(torso_controls),
@@ -664,9 +720,11 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     "shoulder_sweep_section_owner_keys": shoulder_owner_keys,
                     "shoulder_sweep_controls": shoulder_controls,
                     "head_neck": head_neck,
+                    "arm_profile": arm_profile,
                     "limb_representation": limbs["representation"],
                     "limb_sweeps_consumed": limbs["sweeps_consumed"],
                     "limb_sweep_order": limbs["sweep_order"],
+                    "limb_sweep_route_kinds": limbs["route_kinds"],
                     "limb_sweep_station_counts": limbs["station_counts"],
                     "limb_sweep_station_names": limbs["station_names"],
                     "limb_sweep_section_owner_keys": limbs["section_owner_keys"],
@@ -706,7 +764,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     "consumer_id": CONSUMER_ID,
                     "successor_region_id": REGION_ID,
                     "capture": frame,
-                    "torso": {"representation": "rounded-superellipse-axial-profile-sweep-v1", "regional_guide_format": "creature-kernel.disposable-surface-preview-regional-guide.v7", "superellipse_exponent": 4.0, "sections_consumed": 7, "section_names": [item["name"] for item in torso_controls], "section_controls": torso_controls},
+                    "torso": {"representation": "rounded-superellipse-axial-profile-sweep-v1", "regional_guide_format": "creature-kernel.disposable-surface-preview-regional-guide.v8", "superellipse_exponent": 4.0, "sections_consumed": 7, "section_names": [item["name"] for item in torso_controls], "section_controls": torso_controls},
                     "shoulders": {"representation": "authored-five-section-frame-aware-profile-sweeps", "sweeps_consumed": 2, "sweep_order": ["left-shoulder-envelope", "right-shoulder-envelope"], "section_counts": [5, 5], "section_names": [shoulder_section_names, shoulder_section_names]},
                     "head_neck": head_neck,
                     "limbs": limbs,
@@ -761,6 +819,21 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     routes = list(sidecar["head_neck"]["route_topology"])
                     routes[0] = {**routes[0], "section_indices": [0, 1, 2, 4, 3]}
                     sidecar["head_neck"] = {**sidecar["head_neck"], "route_topology": routes}
+                elif MODE == "sidecar-arm-route-order":
+                    sidecar["limbs"] = {**sidecar["limbs"], "sweep_order": list(reversed(sidecar["limbs"]["sweep_order"]))}
+                elif MODE == "sidecar-arm-route-owner":
+                    routes = list(sidecar["limbs"]["arm_profile"]["routes"])
+                    routes[0] = {**routes[0], "owner_keys": [limb_owners[("left", "forearm")]] * 3}
+                    sidecar["limbs"] = {**sidecar["limbs"], "arm_profile": {**sidecar["limbs"]["arm_profile"], "routes": routes}}
+                elif MODE == "sidecar-arm-elbow-ownership":
+                    sidecar["limbs"] = {**sidecar["limbs"], "arm_profile": {**sidecar["limbs"]["arm_profile"], "elbow_ownership": "forearm"}}
+                elif MODE == "sidecar-arm-lineage":
+                    profile = sidecar["limbs"]["arm_profile"]
+                    stations = list(profile["stations"])
+                    sections = list(stations[0]["sections"])
+                    sections[2] = {**sections[2], "lineage": {**sections[2]["lineage"], "lateral": {**sections[2]["lineage"]["lateral"], "scaled": sections[2]["lineage"]["lateral"]["scaled"] + 1}}}
+                    stations[0] = {**stations[0], "sections": sections}
+                    sidecar["limbs"] = {**sidecar["limbs"], "arm_profile": {**profile, "stations": stations}}
                 (variant_dir / "successor.json").write_text(json.dumps(sidecar, sort_keys=True), encoding="utf-8")
                 metrics_file = dict(metrics)
                 if MODE == "metrics-disagreement":
@@ -928,6 +1001,19 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             for suffix, value in zip(("lateral_radius", "up_radius", "forward_radius"), radii):
                 dimensions.append({"owner": owner, "role": f"form_head_neck_profile_{section_key}_{suffix}", "value_permille": value, "provenance": {"source": common.PROVISIONAL_FORM_AUTHORED_DIMENSION_PROVENANCE, "document": source["document"], "namespace": source["namespace"]}})
             head_sections.append((name, owner, [0.0, y, z], radii))
+        arm_sections = {}
+        for side in ("left", "right"):
+            for index, (name, owner_role, y, radii) in enumerate(zip(
+                common.PROVISIONAL_FORM_ARM_PROFILE_SECTION_NAMES,
+                common.PROVISIONAL_FORM_ARM_PROFILE_OWNER_ROLES,
+                (0.0, -0.5, -1.0, -0.5, -1.0),
+                ((240, 220, 200), (220, 205, 185), (200, 190, 170), (190, 180, 160), (175, 165, 150)),
+            )):
+                owner = next(item for item in owners if item["role"] == owner_role and item["anchors"] == [side])
+                section_key = name.replace("-", "_")
+                for suffix, value in zip(("lateral_radius", "up_radius", "forward_radius"), radii):
+                    dimensions.append({"owner": owner, "role": f"form_arm_profile_{section_key}_{suffix}", "value_permille": value, "provenance": {"source": common.PROVISIONAL_FORM_AUTHORED_DIMENSION_PROVENANCE, "document": source["document"], "namespace": source["namespace"]}})
+                arm_sections[(side, index)] = (name, owner, y, radii)
         dimensions.sort(key=lambda item: (
             item["owner"]["namespace"], tuple(item["owner"]["anchors"]),
             item["owner"]["kind"], item["owner"]["role"], item["role"],
@@ -974,6 +1060,16 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             }
             for owner_role in ("head", "neck")
         ])
+        frames.extend([
+            {
+                "owner": next(item for item in owners if item["role"] == owner_role and item["anchors"] == [side]),
+                "role": common.PROVISIONAL_FORM_ARM_PROFILE_FRAME_ROLE,
+                "transform": {"translation": [0.0, 0.0, 0.0], "rotation_xyzw": [0.0, 0.0, 0.0, 1.0]},
+                "provenance": {"source": common.PROVISIONAL_FORM_AUTHORED_CONTROL_PROVENANCE, "document": source["document"], "namespace": source["namespace"]},
+            }
+            for side in ("left", "right")
+            for owner_role in ("upper_arm", "forearm")
+        ])
         frames.sort(key=lambda item: (
             item["owner"]["namespace"], tuple(item["owner"]["anchors"]),
             item["owner"]["kind"], item["owner"]["role"], item["role"],
@@ -1008,7 +1104,17 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             {"owner": owner, "role": f"form_head_neck_profile_{name.replace('-', '_')}", "frame": {"owner": owner, "role": common.PROVISIONAL_FORM_HEAD_NECK_PROFILE_FRAME_ROLE}, "position": position, "provenance": authored_provenance}
             for name, owner, position, _radii in head_sections
         ]
-        landmarks = sorted(shoulder_controls + torso_landmarks + head_landmarks, key=lambda item: (
+        arm_landmarks = [
+            {
+                "owner": owner,
+                "role": f"form_arm_profile_{name.replace('-', '_')}",
+                "frame": {"owner": owner, "role": common.PROVISIONAL_FORM_ARM_PROFILE_FRAME_ROLE},
+                "position": [0.0, y, 0.0],
+                "provenance": authored_provenance,
+            }
+            for (side, _index), (name, owner, y, _radii) in arm_sections.items()
+        ]
+        landmarks = sorted(shoulder_controls + torso_landmarks + head_landmarks + arm_landmarks, key=lambda item: (
             item["owner"]["namespace"], tuple(item["owner"]["anchors"]), item["owner"]["kind"], item["owner"]["role"], item["role"]
         ))
         authored_profile = {
@@ -1051,7 +1157,33 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 for name, from_index, to_index, route in common.PROVISIONAL_FORM_HEAD_NECK_PROFILE_CONNECTIONS
             ],
         }
+        authored_arm_profile = {
+            "format": publisher.AUTHORED_ARM_PROFILE_FORMAT,
+            "provenance": authored_provenance,
+            "sides": [
+                {
+                    "side": side,
+                    "sections": [
+                        {
+                            "name": name,
+                            "frame_index": next(index for index, frame in enumerate(frames) if frame["owner"] == owner and frame["role"] == common.PROVISIONAL_FORM_ARM_PROFILE_FRAME_ROLE),
+                            "landmark_index": next(index for index, landmark in enumerate(landmarks) if landmark["owner"] == owner and landmark["role"] == f"form_arm_profile_{name.replace('-', '_')}"),
+                            "dimension_indices": {
+                                axis: next(index for index, dimension in enumerate(dimensions) if dimension["owner"] == owner and dimension["role"] == f"form_arm_profile_{name.replace('-', '_')}_{suffix}")
+                                for axis, suffix in zip(("lateral", "up", "forward"), ("lateral_radius", "up_radius", "forward_radius"))
+                            },
+                            "provenance": authored_provenance,
+                            "section_index": index,
+                        }
+                        for index in range(5)
+                        for name, owner, _y, _radii in [arm_sections[(side, index)]]
+                    ],
+                }
+                for side in ("left", "right")
+            ],
+        }
         variant_profiles = {}
+        variant_arm_profiles = {}
         for variant_id in common.PROVISIONAL_FORM_VARIANT_IDS:
             variant_sections = []
             for index, (name, owner, y, radii) in enumerate(torso_sections):
@@ -1068,6 +1200,33 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     "provenance": authored_provenance,
                 })
             variant_profiles[variant_id] = {"format": publisher.AUTHORED_TORSO_PROFILE_FORMAT, "source": "authored_torso_profile", "provenance": authored_provenance, "sections": variant_sections}
+            variant_arm_profiles[variant_id] = {
+                "format": publisher.AUTHORED_ARM_PROFILE_FORMAT,
+                "source": "authored_arm_profile",
+                "provenance": authored_provenance,
+                "sides": [
+                    {
+                        "side": side,
+                        "sections": [
+                            {
+                                "source_section_index": index,
+                                "name": name,
+                                "position": [0.0, y, 0.0],
+                                "lateral_radius_permille": scaled[0],
+                                "up_radius_permille": scaled[1],
+                                "forward_radius_permille": scaled[2],
+                                "scaling": {"lateral_factor_permille": factors[0], "up_factor_permille": factors[1], "forward_factor_permille": factors[2]},
+                                "provenance": authored_provenance,
+                            }
+                            for index in range(5)
+                            for name, owner, y, radii in [arm_sections[(side, index)]]
+                            for factors in [common._provisional_form_arm_profile_factors(variant_id)]
+                            for scaled in [[value * factor // 1000 for value, factor in zip(radii, factors)]]
+                        ],
+                    }
+                    for side in ("left", "right")
+                ],
+            }
         return {
             "format": common.PROVISIONAL_FORM_FORMAT,
             "operation": common.PROVISIONAL_FORM_OPERATION,
@@ -1083,6 +1242,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             "authored_frames": frames,
             "authored_torso_profile": authored_profile,
             "authored_head_neck_profile": authored_head_profile,
+            "authored_arm_profile": authored_arm_profile,
             "variants": [{"id": variant_id, "profile_id": variant_id, "provenance": {"source": common.PROVISIONAL_FORM_PROVENANCE, "resource_profile_id": common.PROVISIONAL_FORM_RESOURCE_PROFILE, "shape_basis": common.PROVISIONAL_FORM_SHAPE_BASIS}, "descriptors": descriptors, "torso_profile": variant_profiles[variant_id], "head_neck_profile": {
                 "format": publisher.AUTHORED_HEAD_NECK_PROFILE_FORMAT,
                 "source": "authored_head_neck_profile",
@@ -1103,7 +1263,8 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     for scaled in [[value * factor // 1000 for value, factor in zip(radii, factors)]]
                 ],
                 "connections": authored_head_profile["connections"],
-            }} for variant_id in common.PROVISIONAL_FORM_VARIANT_IDS],
+            }, "arm_profile": variant_arm_profiles[variant_id]
+            } for variant_id in common.PROVISIONAL_FORM_VARIANT_IDS],
             "limitations": "Provisional display-only geometry descriptors; no production geometry or Readiness 3.",
         }
 
@@ -1221,15 +1382,19 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             self.assertIn("shared capture frame", baseline["description"])
             self.assertIn("same shared capture frame", successor["description"])
         self.assertEqual(review["subject_context"]["descriptor_snapshot"]["producer_envelope_sha256"], review["groups"][0]["items"][0]["metadata"]["source_sha256"])
-        self.assertIn("share one source and capture frame", review["subject_context"]["authored_summary"]["text"])
         self.assertIn("compare baseline first and successor second", review["instructions"])
         self.assertIn("overall creature coherence", review["instructions"])
-        self.assertIn("shared source and frame", review["subject_context"]["provenance"]["capture"])
-        self.assertEqual(review["subject_context"]["provenance"]["baseline_generator_script"], "generator-success.py")
-        self.assertEqual(review["subject_context"]["provenance"]["successor_generator_script"], "successor-generator-success.py")
-        self.assertNotIn("baseline_generator", review["subject_context"]["provenance"])
-        self.assertNotIn("successor_generator", review["subject_context"]["provenance"])
-        self.assertIn("Disposable, non-production", review["subject_context"]["provenance"]["limitations"])
+        self.assertEqual(
+            set(review["subject_context"]),
+            {"descriptor_snapshot", "provenance"},
+        )
+        self.assertEqual(
+            review["subject_context"]["provenance"],
+            {
+                "baseline": "generator-success.py",
+                "successor": "successor-generator-success.py",
+            },
+        )
 
         # The ordinary image publisher is immutable: a duplicate review ID is
         # rejected and does not replace the first published session.
@@ -1367,6 +1532,88 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             [item["name"] for item in context["base_head_neck_lineage"]],
             list(publisher.AUTHORED_HEAD_NECK_PROFILE_SECTION_NAMES),
         )
+
+    def test_v9_authored_arm_profile_validates_bilateral_lineage_and_rejects_cross_bindings(self) -> None:
+        payload = self._payload()
+        context = publisher._validate_authored_torso_profile(payload)
+        self.assertEqual(
+            [side["side"] for side in context["base_arm_lineage"]],
+            ["left", "right"],
+        )
+        self.assertEqual(
+            [section["name"] for section in context["base_arm_lineage"][0]["sections"]],
+            list(publisher.AUTHORED_ARM_PROFILE_SECTION_NAMES),
+        )
+        self.assertEqual(
+            context["variants"]["depth-forward-v0"]["arm_lineage"][0]["sections"][4]["scaling"]["forward"],
+            1_300,
+        )
+        cases = {
+            "side-order": lambda value: value["authored_arm_profile"]["sides"].reverse(),
+            "source-index": lambda value: value["authored_arm_profile"]["sides"][0]["sections"][1].__setitem__("section_index", 4),
+            "frame-index": lambda value: value["authored_arm_profile"]["sides"][0]["sections"][0].__setitem__("frame_index", value["authored_arm_profile"]["sides"][0]["sections"][3]["frame_index"]),
+            "landmark-index": lambda value: value["authored_arm_profile"]["sides"][0]["sections"][0].__setitem__("landmark_index", value["authored_arm_profile"]["sides"][0]["sections"][1]["landmark_index"]),
+            "dimension-index": lambda value: value["authored_arm_profile"]["sides"][0]["sections"][0]["dimension_indices"].__setitem__("lateral", value["authored_arm_profile"]["sides"][0]["sections"][1]["dimension_indices"]["lateral"]),
+            "variant-radius": lambda value: value["variants"][0]["arm_profile"]["sides"][0]["sections"][0].__setitem__("forward_radius_permille", value["variants"][0]["arm_profile"]["sides"][0]["sections"][0]["forward_radius_permille"] + 1),
+        }
+        for name, mutate in cases.items():
+            malformed = copy.deepcopy(payload)
+            mutate(malformed)
+            with self.subTest(name=name):
+                with self.assertRaises(publisher.SurfacePreviewPublishError):
+                    publisher._validate_authored_torso_profile(malformed)
+
+    def test_v8_guide_arm_controls_reject_malformed_routes_and_preserve_valid_publication(self) -> None:
+        with patch.object(publisher, "_parse_inspection", return_value=self._payload()):
+            result = publisher.publish_surface_preview(
+                self.root,
+                self.input,
+                creature_kernel=self._producer(),
+                generator=self._generator(),
+                successor_generator=self._successor_generator(),
+                review_id="valid-arm-publication",
+            )
+        self.assertEqual(result["variants"], 4)
+        for index, mode in enumerate((
+            "guide-arm-omitted", "guide-arm-side-order", "guide-arm-source-index",
+            "guide-arm-owner", "guide-arm-lineage", "guide-arm-attachment",
+            "guide-arm-elbow", "guide-arm-midpoint",
+        )):
+            review_id = f"arm-guide-tamper-{index}"
+            with self.subTest(mode=mode):
+                with patch.object(publisher, "_parse_inspection", return_value=self._payload()):
+                    with self.assertRaises(publisher.SurfacePreviewPublishError):
+                        publisher.publish_surface_preview(
+                            self.root,
+                            self.input,
+                            creature_kernel=self._producer(),
+                            generator=self._generator(mode=mode),
+                            successor_generator=self._successor_generator(),
+                            review_id=review_id,
+                        )
+                self.assertFalse((self.root / review_id).exists())
+
+    def test_successor_arm_sidecar_metadata_rejects_stale_routes_and_lineage(self) -> None:
+        modes = (
+            "sidecar-arm-route-order",
+            "sidecar-arm-route-owner",
+            "sidecar-arm-elbow-ownership",
+            "sidecar-arm-lineage",
+        )
+        for index, mode in enumerate(modes):
+            review_id = f"successor-arm-tamper-{index}"
+            with self.subTest(mode=mode):
+                with patch.object(publisher, "_parse_inspection", return_value=self._payload()):
+                    with self.assertRaises(publisher.SurfacePreviewPublishError):
+                        publisher.publish_surface_preview(
+                            self.root,
+                            self.input,
+                            creature_kernel=self._producer(),
+                            generator=self._generator(),
+                            successor_generator=self._successor_generator(mode=mode),
+                            review_id=review_id,
+                        )
+                self.assertFalse((self.root / review_id).exists())
 
     def test_successor_torso_lineage_and_identity_tampering_reject_without_review_directory(self) -> None:
         modes = (
@@ -1539,10 +1786,10 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
         )
         raw = source.read_bytes()
-        self.assertEqual(len(raw), 36_016)
+        self.assertEqual(len(raw), 44_883)
         self.assertEqual(
             hashlib.sha256(raw).hexdigest(),
-            "168e772021de1ef9da6d2066049fe3ec9ca4d914c92093bddeefda0f29a29047",
+            "88de06054e6e418be0ccaaa1d1607b5f96f74f7589c48c382b67e4209f703315",
         )
         evidence = publisher._validate_input_evidence(
             publisher._read_input_evidence(source), "checked-in source"
@@ -1644,8 +1891,8 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             allow_nan=False,
             ensure_ascii=False,
         ))
-        self.assertGreaterEqual(evidence_size, 7_200)
-        self.assertLessEqual(evidence_size, 7_350)
+        self.assertGreaterEqual(evidence_size, 7_700)
+        self.assertLessEqual(evidence_size, 7_800)
         descriptor = publisher._validate_input_evidence(
             compact_descriptor,
             "review.subject_context.descriptor_snapshot",
@@ -1660,19 +1907,10 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             descriptor["producer_envelope_sha256"], hashlib.sha256(compact).hexdigest()
         )
         subject_context = {
-            "authored_summary": {
-                "text": "Four baseline/successor pairs share one source and capture frame."
-            },
             "descriptor_snapshot": descriptor,
             "provenance": {
-                "producer": "inspect-provisional-form",
-                "baseline_generator_script": "generator-success.py",
-                "successor_generator_script": "successor-generator-success.py",
-                "capture": "shared source and frame",
-                "limitations": (
-                    "Disposable, non-production comparison; no acceptance or "
-                    "Readiness claim."
-                ),
+                "baseline": "generator-success.py",
+                "successor": "successor-generator-success.py",
             },
         }
         redundant_subject = copy.deepcopy(subject_context)
@@ -1702,9 +1940,11 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         }
         with self.assertRaisesRegex(common.ValidationError, "subject_context is too large"):
             common._subject_context(redundant_subject, "manifest.subject_context")
-        self.assertLess(
-            len(json.dumps(subject_context, allow_nan=False, ensure_ascii=False)),
-            common.MAX_CONTEXT_JSON,
+        subject_context_size = len(json.dumps(subject_context, allow_nan=False, ensure_ascii=False))
+        self.assertEqual(subject_context_size, 8_031)
+        self.assertGreaterEqual(
+            common.MAX_CONTEXT_JSON - subject_context_size,
+            128,
         )
         self.assertEqual(
             common._subject_context(subject_context, "manifest.subject_context"),
