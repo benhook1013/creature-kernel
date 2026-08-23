@@ -136,7 +136,7 @@ required before EXP-0001 execution or evidence.
 ## Subjective visual floor
 
 Human reviewers assess whether the result reads as a coherent, intentional
-stylized furry biped in front, side, and three-quarter views. The assessment
+stylized digitigrade anthropomorphic/animal-like biped in front, side, and three-quarter views. The assessment
 considers:
 
 - a legible silhouette and legible body modules;

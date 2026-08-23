@@ -32,8 +32,9 @@ from skimage.measure import marching_cubes
 
 
 FORMAT = "creature-kernel.disposable-surface-preview.v2"
-REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v5"
-SOURCE_FORMAT = "creature-kernel.provisional-form-preview.v6"
+REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v6"
+SOURCE_FORMAT = "creature-kernel.provisional-form-preview.v7"
+AUTHORED_TORSO_PROFILE_FORMAT = "creature-kernel.provisional-form-torso-profile.v1"
 VARIANT_IDS = ("neutral-v0", "broad-soft-v0", "lean-readable-v0", "depth-forward-v0")
 MAX_INPUT_BYTES = 4 * 1024 * 1024
 MAX_SAMPLES = 128
@@ -45,6 +46,19 @@ MAX_AUTHORED_LANDMARKS = 16
 MAX_AUTHORED_FRAMES = 8
 CONTROL_COORDINATE_BOUND = 1.0
 GUIDE_TOLERANCE = 1.0e-12
+TORSO_PROFILE_FRAME_ROLE = "form_torso_profile_control"
+TORSO_PROFILE_LANDMARK_PREFIX = "form_torso_profile_"
+TORSO_PROFILE_DIMENSION_PREFIX = "form_torso_profile_"
+TORSO_PROFILE_DIMENSION_SUFFIXES = ("lateral_radius", "anterior_radius", "posterior_radius")
+TORSO_PROFILE_SECTION_NAMES = (
+    "lower-pelvis",
+    "upper-pelvis",
+    "lower-abdomen",
+    "waist-abdomen",
+    "upper-abdomen",
+    "lower-ribcage",
+    "upper-ribcage-shoulder",
+)
 # A source descriptor may intentionally expand into a small deterministic
 # recipe.  This is an implementation bound on the disposable preview, not a
 # promise about a future geometry compiler.
@@ -370,10 +384,20 @@ class _TorsoCageSection:
     """
 
     name: str
+    section_index: int
+    frame_index: int
+    landmark_index: int
     owner: Descriptor
+    frame: AuthoredFrame
+    landmark: AuthoredLandmark
     center: tuple[float, float, float]
     lateral_radius: float
+    anterior_radius: float
+    posterior_radius: float
     depth_radius: float
+    lateral_lineage: "_TorsoRadiusLineage"
+    anterior_lineage: "_TorsoRadiusLineage"
+    posterior_lineage: "_TorsoRadiusLineage"
 
     @property
     def source_key(self) -> tuple[str, tuple[str, ...], str, str]:
@@ -382,6 +406,19 @@ class _TorsoCageSection:
     @property
     def provenance(self) -> dict[str, Any]:
         return self.owner.provenance
+
+
+@dataclass(frozen=True)
+class _TorsoRadiusLineage:
+    """Exact source-to-guide lineage for one authored torso radius."""
+
+    base: int
+    factor: int
+    scaled: int
+    reference: tuple[tuple[str, tuple[str, ...], str, str], str]
+    reference_index: int
+    provenance: dict[str, Any]
+    consumed_section: str
 
 
 @dataclass(frozen=True)
@@ -772,6 +809,63 @@ class AuthoredLandmark:
 
 
 @dataclass(frozen=True)
+class AuthoredRadius:
+    """One source-authored axial radius control in the torso profile."""
+
+    owner: tuple[str, tuple[str, ...], str, str]
+    role: str
+    value_permille: int
+    provenance: dict[str, Any]
+    source_index: int
+
+
+@dataclass(frozen=True)
+class AuthoredTorsoSection:
+    """One of the seven ordered source-authored torso profile sections."""
+
+    name: str
+    section_index: int
+    frame_index: int
+    landmark_index: int
+    owner: tuple[str, tuple[str, ...], str, str]
+    frame: tuple[tuple[str, tuple[str, ...], str, str], str]
+    landmark: AuthoredLandmark
+    lateral: AuthoredRadius
+    anterior: AuthoredRadius
+    posterior: AuthoredRadius
+
+
+@dataclass(frozen=True)
+class AuthoredTorsoProfile:
+    """Validated authored_torso_profile v1 controls."""
+
+    sections: tuple[AuthoredTorsoSection, ...]
+    provenance: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class VariantTorsoProfileSection:
+    """One producer-projected per-variant torso profile section."""
+
+    source_section_index: int
+    name: str
+    position: tuple[float, float, float]
+    lateral_radius_permille: int
+    anterior_radius_permille: int
+    posterior_radius_permille: int
+    lateral_factor: int
+    anterior_factor: int
+    posterior_factor: int
+    provenance: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class VariantTorsoProfile:
+    sections: tuple[VariantTorsoProfileSection, ...]
+    provenance: dict[str, Any]
+
+
+@dataclass(frozen=True)
 class Form:
     raw: dict[str, Any]
     source: dict[str, Any]
@@ -780,16 +874,152 @@ class Form:
     authored_dimensions: tuple[tuple[tuple[str, tuple[str, ...], str, str], str, int, dict[str, Any]], ...]
     authored_landmarks: tuple[AuthoredLandmark, ...]
     authored_frames: tuple[AuthoredFrame, ...]
+    authored_torso_profile: AuthoredTorsoProfile
+    variant_torso_profiles: tuple[VariantTorsoProfile, ...]
     variants: tuple[tuple[str, tuple[Descriptor, ...], dict[str, Any]], ...]
+
+
+def _authored_torso_provenance(value: Any, expected: dict[str, str], where: str) -> dict[str, Any]:
+    provenance = _obj(value, where)
+    if set(provenance) != {"source", "document", "namespace"} or provenance != expected:
+        _fail(f"{where} is invalid")
+    return provenance
+
+
+def _parse_authored_torso_profile(
+    value: Any,
+    source: dict[str, Any],
+    dimensions: tuple[tuple[tuple[str, tuple[str, ...], str, str], str, int, dict[str, Any]], ...],
+    landmarks: tuple[AuthoredLandmark, ...],
+    frames: tuple[AuthoredFrame, ...],
+) -> AuthoredTorsoProfile:
+    """Validate the exact index-bound authored_torso_profile v1 slice."""
+
+    profile = _obj(value, "authored_torso_profile")
+    required = {"format", "provenance", "sections"}
+    if set(profile) != required or profile["format"] != AUTHORED_TORSO_PROFILE_FORMAT:
+        _fail("authored_torso_profile is not format v1")
+    source_provenance = {"source": "source-authored", "document": source["document"], "namespace": source["namespace"]}
+    provenance = _authored_torso_provenance(profile["provenance"], source_provenance, "authored_torso_profile.provenance")
+    raw_sections = _array(profile["sections"], "authored_torso_profile.sections")
+    if len(raw_sections) != len(TORSO_PROFILE_SECTION_NAMES):
+        _fail("authored_torso_profile.sections must contain exactly seven sections")
+    expected_owner_roles = ("pelvis", "pelvis", "torso", "torso", "torso", "torso", "torso")
+    parsed: list[AuthoredTorsoSection] = []
+    for index, raw in enumerate(raw_sections):
+        where = f"authored_torso_profile.sections[{index}]"
+        section = _obj(raw, where)
+        expected_fields = {"name", "frame_index", "landmark_index", "dimension_indices", "provenance", "section_index"}
+        if set(section) != expected_fields:
+            _fail(f"{where} has unexpected fields")
+        if section["section_index"] != index or section["name"] != TORSO_PROFILE_SECTION_NAMES[index]:
+            _fail(f"{where} is not the required ordered section")
+        frame_index = _int(section["frame_index"], f"{where}.frame_index")
+        landmark_index = _int(section["landmark_index"], f"{where}.landmark_index")
+        if not 0 <= frame_index < len(frames) or not 0 <= landmark_index < len(landmarks):
+            _fail(f"{where} references an out-of-range authored control")
+        owner_role = expected_owner_roles[index]
+        landmark = landmarks[landmark_index]
+        frame = frames[frame_index]
+        expected_owner = (source["namespace"], (), "part", owner_role)
+        expected_landmark_role = TORSO_PROFILE_LANDMARK_PREFIX + section["name"].replace("-", "_")
+        if landmark.owner != expected_owner or landmark.role != expected_landmark_role:
+            _fail(f"{where}.landmark_index does not retain the exact owner/landmark role")
+        if frame.owner != expected_owner or frame.role != TORSO_PROFILE_FRAME_ROLE:
+            _fail(f"{where}.frame_index does not retain the exact owner/frame role")
+        if landmark.frame != (frame.owner, frame.role):
+            _fail(f"{where} landmark/frame binding is invalid")
+        indices = _obj(section["dimension_indices"], f"{where}.dimension_indices")
+        if set(indices) != {"lateral", "anterior", "posterior"}:
+            _fail(f"{where}.dimension_indices has unexpected fields")
+        controls: list[AuthoredRadius] = []
+        expected_roles = tuple(TORSO_PROFILE_DIMENSION_PREFIX + section["name"].replace("-", "_") + "_" + suffix for suffix in TORSO_PROFILE_DIMENSION_SUFFIXES)
+        for axis, expected_role in zip(("lateral", "anterior", "posterior"), expected_roles):
+            dimension_index = _int(indices[axis], f"{where}.dimension_indices.{axis}")
+            if not 0 <= dimension_index < len(dimensions):
+                _fail(f"{where}.dimension_indices.{axis} is out of range")
+            owner, role, value_permille, control_provenance = dimensions[dimension_index]
+            if (owner, role) != (expected_owner, expected_role):
+                _fail(f"{where}.dimension_indices.{axis} does not retain the exact owner/role")
+            controls.append(AuthoredRadius(owner, role, value_permille, control_provenance, dimension_index))
+        _authored_torso_provenance(section["provenance"], source_provenance, f"{where}.provenance")
+        parsed.append(
+            AuthoredTorsoSection(
+                section["name"],
+                index,
+                frame_index,
+                landmark_index,
+                expected_owner,
+                (frame.owner, frame.role),
+                landmark,
+                controls[0],
+                controls[1],
+                controls[2],
+            )
+        )
+    return AuthoredTorsoProfile(tuple(parsed), provenance)
+
+
+def _torso_profile_factors(profile_id: str, owner_role: str) -> tuple[int, int]:
+    shared = _display_factors(profile_id, owner_role, "ellipsoid")
+    return shared[0], shared[2]
+
+
+def _parse_variant_torso_profile(
+    value: Any,
+    source: dict[str, Any],
+    authored: AuthoredTorsoProfile,
+    profile_id: str,
+) -> VariantTorsoProfile:
+    profile = _obj(value, f"{profile_id}.torso_profile")
+    if set(profile) != {"format", "source", "provenance", "sections"} or profile["format"] != AUTHORED_TORSO_PROFILE_FORMAT or profile["source"] != "authored_torso_profile":
+        _fail(f"{profile_id}.torso_profile is invalid")
+    expected_provenance = {"source": "source-authored", "document": source["document"], "namespace": source["namespace"]}
+    provenance = _authored_torso_provenance(profile["provenance"], expected_provenance, f"{profile_id}.torso_profile.provenance")
+    raw_sections = _array(profile["sections"], f"{profile_id}.torso_profile.sections")
+    if len(raw_sections) != len(authored.sections):
+        _fail(f"{profile_id}.torso_profile must contain exactly seven sections")
+    parsed: list[VariantTorsoProfileSection] = []
+    for index, raw in enumerate(raw_sections):
+        where = f"{profile_id}.torso_profile.sections[{index}]"
+        section = _obj(raw, where)
+        expected_fields = {"source_section_index", "name", "position", "lateral_radius_permille", "anterior_radius_permille", "posterior_radius_permille", "scaling", "provenance"}
+        if set(section) != expected_fields or section["source_section_index"] != index or section["name"] != authored.sections[index].name:
+            _fail(f"{where} is not the required ordered section")
+        position = _source_vector(section["position"], f"{where}.position", 3)
+        if position != authored.sections[index].landmark.position:
+            _fail(f"{where}.position is not the source-authored landmark position")
+        scaling = _obj(section["scaling"], f"{where}.scaling")
+        if set(scaling) != {"lateral_factor_permille", "anterior_factor_permille", "posterior_factor_permille"}:
+            _fail(f"{where}.scaling has unexpected fields")
+        lateral_factor = _int(scaling["lateral_factor_permille"], f"{where}.scaling.lateral_factor_permille")
+        anterior_factor = _int(scaling["anterior_factor_permille"], f"{where}.scaling.anterior_factor_permille")
+        posterior_factor = _int(scaling["posterior_factor_permille"], f"{where}.scaling.posterior_factor_permille")
+        expected_lateral, expected_depth = _torso_profile_factors(profile_id, authored.sections[index].owner[3])
+        if (lateral_factor, anterior_factor, posterior_factor) != (expected_lateral, expected_depth, expected_depth):
+            _fail(f"{where}.scaling does not use the shared torso variant factors")
+        scaled: list[int] = []
+        for field, control, factor in (
+            ("lateral_radius_permille", authored.sections[index].lateral, lateral_factor),
+            ("anterior_radius_permille", authored.sections[index].anterior, anterior_factor),
+            ("posterior_radius_permille", authored.sections[index].posterior, posterior_factor),
+        ):
+            scaled_value = _int(section[field], f"{where}.{field}")
+            if scaled_value != _scaled_display_value(control.value_permille, factor, f"{where}.{field}"):
+                _fail(f"{where}.{field} is not the exact scaled authored radius")
+            scaled.append(scaled_value)
+        _authored_torso_provenance(section["provenance"], expected_provenance, f"{where}.provenance")
+        parsed.append(VariantTorsoProfileSection(index, section["name"], position, scaled[0], scaled[1], scaled[2], lateral_factor, anterior_factor, posterior_factor, provenance))
+    return VariantTorsoProfile(tuple(parsed), provenance)
 
 
 def validate_envelope(value: Any) -> Form:
     root = _obj(value, "envelope")
-    required = {"format", "operation", "status", "stage", "processing_complete", "diagnostics_complete", "diagnostics", "source", "reference_scale", "authored_dimensions", "authored_landmarks", "authored_frames", "variants", "limitations"}
+    required = {"format", "operation", "status", "stage", "processing_complete", "diagnostics_complete", "diagnostics", "source", "reference_scale", "authored_dimensions", "authored_landmarks", "authored_frames", "authored_torso_profile", "variants", "limitations"}
     if set(root) != required:
         _fail("envelope has unexpected or missing fields")
     if root["format"] != SOURCE_FORMAT or root["operation"] != "inspect-provisional-form" or root["status"] != "success" or root["stage"] != "provisional-form":
-        _fail("envelope is not a successful v6 provisional-form result")
+        _fail("envelope is not a successful v7 provisional-form result")
     if root["processing_complete"] is not True or root["diagnostics_complete"] is not True or root["diagnostics"] != []:
         _fail("envelope success flags or diagnostics are invalid")
     if type(root["limitations"]) is not str or "Readiness" not in root["limitations"] or "geometry" not in root["limitations"]:
@@ -835,8 +1065,8 @@ def validate_envelope(value: Any) -> Form:
         "namespace": source["namespace"],
     }
     authored_frames = _array(root["authored_frames"], "authored_frames")
-    if len(authored_frames) != 2 or len(authored_frames) > MAX_AUTHORED_FRAMES:
-        _fail("authored_frames must contain exactly two controls")
+    if len(authored_frames) != 4 or len(authored_frames) > MAX_AUTHORED_FRAMES:
+        _fail("authored_frames must contain exactly four controls")
     parsed_frames: list[AuthoredFrame] = []
     frame_keys: list[tuple[tuple[str, tuple[str, ...], str, str], str]] = []
     for index, item in enumerate(authored_frames):
@@ -844,11 +1074,15 @@ def validate_envelope(value: Any) -> Form:
         if set(frame) != {"owner", "role", "transform", "provenance"}:
             _fail(f"authored_frames[{index}] has invalid fields")
         owner = _address(frame["owner"], f"authored_frames[{index}].owner")
-        if owner[0] != source["namespace"] or owner[2:] != ("part", "upper_arm") or owner[1] not in (("left",), ("right",)):
-            _fail(f"authored_frames[{index}].owner is not a supported upper_arm")
+        if owner[0] != source["namespace"] or owner[2] != "part" or owner[1] not in ((), ("left",), ("right",)) or owner[3] not in {"pelvis", "torso", "upper_arm"}:
+            _fail(f"authored_frames[{index}].owner is not a supported authored-control owner")
         role = frame["role"]
-        if role != "form_shoulder_control":
+        if role not in {"form_shoulder_control", TORSO_PROFILE_FRAME_ROLE}:
             _fail(f"authored_frames[{index}].role is invalid")
+        if role == "form_shoulder_control" and owner[1] not in (("left",), ("right",)):
+            _fail(f"authored_frames[{index}] shoulder frame owner is invalid")
+        if role == TORSO_PROFILE_FRAME_ROLE and (owner[1] != () or owner[3] not in {"pelvis", "torso"}):
+            _fail(f"authored_frames[{index}] torso profile frame owner is invalid")
         provenance = _obj(frame["provenance"], f"authored_frames[{index}].provenance")
         if set(provenance) != set(control_provenance) or provenance != control_provenance:
             _fail(f"authored_frames[{index}].provenance is invalid")
@@ -867,15 +1101,17 @@ def validate_envelope(value: Any) -> Form:
     if frame_keys != sorted(frame_keys):
         _fail("authored_frames are not stable owner/role order")
     expected_frame_keys = [
-        ((source["namespace"], (side,), "part", "upper_arm"), "form_shoulder_control")
-        for side in ("left", "right")
+        ((source["namespace"], (), "part", "pelvis"), TORSO_PROFILE_FRAME_ROLE),
+        ((source["namespace"], (), "part", "torso"), TORSO_PROFILE_FRAME_ROLE),
+        ((source["namespace"], ("left",), "part", "upper_arm"), "form_shoulder_control"),
+        ((source["namespace"], ("right",), "part", "upper_arm"), "form_shoulder_control"),
     ]
     if frame_keys != expected_frame_keys:
-        _fail("authored_frames do not have the closed bilateral shoulder topology")
+        _fail("authored_frames do not have the closed shoulder-and-torso control inventory")
 
     authored_landmarks = _array(root["authored_landmarks"], "authored_landmarks")
-    if len(authored_landmarks) != 4 or len(authored_landmarks) > MAX_AUTHORED_LANDMARKS:
-        _fail("authored_landmarks must contain exactly four controls")
+    if len(authored_landmarks) != 11 or len(authored_landmarks) > MAX_AUTHORED_LANDMARKS:
+        _fail("authored_landmarks must contain exactly eleven controls")
     parsed_landmarks: list[AuthoredLandmark] = []
     landmark_keys: list[tuple[tuple[str, tuple[str, ...], str, str], str]] = []
     for index, item in enumerate(authored_landmarks):
@@ -883,21 +1119,23 @@ def validate_envelope(value: Any) -> Form:
         if set(landmark) != {"owner", "role", "frame", "position", "provenance"}:
             _fail(f"authored_landmarks[{index}] has invalid fields")
         owner = _address(landmark["owner"], f"authored_landmarks[{index}].owner")
-        if owner[0] != source["namespace"] or owner[2:] != ("part", "upper_arm") or owner[1] not in (("left",), ("right",)):
-            _fail(f"authored_landmarks[{index}].owner is not a supported upper_arm")
+        if owner[0] != source["namespace"] or owner[2] != "part" or owner[1] not in ((), ("left",), ("right",)) or owner[3] not in {"pelvis", "torso", "upper_arm"}:
+            _fail(f"authored_landmarks[{index}].owner is not a supported authored-control owner")
         role = landmark["role"]
-        if role not in {"form_shoulder_peak", "form_axilla"}:
+        if role not in {"form_shoulder_peak", "form_axilla"} and not role.startswith(TORSO_PROFILE_LANDMARK_PREFIX):
             _fail(f"authored_landmarks[{index}].role is invalid")
         frame = _obj(landmark["frame"], f"authored_landmarks[{index}].frame")
         if set(frame) != {"owner", "role"}:
             _fail(f"authored_landmarks[{index}].frame has invalid fields")
         frame_owner = _address(frame["owner"], f"authored_landmarks[{index}].frame.owner")
         frame_role = frame["role"]
-        if (frame_owner, frame_role) != (owner, "form_shoulder_control"):
+        if frame_role not in {"form_shoulder_control", TORSO_PROFILE_FRAME_ROLE} or (frame_owner, frame_role) != (owner, frame_role):
             _fail(f"authored_landmarks[{index}] must reference its same-owner control frame")
         if (frame_owner, frame_role) not in frame_keys:
             _fail(f"authored_landmarks[{index}] references a missing control frame")
         position = _source_vector(landmark["position"], f"authored_landmarks[{index}].position", 3)
+        if role.startswith(TORSO_PROFILE_LANDMARK_PREFIX) and (owner[1] != () or owner[3] not in {"pelvis", "torso"} or position[0] != 0.0 or position[2] != 0.0):
+            _fail(f"authored_landmarks[{index}] torso profile landmark must be axial and unanchored")
         provenance = _obj(landmark["provenance"], f"authored_landmarks[{index}].provenance")
         if set(provenance) != set(control_provenance) or provenance != control_provenance:
             _fail(f"authored_landmarks[{index}].provenance is invalid")
@@ -909,12 +1147,19 @@ def validate_envelope(value: Any) -> Form:
     if landmark_keys != sorted(landmark_keys):
         _fail("authored_landmarks are not stable owner/role order")
     expected_landmark_keys = [
+        ((source["namespace"], (), "part", "pelvis"), TORSO_PROFILE_LANDMARK_PREFIX + name.replace("-", "_"))
+        for name in TORSO_PROFILE_SECTION_NAMES[:2]
+    ] + [
+        ((source["namespace"], (), "part", "torso"), TORSO_PROFILE_LANDMARK_PREFIX + name.replace("-", "_"))
+        for name in TORSO_PROFILE_SECTION_NAMES[2:]
+    ] + [
         ((source["namespace"], (side,), "part", "upper_arm"), role)
         for side in ("left", "right")
         for role in ("form_axilla", "form_shoulder_peak")
     ]
+    expected_landmark_keys.sort()
     if landmark_keys != expected_landmark_keys:
-        _fail("authored_landmarks do not have the closed bilateral shoulder topology")
+        _fail("authored_landmarks do not have the closed shoulder-and-torso control inventory")
     scale = _obj(root["reference_scale"], "reference_scale")
     if set(scale) != {"parent", "child", "axis_delta", "squared_length", "source"} or scale["source"] != "exact-containment-edge":
         _fail("reference_scale is invalid")
@@ -925,15 +1170,23 @@ def validate_envelope(value: Any) -> Form:
     if squared <= 0 or squared != sum(x * x for x in delta) or parent_key == child_key:
         _fail("reference_scale arithmetic is invalid")
     reference_scale = math.sqrt(float(squared))
+    authored_torso_profile = _parse_authored_torso_profile(
+        root["authored_torso_profile"],
+        source,
+        tuple(parsed_dimensions),
+        tuple(parsed_landmarks),
+        tuple(parsed_frames),
+    )
     variants = _array(root["variants"], "variants")
     if len(variants) != 4:
         _fail("variants must contain exactly four items")
     normalized: list[tuple[str, tuple[Descriptor, ...], dict[str, Any]]] = []
+    variant_torso_profiles: list[VariantTorsoProfile] = []
     canonical: list[tuple[Any, ...]] | None = None
     consumed_dimension_keys: set[tuple[tuple[str, tuple[str, ...], str, str], str]] = set()
     for index, item in enumerate(variants):
         variant = _obj(item, f"variants[{index}]")
-        if set(variant) != {"id", "profile_id", "provenance", "descriptors"} or variant.get("id") != VARIANT_IDS[index] or variant.get("profile_id") != VARIANT_IDS[index]:
+        if set(variant) != {"id", "profile_id", "provenance", "descriptors", "torso_profile"} or variant.get("id") != VARIANT_IDS[index] or variant.get("profile_id") != VARIANT_IDS[index]:
             _fail(f"variants[{index}] is not the fixed {VARIANT_IDS[index]} variant")
         provenance = _obj(variant["provenance"], f"variants[{index}].provenance")
         if set(provenance) != {"source", "resource_profile_id", "shape_basis"} or provenance.get("source") != "profile-derived-display" or provenance.get("resource_profile_id") != source["resource_profile_id"] or provenance.get("shape_basis") != "source-authored-dimensions-plus-fixed-display-factor":
@@ -1027,8 +1280,22 @@ def validate_envelope(value: Any) -> Form:
         elif signature != canonical:
             _fail(f"variants[{index}] do not preserve semantic descriptor identity")
         normalized.append((VARIANT_IDS[index], tuple(parsed), variant))
+        variant_torso_profiles.append(
+            _parse_variant_torso_profile(
+                variant["torso_profile"],
+                source,
+                authored_torso_profile,
+                VARIANT_IDS[index],
+            )
+        )
     if canonical is None:
         _fail("no descriptors")
+    profile_dimension_keys = {
+        (control.owner, control.role)
+        for section in authored_torso_profile.sections
+        for control in (section.lateral, section.anterior, section.posterior)
+    }
+    consumed_dimension_keys.update(profile_dimension_keys)
     if consumed_dimension_keys != dimension_keys:
         _fail("authored_dimensions must equal the complete descriptor-consumed control set")
     candidates = []
@@ -1045,7 +1312,20 @@ def validate_envelope(value: Any) -> Form:
     descriptor_keys = {descriptor.key for _, descriptors, _ in normalized for descriptor in descriptors}
     if any(frame.owner not in descriptor_keys for frame in parsed_frames) or any(landmark.owner not in descriptor_keys for landmark in parsed_landmarks):
         _fail("source-authored shoulder controls must be owned by variant descriptors")
-    return Form(root, source, reference_scale, scale, tuple(parsed_dimensions), tuple(parsed_landmarks), tuple(parsed_frames), tuple(normalized))
+    if any(section.owner not in descriptor_keys for section in authored_torso_profile.sections):
+        _fail("authored_torso_profile sections must be owned by variant descriptors")
+    return Form(
+        root,
+        source,
+        reference_scale,
+        scale,
+        tuple(parsed_dimensions),
+        tuple(parsed_landmarks),
+        tuple(parsed_frames),
+        authored_torso_profile,
+        tuple(variant_torso_profiles),
+        tuple(normalized),
+    )
 
 
 def _key_text(key: tuple[str, tuple[str, ...], str, str]) -> str:
@@ -1801,171 +2081,134 @@ def _validate_recipe_convention(descriptors: tuple[Descriptor, ...], scale: floa
 
 
 def _derive_torso_cage(
-    pelvis: Descriptor,
-    torso: Descriptor,
-    pelvis_center: tuple[float, float, float],
-    pelvis_radii: tuple[float, float, float],
-    torso_center: tuple[float, float, float],
-    waist_center: tuple[float, float, float],
-    torso_radii: tuple[float, float, float],
-    chest_center: tuple[float, float, float],
+    form: Form,
+    descriptors: tuple[Descriptor, ...],
+    profile: AuthoredTorsoProfile,
 ) -> _TorsoCage:
-    """Build the fixed-topology torso profile consumed by the next evaluator.
+    """Derive the seven-section torso cage from authored controls only.
 
-    This is deliberately a profile derivation, not another field recipe.  The
-    pelvis and torso descriptors remain the only source owners.  The seven
-    sections are deterministic functions of their already-derived guides: the
-    abdomen gets a short, broad waist band instead of one point-like minimum.
+    The source profile owns both depth sides.  The baseline analytic field is
+    intentionally symmetric, so its one depth radius is the arithmetic mean
+    of the independently scaled anterior and posterior controls.  The guide
+    retains both exact controls and their lineage for the frame-aware
+    successor and for review.
     """
 
-    pelvis_origin = np.asarray(pelvis_center, dtype=np.float64)
-    waist = np.asarray(waist_center, dtype=np.float64)
-    chest = np.asarray(chest_center, dtype=np.float64)
-    pelvis_size = np.asarray(pelvis_radii, dtype=np.float64)
-    torso_size = np.asarray(torso_radii, dtype=np.float64)
-    # The source convention guarantees that the torso centre is above the
-    # pelvis centre, but source radii are intentionally allowed to vary.  Use
-    # the raw guide-derived heights, then project them into a deterministic
-    # expanded centre interval with a small stable gap.  This keeps the
-    # private profile ordered without rejecting an otherwise admitted source
-    # merely because one body is unusually deep/tall.
-    pelvis_y = float(pelvis_origin[1])
-    torso_y = float(torso_center[1])
-    span = torso_y - pelvis_y
-    if not math.isfinite(span) or span <= 0.0:
-        _fail("torso-cage source centres must have positive axial separation")
-    # Use the existing waist and chest controls only as normalized placement
-    # inputs.  The additional abdomen controls make the narrow region occupy a
-    # real axial interval while remaining proportional for every variant.
-    upper_pelvis_y = float(pelvis_origin[1] + 0.24 * pelvis_size[1])
-    chest_y = float(chest[1])
-    # Extremely disproportionate source radii can place the derived pelvis
-    # control above the chest control. Keep the profile ordered by moving only
-    # this private start control into the available source-centre interval;
-    # ordinary variants retain the unmodified upper-pelvis height.
-    profile_start_y = min(upper_pelvis_y, chest_y - max(0.20 * span, 1.0e-6))
-    abdomen_span = chest_y - profile_start_y
-    if not math.isfinite(abdomen_span) or abdomen_span <= 0.0:
-        _fail("torso-cage abdomen profile requires positive axial separation")
-    waist_t = (float(waist[1]) - profile_start_y) / abdomen_span
-    waist_t = min(max(waist_t, 0.28), 0.58)
-    # Named profile relationships, rather than world-space offsets, keep the
-    # band stable as the source proportions change.
-    band_half_span = 0.10
-    lower_abdomen_t = max(0.20, waist_t - band_half_span)
-    upper_abdomen_t = min(0.70, waist_t + band_half_span)
-    lower_rib_t = max(upper_abdomen_t + 0.10, 0.76)
-    lower_rib_t = min(lower_rib_t, 0.88)
-    raw_heights = (
-        float(pelvis_origin[1] - 0.32 * pelvis_size[1]),
-        profile_start_y,
-        profile_start_y + lower_abdomen_t * abdomen_span,
-        profile_start_y + waist_t * abdomen_span,
-        profile_start_y + upper_abdomen_t * abdomen_span,
-        profile_start_y + lower_rib_t * abdomen_span,
-        float(chest[1]),
-    )
-    lower_limit = pelvis_y - 0.50 * span
-    upper_limit = torso_y + 0.50 * span
-    minimum_gap = max(span * 1.0e-6, 1.0e-6)
-    heights: list[float] = []
-    for index, raw_height in enumerate(raw_heights):
-        lower = lower_limit + index * minimum_gap
-        upper = upper_limit - (len(raw_heights) - index - 1) * minimum_gap
-        height = min(max(raw_height, lower), upper)
-        if heights and height <= heights[-1]:
-            height = heights[-1] + minimum_gap
-        heights.append(height)
-    section_centres = (
-        pelvis_origin.copy(),
-        pelvis_origin.copy(),
-        np.array([torso_center[0], raw_heights[2], torso_center[2]], dtype=np.float64),
-        np.array([torso_center[0], raw_heights[3], torso_center[2]], dtype=np.float64),
-        np.array([torso_center[0], raw_heights[4], torso_center[2]], dtype=np.float64),
-        np.array([torso_center[0], raw_heights[5], torso_center[2]], dtype=np.float64),
-        chest.copy(),
-    )
-    for centre, height in zip(section_centres, heights):
-        centre[1] = height
+    by_key = {descriptor.key: descriptor for descriptor in descriptors}
+    expected_owner_roles = ("pelvis", "pelvis", "torso", "torso", "torso", "torso", "torso")
+    if tuple(section.name for section in profile.sections) != TORSO_PROFILE_SECTION_NAMES:
+        _fail("authored torso profile sections have unstable order")
+    if tuple(section.owner[3] for section in profile.sections) != expected_owner_roles:
+        _fail("authored torso profile sections have invalid source owners")
 
-    # The abdomen controls intentionally share one derived cross-section
-    # factor in each transverse axis. This creates a short flat waist band;
-    # the neighboring pelvis and ribcage factors still provide the gradual
-    # transitions into and out of it.
-    abdomen_lateral_factor = 0.76
-    abdomen_depth_factor = 0.82
+    pelvis = by_key.get(profile.sections[0].owner)
+    torso = by_key.get(profile.sections[2].owner)
+    if pelvis is None or torso is None or pelvis.key[3] != "pelvis" or torso.key[3] != "torso":
+        _fail("authored torso profile must bind pelvis and torso descriptors")
+    variant_index = VARIANT_IDS.index(descriptors[0].profile_id)
+    if len(form.variant_torso_profiles) != len(VARIANT_IDS):
+        _fail("authored torso profile is missing a variant projection")
+    variant_profile = form.variant_torso_profiles[variant_index]
 
-    def section(
-        name: str,
-        owner: Descriptor,
-        center: np.ndarray,
-        lateral: float,
-        depth: float,
-    ) -> _TorsoCageSection:
-        point = _guide_point(center, f"torso-cage.{name}.center")
-        lateral_value, depth_value = float(lateral), float(depth)
-        if not all(math.isfinite(value) and value > 0.0 for value in (lateral_value, depth_value)):
-            _fail(f"torso-cage.{name} radii must be finite and positive")
-        return _TorsoCageSection(
-            name=name,
-            owner=owner,
-            center=point,
-            lateral_radius=lateral_value,
-            depth_radius=depth_value,
+    def lineage(
+        control: AuthoredRadius,
+        factor: int,
+        section_name: str,
+        where: str,
+    ) -> _TorsoRadiusLineage:
+        scaled = _scaled_display_value(control.value_permille, factor, where)
+        return _TorsoRadiusLineage(
+            base=control.value_permille,
+            factor=factor,
+            scaled=scaled,
+            reference=(control.owner, control.role),
+            reference_index=control.source_index,
+            provenance=dict(control.provenance),
+            consumed_section=section_name,
         )
 
-    sections = (
-        section(
-            "lower-pelvis",
-            pelvis,
-            section_centres[0],
-            pelvis_size[0] * 0.92,
-            pelvis_size[2] * 0.94,
-        ),
-        section(
-            "upper-pelvis",
-            pelvis,
-            section_centres[1],
-            pelvis_size[0] * 0.84,
-            pelvis_size[2] * 0.88,
-        ),
-        section(
-            "lower-abdomen",
-            torso,
-            section_centres[2],
-            torso_size[0] * abdomen_lateral_factor,
-            torso_size[2] * abdomen_depth_factor,
-        ),
-        section(
-            "waist-abdomen",
-            torso,
-            section_centres[3],
-            torso_size[0] * abdomen_lateral_factor,
-            torso_size[2] * abdomen_depth_factor,
-        ),
-        section(
-            "upper-abdomen",
-            torso,
-            section_centres[4],
-            torso_size[0] * abdomen_lateral_factor,
-            torso_size[2] * abdomen_depth_factor,
-        ),
-        section(
-            "lower-ribcage",
-            torso,
-            section_centres[5],
-            torso_size[0] * 0.80,
-            torso_size[2] * 0.86,
-        ),
-        section(
-            "upper-ribcage-shoulder",
-            torso,
-            section_centres[6],
-            torso_size[0] * 0.90,
-            torso_size[2] * 0.96,
-        ),
+    sections: list[_TorsoCageSection] = []
+    frame_by_key = {(frame.owner, frame.role): frame for frame in form.authored_frames}
+    for index, authored in enumerate(profile.sections):
+        projected = variant_profile.sections[index]
+        owner = by_key.get(authored.owner)
+        if owner is None or owner.key[3] != expected_owner_roles[index]:
+            _fail(f"authored torso profile section {authored.name!r} lost descriptor ownership")
+        if authored.landmark.owner != authored.owner or authored.frame != authored.landmark.frame:
+            _fail(f"authored torso profile section {authored.name!r} lost frame/landmark binding")
+        frame = authored.frame
+        if frame[1] != TORSO_PROFILE_FRAME_ROLE:
+            _fail(f"authored torso profile section {authored.name!r} has an invalid frame role")
+        if projected.source_section_index != index or projected.name != authored.name:
+            _fail(f"torso-cage.{authored.name} variant projection order is invalid")
+        center = _guide_point(
+            np.asarray(owner.point, dtype=np.float64)
+            + np.asarray(projected.position, dtype=np.float64) / form.reference_scale,
+            f"torso-cage.{authored.name}.landmark",
+        )
+        frame_record = frame_by_key.get(authored.frame)
+        if frame_record is None:
+            _fail(f"torso-cage.{authored.name} lost its authored control frame")
+        lateral_lineage = lineage(
+            authored.lateral,
+            projected.lateral_factor,
+            authored.name,
+            f"torso-cage.{authored.name}.lateral",
+        )
+        anterior_lineage = lineage(
+            authored.anterior,
+            projected.anterior_factor,
+            authored.name,
+            f"torso-cage.{authored.name}.anterior",
+        )
+        posterior_lineage = lineage(
+            authored.posterior,
+            projected.posterior_factor,
+            authored.name,
+            f"torso-cage.{authored.name}.posterior",
+        )
+        if (lateral_lineage.scaled, anterior_lineage.scaled, posterior_lineage.scaled) != (
+            projected.lateral_radius_permille,
+            projected.anterior_radius_permille,
+            projected.posterior_radius_permille,
+        ):
+            _fail(f"torso-cage.{authored.name} lost exact variant-scaled radii")
+        lateral_radius = projected.lateral_radius_permille / 1000.0
+        anterior_radius = projected.anterior_radius_permille / 1000.0
+        posterior_radius = projected.posterior_radius_permille / 1000.0
+        depth_radius = 0.5 * (anterior_radius + posterior_radius)
+        if not all(
+            math.isfinite(value) and value > 0.0
+            for value in (lateral_radius, anterior_radius, posterior_radius, depth_radius)
+        ):
+            _fail(f"torso-cage.{authored.name} authored radii are invalid")
+        sections.append(
+            _TorsoCageSection(
+                name=authored.name,
+                section_index=authored.section_index,
+                frame_index=authored.frame_index,
+                landmark_index=authored.landmark_index,
+                owner=owner,
+                frame=frame_record,
+                landmark=authored.landmark,
+                center=center,
+                lateral_radius=lateral_radius,
+                anterior_radius=anterior_radius,
+                posterior_radius=posterior_radius,
+                depth_radius=depth_radius,
+                lateral_lineage=lateral_lineage,
+                anterior_lineage=anterior_lineage,
+                posterior_lineage=posterior_lineage,
+            )
+        )
+    if any(sections[index].center[1] >= sections[index + 1].center[1] for index in range(len(sections) - 1)):
+        _fail("authored torso profile landmarks must rise monotonically")
+    return _TorsoCage(
+        pelvis_owner=pelvis,
+        torso_owner=torso,
+        sections=tuple(sections),
+        axes=_FIXED_GUIDE_AXES,
     )
-    return _TorsoCage(pelvis_owner=pelvis, torso_owner=torso, sections=sections, axes=_FIXED_GUIDE_AXES)
 
 
 def _derive_shoulder_frame(
@@ -2187,16 +2430,7 @@ def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _H
         torso_source["radii"] * np.asarray([0.92, 0.78, 1.00]),
         "torso.chest_radii",
     )
-    torso_cage = _derive_torso_cage(
-        pelvis,
-        torso,
-        pelvis_center,
-        pelvis_radii,
-        torso_center,
-        waist_center,
-        torso_radii,
-        chest_center,
-    )
+    torso_cage = _derive_torso_cage(form, descriptors, form.authored_torso_profile)
     pelvic_waist_path = _guide_path(
         np.asarray(pelvic_station_center) + np.asarray([0.0, 0.42 * pelvic_station_radii[1], 0.0]),
         np.asarray(waist_center) - np.asarray([0.0, 0.30 * waist_radii[1], 0.0]),
@@ -2744,8 +2978,46 @@ def _validate_hybrid_guide(guide: _HybridGuide, bounds: tuple[np.ndarray, np.nda
             _fail(f"torso-cage[{index}] has an unexpected owner")
         if section.owner is not expected_section_owners[index]:
             _fail(f"torso-cage[{index}] has an invalid source owner")
-        if not all(math.isfinite(value) and value > 0.0 for value in (section.lateral_radius, section.depth_radius)):
+        if not all(
+            math.isfinite(value) and value > 0.0
+            for value in (
+                section.lateral_radius,
+                section.anterior_radius,
+                section.posterior_radius,
+                section.depth_radius,
+            )
+        ):
             _fail(f"torso-cage[{index}] radii must be finite and positive")
+        if not math.isclose(
+            section.depth_radius,
+            0.5 * (section.anterior_radius + section.posterior_radius),
+            rel_tol=0.0,
+            abs_tol=GUIDE_TOLERANCE,
+        ):
+            _fail(f"torso-cage[{index}] baseline depth is not bound to both authored sides")
+        for control_name, control in (
+            ("lateral", section.lateral_lineage),
+            ("anterior", section.anterior_lineage),
+            ("posterior", section.posterior_lineage),
+        ):
+            expected_factor = _display_factors(
+                section.owner.profile_id,
+                section.owner.key[3],
+                "ellipsoid",
+            )[0 if control_name == "lateral" else 2]
+            expected_role = TORSO_PROFILE_DIMENSION_PREFIX + section.name.replace("-", "_") + "_" + {
+                "lateral": TORSO_PROFILE_DIMENSION_SUFFIXES[0],
+                "anterior": TORSO_PROFILE_DIMENSION_SUFFIXES[1],
+                "posterior": TORSO_PROFILE_DIMENSION_SUFFIXES[2],
+            }[control_name]
+            if control.consumed_section != section.name or control.base <= 0 or control.factor != expected_factor or control.scaled != control.base * control.factor // 1000:
+                _fail(f"torso-cage[{index}].{control_name} lineage is invalid")
+            if control.reference != (section.owner.key, expected_role):
+                _fail(f"torso-cage[{index}].{control_name} lineage lost source ownership")
+            if set(control.provenance) != {"source", "document", "namespace"}:
+                _fail(f"torso-cage[{index}].{control_name} lineage provenance is invalid")
+        if section.landmark.owner != section.owner.key or section.frame.role != TORSO_PROFILE_FRAME_ROLE:
+            _fail(f"torso-cage[{index}] frame/landmark ownership is invalid")
         _guide_point_checked(section.center, f"torso-cage[{index}].center", bounds)
     if cage.axes != guide.topology.axes or cage.axes != _FIXED_GUIDE_AXES:
         _fail("torso cage axes must match the guide topology and fixed prototype axes")
@@ -3032,6 +3304,51 @@ def _authored_landmark_json(landmark: AuthoredLandmark) -> dict[str, Any]:
     }
 
 
+def _torso_radius_lineage_json(lineage: _TorsoRadiusLineage) -> dict[str, Any]:
+    return {
+        "base": lineage.base,
+        "factor": lineage.factor,
+        "scaled": lineage.scaled,
+        "reference": {
+            "owner": _address_json(lineage.reference[0]),
+            "role": lineage.reference[1],
+            "index": lineage.reference_index,
+        },
+        "provenance": dict(lineage.provenance),
+        "consumed_section": lineage.consumed_section,
+    }
+
+
+def _torso_section_json(section: _TorsoCageSection) -> dict[str, Any]:
+    """Serialize authored controls and exact guide lineage for one section."""
+
+    return {
+        "name": section.name,
+        "section_index": section.section_index,
+        "frame_index": section.frame_index,
+        "landmark_index": section.landmark_index,
+        "owner": _address_json(section.owner.key),
+        "frame": {
+            "owner": _address_json(section.frame.owner),
+            "role": section.frame.role,
+        },
+        "landmark": _authored_landmark_json(section.landmark),
+        "center": _point_json(section.center),
+        "lateral_radius": float(section.lateral_radius),
+        "anterior_radius": float(section.anterior_radius),
+        "posterior_radius": float(section.posterior_radius),
+        "depth_radius": float(section.depth_radius),
+        "lateral": _torso_radius_lineage_json(section.lateral_lineage),
+        "anterior": _torso_radius_lineage_json(section.anterior_lineage),
+        "posterior": _torso_radius_lineage_json(section.posterior_lineage),
+        "lineage": {
+            "lateral": _torso_radius_lineage_json(section.lateral_lineage),
+            "anterior": _torso_radius_lineage_json(section.anterior_lineage),
+            "posterior": _torso_radius_lineage_json(section.posterior_lineage),
+        },
+    }
+
+
 def _shoulder_source_control_json(side: _ShoulderSideGuide) -> dict[str, Any]:
     """Return the exact authored records and consumed dimension lineage."""
 
@@ -3136,19 +3453,11 @@ def _regional_guide_json(
     }
     torso_cage_controls = {
         "status": "skin-driving torso controls",
+        "profile_format": AUTHORED_TORSO_PROFILE_FORMAT,
         "owners": [_address_json(torso_cage.pelvis_owner.key), _address_json(torso_cage.torso_owner.key)],
         "axes": cage_axes,
         "orientation": "elliptical cross-section rings lie in the lateral/forward plane and rise along the up axis",
-        "sections": [
-            {
-                "name": section.name,
-                "owner": _address_json(section.owner.key),
-                "center": _point_json(section.center),
-                "lateral_radius": float(section.lateral_radius),
-                "depth_radius": float(section.depth_radius),
-            }
-            for section in torso_cage.sections
-        ],
+        "sections": [_torso_section_json(section) for section in torso_cage.sections],
         "connections": [
             {"from": torso_cage.sections[index].name, "to": torso_cage.sections[index + 1].name}
             for index in range(len(torso_cage.sections) - 1)

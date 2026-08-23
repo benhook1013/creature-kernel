@@ -67,7 +67,7 @@ tests stature/aspect and lower-leg emphasis while retaining moderate thickness;
 without making extreme stature the primary axis. They must not collapse into
 two names for one height-versus-thickness change.
 
-The profile set remains a bounded stylized digitigrade furry biped family. It
+The profile set remains a bounded stylized digitigrade anthropomorphic/animal-like biped family. It
 uses the required torso/pelvis, simplified muzzle, two arms with simplified
 hands or paws, and two digitigrade legs with simplified feet or paws. Ears and
 tail remain optional named-socket modules. All profiles use the same grammar

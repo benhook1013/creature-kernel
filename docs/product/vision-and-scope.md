@@ -10,7 +10,7 @@ semantic body-graph snapshot, then derive surface geometry, rigging, collision,
 deformation data, appearance inputs, and runtime capabilities from that shared
 lineage.
 
-The initial creative focus is stylized furry characters. The larger goal is a
+The initial creative focus is stylized creature characters. The larger goal is a
 body grammar capable of expressing related morphology families without making
 every character a bespoke graphics and physics project.
 
@@ -23,7 +23,7 @@ is the project developer or researcher using structured source, CLI/API
 operations, diagnostics, and reproducible evidence; technical artists and game
 developers are important downstream review and integration users.
 
-Stylized furry characters are the initial domain. Demanding close-contact and
+Stylized creature characters are the initial domain. Demanding close-contact and
 deformation scenarios are motivating use cases and stress cases, while reusable
 body, contact, and solver mechanisms remain general rather than hard-coded to
 one interaction domain. Native programmatic generation without a
@@ -61,7 +61,7 @@ and activated regional solvers; it is neither a fully live implicit character
 nor a semantics-free conventional asset.
 
 The first Readiness 3 resolver/fixture proof is intentionally narrower than
-the long-term platform: it covers the bounded stylized digitigrade furry-biped
+the long-term platform: it covers the bounded stylized digitigrade anthropomorphic/animal-like biped
 family and fixed fixture envelope. It binds one explicit authored-conflict
 comparison profile for authored versus Attachment-equation-derived placement,
 with identity and constants frozen only from a bounded successor experiment.
@@ -84,7 +84,7 @@ Creature Kernel is intended to become:
 
 ## Initial scope
 
-- A bounded stylized digitigrade furry biped family for the first proof:
+- A bounded stylized digitigrade anthropomorphic/animal-like biped family for the first proof:
   required torso/pelvis, head with a simplified muzzle, two arms with
   simplified hands or paws, and two digitigrade legs with simplified feet or
   paws. Predefined ears and tail may be enabled through named sockets. This

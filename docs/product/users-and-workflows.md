@@ -14,7 +14,7 @@ generated creature.
 Technical artists and game developers are important downstream review and
 integration users; this ordering does not exclude them from the product.
 
-The initial domain is stylized furry characters. Demanding close-contact and
+The initial domain is stylized creature characters. Demanding close-contact and
 deformation scenarios are motivating use cases and stress cases for the general
 body, contact, and solver mechanisms. Those mechanisms remain reusable and are
 not defined for only one interaction domain.

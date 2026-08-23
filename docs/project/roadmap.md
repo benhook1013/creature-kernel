@@ -22,7 +22,7 @@ Exit outcomes:
 Exit outcomes:
 
 - A minimal body document and resolved body graph exist.
-- One bounded furry morphology family is defined.
+- One bounded creature morphology family is defined.
 - Several substantially different bodies generate without a handcrafted base mesh.
 - Semantic part identity and local fields survive surface generation.
 - Every declared valid fixed fixture passes every mandatory Stage 1 structural

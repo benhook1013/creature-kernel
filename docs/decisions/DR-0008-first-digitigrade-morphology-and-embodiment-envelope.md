@@ -60,7 +60,7 @@ approval of the R3 boundary below: disagreement between an authored
 root-local placement and the Attachment-equation-derived placement that fails
 the one later-admitted comparison profile is semantic `invalid-source` with
 no successful snapshot; the first resolver/fixture scope is the bounded
-stylized digitigrade furry-biped family and its fixed fixture envelope; and R3
+stylized digitigrade anthropomorphic/animal-like biped family and its fixed fixture envelope; and R3
 will bind exactly one explicit authored-conflict comparison profile whose
 identity and constants are derived and frozen by a bounded successor
 experiment. This discussion approval does not accept this DR, select profile
@@ -88,7 +88,7 @@ Superseded by: —
 
 ## Context
 
-The initial product boundary calls for stylized furry characters generated
+The initial product boundary calls for stylized creature characters generated
 without a handcrafted base mesh, while the first supported family and its
 variation envelope remain unresolved. A bounded family and fixed fixture set
 are needed for comparable surface and embodiment evidence. The semantic source
@@ -106,7 +106,7 @@ future graph relationships without implying support for arbitrary anatomy.
 
 ### First morphology family
 
-**Recommendation: Option 1 — a bounded stylized digitigrade furry biped.** The
+**Recommendation: Option 1 — a bounded stylized digitigrade anthropomorphic/animal-like biped.** The
 family has these required semantic modules:
 
 - torso and pelvis;
@@ -317,7 +317,7 @@ boundary machine-observable without introducing a general morphology language.
 ### Readiness 3 resolver boundary
 
 The first Readiness 3 resolver and fixture transaction is limited to this
-bounded stylized digitigrade furry-biped family and its fixed admitted fixture
+bounded stylized digitigrade anthropomorphic/animal-like biped family and its fixed admitted fixture
 envelope. It does not promise arbitrary morphology, additional limbs,
 quadrupeds, or unbounded attachment graphs. R3 binds exactly one explicit,
 separately content-bound **authored-conflict comparison profile** for the
@@ -467,13 +467,13 @@ evidence, not Stage 1 success population.
 
 ## Alternatives Considered
 
-### Option 1: Bounded stylized digitigrade furry biped
+### Option 1: Bounded stylized digitigrade anthropomorphic/animal-like biped
 
-This provides recognizable furry character structure, useful proportion
+This provides recognizable stylized creature-character structure, useful proportion
 variation, and a manageable semantic module set for the first native proof.
-**Recommendation: Option 1 — a bounded stylized digitigrade furry biped.**
+**Recommendation: Option 1 — a bounded stylized digitigrade anthropomorphic/animal-like biped.**
 
-### Option 2: Bounded plantigrade furry biped
+### Option 2: Bounded plantigrade anthropomorphic/animal-like biped
 
 This would simplify foot-ground assumptions and could be a useful later family,
 but it does not test the selected digitigrade body plan and would broaden the

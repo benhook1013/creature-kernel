@@ -218,8 +218,8 @@
       "id": "dr-0008-revision-14",
       "path": "docs/decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md",
       "role": "r3-boundary-contract",
-      "expected_sha256": "e4d140ff05e9b344f7ab6c84064011f17e9bd8bde2e104e6bf7492690b2f28db",
-      "expected_bytes": 48991
+      "expected_sha256": "c22dae19f01d88f814594b8003e88a6f8ce62623081915dce569d20f9d31b1cb",
+      "expected_bytes": 49138
     },
     {
       "id": "numeric-frame-research-design",

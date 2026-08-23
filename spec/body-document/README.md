@@ -182,7 +182,7 @@ successor transaction that admits the profile's canonical basis, finite-number
 and normalization semantics, admissible ranges, conditioning rules,
 tolerances, and expected graph snapshots. It does not reselect the Readiness 2
 carrier. R3's first resolver/fixture transaction is limited to the bounded
-stylized digitigrade furry-biped family and fixed fixture envelope. It binds
+stylized digitigrade anthropomorphic/animal-like biped family and fixed fixture envelope. It binds
 one explicit authored-conflict comparison profile for authored versus
 Attachment-equation-derived root placement; the profile identity and
 constants come from a bounded successor experiment. The profile is separately

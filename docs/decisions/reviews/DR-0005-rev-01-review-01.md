@@ -41,9 +41,9 @@ None. No blockers prevent the next decision or disposition.
    them through a real adapter.
 2. The earliest workflow has not yet been tested with technical artists or
    game integrators. Downstream usability therefore remains a hypothesis.
-3. Generalization from adult interactions as stress cases is unproved. Later
-   work should use representative fixtures and relevant expertise; this review
-   does not infer general solver validity from the motivating cases.
+3. Generalization from close-contact interactions as stress cases is unproved.
+   Later work should use representative fixtures and relevant expertise; this
+   review does not infer general solver validity from the motivating cases.
 4. DR-0005's high-level structured-source and CLI/API direction constrains
    later DR-0002 and DR-0004 detail even though their concrete choices remain
    open. Later work should treat DR-0005 as an upstream constraint or
@@ -63,7 +63,7 @@ runtime questions remain separate decisions and evidence obligations.
 This was a read-only review of the exact clean assigned commit. It did not run
 validation or CI, build prototypes, run benchmarks, perform usability or visual
 experiments, inspect external state or network material, or consult an artist,
-game integrator, adult-content expert, licensing counsel, or performance
+game integrator, relevant domain expert, licensing counsel, or performance
 specialist. It does not decide product or architecture acceptance.
 
 ## Documents Consulted

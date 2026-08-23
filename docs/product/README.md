@@ -25,7 +25,7 @@ product review; it is not an accepted project contract.
 The four Round 2 initial-boundary choices are recorded in
 [DR-0005](../decisions/DR-0005-initial-product-boundary-and-reference-workflow.md):
 engine-independent compiler/runtime identity, the developer/researcher-first
-workflow, stylized furry and demanding interaction/deformation stress cases
+workflow, stylized creature and demanding interaction/deformation stress cases
 with general mechanisms, and native generation before external-mesh
 conformance. They remain
 proposals recorded under DR-0005.

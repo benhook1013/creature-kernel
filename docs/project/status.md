@@ -13,13 +13,16 @@ governs what resumes next.
 
 ## Active runway
 
-Execution state: active toward the authored-form expressivity checkpoint after
-PR #107 merged at `f69a0a235152e72bd51279634cf3e8618d776e3f` on 2026-08-23.
-The current candidate is [PR #108](https://github.com/benhook1013/creature-kernel/pull/108)
-on `implementation/authored-shoulder-envelope` at `a98a00f`.
+Execution state: active toward the named human checkpoint, complete authored-
+form expressivity gallery. `origin/main` and the primary `main` checkout are
+at merged PR #108 commit
+`32e8816664b9e94065f8423da2272d4374567b35`. The active worktree is
+`/home/ben/src/creature-kernel-worktrees/authored-torso-profiles`, on branch
+`implementation/authored-torso-profiles`, based on that commit. The current
+candidate is [PR #109](https://github.com/benhook1013/creature-kernel/pull/109).
 
 Current operational snapshot: the [Codex app handover](current-handover.md)
-(2026-08-23 NZST) records the clean primary checkout, active runway worktree,
+(2026-08-23 NZST) records the primary checkout, active runway worktree,
 merged PR state, gallery, and service state. It is a navigation aid rather
 than a new authority owner. PR #107 retains the exact consumed producer
 lineage in surface reviews while preserving the parked EXP-0002 closure; it
@@ -71,30 +74,21 @@ per-fixture patches or handcrafted base mesh. It remains an exploratory
 consumer and does not select a permanent surface/backend or accept a decision
 record. No further aesthetic polishing of it is planned.
 
-The current PR #108 candidate is a direct, internal, reversible prerequisite
-for that checkpoint. The source/producer advances to
-`creature-kernel.provisional-form-preview.v6` with source-authored bilateral
-`form_shoulder_control` frames, `form_shoulder_peak` and `form_axilla`
-landmarks, and `form_shoulder_depth_radius` controls. Their source provenance
-is exact, and surface publication retains the exact producer envelope bytes
-actually consumed by both generators together with encoding, byte count, and
-SHA-256 cross-bound to `source_sha256`. The baseline private regional guide
-advances to
-`creature-kernel.disposable-surface-preview-regional-guide.v5` and strictly
-derives and binds those controls; the new depth control remains guide-only for
-baseline shoulder skin.
+The current candidate is a direct, internal, reversible torso prerequisite and
+makes no form-quality acceptance claim. Producer v7 adds a source-authored
+seven-section pelvis/torso axial profile, two identity frames, seven landmarks,
+21 asymmetric lateral/anterior/posterior radii with exact indexed provenance,
+and four shared variant projections. Baseline guide v6 retains both depth sides
+and lineage. Successor v4 / region v8 consumes a continuous asymmetric
+rounded-superellipse torso sweep. The publisher cross-binds producer, guide,
+and successor lineage and validates real bundles. The comparator adds
+Previous/Next controls, arrows, click-to-advance, and zoom.
 
-The disposable successor advances to
-`creature-kernel.disposable-successor-surface-preview.v3` and region
-`successor-torso-shoulder-head-neck-limb-extremity-tail-profile-sweeps-v7`.
-It consumes bilateral authored shoulder-envelope sweeps with five ordered
-sections per side, replacing the prior upper-arm root bridges and distal-
-deltoid fields. The retained temporary bridge is only two thigh-root
-connectors plus two hip transitions, four fields total. This candidate is not
-the named human visual checkpoint and claims neither visual acceptance nor
-completion. Its current geometry remains coarse; old artifact-specific
-underarm/point observations remain scoped to those displayed candidates and
-are not silently promoted to durable geometry prescriptions.
+The candidate also contains Ben-approved neutral public-facing wording cleanup
+and accepted MIT OR Apache-2.0 licensing DR-0014. That ancillary work does not
+change the active runway. Root license files, README, and CONTRIBUTING carry the
+current terms; Cargo package metadata is deliberately deferred because the
+parked Phase 3 evidence closure exact-binds the affected manifest bytes.
 
 The named human checkpoint remains the complete authored-form expressivity
 gallery across the agreed controls and regions:
@@ -107,19 +101,12 @@ per-variant or per-fixture patches or a handcrafted base mesh. This remains a
 bounded exploratory expressivity checkpoint, not proof of a finished
 morphology family or production surface system.
 
-Before publishing that checkpoint, retain either the exact v6 source envelope
-or an integrity-bound authored-dimension/landmark/frame/descriptor-role lineage projection in
-the immutable review evidence. A source hash without the corresponding lineage
-payload is not sufficient for the checkpoint's provenance claim.
-
-The current bounded source-envelope candidate makes future surface reviews
-self-contained by retaining the exact canonical v6 producer bytes consumed by
-the generators in `review.json`, deterministically zlib-compressed and
-Base64-encoded with their original byte count, encoding, and SHA-256. The
-retained v6 hash must equal the existing producer `source_sha256`; the validated
-input body document remains separately identified by its encoding, byte count,
-and SHA-256 without duplicating its bytes. This is lineage plumbing only; it
-does not change the displayed gallery or satisfy the named visual checkpoint.
+Before publishing that checkpoint, retain the exact current producer envelope
+— v7 in this candidate — or an integrity-bound authored-dimension, landmark,
+frame, and descriptor-role lineage projection, including indexed authored
+provenance, in immutable review evidence. A source hash without the
+corresponding lineage payload is not sufficient for the checkpoint's
+provenance claim.
 
 The active fixture's exact squared reference length is `1`. If a later runway
 admits producer output above JavaScript's exact-integer domain, align or tighten
@@ -923,7 +910,7 @@ It is internal reversible runway progress only and accepts or changes no
 contract.
 
 Ben's 2026-08-18 discussion approval records the next R3 direction: the first
-resolver/fixture transaction is bounded to the stylized digitigrade furry-biped
+resolver/fixture transaction is bounded to the stylized digitigrade anthropomorphic/animal-like biped
 family and fixed fixture envelope; exactly one separately content-bound
 authored-conflict comparison profile, distinct from expected-snapshot profiles,
 is to be derived and frozen by a bounded successor experiment; and once
@@ -1332,9 +1319,10 @@ composed-transform extension for profile discrimination. Exact aggregate
 module-binding semantics and Readiness 3 activation remain gated; the phase-two
 development run remains non-authoritative and insufficient to choose
 strict/micro/stress. Readiness 1 and Readiness 2 remain active while Readiness 3
-and later transactions remain gated. The next retained-human checkpoint is an
-actual rendered creature or primitive spatial preview, or a genuine
-direction-setting decision.
+and later transactions remain gated. The sole current retained-human
+checkpoint is the complete authored-form expressivity gallery described in
+the Active runway section above. The earlier rendered-creature or primitive
+spatial-preview checkpoint is historical and inactive.
 The main thread will autonomously resolve technical correctness findings or
 record evidence-dependent triggers under the DR-0001 Revision 6 transition
 direction; only a retained-human product, architecture-boundary, material

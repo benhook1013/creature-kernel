@@ -190,7 +190,7 @@ Discussion batch:
 - Platform/compiler/runtime versus game/editor/general engine.
 - Initial project developer/researcher versus downstream artist/game-developer
   users.
-- Stylized furry focus and demanding interaction/deformation stress cases
+- Stylized creature focus and demanding interaction/deformation stress cases
   versus general embodiment architecture.
 - Native generated creatures first and external mesh conformance later.
 
@@ -351,7 +351,7 @@ Prerequisite: CK-KICK-002.
 
 Outcome:
 
-- Choose one initial furry body family and a deliberately limited variation
+- Choose one initial creature body family and a deliberately limited variation
   envelope.
 - Define required and optional modules, attachment rules, parameter ranges, and
   invalid assemblies.
@@ -359,12 +359,12 @@ Outcome:
   the system cannot succeed through one disguised template.
 - Name deferred families explicitly rather than claiming arbitrary anatomy.
 
-The initial proposal to evaluate is a stylized digitigrade furry biped family,
+The initial proposal to evaluate is a stylized digitigrade anthropomorphic/animal-like biped family,
 including torso, head and muzzle, ears, arms, hands or paws, legs and feet or
 paws, and tail. It is not accepted merely because it appears here.
 
 Output: [DR-0008 Revision 5](../decisions/DR-0008-first-digitigrade-morphology-and-embodiment-envelope.md)
-records the bounded stylized digitigrade furry biped, its typed ownership tree,
+records the bounded stylized digitigrade anthropomorphic/animal-like biped, its typed ownership tree,
 reified non-ownership concepts with role-labelled relations, minimum functional
 articulation roles, required semantic modules, named optional ear and tail
 sockets, continuous variation categories, explicitly invalid or deferred
@@ -380,7 +380,7 @@ Prerequisite: CK-KICK-006.
 
 Outcome:
 
-- Define what makes generated output read as an intentional furry character
+- Define what makes generated output read as an intentional stylized creature character
   instead of a collection of blended primitives.
 - Select reference poses and views for shoulders, hips, muzzle, paws, branch
   junctions, and silhouette.

@@ -10,7 +10,7 @@ experiments, decision records, fixtures, and benchmarks.
 | ID | Question | State |
 | --- | --- | --- |
 | RQ-001 | What smallest result proves that unified body generation is valuable? | Open |
-| RQ-002 | What visual quality makes a generated form read as a furry character rather than an articulated blob? | Open |
+| RQ-002 | What visual quality makes a generated form read as an intentional stylized creature character rather than an articulated blob? | Open |
 | RQ-003 | Which body variation range is useful before support becomes bespoke? | Open |
 | RQ-004 | When, if ever, can model-assisted visual analysis provide reliable, actionable feedback on creature defects without displacing human visual judgment? | Open |
 
