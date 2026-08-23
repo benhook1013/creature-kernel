@@ -180,6 +180,68 @@ def _rotated_between_sections_profile_sweep() -> successor._ProfileSweep:
     return successor._ProfileSweep(sections, caps)
 
 
+_HEAD_NECK_AXIS_INDEX = {"lateral": 0, "up": 1, "forward": 2}
+
+
+def _mutate_head_neck_radius(
+    guide: object,
+    section_index: int,
+    axis: str,
+    factor: float = 1.37,
+) -> object:
+    """Make one otherwise-valid successor guide with derived connections."""
+
+    profile = guide.head_guide.profile  # type: ignore[attr-defined]
+    sections = list(profile.sections)
+    source = sections[section_index]
+    radii = list(source.radii)
+    radii[_HEAD_NECK_AXIS_INDEX[axis]] *= factor
+    sections[section_index] = replace(source, radii=tuple(radii))
+    rebuilt_connections = []
+    for connection in profile.connections:
+        from_section = sections[connection.spec.from_section_index]
+        to_section = sections[connection.spec.to_section_index]
+        rebuilt_connections.append(replace(
+            connection,
+            from_section=from_section,
+            to_section=to_section,
+            centerline=(from_section.center, to_section.center),
+            thickness=(min(from_section.radii), min(to_section.radii)),
+        ))
+    changed_profile = replace(profile, sections=tuple(sections), connections=tuple(rebuilt_connections))
+    return replace(guide, head_guide=replace(guide.head_guide, profile=changed_profile))  # type: ignore[attr-defined]
+
+
+def _head_neck_route_signature(
+    route: successor._RegionalProfileSweep,
+    source_profile: object,
+    axes: object,
+) -> np.ndarray:
+    """Capture direct route-field, station-volume, and bound observables."""
+
+    probes = []
+    for section in route.sweep.sections:
+        source = source_profile.sections[section.source_section_index]
+        center = np.asarray(section.center, dtype=np.float64)
+        probes.extend(
+            center + 0.5 * source.radii[index] * np.asarray(getattr(axes, axis), dtype=np.float64)
+            for axis, index in _HEAD_NECK_AXIS_INDEX.items()
+        )
+    points = np.asarray(probes, dtype=np.float64)
+    station_values = np.concatenate(
+        tuple(
+            successor._profile_station_volume_field(
+                points[index:index + 3],
+                route.sweep.sections[index // 3],
+            )
+            for index in range(0, len(points), 3)
+        )
+    )
+    route_values = successor._profile_sweep_field(points, route.sweep)
+    lower, upper = successor._profile_sweep_bounds(route.sweep)
+    return np.concatenate((route_values, station_values, lower, upper))
+
+
 class SuccessorTorsoProfileNumericalTests(unittest.TestCase):
     def test_torso_profile_hits_exact_cardinals_and_has_finite_outside_caps(self) -> None:
         sweep = _test_torso_profile_sweep()
@@ -915,75 +977,222 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 attributed = component.attribution(points)  # type: ignore[misc]
                 self.assertEqual(tuple(owner[3] for owner in attributed), tuple(section.owner.key[3] for section in item.sweep.sections))
 
-    def test_head_neck_sweeps_retain_guide_controls_and_shared_topology(self) -> None:
+    def test_head_neck_routes_consume_exact_authored_topology_and_remain_reusable(self) -> None:
+        expected_routes = {
+            "vertical-neck-cranium": ((0, 1, 2, 3, 4), "up", ("lateral", "forward")),
+            "forward-muzzle": ((3, 5, 6, 7), "forward", ("lateral", "up")),
+        }
         topologies = []
-        for variant_id, descriptors, _ in self.form.variants:
+        for _, descriptors, _ in self.form.variants:
             guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
             region = successor.compile_successor_region(guide)
-            topologies.append((tuple(item.recipe for item in region.head_neck_sweeps), tuple(len(item.sweep.sections) for item in region.head_neck_sweeps)))
-            head = guide.head_guide
-            cranium, muzzle, head_transition, neck_transition, collar = region.head_neck_sweeps
-            self.assertIs(cranium.owner, head.head_owner)
-            self.assertIs(muzzle.owner, head.head_owner)
-            self.assertIs(head_transition.owner, head.head_owner)
-            self.assertIs(neck_transition.owner, head.neck_owner)
-            self.assertIs(collar.owner, head.neck_owner)
-            np.testing.assert_allclose(head_transition.sweep.sections[0].center, head.head_transition[0])
-            np.testing.assert_allclose(head_transition.sweep.sections[-1].center, head.head_transition[1])
-            np.testing.assert_allclose(neck_transition.sweep.sections[0].center, head.neck_transition[0])
-            np.testing.assert_allclose(neck_transition.sweep.sections[-1].center, head.neck_transition[1])
-            self.assertEqual(head_transition.sweep.sections[0].transverse_radii, (head.head_transition_thickness[0],) * 2)
-            self.assertEqual(head_transition.sweep.sections[-1].transverse_radii, (head.head_transition_thickness[1],) * 2)
-            self.assertEqual(neck_transition.sweep.sections[0].transverse_radii, (head.neck_transition_thickness[0],) * 2)
-            self.assertEqual(neck_transition.sweep.sections[-1].transverse_radii, (head.neck_transition_thickness[1],) * 2)
-            # The mass profiles are guide-derived and have more than one
-            # station, rather than reproducing the baseline ellipsoids.
-            self.assertNotEqual(tuple(cranium.sweep.sections[0].center), tuple(cranium.sweep.sections[-1].center))
-            self.assertNotEqual(tuple(muzzle.sweep.sections[0].center), tuple(muzzle.sweep.sections[-1].center))
-            muzzle_section = muzzle.sweep.sections[1]
-            self.assertEqual(
-                muzzle_section.transverse_radii,
-                (head.muzzle_radii[0] * successor._MUZZLE_PROFILE[1][1], head.muzzle_radii[1] * successor._MUZZLE_PROFILE[1][2]),
-            )
-            muzzle_tangent = np.asarray(muzzle_section.tangent)
-            muzzle_first, muzzle_second = (np.asarray(axis) for axis in muzzle_section.transverse_axes)
-            np.testing.assert_allclose(muzzle_tangent, np.asarray(head.axes.forward), rtol=0.0, atol=1.0e-12)
-            np.testing.assert_allclose(
-                (np.linalg.norm(muzzle_tangent), np.linalg.norm(muzzle_first), np.linalg.norm(muzzle_second)),
-                (1.0, 1.0, 1.0), rtol=0.0, atol=1.0e-12,
-            )
-            np.testing.assert_allclose(
-                (np.dot(muzzle_tangent, muzzle_first), np.dot(muzzle_tangent, muzzle_second), np.dot(muzzle_first, muzzle_second)),
-                (0.0, 0.0, 0.0), rtol=0.0, atol=1.0e-12,
-            )
-            self.assertAlmostEqual(abs(float(np.dot(muzzle_first, np.asarray(head.axes.lateral)))), 1.0, places=12)
-            self.assertAlmostEqual(abs(float(np.dot(muzzle_second, np.asarray(head.axes.up)))), 1.0, places=12)
-            self.assertLess(
-                muzzle.sweep.sections[-1].transverse_radii[0],
-                muzzle.sweep.sections[1].transverse_radii[0],
-            )
-            collar_section = collar.sweep.sections[1]
-            self.assertEqual(
-                collar_section.transverse_radii,
-                (
-                    head.neck_collar_radii[0] * successor._COLLAR_TRANSVERSE_SCALE * successor._COLLAR_PROFILE[1][1],
-                    head.neck_collar_radii[2] * successor._COLLAR_TRANSVERSE_SCALE * successor._COLLAR_PROFILE[1][2],
-                ),
-            )
-            source_keys = {descriptor.key for descriptor in guide.source_descriptors}
-            self.assertTrue(all(item.owner.key in source_keys for item in region.head_neck_sweeps))
+            self.assertIsInstance(region.head_neck_sweeps, tuple)
+            self.assertIs(region.head_neck_profile, guide.head_guide.profile)
+            self.assertEqual(tuple(item.recipe for item in region.head_neck_sweeps), tuple(expected_routes))
+            for item in region.head_neck_sweeps:
+                indices, tangent_axis, transverse_axes = expected_routes[item.recipe]
+                self.assertEqual(item.sweep.profile_operation, successor._HEAD_NECK_PROFILE_OPERATION)
+                self.assertEqual(tuple(section.source_section_index for section in item.sweep.sections), indices)
+                self.assertEqual(item.sweep.names, tuple(surface_preview.HEAD_NECK_PROFILE_SECTION_NAMES[index] for index in indices))
+                self.assertEqual(len(item.sweep.endpoint_caps), 2)
+                self.assertEqual(item.sweep.internal_transitions, ())
+                axis_index = {"lateral": 0, "up": 1, "forward": 2}
+                for section, source_index in zip(item.sweep.sections, indices):
+                    source = guide.head_guide.profile.sections[source_index]
+                    self.assertIs(section.owner, source.owner)
+                    self.assertEqual(section.center, source.center)
+                    self.assertEqual(section.tangent_radius, source.radii[axis_index[tangent_axis]])
+                    self.assertEqual(
+                        section.transverse_radii,
+                        tuple(source.radii[axis_index[axis]] for axis in transverse_axes),
+                    )
+                    np.testing.assert_array_equal(
+                        successor._profile_sweep_field(np.asarray(section.center).reshape(1, 3), item.sweep) < 0.0,
+                        np.asarray([True]),
+                    )
+                connection_indices = tuple(
+                    connection.spec.name
+                    for connection in guide.head_guide.profile.connections
+                    if connection.spec.route == item.recipe
+                )
+                self.assertEqual(
+                    [connection[0] for connection in surface_preview.HEAD_NECK_PROFILE_CONNECTIONS if connection[3] == item.recipe],
+                    list(connection_indices),
+                )
+                for connection in guide.head_guide.profile.connections:
+                    if connection.spec.route != item.recipe:
+                        continue
+                    samples = np.linspace(connection.centerline[0], connection.centerline[1], 9)
+                    self.assertTrue(np.all(successor._profile_sweep_field(samples, item.sweep) < 0.0))
+            metadata = successor._head_neck_metadata(region)
+            self.assertEqual(metadata["operation"], successor._HEAD_NECK_PROFILE_OPERATION)
+            self.assertEqual([route["name"] for route in metadata["route_topology"]], list(expected_routes))
+            self.assertEqual(tuple(item.recipe for item in region.head_neck_sweeps), tuple(route["name"] for route in metadata["route_topology"]))
+            self.assertEqual(metadata["sections_consumed"], 8)
+            self.assertEqual(metadata["connections_consumed"], 7)
+            topologies.append(tuple((item.recipe, item.sweep.names, item.sweep.profile_operation) for item in region.head_neck_sweeps))
         self.assertEqual(len(set(topologies)), 1)
+
+    def test_head_neck_connections_are_exact_adjacent_route_spans_and_derived(self) -> None:
+        expected_route_spans = []
+        for route_name, section_indices, _, _ in successor._HEAD_NECK_ROUTE_TOPOLOGY:
+            expected_route_spans.extend(
+                (route_name, left, right)
+                for left, right in zip(section_indices, section_indices[1:])
+            )
+
+        for variant_id, descriptors, _ in self.form.variants:
+            with self.subTest(variant=variant_id):
+                guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+                profile = guide.head_guide.profile
+                region = successor.compile_successor_region(guide)
+                observed_spans = tuple(
+                    (connection.spec.route, connection.spec.from_section_index, connection.spec.to_section_index)
+                    for connection in profile.connections
+                )
+                self.assertEqual(observed_spans, tuple(expected_route_spans))
+                self.assertEqual(len(profile.connections), 7)
+
+                routes = {item.recipe: item for item in region.head_neck_sweeps}
+                for connection in profile.connections:
+                    from_section = profile.sections[connection.spec.from_section_index]
+                    to_section = profile.sections[connection.spec.to_section_index]
+                    self.assertIs(connection.from_section, from_section)
+                    self.assertIs(connection.to_section, to_section)
+                    self.assertEqual(connection.centerline, (from_section.center, to_section.center))
+                    self.assertEqual(connection.thickness, (min(from_section.radii), min(to_section.radii)))
+
+                for route_name, _, _, _ in successor._HEAD_NECK_ROUTE_TOPOLOGY:
+                    route = routes[route_name]
+                    route_connections = tuple(
+                        connection for connection in profile.connections
+                        if connection.spec.route == route_name
+                    )
+                    self.assertEqual(len(route_connections), len(route.sweep.sections) - 1)
+                    for connection, (left, right) in zip(
+                        route_connections,
+                        zip(route.sweep.sections, route.sweep.sections[1:]),
+                    ):
+                        self.assertEqual(connection.from_section, profile.sections[left.source_section_index])
+                        self.assertEqual(connection.to_section, profile.sections[right.source_section_index])
+                        self.assertEqual(connection.centerline, (left.center, right.center))
+
+    def test_every_authored_head_neck_radius_changes_a_compiled_route_observable(self) -> None:
+        for variant_id, descriptors, _ in self.form.variants:
+            guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+            profile = guide.head_guide.profile
+            axes = guide.topology.axes
+            baseline_routes = {item.recipe: item for item in successor._make_head_neck_sweeps(guide)}
+            for section_index, source in enumerate(profile.sections):
+                affected_routes = tuple(
+                    (route_name, section_indices)
+                    for route_name, section_indices, _, _ in successor._HEAD_NECK_ROUTE_TOPOLOGY
+                    if section_index in section_indices
+                )
+                for axis in _HEAD_NECK_AXIS_INDEX:
+                    with self.subTest(variant=variant_id, station=source.name, axis=axis):
+                        changed_guide = _mutate_head_neck_radius(guide, section_index, axis)
+                        changed_route_items = successor._make_head_neck_sweeps(changed_guide)
+                        changed_routes = {item.recipe: item for item in changed_route_items}
+                        self.assertEqual(set(changed_routes), set(baseline_routes))
+                        differences = []
+                        for route_name, _ in affected_routes:
+                            differences.append(float(np.max(np.abs(
+                                _head_neck_route_signature(changed_routes[route_name], profile, axes)
+                                - _head_neck_route_signature(baseline_routes[route_name], profile, axes)
+                            ))))
+                        self.assertTrue(
+                            any(difference > 1.0e-8 for difference in differences),
+                            msg=f"{source.name}.{axis} did not affect its route observables: {differences!r}",
+                        )
 
     def test_head_neck_invalid_guide_dimensions_fail_closed(self) -> None:
         _, descriptors, _ = self.form.variants[0]
         guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
-        invalid_head = replace(guide.head_guide, muzzle_radii=(float("nan"), 0.2, 0.2))
-        invalid_guide = replace(guide, head_guide=invalid_head)
-        with self.assertRaises(successor.SuccessorPreviewError):
-            successor._make_head_neck_sweeps(invalid_guide)
+        profile = guide.head_guide.profile
+
+        def with_profile(changed_profile: object) -> object:
+            return replace(guide, head_guide=replace(guide.head_guide, profile=changed_profile))
+
+        invalid_section = replace(profile.sections[6], radii=(float("nan"), 0.2, 0.2))
+        invalid_sections = profile.sections[:6] + (invalid_section,) + profile.sections[7:]
+        invalid_connection_spec = replace(profile.connections[0].spec, to_section_index=7)
+        invalid_connection = replace(profile.connections[0], spec=invalid_connection_spec)
+        invalid_centerline = replace(
+            profile.connections[0],
+            centerline=(profile.connections[0].centerline[0], tuple(value + 0.1 for value in profile.connections[0].centerline[1])),
+        )
+        invalid_lineage = replace(
+            profile.sections[7],
+            forward_lineage=replace(profile.sections[7].forward_lineage, reference_index=999),
+        )
+        invalid_axes = replace(profile, axes=replace(guide.topology.axes, up=(0.0, 0.0, 1.0)))
+        cases = (
+            ("radius", replace(profile, sections=invalid_sections)),
+            ("section-index", replace(profile, sections=profile.sections[:2] + (replace(profile.sections[2], section_index=7),) + profile.sections[3:])),
+            ("frame-index", replace(profile, sections=profile.sections[:2] + (replace(profile.sections[2], frame_index=99),) + profile.sections[3:])),
+            ("landmark-index", replace(profile, sections=profile.sections[:2] + (replace(profile.sections[2], landmark_index=99),) + profile.sections[3:])),
+            ("edge-index", replace(profile, connections=(invalid_connection,) + profile.connections[1:])),
+            ("edge-centerline", replace(profile, connections=(invalid_centerline,) + profile.connections[1:])),
+            ("lineage-index", replace(profile, sections=profile.sections[:7] + (invalid_lineage,))),
+            ("axes", invalid_axes),
+        )
+        for name, invalid_profile in cases:
+            with self.subTest(name=name), self.assertRaises(successor.SuccessorPreviewError):
+                successor._make_head_neck_sweeps(with_profile(invalid_profile))
+
+    def test_authored_station_radius_and_position_are_skin_driving(self) -> None:
+        """A valid terminal radius and crown position must change route fields."""
+
+        for _, descriptors, _ in self.form.variants:
+            guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+            profile = guide.head_guide.profile
+
+            def mutate_profile(index: int, *, center_delta: tuple[float, float, float] | None = None, radii: tuple[float, float, float] | None = None) -> object:
+                sections = list(profile.sections)
+                source = sections[index]
+                center = tuple(
+                    float(source.center[axis] + (center_delta[axis] if center_delta is not None else 0.0))
+                    for axis in range(3)
+                )
+                sections[index] = replace(source, center=center, radii=radii or source.radii)
+                rebuilt_connections = []
+                for connection in profile.connections:
+                    from_section = sections[connection.spec.from_section_index]
+                    to_section = sections[connection.spec.to_section_index]
+                    rebuilt_connections.append(replace(
+                        connection,
+                        from_section=from_section,
+                        to_section=to_section,
+                        centerline=(from_section.center, to_section.center),
+                        thickness=(min(from_section.radii), min(to_section.radii)),
+                    ))
+                changed_profile = replace(profile, sections=tuple(sections), connections=tuple(rebuilt_connections))
+                return replace(guide, head_guide=replace(guide.head_guide, profile=changed_profile))
+
+            original_routes = {item.recipe: item for item in successor._make_head_neck_sweeps(guide)}
+            radius_change = tuple(profile.sections[7].radii[:2]) + (profile.sections[7].radii[2] * 0.35,)
+            radius_guide = mutate_profile(7, radii=radius_change)
+            successor._validate_authored_head_neck_guide(radius_guide)
+            changed_radius_routes = {item.recipe: item for item in successor._make_head_neck_sweeps(radius_guide)}
+            muzzle_tip = np.asarray(profile.sections[7].center, dtype=np.float64)
+            forward = np.asarray(guide.topology.axes.forward, dtype=np.float64)
+            radius_probe = (muzzle_tip + 0.75 * profile.sections[7].radii[2] * forward).reshape(1, 3)
+            original_radius_value = successor._profile_sweep_field(radius_probe, original_routes["forward-muzzle"].sweep)
+            changed_radius_value = successor._profile_sweep_field(radius_probe, changed_radius_routes["forward-muzzle"].sweep)
+            self.assertGreater(float(np.max(np.abs(original_radius_value - changed_radius_value))), 1.0e-8)
+
+            position_guide = mutate_profile(4, center_delta=(0.18, 0.0, 0.0))
+            successor._validate_authored_head_neck_guide(position_guide)
+            changed_position_routes = {item.recipe: item for item in successor._make_head_neck_sweeps(position_guide)}
+            crown = np.asarray(profile.sections[4].center, dtype=np.float64)
+            crown_probe = np.asarray((crown, crown + np.asarray((0.0, 0.0, 0.20)), crown + np.asarray((0.20, 0.0, 0.0))))
+            original_position_value = successor._profile_sweep_field(crown_probe, original_routes["vertical-neck-cranium"].sweep)
+            changed_position_value = successor._profile_sweep_field(crown_probe, changed_position_routes["vertical-neck-cranium"].sweep)
+            self.assertGreater(float(np.max(np.abs(original_position_value - changed_position_value))), 1.0e-8)
 
     def test_head_neck_sweeps_are_consumed_by_components_and_composed_field(self) -> None:
-        expected_recipes = {"cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar"}
+        expected_recipes = {"vertical-neck-cranium", "forward-muzzle"}
         for variant_id, descriptors, _ in self.form.variants:
             guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
             region = successor.compile_successor_region(guide)
@@ -1511,11 +1720,19 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             np.testing.assert_array_equal(first.normals, second.normals)
             self.assertEqual(first.metrics, second.metrics)
             self.assertEqual(first.metrics["successor_region"]["torso_section_names"][-1], "upper-ribcage-shoulder")
-            head_neck_owner_keys = {
-                (item["namespace"], tuple(item["anchors"]), item["kind"], item["role"])
-                for item in limb_metrics["head_neck_sweep_owner_keys"]
-            }
-            self.assertIn(first.representation.head_neck_sweeps[3].owner.key, head_neck_owner_keys)
+            head_neck_metrics = limb_metrics["head_neck"]
+            self.assertEqual(head_neck_metrics["profile_format"], surface_preview.AUTHORED_HEAD_NECK_PROFILE_FORMAT)
+            self.assertEqual(head_neck_metrics["operation"], successor._HEAD_NECK_PROFILE_OPERATION)
+            self.assertEqual(head_neck_metrics["sections_consumed"], 8)
+            self.assertEqual(head_neck_metrics["connections_consumed"], 7)
+            self.assertEqual(
+                [route["name"] for route in head_neck_metrics["route_topology"]],
+                ["vertical-neck-cranium", "forward-muzzle"],
+            )
+            self.assertEqual(
+                [item["section_index"] for item in head_neck_metrics["sections"]],
+                list(range(8)),
+            )
             signatures.append((first.vertices.shape, first.metrics["signed_volume"], tuple(first.metrics["grid"]["bounds_max"])))
         self.assertEqual(len(signatures), 4)
         self.assertGreater(len(set(signatures)), 1)
@@ -1564,7 +1781,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 [item["source_variant_sha256"] for item in first_manifest["variants"]],
                 [item["source_variant_sha256"] for item in second_manifest["variants"]],
             )
-            self.assertEqual(successor.FORMAT, "creature-kernel.disposable-successor-surface-preview.v4")
+            self.assertEqual(successor.FORMAT, "creature-kernel.disposable-successor-surface-preview.v5")
             self.assertEqual(first_manifest["format"], successor.FORMAT)
             self.assertEqual(first_manifest["consumer_id"], successor.CONSUMER_ID)
             self.assertEqual(first_manifest["generator"]["samples_per_axis"], 56)
@@ -1699,15 +1916,24 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                         ],
                     },
                 )
-                self.assertEqual(sidecar["head_neck"]["sweeps_consumed"], 5)
+                self.assertEqual(sidecar["head_neck"]["profile_format"], surface_preview.AUTHORED_HEAD_NECK_PROFILE_FORMAT)
+                self.assertEqual(sidecar["head_neck"]["operation"], successor._HEAD_NECK_PROFILE_OPERATION)
+                self.assertEqual(sidecar["head_neck"]["regional_guide_format"], successor.REGIONAL_GUIDE_FORMAT)
+                self.assertEqual(sidecar["head_neck"]["sections_consumed"], 8)
+                self.assertEqual(sidecar["head_neck"]["connections_consumed"], 7)
                 self.assertEqual(
-                    sidecar["head_neck"]["sweep_order"],
-                    ["cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar"],
+                    [item["section_index"] for item in sidecar["head_neck"]["sections"]],
+                    list(range(8)),
                 )
                 self.assertEqual(
-                    sidecar["head_neck"]["section_counts"],
-                    [5, 4, 2, 2, 3],
+                    [item["name"] for item in sidecar["head_neck"]["route_topology"]],
+                    ["vertical-neck-cranium", "forward-muzzle"],
                 )
+                self.assertEqual(
+                    [item["section_indices"] for item in sidecar["head_neck"]["route_topology"]],
+                    [[0, 1, 2, 3, 4], [3, 5, 6, 7]],
+                )
+                self.assertTrue(all(set(item["lineage"]) == {"lateral", "up", "forward"} for item in sidecar["head_neck"]["sections"]))
                 self.assertEqual(sidecar["limbs"]["sweeps_consumed"], 4)
                 self.assertEqual(sidecar["limbs"]["sweep_order"], ["left-arm", "left-leg", "right-arm", "right-leg"])
                 self.assertEqual(sidecar["limbs"]["station_counts"], [5, 5, 5, 5])

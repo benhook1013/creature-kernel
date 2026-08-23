@@ -15,11 +15,14 @@ governs what resumes next.
 
 Execution state: active toward the named human checkpoint, complete authored-
 form expressivity gallery. `origin/main` and the primary `main` checkout are
-at merged PR #108 commit
-`32e8816664b9e94065f8423da2272d4374567b35`. The active worktree is
-`/home/ben/src/creature-kernel-worktrees/authored-torso-profiles`, on branch
-`implementation/authored-torso-profiles`, based on that commit. The current
-candidate is [PR #109](https://github.com/benhook1013/creature-kernel/pull/109).
+at merged PR #109 commit
+`52b88370f2f81b3c2cc937da7cc34f83d4481a7a`. The active worktree is
+`/home/ben/src/creature-kernel-worktrees/authored-head-neck-profiles`, on
+branch `implementation/authored-head-neck-profiles`, based on that commit.
+No PR exists yet for the current work. The authored torso profile is merged
+predecessor evidence; the current candidate contains the completed internal,
+reversible source-authored head/neck prerequisite toward the unchanged
+complete authored-form expressivity gallery checkpoint.
 
 Current operational snapshot: the [Codex app handover](current-handover.md)
 (2026-08-23 NZST) records the primary checkout, active runway worktree,
@@ -74,18 +77,42 @@ per-fixture patches or handcrafted base mesh. It remains an exploratory
 consumer and does not select a permanent surface/backend or accept a decision
 record. No further aesthetic polishing of it is planned.
 
-The current candidate is a direct, internal, reversible torso prerequisite and
-makes no form-quality acceptance claim. Producer v7 adds a source-authored
-seven-section pelvis/torso axial profile, two identity frames, seven landmarks,
-21 asymmetric lateral/anterior/posterior radii with exact indexed provenance,
-and four shared variant projections. Baseline guide v6 retains both depth sides
-and lineage. Successor v4 / region v8 consumes a continuous asymmetric
-rounded-superellipse torso sweep. The publisher cross-binds producer, guide,
-and successor lineage and validates real bundles. The comparator adds
-Previous/Next controls, arrows, click-to-advance, and zoom.
+PR #109 is merged at `52b88370f2f81b3c2cc937da7cc34f83d4481a7`. Its authored
+torso profile is merged predecessor evidence and makes no form-quality
+acceptance claim. PR #109's producer v7 added a source-authored seven-section
+pelvis/torso axial profile, two identity frames, seven landmarks, 21 asymmetric
+lateral/anterior/posterior radii with exact indexed provenance, and four shared
+variant projections. Baseline guide v6 retained both depth sides and lineage.
+Successor v4 / region v8 consumed a continuous asymmetric rounded-superellipse
+torso sweep. The publisher cross-bound producer, guide, and successor lineage
+and validated real bundles. The comparator added Previous/Next controls,
+arrows, click-to-advance, and zoom.
 
-The candidate also contains Ben-approved neutral public-facing wording cleanup
-and accepted MIT OR Apache-2.0 licensing DR-0014. That ancillary work does not
+The current candidate contains the completed internal, reversible
+source-authored head/neck prerequisite and remains on the runway toward the
+unchanged complete authored-form expressivity gallery checkpoint. Producer v8
+adds source-authored head/neck profile v1: eight indexed stations, seven named
+branched connections, head/neck identity frames and landmarks, 24
+lateral/up/forward radii with provenance, and four shared variant projections.
+Baseline regional guide v7 carries exact profile and compatibility lineage.
+Successor v5 / region v9 consumes two reusable vertical neck/cranium and
+forward muzzle route sweeps, full three-radius station volumes, and exact
+lineage without per-variant tuning. The publisher cross-binds producer,
+guide, and successor, retains compact exact producer evidence within the
+existing bounds, and completed real end-to-end publication with four groups
+and eight assets. Consolidated tests, two fresh browser/operator hands-on
+trials, and the final fresh adversarial code review passed their merge gates;
+the review's one documentation defect was corrected and its two non-contract
+concerns were dispositioned. No user appraisal is requested because this is
+an internal region slice, not the complete authored-form gallery.
+
+After PR, CI, and merge gates, the next direct region slice toward the
+same named checkpoint is shoulder/arm authored control. The final human stop
+remains the complete authored-form gallery. No PR exists yet for this current
+work.
+
+PR #109 also contained Ben-approved neutral public-facing wording cleanup and
+accepted MIT OR Apache-2.0 licensing DR-0014. That ancillary work does not
 change the active runway. Root license files, README, and CONTRIBUTING carry the
 current terms; Cargo package metadata is deliberately deferred because the
 parked Phase 3 evidence closure exact-binds the affected manifest bytes.
@@ -101,12 +128,11 @@ per-variant or per-fixture patches or a handcrafted base mesh. This remains a
 bounded exploratory expressivity checkpoint, not proof of a finished
 morphology family or production surface system.
 
-Before publishing that checkpoint, retain the exact current producer envelope
-— v7 in this candidate — or an integrity-bound authored-dimension, landmark,
-frame, and descriptor-role lineage projection, including indexed authored
-provenance, in immutable review evidence. A source hash without the
-corresponding lineage payload is not sufficient for the checkpoint's
-provenance claim.
+Before publishing that checkpoint, retain the exact producer envelope used by
+the checkpoint or an integrity-bound authored-dimension, landmark, frame, and
+descriptor-role lineage projection, including indexed authored provenance, in
+immutable review evidence. A source hash without the corresponding lineage
+payload is not sufficient for the checkpoint's provenance claim.
 
 The active fixture's exact squared reference length is `1`. If a later runway
 admits producer output above JavaScript's exact-integer domain, align or tighten

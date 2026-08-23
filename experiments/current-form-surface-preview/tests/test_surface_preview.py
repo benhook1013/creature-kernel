@@ -107,6 +107,16 @@ def make_payload() -> dict[str, object]:
         ("lower-ribcage", "torso", 0.75, (1400, 850, 650)),
         ("upper-ribcage-shoulder", "torso", 0.95, (1500, 900, 700)),
     ]
+    head_neck_specs = [
+        ("neck-collar", "neck", 0.15, 0.0, (420, 380, 400)),
+        ("neck-upper", "neck", 0.55, 0.0, (340, 320, 330)),
+        ("head-base", "head", -0.35, 0.0, (520, 400, 480)),
+        ("cranium-mid", "head", 0.05, 0.0, (780, 560, 720)),
+        ("cranium-crown", "head", 0.40, 0.0, (700, 520, 650)),
+        ("muzzle-root", "head", -0.10, 0.25, (500, 360, 520)),
+        ("muzzle-mid", "head", -0.12, 0.55, (430, 300, 500)),
+        ("muzzle-tip", "head", -0.12, 0.80, (340, 240, 360)),
+    ]
     authored_dimensions = []
     for item in descriptors:
         shape = item["shape"]
@@ -135,6 +145,16 @@ def make_payload() -> dict[str, object]:
                 "value_permille": value,
                 "provenance": {"source": "source-authored", "document": "test", "namespace": "main"},
             })
+    for name, owner_role, _, _, radii in head_neck_specs:
+        owner = address(owner_role)
+        underscore_name = name.replace("-", "_")
+        for suffix, value in zip(surface_preview.HEAD_NECK_PROFILE_DIMENSION_SUFFIXES, radii):
+            authored_dimensions.append({
+                "owner": copy.deepcopy(owner),
+                "role": surface_preview.HEAD_NECK_PROFILE_DIMENSION_PREFIX + underscore_name + "_" + suffix,
+                "value_permille": value,
+                "provenance": {"source": "source-authored", "document": "test", "namespace": "main"},
+            })
     authored_dimensions.sort(key=lambda item: (item["owner"]["namespace"], tuple(item["owner"]["anchors"]), item["owner"]["kind"], item["owner"]["role"], item["role"]))
     variants = []
     for variant_id in surface_preview.VARIANT_IDS:
@@ -160,7 +180,28 @@ def make_payload() -> dict[str, object]:
                 },
                 "provenance": {"source": "source-authored", "document": "test", "namespace": "main"},
             })
-        variants.append({"id": variant_id, "profile_id": variant_id, "provenance": {"source": "profile-derived-display", "resource_profile_id": "ck.resource.body.r2", "shape_basis": "source-authored-dimensions-plus-fixed-display-factor"}, "descriptors": current, "torso_profile": {"format": surface_preview.AUTHORED_TORSO_PROFILE_FORMAT, "source": "authored_torso_profile", "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}, "sections": torso_profile_sections}})
+        head_neck_profile_sections = []
+        for index, (name, owner_role, y, z, radii) in enumerate(head_neck_specs):
+            factors = surface_preview._head_neck_profile_factors(variant_id, owner_role)
+            head_neck_profile_sections.append({
+                "source_section_index": index,
+                "name": name,
+                "position": [0.0, y, z],
+                "lateral_radius_permille": radii[0] * factors[0] // 1_000,
+                "up_radius_permille": radii[1] * factors[1] // 1_000,
+                "forward_radius_permille": radii[2] * factors[2] // 1_000,
+                "scaling": {
+                    "lateral_factor_permille": factors[0],
+                    "up_factor_permille": factors[1],
+                    "forward_factor_permille": factors[2],
+                },
+                "provenance": {"source": "source-authored", "document": "test", "namespace": "main"},
+            })
+        head_neck_connections = [
+            {"name": name, "from_section_index": from_index, "to_section_index": to_index, "route": route}
+            for name, from_index, to_index, route in surface_preview.HEAD_NECK_PROFILE_CONNECTIONS
+        ]
+        variants.append({"id": variant_id, "profile_id": variant_id, "provenance": {"source": "profile-derived-display", "resource_profile_id": "ck.resource.body.r2", "shape_basis": "source-authored-dimensions-plus-fixed-display-factor"}, "descriptors": current, "torso_profile": {"format": surface_preview.AUTHORED_TORSO_PROFILE_FORMAT, "source": "authored_torso_profile", "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}, "sections": torso_profile_sections}, "head_neck_profile": {"format": surface_preview.AUTHORED_HEAD_NECK_PROFILE_FORMAT, "source": "authored_head_neck_profile", "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}, "sections": head_neck_profile_sections, "connections": head_neck_connections}})
     authored_landmarks = [
         {"owner": address("upper_arm", ["left"]), "role": "form_shoulder_peak", "frame": {"owner": address("upper_arm", ["left"]), "role": "form_shoulder_control"}, "position": [-0.1, 0.15, 0.0], "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}},
         {"owner": address("upper_arm", ["left"]), "role": "form_axilla", "frame": {"owner": address("upper_arm", ["left"]), "role": "form_shoulder_control"}, "position": [-0.1, -0.3, 0.0], "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}},
@@ -176,8 +217,20 @@ def make_payload() -> dict[str, object]:
             "position": [0.0, y, 0.0],
             "provenance": {"source": "source-authored", "document": "test", "namespace": "main"},
         })
+    for name, owner_role, y, z, _ in head_neck_specs:
+        owner = address(owner_role)
+        authored_landmarks.append({
+            "owner": copy.deepcopy(owner),
+            "role": surface_preview.HEAD_NECK_PROFILE_LANDMARK_PREFIX + name.replace("-", "_"),
+            "frame": {"owner": copy.deepcopy(owner), "role": surface_preview.HEAD_NECK_PROFILE_FRAME_ROLE},
+            "position": [0.0, y, z],
+            "provenance": {"source": "source-authored", "document": "test", "namespace": "main"},
+        })
     authored_landmarks.sort(key=lambda item: (item["owner"]["namespace"], tuple(item["owner"]["anchors"]), item["owner"]["kind"], item["owner"]["role"], item["role"]))
     authored_frames = [
+        {"owner": address(role), "role": surface_preview.HEAD_NECK_PROFILE_FRAME_ROLE, "transform": {"translation": [0.0, 0.0, 0.0], "rotation_xyzw": [0.0, 0.0, 0.0, 1.0]}, "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}}
+        for role in ("head", "neck")
+    ] + [
         {"owner": address(role), "role": surface_preview.TORSO_PROFILE_FRAME_ROLE, "transform": {"translation": [0.0, 0.0, 0.0], "rotation_xyzw": [0.0, 0.0, 0.0, 1.0]}, "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}}
         for role in ("pelvis", "torso")
     ] + [
@@ -215,7 +268,29 @@ def make_payload() -> dict[str, object]:
             for index, (name, owner_role, _, _) in enumerate(torso_specs)
         ],
     }
-    payload = {"format": surface_preview.SOURCE_FORMAT, "operation": "inspect-provisional-form", "status": "success", "stage": "provisional-form", "processing_complete": True, "diagnostics_complete": True, "diagnostics": [], "source": {"document": "test", "namespace": "main", "resource_profile_id": "ck.resource.body.r2"}, "reference_scale": {"parent": address("neck"), "child": address("head"), "axis_delta": [0, 1, 0], "squared_length": 1, "source": "exact-containment-edge"}, "authored_dimensions": authored_dimensions, "authored_landmarks": authored_landmarks, "authored_frames": authored_frames, "authored_torso_profile": authored_torso_profile, "variants": variants, "limitations": "Provisional display-only geometry descriptors; source-authored dimensions, shoulder controls, and authored_torso_profile v1 use bounded source-authored controls and fixed display factors; no production geometry or Readiness 3."}
+    authored_head_neck_profile = {
+        "format": surface_preview.AUTHORED_HEAD_NECK_PROFILE_FORMAT,
+        "provenance": copy.deepcopy(source_provenance),
+        "sections": [
+            {
+                "name": name,
+                "frame_index": frame_indices[(owner_role, (), surface_preview.HEAD_NECK_PROFILE_FRAME_ROLE)],
+                "landmark_index": landmark_indices[(owner_role, (), surface_preview.HEAD_NECK_PROFILE_LANDMARK_PREFIX + name.replace("-", "_"))],
+                "dimension_indices": {
+                    suffix.split("_")[0]: dimension_indices[(owner_role, (), surface_preview.HEAD_NECK_PROFILE_DIMENSION_PREFIX + name.replace("-", "_") + "_" + suffix)]
+                    for suffix in surface_preview.HEAD_NECK_PROFILE_DIMENSION_SUFFIXES
+                },
+                "provenance": copy.deepcopy(source_provenance),
+                "section_index": index,
+            }
+            for index, (name, owner_role, _, _, _) in enumerate(head_neck_specs)
+        ],
+        "connections": [
+            {"name": name, "from_section_index": from_index, "to_section_index": to_index, "route": route}
+            for name, from_index, to_index, route in surface_preview.HEAD_NECK_PROFILE_CONNECTIONS
+        ],
+    }
+    payload = {"format": surface_preview.SOURCE_FORMAT, "operation": "inspect-provisional-form", "status": "success", "stage": "provisional-form", "processing_complete": True, "diagnostics_complete": True, "diagnostics": [], "source": {"document": "test", "namespace": "main", "resource_profile_id": "ck.resource.body.r2"}, "reference_scale": {"parent": address("neck"), "child": address("head"), "axis_delta": [0, 1, 0], "squared_length": 1, "source": "exact-containment-edge"}, "authored_dimensions": authored_dimensions, "authored_landmarks": authored_landmarks, "authored_frames": authored_frames, "authored_torso_profile": authored_torso_profile, "authored_head_neck_profile": authored_head_neck_profile, "variants": variants, "limitations": "Provisional display-only geometry descriptors; source-authored dimensions, shoulder controls, authored_torso_profile v1, and authored_head_neck_profile v1 use bounded source-authored controls and fixed display factors; no production geometry or Readiness 3."}
     return payload
 
 
@@ -228,9 +303,9 @@ class SurfacePreviewTests(unittest.TestCase):
         form = surface_preview.validate_envelope(make_payload())
         self.assertEqual([x[0] for x in form.variants], list(surface_preview.VARIANT_IDS))
         self.assertIn(("main", ("left",), "part", "hand"), {x.key for x in form.variants[0][1]})
-        self.assertEqual(len(form.authored_dimensions), 57)
-        self.assertEqual(len(form.authored_landmarks), 11)
-        self.assertEqual(len(form.authored_frames), 4)
+        self.assertEqual(len(form.authored_dimensions), 81)
+        self.assertEqual(len(form.authored_landmarks), 19)
+        self.assertEqual(len(form.authored_frames), 6)
         self.assertEqual(
             form.authored_dimensions,
             tuple(sorted(form.authored_dimensions, key=lambda item: (item[0], item[1]))),
@@ -1043,6 +1118,213 @@ class SurfacePreviewTests(unittest.TestCase):
                 with self.assertRaises(surface_preview.PreviewError):
                     surface_preview.validate_envelope(malformed)
 
+    def test_authored_torso_profile_rejects_nonmonotone_route_at_envelope_admission(self) -> None:
+        payload = make_payload()
+        previous = next(
+            item
+            for item in payload["authored_landmarks"]
+            if item["role"] == surface_preview.TORSO_PROFILE_LANDMARK_PREFIX + "waist_abdomen"
+        )
+        current = next(
+            item
+            for item in payload["authored_landmarks"]
+            if item["role"] == surface_preview.TORSO_PROFILE_LANDMARK_PREFIX + "upper_abdomen"
+        )
+        current["position"][1] = previous["position"][1]
+        with self.assertRaisesRegex(surface_preview.PreviewError, "strictly increasing"):
+            surface_preview.validate_envelope(payload)
+
+    def test_authored_head_neck_profile_projects_all_variants_with_exact_lineage(self) -> None:
+        form = surface_preview.validate_envelope(make_payload())
+        self.assertEqual(
+            tuple(section.name for section in form.authored_head_neck_profile.sections),
+            surface_preview.HEAD_NECK_PROFILE_SECTION_NAMES,
+        )
+        self.assertEqual(
+            form.authored_head_neck_profile.connections,
+            tuple(surface_preview.HeadNeckConnection(*value) for value in surface_preview.HEAD_NECK_PROFILE_CONNECTIONS),
+        )
+        for variant_index, (variant_id, descriptors, _) in enumerate(form.variants):
+            guide = surface_preview._derive_hybrid_guides(form, descriptors)
+            projected = form.variant_head_neck_profiles[variant_index]
+            by_key = {descriptor.key: descriptor for descriptor in descriptors}
+            for authored, variant_section, guide_section in zip(
+                form.authored_head_neck_profile.sections,
+                projected.sections,
+                guide.head_guide.profile.sections,
+            ):
+                owner = by_key[authored.owner]
+                self.assertIs(guide_section.owner, owner)
+                self.assertEqual(guide_section.section_index, authored.section_index)
+                self.assertEqual(guide_section.source_section_index, variant_section.source_section_index)
+                self.assertEqual(
+                    guide_section.center,
+                    tuple(owner.point[axis] + variant_section.position[axis] / form.reference_scale for axis in range(3)),
+                )
+                factors = surface_preview._head_neck_profile_factors(variant_id, owner.key[3])
+                for lineage, control, factor, projected_radius in zip(
+                    (guide_section.lateral_lineage, guide_section.up_lineage, guide_section.forward_lineage),
+                    (authored.lateral, authored.up, authored.forward),
+                    factors,
+                    (variant_section.lateral_radius_permille, variant_section.up_radius_permille, variant_section.forward_radius_permille),
+                ):
+                    self.assertEqual(lineage.base, control.value_permille)
+                    self.assertEqual(lineage.factor, factor)
+                    self.assertEqual(lineage.scaled, projected_radius)
+                    self.assertEqual(lineage.reference, (owner.key, control.role))
+                    self.assertEqual(lineage.reference_index, control.source_index)
+                    self.assertEqual(lineage.provenance, control.provenance)
+                self.assertTrue(all(value > 0.0 for value in guide_section.radii))
+
+    def test_authored_head_neck_profile_rejects_malformed_index_edge_provenance_and_scaling(self) -> None:
+        cases: list[dict[str, object]] = []
+        payload = make_payload()
+        payload["authored_head_neck_profile"]["sections"][0]["section_index"] = 1
+        cases.append(payload)
+        payload = make_payload()
+        payload["authored_head_neck_profile"]["sections"][0]["frame_index"] = 99
+        cases.append(payload)
+        payload = make_payload()
+        payload["authored_head_neck_profile"]["sections"][0]["dimension_indices"]["up"] = payload["authored_head_neck_profile"]["sections"][0]["dimension_indices"]["lateral"]
+        cases.append(payload)
+        payload = make_payload()
+        payload["authored_head_neck_profile"]["connections"][1]["to_section_index"] = 7
+        cases.append(payload)
+        payload = make_payload()
+        payload["variants"][0]["head_neck_profile"]["connections"][0]["route"] = "wrong-route"
+        cases.append(payload)
+        payload = make_payload()
+        payload["authored_head_neck_profile"]["provenance"]["document"] = "other-document"
+        cases.append(payload)
+        payload = make_payload()
+        payload["variants"][0]["head_neck_profile"]["provenance"]["namespace"] = "other"
+        cases.append(payload)
+        payload = make_payload()
+        payload["variants"][0]["head_neck_profile"]["sections"][3]["scaling"]["forward_factor_permille"] += 1
+        cases.append(payload)
+        payload = make_payload()
+        payload["variants"][0]["head_neck_profile"]["sections"][6]["forward_radius_permille"] += 1
+        cases.append(payload)
+        for malformed in cases:
+            with self.subTest(malformed=malformed):
+                with self.assertRaises(surface_preview.PreviewError):
+                    surface_preview.validate_envelope(malformed)
+
+    def test_authored_head_neck_profile_rejects_nonmonotone_source_neck_cranium_and_muzzle_routes(self) -> None:
+        route_cases = (
+            ("neck-upper", "neck-collar", 1),
+            ("cranium-crown", "cranium-mid", 1),
+            ("muzzle-tip", "muzzle-mid", 2),
+        )
+        for current_name, previous_name, axis in route_cases:
+            payload = make_payload()
+            current = next(
+                item
+                for item in payload["authored_landmarks"]
+                if item["role"] == surface_preview.HEAD_NECK_PROFILE_LANDMARK_PREFIX + current_name.replace("-", "_")
+            )
+            previous = next(
+                item
+                for item in payload["authored_landmarks"]
+                if item["role"] == surface_preview.HEAD_NECK_PROFILE_LANDMARK_PREFIX + previous_name.replace("-", "_")
+            )
+            current["position"][axis] = previous["position"][axis]
+            with self.subTest(route=current_name):
+                with self.assertRaisesRegex(surface_preview.PreviewError, "strictly increasing"):
+                    surface_preview.validate_envelope(payload)
+
+    def test_authored_head_neck_profile_rejects_nonmonotone_variant_routes_at_variant_parser_boundary(self) -> None:
+        form = surface_preview.validate_envelope(make_payload())
+        route_cases = (
+            ("neck-upper", "neck-collar", 1),
+            ("cranium-crown", "cranium-mid", 1),
+            ("muzzle-tip", "muzzle-mid", 2),
+        )
+        for current_name, previous_name, axis in route_cases:
+            current_index = surface_preview.HEAD_NECK_PROFILE_SECTION_NAMES.index(current_name)
+            previous_index = surface_preview.HEAD_NECK_PROFILE_SECTION_NAMES.index(previous_name)
+            authored_sections = list(form.authored_head_neck_profile.sections)
+            current = authored_sections[current_index]
+            previous = authored_sections[previous_index]
+            position = list(current.landmark.position)
+            position[axis] = previous.landmark.position[axis]
+            authored_sections[current_index] = dataclasses.replace(
+                current,
+                landmark=dataclasses.replace(current.landmark, position=tuple(position)),
+            )
+            malformed_authored = dataclasses.replace(
+                form.authored_head_neck_profile,
+                sections=tuple(authored_sections),
+            )
+            variant_profile = copy.deepcopy(form.raw["variants"][0]["head_neck_profile"])
+            variant_profile["sections"][current_index]["position"] = position
+            with self.subTest(route=current_name):
+                with self.assertRaisesRegex(surface_preview.PreviewError, "strictly increasing"):
+                    surface_preview._parse_variant_head_neck_profile(
+                        variant_profile,
+                        form.source,
+                        malformed_authored,
+                        surface_preview.VARIANT_IDS[0],
+                    )
+
+    def test_head_neck_guide_rejects_nonmonotone_neck_cranium_and_muzzle_routes(self) -> None:
+        form = surface_preview.validate_envelope(make_payload())
+        guide = surface_preview._derive_hybrid_guides(form, form.variants[0][1])
+        route_cases = (
+            ("neck-upper", "neck-collar", 1),
+            ("cranium-crown", "cranium-mid", 1),
+            ("muzzle-tip", "muzzle-mid", 2),
+        )
+        for current_name, previous_name, axis in route_cases:
+            sections = list(guide.head_guide.profile.sections)
+            current_index = surface_preview.HEAD_NECK_PROFILE_SECTION_NAMES.index(current_name)
+            previous_index = surface_preview.HEAD_NECK_PROFILE_SECTION_NAMES.index(previous_name)
+            current = sections[current_index]
+            previous = sections[previous_index]
+            center = list(current.center)
+            center[axis] = previous.center[axis]
+            sections[current_index] = dataclasses.replace(current, center=tuple(center))
+            profile = dataclasses.replace(guide.head_guide.profile, sections=tuple(sections))
+            head = dataclasses.replace(guide.head_guide, profile=profile)
+            with self.subTest(route=current_name):
+                with self.assertRaisesRegex(surface_preview.PreviewError, "strictly increasing"):
+                    surface_preview._validate_hybrid_guide(dataclasses.replace(guide, head_guide=head))
+
+    def test_authored_head_neck_profile_perturbation_is_local_to_station_and_incident_paths(self) -> None:
+        original_form = surface_preview.validate_envelope(make_payload())
+        original = surface_preview._derive_hybrid_guides(original_form, original_form.variants[0][1])
+        payload = make_payload()
+        landmark = next(item for item in payload["authored_landmarks"] if item["role"] == "form_head_neck_profile_muzzle_mid")
+        landmark["position"][2] = 0.60
+        for variant in payload["variants"]:
+            next(item for item in variant["head_neck_profile"]["sections"] if item["name"] == "muzzle-mid")["position"][2] = 0.60
+        changed_form = surface_preview.validate_envelope(payload)
+        changed = surface_preview._derive_hybrid_guides(changed_form, changed_form.variants[0][1])
+        original_profile = {item.name: item for item in original.head_guide.profile.sections}
+        changed_profile = {item.name: item for item in changed.head_guide.profile.sections}
+        for name in surface_preview.HEAD_NECK_PROFILE_SECTION_NAMES:
+            if name == "muzzle-mid":
+                self.assertNotEqual(original_profile[name].center, changed_profile[name].center)
+            else:
+                self.assertEqual(
+                    surface_preview._head_neck_section_json(original_profile[name]),
+                    surface_preview._head_neck_section_json(changed_profile[name]),
+                )
+        for before, after in zip(original.head_guide.profile.connections, changed.head_guide.profile.connections):
+            incident = before.spec.from_section_index == 6 or before.spec.to_section_index == 6
+            if incident:
+                self.assertNotEqual(before.centerline, after.centerline)
+            else:
+                self.assertEqual(
+                    surface_preview._head_neck_connection_json(before),
+                    surface_preview._head_neck_connection_json(after),
+                )
+        self.assertNotEqual(original.head_guide.muzzle_center, changed.head_guide.muzzle_center)
+        self.assertEqual(original.head_guide.cranium_center, changed.head_guide.cranium_center)
+        self.assertEqual(original.head_guide.head_transition, changed.head_guide.head_transition)
+        self.assertEqual(original.head_guide.neck_transition, changed.head_guide.neck_transition)
+        self.assertEqual(original.head_guide.neck_collar_center, changed.head_guide.neck_collar_center)
+
     def test_authored_torso_profile_generation_is_deterministic_for_all_variants(self) -> None:
         form = surface_preview.validate_envelope(make_payload())
         first = []
@@ -1137,6 +1419,9 @@ class SurfacePreviewTests(unittest.TestCase):
             for points in (shoulder_points, hip_points, neck_point):
                 residual = surface_preview._field(points, torso_field)
                 self.assertTrue(np.all(np.isfinite(residual)))
+            if points is neck_point:
+                self.assertLessEqual(float(residual[0]), 0.0)
+            else:
                 np.testing.assert_allclose(residual, 0.0, atol=1.0e-12)
             self.assertTrue(np.all(np.linalg.norm(shoulder_points - torso_center, axis=1) > 1.0e-9))
             self.assertTrue(np.all(np.linalg.norm(hip_points - pelvis_center, axis=1) > 1.0e-9))
@@ -1431,7 +1716,8 @@ class SurfacePreviewTests(unittest.TestCase):
         self.assertTrue((bridge.shape["to"] == surface_preview._source_shape(upper_arm, form.reference_scale)["from"]).all())
         upper_arm_shape = surface_preview._source_shape(upper_arm, form.reference_scale)
         upper_arm_radius = surface_preview._radius_from_shape(upper_arm_shape)
-        torso_cage = surface_preview._derive_hybrid_guides(form, descriptors).torso_cage
+        guide = surface_preview._derive_hybrid_guides(form, descriptors)
+        torso_cage = guide.torso_cage
         left_upper_arm = next(
             item for item in descriptors if item.key[1] == ("left",) and item.key[3] == "upper_arm"
         )
@@ -1477,11 +1763,7 @@ class SurfacePreviewTests(unittest.TestCase):
         neck_field = next(item for item in fields if item.owner is neck and item.recipe == "tapered-neck")
         np.testing.assert_allclose(
             neck_field.shape["from"],
-            surface_preview._torso_cage_boundary_anchor(
-                torso_cage,
-                float(neck.point[1]),
-                np.asarray(neck.point) - np.asarray(torso_cage.upper_boundary.center),
-            ),
+            guide.head_guide.profile.sections[0].center,
         )
 
         forearm = next(
@@ -1570,29 +1852,38 @@ class SurfacePreviewTests(unittest.TestCase):
         self.assertTrue(all(item.owner is tail_root for item in root_fields))
         self.assertTrue(all(item.owner is tail_tip for item in tip_fields))
 
-    def test_candidate_c_craniofacial_ratios_overlap_and_source_ownership(self) -> None:
+    def test_authored_head_neck_profile_drives_compatibility_recipes_and_source_ownership(self) -> None:
         form = surface_preview.validate_envelope(make_payload())
         descriptors = form.variants[0][1]
-        fields = surface_preview._compound_fields(form, descriptors)
+        guide = surface_preview._derive_hybrid_guides(form, descriptors)
+        fields = surface_preview._compile_hybrid_guide(guide)
         head = next(item for item in descriptors if item.key[3] == "head")
         neck = next(item for item in descriptors if item.key[3] == "neck")
-        head_shape = surface_preview._source_shape(head, form.reference_scale)
-        hx, hy, hz = head_shape["radii"]
         cranium = next(item for item in fields if item.owner is head and item.recipe == "cranium")
         muzzle = next(item for item in fields if item.owner is head and item.recipe == "muzzle")
         head_base = next(item for item in fields if item.owner is head and item.recipe == "head-base-bridge")
         tapered_neck = next(item for item in fields if item.owner is neck and item.recipe == "tapered-neck")
+        collar = next(item for item in fields if item.owner is neck and item.recipe == "neck-collar")
+        stations = {section.name: section for section in guide.head_guide.profile.sections}
 
-        np.testing.assert_allclose(cranium.shape["center"], head.point + np.asarray([0.0, 0.10 * hy, -0.04 * hz]))
-        np.testing.assert_allclose(cranium.shape["radii"], np.asarray([0.85 * hx, 1.00 * hy, 0.85 * hz]))
-        np.testing.assert_allclose(muzzle.shape["center"], head.point + np.asarray([0.0, -0.10 * hy, 0.62 * hz]))
-        np.testing.assert_allclose(muzzle.shape["radii"], np.asarray([0.50 * hx, 0.48 * hy, 0.50 * hz]))
-        self.assertAlmostEqual(
-            float(head_base.shape["to"][1]),
-            float(cranium.shape["center"][1] - 0.84 * cranium.shape["radii"][1]),
-            places=12,
+        np.testing.assert_allclose(cranium.shape["center"], stations["cranium-mid"].center)
+        np.testing.assert_allclose(cranium.shape["radii"], stations["cranium-mid"].radii)
+        np.testing.assert_allclose(muzzle.shape["center"], stations["muzzle-mid"].center)
+        np.testing.assert_allclose(muzzle.shape["radii"], stations["muzzle-mid"].radii)
+        np.testing.assert_allclose(head_base.shape["from"], stations["neck-upper"].center)
+        np.testing.assert_allclose(head_base.shape["to"], stations["head-base"].center)
+        self.assertEqual(
+            (head_base.shape["r0"], head_base.shape["r1"]),
+            (min(stations["neck-upper"].radii), min(stations["head-base"].radii)),
         )
-        self.assertAlmostEqual(float(tapered_neck.shape["to"][1]), float(head.point[1] - 0.70 * hy), places=12)
+        np.testing.assert_allclose(tapered_neck.shape["from"], stations["neck-collar"].center)
+        np.testing.assert_allclose(tapered_neck.shape["to"], stations["neck-upper"].center)
+        self.assertEqual(
+            (tapered_neck.shape["r0"], tapered_neck.shape["r1"]),
+            (min(stations["neck-collar"].radii), min(stations["neck-upper"].radii)),
+        )
+        np.testing.assert_allclose(collar.shape["center"], stations["neck-collar"].center)
+        np.testing.assert_allclose(collar.shape["radii"], stations["neck-collar"].radii)
 
         cranium_bottom = float(cranium.shape["center"][1] - cranium.shape["radii"][1])
         cranium_top = float(cranium.shape["center"][1] + cranium.shape["radii"][1])
@@ -1603,6 +1894,8 @@ class SurfacePreviewTests(unittest.TestCase):
         self.assertEqual(len(fields), 52)
         source_keys = {descriptor.key for descriptor in descriptors}
         self.assertTrue(all(field.owner.key in source_keys for field in fields))
+        self.assertEqual(len(guide.head_guide.profile.sections), 8)
+        self.assertEqual(len(guide.head_guide.profile.connections), 7)
 
     def test_segment_parent_surface_anchor_uses_radius_and_fails_when_ambiguous(self) -> None:
         form = surface_preview.validate_envelope(make_payload())
@@ -1746,6 +2039,8 @@ class SurfacePreviewTests(unittest.TestCase):
                 self.assertEqual(regional["counts"]["shoulder_frame_sides"], 2)
                 self.assertEqual(regional["counts"]["shoulder_frame_curves"], 6)
                 self.assertEqual(regional["counts"]["shoulder_frame_compiled_fields"], 2)
+                self.assertEqual(regional["counts"]["head_neck_profile_sections"], 8)
+                self.assertEqual(regional["counts"]["head_neck_profile_connections"], 7)
                 self.assertEqual(regional["counts"]["compiled_fields"], 52)
                 self.assertEqual(regional["counts"]["compiled_field_recipe_counts"], {
                     "upper_arm-pre-joint": 2, "upper_arm-joint": 2, "forearm-proximal": 2, "forearm-distal": 2,
@@ -1764,6 +2059,16 @@ class SurfacePreviewTests(unittest.TestCase):
                 self.assertEqual(regional["canvas"], manifest["canvas"])
                 self.assertTrue(regional["controls"]["axial"])
                 self.assertTrue(regional["controls"]["torso_cage"])
+                head = regional["controls"]["head"]
+                self.assertEqual(head["profile_format"], surface_preview.AUTHORED_HEAD_NECK_PROFILE_FORMAT)
+                self.assertEqual([item["name"] for item in head["sections"]], list(surface_preview.HEAD_NECK_PROFILE_SECTION_NAMES))
+                self.assertEqual(
+                    [(item["name"], item["from_section_index"], item["to_section_index"], item["route"]) for item in head["connections"]],
+                    list(surface_preview.HEAD_NECK_PROFILE_CONNECTIONS),
+                )
+                self.assertTrue(all({"lateral", "up", "forward"} <= set(item["lineage"]) for item in head["sections"]))
+                self.assertTrue(all(all({"owner", "role", "index"} <= set(item["lineage"][axis]["reference"]) for axis in ("lateral", "up", "forward")) for item in head["sections"]))
+                self.assertEqual(len(head["paths"]), 2)
                 self.assertEqual(regional["controls"]["shoulder_frame"]["status"], "private shoulder frame; support curves guide-only; deltoid sweep skin-driving")
                 shoulder_frame = regional["controls"]["shoulder_frame"]
                 self.assertEqual([item["side"] for item in shoulder_frame["sides"]], ["left", "right"])
