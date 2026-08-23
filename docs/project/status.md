@@ -15,17 +15,14 @@ governs what resumes next.
 
 Execution state: active toward the named human checkpoint, complete authored-
 form expressivity gallery. `origin/main` and the primary `main` checkout are
-at merged PR #109 commit
-`52b88370f2f81b3c2cc937da7cc34f83d4481a7a`. The active worktree is
-`/home/ben/src/creature-kernel-worktrees/authored-head-neck-profiles`, on
-branch `implementation/authored-head-neck-profiles`, based on that commit.
-[PR #110](https://github.com/benhook1013/creature-kernel/pull/110) is open for
-the current candidate; its implementation commit is
-`aafafeb351e49a254cf9e5443128fab53da23ef0`.
-The authored torso profile is merged predecessor evidence; the current
-candidate contains the completed internal, reversible source-authored
-head/neck prerequisite toward the unchanged complete authored-form
-expressivity gallery checkpoint.
+at merged PR #110 commit
+`a45920df1322bafbbd56ea6939837f8b0b9b8b33`. The active worktree is
+`/home/ben/src/creature-kernel-worktrees/authored-arm-profiles`, on branch
+`implementation/authored-arm-profiles`, based on that commit. No PR exists
+yet for the current work. The authored torso and head/neck profiles are
+merged predecessor evidence; the current internal, reversible slice is
+source-authored shoulder/arm control toward the unchanged complete
+authored-form expressivity gallery checkpoint.
 
 Current operational snapshot: the [Codex app handover](current-handover.md)
 (2026-08-23 NZST) records the primary checkout, active runway worktree,
@@ -91,10 +88,11 @@ torso sweep. The publisher cross-bound producer, guide, and successor lineage
 and validated real bundles. The comparator added Previous/Next controls,
 arrows, click-to-advance, and zoom.
 
-The current candidate contains the completed internal, reversible
-source-authored head/neck prerequisite and remains on the runway toward the
-unchanged complete authored-form expressivity gallery checkpoint. Producer v8
-adds source-authored head/neck profile v1: eight indexed stations, seven named
+PR #110 is merged at `a45920df1322bafbbd56ea6939837f8b0b9b8b33`. Its completed
+internal, reversible source-authored head/neck prerequisite remains evidence
+on the runway toward the unchanged complete authored-form expressivity
+gallery checkpoint. Producer v8 adds source-authored head/neck profile v1:
+eight indexed stations, seven named
 branched connections, head/neck identity frames and landmarks, 24
 lateral/up/forward radii with provenance, and four shared variant projections.
 Baseline regional guide v7 carries exact profile and compatibility lineage.
@@ -109,10 +107,17 @@ the review's one documentation defect was corrected and its two non-contract
 concerns were dispositioned. No user appraisal is requested because this is
 an internal region slice, not the complete authored-form gallery.
 
-After PR, CI, and merge gates, the next direct region slice toward the
-same named checkpoint is shoulder/arm authored control. The final human stop
-remains the complete authored-form gallery. PR #110 is the current internal
-candidate and does not request user appraisal.
+The current direct region slice is shoulder/arm authored control. Existing
+source-authored shoulder landmarks and frames remain the attachment boundary;
+the bounded target is one shared bilateral five-station arm profile replacing
+the remaining scalar-derived upper-arm/forearm shaping through the same
+producer, guide, successor, and publication path. It must not restore the old
+skin-driving underarm support curves or root bridge, and it must not add
+per-variant station tuning. No PR exists yet for this current work.
+
+After implementation, review, PR, CI, and merge gates, the next direct region
+slice toward the same named checkpoint is pelvis/leg authored control. The
+final human stop remains the complete authored-form gallery.
 
 PR #109 also contained Ben-approved neutral public-facing wording cleanup and
 accepted MIT OR Apache-2.0 licensing DR-0014. That ancillary work does not
