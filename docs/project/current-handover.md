@@ -14,7 +14,8 @@ the canonical owner of the active runway, and the required reading order in
   `52b88370f2f81b3c2cc937da7cc34f83d4481a7a`.
 - Active worktree: `/home/ben/src/creature-kernel-worktrees/authored-head-neck-profiles`
   — branch `implementation/authored-head-neck-profiles`, based on that commit;
-  no PR exists yet for the current work.
+  [PR #110](https://github.com/benhook1013/creature-kernel/pull/110) is open at
+  implementation commit `aafafeb351e49a254cf9e5443128fab53da23ef0`.
 - [PR #109](https://github.com/benhook1013/creature-kernel/pull/109) merged at
   `52b88370f2f81b3c2cc937da7cc34f83d4481a7a`. Its authored torso profile is
   merged predecessor evidence, not completion or visual-quality acceptance.
@@ -65,8 +66,8 @@ an internal region slice, not the complete authored-form gallery.
 
 After PR, CI, and merge gates, the next direct region slice toward the
 same named checkpoint is shoulder/arm authored control. The final human stop
-remains the complete authored-form gallery. No PR exists yet for this current
-work.
+remains the complete authored-form gallery. PR #110 is the current internal
+candidate and does not request user appraisal.
 
 PR #109 also contained Ben-approved neutral public-facing wording cleanup and
 accepted MIT OR Apache-2.0 licensing DR-0014. That ancillary work does not
