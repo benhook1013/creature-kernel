@@ -13,8 +13,9 @@ the canonical owner of the active runway, and the required reading order in
   `origin/main` are at merged PR #110 commit
   `a45920df1322bafbbd56ea6939837f8b0b9b8b33`.
 - Active worktree: `/home/ben/src/creature-kernel-worktrees/authored-arm-profiles`
-  — branch `implementation/authored-arm-profiles`, based on that commit; no PR
-  exists yet for the current work.
+  — branch `implementation/authored-arm-profiles`, based on that commit;
+  [PR #111](https://github.com/benhook1013/creature-kernel/pull/111) is open and
+  required CI is running.
 - [PR #110](https://github.com/benhook1013/creature-kernel/pull/110) merged at
   `a45920df1322bafbbd56ea6939837f8b0b9b8b33`. Its authored head/neck profile
   is merged predecessor evidence, not completion or visual-quality acceptance.
@@ -85,7 +86,7 @@ character cap. It produced four groups and eight assets at
 internal visual inspection and two fresh hands-on trials passed the
 arm-focused connectivity, spike/lobe, and variant-response checks, along with
 the browser, evidence, and HTTP scenarios. This is still an internal
-candidate: no PR exists, no merge has occurred, and no human appraisal is
+candidate: PR #111 is open, no merge has occurred, and no human appraisal is
 requested. The final human stop remains the complete authored-form gallery;
 the candidate does not claim that gallery is complete.
 
@@ -93,10 +94,12 @@ The arm-slice checks include 415 Rust workspace tests (47 CLI and 368 core),
 52 successor tests, 34 publisher tests, and 25 browser/parity tests passing;
 the unchanged baseline suite's 56 tests were already green. Rust formatting,
 Clippy with warnings denied, documentation validation, and `git diff --check`
-pass. The final adversarial review, PR, CI, and merge gates remain pending.
+pass. The final adversarial review found one XZ decoder-memory blocker, which
+is fixed with an explicit 128 MiB decoder limit and a passing malicious-header
+regression. PR #111 is open; CI and merge remain pending.
 
 The non-blocking rejected-POST secondary-400 logging concern is deferred
-unrelated usability cleanup, not an arm blocker. After those review/PR/CI/merge
+unrelated usability cleanup, not an arm blocker. After the remaining CI/merge
 gates, the next direct region slice toward the same named checkpoint is
 pelvis/leg authored control.
 
@@ -218,8 +221,10 @@ Current arm-slice checks known: 415 Rust workspace tests (47 CLI and 368 core),
 52 successor tests, 34 publisher tests, and 25 browser/publication parity tests
 pass; the unchanged baseline suite's 56 tests were already green. Rust
 formatting, Clippy with warnings denied, documentation validation, and
-`git diff --check` pass. The final adversarial review, PR, CI, and merge gates
-remain pending. The real publication produced four groups and eight assets
+`git diff --check` pass. The final adversarial review found one XZ decoder-memory
+blocker, which is fixed with an explicit 128 MiB decoder limit and passing
+focused/full publisher regressions. PR #111 is open; CI and merge remain
+pending. The real publication produced four groups and eight assets
 with no response artifact. Two fresh hands-on trials are complete. They
 exercised exact evidence and asset bindings, HTTP success and failure paths,
 modal click and keyboard navigation including wrap and Escape focus return,

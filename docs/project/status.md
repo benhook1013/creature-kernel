@@ -18,8 +18,10 @@ form expressivity gallery. `origin/main` and the primary `main` checkout are
 at merged PR #110 commit
 `a45920df1322bafbbd56ea6939837f8b0b9b8b33`. The active worktree is
 `/home/ben/src/creature-kernel-worktrees/authored-arm-profiles`, on branch
-`implementation/authored-arm-profiles`, based on that commit. No PR exists
-yet for the current work. The authored torso and head/neck profiles are
+`implementation/authored-arm-profiles`, based on that commit.
+[PR #111](https://github.com/benhook1013/creature-kernel/pull/111) is open for
+the current work and required CI is running. The authored torso and head/neck
+profiles are
 merged predecessor evidence; the current internal, reversible slice is
 source-authored shoulder/arm control toward the unchanged complete
 authored-form expressivity gallery checkpoint.
@@ -126,7 +128,7 @@ character cap. It produced four groups and eight assets at
 internal visual inspection and two fresh hands-on trials passed the
 arm-focused connectivity, spike/lobe, and variant-response checks, along with
 the browser, evidence, and HTTP scenarios. This is still an internal
-candidate: no PR exists, no merge has occurred, and no human appraisal is
+candidate: PR #111 is open, no merge has occurred, and no human appraisal is
 requested. The final human stop remains the complete authored-form gallery;
 the candidate does not claim that gallery is complete.
 
@@ -134,10 +136,12 @@ The arm-slice checks include 415 Rust workspace tests (47 CLI and 368 core),
 52 successor tests, 34 publisher tests, and 25 browser/parity tests passing;
 the unchanged baseline suite's 56 tests were already green. Rust formatting,
 Clippy with warnings denied, documentation validation, and `git diff --check`
-pass. The final adversarial review, PR, CI, and merge gates remain pending.
+pass. The final adversarial review found one XZ decoder-memory blocker, which
+is fixed with an explicit 128 MiB decoder limit and a passing malicious-header
+regression. PR #111 is open; CI and merge remain pending.
 
 The non-blocking rejected-POST secondary-400 logging concern is deferred
-unrelated usability cleanup, not an arm blocker. After those review/PR/CI/merge
+unrelated usability cleanup, not an arm blocker. After the remaining CI/merge
 gates, the next direct region slice toward the same named checkpoint is
 pelvis/leg authored control.
 
