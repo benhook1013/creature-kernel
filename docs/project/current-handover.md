@@ -16,7 +16,10 @@ the canonical owner of the active runway, and the required reading order in
   `/home/ben/src/creature-kernel-worktrees/authored-digitigrade-foot-profiles` —
   branch `implementation/authored-digitigrade-foot-profiles`, based on that
   commit;
-  no PR exists yet for the current work.
+  no PR exists yet for the current work. The current implementation candidate
+  has reached the named complete authored-form expressivity gallery checkpoint,
+  completed its local tests, hands-on trials, and fresh adversarial review, and
+  is held for Ben's visual appraisal and explicit merge authorization.
 - [PR #112](https://github.com/benhook1013/creature-kernel/pull/112) merged at
   `80179614ea693cd45d55743d1d83d044c653a08f`. Its authored pelvis/leg profile
   is merged predecessor evidence, not completion or visual-quality acceptance.
@@ -138,9 +141,39 @@ pelvis/thigh/knee/shin/hock/foot across all four variants, with no point
 spikes, detached islands, or duplicate bulb masses; the lower foot chain
 remains coarse and is not accepted final quality. This merged slice is an
 internal reversible prerequisite, not the complete authored-form gallery, and
-no Ben appraisal has been requested. The next current internal, reversible
-slice toward the unchanged named checkpoint is source-authored digitigrade
-foot transition control; no Ben appraisal is requested yet.
+no Ben appraisal has been requested. The current worktree candidate has since
+reached the named complete authored-form expressivity gallery checkpoint; it
+has completed local tests, hands-on trials, and fresh adversarial review and is
+held for Ben's visual appraisal, with no approval or merge.
+
+## Current authored-form gallery candidate
+
+The current candidate uses producer v11 with `authored_foot_profile` v1:
+153 authored dimensions, 43 authored landmarks, and 16 authored frames. The
+private regional guide is v10. The successor is v8 with region/profile version
+v12. Its exact foot route is `hock -> metatarsal midpoint -> pad -> pad-toe
+midpoint -> toe`: the hock is shin-owned, the other four stations are
+foot-owned, and the route carries full lateral/up/forward radii, outer caps,
+four spans, and exact producer/guide/successor lineage and cross-binding.
+
+Measured current publication evidence is: compact producer envelope 190444
+bytes; XZ 6244 bytes; Base64 8328 characters; producer SHA-256
+`c48ed001b910549dd1da296bb4c664a4de29cad4838b42403b15aa97773a6d3e`; XZ
+SHA-256 `5c42afe0b599b3afff52d687c3e46c9f4ae7d31f7d8e426d0b17e55858331161`;
+subject context 8812 bytes; subject-context SHA-256
+`0210c5f225869d9030ff82a2898f122be21b4da328dcb668e0b83a674f486fb7`.
+Strict decode equality passed. The final publication context cap is 12 KiB
+only for the exact subject-context carrier; ordinary strings remain capped at
+8192 characters.
+
+The published form gallery is the named human checkpoint. Publication
+machinery is evidence plumbing, not acceptance: local tests, two fresh
+hands-on trials, and fresh adversarial review are complete, and the candidate
+is held for Ben's visual appraisal and explicit merge authorization, with no
+approval, merge, or PR. Ben's appraisal is of the rendered spatial form and
+variant response: whether the authored torso, head/neck, shoulder/arm,
+pelvis/leg, and digitigrade foot transitions read as controlled continuous
+skin rather than joined procedural masses across the four variants.
 
 The hands-on operator trial also found that LAN read-only mode still displays
 an enabled Save response control even though the server rejects writes. No
@@ -148,9 +181,8 @@ response was submitted or created. This pre-existing UI/usability mismatch is
 deferred unrelated cleanup, not a pelvis/leg geometry or publication blocker.
 
 The non-blocking rejected-POST secondary-400 logging concern is deferred
-unrelated usability cleanup, not an arm blocker. The active internal region
-slice is the source-authored digitigrade foot transition control described
-above.
+unrelated usability cleanup, not an arm blocker. The current worktree
+candidate is the authored-form gallery described above.
 
 PR #109 also contained Ben-approved neutral public-facing wording cleanup and
 accepted MIT OR Apache-2.0 licensing DR-0014. That ancillary work does not
@@ -158,23 +190,24 @@ change the active runway. Root license files, README, and CONTRIBUTING carry the
 current terms; Cargo package metadata is deliberately deferred because the
 parked Phase 3 evidence closure exact-binds the affected manifest bytes.
 
-The named human checkpoint remains the complete authored-form expressivity
-gallery. Continue through subsequent bounded region slices and small reviewed
-PRs until that gallery is ready, unless a retained-human blocker or direction
-appears.
+The named human checkpoint is the complete authored-form expressivity gallery;
+the current implementation candidate has reached it and is held for Ben's
+visual appraisal and explicit merge authorization.
 
 ## Gallery and service
 
-- Gallery: [successor surface checkpoint](http://localhost:8765/review/successor-surface-checkpoint)
+- Gallery: [complete authored-form expressivity gallery checkpoint](http://localhost:8765/review/authored-form-expressivity-gallery-checkpoint)
 - Persistent root: `/home/ben/.cache/creature-kernel/visual-reviews`
 - The checkpoint contains `review.json` and exactly 8 PNGs; it has no
   `response.json` as of this handover.
 - User service:
   `/home/ben/.config/systemd/user/creature-kernel-visual-review.service`.
   It is enabled and active on port 8765 and serves LAN read-only.
-- The persistent port 8765 service/gallery still serves the earlier
-  `successor-surface-checkpoint`; this temporary candidate has not been
-  installed there.
+- The service drop-in executes the active
+  `authored-digitigrade-foot-profiles` worktree so it can validate the current
+  v11 manifest. The route and API return HTTP 200; all eight assets load, match
+  the independently trialed candidate byte-for-byte, and produce no browser
+  console or request failures.
 
 Useful local checks:
 
@@ -229,8 +262,9 @@ related point observations are artifact-specific feedback on that displayed v6
 candidate; they remain scoped to that artifact and are not durable geometry
 prescriptions for this successor.
 
-The next named human checkpoint remains the complete authored-form expressivity
-gallery across the agreed controls and regions:
+The named human checkpoint is the complete authored-form expressivity gallery
+across the agreed controls and regions. The current candidate has reached it,
+completed its local gates, and is held for Ben's visual appraisal:
 richer source-authored dimensions, landmarks, and profiles drive shared
 region-appropriate generator operations across all four fixed variants, with
 source provenance and reproducible evidence. Representative torso, head/neck,
@@ -252,10 +286,11 @@ tighten the producer/publication/surface/browser numeric bounds. That trigger
 is not active for this checkpoint.
 
 Routine implementation, tests, reviews, and small internal PRs may proceed
-autonomously toward the checkpoint. Stop before the first genuinely appraisable
-result or any retained-human/material detour. Rigging, contact, deformation, VR
-integration, and permanent backend selection remain outside this immediate
-runway.
+autonomously toward the checkpoint. The current candidate is the first
+genuinely appraisable result and is held for Ben's appraisal and explicit
+merge authorization; publication is not acceptance. Rigging, contact,
+deformation, VR integration, and permanent backend selection remain outside
+this immediate runway.
 
 The required Rust CI workflow still exercises the parked Phase 3 freeze
 manifest, whose 47-path candidate closure includes the current core crate
@@ -265,6 +300,18 @@ future need to edit a frozen core path as a trigger to resolve the CI/freeze
 boundary explicitly, not as authority to regenerate or rebind EXP-0002.
 
 ## Evidence and limits
+
+Current candidate status: the exact publication measurements and hashes are
+recorded above, and strict decode equality passed. Local gates pass: 422 Rust
+workspace tests, Rust formatting and Clippy with warnings denied, 122 full
+surface-preview tests, 112 full visual-review tests, Python and JavaScript
+syntax checks, documentation validation, and `git diff --check`. Two fresh
+hands-on trials found no correctness blocker. The fresh adversarial review's
+one P2 UTF-8 byte-cap finding is fixed with a non-ASCII regression and the
+affected full visual-review suite rerun. Ben's visual appraisal remains
+pending; no CI result is claimed for this candidate.
+
+### Historical arm-slice evidence
 
 Current arm-slice checks known: 415 Rust workspace tests (47 CLI and 368 core),
 52 successor tests, 34 publisher tests, and 25 browser/publication parity tests

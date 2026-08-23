@@ -13,17 +13,20 @@ governs what resumes next.
 
 ## Active runway
 
-Execution state: active toward the named human checkpoint, complete authored-
-form expressivity gallery. `origin/main` and the primary `main` checkout are
+Execution state: the implementation candidate has reached the named human
+checkpoint, complete authored-form expressivity gallery. Local tests, two
+fresh hands-on trials, and the fresh adversarial review are complete; the
+candidate is held for Ben's visual appraisal and explicit merge authorization.
+`origin/main` and the primary `main` checkout are
 at merged PR #112 commit
 `80179614ea693cd45d55743d1d83d044c653a08f`. The active worktree is
 `/home/ben/src/creature-kernel-worktrees/authored-digitigrade-foot-profiles`,
 on branch `implementation/authored-digitigrade-foot-profiles`, based on that
 commit. No PR exists yet for the current work. The authored torso, head/neck,
 arm, and pelvis/leg profiles are merged predecessor evidence; the current
-internal, reversible slice is source-authored digitigrade foot transition
-control toward the unchanged complete authored-form expressivity gallery
-checkpoint.
+internal, reversible foot-control slice has reached the complete authored-form
+expressivity gallery checkpoint and is held for Ben's visual appraisal and
+explicit merge authorization.
 
 Current operational snapshot: the [Codex app handover](current-handover.md)
 (2026-08-24 NZST) records the primary checkout, active runway worktree,
@@ -172,9 +175,10 @@ pelvis/thigh/knee/shin/hock/foot across all four variants, with no point
 spikes, detached islands, or duplicate bulb masses; the lower foot chain
 remains coarse and is not accepted final quality. This merged slice is an
 internal reversible prerequisite, not the complete authored-form gallery, and
-no Ben appraisal has been requested. The next current internal, reversible
-slice toward the unchanged named checkpoint is source-authored digitigrade
-foot transition control; no Ben appraisal is requested yet.
+no Ben appraisal has been requested. The current worktree candidate has since
+reached the named complete authored-form expressivity gallery checkpoint; it
+has completed local tests, hands-on trials, and fresh adversarial review and is
+held for Ben's visual appraisal, with no approval or merge.
 
 The hands-on operator trial also found that LAN read-only mode still displays
 an enabled Save response control even though the server rejects writes. No
@@ -182,9 +186,8 @@ response was submitted or created. This pre-existing UI/usability mismatch is
 deferred unrelated cleanup, not a pelvis/leg geometry or publication blocker.
 
 The non-blocking rejected-POST secondary-400 logging concern is deferred
-unrelated usability cleanup, not an arm blocker. The active internal region
-slice is the source-authored digitigrade foot transition control described
-above.
+unrelated usability cleanup, not an arm blocker. The current worktree
+candidate is the authored-form gallery described below.
 
 PR #109 also contained Ben-approved neutral public-facing wording cleanup and
 accepted MIT OR Apache-2.0 licensing DR-0014. That ancillary work does not
@@ -209,6 +212,38 @@ descriptor-role lineage projection, including indexed authored provenance, in
 immutable review evidence. A source hash without the corresponding lineage
 payload is not sufficient for the checkpoint's provenance claim.
 
+The current worktree candidate reaches the named checkpoint with producer v11
+and `authored_foot_profile` v1: 153 authored dimensions, 43 authored
+landmarks, and 16 authored frames. Its private regional guide is v10; its
+successor is v8 with region/profile version v12. The foot route is exactly
+`hock -> metatarsal midpoint -> pad -> pad-toe midpoint -> toe`: the hock is
+shin-owned, the remaining four stations are foot-owned, and the route carries
+full lateral/up/forward radii, outer caps, four spans, and exact
+producer/guide/successor lineage and cross-binding. The final publication
+context cap is 12 KiB only for the exact subject-context carrier; ordinary
+strings remain capped at 8192 characters.
+
+Measured current publication evidence is: compact producer envelope 190444
+bytes; XZ 6244 bytes; Base64 8328 characters; producer SHA-256
+`c48ed001b910549dd1da296bb4c664a4de29cad4838b42403b15aa97773a6d3e`; XZ
+SHA-256 `5c42afe0b599b3afff52d687c3e46c9f4ae7d31f7d8e426d0b17e55858331161`;
+subject context 8812 bytes; subject-context SHA-256
+`0210c5f225869d9030ff82a2898f122be21b4da328dcb668e0b83a674f486fb7`.
+Strict decode equality passed. Publication machinery is evidence plumbing,
+not acceptance: this candidate has no approval, merge, or PR, and the named
+gallery is held for Ben's visual appraisal and explicit merge authorization.
+
+Current local gates pass: 422 Rust workspace tests, Rust formatting and Clippy
+with warnings denied, 122 full surface-preview tests, 112 full visual-review
+tests, Python and JavaScript syntax checks, documentation validation, and
+`git diff --check`. Two fresh hands-on trials found no correctness blocker.
+The fresh adversarial review's one P2 UTF-8 byte-cap finding is fixed with a
+non-ASCII regression and the affected full visual-review suite rerun. The
+persistent four-variant/eight-image gallery is served at
+`http://localhost:8765/review/authored-form-expressivity-gallery-checkpoint`;
+its assets are byte-identical to the independently trialed candidate and it
+has no response artifact. CI is not yet claimed for this candidate.
+
 The active fixture's exact squared reference length is `1`. If a later runway
 admits producer output above JavaScript's exact-integer domain, align or tighten
 the Rust, publication, surface-consumer, and browser bounds before using that
@@ -217,8 +252,10 @@ for this checkpoint.
 
 Routine implementation, tests, reviews, and small internal PRs may proceed
 autonomously through subsequent bounded region slices toward the checkpoint.
-Stop before the first genuinely appraisable result or any retained-human/
-material detour. Rigging, contact, deformation, VR integration, and permanent
+The current candidate is the first genuinely appraisable result and is now
+held for Ben's appraisal and explicit merge authorization; do not treat
+publication as acceptance or merge it without that checkpoint. Rigging,
+contact, deformation, VR integration, and permanent
 backend selection are outside this immediate runway. Do not reactivate the
 parked formal comparison or expand scope without Ben's direction.
 

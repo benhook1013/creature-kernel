@@ -1,7 +1,7 @@
 # Disposable current-form surface preview
 
 This is an exploratory visual workbench for the exact four-variant
-`creature-kernel.provisional-form-preview.v10` envelope. It converts the
+`creature-kernel.provisional-form-preview.v11` envelope. It converts the
 source-authored dimension-backed integer descriptors into analytic ellipsoid, capsule, and
 linear-radius tapered-segment fields, folds them in stable full-AddressKey
 order, and extracts a bounded continuous surface on a fixed uniform grid.
@@ -11,7 +11,24 @@ animation topology, rig, skin, runtime, Readiness 3/4 proof, or DR-0009/0010
 evidence. Winner labels are debug attribution only. Generated bundles belong
 in `/tmp` and must not be committed.
 
-The compiler-owned middle seam is a private regional-guide v9 representation
+The integrated candidate is producer v11 with `authored_foot_profile` v1:
+153 authored dimensions, 43 authored landmarks, and 16 authored frames. The
+private regional guide is v10; the successor is v8 with region/profile version
+v12. The exact foot route is `hock -> metatarsal midpoint -> pad -> pad-toe
+midpoint -> toe`: the hock is shin-owned, the other four stations are
+foot-owned, and the route carries full lateral/up/forward radii, outer caps,
+four spans, and exact producer/guide/successor lineage and cross-binding.
+The final publication context cap is 12 KiB only for the exact subject-context
+carrier; ordinary strings remain capped at 8192 characters. Current measured
+publication evidence is compact 190444 bytes, XZ 6244 bytes, Base64 8328
+characters, context 8812 bytes, producer SHA-256
+`c48ed001b910549dd1da296bb4c664a4de29cad4838b42403b15aa97773a6d3e`, XZ
+SHA-256 `5c42afe0b599b3afff52d687c3e46c9f4ae7d31f7d8e426d0b17e55858331161`,
+and context SHA-256
+`0210c5f225869d9030ff82a2898f122be21b4da328dcb668e0b83a674f486fb7`;
+strict decode equality passed.
+
+The compiler-owned middle seam is a private regional-guide v10 representation
 derived separately for each of the four validated variants. It carries stable
 source AddressKey ownership and provenance, the fixed prototype axes and
 parent topology, ordered pelvic-girdle/waist/chest-girdle stations with short
@@ -67,7 +84,7 @@ future compiler contract.
 The disposable v2 generator writes one private `regional-guide.json` and one
 `guide-skin-composite.png` for each variant, alongside the retained
 `surface.ply`, `semantic.json`, and `metrics.json` artifacts. The regional
-guide v9 sidecar is a sanitized, source-owned debug projection of `_HybridGuide`:
+guide v10 sidecar is a sanitized, source-owned debug projection of `_HybridGuide`:
 it carries only source AddressKeys, compiled recipe counts, projection
 names/bases, one shared world-space render bound, fixed canvas/layout metadata,
 and finite regional controls. Its v4 `torso_cage` controls compile into the
@@ -88,9 +105,12 @@ stations per side: `upper-arm-start`, `upper-arm-midpoint`, `elbow`,
 `forearm-midpoint`, and `forearm-distal`. The elbow is one shared
 upper-arm-owned seam; the guide also carries its authored anisotropic
 compatibility mass, while the forearm owns the distal station. No per-variant
-station tuning is introduced. Foot controls expose the existing source-owned hock, a tapered
-metatarsal, planted paw-pad and forward toe-box masses, plus a guide-only
-contact datum. Shoulder controls retain authored peak/axilla anchors, vertical
+station tuning is introduced. Foot controls expose the exact five-station route
+`hock -> metatarsal midpoint -> pad -> pad-toe midpoint -> toe`: the hock is
+inherited from the shin-owned authored leg profile, while the remaining four
+stations are foot-owned. The route carries full lateral/up/forward radii, outer
+caps, four spans, and exact producer/guide/successor lineage and cross-binding.
+The guide also retains a contact datum. Shoulder controls retain authored peak/axilla anchors, vertical
 and depth radii, and frame axes. The successor consumes them as exactly two
 ordered, deterministic, frame-aware five-section lateral profile sweeps, one
 per side: `torso-interior`, `torso-boundary`, `authored-shoulder`,
@@ -158,13 +178,13 @@ For a disposable `/tmp` environment, set
 `CK_CURRENT_FORM_SURFACE_PYTHON=/tmp/ck-current-form-surface-venv/bin/python`
 when invoking the launcher.
 
-The input must be a successful v10 inspection envelope. The output directory
+The input must be a successful v11 inspection envelope. The output directory
 must not already exist, and its parent must already exist:
 
 ```bash
 mkdir -p /tmp/ck-current-form-surface
 "$surface_preview_launcher" experiments/current-form-surface-preview/generate_surface_preview.py \
-  --input /tmp/form-v10.json \
+  --input /tmp/form-v11.json \
   --output /tmp/ck-current-form-surface/run-a \
   --samples-per-axis 72
 ```
@@ -198,15 +218,17 @@ muzzle route from `cranium-mid` through `muzzle-tip`; centres, radii, endpoints,
 thicknesses, and fixed axes come from each private guide. The successor
 hand/foot boundary consumes
 ordered hand attachment/paw sweeps and shin-to-foot digitigrade chains,
-including guide-owned hock, metatarsal, pad, and toe controls. The successor
+including the shin-owned hock seam and foot-owned metatarsal, pad, and toe
+controls. The successor
 tail boundary consumes six source-owned tail elements (root source,
 attachment, collar mass, tip source, extension, and cap); baseline fields
 remain an explicit bridge only for two thigh root connectors and two hip
-transitions. The successor v7 region
-`successor-torso-shoulder-head-neck-arm-leg-profile-limb-extremity-tail-profile-sweeps-v11`
+transitions. The successor v8 region
+`successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v12`
 uses four authored arm-profile routes plus two authored leg-profile routes.
 The authored leg routes retain the thigh-owned knee and shin-owned hock, and
-the successor retains the source-derived digitigrade foot chains. The two arm
+each foot route is exactly `hock -> metatarsal midpoint -> pad -> pad-toe midpoint
+-> toe`, with the hock shin-owned and all other stations foot-owned. The two arm
 root bridges and old underarm supports are absent; the shared upper-arm-owned
 elbow seam consumes all three authored radii. Exactly four temporary
 thigh-root/hip bridges remain: one root bridge and one hip transition per
@@ -215,10 +237,12 @@ per-variant station tuning. No baseline tail, paw, or foot component remains. Th
 tail source/extension endpoint retains its independently authored profiles;
 this experiment does not claim that the resulting tail silhouette or visual
 quality has been observed or accepted.
-It is neither a permanent backend selection nor the active human
-visual checkpoint. The [active runway](../../docs/project/status.md#active-runway)
-defines the baseline-versus-successor browser comparison that must be reached
-before human appraisal.
+It is neither a permanent backend selection nor an acceptance decision. This
+published form gallery is the active human visual checkpoint named by the
+[active runway](../../docs/project/status.md#active-runway); the candidate has
+completed local tests, two fresh hands-on trials, and fresh adversarial review
+and is held for Ben's visual appraisal. Publication machinery itself is not
+acceptance.
 
 The authored arm slice is a disposable consumer intended to test frame-aware
 profile continuity and bounded field behavior around the torso, upper-arm, and
@@ -232,11 +256,11 @@ above, the workflow has two steps:
 ```bash
 cargo run -p creature-kernel-cli -- inspect-provisional-form \
   --input examples/body-documents/stylized-digitigrade-biped-authored-form.json \
-  > /tmp/form-v10.json
+  > /tmp/form-v11.json
 
 mkdir -p /tmp/ck-successor-surface
 "$surface_preview_launcher" experiments/current-form-surface-preview/generate_successor_surface_preview.py \
-  --input /tmp/form-v10.json \
+  --input /tmp/form-v11.json \
   --output /tmp/ck-successor-surface/run-a \
   --samples-per-axis 56
 ```
@@ -248,7 +272,7 @@ robustness; lower values within the accepted argument range may still validly
 fail mesh-connectedness validation, and successful generation is not guaranteed
 at every in-range sampling value.
 
-A successful v7 run writes `successor-surface-manifest.json` plus exactly four
+A successful v8 run writes `successor-surface-manifest.json` plus exactly four
 variant directories. Each variant directory contains exactly
 `surface.ply`, `metrics.json`, `successor.json`, and one
 `guide-skin-composite.png`. The PNG is a deterministic RGB capture at the

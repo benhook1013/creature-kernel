@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import importlib.util
 import hashlib
 import json
@@ -362,6 +363,113 @@ def _leg_route_signature(routes: tuple[successor._LimbChainSweep, ...], guide: o
     route_values = np.concatenate(tuple(successor._profile_sweep_field(np.asarray(probes), route.sweep) for route in routes))
     bounds = np.concatenate(tuple(np.concatenate(successor._profile_sweep_bounds(route.sweep)) for route in routes))
     return np.concatenate((route_values, np.asarray(station_values, dtype=np.float64), bounds))
+
+
+_FOOT_AXIS_INDEX = {"lateral": 0, "up": 1, "forward": 2}
+
+
+def _mutate_foot_profile_radius(
+    guide: object,
+    side_index: int,
+    station_index: int,
+    axis: str,
+    factor: float = 1.37,
+) -> object:
+    """Perturb one authored foot radius and rebuild only its derived chain controls."""
+
+    profile = guide.foot_profile  # type: ignore[attr-defined]
+    sides = list(profile.sides)
+    side = sides[side_index]
+    stations = list(side.sections)
+    source = stations[station_index]
+    lineage_name = ("lateral_lineage", "up_lineage", "forward_lineage")[_FOOT_AXIS_INDEX[axis]]
+    lineage = getattr(source, lineage_name)
+    base = max(1, int(round(lineage.base * factor)))
+    scaled = base * lineage.factor // 1000
+    changed_lineage = replace(lineage, base=base, scaled=scaled)
+    radii = list(source.radii)
+    radii[_FOOT_AXIS_INDEX[axis]] = scaled / 1000.0
+    stations[station_index] = replace(
+        source,
+        radii=tuple(radii),
+        **{lineage_name: changed_lineage},
+    )
+    sides[side_index] = replace(side, sections=tuple(stations))
+    changed_profile = replace(profile, sides=tuple(sides))
+
+    paws = list(guide.paw_guides)  # type: ignore[attr-defined]
+    paw_index = next(
+        index for index, paw in enumerate(paws)
+        if paw.owner.key[1] == (side.side,) and paw.owner.key[3] == "foot"
+    )
+    paw = paws[paw_index]
+    chain = paw.foot_chain
+    assert chain is not None
+    pad_radii = tuple(stations[0].radii)
+    toe_radii = tuple(stations[1].radii)
+    hock_radii = tuple(chain.hock_radii)
+    changed_chain = replace(
+        chain,
+        pad_radii=pad_radii,
+        toe_radii=toe_radii,
+        metatarsal_profile=(hock_radii[1], pad_radii[1]),
+        metatarsal_midpoint_radii=tuple(
+            float(value) for value in 0.5 * (np.asarray(hock_radii) + np.asarray(pad_radii))
+        ),
+        pad_toe_midpoint_radii=tuple(
+            float(value) for value in 0.5 * (np.asarray(pad_radii) + np.asarray(toe_radii))
+        ),
+        profile=changed_profile,
+    )
+    paws[paw_index] = replace(paw, foot_chain=changed_chain)
+    for index, other_paw in enumerate(paws):
+        if index != paw_index and other_paw.owner.key[3] == "foot":
+            paws[index] = replace(other_paw, foot_chain=replace(other_paw.foot_chain, profile=changed_profile))
+    return replace(guide, foot_profile=changed_profile, paw_guides=tuple(paws))  # type: ignore[attr-defined]
+
+
+def _foot_route_signature(route: successor._ExtremitySweep) -> np.ndarray:
+    """Capture direct full-volume observables for one compiled foot route."""
+
+    probes = []
+    station_values = []
+    for section in route.sweep.sections:
+        center = np.asarray(section.center, dtype=np.float64)
+        axes = section.station_volume_axes
+        radii = section.station_volume_radii
+        assert axes is not None and radii is not None
+        station_probes = [
+            center + 0.55 * float(radii[index]) * np.asarray(axes[index], dtype=np.float64)
+            for index in range(3)
+        ]
+        probes.extend(station_probes)
+        station_values.extend(
+            successor._profile_station_volume_field(np.asarray((point,)), section)[0]
+            for point in station_probes
+        )
+    route_values = successor._profile_sweep_field(np.asarray(probes), route.sweep)
+    bounds = np.concatenate(successor._profile_sweep_bounds(route.sweep))
+    volumes = np.asarray(
+        [value for section in route.sweep.sections for value in section.station_volume_radii or ()],
+        dtype=np.float64,
+    )
+    return np.concatenate((route_values, np.asarray(station_values, dtype=np.float64), bounds, volumes))
+
+
+def _foot_station_volume_signature(route: successor._ExtremitySweep, index: int) -> np.ndarray:
+    section = route.sweep.sections[index]
+    axes = section.station_volume_axes
+    radii = section.station_volume_radii
+    assert axes is not None and radii is not None
+    center = np.asarray(section.center, dtype=np.float64)
+    points = np.asarray([
+        center + 0.55 * float(radii[axis]) * np.asarray(axes[axis], dtype=np.float64)
+        for axis in range(3)
+    ])
+    return np.concatenate((
+        successor._profile_station_volume_field(points, section),
+        np.asarray(radii, dtype=np.float64),
+    ))
 
 
 class SuccessorTorsoProfileNumericalTests(unittest.TestCase):
@@ -826,23 +934,141 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 np.testing.assert_array_equal(sections[0].center, chain.metatarsal_centerline[0])
                 expected_centers = (
                     chain.hock_anchor,
-                    tuple(0.5 * (np.asarray(chain.metatarsal_centerline[0]) + np.asarray(chain.metatarsal_centerline[1]))),
+                    chain.metatarsal_midpoint,
                     chain.pad_center,
-                    tuple(0.5 * (np.asarray(chain.pad_center) + np.asarray(chain.toe_center))),
+                    chain.pad_toe_midpoint,
                     chain.toe_center,
                 )
-                expected_radii = (
-                    tuple(chain.hock_radii[:2]),
-                    (sum(chain.metatarsal_profile) * 0.5,) * 2,
-                    tuple(chain.pad_radii[:2]),
-                    tuple(0.5 * (np.asarray(chain.pad_radii[:2]) + np.asarray(chain.toe_radii[:2]))),
-                    tuple(chain.toe_radii[:2]),
+                expected_volume_radii = (
+                    chain.hock_radii,
+                    chain.metatarsal_midpoint_radii,
+                    chain.pad_radii,
+                    chain.pad_toe_midpoint_radii,
+                    chain.toe_radii,
                 )
-                for section, center, radii in zip(sections, expected_centers, expected_radii):
+                for section, center, radii in zip(sections, expected_centers, expected_volume_radii):
                     np.testing.assert_array_equal(section.center, center)
-                    self.assertEqual(section.transverse_radii, radii)
+                    self.assertEqual(section.station_volume_radii, tuple(radii))
+                self.assertEqual(item.sweep.profile_operation, successor._FOOT_PROFILE_OPERATION)
+                self.assertEqual(len(sections) - 1, 4)
+                self.assertEqual(len(item.sweep.endpoint_caps), 2)
                 self.assertGreater(sections[-1].center[2], sections[2].center[2])
                 self.assertLess(chain.contact_height, sections[2].center[1])
+
+    def test_authored_foot_lineage_metadata_is_exact_and_bilateral_deterministic(self) -> None:
+        guide = surface_preview._derive_hybrid_guides(self.form, self.form.variants[0][1])
+        first = successor.compile_successor_region(guide)
+        second = successor.compile_successor_region(guide)
+        first_metadata = successor._foot_profile_metadata(first)
+        second_metadata = successor._foot_profile_metadata(second)
+        self.assertEqual(first_metadata, second_metadata)
+        self.assertIs(first.foot_profile, guide.foot_profile)
+        self.assertEqual(first_metadata["format"], surface_preview.AUTHORED_FOOT_PROFILE_FORMAT)
+        self.assertEqual(first_metadata["source"], "authored_foot_profile")
+        self.assertEqual(first_metadata["source_format"], surface_preview.SOURCE_FORMAT)
+        self.assertEqual(first_metadata["regional_guide_format"], surface_preview.REGIONAL_GUIDE_FORMAT)
+        self.assertEqual(first_metadata["operation"], successor._FOOT_PROFILE_OPERATION)
+        self.assertEqual(first_metadata["route_order"], ["left-foot", "right-foot"])
+        self.assertEqual(first_metadata["section_names"], list(successor._FOOT_PROFILE_SECTION_NAMES))
+        self.assertEqual(first_metadata["owner_roles"], list(successor._FOOT_PROFILE_OWNER_ROLES))
+        self.assertEqual(first_metadata["route_station_count"], 10)
+        self.assertEqual(first_metadata["authored_station_count"], 4)
+        self.assertEqual(first_metadata["route_volume_radius_count"], 30)
+        self.assertEqual(first_metadata["authored_radius_count"], 12)
+        for side_metadata, route in zip(first_metadata["sides"], first.foot_sweeps):
+            self.assertEqual(side_metadata["route"], route.name)
+            self.assertEqual(side_metadata["owner_roles"], list(successor._FOOT_PROFILE_OWNER_ROLES))
+            self.assertEqual(side_metadata["station_count"], 5)
+            for station_metadata, section in zip(side_metadata["stations"], route.sweep.sections):
+                self.assertEqual(station_metadata["name"], section.name)
+                self.assertEqual(station_metadata["center"], list(section.center))
+                self.assertEqual(station_metadata["volume_radii"], list(section.station_volume_radii))
+                self.assertEqual(station_metadata["owner"]["role"], section.owner.key[3])
+                self.assertEqual(set(station_metadata["lineage"]), {
+                    "kind", "profile_provenance", "variant_provenance", "inputs",
+                } if section.name in {"metatarsal-midpoint", "pad-toe-midpoint"} else {
+                    "kind", "profile", "source", "radii", "profile_provenance", "variant_provenance",
+                })
+        self.assertEqual(first_metadata["provenance"], dict(guide.foot_profile.provenance))
+        self.assertEqual(first_metadata["variant_provenance"], dict(guide.foot_profile.variant_provenance))
+
+    def test_authored_foot_forward_radius_perturbation_is_one_side_and_station_scoped(self) -> None:
+        guide = surface_preview._derive_hybrid_guides(self.form, self.form.variants[0][1])
+        baseline = {item.side: item for item in successor.compile_successor_region(guide).foot_sweeps}
+        changed_guide = _mutate_foot_profile_radius(guide, 0, 0, "forward")
+        changed = {item.side: item for item in successor.compile_successor_region(changed_guide).foot_sweeps}
+
+        np.testing.assert_array_equal(
+            _foot_route_signature(changed["right"]),
+            _foot_route_signature(baseline["right"]),
+        )
+        self.assertGreater(
+            float(np.max(np.abs(
+                _foot_route_signature(changed["left"])
+                - _foot_route_signature(baseline["left"])
+            ))),
+            1.0e-8,
+        )
+        for index in (0, 4):
+            np.testing.assert_array_equal(
+                _foot_station_volume_signature(changed["left"], index),
+                _foot_station_volume_signature(baseline["left"], index),
+            )
+        self.assertGreater(
+            float(np.max(np.abs(
+                _foot_station_volume_signature(changed["left"], 2)
+                - _foot_station_volume_signature(baseline["left"], 2)
+            ))),
+            1.0e-8,
+        )
+        self.assertNotEqual(
+            changed["left"].sweep.sections[2].station_volume_radii[2],
+            baseline["left"].sweep.sections[2].station_volume_radii[2],
+        )
+        self.assertEqual(
+            changed["left"].sweep.sections[1].station_volume_radii,
+            tuple(
+                float(value)
+                for value in 0.5 * (
+                    np.asarray(changed["left"].sweep.sections[0].station_volume_radii)
+                    + np.asarray(changed["left"].sweep.sections[2].station_volume_radii)
+                )
+            ),
+        )
+
+    def test_legacy_foot_descriptor_extents_do_not_change_authored_successor_chain(self) -> None:
+        payload = copy.deepcopy(fixture.make_varied_payload())
+        replacement = {"left": (900, 450, 1100), "right": (750, 500, 950)}
+        for entry in payload["authored_dimensions"]:
+            owner = entry["owner"]
+            role = entry["role"]
+            if owner["role"] == "foot" and role in {"form_extent_x", "form_extent_y", "form_extent_z"}:
+                side = owner["anchors"][0]
+                entry["value_permille"] = replacement[side][{"form_extent_x": 0, "form_extent_y": 1, "form_extent_z": 2}[role]]
+        for variant in payload["variants"]:
+            factors = surface_preview._foot_profile_factors(variant["id"])
+            for descriptor in variant["descriptors"]:
+                address = descriptor["address"]
+                if address["role"] == "foot":
+                    base = replacement[address["anchors"][0]]
+                    descriptor["shape"]["axis_extents_permille"] = [
+                        value * factor // 1000 for value, factor in zip(base, factors)
+                    ]
+        mutated_form = surface_preview.validate_envelope(payload)
+        for (_, original_descriptors, _), (_, mutated_descriptors, _) in zip(self.form.variants, mutated_form.variants):
+            original_guide = surface_preview._derive_hybrid_guides(self.form, original_descriptors)
+            mutated_guide = surface_preview._derive_hybrid_guides(mutated_form, mutated_descriptors)
+            original_foot = {
+                item.side: item for item in successor.compile_successor_region(original_guide).foot_sweeps
+            }
+            mutated_foot = {
+                item.side: item for item in successor.compile_successor_region(mutated_guide).foot_sweeps
+            }
+            for side in ("left", "right"):
+                np.testing.assert_array_equal(
+                    _foot_route_signature(mutated_foot[side]),
+                    _foot_route_signature(original_foot[side]),
+                )
 
     def test_extremity_tail_replacement_and_bridge_inventory_is_exact(self) -> None:
         _, descriptors, _ = self.form.variants[0]
@@ -2161,7 +2387,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 [item["source_variant_sha256"] for item in first_manifest["variants"]],
                 [item["source_variant_sha256"] for item in second_manifest["variants"]],
             )
-            self.assertEqual(successor.FORMAT, "creature-kernel.disposable-successor-surface-preview.v7")
+            self.assertEqual(successor.FORMAT, "creature-kernel.disposable-successor-surface-preview.v8")
             self.assertEqual(first_manifest["format"], successor.FORMAT)
             self.assertEqual(first_manifest["consumer_id"], successor.CONSUMER_ID)
             self.assertEqual(first_manifest["generator"]["samples_per_axis"], 56)
