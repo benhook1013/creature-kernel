@@ -16,6 +16,7 @@ import argparse
 import base64
 import hashlib
 import json
+import lzma
 import math
 import os
 import selectors
@@ -132,7 +133,7 @@ AUTHORED_TORSO_PROFILE_MIN_RADIUS_PERMILLE = 1
 AUTHORED_TORSO_PROFILE_MAX_RADIUS_PERMILLE = 5_000
 SOURCE_EVIDENCE_ENCODING = "utf-8"
 SOURCE_EVIDENCE_TRANSFER = "base64"
-SOURCE_EVIDENCE_COMPRESSION = "zlib"
+SOURCE_EVIDENCE_COMPRESSION = "xz"
 INPUT_EVIDENCE_PREFIX = "input_body_document"
 PRODUCER_EVIDENCE_PREFIX = "producer_envelope"
 INPUT_EVIDENCE_FIELDS = {
@@ -657,7 +658,7 @@ def _validate_successor_ply_metrics(
 
 def _evidence_fields(prefix: str) -> set[str]:
     return {
-        f"{prefix}_zlib_base64",
+        f"{prefix}_{SOURCE_EVIDENCE_COMPRESSION}_base64",
         f"{prefix}_encoding",
         f"{prefix}_transfer",
         f"{prefix}_compression",
@@ -669,10 +670,10 @@ def _evidence_fields(prefix: str) -> set[str]:
 def _exact_evidence_metadata_limit(*, prefix: str, max_bytes: int) -> int:
     """Bound one evidence carrier from its raw byte ceiling and encoding."""
 
-    # zlib's compressBound() formula for the default wrapper used by
-    # zlib.compress(), followed by Base64's exact four-characters-per-three-
-    # bytes expansion.  The remaining allowance is exactly the JSON encoding
-    # of the fixed evidence fields at their longest validated values.
+    # Retain the previous bounded carrier ceiling after changing the owned
+    # codec.  An XZ payload that exceeds this secondary bound fails closed; the
+    # raw byte ceiling and the final 8192-character review-context limit remain
+    # independently enforced.
     compressed_bytes = (
         max_bytes
         + (max_bytes >> 12)
@@ -682,7 +683,7 @@ def _exact_evidence_metadata_limit(*, prefix: str, max_bytes: int) -> int:
     )
     encoded_bytes = 4 * ((compressed_bytes + 2) // 3)
     fixed_carrier = {
-        f"{prefix}_zlib_base64": "",
+        f"{prefix}_{SOURCE_EVIDENCE_COMPRESSION}_base64": "",
         f"{prefix}_encoding": SOURCE_EVIDENCE_ENCODING,
         f"{prefix}_transfer": SOURCE_EVIDENCE_TRANSFER,
         f"{prefix}_compression": SOURCE_EVIDENCE_COMPRESSION,
@@ -732,8 +733,13 @@ def _read_exact_evidence(
     if text.encode(SOURCE_EVIDENCE_ENCODING) != raw:
         raise SurfacePreviewPublishError(f"{where} UTF-8 evidence is not byte-exact")
     return {
-        f"{prefix}_zlib_base64": base64.b64encode(
-            zlib.compress(raw, level=9)
+        f"{prefix}_{SOURCE_EVIDENCE_COMPRESSION}_base64": base64.b64encode(
+            lzma.compress(
+                raw,
+                format=lzma.FORMAT_XZ,
+                check=lzma.CHECK_CRC64,
+                preset=9 | lzma.PRESET_EXTREME,
+            )
         ).decode("ascii"),
         f"{prefix}_encoding": SOURCE_EVIDENCE_ENCODING,
         f"{prefix}_transfer": SOURCE_EVIDENCE_TRANSFER,
@@ -750,21 +756,20 @@ def _decode_exact_evidence(
 
     if not isinstance(value, dict):
         raise SurfacePreviewPublishError(f"{where} must be an object")
-    encoded = value.get(f"{prefix}_zlib_base64")
+    encoded = value.get(f"{prefix}_{SOURCE_EVIDENCE_COMPRESSION}_base64")
     if not isinstance(encoded, str):
         raise SurfacePreviewPublishError(f"{where} has an invalid Base64 payload")
     try:
         compressed = base64.b64decode(encoded.encode("ascii"), validate=True)
     except (UnicodeEncodeError, ValueError) as exc:
         raise SurfacePreviewPublishError(f"{where} has an invalid Base64 payload") from exc
-    decoder = zlib.decompressobj()
+    decoder = lzma.LZMADecompressor(format=lzma.FORMAT_XZ)
     try:
         raw = decoder.decompress(compressed, max_bytes + 1)
-    except zlib.error as exc:
+    except lzma.LZMAError as exc:
         raise SurfacePreviewPublishError(f"{where} has invalid compressed bytes") from exc
     if (
         len(raw) > max_bytes
-        or decoder.unconsumed_tail
         or decoder.unused_data
         or not decoder.eof
     ):
@@ -2766,6 +2771,12 @@ def _validate_controls(
     limb_by_owner_key: dict[str, dict[str, Any]] = {}
     anchor_by_owner_key: dict[str, dict[str, Any]] = {}
     joint_records: list[tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]] = []
+    authored_elbows_by_owner = {
+        json.dumps(section["owner"], sort_keys=True): section
+        for side in controls["arm_profile"]["sides"]
+        for section in side["sections"]
+        if section["name"] == "elbow"
+    }
     for index, item in enumerate(limbs):
         if not isinstance(item, dict) or set(item) != {"owner", "profile_controls", "sections", "bridges", "masses", "joints", "anchors"}:
             raise SurfacePreviewPublishError(f"regional guide limbs[{index}] has an invalid shape")
@@ -2842,11 +2853,32 @@ def _validate_controls(
             if float(adjacent_profiles[0]) != float(ordered_sections[-1]["thickness"][1]):
                 raise SurfacePreviewPublishError(f"{joint_where}.adjacent_profiles do not bind the distal section")
             joint_radii = _point(joint["mass"]["radii"], f"{joint_where}.mass.radii")
-            joint_radius = joint_radii[0]
-            if any(not math.isclose(value, joint_radius, rel_tol=1e-9, abs_tol=1e-12) for value in joint_radii[1:]):
-                raise SurfacePreviewPublishError(f"{joint_where}.mass must be isotropic")
-            if not math.isclose(joint_radius, 0.70 * min(float(value) for value in adjacent_profiles), rel_tol=1e-9, abs_tol=1e-12) or any(joint_radius >= float(value) for value in adjacent_profiles):
-                raise SurfacePreviewPublishError(f"{joint_where} radius is not a narrowed adjacent-profile station")
+            if joint["name"] == "elbow":
+                authored_elbow = authored_elbows_by_owner.get(owner_key)
+                if authored_elbow is None:
+                    raise SurfacePreviewPublishError(
+                        f"{joint_where}.mass has no authored elbow station"
+                    )
+                expected_radii = [
+                    float(authored_elbow["radii"][axis])
+                    for axis in AUTHORED_ARM_PROFILE_RADIUS_AXES
+                ]
+                if (
+                    joint["mass"]["center"] != authored_elbow["center"]
+                    or any(
+                        not math.isclose(actual, expected, rel_tol=0.0, abs_tol=1.0e-12)
+                        for actual, expected in zip(joint_radii, expected_radii)
+                    )
+                ):
+                    raise SurfacePreviewPublishError(
+                        f"{joint_where}.mass does not bind the authored elbow station"
+                    )
+            else:
+                joint_radius = joint_radii[0]
+                if any(not math.isclose(value, joint_radius, rel_tol=1e-9, abs_tol=1e-12) for value in joint_radii[1:]):
+                    raise SurfacePreviewPublishError(f"{joint_where}.mass must be isotropic")
+                if not math.isclose(joint_radius, 0.70 * min(float(value) for value in adjacent_profiles), rel_tol=1e-9, abs_tol=1e-12) or any(joint_radius >= float(value) for value in adjacent_profiles):
+                    raise SurfacePreviewPublishError(f"{joint_where} radius is not a narrowed adjacent-profile station")
             distal_section = ordered_sections[-1]
             if distal_section["points"][1] != joint["mass"]["center"]:
                 raise SurfacePreviewPublishError(f"{joint_where} must coincide with the distal limb endpoint")
@@ -3854,9 +3886,13 @@ def _expected_successor_region_metadata(
         "internal_transition_counts": [0] * len(SUCCESSOR_TAIL_ORDER),
     }
 
-    source_owner_keys = (
-        [limbs_by_key[((side,), role)]["owner"] for side in ("left", "right") for role in ("upper_arm", "forearm", "thigh", "shin")]
-    )
+    source_owner_keys: list[dict[str, Any]] = []
+    for section_owners in limbs["section_owner_keys"]:
+        sweep_sources: list[dict[str, Any]] = []
+        for section_owner in section_owners:
+            if section_owner not in sweep_sources:
+                sweep_sources.append(section_owner)
+        source_owner_keys.extend(sweep_sources)
     extremity_source_owner_keys = []
     for side in ("left", "right"):
         hand = paws_by_key[((side,), "hand")]["owner"]

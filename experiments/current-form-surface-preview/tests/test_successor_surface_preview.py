@@ -1852,6 +1852,20 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             self.assertEqual(limb_metrics["limb_sweep_station_counts"], [3, 3, 3, 3, 5, 5])
             self.assertEqual(limb_metrics["limb_sweep_endpoint_cap_counts"], [2, 2, 2, 2, 2, 2])
             self.assertEqual([len(owners) for owners in limb_metrics["limb_sweep_section_owner_keys"]], [3, 3, 3, 3, 5, 5])
+            self.assertEqual(
+                [
+                    (owner["anchors"][0], owner["role"])
+                    for owner in limb_metrics["limb_source_owner_keys"]
+                ],
+                [
+                    ("left", "upper_arm"),
+                    ("left", "upper_arm"), ("left", "forearm"),
+                    ("right", "upper_arm"),
+                    ("right", "upper_arm"), ("right", "forearm"),
+                    ("left", "thigh"), ("left", "shin"),
+                    ("right", "thigh"), ("right", "shin"),
+                ],
+            )
             self.assertEqual(limb_metrics["arm_profile"]["route_order"], ["left-upper-arm-route", "left-forearm-route", "right-upper-arm-route", "right-forearm-route"])
             self.assertEqual(limb_metrics["arm_profile"]["topology"], "two-routes-per-side-shared-upper-arm-elbow-seam")
             self.assertEqual(

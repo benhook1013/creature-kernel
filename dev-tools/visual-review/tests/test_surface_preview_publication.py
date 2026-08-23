@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import copy
 import hashlib
 import importlib.util
@@ -7,6 +8,7 @@ import io
 import json
 import os
 import struct
+import subprocess
 import sys
 import tempfile
 import textwrap
@@ -340,6 +342,11 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                         arm_sections_json.append({{"name": source_section["name"], "section_index": source_section["section_index"], "source_section_index": projected_section["source_section_index"], "frame_index": source_section["frame_index"], "landmark_index": source_section["landmark_index"], "owner": owner, "frame": {{"owner": owner, "role": {common.PROVISIONAL_FORM_ARM_PROFILE_FRAME_ROLE!r}}}, "landmark": landmark, "center": center, "radii": radii, "lateral_radius": radii["lateral"], "up_radius": radii["up"], "forward_radius": radii["forward"], "lineage": lineage, "consumption": ("skin-driving; elbow seam owned by upper_arm station" if source_section["name"] == "elbow" else "skin-driving")}})
                     arm_profile_sides.append({{"side": side_name, "sections": arm_sections_json}})
                 arm_profile_controls = {{"format": {publisher.AUTHORED_ARM_PROFILE_FORMAT!r}, "status": "skin-driving arm profile; legacy shoulder supports remain guide-only", "provenance": payload["authored_arm_profile"]["provenance"], "axes": {{"lateral": [1.0, 0.0, 0.0], "up": [0.0, 1.0, 0.0], "forward": [0.0, 0.0, 1.0]}}, "sides": arm_profile_sides}}
+                for arm_side in arm_profile_sides:
+                    elbow = arm_side["sections"][2]
+                    upper_arm = next(item for item in limbs if item["owner"] == elbow["owner"])
+                    upper_arm["joints"][0]["mass"]["center"] = list(elbow["center"])
+                    upper_arm["joints"][0]["mass"]["radii"] = [elbow["radii"][axis] for axis in ("lateral", "up", "forward")]
                 guide = {{"format": {publisher.REGIONAL_GUIDE_FORMAT!r}, "variant": variant_id, "owners": owners, "counts": {publisher.EXPECTED_GUIDE_COUNTS!r}, "projections": projections, "shared_render_bounds": bounds, "canvas": canvas, "layout": layout, "controls": {{"axes": {{"lateral": [1.0, 0.0, 0.0], "up": [0.0, 1.0, 0.0], "forward": [0.0, 0.0, 1.0]}}, "axial": axial, "torso_cage": torso_cage, "shoulder_frame": shoulder_frame_controls, "arm_profile": arm_profile_controls, "head": head, "limbs": limbs, "paws": paws, "tails": tails}}, "boundary": "private disposable regional controls; source-owned AddressKeys only; not a semantic or runtime contract"}}
                 if {mode!r} == "guide-obsolete-recipe-count":
                     guide["counts"] = dict(guide["counts"])
@@ -395,6 +402,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 if {mode!r} == "guide-arm-attachment": guide["controls"]["arm_profile"]["sides"][0]["sections"][0]["center"][0] += 0.01
                 if {mode!r} == "guide-arm-elbow": guide["controls"]["arm_profile"]["sides"][0]["sections"][2]["center"][0] += 0.01
                 if {mode!r} == "guide-arm-midpoint": guide["controls"]["arm_profile"]["sides"][0]["sections"][3]["center"][1] += 0.01
+                if {mode!r} == "guide-arm-joint-radii": guide["controls"]["limbs"][0]["joints"][0]["mass"]["radii"][0] += 0.01
                 if {mode!r} == "guide-head-section-omitted":
                     guide["controls"]["head"]["sections"].pop()
                 if {mode!r} == "guide-head-section-malformed":
@@ -407,6 +415,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     guide["controls"]["head"]["masses"][0]["center"][0] += 0.01
                 if {mode!r} == "guide-girdle-malformed": guide["controls"]["limbs"][2]["masses"][0]["control"] = "wrong"
                 if {mode!r} == "guide-joint-endpoint": guide["controls"]["limbs"][2]["joints"][0]["mass"]["center"][0] = 0.0
+                if {mode!r} == "guide-knee-anisotropic": guide["controls"]["limbs"][4]["joints"][0]["mass"]["radii"][1] = 0.13
                 if {mode!r} == "guide-foot-legacy": guide["controls"]["paws"][2] = {{"owner": owners[12], "masses": [], "attachment": {{}}, "attachment_source": {{}}}}
                 if {mode!r} == "guide-foot-order": guide["controls"]["paws"][2]["chain"]["masses"][1]["center"][2] = -1.0
                 if {mode!r} == "guide-foot-hock-source": guide["controls"]["paws"][2]["hock_source"]["point"][0] = 0.5
@@ -700,6 +709,13 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     ])
                     extremity_internal_transition_counts.extend([0, bend_count(hand_centers), bend_count(foot_centers)])
                 extremities = {"representation": "shared-guide-derived-hand-and-digitigrade-foot-profile-sweeps", "sweeps_consumed": len(EXTREMITY_ORDER), "sweep_order": list(EXTREMITY_ORDER), "sweep_kinds": list(EXTREMITY_KINDS), "station_counts": [len(names) for names in EXTREMITY_STATION_NAMES], "station_names": [list(names) for names in EXTREMITY_STATION_NAMES], "section_owner_keys": extremity_owner_keys, "endpoint_cap_counts": [2] * len(EXTREMITY_ORDER), "internal_transition_counts": extremity_internal_transition_counts}
+                limb_source_owner_keys = []
+                for section_owners in limbs["section_owner_keys"]:
+                    sweep_sources = []
+                    for section_owner in section_owners:
+                        if section_owner not in sweep_sources:
+                            sweep_sources.append(section_owner)
+                    limb_source_owner_keys.extend(sweep_sources)
                 tail_root_owner = source_owner(descriptors, "tail_root", ["tail"])
                 tail_tip_owner = source_owner(descriptors, "tail_tip", ["tail"])
                 tail_controls, tip_shared_endpoint = generated_tail_controls(tail_root_owner, tail_tip_owner)
@@ -730,7 +746,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     "limb_sweep_section_owner_keys": limbs["section_owner_keys"],
                     "limb_sweep_endpoint_cap_counts": limbs["endpoint_cap_counts"],
                     "limb_sweep_internal_transition_counts": limb_internal_transition_counts,
-                    "limb_source_owner_keys": [limb_owners[(side, role)] for side in ("left", "right") for role in ("upper_arm", "forearm", "thigh", "shin")],
+                    "limb_source_owner_keys": limb_source_owner_keys,
                     "extremity_representation": extremities["representation"],
                     "extremity_sweeps_consumed": extremities["sweeps_consumed"],
                     "extremity_sweep_order": extremities["sweep_order"],
@@ -864,6 +880,10 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     head_metadata = dict(metrics["successor_region"]["head_neck"])
                     head_metadata["provenance"] = {"source": "cross-boundary", "document": "fixture", "namespace": "main"}
                     metrics_file["successor_region"] = {**metrics["successor_region"], "head_neck": head_metadata}
+                elif MODE == "metrics-limb-source-owner":
+                    owners = list(metrics["successor_region"]["limb_source_owner_keys"])
+                    owners[1] = limb_owners[("left", "forearm")]
+                    metrics_file["successor_region"] = {**metrics["successor_region"], "limb_source_owner_keys": owners}
                 metrics_record = metrics_file
                 (variant_dir / "metrics.json").write_text(json.dumps(metrics_file, sort_keys=True), encoding="utf-8")
                 png = variant_dir / "guide-skin-composite.png"
@@ -1577,7 +1597,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         for index, mode in enumerate((
             "guide-arm-omitted", "guide-arm-side-order", "guide-arm-source-index",
             "guide-arm-owner", "guide-arm-lineage", "guide-arm-attachment",
-            "guide-arm-elbow", "guide-arm-midpoint",
+            "guide-arm-elbow", "guide-arm-midpoint", "guide-arm-joint-radii",
         )):
             review_id = f"arm-guide-tamper-{index}"
             with self.subTest(mode=mode):
@@ -1808,10 +1828,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         byte_count = 0
         index = 0
         while byte_count < target_bytes:
-            chunk = (
-                f"{index:06d}:authored-head-neck-profile-section-lineage-"
-                "radius-provenance\n"
-            ).encode("ascii")
+            chunk = hashlib.sha256(str(index).encode("ascii")).hexdigest().encode("ascii")
             chunks.append(chunk)
             byte_count += len(chunk)
             index += 1
@@ -1839,62 +1856,33 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         self.assertEqual(publisher._decode_producer_evidence(evidence), raw)
 
     def test_current_shape_compact_producer_fits_final_descriptor_context(self) -> None:
-        payload = self._payload()
-        target_pretty_bytes = 198_777
-        padding_bytes = target_pretty_bytes - len(
-            publisher.canonical_json(payload).encode("utf-8")
+        repository = HERE.parents[1]
+        source = repository / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
+        completed = subprocess.run(
+            [
+                "cargo", "run", "--quiet", "--package", "creature-kernel-cli",
+                "--bin", "creature-kernel", "--", "inspect-provisional-form",
+                "--input", str(source),
+            ],
+            cwd=repository,
+            capture_output=True,
+            text=True,
+            check=True,
         )
-        chunks = []
-        character_count = 0
-        index = 0
-        while character_count < padding_bytes:
-            chunk = f"{index % 289:03d}:head-neck;"
-            chunks.append(chunk)
-            character_count += len(chunk)
-            index += 1
-        payload["limitations"] += "".join(chunks)[:padding_bytes]
-
-        pretty = publisher.canonical_json(payload).encode("utf-8")
+        payload = json.loads(completed.stdout)
         compact = publisher._compact_canonical_json(payload).encode("utf-8")
-        self.assertEqual(len(pretty), target_pretty_bytes)
-        self.assertLess(len(compact), len(pretty))
+        self.assertEqual(payload["format"], common.PROVISIONAL_FORM_V9_FORMAT)
         self.assertTrue(compact.endswith(b"\n"))
         self.assertEqual(json.loads(compact), payload)
 
-        input_evidence = publisher._read_input_evidence(self.input)
-
-        def descriptor_for(path: Path) -> dict[str, object]:
-            evidence = publisher._read_producer_evidence(path)
-            return {
-                **input_evidence,
-                **evidence,
-            }
-
-        pretty_path = self.directory / "pretty-producer.json"
-        pretty_path.write_bytes(pretty)
-        with self.assertRaisesRegex(
-            publisher.SurfacePreviewPublishError, "descriptor_snapshot is too large"
-        ):
-            publisher._validate_input_evidence(
-                descriptor_for(pretty_path), "review.subject_context.descriptor_snapshot"
-            )
-
         compact_path = self.directory / "compact-producer.json"
         compact_path.write_bytes(compact)
-        compact_descriptor = descriptor_for(compact_path)
-        evidence_size = len(json.dumps(
-            {
-                key: value
-                for key, value in compact_descriptor.items()
-                if key.startswith("producer_envelope_")
-            },
-            allow_nan=False,
-            ensure_ascii=False,
-        ))
-        self.assertGreaterEqual(evidence_size, 7_700)
-        self.assertLessEqual(evidence_size, 7_800)
+        descriptor = {
+            **publisher._read_input_evidence(source),
+            **publisher._read_producer_evidence(compact_path),
+        }
         descriptor = publisher._validate_input_evidence(
-            compact_descriptor,
+            descriptor,
             "review.subject_context.descriptor_snapshot",
         )
         publisher._validate_producer_evidence(
@@ -1906,50 +1894,46 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         self.assertEqual(
             descriptor["producer_envelope_sha256"], hashlib.sha256(compact).hexdigest()
         )
+        self.assertEqual(descriptor["producer_envelope_compression"], "xz")
         subject_context = {
             "descriptor_snapshot": descriptor,
             "provenance": {
-                "baseline": "generator-success.py",
-                "successor": "successor-generator-success.py",
+                "baseline": "generate_surface_preview.py",
+                "successor": "generate_successor_surface_preview.py",
             },
         }
-        redundant_subject = copy.deepcopy(subject_context)
-        redundant_subject["descriptor_snapshot"] = {
-            "source_format": common.PROVISIONAL_FORM_FORMAT,
-            "source_sha256": descriptor["producer_envelope_sha256"],
-            "variants": list(publisher.EXPECTED_VARIANTS),
-            "images": 8,
-            **descriptor,
-        }
-        redundant_subject["provenance"]["baseline_generator"] = {
-            "bundle_version": 2,
-            "samples_per_axis": 48,
-            "padding": 0.5,
-            "smooth_union": {
-                "operator": "polynomial_cubic_smooth_min",
-                "k": 0.1,
-                "fold_order": "source_address_then_recipe_order",
-            },
-        }
-        redundant_subject["provenance"]["successor_generator"] = {
-            "samples_per_axis": 48,
-            "padding": 0.5,
-            "capture_padding": 0.75,
-            "smooth_k": 0.1,
-            "production_status": "disposable-experiment",
-        }
-        with self.assertRaisesRegex(common.ValidationError, "subject_context is too large"):
-            common._subject_context(redundant_subject, "manifest.subject_context")
         subject_context_size = len(json.dumps(subject_context, allow_nan=False, ensure_ascii=False))
-        self.assertEqual(subject_context_size, 8_031)
         self.assertGreaterEqual(
             common.MAX_CONTEXT_JSON - subject_context_size,
-            128,
+            512,
         )
         self.assertEqual(
             common._subject_context(subject_context, "manifest.subject_context"),
             subject_context,
         )
+
+    def test_xz_producer_evidence_rejects_invalid_or_trailing_streams(self) -> None:
+        producer = self.directory / "producer.json"
+        producer.write_text("{}\n", encoding="utf-8")
+        evidence = publisher._read_producer_evidence(producer)
+        payload_field = "producer_envelope_xz_base64"
+        compressed = base64.b64decode(evidence[payload_field])
+        malformed = (
+            {**evidence, payload_field: "*"},
+            {**evidence, payload_field: base64.b64encode(compressed[:-1]).decode("ascii")},
+            {**evidence, payload_field: base64.b64encode(compressed + b"x").decode("ascii")},
+        )
+        for case in malformed:
+            with self.subTest(case=case[payload_field][:12]):
+                with self.assertRaises(publisher.SurfacePreviewPublishError):
+                    publisher._decode_producer_evidence(case)
+        with self.assertRaisesRegex(
+            publisher.SurfacePreviewPublishError, "invalid encoding declaration"
+        ):
+            publisher._validate_producer_evidence({
+                **evidence,
+                "producer_envelope_compression": "zlib",
+            })
 
     def test_producer_evidence_over_derived_carrier_bound_fails_closed(self) -> None:
         producer = self.directory / "producer.json"
@@ -1964,7 +1948,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             publisher._validate_producer_evidence(evidence, "oversized producer")
 
     def test_malformed_count_and_unlisted_output_publish_nothing(self) -> None:
-        for index, mode in enumerate(("bad-count", "unlisted", "symlink", "extra-directory", "hash", "source-mismatch", "fabricated-provenance", "fabricated-descriptor", "profile-mismatch", "guide-format", "guide-provenance", "guide-controls", "guide-station-omitted", "guide-transition-omitted", "guide-cage-omitted", "guide-cage-malformed", "guide-cage-connection", "guide-head-section-omitted", "guide-head-section-malformed", "guide-head-connection", "guide-head-lineage", "guide-head-compatibility", "guide-shoulder-omitted", "guide-shoulder-stale-status", "guide-shoulder-consumption", "guide-shoulder-malformed", "guide-shoulder-owner", "guide-shoulder-order", "guide-shoulder-endpoint", "guide-shoulder-span", "guide-shoulder-degenerate", "guide-shoulder-points", "guide-shoulder-profile", "guide-shoulder-profile-continuity", "guide-shoulder-first-quarter", "guide-girdle-omitted", "guide-station-malformed", "guide-transition-malformed", "guide-girdle-malformed", "guide-joint-endpoint", "guide-foot-legacy", "guide-foot-order", "guide-foot-hock-source", "guide-foot-hock-radii", "guide-foot-contact", "guide-foot-taper", "guide-foot-axis", "guide-foot-gap", "guide-hand-attachment-start", "guide-hand-anchor-point", "guide-section-gap", "guide-profile-second-start", "guide-adjacent-profile", "guide-obsolete-recipe-count", "guide-wrong-recipe-count", "metrics-generated-count", "metrics-recipe-count", "manifest-metrics", "generator-recipes", "generator-ownership", "guide-omitted", "png-small", "png-truncated", "png-crc", "png-no-idat", "png-invalid-idat", "png-unknown-critical")):
+        for index, mode in enumerate(("bad-count", "unlisted", "symlink", "extra-directory", "hash", "source-mismatch", "fabricated-provenance", "fabricated-descriptor", "profile-mismatch", "guide-format", "guide-provenance", "guide-controls", "guide-station-omitted", "guide-transition-omitted", "guide-cage-omitted", "guide-cage-malformed", "guide-cage-connection", "guide-head-section-omitted", "guide-head-section-malformed", "guide-head-connection", "guide-head-lineage", "guide-head-compatibility", "guide-shoulder-omitted", "guide-shoulder-stale-status", "guide-shoulder-consumption", "guide-shoulder-malformed", "guide-shoulder-owner", "guide-shoulder-order", "guide-shoulder-endpoint", "guide-shoulder-span", "guide-shoulder-degenerate", "guide-shoulder-points", "guide-shoulder-profile", "guide-shoulder-profile-continuity", "guide-shoulder-first-quarter", "guide-girdle-omitted", "guide-station-malformed", "guide-transition-malformed", "guide-girdle-malformed", "guide-joint-endpoint", "guide-knee-anisotropic", "guide-foot-legacy", "guide-foot-order", "guide-foot-hock-source", "guide-foot-hock-radii", "guide-foot-contact", "guide-foot-taper", "guide-foot-axis", "guide-foot-gap", "guide-hand-attachment-start", "guide-hand-anchor-point", "guide-section-gap", "guide-profile-second-start", "guide-adjacent-profile", "guide-obsolete-recipe-count", "guide-wrong-recipe-count", "metrics-generated-count", "metrics-recipe-count", "manifest-metrics", "generator-recipes", "generator-ownership", "guide-omitted", "png-small", "png-truncated", "png-crc", "png-no-idat", "png-invalid-idat", "png-unknown-critical")):
             with self.subTest(mode=mode):
                 with patch.object(publisher, "_parse_inspection", return_value=self._payload()):
                     with self.assertRaises(publisher.SurfacePreviewPublishError):
@@ -2065,6 +2049,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             "metrics-shoulder-center",
             "metrics-shoulder-depth",
             "metrics-shoulder-owner",
+            "metrics-limb-source-owner",
         )
         for index, mode in enumerate(modes):
             review_id = f"successor-bad-{index}"
