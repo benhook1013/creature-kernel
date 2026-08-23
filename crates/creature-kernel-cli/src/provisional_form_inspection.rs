@@ -2968,6 +2968,13 @@ mod tests {
             [210, 200, 190],
             [180, 170, 160],
         ];
+        let expected_source_local_positions = [
+            json!([0.0, 0.0, 0.0]),
+            json!([0.0, -0.5, 0.0]),
+            json!([0.0, -1.0, 0.0]),
+            json!([0.0, -0.5, 0.0]),
+            json!([0.0, -1.0, 0.0]),
+        ];
         assert_eq!(profile["format"], ARM_PROFILE_FORMAT);
         assert_eq!(profile["provenance"], provenance);
         let sides = profile["sides"].as_array().unwrap();
@@ -3014,8 +3021,10 @@ mod tests {
                 );
                 assert_eq!(landmark["frame"]["owner"], frame["owner"]);
                 assert_eq!(landmark["frame"]["role"], ARM_PROFILE_CONTROL_FRAME_ROLE);
-                assert_eq!(landmark["position"][0], json!(0.0));
-                assert_eq!(landmark["position"][2], json!(0.0));
+                assert_eq!(
+                    landmark["position"],
+                    expected_source_local_positions[section_index]
+                );
                 assert_eq!(landmark["provenance"], provenance);
 
                 let dimension_indices = &section["dimension_indices"];
@@ -3059,12 +3068,9 @@ mod tests {
             let factors = arm_profile_factors(variant["id"].as_str().unwrap());
             for (side_index, projected_side) in projected_sides.iter().enumerate() {
                 assert_eq!(projected_side["side"], ARM_PROFILE_SIDE_NAMES[side_index]);
-                for (section_index, projected_section) in projected_side["sections"]
-                    .as_array()
-                    .unwrap()
-                    .iter()
-                    .enumerate()
-                {
+                let projected_sections = projected_side["sections"].as_array().unwrap();
+                assert_eq!(projected_sections.len(), ARM_PROFILE_SECTION_NAMES.len());
+                for (section_index, projected_section) in projected_sections.iter().enumerate() {
                     let source_section = &sides[side_index]["sections"][section_index];
                     assert_eq!(
                         projected_section["source_section_index"],
@@ -3074,6 +3080,10 @@ mod tests {
                     let landmark =
                         &landmarks[source_section["landmark_index"].as_u64().unwrap() as usize];
                     assert_eq!(projected_section["position"], landmark["position"]);
+                    assert_eq!(
+                        projected_section["position"],
+                        expected_source_local_positions[section_index]
+                    );
                     assert_eq!(projected_section["provenance"], provenance);
                     for (axis, axis_name) in ARM_PROFILE_RADIUS_AXES.iter().enumerate() {
                         let authored = expected_radii[section_index][axis];
@@ -3096,6 +3106,181 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn arm_profile_side_perturbations_are_local_to_the_changed_station() {
+        let original = parsed(&inspect_source(&example()));
+
+        let mut changed_landmark_source = document();
+        changed_landmark_source["body"]["landmarks"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|landmark| {
+                landmark["role"] == "form_arm_profile_upper_arm_midpoint"
+                    && landmark["owner"]["anchors"] == json!(["left"])
+            })
+            .unwrap()["position"][1] = json!(-0.4);
+        let changed_landmark = parsed(&inspect_source(&bytes(changed_landmark_source)));
+        assert_eq!(changed_landmark["status"], "success");
+
+        let mut normalized_landmark = changed_landmark.clone();
+        let mut authored_position_changes = 0;
+        for (landmark_index, (before, after)) in original["authored_landmarks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .zip(changed_landmark["authored_landmarks"].as_array().unwrap())
+            .enumerate()
+        {
+            if before["role"] == "form_arm_profile_upper_arm_midpoint"
+                && before["owner"]["anchors"] == json!(["left"])
+            {
+                assert_ne!(before["position"], after["position"]);
+                normalized_landmark["authored_landmarks"][landmark_index]["position"] =
+                    before["position"].clone();
+                authored_position_changes += 1;
+            } else {
+                assert_eq!(before, after);
+            }
+        }
+        assert_eq!(authored_position_changes, 1);
+
+        let mut projected_position_changes = 0;
+        for (variant_index, (before_variant, after_variant)) in original["variants"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .zip(changed_landmark["variants"].as_array().unwrap())
+            .enumerate()
+        {
+            for (side_index, (before_side, after_side)) in before_variant["arm_profile"]["sides"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .zip(after_variant["arm_profile"]["sides"].as_array().unwrap())
+                .enumerate()
+            {
+                if before_side["side"] == "left" {
+                    for (section_index, (before_section, after_section)) in before_side["sections"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .zip(after_side["sections"].as_array().unwrap())
+                        .enumerate()
+                    {
+                        if before_section["name"] == "upper-arm-midpoint" {
+                            assert_ne!(before_section["position"], after_section["position"]);
+                            let mut normalized_section = after_section.clone();
+                            normalized_section["position"] = before_section["position"].clone();
+                            assert_eq!(before_section, &normalized_section);
+                            normalized_landmark["variants"][variant_index]["arm_profile"]["sides"]
+                                [side_index]["sections"][section_index]["position"] =
+                                before_section["position"].clone();
+                            projected_position_changes += 1;
+                        } else {
+                            assert_eq!(before_section, after_section);
+                        }
+                    }
+                } else {
+                    assert_eq!(before_side["side"], "right");
+                    assert_eq!(before_side, after_side);
+                }
+            }
+        }
+        assert_eq!(
+            projected_position_changes,
+            original["variants"].as_array().unwrap().len()
+        );
+        assert_eq!(normalized_landmark, original);
+
+        let mut changed_radius_source = document();
+        changed_radius_source["body"]["dimensions"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|dimension| {
+                dimension["role"] == "form_arm_profile_forearm_midpoint_forward_radius"
+                    && dimension["owner"]["anchors"] == json!(["right"])
+            })
+            .unwrap()["value"] = json!(200);
+        let changed_radius = parsed(&inspect_source(&bytes(changed_radius_source)));
+        assert_eq!(changed_radius["status"], "success");
+
+        let mut normalized_radius = changed_radius.clone();
+        let mut authored_radius_changes = 0;
+        for (dimension_index, (before, after)) in original["authored_dimensions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .zip(changed_radius["authored_dimensions"].as_array().unwrap())
+            .enumerate()
+        {
+            if before["role"] == "form_arm_profile_forearm_midpoint_forward_radius"
+                && before["owner"]["anchors"] == json!(["right"])
+            {
+                assert_ne!(before["value_permille"], after["value_permille"]);
+                normalized_radius["authored_dimensions"][dimension_index]["value_permille"] =
+                    before["value_permille"].clone();
+                authored_radius_changes += 1;
+            } else {
+                assert_eq!(before, after);
+            }
+        }
+        assert_eq!(authored_radius_changes, 1);
+
+        let mut projected_radius_changes = 0;
+        for (variant_index, (before_variant, after_variant)) in original["variants"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .zip(changed_radius["variants"].as_array().unwrap())
+            .enumerate()
+        {
+            for (side_index, (before_side, after_side)) in before_variant["arm_profile"]["sides"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .zip(after_variant["arm_profile"]["sides"].as_array().unwrap())
+                .enumerate()
+            {
+                if before_side["side"] == "right" {
+                    for (section_index, (before_section, after_section)) in before_side["sections"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .zip(after_side["sections"].as_array().unwrap())
+                        .enumerate()
+                    {
+                        if before_section["name"] == "forearm-midpoint" {
+                            assert_ne!(
+                                before_section["forward_radius_permille"],
+                                after_section["forward_radius_permille"]
+                            );
+                            let mut normalized_section = after_section.clone();
+                            normalized_section["forward_radius_permille"] =
+                                before_section["forward_radius_permille"].clone();
+                            assert_eq!(before_section, &normalized_section);
+                            normalized_radius["variants"][variant_index]["arm_profile"]["sides"]
+                                [side_index]["sections"][section_index]["forward_radius_permille"] =
+                                before_section["forward_radius_permille"].clone();
+                            projected_radius_changes += 1;
+                        } else {
+                            assert_eq!(before_section, after_section);
+                        }
+                    }
+                } else {
+                    assert_eq!(before_side["side"], "left");
+                    assert_eq!(before_side, after_side);
+                }
+            }
+        }
+        assert_eq!(
+            projected_radius_changes,
+            original["variants"].as_array().unwrap().len()
+        );
+        assert_eq!(normalized_radius, original);
     }
 
     #[test]
@@ -3162,6 +3347,42 @@ mod tests {
             .find(|frame| frame["role"] == ARM_PROFILE_CONTROL_FRAME_ROLE)
             .unwrap()["transform"]["translation"] = json!([0.1, 0, 0]);
         authored_control_failure(nonidentity);
+
+        let mut missing_profile_frame = document();
+        missing_profile_frame["body"]["frames"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|frame| {
+                !(frame["role"] == ARM_PROFILE_CONTROL_FRAME_ROLE
+                    && frame["owner"]["role"] == "forearm"
+                    && frame["owner"]["anchors"] == json!(["left"]))
+            });
+        authored_control_failure(missing_profile_frame);
+
+        let mut nonfinite_position = document();
+        nonfinite_position["body"]["landmarks"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|landmark| {
+                landmark["role"] == "form_arm_profile_forearm_midpoint"
+                    && landmark["owner"]["anchors"] == json!(["right"])
+            })
+            .unwrap()["position"][1] =
+            creature_kernel_core::provisional_json::from_str("1e999").unwrap();
+        authored_control_failure(nonfinite_position);
+
+        let mut out_of_bound_position = document();
+        out_of_bound_position["body"]["landmarks"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|landmark| {
+                landmark["role"] == "form_arm_profile_elbow"
+                    && landmark["owner"]["anchors"] == json!(["left"])
+            })
+            .unwrap()["position"][1] = json!(-1.01);
+        authored_control_failure(out_of_bound_position);
 
         let mut nonmonotone = document();
         nonmonotone["body"]["landmarks"]
@@ -3230,6 +3451,42 @@ mod tests {
 
     #[test]
     fn arm_profile_radius_projection_boundaries_remain_positive_and_bounded() {
+        let mut all_axes_at_projectable_lower_bound = document();
+        set_arm_profile_radii(
+            &mut all_axes_at_projectable_lower_bound,
+            None,
+            None,
+            json!(2),
+        );
+        let all_axes_at_projectable_lower_bound =
+            parsed(&inspect_source(&bytes(all_axes_at_projectable_lower_bound)));
+        assert_eq!(all_axes_at_projectable_lower_bound["status"], "success");
+        assert_emitted_variant_radii_are_bounded(&all_axes_at_projectable_lower_bound);
+
+        let mut up_at_source_minimum = document();
+        set_arm_profile_radii(&mut up_at_source_minimum, None, Some("up_radius"), json!(1));
+        let up_at_source_minimum = parsed(&inspect_source(&bytes(up_at_source_minimum)));
+        assert_eq!(up_at_source_minimum["status"], "success");
+        assert_emitted_variant_radii_are_bounded(&up_at_source_minimum);
+
+        for axis_suffix in ["lateral_radius", "forward_radius"] {
+            let mut below_projectable_lower_bound = document();
+            set_arm_profile_radii(
+                &mut below_projectable_lower_bound,
+                None,
+                Some(axis_suffix),
+                json!(1),
+            );
+            let below_projectable_lower_bound =
+                parsed(&inspect_source(&bytes(below_projectable_lower_bound)));
+            assert_eq!(below_projectable_lower_bound["status"], "invalid-source");
+            assert_eq!(below_projectable_lower_bound["stage"], "dimensions");
+            assert_eq!(
+                below_projectable_lower_bound["diagnostics"][0]["code"],
+                "ck.cli.provisional-form.authored-dimension"
+            );
+        }
+
         let boundaries = [
             ("lateral_radius", 4_348),
             ("up_radius", 5_000),
