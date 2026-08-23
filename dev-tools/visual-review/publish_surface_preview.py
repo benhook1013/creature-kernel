@@ -116,6 +116,10 @@ MAX_MANIFEST_BYTES = 256 * 1024
 MAX_GUIDE_BYTES = 512 * 1024
 MAX_METRICS_BYTES = 256 * 1024
 MAX_ARTIFACT_BYTES = 16 * 1024 * 1024
+# The current producer uses the highest XZ preset, whose decoder needs a little
+# over 64 MiB.  Keep a finite margin while rejecting untrusted dictionary
+# declarations before liblzma can allocate against them.
+MAX_LZMA_MEMORY_BYTES = 128 * 1024 * 1024
 # The current fixed <=96-sample fixtures are far below these limits.  Keep
 # them substantially tighter than the voxel-grid cardinality so an adversarial
 # compact text artifact cannot turn the 16 MiB byte cap into excessive Python
@@ -763,11 +767,15 @@ def _decode_exact_evidence(
         compressed = base64.b64decode(encoded.encode("ascii"), validate=True)
     except (UnicodeEncodeError, ValueError) as exc:
         raise SurfacePreviewPublishError(f"{where} has an invalid Base64 payload") from exc
-    decoder = lzma.LZMADecompressor(format=lzma.FORMAT_XZ)
     try:
+        decoder = lzma.LZMADecompressor(
+            format=lzma.FORMAT_XZ, memlimit=MAX_LZMA_MEMORY_BYTES
+        )
         raw = decoder.decompress(compressed, max_bytes + 1)
-    except lzma.LZMAError as exc:
-        raise SurfacePreviewPublishError(f"{where} has invalid compressed bytes") from exc
+    except (lzma.LZMAError, MemoryError) as exc:
+        raise SurfacePreviewPublishError(
+            f"{where} has invalid compressed bytes or exceeds decoder resource limits"
+        ) from exc
     if (
         len(raw) > max_bytes
         or decoder.unused_data

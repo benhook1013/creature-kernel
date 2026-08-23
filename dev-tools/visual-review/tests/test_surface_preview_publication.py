@@ -6,6 +6,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import lzma
 import os
 import struct
 import subprocess
@@ -1918,10 +1919,37 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         evidence = publisher._read_producer_evidence(producer)
         payload_field = "producer_envelope_xz_base64"
         compressed = base64.b64decode(evidence[payload_field])
+        self.assertEqual(publisher._decode_producer_evidence(evidence), b"{}\n")
+
+        # Start with a tiny valid one-filter XZ stream, then change only its
+        # LZMA2 dictionary property and block-header CRC.  This keeps the test
+        # fixture tiny without making the test encoder allocate that dictionary.
+        excessive_dictionary = bytearray(
+            lzma.compress(
+                b"{}\n",
+                format=lzma.FORMAT_XZ,
+                check=lzma.CHECK_CRC64,
+                filters=[{"id": lzma.FILTER_LZMA2, "dict_size": 1 << 20}],
+            )
+        )
+        excessive_dictionary[16] = 0x20  # LZMA2 property for a 256 MiB dictionary.
+        excessive_dictionary[20:24] = struct.pack(
+            "<I", zlib.crc32(excessive_dictionary[12:20]) & 0xFFFFFFFF
+        )
         malformed = (
             {**evidence, payload_field: "*"},
             {**evidence, payload_field: base64.b64encode(compressed[:-1]).decode("ascii")},
             {**evidence, payload_field: base64.b64encode(compressed + b"x").decode("ascii")},
+            {
+                **evidence,
+                payload_field: base64.b64encode(
+                    lzma.compress(b"{}\n", format=lzma.FORMAT_ALONE)
+                ).decode("ascii"),
+            },
+            {
+                **evidence,
+                payload_field: base64.b64encode(excessive_dictionary).decode("ascii"),
+            },
         )
         for case in malformed:
             with self.subTest(case=case[payload_field][:12]):
