@@ -151,6 +151,194 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
         }
         is_v7 = format_name == common.PROVISIONAL_FORM_V7_FORMAT
         is_v8 = format_name == common.PROVISIONAL_FORM_V8_FORMAT
+        is_v9 = format_name == common.PROVISIONAL_FORM_V9_FORMAT
+
+        if is_v9:
+            payload = self.capsule_payload(format_name=common.PROVISIONAL_FORM_V8_FORMAT)
+            payload["format"] = common.PROVISIONAL_FORM_V9_FORMAT
+            control_provenance = {
+                "source": common.PROVISIONAL_FORM_AUTHORED_CONTROL_PROVENANCE,
+                "document": "fixture",
+                "namespace": "main",
+            }
+            arm_section_values = [
+                ("upper-arm-start", "upper_arm", 0.0, (350, 300, 320)),
+                ("upper-arm-midpoint", "upper_arm", -0.5, (250, 240, 230)),
+                ("elbow", "upper_arm", -1.0, (230, 220, 210)),
+                ("forearm-midpoint", "forearm", -0.5, (210, 200, 190)),
+                ("forearm-distal", "forearm", -1.0, (180, 170, 160)),
+            ]
+            for side in ("left", "right"):
+                for section_name, owner_role, y, radii in arm_section_values:
+                    owner = address(owner_role, [side])
+                    section_key = section_name.replace("-", "_")
+                    for role_suffix, value in zip(
+                        ("lateral_radius", "up_radius", "forward_radius"), radii
+                    ):
+                        payload["authored_dimensions"].append({
+                            "owner": copy.deepcopy(owner),
+                            "role": f"form_arm_profile_{section_key}_{role_suffix}",
+                            "value_permille": value,
+                            "provenance": copy.deepcopy(control_provenance),
+                        })
+                for section_name, owner_role, y, _radii in arm_section_values:
+                    owner = address(owner_role, [side])
+                    if not any(
+                        frame["owner"] == owner
+                        and frame["role"] == common.PROVISIONAL_FORM_ARM_PROFILE_FRAME_ROLE
+                        for frame in payload["authored_frames"]
+                    ):
+                        payload["authored_frames"].append({
+                            "owner": copy.deepcopy(owner),
+                            "role": common.PROVISIONAL_FORM_ARM_PROFILE_FRAME_ROLE,
+                            "transform": {"translation": [0, 0, 0], "rotation_xyzw": [0, 0, 0, 1]},
+                            "provenance": copy.deepcopy(control_provenance),
+                        })
+                    payload["authored_landmarks"].append({
+                        "owner": copy.deepcopy(owner),
+                        "role": f"form_arm_profile_{section_name.replace('-', '_')}",
+                        "frame": {"owner": copy.deepcopy(owner), "role": common.PROVISIONAL_FORM_ARM_PROFILE_FRAME_ROLE},
+                        "position": [0, y, 0],
+                        "provenance": copy.deepcopy(control_provenance),
+                    })
+            sort_key = lambda item: (
+                item["owner"]["namespace"], tuple(item["owner"]["anchors"]),
+                item["owner"]["kind"], item["owner"]["role"], item["role"],
+            )
+            payload["authored_dimensions"].sort(key=sort_key)
+            payload["authored_frames"].sort(key=sort_key)
+            payload["authored_landmarks"].sort(key=sort_key)
+
+            def rebind_profile(profile_key: str, section_values: list[tuple[str, str, float, tuple[int, ...]]], axes: tuple[tuple[str, str], ...]) -> None:
+                profile = payload[profile_key]
+                for section, (section_name, owner_role, _position, _radii) in zip(profile["sections"], section_values):
+                    owner = address(owner_role)
+                    section_key = section_name.replace("-", "_")
+                    frame_role = common.PROVISIONAL_FORM_TORSO_PROFILE_FRAME_ROLE if profile_key == "authored_torso_profile" else common.PROVISIONAL_FORM_HEAD_NECK_PROFILE_FRAME_ROLE
+                    section["frame_index"] = next(
+                        index for index, frame in enumerate(payload["authored_frames"])
+                        if frame["owner"] == owner and frame["role"] == frame_role
+                    )
+                    landmark_prefix = "form_torso_profile" if profile_key == "authored_torso_profile" else "form_head_neck_profile"
+                    section["landmark_index"] = next(
+                        index for index, landmark in enumerate(payload["authored_landmarks"])
+                        if landmark["owner"] == owner and landmark["role"] == f"{landmark_prefix}_{section_key}"
+                    )
+                    section["dimension_indices"] = {
+                        axis: next(
+                            index for index, dimension in enumerate(payload["authored_dimensions"])
+                            if dimension["owner"] == owner
+                            and dimension["role"] == f"{landmark_prefix}_{section_key}_{suffix}"
+                        )
+                        for axis, suffix in axes
+                    }
+
+            rebind_profile(
+                "authored_torso_profile",
+                [
+                    (name, role, y, radii)
+                    for name, role, y, radii in [
+                        ("lower-pelvis", "pelvis", -0.55, (820, 760, 700)),
+                        ("upper-pelvis", "pelvis", -0.35, (760, 700, 660)),
+                        ("lower-abdomen", "torso", -0.10, (680, 620, 600)),
+                        ("waist-abdomen", "torso", 0.05, (640, 580, 560)),
+                        ("upper-abdomen", "torso", 0.20, (690, 630, 610)),
+                        ("lower-ribcage", "torso", 0.38, (780, 720, 700)),
+                        ("upper-ribcage-shoulder", "torso", 0.58, (860, 800, 780)),
+                    ]
+                ],
+                (("lateral", "lateral_radius"), ("anterior", "anterior_radius"), ("posterior", "posterior_radius")),
+            )
+            rebind_profile(
+                "authored_head_neck_profile",
+                [
+                    (name, role, y, (radii[0], radii[1], radii[2]))
+                    for name, role, y, _z, radii in [
+                        ("neck-collar", "neck", 0.60, 0.00, (420, 380, 360)),
+                        ("neck-upper", "neck", 0.72, 0.00, (400, 360, 340)),
+                        ("head-base", "head", 0.82, 0.00, (560, 520, 500)),
+                        ("cranium-mid", "head", 0.88, 0.00, (620, 580, 560)),
+                        ("cranium-crown", "head", 0.94, 0.00, (600, 560, 540)),
+                        ("muzzle-root", "head", 0.94, 0.10, (430, 390, 400)),
+                        ("muzzle-mid", "head", 0.94, 0.20, (390, 350, 360)),
+                        ("muzzle-tip", "head", 0.94, 0.30, (300, 280, 300)),
+                    ]
+                ],
+                (("lateral", "lateral_radius"), ("up", "up_radius"), ("forward", "forward_radius")),
+            )
+            payload["authored_arm_profile"] = {
+                "format": common.PROVISIONAL_FORM_ARM_PROFILE_FORMAT,
+                "provenance": copy.deepcopy(control_provenance),
+                "sides": [
+                    {
+                        "side": side,
+                        "sections": [
+                            {
+                                "name": section_name,
+                                "frame_index": next(
+                                    index for index, frame in enumerate(payload["authored_frames"])
+                                    if frame["owner"] == address(owner_role, [side])
+                                    and frame["role"] == common.PROVISIONAL_FORM_ARM_PROFILE_FRAME_ROLE
+                                ),
+                                "landmark_index": next(
+                                    index for index, landmark in enumerate(payload["authored_landmarks"])
+                                    if landmark["owner"] == address(owner_role, [side])
+                                    and landmark["role"] == f"form_arm_profile_{section_name.replace('-', '_')}"
+                                ),
+                                "dimension_indices": {
+                                    axis: next(
+                                        index for index, dimension in enumerate(payload["authored_dimensions"])
+                                        if dimension["owner"] == address(owner_role, [side])
+                                        and dimension["role"] == f"form_arm_profile_{section_name.replace('-', '_')}_{suffix}"
+                                    )
+                                    for axis, suffix in common.PROVISIONAL_FORM_ARM_PROFILE_RADIUS_AXES
+                                },
+                                "provenance": copy.deepcopy(control_provenance),
+                                "section_index": section_index,
+                            }
+                            for section_index, (section_name, owner_role, _y, _radii) in enumerate(arm_section_values)
+                        ],
+                    }
+                    for side in ("left", "right")
+                ],
+            }
+            arm_factors = {
+                "neutral-v0": (1000, 1000, 1000),
+                "broad-soft-v0": (1150, 1000, 1150),
+                "lean-readable-v0": (800, 1000, 800),
+                "depth-forward-v0": (1000, 1000, 1300),
+            }
+            for variant in payload["variants"]:
+                factors = arm_factors[variant["id"]]
+                variant["arm_profile"] = {
+                    "format": common.PROVISIONAL_FORM_ARM_PROFILE_FORMAT,
+                    "source": "authored_arm_profile",
+                    "provenance": copy.deepcopy(control_provenance),
+                    "sides": [
+                        {
+                            "side": side,
+                            "sections": [
+                                {
+                                    "source_section_index": section_index,
+                                    "name": section_name,
+                                    "position": [0, y, 0],
+                                    "lateral_radius_permille": radii[0] * factors[0] // 1000,
+                                    "up_radius_permille": radii[1] * factors[1] // 1000,
+                                    "forward_radius_permille": radii[2] * factors[2] // 1000,
+                                    "scaling": {
+                                        "lateral_factor_permille": factors[0],
+                                        "up_factor_permille": factors[1],
+                                        "forward_factor_permille": factors[2],
+                                    },
+                                    "provenance": copy.deepcopy(control_provenance),
+                                }
+                                for section_index, (section_name, _owner_role, y, radii) in enumerate(arm_section_values)
+                            ],
+                        }
+                        for side in ("left", "right")
+                    ],
+                }
+            return payload
 
         def descriptor(
             role: str,
@@ -1139,6 +1327,113 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
                     prior_variant, f"v8 variant field on {prior_format}"
                 )
 
+    def test_v9_arm_profile_is_closed_and_python_browser_parity_is_fail_closed(self) -> None:
+        payload = self.capsule_payload(format_name=common.PROVISIONAL_FORM_V9_FORMAT)
+        validated = common._validate_provisional_form_envelope(payload, "v9 arm fixture")
+        self.assertEqual(validated["format"], common.PROVISIONAL_FORM_V9_FORMAT)
+        self.assertEqual(len(validated["authored_dimensions"]), 111)
+        self.assertEqual(len(validated["authored_frames"]), 10)
+        self.assertEqual(len(validated["authored_landmarks"]), 29)
+        profile = validated["authored_arm_profile"]
+        self.assertEqual(profile["format"], common.PROVISIONAL_FORM_ARM_PROFILE_FORMAT)
+        self.assertEqual(
+            [side["side"] for side in profile["sides"]],
+            list(common.PROVISIONAL_FORM_ARM_PROFILE_SIDE_NAMES),
+        )
+        for side_index, side in enumerate(profile["sides"]):
+            self.assertEqual(
+                [section["name"] for section in side["sections"]],
+                list(common.PROVISIONAL_FORM_ARM_PROFILE_SECTION_NAMES),
+            )
+            for section_index, (section, owner_role) in enumerate(zip(
+                side["sections"], common.PROVISIONAL_FORM_ARM_PROFILE_OWNER_ROLES
+            )):
+                self.assertEqual(section["section_index"], section_index)
+                frame = validated["authored_frames"][section["frame_index"]]
+                landmark = validated["authored_landmarks"][section["landmark_index"]]
+                self.assertEqual(frame["owner"]["anchors"], [side["side"]])
+                self.assertEqual(frame["owner"]["role"], owner_role)
+                self.assertEqual(frame["role"], common.PROVISIONAL_FORM_ARM_PROFILE_FRAME_ROLE)
+                self.assertEqual(landmark["owner"], frame["owner"])
+                self.assertEqual(
+                    landmark["role"],
+                    f"form_arm_profile_{section['name'].replace('-', '_')}",
+                )
+                self.assertEqual(landmark["frame"]["role"], common.PROVISIONAL_FORM_ARM_PROFILE_FRAME_ROLE)
+                self.assertEqual(landmark["position"][0], 0)
+                self.assertEqual(landmark["position"][2], 0)
+                for axis, suffix in common.PROVISIONAL_FORM_ARM_PROFILE_RADIUS_AXES:
+                    dimension = validated["authored_dimensions"][section["dimension_indices"][axis]]
+                    self.assertEqual(
+                        dimension["role"],
+                        f"form_arm_profile_{section['name'].replace('-', '_')}_{suffix}",
+                    )
+                    self.assertGreater(dimension["value_permille"], 0)
+                    self.assertLessEqual(dimension["value_permille"], 5000)
+        for variant in validated["variants"]:
+            self.assertEqual(
+                [side["side"] for side in variant["arm_profile"]["sides"]],
+                list(common.PROVISIONAL_FORM_ARM_PROFILE_SIDE_NAMES),
+            )
+            for side in variant["arm_profile"]["sides"]:
+                for section_index, section in enumerate(side["sections"]):
+                    self.assertEqual(section["source_section_index"], section_index)
+                    for axis, _suffix in common.PROVISIONAL_FORM_ARM_PROFILE_RADIUS_AXES:
+                        self.assertGreater(section[f"{axis}_radius_permille"], 0)
+                        self.assertLessEqual(section[f"{axis}_radius_permille"], 5000)
+        self.assertEqual(self.browser_form_errors(payload), [])
+
+        cases: list[tuple[str, dict[str, object]]] = []
+        wrong_side = copy.deepcopy(payload)
+        wrong_side["authored_arm_profile"]["sides"][0]["side"] = "right"
+        cases.append(("wrong side order", wrong_side))
+        wrong_section_order = copy.deepcopy(payload)
+        wrong_section_order["authored_arm_profile"]["sides"][0]["sections"][0]["name"] = "elbow"
+        cases.append(("wrong section order", wrong_section_order))
+        wrong_section_index = copy.deepcopy(payload)
+        wrong_section_index["authored_arm_profile"]["sides"][1]["sections"][1]["source_section_index"] = 0
+        cases.append(("wrong source section index", wrong_section_index))
+        wrong_frame_reference = copy.deepcopy(payload)
+        wrong_frame_reference["authored_arm_profile"]["sides"][0]["sections"][0]["frame_index"] = 0
+        cases.append(("wrong frame reference", wrong_frame_reference))
+        wrong_landmark_reference = copy.deepcopy(payload)
+        wrong_landmark_reference["authored_arm_profile"]["sides"][0]["sections"][0]["landmark_index"] = 0
+        cases.append(("wrong landmark reference", wrong_landmark_reference))
+        wrong_dimension_reference = copy.deepcopy(payload)
+        wrong_dimension_reference["authored_arm_profile"]["sides"][0]["sections"][0]["dimension_indices"]["lateral"] = 0
+        cases.append(("wrong dimension reference", wrong_dimension_reference))
+        wrong_source_position = copy.deepcopy(payload)
+        source_landmark_index = wrong_source_position["authored_arm_profile"]["sides"][0]["sections"][1]["landmark_index"]
+        wrong_source_position["authored_landmarks"][source_landmark_index]["position"][0] = 0.1
+        cases.append(("wrong source-local position", wrong_source_position))
+        wrong_variant_position = copy.deepcopy(payload)
+        wrong_variant_position["variants"][0]["arm_profile"]["sides"][0]["sections"][0]["position"][1] = 0.1
+        cases.append(("wrong projected position", wrong_variant_position))
+        wrong_source_radius = copy.deepcopy(payload)
+        source_dimension_index = wrong_source_radius["authored_arm_profile"]["sides"][0]["sections"][0]["dimension_indices"]["lateral"]
+        wrong_source_radius["authored_dimensions"][source_dimension_index]["value_permille"] = 0
+        cases.append(("wrong source radius", wrong_source_radius))
+        wrong_variant_radius = copy.deepcopy(payload)
+        wrong_variant_radius["variants"][1]["arm_profile"]["sides"][0]["sections"][0]["lateral_radius_permille"] += 1
+        cases.append(("wrong projected radius", wrong_variant_radius))
+        wrong_scaling = copy.deepcopy(payload)
+        wrong_scaling["variants"][2]["arm_profile"]["sides"][0]["sections"][0]["scaling"]["forward_factor_permille"] = 1
+        cases.append(("wrong scaling", wrong_scaling))
+        wrong_provenance = copy.deepcopy(payload)
+        wrong_provenance["authored_arm_profile"]["provenance"]["document"] = "wrong"
+        cases.append(("wrong source provenance", wrong_provenance))
+        wrong_variant_provenance = copy.deepcopy(payload)
+        wrong_variant_provenance["variants"][3]["arm_profile"]["sides"][1]["sections"][4]["provenance"]["namespace"] = "wrong"
+        cases.append(("wrong variant provenance", wrong_variant_provenance))
+        unknown_control = copy.deepcopy(payload)
+        unknown_control["authored_arm_profile"]["sides"][0]["unexpected"] = True
+        cases.append(("unlisted profile control", unknown_control))
+        for label, malformed in cases:
+            with self.subTest(common_case=label), self.assertRaises(common.ValidationError):
+                common._validate_provisional_form_envelope(malformed, f"malformed v9 arm fixture: {label}")
+            with self.subTest(browser_case=label):
+                self.assertTrue(self.browser_form_errors(malformed))
+
     def test_v2_through_v6_limb_capsules_use_their_direct_distal_child_anchor(self) -> None:
         for format_name in (
             common.PROVISIONAL_FORM_V2_FORMAT,
@@ -1505,8 +1800,10 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
         self.assertIn('"creature-kernel.provisional-form-preview.v6"', app)
         self.assertIn('"creature-kernel.provisional-form-preview.v7"', app)
         self.assertIn('"creature-kernel.provisional-form-preview.v8"', app)
+        self.assertIn('"creature-kernel.provisional-form-preview.v9"', app)
         self.assertIn('var isV6 = payload.format === PROVISIONAL_FORM_V6_FORMAT;', app)
         self.assertIn('var isV8 = payload.format === PROVISIONAL_FORM_V8_FORMAT;', app)
+        self.assertIn('var isV9 = payload.format === PROVISIONAL_FORM_V9_FORMAT;', app)
         self.assertIn('v5 is an authored-dimension-only format', app)
         self.assertIn('function formV6ShoulderControls(payload)', app)
         self.assertIn('form_shoulder_control', app)
@@ -1516,6 +1813,8 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
         self.assertIn('shape.name === "capsule" ? shape.radius_permille', app)
         self.assertIn('form_head_neck_profile_control', app)
         self.assertIn('forward-muzzle', app)
+        self.assertIn('form_arm_profile_control', app)
+        self.assertIn('function formV9AuthoredArmProfile(payload)', app)
 
     def browser_form_errors(self, payload: dict[str, object]) -> list[str]:
         script = r'''
@@ -1867,12 +2166,14 @@ process.stdout.write(JSON.stringify(context.__formValidation(JSON.parse(fs.readF
         validated = common._validate_provisional_form_envelope(
             produced, "current Rust producer output"
         )
-        self.assertEqual(validated["format"], common.PROVISIONAL_FORM_V8_FORMAT)
+        self.assertEqual(validated["format"], common.PROVISIONAL_FORM_V9_FORMAT)
         self.assertIn("authored_torso_profile", produced)
         self.assertIn("authored_head_neck_profile", produced)
+        self.assertIn("authored_arm_profile", produced)
         for variant in produced["variants"]:
             self.assertIn("torso_profile", variant)
             self.assertIn("head_neck_profile", variant)
+            self.assertIn("arm_profile", variant)
         self.assertEqual(self.browser_form_errors(produced), [])
 
 

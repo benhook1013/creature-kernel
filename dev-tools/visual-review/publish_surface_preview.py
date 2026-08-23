@@ -16,6 +16,7 @@ import argparse
 import base64
 import hashlib
 import json
+import lzma
 import math
 import os
 import selectors
@@ -49,11 +50,11 @@ class SurfacePreviewPublishError(RuntimeError):
 
 
 SURFACE_PREVIEW_FORMAT = "creature-kernel.disposable-surface-preview.v2"
-REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v7"
-SUCCESSOR_PREVIEW_FORMAT = "creature-kernel.disposable-successor-surface-preview.v5"
+REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v8"
+SUCCESSOR_PREVIEW_FORMAT = "creature-kernel.disposable-successor-surface-preview.v6"
 SUCCESSOR_MANIFEST_NAME = "successor-surface-manifest.json"
 SUCCESSOR_CONSUMER_ID = "successor-surface-v1"
-SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-limb-extremity-tail-profile-sweeps-v9"
+SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-arm-limb-extremity-tail-profile-sweeps-v10"
 AUTHORED_TORSO_PROFILE_FORMAT = "creature-kernel.provisional-form-torso-profile.v1"
 AUTHORED_TORSO_PROFILE_FRAME_ROLE = "form_torso_profile_control"
 AUTHORED_TORSO_PROFILE_SECTION_NAMES = (
@@ -85,6 +86,17 @@ AUTHORED_HEAD_NECK_PROFILE_DIMENSION_SUFFIXES = tuple(
 )
 AUTHORED_HEAD_NECK_PROFILE_FRAME_INDICES = {"head": 0, "neck": 1}
 AUTHORED_HEAD_NECK_PROFILE_LANDMARK_INDICES = (6, 7, 2, 1, 0, 4, 3, 5)
+AUTHORED_ARM_PROFILE_FORMAT = common.PROVISIONAL_FORM_ARM_PROFILE_FORMAT
+AUTHORED_ARM_PROFILE_FRAME_ROLE = common.PROVISIONAL_FORM_ARM_PROFILE_FRAME_ROLE
+AUTHORED_ARM_PROFILE_SIDE_NAMES = common.PROVISIONAL_FORM_ARM_PROFILE_SIDE_NAMES
+AUTHORED_ARM_PROFILE_SECTION_NAMES = common.PROVISIONAL_FORM_ARM_PROFILE_SECTION_NAMES
+AUTHORED_ARM_PROFILE_OWNER_ROLES = common.PROVISIONAL_FORM_ARM_PROFILE_OWNER_ROLES
+AUTHORED_ARM_PROFILE_RADIUS_AXES = tuple(
+    axis for axis, _role_suffix in common.PROVISIONAL_FORM_ARM_PROFILE_RADIUS_AXES
+)
+AUTHORED_ARM_PROFILE_DIMENSION_SUFFIXES = tuple(
+    suffix for _axis, suffix in common.PROVISIONAL_FORM_ARM_PROFILE_RADIUS_AXES
+)
 SUCCESSOR_HEAD_NECK_ROUTE_TOPOLOGY = (
     ("vertical-neck-cranium", (0, 1, 2, 3, 4), "up", ("lateral", "forward"), (0, 1, 2, 3)),
     ("forward-muzzle", (3, 5, 6, 7), "forward", ("lateral", "up"), (4, 5, 6)),
@@ -104,6 +116,10 @@ MAX_MANIFEST_BYTES = 256 * 1024
 MAX_GUIDE_BYTES = 512 * 1024
 MAX_METRICS_BYTES = 256 * 1024
 MAX_ARTIFACT_BYTES = 16 * 1024 * 1024
+# The current producer uses the highest XZ preset, whose decoder needs a little
+# over 64 MiB.  Keep a finite margin while rejecting untrusted dictionary
+# declarations before liblzma can allocate against them.
+MAX_LZMA_MEMORY_BYTES = 128 * 1024 * 1024
 # The current fixed <=96-sample fixtures are far below these limits.  Keep
 # them substantially tighter than the voxel-grid cardinality so an adversarial
 # compact text artifact cannot turn the 16 MiB byte cap into excessive Python
@@ -121,7 +137,7 @@ AUTHORED_TORSO_PROFILE_MIN_RADIUS_PERMILLE = 1
 AUTHORED_TORSO_PROFILE_MAX_RADIUS_PERMILLE = 5_000
 SOURCE_EVIDENCE_ENCODING = "utf-8"
 SOURCE_EVIDENCE_TRANSFER = "base64"
-SOURCE_EVIDENCE_COMPRESSION = "zlib"
+SOURCE_EVIDENCE_COMPRESSION = "xz"
 INPUT_EVIDENCE_PREFIX = "input_body_document"
 PRODUCER_EVIDENCE_PREFIX = "producer_envelope"
 INPUT_EVIDENCE_FIELDS = {
@@ -169,6 +185,8 @@ EXPECTED_GUIDE_COUNTS = {
     "shoulder_frame_sides": 2,
     "shoulder_frame_curves": 6,
     "shoulder_frame_compiled_fields": 2,
+    "arm_profile_sides": 2,
+    "arm_profile_sections": 10,
     "head": 1,
     "head_neck_profile_sections": 8,
     "head_neck_profile_connections": 7,
@@ -644,7 +662,7 @@ def _validate_successor_ply_metrics(
 
 def _evidence_fields(prefix: str) -> set[str]:
     return {
-        f"{prefix}_zlib_base64",
+        f"{prefix}_{SOURCE_EVIDENCE_COMPRESSION}_base64",
         f"{prefix}_encoding",
         f"{prefix}_transfer",
         f"{prefix}_compression",
@@ -656,10 +674,10 @@ def _evidence_fields(prefix: str) -> set[str]:
 def _exact_evidence_metadata_limit(*, prefix: str, max_bytes: int) -> int:
     """Bound one evidence carrier from its raw byte ceiling and encoding."""
 
-    # zlib's compressBound() formula for the default wrapper used by
-    # zlib.compress(), followed by Base64's exact four-characters-per-three-
-    # bytes expansion.  The remaining allowance is exactly the JSON encoding
-    # of the fixed evidence fields at their longest validated values.
+    # Retain the previous bounded carrier ceiling after changing the owned
+    # codec.  An XZ payload that exceeds this secondary bound fails closed; the
+    # raw byte ceiling and the final 8192-character review-context limit remain
+    # independently enforced.
     compressed_bytes = (
         max_bytes
         + (max_bytes >> 12)
@@ -669,7 +687,7 @@ def _exact_evidence_metadata_limit(*, prefix: str, max_bytes: int) -> int:
     )
     encoded_bytes = 4 * ((compressed_bytes + 2) // 3)
     fixed_carrier = {
-        f"{prefix}_zlib_base64": "",
+        f"{prefix}_{SOURCE_EVIDENCE_COMPRESSION}_base64": "",
         f"{prefix}_encoding": SOURCE_EVIDENCE_ENCODING,
         f"{prefix}_transfer": SOURCE_EVIDENCE_TRANSFER,
         f"{prefix}_compression": SOURCE_EVIDENCE_COMPRESSION,
@@ -719,8 +737,13 @@ def _read_exact_evidence(
     if text.encode(SOURCE_EVIDENCE_ENCODING) != raw:
         raise SurfacePreviewPublishError(f"{where} UTF-8 evidence is not byte-exact")
     return {
-        f"{prefix}_zlib_base64": base64.b64encode(
-            zlib.compress(raw, level=9)
+        f"{prefix}_{SOURCE_EVIDENCE_COMPRESSION}_base64": base64.b64encode(
+            lzma.compress(
+                raw,
+                format=lzma.FORMAT_XZ,
+                check=lzma.CHECK_CRC64,
+                preset=9 | lzma.PRESET_EXTREME,
+            )
         ).decode("ascii"),
         f"{prefix}_encoding": SOURCE_EVIDENCE_ENCODING,
         f"{prefix}_transfer": SOURCE_EVIDENCE_TRANSFER,
@@ -737,21 +760,24 @@ def _decode_exact_evidence(
 
     if not isinstance(value, dict):
         raise SurfacePreviewPublishError(f"{where} must be an object")
-    encoded = value.get(f"{prefix}_zlib_base64")
+    encoded = value.get(f"{prefix}_{SOURCE_EVIDENCE_COMPRESSION}_base64")
     if not isinstance(encoded, str):
         raise SurfacePreviewPublishError(f"{where} has an invalid Base64 payload")
     try:
         compressed = base64.b64decode(encoded.encode("ascii"), validate=True)
     except (UnicodeEncodeError, ValueError) as exc:
         raise SurfacePreviewPublishError(f"{where} has an invalid Base64 payload") from exc
-    decoder = zlib.decompressobj()
     try:
+        decoder = lzma.LZMADecompressor(
+            format=lzma.FORMAT_XZ, memlimit=MAX_LZMA_MEMORY_BYTES
+        )
         raw = decoder.decompress(compressed, max_bytes + 1)
-    except zlib.error as exc:
-        raise SurfacePreviewPublishError(f"{where} has invalid compressed bytes") from exc
+    except (lzma.LZMAError, MemoryError) as exc:
+        raise SurfacePreviewPublishError(
+            f"{where} has invalid compressed bytes or exceeds decoder resource limits"
+        ) from exc
     if (
         len(raw) > max_bytes
-        or decoder.unconsumed_tail
         or decoder.unused_data
         or not decoder.eof
     ):
@@ -1249,7 +1275,7 @@ def _profile_provenance(source: dict[str, Any], where: str) -> dict[str, str]:
 def _validate_authored_torso_profile(
     producer_payload: dict[str, Any],
 ) -> dict[str, Any]:
-    """Validate and normalize the producer v8 torso/head profile for all consumers.
+    """Validate and normalize the producer v9 torso/head/arm profile for all consumers.
 
     The returned object is an internal binding, not a new public artifact
     schema.  Every downstream consumer is keyed by the source AddressKey and
@@ -1257,8 +1283,8 @@ def _validate_authored_torso_profile(
     """
 
     where = "provisional-form"
-    if not isinstance(producer_payload, dict) or producer_payload.get("format") != common.PROVISIONAL_FORM_V8_FORMAT:
-        raise SurfacePreviewPublishError("producer envelope is not provisional-form-preview.v8")
+    if not isinstance(producer_payload, dict) or producer_payload.get("format") != common.PROVISIONAL_FORM_V9_FORMAT:
+        raise SurfacePreviewPublishError("producer envelope is not provisional-form-preview.v9")
     source = producer_payload.get("source")
     reference_scale = producer_payload.get("reference_scale")
     if not isinstance(source, dict) or set(source) != {"document", "namespace", "resource_profile_id"}:
@@ -1281,8 +1307,8 @@ def _validate_authored_torso_profile(
         return (_address_sort_key(address), role)
 
     frames = producer_payload.get("authored_frames")
-    if not isinstance(frames, list) or len(frames) != 6:
-        raise SurfacePreviewPublishError("v8 authored_frames must contain exactly six owner identity frames")
+    if not isinstance(frames, list) or len(frames) != 10:
+        raise SurfacePreviewPublishError("v9 authored_frames must contain exactly ten owner identity frames")
     frame_map: dict[tuple[str, str], dict[str, Any]] = {}
     for index, raw in enumerate(frames):
         frame_where = f"{where}.authored_frames[{index}]"
@@ -1296,6 +1322,7 @@ def _validate_authored_torso_profile(
             common.PROVISIONAL_FORM_SHOULDER_CONTROL_FRAME_ROLE,
             AUTHORED_TORSO_PROFILE_FRAME_ROLE,
             AUTHORED_HEAD_NECK_PROFILE_FRAME_ROLE,
+            AUTHORED_ARM_PROFILE_FRAME_ROLE,
         }:
             raise SurfacePreviewPublishError(f"{frame_where}.role is not an authored identity frame")
         if raw["provenance"] != provenance:
@@ -1324,13 +1351,20 @@ def _validate_authored_torso_profile(
     } | {
         key({"namespace": source["namespace"], "anchors": [], "kind": "part", "role": role}, AUTHORED_HEAD_NECK_PROFILE_FRAME_ROLE)
         for role in ("neck", "head")
+    } | {
+        key(
+            {"namespace": source["namespace"], "anchors": [side], "kind": "part", "role": owner_role},
+            AUTHORED_ARM_PROFILE_FRAME_ROLE,
+        )
+        for side in AUTHORED_ARM_PROFILE_SIDE_NAMES
+        for owner_role in ("upper_arm", "forearm")
     }
     if set(frame_map) != expected_frame_keys or [key(item["owner"], item["role"]) for item in frames] != sorted(expected_frame_keys, key=_identity_key_sort):
-        raise SurfacePreviewPublishError("authored_frames do not contain the exact stable v8 owner identity inventory")
+        raise SurfacePreviewPublishError("authored_frames do not contain the exact stable v9 owner identity inventory")
 
     landmarks = producer_payload.get("authored_landmarks")
-    if not isinstance(landmarks, list) or len(landmarks) != 19:
-        raise SurfacePreviewPublishError("v8 authored_landmarks must contain exactly nineteen axial, head/neck, and shoulder landmarks")
+    if not isinstance(landmarks, list) or len(landmarks) != 29:
+        raise SurfacePreviewPublishError("v9 authored_landmarks must contain exactly twenty-nine axial, head/neck, shoulder, and arm landmarks")
     landmark_map: dict[tuple[str, str], dict[str, Any]] = {}
     for index, raw in enumerate(landmarks):
         landmark_where = f"{where}.authored_landmarks[{index}]"
@@ -1341,7 +1375,9 @@ def _validate_authored_torso_profile(
         if not isinstance(role, str) or not role:
             raise SurfacePreviewPublishError(f"{landmark_where}.role is invalid")
         expected_frame_role = (
-            common.PROVISIONAL_FORM_SHOULDER_CONTROL_FRAME_ROLE
+            AUTHORED_ARM_PROFILE_FRAME_ROLE
+            if role.startswith("form_arm_profile_")
+            else common.PROVISIONAL_FORM_SHOULDER_CONTROL_FRAME_ROLE
             if landmark_owner["role"] == "upper_arm"
             else AUTHORED_HEAD_NECK_PROFILE_FRAME_ROLE
             if landmark_owner["role"] in {"neck", "head"}
@@ -1359,6 +1395,12 @@ def _validate_authored_torso_profile(
             raise SurfacePreviewPublishError(f"{landmark_where}.position must be axial")
         if landmark_owner["role"] in {"neck", "head"} and position[0] != 0.0:
             raise SurfacePreviewPublishError(f"{landmark_where}.position must be axial")
+        if role.startswith("form_arm_profile_") and (
+            landmark_owner["role"] not in {"upper_arm", "forearm"}
+            or position[0] != 0.0
+            or position[2] != 0.0
+        ):
+            raise SurfacePreviewPublishError(f"{landmark_where}.position must be an axial arm profile point")
         if raw["provenance"] != provenance:
             raise SurfacePreviewPublishError(f"{landmark_where}.provenance is invalid")
         landmark_key = key(landmark_owner, role)
@@ -1374,9 +1416,16 @@ def _validate_authored_torso_profile(
     } | {
         key({"namespace": source["namespace"], "anchors": [], "kind": "part", "role": owner_role}, f"form_head_neck_profile_{name.replace('-', '_')}")
         for name, owner_role in zip(AUTHORED_HEAD_NECK_PROFILE_SECTION_NAMES, AUTHORED_HEAD_NECK_PROFILE_OWNER_ROLES)
+    } | {
+        key(
+            {"namespace": source["namespace"], "anchors": [side], "kind": "part", "role": owner_role},
+            f"form_arm_profile_{name.replace('-', '_')}",
+        )
+        for side in AUTHORED_ARM_PROFILE_SIDE_NAMES
+        for name, owner_role in zip(AUTHORED_ARM_PROFILE_SECTION_NAMES, AUTHORED_ARM_PROFILE_OWNER_ROLES)
     }
     if set(landmark_map) != expected_landmark_keys or [key(item["owner"], item["role"]) for item in landmarks] != sorted(expected_landmark_keys, key=_identity_key_sort):
-        raise SurfacePreviewPublishError("authored_landmarks do not contain the exact stable v8 inventory")
+        raise SurfacePreviewPublishError("authored_landmarks do not contain the exact stable v9 inventory")
 
     dimensions = producer_payload.get("authored_dimensions")
     if not isinstance(dimensions, list) or not dimensions:
@@ -1400,6 +1449,15 @@ def _validate_authored_torso_profile(
         )
         for suffix in AUTHORED_HEAD_NECK_PROFILE_DIMENSION_SUFFIXES
     }
+    expected_arm_dimension_keys = {
+        key(
+            {"namespace": source["namespace"], "anchors": [side], "kind": "part", "role": owner_role},
+            f"form_arm_profile_{name.replace('-', '_')}_{suffix}",
+        )
+        for side in AUTHORED_ARM_PROFILE_SIDE_NAMES
+        for name, owner_role in zip(AUTHORED_ARM_PROFILE_SECTION_NAMES, AUTHORED_ARM_PROFILE_OWNER_ROLES)
+        for suffix in AUTHORED_ARM_PROFILE_DIMENSION_SUFFIXES
+    }
     dimension_map: dict[tuple[str, str], dict[str, Any]] = {}
     for index, raw in enumerate(dimensions):
         dimension_where = f"{where}.authored_dimensions[{index}]"
@@ -1411,7 +1469,7 @@ def _validate_authored_torso_profile(
         if not isinstance(role, str) or not role or type(value) is not int or raw["provenance"] != provenance:
             raise SurfacePreviewPublishError(f"{dimension_where} is invalid or has wrong provenance")
         dimension_key = key(dimension_owner, role)
-        if dimension_key in expected_torso_dimension_keys or dimension_key in expected_head_neck_dimension_keys:
+        if dimension_key in expected_torso_dimension_keys or dimension_key in expected_head_neck_dimension_keys or dimension_key in expected_arm_dimension_keys:
             if not AUTHORED_TORSO_PROFILE_MIN_RADIUS_PERMILLE <= value <= AUTHORED_TORSO_PROFILE_MAX_RADIUS_PERMILLE:
                 raise SurfacePreviewPublishError(
                     f"{dimension_where} source torso radius must be an integer in the inclusive range "
@@ -1426,6 +1484,8 @@ def _validate_authored_torso_profile(
         raise SurfacePreviewPublishError("authored_dimensions omit a torso profile radius reference")
     if not expected_head_neck_dimension_keys <= set(dimension_map):
         raise SurfacePreviewPublishError("authored_dimensions omit a head/neck profile radius reference")
+    if not expected_arm_dimension_keys <= set(dimension_map):
+        raise SurfacePreviewPublishError("authored_dimensions omit an arm profile radius reference")
     if [key(item["owner"], item["role"]) for item in dimensions] != sorted(dimension_map, key=_identity_key_sort):
         raise SurfacePreviewPublishError("authored_dimensions do not use stable owner/role order")
 
@@ -1521,7 +1581,7 @@ def _validate_authored_torso_profile(
             connection["route"],
         ) != expected:
             raise SurfacePreviewPublishError(
-                f"{connection_where} does not match the exact v8 connection route"
+                f"{connection_where} does not match the exact v9 producer connection route"
             )
 
     raw_head_sections = head_profile["sections"]
@@ -1641,15 +1701,106 @@ def _validate_authored_torso_profile(
                 f"authored head/neck profile landmarks are not strictly ordered on {route} route"
             )
 
+    arm_profile = producer_payload.get("authored_arm_profile")
+    if not isinstance(arm_profile, dict) or set(arm_profile) != {"format", "provenance", "sides"}:
+        raise SurfacePreviewPublishError("authored_arm_profile has unknown or missing fields")
+    if arm_profile["format"] != AUTHORED_ARM_PROFILE_FORMAT or arm_profile["provenance"] != provenance:
+        raise SurfacePreviewPublishError("authored_arm_profile format or provenance is invalid")
+    arm_sides = arm_profile["sides"]
+    if not isinstance(arm_sides, list) or len(arm_sides) != len(AUTHORED_ARM_PROFILE_SIDE_NAMES):
+        raise SurfacePreviewPublishError("authored_arm_profile.sides must contain exactly two sides")
+    base_arm_lineage: list[dict[str, Any]] = []
+    for side_index, (raw_side, side_name) in enumerate(zip(arm_sides, AUTHORED_ARM_PROFILE_SIDE_NAMES)):
+        side_where = f"{where}.authored_arm_profile.sides[{side_index}]"
+        if not isinstance(raw_side, dict) or set(raw_side) != {"side", "sections"} or raw_side["side"] != side_name:
+            raise SurfacePreviewPublishError(f"{side_where} does not use the exact left/right source side order")
+        raw_sections = raw_side["sections"]
+        if not isinstance(raw_sections, list) or len(raw_sections) != len(AUTHORED_ARM_PROFILE_SECTION_NAMES):
+            raise SurfacePreviewPublishError(f"{side_where}.sections must contain exactly five ordered stations")
+        sections_lineage: list[dict[str, Any]] = []
+        previous_y_by_owner: dict[str, float] = {}
+        for section_index, (raw_section, section_name, owner_role) in enumerate(
+            zip(raw_sections, AUTHORED_ARM_PROFILE_SECTION_NAMES, AUTHORED_ARM_PROFILE_OWNER_ROLES)
+        ):
+            section_where = f"{side_where}.sections[{section_index}]"
+            expected_fields = {"name", "frame_index", "landmark_index", "dimension_indices", "provenance", "section_index"}
+            if not isinstance(raw_section, dict) or set(raw_section) != expected_fields:
+                raise SurfacePreviewPublishError(f"{section_where} has an invalid indexed shape")
+            if (
+                raw_section["name"] != section_name
+                or type(raw_section["section_index"]) is not int
+                or raw_section["section_index"] != section_index
+                or raw_section["provenance"] != provenance
+            ):
+                raise SurfacePreviewPublishError(f"{section_where} name, order, index, or provenance is invalid")
+            frame_index = raw_section["frame_index"]
+            landmark_index = raw_section["landmark_index"]
+            if (
+                type(frame_index) is not int
+                or not 0 <= frame_index < len(frames)
+                or type(landmark_index) is not int
+                or not 0 <= landmark_index < len(landmarks)
+            ):
+                raise SurfacePreviewPublishError(f"{section_where} index reference is invalid")
+            expected_owner = {
+                "namespace": source["namespace"], "anchors": [side_name], "kind": "part", "role": owner_role
+            }
+            expected_landmark_role = f"form_arm_profile_{section_name.replace('-', '_')}"
+            frame = frames[frame_index]
+            landmark = landmarks[landmark_index]
+            if (
+                frame["owner"] != expected_owner
+                or frame["role"] != AUTHORED_ARM_PROFILE_FRAME_ROLE
+                or landmark["owner"] != expected_owner
+                or landmark["role"] != expected_landmark_role
+                or landmark["frame"] != {"owner": expected_owner, "role": AUTHORED_ARM_PROFILE_FRAME_ROLE}
+            ):
+                raise SurfacePreviewPublishError(f"{section_where} does not bind its owner frame and axial landmark")
+            y = float(landmark["position"][1])
+            previous_y = previous_y_by_owner.get(owner_role)
+            if previous_y is not None and y >= previous_y:
+                raise SurfacePreviewPublishError("authored arm profile landmarks are not strictly ordered on each owner route")
+            previous_y_by_owner[owner_role] = y
+            dimension_indices = raw_section["dimension_indices"]
+            if not isinstance(dimension_indices, dict) or set(dimension_indices) != set(AUTHORED_ARM_PROFILE_RADIUS_AXES):
+                raise SurfacePreviewPublishError(f"{section_where}.dimension_indices is invalid")
+            dimensions_for_section: list[dict[str, Any]] = []
+            for axis, suffix in zip(AUTHORED_ARM_PROFILE_RADIUS_AXES, AUTHORED_ARM_PROFILE_DIMENSION_SUFFIXES):
+                dimension_index = dimension_indices[axis]
+                expected_role = f"form_arm_profile_{section_name.replace('-', '_')}_{suffix}"
+                if (
+                    type(dimension_index) is not int
+                    or not 0 <= dimension_index < len(dimensions)
+                    or dimensions[dimension_index]["owner"] != expected_owner
+                    or dimensions[dimension_index]["role"] != expected_role
+                ):
+                    raise SurfacePreviewPublishError(f"{section_where}.dimension_indices.{axis} does not bind its radius reference")
+                dimensions_for_section.append(dimensions[dimension_index])
+            sections_lineage.append({
+                "section_index": section_index,
+                "name": section_name,
+                "owner": expected_owner,
+                "frame_index": frame_index,
+                "landmark_index": landmark_index,
+                "frame": {"owner": expected_owner, "role": AUTHORED_ARM_PROFILE_FRAME_ROLE},
+                "landmark": {"owner": expected_owner, "role": expected_landmark_role, "position": list(landmark["position"])},
+                "dimension_indices": dict(dimension_indices),
+                "dimensions": [
+                    {"axis": axis, "role": dimension["role"], "index": dimension_indices[axis], "base_value_permille": dimension["value_permille"]}
+                    for axis, dimension in zip(AUTHORED_ARM_PROFILE_RADIUS_AXES, dimensions_for_section)
+                ],
+            })
+        base_arm_lineage.append({"side": side_name, "sections": sections_lineage})
+
     producer_variants = producer_payload.get("variants")
     if not isinstance(producer_variants, list) or len(producer_variants) != len(EXPECTED_VARIANTS):
         raise SurfacePreviewPublishError("producer variants are not the canonical four variant records")
     variant_bindings: dict[str, dict[str, Any]] = {}
     for raw_variant in producer_variants:
         if not isinstance(raw_variant, dict) or set(raw_variant) != {
-            "id", "profile_id", "provenance", "descriptors", "torso_profile", "head_neck_profile"
+            "id", "profile_id", "provenance", "descriptors", "torso_profile", "head_neck_profile", "arm_profile"
         }:
-            raise SurfacePreviewPublishError("producer variant has unknown or missing v8 fields")
+            raise SurfacePreviewPublishError("producer variant has unknown or missing v9 fields")
         variant_id = raw_variant["id"]
         if variant_id not in EXPECTED_VARIANTS or variant_id in variant_bindings or raw_variant["profile_id"] != variant_id:
             raise SurfacePreviewPublishError("producer variants have duplicate, unknown, or mismatched ids")
@@ -1774,6 +1925,72 @@ def _validate_authored_torso_profile(
                     for axis, value in zip(AUTHORED_HEAD_NECK_PROFILE_RADIUS_AXES, actual_values)
                 },
             })
+        variant_arm_profile = raw_variant["arm_profile"]
+        if not isinstance(variant_arm_profile, dict) or set(variant_arm_profile) != {
+            "format", "source", "provenance", "sides"
+        } or variant_arm_profile["format"] != AUTHORED_ARM_PROFILE_FORMAT or variant_arm_profile["source"] != "authored_arm_profile" or variant_arm_profile["provenance"] != provenance:
+            raise SurfacePreviewPublishError(f"producer variant {variant_id} arm profile identity is invalid")
+        factors = common._provisional_form_arm_profile_factors(variant_id)
+        expected_scaling = {
+            "lateral_factor_permille": factors[0],
+            "up_factor_permille": factors[1],
+            "forward_factor_permille": factors[2],
+        }
+        variant_arm_lineage: list[dict[str, Any]] = []
+        variant_arm_sides = variant_arm_profile["sides"]
+        if not isinstance(variant_arm_sides, list) or len(variant_arm_sides) != len(base_arm_lineage):
+            raise SurfacePreviewPublishError(f"producer variant {variant_id} arm profile side count is invalid")
+        for side_index, (raw_side, base_side) in enumerate(zip(variant_arm_sides, base_arm_lineage)):
+            section_where = f"producer variant {variant_id}.arm_profile.sides[{side_index}]"
+            if not isinstance(raw_side, dict) or set(raw_side) != {"side", "sections"} or raw_side["side"] != base_side["side"]:
+                raise SurfacePreviewPublishError(f"{section_where} does not bind its source side")
+            raw_sections = raw_side["sections"]
+            if not isinstance(raw_sections, list) or len(raw_sections) != len(base_side["sections"]):
+                raise SurfacePreviewPublishError(f"{section_where}.sections must contain exactly five source-indexed stations")
+            projected_sections: list[dict[str, Any]] = []
+            for section_index, (raw_section, base_section) in enumerate(zip(raw_sections, base_side["sections"])):
+                item_where = f"{section_where}.sections[{section_index}]"
+                expected_fields = {
+                    "source_section_index", "name", "position", "lateral_radius_permille",
+                    "up_radius_permille", "forward_radius_permille", "scaling", "provenance",
+                }
+                if not isinstance(raw_section, dict) or set(raw_section) != expected_fields:
+                    raise SurfacePreviewPublishError(f"{item_where} has an invalid shape")
+                if (
+                    type(raw_section["source_section_index"]) is not int
+                    or raw_section["source_section_index"] != section_index
+                    or raw_section["name"] != base_section["name"]
+                    or raw_section["position"] != base_section["landmark"]["position"]
+                    or raw_section["scaling"] != expected_scaling
+                    or raw_section["provenance"] != provenance
+                ):
+                    raise SurfacePreviewPublishError(f"{item_where} does not bind its source station or fixed scaling")
+                expected_values = tuple(
+                    dimension["base_value_permille"] * factor // 1_000
+                    for dimension, factor in zip(base_section["dimensions"], factors)
+                )
+                actual_values = tuple(
+                    raw_section[f"{axis}_radius_permille"]
+                    for axis in AUTHORED_ARM_PROFILE_RADIUS_AXES
+                )
+                if actual_values != expected_values or any(
+                    type(value) is not int
+                    or not AUTHORED_TORSO_PROFILE_MIN_RADIUS_PERMILLE <= value <= AUTHORED_TORSO_PROFILE_MAX_RADIUS_PERMILLE
+                    for value in actual_values
+                ):
+                    raise SurfacePreviewPublishError(f"{item_where} radius values do not match authored arm factors")
+                projected_sections.append({
+                    **base_section,
+                    "scaling": {
+                        axis: factor
+                        for axis, factor in zip(AUTHORED_ARM_PROFILE_RADIUS_AXES, factors)
+                    },
+                    "scaled_values_permille": {
+                        axis: value
+                        for axis, value in zip(AUTHORED_ARM_PROFILE_RADIUS_AXES, actual_values)
+                    },
+                })
+            variant_arm_lineage.append({"side": base_side["side"], "sections": projected_sections})
         variant_bindings[variant_id] = {
             "variant_id": variant_id,
             "profile_id": raw_variant["profile_id"],
@@ -1781,6 +1998,7 @@ def _validate_authored_torso_profile(
             "descriptor_owners": sorted(descriptor_owners, key=_address_sort_key),
             "torso_lineage": scaled_lineage,
             "head_neck_lineage": variant_head_lineage,
+            "arm_lineage": variant_arm_lineage,
         }
     if set(variant_bindings) != set(EXPECTED_VARIANTS):
         raise SurfacePreviewPublishError("producer variants do not contain the exact canonical variant set")
@@ -1794,9 +2012,138 @@ def _validate_authored_torso_profile(
         "dimensions": dimension_map,
         "base_torso_lineage": torso_lineage,
         "base_head_neck_lineage": head_lineage,
+        "base_arm_lineage": base_arm_lineage,
         "head_neck_profile": head_profile,
         "variants": variant_bindings,
     }
+
+
+def _validate_arm_profile_controls(
+    arm_profile: Any,
+    controls: dict[str, Any],
+    lower: list[float],
+    upper: list[float],
+    *,
+    variant_id: str,
+    producer_payload: dict[str, Any],
+) -> None:
+    """Validate v8 guide arm stations against the indexed v9 producer slice."""
+
+    expected_fields = {"format", "status", "provenance", "axes", "sides"}
+    if not isinstance(arm_profile, dict) or set(arm_profile) != expected_fields:
+        raise SurfacePreviewPublishError("regional guide arm profile controls are invalid")
+    profile_context = _validate_authored_torso_profile(producer_payload)
+    if (
+        arm_profile["format"] != AUTHORED_ARM_PROFILE_FORMAT
+        or arm_profile["status"] != "skin-driving arm profile; legacy shoulder supports remain guide-only"
+        or arm_profile["provenance"] != profile_context["provenance"]
+        or arm_profile["axes"] != {
+            "lateral": [1.0, 0.0, 0.0],
+            "up": [0.0, 1.0, 0.0],
+            "forward": [0.0, 0.0, 1.0],
+        }
+    ):
+        raise SurfacePreviewPublishError("regional guide arm profile identity or axes are invalid")
+    sides = arm_profile["sides"]
+    if not isinstance(sides, list) or [item.get("side") for item in sides if isinstance(item, dict)] != list(AUTHORED_ARM_PROFILE_SIDE_NAMES):
+        raise SurfacePreviewPublishError("regional guide arm profile sides are invalid")
+    base_sides = profile_context["base_arm_lineage"]
+    projected_sides = profile_context["variants"][variant_id]["arm_lineage"]
+    limbs_by_owner = {
+        _address_sort_key(item["owner"]): item
+        for item in controls["limbs"]
+        if isinstance(item, dict) and isinstance(item.get("owner"), dict)
+    }
+    for side_index, (guide_side, base_side, projected_side) in enumerate(zip(sides, base_sides, projected_sides)):
+        where = f"regional-guide.controls.arm_profile.sides[{side_index}]"
+        if not isinstance(guide_side, dict) or set(guide_side) != {"side", "sections"} or guide_side["side"] != base_side["side"]:
+            raise SurfacePreviewPublishError(f"{where} does not bind its indexed source side")
+        guide_sections = guide_side["sections"]
+        if not isinstance(guide_sections, list) or len(guide_sections) != len(base_side["sections"]):
+            raise SurfacePreviewPublishError(f"{where}.sections must contain exactly five records")
+        for section_index, (section, base, projected) in enumerate(zip(guide_sections, base_side["sections"], projected_side["sections"])):
+            section_where = f"{where}.sections[{section_index}]"
+            section_fields = {
+                "name", "section_index", "source_section_index", "frame_index", "landmark_index",
+                "owner", "frame", "landmark", "center", "radii", "lateral_radius", "up_radius",
+                "forward_radius", "lineage", "consumption",
+            }
+            if not isinstance(section, dict) or set(section) != section_fields:
+                raise SurfacePreviewPublishError(f"{section_where} has an invalid shape")
+            if (
+                section["name"] != base["name"]
+                or section["section_index"] != section_index
+                or section["source_section_index"] != section_index
+                or section["frame_index"] != base["frame_index"]
+                or section["landmark_index"] != base["landmark_index"]
+                or section["owner"] != base["owner"]
+                or section["frame"] != base["frame"]
+                or section["consumption"] != ("skin-driving; elbow seam owned by upper_arm station" if section_index == 2 else "skin-driving")
+            ):
+                raise SurfacePreviewPublishError(f"{section_where} indexed identity does not match the producer profile")
+            expected_landmark = profile_context["landmarks"][
+                (_address_sort_key(base["owner"]), base["landmark"]["role"])
+            ]
+            if section["landmark"] != expected_landmark:
+                raise SurfacePreviewPublishError(f"{section_where}.landmark does not match the producer profile")
+            center = _point(section["center"], f"{section_where}.center")
+            radii = section["radii"]
+            if not isinstance(radii, dict) or set(radii) != set(AUTHORED_ARM_PROFILE_RADIUS_AXES):
+                raise SurfacePreviewPublishError(f"{section_where}.radii is invalid")
+            for axis in AUTHORED_ARM_PROFILE_RADIUS_AXES:
+                _finite_number(radii[axis], f"{section_where}.radii.{axis}")
+                _finite_number(section[f"{axis}_radius"], f"{section_where}.{axis}_radius")
+            limb = limbs_by_owner.get(_address_sort_key(base["owner"]))
+            if limb is None or not isinstance(limb.get("sections"), list) or not limb["sections"]:
+                raise SurfacePreviewPublishError(f"{section_where} has no matching source limb centerline")
+            path_start = limb["sections"][0]["points"][0]
+            path_end = limb["sections"][-1]["points"][1]
+            local_y = float(base["landmark"]["position"][1])
+            expected_center = [
+                float(path_start[axis]) - local_y * (float(path_end[axis]) - float(path_start[axis]))
+                for axis in range(3)
+            ]
+            if any(not math.isclose(center[axis], expected_center[axis], rel_tol=0.0, abs_tol=1.0e-12) for axis in range(3)):
+                raise SurfacePreviewPublishError(f"{section_where}.center is not projected onto the source limb centerline")
+            expected_radii = {
+                axis: projected["scaled_values_permille"][axis] / 1000.0
+                for axis in AUTHORED_ARM_PROFILE_RADIUS_AXES
+            }
+            if radii != expected_radii or any(
+                not math.isclose(float(section[f"{axis}_radius"]), expected_radii[axis], rel_tol=0.0, abs_tol=1.0e-12)
+                for axis in AUTHORED_ARM_PROFILE_RADIUS_AXES
+            ):
+                raise SurfacePreviewPublishError(f"{section_where}.radii do not bind the variant profile")
+            expected_lineage = {
+                axis: {
+                    "base": dimension["base_value_permille"],
+                    "factor": projected["scaling"][axis],
+                    "scaled": projected["scaled_values_permille"][axis],
+                    "reference": {"owner": base["owner"], "role": dimension["role"], "index": dimension["index"]},
+                    "provenance": profile_context["provenance"],
+                    "consumed_section": base["name"],
+                }
+                for axis, dimension in zip(AUTHORED_ARM_PROFILE_RADIUS_AXES, base["dimensions"])
+            }
+            if section["lineage"] != expected_lineage:
+                raise SurfacePreviewPublishError(f"{section_where}.lineage does not bind source dimensions")
+            _contained(center, [max(radii.values())] * 3, lower, upper, f"{section_where}.center")
+        upper_limb = limbs_by_owner.get(_address_sort_key(guide_sections[2]["owner"]))
+        forearm_limb = limbs_by_owner.get(_address_sort_key(guide_sections[3]["owner"]))
+        if upper_limb is None or forearm_limb is None:
+            raise SurfacePreviewPublishError(f"{where} is missing the source upper-arm or forearm")
+        if guide_sections[0]["center"] != upper_limb["sections"][0]["points"][0]:
+            raise SurfacePreviewPublishError(f"{where} moved the preserved shoulder attachment")
+        if guide_sections[2]["center"] != upper_limb["sections"][-1]["points"][1]:
+            raise SurfacePreviewPublishError(f"{where} elbow is not the upper-arm-owned endpoint")
+        forearm_start = forearm_limb["sections"][0]["points"][0]
+        forearm_end = forearm_limb["sections"][-1]["points"][1]
+        expected_midpoint = [
+            float(forearm_start[axis]) + 0.5 * (float(forearm_end[axis]) - float(forearm_start[axis]))
+            for axis in range(3)
+        ]
+        if any(not math.isclose(float(guide_sections[3]["center"][axis]), expected_midpoint[axis], rel_tol=0.0, abs_tol=1.0e-12) for axis in range(3)):
+            raise SurfacePreviewPublishError(f"{where} forearm midpoint is not on the source centerline")
 
 
 def _validate_controls(
@@ -1810,7 +2157,7 @@ def _validate_controls(
 ) -> None:
     profile_context = _validate_authored_torso_profile(producer_payload)
     torso_profile = profile_context["variants"][variant_id]
-    if not isinstance(controls, dict) or set(controls) != {"axes", "axial", "torso_cage", "shoulder_frame", "head", "limbs", "paws", "tails"}:
+    if not isinstance(controls, dict) or set(controls) != {"axes", "axial", "torso_cage", "shoulder_frame", "arm_profile", "head", "limbs", "paws", "tails"}:
         raise SurfacePreviewPublishError("regional guide controls are invalid")
     axes = controls["axes"]
     if not isinstance(axes, dict) or set(axes) != {"lateral", "up", "forward"} or axes != {"lateral": [1.0, 0.0, 0.0], "up": [0.0, 1.0, 0.0], "forward": [0.0, 0.0, 1.0]}:
@@ -2022,7 +2369,7 @@ def _validate_controls(
         or not isinstance(producer_dimensions, list)
         or not isinstance(producer_variants, list)
     ):
-        raise SurfacePreviewPublishError("regional guide cannot bind v8 producer shoulder controls")
+        raise SurfacePreviewPublishError("regional guide cannot bind v9 producer shoulder controls")
     squared_length = producer_scale.get("squared_length")
     if type(squared_length) is not int or squared_length <= 0:
         raise SurfacePreviewPublishError("regional guide cannot bind the producer reference scale")
@@ -2220,6 +2567,15 @@ def _validate_controls(
                 radius = parsed_profile[point_index]
                 if any(parsed_point[axis] - radius < lower[axis] or parsed_point[axis] + radius > upper[axis] for axis in range(3)):
                     raise SurfacePreviewPublishError(f"{curve_where}.point[{point_index}] extends outside shared render bounds")
+
+    _validate_arm_profile_controls(
+        controls["arm_profile"],
+        controls,
+        lower,
+        upper,
+        variant_id=variant_id,
+        producer_payload=producer_payload,
+    )
 
     head = controls["head"]
     if not isinstance(head, dict) or set(head) != {
@@ -2423,6 +2779,12 @@ def _validate_controls(
     limb_by_owner_key: dict[str, dict[str, Any]] = {}
     anchor_by_owner_key: dict[str, dict[str, Any]] = {}
     joint_records: list[tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]] = []
+    authored_elbows_by_owner = {
+        json.dumps(section["owner"], sort_keys=True): section
+        for side in controls["arm_profile"]["sides"]
+        for section in side["sections"]
+        if section["name"] == "elbow"
+    }
     for index, item in enumerate(limbs):
         if not isinstance(item, dict) or set(item) != {"owner", "profile_controls", "sections", "bridges", "masses", "joints", "anchors"}:
             raise SurfacePreviewPublishError(f"regional guide limbs[{index}] has an invalid shape")
@@ -2499,11 +2861,32 @@ def _validate_controls(
             if float(adjacent_profiles[0]) != float(ordered_sections[-1]["thickness"][1]):
                 raise SurfacePreviewPublishError(f"{joint_where}.adjacent_profiles do not bind the distal section")
             joint_radii = _point(joint["mass"]["radii"], f"{joint_where}.mass.radii")
-            joint_radius = joint_radii[0]
-            if any(not math.isclose(value, joint_radius, rel_tol=1e-9, abs_tol=1e-12) for value in joint_radii[1:]):
-                raise SurfacePreviewPublishError(f"{joint_where}.mass must be isotropic")
-            if not math.isclose(joint_radius, 0.70 * min(float(value) for value in adjacent_profiles), rel_tol=1e-9, abs_tol=1e-12) or any(joint_radius >= float(value) for value in adjacent_profiles):
-                raise SurfacePreviewPublishError(f"{joint_where} radius is not a narrowed adjacent-profile station")
+            if joint["name"] == "elbow":
+                authored_elbow = authored_elbows_by_owner.get(owner_key)
+                if authored_elbow is None:
+                    raise SurfacePreviewPublishError(
+                        f"{joint_where}.mass has no authored elbow station"
+                    )
+                expected_radii = [
+                    float(authored_elbow["radii"][axis])
+                    for axis in AUTHORED_ARM_PROFILE_RADIUS_AXES
+                ]
+                if (
+                    joint["mass"]["center"] != authored_elbow["center"]
+                    or any(
+                        not math.isclose(actual, expected, rel_tol=0.0, abs_tol=1.0e-12)
+                        for actual, expected in zip(joint_radii, expected_radii)
+                    )
+                ):
+                    raise SurfacePreviewPublishError(
+                        f"{joint_where}.mass does not bind the authored elbow station"
+                    )
+            else:
+                joint_radius = joint_radii[0]
+                if any(not math.isclose(value, joint_radius, rel_tol=1e-9, abs_tol=1e-12) for value in joint_radii[1:]):
+                    raise SurfacePreviewPublishError(f"{joint_where}.mass must be isotropic")
+                if not math.isclose(joint_radius, 0.70 * min(float(value) for value in adjacent_profiles), rel_tol=1e-9, abs_tol=1e-12) or any(joint_radius >= float(value) for value in adjacent_profiles):
+                    raise SurfacePreviewPublishError(f"{joint_where} radius is not a narrowed adjacent-profile station")
             distal_section = ordered_sections[-1]
             if distal_section["points"][1] != joint["mass"]["center"]:
                 raise SurfacePreviewPublishError(f"{joint_where} must coincide with the distal limb endpoint")
@@ -2829,7 +3212,7 @@ def _validate_bundle(
     if set(manifest) != expected_manifest_fields:
         raise SurfacePreviewPublishError("surface bundle has unknown manifest fields")
     if manifest.get("source_format") != common.PROVISIONAL_FORM_FORMAT:
-        raise SurfacePreviewPublishError("surface bundle source_format must be provisional-form v8")
+        raise SurfacePreviewPublishError("surface bundle source_format must be provisional-form v9")
     source = manifest.get("source")
     if not isinstance(source, dict) or set(source) != {"format", "sha256", "document", "namespace", "resource_profile_id", "reference_scale"}:
         raise SurfacePreviewPublishError("surface bundle source must identify format and sha256")
@@ -3036,6 +3419,7 @@ def _validate_bundle(
                 "capture": {key: manifest[key] for key in ("canvas", "projections", "layout", "shared_render_bounds")},
                 "torso_lineage": profile_binding["variants"][variant["id"]]["torso_lineage"] if profile_binding else None,
                 "head_neck_lineage": profile_binding["variants"][variant["id"]]["head_neck_lineage"] if profile_binding else None,
+                "arm_lineage": profile_binding["variants"][variant["id"]]["arm_lineage"] if profile_binding else None,
             },
         })
     actual_paths, actual_directories = _regular_artifacts(bundle)
@@ -3061,11 +3445,17 @@ SUCCESSOR_HEAD_NECK_ORDER = (
     "vertical-neck-cranium", "forward-muzzle",
 )
 SUCCESSOR_HEAD_NECK_SECTION_COUNTS = (5, 4)
-SUCCESSOR_LIMB_ORDER = ("left-arm", "left-leg", "right-arm", "right-leg")
+SUCCESSOR_LIMB_ORDER = (
+    "left-upper-arm-route", "left-forearm-route",
+    "right-upper-arm-route", "right-forearm-route",
+    "left-leg", "right-leg",
+)
 SUCCESSOR_LIMB_STATION_NAMES = (
-    ("upper-arm-start", "upper-arm-midpoint", "elbow", "forearm-midpoint", "forearm-distal"),
+    ("upper-arm-start", "upper-arm-midpoint", "elbow"),
+    ("elbow", "forearm-midpoint", "forearm-distal"),
+    ("upper-arm-start", "upper-arm-midpoint", "elbow"),
+    ("elbow", "forearm-midpoint", "forearm-distal"),
     ("thigh-start", "thigh-midpoint", "knee", "shin-midpoint", "hock-endpoint"),
-    ("upper-arm-start", "upper-arm-midpoint", "elbow", "forearm-midpoint", "forearm-distal"),
     ("thigh-start", "thigh-midpoint", "knee", "shin-midpoint", "hock-endpoint"),
 )
 SUCCESSOR_EXTREMITY_STATION_NAMES = (
@@ -3226,7 +3616,7 @@ def _profile_bend_count(points: list[list[float]], where: str) -> int:
 
 
 def _expected_successor_head_neck_metadata(guide: dict[str, Any]) -> dict[str, Any]:
-    """Re-derive the v5 head/neck sidecar from the validated v7 guide."""
+    """Re-derive the v6 head/neck sidecar from the validated v8 guide."""
 
     head = guide["controls"]["head"]
     sections = head["sections"]
@@ -3285,11 +3675,64 @@ def _expected_successor_head_neck_metadata(guide: dict[str, Any]) -> dict[str, A
     }
 
 
+def _expected_successor_arm_profile_metadata(guide: dict[str, Any]) -> dict[str, Any]:
+    """Re-derive v6 arm-route metadata from the validated v8 guide."""
+
+    profile = guide["controls"]["arm_profile"]
+    sides = profile["sides"]
+    routes: list[dict[str, Any]] = []
+    for side in sides:
+        side_name = side["side"]
+        sections = side["sections"]
+        for route_name, route_kind, route_sections in (
+            (f"{side_name}-upper-arm-route", "upper-arm", sections[:3]),
+            (f"{side_name}-forearm-route", "forearm", sections[2:]),
+        ):
+            routes.append({
+                "name": route_name,
+                "side": side_name,
+                "route": route_kind,
+                "station_names": [item["name"] for item in route_sections],
+                "source_section_indices": [int(item["source_section_index"]) for item in route_sections],
+                "owner_keys": [item["owner"] for item in route_sections],
+                "station_count": len(route_sections),
+            })
+    return {
+        "format": AUTHORED_ARM_PROFILE_FORMAT,
+        "source": "authored_arm_profile",
+        "regional_guide_format": REGIONAL_GUIDE_FORMAT,
+        "operation": "authored-arm-profile-route-v1",
+        "topology": "two-routes-per-side-shared-upper-arm-elbow-seam",
+        "route_order": [item["name"] for item in routes],
+        "routes": routes,
+        "stations": [
+            {
+                "side": side["side"],
+                "sections": [
+                    {
+                        "name": item["name"],
+                        "section_index": int(item["section_index"]),
+                        "source_section_index": int(item["source_section_index"]),
+                        "owner": item["owner"],
+                        "center": item["center"],
+                        "radii": item["radii"],
+                        "lineage": item["lineage"],
+                        "consumption": item["consumption"],
+                    }
+                    for item in side["sections"]
+                ],
+            }
+            for side in sides
+        ],
+        "elbow_ownership": "upper_arm",
+    }
+
+
 def _expected_successor_region_metadata(
     guide: dict[str, Any],
     torso_controls: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """Build the exact structural metadata emitted by the v9 successor.
+    """Build the exact structural metadata emitted by the v10 successor.
 
     The values are derived from the already validated regional guide.  This is
     deliberately a complete metadata binding rather than independent length
@@ -3301,19 +3744,26 @@ def _expected_successor_region_metadata(
     head = controls["head"]
     head_owner, neck_owner = head["owners"]
     head_neck = _expected_successor_head_neck_metadata(guide)
+    arm_profile = _expected_successor_arm_profile_metadata(guide)
 
     limbs_by_key = {
         (tuple(item["owner"]["anchors"]), item["owner"]["role"]): item
         for item in controls["limbs"]
     }
     limb_specs = (
-        ("left-arm", "left", "upper_arm", "forearm"),
         ("left-leg", "left", "thigh", "shin"),
-        ("right-arm", "right", "upper_arm", "forearm"),
         ("right-leg", "right", "thigh", "shin"),
     )
     limb_owner_keys: list[list[dict[str, Any]]] = []
     limb_internal_transition_counts: list[int] = []
+    for side in ("left", "right"):
+        arm_side = next(item for item in arm_profile["stations"] if item["side"] == side)
+        arm_sections = arm_side["sections"]
+        for route_sections in (arm_sections[:3], arm_sections[2:]):
+            limb_owner_keys.append([item["owner"] for item in route_sections])
+            limb_internal_transition_counts.append(
+                _profile_bend_count([item["center"] for item in route_sections], f"successor {side} authored arm route")
+            )
     for chain_name, side, proximal_role, distal_role in limb_specs:
         proximal = limbs_by_key.get(((side,), proximal_role))
         distal = limbs_by_key.get(((side,), distal_role))
@@ -3342,20 +3792,20 @@ def _expected_successor_region_metadata(
                 distal_sections["pre-joint"]["points"][1],
                 distal["joints"][0]["mass"]["center"],
             ]
-        limb_owner_keys.append(
-            [proximal["owner"]] * 3 + [distal["owner"]] * 2
-        )
+        limb_owner_keys.append([proximal["owner"]] * 3 + [distal["owner"]] * 2)
         limb_internal_transition_counts.append(
             _profile_bend_count(points, f"successor {chain_name}")
         )
     limbs = {
-        "representation": "shared-guide-derived-ordered-profile-sweeps",
+        "representation": "shared-guide-derived-authored-arm-routes-and-ordered-leg-profile-sweeps",
         "sweeps_consumed": len(SUCCESSOR_LIMB_ORDER),
         "sweep_order": list(SUCCESSOR_LIMB_ORDER),
-        "station_counts": [5] * len(SUCCESSOR_LIMB_ORDER),
+        "route_kinds": ["arm-profile", "arm-profile", "arm-profile", "arm-profile", "limb", "limb"],
+        "station_counts": [len(names) for names in SUCCESSOR_LIMB_STATION_NAMES],
         "station_names": [list(names) for names in SUCCESSOR_LIMB_STATION_NAMES],
         "section_owner_keys": limb_owner_keys,
         "endpoint_cap_counts": [2] * len(SUCCESSOR_LIMB_ORDER),
+        "arm_profile": arm_profile,
     }
 
     paws_by_key = {
@@ -3444,9 +3894,13 @@ def _expected_successor_region_metadata(
         "internal_transition_counts": [0] * len(SUCCESSOR_TAIL_ORDER),
     }
 
-    source_owner_keys = (
-        [limbs_by_key[((side,), role)]["owner"] for side in ("left", "right") for role in ("upper_arm", "forearm", "thigh", "shin")]
-    )
+    source_owner_keys: list[dict[str, Any]] = []
+    for section_owners in limbs["section_owner_keys"]:
+        sweep_sources: list[dict[str, Any]] = []
+        for section_owner in section_owners:
+            if section_owner not in sweep_sources:
+                sweep_sources.append(section_owner)
+        source_owner_keys.extend(sweep_sources)
     extremity_source_owner_keys = []
     for side in ("left", "right"):
         hand = paws_by_key[((side,), "hand")]["owner"]
@@ -3482,9 +3936,11 @@ def _expected_successor_region_metadata(
         ],
         "shoulder_sweep_controls": None,
         "head_neck": head_neck,
+        "arm_profile": arm_profile,
         "limb_representation": limbs["representation"],
         "limb_sweeps_consumed": limbs["sweeps_consumed"],
         "limb_sweep_order": limbs["sweep_order"],
+        "limb_sweep_route_kinds": limbs["route_kinds"],
         "limb_sweep_station_counts": limbs["station_counts"],
         "limb_sweep_station_names": limbs["station_names"],
         "limb_sweep_section_owner_keys": limbs["section_owner_keys"],
@@ -3803,7 +4259,7 @@ def _validate_successor_sidecar(
         or producer_scale["squared_length"] <= 0
     ):
         raise SurfacePreviewPublishError(
-            "successor shoulder metrics cannot bind v7 producer controls"
+            "successor shoulder metrics cannot bind v9 producer controls"
         )
     producer_variant = next(
         (
@@ -4175,6 +4631,7 @@ def _validate_successor_bundle(
                 "capture": expected_frame,
                 "torso_lineage": profile_binding["variants"][variant_id]["torso_lineage"],
                 "head_neck_lineage": profile_binding["variants"][variant_id]["head_neck_lineage"],
+                "arm_lineage": profile_binding["variants"][variant_id]["arm_lineage"],
             },
         })
 
@@ -4239,7 +4696,7 @@ def publish_surface_preview(
         except (ProvisionalFormPublishError, OSError, ValueError) as exc:
             raise SurfacePreviewPublishError(str(exc)) from exc
         if payload.get("format") != common.PROVISIONAL_FORM_FORMAT:
-            raise SurfacePreviewPublishError("creature-kernel inspection did not produce v8")
+            raise SurfacePreviewPublishError("creature-kernel inspection did not produce v9")
         producer_output.write_text(
             _compact_canonical_json(payload), encoding="utf-8"
         )
@@ -4355,9 +4812,8 @@ def publish_surface_preview(
             "description": "Disposable baseline-versus-successor comparison using one source and one shared capture frame; publication itself is not production geometry or acceptance evidence.",
             "instructions": "For each variant, compare baseline first and successor second. Appraise overall creature coherence and recognizability, connected joints/extremities/tail, silhouette, and meaningful differentiation between variants. This gallery records no acceptance decision.",
             "subject_context": {
-                "authored_summary": {"text": "Four baseline/successor pairs share one source and capture frame."},
                 "descriptor_snapshot": descriptor_snapshot,
-                "provenance": {"producer": "inspect-provisional-form", "baseline_generator_script": generator_path.name, "successor_generator_script": successor_generator_path.name, "capture": "shared source and frame", "limitations": "Disposable, non-production comparison; no acceptance or Readiness claim."},
+                "provenance": {"baseline": generator_path.name, "successor": successor_generator_path.name},
             },
             "groups": groups,
         }), encoding="utf-8")

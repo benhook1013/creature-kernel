@@ -15,17 +15,16 @@ governs what resumes next.
 
 Execution state: active toward the named human checkpoint, complete authored-
 form expressivity gallery. `origin/main` and the primary `main` checkout are
-at merged PR #109 commit
-`52b88370f2f81b3c2cc937da7cc34f83d4481a7a`. The active worktree is
-`/home/ben/src/creature-kernel-worktrees/authored-head-neck-profiles`, on
-branch `implementation/authored-head-neck-profiles`, based on that commit.
-[PR #110](https://github.com/benhook1013/creature-kernel/pull/110) is open for
-the current candidate; its implementation commit is
-`aafafeb351e49a254cf9e5443128fab53da23ef0`.
-The authored torso profile is merged predecessor evidence; the current
-candidate contains the completed internal, reversible source-authored
-head/neck prerequisite toward the unchanged complete authored-form
-expressivity gallery checkpoint.
+at merged PR #110 commit
+`a45920df1322bafbbd56ea6939837f8b0b9b8b33`. The active worktree is
+`/home/ben/src/creature-kernel-worktrees/authored-arm-profiles`, on branch
+`implementation/authored-arm-profiles`, based on that commit.
+[PR #111](https://github.com/benhook1013/creature-kernel/pull/111) is open for
+the current work and required CI is running. The authored torso and head/neck
+profiles are
+merged predecessor evidence; the current internal, reversible slice is
+source-authored shoulder/arm control toward the unchanged complete
+authored-form expressivity gallery checkpoint.
 
 Current operational snapshot: the [Codex app handover](current-handover.md)
 (2026-08-23 NZST) records the primary checkout, active runway worktree,
@@ -91,10 +90,11 @@ torso sweep. The publisher cross-bound producer, guide, and successor lineage
 and validated real bundles. The comparator added Previous/Next controls,
 arrows, click-to-advance, and zoom.
 
-The current candidate contains the completed internal, reversible
-source-authored head/neck prerequisite and remains on the runway toward the
-unchanged complete authored-form expressivity gallery checkpoint. Producer v8
-adds source-authored head/neck profile v1: eight indexed stations, seven named
+PR #110 is merged at `a45920df1322bafbbd56ea6939837f8b0b9b8b33`. Its completed
+internal, reversible source-authored head/neck prerequisite remains evidence
+on the runway toward the unchanged complete authored-form expressivity
+gallery checkpoint. Producer v8 adds source-authored head/neck profile v1:
+eight indexed stations, seven named
 branched connections, head/neck identity frames and landmarks, 24
 lateral/up/forward radii with provenance, and four shared variant projections.
 Baseline regional guide v7 carries exact profile and compatibility lineage.
@@ -109,10 +109,41 @@ the review's one documentation defect was corrected and its two non-contract
 concerns were dispositioned. No user appraisal is requested because this is
 an internal region slice, not the complete authored-form gallery.
 
-After PR, CI, and merge gates, the next direct region slice toward the
-same named checkpoint is shoulder/arm authored control. The final human stop
-remains the complete authored-form gallery. PR #110 is the current internal
-candidate and does not request user appraisal.
+The shoulder/arm authored-control slice is now a completed local candidate in
+the active worktree. Producer v9 carries `authored_arm_profile` v1 with a
+bilateral five-station profile per side, 10 landmarks, four identity frames,
+30 lateral/up/forward radii, and shared neutral, broad, lean, and
+depth-forward factors. Guide v8 projects the exact authored stations and
+retains an authored anisotropic upper-arm-owned elbow mass. Successor v6 and
+region
+`successor-torso-shoulder-head-neck-arm-limb-extremity-tail-profile-sweeps-v10`
+consume four arm routes plus two leg sweeps, a shared upper-arm-owned elbow
+seam, and all 30 radii; the successor has no arm root bridge, old underarm
+supports, or per-variant station tuning.
+
+The real publication retains the exact 143586-byte v9 producer envelope using
+XZ/Base64 and a 7290-character subject context under the unchanged 8192
+character cap. It produced four groups and eight assets at
+`/tmp/ck-authored-arm-publisher.LFm2eK/reviews/authored-arm-v9`. Main-thread
+internal visual inspection and two fresh hands-on trials passed the
+arm-focused connectivity, spike/lobe, and variant-response checks, along with
+the browser, evidence, and HTTP scenarios. This is still an internal
+candidate: PR #111 is open, no merge has occurred, and no human appraisal is
+requested. The final human stop remains the complete authored-form gallery;
+the candidate does not claim that gallery is complete.
+
+The arm-slice checks include 415 Rust workspace tests (47 CLI and 368 core),
+52 successor tests, 34 publisher tests, and 25 browser/parity tests passing;
+the unchanged baseline suite's 56 tests were already green. Rust formatting,
+Clippy with warnings denied, documentation validation, and `git diff --check`
+pass. The final adversarial review found one XZ decoder-memory blocker, which
+is fixed with an explicit 128 MiB decoder limit and a passing malicious-header
+regression. PR #111 is open; CI and merge remain pending.
+
+The non-blocking rejected-POST secondary-400 logging concern is deferred
+unrelated usability cleanup, not an arm blocker. After the remaining CI/merge
+gates, the next direct region slice toward the same named checkpoint is
+pelvis/leg authored control.
 
 PR #109 also contained Ben-approved neutral public-facing wording cleanup and
 accepted MIT OR Apache-2.0 licensing DR-0014. That ancillary work does not

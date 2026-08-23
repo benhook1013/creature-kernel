@@ -71,3 +71,13 @@ Entry format:
   - Context: a main-thread subagent launch embedded a Markdown code span inside a JavaScript template literal. The launch failed before execution with `SyntaxError: Unexpected identifier '_validate_authored_torso_profile'`; this payload-construction mistake had occurred in an earlier orchestration round as well.
   - Observation: raw Markdown backticks terminate or alter JavaScript template literals unless escaped, so otherwise valid delegation text can prevent the tool call from reaching the orchestration service. Retrying the same content as an array of ordinary quoted strings joined by newlines succeeded.
   - Expected pattern: compose long orchestration prompts from plain quoted string arrays or structured text items, with no raw Markdown code spans inside JavaScript template literals. Prefer a small reusable payload helper if this pattern recurs again; treat the syntax error as deterministic input construction, not a transient tool glitch.
+
+- `2026-08-23`: Pull-request body stdin is unavailable through the ordinary command wrapper
+  - Context: a main-thread `gh pr create --body-file -` call supplied a complete body in orchestration code but did not attach that text to the command process's standard input.
+  - Observation: `gh` received immediate EOF, successfully created PR #110 with an empty body, and reported no command error. A follow-up `gh pr view` exposed `"body":""`; writing the intended body to an explicit temporary file and using `gh pr edit --body-file` repaired it.
+  - Expected pattern: do not use `--body-file -` with the ordinary non-interactive command wrapper unless its standard input is explicitly supported and populated. Use an explicit reviewed file for long PR bodies, then read the PR back immediately to verify title, body, head, base, and state before treating creation as complete.
+
+- `2026-08-23`: Ripgrep options must precede the explicit pattern separator
+  - Context: the main thread twice tried to protect a pattern with `rg --` but placed an option after the separator, first while searching for a pattern beginning with hyphens and later while adding context lines.
+  - Observation: every token after `--` is positional, so `rg -n -- "pattern" -C 2` treats `-C` and `2` as paths and reports misleading missing-file errors instead of applying context. The failure is deterministic command construction, not repository or tool instability.
+  - Expected pattern: place every option before the separator, for example `rg -n -C 2 -- "pattern" paths`; use `--` immediately before the pattern only when option parsing must end.

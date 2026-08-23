@@ -242,6 +242,66 @@ def _head_neck_route_signature(
     return np.concatenate((route_values, station_values, lower, upper))
 
 
+_ARM_AXIS_INDEX = {"lateral": 0, "up": 1, "forward": 2}
+
+
+def _mutate_arm_profile_radius(
+    guide: object,
+    side_index: int,
+    station_index: int,
+    axis: str,
+    factor: float = 1.37,
+) -> object:
+    """Make a guide-valid-for-the-successor arm radius perturbation."""
+
+    profile = guide.arm_profile  # type: ignore[attr-defined]
+    sides = list(profile.sides)
+    side = sides[side_index]
+    stations = list(side.sections)
+    source = stations[station_index]
+    lineage_name = ("lateral_lineage", "up_lineage", "forward_lineage")[_ARM_AXIS_INDEX[axis]]
+    lineage = getattr(source, lineage_name)
+    base = max(1, int(round(lineage.base * factor)))
+    scaled = base * lineage.factor // 1000
+    changed_lineage = replace(lineage, base=base, scaled=scaled)
+    radii = list(source.radii)
+    radii[_ARM_AXIS_INDEX[axis]] = scaled / 1000.0
+    stations[station_index] = replace(
+        source,
+        radii=tuple(radii),
+        **{lineage_name: changed_lineage},
+    )
+    sides[side_index] = replace(side, sections=tuple(stations))
+    return replace(guide, arm_profile=replace(profile, sides=tuple(sides)))  # type: ignore[attr-defined]
+
+
+def _arm_route_signature(routes: tuple[successor._LimbChainSweep, ...], guide: object) -> np.ndarray:
+    """Capture route and full authored station-volume observables."""
+
+    axes = guide.topology.axes  # type: ignore[attr-defined]
+    guide_axes = tuple(np.asarray(getattr(axes, axis), dtype=np.float64) for axis in ("lateral", "up", "forward"))
+    profile_sides = {side.side: side for side in guide.arm_profile.sides}  # type: ignore[attr-defined]
+    probes = []
+    station_values = []
+    for route in routes:
+        for station, section in zip(route.source_stations, route.sweep.sections):
+            side_name = route.chain_name.split("-", 1)[0]
+            baseline_station = profile_sides[side_name].sections[station.source_section_index]
+            center = np.asarray(baseline_station.center, dtype=np.float64)
+            probes.extend(
+                center + 0.55 * float(baseline_station.radii[index]) * guide_axes[index]
+                for index in range(3)
+            )
+            station_values.extend(
+                successor._profile_station_volume_field(
+                    np.asarray((point,), dtype=np.float64), section,
+                )[0]
+                for point in probes[-3:]
+            )
+    route_values = np.concatenate(tuple(successor._profile_sweep_field(np.asarray(probes), route.sweep) for route in routes))
+    return np.concatenate((route_values, np.asarray(station_values, dtype=np.float64)))
+
+
 class SuccessorTorsoProfileNumericalTests(unittest.TestCase):
     def test_torso_profile_hits_exact_cardinals_and_has_finite_outside_caps(self) -> None:
         sweep = _test_torso_profile_sweep()
@@ -340,7 +400,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 for item in guide.limb_guides
                 if item.owner.key[3] == "upper_arm"
             }
-            arms = {item.chain_name: item for item in region.limb_sweeps if item.chain_name.endswith("-arm")}
+            arms = {item.chain_name: item for item in region.arm_sweeps}
             for shoulder, side in zip(region.shoulder_sweeps, guide.shoulder_frame.sides):
                 sections = shoulder.sweep.sections
                 self.assertEqual(shoulder.side, side.side)
@@ -382,14 +442,20 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 upper = upper_arms[side.side]
                 self.assertEqual(sections[3].center, upper.sections[0].centerline[0])
                 self.assertEqual(sections[4].center, upper.sections[0].centerline[1])
-                upper_sweep = arms[f"{side.side}-arm"].sweep.sections
+                upper_sweep = arms[f"{side.side}-upper-arm-route"].sweep.sections
                 for shoulder_section, arm_section in zip(sections[3:], upper_sweep[:2]):
                     np.testing.assert_array_equal(shoulder_section.center, arm_section.center)
-                    self.assertEqual(shoulder_section.transverse_radii, arm_section.transverse_radii)
+                    self.assertLessEqual(
+                        float(successor._profile_sweep_field(
+                            np.asarray(arm_section.center).reshape(1, 3),
+                            arms[f"{side.side}-upper-arm-route"].sweep,
+                        )[0]),
+                        0.0,
+                    )
                 for section in sections[3:]:
                     probe = np.asarray(section.center, dtype=np.float64).reshape(1, 3)
                     self.assertLessEqual(
-                        float(successor._profile_sweep_field(probe, arms[f"{side.side}-arm"].sweep)[0]),
+                        float(successor._profile_sweep_field(probe, arms[f"{side.side}-upper-arm-route"].sweep)[0]),
                         0.0,
                     )
 
@@ -497,7 +563,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 self.assertLessEqual(abs(float(successor._loft_field(boundary.reshape(1, 3), region.loft)[0])), successor._SHOULDER_BOUNDARY_TOLERANCE)
                 self.assertIs(shoulder.sweep.sections[0].owner, guide.shoulder_frame.torso_owner)
                 self.assertIs(shoulder.sweep.sections[1].owner, guide.shoulder_frame.torso_owner)
-                upper_arm = next(item for item in region.limb_sweeps if item.chain_name == f"{side.side}-arm")
+                upper_arm = next(item for item in region.arm_sweeps if item.chain_name == f"{side.side}-upper-arm-route")
                 np.testing.assert_array_equal(shoulder.sweep.sections[3].center, upper_arm.sweep.sections[0].center)
                 np.testing.assert_array_equal(shoulder.sweep.sections[4].center, upper_arm.sweep.sections[1].center)
                 remote = np.asarray(((8.0, 3.0, 0.0), (-8.0, 3.0, 0.0), (0.0, 8.0, 0.0), (0.0, -4.0, 0.0)))
@@ -567,16 +633,87 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             )
         self.assertEqual(len(set(topologies)), 1)
 
+    def test_every_authored_arm_station_and_radius_changes_a_route_observable(self) -> None:
+        for variant_id, descriptors, _ in self.form.variants:
+            guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+            baseline = successor._make_arm_profile_sweeps(guide)
+            baseline_by_name = {item.chain_name: item for item in baseline}
+            for side_index, side in enumerate(guide.arm_profile.sides):
+                for station_index, station in enumerate(side.sections):
+                    affected = {
+                        f"{side.side}-upper-arm-route" if station_index <= 2 else f"{side.side}-forearm-route"
+                    }
+                    if station_index == 2:
+                        affected = {f"{side.side}-upper-arm-route", f"{side.side}-forearm-route"}
+                    for axis in _ARM_AXIS_INDEX:
+                        with self.subTest(variant=variant_id, station=station.name, axis=axis):
+                            changed = successor._make_arm_profile_sweeps(
+                                _mutate_arm_profile_radius(guide, side_index, station_index, axis)
+                            )
+                            changed_by_name = {item.chain_name: item for item in changed}
+                            self.assertEqual(set(changed_by_name), set(baseline_by_name))
+                            differences = {
+                                name: float(np.max(np.abs(
+                                    _arm_route_signature((changed_by_name[name],), guide)
+                                    - _arm_route_signature((baseline_by_name[name],), guide)
+                                )))
+                                for name in affected
+                            }
+                            self.assertTrue(
+                                any(value > 1.0e-8 for value in differences.values()),
+                                msg=f"{station.name}.{axis} did not affect its authored route: {differences!r}",
+                            )
+
+    def test_arm_profile_perturbation_is_one_sided_and_routes_remain_shared(self) -> None:
+        guide = surface_preview._derive_hybrid_guides(self.form, self.form.variants[0][1])
+        baseline = successor._make_arm_profile_sweeps(guide)
+        changed = successor._make_arm_profile_sweeps(_mutate_arm_profile_radius(guide, 0, 1, "forward"))
+        baseline_right = tuple(item for item in baseline if item.chain_name.startswith("right-"))
+        changed_right = tuple(item for item in changed if item.chain_name.startswith("right-"))
+        np.testing.assert_array_equal(
+            _arm_route_signature(changed_right, guide),
+            _arm_route_signature(baseline_right, guide),
+        )
+        self.assertGreater(
+            float(np.max(np.abs(
+                _arm_route_signature(tuple(item for item in changed if item.chain_name.startswith("left-")), guide)
+                - _arm_route_signature(tuple(item for item in baseline if item.chain_name.startswith("left-")), guide)
+            ))),
+            1.0e-8,
+        )
+
+    def test_malformed_arm_profile_guide_is_rejected_fail_closed(self) -> None:
+        _, descriptors, _ = self.form.variants[0]
+        guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+        profile = guide.arm_profile
+        left = profile.sides[0]
+        malformed_station = replace(left.sections[2], name="renamed-elbow")
+        malformed_side = replace(left, sections=left.sections[:2] + (malformed_station,) + left.sections[3:])
+        wrong_axes = replace(profile, axes=replace(profile.axes, up=(0.0, 0.0, 1.0)))
+        bad_lineage = replace(
+            left.sections[1],
+            forward_lineage=replace(left.sections[1].forward_lineage, reference_index=999),
+        )
+        bad_lineage_side = replace(left, sections=left.sections[:1] + (bad_lineage,) + left.sections[2:])
+        cases = (
+            replace(guide, arm_profile=replace(profile, sides=(malformed_side, profile.sides[1]))),
+            replace(guide, arm_profile=wrong_axes),
+            replace(guide, arm_profile=replace(profile, sides=(bad_lineage_side, profile.sides[1]))),
+        )
+        for invalid in cases:
+            with self.assertRaises(successor.SuccessorPreviewError):
+                successor._make_arm_profile_sweeps(invalid)
+
     def test_hand_sweeps_retain_exact_guide_controls_and_forearm_overlap(self) -> None:
         for _, descriptors, _ in self.form.variants:
             guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
             region = successor.compile_successor_region(guide)
             paws = {(item.owner.key[1][0], item.owner.key[3]): item for item in guide.paw_guides}
-            arms = {item.chain_name: item for item in region.limb_sweeps}
+            arms = {item.chain_name: item for item in region.arm_sweeps}
             for item in region.hand_sweeps:
                 side = item.side
                 hand = paws[(side, "hand")]
-                arm = arms[f"{side}-arm"]
+                arm = arms[f"{side}-forearm-route"]
                 self.assertEqual(hand.owner.parent, arm.sweep.sections[-1].owner.key)
                 self.assertIs(item.sweep.sections[0].owner, hand.owner)
                 if item.kind == "hand-attachment":
@@ -1225,17 +1362,24 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                     without_value = float(successor._successor_region_field(representative, without_item, 0.10)[0])
                     self.assertGreater(abs(composed_value - without_value), 1.0e-8)
 
-    def test_limb_sweeps_have_shared_five_station_topology_and_proximal_joint_ownership(self) -> None:
-        expected_order = ("left-arm", "left-leg", "right-arm", "right-leg")
+    def test_authored_arm_routes_have_exact_shared_five_station_profile_and_elbow_ownership(self) -> None:
+        expected_order = (
+            "left-upper-arm-route", "left-forearm-route", "right-upper-arm-route", "right-forearm-route",
+            "left-leg", "right-leg",
+        )
         expected_names = {
-            "left-arm": ("upper-arm-start", "upper-arm-midpoint", "elbow", "forearm-midpoint", "forearm-distal"),
-            "right-arm": ("upper-arm-start", "upper-arm-midpoint", "elbow", "forearm-midpoint", "forearm-distal"),
+            "left-upper-arm-route": ("upper-arm-start", "upper-arm-midpoint", "elbow"),
+            "left-forearm-route": ("elbow", "forearm-midpoint", "forearm-distal"),
+            "right-upper-arm-route": ("upper-arm-start", "upper-arm-midpoint", "elbow"),
+            "right-forearm-route": ("elbow", "forearm-midpoint", "forearm-distal"),
             "left-leg": ("thigh-start", "thigh-midpoint", "knee", "shin-midpoint", "hock-endpoint"),
             "right-leg": ("thigh-start", "thigh-midpoint", "knee", "shin-midpoint", "hock-endpoint"),
         }
         expected_roles = {
-            "left-arm": ("upper_arm", "upper_arm", "upper_arm", "forearm", "forearm"),
-            "right-arm": ("upper_arm", "upper_arm", "upper_arm", "forearm", "forearm"),
+            "left-upper-arm-route": ("upper_arm", "upper_arm", "upper_arm"),
+            "left-forearm-route": ("upper_arm", "forearm", "forearm"),
+            "right-upper-arm-route": ("upper_arm", "upper_arm", "upper_arm"),
+            "right-forearm-route": ("upper_arm", "forearm", "forearm"),
             "left-leg": ("thigh", "thigh", "thigh", "shin", "shin"),
             "right-leg": ("thigh", "thigh", "thigh", "shin", "shin"),
         }
@@ -1244,27 +1388,34 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
             region = successor.compile_successor_region(guide)
             self.assertEqual(tuple(item.chain_name for item in region.limb_sweeps), expected_order)
+            self.assertEqual(tuple(item.chain_name for item in region.arm_sweeps), expected_order[:4])
             topology = []
             for item in region.limb_sweeps:
                 self.assertEqual(item.section_names, expected_names[item.chain_name])
-                self.assertEqual(item.sections_consumed, 5)
+                self.assertEqual(item.sections_consumed, len(expected_names[item.chain_name]))
                 self.assertEqual(tuple(section.owner.key[3] for section in item.sweep.sections), expected_roles[item.chain_name])
-                self.assertIs(item.sweep.sections[2].owner, item.sweep.sections[1].owner)
                 self.assertEqual(len(item.sweep.endpoint_caps), 2)
                 self.assertEqual(tuple(cap.side for cap in item.sweep.endpoint_caps), ("start", "end"))
+                if item.is_arm_profile_route:
+                    self.assertEqual(item.sweep.profile_operation, successor._ARM_PROFILE_OPERATION)
+                    self.assertEqual(len(item.source_stations), 3)
+                    self.assertTrue(all(section.station_volume_radii is not None for section in item.sweep.sections))
+                    self.assertEqual(
+                        tuple(section.station_volume_radii for section in item.sweep.sections),
+                        tuple(station.radii for station in item.source_stations),
+                    )
                 transition_indices = tuple(transition.section_index for transition in item.sweep.internal_transitions)
                 self.assertEqual(len(transition_indices), len(set(transition_indices)))
-                self.assertTrue(all(0 < index < 4 for index in transition_indices))
-                self.assertEqual(
-                    len({tuple(transition.center) for transition in item.sweep.internal_transitions}),
-                    len(item.sweep.internal_transitions),
-                )
-                self.assertTrue(all(
-                    not np.allclose(cap.center, transition.center, rtol=0.0, atol=1.0e-12)
-                    for cap in item.sweep.endpoint_caps
-                    for transition in item.sweep.internal_transitions
-                ))
+                self.assertTrue(all(0 < index < item.sections_consumed - 1 for index in transition_indices))
                 topology.append((item.chain_name, item.section_names, item.sections_consumed, transition_indices))
+            for side in ("left", "right"):
+                upper = next(item for item in region.arm_sweeps if item.chain_name == f"{side}-upper-arm-route")
+                forearm = next(item for item in region.arm_sweeps if item.chain_name == f"{side}-forearm-route")
+                guide_side = next(item for item in guide.arm_profile.sides if item.side == side)
+                self.assertIs(upper.source_stations[-1], guide_side.sections[2])
+                self.assertIs(forearm.source_stations[0], guide_side.sections[2])
+                self.assertIs(upper.source_stations[-1].owner, guide_side.sections[2].owner)
+                self.assertEqual(upper.source_stations[-1].owner.key[3], "upper_arm")
             topologies.append(tuple(topology))
         self.assertEqual(len(set(topologies)), 1)
 
@@ -1277,6 +1428,15 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
         self.assertEqual(len(region.bridge_fields), 4)
         self.assertEqual(len(baseline) - len(region.bridge_fields), 48)
         self.assertEqual({field.recipe for field in region.bridge_fields}, expected_bridge_recipes)
+        self.assertNotIn("deltoid-sweep-1", {field.recipe for field in region.bridge_fields})
+        self.assertFalse(any(
+            field.recipe in {"anterior-support", "posterior-support", "upper-arm-root-bridge"}
+            for field in region.bridge_fields
+        ))
+        self.assertFalse(any(
+            component.recipe in {"successor-deltoid-sweep-1", "successor-anterior-support", "successor-posterior-support", "successor-upper-arm-root-bridge"}
+            for component in successor._make_components(region, successor.DEFAULT_SMOOTH_K)
+        ))
         self.assertEqual(len(region.replaced_baseline_recipes), 28)
         self.assertEqual(
             sum(field.recipe in region.replaced_baseline_recipes for field in baseline),
@@ -1287,10 +1447,10 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             22,
         )
 
-        chains = {item.chain_name: item for item in region.limb_sweeps}
+        chains = {item.chain_name: item for item in region.leg_sweeps + region.arm_sweeps}
         inventory = {(item.owner.key[1][0], item.owner.key[3]): item for item in guide.limb_guides}
         for side in ("left", "right"):
-            arm = chains[f"{side}-arm"]
+            arm = chains[f"{side}-forearm-route"]
             leg = chains[f"{side}-leg"]
             self.assertFalse(any(
                 field.recipe == "root-bridge" and field.owner is inventory[(side, "upper_arm")].owner
@@ -1683,11 +1843,35 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             self.assertEqual(limb_metrics["shoulder_sweeps_consumed"], 2)
             self.assertEqual(limb_metrics["shoulder_sweep_order"], ["left-shoulder-envelope", "right-shoulder-envelope"])
             self.assertEqual(limb_metrics["shoulder_sweep_section_counts"], [5, 5])
-            self.assertEqual(limb_metrics["limb_sweeps_consumed"], 4)
-            self.assertEqual(limb_metrics["limb_sweep_order"], ["left-arm", "left-leg", "right-arm", "right-leg"])
-            self.assertEqual(limb_metrics["limb_sweep_station_counts"], [5, 5, 5, 5])
-            self.assertEqual(limb_metrics["limb_sweep_endpoint_cap_counts"], [2, 2, 2, 2])
-            self.assertTrue(all(len(owners) == 5 for owners in limb_metrics["limb_sweep_section_owner_keys"]))
+            self.assertEqual(limb_metrics["limb_sweeps_consumed"], 6)
+            self.assertEqual(
+                limb_metrics["limb_sweep_order"],
+                ["left-upper-arm-route", "left-forearm-route", "right-upper-arm-route", "right-forearm-route", "left-leg", "right-leg"],
+            )
+            self.assertEqual(limb_metrics["limb_sweep_route_kinds"], ["arm-profile", "arm-profile", "arm-profile", "arm-profile", "limb", "limb"])
+            self.assertEqual(limb_metrics["limb_sweep_station_counts"], [3, 3, 3, 3, 5, 5])
+            self.assertEqual(limb_metrics["limb_sweep_endpoint_cap_counts"], [2, 2, 2, 2, 2, 2])
+            self.assertEqual([len(owners) for owners in limb_metrics["limb_sweep_section_owner_keys"]], [3, 3, 3, 3, 5, 5])
+            self.assertEqual(
+                [
+                    (owner["anchors"][0], owner["role"])
+                    for owner in limb_metrics["limb_source_owner_keys"]
+                ],
+                [
+                    ("left", "upper_arm"),
+                    ("left", "upper_arm"), ("left", "forearm"),
+                    ("right", "upper_arm"),
+                    ("right", "upper_arm"), ("right", "forearm"),
+                    ("left", "thigh"), ("left", "shin"),
+                    ("right", "thigh"), ("right", "shin"),
+                ],
+            )
+            self.assertEqual(limb_metrics["arm_profile"]["route_order"], ["left-upper-arm-route", "left-forearm-route", "right-upper-arm-route", "right-forearm-route"])
+            self.assertEqual(limb_metrics["arm_profile"]["topology"], "two-routes-per-side-shared-upper-arm-elbow-seam")
+            self.assertEqual(
+                [len(item["sections"]) for item in limb_metrics["arm_profile"]["stations"]],
+                [5, 5],
+            )
             self.assertEqual(limb_metrics["extremity_sweeps_consumed"], 6)
             self.assertEqual(
                 limb_metrics["extremity_sweep_order"],
@@ -1781,7 +1965,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 [item["source_variant_sha256"] for item in first_manifest["variants"]],
                 [item["source_variant_sha256"] for item in second_manifest["variants"]],
             )
-            self.assertEqual(successor.FORMAT, "creature-kernel.disposable-successor-surface-preview.v5")
+            self.assertEqual(successor.FORMAT, "creature-kernel.disposable-successor-surface-preview.v6")
             self.assertEqual(first_manifest["format"], successor.FORMAT)
             self.assertEqual(first_manifest["consumer_id"], successor.CONSUMER_ID)
             self.assertEqual(first_manifest["generator"]["samples_per_axis"], 56)
@@ -1934,21 +2118,27 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                     [[0, 1, 2, 3, 4], [3, 5, 6, 7]],
                 )
                 self.assertTrue(all(set(item["lineage"]) == {"lateral", "up", "forward"} for item in sidecar["head_neck"]["sections"]))
-                self.assertEqual(sidecar["limbs"]["sweeps_consumed"], 4)
-                self.assertEqual(sidecar["limbs"]["sweep_order"], ["left-arm", "left-leg", "right-arm", "right-leg"])
-                self.assertEqual(sidecar["limbs"]["station_counts"], [5, 5, 5, 5])
+                self.assertEqual(sidecar["limbs"]["sweeps_consumed"], 6)
+                self.assertEqual(sidecar["limbs"]["sweep_order"], ["left-upper-arm-route", "left-forearm-route", "right-upper-arm-route", "right-forearm-route", "left-leg", "right-leg"])
+                self.assertEqual(sidecar["limbs"]["route_kinds"], ["arm-profile", "arm-profile", "arm-profile", "arm-profile", "limb", "limb"])
+                self.assertEqual(sidecar["limbs"]["station_counts"], [3, 3, 3, 3, 5, 5])
                 self.assertEqual(
                     sidecar["limbs"]["station_names"],
                     [
-                        ["upper-arm-start", "upper-arm-midpoint", "elbow", "forearm-midpoint", "forearm-distal"],
+                        ["upper-arm-start", "upper-arm-midpoint", "elbow"],
+                        ["elbow", "forearm-midpoint", "forearm-distal"],
+                        ["upper-arm-start", "upper-arm-midpoint", "elbow"],
+                        ["elbow", "forearm-midpoint", "forearm-distal"],
                         ["thigh-start", "thigh-midpoint", "knee", "shin-midpoint", "hock-endpoint"],
-                        ["upper-arm-start", "upper-arm-midpoint", "elbow", "forearm-midpoint", "forearm-distal"],
                         ["thigh-start", "thigh-midpoint", "knee", "shin-midpoint", "hock-endpoint"],
                     ],
                 )
-                self.assertEqual(sidecar["limbs"]["endpoint_cap_counts"], [2, 2, 2, 2])
-                self.assertEqual(len(sidecar["limbs"]["section_owner_keys"]), 4)
-                self.assertTrue(all(len(owners) == 5 for owners in sidecar["limbs"]["section_owner_keys"]))
+                self.assertEqual(sidecar["limbs"]["endpoint_cap_counts"], [2, 2, 2, 2, 2, 2])
+                self.assertEqual(len(sidecar["limbs"]["section_owner_keys"]), 6)
+                self.assertEqual([len(owners) for owners in sidecar["limbs"]["section_owner_keys"]], [3, 3, 3, 3, 5, 5])
+                self.assertEqual(sidecar["limbs"]["arm_profile"]["format"], surface_preview.AUTHORED_ARM_PROFILE_FORMAT)
+                self.assertEqual(sidecar["limbs"]["arm_profile"]["regional_guide_format"], successor.REGIONAL_GUIDE_FORMAT)
+                self.assertEqual(sidecar["limbs"]["arm_profile"]["route_order"], ["left-upper-arm-route", "left-forearm-route", "right-upper-arm-route", "right-forearm-route"])
                 self.assertEqual(sidecar["extremities"]["sweeps_consumed"], 6)
                 self.assertEqual(
                     sidecar["extremities"]["sweep_order"],
