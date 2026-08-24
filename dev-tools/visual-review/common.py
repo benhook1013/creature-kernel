@@ -4364,7 +4364,7 @@ def load_session(root: Path, review_id: str) -> tuple[Path, dict[str, Any]]:
 
 
 def iter_sessions(root: Path) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
-    valid: list[dict[str, Any]] = []
+    valid_with_order: list[tuple[int, dict[str, Any]]] = []
     errors: list[dict[str, str]] = []
     try:
         entries = sorted(root.iterdir(), key=lambda p: p.name)
@@ -4377,16 +4377,36 @@ def iter_sessions(root: Path) -> tuple[list[dict[str, Any]], list[dict[str, str]
             errors.append({"id": entry.name, "error": "session symlinks are not allowed"})
             continue
         try:
-            _, review = load_session(root, entry.name)
-        except ValidationError as exc:
+            session, review = load_session(root, entry.name)
+            published_mtime_ns = (session / "review.json").stat().st_mtime_ns
+            published_seconds, published_remainder_ns = divmod(
+                published_mtime_ns,
+                1_000_000_000,
+            )
+            published_at = datetime.fromtimestamp(
+                published_seconds,
+                timezone.utc,
+            ).replace(
+                microsecond=published_remainder_ns // 1_000,
+            ).isoformat(timespec="microseconds").replace("+00:00", "Z")
+        except (OverflowError, ValueError) as exc:
+            errors.append({
+                "id": entry.name,
+                "error": f"invalid review.json publication timestamp: {exc}",
+            })
+        except (OSError, ValidationError) as exc:
             errors.append({"id": entry.name, "error": str(exc)})
         else:
-            valid.append({
+            summary = {
                 "id": review["id"],
                 "title": review["title"],
                 "kind": review.get("kind", "image"),
+                "published_at": published_at,
                 **({"description": review["description"]} if "description" in review else {}),
-            })
+            }
+            valid_with_order.append((published_mtime_ns, summary))
+    valid_with_order.sort(key=lambda item: (-item[0], item[1]["id"]))
+    valid = [summary for _, summary in valid_with_order]
     return valid, errors
 
 

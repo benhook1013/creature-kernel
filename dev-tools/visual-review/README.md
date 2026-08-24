@@ -505,7 +505,10 @@ bundles and sessions under `/tmp`; they are not repository artifacts.
 Open `/` for a dynamic session index, then `/review/<id>` for a review. The
 browser uses these same-origin routes:
 
-- `GET /api/sessions` lists valid sessions and concise invalid-session errors.
+- `GET /api/sessions` lists valid sessions newest-published first, includes each
+  immutable `review.json` publication timestamp, and reports concise
+  invalid-session errors. Publication order is not an approval or active-
+  checkpoint signal.
 - `GET /api/reviews/<id>` returns the normalized review and current response.
 - `GET /api/reviews/<id>/assets/<asset>` serves only manifest-referenced images.
 - `GET /api/reviews/<id>/response` reads the current response.

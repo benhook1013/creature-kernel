@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -105,6 +106,36 @@ class ReviewFixture(unittest.TestCase):
 
 
 class ManifestAndPublishTests(ReviewFixture):
+    def test_session_index_is_newest_first_with_publication_timestamps(self):
+        older = self.publish()
+        manifest = json.loads(self.manifest_path.read_text(encoding="utf-8"))
+        manifest["id"] = "newer-review"
+        manifest["title"] = "Newer review"
+        self.manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        publish.publish_session(self.root, self.manifest_path)
+        newer = self.root / "newer-review"
+        os.utime(older / "review.json", ns=(1_700_000_000_000_000_000,) * 2)
+        os.utime(newer / "review.json", ns=(1_700_000_100_000_000_000,) * 2)
+
+        sessions, errors = common.iter_sessions(self.root)
+
+        self.assertEqual(errors, [])
+        self.assertEqual([session["id"] for session in sessions], ["newer-review", "demo-review"])
+        self.assertEqual(sessions[0]["published_at"], "2023-11-14T22:15:00.000000Z")
+        self.assertEqual(sessions[1]["published_at"], "2023-11-14T22:13:20.000000Z")
+
+    def test_session_index_reports_unrepresentable_publication_timestamp(self):
+        self.publish()
+        with patch.object(common, "datetime") as timestamp:
+            timestamp.fromtimestamp.side_effect = OverflowError("timestamp out of range")
+            sessions, errors = common.iter_sessions(self.root)
+
+        self.assertEqual(sessions, [])
+        self.assertEqual(errors, [{
+            "id": "demo-review",
+            "error": "invalid review.json publication timestamp: timestamp out of range",
+        }])
+
     def test_normalization_and_exact_inventory(self):
         session = self.publish()
         normalized = json.loads((session / "review.json").read_text(encoding="utf-8"))
@@ -529,6 +560,11 @@ class HTTPTests(ReviewFixture):
         self.assertEqual(status, 200)
         self.assertIn(b"visual reviews", body)
         self.assertEqual(headers["X-Content-Type-Options"], "nosniff")
+        status, _, body = self.get(self.base + "/api/sessions")
+        self.assertEqual(status, 200)
+        index = json.loads(body)
+        self.assertEqual(index["sessions"][0]["id"], "demo-review")
+        self.assertRegex(index["sessions"][0]["published_at"], r"Z$")
         status, headers, body = self.get(self.base + "/static/style.css")
         self.assertEqual(status, 200)
         self.assertEqual(headers["Content-Type"].split(";")[0], "text/css")
@@ -966,6 +1002,9 @@ process.stdout.write(JSON.stringify(items.map(context.__imageAccessibleLabel)));
         assets = (js + css).replace("http://www.w3.org/2000/svg", "")
         self.assertNotRegex(assets, r"https?://")
         for label in (
+            "Latest published",
+            "Earlier publication",
+            "not approved or the project's next active checkpoint",
             "What you're looking at",
             "Authored summary",
             "Generated descriptor snapshot",

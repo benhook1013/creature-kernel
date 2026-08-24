@@ -62,20 +62,28 @@
     clear(app);
     var heading = node("h1", "Visual review gallery");
     app.appendChild(heading);
-    addNotice(app, "Local image comparison, structural inspection, and read-only filled-form sessions. Open a session to inspect or appraise its bounded content; image sessions can record choices and notes.", "lede");
+    addNotice(app, "Local image comparison, structural inspection, and read-only filled-form sessions. Sessions are ordered by publication time. Latest published means newest in this local gallery, not approved or the project's next active checkpoint.", "lede");
     var sessions = data.sessions || [];
     if (!sessions.length) {
       addNotice(app, "No valid review sessions are available yet.", "empty");
     }
     var list = node("div", null, "session-list");
-    sessions.forEach(function (session) {
-      var card = node("article", null, "session-card");
+    sessions.forEach(function (session, index) {
+      var card = node("article", null, index === 0 ? "session-card latest-session" : "session-card");
+      card.appendChild(node("span", index === 0 ? "Latest published" : "Earlier publication", index === 0 ? "session-recency latest-recency" : "session-recency"));
       var title = node("h2");
       var link = node("a", session.title);
       link.href = "/review/" + encodeURIComponent(session.id);
       title.appendChild(link);
       card.appendChild(title);
       card.appendChild(node("code", session.id, "stable-id"));
+      if (session.published_at) {
+        var published = new Date(session.published_at);
+        var publishedText = Number.isNaN(published.getTime()) ? session.published_at : published.toLocaleString();
+        var publishedNode = node("time", "Published " + publishedText, "session-published");
+        publishedNode.dateTime = session.published_at;
+        card.appendChild(publishedNode);
+      }
       if (session.kind === "structure") {
         card.appendChild(node("span", "Structural inspection", "session-kind"));
       }
