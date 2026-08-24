@@ -9,6 +9,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 from PIL import Image, ImageDraw
@@ -2833,19 +2834,39 @@ class SurfacePreviewTests(unittest.TestCase):
                 self.assertEqual((first / name).read_bytes(), (second / name).read_bytes(), name)
             manifest = json.loads((first / "surface-preview-manifest.json").read_text())
             self.assertEqual(manifest["status"], "success")
-            self.assertEqual(manifest["format"], "creature-kernel.disposable-surface-preview.v2")
+            self.assertEqual(manifest["format"], "creature-kernel.disposable-surface-preview.v3")
+            self.assertEqual(surface_preview.REGIONAL_GUIDE_FORMAT, "creature-kernel.disposable-surface-preview-regional-guide.v11")
             self.assertEqual(manifest["source_format"], surface_preview.SOURCE_FORMAT)
             self.assertEqual([x["id"] for x in manifest["variants"]], list(surface_preview.VARIANT_IDS))
+            self.assertEqual(manifest["generator"]["bundle_version"], 3)
+            self.assertEqual(manifest["generator"]["component_visualization"], {
+                "mode": "exact-consumed-component-zero-isosurfaces",
+                "samples_per_axis": 32,
+                "stage": "pre-smooth-union",
+                "colour_identity": "sha256-source-owner-and-recipe",
+            })
             self.assertTrue(all(len(x["inventory"]) == 5 for x in manifest["variants"]))
+            self.assertTrue(all(
+                next(item for item in x["inventory"] if item["kind"] == "guide-skin-composite-png")["panels_per_view"] == 3
+                for x in manifest["variants"]
+            ))
             self.assertTrue(all(x["metrics"]["source_descriptor_count"] == 18 for x in manifest["variants"]))
             self.assertTrue(all(x["metrics"]["generated_field_count"] == 52 for x in manifest["variants"]))
             self.assertTrue(all(x["metrics"]["component_count"] == 1 and x["metrics"]["watertight"] for x in manifest["variants"]))
+            self.assertTrue(all(x["metrics"]["component_visualization"]["evaluator"] == "consumer-supplied exact callable" for x in manifest["variants"]))
+            self.assertTrue(all(x["metrics"]["component_visualization"]["component_count"] == 52 for x in manifest["variants"]))
+            self.assertTrue(all(x["metrics"]["component_visualization"]["resolution"]["samples_per_axis"] == 32 for x in manifest["variants"]))
+            self.assertTrue(all(len(x["metrics"]["component_visualization"]["components"]) == 52 for x in manifest["variants"]))
+            self.assertTrue(all(all(
+                set(item) == {"source_owner", "recipe", "bounds"}
+                for item in x["metrics"]["component_visualization"]["components"]
+            ) for x in manifest["variants"]))
             self.assertEqual(
                 sorted(path.name for path in (first / surface_preview.VARIANT_IDS[0]).iterdir()),
                 ["guide-skin-composite.png", "metrics.json", "regional-guide.json", "semantic.json", "surface.ply"],
             )
 
-    def test_v2_shared_frames_and_private_regional_controls_are_exact_and_sanitized(self) -> None:
+    def test_v3_shared_frames_and_private_regional_controls_are_exact_and_sanitized(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             input_path = root / "input.json"
@@ -2853,10 +2874,21 @@ class SurfacePreviewTests(unittest.TestCase):
             output = root / "output"
             manifest = surface_preview.generate(input_path, output, samples=48, padding=0.5)
             self.assertEqual([item["name"] for item in manifest["projections"]], ["front", "side", "three-quarter"])
-            self.assertEqual(manifest["canvas"], {"width": 1800, "height": 570, "mode": "RGB"})
+            self.assertEqual(manifest["canvas"], {"width": 1800, "height": 1500, "mode": "RGB"})
             self.assertEqual(manifest["layout"]["panel_order"], [
-                "front-guide", "front-skin", "side-guide", "side-skin", "three-quarter-guide", "three-quarter-skin",
+                "front-control-guide", "side-control-guide", "three-quarter-control-guide",
+                "front-field-components", "side-field-components", "three-quarter-field-components",
+                "front-skin", "side-skin", "three-quarter-skin",
             ])
+            self.assertEqual(manifest["layout"]["pairing"], "control-guide/field-components/skin per projection")
+            self.assertEqual(
+                [item["box"] for item in manifest["layout"]["panels"]],
+                [
+                    [12, 72, 592, 532], [610, 72, 1190, 532], [1208, 72, 1788, 532],
+                    [12, 546, 592, 1006], [610, 546, 1190, 1006], [1208, 546, 1788, 1006],
+                    [12, 1020, 592, 1480], [610, 1020, 1190, 1480], [1208, 1020, 1788, 1480],
+                ],
+            )
             expected_bounds = manifest["shared_render_bounds"]
             grid_signatures = []
             guide_controls = []
@@ -2994,7 +3026,8 @@ class SurfacePreviewTests(unittest.TestCase):
 
                 self.assertFalse(has_forbidden_key(regional))
                 with Image.open(output / variant["id"] / "guide-skin-composite.png") as image:
-                    self.assertEqual(image.size, (1800, 570))
+                    self.assertEqual(image.size, (1800, 1500))
+                    self.assertEqual(image.mode, "RGB")
             self.assertGreater(len(set(grid_signatures)), 1)
             self.assertEqual(len(set(cage_topologies)), 1)
             direct_form = surface_preview.validate_envelope(make_varied_payload())
@@ -3036,6 +3069,194 @@ class SurfacePreviewTests(unittest.TestCase):
         self.assertLess(int(xs.max()), x1)
         self.assertGreaterEqual(int(ys.min()), y0)
         self.assertLess(int(ys.max()), y1)
+
+    def test_generic_render_component_preserves_exact_evaluator_and_bounds(self) -> None:
+        lower = np.asarray([-0.5, -0.5, -0.5], dtype=np.float64)
+        upper = np.asarray([0.5, 0.5, 0.5], dtype=np.float64)
+        exact_bounds = (lower, upper)
+        calls: list[np.ndarray] = []
+
+        def exact_evaluator(points: np.ndarray) -> np.ndarray:
+            calls.append(points)
+            return np.linalg.norm(points, axis=-1) - 0.5
+
+        component = surface_preview._make_render_component(
+            ("main", (), "part", "generic-test"),
+            "generic-sphere",
+            exact_evaluator,
+            exact_bounds,
+            "test/sphere-evaluator",
+            debug_identity="exact-sphere",
+        )
+        self.assertIs(component.evaluate, exact_evaluator)
+        self.assertIs(component.bounds, exact_bounds)
+        self.assertIs(component.bounds[0], lower)
+        self.assertIs(component.bounds[1], upper)
+        meshes = surface_preview._field_component_meshes((component,))
+        self.assertIs(meshes[0][0], component)
+        self.assertEqual([call.shape for call in calls], [(32, 32, 32, 3)])
+        self.assertGreater(len(meshes[0][1]), 0)
+        self.assertGreater(len(meshes[0][2]), 0)
+        metadata = surface_preview._component_visualization_metadata((component,))
+        self.assertEqual(metadata["components"][0]["bounds"], {"min": lower.tolist(), "max": upper.tolist()})
+        self.assertEqual(metadata["components"][0]["recipe"], "generic-sphere")
+
+    def test_baseline_adapter_binds_all_exact_compiled_fields_and_factored_bounds(self) -> None:
+        form = surface_preview.validate_envelope(make_payload())
+        _, descriptors, _ = form.variants[0]
+        guide = surface_preview._derive_hybrid_guides(form, descriptors)
+        fields = surface_preview._compile_hybrid_guide(guide)
+        render_components = surface_preview._baseline_render_components(fields)
+        self.assertEqual(len(fields), 52)
+        self.assertEqual(len(render_components), 52)
+        self.assertEqual(
+            [(component.source_owner_key, component.recipe) for component in render_components],
+            [(field.owner.key, field.recipe) for field in fields],
+        )
+        for field, component in zip(fields, render_components):
+            expected_lower, expected_upper = surface_preview._field_bounds(field)
+            np.testing.assert_allclose(component.bounds[0], expected_lower)
+            np.testing.assert_allclose(component.bounds[1], expected_upper)
+            self.assertEqual(component.evaluator_label, f"_field/{field.shape['name']}")
+
+        seen: list[surface_preview.Field] = []
+        original_field = surface_preview._field
+
+        def recording_field(points: np.ndarray, field: surface_preview.Field, scale: float | None = None) -> np.ndarray:
+            seen.append(field)
+            return original_field(points, field, scale)
+
+        with patch.object(surface_preview, "_field", side_effect=recording_field):
+            for component in render_components:
+                surface_preview._renderer_component_values(np.zeros((1, 3), dtype=np.float64), component)
+        self.assertEqual([id(item) for item in seen], [id(item) for item in fields])
+
+        field = next(item for item in fields if item.recipe == "cranium")
+        per_field_bounds = surface_preview._field_bounds(field, surface_preview.FIELD_COMPONENT_PADDING)
+        aggregate_bounds = surface_preview._bounds((field,), surface_preview.FIELD_COMPONENT_PADDING)
+        np.testing.assert_allclose(per_field_bounds[0], aggregate_bounds[0])
+        np.testing.assert_allclose(per_field_bounds[1], aggregate_bounds[1])
+        original_vertices = surface_preview._field_component_meshes(
+            surface_preview._baseline_render_components((field,))
+        )[0][1]
+        perturbed_shape = copy.deepcopy(field.shape)
+        perturbed_shape["center"] = np.asarray(perturbed_shape["center"], dtype=np.float64) + np.asarray([0.08, 0.0, 0.0])
+        perturbed = dataclasses.replace(field, shape=perturbed_shape)
+        perturbed_vertices = surface_preview._field_component_meshes(
+            surface_preview._baseline_render_components((perturbed,))
+        )[0][1]
+        self.assertFalse(np.allclose(np.mean(original_vertices, axis=0), np.mean(perturbed_vertices, axis=0)))
+
+    def test_renderer_binds_the_exact_generic_component_inventory(self) -> None:
+        form = surface_preview.validate_envelope(make_payload())
+        _, descriptors, _ = form.variants[0]
+        guide = surface_preview._derive_hybrid_guides(form, descriptors)
+        fields = surface_preview._compile_hybrid_guide(guide)
+        render_components = surface_preview._baseline_render_components(fields)
+        bounds = surface_preview._shared_render_bounds((fields,), 0.5)
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(surface_preview, "_field_component_meshes", return_value=()) as extract:
+                surface_preview._render(
+                    Path(directory) / "components.png",
+                    np.empty((0, 3), dtype=np.float64),
+                    np.empty((0, 3), dtype=np.int64),
+                    "neutral-v0",
+                    guide=guide,
+                    bounds=bounds,
+                    render_components=render_components,
+                )
+        extract.assert_called_once()
+        self.assertIs(extract.call_args.args[0], render_components)
+
+    def test_component_panels_use_compact_component_note_without_dense_legend(self) -> None:
+        component = surface_preview._make_render_component(
+            ("main", (), "part", "generic-test"),
+            "generic-triangle",
+            lambda points: np.linalg.norm(points, axis=-1) - 0.5,
+            (np.asarray([-0.5, -0.5, -0.5]), np.asarray([0.5, 0.5, 0.5])),
+            "test/triangle",
+            debug_identity="identity-that-must-not-be-listed",
+        )
+        vertices = np.asarray([[-0.25, -0.25, 0.0], [0.25, -0.25, 0.0], [0.0, 0.25, 0.0]])
+        faces = np.asarray([[0, 1, 2]], dtype=np.int64)
+        box = surface_preview._panel_box(0, 1)
+        frame = surface_preview._projection_frame(
+            (np.asarray([-1.0, -1.0, -1.0]), np.asarray([1.0, 1.0, 1.0])),
+            np.eye(3),
+            box,
+        )
+        image = Image.new("RGBA", surface_preview.CANVAS, (0, 0, 0, 255))
+        with patch.object(ImageDraw.ImageDraw, "text", autospec=True) as draw_text, patch.object(
+            ImageDraw.ImageDraw, "rectangle", autospec=True
+        ) as draw_rectangle:
+            surface_preview._draw_field_components(
+                image,
+                frame,
+                ((component, vertices, faces),),
+                surface_preview.ImageFont.load_default(),
+            )
+        labels = [call.args[2] for call in draw_text.call_args_list]
+        self.assertEqual(labels, [
+            "exact pre-union components: 1",
+            "colours separate exact components",
+        ])
+        draw_rectangle.assert_not_called()
+        self.assertNotIn(component.debug_identity, " ".join(labels))
+        self.assertNotIn("legend", json.dumps(surface_preview._component_visualization_metadata((component,))).lower())
+        self.assertEqual(surface_preview.RENDER_HEADER, "Exact consumed-component visualization")
+        self.assertNotIn("baseline", surface_preview.RENDER_HEADER.lower())
+        self.assertNotIn("successor", surface_preview.RENDER_HEADER.lower())
+
+    def test_component_colours_are_stable_and_failures_are_closed(self) -> None:
+        def component(
+            recipe: str,
+            evaluator: object,
+            bounds: tuple[np.ndarray, np.ndarray] | None = None,
+        ) -> surface_preview._RenderComponent:
+            return surface_preview._make_render_component(
+                ("main", (), "part", "generic-test"),
+                recipe,
+                evaluator,
+                bounds or (np.asarray([-0.5, -0.5, -0.5]), np.asarray([0.5, 0.5, 0.5])),
+                f"test/{recipe}",
+            )
+
+        sphere = component("sphere", lambda points: np.linalg.norm(points, axis=-1) - 0.5)
+        second = component("second", lambda points: np.linalg.norm(points, axis=-1) - 0.4)
+        colours = [surface_preview._render_component_colour(item) for item in (sphere, second)]
+        self.assertEqual(colours, [surface_preview._render_component_colour(item) for item in (sphere, second)])
+        self.assertGreater(len(set(colours)), 1)
+        with patch.object(surface_preview, "MAX_FIELD_VALUES", 1):
+            with self.assertRaisesRegex(surface_preview.PreviewError, "resource limits"):
+                surface_preview._field_component_meshes((sphere,))
+
+        def outside_positive_infinity(points: np.ndarray) -> np.ndarray:
+            values = np.linalg.norm(points, axis=-1) - 0.5
+            values[values > 0.2] = np.inf
+            return values
+
+        self.assertGreater(len(surface_preview._field_component_meshes((component("positive-infinity", outside_positive_infinity),))[0][1]), 0)
+        for invalid_values, message in (
+            (lambda points: np.full(points.shape[:-1], np.nan), "NaN or -inf"),
+            (lambda points: np.full(points.shape[:-1], -np.inf), "NaN or -inf"),
+            (lambda points: np.zeros(points.shape[:-1]), "no finite zero crossing"),
+        ):
+            with self.assertRaisesRegex(surface_preview.PreviewError, message):
+                surface_preview._field_component_meshes((component("invalid", invalid_values),))
+
+        def clipped_values(points: np.ndarray) -> np.ndarray:
+            values = np.ones(points.shape[:-1], dtype=np.float64)
+            values[0, :, :] = -1.0
+            return values
+
+        with self.assertRaisesRegex(surface_preview.PreviewError, "clipped"):
+            surface_preview._field_component_meshes((component("clipped", clipped_values),))
+        with self.assertRaisesRegex(surface_preview.PreviewError, "bounds are invalid"):
+            surface_preview._field_component_meshes((component(
+                "bad-bounds",
+                lambda points: np.linalg.norm(points, axis=-1) - 0.5,
+                (np.asarray([np.nan, -0.5, -0.5]), np.asarray([0.5, 0.5, 0.5])),
+            ),))
 
     def test_regional_sidecar_controls_match_compiled_recipe_geometry(self) -> None:
         form = surface_preview.validate_envelope(make_payload())

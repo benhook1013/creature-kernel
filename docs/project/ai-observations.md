@@ -91,3 +91,8 @@ Entry format:
   - Context: a WSL browser trial was given the exact provisioned `ck-playwright-node` launcher but first combined CommonJS `require()` with top-level `await`, then changed to a bare ESM `playwright` import.
   - Observation: the first script failed with `ReferenceError: Cannot determine intended module format because both require() and top-level await are present`; the second failed with `ERR_MODULE_NOT_FOUND` because ESM package resolution did not use the wrapper's CommonJS-oriented module path. An `.mjs` script importing the provisioned `playwright/index.mjs` by its explicit absolute path succeeded.
   - Expected pattern: provide one checked browser-trial script template with a single module style and the provisioned runtime's exact import path, or extend the wrapper to expose a stable script entrypoint. Naming the launcher alone does not prevent repeated JavaScript module-resolution failures.
+
+- `2026-08-24`: Markdown backticks in double-quoted shell searches are executable syntax
+  - Context: the main thread combined documentation validation with an `rg` search whose double-quoted shell pattern contained a literal Markdown backtick.
+  - Observation: Bash attempted command-substitution parsing and failed before validation with `/bin/bash: unexpected EOF while looking for matching backtick`. One retry using a single-quoted plain pattern succeeded; no repository or external state changed.
+  - Expected pattern: never place Markdown backticks in a double-quoted shell command. Use single-quoted fixed patterns or pass text as a structured argument or file; split validation and search commands when that makes quoting easier to audit.

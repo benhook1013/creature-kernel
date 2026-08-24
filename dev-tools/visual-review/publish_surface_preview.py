@@ -50,9 +50,9 @@ class SurfacePreviewPublishError(RuntimeError):
     """A bounded, user-facing publication failure."""
 
 
-SURFACE_PREVIEW_FORMAT = "creature-kernel.disposable-surface-preview.v2"
-REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v10"
-SUCCESSOR_PREVIEW_FORMAT = "creature-kernel.disposable-successor-surface-preview.v8"
+SURFACE_PREVIEW_FORMAT = "creature-kernel.disposable-surface-preview.v3"
+REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v11"
+SUCCESSOR_PREVIEW_FORMAT = "creature-kernel.disposable-successor-surface-preview.v9"
 SUCCESSOR_MANIFEST_NAME = "successor-surface-manifest.json"
 SUCCESSOR_CONSUMER_ID = "successor-surface-v1"
 SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v12"
@@ -136,11 +136,14 @@ EXPECTED_GENERATOR_OWNERSHIP = (
 )
 MAX_STDOUT_BYTES = common.MAX_STRUCTURE_JSON_BYTES
 MAX_STDERR_BYTES = 64 * 1024
-# The v8 successor manifest carries complete per-variant guide-derived leg/foot
-# metadata; the current exact envelope is about 299 KiB.
+# The v9 successor manifest carries complete per-variant guide-derived leg/foot
+# metadata plus the compact exact component inventory. Keep the existing bound
+# explicit: current real publication fits it, but there is deliberately little
+# room for duplicated diagnostic metadata.
 MAX_MANIFEST_BYTES = 384 * 1024
 MAX_GUIDE_BYTES = 512 * 1024
 MAX_METRICS_BYTES = 256 * 1024
+MAX_COMPONENT_BOUND_ABS = 100.0
 MAX_ARTIFACT_BYTES = 16 * 1024 * 1024
 # The current producer uses the highest XZ preset, whose decoder needs a little
 # over 64 MiB.  Keep a finite margin while rejecting untrusted dictionary
@@ -182,24 +185,85 @@ READ_CHUNK = 64 * 1024
 INSPECTION_TIMEOUT_SECONDS = 10.0
 GENERATOR_TIMEOUT_SECONDS = 120.0
 PROCESS_GRACE_SECONDS = 0.5
-EXPECTED_CANVAS = {"width": 1800, "height": 570, "mode": "RGB"}
+EXPECTED_CANVAS = {"width": 1800, "height": 1500, "mode": "RGB"}
 EXPECTED_PROJECTIONS = [
     {"name": "front", "basis": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]], "base": "x-right/y-up/z-depth"},
     {"name": "side", "basis": [[0.0, 0.0, -1.0], [0.0, 1.0, 0.0], [1.0, 0.0, 0.0]], "base": "-z-right/y-up/x-depth"},
     {"name": "three-quarter", "basis": [[0.7071067811865475, 0.0, -0.7071067811865475], [0.0, 1.0, 0.0], [0.7071067811865475, 0.0, 0.7071067811865475]], "base": "front-right/y-up/depth"},
 ]
 EXPECTED_LAYOUT = {
-    "panel_order": ["front-guide", "front-skin", "side-guide", "side-skin", "three-quarter-guide", "three-quarter-skin"],
-    "panels": [
-        {"id": "front-guide", "projection": "front", "content": "guide", "box": [12, 72, 292, 548]},
-        {"id": "front-skin", "projection": "front", "content": "skin", "box": [310, 72, 590, 548]},
-        {"id": "side-guide", "projection": "side", "content": "guide", "box": [608, 72, 888, 548]},
-        {"id": "side-skin", "projection": "side", "content": "skin", "box": [906, 72, 1186, 548]},
-        {"id": "three-quarter-guide", "projection": "three-quarter", "content": "guide", "box": [1204, 72, 1484, 548]},
-        {"id": "three-quarter-skin", "projection": "three-quarter", "content": "skin", "box": [1502, 72, 1782, 548]},
+    "panel_order": [
+        "front-control-guide",
+        "side-control-guide",
+        "three-quarter-control-guide",
+        "front-field-components",
+        "side-field-components",
+        "three-quarter-field-components",
+        "front-skin",
+        "side-skin",
+        "three-quarter-skin",
     ],
-    "pairing": "guide-left/skin-right per projection",
+    "panels": [
+        {"id": "front-control-guide", "projection": "front", "content": "control-guide", "box": [12, 72, 592, 532]},
+        {"id": "side-control-guide", "projection": "side", "content": "control-guide", "box": [610, 72, 1190, 532]},
+        {"id": "three-quarter-control-guide", "projection": "three-quarter", "content": "control-guide", "box": [1208, 72, 1788, 532]},
+        {"id": "front-field-components", "projection": "front", "content": "field-components", "box": [12, 546, 592, 1006]},
+        {"id": "side-field-components", "projection": "side", "content": "field-components", "box": [610, 546, 1190, 1006]},
+        {"id": "three-quarter-field-components", "projection": "three-quarter", "content": "field-components", "box": [1208, 546, 1788, 1006]},
+        {"id": "front-skin", "projection": "front", "content": "skin", "box": [12, 1020, 592, 1480]},
+        {"id": "side-skin", "projection": "side", "content": "skin", "box": [610, 1020, 1190, 1480]},
+        {"id": "three-quarter-skin", "projection": "three-quarter", "content": "skin", "box": [1208, 1020, 1788, 1480]},
+    ],
+    "pairing": "control-guide/field-components/skin per projection",
     "frame": "shared-world-bounds-and-projection-basis",
+}
+EXPECTED_COMPONENT_VISUALIZATION = {
+    "mode": "exact-consumed-component-zero-isosurfaces",
+    "samples_per_axis": 32,
+    "stage": "pre-smooth-union",
+    "colour_identity": "sha256-source-owner-and-recipe",
+}
+EXPECTED_COMPONENT_VISUALIZATION_METRICS = {
+    "semantics": "pre-union exact zero-isosurfaces of every consumer-supplied component consumed by the smooth union; final skin remains neutral",
+    "evaluator": "consumer-supplied exact callable",
+    "evaluator_inventory_binding": "the exact _RenderComponent records passed to _render",
+    "resolution": {"samples_per_axis": 32, "voxels_per_field": 32 ** 3},
+    "bounds": {
+        "source": "consumer-supplied per-component sampling bounds",
+        "padding": 0.05,
+        "clipping": "all six sample-domain faces must remain outside-positive",
+    },
+    "colour_identity": {
+        "algorithm": "sha256(canonical source owner plus recipe)",
+        "alpha": 112,
+    },
+}
+EXPECTED_SUCCESSOR_COMPONENT_RECIPE_COUNTS = {
+    "successor-torso-loft": 1,
+    "successor-vertical-neck-cranium": 1,
+    "successor-forward-muzzle": 1,
+    "successor-left-upper-arm-route": 1,
+    "successor-left-forearm-route": 1,
+    "successor-right-upper-arm-route": 1,
+    "successor-right-forearm-route": 1,
+    "successor-left-leg": 1,
+    "successor-right-leg": 1,
+    "successor-left-hand-attachment": 1,
+    "successor-left-hand-paw": 1,
+    "successor-left-foot": 1,
+    "successor-right-hand-attachment": 1,
+    "successor-right-hand-paw": 1,
+    "successor-right-foot": 1,
+    "successor-tail-root-source": 1,
+    "successor-tail-root-attachment": 1,
+    "successor-tail-root-collar": 1,
+    "successor-tail-tip-source": 1,
+    "successor-tail-tip-extension": 1,
+    "successor-tail-tip-cap": 1,
+    "successor-left-shoulder-envelope": 1,
+    "successor-right-shoulder-envelope": 1,
+    "root-bridge": 2,
+    "hip-transition": 2,
 }
 EXPECTED_GUIDE_COUNTS = {
     "owners": 18,
@@ -690,6 +754,96 @@ def _validate_successor_ply_metrics(
         raise SurfacePreviewPublishError(f"{where}.metrics topology does not match the validated successor PLY")
 
 
+def _validate_component_visualization_metrics(
+    metrics: dict[str, Any],
+    *,
+    allowed_owners: list[dict[str, Any]],
+    expected_component_count: int,
+    expected_recipe_counts: dict[str, int],
+    where: str,
+) -> None:
+    """Validate bounded component claims without becoming a second evaluator."""
+
+    # Generator tests bind actual evaluator/bounds identity; this publisher
+    # validates bounded artifact claims and provenance, but does not reimplement
+    # NumPy/SciPy geometry or prove pixels.
+    prefix = f"{where}.component visualization"
+
+    def fail(message: str) -> None:
+        raise SurfacePreviewPublishError(f"{prefix} {message}")
+
+    visualization = metrics.get("component_visualization")
+    if not isinstance(visualization, dict):
+        fail("metadata is missing or not an object")
+    expected_fields = set(EXPECTED_COMPONENT_VISUALIZATION_METRICS) | {"component_count", "components"}
+    if set(visualization) != expected_fields:
+        fail("metadata has unknown or missing fields")
+    for key, expected in EXPECTED_COMPONENT_VISUALIZATION_METRICS.items():
+        if visualization.get(key) != expected:
+            fail(f"metadata.{key} does not match the fixed configuration")
+    if type(visualization.get("component_count")) is not int or visualization["component_count"] != expected_component_count:
+        fail(f"metadata.component_count must be exactly {expected_component_count}")
+
+    components = visualization.get("components")
+    if not isinstance(components, list) or len(components) > 64 or len(components) != expected_component_count:
+        fail(f"metadata.components must contain exactly {expected_component_count} entries")
+    if len(expected_recipe_counts) > 64 or any(
+        not isinstance(recipe, str) or not recipe or len(recipe) > 256 or type(count) is not int or count < 1
+        for recipe, count in expected_recipe_counts.items()
+    ):
+        fail("expected recipe inventory is not bounded")
+    if sum(expected_recipe_counts.values()) != expected_component_count:
+        fail("expected recipe inventory count is inconsistent")
+
+    allowed_owner_keys: set[str] = set()
+    for index, owner in enumerate(allowed_owners):
+        try:
+            validated_owner = _validate_address(owner, f"{prefix}.allowed_owner[{index}]")
+        except SurfacePreviewPublishError as exc:
+            fail(str(exc))
+        allowed_owner_keys.add(json.dumps(validated_owner, sort_keys=True, separators=(",", ":")))
+    if not allowed_owner_keys or len(allowed_owner_keys) > 64:
+        fail("allowed source-owner inventory is not bounded")
+
+    recipe_counts: dict[str, int] = {}
+    for index, component in enumerate(components):
+        component_where = f"{prefix}.components[{index}]"
+        if not isinstance(component, dict) or set(component) != {"source_owner", "recipe", "bounds"}:
+            fail(f"{component_where} has unknown or missing fields")
+        owner = component.get("source_owner")
+        try:
+            validated_owner = _validate_address(owner, f"{component_where}.source_owner")
+        except SurfacePreviewPublishError as exc:
+            fail(str(exc))
+        owner_key = json.dumps(validated_owner, sort_keys=True, separators=(",", ":"))
+        if owner_key not in allowed_owner_keys:
+            fail(f"{component_where}.source_owner is not an allowed validated source owner")
+        recipe = component.get("recipe")
+        if not isinstance(recipe, str) or not recipe or len(recipe) > 256:
+            fail(f"{component_where}.recipe is not a bounded string")
+        recipe_counts[recipe] = recipe_counts.get(recipe, 0) + 1
+        bounds = component.get("bounds")
+        if not isinstance(bounds, dict) or set(bounds) != {"min", "max"}:
+            fail(f"{component_where}.bounds has unknown or missing fields")
+        component_lower, component_upper = bounds["min"], bounds["max"]
+        if not isinstance(component_lower, list) or not isinstance(component_upper, list) or len(component_lower) != 3 or len(component_upper) != 3:
+            fail(f"{component_where}.bounds must contain finite ordered triples")
+        try:
+            component_lower = [_finite_number(value, f"{component_where}.bounds.min[{axis}]") for axis, value in enumerate(component_lower)]
+            component_upper = [_finite_number(value, f"{component_where}.bounds.max[{axis}]") for axis, value in enumerate(component_upper)]
+        except SurfacePreviewPublishError as exc:
+            fail(str(exc))
+        if any(left >= right for left, right in zip(component_lower, component_upper)):
+            fail(f"{component_where}.bounds must be ordered")
+        if any(abs(value) > MAX_COMPONENT_BOUND_ABS for value in component_lower + component_upper):
+            fail(
+                f"{component_where}.bounds exceed the absolute coordinate limit "
+                f"{MAX_COMPONENT_BOUND_ABS}"
+            )
+    if recipe_counts != expected_recipe_counts:
+        fail("metadata recipe histogram does not match the exact current component inventory")
+
+
 def _evidence_fields(prefix: str) -> set[str]:
     return {
         f"{prefix}_{SOURCE_EVIDENCE_COMPRESSION}_base64",
@@ -1082,12 +1236,12 @@ def _validate_png(path: Path, entry: dict[str, Any], where: str) -> None:
     if not (0 < width <= MAX_PNG_WIDTH and 0 < height <= MAX_PNG_HEIGHT):
         raise SurfacePreviewPublishError(f"{where} dimensions are out of bounds")
     if width != EXPECTED_CANVAS["width"] or height != EXPECTED_CANVAS["height"]:
-        raise SurfacePreviewPublishError(f"{where} dimensions do not match the v2 canvas")
+        raise SurfacePreviewPublishError(f"{where} dimensions do not match the v3 canvas")
     if entry.get("width") != width or entry.get("height") != height:
         raise SurfacePreviewPublishError(f"{where} dimensions do not match inventory")
     mode = entry.get("mode")
     if mode != EXPECTED_CANVAS["mode"]:
-        raise SurfacePreviewPublishError(f"{where}.mode does not match the v2 canvas")
+        raise SurfacePreviewPublishError(f"{where}.mode does not match the v3 canvas")
     expected_colour_type = {"RGB": 2, "RGBA": 6}.get(mode)
     if expected_colour_type is None:
         raise SurfacePreviewPublishError(f"{where}.mode must be RGB or RGBA")
@@ -1101,8 +1255,8 @@ def _validate_png(path: Path, entry: dict[str, Any], where: str) -> None:
         raise SurfacePreviewPublishError(f"{where} IHDR does not match its 8-bit noninterlaced {mode} inventory")
     if entry.get("views") != list(EXPECTED_VIEWS):
         raise SurfacePreviewPublishError(f"{where}.views must be front, side, three-quarter")
-    if entry.get("panels_per_view") != 2:
-        raise SurfacePreviewPublishError(f"{where}.panels_per_view must be 2")
+    if entry.get("panels_per_view") != 3:
+        raise SurfacePreviewPublishError(f"{where}.panels_per_view must be 3")
     bytes_per_pixel = 3 if mode == "RGB" else 4
     row_bytes = width * bytes_per_pixel
     expected_decoded = height * (row_bytes + 1)
@@ -3952,7 +4106,7 @@ def _validate_guide(
     if guide.get("projections") != manifest.get("projections") or guide.get("layout") != manifest.get("layout") or guide.get("canvas") != manifest.get("canvas"):
         raise SurfacePreviewPublishError("regional guide framing does not match manifest")
     if guide.get("canvas") != EXPECTED_CANVAS or guide.get("projections") != EXPECTED_PROJECTIONS or guide.get("layout") != EXPECTED_LAYOUT:
-        raise SurfacePreviewPublishError("regional guide framing is not the fixed v2 layout")
+        raise SurfacePreviewPublishError("regional guide framing is not the fixed v3 layout")
     _validate_controls(
         guide.get("controls"),
         normalized_owners,
@@ -4010,7 +4164,7 @@ def _validate_bundle(
         if source["reference_scale"] != producer_reference_scale:
             raise SurfacePreviewPublishError("surface bundle source.reference_scale does not match producer output")
     if manifest.get("canvas") != EXPECTED_CANVAS or manifest.get("projections") != EXPECTED_PROJECTIONS or manifest.get("layout") != EXPECTED_LAYOUT:
-        raise SurfacePreviewPublishError("surface bundle framing is not the fixed v2 layout")
+        raise SurfacePreviewPublishError("surface bundle framing is not the fixed v3 layout")
     bounds = manifest.get("shared_render_bounds")
     if not isinstance(bounds, dict) or set(bounds) != {"min", "max"}:
         raise SurfacePreviewPublishError("surface bundle shared_render_bounds is invalid")
@@ -4020,11 +4174,11 @@ def _validate_bundle(
     generator = manifest.get("generator")
     if not isinstance(generator, dict):
         raise SurfacePreviewPublishError("surface bundle generator must be an explicit configuration object")
-    required_generator = {"bundle_version", "samples_per_axis", "padding", "smooth_union", "field_primitives", "field_recipes", "ownership", "boundary"}
+    required_generator = {"bundle_version", "samples_per_axis", "padding", "smooth_union", "field_primitives", "field_recipes", "ownership", "boundary", "component_visualization"}
     if set(generator) != required_generator:
         raise SurfacePreviewPublishError("surface bundle generator has missing or unknown configuration fields")
-    if generator.get("bundle_version") != 2:
-        raise SurfacePreviewPublishError("surface bundle generator.bundle_version must be 2")
+    if generator.get("bundle_version") != 3:
+        raise SurfacePreviewPublishError("surface bundle generator.bundle_version must be 3")
     if type(generator.get("samples_per_axis")) is not int or not 1 <= generator["samples_per_axis"] <= 128:
         raise SurfacePreviewPublishError("surface bundle generator.samples_per_axis is out of bounds")
     if type(generator.get("padding")) not in {int, float} or not 0 <= generator["padding"] <= 100:
@@ -4039,6 +4193,8 @@ def _validate_bundle(
         raise SurfacePreviewPublishError("surface bundle generator.field_recipes does not match the exact compiled recipe inventory")
     if generator.get("ownership") != EXPECTED_GENERATOR_OWNERSHIP:
         raise SurfacePreviewPublishError("surface bundle generator.ownership does not match the current compiled/guide-only boundary")
+    if generator.get("component_visualization") != EXPECTED_COMPONENT_VISUALIZATION:
+        raise SurfacePreviewPublishError("surface bundle generator.component_visualization is not the exact consumed-component visualization")
     if not isinstance(generator.get("boundary"), str) or not generator["boundary"] or len(generator["boundary"]) > 1024:
         raise SurfacePreviewPublishError("surface bundle generator.boundary is invalid")
     smooth_union = generator.get("smooth_union")
@@ -4096,7 +4252,7 @@ def _validate_bundle(
             raise SurfacePreviewPublishError(f"{where}.inventory must contain exactly five artifacts")
         expected_inventory_kinds = ["ply", "semantic-sidecar", "metrics", "guide-skin-composite-png", "regional-guide-json"]
         if [item.get("kind") for item in inventory if isinstance(item, dict)] != expected_inventory_kinds:
-            raise SurfacePreviewPublishError(f"{where}.inventory is not the canonical v2 order")
+            raise SurfacePreviewPublishError(f"{where}.inventory is not the canonical v3 order")
         expected_inventory_paths = {
             "ply": f"{variant['id']}/surface.ply",
             "semantic-sidecar": f"{variant['id']}/semantic.json",
@@ -4126,7 +4282,7 @@ def _validate_bundle(
             rel = _safe_relative(entry.get("path"), f"{entry_where}.path")
             rel_text = rel.as_posix()
             if rel_text != expected_inventory_paths[kind]:
-                raise SurfacePreviewPublishError(f"{entry_where}.path is not the canonical v2 artifact path")
+                raise SurfacePreviewPublishError(f"{entry_where}.path is not the canonical v3 artifact path")
             if rel_text in inventory_paths or rel_text == MANIFEST_NAME:
                 raise SurfacePreviewPublishError(f"duplicate or reserved inventory path: {rel_text}")
             inventory_paths.add(rel_text)
@@ -4167,6 +4323,13 @@ def _validate_bundle(
         validated_guides[variant["id"]] = guide_payload
         if variant.get("metrics") != metrics_payload:
             raise SurfacePreviewPublishError(f"{where}.metrics does not match the inventoried metrics.json")
+        _validate_component_visualization_metrics(
+            metrics_payload,
+            allowed_owners=descriptor_addresses,
+            expected_component_count=EXPECTED_GUIDE_COUNTS["compiled_fields"],
+            expected_recipe_counts=EXPECTED_GUIDE_COUNTS["compiled_field_recipe_counts"],
+            where=where,
+        )
         guide_counts = guide_payload["counts"]
         if metrics_payload.get("generated_field_count") != guide_counts["compiled_fields"]:
             raise SurfacePreviewPublishError(f"{where}.metrics.generated_field_count does not match the regional guide")
@@ -4391,7 +4554,7 @@ def _profile_bend_count(points: list[list[float]], where: str) -> int:
 
 
 def _expected_successor_head_neck_metadata(guide: dict[str, Any]) -> dict[str, Any]:
-    """Re-derive the v8 head/neck sidecar from the validated v10 guide."""
+    """Re-derive the v9 head/neck sidecar from the validated v11 guide."""
 
     head = guide["controls"]["head"]
     sections = head["sections"]
@@ -4451,7 +4614,7 @@ def _expected_successor_head_neck_metadata(guide: dict[str, Any]) -> dict[str, A
 
 
 def _expected_successor_arm_profile_metadata(guide: dict[str, Any]) -> dict[str, Any]:
-    """Re-derive v8 arm-route metadata from the validated v10 guide."""
+    """Re-derive v9 arm-route metadata from the validated v11 guide."""
 
     profile = guide["controls"]["arm_profile"]
     sides = profile["sides"]
@@ -4504,7 +4667,7 @@ def _expected_successor_arm_profile_metadata(guide: dict[str, Any]) -> dict[str,
 
 
 def _expected_successor_leg_profile_metadata(guide: dict[str, Any]) -> dict[str, Any]:
-    """Re-derive v8 bilateral leg-route metadata from the validated v10 guide."""
+    """Re-derive v9 bilateral leg-route metadata from the validated v11 guide."""
 
     profile = guide["controls"]["leg_profile"]
     sides = []
@@ -4561,7 +4724,7 @@ def _expected_successor_leg_profile_metadata(guide: dict[str, Any]) -> dict[str,
 
 
 def _expected_successor_foot_profile_metadata(guide: dict[str, Any]) -> dict[str, Any]:
-    """Re-derive the live v8 five-station authored foot route metadata."""
+    """Re-derive the live v9 five-station authored foot route metadata."""
 
     profile = guide["controls"]["foot_profile"]
     leg_profile = guide["controls"]["leg_profile"]
@@ -4657,7 +4820,7 @@ def _expected_successor_region_metadata(
     guide: dict[str, Any],
     torso_controls: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """Build the exact structural metadata emitted by the v8 successor.
+    """Build the exact structural metadata emitted by the v9 successor.
 
     The values are derived from the already validated regional guide.  This is
     deliberately a complete metadata binding rather than independent length
@@ -5364,7 +5527,7 @@ def _validate_successor_bundle(
     baseline_manifest: dict[str, Any],
     baseline_guides: dict[str, dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """Validate the successor v8 publication boundary against baseline v2."""
+    """Validate the successor v9 publication boundary against baseline v3."""
 
     try:
         bundle_info = bundle.lstat()
@@ -5414,10 +5577,12 @@ def _validate_successor_bundle(
         raise SurfacePreviewPublishError("validated baseline generator padding is out of bounds")
 
     generator = manifest.get("generator")
-    if not isinstance(generator, dict) or set(generator) != {"samples_per_axis", "padding", "capture_padding", "smooth_k", "consumer_boundary", "production_status"}:
+    if not isinstance(generator, dict) or set(generator) != {"samples_per_axis", "padding", "capture_padding", "smooth_k", "consumer_boundary", "production_status", "component_visualization"}:
         raise SurfacePreviewPublishError("successor generator configuration has unknown or missing fields")
     _finite_json(generator, "successor generator")
     _bounded_json(generator, "successor generator")
+    if generator.get("component_visualization") != EXPECTED_COMPONENT_VISUALIZATION:
+        raise SurfacePreviewPublishError("successor generator.component_visualization is not the exact consumed-component visualization")
     try:
         generator_metadata = common._metadata(generator, "successor generator", max_len=8192)
     except ValidationError as exc:
@@ -5542,6 +5707,13 @@ def _validate_successor_bundle(
             raise SurfacePreviewPublishError(f"{where}.metrics does not match the inventoried metrics.json")
         if not isinstance(variant.get("metrics"), dict):
             raise SurfacePreviewPublishError(f"{where}.metrics must be an object")
+        _validate_component_visualization_metrics(
+            metrics_payload,
+            allowed_owners=profile_binding["variants"][variant_id]["descriptor_owners"],
+            expected_component_count=27,
+            expected_recipe_counts=EXPECTED_SUCCESSOR_COMPONENT_RECIPE_COUNTS,
+            where=where,
+        )
         _validate_successor_ply_metrics(ply_metrics, metrics_payload, where)
         published.append({
             "id": variant_id,
@@ -5696,7 +5868,7 @@ def publish_surface_preview(
                         "id": f"{variant_id}-baseline",
                         "title": f"{title_prefix} — baseline",
                         "source": str(baseline_bundle / baseline_item["entry"]["path"]),
-                        "description": "Baseline analytic-form composite: front, side, and three-quarter views in the shared capture frame.",
+                        "description": "Baseline analytic-form composite: columns front/side/three-quarter; rows control guide (not geometry), consumed fields (exact pre-union components), and final skin (smooth union).",
                         "metadata": {
                             "variant_id": variant_id,
                             "source_role": "baseline",
@@ -5704,7 +5876,7 @@ def publish_surface_preview(
                             "source_sha256": producer_sha256,
                             "generator": baseline_metadata["generator"],
                             "views": list(EXPECTED_VIEWS),
-                            "panels_per_view": 2,
+                            "panels_per_view": 3,
                             "variant_binding_sha256": hashlib.sha256(canonical_json(baseline_item["binding"]).encode("utf-8")).hexdigest(),
                         },
                     },
@@ -5712,7 +5884,7 @@ def publish_surface_preview(
                         "id": f"{variant_id}-successor",
                         "title": f"{title_prefix} — successor",
                         "source": str(successor_bundle / successor_item["entry"]["path"]),
-                        "description": "Successor profile-sweep composite: front, side, and three-quarter views in the same shared capture frame.",
+                        "description": "Successor profile-sweep composite: columns front/side/three-quarter; rows control guide (not geometry), consumed fields (exact pre-union components), and final skin (smooth union).",
                         "metadata": {
                             "variant_id": variant_id,
                             "source_role": "successor",
@@ -5722,7 +5894,7 @@ def publish_surface_preview(
                             "successor_region_id": SUCCESSOR_REGION_ID,
                             "generator": successor_metadata["generator"],
                             "views": list(EXPECTED_VIEWS),
-                            "panels_per_view": 2,
+                            "panels_per_view": 3,
                             "variant_binding_sha256": hashlib.sha256(canonical_json(successor_item["binding"]).encode("utf-8")).hexdigest(),
                         },
                     },

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
 import sys
 import tempfile
 import threading
@@ -738,6 +739,51 @@ class SubjectContextHTTPTests(ReviewFixture):
 
 
 class StaticAssetTests(unittest.TestCase):
+    def test_image_accessible_labels_include_description_without_html_interpolation(self):
+        js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
+        script = r'''
+const fs = require("fs");
+const vm = require("vm");
+const appPath = process.argv[1];
+let source = fs.readFileSync(appPath, "utf8");
+const entrypoint = "  load();\n}());";
+if (source.split(entrypoint).length !== 2) {
+  throw new Error("unexpected browser app entrypoint");
+}
+source = source.replace(entrypoint, "  globalThis.__imageAccessibleLabel = imageAccessibleLabel;\n}());");
+const context = {
+  document: { getElementById: function () { return null; } },
+  window: {}
+};
+vm.runInNewContext(source, context, { filename: appPath });
+const items = JSON.parse(fs.readFileSync(0, "utf8"));
+process.stdout.write(JSON.stringify(items.map(context.__imageAccessibleLabel)));
+'''
+        completed = subprocess.run(
+            ["node", "-e", script, str(HERE / "static" / "app.js")],
+            input=json.dumps([
+                {"title": "Front", "description": "Control guide <not geometry>"},
+                {"title": "Side"},
+            ]),
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        self.assertEqual(
+            json.loads(completed.stdout),
+            ["Front — Control guide <not geometry>", "Side"],
+        )
+        self.assertIn("function imageDescription(item)", js)
+        self.assertIn("function imageAccessibleLabel(item)", js)
+        self.assertIn('return description ? title + " — " + description : title;', js)
+        self.assertIn('imageButton.setAttribute("aria-label", "Expand " + imageLabel);', js)
+        self.assertIn("image.alt = imageLabel;", js)
+        self.assertIn("nextImage.alt = imageLabel;", js)
+        self.assertIn(
+            'nextImage.setAttribute("aria-label", imageDescription(item) ? "Show next comparison image: " + imageLabel : "Show next comparison image");',
+            js,
+        )
+
     def test_image_comparator_exposes_group_navigation_and_stale_load_guard(self):
         js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
         css = (HERE / "static" / "style.css").read_text(encoding="utf-8")
@@ -759,10 +805,10 @@ class StaticAssetTests(unittest.TestCase):
             'Use Previous/Next, the Left/Right arrow keys',
             'nextImage.addEventListener("click"',
             'loadToken !== imageLoadToken || image !== nextImage',
-            'nextImage.alt = item.title',
+            'nextImage.alt = imageLabel',
             'nextImage.title = item.title',
             'nextImage.setAttribute("role", "button")',
-            'nextImage.setAttribute("aria-label", "Show next comparison image")',
+            'nextImage.setAttribute("aria-label", imageDescription(item) ? "Show next comparison image: " + imageLabel : "Show next comparison image")',
             'nextImage.addEventListener("keydown", showNextImage)',
             "var returnFocus = document.activeElement",
             "document.documentElement.contains(returnFocus)",

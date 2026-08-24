@@ -159,8 +159,8 @@ per-side or per-variant station tuning. These profiles are
 producer-consumer bindings, not new runtime or semantic contracts.
 
 The v11 producer contains 153 authored dimensions, 43 authored landmarks, and
-16 authored frames. The private regional guide is v10; the successor is v8
-with region/profile version v12.
+16 authored frames. The private regional guide is v11; the successor is v9
+with the unchanged region/profile version v12.
 
 The read-only browser page renders each variant in front (x/y), side (z/y),
 and top (x/z) filled SVG panels with shared bounds, physical display radii
@@ -296,15 +296,19 @@ success. A failed invocation cleans only its own staging/session files.
 `publish_surface_preview.py` is a bounded adapter for the current experiment
 surface consumers. It runs the current v11 provisional-form producer once, runs the
 baseline and successor Python generators against that same producer output,
-validates both bundles, and publishes four ordered baseline/successor image
-pairs (eight guide/skin composite PNGs) through the ordinary image gallery.
+validates both bundles, and publishes four ordered baseline/successor
+comparisons (eight three-layer composite PNGs) through the ordinary image
+gallery.
 This published form gallery is the named active human checkpoint for the
 [active runway](../../docs/project/status.md#active-runway). It remains
 disposable exploratory tooling, and publication machinery is not acceptance:
 the current candidate has completed local tests, two fresh hands-on trials,
 and fresh adversarial review and is held for Ben's visual appraisal.
 
-The current successor is v8 with region id
+The current diagnostic target is baseline preview format v3, regional guide
+v11, and successor preview v9. The producer/profile identities remain
+unchanged: producer v11 with `authored_foot_profile` v1. The successor region
+identity is also unchanged; the current successor is v9 with region id
 `successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v12`.
 It contains four authored arm-profile routes plus two authored leg-profile
 routes. The shared elbow seam is exact and upper-arm-owned; the leg routes
@@ -351,9 +355,21 @@ python3 dev-tools/visual-review/serve.py \
 the separate successor consumer. Both default to the current experiment
 scripts when omitted. A successful publication contains exactly four groups in
 canonical variant order, each with baseline first and successor second, for
-eight copied images. Every pair uses the same source provenance and shared
-front, side, and three-quarter framing (`1800 × 570`, RGB), so the appraisal
-can focus on the consumer boundary rather than capture differences.
+eight copied images. Every comparison uses the same source provenance and
+shared front, side, and three-quarter framing (`1800 × 1500`, RGB). Each
+composite retains the compatibility filename `guide-skin-composite.png` and
+has three panels per view in publication metadata:
+`panels_per_view: 3`. Its rows are `CONTROL GUIDE` (derived controls, not
+evaluated geometry), `CONSUMED FIELDS` (exact component level-0 surfaces
+before smooth union, evaluator-backed, with debug colours), and `FINAL SKIN`
+(the neutral smooth-union result).
+
+Guide-only controls can appear in row 1, `CONTROL GUIDE`, without affecting
+rows 2 or 3. The lower rows use actual `Field`/
+`_Component` operands. Recipe names and colours are diagnostic implementation
+identities, not semantic nodes, materials, or hard seams, and are not accepted
+DR-0010 evidence. Existing immutable sessions remain unchanged with their old
+layout and metadata; this publication is a new immutable checkpoint.
 
 The published `review.json` also retains the exact canonical current producer
 envelope bytes
@@ -374,27 +390,23 @@ redundant outer `subject_context.provenance`; generator and source roles remain
 bound in each published asset's metadata. Ordinary strings remain capped at
 8192 characters.
 
-The current measured publication evidence is compact producer envelope 190444
-bytes, XZ 6244 bytes, Base64 8328 characters, and subject context 8812 bytes.
-The producer SHA-256 is
-`c48ed001b910549dd1da296bb4c664a4de29cad4838b42403b15aa97773a6d3e`; the XZ
-SHA-256 is `5c42afe0b599b3afff52d687c3e46c9f4ae7d31f7d8e426d0b17e55858331161`;
-the subject-context SHA-256 is
-`0210c5f225869d9030ff82a2898f122be21b4da328dcb668e0b83a674f486fb7`.
-Strict decode equality passed.
+The exact producer envelope and its publication metadata are bound into each
+new immutable session. Older immutable sessions retain their original
+envelope, canvas, panel count, and captures; they are not rewritten by this
+diagnostic.
 
-For each pair, appraise whether the successor reads as a more coherent
+For each comparison, appraise whether the successor reads as a more coherent
 stylized digitigrade biped overall: recognizable cranium/muzzle/neck,
 shoulder/torso/pelvis structure, connected limbs and joints, digitigrade legs,
 paws, and tail; less like blended primitives; and with the four variants still
 meaningfully different. The gallery records the comparison only; it does not
 record acceptance.
 
-The baseline v2 generator bundle is fail-closed: its manifest must identify the
+The baseline v3 generator bundle is fail-closed: its manifest must identify the
 current v11 source, contain the four canonical v11 variants, and inventory exactly one PLY,
 semantic sidecar, metrics JSON, regional-guide JSON, and guide/skin composite PNG
 per variant. Every inventory path is relative, regular, non-symlinked, hash- and
-size-checked. The regional-guide v10 sidecar is checked as a bounded finite
+size-checked. The regional-guide v11 sidecar is checked as a bounded finite
 source-owned projection with the generator's exact skin-driving ordered torso
 cage sections, pelvis/torso ownership, axes/orientation, and section
 connections. Its older axial station and transition controls are accepted only
@@ -412,14 +424,14 @@ lineage. The successor head/neck consumer uses source-authored head/neck
 profile controls projected through the regional guide, retaining exact source
 ownership/provenance and branched neck/cranium plus muzzle route lineage across
 all four variants. Baseline
-and successor pairing uses a canonical per-variant binding of source identity,
+and successor comparison uses a canonical per-variant binding of source identity,
 reference scale, variant/profile ids, producer-variant digest, descriptor owners,
-capture framing, and torso lineage; it never pairs by list position alone.
+capture framing, and torso lineage; it never matches by list position alone.
 The producer v11 authored leg profile is checked as two exact bilateral
 five-station routes with `thigh/thigh/thigh/shin/shin` ownership and 30
 indexed lateral/up/forward radii. The guide and successor retain those exact
 projected controls and anisotropic leg-profile segment fields. The successor
-v8 sidecar and v12 region claims are checked against the guide and
+v9 sidecar and v12 region claims are checked against the guide and
 metrics, including the current rounded-superellipse axial profile operation.
 The retained producer envelope remains the exact consumed evidence, and every
 successor PLY is parsed and checked for finite values, valid indices, one
@@ -441,13 +453,14 @@ the baseline's two skin-driving deltoid sweeps; the successor arm routes
 contain no root bridge or old underarm support. Its compiled recipe counts,
 shared bounds, projections, canvas, and panel layout must match the manifest.
 Stale support-field claims are rejected rather than silently accepted. Composite
-PNG IHDR and inventory metadata are bound to the fixed 1800x570 RGB canvas. The
+PNG IHDR and inventory metadata are bound to the fixed 1800x1500 RGB canvas
+and `panels_per_view: 3`. The
 bundle's source/provenance and descriptor AddressKeys are bound to the parsed v11
 producer result. The producer has a 10-second bound and the local extraction/
 render subprocess has a finite 120-second bound. Unlisted files or directories,
 malformed inventory or guide/provenance, partial variants, and generator or
 producer timeouts prevent any review session from being created. The successor
-v8 bundle is independently fail-closed: it must contain exactly four variants
+v9 bundle is independently fail-closed: it must contain exactly four variants
 with one PLY, metrics JSON, successor-consumer sidecar, and composite PNG per
 variant. Its source identity, shared canvas/projections/layout/bounds, sidecar
 identity, torso/shoulder/head-neck/limb/extremity/tail claims, temporary bridge,

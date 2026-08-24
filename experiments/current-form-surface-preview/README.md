@@ -13,22 +13,21 @@ in `/tmp` and must not be committed.
 
 The integrated candidate is producer v11 with `authored_foot_profile` v1:
 153 authored dimensions, 43 authored landmarks, and 16 authored frames. The
-private regional guide is v10; the successor is v8 with region/profile version
-v12. The exact foot route is `hock -> metatarsal midpoint -> pad -> pad-toe
-midpoint -> toe`: the hock is shin-owned, the other four stations are
+current diagnostic target is baseline preview format v3, regional guide v11,
+and successor preview v9. Producer v11, `authored_foot_profile` v1, and the
+successor region/profile identity
+`successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v12`
+are unchanged. The exact foot route is `hock -> metatarsal midpoint -> pad ->
+pad-toe midpoint -> toe`: the hock is shin-owned, the other four stations are
 foot-owned, and the route carries full lateral/up/forward radii, outer caps,
 four spans, and exact producer/guide/successor lineage and cross-binding.
 The final publication context cap is 12 KiB only for the exact subject-context
-carrier; ordinary strings remain capped at 8192 characters. Current measured
-publication evidence is compact 190444 bytes, XZ 6244 bytes, Base64 8328
-characters, context 8812 bytes, producer SHA-256
-`c48ed001b910549dd1da296bb4c664a4de29cad4838b42403b15aa97773a6d3e`, XZ
-SHA-256 `5c42afe0b599b3afff52d687c3e46c9f4ae7d31f7d8e426d0b17e55858331161`,
-and context SHA-256
-`0210c5f225869d9030ff82a2898f122be21b4da328dcb668e0b83a674f486fb7`;
-strict decode equality passed.
+carrier; ordinary strings remain capped at 8192 characters. Existing
+immutable sessions retain the format and captures with which they were
+published. This diagnostic is published as a new immutable checkpoint; it
+does not rewrite an older session.
 
-The compiler-owned middle seam is a private regional-guide v10 representation
+The compiler-owned middle seam is a private regional-guide v11 representation
 derived separately for each of the four validated variants. It carries stable
 source AddressKey ownership and provenance, the fixed prototype axes and
 parent topology, ordered pelvic-girdle/waist/chest-girdle stations with short
@@ -81,10 +80,10 @@ field count, including the field-memory bound used for allocation. This is
 resource accounting for the disposable preview only, not a runtime budget or
 future compiler contract.
 
-The disposable v2 generator writes one private `regional-guide.json` and one
+The disposable v3 generator writes one private `regional-guide.json` and one
 `guide-skin-composite.png` for each variant, alongside the retained
 `surface.ply`, `semantic.json`, and `metrics.json` artifacts. The regional
-guide v10 sidecar is a sanitized, source-owned debug projection of `_HybridGuide`:
+guide v11 sidecar is a sanitized, source-owned debug projection of `_HybridGuide`:
 it carries only source AddressKeys, compiled recipe counts, projection
 names/bases, one shared world-space render bound, fixed canvas/layout metadata,
 and finite regional controls. Its v4 `torso_cage` controls compile into the
@@ -132,20 +131,28 @@ The bilateral support curves remain
 `guide-only`; no successor arm root bridge or distal deltoid field is emitted,
 and no per-variant station tuning is used. The sidecar and manifest report the
 exact compiled recipe inventory separately from the richer private guide
-controls. The
-hands retain a simple paw mass and attachment. It is not a semantic or runtime
-contract and contains no
-descriptor input records or synthetic semantic IDs. The composite places guide and compiled
-skin panels adjacent for each of front, side, and three-quarter projections.
-Guide and skin panels use exactly the same projection framing, while one shared
-render bound is used for all four variants so geometry differences remain
-directly comparable. Mesh extraction retains each variant's own field bounds
+controls. The hands retain a simple paw mass and attachment. It is not a
+semantic or runtime contract and contains no descriptor input records or
+synthetic semantic IDs.
+
+The three-layer diagnostic keeps the compatibility filename
+`guide-skin-composite.png`, but each image is now `1800 × 1500` RGB with columns
+`front`, `side`, and `three-quarter`, and rows `CONTROL GUIDE` (derived
+controls, not evaluated geometry), `CONSUMED FIELDS` (the exact component
+level-0 surfaces before smooth union, evaluator-backed, with debug colours),
+and `FINAL SKIN` (the neutral smooth-union result). Guide-only controls may
+appear in row 1, `CONTROL GUIDE`, without affecting rows 2 or 3. The consumed
+row is made from the actual `Field`/`_Component` operands; recipe names and
+colours are diagnostic implementation identities only, not semantic nodes,
+materials, or hard seams, and not accepted DR-0010 evidence. All rows use the
+same projection framing and shared render bound for direct comparison across
+the four variants. Mesh extraction retains each variant's own field bounds
 and grid spacing; the shared render bound does not define sampling.
 
 The successor keeps these concerns independent: the manifest generator's
 `padding` is the successor mesh sampling padding (default `0.50`), while its
 `capture_padding` is sourced from the baseline generator default and frames
-the shared guide/skin captures (currently `0.75`). This preserves the
+the shared three-layer captures (currently `0.75`). This preserves the
 successor's known-good mesh grid while keeping default baseline and successor
 capture frames exactly comparable.
 
@@ -223,7 +230,7 @@ controls. The successor
 tail boundary consumes six source-owned tail elements (root source,
 attachment, collar mass, tip source, extension, and cap); baseline fields
 remain an explicit bridge only for two thigh root connectors and two hip
-transitions. The successor v8 region
+transitions. The successor v9 region
 `successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v12`
 uses four authored arm-profile routes plus two authored leg-profile routes.
 The authored leg routes retain the thigh-owned knee and shin-owned hock, and
@@ -272,17 +279,16 @@ robustness; lower values within the accepted argument range may still validly
 fail mesh-connectedness validation, and successful generation is not guaranteed
 at every in-range sampling value.
 
-A successful v8 run writes `successor-surface-manifest.json` plus exactly four
+A successful v9 run writes `successor-surface-manifest.json` plus exactly four
 variant directories. Each variant directory contains exactly
 `surface.ply`, `metrics.json`, `successor.json`, and one
 `guide-skin-composite.png`. The PNG is a deterministic RGB capture at the
-baseline-compatible `1800 × 570` canvas. It contains the exact six-panel order
-`front-guide`, `front-skin`, `side-guide`, `side-skin`,
-`three-quarter-guide`, `three-quarter-skin`: each projection has adjacent guide
-and skin panels using the same projection frame, and all four variants use one
-shared world-space render bound computed from the canonical baseline field
-sets. The manifest and successor sidecars expose the profile identity, canvas,
-layout, projections, and shared bounds alongside the four-artifact inventory.
+baseline-compatible `1800 × 1500` canvas. Its three columns are `front`,
+`side`, and `three-quarter`; its rows are `CONTROL GUIDE`, `CONSUMED FIELDS`,
+and `FINAL SKIN` as described above. Publication metadata records
+`panels_per_view: 3`. The manifest and successor sidecars expose the profile
+identity, canvas, layout, projections, and shared bounds alongside the
+four-artifact inventory.
 The manifest generator configuration reports both independent padding values:
 `padding` controls successor mesh sampling and `capture_padding` controls the
 baseline-compatible shared capture frame.

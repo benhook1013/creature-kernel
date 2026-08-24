@@ -53,7 +53,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(data, zlib.crc32(kind)) & 0xFFFFFFFF)
 
     @classmethod
-    def _png(cls, *, width: int = 1800, height: int = 570, include_idat: bool = True, invalid_idat: bool = False, unknown_chunk: bool = False) -> bytes:
+    def _png(cls, *, width: int = 1800, height: int = 1500, include_idat: bool = True, invalid_idat: bool = False, unknown_chunk: bool = False) -> bytes:
         ihdr = cls._chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
         raw = b"".join(b"\x00" + b"\x00" * (width * 3) for _ in range(height))
         compressed = b"not-a-zlib-stream" if invalid_idat else zlib.compress(raw)
@@ -150,6 +150,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         path.write_text(textwrap.dedent(f"""
             #!/usr/bin/env python3
             import hashlib, json, math, pathlib, struct, sys, time
+            COMPONENT_VISUALIZATION_METRICS = {publisher.EXPECTED_COMPONENT_VISUALIZATION_METRICS!r}
             args = dict(zip(sys.argv[1::2], sys.argv[2::2]))
             out = pathlib.Path(args["--output"])
             if {mode!r} == "failure":
@@ -169,9 +170,9 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             source = {{"document": "fixture", "namespace": "main", "resource_profile_id": "ck.resource.body.r2"}}
             if {mode!r} == "fabricated-provenance": source["document"] = "fabricated"
             bounds = {{"min": [-5.0, -5.0, -5.0], "max": [5.0, 5.0, 5.0]}}
-            canvas = {{"width": 1800, "height": 570, "mode": "RGB"}}
+            canvas = {{"width": 1800, "height": 1500, "mode": "RGB"}}
             projections = [{{"name": "front", "basis": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]], "base": "x-right/y-up/z-depth"}}, {{"name": "side", "basis": [[0.0, 0.0, -1.0], [0.0, 1.0, 0.0], [1.0, 0.0, 0.0]], "base": "-z-right/y-up/x-depth"}}, {{"name": "three-quarter", "basis": [[0.7071067811865475, 0.0, -0.7071067811865475], [0.0, 1.0, 0.0], [0.7071067811865475, 0.0, 0.7071067811865475]], "base": "front-right/y-up/depth"}}]
-            layout = {{"panel_order": ["front-guide", "front-skin", "side-guide", "side-skin", "three-quarter-guide", "three-quarter-skin"], "panels": [{{"id": "front-guide", "projection": "front", "content": "guide", "box": [12, 72, 292, 548]}}, {{"id": "front-skin", "projection": "front", "content": "skin", "box": [310, 72, 590, 548]}}, {{"id": "side-guide", "projection": "side", "content": "guide", "box": [608, 72, 888, 548]}}, {{"id": "side-skin", "projection": "side", "content": "skin", "box": [906, 72, 1186, 548]}}, {{"id": "three-quarter-guide", "projection": "three-quarter", "content": "guide", "box": [1204, 72, 1484, 548]}}, {{"id": "three-quarter-skin", "projection": "three-quarter", "content": "skin", "box": [1502, 72, 1782, 548]}}], "pairing": "guide-left/skin-right per projection", "frame": "shared-world-bounds-and-projection-basis"}}
+            layout = {{"panel_order": ["front-control-guide", "side-control-guide", "three-quarter-control-guide", "front-field-components", "side-field-components", "three-quarter-field-components", "front-skin", "side-skin", "three-quarter-skin"], "panels": [{{"id": "front-control-guide", "projection": "front", "content": "control-guide", "box": [12, 72, 592, 532]}}, {{"id": "side-control-guide", "projection": "side", "content": "control-guide", "box": [610, 72, 1190, 532]}}, {{"id": "three-quarter-control-guide", "projection": "three-quarter", "content": "control-guide", "box": [1208, 72, 1788, 532]}}, {{"id": "front-field-components", "projection": "front", "content": "field-components", "box": [12, 546, 592, 1006]}}, {{"id": "side-field-components", "projection": "side", "content": "field-components", "box": [610, 546, 1190, 1006]}}, {{"id": "three-quarter-field-components", "projection": "three-quarter", "content": "field-components", "box": [1208, 546, 1788, 1006]}}, {{"id": "front-skin", "projection": "front", "content": "skin", "box": [12, 1020, 592, 1480]}}, {{"id": "side-skin", "projection": "side", "content": "skin", "box": [610, 1020, 1190, 1480]}}, {{"id": "three-quarter-skin", "projection": "three-quarter", "content": "skin", "box": [1208, 1020, 1788, 1480]}}], "pairing": "control-guide/field-components/skin per projection", "frame": "shared-world-bounds-and-projection-basis"}}
             for variant_id in ids:
                 directory = out / variant_id
                 directory.mkdir()
@@ -438,7 +439,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     guide["counts"] = dict(guide["counts"])
                     guide["counts"]["compiled_field_recipe_counts"] = dict(guide["counts"]["compiled_field_recipe_counts"])
                     guide["counts"]["compiled_field_recipe_counts"]["torso-cage"] = 2
-                if {mode!r} == "guide-format": guide["format"] = "wrong"
+                if {mode!r} == "guide-format": guide["format"] = "creature-kernel.disposable-surface-preview-regional-guide.v10"
                 if {mode!r} == "guide-provenance": guide["controls"]["head"]["owners"][0]["provenance"] = {{"source": "unexpected"}}
                 if {mode!r} == "guide-controls": guide["controls"]["axes"]["forward"] = [0.0, 0.0, 2.0]
                 if {mode!r} == "guide-station-omitted": guide["controls"]["axial"]["stations"].pop()
@@ -523,7 +524,26 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 guide_path = directory / "regional-guide.json"
                 guide_path.write_text(json.dumps(guide), encoding="utf-8")
                 if {mode!r} == "guide-omitted": guide_path.unlink()
-                metrics_payload = {{"source_descriptor_count": 18, "generated_field_count": 52, "field_recipe_counts": {dict(publisher.EXPECTED_GUIDE_COUNTS["compiled_field_recipe_counts"])!r}}}
+                component_recipes = []
+                for recipe, count in {dict(publisher.EXPECTED_GUIDE_COUNTS["compiled_field_recipe_counts"])!r}.items():
+                    component_recipes.extend([recipe] * count)
+                component_visualization = {{
+                    **COMPONENT_VISUALIZATION_METRICS,
+                    "component_count": 52,
+                    "components": [{{"source_owner": owners[index % len(owners)], "recipe": recipe, "bounds": {{"min": [-1.0, -1.0, -1.0], "max": [1.0, 1.0, 1.0]}}}} for index, recipe in enumerate(component_recipes)],
+                }}
+                if {mode!r}.startswith("component-"):
+                    components = [dict(item) for item in component_visualization["components"]]
+                    if {mode!r} == "component-missing": components.pop()
+                    elif {mode!r} == "component-extra": components.append(dict(components[-1]))
+                    elif {mode!r} == "component-unknown-owner": components[0]["source_owner"] = {{**owners[0], "role": "unknown"}}
+                    elif {mode!r} == "component-wrong-recipe": components[0]["recipe"] = "wrong-recipe"
+                    elif {mode!r} == "component-wrong-histogram": components[-1]["recipe"] = components[-3]["recipe"]
+                    elif {mode!r} == "component-malformed-bounds": components[0]["bounds"] = {{"min": [-1.0, -1.0], "max": [1.0, 1.0, 1.0]}}
+                    elif {mode!r} == "component-out-of-range-bounds": components[0]["bounds"] = {{"min": [-101.0, -1.0, -1.0], "max": [1.0, 1.0, 1.0]}}
+                    elif {mode!r} == "component-reversed-bounds": components[0]["bounds"] = {{"min": [1.0, 1.0, 1.0], "max": [-1.0, -1.0, -1.0]}}
+                    component_visualization["components"] = components
+                metrics_payload = {{"source_descriptor_count": 18, "generated_field_count": 52, "field_recipe_counts": {dict(publisher.EXPECTED_GUIDE_COUNTS["compiled_field_recipe_counts"])!r}, "component_visualization": component_visualization}}
                 if {mode!r} == "metrics-generated-count": metrics_payload["generated_field_count"] = 59
                 if {mode!r} == "metrics-recipe-count": metrics_payload["field_recipe_counts"] = {{**metrics_payload["field_recipe_counts"], "paw-pad": 1}}
                 files = [
@@ -539,7 +559,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     data = file.read_bytes()
                     item = {{"kind": kind, "path": file.relative_to(out).as_posix(), "sha256": hashlib.sha256(data).hexdigest(), "bytes": len(data)}}
                     if {mode!r} == "hash" and kind == "metrics": item["sha256"] = "0" * 64
-                    if kind == "guide-skin-composite-png": item.update({{"width": (1 if {mode!r} == "png-small" else 1800), "height": (1 if {mode!r} == "png-small" else 570), "views": ["front", "side", "three-quarter"], "panels_per_view": 2, "mode": "RGB"}})
+                    if kind == "guide-skin-composite-png": item.update({{"width": (1 if {mode!r} == "png-small" else 1800), "height": (1 if {mode!r} == "png-small" else 1500), "views": ["front", "side", "three-quarter"], "panels_per_view": (2 if {mode!r} == "stale-panels" else 3), "mode": "RGB"}})
                     if kind == "regional-guide-json": item.update({{"format": {publisher.REGIONAL_GUIDE_FORMAT!r}, "variant": variant_id}})
                     inventory.append(item)
                 descriptor_addresses = owners
@@ -554,14 +574,21 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             if {mode!r} == "generator-recipes": generator_field_recipes = ["hips"]
             generator_ownership = {publisher.EXPECTED_GENERATOR_OWNERSHIP!r}
             if {mode!r} == "generator-ownership": generator_ownership = "recipe fields are source-owned; shoulder support curves are skin-driving"
-            manifest = {{"format": {publisher.SURFACE_PREVIEW_FORMAT!r}, "status": "success", "source_format": {common.PROVISIONAL_FORM_FORMAT!r}, "source": {{"format": {common.PROVISIONAL_FORM_FORMAT!r}, "sha256": source_hash, "document": "fixture", "namespace": "main", "resource_profile_id": "ck.resource.body.r2", "reference_scale": {{"parent": {{**owners[2], "anchors": []}}, "child": {{**owners[3], "anchors": []}}, "axis_delta": [0, 1, 0], "squared_length": 1, "source": "exact-containment-edge"}}}}, "shared_render_bounds": bounds, "canvas": canvas, "layout": layout, "projections": projections, "generator": {{"bundle_version": 2, "samples_per_axis": 72, "padding": 0.75, "smooth_union": {{"operator": "polynomial_cubic_smooth_min", "k": 0.12, "fold_order": "source_address_then_recipe_order"}}, "field_primitives": ["ellipsoid", "capsule", "linear-radius-tapered-segment"], "field_recipes": generator_field_recipes, "ownership": generator_ownership, "boundary": "disposable exploratory visual proof; not production geometry, SDF, collision, rig, topology, or Readiness evidence"}}, "variants": variants}}
+            component_visualization = {publisher.EXPECTED_COMPONENT_VISUALIZATION!r}
+            manifest_canvas = canvas
+            manifest_layout = layout
+            manifest_format = {publisher.SURFACE_PREVIEW_FORMAT!r}
+            if {mode!r} == "stale-canvas": manifest_canvas = {{"width": 1800, "height": 570, "mode": "RGB"}}
+            if {mode!r} == "stale-layout": manifest_layout = {{"panel_order": ["front-guide", "front-skin", "side-guide", "side-skin", "three-quarter-guide", "three-quarter-skin"], "panels": [{{"id": "front-guide", "projection": "front", "content": "guide", "box": [12, 72, 292, 548]}}, {{"id": "front-skin", "projection": "front", "content": "skin", "box": [310, 72, 590, 548]}}, {{"id": "side-guide", "projection": "side", "content": "guide", "box": [608, 72, 888, 548]}}, {{"id": "side-skin", "projection": "side", "content": "skin", "box": [906, 72, 1186, 548]}}, {{"id": "three-quarter-guide", "projection": "three-quarter", "content": "guide", "box": [1204, 72, 1484, 548]}}, {{"id": "three-quarter-skin", "projection": "three-quarter", "content": "skin", "box": [1502, 72, 1782, 548]}}], "pairing": "guide-left/skin-right per projection", "frame": "shared-world-bounds-and-projection-basis"}}
+            if {mode!r} == "stale-format": manifest_format = "creature-kernel.disposable-surface-preview.v2"
+            manifest = {{"format": manifest_format, "status": "success", "source_format": {common.PROVISIONAL_FORM_FORMAT!r}, "source": {{"format": {common.PROVISIONAL_FORM_FORMAT!r}, "sha256": source_hash, "document": "fixture", "namespace": "main", "resource_profile_id": "ck.resource.body.r2", "reference_scale": {{"parent": {{**owners[2], "anchors": []}}, "child": {{**owners[3], "anchors": []}}, "axis_delta": [0, 1, 0], "squared_length": 1, "source": "exact-containment-edge"}}}}, "shared_render_bounds": bounds, "canvas": manifest_canvas, "layout": manifest_layout, "projections": projections, "generator": {{"bundle_version": (2 if {mode!r} == "stale-bundle-version" else 3), "samples_per_axis": 72, "padding": 0.75, "smooth_union": {{"operator": "polynomial_cubic_smooth_min", "k": 0.12, "fold_order": "source_address_then_recipe_order"}}, "field_primitives": ["ellipsoid", "capsule", "linear-radius-tapered-segment"], "field_recipes": generator_field_recipes, "ownership": generator_ownership, "boundary": "disposable exploratory visual proof; not production geometry, SDF, collision, rig, topology, or Readiness evidence", "component_visualization": component_visualization}}, "variants": variants}}
             (out / "surface-preview-manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
         """), encoding="utf-8")
         path.chmod(0o755)
         return path
 
     def _successor_generator(self, *, mode: str = "success") -> Path:
-        """Write a small valid successor-v3 fixture, with bounded mutations."""
+        """Write a small valid successor-v9 fixture, with bounded mutations."""
 
         path = self.directory / f"successor-generator-{mode}.py"
         script = textwrap.dedent("""
@@ -590,6 +617,8 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             REPLACED = __REPLACED__
             MESH_PADDING = __MESH_PADDING__
             CAPTURE_PADDING = __CAPTURE_PADDING__
+            COMPONENT_VISUALIZATION = __COMPONENT_VISUALIZATION__
+            COMPONENT_VISUALIZATION_METRICS = __COMPONENT_VISUALIZATION_METRICS__
             VALID_PLY = __VALID_PLY__
             DISCONNECTED_PLY = __DISCONNECTED_PLY__
             NONWATERTIGHT_PLY = __NONWATERTIGHT_PLY__
@@ -730,7 +759,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 head_neck = {
                     "profile_format": "creature-kernel.provisional-form-head-neck-profile.v1",
                     "operation": "authored-head-neck-branched-route-profile-v1",
-                    "regional_guide_format": "creature-kernel.disposable-surface-preview-regional-guide.v10",
+                    "regional_guide_format": "creature-kernel.disposable-surface-preview-regional-guide.v11",
                     "provenance": source_head["provenance"],
                     "sections_consumed": 8,
                     "connections_consumed": 7,
@@ -765,7 +794,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     arm_station_sides.append({"side": side_name, "sections": stations})
                     for route_name, route_kind, route_sections in ((f"{side_name}-upper-arm-route", "upper-arm", stations[:3]), (f"{side_name}-forearm-route", "forearm", stations[2:])):
                         arm_routes.append({"name": route_name, "side": side_name, "route": route_kind, "station_names": [item["name"] for item in route_sections], "source_section_indices": [int(item["source_section_index"]) for item in route_sections], "owner_keys": [item["owner"] for item in route_sections], "station_count": len(route_sections)})
-                arm_profile = {"format": "creature-kernel.provisional-form-arm-profile.v1", "source": "authored_arm_profile", "regional_guide_format": "creature-kernel.disposable-surface-preview-regional-guide.v10", "operation": "authored-arm-profile-route-v1", "topology": "two-routes-per-side-shared-upper-arm-elbow-seam", "route_order": [item["name"] for item in arm_routes], "routes": arm_routes, "stations": arm_station_sides, "elbow_ownership": "upper_arm"}
+                arm_profile = {"format": "creature-kernel.provisional-form-arm-profile.v1", "source": "authored_arm_profile", "regional_guide_format": "creature-kernel.disposable-surface-preview-regional-guide.v11", "operation": "authored-arm-profile-route-v1", "topology": "two-routes-per-side-shared-upper-arm-elbow-seam", "route_order": [item["name"] for item in arm_routes], "routes": arm_routes, "stations": arm_station_sides, "elbow_ownership": "upper_arm"}
                 leg_station_sides = []
                 for side_name in ("left", "right"):
                     source_side = next(item for item in payload["authored_leg_profile"]["sides"] if item["side"] == side_name)
@@ -789,7 +818,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                             lineage[axis] = {"base": dimension["value_permille"], "factor": projected_section["scaling"][f"{axis}_factor_permille"], "scaled": projected_section[f"{axis}_radius_permille"], "reference": {"owner": owner, "role": dimension["role"], "index": dimension_index}, "provenance": dimension["provenance"], "consumed_section": source_section["name"]}
                         stations.append({"name": source_section["name"], "section_index": source_section["section_index"], "source_section_index": projected_section["source_section_index"], "owner": owner, "center": center, "frame_index": source_section["frame_index"], "landmark_index": source_section["landmark_index"], "radii": radii, "lineage": lineage, "consumption": ("skin-driving; knee seam owned by thigh station" if source_section["name"] == "knee" else "skin-driving; hock endpoint owned by shin station" if source_section["name"] == "hock-endpoint" else "skin-driving"), "profile_provenance": payload["authored_leg_profile"]["provenance"], "variant_provenance": payload["authored_leg_profile"]["provenance"]})
                     leg_station_sides.append({"side": side_name, "route": f"{side_name}-leg", "route_kind": "leg-profile", "source_section_indices": [item["source_section_index"] for item in stations], "station_count": 5, "owner_keys": [item["owner"] for item in stations], "stations": stations})
-                leg_profile = {"format": "creature-kernel.provisional-form-leg-profile.v1", "source": "authored_leg_profile", "source_format": payload["format"], "regional_guide_format": "creature-kernel.disposable-surface-preview-regional-guide.v10", "operation": "authored-leg-profile-route-v1", "topology": "one-five-station-route-per-side-thigh-knee-shin-hock", "route_order": [item["route"] for item in leg_station_sides], "route_kinds": [item["route_kind"] for item in leg_station_sides], "section_names": list(payload["authored_leg_profile"]["sides"][0]["sections"][index]["name"] for index in range(5)), "owner_roles": ["thigh", "thigh", "thigh", "shin", "shin"], "station_count": 10, "radius_count": 30, "provenance": payload["authored_leg_profile"]["provenance"], "variant_provenance": payload["authored_leg_profile"]["provenance"], "knee_seam": {"name": "knee", "index": 2, "owner_role": "thigh"}, "hock_endpoint": {"name": "hock-endpoint", "index": 4, "owner_role": "shin"}, "sides": leg_station_sides}
+                leg_profile = {"format": "creature-kernel.provisional-form-leg-profile.v1", "source": "authored_leg_profile", "source_format": payload["format"], "regional_guide_format": "creature-kernel.disposable-surface-preview-regional-guide.v11", "operation": "authored-leg-profile-route-v1", "topology": "one-five-station-route-per-side-thigh-knee-shin-hock", "route_order": [item["route"] for item in leg_station_sides], "route_kinds": [item["route_kind"] for item in leg_station_sides], "section_names": list(payload["authored_leg_profile"]["sides"][0]["sections"][index]["name"] for index in range(5)), "owner_roles": ["thigh", "thigh", "thigh", "shin", "shin"], "station_count": 10, "radius_count": 30, "provenance": payload["authored_leg_profile"]["provenance"], "variant_provenance": payload["authored_leg_profile"]["provenance"], "knee_seam": {"name": "knee", "index": 2, "owner_role": "thigh"}, "hock_endpoint": {"name": "hock-endpoint", "index": 4, "owner_role": "shin"}, "sides": leg_station_sides}
                 foot_profile_sides = []
                 for side_name in ("left", "right"):
                     source_side = next(item for item in payload["authored_foot_profile"]["sides"] if item["side"] == side_name)
@@ -820,7 +849,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     ]
                     stations = [{"name": name, "section_index": index, "source_section_index": [4, 0, 0, 1, 1][index], "owner": owner, "center": center, "volume_radii": radii, "lineage": lineage} for index, (name, owner, center, radii, lineage) in enumerate(station_sources)]
                     foot_profile_sides.append({"side": side_name, "route": f"{side_name}-foot", "route_kind": "foot-profile", "station_count": 5, "source_section_indices": [item["source_section_index"] for item in stations], "owner_roles": ["shin", "foot", "foot", "foot", "foot"], "stations": stations})
-                foot_profile = {"format": "creature-kernel.provisional-form-foot-profile.v1", "source": "authored_foot_profile", "source_format": payload["format"], "regional_guide_format": "creature-kernel.disposable-surface-preview-regional-guide.v10", "operation": "authored-foot-profile-route-v1", "topology": "one-five-station-hock-to-toe-route-per-side", "route_order": [item["route"] for item in foot_profile_sides], "route_kinds": ["foot-profile", "foot-profile"], "section_names": ["hock", "metatarsal-midpoint", "pad", "pad-toe-midpoint", "toe"], "owner_roles": ["shin", "foot", "foot", "foot", "foot"], "route_station_count": 10, "authored_station_count": 4, "route_volume_radius_count": 30, "authored_radius_count": 12, "provenance": payload["authored_foot_profile"]["provenance"], "variant_provenance": payload["authored_foot_profile"]["provenance"], "sides": foot_profile_sides}
+                foot_profile = {"format": "creature-kernel.provisional-form-foot-profile.v1", "source": "authored_foot_profile", "source_format": payload["format"], "regional_guide_format": "creature-kernel.disposable-surface-preview-regional-guide.v11", "operation": "authored-foot-profile-route-v1", "topology": "one-five-station-hock-to-toe-route-per-side", "route_order": [item["route"] for item in foot_profile_sides], "route_kinds": ["foot-profile", "foot-profile"], "section_names": ["hock", "metatarsal-midpoint", "pad", "pad-toe-midpoint", "toe"], "owner_roles": ["shin", "foot", "foot", "foot", "foot"], "route_station_count": 10, "authored_station_count": 4, "route_volume_radius_count": 30, "authored_radius_count": 12, "provenance": payload["authored_foot_profile"]["provenance"], "variant_provenance": payload["authored_foot_profile"]["provenance"], "sides": foot_profile_sides}
                 limb_owner_keys = [
                     [limb_owners[("left", "upper_arm")]] * 3,
                     [limb_owners[("left", "upper_arm")], limb_owners[("left", "forearm")], limb_owners[("left", "forearm")]],
@@ -868,7 +897,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 tail_controls, tip_shared_endpoint = generated_tail_controls(tail_root_owner, tail_tip_owner)
                 tail = {"representation": "shared-guide-derived-profile-sweep-elements", "elements_consumed": len(TAIL_ORDER), "element_order": list(TAIL_ORDER), "element_kinds": list(TAIL_KINDS), "section_counts": [len(names) for names in TAIL_SECTION_NAMES], "section_names": [list(names) for names in TAIL_SECTION_NAMES], "owner_keys": [tail_root_owner] * 3 + [tail_tip_owner] * 3, "endpoint_cap_counts": [2] * len(TAIL_ORDER), "internal_transition_counts": [0] * len(TAIL_ORDER), "controls": tail_controls, "tip_shared_endpoint": tip_shared_endpoint}
                 metrics_region = {
-                    "regional_guide_format": "creature-kernel.disposable-surface-preview-regional-guide.v10",
+                    "regional_guide_format": "creature-kernel.disposable-surface-preview-regional-guide.v11",
                     "torso_representation": "rounded-superellipse-axial-profile-sweep-v1",
                     "torso_profile_exponent": 4.0,
                     "torso_sections_consumed": len(torso_controls),
@@ -930,7 +959,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     "consumer_id": CONSUMER_ID,
                     "successor_region_id": REGION_ID,
                     "capture": frame,
-                    "torso": {"representation": "rounded-superellipse-axial-profile-sweep-v1", "regional_guide_format": "creature-kernel.disposable-surface-preview-regional-guide.v10", "superellipse_exponent": 4.0, "sections_consumed": 7, "section_names": [item["name"] for item in torso_controls], "section_controls": torso_controls},
+                    "torso": {"representation": "rounded-superellipse-axial-profile-sweep-v1", "regional_guide_format": "creature-kernel.disposable-surface-preview-regional-guide.v11", "superellipse_exponent": 4.0, "sections_consumed": 7, "section_names": [item["name"] for item in torso_controls], "section_controls": torso_controls},
                     "shoulders": {"representation": "authored-five-section-frame-aware-profile-sweeps", "sweeps_consumed": 2, "sweep_order": ["left-shoulder-envelope", "right-shoulder-envelope"], "section_counts": [5, 5], "section_names": [shoulder_section_names, shoulder_section_names]},
                     "head_neck": head_neck,
                     "limbs": limbs,
@@ -940,6 +969,20 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     "replaced_baseline_recipes": replaced,
                 }
                 metrics = {"consumer_id": CONSUMER_ID, "successor_region_id": REGION_ID, "successor_region": metrics_region, "temporary_bridge": bridge, "vertex_count": 4, "face_count": 4, "component_count": 1, "watertight": True, "finite_vertices": True, "finite_normals": True, "valid_indices": True}
+                component_recipes = [
+                    "successor-torso-loft", "successor-vertical-neck-cranium", "successor-forward-muzzle",
+                    "successor-left-upper-arm-route", "successor-left-forearm-route", "successor-right-upper-arm-route", "successor-right-forearm-route",
+                    "successor-left-leg", "successor-right-leg", "successor-left-hand-attachment", "successor-left-hand-paw", "successor-left-foot",
+                    "successor-right-hand-attachment", "successor-right-hand-paw", "successor-right-foot", "successor-tail-root-source",
+                    "successor-tail-root-attachment", "successor-tail-root-collar", "successor-tail-tip-source", "successor-tail-tip-extension",
+                    "successor-tail-tip-cap", "successor-left-shoulder-envelope", "successor-right-shoulder-envelope",
+                    "root-bridge", "root-bridge", "hip-transition", "hip-transition",
+                ]
+                component_visualization = {
+                    **COMPONENT_VISUALIZATION_METRICS,
+                    "component_count": 27,
+                    "components": [{"source_owner": descriptors[index % len(descriptors)]["address"], "recipe": recipe, "bounds": {"min": [-1.0, -1.0, -1.0], "max": [1.0, 1.0, 1.0]}} for index, recipe in enumerate(component_recipes)],
+                }
                 if MODE == "metrics-wrong-topology":
                     metrics.update({"vertex_count": 8, "face_count": 8, "component_count": 1, "watertight": True, "finite_vertices": True, "finite_normals": True, "valid_indices": True})
                 if MODE == "sidecar-identity":
@@ -1079,6 +1122,18 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     foot_profile_metadata = dict(metrics["successor_region"]["foot_profile"])
                     foot_profile_metadata["route_order"] = list(reversed(foot_profile_metadata["route_order"]))
                     metrics_file["successor_region"] = {**metrics["successor_region"], "foot_profile": foot_profile_metadata}
+                if MODE.startswith("component-"):
+                    components = [dict(item) for item in component_visualization["components"]]
+                    if MODE == "component-missing": components.pop()
+                    elif MODE == "component-extra": components.append(dict(components[-1]))
+                    elif MODE == "component-unknown-owner": components[0]["source_owner"] = {**descriptors[0]["address"], "role": "unknown"}
+                    elif MODE == "component-wrong-recipe": components[0]["recipe"] = "wrong-recipe"
+                    elif MODE == "component-wrong-histogram": components[-1]["recipe"] = components[-3]["recipe"]
+                    elif MODE == "component-malformed-bounds": components[0]["bounds"] = {"min": [-1.0, -1.0], "max": [1.0, 1.0, 1.0]}
+                    elif MODE == "component-out-of-range-bounds": components[0]["bounds"] = {"min": [-101.0, -1.0, -1.0], "max": [1.0, 1.0, 1.0]}
+                    elif MODE == "component-reversed-bounds": components[0]["bounds"] = {"min": [1.0, 1.0, 1.0], "max": [-1.0, -1.0, -1.0]}
+                    component_visualization["components"] = components
+                metrics_file["component_visualization"] = component_visualization
                 metrics_record = metrics_file
                 (variant_dir / "metrics.json").write_text(json.dumps(metrics_file, sort_keys=True), encoding="utf-8")
                 png = variant_dir / "guide-skin-composite.png"
@@ -1093,7 +1148,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     entry("ply", variant_dir / "surface.ply"),
                     entry("metrics", variant_dir / "metrics.json"),
                     entry("successor-consumer-sidecar", variant_dir / "successor.json"),
-                    entry("guide-skin-composite-png", png, {"width": 1800, "height": 570, "views": ["front", "side", "three-quarter"], "panels_per_view": 2, "mode": "RGB"}),
+                    entry("guide-skin-composite-png", png, {"width": 1800, "height": 1500, "views": ["front", "side", "three-quarter"], "panels_per_view": (2 if MODE == "stale-panels" else 3), "mode": "RGB"}),
                 ]
                 if MODE == "inventory":
                     inventory[0] = {**inventory[0], "path": variant_id + "/wrong.ply"}
@@ -1101,13 +1156,22 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     inventory[0] = {**inventory[0], "sha256": "0" * 64}
                 if MODE == "invalid-png":
                     png.write_bytes(PNG[:-1])
-                    inventory[-1] = entry("guide-skin-composite-png", png, {"width": 1800, "height": 570, "views": ["front", "side", "three-quarter"], "panels_per_view": 2, "mode": "RGB"})
+                    inventory[-1] = entry("guide-skin-composite-png", png, {"width": 1800, "height": 1500, "views": ["front", "side", "three-quarter"], "panels_per_view": (2 if MODE == "stale-panels" else 3), "mode": "RGB"})
                 records.append({"id": variant_id, "profile_id": ("wrong" if MODE == "variant-profile" and not records else variant_id), "source_variant_sha256": source_variant_sha256, "metrics": metrics_record, "inventory": inventory})
             if MODE == "variant":
                 records.pop()
             if MODE == "extra-path":
                 (out / "extra.bin").write_bytes(b"unlisted")
-            manifest = {"format": SUCCESSOR_FORMAT, "status": "success", "consumer_id": CONSUMER_ID, "source_format": payload["format"], "source": source, "shared_render_bounds": frame["shared_render_bounds"], "canvas": frame["canvas"], "layout": frame["layout"], "projections": frame["projections"], "generator": {"samples_per_axis": 56, "padding": MESH_PADDING, "capture_padding": CAPTURE_PADDING, "smooth_k": 0.12, "consumer_boundary": "successor torso/shoulder/head/neck, authored arm and leg profile routes, bilateral hands, digitigrade feet, and tail; baseline temporary bridge for thigh-root/hip connectors", "production_status": "disposable exploratory proof"}, "variants": records}
+            manifest_canvas = frame["canvas"]
+            manifest_layout = frame["layout"]
+            manifest_format = SUCCESSOR_FORMAT
+            if MODE == "stale-canvas": manifest_canvas = {"width": 1800, "height": 570, "mode": "RGB"}
+            if MODE == "stale-layout": manifest_layout = {"panel_order": ["front-guide", "front-skin", "side-guide", "side-skin", "three-quarter-guide", "three-quarter-skin"], "panels": [{"id": "front-guide", "projection": "front", "content": "guide", "box": [12, 72, 292, 548]}, {"id": "front-skin", "projection": "front", "content": "skin", "box": [310, 72, 590, 548]}, {"id": "side-guide", "projection": "side", "content": "guide", "box": [608, 72, 888, 548]}, {"id": "side-skin", "projection": "side", "content": "skin", "box": [906, 72, 1186, 548]}, {"id": "three-quarter-guide", "projection": "three-quarter", "content": "guide", "box": [1204, 72, 1484, 548]}, {"id": "three-quarter-skin", "projection": "three-quarter", "content": "skin", "box": [1502, 72, 1782, 548]}], "pairing": "guide-left/skin-right per projection", "frame": "shared-world-bounds-and-projection-basis"}
+            if MODE == "stale-format": manifest_format = "creature-kernel.disposable-successor-surface-preview.v8"
+            generator = {"samples_per_axis": 56, "padding": MESH_PADDING, "capture_padding": CAPTURE_PADDING, "smooth_k": 0.12, "consumer_boundary": "successor torso/shoulder/head/neck, authored arm and leg profile routes, bilateral hands, digitigrade feet, and tail; baseline temporary bridge for thigh-root/hip connectors", "production_status": "disposable exploratory proof", "component_visualization": COMPONENT_VISUALIZATION}
+            if MODE == "component-visualization-omitted": generator.pop("component_visualization")
+            if MODE == "component-visualization-tampered": generator["component_visualization"] = {**COMPONENT_VISUALIZATION, "samples_per_axis": 31}
+            manifest = {"format": manifest_format, "status": "success", "consumer_id": CONSUMER_ID, "source_format": payload["format"], "source": source, "shared_render_bounds": frame["shared_render_bounds"], "canvas": manifest_canvas, "layout": manifest_layout, "projections": frame["projections"], "generator": generator, "variants": records}
             (out / "successor-surface-manifest.json").write_text(json.dumps(manifest, sort_keys=True, separators=(",", ":")), encoding="utf-8")
         """)
         replacements = {
@@ -1133,6 +1197,8 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             "__REPLACED__": repr(list(publisher.SUCCESSOR_REPLACED_BASELINE_RECIPES)),
             "__MESH_PADDING__": repr(0.5),
             "__CAPTURE_PADDING__": repr(0.5 if mode == "capture-padding-mismatch" else 0.75),
+            "__COMPONENT_VISUALIZATION__": repr(publisher.EXPECTED_COMPONENT_VISUALIZATION),
+            "__COMPONENT_VISUALIZATION_METRICS__": repr(publisher.EXPECTED_COMPONENT_VISUALIZATION_METRICS),
             "__VALID_PLY__": repr(self._tetra_ply()),
             "__DISCONNECTED_PLY__": repr(self._tetra_ply(copies=2)),
             "__NONWATERTIGHT_PLY__": repr(self._tetra_ply(missing_last_face=True)),
@@ -1707,6 +1773,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
     def test_success_publishes_four_ordered_baseline_successor_pairs(self) -> None:
         self.assertEqual(publisher.EXPECTED_GUIDE_COUNTS["compiled_fields"], 52)
         self.assertEqual(publisher.EXPECTED_GUIDE_COUNTS["shoulder_frame_compiled_fields"], 2)
+        self.assertEqual(publisher.EXPECTED_LAYOUT["pairing"], "control-guide/field-components/skin per projection")
         self.assertNotIn("hip-girdle", publisher.EXPECTED_GUIDE_COUNTS["compiled_field_recipe_counts"])
         self.assertNotIn("shoulder-mass", publisher.EXPECTED_GUIDE_COUNTS["compiled_field_recipe_counts"])
         with patch.object(publisher, "_parse_inspection", return_value=self._payload()):
@@ -1765,12 +1832,18 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             self.assertEqual(baseline["metadata"]["views"], ["front", "side", "three-quarter"])
             self.assertEqual(successor["metadata"]["views"], baseline["metadata"]["views"])
             self.assertEqual(baseline["metadata"]["panels_per_view"], successor["metadata"]["panels_per_view"])
+            self.assertEqual(baseline["metadata"]["panels_per_view"], 3)
+            self.assertEqual(baseline["metadata"]["generator"]["bundle_version"], 3)
+            self.assertEqual(baseline["metadata"]["generator"]["component_visualization"], publisher.EXPECTED_COMPONENT_VISUALIZATION)
+            self.assertEqual(baseline["metadata"]["generator"]["component_visualization"]["samples_per_axis"], 32)
             self.assertEqual(successor["metadata"]["generator"]["padding"], 0.5)
             self.assertEqual(successor["metadata"]["generator"]["capture_padding"], 0.75)
             self.assertNotEqual(successor["metadata"]["generator"]["padding"], successor["metadata"]["generator"]["capture_padding"])
-            self.assertEqual(set(successor["metadata"]["generator"]), {"samples_per_axis", "padding", "capture_padding", "smooth_k", "consumer_boundary", "production_status"})
-            self.assertIn("shared capture frame", baseline["description"])
-            self.assertIn("same shared capture frame", successor["description"])
+            self.assertEqual(successor["metadata"]["generator"]["component_visualization"], publisher.EXPECTED_COMPONENT_VISUALIZATION)
+            self.assertEqual(set(successor["metadata"]["generator"]), {"samples_per_axis", "padding", "capture_padding", "smooth_k", "consumer_boundary", "production_status", "component_visualization"})
+            for item in (baseline, successor):
+                self.assertIn("columns front/side/three-quarter", item["description"])
+                self.assertIn("rows control guide (not geometry), consumed fields (exact pre-union components), and final skin (smooth union)", item["description"])
         self.assertEqual(review["subject_context"]["descriptor_snapshot"]["producer_envelope_sha256"], review["groups"][0]["items"][0]["metadata"]["source_sha256"])
         self.assertIn("compare baseline first and successor second", review["instructions"])
         self.assertIn("overall creature coherence", review["instructions"])
@@ -2082,7 +2155,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                         )
                 self.assertFalse((self.root / review_id).exists())
 
-    def test_successor_v8_foot_metadata_rejects_station_and_lineage_cross_bindings(self) -> None:
+    def test_successor_v9_foot_metadata_rejects_station_and_lineage_cross_bindings(self) -> None:
         modes = ("sidecar-foot-order", "sidecar-foot-lineage", "metrics-foot-profile")
         for index, mode in enumerate(modes):
             review_id = f"successor-foot-tamper-{index}"
@@ -2491,7 +2564,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             publisher._validate_producer_evidence(evidence, "oversized producer")
 
     def test_malformed_count_and_unlisted_output_publish_nothing(self) -> None:
-        for index, mode in enumerate(("bad-count", "unlisted", "symlink", "extra-directory", "hash", "source-mismatch", "fabricated-provenance", "fabricated-descriptor", "profile-mismatch", "guide-format", "guide-provenance", "guide-controls", "guide-station-omitted", "guide-transition-omitted", "guide-cage-omitted", "guide-cage-malformed", "guide-cage-connection", "guide-head-section-omitted", "guide-head-section-malformed", "guide-head-connection", "guide-head-lineage", "guide-head-compatibility", "guide-shoulder-omitted", "guide-shoulder-stale-status", "guide-shoulder-consumption", "guide-shoulder-malformed", "guide-shoulder-owner", "guide-shoulder-order", "guide-shoulder-endpoint", "guide-shoulder-span", "guide-shoulder-degenerate", "guide-shoulder-points", "guide-shoulder-profile", "guide-shoulder-profile-continuity", "guide-shoulder-first-quarter", "guide-girdle-omitted", "guide-station-malformed", "guide-transition-malformed", "guide-girdle-malformed", "guide-joint-endpoint", "guide-knee-anisotropic", "guide-leg-omitted", "guide-leg-side-order", "guide-leg-owner", "guide-leg-lineage", "guide-leg-knee", "guide-leg-hock", "guide-foot-legacy", "guide-foot-order", "guide-foot-hock-source", "guide-foot-hock-radii", "guide-foot-contact", "guide-foot-taper", "guide-foot-axis", "guide-foot-gap", "guide-hand-attachment-start", "guide-hand-anchor-point", "guide-section-gap", "guide-profile-second-start", "guide-adjacent-profile", "guide-obsolete-recipe-count", "guide-wrong-recipe-count", "metrics-generated-count", "metrics-recipe-count", "manifest-metrics", "generator-recipes", "generator-ownership", "guide-omitted", "png-small", "png-truncated", "png-crc", "png-no-idat", "png-invalid-idat", "png-unknown-critical")):
+        for index, mode in enumerate(("bad-count", "unlisted", "symlink", "extra-directory", "hash", "source-mismatch", "fabricated-provenance", "fabricated-descriptor", "profile-mismatch", "component-missing", "component-extra", "component-unknown-owner", "component-wrong-recipe", "component-wrong-histogram", "component-malformed-bounds", "component-out-of-range-bounds", "component-reversed-bounds", "stale-canvas", "stale-layout", "stale-panels", "stale-format", "stale-bundle-version", "guide-format", "guide-provenance", "guide-controls", "guide-station-omitted", "guide-transition-omitted", "guide-cage-omitted", "guide-cage-malformed", "guide-cage-connection", "guide-head-section-omitted", "guide-head-section-malformed", "guide-head-connection", "guide-head-lineage", "guide-head-compatibility", "guide-shoulder-omitted", "guide-shoulder-stale-status", "guide-shoulder-consumption", "guide-shoulder-malformed", "guide-shoulder-owner", "guide-shoulder-order", "guide-shoulder-endpoint", "guide-shoulder-span", "guide-shoulder-degenerate", "guide-shoulder-points", "guide-shoulder-profile", "guide-shoulder-profile-continuity", "guide-shoulder-first-quarter", "guide-girdle-omitted", "guide-station-malformed", "guide-transition-malformed", "guide-girdle-malformed", "guide-joint-endpoint", "guide-knee-anisotropic", "guide-leg-omitted", "guide-leg-side-order", "guide-leg-owner", "guide-leg-lineage", "guide-leg-knee", "guide-leg-hock", "guide-foot-legacy", "guide-foot-order", "guide-foot-hock-source", "guide-foot-hock-radii", "guide-foot-contact", "guide-foot-taper", "guide-foot-axis", "guide-foot-gap", "guide-hand-attachment-start", "guide-hand-anchor-point", "guide-section-gap", "guide-profile-second-start", "guide-adjacent-profile", "guide-obsolete-recipe-count", "guide-wrong-recipe-count", "metrics-generated-count", "metrics-recipe-count", "manifest-metrics", "generator-recipes", "generator-ownership", "guide-omitted", "png-small", "png-truncated", "png-crc", "png-no-idat", "png-invalid-idat", "png-unknown-critical")):
             with self.subTest(mode=mode):
                 with patch.object(publisher, "_parse_inspection", return_value=self._payload()):
                     with self.assertRaises(publisher.SurfacePreviewPublishError):
@@ -2558,6 +2631,20 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
     def test_successor_validation_fails_closed_for_representative_boundary_errors(self) -> None:
         modes = (
             "source-mismatch",
+            "component-missing",
+            "component-extra",
+            "component-unknown-owner",
+            "component-wrong-recipe",
+            "component-wrong-histogram",
+            "component-malformed-bounds",
+            "component-out-of-range-bounds",
+            "component-reversed-bounds",
+            "stale-canvas",
+            "stale-layout",
+            "stale-panels",
+            "stale-format",
+            "component-visualization-omitted",
+            "component-visualization-tampered",
             "frame-mismatch",
             "capture-padding-mismatch",
             "cross-variant-digest",
@@ -2604,6 +2691,16 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 with patch.object(publisher, "_parse_inspection", return_value=self._payload()):
                     expected_error = {
                         "capture-padding-mismatch": "successor capture_padding does not match validated baseline generator padding",
+                        "component-missing": "component visualization",
+                        "component-extra": "component visualization",
+                        "component-unknown-owner": "component visualization",
+                        "component-wrong-recipe": "component visualization",
+                        "component-wrong-histogram": "component visualization",
+                        "component-malformed-bounds": "component visualization",
+                        "component-out-of-range-bounds": "component visualization",
+                        "component-reversed-bounds": "component visualization",
+                        "component-visualization-omitted": "unknown or missing fields",
+                        "component-visualization-tampered": "component_visualization is not the exact consumed-component visualization",
                         "cross-variant-digest": "source_variant_sha256 does not match producer output",
                         "ply-disconnected": "exactly one connected component",
                         "ply-nonwatertight": "not watertight",

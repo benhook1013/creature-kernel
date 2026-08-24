@@ -24,15 +24,15 @@ import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from skimage.measure import marching_cubes
 
 
-FORMAT = "creature-kernel.disposable-surface-preview.v2"
-REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v10"
+FORMAT = "creature-kernel.disposable-surface-preview.v3"
+REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v11"
 SOURCE_FORMAT = "creature-kernel.provisional-form-preview.v11"
 AUTHORED_TORSO_PROFILE_FORMAT = "creature-kernel.provisional-form-torso-profile.v1"
 AUTHORED_HEAD_NECK_PROFILE_FORMAT = "creature-kernel.provisional-form-head-neck-profile.v1"
@@ -138,15 +138,23 @@ MAX_GENERATED_FIELDS = 256
 DEFAULT_SAMPLES = 72
 DEFAULT_PADDING = 0.75
 DEFAULT_SMOOTH_K = 0.12
-# The image is intentionally a fixed, private diagnostic layout.  Each view
-# gets adjacent guide and skin panels.  The two panels for a view share the
-# exact same projected frame; all variants use the same world-space bounds.
-CANVAS = (1800, 570)
+# The image is intentionally a fixed, private diagnostic layout.  Each
+# projection is one column and the three rows are control guide, exact
+# pre-union field components, and neutral final skin.  Every row for a view
+# shares the exact same projected frame; all variants use the same world-space
+# bounds.
+CANVAS = (1800, 1500)
 PANEL_TOP = 72
-PANEL_BOTTOM = 548
-PANEL_WIDTH = 280
-PANEL_GAP = 18
+PANEL_HEIGHT = 460
+PANEL_BOTTOM = PANEL_TOP + PANEL_HEIGHT
+PANEL_WIDTH = 580
+PANEL_COLUMN_GAP = 18
+PANEL_ROW_GAP = 14
 PANEL_LEFT = 12
+FIELD_COMPONENT_SAMPLES = 32
+FIELD_COMPONENT_PADDING = 0.05
+FIELD_COMPONENT_ALPHA = 112
+RENDER_HEADER = "Exact consumed-component visualization"
 PROJECTIONS = (
     ("front", ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)), "x-right/y-up/z-depth"),
     ("side", ((0.0, 0.0, -1.0), (0.0, 1.0, 0.0), (1.0, 0.0, 0.0)), "-z-right/y-up/x-depth"),
@@ -154,24 +162,26 @@ PROJECTIONS = (
 )
 
 
-def _panel_box(index: int) -> tuple[int, int, int, int]:
-    left = PANEL_LEFT + index * (PANEL_WIDTH + PANEL_GAP)
-    return left, PANEL_TOP, left + PANEL_WIDTH, PANEL_BOTTOM
+def _panel_box(column: int, row: int) -> tuple[int, int, int, int]:
+    left = PANEL_LEFT + column * (PANEL_WIDTH + PANEL_COLUMN_GAP)
+    top = PANEL_TOP + row * (PANEL_HEIGHT + PANEL_ROW_GAP)
+    return left, top, left + PANEL_WIDTH, top + PANEL_HEIGHT
 
 
+PANEL_CONTENTS = ("control-guide", "field-components", "skin")
 PANEL_LAYOUT = tuple(
     {
         "id": f"{name}-{content}",
         "projection": name,
         "content": content,
-        "box": _panel_box(index * 2 + (0 if content == "guide" else 1)),
+        "box": _panel_box(index, row),
     }
+    for row, content in enumerate(PANEL_CONTENTS)
     for index, (name, _, _) in enumerate(PROJECTIONS)
-    for content in ("guide", "skin")
 )
-# Kept as a simple view-to-bounds map for callers of the original preview
-# helper.  Rendering now uses PANEL_LAYOUT for the two adjacent panels.
-VIEW_BOXES = {name: (_panel_box(index * 2)[0], PANEL_TOP, _panel_box(index * 2 + 1)[2], PANEL_BOTTOM) for index, (name, _, _) in enumerate(PROJECTIONS)}
+# Kept as a simple view-to-column map for callers of the original preview
+# helper. Rendering uses PANEL_LAYOUT for the three fixed rows.
+VIEW_BOXES = {name: (_panel_box(index, 0)[0], PANEL_TOP, _panel_box(index, 0)[2], _panel_box(index, 2)[3]) for index, (name, _, _) in enumerate(PROJECTIONS)}
 
 
 class PreviewError(RuntimeError):
@@ -385,6 +395,54 @@ class Field:
     owner: Descriptor
     recipe: str
     shape: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class _RenderComponent:
+    """One exact consumer-supplied evaluator shell for shared rendering."""
+
+    source_owner_key: tuple[str, tuple[str, ...], str, str]
+    recipe: str
+    debug_identity: str
+    evaluate: Callable[[np.ndarray], np.ndarray]
+    bounds: tuple[np.ndarray, np.ndarray]
+    evaluator_label: str
+
+
+def _make_render_component(
+    source_owner_key: tuple[str, tuple[str, ...], str, str],
+    recipe: str,
+    evaluate: Callable[[np.ndarray], np.ndarray],
+    bounds: tuple[np.ndarray, np.ndarray],
+    evaluator_label: str,
+    *,
+    debug_identity: str | None = None,
+) -> _RenderComponent:
+    """Preserve one consumer's exact evaluator callable and supplied bounds object.
+
+    Successor and later consumers can adapt their own component inventories
+    through this private seam without importing baseline ``Field`` or
+    recreating any evaluator or bounds math.
+    """
+
+    if type(source_owner_key) is not tuple or len(source_owner_key) != 4:
+        _fail("render component source owner key is invalid")
+    try:
+        namespace, anchors, kind, role = source_owner_key
+    except (TypeError, ValueError):
+        _fail("render component source owner key is invalid")
+    if not all(type(value) is str and value for value in (namespace, kind, role)) or type(anchors) is not tuple or not all(
+        type(value) is str and value for value in anchors
+    ):
+        _fail("render component source owner key is invalid")
+    if type(recipe) is not str or not recipe or type(evaluator_label) is not str or not evaluator_label:
+        _fail("render component identity labels must be non-empty strings")
+    identity = recipe if debug_identity is None else debug_identity
+    if type(identity) is not str or not identity or not callable(evaluate):
+        _fail("render component debug identity or evaluator is invalid")
+    if type(bounds) is not tuple or len(bounds) != 2:
+        _fail("render component bounds must be an exact lower/upper tuple")
+    return _RenderComponent(source_owner_key, recipe, identity, evaluate, bounds, evaluator_label)
 
 
 @dataclass(frozen=True)
@@ -6012,7 +6070,7 @@ def _layout_json() -> dict[str, Any]:
             {"id": item["id"], "projection": item["projection"], "content": item["content"], "box": list(item["box"])}
             for item in PANEL_LAYOUT
         ],
-        "pairing": "guide-left/skin-right per projection",
+        "pairing": "control-guide/field-components/skin per projection",
         "frame": "shared-world-bounds-and-projection-basis",
     }
 
@@ -6581,44 +6639,113 @@ def _smooth_union(fields: list[np.ndarray], k: float) -> np.ndarray:
     return result
 
 
+def _field_bounds(field: Field, padding: float = 0.0) -> tuple[np.ndarray, np.ndarray]:
+    """Return the exact analytic bound for one compiled field.
+
+    ``_bounds`` is the aggregate consumer of this helper. Keeping the
+    primitive-specific logic here makes component visualization sample the
+    same field extents as mesh extraction instead of rebuilding guide-shaped
+    proxy bounds.
+    """
+
+    if not math.isfinite(float(padding)) or padding < 0.0:
+        _fail("field bounds padding must be finite and non-negative")
+    shape = field.shape
+    try:
+        name = shape["name"]
+    except (KeyError, TypeError):
+        _fail(f"field {_key_text(field.owner.key)}:{field.recipe} has invalid shape data")
+    if name == "ellipsoid":
+        centre = np.asarray(shape["center"], dtype=np.float64)
+        radii = np.asarray(shape["radii"], dtype=np.float64)
+        if centre.shape != (3,) or radii.shape != (3,) or not np.all(np.isfinite(centre)) or not np.all(np.isfinite(radii)) or np.any(radii <= 0.0):
+            _fail(f"field {_key_text(field.owner.key)}:{field.recipe} has invalid ellipsoid bounds")
+        lower = centre - radii
+        upper = centre + radii
+    elif name == "torso-cage":
+        centres = np.asarray(shape["centers"], dtype=np.float64)
+        heights = np.asarray(shape["heights"], dtype=np.float64)
+        lateral = np.asarray(shape["lateral_radii"], dtype=np.float64)
+        depth = np.asarray(shape["depth_radii"], dtype=np.float64)
+        cap_height = np.asarray(shape["cap_radii"], dtype=np.float64)
+        if centres.ndim != 2 or centres.shape[1] != 3 or len(centres) == 0 or any(
+            array.shape != (len(centres),) for array in (heights, lateral, depth, cap_height)
+        ) or not all(np.all(np.isfinite(array)) for array in (centres, heights, lateral, depth, cap_height)) or any(
+            np.any(array <= 0.0) for array in (lateral, depth, cap_height)
+        ):
+            _fail(f"field {_key_text(field.owner.key)}:{field.recipe} has invalid torso-cage bounds")
+        lower = np.asarray([
+            float(np.min(centres[:, 0] - lateral)),
+            float(np.min(heights - cap_height)),
+            float(np.min(centres[:, 2] - depth)),
+        ])
+        upper = np.asarray([
+            float(np.max(centres[:, 0] + lateral)),
+            float(np.max(heights + cap_height)),
+            float(np.max(centres[:, 2] + depth)),
+        ])
+    elif name in {"arm-profile-segment", "leg-profile-segment"}:
+        start = np.asarray(shape["from"], dtype=np.float64)
+        end = np.asarray(shape["to"], dtype=np.float64)
+        radii0 = np.asarray(shape["radii0"], dtype=np.float64)
+        radii1 = np.asarray(shape["radii1"], dtype=np.float64)
+        if start.shape != (3,) or end.shape != (3,) or radii0.shape != (3,) or radii1.shape != (3,) or start.tolist() == end.tolist() or not all(
+            np.all(np.isfinite(array)) for array in (start, end, radii0, radii1)
+        ) or np.any(radii0 <= 0.0) or np.any(radii1 <= 0.0):
+            _fail(f"field {_key_text(field.owner.key)}:{field.recipe} has invalid profile bounds")
+        radius = np.maximum(radii0, radii1)
+        lower = np.minimum(start, end) - radius
+        upper = np.maximum(start, end) + radius
+    elif name in {"capsule", "tapered-segment"}:
+        start = np.asarray(shape["from"], dtype=np.float64)
+        end = np.asarray(shape["to"], dtype=np.float64)
+        r0 = float(shape["r0"])
+        r1 = float(shape["r1"])
+        if start.shape != (3,) or end.shape != (3,) or start.tolist() == end.tolist() or not all(
+            np.all(np.isfinite(array)) for array in (start, end)
+        ) or not math.isfinite(r0) or not math.isfinite(r1) or r0 <= 0.0 or r1 <= 0.0:
+            _fail(f"field {_key_text(field.owner.key)}:{field.recipe} has invalid segment bounds")
+        radius = max(r0, r1)
+        lower = np.minimum(start, end) - radius
+        upper = np.maximum(start, end) + radius
+    else:
+        _fail(f"field {_key_text(field.owner.key)}:{field.recipe} has unsupported shape {name!r}")
+    lower = np.asarray(lower, dtype=np.float64) - float(padding)
+    upper = np.asarray(upper, dtype=np.float64) + float(padding)
+    if lower.shape != (3,) or upper.shape != (3,) or not np.all(np.isfinite(lower)) or not np.all(np.isfinite(upper)) or np.any(upper <= lower):
+        _fail(f"field {_key_text(field.owner.key)}:{field.recipe} has invalid bounds")
+    return lower, upper
+
+
 def _bounds(fields: tuple[Field, ...], padding: float) -> tuple[np.ndarray, np.ndarray]:
-    mins: list[np.ndarray] = []
-    maxs: list[np.ndarray] = []
+    if not fields:
+        _fail("cannot derive bounds without fields")
+    if not math.isfinite(float(padding)) or padding < 0.0:
+        _fail("field bounds padding must be finite and non-negative")
+    bounds = [_field_bounds(field) for field in fields]
+    lower = np.min(np.stack([item[0] for item in bounds]), axis=0) - float(padding)
+    upper = np.max(np.stack([item[1] for item in bounds]), axis=0) + float(padding)
+    if not np.all(np.isfinite(lower)) or not np.all(np.isfinite(upper)) or np.any(upper <= lower):
+        _fail("field bounds are invalid")
+    return lower, upper
+
+
+def _baseline_render_components(fields: tuple[Field, ...]) -> tuple[_RenderComponent, ...]:
+    """Adapt the exact compiled baseline ``Field`` inventory to the shared seam."""
+
+    components: list[_RenderComponent] = []
     for field in fields:
-        shape = field.shape
-        if shape["name"] == "ellipsoid":
-            centre = shape["center"]
-            radii = shape["radii"]
-            mins.append(centre - radii); maxs.append(centre + radii)
-        elif shape["name"] == "torso-cage":
-            centres = shape["centers"]
-            lateral = shape["lateral_radii"]
-            depth = shape["depth_radii"]
-            cap_height = shape["cap_radii"]
-            mins.append(
-                np.asarray([
-                    float(np.min(centres[:, 0] - lateral)),
-                    float(np.min(shape["heights"] - cap_height)),
-                    float(np.min(centres[:, 2] - depth)),
-                ])
-            )
-            maxs.append(
-                np.asarray([
-                    float(np.max(centres[:, 0] + lateral)),
-                    float(np.max(shape["heights"] + cap_height)),
-                    float(np.max(centres[:, 2] + depth)),
-                ])
-            )
-        elif shape["name"] in {"arm-profile-segment", "leg-profile-segment"}:
-            radius = np.maximum(shape["radii0"], shape["radii1"])
-            mins.append(np.minimum(shape["from"], shape["to"]) - radius)
-            maxs.append(np.maximum(shape["from"], shape["to"]) + radius)
-        else:
-            a = shape["from"]
-            b = shape["to"]
-            r = max(float(shape["r0"]), float(shape["r1"]))
-            mins.append(np.minimum(a, b) - r); maxs.append(np.maximum(a, b) + r)
-    return np.min(np.stack(mins), axis=0) - padding, np.max(np.stack(maxs), axis=0) + padding
+        def evaluate(points: np.ndarray, current: Field = field) -> np.ndarray:
+            return _field(points, current)
+
+        components.append(_make_render_component(
+            field.owner.key,
+            field.recipe,
+            evaluate,
+            _field_bounds(field),
+            f"_field/{field.shape['name']}",
+        ))
+    return tuple(components)
 
 
 def _shared_render_bounds(field_sets: tuple[tuple[Field, ...], ...], padding: float) -> tuple[np.ndarray, np.ndarray]:
@@ -6707,6 +6834,8 @@ def build_variant(
     padding: float,
     smooth_k: float,
     guide: _HybridGuide | None = None,
+    compiled_fields: tuple[Field, ...] | None = None,
+    render_components: tuple[_RenderComponent, ...] | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[tuple[str, tuple[str, ...], str, str]], dict[str, Any], dict[str, Any]]:
     if type(samples) is not int or samples > MAX_SAMPLES or samples < 16 or samples**3 > MAX_VOXELS:
         _fail("sampling configuration exceeds bounded limits")
@@ -6714,7 +6843,10 @@ def build_variant(
         _fail("padding and smooth-k must be finite, with non-negative padding and positive smooth-k")
     if guide is None:
         guide = _derive_hybrid_guides(form, descriptors)
-    fields = _compile_hybrid_guide(guide)
+    fields = _compile_hybrid_guide(guide) if compiled_fields is None else compiled_fields
+    components = _baseline_render_components(fields) if render_components is None else render_components
+    if len(components) != len(fields):
+        _fail("baseline render-component inventory does not match its compiled fields")
     if len(fields) * samples**3 > MAX_FIELD_VALUES:
         _fail("generated field sampling configuration exceeds bounded field-memory limits")
     lower, upper = _bounds(fields, padding)
@@ -6758,6 +6890,7 @@ def build_variant(
             "format": SOURCE_FORMAT,
             "shoulder": _shoulder_source_controls_json(guide.shoulder_frame),
         },
+        "component_visualization": _component_visualization_metadata(components),
     })
     return vertices, faces, normals, labels, metrics, {"bounds_min": lower.tolist(), "bounds_max": upper.tolist(), "spacing": [float(a[1]-a[0]) for a in axes]}
 
@@ -6803,6 +6936,138 @@ def _frame_screen(frame: dict[str, Any], points: np.ndarray) -> list[tuple[float
         )
         for point in camera
     ]
+
+
+def _render_component_label(component: _RenderComponent) -> str:
+    """Return a compact debug identity for one consumer-supplied component."""
+
+    anchors = "/".join(component.source_owner_key[1]) or "root"
+    return f"{component.source_owner_key[3]}[{anchors}]/{component.debug_identity}"
+
+
+def _render_component_colour(component: _RenderComponent) -> tuple[int, int, int]:
+    """Return a stable colour derived from exact source owner and recipe."""
+
+    identity = _canonical({"owner": _address_json(component.source_owner_key), "recipe": component.recipe})
+    digest = hashlib.sha256(identity).digest()
+    return tuple(88 + (int(digest[index]) * 144 // 255) for index in range(3))  # type: ignore[return-value]
+
+
+def _render_component_bounds(component: _RenderComponent, padding: float) -> tuple[np.ndarray, np.ndarray]:
+    """Validate exact consumer bounds and derive only the sampling padding."""
+
+    if not math.isfinite(float(padding)) or padding < 0.0:
+        _fail("render component bounds padding must be finite and non-negative")
+    try:
+        exact_lower, exact_upper = component.bounds
+        lower = np.asarray(exact_lower, dtype=np.float64)
+        upper = np.asarray(exact_upper, dtype=np.float64)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise PreviewError(f"render component bounds are invalid for {_render_component_label(component)}: {exc}") from exc
+    if lower.shape != (3,) or upper.shape != (3,) or not np.all(np.isfinite(lower)) or not np.all(np.isfinite(upper)) or np.any(upper <= lower):
+        _fail(f"render component bounds are invalid for {_render_component_label(component)}")
+    return lower - float(padding), upper + float(padding)
+
+
+def _renderer_component_values(points: np.ndarray, component: _RenderComponent) -> np.ndarray:
+    """Invoke one exact evaluator and normalize only permitted outside ``+inf``."""
+
+    try:
+        values = np.asarray(component.evaluate(points), dtype=np.float64)
+    except PreviewError:
+        raise
+    except Exception as exc:
+        raise PreviewError(f"render component evaluator failed for {_render_component_label(component)}: {exc}") from exc
+    expected_shape = np.asarray(points).shape[:-1]
+    if values.shape != expected_shape:
+        _fail(f"render component evaluator returned an invalid shape for {_render_component_label(component)}")
+    if np.any(np.isnan(values)) or np.any(np.isneginf(values)):
+        _fail(f"render component evaluator returned NaN or -inf for {_render_component_label(component)}")
+    positive_infinite = np.isposinf(values)
+    if np.any(positive_infinite):
+        finite = values[np.isfinite(values)]
+        positive = finite[finite > 0.0]
+        replacement = max(1.0, float(np.max(positive))) if positive.size else 1.0
+        values = np.where(positive_infinite, replacement, values)
+    if not np.all(np.isfinite(values)):
+        _fail(f"render component evaluator returned non-finite values for {_render_component_label(component)}")
+    return values
+
+
+def _field_component_meshes(components: tuple[_RenderComponent, ...]) -> tuple[tuple[_RenderComponent, np.ndarray, np.ndarray], ...]:
+    """Extract exact zero surfaces from generic consumer evaluator shells."""
+
+    if not components:
+        _fail("field component visualization requires a non-empty evaluator inventory")
+    voxels = FIELD_COMPONENT_SAMPLES ** 3
+    if len(components) > MAX_GENERATED_FIELDS or len(components) * voxels > MAX_FIELD_VALUES:
+        _fail("field component visualization exceeds bounded resource limits")
+    meshes: list[tuple[_RenderComponent, np.ndarray, np.ndarray]] = []
+    for component in components:
+        lower, upper = _render_component_bounds(component, FIELD_COMPONENT_PADDING)
+        axes = tuple(np.linspace(lower[index], upper[index], FIELD_COMPONENT_SAMPLES, dtype=np.float64) for index in range(3))
+        points = np.stack(np.meshgrid(*axes, indexing="ij"), axis=-1)
+        values = _renderer_component_values(points, component)
+        if float(np.min(values)) >= 0.0 or float(np.max(values)) <= 0.0:
+            _fail(f"render component {_render_component_label(component)} has no finite zero crossing")
+        boundary = np.concatenate((
+            values[0, :, :].ravel(), values[-1, :, :].ravel(),
+            values[:, 0, :].ravel(), values[:, -1, :].ravel(),
+            values[:, :, 0].ravel(), values[:, :, -1].ravel(),
+        ))
+        if not np.all(np.isfinite(boundary)):
+            _fail(f"render component {_render_component_label(component)} has a non-finite sampling boundary")
+        if np.any(boundary <= 0.0):
+            _fail(f"render component {_render_component_label(component)} is clipped by its sampling bounds")
+        try:
+            raw_vertices, raw_faces, _, _ = marching_cubes(
+                values,
+                level=0.0,
+                spacing=tuple(float(axis[1] - axis[0]) for axis in axes),
+                gradient_direction="descent",
+                allow_degenerate=False,
+            )
+        except Exception as exc:
+            raise PreviewError(f"render component extraction failed for {_render_component_label(component)}: {exc}") from exc
+        vertices = np.asarray(raw_vertices, dtype=np.float64) + lower
+        faces = np.asarray(raw_faces, dtype=np.int64)
+        if len(vertices) == 0 or len(faces) == 0 or not np.all(np.isfinite(vertices)) or np.any(vertices <= lower) or np.any(vertices >= upper):
+            _fail(f"render component {_render_component_label(component)} has an invalid or clipped zero surface")
+        if np.any(faces < 0) or np.any(faces >= len(vertices)):
+            _fail(f"render component {_render_component_label(component)} has invalid zero-surface indices")
+        meshes.append((component, vertices, faces))
+    return tuple(meshes)
+
+
+def _component_visualization_metadata(components: tuple[_RenderComponent, ...]) -> dict[str, Any]:
+    component_details = []
+    for component in components:
+        lower, upper = _render_component_bounds(component, 0.0)
+        component_details.append({
+            "source_owner": _address_json(component.source_owner_key),
+            "recipe": component.recipe,
+            "bounds": {"min": lower.tolist(), "max": upper.tolist()},
+        })
+    return {
+        "semantics": "pre-union exact zero-isosurfaces of every consumer-supplied component consumed by the smooth union; final skin remains neutral",
+        "component_count": len(components),
+        "evaluator": "consumer-supplied exact callable",
+        "evaluator_inventory_binding": "the exact _RenderComponent records passed to _render",
+        "resolution": {
+            "samples_per_axis": FIELD_COMPONENT_SAMPLES,
+            "voxels_per_field": FIELD_COMPONENT_SAMPLES ** 3,
+        },
+        "bounds": {
+            "source": "consumer-supplied per-component sampling bounds",
+            "padding": FIELD_COMPONENT_PADDING,
+            "clipping": "all six sample-domain faces must remain outside-positive",
+        },
+        "colour_identity": {
+            "algorithm": "sha256(canonical source owner plus recipe)",
+            "alpha": FIELD_COMPONENT_ALPHA,
+        },
+        "components": component_details,
+    }
 
 
 def _draw_guide_mass(draw: ImageDraw.ImageDraw, frame: dict[str, Any], center: tuple[float, float, float], radii: tuple[float, float, float], colour: tuple[int, int, int]) -> None:
@@ -6958,6 +7223,36 @@ def _draw_guide(draw: ImageDraw.ImageDraw, frame: dict[str, Any], guide: _Hybrid
             _draw_guide_mass(draw, frame, item.root_collar_center, item.root_collar_radii, colours["tail"])
 
 
+def _draw_field_components(
+    image: Image.Image,
+    frame: dict[str, Any],
+    components: tuple[tuple[_RenderComponent, np.ndarray, np.ndarray], ...],
+    font: ImageFont.ImageFont,
+) -> None:
+    """Draw exact pre-union component meshes with stable translucent depth order."""
+
+    basis = frame["basis"]
+    ordered = sorted(
+        enumerate(components),
+        key=lambda item: (float(np.mean((np.asarray(item[1][1]) @ basis.T)[:, 2])), item[0]),
+    )
+    for _, (component, vertices, faces) in ordered:
+        triangles = vertices[faces]
+        triangle_order = np.argsort(np.mean((triangles @ basis.T)[:, :, 2], axis=1), kind="stable")
+        overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        overlay_draw = ImageDraw.Draw(overlay)
+        colour = _render_component_colour(component)
+        for triangle_index in triangle_order:
+            projected = _frame_screen(frame, triangles[int(triangle_index)])
+            overlay_draw.polygon(projected, fill=(*colour, FIELD_COMPONENT_ALPHA))
+        image.alpha_composite(overlay)
+
+    x0, y0, x1, y1 = frame["box"]
+    draw = ImageDraw.Draw(image)
+    draw.text((x0 + 10, y0 + 30), f"exact pre-union components: {len(components)}", fill=(205, 213, 225, 255), font=font)
+    draw.text((x0 + 10, y0 + 44), "colours separate exact components", fill=(167, 176, 190, 255), font=font)
+
+
 def _draw_skin(draw: ImageDraw.ImageDraw, frame: dict[str, Any], vertices: np.ndarray, faces: np.ndarray) -> None:
     basis = frame["basis"]
     # Keep world-space triangles for screen mapping.  ``_frame_screen`` owns
@@ -6990,13 +7285,15 @@ def _render(
     *,
     guide: _HybridGuide,
     bounds: tuple[np.ndarray, np.ndarray],
+    render_components: tuple[_RenderComponent, ...],
 ) -> None:
     _validate_hybrid_guide(guide, bounds)
-    image = Image.new("RGB", CANVAS, (20, 23, 29))
+    component_meshes = _field_component_meshes(render_components)
+    image = Image.new("RGBA", CANVAS, (20, 23, 29, 255))
     draw = ImageDraw.Draw(image)
     font = ImageFont.load_default()
-    draw.text((16, 16), f"Disposable guide + compiled skin - {variant_id}", fill=(235, 238, 244), font=font)
-    draw.text((16, 42), "guide: skin-driving torso cage rings / regional limb sections / endpoint joints / digitigrade foot chains    skin: deterministic compiled field", fill=(167, 176, 190), font=font)
+    draw.text((16, 16), f"{RENDER_HEADER} - {variant_id}", fill=(235, 238, 244, 255), font=font)
+    draw.text((16, 42), "CONTROL GUIDE is control data, not geometry    FIELD COMPONENTS are exact pre-union evaluator zero-isosurfaces    SKIN is the neutral smooth union", fill=(167, 176, 190, 255), font=font)
     projection_lookup = {name: np.asarray(basis, dtype=np.float64) for name, basis, _ in PROJECTIONS}
     shared_frames: dict[str, dict[str, Any]] = {}
     for item in PANEL_LAYOUT:
@@ -7008,15 +7305,26 @@ def _render(
             # pair cannot drift to independently fitted frames.
             shared_frames[name] = _projection_frame(bounds, projection_lookup[name], box)
         frame = {**shared_frames[name], "box": box}
-        panel_colour = (28, 35, 43) if item["content"] == "guide" else (24, 27, 34)
+        panel_colour = {
+            "control-guide": (28, 35, 43, 255),
+            "field-components": (24, 31, 39, 255),
+            "skin": (24, 27, 34, 255),
+        }[item["content"]]
         draw.rectangle(box, fill=panel_colour)
-        if item["content"] == "guide":
+        if item["content"] == "control-guide":
             _draw_guide(draw, frame, guide)
+        elif item["content"] == "field-components":
+            _draw_field_components(image, frame, component_meshes, font)
         else:
             _draw_skin(draw, frame, vertices, faces)
         draw.rectangle(box, outline=(74, 82, 96), width=2)
-        draw.text((box[0] + 10, box[1] + 8), f"{name} -- {item['content']}", fill=(235, 238, 244), font=font)
-    image.save(path, format="PNG")
+        panel_label = {
+            "control-guide": "CONTROL GUIDE (not geometry)",
+            "field-components": "FIELD COMPONENTS (PRE-UNION)",
+            "skin": "SKIN (neutral smooth union)",
+        }[item["content"]]
+        draw.text((box[0] + 10, box[1] + 8), f"{name} -- {panel_label}", fill=(235, 238, 244, 255), font=font)
+    image.convert("RGB").save(path, format="PNG")
 
 
 def _sha(path: Path, kind: str, root: Path) -> dict[str, Any]:
@@ -7040,20 +7348,21 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
     # Derive every private guide and compiled field set before extracting any
     # mesh.  This gives the four variants one shared world-space frame while
     # retaining each variant's own guide controls and skin geometry.
-    prepared: list[tuple[str, tuple[Descriptor, ...], dict[str, Any], _HybridGuide, tuple[Field, ...]]] = []
+    prepared: list[tuple[str, tuple[Descriptor, ...], dict[str, Any], _HybridGuide, tuple[Field, ...], tuple[_RenderComponent, ...]]] = []
     for variant_id, descriptors, raw_variant in form.variants:
         guide = _derive_hybrid_guides(form, descriptors)
         _validate_hybrid_guide(guide)
         fields = _compile_hybrid_guide(guide)
-        prepared.append((variant_id, descriptors, raw_variant, guide, fields))
+        render_components = _baseline_render_components(fields)
+        prepared.append((variant_id, descriptors, raw_variant, guide, fields, render_components))
     shared_render_bounds = _shared_render_bounds(tuple(item[4] for item in prepared), padding)
-    for _, _, _, guide, _ in prepared:
+    for _, _, _, guide, _, _ in prepared:
         _validate_hybrid_guide(guide, shared_render_bounds)
 
     stage = Path(tempfile.mkdtemp(prefix=f".{output.name}.", dir=str(output.parent)))
     try:
         records = []
-        for variant_id, descriptors, raw_variant, guide, fields in prepared:
+        for variant_id, descriptors, raw_variant, guide, fields, render_components in prepared:
             vertices, faces, normals, labels, metrics, grid = build_variant(
                 form,
                 descriptors,
@@ -7061,6 +7370,8 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
                 padding,
                 smooth_k,
                 guide=guide,
+                compiled_fields=fields,
+                render_components=render_components,
             )
             variant_dir = stage / variant_id
             variant_dir.mkdir()
@@ -7080,7 +7391,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
             }))
             metrics_path.write_bytes(_canonical(metrics))
             guide_path.write_bytes(_canonical(_regional_guide_json(variant_id, guide, shared_render_bounds, compiled_fields=fields)) + b"\n")
-            _render(png, vertices, faces, variant_id, guide=guide, bounds=shared_render_bounds)
+            _render(png, vertices, faces, variant_id, guide=guide, bounds=shared_render_bounds, render_components=render_components)
             records.append({
                 "id": variant_id,
                 "profile_id": raw_variant["profile_id"],
@@ -7092,7 +7403,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
                     _sha(ply, "ply", stage),
                     _sha(sidecar, "semantic-sidecar", stage),
                     _sha(metrics_path, "metrics", stage),
-                    {**_sha(png, "guide-skin-composite-png", stage), "width": CANVAS[0], "height": CANVAS[1], "views": ["front", "side", "three-quarter"], "panels_per_view": 2, "mode": "RGB"},
+                    {**_sha(png, "guide-skin-composite-png", stage), "width": CANVAS[0], "height": CANVAS[1], "views": ["front", "side", "three-quarter"], "panels_per_view": 3, "mode": "RGB"},
                     {**_sha(guide_path, "regional-guide-json", stage), "format": REGIONAL_GUIDE_FORMAT, "variant": variant_id},
                 ],
             })
@@ -7106,7 +7417,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
             "canvas": {"width": CANVAS[0], "height": CANVAS[1], "mode": "RGB"},
             "layout": _layout_json(),
             "projections": _projection_json(),
-            "generator": {"bundle_version": 2, "samples_per_axis": samples, "padding": padding, "smooth_union": {"operator": "polynomial_cubic_smooth_min", "k": smooth_k, "fold_order": "source_address_then_recipe_order"}, "field_primitives": ["torso-cage", "ellipsoid", "capsule", "linear-radius-tapered-segment"], "field_recipes": ["torso-cage", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar", "upper_arm-pre-joint", "upper_arm-joint", "forearm-proximal", "forearm-distal", "thigh-pre-joint", "thigh-joint", "shin-pre-joint", "shin-joint", "elbow", "knee", "hock", "root-bridge", "hip-transition", "deltoid-sweep-1", "paw", "metatarsal", "paw-pad", "toe-box", "extremity-bridge", "tail-segment", "tail-tip-extension", "tail-tip-cap", "tail-root-bridge", "tail-root-collar"], "ownership": "recipe fields are source-owned; the blended torso-cage is torso-owned; shoulder support curves remain torso-owned guide-only controls and are not consumed by this adapter; deltoid recipes retain their upper-arm owners; winner labels expose only source AddressKeys", "boundary": "disposable exploratory visual proof; not production geometry, SDF, collision, rig, topology, or Readiness evidence"},
+            "generator": {"bundle_version": 3, "samples_per_axis": samples, "padding": padding, "smooth_union": {"operator": "polynomial_cubic_smooth_min", "k": smooth_k, "fold_order": "source_address_then_recipe_order"}, "field_primitives": ["torso-cage", "ellipsoid", "capsule", "linear-radius-tapered-segment"], "field_recipes": ["torso-cage", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar", "upper_arm-pre-joint", "upper_arm-joint", "forearm-proximal", "forearm-distal", "thigh-pre-joint", "thigh-joint", "shin-pre-joint", "shin-joint", "elbow", "knee", "hock", "root-bridge", "hip-transition", "deltoid-sweep-1", "paw", "metatarsal", "paw-pad", "toe-box", "extremity-bridge", "tail-segment", "tail-tip-extension", "tail-tip-cap", "tail-root-bridge", "tail-root-collar"], "ownership": "recipe fields are source-owned; the blended torso-cage is torso-owned; shoulder support curves remain torso-owned guide-only controls and are not consumed by this adapter; deltoid recipes retain their upper-arm owners; winner labels expose only source AddressKeys", "component_visualization": {"mode": "exact-consumed-component-zero-isosurfaces", "samples_per_axis": 32, "stage": "pre-smooth-union", "colour_identity": "sha256-source-owner-and-recipe"}, "boundary": "disposable exploratory visual proof; not production geometry, SDF, collision, rig, topology, or Readiness evidence"},
             "variants": records,
         }
         (stage / "surface-preview-manifest.json").write_bytes(_canonical(manifest) + b"\n")

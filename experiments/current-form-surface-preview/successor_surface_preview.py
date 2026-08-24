@@ -41,11 +41,11 @@ except ModuleNotFoundError:  # pragma: no cover - direct source-tree execution
     _baseline = importlib.import_module("surface_preview")
 
 
-# V8 consumes the current v10 regional guide's seven source-authored torso,
+# V9 consumes the current v11 regional guide's seven source-authored torso,
 # eight-station branched head/neck, bilateral five-station arm profile, and
 # bilateral five-station authored leg profile.  The torso evaluator and every
 # non-profile consumer remain shared with the predecessor.
-FORMAT = "creature-kernel.disposable-successor-surface-preview.v8"
+FORMAT = "creature-kernel.disposable-successor-surface-preview.v9"
 REGIONAL_GUIDE_FORMAT = _baseline.REGIONAL_GUIDE_FORMAT
 CONSUMER_ID = "successor-surface-v1"
 SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v12"
@@ -427,6 +427,7 @@ class SuccessorMesh:
     metrics: dict[str, Any]
     representation: SuccessorRegion
     grid: dict[str, Any]
+    render_components: tuple[Any, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -4053,9 +4054,9 @@ def _profile_sweep_bounds(sweep: _ProfileSweep) -> tuple[np.ndarray, np.ndarray]
 
 
 def _make_components(region: SuccessorRegion, smooth_k: float) -> tuple[_Component, ...]:
-    region_bounds = _bounds_for_region(region)
+    torso_bounds = _profile_sweep_bounds(region.loft)
     components: list[_Component] = [
-        _Component(region.source_owners[0], "successor-torso-loft", lambda points: _loft_field(points, region.loft), region_bounds, True),
+        _Component(region.source_owners[0], "successor-torso-loft", lambda points: _loft_field(points, region.loft), torso_bounds, True),
     ]
     for item in region.head_neck_sweeps:
         bounds = _profile_sweep_bounds(item.sweep)
@@ -4125,6 +4126,31 @@ def _make_components(region: SuccessorRegion, smooth_k: float) -> tuple[_Compone
     return tuple(components)
 
 
+_EXPECTED_COMPONENT_COUNT = 27
+
+
+def _make_render_components(components: tuple[_Component, ...]) -> tuple[Any, ...]:
+    """Adapt the exact successor consumers to the shared render seam."""
+
+    if type(components) is not tuple or len(components) != _EXPECTED_COMPONENT_COUNT:
+        _fail(
+            "successor render-component inventory must contain exactly "
+            f"{_EXPECTED_COMPONENT_COUNT} exact components"
+        )
+    render_components = []
+    for component in components:
+        kind = "successor" if component.successor else "bridge"
+        render_components.append(_baseline._make_render_component(
+            component.owner.key,
+            component.recipe,
+            component.evaluate,
+            component.bounds,
+            f"successor/{kind}-exact-component",
+            debug_identity=f"{kind}:{component.recipe}",
+        ))
+    return tuple(render_components)
+
+
 def _evaluate_components(points: np.ndarray, components: tuple[_Component, ...], smooth_k: float) -> np.ndarray:
     values = [component.evaluate(points) for component in components]
     return _baseline._smooth_union(values, smooth_k)
@@ -4176,6 +4202,7 @@ def build_variant(form: Any, descriptors: tuple[Any, ...], samples: int = DEFAUL
     baseline_signature = tuple((field.owner.key, field.recipe) for field in baseline_fields)
     region = compile_successor_region(guide, baseline_fields)
     components = _make_components(region, smooth_k)
+    render_components = _make_render_components(components)
     if len(components) * samples**3 > MAX_FIELD_VALUES:
         _fail("successor field sampling configuration exceeds bounded limits")
     lower, upper = _combined_bounds(components, padding)
@@ -4319,7 +4346,8 @@ def build_variant(form: Any, descriptors: tuple[Any, ...], samples: int = DEFAUL
         "component_count_for_sampling": len(components),
         "grid": {"samples_per_axis": samples, "axis_order": ["x", "y", "z"], "bounds_min": lower.tolist(), "bounds_max": upper.tolist(), "spacing": [float(axis[1] - axis[0]) for axis in axes]},
     })
-    return SuccessorMesh(vertices, faces, normals, tuple(labels), metrics, region, metrics["grid"])
+    metrics["component_visualization"] = _baseline._component_visualization_metadata(render_components)
+    return SuccessorMesh(vertices, faces, normals, tuple(labels), metrics, region, metrics["grid"], render_components)
 
 
 def _canonical(value: Any) -> bytes:
@@ -4510,7 +4538,15 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
                 "temporary_bridge": mesh.metrics["temporary_bridge"],
                 "replaced_baseline_recipes": list(mesh.representation.replaced_baseline_recipes),
             }) + b"\n")
-            _baseline._render(png, mesh.vertices, mesh.faces, variant_id, guide=guide, bounds=shared_render_bounds)
+            _baseline._render(
+                png,
+                mesh.vertices,
+                mesh.faces,
+                variant_id,
+                guide=guide,
+                bounds=shared_render_bounds,
+                render_components=mesh.render_components,
+            )
             records.append({
                 "id": variant_id,
                 "profile_id": raw_variant["profile_id"],
@@ -4520,7 +4556,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
                     _sha(ply, "ply", stage),
                     _sha(metrics, "metrics", stage),
                     _sha(successor, "successor-consumer-sidecar", stage),
-                    {**_sha(png, "guide-skin-composite-png", stage), "width": _baseline.CANVAS[0], "height": _baseline.CANVAS[1], "views": ["front", "side", "three-quarter"], "panels_per_view": 2, "mode": "RGB"},
+                    {**_sha(png, "guide-skin-composite-png", stage), "width": _baseline.CANVAS[0], "height": _baseline.CANVAS[1], "views": ["front", "side", "three-quarter"], "panels_per_view": 3, "mode": "RGB"},
                 ],
             })
         manifest = {
@@ -4533,7 +4569,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
             "canvas": canvas,
             "layout": layout,
             "projections": projections,
-            "generator": {"samples_per_axis": samples, "padding": padding, "capture_padding": DEFAULT_CAPTURE_PADDING, "smooth_k": smooth_k, "consumer_boundary": "successor torso/shoulder/head/neck, authored arm and leg profile routes, bilateral hands, digitigrade feet, and tail; baseline temporary bridge for thigh-root/hip connectors", "production_status": "disposable exploratory proof"},
+            "generator": {"samples_per_axis": samples, "padding": padding, "capture_padding": DEFAULT_CAPTURE_PADDING, "smooth_k": smooth_k, "consumer_boundary": "successor torso/shoulder/head/neck, authored arm and leg profile routes, bilateral hands, digitigrade feet, and tail; baseline temporary bridge for thigh-root/hip connectors", "production_status": "disposable exploratory proof", "component_visualization": {"mode": "exact-consumed-component-zero-isosurfaces", "samples_per_axis": 32, "stage": "pre-smooth-union", "colour_identity": "sha256-source-owner-and-recipe"}},
             "variants": records,
         }
         manifest_path = stage / "successor-surface-manifest.json"

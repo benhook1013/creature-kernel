@@ -17,10 +17,12 @@ the canonical owner of the active runway, and the required reading order in
   branch `implementation/authored-digitigrade-foot-profiles`, based on that
   commit. [Draft PR #113](https://github.com/benhook1013/creature-kernel/pull/113)
   is open for the current work and held for Ben's visual appraisal and explicit
-  merge authorization. The current implementation candidate
-  has reached the named complete authored-form expressivity gallery checkpoint,
-  completed its local tests, hands-on trials, and fresh adversarial review, and
-  is held for Ben's visual appraisal and explicit merge authorization.
+  merge authorization. The current implementation candidate has reached the
+  named complete authored-form expressivity gallery checkpoint. Current local
+  diagnostic checks, two corrected-route hands-on trials, and the final fresh
+  new-code adversarial Luna/xhigh review are complete; Ben's visual appraisal
+  remains pending. Draft PR #113 remains unmerged and is held for Ben's visual
+  appraisal and explicit merge authorization.
 - [PR #112](https://github.com/benhook1013/creature-kernel/pull/112) merged at
   `80179614ea693cd45d55743d1d83d044c653a08f`. Its authored pelvis/leg profile
   is merged predecessor evidence, not completion or visual-quality acceptance.
@@ -143,35 +145,49 @@ spikes, detached islands, or duplicate bulb masses; the lower foot chain
 remains coarse and is not accepted final quality. This merged slice is an
 internal reversible prerequisite, not the complete authored-form gallery, and
 no Ben appraisal has been requested. The current worktree candidate has since
-reached the named complete authored-form expressivity gallery checkpoint; it
-has completed local tests, hands-on trials, and fresh adversarial review and is
-held for Ben's visual appraisal, with no approval or merge.
+reached the named complete authored-form expressivity gallery checkpoint; its
+current local diagnostic checks, corrected-route hands-on trials, and final
+fresh adversarial review are complete. It is held for Ben's visual appraisal,
+with no approval or merge.
 
 ## Current authored-form gallery candidate
 
-The current candidate uses producer v11 with `authored_foot_profile` v1:
-153 authored dimensions, 43 authored landmarks, and 16 authored frames. The
-private regional guide is v10. The successor is v8 with region/profile version
-v12. Its exact foot route is `hock -> metatarsal midpoint -> pad -> pad-toe
-midpoint -> toe`: the hock is shin-owned, the other four stations are
-foot-owned, and the route carries full lateral/up/forward radii, outer caps,
-four spans, and exact producer/guide/successor lineage and cross-binding.
+The current candidate's exact foot route is `hock -> metatarsal midpoint ->
+pad -> pad-toe midpoint -> toe`: the hock is shin-owned, the other four
+stations are foot-owned, and the route carries full lateral/up/forward radii,
+outer caps, four spans, and exact producer/guide/successor lineage and
+cross-binding. The visual-review diagnostic redesign changes the evidence
+layout only; it does not change final skin geometry.
 
-Measured current publication evidence is: compact producer envelope 190444
+The new immutable checkpoint ID is
+`authored-form-expressivity-exact-field-components-checkpoint-v2`, with
+persistent URL
+`http://localhost:8765/review/authored-form-expressivity-exact-field-components-checkpoint-v2`.
+Each of the eight baseline/successor images is now a 3x3 sheet with columns
+`front`, `side`, and `three-quarter`, and rows `CONTROL GUIDE` (explicitly not
+geometry), exact consumed pre-union field-component shells (52 baseline, 27
+successor), and neutral final skin. The earlier no-suffix
+`authored-form-expressivity-exact-field-components-checkpoint` session is
+preserved as historical evidence but superseded because its successor torso
+used aggregate rather than exact loft sampling bounds. Corrected v2 uses the
+exact loft bounds. Pixel-crop checks prove that every control-guide and
+final-skin row is byte/pixel identical between the superseded session and v2;
+the geometry and final skin did not change.
+
+Pre-redesign publication measurements are retained as historical evidence:
+compact producer envelope 190444
 bytes; XZ 6244 bytes; Base64 8328 characters; producer SHA-256
 `c48ed001b910549dd1da296bb4c664a4de29cad4838b42403b15aa97773a6d3e`; XZ
 SHA-256 `5c42afe0b599b3afff52d687c3e46c9f4ae7d31f7d8e426d0b17e55858331161`;
 subject context 8812 bytes; subject-context SHA-256
 `0210c5f225869d9030ff82a2898f122be21b4da328dcb668e0b83a674f486fb7`.
-Strict decode equality passed. The final publication context cap is 12 KiB
-only for the exact subject-context carrier; ordinary strings remain capped at
-8192 characters.
+Strict decode equality passed for that pre-redesign candidate. These
+measurements remain historical and do not describe the corrected v2 session.
 
-The published form gallery is the named human checkpoint. Publication
-machinery is evidence plumbing, not acceptance: local tests, two fresh
-hands-on trials, and fresh adversarial review are complete, and the candidate
-is held for Ben's visual appraisal and explicit merge authorization, with no
-approval or merge. Draft PR #113 carries the candidate. Ben's appraisal is of
+The named gallery is the human checkpoint. Publication machinery is evidence
+plumbing, not acceptance: draft PR #113 remains unmerged and the candidate is
+held for Ben's subjective authored-form and variant appraisal, with no approval
+of a permanent backend and no merge authorization yet. Ben's appraisal is of
 the rendered spatial form and
 variant response: whether the authored torso, head/neck, shoulder/arm,
 pelvis/leg, and digitigrade foot transitions read as controlled continuous
@@ -198,18 +214,47 @@ visual appraisal and explicit merge authorization.
 
 ## Gallery and service
 
-- Gallery: [complete authored-form expressivity gallery checkpoint](http://localhost:8765/review/authored-form-expressivity-gallery-checkpoint)
+- New immutable checkpoint ID: `authored-form-expressivity-exact-field-components-checkpoint-v2`
+- Persistent URL: `http://localhost:8765/review/authored-form-expressivity-exact-field-components-checkpoint-v2`
 - Persistent root: `/home/ben/.cache/creature-kernel/visual-reviews`
-- The checkpoint contains `review.json` and exactly 8 PNGs; it has no
-  `response.json` as of this handover.
-- User service:
-  `/home/ben/.config/systemd/user/creature-kernel-visual-review.service`.
-  It is enabled and active on port 8765 and serves LAN read-only.
-- The service drop-in executes the active
-  `authored-digitigrade-foot-profiles` worktree so it can validate the current
-  v11 manifest. The route and API return HTTP 200; all eight assets load, match
-  the independently trialed candidate byte-for-byte, and produce no browser
-  console or request failures.
+- The earlier no-suffix
+  `authored-form-expressivity-exact-field-components-checkpoint` session is
+  preserved but superseded evidence because its successor torso used aggregate
+  rather than exact loft sampling bounds. The older
+  `authored-form-expressivity-gallery-checkpoint` ID is pre-redesign evidence;
+  neither is the current checkpoint.
+- The new persistent session exists at
+  `/home/ben/.cache/creature-kernel/visual-reviews/authored-form-expressivity-exact-field-components-checkpoint-v2`
+  with `review.json`, exactly 8 PNGs, and no `response.json`.
+- The systemd user service at
+  `/home/ben/.config/systemd/user/creature-kernel-visual-review.service` was
+  restarted and is enabled/active on port 8765 in LAN read-only mode from the
+  active worktree. The page and API return HTTP 200; all eight API assets
+  return HTTP 200 and their served SHA-256 values match the on-disk v2 assets.
+- Playwright persistent-route smoke loaded all eight assets at `1800x1500`,
+  switched baseline/successor with arrow keys, and found no console or request
+  failures. Pixel-crop checks prove the control-guide and final-skin rows are
+  byte/pixel identical to the superseded no-suffix session. Current local
+  diagnostic results are: baseline full suite 68 tests passed; successor full
+  suite 61 passed; full visual-review suite 113 passed via the repository's
+  native-temp launcher; the full affected publisher rerun passed 39 tests;
+  Python compilation, JavaScript syntax, documentation validation, and `git
+  diff --check` passed. A raw system-Python visual-test attempt failed exactly
+  two WSL/Windows TEMP parent-swap tests; the repository launcher corrected that
+  environment and the suite then passed 113 tests. Two fresh Luna/high
+  corrected-route hands-on trials found no correctness blocker. Their first-use
+  notes were narrow fit text/details, long metadata, and a description that
+  says final skin rather than explicitly neutral although the PNG labels say
+  neutral. The adversarial notes were modest variant differences in some front
+  views and the pre-existing enabled Save control in LAN read-only mode; no
+  Save response was submitted or activated. The final fresh new-code
+  adversarial Luna/xhigh review is complete: it found torso-bound and
+  publisher-claim validation gaps, which were corrected with exact loft bounds
+  and regression coverage, plus bounded validation of the full schema/count,
+  owner provenance, recipe histograms, and finite ordered `±100` sampling
+  bounds. The publisher does not independently duplicate NumPy/SciPy geometry
+  or prove rendered pixels, and this does not select a permanent backend. CI is
+  not yet new-head complete.
 
 Useful local checks:
 
@@ -276,7 +321,7 @@ per-variant or per-fixture patches or a handcrafted base mesh. This remains a
 bounded exploratory expressivity checkpoint, not proof of a finished
 morphology family or production surface system.
 
-Before that gallery is published, its immutable evidence must retain either
+For this checkpoint, its immutable evidence must retain either
 the exact producer envelope used by the checkpoint or an integrity-bound
 authored-dimension, landmark, frame, and descriptor-role lineage projection,
 including indexed authored provenance. The existing source hash alone is not a
@@ -287,10 +332,9 @@ large-coordinate fixture exceeds JavaScript's exact-integer domain, align or
 tighten the producer/publication/surface/browser numeric bounds. That trigger
 is not active for this checkpoint.
 
-Routine implementation, tests, reviews, and small internal PRs may proceed
-autonomously toward the checkpoint. The current candidate is the first
-genuinely appraisable result and is held for Ben's appraisal and explicit
-merge authorization; publication is not acceptance. Rigging, contact,
+The current candidate is the first genuinely appraisable result and is held for
+Ben's appraisal and explicit merge authorization; no further runway step is
+required before that appraisal, and publication is not acceptance. Rigging, contact,
 deformation, VR integration, and permanent backend selection remain outside
 this immediate runway.
 
@@ -303,15 +347,12 @@ boundary explicitly, not as authority to regenerate or rebind EXP-0002.
 
 ## Evidence and limits
 
-Current candidate status: the exact publication measurements and hashes are
-recorded above, and strict decode equality passed. Local gates pass: 422 Rust
-workspace tests, Rust formatting and Clippy with warnings denied, 122 full
-surface-preview tests, 112 full visual-review tests, Python and JavaScript
-syntax checks, documentation validation, and `git diff --check`. Two fresh
-hands-on trials found no correctness blocker. The fresh adversarial review's
-one P2 UTF-8 byte-cap finding is fixed with a non-ASCII regression and the
-affected full visual-review suite rerun. Ben's visual appraisal remains
-pending; no CI result is claimed for this candidate.
+Corrected v2 checkpoint status: the pre-redesign publication measurements and
+hashes, strict decode equality, and earlier gates remain historical evidence.
+The corrected v2 session, service, HTTP, asset-integrity, pixel-crop, and
+Playwright route checks are live-verified as recorded above; CI is not yet
+new-head complete, and Ben's subjective authored-form/variant appraisal remains
+pending.
 
 ### Historical arm-slice evidence
 

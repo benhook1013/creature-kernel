@@ -102,6 +102,19 @@
     return pre;
   }
 
+  function imageDescription(item) {
+    if (!item || item.description === undefined || item.description === null) {
+      return "";
+    }
+    return String(item.description);
+  }
+
+  function imageAccessibleLabel(item) {
+    var title = item && item.title !== undefined && item.title !== null ? String(item.title) : "";
+    var description = imageDescription(item);
+    return description ? title + " — " + description : title;
+  }
+
   function subjectContextBlock(context) {
     if (!context) {
       return null;
@@ -3867,11 +3880,12 @@
       var item = items[currentIndex];
       var loadToken = ++imageLoadToken;
       var nextImage = node("img");
-      nextImage.alt = item.title;
+      var imageLabel = imageAccessibleLabel(item);
+      nextImage.alt = imageLabel;
       nextImage.title = item.title;
       nextImage.tabIndex = 0;
       nextImage.setAttribute("role", "button");
-      nextImage.setAttribute("aria-label", "Show next comparison image");
+      nextImage.setAttribute("aria-label", imageDescription(item) ? "Show next comparison image: " + imageLabel : "Show next comparison image");
       function showNextImage(event) {
         if (event.type === "keydown" && event.key !== "Enter" && event.key !== " ") {
           return;
@@ -4014,10 +4028,11 @@
         var card = node("article", null, "option-card");
         var imageButton = node("button", null, "image-button");
         imageButton.type = "button";
-        imageButton.setAttribute("aria-label", "Expand " + item.title);
+        var imageLabel = imageAccessibleLabel(item);
+        imageButton.setAttribute("aria-label", "Expand " + imageLabel);
         var image = node("img");
         image.src = imageItems[itemIndex].source;
-        image.alt = item.title;
+        image.alt = imageLabel;
         image.loading = "lazy";
         imageButton.appendChild(image);
         imageButton.addEventListener("click", function () { openImage(imageItems, itemIndex); });

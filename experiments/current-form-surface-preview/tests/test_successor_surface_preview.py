@@ -2181,6 +2181,102 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
         self.assertEqual(mesh.metrics["component_count"], 1)
         self.assertGreater(mesh.metrics["signed_volume"], 0.0)
 
+    def test_successor_adapter_forwards_exact_inventory_and_excludes_guide_only_fields(self) -> None:
+        _, descriptors, _ = self.form.variants[0]
+        guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+        baseline = surface_preview._compile_hybrid_guide(guide)
+        region = successor.compile_successor_region(guide, baseline)
+        exact_components = successor._make_components(region, successor.DEFAULT_SMOOTH_K)
+        self.assertEqual(len(exact_components), 27)
+        self.assertEqual(len(region.bridge_fields), 4)
+        exact_torso_bounds = successor._profile_sweep_bounds(region.loft)
+        aggregate_region_bounds = successor._bounds_for_region(region)
+
+        calls = []
+        original_adapter = surface_preview._make_render_component
+
+        def recording_adapter(*args, **kwargs):
+            calls.append((args, kwargs))
+            return original_adapter(*args, **kwargs)
+
+        with mock.patch.object(surface_preview, "_make_render_component", side_effect=recording_adapter):
+            render_components = successor._make_render_components(exact_components)
+
+        self.assertEqual(len(render_components), 27)
+        self.assertEqual(len(calls), 27)
+        adapted_torso_bounds = render_components[0].bounds
+        np.testing.assert_array_equal(adapted_torso_bounds[0], exact_torso_bounds[0])
+        np.testing.assert_array_equal(adapted_torso_bounds[1], exact_torso_bounds[1])
+        self.assertFalse(
+            all(
+                np.array_equal(adapted_torso_bounds[index], aggregate_region_bounds[index])
+                for index in range(2)
+            )
+        )
+        for exact, adapted, (args, kwargs) in zip(exact_components, render_components, calls):
+            self.assertIs(args[0], exact.owner.key)
+            self.assertIs(args[2], exact.evaluate)
+            self.assertIs(args[3], exact.bounds)
+            self.assertEqual(args[1], exact.recipe)
+            self.assertEqual(adapted.source_owner_key, exact.owner.key)
+            self.assertEqual(adapted.recipe, exact.recipe)
+            self.assertIs(adapted.evaluate, exact.evaluate)
+            self.assertIs(adapted.bounds, exact.bounds)
+            self.assertEqual(kwargs["debug_identity"], f"{'successor' if exact.successor else 'bridge'}:{exact.recipe}")
+            self.assertIn("successor/", args[4])
+
+        self.assertEqual(sum(not component.successor for component in exact_components), 4)
+        self.assertEqual(
+            {component.recipe for component in exact_components if not component.successor},
+            {field.recipe for field in region.bridge_fields},
+        )
+        generic_recipes = {component.recipe for component in render_components}
+        for guide_only_recipe in (
+            "anterior-support",
+            "posterior-support",
+            "upper-arm-root-bridge",
+        ):
+            self.assertNotIn(guide_only_recipe, generic_recipes)
+            self.assertNotIn(f"successor-{guide_only_recipe}", generic_recipes)
+        self.assertFalse(generic_recipes & set(region.replaced_baseline_recipes))
+
+        with self.assertRaisesRegex(successor.SuccessorPreviewError, "exactly 27"):
+            successor._make_render_components(exact_components[:-1])
+
+    def test_successor_build_retains_exact_render_inventory_and_render_receives_it(self) -> None:
+        _, descriptors, _ = self.form.variants[0]
+        exact_inventory = []
+        original_make_components = successor._make_components
+
+        def recording_make_components(region, smooth_k):
+            components = original_make_components(region, smooth_k)
+            exact_inventory.append(components)
+            return components
+
+        with mock.patch.object(successor, "_make_components", side_effect=recording_make_components):
+            mesh = successor.build_variant(self.form, descriptors, padding=0.5)
+        self.assertEqual(len(exact_inventory), 1)
+        exact_components = exact_inventory[0]
+        self.assertEqual(len(mesh.render_components), 27)
+        for exact, adapted in zip(exact_components, mesh.render_components):
+            self.assertIs(adapted.evaluate, exact.evaluate)
+            self.assertIs(adapted.bounds, exact.bounds)
+
+        with mock.patch.object(surface_preview, "_field_component_meshes", return_value=()) as extract:
+            with _native_temporary_directory() as directory:
+                surface_preview._render(
+                    Path(directory) / "components.png",
+                    mesh.vertices,
+                    mesh.faces,
+                    "neutral-v0",
+                    guide=surface_preview._derive_hybrid_guides(self.form, descriptors),
+                    bounds=successor._combined_bounds(exact_components, successor.DEFAULT_CAPTURE_PADDING),
+                    render_components=mesh.render_components,
+                )
+        extract.assert_called_once()
+        self.assertIs(extract.call_args.args[0], mesh.render_components)
+        self.assertEqual(mesh.metrics["component_visualization"]["component_count"], 27)
+
     def test_successor_preserves_section_source_ownership_in_attribution(self) -> None:
         _, descriptors, _ = self.form.variants[0]
         guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
@@ -2387,12 +2483,18 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 [item["source_variant_sha256"] for item in first_manifest["variants"]],
                 [item["source_variant_sha256"] for item in second_manifest["variants"]],
             )
-            self.assertEqual(successor.FORMAT, "creature-kernel.disposable-successor-surface-preview.v8")
+            self.assertEqual(successor.FORMAT, "creature-kernel.disposable-successor-surface-preview.v9")
             self.assertEqual(first_manifest["format"], successor.FORMAT)
             self.assertEqual(first_manifest["consumer_id"], successor.CONSUMER_ID)
             self.assertEqual(first_manifest["generator"]["samples_per_axis"], 56)
             self.assertEqual(first_manifest["generator"]["padding"], 0.5)
             self.assertEqual(first_manifest["generator"]["capture_padding"], successor.DEFAULT_CAPTURE_PADDING)
+            self.assertEqual(first_manifest["generator"]["component_visualization"], {
+                "mode": "exact-consumed-component-zero-isosurfaces",
+                "samples_per_axis": 32,
+                "stage": "pre-smooth-union",
+                "colour_identity": "sha256-source-owner-and-recipe",
+            })
             self.assertEqual([item["id"] for item in first_manifest["variants"]], list(surface_preview.VARIANT_IDS))
             self.assertEqual(len(first_manifest["variants"]), 4)
             self.assertEqual(
@@ -2440,7 +2542,9 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             self.assertEqual(first_manifest["layout"], surface_preview._layout_json())
             self.assertEqual([item["name"] for item in first_manifest["projections"]], ["front", "side", "three-quarter"])
             self.assertEqual(first_manifest["layout"]["panel_order"], [
-                "front-guide", "front-skin", "side-guide", "side-skin", "three-quarter-guide", "three-quarter-skin",
+                "front-control-guide", "side-control-guide", "three-quarter-control-guide",
+                "front-field-components", "side-field-components", "three-quarter-field-components",
+                "front-skin", "side-skin", "three-quarter-skin",
             ])
             self.assertTrue(all(not Path(item["path"]).is_absolute() for variant in first_manifest["variants"] for item in variant["inventory"]))
             source_variant_hashes = {
@@ -2478,7 +2582,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 self.assertEqual(png_inventory["width"], surface_preview.CANVAS[0])
                 self.assertEqual(png_inventory["height"], surface_preview.CANVAS[1])
                 self.assertEqual(png_inventory["views"], ["front", "side", "three-quarter"])
-                self.assertEqual(png_inventory["panels_per_view"], 2)
+                self.assertEqual(png_inventory["panels_per_view"], 3)
                 self.assertEqual(png_inventory["mode"], "RGB")
                 with Image.open(png_path) as image:
                     self.assertEqual(image.size, surface_preview.CANVAS)
@@ -2486,6 +2590,10 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                     image.verify()
                 sidecar = json.loads((variant_dir / "successor.json").read_text())
                 metrics_payload = json.loads((variant_dir / "metrics.json").read_text())
+                self.assertEqual(metrics_payload["component_visualization"], variant["metrics"]["component_visualization"])
+                self.assertEqual(metrics_payload["component_visualization"]["component_count"], 27)
+                self.assertEqual(metrics_payload["component_visualization"]["resolution"]["samples_per_axis"], 32)
+                self.assertEqual(len(metrics_payload["component_visualization"]["components"]), 27)
                 sampling_lower, sampling_upper = expected_sampling_bounds[variant["id"]]
                 self.assertEqual(
                     metrics_payload["grid"]["bounds_min"],
