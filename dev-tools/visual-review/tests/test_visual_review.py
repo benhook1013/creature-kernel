@@ -794,17 +794,28 @@ process.stdout.write(JSON.stringify(items.map(context.__imageAccessibleLabel)));
             'event.key === "ArrowLeft"',
             'event.key === "ArrowRight"',
             "function showItem(index, focusImage)",
-            "showItem(currentIndex - 1, document.activeElement === image);",
-            "showItem(currentIndex + 1, document.activeElement === image);",
-            "showItem(currentIndex + 1, true);",
+            "function restoreViewport(viewportState)",
+            "function captureViewport()",
+            "showItem(requestedIndex - 1, image !== null && document.activeElement === image);",
+            "showItem(requestedIndex + 1, image !== null && document.activeElement === image);",
+            "showItem(requestedIndex + 1, true);",
+            "showItem(requestedIndex - 1, false);",
+            "showItem(requestedIndex + 1, false);",
+            "showItem(requestedIndex, false);",
+            "viewport.scrollLeft = viewportState.scrollLeft;",
+            "viewport.scrollTop = viewportState.scrollTop;",
+            "if (viewportState) {",
+            "restoreViewport(viewportState);",
             "if (focusImage)",
-            "image.focus();",
+            "focusPreservingViewport(image);",
             'node("button", "Previous"',
             'node("button", "Next"',
-            'positionLabel.textContent = "Item "',
+            "positionLabel.textContent = displayedPositionText()",
             'Use Previous/Next, the Left/Right arrow keys',
             'nextImage.addEventListener("click"',
-            'loadToken !== imageLoadToken || image !== nextImage',
+            'nextImage.addEventListener("load"',
+            'nextImage.addEventListener("error"',
+            'loadToken !== imageLoadToken || requestedIndex !== targetIndex',
             'nextImage.alt = imageLabel',
             'nextImage.title = item.title',
             'nextImage.setAttribute("role", "button")',
@@ -819,6 +830,69 @@ process.stdout.write(JSON.stringify(items.map(context.__imageAccessibleLabel)));
             self.assertIn(contract, js)
         for selector in (".image-navigation-control", ".image-position", ".image-dialog-instructions", ".image-dialog img:focus-visible"):
             self.assertIn(selector, css)
+
+    def test_image_viewer_preloads_and_captures_latest_viewport_on_winning_load(self):
+        js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
+        self.assertIn("var image = null;", js)
+        self.assertNotIn("canvas.appendChild(image);", js)
+        self.assertNotIn("preserveViewport", js)
+        self.assertNotIn("image.src = item.source;", js)
+        self.assertIn("nextImage.src = item.source;", js)
+        self.assertIn("var viewportState = image ? captureViewport() : null;", js)
+        self.assertIn("canvas.replaceChild(nextImage, image);", js)
+        self.assertIn("canvas.appendChild(nextImage);", js)
+        self.assertIn("if (viewportState) {\n          restoreViewport(viewportState);\n        } else {\n          fitToViewport();", js)
+        load_handler = js.index('nextImage.addEventListener("load"')
+        latest_capture = js.index("var viewportState = image ? captureViewport() : null;", load_handler)
+        error_handler = js.index('nextImage.addEventListener("error"', load_handler)
+        source_assignment = js.index("nextImage.src = item.source;", error_handler)
+        self.assertLess(load_handler, latest_capture)
+        self.assertLess(latest_capture, error_handler)
+        self.assertLess(error_handler, source_assignment)
+        self.assertEqual(js.count("captureViewport()"), 2)
+        self.assertEqual(js.count("restoreViewport(viewportState);"), 1)
+
+    def test_image_viewer_stale_load_and_error_paths_keep_displayed_state_honest(self):
+        js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
+        stale_guard = "cleaned || loadToken !== imageLoadToken || requestedIndex !== targetIndex"
+        self.assertEqual(js.count(stale_guard), 2)
+        self.assertIn("var requestedIndex = initialIndex;", js)
+        self.assertIn("var displayedIndex = -1;", js)
+        self.assertIn("displayedIndex = targetIndex;\n        requestedIndex = targetIndex;", js)
+        self.assertIn("if (displayedIndex >= 0) {\n          requestedIndex = displayedIndex;\n        }", js)
+        self.assertIn('return "No image displayed";', js)
+        self.assertIn('updateDisplayedState("Loading item " + (targetIndex + 1) + ": " + item.title);', js)
+        self.assertIn('updateDisplayedState("Could not load item " + (targetIndex + 1) + ": " + item.title);', js)
+        self.assertIn('heading.textContent = displayedIndex < 0 ? "Image comparison" : items[displayedIndex].title;', js)
+        self.assertIn("positionLabel.textContent = displayedPositionText()", js)
+        self.assertIn("var disabled = image === null;", js)
+        error_handler = js.index('nextImage.addEventListener("error"')
+        source_assignment = js.index("nextImage.src = item.source;", error_handler)
+        error_contract = js[error_handler:source_assignment]
+        self.assertNotIn("canvas.replaceChild", error_contract)
+        self.assertNotIn("canvas.appendChild", error_contract)
+        self.assertNotIn("displayedIndex = targetIndex", error_contract)
+
+    def test_image_viewer_preservation_is_scoped_to_one_open_item_set(self):
+        js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
+        self.assertIn("var scale = 1;", js)
+        self.assertIn("var initialIndex = Math.max(0, Math.min(items.length - 1, selectedIndex || 0));", js)
+        self.assertIn("var requestedIndex = initialIndex;", js)
+        self.assertIn("var displayedIndex = -1;", js)
+        self.assertIn("showItem(requestedIndex, false);", js)
+        self.assertEqual(js.count("showItem(requestedIndex, false);"), 1)
+
+    def test_image_switch_focus_preserves_scroll_with_fallback(self):
+        js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
+        self.assertIn("function focusPreservingViewport(element)", js)
+        self.assertIn("var scrollLeft = viewport.scrollLeft;", js)
+        self.assertIn("var scrollTop = viewport.scrollTop;", js)
+        self.assertIn("element.focus({ preventScroll: true });", js)
+        self.assertIn("catch (error) {\n        element.focus();\n      }", js)
+        self.assertIn("viewport.scrollLeft = scrollLeft;", js)
+        self.assertIn("viewport.scrollTop = scrollTop;", js)
+        self.assertEqual(js.count("focusPreservingViewport(image);"), 2)
+        self.assertNotIn("image.focus();", js)
 
     def test_image_viewer_is_viewport_sized_and_image_scoped(self):
         js = (HERE / "static" / "app.js").read_text(encoding="utf-8")

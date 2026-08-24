@@ -3767,8 +3767,7 @@
     viewport.setAttribute("role", "region");
     viewport.setAttribute("aria-label", "Scrollable image viewport");
     var canvas = node("div", null, "image-canvas");
-    var image = node("img");
-    canvas.appendChild(image);
+    var image = null;
     viewport.appendChild(canvas);
     dialog.appendChild(viewport);
     dialog.appendChild(node("p", "Use Previous/Next, the Left/Right arrow keys, or click the displayed image to compare items. Escape closes the viewer.", "image-dialog-instructions"));
@@ -3779,11 +3778,16 @@
     var scale = 1;
     var fitScale = 1;
     var cleaned = false;
-    var currentIndex = Math.max(0, Math.min(items.length - 1, selectedIndex || 0));
+    var initialIndex = Math.max(0, Math.min(items.length - 1, selectedIndex || 0));
+    var requestedIndex = initialIndex;
+    var displayedIndex = -1;
     var imageLoadToken = 0;
     var releaseScrollLock = acquireImageDialogLock();
 
     function imageSize() {
+      if (!image) {
+        return { width: 1, height: 1 };
+      }
       return { width: image.naturalWidth || 1, height: image.naturalHeight || 1 };
     }
 
@@ -3792,6 +3796,9 @@
     }
 
     function renderCanvas() {
+      if (!image) {
+        return;
+      }
       var size = imageSize();
       var imageWidth = size.width * scale;
       var imageHeight = size.height * scale;
@@ -3812,6 +3819,9 @@
     }
 
     function fitToViewport() {
+      if (!image) {
+        return;
+      }
       var size = imageSize();
       var width = viewport.clientWidth || size.width;
       var height = viewport.clientHeight || size.height;
@@ -3823,6 +3833,9 @@
     }
 
     function zoomTo(value, anchorX, anchorY) {
+      if (!image) {
+        return;
+      }
       var oldScale = scale;
       scale = clampScale(value);
       if (scale === oldScale) {
@@ -3855,10 +3868,10 @@
         closeImageDialog();
       } else if (event.key === "ArrowLeft") {
         event.preventDefault();
-        showItem(currentIndex - 1, document.activeElement === image);
+        showItem(requestedIndex - 1, image !== null && document.activeElement === image);
       } else if (event.key === "ArrowRight") {
         event.preventDefault();
-        showItem(currentIndex + 1, document.activeElement === image);
+        showItem(requestedIndex + 1, image !== null && document.activeElement === image);
       } else if (event.key === "+" || event.key === "=" || event.key === "Add") {
         event.preventDefault();
         zoomBy(ZOOM_FACTOR);
@@ -3872,13 +3885,71 @@
       fitToViewport();
     }
 
+    function restoreViewport(viewportState) {
+      scale = clampScale(viewportState.scale);
+      renderCanvas();
+      viewport.scrollLeft = viewportState.scrollLeft;
+      viewport.scrollTop = viewportState.scrollTop;
+    }
+
+    function captureViewport() {
+      return {
+        scale: scale,
+        scrollLeft: viewport.scrollLeft,
+        scrollTop: viewport.scrollTop
+      };
+    }
+
+    function focusPreservingViewport(element) {
+      var scrollLeft = viewport.scrollLeft;
+      var scrollTop = viewport.scrollTop;
+      try {
+        element.focus({ preventScroll: true });
+      } catch (error) {
+        element.focus();
+      }
+      viewport.scrollLeft = scrollLeft;
+      viewport.scrollTop = scrollTop;
+    }
+
+    function updateImageControls() {
+      var disabled = image === null;
+      zoomOut.disabled = disabled;
+      zoomIn.disabled = disabled;
+      fit.disabled = disabled;
+    }
+
+    function displayedPositionText() {
+      if (displayedIndex < 0) {
+        return "No image displayed";
+      }
+      var displayedItem = items[displayedIndex];
+      return "Item " + (displayedIndex + 1) + " of " + items.length + ": " + displayedItem.title;
+    }
+
+    function updateDisplayedState(statusText) {
+      heading.textContent = displayedIndex < 0 ? "Image comparison" : items[displayedIndex].title;
+      positionLabel.textContent = displayedPositionText() + (statusText ? " · " + statusText : "");
+    }
+
     function showItem(index, focusImage) {
       if (!items.length) {
         return;
       }
-      currentIndex = (index + items.length) % items.length;
-      var item = items[currentIndex];
+      requestedIndex = (index + items.length) % items.length;
+      var targetIndex = requestedIndex;
+      var item = items[targetIndex];
       var loadToken = ++imageLoadToken;
+      previous.disabled = items.length < 2;
+      next.disabled = items.length < 2;
+      if (image && targetIndex === displayedIndex) {
+        updateDisplayedState("");
+        if (focusImage) {
+          focusPreservingViewport(image);
+        }
+        return;
+      }
+      updateDisplayedState("Loading item " + (targetIndex + 1) + ": " + item.title);
       var nextImage = node("img");
       var imageLabel = imageAccessibleLabel(item);
       nextImage.alt = imageLabel;
@@ -3893,27 +3964,45 @@
         if (event.type === "keydown") {
           event.preventDefault();
         }
-        showItem(currentIndex + 1, true);
+        showItem(requestedIndex + 1, true);
       }
       nextImage.addEventListener("click", showNextImage);
       nextImage.addEventListener("keydown", showNextImage);
       nextImage.addEventListener("load", function () {
-        if (cleaned || loadToken !== imageLoadToken || image !== nextImage) {
+        if (cleaned || loadToken !== imageLoadToken || requestedIndex !== targetIndex) {
           return;
         }
-        fitToViewport();
+        var viewportState = image ? captureViewport() : null;
+        if (image) {
+          canvas.replaceChild(nextImage, image);
+        } else {
+          canvas.appendChild(nextImage);
+        }
+        image = nextImage;
+        displayedIndex = targetIndex;
+        requestedIndex = targetIndex;
+        updateDisplayedState("");
+        updateImageControls();
+        if (viewportState) {
+          restoreViewport(viewportState);
+        } else {
+          fitToViewport();
+        }
+        if (focusImage) {
+          focusPreservingViewport(image);
+        }
       });
-      canvas.replaceChild(nextImage, image);
-      image = nextImage;
-      image.src = item.source;
-      if (focusImage) {
-        image.focus();
-      }
-      heading.textContent = item.title;
-      positionLabel.textContent = "Item " + (currentIndex + 1) + " of " + items.length + ": " + item.title;
-      previous.disabled = items.length < 2;
-      next.disabled = items.length < 2;
-      fitToViewport();
+      nextImage.addEventListener("error", function () {
+        if (cleaned || loadToken !== imageLoadToken || requestedIndex !== targetIndex) {
+          return;
+        }
+        if (displayedIndex >= 0) {
+          requestedIndex = displayedIndex;
+        }
+        updateDisplayedState("Could not load item " + (targetIndex + 1) + ": " + item.title);
+        updateImageControls();
+      });
+      nextImage.src = item.source;
     }
 
     function cleanup() {
@@ -3942,8 +4031,8 @@
     }
 
     close.addEventListener("click", closeImageDialog);
-    previous.addEventListener("click", function () { showItem(currentIndex - 1); });
-    next.addEventListener("click", function () { showItem(currentIndex + 1); });
+    previous.addEventListener("click", function () { showItem(requestedIndex - 1, false); });
+    next.addEventListener("click", function () { showItem(requestedIndex + 1, false); });
     zoomOut.addEventListener("click", function () { zoomBy(1 / ZOOM_FACTOR); });
     zoomIn.addEventListener("click", function () { zoomBy(ZOOM_FACTOR); });
     fit.addEventListener("click", fitToViewport);
@@ -3962,8 +4051,8 @@
       throw error;
     }
     window.addEventListener("resize", onResize);
-    showItem(currentIndex);
-    updateScaleLabel();
+    updateImageControls();
+    showItem(requestedIndex, false);
   }
 
   function renderReview(data) {

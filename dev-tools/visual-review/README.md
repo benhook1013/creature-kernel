@@ -36,6 +36,12 @@ listener; OS, WSL, container, and firewall forwarding are outside its scope
 and may still be required for another device to connect. Do not enable this
 mode on an untrusted network.
 
+Within one expanded image comparison, switching between that group's items by
+click, Previous/Next, or Left/Right preserves the current zoom and pan so paired
+images remain directly comparable. Closing the comparison and opening a
+different group starts from its own fitted view; viewport state does not cross
+group boundaries.
+
 For a structural-only review, build the checked-in CLI and publish the
 checked-in biped example through the bounded wrapper:
 
