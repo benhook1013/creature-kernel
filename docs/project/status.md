@@ -13,23 +13,65 @@ governs what resumes next.
 
 ## Active runway
 
-Execution state: the implementation candidate has reached the named human
-checkpoint, complete authored-form expressivity gallery. Current local
-diagnostic checks, two corrected-route hands-on trials, and the final fresh
-new-code adversarial Luna/xhigh review are complete. Ben's visual appraisal
-remains pending. Draft PR #113 remains
-unmerged and held for Ben's visual appraisal and explicit merge authorization.
-`origin/main` and the primary `main` checkout are
-at merged PR #112 commit
+Execution state: Ben accepts PR #113's gallery only as bounded exploratory
+evidence that source-authored controls and procedural field routes cover the
+required body regions and produce connected whole-body surfaces across the
+current display variants. It does not establish that every region remains
+visually readable or convincing. No further cosmetic repair of that disposable
+candidate is planned; the runway now targets the shared-pose structural
+embodiment gallery, an exploratory candidate toward Stage 2. Draft PR #113 is
+mergeable and draft, all three current CI lanes
+passed, and it remains unmerged pending Ben's explicit merge authorization;
+this strategy disposition is not merge authorization. `origin/main` and the
+primary `main` checkout are at merged PR #112 commit
 `80179614ea693cd45d55743d1d83d044c653a08f`. The active worktree is
 `/home/ben/src/creature-kernel-worktrees/authored-digitigrade-foot-profiles`,
 on branch `implementation/authored-digitigrade-foot-profiles`, based on that
-commit. Draft PR #113 is open for the current work and held for Ben's visual
-appraisal and explicit merge authorization. The authored torso, head/neck,
-arm, and pelvis/leg profiles are merged predecessor evidence; the current
-internal, reversible foot-control slice has reached the complete authored-form
-expressivity gallery checkpoint and is held for Ben's visual appraisal and
-explicit merge authorization.
+commit. The authored torso, head/neck, arm, pelvis/leg, and foot profiles are
+predecessor evidence for the structural runway.
+
+The next named human checkpoint is the shared-pose structural embodiment
+gallery. Before evidence, freeze a four-profile candidate set satisfying the
+Proposed product baseline's qualitative profile envelope and optional-module
+contrast; the current four display variants are not automatically substitutes.
+Using shared operations and no per-profile patches, show generated, not
+illustrative, artifacts for every frozen profile: a neutral surface with the
+actual generated skeleton and joint/bone overlay; actual skin-weight/influence
+evidence; one identity-bound deterministic semantic pose-transform payload
+applied without IK or contact solving, with posed surface and skeleton; actual
+generated collision-proxy overlays in neutral and posed state; and
+source/build/scenario lineage.
+
+The candidate gate is fail-closed: require one rooted acyclic hierarchy and a
+complete semantic-Joint-to-derived-bone mapping; finite, nonnegative,
+normalized influence coverage for every surface vertex; finite, nondegenerate,
+lineage-bound proxies with neutral and posed transforms; deterministic rerun
+identity; and complete results for every frozen profile. Any failed or
+inconclusive profile or missing artifact keeps the checkpoint open. The bone
+hierarchy, mapping, skinning method, provisional topology, and proxies remain
+candidate-scoped evidence rather than production choices. Technical
+intermediate PRs are prerequisites, not human checkpoints. Ben will judge
+whether the skeleton inhabits the body plausibly, the shared pose reads
+coherently across proportions, gross skin following avoids severe collapse,
+twisting or detachment, and proxies plausibly cover and follow the body.
+
+The first direct prerequisite is a bounded structural-embodiment bridge slice
+that defines its entrypoint, admitted source/neutral-surface inputs, derived
+rig/weight/proxy/pose outputs, and reproducible artifact boundary. Autonomous
+work should then target the named gallery without unnecessary intermediate
+visual gates.
+
+This checkpoint does not seek realistic muscles or anatomy, final
+surface/topology, contact response, localized deformation quality,
+performance/runtime budget, engine/solver/rig-format selection, IK/gait/
+balance, or VR/tracking implementation. Preserve the later compatibility
+guardrail: do not turn this exploratory candidate into a production choice or
+activate the parked formal surface protocol. Stop for main-thread
+reevaluation if semantic frames cannot map cleanly, disposable topology cannot
+support trustworthy weights, profile-specific patches are required, objective
+checks fail or remain inconclusive, or the work forces a material production
+topology/backend/engine/anatomy choice. These triggers call for evidence and
+reassessment, not more outer-field cosmetic tuning.
 
 Current operational snapshot: the [Codex app handover](current-handover.md)
 (2026-08-24 NZST) records the primary checkout, active runway worktree,
@@ -38,11 +80,11 @@ aid rather than a new authority owner. PR #107 retains the exact consumed
 producer lineage in surface reviews while preserving the parked EXP-0002
 closure; it intentionally made no displayed form-quality claim.
 
-The new immutable checkpoint ID is
+The PR #113 immutable surface checkpoint ID was
 `authored-form-expressivity-exact-field-components-checkpoint-v2`, with
 persistent URL
 `http://localhost:8765/review/authored-form-expressivity-exact-field-components-checkpoint-v2`.
-Each baseline or successor image is a 3x3 sheet: columns `front`, `side`, and
+Each historical baseline or successor image is a 3x3 sheet: columns `front`, `side`, and
 `three-quarter`; rows `CONTROL GUIDE` (explicitly control data, not geometry),
 exact consumed pre-union field-component shells (52 for baseline, 27 for
 successor), and neutral final skin. The earlier no-suffix
@@ -51,9 +93,16 @@ preserved as historical evidence but superseded because its successor torso
 used aggregate rather than exact loft sampling bounds. Corrected v2 uses the
 exact loft bounds. Pixel-crop checks prove that every control-guide and
 final-skin row is byte/pixel identical between the superseded session and v2;
-the geometry and final skin did not change. Ben's checkpoint remains
-subjective authored-form and variant appraisal, not approval of a permanent
-backend.
+the geometry and final skin did not change. This remains historical evidence
+for the bounded exploratory proof above, not a current human checkpoint or
+approval of a permanent backend.
+
+Ben's 2026-08-24 appraisal of that immutable v2 gallery's successor v9 records
+that its neck is visibly occluded or lost, its torso and pelvis read as rounded
+rectangular/blocky, and the overall body is not convincing realistic or
+anatomical skin. Visual region readability remains failed or inconclusive.
+These observations are scoped to this disposable candidate and are not
+canonical geometry prescriptions.
 
 Ben's exact feedback on PR #103's successor checkpoint artifact was: "its got
 pointy bulges under the arms again." This is rejection of that displayed
@@ -82,7 +131,8 @@ instructed, "also we have agreed on your goals roadmap discussion and next
 visual checkpoint, ensure that info is baked into repo now too." This approves
 the direction to stop aesthetic polishing of this disposable consumer and
 prepare the next authored-form expressivity gallery; it did not by itself
-authorize the merge.
+authorize the merge. PR #113 fulfilled that historical direction, which Ben's
+2026-08-24 disposition supersedes with the structural-embodiment runway above.
 
 On 2026-08-23 Ben said, "i dont care about 103 do what you want," delegating
 PR #103's disposition to the main thread. The main thread selects merge after
@@ -92,8 +142,8 @@ authorization supersedes the earlier merge hold; it does not turn the
 disposable surface into a successful form-quality proof.
 
 PR #97 was accepted and merged at `e78640e` after Ben appraised the revised
-underarm silhouette as better. Preserve it as the accepted baseline for the
-next form pass; it is not final anatomy or backend approval.
+underarm silhouette as better. It was the accepted baseline for subsequent
+surface passes; it is not final anatomy or backend approval.
 
 The v6 disposable successor was built with shared generator operations across
 all four fixed variants, existing semantic and guide inputs, and no
@@ -114,8 +164,8 @@ arrows, click-to-advance, and zoom.
 
 PR #110 is merged at `a45920df1322bafbbd56ea6939837f8b0b9b8b33`. Its completed
 internal, reversible source-authored head/neck prerequisite remains evidence
-on the runway toward the unchanged complete authored-form expressivity
-gallery checkpoint. Producer v8 adds source-authored head/neck profile v1:
+from the then-active authored-form expressivity gallery runway. Producer v8
+adds source-authored head/neck profile v1:
 eight indexed stations, seven named
 branched connections, head/neck identity frames and landmarks, 24
 lateral/up/forward radii with provenance, and four shared variant projections.
@@ -195,11 +245,11 @@ pelvis/thigh/knee/shin/hock/foot across all four variants, with no point
 spikes, detached islands, or duplicate bulb masses; the lower foot chain
 remains coarse and is not accepted final quality. This merged slice is an
 internal reversible prerequisite, not the complete authored-form gallery, and
-no Ben appraisal has been requested. The current worktree candidate has since
-reached the named complete authored-form expressivity gallery checkpoint; it
-has completed local tests, corrected-route hands-on trials, and fresh
-adversarial review and is held for Ben's visual appraisal, with no approval or
-merge.
+no Ben appraisal has been requested. The then-current worktree candidate
+reached the former complete authored-form expressivity gallery checkpoint; its
+local tests, corrected-route hands-on trials, and fresh adversarial review are
+preserved as historical evidence. It was not approved as final form quality or
+as a production choice.
 
 The hands-on operator trial also found that LAN read-only mode still displays
 an enabled Save response control even though the server rejects writes. No
@@ -207,8 +257,8 @@ response was submitted or created. This pre-existing UI/usability mismatch is
 deferred unrelated cleanup, not a pelvis/leg geometry or publication blocker.
 
 The non-blocking rejected-POST secondary-400 logging concern is deferred
-unrelated usability cleanup, not an arm blocker. The current worktree
-candidate is the authored-form gallery described below.
+unrelated usability cleanup, not an arm blocker. The related PR #113 surface
+candidate is described below as historical evidence.
 
 PR #109 also contained Ben-approved neutral public-facing wording cleanup and
 accepted MIT OR Apache-2.0 licensing DR-0014. That ancillary work does not
@@ -216,7 +266,7 @@ change the active runway. Root license files, README, and CONTRIBUTING carry the
 current terms; Cargo package metadata is deliberately deferred because the
 parked Phase 3 evidence closure exact-binds the affected manifest bytes.
 
-The named human checkpoint remains the complete authored-form expressivity
+The former named human checkpoint was the complete authored-form expressivity
 gallery across the agreed controls and regions:
 richer source-authored dimensions, landmarks, and profiles drive shared
 region-appropriate generator operations across all four fixed variants, with
@@ -225,15 +275,17 @@ shoulder/arm, pelvis/leg, and digitigrade foot transitions must read as
 controlled continuous skin rather than joined procedural masses. Do not use
 per-variant or per-fixture patches or a handcrafted base mesh. This remains a
 bounded exploratory expressivity checkpoint, not proof of a finished
-morphology family or production surface system.
+morphology family or production surface system. The current named checkpoint
+is the shared-pose structural embodiment gallery described in the Active
+runway above.
 
-For that checkpoint, retain the exact producer envelope used by
+For that former checkpoint, retain the exact producer envelope used by
 the checkpoint or an integrity-bound authored-dimension, landmark, frame, and
 descriptor-role lineage projection, including indexed authored provenance, in
 immutable review evidence. A source hash without the corresponding lineage
 payload is not sufficient for the checkpoint's provenance claim.
 
-The current worktree candidate reaches the named checkpoint with the authored
+The historical PR #113 candidate reached its surface checkpoint with the authored
 foot-control route `hock -> metatarsal midpoint -> pad -> pad-toe midpoint ->
 toe`: the hock is shin-owned, the remaining four stations are foot-owned, and
 the route carries full lateral/up/forward radii, outer caps, four spans, and
@@ -250,9 +302,9 @@ subject context 8812 bytes; subject-context SHA-256
 `0210c5f225869d9030ff82a2898f122be21b4da328dcb668e0b83a674f486fb7`.
 Strict decode equality passed for that pre-redesign candidate. Those
 measurements remain historical and do not describe the corrected v2 session.
-Publication machinery is evidence plumbing, not acceptance: draft PR #113
-remains unmerged and the named checkpoint is held for Ben's visual appraisal
-and explicit merge authorization.
+Publication machinery is evidence plumbing, not acceptance. PR #113 remains
+unmerged as a mergeable draft pending Ben's explicit merge authorization; the
+surface-gallery disposition itself is not that authorization.
 
 Current local diagnostic validation is: baseline full suite 68 tests passed;
 successor full suite 61 passed; full visual-review suite 113 passed via the
@@ -284,7 +336,8 @@ assets. Playwright persistent-route smoke loaded all eight assets
 at `1800x1500`, switched baseline/successor with arrow keys, and found no
 console or request failures. Pixel-crop checks prove the control-guide and
 final-skin rows are byte/pixel identical to the superseded no-suffix session.
-CI is not yet new-head complete.
+All three current PR #113 CI lanes passed. The PR remains a mergeable draft and
+unmerged pending Ben's explicit merge authorization.
 
 The active fixture's exact squared reference length is `1`. If a later runway
 admits producer output above JavaScript's exact-integer domain, align or tighten
@@ -292,13 +345,13 @@ the Rust, publication, surface-consumer, and browser bounds before using that
 output visually; speculative large-coordinate hardening is not a prerequisite
 for this checkpoint.
 
-The current candidate is the first genuinely appraisable result and is now
-held for Ben's appraisal and explicit merge authorization; no further runway
-step is required before that appraisal. Do not treat publication as acceptance
-or merge it without that checkpoint. Rigging,
-contact, deformation, VR integration, and permanent
-backend selection are outside this immediate runway. Do not reactivate the
-parked formal comparison or expand scope without Ben's direction.
+The PR #113 surface candidate is historical bounded proof, not the next
+appraisal gate. Rigging, contact, deformation, VR integration, and permanent
+backend selection remain outside the current exploratory scope except for the
+limited generated skeleton, weights, posed surface, and proxy evidence
+required by the structural embodiment checkpoint. Do not reactivate the
+parked formal comparison or expand scope without the recorded triggers or
+Ben's direction.
 
 EXP-0002 and its Gate B/freeze/runtime-attestation continuation are parked and
 non-blocking. They are not prerequisites for this visual runway and must not be
@@ -653,7 +706,7 @@ it is not production geometry, mesh, SDF, anatomy, runtime output, or Readiness
 `240cc055f9536d01152ee401ee342c5f135f3b32`; Ben appraised the intended
 straight-tail provisional form as sufficient on 2026-08-16.
 
-The next retained-human visual appraisal candidate is the disposable
+The former retained-human visual appraisal candidate was the disposable
 `experiments/current-form-surface-preview/` continuous-surface gallery. It is
 limited to the question of whether current Rust-derived provisional forms become
 one readable surface with acceptable neck, shoulder, hip, limb, and tail
@@ -663,14 +716,14 @@ production backend, the production `GeometryRequest`/`GeometryResult` seam, or
 any rig, animation, collision, deformation, or runtime claim. The formal
 activation order remains Readiness 3's semantic resolver/in-memory snapshot
 handoff first, followed by Readiness 4's project-owned geometry seam and Rust
-CPU proof. The candidate's visual result, if appraised, is evidence only and
-does not change that order.
+CPU proof. The candidate's visual result was evidence only and did not change
+that order.
 
-Ben appraised the checkpoint on 2026-08-16 and found that primitive body-part
+Ben historically appraised this checkpoint on 2026-08-16 and found that primitive body-part
 placement and proportions remain odd in places, as expected while the grammar
 uses simple oval and primitive forms. He found the continuous smooth-union
 joins sufficient for this stage: corresponding body forms morph together
-convincingly. This completes the retained-human surface-appraisal checkpoint
+convincingly. This completed the historical retained-human surface-appraisal checkpoint
 for continuing foundational implementation; it does not claim final visual
 quality, anatomy, production geometry, Stage 1, Readiness 3/4, DR acceptance,
 or solver/runtime evidence. The formal next activation order remains
@@ -1490,18 +1543,21 @@ Complete; DR-0008 Revision 14 remains Proposed with Owner approval Pending and
 Review Pending; the prior Revision 13 Double-review artifacts at exact target
 `117544a` are stale evidence.
 
-Containment/topology validation is not an honest immediate next slice: source-
-local rules are already validated, while aggregate semantics lack an accepted
-module/template binding edge. The next safe autonomous implementation is the
-already-recorded six-case development-only realistic
-composed-transform extension for profile discrimination. Exact aggregate
+Historical inactive planning note: containment/topology validation was not an
+honest immediate next slice because source-local rules were already validated,
+while aggregate semantics lacked an accepted module/template binding edge. The
+then-recorded next safe autonomous implementation was the six-case
+development-only realistic composed-transform extension for profile
+discrimination. The Active runway now supersedes that next-step selection.
+Exact aggregate
 module-binding semantics and Readiness 3 activation remain gated; the phase-two
 development run remains non-authoritative and insufficient to choose
 strict/micro/stress. Readiness 1 and Readiness 2 remain active while Readiness 3
 and later transactions remain gated. The sole current retained-human
-checkpoint is the complete authored-form expressivity gallery described in
-the Active runway section above. The earlier rendered-creature or primitive
-spatial-preview checkpoint is historical and inactive.
+checkpoint is the shared-pose structural embodiment gallery described in the
+Active runway section above. The former authored-form and earlier
+rendered-creature or primitive spatial-preview checkpoints are historical and
+inactive.
 The main thread will autonomously resolve technical correctness findings or
 record evidence-dependent triggers under the DR-0001 Revision 6 transition
 direction; only a retained-human product, architecture-boundary, material
@@ -1732,7 +1788,7 @@ metadata. Current non-governance decisions and proposals include:
 | Production implementation platform | partial | proven | CK-KICK-013/DR-0013 Revision 12 is Accepted with Owner approval Approved by Ben; the Readiness 1 Cargo workspace, compiler/core library shell, and thin CLI shell pass pinned-toolchain checks. Readiness 2's exact schema, manifest, nine fixtures, parser/bootstrap, and preflight are active after merged commit `766992ab089687e9b1496574e8ffa721388d96f3` / PR #6 and successful post-merge identity recomputation. PR #9, the inspectable biped structure workflow, is merged at `565c32bd35215e23d737fb333604382d3e6958ab`; its structural index/validator/inspection remain preparatory. The public single-source preparation operation and internal numeric/frame-preparation helpers remain preparatory; helpers cannot bypass body-document admission, and distinct Readiness 3, adapter, and exploratory geometry remain gated |
 | Creature compiler | partial | unverified | Disposable CK-KICK-010 walking skeleton implemented; this is not a production compiler |
 | CK-KICK-010 walking skeleton | implemented | audited | Valid/invalid local evidence and the selected Single independent review are complete; five substantive findings plus whitespace were dispositioned in RESULTS, not clean; this is not a production compiler |
-| Local visual-review gallery | implemented | audited | Focused tests and local HTTP/browser smoke passed; subject_context is presentation-only; no visual-evidence or Stage 1 claim |
+| Local visual-review gallery | implemented | audited | Focused tests and local HTTP/browser smoke passed; the PR #113 gallery is bounded exploratory surface evidence, while `subject_context` remains presentation-only and no formal Stage 1 claim is made |
 | Runtime avatar | not-implemented | not-applicable | No runtime adapter selected |
 
 ## Historical immediate next actions (inactive)

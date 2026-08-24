@@ -244,18 +244,36 @@ per-variant station tuning. No baseline tail, paw, or foot component remains. Th
 tail source/extension endpoint retains its independently authored profiles;
 this experiment does not claim that the resulting tail silhouette or visual
 quality has been observed or accepted.
-It is neither a permanent backend selection nor an acceptance decision. This
-published form gallery is the active human visual checkpoint named by the
-[active runway](../../docs/project/status.md#active-runway); the candidate has
-completed local tests, two fresh hands-on trials, and fresh adversarial review
-and is held for Ben's visual appraisal. Publication machinery itself is not
-acceptance.
+It is neither a permanent backend selection nor an acceptance decision. The
+published form gallery is historical PR #113 evidence. Ben's 2026-08-24
+appraisal of immutable checkpoint
+`authored-form-expressivity-exact-field-components-checkpoint-v2` successor v9
+accepts only that source-authored controls and procedural field routes cover
+the required regions and produce a connected whole-body surface. Its neck is
+visibly occluded or lost, its torso and pelvis read as rounded rectangular/
+blocky, and the overall body is not convincing realistic or anatomical skin;
+visual region readability remains failed or inconclusive. These are
+limitations of this disposable candidate, not canonical geometry
+prescriptions. PR #113 is mergeable/draft with all three
+current CI lanes passed, but remains unmerged pending Ben's explicit merge
+authorization; this disposition is not merge authorization. No further
+cosmetic repair is planned, and publication machinery is not acceptance.
+
+The current runway target is the shared-pose structural embodiment gallery, an
+exploratory candidate toward Stage 2. It is outside this surface preview's
+implementation scope. Its four-profile candidate set and semantic pose payload
+must be frozen before evidence; the current display variants are not automatic
+substitutes. It must use generated, not illustrative, neutral/posed surface,
+skeleton/bone, weight/influence, and collision-proxy artifacts with
+source/build/scenario lineage.
+See the active runway for its objective prerequisites, human judgments,
+non-goals, and stop triggers.
 
 The authored arm slice is a disposable consumer intended to test frame-aware
 profile continuity and bounded field behavior around the torso, upper-arm, and
 elbow join. It does not establish anatomical realism, production topology,
-general morphology support, or the quality of the final visual result; those
-remain unproven until the named visual checkpoint is reviewed.
+general morphology support, or the quality of the final visual result. It is
+historical surface evidence and is not the structural embodiment checkpoint.
 
 After creating and activating the experiment virtual environment described
 above, the workflow has two steps:

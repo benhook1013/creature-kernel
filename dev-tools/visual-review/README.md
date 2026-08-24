@@ -299,17 +299,36 @@ success. A failed invocation cleans only its own staging/session files.
 
 ## Disposable baseline-versus-successor surface checkpoint
 
-`publish_surface_preview.py` is a bounded adapter for the current experiment
-surface consumers. It runs the current v11 provisional-form producer once, runs the
+`publish_surface_preview.py` is a bounded adapter for the historical PR #113
+experiment surface consumers. It runs the current v11 provisional-form producer once, runs the
 baseline and successor Python generators against that same producer output,
 validates both bundles, and publishes four ordered baseline/successor
 comparisons (eight three-layer composite PNGs) through the ordinary image
 gallery.
-This published form gallery is the named active human checkpoint for the
-[active runway](../../docs/project/status.md#active-runway). It remains
-disposable exploratory tooling, and publication machinery is not acceptance:
-the current candidate has completed local tests, two fresh hands-on trials,
-and fresh adversarial review and is held for Ben's visual appraisal.
+This published form gallery is historical bounded exploratory evidence for the
+[active runway](../../docs/project/status.md#active-runway), not its current
+human checkpoint. Ben's 2026-08-24 appraisal of immutable checkpoint
+`authored-form-expressivity-exact-field-components-checkpoint-v2` successor v9
+accepts only that source-authored controls and procedural field routes cover
+the required regions and produce a connected whole-body surface. Its neck is
+visibly occluded or lost, its torso and pelvis read as rounded rectangular/
+blocky, and the overall body is not convincing realistic or anatomical skin;
+visual region readability remains failed or inconclusive. These are candidate-
+scoped limitations, not canonical geometry prescriptions. PR #113 is
+mergeable/draft with all three
+current CI lanes passed, but remains unmerged pending Ben's explicit merge
+authorization; this disposition is not merge authorization. No further
+cosmetic repair is planned, and publication machinery is not acceptance.
+
+The current human checkpoint is the shared-pose structural embodiment gallery,
+an exploratory candidate toward Stage 2 and outside this surface bridge's
+implementation scope. Its four-profile candidate set and identity-bound
+semantic pose-transform payload must be frozen before evidence; the current
+display variants are not automatic substitutes. It must show generated
+neutral/posed surface, skeleton/bone, weight/influence, and collision-proxy
+artifacts with source/build/scenario lineage. See the
+active runway for objective prerequisites, human judgments, non-goals, and stop
+triggers.
 
 The current diagnostic target is baseline preview format v3, regional guide
 v11, and successor preview v9. The producer/profile identities remain
@@ -401,7 +420,7 @@ new immutable session. Older immutable sessions retain their original
 envelope, canvas, panel count, and captures; they are not rewritten by this
 diagnostic.
 
-For each comparison, appraise whether the successor reads as a more coherent
+For each historical comparison, appraise whether the successor reads as a more coherent
 stylized digitigrade biped overall: recognizable cranium/muzzle/neck,
 shoulder/torso/pelvis structure, connected limbs and joints, digitigrade legs,
 paws, and tail; less like blended primitives; and with the four variants still
@@ -477,10 +496,9 @@ disposable.
 
 This is a disposable current-source visual bridge. It does not activate Stage
 1, Readiness 3, production geometry, runtime behaviour, or decision-record
-evidence. The published form gallery is the named human visual checkpoint; the
-candidate has completed its local gates and is held for Ben's visual appraisal;
-publication itself is not acceptance. Keep generated bundles and sessions
-under `/tmp`; they are not repository artifacts.
+evidence. The published form gallery is historical evidence, not the current
+human checkpoint, and publication itself is not acceptance. Keep generated
+bundles and sessions under `/tmp`; they are not repository artifacts.
 
 ## HTTP routes and response format
 
