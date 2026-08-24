@@ -65,7 +65,8 @@ button.primary { border-color: #3387d5; background: #1768ad; color: #fff; }
 .image-viewport { flex: 1 1 auto; min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; border: 1px solid #304253; border-radius: 0.35rem; background: #080d13; cursor: zoom-in; }
 .image-viewport:focus-visible { outline: 2px solid #79b8ff; outline-offset: -2px; }
 .image-canvas { position: relative; flex: 0 0 auto; }
-.image-dialog img { position: absolute; display: block; max-width: none; max-height: none; margin: 0; object-fit: fill; transform-origin: top left; cursor: pointer; user-select: none; }
+.image-dialog img { position: absolute; display: block; max-width: none; max-height: none; margin: 0; object-fit: fill; transform-origin: top left; cursor: grab; user-select: none; touch-action: none; -webkit-user-drag: none; }
+.image-dialog img.is-dragging { cursor: grabbing; }
 .image-dialog img:focus-visible { outline: 3px solid #79b8ff; outline-offset: -3px; }
 .close-dialog { display: block; margin-left: auto; }
 

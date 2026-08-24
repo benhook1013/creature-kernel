@@ -894,6 +894,38 @@ process.stdout.write(JSON.stringify(items.map(context.__imageAccessibleLabel)));
         self.assertEqual(js.count("focusPreservingViewport(image);"), 2)
         self.assertNotIn("image.focus();", js)
 
+    def test_image_viewer_pointer_drag_preserves_click_navigation_contract(self):
+        js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
+        css = (HERE / "static" / "style.css").read_text(encoding="utf-8")
+        for contract in (
+            "var suppressNextImageClick = false;",
+            "nextImage.draggable = false;",
+            'nextImage.addEventListener("dragstart", function (event) { event.preventDefault(); });',
+            "var pointerGesture = null;",
+            'nextImage.addEventListener("pointerdown", onPointerDown);',
+            'nextImage.addEventListener("pointermove", onPointerMove);',
+            'nextImage.addEventListener("pointerup", function (event) { onPointerEnd(event, false); });',
+            'nextImage.addEventListener("pointercancel", function (event) { onPointerEnd(event, true); });',
+            'nextImage.addEventListener("lostpointercapture", function (event) { onPointerEnd(event, true); });',
+            "if (nextImage.setPointerCapture) {",
+            "nextImage.setPointerCapture(event.pointerId);",
+            "nextImage.releasePointerCapture(event.pointerId);",
+            "deltaX * deltaX + deltaY * deltaY >= 36",
+            "pointerGesture.dragging = true;",
+            "viewport.scrollLeft = pointerGesture.startScrollLeft - deltaX;",
+            "viewport.scrollTop = pointerGesture.startScrollTop - deltaY;",
+            'nextImage.classList.add("is-dragging");',
+            'nextImage.classList.remove("is-dragging");',
+            'if (event.type === "click" && suppressNextImageClick) {',
+            "event.stopPropagation();",
+        ):
+            self.assertIn(contract, js)
+        self.assertIn("cursor: grab", css)
+        self.assertIn("cursor: grabbing", css)
+        self.assertIn("touch-action: none", css)
+        self.assertIn("-webkit-user-drag: none", css)
+        self.assertIn("click the displayed image, or drag it", js)
+
     def test_image_viewer_is_viewport_sized_and_image_scoped(self):
         js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
         css = (HERE / "static" / "style.css").read_text(encoding="utf-8")

@@ -3770,7 +3770,7 @@
     var image = null;
     viewport.appendChild(canvas);
     dialog.appendChild(viewport);
-    dialog.appendChild(node("p", "Use Previous/Next, the Left/Right arrow keys, or click the displayed image to compare items. Escape closes the viewer.", "image-dialog-instructions"));
+    dialog.appendChild(node("p", "Use Previous/Next, the Left/Right arrow keys, click the displayed image, or drag it to compare and pan items. Escape closes the viewer.", "image-dialog-instructions"));
 
     var MIN_SCALE = 0.1;
     var MAX_SCALE = 8;
@@ -3782,6 +3782,7 @@
     var requestedIndex = initialIndex;
     var displayedIndex = -1;
     var imageLoadToken = 0;
+    var suppressNextImageClick = false;
     var releaseScrollLock = acquireImageDialogLock();
 
     function imageSize() {
@@ -3957,7 +3958,65 @@
       nextImage.tabIndex = 0;
       nextImage.setAttribute("role", "button");
       nextImage.setAttribute("aria-label", imageDescription(item) ? "Show next comparison image: " + imageLabel : "Show next comparison image");
+      nextImage.draggable = false;
+      var pointerGesture = null;
+      function releasePointerCapture(event) {
+        if (nextImage.hasPointerCapture && nextImage.hasPointerCapture(event.pointerId)) {
+          nextImage.releasePointerCapture(event.pointerId);
+        }
+      }
+      function onPointerDown(event) {
+        if (image !== nextImage || (event.pointerType === "mouse" && event.button !== 0)) {
+          return;
+        }
+        suppressNextImageClick = false;
+        pointerGesture = {
+          pointerId: event.pointerId,
+          startX: event.clientX,
+          startY: event.clientY,
+          startScrollLeft: viewport.scrollLeft,
+          startScrollTop: viewport.scrollTop,
+          dragging: false
+        };
+        if (nextImage.setPointerCapture) {
+          nextImage.setPointerCapture(event.pointerId);
+        }
+      }
+      function onPointerMove(event) {
+        if (!pointerGesture || pointerGesture.pointerId !== event.pointerId) {
+          return;
+        }
+        var deltaX = event.clientX - pointerGesture.startX;
+        var deltaY = event.clientY - pointerGesture.startY;
+        if (!pointerGesture.dragging && deltaX * deltaX + deltaY * deltaY >= 36) {
+          pointerGesture.dragging = true;
+          nextImage.classList.add("is-dragging");
+        }
+        if (!pointerGesture.dragging) {
+          return;
+        }
+        event.preventDefault();
+        viewport.scrollLeft = pointerGesture.startScrollLeft - deltaX;
+        viewport.scrollTop = pointerGesture.startScrollTop - deltaY;
+      }
+      function onPointerEnd(event, cancelled) {
+        if (!pointerGesture || pointerGesture.pointerId !== event.pointerId) {
+          return;
+        }
+        if (pointerGesture.dragging && !cancelled) {
+          suppressNextImageClick = true;
+        }
+        nextImage.classList.remove("is-dragging");
+        releasePointerCapture(event);
+        pointerGesture = null;
+      }
       function showNextImage(event) {
+        if (event.type === "click" && suppressNextImageClick) {
+          suppressNextImageClick = false;
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
         if (event.type === "keydown" && event.key !== "Enter" && event.key !== " ") {
           return;
         }
@@ -3967,6 +4026,12 @@
         showItem(requestedIndex + 1, true);
       }
       nextImage.addEventListener("click", showNextImage);
+      nextImage.addEventListener("dragstart", function (event) { event.preventDefault(); });
+      nextImage.addEventListener("pointerdown", onPointerDown);
+      nextImage.addEventListener("pointermove", onPointerMove);
+      nextImage.addEventListener("pointerup", function (event) { onPointerEnd(event, false); });
+      nextImage.addEventListener("pointercancel", function (event) { onPointerEnd(event, true); });
+      nextImage.addEventListener("lostpointercapture", function (event) { onPointerEnd(event, true); });
       nextImage.addEventListener("keydown", showNextImage);
       nextImage.addEventListener("load", function () {
         if (cleaned || loadToken !== imageLoadToken || requestedIndex !== targetIndex) {
