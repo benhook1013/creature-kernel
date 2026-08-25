@@ -500,6 +500,32 @@ evidence. The published form gallery is historical evidence, not the current
 human checkpoint, and publication itself is not acceptance. Keep generated
 bundles and sessions under `/tmp`; they are not repository artifacts.
 
+## Shared-pose structural embodiment checkpoint
+
+After the four-profile structural gallery has been generated as described in
+`experiments/current-form-surface-preview/README.md`, publish its four rendered
+profile images as one immutable review group:
+
+```bash
+surface_preview_launcher=experiments/current-form-surface-preview/surface_preview_launcher.sh
+"$surface_preview_launcher" dev-tools/visual-review/publish_structural_embodiment.py \
+  --root /home/ben/.cache/creature-kernel/visual-reviews \
+  --gallery /tmp/ck-structural-embodiment-gallery
+```
+
+The publisher accepts exactly the frozen four-profile order and the complete
+39-artifact/40-file gallery tree, including the generated source manifest and
+four source documents that bind the profiles to their generated inputs. It
+verifies every inventoried digest, reproduces the generated sources, parses and
+checks the neutral/posed surfaces, skeleton, weights, proxies, metrics, and
+fixed pose, then deterministically re-renders each of the four distinct
+`1800 x 2500` RGB PNGs before serving them. They remain in one group so
+arrow/click switching retains the comparison viewport. The default review URL is
+`http://localhost:8765/review/shared-pose-structural-embodiment-gallery`.
+Session creation is no-replace, and owned installs use descriptor-relative
+atomic renames with rollback on detected failures. Use a new explicit `--id`
+for a revised candidate instead of rewriting an earlier session.
+
 ## HTTP routes and response format
 
 Open `/` for a dynamic session index, then `/review/<id>` for a review. The

@@ -6,6 +6,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -19,6 +20,7 @@ EXPERIMENT = HERE.parents[1]
 REPO_ROOT = HERE.parents[3]
 sys.path.insert(0, str(EXPERIMENT))
 import generate_structural_profile_sources as generator  # noqa: E402
+import structural_atomic_publish  # noqa: E402
 
 
 PROFILE_IDS = [
@@ -396,6 +398,102 @@ class StructuralProfileSourcesTests(unittest.TestCase):
                 )
         self.assertFalse(publication_output.exists())
         self.assertEqual(list(self.root.glob(".publication-failure.*")), [])
+
+    def test_cleanup_stage_stays_on_opened_parent_after_ancestor_swap(self) -> None:
+        parent = self.root / "publication-parent"
+        parent.mkdir()
+        parent_fd = structural_atomic_publish.open_directory_no_symlinks(parent)
+        try:
+            stage_name, stage = structural_atomic_publish.create_stage(parent_fd, "sources")
+            (stage / "payload.json").write_bytes(b"owned")
+            moved_parent = self.root / "opened-parent"
+            parent.rename(moved_parent)
+            parent.mkdir()
+            attacker_marker = parent / "attacker-marker"
+            attacker_marker.write_bytes(b"must remain")
+            self.assertTrue(structural_atomic_publish.cleanup_stage(parent_fd, stage_name))
+            self.assertFalse((moved_parent / stage_name).exists())
+            self.assertEqual(attacker_marker.read_bytes(), b"must remain")
+        finally:
+            os.close(parent_fd)
+
+    def test_documented_check_mode_runs_without_retaining_output(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(EXPERIMENT / "generate_structural_profile_sources.py"),
+                "--candidate",
+                str(self.candidate_path),
+                "--source",
+                str(self.source_path),
+                "--check",
+            ],
+            cwd=REPO_ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("generated 4 structural profile sources", result.stdout)
+
+    def test_regular_parent_replacement_before_open_is_rejected(self) -> None:
+        parent = self.root / "validated-source-parent"
+        parent.mkdir()
+        output = parent / "sources"
+        moved_parent = self.root / "validated-source-parent-original"
+        original_open = structural_atomic_publish.open_directory_no_symlinks
+
+        def replace_then_open(path: Path, expected_identity=None):
+            parent.rename(moved_parent)
+            parent.mkdir()
+            return original_open(path, expected_identity)
+
+        with patch.object(
+            structural_atomic_publish,
+            "open_directory_no_symlinks",
+            side_effect=replace_then_open,
+        ):
+            with self.assertRaisesRegex(generator.ProfileGenerationError, "changed after validation"):
+                generator.write_sources(self.candidate_path, self.source_path, output)
+        self.assertFalse((parent / "sources").exists())
+        self.assertFalse((moved_parent / "sources").exists())
+
+    def test_replaced_stage_identity_is_never_published(self) -> None:
+        parent = self.root / "stage-replacement-parent"
+        parent.mkdir()
+        parent_fd = structural_atomic_publish.open_directory_no_symlinks(parent)
+        try:
+            stage_name, stage = structural_atomic_publish.create_stage(parent_fd, "sources")
+            (stage / "owned.txt").write_text("owned", encoding="utf-8")
+            original_stage = parent / "original-stage"
+            (parent / stage_name).rename(original_stage)
+            (parent / stage_name).mkdir()
+            (parent / stage_name / "attacker.txt").write_text("attacker", encoding="utf-8")
+            with self.assertRaisesRegex(
+                structural_atomic_publish.AtomicPublishError,
+                "staging directory changed",
+            ):
+                structural_atomic_publish.publish_no_replace(parent_fd, stage_name, "sources")
+            self.assertFalse((parent / "sources").exists())
+            self.assertEqual((parent / stage_name / "attacker.txt").read_text(encoding="utf-8"), "attacker")
+        finally:
+            os.close(parent_fd)
+
+    def test_publication_stays_on_opened_parent_after_ancestor_swap(self) -> None:
+        parent = self.root / "source-parent"
+        parent.mkdir()
+        output = parent / "sources"
+        moved_parent = self.root / "opened-source-parent"
+
+        def swap_then_publish(parent_fd: int, stage_name: str, destination_name: str) -> None:
+            parent.rename(moved_parent)
+            parent.mkdir()
+            structural_atomic_publish.publish_no_replace(parent_fd, stage_name, destination_name)
+
+        with patch.object(generator, "_atomic_publish_no_replace", side_effect=swap_then_publish):
+            generator.write_sources(self.candidate_path, self.source_path, output)
+        self.assertTrue((moved_parent / "sources" / "manifest.json").is_file())
+        self.assertFalse((parent / "sources").exists())
 
 
 if __name__ == "__main__":

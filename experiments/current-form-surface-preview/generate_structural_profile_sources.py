@@ -11,19 +11,18 @@ from __future__ import annotations
 
 import argparse
 import copy
-import ctypes
-import errno
 import hashlib
 import json
 import math
 import os
 import re
-import shutil
 import stat
 import sys
 import tempfile
 from pathlib import Path, PurePosixPath
 from typing import Any, Iterable
+
+import structural_atomic_publish
 
 
 HERE = Path(__file__).resolve()
@@ -720,7 +719,18 @@ def write_sources(candidate_path: Path, source_path: Path, output_dir: Path) -> 
         raise ProfileGenerationError(f"could not inspect output directory: {output_dir}") from exc
     else:
         raise ProfileGenerationError(f"output directory already exists: {output_dir}")
-    stage = Path(tempfile.mkdtemp(prefix=f".{output_dir.name}.", dir=str(output_dir.parent)))
+    parent_fd = None
+    try:
+        parent_info = output_dir.parent.stat()
+        parent_fd = structural_atomic_publish.open_directory_no_symlinks(
+            output_dir.parent,
+            (parent_info.st_dev, parent_info.st_ino),
+        )
+        stage_name, stage = structural_atomic_publish.create_stage(parent_fd, output_dir.name)
+    except (OSError, structural_atomic_publish.AtomicPublishError) as exc:
+        if parent_fd is not None:
+            os.close(parent_fd)
+        raise ProfileGenerationError(f"could not create secure output staging: {exc}") from exc
     records: list[dict[str, Any]] = []
     try:
         for profile, output in zip(candidate["profiles"], outputs):
@@ -752,30 +762,22 @@ def write_sources(candidate_path: Path, source_path: Path, output_dir: Path) -> 
         if len(manifest_bytes) > MAX_OUTPUT_JSON_BYTES:
             raise ProfileGenerationError("generated manifest exceeds the bounded JSON size")
         (stage / "manifest.json").write_bytes(manifest_bytes)
-        _atomic_publish_no_replace(stage, output_dir)
+        _atomic_publish_no_replace(parent_fd, stage_name, output_dir.name)
         return manifest
     except Exception:
-        shutil.rmtree(stage, ignore_errors=True)
+        structural_atomic_publish.cleanup_stage(parent_fd, stage_name)
         raise
+    finally:
+        os.close(parent_fd)
 
 
-def _atomic_publish_no_replace(source: Path, destination: Path) -> None:
-    if os.name != "posix":
-        raise ProfileGenerationError("atomic profile publication requires Linux/WSL")
-    libc = ctypes.CDLL(None, use_errno=True)
-    renameat2 = getattr(libc, "renameat2", None)
-    if renameat2 is None:
-        raise ProfileGenerationError("Linux/WSL renameat2 no-replace publication is unavailable")
-    renameat2.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
-    renameat2.restype = ctypes.c_int
-    if renameat2(-100, os.fsencode(source), -100, os.fsencode(destination), 1) == 0:
-        return
-    error = ctypes.get_errno()
-    if error == errno.EEXIST:
-        raise ProfileGenerationError(f"output directory already exists: {destination}")
-    if error in {errno.EINVAL, errno.ENOSYS, errno.EXDEV, getattr(errno, "EOPNOTSUPP", errno.EINVAL)}:
-        raise ProfileGenerationError("output parent filesystem does not support atomic Linux no-replace directory publication")
-    raise ProfileGenerationError(f"atomic profile publication failed: {os.strerror(error)}")
+def _atomic_publish_no_replace(parent_fd: int, stage_name: str, destination_name: str) -> None:
+    try:
+        structural_atomic_publish.publish_no_replace(parent_fd, stage_name, destination_name)
+    except FileExistsError as exc:
+        raise ProfileGenerationError(f"output directory already exists: {destination_name}") from exc
+    except structural_atomic_publish.AtomicPublishError as exc:
+        raise ProfileGenerationError(str(exc)) from exc
 
 
 def _default_source(candidate_path: Path) -> Path:

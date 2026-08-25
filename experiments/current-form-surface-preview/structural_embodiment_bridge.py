@@ -10,19 +10,17 @@ disposable experiment evidence rather than a public or production contract.
 from __future__ import annotations
 
 import argparse
-import ctypes
-import errno
 import hashlib
 import json
 import math
 import os
 import re
-import shutil
 import stat
 import sys
-import tempfile
 from pathlib import Path, PurePosixPath
 from typing import Any
+
+import structural_atomic_publish
 
 
 BRIDGE_FORMAT = "creature-kernel.disposable-structural-embodiment-bridge.v1"
@@ -31,7 +29,7 @@ SOURCE_FORMAT = "creature-kernel.provisional-form-preview.v11"
 STRUCTURE_FORMAT = "creature-kernel.provisional-structural-inspection.v1"
 SUCCESSOR_FORMAT = "creature-kernel.disposable-successor-surface-preview.v9"
 SEMANTIC_FORMAT = "creature-kernel.disposable-surface-preview-semantic-winners.v1"
-ALGORITHM_REVISION = "structural-embodiment-bridge-algorithm-v2"
+ALGORITHM_REVISION = "structural-embodiment-bridge-algorithm-v3"
 CONFIGURATION_REVISION = "owner-adjacency-inverse-distance-primary-partition-capsule-v2"
 BRIDGE_FILE = "structural-embodiment-bridge.json"
 MANIFEST_FILE = "structural-embodiment-bridge-manifest.json"
@@ -744,6 +742,24 @@ def _distance_to_segment(point: tuple[float, float, float], start: tuple[float, 
     return distance
 
 
+def _validate_bone_continuity(bones: list[dict[str, Any]]) -> bool:
+    """Require every derived child bone to start at its parent endpoint."""
+    by_id = {bone["id"]: bone for bone in bones}
+    for bone in bones:
+        parent = bone["parent"]
+        if parent is None:
+            continue
+        if parent not in by_id:
+            raise BridgeError("derived hierarchy references an unknown parent bone")
+        child_start = tuple(_vector(bone["a"], f"bone {bone['id']} start"))
+        parent_end = tuple(_vector(by_id[parent]["b"], f"bone {parent} end"))
+        if child_start != parent_end:
+            raise BridgeError(
+                f"derived bone hierarchy has a spatial discontinuity between {parent} and {bone['id']}"
+            )
+    return True
+
+
 def _build_candidate(structure: dict[str, Any], form: dict[str, Any], bundle: dict[str, Any], selected: str, identity: dict[str, Any], *, candidate_profile_id: str = "synthetic-profile") -> dict[str, Any]:
     descriptors = form["variants"][selected]["descriptors"]
     joints = structure["joints"]
@@ -760,17 +776,35 @@ def _build_candidate(structure: dict[str, Any], form: dict[str, Any], bundle: di
     root_vertices = [point for point, label in zip(vertex_points, labels) if label == root_key]
     if len(root_vertices) < 2:
         raise BridgeError("source root Part has insufficient owned surface vertices for a root bone")
-    root_centroid = tuple(
-        math.fsum(point[axis] for point in root_vertices) / len(root_vertices)
+    surface_centroid = tuple(
+        math.fsum(point[axis] for point in vertex_points) / len(vertex_points)
         for axis in range(3)
     )
     root_minimum = tuple(min(point[axis] for point in root_vertices) for axis in range(3))
     root_maximum = tuple(max(point[axis] for point in root_vertices) for axis in range(3))
-    root_axis = max(range(3), key=lambda axis: root_maximum[axis] - root_minimum[axis])
-    root_start = list(root_centroid)
-    root_end = list(root_centroid)
-    root_start[root_axis] = root_minimum[root_axis]
-    root_end[root_axis] = root_maximum[root_axis]
+    root_reference = descriptors[root_key]["reference_point"]
+    evidence_scale = max(
+        1.0,
+        *(abs(value) for value in (*root_minimum, *root_maximum, *root_reference)),
+    )
+    evidence_tolerance = 1.0e-12 * evidence_scale
+    if any(
+        value < lower - evidence_tolerance or value > upper + evidence_tolerance
+        for value, lower, upper in zip(root_reference, root_minimum, root_maximum)
+    ):
+        raise BridgeError("source root Part reference point is outside its owned surface evidence")
+    root_start = list(surface_centroid)
+    root_end = list(root_reference)
+    if math.dist(root_start, root_end) <= MIN_SEGMENT_LENGTH:
+        root_start = list(
+            sorted(
+                vertex_points,
+                key=lambda point: (
+                    -sum((point[axis] - root_reference[axis]) ** 2 for axis in range(3)),
+                    point,
+                ),
+            )[0]
+        )
     root_length = math.dist(root_start, root_end)
     if not math.isfinite(root_length) or root_length <= MIN_SEGMENT_LENGTH:
         raise BridgeError("source root Part owned surface cannot define a nondegenerate root bone")
@@ -813,6 +847,7 @@ def _build_candidate(structure: dict[str, Any], form: dict[str, Any], bundle: di
         "length": root_length,
         "owned_part": root_key,
         "source_parts": [root_key],
+        "surface_anchor_rule": "centroid of the complete neutral surface, with lexicographically stable farthest-vertex fallback",
     }
     bones = [root_bone, *joint_internal]
     by_id = {bone["id"]: bone for bone in bones}
@@ -827,6 +862,7 @@ def _build_candidate(structure: dict[str, Any], form: dict[str, Any], bundle: di
                 raise BridgeError("derived hierarchy contains a cycle")
             seen.add(current)
             current = by_id[current]["parent"]
+    spatially_continuous = _validate_bone_continuity(bones)
 
     eligible_by_label: dict[tuple[str, tuple[str, ...], str, str], list[dict[str, Any]]] = {}
     for label in set(labels):
@@ -899,6 +935,7 @@ def _build_candidate(structure: dict[str, Any], form: dict[str, Any], bundle: di
     mapping = [{"joint": joints[key]["address"], "bone_id": bone_ids[key]} for key in ordered_joint_keys]
     checks = {
         "rooted_acyclic_hierarchy": True,
+        "spatially_continuous_hierarchy": spatially_continuous,
         "complete_joint_to_bone_mapping": len(mapping) == len(joints) and len({item["bone_id"] for item in mapping}) == len(joints),
         "finite_nonnegative_normalized_weights": all(item["weight"] >= 0.0 and math.isfinite(item["weight"]) for row in influence_rows for item in row) and all(abs(math.fsum(item["weight"] for item in row) - 1.0) <= 1.0e-12 for row in influence_rows),
         "full_vertex_coverage": len(influence_rows) == len(vertex_points) and all(influence_rows),
@@ -946,30 +983,11 @@ def _build_candidate(structure: dict[str, Any], form: dict[str, Any], bundle: di
     }
 
 
-def _atomic_publish_no_replace(source: Path, destination: Path) -> None:
-    if os.name != "posix":
-        raise BridgeError("atomic no-replace directory publication requires Linux/WSL")
-    libc = ctypes.CDLL(None, use_errno=True)
-    renameat2 = getattr(libc, "renameat2", None)
-    if renameat2 is None:
-        raise BridgeError("Linux/WSL renameat2 no-replace publication is unavailable")
-    renameat2.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
-    renameat2.restype = ctypes.c_int
-    result = renameat2(-100, os.fsencode(source), -100, os.fsencode(destination), 1)
-    if result != 0:
-        error = ctypes.get_errno()
-        if error == errno.EEXIST:
-            raise FileExistsError(str(destination))
-        if error in {
-            errno.EINVAL,
-            errno.ENOSYS,
-            errno.EXDEV,
-            getattr(errno, "EOPNOTSUPP", errno.EINVAL),
-        }:
-            raise BridgeError(
-                "output parent filesystem does not support atomic Linux no-replace directory publication"
-            )
-        raise OSError(error, os.strerror(error), str(destination))
+def _atomic_publish_no_replace(parent_fd: int, stage_name: str, destination_name: str) -> None:
+    try:
+        structural_atomic_publish.publish_no_replace(parent_fd, stage_name, destination_name)
+    except structural_atomic_publish.AtomicPublishError as exc:
+        raise BridgeError(str(exc)) from exc
 
 
 def build(structure_path: Path, form_path: Path, bundle_path: Path, candidate_profile_id: str, surface_variant_id: str, output: Path) -> dict[str, Any]:
@@ -994,15 +1012,28 @@ def build(structure_path: Path, form_path: Path, bundle_path: Path, candidate_pr
     identity = {"candidate_sha256": _digest(IDENTITY_DOMAIN + ":candidate", identity_basis), "request_sha256": _digest(IDENTITY_DOMAIN + ":request", identity_basis), "basis": identity_basis}
     candidate = _build_candidate(structure, form, bundle, surface_variant_id, identity, candidate_profile_id=candidate_profile_id)
     _directory(output.parent, "output parent")
+    parent_fd = None
     try:
-        output.lstat()
-    except FileNotFoundError:
-        pass
-    except OSError as exc:
-        raise BridgeError("could not inspect output path") from exc
-    else:
-        raise BridgeError("refusing to overwrite existing output")
-    stage = Path(tempfile.mkdtemp(prefix=f".{output.name}.", dir=str(output.parent)))
+        parent_info = output.parent.stat()
+        parent_fd = structural_atomic_publish.open_directory_no_symlinks(
+            output.parent,
+            (parent_info.st_dev, parent_info.st_ino),
+        )
+        try:
+            os.stat(output.name, dir_fd=parent_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            pass
+        else:
+            raise BridgeError("refusing to overwrite existing output")
+        stage_name, stage = structural_atomic_publish.create_stage(parent_fd, output.name)
+    except BridgeError:
+        if parent_fd is not None:
+            os.close(parent_fd)
+        raise
+    except (OSError, structural_atomic_publish.AtomicPublishError) as exc:
+        if parent_fd is not None:
+            os.close(parent_fd)
+        raise BridgeError(f"could not create secure output staging: {exc}") from exc
     try:
         artifact_path = stage / BRIDGE_FILE
         artifact_bytes = _canonical(candidate) + b"\n"
@@ -1013,11 +1044,13 @@ def build(structure_path: Path, form_path: Path, bundle_path: Path, candidate_pr
         actual_files, actual_dirs = _scan_bundle(stage)
         if actual_files != {BRIDGE_FILE, MANIFEST_FILE} or actual_dirs:
             raise BridgeError("staging output does not match its explicit inventory")
-        _atomic_publish_no_replace(stage, output)
+        _atomic_publish_no_replace(parent_fd, stage_name, output.name)
         return {"candidate": candidate, "manifest": manifest}
     except Exception:
-        shutil.rmtree(stage, ignore_errors=True)
+        structural_atomic_publish.cleanup_stage(parent_fd, stage_name)
         raise
+    finally:
+        os.close(parent_fd)
 
 
 class _Parser(argparse.ArgumentParser):

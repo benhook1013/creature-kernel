@@ -305,6 +305,7 @@ STRUCTURE_STATUSES = {
     "usage-error",
 }
 _HAS_DIR_FD_OPEN = os.open in getattr(os, "supports_dir_fd", set())
+_HAS_DIR_FD_MKDIR = os.mkdir in getattr(os, "supports_dir_fd", set())
 _HAS_DIR_FD_RENAME = os.rename in getattr(os, "supports_dir_fd", set())
 _HAS_DIR_FD_UNLINK = os.unlink in getattr(os, "supports_dir_fd", set())
 _HAS_DIR_FD_RMDIR = os.rmdir in getattr(os, "supports_dir_fd", set())
@@ -330,6 +331,7 @@ def require_secure_fs_support() -> None:
         hasattr(os, "O_NOFOLLOW"),
         hasattr(os, "O_DIRECTORY"),
         _HAS_DIR_FD_OPEN,
+        _HAS_DIR_FD_MKDIR,
         _HAS_DIR_FD_RENAME,
         _HAS_DIR_FD_UNLINK,
         _HAS_DIR_FD_RMDIR,
@@ -4481,6 +4483,7 @@ def utc_timestamp() -> str:
 
 def ensure_root(root: Path) -> Path:
     root = root.absolute()
-    if root.is_symlink() or not root.is_dir():
+    _reject_symlink_components(root, "reviews root")
+    if not root.is_dir():
         raise ValidationError("reviews root must already exist as a directory")
     return root

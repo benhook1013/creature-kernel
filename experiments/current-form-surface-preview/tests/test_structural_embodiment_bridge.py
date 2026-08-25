@@ -11,12 +11,14 @@ import tempfile
 import unittest
 from copy import deepcopy
 from pathlib import Path
+from unittest.mock import patch
 
 
 HERE = Path(__file__).resolve()
 EXPERIMENT = HERE.parents[1]
 sys.path.insert(0, str(EXPERIMENT))
 import structural_embodiment_bridge as bridge  # noqa: E402
+import structural_atomic_publish  # noqa: E402
 
 
 def canonical(value: object) -> bytes:
@@ -122,8 +124,17 @@ class StructuralEmbodimentBridgeTests(unittest.TestCase):
     def test_success_hierarchy_mapping_weights_proxies_and_pose_boundary(self) -> None:
         result = bridge.build(self.structure_path, self.form_path, self.bundle, "synthetic_profile", "neutral-v0", self.root / "out")
         candidate = result["candidate"]
+        bones = {bone["id"]: bone for bone in candidate["hierarchy"]["bones"]}
         self.assertEqual(len(candidate["hierarchy"]["bones"]), 2)
         self.assertTrue(candidate["checks"]["rooted_acyclic_hierarchy"])
+        self.assertTrue(candidate["checks"]["spatially_continuous_hierarchy"])
+        self.assertEqual(bones["bone-source-part-root"]["a"], [0.25, 0.25, 0.25])
+        self.assertEqual(bones["bone-source-part-root"]["b"], [0.0, 0.0, 0.0])
+        self.assertEqual(
+            bones["bone-source-part-root"]["surface_anchor_rule"],
+            "centroid of the complete neutral surface, with lexicographically stable farthest-vertex fallback",
+        )
+        self.assertEqual(bones["bone-joint-" + hashlib.sha256(canonical(address("joint", "hinge"))).hexdigest()[:16]]["a"], bones["bone-source-part-root"]["b"])
         self.assertEqual(len(candidate["hierarchy"]["joint_address_to_bone"]), 1)
         self.assertEqual(len(candidate["weights"]["influences"]), 4)
         self.assertTrue(all(len(row) <= 4 and abs(sum(item["weight"] for item in row) - 1.0) < 1e-12 for row in candidate["weights"]["influences"]))
@@ -152,7 +163,7 @@ class StructuralEmbodimentBridgeTests(unittest.TestCase):
             bridge._address(child, "child", kind="part")[0]: {"reference_point": (0.0, 1.0, 0.0)},
             bridge._address(grandchild, "grandchild", kind="part")[0]: {"reference_point": (0.0, 2.0, 0.0)},
         }
-        points = [(0.0, 0.0, 0.4), (1.0, 0.0, 0.2), (0.0, 1.0, 0.5), (1.0, 1.0, 0.2), (1.0, 2.0, 0.3)]
+        points = [(0.0, 0.0, 0.0), (1.0, 0.0, 0.2), (0.0, 1.0, 0.5), (1.0, 1.0, 0.2), (1.0, 2.0, 0.3)]
         # The intermediate child intentionally wins no surface vertices.  Its
         # incident bones must still receive truthful adjacent-owner influence,
         # while the absence remains explicit evidence rather than a fake proxy
@@ -174,12 +185,101 @@ class StructuralEmbodimentBridgeTests(unittest.TestCase):
         self.assertTrue(candidate["checks"]["every_bone_has_positive_influence"])
         self.assertTrue(candidate["checks"]["complete_proxy_vertex_partition"])
 
+    def test_spatial_discontinuity_mutation_fails_closed(self) -> None:
+        result = bridge.build(self.structure_path, self.form_path, self.bundle, "synthetic_profile", "neutral-v0", self.root / "continuity")
+        bones = deepcopy(result["candidate"]["hierarchy"]["bones"])
+        child = next(bone for bone in bones if bone["parent"] == "bone-source-part-root")
+        child["a"][0] += 0.25
+        with self.assertRaisesRegex(bridge.BridgeError, "spatial discontinuity"):
+            bridge._validate_bone_continuity(bones)
+
+    def test_root_reference_outside_owned_surface_fails_closed(self) -> None:
+        form = deepcopy(self.form)
+        form["variants"][0]["descriptors"][0]["reference_point"] = [2, 2, 2]
+        form_path = self.root / "outside-root-reference-form.json"
+        form_path.write_bytes(canonical(form))
+        bundle = make_bundle(self.root / "outside-root-reference", self.structure, form)
+        with self.assertRaisesRegex(bridge.BridgeError, "outside its owned surface evidence"):
+            bridge.build(self.structure_path, form_path, bundle, "synthetic_profile", "neutral-v0", self.root / "outside-root-reference-out")
+
+    def test_root_surface_anchor_uses_all_vertices_and_deterministic_fallback(self) -> None:
+        structure = make_structure()
+        form = make_form()
+        form["variants"][0]["descriptors"][0]["reference_point"] = [1 / 3, 1 / 3, 0.0]
+        validated_structure = bridge._validate_structure(structure)
+        validated_form = bridge._validate_form(
+            form,
+            "neutral-v0",
+            structure=validated_structure,
+            form_hash=hashlib.sha256(canonical(form)).hexdigest(),
+        )
+        candidate = bridge._build_candidate(
+            validated_structure,
+            validated_form,
+            {
+                "variant": {
+                    "ply": {"vertices": [(0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (1 / 3, 1 / 3, 0.0)]},
+                    "semantic": {"source_node_labels": [address("part", "root")] * 3 + [address("part", "child")]},
+                },
+            },
+            "neutral-v0",
+            {},
+        )
+        root = candidate["hierarchy"]["bones"][0]
+        self.assertEqual(root["a"], [0.0, 1.0, 0.0])
+        self.assertEqual(root["b"], [1 / 3, 1 / 3, 0.0])
+
     def test_separate_destinations_are_byte_identical_and_identity_has_no_paths(self) -> None:
         first = bridge.build(self.structure_path, self.form_path, self.bundle, "synthetic_profile", "neutral-v0", self.root / "first")
         second = bridge.build(self.structure_path, self.form_path, self.bundle, "synthetic_profile", "neutral-v0", self.root / "second")
         self.assertEqual(first["manifest"], second["manifest"])
         self.assertEqual((self.root / "first" / bridge.BRIDGE_FILE).read_bytes(), (self.root / "second" / bridge.BRIDGE_FILE).read_bytes())
         self.assertNotIn(str(self.root), (self.root / "first" / bridge.BRIDGE_FILE).read_text())
+
+    def test_publication_stays_on_opened_parent_after_ancestor_swap(self) -> None:
+        parent = self.root / "bridge-parent"
+        parent.mkdir()
+        output = parent / "bridge-output"
+        moved_parent = self.root / "opened-bridge-parent"
+
+        def swap_then_publish(parent_fd: int, stage_name: str, destination_name: str) -> None:
+            parent.rename(moved_parent)
+            parent.mkdir()
+            structural_atomic_publish.publish_no_replace(parent_fd, stage_name, destination_name)
+
+        with patch.object(bridge, "_atomic_publish_no_replace", side_effect=swap_then_publish):
+            bridge.build(self.structure_path, self.form_path, self.bundle, "synthetic_profile", "neutral-v0", output)
+        self.assertTrue((moved_parent / "bridge-output" / bridge.BRIDGE_FILE).is_file())
+        self.assertFalse((parent / "bridge-output").exists())
+
+    def test_regular_parent_replacement_before_open_is_rejected(self) -> None:
+        parent = self.root / "validated-bridge-parent"
+        parent.mkdir()
+        output = parent / "bridge-output"
+        moved_parent = self.root / "validated-bridge-parent-original"
+        original_open = structural_atomic_publish.open_directory_no_symlinks
+
+        def replace_then_open(path: Path, expected_identity=None):
+            parent.rename(moved_parent)
+            parent.mkdir()
+            return original_open(path, expected_identity)
+
+        with patch.object(
+            structural_atomic_publish,
+            "open_directory_no_symlinks",
+            side_effect=replace_then_open,
+        ):
+            with self.assertRaisesRegex(bridge.BridgeError, "changed after validation"):
+                bridge.build(
+                    self.structure_path,
+                    self.form_path,
+                    self.bundle,
+                    "synthetic_profile",
+                    "neutral-v0",
+                    output,
+                )
+        self.assertFalse((parent / "bridge-output").exists())
+        self.assertFalse((moved_parent / "bridge-output").exists())
 
     def test_failures_leave_no_output(self) -> None:
         cases = [

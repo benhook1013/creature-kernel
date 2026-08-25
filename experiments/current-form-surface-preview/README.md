@@ -260,12 +260,13 @@ authorization; this disposition is not merge authorization. No further
 cosmetic repair is planned, and publication machinery is not acceptance.
 
 The current runway target is the shared-pose structural embodiment gallery, an
-exploratory candidate toward Stage 2. It is outside this surface preview's
-implementation scope. Its four-profile candidate set and semantic pose payload
-must be frozen before evidence; the current display variants are not automatic
-substitutes. It must use generated, not illustrative, neutral/posed surface,
-skeleton/bone, weight/influence, and collision-proxy artifacts with
-source/build/scenario lineage.
+exploratory candidate toward Stage 2. It is a disposable companion consumer of
+this preview's generated surfaces, not a production architecture claim. Its
+four-profile candidate set and semantic pose payload are frozen before
+evidence; the current display variants are not automatic substitutes. It uses
+generated, not illustrative, neutral/posed surface, skeleton/bone,
+weight/influence, and collision-proxy artifacts with source/build/scenario
+lineage.
 See the active runway for its objective prerequisites, human judgments,
 non-goals, and stop triggers.
 
@@ -361,9 +362,60 @@ bone hierarchy, complete semantic-Joint mapping, bounded normalized weights,
 and collision capsules from a deterministic nearest-eligible-bone surface
 partition. It also records any source Part that won no final-surface vertices;
 that absence remains evidence rather than being filled with invented semantic
-ownership. This first slice emits no pose or posed surface. It is a direct
+ownership. Its synthetic root starts at the exactly reproducible complete
+neutral-surface centroid and ends at the source root Part reference, with a
+deterministic farthest-vertex fallback for a coincident centroid. This first
+slice emits no pose or posed surface. It is a direct
 prerequisite to, not a substitute for, the shared-pose structural embodiment
 gallery.
+
+Build that named checkpoint only after all four frozen profiles have successful
+neutral bridge bundles and matching hash-bound structure and neutral-surface
+inputs:
+
+```bash
+"$surface_preview_launcher" experiments/current-form-surface-preview/generate_structural_embodiment_gallery.py \
+  --bridge-root /tmp/ck-structural-gallery-inputs/bridges \
+  --neutral-ply-root /tmp/ck-structural-gallery-inputs/neutral-surfaces \
+  --structure-root /tmp/ck-structural-gallery-inputs/structures \
+  --source-manifest /tmp/ck-structural-profile-sources/manifest.json \
+  --output /tmp/ck-structural-embodiment-gallery
+```
+
+Each input root must contain exactly the four frozen candidate IDs; structure
+files use `<profile-id>.json`. The required generated source manifest binds
+each profile to its generated source document and is copied into the gallery
+inventory. The consumer rejects non-identity source Joint frames instead of
+inventing unrecorded frame semantics. It applies the one
+checked-in deterministic pose without IK or contact, performs classic linear
+blend skinning, transforms the generated collision capsules, and publishes one
+scale-consistent `1800 x 2500` PNG per profile. Every PNG uses the same global
+world bound and has front, side, and three-quarter columns over five rows:
+neutral skin plus skeleton, posed skin plus skeleton, dominant-bone/max-weight
+evidence, neutral skin plus proxies, and posed skin plus proxies. The root
+manifest inventories the pose and every per-profile neutral/posed surface,
+skeleton, weight, proxy, metric, and gallery artifact. These remain disposable
+candidate-scoped evidence, not runtime rig, solver, anatomy, or topology
+contracts.
+
+After generation, validate and publish only the four profile PNGs into one
+immutable visual-review group:
+
+```bash
+"$surface_preview_launcher" dev-tools/visual-review/publish_structural_embodiment.py \
+  --root /home/ben/.cache/creature-kernel/visual-reviews \
+  --gallery /tmp/ck-structural-embodiment-gallery
+```
+
+The default session is available at
+`http://localhost:8765/review/shared-pose-structural-embodiment-gallery` when
+the existing visual-review service is running. The publisher revalidates the
+complete 39-artifact/40-file candidate gallery, reproduces the frozen generated
+sources, parses and checks the structural and posed evidence, and
+deterministically re-renders each PNG from that evidence and the shared world
+bound before copying only the four ordered PNGs required for appraisal. It
+never replaces an existing session.
+
 Each manifest variant record and its `successor.json` sidecar also carries
 `source_variant_sha256`, the 64-character lowercase SHA-256 digest of the
 exact canonical raw producer variant object (`_canonical(raw_variant)`). This
