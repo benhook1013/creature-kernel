@@ -1809,6 +1809,7 @@ def build(
         structural_atomic_publish.cleanup_stage(parent_fd, stage_name)
         raise
     finally:
+        structural_atomic_publish.close_stage(stage_name)
         os.close(parent_fd)
 
 

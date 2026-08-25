@@ -7,6 +7,7 @@ import hashlib
 import io
 import json
 import math
+import os
 import subprocess
 import sys
 import tempfile
@@ -886,6 +887,34 @@ class StructuralEmbodimentGalleryTests(unittest.TestCase):
         self.assertEqual(sentinel.read_text(encoding="utf-8"), "attacker destination")
         self.assertEqual(sorted(path.name for path in attacker_parent.iterdir()), ["gallery"])
         self.assertEqual(sorted(path.name for path in attacker_output.iterdir()), ["keep.txt"])
+
+    def test_cleanup_stage_preserves_replacement_before_top_level_cleanup(self) -> None:
+        parent = self.root / "gallery-cleanup-parent"
+        parent.mkdir()
+        parent_fd = gallery.structural_atomic_publish.open_directory_no_symlinks(parent)
+        stage_name = None
+        try:
+            stage_name, stage = gallery.structural_atomic_publish.create_stage(parent_fd, "gallery")
+            (stage / "owned.txt").write_bytes(b"owned")
+            attacker_stage = parent / str(stage_name)
+            original_stage = parent / "original-stage"
+            original_remove = gallery.structural_atomic_publish._remove_tree_contents
+
+            def clean_then_replace(directory_fd: int) -> bool:
+                result = original_remove(directory_fd)
+                attacker_stage.rename(original_stage)
+                attacker_stage.mkdir()
+                (attacker_stage / "attacker.txt").write_bytes(b"attacker")
+                return result
+
+            with patch.object(gallery.structural_atomic_publish, "_remove_tree_contents", side_effect=clean_then_replace):
+                self.assertTrue(gallery.structural_atomic_publish.cleanup_stage(parent_fd, stage_name))
+            self.assertEqual((attacker_stage / "attacker.txt").read_bytes(), b"attacker")
+            self.assertTrue(original_stage.is_dir())
+            self.assertEqual(list(original_stage.iterdir()), [])
+        finally:
+            gallery.structural_atomic_publish.close_stage(stage_name)
+            os.close(parent_fd)
 
     def test_different_regular_parent_before_open_is_rejected(self) -> None:
         parent = self.root / "pre-open-parent"

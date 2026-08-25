@@ -291,11 +291,13 @@ model. The no-follow, path, origin, token, and file-type checks protect the
 ordinary local workflow and accidental misuse. They do not make the gallery a
 multi-user or adversary-resistant file service.
 
-The publisher validates the full manifest before creating the session. It
-copies each image to `SESSION/assets/<item-id>.<source-extension>` and writes
-normalized `SESSION/review.json`; normalized items contain the relative
-`image` field instead of `source`. A canonical JSON summary is printed on
-success. A failed invocation cleans only its own staging/session files.
+The publisher validates the full manifest, assembles the complete session in a
+private hidden staging directory, then installs that directory with one atomic
+no-replace rename. Normalized items contain the relative `image` field instead
+of `source`, and a canonical JSON summary is printed on success. A failed
+invocation removes only still-owned staging contents; it may retain an empty
+hidden staging directory because POSIX has no safe directory-unlink-by-fd
+operation.
 
 ## Disposable baseline-versus-successor surface checkpoint
 
@@ -522,9 +524,10 @@ fixed pose, then deterministically re-renders each of the four distinct
 `1800 x 2500` RGB PNGs before serving them. They remain in one group so
 arrow/click switching retains the comparison viewport. The default review URL is
 `http://localhost:8765/review/shared-pose-structural-embodiment-gallery`.
-Session creation is no-replace, and owned installs use descriptor-relative
-atomic renames with rollback on detected failures. Use a new explicit `--id`
-for a revised candidate instead of rewriting an earlier session.
+Session creation installs the complete staged review with one descriptor-
+relative atomic no-replace rename, so a failed pre-install operation cannot
+expose a partial final session. Use a new explicit `--id` for a revised
+candidate instead of rewriting an earlier session.
 
 ## HTTP routes and response format
 

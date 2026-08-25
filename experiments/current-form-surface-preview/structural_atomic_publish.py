@@ -28,10 +28,13 @@ class StageName(str):
         *,
         parent_identity: tuple[int, int],
         stage_identity: tuple[int, int],
+        stage_fd: int,
     ) -> "StageName":
         result = super().__new__(cls, value)
         result.parent_identity = parent_identity
         result.stage_identity = stage_identity
+        result.stage_fd = stage_fd
+        result.published = False
         return result
 
 
@@ -68,8 +71,29 @@ def open_directory_no_symlinks(
         raise
 
 
-def create_stage(parent_fd: int, destination_name: str) -> tuple[str, Path]:
-    """Create a private staging directory inside an already-open parent."""
+def _directory_open_flags() -> int:
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    if hasattr(os, "O_CLOEXEC"):
+        flags |= os.O_CLOEXEC
+    return flags
+
+
+def close_stage(stage_name: str) -> None:
+    """Close the directory fd owned by a stage token, if it is still open."""
+    if not isinstance(stage_name, StageName):
+        return
+    stage_fd = getattr(stage_name, "stage_fd", None)
+    stage_name.stage_fd = None
+    if stage_fd is None:
+        return
+    try:
+        os.close(stage_fd)
+    except OSError:
+        pass
+
+
+def create_stage(parent_fd: int, destination_name: str) -> tuple[StageName, Path]:
+    """Create a private staging directory and bind writes to its open fd."""
     destination_name = _component(destination_name, "publication destination")
     for _ in range(MAX_STAGE_ATTEMPTS):
         stage_name = f".{destination_name}.stage-{secrets.token_hex(12)}"
@@ -77,16 +101,27 @@ def create_stage(parent_fd: int, destination_name: str) -> tuple[str, Path]:
             os.mkdir(stage_name, mode=0o700, dir_fd=parent_fd)
         except FileExistsError:
             continue
-        stage_path = Path(f"/proc/self/fd/{parent_fd}") / stage_name
-        info = os.stat(stage_name, dir_fd=parent_fd, follow_symlinks=False)
-        if not stat.S_ISDIR(info.st_mode):
-            raise AtomicPublishError("new staging entry is not a directory")
-        parent_info = os.fstat(parent_fd)
-        return StageName(
-            stage_name,
-            parent_identity=(parent_info.st_dev, parent_info.st_ino),
-            stage_identity=(info.st_dev, info.st_ino),
-        ), stage_path
+        stage_fd: int | None = None
+        try:
+            info = os.stat(stage_name, dir_fd=parent_fd, follow_symlinks=False)
+            if not stat.S_ISDIR(info.st_mode):
+                raise AtomicPublishError("new staging entry is not a directory")
+            stage_fd = os.open(stage_name, _directory_open_flags(), dir_fd=parent_fd)
+            opened_info = os.fstat(stage_fd)
+            if not stat.S_ISDIR(opened_info.st_mode) or not _same_identity(opened_info, (info.st_dev, info.st_ino)):
+                raise AtomicPublishError("new staging directory changed while opening")
+            parent_info = os.fstat(parent_fd)
+            stage = StageName(
+                stage_name,
+                parent_identity=(parent_info.st_dev, parent_info.st_ino),
+                stage_identity=(opened_info.st_dev, opened_info.st_ino),
+                stage_fd=stage_fd,
+            )
+            return stage, Path(f"/proc/self/fd/{stage_fd}")
+        except Exception:
+            if stage_fd is not None:
+                os.close(stage_fd)
+            raise
     raise AtomicPublishError("could not allocate a unique staging directory")
 
 
@@ -94,6 +129,8 @@ def publish_no_replace(parent_fd: int, stage_name: str, destination_name: str) -
     """Rename within one opened parent without replacing an existing destination."""
     if not isinstance(stage_name, StageName):
         raise AtomicPublishError("publication staging identity is unavailable")
+    if stage_name.stage_fd is None or stage_name.published:
+        raise AtomicPublishError("publication staging directory handle is unavailable")
     parent_info = os.fstat(parent_fd)
     if not _same_identity(parent_info, stage_name.parent_identity):
         raise AtomicPublishError("publication parent identity changed")
@@ -103,7 +140,7 @@ def publish_no_replace(parent_fd: int, stage_name: str, destination_name: str) -
         raise AtomicPublishError("publication staging directory is unavailable") from exc
     if not stat.S_ISDIR(stage_info.st_mode) or not _same_identity(stage_info, stage_name.stage_identity):
         raise AtomicPublishError("publication staging directory changed before install")
-    stage_name = _component(stage_name, "staging directory")
+    stage_component = _component(stage_name, "staging directory")
     destination_name = _component(destination_name, "publication destination")
     if os.name != "posix":
         raise AtomicPublishError("atomic no-replace directory publication requires Linux/WSL")
@@ -115,7 +152,7 @@ def publish_no_replace(parent_fd: int, stage_name: str, destination_name: str) -
     renameat2.restype = ctypes.c_int
     result = renameat2(
         parent_fd,
-        os.fsencode(stage_name),
+        os.fsencode(stage_component),
         parent_fd,
         os.fsencode(destination_name),
         RENAME_NOREPLACE,
@@ -127,6 +164,7 @@ def publish_no_replace(parent_fd: int, stage_name: str, destination_name: str) -
         if error in {errno.EINVAL, errno.ENOSYS, errno.EXDEV, getattr(errno, "EOPNOTSUPP", errno.EINVAL)}:
             raise AtomicPublishError("output parent filesystem does not support atomic Linux no-replace directory publication")
         raise OSError(error, os.strerror(error), destination_name)
+    stage_name.published = True
     installed = os.stat(destination_name, dir_fd=parent_fd, follow_symlinks=False)
     if not stat.S_ISDIR(installed.st_mode) or not _same_identity(installed, stage_name.stage_identity):
         raise AtomicPublishError("published directory identity does not match the validated staging directory")
@@ -190,9 +228,11 @@ def cleanup_stage(parent_fd: int, stage_name: str) -> bool:
     """Safely remove a stage still attached to its originally opened parent.
 
     The name returned by :func:`create_stage` carries both parent and stage
-    identities.  A plain string is rejected as unknown rather than being
-    treated as permission to remove an arbitrary directory.  Cleanup is
-    descriptor-relative and skips a stage whose name has been replaced.
+    identities and an open directory fd.  A plain string is rejected as
+    unknown rather than being treated as permission to remove an arbitrary
+    directory.  Cleanup is descriptor-relative and never removes the visible
+    top-level stage name, which may have been replaced after the stage was
+    opened.
     """
     if not isinstance(stage_name, StageName):
         return False
@@ -200,26 +240,13 @@ def cleanup_stage(parent_fd: int, stage_name: str) -> bool:
         parent_info = os.fstat(parent_fd)
         if not _same_identity(parent_info, stage_name.parent_identity):
             return False
-        stage_info = os.stat(stage_name, dir_fd=parent_fd, follow_symlinks=False)
-        if not _same_identity(stage_info, stage_name.stage_identity) or not stat.S_ISDIR(stage_info.st_mode):
+        if stage_name.stage_fd is None or stage_name.published:
             return False
-        flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
-        if hasattr(os, "O_CLOEXEC"):
-            flags |= os.O_CLOEXEC
-        stage_fd = os.open(stage_name, flags, dir_fd=parent_fd)
-        try:
-            opened_info = os.fstat(stage_fd)
-            if not _same_identity(opened_info, stage_name.stage_identity):
-                return False
-            if not _remove_tree_contents(stage_fd):
-                return False
-            current = os.stat(stage_name, dir_fd=parent_fd, follow_symlinks=False)
-            if not _same_identity(current, stage_name.stage_identity):
-                return False
-            os.rmdir(stage_name, dir_fd=parent_fd)
-            os.fsync(parent_fd)
-            return True
-        finally:
-            os.close(stage_fd)
+        opened_info = os.fstat(stage_name.stage_fd)
+        if not stat.S_ISDIR(opened_info.st_mode) or not _same_identity(opened_info, stage_name.stage_identity):
+            return False
+        return _remove_tree_contents(stage_name.stage_fd)
     except (FileNotFoundError, NotADirectoryError, OSError):
         return False
+    finally:
+        close_stage(stage_name)

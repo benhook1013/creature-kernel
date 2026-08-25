@@ -276,8 +276,8 @@ tall/narrow/long-legged, slender/long-limbed, and stocky/broad-chested. Generate
 their compact canonical BodyDocuments through one shared data-driven transform:
 
 ```bash
-python3 experiments/current-form-surface-preview/generate_structural_profile_sources.py --check
-python3 experiments/current-form-surface-preview/generate_structural_profile_sources.py \
+"$surface_preview_launcher" experiments/current-form-surface-preview/generate_structural_profile_sources.py --check
+"$surface_preview_launcher" experiments/current-form-surface-preview/generate_structural_profile_sources.py \
   --output-dir /tmp/ck-structural-profile-sources
 ```
 

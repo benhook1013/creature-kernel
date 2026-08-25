@@ -313,7 +313,9 @@ class StructuralProfileSourcesTests(unittest.TestCase):
             with self.assertRaisesRegex(generator.ProfileGenerationError, "bounded JSON size"):
                 generator.write_sources(self.candidate_path, self.source_path, bounded_output)
         self.assertFalse(bounded_output.exists())
-        self.assertEqual(list(self.root.glob(".bounded-output.*")), [])
+        bounded_stages = list(self.root.glob(".bounded-output.*"))
+        self.assertEqual(len(bounded_stages), 1)
+        self.assertEqual(list(bounded_stages[0].iterdir()), [])
 
         same_identity_source = copy.deepcopy(self.base)
         same_identity_source["extensions"] = ["lineage-mismatch"]
@@ -340,6 +342,11 @@ class StructuralProfileSourcesTests(unittest.TestCase):
         with self.assertRaisesRegex(generator.ProfileGenerationError, "symlinked path component"):
             generator.write_sources(self.candidate_path, self.source_path, output_link / "sources")
         self.assertFalse((output_target / "sources").exists())
+
+        missing_parent = self.root / "missing-output-parent" / "sources"
+        with self.assertRaisesRegex(generator.ProfileGenerationError, "output parent must already exist"):
+            generator.write_sources(self.candidate_path, self.source_path, missing_parent)
+        self.assertFalse(missing_parent.parent.exists())
 
         source_target = self.root / "real-source-parent"
         source_target.mkdir()
@@ -382,7 +389,9 @@ class StructuralProfileSourcesTests(unittest.TestCase):
             with self.assertRaisesRegex(generator.ProfileGenerationError, "synthetic write failure"):
                 generator.write_sources(self.candidate_path, self.source_path, write_failure_output)
         self.assertFalse(write_failure_output.exists())
-        self.assertEqual(list(self.root.glob(".write-failure.*")), [])
+        write_failure_stages = list(self.root.glob(".write-failure.*"))
+        self.assertEqual(len(write_failure_stages), 1)
+        self.assertEqual(list(write_failure_stages[0].iterdir()), [])
 
         publication_output = self.root / "publication-failure"
         with patch.object(
@@ -397,12 +406,15 @@ class StructuralProfileSourcesTests(unittest.TestCase):
                     publication_output,
                 )
         self.assertFalse(publication_output.exists())
-        self.assertEqual(list(self.root.glob(".publication-failure.*")), [])
+        publication_stages = list(self.root.glob(".publication-failure.*"))
+        self.assertEqual(len(publication_stages), 1)
+        self.assertEqual(list(publication_stages[0].iterdir()), [])
 
     def test_cleanup_stage_stays_on_opened_parent_after_ancestor_swap(self) -> None:
         parent = self.root / "publication-parent"
         parent.mkdir()
         parent_fd = structural_atomic_publish.open_directory_no_symlinks(parent)
+        stage_name = None
         try:
             stage_name, stage = structural_atomic_publish.create_stage(parent_fd, "sources")
             (stage / "payload.json").write_bytes(b"owned")
@@ -412,7 +424,8 @@ class StructuralProfileSourcesTests(unittest.TestCase):
             attacker_marker = parent / "attacker-marker"
             attacker_marker.write_bytes(b"must remain")
             self.assertTrue(structural_atomic_publish.cleanup_stage(parent_fd, stage_name))
-            self.assertFalse((moved_parent / stage_name).exists())
+            self.assertTrue((moved_parent / stage_name).is_dir())
+            self.assertEqual(list((moved_parent / stage_name).iterdir()), [])
             self.assertEqual(attacker_marker.read_bytes(), b"must remain")
         finally:
             os.close(parent_fd)
@@ -462,6 +475,7 @@ class StructuralProfileSourcesTests(unittest.TestCase):
         parent = self.root / "stage-replacement-parent"
         parent.mkdir()
         parent_fd = structural_atomic_publish.open_directory_no_symlinks(parent)
+        stage_name = None
         try:
             stage_name, stage = structural_atomic_publish.create_stage(parent_fd, "sources")
             (stage / "owned.txt").write_text("owned", encoding="utf-8")
@@ -469,6 +483,9 @@ class StructuralProfileSourcesTests(unittest.TestCase):
             (parent / stage_name).rename(original_stage)
             (parent / stage_name).mkdir()
             (parent / stage_name / "attacker.txt").write_text("attacker", encoding="utf-8")
+            (stage / "after-replacement.txt").write_text("owned through fd", encoding="utf-8")
+            self.assertEqual((original_stage / "after-replacement.txt").read_text(encoding="utf-8"), "owned through fd")
+            self.assertFalse((parent / stage_name / "after-replacement.txt").exists())
             with self.assertRaisesRegex(
                 structural_atomic_publish.AtomicPublishError,
                 "staging directory changed",
@@ -476,7 +493,39 @@ class StructuralProfileSourcesTests(unittest.TestCase):
                 structural_atomic_publish.publish_no_replace(parent_fd, stage_name, "sources")
             self.assertFalse((parent / "sources").exists())
             self.assertEqual((parent / stage_name / "attacker.txt").read_text(encoding="utf-8"), "attacker")
+            self.assertTrue(structural_atomic_publish.cleanup_stage(parent_fd, stage_name))
+            self.assertEqual(list(original_stage.iterdir()), [])
+            self.assertEqual((parent / stage_name / "attacker.txt").read_text(encoding="utf-8"), "attacker")
         finally:
+            structural_atomic_publish.close_stage(stage_name)
+            os.close(parent_fd)
+
+    def test_cleanup_stage_preserves_replacement_before_top_level_cleanup(self) -> None:
+        parent = self.root / "cleanup-replacement-parent"
+        parent.mkdir()
+        parent_fd = structural_atomic_publish.open_directory_no_symlinks(parent)
+        stage_name = None
+        try:
+            stage_name, stage = structural_atomic_publish.create_stage(parent_fd, "sources")
+            (stage / "owned.txt").write_bytes(b"owned")
+            original_stage = parent / "original-stage"
+            attacker_stage = parent / str(stage_name)
+            original_remove = structural_atomic_publish._remove_tree_contents
+
+            def clean_then_replace(directory_fd: int) -> bool:
+                result = original_remove(directory_fd)
+                attacker_stage.rename(original_stage)
+                attacker_stage.mkdir()
+                (attacker_stage / "attacker.txt").write_bytes(b"attacker")
+                return result
+
+            with patch.object(structural_atomic_publish, "_remove_tree_contents", side_effect=clean_then_replace):
+                self.assertTrue(structural_atomic_publish.cleanup_stage(parent_fd, stage_name))
+            self.assertEqual((attacker_stage / "attacker.txt").read_bytes(), b"attacker")
+            self.assertTrue(original_stage.is_dir())
+            self.assertEqual(list(original_stage.iterdir()), [])
+        finally:
+            structural_atomic_publish.close_stage(stage_name)
             os.close(parent_fd)
 
     def test_publication_stays_on_opened_parent_after_ancestor_swap(self) -> None:

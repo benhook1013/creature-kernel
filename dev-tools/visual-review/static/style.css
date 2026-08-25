@@ -74,7 +74,7 @@ button.primary { border-color: #3387d5; background: #1768ad; color: #fff; }
 .image-dialog img:focus-visible { outline: 3px solid #79b8ff; outline-offset: -3px; }
 .close-dialog { display: block; margin-left: auto; }
 
-@media (max-width: 38rem) {
+@media (max-width: 52rem) {
   .image-dialog-header { align-items: flex-start; flex-wrap: wrap; }
   .image-dialog-title { flex-basis: calc(100% - 3rem); }
   .image-dialog-controls { order: 3; width: 100%; flex-wrap: wrap; justify-content: flex-start; margin-left: 0; white-space: normal; }

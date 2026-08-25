@@ -700,7 +700,16 @@ def write_sources(candidate_path: Path, source_path: Path, output_dir: Path) -> 
     candidate_path = _path_without_symlinks(candidate_path, "candidate path")
     source_path = _path_without_symlinks(source_path, "authored source path")
     output_dir = _path_without_symlinks(output_dir, "output path")
-    _path_without_symlinks(output_dir.parent, "output parent path")
+    output_parent = _path_without_symlinks(output_dir.parent, "output parent path")
+    try:
+        output_parent_info = output_parent.lstat()
+    except FileNotFoundError as exc:
+        raise ProfileGenerationError(f"output parent must already exist: {output_parent}") from exc
+    except OSError as exc:
+        raise ProfileGenerationError(f"could not inspect output parent: {output_parent}") from exc
+    if not stat.S_ISDIR(output_parent_info.st_mode):
+        raise ProfileGenerationError(f"output parent is not an existing directory: {output_parent}")
+    output_parent_identity = (output_parent_info.st_dev, output_parent_info.st_ino)
     candidate, candidate_bytes = load_json_with_bytes(candidate_path, "candidate")
     source, source_bytes = load_json_with_bytes(source_path, "authored source")
     candidate_object = _object(candidate, "candidate")
@@ -710,7 +719,6 @@ def write_sources(candidate_path: Path, source_path: Path, output_dir: Path) -> 
     if hashlib.sha256(source_bytes).hexdigest() != expected_source_hash:
         raise ProfileGenerationError("authored source bytes do not match candidate.base_source.sha256")
     outputs = generate_sources(candidate, source)
-    output_dir.parent.mkdir(parents=True, exist_ok=True)
     try:
         output_dir.lstat()
     except FileNotFoundError:
@@ -720,11 +728,11 @@ def write_sources(candidate_path: Path, source_path: Path, output_dir: Path) -> 
     else:
         raise ProfileGenerationError(f"output directory already exists: {output_dir}")
     parent_fd = None
+    stage_name = None
     try:
-        parent_info = output_dir.parent.stat()
         parent_fd = structural_atomic_publish.open_directory_no_symlinks(
-            output_dir.parent,
-            (parent_info.st_dev, parent_info.st_ino),
+            output_parent,
+            output_parent_identity,
         )
         stage_name, stage = structural_atomic_publish.create_stage(parent_fd, output_dir.name)
     except (OSError, structural_atomic_publish.AtomicPublishError) as exc:
@@ -768,6 +776,7 @@ def write_sources(candidate_path: Path, source_path: Path, output_dir: Path) -> 
         structural_atomic_publish.cleanup_stage(parent_fd, stage_name)
         raise
     finally:
+        structural_atomic_publish.close_stage(stage_name)
         os.close(parent_fd)
 
 

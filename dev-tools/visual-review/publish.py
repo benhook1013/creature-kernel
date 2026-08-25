@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import argparse
+import ctypes
+import errno
 import hashlib
 import os
 import re
@@ -30,6 +32,7 @@ class PublishError(RuntimeError):
 
 COPY_CHUNK = 64 * 1024
 STAGING_ATTEMPTS = 100
+RENAME_NOREPLACE = 1
 
 
 def _open_directory(parent_fd: int | None, path_or_name: Path | str, where: str) -> int:
@@ -77,6 +80,8 @@ def _copy_source(
         0o600,
         dir_fd=destination_fd,
     )
+    output_info = os.fstat(output_fd)
+    output_identity = (output_info.st_dev, output_info.st_ino)
     try:
         with open_source_reference(source, where) as stream:
             with os.fdopen(output_fd, "wb") as output:
@@ -89,6 +94,14 @@ def _copy_source(
                     digest.update(chunk)
                     output.write(chunk)
                 os.fchmod(output.fileno(), 0o644)
+    except Exception:
+        try:
+            current = os.stat(destination_name, dir_fd=destination_fd, follow_symlinks=False)
+            if (current.st_dev, current.st_ino) == output_identity:
+                os.unlink(destination_name, dir_fd=destination_fd)
+        except OSError:
+            pass
+        raise
     finally:
         if output_fd is not None:
             os.close(output_fd)
@@ -104,16 +117,60 @@ def _write_owned(parent_fd: int, name: str, text: str) -> None:
         0o644,
         dir_fd=parent_fd,
     )
+    output_info = os.fstat(output_fd)
+    output_identity = (output_info.st_dev, output_info.st_ino)
     try:
         with os.fdopen(output_fd, "w", encoding="utf-8", newline="\n") as output:
             output_fd = None
             output.write(text)
+    except Exception:
+        try:
+            current = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+            if (current.st_dev, current.st_ino) == output_identity:
+                os.unlink(name, dir_fd=parent_fd)
+        except OSError:
+            pass
+        raise
     finally:
         if output_fd is not None:
             os.close(output_fd)
 
 
-def _create_staging(root_fd: int, review_id: str) -> tuple[str, int, tuple[int, int]]:
+def _rename_noreplace(
+    source_dir_fd: int,
+    source_name: str,
+    destination_dir_fd: int,
+    destination_name: str,
+) -> None:
+    """Atomically move a directory without replacing an existing entry."""
+
+    if not sys.platform.startswith("linux"):
+        raise OSError(errno.ENOTSUP, "atomic no-replace directory rename unavailable")
+    libc = ctypes.CDLL(None, use_errno=True)
+    renameat2 = getattr(libc, "renameat2", None)
+    if renameat2 is None:
+        raise OSError(errno.ENOTSUP, "atomic no-replace directory rename unavailable")
+    renameat2.argtypes = [
+        ctypes.c_int,
+        ctypes.c_char_p,
+        ctypes.c_int,
+        ctypes.c_char_p,
+        ctypes.c_uint,
+    ]
+    renameat2.restype = ctypes.c_int
+    result = renameat2(
+        source_dir_fd,
+        os.fsencode(source_name),
+        destination_dir_fd,
+        os.fsencode(destination_name),
+        RENAME_NOREPLACE,
+    )
+    if result != 0:
+        error = ctypes.get_errno()
+        raise OSError(error, os.strerror(error), destination_name)
+
+
+def _create_staging(root_fd: int, review_id: str) -> tuple[str, int]:
     """Create and open a unique staging directory relative to the open root."""
 
     prefix = f".{review_id}.publish-"
@@ -124,88 +181,60 @@ def _create_staging(root_fd: int, review_id: str) -> tuple[str, int, tuple[int, 
         except FileExistsError:
             continue
 
-        created_identity: tuple[int, int] | None = None
         staging_fd: int | None = None
         try:
             info = os.stat(name, dir_fd=root_fd, follow_symlinks=False)
             if not stat.S_ISDIR(info.st_mode):
                 raise ValidationError("publish staging is not a directory")
-            created_identity = (info.st_dev, info.st_ino)
             staging_fd = _open_directory(root_fd, name, "publish staging")
             opened_info = os.fstat(staging_fd)
-            if (opened_info.st_dev, opened_info.st_ino) != created_identity:
+            if (opened_info.st_dev, opened_info.st_ino) != (info.st_dev, info.st_ino):
+                os.close(staging_fd)
+                staging_fd = None
                 raise ValidationError("publish staging changed while being opened")
-            return name, staging_fd, created_identity
+            return name, staging_fd
         except Exception:
             if staging_fd is not None:
                 try:
                     os.close(staging_fd)
                 except OSError:
                     pass
-            if created_identity is not None:
-                try:
-                    info = os.stat(name, dir_fd=root_fd, follow_symlinks=False)
-                    if (
-                        stat.S_ISDIR(info.st_mode)
-                        and (info.st_dev, info.st_ino) == created_identity
-                    ):
-                        os.rmdir(name, dir_fd=root_fd)
-                except OSError:
-                    pass
+            # There is no safe directory-unlink-by-fd primitive here.  Keep
+            # the hidden name rather than racing a replacement at that name.
             raise
     raise PublishError("could not create a unique publish staging directory")
 
 
-def _cleanup_directory_fd(directory_fd: int) -> None:
-    """Remove a staging tree through descriptors, without following entries."""
-
-    for name in os.listdir(directory_fd):
-        try:
-            info = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
-        except OSError:
-            continue
-        identity = (info.st_dev, info.st_ino)
-        if stat.S_ISDIR(info.st_mode):
-            child_fd = None
-            try:
-                child_fd = _open_directory(directory_fd, name, "staging child")
-                _cleanup_directory_fd(child_fd)
-            except (OSError, ValidationError):
-                continue
-            finally:
-                if child_fd is not None:
-                    try:
-                        os.close(child_fd)
-                    except OSError:
-                        pass
-            try:
-                current = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
-                if (current.st_dev, current.st_ino) == identity:
-                    os.rmdir(name, dir_fd=directory_fd)
-            except OSError:
-                pass
-        else:
-            try:
-                current = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
-                if (current.st_dev, current.st_ino) == identity:
-                    os.unlink(name, dir_fd=directory_fd)
-            except OSError:
-                pass
-
-
 def _cleanup_staging(
-    root_fd: int,
-    staging_name: str,
     staging_fd: int,
-    staging_identity: tuple[int, int],
+    assets_fd: int | None,
+    assets_identity: tuple[int, int] | None,
+    asset_stats: dict[str, tuple[int, int]],
+    review_stat: tuple[int, int] | None,
 ) -> None:
-    """Remove only the identity-matching staging directory through open fds."""
+    """Remove only owned staging contents through already-open descriptors."""
 
-    _cleanup_directory_fd(staging_fd)
-    info = os.stat(staging_name, dir_fd=root_fd, follow_symlinks=False)
-    if not stat.S_ISDIR(info.st_mode) or (info.st_dev, info.st_ino) != staging_identity:
-        return
-    os.rmdir(staging_name, dir_fd=root_fd)
+    if assets_fd is not None:
+        for name, expected in asset_stats.items():
+            try:
+                info = os.stat(name, dir_fd=assets_fd, follow_symlinks=False)
+                if (info.st_dev, info.st_ino) == expected:
+                    os.unlink(name, dir_fd=assets_fd)
+            except OSError:
+                pass
+        try:
+            info = os.stat("assets", dir_fd=staging_fd, follow_symlinks=False)
+            if assets_identity is not None and (info.st_dev, info.st_ino) == assets_identity:
+                os.rmdir("assets", dir_fd=staging_fd)
+        except OSError:
+            pass
+    if review_stat is not None:
+        try:
+            info = os.stat("review.json", dir_fd=staging_fd, follow_symlinks=False)
+            if (info.st_dev, info.st_ino) == review_stat:
+                os.unlink("review.json", dir_fd=staging_fd)
+        except OSError:
+            pass
 
 
 def _close_fd(fd: int | None) -> None:
@@ -240,80 +269,6 @@ def _validate_expected_sources(
             raise ValidationError(f"{where}.sha256 must be lowercase hexadecimal SHA-256")
         normalized[item_id] = (byte_count, sha256)
     return normalized
-
-
-def _cleanup_owned_session(
-    root_fd: int,
-    session_name: str,
-    session_fd: int,
-    assets_fd: int | None,
-    asset_stats: dict[str, tuple[int, int]],
-    review_stat: tuple[int, int] | None,
-    session_identity: tuple[int, int] | None,
-) -> None:
-    """Remove only identity-matching files created by this invocation."""
-
-    local_assets_fd = assets_fd
-    try:
-        if local_assets_fd is None:
-            try:
-                local_assets_fd = _open_directory(session_fd, "assets", "session assets")
-            except ValidationError:
-                local_assets_fd = None
-        if local_assets_fd is not None:
-            for name, expected in asset_stats.items():
-                try:
-                    info = os.stat(name, dir_fd=local_assets_fd, follow_symlinks=False)
-                    if (info.st_dev, info.st_ino) == expected:
-                        os.unlink(name, dir_fd=local_assets_fd)
-                except OSError:
-                    pass
-            if assets_fd is None:
-                try:
-                    os.close(local_assets_fd)
-                except OSError:
-                    pass
-        if review_stat is not None:
-            try:
-                info = os.stat("review.json", dir_fd=session_fd, follow_symlinks=False)
-                if (info.st_dev, info.st_ino) == review_stat:
-                    os.unlink("review.json", dir_fd=session_fd)
-            except OSError:
-                pass
-        try:
-            os.rmdir("assets", dir_fd=session_fd)
-        except OSError:
-            pass
-        if session_identity is not None:
-            try:
-                current = os.stat(session_name, dir_fd=root_fd, follow_symlinks=False)
-                if (current.st_dev, current.st_ino) == session_identity:
-                    os.rmdir(session_name, dir_fd=root_fd)
-            except OSError:
-                pass
-    finally:
-        if assets_fd is not None:
-            try:
-                os.close(assets_fd)
-            except OSError:
-                pass
-        try:
-            os.close(session_fd)
-        except OSError:
-            pass
-
-
-def _cleanup_new_session(root_fd: int, session_name: str, identity: tuple[int, int]) -> None:
-    """Remove a just-created empty session only if its identity is unchanged."""
-
-    try:
-        info = os.stat(session_name, dir_fd=root_fd, follow_symlinks=False)
-        if not stat.S_ISDIR(info.st_mode) or (info.st_dev, info.st_ino) != identity:
-            return
-        os.rmdir(session_name, dir_fd=root_fd)
-    except OSError:
-        # A replacement or a non-empty directory is not ours to remove.
-        pass
 
 
 def publish_session(
@@ -351,18 +306,17 @@ def publish_session(
         raise ValidationError("reviews root changed while being opened")
     staging_name: str | None = None
     staging_fd: int | None = None
-    staging_identity: tuple[int, int] | None = None
-    created_session = False
-    session_fd = None
-    assets_fd = None
     staged_assets_fd = None
+    assets_identity: tuple[int, int] | None = None
     asset_stats: dict[str, tuple[int, int]] = {}
     review_stat: tuple[int, int] | None = None
-    created_session_identity: tuple[int, int] | None = None
+    installed = False
     try:
-        staging_name, staging_fd, staging_identity = _create_staging(root_fd, review["id"])
+        staging_name, staging_fd = _create_staging(root_fd, review["id"])
         os.mkdir("assets", mode=0o755, dir_fd=staging_fd)
         staged_assets_fd = _open_directory(staging_fd, "assets", "staged assets")
+        assets_info = os.fstat(staged_assets_fd)
+        assets_identity = (assets_info.st_dev, assets_info.st_ino)
         for group in review["groups"]:
             for item in group["items"]:
                 source = sources[item["id"]]
@@ -370,6 +324,8 @@ def publish_session(
                 actual_bytes, actual_sha256 = _copy_source(
                     source, staged_assets_fd, destination_name, f"item {item['id']} source"
                 )
+                info = os.stat(destination_name, dir_fd=staged_assets_fd, follow_symlinks=False)
+                asset_stats[destination_name] = (info.st_dev, info.st_ino)
                 expected = (
                     normalized_expected_sources.get(item["id"])
                     if normalized_expected_sources is not None
@@ -381,40 +337,21 @@ def publish_session(
                         f"expected {expected[0]} bytes/{expected[1]}, "
                         f"got {actual_bytes} bytes/{actual_sha256}"
                     )
-                info = os.stat(destination_name, dir_fd=staged_assets_fd, follow_symlinks=False)
-                asset_stats[destination_name] = (info.st_dev, info.st_ino)
-        _close_fd(staged_assets_fd)
-        staged_assets_fd = None
         _write_owned(staging_fd, "review.json", canonical_json(review))
-        staged_review_info = os.stat("review.json", dir_fd=staging_fd, follow_symlinks=False)
-
-        # mkdir is the no-overwrite install point.  In particular, do not use
-        # os.rename(staging, session): on POSIX that can replace an empty
-        # directory that appeared between the existence check and rename.
+        review_info = os.stat("review.json", dir_fd=staging_fd, follow_symlinks=False)
+        review_stat = (review_info.st_dev, review_info.st_ino)
+        os.fchmod(staging_fd, 0o755)
         try:
-            os.mkdir(review["id"], mode=0o755, dir_fd=root_fd)
+            _rename_noreplace(root_fd, staging_name, root_fd, review["id"])
         except FileExistsError as exc:
             raise PublishError(f"session appeared during publish: {review['id']}") from exc
-        created_session = True
-        created_info = os.stat(review["id"], dir_fd=root_fd, follow_symlinks=False)
-        if not stat.S_ISDIR(created_info.st_mode):
-            raise PublishError(f"new review session is not a directory: {review['id']}")
-        created_session_identity = (created_info.st_dev, created_info.st_ino)
-        session_fd = _open_directory(root_fd, review["id"], "new review session")
-        os.rename("assets", "assets", src_dir_fd=staging_fd, dst_dir_fd=session_fd)
-        assets_fd = _open_directory(session_fd, "assets", "new session assets")
-        os.rename("review.json", "review.json", src_dir_fd=staging_fd, dst_dir_fd=session_fd)
-        installed_review_info = os.stat("review.json", dir_fd=session_fd, follow_symlinks=False)
-        if (installed_review_info.st_dev, installed_review_info.st_ino) == (staged_review_info.st_dev, staged_review_info.st_ino):
-            review_stat = (installed_review_info.st_dev, installed_review_info.st_ino)
-        _cleanup_staging(root_fd, staging_name, staging_fd, staging_identity)
+        installed = True
+        staging_name = None
+        _close_fd(staged_assets_fd)
+        staged_assets_fd = None
         _close_fd(staging_fd)
         staging_fd = None
-        os.close(assets_fd)
-        assets_fd = None
-        os.close(session_fd)
-        session_fd = None
-        os.close(root_fd)
+        _close_fd(root_fd)
         return {
             "schema_version": 1,
             "id": review["id"],
@@ -423,34 +360,20 @@ def publish_session(
             "assets": len(sources),
         }
     except Exception:
-        _close_fd(staged_assets_fd)
-        staged_assets_fd = None
-        if created_session and session_fd is not None:
-            _cleanup_owned_session(
-                root_fd,
-                review["id"],
-                session_fd,
-                assets_fd,
-                asset_stats,
-                review_stat,
-                created_session_identity,
-            )
-            session_fd = None
-            assets_fd = None
-        elif created_session and created_session_identity is not None:
-            _cleanup_new_session(root_fd, review["id"], created_session_identity)
-        if staging_fd is not None and staging_name is not None and staging_identity is not None:
+        if staging_fd is not None and not installed:
             try:
-                _cleanup_staging(root_fd, staging_name, staging_fd, staging_identity)
+                _cleanup_staging(
+                    staging_fd,
+                    staged_assets_fd,
+                    assets_identity,
+                    asset_stats,
+                    review_stat,
+                )
             except OSError:
                 pass
-            finally:
-                _close_fd(staging_fd)
-            staging_fd = None
-        try:
-            os.close(root_fd)
-        except OSError:
-            pass
+        _close_fd(staged_assets_fd)
+        _close_fd(staging_fd)
+        _close_fd(root_fd)
         raise
 
 

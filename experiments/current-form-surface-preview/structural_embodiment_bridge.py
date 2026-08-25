@@ -1013,6 +1013,7 @@ def build(structure_path: Path, form_path: Path, bundle_path: Path, candidate_pr
     candidate = _build_candidate(structure, form, bundle, surface_variant_id, identity, candidate_profile_id=candidate_profile_id)
     _directory(output.parent, "output parent")
     parent_fd = None
+    stage_name = None
     try:
         parent_info = output.parent.stat()
         parent_fd = structural_atomic_publish.open_directory_no_symlinks(
@@ -1050,6 +1051,7 @@ def build(structure_path: Path, form_path: Path, bundle_path: Path, candidate_pr
         structural_atomic_publish.cleanup_stage(parent_fd, stage_name)
         raise
     finally:
+        structural_atomic_publish.close_stage(stage_name)
         os.close(parent_fd)
 
 

@@ -288,73 +288,95 @@ class ManifestAndPublishTests(ReviewFixture):
             with self.assertRaisesRegex(common.ValidationError, "changed while publishing"):
                 publish.publish_session(self.root, self.manifest_path)
         self.assertFalse((self.root / "demo-review").exists())
-        self.assertEqual(list(self.root.iterdir()), [])
+        staging = list(self.root.glob(".demo-review.publish-*"))
+        self.assertEqual(len(staging), 1)
+        self.assertEqual(list(staging[0].iterdir()), [])
 
-    def test_install_failure_cleans_owned_files_but_not_concurrent_file(self):
-        original_rename = publish.os.rename
+    def test_install_failure_cleans_owned_staging_but_not_concurrent_file(self):
+        def fail_install(root_fd, source_name, destination_fd, destination_name):
+            raise OSError("injected review install failure")
 
-        def fail_review_install(source, destination, *args, **kwargs):
-            if Path(source).name == "review.json":
-                raise OSError("injected review install failure")
-            return original_rename(source, destination, *args, **kwargs)
-
-        with patch.object(publish.os, "rename", side_effect=fail_review_install):
+        with patch.object(publish, "_rename_noreplace", side_effect=fail_install):
             with self.assertRaises(OSError):
                 publish.publish_session(self.root, self.manifest_path)
         self.assertFalse((self.root / "demo-review").exists())
+        staging = list(self.root.glob(".demo-review.publish-*"))
+        self.assertEqual(len(staging), 1)
+        self.assertEqual(list(staging[0].iterdir()), [])
 
+        def fail_with_concurrent_file(root_fd, source_name, destination_fd, destination_name):
+            stage = self.root / source_name
+            stage.joinpath("concurrent.txt").write_text("keep", encoding="utf-8")
+            raise OSError("injected review install failure")
+
+        with patch.object(publish, "_rename_noreplace", side_effect=fail_with_concurrent_file):
+            with self.assertRaises(OSError):
+                publish.publish_session(self.root, self.manifest_path)
+        staging = sorted(self.root.glob(".demo-review.publish-*"))
+        self.assertEqual(len(staging), 2)
+        concurrent = [path for path in staging if (path / "concurrent.txt").exists()]
+        self.assertEqual(len(concurrent), 1)
+        self.assertEqual((concurrent[0] / "concurrent.txt").read_text(encoding="utf-8"), "keep")
+        self.assertEqual(list(concurrent[0].iterdir()), [concurrent[0] / "concurrent.txt"])
+
+    def test_no_visible_partial_final_session(self):
+        original_install = publish._rename_noreplace
+        observed = {}
+
+        def inspect_before_install(root_fd, source_name, destination_fd, destination_name):
+            stage = self.root / source_name
+            observed["final_exists"] = (self.root / "demo-review").exists()
+            observed["stage_entries"] = sorted(path.name for path in stage.iterdir())
+            return original_install(root_fd, source_name, destination_fd, destination_name)
+
+        with patch.object(publish, "_rename_noreplace", side_effect=inspect_before_install):
+            publish.publish_session(self.root, self.manifest_path)
+        self.assertFalse(observed["final_exists"])
+        self.assertEqual(observed["stage_entries"], ["assets", "review.json"])
         session = self.root / "demo-review"
+        self.assertEqual(sorted(path.name for path in session.iterdir()), ["assets", "review.json"])
 
-        def fail_with_concurrent_file(source, destination, *args, **kwargs):
-            if Path(source).name == "review.json":
-                session.joinpath("concurrent.txt").write_text("keep", encoding="utf-8")
-                raise OSError("injected review install failure")
-            return original_rename(source, destination, *args, **kwargs)
+    def test_failed_staging_cleanup_preserves_replacement_at_old_post_check_boundary(self):
+        def replace_staging_before_cleanup(root_fd, source_name, destination_fd, destination_name):
+            staging = self.root / source_name
+            moved = self.root / f"{source_name}.owned"
+            staging.rename(moved)
+            staging.mkdir(mode=0o700)
+            (staging / "replacement.txt").write_text("keep", encoding="utf-8")
+            raise OSError("injected install failure")
 
-        with patch.object(publish.os, "rename", side_effect=fail_with_concurrent_file):
-            with self.assertRaises(OSError):
+        with patch.object(publish, "_rename_noreplace", side_effect=replace_staging_before_cleanup):
+            with self.assertRaisesRegex(OSError, "injected install failure"):
                 publish.publish_session(self.root, self.manifest_path)
-        self.assertEqual((session / "concurrent.txt").read_text(encoding="utf-8"), "keep")
-        self.assertFalse((session / "review.json").exists())
-        self.assertFalse((session / "assets").exists())
-
-    def test_new_session_open_failure_cleans_same_identity_empty_session(self):
-        original_open_directory = publish._open_directory
-
-        def fail_new_session(parent_fd, path_or_name, where):
-            if parent_fd is not None and path_or_name == "demo-review":
-                raise common.ValidationError("injected session open failure")
-            return original_open_directory(parent_fd, path_or_name, where)
-
-        with patch.object(publish, "_open_directory", side_effect=fail_new_session):
-            with self.assertRaisesRegex(common.ValidationError, "injected session open failure"):
-                publish.publish_session(self.root, self.manifest_path)
-        self.assertFalse((self.root / "demo-review").exists())
-
-    def test_owned_session_cleanup_preserves_replacement_empty_session(self):
-        original_rename = publish.os.rename
-        replacement_identity = {}
-
-        def replace_session_before_install(source, destination, *args, **kwargs):
-            if source == "assets" and destination == "assets":
-                session = self.root / "demo-review"
-                session.rmdir()
-                session.mkdir()
-                info = session.stat()
-                replacement_identity.update(dev=info.st_dev, ino=info.st_ino)
-                raise OSError("injected asset install failure")
-            return original_rename(source, destination, *args, **kwargs)
-
-        with patch.object(publish.os, "rename", side_effect=replace_session_before_install):
-            with self.assertRaisesRegex(OSError, "injected asset install failure"):
-                publish.publish_session(self.root, self.manifest_path)
-
-        replacement_info = (self.root / "demo-review").stat()
-        self.assertEqual(
-            (replacement_info.st_dev, replacement_info.st_ino),
-            (replacement_identity["dev"], replacement_identity["ino"]),
+        replacement = next(
+            path
+            for path in self.root.iterdir()
+            if path.name.startswith(".demo-review.publish-") and not path.name.endswith(".owned")
         )
-        self.assertEqual(list((self.root / "demo-review").iterdir()), [])
+        self.assertEqual((replacement / "replacement.txt").read_text(encoding="utf-8"), "keep")
+        owned = list(self.root.glob(".demo-review.publish-*.owned"))
+        self.assertEqual(len(owned), 1)
+        self.assertEqual(list(owned[0].iterdir()), [])
+
+    def test_session_collision_during_atomic_install_preserves_existing_session(self):
+        original_install = publish._rename_noreplace
+
+        def collide(root_fd, source_name, destination_fd, destination_name):
+            session = self.root / destination_name
+            session.mkdir()
+            (session / "sentinel.txt").write_text("keep", encoding="utf-8")
+            return original_install(root_fd, source_name, destination_fd, destination_name)
+
+        with patch.object(publish, "_rename_noreplace", side_effect=collide):
+            with self.assertRaisesRegex(publish.PublishError, "session appeared during publish"):
+                publish.publish_session(self.root, self.manifest_path)
+        self.assertEqual(
+            (self.root / "demo-review" / "sentinel.txt").read_text(encoding="utf-8"),
+            "keep",
+        )
+        staging = list(self.root.glob(".demo-review.publish-*"))
+        self.assertEqual(len(staging), 1)
+        self.assertEqual(list(staging[0].iterdir()), [])
 
     def test_subject_context_normalization_and_rejection(self):
         manifest = json.loads(self.manifest_path.read_text(encoding="utf-8"))
@@ -1008,7 +1030,7 @@ process.stdout.write(JSON.stringify(items.map(context.__imageAccessibleLabel)));
         self.assertIn("flex: 1 1 auto", css)
         self.assertIn("text-overflow: ellipsis", css)
         self.assertIn("white-space: nowrap", css)
-        self.assertIn("@media (max-width: 38rem)", css)
+        self.assertIn("@media (max-width: 52rem)", css)
         self.assertIn("flex-wrap: wrap", css)
 
     def test_image_comparator_names_requested_item_during_initial_load(self):

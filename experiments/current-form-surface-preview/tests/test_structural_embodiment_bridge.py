@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -251,6 +252,34 @@ class StructuralEmbodimentBridgeTests(unittest.TestCase):
             bridge.build(self.structure_path, self.form_path, self.bundle, "synthetic_profile", "neutral-v0", output)
         self.assertTrue((moved_parent / "bridge-output" / bridge.BRIDGE_FILE).is_file())
         self.assertFalse((parent / "bridge-output").exists())
+
+    def test_cleanup_stage_preserves_replacement_before_top_level_cleanup(self) -> None:
+        parent = self.root / "bridge-cleanup-parent"
+        parent.mkdir()
+        parent_fd = structural_atomic_publish.open_directory_no_symlinks(parent)
+        stage_name = None
+        try:
+            stage_name, stage = structural_atomic_publish.create_stage(parent_fd, "bridge-output")
+            (stage / "owned.txt").write_bytes(b"owned")
+            attacker_stage = parent / str(stage_name)
+            original_stage = parent / "original-stage"
+            original_remove = structural_atomic_publish._remove_tree_contents
+
+            def clean_then_replace(directory_fd: int) -> bool:
+                result = original_remove(directory_fd)
+                attacker_stage.rename(original_stage)
+                attacker_stage.mkdir()
+                (attacker_stage / "attacker.txt").write_bytes(b"attacker")
+                return result
+
+            with patch.object(structural_atomic_publish, "_remove_tree_contents", side_effect=clean_then_replace):
+                self.assertTrue(structural_atomic_publish.cleanup_stage(parent_fd, stage_name))
+            self.assertEqual((attacker_stage / "attacker.txt").read_bytes(), b"attacker")
+            self.assertTrue(original_stage.is_dir())
+            self.assertEqual(list(original_stage.iterdir()), [])
+        finally:
+            structural_atomic_publish.close_stage(stage_name)
+            os.close(parent_fd)
 
     def test_regular_parent_replacement_before_open_is_rejected(self) -> None:
         parent = self.root / "validated-bridge-parent"

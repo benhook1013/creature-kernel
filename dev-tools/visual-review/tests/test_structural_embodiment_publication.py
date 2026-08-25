@@ -740,7 +740,33 @@ class StructuralEmbodimentPublicationTests(unittest.TestCase):
             with self.assertRaises(publisher.StructuralEmbodimentPublishError):
                 self.publish("mutated-source")
         self.assertFalse((self.reviews / "mutated-source").exists())
-        self.assertEqual(list(self.reviews.iterdir()), [])
+        staging = list(self.reviews.glob(".mutated-source.publish-*"))
+        self.assertEqual(len(staging), 1)
+        self.assertEqual(list(staging[0].iterdir()), [])
+
+    def test_checked_in_pose_replacement_during_validation_is_rejected(self) -> None:
+        pose_data = (self.gallery / publisher.POSE_FILE).read_bytes()
+        original_loader = publisher.gallery_generator._load_pose_with_bytes
+        with tempfile.TemporaryDirectory(prefix="structural-pose-interleave-") as temporary:
+            experiment_root = Path(temporary)
+            checked_in = experiment_root / publisher.POSE_FILE
+            checked_in.write_bytes(pose_data)
+
+            def replace_then_load(path: Path):
+                path.write_bytes(pose_data + b"\n")
+                return original_loader(path)
+
+            with patch.object(publisher, "EXPERIMENT_ROOT", experiment_root):
+                with patch.object(
+                    publisher.gallery_generator,
+                    "_load_pose_with_bytes",
+                    side_effect=replace_then_load,
+                ):
+                    with self.assertRaisesRegex(
+                        publisher.StructuralEmbodimentPublishError,
+                        "changed during validation",
+                    ):
+                        publisher._validate_pose_bytes(pose_data)
 
     def test_session_collision_is_atomic_and_leaves_existing_session(self) -> None:
         session = self.publish("collision")
