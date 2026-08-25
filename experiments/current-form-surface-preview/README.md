@@ -269,6 +269,26 @@ source/build/scenario lineage.
 See the active runway for its objective prerequisites, human judgments,
 non-goals, and stop triggers.
 
+The experiment-local `structural_profile_candidates.json` freezes four source
+candidate IDs for that runway: compact/broad/short-limbed/large-head,
+tall/narrow/long-legged, slender/long-limbed, and stocky/broad-chested. Generate
+their compact canonical BodyDocuments through one shared data-driven transform:
+
+```bash
+python3 experiments/current-form-surface-preview/generate_structural_profile_sources.py --check
+python3 experiments/current-form-surface-preview/generate_structural_profile_sources.py \
+  --output-dir /tmp/ck-structural-profile-sources
+```
+
+The transform changes exact integer Part placements and source-authored
+permille form dimensions, retains the stable unit neck-to-head reference edge,
+preserves normalized route controls and identity rotations, and keeps all four
+tail modules present while varying tail length and taper. It fails closed on
+incomplete targets, overlapping or uncovered dimension groups, broken
+bilateral/alignment/Attachment invariants, unsafe values, or non-atomic output.
+These are candidate source fixtures and lineage evidence, not public morphology
+limits or a production parameter system.
+
 The authored arm slice is a disposable consumer intended to test frame-aware
 profile continuity and bounded field behavior around the torso, upper-arm, and
 elbow join. It does not establish anatomical realism, production topology,
@@ -299,17 +319,51 @@ at every in-range sampling value.
 
 A successful v9 run writes `successor-surface-manifest.json` plus exactly four
 variant directories. Each variant directory contains exactly
-`surface.ply`, `metrics.json`, `successor.json`, and one
+`surface.ply`, source-owned winner `semantic.json`, `metrics.json`,
+`successor.json`, and one
 `guide-skin-composite.png`. The PNG is a deterministic RGB capture at the
 baseline-compatible `1800 × 1500` canvas. Its three columns are `front`,
 `side`, and `three-quarter`; its rows are `CONTROL GUIDE`, `CONSUMED FIELDS`,
 and `FINAL SKIN` as described above. Publication metadata records
 `panels_per_view: 3`. The manifest and successor sidecars expose the profile
 identity, canvas, layout, projections, and shared bounds alongside the
-four-artifact inventory.
+five-artifact inventory. The semantic sidecar uses the same source-only
+AddressKey winner boundary as the baseline and carries no synthetic rig or
+bone semantics. It binds the exact ordered `surface.ply` bytes and exact raw
+producer variant by SHA-256; its label count is bounded by and must equal the
+validated PLY vertex count.
 The manifest generator configuration reports both independent padding values:
 `padding` controls successor mesh sampling and `capture_padding` controls the
 baseline-compatible shared capture frame.
+
+The first structural-embodiment bridge slice consumes one successful
+`inspect-structure` result, its matching provisional-form result, the complete
+successor bundle, a separately named candidate source profile, and one neutral
+surface variant:
+
+```bash
+cargo run -p creature-kernel-cli -- inspect-structure \
+  --input examples/body-documents/stylized-digitigrade-biped-authored-form.json \
+  > /tmp/structure.json
+
+"$surface_preview_launcher" experiments/current-form-surface-preview/generate_structural_embodiment_bridge.py \
+  --inspect-structure /tmp/structure.json \
+  --inspect-provisional-form /tmp/form-v11.json \
+  --surface-bundle /tmp/ck-successor-surface/run-a \
+  --candidate-profile-id authored_baseline_v0 \
+  --surface-variant-id neutral-v0 \
+  --output /tmp/ck-structural-bridge/run-a
+```
+
+Use a native Linux output parent because the bridge publishes with Linux
+atomic no-replace directory semantics. The candidate artifact derives a rooted
+bone hierarchy, complete semantic-Joint mapping, bounded normalized weights,
+and collision capsules from a deterministic nearest-eligible-bone surface
+partition. It also records any source Part that won no final-surface vertices;
+that absence remains evidence rather than being filled with invented semantic
+ownership. This first slice emits no pose or posed surface. It is a direct
+prerequisite to, not a substitute for, the shared-pose structural embodiment
+gallery.
 Each manifest variant record and its `successor.json` sidecar also carries
 `source_variant_sha256`, the 64-character lowercase SHA-256 digest of the
 exact canonical raw producer variant object (`_canonical(raw_variant)`). This

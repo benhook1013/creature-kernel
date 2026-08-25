@@ -1,0 +1,1253 @@
+{
+  "base_source": {
+    "document": "stylized_digitigrade_biped_authored_form",
+    "namespace": "main",
+    "path": "examples/body-documents/stylized-digitigrade-biped-authored-form.json",
+    "sha256": "faf02db965a2b7f6889dfb1cd58eb79befa9c536f58adca40b14ccc955eaf533"
+  },
+  "canonicalization": {
+    "number_rule": "integer source placements and permille dimensions only; round-to-nearest ties-to-even for positive integer products",
+    "serialization": "candidate table uses sorted two-space JSON; generated BodyDocuments use compact sorted JSON to retain the existing CLI byte bound; both use UTF-8 and one trailing newline"
+  },
+  "format": "creature-kernel.disposable-structural-profile-candidates.v1",
+  "profiles": [
+    {
+      "dimension_scales": {
+        "arm_profile_forward": 1050,
+        "arm_profile_lateral": 1050,
+        "arm_profile_up": 1050,
+        "arm_radius": 1080,
+        "arm_shoulder": 1120,
+        "body_extent_x": 1180,
+        "body_extent_y": 920,
+        "body_extent_z": 1050,
+        "body_profile_depth": 1040,
+        "body_profile_lateral": 1180,
+        "foot_extent_x": 1050,
+        "foot_extent_y": 1050,
+        "foot_extent_z": 1050,
+        "foot_profile_forward": 1050,
+        "foot_profile_lateral": 1050,
+        "foot_profile_up": 1050,
+        "hand_extent_x": 1050,
+        "hand_extent_y": 1050,
+        "hand_extent_z": 1050,
+        "head_extent_x": 1280,
+        "head_extent_y": 1240,
+        "head_extent_z": 1220,
+        "head_profile_forward": 1250,
+        "head_profile_lateral": 1250,
+        "head_profile_up": 1250,
+        "leg_profile_forward": 1050,
+        "leg_profile_lateral": 1050,
+        "leg_profile_up": 1050,
+        "leg_radius": 1080,
+        "neck_profile_forward": 1050,
+        "neck_profile_lateral": 1050,
+        "neck_profile_up": 1050,
+        "neck_radius": 1050,
+        "tail_root_end": 950,
+        "tail_root_start": 1150,
+        "tail_tip_end": 700,
+        "tail_tip_start": 950
+      },
+      "id": "compact_broad_short_limb_large_head",
+      "label": "compact, broad, short-limbed, large-head",
+      "part_placements": {
+        "main|part|left|foot": [
+          0,
+          -1,
+          1
+        ],
+        "main|part|left|forearm": [
+          -1,
+          0,
+          0
+        ],
+        "main|part|left|hand": [
+          -1,
+          0,
+          0
+        ],
+        "main|part|left|shin": [
+          0,
+          -1,
+          0
+        ],
+        "main|part|left|thigh": [
+          -1,
+          -1,
+          0
+        ],
+        "main|part|left|upper_arm": [
+          -3,
+          1,
+          0
+        ],
+        "main|part|right|foot": [
+          0,
+          -1,
+          1
+        ],
+        "main|part|right|forearm": [
+          1,
+          0,
+          0
+        ],
+        "main|part|right|hand": [
+          1,
+          0,
+          0
+        ],
+        "main|part|right|shin": [
+          0,
+          -1,
+          0
+        ],
+        "main|part|right|thigh": [
+          1,
+          -1,
+          0
+        ],
+        "main|part|right|upper_arm": [
+          3,
+          1,
+          0
+        ],
+        "main|part|tail|tail_root": [
+          0,
+          0,
+          -1
+        ],
+        "main|part|tail|tail_tip": [
+          0,
+          0,
+          -1
+        ],
+        "main|part||head": [
+          0,
+          1,
+          0
+        ],
+        "main|part||neck": [
+          0,
+          1,
+          0
+        ],
+        "main|part||pelvis": [
+          0,
+          0,
+          0
+        ],
+        "main|part||torso": [
+          0,
+          1,
+          0
+        ]
+      }
+    },
+    {
+      "dimension_scales": {
+        "arm_profile_forward": 850,
+        "arm_profile_lateral": 850,
+        "arm_profile_up": 850,
+        "arm_radius": 850,
+        "arm_shoulder": 900,
+        "body_extent_x": 820,
+        "body_extent_y": 1180,
+        "body_extent_z": 950,
+        "body_profile_depth": 1000,
+        "body_profile_lateral": 850,
+        "foot_extent_x": 900,
+        "foot_extent_y": 900,
+        "foot_extent_z": 950,
+        "foot_profile_forward": 900,
+        "foot_profile_lateral": 900,
+        "foot_profile_up": 900,
+        "hand_extent_x": 900,
+        "hand_extent_y": 900,
+        "hand_extent_z": 900,
+        "head_extent_x": 900,
+        "head_extent_y": 950,
+        "head_extent_z": 900,
+        "head_profile_forward": 900,
+        "head_profile_lateral": 900,
+        "head_profile_up": 900,
+        "leg_profile_forward": 850,
+        "leg_profile_lateral": 850,
+        "leg_profile_up": 850,
+        "leg_radius": 850,
+        "neck_profile_forward": 950,
+        "neck_profile_lateral": 950,
+        "neck_profile_up": 950,
+        "neck_radius": 950,
+        "tail_root_end": 700,
+        "tail_root_start": 850,
+        "tail_tip_end": 300,
+        "tail_tip_start": 700
+      },
+      "id": "tall_narrow_long_legged",
+      "label": "tall, narrow, long-legged",
+      "part_placements": {
+        "main|part|left|foot": [
+          0,
+          -1,
+          1
+        ],
+        "main|part|left|forearm": [
+          -1,
+          0,
+          0
+        ],
+        "main|part|left|hand": [
+          -1,
+          0,
+          0
+        ],
+        "main|part|left|shin": [
+          0,
+          -2,
+          0
+        ],
+        "main|part|left|thigh": [
+          -2,
+          -2,
+          0
+        ],
+        "main|part|left|upper_arm": [
+          -2,
+          1,
+          0
+        ],
+        "main|part|right|foot": [
+          0,
+          -1,
+          1
+        ],
+        "main|part|right|forearm": [
+          1,
+          0,
+          0
+        ],
+        "main|part|right|hand": [
+          1,
+          0,
+          0
+        ],
+        "main|part|right|shin": [
+          0,
+          -2,
+          0
+        ],
+        "main|part|right|thigh": [
+          2,
+          -2,
+          0
+        ],
+        "main|part|right|upper_arm": [
+          2,
+          1,
+          0
+        ],
+        "main|part|tail|tail_root": [
+          0,
+          0,
+          -1
+        ],
+        "main|part|tail|tail_tip": [
+          0,
+          0,
+          -1
+        ],
+        "main|part||head": [
+          0,
+          1,
+          0
+        ],
+        "main|part||neck": [
+          0,
+          1,
+          0
+        ],
+        "main|part||pelvis": [
+          0,
+          0,
+          0
+        ],
+        "main|part||torso": [
+          0,
+          2,
+          0
+        ]
+      }
+    },
+    {
+      "dimension_scales": {
+        "arm_profile_forward": 780,
+        "arm_profile_lateral": 780,
+        "arm_profile_up": 780,
+        "arm_radius": 760,
+        "arm_shoulder": 800,
+        "body_extent_x": 780,
+        "body_extent_y": 1050,
+        "body_extent_z": 850,
+        "body_profile_depth": 900,
+        "body_profile_lateral": 800,
+        "foot_extent_x": 900,
+        "foot_extent_y": 900,
+        "foot_extent_z": 900,
+        "foot_profile_forward": 900,
+        "foot_profile_lateral": 900,
+        "foot_profile_up": 800,
+        "hand_extent_x": 850,
+        "hand_extent_y": 850,
+        "hand_extent_z": 850,
+        "head_extent_x": 930,
+        "head_extent_y": 960,
+        "head_extent_z": 930,
+        "head_profile_forward": 920,
+        "head_profile_lateral": 920,
+        "head_profile_up": 920,
+        "leg_profile_forward": 780,
+        "leg_profile_lateral": 780,
+        "leg_profile_up": 780,
+        "leg_radius": 780,
+        "neck_profile_forward": 850,
+        "neck_profile_lateral": 850,
+        "neck_profile_up": 850,
+        "neck_radius": 850,
+        "tail_root_end": 820,
+        "tail_root_start": 900,
+        "tail_tip_end": 250,
+        "tail_tip_start": 820
+      },
+      "id": "slender_long_limb",
+      "label": "slender, long-limbed",
+      "part_placements": {
+        "main|part|left|foot": [
+          0,
+          -1,
+          1
+        ],
+        "main|part|left|forearm": [
+          -2,
+          0,
+          0
+        ],
+        "main|part|left|hand": [
+          -2,
+          0,
+          0
+        ],
+        "main|part|left|shin": [
+          0,
+          -2,
+          0
+        ],
+        "main|part|left|thigh": [
+          -2,
+          -2,
+          0
+        ],
+        "main|part|left|upper_arm": [
+          -2,
+          1,
+          0
+        ],
+        "main|part|right|foot": [
+          0,
+          -1,
+          1
+        ],
+        "main|part|right|forearm": [
+          2,
+          0,
+          0
+        ],
+        "main|part|right|hand": [
+          2,
+          0,
+          0
+        ],
+        "main|part|right|shin": [
+          0,
+          -2,
+          0
+        ],
+        "main|part|right|thigh": [
+          2,
+          -2,
+          0
+        ],
+        "main|part|right|upper_arm": [
+          2,
+          1,
+          0
+        ],
+        "main|part|tail|tail_root": [
+          0,
+          0,
+          -1
+        ],
+        "main|part|tail|tail_tip": [
+          0,
+          0,
+          -1
+        ],
+        "main|part||head": [
+          0,
+          1,
+          0
+        ],
+        "main|part||neck": [
+          0,
+          1,
+          0
+        ],
+        "main|part||pelvis": [
+          0,
+          0,
+          0
+        ],
+        "main|part||torso": [
+          0,
+          1,
+          0
+        ]
+      }
+    },
+    {
+      "dimension_scales": {
+        "arm_profile_forward": 1150,
+        "arm_profile_lateral": 1150,
+        "arm_profile_up": 1150,
+        "arm_radius": 1180,
+        "arm_shoulder": 1200,
+        "body_extent_x": 1350,
+        "body_extent_y": 1100,
+        "body_extent_z": 1100,
+        "body_profile_depth": 1120,
+        "body_profile_lateral": 1300,
+        "foot_extent_x": 1100,
+        "foot_extent_y": 1100,
+        "foot_extent_z": 1100,
+        "foot_profile_forward": 1100,
+        "foot_profile_lateral": 1100,
+        "foot_profile_up": 1100,
+        "hand_extent_x": 1100,
+        "hand_extent_y": 1100,
+        "hand_extent_z": 1100,
+        "head_extent_x": 1080,
+        "head_extent_y": 1080,
+        "head_extent_z": 1080,
+        "head_profile_forward": 1050,
+        "head_profile_lateral": 1050,
+        "head_profile_up": 1050,
+        "leg_profile_forward": 1120,
+        "leg_profile_lateral": 1120,
+        "leg_profile_up": 1120,
+        "leg_radius": 1150,
+        "neck_profile_forward": 1150,
+        "neck_profile_lateral": 1150,
+        "neck_profile_up": 1150,
+        "neck_radius": 1150,
+        "tail_root_end": 1100,
+        "tail_root_start": 1250,
+        "tail_tip_end": 450,
+        "tail_tip_start": 1100
+      },
+      "id": "stocky_broad_chested",
+      "label": "stocky, broad-chested",
+      "part_placements": {
+        "main|part|left|foot": [
+          0,
+          -1,
+          1
+        ],
+        "main|part|left|forearm": [
+          -1,
+          0,
+          0
+        ],
+        "main|part|left|hand": [
+          -1,
+          0,
+          0
+        ],
+        "main|part|left|shin": [
+          0,
+          -1,
+          0
+        ],
+        "main|part|left|thigh": [
+          -3,
+          -1,
+          0
+        ],
+        "main|part|left|upper_arm": [
+          -3,
+          1,
+          0
+        ],
+        "main|part|right|foot": [
+          0,
+          -1,
+          1
+        ],
+        "main|part|right|forearm": [
+          1,
+          0,
+          0
+        ],
+        "main|part|right|hand": [
+          1,
+          0,
+          0
+        ],
+        "main|part|right|shin": [
+          0,
+          -1,
+          0
+        ],
+        "main|part|right|thigh": [
+          3,
+          -1,
+          0
+        ],
+        "main|part|right|upper_arm": [
+          3,
+          1,
+          0
+        ],
+        "main|part|tail|tail_root": [
+          0,
+          0,
+          -1
+        ],
+        "main|part|tail|tail_tip": [
+          0,
+          0,
+          -1
+        ],
+        "main|part||head": [
+          0,
+          1,
+          0
+        ],
+        "main|part||neck": [
+          0,
+          1,
+          0
+        ],
+        "main|part||pelvis": [
+          0,
+          0,
+          0
+        ],
+        "main|part||torso": [
+          0,
+          1,
+          0
+        ]
+      }
+    }
+  ],
+  "transform": {
+    "dimension_groups": {
+      "arm_profile_forward": {
+        "owner_patterns": [
+          {
+            "anchors": [
+              "left"
+            ],
+            "role": "upper_arm"
+          },
+          {
+            "anchors": [
+              "right"
+            ],
+            "role": "upper_arm"
+          },
+          {
+            "anchors": [
+              "left"
+            ],
+            "role": "forearm"
+          },
+          {
+            "anchors": [
+              "right"
+            ],
+            "role": "forearm"
+          }
+        ],
+        "role_prefix": "form_arm_profile_",
+        "role_suffixes": [
+          "_forward_radius"
+        ]
+      },
+      "arm_profile_lateral": {
+        "owner_patterns": [
+          {
+            "anchors": [
+              "left"
+            ],
+            "role": "upper_arm"
+          },
+          {
+            "anchors": [
+              "right"
+            ],
+            "role": "upper_arm"
+          },
+          {
+            "anchors": [
+              "left"
+            ],
+            "role": "forearm"
+          },
+          {
+            "anchors": [
+              "right"
+            ],
+            "role": "forearm"
+          }
+        ],
+        "role_prefix": "form_arm_profile_",
+        "role_suffixes": [
+          "_lateral_radius"
+        ]
+      },
+      "arm_profile_up": {
+        "owner_patterns": [
+          {
+            "anchors": [
+              "left"
+            ],
+            "role": "upper_arm"
+          },
+          {
+            "anchors": [
+              "right"
+            ],
+            "role": "upper_arm"
+          },
+          {
+            "anchors": [
+              "left"
+            ],
+            "role": "forearm"
+          },
+          {
+            "anchors": [
+              "right"
+            ],
+            "role": "forearm"
+          }
+        ],
+        "role_prefix": "form_arm_profile_",
+        "role_suffixes": [
+          "_up_radius"
+        ]
+      },
+      "arm_radius": {
+        "owner_patterns": [
+          {
+            "anchors": [
+              "left"
+            ],
+            "role": "upper_arm"
+          },
+          {
+            "anchors": [
+              "right"
+            ],
+            "role": "upper_arm"
+          },
+          {
+            "anchors": [
+              "left"
+            ],
+            "role": "forearm"
+          },
+          {
+            "anchors": [
+              "right"
+            ],
+            "role": "forearm"
+          }
+        ],
+        "role": "form_radius"
+      },
+      "arm_shoulder": {
+        "owner_patterns": [
+          {
+            "anchors": [
+              "left"
+            ],
+            "role": "upper_arm"
+          },
+          {
+            "anchors": [
+              "right"
+            ],
+            "role": "upper_arm"
+          }
+        ],
+        "role": "form_shoulder_depth_radius"
+      },
+      "body_extent_x": {
+        "owner_patterns": [
+          {
+            "anchors": [],
+            "role": "pelvis"
+          },
+          {
+            "anchors": [],
+            "role": "torso"
+          }
+        ],
+        "role": "form_extent_x"
+      },
+      "body_extent_y": {
+        "owner_patterns": [
+          {
+            "anchors": [],
+            "role": "pelvis"
+          },
+          {
+            "anchors": [],
+            "role": "torso"
+          }
+        ],
+        "role": "form_extent_y"
+      },
+      "body_extent_z": {
+        "owner_patterns": [
+          {
+            "anchors": [],
+            "role": "pelvis"
+          },
+          {
+            "anchors": [],
+            "role": "torso"
+          }
+        ],
+        "role": "form_extent_z"
+      },
+      "body_profile_depth": {
+        "owner_patterns": [
+          {
+            "anchors": [],
+            "role": "pelvis"
+          },
+          {
+            "anchors": [],
+            "role": "torso"
+          }
+        ],
+        "role_prefix": "form_torso_profile_",
+        "role_suffixes": [
+          "_anterior_radius",
+          "_posterior_radius"
+        ]
+      },
+      "body_profile_lateral": {
+        "owner_patterns": [
+          {
+            "anchors": [],
+            "role": "pelvis"
+          },
+          {
+            "anchors": [],
+            "role": "torso"
+          }
+        ],
+        "role_prefix": "form_torso_profile_",
+        "role_suffixes": [
+          "_lateral_radius"
+        ]
+      },
+      "foot_extent_x": {
+        "owner_patterns": [
+          {
+            "anchors": [
+              "left"
+            ],
+            "role": "foot"
+          },
+          {
+            "anchors": [
+              "right"
+            ],
+            "role": "foot"
+          }
+        ],
+        "role": "form_extent_x"
+      },
+      "foot_extent_y": {
+        "owner_patterns": [
+          {
+            "anchors": [
+              "left"
+            ],
+            "role": "foot"
+          },
+          {
+            "anchors": [
+              "right"
+            ],
+            "role": "foot"
+          }
+        ],
+        "role": "form_extent_y"
+      },
+      "foot_extent_z": {
+        "owner_patterns": [
+          {
+            "anchors": [
+              "left"
+            ],
+            "role": "foot"
+          },
+          {
+            "anchors": [
+              "right"
+            ],
+            "role": "foot"
+          }
+        ],
+        "role": "form_extent_z"
+      },
+      "foot_profile_forward": {
+        "owner_patterns": [
+          {
+            "anchors": [
+              "left"
+            ],
+            "role": "foot"
+          },
+          {
+            "anchors": [
+              "right"
+            ],
+            "role": "foot"
+          }
+        ],
+        "role_prefix": "form_foot_profile_",
+        "role_suffixes": [
+          "_forward_radius"
+        ]
+      },
+      "foot_profile_lateral": {
+        "owner_patterns": [
+          {
+            "anchors": [
+              "left"
+            ],
+            "role": "foot"
+          },
+          {
+            "anchors": [
+              "right"
+            ],
+            "role": "foot"
+          }
+        ],
+        "role_prefix": "form_foot_profile_",
+        "role_suffixes": [
+          "_lateral_radius"
+        ]
+      },
+      "foot_profile_up": {
+        "owner_patterns": [
+          {
+            "anchors": [
+              "left"
+            ],
+            "role": "foot"
+          },
+          {
+            "anchors": [
+              "right"
+            ],
+            "role": "foot"
+          }
+        ],
+        "role_prefix": "form_foot_profile_",
+        "role_suffixes": [
+          "_up_radius"
+        ]
+      },
+      "hand_extent_x": {
+        "owner_patterns": [
+          {
+            "anchors": [
+              "left"
+            ],
+            "role": "hand"
+          },
+          {
+            "anchors": [
+              "right"
+            ],
+            "role": "hand"
+          }
+        ],
+        "role": "form_extent_x"
+      },
+      "hand_extent_y": {
+        "owner_patterns": [
+          {
+            "anchors": [
+              "left"
+            ],
+            "role": "hand"
+          },
+          {
+            "anchors": [
+              "right"
+            ],
+            "role": "hand"
+          }
+        ],
+        "role": "form_extent_y"
+      },
+      "hand_extent_z": {
+        "owner_patterns": [
+          {
+            "anchors": [
+              "left"
+            ],
+            "role": "hand"
+          },
+          {
+            "anchors": [
+              "right"
+            ],
+            "role": "hand"
+          }
+        ],
+        "role": "form_extent_z"
+      },
+      "head_extent_x": {
+        "owner_patterns": [
+          {
+            "anchors": [],
+            "role": "head"
+          }
+        ],
+        "role": "form_extent_x"
+      },
+      "head_extent_y": {
+        "owner_patterns": [
+          {
+            "anchors": [],
+            "role": "head"
+          }
+        ],
+        "role": "form_extent_y"
+      },
+      "head_extent_z": {
+        "owner_patterns": [
+          {
+            "anchors": [],
+            "role": "head"
+          }
+        ],
+        "role": "form_extent_z"
+      },
+      "head_profile_forward": {
+        "owner_patterns": [
+          {
+            "anchors": [],
+            "role": "head"
+          }
+        ],
+        "role_prefix": "form_head_neck_profile_",
+        "role_suffixes": [
+          "_forward_radius"
+        ]
+      },
+      "head_profile_lateral": {
+        "owner_patterns": [
+          {
+            "anchors": [],
+            "role": "head"
+          }
+        ],
+        "role_prefix": "form_head_neck_profile_",
+        "role_suffixes": [
+          "_lateral_radius"
+        ]
+      },
+      "head_profile_up": {
+        "owner_patterns": [
+          {
+            "anchors": [],
+            "role": "head"
+          }
+        ],
+        "role_prefix": "form_head_neck_profile_",
+        "role_suffixes": [
+          "_up_radius"
+        ]
+      },
+      "leg_profile_forward": {
+        "owner_patterns": [
+          {
+            "anchors": [
+              "left"
+            ],
+            "role": "thigh"
+          },
+          {
+            "anchors": [
+              "right"
+            ],
+            "role": "thigh"
+          },
+          {
+            "anchors": [
+              "left"
+            ],
+            "role": "shin"
+          },
+          {
+            "anchors": [
+              "right"
+            ],
+            "role": "shin"
+          }
+        ],
+        "role_prefix": "form_leg_profile_",
+        "role_suffixes": [
+          "_forward_radius"
+        ]
+      },
+      "leg_profile_lateral": {
+        "owner_patterns": [
+          {
+            "anchors": [
+              "left"
+            ],
+            "role": "thigh"
+          },
+          {
+            "anchors": [
+              "right"
+            ],
+            "role": "thigh"
+          },
+          {
+            "anchors": [
+              "left"
+            ],
+            "role": "shin"
+          },
+          {
+            "anchors": [
+              "right"
+            ],
+            "role": "shin"
+          }
+        ],
+        "role_prefix": "form_leg_profile_",
+        "role_suffixes": [
+          "_lateral_radius"
+        ]
+      },
+      "leg_profile_up": {
+        "owner_patterns": [
+          {
+            "anchors": [
+              "left"
+            ],
+            "role": "thigh"
+          },
+          {
+            "anchors": [
+              "right"
+            ],
+            "role": "thigh"
+          },
+          {
+            "anchors": [
+              "left"
+            ],
+            "role": "shin"
+          },
+          {
+            "anchors": [
+              "right"
+            ],
+            "role": "shin"
+          }
+        ],
+        "role_prefix": "form_leg_profile_",
+        "role_suffixes": [
+          "_up_radius"
+        ]
+      },
+      "leg_radius": {
+        "owner_patterns": [
+          {
+            "anchors": [
+              "left"
+            ],
+            "role": "thigh"
+          },
+          {
+            "anchors": [
+              "right"
+            ],
+            "role": "thigh"
+          },
+          {
+            "anchors": [
+              "left"
+            ],
+            "role": "shin"
+          },
+          {
+            "anchors": [
+              "right"
+            ],
+            "role": "shin"
+          }
+        ],
+        "role": "form_radius"
+      },
+      "neck_profile_forward": {
+        "owner_patterns": [
+          {
+            "anchors": [],
+            "role": "neck"
+          }
+        ],
+        "role_prefix": "form_head_neck_profile_",
+        "role_suffixes": [
+          "_forward_radius"
+        ]
+      },
+      "neck_profile_lateral": {
+        "owner_patterns": [
+          {
+            "anchors": [],
+            "role": "neck"
+          }
+        ],
+        "role_prefix": "form_head_neck_profile_",
+        "role_suffixes": [
+          "_lateral_radius"
+        ]
+      },
+      "neck_profile_up": {
+        "owner_patterns": [
+          {
+            "anchors": [],
+            "role": "neck"
+          }
+        ],
+        "role_prefix": "form_head_neck_profile_",
+        "role_suffixes": [
+          "_up_radius"
+        ]
+      },
+      "neck_radius": {
+        "owner_patterns": [
+          {
+            "anchors": [],
+            "role": "neck"
+          }
+        ],
+        "role": "form_radius"
+      },
+      "tail_root_end": {
+        "owner_patterns": [
+          {
+            "anchors": [
+              "tail"
+            ],
+            "role": "tail_root"
+          }
+        ],
+        "role": "form_end_radius"
+      },
+      "tail_root_start": {
+        "owner_patterns": [
+          {
+            "anchors": [
+              "tail"
+            ],
+            "role": "tail_root"
+          }
+        ],
+        "role": "form_start_radius"
+      },
+      "tail_tip_end": {
+        "owner_patterns": [
+          {
+            "anchors": [
+              "tail"
+            ],
+            "role": "tail_tip"
+          }
+        ],
+        "role": "form_end_radius"
+      },
+      "tail_tip_start": {
+        "owner_patterns": [
+          {
+            "anchors": [
+              "tail"
+            ],
+            "role": "tail_tip"
+          }
+        ],
+        "role": "form_start_radius"
+      }
+    },
+    "placement_targets": [
+      "main|part||head",
+      "main|part||neck",
+      "main|part||pelvis",
+      "main|part||torso",
+      "main|part|left|foot",
+      "main|part|left|forearm",
+      "main|part|left|hand",
+      "main|part|left|shin",
+      "main|part|tail|tail_root",
+      "main|part|left|thigh",
+      "main|part|left|upper_arm",
+      "main|part|right|foot",
+      "main|part|right|forearm",
+      "main|part|right|hand",
+      "main|part|right|shin",
+      "main|part|right|thigh",
+      "main|part|right|upper_arm",
+      "main|part|tail|tail_tip"
+    ],
+    "preserved_controls": [
+      "body.landmarks[*].position",
+      "body.frames[*].transform",
+      "body.joints[*].proximal_frame",
+      "body.joints[*].distal_frame",
+      "body.sockets[*].interface_frame",
+      "body.attachments[*].offset"
+    ],
+    "reference_edges": [
+      {
+        "child": "main|part||head",
+        "expected_translation": [
+          0,
+          1,
+          0
+        ],
+        "parent": "main|part||neck",
+        "squared_length": 1
+      }
+    ],
+    "rotation_policy": "copy every source rotation unchanged; this slice admits the authored example's identity rotations only"
+  }
+}

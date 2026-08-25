@@ -46,6 +46,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct source-tree execution
 # bilateral five-station authored leg profile.  The torso evaluator and every
 # non-profile consumer remain shared with the predecessor.
 FORMAT = "creature-kernel.disposable-successor-surface-preview.v9"
+SEMANTIC_FORMAT = "creature-kernel.disposable-surface-preview-semantic-winners.v1"
 REGIONAL_GUIDE_FORMAT = _baseline.REGIONAL_GUIDE_FORMAT
 CONSUMER_ID = "successor-surface-v1"
 SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v12"
@@ -4452,10 +4453,22 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
             variant_dir = stage / variant_id
             variant_dir.mkdir()
             ply = variant_dir / "surface.ply"
+            semantic = variant_dir / "semantic.json"
             metrics = variant_dir / "metrics.json"
             successor = variant_dir / "successor.json"
             png = variant_dir / "guide-skin-composite.png"
             _write_ply(ply, mesh)
+            surface_sha256 = hashlib.sha256(ply.read_bytes()).hexdigest()
+            semantic.write_bytes(_canonical({
+                "format": SEMANTIC_FORMAT,
+                "source_format": _baseline.SOURCE_FORMAT,
+                "variant_id": variant_id,
+                "source_variant_sha256": source_variant_sha256,
+                "surface_sha256": surface_sha256,
+                "vertex_count": len(mesh.vertices),
+                "source_node_labels": [_baseline._address_json(key) for key in mesh.labels],
+                "attribution": "every recipe component resolves to its source descriptor owner; no synthetic node identity is emitted",
+            }))
             metrics.write_bytes(_canonical(mesh.metrics) + b"\n")
             successor.write_bytes(_canonical({
                 "format": FORMAT,
@@ -4554,6 +4567,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
                 "metrics": mesh.metrics,
                 "inventory": [
                     _sha(ply, "ply", stage),
+                    _sha(semantic, "semantic-sidecar", stage),
                     _sha(metrics, "metrics", stage),
                     _sha(successor, "successor-consumer-sidecar", stage),
                     {**_sha(png, "guide-skin-composite-png", stage), "width": _baseline.CANVAS[0], "height": _baseline.CANVAS[1], "views": ["front", "side", "three-quarter"], "panels_per_view": 3, "mode": "RGB"},

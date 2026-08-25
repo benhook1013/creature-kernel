@@ -53,6 +53,7 @@ class SurfacePreviewPublishError(RuntimeError):
 SURFACE_PREVIEW_FORMAT = "creature-kernel.disposable-surface-preview.v3"
 REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v11"
 SUCCESSOR_PREVIEW_FORMAT = "creature-kernel.disposable-successor-surface-preview.v9"
+SEMANTIC_SIDECAR_FORMAT = "creature-kernel.disposable-surface-preview-semantic-winners.v1"
 SUCCESSOR_MANIFEST_NAME = "successor-surface-manifest.json"
 SUCCESSOR_CONSUMER_ID = "successor-surface-v1"
 SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v12"
@@ -145,6 +146,10 @@ MAX_GUIDE_BYTES = 512 * 1024
 MAX_METRICS_BYTES = 256 * 1024
 MAX_COMPONENT_BOUND_ABS = 100.0
 MAX_ARTIFACT_BYTES = 16 * 1024 * 1024
+# Winner labels scale with the validated mesh vertex count, unlike compact
+# metrics and guide metadata.  Keep the byte cap finite while letting the
+# dedicated semantic validator enforce the tighter structural bounds below.
+MAX_SEMANTIC_SIDECAR_BYTES = MAX_ARTIFACT_BYTES
 # The current producer uses the highest XZ preset, whose decoder needs a little
 # over 64 MiB.  Keep a finite margin while rejecting untrusted dictionary
 # declarations before liblzma can allocate against them.
@@ -647,6 +652,7 @@ def _validate_successor_ply(path: Path, where: str) -> dict[str, Any]:
     faces: list[tuple[int, int, int]] = []
     face_keys: set[tuple[int, int, int]] = set()
     edge_incidence: dict[tuple[int, int], tuple[int, int]] = {}
+    edge_faces: dict[tuple[int, int], list[int]] = {}
     for index in range(face_count):
         record_where = f"{where} face[{index}]"
         fields = lines[12 + vertex_count + index].split()
@@ -690,6 +696,7 @@ def _validate_successor_ply(path: Path, where: str) -> dict[str, Any]:
             edge = (left, right) if left < right else (right, left)
             direction = 1 if (left, right) == edge else -1
             previous = edge_incidence.get(edge)
+            edge_faces.setdefault(edge, []).append(index)
             incidence = 1 if previous is None else previous[0] + 1
             if incidence > 2:
                 raise SurfacePreviewPublishError(f"{where} has an edge incident to more than two faces")
@@ -703,6 +710,45 @@ def _validate_successor_ply(path: Path, where: str) -> dict[str, Any]:
         raise SurfacePreviewPublishError(f"{where} is not watertight: every edge must have two incident faces")
     if component_count != 1:
         raise SurfacePreviewPublishError(f"{where} must contain exactly one connected component")
+    face_neighbors: list[set[int]] = [set() for _ in faces]
+    for incident in edge_faces.values():
+        if len(incident) != 2:
+            raise SurfacePreviewPublishError(f"{where} has a non-manifold edge")
+        left, right = incident
+        face_neighbors[left].add(right)
+        face_neighbors[right].add(left)
+    pending_faces = [0]
+    visited_faces: set[int] = set()
+    while pending_faces:
+        current = pending_faces.pop()
+        if current in visited_faces:
+            continue
+        visited_faces.add(current)
+        pending_faces.extend(face_neighbors[current] - visited_faces)
+    if len(visited_faces) != face_count:
+        raise SurfacePreviewPublishError(f"{where} contains shells connected only at vertices")
+    vertex_links: list[dict[int, set[int]]] = [{} for _ in range(vertex_count)]
+    for first, second, third in faces:
+        for center, left, right in (
+            (first, second, third),
+            (second, third, first),
+            (third, first, second),
+        ):
+            vertex_links[center].setdefault(left, set()).add(right)
+            vertex_links[center].setdefault(right, set()).add(left)
+    for link in vertex_links:
+        if not link or any(len(neighbors) != 2 for neighbors in link.values()):
+            raise SurfacePreviewPublishError(f"{where} has a non-manifold vertex link")
+        pending = [next(iter(link))]
+        visited: set[int] = set()
+        while pending:
+            current = pending.pop()
+            if current in visited:
+                continue
+            visited.add(current)
+            pending.extend(link[current] - visited)
+        if len(visited) != len(link):
+            raise SurfacePreviewPublishError(f"{where} has a disconnected vertex link")
     signed_six_volume = math.fsum(
         first[0] * (second[1] * third[2] - second[2] * third[1])
         + first[1] * (second[2] * third[0] - second[0] * third[2])
@@ -5520,6 +5566,63 @@ def _validate_successor_sidecar(
     return sidecar
 
 
+def _validate_successor_semantic_sidecar(
+    path: Path,
+    *,
+    variant_id: str,
+    source_format: str,
+    source_variant_sha256: str,
+    surface_sha256: str,
+    ply_metrics: dict[str, Any],
+    descriptor_owners: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Validate source-only per-vertex winners at the shared sidecar boundary.
+
+    The publication process has the PLY vertex count and producer descriptor
+    ownership, but it does not re-run the successor field evaluator.  It can
+    therefore prove count, identity, source ownership, and inventory/hash
+    binding without claiming to recompute geometric winner selection.
+    """
+
+    sidecar = _read_json(path, MAX_SEMANTIC_SIDECAR_BYTES, "semantic.json")
+    expected_fields = {
+        "format", "source_format", "variant_id", "source_variant_sha256",
+        "surface_sha256", "vertex_count", "source_node_labels", "attribution",
+    }
+    if not isinstance(sidecar, dict) or set(sidecar) != expected_fields:
+        raise SurfacePreviewPublishError("successor semantic sidecar has unknown or missing fields")
+    if (
+        sidecar.get("format") != SEMANTIC_SIDECAR_FORMAT
+        or sidecar.get("source_format") != source_format
+        or sidecar.get("variant_id") != variant_id
+        or sidecar.get("source_variant_sha256") != source_variant_sha256
+        or sidecar.get("surface_sha256") != surface_sha256
+        or sidecar.get("attribution")
+        != "every recipe component resolves to its source descriptor owner; no synthetic node identity is emitted"
+    ):
+        raise SurfacePreviewPublishError("successor semantic sidecar identity or boundary is invalid")
+    vertex_count = sidecar.get("vertex_count")
+    if (
+        type(vertex_count) is not int
+        or not 0 < vertex_count <= MAX_SUCCESSOR_PLY_VERTICES
+        or vertex_count != ply_metrics.get("vertex_count")
+    ):
+        raise SurfacePreviewPublishError("successor semantic sidecar vertex_count does not match the validated PLY")
+    labels = sidecar.get("source_node_labels")
+    if not isinstance(labels, list) or len(labels) != vertex_count:
+        raise SurfacePreviewPublishError("successor semantic sidecar labels do not match the validated PLY vertex count")
+    allowed = {_address_sort_key(owner) for owner in descriptor_owners}
+    if len(allowed) != len(descriptor_owners):
+        raise SurfacePreviewPublishError("successor producer descriptor ownership is not unique")
+    for index, label in enumerate(labels):
+        parsed = _validate_address(label, f"semantic.json.source_node_labels[{index}]")
+        if _address_sort_key(parsed) not in allowed:
+            raise SurfacePreviewPublishError(
+                "successor semantic sidecar label is not a producer source AddressKey"
+            )
+    return sidecar
+
+
 def _validate_successor_bundle(
     bundle: Path,
     expected_source_sha256: str,
@@ -5618,7 +5721,13 @@ def _validate_successor_bundle(
         raise SurfacePreviewPublishError("successor variants cannot bind producer raw variants")
     published: list[dict[str, Any]] = []
     inventory_paths: set[str] = set()
-    expected_kinds = ["ply", "metrics", "successor-consumer-sidecar", "guide-skin-composite-png"]
+    expected_kinds = [
+        "ply",
+        "semantic-sidecar",
+        "metrics",
+        "successor-consumer-sidecar",
+        "guide-skin-composite-png",
+    ]
     expected_frame = {key: baseline_manifest[key] for key in frame_keys}
     for index, variant in enumerate(variants):
         where = f"successor.variants[{index}]"
@@ -5637,16 +5746,19 @@ def _validate_successor_bundle(
         if source_variant_sha256 != expected_variant_sha256:
             raise SurfacePreviewPublishError(f"{where}.source_variant_sha256 does not match producer output")
         inventory = variant.get("inventory")
-        if not isinstance(inventory, list) or len(inventory) != 4 or [item.get("kind") for item in inventory if isinstance(item, dict)] != expected_kinds:
-            raise SurfacePreviewPublishError(f"{where}.inventory is not the exact four-artifact order")
+        if not isinstance(inventory, list) or len(inventory) != 5 or [item.get("kind") for item in inventory if isinstance(item, dict)] != expected_kinds:
+            raise SurfacePreviewPublishError(f"{where}.inventory is not the exact five-artifact order")
         expected_paths = {
             "ply": f"{variant_id}/surface.ply",
+            "semantic-sidecar": f"{variant_id}/semantic.json",
             "metrics": f"{variant_id}/metrics.json",
             "successor-consumer-sidecar": f"{variant_id}/successor.json",
             "guide-skin-composite-png": f"{variant_id}/guide-skin-composite.png",
         }
         metrics_payload: dict[str, Any] | None = None
         ply_metrics: dict[str, Any] | None = None
+        surface_sha256: str | None = None
+        semantic_path: Path | None = None
         sidecar_payload: dict[str, Any] | None = None
         image_entry: dict[str, Any] | None = None
         kinds: set[str] = set()
@@ -5676,6 +5788,9 @@ def _validate_successor_bundle(
                 raise SurfacePreviewPublishError(f"successor inventory does not match {rel_text}")
             if kind == "ply":
                 ply_metrics = _validate_successor_ply(artifact, rel_text)
+                surface_sha256 = entry["sha256"]
+            elif kind == "semantic-sidecar":
+                semantic_path = artifact
             elif kind == "guide-skin-composite-png":
                 image_entry = entry
                 _validate_png(artifact, entry, rel_text)
@@ -5701,8 +5816,25 @@ def _validate_successor_bundle(
                     producer_payload=producer_payload,
                     baseline_guide=baseline_guides[variant_id],
                 )
-        if kinds != set(expected_kinds) or ply_metrics is None or metrics_payload is None or sidecar_payload is None or image_entry is None:
+        if (
+            kinds != set(expected_kinds)
+            or ply_metrics is None
+            or surface_sha256 is None
+            or semantic_path is None
+            or metrics_payload is None
+            or sidecar_payload is None
+            or image_entry is None
+        ):
             raise SurfacePreviewPublishError(f"{where}.inventory is incomplete")
+        semantic_payload = _validate_successor_semantic_sidecar(
+            semantic_path,
+            variant_id=variant_id,
+            source_format=common.PROVISIONAL_FORM_FORMAT,
+            source_variant_sha256=source_variant_sha256,
+            surface_sha256=surface_sha256,
+            ply_metrics=ply_metrics,
+            descriptor_owners=profile_binding["variants"][variant_id]["descriptor_owners"],
+        )
         if variant.get("metrics") != metrics_payload:
             raise SurfacePreviewPublishError(f"{where}.metrics does not match the inventoried metrics.json")
         if not isinstance(variant.get("metrics"), dict):
@@ -5719,6 +5851,7 @@ def _validate_successor_bundle(
             "id": variant_id,
             "entry": image_entry,
             "metrics": metrics_payload,
+            "semantic": semantic_payload,
             "sidecar": sidecar_payload,
             "binding": {
                 "source": {

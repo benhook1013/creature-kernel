@@ -48,6 +48,57 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.temp.cleanup()
 
+    def test_successor_semantic_sidecar_scales_with_validated_vertex_count(self) -> None:
+        address = {
+            "namespace": "fixture",
+            "anchors": ["root"],
+            "kind": "Part",
+            "role": "body",
+        }
+        vertex_count = 10_001
+        path = self.directory / "semantic.json"
+        path.write_text(
+            json.dumps(
+                {
+                    "format": publisher.SEMANTIC_SIDECAR_FORMAT,
+                    "source_format": common.PROVISIONAL_FORM_FORMAT,
+                    "variant_id": "neutral-v0",
+                    "source_variant_sha256": "1" * 64,
+                    "surface_sha256": "2" * 64,
+                    "vertex_count": vertex_count,
+                    "source_node_labels": [address] * vertex_count,
+                    "attribution": "every recipe component resolves to its source descriptor owner; no synthetic node identity is emitted",
+                }
+            ),
+            encoding="utf-8",
+        )
+        self.assertGreater(path.stat().st_size, publisher.MAX_METRICS_BYTES)
+        payload = publisher._validate_successor_semantic_sidecar(
+            path,
+            variant_id="neutral-v0",
+            source_format=common.PROVISIONAL_FORM_FORMAT,
+            source_variant_sha256="1" * 64,
+            surface_sha256="2" * 64,
+            ply_metrics={"vertex_count": vertex_count},
+            descriptor_owners=[address],
+        )
+        self.assertEqual(payload["vertex_count"], vertex_count)
+
+        path.write_text("[]", encoding="utf-8")
+        with self.assertRaisesRegex(
+            publisher.SurfacePreviewPublishError,
+            "must be a JSON object",
+        ):
+            publisher._validate_successor_semantic_sidecar(
+                path,
+                variant_id="neutral-v0",
+                source_format=common.PROVISIONAL_FORM_FORMAT,
+                source_variant_sha256="1" * 64,
+                surface_sha256="2" * 64,
+                ply_metrics={"vertex_count": vertex_count},
+                descriptor_owners=[address],
+            )
+
     @staticmethod
     def _chunk(kind: bytes, data: bytes) -> bytes:
         return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(data, zlib.crc32(kind)) & 0xFFFFFFFF)
@@ -712,6 +763,27 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 replaced = list(REPLACED)
                 producer_variant = raw_variants[variant_index]
                 descriptors = producer_variant["descriptors"]
+                semantic = {
+                    "format": "creature-kernel.disposable-surface-preview-semantic-winners.v1",
+                    "source_format": payload["format"],
+                    "variant_id": variant_id,
+                    "source_variant_sha256": source_variant_sha256,
+                    "surface_sha256": hashlib.sha256(surface_ply).hexdigest(),
+                    "vertex_count": 4,
+                    "source_node_labels": [descriptors[0]["address"]] * 4,
+                    "attribution": "every recipe component resolves to its source descriptor owner; no synthetic node identity is emitted",
+                }
+                if MODE == "semantic-format":
+                    semantic["format"] = "creature-kernel.disposable-surface-preview-semantic-winners.v0"
+                elif MODE == "semantic-count":
+                    semantic["vertex_count"] = 3
+                elif MODE == "semantic-owner":
+                    semantic["source_node_labels"] = [{**descriptors[0]["address"], "role": "synthetic-bone"}] * 4
+                elif MODE == "semantic-variant-hash":
+                    semantic["source_variant_sha256"] = "0" * 64
+                elif MODE == "semantic-surface-hash":
+                    semantic["surface_sha256"] = "0" * 64
+                (variant_dir / "semantic.json").write_text(json.dumps(semantic, sort_keys=True), encoding="utf-8")
                 torso_owner = next(item["address"] for item in descriptors if item["address"]["role"] == "torso" and item["address"]["anchors"] == [])
                 reference_scale = math.sqrt(float(payload["reference_scale"]["squared_length"]))
                 depth_factor = {"neutral-v0": 1_000, "broad-soft-v0": 1_150, "lean-readable-v0": 800, "depth-forward-v0": 1_000}[variant_id]
@@ -1146,6 +1218,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     return result
                 inventory = [
                     entry("ply", variant_dir / "surface.ply"),
+                    entry("semantic-sidecar", variant_dir / "semantic.json"),
                     entry("metrics", variant_dir / "metrics.json"),
                     entry("successor-consumer-sidecar", variant_dir / "successor.json"),
                     entry("guide-skin-composite-png", png, {"width": 1800, "height": 1500, "views": ["front", "side", "three-quarter"], "panels_per_view": (2 if MODE == "stale-panels" else 3), "mode": "RGB"}),
@@ -1726,6 +1799,16 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
 
     def test_successor_ply_parser_rejects_malformed_schema_values_and_indices(self) -> None:
         valid = self._tetra_ply()
+        point_contact_lines = [
+            "ply", "format ascii 1.0", "element vertex 7",
+            "property float x", "property float y", "property float z",
+            "property float nx", "property float ny", "property float nz",
+            "element face 8", "property list uchar int vertex_indices", "end_header",
+            "0 0 0 1 1 1", "1 0 0 1 1 1", "0 1 0 1 1 1", "0 0 1 1 1 1",
+            "-1 0 0 -1 -1 -1", "0 -1 0 -1 -1 -1", "0 0 -1 -1 -1 -1",
+            "3 0 2 1", "3 0 1 3", "3 0 3 2", "3 1 2 3",
+            "3 0 4 5", "3 0 6 4", "3 0 5 6", "3 4 6 5",
+        ]
         cases = {
             "schema": valid.replace(b"property float nx", b"property double nx", 1),
             "nonfinite": valid.replace(
@@ -1740,6 +1823,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             "zero-normals": self._tetra_ply(zero_normals=True),
             "zero-volume": self._tetra_ply(flattened_height=0.0),
             "flattened": self._tetra_ply(flattened_height=1.0e-13),
+            "point-contact": ("\n".join(point_contact_lines) + "\n").encode("ascii"),
         }
         expected = {
             "schema": "property schema",
@@ -1751,6 +1835,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             "zero-normals": "zero or unusable normal",
             "zero-volume": "positive enclosed volume",
             "flattened": "positive enclosed volume",
+            "point-contact": "connected only at vertices",
         }
         for name, payload in cases.items():
             with self.subTest(name=name):
@@ -2652,6 +2737,11 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             "variant-profile",
             "inventory",
             "hash",
+            "semantic-format",
+            "semantic-count",
+            "semantic-owner",
+            "semantic-variant-hash",
+            "semantic-surface-hash",
             "ply-disconnected",
             "ply-nonwatertight",
             "ply-duplicate-face",
