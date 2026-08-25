@@ -260,14 +260,35 @@ authorization; this disposition is not merge authorization. No further
 cosmetic repair is planned, and publication machinery is not acceptance.
 
 The current runway target is the shared-pose structural embodiment gallery, an
-exploratory candidate toward Stage 2. It is outside this surface preview's
-implementation scope. Its four-profile candidate set and semantic pose payload
-must be frozen before evidence; the current display variants are not automatic
-substitutes. It must use generated, not illustrative, neutral/posed surface,
-skeleton/bone, weight/influence, and collision-proxy artifacts with
-source/build/scenario lineage.
+exploratory candidate toward Stage 2. It is a disposable companion consumer of
+this preview's generated surfaces, not a production architecture claim. Its
+four-profile candidate set and semantic pose payload are frozen before
+evidence; the current display variants are not automatic substitutes. It uses
+generated, not illustrative, neutral/posed surface, skeleton/bone,
+weight/influence, and collision-proxy artifacts with source/build/scenario
+lineage.
 See the active runway for its objective prerequisites, human judgments,
 non-goals, and stop triggers.
+
+The experiment-local `structural_profile_candidates.json` freezes four source
+candidate IDs for that runway: compact/broad/short-limbed/large-head,
+tall/narrow/long-legged, slender/long-limbed, and stocky/broad-chested. Generate
+their compact canonical BodyDocuments through one shared data-driven transform:
+
+```bash
+"$surface_preview_launcher" experiments/current-form-surface-preview/generate_structural_profile_sources.py --check
+"$surface_preview_launcher" experiments/current-form-surface-preview/generate_structural_profile_sources.py \
+  --output-dir /tmp/ck-structural-profile-sources
+```
+
+The transform changes exact integer Part placements and source-authored
+permille form dimensions, retains the stable unit neck-to-head reference edge,
+preserves normalized route controls and identity rotations, and keeps all four
+tail modules present while varying tail length and taper. It fails closed on
+incomplete targets, overlapping or uncovered dimension groups, broken
+bilateral/alignment/Attachment invariants, unsafe values, or non-atomic output.
+These are candidate source fixtures and lineage evidence, not public morphology
+limits or a production parameter system.
 
 The authored arm slice is a disposable consumer intended to test frame-aware
 profile continuity and bounded field behavior around the torso, upper-arm, and
@@ -299,17 +320,106 @@ at every in-range sampling value.
 
 A successful v9 run writes `successor-surface-manifest.json` plus exactly four
 variant directories. Each variant directory contains exactly
-`surface.ply`, `metrics.json`, `successor.json`, and one
+`surface.ply`, source-owned winner `semantic.json`, `metrics.json`,
+`successor.json`, and one
 `guide-skin-composite.png`. The PNG is a deterministic RGB capture at the
 baseline-compatible `1800 × 1500` canvas. Its three columns are `front`,
 `side`, and `three-quarter`; its rows are `CONTROL GUIDE`, `CONSUMED FIELDS`,
 and `FINAL SKIN` as described above. Publication metadata records
 `panels_per_view: 3`. The manifest and successor sidecars expose the profile
 identity, canvas, layout, projections, and shared bounds alongside the
-four-artifact inventory.
+five-artifact inventory. The semantic sidecar uses the same source-only
+AddressKey winner boundary as the baseline and carries no synthetic rig or
+bone semantics. It binds the exact ordered `surface.ply` bytes and exact raw
+producer variant by SHA-256; its label count is bounded by and must equal the
+validated PLY vertex count.
 The manifest generator configuration reports both independent padding values:
 `padding` controls successor mesh sampling and `capture_padding` controls the
 baseline-compatible shared capture frame.
+
+The first structural-embodiment bridge slice consumes one successful
+`inspect-structure` result, its matching provisional-form result, the complete
+successor bundle, a separately named candidate source profile, and one neutral
+surface variant:
+
+```bash
+cargo run -p creature-kernel-cli -- inspect-structure \
+  --input examples/body-documents/stylized-digitigrade-biped-authored-form.json \
+  > /tmp/structure.json
+
+"$surface_preview_launcher" experiments/current-form-surface-preview/generate_structural_embodiment_bridge.py \
+  --inspect-structure /tmp/structure.json \
+  --inspect-provisional-form /tmp/form-v11.json \
+  --surface-bundle /tmp/ck-successor-surface/run-a \
+  --candidate-profile-id authored_baseline_v0 \
+  --surface-variant-id neutral-v0 \
+  --output /tmp/ck-structural-bridge/run-a
+```
+
+Use a native Linux output parent because the bridge publishes with Linux
+atomic no-replace directory semantics. The candidate artifact derives a rooted
+bone hierarchy, complete semantic-Joint mapping, bounded normalized weights,
+and collision capsules from a deterministic nearest-eligible-bone surface
+partition. It also records any source Part that won no final-surface vertices;
+that absence remains evidence rather than being filled with invented semantic
+ownership. Its synthetic root starts at the exactly reproducible complete
+neutral-surface centroid and ends at the source root Part reference, with a
+deterministic farthest-vertex fallback for a coincident centroid. This first
+slice emits no pose or posed surface. It is a direct
+prerequisite to, not a substitute for, the shared-pose structural embodiment
+gallery.
+
+Build that named checkpoint only after all four frozen profiles have successful
+neutral bridge bundles and matching hash-bound structure and neutral-surface
+inputs:
+
+```bash
+"$surface_preview_launcher" experiments/current-form-surface-preview/generate_structural_embodiment_gallery.py \
+  --bridge-root /tmp/ck-structural-gallery-inputs/bridges \
+  --neutral-ply-root /tmp/ck-structural-gallery-inputs/neutral-surfaces \
+  --structure-root /tmp/ck-structural-gallery-inputs/structures \
+  --source-manifest /tmp/ck-structural-profile-sources/manifest.json \
+  --output /tmp/ck-structural-embodiment-gallery
+```
+
+Each input root must contain exactly the four frozen candidate IDs; structure
+files use `<profile-id>.json`. The required generated source manifest binds
+each profile to its generated source document and is copied into the gallery
+inventory. The consumer rejects non-identity source Joint frames instead of
+inventing unrecorded frame semantics. It applies the one
+checked-in deterministic pose without IK or contact, performs classic linear
+blend skinning, transforms the generated collision capsules, and publishes one
+scale-consistent `1800 x 2500` PNG per profile. Every PNG uses the same global
+world bound and has front, side, and three-quarter columns over five rows. The
+side column is an exact orthographic projection. Skeleton rows are explicit
+x-ray overlays drawn without skin depth occlusion, so internal and far-side
+bones remain visible for inhabitation review; their visibility does not imply
+an oblique camera. The five rows are neutral skin plus skeleton, posed skin plus
+skeleton, dominant-bone/max-weight evidence, neutral skin plus proxies, and
+posed skin plus proxies. The root
+manifest inventories the pose and every per-profile neutral/posed surface,
+skeleton, weight, proxy, metric, and gallery artifact. These remain disposable
+candidate-scoped evidence, not runtime rig, solver, anatomy, or topology
+contracts.
+
+After generation, validate and publish only the four profile PNGs into one
+immutable visual-review group:
+
+```bash
+"$surface_preview_launcher" dev-tools/visual-review/publish_structural_embodiment.py \
+  --root /home/ben/.cache/creature-kernel/visual-reviews \
+  --gallery /tmp/ck-structural-embodiment-gallery
+```
+
+The default session is available at
+`http://localhost:8765/review/shared-pose-structural-embodiment-gallery` when
+the existing visual-review service is running. The publisher revalidates the
+complete 39-artifact/40-file candidate gallery, reproduces the frozen generated
+sources, parses and checks the structural and posed evidence, and
+deterministically re-renders each PNG from that evidence and the shared world
+bound before copying only the four ordered PNGs required for appraisal. It
+never replaces an existing session.
+
 Each manifest variant record and its `successor.json` sidecar also carries
 `source_variant_sha256`, the 64-character lowercase SHA-256 digest of the
 exact canonical raw producer variant object (`_canonical(raw_variant)`). This

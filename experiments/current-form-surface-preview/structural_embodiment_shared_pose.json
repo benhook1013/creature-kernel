@@ -1,0 +1,36 @@
+{
+  "format": "creature-kernel.disposable-structural-embodiment-shared-pose.v1",
+  "pose_id": "shared-structural-pose-v1",
+  "version": 1,
+  "convention": {
+    "vectors": "column",
+    "bind_transform": "bone-local-plus-y-with-deterministic-up-fallback",
+    "skin_transform": "posed-world-times-inverse-neutral-world",
+    "rotation_storage": "xyzw",
+    "quaternion_decimal_places": 15
+  },
+  "solver": {
+    "ik": false,
+    "contact": false
+  },
+  "rules": [
+    {"kind": "synthetic-root", "role": null, "anchors": [], "axis": "identity", "angle_degrees": 0.000000000000000, "rotation_xyzw": [0.000000000000000, 0.000000000000000, 0.000000000000000, 1.000000000000000]},
+    {"kind": "joint", "role": "spine", "anchors": [], "axis": "identity", "angle_degrees": 0.000000000000000, "rotation_xyzw": [0.000000000000000, 0.000000000000000, 0.000000000000000, 1.000000000000000]},
+    {"kind": "joint", "role": "neck_base", "anchors": [], "axis": "x", "angle_degrees": 2.000000000000000, "rotation_xyzw": [0.017452406437284, 0.000000000000000, 0.000000000000000, 0.999847695156391]},
+    {"kind": "joint", "role": "head_base", "anchors": [], "axis": "x", "angle_degrees": 2.000000000000000, "rotation_xyzw": [0.017452406437284, 0.000000000000000, 0.000000000000000, 0.999847695156391]},
+    {"kind": "joint", "role": "shoulder", "anchors": ["left"], "axis": "z", "angle_degrees": 6.000000000000000, "rotation_xyzw": [0.000000000000000, 0.000000000000000, 0.052335956242944, 0.998629534754574]},
+    {"kind": "joint", "role": "shoulder", "anchors": ["right"], "axis": "z", "angle_degrees": -6.000000000000000, "rotation_xyzw": [0.000000000000000, 0.000000000000000, -0.052335956242944, 0.998629534754574]},
+    {"kind": "joint", "role": "elbow", "anchors": ["left"], "axis": "z", "angle_degrees": -8.000000000000000, "rotation_xyzw": [0.000000000000000, 0.000000000000000, -0.069756473744125, 0.997564050259824]},
+    {"kind": "joint", "role": "elbow", "anchors": ["right"], "axis": "z", "angle_degrees": 8.000000000000000, "rotation_xyzw": [0.000000000000000, 0.000000000000000, 0.069756473744125, 0.997564050259824]},
+    {"kind": "joint", "role": "wrist", "anchors": ["left"], "axis": "identity", "angle_degrees": 0.000000000000000, "rotation_xyzw": [0.000000000000000, 0.000000000000000, 0.000000000000000, 1.000000000000000]},
+    {"kind": "joint", "role": "wrist", "anchors": ["right"], "axis": "identity", "angle_degrees": 0.000000000000000, "rotation_xyzw": [0.000000000000000, 0.000000000000000, 0.000000000000000, 1.000000000000000]},
+    {"kind": "joint", "role": "hip", "anchors": ["left"], "axis": "z", "angle_degrees": 5.000000000000000, "rotation_xyzw": [0.000000000000000, 0.000000000000000, 0.043619387365336, 0.999048221581858]},
+    {"kind": "joint", "role": "hip", "anchors": ["right"], "axis": "z", "angle_degrees": -5.000000000000000, "rotation_xyzw": [0.000000000000000, 0.000000000000000, -0.043619387365336, 0.999048221581858]},
+    {"kind": "joint", "role": "knee", "anchors": ["left"], "axis": "z", "angle_degrees": -6.000000000000000, "rotation_xyzw": [0.000000000000000, 0.000000000000000, -0.052335956242944, 0.998629534754574]},
+    {"kind": "joint", "role": "knee", "anchors": ["right"], "axis": "z", "angle_degrees": 6.000000000000000, "rotation_xyzw": [0.000000000000000, 0.000000000000000, 0.052335956242944, 0.998629534754574]},
+    {"kind": "joint", "role": "ankle", "anchors": ["left"], "axis": "identity", "angle_degrees": 0.000000000000000, "rotation_xyzw": [0.000000000000000, 0.000000000000000, 0.000000000000000, 1.000000000000000]},
+    {"kind": "joint", "role": "ankle", "anchors": ["right"], "axis": "identity", "angle_degrees": 0.000000000000000, "rotation_xyzw": [0.000000000000000, 0.000000000000000, 0.000000000000000, 1.000000000000000]},
+    {"kind": "joint", "role": "base", "anchors": ["tail"], "axis": "x", "angle_degrees": 4.000000000000000, "rotation_xyzw": [0.034899496702501, 0.000000000000000, 0.000000000000000, 0.999390827019096]},
+    {"kind": "joint", "role": "segment", "anchors": ["tail"], "axis": "x", "angle_degrees": 4.000000000000000, "rotation_xyzw": [0.034899496702501, 0.000000000000000, 0.000000000000000, 0.999390827019096]}
+  ]
+}

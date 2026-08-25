@@ -291,11 +291,13 @@ model. The no-follow, path, origin, token, and file-type checks protect the
 ordinary local workflow and accidental misuse. They do not make the gallery a
 multi-user or adversary-resistant file service.
 
-The publisher validates the full manifest before creating the session. It
-copies each image to `SESSION/assets/<item-id>.<source-extension>` and writes
-normalized `SESSION/review.json`; normalized items contain the relative
-`image` field instead of `source`. A canonical JSON summary is printed on
-success. A failed invocation cleans only its own staging/session files.
+The publisher validates the full manifest, assembles the complete session in a
+private hidden staging directory, then installs that directory with one atomic
+no-replace rename. Normalized items contain the relative `image` field instead
+of `source`, and a canonical JSON summary is printed on success. A failed
+invocation removes only still-owned staging contents; it may retain an empty
+hidden staging directory because POSIX has no safe directory-unlink-by-fd
+operation.
 
 ## Disposable baseline-versus-successor surface checkpoint
 
@@ -499,6 +501,33 @@ This is a disposable current-source visual bridge. It does not activate Stage
 evidence. The published form gallery is historical evidence, not the current
 human checkpoint, and publication itself is not acceptance. Keep generated
 bundles and sessions under `/tmp`; they are not repository artifacts.
+
+## Shared-pose structural embodiment checkpoint
+
+After the four-profile structural gallery has been generated as described in
+`experiments/current-form-surface-preview/README.md`, publish its four rendered
+profile images as one immutable review group:
+
+```bash
+surface_preview_launcher=experiments/current-form-surface-preview/surface_preview_launcher.sh
+"$surface_preview_launcher" dev-tools/visual-review/publish_structural_embodiment.py \
+  --root /home/ben/.cache/creature-kernel/visual-reviews \
+  --gallery /tmp/ck-structural-embodiment-gallery
+```
+
+The publisher accepts exactly the frozen four-profile order and the complete
+39-artifact/40-file gallery tree, including the generated source manifest and
+four source documents that bind the profiles to their generated inputs. It
+verifies every inventoried digest, reproduces the generated sources, parses and
+checks the neutral/posed surfaces, skeleton, weights, proxies, metrics, and
+fixed pose, then deterministically re-renders each of the four distinct
+`1800 x 2500` RGB PNGs before serving them. They remain in one group so
+arrow/click switching retains the comparison viewport. The default review URL is
+`http://localhost:8765/review/shared-pose-structural-embodiment-gallery`.
+Session creation installs the complete staged review with one descriptor-
+relative atomic no-replace rename, so a failed pre-install operation cannot
+expose a partial final session. Use a new explicit `--id` for a revised
+candidate instead of rewriting an earlier session.
 
 ## HTTP routes and response format
 

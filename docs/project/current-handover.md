@@ -1,6 +1,6 @@
 # Current operational handover
 
-Snapshot: 2026-08-24 NZST
+Snapshot: 2026-08-25 NZST
 
 This is a concise operational handoff for continuing the current runway in the
 Codex app. It is not a new authority owner: `docs/project/status.md` remains
@@ -10,20 +10,30 @@ the canonical owner of the active runway, and the required reading order in
 ## Where to continue
 
 - Primary checkout: `/home/ben/src/creature-kernel` — `main` and
-  `origin/main` are at merged PR #112 commit
-  `80179614ea693cd45d55743d1d83d044c653a08f`.
+  `origin/main` are at PR #113's merged squash commit
+  `eb89245da137e54cc85f9cd564fbcdd6c45eac66` from 2026-08-25. PR #112's
+  prior main snapshot was `80179614ea693cd45d55743d1d83d044c653a08f`.
 - Active worktree:
-  `/home/ben/src/creature-kernel-worktrees/authored-digitigrade-foot-profiles` —
-  branch `implementation/authored-digitigrade-foot-profiles`, based on that
-  commit. [Draft PR #113](https://github.com/benhook1013/creature-kernel/pull/113)
-  is mergeable and draft; all three current CI lanes passed, but it remains
-  unmerged pending Ben's explicit merge authorization. Ben's disposition
+  `/home/ben/src/creature-kernel-worktrees/structural-embodiment-bridge` — branch
+  `codex/structural-embodiment-bridge`. Its local branch has been cleanly
+  rebased onto `origin/main`; the latest remote update, current-head CI, and
+  merge are handled by the main thread.
+  [Draft PR #114](https://github.com/benhook1013/creature-kernel/pull/114) is
+  open and draft.
+  It reaches the named human checkpoint at
+  `http://localhost:8765/review/shared-pose-structural-embodiment-gallery`.
+  PR #114 remains pending force-push/current-head CI/merge until the main thread
+  completes those operations. Ben's qualified visual appraisal below is
+  preserved, and Ben explicitly authorized merging PR #113 and PR #114 with
+  "merge them as needed".
+- [PR #113](https://github.com/benhook1013/creature-kernel/pull/113) merged to
+  `main` as squash commit `eb89245da137e54cc85f9cd564fbcdd6c45eac66` on
+  2026-08-25. All three CI lanes passed before its merge. Ben's disposition
   accepts its gallery only as bounded exploratory evidence that source-authored
   controls and procedural field routes cover the required regions and produce
   connected whole-body surfaces across the current display variants; it does
-  not accept visual region readability or form quality. That disposition is
-  not merge authorization, and no further cosmetic repair of the disposable
-  candidate is planned.
+  not accept visual region readability or form quality, and no further cosmetic
+  repair of the disposable candidate is planned.
 - [PR #112](https://github.com/benhook1013/creature-kernel/pull/112) merged at
   `80179614ea693cd45d55743d1d83d044c653a08f`. Its authored pelvis/leg profile
   is merged predecessor evidence, not completion or visual-quality acceptance.
@@ -50,15 +60,25 @@ the canonical owner of the active runway, and the required reading order in
   disposable surface as a form-quality success.
 
 The current named human checkpoint is the shared-pose structural embodiment
-gallery, an exploratory candidate toward Stage 2. First freeze a four-profile
-candidate set satisfying the Proposed product baseline's qualitative profile
-envelope and optional-module contrast; the current display variants are not
-automatically substitutes. Generated, not illustrative, artifacts must show
-the neutral surface with its skeleton and joint/bone overlay, complete
+gallery, an exploratory candidate toward Stage 2. Its frozen four-profile set
+satisfies the Proposed product baseline's qualitative profile envelope and is
+distinct from the earlier display variants. Generated, not illustrative,
+artifacts show the neutral surface with its skeleton and joint/bone overlay, complete
 skin-weight/influence evidence, one identity-bound deterministic semantic
 pose-transform payload applied without IK or contact solving, the posed surface
 and skeleton, neutral/posed collision proxies, and source/build/scenario
 lineage for every frozen profile.
+
+Ben's qualified 2026-08-25 visual appraisal is that the shared-pose structural
+result "looks good". The only confusion was that the `POSED SKIN + SKELETON`
+side panel appeared not exactly side-on because the skeleton looked skewered.
+The verified explanation is that `side` is exact orthographic, while the
+skeleton rows are non-depth-occluded x-ray overlays. The visible clarification
+is implemented in the active working tree: the column is labelled `side (exact
+orthographic)`, skeleton rows are labelled `(X-RAY OVERLAY)`, and the publisher
+instructions and README explain that the overlay is not depth-occluded.
+Focused assertions cover the clarification; geometry and camera behaviour are
+unchanged.
 
 The fail-closed gate requires a rooted acyclic hierarchy, complete
 semantic-Joint-to-derived-bone mapping, finite/nonnegative/normalized influence
@@ -74,14 +94,18 @@ anatomy, final surface/topology, contact response, localized deformation
 quality, runtime performance, engine/solver/rig-format selection, IK/gait/
 balance, or VR/tracking implementation.
 
-The first prerequisite is a bounded structural-embodiment bridge slice defining
-its entrypoint, admitted source/neutral-surface inputs, derived outputs, and
+The completed bounded structural-embodiment bridge prerequisite defines its
+entrypoint, admitted source/neutral-surface inputs, derived outputs, and
 reproducible artifact boundary. Stop for evidence and main-thread reevaluation
 if semantic frames do not map cleanly, disposable topology cannot support
 trustworthy weights, objective checks fail or remain inconclusive, bespoke
 profile patches are required, or a material production topology/backend/
 engine/anatomy choice becomes necessary. Do not answer those triggers with
-more outer-field cosmetic tuning or unnecessary intermediate visual gates.
+more outer-field cosmetic tuning or unnecessary intermediate visual gates. The
+merge transition is authorized by Ben's explicit instruction above. PR #114
+is still pending the main thread's force-push, current-head CI, and merge
+operations. Do not activate or select Stage 3 as part of that transition. The
+qualified appraisal above remains preserved.
 
 Open the active worktree in the Codex app to continue the runway.
 Read `AGENTS.md` in the required order, then this handover and the linked
@@ -221,9 +245,11 @@ Strict decode equality passed for that pre-redesign candidate. These
 measurements remain historical and do not describe the corrected v2 session.
 
 This was the former human checkpoint. Publication machinery is evidence
-plumbing, not acceptance: PR #113 remains unmerged as a mergeable draft pending
-Ben's explicit merge authorization, and this disposition is not that
-authorization. The former appraisal concerned the rendered spatial form and
+plumbing, not acceptance. At the time of this historical candidate snapshot,
+PR #113 was a mergeable draft; it later merged to `main` as squash commit
+`eb89245da137e54cc85f9cd564fbcdd6c45eac66` on 2026-08-25 after Ben's explicit
+authorization. This historical disposition was not itself merge authorization.
+The former appraisal concerned the rendered spatial form and
 variant response: whether the authored torso, head/neck, shoulder/arm,
 pelvis/leg, and digitigrade foot transitions read as controlled continuous
 skin rather than joined procedural masses across the four variants.
@@ -291,8 +317,8 @@ candidate is planned.
   owner provenance, recipe histograms, and finite ordered `±100` sampling
   bounds. The publisher does not independently duplicate NumPy/SciPy geometry
   or prove rendered pixels, and this does not select a permanent backend. All
-  three current PR #113 CI lanes passed; PR #113 is mergeable/draft and
-  unmerged pending Ben's explicit merge authorization.
+  three PR #113 CI lanes passed before its merge. PR #113 is now merged to
+  `main` as squash commit `eb89245da137e54cc85f9cd564fbcdd6c45eac66`.
 
 Useful local checks:
 
@@ -405,9 +431,9 @@ boundary explicitly, not as authority to regenerate or rebind EXP-0002.
 Corrected v2 checkpoint status: the pre-redesign publication measurements and
 hashes, strict decode equality, and earlier gates remain historical evidence.
 The corrected v2 session, service, HTTP, asset-integrity, pixel-crop, and
-Playwright route checks are live-verified as recorded above; all three current
-PR #113 CI lanes passed, and the PR remains mergeable/draft and unmerged
-pending Ben's explicit merge authorization.
+Playwright route checks are live-verified as recorded above; all three PR #113
+CI lanes passed before its merge. PR #113 is now merged to `main` as squash
+commit `eb89245da137e54cc85f9cd564fbcdd6c45eac66`.
 
 ### Historical arm-slice evidence
 

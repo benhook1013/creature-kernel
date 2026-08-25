@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
 import json
 import os
 import subprocess
@@ -153,6 +154,102 @@ class ManifestAndPublishTests(ReviewFixture):
         with self.assertRaises(common.ValidationError):
             publish.publish_session(self.root / "missing", self.manifest_path)
 
+    def test_expected_source_integrity_mismatch_fails_before_installation(self):
+        expected = {
+            "warm": {
+                "bytes": len(self.source.read_bytes()),
+                "sha256": hashlib.sha256(b"different source").hexdigest(),
+            }
+        }
+        with self.assertRaisesRegex(publish.PublishError, "source integrity mismatch"):
+            publish.publish_session(self.root, self.manifest_path, expected)
+        self.assertFalse((self.root / "demo-review").exists())
+
+    def test_review_root_rejects_symlink_path_components(self):
+        real_parent = Path(self.temp.name) / "real-parent"
+        real_parent.mkdir()
+        linked_parent = Path(self.temp.name) / "linked-parent"
+        linked_parent.symlink_to(real_parent, target_is_directory=True)
+        root = linked_parent / "reviews"
+        root.mkdir()
+        with self.assertRaisesRegex(common.ValidationError, "symlinks"):
+            publish.publish_session(root, self.manifest_path)
+
+    def test_review_root_rejects_regular_replacement_between_validation_and_open(self):
+        root = Path(self.temp.name) / "validated-reviews"
+        root.mkdir()
+        moved_root = Path(self.temp.name) / "validated-reviews-real"
+        replacement_marker = root / "replacement-marker.txt"
+        original_open_directory = publish._open_directory
+
+        def swap_before_root_open(parent_fd, path_or_name, where):
+            if where == "reviews root":
+                root.rename(moved_root)
+                root.mkdir()
+                replacement_marker.write_text("different regular directory", encoding="utf-8")
+            return original_open_directory(parent_fd, path_or_name, where)
+
+        try:
+            with patch.object(publish, "_open_directory", side_effect=swap_before_root_open):
+                with self.assertRaisesRegex(publish.ValidationError, "changed while being opened"):
+                    publish.publish_session(root, self.manifest_path)
+            self.assertEqual(replacement_marker.read_text(encoding="utf-8"), "different regular directory")
+        finally:
+            if root.exists():
+                replacement_marker.unlink(missing_ok=True)
+                root.rmdir()
+            if moved_root.exists():
+                moved_root.rename(root)
+
+    def test_publish_staging_stays_on_open_root_after_ancestor_swap(self):
+        parent = Path(self.temp.name) / "publish-parent"
+        parent.mkdir()
+        root = parent / "reviews"
+        root.mkdir()
+        attacker_parent = Path(self.temp.name) / "attacker-parent"
+        attacker_parent.mkdir()
+        attacker_root = attacker_parent / "reviews"
+        attacker_root.mkdir()
+        sentinel = attacker_root / "keep.txt"
+        sentinel.write_text("attacker destination", encoding="utf-8")
+        moved_parent = Path(self.temp.name) / "publish-parent-real"
+        original_open_directory = publish._open_directory
+        original_mkdir = publish.os.mkdir
+        staging_mkdirs = []
+
+        def swap_after_root_open(parent_fd, path_or_name, where):
+            fd = original_open_directory(parent_fd, path_or_name, where)
+            if where == "reviews root":
+                parent.rename(moved_parent)
+                parent.symlink_to(attacker_parent, target_is_directory=True)
+            return fd
+
+        def record_staging_mkdir(path, mode=0o777, *, dir_fd=None):
+            if Path(path).name.startswith(".demo-review.publish-"):
+                staging_mkdirs.append((path, dir_fd, os.fstat(dir_fd) if dir_fd is not None else None))
+            return original_mkdir(path, mode, dir_fd=dir_fd)
+
+        try:
+            with patch.object(publish, "_open_directory", side_effect=swap_after_root_open):
+                with patch.object(publish.os, "mkdir", side_effect=record_staging_mkdir):
+                    publish.publish_session(root, self.manifest_path)
+        finally:
+            if parent.is_symlink():
+                parent.unlink()
+            if moved_parent.exists():
+                moved_parent.rename(parent)
+
+        self.assertEqual(len(staging_mkdirs), 1)
+        _, staging_parent_fd, staging_parent_info = staging_mkdirs[0]
+        self.assertIsNotNone(staging_parent_fd)
+        self.assertEqual(
+            (staging_parent_info.st_dev, staging_parent_info.st_ino),
+            (root.stat().st_dev, root.stat().st_ino),
+        )
+        self.assertTrue((root / "demo-review" / "review.json").is_file())
+        self.assertEqual(sentinel.read_text(encoding="utf-8"), "attacker destination")
+        self.assertEqual(sorted(path.name for path in attacker_root.iterdir()), ["keep.txt"])
+
     def test_symlink_unsupported_traversal_duplicate_and_no_unrelated_deletion(self):
         unrelated = self.root / "unrelated.txt"
         unrelated.write_text("keep", encoding="utf-8")
@@ -191,35 +288,137 @@ class ManifestAndPublishTests(ReviewFixture):
             with self.assertRaisesRegex(common.ValidationError, "changed while publishing"):
                 publish.publish_session(self.root, self.manifest_path)
         self.assertFalse((self.root / "demo-review").exists())
-        self.assertEqual(list(self.root.iterdir()), [])
+        staging = list(self.root.glob(".demo-review.publish-*"))
+        self.assertEqual(len(staging), 1)
+        self.assertEqual(list(staging[0].iterdir()), [])
 
-    def test_install_failure_cleans_owned_files_but_not_concurrent_file(self):
-        original_rename = publish.os.rename
+    def test_post_open_fstat_failures_close_descriptors(self):
+        _, sources = common.read_rich_manifest(self.manifest_path)
+        destination = Path(self.temp.name) / "descriptor-failures"
+        destination.mkdir()
+        destination_fd = os.open(destination, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            before = len(os.listdir("/proc/self/fd"))
+            with patch.object(publish.os, "fstat", side_effect=OSError("injected copy fstat failure")):
+                with self.assertRaisesRegex(OSError, "injected copy fstat failure"):
+                    publish._copy_source(sources["warm"], destination_fd, "copy.png", "copy")
+            self.assertEqual(len(os.listdir("/proc/self/fd")), before)
 
-        def fail_review_install(source, destination, *args, **kwargs):
-            if Path(source).name == "review.json" and ".publish-" in str(source):
-                raise OSError("injected review install failure")
-            return original_rename(source, destination, *args, **kwargs)
+            before = len(os.listdir("/proc/self/fd"))
+            with patch.object(publish.os, "fstat", side_effect=OSError("injected write fstat failure")):
+                with self.assertRaisesRegex(OSError, "injected write fstat failure"):
+                    publish._write_owned(destination_fd, "review.json", "{}\n")
+            self.assertEqual(len(os.listdir("/proc/self/fd")), before)
+        finally:
+            os.close(destination_fd)
 
-        with patch.object(publish.os, "rename", side_effect=fail_review_install):
+        original_open_directory = publish._open_directory
+        original_fstat = publish.os.fstat
+        target_fd = {"value": None}
+
+        def track_root_fd(parent_fd, path_or_name, where):
+            fd = original_open_directory(parent_fd, path_or_name, where)
+            if where == "reviews root":
+                target_fd["value"] = fd
+            return fd
+
+        def fail_opened_root(fd):
+            if fd == target_fd["value"]:
+                raise OSError("injected root fstat failure")
+            return original_fstat(fd)
+
+        before = len(os.listdir("/proc/self/fd"))
+        with patch.object(publish, "_open_directory", side_effect=track_root_fd):
+            with patch.object(publish.os, "fstat", side_effect=fail_opened_root):
+                with self.assertRaisesRegex(OSError, "injected root fstat failure"):
+                    publish.publish_session(self.root, self.manifest_path)
+        self.assertEqual(len(os.listdir("/proc/self/fd")), before)
+
+    def test_install_failure_cleans_owned_staging_but_not_concurrent_file(self):
+        def fail_install(root_fd, source_name, destination_fd, destination_name):
+            raise OSError("injected review install failure")
+
+        with patch.object(publish, "_rename_noreplace", side_effect=fail_install):
             with self.assertRaises(OSError):
                 publish.publish_session(self.root, self.manifest_path)
         self.assertFalse((self.root / "demo-review").exists())
+        staging = list(self.root.glob(".demo-review.publish-*"))
+        self.assertEqual(len(staging), 1)
+        self.assertEqual(list(staging[0].iterdir()), [])
 
-        session = self.root / "demo-review"
+        def fail_with_concurrent_file(root_fd, source_name, destination_fd, destination_name):
+            stage = self.root / source_name
+            stage.joinpath("concurrent.txt").write_text("keep", encoding="utf-8")
+            raise OSError("injected review install failure")
 
-        def fail_with_concurrent_file(source, destination, *args, **kwargs):
-            if Path(source).name == "review.json" and ".publish-" in str(source):
-                session.joinpath("concurrent.txt").write_text("keep", encoding="utf-8")
-                raise OSError("injected review install failure")
-            return original_rename(source, destination, *args, **kwargs)
-
-        with patch.object(publish.os, "rename", side_effect=fail_with_concurrent_file):
+        with patch.object(publish, "_rename_noreplace", side_effect=fail_with_concurrent_file):
             with self.assertRaises(OSError):
                 publish.publish_session(self.root, self.manifest_path)
-        self.assertEqual((session / "concurrent.txt").read_text(encoding="utf-8"), "keep")
-        self.assertFalse((session / "review.json").exists())
-        self.assertFalse((session / "assets").exists())
+        staging = sorted(self.root.glob(".demo-review.publish-*"))
+        self.assertEqual(len(staging), 2)
+        concurrent = [path for path in staging if (path / "concurrent.txt").exists()]
+        self.assertEqual(len(concurrent), 1)
+        self.assertEqual((concurrent[0] / "concurrent.txt").read_text(encoding="utf-8"), "keep")
+        self.assertEqual(list(concurrent[0].iterdir()), [concurrent[0] / "concurrent.txt"])
+
+    def test_no_visible_partial_final_session(self):
+        original_install = publish._rename_noreplace
+        observed = {}
+
+        def inspect_before_install(root_fd, source_name, destination_fd, destination_name):
+            stage = self.root / source_name
+            observed["final_exists"] = (self.root / "demo-review").exists()
+            observed["stage_entries"] = sorted(path.name for path in stage.iterdir())
+            return original_install(root_fd, source_name, destination_fd, destination_name)
+
+        with patch.object(publish, "_rename_noreplace", side_effect=inspect_before_install):
+            publish.publish_session(self.root, self.manifest_path)
+        self.assertFalse(observed["final_exists"])
+        self.assertEqual(observed["stage_entries"], ["assets", "review.json"])
+        session = self.root / "demo-review"
+        self.assertEqual(sorted(path.name for path in session.iterdir()), ["assets", "review.json"])
+
+    def test_failed_staging_cleanup_preserves_replacement_at_old_post_check_boundary(self):
+        def replace_staging_before_cleanup(root_fd, source_name, destination_fd, destination_name):
+            staging = self.root / source_name
+            moved = self.root / f"{source_name}.owned"
+            staging.rename(moved)
+            staging.mkdir(mode=0o700)
+            (staging / "replacement.txt").write_text("keep", encoding="utf-8")
+            raise OSError("injected install failure")
+
+        with patch.object(publish, "_rename_noreplace", side_effect=replace_staging_before_cleanup):
+            with self.assertRaisesRegex(OSError, "injected install failure"):
+                publish.publish_session(self.root, self.manifest_path)
+        replacement = next(
+            path
+            for path in self.root.iterdir()
+            if path.name.startswith(".demo-review.publish-") and not path.name.endswith(".owned")
+        )
+        self.assertEqual((replacement / "replacement.txt").read_text(encoding="utf-8"), "keep")
+        owned = list(self.root.glob(".demo-review.publish-*.owned"))
+        self.assertEqual(len(owned), 1)
+        self.assertEqual(list(owned[0].iterdir()), [])
+
+    def test_session_collision_during_atomic_install_preserves_existing_session(self):
+        original_install = publish._rename_noreplace
+
+        def collide(root_fd, source_name, destination_fd, destination_name):
+            session = self.root / destination_name
+            session.mkdir()
+            (session / "sentinel.txt").write_text("keep", encoding="utf-8")
+            return original_install(root_fd, source_name, destination_fd, destination_name)
+
+        with patch.object(publish, "_rename_noreplace", side_effect=collide):
+            with self.assertRaisesRegex(publish.PublishError, "session appeared during publish"):
+                publish.publish_session(self.root, self.manifest_path)
+        self.assertEqual(
+            (self.root / "demo-review" / "sentinel.txt").read_text(encoding="utf-8"),
+            "keep",
+        )
+        staging = list(self.root.glob(".demo-review.publish-*"))
+        self.assertEqual(len(staging), 1)
+        self.assertEqual(list(staging[0].iterdir()), [])
 
     def test_subject_context_normalization_and_rejection(self):
         manifest = json.loads(self.manifest_path.read_text(encoding="utf-8"))
@@ -867,6 +1066,30 @@ process.stdout.write(JSON.stringify(items.map(context.__imageAccessibleLabel)));
         for selector in (".image-navigation-control", ".image-position", ".image-dialog-instructions", ".image-dialog img:focus-visible"):
             self.assertIn(selector, css)
 
+    def test_image_comparator_keeps_desktop_header_height_stable(self):
+        css = (HERE / "static" / "style.css").read_text(encoding="utf-8")
+        self.assertIn("flex-wrap: nowrap", css)
+        self.assertIn("flex: 1 1 auto", css)
+        self.assertIn("text-overflow: ellipsis", css)
+        self.assertIn("white-space: nowrap", css)
+        self.assertIn("@media (max-width: 52rem)", css)
+        self.assertIn("flex-wrap: wrap", css)
+
+    def test_image_comparator_names_requested_item_during_initial_load(self):
+        js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
+        self.assertIn(
+            'var heading = node("h2", items.length ? items[initialIndex].title : "Image comparison", "image-dialog-title");',
+            js,
+        )
+        self.assertIn(
+            'var headingIndex = displayedIndex >= 0 ? displayedIndex : requestedIndex;',
+            js,
+        )
+        self.assertIn(
+            'heading.textContent = headingIndex >= 0 && headingIndex < items.length ? items[headingIndex].title : "Image comparison";',
+            js,
+        )
+
     def test_image_viewer_preloads_and_captures_latest_viewport_on_winning_load(self):
         js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
         self.assertIn("var image = null;", js)
@@ -885,7 +1108,7 @@ process.stdout.write(JSON.stringify(items.map(context.__imageAccessibleLabel)));
         self.assertLess(load_handler, latest_capture)
         self.assertLess(latest_capture, error_handler)
         self.assertLess(error_handler, source_assignment)
-        self.assertEqual(js.count("captureViewport()"), 2)
+        self.assertEqual(js.count("captureViewport()"), 3)
         self.assertEqual(js.count("restoreViewport(viewportState);"), 1)
 
     def test_image_viewer_stale_load_and_error_paths_keep_displayed_state_honest(self):
@@ -899,7 +1122,7 @@ process.stdout.write(JSON.stringify(items.map(context.__imageAccessibleLabel)));
         self.assertIn('return "No image displayed";', js)
         self.assertIn('updateDisplayedState("Loading item " + (targetIndex + 1) + ": " + item.title);', js)
         self.assertIn('updateDisplayedState("Could not load item " + (targetIndex + 1) + ": " + item.title);', js)
-        self.assertIn('heading.textContent = displayedIndex < 0 ? "Image comparison" : items[displayedIndex].title;', js)
+        self.assertIn('var headingIndex = displayedIndex >= 0 ? displayedIndex : requestedIndex;', js)
         self.assertIn("positionLabel.textContent = displayedPositionText()", js)
         self.assertIn("var disabled = image === null;", js)
         error_handler = js.index('nextImage.addEventListener("error"')
@@ -930,6 +1153,33 @@ process.stdout.write(JSON.stringify(items.map(context.__imageAccessibleLabel)));
         self.assertEqual(js.count("focusPreservingViewport(image);"), 2)
         self.assertNotIn("image.focus();", js)
 
+    def test_image_switch_focus_reapplies_scroll_after_deferred_browser_adjustment(self):
+        js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
+        self.assertIn("var focusRestoreFrame = null;", js)
+        self.assertIn("var focusedImage = element;", js)
+        self.assertIn("var focusedLoadToken = imageLoadToken;", js)
+        self.assertIn("window.cancelAnimationFrame(focusRestoreFrame);", js)
+        self.assertIn("focusRestoreFrame = window.requestAnimationFrame(function () {", js)
+        self.assertIn(
+            "if (cleaned || !dialog.open || image !== focusedImage || imageLoadToken !== focusedLoadToken)",
+            js,
+        )
+        self.assertGreaterEqual(js.count("viewport.scrollLeft = scrollLeft;"), 2)
+        self.assertGreaterEqual(js.count("viewport.scrollTop = scrollTop;"), 2)
+        cleanup = js.index("function cleanup()")
+        release_lock = js.index("releaseScrollLock();", cleanup)
+        cancel_frame = js.index("window.cancelAnimationFrame(focusRestoreFrame);", cleanup)
+        self.assertLess(cancel_frame, release_lock)
+
+    def test_async_image_load_captures_pan_before_focus_restoration(self):
+        js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
+        load_handler = js.index('nextImage.addEventListener("load"')
+        capture = js.index("var viewportState = image ? captureViewport() : null;", load_handler)
+        restore = js.index("restoreViewport(viewportState);", capture)
+        focus = js.index("focusPreservingViewport(image);", restore)
+        self.assertLess(capture, restore)
+        self.assertLess(restore, focus)
+
     def test_image_viewer_pointer_drag_preserves_click_navigation_contract(self):
         js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
         css = (HERE / "static" / "style.css").read_text(encoding="utf-8")
@@ -938,6 +1188,7 @@ process.stdout.write(JSON.stringify(items.map(context.__imageAccessibleLabel)));
             "nextImage.draggable = false;",
             'nextImage.addEventListener("dragstart", function (event) { event.preventDefault(); });',
             "var pointerGesture = null;",
+            "var pendingClickViewportState = null;",
             'nextImage.addEventListener("pointerdown", onPointerDown);',
             'nextImage.addEventListener("pointermove", onPointerMove);',
             'nextImage.addEventListener("pointerup", function (event) { onPointerEnd(event, false); });',
@@ -948,6 +1199,10 @@ process.stdout.write(JSON.stringify(items.map(context.__imageAccessibleLabel)));
             "nextImage.releasePointerCapture(event.pointerId);",
             "deltaX * deltaX + deltaY * deltaY >= 36",
             "pointerGesture.dragging = true;",
+            "viewportState: captureViewport(),",
+            "var completedGesture = pointerGesture;",
+            "pointerGesture = null;",
+            "pendingClickViewportState = !cancelled && !completedGesture.dragging ? completedGesture.viewportState : null;",
             "viewport.scrollLeft = pointerGesture.startScrollLeft - deltaX;",
             "viewport.scrollTop = pointerGesture.startScrollTop - deltaY;",
             'nextImage.classList.add("is-dragging");',
@@ -961,6 +1216,25 @@ process.stdout.write(JSON.stringify(items.map(context.__imageAccessibleLabel)));
         self.assertIn("touch-action: none", css)
         self.assertIn("-webkit-user-drag: none", css)
         self.assertIn("click the displayed image, or drag it", js)
+
+    def test_image_click_restores_pointerdown_viewport_before_switch(self):
+        js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
+        click_handler = js.index("function showNextImage(event)")
+        click_restore = js.index('if (event.type === "click" && pendingClickViewportState)', click_handler)
+        restore = js.index("restoreViewport(pendingClickViewportState);", click_restore)
+        discard = js.index("pendingClickViewportState = null;", restore)
+        switch = js.index("showItem(requestedIndex + 1, true);", discard)
+        self.assertLess(click_restore, restore)
+        self.assertLess(restore, discard)
+        self.assertLess(discard, switch)
+        self.assertIn(
+            "pendingClickViewportState = !cancelled && !completedGesture.dragging ? completedGesture.viewportState : null;",
+            js,
+        )
+        self.assertIn(
+            'if (event.type === "keydown") {\n          event.preventDefault();\n          pendingClickViewportState = null;',
+            js,
+        )
 
     def test_image_viewer_is_viewport_sized_and_image_scoped(self):
         js = (HERE / "static" / "app.js").read_text(encoding="utf-8")

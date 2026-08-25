@@ -2504,7 +2504,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                     + [
                         f"{variant_id}/{name}"
                         for variant_id in surface_preview.VARIANT_IDS
-                        for name in ("guide-skin-composite.png", "metrics.json", "successor.json", "surface.ply")
+                        for name in ("guide-skin-composite.png", "metrics.json", "semantic.json", "successor.json", "surface.ply")
                     ]
                 ),
             )
@@ -2569,11 +2569,48 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 variant_dir = first / variant["id"]
                 self.assertEqual(
                     sorted(path.name for path in variant_dir.iterdir()),
-                    ["guide-skin-composite.png", "metrics.json", "successor.json", "surface.ply"],
+                    ["guide-skin-composite.png", "metrics.json", "semantic.json", "successor.json", "surface.ply"],
                 )
-                self.assertEqual(len(variant["inventory"]), 4)
+                self.assertEqual(len(variant["inventory"]), 5)
+                self.assertEqual(
+                    [item["kind"] for item in variant["inventory"]],
+                    ["ply", "semantic-sidecar", "metrics", "successor-consumer-sidecar", "guide-skin-composite-png"],
+                )
                 inventory_by_kind = {item["kind"]: item for item in variant["inventory"]}
-                self.assertEqual(set(inventory_by_kind), {"ply", "metrics", "successor-consumer-sidecar", "guide-skin-composite-png"})
+                self.assertEqual(set(inventory_by_kind), {"ply", "semantic-sidecar", "metrics", "successor-consumer-sidecar", "guide-skin-composite-png"})
+                semantic_path = variant_dir / "semantic.json"
+                semantic_payload = json.loads(semantic_path.read_text())
+                self.assertEqual(
+                    semantic_payload,
+                    {
+                        "format": successor.SEMANTIC_FORMAT,
+                        "source_format": surface_preview.SOURCE_FORMAT,
+                        "variant_id": variant["id"],
+                        "source_variant_sha256": variant["source_variant_sha256"],
+                        "surface_sha256": hashlib.sha256((variant_dir / "surface.ply").read_bytes()).hexdigest(),
+                        "vertex_count": variant["metrics"]["vertex_count"],
+                        "source_node_labels": semantic_payload["source_node_labels"],
+                        "attribution": "every recipe component resolves to its source descriptor owner; no synthetic node identity is emitted",
+                    },
+                )
+                self.assertEqual(len(semantic_payload["source_node_labels"]), semantic_payload["vertex_count"])
+                descriptors = next(
+                    descriptors
+                    for variant_id, descriptors, _ in self.form.variants
+                    if variant_id == variant["id"]
+                )
+                allowed_labels = {
+                    json.dumps(surface_preview._address_json(descriptor.key), sort_keys=True)
+                    for descriptor in descriptors
+                }
+                self.assertTrue(all(
+                    json.dumps(label, sort_keys=True) in allowed_labels
+                    for label in semantic_payload["source_node_labels"]
+                ))
+                semantic_inventory = inventory_by_kind["semantic-sidecar"]
+                self.assertEqual(semantic_inventory["path"], f"{variant['id']}/semantic.json")
+                self.assertEqual(semantic_inventory["bytes"], semantic_path.stat().st_size)
+                self.assertEqual(semantic_inventory["sha256"], hashlib.sha256(semantic_path.read_bytes()).hexdigest())
                 png_inventory = inventory_by_kind["guide-skin-composite-png"]
                 png_path = variant_dir / "guide-skin-composite.png"
                 self.assertEqual(png_inventory["path"], f"{variant['id']}/guide-skin-composite.png")

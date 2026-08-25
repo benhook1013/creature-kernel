@@ -1,6 +1,6 @@
 # Project status
 
-Status date: 2026-08-24
+Status date: 2026-08-25
 
 ## Phase
 
@@ -13,28 +13,36 @@ governs what resumes next.
 
 ## Active runway
 
-Execution state: Ben accepts PR #113's gallery only as bounded exploratory
-evidence that source-authored controls and procedural field routes cover the
-required body regions and produce connected whole-body surfaces across the
-current display variants. It does not establish that every region remains
-visually readable or convincing. No further cosmetic repair of that disposable
-candidate is planned; the runway now targets the shared-pose structural
-embodiment gallery, an exploratory candidate toward Stage 2. Draft PR #113 is
-mergeable and draft, all three current CI lanes
-passed, and it remains unmerged pending Ben's explicit merge authorization;
-this strategy disposition is not merge authorization. `origin/main` and the
-primary `main` checkout are at merged PR #112 commit
-`80179614ea693cd45d55743d1d83d044c653a08f`. The active worktree is
-`/home/ben/src/creature-kernel-worktrees/authored-digitigrade-foot-profiles`,
-on branch `implementation/authored-digitigrade-foot-profiles`, based on that
-commit. The authored torso, head/neck, arm, pelvis/leg, and foot profiles are
-predecessor evidence for the structural runway.
+Execution state: the shared-pose structural embodiment gallery candidate has
+reached the named human checkpoint in draft PR #114. PR #113 merged to `main`
+as squash commit `eb89245da137e54cc85f9cd564fbcdd6c45eac66` on 2026-08-25.
+Ben explicitly authorized merging PR #113 and PR #114 with "merge them as
+needed". The active worktree is
+`/home/ben/src/creature-kernel-worktrees/structural-embodiment-bridge`, on branch
+`codex/structural-embodiment-bridge`, whose local branch has been cleanly
+rebased onto `origin/main`. The latest PR #114 remote update, current-head CI,
+and merge will be handled by the main thread. Its stable review is
+`http://localhost:8765/review/shared-pose-structural-embodiment-gallery`.
+PR #114 remains pending force-push/current-head CI/merge until the main thread
+completes those operations. Ben's qualified visual appraisal is recorded below
+and the explicit merge authorization is now recorded above.
+`origin/main` and the primary `main` checkout are at PR #113's merged squash
+commit `eb89245da137e54cc85f9cd564fbcdd6c45eac66`; PR #112's prior main
+snapshot was `80179614ea693cd45d55743d1d83d044c653a08f`.
 
-The next named human checkpoint is the shared-pose structural embodiment
-gallery. Before evidence, freeze a four-profile candidate set satisfying the
+Ben accepts PR #113's gallery only as bounded exploratory evidence that
+source-authored controls and procedural field routes cover the required body
+regions and produce connected whole-body surfaces across the current display
+variants. It does not establish that every region remains visually readable or
+convincing. No further cosmetic repair of that disposable candidate is
+planned. The authored torso, head/neck, arm, pelvis/leg, and foot profiles are
+predecessor evidence for the structural checkpoint.
+
+The current named human checkpoint is the shared-pose structural embodiment
+gallery. Its frozen four-profile candidate set satisfies the
 Proposed product baseline's qualitative profile envelope and optional-module
-contrast; the current four display variants are not automatically substitutes.
-Using shared operations and no per-profile patches, show generated, not
+contrast and is distinct from the earlier display variants. Using shared
+operations and no per-profile patches, it shows generated, not
 illustrative, artifacts for every frozen profile: a neutral surface with the
 actual generated skeleton and joint/bone overlay; actual skin-weight/influence
 evidence; one identity-bound deterministic semantic pose-transform payload
@@ -55,11 +63,25 @@ whether the skeleton inhabits the body plausibly, the shared pose reads
 coherently across proportions, gross skin following avoids severe collapse,
 twisting or detachment, and proxies plausibly cover and follow the body.
 
-The first direct prerequisite is a bounded structural-embodiment bridge slice
-that defines its entrypoint, admitted source/neutral-surface inputs, derived
-rig/weight/proxy/pose outputs, and reproducible artifact boundary. Autonomous
-work should then target the named gallery without unnecessary intermediate
-visual gates.
+Ben's qualified 2026-08-25 visual appraisal is that the shared-pose structural
+result "looks good". The only confusion was that the `POSED SKIN + SKELETON`
+side panel appeared not exactly side-on because the skeleton looked skewered.
+The verified explanation is that `side` is an exact orthographic projection,
+while the skeleton rows are non-depth-occluded x-ray overlays. The visible
+clarity follow-up is implemented in the active working tree: column label
+`side (exact orthographic)`, row labels ending `(X-RAY OVERLAY)`, publisher
+instructions explaining the non-depth-occluded overlay, and matching README
+wording and focused assertions. These clarify the evidence without changing
+the candidate's geometry or camera.
+
+The bounded structural-embodiment bridge prerequisite defines its entrypoint,
+admitted source/neutral-surface inputs, derived rig/weight/proxy outputs, and
+reproducible artifact boundary. The completed gallery adds the frozen shared
+pose, posed evidence, exact semantic publication validation, and deterministic
+re-rendering. The merge transition is authorized by Ben's explicit instruction
+above. PR #114 is still pending the main thread's force-push, current-head CI,
+and merge operations; those operations do not activate or select Stage 3. The
+qualified visual appraisal remains as recorded below.
 
 This checkpoint does not seek realistic muscles or anatomy, final
 surface/topology, contact response, localized deformation quality,
@@ -74,7 +96,7 @@ topology/backend/engine/anatomy choice. These triggers call for evidence and
 reassessment, not more outer-field cosmetic tuning.
 
 Current operational snapshot: the [Codex app handover](current-handover.md)
-(2026-08-24 NZST) records the primary checkout, active runway worktree,
+(2026-08-25 NZST) records the primary checkout, active runway worktree,
 merged PR state, and the current checkpoint/tooling state. It is a navigation
 aid rather than a new authority owner. PR #107 retains the exact consumed
 producer lineage in surface reviews while preserving the parked EXP-0002
@@ -302,9 +324,12 @@ subject context 8812 bytes; subject-context SHA-256
 `0210c5f225869d9030ff82a2898f122be21b4da328dcb668e0b83a674f486fb7`.
 Strict decode equality passed for that pre-redesign candidate. Those
 measurements remain historical and do not describe the corrected v2 session.
-Publication machinery is evidence plumbing, not acceptance. PR #113 remains
-unmerged as a mergeable draft pending Ben's explicit merge authorization; the
-surface-gallery disposition itself is not that authorization.
+Publication machinery is evidence plumbing, not acceptance. At the time of the
+historical surface-gallery snapshot, PR #113 was an unmerged mergeable draft;
+it later merged to `main` as squash commit
+`eb89245da137e54cc85f9cd564fbcdd6c45eac66` on 2026-08-25 after Ben's explicit
+authorization. The surface-gallery disposition itself was not that
+authorization.
 
 Current local diagnostic validation is: baseline full suite 68 tests passed;
 successor full suite 61 passed; full visual-review suite 113 passed via the
@@ -336,8 +361,8 @@ assets. Playwright persistent-route smoke loaded all eight assets
 at `1800x1500`, switched baseline/successor with arrow keys, and found no
 console or request failures. Pixel-crop checks prove the control-guide and
 final-skin rows are byte/pixel identical to the superseded no-suffix session.
-All three current PR #113 CI lanes passed. The PR remains a mergeable draft and
-unmerged pending Ben's explicit merge authorization.
+All three PR #113 CI lanes passed before its merge. PR #113 is now merged to
+`main` as squash commit `eb89245da137e54cc85f9cd564fbcdd6c45eac66`.
 
 The active fixture's exact squared reference length is `1`. If a later runway
 admits producer output above JavaScript's exact-integer domain, align or tighten

@@ -3727,8 +3727,9 @@
 
   function openImage(items, selectedIndex) {
     var returnFocus = document.activeElement;
+    var initialIndex = Math.max(0, Math.min(items.length - 1, selectedIndex || 0));
     var dialog = node("dialog", null, "image-dialog");
-    var heading = node("h2", "Image comparison", "image-dialog-title");
+    var heading = node("h2", items.length ? items[initialIndex].title : "Image comparison", "image-dialog-title");
     heading.id = "image-dialog-title";
     dialog.setAttribute("aria-labelledby", "image-dialog-title");
     var header = node("header", null, "image-dialog-header");
@@ -3786,10 +3787,10 @@
     var scale = 1;
     var fitScale = 1;
     var cleaned = false;
-    var initialIndex = Math.max(0, Math.min(items.length - 1, selectedIndex || 0));
     var requestedIndex = initialIndex;
     var displayedIndex = -1;
     var imageLoadToken = 0;
+    var focusRestoreFrame = null;
     var suppressNextImageClick = false;
     var releaseScrollLock = acquireImageDialogLock();
 
@@ -3912,6 +3913,8 @@
     function focusPreservingViewport(element) {
       var scrollLeft = viewport.scrollLeft;
       var scrollTop = viewport.scrollTop;
+      var focusedImage = element;
+      var focusedLoadToken = imageLoadToken;
       try {
         element.focus({ preventScroll: true });
       } catch (error) {
@@ -3919,6 +3922,17 @@
       }
       viewport.scrollLeft = scrollLeft;
       viewport.scrollTop = scrollTop;
+      if (focusRestoreFrame !== null) {
+        window.cancelAnimationFrame(focusRestoreFrame);
+      }
+      focusRestoreFrame = window.requestAnimationFrame(function () {
+        focusRestoreFrame = null;
+        if (cleaned || !dialog.open || image !== focusedImage || imageLoadToken !== focusedLoadToken) {
+          return;
+        }
+        viewport.scrollLeft = scrollLeft;
+        viewport.scrollTop = scrollTop;
+      });
     }
 
     function updateImageControls() {
@@ -3937,7 +3951,8 @@
     }
 
     function updateDisplayedState(statusText) {
-      heading.textContent = displayedIndex < 0 ? "Image comparison" : items[displayedIndex].title;
+      var headingIndex = displayedIndex >= 0 ? displayedIndex : requestedIndex;
+      heading.textContent = headingIndex >= 0 && headingIndex < items.length ? items[headingIndex].title : "Image comparison";
       positionLabel.textContent = displayedPositionText() + (statusText ? " · " + statusText : "");
     }
 
@@ -3968,6 +3983,7 @@
       nextImage.setAttribute("aria-label", imageDescription(item) ? "Show next comparison image: " + imageLabel : "Show next comparison image");
       nextImage.draggable = false;
       var pointerGesture = null;
+      var pendingClickViewportState = null;
       function releasePointerCapture(event) {
         if (nextImage.hasPointerCapture && nextImage.hasPointerCapture(event.pointerId)) {
           nextImage.releasePointerCapture(event.pointerId);
@@ -3978,12 +3994,14 @@
           return;
         }
         suppressNextImageClick = false;
+        pendingClickViewportState = null;
         pointerGesture = {
           pointerId: event.pointerId,
           startX: event.clientX,
           startY: event.clientY,
           startScrollLeft: viewport.scrollLeft,
           startScrollTop: viewport.scrollTop,
+          viewportState: captureViewport(),
           dragging: false
         };
         if (nextImage.setPointerCapture) {
@@ -4011,16 +4029,19 @@
         if (!pointerGesture || pointerGesture.pointerId !== event.pointerId) {
           return;
         }
-        if (pointerGesture.dragging && !cancelled) {
+        var completedGesture = pointerGesture;
+        pointerGesture = null;
+        if (completedGesture.dragging && !cancelled) {
           suppressNextImageClick = true;
         }
+        pendingClickViewportState = !cancelled && !completedGesture.dragging ? completedGesture.viewportState : null;
         nextImage.classList.remove("is-dragging");
         releasePointerCapture(event);
-        pointerGesture = null;
       }
       function showNextImage(event) {
         if (event.type === "click" && suppressNextImageClick) {
           suppressNextImageClick = false;
+          pendingClickViewportState = null;
           event.preventDefault();
           event.stopPropagation();
           return;
@@ -4030,6 +4051,11 @@
         }
         if (event.type === "keydown") {
           event.preventDefault();
+          pendingClickViewportState = null;
+        }
+        if (event.type === "click" && pendingClickViewportState) {
+          restoreViewport(pendingClickViewportState);
+          pendingClickViewportState = null;
         }
         showItem(requestedIndex + 1, true);
       }
@@ -4083,6 +4109,10 @@
         return;
       }
       cleaned = true;
+      if (focusRestoreFrame !== null) {
+        window.cancelAnimationFrame(focusRestoreFrame);
+        focusRestoreFrame = null;
+      }
       releaseScrollLock();
       window.removeEventListener("resize", onResize);
       viewport.removeEventListener("wheel", onWheel);
