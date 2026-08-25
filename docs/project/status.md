@@ -14,19 +14,21 @@ governs what resumes next.
 ## Active runway
 
 Execution state: the shared-pose structural embodiment gallery candidate has
-reached the named human checkpoint in draft PR #114, stacked on unmerged draft
-PR #113. The active worktree is
+reached the named human checkpoint in draft PR #114. PR #113 merged to `main`
+as squash commit `eb89245da137e54cc85f9cd564fbcdd6c45eac66` on 2026-08-25.
+Ben explicitly authorized merging PR #113 and PR #114 with "merge them as
+needed". The active worktree is
 `/home/ben/src/creature-kernel-worktrees/structural-embodiment-bridge`, on branch
-`codex/structural-embodiment-bridge`, containing checkpoint implementation commit
-`aed81e494803cefcc1681301609ac12e8e1cf67d`. At the pre-clarity head, all three
-PR #114 checks passed. The clarity follow-up below has passed focused local
-validation but has not received its current-head CI validation yet. Its stable
-review is
+`codex/structural-embodiment-bridge`, whose local branch has been cleanly
+rebased onto `origin/main`. The latest PR #114 remote update, current-head CI,
+and merge will be handled by the main thread. Its stable review is
 `http://localhost:8765/review/shared-pose-structural-embodiment-gallery`.
-PR #114 and PR #113 remain unmerged pending Ben's explicit merge authorization;
-Ben's qualified visual appraisal is recorded below and is not that authorization.
-`origin/main` and the primary `main` checkout remain at merged
-PR #112 commit `80179614ea693cd45d55743d1d83d044c653a08f`.
+PR #114 remains pending force-push/current-head CI/merge until the main thread
+completes those operations. Ben's qualified visual appraisal is recorded below
+and the explicit merge authorization is now recorded above.
+`origin/main` and the primary `main` checkout are at PR #113's merged squash
+commit `eb89245da137e54cc85f9cd564fbcdd6c45eac66`; PR #112's prior main
+snapshot was `80179614ea693cd45d55743d1d83d044c653a08f`.
 
 Ben accepts PR #113's gallery only as bounded exploratory evidence that
 source-authored controls and procedural field routes cover the required body
@@ -76,9 +78,10 @@ The bounded structural-embodiment bridge prerequisite defines its entrypoint,
 admitted source/neutral-surface inputs, derived rig/weight/proxy outputs, and
 reproducible artifact boundary. The completed gallery adds the frozen shared
 pose, posed evidence, exact semantic publication validation, and deterministic
-re-rendering. The stop gate is now Ben's explicit merge authorization for PR
-#113 and PR #114; this qualified appraisal does not infer or grant that
-authorization.
+re-rendering. The merge transition is authorized by Ben's explicit instruction
+above. PR #114 is still pending the main thread's force-push, current-head CI,
+and merge operations; those operations do not activate or select Stage 3. The
+qualified visual appraisal remains as recorded below.
 
 This checkpoint does not seek realistic muscles or anatomy, final
 surface/topology, contact response, localized deformation quality,
@@ -321,9 +324,12 @@ subject context 8812 bytes; subject-context SHA-256
 `0210c5f225869d9030ff82a2898f122be21b4da328dcb668e0b83a674f486fb7`.
 Strict decode equality passed for that pre-redesign candidate. Those
 measurements remain historical and do not describe the corrected v2 session.
-Publication machinery is evidence plumbing, not acceptance. PR #113 remains
-unmerged as a mergeable draft pending Ben's explicit merge authorization; the
-surface-gallery disposition itself is not that authorization.
+Publication machinery is evidence plumbing, not acceptance. At the time of the
+historical surface-gallery snapshot, PR #113 was an unmerged mergeable draft;
+it later merged to `main` as squash commit
+`eb89245da137e54cc85f9cd564fbcdd6c45eac66` on 2026-08-25 after Ben's explicit
+authorization. The surface-gallery disposition itself was not that
+authorization.
 
 Current local diagnostic validation is: baseline full suite 68 tests passed;
 successor full suite 61 passed; full visual-review suite 113 passed via the
@@ -355,8 +361,8 @@ assets. Playwright persistent-route smoke loaded all eight assets
 at `1800x1500`, switched baseline/successor with arrow keys, and found no
 console or request failures. Pixel-crop checks prove the control-guide and
 final-skin rows are byte/pixel identical to the superseded no-suffix session.
-All three current PR #113 CI lanes passed. The PR remains a mergeable draft and
-unmerged pending Ben's explicit merge authorization.
+All three PR #113 CI lanes passed before its merge. PR #113 is now merged to
+`main` as squash commit `eb89245da137e54cc85f9cd564fbcdd6c45eac66`.
 
 The active fixture's exact squared reference length is `1`. If a later runway
 admits producer output above JavaScript's exact-integer domain, align or tighten
