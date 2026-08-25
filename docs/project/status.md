@@ -1,6 +1,6 @@
 # Project status
 
-Status date: 2026-08-24
+Status date: 2026-08-25
 
 ## Phase
 
@@ -13,28 +13,32 @@ governs what resumes next.
 
 ## Active runway
 
-Execution state: Ben accepts PR #113's gallery only as bounded exploratory
-evidence that source-authored controls and procedural field routes cover the
-required body regions and produce connected whole-body surfaces across the
-current display variants. It does not establish that every region remains
-visually readable or convincing. No further cosmetic repair of that disposable
-candidate is planned; the runway now targets the shared-pose structural
-embodiment gallery, an exploratory candidate toward Stage 2. Draft PR #113 is
-mergeable and draft, all three current CI lanes
-passed, and it remains unmerged pending Ben's explicit merge authorization;
-this strategy disposition is not merge authorization. `origin/main` and the
-primary `main` checkout are at merged PR #112 commit
-`80179614ea693cd45d55743d1d83d044c653a08f`. The active worktree is
-`/home/ben/src/creature-kernel-worktrees/authored-digitigrade-foot-profiles`,
-on branch `implementation/authored-digitigrade-foot-profiles`, based on that
-commit. The authored torso, head/neck, arm, pelvis/leg, and foot profiles are
-predecessor evidence for the structural runway.
+Execution state: the shared-pose structural embodiment gallery candidate has
+reached the named human checkpoint in draft PR #114, stacked on unmerged draft
+PR #113. The active worktree is
+`/home/ben/src/creature-kernel-worktrees/structural-embodiment-bridge`, on branch
+`codex/structural-embodiment-bridge`, containing checkpoint implementation commit
+`aed81e494803cefcc1681301609ac12e8e1cf67d`. PR #114 is open, draft, and
+mergeable; documentation and visual-review CI passed while Rust CI remained in
+progress at this snapshot. Its immutable review is
+`http://localhost:8765/review/shared-pose-structural-embodiment-gallery`.
+PR #114 and PR #113 remain unmerged pending Ben's appraisal and explicit merge
+authorization. `origin/main` and the primary `main` checkout remain at merged
+PR #112 commit `80179614ea693cd45d55743d1d83d044c653a08f`.
 
-The next named human checkpoint is the shared-pose structural embodiment
-gallery. Before evidence, freeze a four-profile candidate set satisfying the
+Ben accepts PR #113's gallery only as bounded exploratory evidence that
+source-authored controls and procedural field routes cover the required body
+regions and produce connected whole-body surfaces across the current display
+variants. It does not establish that every region remains visually readable or
+convincing. No further cosmetic repair of that disposable candidate is
+planned. The authored torso, head/neck, arm, pelvis/leg, and foot profiles are
+predecessor evidence for the structural checkpoint.
+
+The current named human checkpoint is the shared-pose structural embodiment
+gallery. Its frozen four-profile candidate set satisfies the
 Proposed product baseline's qualitative profile envelope and optional-module
-contrast; the current four display variants are not automatically substitutes.
-Using shared operations and no per-profile patches, show generated, not
+contrast and is distinct from the earlier display variants. Using shared
+operations and no per-profile patches, it shows generated, not
 illustrative, artifacts for every frozen profile: a neutral surface with the
 actual generated skeleton and joint/bone overlay; actual skin-weight/influence
 evidence; one identity-bound deterministic semantic pose-transform payload
@@ -55,11 +59,12 @@ whether the skeleton inhabits the body plausibly, the shared pose reads
 coherently across proportions, gross skin following avoids severe collapse,
 twisting or detachment, and proxies plausibly cover and follow the body.
 
-The first direct prerequisite is a bounded structural-embodiment bridge slice
-that defines its entrypoint, admitted source/neutral-surface inputs, derived
-rig/weight/proxy/pose outputs, and reproducible artifact boundary. Autonomous
-work should then target the named gallery without unnecessary intermediate
-visual gates.
+The bounded structural-embodiment bridge prerequisite defines its entrypoint,
+admitted source/neutral-surface inputs, derived rig/weight/proxy outputs, and
+reproducible artifact boundary. The completed gallery adds the frozen shared
+pose, posed evidence, exact semantic publication validation, and deterministic
+re-rendering. The stop gate is now Ben's visual appraisal, not another internal
+implementation slice.
 
 This checkpoint does not seek realistic muscles or anatomy, final
 surface/topology, contact response, localized deformation quality,
@@ -74,7 +79,7 @@ topology/backend/engine/anatomy choice. These triggers call for evidence and
 reassessment, not more outer-field cosmetic tuning.
 
 Current operational snapshot: the [Codex app handover](current-handover.md)
-(2026-08-24 NZST) records the primary checkout, active runway worktree,
+(2026-08-25 NZST) records the primary checkout, active runway worktree,
 merged PR state, and the current checkpoint/tooling state. It is a navigation
 aid rather than a new authority owner. PR #107 retains the exact consumed
 producer lineage in surface reviews while preserving the parked EXP-0002

@@ -1,6 +1,6 @@
 # Current operational handover
 
-Snapshot: 2026-08-24 NZST
+Snapshot: 2026-08-25 NZST
 
 This is a concise operational handoff for continuing the current runway in the
 Codex app. It is not a new authority owner: `docs/project/status.md` remains
@@ -13,9 +13,18 @@ the canonical owner of the active runway, and the required reading order in
   `origin/main` are at merged PR #112 commit
   `80179614ea693cd45d55743d1d83d044c653a08f`.
 - Active worktree:
-  `/home/ben/src/creature-kernel-worktrees/authored-digitigrade-foot-profiles` —
-  branch `implementation/authored-digitigrade-foot-profiles`, based on that
-  commit. [Draft PR #113](https://github.com/benhook1013/creature-kernel/pull/113)
+  `/home/ben/src/creature-kernel-worktrees/structural-embodiment-bridge` — branch
+  `codex/structural-embodiment-bridge`, containing checkpoint implementation
+  commit
+  `aed81e494803cefcc1681301609ac12e8e1cf67d`.
+  [Draft PR #114](https://github.com/benhook1013/creature-kernel/pull/114) is
+  open, draft, mergeable, and stacked on PR #113; documentation and
+  visual-review CI passed while Rust CI remained in progress at this snapshot.
+  It reaches the named human checkpoint at
+  `http://localhost:8765/review/shared-pose-structural-embodiment-gallery`.
+  PR #114 and PR #113 remain unmerged pending Ben's appraisal and explicit
+  merge authorization.
+- [Draft PR #113](https://github.com/benhook1013/creature-kernel/pull/113)
   is mergeable and draft; all three current CI lanes passed, but it remains
   unmerged pending Ben's explicit merge authorization. Ben's disposition
   accepts its gallery only as bounded exploratory evidence that source-authored
@@ -50,11 +59,10 @@ the canonical owner of the active runway, and the required reading order in
   disposable surface as a form-quality success.
 
 The current named human checkpoint is the shared-pose structural embodiment
-gallery, an exploratory candidate toward Stage 2. First freeze a four-profile
-candidate set satisfying the Proposed product baseline's qualitative profile
-envelope and optional-module contrast; the current display variants are not
-automatically substitutes. Generated, not illustrative, artifacts must show
-the neutral surface with its skeleton and joint/bone overlay, complete
+gallery, an exploratory candidate toward Stage 2. Its frozen four-profile set
+satisfies the Proposed product baseline's qualitative profile envelope and is
+distinct from the earlier display variants. Generated, not illustrative,
+artifacts show the neutral surface with its skeleton and joint/bone overlay, complete
 skin-weight/influence evidence, one identity-bound deterministic semantic
 pose-transform payload applied without IK or contact solving, the posed surface
 and skeleton, neutral/posed collision proxies, and source/build/scenario
@@ -74,8 +82,8 @@ anatomy, final surface/topology, contact response, localized deformation
 quality, runtime performance, engine/solver/rig-format selection, IK/gait/
 balance, or VR/tracking implementation.
 
-The first prerequisite is a bounded structural-embodiment bridge slice defining
-its entrypoint, admitted source/neutral-surface inputs, derived outputs, and
+The completed bounded structural-embodiment bridge prerequisite defines its
+entrypoint, admitted source/neutral-surface inputs, derived outputs, and
 reproducible artifact boundary. Stop for evidence and main-thread reevaluation
 if semantic frames do not map cleanly, disposable topology cannot support
 trustworthy weights, objective checks fail or remain inconclusive, bespoke
