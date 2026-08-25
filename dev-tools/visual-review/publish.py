@@ -80,9 +80,10 @@ def _copy_source(
         0o600,
         dir_fd=destination_fd,
     )
-    output_info = os.fstat(output_fd)
-    output_identity = (output_info.st_dev, output_info.st_ino)
+    output_identity: tuple[int, int] | None = None
     try:
+        output_info = os.fstat(output_fd)
+        output_identity = (output_info.st_dev, output_info.st_ino)
         with open_source_reference(source, where) as stream:
             with os.fdopen(output_fd, "wb") as output:
                 output_fd = None
@@ -97,7 +98,7 @@ def _copy_source(
     except Exception:
         try:
             current = os.stat(destination_name, dir_fd=destination_fd, follow_symlinks=False)
-            if (current.st_dev, current.st_ino) == output_identity:
+            if output_identity is not None and (current.st_dev, current.st_ino) == output_identity:
                 os.unlink(destination_name, dir_fd=destination_fd)
         except OSError:
             pass
@@ -117,16 +118,17 @@ def _write_owned(parent_fd: int, name: str, text: str) -> None:
         0o644,
         dir_fd=parent_fd,
     )
-    output_info = os.fstat(output_fd)
-    output_identity = (output_info.st_dev, output_info.st_ino)
+    output_identity: tuple[int, int] | None = None
     try:
+        output_info = os.fstat(output_fd)
+        output_identity = (output_info.st_dev, output_info.st_ino)
         with os.fdopen(output_fd, "w", encoding="utf-8", newline="\n") as output:
             output_fd = None
             output.write(text)
     except Exception:
         try:
             current = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
-            if (current.st_dev, current.st_ino) == output_identity:
+            if output_identity is not None and (current.st_dev, current.st_ino) == output_identity:
                 os.unlink(name, dir_fd=parent_fd)
         except OSError:
             pass
@@ -300,10 +302,6 @@ def publish_session(
         raise PublishError(f"session already exists: {review['id']}")
 
     root_fd = _open_directory(None, root, "reviews root")
-    opened_root_info = os.fstat(root_fd)
-    if (opened_root_info.st_dev, opened_root_info.st_ino) != validated_root_identity:
-        _close_fd(root_fd)
-        raise ValidationError("reviews root changed while being opened")
     staging_name: str | None = None
     staging_fd: int | None = None
     staged_assets_fd = None
@@ -312,6 +310,9 @@ def publish_session(
     review_stat: tuple[int, int] | None = None
     installed = False
     try:
+        opened_root_info = os.fstat(root_fd)
+        if (opened_root_info.st_dev, opened_root_info.st_ino) != validated_root_identity:
+            raise ValidationError("reviews root changed while being opened")
         staging_name, staging_fd = _create_staging(root_fd, review["id"])
         os.mkdir("assets", mode=0o755, dir_fd=staging_fd)
         staged_assets_fd = _open_directory(staging_fd, "assets", "staged assets")

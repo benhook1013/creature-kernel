@@ -292,6 +292,48 @@ class ManifestAndPublishTests(ReviewFixture):
         self.assertEqual(len(staging), 1)
         self.assertEqual(list(staging[0].iterdir()), [])
 
+    def test_post_open_fstat_failures_close_descriptors(self):
+        _, sources = common.read_rich_manifest(self.manifest_path)
+        destination = Path(self.temp.name) / "descriptor-failures"
+        destination.mkdir()
+        destination_fd = os.open(destination, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            before = len(os.listdir("/proc/self/fd"))
+            with patch.object(publish.os, "fstat", side_effect=OSError("injected copy fstat failure")):
+                with self.assertRaisesRegex(OSError, "injected copy fstat failure"):
+                    publish._copy_source(sources["warm"], destination_fd, "copy.png", "copy")
+            self.assertEqual(len(os.listdir("/proc/self/fd")), before)
+
+            before = len(os.listdir("/proc/self/fd"))
+            with patch.object(publish.os, "fstat", side_effect=OSError("injected write fstat failure")):
+                with self.assertRaisesRegex(OSError, "injected write fstat failure"):
+                    publish._write_owned(destination_fd, "review.json", "{}\n")
+            self.assertEqual(len(os.listdir("/proc/self/fd")), before)
+        finally:
+            os.close(destination_fd)
+
+        original_open_directory = publish._open_directory
+        original_fstat = publish.os.fstat
+        target_fd = {"value": None}
+
+        def track_root_fd(parent_fd, path_or_name, where):
+            fd = original_open_directory(parent_fd, path_or_name, where)
+            if where == "reviews root":
+                target_fd["value"] = fd
+            return fd
+
+        def fail_opened_root(fd):
+            if fd == target_fd["value"]:
+                raise OSError("injected root fstat failure")
+            return original_fstat(fd)
+
+        before = len(os.listdir("/proc/self/fd"))
+        with patch.object(publish, "_open_directory", side_effect=track_root_fd):
+            with patch.object(publish.os, "fstat", side_effect=fail_opened_root):
+                with self.assertRaisesRegex(OSError, "injected root fstat failure"):
+                    publish.publish_session(self.root, self.manifest_path)
+        self.assertEqual(len(os.listdir("/proc/self/fd")), before)
+
     def test_install_failure_cleans_owned_staging_but_not_concurrent_file(self):
         def fail_install(root_fd, source_name, destination_fd, destination_name):
             raise OSError("injected review install failure")
