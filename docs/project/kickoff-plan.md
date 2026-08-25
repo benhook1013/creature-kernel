@@ -1402,7 +1402,7 @@ selecting a permanent rigging technique.
 
 ### CK-KICK-016: Select the first host runtime and reference envelope
 
-State: provisional/queued
+State: evidence gathered; provisional Godot candidate (not completed selection)
 
 Prerequisite: Stage 1 proof and relevant runtime boundary disposition.
 
@@ -1410,8 +1410,16 @@ Compare current Godot, Unity, Unreal, and any credible narrower host against
 adapter isolation, rendering and compute access, physics integration, licensing,
 distribution constraints, tooling, and developer cost. Choose reference
 hardware, frame target, visible-character scenario, and a useful minimum
-fallback. Select an engine adapter only after current evidence is gathered; do
-not leak its object model into core specifications.
+fallback. Current official research and Double adversarial review support Godot
+4.7.2 as the provisional first reference-host feasibility candidate. The
+[first host runtime evaluation](../research/first-host-runtime-evaluation.md)
+records the evidence and unresolved trial questions.
+This disposition records gathered evidence and a candidate for bounded
+feasibility work; it is not completed host selection. No permanent engine
+selection, Stage 3 success, solver/package freeze, or adapter activation follows
+from it. The post-Readiness-3 adapter gate remains explicit, and the main thread
+must stop before any retained-human Readiness 3 or adapter-activation decision.
+Do not leak a host object model into core specifications.
 
 ### CK-KICK-017: Define the runtime avatar package boundary
 

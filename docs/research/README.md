@@ -9,6 +9,10 @@ hypotheses, references, and research context.
 ## Documents
 
 - [Open questions](open-questions.md)
+- [First host runtime evaluation](first-host-runtime-evaluation.md) — the
+  2026-08-25 official-source comparison of Godot 4.7.2, Unity 6.3 LTS, Unreal
+  Engine 5.8, and Bevy 0.19. Godot is recorded as a provisional first
+  feasibility candidate only; RQ-062 remains open pending the bounded trial.
 - [Reference index](references.md)
 - [Visual-quality evaluation protocol](visual-quality-evaluation.md)
 - [First surface experiment design](first-surface-experiment-design.md) — a
