@@ -1,7 +1,7 @@
 # Disposable current-form surface preview
 
 This is an exploratory visual workbench for the exact four-variant
-`creature-kernel.provisional-form-preview.v10` envelope. It converts the
+`creature-kernel.provisional-form-preview.v11` envelope. It converts the
 source-authored dimension-backed integer descriptors into analytic ellipsoid, capsule, and
 linear-radius tapered-segment fields, folds them in stable full-AddressKey
 order, and extracts a bounded continuous surface on a fixed uniform grid.
@@ -11,7 +11,23 @@ animation topology, rig, skin, runtime, Readiness 3/4 proof, or DR-0009/0010
 evidence. Winner labels are debug attribution only. Generated bundles belong
 in `/tmp` and must not be committed.
 
-The compiler-owned middle seam is a private regional-guide v9 representation
+The integrated candidate is producer v11 with `authored_foot_profile` v1:
+153 authored dimensions, 43 authored landmarks, and 16 authored frames. The
+current diagnostic target is baseline preview format v3, regional guide v11,
+and successor preview v9. Producer v11, `authored_foot_profile` v1, and the
+successor region/profile identity
+`successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v12`
+are unchanged. The exact foot route is `hock -> metatarsal midpoint -> pad ->
+pad-toe midpoint -> toe`: the hock is shin-owned, the other four stations are
+foot-owned, and the route carries full lateral/up/forward radii, outer caps,
+four spans, and exact producer/guide/successor lineage and cross-binding.
+The final publication context cap is 12 KiB only for the exact subject-context
+carrier; ordinary strings remain capped at 8192 characters. Existing
+immutable sessions retain the format and captures with which they were
+published. This diagnostic is published as a new immutable checkpoint; it
+does not rewrite an older session.
+
+The compiler-owned middle seam is a private regional-guide v11 representation
 derived separately for each of the four validated variants. It carries stable
 source AddressKey ownership and provenance, the fixed prototype axes and
 parent topology, ordered pelvic-girdle/waist/chest-girdle stations with short
@@ -64,10 +80,10 @@ field count, including the field-memory bound used for allocation. This is
 resource accounting for the disposable preview only, not a runtime budget or
 future compiler contract.
 
-The disposable v2 generator writes one private `regional-guide.json` and one
+The disposable v3 generator writes one private `regional-guide.json` and one
 `guide-skin-composite.png` for each variant, alongside the retained
 `surface.ply`, `semantic.json`, and `metrics.json` artifacts. The regional
-guide v9 sidecar is a sanitized, source-owned debug projection of `_HybridGuide`:
+guide v11 sidecar is a sanitized, source-owned debug projection of `_HybridGuide`:
 it carries only source AddressKeys, compiled recipe counts, projection
 names/bases, one shared world-space render bound, fixed canvas/layout metadata,
 and finite regional controls. Its v4 `torso_cage` controls compile into the
@@ -88,9 +104,12 @@ stations per side: `upper-arm-start`, `upper-arm-midpoint`, `elbow`,
 `forearm-midpoint`, and `forearm-distal`. The elbow is one shared
 upper-arm-owned seam; the guide also carries its authored anisotropic
 compatibility mass, while the forearm owns the distal station. No per-variant
-station tuning is introduced. Foot controls expose the existing source-owned hock, a tapered
-metatarsal, planted paw-pad and forward toe-box masses, plus a guide-only
-contact datum. Shoulder controls retain authored peak/axilla anchors, vertical
+station tuning is introduced. Foot controls expose the exact five-station route
+`hock -> metatarsal midpoint -> pad -> pad-toe midpoint -> toe`: the hock is
+inherited from the shin-owned authored leg profile, while the remaining four
+stations are foot-owned. The route carries full lateral/up/forward radii, outer
+caps, four spans, and exact producer/guide/successor lineage and cross-binding.
+The guide also retains a contact datum. Shoulder controls retain authored peak/axilla anchors, vertical
 and depth radii, and frame axes. The successor consumes them as exactly two
 ordered, deterministic, frame-aware five-section lateral profile sweeps, one
 per side: `torso-interior`, `torso-boundary`, `authored-shoulder`,
@@ -112,20 +131,28 @@ The bilateral support curves remain
 `guide-only`; no successor arm root bridge or distal deltoid field is emitted,
 and no per-variant station tuning is used. The sidecar and manifest report the
 exact compiled recipe inventory separately from the richer private guide
-controls. The
-hands retain a simple paw mass and attachment. It is not a semantic or runtime
-contract and contains no
-descriptor input records or synthetic semantic IDs. The composite places guide and compiled
-skin panels adjacent for each of front, side, and three-quarter projections.
-Guide and skin panels use exactly the same projection framing, while one shared
-render bound is used for all four variants so geometry differences remain
-directly comparable. Mesh extraction retains each variant's own field bounds
+controls. The hands retain a simple paw mass and attachment. It is not a
+semantic or runtime contract and contains no descriptor input records or
+synthetic semantic IDs.
+
+The three-layer diagnostic keeps the compatibility filename
+`guide-skin-composite.png`, but each image is now `1800 × 1500` RGB with columns
+`front`, `side`, and `three-quarter`, and rows `CONTROL GUIDE` (derived
+controls, not evaluated geometry), `CONSUMED FIELDS` (the exact component
+level-0 surfaces before smooth union, evaluator-backed, with debug colours),
+and `FINAL SKIN` (the neutral smooth-union result). Guide-only controls may
+appear in row 1, `CONTROL GUIDE`, without affecting rows 2 or 3. The consumed
+row is made from the actual `Field`/`_Component` operands; recipe names and
+colours are diagnostic implementation identities only, not semantic nodes,
+materials, or hard seams, and not accepted DR-0010 evidence. All rows use the
+same projection framing and shared render bound for direct comparison across
+the four variants. Mesh extraction retains each variant's own field bounds
 and grid spacing; the shared render bound does not define sampling.
 
 The successor keeps these concerns independent: the manifest generator's
 `padding` is the successor mesh sampling padding (default `0.50`), while its
 `capture_padding` is sourced from the baseline generator default and frames
-the shared guide/skin captures (currently `0.75`). This preserves the
+the shared three-layer captures (currently `0.75`). This preserves the
 successor's known-good mesh grid while keeping default baseline and successor
 capture frames exactly comparable.
 
@@ -158,13 +185,13 @@ For a disposable `/tmp` environment, set
 `CK_CURRENT_FORM_SURFACE_PYTHON=/tmp/ck-current-form-surface-venv/bin/python`
 when invoking the launcher.
 
-The input must be a successful v10 inspection envelope. The output directory
+The input must be a successful v11 inspection envelope. The output directory
 must not already exist, and its parent must already exist:
 
 ```bash
 mkdir -p /tmp/ck-current-form-surface
 "$surface_preview_launcher" experiments/current-form-surface-preview/generate_surface_preview.py \
-  --input /tmp/form-v10.json \
+  --input /tmp/form-v11.json \
   --output /tmp/ck-current-form-surface/run-a \
   --samples-per-axis 72
 ```
@@ -198,15 +225,17 @@ muzzle route from `cranium-mid` through `muzzle-tip`; centres, radii, endpoints,
 thicknesses, and fixed axes come from each private guide. The successor
 hand/foot boundary consumes
 ordered hand attachment/paw sweeps and shin-to-foot digitigrade chains,
-including guide-owned hock, metatarsal, pad, and toe controls. The successor
+including the shin-owned hock seam and foot-owned metatarsal, pad, and toe
+controls. The successor
 tail boundary consumes six source-owned tail elements (root source,
 attachment, collar mass, tip source, extension, and cap); baseline fields
 remain an explicit bridge only for two thigh root connectors and two hip
-transitions. The successor v7 region
-`successor-torso-shoulder-head-neck-arm-leg-profile-limb-extremity-tail-profile-sweeps-v11`
+transitions. The successor v9 region
+`successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v12`
 uses four authored arm-profile routes plus two authored leg-profile routes.
 The authored leg routes retain the thigh-owned knee and shin-owned hock, and
-the successor retains the source-derived digitigrade foot chains. The two arm
+each foot route is exactly `hock -> metatarsal midpoint -> pad -> pad-toe midpoint
+-> toe`, with the hock shin-owned and all other stations foot-owned. The two arm
 root bridges and old underarm supports are absent; the shared upper-arm-owned
 elbow seam consumes all three authored radii. Exactly four temporary
 thigh-root/hip bridges remain: one root bridge and one hip transition per
@@ -215,16 +244,36 @@ per-variant station tuning. No baseline tail, paw, or foot component remains. Th
 tail source/extension endpoint retains its independently authored profiles;
 this experiment does not claim that the resulting tail silhouette or visual
 quality has been observed or accepted.
-It is neither a permanent backend selection nor the active human
-visual checkpoint. The [active runway](../../docs/project/status.md#active-runway)
-defines the baseline-versus-successor browser comparison that must be reached
-before human appraisal.
+It is neither a permanent backend selection nor an acceptance decision. The
+published form gallery is historical PR #113 evidence. Ben's 2026-08-24
+appraisal of immutable checkpoint
+`authored-form-expressivity-exact-field-components-checkpoint-v2` successor v9
+accepts only that source-authored controls and procedural field routes cover
+the required regions and produce a connected whole-body surface. Its neck is
+visibly occluded or lost, its torso and pelvis read as rounded rectangular/
+blocky, and the overall body is not convincing realistic or anatomical skin;
+visual region readability remains failed or inconclusive. These are
+limitations of this disposable candidate, not canonical geometry
+prescriptions. PR #113 is mergeable/draft with all three
+current CI lanes passed, but remains unmerged pending Ben's explicit merge
+authorization; this disposition is not merge authorization. No further
+cosmetic repair is planned, and publication machinery is not acceptance.
+
+The current runway target is the shared-pose structural embodiment gallery, an
+exploratory candidate toward Stage 2. It is outside this surface preview's
+implementation scope. Its four-profile candidate set and semantic pose payload
+must be frozen before evidence; the current display variants are not automatic
+substitutes. It must use generated, not illustrative, neutral/posed surface,
+skeleton/bone, weight/influence, and collision-proxy artifacts with
+source/build/scenario lineage.
+See the active runway for its objective prerequisites, human judgments,
+non-goals, and stop triggers.
 
 The authored arm slice is a disposable consumer intended to test frame-aware
 profile continuity and bounded field behavior around the torso, upper-arm, and
 elbow join. It does not establish anatomical realism, production topology,
-general morphology support, or the quality of the final visual result; those
-remain unproven until the named visual checkpoint is reviewed.
+general morphology support, or the quality of the final visual result. It is
+historical surface evidence and is not the structural embodiment checkpoint.
 
 After creating and activating the experiment virtual environment described
 above, the workflow has two steps:
@@ -232,11 +281,11 @@ above, the workflow has two steps:
 ```bash
 cargo run -p creature-kernel-cli -- inspect-provisional-form \
   --input examples/body-documents/stylized-digitigrade-biped-authored-form.json \
-  > /tmp/form-v10.json
+  > /tmp/form-v11.json
 
 mkdir -p /tmp/ck-successor-surface
 "$surface_preview_launcher" experiments/current-form-surface-preview/generate_successor_surface_preview.py \
-  --input /tmp/form-v10.json \
+  --input /tmp/form-v11.json \
   --output /tmp/ck-successor-surface/run-a \
   --samples-per-axis 56
 ```
@@ -248,17 +297,16 @@ robustness; lower values within the accepted argument range may still validly
 fail mesh-connectedness validation, and successful generation is not guaranteed
 at every in-range sampling value.
 
-A successful v7 run writes `successor-surface-manifest.json` plus exactly four
+A successful v9 run writes `successor-surface-manifest.json` plus exactly four
 variant directories. Each variant directory contains exactly
 `surface.ply`, `metrics.json`, `successor.json`, and one
 `guide-skin-composite.png`. The PNG is a deterministic RGB capture at the
-baseline-compatible `1800 × 570` canvas. It contains the exact six-panel order
-`front-guide`, `front-skin`, `side-guide`, `side-skin`,
-`three-quarter-guide`, `three-quarter-skin`: each projection has adjacent guide
-and skin panels using the same projection frame, and all four variants use one
-shared world-space render bound computed from the canonical baseline field
-sets. The manifest and successor sidecars expose the profile identity, canvas,
-layout, projections, and shared bounds alongside the four-artifact inventory.
+baseline-compatible `1800 × 1500` canvas. Its three columns are `front`,
+`side`, and `three-quarter`; its rows are `CONTROL GUIDE`, `CONSUMED FIELDS`,
+and `FINAL SKIN` as described above. Publication metadata records
+`panels_per_view: 3`. The manifest and successor sidecars expose the profile
+identity, canvas, layout, projections, and shared bounds alongside the
+four-artifact inventory.
 The manifest generator configuration reports both independent padding values:
 `padding` controls successor mesh sampling and `capture_padding` controls the
 baseline-compatible shared capture frame.

@@ -35,7 +35,9 @@ MAX_JSON_BYTES = 4 * 1024 * 1024
 # an unbounded JSON transport.
 MAX_STRUCTURE_JSON_BYTES = 256 * 1024
 MAX_STRING = 8192
-MAX_CONTEXT_JSON = MAX_STRING
+# Subject-context carriers may use the larger exact-carrier budget; ordinary
+# metadata strings and objects remain bounded by MAX_STRING.
+MAX_CONTEXT_JSON = 12 * 1024
 STRUCTURE_FORMAT = "creature-kernel.provisional-structural-inspection.v1"
 PREPARED_SOURCE_FORMAT = "creature-kernel.provisional-source-preparation-inspection.v1"
 PREPARED_SOURCE_OPERATION = "inspect-prepared-source"
@@ -44,7 +46,7 @@ PROVISIONAL_FORM_LEGACY_FORMAT = "creature-kernel.provisional-form-preview.v1"
 PROVISIONAL_FORM_V2_FORMAT = "creature-kernel.provisional-form-preview.v2"
 PROVISIONAL_FORM_V3_FORMAT = "creature-kernel.provisional-form-preview.v3"
 # Retained so previously published records remain readable.  V5 through v8 are
-# explicit historical producer contracts; v10 is the current publication
+# explicit historical producer contracts; v11 is the current publication
 # contract.  Keep the current alias separate from the historical v7 contract so
 # changing the current producer cannot change v7's shape or capsule semantics.
 PROVISIONAL_FORM_HISTORICAL_V4_FORMAT = "creature-kernel.provisional-form-preview.v4"
@@ -55,7 +57,8 @@ PROVISIONAL_FORM_V7_FORMAT = "creature-kernel.provisional-form-preview.v7"
 PROVISIONAL_FORM_V8_FORMAT = "creature-kernel.provisional-form-preview.v8"
 PROVISIONAL_FORM_V9_FORMAT = "creature-kernel.provisional-form-preview.v9"
 PROVISIONAL_FORM_V10_FORMAT = "creature-kernel.provisional-form-preview.v10"
-PROVISIONAL_FORM_FORMAT = PROVISIONAL_FORM_V10_FORMAT
+PROVISIONAL_FORM_V11_FORMAT = "creature-kernel.provisional-form-preview.v11"
+PROVISIONAL_FORM_FORMAT = PROVISIONAL_FORM_V11_FORMAT
 PROVISIONAL_FORM_TORSO_PROFILE_FORMAT = (
     "creature-kernel.provisional-form-torso-profile.v1"
 )
@@ -64,6 +67,7 @@ PROVISIONAL_FORM_HEAD_NECK_PROFILE_FORMAT = (
 )
 PROVISIONAL_FORM_ARM_PROFILE_FORMAT = "creature-kernel.provisional-form-arm-profile.v1"
 PROVISIONAL_FORM_LEG_PROFILE_FORMAT = "creature-kernel.provisional-form-leg-profile.v1"
+PROVISIONAL_FORM_FOOT_PROFILE_FORMAT = "creature-kernel.provisional-form-foot-profile.v1"
 PROVISIONAL_FORM_CORRECTED_FORMATS = {
     PROVISIONAL_FORM_V2_FORMAT,
     PROVISIONAL_FORM_V3_FORMAT,
@@ -74,6 +78,7 @@ PROVISIONAL_FORM_CORRECTED_FORMATS = {
     PROVISIONAL_FORM_V8_FORMAT,
     PROVISIONAL_FORM_V9_FORMAT,
     PROVISIONAL_FORM_V10_FORMAT,
+    PROVISIONAL_FORM_V11_FORMAT,
 }
 PROVISIONAL_FORM_FORMATS = {
     PROVISIONAL_FORM_LEGACY_FORMAT,
@@ -187,6 +192,20 @@ PROVISIONAL_FORM_LEG_PROFILE_RADIUS_AXES = (
     ("forward", "forward_radius"),
 )
 PROVISIONAL_FORM_LEG_PROFILE_FRAME_ROLE = "form_leg_profile_control"
+PROVISIONAL_FORM_FOOT_PROFILE_SIDE_NAMES = ("left", "right")
+PROVISIONAL_FORM_FOOT_PROFILE_SECTION_NAMES = ("pad", "toe")
+PROVISIONAL_FORM_FOOT_PROFILE_OWNER_ROLES = ("foot", "foot")
+PROVISIONAL_FORM_FOOT_PROFILE_RADIUS_AXES = (
+    ("lateral", "lateral_radius"),
+    ("up", "up_radius"),
+    ("forward", "forward_radius"),
+)
+PROVISIONAL_FORM_FOOT_PROFILE_FRAME_ROLE = "form_foot_profile_control"
+PROVISIONAL_FORM_FOOT_PROFILE_HOCK_SECTION_INDEX = 4
+PROVISIONAL_FORM_FOOT_PROFILE_Y_MIN = -1.0
+PROVISIONAL_FORM_FOOT_PROFILE_Y_MAX = 0.0
+PROVISIONAL_FORM_FOOT_PROFILE_Z_MIN = 0.0
+PROVISIONAL_FORM_FOOT_PROFILE_Z_MAX = 1.0
 PROVISIONAL_FORM_HEAD_NECK_PROFILE_CONNECTIONS = (
     ("neck-collar-to-neck-upper", 0, 1, "vertical-neck-cranium"),
     ("neck-upper-to-head-base", 1, 2, "vertical-neck-cranium"),
@@ -244,12 +263,14 @@ PROVISIONAL_FORM_V7_NECK_CAPSULE_FORMATS = {
 PROVISIONAL_FORM_V8_NECK_CAPSULE_FORMATS = {PROVISIONAL_FORM_V8_FORMAT}
 PROVISIONAL_FORM_V9_NECK_CAPSULE_FORMATS = {PROVISIONAL_FORM_V9_FORMAT}
 PROVISIONAL_FORM_V10_NECK_CAPSULE_FORMATS = {PROVISIONAL_FORM_V10_FORMAT}
+PROVISIONAL_FORM_V11_NECK_CAPSULE_FORMATS = {PROVISIONAL_FORM_V11_FORMAT}
 PROVISIONAL_FORM_V7_CAPSULE_CHILD_ROLES = PROVISIONAL_FORM_V4_CAPSULE_CHILD_ROLES
 PROVISIONAL_FORM_V8_CAPSULE_CHILD_ROLES = {
     **PROVISIONAL_FORM_CAPSULE_CHILD_ROLES,
     "neck": "head",
 }
 PROVISIONAL_FORM_V10_CAPSULE_CHILD_ROLES = PROVISIONAL_FORM_V8_CAPSULE_CHILD_ROLES
+PROVISIONAL_FORM_V11_CAPSULE_CHILD_ROLES = PROVISIONAL_FORM_V8_CAPSULE_CHILD_ROLES
 PROVISIONAL_FORM_MAX_DESCRIPTORS = 64
 PROVISIONAL_FORM_MAX_PERMILLE = 5000
 EXACT_PLACEMENT_PREVIEW_FORMAT = (
@@ -390,7 +411,7 @@ def _check_fields(obj: dict[str, Any], allowed: set[str], where: str) -> None:
         raise ValidationError(f"{where} has unknown field(s): {', '.join(unknown)}")
 
 
-def _metadata(value: Any, where: str, *, max_len: int = MAX_CONTEXT_JSON) -> dict[str, Any]:
+def _metadata(value: Any, where: str, *, max_len: int = MAX_STRING) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValidationError(f"{where} must be an object")
     # JSON data is retained as metadata and displayed with textContent by the
@@ -400,7 +421,7 @@ def _metadata(value: Any, where: str, *, max_len: int = MAX_CONTEXT_JSON) -> dic
         encoded = json.dumps(value, allow_nan=False, ensure_ascii=False)
     except (TypeError, ValueError) as exc:
         raise ValidationError(f"{where} is not JSON-compatible: {exc}") from exc
-    if len(encoded) > max_len:
+    if len(encoded.encode("utf-8")) > max_len:
         raise ValidationError(f"{where} is too large")
     return value
 
@@ -426,12 +447,16 @@ def _subject_context(value: Any, where: str) -> dict[str, Any]:
         result["authored_summary"] = out_summary
     for key in ("descriptor_snapshot", "provenance"):
         if key in context:
-            result[key] = _metadata(context[key], f"{where}.{key}")
+            result[key] = _metadata(
+                context[key],
+                f"{where}.{key}",
+                max_len=MAX_CONTEXT_JSON if key == "descriptor_snapshot" else MAX_STRING,
+            )
     try:
         encoded = json.dumps(result, allow_nan=False, ensure_ascii=False)
     except (TypeError, ValueError) as exc:
         raise ValidationError(f"{where} is not JSON-compatible: {exc}") from exc
-    if len(encoded) > MAX_CONTEXT_JSON:
+    if len(encoded.encode("utf-8")) > MAX_CONTEXT_JSON:
         raise ValidationError(f"{where} is too large")
     return result
 
@@ -1190,6 +1215,7 @@ def _form_role_shape(format_name: str, role: str) -> str | None:
         or format_name in PROVISIONAL_FORM_V8_NECK_CAPSULE_FORMATS
         or format_name in PROVISIONAL_FORM_V9_NECK_CAPSULE_FORMATS
         or format_name in PROVISIONAL_FORM_V10_NECK_CAPSULE_FORMATS
+        or format_name in PROVISIONAL_FORM_V11_NECK_CAPSULE_FORMATS
     ) and role == "neck":
         return "capsule"
     return PROVISIONAL_FORM_ROLE_SHAPES.get(role)
@@ -1204,6 +1230,8 @@ def _form_capsule_child_roles(format_name: str) -> dict[str, str]:
         return PROVISIONAL_FORM_V8_CAPSULE_CHILD_ROLES
     if format_name in PROVISIONAL_FORM_V10_NECK_CAPSULE_FORMATS:
         return PROVISIONAL_FORM_V10_CAPSULE_CHILD_ROLES
+    if format_name in PROVISIONAL_FORM_V11_NECK_CAPSULE_FORMATS:
+        return PROVISIONAL_FORM_V11_CAPSULE_CHILD_ROLES
     return PROVISIONAL_FORM_CAPSULE_CHILD_ROLES
 
 
@@ -1284,6 +1312,10 @@ def _provisional_form_arm_owner(
     namespace: str, side: str, role: str
 ) -> tuple[str, tuple[str, ...], str, str]:
     return (namespace, (side,), "part", role)
+
+
+def _provisional_form_foot_owner(namespace: str, side: str) -> tuple[str, tuple[str, ...], str, str]:
+    return _provisional_form_arm_owner(namespace, side, "foot")
 
 
 def _validate_v6_authored_controls(
@@ -1418,6 +1450,7 @@ def _validate_v7_authored_torso_profile(
     include_v8_controls: bool = False,
     include_v9_controls: bool = False,
     include_v10_controls: bool = False,
+    include_v11_controls: bool = False,
 ) -> tuple[
     set[tuple[tuple[str, tuple[str, ...], str, str], str]],
     list[dict[str, Any]],
@@ -1500,8 +1533,16 @@ def _validate_v7_authored_torso_profile(
             for side in PROVISIONAL_FORM_LEG_PROFILE_SIDE_NAMES
             for role in {"thigh", "shin"}
         )
-    contract_label = "v10" if include_v10_controls else "v9" if include_v9_controls else "v8" if include_v8_controls else "v7"
-    expected_frame_count = 14 if include_v10_controls else 10 if include_v9_controls else 6 if include_v8_controls else 4
+    if include_v11_controls:
+        expected_frame_keys.update(
+            (
+                _provisional_form_foot_owner(namespace, side),
+                PROVISIONAL_FORM_FOOT_PROFILE_FRAME_ROLE,
+            )
+            for side in PROVISIONAL_FORM_FOOT_PROFILE_SIDE_NAMES
+        )
+    contract_label = "v11" if include_v11_controls else "v10" if include_v10_controls else "v9" if include_v9_controls else "v8" if include_v8_controls else "v7"
+    expected_frame_count = 16 if include_v11_controls else 14 if include_v10_controls else 10 if include_v9_controls else 6 if include_v8_controls else 4
     if len(frames) != len(expected_frame_keys):
         raise ValidationError(
             f"{where}.authored_frames must contain exactly {expected_frame_count} {contract_label} control frames"
@@ -1596,7 +1637,16 @@ def _validate_v7_authored_torso_profile(
                 PROVISIONAL_FORM_LEG_PROFILE_OWNER_ROLES,
             )
         )
-    expected_landmark_count = 39 if include_v10_controls else 29 if include_v9_controls else 19 if include_v8_controls else 11
+    if include_v11_controls:
+        expected_landmark_keys.update(
+            (
+                _provisional_form_foot_owner(namespace, side),
+                f"form_foot_profile_{section_name}",
+            )
+            for side in PROVISIONAL_FORM_FOOT_PROFILE_SIDE_NAMES
+            for section_name in PROVISIONAL_FORM_FOOT_PROFILE_SECTION_NAMES
+        )
+    expected_landmark_count = 43 if include_v11_controls else 39 if include_v10_controls else 29 if include_v9_controls else 19 if include_v8_controls else 11
     if len(landmarks) != len(expected_landmark_keys):
         raise ValidationError(
             f"{where}.authored_landmarks must contain exactly {expected_landmark_count} {contract_label} control landmarks"
@@ -1630,7 +1680,9 @@ def _validate_v7_authored_torso_profile(
         frame_owner = _form_address(frame.get("owner"), f"{landmark_where}.frame.owner")
         frame_role = _string(frame.get("role"), f"{landmark_where}.frame.role", max_len=256)
         expected_frame_role = (
-            PROVISIONAL_FORM_ARM_PROFILE_FRAME_ROLE
+            PROVISIONAL_FORM_FOOT_PROFILE_FRAME_ROLE
+            if include_v11_controls and role.startswith("form_foot_profile_")
+            else PROVISIONAL_FORM_ARM_PROFILE_FRAME_ROLE
             if include_v9_controls and role.startswith("form_arm_profile_")
             else PROVISIONAL_FORM_LEG_PROFILE_FRAME_ROLE
             if include_v10_controls and role.startswith("form_leg_profile_")
@@ -1667,6 +1719,17 @@ def _validate_v7_authored_torso_profile(
             raise ValidationError(
                 f"{landmark_where}.position y must be in inclusive "
                 f"[{PROVISIONAL_FORM_LEG_PROFILE_Y_MIN}, {PROVISIONAL_FORM_LEG_PROFILE_Y_MAX}]"
+            )
+        if include_v11_controls and role.startswith("form_foot_profile_") and (
+            owner[3] != "foot"
+            or position[0] != 0
+            or not PROVISIONAL_FORM_FOOT_PROFILE_Y_MIN <= position[1] <= PROVISIONAL_FORM_FOOT_PROFILE_Y_MAX
+            or not PROVISIONAL_FORM_FOOT_PROFILE_Z_MIN <= position[2] <= PROVISIONAL_FORM_FOOT_PROFILE_Z_MAX
+        ):
+            raise ValidationError(
+                f"{landmark_where}.position must be [0,y,z] with y in inclusive "
+                f"[{PROVISIONAL_FORM_FOOT_PROFILE_Y_MIN}, {PROVISIONAL_FORM_FOOT_PROFILE_Y_MAX}] "
+                f"and z in inclusive [{PROVISIONAL_FORM_FOOT_PROFILE_Z_MIN}, {PROVISIONAL_FORM_FOOT_PROFILE_Z_MAX}]"
             )
         landmark_positions.append(position)
         seen_landmark_keys.add(key)
@@ -1925,6 +1988,7 @@ def _validate_v8_authored_head_neck_profile(
     ],
     include_v9_controls: bool = False,
     include_v10_controls: bool = False,
+    include_v11_controls: bool = False,
 ) -> tuple[
     set[tuple[tuple[str, tuple[str, ...], str, str], str]],
     list[dict[str, Any]],
@@ -1971,9 +2035,17 @@ def _validate_v8_authored_head_neck_profile(
             for side in PROVISIONAL_FORM_LEG_PROFILE_SIDE_NAMES
             for role in {"thigh", "shin"}
         )
-    contract_label = "v10" if include_v10_controls else "v9" if include_v9_controls else "v8"
+    if include_v11_controls:
+        expected_frame_keys.update(
+            (
+                _provisional_form_foot_owner(namespace, side),
+                PROVISIONAL_FORM_FOOT_PROFILE_FRAME_ROLE,
+            )
+            for side in PROVISIONAL_FORM_FOOT_PROFILE_SIDE_NAMES
+        )
+    contract_label = "v11" if include_v11_controls else "v10" if include_v10_controls else "v9" if include_v9_controls else "v8"
     if len(frames) != len(expected_frame_keys):
-        expected_frame_count = 14 if include_v10_controls else 10 if include_v9_controls else 6
+        expected_frame_count = 16 if include_v11_controls else 14 if include_v10_controls else 10 if include_v9_controls else 6
         raise ValidationError(
             f"{where}.authored_frames must contain exactly {expected_frame_count} {contract_label} control frames"
         )
@@ -2067,7 +2139,16 @@ def _validate_v8_authored_head_neck_profile(
                 PROVISIONAL_FORM_LEG_PROFILE_OWNER_ROLES,
             )
         )
-    expected_landmark_count = 39 if include_v10_controls else 29 if include_v9_controls else 19
+    if include_v11_controls:
+        expected_landmark_keys.update(
+            (
+                _provisional_form_foot_owner(namespace, side),
+                f"form_foot_profile_{section_name}",
+            )
+            for side in PROVISIONAL_FORM_FOOT_PROFILE_SIDE_NAMES
+            for section_name in PROVISIONAL_FORM_FOOT_PROFILE_SECTION_NAMES
+        )
+    expected_landmark_count = 43 if include_v11_controls else 39 if include_v10_controls else 29 if include_v9_controls else 19
     if len(landmarks) != len(expected_landmark_keys):
         raise ValidationError(
             f"{where}.authored_landmarks must contain exactly {expected_landmark_count} {contract_label} control landmarks"
@@ -2098,7 +2179,9 @@ def _validate_v8_authored_head_neck_profile(
         frame = _object(landmark.get("frame"), f"{landmark_where}.frame")
         _check_fields(frame, {"owner", "role"}, f"{landmark_where}.frame")
         frame_owner = _form_address(frame.get("owner"), f"{landmark_where}.frame.owner")
-        if include_v9_controls and role.startswith("form_arm_profile_"):
+        if include_v11_controls and role.startswith("form_foot_profile_"):
+            expected_frame_role = PROVISIONAL_FORM_FOOT_PROFILE_FRAME_ROLE
+        elif include_v9_controls and role.startswith("form_arm_profile_"):
             expected_frame_role = PROVISIONAL_FORM_ARM_PROFILE_FRAME_ROLE
         elif include_v10_controls and role.startswith("form_leg_profile_"):
             expected_frame_role = PROVISIONAL_FORM_LEG_PROFILE_FRAME_ROLE
@@ -2135,6 +2218,17 @@ def _validate_v8_authored_head_neck_profile(
             raise ValidationError(
                 f"{landmark_where}.position y must be in inclusive "
                 f"[{PROVISIONAL_FORM_LEG_PROFILE_Y_MIN}, {PROVISIONAL_FORM_LEG_PROFILE_Y_MAX}]"
+            )
+        if include_v11_controls and role.startswith("form_foot_profile_") and (
+            owner[3] != "foot"
+            or position[0] != 0
+            or not PROVISIONAL_FORM_FOOT_PROFILE_Y_MIN <= position[1] <= PROVISIONAL_FORM_FOOT_PROFILE_Y_MAX
+            or not PROVISIONAL_FORM_FOOT_PROFILE_Z_MIN <= position[2] <= PROVISIONAL_FORM_FOOT_PROFILE_Z_MAX
+        ):
+            raise ValidationError(
+                f"{landmark_where}.position must be [0,y,z] with y in inclusive "
+                f"[{PROVISIONAL_FORM_FOOT_PROFILE_Y_MIN}, {PROVISIONAL_FORM_FOOT_PROFILE_Y_MAX}] "
+                f"and z in inclusive [{PROVISIONAL_FORM_FOOT_PROFILE_Z_MIN}, {PROVISIONAL_FORM_FOOT_PROFILE_Z_MAX}]"
             )
         seen_landmark_keys.add(key)
     if set(landmark_keys) != expected_landmark_keys:
@@ -2976,6 +3070,232 @@ def _validate_v10_variant_leg_profile(
             _form_control_provenance(section.get("provenance"), f"{section_where}.provenance", document, namespace)
 
 
+def _provisional_form_foot_profile_factors(profile_id: str) -> tuple[int, int, int]:
+    if profile_id == "broad-soft-v0":
+        return (1_150, 1_000, 1_150)
+    if profile_id == "lean-readable-v0":
+        return (800, 1_000, 800)
+    if profile_id == "depth-forward-v0":
+        return (1_000, 1_000, 1_300)
+    return (1_000, 1_000, 1_000)
+
+
+def _validate_v11_authored_foot_profile(
+    obj: dict[str, Any],
+    where: str,
+    *,
+    document: str,
+    namespace: str,
+    authored_dimension_values: dict[
+        tuple[tuple[str, tuple[str, ...], str, str], str], int
+    ],
+    leg_profile_sides: list[dict[str, Any]],
+    reference_length: float,
+) -> tuple[
+    set[tuple[tuple[str, tuple[str, ...], str, str], str]],
+    list[dict[str, Any]],
+]:
+    profile_where = f"{where}.authored_foot_profile"
+    profile = _object(obj.get("authored_foot_profile"), profile_where)
+    _check_fields(profile, {"format", "provenance", "sides"}, profile_where)
+    if profile.get("format") != PROVISIONAL_FORM_FOOT_PROFILE_FORMAT:
+        raise ValidationError(f"{profile_where}.format must be {PROVISIONAL_FORM_FOOT_PROFILE_FORMAT}")
+    _form_control_provenance(profile.get("provenance"), f"{profile_where}.provenance", document, namespace)
+
+    frames = _array(obj.get("authored_frames"), f"{where}.authored_frames")
+    landmarks = _array(obj.get("authored_landmarks"), f"{where}.authored_landmarks")
+    dimensions = _array(obj.get("authored_dimensions"), f"{where}.authored_dimensions")
+    frame_keys = [
+        (
+            _form_address(frame.get("owner"), f"{where}.authored_frames[{index}].owner"),
+            _string(frame.get("role"), f"{where}.authored_frames[{index}].role", max_len=256),
+        )
+        for index, frame in enumerate(frames)
+    ]
+    landmark_keys = [
+        (
+            _form_address(landmark.get("owner"), f"{where}.authored_landmarks[{index}].owner"),
+            _string(landmark.get("role"), f"{where}.authored_landmarks[{index}].role", max_len=256),
+        )
+        for index, landmark in enumerate(landmarks)
+    ]
+    dimension_records = [
+        (
+            _form_address(dimension.get("owner"), f"{where}.authored_dimensions[{index}].owner"),
+            _string(dimension.get("role"), f"{where}.authored_dimensions[{index}].role", max_len=256),
+            authored_dimension_values[
+                (
+                    _form_address(dimension.get("owner"), f"{where}.authored_dimensions[{index}].owner"),
+                    _string(dimension.get("role"), f"{where}.authored_dimensions[{index}].role", max_len=256),
+                )
+            ],
+        )
+        for index, dimension in enumerate(dimensions)
+    ]
+    expected_dimension_keys = {
+        (
+            _provisional_form_foot_owner(namespace, side),
+            f"form_foot_profile_{section_name}_{role_suffix}",
+        )
+        for side in PROVISIONAL_FORM_FOOT_PROFILE_SIDE_NAMES
+        for section_name in PROVISIONAL_FORM_FOOT_PROFILE_SECTION_NAMES
+        for _axis, role_suffix in PROVISIONAL_FORM_FOOT_PROFILE_RADIUS_AXES
+    }
+    actual_dimension_keys = {
+        (owner, role)
+        for owner, role, _value in dimension_records
+        if role.startswith("form_foot_profile_")
+    }
+    if actual_dimension_keys != expected_dimension_keys:
+        raise ValidationError(f"{where}.authored_dimensions must contain exactly twelve foot profile radius dimensions")
+    for owner, role, value in dimension_records:
+        if role.startswith("form_foot_profile_"):
+            if owner[3] != "foot" or not 0 < value <= PROVISIONAL_FORM_MAX_PERMILLE:
+                raise ValidationError(f"{where}.authored_dimensions contains an invalid foot profile dimension")
+            for profile_id in PROVISIONAL_FORM_VARIANT_IDS:
+                _form_scaled_display_value(value, _provisional_form_foot_profile_factors(profile_id)[0], f"{where}.authored_dimensions.{role}")
+
+    sides = _array(profile.get("sides"), f"{profile_where}.sides")
+    if len(sides) != len(PROVISIONAL_FORM_FOOT_PROFILE_SIDE_NAMES):
+        raise ValidationError(f"{profile_where}.sides must contain exactly two sides in left/right order")
+    consumed_dimension_keys: set[
+        tuple[tuple[str, tuple[str, ...], str, str], str]
+    ] = set()
+    source_sides: list[dict[str, Any]] = []
+    axis_indices = {"lateral": 0, "up": 1, "forward": 2}
+    for side_index, (raw_side, expected_side) in enumerate(zip(sides, PROVISIONAL_FORM_FOOT_PROFILE_SIDE_NAMES)):
+        side_where = f"{profile_where}.sides[{side_index}]"
+        side = _object(raw_side, side_where)
+        _check_fields(side, {"side", "hock_binding", "sections"}, side_where)
+        if side.get("side") != expected_side:
+            raise ValidationError(f"{side_where}.side must be {expected_side}")
+        hock_where = f"{side_where}.hock_binding"
+        hock = _object(side.get("hock_binding"), hock_where)
+        _check_fields(hock, {"source_profile", "side_index", "section_index"}, hock_where)
+        if (
+            hock.get("source_profile") != "authored_leg_profile"
+            or hock.get("side_index") != side_index
+            or hock.get("section_index") != PROVISIONAL_FORM_FOOT_PROFILE_HOCK_SECTION_INDEX
+        ):
+            raise ValidationError(f"{hock_where} must bind the same-side authored leg hock endpoint")
+        if side_index >= len(leg_profile_sides):
+            raise ValidationError(f"{hock_where}.side_index is out of range")
+        leg_side = leg_profile_sides[side_index]
+        if leg_side.get("side") != expected_side or len(leg_side.get("sections", [])) <= PROVISIONAL_FORM_FOOT_PROFILE_HOCK_SECTION_INDEX:
+            raise ValidationError(f"{hock_where} does not resolve to the same authored leg side")
+        leg_hock = leg_side["sections"][PROVISIONAL_FORM_FOOT_PROFILE_HOCK_SECTION_INDEX]
+        if leg_hock.get("name") != "hock-endpoint" or leg_hock.get("owner_role") != "shin":
+            raise ValidationError(f"{hock_where} does not resolve to authored shin hock-endpoint")
+
+        sections = _array(side.get("sections"), f"{side_where}.sections")
+        if len(sections) != len(PROVISIONAL_FORM_FOOT_PROFILE_SECTION_NAMES):
+            raise ValidationError(f"{side_where}.sections must contain exactly two sections")
+        source_sections: list[dict[str, Any]] = []
+        previous_z: int | float | None = None
+        for section_index, (raw_section, expected_name) in enumerate(zip(sections, PROVISIONAL_FORM_FOOT_PROFILE_SECTION_NAMES)):
+            section_where = f"{side_where}.sections[{section_index}]"
+            section = _object(raw_section, section_where)
+            _check_fields(section, {"name", "frame_index", "landmark_index", "dimension_indices", "provenance", "section_index"}, section_where)
+            if section.get("name") != expected_name or section.get("section_index") != section_index:
+                raise ValidationError(f"{section_where} is not in the required pad/toe order")
+            _form_control_provenance(section.get("provenance"), f"{section_where}.provenance", document, namespace)
+            owner = _provisional_form_foot_owner(namespace, expected_side)
+            frame_index = _provisional_form_index(section.get("frame_index"), len(frame_keys), f"{section_where}.frame_index")
+            if frame_keys[frame_index] != (owner, PROVISIONAL_FORM_FOOT_PROFILE_FRAME_ROLE):
+                raise ValidationError(f"{section_where}.frame_index does not resolve to its same-owner identity foot control frame")
+            landmark_index = _provisional_form_index(section.get("landmark_index"), len(landmark_keys), f"{section_where}.landmark_index")
+            expected_landmark_role = f"form_foot_profile_{expected_name}"
+            if landmark_keys[landmark_index] != (owner, expected_landmark_role):
+                raise ValidationError(f"{section_where}.landmark_index does not resolve to its canonical foot landmark")
+            position = _form_finite_vector(landmarks[landmark_index].get("position"), f"{section_where}.landmark.position", 3)
+            if (
+                position[0] != 0
+                or not PROVISIONAL_FORM_FOOT_PROFILE_Y_MIN <= position[1] <= PROVISIONAL_FORM_FOOT_PROFILE_Y_MAX
+                or not PROVISIONAL_FORM_FOOT_PROFILE_Z_MIN <= position[2] <= PROVISIONAL_FORM_FOOT_PROFILE_Z_MAX
+                or any(abs(component) > PROVISIONAL_FORM_CONTROL_COORDINATE_BOUND for component in position)
+            ):
+                raise ValidationError(f"{section_where}.landmark.position is outside the foot profile bounds")
+            if previous_z is not None and position[2] <= previous_z:
+                raise ValidationError(f"{section_where}.landmark.position must use strict +z order")
+            previous_z = position[2]
+            dimension_indices = _object(section.get("dimension_indices"), f"{section_where}.dimension_indices")
+            _check_fields(dimension_indices, {axis for axis, _role_suffix in PROVISIONAL_FORM_FOOT_PROFILE_RADIUS_AXES}, f"{section_where}.dimension_indices")
+            radii: dict[str, int] = {}
+            for axis, role_suffix in PROVISIONAL_FORM_FOOT_PROFILE_RADIUS_AXES:
+                dimension_index = _provisional_form_index(dimension_indices.get(axis), len(dimension_records), f"{section_where}.dimension_indices.{axis}")
+                owner_at_index, role_at_index, value_permille = dimension_records[dimension_index]
+                expected_role = f"form_foot_profile_{expected_name}_{role_suffix}"
+                if (owner_at_index, role_at_index) != (owner, expected_role):
+                    raise ValidationError(f"{section_where}.dimension_indices.{axis} does not resolve to {expected_role}")
+                for profile_id in PROVISIONAL_FORM_VARIANT_IDS:
+                    _form_scaled_display_value(value_permille, _provisional_form_foot_profile_factors(profile_id)[axis_indices[axis]], f"{section_where}.dimension_indices.{axis}")
+                consumed_dimension_keys.add((owner_at_index, role_at_index))
+                radii[axis] = value_permille
+            source_sections.append({"name": expected_name, "position": position, "radii": radii})
+        pad, toe = source_sections
+        pad_contact = pad["position"][1] / reference_length - pad["radii"]["up"] / 1000.0
+        toe_contact = toe["position"][1] / reference_length - toe["radii"]["up"] / 1000.0
+        if not math.isfinite(pad_contact) or not math.isfinite(toe_contact) or abs(pad_contact - toe_contact) > 1e-12:
+            raise ValidationError(f"{side_where} pad and toe must share an equal contact datum")
+        forward_gap = (toe["position"][2] - pad["position"][2]) / reference_length
+        forward_overlap = (pad["radii"]["forward"] + toe["radii"]["forward"]) / 1000.0
+        lateral_overlap = (pad["radii"]["lateral"] + toe["radii"]["lateral"]) / 1000.0
+        if not forward_gap < forward_overlap or not lateral_overlap > 0:
+            raise ValidationError(f"{side_where} foot sections must overlap forward and laterally")
+        source_sides.append({"side": expected_side, "hock_binding": dict(hock), "sections": source_sections})
+    return consumed_dimension_keys, source_sides
+
+
+def _validate_v11_variant_foot_profile(
+    value: Any,
+    where: str,
+    *,
+    profile_id: str,
+    document: str,
+    namespace: str,
+    source_sides: list[dict[str, Any]],
+) -> None:
+    profile = _object(value, where)
+    _check_fields(profile, {"format", "source", "provenance", "sides"}, where)
+    if profile.get("format") != PROVISIONAL_FORM_FOOT_PROFILE_FORMAT or profile.get("source") != "authored_foot_profile":
+        raise ValidationError(f"{where} format/source is invalid")
+    _form_control_provenance(profile.get("provenance"), f"{where}.provenance", document, namespace)
+    sides = _array(profile.get("sides"), f"{where}.sides")
+    if len(sides) != len(source_sides):
+        raise ValidationError(f"{where}.sides must contain exactly two source-indexed sides")
+    factors = _provisional_form_foot_profile_factors(profile_id)
+    for side_index, (raw_side, source_side) in enumerate(zip(sides, source_sides)):
+        side_where = f"{where}.sides[{side_index}]"
+        side = _object(raw_side, side_where)
+        _check_fields(side, {"side", "hock_binding", "sections"}, side_where)
+        if side.get("side") != source_side["side"] or side.get("hock_binding") != source_side["hock_binding"]:
+            raise ValidationError(f"{side_where} does not preserve its indexed source side and hock binding")
+        sections = _array(side.get("sections"), f"{side_where}.sections")
+        if len(sections) != len(source_side["sections"]):
+            raise ValidationError(f"{side_where}.sections must contain exactly two source-indexed sections")
+        for section_index, (raw_section, source_section) in enumerate(zip(sections, source_side["sections"])):
+            section_where = f"{side_where}.sections[{section_index}]"
+            section = _object(raw_section, section_where)
+            _check_fields(section, {"source_section_index", "name", "position", "lateral_radius_permille", "up_radius_permille", "forward_radius_permille", "scaling", "provenance"}, section_where)
+            if section.get("source_section_index") != section_index or section.get("name") != source_section["name"]:
+                raise ValidationError(f"{section_where} does not preserve its source section index/name")
+            position = _form_finite_vector(section.get("position"), f"{section_where}.position", 3)
+            if position != source_section["position"]:
+                raise ValidationError(f"{section_where}.position must equal its indexed source landmark")
+            scaling = _object(section.get("scaling"), f"{section_where}.scaling")
+            expected_scaling = {"lateral_factor_permille": factors[0], "up_factor_permille": factors[1], "forward_factor_permille": factors[2]}
+            _check_fields(scaling, set(expected_scaling), f"{section_where}.scaling")
+            for field, expected_factor in expected_scaling.items():
+                if _form_permille(scaling.get(field), f"{section_where}.scaling.{field}") != expected_factor:
+                    raise ValidationError(f"{section_where}.{field} does not match its fixed factor")
+            for axis, _role_suffix in PROVISIONAL_FORM_FOOT_PROFILE_RADIUS_AXES:
+                field = f"{axis}_radius_permille"
+                expected_radius = _form_scaled_display_value(source_section["radii"][axis], factors[{"lateral": 0, "up": 1, "forward": 2}[axis]], f"{section_where}.{field}")
+                if _form_permille(section.get(field), f"{section_where}.{field}") != expected_radius:
+                    raise ValidationError(f"{section_where}.{field} does not match its indexed source radius and fixed factor")
+            _form_control_provenance(section.get("provenance"), f"{section_where}.provenance", document, namespace)
+
+
 def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any]:
     """Validate the successful filled-form CLI envelope before immutable copy."""
 
@@ -2999,6 +3319,7 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
             "authored_head_neck_profile",
             "authored_arm_profile",
             "authored_leg_profile",
+            "authored_foot_profile",
             "variants",
             "limitations",
         },
@@ -3012,8 +3333,8 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
             f"{PROVISIONAL_FORM_HISTORICAL_V4_FORMAT}, "
             f"{PROVISIONAL_FORM_HISTORICAL_V5_FORMAT}, "
             f"{PROVISIONAL_FORM_HISTORICAL_V6_FORMAT}, {PROVISIONAL_FORM_V7_FORMAT}, "
-            f"{PROVISIONAL_FORM_V8_FORMAT}, {PROVISIONAL_FORM_V9_FORMAT}, or "
-            f"{PROVISIONAL_FORM_V10_FORMAT}"
+            f"{PROVISIONAL_FORM_V8_FORMAT}, {PROVISIONAL_FORM_V9_FORMAT}, "
+            f"{PROVISIONAL_FORM_V10_FORMAT}, or {PROVISIONAL_FORM_V11_FORMAT}"
         )
     is_v5 = format_name == PROVISIONAL_FORM_HISTORICAL_V5_FORMAT
     is_v6 = format_name == PROVISIONAL_FORM_HISTORICAL_V6_FORMAT
@@ -3021,10 +3342,11 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
     is_v8 = format_name == PROVISIONAL_FORM_V8_FORMAT
     is_v9 = format_name == PROVISIONAL_FORM_V9_FORMAT
     is_v10 = format_name == PROVISIONAL_FORM_V10_FORMAT
-    has_shoulder_controls = is_v6 or is_v7 or is_v8 or is_v9 or is_v10
+    is_v11 = format_name == PROVISIONAL_FORM_V11_FORMAT
+    has_shoulder_controls = is_v6 or is_v7 or is_v8 or is_v9 or is_v10 or is_v11
     has_authored_dimensions = is_v5 or has_shoulder_controls
-    dimension_contract = "v5, v6, v7, v8, v9, or v10" if is_v10 else "v5, v6, v7, v8, or v9" if is_v9 else "v5, v6, v7, or v8" if is_v8 else "v5, v6, or v7"
-    control_contract = "v6, v7, v8, v9, or v10" if is_v10 else "v6, v7, v8, or v9" if is_v9 else "v6, v7, or v8" if is_v8 else "v6 or v7"
+    dimension_contract = "v5, v6, v7, v8, v9, v10, or v11" if is_v11 else "v5, v6, v7, v8, v9, or v10" if is_v10 else "v5, v6, v7, v8, or v9" if is_v9 else "v5, v6, v7, or v8" if is_v8 else "v5, v6, or v7"
+    control_contract = "v6, v7, v8, v9, v10, or v11" if is_v11 else "v6, v7, v8, v9, or v10" if is_v10 else "v6, v7, v8, or v9" if is_v9 else "v6, v7, or v8" if is_v8 else "v6 or v7"
     if has_authored_dimensions and "authored_dimensions" not in obj:
         raise ValidationError(f"{where}.authored_dimensions is required for {dimension_contract}")
     if not has_authored_dimensions and "authored_dimensions" in obj:
@@ -3036,27 +3358,32 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
             raise ValidationError(f"{where}.{control_key} is required for {control_contract}")
         if not has_shoulder_controls and control_key in obj:
             raise ValidationError(f"{where}.{control_key} is only valid for {control_contract}")
-    if is_v7 or is_v8 or is_v9 or is_v10:
+    if is_v7 or is_v8 or is_v9 or is_v10 or is_v11:
         if "authored_torso_profile" not in obj:
-            raise ValidationError(f"{where}.authored_torso_profile is required for v7, v8, v9, or v10")
+            raise ValidationError(f"{where}.authored_torso_profile is required for v7 through v11")
     elif "authored_torso_profile" in obj:
-        raise ValidationError(f"{where}.authored_torso_profile is only valid for v7, v8, v9, or v10")
-    if is_v8 or is_v9 or is_v10:
+        raise ValidationError(f"{where}.authored_torso_profile is only valid for v7 through v11")
+    if is_v8 or is_v9 or is_v10 or is_v11:
         if "authored_head_neck_profile" not in obj:
-            raise ValidationError(f"{where}.authored_head_neck_profile is required for v8, v9, or v10")
+            raise ValidationError(f"{where}.authored_head_neck_profile is required for v8 through v11")
     elif "authored_head_neck_profile" in obj:
-        raise ValidationError(f"{where}.authored_head_neck_profile is only valid for v8, v9, or v10")
-    if is_v9 or is_v10:
+        raise ValidationError(f"{where}.authored_head_neck_profile is only valid for v8 through v11")
+    if is_v9 or is_v10 or is_v11:
         if "authored_arm_profile" not in obj:
-            raise ValidationError(f"{where}.authored_arm_profile is required for v9 or v10")
+            raise ValidationError(f"{where}.authored_arm_profile is required for v9 through v11")
     elif "authored_arm_profile" in obj:
-        raise ValidationError(f"{where}.authored_arm_profile is only valid for v9")
-    if is_v10:
+        raise ValidationError(f"{where}.authored_arm_profile is only valid for v9 through v11")
+    if is_v10 or is_v11:
         if "authored_leg_profile" not in obj:
-            raise ValidationError(f"{where}.authored_leg_profile is required for v10")
+            raise ValidationError(f"{where}.authored_leg_profile is required for v10 or v11")
     elif "authored_leg_profile" in obj:
-        raise ValidationError(f"{where}.authored_leg_profile is only valid for v10")
-    if is_v8 or is_v9 or is_v10:
+        raise ValidationError(f"{where}.authored_leg_profile is only valid for v10 or v11")
+    if is_v11:
+        if "authored_foot_profile" not in obj:
+            raise ValidationError(f"{where}.authored_foot_profile is required for v11")
+    elif "authored_foot_profile" in obj:
+        raise ValidationError(f"{where}.authored_foot_profile is only valid for v11")
+    if is_v8 or is_v9 or is_v10 or is_v11:
         expected_envelope_fields = {
             "format",
             "operation",
@@ -3072,15 +3399,16 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
             "authored_frames",
             "authored_torso_profile",
             "authored_head_neck_profile",
-            *( {"authored_arm_profile"} if is_v9 or is_v10 else set() ),
-            *( {"authored_leg_profile"} if is_v10 else set() ),
+            *( {"authored_arm_profile"} if is_v9 or is_v10 or is_v11 else set() ),
+            *( {"authored_leg_profile"} if is_v10 or is_v11 else set() ),
+            *( {"authored_foot_profile"} if is_v11 else set() ),
             "variants",
             "limitations",
         }
         missing = sorted(expected_envelope_fields - set(obj))
         if missing:
             raise ValidationError(
-                f"{where} is missing required {'v10' if is_v10 else 'v9' if is_v9 else 'v8'} field(s): {', '.join(missing)}"
+                f"{where} is missing required {'v11' if is_v11 else 'v10' if is_v10 else 'v9' if is_v9 else 'v8'} field(s): {', '.join(missing)}"
             )
     if obj.get("operation") != PROVISIONAL_FORM_OPERATION:
         raise ValidationError(f"{where}.operation must be {PROVISIONAL_FORM_OPERATION}")
@@ -3159,6 +3487,8 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
             raise ValidationError(f"{where}.authored_dimensions must use stable owner/role order")
         if is_v10 and len(authored_dimensions) != 141:
             raise ValidationError(f"{where}.authored_dimensions must contain exactly 141 dimensions for v10")
+        if is_v11 and len(authored_dimensions) != 153:
+            raise ValidationError(f"{where}.authored_dimensions must contain exactly 153 dimensions for v11")
 
     scale = _object(obj.get("reference_scale"), f"{where}.reference_scale")
     _check_fields(
@@ -3184,6 +3514,9 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
         raise ValidationError(
             f"{where}.reference_scale.source must be exact-containment-edge"
         )
+    reference_length = math.sqrt(float(squared_length))
+    if not math.isfinite(reference_length) or reference_length <= 0:
+        raise ValidationError(f"{where}.reference_scale length is invalid")
 
     profile_dimension_keys: set[
         tuple[tuple[str, tuple[str, ...], str, str], str]
@@ -3204,7 +3537,7 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
             namespace=namespace,
             authored_dimension_values=authored_dimension_values,
         )
-    elif is_v8 or is_v9 or is_v10:
+    elif is_v8 or is_v9 or is_v10 or is_v11:
         torso_keys, torso_profile_sections = _validate_v7_authored_torso_profile(
             obj,
             where,
@@ -3212,8 +3545,9 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
             namespace=namespace,
             authored_dimension_values=authored_dimension_values,
             include_v8_controls=True,
-            include_v9_controls=is_v9 or is_v10,
-            include_v10_controls=is_v10,
+            include_v9_controls=is_v9 or is_v10 or is_v11,
+            include_v10_controls=is_v10 or is_v11,
+            include_v11_controls=is_v11,
         )
         profile_dimension_keys.update(torso_keys)
         head_keys, head_neck_profile_sections = _validate_v8_authored_head_neck_profile(
@@ -3222,11 +3556,12 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
             document=document,
             namespace=namespace,
             authored_dimension_values=authored_dimension_values,
-            include_v9_controls=is_v9 or is_v10,
-            include_v10_controls=is_v10,
+            include_v9_controls=is_v9 or is_v10 or is_v11,
+            include_v10_controls=is_v10 or is_v11,
+            include_v11_controls=is_v11,
         )
         profile_dimension_keys.update(head_keys)
-        if is_v9 or is_v10:
+        if is_v9 or is_v10 or is_v11:
             arm_keys, arm_profile_sides = _validate_v9_authored_arm_profile(
                 obj,
                 where,
@@ -3235,7 +3570,7 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
                 authored_dimension_values=authored_dimension_values,
             )
             profile_dimension_keys.update(arm_keys)
-        if is_v10:
+        if is_v10 or is_v11:
             leg_keys, leg_profile_sides = _validate_v10_authored_leg_profile(
                 obj,
                 where,
@@ -3244,6 +3579,17 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
                 authored_dimension_values=authored_dimension_values,
             )
             profile_dimension_keys.update(leg_keys)
+        if is_v11:
+            foot_keys, foot_profile_sides = _validate_v11_authored_foot_profile(
+                obj,
+                where,
+                document=document,
+                namespace=namespace,
+                authored_dimension_values=authored_dimension_values,
+                leg_profile_sides=leg_profile_sides,
+                reference_length=reference_length,
+            )
+            profile_dimension_keys.update(foot_keys)
 
     variants = _array(obj.get("variants"), f"{where}.variants")
     if len(variants) != len(PROVISIONAL_FORM_VARIANT_IDS):
@@ -3262,10 +3608,11 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
                 "profile_id",
                 "provenance",
                 "descriptors",
-                *( {"torso_profile"} if is_v7 or is_v8 or is_v9 or is_v10 else set() ),
-                *( {"head_neck_profile"} if is_v8 or is_v9 or is_v10 else set() ),
-                *( {"arm_profile"} if is_v9 or is_v10 else set() ),
-                *( {"leg_profile"} if is_v10 else set() ),
+                *( {"torso_profile"} if is_v7 or is_v8 or is_v9 or is_v10 or is_v11 else set() ),
+                *( {"head_neck_profile"} if is_v8 or is_v9 or is_v10 or is_v11 else set() ),
+                *( {"arm_profile"} if is_v9 or is_v10 or is_v11 else set() ),
+                *( {"leg_profile"} if is_v10 or is_v11 else set() ),
+                *( {"foot_profile"} if is_v11 else set() ),
             },
             variant_where,
         )
@@ -3286,7 +3633,7 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
             raise ValidationError(f"{variant_where}.provenance profile does not match source")
         if has_authored_dimensions and provenance.get("shape_basis") != PROVISIONAL_FORM_SHAPE_BASIS:
             raise ValidationError(f"{variant_where}.provenance.shape_basis is invalid")
-        if is_v7 or is_v8 or is_v9 or is_v10:
+        if is_v7 or is_v8 or is_v9 or is_v10 or is_v11:
             _validate_v7_variant_torso_profile(
                 variant.get("torso_profile"),
                 f"{variant_where}.torso_profile",
@@ -3295,7 +3642,7 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
                 namespace=namespace,
                 source_sections=torso_profile_sections,
             )
-        if is_v8 or is_v9 or is_v10:
+        if is_v8 or is_v9 or is_v10 or is_v11:
             _validate_v8_variant_head_neck_profile(
                 variant.get("head_neck_profile"),
                 f"{variant_where}.head_neck_profile",
@@ -3304,7 +3651,7 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
                 namespace=namespace,
                 source_sections=head_neck_profile_sections,
             )
-        if is_v9 or is_v10:
+        if is_v9 or is_v10 or is_v11:
             _validate_v9_variant_arm_profile(
                 variant.get("arm_profile"),
                 f"{variant_where}.arm_profile",
@@ -3313,7 +3660,7 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
                 namespace=namespace,
                 source_sides=arm_profile_sides,
             )
-        if is_v10:
+        if is_v10 or is_v11:
             _validate_v10_variant_leg_profile(
                 variant.get("leg_profile"),
                 f"{variant_where}.leg_profile",
@@ -3321,6 +3668,15 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
                 document=document,
                 namespace=namespace,
                 source_sides=leg_profile_sides,
+            )
+        if is_v11:
+            _validate_v11_variant_foot_profile(
+                variant.get("foot_profile"),
+                f"{variant_where}.foot_profile",
+                profile_id=expected_id,
+                document=document,
+                namespace=namespace,
+                source_sides=foot_profile_sides,
             )
         descriptors = _array(variant.get("descriptors"), f"{variant_where}.descriptors")
         if not descriptors or len(descriptors) > PROVISIONAL_FORM_MAX_DESCRIPTORS:
@@ -4008,7 +4364,7 @@ def load_session(root: Path, review_id: str) -> tuple[Path, dict[str, Any]]:
 
 
 def iter_sessions(root: Path) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
-    valid: list[dict[str, Any]] = []
+    valid_with_order: list[tuple[int, dict[str, Any]]] = []
     errors: list[dict[str, str]] = []
     try:
         entries = sorted(root.iterdir(), key=lambda p: p.name)
@@ -4021,16 +4377,36 @@ def iter_sessions(root: Path) -> tuple[list[dict[str, Any]], list[dict[str, str]
             errors.append({"id": entry.name, "error": "session symlinks are not allowed"})
             continue
         try:
-            _, review = load_session(root, entry.name)
-        except ValidationError as exc:
+            session, review = load_session(root, entry.name)
+            published_mtime_ns = (session / "review.json").stat().st_mtime_ns
+            published_seconds, published_remainder_ns = divmod(
+                published_mtime_ns,
+                1_000_000_000,
+            )
+            published_at = datetime.fromtimestamp(
+                published_seconds,
+                timezone.utc,
+            ).replace(
+                microsecond=published_remainder_ns // 1_000,
+            ).isoformat(timespec="microseconds").replace("+00:00", "Z")
+        except (OverflowError, ValueError) as exc:
+            errors.append({
+                "id": entry.name,
+                "error": f"invalid review.json publication timestamp: {exc}",
+            })
+        except (OSError, ValidationError) as exc:
             errors.append({"id": entry.name, "error": str(exc)})
         else:
-            valid.append({
+            summary = {
                 "id": review["id"],
                 "title": review["title"],
                 "kind": review.get("kind", "image"),
+                "published_at": published_at,
                 **({"description": review["description"]} if "description" in review else {}),
-            })
+            }
+            valid_with_order.append((published_mtime_ns, summary))
+    valid_with_order.sort(key=lambda item: (-item[0], item[1]["id"]))
+    valid = [summary for _, summary in valid_with_order]
     return valid, errors
 
 

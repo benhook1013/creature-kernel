@@ -62,20 +62,28 @@
     clear(app);
     var heading = node("h1", "Visual review gallery");
     app.appendChild(heading);
-    addNotice(app, "Local image comparison, structural inspection, and read-only filled-form sessions. Open a session to inspect or appraise its bounded content; image sessions can record choices and notes.", "lede");
+    addNotice(app, "Local image comparison, structural inspection, and read-only filled-form sessions. Sessions are ordered by publication time. Latest published means newest in this local gallery, not approved or the project's next active checkpoint.", "lede");
     var sessions = data.sessions || [];
     if (!sessions.length) {
       addNotice(app, "No valid review sessions are available yet.", "empty");
     }
     var list = node("div", null, "session-list");
-    sessions.forEach(function (session) {
-      var card = node("article", null, "session-card");
+    sessions.forEach(function (session, index) {
+      var card = node("article", null, index === 0 ? "session-card latest-session" : "session-card");
+      card.appendChild(node("span", index === 0 ? "Latest published" : "Earlier publication", index === 0 ? "session-recency latest-recency" : "session-recency"));
       var title = node("h2");
       var link = node("a", session.title);
       link.href = "/review/" + encodeURIComponent(session.id);
       title.appendChild(link);
       card.appendChild(title);
       card.appendChild(node("code", session.id, "stable-id"));
+      if (session.published_at) {
+        var published = new Date(session.published_at);
+        var publishedText = Number.isNaN(published.getTime()) ? session.published_at : published.toLocaleString();
+        var publishedNode = node("time", "Published " + publishedText, "session-published");
+        publishedNode.dateTime = session.published_at;
+        card.appendChild(publishedNode);
+      }
       if (session.kind === "structure") {
         card.appendChild(node("span", "Structural inspection", "session-kind"));
       }
@@ -100,6 +108,19 @@
     var pre = node("pre", JSON.stringify(item.metadata, null, 2), "metadata");
     pre.setAttribute("aria-label", "Metadata for " + item.id);
     return pre;
+  }
+
+  function imageDescription(item) {
+    if (!item || item.description === undefined || item.description === null) {
+      return "";
+    }
+    return String(item.description);
+  }
+
+  function imageAccessibleLabel(item) {
+    var title = item && item.title !== undefined && item.title !== null ? String(item.title) : "";
+    var description = imageDescription(item);
+    return description ? title + " — " + description : title;
   }
 
   function subjectContextBlock(context) {
@@ -1233,7 +1254,8 @@
     "creature-kernel.provisional-form-preview.v7",
     "creature-kernel.provisional-form-preview.v8",
     "creature-kernel.provisional-form-preview.v9",
-    "creature-kernel.provisional-form-preview.v10"
+    "creature-kernel.provisional-form-preview.v10",
+    "creature-kernel.provisional-form-preview.v11"
   ];
   var PROVISIONAL_FORM_V5_FORMAT = "creature-kernel.provisional-form-preview.v5";
   var PROVISIONAL_FORM_V6_FORMAT = "creature-kernel.provisional-form-preview.v6";
@@ -1241,10 +1263,12 @@
   var PROVISIONAL_FORM_V8_FORMAT = "creature-kernel.provisional-form-preview.v8";
   var PROVISIONAL_FORM_V9_FORMAT = "creature-kernel.provisional-form-preview.v9";
   var PROVISIONAL_FORM_V10_FORMAT = "creature-kernel.provisional-form-preview.v10";
+  var PROVISIONAL_FORM_V11_FORMAT = "creature-kernel.provisional-form-preview.v11";
   var PROVISIONAL_FORM_TORSO_PROFILE_FORMAT = "creature-kernel.provisional-form-torso-profile.v1";
   var PROVISIONAL_FORM_HEAD_NECK_PROFILE_FORMAT = "creature-kernel.provisional-form-head-neck-profile.v1";
   var PROVISIONAL_FORM_ARM_PROFILE_FORMAT = "creature-kernel.provisional-form-arm-profile.v1";
   var PROVISIONAL_FORM_LEG_PROFILE_FORMAT = "creature-kernel.provisional-form-leg-profile.v1";
+  var PROVISIONAL_FORM_FOOT_PROFILE_FORMAT = "creature-kernel.provisional-form-foot-profile.v1";
   var PROVISIONAL_FORM_SHOULDER_FRAME_ROLE = "form_shoulder_control";
   var PROVISIONAL_FORM_SHOULDER_LANDMARK_ROLES = ["form_shoulder_peak", "form_axilla"];
   var PROVISIONAL_FORM_TORSO_FRAME_ROLE = "form_torso_profile_control";
@@ -1311,6 +1335,17 @@
     { name: "hock-endpoint", ownerRole: "shin" }
   ];
   var PROVISIONAL_FORM_LEG_RADIUS_FACTORS = [
+    { name: "lateral", roleSuffix: "lateral_radius" },
+    { name: "up", roleSuffix: "up_radius" },
+    { name: "forward", roleSuffix: "forward_radius" }
+  ];
+  var PROVISIONAL_FORM_FOOT_FRAME_ROLE = "form_foot_profile_control";
+  var PROVISIONAL_FORM_FOOT_SIDES = ["left", "right"];
+  var PROVISIONAL_FORM_FOOT_SECTIONS = [
+    { name: "pad", ownerRole: "foot" },
+    { name: "toe", ownerRole: "foot" }
+  ];
+  var PROVISIONAL_FORM_FOOT_RADIUS_FACTORS = [
     { name: "lateral", roleSuffix: "lateral_radius" },
     { name: "up", roleSuffix: "up_radius" },
     { name: "forward", roleSuffix: "forward_radius" }
@@ -1401,7 +1436,8 @@
       PROVISIONAL_FORM_V7_FORMAT,
       PROVISIONAL_FORM_V8_FORMAT,
       PROVISIONAL_FORM_V9_FORMAT,
-      PROVISIONAL_FORM_V10_FORMAT
+      PROVISIONAL_FORM_V10_FORMAT,
+      PROVISIONAL_FORM_V11_FORMAT
     ].indexOf(format) !== -1) {
       return "capsule";
     }
@@ -1572,7 +1608,7 @@
     return { namespace: namespace, anchors: [], kind: "part", role: role };
   }
 
-  function formV7AuthoredTorsoProfile(payload, includeV8Controls, includeV9Controls, includeV10Controls) {
+  function formV7AuthoredTorsoProfile(payload, includeV8Controls, includeV9Controls, includeV10Controls, includeV11Controls) {
     var errors = [];
     var dimensionKeys = {};
     var sourceSections = [];
@@ -1620,8 +1656,14 @@
         });
       });
     }
-    var contractLabel = includeV10Controls ? "v10" : includeV9Controls ? "v9" : includeV8Controls ? "v8" : "v7";
-    var expectedFrameCount = includeV10Controls ? 14 : includeV9Controls ? 10 : includeV8Controls ? 6 : 4;
+    if (includeV11Controls) {
+      PROVISIONAL_FORM_FOOT_SIDES.forEach(function (side) {
+        var owner = formFootOwner(namespace, side);
+        expectedFrameKeys[JSON.stringify([owner.namespace, owner.anchors, owner.kind, owner.role, PROVISIONAL_FORM_FOOT_FRAME_ROLE])] = true;
+      });
+    }
+    var contractLabel = includeV11Controls ? "v11" : includeV10Controls ? "v10" : includeV9Controls ? "v9" : includeV8Controls ? "v8" : "v7";
+    var expectedFrameCount = includeV11Controls ? 16 : includeV10Controls ? 14 : includeV9Controls ? 10 : includeV8Controls ? 6 : 4;
     var frameMap = {};
     var frameOrder = [];
     if (frames.length !== expectedFrameCount) {
@@ -1689,7 +1731,16 @@
         });
       });
     }
-    var expectedLandmarkCount = includeV10Controls ? 39 : includeV9Controls ? 29 : includeV8Controls ? 19 : 11;
+    if (includeV11Controls) {
+      PROVISIONAL_FORM_FOOT_SIDES.forEach(function (side) {
+        PROVISIONAL_FORM_FOOT_SECTIONS.forEach(function (section) {
+          var owner = formFootOwner(namespace, side);
+          var role = "form_foot_profile_" + section.name;
+          expectedLandmarkKeys[JSON.stringify([owner.namespace, owner.anchors, owner.kind, owner.role, role])] = true;
+        });
+      });
+    }
+    var expectedLandmarkCount = includeV11Controls ? 43 : includeV10Controls ? 39 : includeV9Controls ? 29 : includeV8Controls ? 19 : 11;
     var landmarkMap = {};
     var landmarkOrder = [];
     if (landmarks.length !== expectedLandmarkCount) {
@@ -1710,7 +1761,7 @@
         errors.push(where + " provenance is not exact source-authored provenance.");
       }
       var isTorsoLandmark = landmark.owner.role === "pelvis" || landmark.owner.role === "torso";
-      var expectedFrameRole = includeV9Controls && landmark.role.indexOf("form_arm_profile_") === 0 ? PROVISIONAL_FORM_ARM_FRAME_ROLE : includeV10Controls && landmark.role.indexOf("form_leg_profile_") === 0 ? PROVISIONAL_FORM_LEG_FRAME_ROLE : isTorsoLandmark ? PROVISIONAL_FORM_TORSO_FRAME_ROLE : includeV8Controls && (landmark.owner.role === "neck" || landmark.owner.role === "head") ? PROVISIONAL_FORM_HEAD_NECK_FRAME_ROLE : PROVISIONAL_FORM_SHOULDER_FRAME_ROLE;
+      var expectedFrameRole = includeV11Controls && landmark.role.indexOf("form_foot_profile_") === 0 ? PROVISIONAL_FORM_FOOT_FRAME_ROLE : includeV9Controls && landmark.role.indexOf("form_arm_profile_") === 0 ? PROVISIONAL_FORM_ARM_FRAME_ROLE : includeV10Controls && landmark.role.indexOf("form_leg_profile_") === 0 ? PROVISIONAL_FORM_LEG_FRAME_ROLE : isTorsoLandmark ? PROVISIONAL_FORM_TORSO_FRAME_ROLE : includeV8Controls && (landmark.owner.role === "neck" || landmark.owner.role === "head") ? PROVISIONAL_FORM_HEAD_NECK_FRAME_ROLE : PROVISIONAL_FORM_SHOULDER_FRAME_ROLE;
       if (!formHasExactFields(landmark.frame, ["owner", "role"]) || !formAddressEquals(landmark.frame.owner, landmark.owner) || landmark.frame.role !== expectedFrameRole) {
         errors.push(where + " frame must reference its same-owner control frame.");
       }
@@ -1733,6 +1784,9 @@
       }
       if (includeV10Controls && landmark.role.indexOf("form_leg_profile_") === 0 && (!formFiniteVector(landmark.position, 3) || landmark.position[1] < -1.0 || landmark.position[1] > 0.0)) {
         errors.push(where + " position y must be in inclusive [-1.0, 0.0].");
+      }
+      if (includeV11Controls && landmark.role.indexOf("form_foot_profile_") === 0 && (!formFiniteVector(landmark.position, 3) || landmark.owner.role !== "foot" || landmark.position[0] !== 0 || landmark.position[1] < -1.0 || landmark.position[1] > 0.0 || landmark.position[2] < 0.0 || landmark.position[2] > 1.0)) {
+        errors.push(where + " position must be [0,y,z] with y in [-1.0,0.0] and z in [0.0,1.0].");
       }
     });
     if (Object.keys(landmarkMap).length !== Object.keys(expectedLandmarkKeys).length || Object.keys(expectedLandmarkKeys).some(function (key) { return !landmarkMap[key]; })) {
@@ -1908,6 +1962,10 @@
     return { namespace: namespace, anchors: [side], kind: "part", role: role };
   }
 
+  function formFootOwner(namespace, side) {
+    return formLegOwner(namespace, side, "foot");
+  }
+
   function formHeadNeckProfileFactors(profileId, ownerRole) {
     if (ownerRole === "head") {
       if (profileId === "neutral-v0") { return { lateral: 1000, up: 1000, forward: 1000 }; }
@@ -1920,7 +1978,7 @@
     return { lateral: factor, up: factor, forward: factor };
   }
 
-  function formV8AuthoredHeadNeckProfile(payload, includeV9Controls, includeV10Controls) {
+  function formV8AuthoredHeadNeckProfile(payload, includeV9Controls, includeV10Controls, includeV11Controls) {
     var errors = [];
     var dimensionKeys = {};
     var sourceSections = [];
@@ -1959,8 +2017,14 @@
         });
       });
     }
-    var contractLabel = includeV10Controls ? "v10" : includeV9Controls ? "v9" : "v8";
-    var expectedFrameCount = includeV10Controls ? 14 : includeV9Controls ? 10 : 6;
+    if (includeV11Controls) {
+      PROVISIONAL_FORM_FOOT_SIDES.forEach(function (side) {
+        var owner = formFootOwner(namespace, side);
+        expectedFrameKeys[JSON.stringify([owner.namespace, owner.anchors, owner.kind, owner.role, PROVISIONAL_FORM_FOOT_FRAME_ROLE])] = true;
+      });
+    }
+    var contractLabel = includeV11Controls ? "v11" : includeV10Controls ? "v10" : includeV9Controls ? "v9" : "v8";
+    var expectedFrameCount = includeV11Controls ? 16 : includeV10Controls ? 14 : includeV9Controls ? 10 : 6;
     var frameMap = {};
     var frameOrder = [];
     if (frames.length !== expectedFrameCount) { errors.push(contractLabel + " authored frames must contain exactly " + expectedFrameCount + " control frames."); }
@@ -2025,7 +2089,16 @@
         });
       });
     }
-    var expectedLandmarkCount = includeV10Controls ? 39 : includeV9Controls ? 29 : 19;
+    if (includeV11Controls) {
+      PROVISIONAL_FORM_FOOT_SIDES.forEach(function (side) {
+        PROVISIONAL_FORM_FOOT_SECTIONS.forEach(function (section) {
+          var owner = formFootOwner(namespace, side);
+          var role = "form_foot_profile_" + section.name;
+          expectedLandmarkKeys[JSON.stringify([owner.namespace, owner.anchors, owner.kind, owner.role, role])] = true;
+        });
+      });
+    }
+    var expectedLandmarkCount = includeV11Controls ? 43 : includeV10Controls ? 39 : includeV9Controls ? 29 : 19;
     var landmarkMap = {};
     var landmarkOrder = [];
     if (landmarks.length !== expectedLandmarkCount) { errors.push(contractLabel + " authored landmarks must contain exactly " + expectedLandmarkCount + " control landmarks."); }
@@ -2043,7 +2116,7 @@
       if (!formControlProvenance(landmark.provenance, source) || !formHasExactFields(landmark.provenance, ["source", "document", "namespace"])) {
         errors.push(where + " provenance is not exact source-authored provenance.");
       }
-      var expectedFrameRole = includeV9Controls && landmark.role.indexOf("form_arm_profile_") === 0 ? PROVISIONAL_FORM_ARM_FRAME_ROLE : includeV10Controls && landmark.role.indexOf("form_leg_profile_") === 0 ? PROVISIONAL_FORM_LEG_FRAME_ROLE : landmark.owner.role === "pelvis" || landmark.owner.role === "torso" ? PROVISIONAL_FORM_TORSO_FRAME_ROLE : landmark.owner.role === "neck" || landmark.owner.role === "head" ? PROVISIONAL_FORM_HEAD_NECK_FRAME_ROLE : PROVISIONAL_FORM_SHOULDER_FRAME_ROLE;
+      var expectedFrameRole = includeV11Controls && landmark.role.indexOf("form_foot_profile_") === 0 ? PROVISIONAL_FORM_FOOT_FRAME_ROLE : includeV9Controls && landmark.role.indexOf("form_arm_profile_") === 0 ? PROVISIONAL_FORM_ARM_FRAME_ROLE : includeV10Controls && landmark.role.indexOf("form_leg_profile_") === 0 ? PROVISIONAL_FORM_LEG_FRAME_ROLE : landmark.owner.role === "pelvis" || landmark.owner.role === "torso" ? PROVISIONAL_FORM_TORSO_FRAME_ROLE : landmark.owner.role === "neck" || landmark.owner.role === "head" ? PROVISIONAL_FORM_HEAD_NECK_FRAME_ROLE : PROVISIONAL_FORM_SHOULDER_FRAME_ROLE;
       if (!formHasExactFields(landmark.frame, ["owner", "role"]) || !formAddressEquals(landmark.frame.owner, landmark.owner) || landmark.frame.role !== expectedFrameRole) {
         errors.push(where + " frame must reference its same-owner control frame.");
       }
@@ -2066,6 +2139,9 @@
       }
       if (includeV10Controls && landmark.role.indexOf("form_leg_profile_") === 0 && (!formFiniteVector(landmark.position, 3) || landmark.position[1] < -1.0 || landmark.position[1] > 0.0)) {
         errors.push(where + " position y must be in inclusive [-1.0, 0.0].");
+      }
+      if (includeV11Controls && landmark.role.indexOf("form_foot_profile_") === 0 && (!formFiniteVector(landmark.position, 3) || landmark.owner.role !== "foot" || landmark.position[0] !== 0 || landmark.position[1] < -1.0 || landmark.position[1] > 0.0 || landmark.position[2] < 0.0 || landmark.position[2] > 1.0)) {
+        errors.push(where + " position must be [0,y,z] with y in [-1.0,0.0] and z in [0.0,1.0].");
       }
     });
     if (Object.keys(landmarkMap).length !== Object.keys(expectedLandmarkKeys).length || Object.keys(expectedLandmarkKeys).some(function (key) { return !landmarkMap[key]; })) {
@@ -2561,6 +2637,195 @@
     return errors;
   }
 
+  function formFootProfileFactors(profileId) {
+    if (profileId === "broad-soft-v0") { return { lateral: 1150, up: 1000, forward: 1150 }; }
+    if (profileId === "lean-readable-v0") { return { lateral: 800, up: 1000, forward: 800 }; }
+    if (profileId === "depth-forward-v0") { return { lateral: 1000, up: 1000, forward: 1300 }; }
+    return { lateral: 1000, up: 1000, forward: 1000 };
+  }
+
+  function formV11AuthoredFootProfile(payload, legSourceSides) {
+    var errors = [];
+    var dimensionKeys = {};
+    var sourceSides = [];
+    var source = payload.source;
+    if (!formHasExactFields(source, ["document", "namespace", "resource_profile_id"]) || typeof source.namespace !== "string" || !source.namespace || typeof source.document !== "string" || !source.document || source.resource_profile_id !== "ck.resource.body.r2") {
+      return { errors: ["v11 source identity must provide non-empty namespace and document strings for foot controls."], dimensionKeys: dimensionKeys, sourceSides: sourceSides };
+    }
+    var namespace = source.namespace;
+    var frames = Array.isArray(payload.authored_frames) ? payload.authored_frames : [];
+    var landmarks = Array.isArray(payload.authored_landmarks) ? payload.authored_landmarks : [];
+    var dimensions = Array.isArray(payload.authored_dimensions) ? payload.authored_dimensions : [];
+    var expectedDimensionKeys = {};
+    PROVISIONAL_FORM_FOOT_SIDES.forEach(function (side) {
+      PROVISIONAL_FORM_FOOT_SECTIONS.forEach(function (section) {
+        var owner = formFootOwner(namespace, side);
+        PROVISIONAL_FORM_FOOT_RADIUS_FACTORS.forEach(function (factor) {
+          expectedDimensionKeys[formDimensionKey(owner, "form_foot_profile_" + section.name + "_" + factor.roleSuffix)] = true;
+        });
+      });
+    });
+    var actualDimensionKeys = {};
+    dimensions.forEach(function (dimension, index) {
+      var where = "v11 authored dimension " + index;
+      if (!isObject(dimension) || !isObject(dimension.owner) || typeof dimension.role !== "string" || !formPositivePermille(dimension.value_permille)) {
+        if (dimension && typeof dimension.role === "string" && dimension.role.indexOf("form_foot_profile_") === 0) { errors.push(where + " is invalid."); }
+        return;
+      }
+      var key = formDimensionKey(dimension.owner, dimension.role);
+      if (dimension.role.indexOf("form_foot_profile_") === 0) {
+        actualDimensionKeys[key] = true;
+        if (dimension.owner.namespace !== namespace || dimension.owner.role !== "foot" || !formControlProvenance(dimension.provenance, source) || !formHasExactFields(dimension.provenance, ["source", "document", "namespace"])) {
+          errors.push(where + " has invalid foot owner or source provenance.");
+        }
+        PROVISIONAL_FORM_VARIANTS.forEach(function (profileId) {
+          var factors = formFootProfileFactors(profileId);
+          PROVISIONAL_FORM_FOOT_RADIUS_FACTORS.forEach(function (factor) {
+            if (!formPositivePermille(Math.floor(dimension.value_permille * factors[factor.name] / 1000))) {
+              errors.push(where + " projected radius is outside the positive bound.");
+            }
+          });
+        });
+      }
+    });
+    if (Object.keys(expectedDimensionKeys).length !== 12 || JSON.stringify(Object.keys(expectedDimensionKeys).sort()) !== JSON.stringify(Object.keys(actualDimensionKeys).sort())) {
+      errors.push("v11 authored dimensions must contain exactly twelve foot profile radius dimensions.");
+    }
+
+    var profile = payload.authored_foot_profile;
+    if (!formHasExactFields(profile, ["format", "provenance", "sides"]) || profile.format !== PROVISIONAL_FORM_FOOT_PROFILE_FORMAT || !formControlProvenance(profile.provenance, source) || !formHasExactFields(profile.provenance, ["source", "document", "namespace"]) || !Array.isArray(profile.sides)) {
+      errors.push("v11 authored_foot_profile has an unexpected format, provenance, or fields.");
+      return { errors: errors, dimensionKeys: dimensionKeys, sourceSides: sourceSides };
+    }
+    if (profile.sides.length !== 2) {
+      errors.push("v11 authored_foot_profile must contain exactly two sides.");
+    }
+    var referenceLength = payload.reference_scale && Number.isInteger(payload.reference_scale.squared_length) && payload.reference_scale.squared_length > 0 ? Math.sqrt(payload.reference_scale.squared_length) : NaN;
+    PROVISIONAL_FORM_FOOT_SIDES.forEach(function (expectedSide, sideIndex) {
+      var side = profile.sides[sideIndex];
+      var sideWhere = "v11 foot profile side " + sideIndex;
+      var hockBinding = { source_profile: "authored_leg_profile", side_index: sideIndex, section_index: 4 };
+      if (!formHasExactFields(side, ["side", "hock_binding", "sections"]) || side.side !== expectedSide || !isObject(side.hock_binding) || !formHasExactFields(side.hock_binding, ["source_profile", "side_index", "section_index"]) || side.hock_binding.source_profile !== hockBinding.source_profile || side.hock_binding.side_index !== hockBinding.side_index || side.hock_binding.section_index !== hockBinding.section_index || !Array.isArray(side.sections)) {
+        errors.push(sideWhere + " is not the exact left/right side or hock binding record.");
+        return;
+      }
+      var legSide = legSourceSides[sideIndex];
+      if (!isObject(legSide) || legSide.side !== expectedSide || !Array.isArray(legSide.sections) || !isObject(legSide.sections[4]) || legSide.sections[4].name !== "hock-endpoint" || legSide.sections[4].ownerRole !== "shin") {
+        errors.push(sideWhere + " hock_binding does not resolve to the same authored shin hock-endpoint.");
+      }
+      if (side.sections.length !== 2) {
+        errors.push(sideWhere + " must contain exactly two sections.");
+        return;
+      }
+      var sourceSections = [];
+      PROVISIONAL_FORM_FOOT_SECTIONS.forEach(function (expected, sectionIndex) {
+        var section = side.sections[sectionIndex];
+        var where = sideWhere + " section " + sectionIndex;
+        var owner = formFootOwner(namespace, expectedSide);
+        var landmarkRole = "form_foot_profile_" + expected.name;
+        var sourceSection = { name: expected.name, position: null, radii: {} };
+        sourceSections.push(sourceSection);
+        if (!formHasExactFields(section, ["name", "frame_index", "landmark_index", "dimension_indices", "provenance", "section_index"]) || !isObject(section.dimension_indices) || !formControlProvenance(section.provenance, source) || !formHasExactFields(section.provenance, ["source", "document", "namespace"])) {
+          errors.push(where + " is incomplete or has unknown fields.");
+          return;
+        }
+        if (section.name !== expected.name || section.section_index !== sectionIndex) { errors.push(where + " is not in the required pad/toe order."); }
+        if (!Number.isInteger(section.frame_index) || section.frame_index < 0 || section.frame_index >= frames.length) {
+          errors.push(where + " frame_index must be an in-range integer index.");
+        } else if (!isObject(frames[section.frame_index]) || !formAddressEquals(frames[section.frame_index].owner, owner) || frames[section.frame_index].role !== PROVISIONAL_FORM_FOOT_FRAME_ROLE) {
+          errors.push(where + " frame_index does not resolve to its identity foot control frame.");
+        }
+        if (!Number.isInteger(section.landmark_index) || section.landmark_index < 0 || section.landmark_index >= landmarks.length) {
+          errors.push(where + " landmark_index must be an in-range integer index.");
+        } else {
+          var landmark = landmarks[section.landmark_index];
+          if (!isObject(landmark) || !formAddressEquals(landmark.owner, owner) || landmark.role !== landmarkRole) {
+            errors.push(where + " landmark_index does not resolve to the canonical foot profile landmark.");
+          } else if (!formFiniteVector(landmark.position, 3) || landmark.position[0] !== 0 || landmark.position[1] < -1.0 || landmark.position[1] > 0.0 || landmark.position[2] < 0.0 || landmark.position[2] > 1.0) {
+            errors.push(where + " landmark position is outside the foot profile bounds.");
+          } else {
+            sourceSection.position = landmark.position.slice();
+          }
+        }
+        if (!formHasExactFields(section.dimension_indices, ["lateral", "up", "forward"])) {
+          errors.push(where + " dimension_indices must contain exactly lateral, up, and forward.");
+          return;
+        }
+        PROVISIONAL_FORM_FOOT_RADIUS_FACTORS.forEach(function (factor) {
+          var dimensionIndex = section.dimension_indices[factor.name];
+          var role = "form_foot_profile_" + expected.name + "_" + factor.roleSuffix;
+          if (!Number.isInteger(dimensionIndex) || dimensionIndex < 0 || dimensionIndex >= dimensions.length) {
+            errors.push(where + " dimension_indices." + factor.name + " must be an in-range integer index.");
+            return;
+          }
+          var dimension = dimensions[dimensionIndex];
+          if (!isObject(dimension) || !formAddressEquals(dimension.owner, owner) || dimension.role !== role) {
+            errors.push(where + " dimension_indices." + factor.name + " does not resolve to " + role + ".");
+            return;
+          }
+          dimensionKeys[formDimensionKey(dimension.owner, dimension.role)] = true;
+          sourceSection.radii[factor.name] = dimension.value_permille;
+          PROVISIONAL_FORM_VARIANTS.forEach(function (profileId) {
+            var factors = formFootProfileFactors(profileId);
+            if (!formPositivePermille(Math.floor(dimension.value_permille * factors[factor.name] / 1000))) { errors.push(where + " projected radius is outside the positive bound."); }
+          });
+        });
+      });
+      if (sourceSections[0].position && sourceSections[1].position) {
+        if (sourceSections[1].position[2] <= sourceSections[0].position[2]) { errors.push(sideWhere + " landmarks must use strict +z order."); }
+        var padContact = sourceSections[0].position[1] / referenceLength - sourceSections[0].radii.up / 1000.0;
+        var toeContact = sourceSections[1].position[1] / referenceLength - sourceSections[1].radii.up / 1000.0;
+        var forwardGap = (sourceSections[1].position[2] - sourceSections[0].position[2]) / referenceLength;
+        var forwardOverlap = (sourceSections[0].radii.forward + sourceSections[1].radii.forward) / 1000.0;
+        var lateralOverlap = (sourceSections[0].radii.lateral + sourceSections[1].radii.lateral) / 1000.0;
+        if (!isFinite(padContact) || !isFinite(toeContact) || Math.abs(padContact - toeContact) > 1e-12) { errors.push(sideWhere + " sections must share an equal contact datum."); }
+        if (!(forwardGap < forwardOverlap) || !(lateralOverlap > 0)) { errors.push(sideWhere + " sections must overlap forward and laterally."); }
+      }
+      sourceSides.push({ side: expectedSide, hockBinding: hockBinding, sections: sourceSections });
+    });
+    return { errors: errors, dimensionKeys: dimensionKeys, sourceSides: sourceSides };
+  }
+
+  function formV11VariantFootProfile(profile, profileId, source, sourceSides) {
+    var errors = [];
+    var prefix = "Variant " + profileId + " foot_profile";
+    if (!formHasExactFields(profile, ["format", "source", "provenance", "sides"]) || profile.format !== PROVISIONAL_FORM_FOOT_PROFILE_FORMAT || profile.source !== "authored_foot_profile" || !formControlProvenance(profile.provenance, source) || !formHasExactFields(profile.provenance, ["source", "document", "namespace"]) || !Array.isArray(profile.sides)) {
+      return [prefix + " has an unexpected format, source, provenance, or fields."];
+    }
+    if (profile.sides.length !== sourceSides.length) { errors.push(prefix + " must contain exactly two source-indexed sides."); return errors; }
+    profile.sides.forEach(function (side, sideIndex) {
+      var sideWhere = prefix + " side " + sideIndex;
+      var sourceSide = sourceSides[sideIndex];
+      if (!formHasExactFields(side, ["side", "hock_binding", "sections"]) || !isObject(sourceSide) || side.side !== sourceSide.side || !isObject(side.hock_binding) || !formHasExactFields(side.hock_binding, ["source_profile", "side_index", "section_index"]) || !isObject(sourceSide.hockBinding) || side.hock_binding.source_profile !== sourceSide.hockBinding.source_profile || side.hock_binding.side_index !== sourceSide.hockBinding.side_index || side.hock_binding.section_index !== sourceSide.hockBinding.section_index || !Array.isArray(side.sections)) {
+        errors.push(sideWhere + " does not match its indexed source side and hock binding.");
+        return;
+      }
+      if (side.sections.length !== sourceSide.sections.length) { errors.push(sideWhere + " must contain exactly two source-indexed sections."); return; }
+      var factors = formFootProfileFactors(profileId);
+      side.sections.forEach(function (section, sectionIndex) {
+        var where = sideWhere + " section " + sectionIndex;
+        var sourceSection = sourceSide.sections[sectionIndex];
+        if (!formHasExactFields(section, ["source_section_index", "name", "position", "lateral_radius_permille", "up_radius_permille", "forward_radius_permille", "scaling", "provenance"]) || !isObject(sourceSection) || !isObject(section.scaling) || !formControlProvenance(section.provenance, source) || !formHasExactFields(section.provenance, ["source", "document", "namespace"])) {
+          errors.push(where + " is incomplete or has unknown fields.");
+          return;
+        }
+        if (section.source_section_index !== sectionIndex || section.name !== sourceSection.name) { errors.push(where + " source section index/name is not exact."); }
+        if (!formFiniteVector(section.position, 3) || !isObject(sourceSection) || !formFiniteVector(sourceSection.position, 3) || !formVectorEquals(section.position, sourceSection.position)) { errors.push(where + " position must equal its indexed source landmark."); }
+        var expectedScaling = { lateral_factor_permille: factors.lateral, up_factor_permille: factors.up, forward_factor_permille: factors.forward };
+        if (!formHasExactFields(section.scaling, Object.keys(expectedScaling))) { errors.push(where + " scaling must contain exactly the three axis factors."); }
+        Object.keys(expectedScaling).forEach(function (field) {
+          if (!formPositivePermille(section.scaling[field]) || section.scaling[field] !== expectedScaling[field]) { errors.push(where + " " + field + " does not match the fixed variant factor."); }
+        });
+        PROVISIONAL_FORM_FOOT_RADIUS_FACTORS.forEach(function (factor) {
+          var field = factor.name + "_radius_permille";
+          var expectedRadius = Number.isInteger(sourceSection.radii[factor.name]) ? Math.floor(sourceSection.radii[factor.name] * factors[factor.name] / 1000) : NaN;
+          if (!formPositivePermille(section[field]) || section[field] !== expectedRadius) { errors.push(where + " " + field + " does not match its indexed source radius and fixed factor."); }
+        });
+      });
+    });
+    return errors;
+  }
+
   function formValidation(payload) {
     var errors = [];
     if (!isObject(payload) || PROVISIONAL_FORM_FORMATS.indexOf(payload.format) === -1) {
@@ -2610,7 +2875,8 @@
     var isV8 = payload.format === PROVISIONAL_FORM_V8_FORMAT;
     var isV9 = payload.format === PROVISIONAL_FORM_V9_FORMAT;
     var isV10 = payload.format === PROVISIONAL_FORM_V10_FORMAT;
-    var hasShoulderControls = isV6 || isV7 || isV8 || isV9 || isV10;
+    var isV11 = payload.format === PROVISIONAL_FORM_V11_FORMAT;
+    var hasShoulderControls = isV6 || isV7 || isV8 || isV9 || isV10 || isV11;
     var hasAuthoredDimensions = isV5 || hasShoulderControls;
     var closedEnvelopeFields = [
       "format", "operation", "status", "stage", "processing_complete",
@@ -2618,11 +2884,12 @@
       "authored_dimensions", "authored_landmarks", "authored_frames",
       "authored_torso_profile", "variants", "limitations"
     ];
-    if (isV8 || isV9 || isV10) { closedEnvelopeFields.push("authored_head_neck_profile"); }
-    if (isV9 || isV10) { closedEnvelopeFields.push("authored_arm_profile"); }
-    if (isV10) { closedEnvelopeFields.push("authored_leg_profile"); }
-    if ((isV7 || isV8 || isV9 || isV10) && !formHasExactFields(payload, closedEnvelopeFields)) {
-      errors.push((isV10 ? "v10" : isV9 ? "v9" : isV8 ? "v8" : "v7") + " payload must contain exactly the closed envelope fields.");
+    if (isV8 || isV9 || isV10 || isV11) { closedEnvelopeFields.push("authored_head_neck_profile"); }
+    if (isV9 || isV10 || isV11) { closedEnvelopeFields.push("authored_arm_profile"); }
+    if (isV10 || isV11) { closedEnvelopeFields.push("authored_leg_profile"); }
+    if (isV11) { closedEnvelopeFields.push("authored_foot_profile"); }
+    if ((isV7 || isV8 || isV9 || isV10 || isV11) && !formHasExactFields(payload, closedEnvelopeFields)) {
+      errors.push((isV11 ? "v11" : isV10 ? "v10" : isV9 ? "v9" : isV8 ? "v8" : "v7") + " payload must contain exactly the closed envelope fields.");
     }
     if (!hasAuthoredDimensions && Object.prototype.hasOwnProperty.call(payload, "authored_dimensions")) {
       errors.push("v1-v4 formats cannot contain authored dimensions.");
@@ -2633,42 +2900,54 @@
     if (isV5 && (Object.prototype.hasOwnProperty.call(payload, "authored_frames") || Object.prototype.hasOwnProperty.call(payload, "authored_landmarks"))) {
       errors.push("v5 is an authored-dimension-only format and cannot contain v6 shoulder controls.");
     }
-    if ((isV7 || isV8 || isV9 || isV10) && !Object.prototype.hasOwnProperty.call(payload, "authored_torso_profile")) {
-      errors.push((isV10 ? "v10" : isV9 ? "v9" : isV8 ? "v8" : "v7") + " authored_torso_profile is missing.");
+    if ((isV7 || isV8 || isV9 || isV10 || isV11) && !Object.prototype.hasOwnProperty.call(payload, "authored_torso_profile")) {
+      errors.push((isV11 ? "v11" : isV10 ? "v10" : isV9 ? "v9" : isV8 ? "v8" : "v7") + " authored_torso_profile is missing.");
     }
-    if (!isV7 && !isV8 && !isV9 && !isV10 && Object.prototype.hasOwnProperty.call(payload, "authored_torso_profile")) {
+    if (!isV7 && !isV8 && !isV9 && !isV10 && !isV11 && Object.prototype.hasOwnProperty.call(payload, "authored_torso_profile")) {
       errors.push("v1-v6 formats cannot contain authored_torso_profile.");
     }
-    if ((isV8 || isV9 || isV10) && !Object.prototype.hasOwnProperty.call(payload, "authored_head_neck_profile")) {
-      errors.push((isV10 ? "v10" : isV9 ? "v9" : "v8") + " authored_head_neck_profile is missing.");
+    if ((isV8 || isV9 || isV10 || isV11) && !Object.prototype.hasOwnProperty.call(payload, "authored_head_neck_profile")) {
+      errors.push((isV11 ? "v11" : isV10 ? "v10" : isV9 ? "v9" : "v8") + " authored_head_neck_profile is missing.");
     }
-    if (!isV8 && !isV9 && !isV10 && Object.prototype.hasOwnProperty.call(payload, "authored_head_neck_profile")) {
+    if (!isV8 && !isV9 && !isV10 && !isV11 && Object.prototype.hasOwnProperty.call(payload, "authored_head_neck_profile")) {
       errors.push("v1-v7 formats cannot contain authored_head_neck_profile.");
     }
-    if ((isV9 || isV10) && !Object.prototype.hasOwnProperty.call(payload, "authored_arm_profile")) {
-      errors.push((isV10 ? "v10" : "v9") + " authored_arm_profile is missing.");
+    if ((isV9 || isV10 || isV11) && !Object.prototype.hasOwnProperty.call(payload, "authored_arm_profile")) {
+      errors.push((isV11 ? "v11" : isV10 ? "v10" : "v9") + " authored_arm_profile is missing.");
     }
-    if (!isV9 && !isV10 && Object.prototype.hasOwnProperty.call(payload, "authored_arm_profile")) {
+    if (!isV9 && !isV10 && !isV11 && Object.prototype.hasOwnProperty.call(payload, "authored_arm_profile")) {
       errors.push("v1-v8 formats cannot contain authored_arm_profile.");
     }
-    if (isV10 && !Object.prototype.hasOwnProperty.call(payload, "authored_leg_profile")) {
-      errors.push("v10 authored_leg_profile is missing.");
+    if ((isV10 || isV11) && !Object.prototype.hasOwnProperty.call(payload, "authored_leg_profile")) {
+      errors.push((isV11 ? "v11" : "v10") + " authored_leg_profile is missing.");
     }
-    if (!isV10 && Object.prototype.hasOwnProperty.call(payload, "authored_leg_profile")) {
+    if (!isV10 && !isV11 && Object.prototype.hasOwnProperty.call(payload, "authored_leg_profile")) {
       errors.push("v1-v9 formats cannot contain authored_leg_profile.");
+    }
+    if (isV11 && !Object.prototype.hasOwnProperty.call(payload, "authored_foot_profile")) {
+      errors.push("v11 authored_foot_profile is missing.");
+    }
+    if (!isV11 && Object.prototype.hasOwnProperty.call(payload, "authored_foot_profile")) {
+      errors.push("v1-v10 formats cannot contain authored_foot_profile.");
     }
     var authoredDimensionKeys = {};
     if (hasAuthoredDimensions) {
       if (!Array.isArray(payload.authored_dimensions) || !payload.authored_dimensions.length) {
-        errors.push((isV7 ? "v7" : isV6 ? "v6" : "v5") + " authored dimensions are missing.");
+        errors.push((isV11 ? "v11" : isV7 ? "v7" : isV6 ? "v6" : "v5") + " authored dimensions are missing.");
       } else {
+        if (isV11 && payload.authored_dimensions.length !== 153) { errors.push("v11 authored dimensions must contain exactly 153 dimensions."); }
+        var authoredDimensionOrder = [];
         payload.authored_dimensions.forEach(function (dimension, index) {
-          if (!isObject(dimension) || !isObject(dimension.owner) || typeof dimension.role !== "string" || !dimension.role || !Number.isInteger(dimension.value_permille) || dimension.value_permille <= 0 || dimension.value_permille > 5000) {
-            errors.push((isV7 ? "v7" : isV6 ? "v6" : "v5") + " authored dimension " + index + " is invalid.");
+          if (!isObject(dimension) || !isObject(dimension.owner) || typeof dimension.role !== "string" || !dimension.role || !Number.isInteger(dimension.value_permille) || dimension.value_permille <= 0 || dimension.value_permille > 5000 || (isV11 && (!formGeometryAddress(dimension.owner) || dimension.owner.namespace !== payload.source.namespace || !formHasExactFields(dimension.provenance, ["source", "document", "namespace"]) || !formControlProvenance(dimension.provenance, payload.source)))) {
+            errors.push((isV11 ? "v11" : isV7 ? "v7" : isV6 ? "v6" : "v5") + " authored dimension " + index + " is invalid.");
             return;
           }
-          authoredDimensionKeys[formDimensionKey(dimension.owner, dimension.role)] = true;
+          var dimensionKey = formDimensionKey(dimension.owner, dimension.role);
+          if (authoredDimensionKeys[dimensionKey]) { errors.push((isV11 ? "v11" : "authored") + " dimensions contain duplicate owner/role keys."); }
+          authoredDimensionKeys[dimensionKey] = true;
+          authoredDimensionOrder.push(formSafeControlSortKey(dimension.owner, dimension.role));
         });
+        if (isV11 && authoredDimensionOrder.some(function (key, index) { return index > 0 && key < authoredDimensionOrder[index - 1]; })) { errors.push("v11 authored dimensions must use stable owner/role order."); }
       }
     }
     if (isV6) {
@@ -2681,33 +2960,39 @@
     }
     var headNeckProfileResult = { errors: [], dimensionKeys: {}, sourceSections: [] };
     var armProfileResult = { errors: [], dimensionKeys: {}, sourceSides: [] };
-    if (isV8 || isV9 || isV10) {
-      torsoProfileResult = formV7AuthoredTorsoProfile(payload, true, isV9 || isV10, isV10);
+    if (isV8 || isV9 || isV10 || isV11) {
+      torsoProfileResult = formV7AuthoredTorsoProfile(payload, true, isV9 || isV10 || isV11, isV10 || isV11, isV11);
       torsoProfileResult.errors.forEach(function (error) { errors.push(error); });
-      headNeckProfileResult = formV8AuthoredHeadNeckProfile(payload, isV9 || isV10, isV10);
+      headNeckProfileResult = formV8AuthoredHeadNeckProfile(payload, isV9 || isV10 || isV11, isV10 || isV11, isV11);
       headNeckProfileResult.errors.forEach(function (error) { errors.push(error); });
-      if (isV9 || isV10) {
+      if (isV9 || isV10 || isV11) {
         armProfileResult = formV9AuthoredArmProfile(payload);
         armProfileResult.errors.forEach(function (error) { errors.push(error); });
       }
     }
     var legProfileResult = { errors: [], dimensionKeys: {}, sourceSides: [] };
-    if (isV10) {
+    if (isV10 || isV11) {
       legProfileResult = formV10AuthoredLegProfile(payload);
       legProfileResult.errors.forEach(function (error) { errors.push(error); });
     }
     var consumedDimensionKeys = {};
-    if (isV7 || isV8 || isV9 || isV10) {
+    if (isV7 || isV8 || isV9 || isV10 || isV11) {
       Object.keys(torsoProfileResult.dimensionKeys).forEach(function (key) { consumedDimensionKeys[key] = true; });
     }
-    if (isV8 || isV9 || isV10) {
+    if (isV8 || isV9 || isV10 || isV11) {
       Object.keys(headNeckProfileResult.dimensionKeys).forEach(function (key) { consumedDimensionKeys[key] = true; });
     }
-    if (isV9 || isV10) {
+    if (isV9 || isV10 || isV11) {
       Object.keys(armProfileResult.dimensionKeys).forEach(function (key) { consumedDimensionKeys[key] = true; });
     }
-    if (isV10) {
+    if (isV10 || isV11) {
       Object.keys(legProfileResult.dimensionKeys).forEach(function (key) { consumedDimensionKeys[key] = true; });
+    }
+    var footProfileResult = { errors: [], dimensionKeys: {}, sourceSides: [] };
+    if (isV11) {
+      footProfileResult = formV11AuthoredFootProfile(payload, legProfileResult.sourceSides);
+      footProfileResult.errors.forEach(function (error) { errors.push(error); });
+      Object.keys(footProfileResult.dimensionKeys).forEach(function (key) { consumedDimensionKeys[key] = true; });
     }
     var variantDescriptorMaps = [];
     if (payload.variants.length !== 4) { errors.push("Exactly four fixed variants are required."); }
@@ -2716,16 +3001,16 @@
         errors.push("Variant " + (index + 1) + " does not match the fixed profile contract.");
         return;
       }
-      if ((isV7 || isV8 || isV9 || isV10) && !formHasExactFields(variant, ["id", "profile_id", "provenance", "descriptors", "torso_profile"].concat(isV8 || isV9 || isV10 ? ["head_neck_profile"] : []).concat(isV9 || isV10 ? ["arm_profile"] : []).concat(isV10 ? ["leg_profile"] : []))) {
-        errors.push("Variant " + variant.id + " must contain exactly the closed " + (isV10 ? "v10" : isV9 ? "v9" : isV8 ? "v8" : "v7") + " variant fields.");
+      if ((isV7 || isV8 || isV9 || isV10 || isV11) && !formHasExactFields(variant, ["id", "profile_id", "provenance", "descriptors", "torso_profile"].concat(isV8 || isV9 || isV10 || isV11 ? ["head_neck_profile"] : []).concat(isV9 || isV10 || isV11 ? ["arm_profile"] : []).concat(isV10 || isV11 ? ["leg_profile"] : []).concat(isV11 ? ["foot_profile"] : []))) {
+        errors.push("Variant " + variant.id + " must contain exactly the closed " + (isV11 ? "v11" : isV10 ? "v10" : isV9 ? "v9" : isV8 ? "v8" : "v7") + " variant fields.");
       }
-      if (!isV7 && !isV8 && !isV9 && !isV10 && Object.prototype.hasOwnProperty.call(variant, "torso_profile")) {
+      if (!isV7 && !isV8 && !isV9 && !isV10 && !isV11 && Object.prototype.hasOwnProperty.call(variant, "torso_profile")) {
         errors.push("v1-v6 variants cannot contain torso_profile.");
       }
-      if (!isV8 && !isV9 && !isV10 && Object.prototype.hasOwnProperty.call(variant, "head_neck_profile")) {
+      if (!isV8 && !isV9 && !isV10 && !isV11 && Object.prototype.hasOwnProperty.call(variant, "head_neck_profile")) {
         errors.push("v1-v7 variants cannot contain head_neck_profile.");
       }
-      if (!isV9 && !isV10 && Object.prototype.hasOwnProperty.call(variant, "arm_profile")) {
+      if (!isV9 && !isV10 && !isV11 && Object.prototype.hasOwnProperty.call(variant, "arm_profile")) {
         errors.push("v1-v8 variants cannot contain arm_profile.");
       }
       if (!variant.descriptors.length || variant.descriptors.length > 64) {
@@ -2734,23 +3019,28 @@
       if (hasAuthoredDimensions && (!isObject(variant.provenance) || variant.provenance.shape_basis !== "source-authored-dimensions-plus-fixed-display-factor")) {
         errors.push("Variant " + variant.id + " has invalid " + (isV7 ? "v7" : isV6 ? "v6" : "v5") + " shape-basis provenance.");
       }
-      if (isV7 || isV8 || isV9 || isV10) {
+      if (isV7 || isV8 || isV9 || isV10 || isV11) {
         formV7VariantTorsoProfile(variant.torso_profile, variant.id, payload.source, torsoProfileResult.sourceSections).forEach(function (error) {
           errors.push(error);
         });
       }
-      if (isV8 || isV9 || isV10) {
+      if (isV8 || isV9 || isV10 || isV11) {
         formV8VariantHeadNeckProfile(variant.head_neck_profile, variant.id, payload.source, headNeckProfileResult.sourceSections).forEach(function (error) {
           errors.push(error);
         });
       }
-      if (isV9 || isV10) {
+      if (isV9 || isV10 || isV11) {
         formV9VariantArmProfile(variant.arm_profile, variant.id, payload.source, armProfileResult.sourceSides).forEach(function (error) {
           errors.push(error);
         });
       }
-      if (isV10) {
+      if (isV10 || isV11) {
         formV10VariantLegProfile(variant.leg_profile, variant.id, payload.source, legProfileResult.sourceSides).forEach(function (error) {
+          errors.push(error);
+        });
+      }
+      if (isV11) {
+        formV11VariantFootProfile(variant.foot_profile, variant.id, payload.source, footProfileResult.sourceSides).forEach(function (error) {
           errors.push(error);
         });
       }
@@ -3485,11 +3775,10 @@
     viewport.setAttribute("role", "region");
     viewport.setAttribute("aria-label", "Scrollable image viewport");
     var canvas = node("div", null, "image-canvas");
-    var image = node("img");
-    canvas.appendChild(image);
+    var image = null;
     viewport.appendChild(canvas);
     dialog.appendChild(viewport);
-    dialog.appendChild(node("p", "Use Previous/Next, the Left/Right arrow keys, or click the displayed image to compare items. Escape closes the viewer.", "image-dialog-instructions"));
+    dialog.appendChild(node("p", "Use Previous/Next, the Left/Right arrow keys, click the displayed image, or drag it to compare and pan items. Escape closes the viewer.", "image-dialog-instructions"));
 
     var MIN_SCALE = 0.1;
     var MAX_SCALE = 8;
@@ -3497,11 +3786,17 @@
     var scale = 1;
     var fitScale = 1;
     var cleaned = false;
-    var currentIndex = Math.max(0, Math.min(items.length - 1, selectedIndex || 0));
+    var initialIndex = Math.max(0, Math.min(items.length - 1, selectedIndex || 0));
+    var requestedIndex = initialIndex;
+    var displayedIndex = -1;
     var imageLoadToken = 0;
+    var suppressNextImageClick = false;
     var releaseScrollLock = acquireImageDialogLock();
 
     function imageSize() {
+      if (!image) {
+        return { width: 1, height: 1 };
+      }
       return { width: image.naturalWidth || 1, height: image.naturalHeight || 1 };
     }
 
@@ -3510,6 +3805,9 @@
     }
 
     function renderCanvas() {
+      if (!image) {
+        return;
+      }
       var size = imageSize();
       var imageWidth = size.width * scale;
       var imageHeight = size.height * scale;
@@ -3530,6 +3828,9 @@
     }
 
     function fitToViewport() {
+      if (!image) {
+        return;
+      }
       var size = imageSize();
       var width = viewport.clientWidth || size.width;
       var height = viewport.clientHeight || size.height;
@@ -3541,6 +3842,9 @@
     }
 
     function zoomTo(value, anchorX, anchorY) {
+      if (!image) {
+        return;
+      }
       var oldScale = scale;
       scale = clampScale(value);
       if (scale === oldScale) {
@@ -3573,10 +3877,10 @@
         closeImageDialog();
       } else if (event.key === "ArrowLeft") {
         event.preventDefault();
-        showItem(currentIndex - 1, document.activeElement === image);
+        showItem(requestedIndex - 1, image !== null && document.activeElement === image);
       } else if (event.key === "ArrowRight") {
         event.preventDefault();
-        showItem(currentIndex + 1, document.activeElement === image);
+        showItem(requestedIndex + 1, image !== null && document.activeElement === image);
       } else if (event.key === "+" || event.key === "=" || event.key === "Add") {
         event.preventDefault();
         zoomBy(ZOOM_FACTOR);
@@ -3590,47 +3894,188 @@
       fitToViewport();
     }
 
+    function restoreViewport(viewportState) {
+      scale = clampScale(viewportState.scale);
+      renderCanvas();
+      viewport.scrollLeft = viewportState.scrollLeft;
+      viewport.scrollTop = viewportState.scrollTop;
+    }
+
+    function captureViewport() {
+      return {
+        scale: scale,
+        scrollLeft: viewport.scrollLeft,
+        scrollTop: viewport.scrollTop
+      };
+    }
+
+    function focusPreservingViewport(element) {
+      var scrollLeft = viewport.scrollLeft;
+      var scrollTop = viewport.scrollTop;
+      try {
+        element.focus({ preventScroll: true });
+      } catch (error) {
+        element.focus();
+      }
+      viewport.scrollLeft = scrollLeft;
+      viewport.scrollTop = scrollTop;
+    }
+
+    function updateImageControls() {
+      var disabled = image === null;
+      zoomOut.disabled = disabled;
+      zoomIn.disabled = disabled;
+      fit.disabled = disabled;
+    }
+
+    function displayedPositionText() {
+      if (displayedIndex < 0) {
+        return "No image displayed";
+      }
+      var displayedItem = items[displayedIndex];
+      return "Item " + (displayedIndex + 1) + " of " + items.length + ": " + displayedItem.title;
+    }
+
+    function updateDisplayedState(statusText) {
+      heading.textContent = displayedIndex < 0 ? "Image comparison" : items[displayedIndex].title;
+      positionLabel.textContent = displayedPositionText() + (statusText ? " · " + statusText : "");
+    }
+
     function showItem(index, focusImage) {
       if (!items.length) {
         return;
       }
-      currentIndex = (index + items.length) % items.length;
-      var item = items[currentIndex];
+      requestedIndex = (index + items.length) % items.length;
+      var targetIndex = requestedIndex;
+      var item = items[targetIndex];
       var loadToken = ++imageLoadToken;
+      previous.disabled = items.length < 2;
+      next.disabled = items.length < 2;
+      if (image && targetIndex === displayedIndex) {
+        updateDisplayedState("");
+        if (focusImage) {
+          focusPreservingViewport(image);
+        }
+        return;
+      }
+      updateDisplayedState("Loading item " + (targetIndex + 1) + ": " + item.title);
       var nextImage = node("img");
-      nextImage.alt = item.title;
+      var imageLabel = imageAccessibleLabel(item);
+      nextImage.alt = imageLabel;
       nextImage.title = item.title;
       nextImage.tabIndex = 0;
       nextImage.setAttribute("role", "button");
-      nextImage.setAttribute("aria-label", "Show next comparison image");
+      nextImage.setAttribute("aria-label", imageDescription(item) ? "Show next comparison image: " + imageLabel : "Show next comparison image");
+      nextImage.draggable = false;
+      var pointerGesture = null;
+      function releasePointerCapture(event) {
+        if (nextImage.hasPointerCapture && nextImage.hasPointerCapture(event.pointerId)) {
+          nextImage.releasePointerCapture(event.pointerId);
+        }
+      }
+      function onPointerDown(event) {
+        if (image !== nextImage || (event.pointerType === "mouse" && event.button !== 0)) {
+          return;
+        }
+        suppressNextImageClick = false;
+        pointerGesture = {
+          pointerId: event.pointerId,
+          startX: event.clientX,
+          startY: event.clientY,
+          startScrollLeft: viewport.scrollLeft,
+          startScrollTop: viewport.scrollTop,
+          dragging: false
+        };
+        if (nextImage.setPointerCapture) {
+          nextImage.setPointerCapture(event.pointerId);
+        }
+      }
+      function onPointerMove(event) {
+        if (!pointerGesture || pointerGesture.pointerId !== event.pointerId) {
+          return;
+        }
+        var deltaX = event.clientX - pointerGesture.startX;
+        var deltaY = event.clientY - pointerGesture.startY;
+        if (!pointerGesture.dragging && deltaX * deltaX + deltaY * deltaY >= 36) {
+          pointerGesture.dragging = true;
+          nextImage.classList.add("is-dragging");
+        }
+        if (!pointerGesture.dragging) {
+          return;
+        }
+        event.preventDefault();
+        viewport.scrollLeft = pointerGesture.startScrollLeft - deltaX;
+        viewport.scrollTop = pointerGesture.startScrollTop - deltaY;
+      }
+      function onPointerEnd(event, cancelled) {
+        if (!pointerGesture || pointerGesture.pointerId !== event.pointerId) {
+          return;
+        }
+        if (pointerGesture.dragging && !cancelled) {
+          suppressNextImageClick = true;
+        }
+        nextImage.classList.remove("is-dragging");
+        releasePointerCapture(event);
+        pointerGesture = null;
+      }
       function showNextImage(event) {
+        if (event.type === "click" && suppressNextImageClick) {
+          suppressNextImageClick = false;
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
         if (event.type === "keydown" && event.key !== "Enter" && event.key !== " ") {
           return;
         }
         if (event.type === "keydown") {
           event.preventDefault();
         }
-        showItem(currentIndex + 1, true);
+        showItem(requestedIndex + 1, true);
       }
       nextImage.addEventListener("click", showNextImage);
+      nextImage.addEventListener("dragstart", function (event) { event.preventDefault(); });
+      nextImage.addEventListener("pointerdown", onPointerDown);
+      nextImage.addEventListener("pointermove", onPointerMove);
+      nextImage.addEventListener("pointerup", function (event) { onPointerEnd(event, false); });
+      nextImage.addEventListener("pointercancel", function (event) { onPointerEnd(event, true); });
+      nextImage.addEventListener("lostpointercapture", function (event) { onPointerEnd(event, true); });
       nextImage.addEventListener("keydown", showNextImage);
       nextImage.addEventListener("load", function () {
-        if (cleaned || loadToken !== imageLoadToken || image !== nextImage) {
+        if (cleaned || loadToken !== imageLoadToken || requestedIndex !== targetIndex) {
           return;
         }
-        fitToViewport();
+        var viewportState = image ? captureViewport() : null;
+        if (image) {
+          canvas.replaceChild(nextImage, image);
+        } else {
+          canvas.appendChild(nextImage);
+        }
+        image = nextImage;
+        displayedIndex = targetIndex;
+        requestedIndex = targetIndex;
+        updateDisplayedState("");
+        updateImageControls();
+        if (viewportState) {
+          restoreViewport(viewportState);
+        } else {
+          fitToViewport();
+        }
+        if (focusImage) {
+          focusPreservingViewport(image);
+        }
       });
-      canvas.replaceChild(nextImage, image);
-      image = nextImage;
-      image.src = item.source;
-      if (focusImage) {
-        image.focus();
-      }
-      heading.textContent = item.title;
-      positionLabel.textContent = "Item " + (currentIndex + 1) + " of " + items.length + ": " + item.title;
-      previous.disabled = items.length < 2;
-      next.disabled = items.length < 2;
-      fitToViewport();
+      nextImage.addEventListener("error", function () {
+        if (cleaned || loadToken !== imageLoadToken || requestedIndex !== targetIndex) {
+          return;
+        }
+        if (displayedIndex >= 0) {
+          requestedIndex = displayedIndex;
+        }
+        updateDisplayedState("Could not load item " + (targetIndex + 1) + ": " + item.title);
+        updateImageControls();
+      });
+      nextImage.src = item.source;
     }
 
     function cleanup() {
@@ -3659,8 +4104,8 @@
     }
 
     close.addEventListener("click", closeImageDialog);
-    previous.addEventListener("click", function () { showItem(currentIndex - 1); });
-    next.addEventListener("click", function () { showItem(currentIndex + 1); });
+    previous.addEventListener("click", function () { showItem(requestedIndex - 1, false); });
+    next.addEventListener("click", function () { showItem(requestedIndex + 1, false); });
     zoomOut.addEventListener("click", function () { zoomBy(1 / ZOOM_FACTOR); });
     zoomIn.addEventListener("click", function () { zoomBy(ZOOM_FACTOR); });
     fit.addEventListener("click", fitToViewport);
@@ -3679,8 +4124,8 @@
       throw error;
     }
     window.addEventListener("resize", onResize);
-    showItem(currentIndex);
-    updateScaleLabel();
+    updateImageControls();
+    showItem(requestedIndex, false);
   }
 
   function renderReview(data) {
@@ -3745,10 +4190,11 @@
         var card = node("article", null, "option-card");
         var imageButton = node("button", null, "image-button");
         imageButton.type = "button";
-        imageButton.setAttribute("aria-label", "Expand " + item.title);
+        var imageLabel = imageAccessibleLabel(item);
+        imageButton.setAttribute("aria-label", "Expand " + imageLabel);
         var image = node("img");
         image.src = imageItems[itemIndex].source;
-        image.alt = item.title;
+        image.alt = imageLabel;
         image.loading = "lazy";
         imageButton.appendChild(image);
         imageButton.addEventListener("click", function () { openImage(imageItems, itemIndex); });

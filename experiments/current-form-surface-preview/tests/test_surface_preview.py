@@ -9,6 +9,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 from PIL import Image, ImageDraw
@@ -131,6 +132,10 @@ def make_payload() -> dict[str, object]:
         ("shin-midpoint", "shin", -0.5, (225, 195, 210)),
         ("hock-endpoint", "shin", -1.0, (185, 165, 175)),
     ]
+    foot_specs = [
+        ("pad", -0.2, 0.36, (320, 150, 300)),
+        ("toe", -0.2, 0.72, (260, 150, 240)),
+    ]
     authored_dimensions = []
     for item in descriptors:
         shape = item["shape"]
@@ -187,6 +192,15 @@ def make_payload() -> dict[str, object]:
                 authored_dimensions.append({
                     "owner": copy.deepcopy(owner),
                     "role": surface_preview.LEG_PROFILE_DIMENSION_PREFIX + underscore_name + "_" + suffix,
+                    "value_permille": value,
+                    "provenance": {"source": "source-authored", "document": "test", "namespace": "main"},
+                })
+        for name, _, _, radii in foot_specs:
+            owner = address("foot", [side])
+            for suffix, value in zip(surface_preview.FOOT_PROFILE_DIMENSION_SUFFIXES, radii):
+                authored_dimensions.append({
+                    "owner": copy.deepcopy(owner),
+                    "role": surface_preview.FOOT_PROFILE_DIMENSION_PREFIX + name + "_" + suffix,
                     "value_permille": value,
                     "provenance": {"source": "source-authored", "document": "test", "namespace": "main"},
                 })
@@ -278,11 +292,39 @@ def make_payload() -> dict[str, object]:
                     for index, (name, _, y, radii) in enumerate(leg_specs)
                 ],
             })
+        foot_profile_sides = []
+        for side_index, side in enumerate(("left", "right")):
+            factors = surface_preview._foot_profile_factors(variant_id)
+            foot_profile_sides.append({
+                "side": side,
+                "hock_binding": {
+                    "source_profile": "authored_leg_profile",
+                    "side_index": side_index,
+                    "section_index": surface_preview.FOOT_PROFILE_HOCK_SECTION_INDEX,
+                },
+                "sections": [
+                    {
+                        "source_section_index": index,
+                        "name": name,
+                        "position": [0.0, y, z],
+                        "lateral_radius_permille": radii[0] * factors[0] // 1_000,
+                        "up_radius_permille": radii[1] * factors[1] // 1_000,
+                        "forward_radius_permille": radii[2] * factors[2] // 1_000,
+                        "scaling": {
+                            "lateral_factor_permille": factors[0],
+                            "up_factor_permille": factors[1],
+                            "forward_factor_permille": factors[2],
+                        },
+                        "provenance": {"source": "source-authored", "document": "test", "namespace": "main"},
+                    }
+                    for index, (name, y, z, radii) in enumerate(foot_specs)
+                ],
+            })
         head_neck_connections = [
             {"name": name, "from_section_index": from_index, "to_section_index": to_index, "route": route}
             for name, from_index, to_index, route in surface_preview.HEAD_NECK_PROFILE_CONNECTIONS
         ]
-        variants.append({"id": variant_id, "profile_id": variant_id, "provenance": {"source": "profile-derived-display", "resource_profile_id": "ck.resource.body.r2", "shape_basis": "source-authored-dimensions-plus-fixed-display-factor"}, "descriptors": current, "torso_profile": {"format": surface_preview.AUTHORED_TORSO_PROFILE_FORMAT, "source": "authored_torso_profile", "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}, "sections": torso_profile_sections}, "head_neck_profile": {"format": surface_preview.AUTHORED_HEAD_NECK_PROFILE_FORMAT, "source": "authored_head_neck_profile", "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}, "sections": head_neck_profile_sections, "connections": head_neck_connections}, "arm_profile": {"format": surface_preview.AUTHORED_ARM_PROFILE_FORMAT, "source": "authored_arm_profile", "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}, "sides": arm_profile_sides}, "leg_profile": {"format": surface_preview.AUTHORED_LEG_PROFILE_FORMAT, "source": "authored_leg_profile", "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}, "sides": leg_profile_sides}})
+        variants.append({"id": variant_id, "profile_id": variant_id, "provenance": {"source": "profile-derived-display", "resource_profile_id": "ck.resource.body.r2", "shape_basis": "source-authored-dimensions-plus-fixed-display-factor"}, "descriptors": current, "torso_profile": {"format": surface_preview.AUTHORED_TORSO_PROFILE_FORMAT, "source": "authored_torso_profile", "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}, "sections": torso_profile_sections}, "head_neck_profile": {"format": surface_preview.AUTHORED_HEAD_NECK_PROFILE_FORMAT, "source": "authored_head_neck_profile", "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}, "sections": head_neck_profile_sections, "connections": head_neck_connections}, "arm_profile": {"format": surface_preview.AUTHORED_ARM_PROFILE_FORMAT, "source": "authored_arm_profile", "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}, "sides": arm_profile_sides}, "leg_profile": {"format": surface_preview.AUTHORED_LEG_PROFILE_FORMAT, "source": "authored_leg_profile", "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}, "sides": leg_profile_sides}, "foot_profile": {"format": surface_preview.AUTHORED_FOOT_PROFILE_FORMAT, "source": "authored_foot_profile", "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}, "sides": foot_profile_sides}})
     authored_landmarks = [
         {"owner": address("upper_arm", ["left"]), "role": "form_shoulder_peak", "frame": {"owner": address("upper_arm", ["left"]), "role": "form_shoulder_control"}, "position": [-0.1, 0.15, 0.0], "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}},
         {"owner": address("upper_arm", ["left"]), "role": "form_axilla", "frame": {"owner": address("upper_arm", ["left"]), "role": "form_shoulder_control"}, "position": [-0.1, -0.3, 0.0], "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}},
@@ -326,6 +368,15 @@ def make_payload() -> dict[str, object]:
                 "position": [0.0, y, 0.0],
                 "provenance": {"source": "source-authored", "document": "test", "namespace": "main"},
             })
+        for name, y, z, _ in foot_specs:
+            owner = address("foot", [side])
+            authored_landmarks.append({
+                "owner": copy.deepcopy(owner),
+                "role": surface_preview.FOOT_PROFILE_LANDMARK_PREFIX + name,
+                "frame": {"owner": copy.deepcopy(owner), "role": surface_preview.FOOT_PROFILE_CONTROL_FRAME_ROLE},
+                "position": [0.0, y, z],
+                "provenance": {"source": "source-authored", "document": "test", "namespace": "main"},
+            })
     authored_landmarks.sort(key=lambda item: (item["owner"]["namespace"], tuple(item["owner"]["anchors"]), item["owner"]["kind"], item["owner"]["role"], item["role"]))
     authored_frames = [
         {"owner": address(role), "role": surface_preview.HEAD_NECK_PROFILE_FRAME_ROLE, "transform": {"translation": [0.0, 0.0, 0.0], "rotation_xyzw": [0.0, 0.0, 0.0, 1.0]}, "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}}
@@ -344,6 +395,9 @@ def make_payload() -> dict[str, object]:
         {"owner": address(owner_role, [side]), "role": surface_preview.LEG_PROFILE_CONTROL_FRAME_ROLE, "transform": {"translation": [0.0, 0.0, 0.0], "rotation_xyzw": [0.0, 0.0, 0.0, 1.0]}, "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}}
         for side in ("left", "right")
         for owner_role in ("shin", "thigh")
+    ] + [
+        {"owner": address("foot", [side]), "role": surface_preview.FOOT_PROFILE_CONTROL_FRAME_ROLE, "transform": {"translation": [0.0, 0.0, 0.0], "rotation_xyzw": [0.0, 0.0, 0.0, 1.0]}, "provenance": {"source": "source-authored", "document": "test", "namespace": "main"}}
+        for side in ("left", "right")
     ]
     authored_frames.sort(key=lambda item: (item["owner"]["namespace"], tuple(item["owner"]["anchors"]), item["owner"]["kind"], item["owner"]["role"], item["role"]))
     source_provenance = {"source": "source-authored", "document": "test", "namespace": "main"}
@@ -447,7 +501,36 @@ def make_payload() -> dict[str, object]:
             for side in ("left", "right")
         ],
     }
-    payload = {"format": surface_preview.SOURCE_FORMAT, "operation": "inspect-provisional-form", "status": "success", "stage": "provisional-form", "processing_complete": True, "diagnostics_complete": True, "diagnostics": [], "source": {"document": "test", "namespace": "main", "resource_profile_id": "ck.resource.body.r2"}, "reference_scale": {"parent": address("neck"), "child": address("head"), "axis_delta": [0, 1, 0], "squared_length": 1, "source": "exact-containment-edge"}, "authored_dimensions": authored_dimensions, "authored_landmarks": authored_landmarks, "authored_frames": authored_frames, "authored_torso_profile": authored_torso_profile, "authored_head_neck_profile": authored_head_neck_profile, "authored_arm_profile": authored_arm_profile, "authored_leg_profile": authored_leg_profile, "variants": variants, "limitations": "Provisional display-only geometry descriptors; source-authored dimensions, shoulder controls, authored_torso_profile v1, authored_head_neck_profile v1, authored_arm_profile v1, and authored_leg_profile v1 use bounded source-authored controls and fixed display factors; no production geometry or Readiness 3."}
+    authored_foot_profile = {
+        "format": surface_preview.AUTHORED_FOOT_PROFILE_FORMAT,
+        "provenance": copy.deepcopy(source_provenance),
+        "sides": [
+            {
+                "side": side,
+                "hock_binding": {
+                    "source_profile": "authored_leg_profile",
+                    "side_index": side_index,
+                    "section_index": surface_preview.FOOT_PROFILE_HOCK_SECTION_INDEX,
+                },
+                "sections": [
+                    {
+                        "name": name,
+                        "frame_index": frame_indices[("foot", (side,), surface_preview.FOOT_PROFILE_CONTROL_FRAME_ROLE)],
+                        "landmark_index": landmark_indices[("foot", (side,), surface_preview.FOOT_PROFILE_LANDMARK_PREFIX + name)],
+                        "dimension_indices": {
+                            suffix.split("_")[0]: dimension_indices[("foot", (side,), surface_preview.FOOT_PROFILE_DIMENSION_PREFIX + name + "_" + suffix)]
+                            for suffix in surface_preview.FOOT_PROFILE_DIMENSION_SUFFIXES
+                        },
+                        "provenance": copy.deepcopy(source_provenance),
+                        "section_index": index,
+                    }
+                    for index, (name, _, _, _) in enumerate(foot_specs)
+                ],
+            }
+            for side_index, side in enumerate(("left", "right"))
+        ],
+    }
+    payload = {"format": surface_preview.SOURCE_FORMAT, "operation": "inspect-provisional-form", "status": "success", "stage": "provisional-form", "processing_complete": True, "diagnostics_complete": True, "diagnostics": [], "source": {"document": "test", "namespace": "main", "resource_profile_id": "ck.resource.body.r2"}, "reference_scale": {"parent": address("neck"), "child": address("head"), "axis_delta": [0, 1, 0], "squared_length": 1, "source": "exact-containment-edge"}, "authored_dimensions": authored_dimensions, "authored_landmarks": authored_landmarks, "authored_frames": authored_frames, "authored_torso_profile": authored_torso_profile, "authored_head_neck_profile": authored_head_neck_profile, "authored_arm_profile": authored_arm_profile, "authored_leg_profile": authored_leg_profile, "authored_foot_profile": authored_foot_profile, "variants": variants, "limitations": "Provisional display-only geometry descriptors; source-authored dimensions, shoulder controls, authored_torso_profile v1, authored_head_neck_profile v1, authored_arm_profile v1, authored_leg_profile v1, and authored_foot_profile v1 use bounded source-authored controls and fixed display factors; no production geometry or Readiness 3."}
     return payload
 
 
@@ -460,9 +543,9 @@ class SurfacePreviewTests(unittest.TestCase):
         form = surface_preview.validate_envelope(make_payload())
         self.assertEqual([x[0] for x in form.variants], list(surface_preview.VARIANT_IDS))
         self.assertIn(("main", ("left",), "part", "hand"), {x.key for x in form.variants[0][1]})
-        self.assertEqual(len(form.authored_dimensions), 141)
-        self.assertEqual(len(form.authored_landmarks), 39)
-        self.assertEqual(len(form.authored_frames), 14)
+        self.assertEqual(len(form.authored_dimensions), 153)
+        self.assertEqual(len(form.authored_landmarks), 43)
+        self.assertEqual(len(form.authored_frames), 16)
         self.assertEqual(
             form.authored_dimensions,
             tuple(sorted(form.authored_dimensions, key=lambda item: (item[0], item[1]))),
@@ -1358,30 +1441,55 @@ class SurfacePreviewTests(unittest.TestCase):
             else:
                 self.assertEqual([item.recipe for item in fields if item.owner is paw.owner], ["paw", "extremity-bridge"])
 
-    def test_digitigrade_foot_chain_is_source_derived_bilateral_and_contact_grounded(self) -> None:
+    def test_authored_foot_profile_is_bilateral_exact_and_contact_grounded(self) -> None:
         form = surface_preview.validate_envelope(make_varied_payload())
         signatures = []
-        for _, descriptors, _ in form.variants:
+        self.assertFalse(hasattr(surface_preview, "_derive_foot_chain_profile"))
+        for variant_index, (variant_id, descriptors, _) in enumerate(form.variants):
             guide = surface_preview._derive_hybrid_guides(form, descriptors)
             fields = surface_preview._compile_hybrid_guide(guide)
+            projected_profile = form.variant_foot_profiles[variant_index]
             feet = tuple(item for item in guide.paw_guides if item.owner.key[3] == "foot")
             self.assertEqual(len(feet), 2)
             for foot in feet:
                 self.assertIsNotNone(foot.foot_chain)
                 chain = foot.foot_chain
                 assert chain is not None
-                source = surface_preview._source_shape(foot.owner, form.reference_scale)
                 shin = next(item for item in guide.limb_guides if item.owner.key == foot.owner.parent)
                 assert shin.joint is not None
-                expected_pad_radii, expected_metatarsal_profile = surface_preview._derive_foot_chain_profile(
-                    source["radii"],
+                side_index = 0 if foot.owner.key[1] == ("left",) else 1
+                authored_side = form.authored_foot_profile.sides[side_index]
+                projected_side = projected_profile.sides[side_index]
+                guide_side = guide.foot_profile.sides[side_index]
+                self.assertEqual(chain.profile, guide.foot_profile)
+                self.assertEqual(guide_side.hock_binding, ("authored_leg_profile", side_index, surface_preview.FOOT_PROFILE_HOCK_SECTION_INDEX))
+                self.assertEqual(tuple(float(value) for value in foot.owner.point), shin.joint.center)
+                for authored, projected, station in zip(authored_side.sections, projected_side.sections, guide_side.sections):
+                    expected_center = tuple(float(foot.owner.point[axis] + projected.position[axis] / form.reference_scale) for axis in range(3))
+                    self.assertEqual(station.center, expected_center)
+                    self.assertEqual(station.center, chain.pad_center if authored.name == "pad" else chain.toe_center)
+                    self.assertEqual(station.radii, tuple(value / 1000.0 for value in (projected.lateral_radius_permille, projected.up_radius_permille, projected.forward_radius_permille)))
+                    self.assertEqual(station.radii, chain.pad_radii if authored.name == "pad" else chain.toe_radii)
+                    self.assertEqual(station.profile_provenance, form.authored_foot_profile.provenance)
+                    self.assertEqual(station.variant_provenance, projected.provenance)
+                    for lineage, control, factor, scaled in zip(
+                        (station.lateral_lineage, station.up_lineage, station.forward_lineage),
+                        (authored.lateral, authored.up, authored.forward),
+                        surface_preview._foot_profile_factors(variant_id),
+                        (projected.lateral_radius_permille, projected.up_radius_permille, projected.forward_radius_permille),
+                    ):
+                        self.assertEqual(lineage.base, control.value_permille)
+                        self.assertEqual(lineage.factor, factor)
+                        self.assertEqual(lineage.scaled, scaled)
+                        self.assertEqual(lineage.reference, (foot.owner.key, control.role))
+                        self.assertEqual(lineage.reference_index, control.source_index)
+                        self.assertEqual(lineage.provenance, control.provenance)
+                        self.assertEqual(lineage.consumed_section, authored.name)
+                expected_metatarsal_profile = surface_preview._derive_foot_metatarsal_profile(
+                    chain.hock_radii,
+                    chain.pad_radii,
                     "test.foot_chain",
                 )
-                self.assertEqual(chain.pad_radii, expected_pad_radii)
-                expected_proximal = 0.34 * math.sqrt(expected_pad_radii[0] * expected_pad_radii[2])
-                expected_distal = 0.72 * min(expected_pad_radii)
-                self.assertAlmostEqual(chain.metatarsal_profile[0], expected_proximal, places=12)
-                self.assertAlmostEqual(chain.metatarsal_profile[1], expected_distal, places=12)
                 self.assertEqual(chain.metatarsal_profile, expected_metatarsal_profile)
                 self.assertEqual(shin.joint.adjacent_profiles[1], expected_metatarsal_profile[0])
                 self.assertEqual(chain.hock_anchor, shin.joint.center)
@@ -1402,7 +1510,7 @@ class SurfacePreviewTests(unittest.TestCase):
                 shared_anchor = np.asarray([chain.hock_anchor])
                 self.assertLess(float(surface_preview._field(shared_anchor, hock_field)[0]), 0.0)
                 self.assertLess(float(surface_preview._field(shared_anchor, metatarsal_field)[0]), 0.0)
-                self.assertAlmostEqual(chain.contact_height, float(source["center"][1] - source["radii"][1]), places=12)
+                self.assertAlmostEqual(chain.contact_height, float(chain.pad_center[1] - chain.pad_radii[1]), places=12)
                 self.assertAlmostEqual(chain.pad_center[1] - chain.pad_radii[1], chain.contact_height, places=12)
                 self.assertAlmostEqual(chain.toe_center[1] - chain.toe_radii[1], chain.contact_height, places=12)
                 signatures.append((chain.metatarsal_centerline, chain.metatarsal_profile, chain.pad_center, chain.toe_center))
@@ -1430,6 +1538,152 @@ class SurfacePreviewTests(unittest.TestCase):
             [item.foot_chain for item in first_a.paw_guides],
             [item.foot_chain for item in first_b.paw_guides],
         )
+
+    def test_legacy_foot_shape_does_not_drive_authored_profile_or_compiled_chain(self) -> None:
+        form = surface_preview.validate_envelope(make_varied_payload())
+
+        def profile_signature(guide: object) -> tuple[object, ...]:
+            profile = guide.foot_profile  # type: ignore[attr-defined]
+            return tuple(
+                (
+                    side.side,
+                    side.hock_binding,
+                    tuple(
+                        (
+                            station.name,
+                            station.section_index,
+                            station.source_section_index,
+                            station.frame_index,
+                            station.landmark_index,
+                            station.owner.key,
+                            station.frame,
+                            station.landmark,
+                            station.center,
+                            station.radii,
+                            station.lateral_lineage,
+                            station.up_lineage,
+                            station.forward_lineage,
+                            station.profile_provenance,
+                            station.variant_provenance,
+                        )
+                        for station in side.sections
+                    ),
+                )
+                for side in profile.sides
+            )
+
+        def chain_signature(guide: object) -> tuple[object, ...]:
+            return tuple(
+                (
+                    paw.owner.key,
+                    tuple(
+                        (field.name, getattr(paw.foot_chain, field.name))
+                        for field in dataclasses.fields(paw.foot_chain)
+                        if field.name != "profile"
+                    ),
+                )
+                for paw in guide.paw_guides  # type: ignore[attr-defined]
+                if paw.foot_chain is not None
+            )
+
+        def field_signature(fields: tuple[surface_preview.Field, ...]) -> tuple[object, ...]:
+            return tuple(
+                (
+                    field.owner.key,
+                    field.recipe,
+                    json.dumps(
+                        field.shape,
+                        sort_keys=True,
+                        default=lambda value: value.tolist() if isinstance(value, np.ndarray) else value,
+                    ),
+                )
+                for field in fields
+                if field.owner.key[3] == "foot"
+            )
+
+        for _, descriptors, _ in form.variants:
+            foot_descriptors = {item.key: item for item in descriptors if item.key[3] == "foot"}
+            baseline_guide = surface_preview._derive_hybrid_guides(form, descriptors)
+            baseline_fields = surface_preview._compile_hybrid_guide(baseline_guide)
+            baseline_profile = profile_signature(baseline_guide)
+            baseline_chain = chain_signature(baseline_guide)
+            baseline_foot_fields = field_signature(baseline_fields)
+            legacy_foot = foot_descriptors[sorted(foot_descriptors)[0]]
+            original_extents = list(legacy_foot.shape["axis_extents_permille"])
+            legacy_foot.shape["axis_extents_permille"] = [value + 137 for value in original_extents]
+            try:
+                changed_guide = surface_preview._derive_hybrid_guides(form, descriptors)
+                changed_fields = surface_preview._compile_hybrid_guide(changed_guide)
+            finally:
+                legacy_foot.shape["axis_extents_permille"] = original_extents
+
+            self.assertEqual(profile_signature(changed_guide), baseline_profile)
+            self.assertEqual(chain_signature(changed_guide), baseline_chain)
+            self.assertEqual(field_signature(changed_fields), baseline_foot_fields)
+            changed_foot_paws = [paw for paw in changed_guide.paw_guides if paw.owner.key[3] == "foot"]
+            self.assertEqual(len(changed_foot_paws), len(foot_descriptors))
+            for station_side in changed_guide.foot_profile.sides:
+                for station in station_side.sections:
+                    expected_owner = foot_descriptors[(legacy_foot.key[0], (station_side.side,), "part", "foot")]
+                    self.assertIs(station.owner, expected_owner)
+            for paw in changed_foot_paws:
+                self.assertIs(paw.owner, foot_descriptors[paw.owner.key])
+            for field in changed_fields:
+                if field.owner.key[3] == "foot":
+                    self.assertIs(field.owner, foot_descriptors[field.owner.key])
+
+    def test_authored_foot_profile_perturbation_is_local_to_one_pad_and_side(self) -> None:
+        baseline_form = surface_preview.validate_envelope(make_payload())
+        baseline_guide = surface_preview._derive_hybrid_guides(baseline_form, baseline_form.variants[0][1])
+        baseline_fields = surface_preview._compile_hybrid_guide(baseline_guide)
+        payload = make_payload()
+        role = surface_preview.FOOT_PROFILE_DIMENSION_PREFIX + "pad_forward_radius"
+        dimension = next(
+            item
+            for item in payload["authored_dimensions"]
+            if item["owner"]["anchors"] == ["left"]
+            and item["owner"]["role"] == "foot"
+            and item["role"] == role
+        )
+        dimension["value_permille"] += 17
+        for variant in payload["variants"]:
+            factor = surface_preview._foot_profile_factors(variant["id"])[2]
+            section = next(item for item in variant["foot_profile"]["sides"][0]["sections"] if item["name"] == "pad")
+            section["forward_radius_permille"] = dimension["value_permille"] * factor // 1_000
+        changed_form = surface_preview.validate_envelope(payload)
+        changed_guide = surface_preview._derive_hybrid_guides(changed_form, changed_form.variants[0][1])
+        changed_fields = surface_preview._compile_hybrid_guide(changed_guide)
+        baseline_sides = {side.side: side for side in baseline_guide.foot_profile.sides}
+        changed_sides = {side.side: side for side in changed_guide.foot_profile.sides}
+        for side_name in ("left", "right"):
+            for index, name in enumerate(surface_preview.FOOT_PROFILE_SECTION_NAMES):
+                before = baseline_sides[side_name].sections[index]
+                after = changed_sides[side_name].sections[index]
+                if side_name == "left" and name == "pad":
+                    self.assertEqual(before.radii[:2], after.radii[:2])
+                    self.assertNotEqual(before.radii[2], after.radii[2])
+                else:
+                    self.assertEqual(before.radii, after.radii)
+                self.assertEqual(before.center, after.center)
+        def field_map(fields: tuple[surface_preview.Field, ...]) -> dict[tuple[object, str], surface_preview.Field]:
+            return {(item.owner.key, item.recipe): item for item in fields if item.owner.key[3] == "foot"}
+        before = field_map(baseline_fields)
+        after = field_map(changed_fields)
+        self.assertNotEqual(before[(('main', ('left',), 'part', 'foot'), "paw-pad")].shape["radii"].tolist(), after[(('main', ('left',), 'part', 'foot'), "paw-pad")].shape["radii"].tolist())
+        def shape_signature(field: surface_preview.Field) -> str:
+            return json.dumps(
+                field.shape,
+                sort_keys=True,
+                default=lambda value: value.tolist() if isinstance(value, np.ndarray) else value,
+            )
+        for key in (
+            (('main', ('right',), 'part', 'foot'), "paw-pad"),
+            (('main', ('left',), 'part', 'foot'), "toe-box"),
+            (('main', ('left',), 'part', 'foot'), "metatarsal"),
+        ):
+            self.assertEqual(shape_signature(before[key]), shape_signature(after[key]))
+        for field in after.values():
+            self.assertIs(field.owner, next(item for item in changed_form.variants[0][1] if item.key == field.owner.key))
 
     def test_digitigrade_foot_chain_rejects_bad_hock_contact_and_taper(self) -> None:
         form = surface_preview.validate_envelope(make_payload())
@@ -2580,19 +2834,39 @@ class SurfacePreviewTests(unittest.TestCase):
                 self.assertEqual((first / name).read_bytes(), (second / name).read_bytes(), name)
             manifest = json.loads((first / "surface-preview-manifest.json").read_text())
             self.assertEqual(manifest["status"], "success")
-            self.assertEqual(manifest["format"], "creature-kernel.disposable-surface-preview.v2")
+            self.assertEqual(manifest["format"], "creature-kernel.disposable-surface-preview.v3")
+            self.assertEqual(surface_preview.REGIONAL_GUIDE_FORMAT, "creature-kernel.disposable-surface-preview-regional-guide.v11")
             self.assertEqual(manifest["source_format"], surface_preview.SOURCE_FORMAT)
             self.assertEqual([x["id"] for x in manifest["variants"]], list(surface_preview.VARIANT_IDS))
+            self.assertEqual(manifest["generator"]["bundle_version"], 3)
+            self.assertEqual(manifest["generator"]["component_visualization"], {
+                "mode": "exact-consumed-component-zero-isosurfaces",
+                "samples_per_axis": 32,
+                "stage": "pre-smooth-union",
+                "colour_identity": "sha256-source-owner-and-recipe",
+            })
             self.assertTrue(all(len(x["inventory"]) == 5 for x in manifest["variants"]))
+            self.assertTrue(all(
+                next(item for item in x["inventory"] if item["kind"] == "guide-skin-composite-png")["panels_per_view"] == 3
+                for x in manifest["variants"]
+            ))
             self.assertTrue(all(x["metrics"]["source_descriptor_count"] == 18 for x in manifest["variants"]))
             self.assertTrue(all(x["metrics"]["generated_field_count"] == 52 for x in manifest["variants"]))
             self.assertTrue(all(x["metrics"]["component_count"] == 1 and x["metrics"]["watertight"] for x in manifest["variants"]))
+            self.assertTrue(all(x["metrics"]["component_visualization"]["evaluator"] == "consumer-supplied exact callable" for x in manifest["variants"]))
+            self.assertTrue(all(x["metrics"]["component_visualization"]["component_count"] == 52 for x in manifest["variants"]))
+            self.assertTrue(all(x["metrics"]["component_visualization"]["resolution"]["samples_per_axis"] == 32 for x in manifest["variants"]))
+            self.assertTrue(all(len(x["metrics"]["component_visualization"]["components"]) == 52 for x in manifest["variants"]))
+            self.assertTrue(all(all(
+                set(item) == {"source_owner", "recipe", "bounds"}
+                for item in x["metrics"]["component_visualization"]["components"]
+            ) for x in manifest["variants"]))
             self.assertEqual(
                 sorted(path.name for path in (first / surface_preview.VARIANT_IDS[0]).iterdir()),
                 ["guide-skin-composite.png", "metrics.json", "regional-guide.json", "semantic.json", "surface.ply"],
             )
 
-    def test_v2_shared_frames_and_private_regional_controls_are_exact_and_sanitized(self) -> None:
+    def test_v3_shared_frames_and_private_regional_controls_are_exact_and_sanitized(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             input_path = root / "input.json"
@@ -2600,10 +2874,21 @@ class SurfacePreviewTests(unittest.TestCase):
             output = root / "output"
             manifest = surface_preview.generate(input_path, output, samples=48, padding=0.5)
             self.assertEqual([item["name"] for item in manifest["projections"]], ["front", "side", "three-quarter"])
-            self.assertEqual(manifest["canvas"], {"width": 1800, "height": 570, "mode": "RGB"})
+            self.assertEqual(manifest["canvas"], {"width": 1800, "height": 1500, "mode": "RGB"})
             self.assertEqual(manifest["layout"]["panel_order"], [
-                "front-guide", "front-skin", "side-guide", "side-skin", "three-quarter-guide", "three-quarter-skin",
+                "front-control-guide", "side-control-guide", "three-quarter-control-guide",
+                "front-field-components", "side-field-components", "three-quarter-field-components",
+                "front-skin", "side-skin", "three-quarter-skin",
             ])
+            self.assertEqual(manifest["layout"]["pairing"], "control-guide/field-components/skin per projection")
+            self.assertEqual(
+                [item["box"] for item in manifest["layout"]["panels"]],
+                [
+                    [12, 72, 592, 532], [610, 72, 1190, 532], [1208, 72, 1788, 532],
+                    [12, 546, 592, 1006], [610, 546, 1190, 1006], [1208, 546, 1788, 1006],
+                    [12, 1020, 592, 1480], [610, 1020, 1190, 1480], [1208, 1020, 1788, 1480],
+                ],
+            )
             expected_bounds = manifest["shared_render_bounds"]
             grid_signatures = []
             guide_controls = []
@@ -2741,7 +3026,8 @@ class SurfacePreviewTests(unittest.TestCase):
 
                 self.assertFalse(has_forbidden_key(regional))
                 with Image.open(output / variant["id"] / "guide-skin-composite.png") as image:
-                    self.assertEqual(image.size, (1800, 570))
+                    self.assertEqual(image.size, (1800, 1500))
+                    self.assertEqual(image.mode, "RGB")
             self.assertGreater(len(set(grid_signatures)), 1)
             self.assertEqual(len(set(cage_topologies)), 1)
             direct_form = surface_preview.validate_envelope(make_varied_payload())
@@ -2783,6 +3069,194 @@ class SurfacePreviewTests(unittest.TestCase):
         self.assertLess(int(xs.max()), x1)
         self.assertGreaterEqual(int(ys.min()), y0)
         self.assertLess(int(ys.max()), y1)
+
+    def test_generic_render_component_preserves_exact_evaluator_and_bounds(self) -> None:
+        lower = np.asarray([-0.5, -0.5, -0.5], dtype=np.float64)
+        upper = np.asarray([0.5, 0.5, 0.5], dtype=np.float64)
+        exact_bounds = (lower, upper)
+        calls: list[np.ndarray] = []
+
+        def exact_evaluator(points: np.ndarray) -> np.ndarray:
+            calls.append(points)
+            return np.linalg.norm(points, axis=-1) - 0.5
+
+        component = surface_preview._make_render_component(
+            ("main", (), "part", "generic-test"),
+            "generic-sphere",
+            exact_evaluator,
+            exact_bounds,
+            "test/sphere-evaluator",
+            debug_identity="exact-sphere",
+        )
+        self.assertIs(component.evaluate, exact_evaluator)
+        self.assertIs(component.bounds, exact_bounds)
+        self.assertIs(component.bounds[0], lower)
+        self.assertIs(component.bounds[1], upper)
+        meshes = surface_preview._field_component_meshes((component,))
+        self.assertIs(meshes[0][0], component)
+        self.assertEqual([call.shape for call in calls], [(32, 32, 32, 3)])
+        self.assertGreater(len(meshes[0][1]), 0)
+        self.assertGreater(len(meshes[0][2]), 0)
+        metadata = surface_preview._component_visualization_metadata((component,))
+        self.assertEqual(metadata["components"][0]["bounds"], {"min": lower.tolist(), "max": upper.tolist()})
+        self.assertEqual(metadata["components"][0]["recipe"], "generic-sphere")
+
+    def test_baseline_adapter_binds_all_exact_compiled_fields_and_factored_bounds(self) -> None:
+        form = surface_preview.validate_envelope(make_payload())
+        _, descriptors, _ = form.variants[0]
+        guide = surface_preview._derive_hybrid_guides(form, descriptors)
+        fields = surface_preview._compile_hybrid_guide(guide)
+        render_components = surface_preview._baseline_render_components(fields)
+        self.assertEqual(len(fields), 52)
+        self.assertEqual(len(render_components), 52)
+        self.assertEqual(
+            [(component.source_owner_key, component.recipe) for component in render_components],
+            [(field.owner.key, field.recipe) for field in fields],
+        )
+        for field, component in zip(fields, render_components):
+            expected_lower, expected_upper = surface_preview._field_bounds(field)
+            np.testing.assert_allclose(component.bounds[0], expected_lower)
+            np.testing.assert_allclose(component.bounds[1], expected_upper)
+            self.assertEqual(component.evaluator_label, f"_field/{field.shape['name']}")
+
+        seen: list[surface_preview.Field] = []
+        original_field = surface_preview._field
+
+        def recording_field(points: np.ndarray, field: surface_preview.Field, scale: float | None = None) -> np.ndarray:
+            seen.append(field)
+            return original_field(points, field, scale)
+
+        with patch.object(surface_preview, "_field", side_effect=recording_field):
+            for component in render_components:
+                surface_preview._renderer_component_values(np.zeros((1, 3), dtype=np.float64), component)
+        self.assertEqual([id(item) for item in seen], [id(item) for item in fields])
+
+        field = next(item for item in fields if item.recipe == "cranium")
+        per_field_bounds = surface_preview._field_bounds(field, surface_preview.FIELD_COMPONENT_PADDING)
+        aggregate_bounds = surface_preview._bounds((field,), surface_preview.FIELD_COMPONENT_PADDING)
+        np.testing.assert_allclose(per_field_bounds[0], aggregate_bounds[0])
+        np.testing.assert_allclose(per_field_bounds[1], aggregate_bounds[1])
+        original_vertices = surface_preview._field_component_meshes(
+            surface_preview._baseline_render_components((field,))
+        )[0][1]
+        perturbed_shape = copy.deepcopy(field.shape)
+        perturbed_shape["center"] = np.asarray(perturbed_shape["center"], dtype=np.float64) + np.asarray([0.08, 0.0, 0.0])
+        perturbed = dataclasses.replace(field, shape=perturbed_shape)
+        perturbed_vertices = surface_preview._field_component_meshes(
+            surface_preview._baseline_render_components((perturbed,))
+        )[0][1]
+        self.assertFalse(np.allclose(np.mean(original_vertices, axis=0), np.mean(perturbed_vertices, axis=0)))
+
+    def test_renderer_binds_the_exact_generic_component_inventory(self) -> None:
+        form = surface_preview.validate_envelope(make_payload())
+        _, descriptors, _ = form.variants[0]
+        guide = surface_preview._derive_hybrid_guides(form, descriptors)
+        fields = surface_preview._compile_hybrid_guide(guide)
+        render_components = surface_preview._baseline_render_components(fields)
+        bounds = surface_preview._shared_render_bounds((fields,), 0.5)
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(surface_preview, "_field_component_meshes", return_value=()) as extract:
+                surface_preview._render(
+                    Path(directory) / "components.png",
+                    np.empty((0, 3), dtype=np.float64),
+                    np.empty((0, 3), dtype=np.int64),
+                    "neutral-v0",
+                    guide=guide,
+                    bounds=bounds,
+                    render_components=render_components,
+                )
+        extract.assert_called_once()
+        self.assertIs(extract.call_args.args[0], render_components)
+
+    def test_component_panels_use_compact_component_note_without_dense_legend(self) -> None:
+        component = surface_preview._make_render_component(
+            ("main", (), "part", "generic-test"),
+            "generic-triangle",
+            lambda points: np.linalg.norm(points, axis=-1) - 0.5,
+            (np.asarray([-0.5, -0.5, -0.5]), np.asarray([0.5, 0.5, 0.5])),
+            "test/triangle",
+            debug_identity="identity-that-must-not-be-listed",
+        )
+        vertices = np.asarray([[-0.25, -0.25, 0.0], [0.25, -0.25, 0.0], [0.0, 0.25, 0.0]])
+        faces = np.asarray([[0, 1, 2]], dtype=np.int64)
+        box = surface_preview._panel_box(0, 1)
+        frame = surface_preview._projection_frame(
+            (np.asarray([-1.0, -1.0, -1.0]), np.asarray([1.0, 1.0, 1.0])),
+            np.eye(3),
+            box,
+        )
+        image = Image.new("RGBA", surface_preview.CANVAS, (0, 0, 0, 255))
+        with patch.object(ImageDraw.ImageDraw, "text", autospec=True) as draw_text, patch.object(
+            ImageDraw.ImageDraw, "rectangle", autospec=True
+        ) as draw_rectangle:
+            surface_preview._draw_field_components(
+                image,
+                frame,
+                ((component, vertices, faces),),
+                surface_preview.ImageFont.load_default(),
+            )
+        labels = [call.args[2] for call in draw_text.call_args_list]
+        self.assertEqual(labels, [
+            "exact pre-union components: 1",
+            "colours separate exact components",
+        ])
+        draw_rectangle.assert_not_called()
+        self.assertNotIn(component.debug_identity, " ".join(labels))
+        self.assertNotIn("legend", json.dumps(surface_preview._component_visualization_metadata((component,))).lower())
+        self.assertEqual(surface_preview.RENDER_HEADER, "Exact consumed-component visualization")
+        self.assertNotIn("baseline", surface_preview.RENDER_HEADER.lower())
+        self.assertNotIn("successor", surface_preview.RENDER_HEADER.lower())
+
+    def test_component_colours_are_stable_and_failures_are_closed(self) -> None:
+        def component(
+            recipe: str,
+            evaluator: object,
+            bounds: tuple[np.ndarray, np.ndarray] | None = None,
+        ) -> surface_preview._RenderComponent:
+            return surface_preview._make_render_component(
+                ("main", (), "part", "generic-test"),
+                recipe,
+                evaluator,
+                bounds or (np.asarray([-0.5, -0.5, -0.5]), np.asarray([0.5, 0.5, 0.5])),
+                f"test/{recipe}",
+            )
+
+        sphere = component("sphere", lambda points: np.linalg.norm(points, axis=-1) - 0.5)
+        second = component("second", lambda points: np.linalg.norm(points, axis=-1) - 0.4)
+        colours = [surface_preview._render_component_colour(item) for item in (sphere, second)]
+        self.assertEqual(colours, [surface_preview._render_component_colour(item) for item in (sphere, second)])
+        self.assertGreater(len(set(colours)), 1)
+        with patch.object(surface_preview, "MAX_FIELD_VALUES", 1):
+            with self.assertRaisesRegex(surface_preview.PreviewError, "resource limits"):
+                surface_preview._field_component_meshes((sphere,))
+
+        def outside_positive_infinity(points: np.ndarray) -> np.ndarray:
+            values = np.linalg.norm(points, axis=-1) - 0.5
+            values[values > 0.2] = np.inf
+            return values
+
+        self.assertGreater(len(surface_preview._field_component_meshes((component("positive-infinity", outside_positive_infinity),))[0][1]), 0)
+        for invalid_values, message in (
+            (lambda points: np.full(points.shape[:-1], np.nan), "NaN or -inf"),
+            (lambda points: np.full(points.shape[:-1], -np.inf), "NaN or -inf"),
+            (lambda points: np.zeros(points.shape[:-1]), "no finite zero crossing"),
+        ):
+            with self.assertRaisesRegex(surface_preview.PreviewError, message):
+                surface_preview._field_component_meshes((component("invalid", invalid_values),))
+
+        def clipped_values(points: np.ndarray) -> np.ndarray:
+            values = np.ones(points.shape[:-1], dtype=np.float64)
+            values[0, :, :] = -1.0
+            return values
+
+        with self.assertRaisesRegex(surface_preview.PreviewError, "clipped"):
+            surface_preview._field_component_meshes((component("clipped", clipped_values),))
+        with self.assertRaisesRegex(surface_preview.PreviewError, "bounds are invalid"):
+            surface_preview._field_component_meshes((component(
+                "bad-bounds",
+                lambda points: np.linalg.norm(points, axis=-1) - 0.5,
+                (np.asarray([np.nan, -0.5, -0.5]), np.asarray([0.5, 0.5, 0.5])),
+            ),))
 
     def test_regional_sidecar_controls_match_compiled_recipe_geometry(self) -> None:
         form = surface_preview.validate_envelope(make_payload())

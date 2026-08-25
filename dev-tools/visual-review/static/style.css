@@ -19,8 +19,12 @@ a { color: #79b8ff; }
 .session-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); gap: 1rem; margin-top: 1.5rem; }
 .session-card, .review-group, .instructions { background: #131b26; border: 1px solid #2d3a49; border-radius: 0.7rem; box-shadow: 0 0.35rem 1.1rem #0006; }
 .session-card { padding: 1.2rem; }
+.latest-session { border-color: #4f8fc6; box-shadow: 0 0 0 1px #4f8fc655, 0 0.35rem 1.1rem #0006; }
 .session-card h2 a { text-decoration: none; }
 .session-card p { color: #a8b7c7; }
+.session-recency { display: inline-block; margin-bottom: 0.7rem; padding: 0.2rem 0.5rem; border-radius: 999px; background: #29323f; color: #b8c5d3; font-size: 0.75rem; font-weight: 700; }
+.latest-recency { background: #183a55; color: #9ed2ff; }
+.session-published { display: block; margin-top: 0.55rem; color: #8d9baa; font-size: 0.8rem; }
 .session-kind { display: inline-block; margin: 0.7rem 0 0.1rem; padding: 0.2rem 0.45rem; border-radius: 999px; background: #173829; color: #8ce1b2; font-size: 0.75rem; font-weight: 700; }
 .instructions { padding: 1rem 1.2rem; margin: 1.5rem 0; }
 .instructions h2 { font-size: 1rem; }
@@ -65,7 +69,8 @@ button.primary { border-color: #3387d5; background: #1768ad; color: #fff; }
 .image-viewport { flex: 1 1 auto; min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; border: 1px solid #304253; border-radius: 0.35rem; background: #080d13; cursor: zoom-in; }
 .image-viewport:focus-visible { outline: 2px solid #79b8ff; outline-offset: -2px; }
 .image-canvas { position: relative; flex: 0 0 auto; }
-.image-dialog img { position: absolute; display: block; max-width: none; max-height: none; margin: 0; object-fit: fill; transform-origin: top left; cursor: pointer; user-select: none; }
+.image-dialog img { position: absolute; display: block; max-width: none; max-height: none; margin: 0; object-fit: fill; transform-origin: top left; cursor: grab; user-select: none; touch-action: none; -webkit-user-drag: none; }
+.image-dialog img.is-dragging { cursor: grabbing; }
 .image-dialog img:focus-visible { outline: 3px solid #79b8ff; outline-offset: -3px; }
 .close-dialog { display: block; margin-left: auto; }
 

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
+import subprocess
 import sys
 import tempfile
 import threading
@@ -104,6 +106,36 @@ class ReviewFixture(unittest.TestCase):
 
 
 class ManifestAndPublishTests(ReviewFixture):
+    def test_session_index_is_newest_first_with_publication_timestamps(self):
+        older = self.publish()
+        manifest = json.loads(self.manifest_path.read_text(encoding="utf-8"))
+        manifest["id"] = "newer-review"
+        manifest["title"] = "Newer review"
+        self.manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        publish.publish_session(self.root, self.manifest_path)
+        newer = self.root / "newer-review"
+        os.utime(older / "review.json", ns=(1_700_000_000_000_000_000,) * 2)
+        os.utime(newer / "review.json", ns=(1_700_000_100_000_000_000,) * 2)
+
+        sessions, errors = common.iter_sessions(self.root)
+
+        self.assertEqual(errors, [])
+        self.assertEqual([session["id"] for session in sessions], ["newer-review", "demo-review"])
+        self.assertEqual(sessions[0]["published_at"], "2023-11-14T22:15:00.000000Z")
+        self.assertEqual(sessions[1]["published_at"], "2023-11-14T22:13:20.000000Z")
+
+    def test_session_index_reports_unrepresentable_publication_timestamp(self):
+        self.publish()
+        with patch.object(common, "datetime") as timestamp:
+            timestamp.fromtimestamp.side_effect = OverflowError("timestamp out of range")
+            sessions, errors = common.iter_sessions(self.root)
+
+        self.assertEqual(sessions, [])
+        self.assertEqual(errors, [{
+            "id": "demo-review",
+            "error": "invalid review.json publication timestamp: timestamp out of range",
+        }])
+
     def test_normalization_and_exact_inventory(self):
         session = self.publish()
         normalized = json.loads((session / "review.json").read_text(encoding="utf-8"))
@@ -528,6 +560,11 @@ class HTTPTests(ReviewFixture):
         self.assertEqual(status, 200)
         self.assertIn(b"visual reviews", body)
         self.assertEqual(headers["X-Content-Type-Options"], "nosniff")
+        status, _, body = self.get(self.base + "/api/sessions")
+        self.assertEqual(status, 200)
+        index = json.loads(body)
+        self.assertEqual(index["sessions"][0]["id"], "demo-review")
+        self.assertRegex(index["sessions"][0]["published_at"], r"Z$")
         status, headers, body = self.get(self.base + "/static/style.css")
         self.assertEqual(status, 200)
         self.assertEqual(headers["Content-Type"].split(";")[0], "text/css")
@@ -738,6 +775,51 @@ class SubjectContextHTTPTests(ReviewFixture):
 
 
 class StaticAssetTests(unittest.TestCase):
+    def test_image_accessible_labels_include_description_without_html_interpolation(self):
+        js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
+        script = r'''
+const fs = require("fs");
+const vm = require("vm");
+const appPath = process.argv[1];
+let source = fs.readFileSync(appPath, "utf8");
+const entrypoint = "  load();\n}());";
+if (source.split(entrypoint).length !== 2) {
+  throw new Error("unexpected browser app entrypoint");
+}
+source = source.replace(entrypoint, "  globalThis.__imageAccessibleLabel = imageAccessibleLabel;\n}());");
+const context = {
+  document: { getElementById: function () { return null; } },
+  window: {}
+};
+vm.runInNewContext(source, context, { filename: appPath });
+const items = JSON.parse(fs.readFileSync(0, "utf8"));
+process.stdout.write(JSON.stringify(items.map(context.__imageAccessibleLabel)));
+'''
+        completed = subprocess.run(
+            ["node", "-e", script, str(HERE / "static" / "app.js")],
+            input=json.dumps([
+                {"title": "Front", "description": "Control guide <not geometry>"},
+                {"title": "Side"},
+            ]),
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        self.assertEqual(
+            json.loads(completed.stdout),
+            ["Front — Control guide <not geometry>", "Side"],
+        )
+        self.assertIn("function imageDescription(item)", js)
+        self.assertIn("function imageAccessibleLabel(item)", js)
+        self.assertIn('return description ? title + " — " + description : title;', js)
+        self.assertIn('imageButton.setAttribute("aria-label", "Expand " + imageLabel);', js)
+        self.assertIn("image.alt = imageLabel;", js)
+        self.assertIn("nextImage.alt = imageLabel;", js)
+        self.assertIn(
+            'nextImage.setAttribute("aria-label", imageDescription(item) ? "Show next comparison image: " + imageLabel : "Show next comparison image");',
+            js,
+        )
+
     def test_image_comparator_exposes_group_navigation_and_stale_load_guard(self):
         js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
         css = (HERE / "static" / "style.css").read_text(encoding="utf-8")
@@ -748,21 +830,32 @@ class StaticAssetTests(unittest.TestCase):
             'event.key === "ArrowLeft"',
             'event.key === "ArrowRight"',
             "function showItem(index, focusImage)",
-            "showItem(currentIndex - 1, document.activeElement === image);",
-            "showItem(currentIndex + 1, document.activeElement === image);",
-            "showItem(currentIndex + 1, true);",
+            "function restoreViewport(viewportState)",
+            "function captureViewport()",
+            "showItem(requestedIndex - 1, image !== null && document.activeElement === image);",
+            "showItem(requestedIndex + 1, image !== null && document.activeElement === image);",
+            "showItem(requestedIndex + 1, true);",
+            "showItem(requestedIndex - 1, false);",
+            "showItem(requestedIndex + 1, false);",
+            "showItem(requestedIndex, false);",
+            "viewport.scrollLeft = viewportState.scrollLeft;",
+            "viewport.scrollTop = viewportState.scrollTop;",
+            "if (viewportState) {",
+            "restoreViewport(viewportState);",
             "if (focusImage)",
-            "image.focus();",
+            "focusPreservingViewport(image);",
             'node("button", "Previous"',
             'node("button", "Next"',
-            'positionLabel.textContent = "Item "',
+            "positionLabel.textContent = displayedPositionText()",
             'Use Previous/Next, the Left/Right arrow keys',
             'nextImage.addEventListener("click"',
-            'loadToken !== imageLoadToken || image !== nextImage',
-            'nextImage.alt = item.title',
+            'nextImage.addEventListener("load"',
+            'nextImage.addEventListener("error"',
+            'loadToken !== imageLoadToken || requestedIndex !== targetIndex',
+            'nextImage.alt = imageLabel',
             'nextImage.title = item.title',
             'nextImage.setAttribute("role", "button")',
-            'nextImage.setAttribute("aria-label", "Show next comparison image")',
+            'nextImage.setAttribute("aria-label", imageDescription(item) ? "Show next comparison image: " + imageLabel : "Show next comparison image")',
             'nextImage.addEventListener("keydown", showNextImage)',
             "var returnFocus = document.activeElement",
             "document.documentElement.contains(returnFocus)",
@@ -773,6 +866,101 @@ class StaticAssetTests(unittest.TestCase):
             self.assertIn(contract, js)
         for selector in (".image-navigation-control", ".image-position", ".image-dialog-instructions", ".image-dialog img:focus-visible"):
             self.assertIn(selector, css)
+
+    def test_image_viewer_preloads_and_captures_latest_viewport_on_winning_load(self):
+        js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
+        self.assertIn("var image = null;", js)
+        self.assertNotIn("canvas.appendChild(image);", js)
+        self.assertNotIn("preserveViewport", js)
+        self.assertNotIn("image.src = item.source;", js)
+        self.assertIn("nextImage.src = item.source;", js)
+        self.assertIn("var viewportState = image ? captureViewport() : null;", js)
+        self.assertIn("canvas.replaceChild(nextImage, image);", js)
+        self.assertIn("canvas.appendChild(nextImage);", js)
+        self.assertIn("if (viewportState) {\n          restoreViewport(viewportState);\n        } else {\n          fitToViewport();", js)
+        load_handler = js.index('nextImage.addEventListener("load"')
+        latest_capture = js.index("var viewportState = image ? captureViewport() : null;", load_handler)
+        error_handler = js.index('nextImage.addEventListener("error"', load_handler)
+        source_assignment = js.index("nextImage.src = item.source;", error_handler)
+        self.assertLess(load_handler, latest_capture)
+        self.assertLess(latest_capture, error_handler)
+        self.assertLess(error_handler, source_assignment)
+        self.assertEqual(js.count("captureViewport()"), 2)
+        self.assertEqual(js.count("restoreViewport(viewportState);"), 1)
+
+    def test_image_viewer_stale_load_and_error_paths_keep_displayed_state_honest(self):
+        js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
+        stale_guard = "cleaned || loadToken !== imageLoadToken || requestedIndex !== targetIndex"
+        self.assertEqual(js.count(stale_guard), 2)
+        self.assertIn("var requestedIndex = initialIndex;", js)
+        self.assertIn("var displayedIndex = -1;", js)
+        self.assertIn("displayedIndex = targetIndex;\n        requestedIndex = targetIndex;", js)
+        self.assertIn("if (displayedIndex >= 0) {\n          requestedIndex = displayedIndex;\n        }", js)
+        self.assertIn('return "No image displayed";', js)
+        self.assertIn('updateDisplayedState("Loading item " + (targetIndex + 1) + ": " + item.title);', js)
+        self.assertIn('updateDisplayedState("Could not load item " + (targetIndex + 1) + ": " + item.title);', js)
+        self.assertIn('heading.textContent = displayedIndex < 0 ? "Image comparison" : items[displayedIndex].title;', js)
+        self.assertIn("positionLabel.textContent = displayedPositionText()", js)
+        self.assertIn("var disabled = image === null;", js)
+        error_handler = js.index('nextImage.addEventListener("error"')
+        source_assignment = js.index("nextImage.src = item.source;", error_handler)
+        error_contract = js[error_handler:source_assignment]
+        self.assertNotIn("canvas.replaceChild", error_contract)
+        self.assertNotIn("canvas.appendChild", error_contract)
+        self.assertNotIn("displayedIndex = targetIndex", error_contract)
+
+    def test_image_viewer_preservation_is_scoped_to_one_open_item_set(self):
+        js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
+        self.assertIn("var scale = 1;", js)
+        self.assertIn("var initialIndex = Math.max(0, Math.min(items.length - 1, selectedIndex || 0));", js)
+        self.assertIn("var requestedIndex = initialIndex;", js)
+        self.assertIn("var displayedIndex = -1;", js)
+        self.assertIn("showItem(requestedIndex, false);", js)
+        self.assertEqual(js.count("showItem(requestedIndex, false);"), 1)
+
+    def test_image_switch_focus_preserves_scroll_with_fallback(self):
+        js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
+        self.assertIn("function focusPreservingViewport(element)", js)
+        self.assertIn("var scrollLeft = viewport.scrollLeft;", js)
+        self.assertIn("var scrollTop = viewport.scrollTop;", js)
+        self.assertIn("element.focus({ preventScroll: true });", js)
+        self.assertIn("catch (error) {\n        element.focus();\n      }", js)
+        self.assertIn("viewport.scrollLeft = scrollLeft;", js)
+        self.assertIn("viewport.scrollTop = scrollTop;", js)
+        self.assertEqual(js.count("focusPreservingViewport(image);"), 2)
+        self.assertNotIn("image.focus();", js)
+
+    def test_image_viewer_pointer_drag_preserves_click_navigation_contract(self):
+        js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
+        css = (HERE / "static" / "style.css").read_text(encoding="utf-8")
+        for contract in (
+            "var suppressNextImageClick = false;",
+            "nextImage.draggable = false;",
+            'nextImage.addEventListener("dragstart", function (event) { event.preventDefault(); });',
+            "var pointerGesture = null;",
+            'nextImage.addEventListener("pointerdown", onPointerDown);',
+            'nextImage.addEventListener("pointermove", onPointerMove);',
+            'nextImage.addEventListener("pointerup", function (event) { onPointerEnd(event, false); });',
+            'nextImage.addEventListener("pointercancel", function (event) { onPointerEnd(event, true); });',
+            'nextImage.addEventListener("lostpointercapture", function (event) { onPointerEnd(event, true); });',
+            "if (nextImage.setPointerCapture) {",
+            "nextImage.setPointerCapture(event.pointerId);",
+            "nextImage.releasePointerCapture(event.pointerId);",
+            "deltaX * deltaX + deltaY * deltaY >= 36",
+            "pointerGesture.dragging = true;",
+            "viewport.scrollLeft = pointerGesture.startScrollLeft - deltaX;",
+            "viewport.scrollTop = pointerGesture.startScrollTop - deltaY;",
+            'nextImage.classList.add("is-dragging");',
+            'nextImage.classList.remove("is-dragging");',
+            'if (event.type === "click" && suppressNextImageClick) {',
+            "event.stopPropagation();",
+        ):
+            self.assertIn(contract, js)
+        self.assertIn("cursor: grab", css)
+        self.assertIn("cursor: grabbing", css)
+        self.assertIn("touch-action: none", css)
+        self.assertIn("-webkit-user-drag: none", css)
+        self.assertIn("click the displayed image, or drag it", js)
 
     def test_image_viewer_is_viewport_sized_and_image_scoped(self):
         js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
@@ -814,6 +1002,9 @@ class StaticAssetTests(unittest.TestCase):
         assets = (js + css).replace("http://www.w3.org/2000/svg", "")
         self.assertNotRegex(assets, r"https?://")
         for label in (
+            "Latest published",
+            "Earlier publication",
+            "not approved or the project's next active checkpoint",
             "What you're looking at",
             "Authored summary",
             "Generated descriptor snapshot",

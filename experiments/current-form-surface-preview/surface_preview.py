@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a bounded, disposable continuous surface from a v10 form envelope.
+"""Build a bounded, disposable continuous surface from a v11 form envelope.
 
 This module intentionally has no dependency on Creature Kernel runtime code.
 It is a small adapter for visual exploration: exact integer form coordinates
@@ -24,20 +24,21 @@ import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from skimage.measure import marching_cubes
 
 
-FORMAT = "creature-kernel.disposable-surface-preview.v2"
-REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v9"
-SOURCE_FORMAT = "creature-kernel.provisional-form-preview.v10"
+FORMAT = "creature-kernel.disposable-surface-preview.v3"
+REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v11"
+SOURCE_FORMAT = "creature-kernel.provisional-form-preview.v11"
 AUTHORED_TORSO_PROFILE_FORMAT = "creature-kernel.provisional-form-torso-profile.v1"
 AUTHORED_HEAD_NECK_PROFILE_FORMAT = "creature-kernel.provisional-form-head-neck-profile.v1"
 AUTHORED_ARM_PROFILE_FORMAT = "creature-kernel.provisional-form-arm-profile.v1"
 AUTHORED_LEG_PROFILE_FORMAT = "creature-kernel.provisional-form-leg-profile.v1"
+AUTHORED_FOOT_PROFILE_FORMAT = "creature-kernel.provisional-form-foot-profile.v1"
 VARIANT_IDS = ("neutral-v0", "broad-soft-v0", "lean-readable-v0", "depth-forward-v0")
 MAX_INPUT_BYTES = 4 * 1024 * 1024
 MAX_SAMPLES = 128
@@ -112,6 +113,14 @@ LEG_PROFILE_SECTION_NAMES = (
     "hock-endpoint",
 )
 LEG_PROFILE_OWNER_ROLES = ("thigh", "thigh", "thigh", "shin", "shin")
+FOOT_PROFILE_CONTROL_FRAME_ROLE = "form_foot_profile_control"
+FOOT_PROFILE_LANDMARK_PREFIX = "form_foot_profile_"
+FOOT_PROFILE_DIMENSION_PREFIX = "form_foot_profile_"
+FOOT_PROFILE_DIMENSION_SUFFIXES = ("lateral_radius", "up_radius", "forward_radius")
+FOOT_PROFILE_SIDE_NAMES = ("left", "right")
+FOOT_PROFILE_SECTION_NAMES = ("pad", "toe")
+FOOT_PROFILE_OWNER_ROLES = ("foot", "foot")
+FOOT_PROFILE_HOCK_SECTION_INDEX = 4
 REGIONAL_ROUTE_ORDER_TORSO = (("torso", (0, 1, 2, 3, 4, 5, 6), 1, "y"),)
 REGIONAL_ROUTE_ORDER_AUTHORED_HEAD_NECK = (
     ("neck", (0, 1), 1, "y"),
@@ -129,15 +138,23 @@ MAX_GENERATED_FIELDS = 256
 DEFAULT_SAMPLES = 72
 DEFAULT_PADDING = 0.75
 DEFAULT_SMOOTH_K = 0.12
-# The image is intentionally a fixed, private diagnostic layout.  Each view
-# gets adjacent guide and skin panels.  The two panels for a view share the
-# exact same projected frame; all variants use the same world-space bounds.
-CANVAS = (1800, 570)
+# The image is intentionally a fixed, private diagnostic layout.  Each
+# projection is one column and the three rows are control guide, exact
+# pre-union field components, and neutral final skin.  Every row for a view
+# shares the exact same projected frame; all variants use the same world-space
+# bounds.
+CANVAS = (1800, 1500)
 PANEL_TOP = 72
-PANEL_BOTTOM = 548
-PANEL_WIDTH = 280
-PANEL_GAP = 18
+PANEL_HEIGHT = 460
+PANEL_BOTTOM = PANEL_TOP + PANEL_HEIGHT
+PANEL_WIDTH = 580
+PANEL_COLUMN_GAP = 18
+PANEL_ROW_GAP = 14
 PANEL_LEFT = 12
+FIELD_COMPONENT_SAMPLES = 32
+FIELD_COMPONENT_PADDING = 0.05
+FIELD_COMPONENT_ALPHA = 112
+RENDER_HEADER = "Exact consumed-component visualization"
 PROJECTIONS = (
     ("front", ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)), "x-right/y-up/z-depth"),
     ("side", ((0.0, 0.0, -1.0), (0.0, 1.0, 0.0), (1.0, 0.0, 0.0)), "-z-right/y-up/x-depth"),
@@ -145,24 +162,26 @@ PROJECTIONS = (
 )
 
 
-def _panel_box(index: int) -> tuple[int, int, int, int]:
-    left = PANEL_LEFT + index * (PANEL_WIDTH + PANEL_GAP)
-    return left, PANEL_TOP, left + PANEL_WIDTH, PANEL_BOTTOM
+def _panel_box(column: int, row: int) -> tuple[int, int, int, int]:
+    left = PANEL_LEFT + column * (PANEL_WIDTH + PANEL_COLUMN_GAP)
+    top = PANEL_TOP + row * (PANEL_HEIGHT + PANEL_ROW_GAP)
+    return left, top, left + PANEL_WIDTH, top + PANEL_HEIGHT
 
 
+PANEL_CONTENTS = ("control-guide", "field-components", "skin")
 PANEL_LAYOUT = tuple(
     {
         "id": f"{name}-{content}",
         "projection": name,
         "content": content,
-        "box": _panel_box(index * 2 + (0 if content == "guide" else 1)),
+        "box": _panel_box(index, row),
     }
+    for row, content in enumerate(PANEL_CONTENTS)
     for index, (name, _, _) in enumerate(PROJECTIONS)
-    for content in ("guide", "skin")
 )
-# Kept as a simple view-to-bounds map for callers of the original preview
-# helper.  Rendering now uses PANEL_LAYOUT for the two adjacent panels.
-VIEW_BOXES = {name: (_panel_box(index * 2)[0], PANEL_TOP, _panel_box(index * 2 + 1)[2], PANEL_BOTTOM) for index, (name, _, _) in enumerate(PROJECTIONS)}
+# Kept as a simple view-to-column map for callers of the original preview
+# helper. Rendering uses PANEL_LAYOUT for the three fixed rows.
+VIEW_BOXES = {name: (_panel_box(index, 0)[0], PANEL_TOP, _panel_box(index, 0)[2], _panel_box(index, 2)[3]) for index, (name, _, _) in enumerate(PROJECTIONS)}
 
 
 class PreviewError(RuntimeError):
@@ -376,6 +395,54 @@ class Field:
     owner: Descriptor
     recipe: str
     shape: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class _RenderComponent:
+    """One exact consumer-supplied evaluator shell for shared rendering."""
+
+    source_owner_key: tuple[str, tuple[str, ...], str, str]
+    recipe: str
+    debug_identity: str
+    evaluate: Callable[[np.ndarray], np.ndarray]
+    bounds: tuple[np.ndarray, np.ndarray]
+    evaluator_label: str
+
+
+def _make_render_component(
+    source_owner_key: tuple[str, tuple[str, ...], str, str],
+    recipe: str,
+    evaluate: Callable[[np.ndarray], np.ndarray],
+    bounds: tuple[np.ndarray, np.ndarray],
+    evaluator_label: str,
+    *,
+    debug_identity: str | None = None,
+) -> _RenderComponent:
+    """Preserve one consumer's exact evaluator callable and supplied bounds object.
+
+    Successor and later consumers can adapt their own component inventories
+    through this private seam without importing baseline ``Field`` or
+    recreating any evaluator or bounds math.
+    """
+
+    if type(source_owner_key) is not tuple or len(source_owner_key) != 4:
+        _fail("render component source owner key is invalid")
+    try:
+        namespace, anchors, kind, role = source_owner_key
+    except (TypeError, ValueError):
+        _fail("render component source owner key is invalid")
+    if not all(type(value) is str and value for value in (namespace, kind, role)) or type(anchors) is not tuple or not all(
+        type(value) is str and value for value in anchors
+    ):
+        _fail("render component source owner key is invalid")
+    if type(recipe) is not str or not recipe or type(evaluator_label) is not str or not evaluator_label:
+        _fail("render component identity labels must be non-empty strings")
+    identity = recipe if debug_identity is None else debug_identity
+    if type(identity) is not str or not identity or not callable(evaluate):
+        _fail("render component debug identity or evaluator is invalid")
+    if type(bounds) is not tuple or len(bounds) != 2:
+        _fail("render component bounds must be an exact lower/upper tuple")
+    return _RenderComponent(source_owner_key, recipe, identity, evaluate, bounds, evaluator_label)
 
 
 @dataclass(frozen=True)
@@ -839,6 +906,69 @@ class _LegProfileGuide:
 
 
 @dataclass(frozen=True)
+class _FootProfileRadiusLineage:
+    """Exact source-to-guide lineage for one authored foot radius."""
+
+    base: int
+    factor: int
+    scaled: int
+    reference: tuple[tuple[str, tuple[str, ...], str, str], str]
+    reference_index: int
+    provenance: dict[str, Any]
+    consumed_section: str
+
+
+@dataclass(frozen=True)
+class _FootProfileStation:
+    """One exact source-authored pad/toe station in the regional guide."""
+
+    name: str
+    section_index: int
+    source_section_index: int
+    frame_index: int
+    landmark_index: int
+    owner: Descriptor
+    frame: AuthoredFrame
+    landmark: AuthoredLandmark
+    center: tuple[float, float, float]
+    radii: tuple[float, float, float]
+    lateral_lineage: _FootProfileRadiusLineage
+    up_lineage: _FootProfileRadiusLineage
+    forward_lineage: _FootProfileRadiusLineage
+    profile_provenance: dict[str, Any]
+    variant_provenance: dict[str, Any]
+
+    @property
+    def source_key(self) -> tuple[str, tuple[str, ...], str, str]:
+        return self.owner.key
+
+
+@dataclass(frozen=True)
+class _FootProfileSideGuide:
+    side: str
+    hock_binding: tuple[str, int, int]
+    sections: tuple[_FootProfileStation, _FootProfileStation]
+
+
+@dataclass(frozen=True)
+class _FootProfileGuide:
+    """Complete bilateral authored pad/toe guide with exact lineage."""
+
+    sides: tuple[_FootProfileSideGuide, _FootProfileSideGuide]
+    provenance: dict[str, Any]
+    variant_provenance: dict[str, Any]
+    axes: _GuideAxes
+
+    @property
+    def left(self) -> _FootProfileSideGuide:
+        return self.sides[0]
+
+    @property
+    def right(self) -> _FootProfileSideGuide:
+        return self.sides[1]
+
+
+@dataclass(frozen=True)
 class _HeadGuide:
     """Cranium/muzzle and neck-transition controls for the head region."""
 
@@ -927,12 +1057,9 @@ class _LimbGuide:
 class _FootChainGuide:
     """Private source-derived controls for one digitigrade foot chain.
 
-    The source foot descriptor supplies proportions, but does not pretend to
-    author a fixed anatomical mass layout.  The shin-owned hock is the
-    proximal joint; this guide then derives the sloping metatarsal, a planted
-    pad, a forward toe box, and a display-only contact datum.  The hock stays
-    owned by the shin; this guide owns only the three foot fields that follow
-    it.
+    The shin-owned hock is inherited exactly from the authored leg profile.
+    The foot profile owns only its authored pad/toe stations; the two route
+    midpoints are derived from those exact endpoint centers and volumes.
     """
 
     hock_anchor: tuple[float, float, float]
@@ -944,6 +1071,11 @@ class _FootChainGuide:
     toe_center: tuple[float, float, float]
     toe_radii: tuple[float, float, float]
     contact_height: float
+    metatarsal_midpoint: tuple[float, float, float]
+    metatarsal_midpoint_radii: tuple[float, float, float]
+    pad_toe_midpoint: tuple[float, float, float]
+    pad_toe_midpoint_radii: tuple[float, float, float]
+    profile: _FootProfileGuide
     axes: _GuideAxes
 
 
@@ -1015,6 +1147,7 @@ class _HybridGuide:
     shoulder_frame: _ShoulderFrame
     arm_profile: _ArmProfileGuide
     leg_profile: _LegProfileGuide
+    foot_profile: _FootProfileGuide
     head_guide: _HeadGuide
     limb_guides: tuple[_LimbGuide, ...]
     paw_guides: tuple[_PawGuide, ...]
@@ -1222,6 +1355,38 @@ class AuthoredLegProfile:
 
 
 @dataclass(frozen=True)
+class AuthoredFootProfileSection:
+    """One indexed source-authored bilateral foot profile station."""
+
+    name: str
+    section_index: int
+    frame_index: int
+    landmark_index: int
+    owner: tuple[str, tuple[str, ...], str, str]
+    frame: tuple[tuple[str, tuple[str, ...], str, str], str]
+    landmark: AuthoredLandmark
+    lateral: AuthoredRadius
+    up: AuthoredRadius
+    forward: AuthoredRadius
+
+
+@dataclass(frozen=True)
+class AuthoredFootProfileSide:
+    side: str
+    leg_profile_side_index: int
+    leg_profile_section_index: int
+    sections: tuple[AuthoredFootProfileSection, AuthoredFootProfileSection]
+
+
+@dataclass(frozen=True)
+class AuthoredFootProfile:
+    """Validated authored_foot_profile v1 controls."""
+
+    sides: tuple[AuthoredFootProfileSide, AuthoredFootProfileSide]
+    provenance: dict[str, Any]
+
+
+@dataclass(frozen=True)
 class VariantTorsoProfileSection:
     """One producer-projected per-variant torso profile section."""
 
@@ -1323,6 +1488,35 @@ class VariantLegProfile:
 
 
 @dataclass(frozen=True)
+class VariantFootProfileSection:
+    """One producer-projected per-variant authored foot station."""
+
+    source_section_index: int
+    name: str
+    position: tuple[float, float, float]
+    lateral_radius_permille: int
+    up_radius_permille: int
+    forward_radius_permille: int
+    lateral_factor: int
+    up_factor: int
+    forward_factor: int
+    provenance: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class VariantFootProfileSide:
+    side: str
+    hock_binding: tuple[str, int, int]
+    sections: tuple[VariantFootProfileSection, VariantFootProfileSection]
+
+
+@dataclass(frozen=True)
+class VariantFootProfile:
+    sides: tuple[VariantFootProfileSide, VariantFootProfileSide]
+    provenance: dict[str, Any]
+
+
+@dataclass(frozen=True)
 class Form:
     raw: dict[str, Any]
     source: dict[str, Any]
@@ -1335,10 +1529,12 @@ class Form:
     authored_head_neck_profile: AuthoredHeadNeckProfile
     authored_arm_profile: AuthoredArmProfile
     authored_leg_profile: AuthoredLegProfile
+    authored_foot_profile: AuthoredFootProfile
     variant_torso_profiles: tuple[VariantTorsoProfile, ...]
     variant_head_neck_profiles: tuple[VariantHeadNeckProfile, ...]
     variant_arm_profiles: tuple[VariantArmProfile, ...]
     variant_leg_profiles: tuple[VariantLegProfile, ...]
+    variant_foot_profiles: tuple[VariantFootProfile, ...]
     variants: tuple[tuple[str, tuple[Descriptor, ...], dict[str, Any]], ...]
 
 
@@ -1889,6 +2085,205 @@ def _parse_variant_leg_profile(
     return VariantLegProfile((parsed_sides[0], parsed_sides[1]), provenance)
 
 
+def _validate_foot_profile_local_order(
+    sections: tuple[AuthoredFootProfileSection | VariantFootProfileSection, ...],
+    where: str,
+) -> None:
+    if len(sections) != len(FOOT_PROFILE_SECTION_NAMES):
+        _fail(f"{where} must contain exactly two stations")
+    positions = []
+    for index, section in enumerate(sections):
+        position = section.landmark.position if hasattr(section, "landmark") else section.position
+        if position[0] != 0.0:
+            _fail(f"{where}[{index}].position.x must be zero")
+        if not -CONTROL_COORDINATE_BOUND <= float(position[1]) <= 0.0:
+            _fail(f"{where}[{index}].position.y must lie in [-1, 0]")
+        if not 0.0 <= float(position[2]) <= CONTROL_COORDINATE_BOUND:
+            _fail(f"{where}[{index}].position.z must lie in [0, 1]")
+        positions.append(position)
+    if positions[1][2] <= positions[0][2]:
+        _fail(f"{where} stations must be strictly ordered toward the forward end")
+
+
+def _foot_profile_factors(profile_id: str) -> tuple[int, int, int]:
+    return _arm_profile_factors(profile_id)
+
+
+def _parse_authored_foot_profile(
+    value: Any,
+    source: dict[str, Any],
+    dimensions: tuple[tuple[tuple[str, tuple[str, ...], str, str], str, int, dict[str, Any]], ...],
+    landmarks: tuple[AuthoredLandmark, ...],
+    frames: tuple[AuthoredFrame, ...],
+    authored_leg: AuthoredLegProfile,
+) -> AuthoredFootProfile:
+    """Validate the exact index-bound authored_foot_profile v1 slice."""
+
+    profile = _obj(value, "authored_foot_profile")
+    if set(profile) != {"format", "provenance", "sides"} or profile["format"] != AUTHORED_FOOT_PROFILE_FORMAT:
+        _fail("authored_foot_profile is not format v1")
+    source_provenance = {"source": "source-authored", "document": source["document"], "namespace": source["namespace"]}
+    provenance = _authored_torso_provenance(profile["provenance"], source_provenance, "authored_foot_profile.provenance")
+    raw_sides = _array(profile["sides"], "authored_foot_profile.sides")
+    if len(raw_sides) != len(FOOT_PROFILE_SIDE_NAMES):
+        _fail("authored_foot_profile.sides must contain exactly left and right")
+    parsed_sides: list[AuthoredFootProfileSide] = []
+    for side_index, side_name in enumerate(FOOT_PROFILE_SIDE_NAMES):
+        where = f"authored_foot_profile.sides[{side_index}]"
+        side = _obj(raw_sides[side_index], where)
+        if set(side) != {"side", "hock_binding", "sections"} or side["side"] != side_name:
+            _fail(f"{where} is not the required ordered side")
+        hock_binding = _obj(side["hock_binding"], f"{where}.hock_binding")
+        if hock_binding != {
+            "source_profile": "authored_leg_profile",
+            "side_index": side_index,
+            "section_index": FOOT_PROFILE_HOCK_SECTION_INDEX,
+        }:
+            _fail(f"{where}.hock_binding does not retain the exact authored leg seam")
+        leg_side = authored_leg.sides[side_index]
+        hock = leg_side.sections[FOOT_PROFILE_HOCK_SECTION_INDEX]
+        if leg_side.side != side_name or hock.name != "hock-endpoint" or hock.owner[3] != "shin" or hock.owner[1] != (side_name,):
+            _fail(f"{where}.hock_binding does not resolve to the matching shin-owned hock-endpoint")
+        raw_sections = _array(side["sections"], f"{where}.sections")
+        if len(raw_sections) != len(FOOT_PROFILE_SECTION_NAMES):
+            _fail(f"{where}.sections must contain exactly two sections")
+        parsed_sections: list[AuthoredFootProfileSection] = []
+        for section_index, raw in enumerate(raw_sections):
+            section_where = f"{where}.sections[{section_index}]"
+            section = _obj(raw, section_where)
+            expected_fields = {"name", "frame_index", "landmark_index", "dimension_indices", "provenance", "section_index"}
+            if set(section) != expected_fields:
+                _fail(f"{section_where} has unexpected fields")
+            if section["section_index"] != section_index or section["name"] != FOOT_PROFILE_SECTION_NAMES[section_index]:
+                _fail(f"{section_where} is not the required ordered section")
+            frame_index = _int(section["frame_index"], f"{section_where}.frame_index")
+            landmark_index = _int(section["landmark_index"], f"{section_where}.landmark_index")
+            if not 0 <= frame_index < len(frames) or not 0 <= landmark_index < len(landmarks):
+                _fail(f"{section_where} references an out-of-range authored control")
+            owner = (source["namespace"], (side_name,), "part", "foot")
+            frame = frames[frame_index]
+            landmark = landmarks[landmark_index]
+            expected_landmark_role = FOOT_PROFILE_LANDMARK_PREFIX + section["name"]
+            if frame.owner != owner or frame.role != FOOT_PROFILE_CONTROL_FRAME_ROLE:
+                _fail(f"{section_where}.frame_index does not retain the exact owner/frame role")
+            if landmark.owner != owner or landmark.role != expected_landmark_role:
+                _fail(f"{section_where}.landmark_index does not retain the exact owner/landmark role")
+            if landmark.frame != (frame.owner, frame.role):
+                _fail(f"{section_where} landmark/frame binding is invalid")
+            if frame.translation != (0.0, 0.0, 0.0) or frame.rotation_xyzw != (0.0, 0.0, 0.0, 1.0):
+                _fail(f"{section_where} control frame must remain identity-only")
+            indices = _obj(section["dimension_indices"], f"{section_where}.dimension_indices")
+            if set(indices) != {"lateral", "up", "forward"}:
+                _fail(f"{section_where}.dimension_indices has unexpected fields")
+            controls: list[AuthoredRadius] = []
+            expected_roles = tuple(
+                FOOT_PROFILE_DIMENSION_PREFIX + section["name"] + "_" + suffix
+                for suffix in FOOT_PROFILE_DIMENSION_SUFFIXES
+            )
+            for axis, expected_role in zip(("lateral", "up", "forward"), expected_roles):
+                dimension_index = _int(indices[axis], f"{section_where}.dimension_indices.{axis}")
+                if not 0 <= dimension_index < len(dimensions):
+                    _fail(f"{section_where}.dimension_indices.{axis} is out of range")
+                dimension_owner, role, value_permille, control_provenance = dimensions[dimension_index]
+                if (dimension_owner, role) != (owner, expected_role):
+                    _fail(f"{section_where}.dimension_indices.{axis} does not retain the exact owner/role")
+                controls.append(AuthoredRadius(dimension_owner, role, value_permille, control_provenance, dimension_index))
+            _authored_torso_provenance(section["provenance"], source_provenance, f"{section_where}.provenance")
+            parsed_sections.append(
+                AuthoredFootProfileSection(
+                    section["name"], section_index, frame_index, landmark_index, owner,
+                    (frame.owner, frame.role), landmark, controls[0], controls[1], controls[2],
+                )
+            )
+        _validate_foot_profile_local_order(tuple(parsed_sections), f"{where}.sections")
+        parsed_sides.append(
+            AuthoredFootProfileSide(
+                side_name,
+                side_index,
+                FOOT_PROFILE_HOCK_SECTION_INDEX,
+                (parsed_sections[0], parsed_sections[1]),
+            )
+        )
+    return AuthoredFootProfile((parsed_sides[0], parsed_sides[1]), provenance)
+
+
+def _parse_variant_foot_profile(
+    value: Any,
+    source: dict[str, Any],
+    authored: AuthoredFootProfile,
+    profile_id: str,
+) -> VariantFootProfile:
+    profile = _obj(value, f"{profile_id}.foot_profile")
+    if set(profile) != {"format", "source", "provenance", "sides"} or profile["format"] != AUTHORED_FOOT_PROFILE_FORMAT or profile["source"] != "authored_foot_profile":
+        _fail(f"{profile_id}.foot_profile is invalid")
+    expected_provenance = {"source": "source-authored", "document": source["document"], "namespace": source["namespace"]}
+    provenance = _authored_torso_provenance(profile["provenance"], expected_provenance, f"{profile_id}.foot_profile.provenance")
+    raw_sides = _array(profile["sides"], f"{profile_id}.foot_profile.sides")
+    if len(raw_sides) != len(authored.sides):
+        _fail(f"{profile_id}.foot_profile must contain exactly two sides")
+    factors = _foot_profile_factors(profile_id)
+    parsed_sides: list[VariantFootProfileSide] = []
+    for side_index, authored_side in enumerate(authored.sides):
+        where = f"{profile_id}.foot_profile.sides[{side_index}]"
+        side = _obj(raw_sides[side_index], where)
+        if set(side) != {"side", "hock_binding", "sections"} or side["side"] != authored_side.side:
+            _fail(f"{where} is not the required ordered side")
+        binding = _obj(side["hock_binding"], f"{where}.hock_binding")
+        expected_binding = {
+            "source_profile": "authored_leg_profile",
+            "side_index": authored_side.leg_profile_side_index,
+            "section_index": authored_side.leg_profile_section_index,
+        }
+        if binding != expected_binding:
+            _fail(f"{where}.hock_binding does not retain the authored leg seam")
+        raw_sections = _array(side["sections"], f"{where}.sections")
+        if len(raw_sections) != len(authored_side.sections):
+            _fail(f"{where}.sections must contain exactly two sections")
+        parsed_sections: list[VariantFootProfileSection] = []
+        for section_index, (raw, authored_section) in enumerate(zip(raw_sections, authored_side.sections)):
+            section_where = f"{where}.sections[{section_index}]"
+            section = _obj(raw, section_where)
+            expected_fields = {"source_section_index", "name", "position", "lateral_radius_permille", "up_radius_permille", "forward_radius_permille", "scaling", "provenance"}
+            if set(section) != expected_fields or section["source_section_index"] != authored_section.section_index or section["name"] != authored_section.name:
+                _fail(f"{section_where} is not the required ordered section")
+            position = _source_vector(section["position"], f"{section_where}.position", 3)
+            if position != authored_section.landmark.position:
+                _fail(f"{section_where}.position is not the source-authored landmark position")
+            scaling = _obj(section["scaling"], f"{section_where}.scaling")
+            if set(scaling) != {"lateral_factor_permille", "up_factor_permille", "forward_factor_permille"}:
+                _fail(f"{section_where}.scaling has unexpected fields")
+            projected_factors = tuple(
+                _int(scaling[f"{axis}_factor_permille"], f"{section_where}.scaling.{axis}_factor_permille")
+                for axis in ("lateral", "up", "forward")
+            )
+            if projected_factors != factors:
+                _fail(f"{section_where}.scaling does not use the producer foot variant factors")
+            scaled: list[int] = []
+            for axis, field, control, factor in (
+                ("lateral", "lateral_radius_permille", authored_section.lateral, factors[0]),
+                ("up", "up_radius_permille", authored_section.up, factors[1]),
+                ("forward", "forward_radius_permille", authored_section.forward, factors[2]),
+            ):
+                scaled_value = _int(section[field], f"{section_where}.{field}")
+                if scaled_value != _scaled_display_value(control.value_permille, factor, f"{section_where}.{field}"):
+                    _fail(f"{section_where}.{field} is not the exact scaled authored radius")
+                scaled.append(scaled_value)
+            _authored_torso_provenance(section["provenance"], expected_provenance, f"{section_where}.provenance")
+            parsed_sections.append(
+                VariantFootProfileSection(
+                    authored_section.section_index,
+                    authored_section.name,
+                    position,
+                    scaled[0], scaled[1], scaled[2],
+                    factors[0], factors[1], factors[2],
+                    provenance,
+                )
+            )
+        _validate_foot_profile_local_order(tuple(parsed_sections), f"{where}.sections")
+        parsed_sides.append(VariantFootProfileSide(authored_side.side, ("authored_leg_profile", authored_side.leg_profile_side_index, authored_side.leg_profile_section_index), (parsed_sections[0], parsed_sections[1])))
+    return VariantFootProfile((parsed_sides[0], parsed_sides[1]), provenance)
+
+
 def _torso_profile_factors(profile_id: str, owner_role: str) -> tuple[int, int]:
     shared = _display_factors(profile_id, owner_role, "ellipsoid")
     return shared[0], shared[2]
@@ -2026,11 +2421,11 @@ def _parse_variant_head_neck_profile(
 
 def validate_envelope(value: Any) -> Form:
     root = _obj(value, "envelope")
-    required = {"format", "operation", "status", "stage", "processing_complete", "diagnostics_complete", "diagnostics", "source", "reference_scale", "authored_dimensions", "authored_landmarks", "authored_frames", "authored_torso_profile", "authored_head_neck_profile", "authored_arm_profile", "authored_leg_profile", "variants", "limitations"}
+    required = {"format", "operation", "status", "stage", "processing_complete", "diagnostics_complete", "diagnostics", "source", "reference_scale", "authored_dimensions", "authored_landmarks", "authored_frames", "authored_torso_profile", "authored_head_neck_profile", "authored_arm_profile", "authored_leg_profile", "authored_foot_profile", "variants", "limitations"}
     if set(root) != required:
         _fail("envelope has unexpected or missing fields")
     if root["format"] != SOURCE_FORMAT or root["operation"] != "inspect-provisional-form" or root["status"] != "success" or root["stage"] != "provisional-form":
-        _fail("envelope is not a successful v10 provisional-form result")
+        _fail("envelope is not a successful v11 provisional-form result")
     if root["processing_complete"] is not True or root["diagnostics_complete"] is not True or root["diagnostics"] != []:
         _fail("envelope success flags or diagnostics are invalid")
     if type(root["limitations"]) is not str or "Readiness" not in root["limitations"] or "geometry" not in root["limitations"]:
@@ -2076,8 +2471,8 @@ def validate_envelope(value: Any) -> Form:
         "namespace": source["namespace"],
     }
     authored_frames = _array(root["authored_frames"], "authored_frames")
-    if len(authored_frames) != 14 or len(authored_frames) > MAX_AUTHORED_FRAMES:
-        _fail("authored_frames must contain exactly fourteen controls")
+    if len(authored_frames) != 16 or len(authored_frames) > MAX_AUTHORED_FRAMES:
+        _fail("authored_frames must contain exactly sixteen controls")
     parsed_frames: list[AuthoredFrame] = []
     frame_keys: list[tuple[tuple[str, tuple[str, ...], str, str], str]] = []
     for index, item in enumerate(authored_frames):
@@ -2085,10 +2480,10 @@ def validate_envelope(value: Any) -> Form:
         if set(frame) != {"owner", "role", "transform", "provenance"}:
             _fail(f"authored_frames[{index}] has invalid fields")
         owner = _address(frame["owner"], f"authored_frames[{index}].owner")
-        if owner[0] != source["namespace"] or owner[2] != "part" or owner[1] not in ((), ("left",), ("right",)) or owner[3] not in {"head", "neck", "pelvis", "torso", "upper_arm", "forearm", "thigh", "shin"}:
+        if owner[0] != source["namespace"] or owner[2] != "part" or owner[1] not in ((), ("left",), ("right",)) or owner[3] not in {"head", "neck", "pelvis", "torso", "upper_arm", "forearm", "thigh", "shin", "foot"}:
             _fail(f"authored_frames[{index}].owner is not a supported authored-control owner")
         role = frame["role"]
-        if role not in {"form_shoulder_control", TORSO_PROFILE_FRAME_ROLE, HEAD_NECK_PROFILE_FRAME_ROLE, ARM_PROFILE_CONTROL_FRAME_ROLE, LEG_PROFILE_CONTROL_FRAME_ROLE}:
+        if role not in {"form_shoulder_control", TORSO_PROFILE_FRAME_ROLE, HEAD_NECK_PROFILE_FRAME_ROLE, ARM_PROFILE_CONTROL_FRAME_ROLE, LEG_PROFILE_CONTROL_FRAME_ROLE, FOOT_PROFILE_CONTROL_FRAME_ROLE}:
             _fail(f"authored_frames[{index}].role is invalid")
         if role == "form_shoulder_control" and owner[1] not in (("left",), ("right",)):
             _fail(f"authored_frames[{index}] shoulder frame owner is invalid")
@@ -2100,6 +2495,8 @@ def validate_envelope(value: Any) -> Form:
             _fail(f"authored_frames[{index}] arm profile frame owner is invalid")
         if role == LEG_PROFILE_CONTROL_FRAME_ROLE and (owner[1] not in (("left",), ("right",)) or owner[3] not in {"thigh", "shin"}):
             _fail(f"authored_frames[{index}] leg profile frame owner is invalid")
+        if role == FOOT_PROFILE_CONTROL_FRAME_ROLE and (owner[1] not in (("left",), ("right",)) or owner[3] != "foot"):
+            _fail(f"authored_frames[{index}] foot profile frame owner is invalid")
         provenance = _obj(frame["provenance"], f"authored_frames[{index}].provenance")
         if set(provenance) != set(control_provenance) or provenance != control_provenance:
             _fail(f"authored_frames[{index}].provenance is invalid")
@@ -2126,6 +2523,7 @@ def validate_envelope(value: Any) -> Form:
         ((source["namespace"], (side,), "part", owner_role), frame_role)
         for side in ("left", "right")
         for owner_role, frame_role in (
+            ("foot", FOOT_PROFILE_CONTROL_FRAME_ROLE),
             ("forearm", ARM_PROFILE_CONTROL_FRAME_ROLE),
             ("shin", LEG_PROFILE_CONTROL_FRAME_ROLE),
             ("thigh", LEG_PROFILE_CONTROL_FRAME_ROLE),
@@ -2134,11 +2532,11 @@ def validate_envelope(value: Any) -> Form:
         )
     ]
     if frame_keys != expected_frame_keys:
-        _fail("authored_frames do not have the closed shoulder-torso-arm-and-leg control inventory")
+        _fail("authored_frames do not have the closed shoulder-torso-arm-leg-and-foot control inventory")
 
     authored_landmarks = _array(root["authored_landmarks"], "authored_landmarks")
-    if len(authored_landmarks) != 39 or len(authored_landmarks) > MAX_AUTHORED_LANDMARKS:
-        _fail("authored_landmarks must contain exactly thirty-nine controls")
+    if len(authored_landmarks) != 43 or len(authored_landmarks) > MAX_AUTHORED_LANDMARKS:
+        _fail("authored_landmarks must contain exactly forty-three controls")
     parsed_landmarks: list[AuthoredLandmark] = []
     landmark_keys: list[tuple[tuple[str, tuple[str, ...], str, str], str]] = []
     for index, item in enumerate(authored_landmarks):
@@ -2146,17 +2544,17 @@ def validate_envelope(value: Any) -> Form:
         if set(landmark) != {"owner", "role", "frame", "position", "provenance"}:
             _fail(f"authored_landmarks[{index}] has invalid fields")
         owner = _address(landmark["owner"], f"authored_landmarks[{index}].owner")
-        if owner[0] != source["namespace"] or owner[2] != "part" or owner[1] not in ((), ("left",), ("right",)) or owner[3] not in {"head", "neck", "pelvis", "torso", "upper_arm", "forearm", "thigh", "shin"}:
+        if owner[0] != source["namespace"] or owner[2] != "part" or owner[1] not in ((), ("left",), ("right",)) or owner[3] not in {"head", "neck", "pelvis", "torso", "upper_arm", "forearm", "thigh", "shin", "foot"}:
             _fail(f"authored_landmarks[{index}].owner is not a supported authored-control owner")
         role = landmark["role"]
-        if role not in {"form_shoulder_peak", "form_axilla"} and not role.startswith(TORSO_PROFILE_LANDMARK_PREFIX) and not role.startswith(HEAD_NECK_PROFILE_LANDMARK_PREFIX) and not role.startswith(ARM_PROFILE_LANDMARK_PREFIX) and not role.startswith(LEG_PROFILE_LANDMARK_PREFIX):
+        if role not in {"form_shoulder_peak", "form_axilla"} and not role.startswith(TORSO_PROFILE_LANDMARK_PREFIX) and not role.startswith(HEAD_NECK_PROFILE_LANDMARK_PREFIX) and not role.startswith(ARM_PROFILE_LANDMARK_PREFIX) and not role.startswith(LEG_PROFILE_LANDMARK_PREFIX) and not role.startswith(FOOT_PROFILE_LANDMARK_PREFIX):
             _fail(f"authored_landmarks[{index}].role is invalid")
         frame = _obj(landmark["frame"], f"authored_landmarks[{index}].frame")
         if set(frame) != {"owner", "role"}:
             _fail(f"authored_landmarks[{index}].frame has invalid fields")
         frame_owner = _address(frame["owner"], f"authored_landmarks[{index}].frame.owner")
         frame_role = frame["role"]
-        if frame_role not in {"form_shoulder_control", TORSO_PROFILE_FRAME_ROLE, HEAD_NECK_PROFILE_FRAME_ROLE, ARM_PROFILE_CONTROL_FRAME_ROLE, LEG_PROFILE_CONTROL_FRAME_ROLE} or (frame_owner, frame_role) != (owner, frame_role):
+        if frame_role not in {"form_shoulder_control", TORSO_PROFILE_FRAME_ROLE, HEAD_NECK_PROFILE_FRAME_ROLE, ARM_PROFILE_CONTROL_FRAME_ROLE, LEG_PROFILE_CONTROL_FRAME_ROLE, FOOT_PROFILE_CONTROL_FRAME_ROLE} or (frame_owner, frame_role) != (owner, frame_role):
             _fail(f"authored_landmarks[{index}] must reference its same-owner control frame")
         if (frame_owner, frame_role) not in frame_keys:
             _fail(f"authored_landmarks[{index}] references a missing control frame")
@@ -2169,6 +2567,8 @@ def validate_envelope(value: Any) -> Form:
             _fail(f"authored_landmarks[{index}] arm profile landmark must be source-local on its arm axis")
         if role.startswith(LEG_PROFILE_LANDMARK_PREFIX) and (owner[1] not in (("left",), ("right",)) or owner[3] not in {"thigh", "shin"} or position[0] != 0.0 or position[2] != 0.0):
             _fail(f"authored_landmarks[{index}] leg profile landmark must be source-local on its leg axis")
+        if role.startswith(FOOT_PROFILE_LANDMARK_PREFIX) and (owner[1] not in (("left",), ("right",)) or owner[3] != "foot" or position[0] != 0.0 or not -CONTROL_COORDINATE_BOUND <= position[1] <= 0.0 or not 0.0 <= position[2] <= CONTROL_COORDINATE_BOUND):
+            _fail(f"authored_landmarks[{index}] foot profile landmark must be source-local on its foot axis")
         provenance = _obj(landmark["provenance"], f"authored_landmarks[{index}].provenance")
         if set(provenance) != set(control_provenance) or provenance != control_provenance:
             _fail(f"authored_landmarks[{index}].provenance is invalid")
@@ -2200,10 +2600,14 @@ def validate_envelope(value: Any) -> Form:
         ((source["namespace"], (side,), "part", owner_role), LEG_PROFILE_LANDMARK_PREFIX + name.replace("-", "_"))
         for side in LEG_PROFILE_SIDE_NAMES
         for name, owner_role in zip(LEG_PROFILE_SECTION_NAMES, LEG_PROFILE_OWNER_ROLES)
+    ] + [
+        ((source["namespace"], (side,), "part", "foot"), FOOT_PROFILE_LANDMARK_PREFIX + name)
+        for side in FOOT_PROFILE_SIDE_NAMES
+        for name in FOOT_PROFILE_SECTION_NAMES
     ]
     expected_landmark_keys.sort()
     if landmark_keys != expected_landmark_keys:
-        _fail("authored_landmarks do not have the closed shoulder-torso-arm-and-leg control inventory")
+        _fail("authored_landmarks do not have the closed shoulder-torso-arm-leg-and-foot control inventory")
     scale = _obj(root["reference_scale"], "reference_scale")
     if set(scale) != {"parent", "child", "axis_delta", "squared_length", "source"} or scale["source"] != "exact-containment-edge":
         _fail("reference_scale is invalid")
@@ -2242,6 +2646,14 @@ def validate_envelope(value: Any) -> Form:
         tuple(parsed_landmarks),
         tuple(parsed_frames),
     )
+    authored_foot_profile = _parse_authored_foot_profile(
+        root["authored_foot_profile"],
+        source,
+        tuple(parsed_dimensions),
+        tuple(parsed_landmarks),
+        tuple(parsed_frames),
+        authored_leg_profile,
+    )
     variants = _array(root["variants"], "variants")
     if len(variants) != 4:
         _fail("variants must contain exactly four items")
@@ -2250,11 +2662,12 @@ def validate_envelope(value: Any) -> Form:
     variant_head_neck_profiles: list[VariantHeadNeckProfile] = []
     variant_arm_profiles: list[VariantArmProfile] = []
     variant_leg_profiles: list[VariantLegProfile] = []
+    variant_foot_profiles: list[VariantFootProfile] = []
     canonical: list[tuple[Any, ...]] | None = None
     consumed_dimension_keys: set[tuple[tuple[str, tuple[str, ...], str, str], str]] = set()
     for index, item in enumerate(variants):
         variant = _obj(item, f"variants[{index}]")
-        if set(variant) != {"id", "profile_id", "provenance", "descriptors", "torso_profile", "head_neck_profile", "arm_profile", "leg_profile"} or variant.get("id") != VARIANT_IDS[index] or variant.get("profile_id") != VARIANT_IDS[index]:
+        if set(variant) != {"id", "profile_id", "provenance", "descriptors", "torso_profile", "head_neck_profile", "arm_profile", "leg_profile", "foot_profile"} or variant.get("id") != VARIANT_IDS[index] or variant.get("profile_id") != VARIANT_IDS[index]:
             _fail(f"variants[{index}] is not the fixed {VARIANT_IDS[index]} variant")
         provenance = _obj(variant["provenance"], f"variants[{index}].provenance")
         if set(provenance) != {"source", "resource_profile_id", "shape_basis"} or provenance.get("source") != "profile-derived-display" or provenance.get("resource_profile_id") != source["resource_profile_id"] or provenance.get("shape_basis") != "source-authored-dimensions-plus-fixed-display-factor":
@@ -2380,6 +2793,14 @@ def validate_envelope(value: Any) -> Form:
                 VARIANT_IDS[index],
             )
         )
+        variant_foot_profiles.append(
+            _parse_variant_foot_profile(
+                variant["foot_profile"],
+                source,
+                authored_foot_profile,
+                VARIANT_IDS[index],
+            )
+        )
     if canonical is None:
         _fail("no descriptors")
     profile_dimension_keys = {
@@ -2402,6 +2823,12 @@ def validate_envelope(value: Any) -> Form:
     consumed_dimension_keys.update(
         (control.owner, control.role)
         for side in authored_leg_profile.sides
+        for section in side.sections
+        for control in (section.lateral, section.up, section.forward)
+    )
+    consumed_dimension_keys.update(
+        (control.owner, control.role)
+        for side in authored_foot_profile.sides
         for section in side.sections
         for control in (section.lateral, section.up, section.forward)
     )
@@ -2429,6 +2856,8 @@ def validate_envelope(value: Any) -> Form:
         _fail("authored_arm_profile sections must be owned by variant descriptors")
     if any(section.owner not in descriptor_keys for side in authored_leg_profile.sides for section in side.sections):
         _fail("authored_leg_profile sections must be owned by variant descriptors")
+    if any(section.owner not in descriptor_keys for side in authored_foot_profile.sides for section in side.sections):
+        _fail("authored_foot_profile sections must be owned by variant descriptors")
     return Form(
         root,
         source,
@@ -2441,10 +2870,12 @@ def validate_envelope(value: Any) -> Form:
         authored_head_neck_profile,
         authored_arm_profile,
         authored_leg_profile,
+        authored_foot_profile,
         tuple(variant_torso_profiles),
         tuple(variant_head_neck_profiles),
         tuple(variant_arm_profiles),
         tuple(variant_leg_profiles),
+        tuple(variant_foot_profiles),
         tuple(normalized),
     )
 
@@ -2900,29 +3331,26 @@ def _guide_profile(value: tuple[float, ...], where: str) -> tuple[float, ...]:
     return profile
 
 
-def _derive_foot_chain_profile(
-    source_radii: np.ndarray | tuple[float, float, float],
+def _derive_foot_metatarsal_profile(
+    hock_radii: tuple[float, float, float],
+    pad_radii: tuple[float, float, float],
     where: str,
-) -> tuple[tuple[float, float, float], tuple[float, float]]:
-    """Derive the shared pad proportions and metatarsal taper interface.
+) -> tuple[float, float]:
+    """Derive the scalar baseline taper from exact endpoint volumes only.
 
-    This is intentionally source-derived and independent of the shin hock:
-    the hock can bind its distal adjacent profile to the first returned value,
-    while the foot guide consumes the same pair after the hock exists.
+    The fixed prototype uses the +Y/up half-axis as its stable scalar
+    effective radius.  It is an exact component of each authored volume, and
+    keeps the authored fixture's hock-to-pad path strictly tapering across
+    every shared variant factor.  No legacy foot extent participates here.
     """
 
-    pad_radii = _guide_radii(
-        np.asarray(source_radii, dtype=np.float64) * np.asarray([1.08, 0.32, 0.42]),
-        f"{where}.pad_radii",
-    )
-    metatarsal_profile = _guide_profile(
-        (
-            0.34 * math.sqrt(pad_radii[0] * pad_radii[2]),
-            0.72 * min(pad_radii),
-        ),
-        f"{where}.metatarsal_profile",
-    )
-    return pad_radii, (float(metatarsal_profile[0]), float(metatarsal_profile[1]))
+    hock = _guide_radii(hock_radii, f"{where}.hock_radii")
+    pad = _guide_radii(pad_radii, f"{where}.pad_radii")
+    profile = (float(hock[1]), float(pad[1]))
+    _guide_profile(profile, f"{where}.metatarsal_profile")
+    if not profile[0] > profile[1]:
+        _fail(f"{where}.metatarsal_profile must strictly taper from hock to pad")
+    return profile
 
 
 def _guide_path(
@@ -3724,6 +4152,119 @@ def _derive_leg_profile(
     )
 
 
+def _derive_foot_profile(
+    form: Form,
+    descriptors: tuple[Descriptor, ...],
+    profile: AuthoredFootProfile,
+    leg_profile: _LegProfileGuide,
+) -> _FootProfileGuide:
+    """Project exact authored pad/toe stations from each foot reference point."""
+
+    by_key = {descriptor.key: descriptor for descriptor in descriptors}
+    variant_index = VARIANT_IDS.index(descriptors[0].profile_id)
+    if len(form.variant_foot_profiles) != len(VARIANT_IDS):
+        _fail("authored foot profile is missing a variant projection")
+    variant_profile = form.variant_foot_profiles[variant_index]
+    frame_by_key = {(frame.owner, frame.role): frame for frame in form.authored_frames}
+    guide_sides: list[_FootProfileSideGuide] = []
+
+    def lineage(control: AuthoredRadius, factor: int, section_name: str, where: str) -> _FootProfileRadiusLineage:
+        scaled = _scaled_display_value(control.value_permille, factor, where)
+        return _FootProfileRadiusLineage(
+            base=control.value_permille,
+            factor=factor,
+            scaled=scaled,
+            reference=(control.owner, control.role),
+            reference_index=control.source_index,
+            provenance=dict(control.provenance),
+            consumed_section=section_name,
+        )
+
+    for side_index, authored_side in enumerate(profile.sides):
+        projected_side = variant_profile.sides[side_index]
+        if projected_side.side != authored_side.side or projected_side.hock_binding != (
+            "authored_leg_profile",
+            authored_side.leg_profile_side_index,
+            authored_side.leg_profile_section_index,
+        ):
+            _fail(f"foot profile side {authored_side.side!r} lost its exact hock binding")
+        leg_side = leg_profile.sides[side_index]
+        hock_station = leg_side.sections[authored_side.leg_profile_section_index]
+        if hock_station.name != "hock-endpoint" or hock_station.owner.key[3] != "shin" or hock_station.owner.key[1] != (authored_side.side,):
+            _fail(f"foot profile side {authored_side.side!r} has an invalid authored leg hock seam")
+        foot_key = (form.source["namespace"], (authored_side.side,), "part", "foot")
+        owner = by_key.get(foot_key)
+        if owner is None or owner.key != authored_side.sections[0].owner or owner.key[3] != "foot":
+            _fail(f"foot profile side {authored_side.side!r} lost its canonical foot owner")
+        reference_point = _guide_point(owner.point, f"foot-profile.{authored_side.side}.reference_point")
+        if reference_point != hock_station.center:
+            _fail(f"foot-profile.{authored_side.side} reference point must coincide with the inherited hock seam")
+        stations: list[_FootProfileStation] = []
+        for section_index, (authored, projected) in enumerate(zip(authored_side.sections, projected_side.sections)):
+            if projected.source_section_index != authored.section_index or projected.name != authored.name:
+                _fail(f"foot profile guide section {authored.name!r} lost source section order")
+            if authored.owner != owner.key or authored.landmark.owner != owner.key:
+                _fail(f"foot profile guide section {authored.name!r} lost descriptor ownership")
+            frame_record = frame_by_key.get(authored.frame)
+            if frame_record is None or frame_record.role != FOOT_PROFILE_CONTROL_FRAME_ROLE:
+                _fail(f"foot profile guide section {authored.name!r} lost its identity frame")
+            local_position = np.asarray(projected.position, dtype=np.float64) / form.reference_scale
+            center = _guide_point(
+                np.asarray(owner.point, dtype=np.float64) + local_position,
+                f"foot-profile.{authored_side.side}.{authored.name}.center",
+            )
+            controls = (authored.lateral, authored.up, authored.forward)
+            factors = (projected.lateral_factor, projected.up_factor, projected.forward_factor)
+            lineages = tuple(
+                lineage(control, factor, authored.name, f"foot-profile.{authored_side.side}.{authored.name}.{axis}")
+                for axis, control, factor in zip(("lateral", "up", "forward"), controls, factors)
+            )
+            scaled = tuple(item.scaled for item in lineages)
+            projected_scaled = (
+                projected.lateral_radius_permille,
+                projected.up_radius_permille,
+                projected.forward_radius_permille,
+            )
+            if scaled != projected_scaled:
+                _fail(f"foot profile guide section {authored.name!r} lost exact projected radii")
+            radii = tuple(value / 1000.0 for value in scaled)
+            _guide_radii(radii, f"foot-profile.{authored_side.side}.{authored.name}.radii")
+            stations.append(
+                _FootProfileStation(
+                    name=authored.name,
+                    section_index=authored.section_index,
+                    source_section_index=projected.source_section_index,
+                    frame_index=authored.frame_index,
+                    landmark_index=authored.landmark_index,
+                    owner=owner,
+                    frame=frame_record,
+                    landmark=authored.landmark,
+                    center=center,
+                    radii=radii,  # type: ignore[arg-type]
+                    lateral_lineage=lineages[0],
+                    up_lineage=lineages[1],
+                    forward_lineage=lineages[2],
+                    profile_provenance=dict(profile.provenance),
+                    variant_provenance=dict(variant_profile.provenance),
+                )
+            )
+        if len(stations) != 2:
+            _fail(f"foot profile side {authored_side.side!r} lost its two authored stations")
+        guide_sides.append(
+            _FootProfileSideGuide(
+                authored_side.side,
+                projected_side.hock_binding,
+                (stations[0], stations[1]),
+            )
+        )
+    return _FootProfileGuide(
+        (guide_sides[0], guide_sides[1]),
+        dict(profile.provenance),
+        dict(variant_profile.provenance),
+        _FIXED_GUIDE_AXES,
+    )
+
+
 def _derive_shoulder_frame(
     form: Form,
     torso_cage: _TorsoCage,
@@ -4047,6 +4588,7 @@ def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _H
 
     arm_profile = _derive_arm_profile(form, descriptors, form.authored_arm_profile)
     leg_profile = _derive_leg_profile(form, descriptors, form.authored_leg_profile)
+    foot_profile = _derive_foot_profile(form, descriptors, form.authored_foot_profile, leg_profile)
     limb_guides: list[_LimbGuide] = []
     for desc in descriptors:
         role = desc.key[3]
@@ -4168,18 +4710,24 @@ def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _H
             adjacent = by_role.get((side, adjacent_role))
             if adjacent is None:
                 _fail(f"missing adjacent source geometry for {_key_text(desc.key)}.{joint_name}")
-            adjacent_source = _source_shape(adjacent, form.reference_scale)
             if adjacent_role == "foot":
-                _, foot_profile = _derive_foot_chain_profile(
-                    adjacent_source["radii"],
+                if leg_side is None:
+                    _fail(f"authored leg side is missing for {_key_text(desc.key)}")
+                foot_side = next((item for item in foot_profile.sides if item.side == side[0]), None)
+                if foot_side is None:
+                    _fail(f"authored foot side is missing for {_key_text(desc.key)}")
+                metatarsal_profile = _derive_foot_metatarsal_profile(
+                    leg_side.sections[FOOT_PROFILE_HOCK_SECTION_INDEX].radii,
+                    foot_side.sections[0].radii,
                     f"{_key_text(desc.key)}.foot_chain",
                 )
-                adjacent_profile = foot_profile[0]
+                adjacent_profile = metatarsal_profile[0]
             elif role == "thigh":
                 if leg_side is None:
                     _fail(f"authored leg side is missing for {_key_text(desc.key)}")
                 adjacent_profile = float(min(leg_side.sections[2].radii))
             else:
+                adjacent_source = _source_shape(adjacent, form.reference_scale)
                 adjacent_profile = float(_LIMB_PROFILE_FACTORS[adjacent_role][0]) * _radius_from_shape(adjacent_source)
             own_profile = profile_controls[-1]
             adjacent_profiles = (own_profile, adjacent_profile)
@@ -4240,8 +4788,8 @@ def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _H
             paw_radii = _guide_radii(source["radii"] * np.asarray([1.08, 0.94, 1.22]), f"{_key_text(desc.key)}.paw_radii")
             foot_chain = None
         else:
-            # The hock already owns the proximal joint; derive the foot chain
-            # from the source proportions and a guide-only contact datum.
+            # The hock already owns the proximal joint; the authored foot
+            # profile owns only the exact pad/toe stations that follow it.
             parent = by_key.get(desc.parent) if desc.parent is not None else None
             parent_limb = None if parent is None else limb_by_owner.get(parent.key)
             if parent is None or parent.key[3] != "shin" or parent_limb is None or parent_limb.joint is None or parent_limb.joint.name != "hock":
@@ -4249,24 +4797,21 @@ def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _H
             hock = parent_limb.joint
             hock_anchor = _guide_point(hock.center, f"{_key_text(desc.key)}.foot_chain.hock_anchor")
             hock_radii = _guide_radii(hock.radii, f"{_key_text(desc.key)}.foot_chain.hock_radii")
-            source_center = np.asarray(source["center"], dtype=np.float64)
-            source_radii = np.asarray(source["radii"], dtype=np.float64)
-            contact_height = float(source_center[1] - source_radii[1])
-            pad_radii, metatarsal_profile = _derive_foot_chain_profile(
-                source_radii,
+            foot_side = next((item for item in foot_profile.sides if item.side == desc.key[1][0]), None)
+            if foot_side is None:
+                _fail(f"authored foot side is missing for {_key_text(desc.key)}")
+            pad_station, toe_station = foot_side.sections
+            pad_center = pad_station.center
+            pad_radii = pad_station.radii
+            toe_center = toe_station.center
+            toe_radii = toe_station.radii
+            contact_height = float(pad_center[1] - pad_radii[1])
+            if not math.isclose(toe_center[1] - toe_radii[1], contact_height, rel_tol=0.0, abs_tol=GUIDE_TOLERANCE):
+                _fail(f"{_key_text(desc.key)}.foot_chain pad/toe contact datum is not shared")
+            metatarsal_profile = _derive_foot_metatarsal_profile(
+                hock_radii,
+                pad_radii,
                 f"{_key_text(desc.key)}.foot_chain",
-            )
-            pad_center = _guide_point(
-                np.asarray([source_center[0], contact_height + pad_radii[1], hock_anchor[2] + 0.34 * source_radii[2]]),
-                f"{_key_text(desc.key)}.foot_chain.pad_center",
-            )
-            toe_radii = _guide_radii(
-                source_radii * np.asarray([0.92, 0.28, 0.30]),
-                f"{_key_text(desc.key)}.foot_chain.toe_radii",
-            )
-            toe_center = _guide_point(
-                np.asarray([source_center[0], contact_height + toe_radii[1], pad_center[2] + 0.54 * source_radii[2]]),
-                f"{_key_text(desc.key)}.foot_chain.toe_center",
             )
             if metatarsal_profile[0] != hock.adjacent_profiles[1]:
                 _fail(f"{_key_text(desc.key)}.foot_chain profile does not bind its shin-owned hock")
@@ -4286,6 +4831,23 @@ def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _H
                 toe_center=toe_center,
                 toe_radii=toe_radii,
                 contact_height=contact_height,
+                metatarsal_midpoint=_guide_point(
+                    0.5 * (np.asarray(hock_anchor) + np.asarray(pad_center)),
+                    f"{_key_text(desc.key)}.foot_chain.metatarsal_midpoint",
+                ),
+                metatarsal_midpoint_radii=_guide_radii(
+                    0.5 * (np.asarray(hock_radii) + np.asarray(pad_radii)),
+                    f"{_key_text(desc.key)}.foot_chain.metatarsal_midpoint_radii",
+                ),
+                pad_toe_midpoint=_guide_point(
+                    0.5 * (np.asarray(pad_center) + np.asarray(toe_center)),
+                    f"{_key_text(desc.key)}.foot_chain.pad_toe_midpoint",
+                ),
+                pad_toe_midpoint_radii=_guide_radii(
+                    0.5 * (np.asarray(pad_radii) + np.asarray(toe_radii)),
+                    f"{_key_text(desc.key)}.foot_chain.pad_toe_midpoint_radii",
+                ),
+                profile=foot_profile,
                 axes=_FIXED_GUIDE_AXES,
             )
             paw_center = None
@@ -4378,6 +4940,7 @@ def _derive_hybrid_guides(form: Form, descriptors: tuple[Descriptor, ...]) -> _H
         shoulder_frame=shoulder_frame,
         arm_profile=arm_profile,
         leg_profile=leg_profile,
+        foot_profile=foot_profile,
         head_guide=head_guide,
         limb_guides=tuple(limb_guides),
         paw_guides=tuple(paw_guides),
@@ -4821,6 +5384,72 @@ def _validate_hybrid_guide(guide: _HybridGuide, bounds: tuple[np.ndarray, np.nda
         if shin_limb.joint is None or shin_limb.joint.center != side.sections[4].center or shin_limb.joint.radii != side.sections[4].radii:
             _fail(f"leg-profile[{side_index}] hock must remain shin-owned")
 
+    foot_profile = guide.foot_profile
+    if foot_profile.axes != guide.topology.axes or foot_profile.axes != _FIXED_GUIDE_AXES:
+        _fail("foot profile axes must match the guide topology and fixed prototype axes")
+    if tuple(side.side for side in foot_profile.sides) != FOOT_PROFILE_SIDE_NAMES:
+        _fail("foot profile sides must be ordered left then right")
+    for side_index, side in enumerate(foot_profile.sides):
+        where = f"foot-profile[{side_index}]"
+        if side.hock_binding != ("authored_leg_profile", side_index, FOOT_PROFILE_HOCK_SECTION_INDEX):
+            _fail(f"{where} hock binding is not the exact authored leg seam")
+        leg_side = leg_profile.sides[side_index]
+        hock = leg_side.sections[FOOT_PROFILE_HOCK_SECTION_INDEX]
+        if hock.name != "hock-endpoint" or hock.owner.key[3] != "shin" or hock.owner.key[1] != (side.side,):
+            _fail(f"{where} hock binding does not resolve to the matching shin-owned endpoint")
+        foot_owner = source_by_key.get((hock.owner.key[0], (side.side,), "part", "foot"))
+        if foot_owner is None:
+            _fail(f"{where} has no matching foot descriptor")
+        if side.sections[0].owner is not foot_owner or side.sections[1].owner is not foot_owner:
+            _fail(f"{where} pad/toe stations must retain the matching foot owner")
+        if _guide_point(foot_owner.point, f"{where}.reference_point") != hock.center:
+            _fail(f"{where} reference point must coincide with the inherited hock seam")
+        previous_forward: float | None = None
+        for section_index, station in enumerate(side.sections):
+            station_where = f"{where}[{section_index}]"
+            if station.name != FOOT_PROFILE_SECTION_NAMES[section_index] or station.section_index != section_index or station.source_section_index != section_index:
+                _fail(f"{station_where} source section indices or names are not exact")
+            if station.frame.owner != station.owner.key or station.frame.role != FOOT_PROFILE_CONTROL_FRAME_ROLE:
+                _fail(f"{station_where} frame ownership is invalid")
+            if station.landmark.owner != station.owner.key or station.landmark.frame != (station.frame.owner, station.frame.role):
+                _fail(f"{station_where} landmark/frame binding is invalid")
+            if station.frame.translation != (0.0, 0.0, 0.0) or station.frame.rotation_xyzw != (0.0, 0.0, 0.0, 1.0):
+                _fail(f"{station_where} control frame must remain identity-only")
+            if station.landmark.role != FOOT_PROFILE_LANDMARK_PREFIX + station.name:
+                _fail(f"{station_where} landmark role is invalid")
+            local = station.landmark.position
+            if local[0] != 0.0 or not -CONTROL_COORDINATE_BOUND <= local[1] <= 0.0 or not 0.0 <= local[2] <= CONTROL_COORDINATE_BOUND:
+                _fail(f"{station_where} landmark position is outside the authored foot control domain")
+            if previous_forward is not None and local[2] <= previous_forward:
+                _fail(f"{station_where} stations are not strictly ordered toward the forward end")
+            previous_forward = float(local[2])
+            nonzero_scales = [
+                float(raw) / float(normalized)
+                for raw, normalized in zip(station.owner.exact_point, station.owner.point)
+                if normalized != 0.0
+            ]
+            if not nonzero_scales or any(not math.isclose(value, nonzero_scales[0], rel_tol=0.0, abs_tol=1.0e-12) for value in nonzero_scales):
+                _fail(f"{station_where} owner reference scale is invalid")
+            expected_center = np.asarray(station.owner.point, dtype=np.float64) + np.asarray(local, dtype=np.float64) / nonzero_scales[0]
+            if not np.allclose(station.center, expected_center, rtol=0.0, atol=GUIDE_TOLERANCE):
+                _fail(f"{station_where} center is not the exact foot-reference projection")
+            controls = (station.lateral_lineage, station.up_lineage, station.forward_lineage)
+            for axis, control, suffix in zip(("lateral", "up", "forward"), controls, FOOT_PROFILE_DIMENSION_SUFFIXES):
+                expected_role = FOOT_PROFILE_DIMENSION_PREFIX + station.name + "_" + suffix
+                expected_factor = _foot_profile_factors(station.owner.profile_id)[{"lateral": 0, "up": 1, "forward": 2}[axis]]
+                radius = station.radii[{"lateral": 0, "up": 1, "forward": 2}[axis]]
+                if control.consumed_section != station.name or control.base <= 0 or control.factor != expected_factor or control.scaled != control.base * control.factor // 1000:
+                    _fail(f"{station_where}.{axis} lineage is invalid")
+                if control.reference != (station.owner.key, expected_role) or control.reference_index < 0:
+                    _fail(f"{station_where}.{axis} lineage lost source ownership or index")
+                if set(control.provenance) != {"source", "document", "namespace"}:
+                    _fail(f"{station_where}.{axis} lineage provenance is invalid")
+                if not math.isclose(radius, control.scaled / 1000.0, rel_tol=0.0, abs_tol=GUIDE_TOLERANCE):
+                    _fail(f"{station_where}.{axis} radius was not retained from lineage")
+            if station.profile_provenance != foot_profile.provenance or station.variant_provenance != foot_profile.variant_provenance:
+                _fail(f"{station_where} lost exact profile/variant provenance")
+            _guide_mass_checked(station.center, station.radii, f"{station_where}.station", bounds)
+
     for index, axial in enumerate(guide.axial_guides):
         mass(axial.girdle_center, axial.girdle_radii, f"axial[{index}].girdle")
         mass(axial.pelvic_core_center, axial.pelvic_core_radii, f"axial[{index}].pelvic_core")
@@ -4986,6 +5615,25 @@ def _validate_hybrid_guide(guide: _HybridGuide, bounds: tuple[np.ndarray, np.nda
             hock = parent_limb.joint
             if chain.hock_anchor != hock.center or chain.hock_radii != hock.radii:
                 _fail(f"{where}.hock must retain the shin joint identity")
+            side_name = paw.owner.key[1][0]
+            foot_side = next((item for item in foot_profile.sides if item.side == side_name), None)
+            if foot_side is None or chain.profile is not foot_profile:
+                _fail(f"{where} must retain the exact bilateral authored foot profile")
+            if foot_side is not None:
+                pad_station, toe_station = foot_side.sections
+                if chain.pad_center != pad_station.center or chain.pad_radii != pad_station.radii:
+                    _fail(f"{where}.pad must retain the exact authored station")
+                if chain.toe_center != toe_station.center or chain.toe_radii != toe_station.radii:
+                    _fail(f"{where}.toe must retain the exact authored station")
+                if chain.hock_anchor != guide.leg_profile.sides[0 if side_name == "left" else 1].sections[FOOT_PROFILE_HOCK_SECTION_INDEX].center or chain.hock_radii != guide.leg_profile.sides[0 if side_name == "left" else 1].sections[FOOT_PROFILE_HOCK_SECTION_INDEX].radii:
+                    _fail(f"{where}.hock must retain the exact authored leg station")
+            expected_metatarsal_profile = _derive_foot_metatarsal_profile(
+                chain.hock_radii,
+                chain.pad_radii,
+                f"{where}.derived_profile",
+            )
+            if chain.metatarsal_profile != expected_metatarsal_profile:
+                _fail(f"{where}.metatarsal profile is not derived from exact hock/pad volumes")
             start, metatarsal_end = chain.metatarsal_centerline
             if start != chain.hock_anchor:
                 _fail(f"{where}.metatarsal must start at the hock anchor")
@@ -4999,6 +5647,30 @@ def _validate_hybrid_guide(guide: _HybridGuide, bounds: tuple[np.ndarray, np.nda
                 _fail(f"{where}.pad must share the contact datum")
             if not math.isclose(chain.toe_center[1] - chain.toe_radii[1], chain.contact_height, rel_tol=0.0, abs_tol=1.0e-12):
                 _fail(f"{where}.toe must share the contact datum")
+            expected_metatarsal_midpoint = tuple(
+                float((chain.hock_anchor[axis] + chain.pad_center[axis]) * 0.5)
+                for axis in range(3)
+            )
+            expected_metatarsal_midpoint_radii = tuple(
+                float((chain.hock_radii[axis] + chain.pad_radii[axis]) * 0.5)
+                for axis in range(3)
+            )
+            expected_pad_toe_midpoint = tuple(
+                float((chain.pad_center[axis] + chain.toe_center[axis]) * 0.5)
+                for axis in range(3)
+            )
+            expected_pad_toe_midpoint_radii = tuple(
+                float((chain.pad_radii[axis] + chain.toe_radii[axis]) * 0.5)
+                for axis in range(3)
+            )
+            if chain.metatarsal_midpoint != expected_metatarsal_midpoint or chain.metatarsal_midpoint_radii != expected_metatarsal_midpoint_radii:
+                _fail(f"{where}.metatarsal midpoint is not derived from exact endpoints")
+            if chain.pad_toe_midpoint != expected_pad_toe_midpoint or chain.pad_toe_midpoint_radii != expected_pad_toe_midpoint_radii:
+                _fail(f"{where}.pad-toe midpoint is not derived from exact endpoints")
+            _guide_point_checked(chain.metatarsal_midpoint, f"{where}.metatarsal_midpoint", bounds)
+            _guide_mass_checked(chain.metatarsal_midpoint, chain.metatarsal_midpoint_radii, f"{where}.metatarsal_midpoint_volume", bounds)
+            _guide_point_checked(chain.pad_toe_midpoint, f"{where}.pad_toe_midpoint", bounds)
+            _guide_mass_checked(chain.pad_toe_midpoint, chain.pad_toe_midpoint_radii, f"{where}.pad_toe_midpoint_volume", bounds)
             _guide_masses_overlap(
                 chain.pad_center,
                 chain.pad_radii,
@@ -5275,6 +5947,87 @@ def _leg_profile_section_json(section: _LegProfileStation) -> dict[str, Any]:
     }
 
 
+def _foot_profile_radius_lineage_json(lineage: _FootProfileRadiusLineage) -> dict[str, Any]:
+    return {
+        "base": lineage.base,
+        "factor": lineage.factor,
+        "scaled": lineage.scaled,
+        "reference": {
+            "owner": _address_json(lineage.reference[0]),
+            "role": lineage.reference[1],
+            "index": lineage.reference_index,
+        },
+        "provenance": dict(lineage.provenance),
+        "consumed_section": lineage.consumed_section,
+    }
+
+
+def _foot_profile_section_json(section: _FootProfileStation) -> dict[str, Any]:
+    return {
+        "name": section.name,
+        "section_index": section.section_index,
+        "source_section_index": section.source_section_index,
+        "frame_index": section.frame_index,
+        "landmark_index": section.landmark_index,
+        "owner": _address_json(section.owner.key),
+        "frame": {"owner": _address_json(section.frame.owner), "role": section.frame.role},
+        "landmark": _authored_landmark_json(section.landmark),
+        "center": _point_json(section.center),
+        "radii": {
+            "lateral": float(section.radii[0]),
+            "up": float(section.radii[1]),
+            "forward": float(section.radii[2]),
+        },
+        "lateral_radius": float(section.radii[0]),
+        "up_radius": float(section.radii[1]),
+        "forward_radius": float(section.radii[2]),
+        "profile_provenance": dict(section.profile_provenance),
+        "variant_provenance": dict(section.variant_provenance),
+        "lineage": {
+            "lateral": _foot_profile_radius_lineage_json(section.lateral_lineage),
+            "up": _foot_profile_radius_lineage_json(section.up_lineage),
+            "forward": _foot_profile_radius_lineage_json(section.forward_lineage),
+        },
+        "consumption": "skin-driving; pad/toe stations are exact authored foot controls",
+    }
+
+
+def _foot_profile_side_json(side: _FootProfileSideGuide) -> dict[str, Any]:
+    return {
+        "side": side.side,
+        "hock_binding": {
+            "source_profile": side.hock_binding[0],
+            "side_index": side.hock_binding[1],
+            "section_index": side.hock_binding[2],
+        },
+        "sections": [_foot_profile_section_json(section) for section in side.sections],
+    }
+
+
+def _foot_profile_json(profile: _FootProfileGuide) -> dict[str, Any]:
+    return {
+        "format": AUTHORED_FOOT_PROFILE_FORMAT,
+        "status": "skin-driving authored foot profile; hock inherited from shin-owned authored leg endpoint",
+        "provenance": dict(profile.provenance),
+        "variant_provenance": dict(profile.variant_provenance),
+        "axes": {
+            "lateral": _point_json(profile.axes.lateral),
+            "up": _point_json(profile.axes.up),
+            "forward": _point_json(profile.axes.forward),
+        },
+        "route_topology": {
+            "side_names": list(FOOT_PROFILE_SIDE_NAMES),
+            "section_names": list(FOOT_PROFILE_SECTION_NAMES),
+            "hock_binding": {
+                "source_profile": "authored_leg_profile",
+                "section_index": FOOT_PROFILE_HOCK_SECTION_INDEX,
+                "owner_role": "shin",
+            },
+        },
+        "sides": [_foot_profile_side_json(side) for side in profile.sides],
+    }
+
+
 def _shoulder_source_control_json(side: _ShoulderSideGuide) -> dict[str, Any]:
     """Return the exact authored records and consumed dimension lineage."""
 
@@ -5317,7 +6070,7 @@ def _layout_json() -> dict[str, Any]:
             {"id": item["id"], "projection": item["projection"], "content": item["content"], "box": list(item["box"])}
             for item in PANEL_LAYOUT
         ],
-        "pairing": "guide-left/skin-right per projection",
+        "pairing": "control-guide/field-components/skin per projection",
         "frame": "shared-world-bounds-and-projection-basis",
     }
 
@@ -5473,6 +6226,7 @@ def _regional_guide_json(
             for side in guide.leg_profile.sides
         ],
     }
+    foot_profile_controls = _foot_profile_json(guide.foot_profile)
     head = guide.head_guide
     head_controls = {
         "owners": [_address_json(head.head_owner.key), _address_json(head.neck_owner.key)],
@@ -5599,6 +6353,19 @@ def _regional_guide_json(
                     "up": _point_json(chain.axes.up),
                     "forward": _point_json(chain.axes.forward),
                 },
+                "midpoints": {
+                    "metatarsal": {
+                        "center": _point_json(chain.metatarsal_midpoint),
+                        "radii": _point_json(chain.metatarsal_midpoint_radii),
+                    },
+                    "pad_toe": {
+                        "center": _point_json(chain.pad_toe_midpoint),
+                        "radii": _point_json(chain.pad_toe_midpoint_radii),
+                    },
+                },
+                "authored_profile": _foot_profile_side_json(
+                    next(side for side in guide.foot_profile.sides if side.side == item.owner.key[1][0])
+                ),
             },
             "hock_source": hock_source,
         })
@@ -5641,6 +6408,8 @@ def _regional_guide_json(
             "arm_profile_sections": sum(len(side.sections) for side in guide.arm_profile.sides),
             "leg_profile_sides": len(guide.leg_profile.sides),
             "leg_profile_sections": sum(len(side.sections) for side in guide.leg_profile.sides),
+            "foot_profile_sides": len(guide.foot_profile.sides),
+            "foot_profile_sections": sum(len(side.sections) for side in guide.foot_profile.sides),
             "head_neck_profile_sections": len(head.profile.sections),
             "head_neck_profile_connections": len(head.profile.connections),
             "head": 1,
@@ -5661,6 +6430,7 @@ def _regional_guide_json(
             "shoulder_frame": shoulder_frame_controls,
             "arm_profile": arm_profile_controls,
             "leg_profile": leg_profile_controls,
+            "foot_profile": foot_profile_controls,
             "head": head_controls,
             "limbs": limb_controls,
             "paws": paw_controls,
@@ -5869,44 +6639,113 @@ def _smooth_union(fields: list[np.ndarray], k: float) -> np.ndarray:
     return result
 
 
+def _field_bounds(field: Field, padding: float = 0.0) -> tuple[np.ndarray, np.ndarray]:
+    """Return the exact analytic bound for one compiled field.
+
+    ``_bounds`` is the aggregate consumer of this helper. Keeping the
+    primitive-specific logic here makes component visualization sample the
+    same field extents as mesh extraction instead of rebuilding guide-shaped
+    proxy bounds.
+    """
+
+    if not math.isfinite(float(padding)) or padding < 0.0:
+        _fail("field bounds padding must be finite and non-negative")
+    shape = field.shape
+    try:
+        name = shape["name"]
+    except (KeyError, TypeError):
+        _fail(f"field {_key_text(field.owner.key)}:{field.recipe} has invalid shape data")
+    if name == "ellipsoid":
+        centre = np.asarray(shape["center"], dtype=np.float64)
+        radii = np.asarray(shape["radii"], dtype=np.float64)
+        if centre.shape != (3,) or radii.shape != (3,) or not np.all(np.isfinite(centre)) or not np.all(np.isfinite(radii)) or np.any(radii <= 0.0):
+            _fail(f"field {_key_text(field.owner.key)}:{field.recipe} has invalid ellipsoid bounds")
+        lower = centre - radii
+        upper = centre + radii
+    elif name == "torso-cage":
+        centres = np.asarray(shape["centers"], dtype=np.float64)
+        heights = np.asarray(shape["heights"], dtype=np.float64)
+        lateral = np.asarray(shape["lateral_radii"], dtype=np.float64)
+        depth = np.asarray(shape["depth_radii"], dtype=np.float64)
+        cap_height = np.asarray(shape["cap_radii"], dtype=np.float64)
+        if centres.ndim != 2 or centres.shape[1] != 3 or len(centres) == 0 or any(
+            array.shape != (len(centres),) for array in (heights, lateral, depth, cap_height)
+        ) or not all(np.all(np.isfinite(array)) for array in (centres, heights, lateral, depth, cap_height)) or any(
+            np.any(array <= 0.0) for array in (lateral, depth, cap_height)
+        ):
+            _fail(f"field {_key_text(field.owner.key)}:{field.recipe} has invalid torso-cage bounds")
+        lower = np.asarray([
+            float(np.min(centres[:, 0] - lateral)),
+            float(np.min(heights - cap_height)),
+            float(np.min(centres[:, 2] - depth)),
+        ])
+        upper = np.asarray([
+            float(np.max(centres[:, 0] + lateral)),
+            float(np.max(heights + cap_height)),
+            float(np.max(centres[:, 2] + depth)),
+        ])
+    elif name in {"arm-profile-segment", "leg-profile-segment"}:
+        start = np.asarray(shape["from"], dtype=np.float64)
+        end = np.asarray(shape["to"], dtype=np.float64)
+        radii0 = np.asarray(shape["radii0"], dtype=np.float64)
+        radii1 = np.asarray(shape["radii1"], dtype=np.float64)
+        if start.shape != (3,) or end.shape != (3,) or radii0.shape != (3,) or radii1.shape != (3,) or start.tolist() == end.tolist() or not all(
+            np.all(np.isfinite(array)) for array in (start, end, radii0, radii1)
+        ) or np.any(radii0 <= 0.0) or np.any(radii1 <= 0.0):
+            _fail(f"field {_key_text(field.owner.key)}:{field.recipe} has invalid profile bounds")
+        radius = np.maximum(radii0, radii1)
+        lower = np.minimum(start, end) - radius
+        upper = np.maximum(start, end) + radius
+    elif name in {"capsule", "tapered-segment"}:
+        start = np.asarray(shape["from"], dtype=np.float64)
+        end = np.asarray(shape["to"], dtype=np.float64)
+        r0 = float(shape["r0"])
+        r1 = float(shape["r1"])
+        if start.shape != (3,) or end.shape != (3,) or start.tolist() == end.tolist() or not all(
+            np.all(np.isfinite(array)) for array in (start, end)
+        ) or not math.isfinite(r0) or not math.isfinite(r1) or r0 <= 0.0 or r1 <= 0.0:
+            _fail(f"field {_key_text(field.owner.key)}:{field.recipe} has invalid segment bounds")
+        radius = max(r0, r1)
+        lower = np.minimum(start, end) - radius
+        upper = np.maximum(start, end) + radius
+    else:
+        _fail(f"field {_key_text(field.owner.key)}:{field.recipe} has unsupported shape {name!r}")
+    lower = np.asarray(lower, dtype=np.float64) - float(padding)
+    upper = np.asarray(upper, dtype=np.float64) + float(padding)
+    if lower.shape != (3,) or upper.shape != (3,) or not np.all(np.isfinite(lower)) or not np.all(np.isfinite(upper)) or np.any(upper <= lower):
+        _fail(f"field {_key_text(field.owner.key)}:{field.recipe} has invalid bounds")
+    return lower, upper
+
+
 def _bounds(fields: tuple[Field, ...], padding: float) -> tuple[np.ndarray, np.ndarray]:
-    mins: list[np.ndarray] = []
-    maxs: list[np.ndarray] = []
+    if not fields:
+        _fail("cannot derive bounds without fields")
+    if not math.isfinite(float(padding)) or padding < 0.0:
+        _fail("field bounds padding must be finite and non-negative")
+    bounds = [_field_bounds(field) for field in fields]
+    lower = np.min(np.stack([item[0] for item in bounds]), axis=0) - float(padding)
+    upper = np.max(np.stack([item[1] for item in bounds]), axis=0) + float(padding)
+    if not np.all(np.isfinite(lower)) or not np.all(np.isfinite(upper)) or np.any(upper <= lower):
+        _fail("field bounds are invalid")
+    return lower, upper
+
+
+def _baseline_render_components(fields: tuple[Field, ...]) -> tuple[_RenderComponent, ...]:
+    """Adapt the exact compiled baseline ``Field`` inventory to the shared seam."""
+
+    components: list[_RenderComponent] = []
     for field in fields:
-        shape = field.shape
-        if shape["name"] == "ellipsoid":
-            centre = shape["center"]
-            radii = shape["radii"]
-            mins.append(centre - radii); maxs.append(centre + radii)
-        elif shape["name"] == "torso-cage":
-            centres = shape["centers"]
-            lateral = shape["lateral_radii"]
-            depth = shape["depth_radii"]
-            cap_height = shape["cap_radii"]
-            mins.append(
-                np.asarray([
-                    float(np.min(centres[:, 0] - lateral)),
-                    float(np.min(shape["heights"] - cap_height)),
-                    float(np.min(centres[:, 2] - depth)),
-                ])
-            )
-            maxs.append(
-                np.asarray([
-                    float(np.max(centres[:, 0] + lateral)),
-                    float(np.max(shape["heights"] + cap_height)),
-                    float(np.max(centres[:, 2] + depth)),
-                ])
-            )
-        elif shape["name"] in {"arm-profile-segment", "leg-profile-segment"}:
-            radius = np.maximum(shape["radii0"], shape["radii1"])
-            mins.append(np.minimum(shape["from"], shape["to"]) - radius)
-            maxs.append(np.maximum(shape["from"], shape["to"]) + radius)
-        else:
-            a = shape["from"]
-            b = shape["to"]
-            r = max(float(shape["r0"]), float(shape["r1"]))
-            mins.append(np.minimum(a, b) - r); maxs.append(np.maximum(a, b) + r)
-    return np.min(np.stack(mins), axis=0) - padding, np.max(np.stack(maxs), axis=0) + padding
+        def evaluate(points: np.ndarray, current: Field = field) -> np.ndarray:
+            return _field(points, current)
+
+        components.append(_make_render_component(
+            field.owner.key,
+            field.recipe,
+            evaluate,
+            _field_bounds(field),
+            f"_field/{field.shape['name']}",
+        ))
+    return tuple(components)
 
 
 def _shared_render_bounds(field_sets: tuple[tuple[Field, ...], ...], padding: float) -> tuple[np.ndarray, np.ndarray]:
@@ -5995,6 +6834,8 @@ def build_variant(
     padding: float,
     smooth_k: float,
     guide: _HybridGuide | None = None,
+    compiled_fields: tuple[Field, ...] | None = None,
+    render_components: tuple[_RenderComponent, ...] | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[tuple[str, tuple[str, ...], str, str]], dict[str, Any], dict[str, Any]]:
     if type(samples) is not int or samples > MAX_SAMPLES or samples < 16 or samples**3 > MAX_VOXELS:
         _fail("sampling configuration exceeds bounded limits")
@@ -6002,7 +6843,10 @@ def build_variant(
         _fail("padding and smooth-k must be finite, with non-negative padding and positive smooth-k")
     if guide is None:
         guide = _derive_hybrid_guides(form, descriptors)
-    fields = _compile_hybrid_guide(guide)
+    fields = _compile_hybrid_guide(guide) if compiled_fields is None else compiled_fields
+    components = _baseline_render_components(fields) if render_components is None else render_components
+    if len(components) != len(fields):
+        _fail("baseline render-component inventory does not match its compiled fields")
     if len(fields) * samples**3 > MAX_FIELD_VALUES:
         _fail("generated field sampling configuration exceeds bounded field-memory limits")
     lower, upper = _bounds(fields, padding)
@@ -6046,6 +6890,7 @@ def build_variant(
             "format": SOURCE_FORMAT,
             "shoulder": _shoulder_source_controls_json(guide.shoulder_frame),
         },
+        "component_visualization": _component_visualization_metadata(components),
     })
     return vertices, faces, normals, labels, metrics, {"bounds_min": lower.tolist(), "bounds_max": upper.tolist(), "spacing": [float(a[1]-a[0]) for a in axes]}
 
@@ -6091,6 +6936,138 @@ def _frame_screen(frame: dict[str, Any], points: np.ndarray) -> list[tuple[float
         )
         for point in camera
     ]
+
+
+def _render_component_label(component: _RenderComponent) -> str:
+    """Return a compact debug identity for one consumer-supplied component."""
+
+    anchors = "/".join(component.source_owner_key[1]) or "root"
+    return f"{component.source_owner_key[3]}[{anchors}]/{component.debug_identity}"
+
+
+def _render_component_colour(component: _RenderComponent) -> tuple[int, int, int]:
+    """Return a stable colour derived from exact source owner and recipe."""
+
+    identity = _canonical({"owner": _address_json(component.source_owner_key), "recipe": component.recipe})
+    digest = hashlib.sha256(identity).digest()
+    return tuple(88 + (int(digest[index]) * 144 // 255) for index in range(3))  # type: ignore[return-value]
+
+
+def _render_component_bounds(component: _RenderComponent, padding: float) -> tuple[np.ndarray, np.ndarray]:
+    """Validate exact consumer bounds and derive only the sampling padding."""
+
+    if not math.isfinite(float(padding)) or padding < 0.0:
+        _fail("render component bounds padding must be finite and non-negative")
+    try:
+        exact_lower, exact_upper = component.bounds
+        lower = np.asarray(exact_lower, dtype=np.float64)
+        upper = np.asarray(exact_upper, dtype=np.float64)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise PreviewError(f"render component bounds are invalid for {_render_component_label(component)}: {exc}") from exc
+    if lower.shape != (3,) or upper.shape != (3,) or not np.all(np.isfinite(lower)) or not np.all(np.isfinite(upper)) or np.any(upper <= lower):
+        _fail(f"render component bounds are invalid for {_render_component_label(component)}")
+    return lower - float(padding), upper + float(padding)
+
+
+def _renderer_component_values(points: np.ndarray, component: _RenderComponent) -> np.ndarray:
+    """Invoke one exact evaluator and normalize only permitted outside ``+inf``."""
+
+    try:
+        values = np.asarray(component.evaluate(points), dtype=np.float64)
+    except PreviewError:
+        raise
+    except Exception as exc:
+        raise PreviewError(f"render component evaluator failed for {_render_component_label(component)}: {exc}") from exc
+    expected_shape = np.asarray(points).shape[:-1]
+    if values.shape != expected_shape:
+        _fail(f"render component evaluator returned an invalid shape for {_render_component_label(component)}")
+    if np.any(np.isnan(values)) or np.any(np.isneginf(values)):
+        _fail(f"render component evaluator returned NaN or -inf for {_render_component_label(component)}")
+    positive_infinite = np.isposinf(values)
+    if np.any(positive_infinite):
+        finite = values[np.isfinite(values)]
+        positive = finite[finite > 0.0]
+        replacement = max(1.0, float(np.max(positive))) if positive.size else 1.0
+        values = np.where(positive_infinite, replacement, values)
+    if not np.all(np.isfinite(values)):
+        _fail(f"render component evaluator returned non-finite values for {_render_component_label(component)}")
+    return values
+
+
+def _field_component_meshes(components: tuple[_RenderComponent, ...]) -> tuple[tuple[_RenderComponent, np.ndarray, np.ndarray], ...]:
+    """Extract exact zero surfaces from generic consumer evaluator shells."""
+
+    if not components:
+        _fail("field component visualization requires a non-empty evaluator inventory")
+    voxels = FIELD_COMPONENT_SAMPLES ** 3
+    if len(components) > MAX_GENERATED_FIELDS or len(components) * voxels > MAX_FIELD_VALUES:
+        _fail("field component visualization exceeds bounded resource limits")
+    meshes: list[tuple[_RenderComponent, np.ndarray, np.ndarray]] = []
+    for component in components:
+        lower, upper = _render_component_bounds(component, FIELD_COMPONENT_PADDING)
+        axes = tuple(np.linspace(lower[index], upper[index], FIELD_COMPONENT_SAMPLES, dtype=np.float64) for index in range(3))
+        points = np.stack(np.meshgrid(*axes, indexing="ij"), axis=-1)
+        values = _renderer_component_values(points, component)
+        if float(np.min(values)) >= 0.0 or float(np.max(values)) <= 0.0:
+            _fail(f"render component {_render_component_label(component)} has no finite zero crossing")
+        boundary = np.concatenate((
+            values[0, :, :].ravel(), values[-1, :, :].ravel(),
+            values[:, 0, :].ravel(), values[:, -1, :].ravel(),
+            values[:, :, 0].ravel(), values[:, :, -1].ravel(),
+        ))
+        if not np.all(np.isfinite(boundary)):
+            _fail(f"render component {_render_component_label(component)} has a non-finite sampling boundary")
+        if np.any(boundary <= 0.0):
+            _fail(f"render component {_render_component_label(component)} is clipped by its sampling bounds")
+        try:
+            raw_vertices, raw_faces, _, _ = marching_cubes(
+                values,
+                level=0.0,
+                spacing=tuple(float(axis[1] - axis[0]) for axis in axes),
+                gradient_direction="descent",
+                allow_degenerate=False,
+            )
+        except Exception as exc:
+            raise PreviewError(f"render component extraction failed for {_render_component_label(component)}: {exc}") from exc
+        vertices = np.asarray(raw_vertices, dtype=np.float64) + lower
+        faces = np.asarray(raw_faces, dtype=np.int64)
+        if len(vertices) == 0 or len(faces) == 0 or not np.all(np.isfinite(vertices)) or np.any(vertices <= lower) or np.any(vertices >= upper):
+            _fail(f"render component {_render_component_label(component)} has an invalid or clipped zero surface")
+        if np.any(faces < 0) or np.any(faces >= len(vertices)):
+            _fail(f"render component {_render_component_label(component)} has invalid zero-surface indices")
+        meshes.append((component, vertices, faces))
+    return tuple(meshes)
+
+
+def _component_visualization_metadata(components: tuple[_RenderComponent, ...]) -> dict[str, Any]:
+    component_details = []
+    for component in components:
+        lower, upper = _render_component_bounds(component, 0.0)
+        component_details.append({
+            "source_owner": _address_json(component.source_owner_key),
+            "recipe": component.recipe,
+            "bounds": {"min": lower.tolist(), "max": upper.tolist()},
+        })
+    return {
+        "semantics": "pre-union exact zero-isosurfaces of every consumer-supplied component consumed by the smooth union; final skin remains neutral",
+        "component_count": len(components),
+        "evaluator": "consumer-supplied exact callable",
+        "evaluator_inventory_binding": "the exact _RenderComponent records passed to _render",
+        "resolution": {
+            "samples_per_axis": FIELD_COMPONENT_SAMPLES,
+            "voxels_per_field": FIELD_COMPONENT_SAMPLES ** 3,
+        },
+        "bounds": {
+            "source": "consumer-supplied per-component sampling bounds",
+            "padding": FIELD_COMPONENT_PADDING,
+            "clipping": "all six sample-domain faces must remain outside-positive",
+        },
+        "colour_identity": {
+            "algorithm": "sha256(canonical source owner plus recipe)",
+            "alpha": FIELD_COMPONENT_ALPHA,
+        },
+        "components": component_details,
+    }
 
 
 def _draw_guide_mass(draw: ImageDraw.ImageDraw, frame: dict[str, Any], center: tuple[float, float, float], radii: tuple[float, float, float], colour: tuple[int, int, int]) -> None:
@@ -6246,6 +7223,36 @@ def _draw_guide(draw: ImageDraw.ImageDraw, frame: dict[str, Any], guide: _Hybrid
             _draw_guide_mass(draw, frame, item.root_collar_center, item.root_collar_radii, colours["tail"])
 
 
+def _draw_field_components(
+    image: Image.Image,
+    frame: dict[str, Any],
+    components: tuple[tuple[_RenderComponent, np.ndarray, np.ndarray], ...],
+    font: ImageFont.ImageFont,
+) -> None:
+    """Draw exact pre-union component meshes with stable translucent depth order."""
+
+    basis = frame["basis"]
+    ordered = sorted(
+        enumerate(components),
+        key=lambda item: (float(np.mean((np.asarray(item[1][1]) @ basis.T)[:, 2])), item[0]),
+    )
+    for _, (component, vertices, faces) in ordered:
+        triangles = vertices[faces]
+        triangle_order = np.argsort(np.mean((triangles @ basis.T)[:, :, 2], axis=1), kind="stable")
+        overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        overlay_draw = ImageDraw.Draw(overlay)
+        colour = _render_component_colour(component)
+        for triangle_index in triangle_order:
+            projected = _frame_screen(frame, triangles[int(triangle_index)])
+            overlay_draw.polygon(projected, fill=(*colour, FIELD_COMPONENT_ALPHA))
+        image.alpha_composite(overlay)
+
+    x0, y0, x1, y1 = frame["box"]
+    draw = ImageDraw.Draw(image)
+    draw.text((x0 + 10, y0 + 30), f"exact pre-union components: {len(components)}", fill=(205, 213, 225, 255), font=font)
+    draw.text((x0 + 10, y0 + 44), "colours separate exact components", fill=(167, 176, 190, 255), font=font)
+
+
 def _draw_skin(draw: ImageDraw.ImageDraw, frame: dict[str, Any], vertices: np.ndarray, faces: np.ndarray) -> None:
     basis = frame["basis"]
     # Keep world-space triangles for screen mapping.  ``_frame_screen`` owns
@@ -6278,13 +7285,15 @@ def _render(
     *,
     guide: _HybridGuide,
     bounds: tuple[np.ndarray, np.ndarray],
+    render_components: tuple[_RenderComponent, ...],
 ) -> None:
     _validate_hybrid_guide(guide, bounds)
-    image = Image.new("RGB", CANVAS, (20, 23, 29))
+    component_meshes = _field_component_meshes(render_components)
+    image = Image.new("RGBA", CANVAS, (20, 23, 29, 255))
     draw = ImageDraw.Draw(image)
     font = ImageFont.load_default()
-    draw.text((16, 16), f"Disposable guide + compiled skin - {variant_id}", fill=(235, 238, 244), font=font)
-    draw.text((16, 42), "guide: skin-driving torso cage rings / regional limb sections / endpoint joints / digitigrade foot chains    skin: deterministic compiled field", fill=(167, 176, 190), font=font)
+    draw.text((16, 16), f"{RENDER_HEADER} - {variant_id}", fill=(235, 238, 244, 255), font=font)
+    draw.text((16, 42), "CONTROL GUIDE is control data, not geometry    FIELD COMPONENTS are exact pre-union evaluator zero-isosurfaces    SKIN is the neutral smooth union", fill=(167, 176, 190, 255), font=font)
     projection_lookup = {name: np.asarray(basis, dtype=np.float64) for name, basis, _ in PROJECTIONS}
     shared_frames: dict[str, dict[str, Any]] = {}
     for item in PANEL_LAYOUT:
@@ -6296,15 +7305,26 @@ def _render(
             # pair cannot drift to independently fitted frames.
             shared_frames[name] = _projection_frame(bounds, projection_lookup[name], box)
         frame = {**shared_frames[name], "box": box}
-        panel_colour = (28, 35, 43) if item["content"] == "guide" else (24, 27, 34)
+        panel_colour = {
+            "control-guide": (28, 35, 43, 255),
+            "field-components": (24, 31, 39, 255),
+            "skin": (24, 27, 34, 255),
+        }[item["content"]]
         draw.rectangle(box, fill=panel_colour)
-        if item["content"] == "guide":
+        if item["content"] == "control-guide":
             _draw_guide(draw, frame, guide)
+        elif item["content"] == "field-components":
+            _draw_field_components(image, frame, component_meshes, font)
         else:
             _draw_skin(draw, frame, vertices, faces)
         draw.rectangle(box, outline=(74, 82, 96), width=2)
-        draw.text((box[0] + 10, box[1] + 8), f"{name} -- {item['content']}", fill=(235, 238, 244), font=font)
-    image.save(path, format="PNG")
+        panel_label = {
+            "control-guide": "CONTROL GUIDE (not geometry)",
+            "field-components": "FIELD COMPONENTS (PRE-UNION)",
+            "skin": "SKIN (neutral smooth union)",
+        }[item["content"]]
+        draw.text((box[0] + 10, box[1] + 8), f"{name} -- {panel_label}", fill=(235, 238, 244, 255), font=font)
+    image.convert("RGB").save(path, format="PNG")
 
 
 def _sha(path: Path, kind: str, root: Path) -> dict[str, Any]:
@@ -6328,20 +7348,21 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
     # Derive every private guide and compiled field set before extracting any
     # mesh.  This gives the four variants one shared world-space frame while
     # retaining each variant's own guide controls and skin geometry.
-    prepared: list[tuple[str, tuple[Descriptor, ...], dict[str, Any], _HybridGuide, tuple[Field, ...]]] = []
+    prepared: list[tuple[str, tuple[Descriptor, ...], dict[str, Any], _HybridGuide, tuple[Field, ...], tuple[_RenderComponent, ...]]] = []
     for variant_id, descriptors, raw_variant in form.variants:
         guide = _derive_hybrid_guides(form, descriptors)
         _validate_hybrid_guide(guide)
         fields = _compile_hybrid_guide(guide)
-        prepared.append((variant_id, descriptors, raw_variant, guide, fields))
+        render_components = _baseline_render_components(fields)
+        prepared.append((variant_id, descriptors, raw_variant, guide, fields, render_components))
     shared_render_bounds = _shared_render_bounds(tuple(item[4] for item in prepared), padding)
-    for _, _, _, guide, _ in prepared:
+    for _, _, _, guide, _, _ in prepared:
         _validate_hybrid_guide(guide, shared_render_bounds)
 
     stage = Path(tempfile.mkdtemp(prefix=f".{output.name}.", dir=str(output.parent)))
     try:
         records = []
-        for variant_id, descriptors, raw_variant, guide, fields in prepared:
+        for variant_id, descriptors, raw_variant, guide, fields, render_components in prepared:
             vertices, faces, normals, labels, metrics, grid = build_variant(
                 form,
                 descriptors,
@@ -6349,6 +7370,8 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
                 padding,
                 smooth_k,
                 guide=guide,
+                compiled_fields=fields,
+                render_components=render_components,
             )
             variant_dir = stage / variant_id
             variant_dir.mkdir()
@@ -6368,7 +7391,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
             }))
             metrics_path.write_bytes(_canonical(metrics))
             guide_path.write_bytes(_canonical(_regional_guide_json(variant_id, guide, shared_render_bounds, compiled_fields=fields)) + b"\n")
-            _render(png, vertices, faces, variant_id, guide=guide, bounds=shared_render_bounds)
+            _render(png, vertices, faces, variant_id, guide=guide, bounds=shared_render_bounds, render_components=render_components)
             records.append({
                 "id": variant_id,
                 "profile_id": raw_variant["profile_id"],
@@ -6380,7 +7403,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
                     _sha(ply, "ply", stage),
                     _sha(sidecar, "semantic-sidecar", stage),
                     _sha(metrics_path, "metrics", stage),
-                    {**_sha(png, "guide-skin-composite-png", stage), "width": CANVAS[0], "height": CANVAS[1], "views": ["front", "side", "three-quarter"], "panels_per_view": 2, "mode": "RGB"},
+                    {**_sha(png, "guide-skin-composite-png", stage), "width": CANVAS[0], "height": CANVAS[1], "views": ["front", "side", "three-quarter"], "panels_per_view": 3, "mode": "RGB"},
                     {**_sha(guide_path, "regional-guide-json", stage), "format": REGIONAL_GUIDE_FORMAT, "variant": variant_id},
                 ],
             })
@@ -6394,7 +7417,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
             "canvas": {"width": CANVAS[0], "height": CANVAS[1], "mode": "RGB"},
             "layout": _layout_json(),
             "projections": _projection_json(),
-            "generator": {"bundle_version": 2, "samples_per_axis": samples, "padding": padding, "smooth_union": {"operator": "polynomial_cubic_smooth_min", "k": smooth_k, "fold_order": "source_address_then_recipe_order"}, "field_primitives": ["torso-cage", "ellipsoid", "capsule", "linear-radius-tapered-segment"], "field_recipes": ["torso-cage", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar", "upper_arm-pre-joint", "upper_arm-joint", "forearm-proximal", "forearm-distal", "thigh-pre-joint", "thigh-joint", "shin-pre-joint", "shin-joint", "elbow", "knee", "hock", "root-bridge", "hip-transition", "deltoid-sweep-1", "paw", "metatarsal", "paw-pad", "toe-box", "extremity-bridge", "tail-segment", "tail-tip-extension", "tail-tip-cap", "tail-root-bridge", "tail-root-collar"], "ownership": "recipe fields are source-owned; the blended torso-cage is torso-owned; shoulder support curves remain torso-owned guide-only controls and are not consumed by this adapter; deltoid recipes retain their upper-arm owners; winner labels expose only source AddressKeys", "boundary": "disposable exploratory visual proof; not production geometry, SDF, collision, rig, topology, or Readiness evidence"},
+            "generator": {"bundle_version": 3, "samples_per_axis": samples, "padding": padding, "smooth_union": {"operator": "polynomial_cubic_smooth_min", "k": smooth_k, "fold_order": "source_address_then_recipe_order"}, "field_primitives": ["torso-cage", "ellipsoid", "capsule", "linear-radius-tapered-segment"], "field_recipes": ["torso-cage", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar", "upper_arm-pre-joint", "upper_arm-joint", "forearm-proximal", "forearm-distal", "thigh-pre-joint", "thigh-joint", "shin-pre-joint", "shin-joint", "elbow", "knee", "hock", "root-bridge", "hip-transition", "deltoid-sweep-1", "paw", "metatarsal", "paw-pad", "toe-box", "extremity-bridge", "tail-segment", "tail-tip-extension", "tail-tip-cap", "tail-root-bridge", "tail-root-collar"], "ownership": "recipe fields are source-owned; the blended torso-cage is torso-owned; shoulder support curves remain torso-owned guide-only controls and are not consumed by this adapter; deltoid recipes retain their upper-arm owners; winner labels expose only source AddressKeys", "component_visualization": {"mode": "exact-consumed-component-zero-isosurfaces", "samples_per_axis": 32, "stage": "pre-smooth-union", "colour_identity": "sha256-source-owner-and-recipe"}, "boundary": "disposable exploratory visual proof; not production geometry, SDF, collision, rig, topology, or Readiness evidence"},
             "variants": records,
         }
         (stage / "surface-preview-manifest.json").write_bytes(_canonical(manifest) + b"\n")
