@@ -390,9 +390,13 @@ inventing unrecorded frame semantics. It applies the one
 checked-in deterministic pose without IK or contact, performs classic linear
 blend skinning, transforms the generated collision capsules, and publishes one
 scale-consistent `1800 x 2500` PNG per profile. Every PNG uses the same global
-world bound and has front, side, and three-quarter columns over five rows:
-neutral skin plus skeleton, posed skin plus skeleton, dominant-bone/max-weight
-evidence, neutral skin plus proxies, and posed skin plus proxies. The root
+world bound and has front, side, and three-quarter columns over five rows. The
+side column is an exact orthographic projection. Skeleton rows are explicit
+x-ray overlays drawn without skin depth occlusion, so internal and far-side
+bones remain visible for inhabitation review; their visibility does not imply
+an oblique camera. The five rows are neutral skin plus skeleton, posed skin plus
+skeleton, dominant-bone/max-weight evidence, neutral skin plus proxies, and
+posed skin plus proxies. The root
 manifest inventories the pose and every per-profile neutral/posed surface,
 skeleton, weight, proxy, metric, and gallery artifact. These remain disposable
 candidate-scoped evidence, not runtime rig, solver, anatomy, or topology

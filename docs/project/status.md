@@ -18,12 +18,14 @@ reached the named human checkpoint in draft PR #114, stacked on unmerged draft
 PR #113. The active worktree is
 `/home/ben/src/creature-kernel-worktrees/structural-embodiment-bridge`, on branch
 `codex/structural-embodiment-bridge`, containing checkpoint implementation commit
-`aed81e494803cefcc1681301609ac12e8e1cf67d`. PR #114 is open, draft, and
-mergeable; documentation and visual-review CI passed while Rust CI remained in
-progress at this snapshot. Its immutable review is
+`aed81e494803cefcc1681301609ac12e8e1cf67d`. At the pre-clarity head, all three
+PR #114 checks passed. The clarity follow-up below has passed focused local
+validation but has not received its current-head CI validation yet. Its stable
+review is
 `http://localhost:8765/review/shared-pose-structural-embodiment-gallery`.
-PR #114 and PR #113 remain unmerged pending Ben's appraisal and explicit merge
-authorization. `origin/main` and the primary `main` checkout remain at merged
+PR #114 and PR #113 remain unmerged pending Ben's explicit merge authorization;
+Ben's qualified visual appraisal is recorded below and is not that authorization.
+`origin/main` and the primary `main` checkout remain at merged
 PR #112 commit `80179614ea693cd45d55743d1d83d044c653a08f`.
 
 Ben accepts PR #113's gallery only as bounded exploratory evidence that
@@ -59,12 +61,24 @@ whether the skeleton inhabits the body plausibly, the shared pose reads
 coherently across proportions, gross skin following avoids severe collapse,
 twisting or detachment, and proxies plausibly cover and follow the body.
 
+Ben's qualified 2026-08-25 visual appraisal is that the shared-pose structural
+result "looks good". The only confusion was that the `POSED SKIN + SKELETON`
+side panel appeared not exactly side-on because the skeleton looked skewered.
+The verified explanation is that `side` is an exact orthographic projection,
+while the skeleton rows are non-depth-occluded x-ray overlays. The visible
+clarity follow-up is implemented in the active working tree: column label
+`side (exact orthographic)`, row labels ending `(X-RAY OVERLAY)`, publisher
+instructions explaining the non-depth-occluded overlay, and matching README
+wording and focused assertions. These clarify the evidence without changing
+the candidate's geometry or camera.
+
 The bounded structural-embodiment bridge prerequisite defines its entrypoint,
 admitted source/neutral-surface inputs, derived rig/weight/proxy outputs, and
 reproducible artifact boundary. The completed gallery adds the frozen shared
 pose, posed evidence, exact semantic publication validation, and deterministic
-re-rendering. The stop gate is now Ben's visual appraisal, not another internal
-implementation slice.
+re-rendering. The stop gate is now Ben's explicit merge authorization for PR
+#113 and PR #114; this qualified appraisal does not infer or grant that
+authorization.
 
 This checkpoint does not seek realistic muscles or anatomy, final
 surface/topology, contact response, localized deformation quality,

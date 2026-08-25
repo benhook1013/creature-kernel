@@ -461,6 +461,15 @@ class StructuralEmbodimentGalleryTests(unittest.TestCase):
             self.assertEqual(neutral_proxy["radius"], posed_proxy["radius"])
         self.assertEqual(manifest["canvas"]["columns"], ["front", "side", "three-quarter"])
         self.assertEqual(len(manifest["canvas"]["rows"]), 5)
+        self.assertEqual(gallery.VIEW_HEADERS["side"], "side (exact orthographic)")
+        self.assertIn(
+            "X-RAY OVERLAY",
+            gallery._gallery_row_header(
+                {"id": "ignored", "label": "ignored"},
+                1,
+                "POSED SKIN + SKELETON (X-RAY OVERLAY)",
+            ),
+        )
 
     def test_separate_outputs_are_byte_identical_and_existing_output_is_not_replaced(self) -> None:
         first = self.build("first")
@@ -502,6 +511,10 @@ class StructuralEmbodimentGalleryTests(unittest.TestCase):
         for view in ("front", "side", "three-quarter"):
             with self.subTest(view=view):
                 self.assertEqual(gallery._project(center, view, lower, upper, box), (310.0, 270.0))
+        self.assertEqual(
+            gallery._project((3.0, 2.0, 2.0), "side", lower, upper, box),
+            gallery._project(center, "side", lower, upper, box),
+        )
         self.assertAlmostEqual(
             gallery._project((3.0, 2.0, 2.0), "front", lower, upper, box)[0]
             - gallery._project(center, "front", lower, upper, box)[0],

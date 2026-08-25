@@ -18,12 +18,15 @@ the canonical owner of the active runway, and the required reading order in
   commit
   `aed81e494803cefcc1681301609ac12e8e1cf67d`.
   [Draft PR #114](https://github.com/benhook1013/creature-kernel/pull/114) is
-  open, draft, mergeable, and stacked on PR #113; documentation and
-  visual-review CI passed while Rust CI remained in progress at this snapshot.
+  open, draft, mergeable, and stacked on PR #113; all three PR #114 checks
+  passed at the pre-clarity head. The clarity follow-up below has passed
+  focused local validation but has not received its current-head CI validation
+  yet.
   It reaches the named human checkpoint at
   `http://localhost:8765/review/shared-pose-structural-embodiment-gallery`.
-  PR #114 and PR #113 remain unmerged pending Ben's appraisal and explicit
-  merge authorization.
+  PR #114 and PR #113 remain unmerged pending Ben's explicit merge
+  authorization. Ben's qualified visual appraisal below is not that
+  authorization.
 - [Draft PR #113](https://github.com/benhook1013/creature-kernel/pull/113)
   is mergeable and draft; all three current CI lanes passed, but it remains
   unmerged pending Ben's explicit merge authorization. Ben's disposition
@@ -68,6 +71,17 @@ pose-transform payload applied without IK or contact solving, the posed surface
 and skeleton, neutral/posed collision proxies, and source/build/scenario
 lineage for every frozen profile.
 
+Ben's qualified 2026-08-25 visual appraisal is that the shared-pose structural
+result "looks good". The only confusion was that the `POSED SKIN + SKELETON`
+side panel appeared not exactly side-on because the skeleton looked skewered.
+The verified explanation is that `side` is exact orthographic, while the
+skeleton rows are non-depth-occluded x-ray overlays. The visible clarification
+is implemented in the active working tree: the column is labelled `side (exact
+orthographic)`, skeleton rows are labelled `(X-RAY OVERLAY)`, and the publisher
+instructions and README explain that the overlay is not depth-occluded.
+Focused assertions cover the clarification; geometry and camera behaviour are
+unchanged.
+
 The fail-closed gate requires a rooted acyclic hierarchy, complete
 semantic-Joint-to-derived-bone mapping, finite/nonnegative/normalized influence
 coverage for every vertex, finite nondegenerate lineage-bound proxies with
@@ -89,7 +103,9 @@ if semantic frames do not map cleanly, disposable topology cannot support
 trustworthy weights, objective checks fail or remain inconclusive, bespoke
 profile patches are required, or a material production topology/backend/
 engine/anatomy choice becomes necessary. Do not answer those triggers with
-more outer-field cosmetic tuning or unnecessary intermediate visual gates.
+more outer-field cosmetic tuning or unnecessary intermediate visual gates. The
+human stop gate is now Ben's explicit merge authorization for PR #113 and PR
+#114; the qualified appraisal above does not infer or grant that authorization.
 
 Open the active worktree in the Codex app to continue the runway.
 Read `AGENTS.md` in the required order, then this handover and the linked

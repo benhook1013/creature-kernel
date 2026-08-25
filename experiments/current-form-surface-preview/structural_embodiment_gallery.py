@@ -106,6 +106,11 @@ EPSILON = 1.0e-12
 CAPSULE_ARC_STEPS = 24
 THREE_QUARTER_DEPTH_FACTOR = 0.65
 THREE_QUARTER_BASIS_NORM = math.sqrt(1.0 + THREE_QUARTER_DEPTH_FACTOR**2)
+VIEW_HEADERS = {
+    "front": "front",
+    "side": "side (exact orthographic)",
+    "three-quarter": "three-quarter",
+}
 
 
 class GalleryError(ValueError):
@@ -1542,7 +1547,7 @@ def _render_gallery(profile: dict[str, Any], bound: tuple[tuple[float, ...], tup
     lower, upper = bound
     image = Image.new("RGB", CANVAS, (20, 23, 29))
     draw = ImageDraw.Draw(image)
-    row_names = ("NEUTRAL SKIN + SKELETON", "POSED SKIN + SKELETON", "PER-VERTEX DOMINANT BONE / MAX WEIGHT", "NEUTRAL SKIN + PROXIES", "POSED SKIN + PROXIES")
+    row_names = ("NEUTRAL SKIN + SKELETON (X-RAY OVERLAY)", "POSED SKIN + SKELETON (X-RAY OVERLAY)", "PER-VERTEX DOMINANT BONE / MAX WEIGHT", "NEUTRAL SKIN + PROXIES", "POSED SKIN + PROXIES")
     views = ("front", "side", "three-quarter")
     for row, name in enumerate(row_names):
         y = row * PANEL_HEIGHT
@@ -1553,7 +1558,7 @@ def _render_gallery(profile: dict[str, Any], bound: tuple[tuple[float, ...], tup
         for column, view in enumerate(views):
             x = column * PANEL_WIDTH
             box = (x + 12, y + 34, PANEL_WIDTH - 24, PANEL_HEIGHT - 46)
-            draw.text((x + 12, y + 17), view, fill=(151, 158, 174))
+            draw.text((x + 12, y + 17), VIEW_HEADERS[view], fill=(151, 158, 174))
             draw.rectangle((box[0], box[1], box[0] + box[2], box[1] + box[3]), outline=(45, 51, 63), width=1)
             vertices = profile["neutral"]["vertices"] if row in (0, 2, 3) else profile["posed_vertices"]
             faces = profile["neutral"]["faces"]

@@ -447,6 +447,8 @@ class StructuralEmbodimentPublicationTests(unittest.TestCase):
         review = json.loads((session / "review.json").read_text(encoding="utf-8"))
         self.assertEqual(review["title"], publisher.TITLE)
         self.assertEqual(review["kind"], "image")
+        self.assertIn("side column is exact orthographic", review["instructions"])
+        self.assertIn("do not depth-occlude", review["instructions"])
         self.assertEqual(len(review["groups"]), 1)
         self.assertEqual(len(list((session / "assets").iterdir())), 4)
         self.assertEqual({p.name for p in (session / "assets").iterdir()}, {f"{p}.png" for p in publisher.PROFILE_IDS})

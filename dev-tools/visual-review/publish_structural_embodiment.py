@@ -72,7 +72,7 @@ NEUTRAL_VARIANT_ID = "neutral-v0"
 CANVAS = {"width": 1800, "height": 2500, "mode": "RGB"}
 TITLE = "Latest named structural checkpoint - Shared-pose structural embodiment gallery"
 DESCRIPTION = "Candidate-scoped exploratory structural embodiment evidence; not production acceptance."
-INSTRUCTIONS = "Compare all four frozen profiles. Review skeleton inhabitation, shared-pose coherence, gross skin following, and proxy coverage."
+INSTRUCTIONS = "Compare all four frozen profiles. Review skeleton inhabitation, shared-pose coherence, gross skin following, and proxy coverage. The side column is exact orthographic; skeleton rows are x-ray overlays and do not depth-occlude against the skin."
 ARTIFACT_NAMES = (
     "neutral.ply",
     "posed.ply",
