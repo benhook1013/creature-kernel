@@ -12,7 +12,13 @@ the canonical owner of the active runway, and the required reading order in
 - Primary checkout: `/home/ben/src/creature-kernel` — `main` and
   `origin/main` are at PR #114's merged squash commit
   `577b336e0dd007dca6c6e05669f54d4c98291f17` from 2026-08-25. All three CI
-  lanes passed before the merge, and no pull request is open.
+  lanes passed before the merge.
+- [PR #115](https://github.com/benhook1013/creature-kernel/pull/115) is open for
+  the provisional Godot runway record and manual-only CodeRabbit configuration.
+  CodeRabbit installation is live; its automatic review skipped this new public
+  repository under the service's current low-star rule. No manual full or CLI
+  review has been requested while cross-project availability remains unverified
+  and FireMUD is actively using CodeRabbit.
 - The visual-review systemd service is active from
   `/home/ben/src/creature-kernel`. The completed structural checkpoint remains
   at `http://localhost:8765/review/shared-pose-structural-embodiment-gallery`.

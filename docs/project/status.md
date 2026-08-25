@@ -17,9 +17,13 @@ Execution state: the shared-pose structural embodiment gallery reached its
 named human checkpoint and PR #114 merged as squash commit
 `577b336e0dd007dca6c6e05669f54d4c98291f17` on 2026-08-25 at
 2026-08-25T05:15:14Z, after all three CI lanes passed. The primary `main` and
-`origin/main` are at that commit, and no pull request is open. The visual-review
-systemd service is active from `/home/ben/src/creature-kernel`; the stable
-structural review remains
+`origin/main` are at that commit. PR #115 is open for this provisional Godot
+runway record and the manual-only CodeRabbit configuration. The CodeRabbit App
+is live, but its automatic review skipped the new public repository under the
+service's current low-star rule; no manual full or CLI review has been requested
+while cross-project availability remains unverified and FireMUD is actively
+using CodeRabbit. The visual-review systemd service is active from
+`/home/ben/src/creature-kernel`; the stable structural review remains
 `http://localhost:8765/review/shared-pose-structural-embodiment-gallery`.
 
 Ben's qualified appraisal of the structural gallery was that it "looks good";
