@@ -169,6 +169,16 @@ these outcome reports are used to tune it without adding heavyweight telemetry.
 Capacity retry does not apply to non-capacity failures and must never become an
 unbounded retry loop.
 
+### Orchestration payload safety
+
+When JavaScript tool-runner source composes a subagent prompt, build the prompt
+from an array of ordinary quoted strings joined with newlines, or use structured
+text items. Do not embed delegation prose in a JavaScript template literal:
+Markdown backticks and similar prompt content can terminate or alter the source
+before the orchestration call executes. Treat the resulting `SyntaxError` as a
+deterministic payload-construction defect, not capacity or a transient tool
+failure; correct the construction once and report that no worker started.
+
 ### Thread-slot recovery (provisional)
 
 First inspect the authoritative live-thread list and statuses. Treat an

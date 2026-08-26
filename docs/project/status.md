@@ -54,9 +54,24 @@ declared bounds; rendered review metadata is deliberately excluded, while
 original `inspect-structure` bytes and per-vertex semantic labels are reported
 as unavailable. Expected gallery rejection returns no view, but validator-load
 and unexpected runtime failures surface. The 21-test publisher suite and
-9-test projection suite pass after fresh hands-on and adversarial findings were
-corrected. This snapshot makes no runtime package, durable format, R3, adapter,
-merge, or checkpoint claim.
+9-test projection suite passed after fresh hands-on and adversarial findings
+were corrected. The disposable pinned Godot 4.7.2 launcher, neutral two-profile
+host-load smoke, and posed two-profile cross-check load and hash-check the
+applicable projected profile artifacts, instantiate neutral and posed
+`ArrayMesh` plus `StaticBody3D` capsule profiles, and use isolated temporary
+project/home/XDG/TMP roots. The posed probe independently recomputes published
+posed vertices/normals and posed proxy endpoints from skin matrices plus
+weights at fixed `2e-5` tolerance and records both mesh and proxy separation.
+The neutral 17-test and posed 9-test suites passed. The neutral post-fix
+hands-on regression, the posed default and alternate pair operator trials, and
+the fresh posed adversarial mutation trial also passed without a remaining
+blocker. PR #116 remains one coherent coarse
+structural-evidence-to-provisional-Godot milestone, with one final review/CI
+cycle and optional Ben-authorized/coordinated CodeRabbit only. Hosted CodeRabbit
+remains forbidden without Ben's exact request. This snapshot makes no
+Skeleton3D/Skin runtime binding, animation, semantic pose injection, physics
+stepping, contact, deformation, render output, adapter/package/R3/performance/
+checkpoint evidence claim.
 
 Ben's qualified appraisal of the structural gallery was that it "looks good";
 the side-view x-ray overlay wording was clarified without changing geometry or
