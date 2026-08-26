@@ -349,28 +349,35 @@ approval. It is not an automatic Creature Kernel dependency or merge gate. The
 root `.coderabbit.yaml` expresses the repository policy: no inherited settings,
 label or description opt-ins, automatic initial or incremental reviews, or
 automatic chat replies. Higher-priority service-wide global overrides may still
-supersede repository YAML. After adding or materially changing the configuration,
-use `@coderabbitai configuration` to inspect the effective source-annotated
-settings before requesting a review. A main thread may request one hosted
-`@coderabbitai full review` only after the candidate is complete and no review is
-active. For a completed committed PR candidate, attempt the CodeRabbit CLI first
-when its quota is available, using `coderabbit review --agent --committed` with
-`--base <remote>/<base-ref>` against a fetched remote-tracking base. Use the
-scarcer hosted full review only when the CLI attempt is unavailable,
-rate-limited, incomplete for the intended diff, or explicitly preferred by Ben.
-Do not run both routinely, and do not use an incremental hosted review merely to
-save time when complete coverage is intended.
+supersede repository YAML. Neither the main thread nor a subagent may invoke,
+post, or otherwise trigger a hosted CodeRabbit command, including
+`@coderabbitai configuration` or `@coderabbitai full review`, unless Ben
+explicitly requests that particular hosted invocation. CLI unavailability,
+rate limiting, or incomplete coverage is not standing authorization to fall
+back to hosted review.
+
+Reserve CodeRabbit CLI for at most one optional end-of-PR pass over a completed,
+committed candidate; do not use it during implementation or as an iterative
+review-until-clean loop. While hosted and CLI allowance sharing across Ben's
+projects remains unverified, Creature Kernel yields that allowance to FireMUD:
+run the optional CLI pass only when Ben confirms FireMUD is not consuming the
+allowance or explicitly authorizes the Creature Kernel pass. When warranted,
+use `coderabbit review --agent --committed` with
+`--base <remote>/<base-ref>` against a fetched remote-tracking base. Consume and
+disposition the result before merge. Skipping CodeRabbit is not a merge blocker;
+continue normal bounded subagent review, hands-on trials, local validation, and
+CI without waiting for or substituting CodeRabbit.
 
 Treat the current account's hosted, CLI, and usage-based availability across
 Ben's projects as unverified until checked against the active plan and live
 service response. Do not invoke either review interface while FireMUD or another
-project is actively reviewing or while availability is unclear. Run at most one
-CodeRabbit CLI review at a time, against a fetched remote-tracking base that
-covers the complete intended diff. Consume and disposition that result before
-deciding whether a hosted fallback adds enough value to justify its scarcer
-allowance. Do not install or invoke autonomous CodeRabbit skills that could
-consume quota outside this deliberate workflow. Report unavailable or
-rate-limited review honestly rather than bypassing or repeatedly retrying it.
+project is actively reviewing or while availability is unclear. Do not install
+or invoke autonomous CodeRabbit skills that could consume quota outside this
+deliberate workflow. Report unavailable or rate-limited review honestly rather
+than bypassing or repeatedly retrying it. For the next hosted-allowance test,
+Ben intends to trigger FireMUD first and then explicitly authorize Creature
+Kernel's hosted invocation; Creature Kernel agents must not trigger, comment on,
+or otherwise mutate FireMUD to arrange that sequence.
 
 Other hosted review services still require explicit human authorization before
 agents install, enable, configure, invoke, or submit repository content to them.

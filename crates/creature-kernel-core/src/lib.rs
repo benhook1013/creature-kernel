@@ -33,6 +33,7 @@ pub mod source_preparation;
 pub(crate) mod source_set_canonical_placement;
 pub(crate) mod source_set_canonical_values;
 pub(crate) mod source_set_dependency_evidence;
+pub(crate) mod source_set_module_binding_candidate;
 pub(crate) mod source_set_module_binding_observation;
 pub(crate) mod source_set_namespace_projection;
 pub(crate) mod source_set_preparation;

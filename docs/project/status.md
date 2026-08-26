@@ -1,6 +1,6 @@
 # Project status
 
-Status date: 2026-08-25
+Status date: 2026-08-26
 
 ## Phase
 
@@ -16,16 +16,39 @@ governs what resumes next.
 Execution state: the shared-pose structural embodiment gallery reached its
 named human checkpoint and PR #114 merged as squash commit
 `577b336e0dd007dca6c6e05669f54d4c98291f17` on 2026-08-25 at
-2026-08-25T05:15:14Z, after all three CI lanes passed. The primary `main` and
-`origin/main` are at that commit. PR #115 is open for this provisional Godot
-runway record and the manual-only CodeRabbit configuration. The CodeRabbit App
-and repository configuration are live. A manual full review of commit
+2026-08-25T05:15:14Z, after all three CI lanes passed. PR #115 then merged on
+2026-08-26 as squash commit
+`84bfb6ea6aea3238a594fe9586a40656b4a4daf9`; the primary `main` and
+`origin/main` now point there. The CodeRabbit App and repository configuration
+are live. A hosted full review of commit
 `5ed8ae8e447788d80fd2a6091752dc32c83a1a99` was requested at
 2026-08-26T05:12:39Z and completed at 2026-08-26T05:17:43Z with two localized
-correctness findings, addressed in the follow-up commit that records this
-snapshot. No CLI review was requested. The visual-review systemd service is
-active from `/home/ben/src/creature-kernel`; the stable structural review remains
+correctness findings; both were fixed before the squash merge. The review
+workflow now reserves CodeRabbit CLI for at most one optional end-of-PR pass on
+the complete committed candidate, and Creature Kernel yields that allowance to
+FireMUD while cross-project sharing remains unverified. Hosted CodeRabbit
+commands require Ben's explicit request for each invocation and are never an
+automatic fallback. Skipping CodeRabbit is not a merge blocker. The
+next hosted-allowance experiment is Ben-triggered FireMUD first, followed only
+by Ben's explicit authorization for Creature Kernel; Creature Kernel agents
+must not mutate FireMUD to arrange it. The
+visual-review systemd service is active
+from `/home/ben/src/creature-kernel`; the stable structural review remains
 `http://localhost:8765/review/shared-pose-structural-embodiment-gallery`.
+
+The active worktree
+`/home/ben/src/creature-kernel-worktrees/pre-r3-module-binding-candidate` on
+branch `codex/pre-r3-module-binding-candidate` is implementing the next
+crate-private, nonserialized, nonactivating pre-R3 module-binding candidate
+closure toward the bounded Godot feasibility checkpoint named below. The local
+candidate is complete: it retains the existing module observations and
+separately typed dependency-content evidence without claiming resolution,
+selecting a profile, serializing a package, or activating Readiness 3. Its eight
+focused tests, the 430-test default workspace suite, warnings-as-errors Clippy,
+formatting, documentation validation, and diff checks pass. Fresh integration
+and adversarial reviews found no correctness blocker; their bounded gaps and
+wording findings were corrected. This snapshot makes no merge or checkpoint
+claim.
 
 Ben's qualified appraisal of the structural gallery was that it "looks good";
 the side-view x-ray overlay wording was clarified without changing geometry or
@@ -59,7 +82,7 @@ coherence, physical-response interpretation, CPU fallback, or evidence budget
 cannot be made credible without a material architecture or engine commitment.
 
 Current operational snapshot: the [Codex app handover](current-handover.md)
-(2026-08-25 NZST) records the primary checkout, active runway worktree,
+(2026-08-26 NZST) records the primary checkout, active runway worktree,
 merged PR state, and the current checkpoint/tooling state. It is a navigation
 aid rather than a new authority owner. PR #107 retains the exact consumed
 producer lineage in surface reviews while preserving the parked EXP-0002

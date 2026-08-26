@@ -1,6 +1,6 @@
 # Current operational handover
 
-Snapshot: 2026-08-25 NZST
+Snapshot: 2026-08-26 NZST
 
 This is a concise operational handoff for continuing the current runway in the
 Codex app. It is not a new authority owner: `docs/project/status.md` remains
@@ -9,22 +9,37 @@ the canonical owner of the active runway, and the required reading order in
 
 ## Where to continue
 
-- Primary checkout: `/home/ben/src/creature-kernel` — `main` and
-  `origin/main` are at PR #114's merged squash commit
-  `577b336e0dd007dca6c6e05669f54d4c98291f17` from 2026-08-25. All three CI
-  lanes passed before the merge.
-- [PR #115](https://github.com/benhook1013/creature-kernel/pull/115) is open for
-  the provisional Godot runway record and manual-only CodeRabbit configuration.
-  CodeRabbit installation and repository configuration are live. A manual full
-  review of commit `5ed8ae8e447788d80fd2a6091752dc32c83a1a99` was requested at
+- Primary checkout: `/home/ben/src/creature-kernel` — PR #115 merged on
+  2026-08-26 as squash commit
+  `84bfb6ea6aea3238a594fe9586a40656b4a4daf9`; `main` and `origin/main` then
+  pointed there. All three CI lanes passed before the merge.
+- [PR #115](https://github.com/benhook1013/creature-kernel/pull/115) recorded the
+  provisional Godot runway and CodeRabbit configuration. CodeRabbit installation
+  and repository configuration are live. A hosted full review of commit
+  `5ed8ae8e447788d80fd2a6091752dc32c83a1a99` was requested at
   2026-08-26T05:12:39Z and completed at 2026-08-26T05:17:43Z with two localized
-  correctness findings, addressed in the follow-up commit that records this
-  snapshot. No CLI review was requested.
+  correctness findings; both were fixed before the squash merge. The workflow
+  now reserves CodeRabbit CLI for at most one optional end-of-PR pass on the
+  complete committed candidate, and Creature Kernel yields that allowance to
+  FireMUD while cross-project sharing remains unverified. Hosted CodeRabbit
+  commands require Ben's explicit request for each invocation and are never an
+  automatic fallback. Skipping CodeRabbit is not a merge blocker. The next
+  hosted-allowance experiment is Ben-triggered FireMUD first, followed only by
+  Ben's explicit authorization for Creature Kernel; Creature Kernel agents
+  must not mutate FireMUD to arrange it.
 - The visual-review systemd service is active from
   `/home/ben/src/creature-kernel`. The completed structural checkpoint remains
   at `http://localhost:8765/review/shared-pose-structural-embodiment-gallery`.
-- This documentation patch is being prepared in
-  `/home/ben/src/creature-kernel-worktrees/godot-reference-host-feasibility`.
+- Active implementation worktree:
+  `/home/ben/src/creature-kernel-worktrees/pre-r3-module-binding-candidate` on
+  branch `codex/pre-r3-module-binding-candidate`. It contains the completed next
+  crate-private, nonserialized, nonactivating pre-R3 module-binding candidate
+  closure toward the bounded Godot feasibility checkpoint below. The candidate
+  keeps module and dependency-content evidence separately typed and makes no
+  resolver, profile, package, or R3-activation claim. Its eight focused tests,
+  430-test default workspace suite, Clippy, formatting, documentation, and diff
+  checks pass; fresh integration and adversarial reviews found no correctness
+  blocker. This snapshot makes no merge or checkpoint claim.
 - [PR #113](https://github.com/benhook1013/creature-kernel/pull/113) merged to
   `main` as squash commit `eb89245da137e54cc85f9cd564fbcdd6c45eac66` on
   2026-08-25. All three CI lanes passed before its merge. Ben's disposition
