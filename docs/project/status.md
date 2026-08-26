@@ -13,87 +13,50 @@ governs what resumes next.
 
 ## Active runway
 
-Execution state: the shared-pose structural embodiment gallery candidate has
-reached the named human checkpoint in draft PR #114. PR #113 merged to `main`
-as squash commit `eb89245da137e54cc85f9cd564fbcdd6c45eac66` on 2026-08-25.
-Ben explicitly authorized merging PR #113 and PR #114 with "merge them as
-needed". The active worktree is
-`/home/ben/src/creature-kernel-worktrees/structural-embodiment-bridge`, on branch
-`codex/structural-embodiment-bridge`, whose local branch has been cleanly
-rebased onto `origin/main`. The latest PR #114 remote update, current-head CI,
-and merge will be handled by the main thread. Its stable review is
+Execution state: the shared-pose structural embodiment gallery reached its
+named human checkpoint and PR #114 merged as squash commit
+`577b336e0dd007dca6c6e05669f54d4c98291f17` on 2026-08-25 at
+2026-08-25T05:15:14Z, after all three CI lanes passed. The primary `main` and
+`origin/main` are at that commit. PR #115 is open for this provisional Godot
+runway record and the manual-only CodeRabbit configuration. The CodeRabbit App
+and repository configuration are live. A manual full review of commit
+`5ed8ae8e447788d80fd2a6091752dc32c83a1a99` was requested at
+2026-08-26T05:12:39Z and completed at 2026-08-26T05:17:43Z with two localized
+correctness findings, addressed in the follow-up commit that records this
+snapshot. No CLI review was requested. The visual-review systemd service is
+active from `/home/ben/src/creature-kernel`; the stable structural review remains
 `http://localhost:8765/review/shared-pose-structural-embodiment-gallery`.
-PR #114 remains pending force-push/current-head CI/merge until the main thread
-completes those operations. Ben's qualified visual appraisal is recorded below
-and the explicit merge authorization is now recorded above.
-`origin/main` and the primary `main` checkout are at PR #113's merged squash
-commit `eb89245da137e54cc85f9cd564fbcdd6c45eac66`; PR #112's prior main
-snapshot was `80179614ea693cd45d55743d1d83d044c653a08f`.
 
-Ben accepts PR #113's gallery only as bounded exploratory evidence that
-source-authored controls and procedural field routes cover the required body
-regions and produce connected whole-body surfaces across the current display
-variants. It does not establish that every region remains visually readable or
-convincing. No further cosmetic repair of that disposable candidate is
-planned. The authored torso, head/neck, arm, pelvis/leg, and foot profiles are
-predecessor evidence for the structural checkpoint.
+Ben's qualified appraisal of the structural gallery was that it "looks good";
+the side-view x-ray overlay wording was clarified without changing geometry or
+camera. That gallery remains bounded exploratory evidence for generated
+rigging, weights, proxies, and shared pose. It does not establish production
+topology, realistic anatomy, contact response, localized deformation quality,
+runtime budgets, or a host/solver choice. No further cosmetic repair of that
+disposable candidate is planned.
 
-The current named human checkpoint is the shared-pose structural embodiment
-gallery. Its frozen four-profile candidate set satisfies the
-Proposed product baseline's qualitative profile envelope and optional-module
-contrast and is distinct from the earlier display variants. Using shared
-operations and no per-profile patches, it shows generated, not
-illustrative, artifacts for every frozen profile: a neutral surface with the
-actual generated skeleton and joint/bone overlay; actual skin-weight/influence
-evidence; one identity-bound deterministic semantic pose-transform payload
-applied without IK or contact solving, with posed surface and skeleton; actual
-generated collision-proxy overlays in neutral and posed state; and
-source/build/scenario lineage.
+The current named human checkpoint is a bounded Godot feasibility result. After
+the direct Creature Kernel and package prerequisites are prepared, the eventual
+candidate must load an engine-neutral CK package into two independently
+identified generated avatars, inject a host-neutral semantic pose, establish
+semantic contact, show localized press/release deformation plus actual physical
+response, measure render/collision coherence with named hardware and frame
+evidence, and demonstrate a CPU baseline plus a useful fallback. The
+[first host runtime evaluation](../research/first-host-runtime-evaluation.md)
+records the current evidence and unresolved trial questions.
 
-The candidate gate is fail-closed: require one rooted acyclic hierarchy and a
-complete semantic-Joint-to-derived-bone mapping; finite, nonnegative,
-normalized influence coverage for every surface vertex; finite, nondegenerate,
-lineage-bound proxies with neutral and posed transforms; deterministic rerun
-identity; and complete results for every frozen profile. Any failed or
-inconclusive profile or missing artifact keeps the checkpoint open. The bone
-hierarchy, mapping, skinning method, provisional topology, and proxies remain
-candidate-scoped evidence rather than production choices. Technical
-intermediate PRs are prerequisites, not human checkpoints. Ben will judge
-whether the skeleton inhabits the body plausibly, the shared pose reads
-coherently across proportions, gross skin following avoids severe collapse,
-twisting or detachment, and proxies plausibly cover and follow the body.
+Ben approved Godot 4.7.2 as the provisional first reference-host feasibility
+candidate after current Godot/Unity/Unreal/Bevy research and Double adversarial
+review. This is candidate-only evidence gathering: it is not permanent engine
+selection, Stage 3 success, a solver or package freeze, or adapter activation.
+The post-Readiness-3 adapter gate remains explicit. The main thread may advance
+direct Rust and engine-neutral package prerequisites, but stops before any
+retained-human Readiness 3 or adapter-activation decision.
 
-Ben's qualified 2026-08-25 visual appraisal is that the shared-pose structural
-result "looks good". The only confusion was that the `POSED SKIN + SKELETON`
-side panel appeared not exactly side-on because the skeleton looked skewered.
-The verified explanation is that `side` is an exact orthographic projection,
-while the skeleton rows are non-depth-occluded x-ray overlays. The visible
-clarity follow-up is implemented in the active working tree: column label
-`side (exact orthographic)`, row labels ending `(X-RAY OVERLAY)`, publisher
-instructions explaining the non-depth-occluded overlay, and matching README
-wording and focused assertions. These clarify the evidence without changing
-the candidate's geometry or camera.
-
-The bounded structural-embodiment bridge prerequisite defines its entrypoint,
-admitted source/neutral-surface inputs, derived rig/weight/proxy outputs, and
-reproducible artifact boundary. The completed gallery adds the frozen shared
-pose, posed evidence, exact semantic publication validation, and deterministic
-re-rendering. The merge transition is authorized by Ben's explicit instruction
-above. PR #114 is still pending the main thread's force-push, current-head CI,
-and merge operations; those operations do not activate or select Stage 3. The
-qualified visual appraisal remains as recorded below.
-
-This checkpoint does not seek realistic muscles or anatomy, final
-surface/topology, contact response, localized deformation quality,
-performance/runtime budget, engine/solver/rig-format selection, IK/gait/
-balance, or VR/tracking implementation. Preserve the later compatibility
-guardrail: do not turn this exploratory candidate into a production choice or
-activate the parked formal surface protocol. Stop for main-thread
-reevaluation if semantic frames cannot map cleanly, disposable topology cannot
-support trustworthy weights, profile-specific patches are required, objective
-checks fail or remain inconclusive, or the work forces a material production
-topology/backend/engine/anatomy choice. These triggers call for evidence and
-reassessment, not more outer-field cosmetic tuning.
+The active runway remains fail-closed: stop for main-thread reevaluation if the
+engine-neutral boundary, semantic pose/contact mapping, render/collision
+coherence, physical-response interpretation, CPU fallback, or evidence budget
+cannot be made credible without a material architecture or engine commitment.
 
 Current operational snapshot: the [Codex app handover](current-handover.md)
 (2026-08-25 NZST) records the primary checkout, active runway worktree,
@@ -1724,30 +1687,19 @@ validator, and inspection command remain preparatory. The immediate-predecessor
 
 ## Active work
 
-- The selected Single independent implementation review of CK-KICK-010 and
-  its evidence boundary is complete; findings and dispositions are recorded in
-  `RESULTS.md`. Main consolidated validation passed after the corrections; no
-  second review or review-until-clean pass was run. This does not reopen
-  DR-0009/0010.
-- Keep CK-KICK-012's active semantic, fixture-admission, numeric, claim-identity,
-  adapter, and compatibility work bounded and retain the current 9c Review
-  Complete evidence after the immediate-predecessor technical resolutions. The
-  Readiness 2 parser/bootstrap and admitted schema/manifest/fixture transaction
-  are active; the Proposed body-graph, build-operation, numeric/frame, and
-  compatibility documents do not activate Readiness 3 or later packages.
-- Keep CK-KICK-013's implemented Readiness 1 boundary at the Cargo workspace,
-  compiler/core library shell, and thin CLI shell, with the admitted Readiness 2
-  parser/bootstrap transaction active alongside it. The provisional structural
-  address/index, validator, and `inspect-structure` command are preparatory and
-  do not activate Readiness 3. Advance bounded source preparation, including
-  document-wide resolver preparation/provenance traversal. The
-  `inspect-prepared-source` command and its bounded browser flow are
-  developer-facing preparatory inspection, not a human-visible creature result
-  or retained-human checkpoint. The public single-source preparation operation
-  and internal numeric/frame-preparation helpers stay preparatory, with no
-  record-level admission bypass. Numeric/frame/output, adapter, and geometry
-  prerequisites gate later stages. Any performance claim must have reproducible
-  benchmark and hardware-profile evidence.
+- Advance direct Rust source-preparation and engine-neutral runtime-package
+  prerequisites toward the bounded Godot feasibility checkpoint. Keep the
+  host-evaluation evidence separate from accepted contracts and
+  record its source and measurement conditions.
+- Keep the admitted Readiness 2 parser/bootstrap/schema/manifest/fixture
+  transaction active, while the distinct Readiness 3 resolver/snapshot
+  transaction, adapter profile/schema, runtime package activation, and host
+  adapter remain gated. Do not treat a Godot feasibility result as Readiness 3
+  success or as a permanent engine/solver/package decision.
+- The main thread owns the retained-human boundary: it may integrate bounded
+  Rust/package prerequisites, but stops before any Readiness 3 or adapter
+  activation decision. Any performance claim requires reproducible benchmark
+  and named hardware-profile evidence.
 - Preserve the accepted governance process and all historical decision/review
   evidence without reopening the parked confirmatory protocol.
 
@@ -1814,7 +1766,7 @@ metadata. Current non-governance decisions and proposals include:
 | Creature compiler | partial | unverified | Disposable CK-KICK-010 walking skeleton implemented; this is not a production compiler |
 | CK-KICK-010 walking skeleton | implemented | audited | Valid/invalid local evidence and the selected Single independent review are complete; five substantive findings plus whitespace were dispositioned in RESULTS, not clean; this is not a production compiler |
 | Local visual-review gallery | implemented | audited | Focused tests and local HTTP/browser smoke passed; the PR #113 gallery is bounded exploratory surface evidence, while `subject_context` remains presentation-only and no formal Stage 1 claim is made |
-| Runtime avatar | not-implemented | not-applicable | No runtime adapter selected |
+| Runtime avatar | not-implemented | not-applicable | No runtime adapter selected; Godot 4.7.2 is a provisional feasibility candidate only, and no bounded host result exists yet |
 
 ## Historical immediate next actions (inactive)
 

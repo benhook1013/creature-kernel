@@ -10,22 +10,21 @@ the canonical owner of the active runway, and the required reading order in
 ## Where to continue
 
 - Primary checkout: `/home/ben/src/creature-kernel` — `main` and
-  `origin/main` are at PR #113's merged squash commit
-  `eb89245da137e54cc85f9cd564fbcdd6c45eac66` from 2026-08-25. PR #112's
-  prior main snapshot was `80179614ea693cd45d55743d1d83d044c653a08f`.
-- Active worktree:
-  `/home/ben/src/creature-kernel-worktrees/structural-embodiment-bridge` — branch
-  `codex/structural-embodiment-bridge`. Its local branch has been cleanly
-  rebased onto `origin/main`; the latest remote update, current-head CI, and
-  merge are handled by the main thread.
-  [Draft PR #114](https://github.com/benhook1013/creature-kernel/pull/114) is
-  open and draft.
-  It reaches the named human checkpoint at
-  `http://localhost:8765/review/shared-pose-structural-embodiment-gallery`.
-  PR #114 remains pending force-push/current-head CI/merge until the main thread
-  completes those operations. Ben's qualified visual appraisal below is
-  preserved, and Ben explicitly authorized merging PR #113 and PR #114 with
-  "merge them as needed".
+  `origin/main` are at PR #114's merged squash commit
+  `577b336e0dd007dca6c6e05669f54d4c98291f17` from 2026-08-25. All three CI
+  lanes passed before the merge.
+- [PR #115](https://github.com/benhook1013/creature-kernel/pull/115) is open for
+  the provisional Godot runway record and manual-only CodeRabbit configuration.
+  CodeRabbit installation and repository configuration are live. A manual full
+  review of commit `5ed8ae8e447788d80fd2a6091752dc32c83a1a99` was requested at
+  2026-08-26T05:12:39Z and completed at 2026-08-26T05:17:43Z with two localized
+  correctness findings, addressed in the follow-up commit that records this
+  snapshot. No CLI review was requested.
+- The visual-review systemd service is active from
+  `/home/ben/src/creature-kernel`. The completed structural checkpoint remains
+  at `http://localhost:8765/review/shared-pose-structural-embodiment-gallery`.
+- This documentation patch is being prepared in
+  `/home/ben/src/creature-kernel-worktrees/godot-reference-host-feasibility`.
 - [PR #113](https://github.com/benhook1013/creature-kernel/pull/113) merged to
   `main` as squash commit `eb89245da137e54cc85f9cd564fbcdd6c45eac66` on
   2026-08-25. All three CI lanes passed before its merge. Ben's disposition
@@ -59,15 +58,24 @@ the canonical owner of the active runway, and the required reading order in
   retains useful plumbing and comparison evidence; it does not accept the
   disposable surface as a form-quality success.
 
-The current named human checkpoint is the shared-pose structural embodiment
-gallery, an exploratory candidate toward Stage 2. Its frozen four-profile set
-satisfies the Proposed product baseline's qualitative profile envelope and is
-distinct from the earlier display variants. Generated, not illustrative,
-artifacts show the neutral surface with its skeleton and joint/bone overlay, complete
-skin-weight/influence evidence, one identity-bound deterministic semantic
-pose-transform payload applied without IK or contact solving, the posed surface
-and skeleton, neutral/posed collision proxies, and source/build/scenario
-lineage for every frozen profile.
+The current named human checkpoint is a bounded Godot feasibility result, not the
+completed structural gallery. After direct Rust and engine-neutral package
+prerequisites, the eventual candidate must load an engine-neutral CK package
+into two independently identified generated avatars, inject a host-neutral
+semantic pose, establish semantic contact, show localized press/release
+deformation plus actual physical response, measure render/collision coherence
+with named hardware and frame evidence, and demonstrate a CPU baseline plus a
+useful fallback. The
+[first host runtime evaluation](../research/first-host-runtime-evaluation.md)
+records the current evidence and unresolved trial questions.
+
+Ben approved Godot 4.7.2 as the provisional first reference-host feasibility
+candidate after current Godot/Unity/Unreal/Bevy research and Double adversarial
+review. This remains candidate-only: no permanent engine selection, Stage 3
+success, solver/package freeze, or adapter activation follows from the approval.
+The post-Readiness-3 adapter gate remains explicit. The main thread advances
+direct Rust/package prerequisites and stops before any retained-human Readiness 3
+or adapter-activation decision.
 
 Ben's qualified 2026-08-25 visual appraisal is that the shared-pose structural
 result "looks good". The only confusion was that the `POSED SKIN + SKELETON`
@@ -94,20 +102,14 @@ anatomy, final surface/topology, contact response, localized deformation
 quality, runtime performance, engine/solver/rig-format selection, IK/gait/
 balance, or VR/tracking implementation.
 
-The completed bounded structural-embodiment bridge prerequisite defines its
-entrypoint, admitted source/neutral-surface inputs, derived outputs, and
-reproducible artifact boundary. Stop for evidence and main-thread reevaluation
-if semantic frames do not map cleanly, disposable topology cannot support
-trustworthy weights, objective checks fail or remain inconclusive, bespoke
-profile patches are required, or a material production topology/backend/
-engine/anatomy choice becomes necessary. Do not answer those triggers with
-more outer-field cosmetic tuning or unnecessary intermediate visual gates. The
-merge transition is authorized by Ben's explicit instruction above. PR #114
-is still pending the main thread's force-push, current-head CI, and merge
-operations. Do not activate or select Stage 3 as part of that transition. The
-qualified appraisal above remains preserved.
+The completed structural-embodiment bridge remains predecessor evidence. Stop
+for evidence and main-thread reevaluation if the engine-neutral boundary,
+semantic pose/contact mapping, render/collision coherence, physical-response
+interpretation, CPU fallback, or evidence budget requires a material production
+topology/backend/engine/anatomy choice. Do not answer those triggers with
+unbounded host-specific implementation.
 
-Open the active worktree in the Codex app to continue the runway.
+Open the Godot-feasibility worktree in the Codex app to continue the runway.
 Read `AGENTS.md` in the required order, then this handover and the linked
 [current status](status.md).
 
@@ -270,10 +272,10 @@ change the active runway. Root license files, README, and CONTRIBUTING carry the
 current terms; Cargo package metadata is deliberately deferred because the
 parked Phase 3 evidence closure exact-binds the affected manifest bytes.
 
-The current named human checkpoint is the shared-pose structural embodiment
-gallery described above. The complete authored-form expressivity gallery is
-historical bounded proof, and no further cosmetic repair of that disposable
-candidate is planned.
+The former shared-pose structural embodiment checkpoint is predecessor
+evidence. The complete authored-form expressivity gallery is historical bounded
+proof, and no further cosmetic repair of either disposable candidate is
+planned.
 
 ## Gallery and service
 
@@ -386,11 +388,12 @@ anatomical skin; visual region readability therefore remains failed or
 inconclusive. These limitations are scoped to this disposable candidate, not
 canonical geometry prescriptions. No further cosmetic repair is planned.
 
-The current named human checkpoint is the shared-pose structural embodiment
-gallery defined near the top of this handover and canonically governed by the
-Active runway. Its frozen-profile, fail-closed artifact, human-judgment,
-candidate-scope, non-goal, and reevaluation boundaries apply here without
-creating another surface-polish checkpoint.
+The former shared-pose structural embodiment gallery is predecessor evidence;
+the bounded Godot feasibility result defined near the top of this handover is
+the current checkpoint and is canonically governed by the Active runway. The
+structural gallery's frozen-profile, fail-closed artifact, human-judgment,
+candidate-scope, non-goal, and reevaluation boundaries remain historical
+without creating another surface-polish checkpoint.
 
 The former checkpoint required richer source-authored dimensions, landmarks,
 and profiles to drive shared region-appropriate generator operations across
