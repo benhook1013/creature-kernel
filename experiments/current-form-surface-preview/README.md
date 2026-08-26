@@ -254,26 +254,24 @@ visibly occluded or lost, its torso and pelvis read as rounded rectangular/
 blocky, and the overall body is not convincing realistic or anatomical skin;
 visual region readability remains failed or inconclusive. These are
 limitations of this disposable candidate, not canonical geometry
-prescriptions. PR #113 is mergeable/draft with all three
-current CI lanes passed, but remains unmerged pending Ben's explicit merge
-authorization; this disposition is not merge authorization. No further
-cosmetic repair is planned, and publication machinery is not acceptance.
+prescriptions. Publication machinery is not acceptance.
 
-The current runway target is the shared-pose structural embodiment gallery, an
-exploratory candidate toward Stage 2. It is a disposable companion consumer of
-this preview's generated surfaces, not a production architecture claim. Its
-four-profile candidate set and semantic pose payload are frozen before
-evidence; the current display variants are not automatic substitutes. It uses
-generated, not illustrative, neutral/posed surface, skeleton/bone,
+The shared-pose structural embodiment gallery below has completed its named
+human checkpoint: it was appraised "looks good" and merged through PR #114.
+No further cosmetic repair is planned. It remains a disposable companion
+consumer of this preview's generated surfaces, not a production architecture
+claim. Its four-profile candidate set and semantic pose payload are frozen
+before evidence; the current display variants are not automatic substitutes.
+It uses generated, not illustrative, neutral/posed surface, skeleton/bone,
 weight/influence, and collision-proxy artifacts with source/build/scenario
-lineage.
-See the active runway for its objective prerequisites, human judgments,
-non-goals, and stop triggers.
+lineage. See `docs/project/status.md` for the current named human checkpoint
+and active runway.
 
 The experiment-local `structural_profile_candidates.json` freezes four source
-candidate IDs for that runway: compact/broad/short-limbed/large-head,
-tall/narrow/long-legged, slender/long-limbed, and stocky/broad-chested. Generate
-their compact canonical BodyDocuments through one shared data-driven transform:
+candidate IDs used by the completed gallery:
+compact/broad/short-limbed/large-head, tall/narrow/long-legged,
+slender/long-limbed, and stocky/broad-chested. Generate their compact canonical
+BodyDocuments through one shared data-driven transform:
 
 ```bash
 "$surface_preview_launcher" experiments/current-form-surface-preview/generate_structural_profile_sources.py --check
@@ -369,9 +367,9 @@ slice emits no pose or posed surface. It is a direct
 prerequisite to, not a substitute for, the shared-pose structural embodiment
 gallery.
 
-Build that named checkpoint only after all four frozen profiles have successful
-neutral bridge bundles and matching hash-bound structure and neutral-surface
-inputs:
+The completed gallery was built only after all four frozen profiles had
+successful neutral bridge bundles and matching hash-bound structure and
+neutral-surface inputs:
 
 ```bash
 "$surface_preview_launcher" experiments/current-form-surface-preview/generate_structural_embodiment_gallery.py \
@@ -419,6 +417,32 @@ sources, parses and checks the structural and posed evidence, and
 deterministically re-renders each PNG from that evidence and the shared world
 bound before copying only the four ordered PNGs required for appraisal. It
 never replaces an existing session.
+
+## Structural gallery evidence probe
+
+`structural_gallery_evidence_probe.py` is disposable pre-proposal evidence. It
+projects non-rendered structural evidence from an already-validated completed
+gallery into immutable, hashable experiment records. It consumes a completed
+gallery directory, not a review session, and delegates exact validation of the
+complete source gallery to
+`dev-tools/visual-review/publish_structural_embodiment.py`. Rendered gallery
+PNGs, canvas data, and display metadata are deliberately outside the projection;
+original `inspect-structure` bytes and per-vertex semantic labels are
+unavailable. An expected invalid-gallery rejection returns no view, while
+validator-load and unexpected runtime failures surface.
+
+The probe is not a runtime package, bundle, durable schema, or adapter input
+and makes no contact, deformation, physical-response, engine, or R3 claim. It
+has no CLI; its import entrypoint is
+`project_structural_gallery_evidence(gallery: Path)` (also exported as
+`load_structural_gallery_evidence`). For a developer import/smoke check, run
+the existing focused tests through the repository launcher:
+
+```bash
+"$surface_preview_launcher" -m unittest discover \
+  -s experiments/current-form-surface-preview/tests \
+  -p 'test_structural_gallery_evidence_probe.py'
+```
 
 Each manifest variant record and its `successor.json` sidecar also carries
 `source_variant_sha256`, the 64-character lowercase SHA-256 digest of the

@@ -38,17 +38,25 @@ from `/home/ben/src/creature-kernel`; the stable structural review remains
 
 The active worktree
 `/home/ben/src/creature-kernel-worktrees/pre-r3-module-binding-candidate` on
-branch `codex/pre-r3-module-binding-candidate` is implementing the next
-crate-private, nonserialized, nonactivating pre-R3 module-binding candidate
-closure toward the bounded Godot feasibility checkpoint named below. The local
-candidate is complete: it retains the existing module observations and
-separately typed dependency-content evidence without claiming resolution,
-selecting a profile, serializing a package, or activating Readiness 3. Its eight
-focused tests, the 430-test default workspace suite, warnings-as-errors Clippy,
-formatting, documentation validation, and diff checks pass. Fresh integration
-and adversarial reviews found no correctness blocker; their bounded gaps and
-wording findings were corrected. This snapshot makes no merge or checkpoint
-claim.
+branch `codex/pre-r3-module-binding-candidate` backs open
+[PR #116](https://github.com/benhook1013/creature-kernel/pull/116), which is
+being retained as a coarser pre-Godot runway PR rather than merged after one
+small slice. Its initial crate-private module-binding candidate passed local
+tests and fresh review, but Rust CI correctly demonstrated that changing
+`crates/creature-kernel-core/src/lib.rs` crosses the parked EXP-0002 47-path
+freeze closure. The candidate is therefore removed from the current PR diff;
+the freeze is not regenerated, rebound, bypassed, or reactivated. The current
+unfrozen experiment/tooling slice exposes the existing exact structural-gallery
+validator for reuse and adds a temporary immutable projection of non-rendered
+structural evidence from a completed gallery directory. The projection retains
+the four distinct profiles, pose and artifact identities, metrics, lineage, and
+declared bounds; rendered review metadata is deliberately excluded, while
+original `inspect-structure` bytes and per-vertex semantic labels are reported
+as unavailable. Expected gallery rejection returns no view, but validator-load
+and unexpected runtime failures surface. The 21-test publisher suite and
+9-test projection suite pass after fresh hands-on and adversarial findings were
+corrected. This snapshot makes no runtime package, durable format, R3, adapter,
+merge, or checkpoint claim.
 
 Ben's qualified appraisal of the structural gallery was that it "looks good";
 the side-view x-ray overlay wording was clarified without changing geometry or

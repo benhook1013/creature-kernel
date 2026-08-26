@@ -32,14 +32,25 @@ the canonical owner of the active runway, and the required reading order in
   at `http://localhost:8765/review/shared-pose-structural-embodiment-gallery`.
 - Active implementation worktree:
   `/home/ben/src/creature-kernel-worktrees/pre-r3-module-binding-candidate` on
-  branch `codex/pre-r3-module-binding-candidate`. It contains the completed next
-  crate-private, nonserialized, nonactivating pre-R3 module-binding candidate
-  closure toward the bounded Godot feasibility checkpoint below. The candidate
-  keeps module and dependency-content evidence separately typed and makes no
-  resolver, profile, package, or R3-activation claim. Its eight focused tests,
-  430-test default workspace suite, Clippy, formatting, documentation, and diff
-  checks pass; fresh integration and adversarial reviews found no correctness
-  blocker. This snapshot makes no merge or checkpoint claim.
+  branch `codex/pre-r3-module-binding-candidate`, backing open
+  [PR #116](https://github.com/benhook1013/creature-kernel/pull/116). The PR is
+  being retained as a coarser pre-Godot runway PR. Its initial crate-private
+  module-binding candidate passed local tests and fresh review, but Rust CI
+  correctly showed that changing `crates/creature-kernel-core/src/lib.rs`
+  crosses the parked EXP-0002 47-path freeze closure. The candidate is removed
+  from the current diff without regenerating, rebinding, bypassing, or
+  reactivating that freeze. The current unfrozen experiment/tooling slice
+  exposes the existing exact structural-gallery validator for reuse and adds a
+  temporary immutable projection of non-rendered structural evidence from a
+  completed gallery directory. It retains four distinct profile identities,
+  pose and artifact identities, metrics, lineage, and declared bounds; rendered
+  review metadata is deliberately excluded, while original `inspect-structure`
+  bytes and per-vertex semantic labels remain explicitly unavailable. Expected
+  gallery rejection returns no view, but validator-load and unexpected runtime
+  failures surface. The 21-test publisher suite and 9-test projection suite
+  pass after fresh hands-on and adversarial findings were corrected. This
+  snapshot makes no runtime package, durable format, R3, adapter, merge, or
+  checkpoint claim.
 - [PR #113](https://github.com/benhook1013/creature-kernel/pull/113) merged to
   `main` as squash commit `eb89245da137e54cc85f9cd564fbcdd6c45eac66` on
   2026-08-25. All three CI lanes passed before its merge. Ben's disposition
