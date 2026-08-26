@@ -353,18 +353,24 @@ supersede repository YAML. After adding or materially changing the configuration
 use `@coderabbitai configuration` to inspect the effective source-annotated
 settings before requesting a review. A main thread may request one hosted
 `@coderabbitai full review` only after the candidate is complete and no review is
-active; do not use an incremental review merely to save time when a full review
-is intended.
+active. For a completed committed PR candidate, attempt the CodeRabbit CLI first
+when its quota is available, using `coderabbit review --agent --committed` with
+`--base <remote>/<base-ref>` against a fetched remote-tracking base. Use the
+scarcer hosted full review only when the CLI attempt is unavailable,
+rate-limited, incomplete for the intended diff, or explicitly preferred by Ben.
+Do not run both routinely, and do not use an incremental hosted review merely to
+save time when complete coverage is intended.
 
 Treat the current account's hosted, CLI, and usage-based availability across
 Ben's projects as unverified until checked against the active plan and live
 service response. Do not invoke either review interface while FireMUD or another
 project is actively reviewing or while availability is unclear. Run at most one
 CodeRabbit CLI review at a time, against a fetched remote-tracking base that
-covers the complete intended diff. Do not install or invoke autonomous CodeRabbit
-skills that could consume quota outside this deliberate workflow. Report
-unavailable or rate-limited review honestly rather than bypassing or repeatedly
-retrying it.
+covers the complete intended diff. Consume and disposition that result before
+deciding whether a hosted fallback adds enough value to justify its scarcer
+allowance. Do not install or invoke autonomous CodeRabbit skills that could
+consume quota outside this deliberate workflow. Report unavailable or
+rate-limited review honestly rather than bypassing or repeatedly retrying it.
 
 Other hosted review services still require explicit human authorization before
 agents install, enable, configure, invoke, or submit repository content to them.
