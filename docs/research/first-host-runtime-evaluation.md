@@ -108,8 +108,8 @@ does not create a schema, fixture, package, adapter, or implementation.
 
 The later trial should be titled **Godot 4.7.2 provisional reference-host
 feasibility trial**, not “Godot host selection.” It must follow the queued
-CK-KICK-016 through CK-KICK-019 prerequisites and use a deliberately narrow
-scenario.
+CK-KICK-016 through CK-KICK-018 prerequisites and provide the bounded evidence
+for CK-KICK-019 in a deliberately narrow scenario.
 
 The smallest useful candidate scenario is two independently addressed,
 substantially different generated avatars undergoing a bounded press-and-
