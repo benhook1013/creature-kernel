@@ -68,7 +68,7 @@ the canonical owner of the active runway, and the required reading order in
   multiple bounded robustness improvements, one disproportionate shared-helper
   refactor to reject, and one missed neutral counterpart to host-report
   evidence mutation. The current local candidate addresses those findings plus
-  the requested tooling/instruction cleanup. Its final local rerun passed 43
+  the requested tooling/instruction cleanup. Its final local rerun passed 51
   Godot Python tests through the canonical pinned-environment wrapper, the shell
   launcher checks, 11 focused evidence-probe tests, five current-form wrapper
   tests, seven whitespace-tool tests, documentation validation, and
@@ -76,8 +76,13 @@ the canonical owner of the active runway, and the required reading order in
   default and alternate profile pairs, tampered-artifact rejection,
   invalid-profile rejection, deterministic report evidence, and
   repository-write/cache checks without a correctness defect. Fresh final
-  code/documentation review, commit/push, review-thread disposition, deliberate
-  CodeRabbit follow-up, and current-head CI remain pending. PR #116 remains one
+  code/documentation review and the hosted-thread dispositions then completed;
+  the unresolved-thread count is zero, and CI is green on pushed head
+  `bb0b29a`. A final committed-diff CodeRabbit CLI pass produced eight bounded
+  validation and test-harness findings, all addressed by the current local
+  follow-up. Fresh independent review of that follow-up produced three bounded
+  correctness findings; all are addressed and the resulting 51-test suite
+  passed. Commit, push, and current-head CI remain pending. PR #116 remains one
   coherent coarse structural-evidence-to-provisional-Godot milestone; those
   pending gates must not be read as passed. This snapshot makes no
   Skeleton3D/Skin runtime

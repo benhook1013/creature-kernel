@@ -21,7 +21,7 @@ usage() {
   printf '\n'
   printf 'Run the provisional Godot host unittest suite through the pinned current-form Python environment.\n'
   printf 'With one selector, run only matching local test files (for example:\n'
-  printf '  %s test_structural_gallery_smoke.py\n' "${BASH_SOURCE[0]}"
+  printf '  %s test_structural_gallery_smoke.py)\n' "${BASH_SOURCE[0]}"
 }
 
 error() {
@@ -56,6 +56,10 @@ fi
 
 if ! find "$TEST_DIR" -maxdepth 1 -type f -name "$TEST_PATTERN" -print -quit | grep -q .; then
   error "selector '$TEST_PATTERN' matched no test files"
+fi
+
+if [[ ! -f "$LAUNCHER" || ! -x "$LAUNCHER" ]]; then
+  error "pinned current-form launcher is missing or not executable: $LAUNCHER"
 fi
 
 cd -- "$REPOSITORY_ROOT"

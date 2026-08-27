@@ -56,7 +56,7 @@ make_fake_executable() {
     {
         printf '%s\n' '#!/usr/bin/env bash'
         printf '%s\n' 'set -o errexit -o nounset -o pipefail'
-        printf '%s\n' 'if [[ "$#" -eq 1 && "$1" == "--version" ]]; then'
+        printf '%s\n' 'if [[ "$#" -eq 2 && "$1" == "--headless" && "$2" == "--version" ]]; then'
         printf '    printf "%%s\\n" %q\n' "$reported_version"
         printf '%s\n' '    exit 0'
         printf '%s\n' 'fi'
@@ -77,6 +77,10 @@ make_launcher_copy() {
     fake_sha256="$(sha256sum -- "$fake_path")"
     fake_sha256="${fake_sha256%% *}"
     sed -i "s/$PINNED_SHA256/$fake_sha256/g" "$copy_path"
+    ! grep -Fq -- "$PINNED_SHA256" "$copy_path" || \
+        fail_test "launcher copy still contains the pinned digest"
+    grep -Fq -- "$fake_sha256" "$copy_path" || \
+        fail_test "launcher copy does not contain the fake digest"
 }
 
 run_failure_case() {

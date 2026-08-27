@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -291,10 +292,26 @@ def _validate_report(report: Any, payload: dict[str, Any], profile_ids: tuple[st
             raise SmokeError(f"Godot report profile {profile_ids[index]} structural counts are invalid")
         if counts["influence_count"] <= 0:
             raise SmokeError(f"Godot report profile {profile_ids[index]} has no weights")
-        if not _bounds_close(actual.get("mesh_aabb"), metrics["neutral_bounds"]):
+        mesh_aabb = actual.get("mesh_aabb")
+        if not _finite_bounds(mesh_aabb) or not _bounds_close(mesh_aabb, metrics["neutral_bounds"]):
             raise SmokeError(f"Godot report profile {profile_ids[index]} mesh AABB differs from metrics")
+        proxy_aabb = actual.get("proxy_aabb")
+        if not _finite_bounds(proxy_aabb):
+            raise SmokeError(f"Godot report profile {profile_ids[index]} proxy AABB is invalid")
         if actual.get("profile_translation") != list(EXPECTED_TRANSLATIONS[index]):
             raise SmokeError(f"Godot report profile {profile_ids[index]} translation is not fixed host-only separation")
+        translated_mesh_aabb = actual.get("translated_mesh_aabb")
+        if not _finite_bounds(translated_mesh_aabb) or not _bounds_close(
+            translated_mesh_aabb,
+            _translated_bounds(mesh_aabb, EXPECTED_TRANSLATIONS[index]),
+        ):
+            raise SmokeError(f"Godot report profile {profile_ids[index]} translated mesh AABB is inconsistent")
+        translated_proxy_aabb = actual.get("translated_proxy_aabb")
+        if not _finite_bounds(translated_proxy_aabb) or not _bounds_close(
+            translated_proxy_aabb,
+            _translated_bounds(proxy_aabb, EXPECTED_TRANSLATIONS[index]),
+        ):
+            raise SmokeError(f"Godot report profile {profile_ids[index]} translated proxy AABB is inconsistent")
         proxy_segments = actual.get("proxy_segments")
         if not isinstance(proxy_segments, dict):
             raise SmokeError(f"Godot report profile {profile_ids[index]} capsule summary is invalid")
@@ -349,9 +366,32 @@ def _bounds_close(actual: Any, expected: Any, tolerance: float = 1.0e-5) -> bool
         right = expected.get(key)
         if not isinstance(left, list) or not isinstance(right, list) or len(left) != 3 or len(right) != 3:
             return False
+        if any(
+            not isinstance(axis, (int, float)) or isinstance(axis, bool) or not math.isfinite(axis)
+            for axis in (*left, *right)
+        ):
+            return False
         if any(abs(float(a) - float(b)) > tolerance for a, b in zip(left, right)):
             return False
     return True
+
+
+def _finite_bounds(value: Any) -> bool:
+    if not isinstance(value, dict) or set(value) != {"min", "max"}:
+        return False
+    return all(
+        isinstance(vector, list)
+        and len(vector) == 3
+        and all(isinstance(axis, (int, float)) and not isinstance(axis, bool) and math.isfinite(axis) for axis in vector)
+        for vector in value.values()
+    )
+
+
+def _translated_bounds(bounds: dict[str, list[float]], translation: tuple[float, float, float]) -> dict[str, list[float]]:
+    return {
+        key: [value + offset for value, offset in zip(bounds[key], translation)]
+        for key in ("min", "max")
+    }
 
 
 def _has_godot_error_diagnostics(stdout: str, stderr: str) -> bool:
@@ -471,11 +511,11 @@ def _launch_godot(
             ) from exc
         except OSError as exc:
             raise SmokeError(f"Godot launcher invocation failed: {type(exc).__name__}: {exc}") from exc
+        if completed.returncode != 0:
+            return completed.stdout, completed.stderr, completed.returncode, None
         diagnostic = f"stdout={completed.stdout!r}; stderr={completed.stderr!r}"
         if _has_godot_error_diagnostics(completed.stdout, completed.stderr):
             raise SmokeError(f"Godot launcher emitted error/leak diagnostics; {diagnostic}")
-        if completed.returncode != 0:
-            return completed.stdout, completed.stderr, completed.returncode, None
         report = _read_report(raw_report_path)
         report_validator(report, payload, profile_ids)
         return completed.stdout, completed.stderr, completed.returncode, report

@@ -77,7 +77,7 @@ if [[ "$actual_sha256" != "$EXPECTED_SHA256" ]]; then
     fail_preflight 'the executable SHA-256 does not match the pinned copy'
 fi
 
-version_output="$("$binary_path" --version 2>&1)" || \
+version_output="$("$binary_path" --headless --version 2>&1)" || \
     fail_preflight 'the executable failed the --version probe'
 if [[ "$version_output" != "$EXPECTED_VERSION" ]]; then
     fail_preflight 'the executable --version output is not the pinned version'

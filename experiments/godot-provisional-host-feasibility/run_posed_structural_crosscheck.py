@@ -226,9 +226,9 @@ def run_crosscheck(gallery: Path, profile_ids: tuple[str, str] | list[str], repo
     report_path = neutral_smoke._validate_report_destination(report_path)
     selected = neutral_smoke._validate_profile_ids(profile_ids)
     _, payload = neutral_smoke.preflight(gallery, selected)
-    _, stderr, returncode, report = _launch_godot(Path(gallery), selected, payload)
+    stdout, stderr, returncode, report = _launch_godot(Path(gallery), selected, payload)
     if returncode != 0:
-        raise SmokeError(f"Godot launcher returned exit code {returncode}; stderr={stderr!r}")
+        raise SmokeError(f"Godot launcher returned exit code {returncode}; stdout={stdout!r}; stderr={stderr!r}")
     if report is None:
         raise SmokeError("Godot returned success without a report")
     _validate_report(report, payload, selected)

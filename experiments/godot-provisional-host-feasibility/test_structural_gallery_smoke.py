@@ -77,6 +77,7 @@ def _neutral_validation_fixture() -> tuple[dict, dict]:
                 "metrics": actual_metrics,
                 "counts": actual_counts,
                 "mesh_aabb": metrics["neutral_bounds"],
+                "proxy_aabb": {"min": [0.0, 0.0, 0.0], "max": [1.0, 1.0, 1.0]},
                 "profile_translation": list(smoke.EXPECTED_TRANSLATIONS[index]),
                 "proxy_segments": {
                     "segment_count": 1,
@@ -90,6 +91,14 @@ def _neutral_validation_fixture() -> tuple[dict, dict]:
                     "static_body_3d": 1,
                     "collision_shape_3d": 1,
                     "total_profile_nodes": 4,
+                },
+                "translated_mesh_aabb": {
+                    "min": [smoke.EXPECTED_TRANSLATIONS[index][0], 0.0, 0.0],
+                    "max": [smoke.EXPECTED_TRANSLATIONS[index][0] + 1.0, 1.0, 1.0],
+                },
+                "translated_proxy_aabb": {
+                    "min": [smoke.EXPECTED_TRANSLATIONS[index][0], 0.0, 0.0],
+                    "max": [smoke.EXPECTED_TRANSLATIONS[index][0] + 1.0, 1.0, 1.0],
                 },
             }
         )
@@ -170,11 +179,20 @@ def _mutate_skeleton_state(gallery: Path, payload: dict, profile_id: str, state_
     _update_payload_artifact(payload, profile_id, "skeleton.json", data)
 
 
+def _mutate_weight_value(gallery: Path, payload: dict, profile_id: str, replacement: object) -> None:
+    path = gallery / profile_id / "weights.json"
+    value = json.loads(path.read_text(encoding="utf-8"))
+    value["influences"][0][0]["weight"] = replacement
+    data = (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
+    path.write_bytes(data)
+    _update_payload_artifact(payload, profile_id, "weights.json", data)
+
+
 def integration_available() -> bool:
     if not GALLERY.is_dir() or not LAUNCHER.is_file() or not LAUNCHER.stat().st_mode & 0o111:
         return False
     try:
-        result = subprocess.run([str(LAUNCHER), "--version"], capture_output=True, text=True, check=False)
+        result = subprocess.run([str(LAUNCHER), "--headless", "--version"], capture_output=True, text=True, check=False)
     except OSError:
         return False
     return result.returncode == 0 and smoke.EXPECTED_GODOT_VERSION in result.stdout
@@ -276,6 +294,20 @@ class StructuralGallerySmokePreflightTests(unittest.TestCase):
                     smoke._launch_godot(Path("/missing-gallery"), DEFAULTS, {"profiles": []})
         self.assertEqual(run.call_args.kwargs["timeout"], smoke.GODOT_LAUNCH_TIMEOUT_SECONDS)
 
+    def test_scripted_nonzero_exit_is_returned_before_diagnostic_failure(self) -> None:
+        completed = subprocess.CompletedProcess(
+            ["godot"],
+            23,
+            stdout="scripted stdout",
+            stderr="ERROR: scripted failure",
+        )
+        with patch.object(smoke, "_resolve_pinned_binary", return_value=Path("/bin/true")):
+            with patch.object(smoke.subprocess, "run", return_value=completed):
+                self.assertEqual(
+                    smoke._launch_godot(Path("/missing-gallery"), DEFAULTS, {"profiles": []}),
+                    ("scripted stdout", "ERROR: scripted failure", 23, None),
+                )
+
     def test_non_dictionary_profile_records_raise_smoke_error(self) -> None:
         payload, report = _neutral_validation_fixture()
         report["profiles"] = [None, None]
@@ -292,6 +324,31 @@ class StructuralGallerySmokePreflightTests(unittest.TestCase):
         self.assertIs(report["profiles"][0]["metrics"], host_metrics)
         self.assertIs(report["profiles"][0]["counts"], host_counts)
         self.assertEqual(report["profiles"][0]["counts"]["host_observation"], "preserved")
+
+    def test_translated_aabbs_are_required_and_derived_from_base_bounds(self) -> None:
+        for field in ("translated_mesh_aabb", "translated_proxy_aabb"):
+            with self.subTest(field=field, case="missing"):
+                payload, report = _neutral_validation_fixture()
+                del report["profiles"][0][field]
+                with self.assertRaisesRegex(smoke.SmokeError, "translated .* AABB is inconsistent"):
+                    smoke._validate_report(report, payload, DEFAULTS)
+            with self.subTest(field=field, case="inconsistent"):
+                payload, report = _neutral_validation_fixture()
+                report["profiles"][0][field]["min"][0] += 1.0
+                with self.assertRaisesRegex(smoke.SmokeError, "translated .* AABB is inconsistent"):
+                    smoke._validate_report(report, payload, DEFAULTS)
+        for malformed in (True, "0.0", None, float("inf")):
+            with self.subTest(field="mesh_aabb", malformed=malformed):
+                payload, report = _neutral_validation_fixture()
+                report["profiles"][0]["mesh_aabb"]["min"][0] = malformed
+                with self.assertRaises(smoke.SmokeError):
+                    smoke._validate_report(report, payload, DEFAULTS)
+                self.assertFalse(
+                    smoke._bounds_close(
+                        report["profiles"][0]["mesh_aabb"],
+                        payload["profiles"][0]["metrics"]["neutral_bounds"],
+                    )
+                )
 
     def test_host_observed_count_maps_must_use_exact_non_boolean_integers(self) -> None:
         locations = tuple(
@@ -380,8 +437,10 @@ class StructuralGallerySmokeIntegrationTests(unittest.TestCase):
             shutil.copytree(GALLERY, gallery)
             _, payload = smoke.preflight(gallery, DEFAULTS)
             _mutate_proxy_vector(gallery, payload, DEFAULTS[0], "proxies-neutral.json", "0.0")
-            with self.assertRaisesRegex(smoke.SmokeError, "proxy endpoint is not a valid finite vector"):
-                smoke._launch_godot(gallery, DEFAULTS, payload)
+            _, stderr, returncode, report = smoke._launch_godot(gallery, DEFAULTS, payload)
+            self.assertNotEqual(returncode, 0)
+            self.assertIsNone(report)
+            self.assertIn("proxy endpoint is not a valid finite vector", stderr)
 
     def test_real_godot_rejects_non_dictionary_skeleton_states(self) -> None:
         for state_name, replacement in (("neutral", "not-a-dictionary"), ("posed", [])):
@@ -391,8 +450,23 @@ class StructuralGallerySmokeIntegrationTests(unittest.TestCase):
                     shutil.copytree(GALLERY, gallery)
                     _, payload = smoke.preflight(gallery, DEFAULTS)
                     _mutate_skeleton_state(gallery, payload, DEFAULTS[0], state_name, replacement)
-                    with self.assertRaisesRegex(smoke.SmokeError, "skeleton lineage or state records are invalid"):
-                        smoke._launch_godot(gallery, DEFAULTS, payload)
+                    _, stderr, returncode, report = smoke._launch_godot(gallery, DEFAULTS, payload)
+                    self.assertNotEqual(returncode, 0)
+                    self.assertIsNone(report)
+                    self.assertIn("skeleton lineage or state records are invalid", stderr)
+
+    def test_real_godot_rejects_non_numeric_weight_values(self) -> None:
+        for replacement in (True, "1.0"):
+            with self.subTest(replacement=replacement):
+                with tempfile.TemporaryDirectory(prefix="ck-godot-structural-smoke-weight-mutation-") as temporary:
+                    gallery = Path(temporary) / "gallery"
+                    shutil.copytree(GALLERY, gallery)
+                    _, payload = smoke.preflight(gallery, DEFAULTS)
+                    _mutate_weight_value(gallery, payload, DEFAULTS[0], replacement)
+                    _, stderr, returncode, report = smoke._launch_godot(gallery, DEFAULTS, payload)
+                    self.assertNotEqual(returncode, 0)
+                    self.assertIsNone(report)
+                    self.assertIn("invalid weight value", stderr)
 
     def test_real_gallery_mutation_after_godot_report_rejects_without_publishing_report(self) -> None:
         with tempfile.TemporaryDirectory(prefix="ck-godot-structural-smoke-gallery-mutation-") as temporary:

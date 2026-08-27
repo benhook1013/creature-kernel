@@ -315,7 +315,12 @@ func _validate_structural_records(profile_id: String, neutral: Dictionary, metri
 			if typeof(influence) != TYPE_DICTIONARY or not bone_ids.has(influence.get("bone_id", "")):
 				_failure = "%s contains an invalid weight bone" % profile_id
 				return false
-			var weight := float(influence.get("weight", -1.0))
+			var weight_value = influence.get("weight", -1.0)
+			var weight_type := typeof(weight_value)
+			if weight_type != TYPE_INT and weight_type != TYPE_FLOAT:
+				_failure = "%s contains an invalid weight value" % profile_id
+				return false
+			var weight := float(weight_value)
 			if not is_finite(weight) or weight < 0.0:
 				_failure = "%s contains an invalid weight value" % profile_id
 				return false

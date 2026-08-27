@@ -108,3 +108,36 @@ class GodotTestWrapperTests(unittest.TestCase):
         self.assertFalse(gallery_path.exists(), result.stderr)
         self.assertIn("Usage:", result.stdout)
         self.assertIn("test*.py pattern", result.stdout)
+        self.assertIn("test_structural_gallery_smoke.py)", result.stdout)
+
+    def test_missing_or_non_executable_launcher_uses_fail_closed_error_path(self) -> None:
+        for launcher_state in ("missing", "non-executable"):
+            with self.subTest(launcher_state=launcher_state):
+                directory = tempfile.TemporaryDirectory(prefix="godot-test-wrapper-launcher-")
+                self.addCleanup(directory.cleanup)
+                root = Path(directory.name)
+                repository = root / "repo"
+                test_dir = repository / "experiments" / "godot-provisional-host-feasibility"
+                test_dir.mkdir(parents=True)
+                wrapper = test_dir / "test.sh"
+                wrapper.write_text(WRAPPER.read_text(encoding="utf-8"), encoding="utf-8")
+                wrapper.chmod(0o755)
+                (test_dir / "test_placeholder.py").write_text("", encoding="utf-8")
+                launcher = repository / "experiments" / "current-form-surface-preview" / "surface_preview_launcher.sh"
+                launcher.parent.mkdir(parents=True)
+                if launcher_state == "non-executable":
+                    launcher.write_text("#!/bin/sh\nexit 97\n", encoding="utf-8")
+                    launcher.chmod(0o644)
+
+                result = subprocess.run(
+                    [str(wrapper), "test_placeholder.py"],
+                    cwd=root,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+
+                self.assertEqual(result.returncode, 2, result.stderr)
+                self.assertIn("pinned current-form launcher is missing or not executable", result.stderr)
+                self.assertIn("Usage:", result.stderr)
+                self.assertIn("test_structural_gallery_smoke.py)", result.stderr)

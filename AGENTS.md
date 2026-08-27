@@ -228,8 +228,9 @@ until a genuine retained-human design choice or useful visual result is ready.
   and invoke its Python entrypoints through `surface_preview_launcher.sh`.
   The provisional Godot host tests import that experiment's validator, so run
   them through `experiments/godot-provisional-host-feasibility/test.sh`. Do not
-  use bare `python3` for either route. This rule does not apply to EXP-0002 or
-  unrelated experiments.
+  use bare `python3` for either route, including one-off inline analysis or
+  artifact-inspection snippets; do not try the system interpreter first. This
+  rule does not apply to EXP-0002 or unrelated experiments.
 - For browser navigation, inspection, interaction, screenshots, or recordings,
   use the T3 collaborative preview first. If that preview is unavailable and a
   Windows Chrome/CDP fallback is required, pass a readable PowerShell script on

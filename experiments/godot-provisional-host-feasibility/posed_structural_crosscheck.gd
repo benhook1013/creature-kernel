@@ -380,8 +380,12 @@ func _validate_structural_records(profile_id: String, neutral: Dictionary, posed
 				return {}
 			var influence_bone := String(influence.get("bone_id", ""))
 			var weight_value = influence.get("weight", -1.0)
+			var weight_type := typeof(weight_value)
+			if weight_type != TYPE_INT and weight_type != TYPE_FLOAT:
+				_failure = "%s weight row %d has an unknown bone or invalid weight" % [profile_id, row_index]
+				return {}
 			var weight := float(weight_value)
-			if typeof(weight_value) == TYPE_BOOL or not bone_ids.has(influence_bone) or not is_finite(weight) or weight < 0.0:
+			if not bone_ids.has(influence_bone) or not is_finite(weight) or weight < 0.0:
 				_failure = "%s weight row %d has an unknown bone or invalid weight" % [profile_id, row_index]
 				return {}
 			total += weight
@@ -498,10 +502,15 @@ func _matrix(value, where: String) -> Array:
 		return []
 	var result: Array = []
 	for item in value:
-		if typeof(item) == TYPE_BOOL or not is_finite(float(item)):
+		var item_type := typeof(item)
+		if item_type != TYPE_INT and item_type != TYPE_FLOAT:
+			_failure = "%s contains a non-numeric matrix value" % where
+			return []
+		var numeric := float(item)
+		if not is_finite(numeric):
 			_failure = "%s contains a non-finite matrix value" % where
 			return []
-		result.append(float(item))
+		result.append(numeric)
 	if abs(result[12]) > TOLERANCE or abs(result[13]) > TOLERANCE or abs(result[14]) > TOLERANCE or abs(result[15] - 1.0) > TOLERANCE:
 		_failure = "%s is not an affine column-vector matrix" % where
 		return []

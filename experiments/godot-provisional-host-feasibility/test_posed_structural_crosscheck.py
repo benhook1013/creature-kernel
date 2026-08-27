@@ -77,7 +77,7 @@ def _posed_validation_fixture() -> tuple[dict, dict]:
                 "candidate_profile_sha256": candidate_hash,
                 "metrics": actual_metrics,
                 "counts": actual_counts,
-                "posed_mesh_aabb": metrics["posed_bounds"],
+                "posed_mesh_aabb": deepcopy(metrics["posed_bounds"]),
                 "posed_proxy_aabb": {"min": [0.0, 0.0, 0.0], "max": [1.0, 1.0, 1.0]},
                 "profile_translation": list(crosscheck.EXPECTED_TRANSLATIONS[index]),
                 "node_counts": {
@@ -167,11 +167,30 @@ def _mutate_proxy_vector(gallery: Path, payload: dict, profile_id: str, artifact
     _update_payload_artifact(payload, profile_id, artifact_name, data)
 
 
+def _mutate_skin_matrix_value(gallery: Path, payload: dict, profile_id: str, replacement: object) -> None:
+    path = gallery / profile_id / "skeleton.json"
+    value = json.loads(path.read_text(encoding="utf-8"))
+    first_bone_id = next(iter(value["posed"]["skin"]))
+    value["posed"]["skin"][first_bone_id][0] = replacement
+    data = (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
+    path.write_bytes(data)
+    _update_payload_artifact(payload, profile_id, "skeleton.json", data)
+
+
+def _mutate_weight_value(gallery: Path, payload: dict, profile_id: str, replacement: object) -> None:
+    path = gallery / profile_id / "weights.json"
+    value = json.loads(path.read_text(encoding="utf-8"))
+    value["influences"][0][0]["weight"] = replacement
+    data = (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
+    path.write_bytes(data)
+    _update_payload_artifact(payload, profile_id, "weights.json", data)
+
+
 def integration_available() -> bool:
     if not GALLERY.is_dir() or not crosscheck.LAUNCHER.is_file() or not crosscheck.LAUNCHER.stat().st_mode & 0o111:
         return False
     try:
-        result = subprocess.run([str(crosscheck.LAUNCHER), "--version"], capture_output=True, text=True, check=False)
+        result = subprocess.run([str(crosscheck.LAUNCHER), "--headless", "--version"], capture_output=True, text=True, check=False)
     except OSError:
         return False
     return result.returncode == 0 and crosscheck.EXPECTED_GODOT_VERSION in result.stdout
@@ -244,6 +263,11 @@ class PosedStructuralCrosscheckPreflightTests(unittest.TestCase):
         self.assertIs(report["profiles"][0]["counts"], host_counts)
         self.assertEqual(report["profiles"][0]["counts"]["host_observation"], "preserved")
 
+    def test_report_and_payload_posed_bounds_are_independent(self) -> None:
+        payload, report = _posed_validation_fixture()
+        report["profiles"][0]["posed_mesh_aabb"]["max"][0] += 1.0
+        self.assertEqual(payload["profiles"][0]["metrics"]["posed_bounds"]["max"][0], 1.0)
+
     def test_host_observed_count_maps_must_use_exact_non_boolean_integers(self) -> None:
         locations = tuple(
             ("counts", key)
@@ -279,10 +303,14 @@ class PosedStructuralCrosscheckPreflightTests(unittest.TestCase):
         original_script = crosscheck.neutral_smoke.GODOT_SCRIPT
         original_validator = crosscheck.neutral_smoke._validate_report
         calls = []
+        state_during_call = []
         expected = ("stdout", "stderr", 0, {"status": "success"})
 
         def fake_launch(*args, **kwargs):
             calls.append((args, kwargs))
+            state_during_call.append(
+                (crosscheck.neutral_smoke.GODOT_SCRIPT, crosscheck.neutral_smoke._validate_report)
+            )
             return expected
 
         with patch.object(crosscheck.neutral_smoke, "_launch_godot", side_effect=fake_launch):
@@ -291,6 +319,13 @@ class PosedStructuralCrosscheckPreflightTests(unittest.TestCase):
         self.assertIs(crosscheck.neutral_smoke._validate_report, original_validator)
         self.assertEqual(calls[0][1]["script"], crosscheck.GODOT_SCRIPT)
         self.assertIs(calls[0][1]["validator"], crosscheck._skip_report_validation)
+        self.assertEqual(state_during_call, [(original_script, original_validator)])
+
+    def test_nonzero_run_retains_stdout_and_stderr_diagnostics(self) -> None:
+        with patch.object(crosscheck.neutral_smoke, "preflight", return_value=(None, {})):
+            with patch.object(crosscheck, "_launch_godot", return_value=("stdout diagnostic", "stderr diagnostic", 23, None)):
+                with self.assertRaisesRegex(crosscheck.SmokeError, "stdout diagnostic.*stderr diagnostic"):
+                    crosscheck.run_crosscheck(Path("/gallery"), DEFAULTS, self.report_path())
 
     def test_validated_projection_carries_all_six_required_artifacts(self) -> None:
         self.require_gallery()
@@ -370,8 +405,36 @@ class PosedStructuralCrosscheckIntegrationTests(unittest.TestCase):
             shutil.copytree(GALLERY, gallery)
             _, payload = crosscheck.neutral_smoke.preflight(gallery, DEFAULTS)
             _mutate_proxy_vector(gallery, payload, DEFAULTS[0], "proxies-posed.json", "0.0")
-            with self.assertRaisesRegex(crosscheck.SmokeError, "contains a non-finite value"):
-                crosscheck._launch_godot(gallery, DEFAULTS, payload)
+            _, stderr, returncode, report = crosscheck._launch_godot(gallery, DEFAULTS, payload)
+            self.assertNotEqual(returncode, 0)
+            self.assertIsNone(report)
+            self.assertIn("contains a non-finite value", stderr)
+
+    def test_real_godot_rejects_non_numeric_skin_matrix_values(self) -> None:
+        for replacement in (True, "1.0"):
+            with self.subTest(replacement=replacement):
+                with tempfile.TemporaryDirectory(prefix="ck-godot-posed-crosscheck-matrix-mutation-") as temporary:
+                    gallery = Path(temporary) / "gallery"
+                    shutil.copytree(GALLERY, gallery)
+                    _, payload = crosscheck.neutral_smoke.preflight(gallery, DEFAULTS)
+                    _mutate_skin_matrix_value(gallery, payload, DEFAULTS[0], replacement)
+                    _, stderr, returncode, report = crosscheck._launch_godot(gallery, DEFAULTS, payload)
+                    self.assertNotEqual(returncode, 0)
+                    self.assertIsNone(report)
+                    self.assertIn("non-numeric matrix value", stderr)
+
+    def test_real_godot_rejects_non_numeric_weight_values(self) -> None:
+        for replacement in (True, "1.0"):
+            with self.subTest(replacement=replacement):
+                with tempfile.TemporaryDirectory(prefix="ck-godot-posed-crosscheck-weight-mutation-") as temporary:
+                    gallery = Path(temporary) / "gallery"
+                    shutil.copytree(GALLERY, gallery)
+                    _, payload = crosscheck.neutral_smoke.preflight(gallery, DEFAULTS)
+                    _mutate_weight_value(gallery, payload, DEFAULTS[0], replacement)
+                    _, stderr, returncode, report = crosscheck._launch_godot(gallery, DEFAULTS, payload)
+                    self.assertNotEqual(returncode, 0)
+                    self.assertIsNone(report)
+                    self.assertIn("unknown bone or invalid weight", stderr)
 
 
 if __name__ == "__main__":

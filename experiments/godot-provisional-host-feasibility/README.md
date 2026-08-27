@@ -51,7 +51,9 @@ has to be absolute.
 The wrapper rejects relative paths, missing paths, non-regular files,
 non-executable files, symlinks and symlink path components, a digest mismatch,
 and any other version output. It exits before handing control to Godot when a
-preflight check fails.
+preflight check fails. The version preflight itself uses `--headless`, as do
+the integration-suite availability probes, so repeated validation does not
+create transient WSLg windows.
 
 ## Use
 
@@ -124,11 +126,11 @@ Run the focused automated tests from the repository root:
 
 The launcher tests create disposable fake executables and launcher copies in a
 temporary directory; they never alter the production digest. The neutral
-23-test suite covers fixture-independent selection, rejection, diagnostics,
-safe publication, and postflight behavior. The posed 14-test suite additionally
+26-test suite covers fixture-independent selection, rejection, diagnostics,
+safe publication, and postflight behavior. The posed 18-test suite additionally
 covers all six projected artifacts, independent posed vertex/normal/proxy
 recomputation, deterministic repeated reports, and direct-mutation rejection.
-Six wrapper tests cover managed-environment routing and selector safety.
+Seven wrapper tests cover managed-environment routing and selector safety.
 Both suites run their real Godot paths when the completed-gallery fixture and
 exact pinned binary are available, and verify that no repository `.godot`
 cache directory is created.
