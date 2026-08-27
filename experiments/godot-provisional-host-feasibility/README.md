@@ -88,6 +88,19 @@ gallery:
       --gallery /absolute/path/to/completed-gallery \
       --report /absolute/path/to/posed-report.json
 
+For Python tests and probes, use the canonical test wrapper. It delegates
+interpreter selection, pinned dependency validation, and native temporary-root
+setup to the current-form surface-preview launcher, while preserving
+`CK_GODOT_STRUCTURAL_GALLERY` for the tests:
+
+    experiments/godot-provisional-host-feasibility/test.sh
+
+Pass one local `test*.py` filename or discovery pattern for a focused run. The
+selector must begin with `test` and cannot contain `/`:
+
+    experiments/godot-provisional-host-feasibility/test.sh \
+      test_structural_gallery_smoke.py
+
 The default profiles are `compact_broad_short_limb_large_head` and
 `tall_narrow_long_legged`. Repeat `--profile-id` exactly twice to select a
 different distinct pair from the frozen four-profile gallery.
@@ -107,19 +120,15 @@ host-local choices, not a durable adapter contract.
 Run the focused automated tests from the repository root:
 
     bash experiments/godot-provisional-host-feasibility/test_launcher.sh
-    experiments/current-form-surface-preview/surface_preview_launcher.sh \
-      -m unittest \
-      experiments/godot-provisional-host-feasibility/test_structural_gallery_smoke.py
-    experiments/current-form-surface-preview/surface_preview_launcher.sh \
-      -m unittest \
-      experiments/godot-provisional-host-feasibility/test_posed_structural_crosscheck.py
+    experiments/godot-provisional-host-feasibility/test.sh
 
 The launcher tests create disposable fake executables and launcher copies in a
 temporary directory; they never alter the production digest. The neutral
-17-test suite covers fixture-independent selection, rejection, diagnostics,
-safe publication, and postflight behavior. The posed 9-test suite additionally
+22-test suite covers fixture-independent selection, rejection, diagnostics,
+safe publication, and postflight behavior. The posed 14-test suite additionally
 covers all six projected artifacts, independent posed vertex/normal/proxy
 recomputation, deterministic repeated reports, and direct-mutation rejection.
+Six wrapper tests cover managed-environment routing and selector safety.
 Both suites run their real Godot paths when the completed-gallery fixture and
 exact pinned binary are available, and verify that no repository `.godot`
 cache directory is created.

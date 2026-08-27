@@ -88,10 +88,15 @@ evidence-dependent (record the trigger and defer); or speculative hardening
 without a present need (do not build now). Risk-scaled adversarial review,
 tests, experiments, and implementation checkpoints remain required where
 useful. This lane does not authorize product or architecture drift, external
-side effects, DR acceptance, or review-until-clean loops. Subagents remain
-bounded executors or reviewers and cannot make product or architecture
-decisions independently. Until Revision 6 is accepted, the current accepted
-DR-0001 safety and human-ownership controls remain in force.
+side effects, DR acceptance, or endless review-until-clean loops. Bounded
+near-completion external-review follow-up cycles may continue while material
+findings surface or taper, subject to the stop criteria in the workflow below.
+Ben explicitly authorized main-thread CodeRabbit advisory review on 2026-08-27;
+the external-review workflow below governs its non-gating, one-round-at-a-time
+use.
+Subagents remain bounded executors or reviewers and cannot make product or
+architecture decisions independently. Until Revision 6 is accepted, the
+current accepted DR-0001 safety and human-ownership controls remain in force.
 
 Prioritize concrete product and implementation progress. Use the least
 governance, evidence, and tooling machinery sufficient for an existing
@@ -210,28 +215,51 @@ until a genuine retained-human design choice or useful visual result is ready.
   contracts once those contracts exist; current engine-independent separation
   remains a Proposed architectural direction.
 - Preserve unrelated user changes and stage only files belonging to the task.
+- For GitHub pull-request bodies, do not use `--body-file -` through a command
+  wrapper without an explicit stdin channel. Use a reviewed file and read the
+  PR back immediately to verify title, body, head, base, and state.
 
 ## Conditional workflows
 
 - Subagent selection, delegation boundaries, model routing, and independent
   review use
   `docs/developer-workflows/ai-delegation-and-review.md`.
+- In `experiments/current-form-surface-preview/`, run tests through `test.sh`
+  and invoke its Python entrypoints through `surface_preview_launcher.sh`.
+  The provisional Godot host tests import that experiment's validator, so run
+  them through `experiments/godot-provisional-host-feasibility/test.sh`. Do not
+  use bare `python3` for either route. This rule does not apply to EXP-0002 or
+  unrelated experiments.
 - For browser navigation, inspection, interaction, screenshots, or recordings,
   use the T3 collaborative preview first. If that preview is unavailable and a
   Windows Chrome/CDP fallback is required, pass a readable PowerShell script on
   standard input only through
   `dev-tools/visual-review/powershell-stdin.sh`. Never use PowerShell
   `-EncodedCommand`, Base64, or another obfuscated command payload for this
-  work.
-- Any AI thread may append a genuinely reusable operational observation to
-  `docs/project/ai-observations.md` after recurring tool misuse, unavailable or
-  broken routes, misleading harness or environment behavior, or other token- or
-  round-saving friction is evidenced, subject to normal write-scope rules. Do
-  not read it as guidance for ordinary work; nobody rewrites or deletes
-  existing entries during ordinary work. Consume or act on the inbox only in a
+  work. Do not substitute an undocumented host-local Playwright wrapper; follow
+  the comparison-trial guardrails in `dev-tools/visual-review/README.md`. If a
+  browser route rejects the native WSL `file:///home/...` workspace URI before
+  launch, report it once and switch to the documented fallback; do not retry
+  the same broken route.
+- Every AI thread must escalate genuinely reusable operational friction after
+  recurring tool misuse, unavailable or broken routes, misleading harness or
+  environment behavior, or another evidenced retry- or round-saving pattern.
+  Search `docs/project/ai-observations.md` narrowly for the matching pattern:
+  each thread owns framing the observation, but the main thread is the default
+  inbox writer so parallel work remains disjoint. A subagent appends directly
+  only when explicitly assigned exclusive inbox ownership; otherwise it returns
+  a concise `AI observation candidate`, which the main thread must record before
+  closing the work round. If an entry already covers the pattern, report the
+  recurrence instead of duplicating or silently retrying it. This escalation
+  does not wait for Ben to notice the failure. Do not read the inbox as
+  ordinary-work guidance or rewrite/delete existing entries during ordinary
+  work. Consume or act on it only in a
   purposeful human-requested AI tooling or instruction improvement round with
   Ben, using it as feedstock to improve tools or instructions and then
-  deliberately removing or retaining entries.
+  deliberately removing, resolving, or retaining entries. During such a round,
+  a repeated failure already covered by the inbox requires a concrete tooling
+  or active-instruction fix when one is bounded and available, not another
+  observation-only disposition.
 - A decision-record review may use
   `docs/decisions/reviews/fresh-reread-preamble.md` to force a current-disk,
   issue-only convergence pass.
@@ -290,6 +318,9 @@ discipline remain in force.
   the end-of-round subagent status. This 30–60 second wait is provisional; use
   outcome reporting to tune it, without adding heavyweight telemetry. Do not
   retry non-capacity failures or start an unbounded retry loop.
+- Before interrupting, killing, recycling, or duplicating a worker because a GUI
+  counter looks stale, inspect authoritative live-thread status and message or
+  wait on the existing worker as appropriate.
 - First inspect the authoritative live-thread list and statuses. Treat an
   `agent thread limit reached` failure as a structural slot condition, not model
   capacity; do not apply model fallback or capacity retry. If an obsolete
@@ -301,14 +332,20 @@ discipline remain in force.
   instead. The harness has no delete/archive operation. If this bounded recovery
   does not free a slot, report the authoritative statuses and stop rather than
   starting an unbounded recovery loop.
-- Subagents must promptly report environment or tool failures that cause a
-  retry, workaround, or changed execution path. Include the command/tool
+- Subagents must promptly report unexpected environment or tool failures that
+  force a retry, workaround, or changed execution path. Include the command/tool
   category, exact observed error, attempt count, workaround, and what is known
   versus inferred about the cause. Do not silently absorb repeated or opaque
   failures merely because the bounded task eventually succeeds. Evidence-only
   or read-only scopes prohibit repository edits, not reporting to the
-  orchestrator. The main thread decides whether the friction warrants an AI
-  observation, tooling change, or concise report to Ben.
+  orchestrator. Apply the mandatory AI-observation escalation rule above; the
+  main thread owns any required inbox write that falls outside the subagent's
+  safe write scope and any resulting tooling or instruction integration.
+- When a long-running command yields a live session or cell identifier, its
+  owning thread resumes or inspects that exact session; it must not launch the
+  same stage again. Before replacing a lost or failed session, inspect live
+  processes and the exact output target. A necessary retry that publishes files
+  uses a new staging/output path so two writers never target one publication.
 - Delegate only bounded work with a disjoint scope and explicit success
   conditions. Proactively use Luna for substantial repository search,
   diagnosis, nontrivial code or documentation edits, evidence preparation, and
@@ -359,7 +396,7 @@ Run before committing documentation or decision-record changes:
 
 ```bash
 python3 dev-tools/validation/validate_docs.py
-git diff --check
+dev-tools/validation/check_worktree_whitespace.sh
 ```
 
 Report checks as passed, failed, unavailable, or not applicable. Never describe

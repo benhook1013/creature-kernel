@@ -436,12 +436,11 @@ and makes no contact, deformation, physical-response, engine, or R3 claim. It
 has no CLI; its import entrypoint is
 `project_structural_gallery_evidence(gallery: Path)` (also exported as
 `load_structural_gallery_evidence`). For a developer import/smoke check, run
-the existing focused tests through the repository launcher:
+the canonical experiment test command with the focused test filename:
 
 ```bash
-"$surface_preview_launcher" -m unittest discover \
-  -s experiments/current-form-surface-preview/tests \
-  -p 'test_structural_gallery_evidence_probe.py'
+experiments/current-form-surface-preview/test.sh \
+  test_structural_gallery_evidence_probe.py
 ```
 
 Each manifest variant record and its `successor.json` sidecar also carries
@@ -458,13 +457,18 @@ workflow runs the current producer and both generators, validates the bundles,
 and publishes the baseline-versus-successor captures through the visual-review
 gallery.
 
-Focused tests:
+Tests:
 
 ```bash
-"$surface_preview_launcher" -m unittest discover -s experiments/current-form-surface-preview/tests
+experiments/current-form-surface-preview/test.sh
 ```
 
-The same interface runs publishers and other Python entrypoints, for example:
+Pass one `test*.py` filename or unittest discovery pattern to run a focused
+subset. The wrapper resolves its own repository paths and always delegates
+interpreter selection, pinned dependency validation, and native temporary-root
+setup to `surface_preview_launcher.sh`; it never falls back to bare
+`python3`. The launcher remains the entrypoint for publishers and other Python
+commands, for example:
 
 ```bash
 "$surface_preview_launcher" dev-tools/visual-review/publish_surface_preview.py --help

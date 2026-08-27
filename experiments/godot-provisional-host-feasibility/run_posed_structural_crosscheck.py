@@ -120,7 +120,9 @@ def _validate_report(report: Any, payload: dict[str, Any], profile_ids: tuple[st
         raise SmokeError("Godot report scope flags are not explicitly fail-closed")
 
     actual_profiles = report.get("profiles")
-    if not isinstance(actual_profiles, list) or [item.get("profile_id") for item in actual_profiles] != list(profile_ids):
+    if not isinstance(actual_profiles, list) or any(not isinstance(item, dict) for item in actual_profiles):
+        raise SmokeError("Godot report profile records are incomplete or reordered")
+    if [item.get("profile_id") for item in actual_profiles] != list(profile_ids):
         raise SmokeError("Godot report profile records are incomplete or reordered")
     for index, (actual, expected) in enumerate(zip(actual_profiles, payload["profiles"])):
         profile_id = profile_ids[index]
@@ -129,7 +131,6 @@ def _validate_report(report: Any, payload: dict[str, Any], profile_ids: tuple[st
             raise SmokeError(f"Godot report profile {profile_id} identity differs from the validated projection")
         if not neutral_smoke._values_close(actual.get("metrics"), metrics):
             raise SmokeError(f"Godot report profile {profile_id} metrics differ from the validated projection")
-        actual["metrics"] = metrics
         expected_counts = {
             "neutral_vertex_count": metrics["neutral_vertex_count"],
             "posed_vertex_count": metrics["posed_vertex_count"],
@@ -139,21 +140,32 @@ def _validate_report(report: Any, payload: dict[str, Any], profile_ids: tuple[st
             "weight_vertex_count": metrics["neutral_vertex_count"],
         }
         counts = actual.get("counts")
-        if not isinstance(counts, dict) or any(counts.get(key) != value for key, value in expected_counts.items()):
+        if not isinstance(counts, dict):
             raise SmokeError(f"Godot report profile {profile_id} structural counts are invalid")
-        if not isinstance(counts.get("influence_count"), int) or counts["influence_count"] < metrics["neutral_vertex_count"]:
+        neutral_smoke._validate_exact_count_map(
+            counts,
+            tuple(expected_counts) + ("influence_count",),
+            f"Godot report profile {profile_id} counts",
+        )
+        if any(counts[key] != value for key, value in expected_counts.items()):
+            raise SmokeError(f"Godot report profile {profile_id} structural counts are invalid")
+        if counts["influence_count"] < metrics["neutral_vertex_count"]:
             raise SmokeError(f"Godot report profile {profile_id} has invalid influence counts")
-        actual["counts"] = {
-            **expected_counts,
-            "influence_count": counts["influence_count"],
-        }
         if not neutral_smoke._bounds_close(actual.get("posed_mesh_aabb"), metrics["posed_bounds"], TOLERANCE):
             raise SmokeError(f"Godot report profile {profile_id} posed bounds differ from metrics")
         if not _finite_bounds(actual.get("posed_proxy_aabb")):
             raise SmokeError(f"Godot report profile {profile_id} posed proxy bounds are invalid")
         if actual.get("profile_translation") != list(EXPECTED_TRANSLATIONS[index]):
             raise SmokeError(f"Godot report profile {profile_id} translation is not fixed host-only separation")
-        if actual.get("node_counts") != {
+        node_counts = actual.get("node_counts")
+        if not isinstance(node_counts, dict):
+            raise SmokeError(f"Godot report profile {profile_id} node counts are invalid")
+        neutral_smoke._validate_exact_count_map(
+            node_counts,
+            ("profile_root", "mesh_instance_3d", "static_body_3d", "collision_shape_3d", "skeleton_3d", "total_profile_nodes"),
+            f"Godot report profile {profile_id} node_counts",
+        )
+        if node_counts != {
             "profile_root": 1,
             "mesh_instance_3d": 1,
             "static_body_3d": 1,
@@ -162,7 +174,15 @@ def _validate_report(report: Any, payload: dict[str, Any], profile_ids: tuple[st
             "total_profile_nodes": 21,
         }:
             raise SmokeError(f"Godot report profile {profile_id} node counts are invalid")
-        if actual.get("crosscheck") != {
+        crosscheck = actual.get("crosscheck")
+        if not isinstance(crosscheck, dict):
+            raise SmokeError(f"Godot report profile {profile_id} cross-check evidence is incomplete")
+        neutral_smoke._validate_exact_count_map(
+            crosscheck,
+            ("posed_vertices_recomputed", "posed_normals_recomputed", "posed_proxy_endpoints_recomputed"),
+            f"Godot report profile {profile_id} crosscheck",
+        )
+        if crosscheck != {
             "tolerance": TOLERANCE,
             "posed_vertices_recomputed": metrics["posed_vertex_count"],
             "posed_normals_recomputed": metrics["posed_vertex_count"],
@@ -183,24 +203,23 @@ def _validate_report(report: Any, payload: dict[str, Any], profile_ids: tuple[st
     neutral_smoke._reject_absolute_paths(report)
 
 
+def _skip_report_validation(report: Any, payload: dict[str, Any], profile_ids: tuple[str, str]) -> None:
+    del report, payload, profile_ids
+
+
 def _launch_godot(
     gallery: Path,
     profile_ids: tuple[str, str],
     payload: dict[str, Any],
 ) -> tuple[str, str, int, dict[str, Any] | None]:
-    """Reuse the neutral runner's isolated launch, but use this script/report."""
-    original_script = neutral_smoke.GODOT_SCRIPT
-    original_validator = neutral_smoke._validate_report
-    neutral_smoke.GODOT_SCRIPT = GODOT_SCRIPT
-    # The existing launch helper reads the raw report inside its owned temp
-    # directory. Its neutral report validator is replaced only for this call;
-    # the posed validator runs immediately after the helper returns.
-    neutral_smoke._validate_report = lambda report, validated, selected: None
-    try:
-        return neutral_smoke._launch_godot(gallery, profile_ids, payload)
-    finally:
-        neutral_smoke.GODOT_SCRIPT = original_script
-        neutral_smoke._validate_report = original_validator
+    """Reuse the neutral runner's isolated launch with the posed script/report."""
+    return neutral_smoke._launch_godot(
+        gallery,
+        profile_ids,
+        payload,
+        script=GODOT_SCRIPT,
+        validator=_skip_report_validation,
+    )
 
 
 def run_crosscheck(gallery: Path, profile_ids: tuple[str, str] | list[str], report_path: Path) -> dict[str, Any]:

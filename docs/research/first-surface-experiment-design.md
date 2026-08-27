@@ -56,14 +56,14 @@ values and inputs remain deferred to experiment registration.
 
 | Stable ID | Intended discriminating axis |
 | --- | --- |
-| `compact_broad_short_large_head` | Compact stature, broad body, short limbs, and relatively large head |
+| `compact_broad_short_limb_large_head` | Compact stature, broad body, short limbs, and relatively large head |
 | `tall_narrow_long_legged` | Tall stature/aspect with lower-leg emphasis and moderate thickness |
-| `slender_long_limbed` | Low girth/thickness with long arm and leg proportions, without extreme stature as its main axis |
+| `slender_long_limb` | Low girth/thickness with long arm and leg proportions, without extreme stature as its main axis |
 | `stocky_broad_chested` | Stocky stature with broad chest and substantial torso proportions |
 
 The tall and slender profiles are deliberately orthogonal. `tall_narrow_long_legged`
 tests stature/aspect and lower-leg emphasis while retaining moderate thickness;
-`slender_long_limbed` tests low girth/thickness and long arm/leg proportions
+`slender_long_limb` tests low girth/thickness and long arm/leg proportions
 without making extreme stature the primary axis. They must not collapse into
 two names for one height-versus-thickness change.
 

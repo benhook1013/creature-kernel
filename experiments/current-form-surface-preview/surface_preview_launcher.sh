@@ -76,7 +76,7 @@ resolve_python() {
   else
     resolved="$(command -v -- "$requested" 2>/dev/null || true)"
   fi
-  [[ -n "$resolved" && -x "$resolved" ]] || error "Python interpreter '$requested' was not found or is not executable. Set CK_CURRENT_FORM_SURFACE_PYTHON to an existing Linux Python interpreter."
+  [[ -n "$resolved" && -x "$resolved" ]] || error "Python interpreter '$requested' was not found or is not executable. Create the pinned cache environment with the commands in experiments/current-form-surface-preview/README.md under 'Run', or set CK_CURRENT_FORM_SURFACE_PYTHON to an existing Linux interpreter with the pinned requirements installed; do not fall back to bare system Python."
   native_linux_path "$resolved" || error "Python interpreter '$resolved' is not on a native Linux filesystem. Set CK_CURRENT_FORM_SURFACE_PYTHON to a Linux-side interpreter."
   printf '%s\n' "$resolved"
 }

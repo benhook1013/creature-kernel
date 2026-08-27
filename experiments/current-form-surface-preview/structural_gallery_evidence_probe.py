@@ -15,6 +15,7 @@ from dataclasses import dataclass
 import importlib.util
 from pathlib import Path
 import sys
+from types import ModuleType
 from typing import Any, Callable
 
 
@@ -32,6 +33,7 @@ UNAVAILABLE_EVIDENCE = (
     UNAVAILABLE_ORIGINAL_INSPECT_STRUCTURE_BYTES,
     UNAVAILABLE_PER_VERTEX_SEMANTIC_LABELS,
 )
+_VALIDATOR_MODULE: ModuleType | None = None
 
 Vector = tuple[float, float, float]
 Bounds = tuple[Vector, Vector]
@@ -125,9 +127,18 @@ class StructuralGalleryEvidenceView:
 
 
 def _load_validator() -> tuple[
+    ModuleType,
     Callable[[Path], tuple[dict[str, Any], dict[str, dict[str, Any]], str, int]],
     type[Exception],
 ]:
+    global _VALIDATOR_MODULE
+    if _VALIDATOR_MODULE is not None:
+        return (
+            _VALIDATOR_MODULE,
+            _VALIDATOR_MODULE.validate_structural_embodiment_gallery,
+            _VALIDATOR_MODULE.StructuralEmbodimentPublishError,
+        )
+
     sibling_module_path = str(VALIDATOR_PATH.parent)
     if sibling_module_path not in sys.path:
         sys.path.insert(0, sibling_module_path)
@@ -136,7 +147,8 @@ def _load_validator() -> tuple[
         raise ImportError(f"could not load structural gallery validator from {VALIDATOR_PATH}")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return module.validate_structural_embodiment_gallery, module.StructuralEmbodimentPublishError
+    _VALIDATOR_MODULE = module
+    return module, module.validate_structural_embodiment_gallery, module.StructuralEmbodimentPublishError
 
 
 def _artifact(value: dict[str, Any]) -> ArtifactEvidence:
@@ -215,7 +227,7 @@ def _profile(profile: dict[str, Any]) -> StructuralProfileEvidence:
 
 def project_structural_gallery_evidence(gallery: Path) -> StructuralGalleryEvidenceView | None:
     """Return a view only when the shared exact gallery validator succeeds."""
-    validator, rejection_type = _load_validator()
+    validator_module, validator, rejection_type = _load_validator()
     try:
         manifest, profiles_by_id, manifest_sha256, manifest_bytes = validator(Path(gallery).absolute())
     except rejection_type:
@@ -229,7 +241,7 @@ def project_structural_gallery_evidence(gallery: Path) -> StructuralGalleryEvide
         profile_ids=tuple(manifest["profile_ids"]),
         pose_id=manifest["pose_id"],
         pose_sha256=manifest["pose_sha256"],
-        pose_artifact=_artifact(inventory["structural_embodiment_shared_pose.json"]),
+        pose_artifact=_artifact(inventory[validator_module.POSE_FILE]),
         candidate_table=_artifact(inventory[manifest["candidate_table"]["path"]]),
         source_manifest=_artifact(inventory[manifest["source_manifest"]["path"]]),
         base_source_sha256=manifest["source_manifest"]["base_source_sha256"],

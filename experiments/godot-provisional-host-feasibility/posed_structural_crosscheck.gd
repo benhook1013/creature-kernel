@@ -16,6 +16,7 @@ const ARTIFACT_NAMES := [
 	"proxies-neutral.json",
 	"proxies-posed.json",
 ]
+const PROXY_LINEAGE_FIELDS := ["owned_part", "partition_rule", "partition_vertex_count", "radius_rule"]
 
 var _failure := ""
 
@@ -117,7 +118,7 @@ func _validate_options_against_projection(options: Dictionary, validated: Dictio
 		return false
 	for profile_id in options.profile_ids:
 		var profile := _profile_payload(validated, profile_id)
-		if profile.is_empty() or typeof(profile.get("artifacts", null)) != TYPE_ARRAY or profile.artifacts.size() != 6:
+		if profile.is_empty() or typeof(profile.get("artifacts", null)) != TYPE_ARRAY or profile.artifacts.size() != ARTIFACT_NAMES.size():
 			_failure = "validated projection does not contain six artifacts for profile %s" % profile_id
 			return false
 	return true
@@ -259,21 +260,21 @@ func _load_profile(gallery_path: String, profile_id: String, profile_payload: Di
 		"posed_proxy_aabb": _aabb_json(proxy_aabb),
 		"profile_translation": _vector_json(translation),
 		"counts": {
-			"neutral_vertex_count": neutral.vertices.size(),
-			"posed_vertex_count": posed.vertices.size(),
-			"face_count": posed.indices.size() / 3,
-			"bone_count": BONE_COUNT,
-			"proxy_count": BONE_COUNT,
-			"weight_vertex_count": weights.vertex_count,
-			"influence_count": _influence_count(weights.influences),
+			"neutral_vertex_count": int(neutral.vertices.size()),
+			"posed_vertex_count": int(posed.vertices.size()),
+			"face_count": int(posed.indices.size() / 3),
+			"bone_count": int(BONE_COUNT),
+			"proxy_count": int(BONE_COUNT),
+			"weight_vertex_count": int(weights.vertex_count),
+			"influence_count": int(_influence_count(weights.influences)),
 		},
 		"node_counts": {
 			"profile_root": 1,
 			"mesh_instance_3d": 1,
 			"static_body_3d": 1,
-			"collision_shape_3d": BONE_COUNT,
+			"collision_shape_3d": int(BONE_COUNT),
 			"skeleton_3d": 0,
-			"total_profile_nodes": 1 + 1 + 1 + BONE_COUNT,
+			"total_profile_nodes": int(1 + 1 + 1 + BONE_COUNT),
 		},
 		"crosscheck": structural.crosscheck,
 	}
@@ -340,8 +341,8 @@ func _validate_structural_records(profile_id: String, neutral: Dictionary, posed
 			_failure = "%s neutral and posed skeleton lengths differ or are invalid" % profile_id
 			return {}
 		bone_ids[bone_id] = true
-	for bone_id in bone_ids:
-		var parent = neutral_bones[bone_ids.keys().find(bone_id)].get("parent", null)
+	for neutral_bone in neutral_bones:
+		var parent = neutral_bone.get("parent", null)
 		if parent != null and not bone_ids.has(String(parent)):
 			_failure = "%s skeleton parent is unknown" % profile_id
 			return {}
@@ -417,15 +418,10 @@ func _validate_structural_records(profile_id: String, neutral: Dictionary, posed
 		if not is_finite(neutral_radius) or neutral_radius <= 0.0 or not is_finite(posed_radius) or abs(neutral_radius - posed_radius) > 1.0e-12:
 			_failure = "%s proxy radius changed or is invalid" % profile_id
 			return {}
-		var neutral_identity: Dictionary = neutral_proxy.duplicate()
-		var posed_identity: Dictionary = posed_proxy.duplicate()
-		neutral_identity.erase("a")
-		neutral_identity.erase("b")
-		posed_identity.erase("a")
-		posed_identity.erase("b")
-		if neutral_identity != posed_identity:
-			_failure = "%s proxy lineage changed between neutral and posed records" % profile_id
-			return {}
+		for field_name in PROXY_LINEAGE_FIELDS:
+			if not neutral_proxy.has(field_name) or not posed_proxy.has(field_name) or neutral_proxy[field_name] != posed_proxy[field_name]:
+				_failure = "%s proxy lineage field differs: %s" % [profile_id, field_name]
+				return {}
 		if _vector3(neutral_proxy.get("a", []), "%s neutral proxy a" % profile_id) == null or _vector3(neutral_proxy.get("b", []), "%s neutral proxy b" % profile_id) == null or _vector3(posed_proxy.get("a", []), "%s posed proxy a" % profile_id) == null or _vector3(posed_proxy.get("b", []), "%s posed proxy b" % profile_id) == null:
 			return {}
 		neutral_by_bone[neutral_bone_id] = neutral_proxy
@@ -483,9 +479,9 @@ func _recompute_pose(profile_id: String, neutral: Dictionary, posed: Dictionary,
 
 	return {
 		"tolerance": TOLERANCE,
-		"posed_vertices_recomputed": posed_vertices.size(),
-		"posed_normals_recomputed": posed_normals.size(),
-		"posed_proxy_endpoints_recomputed": BONE_COUNT * 2,
+		"posed_vertices_recomputed": int(posed_vertices.size()),
+		"posed_normals_recomputed": int(posed_normals.size()),
+		"posed_proxy_endpoints_recomputed": int(BONE_COUNT * 2),
 		"neutral_and_posed_faces_identical": true,
 		"at_least_one_vertex_or_normal_changed": true,
 		"bone_ids_parents_lengths_identical": true,
@@ -668,7 +664,12 @@ func _vector3(value, where: String) -> Variant:
 		_failure = "%s is not a three-vector" % where
 		return null
 	for item in value:
-		if typeof(item) == TYPE_BOOL or not is_finite(float(item)):
+		var item_type := typeof(item)
+		if item_type != TYPE_INT and item_type != TYPE_FLOAT:
+			_failure = "%s contains a non-finite value" % where
+			return null
+		var numeric := float(item)
+		if not is_finite(numeric):
 			_failure = "%s contains a non-finite value" % where
 			return null
 	var result := Vector3(float(value[0]), float(value[1]), float(value[2]))
@@ -783,11 +784,19 @@ func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: 
 
 
 func _write_report(path: String, report: Dictionary) -> bool:
+	if not _failure.is_empty():
+		return false
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
 		_failure = "report cannot be opened for writing: %s" % path
 		return false
 	file.store_string(JSON.stringify(report) + "\n")
+	file.flush()
+	var error := file.get_error()
+	file.close()
+	if error != OK:
+		_failure = "report cannot be written: %s" % path
+		return false
 	return true
 
 

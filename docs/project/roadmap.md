@@ -91,6 +91,24 @@ evidence may reorder, split, combine, or retire later outcomes. This envelope
 selects no muscles, anatomy, topology, SDF/PBD/FEM, solver, engine, schema,
 hardware target, or exact ordering.
 
+## Provisional later-horizon morphology knowledge and dossiers
+
+Fine-grained optional morphology modules may fit inside functional assemblies:
+for example, pelvis-trunk may expose a tail-root while tail is its own optional
+segmented module. Parts are structural identity; Regions, Fields, and
+Capabilities may overlap rather than requiring one file per visible body
+region. When fine-grained authoring is activated, module dossiers may record
+source-backed 3D shape, behaviour, control, and appearance knowledge, with only
+a very small number of discrete alternatives where sliders cannot express a
+real structural difference.
+
+Any future dossier remains a research and planning artifact, not executable truth
+or an accepted contract. Generic reusable concepts stay in the public core;
+downstream-specific private material stays downstream. This is an
+activation-gated planning direction, not a current schema, implementation
+queue, anatomy library, or fidelity promise; intermediate evidence may reshape
+it.
+
 ## Later productization
 
 Potential outcomes, not commitments:

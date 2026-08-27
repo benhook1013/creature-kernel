@@ -105,7 +105,8 @@ Run it from the isolated environment prepared by
 environment containing that experiment's pinned requirements.
 
 ```bash
-python3 dev-tools/visual-review/publish_surface_preview.py \
+surface_preview_launcher=experiments/current-form-surface-preview/surface_preview_launcher.sh
+"$surface_preview_launcher" dev-tools/visual-review/publish_surface_preview.py \
   --root /tmp/creature-surface-reviews \
   --input examples/body-documents/stylized-digitigrade-biped.json \
   --creature-kernel target/debug/creature-kernel \

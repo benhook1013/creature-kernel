@@ -25,46 +25,30 @@ an assessment must not transfer a later-stage claim to an earlier stage.
 
 ## Planned model-assisted visual-appraisal checkpoint
 
-Before the project relies on an AI or multimodal model for visual appraisal,
-hold a recorded discussion with Ben and complete a current-at-the-time
-research pass for RQ-004. This is a proposed research checkpoint, not present
-evidence, a provider selection, or permission to weaken the human gate. The
-discussion must first clarify what assistance is wanted: generic recognition or
-categorisation is not the same capability as fine-grained spatial or geometry
-defect detection, cross-view comparison and localisation, motion/deformation
-review, consistency across repeated views, or iterative critique that is
-specific and actionable enough to guide a revision. Treat claims about any
-provider as time-sensitive; explicitly consider OpenAI, Google, xAI/Grok, and
-other credible accessible providers available at the time, without assuming a
-ranking or that a strong categorisation result implies reliable defect review.
+No AI visual appraisal is active now, and it is not a per-change, PR, merge, or
+checkpoint gate. Any future trial may be used only after Ben explicitly approves
+the bounded trial, including its image set and data handling/retention, model and
+configuration, prompt and purpose, usage/cost, success criteria, and monitoring.
+This remains a proposed research checkpoint, not present evidence or a
+model-capability claim.
 
-If assistance remains worth testing, preregister a small blinded comparative
-benchmark on Creature Kernel captures. Use repeated front/side/three-quarter
-views and turntable or motion captures where relevant, with known injected or
-labelled defects and clean controls. Mask provider/model and case identity
-where practical, and compare models under documented prompts, image/video
-limits, and tool access. Measure defect detection, spatial localisation,
-explanation quality, actionable revision guidance, false positives, and
-cross-view and repeat-run consistency. Also record cost, latency, privacy and
-data retention terms, API/tooling reliability, version/configuration
-provenance, and unhandled or refused cases. Separate measured results from
-subjective reviewer judgment and from provider documentation or marketing
-claims.
-
-The checkpoint must end with an explicit role and safety decision: keep review
-human-only; use a model only for triage or a second opinion; or permit a
-strictly bounded reviewer role. Define confidence/uncertainty handling,
-escalation to a human, and defect classes the model must not adjudicate. Until
-a later evidence-backed decision changes this boundary, the human subjective
-visual floor remains authoritative and model output cannot turn a failure into
+If Ben approves a bounded trial, it may begin with an optional OpenAI-only
+second opinion using included Codex/ChatGPT capability. This is not an external-provider
+procurement or research project. Record useful detections, misses, false
+positives, repeat consistency, actionable localisation, and usage. Human
+visual judgment remains authoritative; model output cannot turn a failure into
 a pass or replace human appraisal.
+
+Cross-provider benchmarking is a later optional research branch only if the
+initial trial justifies it and Ben approves the associated cost, privacy, and
+provider work.
 
 ## Evaluation inputs and views
 
 Evaluate the fixed body-profile set through the same generation operations,
 configuration, and seed policy, using these stable proposed IDs:
-`compact_broad_short_large_head`, `tall_narrow_long_legged`,
-`slender_long_limbed`, and `stocky_broad_chested`. The tall profile tests
+`compact_broad_short_limb_large_head`, `tall_narrow_long_legged`,
+`slender_long_limb`, and `stocky_broad_chested`. The tall profile tests
 stature/aspect and lower-leg emphasis with moderate thickness; the slender
 profile tests low girth/thickness and long arm/leg proportions without extreme
 stature as its main axis. At least one profile must contrast optional-module

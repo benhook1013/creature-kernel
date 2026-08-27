@@ -8,11 +8,12 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
-from typing import Any
+from typing import Any, Callable
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -48,14 +49,36 @@ EXPECTED_ARTIFACT_NAMES = (
     "proxies-posed.json",
 )
 EXPECTED_TRANSLATIONS = ((-8.0, 0.0, 0.0), (8.0, 0.0, 0.0))
+GODOT_LAUNCH_TIMEOUT_SECONDS = 300
 
 
 class SmokeError(RuntimeError):
     """A fail-closed preflight, launcher, or report error."""
 
 
+ReportValidator = Callable[[Any, dict[str, Any], tuple[str, str]], None]
+_GODOT_DIAGNOSTIC_RE = re.compile(
+    r"(?im)^[ \t]*(?:ERROR:|(?:ERROR:[ \t]*)?(?:ObjectDB|RID)\b.*\b(?:leak|leaked|leaks)\b)"
+)
+
+
 def _canonical_json(value: Any) -> bytes:
     return (json.dumps(value, ensure_ascii=True, sort_keys=True, separators=(",", ":"), allow_nan=False) + "\n").encode("utf-8")
+
+
+def _require_exact_non_boolean_int(value: Any, where: str) -> int:
+    if type(value) is not int:
+        raise SmokeError(f"{where} must be an exact non-boolean integer")
+    return value
+
+
+def _validate_exact_count_map(value: Any, keys: tuple[str, ...], where: str) -> None:
+    if not isinstance(value, dict):
+        raise SmokeError(f"{where} must be a JSON object")
+    for key in keys:
+        if key not in value:
+            raise SmokeError(f"{where}.{key} is missing")
+        _require_exact_non_boolean_int(value[key], f"{where}.{key}")
 
 
 def _require_absolute(path: Path, label: str) -> Path:
@@ -225,8 +248,6 @@ def _validate_report(report: Any, payload: dict[str, Any], profile_ids: tuple[st
     expected_artifacts = {profile["profile_id"]: profile["artifacts"] for profile in payload["profiles"]}
     if report.get("artifact_hash_identities") != expected_artifacts:
         raise SmokeError("Godot report artifact identities do not match the validated projection")
-    report["validated_gallery"] = expected_gallery
-    report["artifact_hash_identities"] = expected_artifacts
     if report.get("coordinate_rule") != {
         "kind": "disposable_host_local_identity",
         "mapping": "CK XYZ -> Godot XYZ: x->x, y->y, z->z",
@@ -243,13 +264,14 @@ def _validate_report(report: Any, payload: dict[str, Any], profile_ids: tuple[st
     }:
         raise SmokeError("Godot report host_only_smoke boundary details are invalid")
     actual_profiles = report.get("profiles")
-    if not isinstance(actual_profiles, list) or [item.get("profile_id") for item in actual_profiles] != list(profile_ids):
+    if not isinstance(actual_profiles, list) or any(not isinstance(item, dict) for item in actual_profiles):
+        raise SmokeError("Godot report profile records are incomplete or reordered")
+    if [item.get("profile_id") for item in actual_profiles] != list(profile_ids):
         raise SmokeError("Godot report profile records are incomplete or reordered")
     for index, (actual, expected) in enumerate(zip(actual_profiles, payload["profiles"])):
         metrics = expected["metrics"]
         if actual.get("candidate_profile_sha256") != expected["candidate_profile_sha256"] or not _values_close(actual.get("metrics"), metrics):
             raise SmokeError(f"Godot report profile {profile_ids[index]} does not match validated metrics/identity")
-        actual["metrics"] = metrics
         expected_counts = {
             "vertex_count": metrics["neutral_vertex_count"],
             "face_count": metrics["face_count"],
@@ -257,31 +279,46 @@ def _validate_report(report: Any, payload: dict[str, Any], profile_ids: tuple[st
             "proxy_count": metrics["proxy_count"],
             "weight_vertex_count": metrics["neutral_vertex_count"],
         }
-        counts = actual.get("counts", {})
-        if any(counts.get(key) != value for key, value in expected_counts.items()):
+        counts = actual.get("counts")
+        if not isinstance(counts, dict):
             raise SmokeError(f"Godot report profile {profile_ids[index]} structural counts are invalid")
-        if counts.get("influence_count", 0) <= 0:
+        _validate_exact_count_map(
+            counts,
+            tuple(expected_counts) + ("influence_count",),
+            f"Godot report profile {profile_ids[index]} counts",
+        )
+        if any(counts[key] != value for key, value in expected_counts.items()):
+            raise SmokeError(f"Godot report profile {profile_ids[index]} structural counts are invalid")
+        if counts["influence_count"] <= 0:
             raise SmokeError(f"Godot report profile {profile_ids[index]} has no weights")
-        actual["counts"] = {
-            "vertex_count": int(counts["vertex_count"]),
-            "face_count": int(counts["face_count"]),
-            "bone_count": int(counts["bone_count"]),
-            "proxy_count": int(counts["proxy_count"]),
-            "weight_vertex_count": int(counts["weight_vertex_count"]),
-            "influence_count": int(counts["influence_count"]),
-        }
         if not _bounds_close(actual.get("mesh_aabb"), metrics["neutral_bounds"]):
             raise SmokeError(f"Godot report profile {profile_ids[index]} mesh AABB differs from metrics")
         if actual.get("profile_translation") != list(EXPECTED_TRANSLATIONS[index]):
             raise SmokeError(f"Godot report profile {profile_ids[index]} translation is not fixed host-only separation")
-        if actual.get("proxy_segments") != {
+        proxy_segments = actual.get("proxy_segments")
+        if not isinstance(proxy_segments, dict):
+            raise SmokeError(f"Godot report profile {profile_ids[index]} capsule summary is invalid")
+        _validate_exact_count_map(
+            proxy_segments,
+            ("segment_count", "radius_count"),
+            f"Godot report profile {profile_ids[index]} proxy_segments",
+        )
+        if proxy_segments != {
             "segment_count": metrics["proxy_count"],
             "radius_count": metrics["proxy_count"],
             "capsule_height_rule": "segment_length + 2*radius",
             "positive_y_alignment_checked": True,
         }:
             raise SmokeError(f"Godot report profile {profile_ids[index]} capsule summary is invalid")
-        if actual.get("node_counts") != {
+        node_counts = actual.get("node_counts")
+        if not isinstance(node_counts, dict):
+            raise SmokeError(f"Godot report profile {profile_ids[index]} node counts are invalid")
+        _validate_exact_count_map(
+            node_counts,
+            ("profile_root", "mesh_instance_3d", "static_body_3d", "collision_shape_3d", "total_profile_nodes"),
+            f"Godot report profile {profile_ids[index]} node_counts",
+        )
+        if node_counts != {
             "profile_root": 1,
             "mesh_instance_3d": 1,
             "static_body_3d": 1,
@@ -318,8 +355,7 @@ def _bounds_close(actual: Any, expected: Any, tolerance: float = 1.0e-5) -> bool
 
 
 def _has_godot_error_diagnostics(stdout: str, stderr: str) -> bool:
-    combined = stdout + stderr
-    return any(token in combined.lower() for token in ("error", "objectdb", "rid", "leak"))
+    return _GODOT_DIAGNOSTIC_RE.search(f"{stdout}\n{stderr}") is not None
 
 
 def _values_close(actual: Any, expected: Any, tolerance: float = 1.0e-6) -> bool:
@@ -364,8 +400,12 @@ def _launch_godot(
     gallery: Path,
     profile_ids: tuple[str, str],
     payload: dict[str, Any],
+    script: Path | None = None,
+    validator: ReportValidator | None = None,
 ) -> tuple[str, str, int, dict[str, Any] | None]:
-    for required in (PROJECT_FILE, GODOT_SCRIPT, LAUNCHER):
+    script_source = GODOT_SCRIPT if script is None else script
+    report_validator = _validate_report if validator is None else validator
+    for required in (PROJECT_FILE, script_source, LAUNCHER):
         if not required.is_file():
             raise SmokeError(f"required Godot smoke file is unavailable: {required}")
     if not os.access(LAUNCHER, os.X_OK):
@@ -387,18 +427,18 @@ def _launch_godot(
             path.mkdir(parents=True, exist_ok=True)
         pinned_binary = _resolve_pinned_binary()
         project = Path(temporary) / "project.godot"
-        script = Path(temporary) / "structural_gallery_smoke.gd"
+        script_path = Path(temporary) / script_source.name
         # Godot never receives the caller-controlled report destination.
         raw_report_path = Path(temporary) / "godot-report.json"
         shutil.copyfile(PROJECT_FILE, project)
-        shutil.copyfile(GODOT_SCRIPT, script)
+        shutil.copyfile(script_source, script_path)
         command = [
             str(LAUNCHER),
             "--headless",
             "--path",
             str(Path(temporary)),
             "--script",
-            str(script),
+            str(script_path),
             "--",
             "--gallery",
             str(gallery),
@@ -415,7 +455,20 @@ def _launch_godot(
         environment.update({key: str(value) for key, value in isolated_paths.items()})
         environment["CK_GODOT_4_7_2_BINARY"] = str(pinned_binary)
         try:
-            completed = subprocess.run(command, cwd=REPOSITORY_ROOT, env=environment, capture_output=True, text=True, check=False)
+            completed = subprocess.run(
+                command,
+                cwd=REPOSITORY_ROOT,
+                env=environment,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=GODOT_LAUNCH_TIMEOUT_SECONDS,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise SmokeError(
+                f"Godot launcher exceeded {GODOT_LAUNCH_TIMEOUT_SECONDS}s; "
+                f"stdout={exc.stdout!r}; stderr={exc.stderr!r}"
+            ) from exc
         except OSError as exc:
             raise SmokeError(f"Godot launcher invocation failed: {type(exc).__name__}: {exc}") from exc
         diagnostic = f"stdout={completed.stdout!r}; stderr={completed.stderr!r}"
@@ -424,7 +477,7 @@ def _launch_godot(
         if completed.returncode != 0:
             return completed.stdout, completed.stderr, completed.returncode, None
         report = _read_report(raw_report_path)
-        _validate_report(report, payload, profile_ids)
+        report_validator(report, payload, profile_ids)
         return completed.stdout, completed.stderr, completed.returncode, report
 
 

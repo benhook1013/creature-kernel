@@ -7,6 +7,15 @@ const MAX_BONES := 64
 const MAX_PROXIES := 64
 const EPSILON := 1.0e-5
 const TRANSLATIONS := [Vector3(-8.0, 0.0, 0.0), Vector3(8.0, 0.0, 0.0)]
+const ARTIFACT_NAMES := [
+	"neutral.ply",
+	"posed.ply",
+	"skeleton.json",
+	"weights.json",
+	"proxies-neutral.json",
+	"proxies-posed.json",
+]
+const PROXY_LINEAGE_FIELDS := ["owned_part", "partition_rule", "partition_vertex_count", "radius_rule"]
 
 var _failure := ""
 
@@ -117,16 +126,18 @@ func _profile_payload(validated: Dictionary, profile_id: String) -> Dictionary:
 func _load_profile(gallery_path: String, profile_id: String, profile_payload: Dictionary, translation: Vector3) -> Dictionary:
 	var artifact_bytes: Dictionary = {}
 	var artifacts = profile_payload.get("artifacts", [])
-	if typeof(artifacts) != TYPE_ARRAY or artifacts.size() != 6:
+	if typeof(artifacts) != TYPE_ARRAY or artifacts.size() != ARTIFACT_NAMES.size():
 		_failure = "%s validated artifact list is incomplete" % profile_id
 		return {}
-	for artifact in artifacts:
+	for artifact_index in range(ARTIFACT_NAMES.size()):
+		var artifact = artifacts[artifact_index]
 		if typeof(artifact) != TYPE_DICTIONARY:
 			_failure = "%s has an invalid validated artifact record" % profile_id
 			return {}
 		var relative_path: String = artifact.get("path", "")
-		if relative_path == "" or relative_path.is_absolute_path() or not relative_path.begins_with(profile_id + "/"):
-			_failure = "%s has an unsafe validated artifact path" % profile_id
+		var expected_path: String = profile_id + "/" + ARTIFACT_NAMES[artifact_index]
+		if relative_path != expected_path or relative_path.is_absolute_path():
+			_failure = "%s has an unsafe or reordered validated artifact path" % profile_id
 			return {}
 		var bytes = _read_bytes(gallery_path.path_join(relative_path), "%s %s" % [profile_id, relative_path])
 		if bytes.is_empty() and int(artifact.get("bytes", -1)) != 0:
@@ -231,16 +242,16 @@ func _load_profile(gallery_path: String, profile_id: String, profile_payload: Di
 		"proxy_aabb": _aabb_json(proxy_aabb),
 		"profile_translation": _vector_json(translation),
 		"counts": {
-			"vertex_count": neutral.vertices.size(),
-			"face_count": neutral.indices.size() / 3,
-			"bone_count": skeleton.neutral.bones.size(),
-			"proxy_count": proxies.proxies.size(),
-			"weight_vertex_count": weights.vertex_count,
-			"influence_count": _influence_count(weights.influences),
+			"vertex_count": int(neutral.vertices.size()),
+			"face_count": int(neutral.indices.size() / 3),
+			"bone_count": int(skeleton.neutral.bones.size()),
+			"proxy_count": int(proxies.proxies.size()),
+			"weight_vertex_count": int(weights.vertex_count),
+			"influence_count": int(_influence_count(weights.influences)),
 		},
 		"proxy_segments": {
-			"segment_count": proxies.proxies.size(),
-			"radius_count": proxies.proxies.size(),
+			"segment_count": int(proxies.proxies.size()),
+			"radius_count": int(proxies.proxies.size()),
 			"capsule_height_rule": "segment_length + 2*radius",
 			"positive_y_alignment_checked": true,
 		},
@@ -248,8 +259,8 @@ func _load_profile(gallery_path: String, profile_id: String, profile_payload: Di
 			"profile_root": 1,
 			"mesh_instance_3d": 1,
 			"static_body_3d": 1,
-			"collision_shape_3d": proxies.proxies.size(),
-			"total_profile_nodes": 3 + proxies.proxies.size(),
+			"collision_shape_3d": int(proxies.proxies.size()),
+			"total_profile_nodes": int(3 + proxies.proxies.size()),
 		},
 		"translated_mesh_aabb": _aabb_json(AABB(local_aabb.position + translation, local_aabb.size)),
 		"translated_proxy_aabb": _aabb_json(AABB(proxy_aabb.position + translation, proxy_aabb.size)),
@@ -310,7 +321,10 @@ func _validate_structural_records(profile_id: String, neutral: Dictionary, metri
 		if abs(total - 1.0) > 1.0e-6:
 			_failure = "%s contains a non-normalized weight row" % profile_id
 			return false
-	if typeof(proxies.get("proxies", null)) != TYPE_ARRAY or proxies.get("profile_id", "") != profile_id or proxies.get("state", "") != "neutral":
+	if typeof(proxies) != TYPE_DICTIONARY or proxies.get("format", "") != "creature-kernel.disposable-structural-embodiment-gallery.v1" or proxies.get("profile_id", "") != profile_id or proxies.get("state", "") != "neutral" or proxies.get("radius_transform", "") != "unchanged":
+		_failure = "%s neutral proxies are invalid" % profile_id
+		return false
+	if typeof(proxies.get("proxies", null)) != TYPE_ARRAY:
 		_failure = "%s neutral proxies are invalid" % profile_id
 		return false
 	if proxies.proxies.size() != int(metrics.proxy_count):
@@ -318,10 +332,14 @@ func _validate_structural_records(profile_id: String, neutral: Dictionary, metri
 		return false
 	var proxy_bones := {}
 	for proxy in proxies.proxies:
-		if typeof(proxy) != TYPE_DICTIONARY or proxy.get("kind", "") != "capsule" or proxy_bones.has(proxy.get("bone_id", "")) or not bone_ids.has(proxy.get("bone_id", "")):
+		if typeof(proxy) != TYPE_DICTIONARY or not proxy.has("bone_id") or proxy.get("kind", "") != "capsule" or proxy_bones.has(proxy.get("bone_id", "")) or not bone_ids.has(proxy.get("bone_id", "")):
 			_failure = "%s proxy bone coverage is invalid" % profile_id
 			return false
 		proxy_bones[proxy.bone_id] = true
+		for field_name in PROXY_LINEAGE_FIELDS:
+			if not proxy.has(field_name):
+				_failure = "%s proxy lineage field is missing: %s" % [profile_id, field_name]
+				return false
 		if not proxy.has("a") or not proxy.has("b") or not proxy.has("radius") or not is_finite(float(proxy.radius)) or float(proxy.radius) <= 0.0:
 			_failure = "%s proxy record is invalid" % profile_id
 			return false
@@ -445,6 +463,7 @@ func _read_bytes(path: String, where: String) -> PackedByteArray:
 
 func _parse_json(bytes: PackedByteArray, where: String) -> Dictionary:
 	if bytes.is_empty():
+		_failure = "%s is empty" % where
 		return {}
 	var value = JSON.parse_string(bytes.get_string_from_utf8())
 	if typeof(value) != TYPE_DICTIONARY:
@@ -464,10 +483,16 @@ func _vector3(value, where: String) -> Variant:
 	if typeof(value) != TYPE_ARRAY or value.size() != 3:
 		_failure = "%s is not a three-vector" % where
 		return null
+	for item in value:
+		var item_type := typeof(item)
+		if item_type != TYPE_INT and item_type != TYPE_FLOAT:
+			_failure = "%s contains a non-finite value" % where
+			return null
+		var numeric := float(item)
+		if not is_finite(numeric):
+			_failure = "%s contains a non-finite value" % where
+			return null
 	var result := Vector3(float(value[0]), float(value[1]), float(value[2]))
-	if not is_finite(result.x) or not is_finite(result.y) or not is_finite(result.z):
-		_failure = "%s contains a non-finite value" % where
-		return null
 	return result
 
 
@@ -568,11 +593,19 @@ func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: 
 
 
 func _write_report(path: String, report: Dictionary) -> bool:
+	if not _failure.is_empty():
+		return false
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
 		_failure = "report cannot be opened for writing: %s" % path
 		return false
 	file.store_string(JSON.stringify(report) + "\n")
+	file.flush()
+	var error := file.get_error()
+	file.close()
+	if error != OK:
+		_failure = "report cannot be written: %s" % path
+		return false
 	return true
 
 

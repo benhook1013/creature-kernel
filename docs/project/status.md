@@ -1,6 +1,6 @@
 # Project status
 
-Status date: 2026-08-26
+Status date: 2026-08-27
 
 ## Phase
 
@@ -24,14 +24,16 @@ are live. A hosted full review of commit
 `5ed8ae8e447788d80fd2a6091752dc32c83a1a99` was requested at
 2026-08-26T05:12:39Z and completed at 2026-08-26T05:17:43Z with two localized
 correctness findings; both were fixed before the squash merge. The review
-workflow now reserves CodeRabbit CLI for at most one optional end-of-PR pass on
-the complete committed candidate, and Creature Kernel yields that allowance to
-FireMUD while cross-project sharing remains unverified. Hosted CodeRabbit
-commands require Ben's explicit request for each invocation and are never an
-automatic fallback. Skipping CodeRabbit is not a merge blocker. The
-next hosted-allowance experiment is Ben-triggered FireMUD first, followed only
-by Ben's explicit authorization for Creature Kernel; Creature Kernel agents
-must not mutate FireMUD to arrange it. The
+workflow records Ben's explicit 2026-08-27 authorization for the main thread to
+invoke CodeRabbit only for deliberate advisory, non-gating review near completion
+of a substantial coherent PR. Automatic reviews remain disabled in
+`.coderabbit.yaml`. Multiple review rounds are intentional, but one deliberate
+round is handled at a time: the main thread fully inspects and dispositions the
+result, then explicitly decides whether another round is materially justified by
+the taper rule. Unattended timers and automatic looping are prohibited. Subagents
+invoke CodeRabbit only when an exact action is explicitly delegated. CodeRabbit
+does not replace internal review, hands-on trials, validation, CI, human, or
+merge gates. Skipping CodeRabbit is not a merge blocker. The
 visual-review systemd service is active
 from `/home/ben/src/creature-kernel`; the stable structural review remains
 `http://localhost:8765/review/shared-pose-structural-embodiment-gallery`.
@@ -54,7 +56,7 @@ declared bounds; rendered review metadata is deliberately excluded, while
 original `inspect-structure` bytes and per-vertex semantic labels are reported
 as unavailable. Expected gallery rejection returns no view, but validator-load
 and unexpected runtime failures surface. The 21-test publisher suite and
-9-test projection suite passed after fresh hands-on and adversarial findings
+11-test projection suite passed after fresh hands-on and adversarial findings
 were corrected. The disposable pinned Godot 4.7.2 launcher, neutral two-profile
 host-load smoke, and posed two-profile cross-check load and hash-check the
 applicable projected profile artifacts, instantiate neutral and posed
@@ -62,13 +64,27 @@ applicable projected profile artifacts, instantiate neutral and posed
 project/home/XDG/TMP roots. The posed probe independently recomputes published
 posed vertices/normals and posed proxy endpoints from skin matrices plus
 weights at fixed `2e-5` tolerance and records both mesh and proxy separation.
-The neutral 17-test and posed 9-test suites passed. The neutral post-fix
-hands-on regression, the posed default and alternate pair operator trials, and
-the fresh posed adversarial mutation trial also passed without a remaining
-blocker. PR #116 remains one coherent coarse
-structural-evidence-to-provisional-Godot milestone, with one final review/CI
-cycle and optional Ben-authorized/coordinated CodeRabbit only. Hosted CodeRabbit
-remains forbidden without Ben's exact request. This snapshot makes no
+Pre-hosted-follow-up baseline: the neutral 17-test and posed 9-test suites
+passed. The neutral post-fix hands-on regression, the posed default and alternate
+pair operator trials, and the fresh posed adversarial mutation trial also passed
+without a remaining blocker. PR #116 then received one explicit hosted full review against commit
+`5fdc785`; it completed rather than rate-limiting and produced 16 inline
+findings. Independent triage identified three correctness-significant issues,
+multiple bounded robustness improvements, one disproportionate shared-helper
+refactor to reject, and one missed neutral counterpart to host-report evidence
+mutation. The current local candidate addresses those findings plus the
+requested tooling/instruction cleanup. Its final local rerun passed 42 Godot
+Python tests through the canonical pinned-environment wrapper, the shell
+launcher checks, 11 focused evidence-probe tests, five current-form wrapper
+tests, seven whitespace-tool tests, documentation validation, and
+whole-worktree whitespace validation. Two fresh hands-on trials passed the
+default and alternate profile pairs, tampered-artifact rejection,
+invalid-profile rejection, deterministic report evidence, and
+repository-write/cache checks without a correctness defect. Fresh final
+code/documentation review, commit/push, review-thread disposition, deliberate
+CodeRabbit follow-up, and current-head CI remain pending. PR #116 remains one
+coherent coarse structural-evidence-to-provisional-Godot milestone; those
+pending gates must not be read as passed. This snapshot makes no
 Skeleton3D/Skin runtime binding, animation, semantic pose injection, physics
 stepping, contact, deformation, render output, adapter/package/R3/performance/
 checkpoint evidence claim.
@@ -105,7 +121,7 @@ coherence, physical-response interpretation, CPU fallback, or evidence budget
 cannot be made credible without a material architecture or engine commitment.
 
 Current operational snapshot: the [Codex app handover](current-handover.md)
-(2026-08-26 NZST) records the primary checkout, active runway worktree,
+(2026-08-27 NZST) records the primary checkout, active runway worktree,
 merged PR state, and the current checkpoint/tooling state. It is a navigation
 aid rather than a new authority owner. PR #107 retains the exact consumed
 producer lineage in surface reviews while preserving the parked EXP-0002
@@ -1812,7 +1828,7 @@ metadata. Current non-governance decisions and proposals include:
 | Creature compiler | partial | unverified | Disposable CK-KICK-010 walking skeleton implemented; this is not a production compiler |
 | CK-KICK-010 walking skeleton | implemented | audited | Valid/invalid local evidence and the selected Single independent review are complete; five substantive findings plus whitespace were dispositioned in RESULTS, not clean; this is not a production compiler |
 | Local visual-review gallery | implemented | audited | Focused tests and local HTTP/browser smoke passed; the PR #113 gallery is bounded exploratory surface evidence, while `subject_context` remains presentation-only and no formal Stage 1 claim is made |
-| Runtime avatar | not-implemented | not-applicable | No runtime adapter selected; Godot 4.7.2 is a provisional feasibility candidate only, and no bounded host result exists yet |
+| Runtime avatar | not-implemented | not-applicable | No runtime adapter is selected and no Skeleton3D/Skin or Readiness 3 result exists; PR #116 provides bounded provisional Godot 4.7.2 host-local structural-consumption evidence only |
 
 ## Historical immediate next actions (inactive)
 

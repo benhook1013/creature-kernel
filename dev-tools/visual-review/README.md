@@ -211,6 +211,21 @@ The launcher accepts no arguments and invokes `powershell.exe` with exactly
 be blocked or misclassified and then surface as a misleading launch error.
 Keeping the script readable preserves inspection and diagnosis.
 
+Do not rediscover or depend on a host-local `ck-playwright-node` installation:
+it is not repository-owned and its CommonJS/ESM resolution behavior is not a
+supported workflow. Use T3, or the readable PowerShell/CDP fallback above. If
+the browser route rejects a native WSL `file:///home/...` workspace URI before
+launch, report that failure once and switch to the fallback; retrying the same
+route supplies no new evidence.
+
+For automated comparison-gallery trials, use the control's exact accessible
+name (for example `Show next image`) when roles overlap. Before a coordinate
+click on a zoomed or panned image, verify with `elementFromPoint` that the
+coordinate is already visible inside the intended target so automation does not
+auto-scroll and mimic an application reset. Network interception must allow one
+pending image request to serve both a thumbnail and modal; do not require a
+second request when browser resource coalescing can share the first.
+
 ## Rich manifest v1
 
 The source manifest is authoritative and is not copied into a session. Its

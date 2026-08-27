@@ -12,6 +12,7 @@ import tempfile
 import unittest
 from dataclasses import FrozenInstanceError, fields
 from pathlib import Path
+from types import ModuleType
 from unittest.mock import patch
 
 
@@ -135,7 +136,7 @@ class StructuralGalleryEvidenceProbeTests(unittest.TestCase):
         def reject(_: Path):
             raise rejection_type("expected rejected gallery")
 
-        with patch.object(probe, "_load_validator", return_value=(reject, rejection_type)):
+        with patch.object(probe, "_load_validator", return_value=(ModuleType("validator"), reject, rejection_type)):
             self.assertIsNone(probe.project_structural_gallery_evidence(self.gallery))
 
     def test_unexpected_validator_failure_surfaces(self) -> None:
@@ -144,7 +145,7 @@ class StructuralGalleryEvidenceProbeTests(unittest.TestCase):
         def fail(_: Path):
             raise RuntimeError("unexpected validator failure")
 
-        with patch.object(probe, "_load_validator", return_value=(fail, rejection_type)):
+        with patch.object(probe, "_load_validator", return_value=(ModuleType("validator"), fail, rejection_type)):
             with self.assertRaisesRegex(RuntimeError, "unexpected validator failure"):
                 probe.project_structural_gallery_evidence(self.gallery)
 
@@ -152,6 +153,49 @@ class StructuralGalleryEvidenceProbeTests(unittest.TestCase):
         with patch.object(probe, "_load_validator", side_effect=ModuleNotFoundError("missing validator dependency")):
             with self.assertRaisesRegex(ModuleNotFoundError, "missing validator dependency"):
                 probe.project_structural_gallery_evidence(self.gallery)
+
+    def test_validator_loader_caches_successfully_loaded_module(self) -> None:
+        with patch.object(probe, "_VALIDATOR_MODULE", None):
+            with patch.object(probe.importlib.util, "module_from_spec", wraps=probe.importlib.util.module_from_spec) as load_module:
+                first = probe._load_validator()
+                second = probe._load_validator()
+
+        self.assertEqual(load_module.call_count, 1)
+        self.assertIs(first[0], second[0])
+        self.assertIs(first[1].__globals__, second[1].__globals__)
+        self.assertIs(first[2], second[2])
+
+    def test_projection_uses_pose_filename_from_returned_module_after_global_cache_changes(self) -> None:
+        manifest, profiles_by_id, manifest_sha256, manifest_bytes = publisher.validate_structural_embodiment_gallery(self.gallery)
+        renamed_pose_file = "renamed-shared-pose.json"
+        mutable_global_pose_file = "mutable-global-pose.json"
+        manifest = json.loads(json.dumps(manifest))
+        for artifact in manifest["artifacts"]:
+            if artifact["path"] == publisher.POSE_FILE:
+                artifact["path"] = renamed_pose_file
+                break
+        else:
+            self.fail("fixture gallery does not contain the publisher pose artifact")
+
+        def return_manifest(_: Path):
+            return manifest, profiles_by_id, manifest_sha256, manifest_bytes
+
+        returned_module = ModuleType("returned_validator")
+        returned_module.POSE_FILE = renamed_pose_file
+        mutable_global_module = ModuleType("mutable_global_validator")
+        mutable_global_module.POSE_FILE = mutable_global_pose_file
+
+        def load_validator_with_mutated_global():
+            probe._VALIDATOR_MODULE = mutable_global_module
+            return returned_module, return_manifest, publisher.StructuralEmbodimentPublishError
+
+        with patch.object(probe, "_VALIDATOR_MODULE", None):
+            with patch.object(probe, "_load_validator", side_effect=load_validator_with_mutated_global):
+                view = probe.project_structural_gallery_evidence(self.gallery)
+
+        self.assertIsNotNone(view)
+        assert view is not None
+        self.assertEqual(view.pose_artifact.path, renamed_pose_file)
 
     def test_validator_loader_works_in_clean_isolated_process(self) -> None:
         probe_path = json.dumps(str(EXPERIMENT / "structural_gallery_evidence_probe.py"))
@@ -167,7 +211,8 @@ if spec is None or spec.loader is None:
 module = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = module
 spec.loader.exec_module(module)
-validator, rejection_type = module._load_validator()
+validator_module, validator, rejection_type = module._load_validator()
+assert validator_module.__name__ == "structural_gallery_publisher_for_evidence"
 assert validator.__name__ == "validate_structural_embodiment_gallery"
 assert rejection_type.__name__ == "StructuralEmbodimentPublishError"
 """
