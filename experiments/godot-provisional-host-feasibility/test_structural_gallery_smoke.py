@@ -161,6 +161,15 @@ def _mutate_proxy_vector(gallery: Path, payload: dict, profile_id: str, artifact
     _update_payload_artifact(payload, profile_id, artifact_name, data)
 
 
+def _mutate_skeleton_state(gallery: Path, payload: dict, profile_id: str, state_name: str, replacement: object) -> None:
+    path = gallery / profile_id / "skeleton.json"
+    value = json.loads(path.read_text(encoding="utf-8"))
+    value[state_name] = replacement
+    data = (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
+    path.write_bytes(data)
+    _update_payload_artifact(payload, profile_id, "skeleton.json", data)
+
+
 def integration_available() -> bool:
     if not GALLERY.is_dir() or not LAUNCHER.is_file() or not LAUNCHER.stat().st_mode & 0o111:
         return False
@@ -373,6 +382,17 @@ class StructuralGallerySmokeIntegrationTests(unittest.TestCase):
             _mutate_proxy_vector(gallery, payload, DEFAULTS[0], "proxies-neutral.json", "0.0")
             with self.assertRaisesRegex(smoke.SmokeError, "proxy endpoint is not a valid finite vector"):
                 smoke._launch_godot(gallery, DEFAULTS, payload)
+
+    def test_real_godot_rejects_non_dictionary_skeleton_states(self) -> None:
+        for state_name, replacement in (("neutral", "not-a-dictionary"), ("posed", [])):
+            with self.subTest(state_name=state_name):
+                with tempfile.TemporaryDirectory(prefix="ck-godot-structural-smoke-skeleton-state-mutation-") as temporary:
+                    gallery = Path(temporary) / "gallery"
+                    shutil.copytree(GALLERY, gallery)
+                    _, payload = smoke.preflight(gallery, DEFAULTS)
+                    _mutate_skeleton_state(gallery, payload, DEFAULTS[0], state_name, replacement)
+                    with self.assertRaisesRegex(smoke.SmokeError, "skeleton lineage or state records are invalid"):
+                        smoke._launch_godot(gallery, DEFAULTS, payload)
 
     def test_real_gallery_mutation_after_godot_report_rejects_without_publishing_report(self) -> None:
         with tempfile.TemporaryDirectory(prefix="ck-godot-structural-smoke-gallery-mutation-") as temporary:

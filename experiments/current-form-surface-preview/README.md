@@ -269,8 +269,8 @@ and active runway.
 
 The experiment-local `structural_profile_candidates.json` freezes four source
 candidate IDs used by the completed gallery:
-compact/broad/short-limbed/large-head, tall/narrow/long-legged,
-slender/long-limbed, and stocky/broad-chested. Generate their compact canonical
+`compact_broad_short_limb_large_head`, `tall_narrow_long_legged`,
+`slender_long_limb`, and `stocky_broad_chested`. Generate their compact canonical
 BodyDocuments through one shared data-driven transform:
 
 ```bash
@@ -463,8 +463,9 @@ Tests:
 experiments/current-form-surface-preview/test.sh
 ```
 
-Pass one `test*.py` filename or unittest discovery pattern to run a focused
-subset. The wrapper resolves its own repository paths and always delegates
+Pass one `test*` filename or `test*` discovery pattern to run a focused
+subset; selectors must begin with `test` and must not contain `/`. The wrapper
+resolves its own repository paths and always delegates
 interpreter selection, pinned dependency validation, and native temporary-root
 setup to `surface_preview_launcher.sh`; it never falls back to bare
 `python3`. The launcher remains the entrypoint for publishers and other Python

@@ -188,10 +188,23 @@ def _metrics(value: dict[str, Any]) -> MetricsEvidence:
     )
 
 
-def _profile(profile: dict[str, Any]) -> StructuralProfileEvidence:
+def _profile(profile: dict[str, Any], validator_module: ModuleType) -> StructuralProfileEvidence:
     profile_id = profile["id"]
     artifacts = {item["path"]: item for item in profile["artifacts"]}
-    prefix = f"{profile_id}/"
+    profile_artifacts = tuple(
+        _artifact(artifacts[f"{profile_id}/{name}"])
+        for name in validator_module.PROFILE_ARTIFACT_NAMES
+    )
+    (
+        neutral_mesh,
+        posed_mesh,
+        skeleton,
+        weights,
+        neutral_proxies,
+        posed_proxies,
+        _metrics_artifact,
+        _gallery_artifact,
+    ) = profile_artifacts
     identity_source = profile["source"]
     identity = ProfileIdentityEvidence(
         source_document=identity_source["document"],
@@ -215,12 +228,12 @@ def _profile(profile: dict[str, Any]) -> StructuralProfileEvidence:
         profile_id=profile_id,
         label=profile["label"],
         identity=identity,
-        neutral_mesh=_artifact(artifacts[f"{prefix}neutral.ply"]),
-        posed_mesh=_artifact(artifacts[f"{prefix}posed.ply"]),
-        skeleton=_artifact(artifacts[f"{prefix}skeleton.json"]),
-        weights=_artifact(artifacts[f"{prefix}weights.json"]),
-        neutral_proxies=_artifact(artifacts[f"{prefix}proxies-neutral.json"]),
-        posed_proxies=_artifact(artifacts[f"{prefix}proxies-posed.json"]),
+        neutral_mesh=neutral_mesh,
+        posed_mesh=posed_mesh,
+        skeleton=skeleton,
+        weights=weights,
+        neutral_proxies=neutral_proxies,
+        posed_proxies=posed_proxies,
         metrics=_metrics(profile["metrics"]),
     )
 
@@ -248,7 +261,10 @@ def project_structural_gallery_evidence(gallery: Path) -> StructuralGalleryEvide
         lineage=_lineage(manifest["lineage"]),
         boundary=manifest["boundary"],
         global_world_bound=_bounds(manifest["global_world_bound"]),
-        profiles=tuple(_profile(profiles_by_id[profile_id]) for profile_id in manifest["profile_ids"]),
+        profiles=tuple(
+            _profile(profiles_by_id[profile_id], validator_module)
+            for profile_id in manifest["profile_ids"]
+        ),
     )
 
 

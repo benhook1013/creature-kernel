@@ -283,17 +283,19 @@ func _validate_structural_records(profile_id: String, neutral: Dictionary, metri
 	if int(metrics.get("proxy_count", -1)) <= 0 or int(metrics.get("proxy_count", -1)) > MAX_PROXIES:
 		_failure = "%s metrics proxy count is invalid" % profile_id
 		return false
-	if not skeleton.has("profile_id") or skeleton.profile_id != profile_id or not skeleton.has("neutral") or not skeleton.has("posed"):
-		_failure = "%s skeleton lineage is invalid" % profile_id
+	var neutral_state = skeleton.get("neutral", null)
+	var posed_state = skeleton.get("posed", null)
+	if not skeleton.has("profile_id") or skeleton.profile_id != profile_id or not skeleton.has("neutral") or not skeleton.has("posed") or typeof(neutral_state) != TYPE_DICTIONARY or typeof(posed_state) != TYPE_DICTIONARY:
+		_failure = "%s skeleton lineage or state records are invalid" % profile_id
 		return false
-	if typeof(skeleton.neutral.get("bones", null)) != TYPE_ARRAY or typeof(skeleton.posed.get("bones", null)) != TYPE_ARRAY:
+	if typeof(neutral_state.get("bones", null)) != TYPE_ARRAY or typeof(posed_state.get("bones", null)) != TYPE_ARRAY:
 		_failure = "%s skeleton bones are invalid" % profile_id
 		return false
-	if skeleton.neutral.bones.size() != int(metrics.bone_count) or skeleton.posed.bones.size() != int(metrics.bone_count):
+	if neutral_state.bones.size() != int(metrics.bone_count) or posed_state.bones.size() != int(metrics.bone_count):
 		_failure = "%s skeleton bone count is invalid" % profile_id
 		return false
 	var bone_ids := {}
-	for bone in skeleton.neutral.bones:
+	for bone in neutral_state.bones:
 		if typeof(bone) != TYPE_DICTIONARY or not bone.has("id") or bone_ids.has(bone.id):
 			_failure = "%s skeleton bone IDs are invalid" % profile_id
 			return false

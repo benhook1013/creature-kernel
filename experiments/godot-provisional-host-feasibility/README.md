@@ -124,7 +124,7 @@ Run the focused automated tests from the repository root:
 
 The launcher tests create disposable fake executables and launcher copies in a
 temporary directory; they never alter the production digest. The neutral
-22-test suite covers fixture-independent selection, rejection, diagnostics,
+23-test suite covers fixture-independent selection, rejection, diagnostics,
 safe publication, and postflight behavior. The posed 14-test suite additionally
 covers all six projected artifacts, independent posed vertex/normal/proxy
 recomputation, deterministic repeated reports, and direct-mutation rejection.

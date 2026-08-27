@@ -165,25 +165,46 @@ class StructuralGalleryEvidenceProbeTests(unittest.TestCase):
         self.assertIs(first[1].__globals__, second[1].__globals__)
         self.assertIs(first[2], second[2])
 
-    def test_projection_uses_pose_filename_from_returned_module_after_global_cache_changes(self) -> None:
+    def test_projection_uses_returned_validator_artifact_names_after_global_cache_changes(self) -> None:
         manifest, profiles_by_id, manifest_sha256, manifest_bytes = publisher.validate_structural_embodiment_gallery(self.gallery)
         renamed_pose_file = "renamed-shared-pose.json"
         mutable_global_pose_file = "mutable-global-pose.json"
         manifest = json.loads(json.dumps(manifest))
+        profiles_by_id = json.loads(json.dumps(profiles_by_id))
+        validator_owned_names = (
+            "validator-neutral.bin",
+            "validator-posed.bin",
+            "validator-skeleton.bin",
+            "validator-weights.bin",
+            "validator-proxies-neutral.bin",
+            "validator-proxies-posed.bin",
+            "validator-metrics.bin",
+            "validator-gallery.bin",
+        )
         for artifact in manifest["artifacts"]:
             if artifact["path"] == publisher.POSE_FILE:
                 artifact["path"] = renamed_pose_file
                 break
         else:
             self.fail("fixture gallery does not contain the publisher pose artifact")
+        for profile in profiles_by_id.values():
+            profile_id = profile["id"]
+            profile["artifacts"] = [
+                {**artifact, "path": f"{profile_id}/{name}"}
+                for artifact, name in zip(profile["artifacts"], validator_owned_names)
+            ]
 
         def return_manifest(_: Path):
             return manifest, profiles_by_id, manifest_sha256, manifest_bytes
 
         returned_module = ModuleType("returned_validator")
         returned_module.POSE_FILE = renamed_pose_file
+        returned_module.PROFILE_ARTIFACT_NAMES = validator_owned_names
         mutable_global_module = ModuleType("mutable_global_validator")
         mutable_global_module.POSE_FILE = mutable_global_pose_file
+        mutable_global_module.PROFILE_ARTIFACT_NAMES = tuple(
+            f"wrong-{index}.bin" for index in range(len(validator_owned_names))
+        )
 
         def load_validator_with_mutated_global():
             probe._VALIDATOR_MODULE = mutable_global_module
@@ -196,6 +217,18 @@ class StructuralGalleryEvidenceProbeTests(unittest.TestCase):
         self.assertIsNotNone(view)
         assert view is not None
         self.assertEqual(view.pose_artifact.path, renamed_pose_file)
+        profile = view.profiles[0]
+        self.assertEqual(
+            (
+                profile.neutral_mesh.path,
+                profile.posed_mesh.path,
+                profile.skeleton.path,
+                profile.weights.path,
+                profile.neutral_proxies.path,
+                profile.posed_proxies.path,
+            ),
+            tuple(f"{profile.profile_id}/{name}" for name in validator_owned_names[:6]),
+        )
 
     def test_validator_loader_works_in_clean_isolated_process(self) -> None:
         probe_path = json.dumps(str(EXPERIMENT / "structural_gallery_evidence_probe.py"))

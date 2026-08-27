@@ -73,7 +73,7 @@ findings. Independent triage identified three correctness-significant issues,
 multiple bounded robustness improvements, one disproportionate shared-helper
 refactor to reject, and one missed neutral counterpart to host-report evidence
 mutation. The current local candidate addresses those findings plus the
-requested tooling/instruction cleanup. Its final local rerun passed 42 Godot
+requested tooling/instruction cleanup. Its final local rerun passed 43 Godot
 Python tests through the canonical pinned-environment wrapper, the shell
 launcher checks, 11 focused evidence-probe tests, five current-form wrapper
 tests, seven whitespace-tool tests, documentation validation, and
