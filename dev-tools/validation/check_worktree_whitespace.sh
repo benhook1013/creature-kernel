@@ -26,6 +26,14 @@ run_index_check() {
 run_index_check 'tracked unstaged changes' git -C "$repo_root" diff --check --
 run_index_check 'staged changes' git -C "$repo_root" diff --cached --check --
 
+untracked_list=
+diagnostic_file=
+cleanup() {
+    [[ -z "$untracked_list" ]] || rm -f -- "$untracked_list"
+    [[ -z "$diagnostic_file" ]] || rm -f -- "$diagnostic_file"
+}
+trap cleanup EXIT
+
 untracked_list=$(mktemp)
 list_status=0
 git -C "$repo_root" ls-files --others --exclude-standard -z >"$untracked_list" || list_status=$?
@@ -35,10 +43,6 @@ if (( list_status != 0 )); then
 fi
 
 diagnostic_file=$(mktemp)
-cleanup() {
-    rm -f -- "$untracked_list" "$diagnostic_file"
-}
-trap cleanup EXIT
 
 while IFS= read -r -d '' path; do
     : >"$diagnostic_file"

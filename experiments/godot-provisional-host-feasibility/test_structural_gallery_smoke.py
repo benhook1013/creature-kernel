@@ -76,7 +76,7 @@ def _neutral_validation_fixture() -> tuple[dict, dict]:
                 "candidate_profile_sha256": candidate_hash,
                 "metrics": actual_metrics,
                 "counts": actual_counts,
-                "mesh_aabb": metrics["neutral_bounds"],
+                "mesh_aabb": deepcopy(metrics["neutral_bounds"]),
                 "proxy_aabb": {"min": [0.0, 0.0, 0.0], "max": [1.0, 1.0, 1.0]},
                 "profile_translation": list(smoke.EXPECTED_TRANSLATIONS[index]),
                 "proxy_segments": {
@@ -326,6 +326,9 @@ class StructuralGallerySmokePreflightTests(unittest.TestCase):
         self.assertEqual(report["profiles"][0]["counts"]["host_observation"], "preserved")
 
     def test_translated_aabbs_are_required_and_derived_from_base_bounds(self) -> None:
+        payload, report = _neutral_validation_fixture()
+        report["profiles"][0]["mesh_aabb"]["max"][0] += 1.0
+        self.assertEqual(payload["profiles"][0]["metrics"]["neutral_bounds"]["max"][0], 1.0)
         for field in ("translated_mesh_aabb", "translated_proxy_aabb"):
             with self.subTest(field=field, case="missing"):
                 payload, report = _neutral_validation_fixture()

@@ -87,7 +87,10 @@ A final committed-diff CodeRabbit CLI pass produced eight bounded validation
 and test-harness findings, all addressed by the current local follow-up. Fresh
 independent review of that follow-up produced three bounded correctness
 findings; all are addressed and the resulting 51-test suite passed. Commit,
-push, and current-head CI remain pending. PR #116 remains one coherent coarse
+push, and current-head CI remain pending. A final taper CLI pass on `5541b70`
+produced three mechanical fixture/helper/cleanup findings; all are addressed,
+and focused reruns covered all 51 Godot tests plus the seven whitespace-tool
+tests. The CodeRabbit cycle stops there. PR #116 remains one coherent coarse
 structural-evidence-to-provisional-Godot milestone; those pending gates must not
 be read as passed. This snapshot makes no
 Skeleton3D/Skin runtime binding, animation, semantic pose injection, physics

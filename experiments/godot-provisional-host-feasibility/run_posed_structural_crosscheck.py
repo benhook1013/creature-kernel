@@ -12,7 +12,6 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
-import math
 from pathlib import Path
 import sys
 from typing import Any
@@ -59,6 +58,7 @@ REPORT_FLAGS = {
     "adapter": False,
 }
 TOLERANCE = 2.0e-5
+_finite_bounds = neutral_smoke._finite_bounds
 
 
 def _expected_gallery_identity(payload: dict[str, Any]) -> dict[str, Any]:
@@ -74,17 +74,6 @@ def _expected_gallery_identity(payload: dict[str, Any]) -> dict[str, Any]:
 
 def _expected_artifact_identities(payload: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
     return {profile["profile_id"]: profile["artifacts"] for profile in payload["profiles"]}
-
-
-def _finite_bounds(value: Any) -> bool:
-    if not isinstance(value, dict) or set(value) != {"min", "max"}:
-        return False
-    return all(
-        isinstance(vector, list)
-        and len(vector) == 3
-        and all(isinstance(axis, (int, float)) and not isinstance(axis, bool) and math.isfinite(axis) for axis in vector)
-        for vector in value.values()
-    )
 
 
 def _validate_report(report: Any, payload: dict[str, Any], profile_ids: tuple[str, str]) -> None:
