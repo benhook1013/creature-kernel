@@ -23,11 +23,13 @@ EXPERIMENT_ROOT = Path(__file__).resolve().parent
 NEUTRAL_RUNNER_PATH = EXPERIMENT_ROOT / "run_structural_gallery_smoke.py"
 CARRIER_MODULE_PATH = EXPERIMENT_ROOT / "disposable_avatar_carrier.py"
 COMMAND_MODULE_PATH = EXPERIMENT_ROOT / "disposable_semantic_pose_command.py"
+CONTACT_COMMAND_MODULE_PATH = EXPERIMENT_ROOT / "disposable_semantic_contact_command.py"
 PROJECTION_MODULE_PATH = EXPERIMENT_ROOT / "disposable_ck_projection.py"
 GODOT_SCRIPT = EXPERIMENT_ROOT / "skeletal_pose_smoke.gd"
 VISIBLE_GODOT_OPT_IN = "CK_ALLOW_VISIBLE_GODOT"
 _CARRIER_MODULE: Any | None = None
 _COMMAND_MODULE: Any | None = None
+_CONTACT_COMMAND_MODULE: Any | None = None
 _PROJECTION_MODULE: Any | None = None
 
 
@@ -79,6 +81,25 @@ def _load_command_module():
     return _COMMAND_MODULE
 
 
+def _load_contact_command_module():
+    """Load the sibling contact-command module only for contact mode."""
+    global _CONTACT_COMMAND_MODULE
+    if _CONTACT_COMMAND_MODULE is not None:
+        return _CONTACT_COMMAND_MODULE
+    sys.dont_write_bytecode = True
+    spec = importlib.util.spec_from_file_location(
+        "disposable_semantic_contact_command_for_skeletal_pose",
+        CONTACT_COMMAND_MODULE_PATH,
+    )
+    if spec is None or spec.loader is None:
+        raise ImportError(f"could not load disposable semantic contact command: {CONTACT_COMMAND_MODULE_PATH}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    _CONTACT_COMMAND_MODULE = module
+    return _CONTACT_COMMAND_MODULE
+
+
 def _load_projection_module():
     global _PROJECTION_MODULE
     if _PROJECTION_MODULE is not None:
@@ -116,10 +137,12 @@ NORMAL_TOLERANCE = 3.0e-4
 SEMANTIC_POSE_QUATERNION_TOLERANCE = 5.0e-7
 REPORT_SCHEMA = "creature-kernel.disposable-godot-skeletal-pose-smoke.v1"
 REPORT_BOUNDARY = "host_local_skeleton3d_skin_pose_binding"
+CONTACT_REPORT_BOUNDARY = "experiment_local_semantic_contact_and_physical_response"
 REPORT_CLAIMS = [
     "host-local Skeleton3D/Skin pose binding",
     "host-local consumption of the shared structural pose recipe",
 ]
+CONTACT_REPORT_CLAIMS = REPORT_CLAIMS + ["experiment-local semantic proxy contact and rigid-body response"]
 REPORT_FLAGS = {
     "physics_stepping": False,
     "animation": False,
@@ -127,6 +150,95 @@ REPORT_FLAGS = {
     "deformation": False,
     "render_output": False,
     "adapter": False,
+}
+CONTACT_REPORT_FLAGS = {
+    "physics_stepping": True,
+    "animation": False,
+    "contact": True,
+    "deformation": False,
+    "render_output": False,
+    "adapter": False,
+}
+CONTACT_COMMAND_SCHEMA = "creature-kernel.disposable-semantic-contact-command.v1"
+CONTACT_COMMAND_BOUNDARY = "experiment_local_contact_command_evidence_only_no_adapter_or_runtime_conformance"
+CONTACT_COMMAND_ID = "probe-single-semantic-contact"
+CONTACT_COMMAND_VERSION = 1
+CONTACT_MAPPING_REVISION = "joint-selector-to-posed-proxy-v1"
+CONTACT_PARTICIPANTS = [
+    {"role": "actuator", "target_index": 0, "selector": {"kind": "joint", "role": "wrist", "anchors": ["right"]}},
+    {"role": "response", "target_index": 1, "selector": {"kind": "joint", "role": "wrist", "anchors": ["left"]}},
+]
+CONTACT_INTERACTION = {
+    "kind": "single-proxy-press-release",
+    "phase_order": ["approach", "contact", "release", "exit"],
+}
+CONTACT_PHASE_ORDER = CONTACT_INTERACTION["phase_order"]
+CONTACT_PHASE_TICKS = (24, 8, 24, 8)
+CONTACT_TOTAL_TICKS = sum(CONTACT_PHASE_TICKS)
+# These are the frozen zero-based posed-proxy child indices in the structural
+# gallery. They are report expectations, never command fields or host inputs.
+CONTACT_SHAPE_INDICES = (15, 9)
+CONTACT_BONE_IDS = ("bone-joint-65d9caed4027b153", "bone-joint-6a2cae71d693ac50")
+CONTACT_OWNED_PARTS = (
+    {"anchors": ["right"], "kind": "part", "namespace": "main", "role": "hand"},
+    {"anchors": ["left"], "kind": "part", "namespace": "main", "role": "hand"},
+)
+CONTACT_MAX_TICKS = 256
+CONTACT_MIN_SOLVER_IMPULSE = 1.0e-5
+CONTACT_MIN_NORMAL_VELOCITY_CHANGE = 1.0e-5
+CONTACT_MIN_RESPONSE_DISPLACEMENT = 1.0e-5
+CONTACT_SOURCE_JOINTS = (
+    {"anchors": ["right"], "kind": "joint", "namespace": "main", "role": "wrist"},
+    {"anchors": ["left"], "kind": "joint", "namespace": "main", "role": "wrist"},
+)
+CONTACT_RUNTIME_SHAPE_INDICES = (0, 0)
+CONTACT_PROXY_PARTITION_RULE = "nearest eligible weighted bone, then ascending derived bone id"
+CONTACT_PROXY_RADIUS_RULE = "maximum point-to-segment distance over the bone's complete primary-influence partition"
+
+# The GDScript host emits exactly one nested contact object. These names are
+# intentionally not accepted as alternate report locations or field aliases.
+CONTACT_REPORT_ALIAS_KEYS = {
+    "semantic_contact_evidence",
+    "contact_evidence",
+    "semantic_contact_command",
+    "semantic_contact_probe",
+    "semantic_contact_command_identity",
+    "semantic_contact_targets",
+    "semantic_contact_source_pose_command",
+    "semantic_contact_mapping_revision",
+    "semantic_contact_participants",
+    "semantic_contact_interaction",
+    "semantic_contact_selector_mappings",
+    "semantic_contact_phase_order",
+    "semantic_contact_phase_ticks",
+    "semantic_contact_phase_tick_schedule",
+    "semantic_contact_max_ticks",
+    "semantic_contact_events",
+    "semantic_contact_contact_tick_evidence",
+    "semantic_contact_contact_samples",
+    "semantic_contact_floors",
+    "semantic_contact_physics_configuration",
+    "semantic_contact_solver_impulses",
+    "semantic_contact_solver_impulse",
+    "semantic_contact_response",
+    "semantic_contact_response_writes",
+    "semantic_contact_no_scripted_response_writes",
+}
+CONTACT_EVIDENCE_KEYS = {
+    "command_identity",
+    "targets",
+    "source_pose_command",
+    "mapping_revision",
+    "participants",
+    "interaction",
+    "selector_mappings",
+    "phase_order",
+    "phase_ticks",
+    "max_ticks",
+    "contact_tick_evidence",
+    "physics_configuration",
+    "solver_impulses",
+    "response",
 }
 
 
@@ -299,6 +411,91 @@ def _validated_semantic_pose_command(
     if tuple(target["instance_id"] for target in command["targets"]) != instance_ids or tuple(target["profile_id"] for target in command["targets"]) != profile_ids:
         raise SmokeError("semantic pose command target order is inconsistent with the validated carrier")
     return command_module, command, command_identity, semantic_payload
+
+
+def _exact_json_equal(left: Any, right: Any) -> bool:
+    """Compare JSON-shaped values without Python's bool/int equivalence."""
+    if type(left) is not type(right):
+        return False
+    if isinstance(left, dict):
+        return set(left) == set(right) and all(_exact_json_equal(left[key], right[key]) for key in left)
+    if isinstance(left, list):
+        return len(left) == len(right) and all(_exact_json_equal(a, b) for a, b in zip(left, right))
+    return left == right
+
+
+def _validate_contact_command_contract(
+    contact_command: Any,
+    carrier: dict[str, Any],
+    pose_command_identity: dict[str, Any],
+) -> None:
+    """Enforce the fixed experiment-only contact command contract locally."""
+    if not isinstance(contact_command, dict):
+        raise SmokeError("disposable semantic contact command is not a JSON object")
+    expected_keys = {
+        "schema",
+        "boundary",
+        "command_id",
+        "command_version",
+        "mapping_revision",
+        "targets",
+        "source_pose_command",
+        "participants",
+        "interaction",
+    }
+    if set(contact_command) != expected_keys:
+        raise SmokeError("semantic contact command has unexpected or missing fields")
+    if (
+        contact_command["schema"] != CONTACT_COMMAND_SCHEMA
+        or contact_command["boundary"] != CONTACT_COMMAND_BOUNDARY
+        or contact_command["command_id"] != CONTACT_COMMAND_ID
+        or type(contact_command["command_version"]) is not int
+        or contact_command["command_version"] != CONTACT_COMMAND_VERSION
+        or contact_command["mapping_revision"] != CONTACT_MAPPING_REVISION
+    ):
+        raise SmokeError("semantic contact command schema, boundary, or identity is invalid")
+    expected_targets = _carrier_avatar_records(carrier)
+    if not _exact_json_equal(contact_command["targets"], expected_targets):
+        raise SmokeError("semantic contact command targets do not match the validated carrier")
+    if not _exact_json_equal(contact_command["source_pose_command"], pose_command_identity):
+        raise SmokeError("semantic contact command source pose identity does not match the semantic pose command")
+    if not _exact_json_equal(contact_command["participants"], CONTACT_PARTICIPANTS):
+        raise SmokeError("semantic contact command participants are not the exact ordered actuator/response pair")
+    if not _exact_json_equal(contact_command["interaction"], CONTACT_INTERACTION):
+        raise SmokeError("semantic contact command interaction is not the fixed press-release sequence")
+
+
+def _validated_semantic_contact_command(
+    gallery: Path,
+    carrier_path: Path,
+    carrier: dict[str, Any],
+    pose_command_path: Path,
+    pose_command: dict[str, Any],
+    pose_command_identity: dict[str, Any],
+    contact_command_path: Path,
+) -> tuple[Any, dict[str, Any], dict[str, Any]]:
+    """Load and freshly validate one contact command against all predecessors."""
+    contact_module = _load_contact_command_module()
+    try:
+        contact_command = contact_module.load_contact_command(contact_command_path)
+        contact_module.validate_contact_command(
+            contact_command,
+            gallery,
+            carrier_path,
+            pose_command_path,
+        )
+        _validate_contact_command_contract(contact_command, carrier, pose_command_identity)
+        contact_identity = contact_module.command_identity(contact_command)
+    except SmokeError:
+        raise
+    except Exception as exc:
+        contact_error = getattr(contact_module, "ContactCommandError", ValueError)
+        if isinstance(exc, contact_error):
+            raise SmokeError(f"disposable semantic contact command rejected: {exc}") from exc
+        raise SmokeError(f"disposable semantic contact command validation failed: {exc}") from exc
+    if not isinstance(contact_identity, dict):
+        raise SmokeError("disposable semantic contact command identity is invalid")
+    return contact_module, contact_command, contact_identity
 
 
 def _finite_number(value: Any) -> bool:
@@ -594,6 +791,558 @@ def _command_selector(rule: dict[str, Any]) -> str:
     return f"{rule['kind']}|{role}|{','.join(rule['anchors'])}"
 
 
+def _contact_vector(value: Any, where: str) -> list[float]:
+    if not isinstance(value, list) or len(value) != 3 or any(not _finite_number(item) for item in value):
+        raise SmokeError(f"{where} must be a finite three-vector")
+    return [float(item) for item in value]
+
+
+def _contact_scalar(value: Any, where: str) -> float:
+    if not _finite_number(value):
+        raise SmokeError(f"{where} must be a finite number")
+    return float(value)
+
+
+def _contact_snapshot_position(value: Any, where: str) -> list[float]:
+    if not isinstance(value, list) or len(value) != 16 or any(not _finite_number(item) for item in value):
+        raise SmokeError(f"{where} is not finite runtime transform evidence")
+    homogeneous_row = [float(item) for item in value[12:16]]
+    if homogeneous_row != [0.0, 0.0, 0.0, 1.0]:
+        raise SmokeError(f"{where} is not a homogeneous runtime transform")
+    return [float(value[3]), float(value[7]), float(value[11])]
+
+
+def _validate_contact_snapshot(value: Any, label: str, where: str) -> dict[str, Any]:
+    required = {"label", "tick", "transform", "position", "linear_velocity", "angular_velocity"}
+    if not isinstance(value, dict) or set(value) != required:
+        raise SmokeError(f"{where} is incomplete or aliased")
+    if value["label"] != label:
+        raise SmokeError(f"{where} label is invalid")
+    if type(value["tick"]) is not int or value["tick"] < 0 or value["tick"] > CONTACT_TOTAL_TICKS:
+        raise SmokeError(f"{where} tick is invalid")
+    transform_position = _contact_snapshot_position(value["transform"], f"{where}.transform")
+    position = _contact_vector(value["position"], f"{where}.position")
+    if any(abs(transform - reported) > TOLERANCE for transform, reported in zip(transform_position, position)):
+        raise SmokeError(f"{where} transform and position disagree")
+    return {
+        "tick": value["tick"],
+        "position": position,
+        "linear_velocity": _contact_vector(value["linear_velocity"], f"{where}.linear_velocity"),
+        "angular_velocity": _contact_vector(value["angular_velocity"], f"{where}.angular_velocity"),
+    }
+
+
+def _contact_compare_scalar(reported: Any, expected: float, where: str) -> float:
+    value = _contact_scalar(reported, where)
+    if abs(value - expected) > TOLERANCE:
+        raise SmokeError(f"{where} does not match the emitted snapshots")
+    return value
+
+
+def _contact_evidence_from_report(report: dict[str, Any]) -> dict[str, Any]:
+    if "semantic_contact" not in report:
+        raise SmokeError("Godot report is missing semantic contact evidence")
+    if CONTACT_REPORT_ALIAS_KEYS.intersection(report):
+        raise SmokeError("Godot report contains unsupported semantic contact aliases")
+    evidence = report["semantic_contact"]
+    if not isinstance(evidence, dict):
+        raise SmokeError("Godot semantic contact evidence is not an object")
+    return evidence
+
+
+def _validate_contact_mapping(
+    evidence: dict[str, Any],
+    contact_command: dict[str, Any],
+) -> None:
+    participants = evidence["participants"]
+    if not isinstance(participants, list) or len(participants) != len(CONTACT_PARTICIPANTS):
+        raise SmokeError("semantic contact participant mapping is incomplete or aggregate-only")
+    mappings = evidence["selector_mappings"]
+    if not isinstance(mappings, list) or len(mappings) != len(CONTACT_PARTICIPANTS):
+        raise SmokeError("semantic contact selector-to-proxy mapping is incomplete or aggregate-only")
+    if not _exact_json_equal(contact_command["participants"], CONTACT_PARTICIPANTS):
+        raise SmokeError("semantic contact command participants are not the fixed ordered pair")
+
+    seen_selectors: set[str] = set()
+    seen_bones: set[str] = set()
+    seen_proxies: set[str] = set()
+    seen_shapes: set[tuple[int, int]] = set()
+    seen_owned: set[str] = set()
+    for index, expected in enumerate(CONTACT_PARTICIPANTS):
+        participant = participants[index]
+        if not isinstance(participant, dict) or set(participant) != {
+            "role",
+            "target_index",
+            "target",
+            "selector",
+            "source_joint",
+            "source_bone_id",
+            "source_proxy_index",
+            "posed_proxy",
+            "runtime_shape_index",
+        }:
+            raise SmokeError(f"semantic contact participant {index} is incomplete or aliased")
+        if (
+            type(participant.get("target_index")) is not int
+            or participant.get("target_index") != expected["target_index"]
+            or participant.get("role") != expected["role"]
+            or not _exact_json_equal(participant.get("selector"), expected["selector"])
+            or not _exact_json_equal(participant.get("target"), contact_command["targets"][index])
+            or not _exact_json_equal(participant.get("source_joint"), CONTACT_SOURCE_JOINTS[index])
+            or participant.get("source_bone_id") != CONTACT_BONE_IDS[index]
+            or type(participant.get("source_bone_id")) is not str
+            or type(participant.get("source_proxy_index")) is not int
+            or participant.get("source_proxy_index") != CONTACT_SHAPE_INDICES[index]
+            or type(participant.get("runtime_shape_index")) is not int
+            or participant.get("runtime_shape_index") != CONTACT_RUNTIME_SHAPE_INDICES[index]
+        ):
+            raise SmokeError("semantic contact participant roles, selectors, or order are invalid")
+        selector_key = json.dumps(expected["selector"], sort_keys=True, separators=(",", ":"))
+        if selector_key in seen_selectors:
+            raise SmokeError("semantic contact selector mapping contains a duplicate selector")
+        seen_selectors.add(selector_key)
+
+        posed_proxy = participant["posed_proxy"]
+        if not isinstance(posed_proxy, dict) or set(posed_proxy) != {
+            "a",
+            "b",
+            "bone_id",
+            "kind",
+            "owned_part",
+            "partition_rule",
+            "partition_vertex_count",
+            "radius",
+            "radius_rule",
+        }:
+            raise SmokeError("semantic contact posed-proxy lineage is incomplete or aliased")
+        if (
+            posed_proxy["kind"] != "capsule"
+            or posed_proxy["bone_id"] != CONTACT_BONE_IDS[index]
+            or not _exact_json_equal(posed_proxy["owned_part"], CONTACT_OWNED_PARTS[index])
+            or posed_proxy["partition_rule"] != CONTACT_PROXY_PARTITION_RULE
+            or type(posed_proxy["partition_vertex_count"]) is not int
+            or posed_proxy["partition_vertex_count"] <= 0
+            or posed_proxy["radius_rule"] != CONTACT_PROXY_RADIUS_RULE
+        ):
+            raise SmokeError("semantic contact posed-proxy lineage is not exact")
+        _contact_vector(posed_proxy["a"], f"semantic contact mapping {index}.posed_proxy.a")
+        _contact_vector(posed_proxy["b"], f"semantic contact mapping {index}.posed_proxy.b")
+        radius = _contact_scalar(posed_proxy["radius"], f"semantic contact mapping {index}.posed_proxy.radius")
+        if radius <= 0.0:
+            raise SmokeError("semantic contact posed-proxy radius is not positive")
+
+        mapping_value = mappings[index]
+        mapping = mapping_value
+        if not isinstance(mapping, dict) or set(mapping) != {
+            "role",
+            "target_index",
+            "selector",
+            "bone_id",
+            "proxy_id",
+            "owned_part",
+            "shape_index",
+            "runtime_shape_index",
+        }:
+            raise SmokeError(f"semantic contact selector mapping {index} is incomplete or aliased")
+        if (
+            type(mapping.get("target_index")) is not int
+            or mapping.get("target_index") != expected["target_index"]
+            or mapping.get("role") != expected["role"]
+            or not _exact_json_equal(mapping.get("selector"), expected["selector"])
+            or mapping.get("bone_id") != participant["source_bone_id"]
+            or mapping.get("proxy_id") != participant["source_bone_id"]
+            or not _exact_json_equal(mapping.get("owned_part"), posed_proxy["owned_part"])
+            or mapping.get("shape_index") != participant["source_proxy_index"]
+            or mapping.get("runtime_shape_index") != participant["runtime_shape_index"]
+        ):
+            raise SmokeError("semantic contact selector mappings are missing, reordered, or swapped")
+        bone_id = mapping["bone_id"]
+        proxy_id = mapping["proxy_id"]
+        owned_part = mapping["owned_part"]
+        shape_index = mapping["shape_index"]
+        runtime_shape_index = mapping["runtime_shape_index"]
+        if type(bone_id) is not str or type(proxy_id) is not str:
+            raise SmokeError("semantic contact selector-to-bone mapping is not exact")
+        if bone_id != CONTACT_BONE_IDS[index] or proxy_id != CONTACT_BONE_IDS[index]:
+            raise SmokeError("semantic contact selector-to-proxy mapping is not exact")
+        if not _exact_json_equal(owned_part, CONTACT_OWNED_PARTS[index]):
+            raise SmokeError("semantic contact owned_part mapping is not exact")
+        if type(shape_index) is not int or shape_index != CONTACT_SHAPE_INDICES[index]:
+            raise SmokeError("semantic contact actuator/response shape indices are invalid")
+        if type(runtime_shape_index) is not int or runtime_shape_index != CONTACT_RUNTIME_SHAPE_INDICES[index]:
+            raise SmokeError("semantic contact runtime shape indices are invalid")
+        shape_key = (expected["target_index"], shape_index)
+        owned_key = json.dumps(owned_part, sort_keys=True, separators=(",", ":"))
+        if (
+            bone_id in seen_bones
+            or proxy_id in seen_proxies
+            or shape_key in seen_shapes
+            or owned_key in seen_owned
+        ):
+            raise SmokeError("semantic contact selector mapping contains duplicate runtime evidence")
+        seen_bones.add(bone_id)
+        seen_proxies.add(proxy_id)
+        seen_shapes.add(shape_key)
+        seen_owned.add(owned_key)
+
+
+def _validate_contact_ticks(evidence: dict[str, Any]) -> dict[int, dict[str, Any]]:
+    phase_order = evidence["phase_order"]
+    if not _exact_json_equal(phase_order, CONTACT_PHASE_ORDER):
+        raise SmokeError("semantic contact phase order is missing, reordered, or invalid")
+    max_ticks = evidence["max_ticks"]
+    if type(max_ticks) is not int or max_ticks != CONTACT_MAX_TICKS:
+        raise SmokeError("semantic contact tick bound is not the declared bounded budget")
+    phase_ticks = evidence["phase_ticks"]
+    expected_start = 1
+    values = []
+    if not isinstance(phase_ticks, list) or len(phase_ticks) != len(CONTACT_PHASE_ORDER):
+        raise SmokeError("semantic contact phase tick schedule is incomplete or reordered")
+    for index, (record, phase, expected_ticks) in enumerate(zip(phase_ticks, CONTACT_PHASE_ORDER, CONTACT_PHASE_TICKS)):
+        expected_end = expected_start + expected_ticks - 1
+        if (
+            not isinstance(record, dict)
+            or set(record) != {"phase", "ticks", "start_tick", "end_tick"}
+            or record["phase"] != phase
+            or type(record["ticks"]) is not int
+            or record["ticks"] != expected_ticks
+            or type(record["start_tick"]) is not int
+            or record["start_tick"] != expected_start
+            or type(record["end_tick"]) is not int
+            or record["end_tick"] != expected_end
+        ):
+            raise SmokeError(f"semantic contact phase tick schedule {index} is missing, reordered, or invalid")
+        values.append(record["ticks"])
+        expected_start = expected_end + 1
+    if any(type(value) is not int or value <= 0 or value > CONTACT_MAX_TICKS for value in values):
+        raise SmokeError("semantic contact phase ticks are outside the bounded range")
+    if sum(values) > max_ticks:
+        raise SmokeError("semantic contact phase ticks exceed the declared bound")
+
+    tick_evidence = evidence["contact_tick_evidence"]
+    if not isinstance(tick_evidence, list) or len(tick_evidence) != CONTACT_TOTAL_TICKS + 1:
+        raise SmokeError("semantic contact tick evidence is incomplete or aggregate-only")
+    trace_by_tick: dict[int, dict[str, Any]] = {}
+    enter_ticks: list[int] = []
+    contact_ticks: list[int] = []
+    exit_ticks: list[int] = []
+    previous_count = 0
+    for expected_tick, record in enumerate(tick_evidence):
+        if not isinstance(record, dict) or set(record) != {"tick", "phase", "contact_count"}:
+            raise SmokeError("semantic contact tick evidence is malformed")
+        if type(record["tick"]) is not int or record["tick"] != expected_tick:
+            raise SmokeError("semantic contact tick evidence is missing, duplicated, or reordered")
+        trace_by_tick[expected_tick] = record
+        count = record["contact_count"]
+        if type(count) is not int or count < 0:
+            raise SmokeError("semantic contact tick contact count is invalid")
+        if expected_tick == 0:
+            if record["phase"] != "setup" or count != 0:
+                raise SmokeError("semantic contact setup tick evidence is invalid")
+        else:
+            phase_index = next(
+                (
+                    index
+                    for index in range(len(CONTACT_PHASE_TICKS))
+                    if expected_tick <= sum(CONTACT_PHASE_TICKS[: index + 1])
+                ),
+                -1,
+            )
+            if phase_index < 0 or record["phase"] != CONTACT_PHASE_ORDER[phase_index]:
+                raise SmokeError("semantic contact tick evidence phase order is invalid")
+            if previous_count == 0 and count > 0:
+                enter_ticks.append(expected_tick)
+            if record["phase"] == "contact" and count > 0:
+                contact_ticks.append(expected_tick)
+            if previous_count > 0 and count == 0:
+                exit_ticks.append(expected_tick)
+        previous_count = count
+    if tick_evidence[-1]["phase"] != "exit" or tick_evidence[-1]["contact_count"] != 0:
+        raise SmokeError("semantic contact final exit tick is not contact-free")
+    if not any(
+        enter_tick <= contact_tick < exit_tick
+        for enter_tick in enter_ticks
+        for contact_tick in contact_ticks
+        for exit_tick in exit_ticks
+    ):
+        raise SmokeError("semantic contact enter/contact/exit phases are not proven by the tick trace")
+    return trace_by_tick
+
+
+def _validate_contact_impulses(
+    evidence: dict[str, Any],
+    trace_by_tick: dict[int, dict[str, Any]],
+) -> dict[str, Any]:
+    def validate_samples(samples: Any, where: str) -> tuple[dict[str, Any], float]:
+        if not isinstance(samples, list) or not samples:
+            raise SmokeError(f"{where} are missing or aggregate-only")
+        collider_ids: set[int] = set()
+        sample_keys: set[tuple[int, int]] = set()
+        previous_key: tuple[int, int] | None = None
+        saw_nonzero = False
+        strongest_sample: dict[str, Any] | None = None
+        strongest_impulse = 0.0
+        required = {
+            "contact_index",
+            "collider_id",
+            "collider_object_id",
+            "collider_shape_index",
+            "local_shape_index",
+            "point",
+            "normal",
+            "impulse",
+            "tick",
+            "phase",
+        }
+        for index, sample in enumerate(samples):
+            if not isinstance(sample, dict) or set(sample) != required:
+                raise SmokeError(f"{where} {index} is incomplete or echoed-only")
+            for key in (
+                "contact_index",
+                "collider_id",
+                "collider_object_id",
+                "collider_shape_index",
+                "local_shape_index",
+                "tick",
+            ):
+                if type(sample[key]) is not int:
+                    raise SmokeError(f"{where} {index}.{key} is invalid")
+            contact_index = sample["contact_index"]
+            tick = sample["tick"]
+            sample_key = (tick, contact_index)
+            trace = trace_by_tick.get(tick)
+            if (
+                tick < 0
+                or tick > CONTACT_TOTAL_TICKS
+                or trace is None
+                or type(trace["contact_count"]) is not int
+                or trace["contact_count"] <= 0
+                or sample["phase"] != trace["phase"]
+                or contact_index < 0
+                or contact_index >= trace["contact_count"]
+                or sample["collider_id"] <= 0
+                or sample["collider_object_id"] <= 0
+            ):
+                raise SmokeError(f"{where} {index} identity is invalid")
+            if sample_key in sample_keys or (previous_key is not None and sample_key <= previous_key):
+                raise SmokeError(f"{where} is missing, duplicated, or reordered")
+            sample_keys.add(sample_key)
+            previous_key = sample_key
+            if trace["phase"] not in ("contact", "release"):
+                raise SmokeError(f"{where} {index} occurred outside contact/release")
+            if sample["collider_shape_index"] != CONTACT_RUNTIME_SHAPE_INDICES[0] or sample["local_shape_index"] != CONTACT_RUNTIME_SHAPE_INDICES[1]:
+                raise SmokeError(f"{where} shape attribution is swapped or invalid")
+            _contact_vector(sample["point"], f"{where} {index}.point")
+            normal = _contact_vector(sample["normal"], f"{where} {index}.normal")
+            impulse_vector = _contact_vector(sample["impulse"], f"{where} {index}.impulse")
+            if math.sqrt(sum(value * value for value in normal)) <= 1.0e-12:
+                raise SmokeError(f"{where} {index} normal is zero")
+            impulse_length = math.sqrt(sum(value * value for value in impulse_vector))
+            if trace["phase"] == "contact" and impulse_length > 0.0:
+                saw_nonzero = True
+                if strongest_sample is None or impulse_length > strongest_impulse:
+                    strongest_sample = sample
+                    strongest_impulse = impulse_length
+            collider_ids.add(sample["collider_id"])
+            if sample["collider_object_id"] != sample["collider_id"]:
+                raise SmokeError(f"{where} collider identity is mismatched")
+        if len(collider_ids) != 1 or not saw_nonzero or strongest_sample is None:
+            raise SmokeError(f"{where} do not prove one selected-shape pair")
+        return strongest_sample, strongest_impulse
+
+    impulses = evidence["solver_impulses"]
+    if not isinstance(impulses, list) or len(impulses) != 1:
+        raise SmokeError("semantic contact solver impulse evidence is missing or aggregate-only")
+    record = impulses[0]
+    if not isinstance(record, dict) or set(record) != {
+        "runtime_derived",
+        "target_indices",
+        "shape_indices",
+        "impulse_magnitude",
+        "contact_samples",
+    }:
+        raise SmokeError("semantic contact solver impulse evidence is incomplete or aliased")
+    if (
+        type(record["runtime_derived"]) is not bool
+        or not record["runtime_derived"]
+        or not _exact_json_equal(record["target_indices"], [0, 1])
+        or not _exact_json_equal(record["shape_indices"], list(CONTACT_SHAPE_INDICES))
+    ):
+        raise SmokeError("semantic contact solver impulse is not attributed to the two selected shapes")
+    strongest_sample, strongest_impulse = validate_samples(record["contact_samples"], "semantic contact solver sample")
+    impulse = _contact_compare_scalar(record["impulse_magnitude"], strongest_impulse, "semantic contact solver impulse")
+    if impulse <= CONTACT_MIN_SOLVER_IMPULSE:
+        raise SmokeError("semantic contact solver impulse is zero or below the declared floor")
+    return strongest_sample
+
+
+def _validate_contact_response(
+    evidence: dict[str, Any],
+    strongest_sample: dict[str, Any],
+    trace_by_tick: dict[int, dict[str, Any]],
+) -> None:
+    response = evidence["response"]
+    if not isinstance(response, dict) or set(response) != {
+        "target_index",
+        "shape_index",
+        "normal",
+        "snapshots",
+        "normal_velocity_delta",
+        "normal_displacement",
+        "displacement",
+    }:
+        raise SmokeError("semantic contact response evidence is incomplete or aliased")
+    if type(response["target_index"]) is not int or response["target_index"] != 1:
+        raise SmokeError("semantic contact response body identity is invalid")
+    if type(response["shape_index"]) is not int or response["shape_index"] != CONTACT_SHAPE_INDICES[1]:
+        raise SmokeError("semantic contact response shape identity is invalid")
+
+    sample_normal = _contact_vector(strongest_sample["normal"], "semantic contact strongest sample normal")
+    sample_normal_length = math.sqrt(sum(value * value for value in sample_normal))
+    if not math.isfinite(sample_normal_length) or sample_normal_length <= 1.0e-12:
+        raise SmokeError("semantic contact strongest sample normal is zero or nonfinite")
+    expected_normal = [value / sample_normal_length for value in sample_normal]
+    normal = _contact_vector(response["normal"], "semantic contact normal")
+    if any(abs(reported - expected) > NORMAL_TOLERANCE for reported, expected in zip(normal, expected_normal)):
+        raise SmokeError("semantic contact normal does not match the strongest runtime sample")
+
+    snapshots = response["snapshots"]
+    if not isinstance(snapshots, dict) or set(snapshots) != {"initial", "contact", "final"}:
+        raise SmokeError("semantic contact response snapshots are incomplete or aliased")
+    initial = _validate_contact_snapshot(snapshots["initial"], "initial", "semantic contact response initial")
+    contact = _validate_contact_snapshot(snapshots["contact"], "contact", "semantic contact response contact")
+    final = _validate_contact_snapshot(snapshots["final"], "final", "semantic contact response final")
+
+    initial_trace = trace_by_tick.get(initial["tick"])
+    if initial["tick"] != 0 or initial_trace is None or initial_trace["phase"] != "setup" or initial_trace["contact_count"] != 0:
+        raise SmokeError("semantic contact initial snapshot does not match setup tick evidence")
+    contact_trace = trace_by_tick.get(contact["tick"])
+    if (
+        contact_trace is None
+        or contact["tick"] <= 0
+        or contact["tick"] != strongest_sample["tick"]
+        or contact_trace["phase"] != "contact"
+        or contact_trace["contact_count"] <= 0
+    ):
+        raise SmokeError("semantic contact contact snapshot does not match the strongest positive contact tick")
+    final_trace = trace_by_tick.get(final["tick"])
+    if (
+        final["tick"] != CONTACT_TOTAL_TICKS
+        or final_trace is None
+        or final_trace["phase"] != "exit"
+        or final_trace["contact_count"] != 0
+    ):
+        raise SmokeError("semantic contact final snapshot does not match the final exit tick evidence")
+
+    if math.sqrt(sum(value * value for value in initial["linear_velocity"])) > TOLERANCE:
+        raise SmokeError("semantic contact response did not begin at rest")
+    for label, snapshot in (("initial", initial), ("contact", contact), ("final", final)):
+        if math.sqrt(sum(value * value for value in snapshot["angular_velocity"])) > TOLERANCE:
+            raise SmokeError(f"semantic contact response {label} snapshot violates locked rotation")
+
+    initial_position = initial["position"]
+    final_position = final["position"]
+    displacement = [final - initial for final, initial in zip(final_position, initial_position)]
+    velocity_delta = [
+        contact - initial
+        for contact, initial in zip(contact["linear_velocity"], initial["linear_velocity"])
+    ]
+    expected_normal_velocity = abs(
+        sum(value * normal_component for value, normal_component in zip(velocity_delta, expected_normal))
+    )
+    expected_normal_displacement = abs(sum(value * normal_component for value, normal_component in zip(displacement, expected_normal)))
+    expected_displacement = math.sqrt(sum(value * value for value in displacement))
+    if not all(
+        math.isfinite(value)
+        for value in (expected_normal_velocity, expected_normal_displacement, expected_displacement)
+    ):
+        raise SmokeError("semantic contact response snapshots are non-finite")
+    if expected_normal_velocity <= CONTACT_MIN_NORMAL_VELOCITY_CHANGE:
+        raise SmokeError("semantic contact normal velocity change is below the declared floor")
+    if expected_normal_displacement <= CONTACT_MIN_RESPONSE_DISPLACEMENT:
+        raise SmokeError("semantic contact response displacement is below the declared floor")
+    if expected_displacement <= CONTACT_MIN_RESPONSE_DISPLACEMENT:
+        raise SmokeError("semantic contact response displacement is below the declared floor")
+    _contact_compare_scalar(
+        response["normal_velocity_delta"], expected_normal_velocity, "semantic contact normal velocity delta"
+    )
+    _contact_compare_scalar(
+        response["normal_displacement"], expected_normal_displacement, "semantic contact normal displacement"
+    )
+    _contact_compare_scalar(response["displacement"], expected_displacement, "semantic contact response displacement")
+
+
+def _validate_contact_physics(evidence: dict[str, Any]) -> None:
+    physics = evidence["physics_configuration"]
+    if not isinstance(physics, dict) or set(physics) != {
+        "physics_engine",
+        "actuator_body",
+        "actuator_sync_to_physics",
+        "response_body",
+        "response_mass",
+        "response_gravity_scale",
+        "response_can_sleep",
+        "response_rotation_locked",
+        "response_contact_monitor",
+        "response_max_contacts_reported",
+        "one_shape_per_contact_body",
+    }:
+        raise SmokeError("semantic contact physics configuration evidence is missing")
+    if (
+        physics["physics_engine"] != "Jolt Physics"
+        or physics["actuator_body"] != "AnimatableBody3D"
+        or physics["response_body"] != "RigidBody3D"
+    ):
+        raise SmokeError("semantic contact physics backend or body types are not exact")
+    exact_booleans = {
+        "actuator_sync_to_physics": True,
+        "response_can_sleep": False,
+        "response_rotation_locked": True,
+        "response_contact_monitor": True,
+        "one_shape_per_contact_body": True,
+    }
+    for key, expected in exact_booleans.items():
+        if type(physics.get(key)) is not bool or physics[key] is not expected:
+            raise SmokeError(f"semantic contact physics configuration {key} is not runtime-derived")
+    if type(physics["response_max_contacts_reported"]) is not int or physics["response_max_contacts_reported"] != 8:
+        raise SmokeError("semantic contact physics configuration contact capacity is not runtime-derived")
+    response_mass = _contact_scalar(physics["response_mass"], "semantic contact physics configuration response_mass")
+    response_gravity_scale = _contact_scalar(
+        physics["response_gravity_scale"], "semantic contact physics configuration response_gravity_scale"
+    )
+    if response_mass != 1.0 or response_gravity_scale != 0.0:
+        raise SmokeError("semantic contact physics mass or gravity configuration is not exact")
+
+
+def _validate_contact_report(
+    report: dict[str, Any],
+    contact_command: dict[str, Any],
+    contact_identity: dict[str, Any],
+) -> None:
+    evidence = _contact_evidence_from_report(report)
+    if set(evidence) != CONTACT_EVIDENCE_KEYS:
+        raise SmokeError("Godot semantic contact evidence has unexpected or missing fields")
+    if not _exact_json_equal(evidence["command_identity"], contact_identity):
+        raise SmokeError("Godot semantic contact command identity is missing or ambiguous")
+    targets = evidence["targets"]
+    if not _exact_json_equal(targets, contact_command["targets"]):
+        raise SmokeError("Godot semantic contact targets are missing, reordered, or mismatched")
+    source_pose_command = evidence["source_pose_command"]
+    if not _exact_json_equal(source_pose_command, contact_command["source_pose_command"]):
+        raise SmokeError("Godot semantic contact source pose identity is mismatched")
+    mapping_revision = evidence["mapping_revision"]
+    if mapping_revision != CONTACT_MAPPING_REVISION:
+        raise SmokeError("Godot semantic contact mapping revision is invalid")
+    interaction = evidence["interaction"]
+    if not _exact_json_equal(interaction, CONTACT_INTERACTION):
+        raise SmokeError("Godot semantic contact interaction is missing or reordered")
+    _validate_contact_mapping(evidence, contact_command)
+    _validate_contact_physics(evidence)
+    trace_by_tick = _validate_contact_ticks(evidence)
+    strongest_sample = _validate_contact_impulses(evidence, trace_by_tick)
+    _validate_contact_response(evidence, strongest_sample, trace_by_tick)
+
+
 def _validate_report(
     report: Any,
     payload: dict[str, Any],
@@ -604,6 +1353,8 @@ def _validate_report(
     command_identity: dict[str, Any] | None = None,
     projection: dict[str, Any] | None = None,
     projection_identity: dict[str, Any] | None = None,
+    semantic_contact_command: dict[str, Any] | None = None,
+    contact_command_identity: dict[str, Any] | None = None,
 ) -> None:
     if not isinstance(report, dict):
         raise SmokeError("Godot skeletal-pose report is not a JSON object")
@@ -618,15 +1369,18 @@ def _validate_report(
         raise SmokeError("Godot report CK projection identity does not match the validated projection")
     if report.get("schema") != REPORT_SCHEMA or report.get("status") != "success":
         raise SmokeError("Godot skeletal-pose report schema or status is invalid")
-    if report.get("boundary") != REPORT_BOUNDARY:
+    expected_report_boundary = CONTACT_REPORT_BOUNDARY if semantic_contact_command is not None else REPORT_BOUNDARY
+    if report.get("boundary") != expected_report_boundary:
         raise SmokeError("Godot skeletal-pose report boundary is invalid")
-    if report.get("claims") != REPORT_CLAIMS:
+    expected_claims = CONTACT_REPORT_CLAIMS if semantic_contact_command is not None else REPORT_CLAIMS
+    if report.get("claims") != expected_claims:
         raise SmokeError("Godot skeletal-pose report contains an unexpected claim")
+    expected_scope_flags = CONTACT_REPORT_FLAGS if semantic_contact_command is not None else REPORT_FLAGS
     scope_flags = report.get("scope_flags")
     if (
         not isinstance(scope_flags, dict)
-        or scope_flags != REPORT_FLAGS
-        or any(type(scope_flags.get(key)) is not bool for key in REPORT_FLAGS)
+        or scope_flags != expected_scope_flags
+        or any(type(scope_flags.get(key)) is not bool for key in expected_scope_flags)
     ):
         raise SmokeError("Godot skeletal-pose report scope flags are not fail-closed")
     if report.get("godot_version") != EXPECTED_GODOT_VERSION:
@@ -666,10 +1420,18 @@ def _validate_report(
         payload,
         carrier_avatar_records,
     )
+    contact_report_keys = {"semantic_contact", *CONTACT_REPORT_ALIAS_KEYS}
+    if semantic_contact_command is None:
+        if contact_report_keys.intersection(report):
+            raise SmokeError("no-contact Godot report contains unexpected semantic contact evidence")
+    else:
+        if contact_command_identity is None:
+            raise SmokeError("semantic contact command identity expectation is missing")
+        _validate_contact_report(report, semantic_contact_command, contact_command_identity)
     if report.get("coordinate_rule") != {
         "kind": "disposable_host_local_identity",
         "mapping": "CK XYZ -> Godot XYZ: x->x, y->y, z->z",
-        "scope": REPORT_BOUNDARY,
+        "scope": expected_report_boundary,
         "profile_translations": [list(value) for value in EXPECTED_TRANSLATIONS],
     }:
         raise SmokeError("Godot skeletal-pose report coordinate rule is invalid")
@@ -681,7 +1443,7 @@ def _validate_report(
         "rules_validated": True,
         "applied_to_skeleton3d": True,
         "ik": False,
-        "contact": False,
+        "contact": semantic_contact_command is not None,
     }
     pose_binding = report.get("pose_binding")
     if (
@@ -798,6 +1560,9 @@ def _launch_godot(
     semantic_payload: dict[str, Any] | None = None,
     projection: dict[str, Any] | None = None,
     projection_identity: dict[str, Any] | None = None,
+    semantic_contact_command: dict[str, Any] | None = None,
+    contact_command_identity: dict[str, Any] | None = None,
+    projection_cli_path: Path | None = None,
 ) -> tuple[str, str, int, dict[str, Any] | None]:
     """Launch with a real renderer; headless mode exposes dummy rendering RIDs."""
     if os.environ.get(VISIBLE_GODOT_OPT_IN) != "1":
@@ -913,6 +1678,33 @@ def _launch_godot(
             )
         elif projection_identity is not None:
             raise SmokeError("CK projection identity was supplied without a validated projection")
+        if semantic_contact_command is not None:
+            if (
+                carrier_identity is None
+                or carrier_avatar_records is None
+                or semantic_pose_command is None
+                or command_identity is None
+                or projection is None
+                or projection_identity is None
+                or projection_cli_path is None
+                or contact_command_identity is None
+            ):
+                raise SmokeError(
+                    "semantic contact command requires carrier, CK projection, explicit Rust CLI, and semantic pose command"
+                )
+            contact_module = _load_contact_command_module()
+            contact_json = contact_module._canonical_json(semantic_contact_command).decode("utf-8").rstrip("\n")
+            contact_identity_json = contact_module._canonical_json(contact_command_identity).decode("utf-8").rstrip("\n")
+            launch_command.extend(
+                [
+                    "--semantic-contact-command-json",
+                    contact_json,
+                    "--semantic-contact-command-identity-json",
+                    contact_identity_json,
+                ]
+            )
+        elif contact_command_identity is not None:
+            raise SmokeError("semantic contact command identity was supplied without a command")
         environment = os.environ.copy()
         environment.update({key: str(value) for key, value in isolated_paths.items()})
         environment["CK_GODOT_4_7_2_BINARY"] = str(pinned_binary)
@@ -950,6 +1742,7 @@ def run_skeletal_pose_smoke(
     command_path: Path | None = None,
     projection_path: Path | None = None,
     projection_cli_path: Path | None = None,
+    contact_command_path: Path | None = None,
 ) -> dict[str, Any]:
     report_path = neutral_smoke._validate_report_destination(report_path)
     gallery = Path(gallery)
@@ -960,6 +1753,17 @@ def run_skeletal_pose_smoke(
     semantic_payload = None
     projection = None
     projection_identity_value = None
+    contact_command = None
+    contact_command_identity = None
+    if contact_command_path is not None and (
+        carrier_path is None
+        or projection_path is None
+        or projection_cli_path is None
+        or command_path is None
+    ):
+        raise SmokeError(
+            "semantic contact command requires carrier, CK projection, explicit Rust CLI, and semantic pose command"
+        )
     if (projection_path is None) != (projection_cli_path is None):
         raise SmokeError("CK projection and its explicit Rust CLI path must be supplied together")
     if carrier_path is None:
@@ -1003,7 +1807,33 @@ def run_skeletal_pose_smoke(
                 instance_ids,
                 Path(command_path),
             )
-    if projection is None and command is None:
+        if contact_command_path is not None:
+            _, contact_command, contact_command_identity = _validated_semantic_contact_command(
+                gallery,
+                Path(carrier_path),
+                carrier,
+                Path(command_path),
+                command,
+                command_identity,
+                Path(contact_command_path),
+            )
+    if contact_command is not None:
+        stdout, stderr, returncode, report = _launch_godot(
+            gallery,
+            selected,
+            payload,
+            carrier_identity,
+            carrier_avatar_records,
+            command,
+            command_identity,
+            semantic_payload,
+            projection,
+            projection_identity_value,
+            contact_command,
+            contact_command_identity,
+            Path(projection_cli_path),
+        )
+    elif projection is None and command is None:
         stdout, stderr, returncode, report = _launch_godot(
             gallery,
             selected,
@@ -1049,7 +1879,21 @@ def run_skeletal_pose_smoke(
         raise SmokeError(f"Godot launcher returned exit code {returncode}; stdout={stdout!r}; stderr={stderr!r}")
     if report is None:
         raise SmokeError("Godot returned success without a skeletal-pose report")
-    if projection is None and command is None:
+    if contact_command is not None:
+        _validate_report(
+            report,
+            payload,
+            selected,
+            carrier_identity,
+            carrier_avatar_records,
+            command,
+            command_identity,
+            projection,
+            projection_identity_value,
+            contact_command,
+            contact_command_identity,
+        )
+    elif projection is None and command is None:
         _validate_report(report, payload, selected, carrier_identity, carrier_avatar_records)
     elif projection is None:
         _validate_report(
@@ -1116,6 +1960,20 @@ def run_skeletal_pose_smoke(
                 or post_semantic_payload != semantic_payload
             ):
                 raise SmokeError("semantic pose command, carrier, or gallery changed during the skeletal-pose smoke; refusing to publish a success report")
+        if contact_command_path is not None:
+            _, post_contact_command, post_contact_identity = _validated_semantic_contact_command(
+                gallery,
+                Path(carrier_path),
+                post_carrier,
+                Path(command_path),
+                post_command,
+                post_command_identity,
+                Path(contact_command_path),
+            )
+            if post_contact_command != contact_command or post_contact_identity != contact_command_identity:
+                raise SmokeError(
+                    "semantic contact command, pose command, carrier, or gallery changed during the skeletal-pose smoke; refusing to publish a success report"
+                )
         if projection_path is not None:
             _, post_projection, post_projection_identity = _validated_projection_input(
                 gallery,
@@ -1140,6 +1998,13 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--gallery", required=True, type=Path, help="absolute completed structural gallery directory")
     parser.add_argument("--carrier", type=Path, help="optional absolute disposable avatar-input carrier path")
     parser.add_argument("--command", "--semantic-pose-command", dest="command_path", type=Path, help="optional absolute semantic-pose command; requires --carrier")
+    parser.add_argument(
+        "--contact-command",
+        "--semantic-contact-command",
+        dest="contact_command_path",
+        type=Path,
+        help="optional experiment-local semantic-contact command; requires carrier, projection, CK CLI, and semantic pose command",
+    )
     parser.add_argument("--projection", dest="projection_path", type=Path, help="optional absolute disposable CK projection; requires --carrier")
     parser.add_argument("--ck-cli", dest="projection_cli_path", type=Path, help="explicit absolute native creature-kernel CLI path; requires --projection")
     parser.add_argument("--profile-id", action="append", dest="profile_ids", help="repeat exactly twice; defaults to the compact and tall frozen IDs")
@@ -1159,6 +2024,7 @@ def main(argv: list[str] | None = None) -> int:
             args.command_path,
             args.projection_path,
             args.projection_cli_path,
+            args.contact_command_path,
         )
     except SmokeError as exc:
         print(f"skeletal pose smoke failed: {exc}", file=sys.stderr)

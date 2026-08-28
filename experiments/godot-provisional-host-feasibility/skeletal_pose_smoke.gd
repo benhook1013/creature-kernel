@@ -20,6 +20,7 @@ const POSE_FORMAT := "creature-kernel.disposable-structural-embodiment-shared-po
 const POSE_FILE := "structural_embodiment_shared_pose.json"
 const REPORT_SCHEMA := "creature-kernel.disposable-godot-skeletal-pose-smoke.v1"
 const REPORT_BOUNDARY := "host_local_skeleton3d_skin_pose_binding"
+const CONTACT_REPORT_BOUNDARY := "experiment_local_semantic_contact_and_physical_response"
 const CARRIER_SCHEMA := "creature-kernel.disposable-engine-neutral-avatar-input.v1"
 const CARRIER_BOUNDARY := "experiment_input_only_no_runtime_package_or_adapter_contract"
 const CK_PROJECTION_SCHEMA := "creature-kernel.disposable-ck-rust-projection.v1"
@@ -46,6 +47,31 @@ const SEMANTIC_POSE_COMMAND_BOUNDARY := "experiment_local_command_evidence_only_
 const SEMANTIC_POSE_COMMAND_ID := "inject-semantic-pose"
 const SEMANTIC_POSE_COMMAND_VERSION := 1
 const SEMANTIC_POSE_COMMAND_RULE_COUNT := 18
+const SEMANTIC_CONTACT_COMMAND_SCHEMA := "creature-kernel.disposable-semantic-contact-command.v1"
+const SEMANTIC_CONTACT_COMMAND_BOUNDARY := "experiment_local_contact_command_evidence_only_no_adapter_or_runtime_conformance"
+const SEMANTIC_CONTACT_COMMAND_ID := "probe-single-semantic-contact"
+const SEMANTIC_CONTACT_COMMAND_VERSION := 1
+const SEMANTIC_CONTACT_MAPPING_REVISION := "joint-selector-to-posed-proxy-v1"
+const CONTACT_PHASE_ORDER := ["approach", "contact", "release", "exit"]
+const CONTACT_PARTICIPANTS := [
+	# Godot's JSON parser materializes JSON numbers as floats.  Keep the
+	# comparison constants in that representation; the command's canonical
+	# bytes and identity still distinguish the authored integer spelling.
+	{"role": "actuator", "target_index": 0.0, "selector": {"kind": "joint", "role": "wrist", "anchors": ["right"]}},
+	{"role": "response", "target_index": 1.0, "selector": {"kind": "joint", "role": "wrist", "anchors": ["left"]}},
+]
+const CONTACT_INTERACTION := {"kind": "single-proxy-press-release", "phase_order": CONTACT_PHASE_ORDER}
+const CONTACT_APPROACH_TICKS := 24
+const CONTACT_HOLD_TICKS := 8
+const CONTACT_RELEASE_TICKS := 24
+const CONTACT_EXIT_TICKS := 8
+const CONTACT_MAX_TICKS := 256
+const CONTACT_COLLISION_LAYER := 2
+const CONTACT_OVERDRIVE := 2.0e-2
+const CONTACT_GEOMETRY_TOLERANCE := 1.0e-5
+const CONTACT_MIN_IMPULSE := 1.0e-5
+const CONTACT_MIN_NORMAL_VELOCITY := 1.0e-5
+const CONTACT_MIN_NORMAL_DISPLACEMENT := 1.0e-5
 const ARTIFACT_NAMES := [
 	"neutral.ply",
 	"posed.ply",
@@ -54,6 +80,38 @@ const ARTIFACT_NAMES := [
 	"proxies-neutral.json",
 	"proxies-posed.json",
 ]
+
+
+class ContactCaptureBody extends RigidBody3D:
+	var probe_tick: int = 0
+	var probe_phase: String = "setup"
+	var expected_collider_id: int = 0
+	var tick_evidence: Array[Dictionary] = []
+	var contact_samples: Array[Dictionary] = []
+
+	func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
+		var contact_count := state.get_contact_count()
+		tick_evidence.append({"tick": probe_tick, "phase": probe_phase, "contact_count": contact_count})
+		for contact_index in range(contact_count):
+			var collider_object := state.get_contact_collider_object(contact_index)
+			var collider_id: int = int(state.get_contact_collider_id(contact_index))
+			var collider_shape: int = state.get_contact_collider_shape(contact_index)
+			var local_shape: int = state.get_contact_local_shape(contact_index)
+			var point: Vector3 = state.get_contact_local_position(contact_index)
+			var normal: Vector3 = state.get_contact_local_normal(contact_index)
+			var impulse: Vector3 = state.get_contact_impulse(contact_index)
+			contact_samples.append({
+				"contact_index": contact_index,
+				"collider_id": collider_id,
+				"collider_object_id": int(collider_object.get_instance_id()) if collider_object != null else 0,
+				"collider_shape_index": collider_shape,
+				"local_shape_index": local_shape,
+				"point": [point.x, point.y, point.z],
+				"normal": [normal.x, normal.y, normal.z],
+				"impulse": [impulse.x, impulse.y, impulse.z],
+				"tick": probe_tick,
+				"phase": probe_phase,
+			})
 const PROXY_LINEAGE_FIELDS := ["owned_part", "partition_rule", "partition_vertex_count", "radius_rule"]
 const POSE_RECIPE := [
 	{"kind": "synthetic-root", "role": null, "anchors": [], "axis": "identity", "angle": 0.0},
@@ -104,6 +162,10 @@ func _run_smoke() -> int:
 		pose = _load_shared_pose(options.gallery_path, validated)
 	if pose.is_empty():
 		return _fail_exit()
+	if options.semantic_contact_command_present:
+		var contact_command := _load_semantic_contact_command(options)
+		if contact_command.is_empty():
+			return _fail_exit()
 	if get_root().get_child_count() != 0:
 		return _fail("the disposable scene root was not empty before instantiation")
 
@@ -160,6 +222,12 @@ func _run_smoke() -> int:
 	if not _check_posed_separation(loaded_profiles):
 		_release_profiles(loaded_profiles)
 		return _fail_exit()
+	if options.has("semantic_contact_command"):
+		var contact_probe: Dictionary = await _run_contact_probe(loaded_profiles, options)
+		if contact_probe.is_empty():
+			_release_profiles(loaded_profiles)
+			return _fail_exit()
+		options["semantic_contact_probe"] = contact_probe
 	var report := _build_report(options, validated, loaded_profiles)
 	_release_profiles(loaded_profiles)
 	if report.is_empty():
@@ -213,6 +281,10 @@ func _parse_arguments() -> Dictionary:
 		"semantic_pose_command_present": false,
 		"semantic_pose_command_identity_present": false,
 		"semantic_pose_payload_present": false,
+		"semantic_contact_command_json": "",
+		"semantic_contact_command_present": false,
+		"semantic_contact_command_identity_json": "",
+		"semantic_contact_command_identity_present": false,
 		"ck_projection_json": "",
 		"ck_projection_identity_json": "",
 		"ck_projection_present": false,
@@ -221,7 +293,7 @@ func _parse_arguments() -> Dictionary:
 	var index := 0
 	while index < arguments.size():
 		var argument: String = arguments[index]
-		if argument == "--gallery" or argument == "--report" or argument == "--validated-json" or argument == "--carrier-identity-json" or argument == "--carrier-avatar-records-json" or argument == "--semantic-pose-command-json" or argument == "--semantic-pose-command-identity-json" or argument == "--semantic-pose-payload-json" or argument == "--ck-projection-json" or argument == "--ck-projection-identity-json" or argument == "--profile-id":
+		if argument == "--gallery" or argument == "--report" or argument == "--validated-json" or argument == "--carrier-identity-json" or argument == "--carrier-avatar-records-json" or argument == "--semantic-pose-command-json" or argument == "--semantic-pose-command-identity-json" or argument == "--semantic-pose-payload-json" or argument == "--semantic-contact-command-json" or argument == "--semantic-contact-command-identity-json" or argument == "--ck-projection-json" or argument == "--ck-projection-identity-json" or argument == "--profile-id":
 			if index + 1 >= arguments.size():
 				_failure = "missing value after %s" % argument
 				return {}
@@ -245,6 +317,12 @@ func _parse_arguments() -> Dictionary:
 			elif argument == "--semantic-pose-payload-json":
 				result.semantic_pose_payload_json = value
 				result.semantic_pose_payload_present = true
+			elif argument == "--semantic-contact-command-json":
+				result.semantic_contact_command_json = value
+				result.semantic_contact_command_present = true
+			elif argument == "--semantic-contact-command-identity-json":
+				result.semantic_contact_command_identity_json = value
+				result.semantic_contact_command_identity_present = true
 			elif argument == "--ck-projection-json":
 				result.ck_projection_json = value
 				result.ck_projection_present = true
@@ -317,6 +395,19 @@ func _validate_options_against_projection(options: Dictionary, validated: Dictio
 		return false
 	if command_value_count == command_values.size() and not options.has("carrier_identity"):
 		_failure = "semantic pose command requires a validated carrier"
+		return false
+	if options.semantic_contact_command_present:
+		if not options.semantic_contact_command_identity_present:
+			_failure = "semantic contact command and contact command identity must be supplied together"
+			return false
+		if command_value_count != command_values.size() or not options.has("carrier_identity"):
+			_failure = "semantic contact command requires a validated semantic pose command and carrier"
+			return false
+		if projection_presence_count != 2 or not options.has("ck_projection"):
+			_failure = "semantic contact command requires the validated CK projection and explicit CLI evidence"
+			return false
+	elif options.semantic_contact_command_identity_present:
+		_failure = "semantic contact command identity was supplied without the contact command"
 		return false
 	return true
 
@@ -797,6 +888,69 @@ func _load_semantic_pose_command(options: Dictionary, validated: Dictionary) -> 
 	return {"rules": validated_command.rules}
 
 
+func _load_semantic_contact_command(options: Dictionary) -> Dictionary:
+	var command := _parse_json_text(options.semantic_contact_command_json, "semantic contact command")
+	if command.is_empty():
+		return {}
+	var command_identity := _parse_json_text(options.semantic_contact_command_identity_json, "semantic contact command identity")
+	if command_identity.is_empty():
+		return {}
+	if not _validate_semantic_contact_command(command, options):
+		return {}
+	if not _validate_semantic_contact_identity(command, command_identity, options.semantic_contact_command_json):
+		return {}
+	# JSON.parse_string represents JSON numbers as floats.  Identity validation
+	# above is against the canonical bytes; normalize the authored integer fields
+	# only for exact report read-back after that validation succeeds.
+	var normalized_command: Dictionary = command.duplicate(true)
+	normalized_command.command_version = int(normalized_command.command_version)
+	normalized_command.source_pose_command.command_version = int(normalized_command.source_pose_command.command_version)
+	for participant in normalized_command.participants:
+		participant.target_index = int(participant.target_index)
+	var normalized_identity: Dictionary = command_identity.duplicate(true)
+	normalized_identity.command_version = int(normalized_identity.command_version)
+	options["semantic_contact_command"] = normalized_command
+	options["semantic_contact_command_identity"] = normalized_identity
+	return {"participants": normalized_command.participants}
+
+
+func _validate_semantic_contact_command(command: Dictionary, options: Dictionary) -> bool:
+	if not _exact_keys(command, ["schema", "boundary", "command_id", "command_version", "mapping_revision", "targets", "source_pose_command", "participants", "interaction"]):
+		_failure = "semantic contact command has unexpected or missing fields"
+		return false
+	if command.schema != SEMANTIC_CONTACT_COMMAND_SCHEMA or command.boundary != SEMANTIC_CONTACT_COMMAND_BOUNDARY or command.command_id != SEMANTIC_CONTACT_COMMAND_ID or command.command_version != SEMANTIC_CONTACT_COMMAND_VERSION or command.mapping_revision != SEMANTIC_CONTACT_MAPPING_REVISION:
+		_failure = "semantic contact command schema, boundary, version, or mapping revision is invalid"
+		return false
+	if not options.has("carrier_avatar_records") or not options.has("semantic_pose_command_identity") or not options.has("ck_projection"):
+		_failure = "semantic contact command is missing its validated carrier, CK projection, or pose command"
+		return false
+	if typeof(command.targets) != TYPE_ARRAY or command.targets.size() != 2 or not _exact_json_value(command.targets, options.carrier_avatar_records):
+		_failure = "semantic contact command targets are not the exact ordered carrier records"
+		return false
+	if not _exact_json_value(command.source_pose_command, options.semantic_pose_command_identity):
+		_failure = "semantic contact command source pose identity does not match the supplied pose command"
+		return false
+	if not _exact_json_value(command.participants, CONTACT_PARTICIPANTS):
+		_failure = "semantic contact command participants do not match the exact actuator/response selectors"
+		return false
+	if not _exact_json_value(command.interaction, CONTACT_INTERACTION):
+		_failure = "semantic contact command interaction is not the exact press-release sequence"
+		return false
+	return true
+
+
+func _validate_semantic_contact_identity(command: Dictionary, identity: Dictionary, command_json: String) -> bool:
+	if not _exact_keys(identity, ["sha256", "byte_count_decimal", "schema", "boundary", "command_id", "command_version"]):
+		_failure = "semantic contact command identity has unexpected or missing fields"
+		return false
+	var command_bytes := command_json.to_utf8_buffer()
+	command_bytes.append(10)
+	if identity.sha256 != _sha256(command_bytes) or not _is_canonical_command_byte_count(identity.byte_count_decimal) or int(identity.byte_count_decimal) != command_bytes.size() or identity.schema != command.schema or identity.boundary != command.boundary or identity.command_id != command.command_id or identity.command_version != command.command_version:
+		_failure = "semantic contact command identity does not match the injected command"
+		return false
+	return true
+
+
 func _parse_json_text(text: String, where: String) -> Dictionary:
 	if text.is_empty() or text.ends_with("\n"):
 		_failure = "%s is not the canonical injected JSON text" % where
@@ -1237,6 +1391,7 @@ func _validate_structural_records(profile_id: String, neutral: Dictionary, posed
 		return {}
 	var neutral_by_bone := {}
 	var posed_by_bone := {}
+	var posed_proxy_index_by_bone := {}
 	for index in range(PROXY_COUNT):
 		var neutral_proxy = neutral_proxy_list[index]
 		var posed_proxy = posed_proxy_list[index]
@@ -1258,6 +1413,7 @@ func _validate_structural_records(profile_id: String, neutral: Dictionary, posed
 			return {}
 		neutral_by_bone[bone_id] = neutral_proxy
 		posed_by_bone[bone_id] = posed_proxy
+		posed_proxy_index_by_bone[bone_id] = index
 	if neutral_by_bone.size() != BONE_COUNT or posed_by_bone.size() != BONE_COUNT:
 		_failure = "%s proxies do not cover every bone" % profile_id
 		return {}
@@ -1295,6 +1451,7 @@ func _validate_structural_records(profile_id: String, neutral: Dictionary, posed
 		"posed_world": posed_world_matrices,
 		"neutral_by_bone": neutral_by_bone,
 		"posed_by_bone": posed_by_bone,
+		"posed_proxy_index_by_bone": posed_proxy_index_by_bone,
 	}
 
 
@@ -1851,6 +2008,433 @@ func _check_posed_separation(profiles: Array[Dictionary]) -> bool:
 	return true
 
 
+func _resolve_contact_proxy(profile: Dictionary, selector: Dictionary, participant_role: String, target_index: int) -> Dictionary:
+	if typeof(selector) != TYPE_DICTIONARY or not _exact_keys(selector, ["kind", "role", "anchors"]):
+		_failure = "%s contact selector is incomplete" % participant_role
+		return {}
+	if selector.kind != "joint" or typeof(selector.role) != TYPE_STRING or String(selector.role).is_empty() or typeof(selector.anchors) != TYPE_ARRAY:
+		_failure = "%s contact selector is not a joint selector" % participant_role
+		return {}
+	var matching_bones: Array = []
+	for bone in profile.ordered_bones:
+		var joint = bone.get("joint", null)
+		if typeof(joint) == TYPE_DICTIONARY and joint.get("kind", "") == selector.kind and joint.get("role", "") == selector.role and joint.get("anchors", []) == selector.anchors:
+			matching_bones.append(bone)
+	if matching_bones.size() != 1:
+		_failure = "%s contact selector resolved to %d source joint bones; expected exactly one" % [participant_role, matching_bones.size()]
+		return {}
+	var bone: Dictionary = matching_bones[0]
+	var bone_id := String(bone.get("id", ""))
+	var posed_by_bone: Dictionary = profile.structural.posed_by_bone
+	var proxy = posed_by_bone.get(bone_id, null)
+	if typeof(proxy) != TYPE_DICTIONARY or proxy.get("bone_id", "") != bone_id or proxy.get("kind", "") != "capsule":
+		_failure = "%s contact selector has no unique posed capsule for source bone %s" % [participant_role, bone_id]
+		return {}
+	if typeof(proxy.get("owned_part", null)) != TYPE_DICTIONARY or String(proxy.owned_part.get("role", "")).is_empty() or typeof(proxy.get("partition_rule", null)) != TYPE_STRING or typeof(proxy.get("radius_rule", null)) != TYPE_STRING:
+		_failure = "%s contact proxy %s is missing owned-part lineage" % [participant_role, bone_id]
+		return {}
+	var proxy_nodes: Dictionary = profile.get("proxy_nodes", {})
+	if not proxy_nodes.has(bone_id) or not (proxy_nodes[bone_id] is CollisionShape3D):
+		_failure = "%s contact selector has no runtime posed proxy node for source bone %s" % [participant_role, bone_id]
+		return {}
+	var source_collision: CollisionShape3D = proxy_nodes[bone_id]
+	var local_geometry := _read_proxy_geometry(source_collision, "%s contact source proxy %s" % [participant_role, bone_id])
+	if local_geometry.is_empty() or not (source_collision.shape is CapsuleShape3D):
+		_failure = "%s contact source proxy %s is not one valid capsule" % [participant_role, bone_id]
+		return {}
+	var expected_start: Vector3 = _vector3(proxy.a, "%s contact posed proxy a" % participant_role)
+	var expected_end: Vector3 = _vector3(proxy.b, "%s contact posed proxy b" % participant_role)
+	if expected_start == null or expected_end == null or (local_geometry.start as Vector3).distance_to(expected_start) > TOLERANCE or (local_geometry.end as Vector3).distance_to(expected_end) > TOLERANCE or abs(float(local_geometry.radius) - float(proxy.radius)) > TOLERANCE:
+		_failure = "%s contact runtime proxy does not match the selected posed proxy" % participant_role
+		return {}
+	var posed_proxy_index_by_bone: Dictionary = profile.structural.get("posed_proxy_index_by_bone", {})
+	var source_proxy_index := int(posed_proxy_index_by_bone.get(bone_id, -1))
+	if source_proxy_index < 0:
+		_failure = "%s contact source proxy index is unresolved" % participant_role
+		return {}
+	var report_proxy: Dictionary = proxy.duplicate(true)
+	report_proxy.partition_vertex_count = int(report_proxy.partition_vertex_count)
+	var source_body = source_collision.get_parent()
+	if not (source_body is Node3D):
+		_failure = "%s contact source proxy has no spatial parent" % participant_role
+		return {}
+	# _read_proxy_geometry already applies the CollisionShape3D transform and
+	# returns coordinates in the source body's frame.  Applying the collision
+	# transform again would move and rotate the selected capsule twice.
+	var world_start: Vector3 = (source_body as Node3D).global_transform * (local_geometry.start as Vector3)
+	var world_end: Vector3 = (source_body as Node3D).global_transform * (local_geometry.end as Vector3)
+	if not _finite_vector3(world_start) or not _finite_vector3(world_end):
+		_failure = "%s contact source proxy has non-finite world endpoints" % participant_role
+		return {}
+	return {
+		"participant_role": participant_role,
+		"target_index": target_index,
+		"selector": selector.duplicate(true),
+		"source_joint": bone.joint.duplicate(true),
+		"source_bone_id": bone_id,
+		"source_proxy_index": source_proxy_index,
+		"source_collision": source_collision,
+		"posed_proxy": report_proxy,
+		"world_start": world_start,
+		"world_end": world_end,
+		"radius": float(local_geometry.radius),
+	}
+
+
+func _duplicate_contact_shape(source_collision: CollisionShape3D, body: Node3D, where: String) -> Dictionary:
+	if not is_instance_valid(source_collision) or not (source_collision.shape is CapsuleShape3D):
+		_failure = "%s source shape is not a valid capsule" % where
+		return {}
+	var duplicate_resource = source_collision.shape.duplicate()
+	if not (duplicate_resource is CapsuleShape3D):
+		_failure = "%s could not duplicate one capsule shape" % where
+		return {}
+	var collision := CollisionShape3D.new()
+	collision.name = "SelectedCapsule"
+	collision.shape = duplicate_resource
+	collision.transform = Transform3D(source_collision.global_transform.basis, Vector3.ZERO)
+	body.add_child(collision)
+	if body.get_child_count() != 1 or not (collision.shape is CapsuleShape3D):
+		_failure = "%s did not create exactly one duplicated capsule shape" % where
+		return {}
+	return {"collision": collision, "shape": collision.shape}
+
+
+func _closest_points_on_segments(first_start: Vector3, first_end: Vector3, second_start: Vector3, second_end: Vector3, where: String) -> Dictionary:
+	var first_axis := first_end - first_start
+	var second_axis := second_end - second_start
+	var offset := first_start - second_start
+	var first_length_squared := first_axis.length_squared()
+	var second_length_squared := second_axis.length_squared()
+	if not _finite_vector3(first_axis) or not _finite_vector3(second_axis) or first_length_squared <= 1.0e-24 or second_length_squared <= 1.0e-24:
+		_failure = "%s contains a degenerate capsule segment" % where
+		return {}
+	var dot_axes := first_axis.dot(second_axis)
+	var dot_first_offset := first_axis.dot(offset)
+	var dot_second_offset := second_axis.dot(offset)
+	var denominator := first_length_squared * second_length_squared - dot_axes * dot_axes
+	var first_fraction := 0.0
+	var second_fraction := 0.0
+	if abs(denominator) > 1.0e-24:
+		first_fraction = clamp((dot_axes * dot_second_offset - dot_first_offset * second_length_squared) / denominator, 0.0, 1.0)
+	var second_numerator := dot_axes * first_fraction + dot_second_offset
+	if second_numerator < 0.0:
+		second_fraction = 0.0
+		first_fraction = clamp(-dot_first_offset / first_length_squared, 0.0, 1.0)
+	elif second_numerator > second_length_squared:
+		second_fraction = 1.0
+		first_fraction = clamp((dot_axes - dot_first_offset) / first_length_squared, 0.0, 1.0)
+	else:
+		second_fraction = second_numerator / second_length_squared
+	var first_point := first_start + first_axis * first_fraction
+	var second_point := second_start + second_axis * second_fraction
+	var separation := second_point - first_point
+	var distance := separation.length()
+	if not _finite_vector3(first_point) or not _finite_vector3(second_point) or not is_finite(distance):
+		_failure = "%s closest-point calculation is non-finite" % where
+		return {}
+	return {"first": first_point, "second": second_point, "distance": distance}
+
+
+func _finite_vector3(value: Vector3) -> bool:
+	return is_finite(value.x) and is_finite(value.y) and is_finite(value.z)
+
+
+func _contact_snapshot(body: RigidBody3D, label: String, tick: int) -> Dictionary:
+	var transform: Transform3D = body.global_transform
+	var linear_velocity: Vector3 = body.linear_velocity
+	var angular_velocity: Vector3 = body.angular_velocity
+	if not _finite_transform(transform) or not _finite_vector3(linear_velocity) or not _finite_vector3(angular_velocity):
+		_failure = "%s response-body snapshot is non-finite" % label
+		return {}
+	return {
+		"label": label,
+		"tick": tick,
+		"transform": _transform_json(transform),
+		"position": _vector_json(transform.origin),
+		"linear_velocity": _vector_json(linear_velocity),
+		"angular_velocity": _vector_json(angular_velocity),
+	}
+
+
+func _finite_transform(value: Transform3D) -> bool:
+	return _finite_vector3(value.basis.x) and _finite_vector3(value.basis.y) and _finite_vector3(value.basis.z) and _finite_vector3(value.origin)
+
+
+func _contact_probe_failure(container: Node3D, message: String) -> Dictionary:
+	if is_instance_valid(container):
+		container.free()
+	_failure = message
+	return {}
+
+
+func _run_contact_probe(profiles: Array[Dictionary], options: Dictionary) -> Dictionary:
+	var command: Dictionary = options.semantic_contact_command
+	var physics_engine := String(ProjectSettings.get_setting("physics/3d/physics_engine", ""))
+	if physics_engine != "Jolt Physics":
+		_failure = "semantic contact probe requires the explicit disposable Jolt Physics backend"
+		return {}
+	var participants: Array = command.participants
+	var actuator_mapping := _resolve_contact_proxy(profiles[int(participants[0].target_index)], participants[0].selector, "actuator", int(participants[0].target_index))
+	var response_mapping := _resolve_contact_proxy(profiles[int(participants[1].target_index)], participants[1].selector, "response", int(participants[1].target_index))
+	if actuator_mapping.is_empty() or response_mapping.is_empty():
+		return {}
+	var actuator_start: Vector3 = (actuator_mapping.world_start + actuator_mapping.world_end) * 0.5
+	var response_start: Vector3 = (response_mapping.world_start + response_mapping.world_end) * 0.5
+	var initial_closest := _closest_points_on_segments(actuator_mapping.world_start, actuator_mapping.world_end, response_mapping.world_start, response_mapping.world_end, "semantic contact initial proxy geometry")
+	if initial_closest.is_empty():
+		return {}
+	var combined_radius := float(actuator_mapping.radius) + float(response_mapping.radius)
+	if float(initial_closest.distance) <= combined_radius + CONTACT_GEOMETRY_TOLERANCE:
+		_failure = "semantic contact probe starts with penetrating or touching selected capsules"
+		return {}
+	var closest_vector: Vector3 = (initial_closest.second as Vector3) - (initial_closest.first as Vector3)
+	var approach_direction: Vector3 = closest_vector / float(initial_closest.distance)
+	var projected_gap := float(initial_closest.distance) - combined_radius
+	if not is_finite(projected_gap) or projected_gap <= CONTACT_GEOMETRY_TOLERANCE:
+		_failure = "semantic contact closest proxy points and radii do not define a positive approach gap"
+		return {}
+	var precontact_distance := projected_gap - CONTACT_OVERDRIVE
+	if not is_finite(precontact_distance) or precontact_distance <= CONTACT_GEOMETRY_TOLERANCE:
+		_failure = "semantic contact proxy approach gap is too small for a separated pre-contact phase"
+		return {}
+	var approach_distance := projected_gap + CONTACT_OVERDRIVE
+	var contact_center := actuator_start + approach_direction * approach_distance
+	var contact_press_distance := approach_distance + CONTACT_OVERDRIVE
+	if not _finite_vector3(contact_center):
+		_failure = "semantic contact target position is non-finite"
+		return {}
+	var contact_translation := approach_direction * approach_distance
+	var contact_closest := _closest_points_on_segments(actuator_mapping.world_start + contact_translation, actuator_mapping.world_end + contact_translation, response_mapping.world_start, response_mapping.world_end, "semantic contact target proxy geometry")
+	if contact_closest.is_empty():
+		return {}
+	if float(contact_closest.distance) >= combined_radius - CONTACT_GEOMETRY_TOLERANCE:
+		_failure = "semantic contact target does not create a verified capsule overlap"
+		return {}
+
+	var contact_root := Node3D.new()
+	contact_root.name = "SemanticContactProbe"
+	get_root().add_child(contact_root)
+	var actuator_body := AnimatableBody3D.new()
+	actuator_body.name = "ContactActuator"
+	actuator_body.sync_to_physics = true
+	actuator_body.collision_layer = CONTACT_COLLISION_LAYER
+	actuator_body.collision_mask = CONTACT_COLLISION_LAYER
+	contact_root.add_child(actuator_body)
+	actuator_body.global_position = actuator_start
+	var actuator_shape := _duplicate_contact_shape(actuator_mapping.source_collision, actuator_body, "semantic contact actuator")
+	if actuator_shape.is_empty():
+		return _contact_probe_failure(contact_root, _failure)
+
+	var response_body := ContactCaptureBody.new()
+	response_body.name = "ContactResponse"
+	response_body.contact_monitor = true
+	response_body.max_contacts_reported = 8
+	response_body.mass = 1.0
+	response_body.gravity_scale = 0.0
+	response_body.can_sleep = false
+	response_body.axis_lock_angular_x = true
+	response_body.axis_lock_angular_y = true
+	response_body.axis_lock_angular_z = true
+	response_body.collision_layer = CONTACT_COLLISION_LAYER
+	response_body.collision_mask = CONTACT_COLLISION_LAYER
+	contact_root.add_child(response_body)
+	if not actuator_body.sync_to_physics or not response_body.axis_lock_angular_x or not response_body.axis_lock_angular_y or not response_body.axis_lock_angular_z:
+		return _contact_probe_failure(contact_root, "semantic contact bodies did not retain the required synchronization and angular locks")
+	response_body.global_position = response_start
+	var response_shape := _duplicate_contact_shape(response_mapping.source_collision, response_body, "semantic contact response")
+	if response_shape.is_empty():
+		return _contact_probe_failure(contact_root, _failure)
+	response_body.expected_collider_id = int(actuator_body.get_instance_id())
+	response_body.linear_velocity = Vector3.ZERO
+	response_body.angular_velocity = Vector3.ZERO
+
+	response_body.probe_phase = "setup"
+	response_body.probe_tick = 0
+	await physics_frame
+	if response_body.tick_evidence.is_empty():
+		await physics_frame
+	if response_body.tick_evidence.is_empty() or int(response_body.tick_evidence[0].tick) != 0:
+		return _contact_probe_failure(contact_root, "semantic contact setup tick did not reach the rigid-body direct-state callback")
+	var initial_response := _contact_snapshot(response_body, "initial", 0)
+	if initial_response.is_empty():
+		return _contact_probe_failure(contact_root, _failure)
+	var schedule := [
+		{"phase": "approach", "ticks": CONTACT_APPROACH_TICKS, "start_tick": 1, "end_tick": CONTACT_APPROACH_TICKS},
+		{"phase": "contact", "ticks": CONTACT_HOLD_TICKS, "start_tick": CONTACT_APPROACH_TICKS + 1, "end_tick": CONTACT_APPROACH_TICKS + CONTACT_HOLD_TICKS},
+		{"phase": "release", "ticks": CONTACT_RELEASE_TICKS, "start_tick": CONTACT_APPROACH_TICKS + CONTACT_HOLD_TICKS + 1, "end_tick": CONTACT_APPROACH_TICKS + CONTACT_HOLD_TICKS + CONTACT_RELEASE_TICKS},
+		{"phase": "exit", "ticks": CONTACT_EXIT_TICKS, "start_tick": CONTACT_APPROACH_TICKS + CONTACT_HOLD_TICKS + CONTACT_RELEASE_TICKS + 1, "end_tick": CONTACT_APPROACH_TICKS + CONTACT_HOLD_TICKS + CONTACT_RELEASE_TICKS + CONTACT_EXIT_TICKS},
+	]
+	var tick := 0
+	var contact_response := {}
+	var contact_snapshots_by_tick: Dictionary = {}
+	for phase_record in schedule:
+		var phase: String = phase_record.phase
+		var phase_ticks: int = int(phase_record.ticks)
+		for phase_tick in range(phase_ticks):
+			tick += 1
+			response_body.probe_phase = phase
+			response_body.probe_tick = tick
+			if phase == "approach":
+				actuator_body.global_position = actuator_start + approach_direction * precontact_distance * (float(phase_tick + 1) / float(phase_ticks))
+			elif phase == "contact":
+				actuator_body.global_position = actuator_start + approach_direction * lerp(approach_distance, contact_press_distance, float(phase_tick + 1) / float(phase_ticks))
+			elif phase == "release":
+				actuator_body.global_position = actuator_start + approach_direction * contact_press_distance * (1.0 - float(phase_tick + 1) / float(phase_ticks))
+			else:
+				actuator_body.global_position = actuator_start
+			await physics_frame
+			if phase == "contact" and _contact_tick_has_contact(response_body, tick):
+				var contact_snapshot := _contact_snapshot(response_body, "contact", tick)
+				if contact_snapshot.is_empty():
+					return _contact_probe_failure(contact_root, _failure)
+				contact_snapshots_by_tick[tick] = contact_snapshot
+				if contact_response.is_empty():
+					contact_response = contact_snapshot
+	var final_response := _contact_snapshot(response_body, "final", tick)
+	if final_response.is_empty():
+		return _contact_probe_failure(contact_root, _failure)
+	if response_body.tick_evidence.size() != tick + 1:
+		return _contact_probe_failure(contact_root, "semantic contact probe did not record exactly one logical direct-state sample per declared tick (expected=%d observed=%d)" % [tick + 1, response_body.tick_evidence.size()])
+	for expected_tick in range(tick + 1):
+		if int(response_body.tick_evidence[expected_tick].tick) != expected_tick:
+			return _contact_probe_failure(contact_root, "semantic contact probe direct-state tick sequence is incomplete or reordered")
+
+	var attribution_valid := true
+	var max_impulse := 0.0
+	var strongest_sample := {}
+	for sample in response_body.contact_samples:
+		if int(sample.collider_id) != response_body.expected_collider_id or int(sample.collider_object_id) != response_body.expected_collider_id or int(sample.collider_shape_index) != 0 or int(sample.local_shape_index) != 0:
+			attribution_valid = false
+		var point: Variant = _vector3(sample.point, "semantic contact sample point")
+		var normal: Variant = _vector3(sample.normal, "semantic contact sample normal")
+		var impulse: Variant = _vector3(sample.impulse, "semantic contact sample impulse")
+		if point == null or normal == null or impulse == null or not _finite_vector3(point as Vector3) or not _finite_vector3(normal as Vector3) or not _finite_vector3(impulse as Vector3) or (normal as Vector3).length() <= 1.0e-9:
+			attribution_valid = false
+			continue
+		var impulse_length := (impulse as Vector3).length()
+		if String(sample.phase) == "contact" and impulse_length > max_impulse:
+			max_impulse = impulse_length
+			strongest_sample = sample
+	if not attribution_valid:
+		return _contact_probe_failure(contact_root, "semantic contact sample collider or shape attribution is invalid")
+	var contact_seen := false
+	var exit_empty_seen := false
+	var final_exit_contact_count := -1
+	for tick_record in response_body.tick_evidence:
+		if String(tick_record.phase) == "contact" and int(tick_record.contact_count) > 0:
+			contact_seen = true
+		if String(tick_record.phase) == "exit":
+			final_exit_contact_count = int(tick_record.contact_count)
+			if final_exit_contact_count == 0:
+				exit_empty_seen = true
+	if not contact_seen or contact_response.is_empty() or response_body.contact_samples.is_empty():
+		return _contact_probe_failure(contact_root, "semantic contact probe did not establish a clean contact phase")
+	if not exit_empty_seen or final_exit_contact_count != 0:
+		return _contact_probe_failure(contact_root, "semantic contact probe did not establish a clean exit phase")
+	if not strongest_sample.is_empty() and String(strongest_sample.phase) != "contact":
+		return _contact_probe_failure(contact_root, "semantic contact strongest solver sample was outside the contact phase")
+	if max_impulse <= CONTACT_MIN_IMPULSE:
+		return _contact_probe_failure(contact_root, "semantic contact phase has no solver impulse above the declared floor")
+	var strongest_tick := int(strongest_sample.tick)
+	if not contact_snapshots_by_tick.has(strongest_tick):
+		return _contact_probe_failure(contact_root, "semantic contact strongest solver sample has no same-tick response snapshot")
+	contact_response = contact_snapshots_by_tick[strongest_tick]
+
+	var initial_position: Variant = _vector3(initial_response.position, "semantic contact initial response position")
+	var final_position: Variant = _vector3(final_response.position, "semantic contact final response position")
+	var initial_velocity: Variant = _vector3(initial_response.linear_velocity, "semantic contact initial response velocity")
+	var contact_velocity: Variant = _vector3(contact_response.linear_velocity, "semantic contact contact response velocity")
+	var strongest_normal: Variant = _vector3(strongest_sample.normal, "semantic contact strongest sample normal")
+	if initial_position == null or final_position == null or initial_velocity == null or contact_velocity == null or strongest_normal == null:
+		return _contact_probe_failure(contact_root, _failure)
+	var normal_direction := (strongest_normal as Vector3).normalized()
+	var displacement: Vector3 = (final_position as Vector3) - (initial_position as Vector3)
+	var velocity_delta: Vector3 = (contact_velocity as Vector3) - (initial_velocity as Vector3)
+	var normal_velocity_delta: float = abs(velocity_delta.dot(normal_direction))
+	var normal_displacement: float = abs(displacement.dot(normal_direction))
+	if not is_finite(normal_velocity_delta) or normal_velocity_delta <= CONTACT_MIN_NORMAL_VELOCITY:
+		return _contact_probe_failure(contact_root, "semantic contact response normal velocity delta is absent or below its declared floor")
+	if not is_finite(normal_displacement) or normal_displacement <= CONTACT_MIN_NORMAL_DISPLACEMENT:
+		return _contact_probe_failure(contact_root, "semantic contact response normal displacement is absent or below its declared floor")
+
+	var result := {
+		"mapping_revision": SEMANTIC_CONTACT_MAPPING_REVISION,
+		"participants": [
+			{
+				"role": "actuator",
+				"target_index": 0,
+				"target": options.carrier_avatar_records[0],
+				"selector": actuator_mapping.selector,
+				"source_joint": actuator_mapping.source_joint,
+				"source_bone_id": actuator_mapping.source_bone_id,
+				"source_proxy_index": actuator_mapping.source_proxy_index,
+				"posed_proxy": actuator_mapping.posed_proxy,
+				"runtime_shape_index": 0,
+			},
+			{
+				"role": "response",
+				"target_index": 1,
+				"target": options.carrier_avatar_records[1],
+				"selector": response_mapping.selector,
+				"source_joint": response_mapping.source_joint,
+				"source_bone_id": response_mapping.source_bone_id,
+				"source_proxy_index": response_mapping.source_proxy_index,
+				"posed_proxy": response_mapping.posed_proxy,
+				"runtime_shape_index": 0,
+			},
+		],
+		"phase_tick_schedule": schedule,
+		"approach_geometry": {
+			"actuator_start_center": _vector_json(actuator_start),
+			"response_start_center": _vector_json(response_start),
+			"approach_direction": _vector_json(approach_direction),
+			"initial_segment_distance": initial_closest.distance,
+			"combined_radius": combined_radius,
+			"projected_gap": projected_gap,
+			"precontact_distance": precontact_distance,
+			"approach_distance": approach_distance,
+			"contact_press_distance": contact_press_distance,
+		},
+		"physics_configuration": {
+			"physics_engine": physics_engine,
+			"actuator_body": "AnimatableBody3D",
+			"actuator_sync_to_physics": actuator_body.sync_to_physics,
+			"response_body": "RigidBody3D",
+			"response_mass": response_body.mass,
+			"response_gravity_scale": response_body.gravity_scale,
+			"response_can_sleep": response_body.can_sleep,
+			"response_rotation_locked": response_body.axis_lock_angular_x and response_body.axis_lock_angular_y and response_body.axis_lock_angular_z,
+			"response_contact_monitor": response_body.contact_monitor,
+			"response_max_contacts_reported": response_body.max_contacts_reported,
+			"one_shape_per_contact_body": actuator_body.get_child_count() == 1 and response_body.get_child_count() == 1,
+		},
+		"contact_tick_evidence": response_body.tick_evidence,
+		"contact_samples": response_body.contact_samples,
+		"initial_response": initial_response,
+		"contact_response": contact_response,
+		"final_response": final_response,
+		"response_displacement": _vector_json(displacement),
+		"response_displacement_length": displacement.length(),
+		"contact_normal": _vector_json(normal_direction),
+		"solver_impulse_magnitude": max_impulse,
+		"normal_velocity_delta": normal_velocity_delta,
+		"normal_displacement": normal_displacement,
+		"clean_contact": contact_seen,
+		"clean_exit": exit_empty_seen and final_exit_contact_count == 0,
+		"solver_response": max_impulse > CONTACT_MIN_IMPULSE and normal_velocity_delta > CONTACT_MIN_NORMAL_VELOCITY and normal_displacement > CONTACT_MIN_NORMAL_DISPLACEMENT,
+	}
+	contact_root.free()
+	return result
+
+
+func _contact_tick_has_contact(response_body: ContactCaptureBody, tick: int) -> bool:
+	for tick_record in response_body.tick_evidence:
+		if int(tick_record.tick) == tick and int(tick_record.contact_count) > 0:
+			return true
+	return false
+
+
 func _readback_semantic_pose_injection(profile: Dictionary, index: int, binding: Dictionary, carrier_binding: Dictionary, options: Dictionary) -> Dictionary:
 	var rule_readback = profile.get("runtime_pose_rule_readback", [])
 	if typeof(rule_readback) != TYPE_ARRAY or rule_readback.size() != SEMANTIC_POSE_COMMAND_RULE_COUNT:
@@ -1905,6 +2489,7 @@ func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: 
 	var profile_translations: Array = []
 	var pose_rule_count := -1
 	var pose_rules_validated := true
+	var contact_mode: bool = options.has("semantic_contact_command")
 	for index in range(loaded_profiles.size()):
 		var profile: Dictionary = loaded_profiles[index]
 		candidate_hashes[profile.profile_id] = profile.candidate_profile_sha256
@@ -1972,15 +2557,19 @@ func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: 
 	if pose_rule_count < 0 or not pose_rules_validated:
 		_failure = "runtime shared-pose evidence is incomplete"
 		return {}
+	var claims: Array[String] = ["host-local Skeleton3D/Skin pose binding", "host-local consumption of the shared structural pose recipe"]
+	if contact_mode:
+		claims.append("experiment-local semantic proxy contact and rigid-body response")
+	var report_boundary := CONTACT_REPORT_BOUNDARY if contact_mode else REPORT_BOUNDARY
 	var report := {
 		"schema": REPORT_SCHEMA,
 		"status": "success",
-		"boundary": REPORT_BOUNDARY,
-		"claims": ["host-local Skeleton3D/Skin pose binding", "host-local consumption of the shared structural pose recipe"],
+		"boundary": report_boundary,
+		"claims": claims,
 		"scope_flags": {
-			"physics_stepping": false,
+			"physics_stepping": contact_mode,
 			"animation": false,
-			"contact": false,
+			"contact": contact_mode,
 			"deformation": false,
 			"render_output": false,
 			"adapter": false,
@@ -2004,7 +2593,7 @@ func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: 
 		"coordinate_rule": {
 			"kind": "disposable_host_local_identity",
 			"mapping": "CK XYZ -> Godot XYZ: x->x, y->y, z->z",
-			"scope": REPORT_BOUNDARY,
+			"scope": report_boundary,
 			"profile_translations": profile_translations,
 		},
 		"pose_binding": {
@@ -2015,7 +2604,7 @@ func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: 
 			"rules_validated": pose_rules_validated,
 			"applied_to_skeleton3d": pose_rule_count == BONE_COUNT,
 			"ik": false,
-			"contact": false,
+			"contact": contact_mode,
 		},
 		"profiles": profiles,
 	}
@@ -2028,6 +2617,61 @@ func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: 
 		report["semantic_pose_command_identity"] = options.semantic_pose_command_identity
 		report["semantic_pose_targets"] = options.semantic_pose_command.targets
 		report["semantic_pose_frame"] = options.semantic_pose_frame
+	if contact_mode:
+		var contact_probe: Dictionary = options.get("semantic_contact_probe", {})
+		if contact_probe.is_empty():
+			_failure = "semantic contact report evidence is missing"
+			return {}
+		var selector_mappings: Array[Dictionary] = []
+		for participant in contact_probe.participants:
+			selector_mappings.append({
+				"role": participant.role,
+				"target_index": participant.target_index,
+				"selector": participant.selector,
+				"bone_id": participant.source_bone_id,
+				"proxy_id": participant.source_bone_id,
+				"owned_part": participant.posed_proxy.owned_part,
+				"shape_index": participant.source_proxy_index,
+				"runtime_shape_index": participant.runtime_shape_index,
+			})
+		var solver_impulses := [{
+			"runtime_derived": true,
+			"target_indices": [0, 1],
+			"shape_indices": [contact_probe.participants[0].source_proxy_index, contact_probe.participants[1].source_proxy_index],
+			"impulse_magnitude": contact_probe.solver_impulse_magnitude,
+			"contact_samples": contact_probe.contact_samples,
+		}]
+		var initial_response: Dictionary = contact_probe.initial_response
+		var contact_response: Dictionary = contact_probe.contact_response
+		var final_response: Dictionary = contact_probe.final_response
+		report["semantic_contact"] = {
+			"command_identity": options.semantic_contact_command_identity,
+			"targets": options.semantic_contact_command.targets,
+			"source_pose_command": options.semantic_contact_command.source_pose_command,
+			"mapping_revision": contact_probe.mapping_revision,
+			"participants": contact_probe.participants,
+			"interaction": options.semantic_contact_command.interaction,
+			"selector_mappings": selector_mappings,
+			"phase_order": CONTACT_PHASE_ORDER,
+			"phase_ticks": contact_probe.phase_tick_schedule,
+			"max_ticks": CONTACT_MAX_TICKS,
+			"contact_tick_evidence": contact_probe.contact_tick_evidence,
+			"physics_configuration": contact_probe.physics_configuration,
+			"solver_impulses": solver_impulses,
+			"response": {
+				"target_index": 1,
+				"shape_index": contact_probe.participants[1].source_proxy_index,
+				"normal": contact_probe.contact_normal,
+				"snapshots": {
+					"initial": initial_response,
+					"contact": contact_response,
+					"final": final_response,
+				},
+				"normal_velocity_delta": contact_probe.normal_velocity_delta,
+				"normal_displacement": contact_probe.normal_displacement,
+				"displacement": contact_probe.response_displacement_length,
+			},
+		}
 	return report
 
 
@@ -2283,6 +2927,15 @@ func _aabb_json(aabb: AABB) -> Dictionary:
 
 func _vector_json(value: Vector3) -> Array[float]:
 	return [value.x, value.y, value.z]
+
+
+func _transform_json(value: Transform3D) -> Array[float]:
+	return [
+		value.basis.x.x, value.basis.y.x, value.basis.z.x, value.origin.x,
+		value.basis.x.y, value.basis.y.y, value.basis.z.y, value.origin.y,
+		value.basis.x.z, value.basis.y.z, value.basis.z.z, value.origin.z,
+		0.0, 0.0, 0.0, 1.0,
+	]
 
 
 func _quaternion_json(value: Quaternion) -> Array[float]:

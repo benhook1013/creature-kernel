@@ -20,16 +20,29 @@ recipe, bakes neutral and posed host mesh evidence, and compares that evidence
 plus 18 posed proxy nodes to the published artifacts. Its host normal evidence
 uses a documented `3e-4` tolerance for Godot's host mesh normal encoding.
 All three probes record deterministic host-local evidence in isolated
-temporary Godot projects and remove those projects afterward.
+temporary Godot projects and remove those projects afterward. The skeletal
+probe's semantic-contact mode is a bounded experiment-local contact path: its
+fixed canonical command addresses actuator avatar 0's right wrist and response
+avatar 1's left wrist, and freshly validates the exact selected posed-capsule
+lineage plus CK, carrier, semantic-pose, and CK-projection identities before
+launch and report publication. The disposable project explicitly pins Jolt
+Physics. It moves an `AnimatableBody3D` actuator through bounded
+approach/contact/release/exit phases against a `RigidBody3D` response body and
+records runtime-derived contact and solver-response evidence.
 
-This is not a package, adapter, Readiness 3 result, semantic-contact result,
-deformation result, physical-response result, benchmark, or checkpoint claim.
-It makes no claim about a permanent Godot engine selection or about the wider
-feasibility trial. The skeletal smoke's binding claim is host-local only. Its
-optional command mode adds disposable semantic-selector injection and read-back
-evidence only; none of the probes claims animation, physics stepping, contact,
-deformation, render output, adapter/package/R3/performance/checkpoint evidence,
-or visual review.
+This is not a package, adapter, Readiness 3 result, deformation result,
+benchmark, or checkpoint claim. The contact path proves only bounded
+experiment-local semantic contact and physical response: its report validates
+the exact logical tick trace, contact samples and attribution, nonzero solver
+impulse, snapshot-derived normal velocity/displacement, and clean exit. Its
+runtime configuration is `AnimatableBody3D` actuator plus `RigidBody3D`
+response initialized once with mass 1, gravity 0, locked rotation, sleep
+disabled, and one shape; after setup the probe drives only the actuator. It
+makes no claim about visual quality, package/adapter/R3/performance, permanent
+Godot/Jolt selection, or the human checkpoint. The skeletal smoke's binding claim is
+host-local only; its pose command mode remains disposable semantic-selector
+injection and read-back evidence, and its no-contact paths remain unchanged
+predecessor paths.
 
 ## Provisioning
 
@@ -204,6 +217,48 @@ rotation, with measured command error and complete local/global/`Skin` matrix
 counts; it is not an echoed selector list. The no-command and carrier-only paths
 remain unchanged predecessor paths.
 
+Build the fixed canonical semantic-contact command from the same carrier and
+the validated semantic-pose command:
+
+    CK_CURRENT_FORM_SURFACE_TMPDIR=/tmp \
+      experiments/current-form-surface-preview/surface_preview_launcher.sh \
+        experiments/godot-provisional-host-feasibility/disposable_semantic_contact_command.py \
+        build \
+        --gallery /absolute/path/to/completed-gallery \
+        --carrier /absolute/path/to/disposable-avatar-carrier.json \
+        --pose-command /absolute/path/to/disposable-semantic-pose-command.json \
+        --output /absolute/path/to/disposable-semantic-contact-command.json
+
+Validate the contact command independently against the fresh gallery, carrier,
+and semantic-pose lineage:
+
+    CK_CURRENT_FORM_SURFACE_TMPDIR=/tmp \
+      experiments/current-form-surface-preview/surface_preview_launcher.sh \
+        experiments/godot-provisional-host-feasibility/disposable_semantic_contact_command.py \
+        validate \
+        --gallery /absolute/path/to/completed-gallery \
+        --carrier /absolute/path/to/disposable-avatar-carrier.json \
+        --pose-command /absolute/path/to/disposable-semantic-pose-command.json \
+        --command /absolute/path/to/disposable-semantic-contact-command.json
+
+Consume it through the carrier-, pose-, and CK-projection-backed skeletal probe:
+
+    CK_CURRENT_FORM_SURFACE_TMPDIR=/tmp \
+      xvfb-run -a env CK_ALLOW_VISIBLE_GODOT=1 \
+      experiments/current-form-surface-preview/surface_preview_launcher.sh \
+      experiments/godot-provisional-host-feasibility/run_skeletal_pose_smoke.py \
+      --gallery /absolute/path/to/completed-gallery \
+      --carrier /absolute/path/to/disposable-avatar-carrier.json \
+      --command /absolute/path/to/disposable-semantic-pose-command.json \
+      --projection /absolute/path/to/disposable-ck-rust-projection.json \
+      --ck-cli /absolute/path/to/target/debug/creature-kernel \
+      --contact-command /absolute/path/to/disposable-semantic-contact-command.json \
+      --report /absolute/path/to/semantic-contact-report.json
+
+Contact mode requires the explicit Rust CLI and validated CK projection in
+addition to the carrier and semantic-pose command. It does not alter the
+experiment-local command, package, adapter, or engine-selection boundaries.
+
 Build a disposable CK/Rust-backed projection from the same carrier and gallery
 with the workspace CLI. The CLI path is mandatory and must be an absolute,
 native WSL/Linux path to an executable regular non-symlink file; wrappers,
@@ -317,17 +372,23 @@ The disposable carrier suite contains 15 tests covering exact shape,
 deterministic canonical publication, strict bounded loading, both frozen profile
 pairs, instance identity, tampering and mixed-lineage rejection, and payload
 reconstruction, including deterministic symlink-swap read and publication
-regressions. The skeletal pose suite contains 41 tests covering both frozen
+regressions. The skeletal pose suite contains 48 tests covering both frozen
 profile pairs, complete `Skeleton3D`/`Skin` binding evidence, malformed and
 tampered inputs and reports, deterministic reruns, carrier load-through with
 one-to-one runtime-root read-back, real-process rejection of noncanonical
 carrier identity, command-mode semantic injection/read-back, no pose-file
-fallback after injection, and repository/cache cleanliness. The seven-test
+fallback after injection, repository/cache cleanliness, and bounded semantic
+contact command consumption and report validation. The seven-test
 semantic command suite covers
 deterministic canonical bytes for both frozen profile pairs, strict field,
 rotation, and frame validation, lineage mismatch, and safe publication. The neutral and posed
 suites run their real Godot paths when the completed-gallery fixture and exact
 pinned binary are available.
+The nine-test semantic contact command suite covers fixed participant mapping,
+fresh predecessor lineage, canonical publication, strict field validation,
+tampering and mutation rejection, and command identity. Focused real contact
+integration passed in 182.453s; the no-display suite has 14 expected display
+skips when its attended renderer path is unavailable.
 The 12-test disposable CK projection suite covers exact producer and transport
 identity, bounded subprocess output, fresh source/carrier/gallery/executable
 revalidation, deterministic publication, mutation rejection, and both frozen

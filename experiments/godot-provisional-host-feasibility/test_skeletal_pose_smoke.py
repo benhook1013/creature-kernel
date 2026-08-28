@@ -67,6 +67,178 @@ semantic_command = load_module(
 )
 
 
+def _contact_command_fixture() -> tuple[dict, dict]:
+    command = {
+        "schema": smoke.CONTACT_COMMAND_SCHEMA,
+        "boundary": smoke.CONTACT_COMMAND_BOUNDARY,
+        "command_id": smoke.CONTACT_COMMAND_ID,
+        "command_version": smoke.CONTACT_COMMAND_VERSION,
+        "mapping_revision": smoke.CONTACT_MAPPING_REVISION,
+        "targets": deepcopy(CARRIER_AVATAR_RECORDS),
+        "source_pose_command": {
+            "sha256": "p" * 64,
+            "byte_count_decimal": "1",
+            "schema": semantic_command.SCHEMA,
+            "boundary": semantic_command.BOUNDARY,
+            "command_id": semantic_command.COMMAND_ID,
+            "command_version": semantic_command.COMMAND_VERSION,
+        },
+        "participants": deepcopy(smoke.CONTACT_PARTICIPANTS),
+        "interaction": deepcopy(smoke.CONTACT_INTERACTION),
+    }
+    identity = {
+        "sha256": "c" * 64,
+        "byte_count_decimal": "1",
+        "schema": command["schema"],
+        "boundary": command["boundary"],
+        "command_id": command["command_id"],
+        "command_version": command["command_version"],
+    }
+    return command, identity
+
+
+def _contact_report_fixture(command: dict, identity: dict) -> dict:
+    def transform(x: float) -> list[float]:
+        return [
+            1.0,
+            0.0,
+            0.0,
+            x,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+        ]
+
+    participants = []
+    selector_mappings = []
+    for index, participant in enumerate(smoke.CONTACT_PARTICIPANTS):
+        posed_proxy = {
+            "a": [0.0, 0.0, 0.0],
+            "b": [0.0, 1.0, 0.0],
+            "bone_id": smoke.CONTACT_BONE_IDS[index],
+            "kind": "capsule",
+            "owned_part": deepcopy(smoke.CONTACT_OWNED_PARTS[index]),
+            "partition_rule": smoke.CONTACT_PROXY_PARTITION_RULE,
+            "partition_vertex_count": 100 + index,
+            "radius": 0.25,
+            "radius_rule": smoke.CONTACT_PROXY_RADIUS_RULE,
+        }
+        participants.append(
+            {
+                **deepcopy(participant),
+                "target": deepcopy(command["targets"][index]),
+                "source_joint": deepcopy(smoke.CONTACT_SOURCE_JOINTS[index]),
+                "source_bone_id": smoke.CONTACT_BONE_IDS[index],
+                "source_proxy_index": smoke.CONTACT_SHAPE_INDICES[index],
+                "posed_proxy": posed_proxy,
+                "runtime_shape_index": smoke.CONTACT_RUNTIME_SHAPE_INDICES[index],
+            }
+        )
+        selector_mappings.append(
+            {
+                **deepcopy(participant),
+                "bone_id": smoke.CONTACT_BONE_IDS[index],
+                "proxy_id": smoke.CONTACT_BONE_IDS[index],
+                "owned_part": deepcopy(smoke.CONTACT_OWNED_PARTS[index]),
+                "shape_index": smoke.CONTACT_SHAPE_INDICES[index],
+                "runtime_shape_index": smoke.CONTACT_RUNTIME_SHAPE_INDICES[index],
+            }
+        )
+    phase_ticks = []
+    contact_tick_evidence = [{"tick": 0, "phase": "setup", "contact_count": 0}]
+    start_tick = 1
+    for phase, ticks in zip(smoke.CONTACT_PHASE_ORDER, smoke.CONTACT_PHASE_TICKS):
+        end_tick = start_tick + ticks - 1
+        phase_ticks.append(
+            {"phase": phase, "ticks": ticks, "start_tick": start_tick, "end_tick": end_tick}
+        )
+        for tick in range(start_tick, end_tick + 1):
+            contact_tick_evidence.append(
+                {"tick": tick, "phase": phase, "contact_count": 1 if phase == "contact" else 0}
+            )
+        start_tick = end_tick + 1
+    def snapshot(label: str, tick: int, position_x: float, linear_velocity: list[float]) -> dict:
+        return {
+            "label": label,
+            "tick": tick,
+            "transform": transform(position_x),
+            "position": [position_x, 0.0, 0.0],
+            "linear_velocity": linear_velocity,
+            "angular_velocity": [0.0, 0.0, 0.0],
+        }
+
+    return {
+        "command_identity": deepcopy(identity),
+        "targets": deepcopy(command["targets"]),
+        "source_pose_command": deepcopy(command["source_pose_command"]),
+        "mapping_revision": smoke.CONTACT_MAPPING_REVISION,
+        "participants": participants,
+        "interaction": deepcopy(smoke.CONTACT_INTERACTION),
+        "selector_mappings": selector_mappings,
+        "physics_configuration": {
+            "physics_engine": "Jolt Physics",
+            "actuator_body": "AnimatableBody3D",
+            "actuator_sync_to_physics": True,
+            "response_body": "RigidBody3D",
+            "response_mass": 1.0,
+            "response_gravity_scale": 0.0,
+            "response_can_sleep": False,
+            "response_rotation_locked": True,
+            "response_contact_monitor": True,
+            "response_max_contacts_reported": 8,
+            "one_shape_per_contact_body": True,
+        },
+        "phase_order": deepcopy(smoke.CONTACT_PHASE_ORDER),
+        "max_ticks": smoke.CONTACT_MAX_TICKS,
+        "phase_ticks": phase_ticks,
+        "contact_tick_evidence": contact_tick_evidence,
+        "solver_impulses": [
+            {
+                "runtime_derived": True,
+                "target_indices": [0, 1],
+                "shape_indices": list(smoke.CONTACT_SHAPE_INDICES),
+                "impulse_magnitude": 0.25,
+                "contact_samples": [
+                    {
+                        "contact_index": 0,
+                        "collider_id": 42,
+                        "collider_object_id": 42,
+                        "collider_shape_index": 0,
+                        "local_shape_index": 0,
+                        "point": [0.0, 0.0, 0.0],
+                        "normal": [1.0, 0.0, 0.0],
+                        "impulse": [0.25, 0.0, 0.0],
+                        "tick": 25,
+                        "phase": "contact",
+                    }
+                ],
+            }
+        ],
+        "response": {
+            "target_index": 1,
+            "shape_index": smoke.CONTACT_SHAPE_INDICES[1],
+            "normal": [1.0, 0.0, 0.0],
+            "snapshots": {
+                "initial": snapshot("initial", 0, 0.0, [0.0, 0.0, 0.0]),
+                "contact": snapshot("contact", 25, 0.05, [0.1, 0.0, 0.0]),
+                "final": snapshot("final", smoke.CONTACT_TOTAL_TICKS, 0.1, [0.05, 0.0, 0.0]),
+            },
+            "normal_velocity_delta": 0.1,
+            "normal_displacement": 0.1,
+            "displacement": 0.1,
+        },
+    }
+
+
 def _projection_fixture(payload: dict, carrier_value: dict | None = None) -> tuple[dict, dict, dict, list[dict], tuple[str, str]]:
     projected_payload = deepcopy(payload)
     for profile in projected_payload["profiles"]:
@@ -419,6 +591,174 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
                     self.root / "projection.json",
                 )
 
+    def test_semantic_contact_command_requires_all_predecessors_before_launch(self) -> None:
+        missing_predecessors = (
+            (None, self.root / "pose.json", self.root / "projection.json", self.root / "cli"),
+            (self.root / "carrier.json", self.root / "pose.json", None, None),
+            (self.root / "carrier.json", None, self.root / "projection.json", self.root / "cli"),
+            (self.root / "carrier.json", self.root / "pose.json", self.root / "projection.json", None),
+        )
+        for carrier_path, pose_path, projection_path, cli_path in missing_predecessors:
+            with self.subTest(carrier=carrier_path, pose=pose_path, projection=projection_path, cli=cli_path):
+                with patch.object(smoke, "_launch_godot", side_effect=AssertionError("Godot must not launch")):
+                    with self.assertRaisesRegex(smoke.SmokeError, "requires carrier, CK projection, explicit Rust CLI, and semantic pose command"):
+                        smoke.run_skeletal_pose_smoke(
+                            self.root,
+                            None,
+                            self.root / "report.json",
+                            carrier_path,
+                            pose_path,
+                            projection_path,
+                            cli_path,
+                            self.root / "contact.json",
+                        )
+
+    def test_contact_mode_mocked_launch_receives_canonical_command_and_revalidates(self) -> None:
+        payload, report = _skeletal_validation_fixture()
+        projection_value, projection_identity, carrier_value, records, profile_ids = _projection_fixture(payload)
+        carrier_module = SimpleNamespace(
+            SCHEMA=carrier.SCHEMA,
+            BOUNDARY=carrier.BOUNDARY,
+            _canonical_json=carrier._canonical_json,
+        )
+        carrier_identity = smoke._carrier_identity(carrier_value, carrier_module)
+        command = {"pose": "fixture"}
+        command_identity = {"sha256": "p" * 64}
+        semantic_payload = {"rules": []}
+        contact_command, contact_identity = _contact_command_fixture()
+        serializer = lambda value: (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode()
+        contact_module = SimpleNamespace(_canonical_json=serializer)
+        carrier_result = (carrier_module, carrier_value, payload, profile_ids, tuple(record["instance_id"] for record in records))
+        projection_result = (None, projection_value, projection_identity)
+        pose_result = (semantic_command, command, command_identity, semantic_payload)
+        contact_result = (contact_module, contact_command, contact_identity)
+        with (
+            patch.object(smoke, "_validated_carrier_input", side_effect=[carrier_result, carrier_result]),
+            patch.object(smoke, "_validated_projection_input", side_effect=[projection_result, projection_result]),
+            patch.object(smoke, "_validated_semantic_pose_command", side_effect=[pose_result, pose_result]),
+            patch.object(smoke, "_validated_semantic_contact_command", side_effect=[contact_result, contact_result]) as validate_contact,
+            patch.object(smoke, "_load_contact_command_module", return_value=contact_module),
+            patch.object(smoke, "_launch_godot", return_value=("", "", 0, report)) as launch,
+            patch.object(smoke, "_validate_report") as validate_report,
+            patch.object(smoke.neutral_smoke, "_publish_report") as publish,
+        ):
+            result = smoke.run_skeletal_pose_smoke(
+                self.root,
+                None,
+                self.root / "report.json",
+                self.root / "carrier.json",
+                self.root / "pose.json",
+                self.root / "projection.json",
+                self.root / "creature-kernel",
+                self.root / "contact.json",
+            )
+        self.assertIs(result, report)
+        self.assertEqual(validate_contact.call_count, 2)
+        self.assertEqual(launch.call_args.args[10], contact_command)
+        self.assertEqual(launch.call_args.args[11], contact_identity)
+        self.assertEqual(launch.call_args.args[12], self.root / "creature-kernel")
+        validate_report.assert_called_once_with(
+            report,
+            payload,
+            profile_ids,
+            carrier_identity,
+            smoke._carrier_avatar_records(carrier_value),
+            command,
+            command_identity,
+            projection_value,
+            projection_identity,
+            contact_command,
+            contact_identity,
+        )
+        publish.assert_called_once_with(self.root / "report.json", report)
+
+    def test_contact_report_requires_runtime_mapping_impulse_response_and_exact_snapshots(self) -> None:
+        command, identity = _contact_command_fixture()
+        evidence = _contact_report_fixture(command, identity)
+        smoke._validate_contact_report({"semantic_contact": evidence}, command, identity)
+
+        def clear_contact_counts(value: dict) -> None:
+            for record in value["contact_tick_evidence"]:
+                record["contact_count"] = 0
+
+        mutations = {
+            "swapped participants": lambda value: value["participants"].reverse(),
+            "aggregate mapping": lambda value: value.__setitem__("participants", []),
+            "echoed impulse": lambda value: value["solver_impulses"][0].__setitem__("runtime_derived", False),
+            "zero impulse": lambda value: value["solver_impulses"][0].__setitem__("impulse_magnitude", 0.0),
+            "solver scalar mismatch": lambda value: value["solver_impulses"][0].__setitem__("impulse_magnitude", 0.3),
+            "top-level solver scalar path": lambda value: value.__setitem__("solver_impulse", 0.25),
+            "solver impulse scalar alias": lambda value: (
+                value["solver_impulses"][0].__setitem__("solver_impulse", value["solver_impulses"][0].pop("impulse_magnitude"))
+            ),
+            "solver provenance alias": lambda value: (
+                value["solver_impulses"][0].__setitem__("derived_from_runtime", value["solver_impulses"][0].pop("runtime_derived"))
+            ),
+            "contact events alias": lambda value: value.__setitem__("contact_events", ["enter", "contact", "exit"]),
+            "reordered phases": lambda value: value.__setitem__("phase_order", list(reversed(smoke.CONTACT_PHASE_ORDER))),
+            "nonfinite response": lambda value: value["response"].__setitem__("displacement", float("inf")),
+            "reported normal velocity mismatch": lambda value: value["response"].__setitem__("normal_velocity_delta", 0.2),
+            "reported normal displacement mismatch": lambda value: value["response"].__setitem__("normal_displacement", 0.2),
+            "reported displacement mismatch": lambda value: value["response"].__setitem__("displacement", 0.2),
+            "velocity snapshot mismatch": lambda value: value["response"]["snapshots"]["contact"].__setitem__("linear_velocity", [0.2, 0.0, 0.0]),
+            "transform snapshot mismatch": lambda value: value["response"]["snapshots"]["final"]["transform"].__setitem__(3, 0.2),
+            "position snapshot mismatch": lambda value: value["response"]["snapshots"]["final"]["position"].__setitem__(0, 0.2),
+            "snapshot label mismatch": lambda value: value["response"]["snapshots"]["contact"].__setitem__("label", "initial"),
+            "snapshot tick mismatch": lambda value: value["response"]["snapshots"]["contact"].__setitem__("tick", 24),
+            "snapshot differs from strongest contact tick": lambda value: value["response"]["snapshots"]["contact"].__setitem__("tick", 26),
+            "nonzero initial velocity": lambda value: value["response"]["snapshots"]["initial"].__setitem__("linear_velocity", [0.1, 0.0, 0.0]),
+            "locked rotation violated": lambda value: value["response"]["snapshots"]["contact"].__setitem__("angular_velocity", [0.0, 0.1, 0.0]),
+            "strongest sample normal mismatch": lambda value: value["response"].__setitem__("normal", [0.0, 1.0, 0.0]),
+            "response magnitude alias": lambda value: (
+                value["response"].__setitem__("normal_velocity_change", value["response"].pop("normal_velocity_delta"))
+            ),
+            "missing contact tick": lambda value: value["contact_tick_evidence"].pop(),
+            "setup contact count": lambda value: value["contact_tick_evidence"][0].__setitem__("contact_count", 1),
+            "reordered contact tick": lambda value: value["contact_tick_evidence"][1].__setitem__("tick", 2),
+            "wrong contact tick phase": lambda value: value["contact_tick_evidence"][25].__setitem__("phase", "approach"),
+            "negative contact count": lambda value: value["contact_tick_evidence"][25].__setitem__("contact_count", -1),
+            "constant events without transitions": clear_contact_counts,
+            "final exit contact count": lambda value: value["contact_tick_evidence"][-1].__setitem__("contact_count", 1),
+            "sample tick outside trace": lambda value: value["solver_impulses"][0]["contact_samples"][0].__setitem__("tick", smoke.CONTACT_TOTAL_TICKS + 1),
+            "sample phase disagrees with trace": lambda value: value["solver_impulses"][0]["contact_samples"][0].__setitem__("phase", "release"),
+            "sample index exceeds trace count": lambda value: value["solver_impulses"][0]["contact_samples"][0].__setitem__("contact_index", 1),
+            "wrong response mass": lambda value: value["physics_configuration"].__setitem__("response_mass", 2.0),
+            "boolean response mass": lambda value: value["physics_configuration"].__setitem__("response_mass", True),
+            "wrong response gravity": lambda value: value["physics_configuration"].__setitem__("response_gravity_scale", 0.1),
+            "boolean response gravity": lambda value: value["physics_configuration"].__setitem__("response_gravity_scale", False),
+            "sleep enabled": lambda value: value["physics_configuration"].__setitem__("response_can_sleep", True),
+            "sleep evidence omitted": lambda value: value["physics_configuration"].pop("response_can_sleep"),
+            "wrong physics backend": lambda value: value["physics_configuration"].__setitem__("physics_engine", "DEFAULT"),
+        }
+        for name, mutate in mutations.items():
+            with self.subTest(mutation=name):
+                mutated = deepcopy(evidence)
+                mutate(mutated)
+                with self.assertRaises(smoke.SmokeError):
+                    smoke._validate_contact_report({"semantic_contact": mutated}, command, identity)
+
+        for alias in ("semantic_contact_evidence", "contact_evidence", "semantic_contact_response"):
+            with self.subTest(report_alias=alias):
+                report = {"semantic_contact": deepcopy(evidence), alias: deepcopy(evidence)}
+                with self.assertRaises(smoke.SmokeError):
+                    smoke._validate_contact_report(report, command, identity)
+
+    def test_contact_command_module_exposes_exact_runner_api(self) -> None:
+        module = smoke._load_contact_command_module()
+        self.assertTrue(callable(module.load_contact_command))
+        self.assertTrue(callable(module.validate_contact_command))
+        self.assertTrue(callable(module.command_identity))
+        self.assertFalse(hasattr(module, "contact_command_identity"))
+
+    def test_no_contact_report_rejects_contact_evidence_aliases(self) -> None:
+        payload, report = _skeletal_validation_fixture()
+        for alias in ("semantic_contact", "semantic_contact_evidence", "contact_evidence"):
+            with self.subTest(report_alias=alias):
+                mutated = deepcopy(report)
+                mutated[alias] = {}
+                with self.assertRaisesRegex(smoke.SmokeError, "unexpected semantic contact evidence"):
+                    smoke._validate_report(mutated, payload, DEFAULTS)
+
     def test_ck_projection_cross_checks_fresh_carrier_payload_and_tampering(self) -> None:
         payload, _report = _skeletal_validation_fixture()
         projection_value, identity, carrier_value, records, profile_ids = _projection_fixture(payload)
@@ -537,6 +877,8 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
         serializer = lambda value: (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode()
         command_module = SimpleNamespace(_canonical_json=serializer)
         projection_module = SimpleNamespace(_canonical_json=serializer)
+        contact_command, contact_identity = _contact_command_fixture()
+        contact_module = SimpleNamespace(_canonical_json=serializer)
         with tempfile.TemporaryDirectory(prefix="ck-godot-projection-args-") as temporary:
             root = Path(temporary)
             project_file = root / "project.godot"
@@ -553,6 +895,7 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
                 patch.object(smoke.neutral_smoke, "_resolve_pinned_binary", return_value=launcher),
                 patch.object(smoke, "_load_command_module", return_value=command_module),
                 patch.object(smoke, "_load_projection_module", return_value=projection_module),
+                patch.object(smoke, "_load_contact_command_module", return_value=contact_module),
                 patch.object(smoke.neutral_smoke, "_read_report", return_value={}),
                 patch.object(smoke.neutral_smoke, "_has_godot_error_diagnostics", return_value=False),
                 patch.dict(os.environ, {smoke.VISIBLE_GODOT_OPT_IN: "1"}),
@@ -569,6 +912,9 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
                     semantic_payload,
                     projection_value,
                     projection_identity,
+                    contact_command,
+                    contact_identity,
+                    self.root / "creature-kernel",
                 )
         command_line = run.call_args.args[0]
         self.assertEqual(
@@ -580,6 +926,15 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
             serializer(projection_identity).decode().removesuffix("\n"),
         )
         self.assertNotIn("\n", command_line[command_line.index("--ck-projection-json") + 1])
+        self.assertEqual(
+            command_line[command_line.index("--semantic-contact-command-json") + 1],
+            serializer(contact_command).decode().removesuffix("\n"),
+        )
+        self.assertEqual(
+            command_line[command_line.index("--semantic-contact-command-identity-json") + 1],
+            serializer(contact_identity).decode().removesuffix("\n"),
+        )
+        self.assertNotIn("\n", command_line[command_line.index("--semantic-contact-command-json") + 1])
 
     def test_integration_availability_probe_times_out_fail_closed(self) -> None:
         with (
@@ -797,6 +1152,8 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
 
     def test_report_validator_accepts_complete_binding_evidence(self) -> None:
         payload, report = _skeletal_validation_fixture()
+        self.assertIn("coordinate_rule", report)
+        self.assertNotIn("coordinate_mapping", report)
         smoke._validate_report(report, payload, DEFAULTS)
 
     def test_semantic_pose_runtime_quaternion_tolerance_is_bounded(self) -> None:
@@ -1149,6 +1506,58 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
                 )
         publish.assert_not_called()
 
+    def test_semantic_contact_command_postflight_change_fails_before_publication(self) -> None:
+        payload, report = _skeletal_validation_fixture()
+        projection_value, projection_identity, carrier_value, records, profile_ids = _projection_fixture(payload)
+        carrier_module = SimpleNamespace(
+            SCHEMA=carrier.SCHEMA,
+            BOUNDARY=carrier.BOUNDARY,
+            _canonical_json=carrier._canonical_json,
+        )
+        validated = (carrier_module, carrier_value, payload, profile_ids, tuple(record["instance_id"] for record in records))
+        command_value = {"command": "pose"}
+        command_identity = {"sha256": "p" * 64}
+        semantic_payload = {"rules": []}
+        contact_value, contact_identity = _contact_command_fixture()
+        changed_contact = deepcopy(contact_value)
+        changed_contact["interaction"]["kind"] = "changed-contact"
+        changed_contact_identity = {"sha256": "d" * 64}
+        with (
+            patch.object(smoke, "_validated_carrier_input", side_effect=[validated, validated]),
+            patch.object(smoke, "_validated_projection_input", side_effect=[(None, projection_value, projection_identity), (None, projection_value, projection_identity)]),
+            patch.object(
+                smoke,
+                "_validated_semantic_pose_command",
+                side_effect=[
+                    (semantic_command, command_value, command_identity, semantic_payload),
+                    (semantic_command, command_value, command_identity, semantic_payload),
+                ],
+            ),
+            patch.object(
+                smoke,
+                "_validated_semantic_contact_command",
+                side_effect=[
+                    (None, contact_value, contact_identity),
+                    (None, changed_contact, changed_contact_identity),
+                ],
+            ),
+            patch.object(smoke, "_launch_godot", return_value=("", "", 0, report)),
+            patch.object(smoke, "_validate_report"),
+            patch.object(smoke.neutral_smoke, "_publish_report") as publish,
+        ):
+            with self.assertRaisesRegex(smoke.SmokeError, "semantic contact command.*changed during"):
+                smoke.run_skeletal_pose_smoke(
+                    self.root,
+                    None,
+                    self.root / "report.json",
+                    self.root / "carrier.json",
+                    self.root / "pose.json",
+                    self.root / "projection.json",
+                    self.root / "creature-kernel",
+                    self.root / "contact.json",
+                )
+        publish.assert_not_called()
+
     def test_report_validator_rejects_incomplete_or_over_tolerance_binding(self) -> None:
         payload, report = _skeletal_validation_fixture()
         report["profiles"][0]["binding"]["skin_bind_count"] = 17
@@ -1297,6 +1706,60 @@ class SkeletalPoseSmokeIntegrationTests(unittest.TestCase):
             smoke._projection_bindings(projection_value),
         )
         self.assertTrue(all(profile["semantic_pose_injection"]["applied"] for profile in report["profiles"]))
+
+    def test_real_semantic_contact_command_produces_bounded_runtime_response(self) -> None:
+        if not smoke.CONTACT_COMMAND_MODULE_PATH.is_file():
+            self.skipTest("disposable semantic contact command module unavailable")
+        if not REAL_CLI.is_file() or not os.access(REAL_CLI, os.X_OK):
+            self.skipTest("debug Creature Kernel CLI unavailable for the real contact path")
+        contact = load_module(
+            "disposable_semantic_contact_command_for_skeletal_tests",
+            smoke.CONTACT_COMMAND_MODULE_PATH,
+        )
+        with tempfile.TemporaryDirectory(prefix="ck-godot-semantic-contact-") as temporary:
+            root = Path(temporary)
+            carrier_path = root / "carrier.json"
+            pose_path = root / "pose.json"
+            projection_path = root / "projection.json"
+            contact_path = root / "contact.json"
+            carrier.write_carrier(
+                carrier_path,
+                carrier.build_carrier(GALLERY, DEFAULTS, ("contact-actuator", "contact-response")),
+            )
+            pose_value = semantic_command.build_command(GALLERY, carrier_path)
+            semantic_command.write_command(pose_path, pose_value)
+            projection_value = projection.build_projection(GALLERY, carrier_path, cli_path=REAL_CLI)
+            projection.write_projection(projection_path, projection_value)
+            contact_value = contact.build_contact_command(GALLERY, carrier_path, pose_path)
+            contact.write_contact_command(contact_path, contact_value)
+            report = smoke.run_skeletal_pose_smoke(
+                GALLERY,
+                None,
+                root / "report.json",
+                carrier_path,
+                pose_path,
+                projection_path,
+                REAL_CLI,
+                contact_path,
+            )
+        self.assertEqual(report["scope_flags"], smoke.CONTACT_REPORT_FLAGS)
+        self.assertEqual(report["boundary"], smoke.CONTACT_REPORT_BOUNDARY)
+        self.assertEqual(report["coordinate_rule"]["scope"], smoke.CONTACT_REPORT_BOUNDARY)
+        self.assertNotIn("coordinate_mapping", report)
+        self.assertEqual(report["semantic_contact"]["phase_order"], smoke.CONTACT_PHASE_ORDER)
+        self.assertNotIn("contact_events", report["semantic_contact"])
+        self.assertEqual(
+            set(report["semantic_contact"]["solver_impulses"][0]),
+            {"runtime_derived", "target_indices", "shape_indices", "impulse_magnitude", "contact_samples"},
+        )
+        self.assertEqual(
+            set(report["semantic_contact"]["response"]),
+            {"target_index", "shape_index", "normal", "snapshots", "normal_velocity_delta", "normal_displacement", "displacement"},
+        )
+        self.assertEqual(
+            set(report["semantic_contact"]["response"]["snapshots"]),
+            {"initial", "contact", "final"},
+        )
 
     def test_real_command_mode_does_not_read_shared_pose_file_after_injection(self) -> None:
         with tempfile.TemporaryDirectory(prefix="ck-godot-semantic-pose-no-fallback-") as temporary:

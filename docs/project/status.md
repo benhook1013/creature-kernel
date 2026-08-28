@@ -48,8 +48,19 @@ disposable CK-owned canonical semantic pose command addressed to the two bound
 instance IDs is implemented. Godot receives it without reading the gallery pose
 file, applies it through semantic selectors, and reports runtime-derived
 root/bone/quaternion readback that Python cross-validates; explicit-empty
-arguments fail closed. This remains experiment-only and makes no
-package/adapter/Readiness 3/contact/deformation/performance/checkpoint claim.
+arguments fail closed. The now-passing contact slice adds a fixed canonical
+contact command addressing actuator avatar 0's right wrist and response avatar
+1's left wrist. Its exact selected posed-capsule lineage and CK, carrier, pose,
+and projection identities are freshly validated before launch and report
+publication. The disposable project explicitly pins Jolt Physics. The actuator
+is an `AnimatableBody3D` moved through bounded approach/contact/release/exit
+phases; the response is initialized once as a `RigidBody3D` with mass 1,
+gravity 0, locked rotation, sleep disabled, and one shape, after which the probe
+drives only the actuator. Its report validates the exact logical tick trace,
+runtime contact samples and attribution, a nonzero solver impulse,
+snapshot-derived normal velocity/displacement, and clean exit. This remains
+experiment-only and makes
+no package/adapter/Readiness 3/deformation/performance/checkpoint claim.
 The disposable CK/Rust-backed projection over the same two ordered avatars is
 also implemented. It requires an explicit absolute native executable, binds
 that executable's digest/size and the exact source, carrier, gallery, pose and
@@ -57,15 +68,19 @@ artifact identities, records bounded successful `inspect-structure` evidence,
 and is freshly rebuilt before launch and again before report publication. Its
 embedded identity is explicitly transport-only. This remains experiment-local
 evidence—not a durable package schema, R3 activation, adapter, or host lock-in.
-Current evidence is 7 command tests, 12 projection tests and 41 no-display tests
-with 13 expected renderer skips; four predecessor focused real-renderer cases
-(deterministic command rerun, alternate carrier order, alternate requested
-order, and semantic injection) passed in 165.467s. The combined
-projection-plus-semantic-pose path passed on the real renderer in 89.848s, and
-the final full Xvfb suite passed all 41 tests without skips in 429.833s. The
-next direct slice is bounded semantic contact and observable
-physical response between the two addressed avatars; localized surface
-deformation follows on that established contact path.
+Current evidence is 9 focused contact-command tests, 12 projection tests, and
+48 no-display tests with 14 expected display skips; the final focused real
+contact integration passed in 182.453s. The earlier four predecessor focused
+real-renderer cases (deterministic command rerun, alternate carrier order,
+alternate requested order, and semantic injection) passed in 165.467s. The
+combined projection-plus-semantic-pose path passed on the real renderer in
+89.848s, and the final predecessor full Xvfb suite passed all 41 tests without
+skips in 429.833s. This contact result proves only bounded experiment-local
+semantic contact and physical response. It does not prove deformation, visual
+quality, package/adapter/R3/performance, permanent Godot/Jolt selection, or the
+human checkpoint. The next direct slice is moderate localized press/release
+deformation and recovery, using a smoother simplified humanoid trial region if
+the current lumpy surface masks the effect.
 The bounded Godot feasibility checkpoint remains the governing human checkpoint.
 
 Ben's qualified appraisal of the structural gallery was that it "looks good";
@@ -123,7 +138,7 @@ coherence, physical-response interpretation, CPU fallback, or evidence budget
 cannot be made credible without a material architecture or engine commitment.
 
 Current operational snapshot: the [Codex app handover](current-handover.md)
-(2026-08-28 NZST) records the primary checkout, active runway worktree,
+(2026-08-29 NZST) records the primary checkout, active runway worktree,
 merged PR state, and the current checkpoint/tooling state. It is a navigation
 aid rather than a new authority owner. PR #107 retains the exact consumed
 producer lineage in surface reviews while preserving the parked EXP-0002
