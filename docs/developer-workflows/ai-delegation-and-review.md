@@ -420,22 +420,42 @@ per question. The main thread owns cross-lane synthesis.
 ## External review services
 
 Ben explicitly authorized CodeRabbit on 2026-08-27 for the main thread's
-deliberate advisory use. Only the main thread may invoke CodeRabbit
-autonomously, and its result is non-gating: it is not a Creature Kernel
-dependency or a merge gate. Use it only near completion of a substantial,
-coherent PR after local checks and internal review. Automatic initial and
-incremental reviews remain disabled in `.coderabbit.yaml`, as do automatic chat
-replies.
+deliberate advisory use and directed on 2026-08-28 that, once a substantial
+coherent PR reaches final review readiness (implementation and local/internal
+checks are sufficiently complete), hosted and committed-diff CLI CodeRabbit
+reviews should be launched in parallel. Do not conserve an available hosted
+round merely because the CLI review is also running. Only the main thread may
+invoke CodeRabbit autonomously, and its result is non-gating: it is not a
+Creature Kernel dependency or a merge gate. Automatic initial and incremental
+reviews remain disabled in `.coderabbit.yaml`, as do automatic chat replies.
 
-Multiple review rounds are intentional when useful. Run one deliberate round at
-a time: the main thread must fully inspect and disposition that result, then
-explicitly decide whether another round is materially justified by the taper
-rule. Continue only while material findings surface or taper; stop when the
-remaining comments are repeats, non-actionable, disproportionate, or out of
-scope, or when no material findings remain. Unattended timers and automatic
-looping are prohibited. If CodeRabbit is unavailable or rate-limited, record
-that honestly and continue with the remaining review gates. Subagents may invoke
-or post CodeRabbit only when an exact action is explicitly delegated.
+One deliberate CodeRabbit cycle is the parallel hosted-plus-CLI pair. Hosted
+reviews a pushed immutable PR head. Before launching the pair, fetch the PR
+branch, require a clean worktree, verify that local `HEAD` equals the remote
+PR-head OID, and record that shared OID with both review results. While hosted
+is running, the main thread may inspect local findings and prepare local fixes,
+but must not push or mutate the remote PR head until the hosted pass completes.
+After both results complete, the main thread consolidates and dispositions
+findings, validates fixes, pushes the next reviewed head, and promptly launches
+another useful hosted-plus-CLI cycle while material findings continue or taper
+and service allowance permits. Creature Kernel's hosted and CLI limits are
+known to be independent of FireMUD's; do not ration or delay Creature Kernel
+review cycles to preserve allowance for another repository. Do not mutate
+another project.
+Continue only while material findings surface or taper; stop when remaining
+comments are repeats, non-actionable, disproportionate, or out of scope, or
+when no material findings remain. Unattended timers and automatic looping are
+prohibited. If CodeRabbit is unavailable or rate-limited, record that honestly
+and continue with the remaining review gates. Subagents may invoke or post
+CodeRabbit only when an exact action is explicitly delegated.
+
+Keep the immutable-head restriction until the hosted pass reports a terminal
+state. After one bounded wait and one status recheck, record a service-declared
+failure or cancellation as terminal. If the service exposes neither a terminal
+state nor a cancellation route for a still-stale run, explicitly abandon that
+pass as unavailable, record its reviewed OID and outcome, release the
+restriction, and treat any later output as stale. Do not start an automatic
+polling or retry loop.
 
 When warranted, use `coderabbit review --agent --committed` with
 `--base <remote>/<base-ref>` against a fetched remote-tracking base. The main

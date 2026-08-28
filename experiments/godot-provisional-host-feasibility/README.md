@@ -2,25 +2,33 @@
 
 Status: disposable approved-host evidence only
 
-This directory contains a pinned Godot 4.7.2 launcher and two fail-closed,
-headless structural host probes that load two distinct profiles from an already
+This directory contains a pinned Godot 4.7.2 launcher and three fail-closed
+structural host probes that load two distinct profiles from an already
 completed and validated structural-embodiment gallery. The neutral host-load
-smoke hash-checks all six projected profile artifacts, parses the neutral mesh,
+smoke and posed cross-check are headless structural probes: the neutral one
+hash-checks all six projected profile artifacts, parses the neutral mesh,
 skeleton, weights, and neutral proxies, then instantiates one neutral
-`ArrayMesh` and one `StaticBody3D` with capsule collision shapes per profile.
-The posed cross-check also parses the posed mesh and posed proxies,
-independently recomputes the published posed vertices and normals and the posed
-proxy endpoints from the published skin matrices plus weights at a fixed
-`2e-5` tolerance, and instantiates the corresponding posed mesh and collision
-shapes. Both probes record deterministic host-local structural evidence in an
-isolated temporary Godot project and remove that project afterward.
+`ArrayMesh` and one `StaticBody3D` with capsule collision shapes per profile;
+the posed one also parses the posed mesh and posed proxies, independently
+recomputes the published posed vertices and normals and posed proxy endpoints
+from the published skin matrices plus weights at a fixed `2e-5` position/proxy
+tolerance, and instantiates the corresponding posed mesh and collision shapes.
+The skeletal pose smoke is the actual binding probe: it constructs a real
+`Skeleton3D` hierarchy and `Skin` with exactly 18 bones and bind poses, attaches
+the weighted `ArrayMesh` through `MeshInstance3D`, applies the shared pose
+recipe, bakes neutral and posed host mesh evidence, and compares that evidence
+plus 18 posed proxy nodes to the published artifacts. Its host normal evidence
+uses a documented `3e-4` tolerance for Godot's host mesh normal encoding.
+All three probes record deterministic host-local evidence in isolated
+temporary Godot projects and remove those projects afterward.
 
 This is not a package, adapter, Readiness 3 result, semantic-contact result,
 deformation result, physical-response result, benchmark, or checkpoint claim.
 It makes no claim about a permanent Godot engine selection or about the wider
-feasibility trial. There is no `Skeleton3D`/Skin runtime binding, animation,
-semantic pose injection, physics stepping, contact, deformation, render
-output, adapter/package/R3/performance/checkpoint evidence, or visual review.
+feasibility trial. The skeletal smoke's binding claim is host-local only; none
+of the probes claims animation, semantic pose injection, physics stepping,
+contact, deformation, render output, adapter/package/R3/performance/checkpoint
+evidence, or visual review.
 
 ## Provisioning
 
@@ -90,6 +98,32 @@ gallery:
       --gallery /absolute/path/to/completed-gallery \
       --report /absolute/path/to/posed-report.json
 
+Run the actual two-profile `Skeleton3D`/`Skin` pose-binding probe against the
+same kind of completed gallery. It uses the pinned Godot renderer with the
+active X11 display and `gl_compatibility`; Godot's `--headless` dummy renderer
+does not provide valid skeleton RIDs for this probe. The probe produces no
+intentional visual output and makes no rendering-quality claim, but WSLg may
+briefly show a Godot window while the real renderer starts. It therefore fails
+closed unless an operator explicitly opts into an attended visible run:
+
+    CK_ALLOW_VISIBLE_GODOT=1 \
+      experiments/current-form-surface-preview/surface_preview_launcher.sh \
+      experiments/godot-provisional-host-feasibility/run_skeletal_pose_smoke.py \
+      --gallery /absolute/path/to/completed-gallery \
+      --report /absolute/path/to/skeletal-pose-report.json
+
+On a Linux or WSL host with `xvfb-run` available, use a virtual display to
+exercise the same real-renderer path without opening a window. Set the existing
+native temporary-root override so inherited Windows `TEMP`/`TMP` warnings do
+not contaminate the command's JSON stdout:
+
+    CK_CURRENT_FORM_SURFACE_TMPDIR=/tmp \
+      xvfb-run -a env CK_ALLOW_VISIBLE_GODOT=1 \
+      experiments/current-form-surface-preview/surface_preview_launcher.sh \
+      experiments/godot-provisional-host-feasibility/run_skeletal_pose_smoke.py \
+      --gallery /absolute/path/to/completed-gallery \
+      --report /absolute/path/to/skeletal-pose-report.json
+
 For Python tests and probes, use the canonical test wrapper. It delegates
 interpreter selection, pinned dependency validation, and native temporary-root
 setup to the current-form surface-preview launcher, while preserving
@@ -103,12 +137,17 @@ selector must begin with `test` and cannot contain `/`:
     experiments/godot-provisional-host-feasibility/test.sh \
       test_structural_gallery_smoke.py
 
+Run the focused skeletal binding suite with:
+
+    experiments/godot-provisional-host-feasibility/test.sh \
+      test_skeletal_pose_smoke.py
+
 The default profiles are `compact_broad_short_limb_large_head` and
 `tall_narrow_long_legged`. Repeat `--profile-id` exactly twice to select a
 different distinct pair from the frozen four-profile gallery.
 
 Python first invokes the existing exact gallery validator and immutable
-non-rendered evidence projection. Both probes use the neutral runner's safe
+non-rendered evidence projection. The Python probes use the neutral runner's safe
 temporary, atomic-publication, and postflight-revalidation infrastructure: it
 copies the minimal project and selected GDScript into a temporary directory,
 isolates home/XDG/temporary roots, rejects Godot error or resource-leak
@@ -131,6 +170,11 @@ safe publication, and postflight behavior. The posed 18-test suite additionally
 covers all six projected artifacts, independent posed vertex/normal/proxy
 recomputation, deterministic repeated reports, and direct-mutation rejection.
 Seven wrapper tests cover managed-environment routing and selector safety.
-Both suites run their real Godot paths when the completed-gallery fixture and
-exact pinned binary are available, and verify that no repository `.godot`
-cache directory is created.
+The skeletal pose suite contains 14 tests covering both frozen profile pairs,
+complete `Skeleton3D`/`Skin` binding evidence, malformed and tampered inputs,
+deterministic reruns, and repository/cache cleanliness. The neutral and posed
+suites run their real Godot paths when the completed-gallery fixture and exact
+pinned binary are available. Skeletal-pose integration additionally requires
+an active X11 display and `CK_ALLOW_VISIBLE_GODOT=1` to mark an attended run;
+otherwise those visible integration cases are skipped. All Godot probe suites
+verify that no repository `.godot` cache directory is created.
