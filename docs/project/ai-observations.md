@@ -15,6 +15,6 @@ Copyable entry:
   - Observation: what happened and where
   - Expected pattern: what should happen instead
 
-- `2026-08-28 18:30 NZST`: Bare Python was too old for ad-hoc TOML parsing
-  - Observation: System Python 3.10 failed with `No module named 'tomllib'` before it could parse `.codex/config.toml`.
-  - Expected pattern: Use the actual configuration consumer or a confirmed managed interpreter; do not try an unverified system interpreter first.
+- `2026-08-28 19:40 NZST`: Batched `unlink` rejected multiple paths
+  - Observation: A verified generated-cache cleanup used `find -exec unlink -- {} +`; GNU `unlink` rejected the second path with `extra operand`, and no file was removed on that attempt.
+  - Expected pattern: Pass one verified pathname per `unlink` invocation, or use a separately validated safe multi-file cleanup route.

@@ -63,4 +63,5 @@ if [[ ! -f "$LAUNCHER" || ! -x "$LAUNCHER" ]]; then
 fi
 
 cd -- "$REPOSITORY_ROOT"
+export PYTHONDONTWRITEBYTECODE=1
 exec "$LAUNCHER" -m unittest discover -s "$TEST_DIR" -p "$TEST_PATTERN"

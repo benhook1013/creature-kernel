@@ -91,9 +91,15 @@ useful. This lane does not authorize product or architecture drift, external
 side effects, DR acceptance, or endless review-until-clean loops. Bounded
 near-completion external-review follow-up cycles may continue while material
 findings surface or taper, subject to the stop criteria in the workflow below.
-Ben explicitly authorized main-thread CodeRabbit advisory review on 2026-08-27;
-the external-review workflow below governs its non-gating, one-round-at-a-time
-use.
+Ben explicitly authorized main-thread CodeRabbit advisory review on 2026-08-27
+and directed on 2026-08-28 that, once a substantial coherent PR is ready for
+final review, hosted and committed-diff CLI reviews run in parallel. The
+external-review workflow below defines that pair as one deliberate,
+non-gating cycle; its hosted pass reviews an immutable pushed head, so the
+remote PR head must not change until both results complete. Creature Kernel's
+hosted and CLI limits are independent of FireMUD's: do not ration or delay
+Creature Kernel cycles to preserve another repository's allowance, and do not
+mutate another project.
 Subagents remain bounded executors or reviewers and cannot make product or
 architecture decisions independently. Until Revision 6 is accepted, the
 current accepted DR-0001 safety and human-ownership controls remain in force.

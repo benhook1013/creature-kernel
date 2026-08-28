@@ -9,10 +9,9 @@ the canonical owner of the active runway, and the required reading order in
 
 ## Where to continue
 
-- Primary checkout: `/home/ben/src/creature-kernel` — PR #115 merged on
-  2026-08-26 as squash commit
-  `84bfb6ea6aea3238a594fe9586a40656b4a4daf9`; `main` and `origin/main` then
-  pointed there. All three CI lanes passed before the merge.
+- Primary checkout: `/home/ben/src/creature-kernel` — PR #116 merged at
+  2026-08-28T06:40:34Z; `main` and `origin/main` are at
+  `9c305c9e364bb9fdfb2429e004c99f366bf43317`.
 - [PR #115](https://github.com/benhook1013/creature-kernel/pull/115) recorded the
   provisional Godot runway and CodeRabbit configuration. CodeRabbit installation
   and repository configuration are live. A hosted full review of commit
@@ -22,80 +21,28 @@ the canonical owner of the active runway, and the required reading order in
   records Ben's explicit 2026-08-27 authorization for the main thread to invoke
   CodeRabbit only for deliberate advisory, non-gating review near completion of
   a substantial coherent PR. Automatic reviews remain disabled in
-  `.coderabbit.yaml`. Multiple review rounds are intentional, but one deliberate
-  round is handled at a time: the main thread fully inspects and dispositions
-  the result, then explicitly decides whether another round is materially
-  justified by the taper rule. Unattended timers and automatic looping are
-  prohibited. Subagents invoke CodeRabbit only when an exact action is explicitly
-  delegated. These reviews do not replace internal review, hands-on trials,
-  validation, CI, human, or merge gates. Skipping CodeRabbit is not a merge
-  blocker.
+  `.coderabbit.yaml`. Final readiness uses hosted and committed-diff CLI review
+  in parallel as one cycle; pushing waits while hosted reviews hold an immutable
+  head, and bounded follow-up cycles continue until findings taper. Creature
+  Kernel limits are independent of FireMUD. These reviews do not replace
+  internal review, hands-on trials, validation, CI, human, or merge gates.
 - The visual-review systemd service is active from
   `/home/ben/src/creature-kernel`. The completed structural checkpoint remains
   at `http://localhost:8765/review/shared-pose-structural-embodiment-gallery`.
-- Active implementation worktree:
-  `/home/ben/src/creature-kernel-worktrees/pre-r3-module-binding-candidate` on
-  branch `codex/pre-r3-module-binding-candidate`, backing open
-  [PR #116](https://github.com/benhook1013/creature-kernel/pull/116). The PR is
-  being retained as a coarser pre-Godot runway PR. Its initial crate-private
-  module-binding candidate passed local tests and fresh review, but Rust CI
-  correctly showed that changing `crates/creature-kernel-core/src/lib.rs`
-  crosses the parked EXP-0002 47-path freeze closure. The candidate is removed
-  from the current diff without regenerating, rebinding, bypassing, or
-  reactivating that freeze. The current unfrozen experiment/tooling slice
-  exposes the existing exact structural-gallery validator for reuse and adds a
-  temporary immutable projection of non-rendered structural evidence from a
-  completed gallery directory. It retains four distinct profile identities,
-  pose and artifact identities, metrics, lineage, and declared bounds; rendered
-  review metadata is deliberately excluded, while original `inspect-structure`
-  bytes and per-vertex semantic labels remain explicitly unavailable. Expected
-  gallery rejection returns no view, but validator-load and unexpected runtime
-  failures surface. The 21-test publisher suite and 11-test projection suite
-  passed after fresh hands-on and adversarial findings were corrected. The
-  disposable pinned Godot 4.7.2 launcher, neutral two-profile host-load smoke,
-  and posed two-profile cross-check load and hash-check the applicable projected
-  profile artifacts, instantiate neutral and posed `ArrayMesh` plus
-  `StaticBody3D` capsule profiles, and use isolated temporary
-  project/home/XDG/TMP roots. The posed probe independently recomputes published
-  posed vertices/normals and posed proxy endpoints from skin matrices plus
-  weights at fixed `2e-5` tolerance and records both mesh and proxy separation.
-  Pre-hosted-follow-up baseline: the neutral 17-test and posed 9-test suites
-  passed. The neutral post-fix hands-on regression, the posed default and alternate
-  pair operator trials, and the fresh posed adversarial mutation trial also passed
-  without a remaining blocker. PR #116 then received one explicit hosted full review against commit
-  `5fdc785`; it completed rather than rate-limiting and produced 16 inline
-  findings. Independent triage identified three correctness-significant issues,
-  multiple bounded robustness improvements, one disproportionate shared-helper
-  refactor to reject, and one missed neutral counterpart to host-report
-  evidence mutation. The current local candidate addresses those findings plus
-  the requested tooling/instruction cleanup. Its final local rerun passed 51
-  Godot Python tests through the canonical pinned-environment wrapper, the shell
-  launcher checks, 11 focused evidence-probe tests, five current-form wrapper
-  tests, seven whitespace-tool tests, documentation validation, and
-  whole-worktree whitespace validation. Two fresh hands-on trials passed the
-  default and alternate profile pairs, tampered-artifact rejection,
-  invalid-profile rejection, deterministic report evidence, and
-  repository-write/cache checks without a correctness defect. Fresh final
-  code/documentation review and the hosted-thread dispositions then completed;
-  the unresolved-thread count is zero, and the then-current CI was green on pushed
-  head `bb0b29a`. A final committed-diff CodeRabbit CLI pass produced eight bounded
-  validation and test-harness findings, all addressed by the current local
-  follow-up. Fresh independent review of that follow-up produced three bounded
-  correctness findings; all are addressed and the resulting 51-test suite
-  passed. The corrected candidate was committed and pushed as
-  `0552776b96f5e6d0b1d536e5ed07cbb53eab36ce`; PR #116 is open and
-  clean/mergeable. Documentation contracts, Rust workspace validation, Visual
-  review tests, and CodeRabbit are all successful at that pushed head. A final
-  taper CLI pass on `5541b70` produced three mechanical fixture/helper/cleanup
-  findings; all are addressed, and focused reruns covered all 51 Godot tests plus
-  the seven whitespace-tool tests. The CodeRabbit cycle stops there. PR #116
-  remains one coherent coarse structural-evidence-to-provisional-Godot
-  milestone; these successful checks do not widen its evidence boundary. This
-  snapshot makes no
-  Skeleton3D/Skin runtime
-  binding, animation, semantic pose injection, physics stepping, contact,
-  deformation, render output, adapter/package/R3/performance/checkpoint
-  evidence claim.
+- PR #116, [“Admit structural gallery evidence into pinned Godot
+  probes”](https://github.com/benhook1013/creature-kernel/pull/116), merged at
+  2026-08-28T06:40:34Z. The active implementation worktree is
+  `/home/ben/src/creature-kernel-worktrees/godot-skeletal-pose-probe` on branch
+  `codex/godot-skeletal-pose-probe`, based on `9c305c9`; it has no PR yet.
+  The current candidate adds the disposable real `Skeleton3D`/`Skin`
+  shared-pose binding probe and its tests. The non-visible full Godot suite
+  passes 63 tests with 4 explicit visible-renderer skips. With Xvfb authorized
+  and installed in WSL, the focused real-renderer skeletal suite passed all 12
+  tests in 97.654s with zero skips; this is bounded host-local
+  renderer/binding evidence only. The CI patch adds PR-only concurrency
+  cancellation to the Rust/docs workflows.
+  This candidate is a direct prerequisite, not the named bounded Godot
+  feasibility checkpoint, which remains the governing human checkpoint.
 - [PR #113](https://github.com/benhook1013/creature-kernel/pull/113) merged to
   `main` as squash commit `eb89245da137e54cc85f9cd564fbcdd6c45eac66` on
   2026-08-25. All three CI lanes passed before its merge. Ben's disposition
