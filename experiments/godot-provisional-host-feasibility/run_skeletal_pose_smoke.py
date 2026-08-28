@@ -88,6 +88,43 @@ REPORT_FLAGS = {
 }
 
 
+def _safe_avatar_root_name(index: int, instance_id: str) -> str:
+    """Return the deterministic Godot root name used by the carrier probe."""
+    return f"Avatar_{index:02d}_{instance_id.replace('-', '_')}"
+
+
+def _carrier_avatar_records(carrier: dict[str, Any]) -> list[dict[str, str]]:
+    """Project validated carrier instances into the minimal Godot input records."""
+    records: list[dict[str, str]] = []
+    for instance in carrier["instances"]:
+        records.append(
+            {
+                "instance_id": instance["instance_id"],
+                "profile_id": instance["profile_id"],
+                "candidate_profile_sha256": instance["candidate_profile_sha256"],
+            }
+        )
+    return records
+
+
+def _expected_carrier_avatar_bindings(records: list[dict[str, str]]) -> list[dict[str, Any]]:
+    bindings: list[dict[str, Any]] = []
+    for index, record in enumerate(records):
+        metadata = {
+            "ck_experiment_instance_id": record["instance_id"],
+            "ck_profile_id": record["profile_id"],
+            "ck_candidate_profile_sha256": record["candidate_profile_sha256"],
+        }
+        bindings.append(
+            {
+                **record,
+                "root_name": _safe_avatar_root_name(index, record["instance_id"]),
+                "root_metadata": metadata,
+            }
+        )
+    return bindings
+
+
 def _carrier_identity(carrier: dict[str, Any], carrier_module: Any) -> dict[str, Any]:
     canonical = carrier_module._canonical_json(carrier)
     return {
@@ -222,14 +259,69 @@ def _validate_carrier_report_identity(
         raise SmokeError("Godot report validated-carrier identity is invalid")
 
 
+def _validate_carrier_avatar_bindings(
+    actual: Any,
+    expected_records: list[dict[str, str]] | None,
+    present: bool,
+) -> None:
+    if expected_records is None:
+        if present:
+            raise SmokeError("no-carrier Godot report contains unexpected avatar binding evidence")
+        return
+    if not present:
+        raise SmokeError("Godot report is aggregate-only; carrier avatar binding read-back is missing")
+    expected = _expected_carrier_avatar_bindings(expected_records)
+    if not isinstance(actual, list) or len(actual) != len(expected):
+        raise SmokeError("Godot report carrier avatar bindings are incomplete or reordered")
+    for index, (observed, expected_binding) in enumerate(zip(actual, expected)):
+        if not isinstance(observed, dict) or set(observed) != set(expected_binding):
+            raise SmokeError(f"Godot report carrier avatar binding {index} is incomplete")
+        metadata = observed.get("root_metadata")
+        expected_metadata = expected_binding["root_metadata"]
+        if not isinstance(metadata, dict) or set(metadata) != set(expected_metadata):
+            raise SmokeError(f"Godot report carrier avatar binding {index} metadata is incomplete")
+        if observed != expected_binding:
+            raise SmokeError(
+                "Godot report carrier avatar bindings are missing, duplicate, reordered, swapped, or mismatched"
+            )
+
+
+def _validate_carrier_expectations(
+    carrier_identity: dict[str, Any] | None,
+    carrier_avatar_records: list[dict[str, str]] | None,
+    payload: dict[str, Any],
+    profile_ids: tuple[str, str],
+) -> None:
+    if (carrier_identity is None) != (carrier_avatar_records is None):
+        raise SmokeError("carrier identity and per-avatar expectations must be supplied together")
+    if carrier_identity is None or carrier_avatar_records is None:
+        return
+    keys = {"instance_id", "profile_id", "candidate_profile_sha256"}
+    if (
+        len(carrier_avatar_records) != 2
+        or any(not isinstance(record, dict) or set(record) != keys for record in carrier_avatar_records)
+    ):
+        raise SmokeError("carrier per-avatar expectations are incomplete")
+    instance_ids = [record["instance_id"] for record in carrier_avatar_records]
+    expected_hashes = [profile["candidate_profile_sha256"] for profile in payload["profiles"]]
+    if (
+        carrier_identity.get("experiment_instance_ids") != instance_ids
+        or [record["profile_id"] for record in carrier_avatar_records] != list(profile_ids)
+        or [record["candidate_profile_sha256"] for record in carrier_avatar_records] != expected_hashes
+    ):
+        raise SmokeError("carrier identity, profile order, and per-avatar expectations are inconsistent")
+
+
 def _validate_report(
     report: Any,
     payload: dict[str, Any],
     profile_ids: tuple[str, str],
     carrier_identity: dict[str, Any] | None = None,
+    carrier_avatar_records: list[dict[str, str]] | None = None,
 ) -> None:
     if not isinstance(report, dict):
         raise SmokeError("Godot skeletal-pose report is not a JSON object")
+    _validate_carrier_expectations(carrier_identity, carrier_avatar_records, payload, profile_ids)
     if report.get("schema") != REPORT_SCHEMA or report.get("status") != "success":
         raise SmokeError("Godot skeletal-pose report schema or status is invalid")
     if report.get("boundary") != REPORT_BOUNDARY:
@@ -260,6 +352,11 @@ def _validate_report(
         report.get("validated_carrier"),
         carrier_identity,
         "validated_carrier" in report,
+    )
+    _validate_carrier_avatar_bindings(
+        report.get("carrier_avatar_bindings"),
+        carrier_avatar_records,
+        "carrier_avatar_bindings" in report,
     )
     if report.get("coordinate_rule") != {
         "kind": "disposable_host_local_identity",
@@ -369,6 +466,7 @@ def _launch_godot(
     profile_ids: tuple[str, str],
     payload: dict[str, Any],
     carrier_identity: dict[str, Any] | None = None,
+    carrier_avatar_records: list[dict[str, str]] | None = None,
 ) -> tuple[str, str, int, dict[str, Any] | None]:
     """Launch with a real renderer; headless mode exposes dummy rendering RIDs."""
     if os.environ.get(VISIBLE_GODOT_OPT_IN) != "1":
@@ -433,6 +531,22 @@ def _launch_godot(
                     json.dumps(carrier_identity, ensure_ascii=True, sort_keys=True, separators=(",", ":"), allow_nan=False),
                 ]
             )
+            if carrier_avatar_records is None:
+                raise SmokeError("validated carrier avatar records are missing")
+            command.extend(
+                [
+                    "--carrier-avatar-records-json",
+                    json.dumps(
+                        carrier_avatar_records,
+                        ensure_ascii=True,
+                        sort_keys=True,
+                        separators=(",", ":"),
+                        allow_nan=False,
+                    ),
+                ]
+            )
+        elif carrier_avatar_records is not None:
+            raise SmokeError("carrier avatar records were supplied without validated carrier identity")
         environment = os.environ.copy()
         environment.update({key: str(value) for key, value in isolated_paths.items()})
         environment["CK_GODOT_4_7_2_BINARY"] = str(pinned_binary)
@@ -471,6 +585,7 @@ def run_skeletal_pose_smoke(
     report_path = neutral_smoke._validate_report_destination(report_path)
     gallery = Path(gallery)
     carrier_identity = None
+    carrier_avatar_records = None
     if carrier_path is None:
         selected = neutral_smoke._validate_profile_ids(profile_ids if profile_ids is not None else DEFAULT_PROFILE_IDS)
         _, payload = neutral_smoke.preflight(gallery, selected)
@@ -482,6 +597,7 @@ def run_skeletal_pose_smoke(
         if profile_ids is not None and neutral_smoke._validate_profile_ids(profile_ids) != selected:
             raise SmokeError("explicit profile IDs disagree with the validated carrier order")
         carrier_identity = _carrier_identity(carrier, carrier_module)
+        carrier_avatar_records = _carrier_avatar_records(carrier)
         if tuple(carrier_identity["experiment_instance_ids"]) != instance_ids:
             raise SmokeError("validated carrier instance order is inconsistent")
     stdout, stderr, returncode, report = _launch_godot(
@@ -489,12 +605,13 @@ def run_skeletal_pose_smoke(
         selected,
         payload,
         carrier_identity,
+        carrier_avatar_records,
     )
     if returncode != 0:
         raise SmokeError(f"Godot launcher returned exit code {returncode}; stdout={stdout!r}; stderr={stderr!r}")
     if report is None:
         raise SmokeError("Godot returned success without a skeletal-pose report")
-    _validate_report(report, payload, selected, carrier_identity)
+    _validate_report(report, payload, selected, carrier_identity, carrier_avatar_records)
     if carrier_path is None:
         _, post_payload = neutral_smoke.preflight(gallery, selected)
         if post_payload != payload:

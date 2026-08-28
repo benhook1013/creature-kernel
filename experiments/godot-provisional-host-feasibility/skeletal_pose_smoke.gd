@@ -19,6 +19,11 @@ const REPORT_SCHEMA := "creature-kernel.disposable-godot-skeletal-pose-smoke.v1"
 const REPORT_BOUNDARY := "host_local_skeleton3d_skin_pose_binding"
 const CARRIER_SCHEMA := "creature-kernel.disposable-engine-neutral-avatar-input.v1"
 const CARRIER_BOUNDARY := "experiment_input_only_no_runtime_package_or_adapter_contract"
+const CARRIER_ROOT_METADATA_KEYS := [
+	"ck_experiment_instance_id",
+	"ck_profile_id",
+	"ck_candidate_profile_sha256",
+]
 const ARTIFACT_NAMES := [
 	"neutral.ply",
 	"posed.ply",
@@ -77,10 +82,14 @@ func _run_smoke() -> int:
 		return _fail("the disposable scene root was not empty before instantiation")
 
 	var loaded_profiles: Array[Dictionary] = []
+	var carrier_avatar_records: Array = options.get("carrier_avatar_records", [])
 	for index in range(2):
 		var profile_id: String = options.profile_ids[index]
 		var profile_payload: Dictionary = _profile_payload(validated, profile_id)
-		var loaded = _load_profile(options.gallery_path, profile_id, profile_payload, TRANSLATIONS[index], pose)
+		var carrier_record: Dictionary = {}
+		if options.has("carrier_avatar_records"):
+			carrier_record = carrier_avatar_records[index]
+		var loaded = _load_profile(options.gallery_path, profile_id, profile_payload, TRANSLATIONS[index], pose, index, carrier_record)
 		if loaded.is_empty():
 			_release_profiles(loaded_profiles)
 			return _fail_exit()
@@ -165,6 +174,7 @@ func _parse_arguments() -> Dictionary:
 	var arguments := OS.get_cmdline_user_args()
 	var result := {
 		"gallery_path": "",
+		"carrier_avatar_records_json": "",
 		"carrier_identity_json": "",
 		"profile_ids": [],
 		"report_path": "",
@@ -173,7 +183,7 @@ func _parse_arguments() -> Dictionary:
 	var index := 0
 	while index < arguments.size():
 		var argument: String = arguments[index]
-		if argument == "--gallery" or argument == "--report" or argument == "--validated-json" or argument == "--carrier-identity-json" or argument == "--profile-id":
+		if argument == "--gallery" or argument == "--report" or argument == "--validated-json" or argument == "--carrier-identity-json" or argument == "--carrier-avatar-records-json" or argument == "--profile-id":
 			if index + 1 >= arguments.size():
 				_failure = "missing value after %s" % argument
 				return {}
@@ -186,6 +196,8 @@ func _parse_arguments() -> Dictionary:
 				result.validated_json = value
 			elif argument == "--carrier-identity-json":
 				result.carrier_identity_json = value
+			elif argument == "--carrier-avatar-records-json":
+				result.carrier_avatar_records_json = value
 			else:
 				result.profile_ids.append(value)
 			index += 2
@@ -219,11 +231,18 @@ func _validate_options_against_projection(options: Dictionary, validated: Dictio
 	if typeof(validated.get("pose_sha256", null)) != TYPE_STRING or String(validated.pose_sha256).length() != 64:
 		_failure = "validated projection pose identity is invalid"
 		return false
+	if (options.carrier_identity_json == "") != (options.carrier_avatar_records_json == ""):
+		_failure = "carrier identity and per-avatar records must be supplied together"
+		return false
 	if options.carrier_identity_json != "":
 		var carrier_identity = JSON.parse_string(options.carrier_identity_json)
 		if not _validate_carrier_identity(carrier_identity):
 			return false
 		options["carrier_identity"] = carrier_identity
+		var carrier_avatar_records = JSON.parse_string(options.carrier_avatar_records_json)
+		if not _validate_carrier_avatar_records(carrier_avatar_records, options, validated):
+			return false
+		options["carrier_avatar_records"] = carrier_avatar_records
 	return true
 
 
@@ -251,9 +270,57 @@ func _validate_carrier_identity(value) -> bool:
 	if typeof(value.experiment_instance_ids) != TYPE_ARRAY or value.experiment_instance_ids.size() != 2:
 		_failure = "validated carrier must identify exactly two experiment instances"
 		return false
-	if typeof(value.experiment_instance_ids[0]) != TYPE_STRING or typeof(value.experiment_instance_ids[1]) != TYPE_STRING or value.experiment_instance_ids[0] == value.experiment_instance_ids[1]:
+	if typeof(value.experiment_instance_ids[0]) != TYPE_STRING or typeof(value.experiment_instance_ids[1]) != TYPE_STRING or not _is_safe_instance_id(String(value.experiment_instance_ids[0])) or not _is_safe_instance_id(String(value.experiment_instance_ids[1])) or value.experiment_instance_ids[0] == value.experiment_instance_ids[1]:
 		_failure = "validated carrier experiment instance identities are invalid"
 		return false
+	return true
+
+
+func _is_safe_instance_id(value: String) -> bool:
+	if value.is_empty() or value.length() > 64:
+		return false
+	for index in range(value.length()):
+		var code := value.unicode_at(index)
+		if index == 0:
+			if code < 97 or code > 122:
+				return false
+		elif not ((code >= 97 and code <= 122) or (code >= 48 and code <= 57) or code == 45):
+			return false
+	return true
+
+
+func _validate_carrier_avatar_records(value, options: Dictionary, validated: Dictionary) -> bool:
+	if typeof(value) != TYPE_ARRAY or value.size() != 2:
+		_failure = "validated carrier must contain exactly two per-avatar records"
+		return false
+	if not options.has("carrier_identity"):
+		_failure = "validated carrier per-avatar records require carrier identity"
+		return false
+	var identity: Dictionary = options.carrier_identity
+	var seen := {}
+	for index in range(2):
+		var record = value[index]
+		if typeof(record) != TYPE_DICTIONARY or record.size() != 3:
+			_failure = "validated carrier per-avatar record %d must contain exactly three fields" % index
+			return false
+		for key in ["instance_id", "profile_id", "candidate_profile_sha256"]:
+			if not record.has(key) or typeof(record[key]) != TYPE_STRING:
+				_failure = "validated carrier per-avatar record %d is missing %s" % [index, key]
+				return false
+		var instance_id := String(record.instance_id)
+		var profile_id := String(record.profile_id)
+		var candidate_hash := String(record.candidate_profile_sha256)
+		if not _is_safe_instance_id(instance_id) or seen.has(instance_id):
+			_failure = "validated carrier per-avatar instance identities are not unique and safe"
+			return false
+		seen[instance_id] = true
+		if instance_id != String(identity.experiment_instance_ids[index]) or profile_id != String(options.profile_ids[index]):
+			_failure = "validated carrier per-avatar records are reordered or swapped"
+			return false
+		var profile := _profile_payload(validated, profile_id)
+		if profile.is_empty() or candidate_hash != String(profile.get("candidate_profile_sha256", "")):
+			_failure = "validated carrier per-avatar candidate identity does not match the projection"
+			return false
 	return true
 
 
@@ -367,7 +434,7 @@ func _quaternion_error(left: Quaternion, right: Quaternion) -> float:
 	return max(abs(left.x - right.x), abs(left.y - right.y), abs(left.z - right.z), abs(left.w - right.w))
 
 
-func _load_profile(gallery_path: String, profile_id: String, profile_payload: Dictionary, translation: Vector3, pose: Dictionary) -> Dictionary:
+func _load_profile(gallery_path: String, profile_id: String, profile_payload: Dictionary, translation: Vector3, pose: Dictionary, avatar_index: int, carrier_record: Dictionary = {}) -> Dictionary:
 	var artifact_bytes: Dictionary = {}
 	var artifacts = profile_payload.get("artifacts", [])
 	for artifact_index in range(ARTIFACT_NAMES.size()):
@@ -406,7 +473,14 @@ func _load_profile(gallery_path: String, profile_id: String, profile_payload: Di
 		return {}
 
 	var root := Node3D.new()
-	root.name = "Profile_%s" % profile_id
+	if carrier_record.is_empty():
+		root.name = "Profile_%s" % profile_id
+	else:
+		var instance_id := String(carrier_record.instance_id)
+		root.name = _safe_avatar_root_name(avatar_index, instance_id)
+		root.set_meta("ck_experiment_instance_id", instance_id)
+		root.set_meta("ck_profile_id", String(carrier_record.profile_id))
+		root.set_meta("ck_candidate_profile_sha256", String(carrier_record.candidate_profile_sha256))
 	root.position = translation
 	get_root().add_child(root)
 	var skeleton_node := Skeleton3D.new()
@@ -973,6 +1047,43 @@ func _readback_proxy_nodes(profile: Dictionary) -> Dictionary:
 	}
 
 
+func _safe_avatar_root_name(index: int, instance_id: String) -> String:
+	return "Avatar_%02d_%s" % [index, instance_id.replace("-", "_")]
+
+
+func _readback_carrier_avatar_binding(profile: Dictionary, avatar_index: int, expected_record: Dictionary) -> Dictionary:
+	var root = profile.get("root", null)
+	if not (root is Node3D) or not is_instance_valid(root):
+		_failure = "carrier avatar binding root is invalid"
+		return {}
+	var instance_id := String(expected_record.get("instance_id", ""))
+	var expected_name := _safe_avatar_root_name(avatar_index, instance_id)
+	if root.name != expected_name:
+		_failure = "carrier avatar %s root name read-back is invalid" % instance_id
+		return {}
+	var metadata := {}
+	for key in CARRIER_ROOT_METADATA_KEYS:
+		if not root.has_meta(key):
+			_failure = "carrier avatar %s root metadata is missing %s" % [instance_id, key]
+			return {}
+		metadata[key] = root.get_meta(key)
+	var expected_metadata := {
+		"ck_experiment_instance_id": expected_record.instance_id,
+		"ck_profile_id": expected_record.profile_id,
+		"ck_candidate_profile_sha256": expected_record.candidate_profile_sha256,
+	}
+	if metadata != expected_metadata:
+		_failure = "carrier avatar %s root metadata does not match its validated record" % instance_id
+		return {}
+	return {
+		"instance_id": metadata.ck_experiment_instance_id,
+		"profile_id": metadata.ck_profile_id,
+		"candidate_profile_sha256": metadata.ck_candidate_profile_sha256,
+		"root_name": String(root.name),
+		"root_metadata": metadata,
+	}
+
+
 func _readback_binding(profile: Dictionary) -> Dictionary:
 	var skeleton: Skeleton3D = profile.skeleton
 	var skin: Skin = profile.skin
@@ -1157,10 +1268,12 @@ func _check_posed_separation(profiles: Array[Dictionary]) -> bool:
 func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: Array[Dictionary]) -> Dictionary:
 	var candidate_hashes := {}
 	var profiles: Array[Dictionary] = []
+	var carrier_avatar_bindings: Array[Dictionary] = []
 	var profile_translations: Array = []
 	var pose_rule_count := -1
 	var pose_rules_validated := true
-	for profile in loaded_profiles:
+	for index in range(loaded_profiles.size()):
+		var profile: Dictionary = loaded_profiles[index]
 		candidate_hashes[profile.profile_id] = profile.candidate_profile_sha256
 		var metrics: Dictionary = profile.metrics
 		var binding := _readback_binding(profile)
@@ -1174,6 +1287,11 @@ func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: 
 		if actual_translation.distance_to(expected_translation) > TOLERANCE:
 			_failure = "%s runtime profile translation differs from the expected host-only placement" % profile.profile_id
 			return {}
+		if options.has("carrier_identity"):
+			var carrier_binding := _readback_carrier_avatar_binding(profile, index, options.carrier_avatar_records[index])
+			if carrier_binding.is_empty():
+				return {}
+			carrier_avatar_bindings.append(carrier_binding)
 		profile_translations.append(_vector_json(actual_translation))
 		var profile_pose_rule_count := int(binding.pose_rules_applied)
 		if pose_rule_count < 0:
@@ -1254,6 +1372,7 @@ func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: 
 	}
 	if options.has("carrier_identity"):
 		report["validated_carrier"] = options.carrier_identity
+		report["carrier_avatar_bindings"] = carrier_avatar_bindings
 	return report
 
 

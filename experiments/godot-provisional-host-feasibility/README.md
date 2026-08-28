@@ -135,10 +135,17 @@ Pass that canonical carrier back through the skeletal probe with `--carrier`.
 The carrier selects the authoritative ordered profile and experiment-instance
 identities. Omit `--profile-id`, or repeat it exactly twice in the same order as
 the carrier. The runner revalidates the carrier and gallery before launch,
-passes the carrier-derived payload to Godot, records the carrier SHA-256, byte
-count, schema, boundary, and instance order in the report, then repeats carrier
-and gallery validation before publishing success. The earlier no-carrier route
-remains available as predecessor evidence.
+passes the carrier-derived payload plus one ordered record per avatar to Godot.
+Each record contains the carrier-backed `instance_id`, `profile_id`, and
+`candidate_profile_sha256`. Godot binds each record to one actual runtime root
+using deterministic safe naming and runtime-readable root metadata. The report
+retains the aggregate carrier SHA-256, byte count, schema, boundary, and
+instance order, and adds `carrier_avatar_bindings` with one root-metadata
+read-back record per avatar. Python rejects missing, duplicate, reordered,
+swapped, mismatched, or aggregate-only binding evidence before publication.
+Carrier and gallery validation then repeat before publishing success. The earlier
+no-carrier route remains available as predecessor evidence and does not emit
+carrier avatar bindings.
 
     CK_CURRENT_FORM_SURFACE_TMPDIR=/tmp \
       xvfb-run -a env CK_ALLOW_VISIBLE_GODOT=1 \
@@ -190,7 +197,8 @@ isolates home/XDG/temporary roots, rejects Godot error or resource-leak
 diagnostics, and cross-checks the returned report against validator-backed
 evidence before atomically writing canonical JSON. The reported CK XYZ to
 Godot XYZ identity mapping and fixed profile translations are disposable
-host-local choices, not a durable adapter contract.
+host-local choices, not a durable adapter contract. The carrier root names and
+metadata are likewise experiment-only runtime read-back evidence.
 
 ## Checks
 
@@ -210,12 +218,13 @@ The disposable carrier suite contains 15 tests covering exact shape,
 deterministic canonical publication, strict bounded loading, both frozen profile
 pairs, instance identity, tampering and mixed-lineage rejection, and payload
 reconstruction, including deterministic symlink-swap read and publication
-regressions. The skeletal pose suite contains 21 tests covering both frozen
+regressions. The skeletal pose suite contains 26 tests covering both frozen
 profile pairs, complete `Skeleton3D`/`Skin` binding evidence, malformed and
-tampered inputs, deterministic reruns, carrier load-through and postflight
-identity, real-process rejection of noncanonical carrier identity, and
-repository/cache cleanliness. The neutral and posed suites run their real Godot
-paths when the completed-gallery fixture and exact pinned binary are available.
+tampered inputs and reports, deterministic reruns, carrier load-through with
+one-to-one runtime-root read-back, real-process rejection of noncanonical
+carrier identity, and repository/cache cleanliness. The neutral and posed
+suites run their real Godot paths when the completed-gallery fixture and exact
+pinned binary are available.
 Skeletal-pose integration additionally requires
 an active X11 display and `CK_ALLOW_VISIBLE_GODOT=1` to mark an attended run;
 otherwise those visible integration cases are skipped. All Godot probe suites

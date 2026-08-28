@@ -19,43 +19,45 @@ named human checkpoint and PR #114 merged as squash commit
 on 2026-08-26. PR #116, [“Admit structural gallery evidence into pinned Godot
 probes”](https://github.com/benhook1013/creature-kernel/pull/116), merged at
 2026-08-28T06:40:34Z. PR #117 merged by squash at 2026-08-28T08:39:44Z as
-`5fb4ce6668f34386e865154bab13e03fefd04e75`; primary `main` and `origin/main`
-were verified at that commit and clean when the new worktree was created. The
-CodeRabbit App and repository configuration remain live, with automatic reviews
-disabled. The updated direction is to launch hosted and committed-diff CLI
-review in parallel as one final-readiness cycle, keep it advisory and
-non-gating, avoid pushing while hosted reviews hold an immutable head, and run
-bounded follow-up cycles until findings taper. Creature Kernel's limits are
-independent of FireMUD.
+`5fb4ce6668f34386e865154bab13e03fefd04e75`. PR #118 then merged at
+2026-08-28T11:16:00Z as squash commit
+`790f0a499f837c86ed36b9248af3b87a7f8b5955`; all three final-head CI lanes
+passed. Hosted CodeRabbit's five findings and CLI's one finding were fixed,
+all five hosted conversations were resolved, and automatic review remained
+disabled. Primary `main` and `origin/main` were fast-forwarded and clean. The
+CodeRabbit App and repository configuration remain live. The updated direction
+is to launch hosted and committed-diff CLI review in parallel as one
+final-readiness cycle, keep it advisory and non-gating, avoid pushing while
+hosted reviews hold an immutable head, and run bounded follow-up cycles until
+findings taper. Creature Kernel's limits are independent of FireMUD.
 
 The visual-review systemd service is active from `/home/ben/src/creature-kernel`;
 the stable structural review remains
 `http://localhost:8765/review/shared-pose-structural-embodiment-gallery`.
 
 The active worktree is
-`/home/ben/src/creature-kernel-worktrees/godot-package-input-carrier` on branch
-`codex/godot-package-input-carrier`, based on `5fb4ce6`. The current provisional
-candidate adds a deterministic, canonical, exactly-two-avatar experiment input
-carrier with ordered experiment instance IDs and exact gallery/profile/shared-pose
-provenance. The Python skeletal runner revalidates the carrier before and after
-launch; the Godot script consumes its validated projection and reports the
-exact carrier identity summary it received. This is disposable experiment
-evidence only: it is not a runtime package schema, durable artifact identity,
-adapter activation, compatibility promise, Readiness 3 result, host commitment,
-performance/contact/deformation result, or human visual checkpoint. Carrier
-reads, structural-gallery preflight, and publication are descriptor-anchored
-against path-swap races, and its cross-process byte count uses an exact
-canonical decimal string rather than a coercive JSON number. Carrier tests pass
-15/15. The full canonical non-visible Godot suite passes 87 tests with 6
-expected renderer skips; the real Xvfb/Godot skeletal suite passes 21/21 in
-121.396s. Two fresh hands-on trials passed the documented first-use load-through
-and representative fail-closed
-tamper/non-overwrite scenarios.
-Fresh independent-review findings were fixed and the affected suites rerun.
-CodeRabbit and CI remain pending. This carrier candidate is a direct
-prerequisite to the named bounded Godot feasibility checkpoint, which remains
-the governing human checkpoint; it
-is not that checkpoint.
+`/home/ben/src/creature-kernel-worktrees/godot-feasibility-runtime-path` on
+branch `codex/godot-feasibility-runtime-path`, based on `790f0a4`. The current
+per-avatar runtime identity candidate passes ordered
+`instance_id`/`profile_id`/`candidate_profile_sha256` records into Godot, binds
+them to deterministic runtime roots, and reads exact metadata back. Python
+rejects missing, duplicate, reordered, swapped, mismatched, or aggregate-only
+evidence and cross-validates carrier identity, profile order, and hashes. The
+carrier schema and no-carrier predecessor behaviour remain unchanged. This is
+disposable experiment evidence only: it is not a runtime package schema,
+durable artifact identity, adapter activation, compatibility promise, Readiness
+3 result, host commitment, performance/contact/deformation/physics result, or
+human visual checkpoint. The final focused no-display suite passes 26 tests with
+8 expected renderer skips; the final full Xvfb/Godot real-renderer suite passes
+26/26 in 176.334s. Two fresh xhigh reviews found no Godot issues; the Python
+review's two P2 fail-closed gaps were fixed and verified resolved. Documentation
+validation and `git diff --check` pass.
+The next direct slice is a separate disposable CK-owned semantic-pose command
+addressed to the bound instance IDs, reusing existing role/anchor semantics and
+recording explicit trial-local identity-frame/conversion evidence. It remains
+experiment-only and must not claim package, adapter, Readiness 3,
+contact/deformation/physics, performance, or the named human checkpoint.
+The bounded Godot feasibility checkpoint remains the governing human checkpoint.
 
 Ben's qualified appraisal of the structural gallery was that it "looks good";
 the side-view x-ray overlay wording was clarified without changing geometry or
