@@ -4,6 +4,7 @@ from copy import deepcopy
 import hashlib
 import importlib.util
 import json
+import math
 import os
 from pathlib import Path
 import shutil
@@ -57,6 +58,10 @@ def load_module(name: str, path: Path):
 smoke = load_module("skeletal_pose_smoke_under_test", EXPERIMENT / "run_skeletal_pose_smoke.py")
 sys.modules["run_structural_gallery_smoke"] = smoke.neutral_smoke
 carrier = load_module("disposable_avatar_carrier_for_skeletal_tests", EXPERIMENT / "disposable_avatar_carrier.py")
+semantic_command = load_module(
+    "disposable_semantic_pose_command_for_skeletal_tests",
+    EXPERIMENT / "disposable_semantic_pose_command.py",
+)
 
 
 def _skeletal_validation_fixture() -> tuple[dict, dict]:
@@ -266,6 +271,17 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
             with self.assertRaisesRegex(smoke.SmokeError, "visible X11 Godot launch is disabled"):
                 smoke._launch_godot(self.root, DEFAULTS, {})
 
+    def test_semantic_pose_command_requires_carrier_before_launch(self) -> None:
+        with patch.object(smoke, "_launch_godot", side_effect=AssertionError("Godot must not launch")):
+            with self.assertRaisesRegex(smoke.SmokeError, "requires --carrier"):
+                smoke.run_skeletal_pose_smoke(
+                    self.root,
+                    DEFAULTS,
+                    self.root / "report.json",
+                    None,
+                    self.root / "command.json",
+                )
+
     def test_integration_availability_probe_times_out_fail_closed(self) -> None:
         with (
             patch.object(sys.modules[__name__], "GALLERY", self.root),
@@ -424,7 +440,18 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
         proxy_source = source[source.index("func _build_host_proxies"):source.index("func _read_proxy_geometry")]
         self.assertIn("if report.is_empty():", run_source)
         self.assertIn("runtime evidence report is empty", run_source)
-        self.assertIn("var binding := _readback_binding(profile)", report_source)
+        self.assertIn(
+            'var binding := _readback_binding(profile, options.has("semantic_pose_command"))',
+            report_source,
+        )
+        self.assertIn(
+            "not validate_command_rotation or command_rotation_error <= RUNTIME_POSE_QUATERNION_TOLERANCE",
+            binding_source,
+        )
+        self.assertIn(
+            "_quaternion_error(quaternion, expected_quaternion) > POSE_QUATERNION_TOLERANCE",
+            source,
+        )
         self.assertIn("var node_counts := _readback_node_counts(profile)", report_source)
         self.assertIn("var orientation = _basis_for_y_axis", proxy_source)
         self.assertNotIn("Quaternion(Vector3.UP", proxy_source)
@@ -473,6 +500,59 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
         payload, report = _skeletal_validation_fixture()
         smoke._validate_report(report, payload, DEFAULTS)
 
+    def test_semantic_pose_runtime_quaternion_tolerance_is_bounded(self) -> None:
+        rules = []
+        readback = []
+        for index in range(smoke.BONE_COUNT):
+            role = f"test-role-{index}"
+            rules.append(
+                {
+                    "kind": "joint",
+                    "role": role,
+                    "anchors": [],
+                    "rotation_xyzw": [0.0, 0.0, 0.0, 1.0],
+                }
+            )
+            readback.append(
+                {
+                    "selector": f"joint|{role}|",
+                    "runtime_bone_id": f"test-bone-{index}",
+                    "observed_rotation_xyzw": [0.0, 0.0, 0.0, 1.0],
+                    "max_component_error_to_command": 0.0,
+                }
+            )
+        command = {"rules": rules}
+        target = {"instance_id": "test-avatar"}
+        actual = {
+            "target": deepcopy(target),
+            "rule_readback": readback,
+            "rules_observed": smoke.BONE_COUNT,
+            "local_pose_matches_command": smoke.BONE_COUNT,
+            "global_pose_matches_published": smoke.BONE_COUNT,
+            "skin_matrices_match_published": smoke.BONE_COUNT,
+            "applied": True,
+        }
+        accepted_error = smoke.SEMANTIC_POSE_QUATERNION_TOLERANCE * 0.9
+        actual["rule_readback"][0]["observed_rotation_xyzw"] = [
+            accepted_error,
+            0.0,
+            0.0,
+            math.sqrt(1.0 - accepted_error * accepted_error),
+        ]
+        actual["rule_readback"][0]["max_component_error_to_command"] = accepted_error
+        smoke._validate_command_injection(actual, target, command, "test-profile")
+
+        rejected_error = smoke.SEMANTIC_POSE_QUATERNION_TOLERANCE + 1.0e-8
+        actual["rule_readback"][0]["observed_rotation_xyzw"] = [
+            rejected_error,
+            0.0,
+            0.0,
+            math.sqrt(1.0 - rejected_error * rejected_error),
+        ]
+        actual["rule_readback"][0]["max_component_error_to_command"] = rejected_error
+        with self.assertRaisesRegex(smoke.SmokeError, "does not match the command"):
+            smoke._validate_command_injection(actual, target, command, "test-profile")
+
     def test_report_validator_rejects_numeric_boolean_substitutes(self) -> None:
         payload, report = _skeletal_validation_fixture()
         report["scope_flags"]["physics_stepping"] = 0
@@ -482,6 +562,17 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
         payload, report = _skeletal_validation_fixture()
         report["pose_binding"]["rules_validated"] = 1
         with self.assertRaisesRegex(smoke.SmokeError, "pose binding evidence is invalid"):
+            smoke._validate_report(report, payload, DEFAULTS)
+
+        payload, report = _skeletal_validation_fixture()
+        report["profiles"][0]["binding"]["max_posed_vertex_error"] = 10**1000
+        with self.assertRaisesRegex(smoke.SmokeError, "non-finite or unbounded numeric evidence"):
+            smoke._validate_report(report, payload, DEFAULTS)
+
+        payload, report = _skeletal_validation_fixture()
+        report["profiles"][0]["neutral_mesh_aabb"] = deepcopy(report["profiles"][0]["neutral_mesh_aabb"])
+        report["profiles"][0]["neutral_mesh_aabb"]["min"][0] = 10**1000
+        with self.assertRaisesRegex(smoke.SmokeError, "non-finite or unbounded numeric evidence"):
             smoke._validate_report(report, payload, DEFAULTS)
 
     def test_report_validator_accepts_exact_carrier_identity(self) -> None:
@@ -721,6 +812,44 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
                 )
         publish.assert_not_called()
 
+    def test_semantic_pose_command_postflight_change_fails_before_publication(self) -> None:
+        payload, report = _skeletal_validation_fixture()
+        carrier_value = {
+            "schema": carrier.SCHEMA,
+            "boundary": carrier.BOUNDARY,
+            "instances": deepcopy(CARRIER_AVATAR_RECORDS),
+        }
+        module = SimpleNamespace(
+            SCHEMA=carrier.SCHEMA,
+            BOUNDARY=carrier.BOUNDARY,
+            _canonical_json=carrier._canonical_json,
+        )
+        validated = (module, carrier_value, payload, DEFAULTS, ("avatar-left", "avatar-right"))
+        command_value = {"command": "initial"}
+        changed_command = {"command": "mutated-after-launch"}
+        command_identity = {"sha256": "a" * 64}
+        semantic_payload = {"rules": [], "identity_frame": {}}
+        command_results = [
+            (semantic_command, command_value, command_identity, semantic_payload),
+            (semantic_command, changed_command, command_identity, semantic_payload),
+        ]
+        with (
+            patch.object(smoke, "_validated_carrier_input", side_effect=[validated, validated]),
+            patch.object(smoke, "_validated_semantic_pose_command", side_effect=command_results),
+            patch.object(smoke, "_launch_godot", return_value=("", "", 0, report)),
+            patch.object(smoke, "_validate_report"),
+            patch.object(smoke.neutral_smoke, "_publish_report") as publish,
+        ):
+            with self.assertRaisesRegex(smoke.SmokeError, "semantic pose command.*changed during"):
+                smoke.run_skeletal_pose_smoke(
+                    self.root,
+                    None,
+                    self.root / "report.json",
+                    self.root / "carrier.json",
+                    self.root / "command.json",
+                )
+        publish.assert_not_called()
+
     def test_report_validator_rejects_incomplete_or_over_tolerance_binding(self) -> None:
         payload, report = _skeletal_validation_fixture()
         report["profiles"][0]["binding"]["skin_bind_count"] = 17
@@ -799,6 +928,142 @@ class SkeletalPoseSmokeIntegrationTests(unittest.TestCase):
                 ]
             ),
         )
+
+    def test_real_semantic_pose_command_injects_to_both_carrier_bound_avatars(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="ck-godot-semantic-pose-command-") as temporary:
+            root = Path(temporary)
+            carrier_path = root / "carrier.json"
+            command_path = root / "command.json"
+            carrier_value = carrier.build_carrier(GALLERY, DEFAULTS, ("avatar-left", "avatar-right"))
+            carrier.write_carrier(carrier_path, carrier_value)
+            command_value = semantic_command.build_command(GALLERY, carrier_path)
+            semantic_command.write_command(command_path, command_value)
+            report = smoke.run_skeletal_pose_smoke(
+                GALLERY,
+                None,
+                root / "report.json",
+                carrier_path,
+                command_path,
+            )
+        self.assertEqual(report["semantic_pose_command_identity"], semantic_command.command_identity(command_value))
+        self.assertEqual(report["semantic_pose_targets"], command_value["targets"])
+        self.assertEqual(report["semantic_pose_frame"], command_value["identity_frame"])
+        self.assertEqual(
+            [profile["semantic_pose_injection"]["target"]["instance_id"] for profile in report["profiles"]],
+            ["avatar-left", "avatar-right"],
+        )
+        for profile in report["profiles"]:
+            injection = profile["semantic_pose_injection"]
+            self.assertEqual(
+                [record["selector"] for record in injection["rule_readback"]],
+                [smoke._command_selector(rule) for rule in command_value["rules"]],
+            )
+            self.assertEqual(len({record["runtime_bone_id"] for record in injection["rule_readback"]}), smoke.BONE_COUNT)
+            self.assertEqual(injection["rules_observed"], smoke.BONE_COUNT)
+            self.assertEqual(injection["local_pose_matches_command"], smoke.BONE_COUNT)
+            self.assertEqual(injection["global_pose_matches_published"], smoke.BONE_COUNT)
+            self.assertEqual(injection["skin_matrices_match_published"], smoke.BONE_COUNT)
+            self.assertTrue(injection["applied"])
+
+    def test_real_command_mode_does_not_read_shared_pose_file_after_injection(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="ck-godot-semantic-pose-no-fallback-") as temporary:
+            root = Path(temporary)
+            gallery = root / "gallery"
+            shutil.copytree(GALLERY, gallery)
+            carrier_path = root / "carrier.json"
+            carrier.write_carrier(
+                carrier_path,
+                carrier.build_carrier(gallery, DEFAULTS, ("no-fallback-left", "no-fallback-right")),
+            )
+            carrier_module, carrier_value, payload, profile_ids, _instance_ids = smoke._validated_carrier_input(
+                gallery,
+                carrier_path,
+            )
+            command_value = semantic_command.build_command(gallery, carrier_path)
+            command_identity = semantic_command.command_identity(command_value)
+            semantic_payload = semantic_command.semantic_payload(command_value)
+            carrier_identity = smoke._carrier_identity(carrier_value, carrier_module)
+            carrier_records = smoke._carrier_avatar_records(carrier_value)
+            (gallery / semantic_command.POSE_FILE).unlink()
+            stdout, stderr, returncode, report = smoke._launch_godot(
+                gallery,
+                profile_ids,
+                payload,
+                carrier_identity,
+                carrier_records,
+                command_value,
+                command_identity,
+                semantic_payload,
+            )
+        self.assertEqual(returncode, 0, f"stdout={stdout!r}; stderr={stderr!r}")
+        self.assertIsNotNone(report)
+        smoke._validate_report(
+            report,
+            payload,
+            profile_ids,
+            carrier_identity,
+            carrier_records,
+            command_value,
+            command_identity,
+        )
+
+    def test_real_empty_semantic_arguments_fail_closed_without_file_fallback(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="ck-godot-semantic-pose-empty-arguments-") as temporary:
+            root = Path(temporary)
+            carrier_path = root / "carrier.json"
+            carrier.write_carrier(
+                carrier_path,
+                carrier.build_carrier(GALLERY, DEFAULTS, ("empty-left", "empty-right")),
+            )
+            carrier_module, carrier_value, payload, profile_ids, _instance_ids = smoke._validated_carrier_input(
+                GALLERY,
+                carrier_path,
+            )
+            carrier_identity = smoke._carrier_identity(carrier_value, carrier_module)
+            carrier_records = smoke._carrier_avatar_records(carrier_value)
+            empty_serializer = SimpleNamespace(_canonical_json=lambda _value: b"\n")
+            with (
+                patch.object(smoke, "_load_command_module", return_value=empty_serializer),
+                self.assertRaisesRegex(smoke.SmokeError, "semantic pose command is not the canonical injected JSON text"),
+            ):
+                smoke._launch_godot(
+                    GALLERY,
+                    profile_ids,
+                    payload,
+                    carrier_identity,
+                    carrier_records,
+                    {},
+                    {},
+                    {},
+                )
+
+    def test_command_mode_rerun_is_deterministic_and_keeps_repository_clean(self) -> None:
+        before_godot_dirs = {path for path in REPOSITORY_ROOT.rglob(".godot") if path.is_dir()}
+        before_python_cache_dirs = {path for path in REPOSITORY_ROOT.rglob("__pycache__") if path.is_dir()}
+        before_status = subprocess.run(
+            ["git", "status", "--short", "--", str(EXPERIMENT)], capture_output=True, text=True, check=True
+        ).stdout
+        with tempfile.TemporaryDirectory(prefix="ck-godot-semantic-pose-command-repeat-") as temporary:
+            root = Path(temporary)
+            carrier_path = root / "carrier.json"
+            command_path = root / "command.json"
+            carrier.write_carrier(
+                carrier_path,
+                carrier.build_carrier(GALLERY, ALTERNATE, ("alternate-left", "alternate-right")),
+            )
+            semantic_command.write_command(command_path, semantic_command.build_command(GALLERY, carrier_path))
+            first_path = root / "first.json"
+            second_path = root / "second.json"
+            first = smoke.run_skeletal_pose_smoke(GALLERY, None, first_path, carrier_path, command_path)
+            second = smoke.run_skeletal_pose_smoke(GALLERY, None, second_path, carrier_path, command_path)
+            self.assertEqual(first, second)
+            self.assertEqual(first_path.read_bytes(), second_path.read_bytes())
+        after_status = subprocess.run(
+            ["git", "status", "--short", "--", str(EXPERIMENT)], capture_output=True, text=True, check=True
+        ).stdout
+        self.assertEqual(before_status, after_status)
+        self.assertEqual(before_godot_dirs, {path for path in REPOSITORY_ROOT.rglob(".godot") if path.is_dir()})
+        self.assertEqual(before_python_cache_dirs, {path for path in REPOSITORY_ROOT.rglob("__pycache__") if path.is_dir()})
 
     def test_real_alternate_carrier_pair_binds_in_carrier_order(self) -> None:
         with tempfile.TemporaryDirectory(prefix="ck-godot-skeletal-pose-alternate-carrier-") as temporary:

@@ -8,7 +8,10 @@ const PROXY_COUNT := 18
 const MAX_WEIGHT_ROW := 4
 const TOLERANCE := 2.0e-5
 const NORMAL_TOLERANCE := 3.0e-4
+# Source and command recipe validation remains stricter than runtime readback.
 const POSE_QUATERNION_TOLERANCE := 1.0e-7
+# Godot's Basis-to-Quaternion reconstruction can add a few float32 ULPs.
+const RUNTIME_POSE_QUATERNION_TOLERANCE := 5.0e-7
 const WEIGHT_TOLERANCE := 1.0e-6
 const TRANSLATIONS := [Vector3(-8.0, 0.0, 0.0), Vector3(8.0, 0.0, 0.0)]
 const EXPECTED_GODOT_VERSION := "4.7.2.stable.official.ed1daf0bf"
@@ -24,6 +27,11 @@ const CARRIER_ROOT_METADATA_KEYS := [
 	"ck_profile_id",
 	"ck_candidate_profile_sha256",
 ]
+const SEMANTIC_POSE_COMMAND_SCHEMA := "creature-kernel.disposable-semantic-pose-command.v1"
+const SEMANTIC_POSE_COMMAND_BOUNDARY := "experiment_local_command_evidence_only_no_adapter_or_runtime_conformance"
+const SEMANTIC_POSE_COMMAND_ID := "inject-semantic-pose"
+const SEMANTIC_POSE_COMMAND_VERSION := 1
+const SEMANTIC_POSE_COMMAND_RULE_COUNT := 18
 const ARTIFACT_NAMES := [
 	"neutral.ply",
 	"posed.ply",
@@ -75,7 +83,11 @@ func _run_smoke() -> int:
 		return _fail("validated projection payload is not an object")
 	if not _validate_options_against_projection(options, validated):
 		return _fail_exit()
-	var pose = _load_shared_pose(options.gallery_path, validated)
+	var pose: Dictionary
+	if options.semantic_pose_command_present:
+		pose = _load_semantic_pose_command(options, validated)
+	else:
+		pose = _load_shared_pose(options.gallery_path, validated)
 	if pose.is_empty():
 		return _fail_exit()
 	if get_root().get_child_count() != 0:
@@ -179,11 +191,17 @@ func _parse_arguments() -> Dictionary:
 		"profile_ids": [],
 		"report_path": "",
 		"validated_json": "",
+		"semantic_pose_command_json": "",
+		"semantic_pose_command_identity_json": "",
+		"semantic_pose_payload_json": "",
+		"semantic_pose_command_present": false,
+		"semantic_pose_command_identity_present": false,
+		"semantic_pose_payload_present": false,
 	}
 	var index := 0
 	while index < arguments.size():
 		var argument: String = arguments[index]
-		if argument == "--gallery" or argument == "--report" or argument == "--validated-json" or argument == "--carrier-identity-json" or argument == "--carrier-avatar-records-json" or argument == "--profile-id":
+		if argument == "--gallery" or argument == "--report" or argument == "--validated-json" or argument == "--carrier-identity-json" or argument == "--carrier-avatar-records-json" or argument == "--semantic-pose-command-json" or argument == "--semantic-pose-command-identity-json" or argument == "--semantic-pose-payload-json" or argument == "--profile-id":
 			if index + 1 >= arguments.size():
 				_failure = "missing value after %s" % argument
 				return {}
@@ -198,6 +216,15 @@ func _parse_arguments() -> Dictionary:
 				result.carrier_identity_json = value
 			elif argument == "--carrier-avatar-records-json":
 				result.carrier_avatar_records_json = value
+			elif argument == "--semantic-pose-command-json":
+				result.semantic_pose_command_json = value
+				result.semantic_pose_command_present = true
+			elif argument == "--semantic-pose-command-identity-json":
+				result.semantic_pose_command_identity_json = value
+				result.semantic_pose_command_identity_present = true
+			elif argument == "--semantic-pose-payload-json":
+				result.semantic_pose_payload_json = value
+				result.semantic_pose_payload_present = true
 			else:
 				result.profile_ids.append(value)
 			index += 2
@@ -243,6 +270,21 @@ func _validate_options_against_projection(options: Dictionary, validated: Dictio
 		if not _validate_carrier_avatar_records(carrier_avatar_records, options, validated):
 			return false
 		options["carrier_avatar_records"] = carrier_avatar_records
+	var command_values := [
+		options.semantic_pose_command_present,
+		options.semantic_pose_command_identity_present,
+		options.semantic_pose_payload_present,
+	]
+	var command_value_count := 0
+	for supplied in command_values:
+		if supplied:
+			command_value_count += 1
+	if command_value_count != 0 and command_value_count != command_values.size():
+		_failure = "semantic pose command, identity, and payload must be supplied together"
+		return false
+	if command_value_count == command_values.size() and not options.has("carrier_identity"):
+		_failure = "semantic pose command requires a validated carrier"
+		return false
 	return true
 
 
@@ -280,7 +322,7 @@ func _is_safe_instance_id(value: String) -> bool:
 	if value.is_empty() or value.length() > 64:
 		return false
 	for index in range(value.length()):
-		var code := value.unicode_at(index)
+		var code: int = value.unicode_at(index)
 		if index == 0:
 			if code < 97 or code > 122:
 				return false
@@ -400,6 +442,191 @@ func _load_shared_pose(gallery_path: String, validated: Dictionary) -> Dictionar
 	return {"rules": normalized}
 
 
+func _load_semantic_pose_command(options: Dictionary, validated: Dictionary) -> Dictionary:
+	var command = _parse_json_text(options.semantic_pose_command_json, "semantic pose command")
+	if command.is_empty():
+		return {}
+	var command_identity = _parse_json_text(options.semantic_pose_command_identity_json, "semantic pose command identity")
+	if command_identity.is_empty():
+		return {}
+	var semantic_payload = _parse_json_text(options.semantic_pose_payload_json, "semantic pose payload")
+	if semantic_payload.is_empty():
+		return {}
+	var validated_command := _validate_semantic_pose_command(command, command_identity, semantic_payload, options, validated)
+	if validated_command.is_empty():
+		return {}
+	options["semantic_pose_command"] = command
+	options["semantic_pose_command_identity"] = command_identity
+	options["semantic_pose_frame"] = command.identity_frame
+	options["semantic_pose_command_selectors"] = validated_command.selectors
+	return {"rules": validated_command.rules}
+
+
+func _parse_json_text(text: String, where: String) -> Dictionary:
+	if text.is_empty() or text.ends_with("\n"):
+		_failure = "%s is not the canonical injected JSON text" % where
+		return {}
+	var value = JSON.parse_string(text)
+	if typeof(value) != TYPE_DICTIONARY:
+		_failure = "%s is not a JSON object" % where
+		return {}
+	return value
+
+
+func _exact_keys(value: Dictionary, keys: Array) -> bool:
+	if value.size() != keys.size():
+		return false
+	for key in keys:
+		if not value.has(key):
+			return false
+	return true
+
+
+func _validate_semantic_pose_command(command: Dictionary, command_identity: Dictionary, semantic_payload: Dictionary, options: Dictionary, validated: Dictionary) -> Dictionary:
+	if not _exact_keys(command, ["schema", "boundary", "command_id", "command_version", "source_pose", "targets", "rules", "identity_frame"]):
+		_failure = "semantic pose command has unexpected or missing fields"
+		return {}
+	if command.schema != SEMANTIC_POSE_COMMAND_SCHEMA or command.boundary != SEMANTIC_POSE_COMMAND_BOUNDARY or command.command_id != SEMANTIC_POSE_COMMAND_ID or command.command_version != SEMANTIC_POSE_COMMAND_VERSION:
+		_failure = "semantic pose command schema, boundary, or identity is invalid"
+		return {}
+	var source_pose = command.source_pose
+	if typeof(source_pose) != TYPE_DICTIONARY or not _exact_keys(source_pose, ["format", "pose_id", "sha256", "version"]):
+		_failure = "semantic pose command source-pose identity is incomplete"
+		return {}
+	if source_pose.format != POSE_FORMAT or source_pose.pose_id != String(validated.pose_id) or source_pose.sha256 != String(validated.pose_sha256) or source_pose.version != 1:
+		_failure = "semantic pose command source-pose identity does not match the validated gallery"
+		return {}
+	var targets = command.targets
+	if typeof(targets) != TYPE_ARRAY or targets.size() != 2 or not options.has("carrier_avatar_records"):
+		_failure = "semantic pose command must target exactly two carrier-bound avatars"
+		return {}
+	var seen_targets := {}
+	for index in range(2):
+		var target = targets[index]
+		if typeof(target) != TYPE_DICTIONARY or not _exact_keys(target, ["instance_id", "profile_id", "candidate_profile_sha256"]):
+			_failure = "semantic pose command target %d is incomplete" % index
+			return {}
+		var instance_id := String(target.instance_id)
+		if not _is_safe_instance_id(instance_id) or seen_targets.has(instance_id):
+			_failure = "semantic pose command target instance identities are not unique"
+			return {}
+		seen_targets[instance_id] = true
+		if target != options.carrier_avatar_records[index]:
+			_failure = "semantic pose command targets are missing, reordered, or mismatched"
+			return {}
+	var rules = command.rules
+	if typeof(rules) != TYPE_ARRAY or rules.size() != SEMANTIC_POSE_COMMAND_RULE_COUNT:
+		_failure = "semantic pose command must contain exactly 18 semantic rules"
+		return {}
+	var normalized: Array[Dictionary] = []
+	var selectors: Array[String] = []
+	var selector_set := {}
+	for index in range(SEMANTIC_POSE_COMMAND_RULE_COUNT):
+		var rule = rules[index]
+		var expected: Dictionary = POSE_RECIPE[index]
+		if typeof(rule) != TYPE_DICTIONARY or not _exact_keys(rule, ["kind", "role", "anchors", "rotation_xyzw"]):
+			_failure = "semantic pose command rule %d has unexpected or missing fields" % index
+			return {}
+		if rule.kind != expected.kind or rule.role != expected.role or rule.anchors != expected.anchors:
+			_failure = "semantic pose command rule %d selector is reordered or mismatched" % index
+			return {}
+		var selector := _selector(String(rule.kind), rule.role, rule.anchors)
+		if selector_set.has(selector):
+			_failure = "semantic pose command contains duplicate semantic selectors"
+			return {}
+		selector_set[selector] = true
+		var quaternion = _quaternion_from_command_rule(rule, expected, index)
+		if quaternion == null:
+			return {}
+		selectors.append(selector)
+		normalized.append({"selector": selector, "rotation": quaternion})
+	if selector_set.size() != SEMANTIC_POSE_COMMAND_RULE_COUNT:
+		_failure = "semantic pose command does not cover exactly 18 semantic selectors"
+		return {}
+	var frame = command.identity_frame
+	if not _validate_identity_frame(frame):
+		return {}
+	if semantic_payload != {"rules": command.rules, "identity_frame": command.identity_frame}:
+		_failure = "semantic pose payload does not match the injected command"
+		return {}
+	if not _validate_semantic_pose_identity(command, command_identity, options.semantic_pose_command_json):
+		return {}
+	return {"rules": normalized, "selectors": selectors}
+
+
+func _quaternion_from_command_rule(rule: Dictionary, expected: Dictionary, index: int) -> Variant:
+	var raw = rule.rotation_xyzw
+	if typeof(raw) != TYPE_ARRAY or raw.size() != 4:
+		_failure = "semantic pose command rule %d rotation is not a four-vector" % index
+		return null
+	var values: Array[float] = []
+	for item in raw:
+		if typeof(item) == TYPE_BOOL or not is_finite(float(item)):
+			_failure = "semantic pose command rule %d rotation contains a non-finite value" % index
+			return null
+		values.append(float(item))
+	var quaternion := Quaternion(values[0], values[1], values[2], values[3])
+	if abs(quaternion.length() - 1.0) > POSE_QUATERNION_TOLERANCE:
+		_failure = "semantic pose command rule %d rotation is not normalized" % index
+		return null
+	var axis: String = String(expected.axis)
+	var angle := deg_to_rad(float(expected.angle))
+	var expected_quaternion := Quaternion.IDENTITY if axis == "identity" else Quaternion(Vector3.RIGHT if axis == "x" else Vector3(0.0, 0.0, 1.0), angle)
+	if _quaternion_error(quaternion, expected_quaternion) > POSE_QUATERNION_TOLERANCE:
+		_failure = "semantic pose command rule %d rotation is not bound to the shared-pose recipe" % index
+		return null
+	return quaternion
+
+
+func _validate_identity_frame(frame) -> bool:
+	if typeof(frame) != TYPE_DICTIONARY or not _exact_keys(frame, ["vectors", "rotation_storage", "C", "s", "evidence_only", "runtime_conformance"]):
+		_failure = "semantic pose command identity frame is incomplete or has extra fields"
+		return false
+	if frame.vectors != "column" or frame.rotation_storage != "xyzw":
+		_failure = "semantic pose command frame does not declare column vectors and xyzw rotations"
+		return false
+	var matrix = frame.C
+	if typeof(matrix) != TYPE_ARRAY or matrix.size() != 3:
+		_failure = "semantic pose command frame C is not a 3x3 identity matrix"
+		return false
+	var identity := [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]
+	for row_index in range(3):
+		if typeof(matrix[row_index]) != TYPE_ARRAY or matrix[row_index].size() != 3:
+			_failure = "semantic pose command frame C is not a 3x3 identity matrix"
+			return false
+		for column_index in range(3):
+			if typeof(matrix[row_index][column_index]) == TYPE_BOOL or not is_finite(float(matrix[row_index][column_index])):
+				_failure = "semantic pose command frame C contains a non-finite value"
+				return false
+	if matrix != identity or frame.s != 1.0 or typeof(frame.evidence_only) != TYPE_BOOL or frame.evidence_only != true or typeof(frame.runtime_conformance) != TYPE_BOOL or frame.runtime_conformance != false:
+		_failure = "semantic pose command frame is not explicit trial-local identity evidence"
+		return false
+	return true
+
+
+func _validate_semantic_pose_identity(command: Dictionary, identity: Dictionary, command_json: String) -> bool:
+	if not _exact_keys(identity, ["sha256", "byte_count_decimal", "schema", "boundary", "command_id", "command_version"]):
+		_failure = "semantic pose command identity evidence has unexpected or missing fields"
+		return false
+	var command_bytes := command_json.to_utf8_buffer()
+	command_bytes.append(10)
+	if identity.sha256 != _sha256(command_bytes) or not _is_canonical_command_byte_count(identity.byte_count_decimal) or int(identity.byte_count_decimal) != command_bytes.size() or identity.schema != command.schema or identity.boundary != command.boundary or identity.command_id != command.command_id or identity.command_version != command.command_version:
+		_failure = "semantic pose command identity evidence does not match the injected command"
+		return false
+	return true
+
+
+func _is_canonical_command_byte_count(value) -> bool:
+	if typeof(value) != TYPE_STRING or value.is_empty() or value.length() > 6 or value.begins_with("0"):
+		return false
+	for index in range(value.length()):
+		var code: int = value.unicode_at(index)
+		if code < 48 or code > 57:
+			return false
+	var byte_count: int = value.to_int()
+	return byte_count > 0 and byte_count <= 262144 and str(byte_count) == value
+
+
 func _selector(kind: String, role, anchors) -> String:
 	var role_text := "" if role == null else String(role)
 	var anchor_text := ",".join(PackedStringArray(anchors))
@@ -431,7 +658,9 @@ func _quaternion_from_rule(rule: Dictionary) -> Variant:
 
 
 func _quaternion_error(left: Quaternion, right: Quaternion) -> float:
-	return max(abs(left.x - right.x), abs(left.y - right.y), abs(left.z - right.z), abs(left.w - right.w))
+	var direct: float = max(abs(left.x - right.x), abs(left.y - right.y), abs(left.z - right.z), abs(left.w - right.w))
+	var antipodal: float = max(abs(left.x + right.x), abs(left.y + right.y), abs(left.z + right.z), abs(left.w + right.w))
+	return min(direct, antipodal)
 
 
 func _load_profile(gallery_path: String, profile_id: String, profile_payload: Dictionary, translation: Vector3, pose: Dictionary, avatar_index: int, carrier_record: Dictionary = {}) -> Dictionary:
@@ -1084,7 +1313,7 @@ func _readback_carrier_avatar_binding(profile: Dictionary, avatar_index: int, ex
 	}
 
 
-func _readback_binding(profile: Dictionary) -> Dictionary:
+func _readback_binding(profile: Dictionary, validate_command_rotation: bool) -> Dictionary:
 	var skeleton: Skeleton3D = profile.skeleton
 	var skin: Skin = profile.skin
 	var mesh_instance: MeshInstance3D = profile.mesh_instance
@@ -1142,18 +1371,39 @@ func _readback_binding(profile: Dictionary) -> Dictionary:
 	var pose_rule_match_count := 0
 	var pose_global_match_count := 0
 	var skin_match_count := 0
+	var max_command_rotation_error := 0.0
+	var max_command_rotation_error_selector := ""
+	var runtime_pose_rule_readback: Array[Dictionary] = []
 	for bone in profile.ordered_bones:
 		var bone_id: String = String(bone.id)
 		var bone_index: int = int(profile.bone_indices[bone_id])
+		if not skeleton.has_bone_meta(bone_index, "ck_bone_id") or String(skeleton.get_bone_meta(bone_index, "ck_bone_id")) != bone_id:
+			_failure = "%s runtime pose read-back bone identity is missing or mismatched" % profile.profile_id
+			return {}
 		var selector = _pose_selector_for_bone(bone, profile.profile_id)
 		if selector == null:
 			return {}
 		if not pose_rotations.has(selector):
 			_failure = "%s runtime pose rotation read-back is missing selector %s" % [profile.profile_id, selector]
 			return {}
-		var expected_local_pose: Transform3D = skeleton.get_bone_rest(bone_index) * Transform3D(Basis(pose_rotations[selector]), Vector3.ZERO)
-		if _transform_error(skeleton.get_bone_pose(bone_index), expected_local_pose) <= TOLERANCE:
+		var rest: Transform3D = skeleton.get_bone_rest(bone_index)
+		var actual_local_pose: Transform3D = skeleton.get_bone_pose(bone_index)
+		var expected_rotation: Quaternion = pose_rotations[selector]
+		var expected_local_pose: Transform3D = rest * Transform3D(Basis(expected_rotation), Vector3.ZERO)
+		var observed_rotation: Quaternion = (rest.affine_inverse() * actual_local_pose).basis.get_rotation_quaternion()
+		var command_rotation_error := _quaternion_error(observed_rotation, expected_rotation)
+		if command_rotation_error > max_command_rotation_error:
+			max_command_rotation_error = command_rotation_error
+			max_command_rotation_error_selector = selector
+		var command_rotation_matches: bool = not validate_command_rotation or command_rotation_error <= RUNTIME_POSE_QUATERNION_TOLERANCE
+		if _transform_error(actual_local_pose, expected_local_pose) <= TOLERANCE and command_rotation_matches:
 			pose_rule_match_count += 1
+		runtime_pose_rule_readback.append({
+			"selector": selector,
+			"runtime_bone_id": String(skeleton.get_bone_meta(bone_index, "ck_bone_id")),
+			"observed_rotation_xyzw": _quaternion_json(observed_rotation),
+			"max_component_error_to_command": command_rotation_error,
+		})
 		var global_pose: Transform3D = skeleton.get_bone_global_pose(bone_index)
 		if _transform_matrix_error(global_pose, profile.structural.posed_world[bone_id]) <= TOLERANCE:
 			pose_global_match_count += 1
@@ -1194,8 +1444,9 @@ func _readback_binding(profile: Dictionary) -> Dictionary:
 		"max_posed_proxy_endpoint_error": proxy_readback.max_endpoint_error,
 	}
 	if not unique_bone_names or not parent_links_match or not neutral_rest_matches_published or not skin_bind_poses_match_published or pose_rule_match_count != BONE_COUNT or pose_global_match_count != BONE_COUNT or skin_match_count != BONE_COUNT or not neutral_compare.matches_published or not posed_compare.matches_published or proxy_readback.matching_node_count != PROXY_COUNT:
-		_failure = "%s runtime binding read-back does not satisfy the expected host-local evidence" % profile.profile_id
+		_failure = "%s runtime binding read-back does not satisfy the expected host-local evidence: pose=%d global=%d skin=%d proxy=%d max_command_rotation_error=%.12f selector=%s neutral_mesh=%s posed_mesh=%s" % [profile.profile_id, pose_rule_match_count, pose_global_match_count, skin_match_count, proxy_readback.matching_node_count, max_command_rotation_error, max_command_rotation_error_selector, neutral_compare.matches_published, posed_compare.matches_published]
 		return {}
+	profile["runtime_pose_rule_readback"] = runtime_pose_rule_readback
 	return binding
 
 
@@ -1265,6 +1516,53 @@ func _check_posed_separation(profiles: Array[Dictionary]) -> bool:
 	return true
 
 
+func _readback_semantic_pose_injection(profile: Dictionary, index: int, binding: Dictionary, carrier_binding: Dictionary, options: Dictionary) -> Dictionary:
+	var rule_readback = profile.get("runtime_pose_rule_readback", [])
+	if typeof(rule_readback) != TYPE_ARRAY or rule_readback.size() != SEMANTIC_POSE_COMMAND_RULE_COUNT:
+		_failure = "%s semantic pose runtime rule read-back is incomplete" % profile.profile_id
+		return {}
+	var readback_by_selector := {}
+	for record in rule_readback:
+		if typeof(record) != TYPE_DICTIONARY:
+			_failure = "%s semantic pose runtime rule read-back is malformed" % profile.profile_id
+			return {}
+		var selector := String(record.get("selector", ""))
+		if selector.is_empty() or readback_by_selector.has(selector):
+			_failure = "%s semantic pose runtime rule read-back has a missing or duplicate selector" % profile.profile_id
+			return {}
+		readback_by_selector[selector] = record
+	var ordered_readback: Array[Dictionary] = []
+	for selector in options.semantic_pose_command_selectors:
+		if not readback_by_selector.has(selector):
+			_failure = "%s semantic pose selector read-back is incomplete" % profile.profile_id
+			return {}
+		ordered_readback.append(readback_by_selector[selector])
+	var target := {
+		"instance_id": carrier_binding.get("instance_id", ""),
+		"profile_id": carrier_binding.get("profile_id", ""),
+		"candidate_profile_sha256": carrier_binding.get("candidate_profile_sha256", ""),
+	}
+	var applied: bool = (
+		target == options.semantic_pose_command.targets[index]
+		and ordered_readback.size() == SEMANTIC_POSE_COMMAND_RULE_COUNT
+		and int(binding.pose_rules_applied) == SEMANTIC_POSE_COMMAND_RULE_COUNT
+		and int(binding.pose_global_matrices_match) == SEMANTIC_POSE_COMMAND_RULE_COUNT
+		and int(binding.skin_matrices_match) == SEMANTIC_POSE_COMMAND_RULE_COUNT
+	)
+	if not applied:
+		_failure = "%s semantic pose command did not produce complete runtime read-back" % profile.profile_id
+		return {}
+	return {
+		"target": target,
+		"rule_readback": ordered_readback,
+		"rules_observed": ordered_readback.size(),
+		"local_pose_matches_command": int(binding.pose_rules_applied),
+		"global_pose_matches_published": int(binding.pose_global_matrices_match),
+		"skin_matrices_match_published": int(binding.skin_matrices_match),
+		"applied": applied,
+	}
+
+
 func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: Array[Dictionary]) -> Dictionary:
 	var candidate_hashes := {}
 	var profiles: Array[Dictionary] = []
@@ -1276,7 +1574,7 @@ func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: 
 		var profile: Dictionary = loaded_profiles[index]
 		candidate_hashes[profile.profile_id] = profile.candidate_profile_sha256
 		var metrics: Dictionary = profile.metrics
-		var binding := _readback_binding(profile)
+		var binding := _readback_binding(profile, options.has("semantic_pose_command"))
 		if binding.is_empty():
 			return {}
 		var node_counts := _readback_node_counts(profile)
@@ -1287,8 +1585,9 @@ func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: 
 		if actual_translation.distance_to(expected_translation) > TOLERANCE:
 			_failure = "%s runtime profile translation differs from the expected host-only placement" % profile.profile_id
 			return {}
+		var carrier_binding := {}
 		if options.has("carrier_identity"):
-			var carrier_binding := _readback_carrier_avatar_binding(profile, index, options.carrier_avatar_records[index])
+			carrier_binding = _readback_carrier_avatar_binding(profile, index, options.carrier_avatar_records[index])
 			if carrier_binding.is_empty():
 				return {}
 			carrier_avatar_bindings.append(carrier_binding)
@@ -1300,7 +1599,7 @@ func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: 
 			_failure = "runtime profiles disagree on the applied shared-pose rule count"
 			return {}
 		pose_rules_validated = pose_rules_validated and profile.pose_rules_validated
-		profiles.append({
+		var profile_report := {
 			"profile_id": profile.profile_id,
 			"candidate_profile_sha256": profile.candidate_profile_sha256,
 			"metrics": metrics,
@@ -1319,7 +1618,13 @@ func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: 
 			"posed_proxy_aabb": profile.posed_proxy_aabb,
 			"node_counts": node_counts,
 			"binding": binding,
-		})
+		}
+		if options.has("semantic_pose_command"):
+			var injection := _readback_semantic_pose_injection(profile, index, binding, carrier_binding, options)
+			if injection.is_empty():
+				return {}
+			profile_report["semantic_pose_injection"] = injection
+		profiles.append(profile_report)
 	if pose_rule_count < 0 or not pose_rules_validated:
 		_failure = "runtime shared-pose evidence is incomplete"
 		return {}
@@ -1361,7 +1666,7 @@ func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: 
 		"pose_binding": {
 			"pose_id": validated.pose_id,
 			"pose_sha256": validated.pose_sha256,
-			"path": POSE_FILE,
+			"path": "injected-semantic-pose-command" if options.has("semantic_pose_command") else POSE_FILE,
 			"rule_count": pose_rule_count,
 			"rules_validated": pose_rules_validated,
 			"applied_to_skeleton3d": pose_rule_count == BONE_COUNT,
@@ -1373,6 +1678,10 @@ func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: 
 	if options.has("carrier_identity"):
 		report["validated_carrier"] = options.carrier_identity
 		report["carrier_avatar_bindings"] = carrier_avatar_bindings
+	if options.has("semantic_pose_command"):
+		report["semantic_pose_command_identity"] = options.semantic_pose_command_identity
+		report["semantic_pose_targets"] = options.semantic_pose_command.targets
+		report["semantic_pose_frame"] = options.semantic_pose_frame
 	return report
 
 
@@ -1628,6 +1937,10 @@ func _aabb_json(aabb: AABB) -> Dictionary:
 
 func _vector_json(value: Vector3) -> Array[float]:
 	return [value.x, value.y, value.z]
+
+
+func _quaternion_json(value: Quaternion) -> Array[float]:
+	return [value.x, value.y, value.z, value.w]
 
 
 func _influence_count(rows) -> int:

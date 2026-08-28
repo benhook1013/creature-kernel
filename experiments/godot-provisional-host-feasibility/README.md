@@ -25,10 +25,11 @@ temporary Godot projects and remove those projects afterward.
 This is not a package, adapter, Readiness 3 result, semantic-contact result,
 deformation result, physical-response result, benchmark, or checkpoint claim.
 It makes no claim about a permanent Godot engine selection or about the wider
-feasibility trial. The skeletal smoke's binding claim is host-local only; none
-of the probes claims animation, semantic pose injection, physics stepping,
-contact, deformation, render output, adapter/package/R3/performance/checkpoint
-evidence, or visual review.
+feasibility trial. The skeletal smoke's binding claim is host-local only. Its
+optional command mode adds disposable semantic-selector injection and read-back
+evidence only; none of the probes claims animation, physics stepping, contact,
+deformation, render output, adapter/package/R3/performance/checkpoint evidence,
+or visual review.
 
 ## Provisioning
 
@@ -155,6 +156,54 @@ carrier avatar bindings.
       --carrier /absolute/path/to/disposable-avatar-carrier.json \
       --report /absolute/path/to/skeletal-pose-report.json
 
+Build the separate canonical semantic-pose command from that carrier and the
+exact gallery shared-pose source:
+
+    CK_CURRENT_FORM_SURFACE_TMPDIR=/tmp \
+      experiments/current-form-surface-preview/surface_preview_launcher.sh \
+        experiments/godot-provisional-host-feasibility/disposable_semantic_pose_command.py \
+        build \
+        --gallery /absolute/path/to/completed-gallery \
+        --carrier /absolute/path/to/disposable-avatar-carrier.json \
+        --output /absolute/path/to/disposable-semantic-pose-command.json
+
+Validate the command independently before consumption:
+
+    CK_CURRENT_FORM_SURFACE_TMPDIR=/tmp \
+      experiments/current-form-surface-preview/surface_preview_launcher.sh \
+        experiments/godot-provisional-host-feasibility/disposable_semantic_pose_command.py \
+        validate \
+        --gallery /absolute/path/to/completed-gallery \
+        --carrier /absolute/path/to/disposable-avatar-carrier.json \
+        --command /absolute/path/to/disposable-semantic-pose-command.json
+
+Consume it by adding `--command` to the carrier-backed skeletal probe:
+
+    CK_CURRENT_FORM_SURFACE_TMPDIR=/tmp \
+      xvfb-run -a env CK_ALLOW_VISIBLE_GODOT=1 \
+      experiments/current-form-surface-preview/surface_preview_launcher.sh \
+      experiments/godot-provisional-host-feasibility/run_skeletal_pose_smoke.py \
+      --gallery /absolute/path/to/completed-gallery \
+      --carrier /absolute/path/to/disposable-avatar-carrier.json \
+      --command /absolute/path/to/disposable-semantic-pose-command.json \
+      --report /absolute/path/to/semantic-pose-report.json
+
+The command is experiment-local and canonical newline-terminated JSON. It
+contains the command/schema boundary, exact shared-pose format/ID/SHA/version,
+the ordered two-entry carrier target list, and exactly 18 ordered semantic rules
+using the existing kind/role/anchor selectors and source `xyzw` rotations. Its
+identity-frame evidence declares column vectors, `xyzw`, `C = I`, and `s = 1`
+with `evidence_only=true` and `runtime_conformance=false`. It contains no node
+names, bone indices, clips, or durable adapter/package schema. Python validates
+the command and carrier before launch and again after Godot returns; any target,
+	selector, source, frame, payload, or identity change prevents report
+publication. Godot receives the injected semantic payload and does not load the
+shared-pose file in command mode. Its command evidence is derived from runtime
+root metadata plus each `Skeleton3D` bone's semantic metadata and observed local
+rotation, with measured command error and complete local/global/`Skin` matrix
+counts; it is not an echoed selector list. The no-command and carrier-only paths
+remain unchanged predecessor paths.
+
 On a Linux or WSL host with `xvfb-run` available, use a virtual display to
 exercise the same real-renderer path without opening a window. Set the existing
 native temporary-root override so inherited Windows `TEMP`/`TMP` warnings do
@@ -218,11 +267,15 @@ The disposable carrier suite contains 15 tests covering exact shape,
 deterministic canonical publication, strict bounded loading, both frozen profile
 pairs, instance identity, tampering and mixed-lineage rejection, and payload
 reconstruction, including deterministic symlink-swap read and publication
-regressions. The skeletal pose suite contains 26 tests covering both frozen
+regressions. The skeletal pose suite contains 33 tests covering both frozen
 profile pairs, complete `Skeleton3D`/`Skin` binding evidence, malformed and
 tampered inputs and reports, deterministic reruns, carrier load-through with
 one-to-one runtime-root read-back, real-process rejection of noncanonical
-carrier identity, and repository/cache cleanliness. The neutral and posed
+carrier identity, command-mode semantic injection/read-back, no pose-file
+fallback after injection, and repository/cache cleanliness. The seven-test
+semantic command suite covers
+deterministic canonical bytes for both frozen profile pairs, strict field,
+rotation, and frame validation, lineage mismatch, and safe publication. The neutral and posed
 suites run their real Godot paths when the completed-gallery fixture and exact
 pinned binary are available.
 Skeletal-pose integration additionally requires

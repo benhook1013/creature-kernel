@@ -22,9 +22,11 @@ sys.dont_write_bytecode = True
 EXPERIMENT_ROOT = Path(__file__).resolve().parent
 NEUTRAL_RUNNER_PATH = EXPERIMENT_ROOT / "run_structural_gallery_smoke.py"
 CARRIER_MODULE_PATH = EXPERIMENT_ROOT / "disposable_avatar_carrier.py"
+COMMAND_MODULE_PATH = EXPERIMENT_ROOT / "disposable_semantic_pose_command.py"
 GODOT_SCRIPT = EXPERIMENT_ROOT / "skeletal_pose_smoke.gd"
 VISIBLE_GODOT_OPT_IN = "CK_ALLOW_VISIBLE_GODOT"
 _CARRIER_MODULE: Any | None = None
+_COMMAND_MODULE: Any | None = None
 
 
 def _load_neutral_runner():
@@ -58,6 +60,23 @@ def _load_carrier_module():
     return _CARRIER_MODULE
 
 
+def _load_command_module():
+    global _COMMAND_MODULE
+    if _COMMAND_MODULE is not None:
+        return _COMMAND_MODULE
+    spec = importlib.util.spec_from_file_location(
+        "disposable_semantic_pose_command_for_skeletal_pose",
+        COMMAND_MODULE_PATH,
+    )
+    if spec is None or spec.loader is None:
+        raise ImportError(f"could not load disposable semantic pose command: {COMMAND_MODULE_PATH}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    _COMMAND_MODULE = module
+    return _COMMAND_MODULE
+
+
 neutral_smoke = _load_neutral_runner()
 SmokeError = neutral_smoke.SmokeError
 REPOSITORY_ROOT = neutral_smoke.REPOSITORY_ROOT
@@ -72,6 +91,9 @@ BONE_COUNT = 18
 PROXY_COUNT = 18
 TOLERANCE = 2.0e-5
 NORMAL_TOLERANCE = 3.0e-4
+# Godot's Basis-to-Quaternion runtime reconstruction can add a few float32 ULPs;
+# semantic command/source recipe validation remains at 1e-7 in the producer.
+SEMANTIC_POSE_QUATERNION_TOLERANCE = 5.0e-7
 REPORT_SCHEMA = "creature-kernel.disposable-godot-skeletal-pose-smoke.v1"
 REPORT_BOUNDARY = "host_local_skeleton3d_skin_pose_binding"
 REPORT_CLAIMS = [
@@ -152,8 +174,58 @@ def _validated_carrier_input(
     return carrier_module, carrier, payload, profile_ids, instance_ids
 
 
+def _validated_semantic_pose_command(
+    gallery: Path,
+    carrier_path: Path,
+    carrier: dict[str, Any],
+    payload: dict[str, Any],
+    profile_ids: tuple[str, str],
+    instance_ids: tuple[str, str],
+    command_path: Path,
+) -> tuple[Any, dict[str, Any], dict[str, Any], dict[str, Any]]:
+    command_module = _load_command_module()
+    try:
+        command = command_module.load_command(command_path)
+        command_module.validate_command(command, gallery, carrier_path)
+        command_identity = command_module.command_identity(command)
+        semantic_payload = command_module.semantic_payload(command)
+    except command_module.CommandError as exc:
+        raise SmokeError(f"disposable semantic pose command rejected: {exc}") from exc
+    expected_targets = _carrier_avatar_records(carrier)
+    if command.get("targets") != expected_targets:
+        raise SmokeError("semantic pose command targets do not match the validated carrier")
+    if command.get("source_pose", {}).get("pose_id") != payload["pose_id"] or command.get("source_pose", {}).get("sha256") != payload["pose_sha256"]:
+        raise SmokeError("semantic pose command source identity does not match the validated gallery")
+    if tuple(target["instance_id"] for target in command["targets"]) != instance_ids or tuple(target["profile_id"] for target in command["targets"]) != profile_ids:
+        raise SmokeError("semantic pose command target order is inconsistent with the validated carrier")
+    return command_module, command, command_identity, semantic_payload
+
+
 def _finite_number(value: Any) -> bool:
-    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(float(value))
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return False
+    try:
+        return math.isfinite(float(value))
+    except OverflowError:
+        return False
+
+
+def _validate_finite_report_json(value: Any, where: str = "Godot report") -> None:
+    if value is None or isinstance(value, (str, bool)):
+        return
+    if isinstance(value, (int, float)):
+        if not _finite_number(value):
+            raise SmokeError(f"{where} contains non-finite or unbounded numeric evidence")
+        return
+    if isinstance(value, list):
+        for index, item in enumerate(value):
+            _validate_finite_report_json(item, f"{where}[{index}]")
+        return
+    if isinstance(value, dict):
+        for key, item in value.items():
+            _validate_finite_report_json(item, f"{where}.{key}")
+        return
+    raise SmokeError(f"{where} contains a non-JSON value")
 
 
 def _expected_gallery_identity(payload: dict[str, Any]) -> dict[str, Any]:
@@ -312,15 +384,128 @@ def _validate_carrier_expectations(
         raise SmokeError("carrier identity, profile order, and per-avatar expectations are inconsistent")
 
 
+def _validate_command_expectations(
+    actual_identity: Any,
+    actual_targets: Any,
+    actual_frame: Any,
+    command: dict[str, Any] | None,
+    command_identity: dict[str, Any] | None,
+    payload: dict[str, Any],
+    carrier_avatar_records: list[dict[str, str]] | None,
+) -> None:
+    report_fields_present = (actual_identity is not None, actual_targets is not None, actual_frame is not None)
+    if command is None:
+        if any(report_fields_present):
+            raise SmokeError("no-command Godot report contains unexpected semantic pose command evidence")
+        return
+    if command_identity is None or carrier_avatar_records is None:
+        raise SmokeError("semantic pose command requires carrier and command identity expectations")
+    command_module = _load_command_module()
+    try:
+        command_module._validate_shape(command)
+        expected_identity = command_module.command_identity(command)
+        expected_frame = command["identity_frame"]
+    except command_module.CommandError as exc:
+        raise SmokeError(f"semantic pose command expectation is invalid: {exc}") from exc
+    if command_identity != expected_identity:
+        raise SmokeError("semantic pose command identity is inconsistent")
+    if command["source_pose"] != {
+        "format": "creature-kernel.disposable-structural-embodiment-shared-pose.v1",
+        "pose_id": payload["pose_id"],
+        "sha256": payload["pose_sha256"],
+        "version": 1,
+    }:
+        raise SmokeError("semantic pose command source identity is inconsistent")
+    if command["targets"] != carrier_avatar_records:
+        raise SmokeError("semantic pose command targets are not bound to the carrier records")
+    if actual_identity != expected_identity or actual_targets != command["targets"] or actual_frame != expected_frame:
+        raise SmokeError("Godot report semantic pose command identity, targets, or frame evidence is invalid")
+
+
+def _validate_command_injection(
+    actual: Any,
+    target: dict[str, str],
+    command: dict[str, Any],
+    profile_id: str,
+) -> None:
+    keys = {
+        "target",
+        "rule_readback",
+        "rules_observed",
+        "local_pose_matches_command",
+        "global_pose_matches_published",
+        "skin_matrices_match_published",
+        "applied",
+    }
+    if not isinstance(actual, dict) or set(actual) != keys or actual.get("target") != target:
+        raise SmokeError(f"Godot report profile {profile_id} semantic pose injection evidence is incomplete")
+    for key in (
+        "rules_observed",
+        "local_pose_matches_command",
+        "global_pose_matches_published",
+        "skin_matrices_match_published",
+    ):
+        if type(actual.get(key)) is not int or actual[key] != BONE_COUNT:
+            raise SmokeError(f"Godot report profile {profile_id} semantic pose injection {key} is invalid")
+    if type(actual.get("applied")) is not bool or actual["applied"] is not True:
+        raise SmokeError(f"Godot report profile {profile_id} semantic pose injection applied flag is invalid")
+    readback = actual.get("rule_readback")
+    if not isinstance(readback, list) or len(readback) != BONE_COUNT:
+        raise SmokeError(f"Godot report profile {profile_id} semantic pose rule read-back is incomplete")
+    runtime_bone_ids: set[str] = set()
+    for index, (record, rule) in enumerate(zip(readback, command["rules"])):
+        expected_selector = _command_selector(rule)
+        if not isinstance(record, dict) or set(record) != {
+            "selector",
+            "runtime_bone_id",
+            "observed_rotation_xyzw",
+            "max_component_error_to_command",
+        }:
+            raise SmokeError(f"Godot report profile {profile_id} semantic pose rule {index} is incomplete")
+        runtime_bone_id = record["runtime_bone_id"]
+        if (
+            record["selector"] != expected_selector
+            or type(runtime_bone_id) is not str
+            or not runtime_bone_id
+            or runtime_bone_id in runtime_bone_ids
+        ):
+            raise SmokeError(f"Godot report profile {profile_id} semantic pose rule {index} routing is invalid")
+        runtime_bone_ids.add(runtime_bone_id)
+        observed = record["observed_rotation_xyzw"]
+        if not isinstance(observed, list) or len(observed) != 4 or any(not _finite_number(value) for value in observed):
+            raise SmokeError(f"Godot report profile {profile_id} semantic pose rule {index} rotation is invalid")
+        expected = rule["rotation_xyzw"]
+        direct_error = max(abs(float(left) - float(right)) for left, right in zip(observed, expected))
+        antipodal_error = max(abs(float(left) + float(right)) for left, right in zip(observed, expected))
+        observed_error = min(direct_error, antipodal_error)
+        reported_error = record["max_component_error_to_command"]
+        if (
+            not _finite_number(reported_error)
+            or float(reported_error) < 0.0
+            or float(reported_error) > SEMANTIC_POSE_QUATERNION_TOLERANCE
+            or observed_error > SEMANTIC_POSE_QUATERNION_TOLERANCE
+            or abs(float(reported_error) - observed_error) > SEMANTIC_POSE_QUATERNION_TOLERANCE
+        ):
+            raise SmokeError(f"Godot report profile {profile_id} semantic pose rule {index} does not match the command")
+
+
+def _command_selector(rule: dict[str, Any]) -> str:
+    role = "" if rule["role"] is None else rule["role"]
+    return f"{rule['kind']}|{role}|{','.join(rule['anchors'])}"
+
+
 def _validate_report(
     report: Any,
     payload: dict[str, Any],
     profile_ids: tuple[str, str],
     carrier_identity: dict[str, Any] | None = None,
     carrier_avatar_records: list[dict[str, str]] | None = None,
+    semantic_pose_command: dict[str, Any] | None = None,
+    command_identity: dict[str, Any] | None = None,
 ) -> None:
     if not isinstance(report, dict):
         raise SmokeError("Godot skeletal-pose report is not a JSON object")
+    _validate_finite_report_json(report)
     _validate_carrier_expectations(carrier_identity, carrier_avatar_records, payload, profile_ids)
     if report.get("schema") != REPORT_SCHEMA or report.get("status") != "success":
         raise SmokeError("Godot skeletal-pose report schema or status is invalid")
@@ -358,6 +543,20 @@ def _validate_report(
         carrier_avatar_records,
         "carrier_avatar_bindings" in report,
     )
+    if semantic_pose_command is None and any(
+        key in report
+        for key in ("semantic_pose_command_identity", "semantic_pose_targets", "semantic_pose_frame")
+    ):
+        raise SmokeError("no-command Godot report contains unexpected semantic pose command evidence")
+    _validate_command_expectations(
+        report.get("semantic_pose_command_identity"),
+        report.get("semantic_pose_targets"),
+        report.get("semantic_pose_frame"),
+        semantic_pose_command,
+        command_identity,
+        payload,
+        carrier_avatar_records,
+    )
     if report.get("coordinate_rule") != {
         "kind": "disposable_host_local_identity",
         "mapping": "CK XYZ -> Godot XYZ: x->x, y->y, z->z",
@@ -368,7 +567,7 @@ def _validate_report(
     expected_pose_binding = {
         "pose_id": payload["pose_id"],
         "pose_sha256": payload["pose_sha256"],
-        "path": "structural_embodiment_shared_pose.json",
+        "path": "injected-semantic-pose-command" if semantic_pose_command is not None else "structural_embodiment_shared_pose.json",
         "rule_count": BONE_COUNT,
         "rules_validated": True,
         "applied_to_skeleton3d": True,
@@ -421,7 +620,9 @@ def _validate_report(
         if any(counts[key] != value for key, value in expected_counts.items()) or counts["influence_count"] < metrics["neutral_vertex_count"]:
             raise SmokeError(f"Godot report profile {profile_id} structural counts are invalid")
         for bounds_key, expected_bounds in (("neutral_mesh_aabb", metrics["neutral_bounds"]), ("posed_mesh_aabb", metrics["posed_bounds"])):
-            if not neutral_smoke._bounds_close(actual.get(bounds_key), expected_bounds, TOLERANCE):
+            if not _finite_bounds(actual.get(bounds_key)) or not neutral_smoke._bounds_close(
+                actual.get(bounds_key), expected_bounds, TOLERANCE
+            ):
                 raise SmokeError(f"Godot report profile {profile_id} {bounds_key} differs from published metrics")
         if not _finite_bounds(actual.get("posed_proxy_aabb")):
             raise SmokeError(f"Godot report profile {profile_id} posed proxy bounds are invalid")
@@ -443,6 +644,17 @@ def _validate_report(
         }:
             raise SmokeError(f"Godot report profile {profile_id} node counts are invalid")
         _validate_binding(actual.get("binding"), profile_id)
+        if semantic_pose_command is None:
+            if "semantic_pose_injection" in actual:
+                raise SmokeError("no-command Godot report contains unexpected per-avatar semantic pose evidence")
+        else:
+            injection = actual.get("semantic_pose_injection")
+            _validate_command_injection(
+                injection,
+                carrier_avatar_records[index],
+                semantic_pose_command,
+                profile_id,
+            )
     first_proxy_max = actual_profiles[0]["posed_proxy_aabb"]["max"][0] + EXPECTED_TRANSLATIONS[0][0]
     second_proxy_min = actual_profiles[1]["posed_proxy_aabb"]["min"][0] + EXPECTED_TRANSLATIONS[1][0]
     if first_proxy_max >= second_proxy_min:
@@ -467,6 +679,9 @@ def _launch_godot(
     payload: dict[str, Any],
     carrier_identity: dict[str, Any] | None = None,
     carrier_avatar_records: list[dict[str, str]] | None = None,
+    semantic_pose_command: dict[str, Any] | None = None,
+    command_identity: dict[str, Any] | None = None,
+    semantic_payload: dict[str, Any] | None = None,
 ) -> tuple[str, str, int, dict[str, Any] | None]:
     """Launch with a real renderer; headless mode exposes dummy rendering RIDs."""
     if os.environ.get(VISIBLE_GODOT_OPT_IN) != "1":
@@ -500,7 +715,7 @@ def _launch_godot(
         raw_report_path = Path(temporary) / "godot-report.json"
         shutil.copyfile(neutral_smoke.PROJECT_FILE, project)
         shutil.copyfile(GODOT_SCRIPT, script_path)
-        command = [
+        launch_command = [
             str(neutral_smoke.LAUNCHER),
             "--display-driver",
             "x11",
@@ -525,7 +740,7 @@ def _launch_godot(
             json.dumps(payload, ensure_ascii=True, sort_keys=True, separators=(",", ":"), allow_nan=False),
         ]
         if carrier_identity is not None:
-            command.extend(
+            launch_command.extend(
                 [
                     "--carrier-identity-json",
                     json.dumps(carrier_identity, ensure_ascii=True, sort_keys=True, separators=(",", ":"), allow_nan=False),
@@ -533,7 +748,7 @@ def _launch_godot(
             )
             if carrier_avatar_records is None:
                 raise SmokeError("validated carrier avatar records are missing")
-            command.extend(
+            launch_command.extend(
                 [
                     "--carrier-avatar-records-json",
                     json.dumps(
@@ -547,12 +762,31 @@ def _launch_godot(
             )
         elif carrier_avatar_records is not None:
             raise SmokeError("carrier avatar records were supplied without validated carrier identity")
+        if semantic_pose_command is not None:
+            if carrier_identity is None or carrier_avatar_records is None or command_identity is None or semantic_payload is None:
+                raise SmokeError("semantic pose command requires validated carrier and semantic payload")
+            command_module = _load_command_module()
+            command_json = command_module._canonical_json(semantic_pose_command).decode("utf-8").rstrip("\n")
+            identity_json = command_module._canonical_json(command_identity).decode("utf-8").rstrip("\n")
+            semantic_json = command_module._canonical_json(semantic_payload).decode("utf-8").rstrip("\n")
+            # Keep the injected command and its derived payload/identity separate
+            # so Godot cannot fall back to reading the shared-pose file.
+            launch_command.extend(
+                [
+                    "--semantic-pose-command-json",
+                    command_json,
+                    "--semantic-pose-command-identity-json",
+                    identity_json,
+                    "--semantic-pose-payload-json",
+                    semantic_json,
+                ]
+            )
         environment = os.environ.copy()
         environment.update({key: str(value) for key, value in isolated_paths.items()})
         environment["CK_GODOT_4_7_2_BINARY"] = str(pinned_binary)
         try:
             completed = subprocess.run(
-                command,
+                launch_command,
                 cwd=neutral_smoke.REPOSITORY_ROOT,
                 env=environment,
                 capture_output=True,
@@ -581,12 +815,18 @@ def run_skeletal_pose_smoke(
     profile_ids: tuple[str, str] | list[str] | None,
     report_path: Path,
     carrier_path: Path | None = None,
+    command_path: Path | None = None,
 ) -> dict[str, Any]:
     report_path = neutral_smoke._validate_report_destination(report_path)
     gallery = Path(gallery)
     carrier_identity = None
     carrier_avatar_records = None
+    command = None
+    command_identity = None
+    semantic_payload = None
     if carrier_path is None:
+        if command_path is not None:
+            raise SmokeError("semantic pose command requires --carrier")
         selected = neutral_smoke._validate_profile_ids(profile_ids if profile_ids is not None else DEFAULT_PROFILE_IDS)
         _, payload = neutral_smoke.preflight(gallery, selected)
     else:
@@ -600,18 +840,51 @@ def run_skeletal_pose_smoke(
         carrier_avatar_records = _carrier_avatar_records(carrier)
         if tuple(carrier_identity["experiment_instance_ids"]) != instance_ids:
             raise SmokeError("validated carrier instance order is inconsistent")
-    stdout, stderr, returncode, report = _launch_godot(
-        gallery,
-        selected,
-        payload,
-        carrier_identity,
-        carrier_avatar_records,
-    )
+        if command_path is not None:
+            _, command, command_identity, semantic_payload = _validated_semantic_pose_command(
+                gallery,
+                Path(carrier_path),
+                carrier,
+                payload,
+                selected,
+                instance_ids,
+                Path(command_path),
+            )
+    if command is None:
+        stdout, stderr, returncode, report = _launch_godot(
+            gallery,
+            selected,
+            payload,
+            carrier_identity,
+            carrier_avatar_records,
+        )
+    else:
+        stdout, stderr, returncode, report = _launch_godot(
+            gallery,
+            selected,
+            payload,
+            carrier_identity,
+            carrier_avatar_records,
+            command,
+            command_identity,
+            semantic_payload,
+        )
     if returncode != 0:
         raise SmokeError(f"Godot launcher returned exit code {returncode}; stdout={stdout!r}; stderr={stderr!r}")
     if report is None:
         raise SmokeError("Godot returned success without a skeletal-pose report")
-    _validate_report(report, payload, selected, carrier_identity, carrier_avatar_records)
+    if command is None:
+        _validate_report(report, payload, selected, carrier_identity, carrier_avatar_records)
+    else:
+        _validate_report(
+            report,
+            payload,
+            selected,
+            carrier_identity,
+            carrier_avatar_records,
+            command,
+            command_identity,
+        )
     if carrier_path is None:
         _, post_payload = neutral_smoke.preflight(gallery, selected)
         if post_payload != payload:
@@ -621,14 +894,30 @@ def run_skeletal_pose_smoke(
             gallery,
             Path(carrier_path),
         )
-        post_identity = _carrier_identity(post_carrier, post_module)
+        post_carrier_identity = _carrier_identity(post_carrier, post_module)
         if (
             post_payload != payload
             or post_profiles != selected
             or post_instances != instance_ids
-            or post_identity != carrier_identity
+            or post_carrier_identity != carrier_identity
         ):
             raise SmokeError("validated carrier or gallery changed during the skeletal-pose smoke; refusing to publish a success report")
+        if command_path is not None:
+            _, post_command, post_command_identity, post_semantic_payload = _validated_semantic_pose_command(
+                gallery,
+                Path(carrier_path),
+                post_carrier,
+                post_payload,
+                post_profiles,
+                post_instances,
+                Path(command_path),
+            )
+            if (
+                post_command != command
+                or post_command_identity != command_identity
+                or post_semantic_payload != semantic_payload
+            ):
+                raise SmokeError("semantic pose command, carrier, or gallery changed during the skeletal-pose smoke; refusing to publish a success report")
     neutral_smoke._publish_report(report_path, report)
     return report
 
@@ -637,6 +926,7 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--gallery", required=True, type=Path, help="absolute completed structural gallery directory")
     parser.add_argument("--carrier", type=Path, help="optional absolute disposable avatar-input carrier path")
+    parser.add_argument("--command", "--semantic-pose-command", dest="command_path", type=Path, help="optional absolute semantic-pose command; requires --carrier")
     parser.add_argument("--profile-id", action="append", dest="profile_ids", help="repeat exactly twice; defaults to the compact and tall frozen IDs")
     parser.add_argument("--report", required=True, type=Path, help="absolute report path")
     return parser
@@ -646,7 +936,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         args = _parser().parse_args(argv)
         profile_ids = tuple(args.profile_ids) if args.profile_ids is not None else (None if args.carrier is not None else DEFAULT_PROFILE_IDS)
-        report = run_skeletal_pose_smoke(args.gallery, profile_ids, args.report, args.carrier)
+        report = run_skeletal_pose_smoke(args.gallery, profile_ids, args.report, args.carrier, args.command_path)
     except SmokeError as exc:
         print(f"skeletal pose smoke failed: {exc}", file=sys.stderr)
         return 2

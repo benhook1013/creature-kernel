@@ -52,20 +52,21 @@ the canonical owner of the active runway, and the required reading order in
   back. Python rejects missing, duplicate, reordered, swapped, mismatched, or
   aggregate-only evidence and cross-validates carrier identity, profile order,
   and hashes. The carrier schema and no-carrier predecessor behaviour remain
-  unchanged. This is disposable experiment evidence only: it is not a runtime
-  package schema, durable artifact identity, adapter activation, compatibility
-  promise, Readiness 3 result, host commitment,
-  performance/contact/deformation/physics result, or human visual checkpoint.
-  The final focused no-display suite passes 26 tests with 8 expected renderer
-  skips; the final full Xvfb/Godot real-renderer suite passes 26/26 in 176.334s.
-  Two fresh xhigh reviews found no Godot issues; the Python review's two P2
-  fail-closed gaps were fixed and verified resolved. Documentation validation
-  and `git diff --check` pass. The next direct slice is a separate disposable
-  CK-owned semantic-pose command addressed to the bound instance IDs, reusing
-  existing role/anchor semantics and recording explicit trial-local
-  identity-frame/conversion evidence. It remains experiment-only and must not
-  claim package, adapter, Readiness 3, contact/deformation/physics,
-  performance, or the named human checkpoint. The bounded Godot feasibility
+  unchanged. A disposable CK-owned canonical semantic pose command addressed
+  to the two bound instance IDs is implemented. Godot receives it without
+  reading the gallery pose file, applies it through semantic selectors, and
+  reports runtime-derived root/bone/quaternion readback that Python
+  cross-validates; explicit-empty arguments fail closed. This remains
+  experiment-only and makes no package/adapter/Readiness 3/contact/deformation/
+  performance/checkpoint claim. Current evidence is 7 command tests and 33
+  no-display tests with 12 expected skips; four
+  focused real-renderer cases (deterministic command rerun, alternate carrier
+  order, alternate requested order, and semantic injection) passed in 165.467s.
+  The final full Xvfb suite also passed all 33 tests without skips in 341.033s.
+  The next direct
+  slice is a disposable CK/Rust-backed package-shaped projection over existing
+  gallery artifacts, explicitly not a durable runtime package schema, R3
+  activation, adapter, or host lock-in. The bounded Godot feasibility
   checkpoint remains the governing human checkpoint.
 - [PR #113](https://github.com/benhook1013/creature-kernel/pull/113) merged to
   `main` as squash commit `eb89245da137e54cc85f9cd564fbcdd6c45eac66` on
