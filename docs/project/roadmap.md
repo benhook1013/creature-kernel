@@ -102,11 +102,18 @@ source-backed 3D shape, behaviour, control, and appearance knowledge, with only
 a very small number of discrete alternatives where sliders cannot express a
 real structural difference.
 
+This lane activates immediately before implementation of the first post-Godot
+checkpoint aimed at convincing simplified/stylized anatomy—not now. Its first
+bounded step is a provisional source-backed and reference-safe inventory of
+functional assemblies, fine-grained subparts, and optional modules, followed by
+a pilot of only one or two dossiers under the already recorded research
+procedure.
+
 Any future dossier remains a research and planning artifact, not executable truth
 or an accepted contract. Generic reusable concepts stay in the public core;
-downstream-specific private material stays downstream. This is an
-activation-gated planning direction, not a current schema, implementation
-queue, anatomy library, or fidelity promise; intermediate evidence may reshape
+downstream-specific private material stays downstream. This is not a current
+schema, file layout, implementation queue, anatomy library, fidelity promise,
+or commitment to supported new morphology; intermediate evidence may reshape
 it.
 
 ## Later productization

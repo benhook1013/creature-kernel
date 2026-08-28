@@ -1,6 +1,6 @@
 # Current operational handover
 
-Snapshot: 2026-08-27 NZST
+Snapshot: 2026-08-28 NZST
 
 This is a concise operational handoff for continuing the current runway in the
 Codex app. It is not a new authority owner: `docs/project/status.md` remains
@@ -77,18 +77,21 @@ the canonical owner of the active runway, and the required reading order in
   invalid-profile rejection, deterministic report evidence, and
   repository-write/cache checks without a correctness defect. Fresh final
   code/documentation review and the hosted-thread dispositions then completed;
-  the unresolved-thread count is zero, and CI is green on pushed head
-  `bb0b29a`. A final committed-diff CodeRabbit CLI pass produced eight bounded
+  the unresolved-thread count is zero, and the then-current CI was green on pushed
+  head `bb0b29a`. A final committed-diff CodeRabbit CLI pass produced eight bounded
   validation and test-harness findings, all addressed by the current local
   follow-up. Fresh independent review of that follow-up produced three bounded
   correctness findings; all are addressed and the resulting 51-test suite
-  passed. Commit, push, and current-head CI remain pending. A final taper CLI
-  pass on `5541b70` produced three mechanical fixture/helper/cleanup findings;
-  all are addressed, and focused reruns covered all 51 Godot tests plus the
-  seven whitespace-tool tests. The CodeRabbit cycle stops there. PR #116
+  passed. The corrected candidate was committed and pushed as
+  `0552776b96f5e6d0b1d536e5ed07cbb53eab36ce`; PR #116 is open and
+  clean/mergeable. Documentation contracts, Rust workspace validation, Visual
+  review tests, and CodeRabbit are all successful at that pushed head. A final
+  taper CLI pass on `5541b70` produced three mechanical fixture/helper/cleanup
+  findings; all are addressed, and focused reruns covered all 51 Godot tests plus
+  the seven whitespace-tool tests. The CodeRabbit cycle stops there. PR #116
   remains one coherent coarse structural-evidence-to-provisional-Godot
-  milestone; those pending gates must not be read as passed. This snapshot
-  makes no
+  milestone; these successful checks do not widen its evidence boundary. This
+  snapshot makes no
   Skeleton3D/Skin runtime
   binding, animation, semantic pose injection, physics stepping, contact,
   deformation, render output, adapter/package/R3/performance/checkpoint
@@ -144,6 +147,21 @@ success, solver/package freeze, or adapter activation follows from the approval.
 The post-Readiness-3 adapter gate remains explicit. The main thread advances
 direct Rust/package prerequisites and stops before any retained-human Readiness 3
 or adapter-activation decision.
+
+After the bounded Godot mechanics/feasibility checkpoint is completed or
+dispositioned, the next model-facing human checkpoint is convincing
+simplified/stylized anatomy across the four fixed profiles: a readable,
+intentional neck, torso and pelvis masses, shoulder/hip transitions, tapered
+limbs, and a simplified muzzle and paws/feet. This is not a photorealistic
+anatomy, detailed-hands/faces/tissue, or current Godot-mechanics claim.
+Immediately before implementation of that later anatomy checkpoint—not now—
+activate the public morphology-knowledge lane by creating a provisional
+source-backed and reference-safe inventory of functional assemblies,
+fine-grained subparts, and optional modules, then pilot only one or two dossiers
+under the already recorded research procedure. This does not decide inventory
+contents, a schema, file layout, filenames, an executable representation, or
+supported new morphology. No broader risk-and-activation map is planned;
+checkpoint-specific evidence remains the governing approach.
 
 Ben's qualified 2026-08-25 visual appraisal is that the shared-pose structural
 result "looks good". The only confusion was that the `POSED SKIN + SKELETON`
