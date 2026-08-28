@@ -135,8 +135,8 @@ def _skeletal_validation_fixture() -> tuple[dict, dict]:
         "schema": smoke.REPORT_SCHEMA,
         "status": "success",
         "boundary": smoke.REPORT_BOUNDARY,
-        "claims": smoke.REPORT_CLAIMS,
-        "scope_flags": smoke.REPORT_FLAGS,
+        "claims": deepcopy(smoke.REPORT_CLAIMS),
+        "scope_flags": deepcopy(smoke.REPORT_FLAGS),
         "godot_version": smoke.EXPECTED_GODOT_VERSION,
         "godot_engine_version_string": smoke.EXPECTED_GODOT_ENGINE_VERSION_STRING,
         "profile_ids": list(DEFAULTS),
@@ -214,8 +214,14 @@ def integration_available() -> bool:
     if not os.environ.get("DISPLAY"):
         return False
     try:
-        result = subprocess.run(_godot_version_probe_command(), capture_output=True, text=True, check=False)
-    except OSError:
+        result = subprocess.run(
+            _godot_version_probe_command(),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=smoke.neutral_smoke.GODOT_LAUNCH_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired):
         return False
     return result.returncode == 0 and smoke.EXPECTED_GODOT_VERSION in result.stdout
 
@@ -238,6 +244,15 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
             with self.assertRaisesRegex(smoke.SmokeError, "visible X11 Godot launch is disabled"):
                 smoke._launch_godot(self.root, DEFAULTS, {})
 
+    def test_integration_availability_probe_times_out_fail_closed(self) -> None:
+        with (
+            patch.object(sys.modules[__name__], "GALLERY", self.root),
+            patch.object(smoke.neutral_smoke, "LAUNCHER", Path(sys.executable)),
+            patch.dict(os.environ, {smoke.VISIBLE_GODOT_OPT_IN: "1", "DISPLAY": ":99"}),
+            patch.object(subprocess, "run", side_effect=subprocess.TimeoutExpired([sys.executable], 1)),
+        ):
+            self.assertFalse(integration_available())
+
     def test_availability_version_probe_is_explicitly_headless(self) -> None:
         launcher = self.root / "fake-godot"
         with patch.object(smoke.neutral_smoke, "LAUNCHER", launcher):
@@ -246,10 +261,8 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
                 [str(launcher), "--headless", "--version"],
             )
         source = HERE.read_text(encoding="utf-8")
-        self.assertIn(
-            "result = subprocess.run(_godot_version_probe_command(), capture_output=True, text=True, check=False)",
-            source,
-        )
+        self.assertIn("result = subprocess.run(", source)
+        self.assertIn("timeout=smoke.neutral_smoke.GODOT_LAUNCH_TIMEOUT_SECONDS", source)
 
     def test_headless_script_compile_reaches_fail_closed_projection_diagnostic(self) -> None:
         launcher = smoke.neutral_smoke.LAUNCHER
@@ -382,11 +395,21 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
 
     def test_report_runtime_evidence_is_read_back_not_self_asserted(self) -> None:
         source = (EXPERIMENT / "skeletal_pose_smoke.gd").read_text(encoding="utf-8")
+        run_source = source[source.index("func _run_smoke"):source.index("func _parse_arguments")]
         report_source = source[source.index("func _build_report"):source.index("func _parse_ply")]
         binding_source = source[source.index("func _readback_binding"):source.index("func _readback_node_counts")]
         node_source = source[source.index("func _readback_node_counts"):source.index("func _count_profile_nodes")]
+        proxy_source = source[source.index("func _build_host_proxies"):source.index("func _read_proxy_geometry")]
+        self.assertIn("if report.is_empty():", run_source)
+        self.assertIn("runtime evidence report is empty", run_source)
         self.assertIn("var binding := _readback_binding(profile)", report_source)
         self.assertIn("var node_counts := _readback_node_counts(profile)", report_source)
+        self.assertIn("var orientation = _basis_for_y_axis", proxy_source)
+        self.assertNotIn("Quaternion(Vector3.UP", proxy_source)
+        self.assertIn("runtime pose rotation read-back is missing selector", binding_source)
+        self.assertNotIn("force_update_all_bone_transforms", source)
+        self.assertNotIn("NOTIFICATION_UPDATE_SKELETON", source)
+        self.assertIn("skeleton_updated.connect", source)
         for field in (
             "unique_bone_names",
             "parent_links_match",
@@ -420,6 +443,17 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
     def test_report_validator_accepts_complete_binding_evidence(self) -> None:
         payload, report = _skeletal_validation_fixture()
         smoke._validate_report(report, payload, DEFAULTS)
+
+    def test_report_validator_rejects_numeric_boolean_substitutes(self) -> None:
+        payload, report = _skeletal_validation_fixture()
+        report["scope_flags"]["physics_stepping"] = 0
+        with self.assertRaisesRegex(smoke.SmokeError, "scope flags are not fail-closed"):
+            smoke._validate_report(report, payload, DEFAULTS)
+
+        payload, report = _skeletal_validation_fixture()
+        report["pose_binding"]["rules_validated"] = 1
+        with self.assertRaisesRegex(smoke.SmokeError, "pose binding evidence is invalid"):
+            smoke._validate_report(report, payload, DEFAULTS)
 
     def test_report_validator_rejects_incomplete_or_over_tolerance_binding(self) -> None:
         payload, report = _skeletal_validation_fixture()

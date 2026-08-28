@@ -33,12 +33,12 @@ the canonical owner of the active runway, and the required reading order in
   probes”](https://github.com/benhook1013/creature-kernel/pull/116), merged at
   2026-08-28T06:40:34Z. The active implementation worktree is
   `/home/ben/src/creature-kernel-worktrees/godot-skeletal-pose-probe` on branch
-  `codex/godot-skeletal-pose-probe`, based on `9c305c9`; it has no PR yet.
-  The current candidate adds the disposable real `Skeleton3D`/`Skin`
-  shared-pose binding probe and its tests. The non-visible full Godot suite
-  passes 63 tests with 4 explicit visible-renderer skips. With Xvfb authorized
-  and installed in WSL, the focused real-renderer skeletal suite passed all 12
-  tests in 97.654s with zero skips; this is bounded host-local
+  `codex/godot-skeletal-pose-probe`, based on `9c305c9`. The current
+  candidate adds the disposable real `Skeleton3D`/`Skin` shared-pose binding
+  probe and its tests. The non-visible full Godot suite
+  passes 65 tests with 4 explicit visible-renderer skips. With Xvfb authorized
+  and installed in WSL, the focused real-renderer skeletal suite passed all 14
+  tests in 87.818s with zero skips; this is bounded host-local
   renderer/binding evidence only. The CI patch adds PR-only concurrency
   cancellation to the Rust/docs workflows.
   This candidate is a direct prerequisite, not the named bounded Godot

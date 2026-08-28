@@ -88,21 +88,31 @@ func _run_smoke() -> int:
 		_release_profiles(loaded_profiles)
 		return _fail_exit()
 
+	var neutral_updates := _watch_skeleton_updates(loaded_profiles, "neutral")
+	if neutral_updates.is_empty():
+		_release_profiles(loaded_profiles)
+		return _fail_exit()
 	for profile in loaded_profiles:
 		profile.skeleton.reset_bone_poses()
-		profile.skeleton.force_update_all_bone_transforms()
-		profile.skeleton.notification(Skeleton3D.NOTIFICATION_UPDATE_SKELETON)
-	await process_frame
+	if not await _wait_for_skeleton_updates(neutral_updates, "neutral"):
+		_release_profiles(loaded_profiles)
+		return _fail_exit()
 	for profile in loaded_profiles:
 		if not _capture_neutral(profile):
 			_release_profiles(loaded_profiles)
 			return _fail_exit()
 
+	var posed_updates := _watch_skeleton_updates(loaded_profiles, "posed")
+	if posed_updates.is_empty():
+		_release_profiles(loaded_profiles)
+		return _fail_exit()
 	for profile in loaded_profiles:
 		if not _apply_shared_pose(profile, pose):
 			_release_profiles(loaded_profiles)
 			return _fail_exit()
-	await process_frame
+	if not await _wait_for_skeleton_updates(posed_updates, "posed"):
+		_release_profiles(loaded_profiles)
+		return _fail_exit()
 	for profile in loaded_profiles:
 		if not _capture_posed(profile):
 			_release_profiles(loaded_profiles)
@@ -113,11 +123,40 @@ func _run_smoke() -> int:
 		return _fail_exit()
 	var report := _build_report(options, validated, loaded_profiles)
 	_release_profiles(loaded_profiles)
+	if report.is_empty():
+		if _failure.is_empty():
+			_failure = "runtime evidence report is empty"
+		return _fail_exit()
 	if get_root().get_child_count() != 0:
 		return _fail("temporary profile roots were not released")
 	if not _write_report(options.report_path, report):
 		return _fail_exit()
 	return 0
+
+
+func _watch_skeleton_updates(profiles: Array[Dictionary], where: String) -> Dictionary:
+	var observed := {}
+	for profile in profiles:
+		var profile_id: String = profile.profile_id
+		observed[profile_id] = false
+		var callback := _record_skeleton_update.bind(observed, profile_id)
+		if profile.skeleton.skeleton_updated.connect(callback, CONNECT_ONE_SHOT) != OK:
+			_failure = "%s could not watch %s Skeleton3D update" % [profile_id, where]
+			return {}
+	return observed
+
+
+func _record_skeleton_update(observed: Dictionary, profile_id: String) -> void:
+	observed[profile_id] = true
+
+
+func _wait_for_skeleton_updates(observed: Dictionary, where: String) -> bool:
+	for _attempt in range(4):
+		await process_frame
+		if observed.values().all(func(value): return value == true):
+			return true
+	_failure = "%s Skeleton3D update did not reach every profile within four process frames" % where
+	return false
 
 
 func _parse_arguments() -> Dictionary:
@@ -628,8 +667,6 @@ func _apply_shared_pose(profile: Dictionary, pose: Dictionary) -> bool:
 	if applied != BONE_COUNT:
 		_failure = "%s did not apply exactly 18 shared pose rules" % profile.profile_id
 		return false
-	profile.skeleton.force_update_all_bone_transforms()
-	profile.skeleton.notification(Skeleton3D.NOTIFICATION_UPDATE_SKELETON)
 	profile["pose_rotations"] = pose_by_selector
 	return true
 
@@ -788,7 +825,10 @@ func _build_host_proxies(profile: Dictionary, matrices: Dictionary) -> Dictionar
 		var collision := CollisionShape3D.new()
 		collision.name = "Capsule_%s" % bone_id
 		collision.shape = shape
-		collision.transform = Transform3D(Basis(Quaternion(Vector3.UP, segment / segment_length)), (start + end) * 0.5)
+		var orientation = _basis_for_y_axis(segment / segment_length, "%s proxy %s" % [profile.profile_id, bone_id])
+		if orientation == null:
+			return {}
+		collision.transform = Transform3D(orientation, (start + end) * 0.5)
 		body.add_child(collision)
 		var observed := _read_proxy_geometry(collision, "%s proxy %s" % [profile.profile_id, bone_id])
 		if observed.is_empty():
@@ -941,7 +981,10 @@ func _readback_binding(profile: Dictionary) -> Dictionary:
 		var bone_id: String = String(bone.id)
 		var bone_index: int = int(profile.bone_indices[bone_id])
 		var selector = _pose_selector_for_bone(bone, profile.profile_id)
-		if selector == null or not pose_rotations.has(selector):
+		if selector == null:
+			return {}
+		if not pose_rotations.has(selector):
+			_failure = "%s runtime pose rotation read-back is missing selector %s" % [profile.profile_id, selector]
 			return {}
 		var expected_local_pose: Transform3D = skeleton.get_bone_rest(bone_index) * Transform3D(Basis(pose_rotations[selector]), Vector3.ZERO)
 		if _transform_error(skeleton.get_bone_pose(bone_index), expected_local_pose) <= TOLERANCE:
@@ -1288,6 +1331,23 @@ func _vector3(value, where: String) -> Variant:
 			_failure = "%s contains a non-finite vector item" % where
 			return null
 	return Vector3(float(value[0]), float(value[1]), float(value[2]))
+
+
+func _basis_for_y_axis(direction: Vector3, where: String) -> Variant:
+	if not is_finite(direction.x) or not is_finite(direction.y) or not is_finite(direction.z) or direction.length_squared() <= 1.0e-24:
+		_failure = "%s has an invalid capsule direction" % where
+		return null
+	var y_axis := direction.normalized()
+	var reference := Vector3.BACK
+	if abs(y_axis.dot(reference)) > 0.9:
+		reference = Vector3.RIGHT
+	var x_axis := y_axis.cross(reference).normalized()
+	var z_axis := x_axis.cross(y_axis).normalized()
+	var result := Basis(x_axis, y_axis, z_axis)
+	if abs(result.determinant() - 1.0) > TOLERANCE:
+		_failure = "%s could not construct an orthonormal capsule basis" % where
+		return null
+	return result
 
 
 func _matrix(value, where: String) -> Array:

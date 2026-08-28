@@ -170,7 +170,7 @@ safe publication, and postflight behavior. The posed 18-test suite additionally
 covers all six projected artifacts, independent posed vertex/normal/proxy
 recomputation, deterministic repeated reports, and direct-mutation rejection.
 Seven wrapper tests cover managed-environment routing and selector safety.
-The skeletal pose suite contains 12 tests covering both frozen profile pairs,
+The skeletal pose suite contains 14 tests covering both frozen profile pairs,
 complete `Skeleton3D`/`Skin` binding evidence, malformed and tampered inputs,
 deterministic reruns, and repository/cache cleanliness. The neutral and posed
 suites run their real Godot paths when the completed-gallery fixture and exact

@@ -151,7 +151,12 @@ def _validate_report(report: Any, payload: dict[str, Any], profile_ids: tuple[st
         raise SmokeError("Godot skeletal-pose report boundary is invalid")
     if report.get("claims") != REPORT_CLAIMS:
         raise SmokeError("Godot skeletal-pose report contains an unexpected claim")
-    if report.get("scope_flags") != REPORT_FLAGS:
+    scope_flags = report.get("scope_flags")
+    if (
+        not isinstance(scope_flags, dict)
+        or scope_flags != REPORT_FLAGS
+        or any(type(scope_flags.get(key)) is not bool for key in REPORT_FLAGS)
+    ):
         raise SmokeError("Godot skeletal-pose report scope flags are not fail-closed")
     if report.get("godot_version") != EXPECTED_GODOT_VERSION:
         raise SmokeError(f"Godot report version is not exact: {report.get('godot_version')!r}")
@@ -173,7 +178,7 @@ def _validate_report(report: Any, payload: dict[str, Any], profile_ids: tuple[st
         "profile_translations": [list(value) for value in EXPECTED_TRANSLATIONS],
     }:
         raise SmokeError("Godot skeletal-pose report coordinate rule is invalid")
-    if report.get("pose_binding") != {
+    expected_pose_binding = {
         "pose_id": payload["pose_id"],
         "pose_sha256": payload["pose_sha256"],
         "path": "structural_embodiment_shared_pose.json",
@@ -182,7 +187,16 @@ def _validate_report(report: Any, payload: dict[str, Any], profile_ids: tuple[st
         "applied_to_skeleton3d": True,
         "ik": False,
         "contact": False,
-    }:
+    }
+    pose_binding = report.get("pose_binding")
+    if (
+        not isinstance(pose_binding, dict)
+        or pose_binding != expected_pose_binding
+        or any(
+            type(pose_binding.get(key)) is not bool
+            for key in ("rules_validated", "applied_to_skeleton3d", "ik", "contact")
+        )
+    ):
         raise SmokeError("Godot skeletal-pose report pose binding evidence is invalid")
 
     actual_profiles = report.get("profiles")
@@ -258,10 +272,6 @@ def _finite_bounds(value: Any) -> bool:
         and all(_finite_number(axis) for axis in vector)
         for vector in value.values()
     )
-
-
-def _skip_report_validation(report: Any, payload: dict[str, Any], profile_ids: tuple[str, str]) -> None:
-    del report, payload, profile_ids
 
 
 def _launch_godot(
@@ -351,7 +361,6 @@ def _launch_godot(
         if completed.returncode != 0:
             return completed.stdout, completed.stderr, completed.returncode, None
         report = neutral_smoke._read_report(raw_report_path)
-        _skip_report_validation(report, payload, profile_ids)
         return completed.stdout, completed.stderr, completed.returncode, report
 
 
