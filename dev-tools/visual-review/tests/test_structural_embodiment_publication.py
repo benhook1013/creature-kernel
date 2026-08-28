@@ -832,7 +832,10 @@ class StructuralEmbodimentPublicationTests(unittest.TestCase):
             return info
 
         with patch.object(publisher, "_regular_file", side_effect=replace_after_check):
-            with self.assertRaises(publisher.StructuralEmbodimentPublishError):
+            with self.assertRaisesRegex(
+                publisher.StructuralEmbodimentPublishError,
+                r"^gallery manifest cannot be read$",
+            ):
                 publisher.validate_structural_embodiment_gallery(self.gallery)
         self.assertTrue(checked)
 
@@ -879,7 +882,10 @@ class StructuralEmbodimentPublicationTests(unittest.TestCase):
             return info
 
         with patch.object(publisher, "_regular_file", side_effect=replace_after_check):
-            with self.assertRaises(publisher.StructuralEmbodimentPublishError):
+            with self.assertRaisesRegex(
+                publisher.StructuralEmbodimentPublishError,
+                rf"^gallery artifact {profile_id}/{publisher.GALLERY_FILE} cannot be read$",
+            ):
                 publisher.validate_structural_embodiment_gallery(self.gallery)
         self.assertTrue(checked)
 
