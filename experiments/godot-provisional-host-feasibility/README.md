@@ -112,6 +112,42 @@ closed unless an operator explicitly opts into an attended visible run:
       --gallery /absolute/path/to/completed-gallery \
       --report /absolute/path/to/skeletal-pose-report.json
 
+To exercise the next engine-neutral-shaped serialized input boundary, first
+build a disposable carrier from two freshly validated profiles. The serialized
+carrier contains no Godot version, coordinate mapping, host translation, or
+adapter field. This experiment-local builder still reuses the existing Godot
+structural-projection preflight, so the result does not prove a general package
+producer or consumer. Its instance IDs are local to this experiment; its schema
+and hashes are evidence bookkeeping, not a runtime package format, committed
+artifact identity, adapter contract, or compatibility promise:
+
+    CK_CURRENT_FORM_SURFACE_TMPDIR=/tmp \
+      experiments/current-form-surface-preview/surface_preview_launcher.sh \
+        experiments/godot-provisional-host-feasibility/disposable_avatar_carrier.py \
+        --gallery /absolute/path/to/completed-gallery \
+        --profile-id compact_broad_short_limb_large_head \
+        --profile-id tall_narrow_long_legged \
+        --instance-id avatar-left \
+        --instance-id avatar-right \
+        --output /absolute/path/to/disposable-avatar-carrier.json
+
+Pass that canonical carrier back through the skeletal probe with `--carrier`.
+The carrier selects the authoritative ordered profile and experiment-instance
+identities. Omit `--profile-id`, or repeat it exactly twice in the same order as
+the carrier. The runner revalidates the carrier and gallery before launch,
+passes the carrier-derived payload to Godot, records the carrier SHA-256, byte
+count, schema, boundary, and instance order in the report, then repeats carrier
+and gallery validation before publishing success. The earlier no-carrier route
+remains available as predecessor evidence.
+
+    CK_CURRENT_FORM_SURFACE_TMPDIR=/tmp \
+      xvfb-run -a env CK_ALLOW_VISIBLE_GODOT=1 \
+      experiments/current-form-surface-preview/surface_preview_launcher.sh \
+      experiments/godot-provisional-host-feasibility/run_skeletal_pose_smoke.py \
+      --gallery /absolute/path/to/completed-gallery \
+      --carrier /absolute/path/to/disposable-avatar-carrier.json \
+      --report /absolute/path/to/skeletal-pose-report.json
+
 On a Linux or WSL host with `xvfb-run` available, use a virtual display to
 exercise the same real-renderer path without opening a window. Set the existing
 native temporary-root override so inherited Windows `TEMP`/`TMP` warnings do
@@ -170,11 +206,17 @@ safe publication, and postflight behavior. The posed 18-test suite additionally
 covers all six projected artifacts, independent posed vertex/normal/proxy
 recomputation, deterministic repeated reports, and direct-mutation rejection.
 Seven wrapper tests cover managed-environment routing and selector safety.
-The skeletal pose suite contains 14 tests covering both frozen profile pairs,
-complete `Skeleton3D`/`Skin` binding evidence, malformed and tampered inputs,
-deterministic reruns, and repository/cache cleanliness. The neutral and posed
-suites run their real Godot paths when the completed-gallery fixture and exact
-pinned binary are available. Skeletal-pose integration additionally requires
+The disposable carrier suite contains 15 tests covering exact shape,
+deterministic canonical publication, strict bounded loading, both frozen profile
+pairs, instance identity, tampering and mixed-lineage rejection, and payload
+reconstruction, including deterministic symlink-swap read and publication
+regressions. The skeletal pose suite contains 20 tests covering both frozen
+profile pairs, complete `Skeleton3D`/`Skin` binding evidence, malformed and
+tampered inputs, deterministic reruns, carrier load-through and postflight
+identity, real-process rejection of noncanonical carrier identity, and
+repository/cache cleanliness. The neutral and posed suites run their real Godot
+paths when the completed-gallery fixture and exact pinned binary are available.
+Skeletal-pose integration additionally requires
 an active X11 display and `CK_ALLOW_VISIBLE_GODOT=1` to mark an attended run;
 otherwise those visible integration cases are skipped. All Godot probe suites
 verify that no repository `.godot` cache directory is created.

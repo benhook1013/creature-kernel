@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.util
 import json
 import math
@@ -20,6 +21,7 @@ sys.dont_write_bytecode = True
 
 EXPERIMENT_ROOT = Path(__file__).resolve().parent
 NEUTRAL_RUNNER_PATH = EXPERIMENT_ROOT / "run_structural_gallery_smoke.py"
+CARRIER_MODULE_PATH = EXPERIMENT_ROOT / "disposable_avatar_carrier.py"
 GODOT_SCRIPT = EXPERIMENT_ROOT / "skeletal_pose_smoke.gd"
 VISIBLE_GODOT_OPT_IN = "CK_ALLOW_VISIBLE_GODOT"
 
@@ -31,6 +33,20 @@ def _load_neutral_runner():
     )
     if spec is None or spec.loader is None:
         raise ImportError(f"could not load existing neutral smoke runner: {NEUTRAL_RUNNER_PATH}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_carrier_module():
+    sys.dont_write_bytecode = True
+    spec = importlib.util.spec_from_file_location(
+        "disposable_avatar_carrier_for_skeletal_pose",
+        CARRIER_MODULE_PATH,
+    )
+    if spec is None or spec.loader is None:
+        raise ImportError(f"could not load disposable avatar carrier: {CARRIER_MODULE_PATH}")
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
@@ -65,6 +81,33 @@ REPORT_FLAGS = {
     "render_output": False,
     "adapter": False,
 }
+
+
+def _carrier_identity(carrier: dict[str, Any], carrier_module: Any) -> dict[str, Any]:
+    canonical = neutral_smoke._canonical_json(carrier)
+    return {
+        "sha256": hashlib.sha256(canonical).hexdigest(),
+        "byte_count_decimal": str(len(canonical)),
+        "schema": carrier_module.SCHEMA,
+        "boundary": carrier_module.BOUNDARY,
+        "experiment_instance_ids": [instance["instance_id"] for instance in carrier["instances"]],
+    }
+
+
+def _validated_carrier_input(
+    gallery: Path,
+    carrier_path: Path,
+) -> tuple[Any, dict[str, Any], dict[str, Any], tuple[str, str], tuple[str, str]]:
+    carrier_module = _load_carrier_module()
+    try:
+        carrier = carrier_module.load_carrier(carrier_path)
+        payload, profile_ids, instance_ids = carrier_module.validate_carrier(carrier, gallery)
+    except carrier_module.CarrierError as exc:
+        raise SmokeError(f"disposable avatar carrier rejected: {exc}") from exc
+    identity = _carrier_identity(carrier, carrier_module)
+    if tuple(identity["experiment_instance_ids"]) != instance_ids:
+        raise SmokeError("disposable avatar carrier instance order is internally inconsistent")
+    return carrier_module, carrier, payload, profile_ids, instance_ids
 
 
 def _finite_number(value: Any) -> bool:
@@ -142,7 +185,44 @@ def _validate_binding(binding: Any, profile_id: str) -> None:
             raise SmokeError(f"Godot report profile {profile_id} {key} exceeds tolerance")
 
 
-def _validate_report(report: Any, payload: dict[str, Any], profile_ids: tuple[str, str]) -> None:
+def _validate_carrier_report_identity(
+    actual: Any,
+    expected: dict[str, Any] | None,
+    present: bool,
+) -> None:
+    if expected is None:
+        if present:
+            raise SmokeError("legacy Godot report contains unexpected validated-carrier evidence")
+        return
+    keys = {"sha256", "byte_count_decimal", "schema", "boundary", "experiment_instance_ids"}
+    if not isinstance(actual, dict) or set(actual) != keys:
+        raise SmokeError("Godot report validated-carrier identity is incomplete")
+    if (
+        not isinstance(actual["sha256"], str)
+        or len(actual["sha256"]) != 64
+        or not isinstance(actual["byte_count_decimal"], str)
+        or not actual["byte_count_decimal"].isascii()
+        or not actual["byte_count_decimal"].isdigit()
+        or actual["byte_count_decimal"].startswith("0")
+        or len(actual["byte_count_decimal"]) > 7
+        or int(actual["byte_count_decimal"]) > 4 * 1024 * 1024
+        or not isinstance(actual["schema"], str)
+        or not isinstance(actual["boundary"], str)
+        or not isinstance(actual["experiment_instance_ids"], list)
+        or len(actual["experiment_instance_ids"]) != 2
+        or any(not isinstance(value, str) for value in actual["experiment_instance_ids"])
+        or actual["experiment_instance_ids"][0] == actual["experiment_instance_ids"][1]
+        or actual != expected
+    ):
+        raise SmokeError("Godot report validated-carrier identity is invalid")
+
+
+def _validate_report(
+    report: Any,
+    payload: dict[str, Any],
+    profile_ids: tuple[str, str],
+    carrier_identity: dict[str, Any] | None = None,
+) -> None:
     if not isinstance(report, dict):
         raise SmokeError("Godot skeletal-pose report is not a JSON object")
     if report.get("schema") != REPORT_SCHEMA or report.get("status") != "success":
@@ -171,6 +251,11 @@ def _validate_report(report: Any, payload: dict[str, Any], profile_ids: tuple[st
         raise SmokeError("Godot report validated-gallery identity does not match the projection")
     if report.get("artifact_hash_identities") != _expected_artifact_identities(payload):
         raise SmokeError("Godot report artifact identities do not match the validated projection")
+    _validate_carrier_report_identity(
+        report.get("validated_carrier"),
+        carrier_identity,
+        "validated_carrier" in report,
+    )
     if report.get("coordinate_rule") != {
         "kind": "disposable_host_local_identity",
         "mapping": "CK XYZ -> Godot XYZ: x->x, y->y, z->z",
@@ -278,6 +363,7 @@ def _launch_godot(
     gallery: Path,
     profile_ids: tuple[str, str],
     payload: dict[str, Any],
+    carrier_identity: dict[str, Any] | None = None,
 ) -> tuple[str, str, int, dict[str, Any] | None]:
     """Launch with a real renderer; headless mode exposes dummy rendering RIDs."""
     if os.environ.get(VISIBLE_GODOT_OPT_IN) != "1":
@@ -335,6 +421,13 @@ def _launch_godot(
             "--validated-json",
             json.dumps(payload, ensure_ascii=True, sort_keys=True, separators=(",", ":"), allow_nan=False),
         ]
+        if carrier_identity is not None:
+            command.extend(
+                [
+                    "--carrier-identity-json",
+                    json.dumps(carrier_identity, ensure_ascii=True, sort_keys=True, separators=(",", ":"), allow_nan=False),
+                ]
+            )
         environment = os.environ.copy()
         environment.update({key: str(value) for key, value in isolated_paths.items()})
         environment["CK_GODOT_4_7_2_BINARY"] = str(pinned_binary)
@@ -366,21 +459,54 @@ def _launch_godot(
 
 def run_skeletal_pose_smoke(
     gallery: Path,
-    profile_ids: tuple[str, str] | list[str],
+    profile_ids: tuple[str, str] | list[str] | None,
     report_path: Path,
+    carrier_path: Path | None = None,
 ) -> dict[str, Any]:
     report_path = neutral_smoke._validate_report_destination(report_path)
-    selected = neutral_smoke._validate_profile_ids(profile_ids)
-    _, payload = neutral_smoke.preflight(gallery, selected)
-    stdout, stderr, returncode, report = _launch_godot(Path(gallery), selected, payload)
+    gallery = Path(gallery)
+    carrier_identity = None
+    if carrier_path is None:
+        selected = neutral_smoke._validate_profile_ids(profile_ids if profile_ids is not None else DEFAULT_PROFILE_IDS)
+        _, payload = neutral_smoke.preflight(gallery, selected)
+    else:
+        carrier_module, carrier, payload, selected, instance_ids = _validated_carrier_input(
+            gallery,
+            Path(carrier_path),
+        )
+        if profile_ids is not None and neutral_smoke._validate_profile_ids(profile_ids) != selected:
+            raise SmokeError("explicit profile IDs disagree with the validated carrier order")
+        carrier_identity = _carrier_identity(carrier, carrier_module)
+        if tuple(carrier_identity["experiment_instance_ids"]) != instance_ids:
+            raise SmokeError("validated carrier instance order is inconsistent")
+    stdout, stderr, returncode, report = _launch_godot(
+        gallery,
+        selected,
+        payload,
+        carrier_identity,
+    )
     if returncode != 0:
         raise SmokeError(f"Godot launcher returned exit code {returncode}; stdout={stdout!r}; stderr={stderr!r}")
     if report is None:
         raise SmokeError("Godot returned success without a skeletal-pose report")
-    _validate_report(report, payload, selected)
-    _, post_payload = neutral_smoke.preflight(gallery, selected)
-    if post_payload != payload:
-        raise SmokeError("validated gallery projection changed during the skeletal-pose smoke; refusing to publish a success report")
+    _validate_report(report, payload, selected, carrier_identity)
+    if carrier_path is None:
+        _, post_payload = neutral_smoke.preflight(gallery, selected)
+        if post_payload != payload:
+            raise SmokeError("validated gallery projection changed during the skeletal-pose smoke; refusing to publish a success report")
+    else:
+        post_module, post_carrier, post_payload, post_profiles, post_instances = _validated_carrier_input(
+            gallery,
+            Path(carrier_path),
+        )
+        post_identity = _carrier_identity(post_carrier, post_module)
+        if (
+            post_payload != payload
+            or post_profiles != selected
+            or post_instances != instance_ids
+            or post_identity != carrier_identity
+        ):
+            raise SmokeError("validated carrier or gallery changed during the skeletal-pose smoke; refusing to publish a success report")
     neutral_smoke._publish_report(report_path, report)
     return report
 
@@ -388,6 +514,7 @@ def run_skeletal_pose_smoke(
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--gallery", required=True, type=Path, help="absolute completed structural gallery directory")
+    parser.add_argument("--carrier", type=Path, help="optional absolute disposable avatar-input carrier path")
     parser.add_argument("--profile-id", action="append", dest="profile_ids", help="repeat exactly twice; defaults to the compact and tall frozen IDs")
     parser.add_argument("--report", required=True, type=Path, help="absolute report path")
     return parser
@@ -396,8 +523,8 @@ def _parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     try:
         args = _parser().parse_args(argv)
-        profile_ids = tuple(args.profile_ids) if args.profile_ids is not None else DEFAULT_PROFILE_IDS
-        report = run_skeletal_pose_smoke(args.gallery, profile_ids, args.report)
+        profile_ids = tuple(args.profile_ids) if args.profile_ids is not None else (None if args.carrier is not None else DEFAULT_PROFILE_IDS)
+        report = run_skeletal_pose_smoke(args.gallery, profile_ids, args.report, args.carrier)
     except SmokeError as exc:
         print(f"skeletal pose smoke failed: {exc}", file=sys.stderr)
         return 2

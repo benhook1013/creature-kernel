@@ -18,30 +18,43 @@ named human checkpoint and PR #114 merged as squash commit
 `577b336e0dd007dca6c6e05669f54d4c98291f17` on 2026-08-25. PR #115 then merged
 on 2026-08-26. PR #116, [“Admit structural gallery evidence into pinned Godot
 probes”](https://github.com/benhook1013/creature-kernel/pull/116), merged at
-2026-08-28T06:40:34Z; `main` and `origin/main` are now at
-`9c305c9e364bb9fdfb2429e004c99f366bf43317`. The CodeRabbit App and repository
-configuration remain live, with automatic reviews disabled. The updated
-direction is to launch hosted and committed-diff CLI review in parallel as one
-final-readiness cycle, keep it advisory and non-gating, avoid pushing while
-hosted reviews hold an immutable head, and run bounded follow-up cycles until
-findings taper. Creature Kernel's limits are independent of FireMUD.
+2026-08-28T06:40:34Z. PR #117 merged by squash at 2026-08-28T08:39:44Z as
+`5fb4ce6668f34386e865154bab13e03fefd04e75`; primary `main` and `origin/main`
+were verified at that commit and clean when the new worktree was created. The
+CodeRabbit App and repository configuration remain live, with automatic reviews
+disabled. The updated direction is to launch hosted and committed-diff CLI
+review in parallel as one final-readiness cycle, keep it advisory and
+non-gating, avoid pushing while hosted reviews hold an immutable head, and run
+bounded follow-up cycles until findings taper. Creature Kernel's limits are
+independent of FireMUD.
 
 The visual-review systemd service is active from `/home/ben/src/creature-kernel`;
 the stable structural review remains
 `http://localhost:8765/review/shared-pose-structural-embodiment-gallery`.
 
 The active worktree is
-`/home/ben/src/creature-kernel-worktrees/godot-skeletal-pose-probe` on branch
-`codex/godot-skeletal-pose-probe`, based on `9c305c9`. The current local
-candidate adds the disposable real `Skeleton3D`/`Skin` shared-pose binding
-probe and its tests. The non-visible full Godot suite passes
-65 tests with 4 explicit visible-renderer skips. With Xvfb authorized and
-installed in WSL, the focused real-renderer skeletal suite passed all 14 tests
-in 87.818s with zero skips; this is bounded host-local renderer/binding
-evidence only. The CI patch adds PR-only concurrency cancellation to the
-Rust/docs workflows.
-This skeletal binding candidate is a direct prerequisite to the named bounded
-Godot feasibility checkpoint, which remains the governing human checkpoint; it
+`/home/ben/src/creature-kernel-worktrees/godot-package-input-carrier` on branch
+`codex/godot-package-input-carrier`, based on `5fb4ce6`. The current candidate
+adds a deterministic, canonical, exactly-two-avatar experiment input carrier
+with ordered experiment instance IDs and exact gallery/profile/shared-pose
+provenance. The Python skeletal runner revalidates the carrier before and after
+launch; the Godot script consumes its validated projection and reports the
+exact carrier identity summary it received. This is disposable experiment
+evidence only: it is not a runtime package schema, durable artifact identity,
+adapter activation, compatibility promise, Readiness 3 result, host commitment,
+performance/contact/deformation result, or human visual checkpoint. Carrier
+reads, structural-gallery preflight, and publication are descriptor-anchored
+against path-swap races, and its cross-process byte count uses an exact
+canonical decimal string rather than a coercive JSON number. Carrier tests pass
+15/15. The full canonical non-visible Godot suite passes 86 tests with 6
+expected renderer skips; the real Xvfb/Godot skeletal suite passes 20/20 in
+115.922s. Two fresh hands-on trials passed the documented first-use load-through
+and representative fail-closed
+tamper/non-overwrite scenarios.
+Fresh independent-review findings were fixed and the affected suites rerun.
+CodeRabbit and CI remain pending. This carrier candidate is a direct
+prerequisite to the named bounded Godot feasibility checkpoint, which remains
+the governing human checkpoint; it
 is not that checkpoint.
 
 Ben's qualified appraisal of the structural gallery was that it "looks good";
@@ -1798,7 +1811,7 @@ metadata. Current non-governance decisions and proposals include:
 | Creature compiler | partial | unverified | Disposable CK-KICK-010 walking skeleton implemented; this is not a production compiler |
 | CK-KICK-010 walking skeleton | implemented | audited | Valid/invalid local evidence and the selected Single independent review are complete; five substantive findings plus whitespace were dispositioned in RESULTS, not clean; this is not a production compiler |
 | Local visual-review gallery | implemented | audited | Focused tests and local HTTP/browser smoke passed; the PR #113 gallery is bounded exploratory surface evidence, while `subject_context` remains presentation-only and no formal Stage 1 claim is made |
-| Runtime avatar | not-implemented | not-applicable | No runtime adapter is selected and no Readiness 3 result exists; the current real Skeleton3D/Skin binding probe remains disposable prerequisite evidence only |
+| Runtime avatar | not-implemented | not-applicable | No runtime adapter is selected and no Readiness 3 result exists; the current experiment-local two-avatar carrier and real Skeleton3D/Skin binding probe remain disposable prerequisite evidence only |
 
 ## Historical immediate next actions (inactive)
 

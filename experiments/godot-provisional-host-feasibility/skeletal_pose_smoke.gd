@@ -17,6 +17,8 @@ const POSE_FORMAT := "creature-kernel.disposable-structural-embodiment-shared-po
 const POSE_FILE := "structural_embodiment_shared_pose.json"
 const REPORT_SCHEMA := "creature-kernel.disposable-godot-skeletal-pose-smoke.v1"
 const REPORT_BOUNDARY := "host_local_skeleton3d_skin_pose_binding"
+const CARRIER_SCHEMA := "creature-kernel.disposable-engine-neutral-avatar-input.v1"
+const CARRIER_BOUNDARY := "experiment_input_only_no_runtime_package_or_adapter_contract"
 const ARTIFACT_NAMES := [
 	"neutral.ply",
 	"posed.ply",
@@ -163,6 +165,7 @@ func _parse_arguments() -> Dictionary:
 	var arguments := OS.get_cmdline_user_args()
 	var result := {
 		"gallery_path": "",
+		"carrier_identity_json": "",
 		"profile_ids": [],
 		"report_path": "",
 		"validated_json": "",
@@ -170,7 +173,7 @@ func _parse_arguments() -> Dictionary:
 	var index := 0
 	while index < arguments.size():
 		var argument: String = arguments[index]
-		if argument == "--gallery" or argument == "--report" or argument == "--validated-json" or argument == "--profile-id":
+		if argument == "--gallery" or argument == "--report" or argument == "--validated-json" or argument == "--carrier-identity-json" or argument == "--profile-id":
 			if index + 1 >= arguments.size():
 				_failure = "missing value after %s" % argument
 				return {}
@@ -181,6 +184,8 @@ func _parse_arguments() -> Dictionary:
 				result.report_path = value
 			elif argument == "--validated-json":
 				result.validated_json = value
+			elif argument == "--carrier-identity-json":
+				result.carrier_identity_json = value
 			else:
 				result.profile_ids.append(value)
 			index += 2
@@ -214,7 +219,56 @@ func _validate_options_against_projection(options: Dictionary, validated: Dictio
 	if typeof(validated.get("pose_sha256", null)) != TYPE_STRING or String(validated.pose_sha256).length() != 64:
 		_failure = "validated projection pose identity is invalid"
 		return false
+	if options.carrier_identity_json != "":
+		var carrier_identity = JSON.parse_string(options.carrier_identity_json)
+		if not _validate_carrier_identity(carrier_identity):
+			return false
+		options["carrier_identity"] = carrier_identity
 	return true
+
+
+func _validate_carrier_identity(value) -> bool:
+	var keys := ["sha256", "byte_count_decimal", "schema", "boundary", "experiment_instance_ids"]
+	if typeof(value) != TYPE_DICTIONARY or value.size() != keys.size():
+		_failure = "validated carrier identity must contain exactly five fields"
+		return false
+	for key in keys:
+		if not value.has(key):
+			_failure = "validated carrier identity is missing %s" % key
+			return false
+	if typeof(value.sha256) != TYPE_STRING or String(value.sha256).length() != 64:
+		_failure = "validated carrier SHA-256 identity is invalid"
+		return false
+	if not _is_canonical_carrier_byte_count(value.byte_count_decimal):
+		_failure = "validated carrier byte count is invalid"
+		return false
+	if typeof(value.schema) != TYPE_STRING or value.schema != CARRIER_SCHEMA:
+		_failure = "validated carrier schema is unsupported"
+		return false
+	if typeof(value.boundary) != TYPE_STRING or value.boundary != CARRIER_BOUNDARY:
+		_failure = "validated carrier boundary is unsupported"
+		return false
+	if typeof(value.experiment_instance_ids) != TYPE_ARRAY or value.experiment_instance_ids.size() != 2:
+		_failure = "validated carrier must identify exactly two experiment instances"
+		return false
+	if typeof(value.experiment_instance_ids[0]) != TYPE_STRING or typeof(value.experiment_instance_ids[1]) != TYPE_STRING or value.experiment_instance_ids[0] == value.experiment_instance_ids[1]:
+		_failure = "validated carrier experiment instance identities are invalid"
+		return false
+	return true
+
+
+func _is_canonical_carrier_byte_count(value) -> bool:
+	if typeof(value) != TYPE_STRING:
+		return false
+	var text := String(value)
+	if text.is_empty() or text.length() > 7 or text.begins_with("0"):
+		return false
+	for index in range(text.length()):
+		var code := text.unicode_at(index)
+		if code < 48 or code > 57:
+			return false
+	var byte_count := text.to_int()
+	return byte_count > 0 and byte_count <= 4194304 and str(byte_count) == text
 
 
 func _profile_payload(validated: Dictionary, profile_id: String) -> Dictionary:
@@ -1151,7 +1205,7 @@ func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: 
 	if pose_rule_count < 0 or not pose_rules_validated:
 		_failure = "runtime shared-pose evidence is incomplete"
 		return {}
-	return {
+	var report := {
 		"schema": REPORT_SCHEMA,
 		"status": "success",
 		"boundary": REPORT_BOUNDARY,
@@ -1198,6 +1252,9 @@ func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: 
 		},
 		"profiles": profiles,
 	}
+	if options.has("carrier_identity"):
+		report["validated_carrier"] = options.carrier_identity
+	return report
 
 
 func _parse_ply(bytes: PackedByteArray, where: String) -> Dictionary:

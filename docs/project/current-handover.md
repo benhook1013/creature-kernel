@@ -9,9 +9,10 @@ the canonical owner of the active runway, and the required reading order in
 
 ## Where to continue
 
-- Primary checkout: `/home/ben/src/creature-kernel` — PR #116 merged at
-  2026-08-28T06:40:34Z; `main` and `origin/main` are at
-  `9c305c9e364bb9fdfb2429e004c99f366bf43317`.
+- Primary checkout: `/home/ben/src/creature-kernel` — PR #117 merged by squash
+  at 2026-08-28T08:39:44Z as
+  `5fb4ce6668f34386e865154bab13e03fefd04e75`; primary `main` and `origin/main`
+  were verified at that commit and clean when this worktree was created.
 - [PR #115](https://github.com/benhook1013/creature-kernel/pull/115) recorded the
   provisional Godot runway and CodeRabbit configuration. CodeRabbit installation
   and repository configuration are live. A hosted full review of commit
@@ -31,18 +32,36 @@ the canonical owner of the active runway, and the required reading order in
   at `http://localhost:8765/review/shared-pose-structural-embodiment-gallery`.
 - PR #116, [“Admit structural gallery evidence into pinned Godot
   probes”](https://github.com/benhook1013/creature-kernel/pull/116), merged at
-  2026-08-28T06:40:34Z. The active implementation worktree is
-  `/home/ben/src/creature-kernel-worktrees/godot-skeletal-pose-probe` on branch
-  `codex/godot-skeletal-pose-probe`, based on `9c305c9`. The current
-  candidate adds the disposable real `Skeleton3D`/`Skin` shared-pose binding
-  probe and its tests. The non-visible full Godot suite
-  passes 65 tests with 4 explicit visible-renderer skips. With Xvfb authorized
-  and installed in WSL, the focused real-renderer skeletal suite passed all 14
-  tests in 87.818s with zero skips; this is bounded host-local
-  renderer/binding evidence only. The CI patch adds PR-only concurrency
-  cancellation to the Rust/docs workflows.
-  This candidate is a direct prerequisite, not the named bounded Godot
-  feasibility checkpoint, which remains the governing human checkpoint.
+  2026-08-28T06:40:34Z and remains predecessor evidence for the current
+  skeletal probe. Its then-current non-visible suite passed 65 tests with 4
+  explicit visible-renderer skips, and its focused real-renderer skeletal suite
+  passed all 14 tests in 87.818s with zero skips; those results are predecessor
+  evidence only. PR #117 merged by squash at 2026-08-28T08:39:44Z as
+  `5fb4ce6668f34386e865154bab13e03fefd04e75`. The active implementation
+  worktree is
+  `/home/ben/src/creature-kernel-worktrees/godot-package-input-carrier` on
+  branch `codex/godot-package-input-carrier`, based on `5fb4ce6`.
+  The current candidate adds a deterministic, canonical, exactly-two-avatar
+  experiment input carrier with ordered experiment instance IDs and exact
+  gallery/profile/shared-pose provenance. The Python skeletal runner revalidates
+  it before and after launch; the Godot script consumes its validated projection
+  and reports the exact carrier identity summary it received. This is disposable
+  experiment evidence only: it is not a runtime package schema, durable
+  artifact identity, adapter activation, compatibility promise, Readiness 3
+  result, host commitment, performance/contact/deformation result, or human
+  visual checkpoint. Carrier reads, structural-gallery preflight, and
+  publication are descriptor-anchored against path-swap races, and its
+  cross-process byte count uses an exact canonical decimal string rather than a
+  coercive JSON number. Carrier tests pass 15/15. The full canonical non-visible
+  Godot suite passes 86 tests with 6 expected renderer skips; the real
+  Xvfb/Godot skeletal suite passes 20/20 in
+  115.922s. Two fresh hands-on trials passed the documented first-use
+  load-through and representative fail-closed
+  tamper/non-overwrite scenarios. Fresh independent-review findings were fixed
+  and the affected suites rerun. CodeRabbit and CI remain pending. This
+  candidate is a direct prerequisite, not the named bounded Godot feasibility
+  checkpoint, which
+  remains the governing human checkpoint.
 - [PR #113](https://github.com/benhook1013/creature-kernel/pull/113) merged to
   `main` as squash commit `eb89245da137e54cc85f9cd564fbcdd6c45eac66` on
   2026-08-25. All three CI lanes passed before its merge. Ben's disposition
@@ -142,7 +161,8 @@ interpretation, CPU fallback, or evidence budget requires a material production
 topology/backend/engine/anatomy choice. Do not answer those triggers with
 unbounded host-specific implementation.
 
-Open the Godot-feasibility worktree in the Codex app to continue the runway.
+Open `/home/ben/src/creature-kernel-worktrees/godot-package-input-carrier` in the
+Codex app to continue the runway.
 Read `AGENTS.md` in the required order, then this handover and the linked
 [current status](status.md).
 

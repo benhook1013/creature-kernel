@@ -112,6 +112,7 @@ TEMP_ROOT="$(select_temp_root)"
 export TMPDIR="$TEMP_ROOT"
 export TEMP="$TEMP_ROOT"
 export TMP="$TEMP_ROOT"
+export PYTHONDONTWRITEBYTECODE=1
 
 "$PYTHON" - "$REQUIREMENTS_FILE" <<'PY'
 import importlib
