@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -250,7 +251,7 @@ assert validator.__name__ == "validate_structural_embodiment_gallery"
 assert rejection_type.__name__ == "StructuralEmbodimentPublishError"
 """
         result = subprocess.run(
-            [sys.executable, "-I", "-c", child_code],
+            [sys.executable, "-I", "-B", "-c", child_code],
             cwd=self.root,
             capture_output=True,
             text=True,
@@ -268,6 +269,26 @@ assert rejection_type.__name__ == "StructuralEmbodimentPublishError"
         path = self.gallery / publisher.PROFILE_IDS[0] / "neutral.ply"
         path.write_bytes(path.read_bytes() + b"\n")
         self.assertIsNone(probe.project_structural_gallery_evidence(self.gallery))
+
+    def test_projection_rejects_gallery_file_replaced_after_initial_check(self) -> None:
+        validator_module, _, _ = probe._load_validator()
+        target = self.gallery / publisher.MANIFEST_FILE
+        replacement = self.root / "replacement-manifest.json"
+        replacement.write_bytes(target.read_bytes())
+        original_regular_file = validator_module._regular_file
+        checked = False
+
+        def replace_after_check(path: Path, where: str):
+            nonlocal checked
+            info = original_regular_file(path, where)
+            if path == target and not checked:
+                os.replace(replacement, target)
+                checked = True
+            return info
+
+        with patch.object(validator_module, "_regular_file", side_effect=replace_after_check):
+            self.assertIsNone(probe.project_structural_gallery_evidence(self.gallery))
+        self.assertTrue(checked)
 
 
 if __name__ == "__main__":

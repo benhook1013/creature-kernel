@@ -118,6 +118,7 @@ MAX_TREE_ENTRIES = 2048
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 PNG_SCANLINE_BYTES = 1 + CANVAS["width"] * 3
 PNG_RAW_BYTES = PNG_SCANLINE_BYTES * CANVAS["height"]
+BOUNDED_READ_CHUNK = 64 * 1024
 
 
 def _error(message: str) -> StructuralEmbodimentPublishError:
@@ -181,7 +182,7 @@ def _safe_relative(value: Any, where: str) -> str:
     return value
 
 
-def _regular_file(path: Path, where: str) -> None:
+def _regular_file(path: Path, where: str) -> os.stat_result:
     try:
         common._reject_symlink_components(path, where)
         info = path.lstat()
@@ -189,12 +190,60 @@ def _regular_file(path: Path, where: str) -> None:
         raise _error(f"{where} is unavailable or uses a symlink") from exc
     if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode):
         raise _error(f"{where} must be a regular non-symlink file")
+    return info
+
+
+def _read_bounded_file(path: Path, where: str, max_bytes: int) -> bytes:
+    """Read a checked regular file through descriptor-relative no-follow opens."""
+    expected = _regular_file(path, where)
+    absolute = Path(os.path.abspath(os.fspath(path)))
+    parent_fd: int | None = None
+    file_fd: int | None = None
+    try:
+        directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+        parent_fd = os.open(absolute.anchor, directory_flags)
+        for component in absolute.parts[1:-1]:
+            next_fd = os.open(component, directory_flags, dir_fd=parent_fd)
+            os.close(parent_fd)
+            parent_fd = next_fd
+        leaf_flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC
+        file_fd = os.open(absolute.name, leaf_flags, dir_fd=parent_fd)
+        opened = os.fstat(file_fd)
+        if not stat.S_ISREG(opened.st_mode):
+            raise _error(f"{where} must be a regular non-symlink file")
+        if (opened.st_dev, opened.st_ino) != (expected.st_dev, expected.st_ino):
+            raise _error(f"{where} changed during validation")
+
+        data = bytearray()
+        read_limit = max_bytes + 1
+        while len(data) < read_limit:
+            chunk = os.read(file_fd, min(BOUNDED_READ_CHUNK, read_limit - len(data)))
+            if not chunk:
+                break
+            data.extend(chunk)
+        if len(data) > max_bytes:
+            raise _error(f"{where} is too large")
+        return bytes(data)
+    except StructuralEmbodimentPublishError:
+        raise
+    except OSError as exc:
+        raise _error(f"{where} cannot be read") from exc
+    finally:
+        if file_fd is not None:
+            try:
+                os.close(file_fd)
+            except OSError:
+                pass
+        if parent_fd is not None:
+            try:
+                os.close(parent_fd)
+            except OSError:
+                pass
 
 
 def _read_json(path: Path, where: str) -> tuple[dict[str, Any], bytes]:
-    _regular_file(path, where)
     try:
-        data = path.read_bytes()
+        data = _read_bounded_file(path, where, common.MAX_JSON_BYTES)
         value = _decode_json_bytes(data, where)
     except StructuralEmbodimentPublishError:
         raise
@@ -639,19 +688,18 @@ def _validate_profile_semantics(
 
 def _validate_pose_bytes(pose_data: bytes) -> dict[str, Any]:
     checked_in = EXPERIMENT_ROOT / POSE_FILE
-    _regular_file(checked_in, "checked-in shared pose")
-    try:
-        checked_in_data = checked_in.read_bytes()
-    except OSError as exc:
-        raise _error("checked-in shared pose cannot be read") from exc
+    checked_in_data = _read_bounded_file(checked_in, "checked-in shared pose", common.MAX_JSON_BYTES)
     if pose_data != checked_in_data:
         raise _error("gallery shared pose is not the exact checked-in shared pose recipe")
-    try:
-        pose, reread = gallery_generator._load_pose_with_bytes(checked_in)
-    except gallery_generator.GalleryError as exc:
-        raise _error(f"checked-in shared pose is invalid: {exc}") from exc
-    if reread != checked_in_data:
-        raise _error("checked-in shared pose changed during validation")
+    with tempfile.TemporaryDirectory(prefix="ck-checked-in-shared-pose-") as temporary:
+        safe_copy = Path(temporary) / POSE_FILE
+        safe_copy.write_bytes(checked_in_data)
+        try:
+            pose, reread = gallery_generator._load_pose_with_bytes(safe_copy)
+        except gallery_generator.GalleryError as exc:
+            raise _error(f"checked-in shared pose is invalid: {exc}") from exc
+        if reread != checked_in_data:
+            raise _error("checked-in shared pose changed during validation")
     return pose
 
 
@@ -811,14 +859,12 @@ def validate_structural_embodiment_gallery(gallery: Path) -> tuple[dict[str, Any
         raise _error("gallery pose hash does not match its inventoried artifact")
     artifact_data: dict[str, bytes] = {}
     for relative, entry in inventory_by_path.items():
-        path = gallery / relative
-        _regular_file(path, f"gallery artifact {relative}")
         try:
-            data = path.read_bytes()
+            data = _read_bounded_file(gallery / relative, f"gallery artifact {relative}", MAX_FILE_BYTES)
             size = len(data)
-            if size > MAX_FILE_BYTES:
-                raise _error(f"gallery artifact {relative} is too large")
             digest = hashlib.sha256(data).hexdigest()
+        except StructuralEmbodimentPublishError:
+            raise
         except OSError as exc:
             raise _error(f"could not hash gallery artifact {relative}") from exc
         if size != entry["bytes"] or digest != entry["sha256"]:

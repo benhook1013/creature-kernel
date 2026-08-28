@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -23,6 +24,13 @@ ALTERNATE = ("slender_long_limb", "stocky_broad_chested")
 FAIL_CLOSED_PROJECTION_DIAGNOSTIC = (
     "skeletal pose smoke failed: selected profile IDs disagree with the validated projection"
 )
+CARRIER_IDENTITY = {
+    "sha256": "e" * 64,
+    "byte_count_decimal": "1234",
+    "schema": "creature-kernel.disposable-engine-neutral-avatar-input.v1",
+    "boundary": "experiment_input_only_no_runtime_package_or_adapter_contract",
+    "experiment_instance_ids": ["avatar-left", "avatar-right"],
+}
 
 
 def load_module(name: str, path: Path):
@@ -35,6 +43,8 @@ def load_module(name: str, path: Path):
 
 
 smoke = load_module("skeletal_pose_smoke_under_test", EXPERIMENT / "run_skeletal_pose_smoke.py")
+sys.modules["run_structural_gallery_smoke"] = smoke.neutral_smoke
+carrier = load_module("disposable_avatar_carrier_for_skeletal_tests", EXPERIMENT / "disposable_avatar_carrier.py")
 
 
 def _skeletal_validation_fixture() -> tuple[dict, dict]:
@@ -410,6 +420,8 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
         self.assertNotIn("force_update_all_bone_transforms", source)
         self.assertNotIn("NOTIFICATION_UPDATE_SKELETON", source)
         self.assertIn("skeleton_updated.connect", source)
+        self.assertIn("--carrier-identity-json", source)
+        self.assertIn("func _validate_carrier_identity", source)
         for field in (
             "unique_bone_names",
             "parent_links_match",
@@ -455,6 +467,142 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(smoke.SmokeError, "pose binding evidence is invalid"):
             smoke._validate_report(report, payload, DEFAULTS)
 
+    def test_report_validator_accepts_exact_carrier_identity(self) -> None:
+        payload, report = _skeletal_validation_fixture()
+        report["validated_carrier"] = deepcopy(CARRIER_IDENTITY)
+        smoke._validate_report(report, payload, DEFAULTS, deepcopy(CARRIER_IDENTITY))
+
+    def test_carrier_loader_is_cached_and_identity_uses_carrier_canonicalizer(self) -> None:
+        self.assertIs(smoke._load_carrier_module(), smoke._load_carrier_module())
+        module = SimpleNamespace(
+            SCHEMA=carrier.SCHEMA,
+            BOUNDARY=carrier.BOUNDARY,
+            _canonical_json=lambda _: b"carrier-owned-canonical-bytes\n",
+        )
+        value = {
+            "instances": [
+                {"instance_id": "avatar-left"},
+                {"instance_id": "avatar-right"},
+            ]
+        }
+        identity = smoke._carrier_identity(value, module)
+        self.assertEqual(
+            identity["sha256"],
+            hashlib.sha256(b"carrier-owned-canonical-bytes\n").hexdigest(),
+        )
+        self.assertEqual(identity["byte_count_decimal"], "30")
+
+    def test_report_validator_rejects_invalid_or_unexpected_carrier_identity(self) -> None:
+        payload, report = _skeletal_validation_fixture()
+        report["validated_carrier"] = None
+        with self.assertRaisesRegex(smoke.SmokeError, "unexpected validated-carrier"):
+            smoke._validate_report(report, payload, DEFAULTS)
+
+        mutations = (
+            ("sha256", "f" * 64),
+            ("byte_count_decimal", 1234),
+            ("byte_count_decimal", "01234"),
+            ("byte_count_decimal", "1234.0"),
+            ("schema", "unexpected"),
+            ("boundary", "unexpected"),
+            ("experiment_instance_ids", ["avatar-right", "avatar-left"]),
+            ("experiment_instance_ids", ["avatar-left", "avatar-left"]),
+            ("experiment_instance_ids", ["avatar-left", 1]),
+        )
+        for key, replacement in mutations:
+            with self.subTest(key=key, replacement=replacement):
+                payload, report = _skeletal_validation_fixture()
+                report["validated_carrier"] = deepcopy(CARRIER_IDENTITY)
+                report["validated_carrier"][key] = replacement
+                with self.assertRaisesRegex(smoke.SmokeError, "validated-carrier identity is invalid"):
+                    smoke._validate_report(report, payload, DEFAULTS, deepcopy(CARRIER_IDENTITY))
+
+        payload, report = _skeletal_validation_fixture()
+        report["validated_carrier"] = {**deepcopy(CARRIER_IDENTITY), "extra": False}
+        with self.assertRaisesRegex(smoke.SmokeError, "validated-carrier identity is incomplete"):
+            smoke._validate_report(report, payload, DEFAULTS, deepcopy(CARRIER_IDENTITY))
+
+    def test_carrier_flow_passes_validated_payload_and_identity_through_unchanged(self) -> None:
+        payload, report = _skeletal_validation_fixture()
+        carrier_value = {
+            "schema": carrier.SCHEMA,
+            "boundary": carrier.BOUNDARY,
+            "instances": [
+                {"instance_id": "avatar-left"},
+                {"instance_id": "avatar-right"},
+            ],
+        }
+        module = SimpleNamespace(
+            SCHEMA=carrier.SCHEMA,
+            BOUNDARY=carrier.BOUNDARY,
+            _canonical_json=carrier._canonical_json,
+        )
+        validated = (module, carrier_value, payload, DEFAULTS, ("avatar-left", "avatar-right"))
+        expected_identity = smoke._carrier_identity(carrier_value, module)
+        with (
+            patch.object(smoke, "_validated_carrier_input", side_effect=[validated, validated]) as carrier_input,
+            patch.object(smoke, "_launch_godot", return_value=("", "", 0, report)) as launch,
+            patch.object(smoke, "_validate_report") as validate_report,
+            patch.object(smoke.neutral_smoke, "_publish_report") as publish,
+        ):
+            result = smoke.run_skeletal_pose_smoke(
+                self.root,
+                None,
+                self.root / "report.json",
+                self.root / "carrier.json",
+            )
+        self.assertIs(result, report)
+        self.assertEqual(carrier_input.call_count, 2)
+        self.assertIs(launch.call_args.args[2], payload)
+        self.assertEqual(launch.call_args.args[3], expected_identity)
+        validate_report.assert_called_once_with(report, payload, DEFAULTS, expected_identity)
+        publish.assert_called_once_with(self.root / "report.json", report)
+
+    def test_carrier_profile_mismatch_and_postflight_change_fail_before_publication(self) -> None:
+        payload, report = _skeletal_validation_fixture()
+        carrier_value = {
+            "schema": carrier.SCHEMA,
+            "boundary": carrier.BOUNDARY,
+            "instances": [
+                {"instance_id": "avatar-left"},
+                {"instance_id": "avatar-right"},
+            ],
+        }
+        module = SimpleNamespace(
+            SCHEMA=carrier.SCHEMA,
+            BOUNDARY=carrier.BOUNDARY,
+            _canonical_json=carrier._canonical_json,
+        )
+        validated = (module, carrier_value, payload, DEFAULTS, ("avatar-left", "avatar-right"))
+        with (
+            patch.object(smoke, "_validated_carrier_input", return_value=validated),
+            patch.object(smoke, "_launch_godot") as launch,
+        ):
+            with self.assertRaisesRegex(smoke.SmokeError, "profile IDs disagree"):
+                smoke.run_skeletal_pose_smoke(
+                    self.root,
+                    ALTERNATE,
+                    self.root / "report.json",
+                    self.root / "carrier.json",
+                )
+        launch.assert_not_called()
+
+        changed_postflight = (module, carrier_value, payload, DEFAULTS, ("avatar-left", "avatar-changed"))
+        with (
+            patch.object(smoke, "_validated_carrier_input", side_effect=[validated, changed_postflight]),
+            patch.object(smoke, "_launch_godot", return_value=("", "", 0, report)),
+            patch.object(smoke, "_validate_report"),
+            patch.object(smoke.neutral_smoke, "_publish_report") as publish,
+        ):
+            with self.assertRaisesRegex(smoke.SmokeError, "changed during"):
+                smoke.run_skeletal_pose_smoke(
+                    self.root,
+                    None,
+                    self.root / "report.json",
+                    self.root / "carrier.json",
+                )
+        publish.assert_not_called()
+
     def test_report_validator_rejects_incomplete_or_over_tolerance_binding(self) -> None:
         payload, report = _skeletal_validation_fixture()
         report["profiles"][0]["binding"]["skin_bind_count"] = 17
@@ -490,6 +638,45 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
     "attended X11 opt-in, exact Godot 4.7.2 renderer, X11 display, or configured gallery unavailable",
 )
 class SkeletalPoseSmokeIntegrationTests(unittest.TestCase):
+    def test_real_carrier_load_through_records_exact_input_identity(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="ck-godot-skeletal-pose-carrier-") as temporary:
+            root = Path(temporary)
+            carrier_path = root / "carrier.json"
+            carrier.write_carrier(
+                carrier_path,
+                carrier.build_carrier(GALLERY, DEFAULTS, ("avatar-left", "avatar-right")),
+            )
+            report = smoke.run_skeletal_pose_smoke(
+                GALLERY,
+                None,
+                root / "report.json",
+                carrier_path,
+            )
+            carrier_bytes = carrier_path.read_bytes()
+        self.assertEqual(report["profile_ids"], list(DEFAULTS))
+        self.assertEqual(
+            report["validated_carrier"],
+            {
+                "sha256": hashlib.sha256(carrier_bytes).hexdigest(),
+                "byte_count_decimal": str(len(carrier_bytes)),
+                "schema": carrier.SCHEMA,
+                "boundary": carrier.BOUNDARY,
+                "experiment_instance_ids": ["avatar-left", "avatar-right"],
+            },
+        )
+
+    def test_real_godot_rejects_noncanonical_carrier_byte_count(self) -> None:
+        _, payload = smoke.neutral_smoke.preflight(GALLERY, DEFAULTS)
+        invalid_identity = deepcopy(CARRIER_IDENTITY)
+        invalid_identity["byte_count_decimal"] = 1234
+        with self.assertRaisesRegex(smoke.SmokeError, "validated carrier byte count is invalid"):
+            smoke._launch_godot(
+                GALLERY,
+                DEFAULTS,
+                payload,
+                invalid_identity,
+            )
+
     def test_real_default_pair_produces_skeleton_skin_pose_and_proxy_evidence(self) -> None:
         with tempfile.TemporaryDirectory(prefix="ck-godot-skeletal-pose-default-") as temporary:
             report = smoke.run_skeletal_pose_smoke(GALLERY, DEFAULTS, Path(temporary) / "report.json")

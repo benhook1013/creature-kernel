@@ -4,6 +4,7 @@ import hashlib
 import importlib.util
 import json
 import math
+import os
 import shutil
 import struct
 import sys
@@ -791,21 +792,118 @@ class StructuralEmbodimentPublicationTests(unittest.TestCase):
                     ):
                         publisher._validate_pose_bytes(pose_data)
 
-    def test_png_validation_uses_hash_checked_bytes_after_path_replacement(self) -> None:
+    def test_gallery_file_replacement_after_initial_check_is_rejected(self) -> None:
+        target = self.gallery / publisher.PROFILE_IDS[0] / publisher.GALLERY_FILE
+        replacement = self.directory / "replacement.png"
+        replacement.write_bytes(target.read_bytes())
+        original_regular_file = publisher._regular_file
+        checked = False
+
+        def replace_after_check(path: Path, where: str):
+            nonlocal checked
+            info = original_regular_file(path, where)
+            if path == target and not checked:
+                os.replace(replacement, target)
+                checked = True
+            return info
+
+        with patch.object(publisher, "_regular_file", side_effect=replace_after_check):
+            with self.assertRaisesRegex(
+                publisher.StructuralEmbodimentPublishError,
+                "changed during validation",
+            ):
+                publisher.validate_structural_embodiment_gallery(self.gallery)
+        self.assertTrue(checked)
+
+    def test_gallery_json_symlink_replacement_after_initial_check_is_rejected(self) -> None:
+        target = self.gallery / publisher.MANIFEST_FILE
+        replacement = self.directory / "replacement.json"
+        replacement.write_bytes(target.read_bytes())
+        original_regular_file = publisher._regular_file
+        checked = False
+
+        def replace_after_check(path: Path, where: str):
+            nonlocal checked
+            info = original_regular_file(path, where)
+            if path == target and not checked:
+                target.unlink()
+                target.symlink_to(replacement)
+                checked = True
+            return info
+
+        with patch.object(publisher, "_regular_file", side_effect=replace_after_check):
+            with self.assertRaisesRegex(
+                publisher.StructuralEmbodimentPublishError,
+                r"^gallery manifest cannot be read$",
+            ):
+                publisher.validate_structural_embodiment_gallery(self.gallery)
+        self.assertTrue(checked)
+
+    def test_gallery_json_special_file_replacement_is_rejected_without_read(self) -> None:
+        target = self.gallery / publisher.MANIFEST_FILE
+        original_regular_file = publisher._regular_file
+        checked = False
+
+        def replace_after_check(path: Path, where: str):
+            nonlocal checked
+            info = original_regular_file(path, where)
+            if path == target and not checked:
+                target.unlink()
+                os.mkfifo(target)
+                checked = True
+            return info
+
+        with patch.object(publisher, "_regular_file", side_effect=replace_after_check):
+            with self.assertRaisesRegex(
+                publisher.StructuralEmbodimentPublishError,
+                "must be a regular non-symlink file",
+            ):
+                publisher.validate_structural_embodiment_gallery(self.gallery)
+        self.assertTrue(checked)
+
+    def test_gallery_parent_symlink_replacement_after_initial_check_is_rejected(self) -> None:
+        profile_id = publisher.PROFILE_IDS[0]
+        target = self.gallery / profile_id / publisher.GALLERY_FILE
+        original_parent = target.parent
+        moved_parent = self.directory / f"{profile_id}-moved"
+        replacement_parent = self.directory / f"{profile_id}-replacement"
+        replacement_parent.mkdir()
+        (replacement_parent / publisher.GALLERY_FILE).write_bytes(target.read_bytes())
+        original_regular_file = publisher._regular_file
+        checked = False
+
+        def replace_after_check(path: Path, where: str):
+            nonlocal checked
+            info = original_regular_file(path, where)
+            if path == target and not checked:
+                original_parent.rename(moved_parent)
+                original_parent.symlink_to(replacement_parent, target_is_directory=True)
+                checked = True
+            return info
+
+        with patch.object(publisher, "_regular_file", side_effect=replace_after_check):
+            with self.assertRaisesRegex(
+                publisher.StructuralEmbodimentPublishError,
+                rf"^gallery artifact {profile_id}/{publisher.GALLERY_FILE} cannot be read$",
+            ):
+                publisher.validate_structural_embodiment_gallery(self.gallery)
+        self.assertTrue(checked)
+
+    def test_png_validation_uses_hash_checked_bytes_after_safe_read(self) -> None:
         profile_id = publisher.PROFILE_IDS[0]
         target = self.gallery / profile_id / publisher.GALLERY_FILE
         checked_bytes = target.read_bytes()
         replacement = (self.gallery / publisher.PROFILE_IDS[1] / publisher.GALLERY_FILE).read_bytes()
         self.assertNotEqual(checked_bytes, replacement)
 
-        real_read_bytes = Path.read_bytes
+        real_read = publisher._read_bounded_file
         real_validate_png = publisher._validate_png
         target_reads = 0
         validated_target_pngs: list[bytes] = []
 
-        def replace_after_artifact_read(path: Path) -> bytes:
+        def replace_after_safe_read(path: Path, where: str, max_bytes: int) -> bytes:
             nonlocal target_reads
-            data = real_read_bytes(path)
+            data = real_read(path, where, max_bytes)
             if path == target:
                 target_reads += 1
                 if target_reads == 1:
@@ -817,8 +915,8 @@ class StructuralEmbodimentPublicationTests(unittest.TestCase):
                 validated_target_pngs.append(data)
             real_validate_png(data, where)
 
-        with patch.object(publisher, "_validate_png", side_effect=capture_validated_bytes):
-            with patch.object(Path, "read_bytes", autospec=True, side_effect=replace_after_artifact_read):
+        with patch.object(publisher, "_read_bounded_file", side_effect=replace_after_safe_read):
+            with patch.object(publisher, "_validate_png", side_effect=capture_validated_bytes):
                 publisher.validate_structural_embodiment_gallery(self.gallery)
 
         self.assertEqual(target_reads, 1)
