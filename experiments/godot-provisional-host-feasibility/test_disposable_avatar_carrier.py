@@ -20,6 +20,7 @@ DEFAULTS = ("compact_broad_short_limb_large_head", "tall_narrow_long_legged")
 ALTERNATE = ("slender_long_limb", "stocky_broad_chested")
 INSTANCE_IDS = ("avatar-one", "avatar-two")
 POSE_BYTES = b'{"pose_id":"test-pose","rules":[]}\n'
+sys.dont_write_bytecode = True
 
 
 def load_module(name: str, path: Path):

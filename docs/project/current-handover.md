@@ -41,10 +41,11 @@ the canonical owner of the active runway, and the required reading order in
   worktree is
   `/home/ben/src/creature-kernel-worktrees/godot-package-input-carrier` on
   branch `codex/godot-package-input-carrier`, based on `5fb4ce6`.
-  The current candidate adds a deterministic, canonical, exactly-two-avatar
-  experiment input carrier with ordered experiment instance IDs and exact
-  gallery/profile/shared-pose provenance. The Python skeletal runner revalidates
-  it before and after launch; the Godot script consumes its validated projection
+  The current provisional candidate adds a deterministic, canonical,
+  exactly-two-avatar experiment input carrier with ordered experiment instance
+  IDs and exact gallery/profile/shared-pose provenance. The Python skeletal
+  runner revalidates it before and after launch; the Godot script consumes its
+  validated projection
   and reports the exact carrier identity summary it received. This is disposable
   experiment evidence only: it is not a runtime package schema, durable
   artifact identity, adapter activation, compatibility promise, Readiness 3
@@ -53,9 +54,9 @@ the canonical owner of the active runway, and the required reading order in
   publication are descriptor-anchored against path-swap races, and its
   cross-process byte count uses an exact canonical decimal string rather than a
   coercive JSON number. Carrier tests pass 15/15. The full canonical non-visible
-  Godot suite passes 86 tests with 6 expected renderer skips; the real
-  Xvfb/Godot skeletal suite passes 20/20 in
-  115.922s. Two fresh hands-on trials passed the documented first-use
+  Godot suite passes 87 tests with 6 expected renderer skips; the real
+  Xvfb/Godot skeletal suite passes 21/21 in
+  121.396s. Two fresh hands-on trials passed the documented first-use
   load-through and representative fail-closed
   tamper/non-overwrite scenarios. Fresh independent-review findings were fixed
   and the affected suites rerun. CodeRabbit and CI remain pending. This

@@ -24,6 +24,7 @@ NEUTRAL_RUNNER_PATH = EXPERIMENT_ROOT / "run_structural_gallery_smoke.py"
 CARRIER_MODULE_PATH = EXPERIMENT_ROOT / "disposable_avatar_carrier.py"
 GODOT_SCRIPT = EXPERIMENT_ROOT / "skeletal_pose_smoke.gd"
 VISIBLE_GODOT_OPT_IN = "CK_ALLOW_VISIBLE_GODOT"
+_CARRIER_MODULE: Any | None = None
 
 
 def _load_neutral_runner():
@@ -40,6 +41,9 @@ def _load_neutral_runner():
 
 
 def _load_carrier_module():
+    global _CARRIER_MODULE
+    if _CARRIER_MODULE is not None:
+        return _CARRIER_MODULE
     sys.dont_write_bytecode = True
     spec = importlib.util.spec_from_file_location(
         "disposable_avatar_carrier_for_skeletal_pose",
@@ -50,7 +54,8 @@ def _load_carrier_module():
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
-    return module
+    _CARRIER_MODULE = module
+    return _CARRIER_MODULE
 
 
 neutral_smoke = _load_neutral_runner()
@@ -84,7 +89,7 @@ REPORT_FLAGS = {
 
 
 def _carrier_identity(carrier: dict[str, Any], carrier_module: Any) -> dict[str, Any]:
-    canonical = neutral_smoke._canonical_json(carrier)
+    canonical = carrier_module._canonical_json(carrier)
     return {
         "sha256": hashlib.sha256(canonical).hexdigest(),
         "byte_count_decimal": str(len(canonical)),

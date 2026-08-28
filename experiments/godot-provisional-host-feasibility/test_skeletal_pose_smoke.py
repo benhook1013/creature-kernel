@@ -43,6 +43,7 @@ def load_module(name: str, path: Path):
 
 
 smoke = load_module("skeletal_pose_smoke_under_test", EXPERIMENT / "run_skeletal_pose_smoke.py")
+sys.modules["run_structural_gallery_smoke"] = smoke.neutral_smoke
 carrier = load_module("disposable_avatar_carrier_for_skeletal_tests", EXPERIMENT / "disposable_avatar_carrier.py")
 
 
@@ -471,6 +472,26 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
         report["validated_carrier"] = deepcopy(CARRIER_IDENTITY)
         smoke._validate_report(report, payload, DEFAULTS, deepcopy(CARRIER_IDENTITY))
 
+    def test_carrier_loader_is_cached_and_identity_uses_carrier_canonicalizer(self) -> None:
+        self.assertIs(smoke._load_carrier_module(), smoke._load_carrier_module())
+        module = SimpleNamespace(
+            SCHEMA=carrier.SCHEMA,
+            BOUNDARY=carrier.BOUNDARY,
+            _canonical_json=lambda _: b"carrier-owned-canonical-bytes\n",
+        )
+        value = {
+            "instances": [
+                {"instance_id": "avatar-left"},
+                {"instance_id": "avatar-right"},
+            ]
+        }
+        identity = smoke._carrier_identity(value, module)
+        self.assertEqual(
+            identity["sha256"],
+            hashlib.sha256(b"carrier-owned-canonical-bytes\n").hexdigest(),
+        )
+        self.assertEqual(identity["byte_count_decimal"], "30")
+
     def test_report_validator_rejects_invalid_or_unexpected_carrier_identity(self) -> None:
         payload, report = _skeletal_validation_fixture()
         report["validated_carrier"] = None
@@ -511,7 +532,11 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
                 {"instance_id": "avatar-right"},
             ],
         }
-        module = SimpleNamespace(SCHEMA=carrier.SCHEMA, BOUNDARY=carrier.BOUNDARY)
+        module = SimpleNamespace(
+            SCHEMA=carrier.SCHEMA,
+            BOUNDARY=carrier.BOUNDARY,
+            _canonical_json=carrier._canonical_json,
+        )
         validated = (module, carrier_value, payload, DEFAULTS, ("avatar-left", "avatar-right"))
         expected_identity = smoke._carrier_identity(carrier_value, module)
         with (
@@ -543,7 +568,11 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
                 {"instance_id": "avatar-right"},
             ],
         }
-        module = SimpleNamespace(SCHEMA=carrier.SCHEMA, BOUNDARY=carrier.BOUNDARY)
+        module = SimpleNamespace(
+            SCHEMA=carrier.SCHEMA,
+            BOUNDARY=carrier.BOUNDARY,
+            _canonical_json=carrier._canonical_json,
+        )
         validated = (module, carrier_value, payload, DEFAULTS, ("avatar-left", "avatar-right"))
         with (
             patch.object(smoke, "_validated_carrier_input", return_value=validated),

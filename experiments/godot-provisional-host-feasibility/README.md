@@ -210,7 +210,7 @@ The disposable carrier suite contains 15 tests covering exact shape,
 deterministic canonical publication, strict bounded loading, both frozen profile
 pairs, instance identity, tampering and mixed-lineage rejection, and payload
 reconstruction, including deterministic symlink-swap read and publication
-regressions. The skeletal pose suite contains 20 tests covering both frozen
+regressions. The skeletal pose suite contains 21 tests covering both frozen
 profile pairs, complete `Skeleton3D`/`Skin` binding evidence, malformed and
 tampered inputs, deterministic reruns, carrier load-through and postflight
 identity, real-process rejection of noncanonical carrier identity, and

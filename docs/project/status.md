@@ -34,9 +34,9 @@ the stable structural review remains
 
 The active worktree is
 `/home/ben/src/creature-kernel-worktrees/godot-package-input-carrier` on branch
-`codex/godot-package-input-carrier`, based on `5fb4ce6`. The current candidate
-adds a deterministic, canonical, exactly-two-avatar experiment input carrier
-with ordered experiment instance IDs and exact gallery/profile/shared-pose
+`codex/godot-package-input-carrier`, based on `5fb4ce6`. The current provisional
+candidate adds a deterministic, canonical, exactly-two-avatar experiment input
+carrier with ordered experiment instance IDs and exact gallery/profile/shared-pose
 provenance. The Python skeletal runner revalidates the carrier before and after
 launch; the Godot script consumes its validated projection and reports the
 exact carrier identity summary it received. This is disposable experiment
@@ -46,9 +46,9 @@ performance/contact/deformation result, or human visual checkpoint. Carrier
 reads, structural-gallery preflight, and publication are descriptor-anchored
 against path-swap races, and its cross-process byte count uses an exact
 canonical decimal string rather than a coercive JSON number. Carrier tests pass
-15/15. The full canonical non-visible Godot suite passes 86 tests with 6
-expected renderer skips; the real Xvfb/Godot skeletal suite passes 20/20 in
-115.922s. Two fresh hands-on trials passed the documented first-use load-through
+15/15. The full canonical non-visible Godot suite passes 87 tests with 6
+expected renderer skips; the real Xvfb/Godot skeletal suite passes 21/21 in
+121.396s. Two fresh hands-on trials passed the documented first-use load-through
 and representative fail-closed
 tamper/non-overwrite scenarios.
 Fresh independent-review findings were fixed and the affected suites rerun.
@@ -1811,7 +1811,7 @@ metadata. Current non-governance decisions and proposals include:
 | Creature compiler | partial | unverified | Disposable CK-KICK-010 walking skeleton implemented; this is not a production compiler |
 | CK-KICK-010 walking skeleton | implemented | audited | Valid/invalid local evidence and the selected Single independent review are complete; five substantive findings plus whitespace were dispositioned in RESULTS, not clean; this is not a production compiler |
 | Local visual-review gallery | implemented | audited | Focused tests and local HTTP/browser smoke passed; the PR #113 gallery is bounded exploratory surface evidence, while `subject_context` remains presentation-only and no formal Stage 1 claim is made |
-| Runtime avatar | not-implemented | not-applicable | No runtime adapter is selected and no Readiness 3 result exists; the current experiment-local two-avatar carrier and real Skeleton3D/Skin binding probe remain disposable prerequisite evidence only |
+| Runtime avatar | not-implemented | not-applicable | No runtime adapter is selected and no Readiness 3 result exists; the current provisional experiment-local two-avatar carrier and real Skeleton3D/Skin binding probe remain disposable prerequisite evidence only |
 
 ## Historical immediate next actions (inactive)
 
