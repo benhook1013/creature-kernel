@@ -453,6 +453,27 @@ class StructuralEmbodimentPublicationTests(unittest.TestCase):
         self.assertEqual(len(list((session / "assets").iterdir())), 4)
         self.assertEqual({p.name for p in (session / "assets").iterdir()}, {f"{p}.png" for p in publisher.PROFILE_IDS})
 
+    def test_public_gallery_validation_returns_publication_evidence(self) -> None:
+        manifest, profiles, manifest_hash, manifest_bytes = publisher.validate_structural_embodiment_gallery(self.gallery)
+        manifest_data = (self.gallery / publisher.MANIFEST_FILE).read_bytes()
+        self.assertEqual(manifest, self.manifest())
+        self.assertEqual(profiles, {profile["id"]: profile for profile in manifest["profiles"]})
+        self.assertEqual(manifest_hash, hashlib.sha256(manifest_data).hexdigest())
+        self.assertEqual(manifest_bytes, len(manifest_data))
+
+        review = publisher._build_review_manifest(self.gallery, manifest, profiles, manifest_hash, manifest_bytes)
+        snapshot = review["subject_context"]["descriptor_snapshot"]
+        self.assertEqual(snapshot["gallery_manifest_sha256"], manifest_hash)
+        self.assertEqual(snapshot["gallery_manifest_bytes"], manifest_bytes)
+        self.assertEqual(snapshot["profile_ids"], manifest["profile_ids"])
+
+    def test_public_gallery_validation_rejects_existing_tampered_manifest_path(self) -> None:
+        value = self.manifest()
+        value["profile_ids"] = list(reversed(value["profile_ids"]))
+        self.write_manifest(value)
+        with self.assertRaises(publisher.StructuralEmbodimentPublishError):
+            publisher.validate_structural_embodiment_gallery(self.gallery)
+
     def test_order_and_labels_are_frozen(self) -> None:
         session = self.publish()
         review = json.loads((session / "review.json").read_text(encoding="utf-8"))
@@ -769,6 +790,39 @@ class StructuralEmbodimentPublicationTests(unittest.TestCase):
                         "changed during validation",
                     ):
                         publisher._validate_pose_bytes(pose_data)
+
+    def test_png_validation_uses_hash_checked_bytes_after_path_replacement(self) -> None:
+        profile_id = publisher.PROFILE_IDS[0]
+        target = self.gallery / profile_id / publisher.GALLERY_FILE
+        checked_bytes = target.read_bytes()
+        replacement = (self.gallery / publisher.PROFILE_IDS[1] / publisher.GALLERY_FILE).read_bytes()
+        self.assertNotEqual(checked_bytes, replacement)
+
+        real_read_bytes = Path.read_bytes
+        real_validate_png = publisher._validate_png
+        target_reads = 0
+        validated_target_pngs: list[bytes] = []
+
+        def replace_after_artifact_read(path: Path) -> bytes:
+            nonlocal target_reads
+            data = real_read_bytes(path)
+            if path == target:
+                target_reads += 1
+                if target_reads == 1:
+                    target.write_bytes(replacement)
+            return data
+
+        def capture_validated_bytes(data: bytes, where: str) -> None:
+            if where == f"{profile_id} gallery PNG":
+                validated_target_pngs.append(data)
+            real_validate_png(data, where)
+
+        with patch.object(publisher, "_validate_png", side_effect=capture_validated_bytes):
+            with patch.object(Path, "read_bytes", autospec=True, side_effect=replace_after_artifact_read):
+                publisher.validate_structural_embodiment_gallery(self.gallery)
+
+        self.assertEqual(target_reads, 1)
+        self.assertEqual(validated_target_pngs, [checked_bytes])
 
     def test_session_collision_is_atomic_and_leaves_existing_session(self) -> None:
         session = self.publish("collision")

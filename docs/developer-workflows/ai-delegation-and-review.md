@@ -54,7 +54,9 @@ trigger and deferred; speculative hardening without a present need is not
 built. Review, tests, experiments, and evidence remain active and risk-scaled.
 The lane supports extended research/implementation/test/review cycles until a
 tangible milestone or a retained-human choice requires a handoff; it does not
-run endless theoretical or review-until-clean loops.
+run endless theoretical or review-until-clean loops. The bounded CodeRabbit
+workflow below permits near-completion review/fix follow-ups while material
+findings continue to surface or taper, with explicit stop criteria.
 
 Routine developer instrumentation, CLI JSON, metadata tables, diagnostics, and
 correctness plumbing remain autonomous implementation even when surfaced in a
@@ -130,6 +132,15 @@ replace any risk-scaled post-proposal adversarial review. Existing model
 ceilings, Ben's authority, main-thread ownership, and cost/risk discipline
 continue to apply.
 
+### Morphology-dossier research
+
+When the future morphology-dossier research lane activates, use at least two
+independent fresh `gpt-5.6-sol`/medium, source-backed factual and shape-knowledge
+passes with distinct lenses. The main thread synthesizes the results and sends
+the outcome for human review. The prose is research input, not executable truth
+or an accepted contract. This is bounded research, not permission for
+subagents to decide product or architecture.
+
 ## Model routing
 
 - Delegate to `gpt-5.6-luna` at `high` for routine bounded investigation,
@@ -168,6 +179,70 @@ in the end-of-round subagent status. The 30–60 second wait is provisional, and
 these outcome reports are used to tune it without adding heavyweight telemetry.
 Capacity retry does not apply to non-capacity failures and must never become an
 unbounded retry loop.
+
+### Orchestration payload safety
+
+When JavaScript tool-runner source composes a subagent prompt, build the prompt
+from an array of ordinary quoted strings joined with newlines, or use structured
+text items. Do not embed delegation prose in a JavaScript template literal:
+Markdown backticks and similar prompt content can terminate or alter the source
+before the orchestration call executes. Treat the resulting `SyntaxError` as a
+deterministic payload-construction defect, not capacity or a transient tool
+failure; correct the construction once and report that no worker started.
+
+### Operational-observation escalation
+
+Every main or delegated thread that encounters unexpected friction forcing a
+retry, workaround, or changed tool path reports the command or tool category,
+exact error, attempt count, workaround, and known-versus-inferred cause. When
+the failure repeats, exposes a broken or misleading route, or would materially
+save future tokens or rounds, the thread narrowly searches
+`docs/project/ai-observations.md` for the same pattern. Each thread owns framing
+the observation, but the main thread is the default inbox writer so parallel
+write scopes remain disjoint. A subagent appends only with explicitly exclusive
+inbox ownership; otherwise it returns a concise `AI observation candidate` and
+the main thread records it before the work round closes. A matching existing
+entry is reported as a recurrence rather than duplicated or silently bypassed.
+This escalation is mandatory and does not depend on Ben watching the run.
+
+The inbox is not required reading for ordinary work. A targeted search is
+required only after qualifying friction occurs. Existing entries are consumed
+or changed only during a purposeful Ben-requested tooling or instruction
+improvement round. In such a round, recurrence of an already-recorded failure
+requires a bounded repository-owned wrapper, preflight, active-instruction, or
+other concrete correction when available; merely restating the observation is
+not closure.
+
+### Stale GUI state
+
+Before interrupting, killing, recycling, or duplicating a worker because a GUI
+counter looks stale, inspect authoritative live-thread status and message or
+wait on the existing worker as appropriate. This is separate from the narrower
+thread-slot recovery procedure below.
+
+### Command and artifact safety
+
+- Use `dev-tools/validation/check_worktree_whitespace.sh` for repository
+  whitespace validation. It covers tracked, staged, and untracked files without
+  staging them; a bare `git diff --check` result is incomplete when new files
+  exist.
+- Do not pass a PR body as `--body-file -` through a command wrapper that has no
+  explicit stdin channel. Use a reviewed file, then read the PR back and verify
+  its title, body, head, base, and state.
+- Keep literal Markdown backticks out of double-quoted shell source. Use
+  single-quoted patterns or structured arguments, and place every `rg` option
+  before `--` (for example `rg -n -C 2 -- 'pattern' paths`).
+- Do not pack non-trivial Python, PowerShell, JavaScript, or similar source into
+  a shell `-c` argument with nested quoting or escapes. Use a readable temporary
+  script or checked repository helper, then invoke it with ordinary arguments.
+- Before an ad-hoc `jq` structural projection, inspect the input's top-level
+  keys and use explicit output aliases for names that may be jq keywords. Move
+  a repeated non-trivial projection into a checked script or fixture.
+- A yielded long-running command retains one owner and one live session. Resume
+  or inspect that session instead of reissuing the stage. Before a replacement
+  launch, inspect live processes and the exact output target; any necessary
+  publication retry uses a fresh staging/output path, never a concurrent writer
+  to the original target.
 
 ### Thread-slot recovery (provisional)
 
@@ -344,33 +419,31 @@ per question. The main thread owns cross-lane synthesis.
 
 ## External review services
 
-CodeRabbit is authorized for deliberate advisory review under Ben's 2026-08-25
-approval. It is not an automatic Creature Kernel dependency or merge gate. The
-root `.coderabbit.yaml` expresses the repository policy: no inherited settings,
-label or description opt-ins, automatic initial or incremental reviews, or
-automatic chat replies. Higher-priority service-wide global overrides may still
-supersede repository YAML. After adding or materially changing the configuration,
-use `@coderabbitai configuration` to inspect the effective source-annotated
-settings before requesting a review. A main thread may request one hosted
-`@coderabbitai full review` only after the candidate is complete and no review is
-active. For a completed committed PR candidate, attempt the CodeRabbit CLI first
-when its quota is available, using `coderabbit review --agent --committed` with
-`--base <remote>/<base-ref>` against a fetched remote-tracking base. Use the
-scarcer hosted full review only when the CLI attempt is unavailable,
-rate-limited, incomplete for the intended diff, or explicitly preferred by Ben.
-Do not run both routinely, and do not use an incremental hosted review merely to
-save time when complete coverage is intended.
+Ben explicitly authorized CodeRabbit on 2026-08-27 for the main thread's
+deliberate advisory use. Only the main thread may invoke CodeRabbit
+autonomously, and its result is non-gating: it is not a Creature Kernel
+dependency or a merge gate. Use it only near completion of a substantial,
+coherent PR after local checks and internal review. Automatic initial and
+incremental reviews remain disabled in `.coderabbit.yaml`, as do automatic chat
+replies.
 
-Treat the current account's hosted, CLI, and usage-based availability across
-Ben's projects as unverified until checked against the active plan and live
-service response. Do not invoke either review interface while FireMUD or another
-project is actively reviewing or while availability is unclear. Run at most one
-CodeRabbit CLI review at a time, against a fetched remote-tracking base that
-covers the complete intended diff. Consume and disposition that result before
-deciding whether a hosted fallback adds enough value to justify its scarcer
-allowance. Do not install or invoke autonomous CodeRabbit skills that could
-consume quota outside this deliberate workflow. Report unavailable or
-rate-limited review honestly rather than bypassing or repeatedly retrying it.
+Multiple review rounds are intentional when useful. Run one deliberate round at
+a time: the main thread must fully inspect and disposition that result, then
+explicitly decide whether another round is materially justified by the taper
+rule. Continue only while material findings surface or taper; stop when the
+remaining comments are repeats, non-actionable, disproportionate, or out of
+scope, or when no material findings remain. Unattended timers and automatic
+looping are prohibited. If CodeRabbit is unavailable or rate-limited, record
+that honestly and continue with the remaining review gates. Subagents may invoke
+or post CodeRabbit only when an exact action is explicitly delegated.
+
+When warranted, use `coderabbit review --agent --committed` with
+`--base <remote>/<base-ref>` against a fetched remote-tracking base. The main
+thread still runs tests and hands-on trials, obtains internal independent
+review, explicitly dispositions findings, and preserves CI and human/merge
+gates. CodeRabbit does not replace those controls; explain any deliberate skip
+in the end-of-PR review record. Do not mutate another project to coordinate
+allowance.
 
 Other hosted review services still require explicit human authorization before
 agents install, enable, configure, invoke, or submit repository content to them.

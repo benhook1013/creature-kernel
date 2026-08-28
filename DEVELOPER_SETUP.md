@@ -177,12 +177,25 @@ writable native-Linux directory explicitly. This keeps tempfile-based atomic
 publication checks on a filesystem that supports their required Linux rename
 operation.
 
-The Python arguments are passed through unchanged after preflight, so the same
-entrypoint covers version checks, unittest discovery, both surface generators,
-and visual-review publishers:
+The Python arguments are passed through unchanged after preflight, so the
+launcher covers version checks, surface generators, and visual-review publishers.
+Run the current-form tests through the repository-owned test wrapper:
 
 ```bash
 "$surface_preview_launcher" --version
-"$surface_preview_launcher" -m unittest discover -s experiments/current-form-surface-preview/tests
+experiments/current-form-surface-preview/test.sh
 "$surface_preview_launcher" experiments/current-form-surface-preview/generate_surface_preview.py --help
 ```
+
+The provisional Godot host probes import the current-form gallery validator,
+so run their Python tests through the canonical Godot wrapper as well. It
+delegates to the same pinned launcher and preserves `CK_GODOT_STRUCTURAL_GALLERY`:
+
+```bash
+experiments/godot-provisional-host-feasibility/test.sh
+experiments/godot-provisional-host-feasibility/test.sh \
+  test_structural_gallery_smoke.py
+```
+
+Pass at most one local `test*.py` filename or discovery pattern; selectors may
+not contain `/`.

@@ -16,6 +16,13 @@ import zlib
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+# This file is also loaded directly by the disposable evidence probe. Python
+# does not add a file-loaded module's sibling directory to sys.path, so make
+# the natural imports below deliberate before loading them.
+VISUAL_REVIEW_ROOT = Path(__file__).resolve().parent
+if str(VISUAL_REVIEW_ROOT) not in sys.path:
+    sys.path.insert(0, str(VISUAL_REVIEW_ROOT))
+
 import common
 from common import ValidationError, canonical_json, validate_id
 from publish import PublishError, publish_session
@@ -648,11 +655,7 @@ def _validate_pose_bytes(pose_data: bytes) -> dict[str, Any]:
     return pose
 
 
-def _validate_png(path: Path, where: str) -> None:
-    try:
-        data = path.read_bytes()
-    except OSError as exc:
-        raise _error(f"{where} cannot be read") from exc
+def _validate_png(data: bytes, where: str) -> None:
     if not data.startswith(PNG_SIGNATURE):
         raise _error(f"{where} is not a PNG")
     offset = len(PNG_SIGNATURE)
@@ -721,7 +724,14 @@ def _validate_png(path: Path, where: str) -> None:
         raise _error(f"{where} contains an invalid scanline filter byte")
 
 
-def _validate_manifest(gallery: Path) -> tuple[dict[str, Any], dict[str, dict[str, Any]], str, int]:
+def validate_structural_embodiment_gallery(gallery: Path) -> tuple[dict[str, Any], dict[str, dict[str, Any]], str, int]:
+    """Validate disposable structural-gallery evidence for developer tooling.
+
+    The returned manifest, profile, hash, and byte evidence is an internal
+    publication input. This validates neither a runtime package nor a durable
+    format or adapter input, and makes no claim about contact, deformation,
+    physical response, or R3.
+    """
     files, directories = _scan_tree(gallery)
     if (
         len(ROOT_ARTIFACTS) != INVENTORY_ARTIFACT_COUNT
@@ -875,12 +885,12 @@ def _validate_manifest(gallery: Path) -> tuple[dict[str, Any], dict[str, dict[st
 
     image_hashes: set[str] = set()
     for profile_id in PROFILE_IDS:
-        path = gallery / profile_id / GALLERY_FILE
-        digest = inventory_by_path[f"{profile_id}/{GALLERY_FILE}"]["sha256"]
+        relative = f"{profile_id}/{GALLERY_FILE}"
+        digest = inventory_by_path[relative]["sha256"]
         if digest in image_hashes:
             raise _error("profile gallery PNGs must have distinct image hashes")
         image_hashes.add(digest)
-        _validate_png(path, f"{profile_id} gallery PNG")
+        _validate_png(artifact_data[relative], f"{profile_id} gallery PNG")
 
     pose = _validate_pose_bytes(artifact_data[POSE_FILE])
     prepared_profiles: list[dict[str, Any]] = []
@@ -979,7 +989,7 @@ def publish_structural_embodiment(reviews_root: Path, gallery: Path, *, review_i
     except ValidationError as exc:
         raise StructuralEmbodimentPublishError(str(exc)) from exc
     try:
-        manifest, profiles, manifest_hash, manifest_bytes = _validate_manifest(gallery)
+        manifest, profiles, manifest_hash, manifest_bytes = validate_structural_embodiment_gallery(gallery)
         review = _build_review_manifest(gallery, manifest, profiles, manifest_hash, manifest_bytes)
         expected_sources = {
             item["id"]: {

@@ -1,0 +1,17 @@
+; Disposable project copied into a TemporaryDirectory by the host-load smoke.
+config_version=5
+
+[application]
+
+config/name="CK Disposable Structural Gallery Host Load Smoke"
+run/main_scene=""
+
+[display]
+
+window/size/viewport_width=64
+window/size/viewport_height=64
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
