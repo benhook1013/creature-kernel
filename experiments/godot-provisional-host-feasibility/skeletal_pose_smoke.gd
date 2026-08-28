@@ -22,6 +22,20 @@ const REPORT_SCHEMA := "creature-kernel.disposable-godot-skeletal-pose-smoke.v1"
 const REPORT_BOUNDARY := "host_local_skeleton3d_skin_pose_binding"
 const CARRIER_SCHEMA := "creature-kernel.disposable-engine-neutral-avatar-input.v1"
 const CARRIER_BOUNDARY := "experiment_input_only_no_runtime_package_or_adapter_contract"
+const CK_PROJECTION_SCHEMA := "creature-kernel.disposable-ck-rust-projection.v1"
+const CK_PROJECTION_BOUNDARY := "experiment_local_ck_projection_evidence_only"
+const CK_PROJECTION_IDENTITY_SCOPE := "canonical_transport_body_only_not_provenance"
+const CK_PROJECTION_MAX_BYTES := 4 * 1024 * 1024
+const CK_PROJECTION_MAX_CLI_BYTES := 128 * 1024 * 1024
+const CK_PROJECTION_MAX_JSON_NODES := 200000
+const CK_PROJECTION_MAX_JSON_DEPTH := 96
+const CK_PROJECTION_MAX_STRING_LENGTH := 65536
+const CK_PROJECTION_MAX_DEPENDENCIES := 4096
+const CK_PROJECTION_MAX_SOURCE_BYTES := 16 * 1024 * 1024
+const CK_PROJECTION_RUST_FORMAT := "creature-kernel.provisional-structural-inspection.v1"
+const CK_PROJECTION_RUST_OPERATION := "inspect-structure"
+const CK_PROJECTION_RUST_STAGE := "structural-validation"
+const CK_PROJECTION_SOURCE_DIR := "sources"
 const CARRIER_ROOT_METADATA_KEYS := [
 	"ck_experiment_instance_id",
 	"ck_profile_id",
@@ -98,6 +112,8 @@ func _run_smoke() -> int:
 	for index in range(2):
 		var profile_id: String = options.profile_ids[index]
 		var profile_payload: Dictionary = _profile_payload(validated, profile_id)
+		if options.has("ck_projection_profile_payloads"):
+			profile_payload = options.ck_projection_profile_payloads[profile_id]
 		var carrier_record: Dictionary = {}
 		if options.has("carrier_avatar_records"):
 			carrier_record = carrier_avatar_records[index]
@@ -197,11 +213,15 @@ func _parse_arguments() -> Dictionary:
 		"semantic_pose_command_present": false,
 		"semantic_pose_command_identity_present": false,
 		"semantic_pose_payload_present": false,
+		"ck_projection_json": "",
+		"ck_projection_identity_json": "",
+		"ck_projection_present": false,
+		"ck_projection_identity_present": false,
 	}
 	var index := 0
 	while index < arguments.size():
 		var argument: String = arguments[index]
-		if argument == "--gallery" or argument == "--report" or argument == "--validated-json" or argument == "--carrier-identity-json" or argument == "--carrier-avatar-records-json" or argument == "--semantic-pose-command-json" or argument == "--semantic-pose-command-identity-json" or argument == "--semantic-pose-payload-json" or argument == "--profile-id":
+		if argument == "--gallery" or argument == "--report" or argument == "--validated-json" or argument == "--carrier-identity-json" or argument == "--carrier-avatar-records-json" or argument == "--semantic-pose-command-json" or argument == "--semantic-pose-command-identity-json" or argument == "--semantic-pose-payload-json" or argument == "--ck-projection-json" or argument == "--ck-projection-identity-json" or argument == "--profile-id":
 			if index + 1 >= arguments.size():
 				_failure = "missing value after %s" % argument
 				return {}
@@ -225,6 +245,12 @@ func _parse_arguments() -> Dictionary:
 			elif argument == "--semantic-pose-payload-json":
 				result.semantic_pose_payload_json = value
 				result.semantic_pose_payload_present = true
+			elif argument == "--ck-projection-json":
+				result.ck_projection_json = value
+				result.ck_projection_present = true
+			elif argument == "--ck-projection-identity-json":
+				result.ck_projection_identity_json = value
+				result.ck_projection_identity_present = true
 			else:
 				result.profile_ids.append(value)
 			index += 2
@@ -270,6 +296,13 @@ func _validate_options_against_projection(options: Dictionary, validated: Dictio
 		if not _validate_carrier_avatar_records(carrier_avatar_records, options, validated):
 			return false
 		options["carrier_avatar_records"] = carrier_avatar_records
+	var projection_presence_count := int(options.ck_projection_present) + int(options.ck_projection_identity_present)
+	if projection_presence_count != 0 and projection_presence_count != 2:
+		_failure = "CK projection and projection identity must be supplied together"
+		return false
+	if projection_presence_count == 2:
+		if not _validate_ck_projection(options, validated):
+			return false
 	var command_values := [
 		options.semantic_pose_command_present,
 		options.semantic_pose_command_identity_present,
@@ -385,6 +418,308 @@ func _profile_payload(validated: Dictionary, profile_id: String) -> Dictionary:
 		if typeof(profile) == TYPE_DICTIONARY and profile.get("profile_id", "") == profile_id:
 			return profile
 	return {}
+
+
+func _validate_ck_projection(options: Dictionary, validated: Dictionary) -> bool:
+	if not options.has("carrier_identity") or not options.has("carrier_avatar_records"):
+		_failure = "CK projection requires separately validated carrier identity and avatar records"
+		return false
+	var projection_json: String = options.ck_projection_json
+	var identity_json: String = options.ck_projection_identity_json
+	if projection_json.is_empty() or projection_json.ends_with("\n") or identity_json.is_empty() or identity_json.ends_with("\n"):
+		_failure = "CK projection inputs must be non-empty canonical JSON without a trailing newline"
+		return false
+	var projection_value = JSON.parse_string(projection_json)
+	var identity_value = JSON.parse_string(identity_json)
+	if typeof(projection_value) != TYPE_DICTIONARY or typeof(identity_value) != TYPE_DICTIONARY:
+		_failure = "CK projection inputs must be JSON objects"
+		return false
+	var projection: Dictionary = projection_value
+	var identity: Dictionary = identity_value
+	if projection_json.to_utf8_buffer().size() + 1 > CK_PROJECTION_MAX_BYTES:
+		_failure = "CK projection exceeds its bounded transport size"
+		return false
+	if not _validate_ck_projection_json(projection, options, validated):
+		return false
+	if not _validate_ck_projection_identity(identity, projection):
+		return false
+	var projection_records: Array[Dictionary] = []
+	var projection_payloads := {}
+	for avatar in projection.avatars:
+		var carrier_record := {
+			"instance_id": avatar.instance_id,
+			"profile_id": avatar.profile_id,
+			"candidate_profile_sha256": avatar.candidate_profile_sha256,
+		}
+		projection_records.append(carrier_record)
+		var reconstructed := {
+			"profile_id": avatar.profile_id,
+			"label": avatar.label,
+			"candidate_profile_sha256": avatar.candidate_profile_sha256,
+			"artifacts": avatar.artifacts,
+			"metrics": avatar.metrics,
+		}
+		projection_payloads[avatar.profile_id] = reconstructed
+	options["carrier_avatar_records"] = projection_records
+	options["ck_projection"] = projection
+	options["ck_projection_identity"] = identity
+	options["ck_projection_avatars"] = projection.avatars
+	options["ck_projection_profile_payloads"] = projection_payloads
+	return true
+
+
+func _validate_ck_projection_json(projection: Dictionary, options: Dictionary, validated: Dictionary) -> bool:
+	if not _exact_keys(projection, ["schema", "boundary", "projection_identity", "producer_identity", "carrier_identity", "gallery_identity", "shared_pose", "avatars"]):
+		_failure = "CK projection has unexpected or missing top-level fields"
+		return false
+	if projection.schema != CK_PROJECTION_SCHEMA or projection.boundary != CK_PROJECTION_BOUNDARY:
+		_failure = "CK projection schema or boundary is invalid"
+		return false
+	if not _validate_ck_projection_finite(projection):
+		_failure = "CK projection contains unsupported, non-finite, or oversized JSON"
+		return false
+	if _projection_has_forbidden_field(projection):
+		_failure = "CK projection contains a forbidden host, package, adapter, or readiness field"
+		return false
+	if not _validate_ck_projection_transport_identity_shape(projection.projection_identity):
+		return false
+	var producer = projection.producer_identity
+	if typeof(producer) != TYPE_DICTIONARY or not _exact_keys(producer, ["sha256", "bytes", "operation", "format"]):
+		_failure = "CK projection producer identity has unexpected or missing fields"
+		return false
+	if not _is_sha256(String(producer.sha256)) or not _is_bounded_ck_projection_integer(producer.bytes, CK_PROJECTION_MAX_CLI_BYTES, false) or producer.operation != CK_PROJECTION_RUST_OPERATION or producer.format != CK_PROJECTION_RUST_FORMAT:
+		_failure = "CK projection producer identity is invalid"
+		return false
+	var carrier = projection.carrier_identity
+	if typeof(carrier) != TYPE_DICTIONARY or not _exact_keys(carrier, ["schema", "boundary", "sha256", "bytes", "instance_ids"]):
+		_failure = "CK projection carrier identity has unexpected or missing fields"
+		return false
+	var supplied_carrier: Dictionary = options.carrier_identity
+	if carrier.schema != CARRIER_SCHEMA or carrier.boundary != CARRIER_BOUNDARY or carrier.sha256 != supplied_carrier.sha256:
+		_failure = "CK projection carrier identity does not match the validated carrier"
+		return false
+	if not _is_bounded_ck_projection_integer(carrier.bytes, CK_PROJECTION_MAX_BYTES, false) or int(carrier.bytes) != int(supplied_carrier.byte_count_decimal):
+		_failure = "CK projection carrier byte identity does not match the validated carrier"
+		return false
+	if carrier.instance_ids != supplied_carrier.experiment_instance_ids:
+		_failure = "CK projection carrier instance identities do not match the validated carrier"
+		return false
+	var gallery = projection.gallery_identity
+	if typeof(gallery) != TYPE_DICTIONARY or not _exact_keys(gallery, ["projection_contract", "manifest_sha256", "manifest_bytes", "boundary", "profile_ids"]):
+		_failure = "CK projection gallery identity has unexpected or missing fields"
+		return false
+	var expected_gallery := {
+		"projection_contract": validated.projection_contract,
+		"manifest_sha256": validated.manifest_sha256,
+		"manifest_bytes": validated.manifest_bytes,
+		"boundary": validated.boundary,
+		"profile_ids": validated.profile_ids,
+	}
+	if not _exact_json_value(gallery, expected_gallery):
+		_failure = "CK projection gallery identity does not match the validated payload"
+		return false
+	var shared_pose = projection.shared_pose
+	if typeof(shared_pose) != TYPE_DICTIONARY or not _exact_keys(shared_pose, ["path", "pose_id", "sha256", "bytes"]):
+		_failure = "CK projection shared-pose identity has unexpected or missing fields"
+		return false
+	var pose_bytes := _read_bytes(options.gallery_path.path_join(POSE_FILE), "shared pose")
+	if pose_bytes.is_empty() or shared_pose.path != POSE_FILE or shared_pose.pose_id != validated.pose_id or shared_pose.sha256 != validated.pose_sha256 or not _is_bounded_ck_projection_integer(shared_pose.bytes, CK_PROJECTION_MAX_SOURCE_BYTES, false) or int(shared_pose.bytes) != pose_bytes.size() or _sha256(pose_bytes) != shared_pose.sha256:
+		_failure = "CK projection shared-pose identity does not match the validated gallery"
+		return false
+	var avatars = projection.avatars
+	if typeof(avatars) != TYPE_ARRAY or avatars.size() != 2:
+		_failure = "CK projection must contain exactly two ordered avatars"
+		return false
+	for index in range(2):
+		var avatar = avatars[index]
+		if not _validate_ck_projection_avatar(avatar, index, options, validated):
+			return false
+	return true
+
+
+func _validate_ck_projection_avatar(avatar, index: int, options: Dictionary, validated: Dictionary) -> bool:
+	if typeof(avatar) != TYPE_DICTIONARY or not _exact_keys(avatar, ["instance_id", "profile_id", "label", "candidate_profile_sha256", "source", "rust_inspection", "artifacts", "metrics"]):
+		_failure = "CK projection avatar %d has unexpected or missing fields" % index
+		return false
+	if avatar.instance_id != String(options.carrier_identity.experiment_instance_ids[index]) or avatar.profile_id != String(options.profile_ids[index]):
+		_failure = "CK projection avatar %d identity is reordered or mismatched" % index
+		return false
+	var carrier_record: Dictionary = options.carrier_avatar_records[index]
+	if avatar.instance_id != carrier_record.instance_id or avatar.profile_id != carrier_record.profile_id or avatar.candidate_profile_sha256 != carrier_record.candidate_profile_sha256:
+		_failure = "CK projection avatar %d does not match the separately supplied carrier record" % index
+		return false
+	var validated_profile := _profile_payload(validated, String(avatar.profile_id))
+	if validated_profile.is_empty() or not _exact_keys(validated_profile, ["profile_id", "label", "candidate_profile_sha256", "artifacts", "metrics"]):
+		_failure = "CK projection avatar %d has no exact validated profile counterpart" % index
+		return false
+	var reconstructed := {
+		"profile_id": avatar.profile_id,
+		"label": avatar.label,
+		"candidate_profile_sha256": avatar.candidate_profile_sha256,
+		"artifacts": avatar.artifacts,
+		"metrics": avatar.metrics,
+	}
+	if not _exact_json_value(reconstructed, validated_profile):
+		_failure = "CK projection avatar %d cannot reconstruct the validated profile exactly" % index
+		return false
+	if not _validate_ck_projection_source(avatar.source, avatar.rust_inspection, String(avatar.profile_id), options.gallery_path):
+		return false
+	if not _validate_ck_projection_artifacts(avatar.artifacts, validated_profile.artifacts, String(avatar.profile_id)):
+		return false
+	return true
+
+
+func _validate_ck_projection_source(source, rust_inspection, profile_id: String, gallery_path: String) -> bool:
+	if typeof(source) != TYPE_DICTIONARY or not _exact_keys(source, ["path", "sha256", "bytes", "document", "namespace"]):
+		_failure = "%s CK projection source identity has unexpected or missing fields" % profile_id
+		return false
+	var expected_path := "%s/%s.json" % [CK_PROJECTION_SOURCE_DIR, profile_id]
+	if source.path != expected_path or String(source.path).is_absolute_path():
+		_failure = "%s CK projection source path is invalid" % profile_id
+		return false
+	if typeof(source.sha256) != TYPE_STRING or not _is_sha256(source.sha256) or not _is_bounded_ck_projection_integer(source.bytes, CK_PROJECTION_MAX_SOURCE_BYTES, false):
+		_failure = "%s CK projection source identity is invalid" % profile_id
+		return false
+	var source_bytes := _read_bytes(gallery_path.path_join(String(source.path)), "%s source" % profile_id)
+	if source_bytes.is_empty() or int(source.bytes) != source_bytes.size() or source.sha256 != _sha256(source_bytes):
+		_failure = "%s CK projection source identity does not match the gallery" % profile_id
+		return false
+	if typeof(source.document) != TYPE_STRING or String(source.document).is_empty() or typeof(source.namespace) != TYPE_STRING or String(source.namespace).is_empty():
+		_failure = "%s CK projection source document identity is invalid" % profile_id
+		return false
+	if typeof(rust_inspection) != TYPE_DICTIONARY or not _exact_keys(rust_inspection, ["format", "operation", "stage", "status", "processing_complete", "diagnostics_complete", "diagnostics", "summary", "source"]):
+		_failure = "%s CK projection Rust evidence has unexpected or missing fields" % profile_id
+		return false
+	if typeof(rust_inspection.format) != TYPE_STRING or typeof(rust_inspection.operation) != TYPE_STRING or typeof(rust_inspection.stage) != TYPE_STRING or typeof(rust_inspection.status) != TYPE_STRING or typeof(rust_inspection.processing_complete) != TYPE_BOOL or typeof(rust_inspection.diagnostics_complete) != TYPE_BOOL or rust_inspection.format != CK_PROJECTION_RUST_FORMAT or rust_inspection.operation != CK_PROJECTION_RUST_OPERATION or rust_inspection.stage != CK_PROJECTION_RUST_STAGE or rust_inspection.status != "success" or rust_inspection.processing_complete != true or rust_inspection.diagnostics_complete != true or rust_inspection.diagnostics != [] or typeof(rust_inspection.summary) != TYPE_DICTIONARY:
+		_failure = "%s CK projection Rust evidence is not a bounded successful inspection" % profile_id
+		return false
+	var evidence_source = rust_inspection.source
+	if typeof(evidence_source) != TYPE_DICTIONARY or not _exact_keys(evidence_source, ["dependencies", "document", "namespace"]) or evidence_source.document != source.document or evidence_source.namespace != source.namespace or typeof(evidence_source.dependencies) != TYPE_ARRAY or evidence_source.dependencies.size() > CK_PROJECTION_MAX_DEPENDENCIES:
+		_failure = "%s CK projection Rust source evidence is invalid" % profile_id
+		return false
+	for dependency in evidence_source.dependencies:
+		if typeof(dependency) != TYPE_DICTIONARY or not _exact_keys(dependency, ["document", "namespace", "content_sha256"]) or typeof(dependency.document) != TYPE_STRING or String(dependency.document).is_empty() or typeof(dependency.namespace) != TYPE_STRING or String(dependency.namespace).is_empty() or typeof(dependency.content_sha256) != TYPE_STRING or not String(dependency.content_sha256).begins_with("sha256:") or not _is_sha256(String(dependency.content_sha256).substr(7)):
+			_failure = "%s CK projection Rust dependency evidence is invalid" % profile_id
+			return false
+	return true
+
+
+func _validate_ck_projection_artifacts(artifacts, expected_artifacts, profile_id: String) -> bool:
+	if typeof(artifacts) != TYPE_ARRAY or artifacts.size() != ARTIFACT_NAMES.size() or not _exact_json_value(artifacts, expected_artifacts):
+		_failure = "%s CK projection artifacts do not exactly match the validated profile" % profile_id
+		return false
+	for index in range(ARTIFACT_NAMES.size()):
+		var artifact = artifacts[index]
+		if not _exact_keys(artifact, ["path", "sha256", "bytes"]) or artifact.path != "%s/%s" % [profile_id, ARTIFACT_NAMES[index]] or not _is_sha256(String(artifact.sha256)) or not _is_bounded_ck_projection_integer(artifact.bytes, CK_PROJECTION_MAX_SOURCE_BYTES, false):
+			_failure = "%s CK projection artifact %d is invalid" % [profile_id, index]
+			return false
+	return true
+
+
+func _validate_ck_projection_identity(identity: Dictionary, projection: Dictionary) -> bool:
+	if not _validate_ck_projection_transport_identity_shape(identity):
+		return false
+	if not _exact_json_value(identity, projection.projection_identity):
+		_failure = "CK projection transport identity does not match the embedded body identity"
+		return false
+	return true
+
+
+func _validate_ck_projection_transport_identity_shape(identity) -> bool:
+	if typeof(identity) != TYPE_DICTIONARY or not _exact_keys(identity, ["scope", "sha256", "bytes"]):
+		_failure = "CK projection transport identity has unexpected or missing fields"
+		return false
+	if identity.scope != CK_PROJECTION_IDENTITY_SCOPE or not _is_sha256(String(identity.sha256)) or not _is_bounded_ck_projection_integer(identity.bytes, CK_PROJECTION_MAX_BYTES, false):
+		_failure = "CK projection transport identity is invalid"
+		return false
+	return true
+
+
+func _is_sha256(value: String) -> bool:
+	if value.length() != 64:
+		return false
+	for index in range(value.length()):
+		var code: int = value.unicode_at(index)
+		if not ((code >= 48 and code <= 57) or (code >= 97 and code <= 102)):
+			return false
+	return true
+
+
+func _is_bounded_ck_projection_integer(value, maximum: int, allow_zero: bool) -> bool:
+	if typeof(value) != TYPE_INT and typeof(value) != TYPE_FLOAT:
+		return false
+	var numeric := float(value)
+	if not is_finite(numeric) or numeric != floor(numeric):
+		return false
+	var integer := int(numeric)
+	return integer >= (0 if allow_zero else 1) and integer <= maximum
+
+
+func _exact_json_value(left, right) -> bool:
+	if typeof(left) != typeof(right):
+		return false
+	if typeof(left) == TYPE_DICTIONARY:
+		if left.size() != right.size():
+			return false
+		for key in left:
+			if not right.has(key) or not _exact_json_value(left[key], right[key]):
+				return false
+		return true
+	if typeof(left) == TYPE_ARRAY:
+		if left.size() != right.size():
+			return false
+		for index in range(left.size()):
+			if not _exact_json_value(left[index], right[index]):
+				return false
+		return true
+	return left == right
+
+
+func _validate_ck_projection_finite(value, depth: int = 0, state = null) -> bool:
+	if depth > CK_PROJECTION_MAX_JSON_DEPTH:
+		return false
+	if state == null:
+		state = [0]
+	state[0] += 1
+	if state[0] > CK_PROJECTION_MAX_JSON_NODES:
+		return false
+	match typeof(value):
+		TYPE_FLOAT:
+			return is_finite(value)
+		TYPE_STRING:
+			return value.length() <= CK_PROJECTION_MAX_STRING_LENGTH
+		TYPE_ARRAY:
+			for item in value:
+				if not _validate_ck_projection_finite(item, depth + 1, state):
+					return false
+			return true
+		TYPE_DICTIONARY:
+			if value.size() > 2048:
+				return false
+			for key in value:
+				if typeof(key) != TYPE_STRING or key.length() > CK_PROJECTION_MAX_STRING_LENGTH or not _validate_ck_projection_finite(value[key], depth + 1, state):
+					return false
+			return true
+		TYPE_INT, TYPE_BOOL, TYPE_NIL:
+			return true
+		_:
+			return false
+
+
+func _projection_has_forbidden_field(value) -> bool:
+	if typeof(value) == TYPE_DICTIONARY:
+		for key in value:
+			var normalized := String(key).to_lower().replace("-", "_")
+			for token in ["adapter", "godot", "host", "package", "readiness"]:
+				if normalized == token or normalized.begins_with(token + "_"):
+					return true
+			if _projection_has_forbidden_field(value[key]):
+				return true
+	elif typeof(value) == TYPE_ARRAY:
+		for item in value:
+			if _projection_has_forbidden_field(item):
+				return true
+	return false
 
 
 func _load_shared_pose(gallery_path: String, validated: Dictionary) -> Dictionary:
@@ -1619,6 +1954,15 @@ func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: 
 			"node_counts": node_counts,
 			"binding": binding,
 		}
+		if options.has("ck_projection"):
+			var projection_avatar: Dictionary = options.ck_projection_avatars[index]
+			profile_report["ck_projection_binding"] = {
+				"instance_id": projection_avatar.instance_id,
+				"profile_id": projection_avatar.profile_id,
+				"candidate_profile_sha256": projection_avatar.candidate_profile_sha256,
+				"source": projection_avatar.source,
+				"artifacts": projection_avatar.artifacts,
+			}
 		if options.has("semantic_pose_command"):
 			var injection := _readback_semantic_pose_injection(profile, index, binding, carrier_binding, options)
 			if injection.is_empty():
@@ -1678,6 +2022,8 @@ func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: 
 	if options.has("carrier_identity"):
 		report["validated_carrier"] = options.carrier_identity
 		report["carrier_avatar_bindings"] = carrier_avatar_bindings
+	if options.has("ck_projection_identity"):
+		report["validated_ck_projection"] = options.ck_projection_identity
 	if options.has("semantic_pose_command"):
 		report["semantic_pose_command_identity"] = options.semantic_pose_command_identity
 		report["semantic_pose_targets"] = options.semantic_pose_command.targets

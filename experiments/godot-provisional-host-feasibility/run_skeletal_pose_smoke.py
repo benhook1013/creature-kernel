@@ -23,10 +23,12 @@ EXPERIMENT_ROOT = Path(__file__).resolve().parent
 NEUTRAL_RUNNER_PATH = EXPERIMENT_ROOT / "run_structural_gallery_smoke.py"
 CARRIER_MODULE_PATH = EXPERIMENT_ROOT / "disposable_avatar_carrier.py"
 COMMAND_MODULE_PATH = EXPERIMENT_ROOT / "disposable_semantic_pose_command.py"
+PROJECTION_MODULE_PATH = EXPERIMENT_ROOT / "disposable_ck_projection.py"
 GODOT_SCRIPT = EXPERIMENT_ROOT / "skeletal_pose_smoke.gd"
 VISIBLE_GODOT_OPT_IN = "CK_ALLOW_VISIBLE_GODOT"
 _CARRIER_MODULE: Any | None = None
 _COMMAND_MODULE: Any | None = None
+_PROJECTION_MODULE: Any | None = None
 
 
 def _load_neutral_runner():
@@ -75,6 +77,24 @@ def _load_command_module():
     spec.loader.exec_module(module)
     _COMMAND_MODULE = module
     return _COMMAND_MODULE
+
+
+def _load_projection_module():
+    global _PROJECTION_MODULE
+    if _PROJECTION_MODULE is not None:
+        return _PROJECTION_MODULE
+    sys.dont_write_bytecode = True
+    spec = importlib.util.spec_from_file_location(
+        "disposable_ck_projection_for_skeletal_pose",
+        PROJECTION_MODULE_PATH,
+    )
+    if spec is None or spec.loader is None:
+        raise ImportError(f"could not load disposable CK projection: {PROJECTION_MODULE_PATH}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    _PROJECTION_MODULE = module
+    return _PROJECTION_MODULE
 
 
 neutral_smoke = _load_neutral_runner()
@@ -172,6 +192,86 @@ def _validated_carrier_input(
     if tuple(identity["experiment_instance_ids"]) != instance_ids:
         raise SmokeError("disposable avatar carrier instance order is internally inconsistent")
     return carrier_module, carrier, payload, profile_ids, instance_ids
+
+
+def _projection_bindings(projection: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        {
+            "instance_id": avatar["instance_id"],
+            "profile_id": avatar["profile_id"],
+            "candidate_profile_sha256": avatar["candidate_profile_sha256"],
+            "source": avatar["source"],
+            "artifacts": avatar["artifacts"],
+        }
+        for avatar in projection["avatars"]
+    ]
+
+
+def _validated_projection_input(
+    gallery: Path,
+    carrier_path: Path,
+    carrier: dict[str, Any],
+    payload: dict[str, Any],
+    profile_ids: tuple[str, str],
+    instance_ids: tuple[str, str],
+    carrier_identity: dict[str, Any],
+    carrier_avatar_records: list[dict[str, str]],
+    projection_path: Path,
+    projection_cli_path: Path,
+) -> tuple[Any, dict[str, Any], dict[str, Any]]:
+    projection_module = _load_projection_module()
+    try:
+        projection = projection_module.validate_projection(
+            projection_path,
+            gallery,
+            carrier_path,
+            cli_path=projection_cli_path,
+        )
+        identity = projection_module.projection_identity(projection)
+    except projection_module.ProjectionError as exc:
+        raise SmokeError(f"disposable CK projection rejected: {exc}") from exc
+
+    expected_carrier = {
+        "schema": carrier_identity["schema"],
+        "boundary": carrier_identity["boundary"],
+        "sha256": carrier_identity["sha256"],
+        "bytes": int(carrier_identity["byte_count_decimal"]),
+        "instance_ids": list(instance_ids),
+    }
+    if projection["carrier_identity"] != expected_carrier:
+        raise SmokeError("CK projection carrier identity does not match the fresh carrier")
+    expected_gallery = {
+        "projection_contract": carrier["source_gallery"]["projection_contract"],
+        "manifest_sha256": carrier["source_gallery"]["manifest_sha256"],
+        "manifest_bytes": carrier["source_gallery"]["manifest_bytes"],
+        "boundary": carrier["source_gallery"]["boundary"],
+        "profile_ids": list(profile_ids),
+    }
+    if projection["gallery_identity"] != expected_gallery:
+        raise SmokeError("CK projection gallery identity does not match the fresh carrier payload")
+    if projection["shared_pose"] != carrier["shared_pose"]:
+        raise SmokeError("CK projection shared pose does not match the fresh carrier payload")
+    avatars = projection["avatars"]
+    if len(avatars) != len(carrier_avatar_records) or len(avatars) != len(payload["profiles"]):
+        raise SmokeError("CK projection does not contain the exact ordered carrier profiles")
+    for index, (avatar, carrier_record, carrier_instance, expected_profile) in enumerate(
+        zip(avatars, carrier_avatar_records, carrier["instances"], payload["profiles"])
+    ):
+        if (
+            avatar["instance_id"] != carrier_record["instance_id"]
+            or avatar["profile_id"] != carrier_record["profile_id"]
+            or avatar["candidate_profile_sha256"] != carrier_record["candidate_profile_sha256"]
+            or avatar["profile_id"] != profile_ids[index]
+            or avatar["label"] != carrier_instance["label"]
+        ):
+            raise SmokeError(f"CK projection avatar {index} identity/order disagrees with the fresh carrier")
+        if avatar["candidate_profile_sha256"] != expected_profile["candidate_profile_sha256"]:
+            raise SmokeError(f"CK projection avatar {index} candidate identity disagrees with the fresh payload")
+        if avatar["artifacts"] != expected_profile["artifacts"] or len(avatar["artifacts"]) != 6:
+            raise SmokeError(f"CK projection avatar {index} artifacts disagree with the fresh payload")
+        if avatar["metrics"] != expected_profile["metrics"]:
+            raise SmokeError(f"CK projection avatar {index} metrics disagree with the fresh payload")
+    return projection_module, projection, identity
 
 
 def _validated_semantic_pose_command(
@@ -502,11 +602,20 @@ def _validate_report(
     carrier_avatar_records: list[dict[str, str]] | None = None,
     semantic_pose_command: dict[str, Any] | None = None,
     command_identity: dict[str, Any] | None = None,
+    projection: dict[str, Any] | None = None,
+    projection_identity: dict[str, Any] | None = None,
 ) -> None:
     if not isinstance(report, dict):
         raise SmokeError("Godot skeletal-pose report is not a JSON object")
     _validate_finite_report_json(report)
     _validate_carrier_expectations(carrier_identity, carrier_avatar_records, payload, profile_ids)
+    if (projection is None) != (projection_identity is None):
+        raise SmokeError("CK projection and projection identity must be supplied together")
+    if projection is None:
+        if "validated_ck_projection" in report:
+            raise SmokeError("no-projection Godot report contains unexpected CK projection identity")
+    elif report.get("validated_ck_projection") != projection_identity:
+        raise SmokeError("Godot report CK projection identity does not match the validated projection")
     if report.get("schema") != REPORT_SCHEMA or report.get("status") != "success":
         raise SmokeError("Godot skeletal-pose report schema or status is invalid")
     if report.get("boundary") != REPORT_BOUNDARY:
@@ -597,6 +706,11 @@ def _validate_report(
             raise SmokeError(f"validated gallery profile {profile_id} does not establish the exact 18/18 contract")
         if actual.get("candidate_profile_sha256") != expected["candidate_profile_sha256"]:
             raise SmokeError(f"Godot report profile {profile_id} identity differs from the validated projection")
+        if projection is None:
+            if "ck_projection_binding" in actual:
+                raise SmokeError("no-projection Godot report contains unexpected CK projection binding")
+        elif actual.get("ck_projection_binding") != _projection_bindings(projection)[index]:
+            raise SmokeError(f"Godot report profile {profile_id} CK projection binding is invalid")
         if not neutral_smoke._values_close(actual.get("metrics"), metrics):
             raise SmokeError(f"Godot report profile {profile_id} metrics differ from the validated projection")
         if actual.get("profile_translation") != list(EXPECTED_TRANSLATIONS[index]):
@@ -682,6 +796,8 @@ def _launch_godot(
     semantic_pose_command: dict[str, Any] | None = None,
     command_identity: dict[str, Any] | None = None,
     semantic_payload: dict[str, Any] | None = None,
+    projection: dict[str, Any] | None = None,
+    projection_identity: dict[str, Any] | None = None,
 ) -> tuple[str, str, int, dict[str, Any] | None]:
     """Launch with a real renderer; headless mode exposes dummy rendering RIDs."""
     if os.environ.get(VISIBLE_GODOT_OPT_IN) != "1":
@@ -781,6 +897,22 @@ def _launch_godot(
                     semantic_json,
                 ]
             )
+        if projection is not None:
+            if carrier_identity is None or projection_identity is None:
+                raise SmokeError("CK projection requires validated carrier and projection identity")
+            projection_module = _load_projection_module()
+            projection_json = projection_module._canonical_json(projection).decode("utf-8").removesuffix("\n")
+            identity_json = projection_module._canonical_json(projection_identity).decode("utf-8").removesuffix("\n")
+            launch_command.extend(
+                [
+                    "--ck-projection-json",
+                    projection_json,
+                    "--ck-projection-identity-json",
+                    identity_json,
+                ]
+            )
+        elif projection_identity is not None:
+            raise SmokeError("CK projection identity was supplied without a validated projection")
         environment = os.environ.copy()
         environment.update({key: str(value) for key, value in isolated_paths.items()})
         environment["CK_GODOT_4_7_2_BINARY"] = str(pinned_binary)
@@ -816,6 +948,8 @@ def run_skeletal_pose_smoke(
     report_path: Path,
     carrier_path: Path | None = None,
     command_path: Path | None = None,
+    projection_path: Path | None = None,
+    projection_cli_path: Path | None = None,
 ) -> dict[str, Any]:
     report_path = neutral_smoke._validate_report_destination(report_path)
     gallery = Path(gallery)
@@ -824,9 +958,15 @@ def run_skeletal_pose_smoke(
     command = None
     command_identity = None
     semantic_payload = None
+    projection = None
+    projection_identity_value = None
+    if (projection_path is None) != (projection_cli_path is None):
+        raise SmokeError("CK projection and its explicit Rust CLI path must be supplied together")
     if carrier_path is None:
         if command_path is not None:
             raise SmokeError("semantic pose command requires --carrier")
+        if projection_path is not None:
+            raise SmokeError("CK projection requires --carrier")
         selected = neutral_smoke._validate_profile_ids(profile_ids if profile_ids is not None else DEFAULT_PROFILE_IDS)
         _, payload = neutral_smoke.preflight(gallery, selected)
     else:
@@ -840,6 +980,19 @@ def run_skeletal_pose_smoke(
         carrier_avatar_records = _carrier_avatar_records(carrier)
         if tuple(carrier_identity["experiment_instance_ids"]) != instance_ids:
             raise SmokeError("validated carrier instance order is inconsistent")
+        if projection_path is not None:
+            _, projection, projection_identity_value = _validated_projection_input(
+                gallery,
+                Path(carrier_path),
+                carrier,
+                payload,
+                selected,
+                instance_ids,
+                carrier_identity,
+                carrier_avatar_records,
+                Path(projection_path),
+                Path(projection_cli_path),
+            )
         if command_path is not None:
             _, command, command_identity, semantic_payload = _validated_semantic_pose_command(
                 gallery,
@@ -850,13 +1003,34 @@ def run_skeletal_pose_smoke(
                 instance_ids,
                 Path(command_path),
             )
-    if command is None:
+    if projection is None and command is None:
         stdout, stderr, returncode, report = _launch_godot(
             gallery,
             selected,
             payload,
             carrier_identity,
             carrier_avatar_records,
+        )
+    elif projection is None:
+        stdout, stderr, returncode, report = _launch_godot(
+            gallery,
+            selected,
+            payload,
+            carrier_identity,
+            carrier_avatar_records,
+            command,
+            command_identity,
+            semantic_payload,
+        )
+    elif command is None:
+        stdout, stderr, returncode, report = _launch_godot(
+            gallery,
+            selected,
+            payload,
+            carrier_identity,
+            carrier_avatar_records,
+            projection=projection,
+            projection_identity=projection_identity_value,
         )
     else:
         stdout, stderr, returncode, report = _launch_godot(
@@ -868,13 +1042,35 @@ def run_skeletal_pose_smoke(
             command,
             command_identity,
             semantic_payload,
+            projection,
+            projection_identity_value,
         )
     if returncode != 0:
         raise SmokeError(f"Godot launcher returned exit code {returncode}; stdout={stdout!r}; stderr={stderr!r}")
     if report is None:
         raise SmokeError("Godot returned success without a skeletal-pose report")
-    if command is None:
+    if projection is None and command is None:
         _validate_report(report, payload, selected, carrier_identity, carrier_avatar_records)
+    elif projection is None:
+        _validate_report(
+            report,
+            payload,
+            selected,
+            carrier_identity,
+            carrier_avatar_records,
+            command,
+            command_identity,
+        )
+    elif command is None:
+        _validate_report(
+            report,
+            payload,
+            selected,
+            carrier_identity,
+            carrier_avatar_records,
+            projection=projection,
+            projection_identity=projection_identity_value,
+        )
     else:
         _validate_report(
             report,
@@ -884,6 +1080,8 @@ def run_skeletal_pose_smoke(
             carrier_avatar_records,
             command,
             command_identity,
+            projection,
+            projection_identity_value,
         )
     if carrier_path is None:
         _, post_payload = neutral_smoke.preflight(gallery, selected)
@@ -918,6 +1116,21 @@ def run_skeletal_pose_smoke(
                 or post_semantic_payload != semantic_payload
             ):
                 raise SmokeError("semantic pose command, carrier, or gallery changed during the skeletal-pose smoke; refusing to publish a success report")
+        if projection_path is not None:
+            _, post_projection, post_projection_identity = _validated_projection_input(
+                gallery,
+                Path(carrier_path),
+                post_carrier,
+                post_payload,
+                post_profiles,
+                post_instances,
+                post_carrier_identity,
+                _carrier_avatar_records(post_carrier),
+                Path(projection_path),
+                Path(projection_cli_path),
+            )
+            if post_projection != projection or post_projection_identity != projection_identity_value:
+                raise SmokeError("CK projection changed during the skeletal-pose smoke; refusing to publish a success report")
     neutral_smoke._publish_report(report_path, report)
     return report
 
@@ -927,6 +1140,8 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--gallery", required=True, type=Path, help="absolute completed structural gallery directory")
     parser.add_argument("--carrier", type=Path, help="optional absolute disposable avatar-input carrier path")
     parser.add_argument("--command", "--semantic-pose-command", dest="command_path", type=Path, help="optional absolute semantic-pose command; requires --carrier")
+    parser.add_argument("--projection", dest="projection_path", type=Path, help="optional absolute disposable CK projection; requires --carrier")
+    parser.add_argument("--ck-cli", dest="projection_cli_path", type=Path, help="explicit absolute native creature-kernel CLI path; requires --projection")
     parser.add_argument("--profile-id", action="append", dest="profile_ids", help="repeat exactly twice; defaults to the compact and tall frozen IDs")
     parser.add_argument("--report", required=True, type=Path, help="absolute report path")
     return parser
@@ -936,7 +1151,15 @@ def main(argv: list[str] | None = None) -> int:
     try:
         args = _parser().parse_args(argv)
         profile_ids = tuple(args.profile_ids) if args.profile_ids is not None else (None if args.carrier is not None else DEFAULT_PROFILE_IDS)
-        report = run_skeletal_pose_smoke(args.gallery, profile_ids, args.report, args.carrier, args.command_path)
+        report = run_skeletal_pose_smoke(
+            args.gallery,
+            profile_ids,
+            args.report,
+            args.carrier,
+            args.command_path,
+            args.projection_path,
+            args.projection_cli_path,
+        )
     except SmokeError as exc:
         print(f"skeletal pose smoke failed: {exc}", file=sys.stderr)
         return 2

@@ -1,6 +1,6 @@
 # Current operational handover
 
-Snapshot: 2026-08-28 NZST
+Snapshot: 2026-08-29 NZST
 
 This is a concise operational handoff for continuing the current runway in the
 Codex app. It is not a new authority owner: `docs/project/status.md` remains
@@ -58,16 +58,23 @@ the canonical owner of the active runway, and the required reading order in
   reports runtime-derived root/bone/quaternion readback that Python
   cross-validates; explicit-empty arguments fail closed. This remains
   experiment-only and makes no package/adapter/Readiness 3/contact/deformation/
-  performance/checkpoint claim. Current evidence is 7 command tests and 33
-  no-display tests with 12 expected skips; four
-  focused real-renderer cases (deterministic command rerun, alternate carrier
+  performance/checkpoint claim. A disposable CK/Rust-backed projection over
+  the same two ordered avatars is now implemented. It requires an explicit
+  absolute native executable, binds producer/source/carrier/gallery/pose/
+  artifact identities, records bounded successful `inspect-structure`
+  evidence, and is freshly rebuilt before launch and report publication. Its
+  identity is transport-only; this remains experiment evidence, not a durable
+  package schema, R3 activation, adapter, or host lock-in. Current evidence is
+  7 command tests, 12 projection tests and 41 no-display tests with 13 expected
+  renderer skips; four predecessor focused real-renderer cases (deterministic
+  command rerun, alternate carrier
   order, alternate requested order, and semantic injection) passed in 165.467s.
-  The final full Xvfb suite also passed all 33 tests without skips in 341.033s.
-  The next direct
-  slice is a disposable CK/Rust-backed package-shaped projection over existing
-  gallery artifacts, explicitly not a durable runtime package schema, R3
-  activation, adapter, or host lock-in. The bounded Godot feasibility
-  checkpoint remains the governing human checkpoint.
+  The new combined projection-plus-semantic-pose path passed on the real
+  renderer in 89.848s, and the final full Xvfb suite passed all 41 tests without
+  skips in 429.833s. The next direct slice is bounded semantic
+  contact and observable physical response between the two addressed avatars;
+  localized surface deformation follows on that established contact path. The
+  bounded Godot feasibility checkpoint remains the governing human checkpoint.
 - [PR #113](https://github.com/benhook1013/creature-kernel/pull/113) merged to
   `main` as squash commit `eb89245da137e54cc85f9cd564fbcdd6c45eac66` on
   2026-08-25. All three CI lanes passed before its merge. Ben's disposition
@@ -111,6 +118,13 @@ with named hardware and frame evidence, and demonstrate a CPU baseline plus a
 useful fallback. The
 [first host runtime evaluation](../research/first-host-runtime-evaluation.md)
 records the current evidence and unresolved trial questions.
+
+Ben flagged that the current lumpy surface may hide anything short of extreme
+deformation. The human-facing result must therefore make a moderate localized
+press and recovery legible without relying on a grotesque squash. Telemetry may
+establish mechanics but cannot replace that visual judgment; if the current
+surface masks the effect, use a smoother simplified humanoid trial region or
+leave the visual portion inconclusive rather than lowering the bar.
 
 Ben approved Godot 4.7.2 as the provisional first reference-host feasibility
 candidate after current Godot/Unity/Unreal/Bevy research and Double adversarial

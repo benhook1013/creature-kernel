@@ -204,6 +204,56 @@ rotation, with measured command error and complete local/global/`Skin` matrix
 counts; it is not an echoed selector list. The no-command and carrier-only paths
 remain unchanged predecessor paths.
 
+Build a disposable CK/Rust-backed projection from the same carrier and gallery
+with the workspace CLI. The CLI path is mandatory and must be an absolute,
+native WSL/Linux path to an executable regular non-symlink file; wrappers,
+relative paths, symlinks, and Windows-style paths are rejected:
+
+    cargo build -p creature-kernel-cli
+
+    CK_CURRENT_FORM_SURFACE_TMPDIR=/tmp \
+      experiments/current-form-surface-preview/surface_preview_launcher.sh \
+      experiments/godot-provisional-host-feasibility/disposable_ck_projection.py \
+      build \
+      --gallery /absolute/path/to/completed-gallery \
+      --carrier /absolute/path/to/disposable-avatar-carrier.json \
+      --output /absolute/path/to/disposable-ck-rust-projection.json \
+      --cli /absolute/path/to/target/debug/creature-kernel
+
+Validate that projection afresh against the carrier, gallery, and the same
+native CLI executable:
+
+    CK_CURRENT_FORM_SURFACE_TMPDIR=/tmp \
+      experiments/current-form-surface-preview/surface_preview_launcher.sh \
+      experiments/godot-provisional-host-feasibility/disposable_ck_projection.py \
+      validate \
+      --gallery /absolute/path/to/completed-gallery \
+      --carrier /absolute/path/to/disposable-avatar-carrier.json \
+      --projection /absolute/path/to/disposable-ck-rust-projection.json \
+      --cli /absolute/path/to/target/debug/creature-kernel
+
+The builder runs `inspect-structure` once for each of the two ordered source
+profiles, records its bounded success summary plus source and artifact lineage,
+and binds the executable SHA-256, byte count, operation, and format. It checks
+the Rust output envelope, structural contract/basis/profile identities, source
+identity, collection shapes, and summary cardinalities before compacting the
+evidence. It deliberately does not duplicate every Rust graph-member semantic
+inside Python: the exact hash-bound CK executable remains the structural
+validator. The builder rechecks the carrier, gallery sources, and executable
+after inspection; validation also requires an exact fresh rebuild. Publication
+is canonical JSON and does not overwrite an existing output.
+
+The skeletal runner accepts the projection only with its paired explicit
+`--ck-cli /absolute/path/to/target/debug/creature-kernel` input. It performs the
+same fresh projection validation before launch and again before publishing a
+success report; supplying either argument without the other fails closed.
+
+This projection is transport and evidence bookkeeping for this experiment only
+(`creature-kernel.disposable-ck-rust-projection.v1`, boundary
+`experiment_local_ck_projection_evidence_only`). It does not generate geometry
+or define a durable CK package, artifact/build identity, adapter, host contract,
+compatibility promise, Readiness 3 activation, or engine selection.
+
 On a Linux or WSL host with `xvfb-run` available, use a virtual display to
 exercise the same real-renderer path without opening a window. Set the existing
 native temporary-root override so inherited Windows `TEMP`/`TMP` warnings do
@@ -267,7 +317,7 @@ The disposable carrier suite contains 15 tests covering exact shape,
 deterministic canonical publication, strict bounded loading, both frozen profile
 pairs, instance identity, tampering and mixed-lineage rejection, and payload
 reconstruction, including deterministic symlink-swap read and publication
-regressions. The skeletal pose suite contains 33 tests covering both frozen
+regressions. The skeletal pose suite contains 41 tests covering both frozen
 profile pairs, complete `Skeleton3D`/`Skin` binding evidence, malformed and
 tampered inputs and reports, deterministic reruns, carrier load-through with
 one-to-one runtime-root read-back, real-process rejection of noncanonical
@@ -278,6 +328,10 @@ deterministic canonical bytes for both frozen profile pairs, strict field,
 rotation, and frame validation, lineage mismatch, and safe publication. The neutral and posed
 suites run their real Godot paths when the completed-gallery fixture and exact
 pinned binary are available.
+The 12-test disposable CK projection suite covers exact producer and transport
+identity, bounded subprocess output, fresh source/carrier/gallery/executable
+revalidation, deterministic publication, mutation rejection, and both frozen
+profile pairs against the native Rust CLI.
 Skeletal-pose integration additionally requires
 an active X11 display and `CK_ALLOW_VISIBLE_GODOT=1` to mark an attended run;
 otherwise those visible integration cases are skipped. All Godot probe suites

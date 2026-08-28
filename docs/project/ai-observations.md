@@ -1,6 +1,6 @@
 # AI observations
 
-Status: Operational inbox; 8 open observations
+Status: Operational inbox; 9 open observations
 
 Record only unexpected, evidenced operational friction that is recurring or
 likely to save future retries or work rounds. The main thread is the default
@@ -46,3 +46,7 @@ Copyable entry:
 - `2026-08-29 01:28 NZST`: Read-only mapping raced broad validation against active edits
   - Observation: An evidence mapper launched the 102-test and full Xvfb experiment suites while the main thread was editing the same worktree, producing stale parse and runtime failures while consuming the renderer needed for consolidated validation.
   - Expected pattern: Keep read-only mapping to static inspection unless broad validation is explicitly assigned; do not launch long tests against a mutable shared worktree, and leave integrated validation to the main thread.
+
+- `2026-08-29 02:14 NZST`: Native launcher repeatedly reported inherited Windows temp paths
+  - Observation: Two projection-tool runs through the repository launcher warned that inherited Windows `TEMP` and `TMP` paths were ignored before successfully selecting native Linux temporary storage.
+  - Expected pattern: Treat this known normalization as non-fatal, and prefer a launcher-side cleanup if the repeated warning continues to consume review attention; do not switch to bare system Python or Windows paths.

@@ -1,6 +1,6 @@
 # Project status
 
-Status date: 2026-08-28
+Status date: 2026-08-29
 
 ## Phase
 
@@ -50,14 +50,22 @@ file, applies it through semantic selectors, and reports runtime-derived
 root/bone/quaternion readback that Python cross-validates; explicit-empty
 arguments fail closed. This remains experiment-only and makes no
 package/adapter/Readiness 3/contact/deformation/performance/checkpoint claim.
-Current evidence is 7 command tests and 33 no-display tests with 12 expected
-skips; four focused real-renderer cases
+The disposable CK/Rust-backed projection over the same two ordered avatars is
+also implemented. It requires an explicit absolute native executable, binds
+that executable's digest/size and the exact source, carrier, gallery, pose and
+artifact identities, records bounded successful `inspect-structure` evidence,
+and is freshly rebuilt before launch and again before report publication. Its
+embedded identity is explicitly transport-only. This remains experiment-local
+evidence—not a durable package schema, R3 activation, adapter, or host lock-in.
+Current evidence is 7 command tests, 12 projection tests and 41 no-display tests
+with 13 expected renderer skips; four predecessor focused real-renderer cases
 (deterministic command rerun, alternate carrier order, alternate requested
-order, and semantic injection) passed in 165.467s. The final full Xvfb suite has
-also passed all 33 tests without skips in 341.033s.
-The next direct slice is a disposable CK/Rust-backed package-shaped projection
-over existing gallery artifacts, explicitly not a durable runtime package
-schema, R3 activation, adapter, or host lock-in.
+order, and semantic injection) passed in 165.467s. The combined
+projection-plus-semantic-pose path passed on the real renderer in 89.848s, and
+the final full Xvfb suite passed all 41 tests without skips in 429.833s. The
+next direct slice is bounded semantic contact and observable
+physical response between the two addressed avatars; localized surface
+deformation follows on that established contact path.
 The bounded Godot feasibility checkpoint remains the governing human checkpoint.
 
 Ben's qualified appraisal of the structural gallery was that it "looks good";
@@ -77,6 +85,14 @@ response, measure render/collision coherence with named hardware and frame
 evidence, and demonstrate a CPU baseline plus a useful fallback. The
 [first host runtime evaluation](../research/first-host-runtime-evaluation.md)
 records the current evidence and unresolved trial questions.
+
+Ben flagged that the current lumpy surface may hide anything short of extreme
+deformation. The human-facing result therefore must make a moderate localized
+press and recovery legible without relying on a grotesque squash. Structured
+displacement/contact/recovery evidence may establish mechanics, but it cannot
+substitute for the visual judgment: if the current surface masks the effect,
+use a smoother simplified humanoid trial region or leave the visual portion
+inconclusive rather than lowering the bar.
 
 Ben approved Godot 4.7.2 as the provisional first reference-host feasibility
 candidate after current Godot/Unity/Unreal/Bevy research and Double adversarial

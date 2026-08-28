@@ -20,6 +20,7 @@ HERE = Path(__file__).resolve()
 EXPERIMENT = HERE.parent
 REPOSITORY_ROOT = HERE.parents[2]
 GALLERY = Path(os.environ.get("CK_GODOT_STRUCTURAL_GALLERY", "/tmp/ck-godot-structural-inputs/gallery"))
+REAL_CLI = HERE.parents[2] / "target" / "debug" / "creature-kernel"
 DEFAULTS = ("compact_broad_short_limb_large_head", "tall_narrow_long_legged")
 ALTERNATE = ("slender_long_limb", "stocky_broad_chested")
 FAIL_CLOSED_PROJECTION_DIAGNOSTIC = (
@@ -58,10 +59,121 @@ def load_module(name: str, path: Path):
 smoke = load_module("skeletal_pose_smoke_under_test", EXPERIMENT / "run_skeletal_pose_smoke.py")
 sys.modules["run_structural_gallery_smoke"] = smoke.neutral_smoke
 carrier = load_module("disposable_avatar_carrier_for_skeletal_tests", EXPERIMENT / "disposable_avatar_carrier.py")
+sys.modules["disposable_avatar_carrier"] = carrier
+projection = load_module("disposable_ck_projection_for_skeletal_tests", EXPERIMENT / "disposable_ck_projection.py")
 semantic_command = load_module(
     "disposable_semantic_pose_command_for_skeletal_tests",
     EXPERIMENT / "disposable_semantic_pose_command.py",
 )
+
+
+def _projection_fixture(payload: dict, carrier_value: dict | None = None) -> tuple[dict, dict, dict, list[dict], tuple[str, str]]:
+    projected_payload = deepcopy(payload)
+    for profile in projected_payload["profiles"]:
+        profile_id = profile["profile_id"]
+        profile["artifacts"] = [
+            {
+                "path": f"{profile_id}/{name}",
+                "sha256": hashlib.sha256(f"{profile_id}/{name}".encode()).hexdigest(),
+                "bytes": index + 1,
+            }
+            for index, name in enumerate(smoke.EXPECTED_ARTIFACT_NAMES)
+        ]
+    records = deepcopy(CARRIER_AVATAR_RECORDS)
+    carrier_instances = [
+        {
+            **record,
+            "label": f"Fixture {record['profile_id']}",
+            "artifacts": deepcopy(profile["artifacts"]),
+            "metrics": deepcopy(profile["metrics"]),
+        }
+        for record, profile in zip(records, projected_payload["profiles"])
+    ]
+    carrier_value = carrier_value or {
+        "schema": carrier.SCHEMA,
+        "boundary": carrier.BOUNDARY,
+        "source_gallery": {
+            "projection_contract": projected_payload["projection_contract"],
+            "manifest_sha256": projected_payload["manifest_sha256"],
+            "manifest_bytes": projected_payload["manifest_bytes"],
+            "boundary": projected_payload["boundary"],
+        },
+        "shared_pose": {
+            "path": carrier.POSE_FILE,
+            "pose_id": projected_payload["pose_id"],
+            "sha256": projected_payload["pose_sha256"],
+            "bytes": 1,
+        },
+        "instances": carrier_instances,
+    }
+    carrier_value["schema"] = carrier.SCHEMA
+    carrier_module = SimpleNamespace(
+        SCHEMA=carrier.SCHEMA,
+        BOUNDARY=carrier.BOUNDARY,
+        _canonical_json=lambda value: (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode(),
+    )
+    carrier_identity = smoke._carrier_identity(carrier_value, carrier_module)
+    projection_body = {
+        "schema": projection.SCHEMA,
+        "boundary": projection.BOUNDARY,
+        "producer_identity": {
+            "sha256": "9" * 64,
+            "bytes": 1,
+            "operation": projection.RUST_OPERATION,
+            "format": projection.RUST_FORMAT,
+        },
+        "carrier_identity": {
+            "schema": carrier.SCHEMA,
+            "boundary": carrier.BOUNDARY,
+            "sha256": carrier_identity["sha256"],
+            "bytes": int(carrier_identity["byte_count_decimal"]),
+            "instance_ids": [record["instance_id"] for record in records],
+        },
+        "gallery_identity": {
+            "projection_contract": projected_payload["projection_contract"],
+            "manifest_sha256": projected_payload["manifest_sha256"],
+            "manifest_bytes": projected_payload["manifest_bytes"],
+            "boundary": projected_payload["boundary"],
+            "profile_ids": list(DEFAULTS),
+        },
+        "shared_pose": deepcopy(carrier_value["shared_pose"]),
+        "avatars": [
+            {
+                "instance_id": record["instance_id"],
+                "profile_id": record["profile_id"],
+                "label": f"Fixture {record['profile_id']}",
+                "candidate_profile_sha256": profile["candidate_profile_sha256"],
+                "source": {
+                    "path": f"sources/{record['profile_id']}.json",
+                    "sha256": "f" * 64,
+                    "bytes": 1,
+                    "document": f"fixture.{record['profile_id']}",
+                    "namespace": "fixture",
+                },
+                "rust_inspection": {},
+                "artifacts": deepcopy(profile["artifacts"]),
+                "metrics": deepcopy(profile["metrics"]),
+            }
+            for record, profile in zip(records, projected_payload["profiles"])
+        ],
+    }
+    projection_body_bytes = (json.dumps(projection_body, sort_keys=True, separators=(",", ":")) + "\n").encode()
+    identity = {
+        "scope": projection.PROJECTION_IDENTITY_SCOPE,
+        "sha256": hashlib.sha256(projection_body_bytes).hexdigest(),
+        "bytes": len(projection_body_bytes),
+    }
+    projection_value = {
+        "schema": projection_body["schema"],
+        "boundary": projection_body["boundary"],
+        "projection_identity": identity,
+        "producer_identity": projection_body["producer_identity"],
+        "carrier_identity": projection_body["carrier_identity"],
+        "gallery_identity": projection_body["gallery_identity"],
+        "shared_pose": projection_body["shared_pose"],
+        "avatars": projection_body["avatars"],
+    }
+    return projection_value, identity, carrier_value, records, DEFAULTS
 
 
 def _skeletal_validation_fixture() -> tuple[dict, dict]:
@@ -281,6 +393,193 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
                     None,
                     self.root / "command.json",
                 )
+
+    def test_ck_projection_requires_carrier_before_launch(self) -> None:
+        with patch.object(smoke, "_launch_godot", side_effect=AssertionError("Godot must not launch")):
+            with self.assertRaisesRegex(smoke.SmokeError, "CK projection requires --carrier"):
+                smoke.run_skeletal_pose_smoke(
+                    self.root,
+                    DEFAULTS,
+                    self.root / "report.json",
+                    None,
+                    None,
+                    self.root / "projection.json",
+                    self.root / "creature-kernel",
+                )
+
+    def test_ck_projection_requires_explicit_cli_path_before_launch(self) -> None:
+        with patch.object(smoke, "_launch_godot", side_effect=AssertionError("Godot must not launch")):
+            with self.assertRaisesRegex(smoke.SmokeError, "explicit Rust CLI path"):
+                smoke.run_skeletal_pose_smoke(
+                    self.root,
+                    DEFAULTS,
+                    self.root / "report.json",
+                    self.root / "carrier.json",
+                    None,
+                    self.root / "projection.json",
+                )
+
+    def test_ck_projection_cross_checks_fresh_carrier_payload_and_tampering(self) -> None:
+        payload, _report = _skeletal_validation_fixture()
+        projection_value, identity, carrier_value, records, profile_ids = _projection_fixture(payload)
+        carrier_module = SimpleNamespace(
+            SCHEMA=carrier.SCHEMA,
+            BOUNDARY=carrier.BOUNDARY,
+            _canonical_json=lambda value: (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode(),
+        )
+        carrier_identity = smoke._carrier_identity(carrier_value, carrier_module)
+        projection_module = SimpleNamespace(
+            ProjectionError=ValueError,
+            validate_projection=lambda *_args, **_kwargs: projection_value,
+            projection_identity=lambda _value: identity,
+        )
+        with patch.object(smoke, "_load_projection_module", return_value=projection_module):
+            result = smoke._validated_projection_input(
+                self.root,
+                self.root / "carrier.json",
+                carrier_value,
+                {**payload, "profiles": [{**profile, "artifacts": projection_value["avatars"][index]["artifacts"]} for index, profile in enumerate(payload["profiles"])]},
+                profile_ids,
+                tuple(record["instance_id"] for record in records),
+                carrier_identity,
+                records,
+                self.root / "projection.json",
+                self.root / "creature-kernel",
+            )
+        self.assertIs(result[1], projection_value)
+        self.assertIs(result[2], identity)
+
+        tampered = deepcopy(projection_value)
+        tampered["avatars"][0]["artifacts"] = []
+        with patch.object(
+            smoke,
+            "_load_projection_module",
+            return_value=SimpleNamespace(
+                ProjectionError=ValueError,
+                validate_projection=lambda *_args, **_kwargs: tampered,
+                projection_identity=lambda _value: identity,
+            ),
+        ):
+            with self.assertRaisesRegex(smoke.SmokeError, "artifacts disagree"):
+                smoke._validated_projection_input(
+                    self.root,
+                    self.root / "carrier.json",
+                    carrier_value,
+                    {**payload, "profiles": [{**profile, "artifacts": projection_value["avatars"][index]["artifacts"]} for index, profile in enumerate(payload["profiles"])]},
+                    profile_ids,
+                    tuple(record["instance_id"] for record in records),
+                    carrier_identity,
+                    records,
+                    self.root / "projection.json",
+                    self.root / "creature-kernel",
+                )
+
+    def test_report_rejects_projection_fields_without_projection_mode(self) -> None:
+        payload, report = _skeletal_validation_fixture()
+        report["validated_ck_projection"] = {"unexpected": True}
+        with self.assertRaisesRegex(smoke.SmokeError, "unexpected CK projection identity"):
+            smoke._validate_report(report, payload, DEFAULTS)
+
+        payload, report = _skeletal_validation_fixture()
+        report["profiles"][0]["ck_projection_binding"] = {}
+        with self.assertRaisesRegex(smoke.SmokeError, "unexpected CK projection binding"):
+            smoke._validate_report(report, payload, DEFAULTS)
+
+    def test_projection_report_fields_are_exactly_validated(self) -> None:
+        payload, report = _skeletal_validation_fixture()
+        projection_value, identity, _carrier_value, _records, _profile_ids = _projection_fixture(payload)
+        report["validated_ck_projection"] = deepcopy(identity)
+        bindings = smoke._projection_bindings(projection_value)
+        for index, binding in enumerate(bindings):
+            report["profiles"][index]["ck_projection_binding"] = deepcopy(binding)
+        smoke._validate_report(report, payload, DEFAULTS, projection=projection_value, projection_identity=identity)
+        report["profiles"][0]["ck_projection_binding"]["source"]["bytes"] = 2
+        with self.assertRaisesRegex(smoke.SmokeError, "CK projection binding is invalid"):
+            smoke._validate_report(report, payload, DEFAULTS, projection=projection_value, projection_identity=identity)
+
+    def test_projection_postflight_change_fails_before_publication(self) -> None:
+        payload, report = _skeletal_validation_fixture()
+        projection_value, identity, carrier_value, records, profile_ids = _projection_fixture(payload)
+        carrier_module = SimpleNamespace(
+            SCHEMA=carrier.SCHEMA,
+            BOUNDARY=carrier.BOUNDARY,
+            _canonical_json=lambda value: (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode(),
+        )
+        validated = (carrier_module, carrier_value, payload, profile_ids, tuple(record["instance_id"] for record in records))
+        changed = deepcopy(projection_value)
+        changed["avatars"][0]["label"] = "changed-after-launch"
+        with (
+            patch.object(smoke, "_validated_carrier_input", side_effect=[validated, validated]),
+            patch.object(smoke, "_validated_projection_input", side_effect=[(None, projection_value, identity), (None, changed, identity)]),
+            patch.object(smoke, "_launch_godot", return_value=("", "", 0, report)),
+            patch.object(smoke, "_validate_report"),
+            patch.object(smoke.neutral_smoke, "_publish_report") as publish,
+        ):
+            with self.assertRaisesRegex(smoke.SmokeError, "CK projection changed"):
+                smoke.run_skeletal_pose_smoke(
+                    self.root,
+                    None,
+                    self.root / "report.json",
+                    self.root / "carrier.json",
+                    None,
+                    self.root / "projection.json",
+                    self.root / "creature-kernel",
+                )
+        publish.assert_not_called()
+
+    def test_projection_and_semantic_command_transport_uses_exact_json_arguments(self) -> None:
+        payload, _report = _skeletal_validation_fixture()
+        projection_value, projection_identity, _carrier_value, records, profile_ids = _projection_fixture(payload)
+        carrier_identity = deepcopy(CARRIER_IDENTITY)
+        command = {"command": "fixture"}
+        command_identity = {"sha256": "c" * 64}
+        semantic_payload = {"rules": []}
+        serializer = lambda value: (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode()
+        command_module = SimpleNamespace(_canonical_json=serializer)
+        projection_module = SimpleNamespace(_canonical_json=serializer)
+        with tempfile.TemporaryDirectory(prefix="ck-godot-projection-args-") as temporary:
+            root = Path(temporary)
+            project_file = root / "project.godot"
+            script_file = root / "skeletal_pose_smoke.gd"
+            launcher = root / "godot-launcher"
+            project_file.write_text("[application]\n", encoding="utf-8")
+            script_file.write_text("extends SceneTree\n", encoding="utf-8")
+            launcher.write_text("", encoding="utf-8")
+            launcher.chmod(0o755)
+            with (
+                patch.object(smoke.neutral_smoke, "PROJECT_FILE", project_file),
+                patch.object(smoke, "GODOT_SCRIPT", script_file),
+                patch.object(smoke.neutral_smoke, "LAUNCHER", launcher),
+                patch.object(smoke.neutral_smoke, "_resolve_pinned_binary", return_value=launcher),
+                patch.object(smoke, "_load_command_module", return_value=command_module),
+                patch.object(smoke, "_load_projection_module", return_value=projection_module),
+                patch.object(smoke.neutral_smoke, "_read_report", return_value={}),
+                patch.object(smoke.neutral_smoke, "_has_godot_error_diagnostics", return_value=False),
+                patch.dict(os.environ, {smoke.VISIBLE_GODOT_OPT_IN: "1"}),
+                patch.object(subprocess, "run", return_value=subprocess.CompletedProcess([], 0, "", "")) as run,
+            ):
+                smoke._launch_godot(
+                    self.root,
+                    profile_ids,
+                    payload,
+                    carrier_identity,
+                    records,
+                    command,
+                    command_identity,
+                    semantic_payload,
+                    projection_value,
+                    projection_identity,
+                )
+        command_line = run.call_args.args[0]
+        self.assertEqual(
+            command_line[command_line.index("--ck-projection-json") + 1],
+            serializer(projection_value).decode().removesuffix("\n"),
+        )
+        self.assertEqual(
+            command_line[command_line.index("--ck-projection-identity-json") + 1],
+            serializer(projection_identity).decode().removesuffix("\n"),
+        )
+        self.assertNotIn("\n", command_line[command_line.index("--ck-projection-json") + 1])
 
     def test_integration_availability_probe_times_out_fail_closed(self) -> None:
         with (
@@ -964,6 +1263,40 @@ class SkeletalPoseSmokeIntegrationTests(unittest.TestCase):
             self.assertEqual(injection["global_pose_matches_published"], smoke.BONE_COUNT)
             self.assertEqual(injection["skin_matrices_match_published"], smoke.BONE_COUNT)
             self.assertTrue(injection["applied"])
+
+    def test_real_projection_and_semantic_pose_command_share_exact_identity(self) -> None:
+        if not REAL_CLI.is_file() or not os.access(REAL_CLI, os.X_OK):
+            self.skipTest("debug Creature Kernel CLI unavailable for the real projection path")
+        with tempfile.TemporaryDirectory(prefix="ck-godot-projection-semantic-pose-") as temporary:
+            root = Path(temporary)
+            carrier_path = root / "carrier.json"
+            projection_path = root / "projection.json"
+            command_path = root / "command.json"
+            carrier_value = carrier.build_carrier(GALLERY, DEFAULTS, ("projection-left", "projection-right"))
+            carrier.write_carrier(carrier_path, carrier_value)
+            projection_value = projection.build_projection(
+                GALLERY,
+                carrier_path,
+                cli_path=REAL_CLI,
+            )
+            projection.write_projection(projection_path, projection_value)
+            command_value = semantic_command.build_command(GALLERY, carrier_path)
+            semantic_command.write_command(command_path, command_value)
+            report = smoke.run_skeletal_pose_smoke(
+                GALLERY,
+                None,
+                root / "report.json",
+                carrier_path,
+                command_path,
+                projection_path,
+                REAL_CLI,
+            )
+        self.assertEqual(report["validated_ck_projection"], projection.projection_identity(projection_value))
+        self.assertEqual(
+            [profile["ck_projection_binding"] for profile in report["profiles"]],
+            smoke._projection_bindings(projection_value),
+        )
+        self.assertTrue(all(profile["semantic_pose_injection"]["applied"] for profile in report["profiles"]))
 
     def test_real_command_mode_does_not_read_shared_pose_file_after_injection(self) -> None:
         with tempfile.TemporaryDirectory(prefix="ck-godot-semantic-pose-no-fallback-") as temporary:
