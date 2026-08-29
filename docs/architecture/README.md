@@ -179,7 +179,13 @@ component locations provide semantic provenance; raw lexical spelling is not
 recovered. The internal `frame_preparation` adapter cannot bypass record-level
 admission. No dependency/module expansion, basis/unit application, quaternion
 semantics, claims/snapshots/serialization, resolver, or Readiness 3 activation
-exists.
+exists. A provisional CLI-local implementation boundary now transports a non-empty,
+caller-ordered collection of unique `instance_id` and already prepared
+single-source pairs in memory; it retains no raw source bytes and defines no
+runtime package, profile, resolver, or host-adapter contract. Its thin
+`inspect-runtime-input` debug CLI requires the existing single-source
+preparation operation for every source, emits compact machine-oriented JSON,
+accepts at most 64 pairs per invocation, and permits `-` for stdin at most once.
 See the [current review state](../project/status.md#current-review-and-future-activation-obligations)
 for recommendations and findings. The
 four readiness stages are: DR-0013 acceptance activated Readiness 1 for the
@@ -291,9 +297,9 @@ revise any decision record.
 The target architecture remains pre-implementation beyond the active Readiness
 1 shell and the admitted Readiness 2 schema/manifest/fixture/parser/bootstrap/
 preflight transaction. The provisional structural address/index, validator,
-inspection command, and single-source preparation API remain preparatory
-implementation outside Readiness 3. The internal numeric/frame-preparation
-adapters are not public admission routes and do not activate numeric
-semantics. The remaining
+inspection commands, single-source preparation API, and CLI-local runtime-input handoff
+remain preparatory implementation outside Readiness 3. The internal numeric/
+frame-preparation adapters are not public admission routes and do not activate
+numeric semantics. The remaining
 component names describe provisional responsibility boundaries, not activated
 Readiness 3 packages, processes, repositories, or technologies.

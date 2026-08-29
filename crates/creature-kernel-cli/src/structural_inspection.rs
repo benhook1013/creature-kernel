@@ -98,6 +98,11 @@ fn help_response(arguments: &[String]) -> Option<Value> {
                     "description": "Inspect bounded source preparation and emit its provisional debug projection."
                 },
                 {
+                    "command": "inspect-runtime-input",
+                    "usage": "creature-kernel inspect-runtime-input (--instance <id> --source <path>)+",
+                    "description": "Inspect an ordered provisional runtime-input handoff from repeated instance/source pairs."
+                },
+                {
                     "command": "inspect-provisional-form",
                     "usage": "creature-kernel inspect-provisional-form --input <path> (use '-' for stdin)",
                     "description": "Inspect four fixed display-only provisional filled-form variants."
@@ -745,7 +750,7 @@ mod tests {
     }
 
     #[test]
-    fn top_level_help_advertises_both_inspection_commands() {
+    fn top_level_help_advertises_inspection_commands() {
         let output = run_cli(["--help"]);
         let value: Value = provisional_json::from_str(&output.json).unwrap();
         let commands = value["help"]["commands"].as_array().unwrap();
@@ -758,6 +763,7 @@ mod tests {
             vec![
                 "inspect-structure",
                 "inspect-prepared-source",
+                "inspect-runtime-input",
                 "inspect-provisional-form"
             ]
         );

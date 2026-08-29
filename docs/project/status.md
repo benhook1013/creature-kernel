@@ -119,8 +119,20 @@ checkpoint. The next direct prerequisite already recorded in this runway is
 preparation of the direct Rust and engine-neutral package prerequisites; no
 new direction is introduced here.
 
+The current direct Rust prerequisite slice is in
+`/home/ben/src/creature-kernel-worktrees/engine-neutral-runtime-input` on
+branch `codex/engine-neutral-runtime-input`. Its provisional CLI-local in-memory handoff
+transports a non-empty, caller-ordered collection of unique `instance_id` and
+already prepared single-source pairs; it retains no raw source bytes. The thin
+`inspect-runtime-input` debug CLI requires every source to complete the existing
+single-source preparation operation, emits compact machine-oriented JSON,
+accepts at most 64 pairs per invocation, and permits `-` for stdin at most once.
+This is provisional prepared-source transport and debug
+instrumentation only—not a stable wire contract, runtime package, resolver
+snapshot, profile, adapter, or Readiness 3 activation.
+
 Proposed/provisional deformation and render/collision coherence evidence only:
-the current deformation slice adds a deterministic smooth open forearm sleeve
+The current deformation slice adds a deterministic smooth open forearm sleeve
 to the response body, drives a localized spatial falloff from the retained
 runtime contact sample to a fixed five-percent-of-radius peak depth, and
 restores the exact reference vertices after release. The rigid capsule remains
