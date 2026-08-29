@@ -13,22 +13,27 @@ the canonical owner of the active runway, and the required reading order in
   2026-08-29T10:51:22Z as squash commit
   `12d193f19c2d0dc3f9ba9f09fe4466e5109679b9`. Documentation and Rust CI passed;
   committed-diff CodeRabbit CLI review found no issues, while hosted review was
-  rate-limited and non-gating. Primary `main` and `origin/main` were
-  fast-forwarded and clean.
+  rate-limited. PR #121 later merged as squash commit
+  `e9017e14df44bab0008a48102993eff85d5f4853` after a hosted-plus-CLI cycle on
+  its pre-fix head, review fixes, internal review, hands-on trials, and green
+  CI. Its final follow-up head did not receive the now-required hosted taper
+  pass before administrator merge; Ben identified that as a process failure,
+  not precedent. Primary `main` and `origin/main` are clean at PR #121.
 - [PR #115](https://github.com/benhook1013/creature-kernel/pull/115) recorded the
   provisional Godot runway and CodeRabbit configuration. CodeRabbit installation
   and repository configuration are live. A hosted full review of commit
   `5ed8ae8e447788d80fd2a6091752dc32c83a1a99` was requested at
   2026-08-26T05:12:39Z and completed at 2026-08-26T05:17:43Z with two localized
   correctness findings; both were fixed before the squash merge. The workflow
-  records Ben's explicit 2026-08-27 authorization for the main thread to invoke
-  CodeRabbit only for deliberate advisory, non-gating review near completion of
-  a substantial coherent PR. Automatic reviews remain disabled in
-  `.coderabbit.yaml`. Final readiness uses hosted and committed-diff CLI review
-  in parallel as one cycle; pushing waits while hosted reviews hold an immutable
-  head, and bounded follow-up cycles continue until findings taper. Creature
-  Kernel limits are independent of FireMUD. These reviews do not replace
-  internal review, hands-on trials, validation, CI, human, or merge gates.
+  records Ben's explicit 2026-08-27 authorization for deliberate main-thread
+  CodeRabbit review near completion of a substantial coherent PR. Automatic
+  reviews remain disabled in `.coderabbit.yaml`. Ben clarified on 2026-08-30
+  that hosted finding taper is the procedural merge gate: hosted and
+  committed-diff CLI run in parallel on an immutable head, but CLI supports
+  the hosted cycles and cannot replace them. Rate limiting means wait or obtain
+  Ben's explicit waiver. Creature Kernel limits are independent of FireMUD.
+  These reviews do not replace internal review, hands-on trials, validation,
+  CI, human, or merge gates.
 - The visual-review systemd service is active from
   `/home/ben/src/creature-kernel`. The completed structural checkpoint remains
   at `http://localhost:8765/review/shared-pose-structural-embodiment-gallery`.

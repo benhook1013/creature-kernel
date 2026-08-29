@@ -91,15 +91,22 @@ useful. This lane does not authorize product or architecture drift, external
 side effects, DR acceptance, or endless review-until-clean loops. Bounded
 near-completion external-review follow-up cycles may continue while material
 findings surface or taper, subject to the stop criteria in the workflow below.
-Ben explicitly authorized main-thread CodeRabbit advisory review on 2026-08-27
-and directed on 2026-08-28 that, once a substantial coherent PR is ready for
-final review, hosted and committed-diff CLI reviews run in parallel. The
-external-review workflow below defines that pair as one deliberate,
-non-gating cycle; its hosted pass reviews an immutable pushed head, so the
-remote PR head must not change until both results complete. Creature Kernel's
-hosted and CLI limits are independent of FireMUD's: do not ration or delay
-Creature Kernel cycles to preserve another repository's allowance, and do not
-mutate another project.
+Ben explicitly authorized main-thread CodeRabbit review on 2026-08-27 and
+directed on 2026-08-28 that, once a substantial coherent PR is ready for final
+review, hosted and committed-diff CLI reviews run in parallel. Ben clarified
+on 2026-08-30 that hosted finding taper is a procedural merge gate for a
+substantial PR. Individual findings remain advisory and require main-thread
+verification and disposition, but the PR does not merge until successive
+hosted passes produce no new material findings or only repeated,
+non-actionable, disproportionate, or out-of-scope findings. The CLI pass is
+supporting coverage intended to reduce later hosted findings; it cannot
+replace or satisfy the hosted taper gate. Each hosted pass reviews an
+immutable pushed head, so the remote PR head must not change until the paired
+hosted and CLI results complete. If hosted review is unavailable or
+rate-limited, wait for allowance or obtain Ben's explicit waiver before merge.
+Creature Kernel's hosted and CLI limits are independent of FireMUD's: do not
+ration or delay Creature Kernel cycles to preserve another repository's
+allowance, and do not mutate another project.
 Subagents remain bounded executors or reviewers and cannot make product or
 architecture decisions independently. Until Revision 6 is accepted, the
 current accepted DR-0001 safety and human-ownership controls remain in force.
@@ -112,6 +119,16 @@ Ben directs the project to finish machinery and return to implementation, that
 is a binding prioritization constraint; do not continue discretionary process
 refinement.
 
+Normally keep adjacent internal work on one substantial coherent runway PR
+per real-life day instead of terminating a PR whenever one bounded slice
+passes. Bundle directly related implementation, tests, documentation, and
+tooling while the result remains reviewable and does not cross a human
+checkpoint or retained-human boundary. File count is not a quota, but repeated
+PRs below roughly 20 files are a prompt to justify why bundling would be unsafe
+or incoherent. Separate a smaller PR when it is an independently urgent fix,
+materially risky and easier to review alone, blocked from the remaining work,
+or the larger branch would become too broad to validate reliably.
+
 When Ben authorizes an autonomous runway of small PRs toward a named human
 checkpoint, record that checkpoint in `docs/project/status.md` before merging
 along the runway. Merge authority applies only within that recorded runway and
@@ -122,6 +139,11 @@ that reaches the named human-visible checkpoint, changes user-visible
 CLI/viewer/API behavior intended for Ben's appraisal, or crosses any
 retained-human boundary. Present that candidate and its review findings to Ben
 first.
+
+Do not enable GitHub auto-merge or use administrator bypass as a routine merge
+path. If ordinary merge remains blocked by repository protection after the
+recorded gates pass, report the exact protection and wait for Ben unless he
+explicitly authorizes bypass for that PR.
 
 Routine developer instrumentation, CLI JSON, metadata tables, diagnostics, and
 correctness plumbing remain autonomous implementation even when surfaced in a

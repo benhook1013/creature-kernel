@@ -55,8 +55,8 @@ built. Review, tests, experiments, and evidence remain active and risk-scaled.
 The lane supports extended research/implementation/test/review cycles until a
 tangible milestone or a retained-human choice requires a handoff; it does not
 run endless theoretical or review-until-clean loops. The bounded CodeRabbit
-workflow below permits near-completion review/fix follow-ups while material
-findings continue to surface or taper, with explicit stop criteria.
+workflow below makes hosted-finding taper a substantial-PR merge gate and uses
+committed-diff CLI review as supporting coverage, with explicit stop criteria.
 
 Routine developer instrumentation, CLI JSON, metadata tables, diagnostics, and
 correctness plumbing remain autonomous implementation even when surfaced in a
@@ -425,9 +425,14 @@ coherent PR reaches final review readiness (implementation and local/internal
 checks are sufficiently complete), hosted and committed-diff CLI CodeRabbit
 reviews should be launched in parallel. Do not conserve an available hosted
 round merely because the CLI review is also running. Only the main thread may
-invoke CodeRabbit autonomously, and its result is non-gating: it is not a
-Creature Kernel dependency or a merge gate. Automatic initial and incremental
-reviews remain disabled in `.coderabbit.yaml`, as do automatic chat replies.
+invoke CodeRabbit autonomously. Ben clarified on 2026-08-30 that hosted finding
+taper is a procedural merge gate for substantial PRs. Individual findings are
+advisory and require verification and explicit disposition, but a substantial
+PR does not merge until hosted cycles reach the taper stop condition below.
+Committed-diff CLI review is supporting coverage that should expose issues
+before later hosted rounds; CLI success cannot replace hosted review or
+satisfy the hosted taper gate. Automatic initial and incremental reviews remain
+disabled in `.coderabbit.yaml`, as do automatic chat replies.
 
 One deliberate CodeRabbit cycle is the parallel hosted-plus-CLI pair. Hosted
 reviews a pushed immutable PR head. Before launching the pair, fetch the PR
@@ -437,16 +442,17 @@ is running, the main thread may inspect local findings and prepare local fixes,
 but must not push or mutate the remote PR head until the hosted pass completes.
 After both results complete, the main thread consolidates and dispositions
 findings, validates fixes, pushes the next reviewed head, and promptly launches
-another useful hosted-plus-CLI cycle while material findings continue or taper
-and service allowance permits. Creature Kernel's hosted and CLI limits are
-known to be independent of FireMUD's; do not ration or delay Creature Kernel
-review cycles to preserve allowance for another repository. Do not mutate
-another project.
-Continue only while material findings surface or taper; stop when remaining
-comments are repeats, non-actionable, disproportionate, or out of scope, or
-when no material findings remain. Unattended timers and automatic looping are
-prohibited. If CodeRabbit is unavailable or rate-limited, record that honestly
-and continue with the remaining review gates. Subagents may invoke or post
+another hosted-plus-CLI cycle when allowance is available. Continue while a
+hosted pass produces new material findings. Hosted taper is reached when a
+fresh hosted pass produces no new material findings or only repeats,
+non-actionable findings, disproportionate suggestions, or out-of-scope items;
+record the disposition of anything remaining. Unattended timers and automatic
+looping are prohibited. If hosted CodeRabbit is unavailable or rate-limited,
+record that honestly and wait for allowance while doing safe non-conflicting
+work; do not merge without an explicit Ben waiver. Creature Kernel's hosted
+and CLI limits are known to be independent of FireMUD's; do not ration or
+delay Creature Kernel review cycles to preserve allowance for another
+repository. Do not mutate another project. Subagents may invoke or post
 CodeRabbit only when an exact action is explicitly delegated.
 
 Keep the immutable-head restriction until the hosted pass reports a terminal
@@ -461,9 +467,9 @@ When warranted, use `coderabbit review --agent --committed` with
 `--base <remote>/<base-ref>` against a fetched remote-tracking base. The main
 thread still runs tests and hands-on trials, obtains internal independent
 review, explicitly dispositions findings, and preserves CI and human/merge
-gates. CodeRabbit does not replace those controls; explain any deliberate skip
-in the end-of-PR review record. Do not mutate another project to coordinate
-allowance.
+gates. Hosted taper supplements rather than replaces those controls. A waiver
+requires Ben's explicit authorization and must be recorded in the end-of-PR
+review record. Do not mutate another project to coordinate allowance.
 
 Other hosted review services still require explicit human authorization before
 agents install, enable, configure, invoke, or submit repository content to them.
