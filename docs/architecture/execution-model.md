@@ -274,7 +274,7 @@ semantic provenance; raw lexical provenance is outside the projection. This
 operation does not expand dependencies or modules, apply basis/unit or
 quaternion semantics, produce claims, snapshots, or serialization, or activate
 the resolver. `frame_preparation` is internal implementation detail, so no
-record-level admission bypass is public. The provisional runtime-input handoff
+record-level admission bypass is public. The provisional CLI-local runtime-input handoff
 then transports a non-empty, caller-ordered collection of unique `instance_id`
 and already prepared single-source pairs in memory. It retains no raw source
 bytes and defines no package, resolver snapshot, profile, serialization, or

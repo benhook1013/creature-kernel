@@ -167,7 +167,7 @@ the canonical owner of the active runway, and the required reading order in
 - A parallel direct-prerequisite worktree is
   `/home/ben/src/creature-kernel-worktrees/engine-neutral-runtime-input` on
   branch `codex/engine-neutral-runtime-input`. At this handover snapshot its
-  committed Rust slice adds a provisional in-memory prepared-source transport
+  committed Rust slice adds a provisional CLI-local in-memory prepared-source transport
   that retains caller order for uniquely identified, already prepared
   single-source projections; it retains no raw source bytes. The thin
   `inspect-runtime-input` CLI accepts repeated

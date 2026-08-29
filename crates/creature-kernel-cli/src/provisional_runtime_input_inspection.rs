@@ -4,13 +4,13 @@
 //! preparation operation and the provisional ordered handoff.  Its output is a
 //! bounded debug envelope, not a runtime-input or package serialization.
 
+use crate::provisional_runtime_input::{
+    ProvisionalRuntimeAvatarInput, ProvisionalRuntimeInputError, handoff_provisional_runtime_input,
+};
 use creature_kernel_core::body_document::{Diagnostic, ResourceProfile, Status};
 use creature_kernel_core::body_graph::OwnerRoleKey;
 use creature_kernel_core::frame::{self, SignedAxis};
 use creature_kernel_core::provisional_json::{Map, Value, json};
-use creature_kernel_core::provisional_runtime_input::{
-    ProvisionalRuntimeAvatarInput, ProvisionalRuntimeInputError, handoff_provisional_runtime_input,
-};
 use creature_kernel_core::semantic_address::AddressKey;
 use creature_kernel_core::source_preparation::{
     PositionComponent, PreparedSingleSource, SourceNumericCause, SourceNumericLocation,

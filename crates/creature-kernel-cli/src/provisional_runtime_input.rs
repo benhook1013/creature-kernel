@@ -9,8 +9,8 @@
 //! Readiness 3 implementation. It carries no additional metadata and does not
 //! prepare source bytes.
 
-use crate::source_preparation::PreparedSingleSource;
 use core::fmt;
+use creature_kernel_core::source_preparation::PreparedSingleSource;
 use std::collections::BTreeSet;
 
 /// Failure while constructing the provisional runtime-input handoff.
@@ -45,7 +45,7 @@ impl std::error::Error for ProvisionalRuntimeInputError {}
 ///
 /// The prepared source is moved into this owned handoff. It remains the
 /// source-linked projection produced by
-/// [`crate::source_preparation::prepare_single_source`]; this type does not
+/// [`creature_kernel_core::source_preparation::prepare_single_source`]; this type does not
 /// promote it to a resolved snapshot or package.
 #[derive(Clone, Debug)]
 pub struct ProvisionalRuntimeAvatarInput {
@@ -137,8 +137,8 @@ pub fn handoff_provisional_runtime_input(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::body_document::ResourceProfile;
-    use crate::source_preparation::prepare_single_source;
+    use creature_kernel_core::body_document::ResourceProfile;
+    use creature_kernel_core::source_preparation::prepare_single_source;
 
     const BASE_SOURCE: &[u8] =
         include_bytes!("../../../examples/body-documents/stylized-digitigrade-biped.json");
@@ -244,7 +244,7 @@ mod tests {
         let source_error = prepare_single_source(br"{", ResourceProfile::ORDINARY).unwrap_err();
         assert!(matches!(
             source_error,
-            crate::source_preparation::SourcePreparationError::Admission(_)
+            creature_kernel_core::source_preparation::SourcePreparationError::Admission(_)
         ));
     }
 }

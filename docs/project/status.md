@@ -121,7 +121,7 @@ new direction is introduced here.
 
 The current direct Rust prerequisite slice is in
 `/home/ben/src/creature-kernel-worktrees/engine-neutral-runtime-input` on
-branch `codex/engine-neutral-runtime-input`. Its provisional in-memory handoff
+branch `codex/engine-neutral-runtime-input`. Its provisional CLI-local in-memory handoff
 transports a non-empty, caller-ordered collection of unique `instance_id` and
 already prepared single-source pairs; it retains no raw source bytes. The thin
 `inspect-runtime-input` debug CLI requires every source to complete the existing
