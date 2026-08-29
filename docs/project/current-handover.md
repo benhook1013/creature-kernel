@@ -75,21 +75,32 @@ the canonical owner of the active runway, and the required reading order in
   artifact identities, records bounded successful `inspect-structure`
   evidence, and is freshly rebuilt before launch and report publication. Its
   identity is transport-only; this remains experiment evidence, not a durable
-  package schema, R3 activation, adapter, or host lock-in. Current evidence is
-  9 focused contact-command tests, 12 projection tests, and 48 no-display tests
-  with 14 expected display skips; the final focused real contact integration
-  passed in 182.453s. The earlier four predecessor focused real-renderer cases
+  package schema, R3 activation, adapter, or host lock-in. Predecessor focused
+  evidence includes 9 contact-command tests and 12 projection tests. The
+  current runner file passes 58 tests with 16 expected display skips; the final
+  focused real contact integration passed in 182.453s. The earlier four
+  predecessor focused real-renderer cases
   (deterministic command rerun, alternate carrier order, alternate requested
   order, and semantic injection) passed in 165.467s. The combined
   projection-plus-semantic-pose path passed on the real renderer in 89.848s,
   and the final predecessor full Xvfb suite passed all 41 tests without skips
-  in 429.833s. This contact result proves only bounded experiment-local
-  semantic contact and physical response. It does not prove deformation,
-  visual quality, package/adapter/R3/performance, permanent Godot/Jolt
-  selection, or the human checkpoint. The next direct slice is moderate
-  localized press/release deformation and recovery, using a smoother simplified
-  humanoid trial region if the current lumpy surface masks the effect. The
-  bounded Godot feasibility checkpoint remains the governing human checkpoint.
+  in 429.833s. The current deformation slice adds a smooth open forearm sleeve,
+  actual-contact-driven localized falloff to a fixed five-percent-of-radius
+  depth, exact release recovery, independent Python reconstruction, and three
+  screened fixed-view static-replay captures of runtime read-back states, not
+  live contact rendering. The immutable human review is
+  `http://localhost:8765/review/godot-semantic-deformation-reference-peak-recovered-v4`.
+  Ben's 2026-08-29 appraisal was that it "shows what you intend clear I think
+  despite it being a slight deformation"; its guide is accurately labelled a
+  red ring. This is successful evidence only for slight smooth deformation at
+  the open sleeve edge and exact recovery. The rigid capsule remains
+  undeformed; the result does not prove mid-surface flesh indentation,
+  realistic tissue, render/collision coherence, performance,
+  package/adapter/R3, permanent Godot/Jolt selection, or the human checkpoint.
+  The next direct slice is bounded render/collision coherence evidence at
+  neutral/contact/peak/recovery, followed by the declared hardware, timing,
+  CPU-baseline, and useful-fallback evidence. The bounded Godot feasibility
+  checkpoint remains the governing human checkpoint.
 - [PR #113](https://github.com/benhook1013/creature-kernel/pull/113) merged to
   `main` as squash commit `eb89245da137e54cc85f9cd564fbcdd6c45eac66` on
   2026-08-25. All three CI lanes passed before its merge. Ben's disposition

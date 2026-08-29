@@ -4,8 +4,12 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter
+import ctypes
+import errno
 import hashlib
 import importlib.util
+from io import BytesIO
 import json
 import math
 import os
@@ -15,6 +19,8 @@ import subprocess
 import sys
 import tempfile
 from typing import Any
+
+from PIL import Image, UnidentifiedImageError
 
 
 sys.dont_write_bytecode = True
@@ -239,6 +245,52 @@ CONTACT_EVIDENCE_KEYS = {
     "physics_configuration",
     "solver_impulses",
     "response",
+}
+DEFORMATION_REPORT_BOUNDARY = "experiment_local_contact_driven_smooth_forearm_surface_deformation"
+DEFORMATION_REPORT_CLAIM = (
+    "experiment-local contact-driven smooth forearm surface deformation, exact recovery, and static replay "
+    "captures of runtime read-back states"
+)
+DEFORMATION_REPORT_CLAIMS = CONTACT_REPORT_CLAIMS + [DEFORMATION_REPORT_CLAIM]
+DEFORMATION_REPORT_FLAGS = {
+    "physics_stepping": True,
+    "animation": False,
+    "contact": True,
+    "deformation": True,
+    "render_output": True,
+    "adapter": False,
+}
+DEFORMATION_SURFACE_KIND = "proxy-derived-smooth-forearm"
+DEFORMATION_SURFACE_ATTACHMENT = "child-of-contact-response-body"
+DEFORMATION_SURFACE_COLLISION_MODE = "rigid-selected-capsule-not-deformed"
+DEFORMATION_DRIVE_KIND = "actual-contact-triggered-fixed-depth-contact-normal-projected-sleeve-falloff"
+DEFORMATION_AXIAL_SEGMENTS = 16
+DEFORMATION_RADIAL_SEGMENTS = 32
+DEFORMATION_VERTEX_COUNT = 544
+DEFORMATION_TRIANGLE_COUNT = 1024
+DEFORMATION_FALLOFF_RADIUS_RATIO = 0.5
+DEFORMATION_MAX_AFFECTED_FRACTION = 0.5
+DEFORMATION_NORMALIZED_PEAK_DEPTH = 0.05
+DEFORMATION_RECOVERY_TICK = CONTACT_TOTAL_TICKS
+DEFORMATION_CAPTURE_NAMES = ("reference.png", "peak.png", "recovered.png")
+DEFORMATION_CAPTURE_LABELS = ("reference", "peak", "recovered")
+DEFORMATION_CAPTURE_WIDTH = 1536
+DEFORMATION_CAPTURE_HEIGHT = 512
+DEFORMATION_CAPTURE_MAX_BYTES = 8 * 1024 * 1024
+# These decoded-pixel thresholds are integrity floors/caps, not subjective
+# visibility criteria. They reject blank or one-pixel evidence while keeping
+# the visual appraisal itself human-owned.
+DEFORMATION_CAPTURE_MIN_UNIQUE_RGBA_PIXELS = 16
+DEFORMATION_CAPTURE_MIN_NON_DOMINANT_PIXELS = 1024
+DEFORMATION_CAPTURE_MIN_CHANGED_PIXELS = 256
+DEFORMATION_CAPTURE_MIN_TOTAL_ABS_CHANNEL_DELTA = 4096
+DEFORMATION_CAPTURE_MAX_CHANGED_PIXEL_FRACTION = 0.25
+DEFORMATION_MIN_NORMAL_LINE_ALIGNMENT = 1.0 - NORMAL_TOLERANCE
+DEFORMATION_MIN_CONTACT_NORMAL_CENTER_ALIGNMENT = 0.1
+DEFORMATION_REPORT_ALIAS_KEYS = {
+    "semantic_deformation_evidence",
+    "deformation_evidence",
+    "deformation_captures",
 }
 
 
@@ -1318,7 +1370,7 @@ def _validate_contact_report(
     report: dict[str, Any],
     contact_command: dict[str, Any],
     contact_identity: dict[str, Any],
-) -> None:
+) -> dict[str, Any]:
     evidence = _contact_evidence_from_report(report)
     if set(evidence) != CONTACT_EVIDENCE_KEYS:
         raise SmokeError("Godot semantic contact evidence has unexpected or missing fields")
@@ -1341,6 +1393,771 @@ def _validate_contact_report(
     trace_by_tick = _validate_contact_ticks(evidence)
     strongest_sample = _validate_contact_impulses(evidence, trace_by_tick)
     _validate_contact_response(evidence, strongest_sample, trace_by_tick)
+    return strongest_sample
+
+
+def _validate_deformation_capture_destination(capture_path: Path) -> Path:
+    capture_path = neutral_smoke._require_absolute(capture_path, "deformation capture directory")
+    neutral_smoke._reject_symlink_path_components(capture_path, "deformation capture directory")
+    if capture_path.exists() or capture_path.is_symlink():
+        raise SmokeError(f"deformation capture directory must not already exist: {capture_path}")
+    if not capture_path.parent.is_dir():
+        raise SmokeError(f"deformation capture parent directory is unavailable: {capture_path.parent}")
+    broad_destinations = {
+        Path(capture_path.anchor),
+        Path("/tmp"),
+        Path("/var/tmp"),
+        Path.home(),
+        REPOSITORY_ROOT,
+        Path.cwd(),
+    }
+    if capture_path in broad_destinations or len(capture_path.parts) <= 2:
+        raise SmokeError(f"deformation capture directory is too broad or unsafe: {capture_path}")
+    return capture_path
+
+
+def _decode_deformation_png(data: bytes, file_name: str) -> bytes:
+    if not isinstance(data, bytes) or not data:
+        raise SmokeError(f"deformation capture {file_name} is empty")
+    if len(data) > DEFORMATION_CAPTURE_MAX_BYTES:
+        raise SmokeError(f"deformation capture {file_name} exceeds the bounded byte limit")
+    if len(data) < 33 or data[:8] != b"\x89PNG\r\n\x1a\n":
+        raise SmokeError(f"deformation capture {file_name} is not a PNG")
+    if int.from_bytes(data[8:12], "big") != 13 or data[12:16] != b"IHDR":
+        raise SmokeError(f"deformation capture {file_name} does not begin with an IHDR chunk")
+    try:
+        with Image.open(BytesIO(data)) as image:
+            if image.format != "PNG":
+                raise SmokeError(f"deformation capture {file_name} is not a PNG according to Pillow")
+            image.verify()
+        with Image.open(BytesIO(data)) as image:
+            image.load()
+            if image.format != "PNG":
+                raise SmokeError(f"deformation capture {file_name} is not a PNG according to Pillow")
+            width, height = image.size
+            if width != DEFORMATION_CAPTURE_WIDTH or height != DEFORMATION_CAPTURE_HEIGHT:
+                raise SmokeError(
+                    f"deformation capture {file_name} dimensions are {width}x{height}, "
+                    f"expected {DEFORMATION_CAPTURE_WIDTH}x{DEFORMATION_CAPTURE_HEIGHT}"
+                )
+            decoded = image.convert("RGBA").tobytes()
+    except SmokeError:
+        raise
+    except (UnidentifiedImageError, OSError, ValueError, SyntaxError) as exc:
+        raise SmokeError(
+            f"deformation capture {file_name} could not be decoded by Pillow: "
+            f"{type(exc).__name__}: {exc}"
+        ) from exc
+    expected_bytes = DEFORMATION_CAPTURE_WIDTH * DEFORMATION_CAPTURE_HEIGHT * 4
+    if len(decoded) != expected_bytes:
+        raise SmokeError(
+            f"deformation capture {file_name} decoded to an unexpected byte count: "
+            f"observed={len(decoded)} expected={expected_bytes}"
+        )
+    return decoded
+
+
+def _validate_deformation_png(data: bytes, file_name: str) -> None:
+    _decode_deformation_png(data, file_name)
+
+
+def _decoded_capture_metrics(decoded: bytes) -> dict[str, int]:
+    pixels = Counter(decoded[offset : offset + 4] for offset in range(0, len(decoded), 4))
+    dominant_count = max(pixels.values(), default=0)
+    return {
+        "pixel_count": len(decoded) // 4,
+        "unique_rgba_pixels": len(pixels),
+        "non_dominant_pixels": len(decoded) // 4 - dominant_count,
+    }
+
+
+def _decoded_capture_difference(left: bytes, right: bytes) -> dict[str, float | int]:
+    changed_pixels = 0
+    total_abs_channel_delta = 0
+    max_channel_delta = 0
+    for offset in range(0, len(left), 4):
+        channel_deltas = [abs(left[offset + channel] - right[offset + channel]) for channel in range(4)]
+        if any(channel_deltas):
+            changed_pixels += 1
+        total_abs_channel_delta += sum(channel_deltas)
+        max_channel_delta = max(max_channel_delta, max(channel_deltas))
+    pixel_count = len(left) // 4
+    return {
+        "changed_pixels": changed_pixels,
+        "changed_pixel_fraction": changed_pixels / pixel_count if pixel_count else 0.0,
+        "total_abs_channel_delta": total_abs_channel_delta,
+        "max_channel_delta": max_channel_delta,
+    }
+
+
+def _deformation_capsule_basis(endpoint_a: list[float], endpoint_b: list[float]) -> tuple[list[float], list[float], list[float]]:
+    """Reconstruct GDScript's deterministic basis for a capsule's local Y axis."""
+    direction = [right - left for left, right in zip(endpoint_a, endpoint_b)]
+    length = math.sqrt(sum(value * value for value in direction))
+    if not math.isfinite(length) or length <= 1.0e-12:
+        raise SmokeError("semantic deformation response capsule cannot define a deterministic basis")
+    y_axis = [value / length for value in direction]
+    reference = [0.0, 0.0, 1.0]
+    if abs(sum(left * right for left, right in zip(y_axis, reference))) > 0.9:
+        reference = [1.0, 0.0, 0.0]
+
+    def cross(left: list[float], right: list[float]) -> list[float]:
+        return [
+            left[1] * right[2] - left[2] * right[1],
+            left[2] * right[0] - left[0] * right[2],
+            left[0] * right[1] - left[1] * right[0],
+        ]
+
+    def normalized(vector: list[float]) -> list[float]:
+        magnitude = math.sqrt(sum(value * value for value in vector))
+        if not math.isfinite(magnitude) or magnitude <= 1.0e-12:
+            raise SmokeError("semantic deformation response capsule basis is degenerate")
+        return [value / magnitude for value in vector]
+
+    x_axis = normalized(cross(y_axis, reference))
+    z_axis = normalized(cross(x_axis, y_axis))
+    return x_axis, y_axis, z_axis
+
+
+def _reconstruct_deformation_baseline_vertices(
+    radius: float,
+    length: float,
+    basis: tuple[list[float], list[float], list[float]],
+) -> list[list[float]]:
+    """Reconstruct the transformed GDScript open-cylinder vertex order."""
+    x_axis, y_axis, z_axis = basis
+    half_length = 0.5 * length
+    vertices: list[list[float]] = []
+    for axial_index in range(DEFORMATION_AXIAL_SEGMENTS + 1):
+        axial_fraction = float(axial_index) / float(DEFORMATION_AXIAL_SEGMENTS)
+        axial = (-half_length) + (2.0 * half_length) * axial_fraction
+        for radial_index in range(DEFORMATION_RADIAL_SEGMENTS):
+            angle = 2.0 * math.pi * float(radial_index) / float(DEFORMATION_RADIAL_SEGMENTS)
+            radial_x = math.cos(angle)
+            radial_z = math.sin(angle)
+            local = [radial_x * radius, axial, radial_z * radius]
+            vertices.append(
+                [
+                    x_axis[axis] * local[0] + y_axis[axis] * local[1] + z_axis[axis] * local[2]
+                    for axis in range(3)
+                ]
+            )
+    return vertices
+
+
+def _read_deformation_capture_bytes(capture_directory: Path) -> dict[str, bytes]:
+    if not capture_directory.is_dir() or capture_directory.is_symlink():
+        raise SmokeError("Godot deformation capture directory is missing or unsafe")
+    try:
+        entries = list(capture_directory.iterdir())
+    except OSError as exc:
+        raise SmokeError(f"Godot deformation captures cannot be enumerated: {type(exc).__name__}: {exc}") from exc
+    if {entry.name for entry in entries} != set(DEFORMATION_CAPTURE_NAMES):
+        raise SmokeError("Godot deformation capture directory does not contain exactly the three required PNGs")
+    captures: dict[str, bytes] = {}
+    for file_name in DEFORMATION_CAPTURE_NAMES:
+        path = capture_directory / file_name
+        if path.is_symlink() or not path.is_file():
+            raise SmokeError(f"Godot deformation capture {file_name} is not a regular file")
+        try:
+            if path.lstat().st_size > DEFORMATION_CAPTURE_MAX_BYTES:
+                raise SmokeError(f"deformation capture {file_name} exceeds the bounded byte limit")
+            data = path.read_bytes()
+        except SmokeError:
+            raise
+        except OSError as exc:
+            raise SmokeError(f"Godot deformation capture {file_name} cannot be read: {type(exc).__name__}: {exc}") from exc
+        _validate_deformation_png(data, file_name)
+        captures[file_name] = data
+    return captures
+
+
+def _fsync_directory(directory: Path) -> None:
+    try:
+        descriptor = os.open(directory, os.O_RDONLY)
+    except OSError:
+        return
+    try:
+        os.fsync(descriptor)
+    except OSError:
+        pass
+    finally:
+        os.close(descriptor)
+
+
+def _rename_directory_noreplace(source: Path, destination: Path) -> None:
+    """Atomically publish a directory without replacing a concurrent destination."""
+    if sys.platform != "linux":
+        raise SmokeError("atomic no-overwrite deformation capture publication requires Linux renameat2")
+    try:
+        libc = ctypes.CDLL(None, use_errno=True)
+        renameat2 = libc.renameat2
+    except (AttributeError, OSError) as exc:
+        raise SmokeError("atomic no-overwrite deformation capture publication is unavailable") from exc
+    renameat2.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
+    renameat2.restype = ctypes.c_int
+    result = renameat2(
+        -100,
+        os.fsencode(source),
+        -100,
+        os.fsencode(destination),
+        1,
+    )
+    if result == 0:
+        return
+    error_number = ctypes.get_errno()
+    if error_number == errno.EEXIST:
+        raise SmokeError(f"deformation capture directory already exists: {destination}")
+    raise OSError(error_number, os.strerror(error_number), destination)
+
+
+def _publish_deformation_captures(capture_path: Path, capture_bytes: dict[str, bytes]) -> None:
+    capture_path = _validate_deformation_capture_destination(capture_path)
+    if set(capture_bytes) != set(DEFORMATION_CAPTURE_NAMES):
+        raise SmokeError("staged deformation captures are incomplete or contain unexpected files")
+    for file_name in DEFORMATION_CAPTURE_NAMES:
+        _validate_deformation_png(capture_bytes[file_name], file_name)
+    temporary_path: Path | None = None
+    try:
+        temporary_path = Path(
+            tempfile.mkdtemp(prefix=f".{capture_path.name}-", dir=capture_path.parent)
+        )
+        for file_name in DEFORMATION_CAPTURE_NAMES:
+            file_path = temporary_path / file_name
+            with file_path.open("xb") as output:
+                output.write(capture_bytes[file_name])
+                output.flush()
+                os.fsync(output.fileno())
+        _fsync_directory(temporary_path)
+        _rename_directory_noreplace(temporary_path, capture_path)
+        temporary_path = None
+        _fsync_directory(capture_path.parent)
+    except SmokeError:
+        raise
+    except OSError as exc:
+        raise SmokeError(f"deformation captures could not be published: {type(exc).__name__}: {exc}") from exc
+    finally:
+        if temporary_path is not None:
+            shutil.rmtree(temporary_path, ignore_errors=True)
+
+
+def _rollback_deformation_captures(capture_path: Path, capture_bytes: dict[str, bytes]) -> None:
+    """Remove only the exact capture set published by this run after report failure."""
+    if not capture_path.exists() and not capture_path.is_symlink():
+        return
+    if capture_path.is_symlink() or not capture_path.is_dir():
+        raise SmokeError("deformation capture rollback found an unsafe publication target")
+    try:
+        entries = list(capture_path.iterdir())
+        if {entry.name for entry in entries} != set(DEFORMATION_CAPTURE_NAMES):
+            raise SmokeError("deformation capture rollback refused to remove an unexpected directory")
+        for file_name in DEFORMATION_CAPTURE_NAMES:
+            path = capture_path / file_name
+            if path.is_symlink() or not path.is_file() or path.read_bytes() != capture_bytes[file_name]:
+                raise SmokeError("deformation capture rollback refused to remove changed or unsafe capture bytes")
+        for file_name in DEFORMATION_CAPTURE_NAMES:
+            (capture_path / file_name).unlink()
+        capture_path.rmdir()
+        _fsync_directory(capture_path.parent)
+    except SmokeError:
+        raise
+    except OSError as exc:
+        raise SmokeError(f"deformation capture rollback failed: {type(exc).__name__}: {exc}") from exc
+
+
+def _publish_deformation_result(
+    report_path: Path,
+    report: dict[str, Any],
+    deformation_captures_path: Path | None,
+    staged_deformation_captures: dict[str, bytes] | None,
+) -> None:
+    """Publish captures before the success report, rolling them back on report failure."""
+    if deformation_captures_path is None:
+        neutral_smoke._publish_report(report_path, report)
+        return
+    if staged_deformation_captures is None:
+        raise SmokeError("semantic deformation captures were not retained in memory")
+    _publish_deformation_captures(deformation_captures_path, staged_deformation_captures)
+    try:
+        neutral_smoke._publish_report(report_path, report)
+    except Exception as exc:
+        try:
+            _rollback_deformation_captures(deformation_captures_path, staged_deformation_captures)
+        except Exception as rollback_exc:
+            raise SmokeError(
+                "canonical deformation report publication failed and capture rollback also failed: "
+                f"report_error={type(exc).__name__}: {exc}; "
+                f"rollback_error={type(rollback_exc).__name__}: {rollback_exc}"
+            ) from rollback_exc
+        raise
+
+
+def _validate_deformation_report(
+    report: dict[str, Any],
+    strongest_contact_sample: dict[str, Any],
+) -> None:
+    if "semantic_deformation" not in report:
+        raise SmokeError("Godot report is missing semantic deformation evidence")
+    if DEFORMATION_REPORT_ALIAS_KEYS.intersection(report):
+        raise SmokeError("Godot report contains unsupported semantic deformation aliases")
+    evidence = report["semantic_deformation"]
+    expected_keys = {
+        "boundary",
+        "target_index",
+        "source_bone_id",
+        "source_shape_index",
+        "runtime_shape_index",
+        "surface",
+        "drive",
+        "states",
+        "captures",
+    }
+    if not isinstance(evidence, dict) or set(evidence) != expected_keys:
+        raise SmokeError("Godot semantic deformation evidence has unexpected or missing fields")
+    if evidence["boundary"] != DEFORMATION_REPORT_BOUNDARY:
+        raise SmokeError("Godot semantic deformation boundary is invalid")
+    if (
+        type(evidence["target_index"]) is not int
+        or evidence["target_index"] != 1
+        or evidence["source_bone_id"] != CONTACT_BONE_IDS[1]
+        or type(evidence["source_shape_index"]) is not int
+        or evidence["source_shape_index"] != CONTACT_SHAPE_INDICES[1]
+        or type(evidence["runtime_shape_index"]) is not int
+        or evidence["runtime_shape_index"] != CONTACT_RUNTIME_SHAPE_INDICES[1]
+    ):
+        raise SmokeError("Godot semantic deformation target or capsule lineage is invalid")
+
+    contact_evidence = report.get("semantic_contact")
+    if not isinstance(contact_evidence, dict):
+        raise SmokeError("Godot semantic deformation requires the validated semantic contact evidence")
+    participants = contact_evidence.get("participants")
+    if not isinstance(participants, list) or len(participants) != len(CONTACT_PARTICIPANTS):
+        raise SmokeError("Godot semantic deformation contact lineage is aggregate-only")
+    response_participant = participants[1]
+    if not isinstance(response_participant, dict):
+        raise SmokeError("Godot semantic deformation response participant is invalid")
+    posed_proxy = response_participant.get("posed_proxy")
+    if not isinstance(posed_proxy, dict):
+        raise SmokeError("Godot semantic deformation response capsule evidence is missing")
+    radius = _contact_scalar(posed_proxy.get("radius"), "semantic deformation response capsule radius")
+    if radius <= 0.0:
+        raise SmokeError("semantic deformation response capsule radius is not positive")
+    endpoint_a = _contact_vector(posed_proxy.get("a"), "semantic deformation response capsule endpoint a")
+    endpoint_b = _contact_vector(posed_proxy.get("b"), "semantic deformation response capsule endpoint b")
+    baseline_length = math.sqrt(sum((right - left) ** 2 for left, right in zip(endpoint_a, endpoint_b)))
+    if not math.isfinite(baseline_length) or baseline_length <= 0.0:
+        raise SmokeError("semantic deformation response capsule segment length is invalid")
+    capsule_basis = _deformation_capsule_basis(endpoint_a, endpoint_b)
+
+    surface = evidence["surface"]
+    surface_keys = {
+        "kind",
+        "attachment",
+        "collision_mode",
+        "axial_segments",
+        "radial_segments",
+        "vertex_count",
+        "triangle_count",
+        "baseline_radius",
+        "baseline_length",
+    }
+    if not isinstance(surface, dict) or set(surface) != surface_keys:
+        raise SmokeError("Godot semantic deformation surface evidence has unexpected or missing fields")
+    if (
+        surface["kind"] != DEFORMATION_SURFACE_KIND
+        or surface["attachment"] != DEFORMATION_SURFACE_ATTACHMENT
+        or surface["collision_mode"] != DEFORMATION_SURFACE_COLLISION_MODE
+        or type(surface["axial_segments"]) is not int
+        or surface["axial_segments"] != DEFORMATION_AXIAL_SEGMENTS
+        or type(surface["radial_segments"]) is not int
+        or surface["radial_segments"] != DEFORMATION_RADIAL_SEGMENTS
+        or type(surface["vertex_count"]) is not int
+        or surface["vertex_count"] != DEFORMATION_VERTEX_COUNT
+        or type(surface["triangle_count"]) is not int
+        or surface["triangle_count"] != DEFORMATION_TRIANGLE_COUNT
+    ):
+        raise SmokeError("Godot semantic deformation surface topology or collision disclosure is invalid")
+    surface_radius = _contact_scalar(surface["baseline_radius"], "semantic deformation surface baseline radius")
+    surface_length = _contact_scalar(surface["baseline_length"], "semantic deformation surface baseline length")
+    if abs(surface_radius - radius) > TOLERANCE or abs(surface_length - baseline_length) > TOLERANCE:
+        raise SmokeError("Godot semantic deformation surface is not derived from the selected response capsule")
+
+    drive = evidence["drive"]
+    drive_keys = {
+        "kind",
+        "normalized_peak_depth",
+        "absolute_peak_depth",
+        "falloff_radius_ratio",
+        "peak_tick",
+        "contact_sample_tick",
+        "contact_sample_index",
+        "sample_response_transform",
+        "runtime_contact_point",
+        "local_contact_point",
+        "local_deformation_center",
+        "local_inward_direction",
+        "falloff_weights",
+    }
+    if not isinstance(drive, dict) or set(drive) != drive_keys:
+        raise SmokeError("Godot semantic deformation drive evidence has unexpected or missing fields")
+    normalized_depth = _contact_scalar(
+        drive["normalized_peak_depth"], "semantic deformation normalized peak depth"
+    )
+    absolute_depth = _contact_scalar(drive["absolute_peak_depth"], "semantic deformation absolute peak depth")
+    falloff_ratio = _contact_scalar(drive["falloff_radius_ratio"], "semantic deformation falloff radius ratio")
+    if (
+        drive["kind"] != DEFORMATION_DRIVE_KIND
+        or abs(normalized_depth - DEFORMATION_NORMALIZED_PEAK_DEPTH) > TOLERANCE
+        or abs(absolute_depth - radius * DEFORMATION_NORMALIZED_PEAK_DEPTH) > TOLERANCE
+        or abs(falloff_ratio - DEFORMATION_FALLOFF_RADIUS_RATIO) > TOLERANCE
+    ):
+        raise SmokeError("Godot semantic deformation drive is not the fixed moderate local press")
+    peak_tick = drive["peak_tick"]
+    contact_sample_tick = drive["contact_sample_tick"]
+    contact_sample_index = drive["contact_sample_index"]
+    if (
+        type(peak_tick) is not int
+        or peak_tick <= 0
+        or type(contact_sample_tick) is not int
+        or contact_sample_tick != strongest_contact_sample["tick"]
+        or peak_tick != contact_sample_tick
+        or type(contact_sample_index) is not int
+        or contact_sample_index != strongest_contact_sample["contact_index"]
+    ):
+        raise SmokeError("Godot semantic deformation peak is not attributed to the positive contact sample")
+    runtime_contact_point = _contact_vector(
+        drive["runtime_contact_point"], "semantic deformation runtime contact point"
+    )
+    local_contact_point = _contact_vector(drive["local_contact_point"], "semantic deformation local contact point")
+    local_deformation_center = _contact_vector(
+        drive["local_deformation_center"],
+        "semantic deformation local projected sleeve center",
+    )
+    inward = _contact_vector(drive["local_inward_direction"], "semantic deformation local inward direction")
+    inward_length = math.sqrt(sum(value * value for value in inward))
+    if not math.isfinite(inward_length) or abs(inward_length - 1.0) > NORMAL_TOLERANCE:
+        raise SmokeError("Godot semantic deformation inward direction is not normalized")
+    strongest_normal = _contact_vector(
+        strongest_contact_sample.get("normal"),
+        "semantic deformation strongest runtime contact normal",
+    )
+    strongest_normal_length = math.sqrt(sum(value * value for value in strongest_normal))
+    if not math.isfinite(strongest_normal_length) or strongest_normal_length <= 1.0e-12:
+        raise SmokeError("Godot semantic deformation strongest runtime contact normal is zero or nonfinite")
+    normalized_strongest_normal = [value / strongest_normal_length for value in strongest_normal]
+    normalized_inward = [value / inward_length for value in inward]
+    strongest_point = _contact_vector(
+        strongest_contact_sample.get("point"),
+        "semantic deformation strongest runtime contact point",
+    )
+    if any(abs(left - right) > TOLERANCE for left, right in zip(runtime_contact_point, strongest_point)):
+        raise SmokeError("Godot semantic deformation runtime contact point is not the retained runtime contact sample")
+    sample_response_transform = drive["sample_response_transform"]
+    if not isinstance(sample_response_transform, list) or len(sample_response_transform) != 16 or any(
+        not _finite_number(value) for value in sample_response_transform
+    ):
+        raise SmokeError("Godot semantic deformation sample response transform is invalid")
+    if [float(value) for value in sample_response_transform[12:16]] != [0.0, 0.0, 0.0, 1.0]:
+        raise SmokeError("Godot semantic deformation sample response transform is not homogeneous")
+    basis_columns = (
+        [float(sample_response_transform[index]) for index in (0, 4, 8)],
+        [float(sample_response_transform[index]) for index in (1, 5, 9)],
+        [float(sample_response_transform[index]) for index in (2, 6, 10)],
+    )
+    for axis_index, axis in enumerate(basis_columns):
+        axis_length = math.sqrt(sum(value * value for value in axis))
+        if abs(axis_length - 1.0) > NORMAL_TOLERANCE:
+            raise SmokeError(f"Godot semantic deformation response basis axis {axis_index} is not normalized")
+    if any(
+        abs(sum(left * right for left, right in zip(basis_columns[left_index], basis_columns[right_index])))
+        > NORMAL_TOLERANCE
+        for left_index, right_index in ((0, 1), (0, 2), (1, 2))
+    ):
+        raise SmokeError("Godot semantic deformation response basis is not orthogonal")
+    contact_origin = [float(sample_response_transform[index]) for index in (3, 7, 11)]
+    runtime_relative = [value - origin for value, origin in zip(runtime_contact_point, contact_origin)]
+    expected_local_contact_point = [
+        sum(value * axis_component for value, axis_component in zip(runtime_relative, axis))
+        for axis in basis_columns
+    ]
+    if any(
+        abs(left - right) > TOLERANCE
+        for left, right in zip(local_contact_point, expected_local_contact_point)
+    ):
+        raise SmokeError("Godot semantic deformation local contact point is not transformed from the runtime sample")
+    normal_line_alignment = abs(
+        sum(left * right for left, right in zip(normalized_inward, normalized_strongest_normal))
+    )
+    if normal_line_alignment < DEFORMATION_MIN_NORMAL_LINE_ALIGNMENT:
+        raise SmokeError(
+            "Godot semantic deformation inward direction is not collinear with the strongest runtime contact "
+            f"normal: observed_line_alignment={normal_line_alignment:.9g} "
+            f"required>={DEFORMATION_MIN_NORMAL_LINE_ALIGNMENT:.9g}"
+        )
+    weights = drive["falloff_weights"]
+    if not isinstance(weights, list) or len(weights) != DEFORMATION_VERTEX_COUNT:
+        raise SmokeError("Godot semantic deformation falloff weights are incomplete or aggregate-only")
+    if any(not _finite_number(value) or float(value) < 0.0 or float(value) > 1.0 for value in weights):
+        raise SmokeError("Godot semantic deformation falloff weights are outside [0, 1]")
+    if not any(float(value) > 0.0 for value in weights) or not any(float(value) == 0.0 for value in weights):
+        raise SmokeError("Godot semantic deformation falloff does not prove affected and unaffected vertices")
+
+    states = evidence["states"]
+    if not isinstance(states, dict) or set(states) != {"reference", "peak", "recovered"}:
+        raise SmokeError("Godot semantic deformation states are incomplete or reordered")
+    state_values: dict[str, dict[str, Any]] = {}
+    state_keys = {
+        "tick",
+        "normalized_depth",
+        "vertices",
+        "max_residual",
+        "affected_vertex_count",
+        "outside_falloff_max_residual",
+    }
+    for label in ("reference", "peak", "recovered"):
+        state = states[label]
+        if not isinstance(state, dict) or set(state) != state_keys:
+            raise SmokeError(f"Godot semantic deformation {label} state has unexpected or missing fields")
+        if type(state["tick"]) is not int or state["tick"] < 0:
+            raise SmokeError(f"Godot semantic deformation {label} state tick is invalid")
+        _contact_scalar(state["normalized_depth"], f"semantic deformation {label} normalized depth")
+        vertices = state["vertices"]
+        if not isinstance(vertices, list) or len(vertices) != DEFORMATION_VERTEX_COUNT:
+            raise SmokeError(f"Godot semantic deformation {label} vertices are incomplete or aggregate-only")
+        for index, vertex in enumerate(vertices):
+            values = _contact_vector(vertex, f"semantic deformation {label} vertex {index}")
+            if any(abs(value) > 1.0e6 for value in values):
+                raise SmokeError(f"Godot semantic deformation {label} vertices are unbounded")
+        max_residual = _contact_scalar(state["max_residual"], f"semantic deformation {label} max residual")
+        affected_count = state["affected_vertex_count"]
+        if type(affected_count) is not int or affected_count < 0 or affected_count > DEFORMATION_VERTEX_COUNT:
+            raise SmokeError(f"Godot semantic deformation {label} affected vertex count is invalid")
+        outside_residual = _contact_scalar(
+            state["outside_falloff_max_residual"],
+            f"semantic deformation {label} outside-falloff residual",
+        )
+        if max_residual < 0.0 or outside_residual < 0.0:
+            raise SmokeError(f"Godot semantic deformation {label} residual metrics are negative")
+        state_values[label] = state
+
+    reference = state_values["reference"]["vertices"]
+    peak = state_values["peak"]["vertices"]
+    recovered = state_values["recovered"]["vertices"]
+    expected_reference = _reconstruct_deformation_baseline_vertices(surface_radius, surface_length, capsule_basis)
+    for index, (actual_vertex, expected_vertex) in enumerate(zip(reference, expected_reference)):
+        if any(abs(float(actual) - float(expected)) > TOLERANCE for actual, expected in zip(actual_vertex, expected_vertex)):
+            raise SmokeError(
+                "Godot semantic deformation reference geometry is not the selected capsule-derived "
+                f"16x32 open-cylinder baseline at vertex {index}: observed={actual_vertex} expected={expected_vertex}"
+            )
+    if (
+        state_values["reference"]["tick"] != 0
+        or abs(float(state_values["reference"]["normalized_depth"])) > TOLERANCE
+        or state_values["peak"]["tick"] != peak_tick
+        or abs(float(state_values["peak"]["normalized_depth"]) - DEFORMATION_NORMALIZED_PEAK_DEPTH) > TOLERANCE
+        or state_values["recovered"]["tick"] != DEFORMATION_RECOVERY_TICK
+        or abs(float(state_values["recovered"]["normalized_depth"])) > TOLERANCE
+    ):
+        raise SmokeError("Godot semantic deformation state ticks or depths are not reference/peak/recovery")
+
+    surface_contact_point = [
+        sum(component * axis_component for component, axis_component in zip(local_contact_point, axis))
+        for axis in capsule_basis
+    ]
+    radial_contact = [surface_contact_point[0], 0.0, surface_contact_point[2]]
+    radial_contact_length = math.sqrt(sum(value * value for value in radial_contact))
+    if not math.isfinite(radial_contact_length) or radial_contact_length <= 1.0e-9:
+        raise SmokeError("Godot semantic deformation contact geometry cannot reconstruct a radial outward direction")
+    radial_outward_local = [
+        radial_contact[0] / radial_contact_length,
+        0.0,
+        radial_contact[2] / radial_contact_length,
+    ]
+    projected_center_local = [
+        radial_outward_local[0] * surface_radius,
+        min(max(surface_contact_point[1], -0.5 * surface_length), 0.5 * surface_length),
+        radial_outward_local[2] * surface_radius,
+    ]
+    expected_deformation_center = [
+        sum(capsule_basis[axis][component] * projected_center_local[axis] for axis in range(3))
+        for component in range(3)
+    ]
+    if any(
+        abs(left - right) > TOLERANCE
+        for left, right in zip(local_deformation_center, expected_deformation_center)
+    ):
+        raise SmokeError("Godot semantic deformation center is not the nearest projected sleeve point")
+    falloff_radius = surface_radius * DEFORMATION_FALLOFF_RADIUS_RATIO
+    raw_expected_weights = []
+    for reference_vertex in expected_reference:
+        distance = math.sqrt(
+            sum(
+                (float(coordinate) - float(center_coordinate)) ** 2
+                for coordinate, center_coordinate in zip(reference_vertex, local_deformation_center)
+            )
+        )
+        raw_expected_weights.append(
+            max(0.0, 1.0 - distance / falloff_radius) ** 2 if distance < falloff_radius else 0.0
+        )
+    expected_weight_max = max(raw_expected_weights, default=0.0)
+    if not math.isfinite(expected_weight_max) or expected_weight_max <= 0.0:
+        raise SmokeError("Godot semantic deformation reconstructed falloff has no positive vertex weight")
+    expected_weights = [value / expected_weight_max for value in raw_expected_weights]
+    if any(abs(float(actual) - expected) > TOLERANCE for actual, expected in zip(weights, expected_weights)):
+        raise SmokeError("Godot semantic deformation falloff weights are not independently reconstructed")
+    reconstructed_affected_count = sum(value > 0.0 for value in expected_weights)
+    if (
+        reconstructed_affected_count <= 0
+        or reconstructed_affected_count >= DEFORMATION_VERTEX_COUNT
+        or reconstructed_affected_count / DEFORMATION_VERTEX_COUNT > DEFORMATION_MAX_AFFECTED_FRACTION
+        or abs(max(expected_weights) - 1.0) > TOLERANCE
+    ):
+        raise SmokeError("Godot semantic deformation reconstructed falloff is not localized with a unit peak")
+    toward_sleeve_center = [-value for value in local_deformation_center]
+    toward_sleeve_center_length = math.sqrt(sum(value * value for value in toward_sleeve_center))
+    if not math.isfinite(toward_sleeve_center_length) or toward_sleeve_center_length <= 1.0e-12:
+        raise SmokeError("Godot semantic deformation projected sleeve center cannot define an inward direction")
+    normalized_toward_center = [value / toward_sleeve_center_length for value in toward_sleeve_center]
+    inward_center_alignment = sum(left * right for left, right in zip(normalized_inward, normalized_toward_center))
+    if inward_center_alignment < DEFORMATION_MIN_CONTACT_NORMAL_CENTER_ALIGNMENT:
+        raise SmokeError(
+            "Godot semantic deformation actual-normal direction does not point inward from the projected sleeve "
+            f"center: observed_inward_alignment={inward_center_alignment:.9g} "
+            f"required>={DEFORMATION_MIN_CONTACT_NORMAL_CENTER_ALIGNMENT:.9g}"
+        )
+
+    residuals: list[float] = []
+    expected_affected_count = 0
+    outside_max = 0.0
+    for index, (reference_vertex, peak_vertex, weight) in enumerate(zip(reference, peak, weights)):
+        residual = [float(right) - float(left) for left, right in zip(reference_vertex, peak_vertex)]
+        expected = [float(component) * absolute_depth * float(weight) for component in inward]
+        if any(abs(left - right) > TOLERANCE for left, right in zip(residual, expected)):
+            raise SmokeError(f"Godot semantic deformation peak residual {index} is not contact-driven")
+        residual_length = math.sqrt(sum(value * value for value in residual))
+        residuals.append(residual_length)
+        if float(weight) > 0.0:
+            expected_affected_count += 1
+        else:
+            outside_max = max(outside_max, residual_length)
+    max_residual = max(residuals, default=0.0)
+    peak_state = state_values["peak"]
+    if (
+        expected_affected_count != reconstructed_affected_count
+        or expected_affected_count >= DEFORMATION_VERTEX_COUNT
+        or peak_state["affected_vertex_count"] != expected_affected_count
+        or abs(float(peak_state["max_residual"]) - max_residual) > TOLERANCE
+        or abs(float(peak_state["outside_falloff_max_residual"]) - outside_max) > TOLERANCE
+            or abs(max_residual - absolute_depth) > TOLERANCE
+            or outside_max > TOLERANCE
+            or outside_max >= max_residual
+        ):
+        raise SmokeError("Godot semantic deformation peak metrics are inconsistent or not localized")
+
+    for label, vertices in (("reference", reference), ("recovered", recovered)):
+        residuals_to_reference = [
+            math.sqrt(sum((float(right) - float(left)) ** 2 for left, right in zip(reference_vertex, right_vertex)))
+            for reference_vertex, right_vertex in zip(reference, vertices)
+        ]
+        actual_max = max(residuals_to_reference, default=0.0)
+        actual_count = sum(value > TOLERANCE for value in residuals_to_reference)
+        actual_outside = max(
+            (value for value, weight in zip(residuals_to_reference, weights) if float(weight) == 0.0),
+            default=0.0,
+        )
+        state = state_values[label]
+        if (
+            abs(float(state["max_residual"]) - actual_max) > TOLERANCE
+            or state["affected_vertex_count"] != actual_count
+            or abs(float(state["outside_falloff_max_residual"]) - actual_outside) > TOLERANCE
+            or actual_max > TOLERANCE
+            or actual_outside > TOLERANCE
+        ):
+            raise SmokeError(f"Godot semantic deformation {label} recovery metrics are inconsistent")
+
+
+def _validate_deformation_captures(
+    evidence: dict[str, Any],
+    staged_captures: dict[str, bytes],
+) -> None:
+    if set(staged_captures) != set(DEFORMATION_CAPTURE_NAMES):
+        raise SmokeError("staged deformation captures are incomplete or unexpected")
+    captures = evidence.get("captures")
+    if not isinstance(captures, list) or len(captures) != len(DEFORMATION_CAPTURE_NAMES):
+        raise SmokeError("Godot semantic deformation capture records are incomplete or reordered")
+    capture_keys = {"label", "file_name", "width", "height", "sha256", "byte_count_decimal"}
+    decoded_captures: dict[str, bytes] = {}
+    for index, (record, label, file_name) in enumerate(
+        zip(captures, DEFORMATION_CAPTURE_LABELS, DEFORMATION_CAPTURE_NAMES)
+    ):
+        if not isinstance(record, dict) or set(record) != capture_keys:
+            raise SmokeError(f"Godot semantic deformation capture record {index} is incomplete")
+        if (
+            record["label"] != label
+            or record["file_name"] != file_name
+            or type(record["width"]) is not int
+            or record["width"] != DEFORMATION_CAPTURE_WIDTH
+            or type(record["height"]) is not int
+            or record["height"] != DEFORMATION_CAPTURE_HEIGHT
+        ):
+            raise SmokeError(f"Godot semantic deformation capture record {index} identity or dimensions are invalid")
+        data = staged_captures[file_name]
+        decoded = _decode_deformation_png(data, file_name)
+        decoded_captures[file_name] = decoded
+        metrics = _decoded_capture_metrics(decoded)
+        if (
+            metrics["unique_rgba_pixels"] < DEFORMATION_CAPTURE_MIN_UNIQUE_RGBA_PIXELS
+            or metrics["non_dominant_pixels"] < DEFORMATION_CAPTURE_MIN_NON_DOMINANT_PIXELS
+        ):
+            raise SmokeError(
+                f"deformation capture {file_name} is blank or uniform by decoded-pixel integrity checks: "
+                f"observed_unique_rgba_pixels={metrics['unique_rgba_pixels']} "
+                f"observed_non_dominant_pixels={metrics['non_dominant_pixels']} "
+                f"required_unique_rgba_pixels>={DEFORMATION_CAPTURE_MIN_UNIQUE_RGBA_PIXELS} "
+                f"required_non_dominant_pixels>={DEFORMATION_CAPTURE_MIN_NON_DOMINANT_PIXELS}"
+            )
+        expected_sha = hashlib.sha256(data).hexdigest()
+        expected_bytes = str(len(data))
+        if (
+            not isinstance(record["sha256"], str)
+            or len(record["sha256"]) != 64
+            or any(character not in "0123456789abcdef" for character in record["sha256"])
+            or record["sha256"] != expected_sha
+            or not isinstance(record["byte_count_decimal"], str)
+            or record["byte_count_decimal"] != expected_bytes
+            or not record["byte_count_decimal"].isascii()
+            or not record["byte_count_decimal"].isdigit()
+            or record["byte_count_decimal"].startswith("0")
+        ):
+            raise SmokeError(f"Godot semantic deformation capture record {index} does not match staged bytes")
+
+    reference = decoded_captures["reference.png"]
+    recovered = decoded_captures["recovered.png"]
+    recovery_difference = _decoded_capture_difference(reference, recovered)
+    if reference != recovered:
+        raise SmokeError(
+            "deformation recovered capture does not exactly equal the decoded reference pixels: "
+            f"observed_changed_pixels={recovery_difference['changed_pixels']} "
+            f"observed_total_abs_channel_delta={recovery_difference['total_abs_channel_delta']} "
+            f"observed_max_channel_delta={recovery_difference['max_channel_delta']}"
+        )
+
+    peak_difference = _decoded_capture_difference(reference, decoded_captures["peak.png"])
+    if (
+        peak_difference["changed_pixels"] < DEFORMATION_CAPTURE_MIN_CHANGED_PIXELS
+        or peak_difference["total_abs_channel_delta"] < DEFORMATION_CAPTURE_MIN_TOTAL_ABS_CHANNEL_DELTA
+        or peak_difference["changed_pixel_fraction"] > DEFORMATION_CAPTURE_MAX_CHANGED_PIXEL_FRACTION
+    ):
+        raise SmokeError(
+            "deformation peak capture is not a bounded meaningful decoded-pixel distinction from reference: "
+            f"observed_changed_pixels={peak_difference['changed_pixels']} "
+            f"observed_changed_pixel_fraction={peak_difference['changed_pixel_fraction']:.9g} "
+            f"observed_total_abs_channel_delta={peak_difference['total_abs_channel_delta']} "
+            f"observed_max_channel_delta={peak_difference['max_channel_delta']} "
+            f"required_changed_pixels>={DEFORMATION_CAPTURE_MIN_CHANGED_PIXELS} "
+            f"required_total_abs_channel_delta>={DEFORMATION_CAPTURE_MIN_TOTAL_ABS_CHANNEL_DELTA} "
+            f"required_changed_pixel_fraction<={DEFORMATION_CAPTURE_MAX_CHANGED_PIXEL_FRACTION}"
+        )
 
 
 def _validate_report(
@@ -1355,6 +2172,7 @@ def _validate_report(
     projection_identity: dict[str, Any] | None = None,
     semantic_contact_command: dict[str, Any] | None = None,
     contact_command_identity: dict[str, Any] | None = None,
+    deformation_capture_bytes: dict[str, bytes] | None = None,
 ) -> None:
     if not isinstance(report, dict):
         raise SmokeError("Godot skeletal-pose report is not a JSON object")
@@ -1369,13 +2187,34 @@ def _validate_report(
         raise SmokeError("Godot report CK projection identity does not match the validated projection")
     if report.get("schema") != REPORT_SCHEMA or report.get("status") != "success":
         raise SmokeError("Godot skeletal-pose report schema or status is invalid")
-    expected_report_boundary = CONTACT_REPORT_BOUNDARY if semantic_contact_command is not None else REPORT_BOUNDARY
+    deformation_mode = deformation_capture_bytes is not None
+    if deformation_mode and semantic_contact_command is None:
+        raise SmokeError("semantic deformation requires the full semantic-contact predecessor set")
+    expected_report_boundary = (
+        DEFORMATION_REPORT_BOUNDARY
+        if deformation_mode
+        else CONTACT_REPORT_BOUNDARY
+        if semantic_contact_command is not None
+        else REPORT_BOUNDARY
+    )
     if report.get("boundary") != expected_report_boundary:
         raise SmokeError("Godot skeletal-pose report boundary is invalid")
-    expected_claims = CONTACT_REPORT_CLAIMS if semantic_contact_command is not None else REPORT_CLAIMS
+    expected_claims = (
+        DEFORMATION_REPORT_CLAIMS
+        if deformation_mode
+        else CONTACT_REPORT_CLAIMS
+        if semantic_contact_command is not None
+        else REPORT_CLAIMS
+    )
     if report.get("claims") != expected_claims:
         raise SmokeError("Godot skeletal-pose report contains an unexpected claim")
-    expected_scope_flags = CONTACT_REPORT_FLAGS if semantic_contact_command is not None else REPORT_FLAGS
+    expected_scope_flags = (
+        DEFORMATION_REPORT_FLAGS
+        if deformation_mode
+        else CONTACT_REPORT_FLAGS
+        if semantic_contact_command is not None
+        else REPORT_FLAGS
+    )
     scope_flags = report.get("scope_flags")
     if (
         not isinstance(scope_flags, dict)
@@ -1420,14 +2259,26 @@ def _validate_report(
         payload,
         carrier_avatar_records,
     )
-    contact_report_keys = {"semantic_contact", *CONTACT_REPORT_ALIAS_KEYS}
+    contact_report_keys = {
+        "semantic_contact",
+        "semantic_deformation",
+        *CONTACT_REPORT_ALIAS_KEYS,
+        *DEFORMATION_REPORT_ALIAS_KEYS,
+    }
     if semantic_contact_command is None:
         if contact_report_keys.intersection(report):
             raise SmokeError("no-contact Godot report contains unexpected semantic contact evidence")
     else:
         if contact_command_identity is None:
             raise SmokeError("semantic contact command identity expectation is missing")
-        _validate_contact_report(report, semantic_contact_command, contact_command_identity)
+        strongest_contact_sample = _validate_contact_report(report, semantic_contact_command, contact_command_identity)
+        if deformation_mode:
+            _validate_deformation_report(report, strongest_contact_sample)
+            if not isinstance(deformation_capture_bytes, dict):
+                raise SmokeError("semantic deformation staged captures are missing")
+            _validate_deformation_captures(report["semantic_deformation"], deformation_capture_bytes)
+        elif "semantic_deformation" in report or DEFORMATION_REPORT_ALIAS_KEYS.intersection(report):
+            raise SmokeError("contact-only Godot report contains unexpected semantic deformation evidence")
     if report.get("coordinate_rule") != {
         "kind": "disposable_host_local_identity",
         "mapping": "CK XYZ -> Godot XYZ: x->x, y->y, z->z",
@@ -1563,6 +2414,9 @@ def _launch_godot(
     semantic_contact_command: dict[str, Any] | None = None,
     contact_command_identity: dict[str, Any] | None = None,
     projection_cli_path: Path | None = None,
+    *,
+    deformation_capture: bool = False,
+    deformation_capture_sink: Any | None = None,
 ) -> tuple[str, str, int, dict[str, Any] | None]:
     """Launch with a real renderer; headless mode exposes dummy rendering RIDs."""
     if os.environ.get(VISIBLE_GODOT_OPT_IN) != "1":
@@ -1570,6 +2424,12 @@ def _launch_godot(
             f"visible X11 Godot launch is disabled; set {VISIBLE_GODOT_OPT_IN}=1 "
             "only for an attended run"
         )
+    if deformation_capture and (
+        semantic_contact_command is None
+        or deformation_capture_sink is None
+        or not callable(deformation_capture_sink)
+    ):
+        raise SmokeError("deformation capture mode requires semantic contact and a capture sink")
     for required in (neutral_smoke.PROJECT_FILE, GODOT_SCRIPT, neutral_smoke.LAUNCHER):
         if not required.is_file():
             raise SmokeError(f"required Godot skeletal-pose file is unavailable: {required}")
@@ -1594,6 +2454,9 @@ def _launch_godot(
         project = Path(temporary) / "project.godot"
         script_path = Path(temporary) / GODOT_SCRIPT.name
         raw_report_path = Path(temporary) / "godot-report.json"
+        raw_deformation_capture_path = Path(temporary) / "deformation-captures"
+        if deformation_capture:
+            raw_deformation_capture_path.mkdir()
         shutil.copyfile(neutral_smoke.PROJECT_FILE, project)
         shutil.copyfile(GODOT_SCRIPT, script_path)
         launch_command = [
@@ -1602,6 +2465,7 @@ def _launch_godot(
             "x11",
             "--rendering-method",
             "gl_compatibility",
+            *(("--resolution", "512x512") if deformation_capture else ()),
             "--audio-driver",
             "Dummy",
             "--path",
@@ -1705,6 +2569,8 @@ def _launch_godot(
             )
         elif contact_command_identity is not None:
             raise SmokeError("semantic contact command identity was supplied without a command")
+        if deformation_capture:
+            launch_command.extend(["--deformation-capture-dir", str(raw_deformation_capture_path)])
         environment = os.environ.copy()
         environment.update({key: str(value) for key, value in isolated_paths.items()})
         environment["CK_GODOT_4_7_2_BINARY"] = str(pinned_binary)
@@ -1731,6 +2597,8 @@ def _launch_godot(
         if completed.returncode != 0:
             return completed.stdout, completed.stderr, completed.returncode, None
         report = neutral_smoke._read_report(raw_report_path)
+        if deformation_capture:
+            deformation_capture_sink(_read_deformation_capture_bytes(raw_deformation_capture_path))
         return completed.stdout, completed.stderr, completed.returncode, report
 
 
@@ -1743,9 +2611,22 @@ def run_skeletal_pose_smoke(
     projection_path: Path | None = None,
     projection_cli_path: Path | None = None,
     contact_command_path: Path | None = None,
+    deformation_captures_path: Path | None = None,
 ) -> dict[str, Any]:
     report_path = neutral_smoke._validate_report_destination(report_path)
     gallery = Path(gallery)
+    if deformation_captures_path is not None:
+        deformation_captures_path = _validate_deformation_capture_destination(Path(deformation_captures_path))
+        if (
+            carrier_path is None
+            or command_path is None
+            or projection_path is None
+            or projection_cli_path is None
+            or contact_command_path is None
+        ):
+            raise SmokeError(
+            "deformation captures require the full semantic-contact predecessor set: carrier, CK projection, explicit Rust CLI, semantic pose command, and semantic contact command"
+            )
     carrier_identity = None
     carrier_avatar_records = None
     command = None
@@ -1755,6 +2636,9 @@ def run_skeletal_pose_smoke(
     projection_identity_value = None
     contact_command = None
     contact_command_identity = None
+    staged_deformation_captures: dict[str, bytes] | None = (
+        {} if deformation_captures_path is not None else None
+    )
     if contact_command_path is not None and (
         carrier_path is None
         or projection_path is None
@@ -1818,7 +2702,7 @@ def run_skeletal_pose_smoke(
                 Path(contact_command_path),
             )
     if contact_command is not None:
-        stdout, stderr, returncode, report = _launch_godot(
+        launch_arguments = [
             gallery,
             selected,
             payload,
@@ -1832,7 +2716,16 @@ def run_skeletal_pose_smoke(
             contact_command,
             contact_command_identity,
             Path(projection_cli_path),
-        )
+        ]
+        launch_options = {}
+        if deformation_captures_path is not None:
+            if staged_deformation_captures is None:
+                raise SmokeError("semantic deformation captures were not retained in memory")
+            launch_options = {
+                "deformation_capture": True,
+                "deformation_capture_sink": staged_deformation_captures.update,
+            }
+        stdout, stderr, returncode, report = _launch_godot(*launch_arguments, **launch_options)
     elif projection is None and command is None:
         stdout, stderr, returncode, report = _launch_godot(
             gallery,
@@ -1880,7 +2773,7 @@ def run_skeletal_pose_smoke(
     if report is None:
         raise SmokeError("Godot returned success without a skeletal-pose report")
     if contact_command is not None:
-        _validate_report(
+        validation_arguments = [
             report,
             payload,
             selected,
@@ -1892,7 +2785,12 @@ def run_skeletal_pose_smoke(
             projection_identity_value,
             contact_command,
             contact_command_identity,
-        )
+        ]
+        if deformation_captures_path is not None:
+            if staged_deformation_captures is None:
+                raise SmokeError("semantic deformation captures were not retained in memory")
+            validation_arguments.append(staged_deformation_captures)
+        _validate_report(*validation_arguments)
     elif projection is None and command is None:
         _validate_report(report, payload, selected, carrier_identity, carrier_avatar_records)
     elif projection is None:
@@ -1989,7 +2887,12 @@ def run_skeletal_pose_smoke(
             )
             if post_projection != projection or post_projection_identity != projection_identity_value:
                 raise SmokeError("CK projection changed during the skeletal-pose smoke; refusing to publish a success report")
-    neutral_smoke._publish_report(report_path, report)
+    _publish_deformation_result(
+        report_path,
+        report,
+        deformation_captures_path,
+        staged_deformation_captures,
+    )
     return report
 
 
@@ -2009,6 +2912,12 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--ck-cli", dest="projection_cli_path", type=Path, help="explicit absolute native creature-kernel CLI path; requires --projection")
     parser.add_argument("--profile-id", action="append", dest="profile_ids", help="repeat exactly twice; defaults to the compact and tall frozen IDs")
     parser.add_argument("--report", required=True, type=Path, help="absolute report path")
+    parser.add_argument(
+        "--deformation-captures",
+        dest="deformation_captures_path",
+        type=Path,
+        help="optional absolute, not-yet-existing output directory for the three deformation captures; requires full semantic contact mode",
+    )
     return parser
 
 
@@ -2025,6 +2934,7 @@ def main(argv: list[str] | None = None) -> int:
             args.projection_path,
             args.projection_cli_path,
             args.contact_command_path,
+            args.deformation_captures_path,
         )
     except SmokeError as exc:
         print(f"skeletal pose smoke failed: {exc}", file=sys.stderr)

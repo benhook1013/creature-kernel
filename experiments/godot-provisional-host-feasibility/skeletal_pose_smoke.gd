@@ -65,6 +65,7 @@ const CONTACT_APPROACH_TICKS := 24
 const CONTACT_HOLD_TICKS := 8
 const CONTACT_RELEASE_TICKS := 24
 const CONTACT_EXIT_TICKS := 8
+const CONTACT_TOTAL_TICKS := CONTACT_APPROACH_TICKS + CONTACT_HOLD_TICKS + CONTACT_RELEASE_TICKS + CONTACT_EXIT_TICKS
 const CONTACT_MAX_TICKS := 256
 const CONTACT_COLLISION_LAYER := 2
 const CONTACT_OVERDRIVE := 2.0e-2
@@ -72,6 +73,27 @@ const CONTACT_GEOMETRY_TOLERANCE := 1.0e-5
 const CONTACT_MIN_IMPULSE := 1.0e-5
 const CONTACT_MIN_NORMAL_VELOCITY := 1.0e-5
 const CONTACT_MIN_NORMAL_DISPLACEMENT := 1.0e-5
+const DEFORMATION_REPORT_BOUNDARY := "experiment_local_contact_driven_smooth_forearm_surface_deformation"
+const DEFORMATION_SURFACE_KIND := "proxy-derived-smooth-forearm"
+const DEFORMATION_SURFACE_ATTACHMENT := "child-of-contact-response-body"
+const DEFORMATION_SURFACE_COLLISION_MODE := "rigid-selected-capsule-not-deformed"
+const DEFORMATION_DRIVE_KIND := "actual-contact-triggered-fixed-depth-contact-normal-projected-sleeve-falloff"
+const DEFORMATION_AXIAL_SEGMENTS := 16
+const DEFORMATION_RADIAL_SEGMENTS := 32
+const DEFORMATION_VERTEX_COUNT := (DEFORMATION_AXIAL_SEGMENTS + 1) * DEFORMATION_RADIAL_SEGMENTS
+const DEFORMATION_TRIANGLE_COUNT := DEFORMATION_AXIAL_SEGMENTS * DEFORMATION_RADIAL_SEGMENTS * 2
+const DEFORMATION_FALLOFF_RADIUS_RATIO := 0.5
+const DEFORMATION_NORMALIZED_PEAK_DEPTH := 0.05
+const DEFORMATION_MAX_NORMALIZED_DEPTH := 0.05
+const DEFORMATION_MIN_NORMALIZED_DEPTH := 0.002
+const DEFORMATION_MAX_AFFECTED_FRACTION := 0.5
+const DEFORMATION_MIN_CONTACT_NORMAL_CENTER_ALIGNMENT := 0.1
+const DEFORMATION_RECOVERY_TOLERANCE := 1.0e-7
+const DEFORMATION_OUTSIDE_FALLOFF_TOLERANCE := 1.0e-6
+const DEFORMATION_CAPTURE_WIDTH := 1536
+const DEFORMATION_CAPTURE_HEIGHT := 512
+const DEFORMATION_VIEW_SIZE := 512
+const DEFORMATION_CAPTURE_NAMES := ["reference.png", "peak.png", "recovered.png"]
 const ARTIFACT_NAMES := [
 	"neutral.ply",
 	"posed.ply",
@@ -100,6 +122,7 @@ class ContactCaptureBody extends RigidBody3D:
 			var point: Vector3 = state.get_contact_local_position(contact_index)
 			var normal: Vector3 = state.get_contact_local_normal(contact_index)
 			var impulse: Vector3 = state.get_contact_impulse(contact_index)
+			var response_transform: Transform3D = state.transform
 			contact_samples.append({
 				"contact_index": contact_index,
 				"collider_id": collider_id,
@@ -111,6 +134,12 @@ class ContactCaptureBody extends RigidBody3D:
 				"impulse": [impulse.x, impulse.y, impulse.z],
 				"tick": probe_tick,
 				"phase": probe_phase,
+				"_response_transform": [
+					response_transform.basis.x.x, response_transform.basis.y.x, response_transform.basis.z.x, response_transform.origin.x,
+					response_transform.basis.x.y, response_transform.basis.y.y, response_transform.basis.z.y, response_transform.origin.y,
+					response_transform.basis.x.z, response_transform.basis.y.z, response_transform.basis.z.z, response_transform.origin.z,
+					0.0, 0.0, 0.0, 1.0,
+				],
 			})
 const PROXY_LINEAGE_FIELDS := ["owned_part", "partition_rule", "partition_vertex_count", "radius_rule"]
 const POSE_RECIPE := [
@@ -285,6 +314,8 @@ func _parse_arguments() -> Dictionary:
 		"semantic_contact_command_present": false,
 		"semantic_contact_command_identity_json": "",
 		"semantic_contact_command_identity_present": false,
+		"deformation_capture_dir": "",
+		"deformation_capture_present": false,
 		"ck_projection_json": "",
 		"ck_projection_identity_json": "",
 		"ck_projection_present": false,
@@ -293,7 +324,7 @@ func _parse_arguments() -> Dictionary:
 	var index := 0
 	while index < arguments.size():
 		var argument: String = arguments[index]
-		if argument == "--gallery" or argument == "--report" or argument == "--validated-json" or argument == "--carrier-identity-json" or argument == "--carrier-avatar-records-json" or argument == "--semantic-pose-command-json" or argument == "--semantic-pose-command-identity-json" or argument == "--semantic-pose-payload-json" or argument == "--semantic-contact-command-json" or argument == "--semantic-contact-command-identity-json" or argument == "--ck-projection-json" or argument == "--ck-projection-identity-json" or argument == "--profile-id":
+		if argument == "--gallery" or argument == "--report" or argument == "--validated-json" or argument == "--carrier-identity-json" or argument == "--carrier-avatar-records-json" or argument == "--semantic-pose-command-json" or argument == "--semantic-pose-command-identity-json" or argument == "--semantic-pose-payload-json" or argument == "--semantic-contact-command-json" or argument == "--semantic-contact-command-identity-json" or argument == "--deformation-capture-dir" or argument == "--ck-projection-json" or argument == "--ck-projection-identity-json" or argument == "--profile-id":
 			if index + 1 >= arguments.size():
 				_failure = "missing value after %s" % argument
 				return {}
@@ -323,6 +354,9 @@ func _parse_arguments() -> Dictionary:
 			elif argument == "--semantic-contact-command-identity-json":
 				result.semantic_contact_command_identity_json = value
 				result.semantic_contact_command_identity_present = true
+			elif argument == "--deformation-capture-dir":
+				result.deformation_capture_dir = value
+				result.deformation_capture_present = true
 			elif argument == "--ck-projection-json":
 				result.ck_projection_json = value
 				result.ck_projection_present = true
@@ -409,6 +443,13 @@ func _validate_options_against_projection(options: Dictionary, validated: Dictio
 	elif options.semantic_contact_command_identity_present:
 		_failure = "semantic contact command identity was supplied without the contact command"
 		return false
+	if options.deformation_capture_present:
+		if not options.semantic_contact_command_present:
+			_failure = "deformation capture directory is valid only with semantic contact"
+			return false
+		if options.deformation_capture_dir.is_empty() or not options.deformation_capture_dir.is_absolute_path():
+			_failure = "deformation capture directory must be a non-empty absolute path"
+			return false
 	return true
 
 
@@ -2245,6 +2286,11 @@ func _run_contact_probe(profiles: Array[Dictionary], options: Dictionary) -> Dic
 	var response_shape := _duplicate_contact_shape(response_mapping.source_collision, response_body, "semantic contact response")
 	if response_shape.is_empty():
 		return _contact_probe_failure(contact_root, _failure)
+	var deformation_surface := {}
+	if options.deformation_capture_present:
+		deformation_surface = _create_deformation_surface(response_body, response_shape.collision, response_mapping)
+		if deformation_surface.is_empty():
+			return _contact_probe_failure(contact_root, _failure)
 	response_body.expected_collider_id = int(actuator_body.get_instance_id())
 	response_body.linear_velocity = Vector3.ZERO
 	response_body.angular_velocity = Vector3.ZERO
@@ -2259,6 +2305,12 @@ func _run_contact_probe(profiles: Array[Dictionary], options: Dictionary) -> Dic
 	var initial_response := _contact_snapshot(response_body, "initial", 0)
 	if initial_response.is_empty():
 		return _contact_probe_failure(contact_root, _failure)
+	if not deformation_surface.is_empty():
+		var reference_state := _capture_deformation_state(deformation_surface, "reference", 0, 0.0, deformation_surface.baseline_vertices, 0)
+		if reference_state.is_empty():
+			return _contact_probe_failure(contact_root, _failure)
+		deformation_surface["reference_state"] = reference_state
+		deformation_surface["reference_vertices"] = reference_state["_vertices_array"]
 	var schedule := [
 		{"phase": "approach", "ticks": CONTACT_APPROACH_TICKS, "start_tick": 1, "end_tick": CONTACT_APPROACH_TICKS},
 		{"phase": "contact", "ticks": CONTACT_HOLD_TICKS, "start_tick": CONTACT_APPROACH_TICKS + 1, "end_tick": CONTACT_APPROACH_TICKS + CONTACT_HOLD_TICKS},
@@ -2284,6 +2336,18 @@ func _run_contact_probe(profiles: Array[Dictionary], options: Dictionary) -> Dic
 			else:
 				actuator_body.global_position = actuator_start
 			await physics_frame
+			if not deformation_surface.is_empty() and phase == "contact" and _contact_tick_has_contact(response_body, tick):
+				var runtime_sample := _strongest_contact_sample_for_tick(response_body, tick)
+				if runtime_sample.is_empty():
+					return _contact_probe_failure(contact_root, "deformation mode could not read an actual contact-phase runtime sample after the physics frame")
+				if not _drive_deformation_from_contact_sample(deformation_surface, runtime_sample.sample, int(runtime_sample.contact_index), tick):
+					return _contact_probe_failure(contact_root, _failure)
+			if not deformation_surface.is_empty() and phase == "release":
+				if not _recover_deformation_for_release(deformation_surface, float(phase_tick + 1) / float(phase_ticks)):
+					return _contact_probe_failure(contact_root, _failure)
+			if not deformation_surface.is_empty() and phase == "exit":
+				if not _restore_deformation_baseline(deformation_surface):
+					return _contact_probe_failure(contact_root, _failure)
 			if phase == "contact" and _contact_tick_has_contact(response_body, tick):
 				var contact_snapshot := _contact_snapshot(response_body, "contact", tick)
 				if contact_snapshot.is_empty():
@@ -2322,6 +2386,8 @@ func _run_contact_probe(profiles: Array[Dictionary], options: Dictionary) -> Dic
 	var exit_empty_seen := false
 	var final_exit_contact_count := -1
 	for tick_record in response_body.tick_evidence:
+		if not deformation_surface.is_empty() and String(tick_record.phase) == "approach" and int(tick_record.contact_count) > 0:
+			return _contact_probe_failure(contact_root, "semantic contact side-alignment approach contacted before the declared contact phase")
 		if String(tick_record.phase) == "contact" and int(tick_record.contact_count) > 0:
 			contact_seen = true
 		if String(tick_record.phase) == "exit":
@@ -2336,6 +2402,8 @@ func _run_contact_probe(profiles: Array[Dictionary], options: Dictionary) -> Dic
 		return _contact_probe_failure(contact_root, "semantic contact strongest solver sample was outside the contact phase")
 	if max_impulse <= CONTACT_MIN_IMPULSE:
 		return _contact_probe_failure(contact_root, "semantic contact phase has no solver impulse above the declared floor")
+	if not deformation_surface.is_empty() and (int(deformation_surface.get("peak_sample_tick", -1)) != int(strongest_sample.get("tick", -1)) or int(deformation_surface.get("peak_sample_index", -1)) != int(strongest_sample.get("contact_index", -1))):
+		return _contact_probe_failure(contact_root, "deformation peak was not retained from the strongest positive contact sample")
 	var strongest_tick := int(strongest_sample.tick)
 	if not contact_snapshots_by_tick.has(strongest_tick):
 		return _contact_probe_failure(contact_root, "semantic contact strongest solver sample has no same-tick response snapshot")
@@ -2407,7 +2475,7 @@ func _run_contact_probe(profiles: Array[Dictionary], options: Dictionary) -> Dic
 			"response_rotation_locked": response_body.axis_lock_angular_x and response_body.axis_lock_angular_y and response_body.axis_lock_angular_z,
 			"response_contact_monitor": response_body.contact_monitor,
 			"response_max_contacts_reported": response_body.max_contacts_reported,
-			"one_shape_per_contact_body": actuator_body.get_child_count() == 1 and response_body.get_child_count() == 1,
+		"one_shape_per_contact_body": actuator_body.get_child_count() == 1 and _collision_shape_count(response_body) == 1,
 		},
 		"contact_tick_evidence": response_body.tick_evidence,
 		"contact_samples": response_body.contact_samples,
@@ -2425,6 +2493,12 @@ func _run_contact_probe(profiles: Array[Dictionary], options: Dictionary) -> Dic
 		"solver_response": max_impulse > CONTACT_MIN_IMPULSE and normal_velocity_delta > CONTACT_MIN_NORMAL_VELOCITY and normal_displacement > CONTACT_MIN_NORMAL_DISPLACEMENT,
 	}
 	contact_root.free()
+	if not deformation_surface.is_empty():
+		var semantic_deformation: Dictionary = await _finish_deformation_capture(deformation_surface, response_mapping, options.deformation_capture_dir)
+		if semantic_deformation.is_empty():
+			_failure = "deformation capture could not complete after physical evidence"
+			return {}
+		result["semantic_deformation"] = semantic_deformation
 	return result
 
 
@@ -2433,6 +2507,843 @@ func _contact_tick_has_contact(response_body: ContactCaptureBody, tick: int) -> 
 		if int(tick_record.tick) == tick and int(tick_record.contact_count) > 0:
 			return true
 	return false
+
+
+func _collision_shape_count(body: Node) -> int:
+	if body == null or not is_instance_valid(body):
+		return 0
+	var count := 0
+	for child in body.get_children():
+		if child is CollisionShape3D:
+			count += 1
+	return count
+
+
+func _deformation_mesh_from_arrays(vertices: PackedVector3Array, normals: PackedVector3Array, indices: PackedInt32Array, where: String) -> Variant:
+	if vertices.size() != DEFORMATION_VERTEX_COUNT or normals.size() != vertices.size() or indices.size() != DEFORMATION_TRIANGLE_COUNT * 3:
+		_failure = "%s has invalid CPU mesh array counts" % where
+		return null
+	var mesh := ArrayMesh.new()
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_INDEX] = indices
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	if mesh.get_surface_count() != 1:
+		_failure = "%s could not create exactly one ArrayMesh surface" % where
+		return null
+	return mesh
+
+
+func _calculate_deformation_normals(vertices: PackedVector3Array, indices: PackedInt32Array, fallback: PackedVector3Array, where: String) -> Variant:
+	if vertices.size() != DEFORMATION_VERTEX_COUNT or indices.size() != DEFORMATION_TRIANGLE_COUNT * 3 or fallback.size() != vertices.size():
+		_failure = "%s has incomplete normal-generation arrays" % where
+		return null
+	var accumulated := PackedVector3Array()
+	accumulated.resize(vertices.size())
+	for face_offset in range(0, indices.size(), 3):
+		var first_index := int(indices[face_offset])
+		var second_index := int(indices[face_offset + 1])
+		var third_index := int(indices[face_offset + 2])
+		if first_index < 0 or first_index >= vertices.size() or second_index < 0 or second_index >= vertices.size() or third_index < 0 or third_index >= vertices.size():
+			_failure = "%s contains an out-of-range triangle index" % where
+			return null
+		var face := (vertices[second_index] - vertices[first_index]).cross(vertices[third_index] - vertices[first_index])
+		if not _finite_vector3(face) or face.length_squared() <= 1.0e-24:
+			_failure = "%s contains a degenerate or non-finite triangle" % where
+			return null
+		accumulated[first_index] = accumulated[first_index] + face
+		accumulated[second_index] = accumulated[second_index] + face
+		accumulated[third_index] = accumulated[third_index] + face
+	var normals := PackedVector3Array()
+	normals.resize(vertices.size())
+	for vertex_index in range(vertices.size()):
+		var normal := accumulated[vertex_index]
+		if not _finite_vector3(normal):
+			_failure = "%s generated a non-finite normal" % where
+			return null
+		if normal.length_squared() <= 1.0e-24:
+			normal = fallback[vertex_index]
+		if not _finite_vector3(normal) or normal.length_squared() <= 1.0e-24:
+			_failure = "%s could not generate a valid normal at vertex %d" % [where, vertex_index]
+			return null
+		normals[vertex_index] = normal.normalized()
+	return normals
+
+
+func _create_deformation_surface(response_body: Node3D, response_collision: CollisionShape3D, response_mapping: Dictionary) -> Dictionary:
+	if not (response_body is ContactCaptureBody) or not is_instance_valid(response_body) or not is_instance_valid(response_collision) or response_collision.get_parent() != response_body:
+		_failure = "deformation surface is not attached to the ContactResponse body"
+		return {}
+	if typeof(response_mapping) != TYPE_DICTIONARY or String(response_mapping.get("source_bone_id", "")).is_empty():
+		_failure = "deformation surface source mapping is incomplete"
+		return {}
+	if not (response_collision.shape is CapsuleShape3D):
+		_failure = "deformation surface source collision is not a capsule"
+		return {}
+	var shape: CapsuleShape3D = response_collision.shape
+	var radius := float(shape.radius)
+	var baseline_length := float(shape.height) - 2.0 * radius
+	var capsule_transform: Transform3D = response_collision.transform
+	if not is_finite(radius) or radius <= 0.0 or not is_finite(baseline_length) or baseline_length <= 1.0e-12 or not _finite_transform(capsule_transform) or abs(capsule_transform.basis.determinant() - 1.0) > TOLERANCE:
+		_failure = "deformation surface duplicated capsule dimensions or transform are invalid"
+		return {}
+	var baseline_vertices := PackedVector3Array()
+	var baseline_normals := PackedVector3Array()
+	var baseline_indices := PackedInt32Array()
+	var half_length := 0.5 * baseline_length
+	for axial_index in range(DEFORMATION_AXIAL_SEGMENTS + 1):
+		var axial_fraction := float(axial_index) / float(DEFORMATION_AXIAL_SEGMENTS)
+		var axial: float = lerp(-half_length, half_length, axial_fraction)
+		for radial_index in range(DEFORMATION_RADIAL_SEGMENTS):
+			var angle := 2.0 * PI * float(radial_index) / float(DEFORMATION_RADIAL_SEGMENTS)
+			var radial := Vector3(cos(angle), 0.0, sin(angle))
+			baseline_vertices.append(capsule_transform * Vector3(radial.x * radius, axial, radial.z * radius))
+			baseline_normals.append((capsule_transform.basis * radial).normalized())
+	for axial_index in range(DEFORMATION_AXIAL_SEGMENTS):
+		for radial_index in range(DEFORMATION_RADIAL_SEGMENTS):
+			var next_radial := (radial_index + 1) % DEFORMATION_RADIAL_SEGMENTS
+			var lower := axial_index * DEFORMATION_RADIAL_SEGMENTS + radial_index
+			var upper := (axial_index + 1) * DEFORMATION_RADIAL_SEGMENTS + radial_index
+			var lower_next := axial_index * DEFORMATION_RADIAL_SEGMENTS + next_radial
+			var upper_next := (axial_index + 1) * DEFORMATION_RADIAL_SEGMENTS + next_radial
+			baseline_indices.append(lower)
+			baseline_indices.append(upper)
+			baseline_indices.append(upper_next)
+			baseline_indices.append(lower)
+			baseline_indices.append(upper_next)
+			baseline_indices.append(lower_next)
+	if baseline_vertices.size() != DEFORMATION_VERTEX_COUNT or baseline_normals.size() != DEFORMATION_VERTEX_COUNT or baseline_indices.size() != DEFORMATION_TRIANGLE_COUNT * 3:
+		_failure = "deformation surface deterministic CPU array generation produced unexpected counts"
+		return {}
+	var mesh_value = _deformation_mesh_from_arrays(baseline_vertices, baseline_normals, baseline_indices, "deformation baseline")
+	if mesh_value == null:
+		return {}
+	var mesh: ArrayMesh = mesh_value
+	var mesh_instance := MeshInstance3D.new()
+	mesh_instance.name = "DeformationSurface"
+	mesh_instance.mesh = mesh
+	mesh_instance.transform = Transform3D.IDENTITY
+	mesh_instance.visible = false
+	response_body.add_child(mesh_instance)
+	if mesh_instance.get_parent() != response_body or mesh_instance.mesh != mesh:
+		_failure = "deformation surface was not retained on the ContactResponse body"
+		return {}
+	return {
+		"body": response_body,
+		"collision": response_collision,
+		"mesh_instance": mesh_instance,
+		"mesh": mesh,
+		"surface_transform": capsule_transform,
+		"baseline_vertices": baseline_vertices,
+		"baseline_normals": baseline_normals,
+		"baseline_indices": baseline_indices,
+		"baseline_radius": radius,
+		"baseline_length": baseline_length,
+		"falloff_radius": radius * DEFORMATION_FALLOFF_RADIUS_RATIO,
+		"falloff_weights": [],
+		"reference_state": {},
+		"peak_state": {},
+		"recovered_state": {},
+		"peak_normalized_depth_raw": 0.0,
+		"peak_absolute_depth_raw": 0.0,
+		"peak_runtime_contact_point": Vector3.ZERO,
+		"peak_contact_point": Vector3.ZERO,
+		"peak_deformation_center": Vector3.ZERO,
+		"peak_inward_direction": Vector3.ZERO,
+		"peak_sample_tick": -1,
+		"peak_sample_index": -1,
+		"peak_sample_response_transform": [],
+		"peak_impulse_magnitude_raw": 0.0,
+		"last_tick": 0,
+	}
+
+
+func _set_deformation_mesh_arrays(surface: Dictionary, vertices: PackedVector3Array, provided_normals = null) -> bool:
+	var mesh = surface.get("mesh", null)
+	var indices = surface.get("baseline_indices", PackedInt32Array())
+	var fallback = surface.get("baseline_normals", PackedVector3Array())
+	if not (mesh is ArrayMesh) or vertices.size() != DEFORMATION_VERTEX_COUNT or not (indices is PackedInt32Array) or indices.size() != DEFORMATION_TRIANGLE_COUNT * 3 or not (fallback is PackedVector3Array) or fallback.size() != vertices.size():
+		_failure = "deformation ArrayMesh update arrays are incomplete"
+		return false
+	var normals: PackedVector3Array
+	if provided_normals is PackedVector3Array and provided_normals.size() == vertices.size():
+		normals = provided_normals.duplicate()
+	else:
+		var generated = _calculate_deformation_normals(vertices, indices, fallback, "deformation update")
+		if generated == null:
+			return false
+		normals = generated as PackedVector3Array
+	mesh.clear_surfaces()
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_INDEX] = indices
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	if mesh.get_surface_count() != 1:
+		_failure = "deformation ArrayMesh update did not retain one surface"
+		return false
+	var readback: Array = mesh.surface_get_arrays(0)
+	if readback.size() <= Mesh.ARRAY_INDEX or not (readback[Mesh.ARRAY_VERTEX] is PackedVector3Array) or not (readback[Mesh.ARRAY_NORMAL] is PackedVector3Array) or not (readback[Mesh.ARRAY_INDEX] is PackedInt32Array):
+		_failure = "deformation ArrayMesh update read-back arrays are incomplete"
+		return false
+	var actual_vertices: PackedVector3Array = readback[Mesh.ARRAY_VERTEX]
+	var actual_indices: PackedInt32Array = readback[Mesh.ARRAY_INDEX]
+	if actual_vertices.size() != vertices.size() or actual_indices != indices:
+		_failure = "deformation ArrayMesh update read-back changed the deterministic topology"
+		return false
+	for vertex_index in range(vertices.size()):
+		if actual_vertices[vertex_index].distance_to(vertices[vertex_index]) > TOLERANCE:
+			_failure = "deformation ArrayMesh update read-back changed vertex %d beyond tolerance" % vertex_index
+			return false
+	surface["last_readback_arrays"] = readback
+	return true
+
+
+func _capture_deformation_state(surface: Dictionary, label: String, tick: int, expected_normalized_depth: float, expected_vertices, _expected_affected_vertex_count: int) -> Dictionary:
+	var mesh = surface.get("mesh", null)
+	var radius := float(surface.get("baseline_radius", 0.0))
+	var baseline_vertices = surface.get("baseline_vertices", PackedVector3Array())
+	var baseline_indices = surface.get("baseline_indices", PackedInt32Array())
+	var reference_vertices = surface.get("reference_vertices", baseline_vertices)
+	if not (mesh is ArrayMesh) or not is_finite(radius) or radius <= 0.0 or not (baseline_vertices is PackedVector3Array) or not (baseline_indices is PackedInt32Array) or not (reference_vertices is PackedVector3Array) or reference_vertices.size() != DEFORMATION_VERTEX_COUNT or not (expected_vertices is PackedVector3Array) or expected_vertices.size() != DEFORMATION_VERTEX_COUNT:
+		_failure = "%s deformation state inputs are invalid" % label
+		return {}
+	if not is_finite(expected_normalized_depth) or expected_normalized_depth < 0.0:
+		_failure = "%s deformation state expected depth is invalid" % label
+		return {}
+	if mesh.get_surface_count() != 1:
+		_failure = "%s deformation state does not have one ArrayMesh surface" % label
+		return {}
+	var arrays: Array = mesh.surface_get_arrays(0)
+	if arrays.size() <= Mesh.ARRAY_INDEX or not (arrays[Mesh.ARRAY_VERTEX] is PackedVector3Array) or not (arrays[Mesh.ARRAY_NORMAL] is PackedVector3Array) or not (arrays[Mesh.ARRAY_INDEX] is PackedInt32Array):
+		_failure = "%s deformation state ArrayMesh read-back is incomplete" % label
+		return {}
+	var actual_vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var actual_normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+	var actual_indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+	if actual_vertices.size() != DEFORMATION_VERTEX_COUNT or actual_normals.size() != DEFORMATION_VERTEX_COUNT or actual_indices != baseline_indices:
+		_failure = "%s deformation state ArrayMesh read-back counts or topology are invalid" % label
+		return {}
+	var weights = surface.get("falloff_weights", [])
+	if typeof(weights) != TYPE_ARRAY and label != "reference":
+		_failure = "%s deformation state falloff weights are invalid" % label
+		return {}
+	if typeof(weights) == TYPE_ARRAY and not weights.is_empty() and weights.size() != actual_vertices.size():
+		_failure = "%s deformation state falloff weights do not cover the mesh" % label
+		return {}
+	var max_residual := 0.0
+	var readback_error := 0.0
+	var affected_vertex_count := 0
+	var outside_falloff_max_residual := 0.0
+	for vertex_index in range(actual_vertices.size()):
+		var actual_vertex := actual_vertices[vertex_index]
+		var expected_vertex: Vector3 = expected_vertices[vertex_index]
+		var reference_vertex: Vector3 = reference_vertices[vertex_index]
+		if not _finite_vector3(actual_vertex) or not _finite_vector3(expected_vertex) or not _finite_vector3(reference_vertex) or not _finite_vector3(actual_normals[vertex_index]):
+			_failure = "%s deformation state contains a non-finite read-back vertex or normal" % label
+			return {}
+		var displacement := actual_vertex.distance_to(reference_vertex)
+		readback_error = max(readback_error, actual_vertex.distance_to(expected_vertex))
+		max_residual = max(max_residual, displacement)
+		if label == "peak" and typeof(weights) == TYPE_ARRAY and not weights.is_empty() and float(weights[vertex_index]) > 0.0:
+			affected_vertex_count += 1
+		if typeof(weights) == TYPE_ARRAY and not weights.is_empty() and float(weights[vertex_index]) == 0.0:
+			outside_falloff_max_residual = max(outside_falloff_max_residual, displacement)
+	if not is_finite(max_residual) or not is_finite(readback_error) or not is_finite(outside_falloff_max_residual):
+		_failure = "%s deformation state metrics are non-finite" % label
+		return {}
+	if readback_error > TOLERANCE:
+		_failure = "%s deformation state read-back error exceeds tolerance" % label
+		return {}
+	var normalized_depth := max_residual / radius
+	if not is_finite(normalized_depth) or normalized_depth < 0.0 or normalized_depth > DEFORMATION_MAX_NORMALIZED_DEPTH + DEFORMATION_RECOVERY_TOLERANCE:
+		_failure = "%s deformation state exceeds the declared normalized depth cap" % label
+		return {}
+	return {
+		"tick": tick,
+		"normalized_depth": _report_float(normalized_depth),
+		"max_residual": _report_float(max_residual),
+		"affected_vertex_count": affected_vertex_count,
+		"outside_falloff_max_residual": _report_float(outside_falloff_max_residual),
+		"_normalized_depth_raw": normalized_depth,
+		"_max_residual_raw": max_residual,
+		"_readback_error_raw": readback_error,
+		"_outside_falloff_max_residual_raw": outside_falloff_max_residual,
+		"_vertices_array": actual_vertices.duplicate(),
+		"_normals_array": actual_normals.duplicate(),
+		"_indices_array": actual_indices.duplicate(),
+	}
+
+
+func _strongest_contact_sample_for_tick(response_body: ContactCaptureBody, tick: int) -> Dictionary:
+	if not is_instance_valid(response_body) or response_body.expected_collider_id <= 0:
+		return {}
+	var strongest_index := -1
+	var strongest_impulse := 0.0
+	for sample_index in range(response_body.contact_samples.size()):
+		var sample: Dictionary = response_body.contact_samples[sample_index]
+		if int(sample.get("tick", -1)) != tick or String(sample.get("phase", "")) != "contact":
+			continue
+		if int(sample.get("collider_id", 0)) != response_body.expected_collider_id or int(sample.get("collider_object_id", 0)) != response_body.expected_collider_id or int(sample.get("collider_shape_index", -1)) != 0 or int(sample.get("local_shape_index", -1)) != 0:
+			continue
+		var point = _vector3(sample.get("point", []), "deformation contact sample point")
+		var normal = _vector3(sample.get("normal", []), "deformation contact sample normal")
+		var impulse = _vector3(sample.get("impulse", []), "deformation contact sample impulse")
+		if point == null or normal == null or impulse == null or not _finite_vector3(point as Vector3) or not _finite_vector3(normal as Vector3) or not _finite_vector3(impulse as Vector3) or (normal as Vector3).length_squared() <= 1.0e-18:
+			continue
+		var impulse_length := (impulse as Vector3).length()
+		if not is_finite(impulse_length) or impulse_length <= 0.0 or int(sample.get("contact_index", -1)) < 0:
+			continue
+		if impulse_length > strongest_impulse:
+			strongest_impulse = impulse_length
+			strongest_index = sample_index
+	if strongest_index < 0:
+		return {}
+	var strongest_sample: Dictionary = response_body.contact_samples[strongest_index].duplicate(true)
+	return {"sample": strongest_sample, "contact_index": int(strongest_sample.get("contact_index", -1))}
+
+
+func _drive_deformation_from_contact_sample(surface: Dictionary, sample: Dictionary, sample_index: int, tick: int) -> bool:
+	if typeof(sample) != TYPE_DICTIONARY or sample_index < 0 or sample_index != int(sample.get("contact_index", -1)) or String(sample.get("phase", "")) != "contact" or int(sample.get("tick", -1)) != tick:
+		_failure = "deformation drive did not receive the selected post-physics contact sample"
+		return false
+	var point = _vector3(sample.get("point", []), "deformation drive contact point")
+	var normal = _vector3(sample.get("normal", []), "deformation drive contact normal")
+	var impulse = _vector3(sample.get("impulse", []), "deformation drive contact impulse")
+	var sample_response_matrix := _matrix(sample.get("_response_transform", []), "deformation drive sample response transform")
+	if point == null or normal == null or impulse == null or sample_response_matrix.is_empty() or not _finite_vector3(point as Vector3) or not _finite_vector3(normal as Vector3) or not _finite_vector3(impulse as Vector3) or (normal as Vector3).length_squared() <= 1.0e-18:
+		_failure = "deformation drive contact sample is non-finite or has no usable normal"
+		return false
+	var sample_response_transform := _matrix_transform(sample_response_matrix)
+	if not _finite_transform(sample_response_transform) or abs(sample_response_transform.basis.determinant() - 1.0) > TOLERANCE:
+		_failure = "deformation drive sample response transform is not finite and orthonormal"
+		return false
+	var radius := float(surface.get("baseline_radius", 0.0))
+	var baseline_vertices: PackedVector3Array = surface.get("baseline_vertices", PackedVector3Array())
+	var surface_transform: Transform3D = surface.get("surface_transform", Transform3D.IDENTITY)
+	var response_body = surface.get("body", null)
+	if not is_finite(radius) or radius <= 0.0 or baseline_vertices.size() != DEFORMATION_VERTEX_COUNT or not _finite_transform(surface_transform) or not (response_body is ContactCaptureBody) or not is_instance_valid(response_body):
+		_failure = "deformation drive surface geometry is invalid"
+		return false
+	var impulse_length := (impulse as Vector3).length()
+	if not is_finite(impulse_length) or impulse_length <= 0.0:
+		_failure = "deformation drive contact impulse was not positive and measurable"
+		return false
+	var normalized_depth: float = DEFORMATION_NORMALIZED_PEAK_DEPTH
+	var runtime_contact_point: Vector3 = point as Vector3
+	# Despite its historical name, get_contact_local_position() returns a
+	# global-space point. Convert through the response body exactly once before
+	# projecting into the capsule-local surface frame.
+	var local_contact_point: Vector3 = sample_response_transform.affine_inverse() * runtime_contact_point
+	var surface_contact_point: Vector3 = surface_transform.affine_inverse() * local_contact_point
+	var radial := Vector3(surface_contact_point.x, 0.0, surface_contact_point.z)
+	if not _finite_vector3(runtime_contact_point) or not _finite_vector3(local_contact_point) or not _finite_vector3(surface_contact_point) or radial.length_squared() <= 1.0e-18:
+		_failure = "deformation drive contact point cannot define an inward capsule-axis direction"
+		return false
+	var radial_direction := radial.normalized()
+	var half_length := 0.5 * float(surface.get("baseline_length", 0.0))
+	var falloff_radius := float(surface.get("falloff_radius", 0.0))
+	if not is_finite(half_length) or half_length <= 0.0 or not is_finite(falloff_radius) or falloff_radius <= 0.0:
+		_failure = "deformation drive falloff geometry is invalid"
+		return false
+	var falloff_center := Vector3(radial_direction.x * radius, clamp(surface_contact_point.y, -half_length, half_length), radial_direction.z * radius)
+	var local_deformation_center: Vector3 = surface_transform * falloff_center
+	var toward_sleeve_center: Vector3 = surface_transform.origin - local_deformation_center
+	var contact_normal: Vector3 = (normal as Vector3).normalized()
+	var normal_center_alignment: float = abs(contact_normal.dot(toward_sleeve_center.normalized()))
+	if not _finite_vector3(local_deformation_center) or not _finite_vector3(toward_sleeve_center) or toward_sleeve_center.length_squared() <= 1.0e-18 or not _finite_vector3(contact_normal) or contact_normal.length_squared() <= 1.0e-18 or not is_finite(normal_center_alignment) or normal_center_alignment < DEFORMATION_MIN_CONTACT_NORMAL_CENTER_ALIGNMENT:
+		_failure = "deformation drive actual contact normal does not define an inward direction for the projected sleeve center"
+		return false
+	var inward_direction: Vector3 = contact_normal if contact_normal.dot(toward_sleeve_center) > 0.0 else -contact_normal
+	var raw_weights: Array[float] = []
+	var positive_weight_max := 0.0
+	for vertex_index in range(baseline_vertices.size()):
+		var surface_vertex: Vector3 = surface_transform.affine_inverse() * baseline_vertices[vertex_index]
+		var distance := surface_vertex.distance_to(falloff_center)
+		var raw_weight := 0.0
+		if distance < falloff_radius:
+			raw_weight = pow(max(0.0, 1.0 - distance / falloff_radius), 2.0)
+		if not is_finite(distance) or not is_finite(raw_weight) or raw_weight < 0.0:
+			_failure = "deformation drive generated a non-finite compact falloff weight"
+			return false
+		raw_weights.append(raw_weight)
+		if raw_weight > positive_weight_max:
+			positive_weight_max = raw_weight
+	if not is_finite(positive_weight_max) or positive_weight_max <= 0.0:
+		_failure = "deformation drive compact falloff has no positive vertex weight"
+		return false
+	var weights: Array[float] = []
+	var deformed_vertices := PackedVector3Array()
+	var affected_weight_count := 0
+	var unaffected_weight_count := 0
+	for vertex_index in range(raw_weights.size()):
+		var raw_weight: float = raw_weights[vertex_index]
+		var weight := 0.0
+		if raw_weight > 0.0:
+			weight = raw_weight / positive_weight_max
+		if not is_finite(weight) or weight < 0.0 or weight > 1.0:
+			_failure = "deformation drive generated a non-finite or unbounded normalized falloff weight"
+			return false
+		weights.append(weight)
+		if weight > 0.0:
+			affected_weight_count += 1
+		else:
+			unaffected_weight_count += 1
+		deformed_vertices.append(baseline_vertices[vertex_index] + inward_direction * (radius * normalized_depth * weight))
+	if affected_weight_count <= 0 or unaffected_weight_count <= 0 or float(affected_weight_count) / float(weights.size()) > DEFORMATION_MAX_AFFECTED_FRACTION:
+		_failure = "deformation drive compact falloff did not contain both affected and unaffected vertices within its fraction cap"
+		return false
+	if not weights.has(1.0):
+		_failure = "deformation drive normalized falloff did not retain an exact unit peak"
+		return false
+	surface["falloff_weights"] = weights
+	if not _set_deformation_mesh_arrays(surface, deformed_vertices):
+		return false
+	var state := _capture_deformation_state(surface, "peak", tick, normalized_depth, deformed_vertices, affected_weight_count)
+	if state.is_empty():
+		return false
+	var actual_normalized_depth := float(state.get("_normalized_depth_raw", -1.0))
+	if not is_finite(actual_normalized_depth) or abs(actual_normalized_depth - normalized_depth) > TOLERANCE or actual_normalized_depth <= DEFORMATION_MIN_NORMALIZED_DEPTH or actual_normalized_depth > DEFORMATION_MAX_NORMALIZED_DEPTH + DEFORMATION_RECOVERY_TOLERANCE or float(state.get("_readback_error_raw", INF)) > TOLERANCE:
+		_failure = "deformation drive ArrayMesh read-back did not retain a bounded measurable state"
+		return false
+	surface["last_tick"] = tick
+	surface["last_state"] = state
+	var peak_state: Dictionary = surface.get("peak_state", {})
+	var prior_peak_impulse := float(surface.get("peak_impulse_magnitude_raw", 0.0))
+	if peak_state.is_empty() or impulse_length > prior_peak_impulse:
+		surface["peak_state"] = state.duplicate(true)
+		surface["peak_normalized_depth_raw"] = actual_normalized_depth
+		surface["peak_absolute_depth_raw"] = actual_normalized_depth * radius
+		surface["peak_runtime_contact_point"] = runtime_contact_point
+		surface["peak_contact_point"] = local_contact_point
+		surface["peak_deformation_center"] = local_deformation_center
+		surface["peak_inward_direction"] = inward_direction
+		surface["peak_sample_tick"] = tick
+		surface["peak_sample_index"] = sample_index
+		surface["peak_sample_response_transform"] = sample_response_matrix.duplicate()
+		surface["peak_falloff_weights"] = weights.duplicate()
+		surface["peak_impulse_magnitude_raw"] = impulse_length
+	return true
+
+
+func _recover_deformation_for_release(surface: Dictionary, fraction: float) -> bool:
+	if not is_finite(fraction) or fraction < 0.0 or fraction > 1.0:
+		_failure = "deformation release interpolation fraction is invalid"
+		return false
+	var peak_state: Dictionary = surface.get("peak_state", {})
+	var baseline_vertices: PackedVector3Array = surface.get("baseline_vertices", PackedVector3Array())
+	if peak_state.is_empty() or not (peak_state.get("_vertices_array", null) is PackedVector3Array) or baseline_vertices.size() != DEFORMATION_VERTEX_COUNT:
+		_failure = "deformation release interpolation has no retained peak state"
+		return false
+	var peak_vertices: PackedVector3Array = peak_state["_vertices_array"]
+	if peak_vertices.size() != baseline_vertices.size():
+		_failure = "deformation release interpolation peak and baseline arrays differ"
+		return false
+	var interpolated := PackedVector3Array()
+	for vertex_index in range(baseline_vertices.size()):
+		interpolated.append(peak_vertices[vertex_index].lerp(baseline_vertices[vertex_index], fraction))
+	if not _set_deformation_mesh_arrays(surface, interpolated):
+		return false
+	var release_tick := int(surface.get("last_tick", 0)) + 1
+	var expected_depth := float(surface.get("peak_normalized_depth_raw", 0.0)) * (1.0 - fraction)
+	var state := _capture_deformation_state(surface, "release", release_tick, expected_depth, interpolated, 0)
+	if state.is_empty() or float(state.get("_outside_falloff_max_residual_raw", INF)) > DEFORMATION_OUTSIDE_FALLOFF_TOLERANCE:
+		if _failure.is_empty():
+			_failure = "deformation release interpolation escaped its compact falloff"
+		return false
+	surface["last_tick"] = release_tick
+	surface["last_release_fraction"] = fraction
+	surface["current_state"] = state
+	return true
+
+
+func _restore_deformation_baseline(surface: Dictionary) -> bool:
+	var baseline_vertices: PackedVector3Array = surface.get("baseline_vertices", PackedVector3Array())
+	var baseline_normals: PackedVector3Array = surface.get("baseline_normals", PackedVector3Array())
+	if baseline_vertices.size() != DEFORMATION_VERTEX_COUNT or baseline_normals.size() != DEFORMATION_VERTEX_COUNT:
+		_failure = "deformation baseline recovery arrays are incomplete"
+		return false
+	if not _set_deformation_mesh_arrays(surface, baseline_vertices, baseline_normals):
+		return false
+	var state := _capture_deformation_state(surface, "recovery", CONTACT_TOTAL_TICKS, 0.0, baseline_vertices, 0)
+	if state.is_empty() or float(state.get("_normalized_depth_raw", INF)) > DEFORMATION_RECOVERY_TOLERANCE or float(state.get("_max_residual_raw", INF)) > DEFORMATION_RECOVERY_TOLERANCE:
+		if _failure.is_empty():
+			_failure = "deformation baseline recovery was not exact"
+		return false
+	surface["current_state"] = state
+	return true
+
+
+func _deformation_state_report(state: Dictionary) -> Dictionary:
+	var vertices: PackedVector3Array = state.get("_vertices_array", PackedVector3Array())
+	if vertices.size() != DEFORMATION_VERTEX_COUNT:
+		_failure = "deformation state report does not contain the exact read-back vertices"
+		return {}
+	var vertex_report: Array = []
+	for vertex in vertices:
+		if not _finite_vector3(vertex):
+			_failure = "deformation state report contains a non-finite vertex"
+			return {}
+		vertex_report.append(_vector_json(vertex))
+	return {
+		"tick": int(state.get("tick", -1)),
+		"normalized_depth": float(state.get("normalized_depth", INF)),
+		"vertices": vertex_report,
+		"max_residual": float(state.get("max_residual", INF)),
+		"affected_vertex_count": int(state.get("affected_vertex_count", -1)),
+		"outside_falloff_max_residual": float(state.get("outside_falloff_max_residual", INF)),
+	}
+
+
+func _deformation_material(color: Color, alpha: float, transparent: bool) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color(color.r, color.g, color.b, alpha)
+	material.roughness = 0.5
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	if transparent:
+		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	return material
+
+
+func _deformation_marker_material() -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color(1.0, 0.22, 0.04, 1.0)
+	material.emission_enabled = true
+	material.emission = Color(1.0, 0.08, 0.01, 1.0)
+	material.emission_energy_multiplier = 1.8
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	return material
+
+
+func _deformation_marker_ring(inner_radius: float, outer_radius: float, material: StandardMaterial3D, name: String) -> MeshInstance3D:
+	var marker_mesh := TorusMesh.new()
+	marker_mesh.inner_radius = inner_radius
+	marker_mesh.outer_radius = outer_radius
+	marker_mesh.rings = 32
+	marker_mesh.ring_segments = 12
+	var marker := MeshInstance3D.new()
+	marker.name = name
+	marker.mesh = marker_mesh
+	marker.material_override = material
+	return marker
+
+
+func _render_deformation_capture(surface: Dictionary, state: Dictionary, label: String, capture_dir: String, file_name: String, capture_index: int) -> Dictionary:
+	var state_vertices: PackedVector3Array = state.get("_vertices_array", PackedVector3Array())
+	var state_normals: PackedVector3Array = state.get("_normals_array", PackedVector3Array())
+	var state_indices: PackedInt32Array = state.get("_indices_array", PackedInt32Array())
+	var baseline_vertices: PackedVector3Array = surface.get("baseline_vertices", PackedVector3Array())
+	var baseline_normals: PackedVector3Array = surface.get("baseline_normals", PackedVector3Array())
+	var baseline_indices: PackedInt32Array = surface.get("baseline_indices", PackedInt32Array())
+	if state_vertices.size() != DEFORMATION_VERTEX_COUNT or state_normals.size() != DEFORMATION_VERTEX_COUNT or state_indices != baseline_indices or baseline_vertices.size() != DEFORMATION_VERTEX_COUNT or baseline_normals.size() != DEFORMATION_VERTEX_COUNT:
+		_failure = "%s static replay scene does not contain the exact stored state arrays" % label
+		return {}
+	var state_mesh_value = _deformation_mesh_from_arrays(state_vertices, state_normals, state_indices, "%s replay state" % label)
+	var baseline_mesh_value = _deformation_mesh_from_arrays(baseline_vertices, baseline_normals, baseline_indices, "%s replay baseline" % label)
+	if state_mesh_value == null or baseline_mesh_value == null:
+		return {}
+	var state_mesh: ArrayMesh = state_mesh_value
+	var baseline_mesh: ArrayMesh = baseline_mesh_value
+	var replay_root := Node3D.new()
+	replay_root.name = "StaticDeformationReplay_%s" % label
+	get_root().add_child(replay_root)
+	var viewports: Array[SubViewport] = []
+	var surface_transform: Transform3D = surface.get("surface_transform", Transform3D.IDENTITY)
+	var radius := float(surface.get("baseline_radius", 0.0))
+	var length := float(surface.get("baseline_length", 0.0))
+	if not is_finite(radius) or radius <= 0.0 or not is_finite(length) or length <= 0.0 or not _finite_transform(surface_transform):
+		replay_root.free()
+		_failure = "%s static replay framing geometry is invalid" % label
+		return {}
+	var center := surface_transform.origin
+	var body_up: Vector3 = (surface_transform.basis * Vector3.UP).normalized()
+	var actuator_point: Vector3 = surface.get("peak_contact_point", center + surface_transform.basis * Vector3(radius, 0.0, 0.0))
+	var inward_direction: Vector3 = surface.get("peak_inward_direction", (surface_transform.basis * Vector3(-1.0, 0.0, 0.0)).normalized())
+	var deformation_center: Vector3 = surface.get("peak_deformation_center", actuator_point)
+	if not _finite_vector3(actuator_point) or not _finite_vector3(deformation_center) or not _finite_vector3(inward_direction) or inward_direction.length_squared() <= 1.0e-18:
+		replay_root.free()
+		_failure = "%s static replay actuator placement is invalid" % label
+		return {}
+	var surface_center_local := surface_transform.affine_inverse() * deformation_center
+	var surface_outward_direction := surface_transform.basis * Vector3(surface_center_local.x, 0.0, surface_center_local.z)
+	if not _finite_vector3(surface_outward_direction) or surface_outward_direction.length_squared() <= 1.0e-18:
+		replay_root.free()
+		_failure = "%s static replay deformation center cannot define the local surface normal" % label
+		return {}
+	surface_outward_direction = surface_outward_direction.normalized()
+	var side_direction := body_up.cross(surface_outward_direction)
+	if side_direction.length_squared() <= 1.0e-18:
+		side_direction = (surface_transform.basis * Vector3(0.0, 0.0, 1.0)).normalized()
+	else:
+		side_direction = side_direction.normalized()
+	var view_directions := [
+		side_direction,
+		surface_outward_direction,
+		(surface_outward_direction + side_direction * 0.62 + body_up * 0.22).normalized(),
+	]
+	var camera_size: float = max(length + 2.0 * radius, 4.0 * radius) * 1.25
+	var camera_distance: float = max(length + 4.0 * radius, 8.0 * radius)
+	var marker_material := _deformation_marker_material()
+	var falloff_radius := float(surface.get("falloff_radius", 0.0))
+	if not is_finite(falloff_radius) or falloff_radius <= 0.0:
+		replay_root.free()
+		_failure = "%s static replay falloff footprint is invalid" % label
+		return {}
+	var marker_ring_center := deformation_center + surface_outward_direction * (radius * 0.055)
+	for view_index in range(3):
+		var viewport := SubViewport.new()
+		viewport.name = "View_%d" % view_index
+		viewport.size = Vector2i(DEFORMATION_VIEW_SIZE, DEFORMATION_VIEW_SIZE)
+		viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
+		viewport.transparent_bg = false
+		viewport.own_world_3d = true
+		viewport.world_3d = World3D.new()
+		replay_root.add_child(viewport)
+		var scene_root := Node3D.new()
+		viewport.add_child(scene_root)
+		var environment_node := WorldEnvironment.new()
+		var environment := Environment.new()
+		environment.background_mode = Environment.BG_COLOR
+		environment.background_color = Color(0.035, 0.045, 0.065, 1.0)
+		environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+		environment.ambient_light_color = Color(0.62, 0.68, 0.8, 1.0)
+		environment.ambient_light_energy = 0.65
+		environment_node.environment = environment
+		scene_root.add_child(environment_node)
+		var key_light := DirectionalLight3D.new()
+		key_light.rotation_degrees = Vector3(-32.0, -38.0, 0.0)
+		key_light.light_energy = 1.1
+		scene_root.add_child(key_light)
+		var fill_light := OmniLight3D.new()
+		fill_light.position = center + body_up * (length * 0.2 + radius * 1.5)
+		fill_light.omni_range = camera_size * 2.0
+		fill_light.light_energy = 0.8
+		scene_root.add_child(fill_light)
+		var baseline_instance := MeshInstance3D.new()
+		baseline_instance.name = "BaselineGhostGuide"
+		baseline_instance.mesh = baseline_mesh
+		baseline_instance.material_override = _deformation_material(Color(0.55, 0.65, 0.85, 1.0), 0.22, true)
+		scene_root.add_child(baseline_instance)
+		var state_instance := MeshInstance3D.new()
+		state_instance.name = "StoredReadbackState"
+		state_instance.mesh = state_mesh
+		state_instance.material_override = _deformation_material(Color(0.72, 0.50, 0.34, 1.0), 1.0, false)
+		scene_root.add_child(state_instance)
+		var marker_ring := _deformation_marker_ring(falloff_radius * 0.78, falloff_radius * 0.96, marker_material, "FixedFalloffFootprintGuide_%d" % view_index)
+		marker_ring.position = marker_ring_center
+		marker_ring.quaternion = Quaternion(Vector3.UP, surface_outward_direction)
+		scene_root.add_child(marker_ring)
+		var camera := Camera3D.new()
+		camera.name = "BodyRelativeCloseView_%d" % view_index
+		camera.projection = Camera3D.PROJECTION_ORTHOGONAL
+		camera.size = camera_size
+		camera.near = 0.05
+		camera.far = camera_distance * 4.0
+		camera.look_at_from_position(center + view_directions[view_index] * camera_distance, center, body_up)
+		scene_root.add_child(camera)
+		viewports.append(viewport)
+	await process_frame
+	await process_frame
+	var composite := Image.create(DEFORMATION_CAPTURE_WIDTH, DEFORMATION_CAPTURE_HEIGHT, false, Image.FORMAT_RGBA8)
+	if composite == null:
+		replay_root.free()
+		_failure = "%s static replay composite image could not be allocated" % label
+		return {}
+	composite.fill(Color(0.035, 0.045, 0.065, 1.0))
+	for view_index in range(viewports.size()):
+		var view_image := viewports[view_index].get_texture().get_image()
+		if view_image == null or view_image.get_width() != DEFORMATION_VIEW_SIZE or view_image.get_height() != DEFORMATION_VIEW_SIZE:
+			replay_root.free()
+			_failure = "%s static replay view %d did not render at the fixed 512x512 size" % [label, view_index]
+			return {}
+		if view_image.get_format() != Image.FORMAT_RGBA8:
+			view_image.convert(Image.FORMAT_RGBA8)
+		composite.blit_rect(view_image, Rect2i(Vector2i.ZERO, Vector2i(DEFORMATION_VIEW_SIZE, DEFORMATION_VIEW_SIZE)), Vector2i(view_index * DEFORMATION_VIEW_SIZE, 0))
+	replay_root.free()
+	var path := capture_dir.path_join(file_name)
+	var save_error := composite.save_png(path)
+	if save_error != OK:
+		_failure = "%s static replay capture could not be saved to the explicit staging directory" % label
+		return {}
+	var bytes := _read_bytes(path, "%s deformation capture" % label)
+	if bytes.is_empty():
+		return {}
+	var verified_image := Image.new()
+	if verified_image.load(path) != OK or verified_image.get_width() != DEFORMATION_CAPTURE_WIDTH or verified_image.get_height() != DEFORMATION_CAPTURE_HEIGHT:
+		_failure = "%s saved deformation capture failed exact dimension read-back" % label
+		return {}
+	return {
+		"label": label,
+		"file_name": file_name,
+		"width": verified_image.get_width(),
+		"height": verified_image.get_height(),
+		"sha256": _sha256(bytes),
+		"byte_count_decimal": str(bytes.size()),
+	}
+
+
+func _finish_deformation_capture(surface: Dictionary, response_mapping: Dictionary, capture_dir: String) -> Dictionary:
+	if surface.is_empty() or capture_dir.is_empty() or not capture_dir.is_absolute_path():
+		_failure = "deformation capture finalization inputs are incomplete"
+		return {}
+	if typeof(response_mapping.get("source_joint", null)) != TYPE_DICTIONARY or String(response_mapping.get("source_bone_id", "")).is_empty() or int(response_mapping.get("source_proxy_index", -1)) < 0:
+		_failure = "deformation capture finalization source mapping is incomplete"
+		return {}
+	var baseline_vertices_value: Variant = surface.get("baseline_vertices", null)
+	var baseline_normals_value: Variant = surface.get("baseline_normals", null)
+	var baseline_indices_value: Variant = surface.get("baseline_indices", null)
+	if not (baseline_vertices_value is PackedVector3Array) or not (baseline_normals_value is PackedVector3Array) or not (baseline_indices_value is PackedInt32Array):
+		_failure = "deformation capture finalization baseline read-back is incomplete"
+		return {}
+	var baseline_vertices: PackedVector3Array = baseline_vertices_value
+	var baseline_normals: PackedVector3Array = baseline_normals_value
+	var baseline_indices: PackedInt32Array = baseline_indices_value
+	if baseline_vertices.size() != DEFORMATION_VERTEX_COUNT or baseline_normals.size() != DEFORMATION_VERTEX_COUNT or baseline_indices.size() != DEFORMATION_TRIANGLE_COUNT * 3:
+		_failure = "deformation capture finalization baseline topology is invalid"
+		return {}
+	var reference_value: Variant = surface.get("reference_state", null)
+	var peak_value: Variant = surface.get("peak_state", null)
+	var recovered_value: Variant = surface.get("current_state", null)
+	if not (reference_value is Dictionary) or not (peak_value is Dictionary):
+		_failure = "deformation capture finalization is missing reference or peak read-back"
+		return {}
+	if not (recovered_value is Dictionary) or (recovered_value as Dictionary).is_empty():
+		_failure = "deformation capture finalization is missing recovered read-back"
+		return {}
+	var reference_state: Dictionary = reference_value
+	var peak_state: Dictionary = peak_value
+	var recovered_state: Dictionary = recovered_value
+	var states: Array[Dictionary] = [reference_state, peak_state, recovered_state]
+	var peak_tick := int(surface.get("peak_sample_tick", -1))
+	var peak_sample_index := int(surface.get("peak_sample_index", -1))
+	var peak_sample_response_transform = surface.get("peak_sample_response_transform", [])
+	var peak_depth := float(surface.get("peak_normalized_depth_raw", 0.0))
+	var peak_absolute_depth := float(surface.get("peak_absolute_depth_raw", 0.0))
+	var expected_ticks: Array[int] = [0, peak_tick, CONTACT_TOTAL_TICKS]
+	var state_labels: Array[String] = ["reference", "peak", "recovered"]
+	for state_index in range(states.size()):
+		var state: Dictionary = states[state_index]
+		var vertices_value: Variant = state.get("_vertices_array", null)
+		var normals_value: Variant = state.get("_normals_array", null)
+		var indices_value: Variant = state.get("_indices_array", null)
+		if not (vertices_value is PackedVector3Array) or not (normals_value is PackedVector3Array) or not (indices_value is PackedInt32Array):
+			_failure = "%s deformation state read-back arrays are incomplete" % state_labels[state_index]
+			return {}
+		var state_vertices: PackedVector3Array = vertices_value
+		var state_normals: PackedVector3Array = normals_value
+		var state_indices: PackedInt32Array = indices_value
+		if state_vertices.size() != DEFORMATION_VERTEX_COUNT or state_normals.size() != DEFORMATION_VERTEX_COUNT or state_indices != baseline_indices:
+			_failure = "%s deformation state read-back topology is invalid" % state_labels[state_index]
+			return {}
+		for vertex_index in range(state_vertices.size()):
+			if not _finite_vector3(state_vertices[vertex_index]) or not _finite_vector3(state_normals[vertex_index]):
+				_failure = "%s deformation state read-back contains a non-finite vertex or normal" % state_labels[state_index]
+				return {}
+		var state_tick := int(state.get("tick", -1))
+		var normalized_depth := float(state.get("_normalized_depth_raw", INF))
+		var max_residual := float(state.get("_max_residual_raw", INF))
+		var readback_error := float(state.get("_readback_error_raw", INF))
+		var outside_falloff_max_residual := float(state.get("_outside_falloff_max_residual_raw", INF))
+		var affected_vertex_count := int(state.get("affected_vertex_count", -1))
+		if state_tick != expected_ticks[state_index] or not is_finite(normalized_depth) or not is_finite(max_residual) or not is_finite(readback_error) or not is_finite(outside_falloff_max_residual) or affected_vertex_count < 0 or affected_vertex_count > DEFORMATION_VERTEX_COUNT:
+			_failure = "%s deformation state read-back metrics are invalid" % state_labels[state_index]
+			return {}
+		if readback_error > TOLERANCE or outside_falloff_max_residual > DEFORMATION_OUTSIDE_FALLOFF_TOLERANCE:
+			_failure = "%s deformation state read-back exceeds its declared tolerance" % state_labels[state_index]
+			return {}
+		if state_index == 1:
+			if abs(max_residual - peak_absolute_depth) > TOLERANCE or normalized_depth <= DEFORMATION_MIN_NORMALIZED_DEPTH or normalized_depth > DEFORMATION_MAX_NORMALIZED_DEPTH + DEFORMATION_RECOVERY_TOLERANCE or affected_vertex_count <= 0 or float(affected_vertex_count) / float(DEFORMATION_VERTEX_COUNT) > DEFORMATION_MAX_AFFECTED_FRACTION:
+				_failure = "peak deformation state read-back is not measurable, bounded, and compact"
+				return {}
+		else:
+			if max_residual > DEFORMATION_RECOVERY_TOLERANCE or normalized_depth > DEFORMATION_RECOVERY_TOLERANCE or affected_vertex_count != 0:
+				_failure = "%s deformation state did not recover to the exact baseline" % state_labels[state_index]
+				return {}
+	var peak_falloff_value: Variant = surface.get("peak_falloff_weights", null)
+	var falloff_radius := float(surface.get("falloff_radius", 0.0))
+	var radius := float(surface.get("baseline_radius", 0.0))
+	if not (peak_falloff_value is Array) or (peak_falloff_value as Array).size() != DEFORMATION_VERTEX_COUNT or not is_finite(falloff_radius) or falloff_radius <= 0.0 or not is_finite(radius) or radius <= 0.0:
+		_failure = "deformation capture finalization falloff evidence is incomplete"
+		return {}
+	var peak_falloff_weights: Array = peak_falloff_value
+	var positive_weight_count := 0
+	var exact_zero_weight_count := 0
+	var has_exact_unit_weight := false
+	for weight_value in peak_falloff_weights:
+		var weight := float(weight_value)
+		if not is_finite(weight) or weight < 0.0 or weight > 1.0:
+			_failure = "deformation capture finalization falloff evidence is invalid"
+			return {}
+		if weight > 0.0:
+			positive_weight_count += 1
+		if weight == 0.0:
+			exact_zero_weight_count += 1
+		if weight == 1.0:
+			has_exact_unit_weight = true
+	if positive_weight_count <= 0 or exact_zero_weight_count <= 0 or not has_exact_unit_weight or peak_state.get("affected_vertex_count", -1) != positive_weight_count:
+		_failure = "deformation capture finalization falloff evidence does not prove compact normalized weights"
+		return {}
+	if peak_tick != expected_ticks[1] or peak_sample_index < 0 or _matrix(peak_sample_response_transform, "deformation peak sample response transform").is_empty() or not is_finite(peak_depth) or not is_finite(peak_absolute_depth) or abs(peak_depth - DEFORMATION_NORMALIZED_PEAK_DEPTH) > TOLERANCE or abs(peak_absolute_depth - radius * DEFORMATION_NORMALIZED_PEAK_DEPTH) > TOLERANCE or abs(peak_absolute_depth - peak_depth * radius) > TOLERANCE:
+		_failure = "deformation capture finalization peak contact evidence is invalid"
+		return {}
+	var reference_report: Dictionary = _deformation_state_report(reference_state)
+	var peak_report: Dictionary = _deformation_state_report(peak_state)
+	var recovered_report: Dictionary = _deformation_state_report(recovered_state)
+	if reference_report.is_empty() or peak_report.is_empty() or recovered_report.is_empty():
+		return {}
+	var capture_labels: Array[String] = ["reference", "peak", "recovered"]
+	var captures: Array[Dictionary] = []
+	for capture_index in range(DEFORMATION_CAPTURE_NAMES.size()):
+		var capture: Dictionary = await _render_deformation_capture(surface, states[capture_index], capture_labels[capture_index], capture_dir, String(DEFORMATION_CAPTURE_NAMES[capture_index]), capture_index)
+		if capture.is_empty():
+			return {}
+		if not _exact_keys(capture, ["label", "file_name", "width", "height", "sha256", "byte_count_decimal"]) or capture.get("label", "") != capture_labels[capture_index] or capture.get("file_name", "") != String(DEFORMATION_CAPTURE_NAMES[capture_index]) or int(capture.get("width", -1)) != DEFORMATION_CAPTURE_WIDTH or int(capture.get("height", -1)) != DEFORMATION_CAPTURE_HEIGHT or not _is_sha256(String(capture.get("sha256", ""))) or not _is_canonical_carrier_byte_count(capture.get("byte_count_decimal", "")):
+			_failure = "%s deformation capture metadata is invalid" % capture_labels[capture_index]
+			return {}
+		captures.append(capture)
+	surface["recovered_state"] = recovered_state
+	return {
+		"boundary": DEFORMATION_REPORT_BOUNDARY,
+		"target_index": 1,
+		"source_bone_id": String(response_mapping.get("source_bone_id", "")),
+		"source_shape_index": int(response_mapping.get("source_proxy_index", -1)),
+		"runtime_shape_index": 0,
+		"surface": {
+			"kind": DEFORMATION_SURFACE_KIND,
+			"attachment": DEFORMATION_SURFACE_ATTACHMENT,
+			"collision_mode": DEFORMATION_SURFACE_COLLISION_MODE,
+			"axial_segments": DEFORMATION_AXIAL_SEGMENTS,
+			"radial_segments": DEFORMATION_RADIAL_SEGMENTS,
+			"vertex_count": DEFORMATION_VERTEX_COUNT,
+			"triangle_count": DEFORMATION_TRIANGLE_COUNT,
+			"baseline_radius": radius,
+			"baseline_length": float(surface.get("baseline_length", 0.0)),
+		},
+		"drive": {
+			"kind": DEFORMATION_DRIVE_KIND,
+			"normalized_peak_depth": peak_depth,
+			"absolute_peak_depth": peak_absolute_depth,
+			"falloff_radius_ratio": DEFORMATION_FALLOFF_RADIUS_RATIO,
+			"peak_tick": peak_tick,
+			"contact_sample_tick": peak_tick,
+			"contact_sample_index": peak_sample_index,
+			"sample_response_transform": peak_sample_response_transform.duplicate(),
+			"runtime_contact_point": _vector_json(surface.get("peak_runtime_contact_point", Vector3.ZERO)),
+			"local_contact_point": _vector_json(surface.get("peak_contact_point", Vector3.ZERO)),
+			"local_deformation_center": _vector_json(surface.get("peak_deformation_center", Vector3.ZERO)),
+			"local_inward_direction": _vector_json(surface.get("peak_inward_direction", Vector3.ZERO)),
+			"falloff_weights": peak_falloff_weights.duplicate(),
+		},
+		"states": {
+			"reference": reference_report,
+			"peak": peak_report,
+			"recovered": recovered_report,
+		},
+		"captures": captures,
+	}
 
 
 func _readback_semantic_pose_injection(profile: Dictionary, index: int, binding: Dictionary, carrier_binding: Dictionary, options: Dictionary) -> Dictionary:
@@ -2490,6 +3401,7 @@ func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: 
 	var pose_rule_count := -1
 	var pose_rules_validated := true
 	var contact_mode: bool = options.has("semantic_contact_command")
+	var deformation_mode: bool = contact_mode and bool(options.get("deformation_capture_present", false))
 	for index in range(loaded_profiles.size()):
 		var profile: Dictionary = loaded_profiles[index]
 		candidate_hashes[profile.profile_id] = profile.candidate_profile_sha256
@@ -2560,7 +3472,9 @@ func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: 
 	var claims: Array[String] = ["host-local Skeleton3D/Skin pose binding", "host-local consumption of the shared structural pose recipe"]
 	if contact_mode:
 		claims.append("experiment-local semantic proxy contact and rigid-body response")
-	var report_boundary := CONTACT_REPORT_BOUNDARY if contact_mode else REPORT_BOUNDARY
+	if deformation_mode:
+		claims.append("experiment-local contact-driven smooth forearm surface deformation, exact recovery, and static replay captures of runtime read-back states")
+	var report_boundary := DEFORMATION_REPORT_BOUNDARY if deformation_mode else CONTACT_REPORT_BOUNDARY if contact_mode else REPORT_BOUNDARY
 	var report := {
 		"schema": REPORT_SCHEMA,
 		"status": "success",
@@ -2570,8 +3484,8 @@ func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: 
 			"physics_stepping": contact_mode,
 			"animation": false,
 			"contact": contact_mode,
-			"deformation": false,
-			"render_output": false,
+			"deformation": deformation_mode,
+			"render_output": deformation_mode,
 			"adapter": false,
 		},
 		"godot_version": validated.godot_version,
@@ -2634,12 +3548,17 @@ func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: 
 				"shape_index": participant.source_proxy_index,
 				"runtime_shape_index": participant.runtime_shape_index,
 			})
+		var public_contact_samples: Array[Dictionary] = []
+		for contact_sample in contact_probe.contact_samples:
+			var public_sample: Dictionary = contact_sample.duplicate(true)
+			public_sample.erase("_response_transform")
+			public_contact_samples.append(public_sample)
 		var solver_impulses := [{
 			"runtime_derived": true,
 			"target_indices": [0, 1],
 			"shape_indices": [contact_probe.participants[0].source_proxy_index, contact_probe.participants[1].source_proxy_index],
 			"impulse_magnitude": contact_probe.solver_impulse_magnitude,
-			"contact_samples": contact_probe.contact_samples,
+			"contact_samples": public_contact_samples,
 		}]
 		var initial_response: Dictionary = contact_probe.initial_response
 		var contact_response: Dictionary = contact_probe.contact_response
@@ -2672,6 +3591,12 @@ func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: 
 				"displacement": contact_probe.response_displacement_length,
 			},
 		}
+		if deformation_mode:
+			var semantic_deformation_value: Variant = contact_probe.get("semantic_deformation", null)
+			if not (semantic_deformation_value is Dictionary) or (semantic_deformation_value as Dictionary).is_empty():
+				_failure = "semantic deformation report evidence is missing"
+				return {}
+			report["semantic_deformation"] = semantic_deformation_value
 	return report
 
 

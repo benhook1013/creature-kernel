@@ -68,19 +68,35 @@ artifact identities, records bounded successful `inspect-structure` evidence,
 and is freshly rebuilt before launch and again before report publication. Its
 embedded identity is explicitly transport-only. This remains experiment-local
 evidence—not a durable package schema, R3 activation, adapter, or host lock-in.
-Current evidence is 9 focused contact-command tests, 12 projection tests, and
-48 no-display tests with 14 expected display skips; the final focused real
-contact integration passed in 182.453s. The earlier four predecessor focused
+Predecessor focused evidence includes 9 contact-command tests, 12 projection
+tests, and 48 no-display tests with 14 expected display skips; the final focused
+real contact integration passed in 182.453s. The earlier four predecessor focused
 real-renderer cases (deterministic command rerun, alternate carrier order,
 alternate requested order, and semantic injection) passed in 165.467s. The
 combined projection-plus-semantic-pose path passed on the real renderer in
 89.848s, and the final predecessor full Xvfb suite passed all 41 tests without
-skips in 429.833s. This contact result proves only bounded experiment-local
-semantic contact and physical response. It does not prove deformation, visual
-quality, package/adapter/R3/performance, permanent Godot/Jolt selection, or the
-human checkpoint. The next direct slice is moderate localized press/release
-deformation and recovery, using a smoother simplified humanoid trial region if
-the current lumpy surface masks the effect.
+skips in 429.833s.
+
+The current deformation slice adds a deterministic smooth open forearm sleeve
+to the response body, drives a localized spatial falloff from the retained
+runtime contact sample to a fixed five-percent-of-radius peak depth, and
+restores the exact reference vertices after release. The rigid capsule remains
+undeformed and separately disclosed. Python independently validates the
+runtime-to-body-local contact transform, generated vertex layout, projected center,
+normal line, falloff, vertex states, capture integrity, bounded pixel change,
+and pixel-exact reference/recovered match. The immutable human review is
+`http://localhost:8765/review/godot-semantic-deformation-reference-peak-recovered-v4`.
+Ben's 2026-08-29 appraisal was that it "shows what you intend clear I think
+despite it being a slight deformation"; the guide is labelled accurately as
+a red ring. These are screened static replays of runtime read-back states, not
+live contact rendering. This passes
+readability only for slight, smooth open-edge contact deformation and exact
+recovery. It does not prove a press into the middle of a closed fleshy surface,
+realistic tissue, deformed collision, render/collision coherence, performance,
+package/adapter/R3, permanent Godot/Jolt selection, or the overall human
+checkpoint. The next direct slice is bounded render/collision coherence
+evidence at neutral/contact/peak/recovery, followed by the declared hardware,
+timing, CPU-baseline, and useful-fallback evidence still required by the trial.
 The bounded Godot feasibility checkpoint remains the governing human checkpoint.
 
 Ben's qualified appraisal of the structural gallery was that it "looks good";

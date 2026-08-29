@@ -1,6 +1,6 @@
 # AI observations
 
-Status: Operational inbox; 9 open observations
+Status: Operational inbox; 12 open observations
 
 Record only unexpected, evidenced operational friction that is recurring or
 likely to save future retries or work rounds. The main thread is the default
@@ -50,3 +50,15 @@ Copyable entry:
 - `2026-08-29 02:14 NZST`: Native launcher repeatedly reported inherited Windows temp paths
   - Observation: Two projection-tool runs through the repository launcher warned that inherited Windows `TEMP` and `TMP` paths were ignored before successfully selecting native Linux temporary storage.
   - Expected pattern: Treat this known normalization as non-fatal, and prefer a launcher-side cleanup if the repeated warning continues to consume review attention; do not switch to bare system Python or Windows paths.
+
+- `2026-08-29 15:06 NZST`: Profile gallery fixture violated no-replace and lineage boundaries
+  - Observation: A Godot deformation fixture run first pre-created the generator's output directory, which the no-replace publisher rejected; an earlier broad attempt also reused one successor bundle across profile-specific sources and failed lineage validation.
+  - Expected pattern: Give generators an absent output path whose parent exists, and generate each profile's form, structure, successor, and bridge bundle from that profile's own source before composing the gallery.
+
+- `2026-08-29 15:06 NZST`: Godot experiment test wrapper accepts file selectors only
+  - Observation: A focused validation attempt tried to select one unittest method through `experiments/godot-provisional-host-feasibility/test.sh`, but the wrapper accepts only one test filename or discovery pattern.
+  - Expected pattern: Use the wrapper's file-level selector and run the complete matched file; do not pass a unittest class or method name to this entrypoint.
+
+- `2026-08-29 16:25 NZST`: Security preflight used an unsuitable Python runtime
+  - Observation: A delegated security preflight first used system Python, which lacked `tomllib` and `tomli`; the bundled fallback then exposed Windows-path incompatibility before the review changed route.
+  - Expected pattern: Use the repository's documented native WSL validation or security entrypoint when available, and validate one interpreter invocation before launching the full check.

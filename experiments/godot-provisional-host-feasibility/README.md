@@ -28,9 +28,12 @@ lineage plus CK, carrier, semantic-pose, and CK-projection identities before
 launch and report publication. The disposable project explicitly pins Jolt
 Physics. It moves an `AnimatableBody3D` actuator through bounded
 approach/contact/release/exit phases against a `RigidBody3D` response body and
-records runtime-derived contact and solver-response evidence.
+records runtime-derived contact and solver-response evidence. Its optional
+deformation mode adds a smooth open forearm sleeve, drives a fixed localized
+falloff from the retained contact sample, validates exact release recovery,
+and emits static replay captures of the runtime mesh read-back states.
 
-This is not a package, adapter, Readiness 3 result, deformation result,
+This is not a package, adapter, Readiness 3 result, realistic tissue result,
 benchmark, or checkpoint claim. The contact path proves only bounded
 experiment-local semantic contact and physical response: its report validates
 the exact logical tick trace, contact samples and attribution, nonzero solver
@@ -43,6 +46,14 @@ Godot/Jolt selection, or the human checkpoint. The skeletal smoke's binding clai
 host-local only; its pose command mode remains disposable semantic-selector
 injection and read-back evidence, and its no-contact paths remain unchanged
 predecessor paths.
+The deformation mode proves only slight open-edge surface deformation and
+exact recovery. Its rigid capsule remains undeformed, and its captures are a
+separate static replay rather than live render/collision-coherence evidence.
+Normal failures remove newly written captures and the success report is
+published last. An abrupt process termination can still leave orphan captures
+without a report, so the two-part output assumes a stable, non-adversarial
+same-user parent directory; consumers must not treat captures without the
+matching success report as evidence.
 
 ## Provisioning
 
@@ -253,7 +264,17 @@ Consume it through the carrier-, pose-, and CK-projection-backed skeletal probe:
       --projection /absolute/path/to/disposable-ck-rust-projection.json \
       --ck-cli /absolute/path/to/target/debug/creature-kernel \
       --contact-command /absolute/path/to/disposable-semantic-contact-command.json \
-      --report /absolute/path/to/semantic-contact-report.json
+      --report /absolute/path/to/semantic-deformation-report.json \
+      --deformation-captures /absolute/path/to/not-yet-existing-deformation-captures
+
+Publish the screened static replay captures for human comparison:
+
+    CK_CURRENT_FORM_SURFACE_TMPDIR=/tmp \
+      experiments/current-form-surface-preview/surface_preview_launcher.sh \
+      dev-tools/visual-review/publish_godot_deformation.py \
+      --root /absolute/path/to/existing-review-root \
+      --report /absolute/path/to/semantic-deformation-report.json \
+      --captures /absolute/path/to/deformation-captures
 
 Contact mode requires the explicit Rust CLI and validated CK projection in
 addition to the carrier and semantic-pose command. It does not alter the
@@ -372,7 +393,7 @@ The disposable carrier suite contains 15 tests covering exact shape,
 deterministic canonical publication, strict bounded loading, both frozen profile
 pairs, instance identity, tampering and mixed-lineage rejection, and payload
 reconstruction, including deterministic symlink-swap read and publication
-regressions. The skeletal pose suite contains 48 tests covering both frozen
+regressions. The skeletal pose suite contains 58 tests covering both frozen
 profile pairs, complete `Skeleton3D`/`Skin` binding evidence, malformed and
 tampered inputs and reports, deterministic reruns, carrier load-through with
 one-to-one runtime-root read-back, real-process rejection of noncanonical
@@ -387,7 +408,7 @@ pinned binary are available.
 The nine-test semantic contact command suite covers fixed participant mapping,
 fresh predecessor lineage, canonical publication, strict field validation,
 tampering and mutation rejection, and command identity. Focused real contact
-integration passed in 182.453s; the no-display suite has 14 expected display
+integration passed in 182.453s; the focused no-display file has 16 expected display
 skips when its attended renderer path is unavailable.
 The 12-test disposable CK projection suite covers exact producer and transport
 identity, bounded subprocess output, fresh source/carrier/gallery/executable
