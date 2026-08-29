@@ -32,12 +32,14 @@ CARRIER_MODULE_PATH = EXPERIMENT_ROOT / "disposable_avatar_carrier.py"
 COMMAND_MODULE_PATH = EXPERIMENT_ROOT / "disposable_semantic_pose_command.py"
 CONTACT_COMMAND_MODULE_PATH = EXPERIMENT_ROOT / "disposable_semantic_contact_command.py"
 PROJECTION_MODULE_PATH = EXPERIMENT_ROOT / "disposable_ck_projection.py"
+PACKAGE_MODULE_PATH = EXPERIMENT_ROOT / "disposable_ck_package.py"
 GODOT_SCRIPT = EXPERIMENT_ROOT / "skeletal_pose_smoke.gd"
 VISIBLE_GODOT_OPT_IN = "CK_ALLOW_VISIBLE_GODOT"
 _CARRIER_MODULE: Any | None = None
 _COMMAND_MODULE: Any | None = None
 _CONTACT_COMMAND_MODULE: Any | None = None
 _PROJECTION_MODULE: Any | None = None
+_PACKAGE_MODULE: Any | None = None
 
 
 def _load_neutral_runner():
@@ -123,6 +125,30 @@ def _load_projection_module():
     spec.loader.exec_module(module)
     _PROJECTION_MODULE = module
     return _PROJECTION_MODULE
+
+
+def _load_package_module():
+    """Load the supplied disposable package producer/loader without package imports."""
+    global _PACKAGE_MODULE
+    if _PACKAGE_MODULE is not None:
+        return _PACKAGE_MODULE
+    sys.dont_write_bytecode = True
+    spec = importlib.util.spec_from_file_location(
+        "disposable_ck_package_for_skeletal_pose",
+        PACKAGE_MODULE_PATH,
+    )
+    if spec is None or spec.loader is None:
+        raise ImportError(f"could not load disposable CK package: {PACKAGE_MODULE_PATH}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    # The package loader's normal script import is deliberately replaced with
+    # the already loaded projection module.  This keeps all package checks on
+    # the exact v2 validator used by this runner and avoids a second module
+    # instance with different test/runtime state.
+    module._load_projection_module = _load_projection_module
+    _PACKAGE_MODULE = module
+    return _PACKAGE_MODULE
 
 
 neutral_smoke = _load_neutral_runner()
@@ -605,6 +631,183 @@ def _validated_projection_input(
     return projection_module, projection, identity
 
 
+def _ck_package_report_identity(manifest: dict[str, Any]) -> dict[str, Any]:
+    """Project a validated package into the exact conditional report record."""
+    package_module = _load_package_module()
+    try:
+        schema = package_module.SCHEMA
+        boundary = package_module.BOUNDARY
+    except AttributeError as exc:
+        raise SmokeError("disposable CK package module does not expose its identity") from exc
+    avatars = manifest.get("avatars")
+    if not isinstance(avatars, list) or len(avatars) != 2:
+        raise SmokeError("validated CK package does not contain exactly two avatar records")
+    records: list[dict[str, Any]] = []
+    for index, avatar in enumerate(avatars):
+        if not isinstance(avatar, dict):
+            raise SmokeError(f"validated CK package avatar {index} is not an object")
+        records.append(
+            {
+                "ordinal": index,
+                "instance_id": avatar.get("instance_id"),
+                "profile_id": avatar.get("profile_id"),
+                "candidate_profile_sha256": avatar.get("candidate_profile_sha256"),
+            }
+        )
+    return {
+        "schema": schema,
+        "boundary": boundary,
+        "manifest_identity": deepcopy(manifest.get("manifest_identity")),
+        "projection_identity": deepcopy(manifest.get("projection_identity")),
+        "avatar_records": records,
+    }
+
+
+def _package_file_bytes(package_module: Any, package_root: Path, relative: str, label: str) -> bytes:
+    try:
+        carrier_module = _load_carrier_module()
+        return package_module._read_regular_file(  # type: ignore[attr-defined]
+            carrier_module,
+            package_root / relative,
+            package_module.MAX_FILE_BYTES,
+            label,
+        )
+    except SmokeError:
+        raise
+    except Exception as exc:
+        raise SmokeError(f"{label} could not be read from the validated CK package: {type(exc).__name__}: {exc}") from exc
+
+
+def _stage_validated_ck_package(
+    package_path: Path,
+    package_manifest: dict[str, Any],
+    staging_root: Path,
+) -> tuple[Path, dict[str, Any]]:
+    """Copy and revalidate the exact package payload used by the Godot child."""
+    package_module = _load_package_module()
+    package_path = Path(package_path)
+    staging_root = Path(staging_root)
+    try:
+        records = package_module._manifest_file_records(package_manifest)  # type: ignore[attr-defined]
+        manifest_bytes = package_module._canonical_json(package_manifest)
+        staging_root.mkdir(mode=0o700)
+        package_module._make_layout(staging_root)  # type: ignore[attr-defined]
+        for relative in sorted(records):
+            data = _package_file_bytes(package_module, package_path, relative, f"package file {relative}")
+            package_module._write_new_file(  # type: ignore[attr-defined]
+                staging_root / relative,
+                data,
+                f"staged CK package file {relative}",
+            )
+        package_module._write_new_file(  # type: ignore[attr-defined]
+            staging_root / package_module.MANIFEST_FILE,
+            manifest_bytes,
+            "staged CK package manifest",
+        )
+        staged_manifest = package_module.validate_package(staging_root)
+    except SmokeError:
+        raise
+    except Exception as exc:
+        raise SmokeError(f"CK package staging failed: {type(exc).__name__}: {exc}") from exc
+    if not isinstance(staged_manifest, dict) or not _exact_json_equal(staged_manifest, package_manifest):
+        raise SmokeError("staged CK package validation does not match the already validated package")
+    return staging_root, staged_manifest
+
+
+def _validated_ck_package_input(
+    package_path: Path,
+    gallery: Path,
+    projection: dict[str, Any],
+    projection_identity: dict[str, Any],
+) -> tuple[Any, dict[str, Any], dict[str, Any]]:
+    """Validate the package independently, then bind it to fresh projection evidence."""
+    package_module = _load_package_module()
+    package_path = Path(package_path)
+    try:
+        manifest = package_module.validate_package(package_path)
+    except Exception as exc:
+        package_error = getattr(package_module, "PackageError", ValueError)
+        if isinstance(exc, package_error):
+            raise SmokeError(f"disposable CK package rejected: {exc}") from exc
+        raise SmokeError(f"disposable CK package validation failed: {type(exc).__name__}: {exc}") from exc
+    if not isinstance(manifest, dict):
+        raise SmokeError("disposable CK package validator did not return a manifest object")
+    if manifest.get("projection_identity") != projection_identity:
+        raise SmokeError("CK package projection identity does not match the freshly validated projection")
+
+    package_avatars = manifest.get("avatars")
+    projection_avatars = projection.get("avatars")
+    if not isinstance(package_avatars, list) or not isinstance(projection_avatars, list):
+        raise SmokeError("CK package and projection avatar records are not ordered arrays")
+    if len(package_avatars) != 2 or len(projection_avatars) != 2:
+        raise SmokeError("CK package and projection must contain exactly two ordered avatars")
+
+    for index, (package_avatar, projection_avatar) in enumerate(zip(package_avatars, projection_avatars)):
+        if not isinstance(package_avatar, dict) or not isinstance(projection_avatar, dict):
+            raise SmokeError(f"CK package avatar {index} is not an object")
+        for key in ("instance_id", "profile_id", "candidate_profile_sha256"):
+            if package_avatar.get(key) != projection_avatar.get(key):
+                raise SmokeError(f"CK package avatar {index} identity/order disagrees with the projection")
+        if package_avatar.get("runtime_input_inspection") != projection_avatar.get("runtime_input_inspection"):
+            raise SmokeError(f"CK package avatar {index} runtime-input evidence disagrees with the projection")
+
+        package_source = package_avatar.get("source")
+        projection_source = projection_avatar.get("source")
+        if not isinstance(package_source, dict) or not isinstance(projection_source, dict):
+            raise SmokeError(f"CK package avatar {index} source identity is incomplete")
+        for key in ("sha256", "bytes", "document", "namespace"):
+            if package_source.get(key) != projection_source.get(key):
+                raise SmokeError(f"CK package avatar {index} source identity disagrees with the projection")
+
+        package_artifacts = package_avatar.get("artifacts")
+        projection_artifacts = projection_avatar.get("artifacts")
+        if not isinstance(package_artifacts, list) or not isinstance(projection_artifacts, list):
+            raise SmokeError(f"CK package avatar {index} artifact records are incomplete")
+        if len(package_artifacts) != 6 or len(projection_artifacts) != 6:
+            raise SmokeError(f"CK package avatar {index} must contain exactly six ordered artifacts")
+        for artifact_index, (package_artifact, projection_artifact) in enumerate(
+            zip(package_artifacts, projection_artifacts)
+        ):
+            if not isinstance(package_artifact, dict) or not isinstance(projection_artifact, dict):
+                raise SmokeError(f"CK package avatar {index} artifact {artifact_index} is incomplete")
+            for key in ("sha256", "bytes"):
+                if package_artifact.get(key) != projection_artifact.get(key):
+                    raise SmokeError(
+                        f"CK package avatar {index} artifact {artifact_index} hash or byte count disagrees with the projection"
+                    )
+
+        package_metrics = package_avatar.get("metrics")
+        if not isinstance(package_metrics, dict):
+            raise SmokeError(f"CK package avatar {index} metrics file identity is incomplete")
+        profile_id = package_avatar.get("profile_id")
+        if not isinstance(profile_id, str):
+            raise SmokeError(f"CK package avatar {index} profile identity is invalid")
+        package_metrics_bytes = _package_file_bytes(
+            package_module,
+            package_path,
+            str(package_metrics.get("path", "")),
+            f"CK package {profile_id} metrics",
+        )
+        try:
+            metrics_value = package_module._parse_json_bytes(  # type: ignore[attr-defined]
+                package_metrics_bytes,
+                f"CK package {profile_id} metrics",
+            )
+        except Exception as exc:
+            raise SmokeError(f"CK package {profile_id} metrics are not valid JSON: {exc}") from exc
+        if metrics_value != projection_avatar.get("metrics"):
+            raise SmokeError(f"CK package avatar {index} metrics disagree with the projection")
+        expected_metrics_bytes = _load_carrier_module()._read_regular_file(  # type: ignore[attr-defined]
+            Path(gallery) / profile_id / package_module.METRICS_FILE,
+            package_module.MAX_FILE_BYTES,
+            f"gallery {profile_id} metrics",
+        )
+        if package_metrics_bytes != expected_metrics_bytes:
+            raise SmokeError(f"CK package avatar {index} metrics file differs from the freshly validated gallery")
+
+    return package_module, manifest, _ck_package_report_identity(manifest)
+
+
 def _validated_semantic_pose_command(
     gallery: Path,
     carrier_path: Path,
@@ -1032,6 +1235,13 @@ def _runtime_paired_identities(
         _validate_finite_report_json(rigid_identity, f"runtime evaluation {key} identity")
         if cpu_identity != rigid_identity:
             raise SmokeError(f"runtime evaluation paired reports disagree on stable {key} identity")
+    cpu_package = cpu_report.get("validated_ck_package")
+    rigid_package = rigid_report.get("validated_ck_package")
+    if (cpu_package is None) != (rigid_package is None):
+        raise SmokeError("runtime evaluation paired reports disagree on CK package identity presence")
+    if cpu_package is not None:
+        _validate_ck_package_report_identity(cpu_package, cpu_package, True)
+        _validate_ck_package_report_identity(rigid_package, cpu_package, True)
     cpu_contact = cpu_report.get("semantic_contact")
     rigid_contact = rigid_report.get("semantic_contact")
     if not isinstance(cpu_contact, dict) or not isinstance(rigid_contact, dict):
@@ -1057,7 +1267,7 @@ def _runtime_paired_identities(
         _validate_runtime_string(launch_identity[key]["byte_count_decimal"], f"runtime evaluation {key} byte count")
         if not launch_identity[key]["byte_count_decimal"].isdigit() or int(launch_identity[key]["byte_count_decimal"]) <= 0:
             raise SmokeError(f"runtime evaluation {key} byte count identity is invalid")
-    return {
+    paired = {
         "validated_gallery": deepcopy(cpu_report["validated_gallery"]),
         "validated_carrier": deepcopy(cpu_report["validated_carrier"]),
         "semantic_pose_command": deepcopy(cpu_report["semantic_pose_command_identity"]),
@@ -1065,6 +1275,9 @@ def _runtime_paired_identities(
         "semantic_contact_command": deepcopy(cpu_contact_identity),
         **deepcopy(launch_identity),
     }
+    if cpu_package is not None:
+        paired["validated_ck_package"] = deepcopy(cpu_package)
+    return paired
 
 
 def _runtime_measurement_summary(measurement: dict[str, Any]) -> dict[str, Any]:
@@ -1263,7 +1476,11 @@ def _validate_runtime_evaluation(
     if comparison["visual_equivalence"] != "not_claimed":
         raise SmokeError("runtime evaluation capability comparison is invalid")
     paired_identities = value["paired_identities"]
-    _require_exact_fields(paired_identities, RUNTIME_EVALUATION_PAIRED_IDENTITY_KEYS, "runtime evaluation paired identities")
+    paired_identity_keys = set(RUNTIME_EVALUATION_PAIRED_IDENTITY_KEYS)
+    has_package_identity = "validated_ck_package" in paired_identities if isinstance(paired_identities, dict) else False
+    if has_package_identity:
+        paired_identity_keys.add("validated_ck_package")
+    _require_exact_fields(paired_identities, paired_identity_keys, "runtime evaluation paired identities")
     for key in (
         "validated_gallery",
         "validated_carrier",
@@ -1274,6 +1491,14 @@ def _validate_runtime_evaluation(
         if not isinstance(paired_identities[key], dict):
             raise SmokeError(f"runtime evaluation paired {key} identity is missing")
         _validate_finite_report_json(paired_identities[key], f"runtime evaluation paired {key} identity")
+    if has_package_identity:
+        if not isinstance(paired_identities["validated_ck_package"], dict):
+            raise SmokeError("runtime evaluation paired validated CK package identity is missing")
+        _validate_ck_package_report_identity(
+            paired_identities["validated_ck_package"],
+            paired_identities["validated_ck_package"],
+            True,
+        )
     for key in ("project", "script", "launcher", "executable"):
         _require_exact_fields(
             paired_identities[key],
@@ -1448,6 +1673,42 @@ def _validate_carrier_report_identity(
         or actual != expected
     ):
         raise SmokeError("Godot report validated-carrier identity is invalid")
+
+
+def _validate_ck_package_report_identity(
+    actual: Any,
+    expected: dict[str, Any] | None,
+    present: bool,
+) -> None:
+    if expected is None:
+        if present:
+            raise SmokeError("non-package Godot report contains unexpected validated CK package evidence")
+        return
+    if not present or not isinstance(actual, dict):
+        raise SmokeError("Godot report validated_ck_package record is missing")
+    if set(actual) != {
+        "schema",
+        "boundary",
+        "manifest_identity",
+        "projection_identity",
+        "avatar_records",
+    }:
+        raise SmokeError("Godot report validated_ck_package record has unexpected or missing fields")
+    avatar_records = actual.get("avatar_records")
+    if not isinstance(avatar_records, list) or len(avatar_records) != 2:
+        raise SmokeError("Godot report validated_ck_package avatar_records are incomplete or reordered")
+    for index, record in enumerate(avatar_records):
+        if not isinstance(record, dict) or set(record) != {
+            "ordinal",
+            "instance_id",
+            "profile_id",
+            "candidate_profile_sha256",
+        }:
+            raise SmokeError(f"Godot report validated_ck_package avatar record {index} is incomplete")
+        if type(record.get("ordinal")) is not int or record["ordinal"] != index:
+            raise SmokeError("Godot report validated_ck_package avatar records are reordered")
+    if actual != expected:
+        raise SmokeError("Godot report validated_ck_package record does not match the validated package")
 
 
 def _validate_carrier_avatar_bindings(
@@ -3562,6 +3823,7 @@ def _validate_report(
     contact_command_identity: dict[str, Any] | None = None,
     deformation_capture_bytes: dict[str, bytes] | None = None,
     runtime_measurement_mode: str | None = None,
+    validated_ck_package: dict[str, Any] | None = None,
 ) -> None:
     if not isinstance(report, dict):
         raise SmokeError("Godot skeletal-pose report is not a JSON object")
@@ -3645,6 +3907,11 @@ def _validate_report(
         report.get("carrier_avatar_bindings"),
         carrier_avatar_records,
         "carrier_avatar_bindings" in report,
+    )
+    _validate_ck_package_report_identity(
+        report.get("validated_ck_package"),
+        validated_ck_package,
+        "validated_ck_package" in report,
     )
     if semantic_pose_command is None and any(
         key in report
@@ -3830,6 +4097,8 @@ def _launch_godot(
     contact_command_identity: dict[str, Any] | None = None,
     projection_cli_path: Path | None = None,
     *,
+    package_path: Path | None = None,
+    package_manifest: dict[str, Any] | None = None,
     deformation_capture: bool = False,
     deformation_capture_sink: Any | None = None,
     runtime_measurement_mode: str | None = None,
@@ -3854,6 +4123,34 @@ def _launch_godot(
         or not callable(deformation_capture_sink)
     ):
         raise SmokeError("deformation capture mode requires semantic contact and a capture sink")
+    if package_path is not None and package_manifest is None:
+        raise SmokeError("CK package transport requires its validated full manifest")
+    if package_manifest is not None and package_path is None:
+        raise SmokeError("CK package manifest transport requires its package root")
+    if package_path is not None and (
+        carrier_identity is None
+        or projection is None
+        or projection_identity is None
+        or projection_cli_path is None
+        or semantic_pose_command is None
+        or command_identity is None
+        or semantic_payload is None
+    ):
+        raise SmokeError(
+            "package transport requires validated carrier, CK projection, explicit Rust CLI, and semantic pose command"
+        )
+    package_manifest_json: str | None = None
+    if package_path is not None:
+        package_path = Path(package_path)
+        if not package_path.is_absolute():
+            raise SmokeError("CK package root must be an absolute path")
+        package_module = _load_package_module()
+        try:
+            package_manifest_json = package_module._canonical_json(package_manifest).decode("utf-8").removesuffix("\n")
+        except (AttributeError, UnicodeDecodeError, TypeError, ValueError) as exc:
+            raise SmokeError(f"CK package manifest cannot be encoded for Godot transport: {exc}") from exc
+        if not package_manifest_json:
+            raise SmokeError("CK package manifest transport is empty")
     for required in (neutral_smoke.PROJECT_FILE, GODOT_SCRIPT, neutral_smoke.LAUNCHER):
         if not required.is_file():
             raise SmokeError(f"required Godot skeletal-pose file is unavailable: {required}")
@@ -3879,10 +4176,29 @@ def _launch_godot(
         script_path = Path(temporary) / GODOT_SCRIPT.name
         raw_report_path = Path(temporary) / "godot-report.json"
         raw_deformation_capture_path = Path(temporary) / "deformation-captures"
+        staged_package_path: Path | None = None
         if deformation_capture:
             raw_deformation_capture_path.mkdir()
         shutil.copyfile(neutral_smoke.PROJECT_FILE, project)
         shutil.copyfile(GODOT_SCRIPT, script_path)
+        if package_path is not None:
+            staged_package_path, staged_manifest = _stage_validated_ck_package(
+                package_path,
+                package_manifest,
+                Path(temporary) / "staged-ck-package",
+            )
+            if not _exact_json_equal(staged_manifest, package_manifest):
+                raise SmokeError("staged CK package manifest changed before Godot launch")
+        input_transport = (
+            [
+                "--ck-package-root",
+                str(staged_package_path),
+                "--ck-package-manifest-json",
+                package_manifest_json,
+            ]
+            if package_path is not None
+            else ["--gallery", str(gallery)]
+        )
         launch_command = [
             str(neutral_smoke.LAUNCHER),
             "--display-driver",
@@ -3897,8 +4213,7 @@ def _launch_godot(
             "--script",
             str(script_path),
             "--",
-            "--gallery",
-            str(gallery),
+            *input_transport,
             "--profile-id",
             profile_ids[0],
             "--profile-id",
@@ -4039,11 +4354,19 @@ def run_skeletal_pose_smoke(
     contact_command_path: Path | None = None,
     deformation_captures_path: Path | None = None,
     runtime_evaluation: bool = False,
+    package_path: Path | None = None,
 ) -> dict[str, Any]:
     report_path = neutral_smoke._validate_report_destination(report_path)
     gallery = Path(gallery)
     if type(runtime_evaluation) is not bool:
         raise SmokeError("runtime_evaluation must be an exact boolean")
+    if package_path is not None and any(
+        value is None
+        for value in (carrier_path, projection_path, projection_cli_path, command_path)
+    ):
+        raise SmokeError(
+            "package mode requires carrier, CK projection, explicit Rust CLI, and semantic pose command"
+        )
     if runtime_evaluation and (
         carrier_path is None
         or command_path is None
@@ -4076,6 +4399,8 @@ def run_skeletal_pose_smoke(
     semantic_payload = None
     projection = None
     projection_identity_value = None
+    package_manifest = None
+    validated_ck_package = None
     contact_command = None
     contact_command_identity = None
     staged_deformation_captures: dict[str, bytes] | None = (
@@ -4133,6 +4458,13 @@ def run_skeletal_pose_smoke(
                 instance_ids,
                 Path(command_path),
             )
+        if package_path is not None:
+            _, package_manifest, validated_ck_package = _validated_ck_package_input(
+                Path(package_path),
+                gallery,
+                projection,
+                projection_identity_value,
+            )
         if contact_command_path is not None:
             _, contact_command, contact_command_identity = _validated_semantic_contact_command(
                 gallery,
@@ -4143,9 +4475,20 @@ def run_skeletal_pose_smoke(
                 command_identity,
                 Path(contact_command_path),
             )
+
+    def validate_report(*args: Any, **kwargs: Any) -> None:
+        if validated_ck_package is not None:
+            kwargs["validated_ck_package"] = validated_ck_package
+        _validate_report(*args, **kwargs)
+
     if runtime_evaluation:
         if contact_command is None or staged_deformation_captures is None:
             raise SmokeError("runtime evaluation requires validated semantic contact and deformation captures")
+        package_launch_options = (
+            {"package_path": Path(package_path), "package_manifest": package_manifest}
+            if package_path is not None
+            else {}
+        )
         launch_arguments = [
             gallery,
             selected,
@@ -4164,6 +4507,7 @@ def run_skeletal_pose_smoke(
         launch_identity = _runtime_launch_identity()
         cpu_stdout, cpu_stderr, cpu_returncode, cpu_report = _launch_godot(
             *launch_arguments,
+            **package_launch_options,
             deformation_capture=True,
             deformation_capture_sink=staged_deformation_captures.update,
             runtime_measurement_mode="cpu_deformation",
@@ -4181,6 +4525,7 @@ def run_skeletal_pose_smoke(
             )
         rigid_stdout, rigid_stderr, rigid_returncode, rigid_report = _launch_godot(
             *launch_arguments,
+            **package_launch_options,
             runtime_measurement_mode="rigid_contact_only",
         )
         if rigid_returncode != 0:
@@ -4194,7 +4539,7 @@ def run_skeletal_pose_smoke(
             raise SmokeError(
                 "runtime evaluation project, script, launcher, or executable identity changed during paired launches"
             )
-        _validate_report(
+        validate_report(
             cpu_report,
             payload,
             selected,
@@ -4209,7 +4554,7 @@ def run_skeletal_pose_smoke(
             staged_deformation_captures,
             runtime_measurement_mode="cpu_deformation",
         )
-        _validate_report(
+        validate_report(
             rigid_report,
             payload,
             selected,
@@ -4240,6 +4585,11 @@ def run_skeletal_pose_smoke(
         cpu_report["runtime_evaluation"] = runtime_evaluation_value
         stdout, stderr, returncode, report = cpu_stdout, cpu_stderr, cpu_returncode, cpu_report
     elif contact_command is not None:
+        package_launch_options = (
+            {"package_path": Path(package_path), "package_manifest": package_manifest}
+            if package_path is not None
+            else {}
+        )
         launch_arguments = [
             gallery,
             selected,
@@ -4263,16 +4613,31 @@ def run_skeletal_pose_smoke(
                 "deformation_capture": True,
                 "deformation_capture_sink": staged_deformation_captures.update,
             }
-        stdout, stderr, returncode, report = _launch_godot(*launch_arguments, **launch_options)
+        stdout, stderr, returncode, report = _launch_godot(
+            *launch_arguments,
+            **package_launch_options,
+            **launch_options,
+        )
     elif projection is None and command is None:
+        package_launch_options = (
+            {"package_path": Path(package_path), "package_manifest": package_manifest}
+            if package_path is not None
+            else {}
+        )
         stdout, stderr, returncode, report = _launch_godot(
             gallery,
             selected,
             payload,
             carrier_identity,
             carrier_avatar_records,
+            **package_launch_options,
         )
     elif projection is None:
+        package_launch_options = (
+            {"package_path": Path(package_path), "package_manifest": package_manifest}
+            if package_path is not None
+            else {}
+        )
         stdout, stderr, returncode, report = _launch_godot(
             gallery,
             selected,
@@ -4282,8 +4647,14 @@ def run_skeletal_pose_smoke(
             command,
             command_identity,
             semantic_payload,
+            **package_launch_options,
         )
     elif command is None:
+        package_launch_options = (
+            {"package_path": Path(package_path), "package_manifest": package_manifest}
+            if package_path is not None
+            else {}
+        )
         stdout, stderr, returncode, report = _launch_godot(
             gallery,
             selected,
@@ -4292,8 +4663,14 @@ def run_skeletal_pose_smoke(
             carrier_avatar_records,
             projection=projection,
             projection_identity=projection_identity_value,
+            **package_launch_options,
         )
     else:
+        package_launch_options = (
+            {"package_path": Path(package_path), "package_manifest": package_manifest}
+            if package_path is not None
+            else {}
+        )
         stdout, stderr, returncode, report = _launch_godot(
             gallery,
             selected,
@@ -4305,6 +4682,8 @@ def run_skeletal_pose_smoke(
             semantic_payload,
             projection,
             projection_identity_value,
+            projection_cli_path=Path(projection_cli_path),
+            **package_launch_options,
         )
     if returncode != 0:
         raise SmokeError(f"Godot launcher returned exit code {returncode}; stdout={stdout!r}; stderr={stderr!r}")
@@ -4332,11 +4711,11 @@ def run_skeletal_pose_smoke(
             if staged_deformation_captures is None:
                 raise SmokeError("semantic deformation captures were not retained in memory")
             validation_arguments.append(staged_deformation_captures)
-        _validate_report(*validation_arguments)
+        validate_report(*validation_arguments)
     elif projection is None and command is None:
-        _validate_report(report, payload, selected, carrier_identity, carrier_avatar_records)
+        validate_report(report, payload, selected, carrier_identity, carrier_avatar_records)
     elif projection is None:
-        _validate_report(
+        validate_report(
             report,
             payload,
             selected,
@@ -4346,7 +4725,7 @@ def run_skeletal_pose_smoke(
             command_identity,
         )
     elif command is None:
-        _validate_report(
+        validate_report(
             report,
             payload,
             selected,
@@ -4356,7 +4735,7 @@ def run_skeletal_pose_smoke(
             projection_identity=projection_identity_value,
         )
     else:
-        _validate_report(
+        validate_report(
             report,
             payload,
             selected,
@@ -4429,6 +4808,20 @@ def run_skeletal_pose_smoke(
             )
             if post_projection != projection or post_projection_identity != projection_identity_value:
                 raise SmokeError("CK projection changed during the skeletal-pose smoke; refusing to publish a success report")
+            if package_path is not None:
+                _, post_package_manifest, post_validated_ck_package = _validated_ck_package_input(
+                    Path(package_path),
+                    gallery,
+                    post_projection,
+                    post_projection_identity,
+                )
+                if (
+                    post_package_manifest != package_manifest
+                    or post_validated_ck_package != validated_ck_package
+                ):
+                    raise SmokeError(
+                        "CK package changed during the skeletal-pose smoke; refusing to publish a success report"
+                    )
     _publish_deformation_result(
         report_path,
         report,
@@ -4468,6 +4861,15 @@ def _parser() -> argparse.ArgumentParser:
             "only after both succeed; requires the full deformation-capture/contact predecessor set"
         ),
     )
+    parser.add_argument(
+        "--package",
+        dest="package_path",
+        type=Path,
+        help=(
+            "optional absolute disposable CK package directory; requires carrier, CK projection, "
+            "explicit CK CLI, and semantic-pose command"
+        ),
+    )
     return parser
 
 
@@ -4486,6 +4888,7 @@ def main(argv: list[str] | None = None) -> int:
             args.contact_command_path,
             args.deformation_captures_path,
             args.runtime_evaluation,
+            args.package_path,
         )
     except SmokeError as exc:
         print(f"skeletal pose smoke failed: {exc}", file=sys.stderr)

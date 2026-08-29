@@ -1,6 +1,6 @@
 # AI observations
 
-Status: Operational inbox; 17 open observations
+Status: Operational inbox; 19 open observations
 
 Record only unexpected, evidenced operational friction that is recurring or
 likely to save future retries or work rounds. The main thread is the default
@@ -82,3 +82,11 @@ Copyable entry:
 - `2026-08-29 23:10 NZST`: Bounded subprocess cleanup ignored descendants
   - Observation: A projection-tool review found that timeout and final cleanup killed only the direct child, allowing a descendant that inherited pipes or resources to outlive the bounded command.
   - Expected pattern: On POSIX, launch bounded subprocesses in a dedicated session/process group, terminate that exact group on every exit path, and regression-test a descendant rather than only the direct child.
+
+- `2026-08-30 00:04 NZST`: Diagnostic output pipeline masked a failing test status
+  - Observation: A focused unittest command piped output through `tail` without enabling pipeline failure propagation; the test reported one failure while the shell command incorrectly returned exit code zero.
+  - Expected pattern: Run validation commands directly when their status is authoritative, or explicitly enable `pipefail` before filtering output and verify the test summary as well as the shell exit code.
+
+- `2026-08-30 00:25 NZST`: Mocked and skip-gated checks concealed a package consumer mismatch
+  - Observation: Package unit tests mocked validation and process launch while the real Godot integration class was conditionally skipped, so the suite stayed green even though the producer's five-field source record was rejected by the consumer's three-field validator.
+  - Expected pattern: For each new transport shape, keep a real producer-to-consumer scenario whose unavailable prerequisites are reported as missing coverage, and do not treat mocked transport checks as evidence of consumption compatibility.

@@ -1,6 +1,6 @@
 # Project status
 
-Status date: 2026-08-29
+Status date: 2026-08-30
 
 ## Phase
 
@@ -81,8 +81,9 @@ embedded identity is explicitly transport-only. This remains experiment-local
 evidence—not a durable package schema, R3 activation, adapter, or host lock-in.
 The focused projection suite passed 19 tests with 1 expected skip, and the
 focused `test_skeletal_pose_smoke.py` suite passed 68 tests with 16 expected
-display skips; the full Godot experiment suite contains 162 tests with 29
-skips. The corrected final evidence is one bounded paired runtime run using
+display skips; the main consolidated Godot experiment suite contains 187
+tests with 30 expected skips. The corrected final evidence is one bounded
+paired runtime run using
 one exact 512x512 X11 `gl_compatibility` trial environment with official
 Godot 4.7.2 on Ubuntu
 22.04.5 LTS under WSL; `runner_os_uname_release` records the runner kernel as
@@ -132,11 +133,35 @@ current worktree migrates the experiment projection to schema v2 and replaces
 two `inspect-structure` calls with one exact ordered two-avatar
 `inspect-runtime-input` call. Python and Godot validate compact per-avatar
 source, prepared-basis, prepared-count, and structural-count evidence while
-retaining carrier/gallery/artifact lineage and fail-closed publication. The
-integrated experiment suite passes 170 tests with 29 expected display skips.
+retaining carrier/gallery/artifact lineage and fail-closed publication. Before
+the package slice, this projection integration suite passed 170 tests with 29
+expected display skips.
 This remains experiment-local prepared-source/projection evidence—not a stable
 wire contract, runtime package, package loader, resolver snapshot, profile,
 adapter, or Readiness 3 activation.
+
+The current uncommitted package slice adds a disposable directory payload for
+the same two ordered avatars: exactly two source documents, plus seven
+load-time files per avatar (`metrics.json`, `neutral.ply`, `posed.ply`,
+`skeleton.json`, `weights.json`, `proxies-neutral.json`, and
+`proxies-posed.json`). Its fixture sources require `source.dependencies` to be
+exactly `[]`; this is not a general dependency-closure claim. Build performs
+fresh gallery/carrier/projection/native-CLI lineage checks, copies exact bytes,
+revalidates after copying, and publishes the manifest last. Offline validation
+needs only the payload and checks canonical manifest bytes, exact inventory,
+safe paths, regular non-symlink files, sizes, and hashes.
+
+In package mode, Godot receives the package root and manifest plus the existing
+validated carrier, projection, injected semantic-pose, and optional
+semantic-contact inputs, but no gallery path. It constructs both avatars from
+package bytes and emits `validated_ck_package` evidence for Python to
+cross-validate. Non-package gallery-backed paths remain preserved. The real
+pinned visible-Godot package integration test exists, but is pending an
+attended opt-in run. The named human Godot feasibility checkpoint is not yet
+reached. The main consolidated suite is 197 tests with 31 expected skips. This
+remains experiment-local evidence: no stable package, wire,
+adapter, Readiness 3, or engine choice is established, and no general
+dependency closure, runtime-package activation, or host contract is claimed.
 
 Proposed/provisional deformation and render/collision coherence evidence only:
 The current deformation slice adds a deterministic smooth open forearm sleeve

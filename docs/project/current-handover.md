@@ -1,6 +1,6 @@
 # Current operational handover
 
-Snapshot: 2026-08-29 NZST
+Snapshot: 2026-08-30 NZST
 
 This is a concise operational handoff for continuing the current runway in the
 Codex app. It is not a new authority owner: `docs/project/status.md` remains
@@ -82,8 +82,9 @@ the canonical owner of the active runway, and the required reading order in
   package schema, R3 activation, adapter, or host lock-in. The focused
   projection suite passed 19 tests with 1 expected skip, and the
   focused `test_skeletal_pose_smoke.py` suite passed 68 tests with 16 expected
-  display skips; the full Godot experiment suite contains 162 tests with 29
-  skips. The corrected final evidence is one bounded paired runtime run using
+  display skips; the main consolidated Godot experiment suite contains 187
+  tests with 30 expected skips. The corrected final evidence is one bounded
+  paired runtime run using
   one exact 512x512 X11 `gl_compatibility` trial environment with official
   Godot 4.7.2 on Ubuntu
   22.04.5 LTS under WSL; `runner_os_uname_release` records the runner kernel as
@@ -168,11 +169,28 @@ the canonical owner of the active runway, and the required reading order in
   `inspect-runtime-input` command. The active worktree migrates the disposable
   projection to schema v2 and one exact ordered two-avatar invocation, with
   compact per-avatar source, prepared-basis, prepared-count, and
-  structural-count evidence validated by both Python and Godot. Its integrated
-  suite passes 170 tests with 29 expected display skips. This remains
+  structural-count evidence validated by both Python and Godot. Its predecessor
+  projection suite passed 170 tests with 29 expected display skips. This remains
   experiment-local evidence, not a stable wire contract, runtime package,
   package loader, resolver snapshot, profile, adapter, or Readiness 3
   activation.
+- The current uncommitted package slice adds a disposable directory payload:
+  exactly two source documents and seven load-time files per avatar
+  (`metrics.json`, `neutral.ply`, `posed.ply`, `skeleton.json`, `weights.json`,
+  `proxies-neutral.json`, and `proxies-posed.json`). Its fixture sources require
+  `source.dependencies` to be exactly `[]`; that is not a general dependency-
+  closure claim. Build revalidates gallery/carrier/projection/native-CLI
+  lineage before and after copying; offline validation checks only the payload's
+  canonical manifest, exact inventory, safe paths, regular non-symlink files,
+  sizes, and hashes. Package mode sends Godot the package root/manifest plus
+  the existing carrier, projection, injected pose, and optional contact inputs,
+  but no gallery path; Godot constructs both avatars from package bytes and
+  emits `validated_ck_package` evidence. Non-package paths remain preserved.
+  The real pinned visible-Godot package integration test exists but is pending
+  an attended opt-in run. The named human Godot feasibility checkpoint is not
+  yet reached. The main consolidated suite is 197 tests with 31 expected skips.
+  This is experiment-local evidence only: no stable package,
+  wire, adapter, Readiness 3, or engine choice is established.
 - [PR #113](https://github.com/benhook1013/creature-kernel/pull/113) merged to
   `main` as squash commit `eb89245da137e54cc85f9cd564fbcdd6c45eac66` on
   2026-08-25. All three CI lanes passed before its merge. Ben's disposition
