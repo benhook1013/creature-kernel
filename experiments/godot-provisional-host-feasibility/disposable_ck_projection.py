@@ -2,8 +2,9 @@
 """Build a bounded, non-rendered CK evidence projection for two avatars.
 
 This is deliberately an experiment artifact.  It composes already validated
-gallery/carrier identities with one minimal Rust structural inspection per
-selected source; it does not define a runtime package or generate geometry.
+gallery/carrier identities with one minimal Rust runtime-input inspection for
+the selected sources; it does not define a runtime package or generate
+geometry.
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ import os
 from pathlib import Path, PurePosixPath
 import re
 import selectors
+import signal
 import stat
 import subprocess
 import sys
@@ -27,7 +29,7 @@ from typing import Any
 sys.dont_write_bytecode = True
 
 
-SCHEMA = "creature-kernel.disposable-ck-rust-projection.v1"
+SCHEMA = "creature-kernel.disposable-ck-rust-projection.v2"
 BOUNDARY = "experiment_local_ck_projection_evidence_only"
 POSE_FILE = "structural_embodiment_shared_pose.json"
 SOURCE_DIR = "sources"
@@ -42,9 +44,9 @@ MAX_JSON_NODES = 200_000
 MAX_JSON_DEPTH = 96
 MAX_STRING_LENGTH = 65_536
 MAX_SOURCE_DEPENDENCIES = 4_096
-MAX_GRAPH_COLLECTION_ITEMS = 4_096
-RUST_FORMAT = "creature-kernel.provisional-structural-inspection.v1"
-RUST_OPERATION = "inspect-structure"
+MAX_RUNTIME_INPUT_COUNT = 4_096
+RUST_FORMAT = "creature-kernel.provisional-runtime-input-inspection.v1"
+RUST_OPERATION = "inspect-runtime-input"
 PROJECTION_IDENTITY_SCOPE = "canonical_transport_body_only_not_provenance"
 HASH_PATTERN = re.compile(r"[0-9a-f]{64}\Z")
 DEPENDENCY_HASH_PATTERN = re.compile(r"sha256:[0-9a-f]{64}\Z")
@@ -86,13 +88,13 @@ AVATAR_KEYS = (
     "label",
     "candidate_profile_sha256",
     "source",
-    "rust_inspection",
+    "runtime_input_inspection",
     "artifacts",
     "metrics",
 )
 SOURCE_KEYS = ("path", "sha256", "bytes", "document", "namespace")
 ARTIFACT_KEYS = ("path", "sha256", "bytes")
-RUST_KEYS = (
+RUNTIME_INPUT_RESULT_KEYS = (
     "format",
     "operation",
     "stage",
@@ -100,10 +102,9 @@ RUST_KEYS = (
     "processing_complete",
     "diagnostics_complete",
     "diagnostics",
-    "summary",
-    "graph",
+    "instances",
 )
-RUST_EVIDENCE_KEYS = (
+RUNTIME_INPUT_EVIDENCE_KEYS = (
     "format",
     "operation",
     "stage",
@@ -111,16 +112,34 @@ RUST_EVIDENCE_KEYS = (
     "processing_complete",
     "diagnostics_complete",
     "diagnostics",
-    "summary",
     "source",
+    "prepared_basis",
+    "prepared_counts",
+    "structural_counts",
 )
-RUST_GRAPH_KEYS = (
-    "projection",
-    "contract",
+RUNTIME_INPUT_INSTANCE_KEYS = (
+    "instance_id",
     "source",
-    "basis",
-    "profiles",
-    "extensions",
+    "prepared",
+    "structural",
+)
+PREPARED_BASIS_KEYS = (
+    "length_unit",
+    "handedness",
+    "up",
+    "forward",
+    "source_for_canonical",
+)
+PREPARED_COUNT_KEYS = (
+    "parts",
+    "joints",
+    "sockets",
+    "attachments",
+    "landmarks",
+    "dimensions",
+    "frames",
+)
+STRUCTURAL_COUNT_KEYS = (
     "modules",
     "parts",
     "joints",
@@ -133,19 +152,13 @@ RUST_GRAPH_KEYS = (
     "capabilities",
     "fields",
 )
-SUMMARY_KEYS = (
-    "modules",
-    "parts",
-    "joints",
-    "sockets",
-    "attachments",
-    "landmarks",
-    "dimensions",
-    "frames",
-    "regions",
-    "capabilities",
-    "fields",
-)
+EXPECTED_PREPARED_BASIS = {
+    "length_unit": "metre",
+    "handedness": "right",
+    "up": "+y",
+    "forward": "+z",
+    "source_for_canonical": ["+x", "+y", "+z"],
+}
 
 
 class ProjectionError(ValueError):
@@ -340,11 +353,18 @@ def _validate_artifacts(value: Any, profile_id: str, carrier_module: Any, label:
     return result
 
 
-def _validate_summary(value: Any, label: str) -> dict[str, int]:
-    summary = _object(value, label, SUMMARY_KEYS)
-    for key in SUMMARY_KEYS:
-        _integer(summary[key], f"{label}.{key}", maximum=MAX_GRAPH_COLLECTION_ITEMS)
-    return summary
+def _validate_counts(value: Any, keys: tuple[str, ...], label: str) -> dict[str, int]:
+    counts = _object(value, label, keys)
+    for key in keys:
+        _integer(counts[key], f"{label}.{key}", maximum=MAX_RUNTIME_INPUT_COUNT)
+    return counts
+
+
+def _validate_prepared_basis(value: Any, label: str) -> dict[str, Any]:
+    basis = _object(value, label, PREPARED_BASIS_KEYS)
+    if not _exact_equal(basis, EXPECTED_PREPARED_BASIS):
+        raise ProjectionError(f"{label} is not the supported prepared source basis")
+    return basis
 
 
 def _validate_source_identity(value: Any, label: str) -> dict[str, Any]:
@@ -362,42 +382,16 @@ def _validate_source_identity(value: Any, label: str) -> dict[str, Any]:
     return source
 
 
-def _validate_rust_result_fields(root: dict[str, Any], label: str) -> None:
+def _validate_runtime_input_result_fields(root: dict[str, Any], label: str) -> None:
     if root["format"] != RUST_FORMAT or root["operation"] != RUST_OPERATION:
-        raise ProjectionError(f"{label} is not the existing inspect-structure output")
-    if root["stage"] != "structural-validation" or root["status"] != "success":
-        raise ProjectionError(f"{label} is not a successful structural inspection")
+        raise ProjectionError(f"{label} is not the existing inspect-runtime-input output")
+    if root["stage"] != "runtime-input" or root["status"] != "success":
+        raise ProjectionError(f"{label} is not a successful runtime-input inspection")
     if root["processing_complete"] is not True or root["diagnostics_complete"] is not True or root["diagnostics"] != []:
         raise ProjectionError(f"{label} completion flags or diagnostics are invalid")
 
 
-def _validate_rust_inspection(value: Any, label: str = "rust_inspection") -> dict[str, Any]:
-    root = _object(value, label, RUST_KEYS)
-    _validate_rust_result_fields(root, label)
-    summary = _validate_summary(root["summary"], f"{label}.summary")
-    graph = _object(root["graph"], f"{label}.graph", RUST_GRAPH_KEYS)
-    if graph["projection"] != "source-preserving-provisional-structural-debug":
-        raise ProjectionError(f"{label}.graph has an unsupported projection")
-    contract = _object(graph["contract"], f"{label}.graph.contract", ("family", "revision"))
-    if contract["family"] != "creature-kernel.body" or type(contract["revision"]) is not int or contract["revision"] != 1:
-        raise ProjectionError(f"{label}.graph.contract is not the supported body contract")
-    basis = _object(graph["basis"], f"{label}.graph.basis", ("length_unit", "handedness", "up", "forward"))
-    if basis != {"length_unit": "metre", "handedness": "right", "up": "+y", "forward": "+z"}:
-        raise ProjectionError(f"{label}.graph.basis is not the supported structural basis")
-    profiles = _object(graph["profiles"], f"{label}.graph.profiles", ("semantic_numeric",))
-    if profiles["semantic_numeric"] != "ck.numeric-frame.r1":
-        raise ProjectionError(f"{label}.graph.profiles is not the supported semantic numeric profile")
-    source = _validate_source_identity(graph["source"], f"{label}.graph.source")
-    extensions = graph["extensions"]
-    if not isinstance(extensions, list) or len(extensions) > MAX_GRAPH_COLLECTION_ITEMS:
-        raise ProjectionError(f"{label}.graph.extensions must be a bounded array")
-    for key in SUMMARY_KEYS:
-        collection = graph[key]
-        if not isinstance(collection, list) or len(collection) > MAX_GRAPH_COLLECTION_ITEMS:
-            raise ProjectionError(f"{label}.graph.{key} must be a bounded array")
-        if summary[key] != len(collection):
-            raise ProjectionError(f"{label}.summary.{key} disagrees with graph collection length")
-    _finite_json(root, label)
+def _runtime_input_evidence(instance: dict[str, Any], root: dict[str, Any]) -> dict[str, Any]:
     return {
         "format": root["format"],
         "operation": root["operation"],
@@ -406,16 +400,62 @@ def _validate_rust_inspection(value: Any, label: str = "rust_inspection") -> dic
         "processing_complete": root["processing_complete"],
         "diagnostics_complete": root["diagnostics_complete"],
         "diagnostics": root["diagnostics"],
-        "summary": summary,
-        "source": source,
+        "source": instance["source"],
+        "prepared_basis": instance["prepared"]["basis"],
+        "prepared_counts": instance["prepared"]["counts"],
+        "structural_counts": instance["structural"]["counts"],
     }
 
 
-def _validate_rust_evidence(value: Any, label: str = "rust_inspection") -> dict[str, Any]:
-    evidence = _object(value, label, RUST_EVIDENCE_KEYS)
-    _validate_rust_result_fields(evidence, label)
-    _validate_summary(evidence["summary"], f"{label}.summary")
-    _validate_source_identity(evidence["source"], f"{label}.source")
+def _validate_runtime_input_instance(value: Any, expected_instance_id: str, label: str) -> dict[str, Any]:
+    instance = _object(value, label, RUNTIME_INPUT_INSTANCE_KEYS)
+    if instance["instance_id"] != expected_instance_id:
+        raise ProjectionError(f"{label}.instance_id is reordered or does not match its carrier position")
+    _string(instance["instance_id"], f"{label}.instance_id")
+    source = _object(instance["source"], f"{label}.source", ("document", "namespace"))
+    _string(source["document"], f"{label}.source.document")
+    _string(source["namespace"], f"{label}.source.namespace")
+    prepared = _object(instance["prepared"], f"{label}.prepared", ("basis", "counts"))
+    basis = _validate_prepared_basis(prepared["basis"], f"{label}.prepared.basis")
+    prepared_counts = _validate_counts(prepared["counts"], PREPARED_COUNT_KEYS, f"{label}.prepared.counts")
+    structural = _object(instance["structural"], f"{label}.structural", ("counts",))
+    structural_counts = _validate_counts(structural["counts"], STRUCTURAL_COUNT_KEYS, f"{label}.structural.counts")
+    _finite_json(instance, label)
+    return {
+        "instance_id": instance["instance_id"],
+        "source": source,
+        "prepared": {"basis": basis, "counts": prepared_counts},
+        "structural": {"counts": structural_counts},
+    }
+
+
+def _validate_runtime_input_result(value: Any, instance_ids: tuple[str, ...], label: str = "runtime_input_result") -> list[dict[str, Any]]:
+    if len(instance_ids) != 2 or len(set(instance_ids)) != 2:
+        raise ProjectionError(f"{label} requires exactly two distinct expected instance IDs")
+    root = _object(value, label, RUNTIME_INPUT_RESULT_KEYS)
+    _validate_runtime_input_result_fields(root, label)
+    instances = root["instances"]
+    if not isinstance(instances, list) or len(instances) != 2:
+        raise ProjectionError(f"{label}.instances must contain exactly two ordered result instances")
+    validated = []
+    for index, (instance, expected_instance_id) in enumerate(zip(instances, instance_ids)):
+        validated.append(
+            _validate_runtime_input_instance(instance, expected_instance_id, f"{label}.instances[{index}]")
+        )
+    _finite_json(root, label)
+    _reject_forbidden_fields(root, label)
+    return [_runtime_input_evidence(instance, root) for instance in validated]
+
+
+def _validate_runtime_input_evidence(value: Any, label: str = "runtime_input_inspection") -> dict[str, Any]:
+    evidence = _object(value, label, RUNTIME_INPUT_EVIDENCE_KEYS)
+    _validate_runtime_input_result_fields({**evidence, "instances": []}, label)
+    source = _object(evidence["source"], f"{label}.source", ("document", "namespace"))
+    _string(source["document"], f"{label}.source.document")
+    _string(source["namespace"], f"{label}.source.namespace")
+    _validate_prepared_basis(evidence["prepared_basis"], f"{label}.prepared_basis")
+    _validate_counts(evidence["prepared_counts"], PREPARED_COUNT_KEYS, f"{label}.prepared_counts")
+    _validate_counts(evidence["structural_counts"], STRUCTURAL_COUNT_KEYS, f"{label}.structural_counts")
     _finite_json(evidence, label)
     _reject_forbidden_fields(evidence, label)
     return evidence
@@ -560,13 +600,15 @@ def _validated_cli_producer(
 
 
 def _stop_process(process: subprocess.Popen[bytes]) -> None:
-    if process.poll() is not None:
-        return
-    process.kill()
+    """Kill only this invocation's POSIX process group, then reap its leader."""
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
     try:
         process.wait(timeout=5)
-    except subprocess.TimeoutExpired:  # pragma: no cover - defensive after SIGKILL
-        pass
+    except subprocess.TimeoutExpired as exc:  # pragma: no cover - defensive after SIGKILL
+        raise ProjectionError("Rust inspect-runtime-input process group did not terminate") from exc
 
 
 def _bounded_subprocess(command: list[str]) -> tuple[int, bytes, bytes]:
@@ -579,12 +621,13 @@ def _bounded_subprocess(command: list[str]) -> tuple[int, bytes, bytes]:
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            start_new_session=True,
         )
     except OSError as exc:
-        raise ProjectionError(f"Rust inspect-structure subprocess failed: {type(exc).__name__}: {exc}") from exc
+        raise ProjectionError(f"Rust inspect-runtime-input subprocess failed: {type(exc).__name__}: {exc}") from exc
     if process.stdout is None or process.stderr is None:  # pragma: no cover - Popen contract
         _stop_process(process)
-        raise ProjectionError("Rust inspect-structure subprocess did not expose bounded pipes")
+        raise ProjectionError("Rust inspect-runtime-input subprocess did not expose bounded pipes")
     selector = selectors.DefaultSelector()
     buffers = {"stdout": bytearray(), "stderr": bytearray()}
     limits = {"stdout": MAX_RUST_STDOUT_BYTES, "stderr": MAX_RUST_STDERR_BYTES}
@@ -597,7 +640,7 @@ def _bounded_subprocess(command: list[str]) -> tuple[int, bytes, bytes]:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 _stop_process(process)
-                raise ProjectionError(f"Rust inspect-structure timed out after {RUST_TIMEOUT_SECONDS} seconds")
+                raise ProjectionError(f"Rust inspect-runtime-input timed out after {RUST_TIMEOUT_SECONDS} seconds")
             events = selector.select(min(0.1, remaining))
             for key, _ in events:
                 stream = key.fileobj
@@ -614,34 +657,64 @@ def _bounded_subprocess(command: list[str]) -> tuple[int, bytes, bytes]:
                 if len(chunk) > remaining_capacity:
                     _stop_process(process)
                     raise ProjectionError(
-                        f"Rust inspect-structure {name} exceeds the bounded limit of {limits[name]} bytes"
+                        f"Rust inspect-runtime-input {name} exceeds the bounded limit of {limits[name]} bytes"
                     )
                 buffers[name].extend(chunk)
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             _stop_process(process)
-            raise ProjectionError(f"Rust inspect-structure timed out after {RUST_TIMEOUT_SECONDS} seconds")
+            raise ProjectionError(f"Rust inspect-runtime-input timed out after {RUST_TIMEOUT_SECONDS} seconds")
         try:
             return_code = process.wait(timeout=remaining)
         except subprocess.TimeoutExpired as exc:
             _stop_process(process)
-            raise ProjectionError(f"Rust inspect-structure timed out after {RUST_TIMEOUT_SECONDS} seconds") from exc
+            raise ProjectionError(f"Rust inspect-runtime-input timed out after {RUST_TIMEOUT_SECONDS} seconds") from exc
         return return_code, bytes(buffers["stdout"]), bytes(buffers["stderr"])
     finally:
         selector.close()
         for stream in (process.stdout, process.stderr):
             if not stream.closed:
                 stream.close()
-        if process.poll() is None:
-            _stop_process(process)
+        _stop_process(process)
 
 
-def _run_inspection(cli_path: Path, source_path: Path) -> dict[str, Any]:
-    command = [os.fspath(cli_path), RUST_OPERATION, "--input", os.fspath(source_path)]
+def _recheck_private_source_snapshots(
+    carrier_module: Any,
+    instance_sources: list[tuple[str, Path]],
+    retained_source_bytes: tuple[bytes, ...],
+) -> None:
+    if len(instance_sources) != 2 or len(retained_source_bytes) != 2:
+        raise ProjectionError("private source snapshot revalidation requires exactly two sources")
+    for index, ((_, snapshot_path), retained_bytes) in enumerate(zip(instance_sources, retained_source_bytes)):
+        snapshot_bytes = _read_regular_file(
+            carrier_module,
+            snapshot_path,
+            SOURCE_MAX_BYTES,
+            f"private source snapshot {index}",
+        )
+        snapshot_hash = hashlib.sha256(snapshot_bytes).digest()
+        retained_hash = hashlib.sha256(retained_bytes).digest()
+        if snapshot_bytes != retained_bytes or snapshot_hash != retained_hash:
+            raise ProjectionError(f"private source snapshot {index} changed during runtime-input inspection")
+
+
+def _run_runtime_input_inspection(
+    cli_path: Path,
+    instance_sources: list[tuple[str, Path]],
+    *,
+    carrier_module: Any,
+    retained_source_bytes: tuple[bytes, ...],
+) -> list[dict[str, Any]]:
+    if len(instance_sources) != 2:
+        raise ProjectionError("runtime-input inspection requires exactly two ordered instance/source pairs")
+    command = [os.fspath(cli_path), RUST_OPERATION]
+    for instance_id, source_path in instance_sources:
+        command.extend(("--instance", instance_id, "--source", os.fspath(source_path)))
     return_code, stdout, stderr_bytes = _bounded_subprocess(command)
+    _recheck_private_source_snapshots(carrier_module, instance_sources, retained_source_bytes)
     if return_code != 0:
         stderr = stderr_bytes.decode("utf-8", "replace")[-512:]
-        raise ProjectionError(f"Rust inspect-structure exited {return_code}: {stderr}")
+        raise ProjectionError(f"Rust inspect-runtime-input exited {return_code}: {stderr}")
     try:
         value = json.loads(
             stdout.decode("utf-8"),
@@ -649,8 +722,8 @@ def _run_inspection(cli_path: Path, source_path: Path) -> dict[str, Any]:
             parse_constant=lambda token: (_ for _ in ()).throw(ValueError(token)),
         )
     except (UnicodeDecodeError, json.JSONDecodeError, RecursionError, ValueError) as exc:
-        raise ProjectionError("Rust inspect-structure did not return one valid JSON object") from exc
-    return _validate_rust_inspection(value)
+        raise ProjectionError("Rust inspect-runtime-input did not return one valid JSON object") from exc
+    return _validate_runtime_input_result(value, tuple(instance_id for instance_id, _ in instance_sources))
 
 
 def _source_record(data: bytes, profile_id: str, inspection: dict[str, Any]) -> dict[str, Any]:
@@ -674,17 +747,17 @@ def _source_record(data: bytes, profile_id: str, inspection: dict[str, Any]) -> 
         _string(item["document"], f"source {profile_id}.source.dependencies[{index}].document")
         _string(item["namespace"], f"source {profile_id}.source.dependencies[{index}].namespace")
         _dependency_hash(item["content_sha256"], f"source {profile_id}.source.dependencies[{index}].content_sha256")
-    rust_source = inspection["source"]
-    if not _exact_equal(declared, rust_source):
+    runtime_source = inspection["source"]
+    if declared["document"] != runtime_source["document"] or declared["namespace"] != runtime_source["namespace"]:
         raise ProjectionError(
-            f"source {profile_id} identity and dependencies disagree with Rust inspect-structure evidence"
+            f"source {profile_id} identity disagrees with inspect-runtime-input evidence"
         )
     return {
         "path": relative,
         "sha256": hashlib.sha256(data).hexdigest(),
         "bytes": len(data),
-        "document": rust_source["document"],
-        "namespace": rust_source["namespace"],
+        "document": runtime_source["document"],
+        "namespace": runtime_source["namespace"],
     }
 
 
@@ -785,26 +858,11 @@ def build_projection(gallery: Path, carrier_path: Path, *, cli_path: Path | None
             cli_snapshot_root.mkdir(mode=0o700)
         except OSError as exc:
             raise ProjectionError(f"could not create private CLI staging directory: {cli_snapshot_root}") from exc
-        staged_cli_paths = []
-        producer_identity = None
-        for index in range(2):
-            invocation_staging_directory = cli_snapshot_root / f"invocation-{index}"
-            try:
-                invocation_staging_directory.mkdir(mode=0o700)
-            except OSError as exc:
-                raise ProjectionError(
-                    f"could not create private CLI invocation staging directory: {invocation_staging_directory}"
-                ) from exc
-            staged_cli_path, snapshot_identity = _validated_cli_producer(
-                carrier_module,
-                original_cli_path,
-                staging_directory=invocation_staging_directory,
-            )
-            if producer_identity is None:
-                producer_identity = snapshot_identity
-            elif not _exact_equal(producer_identity, snapshot_identity):
-                raise ProjectionError("Rust CLI executable changed while private snapshots were being created")
-            staged_cli_paths.append(staged_cli_path)
+        staged_cli_path, producer_identity = _validated_cli_producer(
+            carrier_module,
+            original_cli_path,
+            staging_directory=cli_snapshot_root,
+        )
         initial_state = _validated_carrier_state(carrier_module, gallery, carrier_path, "initial")
         carrier_value = initial_state["carrier_value"]
         carrier_bytes = initial_state["carrier_bytes"]
@@ -837,12 +895,26 @@ def build_projection(gallery: Path, carrier_path: Path, *, cli_path: Path | None
             source_snapshot_path = source_snapshot_directory / f"{profile_id}.json"
             _write_private_snapshot(source_snapshot_path, source_bytes, f"source {profile_id}")
             source_snapshot_paths[profile_id] = source_snapshot_path
+        instance_sources = [
+            (instance_id, source_snapshot_paths[profile_id])
+            for instance_id, profile_id in zip(instance_ids, profile_ids)
+        ]
+        runtime_input_evidence = _run_runtime_input_inspection(
+            staged_cli_path,
+            instance_sources,
+            carrier_module=carrier_module,
+            retained_source_bytes=tuple(source_bytes_by_profile[profile_id] for profile_id in profile_ids),
+        )
+        if len(runtime_input_evidence) != 2:
+            raise ProjectionError("inspect-runtime-input did not return exactly two bound evidence instances")
         avatars = []
         for index, (profile, instance_id, profile_id) in enumerate(zip(profiles, instance_ids, profile_ids)):
             if not isinstance(profile, dict) or not isinstance(instances[index], dict):
                 raise ProjectionError(f"validated carrier profile {index} is not an object")
             source_bytes = source_bytes_by_profile[profile_id]
-            inspection = _run_inspection(staged_cli_paths[index], source_snapshot_paths[profile_id])
+            inspection = _validate_runtime_input_evidence(
+                runtime_input_evidence[index], f"runtime_input_inspection[{index}]"
+            )
             source = _source_record(source_bytes, profile_id, inspection)
             artifacts = _validate_artifacts(profile.get("artifacts"), profile_id, carrier_module, f"profile {profile_id}.artifacts")
             avatars.append(
@@ -852,7 +924,7 @@ def build_projection(gallery: Path, carrier_path: Path, *, cli_path: Path | None
                     "label": _string(profile.get("label"), f"profile {profile_id}.label"),
                     "candidate_profile_sha256": _hash(profile.get("candidate_profile_sha256"), f"profile {profile_id}.candidate_profile_sha256"),
                     "source": source,
-                    "rust_inspection": inspection,
+                    "runtime_input_inspection": inspection,
                     "artifacts": artifacts,
                     "metrics": profile.get("metrics"),
                 }
@@ -898,7 +970,7 @@ def _validate_projection_body(value: Any, carrier_module: Any | None = None) -> 
     _hash(producer["sha256"], "producer_identity.sha256")
     _integer(producer["bytes"], "producer_identity.bytes", maximum=MAX_CLI_BYTES)
     if producer["operation"] != RUST_OPERATION or producer["format"] != RUST_FORMAT:
-        raise ProjectionError("producer_identity does not identify the exact inspect-structure producer contract")
+        raise ProjectionError("producer_identity does not identify the exact inspect-runtime-input producer contract")
     carrier = _object(root["carrier_identity"], "carrier_identity", CARRIER_IDENTITY_KEYS)
     if carrier["schema"] != carrier_module.SCHEMA or carrier["boundary"] != carrier_module.BOUNDARY:
         raise ProjectionError("carrier_identity schema or boundary does not match the existing carrier")
@@ -951,9 +1023,11 @@ def _validate_projection_body(value: Any, carrier_module: Any | None = None) -> 
         _integer(source["bytes"], f"avatars[{index}].source.bytes")
         _string(source["document"], f"avatars[{index}].source.document")
         _string(source["namespace"], f"avatars[{index}].source.namespace")
-        evidence = _validate_rust_evidence(record["rust_inspection"], f"avatars[{index}].rust_inspection")
+        evidence = _validate_runtime_input_evidence(
+            record["runtime_input_inspection"], f"avatars[{index}].runtime_input_inspection"
+        )
         if source["document"] != evidence["source"]["document"] or source["namespace"] != evidence["source"]["namespace"]:
-            raise ProjectionError("source identity does not exactly match Rust inspect-structure evidence")
+            raise ProjectionError("source identity does not exactly match inspect-runtime-input evidence")
         _validate_artifacts(record["artifacts"], profile_ids[index], carrier_module, f"avatars[{index}].artifacts")
         if not isinstance(record["metrics"], dict):
             raise ProjectionError(f"avatars[{index}].metrics must be an object")
@@ -1031,7 +1105,7 @@ def validate_projection(path: Path, gallery: Path, carrier_path: Path, *, cli_pa
     stored = load_projection(path)
     expected = build_projection(gallery, carrier_path, cli_path=cli_path)
     if not _exact_equal(stored, expected):
-        raise ProjectionError("projection does not exactly match fresh carrier/gallery/Rust evidence")
+        raise ProjectionError("projection does not exactly match fresh carrier/gallery/runtime-input evidence")
     return stored
 
 

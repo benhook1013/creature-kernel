@@ -161,8 +161,8 @@ closed unless an operator explicitly opts into an attended visible run:
 To exercise the next engine-neutral-shaped serialized input boundary, first
 build a disposable carrier from two freshly validated profiles. The serialized
 carrier contains no Godot version, coordinate mapping, host translation, or
-adapter field. This experiment-local builder still reuses the existing Godot
-structural-projection preflight, so the result does not prove a general package
+adapter field. This experiment-local builder still reuses the existing
+structural gallery preflight, so the result does not prove a general package
 producer or consumer. Its instance IDs are local to this experiment; its schema
 and hashes are evidence bookkeeping, not a runtime package format, committed
 artifact identity, adapter contract, or compatibility promise:
@@ -385,16 +385,15 @@ native CLI executable:
       --projection /absolute/path/to/disposable-ck-rust-projection.json \
       --cli /absolute/path/to/target/debug/creature-kernel
 
-The builder runs `inspect-structure` once for each of the two ordered source
-profiles, records its bounded success summary plus source and artifact lineage,
+The builder makes one ordered CLI call containing the two explicit
+instance/source pairs for `inspect-runtime-input`. It records one compact
+per-avatar runtime-input summary alongside the source and artifact lineage,
 and binds the executable SHA-256, byte count, operation, and format. It checks
-the Rust output envelope, structural contract/basis/profile identities, source
-identity, collection shapes, and summary cardinalities before compacting the
-evidence. It deliberately does not duplicate every Rust graph-member semantic
-inside Python: the exact hash-bound CK executable remains the structural
-validator. The builder rechecks the carrier, gallery sources, and executable
-after inspection; validation also requires an exact fresh rebuild. Publication
-is canonical JSON and does not overwrite an existing output.
+the Rust output envelope, exact instance IDs, source identity, prepared basis,
+and bounded prepared/structural count maps before compacting the evidence. The
+builder rechecks the carrier, gallery sources, and executable after inspection;
+validation also requires an exact fresh rebuild. Publication is canonical JSON
+and does not overwrite an existing output.
 
 The skeletal runner accepts the projection only with its paired explicit
 `--ck-cli /absolute/path/to/target/debug/creature-kernel` input. It performs the
@@ -403,7 +402,7 @@ success report; supplying either argument without the other fails closed.
 
 This provisional projection is transport and evidence bookkeeping
 for this experiment only
-(`creature-kernel.disposable-ck-rust-projection.v1`, boundary
+(`creature-kernel.disposable-ck-rust-projection.v2`, boundary
 `experiment_local_ck_projection_evidence_only`). It does not generate geometry
 or define a durable CK package, artifact/build identity, adapter, host contract,
 compatibility promise, Readiness 3 activation, or engine selection.

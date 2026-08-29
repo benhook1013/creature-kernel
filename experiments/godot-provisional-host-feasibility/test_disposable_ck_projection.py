@@ -87,47 +87,54 @@ def payload(pose_sha256: str) -> dict[str, object]:
     }
 
 
-def rust_inspection(profile_id: str) -> dict[str, object]:
-    graph = {
-        "projection": "source-preserving-provisional-structural-debug",
-        "contract": {"family": "creature-kernel.body", "revision": 1},
-        "source": {"dependencies": [], "document": f"fixture.{profile_id}", "namespace": "fixture"},
-        "basis": {"length_unit": "metre", "handedness": "right", "up": "+y", "forward": "+z"},
-        "profiles": {"semantic_numeric": "ck.numeric-frame.r1"},
-        "extensions": [],
-        "modules": [],
-        "parts": [],
-        "joints": [],
-        "sockets": [],
-        "attachments": [],
-        "landmarks": [],
-        "dimensions": [],
-        "frames": [],
-        "regions": [],
-        "capabilities": [],
-        "fields": [],
+def runtime_input_instance(profile_id: str, instance_id: str) -> dict[str, object]:
+    return {
+        "instance_id": instance_id,
+        "source": {"document": f"fixture.{profile_id}", "namespace": "fixture"},
+        "prepared": {
+            "basis": deepcopy(projection.EXPECTED_PREPARED_BASIS),
+            "counts": {name: 0 for name in projection.PREPARED_COUNT_KEYS},
+        },
+        "structural": {
+            "counts": {name: 0 for name in projection.STRUCTURAL_COUNT_KEYS},
+        },
     }
+
+
+def runtime_input_result(instance_sources: list[tuple[str, Path]]) -> dict[str, object]:
     return {
         "format": projection.RUST_FORMAT,
         "operation": projection.RUST_OPERATION,
-        "stage": "structural-validation",
+        "stage": "runtime-input",
         "status": "success",
         "processing_complete": True,
         "diagnostics_complete": True,
         "diagnostics": [],
-        "summary": {name: 0 for name in projection.SUMMARY_KEYS},
-        "graph": graph,
+        "instances": [
+            runtime_input_instance(Path(source_path).stem, instance_id)
+            for instance_id, source_path in instance_sources
+        ],
     }
 
 
 def valid_cli_body() -> str:
-    inspections = {profile_id: rust_inspection(profile_id) for profile_id in PROFILE_IDS}
+    instances = {
+        instance_id: runtime_input_instance(profile_id, instance_id)
+        for instance_id, profile_id in zip(INSTANCE_IDS, PROFILE_IDS)
+    }
     return (
         "import json\n"
         "import sys\n"
-        "from pathlib import Path\n"
-        f"inspections = {inspections!r}\n"
-        "print(json.dumps(inspections[Path(sys.argv[-1]).stem]))\n"
+        f"instances = {instances!r}\n"
+        "arguments = sys.argv[1:]\n"
+        "if arguments != [\"inspect-runtime-input\", \"--instance\", arguments[2], \"--source\", arguments[4], \"--instance\", arguments[6], \"--source\", arguments[8]]:\n"
+        "    raise SystemExit('unexpected inspect-runtime-input arguments')\n"
+        "instance_ids = (arguments[2], arguments[6])\n"
+        "print(json.dumps({\"format\": "
+        f"{projection.RUST_FORMAT!r}, "
+        "\"operation\": \"inspect-runtime-input\", \"stage\": \"runtime-input\", \"status\": \"success\", "
+        "\"processing_complete\": True, \"diagnostics_complete\": True, \"diagnostics\": [], "
+        "\"instances\": [instances[instance_ids[0]], instances[instance_ids[1]]]}))\n"
     )
 
 
@@ -194,8 +201,11 @@ class DisposableCKProjectionTests(unittest.TestCase):
         return deepcopy(self.payload), PROFILE_IDS, INSTANCE_IDS
 
     def valid_runner(self, command):
-        profile_id = Path(command[-1]).stem
-        return 0, (json.dumps(rust_inspection(profile_id)) + "\n").encode("utf-8"), b""
+        instance_sources = [
+            (command[3], Path(command[5])),
+            (command[7], Path(command[9])),
+        ]
+        return 0, (json.dumps(runtime_input_result(instance_sources)) + "\n").encode("utf-8"), b""
 
     def build(self, *, runner=None, validator=None) -> dict[str, object]:
         with (
@@ -215,16 +225,43 @@ class DisposableCKProjectionTests(unittest.TestCase):
 
     def test_build_binds_two_avatars_exact_producer_and_transport_identity(self) -> None:
         calls = []
+        source_snapshot_bytes = {}
 
         def runner(command):
             calls.append(command)
+            source_snapshot_bytes[command[3]] = Path(command[5]).read_bytes()
+            source_snapshot_bytes[command[7]] = Path(command[9]).read_bytes()
             return self.valid_runner(command)
 
         value = self.build(runner=runner)
         self.assertEqual(tuple(value), projection.PROJECTION_KEYS)
         self.assertEqual([item["profile_id"] for item in value["avatars"]], list(PROFILE_IDS))
         self.assertEqual([item["instance_id"] for item in value["avatars"]], list(INSTANCE_IDS))
-        self.assertEqual(len(calls), 2)
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(
+            calls[0][1:],
+            [
+                projection.RUST_OPERATION,
+                "--instance",
+                INSTANCE_IDS[0],
+                "--source",
+                calls[0][5],
+                "--instance",
+                INSTANCE_IDS[1],
+                "--source",
+                calls[0][9],
+            ],
+        )
+        self.assertEqual(
+            source_snapshot_bytes[calls[0][3]],
+            (self.gallery / projection.SOURCE_DIR / f"{PROFILE_IDS[0]}.json").read_bytes(),
+        )
+        self.assertEqual(
+            source_snapshot_bytes[calls[0][7]],
+            (self.gallery / projection.SOURCE_DIR / f"{PROFILE_IDS[1]}.json").read_bytes(),
+        )
+        self.assertNotEqual(Path(calls[0][5]).resolve(), (self.gallery / projection.SOURCE_DIR / f"{PROFILE_IDS[0]}.json").resolve())
+        self.assertNotEqual(Path(calls[0][9]).resolve(), (self.gallery / projection.SOURCE_DIR / f"{PROFILE_IDS[1]}.json").resolve())
         cli_bytes = self.cli_path.read_bytes()
         self.assertEqual(
             value["producer_identity"],
@@ -241,7 +278,7 @@ class DisposableCKProjectionTests(unittest.TestCase):
                 [item["path"] for item in avatar["artifacts"]],
                 [f"{profile_id}/{name}" for name in smoke.EXPECTED_ARTIFACT_NAMES],
             )
-            self.assertEqual(avatar["rust_inspection"]["operation"], projection.RUST_OPERATION)
+            self.assertEqual(avatar["runtime_input_inspection"]["operation"], projection.RUST_OPERATION)
         identity = projection.projection_identity(value)
         self.assertEqual(identity["scope"], projection.PROJECTION_IDENTITY_SCOPE)
         body = {key: value[key] for key in projection.PROJECTION_BODY_KEYS}
@@ -287,29 +324,36 @@ class DisposableCKProjectionTests(unittest.TestCase):
         ):
             projection._validated_cli_producer(carrier, bounded_cli)
 
-    def test_each_inspection_has_an_independent_cli_snapshot(self) -> None:
+    def test_runtime_input_uses_one_private_cli_snapshot(self) -> None:
         marker_path = self.root / "inspection-count"
         replacement_cli_path = self.root / "replacement-cli"
         cli_paths_path = self.root / "cli-paths"
-        inspections = {profile_id: rust_inspection(profile_id) for profile_id in PROFILE_IDS}
+        result = runtime_input_result(
+            [
+                (INSTANCE_IDS[0], Path(f"{PROFILE_IDS[0]}.json")),
+                (INSTANCE_IDS[1], Path(f"{PROFILE_IDS[1]}.json")),
+            ]
+        )
         cli_body = (
             "import json\n"
             "import os\n"
             "import sys\n"
             "from pathlib import Path\n"
-            f"inspections = {inspections!r}\n"
+            f"result = {result!r}\n"
             f"marker = Path({str(marker_path)!r})\n"
             f"replacement_cli = Path({str(replacement_cli_path)!r})\n"
             f"cli_paths = Path({str(cli_paths_path)!r})\n"
             "with cli_paths.open('a', encoding='utf-8') as handle:\n"
             "    handle.write(f'{sys.argv[0]}\\n')\n"
+            "if sys.argv[1] != 'inspect-runtime-input' or len(sys.argv) != 10:\n"
+            "    raise SystemExit('unexpected inspect-runtime-input arguments')\n"
             "count = int(marker.read_text(encoding='utf-8')) if marker.exists() else 0\n"
             "if count == 0:\n"
             "    replacement_cli.write_text('#!/bin/sh\\nexit 97\\n', encoding='utf-8')\n"
             "    replacement_cli.chmod(0o700)\n"
             "    os.replace(replacement_cli, Path(sys.argv[0]))\n"
             "marker.write_text(str(count + 1), encoding='utf-8')\n"
-            "print(json.dumps(inspections[Path(sys.argv[-1]).stem]))\n"
+            "print(json.dumps(result))\n"
         )
         self.cli_path = self._write_executable("attacking-cli", cli_body)
 
@@ -320,10 +364,10 @@ class DisposableCKProjectionTests(unittest.TestCase):
             value = projection.build_projection(self.gallery, self.carrier_path, cli_path=self.cli_path)
 
         cli_bytes = f"#!{sys.executable}\n{cli_body}".encode()
-        self.assertEqual(marker_path.read_text(encoding="utf-8"), "2")
+        self.assertEqual(marker_path.read_text(encoding="utf-8"), "1")
         staged_cli_paths = cli_paths_path.read_text(encoding="utf-8").splitlines()
-        self.assertEqual(len(staged_cli_paths), 2)
-        self.assertEqual(len(set(staged_cli_paths)), 2)
+        self.assertEqual(len(staged_cli_paths), 1)
+        self.assertEqual(len(set(staged_cli_paths)), 1)
         self.assertTrue(all(not Path(path).exists() for path in staged_cli_paths))
         self.assertEqual(value["producer_identity"]["sha256"], hashlib.sha256(cli_bytes).hexdigest())
         self.assertEqual(value["producer_identity"]["bytes"], len(cli_bytes))
@@ -337,12 +381,17 @@ class DisposableCKProjectionTests(unittest.TestCase):
         self.assertEqual([avatar["profile_id"] for avatar in value["avatars"]], list(PROFILE_IDS))
 
     def test_private_snapshots_bind_cli_and_source_during_path_replacement(self) -> None:
-        inspections = {profile_id: rust_inspection(profile_id) for profile_id in PROFILE_IDS}
         original_source_paths = {
             profile_id: self.gallery / projection.SOURCE_DIR / f"{profile_id}.json"
             for profile_id in PROFILE_IDS
         }
         expected_sources = {profile_id: path.read_bytes() for profile_id, path in original_source_paths.items()}
+        result = runtime_input_result(
+            [
+                (INSTANCE_IDS[0], Path(f"{PROFILE_IDS[0]}.json")),
+                (INSTANCE_IDS[1], Path(f"{PROFILE_IDS[1]}.json")),
+            ]
+        )
         original_cli_path = self.root / "attacking-cli"
         replacement_cli_path = self.root / "replacement-cli"
         replacement_source_path = self.root / "replacement-source.json"
@@ -354,7 +403,7 @@ class DisposableCKProjectionTests(unittest.TestCase):
             "import os\n"
             "import sys\n"
             "from pathlib import Path\n"
-            f"inspections = {inspections!r}\n"
+            f"result = {result!r}\n"
             f"expected_sources = {expected_sources!r}\n"
             f"original_cli = Path({str(original_cli_path)!r})\n"
             f"original_source = Path({str(original_source)!r})\n"
@@ -364,13 +413,16 @@ class DisposableCKProjectionTests(unittest.TestCase):
             f"staged_paths = Path({str(staged_paths)!r})\n"
             "if Path(sys.argv[0]).resolve() == original_cli.resolve():\n"
             "    raise SystemExit('original CLI path was executed')\n"
-            "source_path = Path(sys.argv[-1])\n"
-            "if source_path.resolve() == original_source.resolve():\n"
-            "    raise SystemExit('original source path was inspected')\n"
-            "profile_id = source_path.stem\n"
-            "if source_path.read_bytes() != expected_sources[profile_id]:\n"
-            "    raise SystemExit('private source snapshot bytes changed')\n"
-            "staged_paths.write_text(f'{sys.argv[0]}\\n{source_path}\\n', encoding='utf-8')\n"
+            "if sys.argv[1] != 'inspect-runtime-input' or len(sys.argv) != 10:\n"
+            "    raise SystemExit('unexpected inspect-runtime-input arguments')\n"
+            "source_paths = (Path(sys.argv[5]), Path(sys.argv[9]))\n"
+            "for source_path in source_paths:\n"
+            "    if source_path.resolve() == original_source.resolve():\n"
+            "        raise SystemExit('original source path was inspected')\n"
+            "    profile_id = source_path.stem\n"
+            "    if source_path.read_bytes() != expected_sources[profile_id]:\n"
+            "        raise SystemExit('private source snapshot bytes changed')\n"
+            "staged_paths.write_text(f'{sys.argv[0]}\\n{source_paths[0]}\\n{source_paths[1]}\\n', encoding='utf-8')\n"
             "count = int(marker.read_text(encoding='utf-8')) if marker.exists() else 0\n"
             "if count == 0:\n"
             "    replacement_source.write_text('{\"source\":{\"dependencies\":[],\"document\":\"attacker\",\"namespace\":\"fixture\"}}\\n', encoding='utf-8')\n"
@@ -379,7 +431,7 @@ class DisposableCKProjectionTests(unittest.TestCase):
             "    replacement_cli.chmod(0o700)\n"
             "    os.replace(replacement_cli, original_cli)\n"
             "marker.write_text(str(count + 1), encoding='utf-8')\n"
-            "print(json.dumps(inspections[profile_id]))\n"
+            "print(json.dumps(result))\n"
         )
         self.cli_path = self._write_executable(original_cli_path.name, cli_body)
 
@@ -393,15 +445,16 @@ class DisposableCKProjectionTests(unittest.TestCase):
         ):
             projection.build_projection(self.gallery, self.carrier_path, cli_path=self.cli_path)
 
-        self.assertEqual(marker_path.read_text(encoding="utf-8"), "2")
+        self.assertEqual(marker_path.read_text(encoding="utf-8"), "1")
         self.assertEqual(
             original_source.read_bytes(),
             b'{"source":{"dependencies":[],"document":"attacker","namespace":"fixture"}}\n',
         )
         self.assertEqual(self.cli_path.read_text(encoding="utf-8"), "#!/bin/sh\nexit 97\n")
-        staged_cli, staged_source = staged_paths.read_text(encoding="utf-8").splitlines()
+        staged_cli, staged_source0, staged_source1 = staged_paths.read_text(encoding="utf-8").splitlines()
         self.assertFalse(Path(staged_cli).exists())
-        self.assertFalse(Path(staged_source).exists())
+        self.assertFalse(Path(staged_source0).exists())
+        self.assertFalse(Path(staged_source1).exists())
 
     def test_explicit_absolute_regular_non_symlink_executable_is_required(self) -> None:
         with self.assertRaises(projection.ProjectionError):
@@ -494,7 +547,7 @@ class DisposableCKProjectionTests(unittest.TestCase):
         self.cli_path.chmod(0o700)
         with self.assertRaisesRegex(
             projection.ProjectionError,
-            "projection does not exactly match fresh carrier/gallery/Rust evidence",
+            "projection does not exactly match fresh carrier/gallery/runtime-input evidence",
         ):
             self.validate(output, runner=projection._bounded_subprocess)
 
@@ -513,19 +566,37 @@ class DisposableCKProjectionTests(unittest.TestCase):
             projection._bounded_subprocess([str(stderr_writer)])
 
     def test_bounded_subprocess_timeout_kills_and_waits_for_child(self) -> None:
-        pid_path = self.root / "timeout-child.pid"
+        pid_path = self.root / "timeout-descendant.pid"
+        descendant_body = (
+            "from pathlib import Path\n"
+            "import os\n"
+            "import time\n"
+            f"Path({str(pid_path)!r}).write_text(str(os.getpid()))\n"
+            "time.sleep(30)\n"
+        )
         sleeper = self._write_executable(
             "timeout-sleeper",
-            f"from pathlib import Path\nimport os\nimport time\nPath({str(pid_path)!r}).write_text(str(os.getpid()))\ntime.sleep(30)\n",
+            "import os\n"
+            "import subprocess\n"
+            "import sys\n"
+            f"subprocess.Popen([sys.executable, '-c', {descendant_body!r}])\n"
+            "os._exit(0)\n",
         )
         with patch.object(projection, "RUST_TIMEOUT_SECONDS", 2.0), self.assertRaisesRegex(
             projection.ProjectionError, "timed out after 2.0 seconds"
         ):
             projection._bounded_subprocess([str(sleeper)])
-        self.assertTrue(pid_path.is_file())
-        child_pid = int(pid_path.read_text())
-        with self.assertRaises(ProcessLookupError):
-            os.kill(child_pid, 0)
+        self.assertTrue(pid_path.is_file(), "descendant did not start")
+        descendant_pid = int(pid_path.read_text())
+        deadline = projection.time.monotonic() + 2.0
+        while projection.time.monotonic() < deadline:
+            try:
+                os.kill(descendant_pid, 0)
+            except ProcessLookupError:
+                break
+            projection.time.sleep(0.01)
+        else:
+            self.fail("descendant survived process-group cleanup")
 
     def test_subprocess_return_code_malformed_output_and_source_mutation_fail_closed(self) -> None:
         with self.assertRaisesRegex(projection.ProjectionError, "exited 7"):
@@ -534,7 +605,7 @@ class DisposableCKProjectionTests(unittest.TestCase):
             self.build(runner=lambda command: (0, b"not-json\n", b""))
 
         def mutating_runner(command):
-            profile_id = Path(command[-1]).stem
+            profile_id = Path(command[5]).stem
             source_path = self.gallery / projection.SOURCE_DIR / f"{profile_id}.json"
             source_path.write_text('{"mutated":true}\n', encoding="utf-8")
             return self.valid_runner(command)
@@ -542,24 +613,151 @@ class DisposableCKProjectionTests(unittest.TestCase):
         with self.assertRaises(projection.ProjectionError):
             self.build(runner=mutating_runner)
 
-    def test_rust_semantics_reject_forged_summary_wrong_collection_and_count_mismatch(self) -> None:
-        valid = rust_inspection(PROFILE_IDS[0])
-        self.assertEqual(projection._validate_rust_inspection(valid)["summary"], valid["summary"])
+    def test_private_source_snapshot_replacement_is_rejected_before_publication(self) -> None:
+        output = self.root / "replacement-projection.json"
+        replacement_source = self.root / "replacement-source.json"
+        result = runtime_input_result(
+            [
+                (INSTANCE_IDS[0], Path(f"{PROFILE_IDS[0]}.json")),
+                (INSTANCE_IDS[1], Path(f"{PROFILE_IDS[1]}.json")),
+            ]
+        )
+        replacement_bytes = (
+            json.dumps(
+                {
+                    "source": {
+                        "dependencies": [
+                            {
+                                "document": "attacker.dependency",
+                                "namespace": "attacker",
+                                "content_sha256": "sha256:" + "c" * 64,
+                            }
+                        ],
+                        "document": f"fixture.{PROFILE_IDS[0]}",
+                        "namespace": "fixture",
+                    }
+                },
+                separators=(",", ":"),
+            )
+            + "\n"
+        ).encode()
+        cli_body = (
+            "import json\n"
+            "import os\n"
+            "import sys\n"
+            "from pathlib import Path\n"
+            f"result = {result!r}\n"
+            f"replacement_source = Path({str(replacement_source)!r})\n"
+            f"replacement_bytes = {replacement_bytes!r}\n"
+            "if sys.argv[1] != 'inspect-runtime-input' or len(sys.argv) != 10:\n"
+            "    raise SystemExit('unexpected inspect-runtime-input arguments')\n"
+            "source_path = Path(sys.argv[5])\n"
+            "replacement_source.write_bytes(replacement_bytes)\n"
+            "os.replace(replacement_source, source_path)\n"
+            "print(json.dumps(result))\n"
+        )
+        self.cli_path = self._write_executable("snapshot-replacing-cli", cli_body)
 
-        forged_summary = deepcopy(valid)
-        forged_summary["summary"]["parts"] = -1
-        wrong_collection = deepcopy(valid)
-        wrong_collection["graph"]["parts"] = {}
-        count_mismatch = deepcopy(valid)
-        count_mismatch["graph"]["parts"] = [{"fixture": True}]
-        extra_summary = deepcopy(valid)
-        extra_summary["summary"]["unexpected"] = 0
-        wrong_contract = deepcopy(valid)
-        wrong_contract["graph"]["contract"]["revision"] = True
-        for case in (forged_summary, wrong_collection, count_mismatch, extra_summary, wrong_contract):
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        with (
+            patch.object(projection, "_load_carrier_module", return_value=carrier),
+            patch.object(carrier, "validate_carrier", side_effect=self.static_validator),
+            redirect_stdout(stdout),
+            redirect_stderr(stderr),
+        ):
+            result_code = projection.main(
+                [
+                    "build",
+                    "--gallery",
+                    str(self.gallery),
+                    "--carrier",
+                    str(self.carrier_path),
+                    "--output",
+                    str(output),
+                    "--cli",
+                    str(self.cli_path),
+                ]
+            )
+
+        self.assertEqual(result_code, 2)
+        self.assertEqual(stdout.getvalue(), "")
+        self.assertRegex(stderr.getvalue(), "private source snapshot 0 changed during runtime-input inspection")
+        self.assertFalse(output.exists())
+        self.assertEqual(
+            (self.gallery / projection.SOURCE_DIR / f"{PROFILE_IDS[0]}.json").read_bytes(),
+            json.dumps(
+                {"source": {"dependencies": [], "document": f"fixture.{PROFILE_IDS[0]}", "namespace": "fixture"}}
+            ).encode()
+            + b"\n",
+        )
+
+    def test_declared_dependencies_are_validated_in_python_but_not_replaced_by_compact_evidence(self) -> None:
+        source_path = self.gallery / projection.SOURCE_DIR / f"{PROFILE_IDS[0]}.json"
+        source_path.write_text(
+            json.dumps(
+                {
+                    "source": {
+                        "dependencies": [
+                            {
+                                "document": "fixture.dependency",
+                                "namespace": "fixture",
+                                "content_sha256": "sha256:" + "b" * 64,
+                            }
+                        ],
+                        "document": f"fixture.{PROFILE_IDS[0]}",
+                        "namespace": "fixture",
+                    }
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        value = self.build()
+        self.assertNotIn("dependencies", value["avatars"][0]["source"])
+
+        source_path.write_text(
+            json.dumps(
+                {
+                    "source": {
+                        "dependencies": [{"document": "fixture.dependency", "namespace": "fixture", "content_sha256": "bad"}],
+                        "document": f"fixture.{PROFILE_IDS[0]}",
+                        "namespace": "fixture",
+                    }
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(projection.ProjectionError, "content_sha256"):
+            self.build()
+
+    def test_runtime_input_evidence_rejects_partial_reordered_and_malformed_results(self) -> None:
+        valid = runtime_input_result(
+            [
+                (INSTANCE_IDS[0], Path(f"{PROFILE_IDS[0]}.json")),
+                (INSTANCE_IDS[1], Path(f"{PROFILE_IDS[1]}.json")),
+            ]
+        )
+        evidence = projection._validate_runtime_input_result(valid, INSTANCE_IDS)
+        self.assertEqual(evidence[0]["prepared_basis"], projection.EXPECTED_PREPARED_BASIS)
+
+        partial = deepcopy(valid)
+        partial["instances"] = partial["instances"][:1]
+        reordered = deepcopy(valid)
+        reordered["instances"] = list(reversed(reordered["instances"]))
+        wrong_basis = deepcopy(valid)
+        wrong_basis["instances"][0]["prepared"]["basis"]["up"] = "+z"
+        wrong_count = deepcopy(valid)
+        wrong_count["instances"][0]["prepared"]["counts"]["parts"] = -1
+        extra_instance_field = deepcopy(valid)
+        extra_instance_field["instances"][0]["unexpected"] = True
+        extra_result_field = deepcopy(valid)
+        extra_result_field["unexpected"] = True
+        for case in (partial, reordered, wrong_basis, wrong_count, extra_instance_field, extra_result_field):
             with self.subTest(case=case):
                 with self.assertRaises(projection.ProjectionError):
-                    projection._validate_rust_inspection(case)
+                    projection._validate_runtime_input_result(case, INSTANCE_IDS)
 
     def test_post_inspection_revalidation_rejects_pose_and_artifact_mutation(self) -> None:
         artifact_path = self.gallery / PROFILE_IDS[0] / smoke.EXPECTED_ARTIFACT_NAMES[0]
@@ -647,6 +845,9 @@ class DisposableCKProjectionTests(unittest.TestCase):
         wrong_carrier = deepcopy(original)
         wrong_carrier["carrier_identity"]["schema"] = "other.schema.v1"
         cases.append(wrong_carrier)
+        legacy_schema = deepcopy(original)
+        legacy_schema["schema"] = "creature-kernel.disposable-ck-rust-projection.v1"
+        cases.append(legacy_schema)
         reordered = deepcopy(original)
         reordered["avatars"] = list(reversed(reordered["avatars"]))
         cases.append(reordered)
@@ -671,39 +872,86 @@ class DisposableCKProjectionTests(unittest.TestCase):
                 carrier_path = root / f"{label}-carrier.json"
                 projection_path = root / f"{label}-projection.json"
                 carrier.write_carrier(carrier_path, carrier.build_carrier(REAL_GALLERY, profile_ids, INSTANCE_IDS))
+                native_runner = projection._bounded_subprocess
+                build_calls = []
+
+                def recording_build_runner(command):
+                    build_calls.append(command)
+                    return native_runner(command)
+
                 with redirect_stdout(io.StringIO()):
-                    self.assertEqual(
-                        projection.main(
-                            [
-                                "build",
-                                "--gallery",
-                                str(REAL_GALLERY),
-                                "--carrier",
-                                str(carrier_path),
-                                "--output",
-                                str(projection_path),
-                                "--cli",
-                                str(REAL_CLI),
-                            ]
-                        ),
-                        0,
-                    )
-                    self.assertEqual(
-                        projection.main(
-                            [
-                                "validate",
-                                "--gallery",
-                                str(REAL_GALLERY),
-                                "--carrier",
-                                str(carrier_path),
-                                "--projection",
-                                str(projection_path),
-                                "--cli",
-                                str(REAL_CLI),
-                            ]
-                        ),
-                        0,
-                    )
+                    with patch.object(projection, "_bounded_subprocess", side_effect=recording_build_runner):
+                        self.assertEqual(
+                            projection.main(
+                                [
+                                    "build",
+                                    "--gallery",
+                                    str(REAL_GALLERY),
+                                    "--carrier",
+                                    str(carrier_path),
+                                    "--output",
+                                    str(projection_path),
+                                    "--cli",
+                                    str(REAL_CLI),
+                                ]
+                            ),
+                            0,
+                        )
+                self.assertEqual(len(build_calls), 1)
+                self.assertEqual(
+                    build_calls[0][1:],
+                    [
+                        projection.RUST_OPERATION,
+                        "--instance",
+                        INSTANCE_IDS[0],
+                        "--source",
+                        build_calls[0][5],
+                        "--instance",
+                        INSTANCE_IDS[1],
+                        "--source",
+                        build_calls[0][9],
+                    ],
+                )
+
+                validate_calls = []
+
+                def recording_validate_runner(command):
+                    validate_calls.append(command)
+                    return native_runner(command)
+
+                with redirect_stdout(io.StringIO()):
+                    with patch.object(projection, "_bounded_subprocess", side_effect=recording_validate_runner):
+                        self.assertEqual(
+                            projection.main(
+                                [
+                                    "validate",
+                                    "--gallery",
+                                    str(REAL_GALLERY),
+                                    "--carrier",
+                                    str(carrier_path),
+                                    "--projection",
+                                    str(projection_path),
+                                    "--cli",
+                                    str(REAL_CLI),
+                                ]
+                            ),
+                            0,
+                        )
+                self.assertEqual(len(validate_calls), 1)
+                self.assertEqual(
+                    validate_calls[0][1:],
+                    [
+                        projection.RUST_OPERATION,
+                        "--instance",
+                        INSTANCE_IDS[0],
+                        "--source",
+                        validate_calls[0][5],
+                        "--instance",
+                        INSTANCE_IDS[1],
+                        "--source",
+                        validate_calls[0][9],
+                    ],
+                )
                 value = projection.load_projection(projection_path)
                 self.assertEqual([avatar["profile_id"] for avatar in value["avatars"]], list(profile_ids))
 

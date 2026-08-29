@@ -1,6 +1,6 @@
 # AI observations
 
-Status: Operational inbox; 16 open observations
+Status: Operational inbox; 17 open observations
 
 Record only unexpected, evidenced operational friction that is recurring or
 likely to save future retries or work rounds. The main thread is the default
@@ -78,3 +78,7 @@ Copyable entry:
 - `2026-08-29 21:38 NZST`: Lost Xvfb test session left a busy process alive
   - Observation: A focused Godot test lost its orchestration session while its `xvfb-run` and Python processes continued at full CPU for more than eight minutes, so a replacement run would have duplicated the expensive stage.
   - Expected pattern: When a long-running session disappears, inspect live processes and the exact output target before retrying; terminate only the verified orphan process, then publish any retry to a fresh temporary path.
+
+- `2026-08-29 23:10 NZST`: Bounded subprocess cleanup ignored descendants
+  - Observation: A projection-tool review found that timeout and final cleanup killed only the direct child, allowing a descendant that inherited pipes or resources to outlive the bounded command.
+  - Expected pattern: On POSIX, launch bounded subprocesses in a dedicated session/process group, terminate that exact group on every exit path, and regression-test a descendant rather than only the direct child.

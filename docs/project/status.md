@@ -31,13 +31,20 @@ final-readiness cycle, keep it advisory and non-gating, avoid pushing while
 hosted reviews hold an immutable head, and run bounded follow-up cycles until
 findings taper. Creature Kernel's limits are independent of FireMUD.
 
+PR #119 merged as squash commit `ee48881d3029dad599a7a2ccc70172c10713a812`
+and retained the bounded deformation/coherence evidence described below. PR
+#120 merged as squash commit `12d193f19c2d0dc3f9ba9f09fe4466e5109679b9`
+after both CI lanes passed and the committed-diff CodeRabbit CLI review found
+no issues; hosted review was rate-limited and therefore non-gating.
+
 The visual-review systemd service is active from `/home/ben/src/creature-kernel`;
 the stable structural review remains
 `http://localhost:8765/review/shared-pose-structural-embodiment-gallery`.
 
-The active worktree is
-`/home/ben/src/creature-kernel-worktrees/godot-feasibility-runtime-path` on
-branch `codex/godot-feasibility-runtime-path`, based on `790f0a4`.
+The active direct-prerequisite worktree is
+`/home/ben/src/creature-kernel-worktrees/godot-runtime-input-projection` on
+branch `codex/godot-runtime-input-projection`, based on merged `main` at
+`12d193f`.
 Proposed/provisional per-avatar, semantic pose/contact, and runtime experiment
 evidence only: the current
 per-avatar runtime identity candidate passes ordered
@@ -119,17 +126,17 @@ checkpoint. The next direct prerequisite already recorded in this runway is
 preparation of the direct Rust and engine-neutral package prerequisites; no
 new direction is introduced here.
 
-The current direct Rust prerequisite slice is in
-`/home/ben/src/creature-kernel-worktrees/engine-neutral-runtime-input` on
-branch `codex/engine-neutral-runtime-input`. Its provisional CLI-local in-memory handoff
-transports a non-empty, caller-ordered collection of unique `instance_id` and
-already prepared single-source pairs; it retains no raw source bytes. The thin
-`inspect-runtime-input` debug CLI requires every source to complete the existing
-single-source preparation operation, emits compact machine-oriented JSON,
-accepts at most 64 pairs per invocation, and permits `-` for stdin at most once.
-This is provisional prepared-source transport and debug
-instrumentation only—not a stable wire contract, runtime package, resolver
-snapshot, profile, adapter, or Readiness 3 activation.
+PR #120 completed the direct Rust prerequisite with a provisional CLI-local
+ordered prepared-source handoff and `inspect-runtime-input` debug command. The
+current worktree migrates the experiment projection to schema v2 and replaces
+two `inspect-structure` calls with one exact ordered two-avatar
+`inspect-runtime-input` call. Python and Godot validate compact per-avatar
+source, prepared-basis, prepared-count, and structural-count evidence while
+retaining carrier/gallery/artifact lineage and fail-closed publication. The
+integrated experiment suite passes 170 tests with 29 expected display skips.
+This remains experiment-local prepared-source/projection evidence—not a stable
+wire contract, runtime package, package loader, resolver snapshot, profile,
+adapter, or Readiness 3 activation.
 
 Proposed/provisional deformation and render/collision coherence evidence only:
 The current deformation slice adds a deterministic smooth open forearm sleeve

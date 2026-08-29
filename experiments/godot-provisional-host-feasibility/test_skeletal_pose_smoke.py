@@ -737,6 +737,25 @@ def _tamper_onset_vertex_and_metrics(report: dict) -> None:
     _recompute_coherence_metrics(report, "contact_onset")
 
 
+def _runtime_input_inspection_fixture(profile_id: str) -> dict[str, object]:
+    return {
+        "format": projection.RUST_FORMAT,
+        "operation": projection.RUST_OPERATION,
+        "stage": "runtime-input",
+        "status": "success",
+        "processing_complete": True,
+        "diagnostics_complete": True,
+        "diagnostics": [],
+        "source": {
+            "document": f"fixture.{profile_id}",
+            "namespace": "fixture",
+        },
+        "prepared_basis": deepcopy(projection.EXPECTED_PREPARED_BASIS),
+        "prepared_counts": {name: 0 for name in projection.PREPARED_COUNT_KEYS},
+        "structural_counts": {name: 0 for name in projection.STRUCTURAL_COUNT_KEYS},
+    }
+
+
 def _projection_fixture(payload: dict, carrier_value: dict | None = None) -> tuple[dict, dict, dict, list[dict], tuple[str, str]]:
     projected_payload = deepcopy(payload)
     for profile in projected_payload["profiles"]:
@@ -820,7 +839,7 @@ def _projection_fixture(payload: dict, carrier_value: dict | None = None) -> tup
                     "document": f"fixture.{record['profile_id']}",
                     "namespace": "fixture",
                 },
-                "rust_inspection": {},
+                "runtime_input_inspection": _runtime_input_inspection_fixture(record["profile_id"]),
                 "artifacts": deepcopy(profile["artifacts"]),
                 "metrics": deepcopy(profile["metrics"]),
             }
@@ -2372,6 +2391,73 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
                     self.root / "projection.json",
                     self.root / "creature-kernel",
                 )
+
+    def test_ck_projection_fixture_uses_compact_ordered_runtime_input_summaries(self) -> None:
+        payload, _report = _skeletal_validation_fixture()
+        projection_value, _identity, _carrier_value, records, _profile_ids = _projection_fixture(payload)
+
+        self.assertEqual(projection_value["schema"], "creature-kernel.disposable-ck-rust-projection.v2")
+        self.assertEqual(
+            [avatar["instance_id"] for avatar in projection_value["avatars"]],
+            [record["instance_id"] for record in records],
+        )
+        for avatar, record in zip(projection_value["avatars"], records):
+            evidence = avatar["runtime_input_inspection"]
+            self.assertEqual(
+                set(evidence),
+                {
+                    "format",
+                    "operation",
+                    "stage",
+                    "status",
+                    "processing_complete",
+                    "diagnostics_complete",
+                    "diagnostics",
+                    "source",
+                    "prepared_basis",
+                    "prepared_counts",
+                    "structural_counts",
+                },
+            )
+            self.assertEqual(evidence["operation"], "inspect-runtime-input")
+            self.assertEqual(evidence["stage"], "runtime-input")
+            self.assertEqual(evidence["source"], {"document": f"fixture.{record['profile_id']}", "namespace": "fixture"})
+            self.assertEqual(evidence["prepared_basis"], projection.EXPECTED_PREPARED_BASIS)
+            self.assertEqual(set(evidence["prepared_counts"]), set(projection.PREPARED_COUNT_KEYS))
+            self.assertEqual(set(evidence["structural_counts"]), set(projection.STRUCTURAL_COUNT_KEYS))
+
+        mutations = {
+            "v1 projection schema": lambda value: value.__setitem__(
+                "schema", "creature-kernel.disposable-ck-rust-projection.v1"
+            ),
+            "old rust evidence field": lambda value: value["avatars"][0].__setitem__(
+                "rust_inspection", value["avatars"][0].pop("runtime_input_inspection")
+            ),
+            "wrong instance ID": lambda value: value["avatars"][0].__setitem__("instance_id", "avatar-other"),
+            "wrong instance order": lambda value: value["avatars"].reverse(),
+            "source mismatch": lambda value: value["avatars"][0]["runtime_input_inspection"]["source"].__setitem__(
+                "document", "fixture.other"
+            ),
+            "malformed basis": lambda value: value["avatars"][0]["runtime_input_inspection"]["prepared_basis"].__setitem__(
+                "up", "+z"
+            ),
+            "missing count": lambda value: value["avatars"][0]["runtime_input_inspection"]["prepared_counts"].pop("parts"),
+            "extra count": lambda value: value["avatars"][0]["runtime_input_inspection"]["structural_counts"].__setitem__(
+                "unexpected", 0
+            ),
+            "negative count": lambda value: value["avatars"][0]["runtime_input_inspection"]["prepared_counts"].__setitem__(
+                "parts", -1
+            ),
+            "fractional count": lambda value: value["avatars"][0]["runtime_input_inspection"]["structural_counts"].__setitem__(
+                "parts", 0.5
+            ),
+        }
+        for name, mutate in mutations.items():
+            with self.subTest(mutation=name):
+                mutated = deepcopy(projection_value)
+                mutate(mutated)
+                with self.assertRaises(projection.ProjectionError):
+                    projection._validate_projection_shape(mutated)
 
     def test_report_rejects_projection_fields_without_projection_mode(self) -> None:
         payload, report = _skeletal_validation_fixture()

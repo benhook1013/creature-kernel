@@ -23,7 +23,7 @@ const REPORT_BOUNDARY := "host_local_skeleton3d_skin_pose_binding"
 const CONTACT_REPORT_BOUNDARY := "experiment_local_semantic_contact_and_physical_response"
 const CARRIER_SCHEMA := "creature-kernel.disposable-engine-neutral-avatar-input.v1"
 const CARRIER_BOUNDARY := "experiment_input_only_no_runtime_package_or_adapter_contract"
-const CK_PROJECTION_SCHEMA := "creature-kernel.disposable-ck-rust-projection.v1"
+const CK_PROJECTION_SCHEMA := "creature-kernel.disposable-ck-rust-projection.v2"
 const CK_PROJECTION_BOUNDARY := "experiment_local_ck_projection_evidence_only"
 const CK_PROJECTION_IDENTITY_SCOPE := "canonical_transport_body_only_not_provenance"
 const CK_PROJECTION_MAX_BYTES := 4 * 1024 * 1024
@@ -31,11 +31,11 @@ const CK_PROJECTION_MAX_CLI_BYTES := 128 * 1024 * 1024
 const CK_PROJECTION_MAX_JSON_NODES := 200000
 const CK_PROJECTION_MAX_JSON_DEPTH := 96
 const CK_PROJECTION_MAX_STRING_LENGTH := 65536
-const CK_PROJECTION_MAX_DEPENDENCIES := 4096
+const CK_PROJECTION_MAX_RUNTIME_INPUT_COUNT := 4096
 const CK_PROJECTION_MAX_SOURCE_BYTES := 16 * 1024 * 1024
-const CK_PROJECTION_RUST_FORMAT := "creature-kernel.provisional-structural-inspection.v1"
-const CK_PROJECTION_RUST_OPERATION := "inspect-structure"
-const CK_PROJECTION_RUST_STAGE := "structural-validation"
+const CK_PROJECTION_RUST_FORMAT := "creature-kernel.provisional-runtime-input-inspection.v1"
+const CK_PROJECTION_RUST_OPERATION := "inspect-runtime-input"
+const CK_PROJECTION_RUST_STAGE := "runtime-input"
 const CK_PROJECTION_SOURCE_DIR := "sources"
 const CARRIER_ROOT_METADATA_KEYS := [
 	"ck_experiment_instance_id",
@@ -713,7 +713,7 @@ func _validate_ck_projection_json(projection: Dictionary, options: Dictionary, v
 
 
 func _validate_ck_projection_avatar(avatar, index: int, options: Dictionary, validated: Dictionary) -> bool:
-	if typeof(avatar) != TYPE_DICTIONARY or not _exact_keys(avatar, ["instance_id", "profile_id", "label", "candidate_profile_sha256", "source", "rust_inspection", "artifacts", "metrics"]):
+	if typeof(avatar) != TYPE_DICTIONARY or not _exact_keys(avatar, ["instance_id", "profile_id", "label", "candidate_profile_sha256", "source", "runtime_input_inspection", "artifacts", "metrics"]):
 		_failure = "CK projection avatar %d has unexpected or missing fields" % index
 		return false
 	if avatar.instance_id != String(options.carrier_identity.experiment_instance_ids[index]) or avatar.profile_id != String(options.profile_ids[index]):
@@ -737,14 +737,14 @@ func _validate_ck_projection_avatar(avatar, index: int, options: Dictionary, val
 	if not _exact_json_value(reconstructed, validated_profile):
 		_failure = "CK projection avatar %d cannot reconstruct the validated profile exactly" % index
 		return false
-	if not _validate_ck_projection_source(avatar.source, avatar.rust_inspection, String(avatar.profile_id), options.gallery_path):
+	if not _validate_ck_projection_source(avatar.source, avatar.runtime_input_inspection, String(avatar.profile_id), options.gallery_path):
 		return false
 	if not _validate_ck_projection_artifacts(avatar.artifacts, validated_profile.artifacts, String(avatar.profile_id)):
 		return false
 	return true
 
 
-func _validate_ck_projection_source(source, rust_inspection, profile_id: String, gallery_path: String) -> bool:
+func _validate_ck_projection_source(source, runtime_input_inspection, profile_id: String, gallery_path: String) -> bool:
 	if typeof(source) != TYPE_DICTIONARY or not _exact_keys(source, ["path", "sha256", "bytes", "document", "namespace"]):
 		_failure = "%s CK projection source identity has unexpected or missing fields" % profile_id
 		return false
@@ -762,19 +762,40 @@ func _validate_ck_projection_source(source, rust_inspection, profile_id: String,
 	if typeof(source.document) != TYPE_STRING or String(source.document).is_empty() or typeof(source.namespace) != TYPE_STRING or String(source.namespace).is_empty():
 		_failure = "%s CK projection source document identity is invalid" % profile_id
 		return false
-	if typeof(rust_inspection) != TYPE_DICTIONARY or not _exact_keys(rust_inspection, ["format", "operation", "stage", "status", "processing_complete", "diagnostics_complete", "diagnostics", "summary", "source"]):
-		_failure = "%s CK projection Rust evidence has unexpected or missing fields" % profile_id
+	if typeof(runtime_input_inspection) != TYPE_DICTIONARY or not _exact_keys(runtime_input_inspection, ["format", "operation", "stage", "status", "processing_complete", "diagnostics_complete", "diagnostics", "source", "prepared_basis", "prepared_counts", "structural_counts"]):
+		_failure = "%s CK projection runtime-input evidence has unexpected or missing fields" % profile_id
 		return false
-	if typeof(rust_inspection.format) != TYPE_STRING or typeof(rust_inspection.operation) != TYPE_STRING or typeof(rust_inspection.stage) != TYPE_STRING or typeof(rust_inspection.status) != TYPE_STRING or typeof(rust_inspection.processing_complete) != TYPE_BOOL or typeof(rust_inspection.diagnostics_complete) != TYPE_BOOL or rust_inspection.format != CK_PROJECTION_RUST_FORMAT or rust_inspection.operation != CK_PROJECTION_RUST_OPERATION or rust_inspection.stage != CK_PROJECTION_RUST_STAGE or rust_inspection.status != "success" or rust_inspection.processing_complete != true or rust_inspection.diagnostics_complete != true or rust_inspection.diagnostics != [] or typeof(rust_inspection.summary) != TYPE_DICTIONARY:
-		_failure = "%s CK projection Rust evidence is not a bounded successful inspection" % profile_id
+	if typeof(runtime_input_inspection.format) != TYPE_STRING or typeof(runtime_input_inspection.operation) != TYPE_STRING or typeof(runtime_input_inspection.stage) != TYPE_STRING or typeof(runtime_input_inspection.status) != TYPE_STRING or typeof(runtime_input_inspection.processing_complete) != TYPE_BOOL or typeof(runtime_input_inspection.diagnostics_complete) != TYPE_BOOL or runtime_input_inspection.format != CK_PROJECTION_RUST_FORMAT or runtime_input_inspection.operation != CK_PROJECTION_RUST_OPERATION or runtime_input_inspection.stage != CK_PROJECTION_RUST_STAGE or runtime_input_inspection.status != "success" or runtime_input_inspection.processing_complete != true or runtime_input_inspection.diagnostics_complete != true or runtime_input_inspection.diagnostics != []:
+		_failure = "%s CK projection runtime-input evidence is not a bounded successful inspection" % profile_id
 		return false
-	var evidence_source = rust_inspection.source
-	if typeof(evidence_source) != TYPE_DICTIONARY or not _exact_keys(evidence_source, ["dependencies", "document", "namespace"]) or evidence_source.document != source.document or evidence_source.namespace != source.namespace or typeof(evidence_source.dependencies) != TYPE_ARRAY or evidence_source.dependencies.size() > CK_PROJECTION_MAX_DEPENDENCIES:
-		_failure = "%s CK projection Rust source evidence is invalid" % profile_id
+	var evidence_source = runtime_input_inspection.source
+	if typeof(evidence_source) != TYPE_DICTIONARY or not _exact_keys(evidence_source, ["document", "namespace"]) or evidence_source.document != source.document or evidence_source.namespace != source.namespace:
+		_failure = "%s CK projection runtime-input source evidence is invalid" % profile_id
 		return false
-	for dependency in evidence_source.dependencies:
-		if typeof(dependency) != TYPE_DICTIONARY or not _exact_keys(dependency, ["document", "namespace", "content_sha256"]) or typeof(dependency.document) != TYPE_STRING or String(dependency.document).is_empty() or typeof(dependency.namespace) != TYPE_STRING or String(dependency.namespace).is_empty() or typeof(dependency.content_sha256) != TYPE_STRING or not String(dependency.content_sha256).begins_with("sha256:") or not _is_sha256(String(dependency.content_sha256).substr(7)):
-			_failure = "%s CK projection Rust dependency evidence is invalid" % profile_id
+	var expected_basis := {
+		"length_unit": "metre",
+		"handedness": "right",
+		"up": "+y",
+		"forward": "+z",
+		"source_for_canonical": ["+x", "+y", "+z"],
+	}
+	if typeof(runtime_input_inspection.prepared_basis) != TYPE_DICTIONARY or not _exact_keys(runtime_input_inspection.prepared_basis, ["length_unit", "handedness", "up", "forward", "source_for_canonical"]) or not _exact_json_value(runtime_input_inspection.prepared_basis, expected_basis):
+		_failure = "%s CK projection runtime-input prepared basis is invalid" % profile_id
+		return false
+	if not _validate_ck_projection_counts(runtime_input_inspection.prepared_counts, ["parts", "joints", "sockets", "attachments", "landmarks", "dimensions", "frames"], "%s CK projection prepared counts" % profile_id):
+		return false
+	if not _validate_ck_projection_counts(runtime_input_inspection.structural_counts, ["modules", "parts", "joints", "sockets", "attachments", "landmarks", "dimensions", "frames", "regions", "capabilities", "fields"], "%s CK projection structural counts" % profile_id):
+		return false
+	return true
+
+
+func _validate_ck_projection_counts(value, keys: Array, label: String) -> bool:
+	if typeof(value) != TYPE_DICTIONARY or not _exact_keys(value, keys):
+		_failure = "%s have unexpected or missing fields" % label
+		return false
+	for key in keys:
+		if not _is_bounded_ck_projection_integer(value[key], CK_PROJECTION_MAX_RUNTIME_INPUT_COUNT, true):
+			_failure = "%s.%s is not a bounded non-negative integer" % [label, key]
 			return false
 	return true
 
